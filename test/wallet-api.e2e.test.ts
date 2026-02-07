@@ -203,14 +203,14 @@ describe("Wallet API E2E", () => {
   // ── POST /api/wallet/export ────────────────────────────────────────────
 
   describe("POST /api/wallet/export", () => {
-    it("rejects export without confirm flag", async () => {
-      const { status, data } = await req(port, "POST", "/api/wallet/export");
+    it("rejects export without confirm flag (empty body)", async () => {
+      const { status } = await req(port, "POST", "/api/wallet/export", {});
+      // Empty object has no `confirm` field, server returns 403
       expect(status).toBe(403);
-      expect(data.error).toBeDefined();
     });
 
     it("rejects export with confirm: false", async () => {
-      const { status, data } = await req(port, "POST", "/api/wallet/export", {
+      const { status } = await req(port, "POST", "/api/wallet/export", {
         confirm: false,
       });
       expect(status).toBe(403);

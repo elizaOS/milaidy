@@ -522,6 +522,15 @@ export async function mockApi(page: Page, opts: MockApiOptions = {}): Promise<vo
   });
 
   await page.route("**/api/wallet/export", async (route: Route) => {
+    // Mirror the real server: require { confirm: true } in the body
+    const body = route.request().postDataJSON() as { confirm?: boolean } | null;
+    if (!body?.confirm) {
+      await route.fulfill({
+        status: 403, contentType: "application/json",
+        body: JSON.stringify({ error: 'Export requires explicit confirmation. Send { "confirm": true } in the request body.' }),
+      });
+      return;
+    }
     await route.fulfill({
       status: 200, contentType: "application/json",
       body: JSON.stringify({

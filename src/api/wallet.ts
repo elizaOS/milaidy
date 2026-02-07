@@ -915,6 +915,8 @@ export async function fetchSolanaNfts(
 
 function formatWei(wei: bigint, decimals: number): string {
   if (wei === 0n) return "0";
+  if (wei < 0n) return "0"; // Guard: balances should never be negative
+  if (decimals <= 0) return wei.toString();
   const divisor = 10n ** BigInt(decimals);
   const whole = wei / divisor;
   const remainder = wei % divisor;

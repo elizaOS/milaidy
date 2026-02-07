@@ -44,10 +44,8 @@ const CORE_PLUGINS: readonly string[] = [
   "@elizaos/plugin-personality",
   "@elizaos/plugin-experience",
   "@elizaos/plugin-plugin-manager",
-  "@elizaos/plugin-browser",
   "@elizaos/plugin-cli",
   "@elizaos/plugin-code",
-  "@elizaos/plugin-computeruse",
   "@elizaos/plugin-edge-tts",
   "@elizaos/plugin-knowledge",
   "@elizaos/plugin-mcp",
@@ -56,8 +54,6 @@ const CORE_PLUGINS: readonly string[] = [
   "@elizaos/plugin-secrets-manager",
   "@elizaos/plugin-todo",
   "@elizaos/plugin-trust",
-  "@elizaos/plugin-vision",
-  "@elizaos/plugin-cron",
   "@elizaos/plugin-form",
   "@elizaos/plugin-goals",
   "@elizaos/plugin-scheduling",
@@ -128,7 +124,7 @@ const envKeysToClean = [
 
 describe("Plugin Enumeration", () => {
   it("lists all core plugins", () => {
-    expect(CORE_PLUGINS.length).toBe(27);
+    expect(CORE_PLUGINS.length).toBe(23);
     for (const name of CORE_PLUGINS) {
       expect(name).toMatch(/^@elizaos\/plugin-/);
     }

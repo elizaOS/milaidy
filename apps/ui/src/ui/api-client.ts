@@ -385,7 +385,10 @@ export class MilaidyClient {
   }
 
   async exportWalletKeys(): Promise<WalletExportResult> {
-    return this.fetch("/api/wallet/export", { method: "POST" });
+    return this.fetch("/api/wallet/export", {
+      method: "POST",
+      body: JSON.stringify({ confirm: true }),
+    });
   }
 
   // --- WebSocket ---

@@ -60,6 +60,7 @@ export class MilaidyApp extends LitElement {
   @state() walletExportVisible = false;
   @state() walletApiKeySaving = false;
   @state() inventorySort: "chain" | "symbol" | "value" = "value";
+  @state() walletError: string | null = null;
 
   // Onboarding wizard state
   @state() onboardingStep = 0;
@@ -1111,8 +1112,8 @@ export class MilaidyApp extends LitElement {
         this.walletExportVisible = false;
         this.walletExportData = null;
       }, 60_000);
-    } catch {
-      // ignore
+    } catch (err) {
+      this.walletError = `Failed to export keys: ${err instanceof Error ? err.message : "network error"}`;
     }
   }
 
@@ -1754,33 +1755,43 @@ export class MilaidyApp extends LitElement {
     // Always load config first to know key status
     await this.loadWalletConfig();
     if (!this.walletConfig?.alchemyKeySet && !this.walletConfig?.heliusKeySet) return;
-    this.loadBalances();
+    await this.loadBalances();
   }
 
   private async loadWalletConfig(): Promise<void> {
     try {
       this.walletConfig = await client.getWalletConfig();
-    } catch { /* ignore */ }
+      this.walletError = null;
+    } catch (err) {
+      this.walletError = `Failed to load wallet config: ${err instanceof Error ? err.message : "network error"}`;
+    }
   }
 
   private async loadBalances(): Promise<void> {
     this.walletLoading = true;
+    this.walletError = null;
     try {
       this.walletBalances = await client.getWalletBalances();
-    } catch { /* ignore */ }
+    } catch (err) {
+      this.walletError = `Failed to fetch balances: ${err instanceof Error ? err.message : "network error"}`;
+    }
     this.walletLoading = false;
   }
 
   private async loadNfts(): Promise<void> {
     this.walletNftsLoading = true;
+    this.walletError = null;
     try {
       this.walletNfts = await client.getWalletNfts();
-    } catch { /* ignore */ }
+    } catch (err) {
+      this.walletError = `Failed to fetch NFTs: ${err instanceof Error ? err.message : "network error"}`;
+    }
     this.walletNftsLoading = false;
   }
 
   private async handleWalletApiKeySave(): Promise<void> {
     this.walletApiKeySaving = true;
+    this.walletError = null;
     const inputs = this.shadowRoot?.querySelectorAll<HTMLInputElement>("[data-wallet-config]") ?? [];
     const config: Record<string, string> = {};
     for (const input of inputs) {
@@ -1796,8 +1807,10 @@ export class MilaidyApp extends LitElement {
         // Clear inputs after save
         for (const input of inputs) input.value = "";
         // Reload balances now that keys are set
-        this.loadBalances();
-      } catch { /* ignore */ }
+        await this.loadBalances();
+      } catch (err) {
+        this.walletError = `Failed to save API keys: ${err instanceof Error ? err.message : "network error"}`;
+      }
     }
     this.walletApiKeySaving = false;
   }
@@ -1809,6 +1822,12 @@ export class MilaidyApp extends LitElement {
     return html`
       <h2>Inventory</h2>
       <p class="subtitle">Tokens and NFTs across all your wallets.</p>
+
+      ${this.walletError ? html`
+        <div style="margin-top:12px;padding:10px 14px;border:1px solid var(--danger, #e74c3c);background:rgba(231,76,60,0.06);font-size:12px;color:var(--danger, #e74c3c);">
+          ${this.walletError}
+        </div>
+      ` : ""}
 
       ${needsSetup ? this.renderInventorySetup() : this.renderInventoryContent()}
     `;
