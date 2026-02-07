@@ -4,6 +4,7 @@
  * Balance data from Alchemy (EVM) and Helius (Solana) REST APIs.
  */
 import crypto from "node:crypto";
+import { secp256k1 } from "@noble/curves/secp256k1.js";
 import { logger } from "@elizaos/core";
 
 const FETCH_TIMEOUT_MS = 15_000;
@@ -126,12 +127,11 @@ function generateEvmPrivateKey(): string {
 
 export function deriveEvmAddress(privateKeyHex: string): string {
   const cleaned = privateKeyHex.startsWith("0x") ? privateKeyHex.slice(2) : privateKeyHex;
-  const ecdh = crypto.createECDH("secp256k1");
-  ecdh.setPrivateKey(Buffer.from(cleaned, "hex"));
-  // Uncompressed pub key is 65 bytes (04 prefix + 64). Drop the 04.
-  const pubNoPrefix = ecdh.getPublicKey().subarray(1);
+  // Use @noble/curves — works in Node, Bun, and browsers.
+  // (Node's crypto.createECDH("secp256k1") fails in Bun due to BoringSSL.)
+  const pubKey = secp256k1.getPublicKey(Buffer.from(cleaned, "hex"), false); // uncompressed (65 bytes)
+  const pubNoPrefix = pubKey.subarray(1); // drop the 04 prefix
   // Ethereum address = last 20 bytes of keccak-256(pubkey).
-  // Node's "sha3-256" is FIPS SHA-3, not keccak-256 (different padding).
   const hash = keccak256(pubNoPrefix);
   return toChecksumAddress(`0x${hash.subarray(12).toString("hex")}`);
 }
