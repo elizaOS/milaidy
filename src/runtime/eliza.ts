@@ -25,12 +25,11 @@ import {
   type UUID,
 } from "@elizaos/core";
 import * as clack from "@clack/prompts";
-import { VERSION } from "./version.js";
 import {
   applyPluginAutoEnable,
   type ApplyPluginAutoEnableParams,
 } from "../config/plugin-auto-enable.js";
-import { loadMilaidyConfig, saveMilaidyConfig, configFileExists, type MilaidyConfig } from "../config/config.js";
+import { loadMilaidyConfig, saveMilaidyConfig, type MilaidyConfig } from "../config/config.js";
 import type { AgentConfig } from "../config/types.agents.js";
 import { loadHooks, triggerHook, createHookEvent, type LoadHooksOptions } from "../hooks/index.js";
 import { createMilaidyPlugin } from "./milaidy-plugin.js";
@@ -1293,11 +1292,19 @@ export async function startEliza(opts?: StartElizaOptions): Promise<AgentRuntime
   prompt();
 }
 
-// When run directly (not imported), start immediately
-const isDirectRun =
-  import.meta.url === `file://${process.argv[1]}` ||
-  process.argv[1]?.endsWith("/eliza.ts") ||
-  process.argv[1]?.endsWith("/eliza.js");
+// When run directly (not imported), start immediately.
+// Use path.resolve to normalise both sides before comparing so that
+// symlinks, trailing slashes, and relative paths don't cause false negatives.
+const isDirectRun = (() => {
+  const scriptArg = process.argv[1];
+  if (!scriptArg) return false;
+  const normalised = path.resolve(scriptArg);
+  // Exact match against this module's file URL
+  if (import.meta.url === pathToFileURL(normalised).href) return true;
+  // Fallback: match the specific filename (handles tsx rewriting)
+  const base = path.basename(normalised);
+  return base === "eliza.ts" || base === "eliza.js";
+})();
 
 if (isDirectRun) {
   startEliza().catch((err) => {

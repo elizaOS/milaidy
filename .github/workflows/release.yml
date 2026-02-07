@@ -154,18 +154,23 @@ jobs:
       #   APPLE_APP_SPECIFIC_PASSWORD  – app-specific password (appleid.apple.com)
       #   APPLE_TEAM_ID                – Apple Developer Team ID
       #
-      # Required GitHub Secrets for signed Windows builds:
-      #   WIN_CSC_LINK                 – base64-encoded .pfx code signing cert
-      #   WIN_CSC_KEY_PASSWORD         – password for the .pfx certificate
+      # Windows signing via Azure Trusted Signing ($10/mo managed service):
+      #   AZURE_TENANT_ID              – Azure AD (Entra ID) tenant/directory ID
+      #   AZURE_CLIENT_ID              – App Registration application (client) ID
+      #   AZURE_CLIENT_SECRET          – App Registration client secret value
+      #   The azureSignOptions in electron-builder.config.json point to the
+      #   Trusted Signing account + certificate profile. electron-builder
+      #   auto-detects Azure signing when these env vars are set.
       #
       # If secrets are not set, builds will still succeed but won't be
-      # signed/notarized (Gatekeeper will show warnings on macOS).
+      # signed/notarized (Gatekeeper will show warnings on macOS,
+      # SmartScreen will warn on Windows).
       - name: Package desktop app
         run: |
           # Unset empty signing env vars — electron-builder treats "" as an invalid file path
           [ -z "$CSC_LINK" ] && unset CSC_LINK CSC_KEY_PASSWORD
-          [ -z "$WIN_CSC_LINK" ] && unset WIN_CSC_LINK WIN_CSC_KEY_PASSWORD
           [ -z "$APPLE_ID" ] && unset APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID
+          [ -z "$AZURE_TENANT_ID" ] && unset AZURE_TENANT_ID AZURE_CLIENT_ID AZURE_CLIENT_SECRET
           bunx electron-builder build ${{ matrix.platform.electron-args }} -c ./electron-builder.config.json
         working-directory: apps/app/electron
         shell: bash
@@ -176,8 +181,9 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
-          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
