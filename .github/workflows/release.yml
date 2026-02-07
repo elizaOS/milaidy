@@ -143,18 +143,21 @@ jobs:
         working-directory: apps/app/electron
 
       - name: Package desktop app
-        run: bunx electron-builder build ${{ matrix.platform.electron-args }} -c ./electron-builder.config.json
+        run: |
+          # Unset empty signing env vars — electron-builder treats "" as an invalid file path
+          [ -z "$CSC_LINK" ] && unset CSC_LINK CSC_KEY_PASSWORD
+          [ -z "$WIN_CSC_LINK" ] && unset WIN_CSC_LINK WIN_CSC_KEY_PASSWORD
+          [ -z "$APPLE_ID" ] && unset APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID
+          bunx electron-builder build ${{ matrix.platform.electron-args }} -c ./electron-builder.config.json
         working-directory: apps/app/electron
+        shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # macOS code signing (Developer ID Application certificate)
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
-          # macOS notarization (Apple notarytool)
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          # Windows code signing (optional — only used on Windows runners)
           WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
           WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
 

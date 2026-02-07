@@ -1,14 +1,15 @@
 {
   "name": "Milaidy",
   "version": "1.0.0",
-  "description": "An Amazing Capacitor App",
+  "description": "Cute agents for the acceleration",
+  "homepage": "https://github.com/milady-ai/milaidy",
   "author": {
-    "name": "",
-    "email": ""
+    "name": "Milady AI",
+    "email": "hi@milady.ai"
   },
   "repository": {
     "type": "git",
-    "url": ""
+    "url": "https://github.com/milady-ai/milaidy.git"
   },
   "license": "MIT",
   "main": "build/src/index.js",
