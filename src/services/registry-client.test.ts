@@ -246,6 +246,10 @@ describe("registry-client", () => {
       await getRegistryPlugins();
       expect(mockFetch).toHaveBeenCalledTimes(1);
 
+      // Let the fire-and-forget file cache write from getRegistryPlugins settle
+      // before refreshRegistry tries to delete it, avoiding a write-after-delete race.
+      await new Promise((r) => setTimeout(r, 50));
+
       mockFetch.mockClear();
       await refreshRegistry();
       expect(mockFetch).toHaveBeenCalledTimes(1); // Re-fetched
