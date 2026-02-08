@@ -17,10 +17,12 @@ import {
   buildCharacterFromConfig,
   collectPluginNames,
   CUSTOM_PLUGINS_DIRNAME,
+  mergeDropInPlugins,
   resolvePackageEntry,
   resolvePrimaryModel,
   scanDropInPlugins,
 } from "./eliza.js";
+import { findPluginExport } from "../cli/plugins-cli.js";
 
 // ---------------------------------------------------------------------------
 // helpers
@@ -801,15 +803,217 @@ describe("scanDropInPlugins", () => {
 });
 
 // ---------------------------------------------------------------------------
-// findPluginExport (from plugins-cli.ts — tested via import)
+// mergeDropInPlugins
 // ---------------------------------------------------------------------------
 
-// We can't import findPluginExport directly (it's not exported from the CLI),
-// so we re-test the same logic that extractPlugin uses, which is the runtime
-// equivalent. extractPlugin is private in eliza.ts, but we can test the
-// behavior through resolvePackageEntry + actual imports end-to-end.
+describe("mergeDropInPlugins", () => {
+  function makeRecord(installPath: string, version = "1.0.0") {
+    return { source: "path" as const, installPath, version };
+  }
 
-describe("plugin export detection (end-to-end import chain)", () => {
+  it("accepts a drop-in plugin that doesn't collide with anything", () => {
+    const pluginsToLoad = new Set<string>();
+    const installRecords: Record<string, ReturnType<typeof makeRecord>> = {};
+    const { accepted, skipped } = mergeDropInPlugins({
+      dropInRecords: { "my-plugin": makeRecord("/tmp/my-plugin") },
+      installRecords,
+      corePluginNames: new Set(["@elizaos/plugin-sql"]),
+      denyList: new Set(),
+      pluginsToLoad,
+    });
+    expect(accepted).toEqual(["my-plugin"]);
+    expect(skipped).toHaveLength(0);
+    expect(pluginsToLoad.has("my-plugin")).toBe(true);
+    expect(installRecords["my-plugin"]).toBeDefined();
+  });
+
+  it("skips plugins in the deny list", () => {
+    const pluginsToLoad = new Set<string>();
+    const installRecords: Record<string, ReturnType<typeof makeRecord>> = {};
+    const { accepted } = mergeDropInPlugins({
+      dropInRecords: { "blocked-plugin": makeRecord("/tmp/blocked") },
+      installRecords,
+      corePluginNames: new Set(),
+      denyList: new Set(["blocked-plugin"]),
+      pluginsToLoad,
+    });
+    expect(accepted).toHaveLength(0);
+    expect(pluginsToLoad.has("blocked-plugin")).toBe(false);
+    expect(installRecords["blocked-plugin"]).toBeUndefined();
+  });
+
+  it("skips plugins that collide with core plugin names and returns warning", () => {
+    const pluginsToLoad = new Set<string>();
+    const installRecords: Record<string, ReturnType<typeof makeRecord>> = {};
+    const { accepted, skipped } = mergeDropInPlugins({
+      dropInRecords: { "@elizaos/plugin-sql": makeRecord("/tmp/fake-sql") },
+      installRecords,
+      corePluginNames: new Set(["@elizaos/plugin-sql"]),
+      denyList: new Set(),
+      pluginsToLoad,
+    });
+    expect(accepted).toHaveLength(0);
+    expect(skipped).toHaveLength(1);
+    expect(skipped[0]).toContain("collides with core plugin");
+    expect(pluginsToLoad.has("@elizaos/plugin-sql")).toBe(false);
+  });
+
+  it("skips plugins that already have an install record", () => {
+    const pluginsToLoad = new Set<string>();
+    const installRecords: Record<string, ReturnType<typeof makeRecord>> = {
+      "already-installed": makeRecord("/existing/path"),
+    };
+    const { accepted } = mergeDropInPlugins({
+      dropInRecords: { "already-installed": makeRecord("/tmp/dupe") },
+      installRecords,
+      corePluginNames: new Set(),
+      denyList: new Set(),
+      pluginsToLoad,
+    });
+    expect(accepted).toHaveLength(0);
+    // Original install record is preserved, not overwritten
+    expect(installRecords["already-installed"].installPath).toBe("/existing/path");
+  });
+
+  it("handles multiple plugins with mixed outcomes", () => {
+    const pluginsToLoad = new Set<string>();
+    const installRecords: Record<string, ReturnType<typeof makeRecord>> = {
+      "pre-existing": makeRecord("/existing"),
+    };
+    const { accepted, skipped } = mergeDropInPlugins({
+      dropInRecords: {
+        "good-plugin": makeRecord("/tmp/good"),
+        "denied-one": makeRecord("/tmp/denied"),
+        "@elizaos/plugin-sql": makeRecord("/tmp/core-collision"),
+        "pre-existing": makeRecord("/tmp/dupe"),
+      },
+      installRecords,
+      corePluginNames: new Set(["@elizaos/plugin-sql"]),
+      denyList: new Set(["denied-one"]),
+      pluginsToLoad,
+    });
+    expect(accepted).toEqual(["good-plugin"]);
+    expect(skipped).toHaveLength(1); // only core collision gets a warning
+    expect(pluginsToLoad.has("good-plugin")).toBe(true);
+    expect(pluginsToLoad.has("denied-one")).toBe(false);
+    expect(pluginsToLoad.has("@elizaos/plugin-sql")).toBe(false);
+    expect(pluginsToLoad.has("pre-existing")).toBe(false);
+  });
+
+  it("returns empty when no drop-in records are provided", () => {
+    const pluginsToLoad = new Set<string>();
+    const installRecords: Record<string, ReturnType<typeof makeRecord>> = {};
+    const { accepted, skipped } = mergeDropInPlugins({
+      dropInRecords: {},
+      installRecords,
+      corePluginNames: new Set(),
+      denyList: new Set(),
+      pluginsToLoad,
+    });
+    expect(accepted).toHaveLength(0);
+    expect(skipped).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// findPluginExport
+// ---------------------------------------------------------------------------
+
+describe("findPluginExport", () => {
+  it("finds plugin from default export", () => {
+    const result = findPluginExport({
+      default: { name: "test", description: "a test plugin" },
+    });
+    expect(result).toEqual({ name: "test", description: "a test plugin" });
+  });
+
+  it("finds plugin from named 'plugin' export", () => {
+    const result = findPluginExport({
+      plugin: { name: "named", description: "named export" },
+    });
+    expect(result).toEqual({ name: "named", description: "named export" });
+  });
+
+  it("prefers default over named plugin export", () => {
+    const result = findPluginExport({
+      default: { name: "from-default", description: "d" },
+      plugin: { name: "from-named", description: "n" },
+    });
+    expect(result?.name).toBe("from-default");
+  });
+
+  it("finds plugin from module-level CJS pattern", () => {
+    // Simulates a module where the module itself looks like a Plugin
+    const mod = { name: "cjs-mod", description: "cjs module pattern" } as Record<string, unknown>;
+    const result = findPluginExport(mod);
+    expect(result?.name).toBe("cjs-mod");
+  });
+
+  it("finds plugin from arbitrary named export", () => {
+    const result = findPluginExport({
+      myCustomPlugin: { name: "custom", description: "arbitrary named" },
+      someOther: "not a plugin",
+    });
+    expect(result).toEqual({ name: "custom", description: "arbitrary named" });
+  });
+
+  it("returns null when no valid export exists", () => {
+    const result = findPluginExport({
+      default: "not an object",
+      foo: 42,
+      bar: null,
+    });
+    expect(result).toBeNull();
+  });
+
+  it("returns null for empty module", () => {
+    expect(findPluginExport({})).toBeNull();
+  });
+
+  it("rejects object with name but no description", () => {
+    const result = findPluginExport({
+      default: { name: "incomplete" },
+    });
+    expect(result).toBeNull();
+  });
+
+  it("rejects object with description but no name", () => {
+    const result = findPluginExport({
+      default: { description: "no name" },
+    });
+    expect(result).toBeNull();
+  });
+
+  it("rejects null default export", () => {
+    const result = findPluginExport({ default: null });
+    expect(result).toBeNull();
+  });
+
+  it("rejects undefined default export", () => {
+    const result = findPluginExport({ default: undefined });
+    expect(result).toBeNull();
+  });
+
+  it("rejects name: number (non-string)", () => {
+    const result = findPluginExport({
+      default: { name: 42, description: "has desc" },
+    });
+    expect(result).toBeNull();
+  });
+
+  it("accepts plugin with extra fields beyond name/description", () => {
+    const result = findPluginExport({
+      default: { name: "rich", description: "rich plugin", init: () => {}, actions: [] },
+    });
+    expect(result?.name).toBe("rich");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// End-to-end import chain (resolvePackageEntry + import)
+// ---------------------------------------------------------------------------
+
+describe("end-to-end import chain", () => {
   let tmpDir: string;
 
   beforeEach(async () => {

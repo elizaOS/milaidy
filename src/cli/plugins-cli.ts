@@ -377,8 +377,12 @@ export function registerPluginsCli(program: Command): void {
       let config: ReturnType<typeof loadMilaidyConfig> | null = null;
       try {
         config = loadMilaidyConfig();
-      } catch {
-        // No config file — only scan the default custom directory.
+      } catch (err) {
+        console.log(
+          chalk.dim(
+            `  (Could not read milaidy.json: ${err instanceof Error ? err.message : String(err)} — scanning default directory only)\n`,
+          ),
+        );
       }
       for (const p of config?.plugins?.load?.paths ?? []) {
         scanDirs.push(resolveUserPath(p));
@@ -400,8 +404,8 @@ export function registerPluginsCli(program: Command): void {
         for (const [name, record] of Object.entries(records)) {
           candidates.push({
             name,
-            installPath: record.installPath ?? dir,
-            version: record.version ?? "0.0.0",
+            installPath: record.installPath,
+            version: record.version,
           });
         }
       }
@@ -502,8 +506,10 @@ export function registerPluginsCli(program: Command): void {
 /**
  * Check a module's exports for a value that looks like an ElizaOS Plugin
  * (an object with `name: string` and `description: string`).
+ *
+ * @internal Exported for testing.
  */
-function findPluginExport(
+export function findPluginExport(
   mod: Record<string, unknown>,
 ): { name: string; description: string } | null {
   const isPlugin = (

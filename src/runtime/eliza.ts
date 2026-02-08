@@ -402,6 +402,41 @@ export async function scanDropInPlugins(
   return records;
 }
 
+/**
+ * Merge discovered drop-in plugins into the plugin load set.
+ *
+ * Filters out plugins that are denied, collide with core plugins, or
+ * already have an explicit install record. Mutates `pluginsToLoad` and
+ * `installRecords` in place. Returns the names of accepted plugins and
+ * any warning messages for skipped collisions.
+ *
+ * @internal Exported for testing.
+ */
+export function mergeDropInPlugins(params: {
+  dropInRecords: Record<string, PluginInstallRecord>;
+  installRecords: Record<string, PluginInstallRecord>;
+  corePluginNames: ReadonlySet<string>;
+  denyList: ReadonlySet<string>;
+  pluginsToLoad: Set<string>;
+}): { accepted: string[]; skipped: string[] } {
+  const { dropInRecords, installRecords, corePluginNames, denyList, pluginsToLoad } = params;
+  const accepted: string[] = [];
+  const skipped: string[] = [];
+
+  for (const [name, record] of Object.entries(dropInRecords)) {
+    if (denyList.has(name) || installRecords[name]) continue;
+    if (corePluginNames.has(name)) {
+      skipped.push(`[milaidy] Custom plugin "${name}" collides with core plugin — skipping`);
+      continue;
+    }
+    pluginsToLoad.add(name);
+    installRecords[name] = record;
+    accepted.push(name);
+  }
+
+  return { accepted, skipped };
+}
+
 // ---------------------------------------------------------------------------
 // Plugin resolution
 // ---------------------------------------------------------------------------
@@ -451,20 +486,15 @@ async function resolvePlugins(
   }
 
   // Merge into load set — deny list and core collisions are filtered out.
-  const denySet = new Set(config.plugins?.deny ?? []);
-  const customPluginNames: string[] = [];
+  const { accepted: customPluginNames, skipped } = mergeDropInPlugins({
+    dropInRecords,
+    installRecords,
+    corePluginNames: corePluginSet,
+    denyList: new Set(config.plugins?.deny ?? []),
+    pluginsToLoad,
+  });
 
-  for (const [name, record] of Object.entries(dropInRecords)) {
-    if (denySet.has(name) || installRecords[name]) continue;
-    if (corePluginSet.has(name)) {
-      logger.warn(`[milaidy] Custom plugin "${name}" collides with core plugin — skipping`);
-      continue;
-    }
-    pluginsToLoad.add(name);
-    installRecords[name] = record;
-    customPluginNames.push(name);
-  }
-
+  for (const msg of skipped) logger.warn(msg);
   if (customPluginNames.length > 0) {
     logger.info(`[milaidy] Discovered ${customPluginNames.length} custom plugin(s): ${customPluginNames.join(", ")}`);
   }

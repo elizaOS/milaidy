@@ -3121,8 +3121,8 @@ async function handleRequest(
     const records = await scanDropInPlugins(customDir);
     const plugins = Object.entries(records).map(([name, record]) => ({
       name,
-      installPath: record.installPath ?? "",
-      version: record.version ?? "0.0.0",
+      installPath: record.installPath,
+      version: record.version,
     }));
 
     json(res, { path: customDir, count: plugins.length, plugins });
