@@ -54,6 +54,16 @@ import {
 } from "./wallet.js";
 
 // ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function isValidUuid(value: string): boolean {
+  return UUID_RE.test(value);
+}
+
+// ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
@@ -2108,9 +2118,14 @@ async function handleRequest(
     }
 
     const ownerType = body.ownerType === "entity" ? "entity" : "agent";
-    const ownerId = (body.ownerId?.trim() || (ownerType === "entity"
+    const rawOwnerId = body.ownerId?.trim() || (ownerType === "entity"
       ? (state.chatUserId ?? state.runtime.agentId)
-      : state.runtime.agentId)) as UUID;
+      : state.runtime.agentId);
+    if (!isValidUuid(rawOwnerId)) {
+      error(res, "ownerId must be a valid UUID", 400);
+      return;
+    }
+    const ownerId = rawOwnerId as UUID;
     const priority = clampPriority(body.priority);
     const tags = normalizeTags(body.tags);
     const metadata: Record<string, unknown> = {};
@@ -2164,8 +2179,8 @@ async function handleRequest(
     }
 
     const goalId = decodeURIComponent(pathname.slice("/api/workbench/goals/".length));
-    if (!goalId) {
-      error(res, "Goal id is required", 400);
+    if (!goalId || !isValidUuid(goalId)) {
+      error(res, "Valid goal UUID is required", 400);
       return;
     }
 
@@ -2328,8 +2343,8 @@ async function handleRequest(
     }
 
     const todoId = decodeURIComponent(pathname.slice("/api/workbench/todos/".length));
-    if (!todoId) {
-      error(res, "Todo id is required", 400);
+    if (!todoId || !isValidUuid(todoId)) {
+      error(res, "Valid todo UUID is required", 400);
       return;
     }
 
@@ -2515,26 +2530,23 @@ async function handleRequest(
       return;
     }
 
-    // Character data lives in the runtime (backed by DB), not the config file.
+    // Use the Zod-validated data (coerced/transformed) instead of raw body.
+    const validated = result.data;
     if (state.runtime) {
       const c = state.runtime.character;
-      if (body.name != null) c.name = body.name as string;
-      if (body.bio != null)
-        c.bio = Array.isArray(body.bio)
-          ? (body.bio as string[])
-          : [String(body.bio)];
-      if (body.system != null) c.system = body.system as string;
-      if (body.adjectives != null) c.adjectives = body.adjectives as string[];
-      if (body.topics != null) c.topics = body.topics as string[];
-      if (body.style != null)
-        c.style = body.style as NonNullable<typeof c.style>;
-      if (body.postExamples != null)
-        c.postExamples = body.postExamples as string[];
+      if (validated.name != null) c.name = validated.name;
+      if (validated.bio != null)
+        c.bio = Array.isArray(validated.bio) ? validated.bio : [String(validated.bio)];
+      if (validated.system != null) c.system = validated.system;
+      if (validated.adjectives != null) c.adjectives = validated.adjectives;
+      if (validated.topics != null) c.topics = validated.topics;
+      if (validated.style != null) c.style = validated.style;
+      if (validated.postExamples != null) c.postExamples = validated.postExamples;
     }
-    if (body.name) {
-      state.agentName = body.name as string;
+    if (validated.name) {
+      state.agentName = validated.name;
     }
-    json(res, { ok: true, character: body, agentName: state.agentName });
+    json(res, { ok: true, character: validated, agentName: state.agentName });
     return;
   }
 
@@ -3096,6 +3108,27 @@ async function handleRequest(
     return;
   }
 
+  // ── GET /api/plugins/custom-dir ────────────────────────────────────────
+  // Returns the path to the custom drop-in plugins directory so the UI
+  // can display it and let users open it in their file manager.
+  if (method === "GET" && pathname === "/api/plugins/custom-dir") {
+    const { resolveStateDir } = await import("../config/paths.js");
+    const { CUSTOM_PLUGINS_DIRNAME, scanDropInPlugins } = await import(
+      "../runtime/eliza.js"
+    );
+
+    const customDir = path.join(resolveStateDir(), CUSTOM_PLUGINS_DIRNAME);
+    const records = await scanDropInPlugins(customDir);
+    const plugins = Object.entries(records).map(([name, record]) => ({
+      name,
+      installPath: record.installPath ?? "",
+      version: record.version ?? "0.0.0",
+    }));
+
+    json(res, { path: customDir, count: plugins.length, plugins });
+    return;
+  }
+
   // ── GET /api/skills/catalog ───────────────────────────────────────────
   // Browse the full skill catalog (paginated).
   if (method === "GET" && pathname === "/api/skills/catalog") {
@@ -3622,7 +3655,7 @@ async function handleRequest(
     let servers: Record<string, unknown> = {};
     if (typeof mcpConfigRaw === "string") {
       try {
-        const parsed = JSON.parse(mcpConfigRaw);
+        const parsed = JSON.parse(mcpConfigRaw) as { servers?: Record<string, unknown> };
         servers = parsed.servers || {};
       } catch { /* ignore parse errors */ }
     } else if (typeof mcpConfigRaw === "object" && mcpConfigRaw !== null) {
@@ -3752,7 +3785,7 @@ async function handleRequest(
     let servers: Record<string, unknown> = {};
     if (typeof pluginConfig.mcp === "string") {
       try {
-        const parsed = JSON.parse(pluginConfig.mcp);
+        const parsed = JSON.parse(pluginConfig.mcp) as { servers?: Record<string, unknown> };
         servers = parsed.servers || {};
       } catch { /* ignore */ }
     } else if (typeof pluginConfig.mcp === "object" && pluginConfig.mcp !== null) {
@@ -3787,7 +3820,7 @@ async function handleRequest(
     let servers: Record<string, unknown> = {};
     if (typeof pluginConfig.mcp === "string") {
       try {
-        const parsed = JSON.parse(pluginConfig.mcp);
+        const parsed = JSON.parse(pluginConfig.mcp) as { servers?: Record<string, unknown> };
         servers = parsed.servers || {};
       } catch { /* ignore */ }
     } else if (typeof pluginConfig.mcp === "object" && pluginConfig.mcp !== null) {

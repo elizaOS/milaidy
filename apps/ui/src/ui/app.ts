@@ -124,6 +124,10 @@ export class MilaidyApp extends LitElement {
 
   private nativeListenerHandles: Array<{ remove: () => Promise<void> }> = [];
   private actionNoticeTimer: number | null = null;
+  private shareIngestTimer: number | null = null;
+  private walletExportTimer: number | null = null;
+  private mcpStatusTimers: number[] = [];
+  private statusPollTimer: number | null = null;
 
   // Chrome extension state
   @state() extensionStatus: ExtensionStatus | null = null;
@@ -1450,6 +1454,20 @@ export class MilaidyApp extends LitElement {
       clearInterval(this.cloudPollInterval);
       this.cloudPollInterval = null;
     }
+    if (this.shareIngestTimer != null) {
+      clearTimeout(this.shareIngestTimer);
+      this.shareIngestTimer = null;
+    }
+    if (this.walletExportTimer != null) {
+      clearTimeout(this.walletExportTimer);
+      this.walletExportTimer = null;
+    }
+    if (this.statusPollTimer != null) {
+      clearTimeout(this.statusPollTimer);
+      this.statusPollTimer = null;
+    }
+    for (const id of this.mcpStatusTimers) clearTimeout(id);
+    this.mcpStatusTimers = [];
     client.disconnectWs();
     this.teardownNativeBindings();
   }
@@ -2778,8 +2796,10 @@ export class MilaidyApp extends LitElement {
     this.shareIngestNotice = `Share ingested (${files.length} file${files.length === 1 ? "" : "s"})`;
     this.setTab("chat");
     this.requestUpdate();
-    setTimeout(() => {
+    if (this.shareIngestTimer != null) clearTimeout(this.shareIngestTimer);
+    this.shareIngestTimer = window.setTimeout(() => {
       this.shareIngestNotice = "";
+      this.shareIngestTimer = null;
     }, 5000);
   }
 
@@ -3327,7 +3347,7 @@ export class MilaidyApp extends LitElement {
       await client.restartAgent();
       this.setActionNotice(`Added MCP server: ${configName}`, "success");
       // Poll status after restart settles
-      setTimeout(() => { void this.loadMcpStatus(); }, 3000);
+      this.mcpStatusTimers.push(window.setTimeout(() => { void this.loadMcpStatus(); }, 3000));
     } catch {
       this.setActionNotice(`Added ${configName} — restart agent to activate`, "info", 5000);
     }
@@ -3434,7 +3454,7 @@ export class MilaidyApp extends LitElement {
       try {
         await client.restartAgent();
         this.setActionNotice(`Added MCP server: ${name}`, "success");
-        setTimeout(() => { void this.loadMcpStatus(); }, 3000);
+        this.mcpStatusTimers.push(window.setTimeout(() => { void this.loadMcpStatus(); }, 3000));
       } catch {
         this.setActionNotice(`Added ${name} — restart agent to activate`, "info", 5000);
       }
@@ -3454,7 +3474,7 @@ export class MilaidyApp extends LitElement {
       try {
         await client.restartAgent();
         this.setActionNotice(`Removed MCP server: ${name}`, "success");
-        setTimeout(() => { void this.loadMcpStatus(); }, 3000);
+        this.mcpStatusTimers.push(window.setTimeout(() => { void this.loadMcpStatus(); }, 3000));
       } catch {
         this.setActionNotice(`Removed ${name} — restart agent to activate`, "info", 5000);
       }
@@ -3515,7 +3535,9 @@ export class MilaidyApp extends LitElement {
     } catch {
       this.setActionNotice("Restart requested — waiting for runtime status...", "info", 4200);
       // Fall back to polling status after a delay (restart may have killed the connection)
-      setTimeout(async () => {
+      this.statusPollTimer = window.setTimeout(async () => {
+        this.statusPollTimer = null;
+        if (!this.isConnected) return;
         try {
           this.agentStatus = await client.getStatus();
           await this.configureNativeTrayMenu();
@@ -3542,7 +3564,9 @@ export class MilaidyApp extends LitElement {
       this.walletExportData = await client.exportWalletKeys();
       this.walletExportVisible = true;
       // Auto-hide after 60 seconds for security
-      setTimeout(() => {
+      if (this.walletExportTimer != null) clearTimeout(this.walletExportTimer);
+      this.walletExportTimer = window.setTimeout(() => {
+        this.walletExportTimer = null;
         this.walletExportVisible = false;
         this.walletExportData = null;
       }, 60_000);
@@ -3688,8 +3712,12 @@ export class MilaidyApp extends LitElement {
         this.chatSending = false;
         this.saveChatMessages();
       },
-      () => {
+      (err) => {
         this.chatSending = false;
+        this.setActionNotice(
+          `Failed to send message: ${err instanceof Error ? err.message : "network error"}`,
+          "error",
+        );
       },
     );
 
@@ -3741,9 +3769,17 @@ export class MilaidyApp extends LitElement {
     try {
       const raw = localStorage.getItem(CHAT_STORAGE_KEY);
       if (raw) {
-        const parsed: ChatMessage[] = JSON.parse(raw);
+        const parsed: unknown = JSON.parse(raw);
         if (Array.isArray(parsed)) {
-          this.chatMessages = parsed;
+          const validated = parsed.filter(
+            (m): m is ChatMessage =>
+              m != null &&
+              typeof m === "object" &&
+              typeof (m as Record<string, unknown>).role === "string" &&
+              typeof (m as Record<string, unknown>).text === "string" &&
+              typeof (m as Record<string, unknown>).timestamp === "number",
+          );
+          this.chatMessages = validated;
         }
       }
     } catch {
@@ -4169,19 +4205,7 @@ export class MilaidyApp extends LitElement {
   }
 
   private async copyToClipboard(text: string): Promise<void> {
-    try {
-      await navigator.clipboard.writeText(text);
-    } catch {
-      // Fallback for older browsers
-      const ta = document.createElement("textarea");
-      ta.value = text;
-      ta.style.position = "fixed";
-      ta.style.opacity = "0";
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand("copy");
-      document.body.removeChild(ta);
-    }
+    await navigator.clipboard.writeText(text);
   }
 
   private renderNav() {
@@ -5087,7 +5111,7 @@ export class MilaidyApp extends LitElement {
     }
 
     const searchLower = this.pluginSearch.toLowerCase();
-    const filtered = this.plugins.filter((p) => {
+    const filtered = pluginsByMode.filter((p) => {
       // Database plugins are managed via the dedicated Database tab
       if (p.category === "database") return false;
       const matchesCategory =
@@ -5111,14 +5135,8 @@ export class MilaidyApp extends LitElement {
       this.pluginSettingsOpen = next;
     };
 
-    return html`
-      <h2>Plugins</h2>
-      <p class="subtitle">Manage plugins and integrations. ${this.plugins.length} plugins discovered.</p>
-      <div style="margin-bottom:10px;">
-        <button class="btn" @click=${() => this.setTab("marketplace")} style="font-size:12px;padding:4px 12px;">
-          Open Marketplace
-        </button>
-      </div>
+    const activeCount = this.plugins.filter((p) => p.isActive).length;
+    const coreCount = this.plugins.filter((p) => p.isCore).length;
 
     return html`
       <div style="flex-shrink: 0;">
@@ -5176,31 +5194,6 @@ export class MilaidyApp extends LitElement {
             All (${this.plugins.length})
           </button>
         </div>
-
-      <div class="plugin-filters" style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;">
-        ${categories.map(
-      (cat) => html`
-            <button
-              class="filter-btn ${this.pluginFilter === cat ? "active" : ""}"
-              data-category=${cat}
-              @click=${() => { this.pluginFilter = cat; }}
-              style="
-                padding: 4px 12px;
-                border-radius: 12px;
-                border: 1px solid var(--border);
-                background: ${this.pluginFilter === cat ? "var(--accent)" : "var(--surface)"};
-                color: ${this.pluginFilter === cat ? "#fff" : "var(--text)"};
-                cursor: pointer;
-                font-size: 12px;
-              "
-            >${cat === "all"
-              ? `All (${this.plugins.length})`
-              : cat === "store"
-                ? `${categoryLabels[cat]} (${this.plugins.filter((p) => p.source === "store").length})`
-                : `${categoryLabels[cat]} (${this.plugins.filter((p) => p.category === cat).length})`}</button>
-          `,
-    )}
-      </div>
 
       <div class="plugins-scroll-container">
         <div class="plugin-filters" style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;">
