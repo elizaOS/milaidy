@@ -82,6 +82,7 @@ const FEATURE_PLUGINS: Record<string, string> = {
   personality: "@elizaos/plugin-personality",
   experience: "@elizaos/plugin-experience",
   form: "@elizaos/plugin-form",
+  x402: "@elizaos/plugin-x402",
 };
 
 function isChannelConfigured(
