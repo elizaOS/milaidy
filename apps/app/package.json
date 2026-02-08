@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "bun run plugin:build && bun install && vite build",
     "preview": "vite preview",
     "test": "npx --prefix ../.. vitest run --config vitest.config.ts",
     "test:watch": "npx --prefix ../.. vitest --config vitest.config.ts",

@@ -259,10 +259,21 @@ export function collectPluginNames(config: MilaidyConfig): Set<string> {
   }
 
   // Model-provider plugins — load when env key is present
+  let hasRemoteModelProvider = false;
   for (const [envKey, pluginName] of Object.entries(PROVIDER_PLUGIN_MAP)) {
     if (process.env[envKey]) {
       pluginsToLoad.add(pluginName);
+      hasRemoteModelProvider = true;
     }
+  }
+
+  // Why: plugin-local-embedding downloads a ~400 MB GGUF model and runs it
+  // via node-llama-cpp on CPU.  In containers or machines without a GPU this
+  // burns several GB of RAM for no benefit when a remote provider (Ollama,
+  // OpenAI, etc.) already supplies embeddings.  Keeping it in CORE_PLUGINS
+  // ensures offline / zero-config setups still work.
+  if (hasRemoteModelProvider) {
+    pluginsToLoad.delete("@elizaos/plugin-local-embedding");
   }
 
   // ElizaCloud plugin — also load when cloud config is explicitly enabled

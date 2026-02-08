@@ -10,6 +10,7 @@
  * All processes share stdio; Ctrl-C kills them all.
  */
 import { spawn } from "node:child_process";
+import { existsSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
@@ -17,23 +18,47 @@ import { fileURLToPath } from "node:url";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "..");
 
+// ---------------------------------------------------------------------------
+// Runtime detection — prefer bun when available, fall back to node/pnpm.
+//
+// Why: The services array spawns child processes using node/pnpm by default,
+// but Bun-only environments (e.g. containers without Node installed) don't
+// have these binaries.  Bun can serve as both the JS runtime and the
+// package-script runner, so we swap in `bun` when it's on PATH.
+// ---------------------------------------------------------------------------
+
+function which(cmd) {
+  const dirs = (process.env.PATH ?? "").split(path.delimiter).filter(Boolean);
+  for (const dir of dirs) {
+    const candidate = path.join(dir, cmd);
+    if (existsSync(candidate)) return candidate;
+  }
+  return null;
+}
+
+const hasBun = !!which("bun");
+
 /** @type {{ name: string; cmd: string; args: string[]; cwd: string; env?: Record<string,string> }[]} */
 const services = [
   {
     name: "ui",
-    cmd: "node",
+    cmd: hasBun ? "bun" : "node",
     args: ["scripts/ui.js", "dev"],
     cwd: repoRoot,
   },
   {
     name: "app",
-    cmd: process.platform === "win32" ? "pnpm.cmd" : "pnpm",
+    cmd: hasBun
+      ? "bun"
+      : process.platform === "win32"
+        ? "pnpm.cmd"
+        : "pnpm",
     args: ["run", "dev"],
     cwd: path.join(repoRoot, "apps/app"),
   },
   {
     name: "runtime",
-    cmd: "node",
+    cmd: hasBun ? "bun" : "node",
     args: ["scripts/run-node.mjs", "start"],
     cwd: repoRoot,
   },

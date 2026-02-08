@@ -13,6 +13,7 @@
  *   node scripts/dev-ui.mjs --ui-only  # starts only the Vite UI (API assumed running)
  */
 import { spawn, execSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import { createConnection } from "node:net";
 import process from "node:process";
 import path from "node:path";
@@ -21,6 +22,28 @@ const API_PORT = 31337;
 const UI_PORT = 2138;
 const cwd = process.cwd();
 const uiOnly = process.argv.includes("--ui-only");
+
+// ---------------------------------------------------------------------------
+// Runtime detection — prefer bun when available, fall back to node/npx.
+//
+// Why: Bun intercepts bare `node` calls in script mode but chokes on
+// `node --import tsx` (tsx module resolution bug in Bun ≤1.3) and doesn't
+// ship `npx`.  Detecting the runtime up-front lets us pick the right
+// binary for each child process so the dev script works in both
+// Node-only and Bun-only environments.
+// ---------------------------------------------------------------------------
+
+function which(cmd) {
+  const dirs = (process.env.PATH ?? "").split(path.delimiter).filter(Boolean);
+  for (const dir of dirs) {
+    const candidate = path.join(dir, cmd);
+    if (existsSync(candidate)) return candidate;
+  }
+  return null;
+}
+
+const hasBun = !!which("bun");
+const hasNpx = !!which("npx");
 
 // ---------------------------------------------------------------------------
 // Output filter — only forward error-level lines from the API server.
@@ -136,7 +159,9 @@ process.on("SIGINT", cleanup);
 process.on("SIGTERM", cleanup);
 
 function startVite() {
-  viteProcess = spawn("npx", ["vite", "--port", String(UI_PORT)], {
+  // Why bunx: npx is not available in Bun-only environments.
+  const viteCmd = hasBun ? "bunx" : "npx";
+  viteProcess = spawn(viteCmd, ["vite", "--port", String(UI_PORT)], {
     cwd: path.join(cwd, "apps/ui"),
     env: process.env,
     stdio: ["inherit", "pipe", "pipe"],
@@ -174,7 +199,14 @@ if (uiOnly) {
   // LOG_LEVEL=error suppresses info/warn output in dev mode.
   console.log("\n  [milaidy] Starting dev server...\n");
 
-  apiProcess = spawn("bun", ["--watch", "src/runtime/dev-server.ts"], {
+  // Why: Bun runs .ts natively and has its own --watch; Node needs the tsx
+  // loader registered via --import.  `bun --import tsx` fails due to a
+  // module resolution bug (cannot find tsx/cjs/index.cjs), so we must
+  // choose one path or the other — not pass --import tsx to bun.
+  const apiCmd = hasBun
+    ? ["bun", "--watch", "src/runtime/dev-server.ts"]
+    : ["node", "--import", "tsx", "--watch", "src/runtime/dev-server.ts"];
+  apiProcess = spawn(apiCmd[0], apiCmd.slice(1), {
     cwd,
     env: {
       ...process.env,
