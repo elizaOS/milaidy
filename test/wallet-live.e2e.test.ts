@@ -14,7 +14,7 @@
  */
 import http from "node:http";
 import path from "node:path";
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 // Load .env from the eliza workspace root
 const envPath = path.resolve(import.meta.dirname, "..", "..", "eliza", ".env");
@@ -26,9 +26,12 @@ try {
 }
 
 // Also load the user's explicit API keys if not already set
-if (!process.env.ALCHEMY_API_KEY) process.env.ALCHEMY_API_KEY = "b_Ou4aeoKR4tGaTPVp36T";
-if (!process.env.HELIUS_API_KEY) process.env.HELIUS_API_KEY = "67ea9085-1406-4db8-8872-38ac77950d7a";
-if (!process.env.BIRDEYE_API_KEY) process.env.BIRDEYE_API_KEY = "229f561f74844baebc96ce72aca959db";
+if (!process.env.ALCHEMY_API_KEY)
+  process.env.ALCHEMY_API_KEY = "b_Ou4aeoKR4tGaTPVp36T";
+if (!process.env.HELIUS_API_KEY)
+  process.env.HELIUS_API_KEY = "67ea9085-1406-4db8-8872-38ac77950d7a";
+if (!process.env.BIRDEYE_API_KEY)
+  process.env.BIRDEYE_API_KEY = "229f561f74844baebc96ce72aca959db";
 
 // Normalize key names: .env uses SOLANA_API_KEY, wallet expects SOLANA_PRIVATE_KEY
 if (!process.env.SOLANA_PRIVATE_KEY && process.env.SOLANA_API_KEY) {
@@ -36,7 +39,10 @@ if (!process.env.SOLANA_PRIVATE_KEY && process.env.SOLANA_API_KEY) {
 }
 
 // Normalize EVM key: .env has no 0x prefix
-if (process.env.EVM_PRIVATE_KEY && !process.env.EVM_PRIVATE_KEY.startsWith("0x")) {
+if (
+  process.env.EVM_PRIVATE_KEY &&
+  !process.env.EVM_PRIVATE_KEY.startsWith("0x")
+) {
   process.env.EVM_PRIVATE_KEY = `0x${process.env.EVM_PRIVATE_KEY}`;
 }
 
@@ -57,8 +63,14 @@ function req(
     const b = body ? JSON.stringify(body) : undefined;
     const r = http.request(
       {
-        hostname: "127.0.0.1", port, path: p, method,
-        headers: { "Content-Type": "application/json", ...(b ? { "Content-Length": Buffer.byteLength(b) } : {}) },
+        hostname: "127.0.0.1",
+        port,
+        path: p,
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          ...(b ? { "Content-Length": Buffer.byteLength(b) } : {}),
+        },
       },
       (res) => {
         const ch: Buffer[] = [];
@@ -66,7 +78,11 @@ function req(
         res.on("end", () => {
           const raw = Buffer.concat(ch).toString("utf-8");
           let data: Record<string, unknown> = {};
-          try { data = JSON.parse(raw) as Record<string, unknown>; } catch { data = { _raw: raw }; }
+          try {
+            data = JSON.parse(raw) as Record<string, unknown>;
+          } catch {
+            data = { _raw: raw };
+          }
           resolve({ status: res.statusCode ?? 0, data });
         });
       },
@@ -148,7 +164,7 @@ describe.skipIf(!canRun)("Wallet live E2E — real keys, real APIs", () => {
     expect(evm!.chains.length).toBe(5); // All 5 chains attempted
 
     // At least Ethereum mainnet should succeed (the key has it enabled)
-    const ethChain = evm!.chains.find(c => c.chain === "Ethereum");
+    const ethChain = evm!.chains.find((c) => c.chain === "Ethereum");
     expect(ethChain).toBeDefined();
 
     if (ethChain && !ethChain.error) {
@@ -156,9 +172,13 @@ describe.skipIf(!canRun)("Wallet live E2E — real keys, real APIs", () => {
       const balance = Number.parseFloat(ethChain.nativeBalance);
       expect(Number.isNaN(balance)).toBe(false);
       expect(ethChain.nativeSymbol).toBe("ETH");
-      console.log(`  Ethereum balance: ${ethChain.nativeBalance} ETH, ${ethChain.tokens.length} tokens`);
+      console.log(
+        `  Ethereum balance: ${ethChain.nativeBalance} ETH, ${ethChain.tokens.length} tokens`,
+      );
     } else if (ethChain?.error) {
-      console.log(`  Ethereum chain error (expected if key not enabled): ${ethChain.error}`);
+      console.log(
+        `  Ethereum chain error (expected if key not enabled): ${ethChain.error}`,
+      );
     }
 
     // Log which chains succeeded vs failed
@@ -166,7 +186,9 @@ describe.skipIf(!canRun)("Wallet live E2E — real keys, real APIs", () => {
       if (chain.error) {
         console.log(`  ${chain.chain}: FAILED — ${chain.error.slice(0, 80)}`);
       } else {
-        console.log(`  ${chain.chain}: OK — ${chain.nativeBalance} ${chain.nativeSymbol}, ${chain.tokens.length} tokens`);
+        console.log(
+          `  ${chain.chain}: OK — ${chain.nativeBalance} ${chain.nativeSymbol}, ${chain.tokens.length} tokens`,
+        );
       }
     }
   }, 30_000);
@@ -191,7 +213,9 @@ describe.skipIf(!canRun)("Wallet live E2E — real keys, real APIs", () => {
       console.log(`  SOL balance: ${solana.solBalance}`);
       console.log(`  SPL tokens: ${solana.tokens.length}`);
       for (const tok of solana.tokens.slice(0, 5)) {
-        console.log(`    ${tok.symbol}: ${tok.balance} (${tok.mint.slice(0, 8)}...)`);
+        console.log(
+          `    ${tok.symbol}: ${tok.balance} (${tok.mint.slice(0, 8)}...)`,
+        );
       }
     } else {
       console.log("  Solana balances: null (Helius may be rate-limited)");
@@ -206,7 +230,12 @@ describe.skipIf(!canRun)("Wallet live E2E — real keys, real APIs", () => {
 
     const evm = data.evm as Array<{
       chain: string;
-      nfts: Array<{ name: string; contractAddress: string; tokenId: string; collectionName: string }>;
+      nfts: Array<{
+        name: string;
+        contractAddress: string;
+        tokenId: string;
+        collectionName: string;
+      }>;
     }>;
 
     expect(Array.isArray(evm)).toBe(true);
@@ -218,7 +247,9 @@ describe.skipIf(!canRun)("Wallet live E2E — real keys, real APIs", () => {
       if (chainData.nfts.length > 0) {
         console.log(`  ${chainData.chain}: ${chainData.nfts.length} NFTs`);
         for (const nft of chainData.nfts.slice(0, 3)) {
-          console.log(`    "${nft.name}" (${nft.collectionName || "no collection"})`);
+          console.log(
+            `    "${nft.name}" (${nft.collectionName || "no collection"})`,
+          );
         }
       }
     }
@@ -231,12 +262,16 @@ describe.skipIf(!canRun)("Wallet live E2E — real keys, real APIs", () => {
     const { status, data } = await req(port, "GET", "/api/wallet/nfts");
     expect(status).toBe(200);
 
-    const solana = data.solana as { nfts: Array<{ name: string; mint: string; collectionName: string }> } | null;
+    const solana = data.solana as {
+      nfts: Array<{ name: string; mint: string; collectionName: string }>;
+    } | null;
 
     if (solana) {
       console.log(`  Solana NFTs: ${solana.nfts.length}`);
       for (const nft of solana.nfts.slice(0, 5)) {
-        console.log(`    "${nft.name}" (${nft.collectionName || "no collection"}) [${nft.mint.slice(0, 8)}...]`);
+        console.log(
+          `    "${nft.name}" (${nft.collectionName || "no collection"}) [${nft.mint.slice(0, 8)}...]`,
+        );
       }
     } else {
       console.log("  Solana NFTs: null (Helius may be rate-limited)");
@@ -247,10 +282,18 @@ describe.skipIf(!canRun)("Wallet live E2E — real keys, real APIs", () => {
 
   it("exports keys that match what was used to derive addresses", async () => {
     const { data: addrs } = await req(port, "GET", "/api/wallet/addresses");
-    const { data: exported } = await req(port, "POST", "/api/wallet/export", { confirm: true });
+    const { data: exported } = await req(port, "POST", "/api/wallet/export", {
+      confirm: true,
+    });
 
-    const evmExport = exported.evm as { privateKey: string; address: string | null } | null;
-    const solExport = exported.solana as { privateKey: string; address: string | null } | null;
+    const evmExport = exported.evm as {
+      privateKey: string;
+      address: string | null;
+    } | null;
+    const solExport = exported.solana as {
+      privateKey: string;
+      address: string | null;
+    } | null;
 
     expect(evmExport).not.toBeNull();
     expect(solExport).not.toBeNull();
@@ -264,9 +307,13 @@ describe.skipIf(!canRun)("Wallet live E2E — real keys, real APIs", () => {
     expect(solExport!.privateKey).toBe(process.env.SOLANA_PRIVATE_KEY);
 
     // Re-derive from exported key to verify it's the same address
-    const { deriveEvmAddress, deriveSolanaAddress } = await import("../src/api/wallet.js");
+    const { deriveEvmAddress, deriveSolanaAddress } = await import(
+      "../src/api/wallet.js"
+    );
     expect(deriveEvmAddress(evmExport!.privateKey)).toBe(addrs.evmAddress);
-    expect(deriveSolanaAddress(solExport!.privateKey)).toBe(addrs.solanaAddress);
+    expect(deriveSolanaAddress(solExport!.privateKey)).toBe(
+      addrs.solanaAddress,
+    );
   });
 
   // ── Full flow: generate -> import -> addresses -> balances ────────────
@@ -283,7 +330,9 @@ describe.skipIf(!canRun)("Wallet live E2E — real keys, real APIs", () => {
       privateKey: freshKeys.evmPrivateKey,
     });
     expect(evmImport.ok).toBe(true);
-    expect((evmImport.address as string).toLowerCase()).toBe(freshKeys.evmAddress.toLowerCase());
+    expect((evmImport.address as string).toLowerCase()).toBe(
+      freshKeys.evmAddress.toLowerCase(),
+    );
 
     // Import Solana key via API
     const { data: solImport } = await req(port, "POST", "/api/wallet/import", {
@@ -295,15 +344,23 @@ describe.skipIf(!canRun)("Wallet live E2E — real keys, real APIs", () => {
 
     // Verify addresses endpoint returns the new addresses
     const { data: addrs } = await req(port, "GET", "/api/wallet/addresses");
-    expect((addrs.evmAddress as string).toLowerCase()).toBe(freshKeys.evmAddress.toLowerCase());
+    expect((addrs.evmAddress as string).toLowerCase()).toBe(
+      freshKeys.evmAddress.toLowerCase(),
+    );
     expect(addrs.solanaAddress).toBe(freshKeys.solanaAddress);
 
     // Fetch balances for the new (empty) wallets — should return 0, not crash
-    const { status, data: balances } = await req(port, "GET", "/api/wallet/balances");
+    const { status, data: balances } = await req(
+      port,
+      "GET",
+      "/api/wallet/balances",
+    );
     expect(status).toBe(200);
 
     // EVM balances should work (new wallet has 0 balance)
-    const evm = balances.evm as { chains: Array<{ nativeBalance: string; error: string | null }> } | null;
+    const evm = balances.evm as {
+      chains: Array<{ nativeBalance: string; error: string | null }>;
+    } | null;
     if (evm) {
       for (const chain of evm.chains) {
         if (!chain.error) {
@@ -319,6 +376,8 @@ describe.skipIf(!canRun)("Wallet live E2E — real keys, real APIs", () => {
     if (savedEvm) process.env.EVM_PRIVATE_KEY = savedEvm;
     if (savedSol) process.env.SOLANA_PRIVATE_KEY = savedSol;
 
-    console.log(`  Generated + imported + verified fresh wallet: ${freshKeys.evmAddress}`);
+    console.log(
+      `  Generated + imported + verified fresh wallet: ${freshKeys.evmAddress}`,
+    );
   }, 60_000);
 });

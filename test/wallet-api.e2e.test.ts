@@ -6,7 +6,7 @@
  * skipped when those keys are not present.
  */
 import http from "node:http";
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startApiServer } from "../src/api/server.js";
 
 // ---------------------------------------------------------------------------
@@ -222,8 +222,14 @@ describe("Wallet API E2E", () => {
       });
       expect(status).toBe(200);
 
-      const evm = data.evm as { privateKey: string; address: string | null } | null;
-      const solana = data.solana as { privateKey: string; address: string | null } | null;
+      const evm = data.evm as {
+        privateKey: string;
+        address: string | null;
+      } | null;
+      const solana = data.solana as {
+        privateKey: string;
+        address: string | null;
+      } | null;
 
       expect(evm).not.toBeNull();
       expect(evm?.privateKey).toBeDefined();
@@ -256,11 +262,17 @@ describe("Wallet API E2E", () => {
       expect("solana" in data).toBe(true);
     });
 
-    it.skipIf(!process.env.ALCHEMY_API_KEY || process.env.ALCHEMY_API_KEY.startsWith("test"))(
+    it.skipIf(
+      !process.env.ALCHEMY_API_KEY ||
+        process.env.ALCHEMY_API_KEY.startsWith("test"),
+    )(
       "fetches real EVM balances with Alchemy key",
       async () => {
         const { data } = await req(port, "GET", "/api/wallet/balances");
-        const evm = data.evm as { address: string; chains: Array<{ chain: string; nativeBalance: string }> } | null;
+        const evm = data.evm as {
+          address: string;
+          chains: Array<{ chain: string; nativeBalance: string }>;
+        } | null;
         if (evm) {
           expect(evm.address).toBeDefined();
           expect(evm.chains.length).toBeGreaterThan(0);
@@ -271,11 +283,17 @@ describe("Wallet API E2E", () => {
       60_000,
     );
 
-    it.skipIf(!process.env.HELIUS_API_KEY || process.env.HELIUS_API_KEY.startsWith("test"))(
+    it.skipIf(
+      !process.env.HELIUS_API_KEY ||
+        process.env.HELIUS_API_KEY.startsWith("test"),
+    )(
       "fetches real Solana balances with Helius key",
       async () => {
         const { data } = await req(port, "GET", "/api/wallet/balances");
-        const solana = data.solana as { address: string; solBalance: string } | null;
+        const solana = data.solana as {
+          address: string;
+          solBalance: string;
+        } | null;
         if (solana) {
           expect(solana.address).toBeDefined();
           expect(solana.solBalance).toBeDefined();
@@ -295,7 +313,10 @@ describe("Wallet API E2E", () => {
       expect("solana" in data).toBe(true);
     });
 
-    it.skipIf(!process.env.ALCHEMY_API_KEY || process.env.ALCHEMY_API_KEY.startsWith("test"))(
+    it.skipIf(
+      !process.env.ALCHEMY_API_KEY ||
+        process.env.ALCHEMY_API_KEY.startsWith("test"),
+    )(
       "fetches real EVM NFTs with Alchemy key",
       async () => {
         const { data } = await req(port, "GET", "/api/wallet/nfts");
@@ -317,7 +338,8 @@ describe("Wallet API E2E", () => {
     it("imports a valid EVM key", async () => {
       const { status, data } = await req(port, "POST", "/api/wallet/import", {
         chain: "evm",
-        privateKey: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+        privateKey:
+          "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
       });
       expect(status).toBe(200);
       expect(data.ok).toBe(true);
@@ -362,7 +384,8 @@ describe("Wallet API E2E", () => {
 
     it("auto-detects chain when not specified (EVM)", async () => {
       const { status, data } = await req(port, "POST", "/api/wallet/import", {
-        privateKey: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+        privateKey:
+          "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
       });
       expect(status).toBe(200);
       expect(data.chain).toBe("evm");
@@ -373,7 +396,12 @@ describe("Wallet API E2E", () => {
 
   describe("POST /api/wallet/generate", () => {
     it("generates both wallets by default", async () => {
-      const { status, data } = await req(port, "POST", "/api/wallet/generate", {});
+      const { status, data } = await req(
+        port,
+        "POST",
+        "/api/wallet/generate",
+        {},
+      );
       expect(status).toBe(200);
       expect(data.ok).toBe(true);
       const wallets = data.wallets as Array<{ chain: string; address: string }>;
@@ -428,7 +456,11 @@ describe("Wallet API E2E", () => {
       delete process.env.SOLANA_PRIVATE_KEY;
 
       try {
-        const { status, data } = await req(port, "GET", "/api/wallet/addresses");
+        const { status, data } = await req(
+          port,
+          "GET",
+          "/api/wallet/addresses",
+        );
         expect(status).toBe(200);
         expect(data.evmAddress).toBeNull();
         expect(data.solanaAddress).toBeNull();
@@ -511,7 +543,11 @@ describe("Wallet API E2E", () => {
         expect(process.env.EVM_PRIVATE_KEY).toBeDefined();
         expect(process.env.SOLANA_PRIVATE_KEY).toBeDefined();
 
-        const { data } = await req(freshServer.port, "GET", "/api/wallet/addresses");
+        const { data } = await req(
+          freshServer.port,
+          "GET",
+          "/api/wallet/addresses",
+        );
         expect(data.evmAddress).toBeDefined();
         expect(data.solanaAddress).toBeDefined();
       } finally {
@@ -659,27 +695,17 @@ describe("Key Management E2E", () => {
       // New addresses should still be valid format
       expect((addrsAfter.evmAddress as string).startsWith("0x")).toBe(true);
       expect((addrsAfter.evmAddress as string).length).toBe(42);
-      expect(
-        (addrsAfter.solanaAddress as string).length,
-      ).toBeGreaterThan(20);
+      expect((addrsAfter.solanaAddress as string).length).toBeGreaterThan(20);
     });
 
     it("second generate overwrites first generate", async () => {
       // Generate first set
       await req(port, "POST", "/api/wallet/generate", {});
-      const { data: addrs1 } = await req(
-        port,
-        "GET",
-        "/api/wallet/addresses",
-      );
+      const { data: addrs1 } = await req(port, "GET", "/api/wallet/addresses");
 
       // Generate second set
       await req(port, "POST", "/api/wallet/generate", {});
-      const { data: addrs2 } = await req(
-        port,
-        "GET",
-        "/api/wallet/addresses",
-      );
+      const { data: addrs2 } = await req(port, "GET", "/api/wallet/addresses");
 
       // Second set should be different from first
       expect(addrs2.evmAddress).not.toBe(addrs1.evmAddress);
@@ -761,19 +787,15 @@ describe("Key Management E2E", () => {
       );
 
       await req(port, "POST", "/api/wallet/generate", {});
-      const { data: addrs } = await req(
-        port,
-        "GET",
-        "/api/wallet/addresses",
-      );
-      const { data: exported } = await req(
-        port,
-        "POST",
-        "/api/wallet/export",
-        { confirm: true },
-      );
+      const { data: addrs } = await req(port, "GET", "/api/wallet/addresses");
+      const { data: exported } = await req(port, "POST", "/api/wallet/export", {
+        confirm: true,
+      });
 
-      const evm = exported.evm as { privateKey: string; address: string | null };
+      const evm = exported.evm as {
+        privateKey: string;
+        address: string | null;
+      };
       const solana = exported.solana as {
         privateKey: string;
         address: string | null;
@@ -781,9 +803,7 @@ describe("Key Management E2E", () => {
 
       // Re-derive from exported private keys
       expect(deriveEvmAddress(evm.privateKey)).toBe(addrs.evmAddress);
-      expect(deriveSolanaAddress(solana.privateKey)).toBe(
-        addrs.solanaAddress,
-      );
+      expect(deriveSolanaAddress(solana.privateKey)).toBe(addrs.solanaAddress);
     });
   });
 
@@ -910,15 +930,10 @@ describe("Key Management E2E", () => {
       expect(addrsAfter.evmAddress).toBe(addrsBefore.evmAddress);
 
       // Export should still return the original key
-      const { data: exported } = await req(
-        port,
-        "POST",
-        "/api/wallet/export",
-        { confirm: true },
-      );
-      expect((exported.evm as { privateKey: string }).privateKey).toBe(
-        goodKey,
-      );
+      const { data: exported } = await req(port, "POST", "/api/wallet/export", {
+        confirm: true,
+      });
+      expect((exported.evm as { privateKey: string }).privateKey).toBe(goodKey);
     });
 
     it("failed Solana import does not corrupt existing Solana key", async () => {
@@ -978,11 +993,7 @@ describe("Key Management E2E", () => {
       }
 
       // Server should still be healthy and responsive
-      const { status, data } = await req(
-        port,
-        "GET",
-        "/api/wallet/addresses",
-      );
+      const { status, data } = await req(port, "GET", "/api/wallet/addresses");
       expect(status).toBe(200);
       expect(typeof data.evmAddress).toBe("string");
     });
@@ -1014,18 +1025,13 @@ describe("Key Management E2E", () => {
       const { data } = await req(port, "GET", "/api/wallet/addresses");
       const possibleAddresses = keysets.map((k) => k.evmAddress.toLowerCase());
       expect(
-        possibleAddresses.includes(
-          (data.evmAddress as string).toLowerCase(),
-        ),
+        possibleAddresses.includes((data.evmAddress as string).toLowerCase()),
       ).toBe(true);
 
       // Export should return the key that matches the current address
-      const { data: exported } = await req(
-        port,
-        "POST",
-        "/api/wallet/export",
-        { confirm: true },
-      );
+      const { data: exported } = await req(port, "POST", "/api/wallet/export", {
+        confirm: true,
+      });
       const exportedEvm = exported.evm as {
         privateKey: string;
         address: string | null;
@@ -1054,11 +1060,7 @@ describe("Key Management E2E", () => {
       }
 
       // Final state should be consistent
-      const { status, data } = await req(
-        port,
-        "GET",
-        "/api/wallet/addresses",
-      );
+      const { status, data } = await req(port, "GET", "/api/wallet/addresses");
       expect(status).toBe(200);
       expect((data.evmAddress as string).startsWith("0x")).toBe(true);
       expect((data.evmAddress as string).length).toBe(42);

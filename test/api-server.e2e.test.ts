@@ -275,33 +275,89 @@ describe("API Server E2E (no runtime)", () => {
   // -- CORS --
 
   describe("CORS", () => {
-    it("OPTIONS returns 204 with CORS headers", async () => {
-      const { status, headers } = await req(port, "OPTIONS", "/api/status");
+    it("OPTIONS returns 204", async () => {
+      const { status } = await req(port, "OPTIONS", "/api/status");
       expect(status).toBe(204);
-      expect(headers["access-control-allow-origin"]).toBe("*");
     });
 
-    it("GET responses include CORS headers", async () => {
-      const { headers } = await req(port, "GET", "/api/status");
-      expect(headers["access-control-allow-origin"]).toBe("*");
+    it("localhost origin echoed back in CORS header", async () => {
+      const origin = `http://localhost:${port}`;
+      const { status, headers } = await new Promise<{
+        status: number;
+        headers: http.IncomingHttpHeaders;
+      }>((resolve, reject) => {
+        const r = http.request(
+          {
+            hostname: "127.0.0.1",
+            port,
+            path: "/api/status",
+            method: "GET",
+            headers: { Origin: origin },
+          },
+          (res) => {
+            res.resume();
+            resolve({ status: res.statusCode ?? 0, headers: res.headers });
+          },
+        );
+        r.on("error", reject);
+        r.end();
+      });
+      expect(status).toBe(200);
+      expect(headers["access-control-allow-origin"]).toBe(origin);
+    });
+
+    it("non-local origin is rejected", async () => {
+      const { status } = await new Promise<{ status: number }>(
+        (resolve, reject) => {
+          const r = http.request(
+            {
+              hostname: "127.0.0.1",
+              port,
+              path: "/api/status",
+              method: "GET",
+              headers: { Origin: "https://evil.example.com" },
+            },
+            (res) => {
+              res.resume();
+              resolve({ status: res.statusCode ?? 0 });
+            },
+          );
+          r.on("error", reject);
+          r.end();
+        },
+      );
+      expect(status).toBe(403);
     });
   });
 
   // -- Error handling --
 
   describe("error handling", () => {
-    it("non-JSON POST body → 500", async () => {
-      const { status } = await new Promise<{ status: number }>((resolve, reject) => {
-        const r = http.request(
-          { hostname: "127.0.0.1", port, path: "/api/chat", method: "POST",
-            headers: { "Content-Type": "application/json", "Content-Length": 11 } },
-          (res) => { res.resume(); resolve({ status: res.statusCode ?? 0 }); },
-        );
-        r.on("error", reject);
-        r.write("not-json!!!");
-        r.end();
-      });
-      expect(status).toBe(500);
+    it("non-JSON POST body → 400", async () => {
+      const { status } = await new Promise<{ status: number }>(
+        (resolve, reject) => {
+          const r = http.request(
+            {
+              hostname: "127.0.0.1",
+              port,
+              path: "/api/chat",
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Content-Length": 11,
+              },
+            },
+            (res) => {
+              res.resume();
+              resolve({ status: res.statusCode ?? 0 });
+            },
+          );
+          r.on("error", reject);
+          r.write("not-json!!!");
+          r.end();
+        },
+      );
+      expect(status).toBe(400);
     });
 
     it("unknown route → 404", async () => {
