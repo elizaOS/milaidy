@@ -183,8 +183,15 @@ export class ScreenCaptureManager {
     filename?: string
   ): Promise<{ path: string }> {
     const dir = app.getPath("pictures");
-    const name = filename || `screenshot-${Date.now()}.${screenshot.format}`;
-    const filePath = path.join(dir, name);
+    const name = filename?.trim() || `screenshot-${Date.now()}.${screenshot.format}`;
+    const baseName = path.basename(name);
+    const safeName = baseName.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const filePath = path.join(dir, safeName);
+    const resolvedDir = path.resolve(dir);
+    const resolvedFile = path.resolve(filePath);
+    if (!resolvedFile.startsWith(`${resolvedDir}${path.sep}`)) {
+      throw new Error("Invalid screenshot path");
+    }
 
     const buffer = Buffer.from(screenshot.base64, "base64");
     await writeFile(filePath, buffer);
