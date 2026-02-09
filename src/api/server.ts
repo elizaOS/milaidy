@@ -1532,8 +1532,9 @@ async function handleRequest(
       error(res, "Missing or invalid agent name", 400);
       return;
     }
-    if (body.theme && body.theme !== "light" && body.theme !== "dark") {
-      error(res, "Invalid theme: must be 'light' or 'dark'", 400);
+    const VALID_THEMES = new Set(["light", "dark", "milady", "qt314", "web2000", "programmer", "haxor", "psycho"]);
+    if (body.theme && !VALID_THEMES.has(body.theme as string)) {
+      error(res, `Invalid theme: must be one of ${[...VALID_THEMES].join(", ")}`, 400);
       return;
     }
     if (body.runMode && body.runMode !== "local" && body.runMode !== "cloud") {
@@ -1564,7 +1565,7 @@ async function handleRequest(
     // ── Theme preference ──────────────────────────────────────────────────
     if (body.theme) {
       if (!config.ui) config.ui = {};
-      config.ui.theme = body.theme as "light" | "dark";
+      config.ui.theme = body.theme as typeof config.ui.theme;
     }
 
     // ── Run mode & cloud configuration ────────────────────────────────────

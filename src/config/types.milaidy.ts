@@ -551,8 +551,8 @@ export type MilaidyConfig = {
   ui?: {
     /** Accent color for Milaidy UI chrome (hex). */
     seamColor?: string;
-    /** User's preferred color scheme. Set during onboarding. */
-    theme?: "light" | "dark";
+    /** User's preferred UI theme. Set during onboarding. */
+    theme?: "light" | "dark" | "milady" | "qt314" | "web2000" | "programmer" | "haxor" | "psycho";
     assistant?: {
       /** Assistant display name for UI surfaces. */
       name?: string;
