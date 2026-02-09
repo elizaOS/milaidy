@@ -30,7 +30,6 @@ function createMockClient(
 }
 
 describe("ConnectionMonitor", () => {
-
   it("sends heartbeats at configured interval", async () => {
     const client = createMockClient();
     const monitor = new ConnectionMonitor(

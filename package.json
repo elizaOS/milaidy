@@ -63,7 +63,7 @@
     "start": "scripts/rt.sh scripts/run-node.mjs start",
     "start:desktop": "cd apps/app && ../../scripts/rt.sh run build:electron && cd electron && ../../../scripts/rt.sh run electron:start",
     "start:eliza": "node --import tsx src/runtime/eliza.ts",
-    "test": "scripts/rt.sh test/scripts/test-parallel.mjs",
+    "test": "node test/scripts/test-parallel.mjs",
     "test:coverage": "vitest run --coverage",
     "test:docker:all": "bun run test:docker:live-models && bun run test:docker:live-gateway && bun run test:docker:onboard && bun run test:docker:gateway-network && bun run test:docker:qr && bun run test:docker:doctor-switch && bun run test:docker:plugins && bun run test:docker:cleanup",
     "test:docker:cleanup": "bash test/scripts/test-cleanup-docker.sh",

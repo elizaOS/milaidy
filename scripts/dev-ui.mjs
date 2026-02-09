@@ -92,9 +92,9 @@ function which(cmd) {
   const isWindows = process.platform === "win32";
   const pathext = isWindows ? process.env.PATHEXT : "";
   const exts = isWindows
-    ? (pathext?.length
-        ? pathext.split(";").filter(Boolean)
-        : [".EXE", ".CMD", ".BAT", ".COM"])
+    ? pathext?.length
+      ? pathext.split(";").filter(Boolean)
+      : [".EXE", ".CMD", ".BAT", ".COM"]
     : [""];
 
   for (const dir of dirs) {
@@ -249,7 +249,9 @@ function startVite() {
   viteProcess.stdout.on("data", (data) => {
     const text = data.toString();
     if (text.includes("ready")) {
-      console.log(`\n  ${green("[milaidy]")} ${orange(`http://localhost:${UI_PORT}/`)}\n`);
+      console.log(
+        `\n  ${green("[milaidy]")} ${orange(`http://localhost:${UI_PORT}/`)}\n`,
+      );
     }
   });
 
@@ -269,6 +271,7 @@ function startVite() {
 if (uiOnly) {
   startVite();
 } else {
+  console.log(`${orange("\nmilaidy dev mode")}\n`);
   printBanner();
   console.log(`  ${green("[milaidy]")} ${green("Starting dev server...")}\n`);
 
@@ -291,7 +294,9 @@ if (uiOnly) {
 
   apiProcess.on("exit", (code) => {
     if (code !== 0) {
-      console.error(`\n  ${green("[milaidy]")} Server exited with code ${code}`);
+      console.error(
+        `\n  ${green("[milaidy]")} Server exited with code ${code}`,
+      );
       if (viteProcess) viteProcess.kill();
       process.exit(code ?? 1);
     }
@@ -300,14 +305,18 @@ if (uiOnly) {
   const startTime = Date.now();
   const dots = setInterval(() => {
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(0);
-    process.stdout.write(`\r  ${green("[milaidy]")} ${green(`Waiting for API server... ${dim(`${elapsed}s`)}`)}`);
+    process.stdout.write(
+      `\r  ${green("[milaidy]")} ${green(`Waiting for API server... ${dim(`${elapsed}s`)}`)}`,
+    );
   }, 1000);
 
   waitForPort(API_PORT)
     .then(() => {
       clearInterval(dots);
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-      console.log(`\r  ${green("[milaidy]")} ${green(`API server ready`)} ${dim(`(${elapsed}s)`)}          `);
+      console.log(
+        `\r  ${green("[milaidy]")} ${green(`API server ready`)} ${dim(`(${elapsed}s)`)}          `,
+      );
       startVite();
     })
     .catch((err) => {

@@ -29,7 +29,7 @@ function runTests() {
   const isolatedLock =
     process.env.MILAIDY_GATEWAY_LOCK ??
     path.join(os.tmpdir(), `milaidy-gateway.lock.test.${Date.now()}`);
-  const result = spawnSync("pnpm", ["vitest", "run"], {
+  const result = spawnSync("bun", ["run", "vitest", "run"], {
     stdio: "inherit",
     env: {
       ...process.env,
@@ -37,7 +37,7 @@ function runTests() {
     },
   });
   if (result.error) {
-    console.error(`pnpm test failed to start: ${String(result.error)}`);
+    console.error(`bun test failed to start: ${String(result.error)}`);
     process.exit(1);
   }
   process.exit(result.status ?? 1);
@@ -55,7 +55,7 @@ function main() {
     console.log("no listeners to kill");
   }
 
-  console.log("running pnpm test…");
+  console.log("running bun test…");
   runTests();
 }
 

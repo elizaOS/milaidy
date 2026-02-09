@@ -33,6 +33,11 @@ const runs = [
     args: ["vitest", "run", "--config", "vitest.unit.config.ts"],
     vitest: true,
   },
+  {
+    name: "e2e",
+    args: ["vitest", "run", "--config", "vitest.e2e.config.ts"],
+    vitest: true,
+  },
   // Only include playwright tests if @playwright/test is installed
   ...(playwrightCli
     ? [

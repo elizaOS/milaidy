@@ -166,7 +166,10 @@ for (const dir of fs.readdirSync(pluginsDir).sort()) {
     const version = pkg.version ?? null;
 
     // Extract plugin dependencies (only @elizaos/plugin-* references)
-    const allDeps = { ...(pkg.dependencies ?? {}), ...(pkg.peerDependencies ?? {}) };
+    const allDeps = {
+      ...(pkg.dependencies ?? {}),
+      ...(pkg.peerDependencies ?? {}),
+    };
     const pluginDeps = Object.keys(allDeps)
       .filter((dep) => dep.startsWith("@elizaos/plugin-"))
       .map((dep) => dep.replace("@elizaos/plugin-", ""));

@@ -3,7 +3,7 @@
 # Fresh Install E2E — Docker-based fresh machine simulation (Issue #6)
 #
 # Validates the full fresh-machine flow:
-#   1. Build from source (pnpm install && pnpm build)
+#   1. Build from source (bun install && bun run build)
 #   2. CLI boots without errors (milaidy --help, --version)
 #   3. API server starts and serves endpoints
 #   4. Onboarding flow completes

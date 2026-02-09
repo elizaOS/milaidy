@@ -9,7 +9,11 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { logger } from "@elizaos/core";
-import type { OAuthCredentials, StoredCredentials, SubscriptionProvider } from "./types.js";
+import type {
+  OAuthCredentials,
+  StoredCredentials,
+  SubscriptionProvider,
+} from "./types.js";
 import { refreshAnthropicToken } from "./anthropic.js";
 import { refreshCodexToken } from "./openai-codex.js";
 
@@ -75,7 +79,9 @@ export function deleteCredentials(provider: SubscriptionProvider): void {
   try {
     fs.unlinkSync(filePath);
     logger.info(`[auth] Deleted ${provider} credentials`);
-  } catch { /* file doesn't exist */ }
+  } catch {
+    /* file doesn't exist */
+  }
 }
 
 /**
@@ -135,7 +141,10 @@ export function getSubscriptionStatus(): Array<{
   valid: boolean;
   expiresAt: number | null;
 }> {
-  const providers: SubscriptionProvider[] = ["anthropic-subscription", "openai-codex"];
+  const providers: SubscriptionProvider[] = [
+    "anthropic-subscription",
+    "openai-codex",
+  ];
   return providers.map((provider) => {
     const stored = loadCredentials(provider);
     return {
@@ -156,13 +165,17 @@ export async function applySubscriptionCredentials(): Promise<void> {
   const anthropicToken = await getAccessToken("anthropic-subscription");
   if (anthropicToken) {
     process.env.ANTHROPIC_API_KEY = anthropicToken;
-    logger.info("[auth] Applied Anthropic subscription credentials to environment");
+    logger.info(
+      "[auth] Applied Anthropic subscription credentials to environment",
+    );
   }
 
   // OpenAI Codex subscription → set OPENAI_API_KEY
   const codexToken = await getAccessToken("openai-codex");
   if (codexToken) {
     process.env.OPENAI_API_KEY = codexToken;
-    logger.info("[auth] Applied OpenAI Codex subscription credentials to environment");
+    logger.info(
+      "[auth] Applied OpenAI Codex subscription credentials to environment",
+    );
   }
 }

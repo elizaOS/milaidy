@@ -239,28 +239,28 @@ Environment variables can also be set in `~/.milaidy/.env` or in the `env` secti
 
 ## From source (development)
 
-Prefer `pnpm` for builds from source. Bun is optional for running TypeScript directly.
+Requires **Bun** for builds from source.
 
 ```bash
 git clone https://github.com/milady-ai/milaidy.git
 cd milaidy
 
-pnpm install
-pnpm ui:build   # auto-installs UI deps on first run
-pnpm build
+bun install
+bun run ui:build   # auto-installs UI deps on first run
+bun run build
 
-pnpm milaidy start
+bun run milaidy start
 
 # Dev loop (auto-reload on TS changes)
-pnpm dev
+bun run dev
 ```
 
-`pnpm milaidy ...` runs TypeScript directly (via `tsx`). `pnpm build` produces `dist/` for running via Node / the packaged `milaidy` binary.
+`bun run milaidy ...` runs TypeScript directly (via `tsx`). `bun run build` produces `dist/` for running via Node / the packaged `milaidy` binary.
 
 ### Building the desktop app
 
 ```bash
-pnpm build:desktop
+bun run build:desktop
 ```
 
 ### Release builds (signed & notarized)

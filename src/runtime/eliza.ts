@@ -1774,7 +1774,8 @@ export async function startEliza(
             workspaceDir:
               freshConfig.agents?.defaults?.workspace ?? workspaceDir,
             bootstrapMaxChars: freshConfig.agents?.defaults?.bootstrapMaxChars,
-            enableBootstrapProviders: freshConfig.agents?.defaults?.enableBootstrapProviders,
+            enableBootstrapProviders:
+              freshConfig.agents?.defaults?.enableBootstrapProviders,
             agentId:
               runtime.character.name?.toLowerCase().replace(/\s+/g, "-") ??
               "main",
@@ -1887,8 +1888,8 @@ export async function startEliza(
         if (
           !fallbackWorld.metadata.ownership ||
           typeof fallbackWorld.metadata.ownership !== "object" ||
-          (fallbackWorld.metadata.ownership as { ownerId: string })
-            .ownerId !== userId
+          (fallbackWorld.metadata.ownership as { ownerId: string }).ownerId !==
+            userId
         ) {
           fallbackWorld.metadata.ownership = { ownerId: userId };
           needsUpdate = true;

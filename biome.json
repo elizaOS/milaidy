@@ -17,6 +17,8 @@
       "!node_modules",
       "!patches",
       "!pnpm-lock.yaml",
+      "!bun.lock",
+      "!bun.lockb",
       "!skills",
       "!Swabble",
       "!vendor"

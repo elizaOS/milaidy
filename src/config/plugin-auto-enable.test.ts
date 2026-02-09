@@ -345,9 +345,7 @@ describe("CHANNEL_PLUGINS", () => {
 
 describe("AUTH_PROVIDER_PLUGINS", () => {
   it("maps OPENAI_API_KEY to openai plugin", () => {
-    expect(AUTH_PROVIDER_PLUGINS.OPENAI_API_KEY).toBe(
-      "@elizaos/plugin-openai",
-    );
+    expect(AUTH_PROVIDER_PLUGINS.OPENAI_API_KEY).toBe("@elizaos/plugin-openai");
   });
 
   it("maps both ANTHROPIC_API_KEY and CLAUDE_API_KEY to anthropic plugin", () => {

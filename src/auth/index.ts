@@ -25,4 +25,8 @@ export {
 } from "./credentials.js";
 
 // Types
-export type { OAuthCredentials, SubscriptionProvider, StoredCredentials } from "./types.js";
+export type {
+  OAuthCredentials,
+  SubscriptionProvider,
+  StoredCredentials,
+} from "./types.js";

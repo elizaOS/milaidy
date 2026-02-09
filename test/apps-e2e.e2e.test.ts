@@ -66,9 +66,18 @@ function isPortOpen(port: number, host = "127.0.0.1"): Promise<boolean> {
   return new Promise((resolve) => {
     const socket = new net.Socket();
     socket.setTimeout(2000);
-    socket.once("connect", () => { socket.destroy(); resolve(true); });
-    socket.once("timeout", () => { socket.destroy(); resolve(false); });
-    socket.once("error", () => { socket.destroy(); resolve(false); });
+    socket.once("connect", () => {
+      socket.destroy();
+      resolve(true);
+    });
+    socket.once("timeout", () => {
+      socket.destroy();
+      resolve(false);
+    });
+    socket.once("error", () => {
+      socket.destroy();
+      resolve(false);
+    });
     socket.connect(port, host);
   });
 }
@@ -119,14 +128,22 @@ describe("Apps E2E", () => {
 
   describe("GET /api/apps/search", () => {
     it("returns empty array for empty query", async () => {
-      const { status, data } = await api(server.port, "GET", "/api/apps/search?q=");
+      const { status, data } = await api(
+        server.port,
+        "GET",
+        "/api/apps/search?q=",
+      );
       expect(status).toBe(200);
       expect(Array.isArray(data)).toBe(true);
       expect((data as unknown as Array<unknown>).length).toBe(0);
     });
 
     it("returns array for a query", async () => {
-      const { status, data } = await api(server.port, "GET", "/api/apps/search?q=game");
+      const { status, data } = await api(
+        server.port,
+        "GET",
+        "/api/apps/search?q=game",
+      );
       expect(status).toBe(200);
       expect(Array.isArray(data)).toBe(true);
     });
@@ -153,7 +170,11 @@ describe("Apps E2E", () => {
 
   describe("GET /api/apps/installed", () => {
     it("returns 200 with an array", async () => {
-      const { status, data } = await api(server.port, "GET", "/api/apps/installed");
+      const { status, data } = await api(
+        server.port,
+        "GET",
+        "/api/apps/installed",
+      );
       expect(status).toBe(200);
       expect(Array.isArray(data)).toBe(true);
     });
@@ -170,16 +191,23 @@ describe("Apps E2E", () => {
     });
 
     it("returns 400 when name is empty", async () => {
-      const { status } = await api(server.port, "POST", "/api/apps/launch", { name: "" });
+      const { status } = await api(server.port, "POST", "/api/apps/launch", {
+        name: "",
+      });
       expect(status).toBe(400);
     });
 
     // This test requires network access to the registry.
     // If the registry is reachable, it tests the full launch flow.
     it("returns error for unknown app name", async () => {
-      const { status, data } = await api(server.port, "POST", "/api/apps/launch", {
-        name: "@elizaos/app-definitely-does-not-exist-xyz",
-      });
+      const { status, data } = await api(
+        server.port,
+        "POST",
+        "/api/apps/launch",
+        {
+          name: "@elizaos/app-definitely-does-not-exist-xyz",
+        },
+      );
       // Should be 500 (app not found in registry throws)
       expect(status).toBe(500);
       expect(data.error).toBeDefined();
@@ -192,7 +220,11 @@ describe("Apps E2E", () => {
 
   describe("unknown routes", () => {
     it("returns 404 for unknown app route", async () => {
-      const { status } = await api(server.port, "GET", "/api/apps/unknown-route");
+      const { status } = await api(
+        server.port,
+        "GET",
+        "/api/apps/unknown-route",
+      );
       expect(status).toBe(404);
     });
   });
@@ -209,30 +241,42 @@ describe("Apps E2E", () => {
       engineRunning = await isPortOpen(80);
       gatewayRunning = await isPortOpen(7780);
       if (!engineRunning) {
-        console.log("[E2E] 2004scape engine not running on port 80 — skipping integration tests");
-        console.log("[E2E] Start it with: cd eliza-2004scape && bun run engine");
+        console.log(
+          "[E2E] 2004scape engine not running on port 80 — skipping integration tests",
+        );
+        console.log(
+          "[E2E] Start it with: cd eliza-2004scape && bun run engine",
+        );
       }
       if (!gatewayRunning) {
-        console.log("[E2E] 2004scape gateway not running on port 7780 — skipping integration tests");
-        console.log("[E2E] Start it with: cd eliza-2004scape && bun run gateway");
+        console.log(
+          "[E2E] 2004scape gateway not running on port 7780 — skipping integration tests",
+        );
+        console.log(
+          "[E2E] Start it with: cd eliza-2004scape && bun run gateway",
+        );
       }
     });
 
     it("webclient is accessible when engine is running", async () => {
       if (!engineRunning) return;
 
-      const response = await new Promise<{ status: number; body: string }>((resolve, reject) => {
-        http.get("http://127.0.0.1:80", (res) => {
-          const chunks: Buffer[] = [];
-          res.on("data", (c: Buffer) => chunks.push(c));
-          res.on("end", () => {
-            resolve({
-              status: res.statusCode ?? 0,
-              body: Buffer.concat(chunks).toString("utf-8"),
-            });
-          });
-        }).on("error", reject);
-      });
+      const response = await new Promise<{ status: number; body: string }>(
+        (resolve, reject) => {
+          http
+            .get("http://127.0.0.1:80", (res) => {
+              const chunks: Buffer[] = [];
+              res.on("data", (c: Buffer) => chunks.push(c));
+              res.on("end", () => {
+                resolve({
+                  status: res.statusCode ?? 0,
+                  body: Buffer.concat(chunks).toString("utf-8"),
+                });
+              });
+            })
+            .on("error", reject);
+        },
+      );
 
       expect(response.status).toBe(200);
       expect(response.body).toContain("<");
@@ -252,18 +296,22 @@ describe("Apps E2E", () => {
       if (!gatewayRunning) return;
 
       // The gateway serves a REST API alongside WebSocket
-      const response = await new Promise<{ status: number; body: string }>((resolve, reject) => {
-        http.get("http://127.0.0.1:7780/status", (res) => {
-          const chunks: Buffer[] = [];
-          res.on("data", (c: Buffer) => chunks.push(c));
-          res.on("end", () => {
-            resolve({
-              status: res.statusCode ?? 0,
-              body: Buffer.concat(chunks).toString("utf-8"),
-            });
-          });
-        }).on("error", reject);
-      });
+      const response = await new Promise<{ status: number; body: string }>(
+        (resolve, reject) => {
+          http
+            .get("http://127.0.0.1:7780/status", (res) => {
+              const chunks: Buffer[] = [];
+              res.on("data", (c: Buffer) => chunks.push(c));
+              res.on("end", () => {
+                resolve({
+                  status: res.statusCode ?? 0,
+                  body: Buffer.concat(chunks).toString("utf-8"),
+                });
+              });
+            })
+            .on("error", reject);
+        },
+      );
 
       // Gateway should respond (200 or 404 depending on route, but NOT connection refused)
       expect(response.status).toBeGreaterThan(0);
@@ -276,9 +324,14 @@ describe("Apps E2E", () => {
       // 1. POST /api/apps/launch with @elizaos/app-2004scape
       // 2. AppManager looks up registry, installs plugin, returns viewer URL
       // Note: This may fail if the registry is unreachable (network dependency)
-      const { status, data } = await api(server.port, "POST", "/api/apps/launch", {
-        name: "@elizaos/app-2004scape",
-      });
+      const { status, data } = await api(
+        server.port,
+        "POST",
+        "/api/apps/launch",
+        {
+          name: "@elizaos/app-2004scape",
+        },
+      );
 
       // If the registry resolved the app, check the viewer URL
       if (status === 200) {

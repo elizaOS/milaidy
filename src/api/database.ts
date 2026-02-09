@@ -139,9 +139,9 @@ const dnsLookupAll = promisify(dns.lookup);
  * Cloud metadata and "this" network are never legitimate Postgres targets.
  */
 const ALWAYS_BLOCKED_IP_PATTERNS: RegExp[] = [
-  /^169\.254\./,                     // Link-local / cloud metadata (AWS, GCP, Azure)
-  /^0\./,                            // "This" network
-  /^fe80:/i,                         // IPv6 link-local
+  /^169\.254\./, // Link-local / cloud metadata (AWS, GCP, Azure)
+  /^0\./, // "This" network
+  /^fe80:/i, // IPv6 link-local
 ];
 
 /**
@@ -152,12 +152,12 @@ const ALWAYS_BLOCKED_IP_PATTERNS: RegExp[] = [
  * network access.
  */
 const PRIVATE_IP_PATTERNS: RegExp[] = [
-  /^127\./,                          // IPv4 loopback
-  /^10\./,                           // RFC 1918 Class A
-  /^172\.(1[6-9]|2\d|3[01])\./,     // RFC 1918 Class B
-  /^192\.168\./,                     // RFC 1918 Class C
-  /^::1$/,                           // IPv6 loopback
-  /^fc00:/i,                         // IPv6 ULA
+  /^127\./, // IPv4 loopback
+  /^10\./, // RFC 1918 Class A
+  /^172\.(1[6-9]|2\d|3[01])\./, // RFC 1918 Class B
+  /^192\.168\./, // RFC 1918 Class C
+  /^::1$/, // IPv6 loopback
+  /^fc00:/i, // IPv6 ULA
 ];
 
 /**
@@ -166,8 +166,11 @@ const PRIVATE_IP_PATTERNS: RegExp[] = [
  * since only local processes can reach the API.
  */
 function isApiLoopbackOnly(): boolean {
-  const bind = (process.env.MILAIDY_API_BIND ?? "127.0.0.1").trim() || "127.0.0.1";
-  return bind === "127.0.0.1" || bind === "::1" || bind.toLowerCase() === "localhost";
+  const bind =
+    (process.env.MILAIDY_API_BIND ?? "127.0.0.1").trim() || "127.0.0.1";
+  return (
+    bind === "127.0.0.1" || bind === "::1" || bind.toLowerCase() === "localhost"
+  );
 }
 
 /**
@@ -225,7 +228,9 @@ async function validateDbHost(
     const addresses = Array.isArray(results) ? results : [results];
     for (const entry of addresses) {
       const ip =
-        typeof entry === "string" ? entry : (entry as { address: string }).address;
+        typeof entry === "string"
+          ? entry
+          : (entry as { address: string }).address;
       // Strip IPv6-mapped IPv4 prefix (::ffff:169.254.x.y → 169.254.x.y)
       const normalized = ip.replace(/^::ffff:/i, "");
       if (isBlockedIp(normalized)) {

@@ -837,8 +837,6 @@
       "issuesRemaining": 3,
       "lessonsLearned": 0
     },
-    "toolsExhausted": [
-      "llm-api"
-    ]
+    "toolsExhausted": ["llm-api"]
   }
 }

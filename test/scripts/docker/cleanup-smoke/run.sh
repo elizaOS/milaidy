@@ -7,7 +7,7 @@ export MILAIDY_STATE_DIR="/tmp/milaidy-test"
 export MILAIDY_CONFIG_PATH="${MILAIDY_STATE_DIR}/milaidy.json"
 
 echo "==> Build"
-pnpm build
+bun run build
 
 echo "==> Seed state"
 mkdir -p "${MILAIDY_STATE_DIR}/credentials"
@@ -17,7 +17,7 @@ echo 'creds' >"${MILAIDY_STATE_DIR}/credentials/marker.txt"
 echo 'session' >"${MILAIDY_STATE_DIR}/agents/main/sessions/sessions.json"
 
 echo "==> Reset (config+creds+sessions)"
-pnpm milaidy reset --scope config+creds+sessions --yes --non-interactive
+bun run milaidy reset --scope config+creds+sessions --yes --non-interactive
 
 test ! -f "${MILAIDY_CONFIG_PATH}"
 test ! -d "${MILAIDY_STATE_DIR}/credentials"
@@ -28,7 +28,7 @@ mkdir -p "${MILAIDY_STATE_DIR}/credentials"
 echo '{}' >"${MILAIDY_CONFIG_PATH}"
 
 echo "==> Uninstall (state only)"
-pnpm milaidy uninstall --state --yes --non-interactive
+bun run milaidy uninstall --state --yes --non-interactive
 
 test ! -d "${MILAIDY_STATE_DIR}"
 

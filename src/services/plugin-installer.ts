@@ -460,7 +460,16 @@ async function gitCloneInstall(
   try {
     await execFileAsync(
       "git",
-      ["clone", "--branch", branch, "--single-branch", "--depth", "1", info.gitUrl, tempDir],
+      [
+        "clone",
+        "--branch",
+        branch,
+        "--single-branch",
+        "--depth",
+        "1",
+        info.gitUrl,
+        tempDir,
+      ],
       { env: { ...process.env, GIT_TERMINAL_PROMPT: "0" } },
     );
 

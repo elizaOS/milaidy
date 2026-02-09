@@ -366,7 +366,10 @@ describe("createCodingAgentContext", () => {
 
 describe("hasReachedMaxIterations", () => {
   it("returns false when iterations are below max", () => {
-    const ctx = makeContext({ maxIterations: 3, iterations: [makeIteration()] });
+    const ctx = makeContext({
+      maxIterations: 3,
+      iterations: [makeIteration()],
+    });
     expect(hasReachedMaxIterations(ctx)).toBe(false);
   });
 

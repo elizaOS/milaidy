@@ -85,8 +85,8 @@ milaidy agent --message "hello" --thinking high
 git clone https://github.com/milady-ai/milaidy.git
 cd milaidy
 
-pnpm install
-pnpm build
+bun install
+bun run build
 ```
 
 ### Run the App (Desktop)
@@ -125,7 +125,7 @@ bun run plugin:build
 
 ```bash
 # from repo root
-pnpm test
+bun run test
 ```
 
 ## License

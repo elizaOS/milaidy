@@ -4,13 +4,17 @@ RUN apt-get update \
   && apt-get install -y --no-install-recommends \
     bash \
     ca-certificates \
+    curl \
     git \
+    unzip \
   && rm -rf /var/lib/apt/lists/*
 
+RUN curl -fsSL https://bun.sh/install | bash
+ENV PATH="/root/.bun/bin:$PATH"
+
 WORKDIR /repo
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-RUN corepack enable \
-  && pnpm install --frozen-lockfile
+COPY package.json ./
+RUN bun install
 
 COPY . .
 COPY scripts/docker/cleanup-smoke/run.sh /usr/local/bin/milaidy-cleanup-smoke

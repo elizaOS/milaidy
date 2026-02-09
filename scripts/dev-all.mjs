@@ -18,12 +18,11 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "..");
 
 // ---------------------------------------------------------------------------
-// Runtime detection — prefer bun when available, fall back to node/pnpm.
+// Runtime detection — prefer bun when available, fall back to node/npm.
 //
-// Why: The services array spawns child processes using node/pnpm by default,
-// but Bun-only environments (e.g. containers without Node installed) don't
-// have these binaries.  Bun can serve as both the JS runtime and the
-// package-script runner, so we swap in `bun` when it's on PATH.
+// Why: The services array spawns child processes using bun by default,
+// but environments without Bun installed may need a fallback.  Bun can
+// serve as both the JS runtime and the package-script runner.
 // ---------------------------------------------------------------------------
 
 function which(cmd) {
@@ -51,11 +50,7 @@ const hasBun = !!which("bun");
 const services = [
   {
     name: "app",
-    cmd: hasBun
-      ? "bun"
-      : process.platform === "win32"
-        ? "pnpm.cmd"
-        : "pnpm",
+    cmd: hasBun ? "bun" : process.platform === "win32" ? "npm.cmd" : "npm",
     args: ["run", "dev"],
     cwd: path.join(repoRoot, "apps/app"),
   },

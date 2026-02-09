@@ -4,6 +4,7 @@ node_modules
 dist
 coverage
 .pnpm-store
+.bun
 .DS_Store
 **/.DS_Store
 

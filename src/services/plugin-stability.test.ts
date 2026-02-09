@@ -268,8 +268,8 @@ describe("collectPluginNames", () => {
     // appear depending on the runner's environment, so we only assert
     // that the unknown channel mapping was a no-op).
     const channelPluginValues = new Set(Object.values(CHANNEL_PLUGINS));
-    const addedChannelPlugins = [...names].filter(
-      (n) => channelPluginValues.has(n),
+    const addedChannelPlugins = [...names].filter((n) =>
+      channelPluginValues.has(n),
     );
     expect(addedChannelPlugins.length).toBe(0);
   });

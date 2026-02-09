@@ -20,7 +20,7 @@
     "paths": {
       "*": ["./*"],
       "@elizaos/core": ["../typescript/src/index.node.ts"],
-      "@elizaos/core/*": ["../typescript/src/*"],
+      "@elizaos/core/*": ["../typescript/src/*"]
     }
   },
   "include": ["src/**/*"],

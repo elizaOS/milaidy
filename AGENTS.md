@@ -17,17 +17,17 @@
 
 ## Build, Test, and Development Commands
 
-- Install deps: `pnpm install`
-- Type-check/build: `pnpm build` (runs tsdown + UI build)
-- Lint/format: `pnpm check`
-- Run CLI in dev: `pnpm milaidy ...` or `pnpm dev:cli`
-- Tests: `pnpm test` (parallel unit + playwright), `pnpm test:e2e`, `pnpm test:live`
-- Coverage: `pnpm test:coverage`
+- Install deps: `bun install`
+- Type-check/build: `bun run build` (runs tsdown + UI build)
+- Lint/format: `bun run check`
+- Run CLI in dev: `bun run milaidy ...` or `bun run dev:cli`
+- Tests: `bun run test` (parallel unit + playwright), `bun run test:e2e`, `bun run test:live`
+- Coverage: `bun run test:coverage`
 
 ## Coding Style & Naming Conventions
 
 - Language: TypeScript (ESM). Prefer strict typing; avoid `any` and `unknown` unless absolutely necessary.
-- Formatting/linting via Biome; run `pnpm check` before commits.
+- Formatting/linting via Biome; run `bun run check` before commits.
 - Add brief code comments for tricky or non-obvious logic.
 - Aim to keep files under ~500 LOC; split/refactor when it improves clarity or testability.
 - Naming: use **Milaidy** for product/app/docs headings; use `milaidy` for CLI command, package/binary, paths, and config keys.
@@ -42,7 +42,7 @@
 
 - Framework: Vitest with V8 coverage thresholds (70% lines/branches/functions/statements)
 - Naming: match source names with `*.test.ts`; e2e in `*.e2e.test.ts`; live in `*.live.test.ts`
-- Run `pnpm test` before pushing when you touch logic
+- Run `bun run test` before pushing when you touch logic
 
 ## Commit & Pull Request Guidelines
 

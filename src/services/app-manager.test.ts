@@ -55,7 +55,12 @@ describe("AppManager", () => {
           repository: "https://github.com/elizaOS/eliza-2004scape",
           latestVersion: "1.0.0",
           supports: { v0: false, v1: false, v2: true },
-          npm: { package: "@elizaos/app-2004scape", v0Version: null, v1Version: null, v2Version: "1.0.0" },
+          npm: {
+            package: "@elizaos/app-2004scape",
+            v0Version: null,
+            v1Version: null,
+            v2Version: "1.0.0",
+          },
         },
       ]);
 
@@ -74,7 +79,9 @@ describe("AppManager", () => {
 
       const { AppManager } = await import("./app-manager.js");
       const mgr = new AppManager();
-      await expect(mgr.launch("@elizaos/app-nonexistent")).rejects.toThrow("not found");
+      await expect(mgr.launch("@elizaos/app-nonexistent")).rejects.toThrow(
+        "not found",
+      );
     });
 
     it("installs plugin and returns viewer config when app found", async () => {
@@ -92,7 +99,12 @@ describe("AppManager", () => {
         repository: "https://github.com/elizaOS/eliza-2004scape",
         latestVersion: "1.0.0",
         supports: { v0: false, v1: false, v2: true },
-        npm: { package: "@elizaos/app-2004scape", v0Version: null, v1Version: null, v2Version: "1.0.0" },
+        npm: {
+          package: "@elizaos/app-2004scape",
+          v0Version: null,
+          v1Version: null,
+          v2Version: "1.0.0",
+        },
         viewer: {
           url: "https://2004scape.org/webclient",
           embedParams: { bot: "testbot" },
@@ -100,7 +112,9 @@ describe("AppManager", () => {
         },
       });
 
-      const { installPlugin, listInstalledPlugins } = await import("./plugin-installer.js");
+      const { installPlugin, listInstalledPlugins } = await import(
+        "./plugin-installer.js"
+      );
       vi.mocked(listInstalledPlugins).mockReturnValue([]);
       vi.mocked(installPlugin).mockResolvedValue({
         success: true,
@@ -120,7 +134,10 @@ describe("AppManager", () => {
       expect(result.viewer).not.toBeNull();
       expect(result.viewer?.url).toBe("https://2004scape.org/webclient");
       expect(result.viewer?.embedParams).toEqual({ bot: "testbot" });
-      expect(vi.mocked(installPlugin)).toHaveBeenCalledWith("@elizaos/app-2004scape", undefined);
+      expect(vi.mocked(installPlugin)).toHaveBeenCalledWith(
+        "@elizaos/app-2004scape",
+        undefined,
+      );
     });
 
     it("skips install when plugin already installed", async () => {
@@ -138,14 +155,26 @@ describe("AppManager", () => {
         repository: "",
         latestVersion: "1.0.0",
         supports: { v0: false, v1: false, v2: true },
-        npm: { package: "@elizaos/app-2004scape", v0Version: null, v1Version: null, v2Version: "1.0.0" },
+        npm: {
+          package: "@elizaos/app-2004scape",
+          v0Version: null,
+          v1Version: null,
+          v2Version: "1.0.0",
+        },
       });
 
-      const { installPlugin, listInstalledPlugins } = await import("./plugin-installer.js");
+      const { installPlugin, listInstalledPlugins } = await import(
+        "./plugin-installer.js"
+      );
       const mockInstall = vi.mocked(installPlugin);
       mockInstall.mockClear();
       vi.mocked(listInstalledPlugins).mockReturnValue([
-        { name: "@elizaos/app-2004scape", version: "1.0.0", installPath: "/tmp/x", installedAt: "2026-01-01" },
+        {
+          name: "@elizaos/app-2004scape",
+          version: "1.0.0",
+          installPath: "/tmp/x",
+          installedAt: "2026-01-01",
+        },
       ]);
 
       const { AppManager } = await import("./app-manager.js");
@@ -172,10 +201,17 @@ describe("AppManager", () => {
         repository: "",
         latestVersion: null,
         supports: { v0: false, v1: false, v2: false },
-        npm: { package: "@elizaos/app-test", v0Version: null, v1Version: null, v2Version: null },
+        npm: {
+          package: "@elizaos/app-test",
+          v0Version: null,
+          v1Version: null,
+          v2Version: null,
+        },
       });
 
-      const { installPlugin, listInstalledPlugins } = await import("./plugin-installer.js");
+      const { installPlugin, listInstalledPlugins } = await import(
+        "./plugin-installer.js"
+      );
       vi.mocked(listInstalledPlugins).mockReturnValue([]);
       vi.mocked(installPlugin).mockResolvedValue({
         success: false,
@@ -188,7 +224,9 @@ describe("AppManager", () => {
 
       const { AppManager } = await import("./app-manager.js");
       const mgr = new AppManager();
-      await expect(mgr.launch("@elizaos/app-test")).rejects.toThrow("Package not found");
+      await expect(mgr.launch("@elizaos/app-test")).rejects.toThrow(
+        "Package not found",
+      );
     });
 
     it("returns null viewer when app has no viewer config", async () => {
@@ -206,13 +244,23 @@ describe("AppManager", () => {
         repository: "",
         latestVersion: "1.0.0",
         supports: { v0: false, v1: false, v2: true },
-        npm: { package: "@elizaos/app-babylon", v0Version: null, v1Version: null, v2Version: "1.0.0" },
+        npm: {
+          package: "@elizaos/app-babylon",
+          v0Version: null,
+          v1Version: null,
+          v2Version: "1.0.0",
+        },
         // no viewer field
       });
 
       const { listInstalledPlugins } = await import("./plugin-installer.js");
       vi.mocked(listInstalledPlugins).mockReturnValue([
-        { name: "@elizaos/app-babylon", version: "1.0.0", installPath: "/tmp/x", installedAt: "2026-01-01" },
+        {
+          name: "@elizaos/app-babylon",
+          version: "1.0.0",
+          installPath: "/tmp/x",
+          installedAt: "2026-01-01",
+        },
       ]);
 
       const { AppManager } = await import("./app-manager.js");
@@ -251,8 +299,18 @@ describe("AppManager", () => {
     it("returns installed plugins with humanized names", async () => {
       const { listInstalledPlugins } = await import("./plugin-installer.js");
       vi.mocked(listInstalledPlugins).mockReturnValue([
-        { name: "@elizaos/app-2004scape", version: "1.0.0", installPath: "/tmp/a", installedAt: "2026-01-01" },
-        { name: "@elizaos/plugin-discord", version: "2.0.0", installPath: "/tmp/b", installedAt: "2026-01-01" },
+        {
+          name: "@elizaos/app-2004scape",
+          version: "1.0.0",
+          installPath: "/tmp/a",
+          installedAt: "2026-01-01",
+        },
+        {
+          name: "@elizaos/plugin-discord",
+          version: "2.0.0",
+          installPath: "/tmp/b",
+          installedAt: "2026-01-01",
+        },
       ]);
 
       const { AppManager } = await import("./app-manager.js");

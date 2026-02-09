@@ -293,7 +293,8 @@ async function readInstallRecords(
   try {
     const raw = await fs.readFile(installsRecordPath(workspaceDir), "utf-8");
     const parsed = JSON.parse(raw) as Record<string, InstalledMarketplaceSkill>;
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
+      return {};
     return parsed;
   } catch {
     return {};
@@ -364,7 +365,8 @@ function inferPath(skill: Record<string, unknown>): string | null {
   for (const value of candidates) {
     if (typeof value !== "string") continue;
     const cleaned = value.replace(/^\/+/, "").trim();
-    if (cleaned && !cleaned.startsWith("..") && !cleaned.includes("/..")) return cleaned;
+    if (cleaned && !cleaned.startsWith("..") && !cleaned.includes("/.."))
+      return cleaned;
   }
 
   // Try to extract path from githubUrl (e.g., https://github.com/owner/repo/tree/main/skills/content-marketer)
@@ -376,7 +378,8 @@ function inferPath(skill: Record<string, unknown>): string | null {
     const slashIndex = afterTree.indexOf("/");
     if (slashIndex !== -1) {
       const pathPart = afterTree.slice(slashIndex + 1);
-      if (pathPart && !pathPart.startsWith("..") && !pathPart.includes("/..")) return pathPart;
+      if (pathPart && !pathPart.startsWith("..") && !pathPart.includes("/.."))
+        return pathPart;
     }
   }
 
@@ -522,24 +525,26 @@ async function runGitCloneSubset(
   const repoUrl = `https://github.com/${repository}.git`;
 
   try {
-    await execFileAsync("git", [
-      "clone",
-      "--depth",
-      "1",
-      "--filter=blob:none",
-      "--sparse",
-      "--branch",
-      ref,
-      repoUrl,
-      cloneDir,
-    ], { timeout: GIT_TIMEOUT_MS });
-    await execFileAsync("git", [
-      "-C",
-      cloneDir,
-      "sparse-checkout",
-      "set",
-      skillPath,
-    ], { timeout: GIT_TIMEOUT_MS });
+    await execFileAsync(
+      "git",
+      [
+        "clone",
+        "--depth",
+        "1",
+        "--filter=blob:none",
+        "--sparse",
+        "--branch",
+        ref,
+        repoUrl,
+        cloneDir,
+      ],
+      { timeout: GIT_TIMEOUT_MS },
+    );
+    await execFileAsync(
+      "git",
+      ["-C", cloneDir, "sparse-checkout", "set", skillPath],
+      { timeout: GIT_TIMEOUT_MS },
+    );
 
     const sourceDir = path.join(cloneDir, skillPath);
     const stat = await fs.stat(sourceDir).catch(() => null);
@@ -573,18 +578,26 @@ async function resolveSkillPathInRepo(
   const repoUrl = `https://github.com/${repository}.git`;
 
   try {
-    await execFileAsync("git", [
-      "clone",
-      "--depth",
-      "1",
-      "--filter=blob:none",
-      "--sparse",
-      "--branch",
-      ref,
-      repoUrl,
-      cloneDir,
-    ], { timeout: GIT_TIMEOUT_MS });
-    await execFileAsync("git", ["-C", cloneDir, "sparse-checkout", "set", "."], { timeout: GIT_TIMEOUT_MS });
+    await execFileAsync(
+      "git",
+      [
+        "clone",
+        "--depth",
+        "1",
+        "--filter=blob:none",
+        "--sparse",
+        "--branch",
+        ref,
+        repoUrl,
+        cloneDir,
+      ],
+      { timeout: GIT_TIMEOUT_MS },
+    );
+    await execFileAsync(
+      "git",
+      ["-C", cloneDir, "sparse-checkout", "set", "."],
+      { timeout: GIT_TIMEOUT_MS },
+    );
 
     const rootSkill = path.join(cloneDir, "SKILL.md");
     const hasRoot = await fs

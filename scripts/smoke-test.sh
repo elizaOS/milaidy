@@ -83,7 +83,7 @@ if [[ -f dist/build-info.json ]]; then
     fail "build-info.json version mismatch: ${BUILD_VERSION} (expected ${PKG_VERSION})"
   fi
 else
-  skip "dist/build-info.json not found (run 'pnpm build' first)"
+  skip "dist/build-info.json not found (run 'bun run build' first)"
 fi
 
 # Verify version tag format
@@ -110,7 +110,7 @@ for f in "${REQUIRED_DIST_FILES[@]}"; do
   if [[ -f "$f" ]]; then
     pass "Found: ${f}"
   else
-    fail "Missing: ${f} (run 'pnpm build')"
+    fail "Missing: ${f} (run 'bun run build')"
   fi
 done
 

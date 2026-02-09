@@ -1115,7 +1115,8 @@ function getProviderOptions(): Array<{
       envKey: null,
       pluginName: "@elizaos/plugin-anthropic",
       keyPrefix: null,
-      description: "Use your $20-200/mo Claude subscription via OAuth or setup token.",
+      description:
+        "Use your $20-200/mo Claude subscription via OAuth or setup token.",
     },
     {
       id: "openai-subscription",
@@ -1630,14 +1631,25 @@ async function handleRequest(
 
   // ── POST /api/subscription/anthropic/exchange ───────────────────────────
   // Exchange Anthropic auth code for tokens
-  if (method === "POST" && pathname === "/api/subscription/anthropic/exchange") {
+  if (
+    method === "POST" &&
+    pathname === "/api/subscription/anthropic/exchange"
+  ) {
     const body = await readJsonBody<{ code: string }>(req, res);
     if (!body) return;
-    if (!body.code) { error(res, "Missing code", 400); return; }
+    if (!body.code) {
+      error(res, "Missing code", 400);
+      return;
+    }
     try {
-      const { saveCredentials, applySubscriptionCredentials } = await import("../auth/index.js");
+      const { saveCredentials, applySubscriptionCredentials } = await import(
+        "../auth/index.js"
+      );
       const flow = state._anthropicFlow;
-      if (!flow) { error(res, "No active flow — call /start first", 400); return; }
+      if (!flow) {
+        error(res, "No active flow — call /start first", 400);
+        return;
+      }
       // Submit the code and wait for credentials
       flow.submitCode(body.code);
       const credentials = await flow.credentials;
@@ -1653,7 +1665,10 @@ async function handleRequest(
 
   // ── POST /api/subscription/anthropic/setup-token ────────────────────────
   // Accept an Anthropic setup-token (sk-ant-oat01-...) directly
-  if (method === "POST" && pathname === "/api/subscription/anthropic/setup-token") {
+  if (
+    method === "POST" &&
+    pathname === "/api/subscription/anthropic/setup-token"
+  ) {
     const body = await readJsonBody<{ token: string }>(req, res);
     if (!body) return;
     if (!body.token || !body.token.startsWith("sk-ant-")) {
@@ -1665,7 +1680,8 @@ async function handleRequest(
       process.env.ANTHROPIC_API_KEY = body.token.trim();
       // Also save to config so it persists across restarts
       if (!state.config.env) state.config.env = {};
-      (state.config.env as Record<string, string>).ANTHROPIC_API_KEY = body.token.trim();
+      (state.config.env as Record<string, string>).ANTHROPIC_API_KEY =
+        body.token.trim();
       saveMilaidyConfig(state.config);
       json(res, { success: true });
     } catch (err) {
@@ -1680,21 +1696,35 @@ async function handleRequest(
     try {
       const { startCodexLogin } = await import("../auth/index.js");
       // Clean up any stale flow from a previous attempt
-      if (state._codexFlow) { try { state._codexFlow.close(); } catch { /* */ } }
+      if (state._codexFlow) {
+        try {
+          state._codexFlow.close();
+        } catch {
+          /* */
+        }
+      }
       clearTimeout(state._codexFlowTimer);
 
       const flow = await startCodexLogin();
       // Store flow state + auto-cleanup after 10 minutes
       state._codexFlow = flow;
-      state._codexFlowTimer = setTimeout(() => {
-        try { flow.close(); } catch { /* */ }
-        delete state._codexFlow;
-        delete state._codexFlowTimer;
-      }, 10 * 60 * 1000);
+      state._codexFlowTimer = setTimeout(
+        () => {
+          try {
+            flow.close();
+          } catch {
+            /* */
+          }
+          delete state._codexFlow;
+          delete state._codexFlowTimer;
+        },
+        10 * 60 * 1000,
+      );
       json(res, {
         authUrl: flow.authUrl,
         state: flow.state,
-        instructions: "Open the URL in your browser. After login, if auto-redirect doesn't work, paste the full redirect URL.",
+        instructions:
+          "Open the URL in your browser. After login, if auto-redirect doesn't work, paste the full redirect URL.",
       });
     } catch (err) {
       error(res, `Failed to start OpenAI login: ${err}`, 500);
@@ -1705,14 +1735,22 @@ async function handleRequest(
   // ── POST /api/subscription/openai/exchange ──────────────────────────────
   // Exchange OpenAI auth code or wait for callback
   if (method === "POST" && pathname === "/api/subscription/openai/exchange") {
-    const body = await readJsonBody<{ code?: string; waitForCallback?: boolean }>(req, res);
+    const body = await readJsonBody<{
+      code?: string;
+      waitForCallback?: boolean;
+    }>(req, res);
     if (!body) return;
     let flow: import("../auth/index.js").CodexFlow | undefined;
     try {
-      const { saveCredentials, applySubscriptionCredentials } = await import("../auth/index.js");
+      const { saveCredentials, applySubscriptionCredentials } = await import(
+        "../auth/index.js"
+      );
       flow = state._codexFlow;
 
-      if (!flow) { error(res, "No active flow — call /start first", 400); return; }
+      if (!flow) {
+        error(res, "No active flow — call /start first", 400);
+        return;
+      }
 
       if (body.code) {
         // Manual code/URL paste — submit to flow
@@ -1727,7 +1765,11 @@ async function handleRequest(
       try {
         credentials = await flow.credentials;
       } catch (err) {
-        try { flow.close(); } catch { /* */ }
+        try {
+          flow.close();
+        } catch {
+          /* */
+        }
         delete state._codexFlow;
         clearTimeout(state._codexFlowTimer);
         delete state._codexFlowTimer;
@@ -1740,7 +1782,11 @@ async function handleRequest(
       delete state._codexFlow;
       clearTimeout(state._codexFlowTimer);
       delete state._codexFlowTimer;
-      json(res, { success: true, expiresAt: credentials.expires, accountId: credentials.accountId });
+      json(res, {
+        success: true,
+        expiresAt: credentials.expires,
+        accountId: credentials.accountId,
+      });
     } catch (err) {
       error(res, `OpenAI exchange failed: ${err}`, 500);
     }
@@ -1851,7 +1897,13 @@ async function handleRequest(
     // ── Theme preference ──────────────────────────────────────────────────
     if (body.theme) {
       if (!config.ui) config.ui = {};
-      config.ui.theme = body.theme as "milady" | "qt314" | "web2000" | "programmer" | "haxor" | "psycho";
+      config.ui.theme = body.theme as
+        | "milady"
+        | "qt314"
+        | "web2000"
+        | "programmer"
+        | "haxor"
+        | "psycho";
     }
 
     // ── Run mode & cloud configuration ────────────────────────────────────
@@ -1892,11 +1944,18 @@ async function handleRequest(
     // If the user selected a subscription provider during onboarding,
     // note it in config. The actual OAuth flow happens via
     // /api/subscription/{provider}/start + /exchange endpoints.
-    if (runMode === "local" && (body.provider === "anthropic-subscription" || body.provider === "openai-subscription")) {
+    if (
+      runMode === "local" &&
+      (body.provider === "anthropic-subscription" ||
+        body.provider === "openai-subscription")
+    ) {
       if (!config.agents) config.agents = {};
       if (!config.agents.defaults) config.agents.defaults = {};
-      (config.agents.defaults as Record<string, unknown>).subscriptionProvider = body.provider;
-      logger.info(`[milaidy-api] Subscription provider selected: ${body.provider} — complete OAuth via /api/subscription/ endpoints`);
+      (config.agents.defaults as Record<string, unknown>).subscriptionProvider =
+        body.provider;
+      logger.info(
+        `[milaidy-api] Subscription provider selected: ${body.provider} — complete OAuth via /api/subscription/ endpoints`,
+      );
     }
 
     // ── Inventory / RPC providers ─────────────────────────────────────────
@@ -3320,7 +3379,10 @@ async function handleRequest(
 
   // ── GET /api/skills/:id/scan ───────────────────────────────────────────
   if (method === "GET" && pathname.match(/^\/api\/skills\/[^/]+\/scan$/)) {
-    const skillId = validateSkillId(decodeURIComponent(pathname.split("/")[3]), res);
+    const skillId = validateSkillId(
+      decodeURIComponent(pathname.split("/")[3]),
+      res,
+    );
     if (!skillId) return;
     const workspaceDir =
       state.config.agents?.defaults?.workspace ??
@@ -3341,7 +3403,10 @@ async function handleRequest(
     method === "POST" &&
     pathname.match(/^\/api\/skills\/[^/]+\/acknowledge$/)
   ) {
-    const skillId = validateSkillId(decodeURIComponent(pathname.split("/")[3]), res);
+    const skillId = validateSkillId(
+      decodeURIComponent(pathname.split("/")[3]),
+      res,
+    );
     if (!skillId) return;
     const body = await readJsonBody<{ enable?: boolean }>(req, res);
     if (!body) return;
@@ -3472,7 +3537,10 @@ async function handleRequest(
 
   // ── POST /api/skills/:id/open ─────────────────────────────────────────
   if (method === "POST" && pathname.match(/^\/api\/skills\/[^/]+\/open$/)) {
-    const skillId = validateSkillId(decodeURIComponent(pathname.split("/")[3]), res);
+    const skillId = validateSkillId(
+      decodeURIComponent(pathname.split("/")[3]),
+      res,
+    );
     if (!skillId) return;
     const workspaceDir =
       state.config.agents?.defaults?.workspace ??
@@ -3554,7 +3622,10 @@ async function handleRequest(
     pathname.match(/^\/api\/skills\/[^/]+$/) &&
     !pathname.includes("/marketplace")
   ) {
-    const skillId = validateSkillId(decodeURIComponent(pathname.slice("/api/skills/".length)), res);
+    const skillId = validateSkillId(
+      decodeURIComponent(pathname.slice("/api/skills/".length)),
+      res,
+    );
     if (!skillId) return;
     const workspaceDir =
       state.config.agents?.defaults?.workspace ??
@@ -3718,10 +3789,7 @@ async function handleRequest(
       const workspaceDir =
         state.config.agents?.defaults?.workspace ??
         resolveDefaultAgentWorkspaceDir();
-      const result = await uninstallMarketplaceSkill(
-        workspaceDir,
-        uninstallId,
-      );
+      const result = await uninstallMarketplaceSkill(workspaceDir, uninstallId);
       json(res, { ok: true, skill: result });
     } catch (err) {
       error(
@@ -3759,7 +3827,10 @@ async function handleRequest(
   // ── PUT /api/skills/:id ────────────────────────────────────────────────
   // IMPORTANT: This wildcard route MUST be after all /api/skills/<specific-path> routes
   if (method === "PUT" && pathname.startsWith("/api/skills/")) {
-    const skillId = validateSkillId(decodeURIComponent(pathname.slice("/api/skills/".length)), res);
+    const skillId = validateSkillId(
+      decodeURIComponent(pathname.slice("/api/skills/".length)),
+      res,
+    );
     if (!skillId) return;
     const body = await readJsonBody<{ enabled?: boolean }>(req, res);
     if (!body) return;
@@ -3838,9 +3909,7 @@ async function handleRequest(
     }
 
     const sources = [...new Set(state.logBuffer.map((e) => e.source))].sort();
-    const tags = [
-      ...new Set(state.logBuffer.flatMap((e) => e.tags)),
-    ].sort();
+    const tags = [...new Set(state.logBuffer.flatMap((e) => e.tags))].sort();
     json(res, { entries: entries.slice(-200), sources, tags });
     return;
   }
@@ -4214,7 +4283,94 @@ async function handleRequest(
   if (method === "PUT" && pathname === "/api/config") {
     const body = await readJsonBody(req, res);
     if (!body) return;
-    Object.assign(state.config, body);
+
+    // --- Security: validate and safely merge config updates ----------------
+
+    // Only accept known top-level keys from MilaidyConfig.
+    // Unknown or dangerous keys are silently dropped.
+    const ALLOWED_TOP_KEYS = new Set([
+      "meta",
+      "auth",
+      "env",
+      "wizard",
+      "diagnostics",
+      "logging",
+      "update",
+      "browser",
+      "ui",
+      "skills",
+      "plugins",
+      "models",
+      "nodeHost",
+      "agents",
+      "tools",
+      "bindings",
+      "broadcast",
+      "audio",
+      "messages",
+      "commands",
+      "approvals",
+      "session",
+      "web",
+      "channels",
+      "cron",
+      "hooks",
+      "discovery",
+      "talk",
+      "gateway",
+      "memory",
+      "database",
+      "cloud",
+      "x402",
+      "mcp",
+      "features",
+    ]);
+
+    // Keys that could enable prototype pollution.
+    const BLOCKED_KEYS = new Set(["__proto__", "constructor", "prototype"]);
+
+    /**
+     * Deep-merge `src` into `target`, only touching keys present in `src`.
+     * Prevents prototype pollution by rejecting dangerous key names at every
+     * level.  Performs a recursive merge for plain objects so that partial
+     * updates don't wipe sibling keys.
+     */
+    function safeMerge(
+      target: Record<string, unknown>,
+      src: Record<string, unknown>,
+    ): void {
+      for (const key of Object.keys(src)) {
+        if (BLOCKED_KEYS.has(key)) continue;
+        const srcVal = src[key];
+        const tgtVal = target[key];
+        if (
+          srcVal !== null &&
+          typeof srcVal === "object" &&
+          !Array.isArray(srcVal) &&
+          tgtVal !== null &&
+          typeof tgtVal === "object" &&
+          !Array.isArray(tgtVal)
+        ) {
+          safeMerge(
+            tgtVal as Record<string, unknown>,
+            srcVal as Record<string, unknown>,
+          );
+        } else {
+          target[key] = srcVal;
+        }
+      }
+    }
+
+    // Filter to allowed top-level keys, then deep-merge.
+    const filtered: Record<string, unknown> = {};
+    for (const key of Object.keys(body)) {
+      if (ALLOWED_TOP_KEYS.has(key) && !BLOCKED_KEYS.has(key)) {
+        filtered[key] = body[key];
+      }
+    }
+
+    safeMerge(state.config as Record<string, unknown>, filtered);
+
     try {
       saveMilaidyConfig(state.config);
     } catch {
@@ -4652,7 +4808,12 @@ async function handleRequest(
     const hasApiKey = Boolean(state.config.cloud?.apiKey);
     const rt = state.runtime;
     if (!rt) {
-      json(res, { connected: false, enabled: cloudEnabled, hasApiKey, reason: "runtime_not_started" });
+      json(res, {
+        connected: false,
+        enabled: cloudEnabled,
+        hasApiKey,
+        reason: "runtime_not_started",
+      });
       return;
     }
     const cloudAuth = rt.getService("CLOUD_AUTH") as {
@@ -4661,7 +4822,12 @@ async function handleRequest(
       getOrganizationId: () => string | undefined;
     } | null;
     if (!cloudAuth || !cloudAuth.isAuthenticated()) {
-      json(res, { connected: false, enabled: cloudEnabled, hasApiKey, reason: "not_authenticated" });
+      json(res, {
+        connected: false,
+        enabled: cloudEnabled,
+        hasApiKey,
+        reason: "not_authenticated",
+      });
       return;
     }
     json(res, {
@@ -5259,7 +5425,8 @@ export function captureEarlyLogs(): void {
   if (earlyLogBuffer) return; // already capturing
   // If the global logger is already fully patched (e.g. dev-server started
   // the API server before calling startEliza), skip early capture entirely.
-  if ((logger as unknown as Record<string, unknown>).__milaidyLogPatched) return;
+  if ((logger as unknown as Record<string, unknown>).__milaidyLogPatched)
+    return;
   earlyLogBuffer = [];
   const EARLY_PATCHED = "__milaidyEarlyPatched";
   if ((logger as unknown as Record<string, unknown>)[EARLY_PATCHED]) return;
@@ -5286,7 +5453,13 @@ export function captureEarlyLogs(): void {
       const bracketMatch = /^\[([^\]]+)\]\s*/.exec(msg);
       if (bracketMatch && source === "agent") source = bracketMatch[1];
       if (source !== "agent" && !tags.includes(source)) tags.push(source);
-      earlyLogBuffer?.push({ timestamp: Date.now(), level: lvl, message: msg, source, tags });
+      earlyLogBuffer?.push({
+        timestamp: Date.now(),
+        level: lvl,
+        message: msg,
+        source,
+        tags,
+      });
       return original(...args);
     };
     logger[lvl] = earlyPatched;
@@ -5392,8 +5565,7 @@ export async function startApiServer(opts?: {
     const resolvedTags =
       tags.length > 0
         ? tags
-        : resolvedSource === "runtime" ||
-            resolvedSource === "autonomy"
+        : resolvedSource === "runtime" || resolvedSource === "autonomy"
           ? ["agent"]
           : resolvedSource === "api" || resolvedSource === "websocket"
             ? ["server"]
@@ -5436,12 +5608,18 @@ export async function startApiServer(opts?: {
   if (config.cloud?.enabled && config.cloud?.apiKey) {
     const mgr = new CloudManager(config.cloud, {
       onStatusChange: (s) => {
-        addLog("info", `Cloud connection status: ${s}`, "cloud", ["server", "cloud"]);
+        addLog("info", `Cloud connection status: ${s}`, "cloud", [
+          "server",
+          "cloud",
+        ]);
       },
     });
     mgr.init();
     state.cloudManager = mgr;
-    addLog("info", "Cloud manager initialised (Eliza Cloud enabled)", "cloud", ["server", "cloud"]);
+    addLog("info", "Cloud manager initialised (Eliza Cloud enabled)", "cloud", [
+      "server",
+      "cloud",
+    ]);
   }
 
   addLog(
@@ -5468,9 +5646,7 @@ export async function startApiServer(opts?: {
     defaultSource: string,
     defaultTags: string[],
   ): boolean => {
-    if (
-      (target as unknown as Record<string, unknown>)[PATCHED_MARKER]
-    ) {
+    if ((target as unknown as Record<string, unknown>)[PATCHED_MARKER]) {
       return false;
     }
 
@@ -5526,10 +5702,7 @@ export async function startApiServer(opts?: {
 
   // 2) Patch the runtime instance logger (if it's a different object)
   //    This catches logs from runtime internals that use their own logger child.
-  if (
-    opts?.runtime?.logger &&
-    opts.runtime.logger !== logger
-  ) {
+  if (opts?.runtime?.logger && opts.runtime.logger !== logger) {
     if (patchLogger(opts.runtime.logger, "runtime", ["agent", "runtime"])) {
       addLog(
         "info",
@@ -5595,7 +5768,10 @@ export async function startApiServer(opts?: {
   // Handle WebSocket connections
   wss.on("connection", (ws: WebSocket) => {
     wsClients.add(ws);
-    addLog("info", "WebSocket client connected", "websocket", ["server", "websocket"]);
+    addLog("info", "WebSocket client connected", "websocket", [
+      "server",
+      "websocket",
+    ]);
 
     // Send initial status (flattened shape — matches UI AgentStatus)
     try {
@@ -5629,7 +5805,10 @@ export async function startApiServer(opts?: {
 
     ws.on("close", () => {
       wsClients.delete(ws);
-      addLog("info", "WebSocket client disconnected", "websocket", ["server", "websocket"]);
+      addLog("info", "WebSocket client disconnected", "websocket", [
+        "server",
+        "websocket",
+      ]);
     });
 
     ws.on("error", (err) => {
@@ -5674,7 +5853,10 @@ export async function startApiServer(opts?: {
     state.agentState = "running";
     state.agentName = rt.character.name ?? "Milaidy";
     state.startedAt = Date.now();
-    addLog("info", `Runtime restarted — agent: ${state.agentName}`, "system", ["system", "agent"]);
+    addLog("info", `Runtime restarted — agent: ${state.agentName}`, "system", [
+      "system",
+      "agent",
+    ]);
     // Broadcast status update immediately after restart
     broadcastStatus();
   };

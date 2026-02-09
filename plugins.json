@@ -13,9 +13,7 @@
       "envKey": null,
       "configKeys": [],
       "version": "2.0.0-alpha.4",
-      "pluginDeps": [
-        "cli"
-      ]
+      "pluginDeps": ["cli"]
     },
     {
       "id": "agent-orchestrator",
@@ -139,9 +137,7 @@
       "envKey": null,
       "configKeys": [],
       "version": "2.0.0-alpha.4",
-      "pluginDeps": [
-        "solana"
-      ]
+      "pluginDeps": ["solana"]
     },
     {
       "id": "babylon",
@@ -436,9 +432,7 @@
         "CAPSOLVER_API_KEY"
       ],
       "version": "2.0.0-alpha.6",
-      "pluginDeps": [
-        "cli"
-      ],
+      "pluginDeps": ["cli"],
       "pluginParameters": {
         "BROWSERBASE_API_KEY": {
           "type": "string",
@@ -480,10 +474,7 @@
       "description": "CLI framework plugin for ElizaOS agents - provides command registration, execution, and utilities",
       "category": "feature",
       "envKey": null,
-      "configKeys": [
-        "CLI_NAME",
-        "CLI_VERSION"
-      ],
+      "configKeys": ["CLI_NAME", "CLI_VERSION"],
       "version": "2.0.0-alpha.4",
       "pluginParameters": {
         "CLI_NAME": {
@@ -510,9 +501,7 @@
       "envKey": null,
       "configKeys": [],
       "version": "2.0.0-alpha.5",
-      "pluginDeps": [
-        "shell"
-      ]
+      "pluginDeps": ["shell"]
     },
     {
       "id": "commands",
@@ -621,9 +610,7 @@
       "envKey": null,
       "configKeys": [],
       "version": "2.0.0-alpha.4",
-      "pluginDeps": [
-        "cli"
-      ]
+      "pluginDeps": ["cli"]
     },
     {
       "id": "directives",
@@ -2147,12 +2134,7 @@
       "envKey": null,
       "configKeys": [],
       "version": "2.0.0-alpha.4",
-      "pluginDeps": [
-        "anthropic",
-        "discord",
-        "telegram",
-        "evm"
-      ]
+      "pluginDeps": ["anthropic", "discord", "telegram", "evm"]
     },
     {
       "id": "matrix",
@@ -2184,10 +2166,7 @@
       "description": "elizaOS plugin to integrate with MCP (Model Context Protocol) servers",
       "category": "feature",
       "envKey": null,
-      "configKeys": [
-        "PATH",
-        "mcp"
-      ],
+      "configKeys": ["PATH", "mcp"],
       "version": "2.0.0-alpha.4",
       "pluginParameters": {
         "PATH": {
@@ -2258,9 +2237,7 @@
       "envKey": null,
       "configKeys": [],
       "version": "2.0.0-alpha.1",
-      "pluginDeps": [
-        "form"
-      ]
+      "pluginDeps": ["form"]
     },
     {
       "id": "n8n",
@@ -2748,9 +2725,7 @@
         "CLOB_API_PASSPHRASE"
       ],
       "version": "2.0.0-alpha.4",
-      "pluginDeps": [
-        "evm"
-      ],
+      "pluginDeps": ["evm"],
       "pluginParameters": {
         "POLYMARKET_PRIVATE_KEY": {
           "type": "string",
@@ -3054,10 +3029,7 @@
       "description": "File-based memory storage plugin for ElizaOS - persistent notes and memories",
       "category": "feature",
       "envKey": null,
-      "configKeys": [
-        "SCRATCHPAD_BASE_PATH",
-        "SCRATCHPAD_MAX_FILE_SIZE"
-      ],
+      "configKeys": ["SCRATCHPAD_BASE_PATH", "SCRATCHPAD_MAX_FILE_SIZE"],
       "version": "2.0.0-alpha.4",
       "pluginParameters": {
         "SCRATCHPAD_BASE_PATH": {
@@ -3415,11 +3387,7 @@
       "description": "Trusted Execution Environment (TEE) integration plugin for elizaOS - Multi-language support (TypeScript, Python, Rust)",
       "category": "feature",
       "envKey": null,
-      "configKeys": [
-        "TEE_MODE",
-        "TEE_VENDOR",
-        "WALLET_SECRET_SALT"
-      ],
+      "configKeys": ["TEE_MODE", "TEE_VENDOR", "WALLET_SECRET_SALT"],
       "version": "2.0.0-alpha.4",
       "pluginParameters": {
         "TEE_MODE": {
@@ -3505,10 +3473,7 @@
       "description": "Multi-language Todo list plugin for elizaOS with TypeScript, Python, and Rust implementations",
       "category": "feature",
       "envKey": null,
-      "configKeys": [
-        "ENABLE_REMINDERS",
-        "REMINDER_INTERVAL_MS"
-      ],
+      "configKeys": ["ENABLE_REMINDERS", "REMINDER_INTERVAL_MS"],
       "version": "2.0.0-alpha.4",
       "pluginParameters": {
         "ENABLE_REMINDERS": {
@@ -3548,9 +3513,7 @@
       "envKey": null,
       "configKeys": [],
       "version": "2.0.0-alpha.4",
-      "pluginDeps": [
-        "anthropic"
-      ]
+      "pluginDeps": ["anthropic"]
     },
     {
       "id": "tts",
@@ -3726,10 +3689,7 @@
       "description": "Vision plugin for ElizaOS - provides camera integration and visual awareness",
       "category": "feature",
       "envKey": null,
-      "configKeys": [
-        "CAMERA_NAME",
-        "PIXEL_CHANGE_THRESHOLD"
-      ],
+      "configKeys": ["CAMERA_NAME", "PIXEL_CHANGE_THRESHOLD"],
       "version": "2.0.0-alpha.5",
       "pluginParameters": {
         "CAMERA_NAME": {

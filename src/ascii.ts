@@ -1,4 +1,4 @@
-export const ascii =`     
+export const ascii = `     
         miladym                        iladym      
     iladymil                                ady    
     mil                                         ad   
@@ -13,4 +13,4 @@ m  il  adymiladym  i                  l   ad   y
     mi  ladymila  dy                    mi           
     la          dy                         mil      
         ad      ym                                   
-        iladym`
+        iladym`;

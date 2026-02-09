@@ -593,12 +593,13 @@ describe("Agent Runtime E2E", () => {
     it.skipIf(!hasModelProvider)("PUT /api/config round-trips", async () => {
       const original = (await http$(server?.port, "GET", "/api/config")).data;
       await http$(server?.port, "PUT", "/api/config", {
-        agent: { name: "TempCfg" },
+        features: { temp_cfg: { enabled: true, name: "TempCfg" } },
       });
       const { data } = await http$(server?.port, "GET", "/api/config");
-      expect((data as Record<string, Record<string, string>>).agent?.name).toBe(
-        "TempCfg",
-      );
+      expect(
+        (data as Record<string, Record<string, Record<string, string>>>)
+          .features?.temp_cfg?.name,
+      ).toBe("TempCfg");
       await http$(server?.port, "PUT", "/api/config", original); // restore
     });
 

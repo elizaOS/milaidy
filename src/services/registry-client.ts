@@ -431,9 +431,13 @@ function toAppInfo(p: RegistryPluginInfo): RegistryAppInfo {
     supports: p.supports,
     npm: p.npm,
     // Pass through viewer config from the registry metadata
-    viewer: meta?.launchType === "connect" || meta?.launchType === "local"
-      ? { url: meta?.launchUrl ?? "", sandbox: "allow-scripts allow-same-origin allow-popups" }
-      : undefined,
+    viewer:
+      meta?.launchType === "connect" || meta?.launchType === "local"
+        ? {
+            url: meta?.launchUrl ?? "",
+            sandbox: "allow-scripts allow-same-origin allow-popups",
+          }
+        : undefined,
   };
 }
 

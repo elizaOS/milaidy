@@ -36,7 +36,10 @@ export async function startAnthropicLogin(): Promise<AnthropicFlow> {
   });
 
   const credentials = loginAnthropic(
-    (url: string) => { authUrl = url; resolveUrlReady?.(); },
+    (url: string) => {
+      authUrl = url;
+      resolveUrlReady?.();
+    },
     () => codePromise,
   );
 

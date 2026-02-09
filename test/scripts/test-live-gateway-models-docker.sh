@@ -18,7 +18,6 @@ docker build -t "$IMAGE_NAME" -f "$ROOT_DIR/Dockerfile" "$ROOT_DIR"
 echo "==> Run gateway live model tests (profile keys)"
 docker run --rm -t \
   --entrypoint bash \
-  -e COREPACK_ENABLE_DOWNLOAD_PROMPT=0 \
   -e HOME=/home/node \
   -e NODE_OPTIONS=--disable-warning=ExperimentalWarning \
   -e MILAIDY_LIVE_TEST=1 \
@@ -29,4 +28,4 @@ docker run --rm -t \
   -v "$WORKSPACE_DIR":/home/node/.milaidy/workspace \
   "${PROFILE_MOUNT[@]}" \
   "$IMAGE_NAME" \
-  -lc "set -euo pipefail; [ -f \"$HOME/.profile\" ] && source \"$HOME/.profile\" || true; cd /app && pnpm test:live"
+  -lc "set -euo pipefail; [ -f \"$HOME/.profile\" ] && source \"$HOME/.profile\" || true; cd /app && bun run test:live"

@@ -1,11 +1,11 @@
 /**
  * Claude Code Stealth Mode
- * 
+ *
  * Monkey-patches global fetch to intercept Anthropic API requests made with
  * OAuth setup tokens (sk-ant-oat*). Mimics Claude Code's exact request pattern:
- * 
+ *
  * 1. Replaces x-api-key with Authorization: Bearer
- * 2. Adds Claude Code beta headers  
+ * 2. Adds Claude Code beta headers
  * 3. Injects "You are Claude Code..." system prefix
  * 4. Sets Claude CLI user-agent
  *
@@ -14,8 +14,10 @@
  */
 
 const CLAUDE_CODE_VERSION = "2.1.2";
-const CLAUDE_CODE_SYSTEM_PREFIX = "You are Claude Code, Anthropic's official CLI for Claude.";
-const ANTHROPIC_BETA = "claude-code-20250219,oauth-2025-04-20,fine-grained-tool-streaming-2025-05-14,interleaved-thinking-2025-05-14";
+const CLAUDE_CODE_SYSTEM_PREFIX =
+  "You are Claude Code, Anthropic's official CLI for Claude.";
+const ANTHROPIC_BETA =
+  "claude-code-20250219,oauth-2025-04-20,fine-grained-tool-streaming-2025-05-14,interleaved-thinking-2025-05-14";
 
 function isOAuthToken(val) {
   return typeof val === "string" && val.includes("sk-ant-oat");
@@ -38,12 +40,15 @@ globalThis.fetch = async function stealthFetch(input, init) {
   const headers = init.headers || {};
   const apiKey = headers["x-api-key"] || headers["X-Api-Key"];
   const existingAuth = headers.Authorization || headers.authorization;
-  
+
   // Determine the token
   let token = null;
   if (apiKey && isOAuthToken(apiKey)) {
     token = apiKey;
-  } else if (existingAuth && isOAuthToken(existingAuth.replace("Bearer ", ""))) {
+  } else if (
+    existingAuth &&
+    isOAuthToken(existingAuth.replace("Bearer ", ""))
+  ) {
     token = existingAuth.replace("Bearer ", "");
   }
 
@@ -53,14 +58,15 @@ globalThis.fetch = async function stealthFetch(input, init) {
   }
 
   // === STEALTH MODE: Mimic Claude Code exactly ===
-  
+
   // 1. Fix headers: Bearer auth + Claude Code identity
   const newHeaders = { ...headers };
   delete newHeaders["x-api-key"];
   delete newHeaders["X-Api-Key"];
   newHeaders.Authorization = `Bearer ${token}`;
   newHeaders["anthropic-beta"] = ANTHROPIC_BETA;
-  newHeaders["user-agent"] = `claude-cli/${CLAUDE_CODE_VERSION} (external, cli)`;
+  newHeaders["user-agent"] =
+    `claude-cli/${CLAUDE_CODE_VERSION} (external, cli)`;
   newHeaders["x-app"] = "cli";
   newHeaders.accept = "application/json";
   newHeaders["anthropic-dangerous-direct-browser-access"] = "true";
@@ -69,11 +75,13 @@ globalThis.fetch = async function stealthFetch(input, init) {
   if (typeof init.body === "string") {
     try {
       const body = JSON.parse(init.body);
-      
+
       const prefix = { type: "text", text: CLAUDE_CODE_SYSTEM_PREFIX };
-      
+
       if (Array.isArray(body.system)) {
-        if (!body.system.some(s => s.text?.startsWith("You are Claude Code"))) {
+        if (
+          !body.system.some((s) => s.text?.startsWith("You are Claude Code"))
+        ) {
           body.system.unshift(prefix);
         }
       } else if (typeof body.system === "string") {
@@ -83,8 +91,10 @@ globalThis.fetch = async function stealthFetch(input, init) {
       }
 
       init.body = JSON.stringify(body);
-      
-      console.log(`[stealth] ${body.model} → Bearer auth + Claude Code system prefix (${body.system.length} blocks)`);
+
+      console.log(
+        `[stealth] ${body.model} → Bearer auth + Claude Code system prefix (${body.system.length} blocks)`,
+      );
     } catch {
       // Not JSON body, pass through
     }
@@ -94,4 +104,6 @@ globalThis.fetch = async function stealthFetch(input, init) {
   return originalFetch(input, init);
 };
 
-console.log("[stealth] Claude Code stealth mode active — all Anthropic OAuth requests will be patched");
+console.log(
+  "[stealth] Claude Code stealth mode active — all Anthropic OAuth requests will be patched",
+);

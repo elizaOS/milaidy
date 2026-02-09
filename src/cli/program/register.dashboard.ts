@@ -107,9 +107,7 @@ export function registerDashboardCommand(program: Command) {
           theme.error("App UI is not available in this installation."),
         );
         console.log(
-          theme.muted(
-            "The app dev server requires a development checkout.",
-          ),
+          theme.muted("The app dev server requires a development checkout."),
         );
         console.log(
           theme.muted(

@@ -46,10 +46,14 @@ export function startCodexLogin(): Promise<CodexFlow> {
           try {
             const parsed = new URL(url);
             flowState = parsed.searchParams.get("state") || "";
-          } catch { /* */ }
+          } catch {
+            /* */
+          }
 
           resolveFlow({
-            get authUrl() { return authUrl; },
+            get authUrl() {
+              return authUrl;
+            },
             state: flowState,
             submitCode: (code: string) => resolveManual?.(code),
             credentials,

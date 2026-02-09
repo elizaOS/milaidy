@@ -173,9 +173,9 @@ describe("formatCliCommand", () => {
     );
   });
 
-  it("handles pnpm wrapper", () => {
+  it("handles bun wrapper", () => {
     expect(
-      formatCliCommand("pnpm milaidy setup", { MILAIDY_PROFILE: "work" }),
-    ).toBe("pnpm milaidy --profile work setup");
+      formatCliCommand("bun milaidy setup", { MILAIDY_PROFILE: "work" }),
+    ).toBe("bun milaidy --profile work setup");
   });
 });

@@ -432,9 +432,15 @@ describe("searchSkillsMarketplace", () => {
     process.env.SKILLSMP_API_KEY = "sk-test";
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue(
-        fakeResponse({ error: { message: "Rate limit exceeded" } }, false, 429),
-      ),
+      vi
+        .fn()
+        .mockResolvedValue(
+          fakeResponse(
+            { error: { message: "Rate limit exceeded" } },
+            false,
+            429,
+          ),
+        ),
     );
 
     await expect(searchSkillsMarketplace("test")).rejects.toThrow(
@@ -498,7 +504,7 @@ describe("installMarketplaceSkill", () => {
         path: ".",
         name: "test-skill",
       }),
-    ).rejects.toThrow('already installed');
+    ).rejects.toThrow("already installed");
   });
 });
 

@@ -68,7 +68,10 @@ export class AppManager {
    * After installing a new plugin, the agent needs to restart. The UI should
    * handle this by showing "connecting..." while the runtime restarts.
    */
-  async launch(name: string, onProgress?: ProgressCallback): Promise<AppLaunchResult> {
+  async launch(
+    name: string,
+    onProgress?: ProgressCallback,
+  ): Promise<AppLaunchResult> {
     const appInfo = await registryGetAppInfo(name);
     if (!appInfo) {
       throw new Error(`App "${name}" not found in the registry.`);
@@ -88,10 +91,14 @@ export class AppManager {
       logger.info(`[app-manager] Installing plugin for app: ${pluginName}`);
       const result = await installPlugin(pluginName, onProgress);
       if (!result.success) {
-        throw new Error(`Failed to install plugin "${pluginName}": ${result.error}`);
+        throw new Error(
+          `Failed to install plugin "${pluginName}": ${result.error}`,
+        );
       }
       needsRestart = result.requiresRestart;
-      logger.info(`[app-manager] Plugin installed: ${pluginName} v${result.version}`);
+      logger.info(
+        `[app-manager] Plugin installed: ${pluginName} v${result.version}`,
+      );
     } else {
       logger.info(`[app-manager] Plugin already installed: ${pluginName}`);
     }

@@ -1,10 +1,8 @@
 FROM node:22-bookworm
 
-# Install Bun (required for build scripts)
+# Install Bun (primary package manager and build tool)
 RUN curl -fsSL https://bun.sh/install | bash
 ENV PATH="/root/.bun/bin:${PATH}"
-
-RUN corepack enable
 
 WORKDIR /app
 
@@ -16,18 +14,16 @@ RUN if [ -n "$MILAIDY_DOCKER_APT_PACKAGES" ]; then \
       rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*; \
     fi
 
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
+COPY package.json bun.lock* .npmrc ./
 COPY ui/package.json ./ui/package.json
 COPY patches ./patches
 COPY scripts ./scripts
 
-RUN pnpm install --frozen-lockfile
+RUN bun install --frozen-lockfile
 
 COPY . .
-RUN MILAIDY_A2UI_SKIP_MISSING=1 pnpm build
-# Force pnpm for UI build (Bun may fail on ARM/Synology architectures)
-ENV MILAIDY_PREFER_PNPM=1
-RUN pnpm ui:build
+RUN MILAIDY_A2UI_SKIP_MISSING=1 bun run build
+RUN bun run ui:build
 
 ENV NODE_ENV=production
 
