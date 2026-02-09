@@ -801,10 +801,7 @@ describe("Context Integrity (no corruption)", () => {
       // Final read should have a valid config (one of the writes wins)
       const { status, data } = await http$(srv.port, "GET", "/api/config");
       expect(status).toBe(200);
-      const features = data.features as Record<
-        string,
-        Record<string, unknown>
-      >;
+      const features = data.features as Record<string, Record<string, unknown>>;
       expect(typeof features.concurrent_test.iteration).toBe("number");
     } finally {
       await srv.close();

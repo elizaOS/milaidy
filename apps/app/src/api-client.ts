@@ -144,6 +144,12 @@ export interface InventoryProviderOption {
   rpcProviders: RpcProviderOption[];
 }
 
+export interface OpenRouterModelOption {
+  id: string;
+  name: string;
+  description: string;
+}
+
 export interface OnboardingOptions {
   names: string[];
   styles: StylePreset[];
@@ -153,6 +159,7 @@ export interface OnboardingOptions {
     small: ModelOption[];
     large: ModelOption[];
   };
+  openrouterModels?: OpenRouterModelOption[];
   inventoryProviders: InventoryProviderOption[];
   sharedStyleRules: string;
 }
@@ -178,6 +185,7 @@ export interface OnboardingData {
   // Local-specific
   provider?: string;
   providerApiKey?: string;
+  openrouterModel?: string;
   // Inventory / wallet setup
   inventoryProviders?: Array<{
     chain: string;
