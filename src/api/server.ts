@@ -4273,6 +4273,89 @@ async function handleRequest(
     return;
   }
 
+  // ── POST /api/restart ───────────────────────────────────────────────────
+  if (method === "POST" && pathname === "/api/restart") {
+    json(res, { ok: true, message: "Restarting..." });
+    setTimeout(() => process.exit(0), 1000);
+    return;
+  }
+
+  // ── GET /api/channels ────────────────────────────────────────────────────
+  if (method === "GET" && pathname === "/api/channels") {
+    const channels =
+      (state.config.channels as Record<string, Record<string, unknown>> | undefined) ?? {};
+
+    const telegram = channels.telegram as { botToken?: string } | undefined;
+    const masked = telegram?.botToken
+      ? `••••••${telegram.botToken.slice(-4)}`
+      : null;
+
+    json(res, {
+      channels: {
+        telegram: {
+          configured: Boolean(telegram?.botToken?.trim()),
+          maskedToken: masked,
+        },
+      },
+    });
+    return;
+  }
+
+  // ── POST /api/channels ───────────────────────────────────────────────────
+  if (method === "POST" && pathname === "/api/channels") {
+    const body =
+      (await readJsonBody(req, res)) as
+        | { name?: string; config?: Record<string, unknown> }
+        | null;
+    if (!body) return;
+
+    if (!body.name || typeof body.name !== "string") {
+      error(res, "Missing channel name", 400);
+      return;
+    }
+
+    if (!state.config.channels || typeof state.config.channels !== "object") {
+      state.config.channels = {};
+    }
+
+    (state.config.channels as Record<string, Record<string, unknown>>)[body.name] =
+      body.config ?? {};
+
+    if (body.name === "telegram") {
+      const token =
+        typeof body.config?.botToken === "string"
+          ? body.config.botToken.trim()
+          : "";
+      if (token) process.env.TELEGRAM_BOT_TOKEN = token;
+    }
+
+    saveMilaidyConfig(state.config);
+    json(res, { success: true, channel: body.name, needsRestart: true });
+    return;
+  }
+
+  // ── DELETE /api/channels/:name ───────────────────────────────────────────
+  if (method === "DELETE" && pathname.startsWith("/api/channels/")) {
+    const name = decodeURIComponent(pathname.slice("/api/channels/".length));
+    if (!name) {
+      error(res, "Missing channel name", 400);
+      return;
+    }
+
+    const channels =
+      (state.config.channels as Record<string, Record<string, unknown>> | undefined) ?? {};
+    delete channels[name];
+    state.config.channels = channels;
+
+    if (name === "telegram") {
+      delete process.env.TELEGRAM_BOT_TOKEN;
+    }
+
+    saveMilaidyConfig(state.config);
+    json(res, { success: true, channel: name, needsRestart: true });
+    return;
+  }
+
   // ── GET /api/config ──────────────────────────────────────────────────────
   if (method === "GET" && pathname === "/api/config") {
     json(res, redactConfigSecrets(state.config));

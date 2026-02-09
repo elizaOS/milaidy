@@ -777,6 +777,27 @@ export class MilaidyClient {
     });
   }
 
+  async getChannels(): Promise<{ channels: Record<string, { configured: boolean; maskedToken?: string | null }> }> {
+    return this.fetch("/api/channels");
+  }
+
+  async saveChannel(name: string, config: Record<string, string>): Promise<{ success: boolean; needsRestart?: boolean }> {
+    return this.fetch("/api/channels", {
+      method: "POST",
+      body: JSON.stringify({ name, config }),
+    });
+  }
+
+  async restart(): Promise<{ ok: boolean }> {
+    return this.fetch("/api/restart", { method: "POST" });
+  }
+
+  async deleteChannel(name: string): Promise<{ success: boolean; needsRestart?: boolean }> {
+    return this.fetch(`/api/channels/${encodeURIComponent(name)}`, {
+      method: "DELETE",
+    });
+  }
+
   async getSkills(): Promise<{ skills: SkillInfo[] }> {
     return this.fetch("/api/skills");
   }

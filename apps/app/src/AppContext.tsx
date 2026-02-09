@@ -102,7 +102,8 @@ export type OnboardingStep =
   | "modelSelection"
   | "cloudLogin"
   | "llmProvider"
-  | "inventorySetup";
+  | "inventorySetup"
+  | "channels";
 
 // ── Action notice ──────────────────────────────────────────────────────
 
@@ -274,6 +275,8 @@ export interface AppState {
   onboardingSelectedChains: Set<string>;
   onboardingRpcSelections: Record<string, string>;
   onboardingRpcKeys: Record<string, string>;
+  onboardingChannels: Record<string, Record<string, string>>;
+  onboardingRestarting: boolean;
 
   // Command palette
   commandPaletteOpen: boolean;
@@ -577,6 +580,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [onboardingSelectedChains, setOnboardingSelectedChains] = useState<Set<string>>(new Set(["evm", "solana"]));
   const [onboardingRpcSelections, setOnboardingRpcSelections] = useState<Record<string, string>>({});
   const [onboardingRpcKeys, setOnboardingRpcKeys] = useState<Record<string, string>>({});
+  const [onboardingChannels, setOnboardingChannels] = useState<Record<string, Record<string, string>>>({});
+  const [onboardingRestarting, setOnboardingRestarting] = useState(false);
 
   // --- Command palette ---
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
@@ -1477,10 +1482,38 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setOnboardingStep("inventorySetup");
         break;
       case "inventorySetup":
-        await handleOnboardingFinish();
+        setOnboardingStep("channels");
         break;
+      case "channels": {
+        let hasConfiguredChannel = false;
+
+        for (const [name, config] of Object.entries(onboardingChannels)) {
+          const hasValues = Object.values(config).some((value) => value.trim().length > 0);
+          if (!hasValues) continue;
+          hasConfiguredChannel = true;
+          try {
+            await client.saveChannel(name, config);
+          } catch {
+            /* ignore channel save failures during onboarding */
+          }
+        }
+
+        if (hasConfiguredChannel) {
+          setOnboardingRestarting(true);
+          try {
+            await client.restart();
+          } catch {
+            /* ignore if restart endpoint drops connection */
+          }
+          await new Promise((resolve) => setTimeout(resolve, 3000));
+        }
+
+        await handleOnboardingFinish();
+        setOnboardingRestarting(false);
+        break;
+      }
     }
-  }, [onboardingStep, onboardingOptions, onboardingRunMode, onboardingTheme, setTheme]);
+  }, [onboardingStep, onboardingOptions, onboardingRunMode, onboardingTheme, onboardingChannels, setTheme]);
 
   const handleOnboardingBack = useCallback(() => {
     switch (onboardingStep) {
@@ -1520,6 +1553,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         break;
       case "inventorySetup":
         setOnboardingStep("llmProvider");
+        break;
+      case "channels":
+        setOnboardingStep("inventorySetup");
         break;
     }
   }, [onboardingStep, onboardingOptions]);
@@ -1758,6 +1794,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       onboardingSelectedChains: setOnboardingSelectedChains as (v: never) => void,
       onboardingRpcSelections: setOnboardingRpcSelections as (v: never) => void,
       onboardingRpcKeys: setOnboardingRpcKeys as (v: never) => void,
+      onboardingChannels: setOnboardingChannels as (v: never) => void,
+      onboardingRestarting: setOnboardingRestarting as (v: never) => void,
       commandQuery: setCommandQuery as (v: never) => void,
       commandActiveIndex: setCommandActiveIndex as (v: never) => void,
       storeSearch: setStoreSearch as (v: never) => void,
@@ -1965,7 +2003,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     onboardingStep, onboardingOptions, onboardingName, onboardingStyle, onboardingTheme,
     onboardingRunMode, onboardingCloudProvider, onboardingSmallModel, onboardingLargeModel,
     onboardingProvider, onboardingApiKey, onboardingSelectedChains,
-    onboardingRpcSelections, onboardingRpcKeys,
+    onboardingRpcSelections, onboardingRpcKeys, onboardingChannels, onboardingRestarting,
     commandPaletteOpen, commandQuery, commandActiveIndex,
     mcpConfiguredServers, mcpServerStatuses, mcpMarketplaceQuery, mcpMarketplaceResults,
     mcpMarketplaceLoading, mcpAction, mcpAddingServer, mcpAddingResult,
