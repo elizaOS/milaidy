@@ -1110,7 +1110,7 @@ export class MilaidyClient {
   // Share Ingest
 
   async ingestShare(payload: ShareIngestPayload): Promise<{ item: ShareIngestItem }> {
-    return this.fetch("/api/share/ingest", { method: "POST", body: JSON.stringify(payload) });
+    return this.fetch("/api/ingest/share", { method: "POST", body: JSON.stringify(payload) });
   }
 
   async consumeShareIngest(): Promise<{ items: ShareIngestItem[] }> {
