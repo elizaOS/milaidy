@@ -17,6 +17,7 @@
 - Fix for src/runtime/eliza.ts:300 - When a review requests both documentation and test coverage, implement both—comment updates alone don't satisfy test coverage requirements.
 - Fix for src/runtime/eliza.ts:300 - When a review requests adding a test case, implement the actual test in the test file—don't just add a comment reminder about it.
 - Fix for src/runtime/eliza.ts:300 - When a code change addresses logic, also add test cases that explicitly verify the new behavior and document the intended precedence.
+- Fix for src/runtime/eliza.ts:300 - tool modified wrong files (.pr-resolver-state.json), need to modify src/runtime/eliza.ts
 
 ### scripts/dev-ui.mjs
 
@@ -32,3 +33,4 @@
 ### package.js
 
 - Fix for package.json:38 - No verification result returned, treating as failed
+- Fix for package.json:38 - tool modified wrong files (.pr-resolver-state.json), need to modify package.json

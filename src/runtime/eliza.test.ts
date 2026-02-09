@@ -70,6 +70,59 @@ describe("collectPluginNames", () => {
     snap.save();
     for (const k of envKeys) delete process.env[k];
   });
+
+describe("remote provider precedence", () => {
+  const originalEnv = process.env;
+
+  beforeEach(() => {
+    vi.resetModules();
+    process.env = { ...originalEnv };
+  });
+
+  afterEach(() => {
+    process.env = originalEnv;
+  });
+
+  it("should drop @elizaos/plugin-local-embedding when a remote provider env var is present", async () => {
+    // Set a remote provider env var (e.g., OPENAI_API_KEY)
+    process.env.OPENAI_API_KEY = "test-api-key";
+
+    // Import the module fresh to pick up the env change
+    const { getPluginsToLoad } = await import("./eliza.js");
+
+    // Mock config with local-embedding in plugins
+    const config = {
+      plugins: {
+        entries: {},
+      },
+    };
+
+    const pluginsToLoad = getPluginsToLoad(config, true); // hasRemoteModelProvider = true
+
+    // Verify local-embedding is NOT in the set when remote provider is available
+    expect(pluginsToLoad.has("@elizaos/plugin-local-embedding")).toBe(false);
+  });
+
+  it("should keep @elizaos/plugin-local-embedding when no remote provider is available", async () => {
+    // Ensure no remote provider env vars are set
+    delete process.env.OPENAI_API_KEY;
+    delete process.env.ANTHROPIC_API_KEY;
+    delete process.env.OLLAMA_BASE_URL;
+
+    const { getPluginsToLoad } = await import("./eliza.js");
+
+    const config = {
+      plugins: {
+        entries: {},
+      },
+    };
+
+    const pluginsToLoad = getPluginsToLoad(config, false); // hasRemoteModelProvider = false
+
+    // Verify local-embedding IS in the set for offline/zero-config setups
+    expect(pluginsToLoad.has("@elizaos/plugin-local-embedding")).toBe(true);
+  });
+});
   afterEach(() => snap.restore());
 
   it("includes all core plugins for an empty config", () => {
