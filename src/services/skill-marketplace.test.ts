@@ -354,6 +354,52 @@ describe("searchSkillsMarketplace", () => {
     expect(items[0].tags).toEqual(["AI", "marketing", "content"]);
   });
 
+  it("rejects path with embedded .. traversal segments", async () => {
+    process.env.SKILLSMP_API_KEY = "sk-test";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        fakeResponse({
+          results: [
+            {
+              repository: "owner/safe",
+              name: "Safe Skill",
+              path: "skills/../../../etc/passwd",
+            },
+          ],
+        }),
+      ),
+    );
+
+    const items = await searchSkillsMarketplace("test");
+
+    expect(items).toHaveLength(1);
+    expect(items[0].path).toBeNull();
+  });
+
+  it("accepts valid nested path without traversal", async () => {
+    process.env.SKILLSMP_API_KEY = "sk-test";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        fakeResponse({
+          results: [
+            {
+              repository: "owner/valid",
+              name: "Valid Skill",
+              path: "skills/content-marketer",
+            },
+          ],
+        }),
+      ),
+    );
+
+    const items = await searchSkillsMarketplace("test");
+
+    expect(items).toHaveLength(1);
+    expect(items[0].path).toBe("skills/content-marketer");
+  });
+
   it("returns empty array for non-JSON response body", async () => {
     process.env.SKILLSMP_API_KEY = "sk-test";
     vi.stubGlobal(
@@ -466,16 +512,14 @@ describe("listInstalledMarketplaceSkills", () => {
     expect(result).toEqual([]);
   });
 
-  it("throws when records file contains an array instead of an object", async () => {
-    // readInstallRecords passes the `typeof === "object"` check for arrays,
-    // so a corrupted file like `[1, 2, 3]` leaks through and crashes the sort.
-    // This documents the current behavior — a future fix could tighten the
-    // type guard in readInstallRecords to reject non-plain-objects.
+  it("returns empty array when records file contains an array instead of an object", async () => {
     const p = recordsPath(tmpDir);
     await fs.mkdir(path.dirname(p), { recursive: true });
     await fs.writeFile(p, JSON.stringify([1, 2, 3]));
 
-    await expect(listInstalledMarketplaceSkills(tmpDir)).rejects.toThrow();
+    const result = await listInstalledMarketplaceSkills(tmpDir);
+
+    expect(result).toEqual([]);
   });
 });
 

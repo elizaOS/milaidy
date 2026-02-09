@@ -281,7 +281,7 @@ async function readInstallRecords(
   try {
     const raw = await fs.readFile(installsRecordPath(workspaceDir), "utf-8");
     const parsed = JSON.parse(raw) as Record<string, InstalledMarketplaceSkill>;
-    if (!parsed || typeof parsed !== "object") return {};
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
     return parsed;
   } catch {
     return {};
@@ -352,7 +352,7 @@ function inferPath(skill: Record<string, unknown>): string | null {
   for (const value of candidates) {
     if (typeof value !== "string") continue;
     const cleaned = value.replace(/^\/+/, "").trim();
-    if (cleaned && !cleaned.startsWith("..")) return cleaned;
+    if (cleaned && !cleaned.startsWith("..") && !cleaned.includes("/..")) return cleaned;
   }
 
   // Try to extract path from githubUrl (e.g., https://github.com/owner/repo/tree/main/skills/content-marketer)
@@ -364,7 +364,7 @@ function inferPath(skill: Record<string, unknown>): string | null {
     const slashIndex = afterTree.indexOf("/");
     if (slashIndex !== -1) {
       const pathPart = afterTree.slice(slashIndex + 1);
-      if (pathPart && !pathPart.startsWith("..")) return pathPart;
+      if (pathPart && !pathPart.startsWith("..") && !pathPart.includes("/..")) return pathPart;
     }
   }
 
