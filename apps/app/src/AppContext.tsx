@@ -271,6 +271,7 @@ export interface AppState {
   onboardingLargeModel: string;
   onboardingProvider: string;
   onboardingApiKey: string;
+  onboardingOpenRouterModel: string;
   onboardingSelectedChains: Set<string>;
   onboardingRpcSelections: Record<string, string>;
   onboardingRpcKeys: Record<string, string>;
@@ -574,6 +575,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [onboardingLargeModel, setOnboardingLargeModel] = useState("claude-sonnet-4-5");
   const [onboardingProvider, setOnboardingProvider] = useState("");
   const [onboardingApiKey, setOnboardingApiKey] = useState("");
+  const [onboardingOpenRouterModel, setOnboardingOpenRouterModel] = useState("anthropic/claude-sonnet-4");
   const [onboardingSelectedChains, setOnboardingSelectedChains] = useState<Set<string>>(new Set(["evm", "solana"]));
   const [onboardingRpcSelections, setOnboardingRpcSelections] = useState<Record<string, string>>({});
   const [onboardingRpcKeys, setOnboardingRpcKeys] = useState<Record<string, string>>({});
@@ -1556,6 +1558,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         largeModel: onboardingRunMode === "cloud" ? onboardingLargeModel : undefined,
         provider: onboardingRunMode === "local" ? onboardingProvider || undefined : undefined,
         providerApiKey: onboardingRunMode === "local" ? onboardingApiKey || undefined : undefined,
+        openrouterModel: onboardingRunMode === "local" && onboardingProvider === "openrouter" ? onboardingOpenRouterModel || undefined : undefined,
         inventoryProviders: inventoryProviders.length > 0 ? inventoryProviders : undefined,
       });
     } catch (err) {
@@ -1572,7 +1575,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [
     onboardingOptions, onboardingStyle, onboardingName, onboardingTheme,
     onboardingRunMode, onboardingCloudProvider, onboardingSmallModel,
-    onboardingLargeModel, onboardingProvider, onboardingApiKey,
+    onboardingLargeModel, onboardingProvider, onboardingApiKey, onboardingOpenRouterModel,
     onboardingSelectedChains, onboardingRpcSelections, onboardingRpcKeys,
   ]);
 
@@ -1755,6 +1758,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       onboardingLargeModel: setOnboardingLargeModel as (v: never) => void,
       onboardingProvider: setOnboardingProvider as (v: never) => void,
       onboardingApiKey: setOnboardingApiKey as (v: never) => void,
+      onboardingOpenRouterModel: setOnboardingOpenRouterModel as (v: never) => void,
       onboardingSelectedChains: setOnboardingSelectedChains as (v: never) => void,
       onboardingRpcSelections: setOnboardingRpcSelections as (v: never) => void,
       onboardingRpcKeys: setOnboardingRpcKeys as (v: never) => void,
@@ -1964,7 +1968,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     importBusy, importPassword, importFile, importError, importSuccess,
     onboardingStep, onboardingOptions, onboardingName, onboardingStyle, onboardingTheme,
     onboardingRunMode, onboardingCloudProvider, onboardingSmallModel, onboardingLargeModel,
-    onboardingProvider, onboardingApiKey, onboardingSelectedChains,
+    onboardingProvider, onboardingApiKey, onboardingOpenRouterModel, onboardingSelectedChains,
     onboardingRpcSelections, onboardingRpcKeys,
     commandPaletteOpen, commandQuery, commandActiveIndex,
     mcpConfiguredServers, mcpServerStatuses, mcpMarketplaceQuery, mcpMarketplaceResults,

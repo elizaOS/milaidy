@@ -1156,6 +1156,7 @@ async function runFirstTimeSetup(
 
   let providerEnvKey: string | undefined;
   let providerApiKey: string | undefined;
+  let selectedOpenRouterModel: string | undefined;
 
   // In cloud mode, skip provider selection entirely.
   if (runMode === "cloud") {
@@ -1207,6 +1208,44 @@ async function runFirstTimeSetup(
           if (clack.isCancel(apiKeyInput)) cancelOnboarding();
 
           providerApiKey = apiKeyInput.trim();
+        }
+
+        // OpenRouter requires explicit model selection (it's a gateway to many models)
+        if (chosen.id === "openrouter" && providerApiKey) {
+          const modelChoice = await clack.select({
+            message: `${name}: Which model should I use via OpenRouter?`,
+            options: [
+              {
+                value: "anthropic/claude-sonnet-4",
+                label: "Claude Sonnet 4",
+                hint: "balanced speed & intelligence (recommended)",
+              },
+              {
+                value: "anthropic/claude-opus-4",
+                label: "Claude Opus 4",
+                hint: "most capable, slower",
+              },
+              {
+                value: "openai/gpt-4o",
+                label: "GPT-4o",
+                hint: "OpenAI's flagship model",
+              },
+              {
+                value: "google/gemini-2.5-pro-preview",
+                label: "Gemini 2.5 Pro",
+                hint: "Google's latest model",
+              },
+              {
+                value: "deepseek/deepseek-chat-v3",
+                label: "DeepSeek V3",
+                hint: "cost-effective alternative",
+              },
+            ],
+          });
+
+          if (clack.isCancel(modelChoice)) cancelOnboarding();
+
+          selectedOpenRouterModel = modelChoice as string;
         }
       }
     }
@@ -1373,6 +1412,15 @@ async function runFirstTimeSetup(
     // Also set immediately in process.env for the current run
     process.env[providerEnvKey] = providerApiKey;
   }
+
+  // Persist the selected OpenRouter model in config.agent.model
+  if (selectedOpenRouterModel) {
+    (updated as Record<string, unknown>).agent = {
+      ...((updated as Record<string, unknown>).agent as Record<string, unknown> || {}),
+      model: `openrouter/${selectedOpenRouterModel}`,
+    };
+  }
+
   if (process.env.EVM_PRIVATE_KEY && !hasEvmKey) {
     envBucket.EVM_PRIVATE_KEY = process.env.EVM_PRIVATE_KEY;
   }

@@ -120,7 +120,7 @@
     "@elizaos/plugin-msteams": "next",
     "@elizaos/plugin-ollama": "2.0.0-alpha.4",
     "@elizaos/plugin-openai": "2.0.0-alpha.4",
-    "@elizaos/plugin-openrouter": "2.0.0-alpha.4",
+    "@elizaos/plugin-openrouter": "2.0.0-alpha.3",
     "@elizaos/plugin-pdf": "next",
     "@elizaos/plugin-personality": "next",
     "@elizaos/plugin-plugin-manager": "next",

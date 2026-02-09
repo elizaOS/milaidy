@@ -1296,6 +1296,40 @@ function getModelOptions(): {
   };
 }
 
+function getOpenRouterModelOptions(): Array<{
+  id: string;
+  name: string;
+  description: string;
+}> {
+  return [
+    {
+      id: "anthropic/claude-sonnet-4",
+      name: "Claude Sonnet 4",
+      description: "Balanced speed & intelligence (recommended)",
+    },
+    {
+      id: "anthropic/claude-opus-4",
+      name: "Claude Opus 4",
+      description: "Most capable, slower",
+    },
+    {
+      id: "openai/gpt-4o",
+      name: "GPT-4o",
+      description: "OpenAI's flagship model",
+    },
+    {
+      id: "google/gemini-2.5-pro-preview",
+      name: "Gemini 2.5 Pro",
+      description: "Google's latest model",
+    },
+    {
+      id: "deepseek/deepseek-chat-v3",
+      name: "DeepSeek V3",
+      description: "Cost-effective alternative",
+    },
+  ];
+}
+
 function getInventoryProviderOptions(): Array<{
   id: string;
   name: string;
@@ -1852,6 +1886,7 @@ async function handleRequest(
       providers: getProviderOptions(),
       cloudProviders: getCloudProviderOptions(),
       models: getModelOptions(),
+      openrouterModels: getOpenRouterModelOptions(),
       inventoryProviders: getInventoryProviderOptions(),
       sharedStyleRules: "Keep responses brief. Be helpful and concise.",
     });
@@ -1937,6 +1972,14 @@ async function handleRequest(
             body.providerApiKey as string;
           process.env[providerOpt.envKey] = body.providerApiKey as string;
         }
+      }
+
+      // OpenRouter requires explicit model selection — persist the chosen model
+      if (body.provider === "openrouter" && body.openrouterModel) {
+        (config as Record<string, unknown>).agent = {
+          ...((config as Record<string, unknown>).agent as Record<string, unknown> || {}),
+          model: `openrouter/${body.openrouterModel}`,
+        };
       }
     }
 

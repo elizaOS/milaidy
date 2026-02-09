@@ -4,7 +4,7 @@
 
 import { useEffect } from "react";
 import { useApp, THEMES, type OnboardingStep } from "../AppContext.js";
-import type { StylePreset, ProviderOption, CloudProviderOption, ModelOption, InventoryProviderOption, RpcProviderOption } from "../api-client";
+import type { StylePreset, ProviderOption, CloudProviderOption, ModelOption, InventoryProviderOption, RpcProviderOption, OpenRouterModelOption } from "../api-client";
 
 export function OnboardingWizard() {
   const {
@@ -19,6 +19,7 @@ export function OnboardingWizard() {
     onboardingLargeModel,
     onboardingProvider,
     onboardingApiKey,
+    onboardingOpenRouterModel,
     onboardingSelectedChains,
     onboardingRpcSelections,
     onboardingRpcKeys,
@@ -74,6 +75,10 @@ export function OnboardingWizard() {
 
   const handleApiKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setState("onboardingApiKey", e.target.value);
+  };
+
+  const handleOpenRouterModelSelect = (modelId: string) => {
+    setState("onboardingOpenRouterModel", modelId);
   };
 
   const handleChainToggle = (chain: string) => {
@@ -368,6 +373,27 @@ export function OnboardingWizard() {
                   placeholder="Enter your API key"
                   className="w-full px-3 py-2 border border-border bg-card text-sm mt-2 focus:border-accent focus:outline-none"
                 />
+              </div>
+            )}
+            {onboardingProvider === "openrouter" && onboardingApiKey.trim() && onboardingOptions?.openrouterModels && (
+              <div className="max-w-[360px] mx-auto mt-4">
+                <label className="text-[13px] font-bold text-txt-strong block mb-2 text-left">Select Model:</label>
+                <div className="flex flex-col gap-2">
+                  {onboardingOptions.openrouterModels.map((model: OpenRouterModelOption) => (
+                    <div
+                      key={model.id}
+                      className={`px-4 py-3 border cursor-pointer transition-colors text-left ${
+                        onboardingOpenRouterModel === model.id
+                          ? "border-accent bg-card"
+                          : "border-border bg-card hover:border-accent/50"
+                      }`}
+                      onClick={() => handleOpenRouterModelSelect(model.id)}
+                    >
+                      <div className="font-bold text-sm">{model.name}</div>
+                      {model.description && <div className="text-xs text-muted mt-0.5">{model.description}</div>}
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>
