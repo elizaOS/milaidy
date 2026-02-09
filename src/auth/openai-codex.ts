@@ -40,7 +40,7 @@ export function startCodexLogin(): Promise<CodexFlow> {
 
     try {
       credentials = loginOpenAICodex({
-        onAuth: ({ url }) => {
+        onAuth: ({ url }: { url: string }) => {
           authUrl = url;
           // Extract state from URL
           try {

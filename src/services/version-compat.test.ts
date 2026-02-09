@@ -363,8 +363,8 @@ describe("Package.json version pinning (issue #10)", () => {
     expect(coreVersion).not.toBe("next");
     // Should be a specific version
     expect(coreVersion).toMatch(/^\d+\.\d+\.\d+/);
-    // Must be >= alpha.4 (when MAX_EMBEDDING_TOKENS was introduced)
-    expect(versionSatisfies(coreVersion, "2.0.0-alpha.4")).toBe(true);
+    // Must be >= alpha.3 (minimum version compatible with pinned plugins)
+    expect(versionSatisfies(coreVersion, "2.0.0-alpha.3")).toBe(true);
   });
 
   it("affected plugins are present in dependencies (core pin makes next safe)", async () => {

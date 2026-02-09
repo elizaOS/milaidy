@@ -6,7 +6,7 @@
  * Memory search/get actions are superseded by plugin-scratchpad.
  */
 
-import type { MessagePayload, Plugin, Provider } from "@elizaos/core";
+import type { MessagePayload, Plugin } from "@elizaos/core";
 import {
   attachmentsProvider,
   entitiesProvider,

@@ -2,6 +2,7 @@ import type { ServerResponse } from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
 import { defineConfig, type ProxyOptions } from "vite";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -67,7 +68,7 @@ export default defineConfig(() => {
   const apiPort = process.env.MILAIDY_API_PORT || "2138";
   return {
     base,
-    plugins: [react()],
+    plugins: [tailwindcss(), react()],
     publicDir: path.resolve(here, "public"),
     build: {
       outDir: path.resolve(here, "../dist/control-ui"),

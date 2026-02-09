@@ -1584,7 +1584,6 @@ export async function startEliza(
   //     plugin-agent-skills auto-loads them on startup.
   let bundledSkillsDir: string | null = null;
   try {
-    // @ts-expect-error — optional peer dependency, resolved at runtime
     const { getSkillsDir } = (await import("@elizaos/skills")) as {
       getSkillsDir: () => string;
     };

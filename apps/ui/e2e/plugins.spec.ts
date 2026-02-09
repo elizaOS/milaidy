@@ -21,13 +21,13 @@ test.describe("Plugins page", () => {
   });
 
   test("lists all plugins from mock data", async ({ page }) => {
-    const items = page.locator(".plugin-item");
+    const items = page.locator("[data-plugin-id]");
     await expect(items).toHaveCount(11);
   });
 
   test("shows plugin names and descriptions", async ({ page }) => {
-    await expect(page.locator(".plugin-name").first()).toBeTruthy();
-    await expect(page.locator(".plugin-desc").first()).toBeTruthy();
+    await expect(page.locator(".pc-name").first()).toBeTruthy();
+    await expect(page.locator(".pc-desc").first()).toBeTruthy();
   });
 
   test("shows enabled/disabled toggle for each plugin", async ({ page }) => {
@@ -146,30 +146,30 @@ test.describe("Plugins page", () => {
   // --- Category filtering ---
 
   test("shows category filter buttons", async ({ page }) => {
-    const filterBtns = page.locator(".plugin-filters button");
+    const filterBtns = page.locator(".pc-filters .pc-filter-btn");
     const count = await filterBtns.count();
     expect(count).toBeGreaterThanOrEqual(4); // at least all + 3 categories
   });
 
   test("'All' filter is active by default", async ({ page }) => {
-    const allBtn = page.locator(".filter-btn.active");
+    const allBtn = page.locator(".pc-filter-btn.active");
     await expect(allBtn).toContainText("All");
   });
 
   test("switching back to 'All' shows all plugins again", async ({ page }) => {
     // Click any non-all filter first
-    const filters = page.locator(".plugin-filters button");
+    const filters = page.locator(".pc-filters .pc-filter-btn");
     await filters.nth(1).click();
     // Then click All
     await filters.nth(0).click();
-    await expect(page.locator(".plugin-item")).toHaveCount(11);
+    await expect(page.locator("[data-plugin-id]")).toHaveCount(11);
   });
 
   // --- Toggle within filtered view ---
 
   test("can toggle a plugin within a filtered category view", async ({ page }) => {
     // Click All filter first to ensure we see all plugins
-    const filters = page.locator(".plugin-filters button");
+    const filters = page.locator(".pc-filters .pc-filter-btn");
     await filters.first().click();
 
     // Find the ollama toggle (known to be unchecked, no validation errors)

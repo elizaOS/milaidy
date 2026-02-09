@@ -20,26 +20,6 @@ test.describe("Navigation", () => {
     await expect(page.getByText("Manage plugins and integrations")).toBeVisible();
   });
 
-  test("navigates to workbench tab", async ({ page }) => {
-    await mockApi(page, { onboardingComplete: true, agentState: "running" });
-    await page.goto("/");
-
-    await page.getByRole("link", { name: "Workbench" }).click();
-
-    await expect(page).toHaveURL(/\/workbench/);
-    await expect(page.getByRole("heading", { name: "Workbench" })).toBeVisible();
-  });
-
-  test("navigates to marketplace tab", async ({ page }) => {
-    await mockApi(page, { onboardingComplete: true, agentState: "running" });
-    await page.goto("/");
-
-    await page.getByRole("link", { name: "Marketplace" }).click();
-
-    await expect(page).toHaveURL(/\/marketplace/);
-    await expect(page.getByRole("heading", { name: "Marketplace" })).toBeVisible();
-  });
-
   test("navigates to skills tab", async ({ page }) => {
     await mockApi(page, { onboardingComplete: true, agentState: "running" });
     await page.goto("/");

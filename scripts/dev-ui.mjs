@@ -44,7 +44,7 @@ function which(cmd) {
   // using PATHEXT (e.g., bun.exe, npx.cmd). Mirror that behavior here.
   const pathext = isWindows ? process.env.PATHEXT : "";
   const exts = isWindows
-    ? (pathext && pathext.length
+    ? (pathext?.length
         ? pathext.split(";").filter(Boolean)
         : [".EXE", ".CMD", ".BAT", ".COM"])
     : [""];

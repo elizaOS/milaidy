@@ -6,6 +6,9 @@ test.describe("Skills marketplace", () => {
     await mockApi(page, { onboardingComplete: true, agentState: "running" });
     await page.goto("/skills");
 
+    // Switch to the Browse & Install tab
+    await page.getByRole("button", { name: "Browse & Install" }).click();
+
     const searchInput = page.getByPlaceholder("Search skills by keyword...");
     await searchInput.fill("installer");
     await searchInput.press("Enter");
@@ -16,6 +19,9 @@ test.describe("Skills marketplace", () => {
 
     await expect(page.getByText(/Installed skill: skill-installer/i)).toBeVisible();
     await expect(card.getByRole("button", { name: "Uninstall" })).toBeVisible();
+
+    // Switch back to My Skills to see the installed skill
+    await page.getByRole("button", { name: "My Skills" }).click();
     await expect(page.locator(".plugin-item[data-skill-id='skill-installer']")).toBeVisible();
   });
 
@@ -23,11 +29,17 @@ test.describe("Skills marketplace", () => {
     await mockApi(page, { onboardingComplete: true, agentState: "running" });
     await page.goto("/skills");
 
+    // Switch to the Browse & Install tab
+    await page.getByRole("button", { name: "Browse & Install" }).click();
+
     const urlInput = page.getByPlaceholder("Install via GitHub URL (repo or /tree/... path)");
     await urlInput.fill("https://github.com/openai/skills/tree/main/skills/.curated/agents-ui");
     await page.getByRole("button", { name: "Install URL" }).click();
 
     await expect(page.getByText(/Skill installed from GitHub URL/i)).toBeVisible();
+
+    // Switch back to My Skills to see the installed skill
+    await page.getByRole("button", { name: "My Skills" }).click();
     await expect(page.locator(".plugin-item[data-skill-id='agents-ui']")).toBeVisible();
   });
 
@@ -49,6 +61,9 @@ test.describe("Skills marketplace", () => {
       skillsMarketplaceSearchError: "SKILLSMP_API_KEY is not set. Add it to enable Skills marketplace search.",
     });
     await page.goto("/skills");
+
+    // Switch to the Browse & Install tab
+    await page.getByRole("button", { name: "Browse & Install" }).click();
 
     await page.getByPlaceholder("Search skills by keyword...").fill("agent");
     await page.getByRole("button", { name: "Search" }).click();

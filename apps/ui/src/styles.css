@@ -1,1 +1,181 @@
+@import "tailwindcss";
 @import "./styles/base.css";
+
+/*
+ * Map the existing theme CSS custom properties to Tailwind theme tokens.
+ * Using @theme inline so Tailwind inlines var() references rather than
+ * generating duplicate CSS variables. This lets the [data-theme="..."]
+ * selectors in base.css drive all visual changes at runtime.
+ */
+@theme inline {
+  /* Colors — surfaces */
+  --color-bg: var(--bg);
+  --color-bg-accent: var(--bg-accent);
+  --color-bg-elevated: var(--bg-elevated);
+  --color-bg-hover: var(--bg-hover);
+  --color-bg-muted: var(--bg-muted);
+  --color-card: var(--card);
+  --color-card-fg: var(--card-foreground);
+  --color-surface: var(--surface);
+
+  /* Colors — text */
+  --color-txt: var(--text);
+  --color-txt-strong: var(--text-strong);
+  --color-txt-chat: var(--chat-text);
+  --color-muted: var(--muted);
+  --color-muted-strong: var(--muted-strong);
+
+  /* Colors — border */
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-border-hover: var(--border-hover);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* Colors — accent */
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-muted: var(--accent-muted);
+  --color-accent-subtle: var(--accent-subtle);
+  --color-accent-fg: var(--accent-foreground);
+  --color-primary: var(--primary);
+  --color-primary-fg: var(--primary-foreground);
+
+  /* Colors — status */
+  --color-ok: var(--ok);
+  --color-ok-muted: var(--ok-muted);
+  --color-ok-subtle: var(--ok-subtle);
+  --color-warn: var(--warn);
+  --color-warn-muted: var(--warn-muted);
+  --color-warn-subtle: var(--warn-subtle);
+  --color-danger: var(--danger);
+  --color-destructive: var(--destructive);
+  --color-destructive-fg: var(--destructive-foreground);
+  --color-destructive-subtle: var(--destructive-subtle);
+  --color-muted-strong: var(--muted-strong);
+
+  /* Colors — header */
+  --color-header-bg: var(--header-bar-bg);
+  --color-header-fg: var(--header-bar-fg);
+
+  /* Colors — chain icons */
+  --color-chain-eth: #627eea;
+  --color-chain-base: #0052ff;
+  --color-chain-arb: #28a0f0;
+  --color-chain-op: #ff0420;
+  --color-chain-pol: #8247e5;
+  --color-chain-sol: #9945ff;
+
+  /* Fonts */
+  --font-body: var(--font-body);
+  --font-mono: var(--mono);
+  --font-display: var(--font-display);
+
+  /* Shadows */
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+
+  /* Radius */
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+}
+
+/* ── Global resets ──────────────────────────────────────────────────── */
+
+#root {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+  font-family: var(--font-body);
+  color: var(--text);
+  background: var(--bg);
+}
+
+/* ── Typing indicator animation ─────────────────────────────────────── */
+
+@keyframes typing-bounce {
+  0%, 60%, 100% { opacity: 0.3; transform: translateY(0); }
+  30% { opacity: 1; transform: translateY(-4px); }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes pc-slide-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Onboarding speech bubble arrow ─────────────────────────────────── */
+
+.onboarding-speech::after {
+  content: "";
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  transform: translateX(-50%) rotate(45deg);
+  width: 14px;
+  height: 14px;
+  background: var(--card);
+  border-left: 1px solid var(--border);
+  border-top: 1px solid var(--border);
+}
+
+/* ── Wallet tooltip hover bridge ────────────────────────────────────── */
+
+.wallet-wrapper::after {
+  content: "";
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  height: 8px;
+}
+
+.wallet-wrapper:hover::after { display: block; }
+.wallet-wrapper:hover .wallet-tooltip { display: block !important; }
+
+/* ── Button base classes (migrated from Lit shadow DOM) ────────────── */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 16px;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: var(--accent-foreground);
+  cursor: pointer;
+  font-size: 13px;
+  font-family: inherit;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: opacity var(--duration-fast, 100ms);
+}
+
+.btn:hover { opacity: 0.85; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.theme-btn {
+  padding: 6px 14px;
+  text-align: center;
+  cursor: pointer;
+  font-family: inherit;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  transition: border-color var(--duration-fast, 100ms), color var(--duration-fast, 100ms);
+}
+
+.theme-btn:hover { border-color: var(--accent); }
+
+.theme-btn.active {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-subtle);
+}

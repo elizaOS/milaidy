@@ -37,7 +37,7 @@ globalThis.fetch = async function stealthFetch(input, init) {
   // Check if we're using an OAuth token (via x-api-key or Authorization header)
   const headers = init.headers || {};
   const apiKey = headers["x-api-key"] || headers["X-Api-Key"];
-  const existingAuth = headers["Authorization"] || headers["authorization"];
+  const existingAuth = headers.Authorization || headers.authorization;
   
   // Determine the token
   let token = null;
@@ -58,11 +58,11 @@ globalThis.fetch = async function stealthFetch(input, init) {
   const newHeaders = { ...headers };
   delete newHeaders["x-api-key"];
   delete newHeaders["X-Api-Key"];
-  newHeaders["Authorization"] = `Bearer ${token}`;
+  newHeaders.Authorization = `Bearer ${token}`;
   newHeaders["anthropic-beta"] = ANTHROPIC_BETA;
   newHeaders["user-agent"] = `claude-cli/${CLAUDE_CODE_VERSION} (external, cli)`;
   newHeaders["x-app"] = "cli";
-  newHeaders["accept"] = "application/json";
+  newHeaders.accept = "application/json";
   newHeaders["anthropic-dangerous-direct-browser-access"] = "true";
 
   // 2. Inject system prompt prefix into request body
@@ -85,7 +85,7 @@ globalThis.fetch = async function stealthFetch(input, init) {
       init.body = JSON.stringify(body);
       
       console.log(`[stealth] ${body.model} → Bearer auth + Claude Code system prefix (${body.system.length} blocks)`);
-    } catch (e) {
+    } catch {
       // Not JSON body, pass through
     }
   }

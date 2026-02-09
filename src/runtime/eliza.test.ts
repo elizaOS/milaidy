@@ -9,7 +9,7 @@
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { findPluginExport } from "../cli/plugins-cli.js";
 import type { MilaidyConfig } from "../config/config.js";
 import {
@@ -87,20 +87,10 @@ describe("remote provider precedence", () => {
     // Set a remote provider env var (e.g., OPENAI_API_KEY)
     process.env.OPENAI_API_KEY = "test-api-key";
 
-    // Import the module fresh to pick up the env change
-    const { getPluginsToLoad } = await import("./eliza.js");
-
-    // Mock config with local-embedding in plugins
-    const config = {
-      plugins: {
-        entries: {},
-      },
-    };
-
-    const pluginsToLoad = getPluginsToLoad(config, true); // hasRemoteModelProvider = true
+    const plugins = collectPluginNames({} as MilaidyConfig);
 
     // Verify local-embedding is NOT in the set when remote provider is available
-    expect(pluginsToLoad.has("@elizaos/plugin-local-embedding")).toBe(false);
+    expect(plugins.has("@elizaos/plugin-local-embedding")).toBe(false);
   });
 
   it("should keep @elizaos/plugin-local-embedding when no remote provider is available", async () => {
@@ -109,18 +99,10 @@ describe("remote provider precedence", () => {
     delete process.env.ANTHROPIC_API_KEY;
     delete process.env.OLLAMA_BASE_URL;
 
-    const { getPluginsToLoad } = await import("./eliza.js");
-
-    const config = {
-      plugins: {
-        entries: {},
-      },
-    };
-
-    const pluginsToLoad = getPluginsToLoad(config, false); // hasRemoteModelProvider = false
+    const plugins = collectPluginNames({} as MilaidyConfig);
 
     // Verify local-embedding IS in the set for offline/zero-config setups
-    expect(pluginsToLoad.has("@elizaos/plugin-local-embedding")).toBe(true);
+    expect(plugins.has("@elizaos/plugin-local-embedding")).toBe(true);
   });
 });
   afterEach(() => snap.restore());

@@ -14,10 +14,10 @@ test.describe("Command palette", () => {
     await expect(page.getByPlaceholder("Type a message...")).toBeVisible();
 
     await openPalette(page);
-    await page.getByRole("button", { name: "Open Workbench" }).click();
+    await page.getByRole("button", { name: "Open Plugins" }).click();
 
-    await expect(page).toHaveURL(/\/workbench/);
-    await expect(page.getByRole("heading", { name: "Workbench" })).toBeVisible();
+    await expect(page).toHaveURL(/\/plugins/);
+    await expect(page.locator("h2").first()).toHaveText("Plugins");
   });
 
   test("supports keyboard execution from query (Enter)", async ({ page }) => {

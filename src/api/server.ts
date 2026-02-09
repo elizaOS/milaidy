@@ -123,6 +123,10 @@ interface ServerState {
   appManager: AppManager;
   /** In-memory queue for share ingest items. */
   shareIngestQueue: ShareIngestItem[];
+  /** Transient OAuth flow state for subscription auth. */
+  _anthropicFlow?: import("../auth/anthropic.js").AnthropicFlow;
+  _codexFlow?: import("../auth/openai-codex.js").CodexFlow;
+  _codexFlowTimer?: ReturnType<typeof setTimeout>;
 }
 
 interface ShareIngestItem {
@@ -754,7 +758,6 @@ async function discoverSkills(
 
   // Bundled skills from the @elizaos/skills package
   try {
-    // @ts-expect-error — optional dependency; may not ship type declarations
     const skillsPkg = (await import("@elizaos/skills")) as {
       getSkillsDir: () => string;
     };
@@ -1617,7 +1620,7 @@ async function handleRequest(
       const { startAnthropicLogin } = await import("../auth/index.js");
       const flow = await startAnthropicLogin();
       // Store flow in server state for the exchange step
-      (state as Record<string, unknown>)._anthropicFlow = flow;
+      state._anthropicFlow = flow;
       json(res, { authUrl: flow.authUrl });
     } catch (err) {
       error(res, `Failed to start Anthropic login: ${err}`, 500);
@@ -1633,15 +1636,14 @@ async function handleRequest(
     if (!body.code) { error(res, "Missing code", 400); return; }
     try {
       const { saveCredentials, applySubscriptionCredentials } = await import("../auth/index.js");
-      const flow = (state as Record<string, unknown>)._anthropicFlow as
-        import("../auth/index.js").AnthropicFlow | undefined;
+      const flow = state._anthropicFlow;
       if (!flow) { error(res, "No active flow — call /start first", 400); return; }
       // Submit the code and wait for credentials
       flow.submitCode(body.code);
       const credentials = await flow.credentials;
       saveCredentials("anthropic-subscription", credentials);
       await applySubscriptionCredentials();
-      delete (state as Record<string, unknown>)._anthropicFlow;
+      delete state._anthropicFlow;
       json(res, { success: true, expiresAt: credentials.expires });
     } catch (err) {
       error(res, `Anthropic exchange failed: ${err}`, 500);
@@ -1678,17 +1680,16 @@ async function handleRequest(
     try {
       const { startCodexLogin } = await import("../auth/index.js");
       // Clean up any stale flow from a previous attempt
-      const staleFlow = (state as Record<string, unknown>)._codexFlow as { close: () => void } | undefined;
-      if (staleFlow) { try { staleFlow.close(); } catch { /* */ } }
-      clearTimeout((state as Record<string, unknown>)._codexFlowTimer as ReturnType<typeof setTimeout>);
+      if (state._codexFlow) { try { state._codexFlow.close(); } catch { /* */ } }
+      clearTimeout(state._codexFlowTimer);
 
       const flow = await startCodexLogin();
       // Store flow state + auto-cleanup after 10 minutes
-      (state as Record<string, unknown>)._codexFlow = flow;
-      (state as Record<string, unknown>)._codexFlowTimer = setTimeout(() => {
+      state._codexFlow = flow;
+      state._codexFlowTimer = setTimeout(() => {
         try { flow.close(); } catch { /* */ }
-        delete (state as Record<string, unknown>)._codexFlow;
-        delete (state as Record<string, unknown>)._codexFlowTimer;
+        delete state._codexFlow;
+        delete state._codexFlowTimer;
       }, 10 * 60 * 1000);
       json(res, {
         authUrl: flow.authUrl,
@@ -1709,8 +1710,7 @@ async function handleRequest(
     let flow: import("../auth/index.js").CodexFlow | undefined;
     try {
       const { saveCredentials, applySubscriptionCredentials } = await import("../auth/index.js");
-      flow = (state as Record<string, unknown>)._codexFlow as
-        import("../auth/index.js").CodexFlow | undefined;
+      flow = state._codexFlow;
 
       if (!flow) { error(res, "No active flow — call /start first", 400); return; }
 
@@ -1728,18 +1728,18 @@ async function handleRequest(
         credentials = await flow.credentials;
       } catch (err) {
         try { flow.close(); } catch { /* */ }
-        delete (state as Record<string, unknown>)._codexFlow;
-        clearTimeout((state as Record<string, unknown>)._codexFlowTimer as ReturnType<typeof setTimeout>);
-        delete (state as Record<string, unknown>)._codexFlowTimer;
+        delete state._codexFlow;
+        clearTimeout(state._codexFlowTimer);
+        delete state._codexFlowTimer;
         error(res, `OpenAI exchange failed: ${err}`, 500);
         return;
       }
       saveCredentials("openai-codex", credentials);
       await applySubscriptionCredentials();
       flow.close();
-      delete (state as Record<string, unknown>)._codexFlow;
-      clearTimeout((state as Record<string, unknown>)._codexFlowTimer as ReturnType<typeof setTimeout>);
-      delete (state as Record<string, unknown>)._codexFlowTimer;
+      delete state._codexFlow;
+      clearTimeout(state._codexFlowTimer);
+      delete state._codexFlowTimer;
       json(res, { success: true, expiresAt: credentials.expires, accountId: credentials.accountId });
     } catch (err) {
       error(res, `OpenAI exchange failed: ${err}`, 500);
