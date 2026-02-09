@@ -23,6 +23,7 @@ import {
   type WalletExportResult,
 } from "./api-client.js";
 import { tabFromPath, pathForTab, type Tab, TAB_GROUPS, titleForTab } from "./navigation.js";
+import { getProviderLogo } from "./provider-logos.js";
 
 const CHAT_STORAGE_KEY = "milaidy:chatMessages";
 const THEME_STORAGE_KEY = "milaidy:theme";
@@ -31,7 +32,7 @@ const THEME_STORAGE_KEY = "milaidy:theme";
 export class MilaidyApp extends LitElement {
   // --- State ---
   @state() tab: Tab = "chat";
-  @state() isDarkMode: boolean = false;
+  @state() isDarkMode: boolean = true;
   @state() connected = false;
   @state() agentStatus: AgentStatus | null = null;
   @state() onboardingComplete = false;
@@ -80,6 +81,10 @@ export class MilaidyApp extends LitElement {
   @state() onboardingApiKey = "";
   @state() onboardingTelegramToken = "";
   @state() onboardingDiscordToken = "";
+  @state() onboardingAlchemyKey = "";
+  @state() onboardingHeliusKey = "";
+  @state() showApiKeyModal = false;
+  @state() showProviderConfirmModal = false;
 
   // Config state
   @state() configRaw: unknown = null;
@@ -87,10 +92,8 @@ export class MilaidyApp extends LitElement {
 
   static styles = css`
     :host {
-      display: flex;
-      flex-direction: column;
-      height: 100vh;
-      overflow: hidden;
+      display: block;
+      min-height: 100vh;
       font-family: var(--font-body);
       color: var(--text);
       background: var(--bg);
@@ -100,13 +103,20 @@ export class MilaidyApp extends LitElement {
     .app-shell {
       display: flex;
       flex-direction: column;
-      flex: 1;
-      min-height: 0;
+      min-height: 100vh;
+      height: 100vh;
       max-width: 900px;
       margin: 0 auto;
       padding: 0 20px;
       width: 100%;
       box-sizing: border-box;
+      overflow: hidden;
+    }
+
+    .app-shell.onboarding-active {
+      overflow: visible;
+      height: auto;
+      min-height: 100vh;
     }
 
     .pairing-shell {
@@ -595,7 +605,7 @@ export class MilaidyApp extends LitElement {
 
     /* Main content */
     main {
-      flex: 1;
+      flex: 1 1 auto;
       min-height: 0;
       padding: 24px 0;
       overflow-y: auto;
@@ -611,6 +621,16 @@ export class MilaidyApp extends LitElement {
       overflow: hidden;
       padding-top: 12px;
       padding-bottom: 0;
+    }
+
+    /* When config is active, prevent double scrollbar - only config-container scrolls */
+    main.config-active {
+      flex: 1 1 auto;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      padding: 0;
+      min-height: 0;
     }
 
     h2 {
@@ -637,6 +657,7 @@ export class MilaidyApp extends LitElement {
     .onboarding {
       max-width: 500px;
       margin: 40px auto;
+      padding-bottom: 40px;
       text-align: center;
     }
 
@@ -743,6 +764,7 @@ export class MilaidyApp extends LitElement {
       background: var(--card);
       font-size: 14px;
       margin-top: 8px;
+      box-sizing: border-box;
     }
 
     .onboarding-input:focus {
@@ -784,6 +806,241 @@ export class MilaidyApp extends LitElement {
       gap: 8px;
       justify-content: center;
       margin-top: 20px;
+    }
+
+    /* New onboarding styles - provider cards & wallet setup */
+    .onboarding-provider-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin-bottom: 24px;
+      text-align: left;
+    }
+
+    @media (max-width: 640px) {
+      .onboarding-provider-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .provider-card {
+      padding: 20px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-lg);
+      background: var(--card);
+      cursor: pointer;
+      transition: all var(--duration-normal) var(--ease-out, ease-out);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .provider-card:hover {
+      border-color: var(--border-hover);
+      background: var(--bg-hover);
+      box-shadow: var(--shadow-md);
+      transform: translateY(-1px);
+    }
+
+    .provider-card.selected {
+      border-color: var(--accent);
+      background: var(--accent-subtle);
+      box-shadow: 0 0 0 3px var(--accent-subtle), var(--shadow-md);
+    }
+
+    .provider-card-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .provider-logo {
+      width: 40px;
+      height: 40px;
+      border-radius: var(--radius-md);
+      object-fit: contain;
+      background: var(--bg-muted);
+      padding: 6px;
+      flex-shrink: 0;
+    }
+
+    .provider-name {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-strong);
+    }
+
+    .provider-description {
+      font-size: 13px;
+      color: var(--muted-strong);
+      line-height: 1.5;
+    }
+
+    /* Modal for API key input */
+    .modal-backdrop {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      animation: fadeIn 0.2s ease-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .modal-content {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      max-width: 450px;
+      width: 90%;
+      box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.3), 0 8px 10px -6px rgb(0 0 0 / 0.3);
+      animation: slideUp 0.2s ease-out;
+    }
+
+    @keyframes slideUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .modal-header img {
+      width: 40px;
+      height: 40px;
+      border-radius: var(--radius-md);
+      object-fit: contain;
+      background: var(--bg-muted);
+      padding: 6px;
+    }
+
+    .modal-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text-strong);
+    }
+
+    .modal-description {
+      font-size: 13px;
+      color: var(--muted-strong);
+      margin-bottom: 16px;
+      line-height: 1.5;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      margin-top: 20px;
+    }
+
+    .btn-primary {
+      padding: 10px 24px;
+      border-radius: var(--radius-md);
+      font-size: 14px;
+      font-weight: 500;
+      background: var(--accent);
+      color: var(--accent-foreground);
+      border: 1px solid var(--accent);
+      cursor: pointer;
+      transition: all var(--duration-fast) var(--ease-out, ease-out);
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background: var(--accent-hover);
+      box-shadow: var(--shadow-md);
+    }
+
+    .btn-secondary {
+      padding: 10px 24px;
+      border-radius: var(--radius-md);
+      font-size: 14px;
+      font-weight: 500;
+      background: transparent;
+      color: var(--text);
+      border: 1.5px solid var(--border-strong);
+      cursor: pointer;
+      transition: all var(--duration-fast) var(--ease-out, ease-out);
+    }
+
+    .btn-secondary:hover:not(:disabled) {
+      background: var(--bg-hover);
+      border-color: var(--border-hover);
+    }
+
+    .onboarding-actions {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 32px;
+      gap: 12px;
+    }
+
+    @media (max-width: 640px) {
+      .onboarding-actions {
+        flex-direction: column;
+      }
+    }
+
+    .wallet-info-card {
+      padding: 16px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      margin-bottom: 20px;
+      text-align: left;
+    }
+
+    .wallet-api-input-card {
+      padding: 16px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      margin-bottom: 12px;
+      text-align: left;
+    }
+
+    .wallet-api-input-card label {
+      display: block;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-strong);
+      margin-bottom: 8px;
+    }
+
+    .wallet-api-input-card .description {
+      font-size: 12px;
+      color: var(--muted-strong);
+      margin-bottom: 12px;
+    }
+
+    /* Config */
+    .config-container {
+      overflow-y: auto;
+      overflow-x: hidden;
+      flex: 1 1 auto;
+      min-height: 0;
+      height: 100%;
+      padding: 24px 0;
     }
 
     /* Chat */
@@ -1366,12 +1623,31 @@ export class MilaidyApp extends LitElement {
     this.onboardingStep += 1;
   }
 
+  private handleOnboardingSkip(step: number): void {
+    if (step === 1) {
+      // Skip name: use default
+      this.onboardingName = "milAIdy";
+      this.onboardingStep++;
+    } else if (step === 2) {
+      // Skip provider: default to elizacloud
+      this.onboardingProvider = "elizacloud";
+      this.onboardingApiKey = "";
+      this.onboardingStep++;
+    } else if (step === 3) {
+      // Skip wallet: proceed to finish
+      this.onboardingAlchemyKey = "";
+      this.onboardingHeliusKey = "";
+      this.handleOnboardingFinish();
+    }
+  }
+
   private async handleOnboardingFinish(): Promise<void> {
     if (!this.onboardingOptions) return;
 
+    // Default to "Noted." style if none selected
     const style = this.onboardingOptions.styles.find(
       (s) => s.catchphrase === this.onboardingStyle,
-    );
+    ) || this.onboardingOptions.styles.find((s) => s.catchphrase === "Noted.");
 
     const systemPrompt = style?.system
       ? style.system.replace(/\{name\}/g, this.onboardingName)
@@ -1389,6 +1665,10 @@ export class MilaidyApp extends LitElement {
       providerApiKey: this.onboardingApiKey || undefined,
       telegramBotToken: this.onboardingTelegramToken || undefined,
       discordBotToken: this.onboardingDiscordToken || undefined,
+      walletApiKeys: {
+        ALCHEMY_API_KEY: this.onboardingAlchemyKey || undefined,
+        HELIUS_API_KEY: this.onboardingHeliusKey || undefined,
+      },
     });
 
     this.onboardingComplete = true;
@@ -1419,7 +1699,7 @@ export class MilaidyApp extends LitElement {
       <div class="app-shell">
         ${this.renderHeader()}
         ${this.renderNav()}
-        <main class=${this.tab === "chat" ? "chat-active" : ""}>${this.renderView()}</main>
+        <main class=${this.tab === "chat" ? "chat-active" : this.tab === "config" ? "config-active" : ""}>${this.renderView()}</main>
       </div>
     `;
   }
@@ -2479,10 +2759,11 @@ export class MilaidyApp extends LitElement {
     const relayOk = ext?.relayReachable === true;
 
     return html`
-      <h2>Settings</h2>
-      <p class="subtitle">Agent settings and configuration.</p>
+      <div class="config-container">
+        <h2>Settings</h2>
+        <p class="subtitle">Agent settings and configuration.</p>
 
-      <!-- Chrome Extension Section -->
+        <!-- Chrome Extension Section -->
       <div style="margin-top:24px;padding:16px;border:1px solid var(--border);background:var(--card);">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
           <div>
@@ -2664,6 +2945,7 @@ export class MilaidyApp extends LitElement {
           >Reset Everything</button>
         </div>
       </div>
+      </div>
     `;
   }
 
@@ -2719,17 +3001,16 @@ export class MilaidyApp extends LitElement {
   private renderOnboarding() {
     const opts = this.onboardingOptions;
     if (!opts) {
-      return html`<div class="app-shell"><div class="empty-state">Loading onboarding...</div></div>`;
+      return html`<div class="app-shell onboarding-active"><div class="empty-state">Loading onboarding...</div></div>`;
     }
 
     return html`
-      <div class="app-shell">
+      <div class="app-shell onboarding-active">
         <div class="onboarding">
           ${this.onboardingStep === 0 ? this.renderOnboardingWelcome() : ""}
           ${this.onboardingStep === 1 ? this.renderOnboardingName(opts) : ""}
-          ${this.onboardingStep === 2 ? this.renderOnboardingStyle(opts) : ""}
-          ${this.onboardingStep === 3 ? this.renderOnboardingProvider(opts) : ""}
-          ${this.onboardingStep === 4 ? this.renderOnboardingChannels() : ""}
+          ${this.onboardingStep === 2 ? this.renderOnboardingProvider(opts) : ""}
+          ${this.onboardingStep === 3 ? this.renderOnboardingWallet() : ""}
         </div>
       </div>
     `;
@@ -2786,11 +3067,14 @@ export class MilaidyApp extends LitElement {
           />
         </div>
       </div>
-      <button
-        class="btn"
-        @click=${this.handleOnboardingNext}
-        ?disabled=${!this.onboardingName.trim()}
-      >Next</button>
+      <div class="onboarding-actions">
+        <button class="btn btn-secondary" @click=${() => this.handleOnboardingSkip(1)}>Skip</button>
+        <button
+          class="btn btn-primary"
+          @click=${this.handleOnboardingNext}
+          ?disabled=${!this.onboardingName.trim()}
+        >Next</button>
+      </div>
     `;
   }
 
@@ -2821,73 +3105,158 @@ export class MilaidyApp extends LitElement {
 
   private renderOnboardingProvider(opts: OnboardingOptions) {
     const selected = opts.providers.find((p) => p.id === this.onboardingProvider);
-    const needsKey = selected && selected.envKey && selected.id !== "elizacloud" && selected.id !== "ollama";
 
     return html`
-      <img class="onboarding-avatar" src="/pfp.jpg" alt="milAIdy" style="width:100px;height:100px;" />
-      <div class="onboarding-speech">which AI provider do you want to use?</div>
-      <div class="onboarding-options">
-        ${opts.providers.map(
-          (provider) => html`
-            <div
-              class="onboarding-option ${this.onboardingProvider === provider.id ? "selected" : ""}"
-              @click=${() => { this.onboardingProvider = provider.id; this.onboardingApiKey = ""; }}
-            >
-              <div class="label">${provider.name}</div>
-              <div class="hint">${provider.description}</div>
+      <img class="onboarding-avatar" src="/pfp.jpg" alt="milAIdy" style="width:80px;height:80px;" />
+      <div class="onboarding-speech">which AI provider should I use?</div>
+
+      <div class="onboarding-provider-grid">
+        ${opts.providers.map((provider) => html`
+          <div
+            class="provider-card ${this.onboardingProvider === provider.id ? 'selected' : ''}"
+            @click=${() => this.handleProviderSelect(provider)}
+          >
+            <div class="provider-card-header">
+              <img class="provider-logo" src="${getProviderLogo(provider.id, this.isDarkMode)}" alt="${provider.name}" />
+              <div class="provider-name">${provider.name}</div>
             </div>
-          `,
-        )}
+            ${provider.description ? html`<div class="provider-description">${provider.description}</div>` : ''}
+          </div>
+        `)}
       </div>
-      ${needsKey
-        ? html`
-            <input
-              class="onboarding-input"
-              type="password"
-              placeholder="API Key"
-              .value=${this.onboardingApiKey}
-              @input=${(e: Event) => { this.onboardingApiKey = (e.target as HTMLInputElement).value; }}
-            />
-          `
-        : ""}
-      <button
-        class="btn"
-        @click=${this.handleOnboardingNext}
-        ?disabled=${!this.onboardingProvider || (needsKey && !this.onboardingApiKey.trim())}
-      >Next</button>
+
+      ${this.showApiKeyModal && selected ? this.renderApiKeyModal(selected) : ''}
+      ${this.showProviderConfirmModal && selected ? this.renderProviderConfirmModal(selected) : ''}
     `;
   }
 
-  private renderOnboardingChannels() {
+  private handleProviderSelect(provider: any): void {
+    this.onboardingProvider = provider.id;
+    this.onboardingApiKey = "";
+
+    // Check if provider needs API key
+    const needsKey = provider.envKey && provider.id !== "elizacloud" && provider.id !== "ollama";
+    if (needsKey) {
+      this.showApiKeyModal = true;
+    } else {
+      // For providers without API keys (elizacloud, ollama), show confirmation modal
+      this.showProviderConfirmModal = true;
+    }
+  }
+
+  private renderApiKeyModal(provider: any) {
     return html`
-      <h1>Connect to messaging</h1>
-      <p>Optionally connect Telegram and/or Discord. You can skip this.</p>
+      <div class="modal-backdrop" @click=${() => this.showApiKeyModal = false}>
+        <div class="modal-content" @click=${(e: Event) => e.stopPropagation()}>
+          <div class="modal-header">
+            <img src="${getProviderLogo(provider.id, this.isDarkMode)}" alt="${provider.name}" />
+            <div class="modal-title">${provider.name} API Key</div>
+          </div>
+          <div class="modal-description">
+            Enter your API key for ${provider.name}. You can get one from their website.
+          </div>
+          <input
+            class="onboarding-input"
+            type="password"
+            placeholder="Paste your API key here"
+            .value=${this.onboardingApiKey}
+            @input=${(e: Event) => { this.onboardingApiKey = (e.target as HTMLInputElement).value; }}
+            @keydown=${(e: KeyboardEvent) => {
+              if (e.key === 'Enter' && this.onboardingApiKey.trim()) {
+                this.showApiKeyModal = false;
+                this.handleOnboardingNext();
+              }
+            }}
+          />
+          <div class="modal-actions">
+            <button class="btn btn-secondary" @click=${() => this.showApiKeyModal = false}>Cancel</button>
+            <button
+              class="btn btn-primary"
+              @click=${() => {
+                this.showApiKeyModal = false;
+                this.handleOnboardingNext();
+              }}
+              ?disabled=${!this.onboardingApiKey.trim()}
+            >Confirm</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
 
-      <div style="text-align: left; margin-bottom: 16px;">
-        <label style="font-size: 13px; color: var(--muted-strong);">Telegram Bot Token</label>
+  private renderProviderConfirmModal(provider: any) {
+    return html`
+      <div class="modal-backdrop" @click=${() => this.showProviderConfirmModal = false}>
+        <div class="modal-content" @click=${(e: Event) => e.stopPropagation()}>
+          <div class="modal-header">
+            <img src="${getProviderLogo(provider.id, this.isDarkMode)}" alt="${provider.name}" />
+            <div class="modal-title">Use ${provider.name}?</div>
+          </div>
+          <div class="modal-description">
+            ${provider.id === 'elizacloud'
+              ? 'ElizaCloud provides managed AI inference. No API key required.'
+              : provider.id === 'ollama'
+              ? 'Ollama runs models locally on your machine. No API key required.'
+              : `Would you like to use ${provider.name} as your AI provider?`
+            }
+          </div>
+          <div class="modal-actions">
+            <button class="btn btn-secondary" @click=${() => {
+              this.showProviderConfirmModal = false;
+              this.onboardingProvider = "";
+            }}>Cancel</button>
+            <button
+              class="btn btn-primary"
+              @click=${() => {
+                this.showProviderConfirmModal = false;
+                this.handleOnboardingNext();
+              }}
+            >Confirm</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  private renderOnboardingWallet() {
+    return html`
+      <img class="onboarding-avatar" src="/pfp.jpg" alt="milAIdy" style="width:80px;height:80px;" />
+      <div class="onboarding-speech">let's set up your wallet for token tracking~</div>
+
+      <div class="wallet-info-card">
+        <p style="font-size: 14px; color: var(--text); margin: 0;">
+          Your agent will auto-generate EVM and Solana wallets.
+          To view balances and NFTs, add API keys below (optional):
+        </p>
+      </div>
+
+      <div class="wallet-api-input-card">
+        <label>Alchemy API Key</label>
+        <div class="description">For EVM chains (Ethereum, Base, Arbitrum, etc.)</div>
         <input
           class="onboarding-input"
           type="password"
-          placeholder="Paste token from @BotFather"
-          .value=${this.onboardingTelegramToken}
-          @input=${(e: Event) => { this.onboardingTelegramToken = (e.target as HTMLInputElement).value; }}
+          placeholder="Paste Alchemy API key (optional)"
+          .value=${this.onboardingAlchemyKey}
+          @input=${(e: Event) => { this.onboardingAlchemyKey = (e.target as HTMLInputElement).value; }}
         />
       </div>
 
-      <div style="text-align: left; margin-bottom: 16px;">
-        <label style="font-size: 13px; color: var(--muted-strong);">Discord Bot Token</label>
+      <div class="wallet-api-input-card">
+        <label>Helius API Key</label>
+        <div class="description">For Solana (tokens and NFTs)</div>
         <input
           class="onboarding-input"
           type="password"
-          placeholder="Paste token from Discord Developer Portal"
-          .value=${this.onboardingDiscordToken}
-          @input=${(e: Event) => { this.onboardingDiscordToken = (e.target as HTMLInputElement).value; }}
+          placeholder="Paste Helius API key (optional)"
+          .value=${this.onboardingHeliusKey}
+          @input=${(e: Event) => { this.onboardingHeliusKey = (e.target as HTMLInputElement).value; }}
         />
       </div>
 
-      <div class="btn-row">
-        <button class="btn btn-outline" @click=${this.handleOnboardingFinish}>Skip</button>
-        <button class="btn" @click=${this.handleOnboardingFinish}>Finish</button>
+      <div class="onboarding-actions">
+        <button class="btn btn-secondary" @click=${() => this.handleOnboardingSkip(3)}>Skip</button>
+        <button class="btn btn-primary" @click=${this.handleOnboardingFinish}>Finish</button>
       </div>
     `;
   }
@@ -2900,8 +3269,8 @@ export class MilaidyApp extends LitElement {
     if (savedTheme === "dark" || savedTheme === "light") {
       this.isDarkMode = savedTheme === "dark";
     } else {
-      // Detect system preference if no saved preference
-      this.isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      // Default to dark mode
+      this.isDarkMode = true;
     }
     this.updateThemeAttribute();
   }

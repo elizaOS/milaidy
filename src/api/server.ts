@@ -252,7 +252,6 @@ function discoverPluginsFromManifest(): PluginEntry[] {
             paramInfos,
           );
 
-<<<<<<< HEAD
         // Check if this plugin is in CORE_PLUGINS
         const pluginPackageName = `@elizaos/plugin-${p.id}`;
         const isCore = CORE_PLUGINS.includes(pluginPackageName);
@@ -273,23 +272,6 @@ function discoverPluginsFromManifest(): PluginEntry[] {
           isActive: false, // Will be updated when runtime is available
         };
       }).sort((a, b) => a.name.localeCompare(b.name));
-=======
-          return {
-            id: p.id,
-            name: p.name,
-            description: p.description,
-            enabled: false,
-            configured,
-            envKey,
-            category,
-            configKeys: p.configKeys,
-            parameters,
-            validationErrors: validation.errors,
-            validationWarnings: validation.warnings,
-          };
-        })
-        .sort((a, b) => a.name.localeCompare(b.name));
->>>>>>> b35fdbea804e6566df9ce97203d7a24c97ccaa86
     } catch (err) {
       logger.debug(
         `[milaidy-api] Failed to read plugins.json: ${err instanceof Error ? err.message : err}`,
@@ -1109,6 +1091,23 @@ async function handleRequest(
       process.env.DISCORD_API_TOKEN = body.discordBotToken as string;
     }
 
+    // ── Wallet API keys (optional) ───────────────────────────────────
+    if (body.walletApiKeys) {
+      if (!config.env) config.env = {};
+
+      if (body.walletApiKeys.ALCHEMY_API_KEY) {
+        (config.env as Record<string, string>).ALCHEMY_API_KEY =
+          body.walletApiKeys.ALCHEMY_API_KEY;
+        process.env.ALCHEMY_API_KEY = body.walletApiKeys.ALCHEMY_API_KEY;
+      }
+
+      if (body.walletApiKeys.HELIUS_API_KEY) {
+        (config.env as Record<string, string>).HELIUS_API_KEY =
+          body.walletApiKeys.HELIUS_API_KEY;
+        process.env.HELIUS_API_KEY = body.walletApiKeys.HELIUS_API_KEY;
+      }
+    }
+
     // ── Generate wallet keys if not already present ───────────────────────
     if (!process.env.EVM_PRIVATE_KEY || !process.env.SOLANA_PRIVATE_KEY) {
       try {
@@ -1494,7 +1493,6 @@ async function handleRequest(
 
       for (const plugin of state.plugins) {
         const suffix = `plugin-${plugin.id}`;
-<<<<<<< HEAD
         const packageName = `@elizaos/plugin-${plugin.id}`;
         const isLoaded = loadedNames.some(
           (name) => {
@@ -1505,13 +1503,6 @@ async function handleRequest(
               || name.endsWith(`/${suffix}`)
               || name.includes(plugin.id);
           },
-=======
-        plugin.enabled = loadedNames.some(
-          (name) =>
-            name === plugin.id ||
-            name === suffix ||
-            name.endsWith(`/${suffix}`),
->>>>>>> b35fdbea804e6566df9ce97203d7a24c97ccaa86
         );
         plugin.enabled = isLoaded;
         plugin.isActive = isLoaded; // Mark as active if currently loaded in runtime
@@ -2677,18 +2668,11 @@ export async function startApiServer(opts?: {
       );
       resolve({
         port: actualPort,
-<<<<<<< HEAD
         close: () => new Promise<void>((r) => {
           clearInterval(statusInterval);
           wss.close();
           server.close(() => r());
         }),
-=======
-        close: () =>
-          new Promise<void>((r) => {
-            server.close(() => r());
-          }),
->>>>>>> b35fdbea804e6566df9ce97203d7a24c97ccaa86
         updateRuntime,
       });
     });

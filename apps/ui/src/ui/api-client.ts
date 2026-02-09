@@ -71,6 +71,10 @@ export interface OnboardingData {
   providerApiKey?: string;
   telegramBotToken?: string;
   discordBotToken?: string;
+  walletApiKeys?: {
+    ALCHEMY_API_KEY?: string;
+    HELIUS_API_KEY?: string;
+  };
 }
 
 export interface PluginParamDef {
