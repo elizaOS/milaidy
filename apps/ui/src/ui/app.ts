@@ -141,6 +141,7 @@ export class MilaidyApp extends LitElement {
   @state() onboardingLargeModel = "claude-sonnet-4-5";
   @state() onboardingProvider = "";
   @state() onboardingApiKey = "";
+  @state() anthropicAuthMode: "oauth" | "token" = "oauth";
   @state() onboardingSelectedChains: Set<string> = new Set(["evm", "solana"]);
   @state() onboardingRpcSelections: Record<string, string> = {};
   @state() onboardingRpcKeys: Record<string, string> = {};
@@ -217,6 +218,12 @@ export class MilaidyApp extends LitElement {
   // Config state
   @state() configRaw: Record<string, unknown> = {};
   @state() configText = "";
+
+  // OpenAI OAuth flow state
+  @state() openaiAuthUrl = "";
+  @state() openaiAuthStep: "idle" | "waiting" | "submitting" | "done" | "error" = "idle";
+  @state() openaiAuthCode = "";
+  @state() openaiAuthError = "";
 
   // Share ingest state
   @state() droppedFiles: string[] = [];
@@ -899,7 +906,7 @@ export class MilaidyApp extends LitElement {
     }
 
     .onboarding-options-scroll {
-      max-height: 300px;
+      max-height: 50vh;
       overflow-y: auto;
       -webkit-overflow-scrolling: touch;
     }
@@ -923,7 +930,7 @@ export class MilaidyApp extends LitElement {
       }
 
       .onboarding-options-scroll {
-        max-height: 240px;
+        max-height: 40vh;
       }
 
       .onboarding-avatar {
@@ -3045,6 +3052,85 @@ export class MilaidyApp extends LitElement {
       if (platform === "ios" || platform === "android") return true;
     }
     return window.matchMedia("(max-width: 768px)").matches;
+  }
+
+  private async handleProviderNext(): Promise<void> {
+    const provider = this.onboardingProvider;
+
+    // Anthropic Subscription — OAuth or setup token
+    if (provider === "anthropic-subscription") {
+      if (this.anthropicAuthMode === "token") {
+        // Setup token flow
+        if (!this.onboardingApiKey.trim()) return;
+        try {
+          await client.fetch("/api/subscription/anthropic/setup-token", {
+            method: "POST",
+            body: JSON.stringify({ token: this.onboardingApiKey.trim() }),
+          });
+          this.onboardingProvider = "anthropic";
+          this.handleOnboardingNext();
+        } catch (err) {
+          window.alert(`Setup token failed: ${err}`);
+        }
+      } else {
+        // OAuth flow
+        try {
+          const result = await client.fetch<{ authUrl: string }>("/api/subscription/anthropic/start", { method: "POST" });
+          window.open(result.authUrl, "_blank", "width=600,height=700");
+          const code = window.prompt("After signing in to claude.ai, paste the authorization code here (format: code#state):");
+          if (!code) return;
+          await client.fetch("/api/subscription/anthropic/exchange", {
+            method: "POST",
+            body: JSON.stringify({ code }),
+          });
+          this.handleOnboardingNext();
+        } catch (err) {
+          window.alert(`Anthropic OAuth failed: ${err}`);
+        }
+      }
+      return;
+    }
+
+    // OpenAI Subscription — OAuth flow with paste-back for VPS
+    if (provider === "openai-subscription") {
+      try {
+        const result = await client.fetch<{ authUrl: string; state: string; instructions: string }>("/api/subscription/openai/start", { method: "POST" });
+        // Show inline auth flow instead of window.prompt
+        this.openaiAuthUrl = result.authUrl;
+        this.openaiAuthStep = "waiting";
+        this.openaiAuthCode = "";
+        this.openaiAuthError = "";
+        // Try opening in new window (may not work on VPS)
+        try { window.open(result.authUrl, "_blank", "width=600,height=700"); } catch { /* */ }
+      } catch (err) {
+        window.alert(`Failed to start OpenAI OAuth: ${err}`);
+      }
+      return;
+    }
+
+    // Standard providers — just continue
+    this.handleOnboardingNext();
+  }
+
+  private async submitOpenaiAuthCode(): Promise<void> {
+    if (!this.openaiAuthCode.trim()) return;
+    this.openaiAuthStep = "submitting";
+    this.openaiAuthError = "";
+    try {
+      await client.fetch("/api/subscription/openai/exchange", {
+        method: "POST",
+        body: JSON.stringify({ code: this.openaiAuthCode.trim() }),
+      });
+      this.openaiAuthStep = "done";
+      // Auto-advance after success
+      setTimeout(() => {
+        this.openaiAuthStep = "idle";
+        this.handleOnboardingNext();
+      }, 1500);
+    } catch (err) {
+      this.openaiAuthStep = "error";
+      this.openaiAuthError = `${err}`;
+    }
   }
 
   private async handleOnboardingNext(): Promise<void> {
@@ -5553,7 +5639,10 @@ export class MilaidyApp extends LitElement {
 
   private renderOnboardingLlmProvider(opts: OnboardingOptions) {
     const selected = opts.providers.find((p) => p.id === this.onboardingProvider);
-    const needsKey = selected && selected.envKey && selected.id !== "elizacloud" && selected.id !== "ollama";
+    const isAnthropicSub = selected && selected.id === "anthropic-subscription";
+    const isOpenAISub = selected && selected.id === "openai-subscription";
+    const isSubscription = isAnthropicSub || isOpenAISub;
+    const needsKey = selected && selected.envKey && selected.id !== "elizacloud" && selected.id !== "ollama" && !isSubscription;
 
     return html`
       <img class="onboarding-avatar" src="/pfp.jpg" alt="milAIdy" style="width:100px;height:100px;" />
@@ -5571,6 +5660,87 @@ export class MilaidyApp extends LitElement {
           `,
         )}
       </div>
+      ${isAnthropicSub
+        ? html`
+            <div style="margin-top: 12px; padding: 12px; border-radius: 8px; background: rgba(0, 255, 0, 0.05); border: 1px solid rgba(0, 255, 0, 0.15); font-size: 13px; max-width: 100%; box-sizing: border-box;">
+              <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+                <button
+                  class="btn ${this.anthropicAuthMode !== 'token' ? '' : 'btn-outline'}"
+                  style="flex: 1; font-size: 12px; padding: 6px 10px;"
+                  @click=${() => { this.anthropicAuthMode = 'oauth'; this.onboardingApiKey = ''; }}
+                >OAuth (Browser)</button>
+                <button
+                  class="btn ${this.anthropicAuthMode === 'token' ? '' : 'btn-outline'}"
+                  style="flex: 1; font-size: 12px; padding: 6px 10px;"
+                  @click=${() => { this.anthropicAuthMode = 'token'; this.onboardingApiKey = ''; }}
+                >Setup Token (CLI)</button>
+              </div>
+              ${this.anthropicAuthMode === 'token'
+                ? html`
+                    <p style="margin: 0 0 8px 0; color: var(--muted-strong, #aaa);">
+                      Run <code style="background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px;">claude setup-token</code> in your terminal, then paste the token:
+                    </p>
+                    <input
+                      class="onboarding-input"
+                      type="password"
+                      placeholder="sk-ant-oat01-..."
+                      .value=${this.onboardingApiKey}
+                      @input=${(e: Event) => { this.onboardingApiKey = (e.target as HTMLInputElement).value; }}
+                      style="width: 100%; box-sizing: border-box;"
+                    />
+                  `
+                : html`
+                    <p style="margin: 0; color: var(--muted-strong, #aaa);">
+                      Click Next to sign in to claude.ai in a new window, then paste the authorization code back here.
+                    </p>
+                  `}
+            </div>
+          `
+        : ""}
+      ${isOpenAISub
+        ? html`
+            <div style="margin-top: 12px; padding: 12px; border-radius: 8px; background: rgba(0, 255, 0, 0.05); border: 1px solid rgba(0, 255, 0, 0.15); font-size: 13px; max-width: 100%; box-sizing: border-box;">
+              ${this.openaiAuthStep === "idle" ? html`
+                <p style="margin: 0; color: var(--muted-strong, #aaa);">
+                  Click Next to start the ChatGPT sign-in flow. You'll get a link to open in your browser.
+                </p>
+              ` : ""}
+              ${this.openaiAuthStep === "waiting" ? html`
+                <p style="margin: 0 0 8px 0; font-weight: bold; color: var(--text, #ddd);">Step 1: Open this link and sign in</p>
+                <a href="${this.openaiAuthUrl}" target="_blank" rel="noopener" style="word-break: break-all; color: #4a9eff; font-size: 12px;">${this.openaiAuthUrl.substring(0, 80)}...</a>
+                <button @click=${() => navigator.clipboard.writeText(this.openaiAuthUrl)} style="margin-left: 8px; padding: 2px 8px; font-size: 11px; cursor: pointer; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; color: var(--text, #ddd);">Copy</button>
+                <p style="margin: 12px 0 8px 0; font-weight: bold; color: var(--text, #ddd);">Step 2: After signing in, paste the redirect URL here</p>
+                <p style="margin: 0 0 8px 0; color: var(--muted-strong, #aaa); font-size: 12px;">
+                  Your browser will redirect to a localhost URL that won't load — that's expected. Copy the full URL from the address bar and paste it below.
+                </p>
+                <input
+                  type="text"
+                  placeholder="Paste the full redirect URL (http://localhost:1455/auth/callback?code=...)"
+                  .value=${this.openaiAuthCode}
+                  @input=${(e: Event) => { this.openaiAuthCode = (e.target as HTMLInputElement).value; }}
+                  style="width: 100%; box-sizing: border-box; padding: 8px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.2); background: rgba(0,0,0,0.3); color: var(--text, #ddd); font-size: 13px; margin-bottom: 8px;"
+                />
+                <button
+                  class="btn"
+                  @click=${() => this.submitOpenaiAuthCode()}
+                  ?disabled=${!this.openaiAuthCode.trim()}
+                  style="width: 100%;"
+                >Submit</button>
+              ` : ""}
+              ${this.openaiAuthStep === "submitting" ? html`
+                <p style="margin: 0; color: var(--muted-strong, #aaa);">Exchanging code for tokens...</p>
+              ` : ""}
+              ${this.openaiAuthStep === "done" ? html`
+                <p style="margin: 0; color: #22c55e; font-weight: bold;">✓ OpenAI subscription connected!</p>
+              ` : ""}
+              ${this.openaiAuthStep === "error" ? html`
+                <p style="margin: 0 0 8px 0; color: #ef4444; font-weight: bold;">Auth failed</p>
+                <p style="margin: 0 0 8px 0; color: var(--muted-strong, #aaa); font-size: 12px;">${this.openaiAuthError}</p>
+                <button class="btn btn-outline" @click=${() => { this.openaiAuthStep = "idle"; }}>Try Again</button>
+              ` : ""}
+            </div>
+          `
+        : ""}
       ${needsKey
         ? html`
             <input
@@ -5579,6 +5749,7 @@ export class MilaidyApp extends LitElement {
               placeholder="API Key"
               .value=${this.onboardingApiKey}
               @input=${(e: Event) => { this.onboardingApiKey = (e.target as HTMLInputElement).value; }}
+              style="margin-top: 12px; width: 100%; box-sizing: border-box;"
             />
           `
         : ""}
@@ -5586,8 +5757,8 @@ export class MilaidyApp extends LitElement {
         <button class="btn btn-outline" @click=${() => this.handleOnboardingBack()}>Back</button>
         <button
           class="btn"
-          @click=${this.handleOnboardingNext}
-          ?disabled=${!this.onboardingProvider || (needsKey && !this.onboardingApiKey.trim())}
+          @click=${() => this.handleProviderNext()}
+          ?disabled=${!this.onboardingProvider || (needsKey && !this.onboardingApiKey.trim()) || (isAnthropicSub && this.anthropicAuthMode === 'token' && !this.onboardingApiKey.trim()) || (isOpenAISub && this.openaiAuthStep !== 'idle' && this.openaiAuthStep !== 'done')}
         >Next</button>
       </div>
     `;

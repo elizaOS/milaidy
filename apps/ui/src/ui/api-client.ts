@@ -522,7 +522,21 @@ export class MilaidyClient {
   }
 
   async getAuthStatus(): Promise<{ required: boolean; pairingEnabled: boolean; expiresAt: number | null }> {
-    return this.fetch("/api/auth/status");
+    try {
+      return await this.fetch("/api/auth/status");
+    } catch (err: unknown) {
+      const status = (err as Error & { status?: number })?.status;
+      if (status === 401) {
+        // Server requires auth
+        return { required: true, pairingEnabled: false, expiresAt: null };
+      }
+      if (status === 404) {
+        // npm-installed server without auth routes — no auth required
+        return { required: false, pairingEnabled: false, expiresAt: null };
+      }
+      // Other errors (500, network) — re-throw so caller can handle
+      throw err;
+    }
   }
 
   async pair(code: string): Promise<{ token: string }> {

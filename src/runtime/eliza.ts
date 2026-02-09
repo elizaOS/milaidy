@@ -1450,6 +1450,14 @@ export async function startEliza(
     process.env.IGNORE_BOOTSTRAP = "true";
   }
 
+  // 2f. Apply subscription-based credentials (Claude Max, Codex Max)
+  try {
+    const { applySubscriptionCredentials } = await import("../auth/index.js");
+    await applySubscriptionCredentials();
+  } catch (err) {
+    logger.warn(`[milaidy] Failed to apply subscription credentials: ${err}`);
+  }
+
   // 3. Build ElizaOS Character from Milaidy config
   const character = buildCharacterFromConfig(config);
 
@@ -1583,7 +1591,7 @@ export async function startEliza(
       ...otherPlugins.map((p) => p.plugin),
     ],
     ...(runtimeLogLevel ? { logLevel: runtimeLogLevel } : {}),
-    enableAutonomy: true,
+    enableAutonomy: false,
     settings: {
       // Forward Milaidy config env vars as runtime settings
       ...(primaryModel ? { MODEL_PROVIDER: primaryModel } : {}),
@@ -1751,7 +1759,7 @@ export async function startEliza(
               ...resolvedPlugins.map((p) => p.plugin),
             ],
             ...(runtimeLogLevel ? { logLevel: runtimeLogLevel } : {}),
-            enableAutonomy: true,
+            enableAutonomy: false,
           });
 
           await newRuntime.initialize();

@@ -63,7 +63,7 @@ const withQuietErrors: NonNullable<ProxyOptions["configure"]> = (proxy) => {
 export default defineConfig(() => {
   const envBase = process.env.MILAIDY_CONTROL_UI_BASE_PATH?.trim();
   const base = envBase ? normalizeBase(envBase) : "./";
-  const apiPort = process.env.MILAIDY_API_PORT || "31337";
+  const apiPort = process.env.MILAIDY_API_PORT || "2138";
   return {
     base,
     publicDir: path.resolve(here, "public"),
