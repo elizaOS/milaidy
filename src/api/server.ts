@@ -3149,14 +3149,14 @@ async function handleRequest(
       return;
     }
 
-    const { exec } = await import("node:child_process");
-    const cmd =
+    const { execFile } = await import("node:child_process");
+    const opener =
       process.platform === "darwin"
-        ? `open "${skillPath}"`
+        ? "open"
         : process.platform === "win32"
-          ? `explorer "${skillPath}"`
-          : `xdg-open "${skillPath}"`;
-    exec(cmd, (err) => {
+          ? "explorer"
+          : "xdg-open";
+    execFile(opener, [skillPath], (err) => {
       if (err)
         logger.warn(
           `[milaidy-api] Failed to open skill folder: ${err.message}`,
