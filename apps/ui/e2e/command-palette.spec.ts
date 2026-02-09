@@ -30,7 +30,7 @@ test.describe("Command palette", () => {
     await input.fill("Logs");
     await input.press("Enter");
 
-    // Should navigate to logs
-    await expect(page.getByRole("heading", { name: "Logs" })).toBeVisible();
+    // Should navigate to logs — verify by the presence of the level filter unique to LogsView
+    await expect(page.locator("select").filter({ hasText: "All levels" })).toBeVisible();
   });
 });

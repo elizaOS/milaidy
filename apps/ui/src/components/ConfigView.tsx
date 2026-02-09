@@ -480,8 +480,8 @@ export function ConfigView() {
   }, [handleWalletApiKeySave]);
 
   /* ── RPC provider selection state ────────────────────────────────── */
-  const [selectedEvmRpc, setSelectedEvmRpc] = useState<"elizacloud" | "alchemy" | "infura" | "ankr">("elizacloud");
-  const [selectedSolanaRpc, setSelectedSolanaRpc] = useState<"elizacloud" | "helius" | "birdeye">("elizacloud");
+  const [selectedEvmRpc, setSelectedEvmRpc] = useState<"alchemy" | "infura" | "ankr">("alchemy");
+  const [selectedSolanaRpc, setSelectedSolanaRpc] = useState<"helius" | "birdeye">("helius");
 
   /* ── Export / Import modal state ─────────────────────────────────── */
   const [exportModalOpen, setExportModalOpen] = useState(false);
@@ -1035,9 +1035,8 @@ export function ConfigView() {
             <div className="text-xs font-bold mb-1">EVM</div>
             <div className="text-[11px] text-[var(--muted)] mb-2">Ethereum, Base, Arbitrum, Optimism, Polygon</div>
 
-            <div className="grid grid-cols-4 gap-1.5">
+            <div className="grid grid-cols-3 gap-1.5">
               {([
-                { id: "elizacloud" as const, label: "Eliza Cloud" },
                 { id: "alchemy" as const, label: "Alchemy" },
                 { id: "infura" as const, label: "Infura" },
                 { id: "ankr" as const, label: "Ankr" },
@@ -1062,54 +1061,6 @@ export function ConfigView() {
             </div>
 
             {/* Inline settings for selected EVM provider */}
-            {selectedEvmRpc === "elizacloud" && (
-              <div className="mt-3">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="text-[11px] text-[var(--muted)]">Managed RPC — no API key needed.</div>
-                  <span
-                    className="text-[11px] px-2 py-[3px] border"
-                    style={{
-                      borderColor: cloudConnected ? "#2d8a4e" : "var(--border)",
-                      color: cloudConnected ? "#2d8a4e" : "var(--muted)",
-                    }}
-                  >
-                    {cloudConnected ? "Connected" : "Not Connected"}
-                  </span>
-                </div>
-                {cloudConnected ? (
-                  <div className="flex items-center gap-3 text-xs">
-                    {cloudUserId && (
-                      <span className="text-[var(--muted)]">
-                        User: <code className="font-[var(--mono)] text-[11px]">{cloudUserId}</code>
-                      </span>
-                    )}
-                    <button
-                      className="btn text-xs py-[4px] px-3 !mt-0"
-                      onClick={() => void handleCloudDisconnect()}
-                      disabled={cloudDisconnecting}
-                    >
-                      {cloudDisconnecting ? "Disconnecting..." : "Disconnect"}
-                    </button>
-                  </div>
-                ) : (
-                  <div>
-                    {cloudLoginError && (
-                      <div className="text-xs text-[var(--danger,#e74c3c)] mb-2">{cloudLoginError}</div>
-                    )}
-                    {cloudLoginBusy ? (
-                      <div className="text-xs text-[var(--muted)]">Waiting for browser authentication...</div>
-                    ) : (
-                      <button
-                        className="btn text-xs py-[4px] px-3 font-bold !mt-0"
-                        onClick={() => void handleCloudLogin()}
-                      >
-                        Log in to ELIZA Cloud
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
             {selectedEvmRpc === "alchemy" && (
               <div className="mt-3 flex flex-col gap-1">
                 <div className="flex items-center gap-1.5 text-xs">
@@ -1147,9 +1098,8 @@ export function ConfigView() {
             <div className="text-xs font-bold mb-1">Solana</div>
             <div className="text-[11px] text-[var(--muted)] mb-2">Solana mainnet tokens and NFTs</div>
 
-            <div className="grid grid-cols-3 gap-1.5">
+            <div className="grid grid-cols-2 gap-1.5">
               {([
-                { id: "elizacloud" as const, label: "Eliza Cloud" },
                 { id: "helius" as const, label: "Helius" },
                 { id: "birdeye" as const, label: "Birdeye" },
               ]).map((p) => {
@@ -1173,54 +1123,6 @@ export function ConfigView() {
             </div>
 
             {/* Inline settings for selected Solana provider */}
-            {selectedSolanaRpc === "elizacloud" && (
-              <div className="mt-3">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="text-[11px] text-[var(--muted)]">Managed RPC — no API key needed.</div>
-                  <span
-                    className="text-[11px] px-2 py-[3px] border"
-                    style={{
-                      borderColor: cloudConnected ? "#2d8a4e" : "var(--border)",
-                      color: cloudConnected ? "#2d8a4e" : "var(--muted)",
-                    }}
-                  >
-                    {cloudConnected ? "Connected" : "Not Connected"}
-                  </span>
-                </div>
-                {cloudConnected ? (
-                  <div className="flex items-center gap-3 text-xs">
-                    {cloudUserId && (
-                      <span className="text-[var(--muted)]">
-                        User: <code className="font-[var(--mono)] text-[11px]">{cloudUserId}</code>
-                      </span>
-                    )}
-                    <button
-                      className="btn text-xs py-[4px] px-3 !mt-0"
-                      onClick={() => void handleCloudDisconnect()}
-                      disabled={cloudDisconnecting}
-                    >
-                      {cloudDisconnecting ? "Disconnecting..." : "Disconnect"}
-                    </button>
-                  </div>
-                ) : (
-                  <div>
-                    {cloudLoginError && (
-                      <div className="text-xs text-[var(--danger,#e74c3c)] mb-2">{cloudLoginError}</div>
-                    )}
-                    {cloudLoginBusy ? (
-                      <div className="text-xs text-[var(--muted)]">Waiting for browser authentication...</div>
-                    ) : (
-                      <button
-                        className="btn text-xs py-[4px] px-3 font-bold !mt-0"
-                        onClick={() => void handleCloudLogin()}
-                      >
-                        Log in to ELIZA Cloud
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
             {selectedSolanaRpc === "helius" && (
               <div className="mt-3 flex flex-col gap-1">
                 <div className="flex items-center gap-1.5 text-xs">
