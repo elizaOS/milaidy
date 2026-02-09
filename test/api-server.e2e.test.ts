@@ -703,7 +703,11 @@ describe("API Server E2E (no runtime)", () => {
       // First add
       await req(port, "POST", "/api/mcp/config/server", {
         name: "to-delete",
-        config: { type: "stdio", command: "echo" },
+        config: {
+          type: "stdio",
+          command: "npx",
+          args: ["-y", "@test/mcp-server"],
+        },
       });
 
       // Then remove
