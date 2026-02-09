@@ -25,6 +25,8 @@ export function OnboardingWizard() {
     onboardingSelectedChains,
     onboardingRpcSelections,
     onboardingRpcKeys,
+    onboardingChannels,
+    onboardingRestarting,
     cloudConnected,
     cloudLoginBusy,
     cloudLoginError,
@@ -100,6 +102,16 @@ export function OnboardingWizard() {
   const handleRpcKeyChange = (chain: string, provider: string, key: string) => {
     const keyName = `${chain}:${provider}`;
     setState("onboardingRpcKeys", { ...onboardingRpcKeys, [keyName]: key });
+  };
+
+  const handleTelegramTokenChange = (token: string) => {
+    setState("onboardingChannels", {
+      ...onboardingChannels,
+      telegram: {
+        ...(onboardingChannels.telegram ?? {}),
+        botToken: token,
+      },
+    });
   };
 
   const renderStep = (step: OnboardingStep) => {
@@ -538,6 +550,31 @@ export function OnboardingWizard() {
           </div>
         );
 
+      case "channels":
+        return (
+          <div className="max-w-[500px] mx-auto mt-10 text-center font-body">
+            <div className="onboarding-speech bg-card border border-border rounded-xl px-5 py-4 mx-auto mb-6 max-w-[360px] relative text-[15px] text-txt leading-relaxed">
+              <h2 className="text-[28px] font-normal mb-1 text-txt-strong">Messaging Channels</h2>
+            </div>
+            <div className="flex flex-col gap-3 text-left max-w-[360px] mx-auto">
+              <div className="px-4 py-3 border border-border bg-card">
+                <div className="font-bold text-sm">Telegram</div>
+                <div className="text-xs text-muted mt-0.5">Connect via @BotFather bot token (optional).</div>
+                <input
+                  type="password"
+                  value={onboardingChannels.telegram?.botToken ?? ""}
+                  onChange={(e) => handleTelegramTokenChange(e.target.value)}
+                  placeholder="Bot token from @BotFather"
+                  className="w-full px-3 py-2 border border-border bg-card text-sm mt-3 focus:border-accent focus:outline-none"
+                />
+              </div>
+            </div>
+            {onboardingRestarting && (
+              <p className="text-sm text-accent mt-4">Restarting agent...</p>
+            )}
+          </div>
+        );
+
       default:
         return null;
     }
@@ -687,6 +724,8 @@ export function OnboardingWizard() {
         return true;
       case "connectors":
         return true; // fully optional — user can skip
+      case "channels":
+        return true;
       default:
         return false;
     }
@@ -702,6 +741,7 @@ export function OnboardingWizard() {
           <button
             className="px-6 py-2 border border-border bg-transparent text-txt text-sm cursor-pointer hover:bg-accent-subtle hover:text-accent mt-5"
             onClick={handleOnboardingBack}
+            disabled={onboardingRestarting}
           >
             Back
           </button>
@@ -709,9 +749,9 @@ export function OnboardingWizard() {
         <button
           className="px-6 py-2 border border-accent bg-accent text-accent-fg text-sm cursor-pointer hover:bg-accent-hover disabled:opacity-40 disabled:cursor-not-allowed mt-5"
           onClick={() => void handleOnboardingNext()}
-          disabled={!canGoNext()}
+          disabled={!canGoNext() || onboardingRestarting}
         >
-          Next
+          {onboardingRestarting ? "Restarting agent..." : "Next"}
         </button>
       </div>
     </div>

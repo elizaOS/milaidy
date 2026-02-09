@@ -7,10 +7,11 @@
  *   3. Model Provider  (onboarding-style provider selector)
  *   4. Model Provider Settings  (detailed plugin config)
  *   5. Wallet Providers & API Keys
- *   6. Software Updates
- *   7. Chrome Extension
- *   8. Agent Export / Import
- *   9. Danger Zone
+ *   6. Messaging Channels
+ *   7. Software Updates
+ *   8. Chrome Extension
+ *   9. Agent Export / Import
+ *   10. Danger Zone
  */
 
 import { useEffect, useState, useCallback, useRef } from "react";
@@ -470,6 +471,76 @@ export function ConfigView() {
     void handleWalletApiKeySave(config);
   }, [handleWalletApiKeySave]);
 
+  const loadChannels = useCallback(async () => {
+    setChannelsLoading(true);
+    setChannelsError(null);
+    try {
+      const { channels } = await client.getChannels();
+      setChannelsState(channels ?? {});
+      const masked = channels?.telegram?.maskedToken ?? null;
+      setTelegramMaskedToken(masked);
+      setTelegramTokenInput(masked ?? "");
+      setTelegramTokenDirty(false);
+    } catch (err) {
+      setChannelsError(err instanceof Error ? err.message : "Failed to load channels");
+    }
+    setChannelsLoading(false);
+  }, []);
+
+  const handleTelegramSave = useCallback(async () => {
+    const token = telegramTokenInput.trim();
+    if (!token || token.startsWith("••••")) {
+      setFeedback({ type: "error", text: "Enter a new Telegram bot token before saving." });
+      return;
+    }
+
+    setSaveBusy(true);
+    setFeedback(null);
+    try {
+      await client.saveChannel("telegram", { botToken: token });
+      const masked = `••••••${token.slice(-4)}`;
+      setTelegramMaskedToken(masked);
+      setTelegramTokenInput(masked);
+      setTelegramTokenDirty(false);
+      setFeedback({ type: "success", text: "Telegram channel saved. Restart agent to apply changes." });
+      await loadChannels();
+    } catch (err) {
+      setFeedback({
+        type: "error",
+        text: err instanceof Error ? err.message : "Failed to save Telegram channel.",
+      });
+    }
+    setSaveBusy(false);
+  }, [telegramTokenInput, loadChannels]);
+
+  const handleTelegramDelete = useCallback(async () => {
+    setDeleteBusy(true);
+    setFeedback(null);
+    try {
+      await client.deleteChannel("telegram");
+      setChannelsState((prev) => ({
+        ...prev,
+        telegram: { configured: false, maskedToken: null },
+      }));
+      setTelegramMaskedToken(null);
+      setTelegramTokenInput("");
+      setTelegramTokenDirty(false);
+      setDeleteModalOpen(false);
+      setFeedback({ type: "success", text: "Telegram channel deleted. Restart agent to apply changes." });
+      await loadChannels();
+    } catch (err) {
+      setFeedback({
+        type: "error",
+        text: err instanceof Error ? err.message : "Failed to delete Telegram channel.",
+      });
+    }
+    setDeleteBusy(false);
+  }, [loadChannels]);
+
+  useEffect(() => {
+    void loadChannels();
+  }, [loadChannels]);
+
   /* ── Character generation state ─────────────────────────────────── */
   const [generating, setGenerating] = useState<string | null>(null); // field name being generated
 
@@ -538,6 +609,19 @@ export function ConfigView() {
   /* ── RPC provider selection state ────────────────────────────────── */
   const [selectedEvmRpc, setSelectedEvmRpc] = useState<"alchemy" | "infura" | "ankr">("alchemy");
   const [selectedSolanaRpc, setSelectedSolanaRpc] = useState<"helius" | "birdeye">("helius");
+
+  /* ── Messaging channels state ─────────────────────────────────────── */
+  const [channelsLoading, setChannelsLoading] = useState(false);
+  const [channelsError, setChannelsError] = useState<string | null>(null);
+  const [channelsState, setChannelsState] = useState<Record<string, { configured: boolean; maskedToken?: string | null }>>({});
+  const [telegramTokenInput, setTelegramTokenInput] = useState("");
+  const [telegramTokenVisible, setTelegramTokenVisible] = useState(false);
+  const [telegramTokenDirty, setTelegramTokenDirty] = useState(false);
+  const [telegramMaskedToken, setTelegramMaskedToken] = useState<string | null>(null);
+  const [saveBusy, setSaveBusy] = useState(false);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [feedback, setFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
 
   /* ── Export / Import modal state ─────────────────────────────────── */
   const [exportModalOpen, setExportModalOpen] = useState(false);
@@ -1323,7 +1407,102 @@ export function ConfigView() {
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════
-          6. SOFTWARE UPDATES
+          6. MESSAGING CHANNELS
+          ═══════════════════════════════════════════════════════════════ */}
+      <div className="mt-6 p-4 border border-[var(--border)] bg-[var(--card)]">
+        <div className="mb-4">
+          <div className="font-bold text-sm">Messaging Channels</div>
+          <div className="text-xs text-[var(--muted)] mt-0.5">
+            Configure how your agent connects to messaging platforms.
+          </div>
+        </div>
+
+        {channelsError && <div className="mb-3 text-xs text-[var(--danger,#e74c3c)]">{channelsError}</div>}
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="px-3.5 py-3 border border-[var(--border)] bg-[var(--card)]">
+            <div className="flex items-center justify-between gap-2">
+              <div className="font-bold text-sm">Telegram</div>
+              <span
+                className={`text-[10px] px-2 py-0.5 border ${
+                  channelsState.telegram?.configured
+                    ? "border-[var(--ok,#16a34a)] text-[var(--ok,#16a34a)]"
+                    : "border-[var(--border)] text-[var(--muted)]"
+                }`}
+              >
+                {channelsState.telegram?.configured ? "Connected" : "Not configured"}
+              </span>
+            </div>
+            <div className="text-[11px] text-[var(--muted)] mt-0.5">Connect via @BotFather bot token.</div>
+
+            <div className="mt-3">
+              <label className="font-semibold text-[11px]">Bot Token</label>
+              <div className="flex mt-1">
+                <input
+                  type={telegramTokenVisible ? "text" : "password"}
+                  value={telegramTokenInput}
+                  onChange={(e) => {
+                    setTelegramTokenDirty(true);
+                    setTelegramTokenInput(e.target.value);
+                  }}
+                  placeholder={telegramMaskedToken ?? "Bot token from @BotFather"}
+                  className="flex-1 px-2.5 py-[7px] border border-[var(--border)] bg-[var(--card)] text-[13px] font-[var(--mono)] transition-colors focus:border-[var(--accent)] focus:outline-none"
+                />
+                <button
+                  type="button"
+                  className="px-3 border border-l-0 border-[var(--border)] bg-[var(--bg-muted,transparent)] text-xs cursor-pointer hover:border-[var(--accent)] hover:text-[var(--accent)]"
+                  onClick={() => setTelegramTokenVisible((v) => !v)}
+                >
+                  {telegramTokenVisible ? "Hide" : "Show"}
+                </button>
+              </div>
+              {channelsState.telegram?.configured && !telegramTokenDirty && telegramMaskedToken && (
+                <div className="text-[10px] text-[var(--muted)] mt-1">Current: {telegramMaskedToken}</div>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2 mt-3">
+              <button
+                className="btn text-xs py-[5px] px-3 !mt-0"
+                disabled={saveBusy || channelsLoading}
+                onClick={() => void handleTelegramSave()}
+              >
+                {saveBusy ? "Saving..." : "Save"}
+              </button>
+              <button
+                className="btn text-xs py-[5px] px-3 !mt-0 !bg-transparent !border-[var(--border)] !text-[var(--danger,#e74c3c)]"
+                disabled={deleteBusy || !channelsState.telegram?.configured}
+                onClick={() => setDeleteModalOpen(true)}
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+
+          <div className="px-3.5 py-3 border border-[var(--border)] bg-[var(--card)] opacity-50">
+            <div className="font-bold text-sm flex items-center gap-2">
+              Discord <span className="text-[10px] border border-[var(--border)] px-2 py-0.5">Coming Soon</span>
+            </div>
+            <div className="text-[11px] text-[var(--muted)] mt-0.5">Discord bot integration (plugin in development)</div>
+          </div>
+
+          <div className="px-3.5 py-3 border border-[var(--border)] bg-[var(--card)] opacity-50">
+            <div className="font-bold text-sm flex items-center gap-2">
+              WhatsApp <span className="text-[10px] border border-[var(--border)] px-2 py-0.5">Coming Soon</span>
+            </div>
+            <div className="text-[11px] text-[var(--muted)] mt-0.5">WhatsApp via Baileys (plugin in development)</div>
+          </div>
+        </div>
+
+        {feedback && (
+          <div className={`mt-3 text-xs ${feedback.type === "success" ? "text-[var(--ok,#16a34a)]" : "text-[var(--danger,#e74c3c)]"}`}>
+            {feedback.text}
+          </div>
+        )}
+      </div>
+
+      {/* ═══════════════════════════════════════════════════════════════
+          7. SOFTWARE UPDATES
           ═══════════════════════════════════════════════════════════════ */}
       <div className="mt-6 p-4 border border-[var(--border)] bg-[var(--card)]">
         <div className="flex justify-between items-center mb-3">
@@ -1405,7 +1584,7 @@ export function ConfigView() {
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════
-          7. CHROME EXTENSION
+          8. CHROME EXTENSION
           ═══════════════════════════════════════════════════════════════ */}
       <div className="mt-6 p-4 border border-[var(--border)] bg-[var(--card)]">
         <div className="flex justify-between items-center mb-3">
@@ -1497,7 +1676,7 @@ export function ConfigView() {
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════
-          8. AGENT EXPORT / IMPORT
+          9. AGENT EXPORT / IMPORT
           ═══════════════════════════════════════════════════════════════ */}
       <div className="mt-6 p-4 border border-[var(--border)] bg-[var(--card)]">
         <div className="flex justify-between items-center">
@@ -1523,6 +1702,31 @@ export function ConfigView() {
           </div>
         </div>
       </div>
+
+      <Modal open={deleteModalOpen} onClose={() => setDeleteModalOpen(false)} title="Delete Telegram Channel">
+        <div className="flex flex-col gap-3">
+          <div className="text-xs text-[var(--muted)]">
+            Remove the Telegram channel configuration? This will disconnect Telegram after restart.
+          </div>
+          <div className="flex justify-end gap-2">
+            <button
+              className="btn text-xs py-1.5 px-4 !mt-0 !bg-transparent !border-[var(--border)] !text-[var(--txt)]"
+              onClick={() => setDeleteModalOpen(false)}
+              disabled={deleteBusy}
+            >
+              Cancel
+            </button>
+            <button
+              className="btn text-xs py-1.5 px-4 !mt-0"
+              style={{ background: "var(--danger, #e74c3c)", borderColor: "var(--danger, #e74c3c)" }}
+              onClick={() => void handleTelegramDelete()}
+              disabled={deleteBusy}
+            >
+              {deleteBusy ? "Deleting..." : "Delete"}
+            </button>
+          </div>
+        </div>
+      </Modal>
 
       {/* ─── Export Modal ─────────────────────────────────────────────── */}
       <Modal open={exportModalOpen} onClose={() => setExportModalOpen(false)} title="Export Agent">
@@ -1633,7 +1837,7 @@ export function ConfigView() {
       </Modal>
 
       {/* ═══════════════════════════════════════════════════════════════
-          9. DANGER ZONE
+          10. DANGER ZONE
           ═══════════════════════════════════════════════════════════════ */}
       <div className="mt-12 pt-6 border-t border-[var(--border)]">
         <h2 className="text-lg font-bold text-[var(--danger,#e74c3c)]">Danger Zone</h2>

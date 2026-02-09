@@ -24,6 +24,9 @@ export {
   applySubscriptionCredentials,
 } from "./credentials.js";
 
+// Claude Code setup token runtime support
+export { applyClaudeCodeStealth } from "./apply-stealth.js";
+
 // Types
 export type {
   OAuthCredentials,

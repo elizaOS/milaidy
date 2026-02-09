@@ -1537,6 +1537,8 @@ export async function startEliza(
   try {
     const { applySubscriptionCredentials } = await import("../auth/index");
     await applySubscriptionCredentials();
+    const { applyClaudeCodeStealth } = await import("../auth/index");
+    applyClaudeCodeStealth();
   } catch (err) {
     logger.warn(`[milaidy] Failed to apply subscription credentials: ${err}`);
   }
