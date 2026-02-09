@@ -874,6 +874,36 @@ function error(res: http.ServerResponse, message: string, status = 400): void {
 }
 
 // ---------------------------------------------------------------------------
+// Skill-ID path-traversal guard
+// ---------------------------------------------------------------------------
+
+/**
+ * Validate that a user-supplied skill ID is safe to use in filesystem paths.
+ * Rejects IDs containing path separators, ".." sequences, or any characters
+ * outside the safe set used by the marketplace (`safeName()` in
+ * skill-marketplace.ts).  Returns `null` and sends a 400 response if the
+ * ID is invalid.
+ */
+const SAFE_SKILL_ID_RE = /^[a-zA-Z0-9._-]+$/;
+
+function validateSkillId(
+  skillId: string,
+  res: http.ServerResponse,
+): string | null {
+  if (
+    !skillId ||
+    !SAFE_SKILL_ID_RE.test(skillId) ||
+    skillId === "." ||
+    skillId === ".." ||
+    skillId.includes("..")
+  ) {
+    error(res, `Invalid skill ID: "${skillId}"`, 400);
+    return null;
+  }
+  return skillId;
+}
+
+// ---------------------------------------------------------------------------
 // Onboarding helpers
 // ---------------------------------------------------------------------------
 
@@ -2426,7 +2456,8 @@ async function handleRequest(
 
   // ── GET /api/skills/:id/scan ───────────────────────────────────────────
   if (method === "GET" && pathname.match(/^\/api\/skills\/[^/]+\/scan$/)) {
-    const skillId = decodeURIComponent(pathname.split("/")[3]);
+    const skillId = validateSkillId(decodeURIComponent(pathname.split("/")[3]), res);
+    if (!skillId) return;
     const workspaceDir =
       state.config.agents?.defaults?.workspace ??
       resolveDefaultAgentWorkspaceDir();
@@ -2446,7 +2477,8 @@ async function handleRequest(
     method === "POST" &&
     pathname.match(/^\/api\/skills\/[^/]+\/acknowledge$/)
   ) {
-    const skillId = decodeURIComponent(pathname.split("/")[3]);
+    const skillId = validateSkillId(decodeURIComponent(pathname.split("/")[3]), res);
+    if (!skillId) return;
     const body = await readJsonBody<{ enable?: boolean }>(req, res);
     if (!body) return;
 
@@ -2576,7 +2608,8 @@ async function handleRequest(
 
   // ── POST /api/skills/:id/open ─────────────────────────────────────────
   if (method === "POST" && pathname.match(/^\/api\/skills\/[^/]+\/open$/)) {
-    const skillId = decodeURIComponent(pathname.split("/")[3]);
+    const skillId = validateSkillId(decodeURIComponent(pathname.split("/")[3]), res);
+    if (!skillId) return;
     const workspaceDir =
       state.config.agents?.defaults?.workspace ??
       resolveDefaultAgentWorkspaceDir();
@@ -2657,7 +2690,8 @@ async function handleRequest(
     pathname.match(/^\/api\/skills\/[^/]+$/) &&
     !pathname.includes("/marketplace")
   ) {
-    const skillId = decodeURIComponent(pathname.slice("/api/skills/".length));
+    const skillId = validateSkillId(decodeURIComponent(pathname.slice("/api/skills/".length)), res);
+    if (!skillId) return;
     const workspaceDir =
       state.config.agents?.defaults?.workspace ??
       resolveDefaultAgentWorkspaceDir();
@@ -2858,7 +2892,8 @@ async function handleRequest(
   // ── PUT /api/skills/:id ────────────────────────────────────────────────
   // IMPORTANT: This wildcard route MUST be after all /api/skills/<specific-path> routes
   if (method === "PUT" && pathname.startsWith("/api/skills/")) {
-    const skillId = decodeURIComponent(pathname.slice("/api/skills/".length));
+    const skillId = validateSkillId(decodeURIComponent(pathname.slice("/api/skills/".length)), res);
+    if (!skillId) return;
     const body = await readJsonBody<{ enabled?: boolean }>(req, res);
     if (!body) return;
 
