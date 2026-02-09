@@ -717,6 +717,39 @@ export class MilaidyClient {
     });
   }
 
+  async startAnthropicAuth(): Promise<{ authUrl: string }> {
+    return this.fetch("/api/subscription/anthropic/start", { method: "POST" });
+  }
+
+  async exchangeAnthropicCode(code: string): Promise<{ ok: boolean }> {
+    return this.fetch("/api/subscription/anthropic/exchange", {
+      method: "POST",
+      body: JSON.stringify({ code }),
+    });
+  }
+
+  async saveSetupToken(token: string): Promise<{ ok: boolean }> {
+    return this.fetch("/api/subscription/anthropic/setup-token", {
+      method: "POST",
+      body: JSON.stringify({ token }),
+    });
+  }
+
+  async startOpenAIAuth(): Promise<{ authUrl: string; state: string }> {
+    return this.fetch("/api/subscription/openai/start", { method: "POST" });
+  }
+
+  async exchangeOpenAICode(redirectInput: string, state: string): Promise<{ ok: boolean }> {
+    return this.fetch("/api/subscription/openai/exchange", {
+      method: "POST",
+      body: JSON.stringify({ redirectInput, state }),
+    });
+  }
+
+  async getSubscriptionStatus(): Promise<{ providers: Record<string, { configured: boolean; hasToken: boolean }> }> {
+    return this.fetch("/api/subscription/status");
+  }
+
   async startAgent(): Promise<AgentStatus> {
     const res = await this.fetch<{ status: AgentStatus }>("/api/agent/start", { method: "POST" });
     return res.status;

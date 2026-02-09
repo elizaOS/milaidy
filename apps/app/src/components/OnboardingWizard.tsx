@@ -4,7 +4,7 @@
 
 import { useEffect } from "react";
 import { useApp, THEMES, type OnboardingStep } from "../AppContext.js";
-import type { StylePreset, ProviderOption, CloudProviderOption, ModelOption, InventoryProviderOption, RpcProviderOption } from "../api-client";
+import { client, type StylePreset, type ProviderOption, type CloudProviderOption, type ModelOption, type InventoryProviderOption, type RpcProviderOption } from "../api-client";
 
 export function OnboardingWizard() {
   const {
@@ -19,6 +19,12 @@ export function OnboardingWizard() {
     onboardingLargeModel,
     onboardingProvider,
     onboardingApiKey,
+    subscriptionAuthMode,
+    subscriptionAuthUrl,
+    subscriptionAuthState,
+    subscriptionAuthStep,
+    subscriptionAuthError,
+    subscriptionSetupToken,
     onboardingSelectedChains,
     onboardingRpcSelections,
     onboardingRpcKeys,
@@ -71,6 +77,12 @@ export function OnboardingWizard() {
 
   const handleProviderSelect = (providerId: string) => {
     setState("onboardingProvider", providerId);
+    setState("subscriptionAuthStep", "idle");
+    setState("subscriptionAuthError", null);
+    setState("subscriptionSetupToken", "");
+    setState("subscriptionAuthUrl", "");
+    setState("subscriptionAuthState", "");
+    setState("subscriptionAuthMode", "oauth");
   };
 
   const handleApiKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -359,7 +371,7 @@ export function OnboardingWizard() {
                 </div>
               ))}
             </div>
-            {onboardingProvider && (
+            {onboardingProvider && onboardingProvider !== "anthropic-subscription" && onboardingProvider !== "openai-subscription" && (
               <div className="max-w-[360px] mx-auto mt-4">
                 <label className="text-[13px] font-bold text-txt-strong block mb-2 text-left">API Key:</label>
                 <input
@@ -369,6 +381,174 @@ export function OnboardingWizard() {
                   placeholder="Enter your API key"
                   className="w-full px-3 py-2 border border-border bg-card text-sm mt-2 focus:border-accent focus:outline-none"
                 />
+              </div>
+            )}
+            {onboardingProvider === "anthropic-subscription" && (
+              <div className="max-w-[360px] mx-auto mt-4">
+                <div className="flex gap-2 mb-4">
+                  <button
+                    className={`flex-1 px-3 py-2 border text-sm ${
+                      subscriptionAuthMode === "oauth"
+                        ? "border-accent bg-accent-subtle"
+                        : "border-border hover:border-accent"
+                    }`}
+                    onClick={() => setState("subscriptionAuthMode", "oauth")}
+                  >
+                    OAuth Login
+                  </button>
+                  <button
+                    className={`flex-1 px-3 py-2 border text-sm ${
+                      subscriptionAuthMode === "token"
+                        ? "border-accent bg-accent-subtle"
+                        : "border-border hover:border-accent"
+                    }`}
+                    onClick={() => setState("subscriptionAuthMode", "token")}
+                  >
+                    Setup Token
+                  </button>
+                </div>
+
+                {subscriptionAuthMode === "oauth" ? (
+                  <div>
+                    {subscriptionAuthStep === "idle" && (
+                      <button
+                        className="w-full px-4 py-2 border border-accent bg-accent text-accent-fg text-sm cursor-pointer hover:bg-accent-hover"
+                        onClick={async () => {
+                          try {
+                            const { authUrl } = await client.startAnthropicAuth();
+                            window.open(authUrl, "_blank");
+                            setState("subscriptionAuthStep", "waiting");
+                            setState("subscriptionAuthUrl", authUrl);
+                            setState("subscriptionAuthError", null);
+                          } catch (err) {
+                            setState("subscriptionAuthError", String(err));
+                          }
+                        }}
+                      >
+                        Login with Claude
+                      </button>
+                    )}
+                    {subscriptionAuthStep === "waiting" && (
+                      <div>
+                        <p className="text-sm text-muted mb-2">Paste the code from the browser:</p>
+                        {subscriptionAuthUrl && (
+                          <p className="text-xs text-muted mb-2 break-all">Auth URL: {subscriptionAuthUrl}</p>
+                        )}
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            placeholder="Paste code here"
+                            className="flex-1 px-3 py-2 border border-border bg-card text-sm focus:border-accent focus:outline-none"
+                            onChange={async (e) => {
+                              const code = e.target.value.trim();
+                              if (code.length > 10) {
+                                try {
+                                  await client.exchangeAnthropicCode(code);
+                                  setState("subscriptionAuthStep", "done");
+                                  setState("subscriptionAuthError", null);
+                                } catch (err) {
+                                  setState("subscriptionAuthError", String(err));
+                                }
+                              }
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )}
+                    {subscriptionAuthStep === "done" && (
+                      <p className="text-sm text-accent">✓ Anthropic subscription connected</p>
+                    )}
+                    {subscriptionAuthError && (
+                      <p className="text-sm text-danger mt-2">{subscriptionAuthError}</p>
+                    )}
+                  </div>
+                ) : (
+                  <div>
+                    <p className="text-xs text-muted mb-2">
+                      Paste your setup token (sk-ant-oat01-...) from Claude Code settings
+                    </p>
+                    <input
+                      type="password"
+                      value={subscriptionSetupToken}
+                      onChange={(e) => setState("subscriptionSetupToken", e.target.value)}
+                      placeholder="sk-ant-oat01-..."
+                      className="w-full px-3 py-2 border border-border bg-card text-sm focus:border-accent focus:outline-none"
+                    />
+                    {subscriptionSetupToken.trim() && (
+                      <button
+                        className="w-full mt-2 px-4 py-2 border border-accent bg-accent text-accent-fg text-sm cursor-pointer hover:bg-accent-hover"
+                        onClick={async () => {
+                          try {
+                            await client.saveSetupToken(subscriptionSetupToken);
+                            setState("subscriptionAuthStep", "done");
+                            setState("subscriptionAuthError", null);
+                          } catch (err) {
+                            setState("subscriptionAuthError", String(err));
+                          }
+                        }}
+                      >
+                        Save Token
+                      </button>
+                    )}
+                    {subscriptionAuthStep === "done" && subscriptionAuthMode === "token" && (
+                      <p className="text-sm text-accent mt-2">✓ Setup token saved</p>
+                    )}
+                    {subscriptionAuthError && (
+                      <p className="text-sm text-danger mt-2">{subscriptionAuthError}</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+            {onboardingProvider === "openai-subscription" && (
+              <div className="max-w-[360px] mx-auto mt-4">
+                {subscriptionAuthStep === "idle" && (
+                  <button
+                    className="w-full px-4 py-2 border border-accent bg-accent text-accent-fg text-sm cursor-pointer hover:bg-accent-hover"
+                    onClick={async () => {
+                      try {
+                        const { authUrl, state } = await client.startOpenAIAuth();
+                        window.open(authUrl, "_blank");
+                        setState("subscriptionAuthState", state);
+                        setState("subscriptionAuthStep", "waiting");
+                        setState("subscriptionAuthError", null);
+                      } catch (err) {
+                        setState("subscriptionAuthError", String(err));
+                      }
+                    }}
+                  >
+                    Login with OpenAI
+                  </button>
+                )}
+                {subscriptionAuthStep === "waiting" && (
+                  <div>
+                    <p className="text-sm text-muted mb-2">Paste the redirect URL from the browser:</p>
+                    <input
+                      type="text"
+                      placeholder="Paste the full URL or code"
+                      className="w-full px-3 py-2 border border-border bg-card text-sm focus:border-accent focus:outline-none"
+                      onKeyDown={async (e) => {
+                        if (e.key === "Enter") {
+                          const input = (e.target as HTMLInputElement).value.trim();
+                          try {
+                            await client.exchangeOpenAICode(input, subscriptionAuthState);
+                            setState("subscriptionAuthStep", "done");
+                            setState("subscriptionAuthError", null);
+                          } catch (err) {
+                            setState("subscriptionAuthError", String(err));
+                          }
+                        }
+                      }}
+                    />
+                    <p className="text-xs text-muted mt-1">Press Enter after pasting</p>
+                  </div>
+                )}
+                {subscriptionAuthStep === "done" && (
+                  <p className="text-sm text-accent">✓ OpenAI subscription connected</p>
+                )}
+                {subscriptionAuthError && (
+                  <p className="text-sm text-danger mt-2">{subscriptionAuthError}</p>
+                )}
               </div>
             )}
           </div>
@@ -506,8 +686,16 @@ export function OnboardingWizard() {
         return onboardingSmallModel.length > 0 && onboardingLargeModel.length > 0;
       case "cloudLogin":
         return cloudConnected;
-      case "llmProvider":
-        return onboardingProvider.length > 0 && onboardingApiKey.length > 0;
+      case "llmProvider": {
+        if (!onboardingProvider) return false;
+        if (onboardingProvider === "anthropic-subscription") {
+          return subscriptionAuthStep === "done" || subscriptionSetupToken.trim().length > 0;
+        }
+        if (onboardingProvider === "openai-subscription") {
+          return subscriptionAuthStep === "done";
+        }
+        return onboardingApiKey.length > 0;
+      }
       case "inventorySetup":
         return true;
       case "channels":

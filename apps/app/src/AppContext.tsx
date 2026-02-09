@@ -272,6 +272,12 @@ export interface AppState {
   onboardingLargeModel: string;
   onboardingProvider: string;
   onboardingApiKey: string;
+  subscriptionAuthMode: "oauth" | "token";
+  subscriptionAuthUrl: string;
+  subscriptionAuthState: string;
+  subscriptionAuthStep: "idle" | "waiting" | "done";
+  subscriptionAuthError: string | null;
+  subscriptionSetupToken: string;
   onboardingSelectedChains: Set<string>;
   onboardingRpcSelections: Record<string, string>;
   onboardingRpcKeys: Record<string, string>;
@@ -576,6 +582,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [onboardingLargeModel, setOnboardingLargeModel] = useState("claude-sonnet-4-5");
   const [onboardingProvider, setOnboardingProvider] = useState("");
   const [onboardingApiKey, setOnboardingApiKey] = useState("");
+  const [subscriptionAuthMode, setSubscriptionAuthMode] = useState<"oauth" | "token">("oauth");
+  const [subscriptionAuthUrl, setSubscriptionAuthUrl] = useState("");
+  const [subscriptionAuthState, setSubscriptionAuthState] = useState("");
+  const [subscriptionAuthStep, setSubscriptionAuthStep] = useState<"idle" | "waiting" | "done">("idle");
+  const [subscriptionAuthError, setSubscriptionAuthError] = useState<string | null>(null);
+  const [subscriptionSetupToken, setSubscriptionSetupToken] = useState("");
   const [onboardingSelectedChains, setOnboardingSelectedChains] = useState<Set<string>>(new Set(["evm", "solana"]));
   const [onboardingRpcSelections, setOnboardingRpcSelections] = useState<Record<string, string>>({});
   const [onboardingRpcKeys, setOnboardingRpcKeys] = useState<Record<string, string>>({});
@@ -1774,6 +1786,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       onboardingLargeModel: setOnboardingLargeModel as (v: never) => void,
       onboardingProvider: setOnboardingProvider as (v: never) => void,
       onboardingApiKey: setOnboardingApiKey as (v: never) => void,
+      subscriptionAuthMode: setSubscriptionAuthMode as (v: never) => void,
+      subscriptionAuthUrl: setSubscriptionAuthUrl as (v: never) => void,
+      subscriptionAuthState: setSubscriptionAuthState as (v: never) => void,
+      subscriptionAuthStep: setSubscriptionAuthStep as (v: never) => void,
+      subscriptionAuthError: setSubscriptionAuthError as (v: never) => void,
+      subscriptionSetupToken: setSubscriptionSetupToken as (v: never) => void,
       onboardingSelectedChains: setOnboardingSelectedChains as (v: never) => void,
       onboardingRpcSelections: setOnboardingRpcSelections as (v: never) => void,
       onboardingRpcKeys: setOnboardingRpcKeys as (v: never) => void,
@@ -1984,8 +2002,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     importBusy, importPassword, importFile, importError, importSuccess,
     onboardingStep, onboardingOptions, onboardingName, onboardingStyle, onboardingTheme,
     onboardingRunMode, onboardingCloudProvider, onboardingSmallModel, onboardingLargeModel,
-    onboardingProvider, onboardingApiKey, onboardingSelectedChains,
-    onboardingRpcSelections, onboardingRpcKeys, onboardingChannels,
+    onboardingProvider, onboardingApiKey, subscriptionAuthMode, subscriptionAuthUrl,
+    subscriptionAuthState, subscriptionAuthStep, subscriptionAuthError, subscriptionSetupToken,
+    onboardingSelectedChains, onboardingRpcSelections, onboardingRpcKeys, onboardingChannels,
     commandPaletteOpen, commandQuery, commandActiveIndex,
     mcpConfiguredServers, mcpServerStatuses, mcpMarketplaceQuery, mcpMarketplaceResults,
     mcpMarketplaceLoading, mcpAction, mcpAddingServer, mcpAddingResult,
