@@ -47,6 +47,7 @@ import {
   type TriggerRunRecord,
   type TriggerSummary,
   type UpdateTriggerRequest,
+  type AppViewerAuthMessage,
 } from "./api-client";
 import { tabFromPath, pathForTab, type Tab } from "./navigation";
 import { SkillScanReportSummary } from "./api-client";
@@ -135,12 +136,7 @@ interface ActionNotice {
   text: string;
 }
 
-export interface GamePostMessageAuthPayload {
-  type: string;
-  authToken?: string;
-  sessionToken?: string;
-  agentId?: string;
-}
+type GamePostMessageAuthPayload = AppViewerAuthMessage;
 
 // ── Context value type ─────────────────────────────────────────────────
 

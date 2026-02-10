@@ -23,6 +23,8 @@ import {
 } from "./registry-client.js";
 
 const DEFAULT_VIEWER_SANDBOX = "allow-scripts allow-same-origin allow-popups";
+const HYPERSCAPE_APP_NAME = "@elizaos/app-hyperscape";
+const HYPERSCAPE_AUTH_MESSAGE_TYPE = "HYPERSCAPE_AUTH";
 
 export interface AppViewerAuthMessage {
   type: string;
@@ -66,6 +68,8 @@ export interface AppStopResult {
   stoppedAt: string;
 }
 
+type AppViewerConfig = NonNullable<AppLaunchResult["viewer"]>;
+
 function substituteTemplateVars(raw: string): string {
   return raw.replace(/\{([A-Z0-9_]+)\}/g, (_full, key: string) => {
     const value = process.env[key];
@@ -97,7 +101,7 @@ function buildViewerAuthMessage(
   postMessageAuth: boolean | undefined,
 ): AppViewerAuthMessage | undefined {
   if (!postMessageAuth) return undefined;
-  if (appName !== "@elizaos/app-hyperscape") return undefined;
+  if (appName !== HYPERSCAPE_APP_NAME) return undefined;
 
   const authToken = process.env.HYPERSCAPE_AUTH_TOKEN?.trim();
   if (!authToken) return undefined;
@@ -105,11 +109,47 @@ function buildViewerAuthMessage(
   const sessionToken = process.env.HYPERSCAPE_SESSION_TOKEN?.trim();
   const agentId = process.env.HYPERSCAPE_EMBED_AGENT_ID?.trim();
   return {
-    type: "HYPERSCAPE_AUTH",
+    type: HYPERSCAPE_AUTH_MESSAGE_TYPE,
     authToken,
-    sessionToken: sessionToken && sessionToken.length > 0 ? sessionToken : undefined,
+    sessionToken: sessionToken && sessionToken.length > 0
+      ? sessionToken
+      : undefined,
     agentId: agentId && agentId.length > 0 ? agentId : undefined,
   };
+}
+
+function buildViewerConfig(
+  appInfo: RegistryAppInfo,
+  launchUrl: string | null,
+): AppViewerConfig | null {
+  if (appInfo.viewer) {
+    const authMessage = buildViewerAuthMessage(
+      appInfo.name,
+      appInfo.viewer.postMessageAuth,
+    );
+    if (appInfo.viewer.postMessageAuth && !authMessage) {
+      logger.warn(
+        `[app-manager] ${appInfo.name} requires postMessage auth but no auth payload was generated.`,
+      );
+    }
+    return {
+      url: buildViewerUrl(appInfo.viewer.url, appInfo.viewer.embedParams),
+      embedParams: appInfo.viewer.embedParams,
+      postMessageAuth: appInfo.viewer.postMessageAuth,
+      sandbox: appInfo.viewer.sandbox ?? DEFAULT_VIEWER_SANDBOX,
+      authMessage,
+    };
+  }
+  if (
+    (appInfo.launchType === "connect" || appInfo.launchType === "local") &&
+    launchUrl
+  ) {
+    return {
+      url: launchUrl,
+      sandbox: DEFAULT_VIEWER_SANDBOX,
+    };
+  }
+  return null;
 }
 
 export class AppManager {
@@ -173,25 +213,7 @@ export class AppManager {
     const launchUrl = appInfo.launchUrl
       ? substituteTemplateVars(appInfo.launchUrl)
       : null;
-    const viewer = appInfo.viewer
-      ? {
-          url: buildViewerUrl(appInfo.viewer.url, appInfo.viewer.embedParams),
-          embedParams: appInfo.viewer.embedParams,
-          postMessageAuth: appInfo.viewer.postMessageAuth,
-          sandbox: appInfo.viewer.sandbox ?? DEFAULT_VIEWER_SANDBOX,
-          authMessage: buildViewerAuthMessage(
-            appInfo.name,
-            appInfo.viewer.postMessageAuth,
-          ),
-        }
-      : appInfo.launchType === "connect" || appInfo.launchType === "local"
-        ? launchUrl
-          ? {
-              url: launchUrl,
-              sandbox: DEFAULT_VIEWER_SANDBOX,
-            }
-          : null
-        : null;
+    const viewer = buildViewerConfig(appInfo, launchUrl);
 
     return {
       pluginInstalled: true,

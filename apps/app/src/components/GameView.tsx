@@ -2,7 +2,7 @@
  * Game View — embeds a running app's game client in an iframe.
  */
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { client } from "../api-client";
 import { useApp } from "../AppContext";
 
@@ -10,6 +10,12 @@ const DEFAULT_VIEWER_SANDBOX = "allow-scripts allow-same-origin allow-popups";
 const READY_EVENT_BY_AUTH_TYPE: Record<string, string> = {
   HYPERSCAPE_AUTH: "HYPERSCAPE_READY",
 };
+
+function resolvePostMessageTargetOrigin(viewerUrl: string): string {
+  if (viewerUrl.startsWith("/")) return window.location.origin;
+  const match = viewerUrl.match(/^https?:\/\/[^/?#]+/i);
+  return match?.[0] ?? "*";
+}
 
 export function GameView() {
   const {
@@ -24,18 +30,45 @@ export function GameView() {
   } = useApp();
   const [stopping, setStopping] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const authSentRef = useRef(false);
+  const postMessageTargetOrigin = useMemo(
+    () => resolvePostMessageTargetOrigin(activeGameViewerUrl),
+    [activeGameViewerUrl],
+  );
+
+  const resetActiveGameState = useCallback(() => {
+    setState("activeGameApp", "");
+    setState("activeGameDisplayName", "");
+    setState("activeGameViewerUrl", "");
+    setState("activeGameSandbox", DEFAULT_VIEWER_SANDBOX);
+    setState("activeGamePostMessageAuth", false);
+    setState("activeGamePostMessagePayload", null);
+  }, [setState]);
+
+  useEffect(() => {
+    authSentRef.current = false;
+  }, [activeGameViewerUrl, activeGamePostMessageAuth, activeGamePostMessagePayload]);
 
   useEffect(() => {
     if (!activeGamePostMessageAuth || !activeGamePostMessagePayload) return;
+    if (authSentRef.current) return;
     const expectedReadyType =
       READY_EVENT_BY_AUTH_TYPE[activeGamePostMessagePayload.type];
     if (!expectedReadyType) return;
 
     const onMessage = (event: MessageEvent<{ type?: string }>) => {
+      if (authSentRef.current) return;
       const iframeWindow = iframeRef.current?.contentWindow;
       if (!iframeWindow || event.source !== iframeWindow) return;
       if (event.data?.type !== expectedReadyType) return;
-      iframeWindow.postMessage(activeGamePostMessagePayload, "*");
+      if (
+        postMessageTargetOrigin !== "*" &&
+        event.origin !== postMessageTargetOrigin
+      ) {
+        return;
+      }
+      iframeWindow.postMessage(activeGamePostMessagePayload, postMessageTargetOrigin);
+      authSentRef.current = true;
       setActionNotice("Viewer auth sent.", "info", 1800);
     };
 
@@ -46,20 +79,23 @@ export function GameView() {
   }, [
     activeGamePostMessageAuth,
     activeGamePostMessagePayload,
+    postMessageTargetOrigin,
     setActionNotice,
   ]);
+
+  const handleOpenInNewTab = useCallback(() => {
+    const popup = window.open(activeGameViewerUrl, "_blank", "noopener,noreferrer");
+    if (!popup) {
+      setActionNotice("Popup blocked. Allow popups and try again.", "error", 3600);
+    }
+  }, [activeGameViewerUrl, setActionNotice]);
 
   const handleStop = useCallback(async () => {
     if (!activeGameApp) return;
     setStopping(true);
     try {
       await client.stopApp(activeGameApp);
-      setState("activeGameApp", "");
-      setState("activeGameDisplayName", "");
-      setState("activeGameViewerUrl", "");
-      setState("activeGameSandbox", DEFAULT_VIEWER_SANDBOX);
-      setState("activeGamePostMessageAuth", false);
-      setState("activeGamePostMessagePayload", null);
+      resetActiveGameState();
       setState("tab", "apps");
       setActionNotice("App stopped.", "success");
     } catch (err) {
@@ -67,7 +103,7 @@ export function GameView() {
     } finally {
       setStopping(false);
     }
-  }, [activeGameApp, setState, setActionNotice]);
+  }, [activeGameApp, resetActiveGameState, setState, setActionNotice]);
 
   if (!activeGameViewerUrl) {
     return (
@@ -95,7 +131,7 @@ export function GameView() {
         <span className="flex-1" />
         <button
           className="text-xs px-3 py-1 bg-accent text-accent-fg border border-accent cursor-pointer hover:bg-accent-hover disabled:opacity-40"
-          onClick={() => window.open(activeGameViewerUrl, "_blank", "noopener,noreferrer")}
+          onClick={handleOpenInNewTab}
         >
           Open in New Tab
         </button>

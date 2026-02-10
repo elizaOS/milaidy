@@ -7,6 +7,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { logger } from "@elizaos/core";
 
 vi.mock("./registry-client.js", () => ({
   listApps: vi.fn().mockResolvedValue([]),
@@ -375,6 +376,57 @@ describe("AppManager", () => {
       });
 
       delete process.env.HYPERSCAPE_AUTH_TOKEN;
+    });
+
+    it("warns and omits auth payload when hyperscape token is missing", async () => {
+      delete process.env.HYPERSCAPE_AUTH_TOKEN;
+      const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => {});
+
+      const { getAppInfo } = await import("./registry-client.js");
+      vi.mocked(getAppInfo).mockResolvedValue({
+        name: "@elizaos/app-hyperscape",
+        displayName: "Hyperscape",
+        description: "Hyperscape",
+        category: "game",
+        launchType: "connect",
+        launchUrl: "http://localhost:3333",
+        icon: null,
+        capabilities: [],
+        stars: 0,
+        repository: "",
+        latestVersion: "1.0.0",
+        supports: { v0: false, v1: false, v2: true },
+        npm: {
+          package: "@elizaos/app-hyperscape",
+          v0Version: null,
+          v1Version: null,
+          v2Version: "1.0.0",
+        },
+        viewer: {
+          url: "http://localhost:3333",
+          postMessageAuth: true,
+        },
+      });
+
+      const { listInstalledPlugins } = await import("./plugin-installer.js");
+      vi.mocked(listInstalledPlugins).mockReturnValue([
+        {
+          name: "@elizaos/app-hyperscape",
+          version: "1.0.0",
+          installPath: "/tmp/hs",
+          installedAt: "2026-01-01",
+        },
+      ]);
+
+      const { AppManager } = await import("./app-manager.js");
+      const mgr = new AppManager();
+      const result = await mgr.launch("@elizaos/app-hyperscape");
+
+      expect(result.viewer?.postMessageAuth).toBe(true);
+      expect(result.viewer?.authMessage).toBeUndefined();
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining("requires postMessage auth"),
+      );
     });
   });
 

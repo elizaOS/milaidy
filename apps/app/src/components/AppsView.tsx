@@ -33,9 +33,19 @@ export function AppsView() {
       setApps(list);
     } catch (err) {
       setError(`Failed to load apps: ${err instanceof Error ? err.message : "network error"}`);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, []);
+
+  const clearActiveGameState = useCallback(() => {
+    setState("activeGameApp", "");
+    setState("activeGameDisplayName", "");
+    setState("activeGameViewerUrl", "");
+    setState("activeGameSandbox", DEFAULT_VIEWER_SANDBOX);
+    setState("activeGamePostMessageAuth", false);
+    setState("activeGamePostMessagePayload", null);
+  }, [setState]);
 
   useEffect(() => {
     loadApps();
@@ -52,18 +62,33 @@ export function AppsView() {
         setState("activeGameSandbox", result.viewer.sandbox ?? DEFAULT_VIEWER_SANDBOX);
         setState("activeGamePostMessageAuth", Boolean(result.viewer.postMessageAuth));
         setState("activeGamePostMessagePayload", result.viewer.authMessage ?? null);
+        if (result.viewer.postMessageAuth && !result.viewer.authMessage) {
+          setActionNotice(
+            `${app.displayName ?? app.name} requires iframe auth, but no auth payload is configured.`,
+            "error",
+            4800,
+          );
+        }
         setState("tab", "game");
         return;
       }
-      setState("activeGamePostMessagePayload", null);
+      clearActiveGameState();
       const targetUrl = result.launchUrl ?? app.launchUrl;
       if (targetUrl) {
-        window.open(targetUrl, "_blank", "noopener,noreferrer");
-        setActionNotice(
-          `${app.displayName ?? app.name} opened in a new tab.`,
-          "success",
-          2600,
-        );
+        const popup = window.open(targetUrl, "_blank", "noopener,noreferrer");
+        if (popup) {
+          setActionNotice(
+            `${app.displayName ?? app.name} opened in a new tab.`,
+            "success",
+            2600,
+          );
+        } else {
+          setActionNotice(
+            `Popup blocked while opening ${app.displayName ?? app.name}. Allow popups and try again.`,
+            "error",
+            4200,
+          );
+        }
         return;
       }
       setActionNotice(
@@ -82,13 +107,13 @@ export function AppsView() {
     }
   };
 
+  const normalizedSearch = searchQuery.trim().toLowerCase();
   const filtered = apps.filter((app) => {
-    if (!searchQuery) return true;
-    const q = searchQuery.toLowerCase();
+    if (!normalizedSearch) return true;
     return (
-      app.name.toLowerCase().includes(q) ||
-      (app.displayName ?? "").toLowerCase().includes(q) ||
-      (app.description ?? "").toLowerCase().includes(q)
+      app.name.toLowerCase().includes(normalizedSearch) ||
+      (app.displayName ?? "").toLowerCase().includes(normalizedSearch) ||
+      (app.description ?? "").toLowerCase().includes(normalizedSearch)
     );
   });
 
