@@ -1516,6 +1516,37 @@ let pairingCode: string | null = null;
 let pairingExpiresAt = 0;
 const pairingAttempts = new Map<string, { count: number; resetAt: number }>();
 
+/** @internal Exported for tests. */
+export function isLoopbackBindAddress(bindHost: string): boolean {
+  const normalized = bindHost.trim().toLowerCase();
+  return (
+    normalized === "127.0.0.1" ||
+    normalized === "::1" ||
+    normalized === "localhost"
+  );
+}
+
+/**
+ * Ensure API auth is enabled when the server is exposed off-loopback.
+ * Generates an ephemeral token if needed and stores it in process env.
+ *
+ * @internal Exported for tests.
+ */
+export function ensureApiTokenForBind(
+  bindHost: string,
+  env: NodeJS.ProcessEnv = process.env,
+): { generated: boolean; token: string | null } {
+  const existing = env.MILAIDY_API_TOKEN?.trim();
+  if (existing) return { generated: false, token: existing };
+  if (isLoopbackBindAddress(bindHost)) {
+    return { generated: false, token: null };
+  }
+
+  const generated = crypto.randomBytes(32).toString("hex");
+  env.MILAIDY_API_TOKEN = generated;
+  return { generated: true, token: generated };
+}
+
 function pairingEnabled(): boolean {
   return (
     Boolean(process.env.MILAIDY_API_TOKEN?.trim()) &&
@@ -5963,6 +5994,15 @@ export async function startApiServer(opts?: {
   const port = opts?.port ?? 2138;
   const host =
     (process.env.MILAIDY_API_BIND ?? "127.0.0.1").trim() || "127.0.0.1";
+  const authSetup = ensureApiTokenForBind(host);
+  if (authSetup.generated && authSetup.token) {
+    logger.warn(
+      `[milaidy-api] MILAIDY_API_BIND is "${host}" and MILAIDY_API_TOKEN is unset. Generated an ephemeral token for this process.`,
+    );
+    logger.warn(
+      `[milaidy-api] Set MILAIDY_API_TOKEN to persist API auth. Current token: ${authSetup.token}`,
+    );
+  }
 
   let config: MilaidyConfig;
   try {
