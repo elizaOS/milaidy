@@ -358,7 +358,8 @@ export type ConfigUiHint = {
   advanced?: boolean;
   sensitive?: boolean;
   placeholder?: string;
-  itemTemplate?: unknown;
+  /** Default value template for new array items (e.g. `""`, `0`, `{ key: "", value: "" }`). */
+  itemTemplate?: string | number | boolean | Record<string, string | number | boolean>;
   /** Explicit field type override (must match a catalog field name). */
   type?: string;
   /** Hide this field from the UI entirely. */
