@@ -317,7 +317,7 @@ export function OnboardingWizard() {
 
       case "cloudProvider":
         return (
-          <div className="max-w-[500px] mx-auto mt-10 text-center font-body">
+          <div className="max-w-[520px] mx-auto mt-10 text-center font-body">
             <img
               src="/android-chrome-512x512.png"
               alt="Avatar"
@@ -330,7 +330,7 @@ export function OnboardingWizard() {
               {onboardingOptions?.cloudProviders.map((provider: CloudProviderOption) => (
                 <div
                   key={provider.id}
-                  className={`px-4 py-3 border cursor-pointer bg-card transition-colors ${
+                  className={`px-4 py-3 border cursor-pointer bg-card transition-colors rounded-lg ${
                     onboardingCloudProvider === provider.id
                       ? "border-accent !bg-accent !text-accent-fg"
                       : "border-border hover:border-accent"
@@ -338,10 +338,40 @@ export function OnboardingWizard() {
                   onClick={() => handleCloudProviderSelect(provider.id)}
                 >
                   <div className="font-bold text-sm">{provider.name}</div>
-                  {provider.description && <div className="text-xs text-muted mt-0.5">{provider.description}</div>}
+                  {provider.description && (
+                    <div className={`text-xs mt-0.5 ${
+                      onboardingCloudProvider === provider.id ? "text-accent-fg/70" : "text-muted"
+                    }`}>{provider.description}</div>
+                  )}
                 </div>
               ))}
             </div>
+            {onboardingCloudProvider === "elizacloud" && (
+              <div className="max-w-[360px] mx-auto mt-4">
+                {cloudConnected ? (
+                  <div className="flex items-center gap-2 px-4 py-2.5 border border-green-500/30 bg-green-500/10 text-green-400 text-sm rounded-lg justify-center">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    connected~
+                  </div>
+                ) : (
+                  <button
+                    className="px-6 py-2.5 border border-accent bg-accent text-accent-fg text-sm cursor-pointer rounded-full hover:bg-accent-hover disabled:opacity-40 disabled:cursor-not-allowed"
+                    onClick={handleCloudLogin}
+                    disabled={cloudLoginBusy}
+                  >
+                    {cloudLoginBusy ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <span className="inline-block w-4 h-4 border-2 border-border border-t-accent rounded-full animate-spin"></span>
+                        connecting...
+                      </span>
+                    ) : (
+                      "connect account"
+                    )}
+                  </button>
+                )}
+                {cloudLoginError && <p className="text-danger text-[13px] mt-2">{cloudLoginError}</p>}
+              </div>
+            )}
           </div>
         );
 
@@ -1049,6 +1079,7 @@ export function OnboardingWizard() {
       case "runMode":
         return onboardingRunMode !== "";
       case "cloudProvider":
+        if (onboardingCloudProvider === "elizacloud") return cloudConnected;
         return onboardingCloudProvider.length > 0;
       case "modelSelection":
         return onboardingSmallModel.length > 0 && onboardingLargeModel.length > 0;

@@ -17,6 +17,7 @@ import {
   type Content,
   createMessageMemory,
   logger,
+  ModelType,
   stringToUuid,
   type UUID,
 } from "@elizaos/core";
@@ -4884,10 +4885,12 @@ async function handleRequest(
   }
 
   // ── POST /api/conversations/:id/greeting ───────────────────────────
-  // Kick off a new conversation by sending a greeting trigger through the
-  // SAME message pipeline as regular user messages.  This means the
-  // greeting gets full context, memory, character voice, and is persisted
-  // to the DB — so it's remembered on refresh and voice/TTS works.
+  // Generate an opening greeting using a direct model call.
+  // IMPORTANT: we do NOT route through the message pipeline because that
+  // would persist the instruction prompt as a "user" message in the DB,
+  // polluting the conversation with meta-text like "[A new user has
+  // opened a conversation...]".  Instead we call the model directly and
+  // only store the agent's response.
   if (
     method === "POST" &&
     /^\/api\/conversations\/[^/]+\/greeting$/.test(pathname)
@@ -4917,7 +4920,7 @@ async function handleRequest(
     if (proxy) {
       try {
         const responseText = await proxy.handleChatMessage(
-          "[A new user has opened a conversation. Send a short, in-character greeting to kick things off.]",
+          "[system: send a short greeting to open the conversation. introduce yourself briefly in your own style.]",
         );
         conv.updatedAt = new Date().toISOString();
         json(res, {
@@ -4935,49 +4938,73 @@ async function handleRequest(
       return;
     }
 
-    // Route through the full message pipeline — same as regular chat.
-    // This gives the greeting full context, memory, and DB persistence.
+    // Direct model call — no message pipeline, no DB persistence of the
+    // instruction prompt.  Only the agent's response is stored.
     try {
-      const userId = await ensureChatUser();
-      await ensureConversationRoom(conv);
+      const character = runtime.character;
+      const bio = Array.isArray(character.bio)
+        ? character.bio.join(" ")
+        : (character.bio ?? "");
+      const allStyle = character.style?.all?.join(" ") ?? "";
 
-      // Send a system-style trigger message that the agent responds to
-      const triggerMessage = createMessageMemory({
-        id: crypto.randomUUID() as UUID,
-        entityId: userId,
-        roomId: conv.roomId,
-        content: {
-          text: "[A new user has opened a conversation. Send a short, in-character greeting to kick things off. Be yourself — use your own voice, personality, and style. Keep it brief (1-2 sentences).]",
-          source: "client_chat",
-          channelType: ChannelType.DM,
-        },
-      });
+      const greetingPrompt = [
+        character.system ?? "",
+        bio ? `Bio: ${bio}` : "",
+        allStyle ? `General style rules: ${allStyle}` : "",
+        "",
+        "Write a short, natural opening message to greet someone who just started a conversation with you.",
+        "Be yourself — use your own voice, personality, and style.",
+        "Keep it brief (1-2 sentences). Do not use quotation marks around your message.",
+        "Just output the greeting, nothing else.",
+      ]
+        .filter(Boolean)
+        .join("\n");
 
-      let responseText = "";
-      const result = await runtime.messageService?.handleMessage(
-        runtime,
-        triggerMessage,
-        async (content: Content) => {
-          if (content?.text) {
-            responseText += content.text;
-          }
-          return [];
-        },
-      );
+      let result: string | undefined;
+      try {
+        result = (await runtime.useModel(ModelType.TEXT_SMALL, {
+          prompt: greetingPrompt,
+        })) as string | undefined;
+      } catch (modelErr) {
+        logger.debug(
+          `[greeting] Model call failed: ${modelErr instanceof Error ? modelErr.message : String(modelErr)}`,
+        );
+      }
 
-      if (!responseText && result?.responseContent?.text) {
-        responseText = result.responseContent.text;
+      if (!result?.trim()) {
+        json(res, {
+          text: FALLBACK_MSG,
+          agentName: charName,
+          generated: false,
+        });
+        return;
+      }
+
+      // Store the greeting as an agent message so it persists on refresh
+      try {
+        await ensureConversationRoom(conv);
+        const agentMemory = createMessageMemory({
+          id: crypto.randomUUID() as UUID,
+          entityId: runtime.agentId,
+          roomId: conv.roomId,
+          content: {
+            text: result.trim(),
+            source: "agent_greeting",
+            channelType: ChannelType.DM,
+          },
+        });
+        await runtime.createMemory(agentMemory, "messages");
+      } catch (memErr) {
+        logger.debug(
+          `[greeting] Failed to store greeting memory: ${memErr instanceof Error ? memErr.message : String(memErr)}`,
+        );
       }
 
       conv.updatedAt = new Date().toISOString();
-      json(res, {
-        text: responseText?.trim() || FALLBACK_MSG,
-        agentName: charName,
-        generated: Boolean(responseText?.trim()),
-      });
+      json(res, { text: result.trim(), agentName: charName, generated: true });
     } catch (greetErr) {
       logger.error(
-        `[greeting] Pipeline failed: ${greetErr instanceof Error ? greetErr.message : String(greetErr)}`,
+        `[greeting] Model call failed: ${greetErr instanceof Error ? greetErr.message : String(greetErr)}`,
       );
       json(res, {
         text: FALLBACK_MSG,

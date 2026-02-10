@@ -1560,10 +1560,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (onboardingRunMode === "cloud") {
           if (opts && opts.cloudProviders.length === 1) {
             setOnboardingCloudProvider(opts.cloudProviders[0].id);
-            setOnboardingStep("modelSelection");
-          } else {
-            setOnboardingStep("cloudProvider");
           }
+          setOnboardingStep("cloudProvider");
         } else {
           setOnboardingStep("llmProvider");
         }
@@ -1572,7 +1570,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setOnboardingStep("modelSelection");
         break;
       case "modelSelection":
-        setOnboardingStep("cloudLogin");
+        if (cloudConnected) {
+          setOnboardingStep("connectors");
+        } else {
+          setOnboardingStep("cloudLogin");
+        }
         break;
       case "cloudLogin":
         setOnboardingStep("connectors");
@@ -1587,7 +1589,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         await handleOnboardingFinish();
         break;
     }
-  }, [onboardingStep, onboardingOptions, onboardingRunMode, onboardingTheme, setTheme]);
+  }, [onboardingStep, onboardingOptions, onboardingRunMode, onboardingTheme, setTheme, cloudConnected]);
 
   const handleOnboardingBack = useCallback(() => {
     switch (onboardingStep) {
@@ -1610,11 +1612,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setOnboardingStep("runMode");
         break;
       case "modelSelection":
-        if (onboardingOptions && onboardingOptions.cloudProviders.length > 1) {
-          setOnboardingStep("cloudProvider");
-        } else {
-          setOnboardingStep("runMode");
-        }
+        setOnboardingStep("cloudProvider");
         break;
       case "cloudLogin":
         setOnboardingStep("modelSelection");
@@ -1634,7 +1632,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       case "connectors":
         // Go back to whichever path we came from
         if (onboardingRunMode === "cloud") {
-          setOnboardingStep("cloudLogin");
+          setOnboardingStep("modelSelection");
         } else {
           setOnboardingStep("inventorySetup");
         }
