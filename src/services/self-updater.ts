@@ -133,7 +133,8 @@ function runCommand(
   return new Promise((resolve) => {
     const child = spawn(command, args, {
       stdio: ["inherit", "inherit", "pipe"],
-      shell: true,
+      // shell:true removed — all update commands are safe to run directly.
+      // The apt case uses sh -c explicitly, so no shell wrapper is needed.
     });
 
     let stderr = "";

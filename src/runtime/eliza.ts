@@ -996,13 +996,28 @@ async function runFirstTimeSetup(
         // Try to open the browser automatically; fall back to showing URL
         import("node:child_process")
           .then((cp) => {
-            const cmd =
-              process.platform === "darwin"
-                ? "open"
-                : process.platform === "win32"
-                  ? "start"
-                  : "xdg-open";
-            cp.exec(`${cmd} "${url}"`);
+            // Validate URL protocol to prevent shell injection via crafted
+            // cloud.baseUrl values containing shell metacharacters.
+            let safeUrl: string;
+            try {
+              const parsed = new URL(url);
+              if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+                throw new Error("Invalid protocol");
+              }
+              safeUrl = parsed.href;
+            } catch {
+              clack.log.message(`Open this URL in your browser:\n  ${url}`);
+              return;
+            }
+
+            // Use execFile (not exec) to avoid shell interpretation.
+            // On Windows, "start" is a cmd built-in so we invoke via cmd.exe.
+            if (process.platform === "win32") {
+              cp.execFile("cmd", ["/c", "start", "", safeUrl]);
+            } else {
+              const cmd = process.platform === "darwin" ? "open" : "xdg-open";
+              cp.execFile(cmd, [safeUrl]);
+            }
           })
           .catch(() => {
             clack.log.message(`Open this URL in your browser:\n  ${url}`);
