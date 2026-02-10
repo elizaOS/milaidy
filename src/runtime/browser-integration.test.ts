@@ -10,11 +10,14 @@
  */
 
 import fs from "node:fs/promises";
-import os from "node:os";
 import path from "node:path";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import type { MilaidyConfig } from "../config/config.js";
-import { collectPluginNames, ensureBrowserServerLink, CORE_PLUGINS } from "./eliza.js";
+import {
+  CORE_PLUGINS,
+  collectPluginNames,
+  ensureBrowserServerLink,
+} from "./eliza.js";
 
 // ---------------------------------------------------------------------------
 // ensureBrowserServerLink — symlink creation tests
@@ -138,14 +141,22 @@ describe("Browser plugin module", () => {
 
 describe("link-browser-server.mjs script", () => {
   it("exists at scripts/link-browser-server.mjs", async () => {
-    const scriptPath = path.resolve(process.cwd(), "scripts", "link-browser-server.mjs");
+    const scriptPath = path.resolve(
+      process.cwd(),
+      "scripts",
+      "link-browser-server.mjs",
+    );
     const stat = await fs.stat(scriptPath).catch(() => null);
     expect(stat).not.toBeNull();
     expect(stat?.isFile()).toBe(true);
   });
 
   it("has a shebang line for node execution", async () => {
-    const scriptPath = path.resolve(process.cwd(), "scripts", "link-browser-server.mjs");
+    const scriptPath = path.resolve(
+      process.cwd(),
+      "scripts",
+      "link-browser-server.mjs",
+    );
     const content = await fs.readFile(scriptPath, "utf-8");
     expect(content.startsWith("#!/usr/bin/env node")).toBe(true);
   });

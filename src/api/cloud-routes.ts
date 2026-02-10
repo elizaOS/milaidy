@@ -150,7 +150,10 @@ export async function handleCloudRoute(
           if (!state.runtime.character.secrets) {
             state.runtime.character.secrets = {};
           }
-          const secrets = state.runtime.character.secrets as Record<string, string>;
+          const secrets = state.runtime.character.secrets as Record<
+            string,
+            string
+          >;
           secrets.ELIZAOS_CLOUD_API_KEY = data.apiKey;
           secrets.ELIZAOS_CLOUD_ENABLED = "true";
 

@@ -11,12 +11,12 @@
  * Pure-function tests — no live server needed.
  */
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import type { MilaidyConfig } from "../src/config/config.js";
 import {
   applyCloudConfigToEnv,
   buildCharacterFromConfig,
   collectPluginNames,
 } from "../src/runtime/eliza.js";
-import type { MilaidyConfig } from "../src/config/config.js";
 
 // ---------------------------------------------------------------------------
 // Env snapshot helper
@@ -32,7 +32,10 @@ const CLOUD_ENV_KEYS = [
   "LARGE_MODEL",
 ];
 
-function envSnapshot(keys: string[]): { save: () => void; restore: () => void } {
+function envSnapshot(keys: string[]): {
+  save: () => void;
+  restore: () => void;
+} {
   const saved = new Map<string, string | undefined>();
   return {
     save() {
@@ -102,14 +105,14 @@ describe("applyCloudConfigToEnv — cloud credential persistence", () => {
     expect(process.env.ELIZAOS_CLOUD_ENABLED).toBeUndefined();
   });
 
-  it("does not set ELIZAOS_CLOUD_ENABLED when cloud.enabled is false", () => {
+  it("treats cloud as enabled when apiKey exists even if enabled=false", () => {
     const config = {
       cloud: { enabled: false, apiKey: "ck-test" },
     } as MilaidyConfig;
     applyCloudConfigToEnv(config);
-    // API key should still be set (it exists), but ENABLED should not
+    // Having an API key means the user logged in — treat as enabled
     expect(process.env.ELIZAOS_CLOUD_API_KEY).toBe("ck-test");
-    expect(process.env.ELIZAOS_CLOUD_ENABLED).toBeUndefined();
+    expect(process.env.ELIZAOS_CLOUD_ENABLED).toBe("true");
   });
 });
 
@@ -199,9 +202,9 @@ describe("Cloud login persistence — simulated end-to-end", () => {
 
     // Step 3: Build character (as startEliza does) — key should be in secrets
     const char = buildCharacterFromConfig(config);
-    expect(
-      (char.secrets as Record<string, string>).ELIZAOS_CLOUD_API_KEY,
-    ).toBe("ck-e2e-test-key");
+    expect((char.secrets as Record<string, string>).ELIZAOS_CLOUD_API_KEY).toBe(
+      "ck-e2e-test-key",
+    );
 
     // Step 4: Plugin resolution should include cloud plugin
     const plugins = collectPluginNames(config);

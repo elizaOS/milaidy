@@ -20,7 +20,6 @@ export function ChatView() {
     activeConversationId,
     conversationMessages,
     handleChatSend,
-    handleChatClear,
     setState,
     droppedFiles,
     shareIngestNotice,
@@ -118,69 +117,6 @@ export function ChatView() {
       {/* 3D Avatar — behind chat on the right side */}
       {avatarVisible && <ChatAvatar mouthOpen={voice.mouthOpen} />}
 
-      {/* ── Header row ─────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between mb-2 relative" style={{ zIndex: 1 }}>
-        <h2 className="text-lg font-normal text-txt-strong m-0">{convTitle}</h2>
-        <div className="flex items-center gap-1.5">
-          {/* Show / hide avatar */}
-          <button
-            className={`w-7 h-7 flex items-center justify-center border rounded cursor-pointer transition-all ${
-              avatarVisible
-                ? "border-accent text-accent bg-accent/10"
-                : "border-border text-muted hover:border-accent hover:text-accent"
-            }`}
-            onClick={() => setAvatarVisible((v) => !v)}
-            title={avatarVisible ? "Hide avatar" : "Show avatar"}
-          >
-            {/* Person icon */}
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-              <circle cx="12" cy="7" r="4" />
-              {!avatarVisible && <line x1="3" y1="3" x2="21" y2="21" />}
-            </svg>
-          </button>
-
-          {/* Mute / unmute agent voice */}
-          <button
-            className={`w-7 h-7 flex items-center justify-center border rounded cursor-pointer transition-all ${
-              agentVoiceMuted
-                ? "border-border text-muted hover:border-accent hover:text-accent"
-                : "border-accent text-accent bg-accent/10"
-            }`}
-            onClick={() => {
-              const muting = !agentVoiceMuted;
-              setAgentVoiceMuted(muting);
-              if (muting) voice.stopSpeaking();
-            }}
-            title={agentVoiceMuted ? "Unmute agent voice" : "Mute agent voice"}
-          >
-            {/* Speaker icon with optional slash */}
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-              {agentVoiceMuted ? (
-                <line x1="23" y1="9" x2="17" y2="15" />
-              ) : (
-                <>
-                  <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
-                  <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
-                </>
-              )}
-              {agentVoiceMuted && <line x1="17" y1="9" x2="23" y2="15" />}
-            </svg>
-          </button>
-
-          {/* Clear */}
-          {msgs.length > 0 && (
-            <button
-              className="px-3.5 py-1 border border-border bg-bg text-muted text-xs font-mono cursor-pointer hover:border-danger hover:text-danger transition-colors"
-              onClick={handleChatClear}
-            >
-              Clear
-            </button>
-          )}
-        </div>
-      </div>
-
       {/* ── Messages ───────────────────────────────────────────────── */}
       <div ref={messagesRef} className="flex-1 overflow-y-auto py-2 relative" style={{ zIndex: 1 }}>
         {msgs.length === 0 && !chatSending ? (
@@ -232,6 +168,54 @@ export function ChatView() {
           ))}
         </div>
       )}
+
+      {/* ── Avatar / voice toggles ────────────────────────────────── */}
+      <div className="flex justify-end gap-1.5 pb-1.5 relative" style={{ zIndex: 1 }}>
+        {/* Show / hide avatar */}
+        <button
+          className={`w-7 h-7 flex items-center justify-center border rounded cursor-pointer transition-all ${
+            avatarVisible
+              ? "border-accent text-accent bg-accent/10"
+              : "border-border text-muted hover:border-accent hover:text-accent"
+          }`}
+          onClick={() => setAvatarVisible((v) => !v)}
+          title={avatarVisible ? "Hide avatar" : "Show avatar"}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+            <circle cx="12" cy="7" r="4" />
+            {!avatarVisible && <line x1="3" y1="3" x2="21" y2="21" />}
+          </svg>
+        </button>
+
+        {/* Mute / unmute agent voice */}
+        <button
+          className={`w-7 h-7 flex items-center justify-center border rounded cursor-pointer transition-all ${
+            agentVoiceMuted
+              ? "border-border text-muted hover:border-accent hover:text-accent"
+              : "border-accent text-accent bg-accent/10"
+          }`}
+          onClick={() => {
+            const muting = !agentVoiceMuted;
+            setAgentVoiceMuted(muting);
+            if (muting) voice.stopSpeaking();
+          }}
+          title={agentVoiceMuted ? "Unmute agent voice" : "Mute agent voice"}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+            {agentVoiceMuted ? (
+              <line x1="23" y1="9" x2="17" y2="15" />
+            ) : (
+              <>
+                <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+                <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+              </>
+            )}
+            {agentVoiceMuted && <line x1="17" y1="9" x2="23" y2="15" />}
+          </svg>
+        </button>
+      </div>
 
       {/* ── Input row: mic + textarea + send ───────────────────────── */}
       <div className="flex gap-2 items-end border-t border-border pt-3 pb-4 relative" style={{ zIndex: 1 }}>

@@ -110,6 +110,7 @@ function applyTheme(name: ThemeName) {
 export type OnboardingStep =
   | "welcome"
   | "name"
+  | "avatar"
   | "style"
   | "theme"
   | "runMode"
@@ -117,7 +118,8 @@ export type OnboardingStep =
   | "modelSelection"
   | "cloudLogin"
   | "llmProvider"
-  | "inventorySetup";
+  | "inventorySetup"
+  | "connectors";
 
 // ── Action notice ──────────────────────────────────────────────────────
 
@@ -210,6 +212,8 @@ export interface AppState {
   characterSaveSuccess: string | null;
   characterSaveError: string | null;
   characterDraft: CharacterData;
+  selectedVrmIndex: number;
+  customVrmUrl: string;
 
   // Cloud
   cloudEnabled: boolean;
@@ -286,9 +290,21 @@ export interface AppState {
   onboardingLargeModel: string;
   onboardingProvider: string;
   onboardingApiKey: string;
+  onboardingOpenRouterModel: string;
+  onboardingTelegramToken: string;
+  onboardingDiscordToken: string;
+  onboardingWhatsAppSessionPath: string;
+  onboardingTwilioAccountSid: string;
+  onboardingTwilioAuthToken: string;
+  onboardingTwilioPhoneNumber: string;
+  onboardingBlooioApiKey: string;
+  onboardingBlooioPhoneNumber: string;
+  onboardingSubscriptionTab: "token" | "oauth";
   onboardingSelectedChains: Set<string>;
   onboardingRpcSelections: Record<string, string>;
   onboardingRpcKeys: Record<string, string>;
+  onboardingAvatar: number;
+  onboardingRestarting: boolean;
 
   // Command palette
   commandPaletteOpen: boolean;
@@ -513,6 +529,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [characterSaveSuccess, setCharacterSaveSuccess] = useState<string | null>(null);
   const [characterSaveError, setCharacterSaveError] = useState<string | null>(null);
   const [characterDraft, setCharacterDraft] = useState<CharacterData>({});
+  const [selectedVrmIndex, setSelectedVrmIndex] = useState(1);
+  const [customVrmUrl, setCustomVrmUrl] = useState("");
 
   // --- Cloud ---
   const [cloudEnabled, setCloudEnabled] = useState(false);
@@ -589,9 +607,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [onboardingLargeModel, setOnboardingLargeModel] = useState("claude-sonnet-4-5");
   const [onboardingProvider, setOnboardingProvider] = useState("");
   const [onboardingApiKey, setOnboardingApiKey] = useState("");
+  const [onboardingOpenRouterModel, setOnboardingOpenRouterModel] = useState("");
+  const [onboardingTelegramToken, setOnboardingTelegramToken] = useState("");
+  const [onboardingDiscordToken, setOnboardingDiscordToken] = useState("");
+  const [onboardingWhatsAppSessionPath, setOnboardingWhatsAppSessionPath] = useState("");
+  const [onboardingTwilioAccountSid, setOnboardingTwilioAccountSid] = useState("");
+  const [onboardingTwilioAuthToken, setOnboardingTwilioAuthToken] = useState("");
+  const [onboardingTwilioPhoneNumber, setOnboardingTwilioPhoneNumber] = useState("");
+  const [onboardingBlooioApiKey, setOnboardingBlooioApiKey] = useState("");
+  const [onboardingBlooioPhoneNumber, setOnboardingBlooioPhoneNumber] = useState("");
+  const [onboardingSubscriptionTab, setOnboardingSubscriptionTab] = useState<"token" | "oauth">("token");
   const [onboardingSelectedChains, setOnboardingSelectedChains] = useState<Set<string>>(new Set(["evm", "solana"]));
   const [onboardingRpcSelections, setOnboardingRpcSelections] = useState<Record<string, string>>({});
   const [onboardingRpcKeys, setOnboardingRpcKeys] = useState<Record<string, string>>({});
+  const [onboardingAvatar, setOnboardingAvatar] = useState(1);
+  const [onboardingRestarting, setOnboardingRestarting] = useState(false);
 
   // --- Command palette ---
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
@@ -630,6 +660,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const cloudPollInterval = useRef<number | null>(null);
   const cloudLoginPollTimer = useRef<number | null>(null);
   const prevAgentStateRef = useRef<string | null>(null);
+  /** Guards against double-greeting when both init and state-transition paths fire. */
+  const greetingFiredRef = useRef(false);
 
   // ── Action notice ──────────────────────────────────────────────────
 
@@ -872,7 +904,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setCloudConnected(Boolean(isConnected));
     setCloudUserId(cloudStatus.userId ?? null);
     if (cloudStatus.topUpUrl) setCloudTopUpUrl(cloudStatus.topUpUrl);
-    if (isConnected) {
+    // Only fetch credits when the backend confirms the auth service is
+    // actually connected.  When hasApiKey is true but connected is false,
+    // the CLOUD_AUTH service hasn't authenticated yet -- fetching credits
+    // would just fail and spam warnings in the backend logs.
+    if (cloudStatus.connected) {
       const credits = await client.getCloudCredits().catch(() => null);
       if (credits) {
         setCloudCredits(credits.balance);
@@ -994,7 +1030,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setConversations((prev) => [conversation, ...prev]);
       setActiveConversationId(conversation.id);
       setConversationMessages([]);
+      // Reset greeting guard for new conversation
+      greetingFiredRef.current = false;
       // Agent sends the first message
+      greetingFiredRef.current = true;
       void fetchGreeting(conversation.id);
     } catch {
       /* ignore */
@@ -1512,6 +1551,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setOnboardingStep("name");
         break;
       case "name":
+        setOnboardingStep("avatar");
+        break;
+      case "avatar":
         setOnboardingStep("style");
         break;
       case "style":
@@ -1541,13 +1583,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setOnboardingStep("cloudLogin");
         break;
       case "cloudLogin":
-        // Finish onboarding
-        await handleOnboardingFinish();
+        setOnboardingStep("connectors");
         break;
       case "llmProvider":
         setOnboardingStep("inventorySetup");
         break;
       case "inventorySetup":
+        setOnboardingStep("connectors");
+        break;
+      case "connectors":
         await handleOnboardingFinish();
         break;
     }
@@ -1558,8 +1602,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       case "name":
         setOnboardingStep("welcome");
         break;
-      case "style":
+      case "avatar":
         setOnboardingStep("name");
+        break;
+      case "style":
+        setOnboardingStep("avatar");
         break;
       case "theme":
         setOnboardingStep("style");
@@ -1592,8 +1639,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
       case "inventorySetup":
         setOnboardingStep("llmProvider");
         break;
+      case "connectors":
+        // Go back to whichever path we came from
+        if (onboardingRunMode === "cloud") {
+          setOnboardingStep("cloudLogin");
+        } else {
+          setOnboardingStep("inventorySetup");
+        }
+        break;
     }
-  }, [onboardingStep, onboardingOptions]);
+  }, [onboardingStep, onboardingOptions, onboardingRunMode]);
 
   const handleOnboardingFinish = useCallback(async () => {
     if (!onboardingOptions) return;
@@ -1611,6 +1666,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
     }
 
+    setOnboardingRestarting(true);
     try {
       await client.submitOnboarding({
         name: onboardingName,
@@ -1628,8 +1684,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
         provider: onboardingRunMode === "local" ? onboardingProvider || undefined : undefined,
         providerApiKey: onboardingRunMode === "local" ? onboardingApiKey || undefined : undefined,
         inventoryProviders: inventoryProviders.length > 0 ? inventoryProviders : undefined,
+        // Connectors
+        telegramToken: onboardingTelegramToken.trim() || undefined,
+        discordToken: onboardingDiscordToken.trim() || undefined,
+        whatsappSessionPath: onboardingWhatsAppSessionPath.trim() || undefined,
+        twilioAccountSid: onboardingTwilioAccountSid.trim() || undefined,
+        twilioAuthToken: onboardingTwilioAuthToken.trim() || undefined,
+        twilioPhoneNumber: onboardingTwilioPhoneNumber.trim() || undefined,
+        blooioApiKey: onboardingBlooioApiKey.trim() || undefined,
+        blooioPhoneNumber: onboardingBlooioPhoneNumber.trim() || undefined,
       });
     } catch (err) {
+      setOnboardingRestarting(false);
       window.alert(`Setup failed: ${err instanceof Error ? err.message : "network error"}. Please try again.`);
       return;
     }
@@ -1640,11 +1706,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
     } catch {
       /* ignore */
     }
+    setOnboardingRestarting(false);
   }, [
     onboardingOptions, onboardingStyle, onboardingName, onboardingTheme,
     onboardingRunMode, onboardingCloudProvider, onboardingSmallModel,
     onboardingLargeModel, onboardingProvider, onboardingApiKey,
     onboardingSelectedChains, onboardingRpcSelections, onboardingRpcKeys,
+    onboardingTelegramToken, onboardingDiscordToken, onboardingWhatsAppSessionPath,
+    onboardingTwilioAccountSid, onboardingTwilioAuthToken, onboardingTwilioPhoneNumber,
+    onboardingBlooioApiKey, onboardingBlooioPhoneNumber,
   ]);
 
   // ── Cloud ──────────────────────────────────────────────────────────
@@ -1834,7 +1904,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
       onboardingApiKey: setOnboardingApiKey as (v: never) => void,
       onboardingSelectedChains: setOnboardingSelectedChains as (v: never) => void,
       onboardingRpcSelections: setOnboardingRpcSelections as (v: never) => void,
+      onboardingOpenRouterModel: setOnboardingOpenRouterModel as (v: never) => void,
+      onboardingTelegramToken: setOnboardingTelegramToken as (v: never) => void,
+      onboardingDiscordToken: setOnboardingDiscordToken as (v: never) => void,
+      onboardingWhatsAppSessionPath: setOnboardingWhatsAppSessionPath as (v: never) => void,
+      onboardingTwilioAccountSid: setOnboardingTwilioAccountSid as (v: never) => void,
+      onboardingTwilioAuthToken: setOnboardingTwilioAuthToken as (v: never) => void,
+      onboardingTwilioPhoneNumber: setOnboardingTwilioPhoneNumber as (v: never) => void,
+      onboardingBlooioApiKey: setOnboardingBlooioApiKey as (v: never) => void,
+      onboardingBlooioPhoneNumber: setOnboardingBlooioPhoneNumber as (v: never) => void,
+      onboardingSubscriptionTab: setOnboardingSubscriptionTab as (v: never) => void,
       onboardingRpcKeys: setOnboardingRpcKeys as (v: never) => void,
+      onboardingAvatar: setOnboardingAvatar as (v: never) => void,
+      onboardingRestarting: setOnboardingRestarting as (v: never) => void,
+      selectedVrmIndex: setSelectedVrmIndex as (v: never) => void,
+      customVrmUrl: setCustomVrmUrl as (v: never) => void,
       commandQuery: setCommandQuery as (v: never) => void,
       commandActiveIndex: setCommandActiveIndex as (v: never) => void,
       storeSearch: setStoreSearch as (v: never) => void,
@@ -1966,7 +2050,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (greetConvId) {
         try {
           const s = await client.getStatus();
-          if (s.state === "running") {
+          if (s.state === "running" && !greetingFiredRef.current) {
+            greetingFiredRef.current = true;
             setChatSending(true);
             try {
               const data = await client.requestGreeting(greetConvId);
@@ -2051,11 +2136,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const prev = prevAgentStateRef.current;
     prevAgentStateRef.current = current;
 
-    if (current === "running" && prev !== null && prev !== "running") {
+    if (current === "running" && prev !== "running") {
       void loadWorkbench();
 
-      // Agent just started — greet if conversation is empty
-      if (activeConversationId && conversationMessages.length === 0 && !chatSending) {
+      // Agent just started — greet if conversation is empty.
+      // The greetingFiredRef guard prevents double-greeting when both the
+      // init mount effect and this state-transition effect race to fire.
+      if (activeConversationId && conversationMessages.length === 0 && !chatSending && !greetingFiredRef.current) {
+        greetingFiredRef.current = true;
         void fetchGreeting(activeConversationId);
       }
     }
@@ -2080,7 +2168,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     walletNftsLoading, inventoryView, walletExportData, walletExportVisible,
     walletApiKeySaving, inventorySort, walletError,
     characterData, characterLoading, characterSaving, characterSaveSuccess,
-    characterSaveError, characterDraft,
+    characterSaveError, characterDraft, selectedVrmIndex, customVrmUrl,
     cloudEnabled, cloudConnected, cloudCredits, cloudCreditsLow, cloudCreditsCritical,
     cloudTopUpUrl, cloudUserId, cloudLoginBusy, cloudLoginError, cloudDisconnecting,
     updateStatus, updateLoading, updateChannelSaving,
@@ -2095,8 +2183,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     importBusy, importPassword, importFile, importError, importSuccess,
     onboardingStep, onboardingOptions, onboardingName, onboardingStyle, onboardingTheme,
     onboardingRunMode, onboardingCloudProvider, onboardingSmallModel, onboardingLargeModel,
-    onboardingProvider, onboardingApiKey, onboardingSelectedChains,
-    onboardingRpcSelections, onboardingRpcKeys,
+    onboardingProvider, onboardingApiKey, onboardingOpenRouterModel,
+    onboardingTelegramToken, onboardingDiscordToken, onboardingWhatsAppSessionPath,
+    onboardingTwilioAccountSid, onboardingTwilioAuthToken, onboardingTwilioPhoneNumber,
+    onboardingBlooioApiKey, onboardingBlooioPhoneNumber, onboardingSubscriptionTab,
+    onboardingSelectedChains, onboardingRpcSelections, onboardingRpcKeys,
+    onboardingAvatar, onboardingRestarting,
     commandPaletteOpen, commandQuery, commandActiveIndex,
     mcpConfiguredServers, mcpServerStatuses, mcpMarketplaceQuery, mcpMarketplaceResults,
     mcpMarketplaceLoading, mcpAction, mcpAddingServer, mcpAddingResult,

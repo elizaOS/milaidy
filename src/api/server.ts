@@ -1246,51 +1246,129 @@ function getModelOptions(): {
     description: string;
   }>;
 } {
+  // All models available via Eliza Cloud (Vercel AI Gateway).
+  // IDs use "provider/model" format to match the cloud API routing.
   return {
     small: [
+      // OpenAI
       {
-        id: "claude-haiku",
-        name: "Claude Haiku (latest)",
-        provider: "anthropic",
-        description: "Fast and efficient. Default small model.",
+        id: "openai/gpt-5-mini",
+        name: "GPT-5 Mini",
+        provider: "OpenAI",
+        description: "Fast and affordable.",
       },
       {
-        id: "gpt-4o-mini",
+        id: "openai/gpt-4o-mini",
         name: "GPT-4o Mini",
-        provider: "openai",
-        description: "OpenAI's compact model.",
+        provider: "OpenAI",
+        description: "Compact multimodal model.",
+      },
+      // Anthropic
+      {
+        id: "anthropic/claude-sonnet-4",
+        name: "Claude Sonnet 4",
+        provider: "Anthropic",
+        description: "Balanced speed and capability.",
+      },
+      // Google
+      {
+        id: "google/gemini-2.5-flash-lite",
+        name: "Gemini 2.5 Flash Lite",
+        provider: "Google",
+        description: "Fastest option.",
       },
       {
-        id: "gemini-flash",
-        name: "Gemini Flash",
-        provider: "google",
-        description: "Google's fast model.",
+        id: "google/gemini-2.5-flash",
+        name: "Gemini 2.5 Flash",
+        provider: "Google",
+        description: "Fast and smart.",
+      },
+      {
+        id: "google/gemini-2.0-flash",
+        name: "Gemini 2.0 Flash",
+        provider: "Google",
+        description: "Multimodal flash model.",
+      },
+      // Moonshot AI
+      {
+        id: "moonshotai/kimi-k2-turbo",
+        name: "Kimi K2 Turbo",
+        provider: "Moonshot AI",
+        description: "Extra speed.",
+      },
+      // DeepSeek
+      {
+        id: "deepseek/deepseek-v3.2-exp",
+        name: "DeepSeek V3.2",
+        provider: "DeepSeek",
+        description: "Open and powerful.",
       },
     ],
     large: [
+      // Anthropic
       {
-        id: "claude-sonnet-4-5",
+        id: "anthropic/claude-sonnet-4.5",
         name: "Claude Sonnet 4.5",
-        provider: "anthropic",
-        description: "Powerful reasoning. Default large model.",
+        provider: "Anthropic",
+        description: "Newest Claude. Excellent reasoning.",
       },
       {
-        id: "gpt-4o",
+        id: "anthropic/claude-opus-4.5",
+        name: "Claude Opus 4.5",
+        provider: "Anthropic",
+        description: "Most capable Claude model.",
+      },
+      {
+        id: "anthropic/claude-opus-4.1",
+        name: "Claude Opus 4.1",
+        provider: "Anthropic",
+        description: "Deep reasoning powerhouse.",
+      },
+      {
+        id: "anthropic/claude-sonnet-4",
+        name: "Claude Sonnet 4",
+        provider: "Anthropic",
+        description: "Balanced performance.",
+      },
+      // OpenAI
+      {
+        id: "openai/gpt-5",
+        name: "GPT-5",
+        provider: "OpenAI",
+        description: "Most capable OpenAI model.",
+      },
+      {
+        id: "openai/gpt-4o",
         name: "GPT-4o",
-        provider: "openai",
-        description: "OpenAI's flagship model.",
+        provider: "OpenAI",
+        description: "Flagship multimodal model.",
+      },
+      // Google
+      {
+        id: "google/gemini-3-pro-preview",
+        name: "Gemini 3 Pro Preview",
+        provider: "Google",
+        description: "Advanced reasoning.",
       },
       {
-        id: "claude-opus-4-6",
-        name: "Claude Opus 4.6",
-        provider: "anthropic",
-        description: "Most capable Claude model. Deep reasoning.",
+        id: "google/gemini-2.5-pro",
+        name: "Gemini 2.5 Pro",
+        provider: "Google",
+        description: "Strong multimodal reasoning.",
       },
+      // Moonshot AI
       {
-        id: "gemini-pro",
-        name: "Gemini Pro",
-        provider: "google",
-        description: "Google's advanced model.",
+        id: "moonshotai/kimi-k2-0905",
+        name: "Kimi K2",
+        provider: "Moonshot AI",
+        description: "Fast and capable.",
+      },
+      // DeepSeek
+      {
+        id: "deepseek/deepseek-r1",
+        name: "DeepSeek R1",
+        provider: "DeepSeek",
+        description: "Reasoning model.",
       },
     ],
   };
@@ -1919,9 +1997,13 @@ async function handleRequest(
       // plugin has valid models to call even if the user didn't pick any.
       if (!config.models) config.models = {};
       config.models.small =
-        (body.smallModel as string) || config.models.small || "openai/gpt-5-mini";
+        (body.smallModel as string) ||
+        config.models.small ||
+        "openai/gpt-5-mini";
       config.models.large =
-        (body.largeModel as string) || config.models.large || "anthropic/claude-sonnet-4.5";
+        (body.largeModel as string) ||
+        config.models.large ||
+        "anthropic/claude-sonnet-4.5";
     }
 
     // ── Local LLM provider ────────────────────────────────────────────────
@@ -1955,6 +2037,85 @@ async function handleRequest(
       logger.info(
         `[milaidy-api] Subscription provider selected: ${body.provider} — complete OAuth via /api/subscription/ endpoints`,
       );
+    }
+
+    // ── Connectors (Telegram, Discord, WhatsApp, Twilio, Blooio) ────────
+    if (!config.connectors) config.connectors = {};
+    if (
+      body.telegramToken &&
+      typeof body.telegramToken === "string" &&
+      body.telegramToken.trim()
+    ) {
+      config.connectors.telegram = { botToken: body.telegramToken.trim() };
+    }
+    if (
+      body.discordToken &&
+      typeof body.discordToken === "string" &&
+      body.discordToken.trim()
+    ) {
+      config.connectors.discord = { botToken: body.discordToken.trim() };
+    }
+    if (
+      body.whatsappSessionPath &&
+      typeof body.whatsappSessionPath === "string" &&
+      body.whatsappSessionPath.trim()
+    ) {
+      config.connectors.whatsapp = {
+        sessionPath: body.whatsappSessionPath.trim(),
+      };
+    }
+    if (
+      body.twilioAccountSid &&
+      typeof body.twilioAccountSid === "string" &&
+      body.twilioAccountSid.trim() &&
+      body.twilioAuthToken &&
+      typeof body.twilioAuthToken === "string" &&
+      body.twilioAuthToken.trim()
+    ) {
+      if (!config.env) config.env = {};
+      (config.env as Record<string, string>).TWILIO_ACCOUNT_SID = (
+        body.twilioAccountSid as string
+      ).trim();
+      (config.env as Record<string, string>).TWILIO_AUTH_TOKEN = (
+        body.twilioAuthToken as string
+      ).trim();
+      process.env.TWILIO_ACCOUNT_SID = (body.twilioAccountSid as string).trim();
+      process.env.TWILIO_AUTH_TOKEN = (body.twilioAuthToken as string).trim();
+      if (
+        body.twilioPhoneNumber &&
+        typeof body.twilioPhoneNumber === "string" &&
+        body.twilioPhoneNumber.trim()
+      ) {
+        (config.env as Record<string, string>).TWILIO_PHONE_NUMBER = (
+          body.twilioPhoneNumber as string
+        ).trim();
+        process.env.TWILIO_PHONE_NUMBER = (
+          body.twilioPhoneNumber as string
+        ).trim();
+      }
+    }
+    if (
+      body.blooioApiKey &&
+      typeof body.blooioApiKey === "string" &&
+      body.blooioApiKey.trim()
+    ) {
+      if (!config.env) config.env = {};
+      (config.env as Record<string, string>).BLOOIO_API_KEY = (
+        body.blooioApiKey as string
+      ).trim();
+      process.env.BLOOIO_API_KEY = (body.blooioApiKey as string).trim();
+      if (
+        body.blooioPhoneNumber &&
+        typeof body.blooioPhoneNumber === "string" &&
+        body.blooioPhoneNumber.trim()
+      ) {
+        (config.env as Record<string, string>).BLOOIO_PHONE_NUMBER = (
+          body.blooioPhoneNumber as string
+        ).trim();
+        process.env.BLOOIO_PHONE_NUMBER = (
+          body.blooioPhoneNumber as string
+        ).trim();
+      }
     }
 
     // ── Inventory / RPC providers ─────────────────────────────────────────
@@ -2750,6 +2911,21 @@ async function handleRequest(
         // Remove plugin from allow list
         allowList.splice(index, 1);
         logger.info(`[milaidy-api] Disabled plugin: ${packageName}`);
+      }
+
+      // Persist capability toggle state in config.features so the runtime
+      // can gate related behaviour (e.g. disabling image description when
+      // vision is toggled off).
+      const CAPABILITY_FEATURE_IDS = new Set([
+        "vision",
+        "browser",
+        "computeruse",
+      ]);
+      if (CAPABILITY_FEATURE_IDS.has(pluginId)) {
+        if (!state.config.features) {
+          state.config.features = {};
+        }
+        state.config.features[pluginId] = body.enabled;
       }
 
       // Save updated config
@@ -4622,7 +4798,11 @@ async function handleRequest(
 
     const runtime = state.runtime;
     if (!runtime || state.agentState !== "running") {
-      json(res, { text: FALLBACK_MSG, agentName: state.agentName, generated: false });
+      json(res, {
+        text: FALLBACK_MSG,
+        agentName: state.agentName,
+        generated: false,
+      });
       return;
     }
 
@@ -4634,9 +4814,17 @@ async function handleRequest(
           "[system: send a short greeting to open the conversation. introduce yourself briefly in your own style.]",
         );
         conv.updatedAt = new Date().toISOString();
-        json(res, { text: responseText, agentName: proxy.agentName, generated: true });
+        json(res, {
+          text: responseText,
+          agentName: proxy.agentName,
+          generated: true,
+        });
       } catch {
-        json(res, { text: FALLBACK_MSG, agentName: proxy.agentName, generated: false });
+        json(res, {
+          text: FALLBACK_MSG,
+          agentName: proxy.agentName,
+          generated: false,
+        });
       }
       return;
     }
@@ -4685,8 +4873,7 @@ async function handleRequest(
           );
           break;
         } catch (modelErr) {
-          const modelMsg =
-            modelErr instanceof Error ? modelErr.message : "";
+          const modelMsg = modelErr instanceof Error ? modelErr.message : "";
           if (
             /api.?key|missing|unauthorized|authentication/i.test(modelMsg) &&
             model === ModelType.TEXT_SMALL
@@ -4698,7 +4885,11 @@ async function handleRequest(
       }
 
       if (!result?.trim()) {
-        json(res, { text: FALLBACK_MSG, agentName: charName, generated: false });
+        json(res, {
+          text: FALLBACK_MSG,
+          agentName: charName,
+          generated: false,
+        });
         return;
       }
 
@@ -4725,7 +4916,11 @@ async function handleRequest(
       conv.updatedAt = new Date().toISOString();
       json(res, { text: result.trim(), agentName: charName, generated: true });
     } catch {
-      json(res, { text: FALLBACK_MSG, agentName: state.agentName, generated: false });
+      json(res, {
+        text: FALLBACK_MSG,
+        agentName: state.agentName,
+        generated: false,
+      });
     }
     return;
   }
@@ -4988,10 +5183,19 @@ async function handleRequest(
         success: boolean;
         data: { balance: number; currency: string };
       }>("/credits/balance");
-      balance = creditResponse.data.balance;
+      // Defensive: the cloud client may return an unexpected shape (e.g.
+      // undefined or missing `.data`) when the API is unreachable or the
+      // auth token has expired.
+      const rawBalance = creditResponse?.data?.balance;
+      if (typeof rawBalance !== "number") {
+        logger.debug("[cloud/credits] Unexpected response shape from cloud API");
+        json(res, { balance: null, connected: true, error: "unexpected response" });
+        return;
+      }
+      balance = rawBalance;
     } catch (err) {
       const msg = err instanceof Error ? err.message : "cloud API unreachable";
-      logger.warn(`[cloud/credits] Failed to fetch balance: ${msg}`);
+      logger.debug(`[cloud/credits] Failed to fetch balance: ${msg}`);
       json(res, { balance: null, connected: true, error: msg });
       return;
     }

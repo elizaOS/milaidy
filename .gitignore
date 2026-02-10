@@ -41,6 +41,9 @@ skills/
 apps/app/electron/.eliza
 apps/app/electron/skills/
 
+# Temporary capture files
+temp_capture_*.jpg
+
 # Agent learning docs & knowledge base
 knowledge/
 scripts/knowledge-loop.mjs

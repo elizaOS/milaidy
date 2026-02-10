@@ -12,7 +12,7 @@
 
 import { describe, expect, it } from "vitest";
 import type { MilaidyConfig } from "../config/config.js";
-import { collectPluginNames, CORE_PLUGINS } from "./eliza.js";
+import { CORE_PLUGINS, collectPluginNames } from "./eliza.js";
 
 // ---------------------------------------------------------------------------
 // Plugin classification — computeruse is optional, not core
@@ -196,7 +196,11 @@ describe("Computer Use config schema", () => {
     try {
       const { computerUseConfigSchema } = (await import(
         "@elizaos/plugin-computeruse"
-      )) as { computerUseConfigSchema: { parse: (v: unknown) => Record<string, unknown> } };
+      )) as {
+        computerUseConfigSchema: {
+          parse: (v: unknown) => Record<string, unknown>;
+        };
+      };
       const result = computerUseConfigSchema.parse({});
       expect(result.COMPUTERUSE_ENABLED).toBe(false);
       expect(result.COMPUTERUSE_MODE).toBe("auto");
@@ -210,7 +214,11 @@ describe("Computer Use config schema", () => {
     try {
       const { computerUseConfigSchema } = (await import(
         "@elizaos/plugin-computeruse"
-      )) as { computerUseConfigSchema: { parse: (v: unknown) => Record<string, unknown> } };
+      )) as {
+        computerUseConfigSchema: {
+          parse: (v: unknown) => Record<string, unknown>;
+        };
+      };
       const result = computerUseConfigSchema.parse({
         COMPUTERUSE_ENABLED: "true",
         COMPUTERUSE_MODE: "local",
@@ -226,7 +234,11 @@ describe("Computer Use config schema", () => {
     try {
       const { computerUseConfigSchema } = (await import(
         "@elizaos/plugin-computeruse"
-      )) as { computerUseConfigSchema: { parse: (v: unknown) => Record<string, unknown> } };
+      )) as {
+        computerUseConfigSchema: {
+          parse: (v: unknown) => Record<string, unknown>;
+        };
+      };
       const result = computerUseConfigSchema.parse({
         COMPUTERUSE_ENABLED: "true",
         COMPUTERUSE_MODE: "mcp",

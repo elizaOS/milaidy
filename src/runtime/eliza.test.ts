@@ -83,14 +83,15 @@ describe("collectPluginNames", () => {
       process.env = originalEnv;
     });
 
-    it("should drop @elizaos/plugin-local-embedding when a remote provider env var is present", async () => {
+    it("should keep @elizaos/plugin-local-embedding even when a remote provider env var is present", async () => {
       // Set a remote provider env var (e.g., OPENAI_API_KEY)
       process.env.OPENAI_API_KEY = "test-api-key";
 
       const plugins = collectPluginNames({} as MilaidyConfig);
 
-      // Verify local-embedding is NOT in the set when remote provider is available
-      expect(plugins.has("@elizaos/plugin-local-embedding")).toBe(false);
+      // local-embedding provides the TEXT_EMBEDDING delegate which remote
+      // providers do NOT supply, so it must always stay loaded (see #10).
+      expect(plugins.has("@elizaos/plugin-local-embedding")).toBe(true);
     });
 
     it("should keep @elizaos/plugin-local-embedding when no remote provider is available", async () => {
@@ -253,6 +254,40 @@ describe("collectPluginNames", () => {
     expect(names.has("@elizaos/plugin-anthropic")).toBe(true);
     // User-installed
     expect(names.has("@elizaos/plugin-weather")).toBe(true);
+  });
+
+  // --- vision feature flag behaviour ---
+
+  it("adds @elizaos/plugin-vision when features.vision = true", () => {
+    const config = {
+      features: { vision: true },
+    } as unknown as MilaidyConfig;
+    const names = collectPluginNames(config);
+    expect(names.has("@elizaos/plugin-vision")).toBe(true);
+  });
+
+  it("does NOT add @elizaos/plugin-vision when features.vision = false", () => {
+    const config = {
+      features: { vision: false },
+    } as unknown as MilaidyConfig;
+    const names = collectPluginNames(config);
+    expect(names.has("@elizaos/plugin-vision")).toBe(false);
+  });
+
+  it("does NOT add @elizaos/plugin-vision when features.vision is absent", () => {
+    const config = {} as MilaidyConfig;
+    const names = collectPluginNames(config);
+    expect(names.has("@elizaos/plugin-vision")).toBe(false);
+  });
+
+  it("cloud plugin is loaded independently of vision toggle", () => {
+    const config = {
+      cloud: { enabled: true },
+      features: { vision: false },
+    } as unknown as MilaidyConfig;
+    const names = collectPluginNames(config);
+    expect(names.has("@elizaos/plugin-elizacloud")).toBe(true);
+    expect(names.has("@elizaos/plugin-vision")).toBe(false);
   });
 });
 

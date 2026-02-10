@@ -208,6 +208,14 @@ export interface OnboardingData {
   }>;
   // Connector setup (Telegram, Discord, etc.)
   connectors?: Record<string, ConnectorConfig>;
+  telegramToken?: string;
+  discordToken?: string;
+  whatsappSessionPath?: string;
+  twilioAccountSid?: string;
+  twilioAuthToken?: string;
+  twilioPhoneNumber?: string;
+  blooioApiKey?: string;
+  blooioPhoneNumber?: string;
 }
 
 export interface PluginParamDef {

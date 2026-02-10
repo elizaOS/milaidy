@@ -5,19 +5,19 @@
  * 1. Symlinks the installed package's `dist/server` to the workspace's
  *    stagehand-server source (the npm package doesn't ship the server).
  *
- * 2. Patches the process-manager to remove Docker-specific env defaults
- *    that break local environments (OLLAMA_BASE_URL=http://ollama:11434).
+ * 2. Copies the workspace's patched process-manager.js over the npm
+ *    package's version (adds probe/reuse, port management, removes Docker
+ *    env defaults).
  *
  * Run automatically via the `postinstall` hook, or manually:
  *   node scripts/link-browser-server.mjs
  */
 import {
+  copyFileSync,
   existsSync,
-  readFileSync,
   readlinkSync,
   symlinkSync,
   unlinkSync,
-  writeFileSync,
 } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join, resolve } from "node:path";
@@ -27,17 +27,8 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const milaidyRoot = resolve(__dirname, "..");
 const workspaceRoot = resolve(milaidyRoot, "..");
 
-// ── 1. Symlink stagehand-server ──────────────────────────────────────────────
+// ── Resolve plugin-browser package ───────────────────────────────────────────
 
-const stagehandDir = join(
-  workspaceRoot,
-  "plugins",
-  "plugin-browser",
-  "stagehand-server",
-);
-const stagehandIndex = join(stagehandDir, "dist", "index.js");
-
-// Resolve the plugin-browser package location
 let pluginRoot;
 try {
   const req = createRequire(join(milaidyRoot, "package.json"));
@@ -49,6 +40,16 @@ try {
   );
   process.exit(0);
 }
+
+// ── 1. Symlink stagehand-server ──────────────────────────────────────────────
+
+const stagehandDir = join(
+  workspaceRoot,
+  "plugins",
+  "plugin-browser",
+  "stagehand-server",
+);
+const stagehandIndex = join(stagehandDir, "dist", "index.js");
 
 if (existsSync(stagehandIndex)) {
   const serverLink = join(pluginRoot, "dist", "server");
@@ -80,9 +81,7 @@ if (existsSync(stagehandIndex)) {
         `[link-browser-server] Linked: ${serverLink} -> ${stagehandDir}`,
       );
     } catch (err) {
-      console.error(
-        `[link-browser-server] Failed to create symlink: ${err}`,
-      );
+      console.error(`[link-browser-server] Failed to create symlink: ${err}`);
     }
   }
 } else {
@@ -91,31 +90,32 @@ if (existsSync(stagehandIndex)) {
   );
 }
 
-// ── 2. Patch process-manager env defaults ────────────────────────────────────
-// The npm package's process-manager.js injects Docker-specific defaults
-// (OLLAMA_BASE_URL=http://ollama:11434, DISPLAY=:99) which break non-Docker
-// environments.  Replace the env block with a clean pass-through.
+// ── 2. Copy patched process-manager.js ───────────────────────────────────────
+// The workspace has a fixed process-manager that adds port probing/reuse,
+// removes Docker env defaults, and handles EADDRINUSE properly.
 
-const pmPath = join(pluginRoot, "dist", "services", "process-manager.js");
-if (existsSync(pmPath)) {
-  let src = readFileSync(pmPath, "utf8");
+const patchedPm = join(
+  workspaceRoot,
+  "plugins",
+  "plugin-browser",
+  "typescript",
+  "src",
+  "services",
+  "process-manager.patched.js",
+);
+const targetPm = join(pluginRoot, "dist", "services", "process-manager.js");
 
-  // Only patch if the Docker default is still present
-  if (src.includes('"http://ollama:11434"')) {
-    // Replace the env object construction with clean pass-through
-    src = src.replace(
-      /const env = \{[^}]*OLLAMA_BASE_URL[^}]*\};/s,
-      `const env = {
-                ...process.env,
-                BROWSER_SERVER_PORT: this.serverPort.toString(),
-                NODE_ENV: process.env.NODE_ENV ?? "production",
-            };`,
+if (existsSync(patchedPm) && existsSync(targetPm)) {
+  try {
+    copyFileSync(patchedPm, targetPm);
+    console.log("[link-browser-server] Copied patched process-manager.js");
+  } catch (err) {
+    console.error(
+      `[link-browser-server] Failed to copy process-manager.js: ${err}`,
     );
-    writeFileSync(pmPath, src, "utf8");
-    console.log("[link-browser-server] Patched process-manager.js (removed Docker env defaults)");
-  } else {
-    console.log("[link-browser-server] process-manager.js already patched");
   }
 } else {
-  console.log("[link-browser-server] process-manager.js not found — skipping patch");
+  console.log(
+    "[link-browser-server] No patched process-manager.js found — skipping",
+  );
 }

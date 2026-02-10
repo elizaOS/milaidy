@@ -13,7 +13,7 @@
 
 import { describe, expect, it } from "vitest";
 import type { MilaidyConfig } from "../config/config.js";
-import { collectPluginNames, CORE_PLUGINS } from "./eliza.js";
+import { CORE_PLUGINS, collectPluginNames } from "./eliza.js";
 
 // ---------------------------------------------------------------------------
 // Plugin classification — code is a core plugin
@@ -437,7 +437,7 @@ describe("Workspace provider coding agent enrichment", () => {
   });
 
   it("buildCodingAgentSummary handles empty context", async () => {
-    const { buildCodingAgentSummary, truncate } = await import(
+    const { buildCodingAgentSummary } = await import(
       "../providers/workspace-provider.js"
     );
     const { createCodingAgentContext } = await import(
