@@ -1703,9 +1703,9 @@ function patchMessageServiceForAutonomy(state: ServerState): void {
     const result = await orig(rt, message, callback, options);
 
     // Detect non-conversation messages (autonomy, background tasks, etc.)
-    const isFromConversation = Array.from(
-      state.conversations.values(),
-    ).some((c) => c.roomId === message.roomId);
+    const isFromConversation = Array.from(state.conversations.values()).some(
+      (c) => c.roomId === message.roomId,
+    );
 
     if (!isFromConversation && result?.responseMessages?.length > 0) {
       // Forward to user's active conversation (fire-and-forget)
