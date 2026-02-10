@@ -744,6 +744,13 @@ export class MilaidyClient {
     return this.fetch("/api/status");
   }
 
+  async playEmote(emoteId: string): Promise<{ ok: boolean }> {
+    return this.fetch("/api/emote", {
+      method: "POST",
+      body: JSON.stringify({ emoteId }),
+    });
+  }
+
   async getOnboardingStatus(): Promise<{ complete: boolean }> {
     return this.fetch("/api/onboarding/status");
   }

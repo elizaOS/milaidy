@@ -6,7 +6,15 @@
  * Memory search/get actions are superseded by plugin-scratchpad.
  */
 
-import type { MessagePayload, Plugin } from "@elizaos/core";
+import type {
+  IAgentRuntime,
+  Memory,
+  MessagePayload,
+  Plugin,
+  Provider,
+  ProviderResult,
+  State,
+} from "@elizaos/core";
 import {
   attachmentsProvider,
   entitiesProvider,
@@ -14,7 +22,9 @@ import {
   getSessionProviders,
   resolveDefaultSessionStorePath,
 } from "@elizaos/core";
+import { emoteAction } from "../actions/emote.js";
 import { restartAction } from "../actions/restart.js";
+import { EMOTE_CATALOG } from "../emotes/catalog.js";
 import {
   createSessionKeyProvider,
   resolveSessionKeyFromRoom,
@@ -56,14 +66,39 @@ export function createMilaidyPlugin(config?: MilaidyPluginConfig): Plugin {
     ? [attachmentsProvider, entitiesProvider, factsProvider]
     : [];
 
+  // Emote provider — injects available emotes into agent context so the LLM
+  // knows it can trigger animations via the PLAY_EMOTE action.
+  const emoteProvider: Provider = {
+    name: "emotes",
+    description: "Available avatar emote animations",
+
+    async get(
+      _runtime: IAgentRuntime,
+      _message: Memory,
+      _state: State,
+    ): Promise<ProviderResult> {
+      const ids = EMOTE_CATALOG.map((e) => e.id).join(", ");
+      return {
+        text: [
+          "## Available Emotes",
+          "",
+          "You can play emote animations on your 3D avatar using the PLAY_EMOTE action.",
+          "Use emotes sparingly and naturally during conversation to express yourself.",
+          "",
+          `Available emote IDs: ${ids}`,
+        ].join("\n"),
+      };
+    },
+  };
+
   return {
     name: "milaidy",
     description:
       "Milaidy workspace context, session keys, and lifecycle actions",
 
-    providers: [...baseProviders, ...bootstrapProviders],
+    providers: [...baseProviders, ...bootstrapProviders, emoteProvider],
 
-    actions: [restartAction],
+    actions: [restartAction, emoteAction],
 
     events: {
       // Inject Milaidy session keys into inbound messages before processing

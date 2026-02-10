@@ -311,6 +311,9 @@ export interface AppState {
   commandQuery: string;
   commandActiveIndex: number;
 
+  // Emote picker
+  emotePickerOpen: boolean;
+
   // MCP
   mcpConfiguredServers: Record<string, McpServerConfig>;
   mcpServerStatuses: McpServerStatus[];
@@ -414,6 +417,10 @@ export interface AppActions {
   // Command palette
   openCommandPalette: () => void;
   closeCommandPalette: () => void;
+
+  // Emote picker
+  openEmotePicker: () => void;
+  closeEmotePicker: () => void;
 
   // Workbench
   loadWorkbench: () => Promise<void>;
@@ -624,6 +631,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [commandQuery, setCommandQuery] = useState("");
   const [commandActiveIndex, setCommandActiveIndex] = useState(0);
+
+  // --- Emote picker ---
+  const [emotePickerOpen, setEmotePickerOpen] = useState(false);
 
   // --- MCP ---
   const [mcpConfiguredServers, setMcpConfiguredServers] = useState<Record<string, McpServerConfig>>({});
@@ -1859,6 +1869,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setCommandPaletteOpen(false);
   }, []);
 
+  // ── Emote picker ────────────────────────────────────────────────────
+
+  const openEmotePicker = useCallback(() => {
+    setEmotePickerOpen(true);
+  }, []);
+
+  const closeEmotePicker = useCallback(() => {
+    setEmotePickerOpen(false);
+  }, []);
+
   // ── Generic state setter ───────────────────────────────────────────
 
   const setState = useCallback(<K extends keyof AppState>(key: K, value: AppState[K]) => {
@@ -1914,6 +1934,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       customVrmUrl: setCustomVrmUrl as (v: never) => void,
       commandQuery: setCommandQuery as (v: never) => void,
       commandActiveIndex: setCommandActiveIndex as (v: never) => void,
+      emotePickerOpen: setEmotePickerOpen as (v: never) => void,
       storeSearch: setStoreSearch as (v: never) => void,
       storeFilter: setStoreFilter as (v: never) => void,
       storeSubTab: setStoreSubTab as (v: never) => void,
@@ -2179,7 +2200,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     onboardingBlooioApiKey, onboardingBlooioPhoneNumber, onboardingSubscriptionTab,
     onboardingSelectedChains, onboardingRpcSelections, onboardingRpcKeys,
     onboardingAvatar, onboardingRestarting,
-    commandPaletteOpen, commandQuery, commandActiveIndex,
+    commandPaletteOpen, commandQuery, commandActiveIndex, emotePickerOpen,
     mcpConfiguredServers, mcpServerStatuses, mcpMarketplaceQuery, mcpMarketplaceResults,
     mcpMarketplaceLoading, mcpAction, mcpAddingServer, mcpAddingResult,
     mcpEnvInputs, mcpHeaderInputs,
@@ -2206,6 +2227,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     loadUpdateStatus, handleChannelChange,
     checkExtensionStatus,
     openCommandPalette, closeCommandPalette,
+    openEmotePicker, closeEmotePicker,
     loadWorkbench,
     handleAgentExport, handleAgentImport,
     setActionNotice,

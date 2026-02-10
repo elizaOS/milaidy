@@ -8,10 +8,11 @@
  * and renders the VRM viewer.
  */
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { VrmViewer } from "./avatar/VrmViewer";
 import type { VrmEngine } from "./avatar/VrmEngine";
 import { useApp, getVrmUrl } from "../AppContext";
+import { client } from "../api-client";
 
 export interface ChatAvatarProps {
   /** Mouth openness value (0-1) for lip sync animation */
@@ -36,10 +37,39 @@ export function ChatAvatar({ mouthOpen = 0, isSpeaking = false }: ChatAvatarProp
     setAvatarReady(true);
   }, []);
 
+  // Subscribe to WebSocket emote events and trigger avatar animations.
+  useEffect(() => {
+    if (!avatarReady) return;
+    return client.onWsEvent("emote", (data) => {
+      const engine = vrmEngineRef.current;
+      if (!engine) return;
+      void engine.playEmote(
+        data.glbPath as string,
+        data.duration as number,
+        data.loop as boolean,
+      );
+    });
+  }, [avatarReady]);
+
+  // Listen for stop-emote events from the EmotePicker control panel.
+  useEffect(() => {
+    if (!avatarReady) return;
+    const handler = () => vrmEngineRef.current?.stopEmote();
+    document.addEventListener("milaidy:stop-emote", handler);
+    return () => document.removeEventListener("milaidy:stop-emote", handler);
+  }, [avatarReady]);
+
   return (
     <div
-      className="absolute inset-0 pointer-events-none"
-      style={{ zIndex: 0 }}
+      className="absolute pointer-events-none"
+      style={{
+        inset: 0,
+        zIndex: 2,
+        opacity: avatarReady ? 0.85 : 0,
+        transition: "opacity 0.8s ease-in-out",
+        maskImage: "linear-gradient(to right, transparent 0%, black 25%)",
+        WebkitMaskImage: "linear-gradient(to right, transparent 0%, black 25%)",
+      }}
     >
       {/* Avatar canvas — pushed right (overflows edge), shifted down 10% */}
       <div

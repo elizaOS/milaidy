@@ -282,9 +282,18 @@ async function initializeElectron(): Promise<void> {
       accelerator: "CommandOrControl+K",
     });
 
+    // Emote picker shortcut
+    await Desktop.registerShortcut({
+      id: "emote-picker",
+      accelerator: "CommandOrControl+E",
+    });
+
     await Desktop.addListener("shortcutPressed", (event) => {
       if (event.id === "command-palette") {
         document.dispatchEvent(new CustomEvent("milaidy:command-palette"));
+      }
+      if (event.id === "emote-picker") {
+        document.dispatchEvent(new CustomEvent("milaidy:emote-picker"));
       }
     });
 

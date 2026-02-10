@@ -6,6 +6,7 @@ import { useApp } from "./AppContext.js";
 import { Header } from "./components/Header.js";
 import { Nav } from "./components/Nav.js";
 import { CommandPalette } from "./components/CommandPalette.js";
+import { EmotePicker } from "./components/EmotePicker.js";
 import { PairingView } from "./components/PairingView.js";
 import { OnboardingWizard } from "./components/OnboardingWizard.js";
 import { ChatView } from "./components/ChatView.js";
@@ -56,9 +57,9 @@ export function App() {
         <div className="flex flex-col flex-1 min-h-0 w-full font-body text-txt bg-bg">
           <Header />
           <Nav />
-          <div className="flex flex-1 min-h-0">
+          <div className="flex flex-1 min-h-0 relative">
             <ConversationsSidebar />
-            <main className="flex flex-col flex-1 min-w-0 overflow-hidden pt-3 px-5">
+            <main className="flex flex-col flex-1 min-w-0 overflow-visible pt-3 px-5">
               <ChatView />
             </main>
             <WidgetSidebar />
@@ -74,6 +75,7 @@ export function App() {
         </div>
       )}
       <CommandPalette />
+      <EmotePicker />
       {actionNotice && (
         <div
           className={`fixed bottom-6 left-1/2 -translate-x-1/2 px-5 py-2 rounded-lg text-[13px] font-medium z-[10000] text-white ${
