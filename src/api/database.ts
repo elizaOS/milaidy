@@ -707,8 +707,11 @@ async function handleGetRows(
   // Build search clause: search across all text-castable columns
   let whereClause = "";
   if (search.trim()) {
+    // Escape ILIKE special characters: backslash first (since it becomes
+    // the escape character), then the ILIKE wildcards % and _.
     const escapedSearch = search
       .replace(/'/g, "''")
+      .replace(/\\/g, "\\\\")
       .replace(/%/g, "\\%")
       .replace(/_/g, "\\_");
     const textColumns = columnNames.filter((col) => {
@@ -729,7 +732,7 @@ async function handleGetRows(
     if (textColumns.length > 0) {
       const conditions = textColumns.map(
         (col) =>
-          `${quoteIdent(col)}::text ILIKE '%${escapedSearch}%' ESCAPE ''`,
+          `${quoteIdent(col)}::text ILIKE '%${escapedSearch}%' ESCAPE '\\'`,
       );
       whereClause = `WHERE (${conditions.join(" OR ")})`;
     }
