@@ -5964,6 +5964,26 @@ export async function startApiServer(opts?: {
   const host =
     (process.env.MILAIDY_API_BIND ?? "127.0.0.1").trim() || "127.0.0.1";
 
+  // ── Enforce auth when the API is network-reachable ─────────────────────
+  // When the server is bound to a non-loopback address (e.g. 0.0.0.0) and
+  // no MILAIDY_API_TOKEN is configured, auto-generate a secure token so that
+  // privileged endpoints (plugin install, agent reset, wallet export, config
+  // changes) are not exposed unauthenticated to the network.
+  const isLoopback =
+    host === "127.0.0.1" ||
+    host === "::1" ||
+    host.toLowerCase() === "localhost";
+  if (!isLoopback && !process.env.MILAIDY_API_TOKEN?.trim()) {
+    const generated = crypto.randomBytes(32).toString("hex");
+    process.env.MILAIDY_API_TOKEN = generated;
+    logger.warn(
+      "[milaidy-api] ⚠ Server is bound to a non-loopback address without " +
+        "MILAIDY_API_TOKEN set. A random token has been generated for this " +
+        "session. Set MILAIDY_API_TOKEN explicitly to control access.",
+    );
+    logger.warn(`[milaidy-api] Auto-generated API token: ${generated}`);
+  }
+
   let config: MilaidyConfig;
   try {
     config = loadMilaidyConfig();
