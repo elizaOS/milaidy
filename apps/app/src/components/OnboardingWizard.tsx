@@ -106,27 +106,53 @@ export function OnboardingWizard() {
     });
   };
 
+  // Deterministic blend for onboarding (no LLM needed — AI blend available in character page post-setup)
+  const blendArchetypesLocal = async (ids: string[]) => {
+    const fetched = await Promise.all(
+      ids.map((id) => fetch(`/api/archetypes/${id}`).then((r) => r.json()).catch(() => null))
+    );
+    const chars = fetched.filter(Boolean).map((d: any) => d.character).filter(Boolean);
+    if (chars.length < 2) return null;
+
+    // Merge: combine bios, pick first system as base + blend note, union style rules
+    const allBio = chars.flatMap((c: any) => c.bio ?? []);
+    const names = ids.map((id) => {
+      const a = (archetypes.length > 0 ? archetypes : fallbackArchetypes).find((a) => a.id === id);
+      return a?.name ?? id;
+    });
+
+    const systemParts = chars.map((c: any) => c.system ?? "").filter(Boolean);
+    const blendedSystem = `${systemParts[0]}\n\nyou also draw from other sides of yourself:\n${systemParts.slice(1).map((s: string) => s.split("\n").slice(0, 3).join("\n")).join("\n\n")}`;
+
+    return {
+      bio: allBio.slice(0, 6),
+      system: blendedSystem,
+      style: {
+        all: [...new Set(chars.flatMap((c: any) => c.style?.all ?? []))].slice(0, 10),
+        chat: [...new Set(chars.flatMap((c: any) => c.style?.chat ?? []))].slice(0, 8),
+        post: [...new Set(chars.flatMap((c: any) => c.style?.post ?? []))].slice(0, 6),
+      },
+      adjectives: [...new Set(chars.flatMap((c: any) => c.adjectives ?? []))].slice(0, 8),
+      topics: [...new Set(chars.flatMap((c: any) => c.topics ?? []))].slice(0, 8),
+      messageExamples: chars.flatMap((c: any) => c.messageExamples ?? []).slice(0, 4),
+      _blendedFrom: names,
+    };
+  };
+
   const handleBlendSouls = async () => {
     if (selectedSouls.length < 2) return;
     setBlending(true);
     setBlendError("");
     try {
-      const res = await fetch("/api/archetypes/blend", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ids: selectedSouls, name: onboardingName || "{{name}}" }),
-      });
-      if (!res.ok) throw new Error("blend failed");
-      const data = await res.json();
-      if (data.character) {
-        // Store blended character in a way the finish handler can use
-        (window as any).__blendedCharacter = data.character;
+      const blended = await blendArchetypesLocal(selectedSouls);
+      if (blended) {
+        (window as any).__blendedCharacter = blended;
         handleStyleSelect("__blended");
       } else {
-        setBlendError("blend returned unexpected format. try again.");
+        setBlendError("could not load archetype data.");
       }
     } catch {
-      setBlendError("failed to blend. make sure your LLM provider is set up.");
+      setBlendError("blend failed. try again.");
     }
     setBlending(false);
   };
@@ -134,28 +160,21 @@ export function OnboardingWizard() {
   const handleRandomSoul = async () => {
     setBlending(true);
     setBlendError("");
-    // Pick 2-3 random archetypes to blend
     const nonCustom = (archetypes.length > 0 ? archetypes : fallbackArchetypes).filter((a) => a.id !== "custom");
     const shuffled = [...nonCustom].sort(() => Math.random() - 0.5);
     const count = Math.random() > 0.5 ? 3 : 2;
     const picked = shuffled.slice(0, count);
     setSelectedSouls(picked.map((a) => a.id));
     try {
-      const res = await fetch("/api/archetypes/blend", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ids: picked.map((a) => a.id), name: onboardingName || "{{name}}" }),
-      });
-      if (!res.ok) throw new Error("random blend failed");
-      const data = await res.json();
-      if (data.character) {
-        (window as any).__blendedCharacter = data.character;
+      const blended = await blendArchetypesLocal(picked.map((a) => a.id));
+      if (blended) {
+        (window as any).__blendedCharacter = blended;
         handleStyleSelect("__blended");
       } else {
-        setBlendError("random generation returned unexpected format.");
+        setBlendError("could not load archetype data.");
       }
     } catch {
-      setBlendError("failed to generate. make sure your LLM provider is set up.");
+      setBlendError("random blend failed. try again.");
     }
     setBlending(false);
   };
