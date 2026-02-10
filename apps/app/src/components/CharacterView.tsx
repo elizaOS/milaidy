@@ -627,6 +627,9 @@ export function CharacterView() {
               >
                 {characterSaving ? "saving..." : "save character"}
               </button>
+              {hasUnsavedChanges && !characterSaving && !characterSaveSuccess && (
+                <span className="text-xs text-[var(--muted)]">unsaved changes</span>
+              )}
               {characterSaveSuccess && (
                 <span className="text-xs text-[var(--ok,#16a34a)]">{characterSaveSuccess}</span>
               )}

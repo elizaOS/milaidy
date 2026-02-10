@@ -2320,8 +2320,13 @@ output ONLY valid JSON with this exact structure (no markdown, no backticks):
     }>(req, res);
     if (!body) return;
 
-    if (!body.source || !body.content?.trim()) {
-      error(res, "source and content are required", 400);
+    const ALLOWED_SOURCES = ["chatgpt", "claude", "freeform"] as const;
+    if (!body.source || !ALLOWED_SOURCES.includes(body.source as any)) {
+      error(res, "Invalid source. Must be one of: chatgpt, claude, freeform", 400);
+      return;
+    }
+    if (!body.content?.trim()) {
+      error(res, "content is required", 400);
       return;
     }
 

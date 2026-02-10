@@ -93,6 +93,10 @@ export function OnboardingWizard() {
   const [openaiCallbackUrl, setOpenaiCallbackUrl] = useState("");
   const [openaiConnected, setOpenaiConnected] = useState(false);
   const [openaiError, setOpenaiError] = useState("");
+  const [anthropicOAuthStarted, setAnthropicOAuthStarted] = useState(false);
+  const [anthropicCode, setAnthropicCode] = useState("");
+  const [anthropicConnected, setAnthropicConnected] = useState(false);
+  const [anthropicError, setAnthropicError] = useState("");
 
   // Soul multi-select + blend
   const [selectedSouls, setSelectedSouls] = useState<string[]>([]);
@@ -113,27 +117,53 @@ export function OnboardingWizard() {
     });
   };
 
+  // Deterministic blend for onboarding (no LLM needed — AI blend available in character page post-setup)
+  const blendArchetypesLocal = async (ids: string[]) => {
+    const fetched = await Promise.all(
+      ids.map((id) => fetch(`/api/archetypes/${id}`).then((r) => r.json()).catch(() => null))
+    );
+    const chars = fetched.filter(Boolean).map((d: any) => d.character).filter(Boolean);
+    if (chars.length < 2) return null;
+
+    // Merge: combine bios, pick first system as base + blend note, union style rules
+    const allBio = chars.flatMap((c: any) => c.bio ?? []);
+    const names = ids.map((id) => {
+      const a = (archetypes.length > 0 ? archetypes : fallbackArchetypes).find((a) => a.id === id);
+      return a?.name ?? id;
+    });
+
+    const systemParts = chars.map((c: any) => c.system ?? "").filter(Boolean);
+    const blendedSystem = `${systemParts[0]}\n\nyou also draw from other sides of yourself:\n${systemParts.slice(1).map((s: string) => s.split("\n").slice(0, 3).join("\n")).join("\n\n")}`;
+
+    return {
+      bio: allBio.slice(0, 6),
+      system: blendedSystem,
+      style: {
+        all: [...new Set(chars.flatMap((c: any) => c.style?.all ?? []))].slice(0, 10),
+        chat: [...new Set(chars.flatMap((c: any) => c.style?.chat ?? []))].slice(0, 8),
+        post: [...new Set(chars.flatMap((c: any) => c.style?.post ?? []))].slice(0, 6),
+      },
+      adjectives: [...new Set(chars.flatMap((c: any) => c.adjectives ?? []))].slice(0, 8),
+      topics: [...new Set(chars.flatMap((c: any) => c.topics ?? []))].slice(0, 8),
+      messageExamples: chars.flatMap((c: any) => c.messageExamples ?? []).slice(0, 4),
+      _blendedFrom: names,
+    };
+  };
+
   const handleBlendSouls = async () => {
     if (selectedSouls.length < 2) return;
     setBlending(true);
     setBlendError("");
     try {
-      const res = await fetch("/api/archetypes/blend", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ids: selectedSouls, name: onboardingName || "{{name}}" }),
-      });
-      if (!res.ok) throw new Error("blend failed");
-      const data = await res.json();
-      if (data.character) {
-        // Store blended character in a way the finish handler can use
-        (window as any).__blendedCharacter = data.character;
+      const blended = await blendArchetypesLocal(selectedSouls);
+      if (blended) {
+        (window as any).__blendedCharacter = blended;
         handleStyleSelect("__blended");
       } else {
-        setBlendError("blend returned unexpected format. try again.");
+        setBlendError("could not load archetype data.");
       }
     } catch {
-      setBlendError("failed to blend. make sure your LLM provider is set up.");
+      setBlendError("blend failed. try again.");
     }
     setBlending(false);
   };
@@ -141,28 +171,21 @@ export function OnboardingWizard() {
   const handleRandomSoul = async () => {
     setBlending(true);
     setBlendError("");
-    // Pick 2-3 random archetypes to blend
     const nonCustom = (archetypes.length > 0 ? archetypes : fallbackArchetypes).filter((a) => a.id !== "custom");
     const shuffled = [...nonCustom].sort(() => Math.random() - 0.5);
     const count = Math.random() > 0.5 ? 3 : 2;
     const picked = shuffled.slice(0, count);
     setSelectedSouls(picked.map((a) => a.id));
     try {
-      const res = await fetch("/api/archetypes/blend", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ids: picked.map((a) => a.id), name: onboardingName || "{{name}}" }),
-      });
-      if (!res.ok) throw new Error("random blend failed");
-      const data = await res.json();
-      if (data.character) {
-        (window as any).__blendedCharacter = data.character;
+      const blended = await blendArchetypesLocal(picked.map((a) => a.id));
+      if (blended) {
+        (window as any).__blendedCharacter = blended;
         handleStyleSelect("__blended");
       } else {
-        setBlendError("random generation returned unexpected format.");
+        setBlendError("could not load archetype data.");
       }
     } catch {
-      setBlendError("failed to generate. make sure your LLM provider is set up.");
+      setBlendError("random blend failed. try again.");
     }
     setBlending(false);
   };
@@ -697,23 +720,89 @@ export function OnboardingWizard() {
                       className="w-full px-3 py-2 border border-border bg-card text-sm focus:border-accent focus:outline-none"
                     />
                     <p className="text-xs text-muted mt-2 whitespace-pre-line">
-                      {"Paste your Claude Code setup token.\nGet it from: claude.ai/settings/api → \"Claude Code\" → \"Use setup token\""}
+                      {"How to get your setup token:\n\n• Option A: Run  claude setup-token  in your terminal (if you have Claude Code CLI installed)\n\n• Option B: Go to claude.ai/settings/api → \"Claude Code\" → \"Use setup token\""}
                     </p>
                   </>
-                ) : (
-                  <>
+                ) : anthropicConnected ? (
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="flex items-center gap-2 px-6 py-3 border border-green-500/30 bg-green-500/10 text-green-400 text-sm font-medium w-full max-w-xs justify-center">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                      Connected to Claude
+                    </div>
+                    <p className="text-xs text-muted text-center">
+                      Your Claude subscription is linked. Click Next to continue.
+                    </p>
+                  </div>
+                ) : !anthropicOAuthStarted ? (
+                  <div className="flex flex-col items-center gap-3">
                     <button
-                      className="px-6 py-2 border border-accent bg-accent text-accent-fg text-sm cursor-pointer hover:bg-accent-hover"
-                      onClick={() => {
-                        window.open("/api/subscription/anthropic/start", "anthropic-oauth", "width=600,height=700");
+                      className="w-full max-w-xs px-6 py-3 border border-accent bg-accent text-accent-fg text-sm font-medium cursor-pointer hover:bg-accent-hover transition-colors"
+                      onClick={async () => {
+                        try {
+                          setAnthropicError("");
+                          const res = await fetch("/api/subscription/anthropic/start", { method: "POST" });
+                          const data = await res.json();
+                          if (data.authUrl) {
+                            window.open(data.authUrl, "anthropic-oauth", "width=600,height=700,top=50,left=200");
+                            setAnthropicOAuthStarted(true);
+                          } else {
+                            setAnthropicError("Failed to get auth URL");
+                          }
+                        } catch (err) {
+                          setAnthropicError(`Failed to start login: ${err}`);
+                        }
                       }}
                     >
                       Login with Anthropic
                     </button>
-                    <p className="text-xs text-muted mt-2">
-                      Opens Anthropic login to connect your Claude subscription.
+                    <p className="text-xs text-muted text-center">
+                      Requires Claude Pro ($20/mo) or Max ($100/mo).
                     </p>
-                  </>
+                    {anthropicError && (
+                      <p className="text-xs text-red-400">{anthropicError}</p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center gap-3">
+                    <p className="text-sm text-txt text-center">
+                      After logging in, you'll see a code on Anthropic's page.
+                      <br />Copy and paste it below:
+                    </p>
+                    <input
+                      type="text"
+                      placeholder="Paste the authorization code here..."
+                      value={anthropicCode}
+                      onChange={(e) => setAnthropicCode(e.target.value)}
+                      className="w-full max-w-xs px-3 py-2 border border-border bg-card text-sm text-center focus:border-accent focus:outline-none"
+                    />
+                    {anthropicError && (
+                      <p className="text-xs text-red-400">{anthropicError}</p>
+                    )}
+                    <button
+                      disabled={!anthropicCode}
+                      className="w-full max-w-xs px-6 py-2 border border-accent bg-accent text-accent-fg text-sm cursor-pointer hover:bg-accent-hover disabled:opacity-40 disabled:cursor-not-allowed"
+                      onClick={async () => {
+                        try {
+                          setAnthropicError("");
+                          const res = await fetch("/api/subscription/anthropic/exchange", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ code: anthropicCode }),
+                          });
+                          const data = await res.json();
+                          if (data.success) {
+                            setAnthropicConnected(true);
+                          } else {
+                            setAnthropicError(data.error || "Exchange failed");
+                          }
+                        } catch (err) {
+                          setAnthropicError(`Exchange failed: ${err}`);
+                        }
+                      }}
+                    >
+                      Connect
+                    </button>
+                  </div>
                 )}
               </div>
             )}
@@ -1131,7 +1220,7 @@ export function OnboardingWizard() {
         return cloudConnected;
       case "llmProvider":
         if (onboardingProvider === "anthropic-subscription") {
-          return onboardingSubscriptionTab === "token" ? onboardingApiKey.length > 0 : true;
+          return onboardingSubscriptionTab === "token" ? onboardingApiKey.length > 0 : anthropicConnected;
         }
         if (onboardingProvider === "openai-subscription") {
           return openaiConnected;
