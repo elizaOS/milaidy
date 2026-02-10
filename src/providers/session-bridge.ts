@@ -13,11 +13,38 @@ import type {
   Room,
   State,
 } from "@elizaos/core";
-import {
-  buildAgentMainSessionKey,
+import * as elizaCore from "@elizaos/core";
+
+type ElizaCoreSessionHelpers = {
+  buildAgentMainSessionKey?: (params: { agentId: string; mainKey: string }) => string;
+  ChannelType?: {
+    DM: number | string;
+    SELF: number | string;
+    GROUP: number | string;
+  };
+  parseAgentSessionKey?: (
+    key: string,
+  ) =>
+    | {
+        agentId?: string;
+      }
+    | undefined;
+};
+
+const {
   ChannelType,
   parseAgentSessionKey,
-} from "@elizaos/core";
+} = elizaCore as ElizaCoreSessionHelpers;
+
+function buildAgentMainSessionKey(params: { agentId: string; mainKey: string }): string {
+  const core = elizaCore as ElizaCoreSessionHelpers;
+  if (typeof core.buildAgentMainSessionKey === "function") {
+    return core.buildAgentMainSessionKey(params);
+  }
+  // Fallback format matching Milaidy comments:
+  // agent:{agentId}:main
+  return `agent:${params.agentId}:${params.mainKey}`;
+}
 
 /**
  * Resolve an Milaidy session key from an ElizaOS room.

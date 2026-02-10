@@ -129,6 +129,7 @@ export class MilaidyApp extends LitElement {
   @state() walletApiKeySaving = false;
   @state() inventorySort: "chain" | "symbol" | "value" = "value";
   @state() walletError: string | null = null;
+  @state() providerModalOpen: "alchemy" | "helius" | "birdeye" | null = null;
 
   // Plugin Store state
   @state() storePlugins: RegistryPlugin[] = [];
@@ -799,6 +800,113 @@ export class MilaidyApp extends LitElement {
       background: var(--bg);
       font-size: 12px;
       font-family: var(--mono);
+    }
+
+    /* Provider tiles (progressive disclosure) */
+    .provider-tiles {
+      display: flex;
+      gap: 16px;
+      margin-top: 16px;
+    }
+
+    .provider-tile {
+      flex: 1;
+      aspect-ratio: 1;
+      max-width: 160px;
+      border: 1px solid var(--border);
+      background: var(--card);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      position: relative;
+    }
+
+    .provider-tile:hover {
+      border-color: var(--accent);
+      background: var(--bg-muted);
+    }
+
+    .provider-tile .tile-icon {
+      font-size: 48px;
+      font-weight: 700;
+      color: var(--muted);
+      line-height: 1;
+    }
+
+    .provider-tile:hover .tile-icon {
+      color: var(--accent);
+    }
+
+    .provider-tile .tile-label {
+      margin-top: 10px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .provider-tile .tile-tag {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      font-size: 9px;
+      padding: 2px 6px;
+      border-radius: 3px;
+    }
+
+    .provider-tile .tile-tag.configured {
+      background: rgba(46, 204, 113, 0.12);
+      color: var(--ok);
+    }
+
+    .provider-tile .tile-tag.optional {
+      color: var(--muted);
+      background: var(--bg-muted);
+    }
+
+    /* Provider modal */
+    .provider-modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .provider-modal {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      width: 480px;
+      max-width: 90vw;
+      max-height: 80vh;
+      overflow-y: auto;
+      padding: 24px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    }
+
+    .provider-modal h3 {
+      margin: 0 0 8px 0;
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .provider-modal .modal-close {
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 20px;
+      cursor: pointer;
+      padding: 0 4px;
+      line-height: 1;
+    }
+
+    .provider-modal .modal-close:hover {
+      color: var(--text);
     }
 
     .key-export-box {
@@ -5232,52 +5340,21 @@ export class MilaidyApp extends LitElement {
           These are free to create and take about a minute to set up.
         </p>
 
-        <!-- Alchemy setup -->
-        <div class="setup-card">
-          <h3>Alchemy ${cfg?.alchemyKeySet ? html`<span style="color:var(--ok);font-size:12px;font-weight:normal;margin-left:8px;">configured</span>` : ""}</h3>
-          <p>Alchemy provides EVM chain data (Ethereum, Base, Arbitrum, Optimism, Polygon).</p>
-          <ol>
-            <li>Go to <a href="https://dashboard.alchemy.com/signup" target="_blank" rel="noopener">dashboard.alchemy.com</a> and create a free account</li>
-            <li>Create an app, then go to its <strong>Networks</strong> tab and enable: Ethereum, Base, Arbitrum, Optimism, Polygon</li>
-            <li>Copy the <strong>API Key</strong> from your app settings</li>
-            <li>Paste it below</li>
-          </ol>
-          <div class="setup-input-row">
-            <input type="password" data-wallet-config="ALCHEMY_API_KEY"
-                   placeholder="${cfg?.alchemyKeySet ? "Already set — leave blank to keep" : "Paste your Alchemy API key"}" />
+        <div class="provider-tiles">
+          <div class="provider-tile" @click=${() => { this.providerModalOpen = "alchemy"; }}>
+            ${cfg?.alchemyKeySet ? html`<span class="tile-tag configured">configured</span>` : ""}
+            <span class="tile-icon">?</span>
+            <span class="tile-label">Alchemy</span>
           </div>
-        </div>
-
-        <!-- Helius setup -->
-        <div class="setup-card">
-          <h3>Helius ${cfg?.heliusKeySet ? html`<span style="color:var(--ok);font-size:12px;font-weight:normal;margin-left:8px;">configured</span>` : ""}</h3>
-          <p>Helius provides Solana chain data (tokens, NFTs, enhanced RPC).</p>
-          <ol>
-            <li>Go to <a href="https://dev.helius.xyz/dashboard/app" target="_blank" rel="noopener">dev.helius.xyz</a> and create a free account</li>
-            <li>You'll get an API key on your dashboard immediately</li>
-            <li>Copy the <strong>API Key</strong></li>
-            <li>Paste it below</li>
-          </ol>
-          <div class="setup-input-row">
-            <input type="password" data-wallet-config="HELIUS_API_KEY"
-                   placeholder="${cfg?.heliusKeySet ? "Already set — leave blank to keep" : "Paste your Helius API key"}" />
+          <div class="provider-tile" @click=${() => { this.providerModalOpen = "helius"; }}>
+            ${cfg?.heliusKeySet ? html`<span class="tile-tag configured">configured</span>` : ""}
+            <span class="tile-icon">?</span>
+            <span class="tile-label">Helius</span>
           </div>
-        </div>
-
-        <!-- Birdeye setup (optional) -->
-        <div class="setup-card">
-          <h3>Birdeye <span style="color:var(--muted);font-size:11px;font-weight:normal;margin-left:8px;">optional</span>
-            ${cfg?.birdeyeKeySet ? html`<span style="color:var(--ok);font-size:12px;font-weight:normal;margin-left:8px;">configured</span>` : ""}
-          </h3>
-          <p>Birdeye provides USD price data for Solana tokens. Optional but recommended.</p>
-          <ol>
-            <li>Go to <a href="https://birdeye.so/user/api-management" target="_blank" rel="noopener">birdeye.so</a> and create a free account</li>
-            <li>Navigate to the <strong>API</strong> section in your profile</li>
-            <li>Copy your API key</li>
-          </ol>
-          <div class="setup-input-row">
-            <input type="password" data-wallet-config="BIRDEYE_API_KEY"
-                   placeholder="${cfg?.birdeyeKeySet ? "Already set — leave blank to keep" : "Paste your Birdeye API key (optional)"}" />
+          <div class="provider-tile" @click=${() => { this.providerModalOpen = "birdeye"; }}>
+            ${cfg?.birdeyeKeySet ? html`<span class="tile-tag configured">configured</span>` : html`<span class="tile-tag optional">optional</span>`}
+            <span class="tile-icon">?</span>
+            <span class="tile-label">Birdeye</span>
           </div>
         </div>
 
@@ -5287,6 +5364,90 @@ export class MilaidyApp extends LitElement {
                   style="padding:8px 24px;">
             ${this.walletApiKeySaving ? "Saving..." : "Save API Keys"}
           </button>
+        </div>
+      </div>
+
+      ${this.renderProviderModal()}
+    `;
+  }
+
+  private renderProviderModal() {
+    if (!this.providerModalOpen) return html``;
+    const cfg = this.walletConfig;
+    const provider = this.providerModalOpen;
+
+    const content = {
+      alchemy: {
+        title: "Alchemy",
+        configured: cfg?.alchemyKeySet ?? false,
+        description: "Alchemy provides EVM chain data (Ethereum, Base, Arbitrum, Optimism, Polygon).",
+        configKey: "ALCHEMY_API_KEY",
+        placeholder: cfg?.alchemyKeySet ? "Already set — leave blank to keep" : "Paste your Alchemy API key",
+        steps: html`
+          <ol>
+            <li>Go to <a href="https://dashboard.alchemy.com/signup" target="_blank" rel="noopener">dashboard.alchemy.com</a> and create a free account</li>
+            <li>Create an app, then go to its <strong>Networks</strong> tab and enable: Ethereum, Base, Arbitrum, Optimism, Polygon</li>
+            <li>Copy the <strong>API Key</strong> from your app settings</li>
+            <li>Paste it below</li>
+          </ol>
+        `,
+      },
+      helius: {
+        title: "Helius",
+        configured: cfg?.heliusKeySet ?? false,
+        description: "Helius provides Solana chain data (tokens, NFTs, enhanced RPC).",
+        configKey: "HELIUS_API_KEY",
+        placeholder: cfg?.heliusKeySet ? "Already set — leave blank to keep" : "Paste your Helius API key",
+        steps: html`
+          <ol>
+            <li>Go to <a href="https://dev.helius.xyz/dashboard/app" target="_blank" rel="noopener">dev.helius.xyz</a> and create a free account</li>
+            <li>You'll get an API key on your dashboard immediately</li>
+            <li>Copy the <strong>API Key</strong></li>
+            <li>Paste it below</li>
+          </ol>
+        `,
+      },
+      birdeye: {
+        title: "Birdeye",
+        configured: cfg?.birdeyeKeySet ?? false,
+        description: "Birdeye provides USD price data for Solana tokens. Optional but recommended.",
+        configKey: "BIRDEYE_API_KEY",
+        placeholder: cfg?.birdeyeKeySet ? "Already set — leave blank to keep" : "Paste your Birdeye API key (optional)",
+        steps: html`
+          <ol>
+            <li>Go to <a href="https://birdeye.so/user/api-management" target="_blank" rel="noopener">birdeye.so</a> and create a free account</li>
+            <li>Navigate to the <strong>API</strong> section in your profile</li>
+            <li>Copy your API key</li>
+          </ol>
+        `,
+      },
+    }[provider];
+
+    return html`
+      <div class="provider-modal-overlay" @click=${() => { this.providerModalOpen = null; }}>
+        <div class="provider-modal" @click=${(e: Event) => e.stopPropagation()}>
+          <h3>
+            ${content.title}
+            ${content.configured ? html`<span style="color:var(--ok);font-size:12px;font-weight:normal;">configured</span>` : ""}
+            <button class="modal-close" @click=${() => { this.providerModalOpen = null; }}>&times;</button>
+          </h3>
+          <p style="font-size:12px;color:var(--muted);line-height:1.5;margin:0 0 12px 0;">${content.description}</p>
+          <div style="font-size:12px;color:var(--muted);line-height:1.7;">${content.steps}</div>
+          <div class="setup-input-row" style="margin-top:4px;">
+            <input type="password" data-wallet-config="${content.configKey}"
+                   placeholder="${content.placeholder}" />
+          </div>
+          <div style="margin-top:16px;display:flex;gap:8px;">
+            <button class="btn" @click=${() => this.handleWalletApiKeySave()}
+                    ?disabled=${this.walletApiKeySaving}
+                    style="padding:6px 20px;font-size:12px;">
+              ${this.walletApiKeySaving ? "Saving..." : "Save"}
+            </button>
+            <button class="btn" @click=${() => { this.providerModalOpen = null; }}
+                    style="padding:6px 20px;font-size:12px;background:transparent;border:1px solid var(--border);color:var(--text);">
+              Close
+            </button>
+          </div>
         </div>
       </div>
     `;

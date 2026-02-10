@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { isSubagentSessionKey } from "@elizaos/core";
+import * as elizaCore from "@elizaos/core";
 import { resolveUserPath } from "../config/paths.js";
 
 export interface RunCommandResult {
@@ -206,6 +206,21 @@ export type WorkspaceBootstrapFile = {
   content?: string;
   missing: boolean;
 };
+
+type ElizaCoreWithSubagent = {
+  isSubagentSessionKey?: (key: string) => boolean;
+};
+
+function isSubagentSessionKey(sessionKey: string): boolean {
+  const core = elizaCore as ElizaCoreWithSubagent;
+  if (typeof core.isSubagentSessionKey === "function") {
+    return core.isSubagentSessionKey(sessionKey);
+  }
+  // Older @elizaos/core versions do not expose subagent helpers.
+  // In that case we treat all sessions as primary sessions and
+  // avoid restricting bootstrap files.
+  return false;
+}
 
 async function writeFileIfMissing(filePath: string, content: string) {
   try {
