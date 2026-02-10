@@ -1881,7 +1881,6 @@ export async function startEliza(
   //     this.adapter is undefined, so plugins that use runtime.db will fail.
   if (sqlPlugin) {
     await runtime.registerPlugin(sqlPlugin.plugin);
-    console.log("sqlPlugin", sqlPlugin);
 
     // 7c. Eagerly initialize the database adapter so it's fully ready (connection
     //     open, schema bootstrapped) BEFORE other plugins run their init().
@@ -1903,18 +1902,6 @@ export async function startEliza(
     throw new Error(
       "@elizaos/plugin-sql is required but was not loaded. " +
         "Ensure the package is installed and built (check for import errors above).",
-    );
-  }
-
-  // 7c. Eagerly initialize the database adapter so it's fully ready (connection
-  //     open, schema bootstrapped) BEFORE other plugins run their init().
-  //     runtime.initialize() also calls adapter.init() but that happens AFTER
-  //     all plugin inits — too late for plugins that need runtime.db during init.
-  //     The call is idempotent (runtime.initialize checks adapter.isReady()).
-  if (runtime.adapter && !(await runtime.adapter.isReady())) {
-    await runtime.adapter.init();
-    logger.info(
-      "[milaidy] Database adapter initialized early (before plugin inits)",
     );
   }
 
