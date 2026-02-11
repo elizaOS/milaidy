@@ -349,10 +349,8 @@ export function collectPluginNames(config: MilaidyConfig): Set<string> {
         typeof entry === "object" &&
         (entry as Record<string, unknown>).enabled !== false
       ) {
-        const pluginName = OPTIONAL_PLUGIN_MAP[key];
-        if (pluginName) {
-          pluginsToLoad.add(pluginName);
-        }
+        const pluginName = OPTIONAL_PLUGIN_MAP[key] ?? `@elizaos/plugin-${key}`;
+        pluginsToLoad.add(pluginName);
       }
     }
   }
@@ -2014,6 +2012,81 @@ export async function startEliza(
 
   // 8. Initialize the runtime (registers remaining plugins, starts services)
   await runtime.initialize();
+
+  // 8b. Wait for AgentSkillsService to finish loading.
+  //     runtime.initialize() resolves the internal initPromise which unblocks
+  //     service registration, but services start asynchronously.  Without this
+  //     explicit await the runtime would be returned to the caller (API server,
+  //     dev-server) before skills are loaded, causing the /api/skills endpoint
+  //     to return an empty list.
+  try {
+    const skillServicePromise = runtime.getServiceLoadPromise(
+      "AGENT_SKILLS_SERVICE",
+    );
+    // Give the service up to 30 s to load (matches the core runtime timeout).
+    const timeout = new Promise<never>((_resolve, reject) => {
+      setTimeout(() => {
+        reject(
+          new Error(
+            "[milaidy] AgentSkillsService timed out waiting to initialise (30 s)",
+          ),
+        );
+      }, 30_000);
+    });
+    await Promise.race([skillServicePromise, timeout]);
+
+    // Log skill-loading summary now that the service is guaranteed ready.
+    const svc = runtime.getService("AGENT_SKILLS_SERVICE") as
+      | {
+          getCatalogStats?: () => {
+            loaded: number;
+            total: number;
+            storageType: string;
+          };
+        }
+      | null
+      | undefined;
+    if (svc?.getCatalogStats) {
+      const stats = svc.getCatalogStats();
+      logger.info(
+        `[milaidy] AgentSkills ready — ${stats.loaded} skills loaded, ` +
+          `${stats.total} in catalog (storage: ${stats.storageType})`,
+      );
+    }
+
+    // Guard against non-string skill.description values.
+    // The bundled YAML parser produces {} for multi-line descriptions, which
+    // crashes findBestLocalMatch / scoreSkillMatch (call .toLowerCase() on it).
+    // Instead of a one-shot sanitize (which misses skills loaded later by
+    // syncCatalog / autoRefresh), we monkey-patch getLoadedSkills to always
+    // return sanitized values.
+    const svcAny = svc as Record<string, unknown> | null | undefined;
+    const origGetLoaded = svcAny?.getLoadedSkills as
+      | ((...args: unknown[]) => Array<Record<string, unknown>>)
+      | undefined;
+    if (origGetLoaded && svcAny) {
+      (svcAny as Record<string, unknown>).getLoadedSkills = function (
+        ...args: unknown[]
+      ) {
+        const skills = origGetLoaded.apply(this, args);
+        for (const skill of skills) {
+          if (typeof skill.description !== "string") {
+            skill.description =
+              skill.description == null
+                ? ""
+                : JSON.stringify(skill.description);
+          }
+        }
+        return skills;
+      };
+      logger.debug("[milaidy] Patched getLoadedSkills to guard descriptions");
+    }
+  } catch (err) {
+    // Non-fatal — the agent can operate without skills.
+    logger.warn(
+      `[milaidy] AgentSkillsService did not initialise in time: ${formatError(err)}`,
+    );
+  }
 
   // 9. Graceful shutdown handler
   //

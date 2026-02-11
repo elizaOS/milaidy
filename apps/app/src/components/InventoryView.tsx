@@ -202,13 +202,13 @@ export function InventoryView() {
         <div className="text-sm font-bold mb-2">Wallet keys not configured</div>
         <p className="text-xs text-muted mb-4 leading-relaxed max-w-md mx-auto">
           To view balances and NFTs you need RPC provider keys (Alchemy, Helius, etc.)
-          or an Eliza Cloud connection. Head to <strong>Config</strong> to set them up.
+          or an Eliza Cloud connection. Head to <strong>Settings</strong> to set them up.
         </p>
         <button
           className="px-4 py-1.5 border border-accent bg-accent text-accent-fg cursor-pointer text-xs font-mono hover:bg-accent-hover hover:border-accent-hover"
-          onClick={() => setTab("config")}
+          onClick={() => setTab("settings")}
         >
-          Open Config
+          Open Settings
         </button>
       </div>
     );
@@ -307,14 +307,14 @@ export function InventoryView() {
         <div className="text-center py-10 text-muted italic mt-6">
           No wallet data available. Make sure RPC keys are configured in{" "}
           <a
-            href="/config"
+            href="/settings"
             onClick={(e) => {
               e.preventDefault();
-              setTab("config");
+              setTab("settings");
             }}
             className="text-accent"
           >
-            Config
+            Settings
           </a>
           .
         </div>

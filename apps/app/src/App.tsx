@@ -12,15 +12,13 @@ import { OnboardingWizard } from "./components/OnboardingWizard.js";
 import { ChatView } from "./components/ChatView.js";
 import { ConversationsSidebar } from "./components/ConversationsSidebar.js";
 import { AutonomousPanel } from "./components/AutonomousPanel.js";
-import { FeaturesView, ConnectorsView } from "./components/PluginsView.js";
-import { SkillsView } from "./components/SkillsView.js";
-import { TriggersView } from "./components/TriggersView.js";
-import { FineTuningView } from "./components/FineTuningView.js";
-import { InventoryView } from "./components/InventoryView.js";
-import { CharacterView } from "./components/CharacterView.js";
-import { ConfigView } from "./components/ConfigView.js";
-import { AdminView } from "./components/AdminView.js";
-import { AppsView } from "./components/AppsView.js";
+import { AgentView } from "./components/AgentView.js";
+import { AppsPageView } from "./components/AppsPageView.js";
+import { PluginsPageView } from "./components/PluginsPageView.js";
+import { ConfigPageView } from "./components/ConfigPageView.js";
+import { DatabasePageView } from "./components/DatabasePageView.js";
+import { SettingsView } from "./components/SettingsView.js";
+import { LogsPageView } from "./components/LogsPageView.js";
 import { GameView } from "./components/GameView.js";
 import { LoadingScreen } from "./components/LoadingScreen.js";
 
@@ -28,17 +26,14 @@ function ViewRouter() {
   const { tab } = useApp();
   switch (tab) {
     case "chat": return <ChatView />;
-    case "apps": return <AppsView />;
+    case "apps": return <AppsPageView />;
     case "game": return <GameView />;
-    case "inventory": return <InventoryView />;
-    case "features": return <FeaturesView />;
-    case "connectors": return <ConnectorsView />;
-    case "skills": return <SkillsView />;
-    case "triggers": return <TriggersView />;
-    case "fine_tuning": return <FineTuningView />;
-    case "character": return <CharacterView />;
-    case "config": return <ConfigView />;
-    case "admin": return <AdminView />;
+    case "agent": return <AgentView />;
+    case "plugins": return <PluginsPageView />;
+    case "config": return <ConfigPageView />;
+    case "database": return <DatabasePageView />;
+    case "settings": return <SettingsView />;
+    case "logs": return <LogsPageView />;
     default: return <ChatView />;
   }
 }

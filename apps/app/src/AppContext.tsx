@@ -113,6 +113,26 @@ function applyTheme(name: ThemeName) {
   }
 }
 
+/* ── Avatar persistence ───────────────────────────────────────────────── */
+const AVATAR_INDEX_KEY = "milaidy_avatar_index";
+
+function loadAvatarIndex(): number {
+  try {
+    const stored = localStorage.getItem(AVATAR_INDEX_KEY);
+    if (stored) {
+      const n = parseInt(stored, 10);
+      if (!Number.isNaN(n) && n >= 0) return n;
+    }
+  } catch { /* ignore */ }
+  return 1;
+}
+
+function saveAvatarIndex(index: number) {
+  try {
+    localStorage.setItem(AVATAR_INDEX_KEY, String(index));
+  } catch { /* ignore */ }
+}
+
 // ── Onboarding step type ───────────────────────────────────────────────
 
 export type OnboardingStep =
@@ -362,6 +382,15 @@ export interface AppState {
   activeGamePostMessageAuth: boolean;
   activeGamePostMessagePayload: GamePostMessageAuthPayload | null;
 
+  // Sub-tabs
+  appsSubTab: "browse" | "games";
+  agentSubTab: "character" | "inventory";
+  pluginsSubTab: "features" | "connectors" | "skills" | "plugins";
+  databaseSubTab: "tables" | "media" | "vectors";
+
+  // Config text
+  configRaw: Record<string, unknown>;
+  configText: string;
 }
 
 export interface AppActions {
@@ -581,8 +610,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [characterSaveSuccess, setCharacterSaveSuccess] = useState<string | null>(null);
   const [characterSaveError, setCharacterSaveError] = useState<string | null>(null);
   const [characterDraft, setCharacterDraft] = useState<CharacterData>({});
-  const [selectedVrmIndex, setSelectedVrmIndex] = useState(1);
+  const [selectedVrmIndex, setSelectedVrmIndexRaw] = useState(loadAvatarIndex);
   const [customVrmUrl, setCustomVrmUrl] = useState("");
+
+  // Wrap setter to also persist to localStorage
+  const setSelectedVrmIndex = useCallback((v: number) => {
+    setSelectedVrmIndexRaw(v);
+    saveAvatarIndex(v);
+  }, []);
 
   // --- Cloud ---
   const [cloudEnabled, setCloudEnabled] = useState(false);
@@ -707,6 +742,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [activeGamePostMessageAuth, setActiveGamePostMessageAuth] = useState(false);
   const [activeGamePostMessagePayload, setActiveGamePostMessagePayload] = useState<GamePostMessageAuthPayload | null>(null);
 
+  // --- Admin ---
+  const [appsSubTab, setAppsSubTab] = useState<"browse" | "games">("browse");
+  const [agentSubTab, setAgentSubTab] = useState<"character" | "inventory">("character");
+  const [pluginsSubTab, setPluginsSubTab] = useState<"features" | "connectors" | "skills" | "plugins">("features");
+  const [databaseSubTab, setDatabaseSubTab] = useState<"tables" | "media" | "vectors">("tables");
+
+  // --- Config ---
+  const [configRaw, setConfigRaw] = useState<Record<string, unknown>>({});
+  const [configText, setConfigText] = useState("");
 
   // --- Refs for timers ---
   const actionNoticeTimer = useRef<number | null>(null);
@@ -1790,6 +1834,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (!draft.username) delete draft.username;
       if (!draft.system) delete draft.system;
       const { agentName } = await client.updateCharacter(draft);
+      // Also persist avatar selection to config
+      try {
+        await client.updateConfig({ settings: { avatarIndex: selectedVrmIndex } });
+      } catch { /* non-fatal */ }
       setCharacterSaveSuccess("Character saved successfully.");
       if (agentName && agentStatus) {
         setAgentStatus({ ...agentStatus, agentName });
@@ -1799,7 +1847,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setCharacterSaveError(`Failed to save: ${err instanceof Error ? err.message : "unknown error"}`);
     }
     setCharacterSaving(false);
-  }, [characterDraft, agentStatus, loadCharacter]);
+  }, [characterDraft, agentStatus, loadCharacter, selectedVrmIndex]);
 
   const handleCharacterFieldInput = useCallback(
     (field: keyof CharacterData, value: string) => {
@@ -2304,6 +2352,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       mcpHeaderInputs: setMcpHeaderInputs as (v: never) => void,
       droppedFiles: setDroppedFiles as (v: never) => void,
       shareIngestNotice: setShareIngestNotice as (v: never) => void,
+      appsSubTab: setAppsSubTab as (v: never) => void,
+      agentSubTab: setAgentSubTab as (v: never) => void,
+      pluginsSubTab: setPluginsSubTab as (v: never) => void,
+      databaseSubTab: setDatabaseSubTab as (v: never) => void,
+      configRaw: setConfigRaw as (v: never) => void,
+      configText: setConfigText as (v: never) => void,
     };
     const setter = setterMap[key as string];
     if (setter) setter(value as never);
@@ -2469,6 +2523,37 @@ export function AppProvider({ children }: { children: ReactNode }) {
         });
       });
 
+      // Handle proactive messages from autonomy
+      client.onWsEvent("proactive-message", (data: Record<string, unknown>) => {
+        const convId = data.conversationId as string;
+        const msg = data.message as ConversationMessage;
+
+        if (convId === activeConversationIdRef.current) {
+          // Active conversation — append in real-time (deduplicate by id)
+          setConversationMessages((prev) => {
+            if (prev.some((m) => m.id === msg.id)) return prev;
+            return [...prev, msg];
+          });
+        } else {
+          // Non-active — mark unread
+          setUnreadConversations((prev) => new Set([...prev, convId]));
+        }
+
+        // Bump conversation to top of list
+        setConversations((prev) => {
+          const updated = prev.map((c) =>
+            c.id === convId
+              ? { ...c, updatedAt: new Date().toISOString() }
+              : c,
+          );
+          return updated.sort(
+            (a, b) =>
+              new Date(b.updatedAt).getTime() -
+              new Date(a.updatedAt).getTime(),
+          );
+        });
+      });
+
       // Load status
       try {
         setAgentStatus(await client.getStatus());
@@ -2484,6 +2569,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
         /* ignore */
       }
 
+      // Restore avatar selection from config (server-persisted)
+      try {
+        const cfg = await client.getConfig();
+        const settings = cfg.settings as Record<string, unknown> | undefined;
+        if (settings?.avatarIndex != null) {
+          const idx = Number(settings.avatarIndex);
+          if (!Number.isNaN(idx) && idx >= 0) {
+            setSelectedVrmIndex(idx);
+          }
+        }
+      } catch {
+        /* ignore — localStorage fallback already loaded */
+      }
+
       // Cloud polling
       pollCloudCredits();
       cloudPollInterval.current = window.setInterval(() => pollCloudCredits(), 60_000);
@@ -2492,14 +2591,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const urlTab = tabFromPath(window.location.pathname);
       if (urlTab) {
         setTabRaw(urlTab);
-        if (urlTab === "features") void loadPlugins();
-        if (urlTab === "skills") void loadSkills();
-        if (urlTab === "config") {
+        if (urlTab === "plugins") {
+          void loadPlugins();
+          void loadSkills();
+        }
+        if (urlTab === "settings") {
           void checkExtensionStatus();
           void loadWalletConfig();
           void loadCharacter();
           void loadUpdateStatus();
           void loadPlugins();
+        }
+        if (urlTab === "agent") {
+          void loadCharacter();
+          void loadInventory();
         }
         if (urlTab === "inventory") void loadInventory();
         if (urlTab === "triggers") {
@@ -2611,6 +2716,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     droppedFiles, shareIngestNotice,
     activeGameApp, activeGameDisplayName, activeGameViewerUrl, activeGameSandbox,
     activeGamePostMessageAuth,
+    appsSubTab, agentSubTab, pluginsSubTab, databaseSubTab,
+    configRaw, configText,
     activeGamePostMessagePayload,
 
     // Actions

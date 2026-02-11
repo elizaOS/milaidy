@@ -1,16 +1,199 @@
 /**
  * Character view — agent identity, personality, and avatar.
  *
- * Features:
- *   - Import/export character as JSON
- *   - Unsaved changes indicator
- *   - Adjectives and topics editors
+ * Layout: 5 section cards
+ *   1. Identity — name, bio, avatar (2-col), import/export in header
+ *   2. Personality — system prompt, adjectives + topics (tag editors)
+ *   3. Style — 3-column style rule textareas
+ *   4. Examples — collapsible chat + post examples
+ *   5. Voice — provider selection + config (unchanged)
+ *   + Save bar at bottom
  */
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useApp } from "../AppContext";
 import { client, type VoiceProvider, type VoiceConfig } from "../api-client";
 import { AvatarSelector } from "./AvatarSelector";
+import { ConfigRenderer, defaultRegistry } from "./config-renderer";
+import type { ConfigUiHint } from "../types";
+import type { JsonSchemaObject } from "./config-catalog";
+
+/* ── Tag Editor ─────────────────────────────────────────────────────── */
+
+function TagEditor({
+  label,
+  items,
+  onChange,
+  placeholder = "add item...",
+}: {
+  label: string;
+  items: string[];
+  onChange: (items: string[]) => void;
+  placeholder?: string;
+}) {
+  const [inputValue, setInputValue] = useState("");
+
+  const addItem = () => {
+    const trimmed = inputValue.trim();
+    if (trimmed && !items.includes(trimmed)) {
+      onChange([...items, trimmed]);
+    }
+    setInputValue("");
+  };
+
+  const removeItem = (index: number) => {
+    const updated = [...items];
+    updated.splice(index, 1);
+    onChange(updated);
+  };
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label className="font-semibold text-xs">{label}</label>
+      <div className="flex flex-wrap gap-1.5 min-h-[28px]">
+        {items.map((item, i) => (
+          <span
+            key={i}
+            className="inline-flex items-center gap-1 px-2 py-0.5 border border-[var(--border)] bg-[var(--bg-muted)] text-[11px]"
+          >
+            {item}
+            <button
+              type="button"
+              className="text-[var(--muted)] hover:text-[var(--danger,#e74c3c)] cursor-pointer text-[10px] leading-none"
+              onClick={() => removeItem(i)}
+            >
+              &times;
+            </button>
+          </span>
+        ))}
+      </div>
+      <div className="flex items-center gap-1.5">
+        <input
+          type="text"
+          value={inputValue}
+          placeholder={placeholder}
+          onChange={(e) => setInputValue(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              addItem();
+            }
+          }}
+          className="px-2 py-1 border border-[var(--border)] bg-[var(--card)] text-[11px] focus:border-[var(--accent)] focus:outline-none flex-1 min-w-0"
+        />
+        <button
+          type="button"
+          className="text-[10px] px-1.5 py-0.5 border border-[var(--border)] bg-[var(--card)] cursor-pointer hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors"
+          onClick={addItem}
+        >
+          + add
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ── Themed Select ──────────────────────────────────────────────────── */
+
+type SelectGroup<T extends string> = {
+  label: string;
+  items: { id: T; text: string; hint?: string }[];
+};
+
+function ThemedSelect<T extends string>({
+  value,
+  groups,
+  onChange,
+  placeholder = "select...",
+}: {
+  value: T | null;
+  groups: SelectGroup<T>[];
+  onChange: (id: T) => void;
+  placeholder?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  // Close on Escape
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [open]);
+
+  // Find current label
+  let currentLabel = placeholder;
+  for (const g of groups) {
+    const found = g.items.find((i) => i.id === value);
+    if (found) {
+      currentLabel = found.hint ? `${found.text} — ${found.hint}` : found.text;
+      break;
+    }
+  }
+
+  return (
+    <div ref={ref} className="relative flex-1 min-w-0">
+      <button
+        type="button"
+        className="w-full flex items-center justify-between px-2.5 py-1.5 border border-[var(--border)] bg-[var(--card)] text-xs text-left cursor-pointer hover:border-[var(--accent)] transition-colors focus:border-[var(--accent)] focus:outline-none"
+        onClick={() => setOpen(!open)}
+      >
+        <span className="truncate">{currentLabel}</span>
+        <span className={`ml-2 text-[10px] text-[var(--muted)] transition-transform ${open ? "rotate-180" : ""}`}>&#9660;</span>
+      </button>
+
+      {open && (
+        <div className="absolute z-50 left-0 right-0 mt-0.5 max-h-[280px] overflow-y-auto border border-[var(--border)] bg-[var(--card)] shadow-lg">
+          {groups.map((g) => (
+            <div key={g.label}>
+              <div className="px-2.5 py-1 text-[10px] font-semibold text-[var(--muted)] bg-[var(--bg-muted)] sticky top-0">
+                {g.label}
+              </div>
+              {g.items.map((item) => {
+                const active = item.id === value;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className={`w-full text-left px-2.5 py-1.5 text-xs cursor-pointer transition-colors ${
+                      active
+                        ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
+                        : "text-[var(--text)] hover:bg-[var(--bg-muted)]"
+                    }`}
+                    onClick={() => {
+                      onChange(item.id);
+                      setOpen(false);
+                    }}
+                  >
+                    <span className="font-semibold">{item.text}</span>
+                    {item.hint && (
+                      <span className={`ml-1.5 ${active ? "opacity-70" : "text-[var(--muted)]"}`}>{item.hint}</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── CharacterView ──────────────────────────────────────────────────── */
 
 export function CharacterView() {
   const {
@@ -118,7 +301,6 @@ export function CharacterView() {
       }
     };
     reader.readAsText(file);
-    // Reset input so same file can be re-imported
     e.target.value = "";
   }, [handleCharacterFieldInput, handleCharacterStyleInput]);
 
@@ -172,9 +354,7 @@ export function CharacterView() {
         if (tts?.provider) setVoiceProvider(tts.provider);
         if (tts) {
           setVoiceConfig(tts);
-          // Detect voice mode: if user has own API key set, default to own-key mode
           if (tts.elevenlabs?.apiKey) setVoiceMode("own-key");
-          // Detect selected preset
           if (tts.elevenlabs?.voiceId) {
             const preset = VOICE_PRESETS.find((p) => p.voiceId === tts.elevenlabs?.voiceId);
             setSelectedPresetId(preset?.id ?? "custom");
@@ -208,7 +388,6 @@ export function CharacterView() {
 
   const handleTestVoice = useCallback(
     (previewUrl: string) => {
-      // Stop any existing playback
       if (voiceTestAudio) {
         voiceTestAudio.pause();
         voiceTestAudio.currentTime = 0;
@@ -237,7 +416,6 @@ export function CharacterView() {
     setVoiceSaveSuccess(false);
     try {
       const elConfig = { ...(voiceConfig.elevenlabs ?? {}) };
-      // In cloud mode, don't send apiKey — cloud handles it
       if (voiceMode === "cloud") {
         delete elConfig.apiKey;
       }
@@ -327,33 +505,77 @@ export function CharacterView() {
   }, [handleFieldEdit]);
 
   /* ── Helpers ────────────────────────────────────────────────────── */
+  const sectionCls = "mt-4 p-4 border border-[var(--border)] bg-[var(--card)]";
   const inputCls = "px-2.5 py-1.5 border border-[var(--border)] bg-[var(--card)] text-xs focus:border-[var(--accent)] focus:outline-none";
   const textareaCls = `${inputCls} font-inherit resize-y leading-relaxed`;
   const labelCls = "font-semibold text-xs";
   const hintCls = "text-[11px] text-[var(--muted)]";
   const tinyBtnCls = "text-[10px] px-1.5 py-0.5 border border-[var(--border)] bg-[var(--card)] cursor-pointer hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors disabled:opacity-40";
 
+  /* Hidden file input for import */
+  const fileInput = (
+    <input
+      ref={fileInputRef}
+      type="file"
+      accept=".json"
+      className="hidden"
+      onChange={handleImport}
+    />
+  );
+
+  if (characterLoading && !characterData) {
+    return (
+      <div className={sectionCls}>
+        <div className="text-center py-6 text-[var(--muted)] text-[13px]">
+          loading character data...
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
-      <div className="mt-4 p-4 border border-[var(--border)] bg-[var(--card)]">
-        {characterLoading && !characterData ? (
-          <div className="text-center py-6 text-[var(--muted)] text-[13px]">
-            loading character data...
+      {fileInput}
+
+      {/* ═══ SECTION 1: IDENTITY ═══ */}
+      <div className={sectionCls}>
+        {/* Header row: title + action buttons */}
+        <div className="flex items-center justify-between mb-4">
+          <div className="font-bold text-sm">Identity</div>
+          <div className="flex items-center gap-1.5">
+            <button
+              className={tinyBtnCls}
+              onClick={() => void loadCharacter()}
+              disabled={characterLoading}
+            >
+              {characterLoading ? "loading..." : "reload"}
+            </button>
+            <button
+              className={tinyBtnCls}
+              onClick={() => fileInputRef.current?.click()}
+              title="import character.json"
+              type="button"
+            >
+              import
+            </button>
+            <button
+              className={tinyBtnCls}
+              onClick={handleExport}
+              title="export as character.json"
+              type="button"
+            >
+              export
+            </button>
           </div>
-        ) : (
-          <div className="flex flex-col gap-4">
-            {/* Name + reload */}
+        </div>
+
+        {/* 2-column: left = name + bio, right = avatar */}
+        <div className="flex gap-6 flex-col sm:flex-row">
+          {/* Left column */}
+          <div className="flex-1 flex flex-col gap-3 min-w-0">
+            {/* Name */}
             <div className="flex flex-col gap-1">
-              <div className="flex items-center justify-between">
-                <label className={labelCls}>name</label>
-                <button
-                  className={tinyBtnCls}
-                  onClick={() => void loadCharacter()}
-                  disabled={characterLoading}
-                >
-                  {characterLoading ? "loading..." : "reload"}
-                </button>
-              </div>
+              <label className={labelCls}>name</label>
               <div className="flex items-center gap-2 max-w-[280px]">
                 <input
                   type="text"
@@ -374,22 +596,7 @@ export function CharacterView() {
               </div>
             </div>
 
-            {/* Avatar (below name, full width) */}
-            <div className="flex flex-col gap-1">
-              <label className={labelCls}>avatar</label>
-              <AvatarSelector
-                selected={selectedVrmIndex}
-                onSelect={(i) => setState("selectedVrmIndex", i)}
-                onUpload={(file) => {
-                  const url = URL.createObjectURL(file);
-                  setState("customVrmUrl", url);
-                  setState("selectedVrmIndex", 0);
-                }}
-                showUpload
-              />
-            </div>
-
-            {/* Identity (bio) */}
+            {/* About Me (bio) */}
             <div className="flex flex-col gap-1">
               <div className="flex items-center justify-between">
                 <label className={labelCls}>about me</label>
@@ -404,239 +611,261 @@ export function CharacterView() {
               </div>
               <textarea
                 value={bioText}
-                rows={4}
+                rows={3}
                 placeholder="describe who your agent is. personality, background, how they see the world."
                 onChange={(e) => handleFieldEdit("bio", e.target.value)}
                 className={textareaCls}
               />
             </div>
+          </div>
 
-            {/* Soul (system prompt) */}
-            <div className="flex flex-col gap-1">
-              <div className="flex items-center justify-between">
-                <label className={labelCls}>important stuff i know</label>
-                <button
-                  className={tinyBtnCls}
-                  onClick={() => void handleGenerate("system")}
-                  disabled={generating === "system"}
-                  type="button"
-                >
-                  {generating === "system" ? "generating..." : "regenerate"}
-                </button>
-              </div>
-              <textarea
-                value={d.system ?? ""}
-                rows={8}
-                maxLength={10000}
-                placeholder="write in first person. this is who they are, not instructions about them."
-                onChange={(e) => handleFieldEdit("system", e.target.value)}
-                className={textareaCls + " font-[var(--mono)]"}
-              />
-            </div>
+          {/* Right column — avatar */}
+          <div className="flex flex-col gap-1 sm:w-auto shrink-0">
+            <label className={labelCls}>avatar</label>
+            <AvatarSelector
+              selected={selectedVrmIndex}
+              onSelect={(i) => setState("selectedVrmIndex", i)}
+              onUpload={(file) => {
+                const url = URL.createObjectURL(file);
+                setState("customVrmUrl", url);
+                setState("selectedVrmIndex", 0);
+              }}
+              showUpload
+            />
+          </div>
+        </div>
+      </div>
 
-            {/* Style */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-1.5">
-                  <label className={labelCls}>style rules</label>
-                  <span className="font-normal text-[11px] text-[var(--muted)]">— communication guidelines</span>
-                </div>
-                <button
-                  className={tinyBtnCls}
-                  onClick={() => void handleGenerate("style", "replace")}
-                  disabled={generating === "style"}
-                  type="button"
-                >
-                  {generating === "style" ? "generating..." : "regenerate"}
-                </button>
-              </div>
-              <div className="grid grid-cols-3 gap-3 p-3 border border-[var(--border)] bg-[var(--bg-muted)]">
-                {(["all", "chat", "post"] as const).map((key) => {
-                  const val = key === "all" ? styleAllText : key === "chat" ? styleChatText : stylePostText;
-                  return (
-                    <div key={key} className="flex flex-col gap-1">
-                      <label className="font-semibold text-[11px] text-[var(--muted)]">{key}</label>
-                      <textarea
-                        value={val}
-                        rows={4}
-                        placeholder={`${key} style rules, one per line`}
-                        onChange={(e) => handleStyleEdit(key, e.target.value)}
-                        className={textareaCls}
-                      />
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+      {/* ═══ SECTION 2: PERSONALITY ═══ */}
+      <div className={sectionCls}>
+        <div className="flex items-center justify-between mb-4">
+          <div className="font-bold text-sm">Personality</div>
+          <button
+            className={tinyBtnCls}
+            onClick={() => void handleGenerate("system")}
+            disabled={generating === "system"}
+            type="button"
+          >
+            {generating === "system" ? "generating..." : "regenerate"}
+          </button>
+        </div>
 
-            {/* Chat Examples */}
-            <details className="group">
-              <summary className="flex items-center gap-1.5 cursor-pointer select-none text-xs font-semibold list-none [&::-webkit-details-marker]:hidden">
-                <span className="inline-block transition-transform group-open:rotate-90">&#9654;</span>
-                chat examples
-                <span className="font-normal text-[var(--muted)]">— how the agent responds</span>
-                <button
-                  className={tinyBtnCls + " ml-auto"}
-                  onClick={(e) => { e.preventDefault(); void handleGenerate("chatExamples", "replace"); }}
-                  disabled={generating === "chatExamples"}
-                  type="button"
-                >
-                  {generating === "chatExamples" ? "generating..." : "generate"}
-                </button>
-              </summary>
-              <div className="flex flex-col gap-2 mt-3">
-                {(d.messageExamples ?? []).map((convo, ci) => (
-                  <div key={ci} className="p-2.5 border border-[var(--border)] bg-[var(--bg-muted)]">
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-[10px] text-[var(--muted)] font-semibold">conversation {ci + 1}</span>
-                      <button
-                        className="text-[10px] text-[var(--muted)] hover:text-[var(--danger,#e74c3c)] cursor-pointer"
-                        onClick={() => {
-                          const updated = [...(d.messageExamples ?? [])];
-                          updated.splice(ci, 1);
-                          handleFieldEdit("messageExamples", updated);
-                        }}
-                        type="button"
-                      >
-                        remove
-                      </button>
-                    </div>
-                    {convo.examples.map((msg: any, mi: number) => (
-                      <div key={mi} className="flex gap-2 mb-1 last:mb-0">
-                        <span className={`text-[10px] font-semibold shrink-0 w-16 pt-0.5 ${msg.name === "{{user1}}" ? "text-[var(--muted)]" : "text-[var(--accent)]"}`}>
-                          {msg.name === "{{user1}}" ? "user" : "agent"}
-                        </span>
-                        <input
-                          type="text"
-                          value={msg.content?.text ?? ""}
-                          onChange={(e) => {
-                            const updated = [...(d.messageExamples ?? [])];
-                            const convoClone = { examples: [...updated[ci].examples] };
-                            convoClone.examples[mi] = { ...convoClone.examples[mi], content: { text: e.target.value } };
-                            updated[ci] = convoClone;
-                            handleFieldEdit("messageExamples", updated);
-                          }}
-                          className={inputCls + " flex-1"}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                ))}
-                {(d.messageExamples ?? []).length === 0 && (
-                  <div className={hintCls + " py-2"}>no chat examples yet. click generate to create some.</div>
-                )}
-              </div>
-            </details>
+        {/* System prompt */}
+        <div className="flex flex-col gap-1 mb-4">
+          <label className={labelCls}>system prompt</label>
+          <textarea
+            value={d.system ?? ""}
+            rows={5}
+            maxLength={10000}
+            placeholder="write in first person. this is who they are, not instructions about them."
+            onChange={(e) => handleFieldEdit("system", e.target.value)}
+            className={textareaCls + " font-[var(--mono)]"}
+          />
+        </div>
 
-            {/* Post Examples */}
-            <details className="group">
-              <summary className="flex items-center gap-1.5 cursor-pointer select-none text-xs font-semibold list-none [&::-webkit-details-marker]:hidden">
-                <span className="inline-block transition-transform group-open:rotate-90">&#9654;</span>
-                post examples
-                <span className="font-normal text-[var(--muted)]">— social media voice</span>
-                <button
-                  className={tinyBtnCls + " ml-auto"}
-                  onClick={(e) => { e.preventDefault(); void handleGenerate("postExamples", "replace"); }}
-                  disabled={generating === "postExamples"}
-                  type="button"
-                >
-                  {generating === "postExamples" ? "generating..." : "generate"}
-                </button>
-              </summary>
-              <div className="flex flex-col gap-1.5 mt-3">
-                {(d.postExamples ?? []).map((post: string, pi: number) => (
-                  <div key={pi} className="flex gap-2 items-start">
-                    <input
-                      type="text"
-                      value={post}
-                      onChange={(e) => {
-                        const updated = [...(d.postExamples ?? [])];
-                        updated[pi] = e.target.value;
-                        handleFieldEdit("postExamples", updated);
-                      }}
-                      className={inputCls + " flex-1"}
-                    />
+        {/* Adjectives + Topics side by side */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <TagEditor
+            label="adjectives"
+            items={d.adjectives ?? []}
+            onChange={(items) => handleCharacterArrayInput("adjectives", items.join("\n"))}
+            placeholder="add adjective..."
+          />
+          <TagEditor
+            label="topics"
+            items={d.topics ?? []}
+            onChange={(items) => handleCharacterArrayInput("topics", items.join("\n"))}
+            placeholder="add topic..."
+          />
+        </div>
+      </div>
+
+      {/* ═══ SECTION 3: STYLE ═══ */}
+      <div className={sectionCls}>
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-1.5">
+            <div className="font-bold text-sm">Style Rules</div>
+            <span className="font-normal text-[11px] text-[var(--muted)]">— communication guidelines</span>
+          </div>
+          <button
+            className={tinyBtnCls}
+            onClick={() => void handleGenerate("style", "replace")}
+            disabled={generating === "style"}
+            type="button"
+          >
+            {generating === "style" ? "generating..." : "regenerate"}
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {(["all", "chat", "post"] as const).map((key) => {
+            const val = key === "all" ? styleAllText : key === "chat" ? styleChatText : stylePostText;
+            return (
+              <div key={key} className="flex flex-col gap-1">
+                <label className="font-semibold text-[11px] text-[var(--muted)]">{key}</label>
+                <textarea
+                  value={val}
+                  rows={3}
+                  placeholder={`${key} style rules, one per line`}
+                  onChange={(e) => handleStyleEdit(key, e.target.value)}
+                  className={textareaCls}
+                />
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ═══ SECTION 4: EXAMPLES ═══ */}
+      <div className={sectionCls}>
+        <div className="font-bold text-sm mb-3">Examples</div>
+
+        <div className="flex flex-col gap-3">
+          {/* Chat Examples */}
+          <details className="group">
+            <summary className="flex items-center gap-1.5 cursor-pointer select-none text-xs font-semibold list-none [&::-webkit-details-marker]:hidden">
+              <span className="inline-block transition-transform group-open:rotate-90">&#9654;</span>
+              chat examples
+              <span className="font-normal text-[var(--muted)]">— how the agent responds</span>
+              <button
+                className={tinyBtnCls + " ml-auto"}
+                onClick={(e) => { e.preventDefault(); void handleGenerate("chatExamples", "replace"); }}
+                disabled={generating === "chatExamples"}
+                type="button"
+              >
+                {generating === "chatExamples" ? "generating..." : "generate"}
+              </button>
+            </summary>
+            <div className="flex flex-col gap-2 mt-3">
+              {(d.messageExamples ?? []).map((convo, ci) => (
+                <div key={ci} className="p-2.5 border border-[var(--border)] bg-[var(--bg-muted)]">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[10px] text-[var(--muted)] font-semibold">conversation {ci + 1}</span>
                     <button
-                      className="text-[10px] text-[var(--muted)] hover:text-[var(--danger,#e74c3c)] cursor-pointer shrink-0 py-1.5"
+                      className="text-[10px] text-[var(--muted)] hover:text-[var(--danger,#e74c3c)] cursor-pointer"
                       onClick={() => {
-                        const updated = [...(d.postExamples ?? [])];
-                        updated.splice(pi, 1);
-                        handleFieldEdit("postExamples", updated);
+                        const updated = [...(d.messageExamples ?? [])];
+                        updated.splice(ci, 1);
+                        handleFieldEdit("messageExamples", updated);
                       }}
                       type="button"
                     >
-                      &times;
+                      remove
                     </button>
                   </div>
-                ))}
-                {(d.postExamples ?? []).length === 0 && (
-                  <div className={hintCls + " py-2"}>no post examples yet. click generate to create some.</div>
-                )}
-                <button
-                  className="text-[11px] text-[var(--muted)] hover:text-[var(--accent)] cursor-pointer self-start mt-0.5"
-                  onClick={() => {
-                    const updated = [...(d.postExamples ?? []), ""];
-                    handleFieldEdit("postExamples", updated);
-                  }}
-                  type="button"
-                >
-                  + add post
-                </button>
-              </div>
-            </details>
-
-            {/* Save */}
-            <div className="flex items-center gap-3 mt-2 pt-3 border-t border-[var(--border)]">
-              <button
-                className="btn text-[13px] py-2 px-6 !mt-0"
-                disabled={characterSaving}
-                onClick={() => void handleSaveCharacter()}
-              >
-                {characterSaving ? "saving..." : "save character"}
-              </button>
-              {characterSaveSuccess && (
-                <span className="text-xs text-[var(--ok,#16a34a)]">{characterSaveSuccess}</span>
-              )}
-              {characterSaveError && (
-                <span className="text-xs text-[var(--danger,#e74c3c)]">{characterSaveError}</span>
+                  {convo.examples.map((msg: any, mi: number) => (
+                    <div key={mi} className="flex gap-2 mb-1 last:mb-0">
+                      <span className={`text-[10px] font-semibold shrink-0 w-16 pt-0.5 ${msg.name === "{{user1}}" ? "text-[var(--muted)]" : "text-[var(--accent)]"}`}>
+                        {msg.name === "{{user1}}" ? "user" : "agent"}
+                      </span>
+                      <input
+                        type="text"
+                        value={msg.content?.text ?? ""}
+                        onChange={(e) => {
+                          const updated = [...(d.messageExamples ?? [])];
+                          const convoClone = { examples: [...updated[ci].examples] };
+                          convoClone.examples[mi] = { ...convoClone.examples[mi], content: { text: e.target.value } };
+                          updated[ci] = convoClone;
+                          handleFieldEdit("messageExamples", updated);
+                        }}
+                        className={inputCls + " flex-1"}
+                      />
+                    </div>
+                  ))}
+                </div>
+              ))}
+              {(d.messageExamples ?? []).length === 0 && (
+                <div className={hintCls + " py-2"}>no chat examples yet. click generate to create some.</div>
               )}
             </div>
-          </div>
-        )}
+          </details>
+
+          {/* Post Examples */}
+          <details className="group">
+            <summary className="flex items-center gap-1.5 cursor-pointer select-none text-xs font-semibold list-none [&::-webkit-details-marker]:hidden">
+              <span className="inline-block transition-transform group-open:rotate-90">&#9654;</span>
+              post examples
+              <span className="font-normal text-[var(--muted)]">— social media voice</span>
+              <button
+                className={tinyBtnCls + " ml-auto"}
+                onClick={(e) => { e.preventDefault(); void handleGenerate("postExamples", "replace"); }}
+                disabled={generating === "postExamples"}
+                type="button"
+              >
+                {generating === "postExamples" ? "generating..." : "generate"}
+              </button>
+            </summary>
+            <div className="flex flex-col gap-1.5 mt-3">
+              {(d.postExamples ?? []).map((post: string, pi: number) => (
+                <div key={pi} className="flex gap-2 items-start">
+                  <input
+                    type="text"
+                    value={post}
+                    onChange={(e) => {
+                      const updated = [...(d.postExamples ?? [])];
+                      updated[pi] = e.target.value;
+                      handleFieldEdit("postExamples", updated);
+                    }}
+                    className={inputCls + " flex-1"}
+                  />
+                  <button
+                    className="text-[10px] text-[var(--muted)] hover:text-[var(--danger,#e74c3c)] cursor-pointer shrink-0 py-1.5"
+                    onClick={() => {
+                      const updated = [...(d.postExamples ?? [])];
+                      updated.splice(pi, 1);
+                      handleFieldEdit("postExamples", updated);
+                    }}
+                    type="button"
+                  >
+                    &times;
+                  </button>
+                </div>
+              ))}
+              {(d.postExamples ?? []).length === 0 && (
+                <div className={hintCls + " py-2"}>no post examples yet. click generate to create some.</div>
+              )}
+              <button
+                className="text-[11px] text-[var(--muted)] hover:text-[var(--accent)] cursor-pointer self-start mt-0.5"
+                onClick={() => {
+                  const updated = [...(d.postExamples ?? []), ""];
+                  handleFieldEdit("postExamples", updated);
+                }}
+                type="button"
+              >
+                + add post
+              </button>
+            </div>
+          </details>
+        </div>
       </div>
 
-      {/* ═══ VOICE ═══ */}
-      <div className="mt-4 p-4 border border-[var(--border)] bg-[var(--card)]">
+      {/* ═══ SECTION 5: VOICE ═══ */}
+      <div className={sectionCls}>
         <div className="font-bold text-sm mb-3">Voice</div>
 
         {voiceLoading ? (
           <div className="text-center py-4 text-[var(--muted)] text-[13px]">Loading voice config...</div>
         ) : (
           <>
-            {/* Provider selector buttons */}
-            <div className="grid grid-cols-3 gap-1.5">
+            {/* Provider tabs */}
+            <div className="flex gap-0 border-b border-[var(--border)] mb-4">
               {([
-                { id: "elevenlabs" as const, label: "ElevenLabs", hint: "Premium neural voices" },
-                { id: "simple-voice" as const, label: "Simple Voice", hint: "Retro SAM TTS" },
-                { id: "edge" as const, label: "Microsoft Edge", hint: "Free browser voices" },
+                { id: "elevenlabs" as const, label: "ElevenLabs" },
+                { id: "simple-voice" as const, label: "Simple Voice" },
+                { id: "edge" as const, label: "Edge TTS" },
               ] as const).map((p) => {
                 const active = voiceProvider === p.id;
                 return (
                   <button
                     key={p.id}
-                    className={`text-center px-2 py-2.5 border cursor-pointer transition-colors ${
+                    className={`px-3 py-1.5 text-xs font-semibold cursor-pointer transition-colors border-b-2 -mb-px ${
                       active
-                        ? "border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-foreground)]"
-                        : "border-[var(--border)] bg-[var(--card)] hover:border-[var(--accent)]"
+                        ? "border-[var(--accent)] text-[var(--accent)]"
+                        : "border-transparent text-[var(--muted)] hover:text-[var(--text)]"
                     }`}
                     onClick={() => setVoiceProvider(p.id)}
                   >
-                    <div className={`text-xs font-bold whitespace-nowrap ${active ? "" : "text-[var(--text)]"}`}>
-                      {p.label}
-                    </div>
-                    <div className={`text-[10px] mt-0.5 ${active ? "opacity-80" : "text-[var(--muted)]"}`}>
-                      {p.hint}
-                    </div>
+                    {p.label}
                   </button>
                 );
               })}
@@ -644,350 +873,269 @@ export function CharacterView() {
 
             {/* ── ElevenLabs settings ─────────────────────────────── */}
             {voiceProvider === "elevenlabs" && (
-              <div className="mt-4 pt-4 border-t border-[var(--border)]">
-                {/* Cloud / Own Key toggle */}
-                <div className="grid grid-cols-2 gap-1.5 mb-4">
-                  <button
-                    className={`text-center px-2 py-2 border cursor-pointer transition-colors ${
-                      voiceMode === "cloud"
-                        ? "border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-foreground)]"
-                        : "border-[var(--border)] bg-[var(--card)] hover:border-[var(--accent)]"
-                    }`}
-                    onClick={() => setVoiceMode("cloud")}
-                  >
-                    <div className={`text-xs font-bold ${voiceMode === "cloud" ? "" : "text-[var(--text)]"}`}>Eliza Cloud</div>
-                    <div className={`text-[10px] mt-0.5 ${voiceMode === "cloud" ? "opacity-80" : "text-[var(--muted)]"}`}>No keys needed</div>
-                  </button>
-                  <button
-                    className={`text-center px-2 py-2 border cursor-pointer transition-colors ${
-                      voiceMode === "own-key"
-                        ? "border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-foreground)]"
-                        : "border-[var(--border)] bg-[var(--card)] hover:border-[var(--accent)]"
-                    }`}
-                    onClick={() => setVoiceMode("own-key")}
-                  >
-                    <div className={`text-xs font-bold ${voiceMode === "own-key" ? "" : "text-[var(--text)]"}`}>Your Own Key</div>
-                    <div className={`text-[10px] mt-0.5 ${voiceMode === "own-key" ? "opacity-80" : "text-[var(--muted)]"}`}>Bring your API key</div>
-                  </button>
+              <div className="flex flex-col gap-4">
+                {/* API source toggle — inline */}
+                <div className="flex items-center gap-3">
+                  <span className={labelCls}>API source</span>
+                  <div className="flex items-center gap-0 border border-[var(--border)]">
+                    <button
+                      className={`px-2.5 py-1 text-[11px] font-semibold cursor-pointer transition-colors ${
+                        voiceMode === "cloud"
+                          ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
+                          : "bg-[var(--card)] text-[var(--muted)] hover:text-[var(--text)]"
+                      }`}
+                      onClick={() => setVoiceMode("cloud")}
+                    >
+                      Eliza Cloud
+                    </button>
+                    <button
+                      className={`px-2.5 py-1 text-[11px] font-semibold cursor-pointer transition-colors border-l border-[var(--border)] ${
+                        voiceMode === "own-key"
+                          ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
+                          : "bg-[var(--card)] text-[var(--muted)] hover:text-[var(--text)]"
+                      }`}
+                      onClick={() => setVoiceMode("own-key")}
+                    >
+                      Own Key
+                    </button>
+                  </div>
                 </div>
 
                 {/* Cloud mode status */}
                 {voiceMode === "cloud" && (
-                  <div className="mb-4 p-3 border border-[var(--border)] bg-[var(--bg-muted)]">
+                  <div className="flex items-center justify-between py-2 px-3 border border-[var(--border)] bg-[var(--bg-muted)]">
                     {cloudConnected ? (
-                      <div className="flex items-center justify-between">
+                      <>
                         <div className="flex items-center gap-2">
-                          <span className="inline-block w-2 h-2 rounded-full bg-[var(--ok,#16a34a)]" />
-                          <span className="text-xs font-semibold">Logged into Eliza Cloud</span>
+                          <span className="inline-block w-1.5 h-1.5 rounded-full bg-[var(--ok,#16a34a)]" />
+                          <span className="text-[11px] font-semibold">Connected</span>
                           {cloudUserId && (
                             <code className="text-[10px] text-[var(--muted)] font-[var(--mono)]">{cloudUserId}</code>
                           )}
                         </div>
                         <button
-                          className="text-[10px] px-2 py-0.5 border border-[var(--border)] bg-[var(--card)] cursor-pointer hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors"
+                          className={tinyBtnCls}
                           onClick={() => void handleCloudDisconnect()}
                           disabled={cloudDisconnecting}
                         >
-                          {cloudDisconnecting ? "..." : "Disconnect"}
+                          {cloudDisconnecting ? "..." : "disconnect"}
                         </button>
-                      </div>
+                      </>
                     ) : (
-                      <div className="flex items-center justify-between">
+                      <>
                         <div className="flex items-center gap-2">
-                          <span className="inline-block w-2 h-2 rounded-full bg-[var(--muted)]" />
-                          <span className="text-xs text-[var(--muted)]">Not connected — log in to use cloud TTS</span>
+                          <span className="inline-block w-1.5 h-1.5 rounded-full bg-[var(--muted)]" />
+                          <span className="text-[11px] text-[var(--muted)]">Not connected</span>
                         </div>
                         <button
-                          className="btn text-xs py-[3px] px-3 !mt-0 font-bold"
+                          className={tinyBtnCls}
                           onClick={() => void handleCloudLogin()}
                           disabled={cloudLoginBusy}
                         >
-                          {cloudLoginBusy ? "Waiting..." : "Log in"}
+                          {cloudLoginBusy ? "waiting..." : "log in"}
                         </button>
-                      </div>
+                      </>
                     )}
                     {cloudLoginError && (
-                      <div className="text-[10px] text-[var(--danger,#e74c3c)] mt-1.5">{cloudLoginError}</div>
+                      <div className="text-[10px] text-[var(--danger,#e74c3c)] mt-1">{cloudLoginError}</div>
                     )}
                   </div>
                 )}
 
                 {/* Own key mode */}
                 {voiceMode === "own-key" && (
-                  <div className="mb-4 flex flex-col gap-1">
+                  <div className="flex flex-col gap-1">
                     <div className="flex items-center gap-1.5 text-xs">
-                      <label className="font-semibold">ElevenLabs API Key</label>
+                      <label className="font-semibold">API Key</label>
                       {voiceConfig.elevenlabs?.apiKey && (
-                        <span className="text-[10px] text-[var(--ok,#16a34a)]">configured</span>
+                        <span className="text-[10px] text-[var(--ok,#16a34a)]">set</span>
                       )}
-                      <a href="https://elevenlabs.io/app/settings/api-keys" target="_blank" rel="noopener noreferrer" className="text-[10px] text-[var(--accent)] ml-auto">Get key</a>
+                      <a href="https://elevenlabs.io/app/settings/api-keys" target="_blank" rel="noopener noreferrer" className="text-[10px] text-[var(--accent)] ml-auto">get key</a>
                     </div>
                     <input
                       type="password"
                       value={voiceConfig.elevenlabs?.apiKey ?? ""}
                       placeholder="sk_..."
                       onChange={(e) => handleVoiceFieldChange("elevenlabs", "apiKey", e.target.value)}
-                      className="w-full px-2.5 py-[7px] border border-[var(--border)] bg-[var(--card)] text-[13px] font-[var(--mono)] transition-colors focus:border-[var(--accent)] focus:outline-none"
+                      className={inputCls + " w-full font-[var(--mono)]"}
                     />
                   </div>
                 )}
 
-                {/* ── Voice presets ──────────────────────────────────── */}
-                <div className="mb-4">
-                  <div className="text-xs font-semibold mb-2">Choose a Voice</div>
-
-                  {/* Female */}
-                  <div className="text-[10px] text-[var(--muted)] font-semibold uppercase tracking-wider mb-1.5">Female</div>
-                  <div className="grid grid-cols-5 gap-1.5 mb-3">
-                    {VOICE_PRESETS.filter((p) => p.gender === "female").map((p) => {
-                      const active = selectedPresetId === p.id;
-                      return (
+                {/* ── Voice selection — themed dropdown + preview ──── */}
+                <div className="flex flex-col gap-1">
+                  <label className={labelCls}>voice</label>
+                  <div className="flex items-center gap-2">
+                    <ThemedSelect
+                      value={selectedPresetId === "custom" ? "__custom__" : (selectedPresetId ?? null)}
+                      groups={[
+                        {
+                          label: "Female",
+                          items: VOICE_PRESETS.filter((p) => p.gender === "female").map((p) => ({
+                            id: p.id, text: p.name, hint: p.hint,
+                          })),
+                        },
+                        {
+                          label: "Male",
+                          items: VOICE_PRESETS.filter((p) => p.gender === "male").map((p) => ({
+                            id: p.id, text: p.name, hint: p.hint,
+                          })),
+                        },
+                        {
+                          label: "Character",
+                          items: VOICE_PRESETS.filter((p) => p.gender === "character").map((p) => ({
+                            id: p.id, text: p.name, hint: p.hint,
+                          })),
+                        },
+                        {
+                          label: "Other",
+                          items: [{ id: "__custom__", text: "Custom voice ID..." }],
+                        },
+                      ]}
+                      onChange={(id) => {
+                        if (id === "__custom__") {
+                          setSelectedPresetId("custom");
+                        } else {
+                          const preset = VOICE_PRESETS.find((p) => p.id === id);
+                          if (preset) handleSelectPreset(preset);
+                        }
+                      }}
+                      placeholder="select a voice..."
+                    />
+                    {(() => {
+                      const activePreset = VOICE_PRESETS.find((p) => p.id === selectedPresetId);
+                      if (!activePreset) return null;
+                      return voiceTesting ? (
                         <button
-                          key={p.id}
-                          className={`relative text-center px-1.5 py-2 border cursor-pointer transition-colors group ${
-                            active
-                              ? "border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-foreground)]"
-                              : "border-[var(--border)] bg-[var(--card)] hover:border-[var(--accent)]"
-                          }`}
-                          onClick={() => handleSelectPreset(p)}
+                          className={tinyBtnCls}
+                          onClick={handleStopTest}
+                          type="button"
                         >
-                          <div className={`text-[11px] font-bold ${active ? "" : "text-[var(--text)]"}`}>{p.name}</div>
-                          <div className={`text-[9px] mt-0.5 ${active ? "opacity-80" : "text-[var(--muted)]"}`}>{p.hint}</div>
-                          <span
-                            role="button"
-                            tabIndex={0}
-                            className={`absolute top-0.5 right-0.5 w-5 h-5 flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer ${active ? "text-[var(--accent-foreground)]" : "text-[var(--accent)]"}`}
-                            onClick={(e) => { e.stopPropagation(); handleTestVoice(p.previewUrl); }}
-                            onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); handleTestVoice(p.previewUrl); } }}
-                            title="Preview voice"
-                          >
-                            &#9654;
-                          </span>
+                          stop
+                        </button>
+                      ) : (
+                        <button
+                          className={tinyBtnCls}
+                          onClick={() => handleTestVoice(activePreset.previewUrl)}
+                          type="button"
+                        >
+                          preview
                         </button>
                       );
-                    })}
-                  </div>
-
-                  {/* Male */}
-                  <div className="text-[10px] text-[var(--muted)] font-semibold uppercase tracking-wider mb-1.5">Male</div>
-                  <div className="grid grid-cols-5 gap-1.5 mb-3">
-                    {VOICE_PRESETS.filter((p) => p.gender === "male").map((p) => {
-                      const active = selectedPresetId === p.id;
-                      return (
-                        <button
-                          key={p.id}
-                          className={`relative text-center px-1.5 py-2 border cursor-pointer transition-colors group ${
-                            active
-                              ? "border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-foreground)]"
-                              : "border-[var(--border)] bg-[var(--card)] hover:border-[var(--accent)]"
-                          }`}
-                          onClick={() => handleSelectPreset(p)}
-                        >
-                          <div className={`text-[11px] font-bold ${active ? "" : "text-[var(--text)]"}`}>{p.name}</div>
-                          <div className={`text-[9px] mt-0.5 ${active ? "opacity-80" : "text-[var(--muted)]"}`}>{p.hint}</div>
-                          <span
-                            role="button"
-                            tabIndex={0}
-                            className={`absolute top-0.5 right-0.5 w-5 h-5 flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer ${active ? "text-[var(--accent-foreground)]" : "text-[var(--accent)]"}`}
-                            onClick={(e) => { e.stopPropagation(); handleTestVoice(p.previewUrl); }}
-                            onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); handleTestVoice(p.previewUrl); } }}
-                            title="Preview voice"
-                          >
-                            &#9654;
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  {/* Character / Game */}
-                  <div className="text-[10px] text-[var(--muted)] font-semibold uppercase tracking-wider mb-1.5">Character / Game</div>
-                  <div className="grid grid-cols-6 gap-1.5 mb-3">
-                    {VOICE_PRESETS.filter((p) => p.gender === "character").map((p) => {
-                      const active = selectedPresetId === p.id;
-                      return (
-                        <button
-                          key={p.id}
-                          className={`relative text-center px-1.5 py-2 border cursor-pointer transition-colors group ${
-                            active
-                              ? "border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-foreground)]"
-                              : "border-[var(--border)] bg-[var(--card)] hover:border-[var(--accent)]"
-                          }`}
-                          onClick={() => handleSelectPreset(p)}
-                        >
-                          <div className={`text-[11px] font-bold ${active ? "" : "text-[var(--text)]"}`}>{p.name}</div>
-                          <div className={`text-[9px] mt-0.5 ${active ? "opacity-80" : "text-[var(--muted)]"}`}>{p.hint}</div>
-                          <span
-                            role="button"
-                            tabIndex={0}
-                            className={`absolute top-0.5 right-0.5 w-5 h-5 flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer ${active ? "text-[var(--accent-foreground)]" : "text-[var(--accent)]"}`}
-                            onClick={(e) => { e.stopPropagation(); handleTestVoice(p.previewUrl); }}
-                            onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); handleTestVoice(p.previewUrl); } }}
-                            title="Preview voice"
-                          >
-                            &#9654;
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  {/* Custom voice ID */}
-                  <div className="flex items-center gap-2 mt-2">
-                    <button
-                      className={`text-center px-3 py-1.5 border cursor-pointer transition-colors text-[11px] font-bold ${
-                        selectedPresetId === "custom"
-                          ? "border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-foreground)]"
-                          : "border-[var(--border)] bg-[var(--card)] hover:border-[var(--accent)] text-[var(--text)]"
-                      }`}
-                      onClick={() => setSelectedPresetId("custom")}
-                    >
-                      Custom
-                    </button>
-                    {selectedPresetId === "custom" && (
-                      <input
-                        type="text"
-                        value={voiceConfig.elevenlabs?.voiceId ?? ""}
-                        placeholder="Paste ElevenLabs voice ID..."
-                        onChange={(e) => handleVoiceFieldChange("elevenlabs", "voiceId", e.target.value)}
-                        className="flex-1 px-2.5 py-[7px] border border-[var(--border)] bg-[var(--card)] text-[13px] font-[var(--mono)] transition-colors focus:border-[var(--accent)] focus:outline-none"
-                      />
-                    )}
+                    })()}
                   </div>
                 </div>
 
-                {/* ── Advanced settings (collapsed) ─────────────────── */}
-                <details className="group mb-3">
-                  <summary className="flex items-center gap-1.5 cursor-pointer select-none text-xs font-semibold list-none [&::-webkit-details-marker]:hidden">
-                    <span className="inline-block transition-transform group-open:rotate-90">&#9654;</span>
-                    Advanced Settings
-                  </summary>
-                  <div className="mt-3 flex flex-col gap-3">
-                    <div className="flex flex-col gap-1">
-                      <label className="font-semibold text-xs">Model</label>
-                      <select
-                        value={voiceConfig.elevenlabs?.modelId ?? ""}
-                        onChange={(e) => handleVoiceFieldChange("elevenlabs", "modelId", e.target.value)}
-                        className="w-full px-2.5 py-[7px] border border-[var(--border)] bg-[var(--card)] text-[13px] transition-colors focus:border-[var(--accent)] focus:outline-none"
-                      >
-                        <option value="">Default (Multilingual v2)</option>
-                        <option value="eleven_multilingual_v2">Multilingual v2</option>
-                        <option value="eleven_turbo_v2_5">Turbo v2.5</option>
-                        <option value="eleven_turbo_v2">Turbo v2</option>
-                        <option value="eleven_monolingual_v1">Monolingual v1</option>
-                      </select>
-                    </div>
-                    <div className="grid grid-cols-3 gap-3">
-                      <div className="flex flex-col gap-1">
-                        <label className="font-semibold text-[11px]">Stability</label>
-                        <input type="number" min={0} max={1} step={0.05} value={voiceConfig.elevenlabs?.stability ?? ""} placeholder="0.5" onChange={(e) => handleVoiceFieldChange("elevenlabs", "stability", parseFloat(e.target.value) || 0)} className="w-full px-2.5 py-[7px] border border-[var(--border)] bg-[var(--card)] text-[13px] font-[var(--mono)] transition-colors focus:border-[var(--accent)] focus:outline-none" />
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <label className="font-semibold text-[11px]">Similarity</label>
-                        <input type="number" min={0} max={1} step={0.05} value={voiceConfig.elevenlabs?.similarityBoost ?? ""} placeholder="0.75" onChange={(e) => handleVoiceFieldChange("elevenlabs", "similarityBoost", parseFloat(e.target.value) || 0)} className="w-full px-2.5 py-[7px] border border-[var(--border)] bg-[var(--card)] text-[13px] font-[var(--mono)] transition-colors focus:border-[var(--accent)] focus:outline-none" />
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <label className="font-semibold text-[11px]">Speed</label>
-                        <input type="number" min={0.5} max={2} step={0.1} value={voiceConfig.elevenlabs?.speed ?? ""} placeholder="1.0" onChange={(e) => handleVoiceFieldChange("elevenlabs", "speed", parseFloat(e.target.value) || 1)} className="w-full px-2.5 py-[7px] border border-[var(--border)] bg-[var(--card)] text-[13px] font-[var(--mono)] transition-colors focus:border-[var(--accent)] focus:outline-none" />
-                      </div>
-                    </div>
-                  </div>
-                </details>
-
-                {/* Stop test button */}
-                {voiceTesting && (
-                  <div className="mb-3">
-                    <button
-                      className="btn text-xs py-[3px] px-3 !mt-0 !bg-transparent !border-[var(--border)] !text-[var(--muted)]"
-                      onClick={handleStopTest}
-                    >
-                      Stop Preview
-                    </button>
+                {/* Custom voice ID input */}
+                {selectedPresetId === "custom" && (
+                  <div className="flex flex-col gap-1">
+                    <label className={labelCls}>voice ID</label>
+                    <input
+                      type="text"
+                      value={voiceConfig.elevenlabs?.voiceId ?? ""}
+                      placeholder="paste ElevenLabs voice ID"
+                      onChange={(e) => handleVoiceFieldChange("elevenlabs", "voiceId", e.target.value)}
+                      className={inputCls + " w-full font-[var(--mono)] text-[13px]"}
+                    />
                   </div>
                 )}
+
+                {/* ── Advanced settings (collapsed) ─────────────────── */}
+                <details className="group">
+                  <summary className="flex items-center gap-1.5 cursor-pointer select-none text-xs font-semibold list-none [&::-webkit-details-marker]:hidden">
+                    <span className="inline-block transition-transform group-open:rotate-90">&#9654;</span>
+                    advanced settings
+                  </summary>
+                  <div className="mt-3">
+                    <ConfigRenderer
+                      schema={{
+                        type: "object",
+                        properties: {
+                          modelId: { type: "string", enum: ["", "eleven_multilingual_v2", "eleven_turbo_v2_5", "eleven_turbo_v2", "eleven_monolingual_v1"] },
+                          stability: { type: "number", minimum: 0, maximum: 1 },
+                          similarityBoost: { type: "number", minimum: 0, maximum: 1 },
+                          speed: { type: "number", minimum: 0.5, maximum: 2 },
+                        },
+                      } satisfies JsonSchemaObject}
+                      hints={{
+                        modelId: { label: "Model", type: "select", width: "full", options: [
+                          { value: "", label: "Default (Multilingual v2)" },
+                          { value: "eleven_multilingual_v2", label: "Multilingual v2" },
+                          { value: "eleven_turbo_v2_5", label: "Turbo v2.5" },
+                          { value: "eleven_turbo_v2", label: "Turbo v2" },
+                          { value: "eleven_monolingual_v1", label: "Monolingual v1" },
+                        ] } satisfies ConfigUiHint,
+                        stability: { label: "Stability", type: "number", width: "third", placeholder: "0.5", step: 0.05 } satisfies ConfigUiHint,
+                        similarityBoost: { label: "Similarity", type: "number", width: "third", placeholder: "0.75", step: 0.05 } satisfies ConfigUiHint,
+                        speed: { label: "Speed", type: "number", width: "third", placeholder: "1.0", step: 0.1 } satisfies ConfigUiHint,
+                      }}
+                      values={{
+                        modelId: voiceConfig.elevenlabs?.modelId ?? "",
+                        stability: voiceConfig.elevenlabs?.stability ?? "",
+                        similarityBoost: voiceConfig.elevenlabs?.similarityBoost ?? "",
+                        speed: voiceConfig.elevenlabs?.speed ?? "",
+                      }}
+                      registry={defaultRegistry}
+                      onChange={(key, value) => {
+                        handleVoiceFieldChange("elevenlabs", key, key === "modelId" ? String(value) : (typeof value === "number" ? value : parseFloat(String(value)) || 0));
+                      }}
+                    />
+                  </div>
+                </details>
               </div>
             )}
 
             {/* ── Simple Voice settings ───────────────────────────── */}
             {voiceProvider === "simple-voice" && (
-              <div className="mt-4 pt-4 border-t border-[var(--border)]">
-                <div className="text-[11px] text-[var(--muted)]">
-                  No configuration needed. Works offline.
-                </div>
+              <div className="text-[11px] text-[var(--muted)]">
+                No configuration needed. Works offline with retro SAM text-to-speech.
               </div>
             )}
 
             {/* ── Microsoft Edge TTS settings ─────────────────────── */}
             {voiceProvider === "edge" && (
-              <div className="mt-4 pt-4 border-t border-[var(--border)]">
-                <div className="flex flex-col gap-3">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="flex flex-col gap-1">
-                      <label className="font-semibold text-xs">Voice</label>
-                      <input
-                        type="text"
-                        value={voiceConfig.edge?.voice ?? ""}
-                        placeholder="en-US-AriaNeural"
-                        onChange={(e) => handleVoiceFieldChange("edge", "voice", e.target.value)}
-                        className="w-full px-2.5 py-[7px] border border-[var(--border)] bg-[var(--card)] text-[13px] font-[var(--mono)] transition-colors focus:border-[var(--accent)] focus:outline-none"
-                      />
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <label className="font-semibold text-xs">Language</label>
-                      <input
-                        type="text"
-                        value={voiceConfig.edge?.lang ?? ""}
-                        placeholder="en-US"
-                        onChange={(e) => handleVoiceFieldChange("edge", "lang", e.target.value)}
-                        className="w-full px-2.5 py-[7px] border border-[var(--border)] bg-[var(--card)] text-[13px] font-[var(--mono)] transition-colors focus:border-[var(--accent)] focus:outline-none"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-3">
-                    <div className="flex flex-col gap-1">
-                      <label className="font-semibold text-[11px]">Rate</label>
-                      <input
-                        type="text"
-                        value={voiceConfig.edge?.rate ?? ""}
-                        placeholder="+0%"
-                        onChange={(e) => handleVoiceFieldChange("edge", "rate", e.target.value)}
-                        className="w-full px-2.5 py-[7px] border border-[var(--border)] bg-[var(--card)] text-[13px] font-[var(--mono)] transition-colors focus:border-[var(--accent)] focus:outline-none"
-                      />
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <label className="font-semibold text-[11px]">Pitch</label>
-                      <input
-                        type="text"
-                        value={voiceConfig.edge?.pitch ?? ""}
-                        placeholder="+0Hz"
-                        onChange={(e) => handleVoiceFieldChange("edge", "pitch", e.target.value)}
-                        className="w-full px-2.5 py-[7px] border border-[var(--border)] bg-[var(--card)] text-[13px] font-[var(--mono)] transition-colors focus:border-[var(--accent)] focus:outline-none"
-                      />
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <label className="font-semibold text-[11px]">Volume</label>
-                      <input
-                        type="text"
-                        value={voiceConfig.edge?.volume ?? ""}
-                        placeholder="+0%"
-                        onChange={(e) => handleVoiceFieldChange("edge", "volume", e.target.value)}
-                        className="w-full px-2.5 py-[7px] border border-[var(--border)] bg-[var(--card)] text-[13px] font-[var(--mono)] transition-colors focus:border-[var(--accent)] focus:outline-none"
-                      />
-                    </div>
-                  </div>
-                </div>
+              <div>
+                <ConfigRenderer
+                  schema={{
+                    type: "object",
+                    properties: {
+                      voice: { type: "string" },
+                      lang: { type: "string" },
+                      rate: { type: "string" },
+                      pitch: { type: "string" },
+                      volume: { type: "string" },
+                    },
+                  } satisfies JsonSchemaObject}
+                  hints={{
+                    voice: { label: "Voice", width: "half", placeholder: "en-US-AriaNeural" } satisfies ConfigUiHint,
+                    lang: { label: "Language", width: "half", placeholder: "en-US" } satisfies ConfigUiHint,
+                    rate: { label: "Rate", width: "third", placeholder: "+0%" } satisfies ConfigUiHint,
+                    pitch: { label: "Pitch", width: "third", placeholder: "+0Hz" } satisfies ConfigUiHint,
+                    volume: { label: "Volume", width: "third", placeholder: "+0%" } satisfies ConfigUiHint,
+                  }}
+                  values={{
+                    voice: voiceConfig.edge?.voice ?? "",
+                    lang: voiceConfig.edge?.lang ?? "",
+                    rate: voiceConfig.edge?.rate ?? "",
+                    pitch: voiceConfig.edge?.pitch ?? "",
+                    volume: voiceConfig.edge?.volume ?? "",
+                  }}
+                  registry={defaultRegistry}
+                  onChange={(key, value) => {
+                    handleVoiceFieldChange("edge", key, String(value));
+                  }}
+                />
               </div>
             )}
 
-            {/* Save button */}
-            <div className="flex items-center gap-3 mt-4">
+            {/* Save voice config */}
+            <div className="flex items-center gap-3 mt-4 pt-3 border-t border-[var(--border)]">
               <button
                 className={`btn text-xs py-[5px] px-4 !mt-0 ${voiceSaveSuccess ? "!bg-[var(--ok,#16a34a)] !border-[var(--ok,#16a34a)]" : ""}`}
                 onClick={() => void handleVoiceSave()}
                 disabled={voiceSaving}
               >
-                {voiceSaving ? "Saving..." : voiceSaveSuccess ? "Saved" : "Save Voice Config"}
+                {voiceSaving ? "saving..." : voiceSaveSuccess ? "saved" : "save voice config"}
               </button>
               {voiceSaveError && (
                 <span className="text-xs text-[var(--danger,#e74c3c)]">{voiceSaveError}</span>
@@ -997,31 +1145,22 @@ export function CharacterView() {
         )}
       </div>
 
-      <div className="flex items-center justify-between mb-5">
-        <div className="flex items-center gap-2">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".json"
-            className="hidden"
-            onChange={handleImport}
-          />
+      {/* ═══ SAVE BAR ═══ */}
+      <div className={sectionCls}>
+        <div className="flex items-center gap-3">
           <button
-            className={tinyBtnCls}
-            onClick={() => fileInputRef.current?.click()}
-            title="import character.json"
-            type="button"
+            className="btn text-[13px] py-2 px-6 !mt-0"
+            disabled={characterSaving}
+            onClick={() => void handleSaveCharacter()}
           >
-            import
+            {characterSaving ? "saving..." : "save character"}
           </button>
-          <button
-            className={tinyBtnCls}
-            onClick={handleExport}
-            title="export as character.json"
-            type="button"
-          >
-            export
-          </button>
+          {characterSaveSuccess && (
+            <span className="text-xs text-[var(--ok,#16a34a)]">{characterSaveSuccess}</span>
+          )}
+          {characterSaveError && (
+            <span className="text-xs text-[var(--danger,#e74c3c)]">{characterSaveError}</span>
+          )}
         </div>
       </div>
     </div>

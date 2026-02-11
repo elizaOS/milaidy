@@ -7,10 +7,147 @@
  * Both share the same card/field rendering via the internal PluginListView component.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useApp } from "../AppContext.js";
 import { client } from "../api-client";
 import type { PluginInfo, PluginParamDef } from "../api-client";
+import { ConfigRenderer, defaultRegistry } from "./config-renderer";
+import type { ConfigUiHint } from "../types";
+import type { JsonSchemaObject } from "./config-catalog";
+
+/* ── UI Showcase Plugin ────────────────────────────────────────────── */
+
+/**
+ * Synthetic plugin that demonstrates all 23 field renderers.
+ * Appears in the plugin list as a reference/documentation plugin.
+ */
+const SHOWCASE_PLUGIN: PluginInfo = {
+  id: "__ui-showcase__",
+  name: "UI Field Showcase",
+  description: "Interactive reference of all 23 field renderers. Not a real plugin — expand to see every UI component in action.",
+  enabled: false,
+  configured: true,
+  envKey: null,
+  category: "feature",
+  source: "bundled",
+  validationErrors: [],
+  validationWarnings: [],
+  version: "1.0.0",
+  icon: "🧩",
+  parameters: [
+    // 1. text
+    { key: "DISPLAY_NAME", type: "string", description: "A simple single-line text input for names or short values.", required: true, sensitive: false, currentValue: null, isSet: false },
+    // 2. password
+    { key: "SECRET_TOKEN", type: "string", description: "Masked password input with show/hide toggle and server-backed reveal.", required: true, sensitive: true, currentValue: null, isSet: false },
+    // 3. number
+    { key: "SERVER_PORT", type: "number", description: "Numeric input with min/max range and step control.", required: false, sensitive: false, default: "3000", currentValue: null, isSet: false },
+    // 4. boolean
+    { key: "ENABLE_LOGGING", type: "boolean", description: "Toggle switch — on/off. Auto-detected from ENABLE_ prefix.", required: false, sensitive: false, default: "true", currentValue: null, isSet: false },
+    // 5. url
+    { key: "WEBHOOK_URL", type: "string", description: "URL input with format validation. Auto-detected from _URL suffix.", required: false, sensitive: false, currentValue: null, isSet: false },
+    // 6. select
+    { key: "DEPLOY_REGION", type: "string", description: "Dropdown selector populated from hint.options. Auto-detected for region/zone keys.", required: false, sensitive: false, currentValue: null, isSet: false },
+    // 7. textarea
+    { key: "SYSTEM_PROMPT", type: "string", description: "Multi-line text input for long values like prompts or templates. Auto-detected from _PROMPT suffix.", required: false, sensitive: false, currentValue: null, isSet: false },
+    // 8. email
+    { key: "CONTACT_EMAIL", type: "string", description: "Email input with format validation. Renders type=email.", required: false, sensitive: false, currentValue: null, isSet: false },
+    // 9. color
+    { key: "THEME_COLOR", type: "string", description: "Color picker with hex value text input side-by-side.", required: false, sensitive: false, default: "#4a90d9", currentValue: null, isSet: false },
+    // 10. radio
+    { key: "AUTH_MODE", type: "string", description: "Radio button group — best for 2-3 mutually exclusive options. Uses 'basic' or 'oauth'.", required: false, sensitive: false, currentValue: null, isSet: false },
+    // 11. multiselect
+    { key: "ENABLED_FEATURES", type: "string", description: "Checkbox group for selecting multiple values from a fixed set.", required: false, sensitive: false, currentValue: null, isSet: false },
+    // 12. date
+    { key: "START_DATE", type: "string", description: "Date picker input. Auto-detected from _DATE suffix.", required: false, sensitive: false, currentValue: null, isSet: false },
+    // 13. datetime
+    { key: "SCHEDULED_AT", type: "string", description: "Combined date and time picker for scheduling.", required: false, sensitive: false, currentValue: null, isSet: false },
+    // 14. json
+    { key: "METADATA_CONFIG", type: "string", description: "JSON editor with syntax validation. Shows parse errors inline.", required: false, sensitive: false, currentValue: null, isSet: false },
+    // 15. code
+    { key: "RESPONSE_TEMPLATE", type: "string", description: "Code editor with monospaced font for templates and snippets.", required: false, sensitive: false, currentValue: null, isSet: false },
+    // 16. array
+    { key: "ALLOWED_ORIGINS", type: "string", description: "Comma-separated list of origins with add/remove UI for each item.", required: false, sensitive: false, currentValue: null, isSet: false },
+    // 17. keyvalue
+    { key: "CUSTOM_HEADERS", type: "string", description: "Key-value pair editor with add/remove rows.", required: false, sensitive: false, currentValue: null, isSet: false },
+    // 18. file
+    { key: "CERT_FILE", type: "string", description: "File path input for certificates, configs, or data files.", required: false, sensitive: false, currentValue: null, isSet: false },
+    // 19. custom
+    { key: "CUSTOM_COMPONENT", type: "string", description: "Placeholder for plugin-provided custom React components.", required: false, sensitive: false, currentValue: null, isSet: false },
+    // 20. markdown
+    { key: "RELEASE_NOTES", type: "string", description: "Markdown editor with Edit/Preview toggle for rich text content.", required: false, sensitive: false, currentValue: null, isSet: false },
+    // 21. checkbox-group
+    { key: "NOTIFICATION_CHANNELS", type: "string", description: "Checkbox group with per-option descriptions — similar to multiselect but with checkbox UX.", required: false, sensitive: false, currentValue: null, isSet: false },
+    // 22. group
+    { key: "CONNECTION_GROUP", type: "string", description: "Fieldset container for visually grouping related configuration fields.", required: false, sensitive: false, currentValue: null, isSet: false },
+    // 23. table
+    { key: "ROUTE_TABLE", type: "string", description: "Tabular data editor with add/remove rows and column headers.", required: false, sensitive: false, currentValue: null, isSet: false },
+  ],
+  configUiHints: {
+    DISPLAY_NAME: { label: "Display Name", group: "Basic Fields", width: "half", help: "Renderer: text — single-line text input" },
+    SECRET_TOKEN: { label: "Secret Token", group: "Basic Fields", width: "half", help: "Renderer: password — masked with show/hide toggle" },
+    SERVER_PORT: { label: "Server Port", group: "Basic Fields", width: "third", min: 1, max: 65535, unit: "port", help: "Renderer: number — with min/max range and unit label" },
+    ENABLE_LOGGING: { label: "Enable Logging", group: "Basic Fields", width: "third", help: "Renderer: boolean — pill-shaped toggle switch" },
+    WEBHOOK_URL: { label: "Webhook URL", group: "Basic Fields", width: "full", placeholder: "https://example.com/webhook", help: "Renderer: url — URL input with format validation" },
+    DEPLOY_REGION: {
+      label: "Deploy Region", group: "Selection Fields", width: "half",
+      type: "select",
+      options: [
+        { value: "us-east-1", label: "US East (Virginia)" },
+        { value: "us-west-2", label: "US West (Oregon)" },
+        { value: "eu-west-1", label: "EU (Ireland)" },
+        { value: "ap-southeast-1", label: "Asia Pacific (Singapore)" },
+      ],
+      help: "Renderer: select — dropdown with enhanced option labels",
+    },
+    SYSTEM_PROMPT: { label: "System Prompt", group: "Text Fields", width: "full", help: "Renderer: textarea — multi-line text input for long content" },
+    CONTACT_EMAIL: { label: "Contact Email", group: "Text Fields", width: "half", type: "email", placeholder: "admin@example.com", help: "Renderer: email — email input with format validation" },
+    THEME_COLOR: { label: "Theme Color", group: "Selection Fields", width: "third", type: "color", help: "Renderer: color — color picker swatch + hex input" },
+    AUTH_MODE: {
+      label: "Auth Mode", group: "Selection Fields", width: "half",
+      type: "radio",
+      options: [
+        { value: "basic", label: "Basic Auth", description: "Username and password" },
+        { value: "oauth", label: "OAuth 2.0", description: "Token-based authentication" },
+        { value: "apikey", label: "API Key", description: "Header-based API key" },
+      ],
+      help: "Renderer: radio — radio button group with descriptions",
+    },
+    ENABLED_FEATURES: {
+      label: "Enabled Features", group: "Selection Fields", width: "full",
+      type: "multiselect",
+      options: [
+        { value: "auth", label: "Authentication" },
+        { value: "logging", label: "Logging" },
+        { value: "caching", label: "Caching" },
+        { value: "webhooks", label: "Webhooks" },
+        { value: "ratelimit", label: "Rate Limiting" },
+      ],
+      help: "Renderer: multiselect — checkbox group for multiple selections",
+    },
+    START_DATE: { label: "Start Date", group: "Date & Time", width: "half", type: "date", help: "Renderer: date — native date picker" },
+    SCHEDULED_AT: { label: "Scheduled At", group: "Date & Time", width: "half", type: "datetime", help: "Renderer: datetime — date + time picker" },
+    METADATA_CONFIG: { label: "Metadata Config", group: "Structured Data", width: "full", type: "json", help: "Renderer: json — JSON editor with inline validation" },
+    RESPONSE_TEMPLATE: { label: "Response Template", group: "Structured Data", width: "full", type: "code", help: "Renderer: code — monospaced code editor" },
+    ALLOWED_ORIGINS: { label: "Allowed Origins", group: "Structured Data", width: "full", type: "array", help: "Renderer: array — add/remove items list" },
+    CUSTOM_HEADERS: { label: "Custom Headers", group: "Structured Data", width: "full", type: "keyvalue", help: "Renderer: keyvalue — key-value pair editor" },
+    CERT_FILE: { label: "Certificate File", group: "File Paths", width: "full", type: "file", help: "Renderer: file — file path input" },
+    CUSTOM_COMPONENT: { label: "Custom Component", group: "File Paths", width: "full", type: "custom", help: "Renderer: custom — placeholder for plugin-provided React components", advanced: true },
+    RELEASE_NOTES: { label: "Release Notes", group: "Text Fields", width: "full", type: "markdown", help: "Renderer: markdown — textarea with Edit/Preview toggle" },
+    NOTIFICATION_CHANNELS: {
+      label: "Notification Channels", group: "Selection Fields", width: "full",
+      type: "checkbox-group",
+      options: [
+        { value: "email", label: "Email", description: "Send notifications via email" },
+        { value: "slack", label: "Slack", description: "Post to Slack channels" },
+        { value: "webhook", label: "Webhook", description: "HTTP POST to configured URL" },
+        { value: "sms", label: "SMS", description: "Text message alerts" },
+      ],
+      help: "Renderer: checkbox-group — vertical checkbox list with descriptions",
+    },
+    CONNECTION_GROUP: { label: "Connection Settings", group: "Structured Data", width: "full", type: "group", help: "Renderer: group — fieldset container with legend" },
+    ROUTE_TABLE: { label: "Route Table", group: "Structured Data", width: "full", type: "table", help: "Renderer: table — tabular data editor with add/remove rows" },
+  },
+};
 
 /* ── Always-on plugins (hidden from all views) ────────────────────────── */
 
@@ -75,7 +212,7 @@ const ACRONYMS = new Set([
 ]);
 
 /** Strip plugin-id prefix and title-case the env-key into a human label. */
-function autoLabel(key: string, pluginId: string): string {
+export function autoLabel(key: string, pluginId: string): string {
   const prefixes = [
     pluginId.toUpperCase().replace(/-/g, "_") + "_",
     pluginId.toUpperCase().replace(/-/g, "") + "_",
@@ -93,18 +230,8 @@ function autoLabel(key: string, pluginId: string): string {
     .join(" ");
 }
 
-/** Infer the best input type from the parameter definition. */
-function autoFieldType(param: PluginParamDef): "text" | "password" | "boolean" | "number" | "url" {
-  if (param.type === "boolean") return "boolean";
-  if (param.sensitive) return "password";
-  const k = param.key.toUpperCase();
-  if (k.includes("URL") || k.includes("ENDPOINT")) return "url";
-  if (param.type === "number" || k.includes("PORT") || k.includes("TIMEOUT") || k.includes("DELAY")) return "number";
-  return "text";
-}
-
 /** Detect advanced / debug parameters that should be collapsed by default. */
-function isAdvancedParam(param: PluginParamDef): boolean {
+export function isAdvancedParam(param: PluginParamDef): boolean {
   const k = param.key.toUpperCase();
   const d = (param.description ?? "").toLowerCase();
   return (
@@ -119,26 +246,489 @@ function isAdvancedParam(param: PluginParamDef): boolean {
   );
 }
 
+/** Convert PluginParamDef[] to a JSON Schema + ConfigUiHints for ConfigRenderer. */
+export function paramsToSchema(params: PluginParamDef[], pluginId: string): {
+  schema: JsonSchemaObject;
+  hints: Record<string, ConfigUiHint>;
+} {
+  const properties: Record<string, Record<string, unknown>> = {};
+  const required: string[] = [];
+  const hints: Record<string, ConfigUiHint> = {};
+
+  for (const p of params) {
+    // Build JSON Schema property
+    const prop: Record<string, unknown> = {};
+    if (p.type === "boolean") {
+      prop.type = "boolean";
+    } else if (p.type === "number") {
+      prop.type = "number";
+    } else {
+      prop.type = "string";
+    }
+    if (p.description) prop.description = p.description;
+    if (p.default != null) prop.default = p.default;
+    if (p.options?.length) {
+      prop.enum = p.options;
+    }
+
+    // Auto-detect format from key name
+    const keyUpper = p.key.toUpperCase();
+    if (keyUpper.includes("URL") || keyUpper.includes("ENDPOINT") || keyUpper.includes("BASE_URL")) {
+      prop.format = "uri";
+    } else if (keyUpper.includes("EMAIL")) {
+      prop.format = "email";
+    } else if (keyUpper.includes("_DATE") || keyUpper.includes("_SINCE") || keyUpper.includes("_UNTIL")) {
+      prop.format = "date";
+    }
+
+    // Auto-detect number types from key patterns
+    if (keyUpper.includes("PORT") && prop.type === "string") {
+      prop.type = "number";
+    } else if (
+      (keyUpper.includes("TIMEOUT") || keyUpper.includes("INTERVAL") || keyUpper.includes("_MS")) &&
+      prop.type === "string"
+    ) {
+      prop.type = "number";
+    } else if (
+      (keyUpper.includes("COUNT") || keyUpper.includes("LIMIT") || keyUpper.startsWith("MAX_")) &&
+      prop.type === "string"
+    ) {
+      prop.type = "number";
+    } else if (
+      (keyUpper.includes("RETRY") || keyUpper.includes("RETRIES")) &&
+      prop.type === "string"
+    ) {
+      prop.type = "number";
+    }
+
+    // Auto-detect boolean from key patterns
+    if (
+      prop.type === "string" &&
+      (keyUpper.includes("SHOULD_") || keyUpper.endsWith("_ENABLED") ||
+       keyUpper.endsWith("_DISABLED") || keyUpper.startsWith("USE_") ||
+       keyUpper.startsWith("ALLOW_") || keyUpper.startsWith("IS_") ||
+       keyUpper.startsWith("ENABLE_") || keyUpper.startsWith("DISABLE_") ||
+       keyUpper.startsWith("FORCE_") || keyUpper.endsWith("_AUTONOMOUS_MODE"))
+    ) {
+      prop.type = "boolean";
+    }
+
+    // Auto-detect number from key patterns (RATE, DELAY, THRESHOLD, SIZE, TEMPERATURE)
+    if (
+      prop.type === "string" &&
+      (keyUpper.includes("_RATE") || keyUpper.includes("DELAY") ||
+       keyUpper.includes("THRESHOLD") || keyUpper.includes("_SIZE") ||
+       keyUpper.includes("TEMPERATURE") || keyUpper.includes("_DEPTH") ||
+       keyUpper.includes("_PERCENT") || keyUpper.includes("_RATIO"))
+    ) {
+      prop.type = "number";
+    }
+
+    // Auto-detect comma-separated lists → array renderer
+    if (prop.type === "string" && !prop.enum) {
+      const descLower = (p.description || "").toLowerCase();
+      const isCommaSep =
+        descLower.includes("comma-separated") || descLower.includes("comma separated");
+      const isListSuffix =
+        keyUpper.endsWith("_IDS") || keyUpper.endsWith("_CHANNELS") ||
+        keyUpper.endsWith("_ROOMS") || keyUpper.endsWith("_RELAYS") ||
+        keyUpper.endsWith("_FEEDS") || keyUpper.endsWith("_DEXES") ||
+        keyUpper.endsWith("_WHITELIST") || keyUpper.endsWith("_BLACKLIST") ||
+        keyUpper.endsWith("_ALLOWLIST") || keyUpper.endsWith("_SPACES") ||
+        keyUpper.endsWith("_THREADS") || keyUpper.endsWith("_ROLES") ||
+        keyUpper.endsWith("_TENANTS") || keyUpper.endsWith("_DIRS");
+      if (isCommaSep || isListSuffix) {
+        prop.type = "array";
+        prop.items = { type: "string" };
+      }
+    }
+
+    // Auto-detect textarea (prompts, instructions, templates, greetings)
+    if (prop.type === "string" && !prop.enum && !keyUpper.includes("MODEL")) {
+      if (
+        keyUpper.includes("INSTRUCTIONS") || keyUpper.includes("_GREETING") ||
+        keyUpper.endsWith("_PROMPT") || keyUpper.endsWith("_TEMPLATE") ||
+        keyUpper.includes("SYSTEM_MESSAGE")
+      ) {
+        prop.maxLength = 999;
+      }
+    }
+
+    // Auto-detect JSON fields (json-encoded or serialized values)
+    if (prop.type === "string" && !p.sensitive) {
+      const descLower = (p.description || "").toLowerCase();
+      if (
+        descLower.includes("json-encoded") || descLower.includes("json array") ||
+        descLower.includes("serialized") || descLower.includes("json format")
+      ) {
+        (prop as Record<string, unknown>).__jsonHint = true;
+      }
+    }
+
+    // Auto-detect file/directory paths → file renderer
+    if (prop.type === "string") {
+      if (
+        (keyUpper.endsWith("_PATH") && !keyUpper.includes("WEBHOOK")) ||
+        keyUpper.endsWith("_DIR") || keyUpper.endsWith("_DIRECTORY") ||
+        keyUpper.endsWith("_FOLDER") || keyUpper.endsWith("_FILE")
+      ) {
+        (prop as Record<string, unknown>).__fileHint = true;
+      }
+    }
+
+    // Auto-detect textarea from long descriptions
+    if (p.description && p.description.length > 200) {
+      prop.maxLength = 999;
+    }
+
+    properties[p.key] = prop;
+
+    if (p.required) required.push(p.key);
+
+    // Build UI hint
+    const hint: ConfigUiHint = {
+      label: autoLabel(p.key, pluginId),
+      sensitive: p.sensitive ?? false,
+      advanced: isAdvancedParam(p),
+    };
+
+    // Port numbers — constrain range
+    if (keyUpper.includes("PORT")) {
+      hint.min = 1;
+      hint.max = 65535;
+      prop.minimum = 1;
+      prop.maximum = 65535;
+    }
+
+    // Timeout/interval — show unit
+    if (keyUpper.includes("TIMEOUT") || keyUpper.includes("INTERVAL") || keyUpper.includes("_MS")) {
+      hint.unit = "ms";
+      prop.minimum = 0;
+      hint.min = 0;
+    }
+
+    // Count/limit — non-negative
+    if (keyUpper.includes("COUNT") || keyUpper.includes("LIMIT") || keyUpper.startsWith("MAX_")) {
+      hint.min = 0;
+      prop.minimum = 0;
+    }
+
+    // Retry — bounded range
+    if (keyUpper.includes("RETRY") || keyUpper.includes("RETRIES")) {
+      hint.min = 0;
+      hint.max = 100;
+      prop.minimum = 0;
+      prop.maximum = 100;
+    }
+
+    // Debug/verbose/enabled — mark as advanced
+    if (keyUpper.includes("DEBUG") || keyUpper.includes("VERBOSE") || keyUpper.includes("ENABLED")) {
+      hint.advanced = true;
+    }
+
+    // Model selection — NOT advanced (important user-facing choice)
+    if (keyUpper.includes("MODEL") && p.options?.length) {
+      hint.advanced = false;
+    }
+
+    // Region/zone — suggest common cloud regions when no options provided
+    if ((keyUpper.includes("REGION") || keyUpper.includes("ZONE")) && !p.options?.length) {
+      hint.type = "select";
+      hint.options = [
+        { value: "us-east-1", label: "US East (N. Virginia)" },
+        { value: "us-west-2", label: "US West (Oregon)" },
+        { value: "eu-west-1", label: "EU (Ireland)" },
+        { value: "eu-central-1", label: "EU (Frankfurt)" },
+        { value: "ap-southeast-1", label: "Asia Pacific (Singapore)" },
+        { value: "ap-northeast-1", label: "Asia Pacific (Tokyo)" },
+      ];
+    }
+
+    // File/directory path → file renderer
+    if ((prop as Record<string, unknown>).__fileHint) {
+      hint.type = "file";
+      delete (prop as Record<string, unknown>).__fileHint;
+    }
+
+    // JSON-encoded value → json renderer
+    if ((prop as Record<string, unknown>).__jsonHint) {
+      hint.type = "json";
+      delete (prop as Record<string, unknown>).__jsonHint;
+    }
+
+    // Model name fields — helpful placeholder (overridden by server-provided model options via configUiHints)
+    if (keyUpper.includes("MODEL") && prop.type === "string" && !p.options?.length) {
+      if (!hint.placeholder) {
+        if (keyUpper.includes("EMBEDDING")) {
+          hint.placeholder = "e.g., text-embedding-3-small";
+        } else if (keyUpper.includes("TTS")) {
+          hint.placeholder = "e.g., tts-1, eleven_multilingual_v2";
+        } else if (keyUpper.includes("STT")) {
+          hint.placeholder = "e.g., whisper-1";
+        } else if (keyUpper.includes("IMAGE")) {
+          hint.placeholder = "e.g., dall-e-3, gpt-4o";
+        } else {
+          hint.placeholder = "e.g., gpt-4o, claude-sonnet-4-20250514";
+        }
+      }
+    }
+
+    // Mode/strategy fields — extract options from description if available
+    if (
+      prop.type === "string" && !prop.enum && !p.sensitive &&
+      (keyUpper.endsWith("_MODE") || keyUpper.endsWith("_STRATEGY"))
+    ) {
+      const desc = p.description ?? "";
+      // Match "auto | local | mcp" or "filesystem|in-context|sqlite"
+      const pipeMatch = desc.match(/:\s*([a-z0-9_-]+(?:\s*[|/]\s*[a-z0-9_-]+)+)/i) ??
+        desc.match(/\(([a-z0-9_-]+(?:\s*[|/,]\s*[a-z0-9_-]+)+)\)/i);
+      if (pipeMatch) {
+        const opts = pipeMatch[1].split(/[|/,]/).map((s) => s.trim()).filter(Boolean);
+        const safeOpts = opts.filter((v) => /^[a-z0-9_-]+$/i.test(v));
+        if (safeOpts.length >= 2 && safeOpts.length <= 10) {
+          hint.type = "select";
+          hint.options = safeOpts.map((v) => ({ value: v, label: v }));
+        }
+      } else {
+        // Match 'polling' or 'webhook' -or- 'env', 'oauth', or 'bearer' style
+        const quotedOpts = [...desc.matchAll(/'([a-z0-9_-]+)'/gi)].map((m) => m[1]);
+        const safeQuoted = quotedOpts.filter((v) => /^[a-z0-9_-]+$/i.test(v));
+        if (safeQuoted.length >= 2 && safeQuoted.length <= 10) {
+          // Radio for 2 options, select for 3+
+          hint.type = safeQuoted.length === 2 ? "radio" : "select";
+          hint.options = safeQuoted.map((v) => ({ value: v, label: v }));
+        }
+      }
+    }
+
+    if (p.description) {
+      hint.help = p.description;
+      if (p.default != null) hint.help += ` (default: ${String(p.default)})`;
+    }
+    if (p.sensitive) hint.placeholder = p.isSet ? "********  (already set)" : "Enter value...";
+    else if (p.default) hint.placeholder = `Default: ${String(p.default)}`;
+    hints[p.key] = hint;
+  }
+
+  return {
+    schema: { type: "object", properties, required } as JsonSchemaObject,
+    hints,
+  };
+}
+
+/* ── PluginConfigForm bridge ─────────────────────────────────────────── */
+
+function PluginConfigForm({
+  plugin,
+  pluginConfigs,
+  onParamChange,
+}: {
+  plugin: PluginInfo;
+  pluginConfigs: Record<string, Record<string, string>>;
+  onParamChange: (pluginId: string, paramKey: string, value: string) => void;
+}) {
+  const params = plugin.parameters ?? [];
+  const { schema, hints: autoHints } = useMemo(
+    () => paramsToSchema(params, plugin.id),
+    [params, plugin.id],
+  );
+
+  // Merge server-provided configUiHints over auto-generated hints.
+  // Server hints take priority (override auto-generated ones).
+  const hints = useMemo(() => {
+    const serverHints = plugin.configUiHints;
+    if (!serverHints || Object.keys(serverHints).length === 0) return autoHints;
+    const merged: Record<string, ConfigUiHint> = { ...autoHints };
+    for (const [key, serverHint] of Object.entries(serverHints)) {
+      merged[key] = { ...merged[key], ...serverHint };
+    }
+    return merged;
+  }, [autoHints, plugin.configUiHints]);
+
+  // Build values from current config state + existing server values.
+  // Array-typed fields need comma-separated strings parsed into arrays.
+  const values = useMemo(() => {
+    const v: Record<string, unknown> = {};
+    const props = (schema.properties ?? {}) as Record<string, Record<string, unknown>>;
+    for (const p of params) {
+      const isArrayField = props[p.key]?.type === "array";
+      const configValue = pluginConfigs[plugin.id]?.[p.key];
+      if (configValue !== undefined) {
+        if (isArrayField && typeof configValue === "string") {
+          v[p.key] = configValue ? configValue.split(",").map((s: string) => s.trim()).filter(Boolean) : [];
+        } else {
+          v[p.key] = configValue;
+        }
+      } else if (p.isSet && !p.sensitive && p.currentValue != null) {
+        if (isArrayField && typeof p.currentValue === "string") {
+          v[p.key] = String(p.currentValue) ? String(p.currentValue).split(",").map((s: string) => s.trim()).filter(Boolean) : [];
+        } else {
+          v[p.key] = p.currentValue;
+        }
+      }
+    }
+    return v;
+  }, [params, plugin.id, pluginConfigs, schema]);
+
+  const setKeys = useMemo(
+    () => new Set(params.filter((p: PluginParamDef) => p.isSet).map((p: PluginParamDef) => p.key)),
+    [params],
+  );
+
+  const handleChange = useCallback(
+    (key: string, value: unknown) => {
+      // Join array values back to comma-separated strings for env var storage
+      const stringValue = Array.isArray(value) ? value.join(", ") : String(value ?? "");
+      onParamChange(plugin.id, key, stringValue);
+    },
+    [plugin.id, onParamChange],
+  );
+
+  return (
+    <ConfigRenderer
+      schema={schema}
+      hints={hints}
+      values={values}
+      setKeys={setKeys}
+      registry={defaultRegistry}
+      pluginId={plugin.id}
+      onChange={handleChange}
+    />
+  );
+}
+
+type Categories = "all" | "ai-provider" | "connector" | "feature";
+const CATEGORIES: Categories[] = ["all", "ai-provider", "connector", "feature"];
+const CATEGORY_LABELS: Record<string, string> = {
+  all: "All",
+  "ai-provider": "AI Provider",
+  connector: "Connector",
+  feature: "Feature",
+};
+
+/* ── Default Icons ─────────────────────────────────────────────────── */
+
+const DEFAULT_ICONS: Record<string, string> = {
+  // AI Providers
+  anthropic: "🧠", "google-genai": "✦", groq: "⚡", "local-ai": "🖥️",
+  ollama: "🦙", openai: "◐", openrouter: "🔀", "vercel-ai-gateway": "▲", xai: "𝕏",
+  // Connectors — chat & social
+  discord: "💬", telegram: "✈️", slack: "💼", whatsapp: "📱",
+  signal: "🔒", imessage: "💭", bluebubbles: "🫧", bluesky: "🦋",
+  farcaster: "🟣", instagram: "📸", nostr: "🔑", twitch: "🎮",
+  matrix: "🔗", mattermost: "💠", msteams: "🟦", "google-chat": "💚",
+  feishu: "🪶", line: "🟢", "nextcloud-talk": "☁️", tlon: "🌀",
+  zalo: "💙", zalouser: "💙",
+  // Features — voice & audio
+  "edge-tts": "🗣️", elevenlabs: "🎙️", tts: "🔊", "simple-voice": "🎤", "robot-voice": "🤖",
+  // Features — blockchain & finance
+  evm: "⛓️", solana: "◎", "auto-trader": "📈", "lp-manager": "💹",
+  "social-alpha": "📊", polymarket: "🎲", x402: "💳", trust: "🤝", iq: "🧩",
+  // Features — dev tools & infra
+  cli: "⌨️", code: "💻", shell: "🐚", github: "🐙", linear: "◻️",
+  mcp: "🔌", browser: "🌐", computeruse: "🖱️", n8n: "⚙️", webhooks: "🪝",
+  // Features — knowledge & memory
+  knowledge: "📚", memory: "🧬", "local-embedding": "📐", pdf: "📄",
+  "secrets-manager": "🔐", "scratchpad": "📝", rlm: "🔄",
+  // Features — agents & orchestration
+  "agent-orchestrator": "🎯", "agent-skills": "🛠️", "plugin-manager": "📦",
+  "copilot-proxy": "🤝", directives: "📋", goals: "🎯", "eliza-classic": "👩",
+  // Features — media & content
+  vision: "👁️", rss: "📡", "gmail-watch": "📧", prose: "✍️", form: "📝",
+  // Features — scheduling & automation
+  cron: "⏰", scheduling: "📅", todo: "✅", commands: "⌘",
+  // Features — storage & logging
+  "s3-storage": "🗄️", "trajectory-logger": "📉", experience: "🌟",
+  // Features — gaming & misc
+  minecraft: "⛏️", roblox: "🧱", babylon: "🎮", mysticism: "🔮",
+  personality: "🎭", moltbook: "📖", tee: "🔏",
+  blooio: "🟠", acp: "🏗️", elizacloud: "☁️", twilio: "📞",
+};
+
+/** Resolve display icon: explicit plugin.icon, fallback to default map, or null. */
+function resolveIcon(p: PluginInfo): string | null {
+  if (p.icon) return p.icon;
+  return DEFAULT_ICONS[p.id] ?? null;
+}
+
+/* ── Sub-group Classification ──────────────────────────────────────── */
+
+/** Map plugin IDs to fine-grained sub-groups for the "Feature" category. */
+const FEATURE_SUBGROUP: Record<string, string> = {
+  // Voice & Audio
+  "edge-tts": "voice", elevenlabs: "voice", tts: "voice",
+  "simple-voice": "voice", "robot-voice": "voice",
+  // Blockchain & Finance
+  evm: "blockchain", solana: "blockchain", "auto-trader": "blockchain",
+  "lp-manager": "blockchain", "social-alpha": "blockchain",
+  polymarket: "blockchain", x402: "blockchain", trust: "blockchain", iq: "blockchain",
+  // Dev Tools & Infrastructure
+  cli: "devtools", code: "devtools", shell: "devtools", github: "devtools",
+  linear: "devtools", mcp: "devtools", browser: "devtools", computeruse: "devtools",
+  n8n: "devtools", webhooks: "devtools",
+  // Knowledge & Memory
+  knowledge: "knowledge", memory: "knowledge", "local-embedding": "knowledge",
+  pdf: "knowledge", "secrets-manager": "knowledge", scratchpad: "knowledge", rlm: "knowledge",
+  // Agents & Orchestration
+  "agent-orchestrator": "agents", "agent-skills": "agents", "plugin-manager": "agents",
+  "copilot-proxy": "agents", directives: "agents", goals: "agents", "eliza-classic": "agents",
+  // Media & Content
+  vision: "media", rss: "media", "gmail-watch": "media", prose: "media", form: "media",
+  // Scheduling & Automation
+  cron: "automation", scheduling: "automation", todo: "automation", commands: "automation",
+  // Storage & Logging
+  "s3-storage": "storage", "trajectory-logger": "storage", experience: "storage",
+  // Gaming & Creative
+  minecraft: "gaming", roblox: "gaming", babylon: "gaming", mysticism: "gaming",
+  personality: "gaming", moltbook: "gaming",
+};
+
+const SUBGROUP_DISPLAY_ORDER = [
+  "ai-provider", "connector",
+  "voice", "blockchain", "devtools", "knowledge",
+  "agents", "media", "automation", "storage", "gaming",
+  "feature-other",
+  "showcase",
+] as const;
+
+const SUBGROUP_LABELS: Record<string, string> = {
+  "ai-provider": "AI Providers",
+  connector: "Connectors",
+  voice: "Voice & Audio",
+  blockchain: "Blockchain & Finance",
+  devtools: "Dev Tools & Infrastructure",
+  knowledge: "Knowledge & Memory",
+  agents: "Agents & Orchestration",
+  media: "Media & Content",
+  automation: "Scheduling & Automation",
+  storage: "Storage & Logging",
+  gaming: "Gaming & Creative",
+  "feature-other": "Other Features",
+  showcase: "Showcase",
+};
+
 type StatusFilter = "all" | "enabled";
 
 /* ── Shared PluginListView ─────────────────────────────────────────── */
 
 interface PluginListViewProps {
-  /** Which category to show. */
-  category: "feature" | "connector";
+  /** Which category to show (ignored when baseOnly is true). */
+  category?: "feature" | "connector";
   /** Label used in search placeholder and empty state messages. */
   label: string;
   /** Whether to show the "Add Plugin" button. */
   showAddPlugin?: boolean;
+  /** When true, show only the always-on/core plugins instead of filtering them out. */
+  baseOnly?: boolean;
 }
 
-function PluginListView({ category, label, showAddPlugin = false }: PluginListViewProps) {
+function PluginListView({ category, label, showAddPlugin = false, baseOnly = false }: PluginListViewProps) {
   const {
     plugins,
+    pluginFilter,
     pluginStatusFilter,
     pluginSearch,
     pluginSettingsOpen,
-    pluginAdvancedOpen,
     pluginSaving,
     pluginSaveSuccess,
     loadPlugins,
@@ -149,28 +739,56 @@ function PluginListView({ category, label, showAddPlugin = false }: PluginListVi
   } = useApp();
 
   const [pluginConfigs, setPluginConfigs] = useState<Record<string, Record<string, string>>>({});
-  const [passwordVisible, setPasswordVisible] = useState<Set<string>>(new Set());
+  const [testResults, setTestResults] = useState<Map<string, { success: boolean; message?: string; error?: string; durationMs: number; loading: boolean }>>(new Map());
   const [addDirOpen, setAddDirOpen] = useState(false);
   const [addDirPath, setAddDirPath] = useState("");
   const [addDirLoading, setAddDirLoading] = useState(false);
+
+  // ── Drag-to-reorder state ────────────────────────────────────────
+  const [pluginOrder, setPluginOrder] = useState<string[]>(() => {
+    try {
+      const stored = localStorage.getItem("pluginOrder");
+      return stored ? JSON.parse(stored) : [];
+    } catch { return []; }
+  });
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
+  const dragRef = useRef<string | null>(null);
 
   // Load plugins on mount
   useEffect(() => {
     void loadPlugins();
   }, [loadPlugins]);
 
+  // Persist custom order
+  useEffect(() => {
+    if (pluginOrder.length > 0) {
+      localStorage.setItem("pluginOrder", JSON.stringify(pluginOrder));
+    }
+  }, [pluginOrder]);
+
   // ── Derived data ───────────────────────────────────────────────────
 
-  /** All plugins in the target category, excluding always-on hidden plugins. */
+  /** All plugins in the target category, excluding always-on hidden plugins.
+   *  When baseOnly is true, show only the always-on/core plugins instead. */
   const categoryPlugins = useMemo(
     () =>
-      plugins.filter(
-        (p: PluginInfo) =>
-          p.category === category &&
-          !ALWAYS_ON_PLUGIN_IDS.has(p.id),
-      ),
-    [plugins, category],
+      plugins
+        .filter((p: PluginInfo) =>
+          baseOnly
+            ? ALWAYS_ON_PLUGIN_IDS.has(p.id)
+            : p.category === category && !ALWAYS_ON_PLUGIN_IDS.has(p.id),
+        )
+        .map((p: PluginInfo) =>
+          baseOnly && p.parameters.length === 0 ? { ...p, enabled: true } : p,
+        ),
+    [plugins, category, baseOnly],
   );
+
+  const nonDbPlugins = useMemo(() => {
+    const real = plugins.filter((p: PluginInfo) => p.category !== "database");
+    return [SHOWCASE_PLUGIN, ...real];
+  }, [plugins]);
 
   const filtered = useMemo(() => {
     const searchLower = pluginSearch.toLowerCase();
@@ -188,7 +806,7 @@ function PluginListView({ category, label, showAddPlugin = false }: PluginListVi
   }, [categoryPlugins, pluginStatusFilter, pluginSearch]);
 
   const sorted = useMemo(() => {
-    return [...filtered].sort((a, b) => {
+    const defaultSort = (a: PluginInfo, b: PluginInfo) => {
       if (a.enabled !== b.enabled) return a.enabled ? -1 : 1;
       if (a.enabled && b.enabled) {
         const aNeedsConfig = a.parameters?.some((p: PluginParamDef) => p.required && !p.isSet) ?? false;
@@ -196,25 +814,41 @@ function PluginListView({ category, label, showAddPlugin = false }: PluginListVi
         if (aNeedsConfig !== bNeedsConfig) return aNeedsConfig ? -1 : 1;
       }
       return a.name.localeCompare(b.name);
+    };
+    if (pluginOrder.length === 0) return [...filtered].sort(defaultSort);
+    // Custom order: sort by position, unknowns at end in default order
+    const orderMap = new Map(pluginOrder.map((id, i) => [id, i]));
+    return [...filtered].sort((a, b) => {
+      const ai = orderMap.get(a.id);
+      const bi = orderMap.get(b.id);
+      if (ai != null && bi != null) return ai - bi;
+      if (ai != null) return -1;
+      if (bi != null) return 1;
+      return defaultSort(a, b);
     });
-  }, [filtered]);
+  }, [filtered, pluginOrder]);
 
   const enabledCount = useMemo(() => categoryPlugins.filter((p: PluginInfo) => p.enabled).length, [categoryPlugins]);
+
+  const groupedBySubgroup = useMemo(() => {
+    const groups: Record<string, PluginInfo[]> = {};
+    for (const p of sorted) {
+      let group: string;
+      if (p.id === "__ui-showcase__") group = "showcase";
+      else if (p.category === "ai-provider") group = "ai-provider";
+      else if (p.category === "connector") group = "connector";
+      else group = FEATURE_SUBGROUP[p.id] ?? "feature-other";
+      (groups[group] ??= []).push(p);
+    }
+    return groups;
+  }, [sorted]);
 
   // ── Handlers ───────────────────────────────────────────────────────
 
   const toggleSettings = (pluginId: string) => {
-    const next = new Set(pluginSettingsOpen);
-    if (next.has(pluginId)) next.delete(pluginId);
-    else next.add(pluginId);
+    const next = new Set<string>();
+    if (!pluginSettingsOpen.has(pluginId)) next.add(pluginId);
     setState("pluginSettingsOpen", next);
-  };
-
-  const toggleAdvanced = (pluginId: string) => {
-    const next = new Set(pluginAdvancedOpen);
-    if (next.has(pluginId)) next.delete(pluginId);
-    else next.add(pluginId);
-    setState("pluginAdvancedOpen", next);
   };
 
   const handleParamChange = (pluginId: string, paramKey: string, value: string) => {
@@ -225,6 +859,8 @@ function PluginListView({ category, label, showAddPlugin = false }: PluginListVi
   };
 
   const handleConfigSave = async (pluginId: string) => {
+    // Showcase plugin: no-op save (it's not a real plugin)
+    if (pluginId === "__ui-showcase__") return;
     const config = pluginConfigs[pluginId] ?? {};
     await handlePluginConfigSave(pluginId, config);
     setPluginConfigs((prev) => {
@@ -242,13 +878,26 @@ function PluginListView({ category, label, showAddPlugin = false }: PluginListVi
     });
   };
 
-  const togglePasswordVisibility = (fieldKey: string) => {
-    setPasswordVisible((prev) => {
-      const next = new Set(prev);
-      if (next.has(fieldKey)) next.delete(fieldKey);
-      else next.add(fieldKey);
+  const handleTestConnection = async (pluginId: string) => {
+    setTestResults((prev) => {
+      const next = new Map(prev);
+      next.set(pluginId, { success: false, loading: true, durationMs: 0 });
       return next;
     });
+    try {
+      const result = await client.testPluginConnection(pluginId);
+      setTestResults((prev) => {
+        const next = new Map(prev);
+        next.set(pluginId, { ...result, loading: false });
+        return next;
+      });
+    } catch (err) {
+      setTestResults((prev) => {
+        const next = new Map(prev);
+        next.set(pluginId, { success: false, error: err instanceof Error ? err.message : String(err), loading: false, durationMs: 0 });
+        return next;
+      });
+    }
   };
 
   // ── Add from directory ──────────────────────────────────────────────
@@ -273,323 +922,206 @@ function PluginListView({ category, label, showAddPlugin = false }: PluginListVi
     setAddDirLoading(false);
   };
 
-  // ── Field renderers ────────────────────────────────────────────────
+  // ── Drag-to-reorder handlers ─────────────────────────────────────
 
-  const renderField = (plugin: PluginInfo, param: PluginParamDef) => {
-    const fieldType = autoFieldType(param);
-    const fieldLabel = autoLabel(param.key, plugin.id);
-    const configValue = pluginConfigs[plugin.id]?.[param.key];
-    const currentValue =
-      configValue !== undefined ? configValue : param.isSet && !param.sensitive ? (param.currentValue ?? "") : "";
-    const effectiveValue = currentValue || (param.default ?? "");
-    const pwKey = `${plugin.id}:${param.key}`;
+  const handleDragStart = useCallback((e: React.DragEvent, pluginId: string) => {
+    dragRef.current = pluginId;
+    setDraggingId(pluginId);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", pluginId);
+  }, []);
 
-    return (
-      <div key={param.key} className="mb-4">
-        {/* Label row */}
-        <div className="flex items-center gap-1.5 text-[13px] font-semibold mb-1">
-          <span
-            className={`inline-block w-[7px] h-[7px] rounded-full shrink-0 ${
-              param.isSet ? "bg-ok" : param.required ? "bg-destructive" : "bg-muted"
-            }`}
-          />
-          <span>{fieldLabel}</span>
-          {param.required && (
-            <span className="text-[10px] text-destructive font-normal">required</span>
-          )}
-          {param.isSet && (
-            <span className="text-[10px] text-ok font-normal">configured</span>
-          )}
-        </div>
+  const handleDragOver = useCallback((e: React.DragEvent, pluginId: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    if (dragRef.current && dragRef.current !== pluginId) {
+      setDragOverId(pluginId);
+    }
+  }, []);
 
-        {/* Env key */}
-        <div className="font-mono text-[10px] text-muted mb-1.5">
-          <code className="bg-bg-hover px-1 py-px border border-border">{param.key}</code>
-        </div>
+  const handleDrop = useCallback((e: React.DragEvent, targetId: string) => {
+    e.preventDefault();
+    const srcId = dragRef.current;
+    if (!srcId || srcId === targetId) {
+      dragRef.current = null;
+      setDraggingId(null);
+      setDragOverId(null);
+      return;
+    }
+    // Materialize current sorted order, then splice
+    setPluginOrder(() => {
+      // Build full order: items in custom order first, then any new ones
+      const allIds = nonDbPlugins.map((p: PluginInfo) => p.id);
+      let ids: string[];
+      if (pluginOrder.length > 0) {
+        const known = new Set(pluginOrder);
+        ids = [...pluginOrder, ...allIds.filter(id => !known.has(id))];
+      } else {
+        ids = sorted.map((p: PluginInfo) => p.id);
+        // Pad with any nonDbPlugins not currently in sorted (due to filters)
+        const inSorted = new Set(ids);
+        for (const id of allIds) {
+          if (!inSorted.has(id)) ids.push(id);
+        }
+      }
+      const fromIdx = ids.indexOf(srcId);
+      const toIdx = ids.indexOf(targetId);
+      if (fromIdx === -1 || toIdx === -1) return ids;
+      ids.splice(fromIdx, 1);
+      ids.splice(toIdx, 0, srcId);
+      return ids;
+    });
+    dragRef.current = null;
+    setDraggingId(null);
+    setDragOverId(null);
+  }, [nonDbPlugins, pluginOrder, sorted]);
 
-        {/* Input */}
-        {fieldType === "boolean" ? (
-          <label className="inline-flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              className="sr-only"
-              checked={
-                configValue !== undefined
-                  ? configValue === "true" || configValue === "1"
-                  : param.isSet
-                    ? param.currentValue === "true" || param.currentValue === "1"
-                    : String(param.default) === "true" || String(param.default) === "1"
-              }
-              onChange={(e) =>
-                handleParamChange(plugin.id, param.key, e.target.checked ? "true" : "false")
-              }
-            />
-            <div
-              className={`relative w-9 h-[18px] transition-colors duration-150 ${
-                (configValue !== undefined
-                  ? configValue === "true" || configValue === "1"
-                  : param.isSet
-                    ? param.currentValue === "true" || param.currentValue === "1"
-                    : String(param.default) === "true" || String(param.default) === "1")
-                  ? "bg-accent"
-                  : "bg-muted"
-              }`}
-            >
-              <div
-                className={`absolute w-3.5 h-3.5 bg-white top-[2px] transition-[left] duration-150 ${
-                  (configValue !== undefined
-                    ? configValue === "true" || configValue === "1"
-                    : param.isSet
-                      ? param.currentValue === "true" || param.currentValue === "1"
-                      : String(param.default) === "true" || String(param.default) === "1")
-                    ? "left-5"
-                    : "left-[2px]"
-                }`}
-              />
-            </div>
-            <span className="text-xs text-muted">
-              {(configValue !== undefined
-                ? configValue === "true" || configValue === "1"
-                : param.isSet
-                  ? param.currentValue === "true" || param.currentValue === "1"
-                  : String(param.default) === "true" || String(param.default) === "1")
-                ? "Enabled"
-                : "Disabled"}
-            </span>
-          </label>
-        ) : fieldType === "password" ? (
-          <div className="flex">
-            <input
-              type={passwordVisible.has(pwKey) ? "text" : "password"}
-              className="flex-1 w-full px-2.5 py-[7px] border border-border border-r-0 bg-card text-[13px] font-mono transition-colors duration-150 focus:border-accent focus:outline-none placeholder:text-muted placeholder:font-body placeholder:italic"
-              value={configValue ?? ""}
-              onChange={(e) => handleParamChange(plugin.id, param.key, e.target.value)}
-              placeholder={param.isSet ? "********  (already set, leave blank to keep)" : "Enter value..."}
-            />
-            <button
-              type="button"
-              className="px-3 py-[7px] border border-border bg-bg-hover text-[11px] text-muted whitespace-nowrap min-w-[48px] text-center transition-colors duration-150 hover:bg-surface hover:text-txt cursor-pointer"
-              onClick={() => togglePasswordVisibility(pwKey)}
-            >
-              {passwordVisible.has(pwKey) ? "Hide" : "Show"}
-            </button>
-          </div>
-        ) : param.options && param.options.length > 0 ? (
-          <select
-            className="w-full px-2.5 py-[7px] border border-border bg-card text-[13px] font-mono transition-colors duration-150 focus:border-accent focus:outline-none"
-            value={effectiveValue}
-            onChange={(e) => handleParamChange(plugin.id, param.key, e.target.value)}
-          >
-            {!param.required && <option value="">— none —</option>}
-            {param.options.map((opt: string) => (
-              <option key={opt} value={opt}>
-                {opt}
-              </option>
-            ))}
-          </select>
-        ) : (
-          <input
-            type={fieldType === "number" ? "number" : fieldType === "url" ? "url" : "text"}
-            className="w-full px-2.5 py-[7px] border border-border bg-card text-[13px] font-mono transition-colors duration-150 focus:border-accent focus:outline-none placeholder:text-muted placeholder:font-body placeholder:italic"
-            value={currentValue}
-            onChange={(e) => handleParamChange(plugin.id, param.key, e.target.value)}
-            placeholder={param.default ? `Default: ${param.default}` : "Enter value..."}
-          />
-        )}
+  const handleDragEnd = useCallback(() => {
+    dragRef.current = null;
+    setDraggingId(null);
+    setDragOverId(null);
+  }, []);
 
-        {/* Help text */}
-        {param.description && (
-          <div className="text-[11px] text-muted mt-1 leading-relaxed">
-            {param.description}
-            {param.default != null && (
-              <span className="opacity-70"> (default: {String(param.default)})</span>
-            )}
-          </div>
-        )}
-      </div>
-    );
-  };
+  const handleResetOrder = useCallback(() => {
+    setPluginOrder([]);
+    localStorage.removeItem("pluginOrder");
+  }, []);
 
-  // ── Card renderer ──────────────────────────────────────────────────
+  // ── Card renderers ────────────────────────────────────────────────
 
-  const renderCard = (p: PluginInfo) => {
+  const renderPluginCard = (p: PluginInfo) => {
     const hasParams = p.parameters && p.parameters.length > 0;
-    const settingsOpen = pluginSettingsOpen.has(p.id);
+    const isOpen = pluginSettingsOpen.has(p.id);
     const setCount = hasParams ? p.parameters.filter((param: PluginParamDef) => param.isSet).length : 0;
     const totalCount = hasParams ? p.parameters.length : 0;
     const allParamsSet = !hasParams || setCount === totalCount;
-    const generalParams = hasParams ? p.parameters.filter((param: PluginParamDef) => !isAdvancedParam(param)) : [];
-    const advancedParams = hasParams ? p.parameters.filter((param: PluginParamDef) => isAdvancedParam(param)) : [];
-    const advancedOpen = pluginAdvancedOpen.has(p.id);
-    const isSaving = pluginSaving.has(p.id);
-    const saveSuccess = pluginSaveSuccess.has(p.id);
+    const isShowcase = p.id === "__ui-showcase__";
+    const categoryLabel = isShowcase ? "showcase" : p.category === "ai-provider" ? "ai provider" : p.category;
 
-    const enabledBorder = p.enabled
-      ? p.enabled && !allParamsSet && hasParams
-        ? "border-l-[3px] border-l-warn"
-        : "border-l-[3px] border-l-accent"
-      : "";
+    const enabledBorder = isShowcase
+      ? "border-l-[3px] border-l-accent"
+      : p.enabled
+        ? !allParamsSet && hasParams
+          ? "border-l-[3px] border-l-warn"
+          : "border-l-[3px] border-l-accent"
+        : "";
+
+    const isDragging = draggingId === p.id;
+    const isDragOver = dragOverId === p.id && draggingId !== p.id;
 
     return (
       <div
         key={p.id}
-        className={`border border-border bg-card transition-colors duration-150 ${enabledBorder}`}
+        draggable
+        onDragStart={(e) => handleDragStart(e, p.id)}
+        onDragOver={(e) => handleDragOver(e, p.id)}
+        onDrop={(e) => handleDrop(e, p.id)}
+        onDragEnd={handleDragEnd}
+        className={`border border-border bg-card transition-colors duration-150 flex flex-col ${enabledBorder} ${
+          isOpen ? "ring-1 ring-accent" : "hover:border-accent/40"
+        } ${isDragging ? "opacity-30" : ""} ${isDragOver ? "ring-2 ring-accent/60" : ""}`}
         data-plugin-id={p.id}
       >
-        {/* Row header — horizontal layout */}
-        <div
-          className={`flex items-center gap-4 px-4 py-3 ${hasParams ? "cursor-pointer hover:bg-bg-hover" : ""}`}
-          onClick={hasParams ? () => toggleSettings(p.id) : undefined}
-        >
-          {/* Settings chevron (if configurable) */}
-          {hasParams && (
-            <span
-              className={`inline-block text-[10px] text-muted transition-transform duration-150 shrink-0 ${
-                settingsOpen ? "rotate-90" : ""
-              }`}
-            >
-              &#9654;
-            </span>
-          )}
-
-          {/* Name */}
-          <span className="font-bold text-sm whitespace-nowrap shrink-0">{p.name}</span>
-
-          {/* Badges */}
-          <div className="flex items-center gap-1.5 shrink-0">
-            {!allParamsSet && hasParams && (
-              <span className="text-[10px] px-1.5 py-px border border-warn bg-warn-subtle text-warn lowercase tracking-wide whitespace-nowrap">
-                {setCount}/{totalCount}
-              </span>
-            )}
-            {p.version && (
-              <span className="text-[10px] font-mono text-muted opacity-70">v{p.version}</span>
-            )}
-          </div>
-
-          {/* Description — fills remaining space, truncated to one line */}
-          <span className="text-xs text-muted truncate min-w-0 flex-1">
-            {p.description || "No description available"}
+        {/* Top: drag handle + icon + name + toggle */}
+        <div className="flex items-center gap-2 px-3 pt-3 pb-1">
+          <span
+            className="text-[10px] text-muted opacity-30 hover:opacity-70 cursor-grab active:cursor-grabbing shrink-0 select-none leading-none"
+            title="Drag to reorder"
+          >&#x2807;</span>
+          <span className="font-bold text-sm flex items-center gap-1.5 min-w-0 truncate flex-1">
+            {(() => {
+              const icon = resolveIcon(p);
+              if (!icon) return null;
+              return icon.startsWith("http") ? (
+                <img src={icon} alt="" className="w-4 h-4 rounded-sm object-cover" loading="lazy" />
+              ) : (
+                <span className="text-sm">{icon}</span>
+              );
+            })()}
+            {p.name}
           </span>
+          {isShowcase ? (
+            <span className="text-[10px] font-bold tracking-wider px-2.5 py-[2px] border border-accent text-accent bg-accent-subtle shrink-0">
+              DEMO
+            </span>
+          ) : (
+            <button
+              type="button"
+              data-plugin-toggle={p.id}
+              className={`text-[10px] font-bold tracking-wider px-2.5 py-[2px] border cursor-pointer transition-colors duration-150 shrink-0 ${
+                p.enabled
+                  ? "bg-accent text-accent-fg border-accent"
+                  : "bg-transparent text-muted border-border hover:text-txt"
+              }`}
+              onClick={(e) => {
+                e.stopPropagation();
+                handlePluginToggle(p.id, !p.enabled);
+              }}
+            >
+              {p.enabled ? "ON" : "OFF"}
+            </button>
+          )}
+        </div>
 
-          {/* Config progress */}
-          {hasParams && (
-            <div className="flex items-center gap-2 shrink-0">
+        {/* Badges: category + version */}
+        <div className="flex items-center gap-1.5 px-3 pb-1.5">
+          <span className="text-[10px] px-1.5 py-px border border-border bg-surface text-muted lowercase tracking-wide whitespace-nowrap">
+            {categoryLabel}
+          </span>
+          {p.version && (
+            <span className="text-[10px] font-mono text-muted opacity-70">v{p.version}</span>
+          )}
+        </div>
+
+        {/* Description — clamped to 3 lines */}
+        <p
+          className="text-xs text-muted px-3 pb-2 flex-1"
+          style={{ display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}
+        >
+          {p.description || "No description available"}
+        </p>
+
+        {/* Bottom bar: config status + settings button */}
+        <div className="flex items-center gap-2 px-3 py-2 border-t border-border mt-auto">
+          {hasParams && !isShowcase ? (
+            <>
               <span
-                className={`inline-block w-[7px] h-[7px] rounded-full ${
+                className={`inline-block w-[7px] h-[7px] rounded-full shrink-0 ${
                   allParamsSet ? "bg-ok" : "bg-destructive"
                 }`}
               />
-            </div>
+              <span className="text-[10px] text-muted">
+                {setCount}/{totalCount} configured
+              </span>
+            </>
+          ) : !hasParams && !isShowcase ? (
+            <span className="text-[10px] text-muted opacity-50">No config needed</span>
+          ) : (
+            <span className="text-[10px] text-muted opacity-50">23 field demos</span>
           )}
-
-          {/* ON / OFF */}
-          <button
-            type="button"
-            data-plugin-toggle={p.id}
-            className={`text-[10px] font-bold tracking-wider px-2.5 py-[2px] border cursor-pointer transition-colors duration-150 shrink-0 ${
-              p.enabled
-                ? "bg-accent text-accent-fg border-accent"
-                : "bg-transparent text-muted border-border hover:text-txt"
-            }`}
-            onClick={(e) => {
-              e.stopPropagation();
-              handlePluginToggle(p.id, !p.enabled);
-            }}
-          >
-            {p.enabled ? "ON" : "OFF"}
-          </button>
+          <div className="flex-1" />
+          {hasParams && (
+            <button
+              type="button"
+              className={`text-[10px] text-muted hover:text-accent cursor-pointer transition-colors flex items-center gap-1 ${
+                isOpen ? "text-accent" : ""
+              }`}
+              onClick={() => toggleSettings(p.id)}
+              title="Settings"
+            >
+              <span className="text-[11px]">&#9881;</span>
+              <span className={`inline-block text-[8px] transition-transform duration-150 ${isOpen ? "rotate-90" : ""}`}>
+                &#9654;
+              </span>
+            </button>
+          )}
         </div>
-
-        {/* Expanded settings panel — full width below the row */}
-        {settingsOpen && hasParams && (
-          <div className="border-t border-border bg-surface animate-[pc-slide-in_200ms_ease]">
-            {/* Plugin details strip */}
-            <div className="px-5 pt-4 pb-2 flex items-center gap-3 flex-wrap text-xs text-muted">
-              {p.npmName && (
-                <span className="font-mono text-[10px] opacity-60">{p.npmName}</span>
-              )}
-              {p.pluginDeps && p.pluginDeps.length > 0 && (
-                <span className="flex items-center gap-1 flex-wrap">
-                  <span className="text-[9px] opacity-70">depends on:</span>
-                  {p.pluginDeps.map((dep: string) => (
-                    <span
-                      key={dep}
-                      className="text-[9px] px-[5px] py-px border border-border bg-accent-subtle text-muted tracking-wide"
-                    >
-                      {dep}
-                    </span>
-                  ))}
-                </span>
-              )}
-            </div>
-
-            {/* Fields in a responsive multi-column layout */}
-            <div className="px-5 pb-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-x-6">
-              {generalParams.map((param: PluginParamDef) => renderField(p, param))}
-            </div>
-
-            {advancedParams.length > 0 && (
-              <>
-                <div
-                  className="flex items-center gap-1.5 text-xs text-muted cursor-pointer py-2 mx-5 mb-2 border-t border-dashed border-border select-none hover:text-txt"
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => toggleAdvanced(p.id)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      toggleAdvanced(p.id);
-                    }
-                  }}
-                >
-                  <span
-                    className={`inline-block text-[10px] transition-transform duration-150 ${
-                      advancedOpen ? "rotate-90" : ""
-                    }`}
-                  >
-                    &#9654;
-                  </span>
-                  Advanced ({advancedParams.length})
-                </div>
-                {advancedOpen && (
-                  <div className="px-5 pb-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-x-6">
-                    {advancedParams.map((param: PluginParamDef) => renderField(p, param))}
-                  </div>
-                )}
-              </>
-            )}
-
-            {/* Actions */}
-            <div className="flex justify-end gap-2 px-5 pb-4 pt-2 border-t border-border mx-5 mb-1">
-              <button
-                type="button"
-                className="bg-transparent border border-border text-muted cursor-pointer text-xs px-4 py-[5px] hover:text-txt hover:bg-bg-hover"
-                onClick={() => handleConfigReset(p.id)}
-              >
-                Reset
-              </button>
-              <button
-                type="button"
-                className={`text-xs px-4 py-[5px] cursor-pointer border transition-colors duration-150 ${
-                  saveSuccess
-                    ? "!bg-ok !text-white !border-ok"
-                    : "bg-accent text-accent-fg border-accent hover:bg-accent-hover"
-                }`}
-                onClick={() => handleConfigSave(p.id)}
-                disabled={isSaving}
-              >
-                {isSaving ? "Saving..." : saveSuccess ? "Saved" : "Save Settings"}
-              </button>
-            </div>
-          </div>
-        )}
 
         {/* Validation errors */}
         {p.enabled && p.validationErrors && p.validationErrors.length > 0 && (
-          <div className="px-4 py-2 border-t border-destructive bg-[rgba(153,27,27,0.04)] text-xs">
+          <div className="px-3 py-1.5 border-t border-destructive bg-[rgba(153,27,27,0.04)] text-xs">
             {p.validationErrors.map((err: { field: string; message: string }, i: number) => (
-              <div key={i} className="text-destructive mb-0.5">
+              <div key={i} className="text-destructive mb-0.5 text-[10px]">
                 {err.field}: {err.message}
               </div>
             ))}
@@ -598,9 +1130,9 @@ function PluginListView({ category, label, showAddPlugin = false }: PluginListVi
 
         {/* Validation warnings */}
         {p.enabled && p.validationWarnings && p.validationWarnings.length > 0 && (
-          <div className="px-4 py-1 pb-2">
+          <div className="px-3 py-1">
             {p.validationWarnings.map((w: { field: string; message: string }, i: number) => (
-              <div key={i} className="text-warn text-[11px]">
+              <div key={i} className="text-warn text-[10px]">
                 {w.message}
               </div>
             ))}
@@ -609,6 +1141,23 @@ function PluginListView({ category, label, showAddPlugin = false }: PluginListVi
       </div>
     );
   };
+
+  /** Render a grid of plugin cards. */
+  const renderPluginGrid = (plugins: PluginInfo[]) => (
+    <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3">
+      {plugins.map((p: PluginInfo) => renderPluginCard(p))}
+    </div>
+  );
+
+  // Resolve the plugin whose settings dialog is currently open.
+  // Exclude ai-provider plugins — those are configured in Settings.
+  const settingsDialogPlugin = useMemo(() => {
+    for (const id of pluginSettingsOpen) {
+      const p = nonDbPlugins.find((pl: PluginInfo) => pl.id === id);
+      if (p && p.parameters && p.parameters.length > 0 && p.category !== "ai-provider") return p;
+    }
+    return null;
+  }, [pluginSettingsOpen, nonDbPlugins]);
 
   // ── Main render ────────────────────────────────────────────────────
 
@@ -655,30 +1204,213 @@ function PluginListView({ category, label, showAddPlugin = false }: PluginListVi
           ))}
         </div>
 
-        {/* Add plugin button (only for Features) */}
-        {showAddPlugin && (
+        {/* Reset order (only visible when custom order is set) */}
+        {pluginOrder.length > 0 && (
           <button
             type="button"
-            className="px-2.5 py-[3px] border border-accent bg-accent text-accent-fg text-[11px] cursor-pointer shrink-0 hover:bg-accent-hover hover:border-accent-hover"
-            onClick={() => setAddDirOpen(true)}
+            className="px-2.5 py-[3px] border border-border bg-surface text-muted text-[11px] cursor-pointer shrink-0 hover:text-txt hover:bg-bg-hover"
+            onClick={handleResetOrder}
+            title="Reset to default sort order"
           >
-            + Add Plugin
+            Reset Order
           </button>
         )}
+
+        {/* Add plugin button */}
+        <button
+          type="button"
+          className="px-2.5 py-[3px] border border-accent bg-accent text-accent-fg text-[11px] cursor-pointer shrink-0 hover:bg-accent-hover hover:border-accent-hover"
+          onClick={() => setAddDirOpen(true)}
+        >
+          + Add Plugin
+        </button>
       </div>
 
-      {/* Plugin list */}
+      {/* Plugin grid */}
       <div className="overflow-y-auto">
         {sorted.length === 0 ? (
           <div className="text-center py-10 px-5 text-muted border border-dashed border-border">
             {pluginSearch ? `No ${label.toLowerCase()} match your search.` : `No ${label.toLowerCase()} available.`}
           </div>
-        ) : (
-          <div className="flex flex-col gap-[1px]">
-            {sorted.map((p: PluginInfo) => renderCard(p))}
+        ) : pluginFilter === "all" ? (
+          /* Grouped by sub-group with section headers */
+          <div className="flex flex-col gap-5">
+            {SUBGROUP_DISPLAY_ORDER.map((sg) => {
+              const sgPlugins = groupedBySubgroup[sg];
+              if (!sgPlugins?.length) return null;
+              return (
+                <div key={sg}>
+                  <div className="text-xs uppercase tracking-wider text-muted font-semibold mb-2 flex items-center gap-2">
+                    {SUBGROUP_LABELS[sg]}
+                    <span className="text-[10px] font-mono opacity-60">({sgPlugins.length})</span>
+                  </div>
+                  {renderPluginGrid(sgPlugins)}
+                </div>
+              );
+            })}
           </div>
+        ) : pluginFilter === "feature" ? (
+          /* Feature filter: show sub-grouped */
+          <div className="flex flex-col gap-5">
+            {SUBGROUP_DISPLAY_ORDER.map((sg) => {
+              if (sg === "ai-provider" || sg === "connector") return null;
+              const sgPlugins = groupedBySubgroup[sg];
+              if (!sgPlugins?.length) return null;
+              return (
+                <div key={sg}>
+                  <div className="text-xs uppercase tracking-wider text-muted font-semibold mb-2 flex items-center gap-2">
+                    {SUBGROUP_LABELS[sg]}
+                    <span className="text-[10px] font-mono opacity-60">({sgPlugins.length})</span>
+                  </div>
+                  {renderPluginGrid(sgPlugins)}
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          /* Single grid for ai-provider / connector filter */
+          renderPluginGrid(sorted)
         )}
       </div>
+
+      {/* Settings dialog */}
+      {settingsDialogPlugin && (() => {
+        const p = settingsDialogPlugin;
+        const isShowcase = p.id === "__ui-showcase__";
+        const isSaving = pluginSaving.has(p.id);
+        const saveSuccess = pluginSaveSuccess.has(p.id);
+        const categoryLabel = isShowcase ? "showcase" : p.category === "ai-provider" ? "ai provider" : p.category;
+        return (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) toggleSettings(p.id);
+            }}
+          >
+            <div className="w-full max-w-2xl max-h-[85vh] border border-border bg-card shadow-lg flex flex-col overflow-hidden">
+              {/* Dialog header */}
+              <div className="flex items-center gap-3 px-5 py-3 border-b border-border shrink-0">
+                <span className="font-bold text-sm flex items-center gap-1.5 flex-1 min-w-0">
+                  {(() => {
+                    const icon = resolveIcon(p);
+                    if (!icon) return null;
+                    return icon.startsWith("http") ? (
+                      <img src={icon} alt="" className="w-4 h-4 rounded-sm object-cover" loading="lazy" />
+                    ) : (
+                      <span className="text-sm">{icon}</span>
+                    );
+                  })()}
+                  {p.name}
+                </span>
+                <span className="text-[10px] px-1.5 py-px border border-border bg-surface text-muted lowercase tracking-wide">
+                  {categoryLabel}
+                </span>
+                {p.version && (
+                  <span className="text-[10px] font-mono text-muted opacity-70">v{p.version}</span>
+                )}
+                {isShowcase && (
+                  <span className="text-[10px] font-bold tracking-wider px-2.5 py-[2px] border border-accent text-accent bg-accent-subtle">
+                    DEMO
+                  </span>
+                )}
+                <button
+                  className="text-muted hover:text-txt text-lg leading-none px-1 cursor-pointer"
+                  onClick={() => toggleSettings(p.id)}
+                >
+                  &times;
+                </button>
+              </div>
+
+              {/* Dialog body — scrollable */}
+              <div className="overflow-y-auto flex-1">
+                {/* Plugin details */}
+                <div className="px-5 pt-4 pb-1 flex items-center gap-3 flex-wrap text-xs text-muted">
+                  {p.description && (
+                    <span className="text-[12px] text-muted leading-relaxed">{p.description}</span>
+                  )}
+                </div>
+                {(p.npmName || (p.pluginDeps && p.pluginDeps.length > 0)) && (
+                  <div className="px-5 pb-2 flex items-center gap-3 flex-wrap">
+                    {p.npmName && (
+                      <span className="font-mono text-[10px] text-muted opacity-50">{p.npmName}</span>
+                    )}
+                    {p.pluginDeps && p.pluginDeps.length > 0 && (
+                      <span className="flex items-center gap-1 flex-wrap">
+                        <span className="text-[10px] text-muted opacity-60">depends on:</span>
+                        {p.pluginDeps.map((dep: string) => (
+                          <span
+                            key={dep}
+                            className="text-[10px] px-1.5 py-px border border-border bg-accent-subtle text-muted rounded-sm"
+                          >
+                            {dep}
+                          </span>
+                        ))}
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                <div className="px-5 py-3">
+                  <PluginConfigForm
+                    plugin={p}
+                    pluginConfigs={pluginConfigs}
+                    onParamChange={handleParamChange}
+                  />
+                </div>
+              </div>
+
+              {/* Dialog footer — actions (hidden for showcase) */}
+              {!isShowcase && (
+                <div className="flex justify-end gap-2.5 px-5 py-3 border-t border-border shrink-0">
+                  {p.enabled && (
+                    <button
+                      type="button"
+                      className={`px-3 py-1.5 text-[11px] border rounded-sm transition-colors ${
+                        testResults.get(p.id)?.loading
+                          ? "border-[var(--border)] text-[var(--muted)] cursor-wait"
+                          : testResults.get(p.id)?.success
+                            ? "border-[var(--ok)] text-[var(--ok)] bg-[color-mix(in_srgb,var(--ok)_5%,transparent)]"
+                            : testResults.get(p.id)?.error
+                              ? "border-[var(--destructive)] text-[var(--destructive)]"
+                              : "border-[var(--border)] text-[var(--muted)] hover:border-[var(--accent)] hover:text-[var(--accent)] cursor-pointer"
+                      }`}
+                      disabled={testResults.get(p.id)?.loading}
+                      onClick={() => handleTestConnection(p.id)}
+                    >
+                      {testResults.get(p.id)?.loading
+                        ? "Testing..."
+                        : testResults.get(p.id)?.success
+                          ? `\u2713 OK (${testResults.get(p.id)?.durationMs}ms)`
+                          : testResults.get(p.id)?.error
+                            ? `\u2715 ${testResults.get(p.id)?.error}`
+                            : "Test Connection"}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="bg-transparent border border-border text-muted cursor-pointer text-[12px] px-4 py-1.5 rounded-sm hover:text-txt hover:bg-bg-hover transition-colors"
+                    onClick={() => handleConfigReset(p.id)}
+                  >
+                    Reset
+                  </button>
+                  <button
+                    type="button"
+                    className={`text-[12px] px-5 py-1.5 cursor-pointer border rounded-sm transition-all duration-200 font-medium ${
+                      saveSuccess
+                        ? "!bg-ok !text-white !border-ok"
+                        : "bg-accent text-accent-fg border-accent hover:bg-accent-hover hover:shadow-sm"
+                    }`}
+                    onClick={() => handleConfigSave(p.id)}
+                    disabled={isSaving}
+                  >
+                    {isSaving ? "Saving..." : saveSuccess ? "\u2713 Saved" : "Save Settings"}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Add from directory modal */}
       {addDirOpen && (
@@ -815,5 +1547,10 @@ export function FeaturesView() {
 /** Connectors view — shows "connector" category plugins. */
 export function ConnectorsView() {
   return <PluginListView category="connector" label="Connectors" />;
+}
+
+/** Base plugins view — shows always-on / core plugins with the same config UI. */
+export function BasePluginsView() {
+  return <PluginListView baseOnly label="Plugins" />;
 }
 

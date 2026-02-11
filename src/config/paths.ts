@@ -62,6 +62,17 @@ export function resolveDefaultConfigCandidates(
 
 const OAUTH_FILENAME = "oauth.json";
 
+/**
+ * Directory for per-provider model cache files.
+ * Each provider gets its own file: `~/.milaidy/models/<providerId>.json`
+ */
+export function resolveModelsCacheDir(
+  env: NodeJS.ProcessEnv = process.env,
+  stateDirPath: string = resolveStateDir(env, os.homedir),
+): string {
+  return path.join(stateDirPath, "models");
+}
+
 export function resolveOAuthDir(
   env: NodeJS.ProcessEnv = process.env,
   stateDirPath: string = resolveStateDir(env, os.homedir),

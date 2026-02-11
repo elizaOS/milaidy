@@ -68,15 +68,14 @@ export function CommandPalette() {
     // Navigation commands
     commands.push(
       { id: "nav-chat", label: "Open Chat", action: () => setTab("chat") },
-      { id: "nav-features", label: "Open Features", action: () => setTab("features") },
-      { id: "nav-connectors", label: "Open Connectors", action: () => setTab("connectors") },
-      { id: "nav-skills", label: "Open Skills", action: () => setTab("skills") },
-      { id: "nav-fine-tuning", label: "Open Fine-Tuning", action: () => setTab("fine_tuning") },
-      { id: "nav-character", label: "Open Character", action: () => setTab("character") },
+      { id: "nav-apps", label: "Open Apps", action: () => setTab("apps") },
+      { id: "nav-game", label: "Open Game", action: () => setTab("game") },
+      { id: "nav-agent", label: "Open Agent", action: () => setTab("agent") },
+      { id: "nav-plugins", label: "Open Plugins", action: () => setTab("plugins") },
       { id: "nav-config", label: "Open Config", action: () => setTab("config") },
-      { id: "nav-admin", label: "Open Admin", action: () => setTab("admin") },
-      { id: "nav-inventory", label: "Open Inventory", action: () => setTab("inventory") },
-      { id: "nav-apps", label: "Open Apps", action: () => setTab("apps") }
+      { id: "nav-database", label: "Open Database", action: () => setTab("database") },
+      { id: "nav-settings", label: "Open Settings", action: () => setTab("settings") },
+      { id: "nav-logs", label: "Open Logs", action: () => setTab("logs") }
     );
 
     // Refresh commands
@@ -104,6 +103,7 @@ export function CommandPalette() {
     handlePauseResume,
     handleRestart,
     setTab,
+    setState,
     handleChatClear,
     loadPlugins,
     loadSkills,
