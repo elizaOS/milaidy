@@ -155,6 +155,31 @@ const CHANNEL_ENV_MAP: Readonly<
 export { CORE_PLUGINS, OPTIONAL_CORE_PLUGINS };
 
 /**
+ * Security blocklist for plugins that are temporarily disabled due to known
+ * high-severity vulnerabilities in their dependency chain.
+ *
+ * NOTE: Keep entries minimal and remove once upstream ships patched versions.
+ */
+const SECURITY_BLOCKED_PLUGINS: Readonly<Record<string, string>> = {
+  "@elizaos/plugin-pdf":
+    "Temporarily disabled: vulnerable pdfjs-dist chain (GHSA-wgrm-67xf-hhpq).",
+};
+
+export function getSecurityBlockedPluginReason(
+  pluginName: string,
+): string | null {
+  return SECURITY_BLOCKED_PLUGINS[pluginName] ?? null;
+}
+
+function applySecurityPluginBlocklist(pluginsToLoad: Set<string>): void {
+  for (const [pluginName, reason] of Object.entries(SECURITY_BLOCKED_PLUGINS)) {
+    if (pluginsToLoad.delete(pluginName)) {
+      logger.warn(`[milaidy] Blocking plugin ${pluginName}: ${reason}`);
+    }
+  }
+}
+
+/**
  * Optional plugins that require native binaries or specific config.
  * These are only loaded when explicitly enabled via features config,
  * NOT by default — they crash if their prerequisites are missing.
@@ -271,6 +296,7 @@ export function collectPluginNames(config: MilaidyConfig): Set<string> {
         names.delete(p);
       }
     }
+    applySecurityPluginBlocklist(names);
     return names;
   }
 
@@ -361,6 +387,7 @@ export function collectPluginNames(config: MilaidyConfig): Set<string> {
     }
   }
 
+  applySecurityPluginBlocklist(pluginsToLoad);
   return pluginsToLoad;
 }
 

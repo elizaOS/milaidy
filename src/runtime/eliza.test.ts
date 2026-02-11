@@ -19,6 +19,7 @@ import {
   buildCharacterFromConfig,
   CUSTOM_PLUGINS_DIRNAME,
   collectPluginNames,
+  getSecurityBlockedPluginReason,
   mergeDropInPlugins,
   resolvePackageEntry,
   resolvePrimaryModel,
@@ -147,6 +148,20 @@ describe("collectPluginNames", () => {
     } as unknown as MilaidyConfig;
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-telegram")).toBe(false);
+  });
+
+  it("blocks @elizaos/plugin-pdf even when explicitly allow-listed", () => {
+    const config = {
+      plugins: { allow: ["@elizaos/plugin-pdf"] },
+    } as unknown as MilaidyConfig;
+    const names = collectPluginNames(config);
+    expect(names.has("@elizaos/plugin-pdf")).toBe(false);
+    expect(names.has("@elizaos/plugin-sql")).toBe(true);
+  });
+
+  it("provides a block reason for @elizaos/plugin-pdf", () => {
+    const reason = getSecurityBlockedPluginReason("@elizaos/plugin-pdf");
+    expect(reason).toContain("pdfjs-dist");
   });
 
   it("adds ElizaCloud plugin when cloud is enabled in config", () => {

@@ -5787,6 +5787,25 @@ async function handleRequest(
     );
     if (!body || !body.npmName) return;
 
+    const {
+      CORE_PLUGINS,
+      OPTIONAL_CORE_PLUGINS,
+      getSecurityBlockedPluginReason,
+    } = await import(
+      "../runtime/eliza.js"
+    );
+
+    if (body.enabled) {
+      const blockedReason = getSecurityBlockedPluginReason(body.npmName);
+      if (blockedReason) {
+        error(
+          res,
+          `Plugin is temporarily disabled for security reasons: ${blockedReason}`,
+          409,
+        );
+        return;
+      }
+    }
     // Only allow toggling optional plugins, not core
     const isCorePlugin = (CORE_PLUGINS as readonly string[]).includes(
       body.npmName,
