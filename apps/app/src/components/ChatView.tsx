@@ -6,69 +6,65 @@
  * Input row at bottom with mic + textarea + send button.
  */
 
-import { useRef, useEffect, useCallback, useState } from "react";
-import { useApp } from "../AppContext.js";
+import {
+  useRef,
+  useEffect,
+  useCallback,
+  useState,
+  type KeyboardEvent,
+  type ReactNode,
+} from "react";
+import { getVrmPreviewUrl, useApp } from "../AppContext.js";
 import { ChatAvatar } from "./ChatAvatar.js";
 import { useVoiceChat } from "../hooks/useVoiceChat.js";
-import { client, type VoiceConfig } from "../api-client.js";
+import { client, type ConversationMode, type VoiceConfig } from "../api-client.js";
+import { MessageContent } from "./MessageContent.js";
 
-// ── Typewriter streaming component ────────────────────────────────────
-// Reveals text progressively using direct DOM manipulation (no React
-// re-renders per frame).  Speed auto-scales so streaming never takes
-// longer than ~3 seconds regardless of text length.
+function renderInlineMarkdown(line: string): ReactNode[] {
+  const nodes: ReactNode[] = [];
+  const tokenRe = /(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`)/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
 
-interface StreamingTextProps {
-  text: string;
-  onComplete?: () => void;
-  /** Called every frame so the parent can auto-scroll. */
-  onProgress?: () => void;
+  while ((match = tokenRe.exec(line)) !== null) {
+    if (match.index > lastIndex) {
+      nodes.push(line.slice(lastIndex, match.index));
+    }
+
+    const token = match[0];
+    const key = `${match.index}-${token}`;
+    if (token.startsWith("**") && token.endsWith("**")) {
+      nodes.push(<strong key={key}>{token.slice(2, -2)}</strong>);
+    } else if (token.startsWith("*") && token.endsWith("*")) {
+      nodes.push(<em key={key}>{token.slice(1, -1)}</em>);
+    } else if (token.startsWith("`") && token.endsWith("`")) {
+      nodes.push(
+        <code key={key} className="px-1 py-0.5 rounded bg-bg text-[0.95em] font-mono">
+          {token.slice(1, -1)}
+        </code>,
+      );
+    } else {
+      nodes.push(token);
+    }
+
+    lastIndex = tokenRe.lastIndex;
+  }
+
+  if (lastIndex < line.length) {
+    nodes.push(line.slice(lastIndex));
+  }
+
+  return nodes;
 }
 
-function StreamingText({ text, onComplete, onProgress }: StreamingTextProps) {
-  const spanRef = useRef<HTMLSpanElement>(null);
-  const onCompleteRef = useRef(onComplete);
-  const onProgressRef = useRef(onProgress);
-  onCompleteRef.current = onComplete;
-  onProgressRef.current = onProgress;
-
-  useEffect(() => {
-    const span = spanRef.current;
-    if (!span) return;
-
-    let current = 0;
-    let cancelled = false;
-
-    // Auto-scale: at least 4 chars/frame, but cap total duration at ~3 s
-    const MAX_DURATION_MS = 3000;
-    const framesAtMax = MAX_DURATION_MS / 16.67; // ~180 frames
-    const charsPerFrame = Math.max(4, Math.ceil(text.length / framesAtMax));
-
-    const frame = () => {
-      if (cancelled) return;
-      current = Math.min(current + charsPerFrame, text.length);
-      span.textContent = text.slice(0, current);
-      onProgressRef.current?.();
-      if (current < text.length) {
-        requestAnimationFrame(frame);
-      } else {
-        onCompleteRef.current?.();
-      }
-    };
-    requestAnimationFrame(frame);
-
-    return () => {
-      cancelled = true;
-      // On unmount / text change, show full text immediately
-      if (span) span.textContent = text;
-    };
-  }, [text]);
-
-  return (
-    <>
-      <span ref={spanRef} />
-      <span className="inline-block w-[2px] h-[1em] bg-current ml-[1px] align-text-bottom opacity-70 animate-pulse" />
-    </>
-  );
+function renderMessageText(text: string): ReactNode {
+  const lines = text.split(/\r?\n/);
+  return lines.map((line, i) => (
+    <span key={i}>
+      {renderInlineMarkdown(line)}
+      {i < lines.length - 1 ? <br /> : null}
+    </span>
+  ));
 }
 
 export function ChatView() {
@@ -76,12 +72,14 @@ export function ChatView() {
     agentStatus,
     chatInput,
     chatSending,
+    chatFirstTokenReceived,
     conversationMessages,
     handleChatSend,
+    handleChatStop,
     setState,
     droppedFiles,
     shareIngestNotice,
-    handleStart,
+    selectedVrmIndex,
   } = useApp();
 
   const messagesRef = useRef<HTMLDivElement>(null);
@@ -92,29 +90,49 @@ export function ChatView() {
     try {
       const v = localStorage.getItem("milaidy:chat:avatarVisible");
       return v === null ? true : v === "true";
-    } catch { return true; }
+    } catch {
+      return true;
+    }
   });
   const [agentVoiceMuted, setAgentVoiceMuted] = useState(() => {
     try {
       const v = localStorage.getItem("milaidy:chat:voiceMuted");
       return v === null ? true : v === "true"; // muted by default
-    } catch { return true; }
+    } catch {
+      return true;
+    }
+  });
+  const [chatMode, setChatMode] = useState<ConversationMode>(() => {
+    try {
+      const v = localStorage.getItem("milaidy:chat:mode");
+      return v === "power" ? "power" : "simple";
+    } catch {
+      return "simple";
+    }
   });
 
   // Persist toggle changes
   useEffect(() => {
-    try { localStorage.setItem("milaidy:chat:avatarVisible", String(avatarVisible)); } catch { /* ignore */ }
+    try {
+      localStorage.setItem("milaidy:chat:avatarVisible", String(avatarVisible));
+    } catch {
+      /* ignore */
+    }
   }, [avatarVisible]);
   useEffect(() => {
-    try { localStorage.setItem("milaidy:chat:voiceMuted", String(agentVoiceMuted)); } catch { /* ignore */ }
+    try {
+      localStorage.setItem("milaidy:chat:voiceMuted", String(agentVoiceMuted));
+    } catch {
+      /* ignore */
+    }
   }, [agentVoiceMuted]);
-
-  // ── Streaming text reveal ──────────────────────────────────────────
-  // Tracks the ID of the message currently being "streamed in" via
-  // typewriter.  Set during render (React bail-out) so the very first
-  // frame already renders StreamingText — no flash.
-  const [streamingMsgId, setStreamingMsgId] = useState<string | null>(null);
-  const lastStreamedIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    try {
+      localStorage.setItem("milaidy:chat:mode", chatMode);
+    } catch {
+      /* ignore */
+    }
+  }, [chatMode]);
 
   // ── Voice config (ElevenLabs / browser TTS) ────────────────────────
   const [voiceConfig, setVoiceConfig] = useState<VoiceConfig | null>(null);
@@ -124,10 +142,14 @@ export function ChatView() {
     void (async () => {
       try {
         const cfg = await client.getConfig();
-        const messages = cfg.messages as Record<string, Record<string, unknown>> | undefined;
+        const messages = cfg.messages as
+          | Record<string, Record<string, string>>
+          | undefined;
         const tts = messages?.tts as VoiceConfig | undefined;
         if (tts) setVoiceConfig(tts);
-      } catch { /* ignore — will use browser TTS fallback */ }
+      } catch {
+        /* ignore — will use browser TTS fallback */
+      }
     })();
   }, []);
 
@@ -136,69 +158,44 @@ export function ChatView() {
     (text: string) => {
       if (chatSending) return;
       setState("chatInput", text);
-      setTimeout(() => void handleChatSend(), 50);
+      setTimeout(() => void handleChatSend(chatMode), 50);
     },
-    [chatSending, setState, handleChatSend],
+    [chatMode, chatSending, setState, handleChatSend],
   );
 
   const voice = useVoiceChat({ onTranscript: handleVoiceTranscript, voiceConfig });
 
-  // ── Detect new assistant messages ────────────────────────────────
-  const lastMsg = conversationMessages.length > 0
-    ? conversationMessages[conversationMessages.length - 1]
-    : null;
-
-  // Initialise refs to the current last assistant message so we don't
-  // replay old history or re-stream on mount.
-  const lastSpokenIdRef = useRef<string | null>(
-    lastMsg?.role === "assistant" ? lastMsg.id : null,
-  );
-  if (lastStreamedIdRef.current === null && lastMsg?.role === "assistant") {
-    lastStreamedIdRef.current = lastMsg.id;
-  }
-
-  // When a new assistant message appears:
-  // 1. Start typewriter streaming (text appears progressively)
-  // 2. Start voice immediately in parallel (full text, non-blocking)
-  if (
-    lastMsg &&
-    lastMsg.role === "assistant" &&
-    lastMsg.id !== lastStreamedIdRef.current &&
-    !chatSending
-  ) {
-    lastStreamedIdRef.current = lastMsg.id;
-
-    // Start typewriter — React bails out of this render and immediately
-    // re-renders with the new streamingMsgId, so the first visible frame
-    // already shows StreamingText (no flash of full text).
-    if (streamingMsgId !== lastMsg.id) {
-      setStreamingMsgId(lastMsg.id);
-    }
-
-    // Start voice (independently of typewriter)
-    if (lastMsg.id !== lastSpokenIdRef.current && !agentVoiceMuted) {
-      lastSpokenIdRef.current = lastMsg.id;
-      voice.speak(lastMsg.text);
-    }
-  }
-
-  const handleStreamComplete = useCallback(() => {
-    setStreamingMsgId(null);
-  }, []);
-
-  const handleStreamProgress = useCallback(() => {
-    const el = messagesRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, []);
-
   const agentName = agentStatus?.agentName ?? "Agent";
-  const agentState = agentStatus?.state ?? "not_started";
   const msgs = conversationMessages;
+  const visibleMsgs = msgs.filter(
+    (msg) =>
+      !(
+        chatSending &&
+        !chatFirstTokenReceived &&
+        msg.role === "assistant" &&
+        !msg.text.trim()
+      ),
+  );
+  const agentAvatarSrc = selectedVrmIndex > 0 ? getVrmPreviewUrl(selectedVrmIndex) : null;
+  const agentInitial = agentName.trim().charAt(0).toUpperCase() || "A";
 
-  // Scroll to bottom when messages change
+  const lastSpokenIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const lastAssistant = [...msgs]
+      .reverse()
+      .find((message) => message.role === "assistant" && message.text.trim());
+    if (!lastAssistant || chatSending || agentVoiceMuted) return;
+    if (lastAssistant.id === lastSpokenIdRef.current) return;
+    lastSpokenIdRef.current = lastAssistant.id;
+    voice.speak(lastAssistant.text);
+  }, [msgs, chatSending, agentVoiceMuted, voice]);
+
+  // Smooth auto-scroll while streaming and on new messages.
   useEffect(() => {
     const el = messagesRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
   }, [conversationMessages, chatSending]);
 
   // Auto-resize textarea
@@ -212,35 +209,21 @@ export function ChatView() {
     ta.style.overflowY = ta.scrollHeight > 200 ? "auto" : "hidden";
   }, [chatInput]);
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+  // Keep input focused for fast multi-turn chat.
+  useEffect(() => {
+    if (chatSending) return;
+    textareaRef.current?.focus();
+  }, [chatSending]);
+
+  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      void handleChatSend();
+      void handleChatSend(chatMode);
     }
   };
 
-  // Agent not running: show start box
-  if (agentState === "not_started" || agentState === "stopped") {
-    return (
-      <div className="flex flex-col flex-1 min-h-0 px-5">
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="text-lg font-normal text-txt-strong m-0">Chat</h2>
-        </div>
-        <div className="text-center py-10 px-10 border border-border mt-5">
-          <p className="text-muted mb-4">Agent is not running. Start it to begin chatting.</p>
-          <button
-            className="px-6 py-2 border border-accent bg-accent text-accent-fg text-sm cursor-pointer hover:bg-accent-hover"
-            onClick={handleStart}
-          >
-            Start Agent
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="flex flex-col flex-1 min-h-0 px-5 relative">
+    <div className="flex flex-col flex-1 min-h-0 px-3 relative">
       {/* 3D Avatar — behind chat on the right side */}
       {/* When using ElevenLabs audio analysis, mouthOpen carries real volume
           data — don't pass isSpeaking so the engine uses the external values
@@ -254,48 +237,89 @@ export function ChatView() {
 
       {/* ── Messages ───────────────────────────────────────────────── */}
       <div ref={messagesRef} className="flex-1 overflow-y-auto py-2 relative" style={{ zIndex: 1 }}>
-        {msgs.length === 0 && !chatSending ? (
+        {visibleMsgs.length === 0 && !chatSending ? (
           <div className="text-center py-10 text-muted italic">
             Send a message to start chatting.
           </div>
         ) : (
-          msgs.map((msg) => (
-            <div
-              key={msg.id}
-              className="mb-4 leading-relaxed max-w-[65%]"
-              data-testid="chat-message"
-              data-role={msg.role}
-            >
-              <div
-                className={`font-bold text-[13px] mb-0.5 ${
-                  msg.role === "user" ? "text-txt-strong" : "text-accent"
-                }`}
-              >
-                {msg.role === "user" ? "You" : agentName}
-              </div>
-              <div className="text-txt">
-                {msg.id === streamingMsgId ? (
-                  <StreamingText
-                    text={msg.text}
-                    onComplete={handleStreamComplete}
-                    onProgress={handleStreamProgress}
-                  />
-                ) : (
-                  msg.text
-                )}
-              </div>
-            </div>
-          ))
-        )}
+          <div className="w-full px-0">
+            {visibleMsgs.map((msg, i) => {
+              const prev = i > 0 ? visibleMsgs[i - 1] : null;
+              const grouped = prev?.role === msg.role;
+              const isUser = msg.role === "user";
 
-        {chatSending && (
-          <div className="mb-4 leading-relaxed">
-            <div className="font-bold text-[13px] mb-0.5 text-accent">{agentName}</div>
-            <div className="flex gap-1 py-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-muted-strong animate-[typing-bounce_1.2s_ease-in-out_infinite]" />
-              <span className="w-1.5 h-1.5 rounded-full bg-muted-strong animate-[typing-bounce_1.2s_ease-in-out_infinite_0.2s]" />
-              <span className="w-1.5 h-1.5 rounded-full bg-muted-strong animate-[typing-bounce_1.2s_ease-in-out_infinite_0.4s]" />
-            </div>
+              return (
+                <div
+                  key={msg.id}
+                  className={`flex items-start gap-2 ${isUser ? "justify-end" : "justify-start"} ${grouped ? "mt-1" : "mt-3"}`}
+                  data-testid="chat-message"
+                  data-role={msg.role}
+                >
+                  {!isUser &&
+                    (grouped ? (
+                      <div className="w-7 h-7 shrink-0" aria-hidden />
+                    ) : (
+                      <div className="w-7 h-7 shrink-0 rounded-full overflow-hidden border border-border bg-bg-hover">
+                        {agentAvatarSrc ? (
+                          <img
+                            src={agentAvatarSrc}
+                            alt={`${agentName} avatar`}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-[11px] font-bold text-muted">
+                            {agentInitial}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  <div
+                    className="max-w-[85%] px-0 py-1 text-sm leading-relaxed whitespace-pre-wrap break-words"
+                  >
+                    {!grouped && (
+                      <div className="font-bold text-[12px] mb-1 text-accent">
+                        {isUser ? "You" : agentName}
+                        {!isUser &&
+                          typeof msg.source === "string" &&
+                          msg.source &&
+                          msg.source !== "client_chat" && (
+                            <span className="ml-1.5 text-[10px] font-normal text-muted">
+                              via {msg.source}
+                            </span>
+                          )}
+                      </div>
+                    )}
+                    <div><MessageContent message={msg} /></div>
+                  </div>
+                </div>
+              );
+            })}
+
+            {chatSending && !chatFirstTokenReceived && (
+              <div className="mt-3 flex items-start gap-2 justify-start">
+                <div className="w-7 h-7 shrink-0 rounded-full overflow-hidden border border-border bg-bg-hover">
+                  {agentAvatarSrc ? (
+                    <img
+                      src={agentAvatarSrc}
+                      alt={`${agentName} avatar`}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-[11px] font-bold text-muted">
+                      {agentInitial}
+                    </div>
+                  )}
+                </div>
+                <div className="max-w-[85%] px-0 py-1 text-sm leading-relaxed">
+                  <div className="font-bold text-[12px] mb-1 text-accent">{agentName}</div>
+                  <div className="flex gap-1 py-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-muted-strong animate-[typing-bounce_1.2s_ease-in-out_infinite]" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-muted-strong animate-[typing-bounce_1.2s_ease-in-out_infinite_0.2s]" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-muted-strong animate-[typing-bounce_1.2s_ease-in-out_infinite_0.4s]" />
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -315,51 +339,85 @@ export function ChatView() {
       )}
 
       {/* ── Avatar / voice toggles ────────────────────────────────── */}
-      <div className="flex justify-end gap-1.5 pb-1.5 relative" style={{ zIndex: 1 }}>
-        {/* Show / hide avatar */}
-        <button
-          className={`w-7 h-7 flex items-center justify-center border rounded cursor-pointer transition-all bg-card ${
-            avatarVisible
-              ? "border-accent text-accent"
-              : "border-border text-muted hover:border-accent hover:text-accent"
-          }`}
-          onClick={() => setAvatarVisible((v) => !v)}
-          title={avatarVisible ? "Hide avatar" : "Show avatar"}
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-            <circle cx="12" cy="7" r="4" />
-            {!avatarVisible && <line x1="3" y1="3" x2="21" y2="21" />}
-          </svg>
-        </button>
+      <div
+        className="flex items-center justify-between gap-2 pb-1.5 relative"
+        style={{ zIndex: 1 }}
+      >
+        <div className="flex items-center gap-1">
+          <span className="text-[11px] text-muted uppercase tracking-wide">
+            Mode
+          </span>
+          <button
+            className={`px-2 py-1 text-xs border rounded cursor-pointer transition-all ${
+              chatMode === "simple"
+                ? "border-accent text-accent bg-card"
+                : "border-border text-muted bg-card hover:border-accent hover:text-accent"
+            }`}
+            onClick={() => setChatMode("simple")}
+            title="Simple mode: reply only, no tools"
+            disabled={chatSending}
+          >
+            Simple
+          </button>
+          <button
+            className={`px-2 py-1 text-xs border rounded cursor-pointer transition-all ${
+              chatMode === "power"
+                ? "border-accent text-accent bg-card"
+                : "border-border text-muted bg-card hover:border-accent hover:text-accent"
+            }`}
+            onClick={() => setChatMode("power")}
+            title="Power mode: tools/actions allowed"
+            disabled={chatSending}
+          >
+            Power
+          </button>
+        </div>
+        <div className="flex gap-1.5">
+          {/* Show / hide avatar */}
+          <button
+            className={`w-7 h-7 flex items-center justify-center border rounded cursor-pointer transition-all bg-card ${
+              avatarVisible
+                ? "border-accent text-accent"
+                : "border-border text-muted hover:border-accent hover:text-accent"
+            }`}
+            onClick={() => setAvatarVisible((v) => !v)}
+            title={avatarVisible ? "Hide avatar" : "Show avatar"}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+              <circle cx="12" cy="7" r="4" />
+              {!avatarVisible && <line x1="3" y1="3" x2="21" y2="21" />}
+            </svg>
+          </button>
 
-        {/* Mute / unmute agent voice */}
-        <button
-          className={`w-7 h-7 flex items-center justify-center border rounded cursor-pointer transition-all bg-card ${
-            agentVoiceMuted
-              ? "border-border text-muted hover:border-accent hover:text-accent"
-              : "border-accent text-accent"
-          }`}
-          onClick={() => {
-            const muting = !agentVoiceMuted;
-            setAgentVoiceMuted(muting);
-            if (muting) voice.stopSpeaking();
-          }}
-          title={agentVoiceMuted ? "Unmute agent voice" : "Mute agent voice"}
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-            {agentVoiceMuted ? (
-              <line x1="23" y1="9" x2="17" y2="15" />
-            ) : (
-              <>
-                <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
-                <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
-              </>
-            )}
-            {agentVoiceMuted && <line x1="17" y1="9" x2="23" y2="15" />}
-          </svg>
-        </button>
+          {/* Mute / unmute agent voice */}
+          <button
+            className={`w-7 h-7 flex items-center justify-center border rounded cursor-pointer transition-all bg-card ${
+              agentVoiceMuted
+                ? "border-border text-muted hover:border-accent hover:text-accent"
+                : "border-accent text-accent"
+            }`}
+            onClick={() => {
+              const muting = !agentVoiceMuted;
+              setAgentVoiceMuted(muting);
+              if (muting) voice.stopSpeaking();
+            }}
+            title={agentVoiceMuted ? "Unmute agent voice" : "Mute agent voice"}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+              {agentVoiceMuted ? (
+                <line x1="23" y1="9" x2="17" y2="15" />
+              ) : (
+                <>
+                  <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+                  <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+                </>
+              )}
+              {agentVoiceMuted && <line x1="17" y1="9" x2="23" y2="15" />}
+            </svg>
+          </button>
+        </div>
       </div>
 
       {/* ── Input row: mic + textarea + send ───────────────────────── */}
@@ -411,22 +469,30 @@ export function ChatView() {
           />
         )}
 
-        {/* Send (or Stop if agent is speaking) */}
-        {voice.isSpeaking ? (
+        {/* Send / Stop */}
+        {chatSending ? (
+          <button
+            className="h-[38px] px-4 py-2 border border-danger bg-danger/10 text-danger text-sm cursor-pointer hover:bg-danger/20 self-end"
+            onClick={handleChatStop}
+            title="Stop generation"
+          >
+            Stop
+          </button>
+        ) : voice.isSpeaking ? (
           <button
             className="h-[38px] px-4 py-2 border border-danger bg-danger/10 text-danger text-sm cursor-pointer hover:bg-danger/20 self-end"
             onClick={voice.stopSpeaking}
             title="Stop speaking"
           >
-            Stop
+            Stop Voice
           </button>
         ) : (
           <button
             className="h-[38px] px-6 py-2 border border-accent bg-accent text-accent-fg text-sm cursor-pointer hover:bg-accent-hover disabled:opacity-40 disabled:cursor-not-allowed self-end"
-            onClick={handleChatSend}
+            onClick={() => void handleChatSend(chatMode)}
             disabled={chatSending}
           >
-            {chatSending ? "..." : "Send"}
+            Send
           </button>
         )}
       </div>

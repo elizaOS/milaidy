@@ -1,0 +1,22 @@
+{
+  "name": "@elizaos/plugin-ui",
+  "version": "2.0.0-alpha.1",
+  "description": "Plugin UI SDK — schema-driven config renderers and field components for ElizaOS plugins",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./types": "./src/types.ts"
+  },
+  "files": [
+    "src",
+    "README.md"
+  ],
+  "peerDependencies": {
+    "react": ">=18.0.0",
+    "zod": ">=3.0.0"
+  },
+  "license": "MIT"
+}

@@ -90,6 +90,10 @@ const FEATURE_PLUGINS: Record<string, string> = {
   experience: "@elizaos/plugin-experience",
   form: "@elizaos/plugin-form",
   x402: "@elizaos/plugin-x402",
+  // Media generation plugins
+  fal: "@elizaos/plugin-fal",
+  suno: "@elizaos/plugin-suno",
+  vision: "@elizaos/plugin-vision",
 };
 
 function isConnectorConfigured(
@@ -256,6 +260,78 @@ export function applyPluginAutoEnable(
           gmailPlugin.replace("@elizaos/plugin-", ""),
           changes,
           "hooks.gmail.account",
+        );
+      }
+    }
+  }
+
+  // Media generation plugins
+  const mediaConfig = updatedConfig.media;
+  if (mediaConfig) {
+    // Image generation - FAL provider
+    if (
+      mediaConfig.image?.enabled !== false &&
+      mediaConfig.image?.mode === "own-key" &&
+      mediaConfig.image?.provider === "fal"
+    ) {
+      const falPlugin = FEATURE_PLUGINS.fal;
+      if (falPlugin) {
+        addToAllowlist(
+          pluginsConfig.allow,
+          falPlugin,
+          "fal",
+          changes,
+          "media.image.provider=fal",
+        );
+      }
+    }
+
+    // Video generation - FAL provider
+    if (
+      mediaConfig.video?.enabled !== false &&
+      mediaConfig.video?.mode === "own-key" &&
+      mediaConfig.video?.provider === "fal"
+    ) {
+      const falPlugin = FEATURE_PLUGINS.fal;
+      if (falPlugin) {
+        addToAllowlist(
+          pluginsConfig.allow,
+          falPlugin,
+          "fal",
+          changes,
+          "media.video.provider=fal",
+        );
+      }
+    }
+
+    // Audio/Music generation - Suno provider
+    if (
+      mediaConfig.audio?.enabled !== false &&
+      mediaConfig.audio?.mode === "own-key" &&
+      mediaConfig.audio?.provider === "suno"
+    ) {
+      const sunoPlugin = FEATURE_PLUGINS.suno;
+      if (sunoPlugin) {
+        addToAllowlist(
+          pluginsConfig.allow,
+          sunoPlugin,
+          "suno",
+          changes,
+          "media.audio.provider=suno",
+        );
+      }
+    }
+
+    // Vision - enable vision plugin when configured
+    if (mediaConfig.vision?.enabled !== false && mediaConfig.vision?.provider) {
+      const visionPlugin = FEATURE_PLUGINS.vision;
+      if (visionPlugin) {
+        addToAllowlist(
+          pluginsConfig.allow,
+          visionPlugin,
+          "vision",
+          changes,
+          `media.vision.provider=${mediaConfig.vision.provider}`,
         );
       }
     }

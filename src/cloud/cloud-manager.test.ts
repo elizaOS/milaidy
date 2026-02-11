@@ -57,6 +57,12 @@ vi.mock("./reconnect.js", () => {
   };
 });
 
+vi.mock("./validate-url.js", () => {
+  return {
+    validateCloudBaseUrl: vi.fn().mockResolvedValue(null),
+  };
+});
+
 import type { CloudConfig } from "../config/types.milaidy.js";
 import { CloudManager } from "./cloud-manager.js";
 
@@ -75,40 +81,42 @@ function cfg(overrides: Partial<CloudConfig> = {}): CloudConfig {
 
 describe("CloudManager", () => {
   describe("init", () => {
-    it("creates client from config", () => {
+    it("creates client from config", async () => {
       const mgr = new CloudManager(cfg());
-      mgr.init();
+      await mgr.init();
       expect(mgr.getClient()).not.toBeNull();
     });
 
-    it("throws when apiKey is missing", () => {
+    it("throws when apiKey is missing", async () => {
       const mgr = new CloudManager(cfg({ apiKey: undefined }));
-      expect(() => mgr.init()).toThrow("Cloud API key is not configured");
+      await expect(mgr.init()).rejects.toThrow(
+        "Cloud API key is not configured",
+      );
     });
 
-    it("strips /api/v1 suffix from baseUrl", () => {
+    it("strips /api/v1 suffix from baseUrl", async () => {
       const mgr = new CloudManager(
         cfg({ baseUrl: "https://test.elizacloud.ai/api/v1" }),
       );
-      mgr.init();
+      await mgr.init();
       expect((mgr.getClient() as Record<string, string>)._baseUrl).toBe(
         "https://test.elizacloud.ai",
       );
     });
 
-    it("strips trailing slashes", () => {
+    it("strips trailing slashes", async () => {
       const mgr = new CloudManager(
         cfg({ baseUrl: "https://test.elizacloud.ai///" }),
       );
-      mgr.init();
+      await mgr.init();
       expect((mgr.getClient() as Record<string, string>)._baseUrl).toBe(
         "https://test.elizacloud.ai",
       );
     });
 
-    it("defaults to elizacloud.ai when no baseUrl", () => {
+    it("defaults to elizacloud.ai when no baseUrl", async () => {
       const mgr = new CloudManager(cfg({ baseUrl: undefined }));
-      mgr.init();
+      await mgr.init();
       expect((mgr.getClient() as Record<string, string>)._baseUrl).toBe(
         "https://www.elizacloud.ai",
       );

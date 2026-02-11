@@ -21,7 +21,10 @@
       "!bun.lockb",
       "!skills",
       "!Swabble",
-      "!vendor"
+      "!vendor",
+      "!test/contracts/lib",
+      "!test/contracts/out",
+      "!test/contracts/cache"
     ]
   },
   "assist": {

@@ -30,19 +30,16 @@
   "win": {
     "target": "nsis",
     "icon": "assets/appIcon.ico",
-    "signingHashAlgorithms": ["sha256"],
     "azureSignOptions": {
       "endpoint": "https://eus.codesigning.azure.net/",
       "certificateProfileName": "milaidy-code-sign",
-      "codeSigningAccountName": "milaidy"
+      "codeSigningAccountName": "milaidy",
+      "publisherName": "Milady AI"
     }
   },
   "mac": {
     "category": "public.app-category.productivity",
-    "target": [
-      { "target": "dmg", "arch": ["x64", "arm64"] },
-      { "target": "zip", "arch": ["x64", "arm64"] }
-    ],
+    "target": ["dmg", "zip"],
     "icon": "assets/appIcon.png",
     "hardenedRuntime": true,
     "gatekeeperAssess": false,
@@ -51,7 +48,6 @@
     "notarize": true
   },
   "dmg": {
-    "sign": false,
     "format": "UDZO",
     "background": "assets/dmg-background.png",
     "iconSize": 80,

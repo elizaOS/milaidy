@@ -2,9 +2,9 @@ name: CI
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, develop]
   push:
-    branches: [main]
+    branches: [main, develop]
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -65,8 +65,8 @@ jobs:
 
       - run: bun install
 
-      - name: Run tests
-        run: bun run test
+      - name: Run unit tests
+        run: bunx vitest run --config vitest.unit.config.ts
 
   build:
     name: Build

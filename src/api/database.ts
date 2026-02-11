@@ -15,6 +15,7 @@
 
 import dns from "node:dns";
 import type http from "node:http";
+import net from "node:net";
 import { promisify } from "node:util";
 import { type AgentRuntime, logger } from "@elizaos/core";
 import { loadMilaidyConfig, saveMilaidyConfig } from "../config/config.js";
@@ -88,19 +89,6 @@ function errorResponse(
   jsonResponse(res, { error: message }, status);
 }
 
-function decodePathComponent(
-  raw: string,
-  res: http.ServerResponse,
-  fieldName: string,
-): string | null {
-  try {
-    return decodeURIComponent(raw);
-  } catch {
-    errorResponse(res, `Invalid ${fieldName}: malformed URL encoding`, 400);
-    return null;
-  }
-}
-
 function readBody(req: http.IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
@@ -171,6 +159,30 @@ function buildConnectionString(creds: PostgresCredentials): string {
   return `postgresql://${auth}@${host}:${port}/${database}${sslParam}`;
 }
 
+/**
+ * Return a copy of credentials with host pinned to a validated IP address.
+ * For connection strings, rewrites URL hostname to avoid re-resolution later.
+ */
+function withPinnedHost(
+  creds: PostgresCredentials,
+  pinnedHost: string,
+): PostgresCredentials {
+  const normalizedPinned = pinnedHost.replace(/^::ffff:/i, "");
+  const next: PostgresCredentials = { ...creds, host: normalizedPinned };
+  if (next.connectionString) {
+    try {
+      const parsed = new URL(next.connectionString);
+      parsed.hostname = normalizedPinned;
+      next.connectionString = parsed.toString();
+    } catch {
+      // Validation has already parsed this once, but if URL rewriting fails,
+      // force builder path to use the pinned host.
+      delete next.connectionString;
+    }
+  }
+  return next;
+}
+
 // ---------------------------------------------------------------------------
 // Host validation — prevent SSRF via database connection endpoints
 // ---------------------------------------------------------------------------
@@ -200,7 +212,7 @@ const PRIVATE_IP_PATTERNS: RegExp[] = [
   /^172\.(1[6-9]|2\d|3[01])\./, // RFC 1918 Class B
   /^192\.168\./, // RFC 1918 Class C
   /^::1$/, // IPv6 loopback
-  /^fc00:/i, // IPv6 ULA
+  /^f[cd][0-9a-f]{2}:/i, // IPv6 ULA (fc00::/7 includes fc00::–fdff::)
 ];
 
 /**
@@ -216,20 +228,90 @@ function isApiLoopbackOnly(): boolean {
   );
 }
 
+function normalizeHostLike(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/^\[|\]$/g, "");
+}
+
 /**
- * Extract the host from a Postgres connection string or credentials object.
- * Returns `null` if no host can be determined.
+ * Decode IPv6-mapped IPv4 hex notation (::ffff:7f00:1 → 127.0.0.1).
+ * Returns null if not a valid hex-encoded IPv4.
  */
-function extractHost(creds: PostgresCredentials): string | null {
+function decodeIpv6MappedHex(mapped: string): string | null {
+  const match = /^([0-9a-f]{1,4}):([0-9a-f]{1,4})$/i.exec(mapped);
+  if (!match) return null;
+  const hi = Number.parseInt(match[1], 16);
+  const lo = Number.parseInt(match[2], 16);
+  if (!Number.isFinite(hi) || !Number.isFinite(lo)) return null;
+  const octets = [hi >> 8, hi & 0xff, lo >> 8, lo & 0xff];
+  return octets.join(".");
+}
+
+/**
+ * Normalize an IP for policy checks.
+ * Strips zone ID, handles IPv6-mapped IPv4 (both dotted and hex forms).
+ */
+function normalizeIpForPolicy(ip: string): string {
+  const base = normalizeHostLike(ip).split("%")[0];
+  if (!base.startsWith("::ffff:")) return base;
+
+  const mapped = base.slice("::ffff:".length);
+  // Dotted form like ::ffff:127.0.0.1
+  if (net.isIP(mapped) === 4) return mapped;
+  // Hex form like ::ffff:7f00:1
+  return decodeIpv6MappedHex(mapped) ?? mapped;
+}
+
+/**
+ * Extract all potential hosts from a Postgres connection string or credentials object.
+ * Includes query params like ?host= and ?hostaddr= which Postgres clients honor.
+ * Returns empty array if no host can be determined.
+ */
+function extractHosts(creds: PostgresCredentials): string[] {
   if (creds.connectionString) {
     try {
       const url = new URL(creds.connectionString);
-      return url.hostname || null;
+      const hosts: string[] = [];
+
+      // PostgreSQL connection strings can have ?host= param that overrides URI hostname
+      const hostParam = url.searchParams.get("host");
+      if (hostParam) {
+        hosts.push(
+          ...hostParam
+            .split(",")
+            .map((h) => normalizeHostLike(h))
+            .filter(Boolean),
+        );
+      }
+
+      // Also check hostaddr param
+      const hostAddrParam = url.searchParams.get("hostaddr");
+      if (hostAddrParam) {
+        hosts.push(
+          ...hostAddrParam
+            .split(",")
+            .map((h) => normalizeHostLike(h))
+            .filter(Boolean),
+        );
+      }
+
+      // Include URI hostname
+      if (url.hostname) {
+        hosts.push(normalizeHostLike(url.hostname));
+      }
+
+      return [...new Set(hosts)];
     } catch {
-      return null; // Unparseable — will be rejected
+      return []; // Unparseable — will be rejected
     }
   }
-  return creds.host ?? null;
+  if (creds.host) {
+    const host = normalizeHostLike(creds.host);
+    return host ? [host] : [];
+  }
+  return [];
 }
 
 /**
@@ -237,59 +319,101 @@ function extractHost(creds: PostgresCredentials): string | null {
  * When the API is remotely reachable, private ranges are also blocked.
  */
 function isBlockedIp(ip: string): boolean {
-  if (ALWAYS_BLOCKED_IP_PATTERNS.some((p) => p.test(ip))) return true;
-  if (!isApiLoopbackOnly() && PRIVATE_IP_PATTERNS.some((p) => p.test(ip)))
+  const normalized = normalizeIpForPolicy(ip);
+  if (ALWAYS_BLOCKED_IP_PATTERNS.some((p) => p.test(normalized))) return true;
+  if (
+    !isApiLoopbackOnly() &&
+    PRIVATE_IP_PATTERNS.some((p) => p.test(normalized))
+  )
     return true;
   return false;
 }
 
 /**
- * Validate that the target host does not resolve to a blocked address.
+ * Validate that all target hosts do not resolve to blocked addresses.
  *
  * Performs DNS resolution to catch hostnames like `metadata.google.internal`
  * or `169.254.169.254.nip.io` that resolve to link-local / cloud metadata
  * IPs.  Also handles IPv6-mapped IPv4 addresses (e.g. `::ffff:169.254.x.y`).
  *
- * Returns an error message if blocked, or `null` if allowed.
+ * Returns a validation result including a pinned host IP when successful.
  */
 async function validateDbHost(
   creds: PostgresCredentials,
-): Promise<string | null> {
-  const host = extractHost(creds);
-  if (!host) {
-    return "Could not determine target host from the provided credentials.";
+  opts: { allowUnresolvedHostnames?: boolean } = {},
+): Promise<{ error: string | null; pinnedHost: string | null }> {
+  const hosts = extractHosts(creds);
+  if (hosts.length === 0) {
+    return {
+      error: "Could not determine target host from the provided credentials.",
+      pinnedHost: null,
+    };
   }
 
-  // First check the literal host string (catches raw IPs without DNS lookup)
-  if (isBlockedIp(host)) {
-    return `Connection to "${host}" is blocked: link-local and metadata addresses are not allowed.`;
-  }
+  let pinnedHost: string | null = null;
 
-  // Resolve DNS and check all resulting IPs
-  try {
-    const results = await dnsLookupAll(host, { all: true });
-    const addresses = Array.isArray(results) ? results : [results];
-    for (const entry of addresses) {
-      const ip =
-        typeof entry === "string"
-          ? entry
-          : (entry as { address: string }).address;
-      // Strip IPv6-mapped IPv4 prefix (::ffff:169.254.x.y → 169.254.x.y)
-      const normalized = ip.replace(/^::ffff:/i, "");
-      if (isBlockedIp(normalized)) {
-        return (
-          `Connection to "${host}" is blocked: it resolves to ${ip} ` +
-          `which is a link-local or metadata address.`
-        );
+  for (const host of hosts) {
+    const literalNormalized = normalizeIpForPolicy(host);
+
+    // First check the literal host string (catches raw IPs without DNS lookup)
+    if (isBlockedIp(literalNormalized)) {
+      return {
+        error: `Connection to "${host}" is blocked: link-local and metadata addresses are not allowed.`,
+        pinnedHost: null,
+      };
+    }
+
+    // Literal IPs are already pinned and do not require DNS.
+    if (net.isIP(literalNormalized)) {
+      if (!pinnedHost) pinnedHost = literalNormalized;
+      continue;
+    }
+
+    // Resolve DNS and check all resulting IPs
+    try {
+      const results = await dnsLookupAll(host, { all: true });
+      const addresses = Array.isArray(results) ? results : [results];
+      for (const entry of addresses) {
+        const ip =
+          typeof entry === "string"
+            ? entry
+            : (entry as { address: string }).address;
+        const normalized = normalizeIpForPolicy(ip);
+        if (isBlockedIp(normalized)) {
+          return {
+            error:
+              `Connection to "${host}" is blocked: it resolves to ${ip} ` +
+              `which is a link-local or metadata address.`,
+            pinnedHost: null,
+          };
+        }
+        if (!pinnedHost) pinnedHost = normalized;
+      }
+    } catch {
+      // For "save config" flows we allow unresolved hostnames so users can
+      // persist remote endpoints that are only resolvable from their runtime
+      // network. For "test connection" flows we keep strict DNS requirements.
+      if (!opts.allowUnresolvedHostnames) {
+        return {
+          error:
+            `Connection to "${host}" failed DNS resolution during validation. ` +
+            "Use a resolvable hostname or a literal IP address.",
+          pinnedHost: null,
+        };
       }
     }
-  } catch {
-    // DNS resolution failed — let the Postgres client handle the error
-    // rather than blocking legitimate hostnames that may be temporarily
-    // unresolvable from this context
   }
 
-  return null;
+  if (!pinnedHost) {
+    if (opts.allowUnresolvedHostnames) {
+      return { error: null, pinnedHost: null };
+    }
+    return {
+      error: "Could not validate any host to a concrete IP address.",
+      pinnedHost: null,
+    };
+  }
+  return { error: null, pinnedHost };
 }
 
 /** Convert a JS value to a SQL literal for use in raw queries. */
@@ -412,7 +536,7 @@ async function handleGetStatus(
 
   const tableResult = await executeRawSql(
     runtime,
-    `SELECT count(*)::int AS cnt
+    `SELECT count(*) AS cnt
        FROM information_schema.tables
       WHERE table_schema NOT IN ('pg_catalog', 'information_schema')
         AND table_type = 'BASE TABLE'`,
@@ -501,9 +625,16 @@ async function handlePutConfig(
     return;
   }
 
-  if (body.provider === "postgres" && body.postgres) {
+  // Load current config so validation can account for unchanged provider.
+  const config = loadMilaidyConfig();
+  const existingDb = config.database ?? {};
+  const effectiveProvider =
+    body.provider ?? existingDb.provider ?? ("pglite" as DatabaseProviderType);
+  let validatedPostgres: PostgresCredentials | null = null;
+
+  if (body.postgres) {
     const pg = body.postgres;
-    if (!pg.connectionString && !pg.host) {
+    if (effectiveProvider === "postgres" && !pg.connectionString && !pg.host) {
       errorResponse(
         res,
         "Postgres configuration requires either a connectionString or at least a host.",
@@ -511,16 +642,17 @@ async function handlePutConfig(
       return;
     }
 
-    const hostError = await validateDbHost(pg);
-    if (hostError) {
-      errorResponse(res, hostError);
+    const validation = await validateDbHost(pg, {
+      allowUnresolvedHostnames: Boolean(pg.connectionString),
+    });
+    if (validation.error) {
+      errorResponse(res, validation.error);
       return;
     }
+    validatedPostgres = validation.pinnedHost
+      ? withPinnedHost(pg, validation.pinnedHost)
+      : pg;
   }
-
-  // Load current config, merge database section, save
-  const config = loadMilaidyConfig();
-  const existingDb = config.database ?? {};
 
   // Merge: keep existing postgres/pglite sub-configs unless explicitly provided
   const merged: DatabaseConfig = {
@@ -530,7 +662,10 @@ async function handlePutConfig(
 
   // If switching to postgres, ensure postgres config is present
   if (merged.provider === "postgres" && body.postgres) {
-    merged.postgres = { ...existingDb.postgres, ...body.postgres };
+    merged.postgres = {
+      ...existingDb.postgres,
+      ...(validatedPostgres ?? body.postgres),
+    };
   }
   // If switching to pglite, ensure pglite config is present
   if (merged.provider === "pglite" && body.pglite) {
@@ -564,13 +699,16 @@ async function handleTestConnection(
   const body = await readJsonBody<PostgresCredentials>(req, res);
   if (!body) return;
 
-  const hostError = await validateDbHost(body);
-  if (hostError) {
-    errorResponse(res, hostError);
+  const validation = await validateDbHost(body);
+  if (validation.error) {
+    errorResponse(res, validation.error);
     return;
   }
 
-  const connectionString = buildConnectionString(body);
+  const pinnedCreds = validation.pinnedHost
+    ? withPinnedHost(body, validation.pinnedHost)
+    : body;
+  const connectionString = buildConnectionString(pinnedCreds);
   const start = Date.now();
 
   // Dynamically import pg to avoid hard-coupling (it is a peer dep via plugin-sql)
@@ -639,7 +777,7 @@ async function handleGetTables(
     `SELECT
        t.table_schema AS schema,
        t.table_name AS name,
-       COALESCE(s.n_live_tup, 0)::int AS row_count
+       COALESCE(s.n_live_tup, 0) AS row_count
      FROM information_schema.tables t
      LEFT JOIN pg_stat_user_tables s
        ON s.schemaname = t.table_schema
@@ -788,7 +926,7 @@ async function handleGetRows(
   // Count total (with search filter)
   const countResult = await executeRawSql(
     runtime,
-    `SELECT count(*)::int AS total FROM ${quoteIdent(tableName)} ${whereClause}`,
+    `SELECT count(*) AS total FROM ${quoteIdent(tableName)} ${whereClause}`,
   );
   const total = Number(
     (countResult.rows[0] as Record<string, unknown>)?.total ?? 0,
@@ -1124,12 +1262,7 @@ export async function handleDatabaseRoute(
   // ── Table row operations: /api/database/tables/:table/rows ────────────
   const rowsMatch = pathname.match(/^\/api\/database\/tables\/([^/]+)\/rows$/);
   if (rowsMatch) {
-    const tableNameDecoded = decodePathComponent(
-      rowsMatch[1],
-      res,
-      "table name",
-    );
-    if (tableNameDecoded === null) return true;
+    const tableNameDecoded = decodeURIComponent(rowsMatch[1]);
 
     if (method === "GET") {
       await handleGetRows(req, res, runtime, tableNameDecoded);

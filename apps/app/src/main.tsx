@@ -282,9 +282,18 @@ async function initializeElectron(): Promise<void> {
       accelerator: "CommandOrControl+K",
     });
 
-    await Desktop.addListener("shortcutPressed", (event) => {
+    // Emote picker shortcut
+    await Desktop.registerShortcut({
+      id: "emote-picker",
+      accelerator: "CommandOrControl+E",
+    });
+
+    await Desktop.addListener("shortcutPressed", (event: { id: string }) => {
       if (event.id === "command-palette") {
         document.dispatchEvent(new CustomEvent("milaidy:command-palette"));
+      }
+      if (event.id === "emote-picker") {
+        document.dispatchEvent(new CustomEvent("milaidy:emote-picker"));
       }
     });
 
@@ -302,7 +311,7 @@ async function initializeElectron(): Promise<void> {
       ],
     });
 
-    await Desktop.addListener("trayMenuClick", (event) => {
+    await Desktop.addListener("trayMenuClick", (event: { itemId: string; checked?: boolean }) => {
       document.dispatchEvent(
         new CustomEvent("milaidy:tray-action", {
           detail: event,

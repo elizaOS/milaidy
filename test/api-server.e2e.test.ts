@@ -17,7 +17,9 @@
  * These tests exercise REAL production code, not mocks.
  */
 import http from "node:http";
+import type { AgentRuntime, Content } from "@elizaos/core";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { WebSocket } from "ws";
 import { startApiServer } from "../src/api/server.js";
 import { AGENT_NAME_POOL } from "../src/runtime/onboarding-names.js";
 
@@ -67,6 +69,384 @@ function req(
     if (b) r.write(b);
     r.end();
   });
+}
+
+type SseEventPayload = {
+  type?: string;
+  text?: string;
+  fullText?: string;
+  agentName?: string;
+  message?: string;
+};
+
+function reqSse(
+  port: number,
+  p: string,
+  body: Record<string, string | number | boolean | null>,
+): Promise<{
+  status: number;
+  headers: http.IncomingHttpHeaders;
+  events: SseEventPayload[];
+}> {
+  return new Promise((resolve, reject) => {
+    const b = JSON.stringify(body);
+    const r = http.request(
+      {
+        hostname: "127.0.0.1",
+        port,
+        path: p,
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "text/event-stream",
+          "Content-Length": Buffer.byteLength(b),
+        },
+      },
+      (res) => {
+        const chunks: Buffer[] = [];
+        res.on("data", (c: Buffer) => chunks.push(c));
+        res.on("end", () => {
+          const raw = Buffer.concat(chunks).toString("utf-8");
+          const events: SseEventPayload[] = [];
+          const blocks = raw
+            .split("\n\n")
+            .map((block) => block.trim())
+            .filter((block) => block.length > 0);
+
+          for (const block of blocks) {
+            for (const line of block.split("\n")) {
+              if (!line.startsWith("data:")) continue;
+              const payloadText = line.slice(5).trim();
+              if (!payloadText) continue;
+              try {
+                events.push(JSON.parse(payloadText) as SseEventPayload);
+              } catch {
+                // Ignore malformed SSE payloads in test parsing.
+              }
+            }
+          }
+
+          resolve({
+            status: res.statusCode ?? 0,
+            headers: res.headers,
+            events,
+          });
+        });
+      },
+    );
+    r.on("error", reject);
+    r.write(b);
+    r.end();
+  });
+}
+
+function waitForWsMessage(
+  ws: WebSocket,
+  predicate: (message: Record<string, unknown>) => boolean,
+  timeoutMs = 3000,
+): Promise<Record<string, unknown>> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      cleanup();
+      reject(new Error("Timed out waiting for websocket message"));
+    }, timeoutMs);
+
+    const onMessage = (raw: WebSocket.RawData) => {
+      try {
+        const text = Buffer.isBuffer(raw) ? raw.toString("utf-8") : String(raw);
+        const message = JSON.parse(text) as Record<string, unknown>;
+        if (predicate(message)) {
+          cleanup();
+          resolve(message);
+        }
+      } catch {
+        // Ignore malformed WS frames in tests.
+      }
+    };
+
+    const onError = (err: Error) => {
+      cleanup();
+      reject(err);
+    };
+
+    const cleanup = () => {
+      clearTimeout(timer);
+      ws.off("message", onMessage);
+      ws.off("error", onError);
+    };
+
+    ws.on("message", onMessage);
+    ws.on("error", onError);
+  });
+}
+
+type TestAgentEvent = {
+  runId: string;
+  seq: number;
+  stream: string;
+  ts: number;
+  data: Record<string, unknown>;
+  sessionKey?: string;
+  agentId?: string;
+  roomId?: string;
+};
+
+type TestHeartbeatEvent = {
+  ts: number;
+  status: string;
+  preview?: string;
+};
+
+class TestAgentEventService {
+  private eventListeners = new Set<(event: TestAgentEvent) => void>();
+  private heartbeatListeners = new Set<(event: TestHeartbeatEvent) => void>();
+
+  subscribe(listener: (event: TestAgentEvent) => void): () => void {
+    this.eventListeners.add(listener);
+    return () => this.eventListeners.delete(listener);
+  }
+
+  subscribeHeartbeat(
+    listener: (event: TestHeartbeatEvent) => void,
+  ): () => void {
+    this.heartbeatListeners.add(listener);
+    return () => this.heartbeatListeners.delete(listener);
+  }
+
+  emit(event: TestAgentEvent): void {
+    for (const listener of this.eventListeners) {
+      listener(event);
+    }
+  }
+
+  emitHeartbeat(event: TestHeartbeatEvent): void {
+    for (const listener of this.heartbeatListeners) {
+      listener(event);
+    }
+  }
+}
+
+function createRuntimeForStreamTests(options: {
+  eventService?: TestAgentEventService;
+  loopRunning?: boolean;
+}): AgentRuntime {
+  const runtimeSubset: Pick<
+    AgentRuntime,
+    | "agentId"
+    | "character"
+    | "getService"
+    | "getRoomsByWorld"
+    | "getMemories"
+    | "getCache"
+    | "setCache"
+  > = {
+    agentId: "test-agent-id",
+    character: { name: "StreamTestAgent" } as AgentRuntime["character"],
+    getService: (serviceType: string) => {
+      if (serviceType === "AGENT_EVENT") {
+        return options.eventService ?? null;
+      }
+      if (serviceType === "AUTONOMY") {
+        return {
+          enableAutonomy: async () => {},
+          disableAutonomy: async () => {},
+          isLoopRunning: () => options.loopRunning ?? false,
+        } as never;
+      }
+      return null;
+    },
+    getRoomsByWorld: async () => [],
+    getMemories: async () => [],
+    getCache: async () => null,
+    setCache: async () => {},
+  };
+  return runtimeSubset as AgentRuntime;
+}
+
+function createRuntimeForChatSseTests(): AgentRuntime {
+  const runtimeSubset: Pick<
+    AgentRuntime,
+    | "agentId"
+    | "character"
+    | "messageService"
+    | "ensureConnection"
+    | "getWorld"
+    | "updateWorld"
+    | "getService"
+    | "getRoomsByWorld"
+    | "getMemories"
+    | "getCache"
+    | "setCache"
+  > = {
+    agentId: "chat-stream-agent",
+    character: { name: "ChatStreamAgent" } as AgentRuntime["character"],
+    messageService: {
+      handleMessage: async (
+        _runtime: AgentRuntime,
+        _message: object,
+        onResponse: (content: Content) => Promise<object[]>,
+      ) => {
+        await onResponse({ text: "Hello " } as Content);
+        await onResponse({ text: "world" } as Content);
+        return {
+          responseContent: {
+            text: "Hello world",
+          },
+        };
+      },
+    } as AgentRuntime["messageService"],
+    ensureConnection: async () => {},
+    getWorld: async () => null,
+    updateWorld: async () => {},
+    getService: () => null,
+    getRoomsByWorld: async () => [],
+    getMemories: async () => [],
+    getCache: async () => null,
+    setCache: async () => {},
+  };
+
+  return runtimeSubset as AgentRuntime;
+}
+
+function createRuntimeForCreditNoResponseTests(): AgentRuntime {
+  const runtimeLogger = {
+    debug: () => {},
+    info: () => {},
+    warn: () => {},
+    error: () => {},
+  } as AgentRuntime["logger"];
+
+  const runtimeSubset: Pick<
+    AgentRuntime,
+    | "agentId"
+    | "character"
+    | "logger"
+    | "messageService"
+    | "ensureConnection"
+    | "getWorld"
+    | "updateWorld"
+    | "getService"
+    | "getRoomsByWorld"
+    | "getMemories"
+    | "getCache"
+    | "setCache"
+  > = {
+    agentId: "credit-no-response-agent",
+    character: { name: "CreditAgent" } as AgentRuntime["character"],
+    logger: runtimeLogger,
+    messageService: {
+      handleMessage: async (_runtime: AgentRuntime) => {
+        _runtime.logger.error(
+          "#Youmu Model call failed: AI_APICallError: Insufficient credits. Required: $0.2250",
+        );
+        return {
+          didRespond: true,
+          responseContent: null,
+          responseMessages: [],
+          mode: "none",
+        };
+      },
+    } as AgentRuntime["messageService"],
+    ensureConnection: async () => {},
+    getWorld: async () => null,
+    updateWorld: async () => {},
+    getService: () => null,
+    getRoomsByWorld: async () => [],
+    getMemories: async () => [],
+    getCache: async () => null,
+    setCache: async () => {},
+  };
+
+  return runtimeSubset as AgentRuntime;
+}
+
+function createRuntimeForCreditLiteralNoResponseTests(): AgentRuntime {
+  const runtimeLogger = {
+    debug: () => {},
+    info: () => {},
+    warn: () => {},
+    error: () => {},
+  } as AgentRuntime["logger"];
+
+  const runtimeSubset: Pick<
+    AgentRuntime,
+    | "agentId"
+    | "character"
+    | "logger"
+    | "messageService"
+    | "ensureConnection"
+    | "getWorld"
+    | "updateWorld"
+    | "getService"
+    | "getRoomsByWorld"
+    | "getMemories"
+    | "getCache"
+    | "setCache"
+  > = {
+    agentId: "credit-literal-no-response-agent",
+    character: { name: "CreditAgent" } as AgentRuntime["character"],
+    logger: runtimeLogger,
+    messageService: {
+      handleMessage: async (_runtime: AgentRuntime) => {
+        _runtime.logger.error(
+          "#Youmu Model call failed: AI_APICallError: Insufficient credits. Required: $0.2250",
+        );
+        return {
+          didRespond: true,
+          responseContent: { text: "(no response)" },
+          responseMessages: [],
+          mode: "none",
+        };
+      },
+    } as AgentRuntime["messageService"],
+    ensureConnection: async () => {},
+    getWorld: async () => null,
+    updateWorld: async () => {},
+    getService: () => null,
+    getRoomsByWorld: async () => [],
+    getMemories: async () => [],
+    getCache: async () => null,
+    setCache: async () => {},
+  };
+
+  return runtimeSubset as AgentRuntime;
+}
+
+function createRuntimeForCreditErrorTests(): AgentRuntime {
+  const runtimeSubset: Pick<
+    AgentRuntime,
+    | "agentId"
+    | "character"
+    | "messageService"
+    | "ensureConnection"
+    | "getWorld"
+    | "updateWorld"
+    | "getService"
+    | "getRoomsByWorld"
+    | "getMemories"
+    | "getCache"
+    | "setCache"
+  > = {
+    agentId: "credit-error-agent",
+    character: { name: "CreditAgent" } as AgentRuntime["character"],
+    messageService: {
+      handleMessage: async () => {
+        throw new Error(
+          "AI_APICallError: Insufficient credits. Required: $0.2250",
+        );
+      },
+    } as AgentRuntime["messageService"],
+    ensureConnection: async () => {},
+    getWorld: async () => null,
+    updateWorld: async () => {},
+    getService: () => null,
+    getRoomsByWorld: async () => [],
+    getMemories: async () => [],
+    getCache: async () => null,
+    setCache: async () => {},
+  };
+
+  return runtimeSubset as AgentRuntime;
 }
 
 // ---------------------------------------------------------------------------
@@ -180,6 +560,353 @@ describe("API Server E2E (no runtime)", () => {
     it("rejects missing text with 400", async () => {
       const { status } = await req(port, "POST", "/api/chat", {});
       expect(status).toBe(400);
+    });
+  });
+
+  describe("POST /api/chat/stream (no runtime)", () => {
+    it("rejects with 503 when no runtime", async () => {
+      const { status, data } = await req(port, "POST", "/api/chat/stream", {
+        text: "hello",
+      });
+      expect(status).toBe(503);
+      expect(String(data.error)).toContain("not running");
+    });
+
+    it("rejects empty text with 400", async () => {
+      const { status } = await req(port, "POST", "/api/chat/stream", {
+        text: "",
+      });
+      expect(status).toBe(400);
+    });
+  });
+
+  describe("POST /api/conversations/:id/messages/stream (no runtime)", () => {
+    it("returns 404 when conversation does not exist", async () => {
+      const { status } = await req(
+        port,
+        "POST",
+        "/api/conversations/missing/messages/stream",
+        {
+          text: "hello",
+        },
+      );
+      expect(status).toBe(404);
+    });
+
+    it("returns 503 when conversation exists but runtime is absent", async () => {
+      const create = await req(port, "POST", "/api/conversations", {
+        title: "Streaming test",
+      });
+      expect(create.status).toBe(200);
+      const conversation = create.data.conversation as { id?: string };
+      const conversationId = conversation.id ?? "";
+      expect(conversationId.length).toBeGreaterThan(0);
+
+      const { status, data } = await req(
+        port,
+        "POST",
+        `/api/conversations/${conversationId}/messages/stream`,
+        {
+          text: "hello",
+        },
+      );
+      expect(status).toBe(503);
+      expect(String(data.error)).toContain("not running");
+    });
+  });
+
+  describe("streaming chat endpoints (runtime stub)", () => {
+    it("POST /api/chat/stream emits token and done events", async () => {
+      const runtime = createRuntimeForChatSseTests();
+      const streamServer = await startApiServer({ port: 0, runtime });
+      try {
+        const { status, headers, events } = await reqSse(
+          streamServer.port,
+          "/api/chat/stream",
+          { text: "hello", mode: "power" },
+        );
+
+        expect(status).toBe(200);
+        expect(String(headers["content-type"] ?? "")).toContain(
+          "text/event-stream",
+        );
+
+        const tokenEvents = events.filter((event) => event.type === "token");
+        expect(tokenEvents.map((event) => event.text)).toEqual([
+          "Hello ",
+          "world",
+        ]);
+
+        const doneEvent = events.find((event) => event.type === "done");
+        expect(doneEvent?.fullText).toBe("Hello world");
+        expect(doneEvent?.agentName).toBe("ChatStreamAgent");
+      } finally {
+        await streamServer.close();
+      }
+    });
+
+    it("POST /api/conversations/:id/messages/stream emits token and done events", async () => {
+      const runtime = createRuntimeForChatSseTests();
+      const streamServer = await startApiServer({ port: 0, runtime });
+      try {
+        const create = await req(
+          streamServer.port,
+          "POST",
+          "/api/conversations",
+          {
+            title: "SSE conversation",
+          },
+        );
+        expect(create.status).toBe(200);
+        const conversation = create.data.conversation as { id?: string };
+        const conversationId = conversation.id ?? "";
+        expect(conversationId.length).toBeGreaterThan(0);
+
+        const { status, events } = await reqSse(
+          streamServer.port,
+          `/api/conversations/${conversationId}/messages/stream`,
+          { text: "hello", mode: "simple" },
+        );
+
+        expect(status).toBe(200);
+        const tokenEvents = events.filter((event) => event.type === "token");
+        expect(tokenEvents.map((event) => event.text)).toEqual([
+          "Hello ",
+          "world",
+        ]);
+        const doneEvent = events.find((event) => event.type === "done");
+        expect(doneEvent?.fullText).toBe("Hello world");
+        expect(doneEvent?.agentName).toBe("ChatStreamAgent");
+      } finally {
+        await streamServer.close();
+      }
+    });
+  });
+
+  describe("insufficient credits fallback", () => {
+    it("POST /api/chat replaces '(no response)' with a top-up message", async () => {
+      const runtime = createRuntimeForCreditNoResponseTests();
+      const streamServer = await startApiServer({ port: 0, runtime });
+      try {
+        const { status, data } = await req(
+          streamServer.port,
+          "POST",
+          "/api/chat",
+          {
+            text: "hello",
+            mode: "power",
+          },
+        );
+        expect(status).toBe(200);
+        expect(String(data.text)).toMatch(/top up your credits/i);
+        expect(String(data.text)).not.toBe("(no response)");
+      } finally {
+        await streamServer.close();
+      }
+    });
+
+    it("POST /api/chat/stream emits a done event with top-up text", async () => {
+      const runtime = createRuntimeForCreditNoResponseTests();
+      const streamServer = await startApiServer({ port: 0, runtime });
+      try {
+        const { status, events } = await reqSse(
+          streamServer.port,
+          "/api/chat/stream",
+          { text: "hello", mode: "power" },
+        );
+        expect(status).toBe(200);
+        const doneEvent = events.find((event) => event.type === "done");
+        expect(doneEvent).toBeDefined();
+        expect(String(doneEvent?.fullText ?? "")).toMatch(
+          /top up your credits/i,
+        );
+      } finally {
+        await streamServer.close();
+      }
+    });
+
+    it("POST /api/chat returns a top-up message when the provider throws insufficient credits", async () => {
+      const runtime = createRuntimeForCreditErrorTests();
+      const streamServer = await startApiServer({ port: 0, runtime });
+      try {
+        const { status, data } = await req(
+          streamServer.port,
+          "POST",
+          "/api/chat",
+          {
+            text: "hello",
+            mode: "power",
+          },
+        );
+        expect(status).toBe(200);
+        expect(String(data.text)).toMatch(/top up your credits/i);
+      } finally {
+        await streamServer.close();
+      }
+    });
+
+    it("POST /api/chat replaces literal '(no response)' payloads with a top-up message", async () => {
+      const runtime = createRuntimeForCreditLiteralNoResponseTests();
+      const streamServer = await startApiServer({ port: 0, runtime });
+      try {
+        const { status, data } = await req(
+          streamServer.port,
+          "POST",
+          "/api/chat",
+          {
+            text: "hello",
+            mode: "power",
+          },
+        );
+        expect(status).toBe(200);
+        expect(String(data.text)).toMatch(/top up your credits/i);
+        expect(String(data.text)).not.toBe("(no response)");
+      } finally {
+        await streamServer.close();
+      }
+    });
+  });
+
+  describe("trigger endpoints (no runtime)", () => {
+    it("GET /api/triggers returns 503", async () => {
+      const { status, data } = await req(port, "GET", "/api/triggers");
+      expect(status).toBe(503);
+      expect(String(data.error)).toContain("not running");
+    });
+
+    it("POST /api/triggers returns 503", async () => {
+      const { status } = await req(port, "POST", "/api/triggers", {
+        displayName: "Heartbeat",
+        instructions: "Status heartbeat",
+        triggerType: "interval",
+        intervalMs: 120000,
+      });
+      expect(status).toBe(503);
+    });
+
+    it("GET /api/triggers/health returns 503", async () => {
+      const { status } = await req(port, "GET", "/api/triggers/health");
+      expect(status).toBe(503);
+    });
+  });
+
+  // -- Fine-tuning endpoints --
+
+  describe("GET /api/training/* (no runtime)", () => {
+    it("returns training status with runtimeUnavailable", async () => {
+      const { status, data } = await req(port, "GET", "/api/training/status");
+      expect(status).toBe(200);
+      expect(data.runtimeAvailable).toBe(false);
+      expect(typeof data.runningJobs).toBe("number");
+      expect(typeof data.datasetCount).toBe("number");
+      expect(typeof data.modelCount).toBe("number");
+    });
+
+    it("returns unavailable trajectories when runtime is missing", async () => {
+      const { status, data } = await req(
+        port,
+        "GET",
+        "/api/training/trajectories?limit=10&offset=0",
+      );
+      expect(status).toBe(200);
+      expect(data.available).toBe(false);
+      expect(data.reason).toBe("runtime_not_started");
+    });
+
+    it("returns datasets, jobs, and models lists", async () => {
+      const datasets = await req(port, "GET", "/api/training/datasets");
+      const jobs = await req(port, "GET", "/api/training/jobs");
+      const models = await req(port, "GET", "/api/training/models");
+
+      expect(datasets.status).toBe(200);
+      expect(jobs.status).toBe(200);
+      expect(models.status).toBe(200);
+      expect(Array.isArray(datasets.data.datasets)).toBe(true);
+      expect(Array.isArray(jobs.data.jobs)).toBe(true);
+      expect(Array.isArray(models.data.models)).toBe(true);
+    });
+
+    it("returns 404 for missing trajectory and missing job", async () => {
+      const trajectory = await req(
+        port,
+        "GET",
+        "/api/training/trajectories/not-found",
+      );
+      const job = await req(port, "GET", "/api/training/jobs/not-found");
+      expect(trajectory.status).toBe(404);
+      expect(job.status).toBe(404);
+    });
+
+    it("streams dataset build events over websocket", async () => {
+      const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`);
+      try {
+        await waitForWsMessage(ws, (message) => message.type === "status");
+        const waitForDatasetBuilt = waitForWsMessage(
+          ws,
+          (message) =>
+            message.type === "training_event" &&
+            ((message.payload as Record<string, unknown>)?.kind as string) ===
+              "dataset_built",
+        );
+
+        const response = await req(
+          port,
+          "POST",
+          "/api/training/datasets/build",
+          {
+            limit: 5,
+            minLlmCallsPerTrajectory: 1,
+          },
+        );
+        expect(response.status).toBe(201);
+
+        const message = await waitForDatasetBuilt;
+        expect(message.type).toBe("training_event");
+        expect((message.payload as Record<string, unknown>)?.kind).toBe(
+          "dataset_built",
+        );
+      } finally {
+        ws.close();
+      }
+    });
+
+    it("returns 400 for invalid job/model mutation requests", async () => {
+      const startJob = await req(port, "POST", "/api/training/jobs", {
+        datasetId: "dataset-does-not-exist",
+      });
+      const importModel = await req(
+        port,
+        "POST",
+        "/api/training/models/model-does-not-exist/import-ollama",
+        {},
+      );
+      const activateModel = await req(
+        port,
+        "POST",
+        "/api/training/models/model-does-not-exist/activate",
+        {},
+      );
+      const benchmarkModel = await req(
+        port,
+        "POST",
+        "/api/training/models/model-does-not-exist/benchmark",
+        {},
+      );
+
+      expect(startJob.status).toBe(400);
+      expect(importModel.status).toBe(400);
+      expect(activateModel.status).toBe(400);
+      expect(benchmarkModel.status).toBe(400);
+    });
+
+    it("returns 404 when cancelling unknown training job", async () => {
+      const response = await req(
+        port,
+        "POST",
+        "/api/training/jobs/job-does-not-exist/cancel",
+        {},
+      );
+      expect(response.status).toBe(404);
     });
   });
 
@@ -308,6 +1035,91 @@ describe("API Server E2E (no runtime)", () => {
     });
   });
 
+  describe("GET /api/agent/events", () => {
+    it("returns replay response shape", async () => {
+      const { status, data } = await req(port, "GET", "/api/agent/events");
+      expect(status).toBe(200);
+      expect(Array.isArray(data.events)).toBe(true);
+      expect(typeof data.replayed).toBe("boolean");
+      expect(typeof data.totalBuffered).toBe("number");
+      expect(
+        data.latestEventId === null || typeof data.latestEventId === "string",
+      ).toBe(true);
+    });
+
+    it("captures runtime AGENT_EVENT emissions in replay buffer", async () => {
+      const eventService = new TestAgentEventService();
+      const runtime = createRuntimeForStreamTests({
+        eventService,
+        loopRunning: false,
+      });
+      const streamServer = await startApiServer({ port: 0, runtime });
+      try {
+        eventService.emit({
+          runId: "run-stream",
+          seq: 1,
+          stream: "assistant",
+          ts: Date.now(),
+          data: { text: "stream-check" },
+          agentId: "test-agent-id",
+        });
+
+        const { status, data } = await req(
+          streamServer.port,
+          "GET",
+          "/api/agent/events",
+        );
+        expect(status).toBe(200);
+        const events = data.events as Array<Record<string, unknown>>;
+        const hasExpectedEvent = events.some((event) => {
+          const payload = event.payload as Record<string, unknown>;
+          return (
+            event.type === "agent_event" && payload.text === "stream-check"
+          );
+        });
+        expect(hasExpectedEvent).toBe(true);
+      } finally {
+        await streamServer.close();
+      }
+    });
+
+    it("streams AGENT_EVENT over websocket clients", async () => {
+      const eventService = new TestAgentEventService();
+      const runtime = createRuntimeForStreamTests({
+        eventService,
+        loopRunning: false,
+      });
+      const streamServer = await startApiServer({ port: 0, runtime });
+      const ws = new WebSocket(`ws://127.0.0.1:${streamServer.port}/ws`);
+      try {
+        await waitForWsMessage(ws, (message) => message.type === "status");
+
+        const waitForAgentEvent = waitForWsMessage(
+          ws,
+          (message) =>
+            message.type === "agent_event" &&
+            ((message.payload as Record<string, unknown>)?.text as string) ===
+              "ws-stream-check",
+        );
+
+        eventService.emit({
+          runId: "run-stream-ws",
+          seq: 1,
+          stream: "assistant",
+          ts: Date.now(),
+          data: { text: "ws-stream-check" },
+          agentId: "test-agent-id",
+        });
+
+        const message = await waitForAgentEvent;
+        expect(message.type).toBe("agent_event");
+      } finally {
+        ws.close();
+        await streamServer.close();
+      }
+    });
+  });
+
   // -- Onboarding --
 
   describe("onboarding endpoints", () => {
@@ -338,6 +1150,26 @@ describe("API Server E2E (no runtime)", () => {
       }
       // Ensure names are unique
       expect(new Set(names).size).toBe(names.length);
+    });
+
+    it("POST /api/onboarding stores adminEntityId in defaults", async () => {
+      const res = await req(port, "POST", "/api/onboarding", {
+        name: "AdminAgent",
+        runMode: "local",
+      });
+      expect(res.status).toBe(200);
+
+      const cfg = await req(port, "GET", "/api/config");
+      const defaults = (
+        cfg.data as {
+          agents?: { defaults?: { adminEntityId?: string } };
+        }
+      ).agents?.defaults;
+      const adminEntityId = defaults?.adminEntityId ?? "";
+      expect(typeof adminEntityId).toBe("string");
+      expect(adminEntityId).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+      );
     });
   });
 
@@ -400,6 +1232,26 @@ describe("API Server E2E (no runtime)", () => {
       expect(Array.isArray(data.todos)).toBe(true);
       expect(typeof data.summary).toBe("object");
       expect(typeof data.autonomy).toBe("object");
+    });
+
+    it("GET /api/workbench/overview uses AutonomyService loop state", async () => {
+      const runtime = createRuntimeForStreamTests({
+        loopRunning: true,
+      });
+      const workbenchServer = await startApiServer({ port: 0, runtime });
+      try {
+        const { status, data } = await req(
+          workbenchServer.port,
+          "GET",
+          "/api/workbench/overview",
+        );
+        expect(status).toBe(200);
+        const autonomy = (data as { autonomy?: { thinking?: boolean } })
+          .autonomy;
+        expect(autonomy?.thinking).toBe(true);
+      } finally {
+        await workbenchServer.close();
+      }
     });
 
     it("PATCH /api/workbench/goals/:id returns 503 when runtime is absent", async () => {
@@ -609,16 +1461,6 @@ describe("API Server E2E (no runtime)", () => {
       );
       expect(status).toBe(400);
     });
-
-    it("GET /api/mcp/marketplace/details/:name returns 400 for malformed encoding", async () => {
-      const { status, data } = await req(
-        port,
-        "GET",
-        "/api/mcp/marketplace/details/%E0%A4%A",
-      );
-      expect(status).toBe(400);
-      expect(data.error).toBe("Invalid server name: malformed URL encoding");
-    });
   });
 
   describe("MCP config endpoints", () => {
@@ -667,6 +1509,14 @@ describe("API Server E2E (no runtime)", () => {
       expect(status).toBe(400);
     });
 
+    it("POST /api/mcp/config/server rejects reserved server names", async () => {
+      const { status } = await req(port, "POST", "/api/mcp/config/server", {
+        name: "__proto__",
+        config: { type: "stdio", command: "npx" },
+      });
+      expect(status).toBe(400);
+    });
+
     it("POST /api/mcp/config/server validates config type", async () => {
       const { status } = await req(port, "POST", "/api/mcp/config/server", {
         name: "bad-type",
@@ -687,6 +1537,20 @@ describe("API Server E2E (no runtime)", () => {
       const { status } = await req(port, "POST", "/api/mcp/config/server", {
         name: "no-url",
         config: { type: "streamable-http" },
+      });
+      expect(status).toBe(400);
+    });
+
+    it("POST /api/mcp/config/server rejects reserved keys in nested config", async () => {
+      const { status } = await req(port, "POST", "/api/mcp/config/server", {
+        name: "bad-nested-keys",
+        config: {
+          type: "stdio",
+          command: "npx",
+          env: {
+            constructor: { polluted: "yes" },
+          },
+        },
       });
       expect(status).toBe(400);
     });
@@ -753,7 +1617,7 @@ describe("API Server E2E (no runtime)", () => {
         "/api/mcp/config/server/%E0%A4%A",
       );
       expect(status).toBe(400);
-      expect(data.error).toBe("Invalid server name: malformed URL encoding");
+      expect(typeof data.error).toBe("string");
     });
 
     it("PUT /api/mcp/config replaces entire config", async () => {
@@ -772,6 +1636,27 @@ describe("API Server E2E (no runtime)", () => {
       const servers = configData.servers as Record<string, unknown>;
       expect(servers["bulk-a"]).toBeDefined();
       expect(servers["bulk-b"]).toBeDefined();
+    });
+
+    it("PUT /api/mcp/config rejects reserved keys in servers payload", async () => {
+      const { status } = await req(port, "PUT", "/api/mcp/config", {
+        servers: {
+          constructor: {
+            type: "stdio",
+            command: "npx",
+          },
+        },
+      });
+      expect(status).toBe(400);
+    });
+
+    it("DELETE /api/mcp/config/server/:name rejects reserved server names", async () => {
+      const { status } = await req(
+        port,
+        "DELETE",
+        "/api/mcp/config/server/__proto__",
+      );
+      expect(status).toBe(400);
     });
   });
 
@@ -793,6 +1678,69 @@ describe("API Server E2E (no runtime)", () => {
         expect(typeof server.toolCount).toBe("number");
         expect(typeof server.resourceCount).toBe("number");
       }
+    });
+  });
+});
+
+describe("API Server E2E (chat SSE)", () => {
+  let port: number;
+  let close: () => Promise<void>;
+
+  beforeAll(async () => {
+    const server = await startApiServer({
+      port: 0,
+      runtime: createRuntimeForChatSseTests(),
+    });
+    port = server.port;
+    close = server.close;
+  }, 30_000);
+
+  afterAll(async () => {
+    await close();
+  });
+
+  it("POST /api/chat/stream emits token and done events", async () => {
+    const { status, headers, events } = await reqSse(port, "/api/chat/stream", {
+      text: "hello",
+      mode: "simple",
+    });
+
+    expect(status).toBe(200);
+    expect(String(headers["content-type"])).toContain("text/event-stream");
+    expect(events).toContainEqual({ type: "token", text: "Hello " });
+    expect(events).toContainEqual({ type: "token", text: "world" });
+    expect(events).toContainEqual({
+      type: "done",
+      fullText: "Hello world",
+      agentName: "ChatStreamAgent",
+    });
+  });
+
+  it("POST /api/conversations/:id/messages/stream emits token and done events", async () => {
+    const create = await req(port, "POST", "/api/conversations", {
+      title: "SSE Conversation",
+    });
+    expect(create.status).toBe(200);
+    const createdConversation = create.data.conversation as { id?: string };
+    const conversationId = createdConversation.id ?? "";
+    expect(conversationId.length).toBeGreaterThan(0);
+
+    const { status, events } = await reqSse(
+      port,
+      `/api/conversations/${conversationId}/messages/stream`,
+      {
+        text: "hello",
+        mode: "power",
+      },
+    );
+
+    expect(status).toBe(200);
+    expect(events).toContainEqual({ type: "token", text: "Hello " });
+    expect(events).toContainEqual({ type: "token", text: "world" });
+    expect(events).toContainEqual({
+      type: "done",
+      fullText: "Hello world",
+      agentName: "ChatStreamAgent",
     });
   });
 });

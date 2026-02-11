@@ -116,7 +116,8 @@ function which(cmd) {
   return null;
 }
 
-const hasBun = !!which("bun");
+const forceNodeRuntime = process.env.MILAIDY_FORCE_NODE === "1";
+const hasBun = !forceNodeRuntime && !!which("bun");
 
 if (!hasBun && !which("npx")) {
   console.error(
@@ -275,14 +276,16 @@ if (uiOnly) {
   printBanner();
   console.log(`  ${green("[milaidy]")} ${green("Starting dev server...")}\n`);
 
+  const nodeStealthImports = [
+    "./openai-codex-stealth.mjs",
+    "./claude-code-stealth.mjs",
+  ].filter((filePath) => existsSync(path.join(cwd, filePath)));
+
   const apiCmd = hasBun
     ? ["bun", "--watch", "src/runtime/dev-server.ts"]
     : [
         "node",
-        "--import",
-        "./openai-codex-stealth.mjs",
-        "--import",
-        "./claude-code-stealth.mjs",
+        ...nodeStealthImports.flatMap((filePath) => ["--import", filePath]),
         "--import",
         "tsx",
         "--watch",

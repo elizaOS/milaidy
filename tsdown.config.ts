@@ -16,6 +16,7 @@ export default defineConfig([
     env,
     fixedExtension: false,
     platform: "node",
+    unbundle: true,
     inlineOnly: false,
   },
   {
@@ -23,6 +24,7 @@ export default defineConfig([
     env,
     fixedExtension: false,
     platform: "node",
+    unbundle: true,
     inlineOnly: false,
   },
   {
@@ -30,6 +32,7 @@ export default defineConfig([
     env,
     fixedExtension: false,
     platform: "node",
+    unbundle: true,
     inlineOnly: false,
   },
 ]);

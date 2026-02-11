@@ -111,13 +111,66 @@ export class AgentManager {
       });
 
       let actualPort = apiPort;
+      // `startApiServer()` returns an `updateRuntime()` helper that broadcasts
+      // status updates and restores conversation state after a hot restart.
+      // Keep it around so our onRestart hook can call it.
+      let apiUpdateRuntime: ((rt: unknown) => void) | null = null;
+
       if (serverModule?.startApiServer) {
-        const { port: resolvedPort, close } = await serverModule.startApiServer({
+        const { port: resolvedPort, close, updateRuntime } = await serverModule.startApiServer({
           port: apiPort,
           runtime: runtimeResult,
+          // IMPORTANT: the web UI expects POST /api/agent/restart to work.
+          // Without an onRestart handler, config changes that require a runtime
+          // restart (including pi-ai model routing) appear to "not work".
+          onRestart: async () => {
+            console.log("[Agent] HTTP restart requested — restarting embedded runtime…");
+
+            // 1) Stop old runtime (do NOT stop the API server)
+            const prevRuntime = this.runtime;
+            if (prevRuntime && typeof (prevRuntime as { stop?: () => Promise<void> }).stop === "function") {
+              try {
+                await (prevRuntime as { stop: () => Promise<void> }).stop();
+              } catch (stopErr) {
+                console.warn(
+                  "[Agent] Error stopping runtime during HTTP restart:",
+                  stopErr instanceof Error ? stopErr.message : stopErr,
+                );
+              }
+            }
+
+            // 2) Start new runtime (picks up latest config/env from disk)
+            const nextRuntime = await startEliza({ headless: true });
+            if (!nextRuntime) {
+              console.error("[Agent] HTTP restart failed: startEliza returned null");
+              return null;
+            }
+
+            this.runtime = nextRuntime as Record<string, unknown>;
+
+            // Tell the API server about the new runtime so status is broadcast
+            // and conversations are restored.
+            apiUpdateRuntime?.(nextRuntime as unknown);
+
+            // 3) Update the Electron-side status (renderer may be listening via IPC)
+            const nextName =
+              (nextRuntime as { character?: { name?: string } }).character?.name ?? "Milaidy";
+            this.status = {
+              ...this.status,
+              state: "running",
+              agentName: nextName,
+              startedAt: Date.now(),
+              error: null,
+            };
+            this.sendToRenderer("agent:status", this.status);
+
+            console.log(`[Agent] HTTP restart complete — agent: ${nextName}`);
+            return nextRuntime as Record<string, unknown>;
+          },
         });
         actualPort = resolvedPort;
         this.apiClose = close;
+        apiUpdateRuntime = updateRuntime;
       } else {
         console.warn("[Agent] Could not find API server module — runtime only, no HTTP");
       }

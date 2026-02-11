@@ -103,7 +103,7 @@ const envKeysToClean = [
 
 describe("Plugin Enumeration", () => {
   it("lists all core plugins", () => {
-    expect(CORE_PLUGINS.length).toBe(6);
+    expect(CORE_PLUGINS.length).toBe(8);
     for (const name of CORE_PLUGINS) {
       expect(name).toMatch(/^@elizaos\/plugin-/);
     }
@@ -914,8 +914,9 @@ describe("Version Skew Detection (issue #10)", () => {
     }
   });
 
-  it("plugin-knowledge is in OPTIONAL_CORE_PLUGINS", () => {
-    expect(OPTIONAL_CORE_PLUGINS).toContain("@elizaos/plugin-knowledge");
+  it("plugin-knowledge is in CORE_PLUGINS", () => {
+    expect(CORE_PLUGINS).toContain("@elizaos/plugin-knowledge");
+    expect(OPTIONAL_CORE_PLUGINS).not.toContain("@elizaos/plugin-knowledge");
   });
 });
 

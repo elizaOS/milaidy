@@ -67,6 +67,10 @@ function extractPlugin(mod: PluginModule): Plugin | null {
   if (looksLikePlugin(mod.default)) return mod.default;
   if (looksLikePlugin(mod.plugin)) return mod.plugin;
   if (looksLikePlugin(mod)) return mod as unknown as Plugin;
+  for (const [key, value] of Object.entries(mod)) {
+    if (key === "default" || key === "plugin") continue;
+    if (looksLikePlugin(value)) return value;
+  }
   return null;
 }
 
@@ -99,9 +103,11 @@ function http$(
   method: string,
   p: string,
   body?: Record<string, unknown>,
+  options?: { timeoutMs?: number },
 ): Promise<{ status: number; data: Record<string, unknown> }> {
   return new Promise((resolve, reject) => {
     const b = body ? JSON.stringify(body) : undefined;
+    const timeoutMs = options?.timeoutMs ?? 60_000;
     const req = http.request(
       {
         hostname: "127.0.0.1",
@@ -128,10 +134,97 @@ function http$(
         });
       },
     );
+    req.setTimeout(timeoutMs, () => {
+      req.destroy(new Error(`Request timed out after ${timeoutMs}ms`));
+    });
     req.on("error", reject);
     if (b) req.write(b);
     req.end();
   });
+}
+
+function withTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+  label: string,
+): Promise<T> {
+  let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutHandle = setTimeout(() => {
+      reject(new Error(`${label} timed out after ${ms}ms`));
+    }, ms);
+  });
+  return Promise.race([promise, timeoutPromise]).finally(() => {
+    if (timeoutHandle) {
+      clearTimeout(timeoutHandle);
+    }
+  });
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+async function postChatWithRetries(
+  port: number,
+  attempts = 3,
+): Promise<{ status: number; data: Record<string, unknown> }> {
+  const errors: string[] = [];
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      const response = await http$(
+        port,
+        "POST",
+        "/api/chat",
+        { text: "What is 1+1? Number only.", mode: "simple" },
+        { timeoutMs: 45_000 },
+      );
+      const text = response.data.text;
+      if (
+        response.status === 200 &&
+        typeof text === "string" &&
+        text.trim().length > 0
+      ) {
+        return response;
+      }
+      errors.push(
+        `attempt ${attempt}: status=${response.status}, textType=${typeof text}, textLength=${
+          typeof text === "string" ? text.length : 0
+        }`,
+      );
+    } catch (err) {
+      errors.push(
+        `attempt ${attempt}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+    if (attempt < attempts) {
+      await sleep(1_000);
+    }
+  }
+  throw new Error(
+    `POST /api/chat failed after ${attempts} attempts: ${errors.join(" | ")}`,
+  );
+}
+
+async function handleMessageAndCollectText(
+  runtime: AgentRuntime,
+  message: ReturnType<typeof createMessageMemory>,
+): Promise<string> {
+  let responseText = "";
+  const result = await runtime.messageService?.handleMessage(
+    runtime,
+    message,
+    async (content: { text?: string }) => {
+      if (content.text) responseText += content.text;
+      return [];
+    },
+  );
+  if (!responseText && result?.responseContent?.text) {
+    responseText = result.responseContent.text;
+  }
+  return responseText;
 }
 
 // ---------------------------------------------------------------------------
@@ -177,7 +270,7 @@ describe("Agent Runtime E2E", () => {
 
   beforeAll(async () => {
     if (!hasModelProvider) return;
-    process.env.LOG_LEVEL = "info";
+    process.env.LOG_LEVEL = process.env.MILAIDY_E2E_LOG_LEVEL ?? "error";
     process.env.PGLITE_DATA_DIR = pgliteDir;
 
     const secrets: Record<string, string> = {};
@@ -218,13 +311,15 @@ describe("Agent Runtime E2E", () => {
     runtime = new AgentRuntime({
       character,
       plugins,
-      logLevel: "info",
+      logLevel: "error",
       enableAutonomy: true,
       // checkShouldRespond is NOT set — defaults to true (production behavior)
     });
 
     if (sqlPlugin) await runtime.registerPlugin(sqlPlugin);
     await runtime.initialize();
+    const autonomySvc = runtime.getService<AutonomyServiceLike>("AUTONOMY");
+    autonomySvc?.setLoopInterval(5 * 60_000);
     initialized = true;
 
     try {
@@ -261,7 +356,7 @@ describe("Agent Runtime E2E", () => {
   afterAll(async () => {
     if (server) {
       try {
-        await server.close();
+        await withTimeout(server.close(), 30_000, "server.close()");
       } catch (err) {
         logger.warn(
           `[e2e] Server close error: ${err instanceof Error ? err.message : err}`,
@@ -271,7 +366,7 @@ describe("Agent Runtime E2E", () => {
     if (runtime) {
       try {
         runtime.enableAutonomy = false;
-        await runtime.stop();
+        await withTimeout(runtime.stop(), 90_000, "runtime.stop()");
       } catch (err) {
         logger.warn(
           `[e2e] Runtime stop error: ${err instanceof Error ? err.message : err}`,
@@ -292,7 +387,7 @@ describe("Agent Runtime E2E", () => {
         `[e2e] Workspace cleanup: ${err instanceof Error ? err.message : err}`,
       );
     }
-  }, 30_000);
+  }, 150_000);
 
   // ===================================================================
   //  1. Startup
@@ -372,12 +467,7 @@ describe("Agent Runtime E2E", () => {
             channelType: ChannelType.DM, // DM = always respond
           },
         });
-
-        let resp = "";
-        await runtime.messageService?.handleMessage(runtime, msg, async (c) => {
-          if (c?.text) resp += c.text;
-          return [];
-        });
+        const resp = await handleMessageAndCollectText(runtime, msg);
 
         expect(
           resp.length,
@@ -385,7 +475,7 @@ describe("Agent Runtime E2E", () => {
         ).toBeGreaterThan(0);
         logger.info(`[e2e] shouldRespond DM test: "${resp}"`);
       },
-      60_000,
+      120_000,
     );
   });
 
@@ -423,14 +513,10 @@ describe("Agent Runtime E2E", () => {
             channelType: ChannelType.DM,
           },
         });
-        let resp = "";
-        await runtime.messageService?.handleMessage(runtime, msg, async (c) => {
-          if (c?.text) resp += c.text;
-          return [];
-        });
+        const resp = await handleMessageAndCollectText(runtime, msg);
         expect(resp.length).toBeGreaterThan(0);
       },
-      60_000,
+      120_000,
     );
 
     it.skipIf(!hasModelProvider)(
@@ -446,15 +532,7 @@ describe("Agent Runtime E2E", () => {
             channelType: ChannelType.DM,
           },
         });
-        let t1 = "";
-        await runtime.messageService?.handleMessage(
-          runtime,
-          msg1,
-          async (c) => {
-            if (c?.text) t1 += c.text;
-            return [];
-          },
-        );
+        const t1 = await handleMessageAndCollectText(runtime, msg1);
         expect(t1.length, "Turn 1 must produce a response").toBeGreaterThan(0);
 
         const msg2 = createMessageMemory({
@@ -467,20 +545,12 @@ describe("Agent Runtime E2E", () => {
             channelType: ChannelType.DM,
           },
         });
-        let t2 = "";
-        await runtime.messageService?.handleMessage(
-          runtime,
-          msg2,
-          async (c) => {
-            if (c?.text) t2 += c.text;
-            return [];
-          },
-        );
+        const t2 = await handleMessageAndCollectText(runtime, msg2);
 
         logger.info(`[e2e] multi-turn: "${t2}"`);
         expect(t2.toLowerCase()).toContain("pineapple");
       },
-      90_000,
+      180_000,
     );
   });
 
@@ -508,7 +578,7 @@ describe("Agent Runtime E2E", () => {
         // If we got here without throwing, the full autonomous pipeline worked:
         // prompt generation → model call → response processing → memory storage
       },
-      120_000,
+      180_000,
     );
 
     it.skipIf(!hasModelProvider)(
@@ -542,16 +612,11 @@ describe("Agent Runtime E2E", () => {
     it.skipIf(!hasModelProvider)(
       "POST /api/chat returns real response",
       async () => {
-        const { status, data } = await http$(
-          server?.port,
-          "POST",
-          "/api/chat",
-          { text: "What is 1+1? Number only." },
-        );
+        const { status, data } = await postChatWithRetries(server?.port);
         expect(status).toBe(200);
         expect((data.text as string).length).toBeGreaterThan(0);
       },
-      60_000,
+      180_000,
     );
 
     it.skipIf(!hasModelProvider)(
@@ -747,7 +812,158 @@ describe("Agent Runtime E2E", () => {
   });
 
   // ===================================================================
-  //  9. startEliza() — real subprocess test
+  //  9. Triggers — REAL LLM execution through trigger dispatch
+  // ===================================================================
+
+  describe("triggers (real LLM execution)", () => {
+    it.skipIf(!hasModelProvider)(
+      "creates trigger, executes it, LLM processes instruction, run history records success",
+      async () => {
+        // Register the trigger worker on the real runtime (same as milaidy-plugin.ts does).
+        const { registerTriggerTaskWorker } = await import(
+          "../src/triggers/runtime.js"
+        );
+        registerTriggerTaskWorker(runtime);
+
+        // 1. Create a trigger via the real REST API
+        const createRes = await http$(server?.port, "POST", "/api/triggers", {
+          displayName: "Live LLM Trigger",
+          instructions:
+            "You have been triggered by the test suite. Acknowledge this trigger by responding with a brief status report.",
+          triggerType: "interval",
+          intervalMs: 3_600_000,
+          wakeMode: "inject_now",
+          createdBy: "e2e-test",
+        });
+
+        expect(createRes.status).toBe(201);
+        const triggerId = (createRes.data.trigger as Record<string, string>)
+          ?.id;
+        expect(triggerId).toBeDefined();
+        expect(triggerId.length).toBeGreaterThan(0);
+        logger.info(`[e2e] Created trigger: ${triggerId}`);
+
+        // 2. List triggers — confirm it exists
+        const listRes = await http$(server?.port, "GET", "/api/triggers");
+        expect(listRes.status).toBe(200);
+        const triggers = listRes.data.triggers as Array<
+          Record<string, unknown>
+        >;
+        expect(triggers.length).toBeGreaterThanOrEqual(1);
+        const found = triggers.find((t) => t.id === triggerId);
+        expect(found).toBeDefined();
+        expect(found?.enabled).toBe(true);
+        expect(found?.triggerType).toBe("interval");
+
+        // 3. Execute the trigger — this dispatches into the REAL autonomy
+        //    service which calls the REAL LLM through performAutonomousThink()
+        logger.info("[e2e] Executing trigger (real LLM dispatch)...");
+        const execRes = await http$(
+          server?.port,
+          "POST",
+          `/api/triggers/${encodeURIComponent(triggerId)}/execute`,
+          undefined,
+          { timeoutMs: 120_000 },
+        );
+
+        expect(execRes.status).toBe(200);
+        const execResult = execRes.data.result as Record<string, unknown>;
+        expect(execResult.status).toBe("success");
+        expect(execResult.taskDeleted).toBe(false);
+        logger.info(`[e2e] Trigger execution: status=${execResult.status}`);
+
+        // 4. Verify run history was recorded
+        const runsRes = await http$(
+          server?.port,
+          "GET",
+          `/api/triggers/${encodeURIComponent(triggerId)}/runs`,
+        );
+        expect(runsRes.status).toBe(200);
+        const runs = runsRes.data.runs as Array<Record<string, unknown>>;
+        expect(runs.length).toBe(1);
+        expect(runs[0].status).toBe("success");
+        expect(runs[0].source).toBe("manual");
+        expect(typeof runs[0].latencyMs).toBe("number");
+        logger.info(`[e2e] Run recorded: latency=${runs[0].latencyMs}ms`);
+
+        // 5. Verify the trigger summary was updated after execution
+        const getRes = await http$(
+          server?.port,
+          "GET",
+          `/api/triggers/${encodeURIComponent(triggerId)}`,
+        );
+        expect(getRes.status).toBe(200);
+        const updatedTrigger = getRes.data.trigger as Record<string, unknown>;
+        expect(updatedTrigger.runCount).toBe(1);
+        expect(updatedTrigger.lastStatus).toBe("success");
+        expect(typeof updatedTrigger.lastRunAtIso).toBe("string");
+
+        // 6. Verify health endpoint reflects the execution
+        const healthRes = await http$(
+          server?.port,
+          "GET",
+          "/api/triggers/health",
+        );
+        expect(healthRes.status).toBe(200);
+        expect(
+          Number(healthRes.data.activeTriggers ?? 0),
+        ).toBeGreaterThanOrEqual(1);
+        expect(
+          Number(healthRes.data.totalExecutions ?? 0),
+        ).toBeGreaterThanOrEqual(1);
+        expect(Number(healthRes.data.totalFailures ?? 0)).toBe(0);
+
+        // 7. Disable and re-enable the trigger
+        const disableRes = await http$(
+          server?.port,
+          "PUT",
+          `/api/triggers/${encodeURIComponent(triggerId)}`,
+          { enabled: false },
+        );
+        expect(disableRes.status).toBe(200);
+        expect(
+          (disableRes.data.trigger as Record<string, boolean>)?.enabled,
+        ).toBe(false);
+
+        const enableRes = await http$(
+          server?.port,
+          "PUT",
+          `/api/triggers/${encodeURIComponent(triggerId)}`,
+          { enabled: true },
+        );
+        expect(enableRes.status).toBe(200);
+        expect(
+          (enableRes.data.trigger as Record<string, boolean>)?.enabled,
+        ).toBe(true);
+
+        // 8. Delete the trigger
+        const deleteRes = await http$(
+          server?.port,
+          "DELETE",
+          `/api/triggers/${encodeURIComponent(triggerId)}`,
+        );
+        expect(deleteRes.status).toBe(200);
+
+        // Confirm it's gone
+        const listAfterDelete = await http$(
+          server?.port,
+          "GET",
+          "/api/triggers",
+        );
+        const remainingTriggers = listAfterDelete.data.triggers as Array<
+          Record<string, unknown>
+        >;
+        const stillExists = remainingTriggers.find((t) => t.id === triggerId);
+        expect(stillExists).toBeUndefined();
+
+        logger.info("[e2e] Trigger lifecycle test complete (real LLM)");
+      },
+      240_000,
+    );
+  });
+
+  // ===================================================================
+  //  10. startEliza() — real subprocess test
   // ===================================================================
 
   describe("startEliza subprocess", () => {
