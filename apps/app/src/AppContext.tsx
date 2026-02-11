@@ -1461,8 +1461,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setPluginSaving((prev) => new Set([...prev, pluginId]));
       try {
         await client.updatePlugin(pluginId, { config });
+
+        // Check if this is an AI provider plugin
+        const plugin = plugins.find(p => p.id === pluginId);
+        const isAiProvider = plugin?.category === 'ai-provider';
+
+        // Restart agent if AI provider (API keys need restart to take effect)
+        if (isAiProvider) {
+          await client.restartAgent();
+        }
+
         await loadPlugins();
-        setActionNotice("Plugin settings saved.", "success");
+        setActionNotice(
+          isAiProvider
+            ? "Plugin settings saved and agent restarted."
+            : "Plugin settings saved.",
+          "success"
+        );
         setPluginSaveSuccess((prev) => new Set([...prev, pluginId]));
         setTimeout(() => {
           setPluginSaveSuccess((prev) => {
@@ -1485,7 +1500,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         });
       }
     },
-    [loadPlugins, setActionNotice],
+    [loadPlugins, setActionNotice, plugins],
   );
 
   // ── Skill actions ──────────────────────────────────────────────────
@@ -1694,14 +1709,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setWalletError(null);
       try {
         await client.updateWalletConfig(config);
+        await client.restartAgent();
         await loadWalletConfig();
         await loadBalances();
+        setActionNotice("Wallet API keys saved and agent restarted.", "success");
       } catch (err) {
         setWalletError(`Failed to save API keys: ${err instanceof Error ? err.message : "network error"}`);
       }
       setWalletApiKeySaving(false);
     },
-    [loadWalletConfig, loadBalances],
+    [loadWalletConfig, loadBalances, setActionNotice],
   );
 
   const handleExportKeys = useCallback(async () => {

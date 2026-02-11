@@ -394,6 +394,7 @@ export function ConfigView() {
       await client.updateConfig({
         models: { small: currentSmallModel, large: currentLargeModel },
       });
+      await client.restartAgent();
       setModelSaveSuccess(true);
       setTimeout(() => setModelSaveSuccess(false), 2000);
     } catch { /* ignore */ }
