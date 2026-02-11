@@ -1385,6 +1385,16 @@ describe("API Server E2E (no runtime)", () => {
       expect(data.ok).toBe(true);
     });
 
+    it("DELETE /api/mcp/config/server/:name returns 400 for malformed encoding", async () => {
+      const { status, data } = await req(
+        port,
+        "DELETE",
+        "/api/mcp/config/server/%E0%A4%A",
+      );
+      expect(status).toBe(400);
+      expect(typeof data.error).toBe("string");
+    });
+
     it("PUT /api/mcp/config replaces entire config", async () => {
       const newServers = {
         "bulk-a": { type: "stdio", command: "npx", args: ["-y", "@test/a"] },

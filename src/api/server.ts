@@ -1930,6 +1930,20 @@ function rejectWebSocketUpgrade(
   );
   socket.destroy();
 }
+
+function decodePathComponent(
+  raw: string,
+  res: http.ServerResponse,
+  fieldName: string,
+): string | null {
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    error(res, `Invalid ${fieldName}: malformed URL encoding`, 400);
+    return null;
+  }
+}
+
 async function handleRequest(
   req: http.IncomingMessage,
   res: http.ServerResponse,
@@ -6566,9 +6580,12 @@ async function handleRequest(
     method === "GET" &&
     pathname.startsWith("/api/mcp/marketplace/details/")
   ) {
-    const serverName = decodeURIComponent(
+    const serverName = decodePathComponent(
       pathname.slice("/api/mcp/marketplace/details/".length),
+      res,
+      "server name",
     );
+    if (serverName === null) return;
     if (!serverName.trim()) {
       error(res, "Server name is required", 400);
       return;
@@ -6684,9 +6701,12 @@ async function handleRequest(
 
   // ── DELETE /api/mcp/config/server/:name ──────────────────────────────
   if (method === "DELETE" && pathname.startsWith("/api/mcp/config/server/")) {
-    const serverName = decodeURIComponent(
+    const serverName = decodePathComponent(
       pathname.slice("/api/mcp/config/server/".length),
+      res,
+      "server name",
     );
+    if (serverName === null) return;
     if (isBlockedObjectKey(serverName)) {
       error(
         res,
