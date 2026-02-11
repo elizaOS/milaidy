@@ -68,7 +68,7 @@ First run she walks you through setup:
 │
 └  Starting agent...
 
-   Dashboard: http://localhost:18789
+   Dashboard: http://localhost:2138
    Gateway:   ws://localhost:18789/ws
 
    she's alive. go say hi.
@@ -90,6 +90,16 @@ Or just:
 ```bash
 npm install -g milaidy
 ```
+
+### Security: API token
+
+The API server binds to `127.0.0.1` (loopback) by default — only you can reach it. If you expose it to the network (e.g. `MILAIDY_API_BIND=0.0.0.0` for container/cloud deployments), **set a token**:
+
+```bash
+echo "MILAIDY_API_TOKEN=$(openssl rand -hex 32)" >> .env
+```
+
+Without a token on a public bind, anyone who can reach the server gets full access to the dashboard, agent, and wallet endpoints.
 
 ---
 
@@ -259,19 +269,29 @@ Or use `~/.milaidy/.env` for secrets.
 
 ---
 
+## Prerequisites
+
+| | Version | Notes |
+|---|---------|-------|
+| **Node.js** | >= 22 | `node --version` to check |
+| **pnpm** | >= 10 | for building from source. `npm i -g pnpm` |
+| **bun** | latest | optional — `scripts/rt.sh` auto-falls back to npm |
+
 ## Build from Source
 
 ```bash
 git clone https://github.com/milady-ai/milaidy.git
 cd milaidy
-bun install
-bun run build
-bun run milaidy start
+pnpm install        # or: bun install
+pnpm build          # or: bun run build (rt.sh picks bun if available)
+pnpm run milaidy start
 ```
+
+> `scripts/rt.sh` prefers bun but falls back to npm automatically. You don't need bun installed. If you want to be explicit: `pnpm run build:node` uses only Node.
 
 Dev mode with hot reload:
 ```bash
-bun run dev
+bun run dev         # or: pnpm dev
 ```
 
 ---
