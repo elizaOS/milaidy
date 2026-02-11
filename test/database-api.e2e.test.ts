@@ -369,6 +369,7 @@ describe("Database API E2E (no runtime)", () => {
       expect(data.serverVersion).toBeNull();
     });
 
+<<<<<<< HEAD
     it("rejects connectionString host override to blocked targets", async () => {
       const previousBind = process.env.MILAIDY_API_BIND;
       process.env.MILAIDY_API_BIND = "0.0.0.0";
@@ -418,11 +419,28 @@ describe("Database API E2E (no runtime)", () => {
         ];
 
         for (const payload of blockedBodies) {
+=======
+    it("blocks IPv6 ULA targets when API bind is non-loopback", async () => {
+      const previousBind = process.env.MILAIDY_API_BIND;
+      process.env.MILAIDY_API_BIND = "0.0.0.0";
+      try {
+        const cases = ["fc12::1", "fd12::1"];
+        for (const host of cases) {
+>>>>>>> pr-129
           const { status, data } = await req(
             port,
             "POST",
             "/api/database/test",
+<<<<<<< HEAD
             payload,
+=======
+            {
+              host,
+              port: 5432,
+              database: "postgres",
+              user: "postgres",
+            },
+>>>>>>> pr-129
           );
           expect(status).toBe(400);
           expect(String(data.error ?? "")).toContain("blocked");
