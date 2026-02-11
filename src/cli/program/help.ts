@@ -25,6 +25,8 @@ export function configureProgramHelp(program: Command, programVersion: string) {
     .name(CLI_NAME)
     .description("")
     .version(programVersion, "-v, --version")
+    .option("--verbose", "Enable informational runtime logs")
+    .option("--debug", "Enable debug-level runtime logs")
     .option(
       "--dev",
       "Dev profile: isolate state under ~/.milaidy-dev with separate config and ports",

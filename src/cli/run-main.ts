@@ -5,7 +5,7 @@ import { registerSubCliByName } from "./program/register.subclis.js";
 async function loadDotEnv(): Promise<void> {
   try {
     const { config } = await import("dotenv");
-    config();
+    config({ quiet: true });
   } catch (err) {
     if (
       (err as NodeJS.ErrnoException).code !== "MODULE_NOT_FOUND" &&

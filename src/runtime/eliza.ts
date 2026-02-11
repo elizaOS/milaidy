@@ -1696,10 +1696,11 @@ export async function startEliza(
 
   // 1c. Apply logging level from config to process.env so the global
   //     @elizaos/core logger (used by plugins) respects it.
-  //     Default to "info" so runtime activity is visible (AgentRuntime
-  //     defaults to "error" which hides useful diagnostic messages).
+  //     Default to "error" to keep the CLI startup output readable.
+  //     Users can still opt into noisy logs via config.logging.level or
+  //     an explicit LOG_LEVEL environment variable.
   if (!process.env.LOG_LEVEL) {
-    process.env.LOG_LEVEL = config.logging?.level ?? "info";
+    process.env.LOG_LEVEL = config.logging?.level ?? "error";
   }
 
   // 2. Push channel secrets into process.env for plugin discovery
@@ -1869,13 +1870,13 @@ export async function startEliza(
 
   // Resolve the runtime log level from config (AgentRuntime doesn't support
   // "silent", so we map it to "fatal" as the quietest supported level).
-  // Default to "info" to keep runtime logs visible for diagnostics.
+  // Default to "error" so `npx milaidy` is not flooded by runtime logs.
   const runtimeLogLevel = (() => {
     // process.env.LOG_LEVEL is already resolved (set explicitly or from
     // config.logging.level above), so prefer it to honour the dev-mode
     // LOG_LEVEL=error override set by scripts/dev-ui.mjs.
     const lvl = process.env.LOG_LEVEL ?? config.logging?.level;
-    if (!lvl) return "info" as const;
+    if (!lvl) return "error" as const;
     if (lvl === "silent") return "fatal" as const;
     return lvl as "trace" | "debug" | "info" | "warn" | "error" | "fatal";
   })();
@@ -2385,9 +2386,9 @@ export async function startEliza(
         }
       },
     });
-    logger.info(
-      `[milaidy] API server listening on http://localhost:${actualApiPort}`,
-    );
+    const dashboardUrl = `http://localhost:${actualApiPort}`;
+    console.log(`[milaidy] Control UI: ${dashboardUrl}`);
+    logger.info(`[milaidy] API server listening on ${dashboardUrl}`);
   } catch (apiErr) {
     logger.warn(`[milaidy] Could not start API server: ${formatError(apiErr)}`);
     // Non-fatal — CLI chat loop still works without the API server.

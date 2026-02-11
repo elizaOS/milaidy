@@ -67,7 +67,6 @@ import { type CloudRouteState, handleCloudRoute } from "./cloud-routes.js";
 import { handleDatabaseRoute } from "./database.js";
 import { DropService } from "./drop-service.js";
 import { handleKnowledgeRoutes } from "./knowledge-routes.js";
-import { initializeOGCode, readOGCode } from "./og-tracker.js";
 import {
   type PluginParamInfo,
   validatePluginConfig,
@@ -130,6 +129,28 @@ function isUuidLike(value: string): value is UUID {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
     value,
   );
+}
+
+const OG_FILENAME = ".og";
+
+function readOGCodeFromState(): string | null {
+  const filePath = path.join(resolveStateDir(), OG_FILENAME);
+  if (!fs.existsSync(filePath)) return null;
+  return fs.readFileSync(filePath, "utf-8").trim();
+}
+
+function initializeOGCodeInState(): void {
+  const dir = resolveStateDir();
+  const filePath = path.join(dir, OG_FILENAME);
+  if (fs.existsSync(filePath)) return;
+
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
+  }
+  fs.writeFileSync(filePath, crypto.randomUUID(), {
+    encoding: "utf-8",
+    mode: 0o600,
+  });
 }
 
 /** Metadata for a web-chat conversation. */
@@ -7624,7 +7645,7 @@ async function handleRequest(
     const twitterVerified = walletAddress
       ? isAddressWhitelisted(walletAddress)
       : false;
-    const ogCode = readOGCode();
+    const ogCode = readOGCodeFromState();
 
     json(res, {
       eligible: twitterVerified,
@@ -10147,7 +10168,7 @@ export async function startApiServer(opts?: {
   }
 
   // ── ERC-8004 Registry & Drop service initialisation ────────────────────
-  initializeOGCode();
+  initializeOGCodeInState();
 
   let registryService: RegistryService | null = null;
   let dropService: DropService | null = null;
