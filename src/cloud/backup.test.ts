@@ -18,11 +18,7 @@ function createMockClient(): ElizaCloudClient & {
 } {
   return {
     snapshot: vi.fn().mockResolvedValue({ id: "bk-1", snapshotType: "auto" }),
-  } as unknown as ElizaCloudClient & { snapshot: ReturnType<typeof vi.fn> };
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+  } as ElizaCloudClient & { snapshot: ReturnType<typeof vi.fn> };
 }
 
 describe("BackupScheduler", () => {
@@ -39,9 +35,14 @@ describe("BackupScheduler", () => {
     const client = createMockClient();
     const scheduler = new BackupScheduler(client, "a1", 30);
 
-    scheduler.start();
-    await sleep(60);
-    scheduler.stop();
+    vi.useFakeTimers();
+    try {
+      scheduler.start();
+      await vi.advanceTimersByTimeAsync(60);
+      scheduler.stop();
+    } finally {
+      vi.useRealTimers();
+    }
 
     expect(client.snapshot).toHaveBeenCalled();
     expect(client.snapshot).toHaveBeenCalledWith("a1");
@@ -51,9 +52,14 @@ describe("BackupScheduler", () => {
     const client = createMockClient();
     const scheduler = new BackupScheduler(client, "a1", 20);
 
-    scheduler.start();
-    await sleep(250);
-    scheduler.stop();
+    vi.useFakeTimers();
+    try {
+      scheduler.start();
+      await vi.advanceTimersByTimeAsync(250);
+      scheduler.stop();
+    } finally {
+      vi.useRealTimers();
+    }
 
     expect(client.snapshot.mock.calls.length).toBeGreaterThanOrEqual(3);
   });
@@ -62,13 +68,19 @@ describe("BackupScheduler", () => {
     const client = createMockClient();
     const scheduler = new BackupScheduler(client, "a1", 20);
 
-    scheduler.start();
-    await sleep(40);
-    const countAtStop = client.snapshot.mock.calls.length;
-    expect(countAtStop).toBeGreaterThanOrEqual(1);
+    vi.useFakeTimers();
+    let countAtStop = 0;
+    try {
+      scheduler.start();
+      await vi.advanceTimersByTimeAsync(40);
+      countAtStop = client.snapshot.mock.calls.length;
+      expect(countAtStop).toBeGreaterThanOrEqual(1);
 
-    scheduler.stop();
-    await sleep(60);
+      scheduler.stop();
+      await vi.advanceTimersByTimeAsync(60);
+    } finally {
+      vi.useRealTimers();
+    }
 
     // No additional calls after stop
     expect(client.snapshot.mock.calls.length).toBe(countAtStop);
@@ -88,10 +100,15 @@ describe("BackupScheduler", () => {
     const client = createMockClient();
     const scheduler = new BackupScheduler(client, "a1", 50);
 
-    scheduler.start();
-    scheduler.start(); // should not create second timer
-    await sleep(80);
-    scheduler.stop();
+    vi.useFakeTimers();
+    try {
+      scheduler.start();
+      scheduler.start(); // should not create second timer
+      await vi.advanceTimersByTimeAsync(80);
+      scheduler.stop();
+    } finally {
+      vi.useRealTimers();
+    }
 
     // With a single timer at 50ms, after 80ms we expect 1-2 calls.
     // CI timing variance may yield an extra tick, so allow up to 3.
@@ -105,9 +122,14 @@ describe("BackupScheduler", () => {
       .mockResolvedValueOnce({ id: "bk-2" });
 
     const scheduler = new BackupScheduler(client, "a1", 20);
-    scheduler.start();
-    await sleep(60);
-    scheduler.stop();
+    vi.useFakeTimers();
+    try {
+      scheduler.start();
+      await vi.advanceTimersByTimeAsync(60);
+      scheduler.stop();
+    } finally {
+      vi.useRealTimers();
+    }
 
     // At least 2 calls (first fails, second succeeds). CI timing
     // variance may yield an extra tick, so use >= instead of exact.

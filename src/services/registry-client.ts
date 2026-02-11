@@ -10,6 +10,7 @@
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { logger } from "@elizaos/core";
 
 // ---------------------------------------------------------------------------
@@ -21,6 +22,9 @@ const GENERATED_REGISTRY_URL =
 const INDEX_REGISTRY_URL =
   "https://raw.githubusercontent.com/elizaos-plugins/registry/refs/heads/next%40registry/index.json";
 const CACHE_TTL_MS = 3_600_000; // 1 hour
+
+const LOCAL_APP_DEFAULT_SANDBOX =
+  "allow-scripts allow-same-origin allow-popups";
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -47,10 +51,19 @@ export interface RegistryPluginInfo {
     v2Branch: string | null;
   };
   supports: { v0: boolean; v1: boolean; v2: boolean };
+  /** Absolute local workspace package path when discovered from filesystem. */
+  localPath?: string;
   /** Set to "app" when this entry is a launchable application */
   kind?: string;
   /** App metadata — present when kind is "app" */
   appMeta?: RegistryAppMeta;
+}
+
+export interface RegistryAppViewerMeta {
+  url: string;
+  embedParams?: Record<string, string>;
+  postMessageAuth?: boolean;
+  sandbox?: string;
 }
 
 /** App-specific metadata from the registry. */
@@ -63,6 +76,7 @@ export interface RegistryAppMeta {
   capabilities: string[];
   minPlayers: number | null;
   maxPlayers: number | null;
+  viewer?: RegistryAppViewerMeta;
 }
 
 /** App-specific info for listing and searching. */
@@ -113,11 +127,402 @@ let memoryCache: {
   fetchedAt: number;
 } | null = null;
 
+interface LocalPackageAppMeta {
+  displayName?: string;
+  category?: string;
+  launchType?: string;
+  launchUrl?: string | null;
+  icon?: string | null;
+  capabilities?: string[];
+  minPlayers?: number | null;
+  maxPlayers?: number | null;
+  viewer?: RegistryAppViewerMeta;
+}
+
+interface LocalPackageElizaConfig {
+  kind?: string;
+  app?: LocalPackageAppMeta;
+}
+
+interface LocalPackageJson {
+  name?: string;
+  version?: string;
+  description?: string;
+  homepage?: string;
+  repository?: string | { type?: string; url?: string };
+  elizaos?: LocalPackageElizaConfig;
+}
+
+interface LocalPluginManifest {
+  id?: string;
+  name?: string;
+  version?: string;
+  description?: string;
+  homepage?: string;
+  repository?: string | { type?: string; url?: string };
+  kind?: string;
+  app?: LocalPackageAppMeta;
+}
+
+interface LocalAppOverride {
+  displayName?: string;
+  category?: string;
+  launchType?: string;
+  launchUrl?: string | null;
+  capabilities?: string[];
+  viewer?: RegistryAppViewerMeta;
+}
+
+const LOCAL_APP_OVERRIDES: Readonly<Record<string, LocalAppOverride>> = {
+  "@elizaos/app-babylon": {
+    launchType: "url",
+    launchUrl: "http://localhost:3000",
+    viewer: {
+      url: "http://localhost:3000",
+      sandbox: "allow-scripts allow-same-origin allow-popups allow-forms",
+    },
+  },
+  "@elizaos/app-hyperscape": {
+    launchType: "connect",
+    launchUrl: "http://localhost:3333",
+    viewer: {
+      url: "http://localhost:3333",
+      embedParams: {
+        embedded: "true",
+        mode: "spectator",
+        quality: "medium",
+      },
+      postMessageAuth: true,
+      sandbox: "allow-scripts allow-same-origin allow-popups allow-forms",
+    },
+  },
+  "@elizaos/app-hyperfy": {
+    launchType: "connect",
+    launchUrl: "http://localhost:3003",
+    viewer: {
+      url: "http://localhost:3003",
+      sandbox: LOCAL_APP_DEFAULT_SANDBOX,
+    },
+  },
+  "@elizaos/app-2004scape": {
+    launchType: "connect",
+    launchUrl: "http://localhost:8880",
+    viewer: {
+      url: "http://localhost:8880",
+      embedParams: { bot: "{RS_SDK_BOT_NAME}" },
+      postMessageAuth: true,
+      sandbox: "allow-scripts allow-same-origin allow-popups allow-forms",
+    },
+  },
+  "@elizaos/app-agent-town": {
+    launchType: "url",
+    launchUrl: "http://localhost:5173/ai-town/index.html",
+    viewer: {
+      url: "http://localhost:5173/ai-town/index.html",
+      sandbox: "allow-scripts allow-same-origin allow-popups allow-forms",
+    },
+  },
+  "@elizaos/app-dungeons": {
+    launchType: "local",
+    launchUrl: "http://localhost:3345",
+    viewer: {
+      url: "http://localhost:3345",
+      sandbox: "allow-scripts allow-same-origin allow-popups allow-forms",
+    },
+  },
+};
+
+function uniquePaths(paths: string[]): string[] {
+  const seen = new Set<string>();
+  const ordered: string[] = [];
+  for (const p of paths) {
+    const resolved = path.resolve(p);
+    if (!seen.has(resolved)) {
+      seen.add(resolved);
+      ordered.push(resolved);
+    }
+  }
+  return ordered;
+}
+
+function resolveWorkspaceRoots(): string[] {
+  const envRoot = process.env.MILAIDY_WORKSPACE_ROOT?.trim();
+  if (envRoot) return uniquePaths([envRoot]);
+  const moduleDir = path.dirname(fileURLToPath(import.meta.url));
+  const packageRoot = path.resolve(moduleDir, "..", "..");
+  const cwd = process.cwd();
+  const roots = [
+    packageRoot,
+    cwd,
+    path.resolve(cwd, ".."),
+    path.resolve(cwd, "..", ".."),
+  ].filter((candidate): candidate is string => Boolean(candidate));
+  return uniquePaths(roots);
+}
+
+function repoString(
+  repo: LocalPackageJson["repository"] | LocalPluginManifest["repository"],
+): string | null {
+  if (!repo) return null;
+  if (typeof repo === "string") return repo;
+  if (typeof repo.url === "string" && repo.url.length > 0) return repo.url;
+  return null;
+}
+
+function normaliseGitHubRepo(repo: string | null): string | null {
+  if (!repo) return null;
+  const cleaned = repo
+    .replace(/^git\+/, "")
+    .replace(/\.git$/, "")
+    .replace(/^https?:\/\/github\.com\//, "")
+    .replace(/^git@github\.com:/, "")
+    .trim();
+  if (!cleaned.includes("/")) return null;
+  return cleaned;
+}
+
+function mergeViewer(
+  base: RegistryAppViewerMeta | undefined,
+  patch: RegistryAppViewerMeta | undefined,
+): RegistryAppViewerMeta | undefined {
+  if (!base && !patch) return undefined;
+  if (!base) return patch;
+  if (!patch) return base;
+  return {
+    ...base,
+    ...patch,
+    embedParams: {
+      ...(base.embedParams ?? {}),
+      ...(patch.embedParams ?? {}),
+    },
+  };
+}
+
+function mergeAppMeta(
+  base: RegistryAppMeta | undefined,
+  patch: RegistryAppMeta | undefined,
+): RegistryAppMeta | undefined {
+  if (!base && !patch) return undefined;
+  if (!base) return patch;
+  if (!patch) return base;
+  return {
+    ...base,
+    ...patch,
+    capabilities:
+      patch.capabilities.length > 0 ? patch.capabilities : base.capabilities,
+    viewer: mergeViewer(base.viewer, patch.viewer),
+  };
+}
+
 function cacheFilePath(): string {
   const base =
     process.env.MILAIDY_STATE_DIR?.trim() ||
     path.join(os.homedir(), ".milaidy");
   return path.join(base, "cache", "registry.json");
+}
+
+async function readJsonFile<T>(filePath: string): Promise<T | null> {
+  try {
+    const raw = await fs.readFile(filePath, "utf-8");
+    return JSON.parse(raw) as T;
+  } catch {
+    return null;
+  }
+}
+
+function toLocalAppMeta(
+  app: LocalPackageAppMeta | undefined,
+  fallbackDisplayName: string,
+): RegistryAppMeta | undefined {
+  if (!app) return undefined;
+  const launchType = app.launchType ?? "url";
+  return {
+    displayName: app.displayName ?? fallbackDisplayName,
+    category: app.category ?? "game",
+    launchType,
+    launchUrl: app.launchUrl ?? null,
+    icon: app.icon ?? null,
+    capabilities: app.capabilities ?? [],
+    minPlayers: app.minPlayers ?? null,
+    maxPlayers: app.maxPlayers ?? null,
+    viewer: app.viewer,
+  };
+}
+
+function toDisplayNameFromDirName(dirName: string): string {
+  return dirName
+    .replace(/^app-/, "")
+    .split("-")
+    .filter((part) => part.length > 0)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function parseRepositoryMetadata(
+  repository:
+    | LocalPackageJson["repository"]
+    | LocalPluginManifest["repository"]
+    | undefined,
+): { gitRepo: string; gitUrl: string } {
+  const repoValue = repoString(repository);
+  const gitRepo = normaliseGitHubRepo(repoValue) ?? "local/workspace";
+  return {
+    gitRepo,
+    gitUrl: `https://github.com/${gitRepo}.git`,
+  };
+}
+
+function resolveAppOverride(
+  packageName: string,
+  appMeta: RegistryAppMeta | undefined,
+): RegistryAppMeta | undefined {
+  const override = LOCAL_APP_OVERRIDES[packageName];
+  if (!override) return appMeta;
+  const base: RegistryAppMeta = appMeta ?? {
+    displayName:
+      override.displayName ?? packageName.replace(/^@elizaos\/app-/, ""),
+    category: override.category ?? "game",
+    launchType: override.launchType ?? "url",
+    launchUrl: override.launchUrl ?? null,
+    icon: null,
+    capabilities: override.capabilities ?? [],
+    minPlayers: null,
+    maxPlayers: null,
+    viewer: override.viewer,
+  };
+  return {
+    ...base,
+    displayName: override.displayName ?? base.displayName,
+    category: override.category ?? base.category,
+    launchType: override.launchType ?? base.launchType,
+    launchUrl:
+      override.launchUrl !== undefined ? override.launchUrl : base.launchUrl,
+    capabilities:
+      override.capabilities !== undefined
+        ? override.capabilities
+        : base.capabilities,
+    viewer: mergeViewer(base.viewer, override.viewer),
+  };
+}
+
+async function discoverLocalWorkspaceApps(): Promise<
+  Map<string, RegistryPluginInfo>
+> {
+  const discovered = new Map<string, RegistryPluginInfo>();
+  for (const workspaceRoot of resolveWorkspaceRoots()) {
+    const pluginsDir = path.join(workspaceRoot, "plugins");
+    let entries: Array<import("node:fs").Dirent>;
+    try {
+      entries = await fs.readdir(pluginsDir, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+
+    for (const entry of entries) {
+      if (!entry.isDirectory() || !entry.name.startsWith("app-")) continue;
+      const packageDir = path.join(pluginsDir, entry.name);
+      const packageJson = await readJsonFile<LocalPackageJson>(
+        path.join(packageDir, "package.json"),
+      );
+      if (!packageJson?.name || packageJson.name.length === 0) continue;
+
+      const manifest = await readJsonFile<LocalPluginManifest>(
+        path.join(packageDir, "elizaos.plugin.json"),
+      );
+
+      const packageAppMeta = toLocalAppMeta(
+        packageJson.elizaos?.app,
+        toDisplayNameFromDirName(entry.name),
+      );
+      const manifestAppMeta = toLocalAppMeta(
+        manifest?.app,
+        toDisplayNameFromDirName(entry.name),
+      );
+      const mergedMeta = mergeAppMeta(manifestAppMeta, packageAppMeta);
+      const overriddenMeta = resolveAppOverride(packageJson.name, mergedMeta);
+
+      const kind =
+        packageJson.elizaos?.kind === "app" || manifest?.kind === "app"
+          ? "app"
+          : overriddenMeta
+            ? "app"
+            : undefined;
+
+      const repo = parseRepositoryMetadata(
+        packageJson.repository ?? manifest?.repository,
+      );
+      const description =
+        packageJson.description ?? manifest?.description ?? "";
+      const homepage =
+        packageJson.homepage ??
+        manifest?.homepage ??
+        overriddenMeta?.launchUrl ??
+        null;
+      const version = packageJson.version ?? manifest?.version ?? null;
+
+      discovered.set(packageJson.name, {
+        name: packageJson.name,
+        gitRepo: repo.gitRepo,
+        gitUrl: repo.gitUrl,
+        description,
+        homepage,
+        topics: [],
+        stars: 0,
+        language: "TypeScript",
+        npm: {
+          package: packageJson.name,
+          v0Version: null,
+          v1Version: null,
+          v2Version: version,
+        },
+        git: {
+          v0Branch: null,
+          v1Branch: null,
+          v2Branch: "main",
+        },
+        supports: { v0: false, v1: false, v2: true },
+        localPath: packageDir,
+        kind,
+        appMeta: overriddenMeta ?? undefined,
+      });
+    }
+  }
+
+  return discovered;
+}
+
+async function applyLocalWorkspaceApps(
+  plugins: Map<string, RegistryPluginInfo>,
+): Promise<void> {
+  const localApps = await discoverLocalWorkspaceApps();
+  if (localApps.size === 0) return;
+
+  for (const [name, localInfo] of localApps.entries()) {
+    const existing = plugins.get(name);
+    if (!existing) {
+      plugins.set(name, localInfo);
+      continue;
+    }
+
+    plugins.set(name, {
+      ...existing,
+      localPath: localInfo.localPath,
+      kind: localInfo.kind ?? existing.kind,
+      appMeta: mergeAppMeta(existing.appMeta, localInfo.appMeta),
+      description: localInfo.description || existing.description,
+      homepage: localInfo.homepage ?? existing.homepage,
+      npm: {
+        ...existing.npm,
+        package: existing.npm.package || localInfo.npm.package,
+        v2Version: existing.npm.v2Version ?? localInfo.npm.v2Version,
+      },
+      git: {
+        v0Branch: existing.git.v0Branch ?? localInfo.git.v0Branch,
+        v1Branch: existing.git.v1Branch ?? localInfo.git.v1Branch,
+        v2Branch: existing.git.v2Branch ?? localInfo.git.v2Branch,
+      },
+    });
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -161,6 +566,12 @@ async function fetchFromNetwork(): Promise<Map<string, RegistryPluginInfo>> {
               capabilities: string[];
               minPlayers: number | null;
               maxPlayers: number | null;
+              viewer?: {
+                url: string;
+                embedParams?: Record<string, string>;
+                postMessageAuth?: boolean;
+                sandbox?: string;
+              };
             };
           }
         >;
@@ -190,8 +601,10 @@ async function fetchFromNetwork(): Promise<Map<string, RegistryPluginInfo>> {
           supports: e.supports,
         };
 
-        if (e.kind === "app" && e.app) {
+        if (e.kind === "app" || e.app) {
           info.kind = "app";
+        }
+        if (e.app) {
           info.appMeta = {
             displayName: e.app.displayName,
             category: e.app.category,
@@ -201,11 +614,13 @@ async function fetchFromNetwork(): Promise<Map<string, RegistryPluginInfo>> {
             capabilities: e.app.capabilities || [],
             minPlayers: e.app.minPlayers ?? null,
             maxPlayers: e.app.maxPlayers ?? null,
+            viewer: e.app.viewer,
           };
         }
 
         plugins.set(name, info);
       }
+      await applyLocalWorkspaceApps(plugins);
       return plugins;
     }
   } catch (err) {
@@ -236,6 +651,7 @@ async function fetchFromNetwork(): Promise<Map<string, RegistryPluginInfo>> {
       supports: { v0: false, v1: false, v2: false },
     });
   }
+  await applyLocalWorkspaceApps(plugins);
   return plugins;
 }
 
@@ -288,6 +704,7 @@ export async function getRegistryPlugins(): Promise<
 
   const fromFile = await readFileCache();
   if (fromFile) {
+    await applyLocalWorkspaceApps(fromFile);
     memoryCache = { plugins: fromFile, fetchedAt: Date.now() };
     return fromFile;
   }
@@ -416,6 +833,20 @@ export async function searchPlugins(
 
 function toAppInfo(p: RegistryPluginInfo): RegistryAppInfo {
   const meta = p.appMeta;
+  const viewer = meta?.viewer
+    ? {
+        url: meta.viewer.url,
+        embedParams: meta.viewer.embedParams,
+        postMessageAuth: meta.viewer.postMessageAuth,
+        sandbox: meta.viewer.sandbox ?? LOCAL_APP_DEFAULT_SANDBOX,
+      }
+    : meta?.launchType === "connect" || meta?.launchType === "local"
+      ? {
+          url: meta?.launchUrl ?? "",
+          sandbox: LOCAL_APP_DEFAULT_SANDBOX,
+        }
+      : undefined;
+
   return {
     name: p.name,
     displayName: meta?.displayName ?? p.name.replace(/^@elizaos\/app-/, ""),
@@ -430,14 +861,7 @@ function toAppInfo(p: RegistryPluginInfo): RegistryAppInfo {
     latestVersion: p.npm.v2Version || p.npm.v1Version || p.npm.v0Version,
     supports: p.supports,
     npm: p.npm,
-    // Pass through viewer config from the registry metadata
-    viewer:
-      meta?.launchType === "connect" || meta?.launchType === "local"
-        ? {
-            url: meta?.launchUrl ?? "",
-            sandbox: "allow-scripts allow-same-origin allow-popups",
-          }
-        : undefined,
+    viewer,
   };
 }
 

@@ -12,21 +12,22 @@
 
 import { describe, expect, it, vi } from "vitest";
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 import type { ElizaCloudClient } from "./bridge-client.js";
 import { ConnectionMonitor } from "./reconnect.js";
 
+type MockCloudClient = ElizaCloudClient & {
+  heartbeat: ReturnType<typeof vi.fn>;
+  provision: ReturnType<typeof vi.fn>;
+};
+
 function createMockClient(
-  overrides: Record<string, unknown> = {},
-): ElizaCloudClient {
+  overrides: Partial<MockCloudClient> = {},
+): MockCloudClient {
   return {
     heartbeat: vi.fn().mockResolvedValue(true),
     provision: vi.fn().mockResolvedValue({ id: "a1", status: "running" }),
     ...overrides,
-  } as unknown as ElizaCloudClient;
+  } as MockCloudClient;
 }
 
 describe("ConnectionMonitor", () => {
@@ -40,14 +41,17 @@ describe("ConnectionMonitor", () => {
       3,
     );
 
-    monitor.start();
-    await sleep(80);
-    monitor.stop();
+    vi.useFakeTimers();
+    try {
+      monitor.start();
+      await vi.advanceTimersByTimeAsync(80);
+      monitor.stop();
+    } finally {
+      vi.useRealTimers();
+    }
 
     // Should have fired at least 2 heartbeats in 80ms with 30ms interval
-    expect(
-      (client.heartbeat as ReturnType<typeof vi.fn>).mock.calls.length,
-    ).toBeGreaterThanOrEqual(2);
+    expect(client.heartbeat.mock.calls.length).toBeGreaterThanOrEqual(2);
   });
 
   it("calls onDisconnect after maxFailures consecutive heartbeat failures", async () => {
@@ -65,20 +69,25 @@ describe("ConnectionMonitor", () => {
       3,
     );
 
-    monitor.start();
-    // Poll until onDisconnect fires (3 ticks at 20ms each) with generous timeout
-    const deadline = Date.now() + 1000;
-    while (!onDisconnect.mock.calls.length && Date.now() < deadline) {
-      await sleep(10);
+    vi.useFakeTimers();
+    try {
+      monitor.start();
+      await vi.advanceTimersByTimeAsync(120);
+      monitor.stop();
+    } finally {
+      vi.useRealTimers();
     }
-    monitor.stop();
 
     expect(onDisconnect).toHaveBeenCalled();
   });
 
   it("calls onReconnect after successful re-provision", async () => {
     const client = createMockClient({
-      heartbeat: vi.fn().mockResolvedValue(false),
+      heartbeat: vi
+        .fn()
+        .mockResolvedValueOnce(false)
+        .mockResolvedValueOnce(false)
+        .mockResolvedValue(true),
       provision: vi.fn().mockResolvedValue({ id: "a1", status: "running" }),
     });
     const onReconnect = vi.fn();
@@ -91,19 +100,25 @@ describe("ConnectionMonitor", () => {
       2,
     );
 
-    monitor.start();
-    // 2 failures at 20ms + reconnect attempt (3s backoff is the minimum)
-    // But in test, provision resolves immediately so the 3s sleep is the bottleneck
-    // Wait for initial failures + first reconnect backoff
-    await sleep(3200);
-    monitor.stop();
+    vi.useFakeTimers();
+    try {
+      monitor.start();
+      await vi.advanceTimersByTimeAsync(100);
+      monitor.stop();
+    } finally {
+      vi.useRealTimers();
+    }
 
     expect(onReconnect).toHaveBeenCalled();
-  }, 10_000);
+  });
 
   it("reports status changes via onStatusChange", async () => {
     const client = createMockClient({
-      heartbeat: vi.fn().mockResolvedValue(false),
+      heartbeat: vi
+        .fn()
+        .mockResolvedValueOnce(false)
+        .mockResolvedValueOnce(false)
+        .mockResolvedValue(true),
       provision: vi.fn().mockResolvedValue({ id: "a1" }),
     });
     const statuses: string[] = [];
@@ -120,14 +135,19 @@ describe("ConnectionMonitor", () => {
       2,
     );
 
-    monitor.start();
-    await sleep(3200);
-    monitor.stop();
+    vi.useFakeTimers();
+    try {
+      monitor.start();
+      await vi.advanceTimersByTimeAsync(100);
+      monitor.stop();
+    } finally {
+      vi.useRealTimers();
+    }
 
     expect(statuses).toContain("disconnected");
     expect(statuses).toContain("reconnecting");
     expect(statuses).toContain("connected");
-  }, 10_000);
+  });
 
   it("isMonitoring reflects lifecycle", () => {
     const monitor = new ConnectionMonitor(createMockClient(), "a1", {

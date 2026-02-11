@@ -84,7 +84,7 @@
     "test:install:e2e:anthropic": "MILAIDY_E2E_MODELS=anthropic bash test/scripts/test-install-sh-e2e-docker.sh",
     "test:install:e2e:openai": "MILAIDY_E2E_MODELS=openai bash test/scripts/test-install-sh-e2e-docker.sh",
     "test:install:smoke": "bash test/scripts/test-install-sh-docker.sh",
-    "test:live": "MILAIDY_LIVE_TEST=1 vitest run --config vitest.live.config.ts",
+    "test:live": "MILAIDY_LIVE_TEST=1 vitest run --config vitest.e2e.config.ts test/wallet-live.e2e.test.ts test/api-auth-live.e2e.test.ts",
     "test:watch": "vitest",
     "tui": "scripts/rt.sh scripts/run-node.mjs tui",
     "tui:dev": "MILAIDY_PROFILE=dev scripts/rt.sh scripts/run-node.mjs --dev tui"

@@ -39,7 +39,15 @@ import {
   type ReleaseChannel,
   type Conversation,
   type ConversationMessage,
+  type ConversationMode,
+  type CreateTriggerRequest,
   type StylePreset,
+  type StreamEventEnvelope,
+  type TriggerHealthSnapshot,
+  type TriggerRunRecord,
+  type TriggerSummary,
+  type UpdateTriggerRequest,
+  type AppViewerAuthMessage,
 } from "./api-client";
 import { tabFromPath, pathForTab, type Tab } from "./navigation";
 import { SkillScanReportSummary } from "./api-client";
@@ -134,6 +142,7 @@ export type OnboardingStep =
   | "style"
   | "theme"
   | "runMode"
+  | "dockerSetup"
   | "cloudProvider"
   | "modelSelection"
   | "cloudLogin"
@@ -147,6 +156,8 @@ interface ActionNotice {
   tone: string;
   text: string;
 }
+
+type GamePostMessageAuthPayload = AppViewerAuthMessage;
 
 // ── Context value type ─────────────────────────────────────────────────
 
@@ -171,11 +182,22 @@ export interface AppState {
   // Chat
   chatInput: string;
   chatSending: boolean;
+  chatFirstTokenReceived: boolean;
   conversations: Conversation[];
   activeConversationId: string | null;
   conversationMessages: ConversationMessage[];
+  autonomousEvents: StreamEventEnvelope[];
+  autonomousLatestEventId: string | null;
   /** Conversation IDs with unread proactive messages from the agent. */
   unreadConversations: Set<string>;
+
+  // Triggers
+  triggers: TriggerSummary[];
+  triggersLoading: boolean;
+  triggersSaving: boolean;
+  triggerRunsById: Record<string, TriggerRunRecord[]>;
+  triggerHealth: TriggerHealthSnapshot | null;
+  triggerError: string | null;
 
   // Plugins
   plugins: PluginInfo[];
@@ -306,7 +328,7 @@ export interface AppState {
   onboardingName: string;
   onboardingStyle: string;
   onboardingTheme: ThemeName;
-  onboardingRunMode: "local" | "cloud" | "";
+  onboardingRunMode: "local-rawdog" | "local-sandbox" | "cloud" | "";
   onboardingCloudProvider: string;
   onboardingSmallModel: string;
   onboardingLargeModel: string;
@@ -358,6 +380,7 @@ export interface AppState {
   activeGameViewerUrl: string;
   activeGameSandbox: string;
   activeGamePostMessageAuth: boolean;
+  activeGamePostMessagePayload: GamePostMessageAuthPayload | null;
 
   // Sub-tabs
   appsSubTab: "browse" | "games";
@@ -383,12 +406,22 @@ export interface AppActions {
   handleReset: () => Promise<void>;
 
   // Chat
-  handleChatSend: () => Promise<void>;
+  handleChatSend: (mode?: ConversationMode) => Promise<void>;
+  handleChatStop: () => void;
   handleChatClear: () => Promise<void>;
   handleNewConversation: () => Promise<void>;
   handleSelectConversation: (id: string) => Promise<void>;
   handleDeleteConversation: (id: string) => Promise<void>;
   handleRenameConversation: (id: string, title: string) => Promise<void>;
+
+  // Triggers
+  loadTriggers: () => Promise<void>;
+  createTrigger: (request: CreateTriggerRequest) => Promise<TriggerSummary | null>;
+  updateTrigger: (id: string, request: UpdateTriggerRequest) => Promise<TriggerSummary | null>;
+  deleteTrigger: (id: string) => Promise<boolean>;
+  runTriggerNow: (id: string) => Promise<boolean>;
+  loadTriggerRuns: (id: string) => Promise<void>;
+  loadTriggerHealth: () => Promise<void>;
 
   // Pairing
   handlePairingSubmit: () => Promise<void>;
@@ -503,11 +536,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // --- Chat ---
   const [chatInput, setChatInput] = useState("");
   const [chatSending, setChatSending] = useState(false);
+  const [chatFirstTokenReceived, setChatFirstTokenReceived] = useState(false);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [conversationMessages, setConversationMessages] = useState<ConversationMessage[]>([]);
+  const [autonomousEvents, setAutonomousEvents] = useState<StreamEventEnvelope[]>([]);
+  const [autonomousLatestEventId, setAutonomousLatestEventId] = useState<string | null>(null);
   const [unreadConversations, setUnreadConversations] = useState<Set<string>>(new Set());
   const activeConversationIdRef = useRef<string | null>(null);
+
+  // --- Triggers ---
+  const [triggers, setTriggers] = useState<TriggerSummary[]>([]);
+  const [triggersLoading, setTriggersLoading] = useState(false);
+  const [triggersSaving, setTriggersSaving] = useState(false);
+  const [triggerRunsById, setTriggerRunsById] = useState<Record<string, TriggerRunRecord[]>>({});
+  const [triggerHealth, setTriggerHealth] = useState<TriggerHealthSnapshot | null>(null);
+  const [triggerError, setTriggerError] = useState<string | null>(null);
 
   // --- Plugins ---
   const [plugins, setPlugins] = useState<PluginInfo[]>([]);
@@ -644,7 +688,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [onboardingName, setOnboardingName] = useState("");
   const [onboardingStyle, setOnboardingStyle] = useState("");
   const [onboardingTheme, setOnboardingTheme] = useState<ThemeName>(loadTheme);
-  const [onboardingRunMode, setOnboardingRunMode] = useState<"local" | "cloud" | "">("");
+  const [onboardingRunMode, setOnboardingRunMode] = useState<"local-rawdog" | "local-sandbox" | "cloud" | "">("");
   const [onboardingCloudProvider, setOnboardingCloudProvider] = useState("");
   const [onboardingSmallModel, setOnboardingSmallModel] = useState("moonshotai/kimi-k2-turbo");
   const [onboardingLargeModel, setOnboardingLargeModel] = useState("moonshotai/kimi-k2-0905");
@@ -696,6 +740,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [activeGameViewerUrl, setActiveGameViewerUrl] = useState("");
   const [activeGameSandbox, setActiveGameSandbox] = useState("allow-scripts allow-same-origin allow-popups");
   const [activeGamePostMessageAuth, setActiveGamePostMessageAuth] = useState(false);
+  const [activeGamePostMessagePayload, setActiveGamePostMessagePayload] = useState<GamePostMessageAuthPayload | null>(null);
 
   // --- Admin ---
   const [appsSubTab, setAppsSubTab] = useState<"browse" | "games">("browse");
@@ -714,6 +759,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const prevAgentStateRef = useRef<string | null>(null);
   /** Guards against double-greeting when both init and state-transition paths fire. */
   const greetingFiredRef = useRef(false);
+  const chatAbortRef = useRef<AbortController | null>(null);
 
   // ── Action notice ──────────────────────────────────────────────────
 
@@ -766,6 +812,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  const sortTriggersByNextRun = useCallback((items: TriggerSummary[]): TriggerSummary[] => {
+    return [...items].sort((a: TriggerSummary, b: TriggerSummary) => {
+      const aNext = a.nextRunAtMs ?? Number.MAX_SAFE_INTEGER;
+      const bNext = b.nextRunAtMs ?? Number.MAX_SAFE_INTEGER;
+      if (aNext !== bNext) return aNext - bNext;
+      return a.displayName.localeCompare(b.displayName);
+    });
+  }, []);
+
   // ── Data loading ───────────────────────────────────────────────────
 
   const loadPlugins = useCallback(async () => {
@@ -816,6 +871,169 @@ export function AppProvider({ children }: { children: ReactNode }) {
       /* ignore */
     }
   }, [logTagFilter, logLevelFilter, logSourceFilter]);
+
+  const loadTriggerHealth = useCallback(async () => {
+    try {
+      const health = await client.getTriggerHealth();
+      setTriggerHealth(health);
+    } catch {
+      setTriggerHealth(null);
+    }
+  }, []);
+
+  const loadTriggers = useCallback(async () => {
+    setTriggersLoading(true);
+    try {
+      const data = await client.getTriggers();
+      setTriggers(sortTriggersByNextRun(data.triggers));
+      setTriggerError(null);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to load triggers";
+      setTriggerError(message);
+      setTriggers([]);
+    } finally {
+      setTriggersLoading(false);
+    }
+  }, [sortTriggersByNextRun]);
+
+  const loadTriggerRuns = useCallback(async (id: string) => {
+    try {
+      const data = await client.getTriggerRuns(id);
+      setTriggerRunsById((prev: Record<string, TriggerRunRecord[]>) => ({
+        ...prev,
+        [id]: data.runs,
+      }));
+      setTriggerError(null);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to load trigger runs";
+      setTriggerError(message);
+    }
+  }, []);
+
+  const createTrigger = useCallback(
+    async (request: CreateTriggerRequest): Promise<TriggerSummary | null> => {
+      setTriggersSaving(true);
+      try {
+        const response = await client.createTrigger(request);
+        const created = response.trigger;
+        setTriggers((prev: TriggerSummary[]) => {
+          const merged = prev.filter((item: TriggerSummary) => item.id !== created.id);
+          merged.push(created);
+          return sortTriggersByNextRun(merged);
+        });
+        setTriggerError(null);
+        void loadTriggerHealth();
+        return created;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Failed to create trigger";
+        setTriggerError(message);
+        return null;
+      } finally {
+        setTriggersSaving(false);
+      }
+    },
+    [loadTriggerHealth, sortTriggersByNextRun],
+  );
+
+  const updateTrigger = useCallback(
+    async (
+      id: string,
+      request: UpdateTriggerRequest,
+    ): Promise<TriggerSummary | null> => {
+      setTriggersSaving(true);
+      try {
+        const response = await client.updateTrigger(id, request);
+        const updated = response.trigger;
+        setTriggers((prev: TriggerSummary[]) => {
+          const merged = prev.map((item: TriggerSummary) =>
+            item.id === updated.id ? updated : item,
+          );
+          return sortTriggersByNextRun(merged);
+        });
+        setTriggerError(null);
+        void loadTriggerHealth();
+        return updated;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Failed to update trigger";
+        setTriggerError(message);
+        return null;
+      } finally {
+        setTriggersSaving(false);
+      }
+    },
+    [loadTriggerHealth, sortTriggersByNextRun],
+  );
+
+  const deleteTrigger = useCallback(async (id: string): Promise<boolean> => {
+    setTriggersSaving(true);
+    try {
+      await client.deleteTrigger(id);
+      setTriggers((prev: TriggerSummary[]) =>
+        prev.filter((item: TriggerSummary) => item.id !== id),
+      );
+      setTriggerRunsById((prev: Record<string, TriggerRunRecord[]>) => {
+        const next: Record<string, TriggerRunRecord[]> = {};
+        for (const [key, runs] of Object.entries(prev)) {
+          if (key !== id) next[key] = runs;
+        }
+        return next;
+      });
+      setTriggerError(null);
+      void loadTriggerHealth();
+      return true;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to delete trigger";
+      setTriggerError(message);
+      return false;
+    } finally {
+      setTriggersSaving(false);
+    }
+  }, [loadTriggerHealth]);
+
+  const runTriggerNow = useCallback(async (id: string): Promise<boolean> => {
+    setTriggersSaving(true);
+    try {
+      const response = await client.runTriggerNow(id);
+      if (response.trigger) {
+        const trigger = response.trigger;
+        setTriggers((prev: TriggerSummary[]) => {
+          const idx = prev.findIndex((item: TriggerSummary) => item.id === id);
+          if (idx === -1) {
+            return sortTriggersByNextRun([...prev, trigger]);
+          }
+          const updated = [...prev];
+          updated[idx] = trigger;
+          return sortTriggersByNextRun(updated);
+        });
+      } else {
+        await loadTriggers();
+      }
+      await loadTriggerRuns(id);
+      void loadTriggerHealth();
+      setTriggerError(null);
+      return response.ok;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to run trigger";
+      setTriggerError(message);
+      return false;
+    } finally {
+      setTriggersSaving(false);
+    }
+  }, [loadTriggerHealth, loadTriggerRuns, loadTriggers, sortTriggersByNextRun]);
+
+  const appendAutonomousEvent = useCallback((event: StreamEventEnvelope) => {
+    setAutonomousEvents((prev) => {
+      if (prev.some((entry) => entry.eventId === event.eventId)) {
+        return prev;
+      }
+      const merged = [...prev, event];
+      if (merged.length > 1200) {
+        return merged.slice(merged.length - 1200);
+      }
+      return merged;
+    });
+    setAutonomousLatestEventId(event.eventId);
+  }, []);
 
   const loadConversations = useCallback(async () => {
     try {
@@ -1093,7 +1311,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, [fetchGreeting]);
 
-  const handleChatSend = useCallback(async () => {
+  const handleChatSend = useCallback(async (mode: ConversationMode = "simple") => {
     const text = chatInput.trim();
     if (!text || chatSending) return;
 
@@ -1111,57 +1329,102 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
     }
 
+    const now = Date.now();
+    const userMsgId = `temp-${now}`;
+    const assistantMsgId = `temp-resp-${now}`;
+
     setConversationMessages((prev: ConversationMessage[]) => [
       ...prev,
-      { id: `temp-${Date.now()}`, role: "user", text, timestamp: Date.now() },
+      { id: userMsgId, role: "user", text, timestamp: now },
+      { id: assistantMsgId, role: "assistant", text: "", timestamp: now },
     ]);
     setChatInput("");
     setChatSending(true);
+    setChatFirstTokenReceived(false);
+
+    const controller = new AbortController();
+    chatAbortRef.current = controller;
 
     try {
-      const data = await client.sendConversationMessage(convId, text);
-      const msg: ConversationMessage = {
-        id: `temp-resp-${Date.now()}`,
-        role: "assistant",
-        text: data.text,
-        timestamp: Date.now(),
-      };
-      if (data.blocks?.length) msg.blocks = data.blocks;
-      setConversationMessages((prev: ConversationMessage[]) => [...prev, msg]);
+      const data = await client.sendConversationMessageStream(
+        convId,
+        text,
+        (token) => {
+          setChatFirstTokenReceived(true);
+          setConversationMessages((prev) =>
+            prev.map((message) =>
+              message.id === assistantMsgId
+                ? { ...message, text: `${message.text}${token}` }
+                : message,
+            ),
+          );
+        },
+        mode,
+        controller.signal,
+      );
+
+      setConversationMessages((prev) =>
+        prev.map((message) =>
+          message.id === assistantMsgId
+            ? { ...message, text: data.text }
+            : message,
+        ),
+      );
+      await loadConversations();
     } catch (err) {
-      // If the conversation was lost (server restart), create a fresh one and retry
+      const abortError = err as Error;
+      if (abortError.name === "AbortError") {
+        setConversationMessages((prev) =>
+          prev.filter((message) => !(message.id === assistantMsgId && !message.text.trim())),
+        );
+        return;
+      }
+
+      // If the conversation was lost (server restart), create a fresh one and retry once.
       const status = (err as { status?: number }).status;
       if (status === 404) {
         try {
           const { conversation } = await client.createConversation();
           setConversations((prev) => [conversation, ...prev]);
           setActiveConversationId(conversation.id);
-          convId = conversation.id;
-          const retryData = await client.sendConversationMessage(convId, text);
-          const retryMsg: ConversationMessage = {
-            id: `temp-resp-${Date.now()}`,
-            role: "assistant",
-            text: retryData.text,
-            timestamp: Date.now(),
-          };
-          if (retryData.blocks?.length) retryMsg.blocks = retryData.blocks;
+
+          const retryData = await client.sendConversationMessage(
+            conversation.id,
+            text,
+            mode,
+          );
           setConversationMessages([
             { id: `temp-${Date.now()}`, role: "user", text, timestamp: Date.now() },
-            retryMsg,
+            {
+              id: `temp-resp-${Date.now()}`,
+              role: "assistant",
+              text: retryData.text,
+              timestamp: Date.now(),
+            },
           ]);
         } catch {
-          // Give up — show whatever we have
-          setConversationMessages([
-            { id: `temp-${Date.now()}`, role: "user", text, timestamp: Date.now() },
-          ]);
+          setConversationMessages((prev) =>
+            prev.filter((message) => !(message.id === assistantMsgId && !message.text.trim())),
+          );
         }
       } else {
         await loadConversationMessages(convId);
       }
     } finally {
+      if (chatAbortRef.current === controller) {
+        chatAbortRef.current = null;
+      }
       setChatSending(false);
+      setChatFirstTokenReceived(false);
     }
-  }, [chatInput, chatSending, activeConversationId, loadConversationMessages]);
+  }, [chatInput, chatSending, activeConversationId, loadConversationMessages, loadConversations]);
+
+  const handleChatStop = useCallback(() => {
+    chatAbortRef.current?.abort();
+    chatAbortRef.current = null;
+    setChatSending(false);
+    setChatFirstTokenReceived(false);
+  }, []);
 
   const handleChatClear = useCallback(async () => {
     if (activeConversationId) {
@@ -1260,8 +1523,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setPluginSaving((prev) => new Set([...prev, pluginId]));
       try {
         await client.updatePlugin(pluginId, { config });
+
+        // Check if this is an AI provider plugin
+        const plugin = plugins.find(p => p.id === pluginId);
+        const isAiProvider = plugin?.category === 'ai-provider';
+
+        // Restart agent if AI provider (API keys need restart to take effect)
+        if (isAiProvider) {
+          await client.restartAgent();
+        }
+
         await loadPlugins();
-        setActionNotice("Plugin settings saved.", "success");
+        setActionNotice(
+          isAiProvider
+            ? "Plugin settings saved and agent restarted."
+            : "Plugin settings saved.",
+          "success"
+        );
         setPluginSaveSuccess((prev) => new Set([...prev, pluginId]));
         setTimeout(() => {
           setPluginSaveSuccess((prev) => {
@@ -1284,7 +1562,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         });
       }
     },
-    [loadPlugins, setActionNotice],
+    [loadPlugins, setActionNotice, plugins],
   );
 
   // ── Skill actions ──────────────────────────────────────────────────
@@ -1493,14 +1771,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setWalletError(null);
       try {
         await client.updateWalletConfig(config);
+        await client.restartAgent();
         await loadWalletConfig();
         await loadBalances();
+        setActionNotice("Wallet API keys saved and agent restarted.", "success");
       } catch (err) {
         setWalletError(`Failed to save API keys: ${err instanceof Error ? err.message : "network error"}`);
       }
       setWalletApiKeySaving(false);
     },
-    [loadWalletConfig, loadBalances],
+    [loadWalletConfig, loadBalances, setActionNotice],
   );
 
   const handleExportKeys = useCallback(async () => {
@@ -1649,9 +1929,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
             setOnboardingCloudProvider(opts.cloudProviders[0].id);
           }
           setOnboardingStep("cloudProvider");
+        } else if (onboardingRunMode === "local-sandbox") {
+          setOnboardingStep("dockerSetup");
         } else {
+          // local-rawdog: skip docker, go straight to LLM provider
           setOnboardingStep("llmProvider");
         }
+        break;
+      case "dockerSetup":
+        setOnboardingStep("llmProvider");
         break;
       case "cloudProvider":
         setOnboardingStep("modelSelection");
@@ -1710,8 +1996,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setCloudLoginBusy(false);
         setCloudLoginError(null);
         break;
-      case "llmProvider":
+      case "dockerSetup":
         setOnboardingStep("runMode");
+        break;
+      case "llmProvider":
+        if (onboardingRunMode === "local-sandbox") {
+          setOnboardingStep("dockerSetup");
+        } else {
+          setOnboardingStep("runMode");
+        }
         break;
       case "inventorySetup":
         setOnboardingStep("llmProvider");
@@ -1734,8 +2027,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       ? style.system.replace(/\{\{name\}\}/g, onboardingName)
       : `You are ${onboardingName}, an autonomous AI agent powered by ElizaOS. ${onboardingOptions.sharedStyleRules}`;
 
+    const isLocalMode = onboardingRunMode === "local-rawdog" || onboardingRunMode === "local-sandbox";
     const inventoryProviders: Array<{ chain: string; rpcProvider: string; rpcApiKey?: string }> = [];
-    if (onboardingRunMode === "local") {
+    if (isLocalMode) {
       for (const chain of onboardingSelectedChains) {
         const rpcProvider = onboardingRpcSelections[chain] || "elizacloud";
         const rpcApiKey = onboardingRpcKeys[`${chain}:${rpcProvider}`] || undefined;
@@ -1743,12 +2037,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
     }
 
+    // Map the 3-mode selection to the API's runMode field
+    // "local-rawdog" and "local-sandbox" both map to "local" for backward compat
+    // Sandbox mode is additionally stored as a separate flag
+    const apiRunMode = onboardingRunMode === "cloud" ? "cloud" : "local";
+
     setOnboardingRestarting(true);
     try {
       await client.submitOnboarding({
         name: onboardingName,
         theme: onboardingTheme,
-        runMode: (onboardingRunMode || "local") as "local" | "cloud",
+        runMode: apiRunMode as "local" | "cloud",
+        sandboxMode: onboardingRunMode === "local-sandbox" ? "standard" : onboardingRunMode === "cloud" ? "light" : "off",
         bio: style?.bio ?? ["An autonomous AI agent."],
         systemPrompt,
         style: style?.style,
@@ -1759,8 +2059,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         cloudProvider: onboardingRunMode === "cloud" ? onboardingCloudProvider : undefined,
         smallModel: onboardingRunMode === "cloud" ? onboardingSmallModel : undefined,
         largeModel: onboardingRunMode === "cloud" ? onboardingLargeModel : undefined,
-        provider: onboardingRunMode === "local" ? onboardingProvider || undefined : undefined,
-        providerApiKey: onboardingRunMode === "local" ? onboardingApiKey || undefined : undefined,
+        provider: isLocalMode ? onboardingProvider || undefined : undefined,
+        providerApiKey: isLocalMode ? onboardingApiKey || undefined : undefined,
         inventoryProviders: inventoryProviders.length > 0 ? inventoryProviders : undefined,
         // Connectors
         telegramToken: onboardingTelegramToken.trim() || undefined,
@@ -2025,6 +2325,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       activeGameViewerUrl: setActiveGameViewerUrl as (v: never) => void,
       activeGameSandbox: setActiveGameSandbox as (v: never) => void,
       activeGamePostMessageAuth: setActiveGamePostMessageAuth as (v: never) => void,
+      activeGamePostMessagePayload: setActiveGamePostMessagePayload as (v: never) => void,
       storePlugins: setStorePlugins as (v: never) => void,
       storeLoading: setStoreLoading as (v: never) => void,
       storeInstalling: setStoreInstalling as (v: never) => void,
@@ -2066,6 +2367,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     applyTheme(currentTheme);
+    let unbindStatus: (() => void) | null = null;
+    let unbindAgentEvents: (() => void) | null = null;
+    let unbindHeartbeatEvents: (() => void) | null = null;
 
     const initApp = async () => {
       const MAX_RETRIES = 15;
@@ -2168,8 +2472,55 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
       // Connect WebSocket
       client.connectWs();
-      client.onWsEvent("status", (data: Record<string, unknown>) => {
+      unbindStatus = client.onWsEvent("status", (data: Record<string, unknown>) => {
         setAgentStatus(data as unknown as AgentStatus);
+      });
+      unbindAgentEvents = client.onWsEvent("agent_event", (data: Record<string, unknown>) => {
+        appendAutonomousEvent(data as unknown as StreamEventEnvelope);
+      });
+      unbindHeartbeatEvents = client.onWsEvent("heartbeat_event", (data: Record<string, unknown>) => {
+        appendAutonomousEvent(data as unknown as StreamEventEnvelope);
+      });
+
+      try {
+        const replay = await client.getAgentEvents({ limit: 300 });
+        if (replay.events.length > 0) {
+          setAutonomousEvents(replay.events);
+          setAutonomousLatestEventId(replay.latestEventId);
+        }
+      } catch (err) {
+        console.warn("[milaidy] Failed to fetch autonomous event replay", err);
+      }
+
+      // Handle proactive messages from autonomy
+      client.onWsEvent("proactive-message", (data: Record<string, unknown>) => {
+        const convId = data.conversationId as string;
+        const msg = data.message as ConversationMessage;
+
+        if (convId === activeConversationIdRef.current) {
+          // Active conversation — append in real-time (deduplicate by id)
+          setConversationMessages((prev) => {
+            if (prev.some((m) => m.id === msg.id)) return prev;
+            return [...prev, msg];
+          });
+        } else {
+          // Non-active — mark unread
+          setUnreadConversations((prev) => new Set([...prev, convId]));
+        }
+
+        // Bump conversation to top of list
+        setConversations((prev) => {
+          const updated = prev.map((c) =>
+            c.id === convId
+              ? { ...c, updatedAt: new Date().toISOString() }
+              : c,
+          );
+          return updated.sort(
+            (a, b) =>
+              new Date(b.updatedAt).getTime() -
+              new Date(a.updatedAt).getTime(),
+          );
+        });
       });
 
       // Handle proactive messages from autonomy
@@ -2255,6 +2606,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
           void loadCharacter();
           void loadInventory();
         }
+        if (urlTab === "inventory") void loadInventory();
+        if (urlTab === "triggers") {
+          void loadTriggers();
+          void loadTriggerHealth();
+        }
       }
     };
 
@@ -2271,10 +2627,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
       window.removeEventListener("popstate", handlePopState);
       if (cloudPollInterval.current) clearInterval(cloudPollInterval.current);
       if (cloudLoginPollTimer.current) clearInterval(cloudLoginPollTimer.current);
+      unbindStatus?.();
+      unbindAgentEvents?.();
+      unbindHeartbeatEvents?.();
       client.disconnectWs();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [appendAutonomousEvent]);
+
+  useEffect(() => {
+    if (tab !== "triggers") return;
+    void loadTriggers();
+    void loadTriggerHealth();
+    const timer = window.setInterval(() => {
+      void loadTriggers();
+      void loadTriggerHealth();
+    }, 30_000);
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [tab, loadTriggers, loadTriggerHealth]);
 
   // When agent transitions to "running", send a greeting if conversation is empty
   useEffect(() => {
@@ -2302,7 +2674,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     tab, currentTheme, connected, agentStatus, onboardingComplete, onboardingLoading,
     authRequired, actionNotice,
     pairingEnabled, pairingExpiresAt, pairingCodeInput, pairingError, pairingBusy,
-    chatInput, chatSending, conversations, activeConversationId, conversationMessages, unreadConversations,
+    chatInput, chatSending, chatFirstTokenReceived, conversations, activeConversationId, conversationMessages,
+    autonomousEvents, autonomousLatestEventId, unreadConversations,
+    triggers, triggersLoading, triggersSaving, triggerRunsById, triggerHealth, triggerError,
     plugins, pluginFilter, pluginStatusFilter, pluginSearch, pluginSettingsOpen,
     pluginAdvancedOpen, pluginSaving, pluginSaveSuccess,
     skills, skillsSubTab, skillCreateFormOpen, skillCreateName, skillCreateDescription,
@@ -2344,12 +2718,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
     activeGamePostMessageAuth,
     appsSubTab, agentSubTab, pluginsSubTab, databaseSubTab,
     configRaw, configText,
+    activeGamePostMessagePayload,
 
     // Actions
     setTab, setTheme,
     handleStart, handleStop, handlePauseResume, handleRestart, handleReset,
-    handleChatSend, handleChatClear, handleNewConversation,
+    handleChatSend, handleChatStop, handleChatClear, handleNewConversation,
     handleSelectConversation, handleDeleteConversation, handleRenameConversation,
+    loadTriggers, createTrigger, updateTrigger, deleteTrigger, runTriggerNow,
+    loadTriggerRuns, loadTriggerHealth,
     handlePairingSubmit,
     loadPlugins, handlePluginToggle, handlePluginConfigSave,
     loadSkills, refreshSkills, handleSkillToggle, handleCreateSkill,

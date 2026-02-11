@@ -103,7 +103,7 @@ export function useVoiceChat(options: VoiceChatOptions): VoiceChatState {
   const audioCtxRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const audioSourceRef = useRef<AudioBufferSourceNode | null>(null);
-  const timeDomainDataRef = useRef<Float32Array | null>(null);
+  const timeDomainDataRef = useRef<Float32Array<ArrayBuffer> | null>(null);
   const usingAudioAnalysisRef = useRef(false);
 
   // ── Init ──────────────────────────────────────────────────────────
@@ -300,7 +300,9 @@ export function useVoiceChat(options: VoiceChatOptions): VoiceChatState {
     analyser.fftSize = 2048;
     analyser.smoothingTimeConstant = 0.8;
     analyserRef.current = analyser;
-    timeDomainDataRef.current = new Float32Array(analyser.fftSize);
+    timeDomainDataRef.current = new Float32Array(
+      new ArrayBuffer(analyser.fftSize * Float32Array.BYTES_PER_ELEMENT),
+    );
 
     // Source → analyser → speakers
     const source = ctx.createBufferSource();

@@ -55,6 +55,11 @@ import {
   ensureAgentWorkspace,
   resolveDefaultAgentWorkspaceDir,
 } from "../providers/workspace.js";
+import { SandboxAuditLog } from "../security/audit-log.js";
+import {
+  SandboxManager,
+  type SandboxMode,
+} from "../services/sandbox-manager.js";
 import { diagnoseNoAIProvider } from "../services/version-compat.js";
 import { createMilaidyPlugin } from "./milaidy-plugin.js";
 import {
@@ -1837,6 +1842,72 @@ export async function startEliza(
   // Workspace skills directory (highest precedence for overrides)
   const workspaceSkillsDir = workspaceDir ? `${workspaceDir}/skills` : null;
 
+  // ── Sandbox mode setup ──────────────────────────────────────────────────
+  const sandboxConfig = config.agents?.defaults?.sandbox;
+  const sandboxModeStr = (sandboxConfig as Record<string, unknown> | undefined)
+    ?.mode as string | undefined;
+  const sandboxMode: SandboxMode =
+    sandboxModeStr === "light" ||
+    sandboxModeStr === "standard" ||
+    sandboxModeStr === "max"
+      ? sandboxModeStr
+      : "off";
+  const isSandboxActive = sandboxMode !== "off";
+
+  let sandboxManager: SandboxManager | null = null;
+  let sandboxAuditLog: SandboxAuditLog | null = null;
+
+  if (isSandboxActive) {
+    logger.info(`[milaidy] Sandbox mode: ${sandboxMode}`);
+    sandboxAuditLog = new SandboxAuditLog({ console: true });
+
+    // Standard/max modes also start the container sandbox manager
+    if (sandboxMode === "standard" || sandboxMode === "max") {
+      const dockerSettings = (
+        sandboxConfig as Record<string, unknown> | undefined
+      )?.docker as Record<string, unknown> | undefined;
+      const browserSettings = (
+        sandboxConfig as Record<string, unknown> | undefined
+      )?.browser as Record<string, unknown> | undefined;
+
+      sandboxManager = new SandboxManager({
+        mode: sandboxMode,
+        image: (dockerSettings?.image as string) ?? undefined,
+        containerPrefix:
+          (dockerSettings?.containerPrefix as string) ?? undefined,
+        network: (dockerSettings?.network as string) ?? undefined,
+        memory: (dockerSettings?.memory as string) ?? undefined,
+        cpus: (dockerSettings?.cpus as number) ?? undefined,
+        workspaceRoot: workspaceDir ?? undefined,
+        browser: browserSettings
+          ? {
+              enabled: (browserSettings.enabled as boolean) ?? false,
+              image: (browserSettings.image as string) ?? undefined,
+              cdpPort: (browserSettings.cdpPort as number) ?? undefined,
+              autoStart: (browserSettings.autoStart as boolean) ?? true,
+            }
+          : undefined,
+      });
+
+      try {
+        await sandboxManager.start();
+        logger.info("[milaidy] Sandbox manager started");
+      } catch (err) {
+        logger.error(
+          `[milaidy] Sandbox manager failed to start: ${err instanceof Error ? err.message : String(err)}`,
+        );
+        // Non-fatal: light mode fallback
+      }
+    }
+
+    sandboxAuditLog.record({
+      type: "sandbox_lifecycle",
+      summary: `Sandbox initialized: mode=${sandboxMode}`,
+      severity: "info",
+    });
+  }
+  // ── End sandbox setup ───────────────────────────────────────────────────
+
   let runtime = new AgentRuntime({
     character,
     plugins: [
@@ -1845,6 +1916,23 @@ export async function startEliza(
       ...otherPlugins.map((p) => p.plugin),
     ],
     ...(runtimeLogLevel ? { logLevel: runtimeLogLevel } : {}),
+    // Sandbox options — only active when mode != "off"
+    ...(isSandboxActive
+      ? {
+          sandboxMode: true,
+          sandboxAuditHandler: sandboxAuditLog
+            ? (event: Record<string, unknown>) => {
+                sandboxAuditLog.recordTokenReplacement(
+                  (event.direction as string) === "outbound"
+                    ? "outbound"
+                    : "inbound",
+                  (event.url as string) ?? "unknown",
+                  (event.tokenIds as string[]) ?? [],
+                );
+              }
+            : undefined,
+        }
+      : {}),
     settings: {
       // Forward Milaidy config env vars as runtime settings
       ...(primaryModel ? { MODEL_PROVIDER: primaryModel } : {}),
@@ -1879,7 +1967,6 @@ export async function startEliza(
   //     this.adapter is undefined, so plugins that use runtime.db will fail.
   if (sqlPlugin) {
     await runtime.registerPlugin(sqlPlugin.plugin);
-    console.log("sqlPlugin", sqlPlugin);
 
     // 7c. Eagerly initialize the database adapter so it's fully ready (connection
     //     open, schema bootstrapped) BEFORE other plugins run their init().
@@ -1901,18 +1988,6 @@ export async function startEliza(
     throw new Error(
       "@elizaos/plugin-sql is required but was not loaded. " +
         "Ensure the package is installed and built (check for import errors above).",
-    );
-  }
-
-  // 7c. Eagerly initialize the database adapter so it's fully ready (connection
-  //     open, schema bootstrapped) BEFORE other plugins run their init().
-  //     runtime.initialize() also calls adapter.init() but that happens AFTER
-  //     all plugin inits — too late for plugins that need runtime.db during init.
-  //     The call is idempotent (runtime.initialize checks adapter.isReady()).
-  if (runtime.adapter && !(await runtime.adapter.isReady())) {
-    await runtime.adapter.init();
-    logger.info(
-      "[milaidy] Database adapter initialized early (before plugin inits)",
     );
   }
 
@@ -2027,6 +2102,17 @@ export async function startEliza(
       isShuttingDown = true;
 
       try {
+        // Stop sandbox manager before runtime
+        if (sandboxManager) {
+          try {
+            await sandboxManager.stop();
+            logger.info("[milaidy] Sandbox manager stopped");
+          } catch (err) {
+            logger.warn(
+              `[milaidy] Sandbox stop error: ${err instanceof Error ? err.message : String(err)}`,
+            );
+          }
+        }
         await runtime.stop();
       } catch (err) {
         logger.warn(`[milaidy] Error during shutdown: ${formatError(err)}`);

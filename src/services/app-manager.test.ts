@@ -6,6 +6,7 @@
  * no port allocation, no server management.
  */
 
+import { logger } from "@elizaos/core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("./registry-client.js", () => ({
@@ -23,6 +24,11 @@ vi.mock("./plugin-installer.js", () => ({
     requiresRestart: true,
   }),
   listInstalledPlugins: vi.fn().mockReturnValue([]),
+  uninstallPlugin: vi.fn().mockResolvedValue({
+    success: true,
+    pluginName: "@elizaos/app-2004scape",
+    requiresRestart: true,
+  }),
 }));
 
 vi.mock("../config/config.js", () => ({
@@ -131,8 +137,12 @@ describe("AppManager", () => {
       expect(result.pluginInstalled).toBe(true);
       expect(result.needsRestart).toBe(true);
       expect(result.displayName).toBe("2004scape");
+      expect(result.launchType).toBe("connect");
+      expect(result.launchUrl).toBeNull();
       expect(result.viewer).not.toBeNull();
-      expect(result.viewer?.url).toBe("https://2004scape.org/webclient");
+      expect(result.viewer?.url).toBe(
+        "https://2004scape.org/webclient?bot=testbot",
+      );
       expect(result.viewer?.embedParams).toEqual({ bot: "testbot" });
       expect(vi.mocked(installPlugin)).toHaveBeenCalledWith(
         "@elizaos/app-2004scape",
@@ -183,6 +193,7 @@ describe("AppManager", () => {
 
       expect(result.pluginInstalled).toBe(true);
       expect(result.needsRestart).toBe(false);
+      expect(result.launchType).toBe("connect");
       expect(mockInstall).not.toHaveBeenCalled();
     });
 
@@ -268,6 +279,210 @@ describe("AppManager", () => {
       const result = await mgr.launch("@elizaos/app-babylon");
 
       expect(result.viewer).toBeNull();
+      expect(result.launchType).toBe("url");
+      expect(result.launchUrl).toBe("https://babylon.social");
+    });
+
+    it("substitutes environment placeholders in launch and viewer URLs", async () => {
+      process.env.TEST_VIEWER_BOT = "agent77";
+
+      const { getAppInfo } = await import("./registry-client.js");
+      vi.mocked(getAppInfo).mockResolvedValue({
+        name: "@elizaos/app-test",
+        displayName: "Test App",
+        description: "Test",
+        category: "game",
+        launchType: "connect",
+        launchUrl: "http://localhost:9999?bot={TEST_VIEWER_BOT}",
+        icon: null,
+        capabilities: [],
+        stars: 0,
+        repository: "",
+        latestVersion: "1.0.0",
+        supports: { v0: false, v1: false, v2: true },
+        npm: {
+          package: "@elizaos/app-test",
+          v0Version: null,
+          v1Version: null,
+          v2Version: "1.0.0",
+        },
+        viewer: {
+          url: "http://localhost:9999",
+          embedParams: { bot: "{TEST_VIEWER_BOT}" },
+        },
+      });
+
+      const { listInstalledPlugins } = await import("./plugin-installer.js");
+      vi.mocked(listInstalledPlugins).mockReturnValue([
+        {
+          name: "@elizaos/app-test",
+          version: "1.0.0",
+          installPath: "/tmp/x",
+          installedAt: "2026-01-01",
+        },
+      ]);
+
+      const { AppManager } = await import("./app-manager.js");
+      const mgr = new AppManager();
+      const result = await mgr.launch("@elizaos/app-test");
+
+      expect(result.launchUrl).toBe("http://localhost:9999?bot=agent77");
+      expect(result.viewer?.url).toBe("http://localhost:9999?bot=agent77");
+
+      delete process.env.TEST_VIEWER_BOT;
+    });
+
+    it("falls back to testbot for 2004scape bot placeholder", async () => {
+      delete process.env.RS_SDK_BOT_NAME;
+      delete process.env.BOT_NAME;
+
+      const { getAppInfo } = await import("./registry-client.js");
+      vi.mocked(getAppInfo).mockResolvedValue({
+        name: "@elizaos/app-2004scape",
+        displayName: "2004scape",
+        description: "2004scape",
+        category: "game",
+        launchType: "connect",
+        launchUrl: "http://localhost:8880/webclient",
+        icon: null,
+        capabilities: [],
+        stars: 0,
+        repository: "",
+        latestVersion: "1.0.0",
+        supports: { v0: false, v1: false, v2: true },
+        npm: {
+          package: "@elizaos/app-2004scape",
+          v0Version: null,
+          v1Version: null,
+          v2Version: "1.0.0",
+        },
+        viewer: {
+          url: "http://localhost:8880/webclient",
+          embedParams: { bot: "{RS_SDK_BOT_NAME}" },
+        },
+      });
+
+      const { listInstalledPlugins } = await import("./plugin-installer.js");
+      vi.mocked(listInstalledPlugins).mockReturnValue([
+        {
+          name: "@elizaos/app-2004scape",
+          version: "1.0.0",
+          installPath: "/tmp/rs",
+          installedAt: "2026-01-01",
+        },
+      ]);
+
+      const { AppManager } = await import("./app-manager.js");
+      const mgr = new AppManager();
+      const result = await mgr.launch("@elizaos/app-2004scape");
+
+      expect(result.viewer?.url).toBe(
+        "http://localhost:8880/webclient?bot=testbot",
+      );
+    });
+
+    it("includes hyperscape postMessage auth payload when token is configured", async () => {
+      process.env.HYPERSCAPE_AUTH_TOKEN = "hs-token-123";
+      const { getAppInfo } = await import("./registry-client.js");
+      vi.mocked(getAppInfo).mockResolvedValue({
+        name: "@elizaos/app-hyperscape",
+        displayName: "Hyperscape",
+        description: "Hyperscape",
+        category: "game",
+        launchType: "connect",
+        launchUrl: "http://localhost:3333",
+        icon: null,
+        capabilities: [],
+        stars: 0,
+        repository: "",
+        latestVersion: "1.0.0",
+        supports: { v0: false, v1: false, v2: true },
+        npm: {
+          package: "@elizaos/app-hyperscape",
+          v0Version: null,
+          v1Version: null,
+          v2Version: "1.0.0",
+        },
+        viewer: {
+          url: "http://localhost:3333",
+          postMessageAuth: true,
+        },
+      });
+
+      const { listInstalledPlugins } = await import("./plugin-installer.js");
+      vi.mocked(listInstalledPlugins).mockReturnValue([
+        {
+          name: "@elizaos/app-hyperscape",
+          version: "1.0.0",
+          installPath: "/tmp/hs",
+          installedAt: "2026-01-01",
+        },
+      ]);
+
+      const { AppManager } = await import("./app-manager.js");
+      const mgr = new AppManager();
+      const result = await mgr.launch("@elizaos/app-hyperscape");
+
+      expect(result.viewer?.postMessageAuth).toBe(true);
+      expect(result.viewer?.authMessage).toEqual({
+        type: "HYPERSCAPE_AUTH",
+        authToken: "hs-token-123",
+        sessionToken: undefined,
+        agentId: undefined,
+      });
+
+      delete process.env.HYPERSCAPE_AUTH_TOKEN;
+    });
+
+    it("disables postMessage auth when hyperscape token is missing", async () => {
+      delete process.env.HYPERSCAPE_AUTH_TOKEN;
+      const infoSpy = vi.spyOn(logger, "info").mockImplementation(() => {});
+
+      const { getAppInfo } = await import("./registry-client.js");
+      vi.mocked(getAppInfo).mockResolvedValue({
+        name: "@elizaos/app-hyperscape",
+        displayName: "Hyperscape",
+        description: "Hyperscape",
+        category: "game",
+        launchType: "connect",
+        launchUrl: "http://localhost:3333",
+        icon: null,
+        capabilities: [],
+        stars: 0,
+        repository: "",
+        latestVersion: "1.0.0",
+        supports: { v0: false, v1: false, v2: true },
+        npm: {
+          package: "@elizaos/app-hyperscape",
+          v0Version: null,
+          v1Version: null,
+          v2Version: "1.0.0",
+        },
+        viewer: {
+          url: "http://localhost:3333",
+          postMessageAuth: true,
+        },
+      });
+
+      const { listInstalledPlugins } = await import("./plugin-installer.js");
+      vi.mocked(listInstalledPlugins).mockReturnValue([
+        {
+          name: "@elizaos/app-hyperscape",
+          version: "1.0.0",
+          installPath: "/tmp/hs",
+          installedAt: "2026-01-01",
+        },
+      ]);
+
+      const { AppManager } = await import("./app-manager.js");
+      const mgr = new AppManager();
+      const result = await mgr.launch("@elizaos/app-hyperscape");
+
+      expect(result.viewer?.postMessageAuth).toBe(false);
+      expect(result.viewer?.authMessage).toBeUndefined();
+      expect(infoSpy).toHaveBeenCalledWith(
+        expect.stringContaining("auth token not configured"),
+      );
     });
   });
 
@@ -320,6 +535,155 @@ describe("AppManager", () => {
       expect(installed.length).toBe(2);
       expect(installed[0].displayName).toBe("2004scape");
       expect(installed[1].displayName).toBe("Discord");
+    });
+  });
+
+  describe("stop", () => {
+    it("returns no-op payload when app is known but not active/installed", async () => {
+      const { getAppInfo } = await import("./registry-client.js");
+      vi.mocked(getAppInfo).mockResolvedValue({
+        name: "@elizaos/app-babylon",
+        displayName: "Babylon",
+        description: "Trading",
+        category: "platform",
+        launchType: "url",
+        launchUrl: "https://babylon.social",
+        icon: null,
+        capabilities: [],
+        stars: 0,
+        repository: "",
+        latestVersion: "1.0.0",
+        supports: { v0: false, v1: false, v2: true },
+        npm: {
+          package: "@elizaos/app-babylon",
+          v0Version: null,
+          v1Version: null,
+          v2Version: "1.0.0",
+        },
+      });
+      const { listInstalledPlugins } = await import("./plugin-installer.js");
+      vi.mocked(listInstalledPlugins).mockReturnValue([]);
+
+      const { AppManager } = await import("./app-manager.js");
+      const mgr = new AppManager();
+      const result = await mgr.stop("@elizaos/app-babylon");
+
+      expect(result.success).toBe(false);
+      expect(result.appName).toBe("@elizaos/app-babylon");
+      expect(typeof result.stoppedAt).toBe("string");
+      expect(result.stopScope).toBe("no-op");
+      expect(result.pluginUninstalled).toBe(false);
+      expect(result.needsRestart).toBe(false);
+    });
+
+    it("uninstalls installed plugin when stopping an app", async () => {
+      const { getAppInfo } = await import("./registry-client.js");
+      vi.mocked(getAppInfo).mockResolvedValue({
+        name: "@elizaos/app-babylon",
+        displayName: "Babylon",
+        description: "Trading",
+        category: "platform",
+        launchType: "url",
+        launchUrl: "https://babylon.social",
+        icon: null,
+        capabilities: [],
+        stars: 0,
+        repository: "",
+        latestVersion: "1.0.0",
+        supports: { v0: false, v1: false, v2: true },
+        npm: {
+          package: "@elizaos/app-babylon",
+          v0Version: null,
+          v1Version: null,
+          v2Version: "1.0.0",
+        },
+      });
+      const { listInstalledPlugins, uninstallPlugin } = await import(
+        "./plugin-installer.js"
+      );
+      vi.mocked(listInstalledPlugins).mockReturnValue([
+        {
+          name: "@elizaos/app-babylon",
+          version: "1.0.0",
+          installPath: "/tmp/x",
+          installedAt: "2026-01-01",
+        },
+      ]);
+      vi.mocked(uninstallPlugin).mockResolvedValue({
+        success: true,
+        pluginName: "@elizaos/app-babylon",
+        requiresRestart: true,
+      });
+
+      const { AppManager } = await import("./app-manager.js");
+      const mgr = new AppManager();
+      const result = await mgr.stop("@elizaos/app-babylon");
+
+      expect(result.success).toBe(true);
+      expect(result.stopScope).toBe("plugin-uninstalled");
+      expect(result.pluginUninstalled).toBe(true);
+      expect(result.needsRestart).toBe(true);
+      expect(vi.mocked(uninstallPlugin)).toHaveBeenCalledWith(
+        "@elizaos/app-babylon",
+      );
+    });
+
+    it("throws when installed plugin cannot be uninstalled", async () => {
+      const { getAppInfo } = await import("./registry-client.js");
+      vi.mocked(getAppInfo).mockResolvedValue({
+        name: "@elizaos/app-babylon",
+        displayName: "Babylon",
+        description: "Trading",
+        category: "platform",
+        launchType: "url",
+        launchUrl: "https://babylon.social",
+        icon: null,
+        capabilities: [],
+        stars: 0,
+        repository: "",
+        latestVersion: "1.0.0",
+        supports: { v0: false, v1: false, v2: true },
+        npm: {
+          package: "@elizaos/app-babylon",
+          v0Version: null,
+          v1Version: null,
+          v2Version: "1.0.0",
+        },
+      });
+      const { listInstalledPlugins, uninstallPlugin } = await import(
+        "./plugin-installer.js"
+      );
+      vi.mocked(listInstalledPlugins).mockReturnValue([
+        {
+          name: "@elizaos/app-babylon",
+          version: "1.0.0",
+          installPath: "/tmp/x",
+          installedAt: "2026-01-01",
+        },
+      ]);
+      vi.mocked(uninstallPlugin).mockResolvedValue({
+        success: false,
+        pluginName: "@elizaos/app-babylon",
+        requiresRestart: false,
+        error: "permission denied",
+      });
+
+      const { AppManager } = await import("./app-manager.js");
+      const mgr = new AppManager();
+      await expect(mgr.stop("@elizaos/app-babylon")).rejects.toThrow(
+        "permission denied",
+      );
+    });
+
+    it("throws for unknown app", async () => {
+      const { getAppInfo } = await import("./registry-client.js");
+      vi.mocked(getAppInfo).mockResolvedValue(null);
+
+      const { AppManager } = await import("./app-manager.js");
+      const mgr = new AppManager();
+      await expect(mgr.stop("@elizaos/app-missing")).rejects.toThrow(
+        "not found",
+      );
     });
   });
 });

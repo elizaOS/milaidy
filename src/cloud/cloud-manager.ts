@@ -9,6 +9,7 @@ import { BackupScheduler } from "./backup.js";
 import { ElizaCloudClient } from "./bridge-client.js";
 import { CloudRuntimeProxy } from "./cloud-proxy.js";
 import { ConnectionMonitor } from "./reconnect.js";
+import { validateCloudBaseUrl } from "./validate-url.js";
 
 export type CloudConnectionStatus =
   | "disconnected"
@@ -34,7 +35,7 @@ export class CloudManager {
     private callbacks: CloudManagerCallbacks = {},
   ) {}
 
-  init(): void {
+  async init(): Promise<void> {
     const rawUrl = this.cloudConfig.baseUrl ?? "https://www.elizacloud.ai";
     const apiKey = this.cloudConfig.apiKey;
     if (!apiKey)
@@ -42,13 +43,18 @@ export class CloudManager {
         "Cloud API key is not configured. Run cloud login first.",
       );
 
+    const urlError = await validateCloudBaseUrl(rawUrl);
+    if (urlError) {
+      throw new Error(urlError);
+    }
+
     const siteUrl = rawUrl.replace(/\/api\/v1\/?$/, "").replace(/\/+$/, "");
     this.client = new ElizaCloudClient(siteUrl, apiKey);
     logger.info(`[cloud-manager] Client initialised (baseUrl=${siteUrl})`);
   }
 
   async connect(agentId: string): Promise<CloudRuntimeProxy> {
-    if (!this.client) this.init();
+    if (!this.client) await this.init();
     if (!this.client) throw new Error("Cloud client failed to initialise");
 
     this.setStatus("connecting");

@@ -89,6 +89,82 @@ export interface AgentStatus {
   startedAt: number | undefined;
 }
 
+export type TriggerType = "interval" | "once" | "cron";
+export type TriggerWakeMode = "inject_now" | "next_autonomy_cycle";
+export type TriggerLastStatus = "success" | "error" | "skipped";
+
+export interface TriggerSummary {
+  id: string;
+  taskId: string;
+  displayName: string;
+  instructions: string;
+  triggerType: TriggerType;
+  enabled: boolean;
+  wakeMode: TriggerWakeMode;
+  createdBy: string;
+  timezone?: string;
+  intervalMs?: number;
+  scheduledAtIso?: string;
+  cronExpression?: string;
+  maxRuns?: number;
+  runCount: number;
+  nextRunAtMs?: number;
+  lastRunAtIso?: string;
+  lastStatus?: TriggerLastStatus;
+  lastError?: string;
+  updatedAt?: number;
+  updateInterval?: number;
+}
+
+export interface TriggerRunRecord {
+  triggerRunId: string;
+  triggerId: string;
+  taskId: string;
+  startedAt: number;
+  finishedAt: number;
+  status: TriggerLastStatus;
+  error?: string;
+  latencyMs: number;
+  source: "scheduler" | "manual";
+}
+
+export interface TriggerHealthSnapshot {
+  triggersEnabled: boolean;
+  activeTriggers: number;
+  disabledTriggers: number;
+  totalExecutions: number;
+  totalFailures: number;
+  totalSkipped: number;
+  lastExecutionAt?: number;
+}
+
+export interface CreateTriggerRequest {
+  displayName?: string;
+  instructions?: string;
+  triggerType?: TriggerType;
+  wakeMode?: TriggerWakeMode;
+  enabled?: boolean;
+  createdBy?: string;
+  timezone?: string;
+  intervalMs?: number;
+  scheduledAtIso?: string;
+  cronExpression?: string;
+  maxRuns?: number;
+}
+
+export interface UpdateTriggerRequest {
+  displayName?: string;
+  instructions?: string;
+  triggerType?: TriggerType;
+  wakeMode?: TriggerWakeMode;
+  enabled?: boolean;
+  timezone?: string;
+  intervalMs?: number;
+  scheduledAtIso?: string;
+  cronExpression?: string;
+  maxRuns?: number;
+}
+
 export interface MessageExample {
   user: string;
   content: { text: string };
@@ -180,6 +256,8 @@ export interface OnboardingData {
   name: string;
   theme: string;
   runMode: "local" | "cloud";
+  /** Sandbox execution mode: "off" (rawdog), "light" (cloud), "standard" (local sandbox), "max". */
+  sandboxMode?: "off" | "light" | "standard" | "max";
   bio: string[];
   systemPrompt: string;
   style?: {
@@ -340,6 +418,8 @@ export interface ConversationMessage {
   source?: string;
 }
 
+export type ConversationMode = "simple" | "power";
+
 export interface SkillInfo {
   id: string;
   name: string;
@@ -416,6 +496,155 @@ export interface LogsFilter {
   level?: string;
   tag?: string;
   since?: number;
+}
+
+export type StreamEventType = "agent_event" | "heartbeat_event" | "training_event";
+
+export interface StreamEventEnvelope {
+  type: StreamEventType;
+  version: 1;
+  eventId: string;
+  ts: number;
+  runId?: string;
+  seq?: number;
+  stream?: string;
+  sessionKey?: string;
+  agentId?: string;
+  roomId?: string;
+  payload: object;
+}
+
+// Fine-tuning / training
+export type TrainingJobStatus =
+  | "queued"
+  | "running"
+  | "completed"
+  | "failed"
+  | "cancelled";
+
+export interface TrainingStatus {
+  runningJobs: number;
+  queuedJobs: number;
+  completedJobs: number;
+  failedJobs: number;
+  modelCount: number;
+  datasetCount: number;
+  runtimeAvailable: boolean;
+}
+
+export interface TrainingTrajectorySummary {
+  id: string;
+  trajectoryId: string;
+  agentId: string;
+  archetype: string | null;
+  createdAt: string;
+  totalReward: number | null;
+  aiJudgeReward: number | null;
+  episodeLength: number | null;
+  hasLlmCalls: boolean;
+  llmCallCount: number;
+}
+
+export interface TrainingTrajectoryDetail extends TrainingTrajectorySummary {
+  stepsJson: string;
+  aiJudgeReasoning: string | null;
+}
+
+export interface TrainingTrajectoryList {
+  available: boolean;
+  reason?: string;
+  total: number;
+  trajectories: TrainingTrajectorySummary[];
+}
+
+export interface TrainingDatasetRecord {
+  id: string;
+  createdAt: string;
+  jsonlPath: string;
+  trajectoryDir: string;
+  metadataPath: string;
+  sampleCount: number;
+  trajectoryCount: number;
+}
+
+export interface StartTrainingOptions {
+  datasetId?: string;
+  maxTrajectories?: number;
+  backend?: "mlx" | "cuda" | "cpu";
+  model?: string;
+  iterations?: number;
+  batchSize?: number;
+  learningRate?: number;
+}
+
+export interface TrainingJobRecord {
+  id: string;
+  createdAt: string;
+  startedAt: string | null;
+  completedAt: string | null;
+  status: TrainingJobStatus;
+  phase: string;
+  progress: number;
+  error: string | null;
+  exitCode: number | null;
+  signal: string | null;
+  options: StartTrainingOptions;
+  datasetId: string;
+  pythonRoot: string;
+  scriptPath: string;
+  outputDir: string;
+  logPath: string;
+  modelPath: string | null;
+  adapterPath: string | null;
+  modelId: string | null;
+  logs: string[];
+}
+
+export interface TrainingModelRecord {
+  id: string;
+  createdAt: string;
+  jobId: string;
+  outputDir: string;
+  modelPath: string;
+  adapterPath: string | null;
+  sourceModel: string | null;
+  backend: "mlx" | "cuda" | "cpu";
+  ollamaModel: string | null;
+  active: boolean;
+  benchmark: {
+    status: "not_run" | "passed" | "failed";
+    lastRunAt: string | null;
+    output: string | null;
+  };
+}
+
+export type TrainingEventKind =
+  | "job_started"
+  | "job_progress"
+  | "job_log"
+  | "job_completed"
+  | "job_failed"
+  | "job_cancelled"
+  | "dataset_built"
+  | "model_activated"
+  | "model_imported";
+
+export interface TrainingStreamEvent {
+  kind: TrainingEventKind;
+  ts: number;
+  message: string;
+  jobId?: string;
+  modelId?: string;
+  datasetId?: string;
+  progress?: number;
+  phase?: string;
+}
+
+export interface AgentEventsResponse {
+  events: StreamEventEnvelope[];
+  latestEventId: string | null;
+  totalBuffered: number;
+  replayed: boolean;
 }
 
 export interface ExtensionStatus {
@@ -564,6 +793,11 @@ export interface WorkbenchTodo {
 export interface WorkbenchOverview {
   goals: WorkbenchGoal[];
   todos: WorkbenchTodo[];
+  autonomy?: {
+    enabled: boolean;
+    thinking: boolean;
+    lastEventAt?: number | null;
+  };
 }
 
 // MCP
@@ -654,11 +888,19 @@ export interface RegistryPluginItem {
 }
 
 // App types
+export interface AppViewerAuthMessage {
+  type: string;
+  authToken?: string;
+  sessionToken?: string;
+  agentId?: string;
+}
+
 export interface AppViewerConfig {
   url: string;
   embedParams?: Record<string, string>;
   postMessageAuth?: boolean;
   sandbox?: string;
+  authMessage?: AppViewerAuthMessage;
 }
 export interface RegistryAppInfo {
   name: string;
@@ -681,7 +923,146 @@ export interface AppLaunchResult {
   pluginInstalled: boolean;
   needsRestart: boolean;
   displayName: string;
+  launchType: string;
+  launchUrl: string | null;
   viewer: AppViewerConfig | null;
+}
+export interface AppStopResult {
+  success: boolean;
+  appName: string;
+  stoppedAt: string;
+  pluginUninstalled: boolean;
+  needsRestart: boolean;
+  stopScope: "plugin-uninstalled" | "viewer-session" | "no-op";
+  message: string;
+}
+
+export type HyperscapeScriptedRole =
+  | "combat"
+  | "woodcutting"
+  | "fishing"
+  | "mining"
+  | "balanced";
+
+export type HyperscapeEmbeddedAgentControlAction =
+  | "start"
+  | "stop"
+  | "pause"
+  | "resume";
+
+export type HyperscapeJsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | HyperscapeJsonValue[]
+  | { [key: string]: HyperscapeJsonValue };
+
+export type HyperscapePosition =
+  | [number, number, number]
+  | {
+      x: number;
+      y: number;
+      z: number;
+    };
+
+export interface HyperscapeEmbeddedAgent {
+  agentId: string;
+  characterId: string;
+  accountId: string;
+  name: string;
+  scriptedRole: HyperscapeScriptedRole | null;
+  state: string;
+  entityId: string | null;
+  position: HyperscapePosition | null;
+  health: number | null;
+  maxHealth: number | null;
+  startedAt: number | null;
+  lastActivity: number | null;
+  error: string | null;
+}
+
+export interface HyperscapeEmbeddedAgentsResponse {
+  success: boolean;
+  agents: HyperscapeEmbeddedAgent[];
+  count: number;
+  error?: string;
+}
+
+export interface HyperscapeActionResponse {
+  success: boolean;
+  message?: string;
+  error?: string;
+}
+
+export interface HyperscapeEmbeddedAgentMutationResponse
+  extends HyperscapeActionResponse {
+  agent?: HyperscapeEmbeddedAgent | null;
+}
+
+export interface HyperscapeAvailableGoal {
+  id: string;
+  type: string;
+  description: string;
+  priority: number;
+}
+
+export interface HyperscapeGoalState {
+  type?: string;
+  description?: string;
+  progress?: number;
+  target?: number;
+  progressPercent?: number;
+  elapsedMs?: number;
+  startedAt?: number;
+  locked?: boolean;
+  lockedBy?: string;
+}
+
+export interface HyperscapeAgentGoalResponse {
+  success: boolean;
+  goal: HyperscapeGoalState | null;
+  availableGoals?: HyperscapeAvailableGoal[];
+  goalsPaused?: boolean;
+  message?: string;
+  error?: string;
+}
+
+export interface HyperscapeQuickCommand {
+  id: string;
+  label: string;
+  command: string;
+  icon: string;
+  available: boolean;
+  reason?: string;
+}
+
+export interface HyperscapeNearbyLocation {
+  id: string;
+  name: string;
+  type: string;
+  distance: number;
+}
+
+export interface HyperscapeInventoryItem {
+  id: string;
+  name: string;
+  slot: number;
+  quantity: number;
+  canEquip: boolean;
+  canUse: boolean;
+  canDrop: boolean;
+}
+
+export interface HyperscapeQuickActionsResponse {
+  success: boolean;
+  nearbyLocations: HyperscapeNearbyLocation[];
+  availableGoals: HyperscapeAvailableGoal[];
+  quickCommands: HyperscapeQuickCommand[];
+  inventory: HyperscapeInventoryItem[];
+  playerPosition: [number, number, number] | null;
+  message?: string;
+  error?: string;
 }
 
 // WebSocket
@@ -944,6 +1325,172 @@ export class MilaidyClient {
     });
   }
 
+  async getTriggers(): Promise<{ triggers: TriggerSummary[] }> {
+    return this.fetch("/api/triggers");
+  }
+
+  async getTrigger(id: string): Promise<{ trigger: TriggerSummary }> {
+    return this.fetch(`/api/triggers/${encodeURIComponent(id)}`);
+  }
+
+  async createTrigger(
+    request: CreateTriggerRequest,
+  ): Promise<{ trigger: TriggerSummary }> {
+    return this.fetch("/api/triggers", {
+      method: "POST",
+      body: JSON.stringify(request),
+    });
+  }
+
+  async updateTrigger(
+    id: string,
+    request: UpdateTriggerRequest,
+  ): Promise<{ trigger: TriggerSummary }> {
+    return this.fetch(`/api/triggers/${encodeURIComponent(id)}`, {
+      method: "PUT",
+      body: JSON.stringify(request),
+    });
+  }
+
+  async deleteTrigger(id: string): Promise<{ ok: boolean }> {
+    return this.fetch(`/api/triggers/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+    });
+  }
+
+  async runTriggerNow(
+    id: string,
+  ): Promise<{
+    ok: boolean;
+    result: {
+      status: TriggerLastStatus;
+      error?: string;
+      taskDeleted: boolean;
+    };
+    trigger?: TriggerSummary;
+  }> {
+    return this.fetch(`/api/triggers/${encodeURIComponent(id)}/execute`, {
+      method: "POST",
+    });
+  }
+
+  async getTriggerRuns(id: string): Promise<{ runs: TriggerRunRecord[] }> {
+    return this.fetch(`/api/triggers/${encodeURIComponent(id)}/runs`);
+  }
+
+  async getTriggerHealth(): Promise<TriggerHealthSnapshot> {
+    return this.fetch("/api/triggers/health");
+  }
+
+  // Fine-tuning / training
+  async getTrainingStatus(): Promise<TrainingStatus> {
+    return this.fetch("/api/training/status");
+  }
+
+  async listTrainingTrajectories(opts?: {
+    limit?: number;
+    offset?: number;
+  }): Promise<TrainingTrajectoryList> {
+    const params = new URLSearchParams();
+    if (typeof opts?.limit === "number") params.set("limit", String(opts.limit));
+    if (typeof opts?.offset === "number")
+      params.set("offset", String(opts.offset));
+    const qs = params.toString();
+    return this.fetch(`/api/training/trajectories${qs ? `?${qs}` : ""}`);
+  }
+
+  async getTrainingTrajectory(
+    trajectoryId: string,
+  ): Promise<{ trajectory: TrainingTrajectoryDetail }> {
+    return this.fetch(
+      `/api/training/trajectories/${encodeURIComponent(trajectoryId)}`,
+    );
+  }
+
+  async listTrainingDatasets(): Promise<{ datasets: TrainingDatasetRecord[] }> {
+    return this.fetch("/api/training/datasets");
+  }
+
+  async buildTrainingDataset(options?: {
+    limit?: number;
+    minLlmCallsPerTrajectory?: number;
+  }): Promise<{ dataset: TrainingDatasetRecord }> {
+    return this.fetch("/api/training/datasets/build", {
+      method: "POST",
+      body: JSON.stringify(options ?? {}),
+    });
+  }
+
+  async listTrainingJobs(): Promise<{ jobs: TrainingJobRecord[] }> {
+    return this.fetch("/api/training/jobs");
+  }
+
+  async startTrainingJob(
+    options?: StartTrainingOptions,
+  ): Promise<{ job: TrainingJobRecord }> {
+    return this.fetch("/api/training/jobs", {
+      method: "POST",
+      body: JSON.stringify(options ?? {}),
+    });
+  }
+
+  async getTrainingJob(jobId: string): Promise<{ job: TrainingJobRecord }> {
+    return this.fetch(`/api/training/jobs/${encodeURIComponent(jobId)}`);
+  }
+
+  async cancelTrainingJob(jobId: string): Promise<{ job: TrainingJobRecord }> {
+    return this.fetch(`/api/training/jobs/${encodeURIComponent(jobId)}/cancel`, {
+      method: "POST",
+    });
+  }
+
+  async listTrainingModels(): Promise<{ models: TrainingModelRecord[] }> {
+    return this.fetch("/api/training/models");
+  }
+
+  async importTrainingModelToOllama(
+    modelId: string,
+    options?: {
+      modelName?: string;
+      baseModel?: string;
+      ollamaUrl?: string;
+    },
+  ): Promise<{ model: TrainingModelRecord }> {
+    return this.fetch(
+      `/api/training/models/${encodeURIComponent(modelId)}/import-ollama`,
+      {
+        method: "POST",
+        body: JSON.stringify(options ?? {}),
+      },
+    );
+  }
+
+  async activateTrainingModel(
+    modelId: string,
+    providerModel?: string,
+  ): Promise<{
+    modelId: string;
+    providerModel: string;
+    needsRestart: boolean;
+  }> {
+    return this.fetch(`/api/training/models/${encodeURIComponent(modelId)}/activate`, {
+      method: "POST",
+      body: JSON.stringify({ providerModel }),
+    });
+  }
+
+  async benchmarkTrainingModel(modelId: string): Promise<{
+    status: "passed" | "failed";
+    output: string;
+  }> {
+    return this.fetch(
+      `/api/training/models/${encodeURIComponent(modelId)}/benchmark`,
+      {
+        method: "POST",
+      },
+    );
+  }
+
   async getPlugins(): Promise<{ plugins: PluginInfo[] }> {
     return this.fetch("/api/plugins");
   }
@@ -1009,6 +1556,17 @@ export class MilaidyClient {
     if (filter?.since) params.set("since", String(filter.since));
     const qs = params.toString();
     return this.fetch(`/api/logs${qs ? `?${qs}` : ""}`);
+  }
+
+  async getAgentEvents(opts?: {
+    afterEventId?: string;
+    limit?: number;
+  }): Promise<AgentEventsResponse> {
+    const params = new URLSearchParams();
+    if (opts?.afterEventId) params.set("after", opts.afterEventId);
+    if (typeof opts?.limit === "number") params.set("limit", String(opts.limit));
+    const qs = params.toString();
+    return this.fetch(`/api/agent/events${qs ? `?${qs}` : ""}`);
   }
 
   async getExtensionStatus(): Promise<ExtensionStatus> {
@@ -1246,7 +1804,7 @@ export class MilaidyClient {
   async listApps(): Promise<RegistryAppInfo[]> { return this.fetch("/api/apps"); }
   async searchApps(query: string): Promise<RegistryAppInfo[]> { return this.fetch(`/api/apps/search?q=${encodeURIComponent(query)}`); }
   async listInstalledApps(): Promise<InstalledAppInfo[]> { return this.fetch("/api/apps/installed"); }
-  async stopApp(name: string): Promise<{ success: boolean }> {
+  async stopApp(name: string): Promise<AppStopResult> {
     return this.fetch("/api/apps/stop", { method: "POST", body: JSON.stringify({ name }) });
   }
   async getAppInfo(name: string): Promise<RegistryAppInfo> { return this.fetch(`/api/apps/info/${encodeURIComponent(name)}`); }
@@ -1256,6 +1814,67 @@ export class MilaidyClient {
   }
   async listRegistryPlugins(): Promise<RegistryPluginItem[]> { return this.fetch("/api/apps/plugins"); }
   async searchRegistryPlugins(query: string): Promise<RegistryPluginItem[]> { return this.fetch(`/api/apps/plugins/search?q=${encodeURIComponent(query)}`); }
+  async listHyperscapeEmbeddedAgents(): Promise<HyperscapeEmbeddedAgentsResponse> {
+    return this.fetch("/api/apps/hyperscape/embedded-agents");
+  }
+  async createHyperscapeEmbeddedAgent(input: {
+    characterId: string;
+    autoStart?: boolean;
+    scriptedRole?: HyperscapeScriptedRole;
+  }): Promise<HyperscapeEmbeddedAgentMutationResponse> {
+    return this.fetch("/api/apps/hyperscape/embedded-agents", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  }
+  async controlHyperscapeEmbeddedAgent(
+    characterId: string,
+    action: HyperscapeEmbeddedAgentControlAction,
+  ): Promise<HyperscapeEmbeddedAgentMutationResponse> {
+    return this.fetch(
+      `/api/apps/hyperscape/embedded-agents/${encodeURIComponent(characterId)}/${action}`,
+      { method: "POST" },
+    );
+  }
+  async sendHyperscapeEmbeddedAgentCommand(
+    characterId: string,
+    command: string,
+    data?: { [key: string]: HyperscapeJsonValue },
+  ): Promise<HyperscapeActionResponse> {
+    return this.fetch(
+      `/api/apps/hyperscape/embedded-agents/${encodeURIComponent(characterId)}/command`,
+      {
+        method: "POST",
+        body: JSON.stringify({ command, data }),
+      },
+    );
+  }
+  async sendHyperscapeAgentMessage(
+    agentId: string,
+    content: string,
+  ): Promise<HyperscapeActionResponse> {
+    return this.fetch(
+      `/api/apps/hyperscape/agents/${encodeURIComponent(agentId)}/message`,
+      {
+        method: "POST",
+        body: JSON.stringify({ content }),
+      },
+    );
+  }
+  async getHyperscapeAgentGoal(
+    agentId: string,
+  ): Promise<HyperscapeAgentGoalResponse> {
+    return this.fetch(
+      `/api/apps/hyperscape/agents/${encodeURIComponent(agentId)}/goal`,
+    );
+  }
+  async getHyperscapeAgentQuickActions(
+    agentId: string,
+  ): Promise<HyperscapeQuickActionsResponse> {
+    return this.fetch(
+      `/api/apps/hyperscape/agents/${encodeURIComponent(agentId)}/quick-actions`,
+    );
+  }
 
   // Skills Marketplace
 
@@ -1437,7 +2056,11 @@ export class MilaidyClient {
     if (!host) return;
 
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const url = `${protocol}//${host}/ws`;
+    let url = `${protocol}//${host}/ws`;
+    const token = this.apiToken;
+    if (token) {
+      url += `?token=${encodeURIComponent(token)}`;
+    }
 
     this.ws = new WebSocket(url);
 
@@ -1503,15 +2126,154 @@ export class MilaidyClient {
     };
   }
 
+  private async streamChatEndpoint(
+    path: string,
+    text: string,
+    onToken: (token: string) => void,
+    mode: ConversationMode = "simple",
+    signal?: AbortSignal,
+  ): Promise<{ text: string; agentName: string }> {
+    if (!this.apiAvailable) {
+      throw new Error("API not available (no HTTP origin)");
+    }
+
+    const token = this.apiToken;
+    const res = await fetch(`${this.baseUrl}${path}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "text/event-stream",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ text, mode }),
+      signal,
+    });
+
+    if (!res.ok) {
+      const body = await res
+        .json()
+        .catch(() => ({ error: res.statusText })) as Record<string, string>;
+      const err = new Error(body.error ?? `HTTP ${res.status}`);
+      (err as Error & { status?: number }).status = res.status;
+      throw err;
+    }
+
+    if (!res.body) {
+      throw new Error("Streaming not supported by this browser");
+    }
+
+    const decoder = new TextDecoder();
+    const reader = res.body.getReader();
+    let buffer = "";
+    let fullText = "";
+    let doneText: string | null = null;
+    let doneAgentName: string | null = null;
+
+    const parseDataLine = (line: string): void => {
+      const payload = line.startsWith("data:") ? line.slice(5).trim() : "";
+      if (!payload) return;
+
+      let parsed: {
+        type?: string;
+        text?: string;
+        fullText?: string;
+        agentName?: string;
+        message?: string;
+      };
+      try {
+        parsed = JSON.parse(payload) as {
+          type?: string;
+          text?: string;
+          fullText?: string;
+          agentName?: string;
+          message?: string;
+        };
+      } catch {
+        return;
+      }
+
+      if (parsed.type === "token") {
+        const chunk = parsed.text ?? "";
+        if (chunk) {
+          fullText += chunk;
+          onToken(chunk);
+        }
+        return;
+      }
+
+      if (parsed.type === "done") {
+        if (parsed.fullText) doneText = parsed.fullText;
+        if (parsed.agentName) doneAgentName = parsed.agentName;
+        return;
+      }
+
+      if (parsed.type === "error") {
+        throw new Error(parsed.message ?? "generation failed");
+      }
+
+      // Backward compatibility with legacy stream payloads: { text: "..." }
+      if (parsed.text) {
+        fullText += parsed.text;
+        onToken(parsed.text);
+      }
+    };
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      let eventBreak = buffer.indexOf("\n\n");
+      while (eventBreak !== -1) {
+        const rawEvent = buffer.slice(0, eventBreak);
+        buffer = buffer.slice(eventBreak + 2);
+        for (const line of rawEvent.split("\n")) {
+          if (!line.startsWith("data:")) continue;
+          parseDataLine(line);
+        }
+        eventBreak = buffer.indexOf("\n\n");
+      }
+    }
+
+    if (buffer.trim()) {
+      for (const line of buffer.split("\n")) {
+        if (line.startsWith("data:")) parseDataLine(line);
+      }
+    }
+
+    return {
+      text: doneText ?? fullText,
+      agentName: doneAgentName ?? "Milaidy",
+    };
+  }
+
   /**
    * Send a chat message via the REST endpoint (reliable — does not depend on
    * a WebSocket connection).  Returns the agent's response text.
    */
-  async sendChatRest(text: string): Promise<{ text: string; agentName: string }> {
+  async sendChatRest(
+    text: string,
+    mode: ConversationMode = "simple",
+  ): Promise<{ text: string; agentName: string }> {
     return this.fetch<{ text: string; agentName: string }>("/api/chat", {
       method: "POST",
-      body: JSON.stringify({ text }),
+      body: JSON.stringify({ text, mode }),
     });
+  }
+
+  async sendChatStream(
+    text: string,
+    onToken: (token: string) => void,
+    mode: ConversationMode = "simple",
+    signal?: AbortSignal,
+  ): Promise<{ text: string; agentName: string }> {
+    return this.streamChatEndpoint(
+      "/api/chat/stream",
+      text,
+      onToken,
+      mode,
+      signal,
+    );
   }
 
   // Conversations
@@ -1531,11 +2293,31 @@ export class MilaidyClient {
     return this.fetch(`/api/conversations/${encodeURIComponent(id)}/messages`);
   }
 
-  async sendConversationMessage(id: string, text: string): Promise<{ text: string; agentName: string; blocks?: ContentBlock[] }> {
+  async sendConversationMessage(
+    id: string,
+    text: string,
+    mode: ConversationMode = "simple",
+  ): Promise<{ text: string; agentName: string; blocks?: ContentBlock[] }> {
     return this.fetch(`/api/conversations/${encodeURIComponent(id)}/messages`, {
       method: "POST",
-      body: JSON.stringify({ text }),
+      body: JSON.stringify({ text, mode }),
     });
+  }
+
+  async sendConversationMessageStream(
+    id: string,
+    text: string,
+    onToken: (token: string) => void,
+    mode: ConversationMode = "simple",
+    signal?: AbortSignal,
+  ): Promise<{ text: string; agentName: string }> {
+    return this.streamChatEndpoint(
+      `/api/conversations/${encodeURIComponent(id)}/messages/stream`,
+      text,
+      onToken,
+      mode,
+      signal,
+    );
   }
 
   async requestGreeting(id: string): Promise<{ text: string; agentName: string; generated: boolean }> {

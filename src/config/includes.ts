@@ -14,6 +14,7 @@ import { isPlainObject } from "./object-utils.js";
 
 export const INCLUDE_KEY = "$include";
 export const MAX_INCLUDE_DEPTH = 10;
+const BLOCKED_KEYS = new Set(["__proto__", "constructor", "prototype"]);
 
 export type IncludeResolver = {
   readFile: (path: string) => string;
@@ -41,9 +42,6 @@ export class CircularIncludeError extends ConfigIncludeError {
   }
 }
 
-/** Keys that must never be merged to prevent prototype pollution. */
-const BLOCKED_MERGE_KEYS = new Set(["__proto__", "constructor", "prototype"]);
-
 export function deepMerge(target: unknown, source: unknown): unknown {
   if (Array.isArray(target) && Array.isArray(source)) {
     return [...target, ...source];
@@ -51,7 +49,7 @@ export function deepMerge(target: unknown, source: unknown): unknown {
   if (isPlainObject(target) && isPlainObject(source)) {
     const result: Record<string, unknown> = { ...target };
     for (const key of Object.keys(source)) {
-      if (BLOCKED_MERGE_KEYS.has(key)) continue;
+      if (BLOCKED_KEYS.has(key)) continue;
       result[key] =
         key in result ? deepMerge(result[key], source[key]) : source[key];
     }
@@ -87,7 +85,7 @@ class IncludeProcessor {
   private processObject(obj: Record<string, unknown>): Record<string, unknown> {
     const result: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(obj)) {
-      if (BLOCKED_MERGE_KEYS.has(key)) continue;
+      if (BLOCKED_KEYS.has(key)) continue;
       result[key] = this.process(value);
     }
     return result;

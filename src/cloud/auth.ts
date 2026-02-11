@@ -5,6 +5,7 @@
 
 import crypto from "node:crypto";
 import { logger } from "@elizaos/core";
+import { validateCloudBaseUrl } from "./validate-url.js";
 
 export interface CloudLoginResult {
   apiKey: string;
@@ -27,6 +28,10 @@ export async function cloudLogin(
     /\/+$/,
     "",
   );
+  const urlError = await validateCloudBaseUrl(baseUrl);
+  if (urlError) {
+    throw new Error(urlError);
+  }
   const timeoutMs = options.timeoutMs ?? 300_000;
   const pollIntervalMs = options.pollIntervalMs ?? 2_000;
   const sessionId = crypto.randomUUID();

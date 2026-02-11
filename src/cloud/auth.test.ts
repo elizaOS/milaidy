@@ -10,6 +10,13 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("./validate-url.js", () => {
+  return {
+    validateCloudBaseUrl: vi.fn().mockResolvedValue(null),
+  };
+});
+
 import { cloudLogin } from "./auth.js";
 
 // ---------------------------------------------------------------------------

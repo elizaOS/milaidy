@@ -1,5 +1,6 @@
 import process from "node:process";
 import { getPrimaryCommand, hasHelpOrVersion } from "./argv.js";
+import { registerSubCliByName } from "./program/register.subclis.js";
 
 async function loadDotEnv(): Promise<void> {
   try {
@@ -48,9 +49,6 @@ export async function runCli(argv: string[] = process.argv) {
 
   const primary = getPrimaryCommand(argv);
   if (primary && !hasHelpOrVersion(argv)) {
-    const { registerSubCliByName } = await import(
-      "./program/register.subclis.js"
-    );
     await registerSubCliByName(program, primary);
   }
 

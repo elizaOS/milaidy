@@ -6,6 +6,7 @@ import type http from "node:http";
 import type { AgentRuntime } from "@elizaos/core";
 import { logger } from "@elizaos/core";
 import type { CloudManager } from "../cloud/cloud-manager.js";
+import { validateCloudBaseUrl } from "../cloud/validate-url.js";
 import type { MilaidyConfig } from "../config/config.js";
 import { saveMilaidyConfig } from "../config/config.js";
 
@@ -42,6 +43,38 @@ function readBody(req: http.IncomingMessage): Promise<string> {
   });
 }
 
+/**
+ * Read and parse a JSON request body with size limits and error handling.
+ * Returns null (and sends a 4xx response) if reading or parsing fails.
+ */
+async function readJsonBody<T = Record<string, unknown>>(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+): Promise<T | null> {
+  let raw: string;
+  try {
+    raw = await readBody(req);
+  } catch (readErr) {
+    const msg =
+      readErr instanceof Error
+        ? readErr.message
+        : "Failed to read request body";
+    err(res, msg, 413);
+    return null;
+  }
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (parsed == null || typeof parsed !== "object" || Array.isArray(parsed)) {
+      err(res, "Request body must be a JSON object", 400);
+      return null;
+    }
+    return parsed as T;
+  } catch {
+    err(res, "Invalid JSON in request body", 400);
+    return null;
+  }
+}
+
 function json(res: http.ServerResponse, data: unknown, status = 200): void {
   res.statusCode = status;
   res.setHeader("Content-Type", "application/json");
@@ -65,6 +98,11 @@ export async function handleCloudRoute(
   // POST /api/cloud/login
   if (method === "POST" && pathname === "/api/cloud/login") {
     const baseUrl = state.config.cloud?.baseUrl ?? "https://www.elizacloud.ai";
+    const urlError = await validateCloudBaseUrl(baseUrl);
+    if (urlError) {
+      err(res, urlError);
+      return true;
+    }
     const sessionId = crypto.randomUUID();
 
     const createRes = await fetch(`${baseUrl}/api/auth/cli-session`, {
@@ -99,6 +137,11 @@ export async function handleCloudRoute(
     }
 
     const baseUrl = state.config.cloud?.baseUrl ?? "https://www.elizacloud.ai";
+    const urlError = await validateCloudBaseUrl(baseUrl);
+    if (urlError) {
+      err(res, urlError);
+      return true;
+    }
     const pollRes = await fetch(
       `${baseUrl}/api/auth/cli-session/${encodeURIComponent(sessionId)}`,
     );
@@ -170,8 +213,9 @@ export async function handleCloudRoute(
       }
 
       // ── 4. Init cloud manager if needed ─────────────────────────────
-      if (state.cloudManager && !state.cloudManager.getClient())
-        state.cloudManager.init();
+      if (state.cloudManager && !state.cloudManager.getClient()) {
+        await state.cloudManager.init();
+      }
 
       json(res, { status: "authenticated", keyPrefix: data.keyPrefix });
     } else {
@@ -199,17 +243,13 @@ export async function handleCloudRoute(
       return true;
     }
 
-    const raw = await readBody(req);
-    const parsed: unknown = JSON.parse(raw);
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-      err(res, "Request body must be a JSON object");
-      return true;
-    }
-    const body = parsed as {
+    const body = await readJsonBody<{
       agentName?: string;
       agentConfig?: Record<string, unknown>;
       environmentVars?: Record<string, string>;
-    };
+    }>(req, res);
+    if (!body) return true;
+
     if (!body.agentName?.trim()) {
       err(res, "agentName is required");
       return true;

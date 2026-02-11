@@ -72,6 +72,10 @@ function extractPlugin(mod: PluginModule): Plugin | null {
   if (looksLikePlugin(mod.default)) return mod.default;
   if (looksLikePlugin(mod.plugin)) return mod.plugin;
   if (looksLikePlugin(mod)) return mod as Plugin;
+  for (const [key, value] of Object.entries(mod)) {
+    if (key === "default" || key === "plugin") continue;
+    if (looksLikePlugin(value)) return value;
+  }
   return null;
 }
 
@@ -159,6 +163,29 @@ function http$(
     if (b) req.write(b);
     req.end();
   });
+}
+
+interface AutonomyServiceLike {
+  setLoopInterval(ms: number): void;
+}
+
+async function handleMessageAndCollectText(
+  runtime: AgentRuntime,
+  message: ReturnType<typeof createMessageMemory>,
+): Promise<string> {
+  let responseText = "";
+  const result = await runtime.messageService?.handleMessage(
+    runtime,
+    message,
+    async (content: { text?: string }) => {
+      if (content.text) responseText += content.text;
+      return [];
+    },
+  );
+  if (!responseText && result?.responseContent?.text) {
+    responseText = result.responseContent.text;
+  }
+  return responseText;
 }
 
 // ---------------------------------------------------------------------------
@@ -1136,7 +1163,7 @@ describe("Runtime Integration (with model provider)", () => {
 
   beforeAll(async () => {
     if (!hasModelProvider) return;
-    process.env.LOG_LEVEL = "info";
+    process.env.LOG_LEVEL = process.env.MILAIDY_E2E_LOG_LEVEL ?? "error";
     process.env.PGLITE_DATA_DIR = pgliteDir;
 
     const secrets: Record<string, string> = {};
@@ -1183,12 +1210,14 @@ describe("Runtime Integration (with model provider)", () => {
     runtime = new AgentRuntime({
       character,
       plugins,
-      logLevel: "info",
+      logLevel: "error",
       enableAutonomy: true,
     });
 
     if (sqlPlugin) await runtime.registerPlugin(sqlPlugin);
     await runtime.initialize();
+    const autonomySvc = runtime.getService<AutonomyServiceLike>("AUTONOMY");
+    autonomySvc?.setLoopInterval(5 * 60_000);
     initialized = true;
 
     try {
@@ -1247,27 +1276,54 @@ describe("Runtime Integration (with model provider)", () => {
   it.skipIf(!hasModelProvider)(
     "generates text response",
     async () => {
-      // Retry up to 3 times — when the full suite runs in parallel,
-      // concurrent runtime initialization can cause the first call to
-      // return empty text due to model provider warm-up.
+      const activeRuntime = runtime;
+      if (!activeRuntime) throw new Error("Runtime not initialized");
+
+      // In the full E2E sweep, the first few provider calls can return
+      // empty content while upstream sessions warm. Retry with bounded
+      // backoff and alternate prompts to avoid false negatives.
+      const prompts = [
+        "Respond with exactly: validation ok.",
+        "Return one short non-empty sentence confirming validation.",
+        "Say hello in one short sentence.",
+      ];
+      const maxAttempts = 6;
       let text = "";
-      for (let attempt = 0; attempt < 3 && !text; attempt++) {
-        if (attempt > 0) await new Promise((r) => setTimeout(r, 2000));
+      let lastError = "";
+
+      for (
+        let attempt = 0;
+        attempt < maxAttempts && text.length === 0;
+        attempt++
+      ) {
+        if (attempt > 0) {
+          const backoffMs = Math.min(2000 * attempt, 10_000);
+          await new Promise((resolve) => setTimeout(resolve, backoffMs));
+        }
+
         try {
-          const result = await runtime?.generateText(
-            "Say 'validation ok' exactly.",
+          const result = await activeRuntime.generateText(
+            prompts[attempt % prompts.length],
             { maxTokens: 256 },
           );
           if (typeof result === "string") {
-            text = result;
+            text = result.trim();
           } else if (result.text instanceof Promise) {
-            text = await result.text;
+            text = (await result.text).trim();
           } else {
-            text = String(result.text ?? result ?? "");
+            text = String(result.text ?? result ?? "").trim();
           }
-        } catch {
-          // Model may not be ready yet
+        } catch (err) {
+          lastError = err instanceof Error ? err.message : String(err);
         }
+      }
+
+      if (text.length === 0) {
+        throw new Error(
+          lastError
+            ? `generateText produced empty output after ${maxAttempts} attempts (last error: ${lastError})`
+            : `generateText produced empty output after ${maxAttempts} attempts`,
+        );
       }
       expect(text.length).toBeGreaterThan(0);
     },
@@ -1277,6 +1333,8 @@ describe("Runtime Integration (with model provider)", () => {
   it.skipIf(!hasModelProvider)(
     "handleMessage produces response",
     async () => {
+      const activeRuntime = runtime;
+      if (!activeRuntime) throw new Error("Runtime not initialized");
       const msg = createMessageMemory({
         id: crypto.randomUUID() as UUID,
         entityId: userId,
@@ -1287,19 +1345,17 @@ describe("Runtime Integration (with model provider)", () => {
           channelType: ChannelType.DM,
         },
       });
-      let resp = "";
-      await runtime?.messageService?.handleMessage(runtime, msg, async (c) => {
-        if (c?.text) resp += c.text;
-        return [];
-      });
+      const resp = await handleMessageAndCollectText(activeRuntime, msg);
       expect(resp.length).toBeGreaterThan(0);
     },
-    60_000,
+    120_000,
   );
 
   it.skipIf(!hasModelProvider)(
     "context integrity maintained across 5 sequential messages",
     async () => {
+      const activeRuntime = runtime;
+      if (!activeRuntime) throw new Error("Runtime not initialized");
       const messages = [
         "Remember: ALPHA-7. Reply OK.",
         "What code did I say? One line.",
@@ -1316,15 +1372,7 @@ describe("Runtime Integration (with model provider)", () => {
           roomId,
           content: { text, source: "test", channelType: ChannelType.DM },
         });
-        lastResponse = "";
-        await runtime?.messageService?.handleMessage(
-          runtime,
-          msg,
-          async (c) => {
-            if (c?.text) lastResponse += c.text;
-            return [];
-          },
-        );
+        lastResponse = await handleMessageAndCollectText(activeRuntime, msg);
         expect(lastResponse.length).toBeGreaterThan(0);
       }
 

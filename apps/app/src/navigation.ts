@@ -2,11 +2,11 @@
  * Navigation — tabs + onboarding.
  */
 
-export type Tab = "chat" | "apps" | "agent" | "plugins" | "config" | "database" | "settings" | "logs";
+export type Tab = "chat" | "apps" | "game" | "agent" | "plugins" | "config" | "database" | "settings" | "logs";
 
 export const TAB_GROUPS = [
   { label: "Chat", tabs: ["chat"] as Tab[] },
-  { label: "Apps", tabs: ["apps"] as Tab[] },
+  { label: "Apps", tabs: ["apps", "game"] as Tab[] },
   { label: "Agent", tabs: ["agent"] as Tab[] },
   { label: "Plugins", tabs: ["plugins"] as Tab[] },
   { label: "Config", tabs: ["config"] as Tab[] },
@@ -18,6 +18,7 @@ export const TAB_GROUPS = [
 const TAB_PATHS: Record<Tab, string> = {
   chat: "/chat",
   apps: "/apps",
+  game: "/game",
   agent: "/agent",
   plugins: "/plugins",
   config: "/config",
@@ -34,8 +35,8 @@ const LEGACY_PATHS: Record<string, Tab> = {
   "/connectors": "plugins",
   "/skills": "plugins",
   "/admin": "config",
-  "/logs": "logs",
-  "/game": "apps",
+  "/fine-tuning": "agent",
+  "/triggers": "agent",
 };
 
 const PATH_TO_TAB = new Map(
@@ -83,6 +84,7 @@ export function titleForTab(tab: Tab): string {
   switch (tab) {
     case "chat": return "Chat";
     case "apps": return "Apps";
+    case "game": return "Game";
     case "agent": return "Agent";
     case "plugins": return "Plugins";
     case "config": return "Config";
