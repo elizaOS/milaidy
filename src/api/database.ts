@@ -207,16 +207,54 @@ function isApiLoopbackOnly(): boolean {
  * Extract the host from a Postgres connection string or credentials object.
  * Returns `null` if no host can be determined.
  */
-function extractHost(creds: PostgresCredentials): string | null {
-  if (creds.connectionString) {
-    try {
-      const url = new URL(creds.connectionString);
-      return url.hostname || null;
-    } catch {
-      return null; // Unparseable — will be rejected
+function normalizeHostCandidate(host: string): string {
+  return host.trim().replace(/^\[|\]$/g, "");
+}
+
+function parseConnectionStringHosts(connectionString: string): string[] {
+  try {
+    const url = new URL(connectionString);
+    const hosts: string[] = [];
+
+    const hostParam = url.searchParams.get("host");
+    if (hostParam) {
+      hosts.push(
+        ...hostParam
+          .split(",")
+          .map((h) => normalizeHostCandidate(h))
+          .filter(Boolean),
+      );
     }
+
+    const hostAddrParam = url.searchParams.get("hostaddr");
+    if (hostAddrParam) {
+      hosts.push(
+        ...hostAddrParam
+          .split(",")
+          .map((h) => normalizeHostCandidate(h))
+          .filter(Boolean),
+      );
+    }
+
+    if (url.hostname) {
+      hosts.push(normalizeHostCandidate(url.hostname));
+    }
+
+    return [...new Set(hosts)];
+  } catch {
+    return [];
   }
-  return creds.host ?? null;
+}
+
+function extractHosts(creds: PostgresCredentials): string[] {
+  if (creds.connectionString) {
+    return parseConnectionStringHosts(creds.connectionString);
+  }
+  if (creds.host) {
+    const host = normalizeHostCandidate(creds.host);
+    return host ? [host] : [];
+  }
+  return [];
 }
 
 /**
@@ -242,38 +280,40 @@ function isBlockedIp(ip: string): boolean {
 async function validateDbHost(
   creds: PostgresCredentials,
 ): Promise<string | null> {
-  const host = extractHost(creds);
-  if (!host) {
+  const hosts = extractHosts(creds);
+  if (hosts.length === 0) {
     return "Could not determine target host from the provided credentials.";
   }
 
-  // First check the literal host string (catches raw IPs without DNS lookup)
-  if (isBlockedIp(host)) {
-    return `Connection to "${host}" is blocked: link-local and metadata addresses are not allowed.`;
-  }
-
-  // Resolve DNS and check all resulting IPs
-  try {
-    const results = await dnsLookupAll(host, { all: true });
-    const addresses = Array.isArray(results) ? results : [results];
-    for (const entry of addresses) {
-      const ip =
-        typeof entry === "string"
-          ? entry
-          : (entry as { address: string }).address;
-      // Strip IPv6-mapped IPv4 prefix (::ffff:169.254.x.y → 169.254.x.y)
-      const normalized = ip.replace(/^::ffff:/i, "");
-      if (isBlockedIp(normalized)) {
-        return (
-          `Connection to "${host}" is blocked: it resolves to ${ip} ` +
-          `which is a link-local or metadata address.`
-        );
-      }
+  for (const host of hosts) {
+    // First check the literal host string (catches raw IPs without DNS lookup)
+    if (isBlockedIp(host)) {
+      return `Connection to "${host}" is blocked: link-local and metadata addresses are not allowed.`;
     }
-  } catch {
-    // DNS resolution failed — let the Postgres client handle the error
-    // rather than blocking legitimate hostnames that may be temporarily
-    // unresolvable from this context
+
+    // Resolve DNS and check all resulting IPs
+    try {
+      const results = await dnsLookupAll(host, { all: true });
+      const addresses = Array.isArray(results) ? results : [results];
+      for (const entry of addresses) {
+        const ip =
+          typeof entry === "string"
+            ? entry
+            : (entry as { address: string }).address;
+        // Strip IPv6-mapped IPv4 prefix (::ffff:169.254.x.y → 169.254.x.y)
+        const normalized = ip.replace(/^::ffff:/i, "");
+        if (isBlockedIp(normalized)) {
+          return (
+            `Connection to "${host}" is blocked: it resolves to ${ip} ` +
+            `which is a link-local or metadata address.`
+          );
+        }
+      }
+    } catch {
+      // DNS resolution failed — let the Postgres client handle the error
+      // rather than blocking legitimate hostnames that may be temporarily
+      // unresolvable from this context
+    }
   }
 
   return null;

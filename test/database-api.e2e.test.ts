@@ -252,6 +252,30 @@ describe("Database API E2E (no runtime)", () => {
       expect(data.error).toContain("connectionString");
     });
 
+    it("rejects connectionString host override to blocked targets", async () => {
+      const previousBind = process.env.MILAIDY_API_BIND;
+      process.env.MILAIDY_API_BIND = "0.0.0.0";
+      try {
+        const { status, data } = await req(
+          port,
+          "PUT",
+          "/api/database/config",
+          {
+            provider: "postgres",
+            postgres: {
+              connectionString:
+                "postgresql://u:p@example.invalid/db?host=169.254.169.254",
+            },
+          },
+        );
+        expect(status).toBe(400);
+        expect(String(data.error ?? "")).toContain("blocked");
+      } finally {
+        if (previousBind === undefined) delete process.env.MILAIDY_API_BIND;
+        else process.env.MILAIDY_API_BIND = previousBind;
+      }
+    });
+
     it("config round-trip preserves all fields", async () => {
       const pgConfig = {
         provider: "postgres",
@@ -317,6 +341,22 @@ describe("Database API E2E (no runtime)", () => {
       expect("durationMs" in data).toBe(true);
       expect(data.success).toBe(false);
       expect(data.serverVersion).toBeNull();
+    });
+
+    it("rejects connectionString host override to blocked targets", async () => {
+      const previousBind = process.env.MILAIDY_API_BIND;
+      process.env.MILAIDY_API_BIND = "0.0.0.0";
+      try {
+        const { status, data } = await req(port, "POST", "/api/database/test", {
+          connectionString:
+            "postgresql://u:p@example.invalid/db?host=169.254.169.254",
+        });
+        expect(status).toBe(400);
+        expect(String(data.error ?? "")).toContain("blocked");
+      } finally {
+        if (previousBind === undefined) delete process.env.MILAIDY_API_BIND;
+        else process.env.MILAIDY_API_BIND = previousBind;
+      }
     });
   });
 
