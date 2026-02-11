@@ -88,6 +88,19 @@ function errorResponse(
   jsonResponse(res, { error: message }, status);
 }
 
+function decodePathComponent(
+  raw: string,
+  res: http.ServerResponse,
+  fieldName: string,
+): string | null {
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    errorResponse(res, `Invalid ${fieldName}: malformed URL encoding`, 400);
+    return null;
+  }
+}
+
 function readBody(req: http.IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
@@ -1111,7 +1124,12 @@ export async function handleDatabaseRoute(
   // ── Table row operations: /api/database/tables/:table/rows ────────────
   const rowsMatch = pathname.match(/^\/api\/database\/tables\/([^/]+)\/rows$/);
   if (rowsMatch) {
-    const tableNameDecoded = decodeURIComponent(rowsMatch[1]);
+    const tableNameDecoded = decodePathComponent(
+      rowsMatch[1],
+      res,
+      "table name",
+    );
+    if (tableNameDecoded === null) return true;
 
     if (method === "GET") {
       await handleGetRows(req, res, runtime, tableNameDecoded);

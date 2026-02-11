@@ -609,6 +609,16 @@ describe("API Server E2E (no runtime)", () => {
       );
       expect(status).toBe(400);
     });
+
+    it("GET /api/mcp/marketplace/details/:name returns 400 for malformed encoding", async () => {
+      const { status, data } = await req(
+        port,
+        "GET",
+        "/api/mcp/marketplace/details/%E0%A4%A",
+      );
+      expect(status).toBe(400);
+      expect(data.error).toBe("Invalid server name: malformed URL encoding");
+    });
   });
 
   describe("MCP config endpoints", () => {
@@ -734,6 +744,16 @@ describe("API Server E2E (no runtime)", () => {
       );
       expect(status).toBe(200);
       expect(data.ok).toBe(true);
+    });
+
+    it("DELETE /api/mcp/config/server/:name returns 400 for malformed encoding", async () => {
+      const { status, data } = await req(
+        port,
+        "DELETE",
+        "/api/mcp/config/server/%E0%A4%A",
+      );
+      expect(status).toBe(400);
+      expect(data.error).toBe("Invalid server name: malformed URL encoding");
     });
 
     it("PUT /api/mcp/config replaces entire config", async () => {
