@@ -85,6 +85,8 @@ export interface AgentStatus {
   model: string | undefined;
   uptime: number | undefined;
   startedAt: number | undefined;
+  provider?: "subscription" | "cloud" | "api-key" | "unknown";
+  fallbackActive?: boolean;
 }
 
 export interface MessageExample {
@@ -742,6 +744,21 @@ export class MilaidyClient {
 
   async getStatus(): Promise<AgentStatus> {
     return this.fetch("/api/status");
+  }
+
+  async getSubscriptionStatus(): Promise<{
+    providers: Array<{
+      provider: string;
+      configured: boolean;
+      valid: boolean;
+      expiresAt: number | null;
+      hoursUntilExpiry: number | null;
+      status: "not-configured" | "active" | "expired";
+    }>;
+    activeProvider: string;
+    fallbackActive: boolean;
+  }> {
+    return this.fetch("/api/subscription/status");
   }
 
   async getOnboardingStatus(): Promise<{ complete: boolean }> {

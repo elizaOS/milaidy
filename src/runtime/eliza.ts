@@ -1684,7 +1684,9 @@ export async function startEliza(
     const { applySubscriptionCredentials } = await import("../auth/index");
     await applySubscriptionCredentials();
   } catch (err) {
-    logger.warn(`[milaidy] Failed to apply subscription credentials: ${err}`);
+    logger.error(
+      `[auth] Failed to apply subscription credentials: ${err}. Check Admin > Logs for details.`,
+    );
   }
 
   // 3. Build ElizaOS Character from Milaidy config

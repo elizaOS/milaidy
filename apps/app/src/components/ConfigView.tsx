@@ -294,6 +294,8 @@ function PluginField({
 
 export function ConfigView() {
   const {
+    // Status
+    agentStatus,
     // Cloud
     cloudEnabled,
     cloudConnected,
@@ -640,6 +642,23 @@ export function ConfigView() {
                   );
                 })}
               </div>
+
+              {/* ── Currently Active indicator ─────────────────────────── */}
+              {agentStatus?.state === "running" && agentStatus.model && (
+                <div className="flex items-center gap-2 px-3 py-2 rounded bg-[var(--surface)] border border-[var(--border)] mt-3">
+                  <span
+                    className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${
+                      agentStatus.fallbackActive ? "bg-[var(--danger,#e74c3c)]" : "bg-[var(--ok,#16a34a)]"
+                    }`}
+                  />
+                  <span className="text-xs text-[var(--txt)]">
+                    Currently Active: <span className="font-semibold">{agentStatus.model}</span>
+                  </span>
+                  {agentStatus.fallbackActive && (
+                    <span className="text-[10px] font-semibold text-[var(--danger,#e74c3c)]">(fallback)</span>
+                  )}
+                </div>
+              )}
 
               {/* ── Eliza Cloud settings ──────────────────────────────── */}
               {isCloudSelected && (

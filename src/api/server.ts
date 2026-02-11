@@ -31,6 +31,7 @@ import {
 import { resolveStateDir } from "../config/paths.js";
 import { CharacterSchema } from "../config/zod-schema.js";
 import { resolveDefaultAgentWorkspaceDir } from "../providers/workspace.js";
+import { resolvePrimaryModel } from "../runtime/eliza.js";
 import {
   AgentExportError,
   estimateExportSize,
@@ -110,6 +111,8 @@ interface ServerState {
     | "error";
   agentName: string;
   model: string | undefined;
+  activeProvider: "subscription" | "cloud" | "api-key" | "unknown";
+  fallbackActive: boolean;
   startedAt: number | undefined;
   plugins: PluginEntry[];
   skills: SkillEntry[];
@@ -1592,6 +1595,71 @@ function isAuthorized(req: http.IncomingMessage): boolean {
   return crypto.timingSafeEqual(a, b);
 }
 
+/**
+ * Detect the active model, provider type, and fallback state from the current
+ * runtime plugins and subscription status. Mutates `state` in place.
+ */
+async function detectProviderState(state: ServerState): Promise<void> {
+  const configuredModel = resolvePrimaryModel(state.config);
+  const pluginMatch = state.runtime
+    ? state.runtime.plugins.find((p) => {
+        const n = p.name.toLowerCase();
+        return (
+          n.includes("anthropic") ||
+          n.includes("openai") ||
+          n.includes("groq") ||
+          n.includes("elizacloud") ||
+          n.includes("google")
+        );
+      })?.name
+    : undefined;
+  // Fall back to LARGE_MODEL env var which typically contains the model string
+  const envModel = process.env.LARGE_MODEL || undefined;
+  const cloudProxy = state.cloudManager?.getProxy();
+  state.model =
+    configuredModel ??
+    (cloudProxy ? cloudProxy.agentName || "cloud" : undefined) ??
+    envModel ??
+    pluginMatch ??
+    "unknown";
+
+  try {
+    const { getSubscriptionStatus } = await import("../auth/index.js");
+    const subStatus = getSubscriptionStatus();
+    const hasSubscription = subStatus.some(
+      (s: { configured: boolean }) => s.configured,
+    );
+    const hasValidSubscription = subStatus.some(
+      (s: { valid: boolean }) => s.valid,
+    );
+    const isCloudPlugin = pluginMatch?.includes("elizacloud") ?? false;
+
+    if (cloudProxy) {
+      state.activeProvider = "cloud";
+      state.fallbackActive = hasSubscription && !hasValidSubscription;
+    } else if (hasSubscription && hasValidSubscription && !isCloudPlugin) {
+      state.activeProvider = "subscription";
+      state.fallbackActive = false;
+    } else if (hasSubscription && isCloudPlugin) {
+      state.activeProvider = "cloud";
+      state.fallbackActive = true;
+    } else if (
+      process.env.ANTHROPIC_API_KEY ||
+      process.env.OPENAI_API_KEY ||
+      process.env.GOOGLE_API_KEY
+    ) {
+      state.activeProvider = "api-key";
+      state.fallbackActive = false;
+    } else {
+      state.activeProvider = "unknown";
+      state.fallbackActive = false;
+    }
+  } catch {
+    state.activeProvider = "unknown";
+    state.fallbackActive = false;
+  }
+}
+
 async function handleRequest(
   req: http.IncomingMessage,
   res: http.ServerResponse,
@@ -1682,11 +1750,15 @@ async function handleRequest(
   }
 
   // ── GET /api/subscription/status ──────────────────────────────────────
-  // Returns the status of subscription-based auth providers
+  // Returns the status of subscription-based auth providers with computed fields
   if (method === "GET" && pathname === "/api/subscription/status") {
     try {
       const { getSubscriptionStatus } = await import("../auth/index.js");
-      json(res, { providers: getSubscriptionStatus() });
+      json(res, {
+        providers: getSubscriptionStatus(),
+        activeProvider: state.activeProvider,
+        fallbackActive: state.fallbackActive,
+      });
     } catch (err) {
       error(res, `Failed to get subscription status: ${err}`, 500);
     }
@@ -1918,6 +1990,8 @@ async function handleRequest(
       startedAt: state.startedAt,
       runMode,
       cloud: cloudStatus,
+      provider: state.activeProvider,
+      fallbackActive: state.fallbackActive,
     });
     return;
   }
@@ -2206,15 +2280,14 @@ async function handleRequest(
   if (method === "POST" && pathname === "/api/agent/start") {
     state.agentState = "running";
     state.startedAt = Date.now();
-    const detectedModel = state.runtime
-      ? (state.runtime.plugins.find(
-          (p) =>
-            p.name.includes("anthropic") ||
-            p.name.includes("openai") ||
-            p.name.includes("groq"),
-        )?.name ?? "unknown")
-      : "unknown";
-    state.model = detectedModel;
+    await detectProviderState(state);
+
+    const providerMsg = `[auth] Active provider: ${state.activeProvider}, model: ${state.model}${state.fallbackActive ? " (fallback — subscription auth failed)" : ""}`;
+    if (state.fallbackActive) {
+      logger.warn(providerMsg);
+    } else {
+      logger.info(providerMsg);
+    }
 
     // Enable the autonomy task — the core TaskService will pick it up
     // and fire the first tick immediately (updatedAt starts at 0).
@@ -2242,6 +2315,8 @@ async function handleRequest(
     state.agentState = "stopped";
     state.startedAt = undefined;
     state.model = undefined;
+    state.activeProvider = "unknown";
+    state.fallbackActive = false;
     json(res, {
       ok: true,
       status: { state: state.agentState, agentName: state.agentName },
@@ -2315,6 +2390,8 @@ async function handleRequest(
         state.agentState = "running";
         state.agentName = newRuntime.character.name ?? "Milaidy";
         state.startedAt = Date.now();
+        await detectProviderState(state);
+
         json(res, {
           ok: true,
           status: {
@@ -2396,6 +2473,8 @@ async function handleRequest(
       state.agentState = "stopped";
       state.agentName = "Milaidy";
       state.model = undefined;
+      state.activeProvider = "unknown";
+      state.fallbackActive = false;
       state.startedAt = undefined;
       state.config = {} as MilaidyConfig;
       state.chatRoomId = null;
@@ -5996,6 +6075,8 @@ export async function startApiServer(opts?: {
     agentState: hasRuntime ? "running" : "not_started",
     agentName,
     model: hasRuntime ? "provided" : undefined,
+    activeProvider: "unknown",
+    fallbackActive: false,
     startedAt: hasRuntime ? Date.now() : undefined,
     plugins,
     skills,
@@ -6290,6 +6371,8 @@ export async function startApiServer(opts?: {
       agentName: state.agentName,
       model: state.model,
       startedAt: state.startedAt,
+      provider: state.activeProvider,
+      fallbackActive: state.fallbackActive,
     };
     const message = JSON.stringify(statusData);
     for (const client of wsClients) {
@@ -6385,6 +6468,18 @@ export async function startApiServer(opts?: {
     state.agentState = "running";
     state.agentName = rt.character.name ?? "Milaidy";
     state.startedAt = Date.now();
+
+    // Detect model and provider (async — state updates before broadcast)
+    void detectProviderState(state).then(() => {
+      addLog(
+        state.fallbackActive ? "warn" : "info",
+        `[auth] Active provider: ${state.activeProvider}, model: ${state.model}${state.fallbackActive ? " (fallback)" : ""}`,
+        "auth",
+        ["auth"],
+      );
+      broadcastStatus();
+    });
+
     addLog("info", `Runtime restarted — agent: ${state.agentName}`, "system", [
       "system",
       "agent",
@@ -6393,7 +6488,7 @@ export async function startApiServer(opts?: {
     // Restore conversations from DB so they survive restarts
     void restoreConversationsFromDb(rt);
 
-    // Broadcast status update immediately after restart
+    // Broadcast status update immediately (provider fields update async)
     broadcastStatus();
   };
 

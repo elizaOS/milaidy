@@ -1,7 +1,8 @@
 /**
- * Admin view — logs, database management, and core plugin status.
+ * Admin view — logs, database management, core plugin status, and provider status.
  *
- * Contains three sub-tabs:
+ * Contains four sub-tabs:
+ *   - Status: active provider, model, and subscription status
  *   - Logs: agent runtime logs
  *   - Plugins: core plugin status & optional plugin toggles
  *   - Database: database explorer
@@ -10,16 +11,150 @@
 import { useCallback, useEffect, useState } from "react";
 import { client } from "../api-client";
 import type { CorePluginEntry } from "../api-client";
+import { useApp } from "../AppContext";
 import { LogsView } from "./LogsView";
 import { DatabaseView } from "./DatabaseView";
 
-type AdminTab = "logs" | "plugins" | "database";
+type AdminTab = "status" | "logs" | "plugins" | "database";
 
 const ADMIN_TABS: { id: AdminTab; label: string }[] = [
+  { id: "status", label: "Status" },
   { id: "logs", label: "Logs" },
   { id: "plugins", label: "Plugins" },
   { id: "database", label: "Database" },
 ];
+
+/* ── Provider Status sub-view ─────────────────────────────────────── */
+
+interface SubscriptionProviderInfo {
+  provider: string;
+  configured: boolean;
+  valid: boolean;
+  expiresAt: number | null;
+  hoursUntilExpiry: number | null;
+  status: "not-configured" | "active" | "expired";
+}
+
+function ProviderStatusView() {
+  const { agentStatus } = useApp();
+  const [providers, setProviders] = useState<SubscriptionProviderInfo[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await client.getSubscriptionStatus();
+      setProviders(data.providers);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load");
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { void load(); }, [load]);
+
+  const providerLabel = (p: string) => {
+    if (p === "subscription") return "Subscription";
+    if (p === "cloud") return "Cloud";
+    if (p === "api-key") return "API Key";
+    return "Unknown";
+  };
+
+  const statusBadge = (status: string) => {
+    if (status === "active") return { color: "var(--ok,#16a34a)", label: "Active" };
+    if (status === "expired") return { color: "var(--danger,#e74c3c)", label: "Expired" };
+    return { color: "var(--muted)", label: "Not Configured" };
+  };
+
+  const isRunning = agentStatus?.state === "running";
+
+  return (
+    <div className="space-y-6">
+      {/* Active provider */}
+      <div>
+        <h3 className="text-sm font-semibold text-[var(--txt-strong)] mb-3">Active Provider</h3>
+        {isRunning ? (
+          <div className="flex items-center gap-3 px-4 py-3 rounded bg-[var(--surface)] border border-[var(--border)]">
+            <span
+              className={`inline-block w-2.5 h-2.5 rounded-full flex-shrink-0 ${
+                agentStatus?.fallbackActive ? "bg-[var(--danger,#e74c3c)]" : "bg-[var(--ok,#16a34a)]"
+              }`}
+            />
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-medium text-[var(--txt)]">
+                {providerLabel(agentStatus?.provider ?? "unknown")}
+                {agentStatus?.fallbackActive && (
+                  <span className="ml-2 text-[11px] text-[var(--danger,#e74c3c)] font-semibold">(fallback)</span>
+                )}
+              </div>
+              <div className="text-xs text-[var(--muted)] mt-0.5">
+                Model: {agentStatus?.model ?? "unknown"}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <p className="text-xs text-[var(--muted)]">Agent is not running.</p>
+        )}
+
+        {agentStatus?.fallbackActive && (
+          <div className="mt-2 px-3 py-2 rounded border border-[var(--danger,#e74c3c)] bg-[var(--danger,#e74c3c)]/5 text-xs text-[var(--danger,#e74c3c)]">
+            Subscription auth failed. The agent is using a fallback provider. Check your subscription credentials in Config &gt; Providers.
+          </div>
+        )}
+      </div>
+
+      {/* Subscription providers */}
+      <div>
+        <h3 className="text-sm font-semibold text-[var(--txt-strong)] mb-3">
+          Subscription Providers
+          <button onClick={load} className="ml-3 text-[var(--accent)] bg-transparent border-0 cursor-pointer text-xs underline font-normal">
+            Refresh
+          </button>
+        </h3>
+        {loading ? (
+          <div className="text-[var(--muted)] text-sm py-4 text-center">Loading...</div>
+        ) : error ? (
+          <div className="text-sm py-4 text-center">
+            <span className="text-[var(--danger,#e74c3c)]">{error}</span>
+            <button onClick={load} className="ml-3 text-[var(--accent)] bg-transparent border-0 cursor-pointer underline text-sm">
+              Retry
+            </button>
+          </div>
+        ) : (
+          <div className="grid gap-2">
+            {providers.map((p) => {
+              const badge = statusBadge(p.status);
+              return (
+                <div
+                  key={p.provider}
+                  className="flex items-center gap-3 px-3 py-2 rounded bg-[var(--surface)] border border-[var(--border)]"
+                >
+                  <span
+                    className="inline-block w-2 h-2 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: badge.color }}
+                  />
+                  <span className="text-sm font-medium text-[var(--txt)] flex-1 min-w-0 truncate">
+                    {p.provider}
+                  </span>
+                  <span className="text-[10px] font-medium flex-shrink-0" style={{ color: badge.color }}>
+                    {badge.label}
+                  </span>
+                  {p.hoursUntilExpiry !== null && p.status === "active" && (
+                    <span className="text-[10px] text-[var(--muted)] flex-shrink-0">
+                      {p.hoursUntilExpiry.toFixed(1)}h left
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 /* ── Core Plugins sub-view ──────────────────────────────────────────── */
 
@@ -212,6 +347,7 @@ export function AdminView() {
       </div>
 
       {/* Sub-tab content */}
+      {activeTab === "status" && <ProviderStatusView />}
       {activeTab === "logs" && <LogsView />}
       {activeTab === "plugins" && <CorePluginsView />}
       {activeTab === "database" && <DatabaseView />}

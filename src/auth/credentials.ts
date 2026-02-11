@@ -106,17 +106,24 @@ export async function getAccessToken(
   provider: SubscriptionProvider,
 ): Promise<string | null> {
   const stored = loadCredentials(provider);
-  if (!stored) return null;
+  if (!stored) {
+    logger.debug(`[auth] No stored credentials for ${provider}`);
+    return null;
+  }
 
   const { credentials } = stored;
 
   // Token still valid
   if (credentials.expires > Date.now() + REFRESH_BUFFER_MS) {
+    const hoursLeft = ((credentials.expires - Date.now()) / 3600000).toFixed(1);
+    logger.debug(`[auth] ${provider} token valid (${hoursLeft}h remaining)`);
     return credentials.access;
   }
 
   // Need to refresh
-  logger.info(`[auth] Refreshing ${provider} token...`);
+  logger.info(
+    `[auth] ${provider} token expired or expiring soon, refreshing...`,
+  );
   try {
     let refreshed: OAuthCredentials;
     if (provider === "anthropic-subscription") {
@@ -128,6 +135,12 @@ export async function getAccessToken(
       return null;
     }
 
+    const newHoursLeft = ((refreshed.expires - Date.now()) / 3600000).toFixed(
+      1,
+    );
+    logger.info(
+      `[auth] ${provider} token refreshed successfully (valid for ${newHoursLeft}h)`,
+    );
     // Save refreshed credentials
     saveCredentials(provider, refreshed);
     return refreshed.access;
@@ -145,6 +158,8 @@ export function getSubscriptionStatus(): Array<{
   configured: boolean;
   valid: boolean;
   expiresAt: number | null;
+  hoursUntilExpiry: number | null;
+  status: "not-configured" | "active" | "expired";
 }> {
   const providers: SubscriptionProvider[] = [
     "anthropic-subscription",
@@ -152,11 +167,20 @@ export function getSubscriptionStatus(): Array<{
   ];
   return providers.map((provider) => {
     const stored = loadCredentials(provider);
+    const configured = stored !== null;
+    const valid = stored ? stored.credentials.expires > Date.now() : false;
+    const expiresAt = stored?.credentials.expires ?? null;
     return {
       provider,
-      configured: stored !== null,
-      valid: stored ? stored.credentials.expires > Date.now() : false,
-      expiresAt: stored?.credentials.expires ?? null,
+      configured,
+      valid,
+      expiresAt,
+      hoursUntilExpiry: expiresAt ? (expiresAt - Date.now()) / 3600000 : null,
+      status: !configured
+        ? ("not-configured" as const)
+        : valid
+          ? ("active" as const)
+          : ("expired" as const),
     };
   });
 }
@@ -166,21 +190,33 @@ export function getSubscriptionStatus(): Array<{
  * Called at startup to make credentials available to ElizaOS plugins.
  */
 export async function applySubscriptionCredentials(): Promise<void> {
+  const applied: string[] = [];
+  const skipped: string[] = [];
+
   // Anthropic subscription → set ANTHROPIC_API_KEY
   const anthropicToken = await getAccessToken("anthropic-subscription");
   if (anthropicToken) {
     process.env.ANTHROPIC_API_KEY = anthropicToken;
-    logger.info(
-      "[auth] Applied Anthropic subscription credentials to environment",
-    );
+    applied.push("anthropic-subscription");
+  } else {
+    skipped.push("anthropic-subscription");
   }
 
   // OpenAI Codex subscription → set OPENAI_API_KEY
   const codexToken = await getAccessToken("openai-codex");
   if (codexToken) {
     process.env.OPENAI_API_KEY = codexToken;
+    applied.push("openai-codex");
+  } else {
+    skipped.push("openai-codex");
+  }
+
+  if (applied.length > 0) {
     logger.info(
-      "[auth] Applied OpenAI Codex subscription credentials to environment",
+      `[auth] Applied subscription credentials: ${applied.join(", ")}`,
     );
+  }
+  if (skipped.length > 0) {
+    logger.debug(`[auth] No valid credentials for: ${skipped.join(", ")}`);
   }
 }

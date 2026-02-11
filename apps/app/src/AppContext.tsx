@@ -656,6 +656,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const prevAgentStateRef = useRef<string | null>(null);
   /** Guards against double-greeting when both init and state-transition paths fire. */
   const greetingFiredRef = useRef(false);
+  const fallbackNoticeShown = useRef(false);
 
   // ── Action notice ──────────────────────────────────────────────────
 
@@ -2063,7 +2064,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // Connect WebSocket
       client.connectWs();
       client.onWsEvent("status", (data: Record<string, unknown>) => {
-        setAgentStatus(data as unknown as AgentStatus);
+        const status = data as unknown as AgentStatus;
+        setAgentStatus(status);
+
+        // Show one-time toast when subscription falls back to cloud
+        if (status.fallbackActive && !fallbackNoticeShown.current) {
+          fallbackNoticeShown.current = true;
+          setActionNotice(
+            "Subscription auth failed \u2014 using fallback provider. Check Config > Providers.",
+            "error",
+            10000,
+          );
+        }
+
+        // Reset notice flag when agent stops so toast can fire again on next start
+        if (
+          status.state === "not_started" ||
+          status.state === "stopped" ||
+          status.state === "error"
+        ) {
+          fallbackNoticeShown.current = false;
+        }
       });
 
       // Load status
