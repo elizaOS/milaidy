@@ -14,6 +14,7 @@ import {
   installPlugin,
   listInstalledPlugins,
   type ProgressCallback,
+  uninstallPlugin,
 } from "./plugin-installer.js";
 import {
   type RegistryAppInfo,
@@ -66,14 +67,41 @@ export interface AppStopResult {
   success: boolean;
   appName: string;
   stoppedAt: string;
+  pluginUninstalled: boolean;
+  needsRestart: boolean;
+  stopScope: "plugin-uninstalled" | "viewer-session" | "no-op";
+  message: string;
 }
 
 type AppViewerConfig = NonNullable<AppLaunchResult["viewer"]>;
 
+interface ActiveAppSession {
+  appName: string;
+  pluginName: string;
+  launchType: string;
+  launchUrl: string | null;
+  viewerUrl: string | null;
+  startedAt: string;
+}
+
+function getTemplateFallbackValue(key: string): string | undefined {
+  if (key === "RS_SDK_BOT_NAME") {
+    const runtimeBotName = process.env.BOT_NAME?.trim();
+    if (runtimeBotName && runtimeBotName.length > 0) {
+      return runtimeBotName;
+    }
+    return "testbot";
+  }
+  return undefined;
+}
+
 function substituteTemplateVars(raw: string): string {
   return raw.replace(/\{([A-Z0-9_]+)\}/g, (_full, key: string) => {
     const value = process.env[key];
-    return value && value.trim().length > 0 ? value.trim() : "";
+    if (value && value.trim().length > 0) {
+      return value.trim();
+    }
+    return getTemplateFallbackValue(key) ?? "";
   });
 }
 
@@ -111,9 +139,8 @@ function buildViewerAuthMessage(
   return {
     type: HYPERSCAPE_AUTH_MESSAGE_TYPE,
     authToken,
-    sessionToken: sessionToken && sessionToken.length > 0
-      ? sessionToken
-      : undefined,
+    sessionToken:
+      sessionToken && sessionToken.length > 0 ? sessionToken : undefined,
     agentId: agentId && agentId.length > 0 ? agentId : undefined,
   };
 }
@@ -123,19 +150,27 @@ function buildViewerConfig(
   launchUrl: string | null,
 ): AppViewerConfig | null {
   if (appInfo.viewer) {
+    const requestedPostMessageAuth = Boolean(appInfo.viewer.postMessageAuth);
     const authMessage = buildViewerAuthMessage(
       appInfo.name,
-      appInfo.viewer.postMessageAuth,
+      requestedPostMessageAuth,
     );
-    if (appInfo.viewer.postMessageAuth && !authMessage) {
-      logger.warn(
-        `[app-manager] ${appInfo.name} requires postMessage auth but no auth payload was generated.`,
-      );
+    const postMessageAuth = requestedPostMessageAuth && Boolean(authMessage);
+    if (requestedPostMessageAuth && !authMessage) {
+      if (appInfo.name === HYPERSCAPE_APP_NAME) {
+        logger.info(
+          `[app-manager] ${appInfo.name} auth token not configured; launching embedded viewer without postMessage auth.`,
+        );
+      } else {
+        logger.warn(
+          `[app-manager] ${appInfo.name} requires postMessage auth but no auth payload was generated.`,
+        );
+      }
     }
     return {
       url: buildViewerUrl(appInfo.viewer.url, appInfo.viewer.embedParams),
       embedParams: appInfo.viewer.embedParams,
-      postMessageAuth: appInfo.viewer.postMessageAuth,
+      postMessageAuth,
       sandbox: appInfo.viewer.sandbox ?? DEFAULT_VIEWER_SANDBOX,
       authMessage,
     };
@@ -153,6 +188,8 @@ function buildViewerConfig(
 }
 
 export class AppManager {
+  private readonly activeSessions = new Map<string, ActiveAppSession>();
+
   async listAvailable(): Promise<RegistryAppInfo[]> {
     return registryListApps();
   }
@@ -214,6 +251,14 @@ export class AppManager {
       ? substituteTemplateVars(appInfo.launchUrl)
       : null;
     const viewer = buildViewerConfig(appInfo, launchUrl);
+    this.activeSessions.set(name, {
+      appName: name,
+      pluginName,
+      launchType: appInfo.launchType,
+      launchUrl,
+      viewerUrl: viewer?.url ?? null,
+      startedAt: new Date().toISOString(),
+    });
 
     return {
       pluginInstalled: true,
@@ -230,10 +275,53 @@ export class AppManager {
     if (!appInfo) {
       throw new Error(`App "${name}" not found in the registry.`);
     }
+
+    const hadSession = this.activeSessions.delete(name);
+    const pluginName = appInfo.name;
+    const installed = listInstalledPlugins();
+    const isPluginInstalled = installed.some(
+      (plugin) => plugin.name === pluginName,
+    );
+    if (!hadSession && !isPluginInstalled) {
+      return {
+        success: false,
+        appName: name,
+        stoppedAt: new Date().toISOString(),
+        pluginUninstalled: false,
+        needsRestart: false,
+        stopScope: "no-op",
+        message: `No active session or installed plugin found for "${name}".`,
+      };
+    }
+
+    if (isPluginInstalled) {
+      const uninstallResult = await uninstallPlugin(pluginName);
+      if (!uninstallResult.success) {
+        throw new Error(
+          `Failed to stop "${name}": ${uninstallResult.error ?? "plugin uninstall failed"}`,
+        );
+      }
+      return {
+        success: true,
+        appName: name,
+        stoppedAt: new Date().toISOString(),
+        pluginUninstalled: true,
+        needsRestart: uninstallResult.requiresRestart,
+        stopScope: "plugin-uninstalled",
+        message: uninstallResult.requiresRestart
+          ? `${name} disconnected and plugin uninstalled. Agent restart required.`
+          : `${name} disconnected and plugin uninstalled.`,
+      };
+    }
+
     return {
       success: true,
       appName: name,
       stoppedAt: new Date().toISOString(),
+      pluginUninstalled: false,
+      needsRestart: false,
+      stopScope: "viewer-session",
+      message: `${name} viewer session stopped.`,
     };
   }
 

@@ -10,7 +10,11 @@ import { useRef, useEffect, useCallback, useState } from "react";
 import { useApp } from "../AppContext.js";
 import { ChatAvatar } from "./ChatAvatar.js";
 import { useVoiceChat } from "../hooks/useVoiceChat.js";
-import { client, type VoiceConfig } from "../api-client.js";
+import {
+  client,
+  type ConversationMode,
+  type VoiceConfig,
+} from "../api-client.js";
 
 // ── Typewriter streaming component ────────────────────────────────────
 // Reveals text progressively using direct DOM manipulation (no React
@@ -100,6 +104,14 @@ export function ChatView() {
       return v === null ? true : v === "true"; // muted by default
     } catch { return true; }
   });
+  const [chatMode, setChatMode] = useState<ConversationMode>(() => {
+    try {
+      const v = localStorage.getItem("milaidy:chat:mode");
+      return v === "power" ? "power" : "simple";
+    } catch {
+      return "simple";
+    }
+  });
 
   // Persist toggle changes
   useEffect(() => {
@@ -108,6 +120,9 @@ export function ChatView() {
   useEffect(() => {
     try { localStorage.setItem("milaidy:chat:voiceMuted", String(agentVoiceMuted)); } catch { /* ignore */ }
   }, [agentVoiceMuted]);
+  useEffect(() => {
+    try { localStorage.setItem("milaidy:chat:mode", chatMode); } catch { /* ignore */ }
+  }, [chatMode]);
 
   // ── Streaming text reveal ──────────────────────────────────────────
   // Tracks the ID of the message currently being "streamed in" via
@@ -136,9 +151,9 @@ export function ChatView() {
     (text: string) => {
       if (chatSending) return;
       setState("chatInput", text);
-      setTimeout(() => void handleChatSend(), 50);
+      setTimeout(() => void handleChatSend(chatMode), 50);
     },
-    [chatSending, setState, handleChatSend],
+    [chatMode, chatSending, setState, handleChatSend],
   );
 
   const voice = useVoiceChat({ onTranscript: handleVoiceTranscript, voiceConfig });
@@ -215,7 +230,7 @@ export function ChatView() {
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      void handleChatSend();
+      void handleChatSend(chatMode);
     }
   };
 
@@ -315,7 +330,40 @@ export function ChatView() {
       )}
 
       {/* ── Avatar / voice toggles ────────────────────────────────── */}
-      <div className="flex justify-end gap-1.5 pb-1.5 relative" style={{ zIndex: 1 }}>
+      <div
+        className="flex items-center justify-between gap-2 pb-1.5 relative"
+        style={{ zIndex: 1 }}
+      >
+        <div className="flex items-center gap-1">
+          <span className="text-[11px] text-muted uppercase tracking-wide">
+            Mode
+          </span>
+          <button
+            className={`px-2 py-1 text-xs border rounded cursor-pointer transition-all ${
+              chatMode === "simple"
+                ? "border-accent text-accent bg-card"
+                : "border-border text-muted bg-card hover:border-accent hover:text-accent"
+            }`}
+            onClick={() => setChatMode("simple")}
+            title="Simple mode: reply only, no tools"
+            disabled={chatSending}
+          >
+            Simple
+          </button>
+          <button
+            className={`px-2 py-1 text-xs border rounded cursor-pointer transition-all ${
+              chatMode === "power"
+                ? "border-accent text-accent bg-card"
+                : "border-border text-muted bg-card hover:border-accent hover:text-accent"
+            }`}
+            onClick={() => setChatMode("power")}
+            title="Power mode: tools/actions allowed"
+            disabled={chatSending}
+          >
+            Power
+          </button>
+        </div>
+        <div className="flex gap-1.5">
         {/* Show / hide avatar */}
         <button
           className={`w-7 h-7 flex items-center justify-center border rounded cursor-pointer transition-all bg-card ${
@@ -360,6 +408,7 @@ export function ChatView() {
             {agentVoiceMuted && <line x1="17" y1="9" x2="23" y2="15" />}
           </svg>
         </button>
+        </div>
       </div>
 
       {/* ── Input row: mic + textarea + send ───────────────────────── */}
@@ -423,7 +472,7 @@ export function ChatView() {
         ) : (
           <button
             className="h-[38px] px-6 py-2 border border-accent bg-accent text-accent-fg text-sm cursor-pointer hover:bg-accent-hover disabled:opacity-40 disabled:cursor-not-allowed self-end"
-            onClick={handleChatSend}
+            onClick={() => void handleChatSend(chatMode)}
             disabled={chatSending}
           >
             {chatSending ? "..." : "Send"}

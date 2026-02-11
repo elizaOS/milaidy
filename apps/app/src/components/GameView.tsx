@@ -94,10 +94,14 @@ export function GameView() {
     if (!activeGameApp) return;
     setStopping(true);
     try {
-      await client.stopApp(activeGameApp);
+      const stopResult = await client.stopApp(activeGameApp);
       resetActiveGameState();
       setState("tab", "apps");
-      setActionNotice("App stopped.", "success");
+      setActionNotice(
+        stopResult.message,
+        stopResult.success ? "success" : "info",
+        stopResult.needsRestart ? 5000 : 3200,
+      );
     } catch (err) {
       setActionNotice(`Failed to stop: ${err instanceof Error ? err.message : "error"}`, "error");
     } finally {

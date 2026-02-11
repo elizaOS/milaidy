@@ -254,6 +254,8 @@ export interface OnboardingData {
   name: string;
   theme: string;
   runMode: "local" | "cloud";
+  /** Sandbox execution mode: "off" (rawdog), "light" (cloud), "standard" (local sandbox), "max". */
+  sandboxMode?: "off" | "light" | "standard" | "max";
   bio: string[];
   systemPrompt: string;
   style?: {
@@ -747,6 +749,10 @@ export interface AppStopResult {
   success: boolean;
   appName: string;
   stoppedAt: string;
+  pluginUninstalled: boolean;
+  needsRestart: boolean;
+  stopScope: "plugin-uninstalled" | "viewer-session" | "no-op";
+  message: string;
 }
 
 // WebSocket

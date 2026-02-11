@@ -283,6 +283,38 @@ describe("plugin-installer", () => {
       expect(result.success).toBe(true);
     });
 
+    it("fails when install directory removal errors unexpectedly", async () => {
+      const installDir = path.join(
+        configDir,
+        "plugins",
+        "installed",
+        "_elizaos_plugin-broken",
+      );
+      await fs.mkdir(installDir, { recursive: true });
+      writeConfig({
+        plugins: {
+          installs: {
+            "@elizaos/plugin-broken": {
+              source: "npm",
+              installPath: installDir,
+              version: "1.0.0",
+            },
+          },
+        },
+      });
+
+      const rmSpy = vi
+        .spyOn(fs, "rm")
+        .mockRejectedValueOnce(new Error("permission denied"));
+
+      const { uninstallPlugin } = await loadInstaller();
+      const result = await uninstallPlugin("@elizaos/plugin-broken");
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("Failed to remove plugin directory");
+      rmSpy.mockRestore();
+    });
+
     it("refuses to remove install paths outside the plugins directory", async () => {
       writeConfig({
         plugins: {

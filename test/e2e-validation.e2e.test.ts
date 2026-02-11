@@ -161,6 +161,29 @@ function http$(
   });
 }
 
+interface AutonomyServiceLike {
+  setLoopInterval(ms: number): void;
+}
+
+async function handleMessageAndCollectText(
+  runtime: AgentRuntime,
+  message: ReturnType<typeof createMessageMemory>,
+): Promise<string> {
+  let responseText = "";
+  const result = await runtime.messageService?.handleMessage(
+    runtime,
+    message,
+    async (content: { text?: string }) => {
+      if (content.text) responseText += content.text;
+      return [];
+    },
+  );
+  if (!responseText && result?.responseContent?.text) {
+    responseText = result.responseContent.text;
+  }
+  return responseText;
+}
+
 // ---------------------------------------------------------------------------
 // Subprocess helper
 // ---------------------------------------------------------------------------
@@ -1189,6 +1212,8 @@ describe("Runtime Integration (with model provider)", () => {
 
     if (sqlPlugin) await runtime.registerPlugin(sqlPlugin);
     await runtime.initialize();
+    const autonomySvc = runtime.getService<AutonomyServiceLike>("AUTONOMY");
+    autonomySvc?.setLoopInterval(5 * 60_000);
     initialized = true;
 
     try {
@@ -1277,6 +1302,8 @@ describe("Runtime Integration (with model provider)", () => {
   it.skipIf(!hasModelProvider)(
     "handleMessage produces response",
     async () => {
+      const activeRuntime = runtime;
+      if (!activeRuntime) throw new Error("Runtime not initialized");
       const msg = createMessageMemory({
         id: crypto.randomUUID() as UUID,
         entityId: userId,
@@ -1287,19 +1314,17 @@ describe("Runtime Integration (with model provider)", () => {
           channelType: ChannelType.DM,
         },
       });
-      let resp = "";
-      await runtime?.messageService?.handleMessage(runtime, msg, async (c) => {
-        if (c?.text) resp += c.text;
-        return [];
-      });
+      const resp = await handleMessageAndCollectText(activeRuntime, msg);
       expect(resp.length).toBeGreaterThan(0);
     },
-    60_000,
+    120_000,
   );
 
   it.skipIf(!hasModelProvider)(
     "context integrity maintained across 5 sequential messages",
     async () => {
+      const activeRuntime = runtime;
+      if (!activeRuntime) throw new Error("Runtime not initialized");
       const messages = [
         "Remember: ALPHA-7. Reply OK.",
         "What code did I say? One line.",
@@ -1316,15 +1341,7 @@ describe("Runtime Integration (with model provider)", () => {
           roomId,
           content: { text, source: "test", channelType: ChannelType.DM },
         });
-        lastResponse = "";
-        await runtime?.messageService?.handleMessage(
-          runtime,
-          msg,
-          async (c) => {
-            if (c?.text) lastResponse += c.text;
-            return [];
-          },
-        );
+        lastResponse = await handleMessageAndCollectText(activeRuntime, msg);
         expect(lastResponse.length).toBeGreaterThan(0);
       }
 

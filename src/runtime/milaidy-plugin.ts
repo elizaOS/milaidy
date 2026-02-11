@@ -15,12 +15,20 @@ import {
   resolveDefaultSessionStorePath,
 } from "@elizaos/core";
 import { restartAction } from "../actions/restart.js";
+import { createAdminTrustProvider } from "../providers/admin-trust.js";
+import {
+  createAutonomousStateProvider,
+  ensureAutonomousStateTracking,
+} from "../providers/autonomous-state.js";
 import {
   createSessionKeyProvider,
   resolveSessionKeyFromRoom,
 } from "../providers/session-bridge.js";
+import { createSimpleModeProvider } from "../providers/simple-mode.js";
 import { DEFAULT_AGENT_WORKSPACE_DIR } from "../providers/workspace.js";
 import { createWorkspaceProvider } from "../providers/workspace-provider.js";
+import { createTriggerTaskAction } from "../triggers/action.js";
+import { registerTriggerTaskWorker } from "../triggers/runtime.js";
 
 export type MilaidyPluginConfig = {
   workspaceDir?: string;
@@ -43,10 +51,13 @@ export function createMilaidyPlugin(config?: MilaidyPluginConfig): Plugin {
   const enableBootstrap = config?.enableBootstrapProviders ?? true;
 
   const baseProviders = [
+    createSimpleModeProvider(),
     createWorkspaceProvider({
       workspaceDir,
       maxCharsPerFile: config?.bootstrapMaxChars,
     }),
+    createAdminTrustProvider(),
+    createAutonomousStateProvider(),
     createSessionKeyProvider({ defaultAgentId: agentId }),
     ...getSessionProviders({ storePath: sessionStorePath }),
   ];
@@ -61,9 +72,14 @@ export function createMilaidyPlugin(config?: MilaidyPluginConfig): Plugin {
     description:
       "Milaidy workspace context, session keys, and lifecycle actions",
 
+    init: async (_pluginConfig, runtime) => {
+      registerTriggerTaskWorker(runtime);
+      ensureAutonomousStateTracking(runtime);
+    },
+
     providers: [...baseProviders, ...bootstrapProviders],
 
-    actions: [restartAction],
+    actions: [restartAction, createTriggerTaskAction],
 
     events: {
       // Inject Milaidy session keys into inbound messages before processing

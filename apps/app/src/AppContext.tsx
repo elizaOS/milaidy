@@ -122,6 +122,7 @@ export type OnboardingStep =
   | "style"
   | "theme"
   | "runMode"
+  | "dockerSetup"
   | "cloudProvider"
   | "modelSelection"
   | "cloudLogin"
@@ -304,7 +305,7 @@ export interface AppState {
   onboardingName: string;
   onboardingStyle: string;
   onboardingTheme: ThemeName;
-  onboardingRunMode: "local" | "cloud" | "";
+  onboardingRunMode: "local-rawdog" | "local-sandbox" | "cloud" | "";
   onboardingCloudProvider: string;
   onboardingSmallModel: string;
   onboardingLargeModel: string;
@@ -638,7 +639,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [onboardingName, setOnboardingName] = useState("");
   const [onboardingStyle, setOnboardingStyle] = useState("");
   const [onboardingTheme, setOnboardingTheme] = useState<ThemeName>(loadTheme);
-  const [onboardingRunMode, setOnboardingRunMode] = useState<"local" | "cloud" | "">("");
+  const [onboardingRunMode, setOnboardingRunMode] = useState<"local-rawdog" | "local-sandbox" | "cloud" | "">("");
   const [onboardingCloudProvider, setOnboardingCloudProvider] = useState("");
   const [onboardingSmallModel, setOnboardingSmallModel] = useState("moonshotai/kimi-k2-turbo");
   const [onboardingLargeModel, setOnboardingLargeModel] = useState("moonshotai/kimi-k2-0905");
@@ -1775,9 +1776,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
             setOnboardingCloudProvider(opts.cloudProviders[0].id);
           }
           setOnboardingStep("cloudProvider");
+        } else if (onboardingRunMode === "local-sandbox") {
+          setOnboardingStep("dockerSetup");
         } else {
+          // local-rawdog: skip docker, go straight to LLM provider
           setOnboardingStep("llmProvider");
         }
+        break;
+      case "dockerSetup":
+        setOnboardingStep("llmProvider");
         break;
       case "cloudProvider":
         setOnboardingStep("modelSelection");
@@ -1836,8 +1843,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setCloudLoginBusy(false);
         setCloudLoginError(null);
         break;
-      case "llmProvider":
+      case "dockerSetup":
         setOnboardingStep("runMode");
+        break;
+      case "llmProvider":
+        if (onboardingRunMode === "local-sandbox") {
+          setOnboardingStep("dockerSetup");
+        } else {
+          setOnboardingStep("runMode");
+        }
         break;
       case "inventorySetup":
         setOnboardingStep("llmProvider");
@@ -1860,8 +1874,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       ? style.system.replace(/\{\{name\}\}/g, onboardingName)
       : `You are ${onboardingName}, an autonomous AI agent powered by ElizaOS. ${onboardingOptions.sharedStyleRules}`;
 
+    const isLocalMode = onboardingRunMode === "local-rawdog" || onboardingRunMode === "local-sandbox";
     const inventoryProviders: Array<{ chain: string; rpcProvider: string; rpcApiKey?: string }> = [];
-    if (onboardingRunMode === "local") {
+    if (isLocalMode) {
       for (const chain of onboardingSelectedChains) {
         const rpcProvider = onboardingRpcSelections[chain] || "elizacloud";
         const rpcApiKey = onboardingRpcKeys[`${chain}:${rpcProvider}`] || undefined;
@@ -1869,12 +1884,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
     }
 
+    // Map the 3-mode selection to the API's runMode field
+    // "local-rawdog" and "local-sandbox" both map to "local" for backward compat
+    // Sandbox mode is additionally stored as a separate flag
+    const apiRunMode = onboardingRunMode === "cloud" ? "cloud" : "local";
+
     setOnboardingRestarting(true);
     try {
       await client.submitOnboarding({
         name: onboardingName,
         theme: onboardingTheme,
-        runMode: (onboardingRunMode || "local") as "local" | "cloud",
+        runMode: apiRunMode as "local" | "cloud",
+        sandboxMode: onboardingRunMode === "local-sandbox" ? "standard" : onboardingRunMode === "cloud" ? "light" : "off",
         bio: style?.bio ?? ["An autonomous AI agent."],
         systemPrompt,
         style: style?.style,
@@ -1885,8 +1906,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         cloudProvider: onboardingRunMode === "cloud" ? onboardingCloudProvider : undefined,
         smallModel: onboardingRunMode === "cloud" ? onboardingSmallModel : undefined,
         largeModel: onboardingRunMode === "cloud" ? onboardingLargeModel : undefined,
-        provider: onboardingRunMode === "local" ? onboardingProvider || undefined : undefined,
-        providerApiKey: onboardingRunMode === "local" ? onboardingApiKey || undefined : undefined,
+        provider: isLocalMode ? onboardingProvider || undefined : undefined,
+        providerApiKey: isLocalMode ? onboardingApiKey || undefined : undefined,
         inventoryProviders: inventoryProviders.length > 0 ? inventoryProviders : undefined,
         // Connectors
         telegramToken: onboardingTelegramToken.trim() || undefined,

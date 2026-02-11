@@ -2,12 +2,12 @@
  * Navigation — tabs + onboarding.
  */
 
-export type Tab = "chat" | "apps" | "game" | "inventory" | "features" | "connectors" | "skills" | "character" | "config" | "admin";
+export type Tab = "chat" | "apps" | "game" | "inventory" | "features" | "connectors" | "skills" | "triggers" | "character" | "config" | "admin";
 
 export const TAB_GROUPS = [
   { label: "Chat", tabs: ["chat"] as Tab[] },
   { label: "Play", tabs: ["apps"] as Tab[] },
-  { label: "Manage", tabs: ["inventory", "features", "connectors", "skills"] as Tab[] },
+  { label: "Manage", tabs: ["inventory", "features", "connectors", "skills", "triggers"] as Tab[] },
   { label: "Settings", tabs: ["character", "config", "admin"] as Tab[] },
 ] as const;
 
@@ -19,6 +19,7 @@ const TAB_PATHS: Record<Tab, string> = {
   features: "/features",
   connectors: "/connectors",
   skills: "/skills",
+  triggers: "/triggers",
   character: "/character",
   config: "/config",
   admin: "/admin",
@@ -82,6 +83,7 @@ export function titleForTab(tab: Tab): string {
     case "features": return "Features";
     case "connectors": return "Connectors";
     case "skills": return "Skills";
+    case "triggers": return "Triggers";
     case "character": return "Character";
     case "config": return "Config";
     case "admin": return "Admin";

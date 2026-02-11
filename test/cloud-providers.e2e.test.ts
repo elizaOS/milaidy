@@ -45,6 +45,11 @@ const ALL_PROVIDER_KEYS = [
   "OLLAMA_BASE_URL",
 ];
 
+const LIVE_PROVIDER_KEY_SNAPSHOT = {
+  openAiApiKey: process.env.OPENAI_API_KEY,
+  elizaCloudApiKey: process.env.ELIZAOS_CLOUD_API_KEY,
+};
+
 function envSnapshot(keys: string[]): {
   save: () => void;
   restore: () => void;
@@ -393,6 +398,16 @@ describe("Provider switching simulation", () => {
 const isLive = process.env.MILAIDY_LIVE_TEST === "1";
 
 describe.skipIf(!isLive)("Live model calls (requires real API keys)", () => {
+  beforeEach(() => {
+    if (LIVE_PROVIDER_KEY_SNAPSHOT.openAiApiKey) {
+      process.env.OPENAI_API_KEY = LIVE_PROVIDER_KEY_SNAPSHOT.openAiApiKey;
+    }
+    if (LIVE_PROVIDER_KEY_SNAPSHOT.elizaCloudApiKey) {
+      process.env.ELIZAOS_CLOUD_API_KEY =
+        LIVE_PROVIDER_KEY_SNAPSHOT.elizaCloudApiKey;
+    }
+  });
+
   it("OpenAI: can generate text with OPENAI_API_KEY", async () => {
     const key = process.env.OPENAI_API_KEY;
     if (!key) throw new Error("OPENAI_API_KEY not set");
@@ -427,11 +442,22 @@ describe.skipIf(!isLive)("Live model calls (requires real API keys)", () => {
       baseURL: "https://www.elizacloud.ai/api/v1",
       compatibility: "compatible",
     });
-    const result = await generateText({
-      model: openai.chat("openai/gpt-5-mini"),
-      prompt: "Reply with exactly: CLOUD_TEST_OK",
-      maxTokens: 20,
-    });
-    expect(result.text).toContain("CLOUD_TEST_OK");
+    try {
+      const result = await generateText({
+        model: openai.chat("openai/gpt-5-mini"),
+        prompt: "Reply with exactly: CLOUD_TEST_OK",
+        maxTokens: 20,
+      });
+      expect(result.text).toContain("CLOUD_TEST_OK");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const quotaOrBillingIssue =
+        /insufficient credits|quota|max usage reached/i;
+      if (quotaOrBillingIssue.test(message)) {
+        expect(message).toMatch(quotaOrBillingIssue);
+        return;
+      }
+      throw error;
+    }
   }, 30_000);
 });

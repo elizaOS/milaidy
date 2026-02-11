@@ -61,12 +61,6 @@ function assertValidVersion(version: string): void {
   }
 }
 
-function assertValidBranch(branch: string): void {
-  if (!VALID_BRANCH.test(branch)) {
-    throw new Error(`Invalid branch name: "${branch}"`);
-  }
-}
-
 function assertValidGitUrl(url: string): void {
   if (!VALID_GIT_URL.test(url)) {
     throw new Error(`Invalid git URL: "${url}"`);
@@ -266,28 +260,28 @@ async function _installPlugin(
       installSource = "npm";
       installed = true;
     } catch (npmErr) {
-    logger.warn(
-      `[plugin-installer] npm failed for ${canonicalName}: ${npmErr instanceof Error ? npmErr.message : String(npmErr)}`,
-    );
-    emit("downloading", `npm failed, cloning from ${info.gitUrl}...`);
+      logger.warn(
+        `[plugin-installer] npm failed for ${canonicalName}: ${npmErr instanceof Error ? npmErr.message : String(npmErr)}`,
+      );
+      emit("downloading", `npm failed, cloning from ${info.gitUrl}...`);
 
-    try {
-      await gitCloneInstall(info, targetDir, onProgress);
-      installedVersion = info.npm.v2Version || info.npm.v1Version || "git";
-      installSource = "path"; // git-cloned plugins are local path installs
-      installed = true;
-    } catch (gitErr) {
-      const msg = gitErr instanceof Error ? gitErr.message : String(gitErr);
-      emit("error", `Installation failed: ${msg}`);
-      return {
-        success: false,
-        pluginName: canonicalName,
-        version: "",
-        installPath: targetDir,
-        requiresRestart: false,
-        error: msg,
-      };
-    }
+      try {
+        await gitCloneInstall(info, targetDir, onProgress);
+        installedVersion = info.npm.v2Version || info.npm.v1Version || "git";
+        installSource = "path"; // git-cloned plugins are local path installs
+        installed = true;
+      } catch (gitErr) {
+        const msg = gitErr instanceof Error ? gitErr.message : String(gitErr);
+        emit("error", `Installation failed: ${msg}`);
+        return {
+          success: false,
+          pluginName: canonicalName,
+          version: "",
+          installPath: targetDir,
+          requiresRestart: false,
+          error: msg,
+        };
+      }
     }
   }
 
@@ -409,11 +403,23 @@ async function _uninstallPlugin(pluginName: string): Promise<UninstallResult> {
 
   // Remove from disk
   try {
-    await fs.rm(dirToRemove, { recursive: true, force: true });
+    await fs.rm(dirToRemove, { recursive: true, force: false });
   } catch (err) {
-    logger.warn(
-      `[plugin-installer] Could not remove ${dirToRemove}: ${err instanceof Error ? err.message : String(err)}`,
-    );
+    const code =
+      typeof err === "object" &&
+      err !== null &&
+      "code" in err &&
+      typeof (err as { code?: string }).code === "string"
+        ? (err as { code: string }).code
+        : undefined;
+    if (code !== "ENOENT") {
+      return {
+        success: false,
+        pluginName,
+        requiresRestart: false,
+        error: `Failed to remove plugin directory "${dirToRemove}": ${err instanceof Error ? err.message : String(err)}`,
+      };
+    }
   }
 
   // Remove from config
@@ -531,6 +537,32 @@ async function remoteBranchExists(
   }
 }
 
+async function listRemoteBranches(gitUrl: string): Promise<string[]> {
+  try {
+    const { stdout } = await execFileAsync(
+      "git",
+      ["ls-remote", "--heads", gitUrl],
+      { env: { ...process.env, GIT_TERMINAL_PROMPT: "0" } },
+    );
+    const branches: string[] = [];
+    for (const rawLine of stdout.split("\n")) {
+      const line = rawLine.trim();
+      if (!line) continue;
+      const parts = line.split(/\s+/);
+      if (parts.length < 2) continue;
+      const ref = parts[1];
+      if (!ref.startsWith("refs/heads/")) continue;
+      const branch = ref.replace(/^refs\/heads\//, "");
+      if (VALID_BRANCH.test(branch)) {
+        branches.push(branch);
+      }
+    }
+    return branches;
+  } catch {
+    return [];
+  }
+}
+
 async function resolveGitBranch(info: RegistryPluginInfo): Promise<string> {
   assertValidGitUrl(info.gitUrl);
   const rawCandidates = [
@@ -546,6 +578,16 @@ async function resolveGitBranch(info: RegistryPluginInfo): Promise<string> {
   for (const branch of candidates) {
     if (!VALID_BRANCH.test(branch)) continue;
     if (await remoteBranchExists(info.gitUrl, branch)) return branch;
+  }
+  const remoteBranches = await listRemoteBranches(info.gitUrl);
+  if (remoteBranches.length > 0) {
+    const preferred = ["main", "next", "master", "1.x", "develop", "dev"];
+    for (const branch of preferred) {
+      if (remoteBranches.includes(branch)) {
+        return branch;
+      }
+    }
+    return remoteBranches[0];
   }
   return "main";
 }

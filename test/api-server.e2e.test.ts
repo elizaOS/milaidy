@@ -17,7 +17,9 @@
  * These tests exercise REAL production code, not mocks.
  */
 import http from "node:http";
+import type { AgentRuntime } from "@elizaos/core";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { WebSocket } from "ws";
 import { startApiServer } from "../src/api/server.js";
 import { AGENT_NAME_POOL } from "../src/runtime/onboarding-names.js";
 
@@ -67,6 +69,129 @@ function req(
     if (b) r.write(b);
     r.end();
   });
+}
+
+function waitForWsMessage(
+  ws: WebSocket,
+  predicate: (message: Record<string, unknown>) => boolean,
+  timeoutMs = 3000,
+): Promise<Record<string, unknown>> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      cleanup();
+      reject(new Error("Timed out waiting for websocket message"));
+    }, timeoutMs);
+
+    const onMessage = (raw: WebSocket.RawData) => {
+      try {
+        const text = Buffer.isBuffer(raw) ? raw.toString("utf-8") : String(raw);
+        const message = JSON.parse(text) as Record<string, unknown>;
+        if (predicate(message)) {
+          cleanup();
+          resolve(message);
+        }
+      } catch {
+        // Ignore malformed WS frames in tests.
+      }
+    };
+
+    const onError = (err: Error) => {
+      cleanup();
+      reject(err);
+    };
+
+    const cleanup = () => {
+      clearTimeout(timer);
+      ws.off("message", onMessage);
+      ws.off("error", onError);
+    };
+
+    ws.on("message", onMessage);
+    ws.on("error", onError);
+  });
+}
+
+type TestAgentEvent = {
+  runId: string;
+  seq: number;
+  stream: string;
+  ts: number;
+  data: Record<string, unknown>;
+  sessionKey?: string;
+  agentId?: string;
+  roomId?: string;
+};
+
+type TestHeartbeatEvent = {
+  ts: number;
+  status: string;
+  preview?: string;
+};
+
+class TestAgentEventService {
+  private eventListeners = new Set<(event: TestAgentEvent) => void>();
+  private heartbeatListeners = new Set<(event: TestHeartbeatEvent) => void>();
+
+  subscribe(listener: (event: TestAgentEvent) => void): () => void {
+    this.eventListeners.add(listener);
+    return () => this.eventListeners.delete(listener);
+  }
+
+  subscribeHeartbeat(
+    listener: (event: TestHeartbeatEvent) => void,
+  ): () => void {
+    this.heartbeatListeners.add(listener);
+    return () => this.heartbeatListeners.delete(listener);
+  }
+
+  emit(event: TestAgentEvent): void {
+    for (const listener of this.eventListeners) {
+      listener(event);
+    }
+  }
+
+  emitHeartbeat(event: TestHeartbeatEvent): void {
+    for (const listener of this.heartbeatListeners) {
+      listener(event);
+    }
+  }
+}
+
+function createRuntimeForStreamTests(options: {
+  eventService?: TestAgentEventService;
+  loopRunning?: boolean;
+}): AgentRuntime {
+  const runtimeSubset: Pick<
+    AgentRuntime,
+    | "agentId"
+    | "character"
+    | "getService"
+    | "getRoomsByWorld"
+    | "getMemories"
+    | "getCache"
+    | "setCache"
+  > = {
+    agentId: "test-agent-id",
+    character: { name: "StreamTestAgent" } as AgentRuntime["character"],
+    getService: (serviceType: string) => {
+      if (serviceType === "AGENT_EVENT") {
+        return options.eventService ?? null;
+      }
+      if (serviceType === "AUTONOMY") {
+        return {
+          enableAutonomy: async () => {},
+          disableAutonomy: async () => {},
+          isLoopRunning: () => options.loopRunning ?? false,
+        } as never;
+      }
+      return null;
+    },
+    getRoomsByWorld: async () => [],
+    getMemories: async () => [],
+    getCache: async () => null,
+    setCache: async () => {},
+  };
+  return runtimeSubset as AgentRuntime;
 }
 
 // ---------------------------------------------------------------------------
@@ -180,6 +305,29 @@ describe("API Server E2E (no runtime)", () => {
     it("rejects missing text with 400", async () => {
       const { status } = await req(port, "POST", "/api/chat", {});
       expect(status).toBe(400);
+    });
+  });
+
+  describe("trigger endpoints (no runtime)", () => {
+    it("GET /api/triggers returns 503", async () => {
+      const { status, data } = await req(port, "GET", "/api/triggers");
+      expect(status).toBe(503);
+      expect(String(data.error)).toContain("not running");
+    });
+
+    it("POST /api/triggers returns 503", async () => {
+      const { status } = await req(port, "POST", "/api/triggers", {
+        displayName: "Heartbeat",
+        instructions: "Status heartbeat",
+        triggerType: "interval",
+        intervalMs: 120000,
+      });
+      expect(status).toBe(503);
+    });
+
+    it("GET /api/triggers/health returns 503", async () => {
+      const { status } = await req(port, "GET", "/api/triggers/health");
+      expect(status).toBe(503);
     });
   });
 
@@ -308,6 +456,91 @@ describe("API Server E2E (no runtime)", () => {
     });
   });
 
+  describe("GET /api/agent/events", () => {
+    it("returns replay response shape", async () => {
+      const { status, data } = await req(port, "GET", "/api/agent/events");
+      expect(status).toBe(200);
+      expect(Array.isArray(data.events)).toBe(true);
+      expect(typeof data.replayed).toBe("boolean");
+      expect(typeof data.totalBuffered).toBe("number");
+      expect(
+        data.latestEventId === null || typeof data.latestEventId === "string",
+      ).toBe(true);
+    });
+
+    it("captures runtime AGENT_EVENT emissions in replay buffer", async () => {
+      const eventService = new TestAgentEventService();
+      const runtime = createRuntimeForStreamTests({
+        eventService,
+        loopRunning: false,
+      });
+      const streamServer = await startApiServer({ port: 0, runtime });
+      try {
+        eventService.emit({
+          runId: "run-stream",
+          seq: 1,
+          stream: "assistant",
+          ts: Date.now(),
+          data: { text: "stream-check" },
+          agentId: "test-agent-id",
+        });
+
+        const { status, data } = await req(
+          streamServer.port,
+          "GET",
+          "/api/agent/events",
+        );
+        expect(status).toBe(200);
+        const events = data.events as Array<Record<string, unknown>>;
+        const hasExpectedEvent = events.some((event) => {
+          const payload = event.payload as Record<string, unknown>;
+          return (
+            event.type === "agent_event" && payload.text === "stream-check"
+          );
+        });
+        expect(hasExpectedEvent).toBe(true);
+      } finally {
+        await streamServer.close();
+      }
+    });
+
+    it("streams AGENT_EVENT over websocket clients", async () => {
+      const eventService = new TestAgentEventService();
+      const runtime = createRuntimeForStreamTests({
+        eventService,
+        loopRunning: false,
+      });
+      const streamServer = await startApiServer({ port: 0, runtime });
+      const ws = new WebSocket(`ws://127.0.0.1:${streamServer.port}/ws`);
+      try {
+        await waitForWsMessage(ws, (message) => message.type === "status");
+
+        const waitForAgentEvent = waitForWsMessage(
+          ws,
+          (message) =>
+            message.type === "agent_event" &&
+            ((message.payload as Record<string, unknown>)?.text as string) ===
+              "ws-stream-check",
+        );
+
+        eventService.emit({
+          runId: "run-stream-ws",
+          seq: 1,
+          stream: "assistant",
+          ts: Date.now(),
+          data: { text: "ws-stream-check" },
+          agentId: "test-agent-id",
+        });
+
+        const message = await waitForAgentEvent;
+        expect(message.type).toBe("agent_event");
+      } finally {
+        ws.close();
+        await streamServer.close();
+      }
+    });
+  });
+
   // -- Onboarding --
 
   describe("onboarding endpoints", () => {
@@ -338,6 +571,26 @@ describe("API Server E2E (no runtime)", () => {
       }
       // Ensure names are unique
       expect(new Set(names).size).toBe(names.length);
+    });
+
+    it("POST /api/onboarding stores adminEntityId in defaults", async () => {
+      const res = await req(port, "POST", "/api/onboarding", {
+        name: "AdminAgent",
+        runMode: "local",
+      });
+      expect(res.status).toBe(200);
+
+      const cfg = await req(port, "GET", "/api/config");
+      const defaults = (
+        cfg.data as {
+          agents?: { defaults?: { adminEntityId?: string } };
+        }
+      ).agents?.defaults;
+      const adminEntityId = defaults?.adminEntityId ?? "";
+      expect(typeof adminEntityId).toBe("string");
+      expect(adminEntityId).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+      );
     });
   });
 
@@ -400,6 +653,26 @@ describe("API Server E2E (no runtime)", () => {
       expect(Array.isArray(data.todos)).toBe(true);
       expect(typeof data.summary).toBe("object");
       expect(typeof data.autonomy).toBe("object");
+    });
+
+    it("GET /api/workbench/overview uses AutonomyService loop state", async () => {
+      const runtime = createRuntimeForStreamTests({
+        loopRunning: true,
+      });
+      const workbenchServer = await startApiServer({ port: 0, runtime });
+      try {
+        const { status, data } = await req(
+          workbenchServer.port,
+          "GET",
+          "/api/workbench/overview",
+        );
+        expect(status).toBe(200);
+        const autonomy = (data as { autonomy?: { thinking?: boolean } })
+          .autonomy;
+        expect(autonomy?.thinking).toBe(true);
+      } finally {
+        await workbenchServer.close();
+      }
     });
 
     it("PATCH /api/workbench/goals/:id returns 503 when runtime is absent", async () => {

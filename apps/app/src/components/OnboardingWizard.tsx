@@ -8,6 +8,19 @@ import type { ProviderOption, CloudProviderOption, ModelOption, InventoryProvide
 import { getProviderLogo } from "../provider-logos.js";
 import { AvatarSelector } from "./AvatarSelector.js";
 
+// Platform detection for mobile — on iOS/Android only cloud mode is available
+let isMobilePlatform = false;
+try {
+  const { Capacitor } = await import("@capacitor/core");
+  const plat = Capacitor.getPlatform();
+  isMobilePlatform = plat === "ios" || plat === "android";
+} catch {
+  // Not in a Capacitor environment — check user agent as fallback
+  if (typeof navigator !== "undefined") {
+    isMobilePlatform = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+  }
+}
+
 export function OnboardingWizard() {
   const {
     onboardingStep,
@@ -72,7 +85,7 @@ export function OnboardingWizard() {
     setTheme(themeId as typeof onboardingTheme);
   };
 
-  const handleRunModeSelect = (mode: "local" | "cloud") => {
+  const handleRunModeSelect = (mode: "local-rawdog" | "local-sandbox" | "cloud") => {
     setState("onboardingRunMode", mode);
   };
 
@@ -279,8 +292,39 @@ export function OnboardingWizard() {
         );
 
       case "runMode":
+        // On mobile (iOS/Android), only cloud is available
+        if (isMobilePlatform) {
+          // Auto-select cloud and show a simple confirmation
+          if (onboardingRunMode !== "cloud") {
+            handleRunModeSelect("cloud");
+          }
+          return (
+            <div className="max-w-[520px] mx-auto mt-10 text-center font-body">
+              <img
+                src="/android-chrome-512x512.png"
+                alt="Avatar"
+                className="w-[140px] h-[140px] rounded-full object-cover border-[3px] border-border mx-auto mb-5 block"
+              />
+              <div className="onboarding-speech bg-card border border-border rounded-xl px-5 py-4 mx-auto mb-6 max-w-[600px] relative text-[15px] text-txt leading-relaxed">
+                <h2 className="text-[28px] font-normal mb-1 text-txt-strong">i'll live in the cloud~</h2>
+                <p className="text-[13px] text-txt mt-1 opacity-70">
+                  since ur on mobile i'll run on eliza cloud. i can still do everything — browse the web, manage ur stuff, and more
+                </p>
+              </div>
+              <div className="flex flex-col gap-3 max-w-[460px] mx-auto">
+                <div className="px-4 py-4 border border-accent bg-accent text-accent-fg rounded-lg text-left">
+                  <div className="font-bold text-sm">☁️ cloud</div>
+                  <div className="text-[12px] mt-1 opacity-80">
+                    always on, works from any device, easiest setup
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        }
+
         return (
-          <div className="max-w-[520px] mx-auto mt-10 text-center font-body">
+          <div className="max-w-[580px] mx-auto mt-10 text-center font-body">
             <img
               src="/android-chrome-512x512.png"
               alt="Avatar"
@@ -288,31 +332,54 @@ export function OnboardingWizard() {
             />
             <div className="onboarding-speech bg-card border border-border rounded-xl px-5 py-4 mx-auto mb-6 max-w-[600px] relative text-[15px] text-txt leading-relaxed">
               <h2 className="text-[28px] font-normal mb-1 text-txt-strong">where should i live?</h2>
+              <p className="text-[13px] text-txt mt-1 opacity-70">pick how u want me to run bb</p>
             </div>
-            <div className="grid grid-cols-2 gap-2 max-w-[320px] mx-auto">
+            <div className="flex flex-col gap-3 max-w-[460px] mx-auto">
               <button
-                className={`px-4 py-3 border cursor-pointer bg-card transition-colors rounded-lg text-center ${
-                  onboardingRunMode === "local"
-                    ? "border-accent !bg-accent !text-accent-fg"
-                    : "border-border hover:border-accent"
-                }`}
-                onClick={() => handleRunModeSelect("local")}
-              >
-                <div className="font-bold text-sm">local</div>
-              </button>
-              <button
-                className={`px-4 py-3 border cursor-pointer bg-card transition-colors rounded-lg text-center ${
+                className={`px-4 py-4 border cursor-pointer bg-card transition-colors rounded-lg text-left ${
                   onboardingRunMode === "cloud"
                     ? "border-accent !bg-accent !text-accent-fg"
                     : "border-border hover:border-accent"
                 }`}
                 onClick={() => handleRunModeSelect("cloud")}
               >
-                <div className="font-bold text-sm">cloud</div>
+                <div className="font-bold text-sm">☁️ cloud</div>
+                <div className="text-[12px] mt-1 opacity-70">
+                  i run on eliza cloud. easiest setup, always on, can still use ur browser &amp; computer if u let me
+                </div>
+              </button>
+              <button
+                className={`px-4 py-4 border cursor-pointer bg-card transition-colors rounded-lg text-left ${
+                  onboardingRunMode === "local-sandbox"
+                    ? "border-accent !bg-accent !text-accent-fg"
+                    : "border-border hover:border-accent"
+                }`}
+                onClick={() => handleRunModeSelect("local-sandbox")}
+              >
+                <div className="font-bold text-sm">🔒 local (sandbox)</div>
+                <div className="text-[12px] mt-1 opacity-70">
+                  i run on ur machine in a secure container. ur api keys stay hidden even from me. needs docker
+                </div>
+              </button>
+              <button
+                className={`px-4 py-4 border cursor-pointer bg-card transition-colors rounded-lg text-left ${
+                  onboardingRunMode === "local-rawdog"
+                    ? "border-accent !bg-accent !text-accent-fg"
+                    : "border-border hover:border-accent"
+                }`}
+                onClick={() => handleRunModeSelect("local-rawdog")}
+              >
+                <div className="font-bold text-sm">⚡ local (raw)</div>
+                <div className="text-[12px] mt-1 opacity-70">
+                  i run directly on ur machine w full access. fastest &amp; simplest but no sandbox protection
+                </div>
               </button>
             </div>
           </div>
         );
+
+      case "dockerSetup":
+        return <DockerSetupStep />;
 
       case "cloudProvider":
         return (
@@ -1171,6 +1238,8 @@ export function OnboardingWizard() {
         return true;
       case "runMode":
         return onboardingRunMode !== "";
+      case "dockerSetup":
+        return true; // informational step, always valid
       case "cloudProvider":
         if (onboardingCloudProvider === "elizacloud") return cloudConnected;
         return onboardingCloudProvider.length > 0;
@@ -1231,6 +1300,278 @@ export function OnboardingWizard() {
           {onboardingRestarting ? "restarting..." : "next"}
         </button>
       </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Docker Setup Step — checks Docker availability and guides installation
+// ═══════════════════════════════════════════════════════════════════════════
+
+function DockerSetupStep() {
+  const [checking, setChecking] = useState(true);
+  const [starting, setStarting] = useState(false);
+  const [startMessage, setStartMessage] = useState("");
+  const [dockerStatus, setDockerStatus] = useState<{
+    installed: boolean;
+    running: boolean;
+    platform: string;
+    appleContainerAvailable: boolean;
+    engineRecommendation: string;
+  } | null>(null);
+
+  const checkDocker = async () => {
+    setChecking(true);
+    try {
+      const res = await fetch("/api/sandbox/platform");
+      if (res.ok) {
+        const data = await res.json();
+        setDockerStatus({
+          installed: Boolean(data.dockerInstalled ?? data.dockerAvailable),
+          running: Boolean(data.dockerRunning ?? data.dockerAvailable),
+          platform: String(data.platform || "unknown"),
+          appleContainerAvailable: Boolean(data.appleContainerAvailable),
+          engineRecommendation: String(data.recommended || "docker"),
+        });
+      } else {
+        setDockerStatus({
+          installed: false,
+          running: false,
+          platform: navigator.platform.toLowerCase().includes("mac") ? "darwin"
+            : navigator.platform.toLowerCase().includes("win") ? "win32"
+            : "linux",
+          appleContainerAvailable: false,
+          engineRecommendation: "docker",
+        });
+      }
+    } catch {
+      setDockerStatus({
+        installed: false,
+        running: false,
+        platform: "unknown",
+        appleContainerAvailable: false,
+        engineRecommendation: "docker",
+      });
+    }
+    setChecking(false);
+  };
+
+  // Auto-start Docker and poll until it's ready
+  const handleStartDocker = async () => {
+    setStarting(true);
+    setStartMessage("starting docker...");
+    try {
+      const res = await fetch("/api/sandbox/docker/start", { method: "POST" });
+      const data = await res.json();
+      if (data.success) {
+        setStartMessage(data.message || "starting up...");
+        // Poll every 3 seconds until Docker is running
+        const maxAttempts = 20; // ~60 seconds max
+        for (let i = 0; i < maxAttempts; i++) {
+          await new Promise((r) => setTimeout(r, 3000));
+          setStartMessage(`waiting for docker to start... (${(i + 1) * 3}s)`);
+          try {
+            const check = await fetch("/api/sandbox/platform");
+            if (check.ok) {
+              const status = await check.json();
+              if (status.dockerRunning) {
+                setDockerStatus((prev) => prev ? { ...prev, running: true } : prev);
+                setStartMessage("docker is running!");
+                setStarting(false);
+                return;
+              }
+            }
+          } catch { /* keep polling */ }
+        }
+        setStartMessage("docker is taking a while... try opening Docker Desktop manually");
+      } else {
+        setStartMessage(data.message || "could not auto-start docker");
+      }
+    } catch (err) {
+      setStartMessage(`failed: ${err instanceof Error ? err.message : "unknown error"}`);
+    }
+    setStarting(false);
+  };
+
+  useEffect(() => {
+    void checkDocker();
+  }, []);
+
+  const getInstallUrl = () => {
+    if (!dockerStatus) return "https://docs.docker.com/get-docker/";
+    switch (dockerStatus.platform) {
+      case "darwin":
+        return "https://docs.docker.com/desktop/install/mac-install/";
+      case "win32":
+        return "https://docs.docker.com/desktop/install/windows-install/";
+      case "linux":
+        return "https://docs.docker.com/engine/install/";
+      default:
+        return "https://docs.docker.com/get-docker/";
+    }
+  };
+
+  const getPlatformName = () => {
+    if (!dockerStatus) return "your computer";
+    switch (dockerStatus.platform) {
+      case "darwin": return "macOS";
+      case "win32": return "Windows";
+      case "linux": return "Linux";
+      default: return "your computer";
+    }
+  };
+
+  if (checking) {
+    return (
+      <div className="max-w-[520px] mx-auto mt-10 text-center font-body">
+        <img
+          src="/android-chrome-512x512.png"
+          alt="Avatar"
+          className="w-[140px] h-[140px] rounded-full object-cover border-[3px] border-border mx-auto mb-5 block animate-pulse"
+        />
+        <div className="onboarding-speech bg-card border border-border rounded-xl px-5 py-4 mx-auto mb-6 max-w-[600px] relative text-[15px] text-txt leading-relaxed">
+          <p>checking ur machine for sandbox stuff...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const isInstalled = dockerStatus?.installed;
+  const isRunning = dockerStatus?.running;
+  const isReady = isInstalled && isRunning;
+  const hasAppleContainer = dockerStatus?.appleContainerAvailable;
+
+  return (
+    <div className="max-w-[540px] mx-auto mt-10 text-center font-body">
+      <img
+        src="/android-chrome-512x512.png"
+        alt="Avatar"
+        className="w-[140px] h-[140px] rounded-full object-cover border-[3px] border-border mx-auto mb-5 block"
+      />
+      <div className="onboarding-speech bg-card border border-border rounded-xl px-5 py-4 mx-auto mb-6 max-w-[600px] relative text-[15px] text-txt leading-relaxed">
+        {isReady ? (
+          <>
+            <h2 className="text-[24px] font-normal mb-2 text-txt-strong">
+              {hasAppleContainer ? "omg ur set up perfectly" : "nice, docker is ready"}
+            </h2>
+            <p className="text-[13px] opacity-70">
+              {hasAppleContainer
+                ? "found apple container on ur mac — thats the strongest isolation. each container gets its own tiny VM. very safe very cool"
+                : "docker is installed and running. i'll use it to keep myself sandboxed so i cant accidentally mess up ur stuff"}
+            </p>
+          </>
+        ) : isInstalled && !isRunning ? (
+          <>
+            <h2 className="text-[24px] font-normal mb-2 text-txt-strong">
+              docker is installed but sleeping
+            </h2>
+            <p className="text-[13px] opacity-70 mb-3">
+              i found docker on ur machine but the daemon isn't running yet.
+              lemme try to wake it up for u~
+            </p>
+          </>
+        ) : (
+          <>
+            <h2 className="text-[24px] font-normal mb-2 text-txt-strong">
+              need docker for sandbox mode
+            </h2>
+            <p className="text-[13px] opacity-70 mb-3">
+              to run me in a sandbox i need docker installed on {getPlatformName()}.
+              it's like a little apartment building where i live safely separated from ur files
+            </p>
+            {dockerStatus?.platform === "win32" && (
+              <p className="text-[12px] opacity-60 mb-2">
+                on windows u also need WSL2 enabled — docker desktop will set it up for u
+              </p>
+            )}
+            {dockerStatus?.platform === "darwin" && (
+              <p className="text-[12px] opacity-60 mb-2">
+                pro tip: if ur on apple silicon u can also install apple container tools for even better isolation (brew install apple/apple/container-tools)
+              </p>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Status indicators */}
+      <div className="flex flex-col gap-2 max-w-[400px] mx-auto mb-4">
+        <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-left text-sm ${
+          isInstalled
+            ? "bg-green-50 border-green-200 text-green-800 dark:bg-green-950 dark:border-green-800 dark:text-green-200"
+            : "bg-red-50 border-red-200 text-red-800 dark:bg-red-950 dark:border-red-800 dark:text-red-200"
+        }`}>
+          <span>{isInstalled ? "✅" : "❌"}</span>
+          <span>Docker {isInstalled ? "installed" : "not found"}</span>
+        </div>
+
+        {isInstalled && (
+          <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-left text-sm ${
+            isRunning
+              ? "bg-green-50 border-green-200 text-green-800 dark:bg-green-950 dark:border-green-800 dark:text-green-200"
+              : "bg-yellow-50 border-yellow-200 text-yellow-800 dark:bg-yellow-950 dark:border-yellow-800 dark:text-yellow-200"
+          }`}>
+            <span>{isRunning ? "✅" : "⚠️"}</span>
+            <span>Docker daemon {isRunning ? "running" : "not running"}</span>
+          </div>
+        )}
+
+        {dockerStatus?.platform === "darwin" && (
+          <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-left text-sm ${
+            hasAppleContainer
+              ? "bg-green-50 border-green-200 text-green-800 dark:bg-green-950 dark:border-green-800 dark:text-green-200"
+              : "bg-card border-border text-txt opacity-60"
+          }`}>
+            <span>{hasAppleContainer ? "✅" : "➖"}</span>
+            <span>Apple Container {hasAppleContainer ? "available (preferred)" : "not installed (optional)"}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Start message */}
+      {startMessage && (
+        <p className="text-[13px] text-accent mb-3 animate-pulse">{startMessage}</p>
+      )}
+
+      {/* Action buttons */}
+      <div className="flex gap-2 justify-center flex-wrap">
+        {!isInstalled && (
+          <a
+            href={getInstallUrl()}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-4 py-2 border border-accent bg-accent text-accent-fg text-sm cursor-pointer rounded-full hover:bg-accent-hover inline-block no-underline"
+          >
+            install docker
+          </a>
+        )}
+        {isInstalled && !isRunning && !starting && (
+          <button
+            className="px-4 py-2 border border-accent bg-accent text-accent-fg text-sm cursor-pointer rounded-full hover:bg-accent-hover"
+            onClick={() => void handleStartDocker()}
+          >
+            start docker for me
+          </button>
+        )}
+        {!starting && (
+          <button
+            className="px-4 py-2 border border-border bg-transparent text-txt text-sm cursor-pointer rounded-full hover:bg-accent-subtle hover:text-accent"
+            onClick={() => void checkDocker()}
+          >
+            {isReady ? "re-check" : "check again"}
+          </button>
+        )}
+      </div>
+
+      {isReady && (
+        <p className="text-[12px] text-txt opacity-50 mt-4">
+          using: {hasAppleContainer ? "Apple Container" : "Docker"} on {getPlatformName()}
+        </p>
+      )}
+      {!isReady && !starting && (
+        <p className="text-[12px] text-txt opacity-40 mt-4">
+          u can still continue without docker — i just won't have sandbox protection
+        </p>
+      )}
     </div>
   );
 }

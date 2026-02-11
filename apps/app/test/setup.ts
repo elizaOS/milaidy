@@ -6,6 +6,29 @@
  */
 import { vi } from "vitest";
 
+declare global {
+  var IS_REACT_ACT_ENVIRONMENT: boolean | undefined;
+}
+
+globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+
+const originalConsoleError = console.error.bind(console);
+
+function shouldIgnoreTestConsoleError(args: unknown[]): boolean {
+  const first = args[0];
+  return (
+    typeof first === "string" &&
+    first.includes("react-test-renderer is deprecated")
+  );
+}
+
+console.error = (...args: unknown[]) => {
+  if (shouldIgnoreTestConsoleError(args)) {
+    return;
+  }
+  originalConsoleError(...args);
+};
+
 // ---------------------------------------------------------------------------
 // Mock @capacitor/core
 // ---------------------------------------------------------------------------
@@ -143,6 +166,7 @@ if (typeof globalThis.window === "undefined") {
       removeEventListener: vi.fn(),
       localStorage: globalThis.localStorage,
       sessionStorage: globalThis.sessionStorage,
+      navigator: globalThis.navigator,
     },
     writable: true,
     configurable: true,
@@ -154,6 +178,9 @@ if (typeof globalThis.window === "undefined") {
   }
   if (!win.localStorage) {
     Object.defineProperty(win, "localStorage", { value: createMockStorage(), writable: true, configurable: true });
+  }
+  if (!win.navigator) {
+    Object.defineProperty(win, "navigator", { value: globalThis.navigator, writable: true, configurable: true });
   }
 }
 

@@ -10,9 +10,10 @@ import { PairingView } from "./components/PairingView.js";
 import { OnboardingWizard } from "./components/OnboardingWizard.js";
 import { ChatView } from "./components/ChatView.js";
 import { ConversationsSidebar } from "./components/ConversationsSidebar.js";
-import { WidgetSidebar } from "./components/WidgetSidebar.js";
+import { AutonomousPanel } from "./components/AutonomousPanel.js";
 import { FeaturesView, ConnectorsView } from "./components/PluginsView.js";
 import { SkillsView } from "./components/SkillsView.js";
+import { TriggersView } from "./components/TriggersView.js";
 import { InventoryView } from "./components/InventoryView.js";
 import { CharacterView } from "./components/CharacterView.js";
 import { ConfigView } from "./components/ConfigView.js";
@@ -31,6 +32,7 @@ function ViewRouter() {
     case "features": return <FeaturesView />;
     case "connectors": return <ConnectorsView />;
     case "skills": return <SkillsView />;
+    case "triggers": return <TriggersView />;
     case "character": return <CharacterView />;
     case "config": return <ConfigView />;
     case "admin": return <AdminView />;
@@ -61,7 +63,7 @@ export function App() {
             <main className="flex flex-col flex-1 min-w-0 overflow-hidden pt-3 px-5">
               <ChatView />
             </main>
-            <WidgetSidebar />
+            <AutonomousPanel />
           </div>
         </div>
       ) : (

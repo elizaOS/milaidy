@@ -42,6 +42,7 @@ import {
   getMcpServerDetails,
   searchMcpMarketplace,
 } from "../services/mcp-marketplace.js";
+import type { SandboxManager } from "../services/sandbox-manager.js";
 import {
   installMarketplaceSkill,
   listInstalledMarketplaceSkills,
@@ -54,6 +55,7 @@ import {
   type PluginParamInfo,
   validatePluginConfig,
 } from "./plugin-validation.js";
+import { handleSandboxRoute } from "./sandbox-routes.js";
 import { handleTriggerRoutes } from "./trigger-routes.js";
 import {
   fetchEvmBalances,
@@ -134,11 +136,14 @@ interface ServerState {
   nextEventId: number;
   chatRoomId: UUID | null;
   chatUserId: UUID | null;
+  chatConnectionReady: { userId: UUID; roomId: UUID; worldId: UUID } | null;
+  chatConnectionPromise: Promise<void> | null;
   adminEntityId: UUID | null;
   /** Conversation metadata by conversation id. */
   conversations: Map<string, ConversationMeta>;
   /** Cloud manager for Eliza Cloud integration (null when cloud is disabled). */
   cloudManager: CloudManager | null;
+  sandboxManager: SandboxManager | null;
   /** App manager for launching and managing ElizaOS apps. */
   appManager: AppManager;
   /** In-memory queue for share ingest items. */
@@ -958,10 +963,28 @@ function readBody(req: http.IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
     let totalBytes = 0;
-    req.on("data", (c: Buffer) => {
+    let tooLarge = false;
+    let settled = false;
+    const cleanup = () => {
+      req.off("data", onData);
+      req.off("end", onEnd);
+      req.off("error", onError);
+    };
+    const onData = (c: Buffer) => {
+      if (settled) return;
       totalBytes += c.length;
       if (totalBytes > MAX_BODY_BYTES) {
-        req.destroy();
+        // Keep draining the stream, but stop buffering to avoid memory growth.
+        tooLarge = true;
+        return;
+      }
+      chunks.push(c);
+    };
+    const onEnd = () => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      if (tooLarge) {
         reject(
           new Error(
             `Request body exceeds maximum size (${MAX_BODY_BYTES} bytes)`,
@@ -969,10 +992,17 @@ function readBody(req: http.IncomingMessage): Promise<string> {
         );
         return;
       }
-      chunks.push(c);
-    });
-    req.on("end", () => resolve(Buffer.concat(chunks).toString("utf-8")));
-    req.on("error", reject);
+      resolve(Buffer.concat(chunks).toString("utf-8"));
+    };
+    const onError = (err: Error) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      reject(err);
+    };
+    req.on("data", onData);
+    req.on("end", onEnd);
+    req.on("error", onError);
   });
 }
 
@@ -987,19 +1017,43 @@ function readRawBody(
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
     let totalBytes = 0;
-    req.on("data", (c: Buffer) => {
+    let tooLarge = false;
+    let settled = false;
+    const cleanup = () => {
+      req.off("data", onData);
+      req.off("end", onEnd);
+      req.off("error", onError);
+    };
+    const onData = (c: Buffer) => {
+      if (settled) return;
       totalBytes += c.length;
       if (totalBytes > maxBytes) {
-        req.destroy();
+        tooLarge = true;
+        return;
+      }
+      chunks.push(c);
+    };
+    const onEnd = () => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      if (tooLarge) {
         reject(
           new Error(`Request body exceeds maximum size (${maxBytes} bytes)`),
         );
         return;
       }
-      chunks.push(c);
-    });
-    req.on("end", () => resolve(Buffer.concat(chunks)));
-    req.on("error", reject);
+      resolve(Buffer.concat(chunks));
+    };
+    const onError = (err: Error) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      reject(err);
+    };
+    req.on("data", onData);
+    req.on("end", onEnd);
+    req.on("error", onError);
   });
 }
 
@@ -1041,6 +1095,13 @@ function json(res: http.ServerResponse, data: unknown, status = 200): void {
 
 function error(res: http.ServerResponse, message: string, status = 400): void {
   json(res, { error: message }, status);
+}
+
+function parseBoundedLimit(rawLimit: string | null, fallback = 15): number {
+  if (!rawLimit) return fallback;
+  const parsed = Number.parseInt(rawLimit, 10);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(Math.max(parsed, 1), 50);
 }
 
 // ---------------------------------------------------------------------------
@@ -2036,6 +2097,8 @@ async function handleRequest(
     config.agents.defaults.adminEntityId = onboardingAdminEntityId;
     state.adminEntityId = onboardingAdminEntityId;
     state.chatUserId = onboardingAdminEntityId;
+    state.chatConnectionReady = null;
+    state.chatConnectionPromise = null;
 
     if (!config.agents.list) config.agents.list = [];
     if (config.agents.list.length === 0) {
@@ -2076,6 +2139,18 @@ async function handleRequest(
     const runMode = (body.runMode as string) || "local";
     if (!config.cloud) config.cloud = {};
     config.cloud.enabled = runMode === "cloud";
+
+    // ── Sandbox mode (from 3-mode onboarding: off / light / standard / max)
+    const sandboxMode = (body.sandboxMode as string) || "off";
+    if (sandboxMode !== "off") {
+      if (!config.agents) config.agents = {};
+      if (!config.agents.defaults) config.agents.defaults = {};
+      if (!(config.agents.defaults as Record<string, unknown>).sandbox) {
+        (config.agents.defaults as Record<string, unknown>).sandbox = {};
+      }
+      ((config.agents.defaults as Record<string, unknown>).sandbox as Record<string, unknown>).mode = sandboxMode;
+      logger.info(`[milaidy-api] Sandbox mode set to: ${sandboxMode}`);
+    }
 
     if (runMode === "cloud") {
       if (body.cloudProvider) {
@@ -2398,6 +2473,8 @@ async function handleRequest(
       const newRuntime = await ctx.onRestart();
       if (newRuntime) {
         state.runtime = newRuntime;
+        state.chatConnectionReady = null;
+        state.chatConnectionPromise = null;
         state.agentState = "running";
         state.agentName = newRuntime.character.name ?? "Milaidy";
         state.startedAt = Date.now();
@@ -2486,6 +2563,8 @@ async function handleRequest(
       state.config = {} as MilaidyConfig;
       state.chatRoomId = null;
       state.chatUserId = null;
+      state.chatConnectionReady = null;
+      state.chatConnectionPromise = null;
 
       json(res, { ok: true });
     } catch (err) {
@@ -3073,6 +3152,8 @@ async function handleRequest(
           .then((newRuntime) => {
             if (newRuntime) {
               state.runtime = newRuntime;
+              state.chatConnectionReady = null;
+              state.chatConnectionPromise = null;
               state.agentState = "running";
               state.agentName = newRuntime.character.name ?? "Milaidy";
               state.startedAt = Date.now();
@@ -4364,7 +4445,9 @@ async function handleRequest(
     const afterEventId = url.searchParams.get("after");
     let startIndex = 0;
     if (afterEventId) {
-      const idx = state.eventBuffer.findIndex((event) => event.eventId === afterEventId);
+      const idx = state.eventBuffer.findIndex(
+        (event) => event.eventId === afterEventId,
+      );
       if (idx >= 0) startIndex = idx + 1;
     }
     const events = state.eventBuffer.slice(startIndex, startIndex + limit);
@@ -4870,6 +4953,14 @@ async function handleRequest(
     if (handled) return;
   }
 
+  // ── Sandbox routes (/api/sandbox/*) ────────────────────────────────────
+  if (pathname.startsWith("/api/sandbox")) {
+    const handled = await handleSandboxRoute(req, res, pathname, method, {
+      sandboxManager: state.sandboxManager,
+    });
+    if (handled) return;
+  }
+
   // ═══════════════════════════════════════════════════════════════════════
   // Conversation routes (/api/conversations/*)
   // ═══════════════════════════════════════════════════════════════════════
@@ -4952,6 +5043,60 @@ async function handleRequest(
       metadata: { ownership: { ownerId: userId } },
     });
     await ensureWorldOwnershipAndRoles(runtime, worldId as UUID, userId);
+  };
+
+  const ensureLegacyChatConnection = async (
+    runtime: AgentRuntime,
+    agentName: string,
+  ): Promise<void> => {
+    const userId = ensureAdminEntityId();
+    if (!state.chatRoomId) {
+      state.chatRoomId = stringToUuid(`${agentName}-web-chat-room`);
+    }
+    state.chatUserId = userId;
+
+    const roomId = state.chatRoomId;
+    const worldId = stringToUuid(`${agentName}-web-chat-world`) as UUID;
+    const messageServerId = stringToUuid(`${agentName}-web-server`) as UUID;
+    const target = { userId, roomId, worldId };
+
+    while (true) {
+      const ready = state.chatConnectionReady;
+      if (
+        ready &&
+        ready.userId === target.userId &&
+        ready.roomId === target.roomId &&
+        ready.worldId === target.worldId
+      ) {
+        return;
+      }
+
+      if (!state.chatConnectionPromise) {
+        state.chatConnectionPromise = (async () => {
+          await runtime.ensureConnection({
+            entityId: target.userId,
+            roomId: target.roomId,
+            worldId: target.worldId,
+            userName: "User",
+            source: "client_chat",
+            channelId: `${agentName}-web-chat`,
+            type: ChannelType.DM,
+            messageServerId,
+            metadata: { ownership: { ownerId: target.userId } },
+          });
+          await ensureWorldOwnershipAndRoles(
+            runtime,
+            target.worldId,
+            target.userId,
+          );
+          state.chatConnectionReady = target;
+        })().finally(() => {
+          state.chatConnectionPromise = null;
+        });
+      }
+
+      await state.chatConnectionPromise;
+    }
   };
 
   // ── GET /api/conversations ──────────────────────────────────────────
@@ -5218,7 +5363,10 @@ async function handleRequest(
     // ── Cloud proxy path ───────────────────────────────────────────────
     const proxy = state.cloudManager?.getProxy();
     if (proxy) {
-      const body = await readJsonBody<{ text?: string; mode?: string }>(req, res);
+      const body = await readJsonBody<{ text?: string; mode?: string }>(
+        req,
+        res,
+      );
       if (!body) return;
       if (!body.text?.trim()) {
         error(res, "text is required");
@@ -5283,38 +5431,17 @@ async function handleRequest(
     try {
       const runtime = state.runtime;
       const agentName = runtime.character.name ?? "Milaidy";
-
-      // Lazily initialise a persistent chat room + user for the web UI so
-      // that conversation memory accumulates across messages.
-      if (!state.chatUserId || !state.chatRoomId) {
-        state.chatUserId = ensureAdminEntityId();
-        state.chatRoomId = stringToUuid(`${agentName}-web-chat-room`);
-        const worldId = stringToUuid(`${agentName}-web-chat-world`);
-        // Use a deterministic messageServerId so the settings provider
-        // can reference the world by serverId after it is found.
-        const messageServerId = stringToUuid(`${agentName}-web-server`) as UUID;
-        await runtime.ensureConnection({
-          entityId: state.chatUserId,
-          roomId: state.chatRoomId,
-          worldId,
-          userName: "User",
-          source: "client_chat",
-          channelId: `${agentName}-web-chat`,
-          type: ChannelType.DM,
-          messageServerId,
-          metadata: { ownership: { ownerId: state.chatUserId } },
-        });
-        await ensureWorldOwnershipAndRoles(
-          runtime,
-          worldId as UUID,
-          state.chatUserId,
-        );
+      await ensureLegacyChatConnection(runtime, agentName);
+      const chatUserId = state.chatUserId;
+      const chatRoomId = state.chatRoomId;
+      if (!chatUserId || !chatRoomId) {
+        throw new Error("Legacy chat connection was not initialized");
       }
 
       const message = createMessageMemory({
         id: crypto.randomUUID() as UUID,
-        entityId: state.chatUserId,
-        roomId: state.chatRoomId,
+        entityId: chatUserId,
+        roomId: chatRoomId,
         content: {
           text: body.text.trim(),
           mode,
@@ -5491,10 +5618,7 @@ async function handleRequest(
       json(res, []);
       return;
     }
-    const limitStr = url.searchParams.get("limit");
-    const limit = limitStr
-      ? Math.min(Math.max(parseInt(limitStr, 10), 1), 50)
-      : 15;
+    const limit = parseBoundedLimit(url.searchParams.get("limit"));
     const results = await state.appManager.search(query, limit);
     json(res, results);
     return;
@@ -5518,7 +5642,7 @@ async function handleRequest(
     return;
   }
 
-  // Stop an app: currently this clears active UI session state and returns success
+  // Stop an app: disconnects session and uninstalls plugin when installed
   if (method === "POST" && pathname === "/api/apps/stop") {
     const body = await readJsonBody<{ name?: string }>(req, res);
     if (!body) return;
@@ -5526,7 +5650,8 @@ async function handleRequest(
       error(res, "name is required");
       return;
     }
-    const result = await state.appManager.stop(body.name.trim());
+    const appName = body.name.trim();
+    const result = await state.appManager.stop(appName);
     json(res, result);
     return;
   }
@@ -5577,10 +5702,7 @@ async function handleRequest(
       "../services/registry-client.js"
     );
     try {
-      const limitStr = url.searchParams.get("limit");
-      const limit = limitStr
-        ? Math.min(Math.max(parseInt(limitStr, 10), 1), 50)
-        : 15;
+      const limit = parseBoundedLimit(url.searchParams.get("limit"));
       const results = await searchNonAppPlugins(query, limit);
       json(res, results);
     } catch (err) {
@@ -6175,9 +6297,12 @@ export async function startApiServer(opts?: {
     nextEventId: 1,
     chatRoomId: null,
     chatUserId: null,
+    chatConnectionReady: null,
+    chatConnectionPromise: null,
     adminEntityId: null,
     conversations: new Map(),
     cloudManager: null,
+    sandboxManager: null,
     appManager: new AppManager(),
     shareIngestQueue: [],
   };
@@ -6400,7 +6525,9 @@ export async function startApiServer(opts?: {
     }
   };
 
-  const pushEvent = (event: Omit<StreamEventEnvelope, "eventId" | "version">) => {
+  const pushEvent = (
+    event: Omit<StreamEventEnvelope, "eventId" | "version">,
+  ) => {
     const envelope: StreamEventEnvelope = {
       ...event,
       eventId: `evt-${state.nextEventId}`,
@@ -6488,13 +6615,15 @@ export async function startApiServer(opts?: {
 
     // Send initial status and latest stream events.
     try {
-      ws.send(JSON.stringify({
-        type: "status",
-        state: state.agentState,
-        agentName: state.agentName,
-        model: state.model,
-        startedAt: state.startedAt,
-      }));
+      ws.send(
+        JSON.stringify({
+          type: "status",
+          state: state.agentState,
+          agentName: state.agentName,
+          model: state.model,
+          startedAt: state.startedAt,
+        }),
+      );
       const replay = state.eventBuffer.slice(-120);
       for (const event of replay) {
         ws.send(JSON.stringify(event));
@@ -6620,6 +6749,8 @@ export async function startApiServer(opts?: {
   /** Hot-swap the runtime reference (used after an in-process restart). */
   const updateRuntime = (rt: AgentRuntime): void => {
     state.runtime = rt;
+    state.chatConnectionReady = null;
+    state.chatConnectionPromise = null;
     bindRuntimeStreams(rt);
     // AppManager doesn't need a runtime reference
     state.agentState = "running";

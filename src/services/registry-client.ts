@@ -127,8 +127,6 @@ let memoryCache: {
   fetchedAt: number;
 } | null = null;
 
-type JsonObject = Record<string, unknown>;
-
 interface LocalPackageAppMeta {
   displayName?: string;
   category?: string;
@@ -217,9 +215,17 @@ const LOCAL_APP_OVERRIDES: Readonly<Record<string, LocalAppOverride>> = {
   },
   "@elizaos/app-agent-town": {
     launchType: "url",
-    launchUrl: "http://localhost:5173/ai-town",
+    launchUrl: "http://localhost:5173/ai-town/index.html",
     viewer: {
-      url: "http://localhost:5173/ai-town",
+      url: "http://localhost:5173/ai-town/index.html",
+      sandbox: "allow-scripts allow-same-origin allow-popups allow-forms",
+    },
+  },
+  "@elizaos/app-dungeons": {
+    launchType: "local",
+    launchUrl: "http://localhost:3345",
+    viewer: {
+      url: "http://localhost:3345",
       sandbox: "allow-scripts allow-same-origin allow-popups allow-forms",
     },
   },
@@ -301,7 +307,8 @@ function mergeAppMeta(
   return {
     ...base,
     ...patch,
-    capabilities: patch.capabilities.length > 0 ? patch.capabilities : base.capabilities,
+    capabilities:
+      patch.capabilities.length > 0 ? patch.capabilities : base.capabilities,
     viewer: mergeViewer(base.viewer, patch.viewer),
   };
 }
@@ -325,8 +332,8 @@ async function readJsonFile<T>(filePath: string): Promise<T | null> {
 function toLocalAppMeta(
   app: LocalPackageAppMeta | undefined,
   fallbackDisplayName: string,
-): RegistryAppMeta | null {
-  if (!app) return null;
+): RegistryAppMeta | undefined {
+  if (!app) return undefined;
   const launchType = app.launchType ?? "url";
   return {
     displayName: app.displayName ?? fallbackDisplayName,
@@ -366,12 +373,13 @@ function parseRepositoryMetadata(
 
 function resolveAppOverride(
   packageName: string,
-  appMeta: RegistryAppMeta | null,
-): RegistryAppMeta | null {
+  appMeta: RegistryAppMeta | undefined,
+): RegistryAppMeta | undefined {
   const override = LOCAL_APP_OVERRIDES[packageName];
   if (!override) return appMeta;
   const base: RegistryAppMeta = appMeta ?? {
-    displayName: override.displayName ?? packageName.replace(/^@elizaos\/app-/, ""),
+    displayName:
+      override.displayName ?? packageName.replace(/^@elizaos\/app-/, ""),
     category: override.category ?? "game",
     launchType: override.launchType ?? "url",
     launchUrl: override.launchUrl ?? null,
@@ -445,7 +453,10 @@ async function discoverLocalWorkspaceApps(): Promise<
       const description =
         packageJson.description ?? manifest?.description ?? "";
       const homepage =
-        packageJson.homepage ?? manifest?.homepage ?? overriddenMeta?.launchUrl ?? null;
+        packageJson.homepage ??
+        manifest?.homepage ??
+        overriddenMeta?.launchUrl ??
+        null;
       const version = packageJson.version ?? manifest?.version ?? null;
 
       discovered.set(packageJson.name, {
