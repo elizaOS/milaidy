@@ -5830,12 +5830,19 @@ async function handleRequest(
         return;
       }
 
+      const allowedParamKeys = new Set(plugin.parameters.map((p) => p.key));
+
       // Persist config values to state.config.env so they survive restarts
       if (!state.config.env) {
         state.config.env = {};
       }
       for (const [key, value] of Object.entries(body.config)) {
-        if (typeof value === "string" && value.trim()) {
+        if (
+          allowedParamKeys.has(key) &&
+          !BLOCKED_ENV_KEYS.has(key.toUpperCase()) &&
+          typeof value === "string" &&
+          value.trim()
+        ) {
           process.env[key] = value;
           (state.config.env as Record<string, unknown>)[key] = value;
         }
