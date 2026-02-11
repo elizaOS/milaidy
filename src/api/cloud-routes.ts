@@ -52,27 +52,6 @@ function err(res: http.ServerResponse, message: string, status = 400): void {
   json(res, { error: message }, status);
 }
 
-const CLOUD_LOGIN_CREATE_TIMEOUT_MS = 10_000;
-const CLOUD_LOGIN_POLL_TIMEOUT_MS = 10_000;
-
-function isTimeoutError(error: unknown): boolean {
-  if (!(error instanceof Error)) return false;
-  if (error.name === "TimeoutError" || error.name === "AbortError") return true;
-  const message = error.message.toLowerCase();
-  return message.includes("timed out") || message.includes("timeout");
-}
-
-async function fetchWithTimeout(
-  input: string,
-  init: RequestInit,
-  timeoutMs: number,
-): Promise<Response> {
-  return fetch(input, {
-    ...init,
-    signal: AbortSignal.timeout(timeoutMs),
-  });
-}
-
 /**
  * Returns true if the request was handled, false if path didn't match.
  */
@@ -88,25 +67,11 @@ export async function handleCloudRoute(
     const baseUrl = state.config.cloud?.baseUrl ?? "https://www.elizacloud.ai";
     const sessionId = crypto.randomUUID();
 
-    let createRes: Response;
-    try {
-      createRes = await fetchWithTimeout(
-        `${baseUrl}/api/auth/cli-session`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ sessionId }),
-        },
-        CLOUD_LOGIN_CREATE_TIMEOUT_MS,
-      );
-    } catch (fetchErr) {
-      if (isTimeoutError(fetchErr)) {
-        err(res, "Eliza Cloud login request timed out", 504);
-        return true;
-      }
-      err(res, "Failed to reach Eliza Cloud", 502);
-      return true;
-    }
+    const createRes = await fetch(`${baseUrl}/api/auth/cli-session`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sessionId }),
+    });
 
     if (!createRes.ok) {
       err(res, "Failed to create auth session with Eliza Cloud", 502);
@@ -134,35 +99,9 @@ export async function handleCloudRoute(
     }
 
     const baseUrl = state.config.cloud?.baseUrl ?? "https://www.elizacloud.ai";
-    let pollRes: Response;
-    try {
-      pollRes = await fetchWithTimeout(
-        `${baseUrl}/api/auth/cli-session/${encodeURIComponent(sessionId)}`,
-        {},
-        CLOUD_LOGIN_POLL_TIMEOUT_MS,
-      );
-    } catch (fetchErr) {
-      if (isTimeoutError(fetchErr)) {
-        json(
-          res,
-          {
-            status: "error",
-            error: "Eliza Cloud status request timed out",
-          },
-          504,
-        );
-        return true;
-      }
-      json(
-        res,
-        {
-          status: "error",
-          error: "Failed to reach Eliza Cloud",
-        },
-        502,
-      );
-      return true;
-    }
+    const pollRes = await fetch(
+      `${baseUrl}/api/auth/cli-session/${encodeURIComponent(sessionId)}`,
+    );
 
     if (!pollRes.ok) {
       json(

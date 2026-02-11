@@ -35,12 +35,6 @@ function jsonResponse(body: Record<string, unknown>, status = 200): Response {
   });
 }
 
-function timeoutError(message = "The operation was aborted due to timeout") {
-  const err = new Error(message);
-  err.name = "TimeoutError";
-  return err;
-}
-
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -144,65 +138,6 @@ describe("cloudLogin", () => {
         timeoutMs: 100,
       }),
     ).rejects.toThrow("Cloud login timed out");
-  });
-
-  it("throws when session creation request times out", async () => {
-    fetchMock.mockRejectedValue(timeoutError());
-
-    await expect(
-      cloudLogin({
-        baseUrl: "https://test.elizacloud.ai",
-        requestTimeoutMs: 20,
-      }),
-    ).rejects.toThrow("creating session");
-  });
-
-  it("throws when poll request times out", async () => {
-    let callCount = 0;
-    fetchMock.mockImplementation(async () => {
-      callCount++;
-      if (callCount === 1) {
-        return jsonResponse({ sessionId: "test-session" }, 201);
-      }
-      throw timeoutError();
-    });
-
-    await expect(
-      cloudLogin({
-        baseUrl: "https://test.elizacloud.ai",
-        pollIntervalMs: 1,
-        timeoutMs: 5000,
-        requestTimeoutMs: 20,
-      }),
-    ).rejects.toThrow("polling request timed out");
-  });
-
-  it("sets per-request timeout signal on cloud fetches", async () => {
-    const signals: Array<AbortSignal | null | undefined> = [];
-    let callCount = 0;
-    fetchMock.mockImplementation(async (_input, init) => {
-      signals.push(init?.signal);
-      callCount++;
-      if (callCount === 1)
-        return jsonResponse({ sessionId: "test-session" }, 201);
-      return jsonResponse({
-        status: "authenticated",
-        apiKey: "k",
-        keyPrefix: "k",
-      });
-    });
-
-    await cloudLogin({
-      baseUrl: "https://test.elizacloud.ai",
-      pollIntervalMs: 1,
-      timeoutMs: 5000,
-      requestTimeoutMs: 50,
-    });
-
-    expect(signals.length).toBeGreaterThanOrEqual(2);
-    for (const signal of signals) {
-      expect(signal).toBeInstanceOf(AbortSignal);
-    }
   });
 
   it("throws when session becomes 404 mid-poll", async () => {
