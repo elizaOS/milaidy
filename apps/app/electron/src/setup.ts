@@ -11,6 +11,7 @@ import electronIsDev from 'electron-is-dev';
 import electronServe from 'electron-serve';
 import windowStateKeeper from 'electron-window-state';
 import { join } from 'path';
+import { buildMissingWebAssetsMessage, resolveWebAssetDirectory } from './web-assets';
 
 // Define components for a watcher to detect when the webapp is changed so we can reload in Dev mode.
 const reloadWatcher = {
@@ -19,8 +20,9 @@ const reloadWatcher = {
   watcher: null,
 };
 export function setupReloadWatcher(electronCapacitorApp: ElectronCapacitorApp): void {
+  const watchDir = electronCapacitorApp.getWebAssetDirectory();
   reloadWatcher.watcher = chokidar
-    .watch(join(app.getAppPath(), 'app'), {
+    .watch(watchDir, {
       ignored: /[/\\]\./,
       persistent: true,
     })
@@ -58,6 +60,7 @@ export class ElectronCapacitorApp {
   private mainWindowState;
   private loadWebApp;
   private customScheme: string;
+  private webAssetDirectory: string;
 
   constructor(
     capacitorFileConfig: CapacitorElectronConfig,
@@ -68,6 +71,13 @@ export class ElectronCapacitorApp {
 
     this.customScheme = this.CapacitorFileConfig.electron?.customUrlScheme ?? 'capacitor-electron';
 
+    const webAssets = resolveWebAssetDirectory({
+      appPath: app.getAppPath(),
+      cwd: process.cwd(),
+      webDir: this.CapacitorFileConfig.webDir,
+    });
+    this.webAssetDirectory = webAssets.directory;
+
     if (trayMenuTemplate) {
       this.TrayMenuTemplate = trayMenuTemplate;
     }
@@ -76,9 +86,19 @@ export class ElectronCapacitorApp {
       this.AppMenuBarMenuTemplate = appMenuBarMenuTemplate;
     }
 
+    if (webAssets.usedFallback) {
+      console.warn(
+        `[Milaidy] Using fallback web assets at ${this.webAssetDirectory} because ${join(app.getAppPath(), 'app')} is missing index.html`
+      );
+    }
+
+    if (!webAssets.hasIndexHtml) {
+      console.error(buildMissingWebAssetsMessage(webAssets));
+    }
+
     // Setup our web app loader, this lets us load apps like react, vue, and angular without changing their build chains.
     this.loadWebApp = electronServe({
-      directory: join(app.getAppPath(), 'app'),
+      directory: this.webAssetDirectory,
       scheme: this.customScheme,
     });
   }
@@ -97,6 +117,10 @@ export class ElectronCapacitorApp {
 
   getCustomURLScheme(): string {
     return this.customScheme;
+  }
+
+  getWebAssetDirectory(): string {
+    return this.webAssetDirectory;
   }
 
   async init(): Promise<void> {
