@@ -141,7 +141,13 @@ jobs:
         working-directory: apps/app
 
       - name: Build Capacitor app
+        if: matrix.platform.os != 'windows'
         run: bun run build
+        working-directory: apps/app
+
+      - name: Build Capacitor app (Windows)
+        if: matrix.platform.os == 'windows'
+        run: npx vite build
         working-directory: apps/app
 
       - name: Sync Electron
@@ -256,8 +262,8 @@ jobs:
           fi
 
           for dmg in "${dmgs[@]}"; do
-            echo "Validating stapled ticket on ${dmg}"
-            xcrun stapler validate "${dmg}"
+            echo "Gatekeeper-assessing disk image ${dmg}"
+            spctl -a -vv --type open "${dmg}"
           done
         working-directory: apps/app/electron
 
