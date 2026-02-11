@@ -536,7 +536,7 @@ async function handleGetStatus(
 
   const tableResult = await executeRawSql(
     runtime,
-    `SELECT count(*)::int AS cnt
+    `SELECT count(*) AS cnt
        FROM information_schema.tables
       WHERE table_schema NOT IN ('pg_catalog', 'information_schema')
         AND table_type = 'BASE TABLE'`,
@@ -777,7 +777,7 @@ async function handleGetTables(
     `SELECT
        t.table_schema AS schema,
        t.table_name AS name,
-       COALESCE(s.n_live_tup, 0)::int AS row_count
+       COALESCE(s.n_live_tup, 0) AS row_count
      FROM information_schema.tables t
      LEFT JOIN pg_stat_user_tables s
        ON s.schemaname = t.table_schema
@@ -926,7 +926,7 @@ async function handleGetRows(
   // Count total (with search filter)
   const countResult = await executeRawSql(
     runtime,
-    `SELECT count(*)::int AS total FROM ${quoteIdent(tableName)} ${whereClause}`,
+    `SELECT count(*) AS total FROM ${quoteIdent(tableName)} ${whereClause}`,
   );
   const total = Number(
     (countResult.rows[0] as Record<string, unknown>)?.total ?? 0,

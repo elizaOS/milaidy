@@ -274,11 +274,6 @@ Required repository secrets for signed macOS builds:
 - `APPLE_APP_SPECIFIC_PASSWORD` — app-specific password from [appleid.apple.com](https://appleid.apple.com)
 - `APPLE_TEAM_ID` — Apple Developer Team ID
 
-Release CI enforces notarization for macOS builds. A release is blocked if:
-- macOS signing secrets are missing
-- the app is not signed with a `Developer ID Application` certificate
-- notarization tickets are not stapled to the app and DMG artifacts
-
 ## License
 
 MIT

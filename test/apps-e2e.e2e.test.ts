@@ -896,5 +896,132 @@ describe("Apps E2E", () => {
         }
       }
     });
+
+    it("launch includes postMessageAuth config for 2004scape", async () => {
+      // This test verifies the postMessage auth configuration is included
+      // in the launch response for 2004scape, enabling autologin when embedded
+      const { status, data } = await api(
+        server.port,
+        "POST",
+        "/api/apps/launch",
+        {
+          name: "@elizaos/app-2004scape",
+        },
+      );
+      expect(status).toBe(200);
+      const body = asObject(data);
+
+      if (
+        body.viewer &&
+        typeof body.viewer === "object" &&
+        !Array.isArray(body.viewer)
+      ) {
+        const viewer = body.viewer;
+        // postMessageAuth should be true for 2004scape
+        expect(viewer.postMessageAuth).toBe(true);
+
+        // authMessage should contain RS_2004SCAPE_AUTH type
+        if (
+          viewer.authMessage &&
+          typeof viewer.authMessage === "object" &&
+          !Array.isArray(viewer.authMessage)
+        ) {
+          const authMsg = viewer.authMessage;
+          expect(authMsg.type).toBe("RS_2004SCAPE_AUTH");
+          // authToken contains username (defaults to testbot if not configured)
+          expect(typeof authMsg.authToken).toBe("string");
+          expect((authMsg.authToken as string).length).toBeGreaterThan(0);
+        }
+      }
+    });
+  });
+
+  // ===================================================================
+  //  11. Hyperscape postMessage auth integration
+  // ===================================================================
+
+  describe("Hyperscape postMessage auth", () => {
+    it("launch includes postMessageAuth config when HYPERSCAPE_AUTH_TOKEN is set", async () => {
+      // Save original env
+      const originalToken = process.env.HYPERSCAPE_AUTH_TOKEN;
+
+      // Set test token
+      process.env.HYPERSCAPE_AUTH_TOKEN = "test-auth-token-e2e";
+
+      try {
+        const { status, data } = await api(
+          server.port,
+          "POST",
+          "/api/apps/launch",
+          {
+            name: "@elizaos/app-hyperscape",
+          },
+        );
+        expect(status).toBe(200);
+        const body = asObject(data);
+
+        if (
+          body.viewer &&
+          typeof body.viewer === "object" &&
+          !Array.isArray(body.viewer)
+        ) {
+          const viewer = body.viewer;
+          expect(viewer.postMessageAuth).toBe(true);
+
+          if (
+            viewer.authMessage &&
+            typeof viewer.authMessage === "object" &&
+            !Array.isArray(viewer.authMessage)
+          ) {
+            const authMsg = viewer.authMessage;
+            expect(authMsg.type).toBe("HYPERSCAPE_AUTH");
+            expect(authMsg.authToken).toBe("test-auth-token-e2e");
+          }
+        }
+      } finally {
+        // Restore original env
+        if (originalToken !== undefined) {
+          process.env.HYPERSCAPE_AUTH_TOKEN = originalToken;
+        } else {
+          delete process.env.HYPERSCAPE_AUTH_TOKEN;
+        }
+      }
+    });
+
+    it("launch disables postMessageAuth when HYPERSCAPE_AUTH_TOKEN is not set", async () => {
+      // Save and clear token
+      const originalToken = process.env.HYPERSCAPE_AUTH_TOKEN;
+      delete process.env.HYPERSCAPE_AUTH_TOKEN;
+
+      try {
+        const { status, data } = await api(
+          server.port,
+          "POST",
+          "/api/apps/launch",
+          {
+            name: "@elizaos/app-hyperscape",
+          },
+        );
+        expect(status).toBe(200);
+        const body = asObject(data);
+
+        if (
+          body.viewer &&
+          typeof body.viewer === "object" &&
+          !Array.isArray(body.viewer)
+        ) {
+          const viewer = body.viewer;
+          // postMessageAuth should be false when token is not configured
+          expect(viewer.postMessageAuth).toBe(false);
+          // authMessage should not be present
+          expect(viewer.authMessage).toBeUndefined();
+        }
+      } finally {
+        // Restore original env
+        if (originalToken !== undefined) {
+          process.env.HYPERSCAPE_AUTH_TOKEN = originalToken;
+        }
+      }
+    });
   });
 });

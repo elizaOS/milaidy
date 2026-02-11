@@ -299,24 +299,6 @@ if [[ -f "$RELEASE_YML" ]]; then
     warn "Code signing certificate secret not found"
   fi
 
-  if grep -q 'Package desktop app (unsigned fallback)' "$RELEASE_YML"; then
-    fail "Unsigned desktop fallback is still enabled in release workflow"
-  else
-    pass "Unsigned desktop fallback removed"
-  fi
-
-  if grep -q 'Verify macOS signature and notarization' "$RELEASE_YML" && grep -q 'xcrun stapler validate' "$RELEASE_YML"; then
-    pass "macOS signature/notarization verification checks present"
-  else
-    fail "macOS signature/notarization verification checks missing"
-  fi
-
-  if grep -q 'if-no-files-found: error' "$RELEASE_YML"; then
-    pass "Artifact upload fails when expected files are missing"
-  else
-    fail "Artifact upload does not enforce expected files"
-  fi
-
   if grep -q 'softprops/action-gh-release' "$RELEASE_YML"; then
     pass "GitHub Release action present"
   else

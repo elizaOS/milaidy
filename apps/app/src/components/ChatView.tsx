@@ -18,6 +18,7 @@ import { useApp } from "../AppContext.js";
 import { ChatAvatar } from "./ChatAvatar.js";
 import { useVoiceChat } from "../hooks/useVoiceChat.js";
 import { client, type ConversationMode, type VoiceConfig } from "../api-client.js";
+import { MessageContent } from "./MessageContent.js";
 
 function renderInlineMarkdown(line: string): ReactNode[] {
   const nodes: ReactNode[] = [];
@@ -291,7 +292,7 @@ export function ChatView() {
                           )}
                       </div>
                     )}
-                    <div>{renderMessageText(msg.text)}</div>
+                    <div><MessageContent message={msg} /></div>
                     <div className="mt-1 text-[10px] opacity-0 group-hover:opacity-70 transition-opacity">
                       {hoverTs}
                     </div>

@@ -15,6 +15,12 @@ const CONNECTOR_IDS = [
 
 import { MilaidySchema } from "./zod-schema.js";
 
+export type ShowIfCondition = {
+  field: string;
+  op: "eq" | "neq" | "in" | "truthy" | "falsy";
+  value?: unknown;
+};
+
 export type ConfigUiHint = {
   label?: string;
   help?: string;
@@ -24,6 +30,46 @@ export type ConfigUiHint = {
   sensitive?: boolean;
   placeholder?: string;
   itemTemplate?: unknown;
+  /** Explicit field type override (must match a catalog field name). */
+  type?: string;
+  /** Icon name for the field label. */
+  icon?: string;
+  /** Whether the field is read-only. */
+  readonly?: boolean;
+  /** Hide this field from the UI entirely. */
+  hidden?: boolean;
+  /** Layout width hint. */
+  width?: "full" | "half" | "third";
+  /** Regex pattern for string validation. */
+  pattern?: string;
+  /** Error message when pattern doesn't match. */
+  patternError?: string;
+  /** Legacy conditional visibility. */
+  showIf?: ShowIfCondition;
+  /** Enhanced options for select/radio/multiselect fields. */
+  options?: Array<{
+    value: string;
+    label: string;
+    description?: string;
+    icon?: string;
+    disabled?: boolean;
+  }>;
+  /** Minimum value (for number fields). */
+  min?: number;
+  /** Maximum value (for number fields). */
+  max?: number;
+  /** Step increment (for number fields). */
+  step?: number;
+  /** Display unit label (e.g., "ms", "tokens", "%"). */
+  unit?: string;
+  /** Schema for array item fields. */
+  itemSchema?: ConfigUiHint;
+  /** Minimum items (for array fields). */
+  minItems?: number;
+  /** Maximum items (for array fields). */
+  maxItems?: number;
+  /** Plugin-provided custom React component name. */
+  component?: string;
 };
 
 export type ConfigUiHints = Record<string, ConfigUiHint>;
@@ -47,7 +93,24 @@ export type PluginUiMetadata = {
     string,
     Pick<
       ConfigUiHint,
-      "label" | "help" | "advanced" | "sensitive" | "placeholder"
+      | "label"
+      | "help"
+      | "advanced"
+      | "sensitive"
+      | "placeholder"
+      | "type"
+      | "icon"
+      | "readonly"
+      | "hidden"
+      | "width"
+      | "pattern"
+      | "patternError"
+      | "showIf"
+      | "options"
+      | "min"
+      | "max"
+      | "step"
+      | "unit"
     >
   >;
   configSchema?: JsonSchemaNode;

@@ -2,37 +2,41 @@
  * Navigation — tabs + onboarding.
  */
 
-export type Tab = "chat" | "apps" | "game" | "inventory" | "features" | "connectors" | "skills" | "triggers" | "fine_tuning" | "character" | "config" | "admin";
+export type Tab = "chat" | "apps" | "game" | "agent" | "plugins" | "config" | "database" | "settings" | "logs";
 
 export const TAB_GROUPS = [
   { label: "Chat", tabs: ["chat"] as Tab[] },
-  { label: "Play", tabs: ["apps"] as Tab[] },
-  { label: "Manage", tabs: ["inventory", "features", "connectors", "skills", "triggers", "fine_tuning"] as Tab[] },
-  { label: "Settings", tabs: ["character", "config", "admin"] as Tab[] },
+  { label: "Apps", tabs: ["apps", "game"] as Tab[] },
+  { label: "Agent", tabs: ["agent"] as Tab[] },
+  { label: "Plugins", tabs: ["plugins"] as Tab[] },
+  { label: "Config", tabs: ["config"] as Tab[] },
+  { label: "Databases", tabs: ["database"] as Tab[] },
+  { label: "Settings", tabs: ["settings"] as Tab[] },
+  { label: "Logs", tabs: ["logs"] as Tab[] },
 ] as const;
 
 const TAB_PATHS: Record<Tab, string> = {
   chat: "/chat",
   apps: "/apps",
   game: "/game",
-  inventory: "/inventory",
-  features: "/features",
-  connectors: "/connectors",
-  skills: "/skills",
-  triggers: "/triggers",
-  fine_tuning: "/fine-tuning",
-  character: "/character",
+  agent: "/agent",
+  plugins: "/plugins",
   config: "/config",
-  admin: "/admin",
+  database: "/database",
+  settings: "/settings",
+  logs: "/logs",
 };
 
 /** Legacy path redirects — old paths that now map to new tabs. */
 const LEGACY_PATHS: Record<string, Tab> = {
-  "/database": "admin",
-  "/logs": "admin",
-  "/game": "apps",
-  "/plugins": "features",
-  "/fine-tuning": "fine_tuning",
+  "/character": "agent",
+  "/inventory": "agent",
+  "/features": "plugins",
+  "/connectors": "plugins",
+  "/skills": "plugins",
+  "/admin": "config",
+  "/fine-tuning": "agent",
+  "/triggers": "agent",
 };
 
 const PATH_TO_TAB = new Map(
@@ -81,16 +85,12 @@ export function titleForTab(tab: Tab): string {
     case "chat": return "Chat";
     case "apps": return "Apps";
     case "game": return "Game";
-    case "inventory": return "Inventory";
-    case "features": return "Features";
-    case "connectors": return "Connectors";
-    case "skills": return "Skills";
-    case "triggers": return "Triggers";
-    case "fine_tuning": return "Fine-Tuning";
-    case "character": return "Character";
+    case "agent": return "Agent";
+    case "plugins": return "Plugins";
     case "config": return "Config";
-    case "admin": return "Admin";
+    case "database": return "Databases";
+    case "settings": return "Settings";
+    case "logs": return "Logs";
     default: return "Milaidy";
   }
 }
-

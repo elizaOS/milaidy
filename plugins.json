@@ -128,6 +128,89 @@
           "required": false,
           "sensitive": false
         }
+      },
+      "configUiHints": {
+        "ACP_GATEWAY_URL": {
+          "label": "Gateway URL",
+          "group": "Connection",
+          "width": "full"
+        },
+        "ACP_GATEWAY_TOKEN": {
+          "label": "Gateway Token",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "ACP_GATEWAY_PASSWORD": {
+          "label": "Gateway Password",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "ACP_DEFAULT_SESSION_KEY": {
+          "label": "Default Session Key",
+          "group": "Session",
+          "width": "half"
+        },
+        "ACP_DEFAULT_SESSION_LABEL": {
+          "label": "Default Session Label",
+          "group": "Session",
+          "width": "half"
+        },
+        "ACP_REQUIRE_EXISTING": {
+          "label": "Require Existing Session",
+          "group": "Session",
+          "width": "half"
+        },
+        "ACP_RESET_SESSION": {
+          "label": "Reset Session on Start",
+          "group": "Session",
+          "width": "half"
+        },
+        "ACP_PREFIX_CWD": {
+          "label": "Prefix CWD",
+          "group": "Advanced",
+          "width": "full",
+          "advanced": true
+        },
+        "ACP_VERBOSE": {
+          "label": "Verbose Logging",
+          "group": "Advanced",
+          "advanced": true
+        },
+        "ACP_CLIENT_NAME": {
+          "label": "Client Name",
+          "group": "Client Identity",
+          "width": "half"
+        },
+        "ACP_CLIENT_DISPLAY_NAME": {
+          "label": "Client Display Name",
+          "group": "Client Identity",
+          "width": "half"
+        },
+        "ACP_CLIENT_VERSION": {
+          "label": "Client Version",
+          "group": "Client Identity",
+          "width": "half"
+        },
+        "ACP_CLIENT_MODE": {
+          "label": "Client Mode",
+          "group": "Client Identity",
+          "width": "half"
+        },
+        "ACP_PERSIST_SESSIONS": {
+          "label": "Persist Sessions",
+          "group": "Session",
+          "width": "half"
+        },
+        "ACP_SESSION_STORE_PATH": {
+          "label": "Session Store Path",
+          "group": "Session",
+          "width": "full"
+        },
+        "ACP_AGENT_ID": {
+          "label": "Agent ID",
+          "group": "Client Identity",
+          "width": "half"
+        }
       }
     },
     {
@@ -146,6 +229,13 @@
           "description": "Provider selection",
           "required": false,
           "sensitive": false
+        }
+      },
+      "configUiHints": {
+        "ORCHESTRATOR_ACTIVE_PROVIDER": {
+          "label": "Active Provider",
+          "group": "General",
+          "width": "half"
         }
       }
     },
@@ -195,6 +285,36 @@
           "description": "Legacy: Single directory containing Otto bundled skills",
           "required": false,
           "example": "./otto/skills"
+        }
+      },
+      "configUiHints": {
+        "SKILLS_DIR": {
+          "label": "Skills Directory",
+          "group": "Paths",
+          "width": "full"
+        },
+        "SKILLS_AUTO_LOAD": {
+          "label": "Auto-Load Skills",
+          "group": "Behavior",
+          "width": "half"
+        },
+        "SKILLS_REGISTRY": {
+          "label": "Registry URL",
+          "group": "Connection",
+          "width": "full"
+        },
+        "BUNDLED_SKILLS_DIRS": {
+          "label": "Bundled Skills Directories",
+          "group": "Paths",
+          "width": "full",
+          "help": "Comma-separated list of directories"
+        },
+        "OTTO_BUNDLED_SKILLS_DIR": {
+          "label": "Otto Bundled Skills Dir",
+          "group": "Paths",
+          "width": "full",
+          "advanced": true,
+          "help": "Legacy setting for Otto bundled skills"
         }
       }
     },
@@ -247,6 +367,34 @@
           "description": "Browser-only proxy endpoint base URL for Anthropic requests (no secrets in the client).",
           "required": false,
           "sensitive": false
+        }
+      },
+      "configUiHints": {
+        "ANTHROPIC_API_KEY": {
+          "label": "API Key",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "ANTHROPIC_SMALL_MODEL": {
+          "label": "Small Model",
+          "group": "Models",
+          "width": "half"
+        },
+        "ANTHROPIC_LARGE_MODEL": {
+          "label": "Large Model",
+          "group": "Models",
+          "width": "half"
+        },
+        "ANTHROPIC_EXPERIMENTAL_TELEMETRY": {
+          "label": "Experimental Telemetry",
+          "group": "Advanced",
+          "advanced": true
+        },
+        "ANTHROPIC_BROWSER_BASE_URL": {
+          "label": "Browser Proxy URL",
+          "group": "Advanced",
+          "width": "full",
+          "advanced": true
         }
       }
     },
@@ -403,6 +551,131 @@
           "required": true,
           "sensitive": true
         }
+      },
+      "configUiHints": {
+        "BIRDEYE_API_KEY": {
+          "label": "Birdeye API Key",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "ZEROEX_API_KEY": {
+          "label": "0x API Key",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "SOLANA_RPC_URL": {
+          "label": "Solana RPC URL",
+          "group": "Connection",
+          "width": "half"
+        },
+        "EVM_PROVIDER_URL": {
+          "label": "EVM Provider URL",
+          "group": "Connection",
+          "width": "half"
+        },
+        "SOLANA_PRIVATE_KEY": {
+          "label": "Solana Private Key",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "SOLANA_ADDRESS": {
+          "label": "Wallet Address",
+          "group": "Connection",
+          "width": "half"
+        },
+        "SOLANA_ENABLED": {
+          "label": "Solana Enabled",
+          "group": "Advanced",
+          "advanced": true
+        },
+        "TRADING_MODE": {
+          "label": "Trading Mode",
+          "group": "Trading",
+          "width": "half"
+        },
+        "MAX_PORTFOLIO_ALLOCATION": {
+          "label": "Max Portfolio Allocation",
+          "group": "Risk Management",
+          "width": "half",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        "MIN_LIQUIDITY_USD": {
+          "label": "Min Liquidity",
+          "group": "Risk Management",
+          "width": "half",
+          "unit": "USD",
+          "min": 0
+        },
+        "MIN_VOLUME_24H_USD": {
+          "label": "Min 24h Volume",
+          "group": "Risk Management",
+          "width": "half",
+          "unit": "USD",
+          "min": 0
+        },
+        "MIN_SELL_COUNT_24H": {
+          "label": "Min 24h Sell Count",
+          "group": "Risk Management",
+          "width": "half",
+          "min": 0
+        },
+        "MAX_BUY_SELL_RATIO": {
+          "label": "Max Buy/Sell Ratio",
+          "group": "Risk Management",
+          "width": "half",
+          "min": 0
+        },
+        "RUGCHECK_ENABLED": {
+          "label": "Rug Check",
+          "group": "Risk Management",
+          "advanced": true
+        },
+        "STOP_LOSS_PERCENT": {
+          "label": "Stop Loss",
+          "group": "Trading",
+          "width": "half",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        "TAKE_PROFIT_PERCENT": {
+          "label": "Take Profit",
+          "group": "Trading",
+          "width": "half",
+          "unit": "%",
+          "min": 0
+        },
+        "TRADING_INTERVAL_MS": {
+          "label": "Trading Interval",
+          "group": "Trading",
+          "width": "half",
+          "unit": "ms",
+          "min": 1000
+        },
+        "MAX_DAILY_LOSS_USD": {
+          "label": "Max Daily Loss",
+          "group": "Risk Management",
+          "width": "half",
+          "unit": "USD",
+          "min": 0
+        },
+        "MAX_POSITION_SIZE_USD": {
+          "label": "Max Position Size",
+          "group": "Risk Management",
+          "width": "half",
+          "unit": "USD",
+          "min": 0
+        },
+        "SLIPPAGE_BPS": {
+          "label": "Slippage",
+          "group": "Trading",
+          "width": "half",
+          "unit": "bps",
+          "min": 0,
+          "max": 10000
+        }
       }
     },
     {
@@ -525,6 +798,85 @@
           "required": false,
           "example": "0x..."
         }
+      },
+      "configUiHints": {
+        "BABYLON_API_URL": {
+          "label": "API URL",
+          "group": "Connection",
+          "width": "full"
+        },
+        "BABYLON_AGENT_ID": {
+          "label": "Agent ID",
+          "group": "Identity",
+          "width": "half"
+        },
+        "CRON_SECRET": {
+          "label": "Cron Secret",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "BABYLON_GAME_PRIVATE_KEY": {
+          "label": "Game Private Key",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "BASE_SEPOLIA_RPC_URL": {
+          "label": "Base Sepolia RPC URL",
+          "group": "Blockchain",
+          "width": "full"
+        },
+        "EVM_PRIVATE_KEY": {
+          "label": "EVM Private Key",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "EVM_PROVIDER_URL": {
+          "label": "EVM Provider URL",
+          "group": "Blockchain",
+          "width": "full"
+        },
+        "BASE_IDENTITY_REGISTRY_ADDRESS": {
+          "label": "Identity Registry Address",
+          "group": "Blockchain",
+          "width": "full"
+        },
+        "BABYLON_APP_URL": {
+          "label": "App URL",
+          "group": "Connection",
+          "width": "full"
+        },
+        "BABYLON_AUTONOMOUS_MODE": {
+          "label": "Autonomous Mode",
+          "group": "Behavior",
+          "width": "half"
+        },
+        "BABYLON_ALLOW_USER_ACTIONS": {
+          "label": "Allow User Actions",
+          "group": "Behavior",
+          "width": "half"
+        },
+        "BABYLON_PRIVY_APP_ID": {
+          "label": "Privy App ID",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "BABYLON_PRIVY_APP_SECRET": {
+          "label": "Privy App Secret",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "BABYLON_AGENT0_RPC_URL": {
+          "label": "Agent0 RPC URL",
+          "group": "Blockchain",
+          "width": "full",
+          "advanced": true
+        },
+        "BABYLON_AGENT0_REGISTRY_ADDRESS": {
+          "label": "Agent0 Registry Address",
+          "group": "Blockchain",
+          "width": "full",
+          "advanced": true
+        }
       }
     },
     {
@@ -594,6 +946,52 @@
           "description": "Webhook path",
           "required": false,
           "sensitive": false
+        }
+      },
+      "configUiHints": {
+        "BLOOIO_API_KEY": {
+          "label": "API Key",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "BLOOIO_WEBHOOK_URL": {
+          "label": "Webhook URL",
+          "group": "Webhook",
+          "width": "full"
+        },
+        "BLOOIO_WEBHOOK_SECRET": {
+          "label": "Webhook Secret",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "BLOOIO_BASE_URL": {
+          "label": "Base URL",
+          "group": "Connection",
+          "width": "full"
+        },
+        "BLOOIO_WEBHOOK_PORT": {
+          "label": "Webhook Port",
+          "group": "Webhook",
+          "width": "half",
+          "min": 1,
+          "max": 65535
+        },
+        "BLOOIO_FROM_NUMBER": {
+          "label": "From Number",
+          "group": "Messaging",
+          "width": "half"
+        },
+        "BLOOIO_SIGNATURE_TOLERANCE_SEC": {
+          "label": "Signature Tolerance",
+          "group": "Advanced",
+          "width": "half",
+          "unit": "s",
+          "advanced": true
+        },
+        "BLOOIO_WEBHOOK_PATH": {
+          "label": "Webhook Path",
+          "group": "Webhook",
+          "width": "half"
         }
       }
     },
@@ -671,6 +1069,55 @@
           "description": "Enable or disable this feature",
           "required": false,
           "sensitive": false
+        }
+      },
+      "configUiHints": {
+        "BLUEBUBBLES_SERVER_URL": {
+          "label": "Server URL",
+          "group": "Connection",
+          "width": "full"
+        },
+        "BLUEBUBBLES_PASSWORD": {
+          "label": "Password",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "BLUEBUBBLES_WEBHOOK_PATH": {
+          "label": "Webhook Path",
+          "group": "Connection",
+          "width": "half"
+        },
+        "BLUEBUBBLES_DM_POLICY": {
+          "label": "DM Policy",
+          "group": "Policies",
+          "width": "half"
+        },
+        "BLUEBUBBLES_GROUP_POLICY": {
+          "label": "Group Policy",
+          "group": "Policies",
+          "width": "half"
+        },
+        "BLUEBUBBLES_ALLOW_FROM": {
+          "label": "Allowed Senders (DM)",
+          "group": "Policies",
+          "width": "full",
+          "help": "Comma-separated list of allowed contacts"
+        },
+        "BLUEBUBBLES_GROUP_ALLOW_FROM": {
+          "label": "Allowed Senders (Group)",
+          "group": "Policies",
+          "width": "full",
+          "help": "Comma-separated list of allowed contacts"
+        },
+        "BLUEBUBBLES_SEND_READ_RECEIPTS": {
+          "label": "Send Read Receipts",
+          "group": "Behavior",
+          "width": "half"
+        },
+        "BLUEBUBBLES_ENABLED": {
+          "label": "Enabled",
+          "group": "General",
+          "width": "half"
         }
       }
     },
@@ -804,6 +1251,96 @@
           "default": true,
           "sensitive": false
         }
+      },
+      "configUiHints": {
+        "BLUESKY_ENABLED": {
+          "label": "Enabled",
+          "group": "General",
+          "width": "half"
+        },
+        "BLUESKY_DRY_RUN": {
+          "label": "Dry Run",
+          "group": "Advanced",
+          "advanced": true
+        },
+        "BLUESKY_HANDLE": {
+          "label": "Handle",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "BLUESKY_PASSWORD": {
+          "label": "App Password",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "BLUESKY_SERVICE": {
+          "label": "Service URL",
+          "group": "Connection",
+          "width": "full"
+        },
+        "BLUESKY_MAX_POST_LENGTH": {
+          "label": "Max Post Length",
+          "group": "Posting",
+          "width": "half",
+          "min": 1,
+          "max": 3000
+        },
+        "BLUESKY_POLL_INTERVAL": {
+          "label": "Poll Interval",
+          "group": "Timing",
+          "width": "half",
+          "unit": "s",
+          "min": 10
+        },
+        "BLUESKY_ENABLE_POSTING": {
+          "label": "Enable Posting",
+          "group": "Posting",
+          "width": "half"
+        },
+        "BLUESKY_POST_INTERVAL_MIN": {
+          "label": "Post Interval (Min)",
+          "group": "Timing",
+          "width": "half",
+          "unit": "s",
+          "min": 60
+        },
+        "BLUESKY_POST_INTERVAL_MAX": {
+          "label": "Post Interval (Max)",
+          "group": "Timing",
+          "width": "half",
+          "unit": "s",
+          "min": 60
+        },
+        "BLUESKY_ENABLE_ACTION_PROCESSING": {
+          "label": "Enable Action Processing",
+          "group": "Advanced",
+          "advanced": true
+        },
+        "BLUESKY_ACTION_INTERVAL": {
+          "label": "Action Interval",
+          "group": "Advanced",
+          "width": "half",
+          "unit": "s",
+          "min": 10,
+          "advanced": true
+        },
+        "BLUESKY_POST_IMMEDIATELY": {
+          "label": "Post Immediately",
+          "group": "Posting",
+          "width": "half"
+        },
+        "BLUESKY_MAX_ACTIONS_PROCESSING": {
+          "label": "Max Actions per Batch",
+          "group": "Advanced",
+          "width": "half",
+          "min": 1,
+          "advanced": true
+        },
+        "BLUESKY_ENABLE_DMS": {
+          "label": "Enable DMs",
+          "group": "General",
+          "width": "half"
+        }
       }
     },
     {
@@ -855,6 +1392,38 @@
           "description": "CapSolver API key for automated CAPTCHA solving",
           "required": false
         }
+      },
+      "configUiHints": {
+        "BROWSERBASE_API_KEY": {
+          "label": "BrowserBase API Key",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "BROWSERBASE_PROJECT_ID": {
+          "label": "BrowserBase Project ID",
+          "group": "Connection",
+          "width": "half"
+        },
+        "OPENAI_API_KEY": {
+          "label": "OpenAI API Key",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "ANTHROPIC_API_KEY": {
+          "label": "Anthropic API Key",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "BROWSER_HEADLESS": {
+          "label": "Headless Mode",
+          "group": "Behavior",
+          "width": "half"
+        },
+        "CAPSOLVER_API_KEY": {
+          "label": "CapSolver API Key",
+          "group": "Authentication",
+          "width": "half"
+        }
       }
     },
     {
@@ -879,6 +1448,18 @@
           "description": "CLI version string",
           "required": false,
           "sensitive": false
+        }
+      },
+      "configUiHints": {
+        "CLI_NAME": {
+          "label": "CLI Name",
+          "group": "General",
+          "width": "half"
+        },
+        "CLI_VERSION": {
+          "label": "CLI Version",
+          "group": "General",
+          "width": "half"
         }
       }
     },
@@ -922,6 +1503,31 @@
           "description": "Comma-separated list of forbidden commands",
           "required": false,
           "sensitive": false
+        }
+      },
+      "configUiHints": {
+        "CODER_ENABLED": {
+          "label": "Enabled",
+          "group": "General",
+          "width": "half"
+        },
+        "CODER_ALLOWED_DIRECTORY": {
+          "label": "Allowed Directory",
+          "group": "Security",
+          "width": "full"
+        },
+        "CODER_TIMEOUT": {
+          "label": "Timeout",
+          "group": "Behavior",
+          "width": "half",
+          "unit": "ms",
+          "min": 1000
+        },
+        "CODER_FORBIDDEN_COMMANDS": {
+          "label": "Forbidden Commands",
+          "group": "Security",
+          "width": "full",
+          "help": "Comma-separated list of forbidden shell commands"
         }
       }
     },
@@ -977,6 +1583,36 @@
           "default": "true",
           "sensitive": false
         }
+      },
+      "configUiHints": {
+        "COMMANDS_ENABLED": {
+          "label": "Enable Commands",
+          "group": "General",
+          "width": "half"
+        },
+        "COMMANDS_CONFIG_ENABLED": {
+          "label": "Enable /config",
+          "group": "Commands",
+          "width": "half"
+        },
+        "COMMANDS_DEBUG_ENABLED": {
+          "label": "Enable /debug",
+          "group": "Commands",
+          "width": "half",
+          "advanced": true
+        },
+        "COMMANDS_BASH_ENABLED": {
+          "label": "Enable /bash",
+          "group": "Commands",
+          "width": "half",
+          "advanced": true,
+          "help": "Requires elevated permissions"
+        },
+        "COMMANDS_RESTART_ENABLED": {
+          "label": "Enable /restart",
+          "group": "Commands",
+          "width": "half"
+        }
       }
     },
     {
@@ -1008,6 +1644,24 @@
           "type": "string",
           "description": "MCP server name to use for remote control (default: computeruse)",
           "required": false
+        }
+      },
+      "configUiHints": {
+        "COMPUTERUSE_ENABLED": {
+          "label": "Enabled",
+          "group": "General",
+          "width": "half"
+        },
+        "COMPUTERUSE_MODE": {
+          "label": "Execution Mode",
+          "group": "Behavior",
+          "width": "half",
+          "help": "auto | local | mcp"
+        },
+        "COMPUTERUSE_MCP_SERVER": {
+          "label": "MCP Server Name",
+          "group": "Connection",
+          "width": "half"
         }
       }
     },
@@ -1079,6 +1733,55 @@
           "required": false,
           "sensitive": false
         }
+      },
+      "configUiHints": {
+        "COPILOT_PROXY_BASE_URL": {
+          "label": "Base URL",
+          "group": "Connection",
+          "width": "full"
+        },
+        "COPILOT_PROXY_MODEL": {
+          "label": "Default Model",
+          "group": "Models",
+          "width": "half"
+        },
+        "COPILOT_PROXY_ENABLED": {
+          "label": "Enabled",
+          "group": "General",
+          "width": "half"
+        },
+        "COPILOT_PROXY_SMALL_MODEL": {
+          "label": "Small Model",
+          "group": "Models",
+          "width": "half"
+        },
+        "COPILOT_PROXY_LARGE_MODEL": {
+          "label": "Large Model",
+          "group": "Models",
+          "width": "half"
+        },
+        "COPILOT_PROXY_TIMEOUT_SECONDS": {
+          "label": "Timeout",
+          "group": "Advanced",
+          "width": "half",
+          "unit": "s",
+          "min": 1,
+          "advanced": true
+        },
+        "COPILOT_PROXY_MAX_TOKENS": {
+          "label": "Max Tokens",
+          "group": "Advanced",
+          "width": "half",
+          "min": 1,
+          "advanced": true
+        },
+        "COPILOT_PROXY_CONTEXT_WINDOW": {
+          "label": "Context Window",
+          "group": "Advanced",
+          "width": "half",
+          "min": 1,
+          "advanced": true
+        }
       }
     },
     {
@@ -1136,6 +1839,31 @@
           "required": false,
           "default": "false",
           "sensitive": false
+        }
+      },
+      "configUiHints": {
+        "DEFAULT_THINKING": {
+          "label": "Default Thinking Level",
+          "group": "Defaults",
+          "width": "half",
+          "help": "off, minimal, low, medium, high"
+        },
+        "DEFAULT_VERBOSE": {
+          "label": "Default Verbose Level",
+          "group": "Defaults",
+          "width": "half",
+          "help": "off, on, full"
+        },
+        "ALLOW_ELEVATED": {
+          "label": "Allow Elevated Directives",
+          "group": "Permissions",
+          "width": "half"
+        },
+        "ALLOW_EXEC": {
+          "label": "Allow Exec Directive",
+          "group": "Permissions",
+          "width": "half",
+          "help": "Enables shell configuration via directives"
         }
       }
     },
@@ -1214,6 +1942,54 @@
           "required": false,
           "sensitive": false
         }
+      },
+      "configUiHints": {
+        "DISCORD_API_TOKEN": {
+          "label": "API Token",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "DISCORD_APPLICATION_ID": {
+          "label": "Application ID",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "CHANNEL_IDS": {
+          "label": "Channel IDs",
+          "group": "Channels",
+          "width": "full"
+        },
+        "DISCORD_TEST_CHANNEL_ID": {
+          "label": "Test Channel ID",
+          "group": "Channels",
+          "width": "half",
+          "advanced": true
+        },
+        "DISCORD_VOICE_CHANNEL_ID": {
+          "label": "Voice Channel ID",
+          "group": "Channels",
+          "width": "half"
+        },
+        "DISCORD_SHOULD_IGNORE_BOT_MESSAGES": {
+          "label": "Ignore Bot Messages",
+          "group": "Behavior",
+          "width": "half"
+        },
+        "DISCORD_SHOULD_IGNORE_DIRECT_MESSAGES": {
+          "label": "Ignore Direct Messages",
+          "group": "Behavior",
+          "width": "half"
+        },
+        "DISCORD_SHOULD_RESPOND_ONLY_TO_MENTIONS": {
+          "label": "Respond Only to Mentions",
+          "group": "Behavior",
+          "width": "half"
+        },
+        "DISCORD_LISTEN_CHANNEL_IDS": {
+          "label": "Listen-Only Channel IDs",
+          "group": "Channels",
+          "width": "full"
+        }
       }
     },
     {
@@ -1287,6 +2063,50 @@
           "required": false,
           "default": "30000",
           "sensitive": false
+        }
+      },
+      "configUiHints": {
+        "EDGE_TTS_VOICE": {
+          "label": "Voice",
+          "group": "Voice",
+          "width": "half"
+        },
+        "EDGE_TTS_LANG": {
+          "label": "Language",
+          "group": "Voice",
+          "width": "half"
+        },
+        "EDGE_TTS_OUTPUT_FORMAT": {
+          "label": "Output Format",
+          "group": "Output",
+          "width": "full"
+        },
+        "EDGE_TTS_RATE": {
+          "label": "Speech Rate",
+          "group": "Voice",
+          "width": "half"
+        },
+        "EDGE_TTS_PITCH": {
+          "label": "Pitch",
+          "group": "Voice",
+          "width": "half"
+        },
+        "EDGE_TTS_VOLUME": {
+          "label": "Volume",
+          "group": "Voice",
+          "width": "half"
+        },
+        "EDGE_TTS_PROXY": {
+          "label": "Proxy URL",
+          "group": "Connection",
+          "width": "full"
+        },
+        "EDGE_TTS_TIMEOUT_MS": {
+          "label": "Timeout",
+          "group": "Connection",
+          "width": "half",
+          "unit": "ms",
+          "min": 0
         }
       }
     },
@@ -1425,6 +2245,100 @@
           "required": false,
           "default": "false",
           "sensitive": false
+        }
+      },
+      "configUiHints": {
+        "ELEVENLABS_API_KEY": {
+          "label": "API Key",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "ELEVENLABS_VOICE_ID": {
+          "label": "Voice ID",
+          "group": "Voice",
+          "width": "half"
+        },
+        "ELEVENLABS_MODEL_ID": {
+          "label": "TTS Model",
+          "group": "Voice",
+          "width": "half"
+        },
+        "ELEVENLABS_VOICE_STABILITY": {
+          "label": "Voice Stability",
+          "group": "Voice",
+          "width": "half",
+          "min": 0,
+          "max": 1
+        },
+        "ELEVENLABS_OPTIMIZE_STREAMING_LATENCY": {
+          "label": "Streaming Latency Optimization",
+          "group": "Advanced",
+          "width": "half",
+          "advanced": true,
+          "min": 0,
+          "max": 4
+        },
+        "ELEVENLABS_OUTPUT_FORMAT": {
+          "label": "Output Format",
+          "group": "Voice",
+          "width": "half"
+        },
+        "ELEVENLABS_BROWSER_URL": {
+          "label": "Browser Proxy URL",
+          "group": "Advanced",
+          "width": "full",
+          "advanced": true
+        },
+        "ELEVENLABS_VOICE_SIMILARITY_BOOST": {
+          "label": "Similarity Boost",
+          "group": "Voice",
+          "width": "half",
+          "min": 0,
+          "max": 1
+        },
+        "ELEVENLABS_VOICE_STYLE": {
+          "label": "Style Intensity",
+          "group": "Voice",
+          "width": "half",
+          "min": 0,
+          "max": 1
+        },
+        "ELEVENLABS_VOICE_USE_SPEAKER_BOOST": {
+          "label": "Speaker Boost",
+          "group": "Voice",
+          "width": "half"
+        },
+        "ELEVENLABS_STT_MODEL_ID": {
+          "label": "STT Model",
+          "group": "Speech-to-Text",
+          "width": "half"
+        },
+        "ELEVENLABS_STT_LANGUAGE_CODE": {
+          "label": "STT Language",
+          "group": "Speech-to-Text",
+          "width": "half"
+        },
+        "ELEVENLABS_STT_TIMESTAMPS_GRANULARITY": {
+          "label": "Timestamp Granularity",
+          "group": "Speech-to-Text",
+          "width": "half"
+        },
+        "ELEVENLABS_STT_DIARIZE": {
+          "label": "Enable Diarization",
+          "group": "Speech-to-Text",
+          "width": "half"
+        },
+        "ELEVENLABS_STT_NUM_SPEAKERS": {
+          "label": "Number of Speakers",
+          "group": "Speech-to-Text",
+          "width": "half",
+          "min": 1,
+          "max": 32
+        },
+        "ELEVENLABS_STT_TAG_AUDIO_EVENTS": {
+          "label": "Tag Audio Events",
+          "group": "Speech-to-Text",
+          "width": "half"
         }
       }
     },
@@ -1603,6 +2517,118 @@
           "default": "2.0.0-alpha",
           "sensitive": false
         }
+      },
+      "configUiHints": {
+        "ELIZAOS_CLOUD_API_KEY": {
+          "label": "API Key",
+          "group": "Authentication",
+          "width": "half",
+          "placeholder": "eliza_xxxxx"
+        },
+        "ELIZAOS_CLOUD_BASE_URL": {
+          "label": "Base URL",
+          "group": "Connection",
+          "width": "half",
+          "advanced": true
+        },
+        "ELIZAOS_CLOUD_SMALL_MODEL": {
+          "label": "Small Model",
+          "group": "Models",
+          "width": "half"
+        },
+        "SMALL_MODEL": {
+          "label": "Small Model (Fallback)",
+          "group": "Models",
+          "width": "half",
+          "advanced": true
+        },
+        "ELIZAOS_CLOUD_LARGE_MODEL": {
+          "label": "Large Model",
+          "group": "Models",
+          "width": "half"
+        },
+        "LARGE_MODEL": {
+          "label": "Large Model (Fallback)",
+          "group": "Models",
+          "width": "half",
+          "advanced": true
+        },
+        "ELIZAOS_CLOUD_EMBEDDING_MODEL": {
+          "label": "Embedding Model",
+          "group": "Embeddings",
+          "width": "half"
+        },
+        "ELIZAOS_CLOUD_EMBEDDING_URL": {
+          "label": "Embedding URL",
+          "group": "Embeddings",
+          "width": "half",
+          "advanced": true
+        },
+        "ELIZAOS_CLOUD_EMBEDDING_API_KEY": {
+          "label": "Embedding API Key",
+          "group": "Embeddings",
+          "width": "half",
+          "advanced": true
+        },
+        "ELIZAOS_CLOUD_EMBEDDING_DIMENSIONS": {
+          "label": "Embedding Dimensions",
+          "group": "Embeddings",
+          "width": "half",
+          "min": 1,
+          "advanced": true
+        },
+        "ELIZAOS_CLOUD_IMAGE_DESCRIPTION_MODEL": {
+          "label": "Image Description Model",
+          "group": "Media",
+          "width": "half"
+        },
+        "ELIZAOS_CLOUD_IMAGE_DESCRIPTION_MAX_TOKENS": {
+          "label": "Image Description Max Tokens",
+          "group": "Media",
+          "width": "half",
+          "min": 1,
+          "unit": "tokens"
+        },
+        "ELIZAOS_CLOUD_TTS_MODEL": {
+          "label": "TTS Model",
+          "group": "Speech",
+          "width": "half"
+        },
+        "ELIZAOS_CLOUD_TTS_VOICE": {
+          "label": "TTS Voice",
+          "group": "Speech",
+          "width": "half"
+        },
+        "ELIZAOS_CLOUD_TTS_INSTRUCTIONS": {
+          "label": "TTS Instructions",
+          "group": "Speech",
+          "width": "full"
+        },
+        "ELIZAOS_CLOUD_EXPERIMENTAL_TELEMETRY": {
+          "label": "Experimental Telemetry",
+          "group": "Advanced",
+          "advanced": true
+        },
+        "ELIZAOS_CLOUD_BROWSER_BASE_URL": {
+          "label": "Browser Base URL",
+          "group": "Advanced",
+          "advanced": true
+        },
+        "ELIZAOS_CLOUD_BROWSER_EMBEDDING_URL": {
+          "label": "Browser Embedding URL",
+          "group": "Advanced",
+          "advanced": true
+        },
+        "ELIZAOS_CLOUD_ENABLED": {
+          "label": "Enabled",
+          "group": "Advanced",
+          "advanced": true
+        },
+        "ELIZAOS_CLOUD_APP_VERSION": {
+          "label": "App Version",
+          "group": "Advanced",
+          "advanced": true
+        }
       }
     },
     {
@@ -1711,6 +2737,75 @@
           "default": "https://sepolia.base.org",
           "sensitive": false
         }
+      },
+      "configUiHints": {
+        "EVM_PRIVATE_KEY": {
+          "label": "Private Key",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "EVM_RPC_PROVIDER": {
+          "label": "RPC Provider",
+          "group": "Providers",
+          "width": "half"
+        },
+        "ALCHEMY_API_KEY": {
+          "label": "Alchemy API Key",
+          "group": "Providers",
+          "width": "half"
+        },
+        "INFURA_API_KEY": {
+          "label": "Infura API Key",
+          "group": "Providers",
+          "width": "half"
+        },
+        "ANKR_API_KEY": {
+          "label": "Ankr API Key",
+          "group": "Providers",
+          "width": "half"
+        },
+        "ETHEREUM_PROVIDER_ETHEREUM": {
+          "label": "Ethereum RPC URL",
+          "group": "Providers",
+          "width": "full"
+        },
+        "ETHEREUM_PROVIDER_BASE": {
+          "label": "Base RPC URL",
+          "group": "Providers",
+          "width": "full"
+        },
+        "ETHEREUM_PROVIDER_ARBITRUM": {
+          "label": "Arbitrum RPC URL",
+          "group": "Providers",
+          "width": "full"
+        },
+        "ETHEREUM_PROVIDER_OPTIMISM": {
+          "label": "Optimism RPC URL",
+          "group": "Providers",
+          "width": "full"
+        },
+        "TEE_MODE": {
+          "label": "TEE Mode",
+          "group": "Advanced",
+          "width": "half",
+          "advanced": true
+        },
+        "WALLET_SECRET_SALT": {
+          "label": "Wallet Secret Salt",
+          "group": "Advanced",
+          "width": "half",
+          "advanced": true
+        },
+        "SEPOLIA_RPC_URL": {
+          "label": "Sepolia RPC URL",
+          "group": "Testnets",
+          "width": "full"
+        },
+        "BASE_SEPOLIA_RPC_URL": {
+          "label": "Base Sepolia RPC URL",
+          "group": "Testnets",
+          "width": "full"
+        }
       }
     },
     {
@@ -1729,6 +2824,14 @@
           "description": "Threshold value",
           "required": false,
           "sensitive": false
+        }
+      },
+      "configUiHints": {
+        "AUTO_RECORD_THRESHOLD": {
+          "label": "Auto-Record Threshold",
+          "group": "Behavior",
+          "width": "half",
+          "min": 0
         }
       }
     },
@@ -1861,6 +2964,96 @@
           "default": "polling",
           "sensitive": false
         }
+      },
+      "configUiHints": {
+        "FARCASTER_DRY_RUN": {
+          "label": "Dry Run",
+          "group": "Advanced",
+          "width": "half",
+          "advanced": true
+        },
+        "FARCASTER_FID": {
+          "label": "Farcaster FID",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "MAX_CAST_LENGTH": {
+          "label": "Max Cast Length",
+          "group": "Posting",
+          "width": "half",
+          "min": 1
+        },
+        "FARCASTER_POLL_INTERVAL": {
+          "label": "Poll Interval",
+          "group": "Posting",
+          "width": "half",
+          "unit": "seconds",
+          "min": 0
+        },
+        "ENABLE_CAST": {
+          "label": "Enable Casting",
+          "group": "Posting",
+          "width": "half"
+        },
+        "CAST_INTERVAL_MIN": {
+          "label": "Min Cast Interval",
+          "group": "Posting",
+          "width": "half",
+          "unit": "minutes",
+          "min": 0
+        },
+        "CAST_INTERVAL_MAX": {
+          "label": "Max Cast Interval",
+          "group": "Posting",
+          "width": "half",
+          "unit": "minutes",
+          "min": 0
+        },
+        "ENABLE_ACTION_PROCESSING": {
+          "label": "Enable Action Processing",
+          "group": "Actions",
+          "width": "half"
+        },
+        "ACTION_INTERVAL": {
+          "label": "Action Interval",
+          "group": "Actions",
+          "width": "half",
+          "unit": "minutes",
+          "min": 0
+        },
+        "CAST_IMMEDIATELY": {
+          "label": "Cast Immediately",
+          "group": "Posting",
+          "width": "half"
+        },
+        "MAX_ACTIONS_PROCESSING": {
+          "label": "Max Actions per Batch",
+          "group": "Actions",
+          "width": "half",
+          "min": 1
+        },
+        "FARCASTER_SIGNER_UUID": {
+          "label": "Signer UUID",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "FARCASTER_NEYNAR_API_KEY": {
+          "label": "Neynar API Key",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "FARCASTER_HUB_URL": {
+          "label": "Hub URL",
+          "group": "Advanced",
+          "width": "full",
+          "advanced": true
+        },
+        "FARCASTER_MODE": {
+          "label": "Mode",
+          "group": "Advanced",
+          "width": "half",
+          "advanced": true
+        }
       }
     },
     {
@@ -1909,6 +3102,34 @@
           "description": "Chat ID used by the test suite for validation.",
           "required": false,
           "sensitive": false
+        }
+      },
+      "configUiHints": {
+        "FEISHU_APP_ID": {
+          "label": "App ID",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "FEISHU_APP_SECRET": {
+          "label": "App Secret",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "FEISHU_DOMAIN": {
+          "label": "Domain",
+          "group": "Connection",
+          "width": "half"
+        },
+        "FEISHU_ALLOWED_CHATS": {
+          "label": "Allowed Chat IDs",
+          "group": "Connection",
+          "width": "full"
+        },
+        "FEISHU_TEST_CHAT_ID": {
+          "label": "Test Chat ID",
+          "group": "Connection",
+          "width": "half",
+          "advanced": true
         }
       }
     },
@@ -1992,6 +3213,48 @@
           "required": false,
           "sensitive": false
         }
+      },
+      "configUiHints": {
+        "GITHUB_API_TOKEN": {
+          "label": "API Token",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "GITHUB_OWNER": {
+          "label": "Repository Owner",
+          "group": "Repository",
+          "width": "half"
+        },
+        "GITHUB_REPO": {
+          "label": "Repository Name",
+          "group": "Repository",
+          "width": "half"
+        },
+        "GITHUB_BRANCH": {
+          "label": "Default Branch",
+          "group": "Repository",
+          "width": "half"
+        },
+        "GITHUB_WEBHOOK_SECRET": {
+          "label": "Webhook Secret",
+          "group": "App",
+          "width": "half"
+        },
+        "GITHUB_APP_ID": {
+          "label": "App ID",
+          "group": "App",
+          "width": "half"
+        },
+        "GITHUB_APP_PRIVATE_KEY": {
+          "label": "App Private Key",
+          "group": "App",
+          "width": "half"
+        },
+        "GITHUB_INSTALLATION_ID": {
+          "label": "Installation ID",
+          "group": "App",
+          "width": "half"
+        }
       }
     },
     {
@@ -2058,6 +3321,42 @@
           "description": "Enable monitoring",
           "required": false,
           "sensitive": false
+        }
+      },
+      "configUiHints": {
+        "GOAL_CHECK_INTERVAL": {
+          "label": "Check Interval",
+          "group": "Scheduling",
+          "width": "half",
+          "min": 0
+        },
+        "GOAL_BATCH_SIZE": {
+          "label": "Batch Size",
+          "group": "Scheduling",
+          "width": "half",
+          "min": 1
+        },
+        "GOAL_MAX_CONCURRENT": {
+          "label": "Max Concurrent",
+          "group": "Scheduling",
+          "width": "half",
+          "min": 1
+        },
+        "GOAL_REMINDER_COOLDOWN": {
+          "label": "Reminder Cooldown",
+          "group": "Scheduling",
+          "width": "half",
+          "min": 0
+        },
+        "GOAL_ENABLE_SMART_REMINDERS": {
+          "label": "Smart Reminders",
+          "group": "Behavior",
+          "width": "half"
+        },
+        "GOAL_ENABLE_MONITORING": {
+          "label": "Enable Monitoring",
+          "group": "Behavior",
+          "width": "half"
         }
       }
     },
@@ -2143,6 +3442,58 @@
           "required": false,
           "sensitive": false
         }
+      },
+      "configUiHints": {
+        "GOOGLE_CHAT_SERVICE_ACCOUNT": {
+          "label": "Service Account JSON",
+          "group": "Authentication",
+          "width": "full"
+        },
+        "GOOGLE_CHAT_SERVICE_ACCOUNT_FILE": {
+          "label": "Service Account File",
+          "group": "Authentication",
+          "width": "full"
+        },
+        "GOOGLE_APPLICATION_CREDENTIALS": {
+          "label": "Application Credentials",
+          "group": "Authentication",
+          "width": "full"
+        },
+        "GOOGLE_CHAT_AUDIENCE_TYPE": {
+          "label": "Audience Type",
+          "group": "Connection",
+          "width": "half"
+        },
+        "GOOGLE_CHAT_AUDIENCE": {
+          "label": "Audience",
+          "group": "Connection",
+          "width": "half"
+        },
+        "GOOGLE_CHAT_WEBHOOK_PATH": {
+          "label": "Webhook Path",
+          "group": "Connection",
+          "width": "full"
+        },
+        "GOOGLE_CHAT_SPACES": {
+          "label": "Spaces",
+          "group": "Connection",
+          "width": "full"
+        },
+        "GOOGLE_CHAT_REQUIRE_MENTION": {
+          "label": "Require Mention",
+          "group": "Behavior",
+          "width": "half"
+        },
+        "GOOGLE_CHAT_ENABLED": {
+          "label": "Enabled",
+          "group": "Behavior",
+          "width": "half"
+        },
+        "GOOGLE_CHAT_BOT_USER": {
+          "label": "Bot User ID",
+          "group": "Connection",
+          "width": "half"
+        }
       }
     },
     {
@@ -2220,6 +3571,48 @@
           "default": "gemini-2.0-flash-001",
           "sensitive": false
         }
+      },
+      "configUiHints": {
+        "GOOGLE_GENERATIVE_AI_API_KEY": {
+          "label": "API Key",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "GOOGLE_EMBEDDING_MODEL": {
+          "label": "Embedding Model",
+          "group": "Models",
+          "width": "half"
+        },
+        "GOOGLE_IMAGE_MODEL": {
+          "label": "Image Model",
+          "group": "Models",
+          "width": "half"
+        },
+        "GOOGLE_SMALL_MODEL": {
+          "label": "Small Model",
+          "group": "Models",
+          "width": "half"
+        },
+        "GOOGLE_LARGE_MODEL": {
+          "label": "Large Model",
+          "group": "Models",
+          "width": "half"
+        },
+        "SMALL_MODEL": {
+          "label": "Small Model (fallback)",
+          "group": "Models",
+          "width": "half"
+        },
+        "LARGE_MODEL": {
+          "label": "Large Model (fallback)",
+          "group": "Models",
+          "width": "half"
+        },
+        "IMAGE_MODEL": {
+          "label": "Image Model (fallback)",
+          "group": "Models",
+          "width": "half"
+        }
       }
     },
     {
@@ -2275,6 +3668,38 @@
           "description": "TTS voice name",
           "required": false,
           "default": "Chip-PlayAI"
+        }
+      },
+      "configUiHints": {
+        "GROQ_API_KEY": {
+          "label": "API Key",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "GROQ_BASE_URL": {
+          "label": "Base URL",
+          "group": "Authentication",
+          "width": "full"
+        },
+        "GROQ_SMALL_MODEL": {
+          "label": "Small Model",
+          "group": "Models",
+          "width": "half"
+        },
+        "GROQ_LARGE_MODEL": {
+          "label": "Large Model",
+          "group": "Models",
+          "width": "half"
+        },
+        "GROQ_TTS_MODEL": {
+          "label": "TTS Model",
+          "group": "Speech",
+          "width": "half"
+        },
+        "GROQ_TTS_VOICE": {
+          "label": "TTS Voice",
+          "group": "Speech",
+          "width": "half"
         }
       }
     },
@@ -2339,6 +3764,45 @@
           "required": false,
           "sensitive": false
         }
+      },
+      "configUiHints": {
+        "IMESSAGE_CLI_PATH": {
+          "label": "CLI Path",
+          "group": "Connection",
+          "width": "full"
+        },
+        "IMESSAGE_DB_PATH": {
+          "label": "Database Path",
+          "group": "Connection",
+          "width": "full"
+        },
+        "IMESSAGE_POLL_INTERVAL_MS": {
+          "label": "Poll Interval",
+          "group": "Connection",
+          "width": "half",
+          "unit": "ms",
+          "min": 0
+        },
+        "IMESSAGE_DM_POLICY": {
+          "label": "DM Policy",
+          "group": "Behavior",
+          "width": "half"
+        },
+        "IMESSAGE_GROUP_POLICY": {
+          "label": "Group Policy",
+          "group": "Behavior",
+          "width": "half"
+        },
+        "IMESSAGE_ALLOW_FROM": {
+          "label": "Allowed Senders",
+          "group": "Behavior",
+          "width": "full"
+        },
+        "IMESSAGE_ENABLED": {
+          "label": "Enabled",
+          "group": "Behavior",
+          "width": "half"
+        }
       }
     },
     {
@@ -2391,6 +3855,28 @@
           "description": "Proxy URL for Instagram API requests",
           "required": false,
           "sensitive": false
+        }
+      },
+      "configUiHints": {
+        "INSTAGRAM_USERNAME": {
+          "label": "Username",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "INSTAGRAM_PASSWORD": {
+          "label": "Password",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "INSTAGRAM_VERIFICATION_CODE": {
+          "label": "2FA Code",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "INSTAGRAM_PROXY": {
+          "label": "Proxy URL",
+          "group": "Connection",
+          "width": "full"
         }
       }
     },
@@ -2461,6 +3947,48 @@
           "description": "URL for Pnl Api",
           "required": false,
           "sensitive": false
+        }
+      },
+      "configUiHints": {
+        "IQ_AGENT_NAME": {
+          "label": "Agent Name",
+          "group": "Identity",
+          "width": "half"
+        },
+        "IQ_DEFAULT_CHATROOM": {
+          "label": "Default Chatroom",
+          "group": "Chatrooms",
+          "width": "half"
+        },
+        "IQ_CHATROOMS": {
+          "label": "Chatrooms",
+          "group": "Chatrooms",
+          "width": "full"
+        },
+        "IQ_GATEWAY_URL": {
+          "label": "Gateway URL",
+          "group": "Connection",
+          "width": "full"
+        },
+        "SOLANA_PRIVATE_KEY": {
+          "label": "Solana Private Key",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "SOLANA_KEYPAIR_PATH": {
+          "label": "Solana Keypair Path",
+          "group": "Authentication",
+          "width": "full"
+        },
+        "SOLANA_RPC_URL": {
+          "label": "Solana RPC URL",
+          "group": "Connection",
+          "width": "full"
+        },
+        "PNL_API_URL": {
+          "label": "PnL API URL",
+          "group": "Connection",
+          "width": "full"
         }
       }
     },
@@ -2649,6 +4177,157 @@
           "default": true,
           "sensitive": false
         }
+      },
+      "configUiHints": {
+        "CTX_KNOWLEDGE_ENABLED": {
+          "label": "Enable Contextual Knowledge",
+          "group": "General"
+        },
+        "EMBEDDING_PROVIDER": {
+          "label": "Embedding Provider",
+          "group": "Embeddings",
+          "width": "half"
+        },
+        "OPENAI_API_KEY": {
+          "label": "OpenAI API Key",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "ANTHROPIC_API_KEY": {
+          "label": "Anthropic API Key",
+          "group": "Authentication",
+          "width": "half",
+          "showIf": {
+            "field": "CTX_KNOWLEDGE_ENABLED",
+            "op": "truthy"
+          }
+        },
+        "OPENROUTER_API_KEY": {
+          "label": "OpenRouter API Key",
+          "group": "Authentication",
+          "width": "half",
+          "showIf": {
+            "field": "CTX_KNOWLEDGE_ENABLED",
+            "op": "truthy"
+          }
+        },
+        "GOOGLE_API_KEY": {
+          "label": "Google API Key",
+          "group": "Authentication",
+          "width": "half",
+          "showIf": {
+            "field": "CTX_KNOWLEDGE_ENABLED",
+            "op": "truthy"
+          }
+        },
+        "OPENAI_EMBEDDING_MODEL": {
+          "label": "OpenAI Embedding Model",
+          "group": "Embeddings",
+          "width": "half"
+        },
+        "TEXT_EMBEDDING_MODEL": {
+          "label": "Text Embedding Model",
+          "group": "Embeddings",
+          "width": "half"
+        },
+        "EMBEDDING_DIMENSION": {
+          "label": "Embedding Dimensions",
+          "group": "Embeddings",
+          "width": "half",
+          "min": 1
+        },
+        "OPENAI_EMBEDDING_DIMENSIONS": {
+          "label": "OpenAI Embedding Dimensions",
+          "group": "Embeddings",
+          "width": "half",
+          "min": 1,
+          "advanced": true
+        },
+        "TEXT_PROVIDER": {
+          "label": "Text Provider",
+          "group": "Text Generation",
+          "width": "half",
+          "showIf": {
+            "field": "CTX_KNOWLEDGE_ENABLED",
+            "op": "truthy"
+          }
+        },
+        "TEXT_MODEL": {
+          "label": "Text Model",
+          "group": "Text Generation",
+          "width": "half",
+          "showIf": {
+            "field": "CTX_KNOWLEDGE_ENABLED",
+            "op": "truthy"
+          }
+        },
+        "OPENAI_BASE_URL": {
+          "label": "OpenAI Base URL",
+          "group": "Connection",
+          "width": "half",
+          "advanced": true
+        },
+        "ANTHROPIC_BASE_URL": {
+          "label": "Anthropic Base URL",
+          "group": "Connection",
+          "width": "half",
+          "advanced": true
+        },
+        "OPENROUTER_BASE_URL": {
+          "label": "OpenRouter Base URL",
+          "group": "Connection",
+          "width": "half",
+          "advanced": true
+        },
+        "GOOGLE_BASE_URL": {
+          "label": "Google Base URL",
+          "group": "Connection",
+          "width": "half",
+          "advanced": true
+        },
+        "MAX_INPUT_TOKENS": {
+          "label": "Max Input Tokens",
+          "group": "Limits",
+          "width": "half",
+          "min": 1,
+          "unit": "tokens"
+        },
+        "MAX_OUTPUT_TOKENS": {
+          "label": "Max Output Tokens",
+          "group": "Limits",
+          "width": "half",
+          "min": 1,
+          "unit": "tokens"
+        },
+        "MAX_CONCURRENT_REQUESTS": {
+          "label": "Max Concurrent Requests",
+          "group": "Limits",
+          "width": "half",
+          "min": 1
+        },
+        "REQUESTS_PER_MINUTE": {
+          "label": "Requests Per Minute",
+          "group": "Limits",
+          "width": "half",
+          "min": 1
+        },
+        "TOKENS_PER_MINUTE": {
+          "label": "Tokens Per Minute",
+          "group": "Limits",
+          "width": "half",
+          "min": 1,
+          "unit": "tokens/min"
+        },
+        "KNOWLEDGE_PATH": {
+          "label": "Knowledge Path",
+          "group": "General",
+          "width": "full"
+        },
+        "LOAD_DOCS_ON_STARTUP": {
+          "label": "Load Docs On Startup",
+          "group": "Advanced",
+          "advanced": true
+        }
       }
     },
     {
@@ -2712,6 +4391,43 @@
           "required": false,
           "sensitive": false
         }
+      },
+      "configUiHints": {
+        "LINE_CHANNEL_ACCESS_TOKEN": {
+          "label": "Channel Access Token",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "LINE_CHANNEL_SECRET": {
+          "label": "Channel Secret",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "LINE_WEBHOOK_PATH": {
+          "label": "Webhook Path",
+          "group": "Connection",
+          "width": "full"
+        },
+        "LINE_DM_POLICY": {
+          "label": "DM Policy",
+          "group": "Policies",
+          "width": "half"
+        },
+        "LINE_GROUP_POLICY": {
+          "label": "Group Policy",
+          "group": "Policies",
+          "width": "half"
+        },
+        "LINE_ALLOW_FROM": {
+          "label": "Allowed Users",
+          "group": "Policies",
+          "width": "full"
+        },
+        "LINE_ENABLED": {
+          "label": "Enabled",
+          "group": "General",
+          "width": "half"
+        }
       }
     },
     {
@@ -2746,6 +4462,23 @@
           "description": "Default team key for new issues",
           "required": false,
           "sensitive": false
+        }
+      },
+      "configUiHints": {
+        "LINEAR_API_KEY": {
+          "label": "API Key",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "LINEAR_WORKSPACE_ID": {
+          "label": "Workspace ID",
+          "group": "Configuration",
+          "width": "half"
+        },
+        "LINEAR_DEFAULT_TEAM_KEY": {
+          "label": "Default Team Key",
+          "group": "Configuration",
+          "width": "half"
         }
       }
     },
@@ -2814,6 +4547,45 @@
           "required": false,
           "sensitive": false
         }
+      },
+      "configUiHints": {
+        "MODELS_DIR": {
+          "label": "Models Directory",
+          "group": "Paths",
+          "width": "full"
+        },
+        "CACHE_DIR": {
+          "label": "Cache Directory",
+          "group": "Paths",
+          "width": "full"
+        },
+        "LOCAL_SMALL_MODEL": {
+          "label": "Small Model",
+          "group": "Models",
+          "width": "half"
+        },
+        "LOCAL_LARGE_MODEL": {
+          "label": "Large Model",
+          "group": "Models",
+          "width": "half"
+        },
+        "LOCAL_EMBEDDING_MODEL": {
+          "label": "Embedding Model",
+          "group": "Models",
+          "width": "half"
+        },
+        "LOCAL_EMBEDDING_DIMENSIONS": {
+          "label": "Embedding Dimensions",
+          "group": "Models",
+          "width": "half",
+          "min": 1
+        },
+        "CUDA_VISIBLE_DEVICES": {
+          "label": "CUDA Visible Devices",
+          "group": "Advanced",
+          "width": "half",
+          "advanced": true
+        }
       }
     },
     {
@@ -2880,6 +4652,45 @@
           "description": "Used to detect if CUDA-enabled GPUs are available and configure device and data type settings for model components accordingly.",
           "required": false,
           "sensitive": false
+        }
+      },
+      "configUiHints": {
+        "MODELS_DIR": {
+          "label": "Models Directory",
+          "group": "Paths",
+          "width": "full"
+        },
+        "CACHE_DIR": {
+          "label": "Cache Directory",
+          "group": "Paths",
+          "width": "full"
+        },
+        "LOCAL_SMALL_MODEL": {
+          "label": "Small Model",
+          "group": "Models",
+          "width": "half"
+        },
+        "LOCAL_LARGE_MODEL": {
+          "label": "Large Model",
+          "group": "Models",
+          "width": "half"
+        },
+        "LOCAL_EMBEDDING_MODEL": {
+          "label": "Embedding Model",
+          "group": "Models",
+          "width": "half"
+        },
+        "LOCAL_EMBEDDING_DIMENSIONS": {
+          "label": "Embedding Dimensions",
+          "group": "Models",
+          "width": "half",
+          "min": 1
+        },
+        "CUDA_VISIBLE_DEVICES": {
+          "label": "CUDA Visible Devices",
+          "group": "Advanced",
+          "width": "half",
+          "advanced": true
         }
       }
     },
@@ -3012,6 +4823,83 @@
           "required": false,
           "sensitive": false
         }
+      },
+      "configUiHints": {
+        "SOLANA_RPC_URL": {
+          "label": "Solana RPC URL",
+          "group": "Solana",
+          "width": "full"
+        },
+        "SOLANA_COMMITMENT": {
+          "label": "Commitment Level",
+          "group": "Solana",
+          "width": "half"
+        },
+        "SOLANA_PUBLIC_KEY": {
+          "label": "Public Key",
+          "group": "Solana",
+          "width": "half"
+        },
+        "SOLANA_PRIVATE_KEY": {
+          "label": "Private Key",
+          "group": "Solana",
+          "width": "half"
+        },
+        "EVM_PRIVATE_KEY": {
+          "label": "EVM Private Key",
+          "group": "Ethereum",
+          "width": "half"
+        },
+        "ETHEREUM_RPC_URL": {
+          "label": "Ethereum RPC URL",
+          "group": "Ethereum",
+          "width": "full"
+        },
+        "EVM_PROVIDER_MAINNET": {
+          "label": "Mainnet Provider URL",
+          "group": "Ethereum",
+          "width": "full"
+        },
+        "BASE_RPC_URL": {
+          "label": "Base RPC URL",
+          "group": "Base",
+          "width": "full"
+        },
+        "EVM_PROVIDER_BASE": {
+          "label": "Base Provider URL",
+          "group": "Base",
+          "width": "full"
+        },
+        "BSC_RPC_URL": {
+          "label": "BSC RPC URL",
+          "group": "BSC",
+          "width": "full"
+        },
+        "EVM_PROVIDER_BSC": {
+          "label": "BSC Provider URL",
+          "group": "BSC",
+          "width": "full"
+        },
+        "ARBITRUM_RPC_URL": {
+          "label": "Arbitrum RPC URL",
+          "group": "Arbitrum",
+          "width": "full"
+        },
+        "EVM_PROVIDER_ARBITRUM": {
+          "label": "Arbitrum Provider URL",
+          "group": "Arbitrum",
+          "width": "full"
+        },
+        "LP_SOLANA_DEXES": {
+          "label": "Solana DEXes",
+          "group": "DEX Config",
+          "width": "half"
+        },
+        "LP_EVM_DEXES": {
+          "label": "EVM DEXes",
+          "group": "DEX Config",
+          "width": "half"
+        }
       }
     },
     {
@@ -3081,6 +4969,48 @@
           "description": "Only respond when mentioned",
           "required": false,
           "sensitive": false
+        }
+      },
+      "configUiHints": {
+        "MATRIX_HOMESERVER": {
+          "label": "Homeserver URL",
+          "group": "Connection",
+          "width": "full"
+        },
+        "MATRIX_USER_ID": {
+          "label": "User ID",
+          "group": "Connection",
+          "width": "half"
+        },
+        "MATRIX_ACCESS_TOKEN": {
+          "label": "Access Token",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "MATRIX_DEVICE_ID": {
+          "label": "Device ID",
+          "group": "Connection",
+          "width": "half"
+        },
+        "MATRIX_ROOMS": {
+          "label": "Rooms",
+          "group": "Channels",
+          "width": "full"
+        },
+        "MATRIX_AUTO_JOIN": {
+          "label": "Auto Join",
+          "group": "Behavior",
+          "width": "half"
+        },
+        "MATRIX_ENCRYPTION": {
+          "label": "Encryption",
+          "group": "Behavior",
+          "width": "half"
+        },
+        "MATRIX_REQUIRE_MENTION": {
+          "label": "Require Mention",
+          "group": "Behavior",
+          "width": "half"
         }
       }
     },
@@ -3166,6 +5096,58 @@
           "required": false,
           "sensitive": false
         }
+      },
+      "configUiHints": {
+        "MATTERMOST_SERVER_URL": {
+          "label": "Server URL",
+          "group": "Connection",
+          "width": "full"
+        },
+        "MATTERMOST_BOT_TOKEN": {
+          "label": "Bot Token",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "MATTERMOST_TEAM_ID": {
+          "label": "Team ID",
+          "group": "Connection",
+          "width": "half"
+        },
+        "MATTERMOST_ENABLED": {
+          "label": "Enabled",
+          "group": "General",
+          "width": "half"
+        },
+        "MATTERMOST_DM_POLICY": {
+          "label": "DM Policy",
+          "group": "Policies",
+          "width": "half"
+        },
+        "MATTERMOST_GROUP_POLICY": {
+          "label": "Group Policy",
+          "group": "Policies",
+          "width": "half"
+        },
+        "MATTERMOST_ALLOWED_USERS": {
+          "label": "Allowed Users",
+          "group": "Policies",
+          "width": "full"
+        },
+        "MATTERMOST_ALLOWED_CHANNELS": {
+          "label": "Allowed Channels",
+          "group": "Policies",
+          "width": "full"
+        },
+        "MATTERMOST_REQUIRE_MENTION": {
+          "label": "Require Mention",
+          "group": "Behavior",
+          "width": "half"
+        },
+        "MATTERMOST_IGNORE_BOT_MESSAGES": {
+          "label": "Ignore Bot Messages",
+          "group": "Behavior",
+          "width": "half"
+        }
       }
     },
     {
@@ -3190,6 +5172,19 @@
           "description": "Serialized (e.g., JSON) configuration that defines MCP settings and server definitions; read at runtime to establish MCP server connections.",
           "required": false,
           "sensitive": false
+        }
+      },
+      "configUiHints": {
+        "PATH": {
+          "label": "System PATH",
+          "group": "Configuration",
+          "width": "full",
+          "advanced": true
+        },
+        "mcp": {
+          "label": "MCP Configuration",
+          "group": "Configuration",
+          "width": "full"
         }
       }
     },
@@ -3258,6 +5253,42 @@
           "required": false,
           "sensitive": false
         }
+      },
+      "configUiHints": {
+        "MC_HOST": {
+          "label": "Server Host",
+          "group": "Connection",
+          "width": "half"
+        },
+        "MC_PORT": {
+          "label": "Server Port",
+          "group": "Connection",
+          "width": "half",
+          "min": 1,
+          "max": 65535
+        },
+        "MC_SERVER_PORT": {
+          "label": "Local Server Port",
+          "group": "Connection",
+          "width": "half",
+          "min": 1,
+          "max": 65535
+        },
+        "MC_USERNAME": {
+          "label": "Username",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "MC_AUTH": {
+          "label": "Auth Mode",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "MC_VERSION": {
+          "label": "Minecraft Version",
+          "group": "Configuration",
+          "width": "half"
+        }
       }
     },
     {
@@ -3320,6 +5351,46 @@
           "description": "Enable autonomous operation mode",
           "required": false,
           "sensitive": false
+        }
+      },
+      "configUiHints": {
+        "MOLTBOOK_TOKEN": {
+          "label": "Auth Token",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "MOLTBOOK_AGENT_NAME": {
+          "label": "Agent Name",
+          "group": "Identity",
+          "width": "half"
+        },
+        "MOLTBOOK_MODEL": {
+          "label": "Model",
+          "group": "Identity",
+          "width": "half"
+        },
+        "MOLTBOOK_PERSONALITY": {
+          "label": "Personality",
+          "group": "Identity",
+          "width": "full"
+        },
+        "MOLTBOOK_AUTONOMY_INTERVAL_MS": {
+          "label": "Autonomy Interval",
+          "group": "Autonomy",
+          "width": "half",
+          "unit": "ms",
+          "min": 1000
+        },
+        "MOLTBOOK_AUTONOMY_MAX_STEPS": {
+          "label": "Max Steps",
+          "group": "Autonomy",
+          "width": "half",
+          "min": 1
+        },
+        "MOLTBOOK_AUTONOMOUS_MODE": {
+          "label": "Autonomous Mode",
+          "group": "Autonomy",
+          "width": "half"
         }
       }
     },
@@ -3398,6 +5469,59 @@
           "required": false,
           "sensitive": false
         }
+      },
+      "configUiHints": {
+        "MSTEAMS_APP_ID": {
+          "label": "App ID",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "MSTEAMS_APP_PASSWORD": {
+          "label": "App Password",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "MSTEAMS_TENANT_ID": {
+          "label": "Tenant ID",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "MSTEAMS_ENABLED": {
+          "label": "Enabled",
+          "group": "General",
+          "width": "half"
+        },
+        "MSTEAMS_WEBHOOK_PORT": {
+          "label": "Webhook Port",
+          "group": "Webhook",
+          "width": "half",
+          "min": 1,
+          "max": 65535
+        },
+        "MSTEAMS_WEBHOOK_PATH": {
+          "label": "Webhook Path",
+          "group": "Webhook",
+          "width": "full"
+        },
+        "MSTEAMS_ALLOWED_TENANTS": {
+          "label": "Allowed Tenants",
+          "group": "Policies",
+          "width": "full"
+        },
+        "MSTEAMS_SHAREPOINT_SITE_ID": {
+          "label": "SharePoint Site ID",
+          "group": "Advanced",
+          "width": "half",
+          "advanced": true
+        },
+        "MSTEAMS_MEDIA_MAX_MB": {
+          "label": "Media Max Size",
+          "group": "Advanced",
+          "width": "half",
+          "unit": "MB",
+          "min": 1,
+          "advanced": true
+        }
       }
     },
     {
@@ -3433,6 +5557,29 @@
           "description": "Price in SOL for this reading type",
           "required": false,
           "sensitive": false
+        }
+      },
+      "configUiHints": {
+        "MYSTICISM_PRICE_TAROT": {
+          "label": "Tarot Price",
+          "group": "Pricing",
+          "width": "half",
+          "unit": "SOL",
+          "min": 0
+        },
+        "MYSTICISM_PRICE_ICHING": {
+          "label": "I Ching Price",
+          "group": "Pricing",
+          "width": "half",
+          "unit": "SOL",
+          "min": 0
+        },
+        "MYSTICISM_PRICE_ASTROLOGY": {
+          "label": "Astrology Price",
+          "group": "Pricing",
+          "width": "half",
+          "unit": "SOL",
+          "min": 0
         }
       }
     },
@@ -3481,6 +5628,33 @@
           "type": "string",
           "description": "n8n instance URL (e.g., https://your.n8n.cloud) (required for workflow features)",
           "required": false
+        }
+      },
+      "configUiHints": {
+        "ANTHROPIC_API_KEY": {
+          "label": "Anthropic API Key",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "PLUGIN_DATA_DIR": {
+          "label": "Plugin Data Directory",
+          "group": "Configuration",
+          "width": "full"
+        },
+        "CLAUDE_MODEL": {
+          "label": "Claude Model",
+          "group": "Configuration",
+          "width": "half"
+        },
+        "N8N_API_KEY": {
+          "label": "n8n API Key",
+          "group": "n8n Connection",
+          "width": "half"
+        },
+        "N8N_HOST": {
+          "label": "n8n Host URL",
+          "group": "n8n Connection",
+          "width": "full"
         }
       }
     },
@@ -3552,6 +5726,50 @@
           "required": false,
           "sensitive": false
         }
+      },
+      "configUiHints": {
+        "NEXTCLOUD_URL": {
+          "label": "Nextcloud URL",
+          "group": "Connection",
+          "width": "full"
+        },
+        "NEXTCLOUD_BOT_SECRET": {
+          "label": "Bot Secret",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "NEXTCLOUD_ENABLED": {
+          "label": "Enabled",
+          "group": "General",
+          "width": "half"
+        },
+        "NEXTCLOUD_WEBHOOK_PORT": {
+          "label": "Webhook Port",
+          "group": "Webhook",
+          "width": "half",
+          "min": 1,
+          "max": 65535
+        },
+        "NEXTCLOUD_WEBHOOK_HOST": {
+          "label": "Webhook Host",
+          "group": "Webhook",
+          "width": "half"
+        },
+        "NEXTCLOUD_WEBHOOK_PATH": {
+          "label": "Webhook Path",
+          "group": "Webhook",
+          "width": "full"
+        },
+        "NEXTCLOUD_WEBHOOK_PUBLIC_URL": {
+          "label": "Webhook Public URL",
+          "group": "Webhook",
+          "width": "full"
+        },
+        "NEXTCLOUD_ALLOWED_ROOMS": {
+          "label": "Allowed Rooms",
+          "group": "Policies",
+          "width": "full"
+        }
       }
     },
     {
@@ -3600,6 +5818,33 @@
           "description": "Enable or disable this feature",
           "required": false,
           "sensitive": false
+        }
+      },
+      "configUiHints": {
+        "NOSTR_PRIVATE_KEY": {
+          "label": "Private Key",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "NOSTR_RELAYS": {
+          "label": "Relay URLs",
+          "group": "Connection",
+          "width": "full"
+        },
+        "NOSTR_DM_POLICY": {
+          "label": "DM Policy",
+          "group": "Policies",
+          "width": "half"
+        },
+        "NOSTR_ALLOW_FROM": {
+          "label": "Allowed Users",
+          "group": "Policies",
+          "width": "full"
+        },
+        "NOSTR_ENABLED": {
+          "label": "Enabled",
+          "group": "General",
+          "width": "half"
         }
       }
     },
@@ -3669,6 +5914,46 @@
           "required": false,
           "default": "gemma3:latest",
           "sensitive": false
+        }
+      },
+      "configUiHints": {
+        "OLLAMA_API_ENDPOINT": {
+          "label": "API Endpoint",
+          "group": "Connection",
+          "width": "full",
+          "placeholder": "http://localhost:11434/api"
+        },
+        "OLLAMA_SMALL_MODEL": {
+          "label": "Small Model",
+          "group": "Models",
+          "width": "half"
+        },
+        "OLLAMA_MEDIUM_MODEL": {
+          "label": "Medium Model",
+          "group": "Models",
+          "width": "half"
+        },
+        "OLLAMA_LARGE_MODEL": {
+          "label": "Large Model",
+          "group": "Models",
+          "width": "half"
+        },
+        "OLLAMA_EMBEDDING_MODEL": {
+          "label": "Embedding Model",
+          "group": "Models",
+          "width": "half"
+        },
+        "SMALL_MODEL": {
+          "label": "Small Model (Fallback)",
+          "group": "Models",
+          "width": "half",
+          "advanced": true
+        },
+        "LARGE_MODEL": {
+          "label": "Large Model (Fallback)",
+          "group": "Models",
+          "width": "half",
+          "advanced": true
         }
       }
     },
@@ -3820,6 +6105,108 @@
           "required": false,
           "sensitive": false
         }
+      },
+      "configUiHints": {
+        "OPENAI_API_KEY": {
+          "label": "API Key",
+          "group": "Authentication",
+          "width": "half",
+          "placeholder": "sk-..."
+        },
+        "OPENAI_BASE_URL": {
+          "label": "Base URL",
+          "group": "Connection",
+          "width": "half",
+          "placeholder": "https://api.openai.com/v1"
+        },
+        "OPENAI_SMALL_MODEL": {
+          "label": "Small Model",
+          "group": "Models",
+          "width": "half"
+        },
+        "SMALL_MODEL": {
+          "label": "Small Model (Fallback)",
+          "group": "Models",
+          "width": "half",
+          "advanced": true
+        },
+        "OPENAI_LARGE_MODEL": {
+          "label": "Large Model",
+          "group": "Models",
+          "width": "half"
+        },
+        "LARGE_MODEL": {
+          "label": "Large Model (Fallback)",
+          "group": "Models",
+          "width": "half",
+          "advanced": true
+        },
+        "OPENAI_EMBEDDING_MODEL": {
+          "label": "Embedding Model",
+          "group": "Embeddings",
+          "width": "half"
+        },
+        "OPENAI_EMBEDDING_URL": {
+          "label": "Embedding URL",
+          "group": "Embeddings",
+          "width": "half",
+          "advanced": true
+        },
+        "OPENAI_EMBEDDING_API_KEY": {
+          "label": "Embedding API Key",
+          "group": "Embeddings",
+          "width": "half",
+          "advanced": true
+        },
+        "OPENAI_EMBEDDING_DIMENSIONS": {
+          "label": "Embedding Dimensions",
+          "group": "Embeddings",
+          "width": "half",
+          "min": 1,
+          "advanced": true
+        },
+        "OPENAI_IMAGE_DESCRIPTION_MODEL": {
+          "label": "Image Description Model",
+          "group": "Media",
+          "width": "half"
+        },
+        "OPENAI_IMAGE_DESCRIPTION_MAX_TOKENS": {
+          "label": "Image Description Max Tokens",
+          "group": "Media",
+          "width": "half",
+          "min": 1,
+          "unit": "tokens"
+        },
+        "OPENAI_TTS_MODEL": {
+          "label": "TTS Model",
+          "group": "Speech",
+          "width": "half"
+        },
+        "OPENAI_TTS_VOICE": {
+          "label": "TTS Voice",
+          "group": "Speech",
+          "width": "half"
+        },
+        "OPENAI_TTS_INSTRUCTIONS": {
+          "label": "TTS Instructions",
+          "group": "Speech",
+          "width": "full"
+        },
+        "OPENAI_EXPERIMENTAL_TELEMETRY": {
+          "label": "Experimental Telemetry",
+          "group": "Advanced",
+          "advanced": true
+        },
+        "OPENAI_BROWSER_BASE_URL": {
+          "label": "Browser Base URL",
+          "group": "Advanced",
+          "advanced": true
+        },
+        "OPENAI_BROWSER_EMBEDDING_URL": {
+          "label": "Browser Embedding URL",
+          "group": "Advanced",
+          "advanced": true
+        }
       }
     },
     {
@@ -3967,6 +6354,106 @@
           "default": 15,
           "sensitive": false
         }
+      },
+      "configUiHints": {
+        "OPENROUTER_API_KEY": {
+          "label": "API Key",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "OPENROUTER_BASE_URL": {
+          "label": "Base URL",
+          "group": "Connection",
+          "width": "half",
+          "advanced": true
+        },
+        "OPENROUTER_BROWSER_BASE_URL": {
+          "label": "Browser Base URL",
+          "group": "Connection",
+          "width": "half",
+          "advanced": true
+        },
+        "OPENROUTER_SMALL_MODEL": {
+          "label": "Small Model",
+          "group": "Models",
+          "width": "half"
+        },
+        "OPENROUTER_LARGE_MODEL": {
+          "label": "Large Model",
+          "group": "Models",
+          "width": "half"
+        },
+        "SMALL_MODEL": {
+          "label": "Small Model (Fallback)",
+          "group": "Models",
+          "width": "half",
+          "advanced": true
+        },
+        "LARGE_MODEL": {
+          "label": "Large Model (Fallback)",
+          "group": "Models",
+          "width": "half",
+          "advanced": true
+        },
+        "OPENROUTER_IMAGE_MODEL": {
+          "label": "Image Model",
+          "group": "Models",
+          "width": "half"
+        },
+        "IMAGE_MODEL": {
+          "label": "Image Model (Fallback)",
+          "group": "Models",
+          "width": "half",
+          "advanced": true
+        },
+        "OPENROUTER_IMAGE_GENERATION_MODEL": {
+          "label": "Image Generation Model",
+          "group": "Models",
+          "width": "half"
+        },
+        "IMAGE_GENERATION_MODEL": {
+          "label": "Image Generation Model (Fallback)",
+          "group": "Models",
+          "width": "half",
+          "advanced": true
+        },
+        "OPENROUTER_EMBEDDING_MODEL": {
+          "label": "Embedding Model",
+          "group": "Embeddings",
+          "width": "half"
+        },
+        "EMBEDDING_MODEL": {
+          "label": "Embedding Model (Fallback)",
+          "group": "Embeddings",
+          "width": "half",
+          "advanced": true
+        },
+        "OPENROUTER_EMBEDDING_DIMENSIONS": {
+          "label": "Embedding Dimensions",
+          "group": "Embeddings",
+          "width": "half",
+          "min": 1,
+          "advanced": true
+        },
+        "EMBEDDING_DIMENSIONS": {
+          "label": "Embedding Dimensions (Fallback)",
+          "group": "Embeddings",
+          "width": "half",
+          "min": 1,
+          "advanced": true
+        },
+        "OPENROUTER_AUTO_CLEANUP_IMAGES": {
+          "label": "Auto Cleanup Images",
+          "group": "Advanced",
+          "advanced": true
+        },
+        "OPENROUTER_TOOL_EXECUTION_MAX_STEPS": {
+          "label": "Tool Execution Max Steps",
+          "group": "Advanced",
+          "width": "half",
+          "min": 1,
+          "advanced": true
+        }
       }
     },
     {
@@ -3996,6 +6483,13 @@
           "description": "Comma-separated admin user list",
           "required": false,
           "sensitive": false
+        }
+      },
+      "configUiHints": {
+        "ADMIN_USERS": {
+          "label": "Admin Users",
+          "width": "full",
+          "placeholder": "user1,user2,user3"
         }
       }
     },
@@ -4067,6 +6561,38 @@
           "required": false,
           "sensitive": true
         }
+      },
+      "configUiHints": {
+        "POLYMARKET_PRIVATE_KEY": {
+          "label": "Private Key",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "CLOB_API_KEY": {
+          "label": "API Key",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "CLOB_API_SECRET": {
+          "label": "API Secret",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "CLOB_API_PASSPHRASE": {
+          "label": "API Passphrase",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "CLOB_API_URL": {
+          "label": "CLOB API URL",
+          "group": "Connection",
+          "width": "full"
+        },
+        "CLOB_WS_URL": {
+          "label": "WebSocket URL",
+          "group": "Connection",
+          "width": "full"
+        }
       }
     },
     {
@@ -4095,6 +6621,20 @@
         "PROSE_SKILLS_DIR": {
           "type": "string",
           "description": "Directory containing prose skill files (prose.md, help.md, etc.)"
+        }
+      },
+      "configUiHints": {
+        "PROSE_WORKSPACE_DIR": {
+          "label": "Workspace Directory",
+          "width": "full"
+        },
+        "PROSE_STATE_MODE": {
+          "label": "State Mode",
+          "width": "half"
+        },
+        "PROSE_SKILLS_DIR": {
+          "label": "Skills Directory",
+          "width": "full"
         }
       }
     },
@@ -4173,6 +6713,45 @@
           "default": false,
           "sensitive": false
         }
+      },
+      "configUiHints": {
+        "ROBLOX_API_KEY": {
+          "label": "API Key",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "ROBLOX_WEBHOOK_SECRET": {
+          "label": "Webhook Secret",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "ROBLOX_UNIVERSE_ID": {
+          "label": "Universe ID",
+          "group": "Connection",
+          "width": "half"
+        },
+        "ROBLOX_PLACE_ID": {
+          "label": "Place ID",
+          "group": "Connection",
+          "width": "half"
+        },
+        "ROBLOX_MESSAGING_TOPIC": {
+          "label": "Messaging Topic",
+          "group": "Connection",
+          "width": "half"
+        },
+        "ROBLOX_POLL_INTERVAL": {
+          "label": "Poll Interval",
+          "group": "Connection",
+          "width": "half",
+          "unit": "s",
+          "min": 1
+        },
+        "ROBLOX_DRY_RUN": {
+          "label": "Dry Run",
+          "group": "Connection",
+          "advanced": true
+        }
       }
     },
     {
@@ -4239,6 +6818,28 @@
           "required": false,
           "default": 15,
           "sensitive": false
+        }
+      },
+      "configUiHints": {
+        "RSS_FEEDS": {
+          "label": "Feed URLs",
+          "width": "full",
+          "placeholder": "https://example.com/feed.xml"
+        },
+        "RSS_FEED_FORMAT": {
+          "label": "Output Format",
+          "width": "half"
+        },
+        "RSS_CHECK_INTERVAL_MINUTES": {
+          "label": "Check Interval",
+          "width": "half",
+          "unit": "min",
+          "min": 1
+        },
+        "RSS_DISABLE_ACTIONS": {
+          "label": "Disable Actions",
+          "width": "half",
+          "advanced": true
         }
       }
     },
@@ -4310,6 +6911,49 @@
           "required": false,
           "sensitive": false
         }
+      },
+      "configUiHints": {
+        "AWS_ACCESS_KEY_ID": {
+          "label": "Access Key ID",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "AWS_SECRET_ACCESS_KEY": {
+          "label": "Secret Access Key",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "AWS_REGION": {
+          "label": "Region",
+          "group": "Bucket",
+          "width": "half"
+        },
+        "AWS_S3_BUCKET": {
+          "label": "Bucket Name",
+          "group": "Bucket",
+          "width": "half"
+        },
+        "AWS_S3_UPLOAD_PATH": {
+          "label": "Upload Path",
+          "group": "Bucket",
+          "width": "full"
+        },
+        "AWS_S3_ENDPOINT": {
+          "label": "Custom Endpoint",
+          "group": "Advanced",
+          "width": "full",
+          "advanced": true
+        },
+        "AWS_S3_SSL_ENABLED": {
+          "label": "SSL Enabled",
+          "group": "Advanced",
+          "advanced": true
+        },
+        "AWS_S3_FORCE_PATH_STYLE": {
+          "label": "Force Path Style",
+          "group": "Advanced",
+          "advanced": true
+        }
       }
     },
     {
@@ -4328,6 +6972,13 @@
           "description": "Default timezone (e.g. America/New_York)",
           "required": false,
           "sensitive": false
+        }
+      },
+      "configUiHints": {
+        "DEFAULT_TIMEZONE": {
+          "label": "Default Timezone",
+          "width": "half",
+          "placeholder": "America/New_York"
         }
       }
     },
@@ -4354,6 +7005,18 @@
           "required": false,
           "default": 1048576,
           "sensitive": false
+        }
+      },
+      "configUiHints": {
+        "SCRATCHPAD_BASE_PATH": {
+          "label": "Base Path",
+          "width": "full"
+        },
+        "SCRATCHPAD_MAX_FILE_SIZE": {
+          "label": "Max File Size",
+          "width": "half",
+          "unit": "bytes",
+          "min": 0
         }
       }
     },
@@ -4388,6 +7051,22 @@
           "description": "Enable access logging for audit (default: true)",
           "required": false,
           "example": "true"
+        }
+      },
+      "configUiHints": {
+        "ENCRYPTION_SALT": {
+          "label": "Encryption Salt",
+          "width": "half",
+          "advanced": true
+        },
+        "ENABLE_ENCRYPTION": {
+          "label": "Enable Encryption",
+          "width": "half"
+        },
+        "ENABLE_ACCESS_LOGGING": {
+          "label": "Enable Access Logging",
+          "width": "half",
+          "advanced": true
         }
       }
     },
@@ -4457,6 +7136,51 @@
           "default": 1800000,
           "sensitive": false
         }
+      },
+      "configUiHints": {
+        "SHELL_ALLOWED_DIRECTORY": {
+          "label": "Allowed Directory",
+          "group": "Security",
+          "width": "full"
+        },
+        "SHELL_FORBIDDEN_COMMANDS": {
+          "label": "Forbidden Commands",
+          "group": "Security",
+          "width": "full"
+        },
+        "SHELL_TIMEOUT": {
+          "label": "Command Timeout",
+          "group": "Limits",
+          "width": "half",
+          "unit": "ms",
+          "min": 1000
+        },
+        "SHELL_MAX_OUTPUT_CHARS": {
+          "label": "Max Output Characters",
+          "group": "Limits",
+          "width": "half",
+          "min": 0
+        },
+        "SHELL_ALLOW_BACKGROUND": {
+          "label": "Allow Background Jobs",
+          "group": "Background Jobs",
+          "width": "half"
+        },
+        "SHELL_BACKGROUND_MS": {
+          "label": "Background Threshold",
+          "group": "Background Jobs",
+          "width": "half",
+          "unit": "ms",
+          "min": 0
+        },
+        "SHELL_JOB_TTL_MS": {
+          "label": "Job TTL",
+          "group": "Background Jobs",
+          "width": "half",
+          "unit": "ms",
+          "min": 0,
+          "advanced": true
+        }
       }
     },
     {
@@ -4498,6 +7222,27 @@
           "description": "If true, the bot will only respond to direct messages",
           "required": false,
           "sensitive": false
+        }
+      },
+      "configUiHints": {
+        "SIGNAL_ACCOUNT_NUMBER": {
+          "label": "Account Number",
+          "width": "half",
+          "placeholder": "+1234567890"
+        },
+        "SIGNAL_HTTP_URL": {
+          "label": "HTTP API URL",
+          "width": "full",
+          "placeholder": "http://localhost:8080"
+        },
+        "SIGNAL_CLI_PATH": {
+          "label": "CLI Path",
+          "width": "full",
+          "advanced": true
+        },
+        "SIGNAL_SHOULD_IGNORE_GROUP_MESSAGES": {
+          "label": "Ignore Group Messages",
+          "width": "half"
         }
       }
     },
@@ -4573,6 +7318,46 @@
           "required": false,
           "sensitive": false
         }
+      },
+      "configUiHints": {
+        "SLACK_BOT_TOKEN": {
+          "label": "Bot Token",
+          "group": "Authentication",
+          "width": "half",
+          "placeholder": "xoxb-..."
+        },
+        "SLACK_APP_TOKEN": {
+          "label": "App Token",
+          "group": "Authentication",
+          "width": "half",
+          "placeholder": "xapp-..."
+        },
+        "SLACK_SIGNING_SECRET": {
+          "label": "Signing Secret",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "SLACK_USER_TOKEN": {
+          "label": "User Token",
+          "group": "Authentication",
+          "width": "half",
+          "placeholder": "xoxp-...",
+          "advanced": true
+        },
+        "SLACK_CHANNEL_IDS": {
+          "label": "Channel IDs",
+          "group": "Channels",
+          "width": "full",
+          "placeholder": "C01ABCDEF,C02GHIJKL"
+        },
+        "SLACK_SHOULD_IGNORE_BOT_MESSAGES": {
+          "label": "Ignore Bot Messages",
+          "group": "Behavior"
+        },
+        "SLACK_SHOULD_RESPOND_ONLY_TO_MENTIONS": {
+          "label": "Respond Only to Mentions",
+          "group": "Behavior"
+        }
       }
     },
     {
@@ -4628,6 +7413,32 @@
           "description": "API key for Moralis",
           "required": true,
           "sensitive": true
+        }
+      },
+      "configUiHints": {
+        "BIRDEYE_API_KEY": {
+          "label": "Birdeye API Key",
+          "width": "half"
+        },
+        "DEXSCREENER_API_KEY": {
+          "label": "DexScreener API Key",
+          "width": "half"
+        },
+        "JUPITER_API_KEY": {
+          "label": "Jupiter API Key",
+          "width": "half"
+        },
+        "HELIUS_API_KEY": {
+          "label": "Helius API Key",
+          "width": "half"
+        },
+        "COINGECKO_API_KEY": {
+          "label": "CoinGecko API Key",
+          "width": "half"
+        },
+        "MORALIS_API_KEY": {
+          "label": "Moralis API Key",
+          "width": "half"
         }
       }
     },
@@ -4721,6 +7532,66 @@
           "required": false,
           "sensitive": true
         }
+      },
+      "configUiHints": {
+        "WALLET_PUBLIC_KEY": {
+          "label": "Wallet Public Key",
+          "group": "Wallet",
+          "width": "half"
+        },
+        "WALLET_SECRET_KEY": {
+          "label": "Wallet Secret Key",
+          "group": "Wallet",
+          "width": "half"
+        },
+        "WALLET_SECRET_SALT": {
+          "label": "Wallet Secret Salt",
+          "group": "Wallet",
+          "width": "half"
+        },
+        "WALLET_PRIVATE_KEY": {
+          "label": "Wallet Private Key (Alt)",
+          "group": "Wallet",
+          "width": "half",
+          "advanced": true
+        },
+        "SOLANA_PUBLIC_KEY": {
+          "label": "Solana Public Key (Alt)",
+          "group": "Wallet",
+          "width": "half",
+          "advanced": true
+        },
+        "SOLANA_PRIVATE_KEY": {
+          "label": "Solana Private Key (Alt)",
+          "group": "Wallet",
+          "width": "half",
+          "advanced": true
+        },
+        "SOLANA_RPC_URL": {
+          "label": "RPC URL",
+          "group": "Connection",
+          "width": "full"
+        },
+        "SOL_ADDRESS": {
+          "label": "SOL Token Address",
+          "group": "Connection",
+          "width": "half"
+        },
+        "SLIPPAGE": {
+          "label": "Slippage",
+          "group": "Trading",
+          "width": "half"
+        },
+        "HELIUS_API_KEY": {
+          "label": "Helius API Key",
+          "group": "API Keys",
+          "width": "half"
+        },
+        "BIRDEYE_API_KEY": {
+          "label": "Birdeye API Key",
+          "group": "API Keys",
+          "width": "half"
+        }
       }
     },
     {
@@ -4765,6 +7636,21 @@
           "default": "secret_salt",
           "sensitive": true
         }
+      },
+      "configUiHints": {
+        "TEE_MODE": {
+          "label": "TEE Mode",
+          "width": "half"
+        },
+        "TEE_VENDOR": {
+          "label": "TEE Vendor",
+          "width": "half",
+          "placeholder": "PHALA"
+        },
+        "WALLET_SECRET_SALT": {
+          "label": "Wallet Secret Salt",
+          "width": "half"
+        }
       }
     },
     {
@@ -4806,6 +7692,27 @@
           "description": "Telegram chat ID used by the test suite to send, receive, and validate messages during Telegram bot tests.",
           "required": false,
           "sensitive": false
+        }
+      },
+      "configUiHints": {
+        "TELEGRAM_API_ROOT": {
+          "label": "API Root URL",
+          "width": "full",
+          "placeholder": "https://api.telegram.org"
+        },
+        "TELEGRAM_BOT_TOKEN": {
+          "label": "Bot Token",
+          "width": "half"
+        },
+        "TELEGRAM_ALLOWED_CHATS": {
+          "label": "Allowed Chat IDs",
+          "width": "full",
+          "placeholder": "[\"123456789\", \"-100987654\"]"
+        },
+        "TELEGRAM_TEST_CHAT_ID": {
+          "label": "Test Chat ID",
+          "width": "half",
+          "advanced": true
         }
       }
     },
@@ -4870,6 +7777,43 @@
           "required": false,
           "sensitive": false
         }
+      },
+      "configUiHints": {
+        "TLON_SHIP": {
+          "label": "Ship Identifier",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "TLON_URL": {
+          "label": "Tlon URL",
+          "group": "Authentication",
+          "width": "full"
+        },
+        "TLON_CODE": {
+          "label": "Access Code",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "TLON_ENABLED": {
+          "label": "Enabled",
+          "group": "Behavior",
+          "width": "half"
+        },
+        "TLON_GROUP_CHANNELS": {
+          "label": "Group Channels",
+          "group": "Channels",
+          "width": "full"
+        },
+        "TLON_DM_ALLOWLIST": {
+          "label": "DM Allowlist",
+          "group": "Channels",
+          "width": "full"
+        },
+        "TLON_AUTO_DISCOVER_CHANNELS": {
+          "label": "Auto-Discover Channels",
+          "group": "Behavior",
+          "width": "half"
+        }
       }
     },
     {
@@ -4896,6 +7840,18 @@
           "required": false,
           "default": 30000,
           "sensitive": false
+        }
+      },
+      "configUiHints": {
+        "ENABLE_REMINDERS": {
+          "label": "Enable Reminders",
+          "width": "half"
+        },
+        "REMINDER_INTERVAL_MS": {
+          "label": "Reminder Interval",
+          "width": "half",
+          "unit": "ms",
+          "min": 1000
         }
       }
     },
@@ -4933,6 +7889,16 @@
           "description": "World identifier",
           "required": false,
           "sensitive": false
+        }
+      },
+      "configUiHints": {
+        "OWNER_ENTITY_ID": {
+          "label": "Owner Entity ID",
+          "width": "half"
+        },
+        "WORLD_ID": {
+          "label": "World ID",
+          "width": "half"
         }
       }
     },
@@ -4986,6 +7952,37 @@
           "description": "Default voice ID for synthesis",
           "required": false,
           "sensitive": false
+        }
+      },
+      "configUiHints": {
+        "TTS_AUTO_MODE": {
+          "label": "Auto Mode",
+          "group": "General",
+          "width": "half"
+        },
+        "TTS_DEFAULT_PROVIDER": {
+          "label": "Default Provider",
+          "group": "General",
+          "width": "half"
+        },
+        "TTS_DEFAULT_VOICE": {
+          "label": "Default Voice",
+          "group": "General",
+          "width": "half"
+        },
+        "TTS_MAX_LENGTH": {
+          "label": "Max Text Length",
+          "group": "Advanced",
+          "width": "half",
+          "min": 1,
+          "max": 10000,
+          "advanced": true
+        },
+        "TTS_SUMMARIZE": {
+          "label": "Summarize Long Text",
+          "group": "Advanced",
+          "width": "half",
+          "advanced": true
         }
       }
     },
@@ -5120,6 +8117,101 @@
           "required": false,
           "sensitive": false
         }
+      },
+      "configUiHints": {
+        "TWILIO_ACCOUNT_SID": {
+          "label": "Account SID",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "TWILIO_AUTH_TOKEN": {
+          "label": "Auth Token",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "TWILIO_PHONE_NUMBER": {
+          "label": "Phone Number",
+          "group": "Connection",
+          "width": "half",
+          "placeholder": "+1234567890"
+        },
+        "TWILIO_WEBHOOK_URL": {
+          "label": "Webhook URL",
+          "group": "Connection",
+          "width": "half"
+        },
+        "TWILIO_WEBHOOK_PORT": {
+          "label": "Webhook Port",
+          "group": "Connection",
+          "width": "half",
+          "min": 1,
+          "max": 65535
+        },
+        "VOICE_CALL_PROVIDER": {
+          "label": "Voice Call Provider",
+          "group": "Voice",
+          "width": "half"
+        },
+        "VOICE_CALL_FROM_NUMBER": {
+          "label": "From Number",
+          "group": "Voice",
+          "width": "half"
+        },
+        "VOICE_CALL_TO_NUMBER": {
+          "label": "To Number",
+          "group": "Voice",
+          "width": "half"
+        },
+        "VOICE_CALL_WEBHOOK_PORT": {
+          "label": "Voice Webhook Port",
+          "group": "Voice",
+          "width": "half",
+          "min": 1,
+          "max": 65535
+        },
+        "VOICE_CALL_WEBHOOK_PATH": {
+          "label": "Voice Webhook Path",
+          "group": "Voice",
+          "width": "half"
+        },
+        "VOICE_CALL_PUBLIC_URL": {
+          "label": "Public URL",
+          "group": "Voice",
+          "width": "half"
+        },
+        "VOICE_CALL_MAX_DURATION_SECONDS": {
+          "label": "Max Call Duration",
+          "group": "Voice",
+          "width": "half",
+          "unit": "sec",
+          "min": 1
+        },
+        "VOICE_CALL_MAX_CONCURRENT_CALLS": {
+          "label": "Max Concurrent Calls",
+          "group": "Voice",
+          "width": "half",
+          "min": 1
+        },
+        "VOICE_CALL_INBOUND_POLICY": {
+          "label": "Inbound Policy",
+          "group": "Voice",
+          "width": "half"
+        },
+        "VOICE_CALL_ALLOW_FROM": {
+          "label": "Allow From",
+          "group": "Voice",
+          "width": "full"
+        },
+        "VOICE_CALL_INBOUND_GREETING": {
+          "label": "Inbound Greeting",
+          "group": "Voice",
+          "width": "full"
+        },
+        "VOICE_CALL_ENABLED": {
+          "label": "Voice Calls Enabled",
+          "group": "Advanced",
+          "advanced": true
+        }
       }
     },
     {
@@ -5196,6 +8288,61 @@
           "description": "Comma-separated allowed roles",
           "required": false,
           "sensitive": false
+        }
+      },
+      "configUiHints": {
+        "TWITCH_USERNAME": {
+          "label": "Username",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "TWITCH_CLIENT_ID": {
+          "label": "Client ID",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "TWITCH_ACCESS_TOKEN": {
+          "label": "Access Token",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "TWITCH_CLIENT_SECRET": {
+          "label": "Client Secret",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "TWITCH_REFRESH_TOKEN": {
+          "label": "Refresh Token",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "TWITCH_CHANNEL": {
+          "label": "Primary Channel",
+          "group": "Channels",
+          "width": "half"
+        },
+        "TWITCH_CHANNELS": {
+          "label": "Additional Channels",
+          "group": "Channels",
+          "width": "full"
+        },
+        "TWITCH_REQUIRE_MENTION": {
+          "label": "Require Mention",
+          "group": "Behavior",
+          "width": "half"
+        },
+        "TWITCH_ALLOWED_ROLES": {
+          "label": "Allowed Roles",
+          "group": "Behavior",
+          "width": "full",
+          "type": "multiselect",
+          "options": [
+            { "value": "broadcaster", "label": "Broadcaster" },
+            { "value": "moderator", "label": "Moderator" },
+            { "value": "vip", "label": "VIP" },
+            { "value": "subscriber", "label": "Subscriber" },
+            { "value": "viewer", "label": "Viewer" }
+          ]
         }
       }
     },
@@ -5288,6 +8435,64 @@
           "default": 60000,
           "sensitive": false
         }
+      },
+      "configUiHints": {
+        "AI_GATEWAY_API_KEY": {
+          "label": "API Key",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "AIGATEWAY_API_KEY": {
+          "label": "API Key (Alternate)",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "VERCEL_OIDC_TOKEN": {
+          "label": "OIDC Token",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "AI_GATEWAY_BASE_URL": {
+          "label": "Base URL",
+          "group": "Models",
+          "width": "full"
+        },
+        "AI_GATEWAY_SMALL_MODEL": {
+          "label": "Small Model",
+          "group": "Models",
+          "width": "half"
+        },
+        "AI_GATEWAY_LARGE_MODEL": {
+          "label": "Large Model",
+          "group": "Models",
+          "width": "half"
+        },
+        "AI_GATEWAY_EMBEDDING_MODEL": {
+          "label": "Embedding Model",
+          "group": "Models",
+          "width": "half"
+        },
+        "AI_GATEWAY_EMBEDDING_DIMENSIONS": {
+          "label": "Embedding Dimensions",
+          "group": "Advanced",
+          "width": "half",
+          "min": 1,
+          "advanced": true
+        },
+        "AI_GATEWAY_IMAGE_MODEL": {
+          "label": "Image Model",
+          "group": "Models",
+          "width": "half"
+        },
+        "AI_GATEWAY_TIMEOUT_MS": {
+          "label": "Request Timeout",
+          "group": "Advanced",
+          "width": "half",
+          "unit": "ms",
+          "min": 1000,
+          "max": 300000,
+          "advanced": true
+        }
       }
     },
     {
@@ -5308,6 +8513,19 @@
         "PIXEL_CHANGE_THRESHOLD": {
           "type": "number",
           "description": "Percentage of pixels that must change to trigger VLM update (default: 50)"
+        }
+      },
+      "configUiHints": {
+        "CAMERA_NAME": {
+          "label": "Camera Name",
+          "width": "half"
+        },
+        "PIXEL_CHANGE_THRESHOLD": {
+          "label": "Pixel Change Threshold",
+          "width": "half",
+          "unit": "%",
+          "min": 0,
+          "max": 100
         }
       }
     },
@@ -5382,6 +8600,43 @@
           "description": "Group message policy",
           "required": false,
           "sensitive": false
+        }
+      },
+      "configUiHints": {
+        "WHATSAPP_ACCESS_TOKEN": {
+          "label": "Access Token",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "WHATSAPP_PHONE_NUMBER_ID": {
+          "label": "Phone Number ID",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "WHATSAPP_WEBHOOK_VERIFY_TOKEN": {
+          "label": "Webhook Verify Token",
+          "group": "Webhook",
+          "width": "half"
+        },
+        "WHATSAPP_BUSINESS_ACCOUNT_ID": {
+          "label": "Business Account ID",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "WHATSAPP_API_VERSION": {
+          "label": "API Version",
+          "group": "Webhook",
+          "width": "half"
+        },
+        "WHATSAPP_DM_POLICY": {
+          "label": "DM Policy",
+          "group": "Policies",
+          "width": "half"
+        },
+        "WHATSAPP_GROUP_POLICY": {
+          "label": "Group Policy",
+          "group": "Policies",
+          "width": "half"
         }
       }
     },
@@ -5459,6 +8714,57 @@
           "description": "Database file path",
           "required": false,
           "sensitive": false
+        }
+      },
+      "configUiHints": {
+        "X402_AGENT_URL": {
+          "label": "Agent URL",
+          "group": "Connection",
+          "width": "full"
+        },
+        "X402_PRIVATE_KEY": {
+          "label": "Private Key",
+          "group": "Connection",
+          "width": "half"
+        },
+        "X402_NETWORK": {
+          "label": "Network",
+          "group": "Connection",
+          "width": "half"
+        },
+        "X402_PAY_TO": {
+          "label": "Pay To Address",
+          "group": "Payment",
+          "width": "half"
+        },
+        "X402_FACILITATOR_URL": {
+          "label": "Facilitator URL",
+          "group": "Payment",
+          "width": "full"
+        },
+        "X402_MAX_PAYMENT_USD": {
+          "label": "Max Payment (USD)",
+          "group": "Payment",
+          "width": "half",
+          "min": 0
+        },
+        "X402_MAX_TOTAL_USD": {
+          "label": "Max Total Spend (USD)",
+          "group": "Payment",
+          "width": "half",
+          "min": 0
+        },
+        "X402_ENABLED": {
+          "label": "Enabled",
+          "group": "Advanced",
+          "width": "half",
+          "advanced": true
+        },
+        "X402_DB_PATH": {
+          "label": "Database Path",
+          "group": "Advanced",
+          "width": "full",
+          "advanced": true
         }
       }
     },
@@ -5610,6 +8916,102 @@
           "default": 280,
           "sensitive": false
         }
+      },
+      "configUiHints": {
+        "XAI_API_KEY": {
+          "label": "xAI API Key",
+          "group": "AI Models",
+          "width": "half"
+        },
+        "XAI_MODEL": {
+          "label": "Model",
+          "group": "AI Models",
+          "width": "half"
+        },
+        "XAI_SMALL_MODEL": {
+          "label": "Small Model",
+          "group": "AI Models",
+          "width": "half"
+        },
+        "XAI_EMBEDDING_MODEL": {
+          "label": "Embedding Model",
+          "group": "AI Models",
+          "width": "half"
+        },
+        "XAI_BASE_URL": {
+          "label": "Base URL",
+          "group": "AI Models",
+          "width": "full"
+        },
+        "X_AUTH_MODE": {
+          "label": "Auth Mode",
+          "group": "X/Twitter Authentication",
+          "width": "half"
+        },
+        "X_API_KEY": {
+          "label": "API Key",
+          "group": "X/Twitter Authentication",
+          "width": "half"
+        },
+        "X_API_SECRET": {
+          "label": "API Secret",
+          "group": "X/Twitter Authentication",
+          "width": "half"
+        },
+        "X_ACCESS_TOKEN": {
+          "label": "Access Token",
+          "group": "X/Twitter Authentication",
+          "width": "half"
+        },
+        "X_ACCESS_TOKEN_SECRET": {
+          "label": "Access Token Secret",
+          "group": "X/Twitter Authentication",
+          "width": "half"
+        },
+        "X_BEARER_TOKEN": {
+          "label": "Bearer Token",
+          "group": "X/Twitter Authentication",
+          "width": "half"
+        },
+        "X_CLIENT_ID": {
+          "label": "Client ID",
+          "group": "X/Twitter Authentication",
+          "width": "half"
+        },
+        "X_REDIRECT_URI": {
+          "label": "Redirect URI",
+          "group": "X/Twitter Authentication",
+          "width": "full"
+        },
+        "X_DRY_RUN": {
+          "label": "Dry Run",
+          "group": "Advanced",
+          "width": "half",
+          "advanced": true
+        },
+        "X_ENABLE_POST": {
+          "label": "Enable Posting",
+          "group": "X/Twitter Behavior",
+          "width": "half"
+        },
+        "X_ENABLE_REPLIES": {
+          "label": "Enable Replies",
+          "group": "X/Twitter Behavior",
+          "width": "half"
+        },
+        "X_ENABLE_ACTIONS": {
+          "label": "Enable Actions",
+          "group": "X/Twitter Behavior",
+          "width": "half"
+        },
+        "X_MAX_POST_LENGTH": {
+          "label": "Max Post Length",
+          "group": "Advanced",
+          "width": "half",
+          "min": 1,
+          "max": 4000,
+          "advanced": true
+        }
       }
     },
     {
@@ -5694,6 +9096,63 @@
           "required": false,
           "sensitive": false
         }
+      },
+      "configUiHints": {
+        "ZALO_APP_ID": {
+          "label": "App ID",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "ZALO_SECRET_KEY": {
+          "label": "Secret Key",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "ZALO_ACCESS_TOKEN": {
+          "label": "Access Token",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "ZALO_REFRESH_TOKEN": {
+          "label": "Refresh Token",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "ZALO_WEBHOOK_URL": {
+          "label": "Webhook URL",
+          "group": "Webhook",
+          "width": "full"
+        },
+        "ZALO_WEBHOOK_PATH": {
+          "label": "Webhook Path",
+          "group": "Webhook",
+          "width": "half"
+        },
+        "ZALO_WEBHOOK_PORT": {
+          "label": "Webhook Port",
+          "group": "Webhook",
+          "width": "half",
+          "min": 1,
+          "max": 65535
+        },
+        "ZALO_USE_POLLING": {
+          "label": "Use Polling",
+          "group": "Advanced",
+          "width": "half",
+          "advanced": true
+        },
+        "ZALO_ENABLED": {
+          "label": "Enabled",
+          "group": "Advanced",
+          "width": "half",
+          "advanced": true
+        },
+        "ZALO_PROXY_URL": {
+          "label": "Proxy URL",
+          "group": "Advanced",
+          "width": "full",
+          "advanced": true
+        }
       }
     },
     {
@@ -5777,6 +9236,60 @@
           "description": "Group message policy (e.g. allow, deny)",
           "required": false,
           "sensitive": false
+        }
+      },
+      "configUiHints": {
+        "ZALOUSER_COOKIE_PATH": {
+          "label": "Cookie Path",
+          "group": "Authentication",
+          "width": "full"
+        },
+        "ZALOUSER_IMEI": {
+          "label": "IMEI",
+          "group": "Authentication",
+          "width": "half"
+        },
+        "ZALOUSER_USER_AGENT": {
+          "label": "User Agent",
+          "group": "Authentication",
+          "width": "full"
+        },
+        "ZALOUSER_PROFILES": {
+          "label": "Profiles",
+          "group": "Behavior",
+          "width": "full"
+        },
+        "ZALOUSER_ENABLED": {
+          "label": "Enabled",
+          "group": "Behavior",
+          "width": "half"
+        },
+        "ZALOUSER_DEFAULT_PROFILE": {
+          "label": "Default Profile",
+          "group": "Behavior",
+          "width": "half"
+        },
+        "ZALOUSER_LISTEN_TIMEOUT": {
+          "label": "Listen Timeout",
+          "group": "Behavior",
+          "width": "half",
+          "unit": "ms",
+          "min": 0
+        },
+        "ZALOUSER_ALLOWED_THREADS": {
+          "label": "Allowed Threads",
+          "group": "Policies",
+          "width": "full"
+        },
+        "ZALOUSER_DM_POLICY": {
+          "label": "DM Policy",
+          "group": "Policies",
+          "width": "half"
+        },
+        "ZALOUSER_GROUP_POLICY": {
+          "label": "Group Policy",
+          "group": "Policies",
+          "width": "half"
         }
       }
     }

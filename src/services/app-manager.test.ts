@@ -484,6 +484,172 @@ describe("AppManager", () => {
         expect.stringContaining("auth token not configured"),
       );
     });
+
+    it("includes 2004scape postMessage auth payload with configured credentials", async () => {
+      process.env.RS_SDK_BOT_NAME = "myagent";
+      process.env.RS_SDK_BOT_PASSWORD = "secretpass";
+
+      const { getAppInfo } = await import("./registry-client.js");
+      vi.mocked(getAppInfo).mockResolvedValue({
+        name: "@elizaos/app-2004scape",
+        displayName: "2004scape",
+        description: "2004scape",
+        category: "game",
+        launchType: "connect",
+        launchUrl: "http://localhost:8880",
+        icon: null,
+        capabilities: [],
+        stars: 0,
+        repository: "",
+        latestVersion: "1.0.0",
+        supports: { v0: false, v1: false, v2: true },
+        npm: {
+          package: "@elizaos/app-2004scape",
+          v0Version: null,
+          v1Version: null,
+          v2Version: "1.0.0",
+        },
+        viewer: {
+          url: "http://localhost:8880",
+          postMessageAuth: true,
+        },
+      });
+
+      const { listInstalledPlugins } = await import("./plugin-installer.js");
+      vi.mocked(listInstalledPlugins).mockReturnValue([
+        {
+          name: "@elizaos/app-2004scape",
+          version: "1.0.0",
+          installPath: "/tmp/rs",
+          installedAt: "2026-01-01",
+        },
+      ]);
+
+      const { AppManager } = await import("./app-manager.js");
+      const mgr = new AppManager();
+      const result = await mgr.launch("@elizaos/app-2004scape");
+
+      expect(result.viewer?.postMessageAuth).toBe(true);
+      expect(result.viewer?.authMessage).toEqual({
+        type: "RS_2004SCAPE_AUTH",
+        authToken: "myagent",
+        sessionToken: "secretpass",
+      });
+
+      delete process.env.RS_SDK_BOT_NAME;
+      delete process.env.RS_SDK_BOT_PASSWORD;
+    });
+
+    it("uses fallback credentials for 2004scape postMessage auth", async () => {
+      delete process.env.RS_SDK_BOT_NAME;
+      delete process.env.RS_SDK_BOT_PASSWORD;
+      process.env.BOT_NAME = "fallbackbot";
+      process.env.BOT_PASSWORD = "fallbackpass";
+
+      const { getAppInfo } = await import("./registry-client.js");
+      vi.mocked(getAppInfo).mockResolvedValue({
+        name: "@elizaos/app-2004scape",
+        displayName: "2004scape",
+        description: "2004scape",
+        category: "game",
+        launchType: "connect",
+        launchUrl: "http://localhost:8880",
+        icon: null,
+        capabilities: [],
+        stars: 0,
+        repository: "",
+        latestVersion: "1.0.0",
+        supports: { v0: false, v1: false, v2: true },
+        npm: {
+          package: "@elizaos/app-2004scape",
+          v0Version: null,
+          v1Version: null,
+          v2Version: "1.0.0",
+        },
+        viewer: {
+          url: "http://localhost:8880",
+          postMessageAuth: true,
+        },
+      });
+
+      const { listInstalledPlugins } = await import("./plugin-installer.js");
+      vi.mocked(listInstalledPlugins).mockReturnValue([
+        {
+          name: "@elizaos/app-2004scape",
+          version: "1.0.0",
+          installPath: "/tmp/rs",
+          installedAt: "2026-01-01",
+        },
+      ]);
+
+      const { AppManager } = await import("./app-manager.js");
+      const mgr = new AppManager();
+      const result = await mgr.launch("@elizaos/app-2004scape");
+
+      expect(result.viewer?.postMessageAuth).toBe(true);
+      expect(result.viewer?.authMessage).toEqual({
+        type: "RS_2004SCAPE_AUTH",
+        authToken: "fallbackbot",
+        sessionToken: "fallbackpass",
+      });
+
+      delete process.env.BOT_NAME;
+      delete process.env.BOT_PASSWORD;
+    });
+
+    it("uses testbot default for 2004scape when no credentials configured", async () => {
+      delete process.env.RS_SDK_BOT_NAME;
+      delete process.env.RS_SDK_BOT_PASSWORD;
+      delete process.env.BOT_NAME;
+      delete process.env.BOT_PASSWORD;
+
+      const { getAppInfo } = await import("./registry-client.js");
+      vi.mocked(getAppInfo).mockResolvedValue({
+        name: "@elizaos/app-2004scape",
+        displayName: "2004scape",
+        description: "2004scape",
+        category: "game",
+        launchType: "connect",
+        launchUrl: "http://localhost:8880",
+        icon: null,
+        capabilities: [],
+        stars: 0,
+        repository: "",
+        latestVersion: "1.0.0",
+        supports: { v0: false, v1: false, v2: true },
+        npm: {
+          package: "@elizaos/app-2004scape",
+          v0Version: null,
+          v1Version: null,
+          v2Version: "1.0.0",
+        },
+        viewer: {
+          url: "http://localhost:8880",
+          postMessageAuth: true,
+        },
+      });
+
+      const { listInstalledPlugins } = await import("./plugin-installer.js");
+      vi.mocked(listInstalledPlugins).mockReturnValue([
+        {
+          name: "@elizaos/app-2004scape",
+          version: "1.0.0",
+          installPath: "/tmp/rs",
+          installedAt: "2026-01-01",
+        },
+      ]);
+
+      const { AppManager } = await import("./app-manager.js");
+      const mgr = new AppManager();
+      const result = await mgr.launch("@elizaos/app-2004scape");
+
+      expect(result.viewer?.postMessageAuth).toBe(true);
+      expect(result.viewer?.authMessage).toEqual({
+        type: "RS_2004SCAPE_AUTH",
+        authToken: "testbot",
+        sessionToken: "",
+      });
+    });
   });
 
   describe("search", () => {
