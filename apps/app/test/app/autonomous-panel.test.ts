@@ -12,7 +12,8 @@ interface AutonomousPanelContextStub {
   autonomousEvents: StreamEventEnvelope[];
   workbench: WorkbenchOverview | null;
   workbenchLoading: boolean;
-  workbenchGoalsAvailable: boolean;
+  workbenchTasksAvailable: boolean;
+  workbenchTriggersAvailable: boolean;
   workbenchTodosAvailable: boolean;
 }
 
@@ -60,7 +61,8 @@ function makeContext(
     autonomousEvents: [],
     workbench: null,
     workbenchLoading: false,
-    workbenchGoalsAvailable: false,
+    workbenchTasksAvailable: false,
+    workbenchTriggersAvailable: false,
     workbenchTodosAvailable: false,
     ...overrides,
   };
@@ -133,21 +135,35 @@ describe("AutonomousPanel", () => {
     expect(panelText).toContain("provider event");
   });
 
-  it("renders goals and tasks from workbench context", async () => {
+  it("renders tasks, triggers, and todos from workbench context", async () => {
     mockUseApp.mockReturnValue(
       makeContext({
         agentStatus: makeStatus("running"),
-        workbenchGoalsAvailable: true,
+        workbenchTasksAvailable: true,
+        workbenchTriggersAvailable: true,
         workbenchTodosAvailable: true,
         workbench: {
-          goals: [
+          tasks: [
             {
-              id: "goal-1",
+              id: "task-1",
               name: "Investigate autonomous stream reliability",
               description: "Track and validate stream correctness",
               isCompleted: false,
               tags: ["ops", "observability"],
-              score: 1,
+              updatedAt: Date.now(),
+            },
+          ],
+          triggers: [
+            {
+              id: "trigger-1",
+              taskId: "trigger-task-1",
+              displayName: "Heartbeat Trigger",
+              instructions: "Emit heartbeat update",
+              triggerType: "interval",
+              enabled: true,
+              wakeMode: "inject_now",
+              createdBy: "test",
+              runCount: 2,
             },
           ],
           todos: [
@@ -175,10 +191,11 @@ describe("AutonomousPanel", () => {
     });
 
     const panelText = normalizeText(readAllText(tree!));
-    expect(panelText).toContain("Goals ( 1 )");
     expect(panelText).toContain("Tasks ( 1 )");
+    expect(panelText).toContain("Triggers ( 1 )");
+    expect(panelText).toContain("Todos ( 1 )");
     expect(panelText).toContain("Investigate autonomous stream reliability");
+    expect(panelText).toContain("Heartbeat Trigger");
     expect(panelText).toContain("Verify panel receives heartbeat updates");
   });
 });
-

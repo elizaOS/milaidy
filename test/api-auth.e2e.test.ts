@@ -652,6 +652,7 @@ describe("Pairing flow", () => {
 
 describe("Auth + wallet integration", () => {
   const TEST_TOKEN = "wallet-auth-test-token";
+  const EXPORT_TOKEN = "wallet-auth-export-token";
   let port: number;
   let close: () => Promise<void>;
   let envBackup: { restore: () => void };
@@ -659,10 +660,12 @@ describe("Auth + wallet integration", () => {
   beforeAll(async () => {
     envBackup = saveEnv(
       "MILAIDY_API_TOKEN",
+      "MILAIDY_WALLET_EXPORT_TOKEN",
       "EVM_PRIVATE_KEY",
       "SOLANA_PRIVATE_KEY",
     );
     process.env.MILAIDY_API_TOKEN = TEST_TOKEN;
+    process.env.MILAIDY_WALLET_EXPORT_TOKEN = EXPORT_TOKEN;
     process.env.EVM_PRIVATE_KEY =
       "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
 
@@ -723,7 +726,7 @@ describe("Auth + wallet integration", () => {
       port,
       "POST",
       "/api/wallet/export",
-      { confirm: true },
+      { confirm: true, exportToken: EXPORT_TOKEN },
       auth,
     );
     expect(status).toBe(200);

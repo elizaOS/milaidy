@@ -16,8 +16,10 @@
  *
  * These tests exercise REAL production code, not mocks.
  */
+
+import crypto from "node:crypto";
 import http from "node:http";
-import type { AgentRuntime, Content } from "@elizaos/core";
+import type { AgentRuntime, Content, Task, UUID } from "@elizaos/core";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { WebSocket } from "ws";
 import { startApiServer } from "../src/api/server.js";
@@ -260,6 +262,81 @@ function createRuntimeForStreamTests(options: {
     getCache: async () => null,
     setCache: async () => {},
   };
+  return runtimeSubset as AgentRuntime;
+}
+
+function createRuntimeForWorkbenchCrudTests(options?: {
+  loopRunning?: boolean;
+}): AgentRuntime {
+  let tasks: Task[] = [];
+  const runtimeSubset: Pick<
+    AgentRuntime,
+    | "agentId"
+    | "character"
+    | "getSetting"
+    | "getService"
+    | "getRoomsByWorld"
+    | "getTasks"
+    | "getTask"
+    | "createTask"
+    | "updateTask"
+    | "deleteTask"
+  > = {
+    agentId: "workbench-crud-agent",
+    character: { name: "WorkbenchCrudAgent" } as AgentRuntime["character"],
+    getSetting: () => undefined,
+    getService: (serviceType: string) => {
+      if (serviceType === "AUTONOMY") {
+        return {
+          isLoopRunning: () => options?.loopRunning ?? false,
+          getAutonomousRoomId: () =>
+            "00000000-0000-0000-0000-000000000201" as UUID,
+        } as {
+          isLoopRunning: () => boolean;
+          getAutonomousRoomId: () => UUID;
+        };
+      }
+      return null;
+    },
+    getRoomsByWorld: async () => [],
+    getTasks: async (query?: { tags?: string[] }) => {
+      if (!query?.tags || query.tags.length === 0) return tasks;
+      return tasks.filter((task) =>
+        query.tags?.every((tag) => task.tags?.includes(tag)),
+      );
+    },
+    getTask: async (taskId: UUID) =>
+      tasks.find((task) => task.id === taskId) ?? null,
+    createTask: async (task: Task) => {
+      const id = (task.id as UUID | undefined) ?? (crypto.randomUUID() as UUID);
+      const created: Task = {
+        ...task,
+        id,
+      };
+      tasks.push(created);
+      return id;
+    },
+    updateTask: async (taskId: UUID, update: Partial<Task>) => {
+      tasks = tasks.map((task) =>
+        task.id === taskId
+          ? {
+              ...task,
+              ...update,
+              metadata: {
+                ...((task.metadata as Record<string, unknown> | undefined) ??
+                  {}),
+                ...((update.metadata as Record<string, unknown> | undefined) ??
+                  {}),
+              } as Task["metadata"],
+            }
+          : task,
+      );
+    },
+    deleteTask: async (taskId: UUID) => {
+      tasks = tasks.filter((task) => task.id !== taskId);
+    },
+  };
+
   return runtimeSubset as AgentRuntime;
 }
 
@@ -1228,7 +1305,8 @@ describe("API Server E2E (no runtime)", () => {
         "/api/workbench/overview",
       );
       expect(status).toBe(200);
-      expect(Array.isArray(data.goals)).toBe(true);
+      expect(Array.isArray(data.tasks)).toBe(true);
+      expect(Array.isArray(data.triggers)).toBe(true);
       expect(Array.isArray(data.todos)).toBe(true);
       expect(typeof data.summary).toBe("object");
       expect(typeof data.autonomy).toBe("object");
@@ -1254,23 +1332,21 @@ describe("API Server E2E (no runtime)", () => {
       }
     });
 
-    it("PATCH /api/workbench/goals/:id returns 503 when runtime is absent", async () => {
-      const { status } = await req(port, "PATCH", "/api/workbench/goals/fake", {
-        isCompleted: true,
+    it("GET /api/workbench/tasks returns 503 when runtime is absent", async () => {
+      const { status } = await req(port, "GET", "/api/workbench/tasks");
+      expect(status).toBe(503);
+    });
+
+    it("POST /api/workbench/tasks returns 503 when runtime is absent", async () => {
+      const { status } = await req(port, "POST", "/api/workbench/tasks", {
+        name: "test task",
       });
       expect(status).toBe(503);
     });
 
-    it("PATCH /api/workbench/todos/:id returns 503 when runtime is absent", async () => {
-      const { status } = await req(port, "PATCH", "/api/workbench/todos/fake", {
+    it("PUT /api/workbench/todos/:id returns 503 when runtime is absent", async () => {
+      const { status } = await req(port, "PUT", "/api/workbench/todos/fake", {
         isCompleted: true,
-      });
-      expect(status).toBe(503);
-    });
-
-    it("POST /api/workbench/goals returns 503 when runtime is absent", async () => {
-      const { status } = await req(port, "POST", "/api/workbench/goals", {
-        name: "test goal",
       });
       expect(status).toBe(503);
     });
@@ -1679,6 +1755,237 @@ describe("API Server E2E (no runtime)", () => {
         expect(typeof server.resourceCount).toBe("number");
       }
     });
+  });
+});
+
+describe("API Server E2E (workbench CRUD)", () => {
+  let port: number;
+  let close: () => Promise<void>;
+
+  beforeAll(async () => {
+    const server = await startApiServer({
+      port: 0,
+      runtime: createRuntimeForWorkbenchCrudTests({ loopRunning: true }),
+    });
+    port = server.port;
+    close = server.close;
+  }, 30_000);
+
+  afterAll(async () => {
+    await close();
+  });
+
+  it("supports full CRUD for workbench tasks", async () => {
+    const create = await req(port, "POST", "/api/workbench/tasks", {
+      name: "Task CRUD Alpha",
+      description: "Initial task description",
+      tags: ["ops"],
+    });
+    expect(create.status).toBe(201);
+    const createdTask = create.data.task as Record<string, unknown>;
+    const taskId = createdTask.id as string;
+    expect(typeof taskId).toBe("string");
+
+    const list = await req(port, "GET", "/api/workbench/tasks");
+    expect(list.status).toBe(200);
+    expect(Array.isArray(list.data.tasks)).toBe(true);
+    expect(
+      (list.data.tasks as Array<Record<string, unknown>>).some(
+        (task) => task.id === taskId,
+      ),
+    ).toBe(true);
+
+    const read = await req(
+      port,
+      "GET",
+      `/api/workbench/tasks/${encodeURIComponent(taskId)}`,
+    );
+    expect(read.status).toBe(200);
+    expect((read.data.task as Record<string, unknown>).name).toBe(
+      "Task CRUD Alpha",
+    );
+
+    const update = await req(
+      port,
+      "PUT",
+      `/api/workbench/tasks/${encodeURIComponent(taskId)}`,
+      {
+        name: "Task CRUD Beta",
+        isCompleted: true,
+      },
+    );
+    expect(update.status).toBe(200);
+    expect((update.data.task as Record<string, unknown>).name).toBe(
+      "Task CRUD Beta",
+    );
+    expect((update.data.task as Record<string, unknown>).isCompleted).toBe(
+      true,
+    );
+
+    const del = await req(
+      port,
+      "DELETE",
+      `/api/workbench/tasks/${encodeURIComponent(taskId)}`,
+    );
+    expect(del.status).toBe(200);
+    expect(del.data.ok).toBe(true);
+
+    const readAfterDelete = await req(
+      port,
+      "GET",
+      `/api/workbench/tasks/${encodeURIComponent(taskId)}`,
+    );
+    expect(readAfterDelete.status).toBe(404);
+  });
+
+  it("supports full CRUD for triggers", async () => {
+    const create = await req(port, "POST", "/api/triggers", {
+      displayName: "Trigger CRUD Alpha",
+      instructions: "Run trigger CRUD test",
+      triggerType: "interval",
+      intervalMs: 60_000,
+    });
+    expect(create.status).toBe(201);
+    const createdTrigger = create.data.trigger as Record<string, unknown>;
+    const triggerId = createdTrigger.id as string;
+    expect(typeof triggerId).toBe("string");
+
+    const list = await req(port, "GET", "/api/triggers");
+    expect(list.status).toBe(200);
+    expect(Array.isArray(list.data.triggers)).toBe(true);
+    expect(
+      (list.data.triggers as Array<Record<string, unknown>>).some(
+        (trigger) => trigger.id === triggerId,
+      ),
+    ).toBe(true);
+
+    const read = await req(
+      port,
+      "GET",
+      `/api/triggers/${encodeURIComponent(triggerId)}`,
+    );
+    expect(read.status).toBe(200);
+    expect((read.data.trigger as Record<string, unknown>).displayName).toBe(
+      "Trigger CRUD Alpha",
+    );
+
+    const update = await req(
+      port,
+      "PUT",
+      `/api/triggers/${encodeURIComponent(triggerId)}`,
+      {
+        displayName: "Trigger CRUD Beta",
+        enabled: false,
+      },
+    );
+    expect(update.status).toBe(200);
+    expect((update.data.trigger as Record<string, unknown>).displayName).toBe(
+      "Trigger CRUD Beta",
+    );
+    expect((update.data.trigger as Record<string, unknown>).enabled).toBe(
+      false,
+    );
+
+    const del = await req(
+      port,
+      "DELETE",
+      `/api/triggers/${encodeURIComponent(triggerId)}`,
+    );
+    expect(del.status).toBe(200);
+    expect(del.data.ok).toBe(true);
+
+    const readAfterDelete = await req(
+      port,
+      "GET",
+      `/api/triggers/${encodeURIComponent(triggerId)}`,
+    );
+    expect(readAfterDelete.status).toBe(404);
+  });
+
+  it("supports full CRUD for todos", async () => {
+    const create = await req(port, "POST", "/api/workbench/todos", {
+      name: "Todo CRUD Alpha",
+      description: "Initial todo description",
+      priority: 3,
+      isUrgent: true,
+      type: "task",
+    });
+    expect(create.status).toBe(201);
+    const createdTodo = create.data.todo as Record<string, unknown>;
+    const todoId = createdTodo.id as string;
+    expect(typeof todoId).toBe("string");
+
+    const list = await req(port, "GET", "/api/workbench/todos");
+    expect(list.status).toBe(200);
+    expect(Array.isArray(list.data.todos)).toBe(true);
+    expect(
+      (list.data.todos as Array<Record<string, unknown>>).some(
+        (todo) => todo.id === todoId,
+      ),
+    ).toBe(true);
+
+    const read = await req(
+      port,
+      "GET",
+      `/api/workbench/todos/${encodeURIComponent(todoId)}`,
+    );
+    expect(read.status).toBe(200);
+    expect((read.data.todo as Record<string, unknown>).name).toBe(
+      "Todo CRUD Alpha",
+    );
+
+    const update = await req(
+      port,
+      "PUT",
+      `/api/workbench/todos/${encodeURIComponent(todoId)}`,
+      {
+        name: "Todo CRUD Beta",
+        priority: 1,
+        isUrgent: false,
+      },
+    );
+    expect(update.status).toBe(200);
+    expect((update.data.todo as Record<string, unknown>).name).toBe(
+      "Todo CRUD Beta",
+    );
+    expect((update.data.todo as Record<string, unknown>).priority).toBe(1);
+    expect((update.data.todo as Record<string, unknown>).isUrgent).toBe(false);
+
+    const complete = await req(
+      port,
+      "POST",
+      `/api/workbench/todos/${encodeURIComponent(todoId)}/complete`,
+      {
+        isCompleted: true,
+      },
+    );
+    expect(complete.status).toBe(200);
+    expect(complete.data.ok).toBe(true);
+
+    const readCompleted = await req(
+      port,
+      "GET",
+      `/api/workbench/todos/${encodeURIComponent(todoId)}`,
+    );
+    expect(readCompleted.status).toBe(200);
+    expect(
+      (readCompleted.data.todo as Record<string, unknown>).isCompleted,
+    ).toBe(true);
+
+    const del = await req(
+      port,
+      "DELETE",
+      `/api/workbench/todos/${encodeURIComponent(todoId)}`,
+    );
+    expect(del.status).toBe(200);
+    expect(del.data.ok).toBe(true);
+
+    const readAfterDelete = await req(
+      port,
+      "GET",
+      `/api/workbench/todos/${encodeURIComponent(todoId)}`,
+    );
+    expect(readAfterDelete.status).toBe(404);
   });
 });
 

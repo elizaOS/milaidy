@@ -473,13 +473,17 @@ describe("TriggersView UI E2E", () => {
     mockUseApp.mockReset();
     runtimeHarness.injectAutonomousInstruction.mockClear();
     vi.stubGlobal("confirm", vi.fn(() => true));
+    Object.defineProperty(window, "scrollTo", {
+      value: vi.fn(),
+      writable: true,
+    });
   });
 
   afterEach(() => {
     vi.unstubAllGlobals();
   });
 
-  it("creates, executes, inspects runs, and deletes triggers via live API", async () => {
+  it("creates, updates, executes, inspects runs, and deletes triggers via live API", async () => {
     if (!server) {
       throw new Error("Server was not initialized");
     }
@@ -521,6 +525,30 @@ describe("TriggersView UI E2E", () => {
       ).length,
     ).toBe(1);
 
+    const renamedTriggerDisplayName = "Trigger UI E2E Updated";
+    await act(async () => {
+      await findButtonByText(root, "Edit").props.onClick();
+    });
+    await flush();
+
+    await act(async () => {
+      displayNameInput.props.onChange({
+        target: { value: renamedTriggerDisplayName },
+      });
+    });
+
+    await act(async () => {
+      await findButtonByText(root, "Save Changes").props.onClick();
+    });
+    await flush();
+
+    expect(
+      root.findAll(
+        (node) =>
+          node.type === "span" && nodeText(node) === renamedTriggerDisplayName,
+      ).length,
+    ).toBe(1);
+
     await act(async () => {
       await findButtonByText(root, "Run now").props.onClick();
     });
@@ -545,7 +573,8 @@ describe("TriggersView UI E2E", () => {
 
     expect(
       root.findAll(
-        (node) => node.type === "span" && nodeText(node) === triggerDisplayName,
+        (node) =>
+          node.type === "span" && nodeText(node) === renamedTriggerDisplayName,
       ).length,
     ).toBe(0);
   });

@@ -851,13 +851,13 @@ export interface ShareIngestItem {
 }
 
 // Workbench
-export interface WorkbenchGoal {
+export interface WorkbenchTask {
   id: string;
   name: string;
-  description?: string;
+  description: string;
   tags: string[];
-  metadata?: { priority?: number };
   isCompleted: boolean;
+  updatedAt?: number;
 }
 
 export interface WorkbenchTodo {
@@ -871,7 +871,8 @@ export interface WorkbenchTodo {
 }
 
 export interface WorkbenchOverview {
-  goals: WorkbenchGoal[];
+  tasks: WorkbenchTask[];
+  triggers: TriggerSummary[];
   todos: WorkbenchTodo[];
   autonomy?: {
     enabled: boolean;
@@ -1494,6 +1495,8 @@ export class MilaidyClient {
   private _token: string | null;
   private ws: WebSocket | null = null;
   private wsHandlers = new Map<string, Set<WsEventHandler>>();
+  private wsSendQueue: string[] = [];
+  private readonly wsSendQueueLimit = 32;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private backoffMs = 500;
 
@@ -2440,32 +2443,107 @@ export class MilaidyClient {
 
   // Workbench
 
-  async getWorkbenchOverview(): Promise<WorkbenchOverview & { goalsAvailable?: boolean; todosAvailable?: boolean }> {
+  async getWorkbenchOverview(): Promise<
+    WorkbenchOverview & {
+      tasksAvailable?: boolean;
+      triggersAvailable?: boolean;
+      todosAvailable?: boolean;
+    }
+  > {
     return this.fetch("/api/workbench/overview");
   }
 
-  async createWorkbenchGoal(data: { name: string; description: string; tags: string[]; priority: number }): Promise<void> {
-    await this.fetch("/api/workbench/goals", { method: "POST", body: JSON.stringify(data) });
+  async listWorkbenchTasks(): Promise<{ tasks: WorkbenchTask[] }> {
+    return this.fetch("/api/workbench/tasks");
   }
 
-  async updateWorkbenchGoal(goalId: string, data: { name?: string; description?: string; tags?: string[]; priority?: number }): Promise<void> {
-    await this.fetch(`/api/workbench/goals/${encodeURIComponent(goalId)}`, { method: "PUT", body: JSON.stringify(data) });
+  async getWorkbenchTask(taskId: string): Promise<{ task: WorkbenchTask }> {
+    return this.fetch(`/api/workbench/tasks/${encodeURIComponent(taskId)}`);
   }
 
-  async setWorkbenchGoalCompleted(goalId: string, isCompleted: boolean): Promise<void> {
-    await this.fetch(`/api/workbench/goals/${encodeURIComponent(goalId)}/complete`, { method: "POST", body: JSON.stringify({ isCompleted }) });
+  async createWorkbenchTask(data: {
+    name: string;
+    description?: string;
+    tags?: string[];
+    isCompleted?: boolean;
+  }): Promise<{ task: WorkbenchTask }> {
+    return this.fetch("/api/workbench/tasks", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
   }
 
-  async createWorkbenchTodo(data: { name: string; description: string; priority: number; isUrgent: boolean; type: string }): Promise<void> {
-    await this.fetch("/api/workbench/todos", { method: "POST", body: JSON.stringify(data) });
+  async updateWorkbenchTask(
+    taskId: string,
+    data: {
+      name?: string;
+      description?: string;
+      tags?: string[];
+      isCompleted?: boolean;
+    },
+  ): Promise<{ task: WorkbenchTask }> {
+    return this.fetch(`/api/workbench/tasks/${encodeURIComponent(taskId)}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
   }
 
-  async updateWorkbenchTodo(todoId: string, data: { priority?: number; isUrgent?: boolean }): Promise<void> {
-    await this.fetch(`/api/workbench/todos/${encodeURIComponent(todoId)}`, { method: "PUT", body: JSON.stringify(data) });
+  async deleteWorkbenchTask(taskId: string): Promise<{ ok: boolean }> {
+    return this.fetch(`/api/workbench/tasks/${encodeURIComponent(taskId)}`, {
+      method: "DELETE",
+    });
+  }
+
+  async listWorkbenchTodos(): Promise<{ todos: WorkbenchTodo[] }> {
+    return this.fetch("/api/workbench/todos");
+  }
+
+  async getWorkbenchTodo(todoId: string): Promise<{ todo: WorkbenchTodo }> {
+    return this.fetch(`/api/workbench/todos/${encodeURIComponent(todoId)}`);
+  }
+
+  async createWorkbenchTodo(data: {
+    name: string;
+    description?: string;
+    priority?: number;
+    isUrgent?: boolean;
+    type?: string;
+    isCompleted?: boolean;
+  }): Promise<{ todo: WorkbenchTodo }> {
+    return this.fetch("/api/workbench/todos", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateWorkbenchTodo(
+    todoId: string,
+    data: {
+      name?: string;
+      description?: string;
+      priority?: number;
+      isUrgent?: boolean;
+      type?: string;
+      isCompleted?: boolean;
+    },
+  ): Promise<{ todo: WorkbenchTodo }> {
+    return this.fetch(`/api/workbench/todos/${encodeURIComponent(todoId)}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
   }
 
   async setWorkbenchTodoCompleted(todoId: string, isCompleted: boolean): Promise<void> {
-    await this.fetch(`/api/workbench/todos/${encodeURIComponent(todoId)}/complete`, { method: "POST", body: JSON.stringify({ isCompleted }) });
+    await this.fetch(`/api/workbench/todos/${encodeURIComponent(todoId)}/complete`, {
+      method: "POST",
+      body: JSON.stringify({ isCompleted }),
+    });
+  }
+
+  async deleteWorkbenchTodo(todoId: string): Promise<{ ok: boolean }> {
+    return this.fetch(`/api/workbench/todos/${encodeURIComponent(todoId)}`, {
+      method: "DELETE",
+    });
   }
 
   // Registry
@@ -2600,6 +2678,22 @@ export class MilaidyClient {
 
     this.ws.onopen = () => {
       this.backoffMs = 500;
+      if (this.wsSendQueue.length > 0 && this.ws?.readyState === WebSocket.OPEN) {
+        const pending = this.wsSendQueue;
+        this.wsSendQueue = [];
+        for (let i = 0; i < pending.length; i++) {
+          if (this.ws?.readyState !== WebSocket.OPEN) {
+            this.wsSendQueue = pending.slice(i).concat(this.wsSendQueue);
+            break;
+          }
+          try {
+            this.ws.send(pending[i]);
+          } catch {
+            this.wsSendQueue = pending.slice(i).concat(this.wsSendQueue);
+            break;
+          }
+        }
+      }
     };
 
     this.ws.onmessage = (event) => {
@@ -2645,8 +2739,31 @@ export class MilaidyClient {
 
   /** Send an arbitrary JSON message over the WebSocket connection. */
   sendWsMessage(data: Record<string, unknown>): void {
+    const payload = JSON.stringify(data);
     if (this.ws?.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify(data));
+      this.ws.send(payload);
+      return;
+    }
+
+    // Keep only the newest active-conversation update while disconnected.
+    if (data.type === "active-conversation") {
+      this.wsSendQueue = this.wsSendQueue.filter((queued) => {
+        try {
+          const parsed = JSON.parse(queued) as { type?: unknown };
+          return parsed.type !== "active-conversation";
+        } catch {
+          return true;
+        }
+      });
+    }
+
+    if (this.wsSendQueue.length >= this.wsSendQueueLimit) {
+      this.wsSendQueue.shift();
+    }
+    this.wsSendQueue.push(payload);
+
+    if (!this.ws || this.ws.readyState === WebSocket.CLOSED) {
+      this.connectWs();
     }
   }
 
@@ -3141,6 +3258,7 @@ export class MilaidyClient {
     }
     this.ws?.close();
     this.ws = null;
+    this.wsSendQueue = [];
   }
 
   // ═══════════════════════════════════════════════════════════════════════

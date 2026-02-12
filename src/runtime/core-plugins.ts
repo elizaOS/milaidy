@@ -15,6 +15,7 @@ export const CORE_PLUGINS: readonly string[] = [
   "@elizaos/plugin-agent-orchestrator", // multi-agent orchestration
   "@elizaos/plugin-shell", // shell command execution
   "@elizaos/plugin-plugin-manager", // dynamic plugin management
+  "@elizaos/plugin-todo", // todo/task management (workbench default)
 ];
 
 /**
@@ -23,7 +24,6 @@ export const CORE_PLUGINS: readonly string[] = [
  */
 export const OPTIONAL_CORE_PLUGINS: readonly string[] = [
   "@elizaos/plugin-form", // packaging issue
-  "@elizaos/plugin-goals", // spec mismatch
   "@elizaos/plugin-scheduling", // packaging issue
   "@elizaos/plugin-directives", // directive processing
   "@elizaos/plugin-commands", // slash command handling
@@ -36,6 +36,5 @@ export const OPTIONAL_CORE_PLUGINS: readonly string[] = [
   "@elizaos/plugin-pdf", // PDF processing
   "@elizaos/plugin-scratchpad", // scratchpad notes
   "@elizaos/plugin-secrets-manager", // secrets management
-  "@elizaos/plugin-todo", // todo/task management
   "@elizaos/plugin-trust", // trust scoring
 ];

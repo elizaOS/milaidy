@@ -11,6 +11,23 @@ import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startApiServer } from "../src/api/server.js";
 
+const WALLET_EXPORT_TEST_TOKEN = "wallet-export-e2e-step-up-token";
+
+function withWalletExportToken(
+  method: string,
+  path: string,
+  body?: Record<string, unknown>,
+): Record<string, unknown> | undefined {
+  if (method !== "POST" || path !== "/api/wallet/export" || !body) return body;
+  if (body.confirm !== true || typeof body.exportToken === "string")
+    return body;
+  return {
+    ...body,
+    exportToken:
+      process.env.MILAIDY_WALLET_EXPORT_TOKEN ?? WALLET_EXPORT_TEST_TOKEN,
+  };
+}
+
 // Load real API keys from the eliza workspace .env
 const testDir = path.dirname(fileURLToPath(import.meta.url));
 try {
@@ -35,7 +52,8 @@ function req(
   data: Record<string, unknown>;
 }> {
   return new Promise((resolve, reject) => {
-    const b = body ? JSON.stringify(body) : undefined;
+    const payload = withWalletExportToken(method, p, body);
+    const b = payload ? JSON.stringify(payload) : undefined;
     const r = http.request(
       {
         hostname: "127.0.0.1",
@@ -81,6 +99,7 @@ describe("Wallet API E2E", () => {
   const keysToSave = [
     "EVM_PRIVATE_KEY",
     "SOLANA_PRIVATE_KEY",
+    "MILAIDY_WALLET_EXPORT_TOKEN",
     "ALCHEMY_API_KEY",
     "HELIUS_API_KEY",
     "BIRDEYE_API_KEY",
@@ -97,6 +116,7 @@ describe("Wallet API E2E", () => {
       "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
     process.env.SOLANA_PRIVATE_KEY =
       "4wBqpZM9xaSheZzJSMYGnGbUXDPSgWaC1LDUQ27gFdFtGm5qAshpcPMTgjLZ6Y7yDw3p6752kQhBEkZ1bPYoY8h";
+    process.env.MILAIDY_WALLET_EXPORT_TOKEN = WALLET_EXPORT_TEST_TOKEN;
 
     // Start real server
     const server = await startApiServer({ port: 0 });
@@ -582,6 +602,7 @@ describe("Key Management E2E", () => {
   const keysToSave = [
     "EVM_PRIVATE_KEY",
     "SOLANA_PRIVATE_KEY",
+    "MILAIDY_WALLET_EXPORT_TOKEN",
     "ALCHEMY_API_KEY",
     "HELIUS_API_KEY",
     "BIRDEYE_API_KEY",
@@ -595,6 +616,7 @@ describe("Key Management E2E", () => {
       "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
     process.env.SOLANA_PRIVATE_KEY =
       "4wBqpZM9xaSheZzJSMYGnGbUXDPSgWaC1LDUQ27gFdFtGm5qAshpcPMTgjLZ6Y7yDw3p6752kQhBEkZ1bPYoY8h";
+    process.env.MILAIDY_WALLET_EXPORT_TOKEN = WALLET_EXPORT_TEST_TOKEN;
 
     const server = await startApiServer({ port: 0 });
     port = server.port;

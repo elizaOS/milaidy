@@ -28,7 +28,7 @@ export const TAB_GROUPS = [
   { label: "Wallets", tabs: ["wallets"] as Tab[] },
   { label: "Knowledge", tabs: ["knowledge"] as Tab[] },
   { label: "Connectors", tabs: ["connectors"] as Tab[] },
-  { label: "Triggers", tabs: ["triggers"] as Tab[] },
+  { label: "Tasks", tabs: ["triggers"] as Tab[] },
   { label: "Apps", tabs: ["apps"] as Tab[] },
   { label: "Settings", tabs: ["settings"] as Tab[] },
   {
@@ -126,7 +126,7 @@ export function titleForTab(tab: Tab): string {
     case "chat": return "Chat";
     case "apps": return "Apps";
     case "character": return "Character";
-    case "triggers": return "Triggers";
+    case "triggers": return "Tasks";
     case "wallets": return "Wallets";
     case "knowledge": return "Knowledge";
     case "connectors": return "Connectors";

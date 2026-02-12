@@ -1,10 +1,11 @@
 import { useMemo, useState } from "react";
 import { useApp } from "../AppContext";
-import type { StreamEventEnvelope, WorkbenchGoal, WorkbenchTodo } from "../api-client";
-
-function getGoalStatusEmoji(goal: { isCompleted: boolean }): string {
-  return goal.isCompleted ? "✅" : "🎯";
-}
+import type {
+  StreamEventEnvelope,
+  TriggerSummary,
+  WorkbenchTask,
+  WorkbenchTodo,
+} from "../api-client";
 
 function getEventText(event: StreamEventEnvelope): string {
   const payload = event.payload as Record<string, string | number | boolean | null | object | undefined>;
@@ -31,11 +32,13 @@ export function AutonomousPanel() {
     autonomousEvents,
     workbench,
     workbenchLoading,
-    workbenchGoalsAvailable,
+    workbenchTasksAvailable,
+    workbenchTriggersAvailable,
     workbenchTodosAvailable,
   } = useApp();
 
-  const [goalsCollapsed, setGoalsCollapsed] = useState(false);
+  const [tasksCollapsed, setTasksCollapsed] = useState(false);
+  const [triggersCollapsed, setTriggersCollapsed] = useState(false);
   const [todosCollapsed, setTodosCollapsed] = useState(false);
   const [eventsCollapsed, setEventsCollapsed] = useState(false);
 
@@ -54,7 +57,8 @@ export function AutonomousPanel() {
   );
 
   const isAgentStopped = agentStatus?.state === "stopped" || !agentStatus;
-  const goals = workbench?.goals ?? [];
+  const tasks = workbench?.tasks ?? [];
+  const triggers = workbench?.triggers ?? [];
   const todos = workbench?.todos ?? [];
 
   return (
@@ -128,28 +132,39 @@ export function AutonomousPanel() {
             </div>
           ) : (
             <>
-              {workbenchGoalsAvailable && (
+              {workbenchTasksAvailable && (
                 <div className="border-b border-border">
                   <button
                     className="flex justify-between items-center px-3 py-2 cursor-pointer hover:bg-bg-hover text-xs font-semibold uppercase tracking-wide text-muted w-full"
-                    onClick={() => setGoalsCollapsed(!goalsCollapsed)}
+                    onClick={() => setTasksCollapsed(!tasksCollapsed)}
                   >
-                    <span>Goals ({goals.length})</span>
-                    <span>{goalsCollapsed ? "▶" : "▼"}</span>
+                    <span>Tasks ({tasks.length})</span>
+                    <span>{tasksCollapsed ? "▶" : "▼"}</span>
                   </button>
-                  {!goalsCollapsed && (
+                  {!tasksCollapsed && (
                     <div className="px-3 py-2">
-                      {goals.length === 0 ? (
-                        <div className="text-muted text-sm py-2">No goals</div>
+                      {tasks.length === 0 ? (
+                        <div className="text-muted text-sm py-2">No tasks</div>
                       ) : (
-                        goals.map((goal: WorkbenchGoal) => (
-                          <div key={goal.id} className="flex gap-2 py-2">
-                            <span className="text-base">{getGoalStatusEmoji(goal)}</span>
+                        tasks.map((task: WorkbenchTask) => (
+                          <div key={task.id} className="flex gap-2 py-2">
+                            <input
+                              type="checkbox"
+                              checked={task.isCompleted}
+                              readOnly
+                              className="mt-0.5"
+                            />
                             <div className="flex-1 min-w-0">
-                              <div className="text-txt-strong">{goal.name}</div>
-                              {goal.tags.length > 0 && (
+                              <div
+                                className={`text-txt-strong ${
+                                  task.isCompleted ? "line-through opacity-60" : ""
+                                }`}
+                              >
+                                {task.name}
+                              </div>
+                              {task.tags.length > 0 && (
                                 <div className="flex flex-wrap gap-1 mt-1">
-                                  {goal.tags.map((tag: string, idx: number) => (
+                                  {task.tags.map((tag: string, idx: number) => (
                                     <span
                                       key={idx}
                                       className="px-1.5 py-0.5 text-[11px] bg-bg-muted text-muted rounded"
@@ -168,19 +183,47 @@ export function AutonomousPanel() {
                 </div>
               )}
 
+              {workbenchTriggersAvailable && (
+                <div className="border-b border-border">
+                  <button
+                    className="flex justify-between items-center px-3 py-2 cursor-pointer hover:bg-bg-hover text-xs font-semibold uppercase tracking-wide text-muted w-full"
+                    onClick={() => setTriggersCollapsed(!triggersCollapsed)}
+                  >
+                    <span>Triggers ({triggers.length})</span>
+                    <span>{triggersCollapsed ? "▶" : "▼"}</span>
+                  </button>
+                  {!triggersCollapsed && (
+                    <div className="px-3 py-2">
+                      {triggers.length === 0 ? (
+                        <div className="text-muted text-sm py-2">No triggers</div>
+                      ) : (
+                        triggers.map((trigger: TriggerSummary) => (
+                          <div key={trigger.id} className="py-2">
+                            <div className="text-txt-strong">{trigger.displayName}</div>
+                            <div className="text-[11px] text-muted mt-1">
+                              {trigger.triggerType} · {trigger.enabled ? "enabled" : "disabled"} · runs {trigger.runCount}
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {workbenchTodosAvailable && (
                 <div className="border-b border-border">
                   <button
                     className="flex justify-between items-center px-3 py-2 cursor-pointer hover:bg-bg-hover text-xs font-semibold uppercase tracking-wide text-muted w-full"
                     onClick={() => setTodosCollapsed(!todosCollapsed)}
                   >
-                    <span>Tasks ({todos.length})</span>
+                    <span>Todos ({todos.length})</span>
                     <span>{todosCollapsed ? "▶" : "▼"}</span>
                   </button>
                   {!todosCollapsed && (
                     <div className="px-3 py-2">
                       {todos.length === 0 ? (
-                        <div className="text-muted text-sm py-2">No tasks</div>
+                        <div className="text-muted text-sm py-2">No todos</div>
                       ) : (
                         todos.map((todo: WorkbenchTodo) => (
                           <div key={todo.id} className="flex items-start gap-2 py-2">

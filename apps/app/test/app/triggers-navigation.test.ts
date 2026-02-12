@@ -25,7 +25,7 @@ describe("navigation", () => {
 
     expect(pathForTab("triggers")).toBe("/triggers");
     expect(tabFromPath("/triggers")).toBe("triggers");
-    expect(titleForTab("triggers")).toBe("Triggers");
+    expect(titleForTab("triggers")).toBe("Tasks");
   });
 
   test("includes advanced tabs in Advanced group", () => {
@@ -76,11 +76,11 @@ describe("navigation", () => {
   test("moves character/triggers/wallets/knowledge/connectors to top-level groups", () => {
     const labels = TAB_GROUPS.map((group) => group.label);
     expect(labels).toContain("Character");
-    expect(labels).toContain("Triggers");
+    expect(labels).toContain("Tasks");
     expect(labels).toContain("Wallets");
     expect(labels).toContain("Knowledge");
     expect(labels).toContain("Connectors");
-    expect(labels.indexOf("Connectors")).toBeLessThan(labels.indexOf("Triggers"));
+    expect(labels.indexOf("Connectors")).toBeLessThan(labels.indexOf("Tasks"));
     expect(labels).not.toContain("Agent");
   });
 });

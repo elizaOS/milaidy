@@ -20,6 +20,7 @@ import {
   logger,
   ModelType,
   stringToUuid,
+  type Task,
   type UUID,
 } from "@elizaos/core";
 import * as piAi from "@mariozechner/pi-ai";
@@ -67,6 +68,11 @@ import {
   uninstallMarketplaceSkill,
 } from "../services/skill-marketplace.js";
 import { TrainingService } from "../services/training-service.js";
+import {
+  listTriggerTasks,
+  readTriggerConfig,
+  taskToTriggerSummary,
+} from "../triggers/runtime.js";
 import { type CloudRouteState, handleCloudRoute } from "./cloud-routes.js";
 import { handleDatabaseRoute } from "./database.js";
 import { DropService } from "./drop-service.js";
@@ -3296,6 +3302,154 @@ function decodePathComponent(
     error(res, `Invalid ${fieldName}: malformed URL encoding`, 400);
     return null;
   }
+}
+
+const WORKBENCH_TASK_TAG = "workbench-task";
+const WORKBENCH_TODO_TAG = "workbench-todo";
+
+interface WorkbenchTaskView {
+  id: string;
+  name: string;
+  description: string;
+  tags: string[];
+  isCompleted: boolean;
+  updatedAt?: number;
+}
+
+interface WorkbenchTodoView {
+  id: string;
+  name: string;
+  description: string;
+  priority: number | null;
+  isUrgent: boolean;
+  isCompleted: boolean;
+  type: string;
+}
+
+function asObject(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return value as Record<string, unknown>;
+}
+
+function normalizeStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item): item is string => typeof item === "string")
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
+}
+
+function normalizeTimestamp(value: unknown): number | undefined {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (value instanceof Date) return value.getTime();
+  if (typeof value === "string") {
+    const asNumber = Number(value);
+    if (Number.isFinite(asNumber)) return asNumber;
+    const parsed = Date.parse(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return undefined;
+}
+
+function parseNullableNumber(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") return null;
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return null;
+}
+
+function readTaskMetadata(task: Task): Record<string, unknown> {
+  return asObject(task.metadata) ?? {};
+}
+
+function normalizeTaskId(task: Task): string | null {
+  return typeof task.id === "string" && task.id.trim().length > 0
+    ? task.id
+    : null;
+}
+
+function readTaskCompleted(task: Task): boolean {
+  const metadata = readTaskMetadata(task);
+  if (typeof metadata.isCompleted === "boolean") return metadata.isCompleted;
+  const todoMeta =
+    asObject(metadata.workbenchTodo) ?? asObject(metadata.todo) ?? null;
+  if (todoMeta && typeof todoMeta.isCompleted === "boolean") {
+    return todoMeta.isCompleted;
+  }
+  return false;
+}
+
+function isWorkbenchTodoTask(task: Task): boolean {
+  if (readTriggerConfig(task)) return false;
+  const tags = new Set(normalizeStringArray(task.tags));
+  if (tags.has(WORKBENCH_TODO_TAG) || tags.has("todo")) return true;
+  const metadata = readTaskMetadata(task);
+  return (
+    asObject(metadata.workbenchTodo) !== null ||
+    asObject(metadata.todo) !== null
+  );
+}
+
+function toWorkbenchTask(task: Task): WorkbenchTaskView | null {
+  if (readTriggerConfig(task) || isWorkbenchTodoTask(task)) return null;
+  const id = normalizeTaskId(task);
+  if (!id) return null;
+  const metadata = readTaskMetadata(task);
+  const updatedAt =
+    normalizeTimestamp(
+      (task as unknown as Record<string, unknown>).updatedAt,
+    ) ?? normalizeTimestamp(metadata.updatedAt);
+  return {
+    id,
+    name:
+      typeof task.name === "string" && task.name.trim().length > 0
+        ? task.name
+        : "Task",
+    description: typeof task.description === "string" ? task.description : "",
+    tags: normalizeStringArray(task.tags),
+    isCompleted: readTaskCompleted(task),
+    ...(updatedAt !== undefined ? { updatedAt } : {}),
+  };
+}
+
+function toWorkbenchTodo(task: Task): WorkbenchTodoView | null {
+  if (!isWorkbenchTodoTask(task)) return null;
+  const id = normalizeTaskId(task);
+  if (!id) return null;
+  const metadata = readTaskMetadata(task);
+  const todoMeta =
+    asObject(metadata.workbenchTodo) ?? asObject(metadata.todo) ?? {};
+  return {
+    id,
+    name:
+      typeof task.name === "string" && task.name.trim().length > 0
+        ? task.name
+        : "Todo",
+    description:
+      typeof todoMeta.description === "string"
+        ? todoMeta.description
+        : typeof task.description === "string"
+          ? task.description
+          : "",
+    priority: parseNullableNumber(todoMeta.priority),
+    isUrgent: todoMeta.isUrgent === true,
+    isCompleted: readTaskCompleted(task),
+    type:
+      typeof todoMeta.type === "string" && todoMeta.type.trim().length > 0
+        ? todoMeta.type
+        : "task",
+  };
+}
+
+function normalizeTags(value: unknown, required: string[] = []): string[] {
+  const next = new Set<string>([
+    ...normalizeStringArray(value),
+    ...required.map((tag) => tag.trim()).filter((tag) => tag.length > 0),
+  ]);
+  return [...next];
 }
 
 // ── Runtime debug serialization ─────────────────────────────────────
@@ -9562,11 +9716,16 @@ async function handleRequest(
 
   // ── GET /api/workbench/overview ──────────────────────────────────────
   if (method === "GET" && pathname === "/api/workbench/overview") {
-    const goals: unknown[] = [];
-    const todos: unknown[] = [];
+    const tasks: WorkbenchTaskView[] = [];
+    const triggers: Array<
+      NonNullable<ReturnType<typeof taskToTriggerSummary>>
+    > = [];
+    const todos: WorkbenchTodoView[] = [];
     const summary = {
-      totalGoals: 0,
-      completedGoals: 0,
+      totalTasks: 0,
+      completedTasks: 0,
+      totalTriggers: 0,
+      activeTriggers: 0,
       totalTodos: 0,
       completedTodos: 0,
     };
@@ -9585,113 +9744,214 @@ async function handleRequest(
       thinking: autonomySvc?.isLoopRunning() ?? false,
       lastEventAt: latestAutonomyEvent?.ts ?? null,
     };
-    let goalsAvailable = false;
+    let tasksAvailable = false;
+    let triggersAvailable = false;
     let todosAvailable = false;
+    let runtimeTasks: Task[] = [];
 
     if (state.runtime) {
-      // Goals: access via the GOAL_DATA service registered by @elizaos/plugin-goals
       try {
-        const goalService = state.runtime.getService("GOAL_DATA" as never) as {
-          getDataService?: () => {
-            getGoals: (
-              filters: Record<string, unknown>,
-            ) => Promise<Record<string, unknown>[]>;
-          } | null;
-        } | null;
-        const goalData = goalService?.getDataService?.();
-        goalsAvailable = goalData != null;
-        if (goalData) {
-          const dbGoals = await goalData.getGoals({
-            ownerId: state.runtime.agentId,
-            ownerType: "agent",
-          });
-          goals.push(...dbGoals);
-          summary.totalGoals = dbGoals.length;
-          summary.completedGoals = dbGoals.filter(
-            (g) => g.isCompleted === true,
-          ).length;
+        runtimeTasks = await state.runtime.getTasks({});
+        tasksAvailable = true;
+        todosAvailable = true;
+
+        for (const task of runtimeTasks) {
+          const todo = toWorkbenchTodo(task);
+          if (todo) {
+            todos.push(todo);
+            continue;
+          }
+          const mappedTask = toWorkbenchTask(task);
+          if (mappedTask) {
+            tasks.push(mappedTask);
+          }
         }
       } catch {
-        // Plugin not loaded or errored — goals unavailable
+        tasksAvailable = false;
+        todosAvailable = false;
       }
 
-      // Todos: create a data service on the fly (plugin-todo pattern)
       try {
-        const todoModuleId = "@elizaos/plugin-todo";
-        const todoModule = (await import(todoModuleId)) as unknown as Record<
-          string,
-          unknown
-        >;
-        const createTodoDataService = todoModule.createTodoDataService as
-          | ((rt: unknown) => {
-              getTodos: (
-                filters: Record<string, unknown>,
-              ) => Promise<Record<string, unknown>[]>;
-            })
-          | undefined;
-        if (createTodoDataService) {
-          const todoData = createTodoDataService(state.runtime);
-          todosAvailable = true;
-          const dbTodos = await todoData.getTodos({
-            agentId: state.runtime.agentId,
-          });
-          todos.push(...dbTodos);
-          summary.totalTodos = dbTodos.length;
-          summary.completedTodos = dbTodos.filter(
-            (t) => t.isCompleted === true,
-          ).length;
+        const triggerTasks = await listTriggerTasks(state.runtime);
+        triggersAvailable = true;
+        for (const task of triggerTasks) {
+          const summaryItem = taskToTriggerSummary(task);
+          if (summaryItem) {
+            triggers.push(summaryItem);
+          }
         }
       } catch {
-        // Plugin not loaded or errored — todos unavailable
+        if (tasksAvailable) {
+          triggersAvailable = true;
+          for (const task of runtimeTasks) {
+            const summaryItem = taskToTriggerSummary(task);
+            if (summaryItem) {
+              triggers.push(summaryItem);
+            }
+          }
+        }
       }
     }
 
+    tasks.sort((a, b) => a.name.localeCompare(b.name));
+    todos.sort((a, b) => a.name.localeCompare(b.name));
+    triggers.sort((a, b) => a.displayName.localeCompare(b.displayName));
+    summary.totalTasks = tasks.length;
+    summary.completedTasks = tasks.filter((task) => task.isCompleted).length;
+    summary.totalTriggers = triggers.length;
+    summary.activeTriggers = triggers.filter(
+      (trigger) => trigger.enabled,
+    ).length;
+    summary.totalTodos = todos.length;
+    summary.completedTodos = todos.filter((todo) => todo.isCompleted).length;
+
     json(res, {
-      goals,
+      tasks,
+      triggers,
       todos,
       summary,
       autonomy,
-      goalsAvailable,
+      tasksAvailable,
+      triggersAvailable,
       todosAvailable,
     });
     return;
   }
 
-  // ── PATCH /api/workbench/goals/:id ───────────────────────────────────
-  if (method === "PATCH" && pathname.startsWith("/api/workbench/goals/")) {
+  // ── GET /api/workbench/tasks ─────────────────────────────────────────
+  if (method === "GET" && pathname === "/api/workbench/tasks") {
     if (!state.runtime) {
       error(res, "Agent runtime is not available", 503);
       return;
     }
-    const goalId = pathname.slice("/api/workbench/goals/".length);
-    const body = await readJsonBody(req, res);
-    if (!body) return;
-    json(res, { ok: true, goalId, updated: body });
+    const runtimeTasks = await state.runtime.getTasks({});
+    const tasks = runtimeTasks
+      .map((task) => toWorkbenchTask(task))
+      .filter((task): task is WorkbenchTaskView => task !== null)
+      .sort((a, b) => a.name.localeCompare(b.name));
+    json(res, { tasks });
     return;
   }
 
-  // ── POST /api/workbench/goals ────────────────────────────────────────
-  if (method === "POST" && pathname === "/api/workbench/goals") {
+  // ── POST /api/workbench/tasks ────────────────────────────────────────
+  if (method === "POST" && pathname === "/api/workbench/tasks") {
     if (!state.runtime) {
       error(res, "Agent runtime is not available", 503);
       return;
     }
-    const body = await readJsonBody(req, res);
+    const body = await readJsonBody<{
+      name?: string;
+      description?: string;
+      tags?: string[];
+      isCompleted?: boolean;
+    }>(req, res);
     if (!body) return;
-    json(res, { ok: true, goal: body });
+    const name = typeof body.name === "string" ? body.name.trim() : "";
+    if (!name) {
+      error(res, "name is required", 400);
+      return;
+    }
+    const description =
+      typeof body.description === "string" ? body.description : "";
+    const isCompleted = body.isCompleted === true;
+    const metadata = {
+      isCompleted,
+      workbench: { kind: "task" },
+    };
+    const taskId = await state.runtime.createTask({
+      name,
+      description,
+      tags: normalizeTags(body.tags, [WORKBENCH_TASK_TAG]),
+      metadata,
+    });
+    const created = await state.runtime.getTask(taskId);
+    const task = created ? toWorkbenchTask(created) : null;
+    if (!task) {
+      error(res, "Task created but unavailable", 500);
+      return;
+    }
+    json(res, { task }, 201);
     return;
   }
 
-  // ── PATCH /api/workbench/todos/:id ───────────────────────────────────
-  if (method === "PATCH" && pathname.startsWith("/api/workbench/todos/")) {
+  const taskItemMatch = /^\/api\/workbench\/tasks\/([^/]+)$/.exec(pathname);
+  if (taskItemMatch && ["GET", "PUT", "DELETE"].includes(method)) {
     if (!state.runtime) {
       error(res, "Agent runtime is not available", 503);
       return;
     }
-    const todoId = pathname.slice("/api/workbench/todos/".length);
-    const body = await readJsonBody(req, res);
+    const decodedTaskId = decodePathComponent(taskItemMatch[1], res, "task id");
+    if (!decodedTaskId) return;
+    const task = await state.runtime.getTask(decodedTaskId as UUID);
+    const taskView = task ? toWorkbenchTask(task) : null;
+    if (!task || !taskView || !task.id) {
+      error(res, "Task not found", 404);
+      return;
+    }
+
+    if (method === "GET") {
+      json(res, { task: taskView });
+      return;
+    }
+
+    if (method === "DELETE") {
+      await state.runtime.deleteTask(task.id);
+      json(res, { ok: true });
+      return;
+    }
+
+    const body = await readJsonBody<{
+      name?: string;
+      description?: string;
+      tags?: string[];
+      isCompleted?: boolean;
+    }>(req, res);
     if (!body) return;
-    json(res, { ok: true, todoId, updated: body });
+
+    const update: Partial<Task> = {};
+    if (typeof body.name === "string") {
+      const name = body.name.trim();
+      if (!name) {
+        error(res, "name cannot be empty", 400);
+        return;
+      }
+      update.name = name;
+    }
+    if (typeof body.description === "string") {
+      update.description = body.description;
+    }
+    if (body.tags !== undefined) {
+      update.tags = normalizeTags(body.tags, [WORKBENCH_TASK_TAG]);
+    }
+    if (typeof body.isCompleted === "boolean") {
+      update.metadata = {
+        ...readTaskMetadata(task),
+        isCompleted: body.isCompleted,
+      };
+    }
+    await state.runtime.updateTask(task.id, update);
+    const refreshed = await state.runtime.getTask(task.id);
+    const refreshedView = refreshed ? toWorkbenchTask(refreshed) : null;
+    if (!refreshedView) {
+      error(res, "Task updated but unavailable", 500);
+      return;
+    }
+    json(res, { task: refreshedView });
+    return;
+  }
+
+  // ── GET /api/workbench/todos ─────────────────────────────────────────
+  if (method === "GET" && pathname === "/api/workbench/todos") {
+    if (!state.runtime) {
+      error(res, "Agent runtime is not available", 503);
+      return;
+    }
+    const runtimeTasks = await state.runtime.getTasks({});
+    const todos = runtimeTasks
+      .map((task) => toWorkbenchTodo(task))
+      .filter((todo): todo is WorkbenchTodoView => todo !== null)
+      .sort((a, b) => a.name.localeCompare(b.name));
+    json(res, { todos });
     return;
   }
 
@@ -9701,9 +9961,186 @@ async function handleRequest(
       error(res, "Agent runtime is not available", 503);
       return;
     }
-    const body = await readJsonBody(req, res);
+    const body = await readJsonBody<{
+      name?: string;
+      description?: string;
+      priority?: number | string | null;
+      isUrgent?: boolean;
+      type?: string;
+      isCompleted?: boolean;
+      tags?: string[];
+    }>(req, res);
     if (!body) return;
-    json(res, { ok: true, todo: body });
+    const name = typeof body.name === "string" ? body.name.trim() : "";
+    if (!name) {
+      error(res, "name is required", 400);
+      return;
+    }
+    const description =
+      typeof body.description === "string" ? body.description : "";
+    const isCompleted = body.isCompleted === true;
+    const priority = parseNullableNumber(body.priority);
+    const isUrgent = body.isUrgent === true;
+    const type =
+      typeof body.type === "string" && body.type.trim().length > 0
+        ? body.type.trim()
+        : "task";
+    const metadata = {
+      isCompleted,
+      workbenchTodo: {
+        description,
+        priority,
+        isUrgent,
+        isCompleted,
+        type,
+      },
+    };
+    const taskId = await state.runtime.createTask({
+      name,
+      description,
+      tags: normalizeTags(body.tags, [WORKBENCH_TODO_TAG, "todo"]),
+      metadata,
+    });
+    const created = await state.runtime.getTask(taskId);
+    const todo = created ? toWorkbenchTodo(created) : null;
+    if (!todo) {
+      error(res, "Todo created but unavailable", 500);
+      return;
+    }
+    json(res, { todo }, 201);
+    return;
+  }
+
+  const todoCompleteMatch = /^\/api\/workbench\/todos\/([^/]+)\/complete$/.exec(
+    pathname,
+  );
+  if (method === "POST" && todoCompleteMatch) {
+    if (!state.runtime) {
+      error(res, "Agent runtime is not available", 503);
+      return;
+    }
+    const decodedTodoId = decodePathComponent(
+      todoCompleteMatch[1],
+      res,
+      "todo id",
+    );
+    if (!decodedTodoId) return;
+    const todoTask = await state.runtime.getTask(decodedTodoId as UUID);
+    if (!todoTask || !todoTask.id || !toWorkbenchTodo(todoTask)) {
+      error(res, "Todo not found", 404);
+      return;
+    }
+    const body = await readJsonBody<{ isCompleted?: boolean }>(req, res);
+    if (!body) return;
+    const isCompleted = body.isCompleted === true;
+    const metadata = readTaskMetadata(todoTask);
+    const todoMeta =
+      asObject(metadata.workbenchTodo) ?? asObject(metadata.todo) ?? {};
+    await state.runtime.updateTask(todoTask.id, {
+      metadata: {
+        ...metadata,
+        isCompleted,
+        workbenchTodo: {
+          ...todoMeta,
+          isCompleted,
+        },
+      },
+    });
+    json(res, { ok: true });
+    return;
+  }
+
+  const todoItemMatch = /^\/api\/workbench\/todos\/([^/]+)$/.exec(pathname);
+  if (todoItemMatch && ["GET", "PUT", "DELETE"].includes(method)) {
+    if (!state.runtime) {
+      error(res, "Agent runtime is not available", 503);
+      return;
+    }
+    const decodedTodoId = decodePathComponent(todoItemMatch[1], res, "todo id");
+    if (!decodedTodoId) return;
+    const todoTask = await state.runtime.getTask(decodedTodoId as UUID);
+    const todoView = todoTask ? toWorkbenchTodo(todoTask) : null;
+    if (!todoTask || !todoTask.id || !todoView) {
+      error(res, "Todo not found", 404);
+      return;
+    }
+
+    if (method === "GET") {
+      json(res, { todo: todoView });
+      return;
+    }
+
+    if (method === "DELETE") {
+      await state.runtime.deleteTask(todoTask.id);
+      json(res, { ok: true });
+      return;
+    }
+
+    const body = await readJsonBody<{
+      name?: string;
+      description?: string;
+      priority?: number | string | null;
+      isUrgent?: boolean;
+      type?: string;
+      isCompleted?: boolean;
+      tags?: string[];
+    }>(req, res);
+    if (!body) return;
+
+    const update: Partial<Task> = {};
+    if (typeof body.name === "string") {
+      const name = body.name.trim();
+      if (!name) {
+        error(res, "name cannot be empty", 400);
+        return;
+      }
+      update.name = name;
+    }
+    if (typeof body.description === "string") {
+      update.description = body.description;
+    }
+    if (body.tags !== undefined) {
+      update.tags = normalizeTags(body.tags, [WORKBENCH_TODO_TAG, "todo"]);
+    }
+
+    const metadata = readTaskMetadata(todoTask);
+    const existingTodoMeta =
+      asObject(metadata.workbenchTodo) ?? asObject(metadata.todo) ?? {};
+    const nextTodoMeta: Record<string, unknown> = {
+      ...existingTodoMeta,
+    };
+    if (typeof body.description === "string") {
+      nextTodoMeta.description = body.description;
+    }
+    if (body.priority !== undefined) {
+      nextTodoMeta.priority = parseNullableNumber(body.priority);
+    }
+    if (typeof body.isUrgent === "boolean") {
+      nextTodoMeta.isUrgent = body.isUrgent;
+    }
+    if (typeof body.type === "string" && body.type.trim().length > 0) {
+      nextTodoMeta.type = body.type.trim();
+    }
+
+    let isCompleted = readTaskCompleted(todoTask);
+    if (typeof body.isCompleted === "boolean") {
+      isCompleted = body.isCompleted;
+    }
+    nextTodoMeta.isCompleted = isCompleted;
+    update.metadata = {
+      ...metadata,
+      isCompleted,
+      workbenchTodo: nextTodoMeta,
+    };
+
+    await state.runtime.updateTask(todoTask.id, update);
+    const refreshed = await state.runtime.getTask(todoTask.id);
+    const refreshedTodo = refreshed ? toWorkbenchTodo(refreshed) : null;
+    if (!refreshedTodo) {
+      error(res, "Todo updated but unavailable", 500);
+      return;
+    }
+    json(res, { todo: refreshedTodo });
     return;
   }
 
@@ -10521,6 +10958,8 @@ export async function startApiServer(opts?: {
       saveMilaidyConfig(nextConfig);
     },
   });
+  // Register immediately so /api/training routes are available without a startup race.
+  state.trainingService = trainingService;
   const configuredAdminEntityId = config.agents?.defaults?.adminEntityId;
   if (configuredAdminEntityId && isUuidLike(configuredAdminEntityId)) {
     state.adminEntityId = configuredAdminEntityId;
@@ -10816,14 +11255,11 @@ export async function startApiServer(opts?: {
     void (async () => {
       try {
         await trainingService.initialize();
-        state.trainingService = trainingService;
         bindTrainingStream();
-        addLog(
-          "info",
-          "Training service initialised",
+        addLog("info", "Training service initialised", "system", [
           "system",
-          ["system", "training"],
-        );
+          "training",
+        ]);
       } catch (err) {
         logger.error(
           `[milaidy-api] Training service init failed: ${err instanceof Error ? err.message : String(err)}`,
