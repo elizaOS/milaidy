@@ -983,6 +983,116 @@ export function applyDatabaseConfigToEnv(config: MilaidyConfig): void {
  * database — not the config file — so we only provide sensible defaults
  * here for the initial bootstrap.
  */
+/**
+ * Custom message handler template that fixes ElizaOS's REPLY-gravity problem.
+ *
+ * The default ElizaOS template instructs the LLM to put REPLY first
+ * ("REPLY should come FIRST to acknowledge the user's request"), but when
+ * ACTION_PLANNING is disabled (the default), the runtime only keeps the
+ * first action — so "REPLY,EXECUTE_COMMAND" becomes just "REPLY" and the
+ * real action never fires.
+ *
+ * This template tells the LLM to use the specific action ALONE when a task
+ * is requested, falling back to REPLY only for pure conversation.
+ */
+const MILAIDY_MESSAGE_HANDLER_TEMPLATE = `<task>Generate dialog and actions for the character {{agentName}}.</task>
+
+<providers>
+{{providers}}
+</providers>
+
+<instructions>
+Write a thought and plan for {{agentName}} and decide what actions to take. Also include the providers that {{agentName}} will use to have the right context for responding and acting, if any.
+
+ACTION SELECTION — CRITICAL RULES:
+- You may ONLY select ONE action per response.
+- If the user is asking you to DO something (install, search, execute, create, restart, send), select the SPECIFIC action that performs that task. Do NOT select REPLY.
+- If the user is making conversation, asking a question, or no specific action applies, select REPLY.
+- If you should not respond at all, select IGNORE.
+
+ACTION SELECTION EXAMPLES:
+- User asks to install a plugin/skill → INSTALL_SKILL (not REPLY)
+- User asks to search/find/list plugins or skills → SEARCH_SKILLS (not REPLY)
+- User asks to run/execute a shell command → EXECUTE_COMMAND (not REPLY)
+- User asks to create a task or todo → CREATE_TASK (not REPLY)
+- User asks to restart the agent → RESTART_AGENT (not REPLY)
+- User asks to spawn a subagent → SPAWN_SUBAGENT (not REPLY)
+- User asks a question or makes conversation → REPLY
+- User says something that doesn't need a response → IGNORE
+
+WRONG: User says "run ls -la" → actions: REPLY (just describes what it would do)
+RIGHT: User says "run ls -la" → actions: EXECUTE_COMMAND (actually runs the command)
+
+IMPORTANT ACTION PARAMETERS:
+- Some actions accept input parameters that you should extract from the conversation
+- When an action has parameters listed in its description, include a <params> block for that action
+- Extract parameter values from the user's message and conversation context
+- Required parameters MUST be provided; optional parameters can be omitted if not mentioned
+- If you cannot determine a required parameter value, ask the user for clarification in your <text>
+
+EXAMPLE (action parameters):
+User message: "Send a message to @dev_guru on telegram saying Hello!"
+Actions: SEND_MESSAGE
+Params:
+<params>
+    <SEND_MESSAGE>
+        <targetType>user</targetType>
+        <source>telegram</source>
+        <target>dev_guru</target>
+        <text>Hello!</text>
+    </SEND_MESSAGE>
+</params>
+
+IMPORTANT PROVIDER SELECTION RULES:
+- Only include providers if they are needed to respond accurately.
+- If the message mentions images, photos, pictures, attachments, or visual content, OR if you see "(Attachments:" in the conversation, you MUST include "ATTACHMENTS" in your providers list
+- If the message asks about or references specific people, include "ENTITIES" in your providers list
+- If the message asks about relationships or connections between people, include "RELATIONSHIPS" in your providers list
+- If the message asks about facts or specific information, include "FACTS" in your providers list
+- If the message asks about the environment or world context, include "WORLD" in your providers list
+- If no additional context is needed, you may leave the providers list empty.
+
+IMPORTANT CODE BLOCK FORMATTING RULES:
+- If {{agentName}} includes code examples, snippets, or multi-line code in the response, ALWAYS wrap the code with \`\`\` fenced code blocks (specify the language if known, e.g., \`\`\`python).
+- ONLY use fenced code blocks for actual code. Do NOT wrap non-code text, instructions, or single words in fenced code blocks.
+- If including inline code (short single words or function names), use single backticks (\`) as appropriate.
+- This ensures the user sees clearly formatted and copyable code when relevant.
+
+First, think about what you want to do next and plan your actions. Then, write the next message and include the action you plan to take.
+</instructions>
+
+<keys>
+"thought" should be a short description of what the agent is thinking about and planning.
+"actions" should be the SINGLE action {{agentName}} will take (if simply responding with text, use REPLY; if not responding, use IGNORE; otherwise use the specific action name)
+"providers" should be a comma-separated list of the providers that {{agentName}} will use to have the right context for responding and acting (NEVER use "IGNORE" as a provider - use specific provider names like ATTACHMENTS, ENTITIES, FACTS, KNOWLEDGE, etc.)
+"text" should be the text of the next message for {{agentName}} which they will send to the conversation.
+"params" (optional) should contain action parameters when actions require input. Format as nested XML with action name as wrapper.
+</keys>
+
+<output>
+Do NOT include any thinking, reasoning, or <think> sections in your response.
+Go directly to the XML response format without any preamble or explanation.
+
+Respond using XML format like this:
+<response>
+    <thought>Your thought here</thought>
+    <actions>ACTION_NAME</actions>
+    <providers>PROVIDER1,PROVIDER2</providers>
+    <text>Your response text here</text>
+    <params>
+        <ACTION_NAME>
+            <paramName1>value1</paramName1>
+            <paramName2>value2</paramName2>
+        </ACTION_NAME>
+    </params>
+</response>
+
+The <params> block is optional - only include when actions require input parameters.
+If an action has no parameters or you're only using REPLY/IGNORE, omit <params> entirely.
+
+IMPORTANT: Your response must ONLY contain the <response></response> XML block above. Do not include any text, thinking, or reasoning before or after this XML block. Start your response immediately with <response> and end with </response>.
+</output>`;
+
 /** @internal Exported for testing. */
 export function buildCharacterFromConfig(config: MilaidyConfig): Character {
   // Resolve name: agents list → ui assistant → "Milaidy"
@@ -1080,6 +1190,9 @@ export function buildCharacterFromConfig(config: MilaidyConfig): Character {
     ...(postExamples ? { postExamples } : {}),
     ...(mappedExamples ? { messageExamples: mappedExamples } : {}),
     secrets,
+    templates: {
+      messageHandlerTemplate: MILAIDY_MESSAGE_HANDLER_TEMPLATE,
+    },
   });
 }
 
