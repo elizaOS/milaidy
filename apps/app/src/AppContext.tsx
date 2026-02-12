@@ -1001,6 +1001,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const exportBusyRef = useRef(false);
   /** Synchronous lock for import action to prevent duplicate clicks in the same tick. */
   const importBusyRef = useRef(false);
+  /** Synchronous lock for wallet API key save to prevent duplicate clicks in the same tick. */
+  const walletApiKeySavingRef = useRef(false);
   /** Synchronous lock for cloud login action to prevent duplicate clicks in the same tick. */
   const cloudLoginBusyRef = useRef(false);
 
@@ -2358,6 +2360,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const handleWalletApiKeySave = useCallback(
     async (config: Record<string, string>) => {
       if (Object.keys(config).length === 0) return;
+      if (walletApiKeySavingRef.current || walletApiKeySaving) return;
+      walletApiKeySavingRef.current = true;
       setWalletApiKeySaving(true);
       setWalletError(null);
       try {
@@ -2368,10 +2372,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setActionNotice("Wallet API keys saved and agent restarted.", "success");
       } catch (err) {
         setWalletError(`Failed to save API keys: ${err instanceof Error ? err.message : "network error"}`);
+      } finally {
+        walletApiKeySavingRef.current = false;
+        setWalletApiKeySaving(false);
       }
-      setWalletApiKeySaving(false);
     },
-    [loadWalletConfig, loadBalances, setActionNotice],
+    [walletApiKeySaving, loadWalletConfig, loadBalances, setActionNotice],
   );
 
   const handleExportKeys = useCallback(async () => {
