@@ -32,6 +32,7 @@ import { resolveStateDir } from "../config/paths.js";
 import { CharacterSchema } from "../config/zod-schema.js";
 import { resolveDefaultAgentWorkspaceDir } from "../providers/workspace.js";
 import { resolvePrimaryModel } from "../runtime/eliza.js";
+import { actionLog, clearActionLog } from "../runtime/milaidy-plugin.js";
 import {
   AgentExportError,
   estimateExportSize,
@@ -5134,6 +5135,198 @@ async function handleRequest(
   ) {
     const convId = decodeURIComponent(pathname.split("/")[3]);
     state.conversations.delete(convId);
+    json(res, { ok: true });
+    return;
+  }
+
+  // ── GET /api/debug/context — Expose action & context info for benchmarking
+  if (method === "GET" && pathname === "/api/debug/context") {
+    if (!state.runtime) {
+      error(res, "Runtime not available", 503);
+      return;
+    }
+    const rt = state.runtime;
+    const actions = rt.actions || [];
+    const actionDetails = actions.map((a) => ({
+      name: a.name,
+      descriptionLength: (a.description || "").length,
+      parameterCount: Array.isArray(a.parameters) ? a.parameters.length : 0,
+      exampleCount: Array.isArray(a.examples) ? a.examples.length : 0,
+      similes: Array.isArray((a as unknown as { similes?: string[] }).similes)
+        ? (a as unknown as { similes?: string[] }).similes
+        : [],
+    }));
+    const providers = rt.providers || [];
+    const plugins = rt.plugins || [];
+
+    // Measure real provider output sizes via composeState
+    let providerSizes: Record<string, number> = {};
+    let totalStateChars = 0;
+    try {
+      const fakeMessage = {
+        id: stringToUuid("benchmark"),
+        entityId: rt.agentId,
+        roomId: stringToUuid("benchmark-room"),
+        content: { text: "benchmark" },
+        createdAt: Date.now(),
+      };
+      const composedState = await rt.composeState(fakeMessage);
+      // Measure each value in state.values (provider outputs are strings)
+      if (composedState?.values) {
+        for (const [key, val] of Object.entries(composedState.values)) {
+          const str = typeof val === "string" ? val : JSON.stringify(val ?? "");
+          providerSizes[key] = str.length;
+          totalStateChars += str.length;
+        }
+      }
+    } catch (err) {
+      providerSizes = { error: String(err).length };
+    }
+
+    json(res, {
+      actionCount: actions.length,
+      actions: actionDetails,
+      providerCount: providers.length,
+      providers: providers.map((p: { name: string }) => p.name),
+      pluginCount: plugins.length,
+      plugins: plugins.map((p: { name: string }) => p.name),
+      providerOutputSizes: providerSizes,
+      totalStateChars,
+    });
+    return;
+  }
+
+  // ── POST /api/debug/prompt-preview — Show the full composed state for a message
+  // Returns the exact provider outputs the LLM would see, including formatted actions.
+  if (method === "POST" && pathname === "/api/debug/prompt-preview") {
+    if (!state.runtime) {
+      error(res, "Runtime not available", 503);
+      return;
+    }
+    const raw = await readBody(req);
+    const body = JSON.parse(raw) as { text?: string };
+    const text = body?.text;
+    if (!text) {
+      error(res, "Missing 'text' field", 400);
+      return;
+    }
+    const rt = state.runtime;
+    const fakeMessage = {
+      id: stringToUuid("prompt-preview"),
+      entityId: rt.agentId,
+      roomId: stringToUuid("prompt-preview-room"),
+      content: { text },
+      createdAt: Date.now(),
+    };
+    try {
+      const composedState = await rt.composeState(fakeMessage);
+      // Extract state values — these are the template variables available to the prompt
+      const values = composedState?.values ?? {};
+      // Separate the key sections for readability
+      const sections: Record<string, unknown> = {};
+      for (const [key, val] of Object.entries(values)) {
+        const str = typeof val === "string" ? val : JSON.stringify(val ?? "");
+        sections[key] = {
+          chars: str.length,
+          tokens: Math.round(str.length / 4),
+          content: str,
+        };
+      }
+      // Also include the character system prompt (sent as separate system message)
+      const systemPrompt = rt.character?.system ?? "(none)";
+      json(res, {
+        text,
+        systemPrompt,
+        sectionCount: Object.keys(sections).length,
+        sections,
+        totalChars: Object.values(values).reduce(
+          (sum: number, v) =>
+            sum +
+            (typeof v === "string" ? v.length : JSON.stringify(v ?? "").length),
+          0 as number,
+        ),
+      });
+    } catch (err) {
+      error(res, `composeState failed: ${String(err)}`, 500);
+    }
+    return;
+  }
+
+  // ── POST /api/debug/validate-actions — Check which actions pass validate() for a message
+  if (method === "POST" && pathname === "/api/debug/validate-actions") {
+    if (!state.runtime) {
+      error(res, "Runtime not available", 503);
+      return;
+    }
+    const raw = await readBody(req);
+    const body = JSON.parse(raw) as { text?: string };
+    const text = body?.text;
+    if (!text) {
+      error(res, "Missing 'text' field", 400);
+      return;
+    }
+    const rt = state.runtime;
+    const fakeMessage = {
+      id: stringToUuid("validate-test"),
+      entityId: rt.agentId,
+      roomId: stringToUuid("validate-test-room"),
+      content: { text },
+      createdAt: Date.now(),
+    };
+    const results: { name: string; valid: boolean; error?: string }[] = [];
+    for (const action of rt.actions || []) {
+      try {
+        const valid = await (
+          action as {
+            validate: (r: unknown, m: unknown, s: unknown) => Promise<boolean>;
+          }
+        ).validate(rt, fakeMessage, {});
+        results.push({ name: action.name, valid: !!valid });
+      } catch (err) {
+        results.push({
+          name: action.name,
+          valid: false,
+          error: String(err),
+        });
+      }
+    }
+    const passed = results.filter((r) => r.valid).map((r) => r.name);
+    const failed = results.filter((r) => !r.valid).map((r) => r.name);
+    json(res, {
+      text,
+      passedCount: passed.length,
+      passed,
+      failedCount: failed.length,
+      failed,
+    });
+    return;
+  }
+
+  // ── GET /api/debug/action-log — Return in-memory action log
+  if (method === "GET" && pathname === "/api/debug/action-log") {
+    if (process.env.MILAIDY_DEBUG_ACTIONS !== "1") {
+      error(
+        res,
+        "Action debug logging not enabled (set MILAIDY_DEBUG_ACTIONS=1)",
+        403,
+      );
+      return;
+    }
+    json(res, { entries: actionLog, count: actionLog.length });
+    return;
+  }
+
+  // ── DELETE /api/debug/action-log — Clear in-memory action log
+  if (method === "DELETE" && pathname === "/api/debug/action-log") {
+    if (process.env.MILAIDY_DEBUG_ACTIONS !== "1") {
+      error(
+        res,
+        "Action debug logging not enabled (set MILAIDY_DEBUG_ACTIONS=1)",
+        403,
+      );
+      return;
+    }
+    clearActionLog();
     json(res, { ok: true });
     return;
   }

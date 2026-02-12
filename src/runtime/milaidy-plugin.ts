@@ -6,12 +6,14 @@
  * Memory search/get actions are superseded by plugin-scratchpad.
  */
 
-import type { MessagePayload, Plugin } from "@elizaos/core";
+import type { ActionEventPayload, MessagePayload, Plugin } from "@elizaos/core";
 import {
   attachmentsProvider,
+  EventType,
   entitiesProvider,
   factsProvider,
   getSessionProviders,
+  logger,
   resolveDefaultSessionStorePath,
 } from "@elizaos/core";
 import { restartAction } from "../actions/restart.js";
@@ -34,6 +36,21 @@ export type MilaidyPluginConfig = {
    */
   enableBootstrapProviders?: boolean;
 };
+
+export type ActionLogEntry = {
+  action: string;
+  status: string;
+  roomId: string;
+  timestamp: number;
+  messageId?: string;
+};
+
+/** In-memory action log, only populated when MILAIDY_DEBUG_ACTIONS=1 */
+export const actionLog: ActionLogEntry[] = [];
+
+export function clearActionLog(): void {
+  actionLog.length = 0;
+}
 
 export function createMilaidyPlugin(config?: MilaidyPluginConfig): Plugin {
   const workspaceDir = config?.workspaceDir ?? DEFAULT_AGENT_WORKSPACE_DIR;
@@ -92,6 +109,29 @@ export function createMilaidyPlugin(config?: MilaidyPluginConfig): Plugin {
           meta.sessionKey = key;
         },
       ],
+      ...(process.env.MILAIDY_DEBUG_ACTIONS === "1"
+        ? {
+            [EventType.ACTION_COMPLETED]: [
+              async (payload: ActionEventPayload) => {
+                const actionName = payload.content?.actions?.[0] ?? "UNKNOWN";
+                const status =
+                  ((payload.content as Record<string, unknown>)
+                    ?.actionStatus as string) ?? "unknown";
+                const entry: ActionLogEntry = {
+                  action: actionName,
+                  status,
+                  roomId: payload.roomId as string,
+                  timestamp: Date.now(),
+                  messageId: payload.messageId as string | undefined,
+                };
+                actionLog.push(entry);
+                logger.info(
+                  `[action-selection] ${actionName} | ${status} | room=${payload.roomId}`,
+                );
+              },
+            ],
+          }
+        : {}),
     },
   };
 }
