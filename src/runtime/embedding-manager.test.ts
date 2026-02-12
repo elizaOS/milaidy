@@ -70,15 +70,14 @@ import {
   MilaidyEmbeddingManager,
   readEmbeddingMeta,
 } from "./embedding-manager.js";
+import { detectEmbeddingPreset } from "./embedding-presets.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
 /** Create a temp models dir with a fake model file to skip downloads. */
-function makeTempModelsDir(
-  modelName = "nomic-embed-text-v1.5.Q5_K_M.gguf",
-): string {
+function makeTempModelsDir(modelName = detectEmbeddingPreset().model): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "milaidy-emb-test-"));
   fs.writeFileSync(path.join(dir, modelName), "fake-gguf-data");
   return dir;
@@ -94,6 +93,20 @@ function defaultConfig(
   };
 }
 
+const ORIGINAL_PLATFORM = process.platform;
+const ORIGINAL_ARCH = process.arch;
+const BYTES_PER_GB = 1024 ** 3;
+
+function mockHardware(
+  platform: NodeJS.Platform,
+  arch: string,
+  ramGB: number,
+): void {
+  Object.defineProperty(process, "platform", { value: platform });
+  Object.defineProperty(process, "arch", { value: arch });
+  vi.spyOn(os, "totalmem").mockReturnValue(ramGB * BYTES_PER_GB);
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -106,6 +119,9 @@ describe("MilaidyEmbeddingManager", () => {
 
   afterEach(() => {
     vi.useRealTimers();
+    vi.restoreAllMocks();
+    Object.defineProperty(process, "platform", { value: ORIGINAL_PLATFORM });
+    Object.defineProperty(process, "arch", { value: ORIGINAL_ARCH });
   });
 
   afterAll(() => {
@@ -118,41 +134,54 @@ describe("MilaidyEmbeddingManager", () => {
   });
 
   // 1. Config defaults
-  it("should use correct default model, dimensions, and repo", () => {
+  it("should use detected preset defaults when config is not provided", () => {
+    const detected = detectEmbeddingPreset();
     const mgr = new MilaidyEmbeddingManager(defaultConfig());
     const stats = mgr.getStats();
-    expect(stats.model).toBe("nomic-embed-text-v1.5.Q5_K_M.gguf");
-    expect(stats.dimensions).toBe(768);
+
+    expect(stats.model).toBe(detected.model);
+    expect(stats.dimensions).toBe(detected.dimensions);
+    expect(stats.gpuLayers).toBe(detected.gpuLayers);
     expect(stats.isLoaded).toBe(false);
     expect(stats.lastUsedAt).toBeNull();
   });
 
-  // 2. macOS GPU detection
-  it("should default gpuLayers to 'auto' on macOS", () => {
-    const originalPlatform = process.platform;
-    Object.defineProperty(process, "platform", { value: "darwin" });
-    try {
-      const mgr = new MilaidyEmbeddingManager({
-        modelsDir: makeTempModelsDir(),
-      });
-      expect(mgr.getStats().gpuLayers).toBe("auto");
-    } finally {
-      Object.defineProperty(process, "platform", { value: originalPlatform });
-    }
+  // 2. Constructor defaults reflect detected hardware tier
+  it("should use hardware detection fallback defaults in constructor", () => {
+    mockHardware("darwin", "arm64", 128);
+
+    const detected = detectEmbeddingPreset();
+    const mgr = new MilaidyEmbeddingManager({
+      modelsDir: makeTempModelsDir(detected.model),
+    });
+
+    expect(mgr.getStats()).toMatchObject({
+      model: detected.model,
+      dimensions: detected.dimensions,
+      gpuLayers: detected.gpuLayers,
+    });
   });
 
-  // 3. Non-macOS default
+  // 3. macOS GPU detection
+  it("should default gpuLayers to 'auto' on Apple Silicon macOS", () => {
+    mockHardware("darwin", "arm64", 16);
+
+    const mgr = new MilaidyEmbeddingManager({
+      modelsDir: makeTempModelsDir(),
+    });
+
+    expect(mgr.getStats().gpuLayers).toBe("auto");
+  });
+
+  // 4. Non-macOS default
   it("should default gpuLayers to 0 on non-darwin platforms", () => {
-    const originalPlatform = process.platform;
-    Object.defineProperty(process, "platform", { value: "linux" });
-    try {
-      const mgr = new MilaidyEmbeddingManager({
-        modelsDir: makeTempModelsDir(),
-      });
-      expect(mgr.getStats().gpuLayers).toBe(0);
-    } finally {
-      Object.defineProperty(process, "platform", { value: originalPlatform });
-    }
+    mockHardware("linux", "arm64", 128);
+
+    const mgr = new MilaidyEmbeddingManager({
+      modelsDir: makeTempModelsDir(),
+    });
+
+    expect(mgr.getStats().gpuLayers).toBe(0);
   });
 
   // 4. Idle timeout fires dispose after inactivity
@@ -196,6 +225,7 @@ describe("MilaidyEmbeddingManager", () => {
     await mgr.generateEmbedding("first call");
     const stats1 = mgr.getStats();
     expect(stats1.lastUsedAt).not.toBeNull();
+    const firstLastUsedAt = stats1.lastUsedAt ?? 0;
 
     // Advance 5 minutes (not past timeout)
     vi.advanceTimersByTime(5 * 60 * 1000);
@@ -203,11 +233,9 @@ describe("MilaidyEmbeddingManager", () => {
     // Use again — resets the idle clock
     await mgr.generateEmbedding("second call");
     const stats2 = mgr.getStats();
-    const firstLastUsedAt = stats1.lastUsedAt;
     const secondLastUsedAt = stats2.lastUsedAt;
-    expect(firstLastUsedAt).not.toBeNull();
     expect(secondLastUsedAt).not.toBeNull();
-    if (firstLastUsedAt == null || secondLastUsedAt == null) {
+    if (secondLastUsedAt == null) {
       throw new Error("Expected lastUsedAt values to be populated");
     }
     expect(secondLastUsedAt).toBeGreaterThan(firstLastUsedAt);
@@ -265,12 +293,13 @@ describe("MilaidyEmbeddingManager", () => {
       gpuLayers: 42,
     });
     // Create model file for custom name
-    const modelsDir = cfg.modelsDir;
-    expect(modelsDir).toBeDefined();
-    if (!modelsDir) {
-      throw new Error("Expected modelsDir to be defined");
+    if (!cfg.modelsDir) {
+      throw new Error("modelsDir should always be set by defaultConfig");
     }
-    fs.writeFileSync(path.join(modelsDir, "custom-model.gguf"), "fake-data");
+    fs.writeFileSync(
+      path.join(cfg.modelsDir, "custom-model.gguf"),
+      "fake-data",
+    );
 
     const mgr = new MilaidyEmbeddingManager(cfg);
     const before = mgr.getStats();

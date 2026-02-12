@@ -1,7 +1,7 @@
 /**
  * MilaidyEmbeddingManager — wraps node-llama-cpp to provide:
  *   • Metal GPU acceleration on Apple Silicon (gpuLayers: "auto")
- *   • Configurable embedding model (default: nomic-embed-text-v1.5 Q5_K_M)
+ *   • Configurable embedding model with hardware-adaptive defaults
  *   • Idle timeout unloading (default: 30 min) with transparent lazy re-init
  *   • Dimension migration detection with warning logging
  */
@@ -9,6 +9,7 @@ import fs from "node:fs";
 import https from "node:https";
 import os from "node:os";
 import path from "node:path";
+import { detectEmbeddingPreset } from "./embedding-presets.js";
 
 // Lazy-imported to keep the module lightweight at parse time.
 // node-llama-cpp pulls in native binaries — importing at the top would slow
@@ -26,13 +27,13 @@ type LlamaEmbeddingContextInstance = Awaited<
 // ---------------------------------------------------------------------------
 
 export interface EmbeddingManagerConfig {
-  /** GGUF model filename (default: "nomic-embed-text-v1.5.Q5_K_M.gguf") */
+  /** GGUF model filename (default: detected hardware preset) */
   model?: string;
-  /** HuggingFace repo for auto-download (default: "nomic-ai/nomic-embed-text-v1.5-GGUF") */
+  /** HuggingFace repo for auto-download (default: detected hardware preset repo) */
   modelRepo?: string;
-  /** Embedding dimensions (default: 768) */
+  /** Embedding dimensions (default: detected hardware preset dimensions) */
   dimensions?: number;
-  /** GPU layers: "auto" | "max" | number (default: "auto" on macOS, 0 elsewhere) */
+  /** GPU layers: "auto" | "max" | number (default: detected hardware preset gpuLayers) */
   gpuLayers?: "auto" | "max" | number;
   /** Idle timeout in ms before unloading model (default: 1800000 = 30 min, 0 = never unload) */
   idleTimeoutMs?: number;
@@ -52,9 +53,6 @@ export interface EmbeddingManagerStats {
 // Defaults
 // ---------------------------------------------------------------------------
 
-const DEFAULT_MODEL = "nomic-embed-text-v1.5.Q5_K_M.gguf";
-const DEFAULT_REPO = "nomic-ai/nomic-embed-text-v1.5-GGUF";
-const DEFAULT_DIMENSIONS = 768;
 const DEFAULT_IDLE_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
 const DEFAULT_MODELS_DIR = path.join(os.homedir(), ".eliza", "models");
 
@@ -292,11 +290,12 @@ export class MilaidyEmbeddingManager {
   private dimensionCheckDone = false;
 
   constructor(config: EmbeddingManagerConfig = {}) {
-    this.model = config.model ?? DEFAULT_MODEL;
-    this.modelRepo = config.modelRepo ?? DEFAULT_REPO;
-    this.dimensions = config.dimensions ?? DEFAULT_DIMENSIONS;
-    this.gpuLayers =
-      config.gpuLayers ?? (process.platform === "darwin" ? "auto" : 0);
+    const detected = detectEmbeddingPreset();
+
+    this.model = config.model ?? detected.model;
+    this.modelRepo = config.modelRepo ?? detected.modelRepo;
+    this.dimensions = config.dimensions ?? detected.dimensions;
+    this.gpuLayers = config.gpuLayers ?? detected.gpuLayers;
     this.idleTimeoutMs = config.idleTimeoutMs ?? DEFAULT_IDLE_TIMEOUT_MS;
     this.modelsDir = config.modelsDir ?? DEFAULT_MODELS_DIR;
   }

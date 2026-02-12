@@ -63,7 +63,7 @@ function detectEmbeddingTier(): EmbeddingTier {
 ## Tasks
 
 ### Task 1: Create hardware detection + embedding presets module
-- [ ] **File**: `src/runtime/embedding-presets.ts` (NEW)
+- [x] **File**: `src/runtime/embedding-presets.ts` (NEW)
 - **What**: Export the tier detection function and preset definitions.
 - **API**:
   ```typescript
@@ -96,7 +96,7 @@ function detectEmbeddingTier(): EmbeddingTier {
   - Performance: `"Maximum (7B model)"` — `"4096-dim, 4.8GB download — SOTA retrieval quality, 32K context"`
 
 ### Task 2: Add onboarding step for embedding model selection
-- [ ] **File**: `src/runtime/eliza.ts` — inside `runFirstTimeSetup()`
+- [x] **File**: `src/runtime/eliza.ts` — inside `runFirstTimeSetup()`
 - **What**: Add a new **Step 4b** (after Step 4: Model provider, before Step 5: Wallet setup) that:
   1. Calls `detectEmbeddingTier()` to determine the recommended preset
   2. Shows the user what was detected with `clack.log.message()`:
@@ -122,7 +122,7 @@ function detectEmbeddingTier(): EmbeddingTier {
   ```
 
 ### Task 3: Persist embedding selection to config
-- [ ] **File**: `src/runtime/eliza.ts` — inside `runFirstTimeSetup()`, Step 7
+- [x] **File**: `src/runtime/eliza.ts` — inside `runFirstTimeSetup()`, Step 7
 - **What**: In the config persistence section (line ~1533), write the chosen embedding preset to `config.embedding`:
   ```typescript
   if (chosenEmbeddingPreset) {
@@ -138,7 +138,7 @@ function detectEmbeddingTier(): EmbeddingTier {
 - On next startup, the embedding manager reads from `config.embedding.*` (step 7e, line ~2010).
 
 ### Task 4: Update embedding-manager to use tier detection as fallback
-- [ ] **File**: `src/runtime/embedding-manager.ts`
+- [x] **File**: `src/runtime/embedding-manager.ts`
 - **What**: When no explicit config is provided (first run before onboarding persists), use `detectEmbeddingPreset()` to pick intelligent defaults instead of hardcoding nomic Q5_K_M:
   ```typescript
   import { detectEmbeddingPreset } from "./embedding-presets.js";
@@ -153,7 +153,7 @@ function detectEmbeddingTier(): EmbeddingTier {
 - Also update the `DEFAULT_MODEL`, `DEFAULT_REPO`, `DEFAULT_DIMENSIONS` constants to be derived from `detectEmbeddingPreset()` or remove them in favor of the function.
 
 ### Task 5: Write tests
-- [ ] **File**: `src/runtime/embedding-presets.test.ts` (NEW)
+- [x] **File**: `src/runtime/embedding-presets.test.ts` (NEW)
 - **What**:
   1. **Tier detection — Apple Silicon high RAM**: Mock `process.arch = "arm64"`, `process.platform = "darwin"`, `os.totalmem() = 128GB` → `"performance"`
   2. **Tier detection — Apple Silicon 16GB**: → `"standard"`
@@ -163,12 +163,12 @@ function detectEmbeddingTier(): EmbeddingTier {
   6. **Preset fields**: Each preset has required fields (model, modelRepo, dimensions, gpuLayers)
   7. **Performance preset has 4096 dims**: Verify the high-tier preset uses e5-mistral dimensions
   8. **Fallback and Standard share 768 dims**: Verify dimension portability
-- [ ] **File**: `src/runtime/embedding-manager.test.ts` (extend)
+- [x] **File**: `src/runtime/embedding-manager.test.ts` (extend)
   9. **Verify constructor uses detected defaults**: When no config provided, the model/dims/gpu should match the detected tier for the current platform.
 - **Mocking**: Use `Object.defineProperty(process, "platform", ...)` and `vi.spyOn(os, "totalmem")` patterns (already used in existing embedding-manager tests).
 
 ### Task 6: Update existing embedding-manager tests for new defaults
-- [ ] **File**: `src/runtime/embedding-manager.test.ts`
+- [x] **File**: `src/runtime/embedding-manager.test.ts`
 - **What**: Some existing tests hardcode `"nomic-embed-text-v1.5.Q5_K_M.gguf"` as the expected default model. After Task 4, defaults are tier-dependent. Update tests to either:
   - Pass explicit config (so they don't depend on detected defaults), OR
   - Assert against the detected preset for the test environment
