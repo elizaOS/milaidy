@@ -1,4 +1,10 @@
 import type { SessionConfig, SessionSendPolicyConfig } from "@elizaos/core";
+import type {
+  CustomActionDef,
+  DatabaseProviderType,
+  MediaConfig,
+  ReleaseChannel,
+} from "../contracts/config.js";
 import type { AgentBinding, AgentsConfig } from "./types.agents.js";
 import type {
   DiscoveryConfig,
@@ -13,6 +19,37 @@ import type {
   MessagesConfig,
 } from "./types.messages.js";
 import type { ToolsConfig } from "./types.tools.js";
+
+export type {
+  AudioElevenlabsSfxConfig,
+  AudioGenConfig,
+  AudioGenProvider,
+  AudioSunoConfig,
+  CustomActionDef,
+  CustomActionHandler,
+  DatabaseProviderType,
+  ImageConfig,
+  ImageFalConfig,
+  ImageGoogleConfig,
+  ImageOpenaiConfig,
+  ImageProvider,
+  ImageXaiConfig,
+  MediaConfig,
+  MediaMode,
+  ReleaseChannel,
+  VideoConfig,
+  VideoFalConfig,
+  VideoGoogleConfig,
+  VideoOpenaiConfig,
+  VideoProvider,
+  VisionAnthropicConfig,
+  VisionConfig,
+  VisionGoogleConfig,
+  VisionOllamaConfig,
+  VisionOpenaiConfig,
+  VisionProvider,
+  VisionXaiConfig,
+} from "../contracts/config.js";
 
 // --- Auth types (merged from types.auth.ts) ---
 
@@ -361,8 +398,6 @@ export type MemoryQmdLimitsConfig = {
 
 // --- Database types ---
 
-export type DatabaseProviderType = "pglite" | "postgres";
-
 export type PgliteConfig = {
   /** Custom PGLite data directory. Default: ~/.milaidy/workspace/.eliza/.elizadb */
   dataDir?: string;
@@ -503,162 +538,6 @@ export type X402Config = {
 // Media Generation Types
 // ============================================================================
 
-export type MediaMode = "cloud" | "own-key";
-
-// --- Image Generation ---
-
-export type ImageProvider = "cloud" | "fal" | "openai" | "google" | "xai";
-
-export type ImageFalConfig = {
-  apiKey?: string;
-  model?: string;
-  baseUrl?: string;
-};
-
-export type ImageOpenaiConfig = {
-  apiKey?: string;
-  model?: string;
-  quality?: "standard" | "hd";
-  style?: "natural" | "vivid";
-};
-
-export type ImageGoogleConfig = {
-  apiKey?: string;
-  model?: string;
-  aspectRatio?: string;
-};
-
-export type ImageXaiConfig = {
-  apiKey?: string;
-  model?: string;
-};
-
-export type ImageConfig = {
-  enabled?: boolean;
-  mode?: MediaMode;
-  provider?: ImageProvider;
-  defaultSize?: string;
-  fal?: ImageFalConfig;
-  openai?: ImageOpenaiConfig;
-  google?: ImageGoogleConfig;
-  xai?: ImageXaiConfig;
-};
-
-// --- Video Generation ---
-
-export type VideoProvider = "cloud" | "fal" | "openai" | "google";
-
-export type VideoFalConfig = {
-  apiKey?: string;
-  model?: string;
-  baseUrl?: string;
-};
-
-export type VideoOpenaiConfig = {
-  apiKey?: string;
-  model?: string;
-};
-
-export type VideoGoogleConfig = {
-  apiKey?: string;
-  model?: string;
-};
-
-export type VideoConfig = {
-  enabled?: boolean;
-  mode?: MediaMode;
-  provider?: VideoProvider;
-  defaultDuration?: number;
-  fal?: VideoFalConfig;
-  openai?: VideoOpenaiConfig;
-  google?: VideoGoogleConfig;
-};
-
-// --- Audio/Music Generation ---
-
-export type AudioGenProvider = "cloud" | "suno" | "elevenlabs";
-
-export type AudioSunoConfig = {
-  apiKey?: string;
-  model?: string;
-  baseUrl?: string;
-};
-
-export type AudioElevenlabsSfxConfig = {
-  apiKey?: string;
-  duration?: number;
-};
-
-export type AudioGenConfig = {
-  enabled?: boolean;
-  mode?: MediaMode;
-  provider?: AudioGenProvider;
-  suno?: AudioSunoConfig;
-  elevenlabs?: AudioElevenlabsSfxConfig;
-};
-
-// --- Vision (Image Analysis) ---
-
-export type VisionProvider =
-  | "cloud"
-  | "openai"
-  | "google"
-  | "anthropic"
-  | "xai"
-  | "ollama";
-
-export type VisionOpenaiConfig = {
-  apiKey?: string;
-  model?: string;
-  maxTokens?: number;
-};
-
-export type VisionGoogleConfig = {
-  apiKey?: string;
-  model?: string;
-};
-
-export type VisionAnthropicConfig = {
-  apiKey?: string;
-  model?: string;
-};
-
-export type VisionXaiConfig = {
-  apiKey?: string;
-  model?: string;
-};
-
-export type VisionOllamaConfig = {
-  /** Ollama server base URL. Default: http://localhost:11434 */
-  baseUrl?: string;
-  /** Vision model to use (e.g., llava, moondream, bakllava). Default: llava */
-  model?: string;
-  /** Max tokens for response. Default: 1024 */
-  maxTokens?: number;
-  /** Auto-download model from Ollama registry if not present. Default: true */
-  autoDownload?: boolean;
-};
-
-export type VisionConfig = {
-  enabled?: boolean;
-  mode?: MediaMode;
-  provider?: VisionProvider;
-  openai?: VisionOpenaiConfig;
-  google?: VisionGoogleConfig;
-  anthropic?: VisionAnthropicConfig;
-  xai?: VisionXaiConfig;
-  ollama?: VisionOllamaConfig;
-};
-
-// --- Combined Media Config ---
-
-export type MediaConfig = {
-  image?: ImageConfig;
-  video?: VideoConfig;
-  audio?: AudioGenConfig;
-  vision?: VisionConfig;
-};
-
 // --- Local embedding runtime config ---
 
 export type EmbeddingConfig = {
@@ -676,8 +555,6 @@ export type EmbeddingConfig = {
 
 // --- Update/release channel types ---
 
-export type ReleaseChannel = "stable" | "beta" | "nightly";
-
 export type UpdateConfig = {
   channel?: ReleaseChannel;
   /** Default: true. */
@@ -689,29 +566,6 @@ export type UpdateConfig = {
 };
 
 // --- Custom Actions types ---
-
-export type CustomActionHandler =
-  | {
-      type: "http";
-      method: string;
-      url: string;
-      headers?: Record<string, string>;
-      bodyTemplate?: string;
-    }
-  | { type: "shell"; command: string }
-  | { type: "code"; code: string };
-
-export type CustomActionDef = {
-  id: string;
-  name: string;
-  description: string;
-  similes?: string[];
-  parameters: Array<{ name: string; description: string; required: boolean }>;
-  handler: CustomActionHandler;
-  enabled: boolean;
-  createdAt: string;
-  updatedAt: string;
-};
 
 // --- Connector types ---
 

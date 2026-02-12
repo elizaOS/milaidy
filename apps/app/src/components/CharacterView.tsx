@@ -273,7 +273,6 @@ export function CharacterView() {
     registryRegistering,
     registryError,
     dropStatus,
-    dropLoading,
     mintInProgress,
     mintResult,
     mintError,
@@ -381,7 +380,8 @@ export function CharacterView() {
           else if (typeof parsed.style.post === "string") handleCharacterStyleInput("post", parsed.style.post);
         }
 
-        const messageExamples = parseImportedMessageExamples(parsed.messageExamples);
+        const messageExamples =
+          parseImportedMessageExamples(parsed.messageExamples) ?? [];
         if (messageExamples.length > 0) {
           handleCharacterFieldInput("messageExamples", messageExamples);
         }

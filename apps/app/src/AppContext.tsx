@@ -829,9 +829,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // --- Whitelist ---
   const [whitelistStatus, setWhitelistStatus] = useState<WhitelistStatus | null>(null);
   const [whitelistLoading, setWhitelistLoading] = useState(false);
-  const [twitterVerifyMessage, setTwitterVerifyMessage] = useState<string | null>(null);
-  const [twitterVerifyUrl, setTwitterVerifyUrl] = useState("");
-  const [twitterVerifying, setTwitterVerifying] = useState(false);
+  const [twitterVerifyMessage] = useState<string | null>(null);
+  const [twitterVerifyUrl] = useState("");
+  const [twitterVerifying] = useState(false);
 
   // --- Character ---
   const [characterData, setCharacterData] = useState<CharacterData | null>(null);
@@ -2433,27 +2433,31 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setRegistryRegistering(true);
     setRegistryError(null);
     try {
-      await client.registerAgent({ name: characterDraft?.name || agentStatus?.name });
+      await client.registerAgent({
+        name: characterDraft?.name || agentStatus?.agentName,
+      });
       await loadRegistryStatus();
     } catch (err) {
       setRegistryError(err instanceof Error ? err.message : "Registration failed");
     } finally {
       setRegistryRegistering(false);
     }
-  }, [characterDraft?.name, agentStatus?.name, loadRegistryStatus]);
+  }, [characterDraft?.name, agentStatus?.agentName, loadRegistryStatus]);
 
   const syncRegistryProfile = useCallback(async () => {
     setRegistryRegistering(true);
     setRegistryError(null);
     try {
-      await client.syncRegistryProfile({ name: characterDraft?.name || agentStatus?.name });
+      await client.syncRegistryProfile({
+        name: characterDraft?.name || agentStatus?.agentName,
+      });
       await loadRegistryStatus();
     } catch (err) {
       setRegistryError(err instanceof Error ? err.message : "Sync failed");
     } finally {
       setRegistryRegistering(false);
     }
-  }, [characterDraft?.name, agentStatus?.name, loadRegistryStatus]);
+  }, [characterDraft?.name, agentStatus?.agentName, loadRegistryStatus]);
 
   const loadDropStatus = useCallback(async () => {
     setDropLoading(true);
@@ -2469,11 +2473,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const mintFromDrop = useCallback(async (shiny: boolean) => {
     setMintInProgress(true);
+    setMintShiny(shiny);
     setMintError(null);
     setMintResult(null);
     try {
       const result = await client.mintAgent({
-        name: characterDraft?.name || agentStatus?.name,
+        name: characterDraft?.name || agentStatus?.agentName,
         shiny,
       });
       setMintResult(result);
@@ -2483,8 +2488,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setMintError(err instanceof Error ? err.message : "Mint failed");
     } finally {
       setMintInProgress(false);
+      setMintShiny(false);
     }
-  }, [characterDraft?.name, agentStatus?.name, loadRegistryStatus, loadDropStatus]);
+  }, [characterDraft?.name, agentStatus?.agentName, loadRegistryStatus, loadDropStatus]);
 
   const loadWhitelistStatus = useCallback(async () => {
     setWhitelistLoading(true);

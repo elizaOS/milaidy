@@ -6,13 +6,85 @@
  */
 
 import type { ConfigUiHint } from "./types";
+import type {
+  AudioGenConfig,
+  AudioGenProvider,
+  CustomActionDef,
+  CustomActionHandler,
+  DatabaseProviderType,
+  ImageConfig,
+  ImageProvider,
+  MediaConfig,
+  MediaMode,
+  ReleaseChannel,
+  VideoConfig,
+  VideoProvider,
+  VisionConfig,
+  VisionProvider,
+} from "../../../src/config/types.milaidy.js";
+import type { StylePreset } from "../../../src/contracts/onboarding.js";
+import type {
+  EvmChainBalance,
+  EvmNft,
+  EvmTokenBalance,
+  SolanaNft,
+  SolanaTokenBalance,
+  WalletAddresses,
+  WalletBalancesResponse,
+  WalletConfigStatus,
+  WalletNftsResponse,
+} from "../../../src/contracts/wallet.js";
+import type { DropStatus, MintResult } from "../../../src/contracts/drop.js";
+import type { VerificationResult } from "../../../src/contracts/verification.js";
+import type {
+  AllPermissionsState,
+  PermissionState,
+  PermissionStatus,
+  SystemPermissionDefinition,
+  SystemPermissionId,
+} from "../../../src/permissions/types.js";
+
+export type {
+  AudioGenConfig,
+  AudioGenProvider,
+  CustomActionDef,
+  CustomActionHandler,
+  DatabaseProviderType,
+  ImageConfig,
+  ImageProvider,
+  MediaConfig,
+  MediaMode,
+  ReleaseChannel,
+  VideoConfig,
+  VideoProvider,
+  VisionConfig,
+  VisionProvider,
+};
+export type { StylePreset };
+export type {
+  EvmChainBalance,
+  EvmNft,
+  EvmTokenBalance,
+  SolanaNft,
+  SolanaTokenBalance,
+  WalletAddresses,
+  WalletBalancesResponse,
+  WalletConfigStatus,
+  WalletNftsResponse,
+};
+export type { DropStatus, MintResult };
+export type { VerificationResult };
+export type {
+  AllPermissionsState,
+  PermissionState,
+  PermissionStatus,
+  SystemPermissionId,
+  SystemPermissionDefinition as PermissionDefinition,
+};
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
-
-// Database types
-export type DatabaseProviderType = "pglite" | "postgres";
 
 export interface DatabaseStatus {
   provider: DatabaseProviderType;
@@ -77,24 +149,6 @@ export interface QueryResult {
   rows: Record<string, unknown>[];
   rowCount: number;
   durationMs: number;
-}
-
-// Custom actions types
-export type CustomActionHandler =
-  | { type: "http"; method: string; url: string; headers?: Record<string, string>; bodyTemplate?: string }
-  | { type: "shell"; command: string }
-  | { type: "code"; code: string };
-
-export interface CustomActionDef {
-  id: string;
-  name: string;
-  description: string;
-  similes?: string[];
-  parameters: Array<{ name: string; description: string; required: boolean }>;
-  handler: CustomActionHandler;
-  enabled: boolean;
-  createdAt: string;
-  updatedAt: string;
 }
 
 export type AgentState = "not_started" | "starting" | "running" | "paused" | "stopped" | "restarting" | "error";
@@ -238,22 +292,6 @@ export interface UpdateTriggerRequest {
 export interface MessageExample {
   user: string;
   content: { text: string };
-}
-
-export interface StylePreset {
-  catchphrase: string;
-  hint: string;
-  bio: string[];
-  system: string;
-  style: {
-    all: string[];
-    chat: string[];
-    post: string[];
-  };
-  adjectives: string[];
-  topics: string[];
-  postExamples: string[];
-  messageExamples: MessageExample[][];
 }
 
 export interface ProviderOption {
@@ -788,24 +826,9 @@ export interface PluginInstallResult {
   error?: string;
 }
 
-// Wallet types
-
-export interface WalletAddresses { evmAddress: string | null; solanaAddress: string | null }
-export interface EvmTokenBalance { symbol: string; name: string; contractAddress: string; balance: string; decimals: number; valueUsd: string; logoUrl: string }
-export interface EvmChainBalance { chain: string; chainId: number; nativeBalance: string; nativeSymbol: string; nativeValueUsd: string; tokens: EvmTokenBalance[]; error: string | null }
-export interface SolanaTokenBalance { symbol: string; name: string; mint: string; balance: string; decimals: number; valueUsd: string; logoUrl: string }
-export interface WalletBalancesResponse {
-  evm: { address: string; chains: EvmChainBalance[] } | null;
-  solana: { address: string; solBalance: string; solValueUsd: string; tokens: SolanaTokenBalance[] } | null;
-}
-export interface EvmNft { contractAddress: string; tokenId: string; name: string; description: string; imageUrl: string; collectionName: string; tokenType: string }
-export interface SolanaNft { mint: string; name: string; description: string; imageUrl: string; collectionName: string }
-export interface WalletNftsResponse { evm: Array<{ chain: string; nfts: EvmNft[] }>; solana: { nfts: SolanaNft[] } | null }
-export interface WalletConfigStatus { alchemyKeySet: boolean; infuraKeySet: boolean; ankrKeySet: boolean; heliusKeySet: boolean; birdeyeKeySet: boolean; evmChains: string[]; evmAddress: string | null; solanaAddress: string | null }
 export interface WalletExportResult { evm: { privateKey: string; address: string | null } | null; solana: { privateKey: string; address: string | null } | null }
 
 // Software Updates
-export type ReleaseChannel = "stable" | "beta" | "nightly";
 export interface UpdateStatus {
   currentVersion: string;
   channel: ReleaseChannel;
@@ -939,59 +962,6 @@ export interface VoiceConfig {
     pitch?: string;
     volume?: string;
   };
-}
-
-// Media Generation Config
-export type MediaMode = "cloud" | "own-key";
-export type ImageProvider = "cloud" | "fal" | "openai" | "google" | "xai";
-export type VideoProvider = "cloud" | "fal" | "openai" | "google";
-export type AudioGenProvider = "cloud" | "suno" | "elevenlabs";
-export type VisionProvider = "cloud" | "openai" | "google" | "anthropic" | "xai";
-
-export interface ImageConfig {
-  enabled?: boolean;
-  mode?: MediaMode;
-  provider?: ImageProvider;
-  defaultSize?: string;
-  fal?: { apiKey?: string; model?: string; baseUrl?: string };
-  openai?: { apiKey?: string; model?: string; quality?: "standard" | "hd"; style?: "natural" | "vivid" };
-  google?: { apiKey?: string; model?: string; aspectRatio?: string };
-  xai?: { apiKey?: string; model?: string };
-}
-
-export interface VideoConfig {
-  enabled?: boolean;
-  mode?: MediaMode;
-  provider?: VideoProvider;
-  defaultDuration?: number;
-  fal?: { apiKey?: string; model?: string; baseUrl?: string };
-  openai?: { apiKey?: string; model?: string };
-  google?: { apiKey?: string; model?: string };
-}
-
-export interface AudioGenConfig {
-  enabled?: boolean;
-  mode?: MediaMode;
-  provider?: AudioGenProvider;
-  suno?: { apiKey?: string; model?: string; baseUrl?: string };
-  elevenlabs?: { apiKey?: string; duration?: number };
-}
-
-export interface VisionConfig {
-  enabled?: boolean;
-  mode?: MediaMode;
-  provider?: VisionProvider;
-  openai?: { apiKey?: string; model?: string; maxTokens?: number };
-  google?: { apiKey?: string; model?: string };
-  anthropic?: { apiKey?: string; model?: string };
-  xai?: { apiKey?: string; model?: string };
-}
-
-export interface MediaConfig {
-  image?: ImageConfig;
-  video?: VideoConfig;
-  audio?: AudioGenConfig;
-  vision?: VisionConfig;
 }
 
 // Character
@@ -1403,24 +1373,6 @@ export interface RegistryConfig {
   explorerUrl: string;
 }
 
-export interface DropStatus {
-  dropEnabled: boolean;
-  publicMintOpen: boolean;
-  whitelistMintOpen: boolean;
-  mintedOut: boolean;
-  currentSupply: number;
-  maxSupply: number;
-  shinyPrice: string;
-  userHasMinted: boolean;
-}
-
-export interface MintResult {
-  agentId: number;
-  mintNumber: number;
-  txHash: string;
-  isShiny: boolean;
-}
-
 export interface WhitelistStatus {
   eligible: boolean;
   twitterVerified: boolean;
@@ -1433,47 +1385,9 @@ export interface VerificationMessageResponse {
   walletAddress: string;
 }
 
-export interface VerificationResult {
-  verified: boolean;
-  error: string | null;
-  handle: string | null;
-}
-
 // ---------------------------------------------------------------------------
 // System Permissions
 // ---------------------------------------------------------------------------
-
-export type SystemPermissionId =
-  | "accessibility"
-  | "screen-recording"
-  | "microphone"
-  | "camera"
-  | "shell";
-
-export type PermissionStatus =
-  | "granted"
-  | "denied"
-  | "not-determined"
-  | "restricted"
-  | "not-applicable";
-
-export interface PermissionState {
-  id: SystemPermissionId;
-  status: PermissionStatus;
-  lastChecked: number;
-  canRequest: boolean;
-}
-
-export type AllPermissionsState = Record<SystemPermissionId, PermissionState>;
-
-export interface PermissionDefinition {
-  id: SystemPermissionId;
-  name: string;
-  description: string;
-  icon: string;
-  platforms: Array<"darwin" | "win32" | "linux">;
-  requiredForFeatures: string[];
-}
 
 declare global {
   interface Window {

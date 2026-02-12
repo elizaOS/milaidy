@@ -84,7 +84,7 @@ type SseEventPayload = {
 function reqSse(
   port: number,
   p: string,
-  body: Record<string, string | number | boolean | null>,
+  body: Record<string, unknown>,
 ): Promise<{
   status: number;
   headers: http.IncomingHttpHeaders;
@@ -514,6 +514,54 @@ function createRuntimeForChatSseTests(): AgentRuntime {
           responseContent: {
             text: "Hello world",
           },
+        };
+      },
+    } as AgentRuntime["messageService"],
+    ensureConnection: async () => {},
+    getWorld: async () => null,
+    updateWorld: async () => {},
+    getService: () => null,
+    getRoomsByWorld: async () => [],
+    getMemories: async () => [],
+    getCache: async () => null,
+    setCache: async () => {},
+  };
+
+  return runtimeSubset as AgentRuntime;
+}
+
+function createRuntimeForCompatEndpointTests(): AgentRuntime {
+  const runtimeSubset: Pick<
+    AgentRuntime,
+    | "agentId"
+    | "character"
+    | "messageService"
+    | "ensureConnection"
+    | "getWorld"
+    | "updateWorld"
+    | "getService"
+    | "getRoomsByWorld"
+    | "getMemories"
+    | "getCache"
+    | "setCache"
+  > = {
+    agentId: "compat-endpoint-agent",
+    character: { name: "CompatAgent" } as AgentRuntime["character"],
+    messageService: {
+      handleMessage: async (
+        _runtime: AgentRuntime,
+        _message: object,
+        onResponse: (content: Content) => Promise<object[]>,
+      ) => {
+        await onResponse({ text: "Compat " } as Content);
+        await onResponse({ text: "reply" } as Content);
+        return {
+          didRespond: true,
+          responseContent: {
+            text: "Compat reply",
+          },
+          responseMessages: [],
+          mode: "power",
         };
       },
     } as AgentRuntime["messageService"],
@@ -2298,6 +2346,159 @@ describe("API Server E2E (workbench CRUD)", () => {
       `/api/workbench/todos/${encodeURIComponent(todoId)}`,
     );
     expect(readAfterDelete.status).toBe(404);
+  });
+});
+
+describe("API Server E2E (compat endpoints)", () => {
+  let port: number;
+  let close: () => Promise<void>;
+
+  beforeAll(async () => {
+    const server = await startApiServer({
+      port: 0,
+      runtime: createRuntimeForCompatEndpointTests(),
+    });
+    port = server.port;
+    close = server.close;
+  }, 30_000);
+
+  afterAll(async () => {
+    await close();
+  });
+
+  it("GET /v1/models returns OpenAI-compatible model list", async () => {
+    const { status, data } = await req(port, "GET", "/v1/models");
+    expect(status).toBe(200);
+    expect(data.object).toBe("list");
+    const models = data.data as Array<Record<string, unknown>>;
+    expect(models.length).toBeGreaterThan(0);
+    expect(models.some((item) => item.id === "milaidy")).toBe(true);
+    expect(models.some((item) => item.id === "CompatAgent")).toBe(true);
+  });
+
+  it("GET /v1/models/:id returns OpenAI-compatible model detail", async () => {
+    const { status, data } = await req(
+      port,
+      "GET",
+      "/v1/models/compat-model-id",
+    );
+    expect(status).toBe(200);
+    expect(data.object).toBe("model");
+    expect(data.id).toBe("compat-model-id");
+    expect(data.owned_by).toBe("milaidy");
+  });
+
+  it("POST /v1/chat/completions returns OpenAI-compatible completion", async () => {
+    const { status, data } = await req(port, "POST", "/v1/chat/completions", {
+      model: "milaidy",
+      user: "compat-e2e",
+      messages: [
+        { role: "system", content: "You are concise." },
+        { role: "user", content: "Say hi." },
+      ],
+    });
+    expect(status).toBe(200);
+    expect(data.object).toBe("chat.completion");
+    expect(typeof data.id).toBe("string");
+    const choices = data.choices as Array<Record<string, unknown>>;
+    expect(Array.isArray(choices)).toBe(true);
+    const firstChoice = choices[0] as Record<string, unknown>;
+    const message = firstChoice.message as Record<string, unknown>;
+    expect(message.role).toBe("assistant");
+    expect(message.content).toBe("Compat reply");
+    expect(firstChoice.finish_reason).toBe("stop");
+  });
+
+  it("POST /v1/chat/completions streams OpenAI-compatible SSE chunks", async () => {
+    const { status, headers, events } = await reqSse(
+      port,
+      "/v1/chat/completions",
+      {
+        model: "milaidy",
+        stream: true,
+        user: "compat-sse-e2e",
+        messages: [{ role: "user", content: "Stream a short answer." }],
+      },
+    );
+
+    expect(status).toBe(200);
+    expect(String(headers["content-type"])).toContain("text/event-stream");
+
+    const chunks = events.filter(
+      (event) => (event as Record<string, unknown>).object === "chat.completion.chunk",
+    ) as Array<Record<string, unknown>>;
+    expect(chunks.length).toBeGreaterThan(0);
+
+    const hasRoleChunk = chunks.some((chunk) => {
+      const choices = chunk.choices;
+      if (!Array.isArray(choices) || choices.length === 0) return false;
+      const firstChoice = choices[0] as Record<string, unknown>;
+      const delta = firstChoice.delta as Record<string, unknown> | undefined;
+      return delta?.role === "assistant";
+    });
+    expect(hasRoleChunk).toBe(true);
+
+    const content = chunks
+      .map((chunk) => {
+        const choices = chunk.choices;
+        if (!Array.isArray(choices) || choices.length === 0) return "";
+        const firstChoice = choices[0] as Record<string, unknown>;
+        const delta = firstChoice.delta as Record<string, unknown> | undefined;
+        return typeof delta?.content === "string" ? delta.content : "";
+      })
+      .join("");
+    expect(content).toContain("Compat reply");
+  });
+
+  it("POST /v1/messages returns Anthropic-compatible message", async () => {
+    const { status, data } = await req(port, "POST", "/v1/messages", {
+      model: "milaidy",
+      system: "You are concise.",
+      metadata: { conversation_id: "compat-room-1" },
+      messages: [{ role: "user", content: "Say hi." }],
+    });
+    expect(status).toBe(200);
+    expect(data.type).toBe("message");
+    expect(data.role).toBe("assistant");
+    const content = data.content as Array<Record<string, unknown>>;
+    expect(Array.isArray(content)).toBe(true);
+    const first = content[0] as Record<string, unknown>;
+    expect(first.type).toBe("text");
+    expect(first.text).toBe("Compat reply");
+    expect(data.stop_reason).toBe("end_turn");
+  });
+
+  it("POST /v1/messages streams Anthropic-compatible SSE events", async () => {
+    const { status, headers, events } = await reqSse(port, "/v1/messages", {
+      model: "milaidy",
+      stream: true,
+      metadata: { conversation_id: "compat-room-2" },
+      messages: [{ role: "user", content: "Stream a short answer." }],
+    });
+
+    expect(status).toBe(200);
+    expect(String(headers["content-type"])).toContain("text/event-stream");
+
+    const eventTypes = events
+      .map((event) => event.type)
+      .filter((value): value is string => typeof value === "string");
+    expect(eventTypes).toContain("message_start");
+    expect(eventTypes).toContain("content_block_start");
+    expect(eventTypes).toContain("content_block_delta");
+    expect(eventTypes).toContain("content_block_stop");
+    expect(eventTypes).toContain("message_delta");
+    expect(eventTypes).toContain("message_stop");
+
+    const streamedText = events
+      .filter((event) => event.type === "content_block_delta")
+      .map((event) => {
+        const delta = (event as Record<string, unknown>).delta as
+          | Record<string, unknown>
+          | undefined;
+        return typeof delta?.text === "string" ? delta.text : "";
+      })
+      .join("");
+    expect(streamedText).toContain("Compat reply");
   });
 });
 

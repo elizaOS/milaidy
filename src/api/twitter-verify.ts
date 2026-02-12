@@ -11,6 +11,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { logger } from "@elizaos/core";
 import { resolveStateDir } from "../config/paths.js";
+import type { VerificationResult } from "../contracts/verification.js";
+
+export type { VerificationResult } from "../contracts/verification.js";
 
 const WHITELIST_FILE = "whitelist.json";
 
@@ -24,12 +27,6 @@ interface WhitelistEntry {
 
 interface WhitelistData {
   verified: Record<string, WhitelistEntry>;
-}
-
-export interface VerificationResult {
-  verified: boolean;
-  error: string | null;
-  handle: string | null;
 }
 
 // ── Verification Message ─────────────────────────────────────────────────

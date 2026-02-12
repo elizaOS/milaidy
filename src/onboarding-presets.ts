@@ -18,6 +18,10 @@
  * @module onboarding-presets
  */
 
+import type { StylePreset } from "./contracts/onboarding.js";
+
+export type { StylePreset } from "./contracts/onboarding.js";
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -29,43 +33,6 @@ export const SHARED_STYLE_RULES: readonly string[] = [
   "Skip assistant-speak entirely. Be genuine, not performative.",
   "Don't pad responses with unnecessary caveats or disclaimers.",
 ];
-
-/**
- * A full character template for an onboarding style preset.
- *
- * All string fields may contain `{{name}}` which is resolved by the core
- * character provider at runtime, so renaming the agent doesn't require
- * rewriting every field.
- */
-export interface StylePreset {
-  /** The catchphrase displayed in the selector. */
-  catchphrase: string;
-  /** Short hint describing the vibe. */
-  hint: string;
-  /** Voice-specific bio lines (combined with BIO_POOL samples at runtime). */
-  bio: string[];
-  /** Voice-specific system prompt (combined with SYSTEM_POOL samples at runtime). */
-  system: string;
-  /** Adjectives that describe the agent's personality. */
-  adjectives: string[];
-  /** Topics the agent is knowledgeable about or engages with. */
-  topics: string[];
-  /** Communication style rules. */
-  style: {
-    all: string[];
-    chat: string[];
-    post: string[];
-  };
-  /** Example social media posts demonstrating the agent's voice. */
-  postExamples: string[];
-  /** Example message conversations demonstrating the agent's voice. */
-  messageExamples: Array<
-    Array<{
-      user: string;
-      content: { text: string };
-    }>
-  >;
-}
 
 // ---------------------------------------------------------------------------
 // Bio Pool — milady / netart / 90s internet / imageboard aesthetic

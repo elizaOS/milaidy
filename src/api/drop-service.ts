@@ -10,7 +10,10 @@
 
 import { logger } from "@elizaos/core";
 import { ethers } from "ethers";
+import type { DropStatus, MintResult } from "../contracts/drop.js";
 import type { TxService } from "./tx-service.js";
+
+export type { DropStatus, MintResult } from "../contracts/drop.js";
 
 // ── ABI ──────────────────────────────────────────────────────────────────
 
@@ -32,26 +35,6 @@ const COLLECTION_ABI = [
   "event AgentMinted(uint256 indexed agentId, uint256 indexed mintNumber, address indexed owner, bool shiny)",
   "event CollectionUpdated(uint256 maxSupply, uint256 currentSupply, bool publicOpen, bool whitelistOpen)",
 ] as const;
-
-// ── Types ────────────────────────────────────────────────────────────────
-
-export interface DropStatus {
-  dropEnabled: boolean;
-  publicMintOpen: boolean;
-  whitelistMintOpen: boolean;
-  mintedOut: boolean;
-  currentSupply: number;
-  maxSupply: number;
-  shinyPrice: string;
-  userHasMinted: boolean;
-}
-
-export interface MintResult {
-  agentId: number;
-  mintNumber: number;
-  txHash: string;
-  isShiny: boolean;
-}
 
 const DEFAULT_CAP_HASH = ethers.id("milaidy-agent");
 

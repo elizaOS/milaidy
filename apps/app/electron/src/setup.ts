@@ -59,7 +59,7 @@ export class ElectronCapacitorApp {
     { role: 'viewMenu' },
   ];
   private mainWindowState;
-  private loadWebApp;
+  private loadWebApp: (window: BrowserWindow) => Promise<void>;
   private customScheme: string;
   private webAssetDirectory: string;
 
@@ -118,7 +118,7 @@ export class ElectronCapacitorApp {
     if (!thisRef.MainWindow || thisRef.MainWindow.isDestroyed()) return;
 
     const fallbackIndexPath = join(thisRef.webAssetDirectory, 'index.html');
-    const customSchemeUrl = `${thisRef.customScheme}://-/`;
+    const customSchemeUrl = `${thisRef.customScheme}://-`;
 
     // On packaged builds, prefer direct file loading for startup stability.
     // We still keep custom-scheme support as a fallback.
@@ -136,9 +136,9 @@ export class ElectronCapacitorApp {
 
     try {
       if (!thisRef.MainWindow || thisRef.MainWindow.isDestroyed()) return;
-      // Explicitly await the custom-scheme navigation so load failures are
-      // handled here instead of surfacing as unhandled Promise rejections.
-      await thisRef.MainWindow.loadURL(customSchemeUrl);
+      // Use electron-serve's loader so custom-scheme startup matches its
+      // registered protocol behavior in packaged and dev environments.
+      await thisRef.loadWebApp(thisRef.MainWindow);
       return;
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
@@ -172,6 +172,17 @@ export class ElectronCapacitorApp {
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
       console.error(`[Milaidy] Failed to render diagnostics page (${reason})`);
+    }
+  }
+
+  // Capacitor splash invokes load callbacks without awaiting them.
+  // Keep startup errors contained so they never surface as unhandled rejections.
+  private async safeLoadMainWindow(thisRef: ElectronCapacitorApp): Promise<void> {
+    try {
+      await this.loadMainWindow(thisRef);
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      console.error(`[Milaidy] Unexpected startup load error (${reason})`);
     }
   }
 
@@ -268,9 +279,11 @@ export class ElectronCapacitorApp {
         windowWidth: 400,
         windowHeight: 400,
       });
-      this.SplashScreen.init(this.loadMainWindow, this);
+      this.SplashScreen.init((thisRef) => {
+        void this.safeLoadMainWindow(thisRef as ElectronCapacitorApp);
+      }, this);
     } else {
-      void this.loadMainWindow(this);
+      void this.safeLoadMainWindow(this);
     }
 
     // Security

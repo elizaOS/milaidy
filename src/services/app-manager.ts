@@ -10,6 +10,12 @@
  */
 
 import { logger } from "@elizaos/core";
+import type {
+  AppLaunchResult,
+  AppStopResult,
+  AppViewerAuthMessage,
+  InstalledAppInfo,
+} from "../contracts/apps.js";
 import {
   installPlugin,
   listInstalledPlugins,
@@ -23,57 +29,18 @@ import {
   searchApps as registrySearchApps,
 } from "./registry-client.js";
 
+export type {
+  AppLaunchResult,
+  AppStopResult,
+  AppViewerAuthMessage,
+  InstalledAppInfo,
+} from "../contracts/apps.js";
+
 const DEFAULT_VIEWER_SANDBOX = "allow-scripts allow-same-origin allow-popups";
 const HYPERSCAPE_APP_NAME = "@elizaos/app-hyperscape";
 const HYPERSCAPE_AUTH_MESSAGE_TYPE = "HYPERSCAPE_AUTH";
 const RS_2004SCAPE_APP_NAME = "@elizaos/app-2004scape";
 const RS_2004SCAPE_AUTH_MESSAGE_TYPE = "RS_2004SCAPE_AUTH";
-
-export interface AppViewerAuthMessage {
-  type: string;
-  authToken?: string;
-  sessionToken?: string;
-  agentId?: string;
-}
-
-export interface AppLaunchResult {
-  /** The plugin was installed (or was already installed) */
-  pluginInstalled: boolean;
-  /** Whether the agent needs a restart to load the new plugin */
-  needsRestart: boolean;
-  /** Display name of the app */
-  displayName: string;
-  /** App launch type from registry metadata */
-  launchType: string;
-  /** External launch URL (used by URL-style apps and pop-out fallback) */
-  launchUrl: string | null;
-  /** Viewer config for the game client iframe */
-  viewer: {
-    url: string;
-    embedParams?: Record<string, string>;
-    postMessageAuth?: boolean;
-    sandbox?: string;
-    authMessage?: AppViewerAuthMessage;
-  } | null;
-}
-
-export interface InstalledAppInfo {
-  name: string;
-  displayName: string;
-  pluginName: string;
-  version: string;
-  installedAt: string;
-}
-
-export interface AppStopResult {
-  success: boolean;
-  appName: string;
-  stoppedAt: string;
-  pluginUninstalled: boolean;
-  needsRestart: boolean;
-  stopScope: "plugin-uninstalled" | "viewer-session" | "no-op";
-  message: string;
-}
 
 type AppViewerConfig = NonNullable<AppLaunchResult["viewer"]>;
 

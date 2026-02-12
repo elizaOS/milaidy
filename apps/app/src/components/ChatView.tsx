@@ -12,60 +12,12 @@ import {
   useCallback,
   useState,
   type KeyboardEvent,
-  type ReactNode,
 } from "react";
 import { getVrmPreviewUrl, useApp } from "../AppContext.js";
 import { ChatAvatar } from "./ChatAvatar.js";
 import { useVoiceChat } from "../hooks/useVoiceChat.js";
 import { client, type ConversationMode, type VoiceConfig } from "../api-client.js";
 import { MessageContent } from "./MessageContent.js";
-
-function renderInlineMarkdown(line: string): ReactNode[] {
-  const nodes: ReactNode[] = [];
-  const tokenRe = /(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`)/g;
-  let lastIndex = 0;
-  let match: RegExpExecArray | null;
-
-  while ((match = tokenRe.exec(line)) !== null) {
-    if (match.index > lastIndex) {
-      nodes.push(line.slice(lastIndex, match.index));
-    }
-
-    const token = match[0];
-    const key = `${match.index}-${token}`;
-    if (token.startsWith("**") && token.endsWith("**")) {
-      nodes.push(<strong key={key}>{token.slice(2, -2)}</strong>);
-    } else if (token.startsWith("*") && token.endsWith("*")) {
-      nodes.push(<em key={key}>{token.slice(1, -1)}</em>);
-    } else if (token.startsWith("`") && token.endsWith("`")) {
-      nodes.push(
-        <code key={key} className="px-1 py-0.5 rounded bg-bg text-[0.95em] font-mono">
-          {token.slice(1, -1)}
-        </code>,
-      );
-    } else {
-      nodes.push(token);
-    }
-
-    lastIndex = tokenRe.lastIndex;
-  }
-
-  if (lastIndex < line.length) {
-    nodes.push(line.slice(lastIndex));
-  }
-
-  return nodes;
-}
-
-function renderMessageText(text: string): ReactNode {
-  const lines = text.split(/\r?\n/);
-  return lines.map((line, i) => (
-    <span key={i}>
-      {renderInlineMarkdown(line)}
-      {i < lines.length - 1 ? <br /> : null}
-    </span>
-  ));
-}
 
 export function ChatView() {
   const {
