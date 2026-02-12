@@ -232,6 +232,8 @@ jobs:
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET || '' }}
 
       - name: Preflight Azure Trusted Signing access
+        id: trusted_signing_preflight
+        continue-on-error: true
         if: matrix.platform.os == 'windows'
         shell: pwsh
         run: |
@@ -294,15 +296,36 @@ jobs:
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID || '' }}
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET || '' }}
 
+      - name: Fallback to unsigned Windows build when Trusted Signing preflight fails
+        if: matrix.platform.os == 'windows' && steps.trusted_signing_preflight.outcome != 'success'
+        run: |
+          node -e "
+            const fs = require('fs');
+            const file = './electron-builder.ci.json';
+            const cfg = JSON.parse(fs.readFileSync(file, 'utf8'));
+            if (cfg.win && cfg.win.azureSignOptions) {
+              delete cfg.win.azureSignOptions;
+              fs.writeFileSync(file, JSON.stringify(cfg, null, 2));
+            }
+          "
+          echo "::warning::Trusted Signing preflight failed; continuing with unsigned Windows artifact."
+        working-directory: apps/app/electron
+
       - name: Package desktop app
         run: |
           # Unset empty signing env vars — electron-builder treats "" as an invalid file path
           [ -z "${CSC_LINK:-}" ] && unset CSC_LINK CSC_KEY_PASSWORD
           [ -z "${APPLE_ID:-}" ] && unset APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID
           [ -z "${AZURE_TENANT_ID:-}" ] && unset AZURE_TENANT_ID AZURE_CLIENT_ID AZURE_CLIENT_SECRET
+          if [ "${MATRIX_OS:-}" = "windows" ] && [ "${TRUSTED_SIGNING_PREFLIGHT:-success}" != "success" ]; then
+            echo "Trusted Signing preflight failed; building Windows artifact without Azure signing."
+            unset AZURE_TENANT_ID AZURE_CLIENT_ID AZURE_CLIENT_SECRET
+          fi
           npx electron-builder build ${{ matrix.platform.electron-args }} -c ./electron-builder.ci.json -p never
         working-directory: apps/app/electron
         env:
+          MATRIX_OS: ${{ matrix.platform.os }}
+          TRUSTED_SIGNING_PREFLIGHT: ${{ steps.trusted_signing_preflight.outcome || 'success' }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_LINK: ${{ secrets.CSC_LINK || '' }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD || '' }}
