@@ -10,6 +10,7 @@ import { app, BrowserWindow, clipboard, Menu, MenuItem, nativeImage, Tray, sessi
 import electronIsDev from 'electron-is-dev';
 import electronServe from 'electron-serve';
 import windowStateKeeper from 'electron-window-state';
+import { existsSync } from 'node:fs';
 import { join } from 'path';
 import { buildMissingWebAssetsMessage, resolveWebAssetDirectory } from './web-assets';
 
@@ -114,7 +115,39 @@ export class ElectronCapacitorApp {
   // Note: This method receives `thisRef` from CapacitorSplashScreen.init callback pattern.
   // The splash screen calls this as `loadMainWindow(thisRef)` where thisRef is passed back to us.
   private async loadMainWindow(thisRef: ElectronCapacitorApp): Promise<void> {
-    await thisRef.loadWebApp(thisRef.MainWindow);
+    if (!thisRef.MainWindow || thisRef.MainWindow.isDestroyed()) return;
+
+    try {
+      await thisRef.loadWebApp(thisRef.MainWindow);
+      return;
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      console.error(`[Milaidy] Failed to load web app via ${thisRef.customScheme}:// (${reason})`);
+    }
+
+    // Fallback: attempt direct file:// load when the custom protocol fails.
+    const fallbackIndexPath = join(thisRef.webAssetDirectory, 'index.html');
+    if (existsSync(fallbackIndexPath)) {
+      try {
+        await thisRef.MainWindow.loadFile(fallbackIndexPath);
+        console.info(`[Milaidy] Loaded fallback web assets from ${fallbackIndexPath}`);
+        return;
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        console.error(`[Milaidy] Fallback file:// load failed (${reason})`);
+      }
+    }
+
+    // Final fallback: render a diagnostic page instead of crashing with an unhandled rejection.
+    const diagnostics = buildMissingWebAssetsMessage({
+      directory: thisRef.webAssetDirectory,
+      searched: [thisRef.webAssetDirectory],
+      usedFallback: false,
+      hasIndexHtml: false,
+      primaryHasIndexHtml: false,
+    });
+    const html = `<html><body style="font-family: sans-serif; margin: 24px;"><h2>Milaidy Desktop Failed to Load UI Assets</h2><pre style="white-space: pre-wrap;">${diagnostics}</pre></body></html>`;
+    await thisRef.MainWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
   }
 
   // Expose the mainWindow ref for use outside of the class.
@@ -212,7 +245,7 @@ export class ElectronCapacitorApp {
       });
       this.SplashScreen.init(this.loadMainWindow, this);
     } else {
-      this.loadMainWindow(this);
+      void this.loadMainWindow(this);
     }
 
     // Security
