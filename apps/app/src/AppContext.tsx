@@ -994,6 +994,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   /** Guards against double-greeting when both init and state-transition paths fire. */
   const greetingFiredRef = useRef(false);
   const chatAbortRef = useRef<AbortController | null>(null);
+  const cloudLoginBusyRef = useRef(false);
 
   // ── Action notice ──────────────────────────────────────────────────
 
@@ -2772,6 +2773,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // ── Cloud ──────────────────────────────────────────────────────────
 
   const handleCloudLogin = useCallback(async () => {
+    if (cloudLoginBusyRef.current || cloudLoginBusy) return;
+    cloudLoginBusyRef.current = true;
     setCloudLoginBusy(true);
     setCloudLoginError(null);
     try {
@@ -2785,6 +2788,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (attempts > 120) {
           if (cloudLoginPollTimer.current) clearInterval(cloudLoginPollTimer.current);
           setCloudLoginError("Login timed out. Please try again.");
+          cloudLoginBusyRef.current = false;
           setCloudLoginBusy(false);
           return;
         }
@@ -2792,6 +2796,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           const poll = await client.cloudLoginPoll(resp.sessionId);
           if (poll.status === "authenticated") {
             if (cloudLoginPollTimer.current) clearInterval(cloudLoginPollTimer.current);
+            cloudLoginBusyRef.current = false;
             setCloudLoginBusy(false);
             // Immediately reflect the login in the UI — don't wait for the
             // background poll which may race with the config save.
@@ -2805,6 +2810,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           } else if (poll.status === "expired" || poll.status === "error") {
             if (cloudLoginPollTimer.current) clearInterval(cloudLoginPollTimer.current);
             setCloudLoginError(poll.error ?? "Session expired. Please try again.");
+            cloudLoginBusyRef.current = false;
             setCloudLoginBusy(false);
           }
         } catch {
@@ -2813,9 +2819,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }, 1000);
     } catch (err) {
       setCloudLoginError(err instanceof Error ? err.message : "Login failed");
+      cloudLoginBusyRef.current = false;
       setCloudLoginBusy(false);
     }
-  }, [setActionNotice, pollCloudCredits, loadWalletConfig]);
+  }, [cloudLoginBusy, setActionNotice, pollCloudCredits, loadWalletConfig]);
 
   const handleCloudDisconnect = useCallback(async () => {
     if (!confirm("Disconnect from Eliza Cloud? The agent will need a local AI provider to continue working."))
