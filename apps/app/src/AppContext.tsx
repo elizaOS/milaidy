@@ -984,6 +984,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const cloudPollInterval = useRef<number | null>(null);
   const cloudLoginPollTimer = useRef<number | null>(null);
   const prevAgentStateRef = useRef<string | null>(null);
+  const lifecycleBusyRef = useRef(false);
   /** Guards against double-greeting when both init and state-transition paths fire. */
   const greetingFiredRef = useRef(false);
   const chatAbortRef = useRef<AbortController | null>(null);
@@ -1455,7 +1456,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // ── Lifecycle actions ──────────────────────────────────────────────
 
   const beginLifecycleAction = useCallback((action: LifecycleAction): boolean => {
-    if (lifecycleBusy) {
+    if (lifecycleBusyRef.current) {
       const activeAction = lifecycleAction ?? action;
       setActionNotice(
         `Agent action already in progress (${LIFECYCLE_MESSAGES[activeAction].inProgress}). Please wait.`,
@@ -1464,12 +1465,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       );
       return false;
     }
+    lifecycleBusyRef.current = true;
     setLifecycleBusy(true);
     setLifecycleAction(action);
     return true;
-  }, [lifecycleBusy, lifecycleAction, setActionNotice]);
+  }, [lifecycleAction, setActionNotice]);
 
   const finishLifecycleAction = useCallback(() => {
+    lifecycleBusyRef.current = false;
     setLifecycleBusy(false);
     setLifecycleAction(null);
   }, []);
@@ -1581,7 +1584,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [agentStatus, beginLifecycleAction, finishLifecycleAction, setActionNotice]);
 
   const handleReset = useCallback(async () => {
-    if (lifecycleBusy) {
+    if (lifecycleBusyRef.current) {
       const activeAction = lifecycleAction ?? "reset";
       setActionNotice(
         `Agent action already in progress (${LIFECYCLE_MESSAGES[activeAction].inProgress}). Please wait.`,
@@ -1629,7 +1632,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     } finally {
       finishLifecycleAction();
     }
-  }, [lifecycleBusy, lifecycleAction, beginLifecycleAction, finishLifecycleAction, setActionNotice]);
+  }, [lifecycleAction, beginLifecycleAction, finishLifecycleAction, setActionNotice]);
 
   // ── Chat ───────────────────────────────────────────────────────────
 
