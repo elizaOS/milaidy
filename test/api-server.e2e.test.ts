@@ -2425,7 +2425,8 @@ describe("API Server E2E (compat endpoints)", () => {
     expect(String(headers["content-type"])).toContain("text/event-stream");
 
     const chunks = events.filter(
-      (event) => (event as Record<string, unknown>).object === "chat.completion.chunk",
+      (event) =>
+        (event as Record<string, unknown>).object === "chat.completion.chunk",
     ) as Array<Record<string, unknown>>;
     expect(chunks.length).toBeGreaterThan(0);
 

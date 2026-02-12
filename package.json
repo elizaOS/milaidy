@@ -26,7 +26,18 @@
     "node": ">=22"
   },
   "scripts": {
-    "postinstall": "node ./scripts/link-browser-server.mjs"
+    "build": "bunx tsdown && cp src/plugins/telegram-enhanced/package.json dist/plugins/telegram-enhanced/package.json && scripts/rt.sh scripts/write-build-info.ts && cd apps/app && ../../scripts/rt.sh run build",
+    "check": "scripts/rt.sh run typecheck && scripts/rt.sh run lint",
+    "format": "bunx @biomejs/biome format .",
+    "lint": "bunx @biomejs/biome check .",
+    "milaidy": "scripts/rt.sh scripts/run-node.mjs",
+    "postinstall": "node ./scripts/link-browser-server.mjs",
+    "start": "scripts/rt.sh scripts/run-node.mjs start",
+    "test": "node test/scripts/test-parallel.mjs",
+    "test:coverage": "bunx vitest run --coverage",
+    "test:e2e": "bunx vitest run --config vitest.e2e.config.ts",
+    "test:live": "MILAIDY_LIVE_TEST=1 bunx vitest run --config vitest.e2e.config.ts test/wallet-live.e2e.test.ts test/api-auth-live.e2e.test.ts test/cloud-providers.e2e.test.ts",
+    "typecheck": "bunx tsc --noEmit"
   },
   "dependencies": {
     "@clack/prompts": "^0.12.0",
