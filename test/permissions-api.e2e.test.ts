@@ -159,8 +159,15 @@ describe("Permissions API E2E", () => {
     it("returns permission state for valid ID: shell", async () => {
       const { status, data } = await req(port, "GET", "/api/permissions/shell");
       expect(status).toBe(200);
+      expect(data).toHaveProperty("enabled");
       expect(data).toHaveProperty("id", "shell");
       expect(data).toHaveProperty("status");
+      expect(data).toHaveProperty("permission");
+      const permission = data.permission as Record<string, unknown>;
+      expect(permission).toHaveProperty("id", "shell");
+      expect(permission).toHaveProperty("status");
+      if (data.enabled === true) expect(permission.status).toBe("granted");
+      if (data.enabled === false) expect(permission.status).toBe("denied");
     });
 
     it("returns permission state for valid ID: accessibility", async () => {
@@ -338,6 +345,16 @@ describe("Permissions API E2E", () => {
     it("returns 400 for missing body", async () => {
       const { status } = await req(port, "PUT", "/api/permissions/shell");
       expect(status).toBe(400);
+    });
+
+    it("blocks terminal execution when shell access is disabled", async () => {
+      await req(port, "PUT", "/api/permissions/shell", { enabled: false });
+      const { status, data } = await req(port, "POST", "/api/terminal/run", {
+        command: "echo test",
+      });
+      expect(status).toBe(403);
+      expect(data).toHaveProperty("error", "Shell access is disabled");
+      await req(port, "PUT", "/api/permissions/shell", { enabled: true });
     });
   });
 

@@ -17,6 +17,7 @@ package-lock.json
 pnpm-lock.yaml
 bun.lock
 bun.lockb
+!deploy/cloud-agent-template/package-lock.json
 
 # Docker overrides
 docker-compose.extra.yml

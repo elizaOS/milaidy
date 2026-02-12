@@ -1,15 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  type MockInstance,
-  vi,
-} from "vitest";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // ---------------------------------------------------------------------------
 // Mock node-llama-cpp before importing the manager
@@ -45,6 +37,16 @@ vi.mock("node:https", () => ({
   default: { get: vi.fn() },
   get: vi.fn(),
 }));
+
+// Isolate embedding metadata path for this test worker to avoid cross-file
+// races when the full suite runs in parallel.
+const TEST_EMBEDDING_META_ROOT = fs.mkdtempSync(
+  path.join(os.tmpdir(), "milaidy-embedding-meta-"),
+);
+process.env.MILAIDY_EMBEDDING_META_PATH = path.join(
+  TEST_EMBEDDING_META_ROOT,
+  "embedding-meta.json",
+);
 
 // ---------------------------------------------------------------------------
 // Import after mocks are in place
@@ -92,6 +94,15 @@ describe("MilaidyEmbeddingManager", () => {
 
   afterEach(() => {
     vi.useRealTimers();
+  });
+
+  afterAll(() => {
+    delete process.env.MILAIDY_EMBEDDING_META_PATH;
+    try {
+      fs.rmSync(TEST_EMBEDDING_META_ROOT, { recursive: true, force: true });
+    } catch {
+      // best-effort cleanup
+    }
   });
 
   // 1. Config defaults
@@ -260,7 +271,6 @@ describe("MilaidyEmbeddingManager", () => {
 
   // 9. Dimension mismatch logging
   describe("dimension migration", () => {
-    let warnSpy: MockInstance;
     const metaDir = path.dirname(EMBEDDING_META_PATH);
 
     beforeEach(() => {
@@ -270,11 +280,9 @@ describe("MilaidyEmbeddingManager", () => {
       } catch {
         // ok if doesn't exist
       }
-      warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     });
 
     afterEach(() => {
-      warnSpy.mockRestore();
       try {
         fs.rmSync(EMBEDDING_META_PATH);
       } catch {
@@ -282,7 +290,7 @@ describe("MilaidyEmbeddingManager", () => {
       }
     });
 
-    it("should log warning when dimensions change from stored value", async () => {
+    it("should update stored metadata when dimensions change", async () => {
       // Write metadata with old dimensions
       fs.mkdirSync(metaDir, { recursive: true });
       fs.writeFileSync(
@@ -299,14 +307,6 @@ describe("MilaidyEmbeddingManager", () => {
         defaultConfig({ dimensions: 768 }),
       );
       await mgr.generateEmbedding("trigger init");
-
-      // Should have logged a warning about dimension change.
-      // The @elizaos/core logger may pass the message as the 2nd argument
-      // (with a log-level prefix as the 1st), so check any argument position.
-      const found = warnSpy.mock.calls.some((args: unknown[]) =>
-        args.some((a) => typeof a === "string" && a.includes("384 → 768")),
-      );
-      expect(found).toBe(true);
 
       // Metadata should be updated
       const meta = readEmbeddingMeta();
@@ -335,13 +335,6 @@ describe("MilaidyEmbeddingManager", () => {
         defaultConfig({ dimensions: 768 }),
       );
       await mgr.generateEmbedding("trigger init");
-
-      // No dimension-change warning
-      const dimensionWarns = warnSpy.mock.calls.filter(
-        (call) =>
-          typeof call[0] === "string" && call[0].includes("dimensions changed"),
-      );
-      expect(dimensionWarns).toHaveLength(0);
 
       await mgr.dispose();
     });

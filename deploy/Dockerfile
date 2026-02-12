@@ -19,8 +19,8 @@ COPY package.json bun.lock* pnpm-lock.yaml .npmrc ./
 COPY apps/app/package.json ./apps/app/package.json
 COPY scripts ./scripts
 
-# Install dependencies
-RUN bun install --frozen-lockfile || bun install
+# Install dependencies using the committed lockfile only.
+RUN bun install --frozen-lockfile
 
 # Copy source and build (includes apps/app/dist UI bundle)
 COPY . .

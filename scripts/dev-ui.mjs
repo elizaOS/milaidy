@@ -276,10 +276,13 @@ if (uiOnly) {
   printBanner();
   console.log(`  ${green("[milaidy]")} ${green("Starting dev server...")}\n`);
 
-  const nodeStealthImports = [
-    "./openai-codex-stealth.mjs",
-    "./claude-code-stealth.mjs",
-  ].filter((filePath) => existsSync(path.join(cwd, filePath)));
+  // Security default: stealth shims are opt-in for local experiments only.
+  const nodeStealthImports =
+    process.env.MILAIDY_ENABLE_STEALTH_IMPORTS === "1"
+      ? ["./openai-codex-stealth.mjs", "./claude-code-stealth.mjs"].filter(
+          (filePath) => existsSync(path.join(cwd, filePath)),
+        )
+      : [];
 
   const apiCmd = hasBun
     ? ["bun", "--watch", "src/runtime/dev-server.ts"]

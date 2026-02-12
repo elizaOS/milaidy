@@ -314,14 +314,13 @@ export function collectPluginNames(config: MilaidyConfig): Set<string> {
     }
   }
 
-  // ElizaCloud plugin — only load when explicitly enabled.
-  // A leftover apiKey from a previous login should not force cloud routing
-  // when the user has set enabled: false.
-  if (config.cloud?.enabled === true) {
+  // ElizaCloud plugin — load when explicitly enabled OR when an API key
+  // exists in config (persisted login). This matches allow-list behavior.
+  if (config.cloud?.enabled === true || Boolean(config.cloud?.apiKey)) {
     pluginsToLoad.add("@elizaos/plugin-elizacloud");
 
-    // When cloud is explicitly enabled, remove direct AI provider plugins —
-    // the cloud plugin handles ALL model calls via its own gateway.
+    // When cloud is active, remove direct AI provider plugins — the cloud
+    // plugin handles ALL model calls via its own gateway.
     const directProviders = new Set(Object.values(PROVIDER_PLUGIN_MAP));
     directProviders.delete("@elizaos/plugin-elizacloud");
     for (const p of directProviders) {

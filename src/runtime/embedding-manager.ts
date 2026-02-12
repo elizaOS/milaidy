@@ -59,11 +59,12 @@ const DEFAULT_IDLE_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
 const DEFAULT_MODELS_DIR = path.join(os.homedir(), ".eliza", "models");
 
 // Dimension-migration metadata path
-const EMBEDDING_META_DIR = path.join(os.homedir(), ".milaidy", "state");
-const EMBEDDING_META_PATH = path.join(
-  EMBEDDING_META_DIR,
-  "embedding-meta.json",
-);
+const EMBEDDING_META_DIR =
+  process.env.MILAIDY_EMBEDDING_META_DIR ??
+  path.join(os.homedir(), ".milaidy", "state");
+const EMBEDDING_META_PATH =
+  process.env.MILAIDY_EMBEDDING_META_PATH ??
+  path.join(EMBEDDING_META_DIR, "embedding-meta.json");
 
 // ---------------------------------------------------------------------------
 // Logger helper (uses @elizaos/core when available, falls back to console)
@@ -398,7 +399,19 @@ export class MilaidyEmbeddingManager {
     );
 
     if (!this.llama) {
-      this.llama = await getLlama();
+      // Keep startup output quiet by default (npx milaidy should not print
+      // tokenizer/model warnings unless they are actual errors).
+      this.llama = await getLlama({
+        logLevel: "error",
+        logger: (level, message) => {
+          if (level === "error" || level === "fatal") {
+            const text = message.trim();
+            if (text) {
+              log.error(`[node-llama-cpp] ${text}`);
+            }
+          }
+        },
+      });
     }
 
     // Load model + create context with cleanup guard: if context creation

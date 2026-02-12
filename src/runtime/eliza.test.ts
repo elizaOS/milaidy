@@ -119,6 +119,23 @@ describe("collectPluginNames", () => {
     expect(names.has("@elizaos/plugin-plugin-manager")).toBe(true);
   });
 
+  it("does not load @elizaos/plugin-shell when features.shellEnabled is false", () => {
+    const config = {
+      features: { shellEnabled: false },
+    } as unknown as MilaidyConfig;
+    const names = collectPluginNames(config);
+    expect(names.has("@elizaos/plugin-shell")).toBe(false);
+  });
+
+  it("removes @elizaos/plugin-shell from explicit allowlist when shell is disabled", () => {
+    const config = {
+      plugins: { allow: ["@elizaos/plugin-shell"] },
+      features: { shellEnabled: false },
+    } as unknown as MilaidyConfig;
+    const names = collectPluginNames(config);
+    expect(names.has("@elizaos/plugin-shell")).toBe(false);
+  });
+
   it("adds model-provider plugins when env keys are present", () => {
     process.env.ANTHROPIC_API_KEY = "sk-test";
     process.env.OPENAI_API_KEY = "sk-test";

@@ -101,7 +101,7 @@ jobs:
           bun-version: latest
 
       - name: Install root dependencies
-        run: bun install
+        run: bun install --frozen-lockfile
 
       - name: Align package versions with release tag
         run: |
@@ -124,7 +124,7 @@ jobs:
           echo '{"type":"module"}' > dist/package.json
 
       - name: Install Capacitor app dependencies
-        run: bun install
+        run: bun install --frozen-lockfile
         working-directory: apps/app
 
       - name: Build Capacitor plugins
@@ -137,7 +137,7 @@ jobs:
         shell: bash
 
       - name: Refresh Capacitor app dependencies
-        run: bun install
+        run: bun install --frozen-lockfile
         working-directory: apps/app
 
       - name: Build Capacitor app
@@ -155,7 +155,7 @@ jobs:
         working-directory: apps/app
 
       - name: Install Electron dependencies
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
         working-directory: apps/app/electron
 
       - name: Build Electron app

@@ -26,7 +26,7 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
-      - run: bun install
+      - run: bun install --frozen-lockfile
 
       - name: Biome lint
         run: bun run lint
@@ -46,7 +46,7 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
-      - run: bun install
+      - run: bun install --frozen-lockfile
 
       - name: Run type checker
         run: bun run typecheck
@@ -63,7 +63,7 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
-      - run: bun install
+      - run: bun install --frozen-lockfile
 
       - name: Run unit tests
         run: bunx vitest run --config vitest.unit.config.ts
@@ -80,7 +80,7 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
-      - run: bun install
+      - run: bun install --frozen-lockfile
 
       - name: Build project
         run: bun run build
