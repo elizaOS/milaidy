@@ -722,6 +722,18 @@ export const MilaidySchema = z
       .strict()
       .optional(),
     memory: MemorySchema,
+    embedding: z
+      .object({
+        model: z.string().optional(),
+        modelRepo: z.string().optional(),
+        dimensions: z.number().int().positive().optional(),
+        gpuLayers: z
+          .union([z.literal("auto"), z.literal("max"), z.number().int().min(0)])
+          .optional(),
+        idleTimeoutMinutes: z.number().min(0).optional(),
+      })
+      .strict()
+      .optional(),
     skills: z
       .object({
         allowBundled: z.array(z.string()).optional(),

@@ -662,15 +662,15 @@ export type MediaConfig = {
 // --- Local embedding runtime config ---
 
 export type EmbeddingConfig = {
-  /** GGUF model filename (default handled by runtime). */
+  /** GGUF model filename (e.g. "nomic-embed-text-v1.5.Q5_K_M.gguf"). */
   model?: string;
   /** Optional Hugging Face repo/source for model resolution. */
   modelRepo?: string;
   /** Embedding vector dimension (default: 768). */
   dimensions?: number;
-  /** GPU layers for node-llama-cpp ("auto" on macOS by default). */
-  gpuLayers?: number | "auto";
-  /** Minutes of inactivity before unloading model from memory (default: 30). */
+  /** GPU layers for model loading: "auto", "max", or a number. */
+  gpuLayers?: number | "auto" | "max";
+  /** Minutes of inactivity before unloading model from memory (default: 30, 0 = never). */
   idleTimeoutMinutes?: number;
 };
 
@@ -804,7 +804,7 @@ export type MilaidyConfig = {
   talk?: TalkConfig;
   gateway?: GatewayConfig;
   memory?: MemoryConfig;
-  /** Local embedding runtime overrides (node-llama-cpp). */
+  /** Local embedding model configuration (Metal GPU, idle unloading, model selection). */
   embedding?: EmbeddingConfig;
   /** Database provider and connection configuration (local-only feature). */
   database?: DatabaseConfig;
