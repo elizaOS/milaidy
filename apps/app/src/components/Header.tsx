@@ -4,7 +4,7 @@ import { useApp } from "../AppContext.js";
 export function Header() {
   const {
     agentStatus, cloudEnabled, cloudConnected, cloudCredits, cloudCreditsCritical, cloudCreditsLow,
-    cloudTopUpUrl, walletAddresses, handlePauseResume,
+    cloudTopUpUrl, walletAddresses, lifecycleBusy, lifecycleAction, handlePauseResume,
     handleRestart, openCommandPalette, copyToClipboard, setTab,
     dropStatus, loadDropStatus, registryStatus,
   } = useApp();
@@ -17,6 +17,12 @@ export function Header() {
   const stateColor = state === "running" ? "text-ok border-ok" :
     state === "paused" || state === "restarting" || state === "starting" ? "text-warn border-warn" :
     state === "error" ? "text-danger border-danger" : "text-muted border-muted";
+  const restartBusy = lifecycleBusy && lifecycleAction === "restart";
+  const pauseResumeBusy =
+    lifecycleBusy &&
+    (lifecycleAction === "pause" || lifecycleAction === "resume");
+  const pauseResumeDisabled =
+    lifecycleBusy || state === "restarting" || state === "starting";
 
   const creditColor = cloudCreditsCritical ? "border-danger text-danger" :
     cloudCreditsLow ? "border-warn text-warn" : "border-ok text-ok";
@@ -64,13 +70,20 @@ export function Header() {
             <button
               onClick={handlePauseResume}
               title={state === "paused" ? "Resume autonomy" : "Pause autonomy"}
-              className={iconBtn}
+              className={`${iconBtn} disabled:opacity-40 disabled:cursor-not-allowed`}
+              disabled={pauseResumeDisabled}
             >
-              {state === "paused" ? "▶️" : "⏸️"}
+              {pauseResumeBusy ? "⏳" : state === "paused" ? "▶️" : "⏸️"}
             </button>
           )}
-          <button onClick={handleRestart} disabled={state === "restarting"} title="Restart agent"
-            className="inline-flex items-center h-7 px-3 border border-border bg-bg text-xs font-mono cursor-pointer hover:border-accent hover:text-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed">Restart</button>
+          <button
+            onClick={handleRestart}
+            disabled={lifecycleBusy || state === "restarting"}
+            title="Restart agent"
+            className="inline-flex items-center h-7 px-3 border border-border bg-bg text-xs font-mono cursor-pointer hover:border-accent hover:text-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {restartBusy || state === "restarting" ? "Restarting..." : "Restart"}
+          </button>
         </div>
         {(evmShort || solShort) && (
           <div className="wallet-wrapper relative inline-flex">

@@ -26,6 +26,8 @@ describe("header status", () => {
       cloudCreditsLow: false,
       cloudTopUpUrl: "",
       walletAddresses: null,
+      lifecycleBusy: false,
+      lifecycleAction: null,
       handlePauseResume: vi.fn(),
       handleRestart: vi.fn(),
       openCommandPalette: vi.fn(),
@@ -57,5 +59,33 @@ describe("header status", () => {
     expect(renderedText).toContain("starting");
     expect(renderedText).toContain("⏳");
     expect(renderedText).not.toContain("⏸️");
+  });
+
+  it("shows restart in-progress label and disables controls during lifecycle action", async () => {
+    mockUseApp.mockReturnValue({
+      ...baseAppState,
+      lifecycleBusy: true,
+      lifecycleAction: "restart",
+    });
+
+    let tree: TestRenderer.ReactTestRenderer;
+    await act(async () => {
+      tree = TestRenderer.create(React.createElement(Header));
+    });
+
+    const restartButton = tree!.root.find(
+      (node) =>
+        node.type === "button" &&
+        Array.isArray(node.children) &&
+        node.children.join("") === "Restarting...",
+    );
+    expect(restartButton.props.disabled).toBe(true);
+
+    const pauseResumeButton = tree!.root.find(
+      (node) =>
+        node.type === "button" &&
+        node.props.title === "Pause autonomy",
+    );
+    expect(pauseResumeButton.props.disabled).toBe(true);
   });
 });

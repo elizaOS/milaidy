@@ -163,6 +163,61 @@ interface ActionNotice {
   text: string;
 }
 
+type LifecycleAction =
+  | "start"
+  | "stop"
+  | "pause"
+  | "resume"
+  | "restart"
+  | "reset";
+
+const LIFECYCLE_MESSAGES: Record<
+  LifecycleAction,
+  {
+    inProgress: string;
+    progress: string;
+    success: string;
+    verb: string;
+  }
+> = {
+  start: {
+    inProgress: "starting",
+    progress: "Starting agent...",
+    success: "Agent started.",
+    verb: "start",
+  },
+  stop: {
+    inProgress: "stopping",
+    progress: "Stopping agent...",
+    success: "Agent stopped.",
+    verb: "stop",
+  },
+  pause: {
+    inProgress: "pausing",
+    progress: "Pausing agent...",
+    success: "Agent paused.",
+    verb: "pause",
+  },
+  resume: {
+    inProgress: "resuming",
+    progress: "Resuming agent...",
+    success: "Agent resumed.",
+    verb: "resume",
+  },
+  restart: {
+    inProgress: "restarting",
+    progress: "Restarting agent...",
+    success: "Agent restarted.",
+    verb: "restart",
+  },
+  reset: {
+    inProgress: "resetting",
+    progress: "Resetting agent...",
+    success: "Agent reset. Returning to onboarding.",
+    verb: "reset",
+  },
+};
+
 type GamePostMessageAuthPayload = AppViewerAuthMessage;
 
 const AGENT_STATES: ReadonlySet<AgentStatus["state"]> = new Set([
@@ -282,6 +337,8 @@ export interface AppState {
   onboardingLoading: boolean;
   authRequired: boolean;
   actionNotice: ActionNotice | null;
+  lifecycleBusy: boolean;
+  lifecycleAction: LifecycleAction | null;
 
   // Pairing
   pairingEnabled: boolean;
@@ -670,6 +727,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [onboardingLoading, setOnboardingLoading] = useState(true);
   const [authRequired, setAuthRequired] = useState(false);
   const [actionNotice, setActionNoticeState] = useState<ActionNotice | null>(null);
+  const [lifecycleBusy, setLifecycleBusy] = useState(false);
+  const [lifecycleAction, setLifecycleAction] = useState<LifecycleAction | null>(null);
 
   // --- Pairing ---
   const [pairingEnabled, setPairingEnabled] = useState(false);
@@ -1395,38 +1454,100 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // ── Lifecycle actions ──────────────────────────────────────────────
 
+  const beginLifecycleAction = useCallback((action: LifecycleAction): boolean => {
+    if (lifecycleBusy) {
+      const activeAction = lifecycleAction ?? action;
+      setActionNotice(
+        `Agent action already in progress (${LIFECYCLE_MESSAGES[activeAction].inProgress}). Please wait.`,
+        "info",
+        2800,
+      );
+      return false;
+    }
+    setLifecycleBusy(true);
+    setLifecycleAction(action);
+    return true;
+  }, [lifecycleBusy, lifecycleAction, setActionNotice]);
+
+  const finishLifecycleAction = useCallback(() => {
+    setLifecycleBusy(false);
+    setLifecycleAction(null);
+  }, []);
+
   const handleStart = useCallback(async () => {
+    if (!beginLifecycleAction("start")) return;
+    setActionNotice(LIFECYCLE_MESSAGES.start.progress, "info", 3000);
     try {
       const s = await client.startAgent();
       setAgentStatus(s);
-    } catch {
-      /* ignore */
+      setActionNotice(LIFECYCLE_MESSAGES.start.success, "success", 2400);
+    } catch (err) {
+      setActionNotice(
+        `Failed to ${LIFECYCLE_MESSAGES.start.verb} agent: ${
+          err instanceof Error ? err.message : "unknown error"
+        }`,
+        "error",
+        4200,
+      );
+    } finally {
+      finishLifecycleAction();
     }
-  }, []);
+  }, [beginLifecycleAction, finishLifecycleAction, setActionNotice]);
 
   const handleStop = useCallback(async () => {
+    if (!beginLifecycleAction("stop")) return;
+    setActionNotice(LIFECYCLE_MESSAGES.stop.progress, "info", 3000);
     try {
       const s = await client.stopAgent();
       setAgentStatus(s);
-    } catch {
-      /* ignore */
+      setActionNotice(LIFECYCLE_MESSAGES.stop.success, "success", 2400);
+    } catch (err) {
+      setActionNotice(
+        `Failed to ${LIFECYCLE_MESSAGES.stop.verb} agent: ${
+          err instanceof Error ? err.message : "unknown error"
+        }`,
+        "error",
+        4200,
+      );
+    } finally {
+      finishLifecycleAction();
     }
-  }, []);
+  }, [beginLifecycleAction, finishLifecycleAction, setActionNotice]);
 
   const handlePauseResume = useCallback(async () => {
     if (!agentStatus) return;
+    const action: LifecycleAction | null =
+      agentStatus.state === "running"
+        ? "pause"
+        : agentStatus.state === "paused"
+          ? "resume"
+          : null;
+    if (!action) return;
+    if (!beginLifecycleAction(action)) return;
+    setActionNotice(LIFECYCLE_MESSAGES[action].progress, "info", 3000);
     try {
       if (agentStatus.state === "running") {
         setAgentStatus(await client.pauseAgent());
       } else if (agentStatus.state === "paused") {
         setAgentStatus(await client.resumeAgent());
       }
-    } catch {
-      /* ignore */
+      setActionNotice(LIFECYCLE_MESSAGES[action].success, "success", 2400);
+    } catch (err) {
+      setActionNotice(
+        `Failed to ${LIFECYCLE_MESSAGES[action].verb} agent: ${
+          err instanceof Error ? err.message : "unknown error"
+        }`,
+        "error",
+        4200,
+      );
+    } finally {
+      finishLifecycleAction();
     }
-  }, [agentStatus]);
+  }, [agentStatus, beginLifecycleAction, finishLifecycleAction, setActionNotice]);
 
   const handleRestart = useCallback(async () => {
+    if (!beginLifecycleAction("restart")) return;
+    setActionNotice(LIFECYCLE_MESSAGES.restart.progress, "info", 3200);
     try {
       setAgentStatus({
         ...(agentStatus ?? { agentName: "Milaidy", model: undefined, uptime: undefined, startedAt: undefined }),
@@ -1438,7 +1559,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setConversations([]);
       const s = await client.restartAgent();
       setAgentStatus(s);
-    } catch {
+      setActionNotice(LIFECYCLE_MESSAGES.restart.success, "success", 2400);
+    } catch (err) {
+      setActionNotice(
+        `Failed to ${LIFECYCLE_MESSAGES.restart.verb} agent: ${
+          err instanceof Error ? err.message : "unknown error"
+        }`,
+        "error",
+        4200,
+      );
       setTimeout(async () => {
         try {
           setAgentStatus(await client.getStatus());
@@ -1446,16 +1575,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
           /* ignore */
         }
       }, 3000);
+    } finally {
+      finishLifecycleAction();
     }
-  }, [agentStatus]);
+  }, [agentStatus, beginLifecycleAction, finishLifecycleAction, setActionNotice]);
 
   const handleReset = useCallback(async () => {
+    if (lifecycleBusy) {
+      const activeAction = lifecycleAction ?? "reset";
+      setActionNotice(
+        `Agent action already in progress (${LIFECYCLE_MESSAGES[activeAction].inProgress}). Please wait.`,
+        "info",
+        2800,
+      );
+      return;
+    }
     const confirmed = window.confirm(
       "This will completely reset the agent — wiping all config, memory, and data.\n\n" +
         "You will be taken back to the onboarding wizard.\n\n" +
         "Are you sure?",
     );
     if (!confirmed) return;
+    if (!beginLifecycleAction("reset")) return;
+    setActionNotice(LIFECYCLE_MESSAGES.reset.progress, "info", 3200);
     try {
       await client.resetAgent();
       setAgentStatus(null);
@@ -1474,10 +1616,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
       } catch {
         /* ignore */
       }
-    } catch {
+      setActionNotice(LIFECYCLE_MESSAGES.reset.success, "success", 3200);
+    } catch (err) {
+      setActionNotice(
+        `Failed to ${LIFECYCLE_MESSAGES.reset.verb} agent: ${
+          err instanceof Error ? err.message : "unknown error"
+        }`,
+        "error",
+        4200,
+      );
       window.alert("Reset failed. Check the console for details.");
+    } finally {
+      finishLifecycleAction();
     }
-  }, []);
+  }, [lifecycleBusy, lifecycleAction, beginLifecycleAction, finishLifecycleAction, setActionNotice]);
 
   // ── Chat ───────────────────────────────────────────────────────────
 
@@ -3217,7 +3369,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const value: AppContextValue = {
     // State
     tab, currentTheme, connected, agentStatus, onboardingComplete, onboardingLoading,
-    authRequired, actionNotice,
+    authRequired, actionNotice, lifecycleBusy, lifecycleAction,
     pairingEnabled, pairingExpiresAt, pairingCodeInput, pairingError, pairingBusy,
     chatInput, chatSending, chatFirstTokenReceived, conversations, activeConversationId, conversationMessages,
     autonomousEvents, autonomousLatestEventId, unreadConversations,
