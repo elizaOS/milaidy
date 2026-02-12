@@ -9,7 +9,7 @@
  * Works cross-platform with platform-specific permission requirements.
  */
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, type Dispatch, type SetStateAction } from "react";
 import { useApp } from "../AppContext";
 import {
   client,
@@ -277,6 +277,29 @@ function CapabilityToggle({
   );
 }
 
+function usePermissionActions(
+  setPermissions: Dispatch<SetStateAction<AllPermissionsState | null>>,
+) {
+  const handleRequest = useCallback(async (id: SystemPermissionId) => {
+    try {
+      const state = await client.requestPermission(id);
+      setPermissions((prev) => (prev ? { ...prev, [id]: state } : prev));
+    } catch (err) {
+      console.error("Failed to request permission:", err);
+    }
+  }, [setPermissions]);
+
+  const handleOpenSettings = useCallback(async (id: SystemPermissionId) => {
+    try {
+      await client.openPermissionSettings(id);
+    } catch (err) {
+      console.error("Failed to open settings:", err);
+    }
+  }, []);
+
+  return { handleRequest, handleOpenSettings };
+}
+
 export function PermissionsSection() {
   const { plugins, handlePluginToggle } = useApp();
   const [permissions, setPermissions] = useState<AllPermissionsState | null>(null);
@@ -284,6 +307,7 @@ export function PermissionsSection() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [shellEnabled, setShellEnabled] = useState(true);
+  const { handleRequest, handleOpenSettings } = usePermissionActions(setPermissions);
 
   /** Load permissions on mount. */
   useEffect(() => {
@@ -320,25 +344,6 @@ export function PermissionsSection() {
       console.error("Failed to refresh permissions:", err);
     } finally {
       setRefreshing(false);
-    }
-  }, []);
-
-  /** Request a permission. */
-  const handleRequest = useCallback(async (id: SystemPermissionId) => {
-    try {
-      const state = await client.requestPermission(id);
-      setPermissions((prev) => (prev ? { ...prev, [id]: state } : prev));
-    } catch (err) {
-      console.error("Failed to request permission:", err);
-    }
-  }, []);
-
-  /** Open system settings for a permission. */
-  const handleOpenSettings = useCallback(async (id: SystemPermissionId) => {
-    try {
-      await client.openPermissionSettings(id);
-    } catch (err) {
-      console.error("Failed to open settings:", err);
     }
   }, []);
 
@@ -476,6 +481,7 @@ export function PermissionsOnboardingSection({
 }) {
   const [permissions, setPermissions] = useState<AllPermissionsState | null>(null);
   const [loading, setLoading] = useState(true);
+  const { handleRequest, handleOpenSettings } = usePermissionActions(setPermissions);
 
   useEffect(() => {
     void (async () => {
@@ -489,23 +495,6 @@ export function PermissionsOnboardingSection({
         setLoading(false);
       }
     })();
-  }, []);
-
-  const handleRequest = useCallback(async (id: SystemPermissionId) => {
-    try {
-      const state = await client.requestPermission(id);
-      setPermissions((prev) => (prev ? { ...prev, [id]: state } : prev));
-    } catch (err) {
-      console.error("Failed to request permission:", err);
-    }
-  }, []);
-
-  const handleOpenSettings = useCallback(async (id: SystemPermissionId) => {
-    try {
-      await client.openPermissionSettings(id);
-    } catch (err) {
-      console.error("Failed to open settings:", err);
-    }
   }, []);
 
   /** Check if all critical permissions are granted (or not applicable). */
