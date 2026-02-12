@@ -31,6 +31,15 @@ if (!process.env.LOG_LEVEL) {
   }
 }
 
+// Keep llama.cpp backend output aligned with Milaidy's log level defaults.
+// This suppresses noisy tokenizer warnings in normal startup while still
+// allowing verbose/debug visibility when explicitly requested.
+if (!process.env.NODE_LLAMA_CPP_LOG_LEVEL) {
+  const logLevel = String(process.env.LOG_LEVEL).toLowerCase();
+  process.env.NODE_LLAMA_CPP_LOG_LEVEL =
+    logLevel === "debug" ? "debug" : logLevel === "info" ? "info" : "error";
+}
+
 const parsed = parseCliProfileArgs(process.argv);
 if (!parsed.ok) {
   console.error(`[milaidy] ${parsed.error}`);
