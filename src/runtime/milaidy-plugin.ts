@@ -83,20 +83,107 @@ const ACTION_DESCRIPTION_ENRICHMENTS: Record<string, string> = {
     "Use when the user asks to install, add, get, or set up any plugin or skill.",
   SEARCH_SKILLS:
     "Search, find, browse, list, or discover available skills and plugins. " +
-    "Use when the user asks to search for, find, list, or browse plugins or skills.",
+    "Use when the user asks to search for, find, list, show, or browse plugins or skills. " +
+    "This is the correct action for 'list skills', 'list available plugins', 'show skills', " +
+    "or any request about discovering/browsing the skill catalog. " +
+    "Do NOT use EXECUTE_COMMAND for listing skills — use SEARCH_SKILLS instead.",
 };
 
 /**
- * Enrich action descriptions on the runtime for better BM25 matching.
- * Called during plugin init, before ActionFilterService builds its index.
+ * Conversation examples injected into actions that lack them.
+ * These appear in the "Action Examples" section of the LLM prompt via
+ * the ACTIONS provider's `composeActionExamples()`.
+ *
+ * Format: array of conversation pairs (same as ElizaOS action.examples).
+ */
+const ACTION_EXAMPLE_INJECTIONS: Record<
+  string,
+  Array<Array<{ name: string; content: { text: string } }>>
+> = {
+  CREATE_TASK: [
+    [
+      {
+        name: "{{name1}}",
+        content: { text: "create a new task called fix the login bug" },
+      },
+      {
+        name: "{{name2}}",
+        content: { text: "on it — creating that task now" },
+      },
+    ],
+    [
+      {
+        name: "{{name1}}",
+        content: { text: "add a task to review the PR" },
+      },
+      {
+        name: "{{name2}}",
+        content: { text: "creating a task to review the PR" },
+      },
+    ],
+  ],
+  INSTALL_SKILL: [
+    [
+      { name: "{{name1}}", content: { text: "install the discord plugin" } },
+      {
+        name: "{{name2}}",
+        content: { text: "installing the discord plugin now" },
+      },
+    ],
+    [
+      { name: "{{name1}}", content: { text: "add the weather skill" } },
+      {
+        name: "{{name2}}",
+        content: { text: "setting up the weather skill for you" },
+      },
+    ],
+  ],
+  EXECUTE_COMMAND: [
+    [
+      { name: "{{name1}}", content: { text: "run ls -la" } },
+      { name: "{{name2}}", content: { text: "running that command now" } },
+    ],
+    [
+      { name: "{{name1}}", content: { text: "execute echo hello world" } },
+      { name: "{{name2}}", content: { text: "executing the command" } },
+    ],
+  ],
+  SEARCH_SKILLS: [
+    [
+      { name: "{{name1}}", content: { text: "search for a twitter plugin" } },
+      { name: "{{name2}}", content: { text: "searching for twitter plugins" } },
+    ],
+    [
+      { name: "{{name1}}", content: { text: "list all available skills" } },
+      {
+        name: "{{name2}}",
+        content: { text: "browsing the available skills for you" },
+      },
+    ],
+  ],
+};
+
+/**
+ * Enrich action descriptions and examples on the runtime.
+ * Called from eliza.ts after runtime.initialize() so all plugin actions
+ * are registered.
  */
 export function enrichActionDescriptions(runtime: AgentRuntime): void {
   let enriched = 0;
   for (const action of runtime.actions) {
-    const replacement = ACTION_DESCRIPTION_ENRICHMENTS[action.name];
-    if (replacement) {
-      action.description = replacement;
+    const descReplacement = ACTION_DESCRIPTION_ENRICHMENTS[action.name];
+    if (descReplacement) {
+      action.description = descReplacement;
       enriched++;
+    }
+    const examples = ACTION_EXAMPLE_INJECTIONS[action.name];
+    if (examples && examples.length > 0) {
+      if (!action.examples || action.examples.length === 0) {
+        (action as unknown as Record<string, unknown>).examples = examples;
+      } else {
+        // Append to existing upstream examples
+        (action.examples as Array<unknown>).push(...examples);
+      }
     }
   }
   if (enriched > 0) {

@@ -1016,6 +1016,7 @@ ACTION SELECTION — CRITICAL RULES:
 ACTION SELECTION EXAMPLES:
 - User asks to install a plugin/skill → INSTALL_SKILL (not REPLY)
 - User asks to search/find/list plugins or skills → SEARCH_SKILLS (not REPLY)
+- User asks to list, browse, show, or discover skills/plugins → SEARCH_SKILLS (not EXECUTE_COMMAND)
 - User asks to run/execute a shell command → EXECUTE_COMMAND (not REPLY)
 - User asks to create a task or todo → CREATE_TASK (not REPLY)
 - User asks to restart the agent → RESTART_AGENT (not REPLY)
