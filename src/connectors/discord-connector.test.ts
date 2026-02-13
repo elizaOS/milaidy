@@ -8,29 +8,33 @@
 import { describe, expect, it } from "vitest";
 import {
   extractPlugin,
-  isPackageImportResolvable,
+  resolveDiscordPluginImportSpecifier,
 } from "../test-support/test-helpers.js";
 
-const DISCORD_PLUGIN_NAME = "@elizaos/plugin-discord";
-const DISCORD_PLUGIN_AVAILABLE = isPackageImportResolvable(DISCORD_PLUGIN_NAME);
+const DISCORD_PLUGIN_IMPORT = resolveDiscordPluginImportSpecifier();
+const DISCORD_PLUGIN_AVAILABLE = DISCORD_PLUGIN_IMPORT !== null;
 const describeIfPluginAvailable = DISCORD_PLUGIN_AVAILABLE
   ? describe
   : describe.skip;
 
+const loadDiscordPluginModule = async () => {
+  if (!DISCORD_PLUGIN_IMPORT) {
+    throw new Error("Discord plugin is not resolvable");
+  }
+  return (await import(DISCORD_PLUGIN_IMPORT)) as {
+    default?: unknown;
+    plugin?: unknown;
+  };
+};
+
 describeIfPluginAvailable("Discord Connector - Basic Validation", () => {
   it("can import the Discord plugin package", async () => {
-    const mod = (await import(DISCORD_PLUGIN_NAME)) as {
-      default?: unknown;
-      plugin?: unknown;
-    };
+    const mod = await loadDiscordPluginModule();
     expect(mod).toBeDefined();
   });
 
   it("exports a valid plugin structure", async () => {
-    const mod = (await import(DISCORD_PLUGIN_NAME)) as {
-      default?: unknown;
-      plugin?: unknown;
-    };
+    const mod = await loadDiscordPluginModule();
     const plugin = extractPlugin(mod);
 
     expect(plugin).not.toBeNull();
@@ -38,20 +42,14 @@ describeIfPluginAvailable("Discord Connector - Basic Validation", () => {
   });
 
   it("plugin has correct name", async () => {
-    const mod = (await import(DISCORD_PLUGIN_NAME)) as {
-      default?: unknown;
-      plugin?: unknown;
-    };
+    const mod = await loadDiscordPluginModule();
     const plugin = extractPlugin(mod) as { name?: string } | null;
 
     expect(plugin?.name).toBe("discord");
   });
 
   it("plugin has a description", async () => {
-    const mod = (await import(DISCORD_PLUGIN_NAME)) as {
-      default?: unknown;
-      plugin?: unknown;
-    };
+    const mod = await loadDiscordPluginModule();
     const plugin = extractPlugin(mod) as { description?: string } | null;
 
     expect(plugin?.description).toBeDefined();

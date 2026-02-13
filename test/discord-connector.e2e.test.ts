@@ -31,7 +31,7 @@ import dotenv from "dotenv";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   extractPlugin,
-  isPackageImportResolvable,
+  resolveDiscordPluginImportSpecifier,
 } from "../src/test-support/test-helpers.js";
 
 // ---------------------------------------------------------------------------
@@ -46,8 +46,8 @@ dotenv.config({ path: path.resolve(packageRoot, "..", "eliza", ".env") });
 const hasDiscordToken = Boolean(process.env.DISCORD_BOT_TOKEN);
 const liveTestsEnabled = process.env.MILAIDY_LIVE_TEST === "1";
 const runLiveTests = hasDiscordToken && liveTestsEnabled;
-const DISCORD_PLUGIN_NAME = "@elizaos/plugin-discord";
-const hasDiscordPlugin = isPackageImportResolvable(DISCORD_PLUGIN_NAME);
+const DISCORD_PLUGIN_IMPORT = resolveDiscordPluginImportSpecifier();
+const hasDiscordPlugin = DISCORD_PLUGIN_IMPORT !== null;
 
 // Skip all tests if Discord token is not available
 const describeIfLive =
@@ -56,6 +56,9 @@ const describeIfPluginAvailable = hasDiscordPlugin ? describe : describe.skip;
 
 logger.info(
   `[discord-connector] Live tests ${runLiveTests ? "ENABLED" : "DISABLED"} (DISCORD_BOT_TOKEN=${hasDiscordToken}, MILAIDY_LIVE_TEST=${liveTestsEnabled})`,
+);
+logger.info(
+  `[discord-connector] Plugin import ${DISCORD_PLUGIN_IMPORT ?? "UNAVAILABLE"}`,
 );
 
 // ---------------------------------------------------------------------------
@@ -107,7 +110,11 @@ const errorHandlingTodos = [
 // ---------------------------------------------------------------------------
 
 const loadDiscordPlugin = async (): Promise<Plugin | null> => {
-  const mod = (await import(DISCORD_PLUGIN_NAME)) as {
+  if (!DISCORD_PLUGIN_IMPORT) {
+    return null;
+  }
+
+  const mod = (await import(DISCORD_PLUGIN_IMPORT)) as {
     default?: Plugin;
     plugin?: Plugin;
     [key: string]: unknown;

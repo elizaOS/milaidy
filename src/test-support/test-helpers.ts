@@ -1,6 +1,9 @@
 import { EventEmitter } from "node:events";
+import { existsSync } from "node:fs";
 import type http from "node:http";
 import { createRequire } from "node:module";
+import path from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { vi } from "vitest";
 
 /**
@@ -91,6 +94,34 @@ export function isPackageImportResolvable(packageName: string): boolean {
   } catch {
     return false;
   }
+}
+
+const DISCORD_PLUGIN_PACKAGE_NAME = "@elizaos/plugin-discord";
+const DISCORD_PLUGIN_LOCAL_ENTRY_CANDIDATES = [
+  "../plugins/plugin-discord/typescript/dist/index.js",
+  "../plugins/plugin-discord/dist/index.js",
+] as const;
+
+/**
+ * Resolve the Discord plugin import specifier.
+ * Prefers package resolution, then falls back to local plugin checkout paths.
+ */
+export function resolveDiscordPluginImportSpecifier(): string | null {
+  if (isPackageImportResolvable(DISCORD_PLUGIN_PACKAGE_NAME)) {
+    return DISCORD_PLUGIN_PACKAGE_NAME;
+  }
+
+  const helperDir = path.dirname(fileURLToPath(import.meta.url));
+  const packageRoot = path.resolve(helperDir, "..", "..");
+
+  for (const relativeEntryPath of DISCORD_PLUGIN_LOCAL_ENTRY_CANDIDATES) {
+    const absoluteEntryPath = path.resolve(packageRoot, relativeEntryPath);
+    if (existsSync(absoluteEntryPath)) {
+      return pathToFileURL(absoluteEntryPath).href;
+    }
+  }
+
+  return null;
 }
 
 /** Build a mock update check result with deterministic defaults. */
