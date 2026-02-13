@@ -84,8 +84,7 @@ const TEST_TIMEOUT = 30_000; // 30 seconds for Discord API operations
 // ---------------------------------------------------------------------------
 
 describe("Discord Connector - Setup & Authentication", () => {
-  // Skip plugin import tests due to package.json export issues in @elizaos/plugin-discord
-  it.skip("can load the Discord plugin without errors", async () => {
+  it("can load the Discord plugin without errors", async () => {
     const mod = (await import(DISCORD_PLUGIN_NAME)) as PluginModule;
     const plugin = extractPlugin(mod);
 
@@ -95,7 +94,7 @@ describe("Discord Connector - Setup & Authentication", () => {
     }
   }, TEST_TIMEOUT);
 
-  it.skip("Discord plugin exports required structure", async () => {
+  it("Discord plugin exports required structure", async () => {
     const mod = (await import(DISCORD_PLUGIN_NAME)) as PluginModule;
     const plugin = extractPlugin(mod);
 
