@@ -6,7 +6,12 @@
  * Memory search/get actions are superseded by plugin-scratchpad.
  */
 
-import type { ActionEventPayload, MessagePayload, Plugin } from "@elizaos/core";
+import type {
+  ActionEventPayload,
+  AgentRuntime,
+  MessagePayload,
+  Plugin,
+} from "@elizaos/core";
 import {
   attachmentsProvider,
   EventType,
@@ -52,6 +57,53 @@ export function clearActionLog(): void {
   actionLog.length = 0;
 }
 
+/**
+ * Enriched descriptions for upstream actions whose default descriptions
+ * are too terse for reliable BM25 matching.  Keyed by action name.
+ *
+ * These are merged onto the action objects at plugin init time so the
+ * ActionFilterService indexes richer vocabulary and the LLM sees clearer
+ * guidance in the prompt.
+ */
+const ACTION_DESCRIPTION_ENRICHMENTS: Record<string, string> = {
+  CREATE_TASK:
+    "Create, add, or make a new task, todo, or reminder. " +
+    "Use when the user asks to create a task, add a todo, make a reminder, " +
+    "or track something that needs to be done.",
+  CREATE_TODO:
+    "Create, add, or make a new todo item, task, or reminder. " +
+    "Use when the user asks to create a todo, add a task, make a reminder, " +
+    "or track something that needs to be done.",
+  EXECUTE_COMMAND:
+    "Run, execute, or invoke a shell command, terminal command, or script. " +
+    "Use when the user asks to run a command, execute code, install via npm/brew/apt, " +
+    "list files, or perform any shell operation.",
+  INSTALL_SKILL:
+    "Install, add, set up, download, or enable a new skill, plugin, or extension. " +
+    "Use when the user asks to install, add, get, or set up any plugin or skill.",
+  SEARCH_SKILLS:
+    "Search, find, browse, list, or discover available skills and plugins. " +
+    "Use when the user asks to search for, find, list, or browse plugins or skills.",
+};
+
+/**
+ * Enrich action descriptions on the runtime for better BM25 matching.
+ * Called during plugin init, before ActionFilterService builds its index.
+ */
+export function enrichActionDescriptions(runtime: AgentRuntime): void {
+  let enriched = 0;
+  for (const action of runtime.actions) {
+    const replacement = ACTION_DESCRIPTION_ENRICHMENTS[action.name];
+    if (replacement) {
+      action.description = replacement;
+      enriched++;
+    }
+  }
+  if (enriched > 0) {
+    logger.info(`[milaidy] Enriched descriptions for ${enriched} actions`);
+  }
+}
+
 export function createMilaidyPlugin(config?: MilaidyPluginConfig): Plugin {
   const workspaceDir = config?.workspaceDir ?? DEFAULT_AGENT_WORKSPACE_DIR;
   const agentId = config?.agentId ?? "main";
@@ -77,6 +129,9 @@ export function createMilaidyPlugin(config?: MilaidyPluginConfig): Plugin {
     name: "milaidy",
     description:
       "Milaidy workspace context, session keys, and lifecycle actions",
+
+    // Note: enrichActionDescriptions() is called from eliza.ts after
+    // runtime.initialize() so all plugin actions are registered.
 
     providers: [...baseProviders, ...bootstrapProviders],
 

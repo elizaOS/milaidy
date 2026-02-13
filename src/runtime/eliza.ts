@@ -56,7 +56,10 @@ import {
   resolveDefaultAgentWorkspaceDir,
 } from "../providers/workspace.js";
 import { diagnoseNoAIProvider } from "../services/version-compat.js";
-import { createMilaidyPlugin } from "./milaidy-plugin.js";
+import {
+  createMilaidyPlugin,
+  enrichActionDescriptions,
+} from "./milaidy-plugin.js";
 import {
   createPhettaCompanionPlugin,
   resolvePhettaCompanionOptionsFromEnv,
@@ -1193,6 +1196,13 @@ export function buildCharacterFromConfig(config: MilaidyConfig): Character {
     templates: {
       messageHandlerTemplate: MILAIDY_MESSAGE_HANDLER_TEMPLATE,
     },
+    settings: {
+      // Raise the action filter threshold so all registered actions stay
+      // visible to the LLM.  With ~25 actions the default threshold of 15
+      // causes ActionFilterService to drop relevant actions.  Our custom
+      // messageHandlerTemplate already provides explicit selection guidance.
+      ACTION_FILTER_THRESHOLD: "50",
+    },
   });
 }
 
@@ -2054,6 +2064,11 @@ export async function startEliza(
 
   // 8. Initialize the runtime (registers remaining plugins, starts services)
   await runtime.initialize();
+
+  // 8b. Enrich action descriptions now that all plugins have registered their
+  //     actions.  This must happen AFTER initialize() so the ActionFilterService
+  //     BM25 index reflects the enriched text.
+  enrichActionDescriptions(runtime);
 
   // 9. Graceful shutdown handler
   //
