@@ -164,7 +164,7 @@ describe("CloudManager", () => {
       await expect(mgr.connect("agent-123")).rejects.toThrow(
         "provision failed",
       );
-      expect(mgr.getStatus()).toBe("disconnected");
+      expect(mgr.getStatus()).toBe("error");
       expect(mgr.getActiveAgentId()).toBeNull();
       expect(mgr.getProxy()).toBeNull();
     });

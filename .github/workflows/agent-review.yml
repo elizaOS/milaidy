@@ -73,9 +73,13 @@ jobs:
       - name: Read project scope
         id: scope
         run: |
-          if [ -f SCOPE.md ]; then
+          if git show ${{ github.event.pull_request.base.sha }}:SCOPE.md > /tmp/scope.md 2>/dev/null; then
             echo "scope<<SCOPE_EOF" >> $GITHUB_OUTPUT
-            cat SCOPE.md >> $GITHUB_OUTPUT
+            cat /tmp/scope.md >> $GITHUB_OUTPUT
+            echo "SCOPE_EOF" >> $GITHUB_OUTPUT
+          else
+            echo "scope<<SCOPE_EOF" >> $GITHUB_OUTPUT
+            echo "No scope file found on base branch; review using repository defaults." >> $GITHUB_OUTPUT
             echo "SCOPE_EOF" >> $GITHUB_OUTPUT
           fi
 
@@ -86,6 +90,7 @@ jobs:
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          # Maintainers who can run non-write Claude review actions.
           allowed_non_write_users: 'lawyered0,jqmwa,0xSolace'
           claude_args: '--model claude-opus-4-6 --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr review:*),Bash(git log:*),Bash(git diff:*),Bash(git show:*),Bash(cat:*),Bash(find:*),Bash(grep:*),Bash(head:*),Bash(tail:*),Bash(wc:*),Bash(ls:*),Read,Glob,LS"'
           prompt: |
@@ -195,7 +200,7 @@ jobs:
             const repo = context.repo.repo;
             const issue_number = context.payload.pull_request.number;
 
-            // Prefer bot-authored comments first, then fall back to any matching comment.
+            // Use only bot-authored comments for the structured decision format.
             // Match Decision in any format: **Decision:**, ### N. Decision:, 6. **Decision:**, etc.
             const decisionPattern = /(?:^|\n)\s*(?:#{1,4}\s+)?(?:\d+\.\s*)?(?:\*{0,2})Decision:(?:\*{0,2})\s*(APPROVE|REQUEST CHANGES|CLOSE)\b/i;
             const structuredPattern = /(?:#{1,4}\s+)?(?:\d+\.\s*)?(?:\*{0,2})(?:Classification|Scope verdict|Code quality)(?:\*{0,2}):/i;
@@ -229,7 +234,7 @@ jobs:
               });
 
               const botComments = comments.filter((c) => c.user?.type === 'Bot');
-              latest = findLatest(botComments) || findLatest(comments);
+              latest = findLatest(botComments);
 
               if (latest) {
                 break;
@@ -297,9 +302,7 @@ jobs:
           esac
 
           echo "Merging PR #${{ github.event.pull_request.number }} using '$method' method"
-          gh pr merge ${{ github.event.pull_request.number }} --"$method" --delete-branch || \
-            gh pr merge ${{ github.event.pull_request.number }} --"$method" --admin || \
-            gh pr merge ${{ github.event.pull_request.number }} --"$method"
+          gh pr merge ${{ github.event.pull_request.number }} --"$method" --delete-branch
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}

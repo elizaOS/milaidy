@@ -89,20 +89,6 @@ export function validatePluginConfig(
 ): PluginValidationResult {
   const errors: Array<{ field: string; message: string }> = [];
   const warnings: Array<{ field: string; message: string }> = [];
-  const normalizedConfigKeys = new Set(
-    configKeys.map((key) => key.trim().toUpperCase()),
-  );
-
-  if (providedConfig) {
-    for (const key of Object.keys(providedConfig)) {
-      if (!normalizedConfigKeys.has(key.trim().toUpperCase())) {
-        errors.push({
-          field: key,
-          message: `${key} is not a declared config key for this plugin`,
-        });
-      }
-    }
-  }
 
   // Reject any submitted keys that are not declared for this plugin.
   if (providedConfig) {

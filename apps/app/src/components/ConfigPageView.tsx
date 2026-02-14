@@ -137,7 +137,7 @@ function buildRpcRendererConfig(
   return props;
 }
 
-type RpcSectionCloudProps = Omit<CloudRpcStatusProps, "onLogin">;
+type RpcSectionCloudProps = CloudRpcStatusProps;
 
 type RpcSectionProps<T extends string> = {
   title: string;
@@ -163,7 +163,7 @@ function RpcConfigSection<T extends string>({
   onRpcFieldChange,
   cloud,
   containerClassName,
-}: RpcConfigSectionProps<T>) {
+}: RpcSectionProps<T>) {
   const rpcConfig = buildRpcRendererConfig(selectedProvider, providerConfigs, rpcFieldValues);
 
   return (

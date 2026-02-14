@@ -95,7 +95,6 @@ export class CloudManager {
       );
       return this.proxy;
     } catch (err) {
-      this.setStatus("error");
       if (this.backupScheduler) {
         this.backupScheduler.stop();
         this.backupScheduler = null;
@@ -106,7 +105,7 @@ export class CloudManager {
       }
       this.proxy = null;
       this.activeAgentId = null;
-      this.setStatus("disconnected");
+      this.setStatus("error");
       throw err;
     }
   }
