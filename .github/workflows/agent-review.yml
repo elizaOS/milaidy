@@ -649,20 +649,31 @@ jobs:
           esac
 
           PR_NUM="${{ github.event.pull_request.number }}"
+          echo "Waiting for required checks to pass for PR #${PR_NUM}"
+          if ! timeout 15m gh pr checks "$PR_NUM" \
+            --required \
+            --repo "$GH_REPO" \
+            --watch \
+            --interval 10 \
+            --fail-fast; then
+            echo "Required PR checks failed or are not passing. Aborting merge."
+            exit 1
+          fi
+
           echo "Merging PR #${PR_NUM} using '$method' method"
 
-          # Try with PAT first (has workflows scope), fall back to GITHUB_TOKEN
+          # Try with PAT first (has workflows scope), fall back to GITHUB_TOKEN.
           if [ -n "$GH_PAT" ]; then
             echo "Using PAT for merge (supports workflow file changes)"
             GH_TOKEN="$GH_PAT" gh pr merge "$PR_NUM" --"$method" --delete-branch && exit 0
           fi
 
-          # Fall back to default token
+          # Fall back to default token.
           if gh pr merge "$PR_NUM" --"$method" --delete-branch 2>&1; then
             exit 0
           fi
 
-          # If merge failed (likely workflow permission issue), label for manual merge
+          # If merge failed (likely workflow permission issue), label for manual merge.
           echo "::warning::Auto-merge failed. PR may modify workflow files requiring 'workflows' scope."
           gh pr comment "$PR_NUM" --body "⚠️ **Auto-merge failed** — this PR modifies workflow files which require a PAT with \`workflows\` scope to merge. A maintainer needs to merge this manually.
 
