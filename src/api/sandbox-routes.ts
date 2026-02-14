@@ -23,6 +23,8 @@ const MAX_COMPUTER_INPUT_LENGTH = 4096;
 const MAX_KEYPRESS_LENGTH = 128;
 const SAFE_KEYPRESS_PATTERN = /^[A-Za-z0-9+_.,: -]+$/;
 const ALLOWED_AUDIO_FORMATS = new Set(["wav", "mp3", "ogg", "flac", "m4a"]);
+const MIN_AUDIO_RECORD_DURATION_MS = 250;
+const MAX_AUDIO_RECORD_DURATION_MS = 30_000;
 
 // ── Route handler ────────────────────────────────────────────────────────────
 
@@ -233,12 +235,48 @@ export async function handleSandboxRoute(
     const body = await readBody(req);
     let durationMs = 5000;
     if (body) {
+      let parsed: unknown;
       try {
-        const parsed = JSON.parse(body);
-        if (typeof parsed.durationMs === "number")
-          durationMs = parsed.durationMs;
+        parsed = JSON.parse(body);
       } catch {
-        /* use default */
+        sendJson(res, 400, {
+          error: "Invalid JSON in request body",
+        });
+        return true;
+      }
+
+      if (
+        parsed === null ||
+        typeof parsed !== "object" ||
+        Array.isArray(parsed)
+      ) {
+        sendJson(res, 400, { error: "Request body must be a JSON object" });
+        return true;
+      }
+
+      if (Object.hasOwn(parsed, "durationMs")) {
+        if (typeof parsed.durationMs !== "number") {
+          sendJson(res, 400, {
+            error: "durationMs must be a finite number",
+          });
+          return true;
+        }
+        if (!Number.isFinite(parsed.durationMs)) {
+          sendJson(res, 400, {
+            error: "durationMs must be a finite number",
+          });
+          return true;
+        }
+        if (
+          parsed.durationMs < MIN_AUDIO_RECORD_DURATION_MS ||
+          parsed.durationMs > MAX_AUDIO_RECORD_DURATION_MS
+        ) {
+          sendJson(res, 400, {
+            error: `durationMs must be between ${MIN_AUDIO_RECORD_DURATION_MS} and ${MAX_AUDIO_RECORD_DURATION_MS} milliseconds`,
+          });
+          return true;
+        }
+        durationMs = Math.floor(parsed.durationMs);
       }
     }
     try {
