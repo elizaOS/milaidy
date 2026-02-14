@@ -244,13 +244,23 @@ jobs:
           # Fetch base branch for diff comparison
           git fetch origin "$PR_BASE_REF"
 
-          # Run codex review against base branch
-          codex review \
+          # Run codex review against base branch.
+          # Some Codex CLI versions reject combining --base with a positional PROMPT (`-`).
+          if ! codex review \
             --base "origin/$PR_BASE_REF" \
             --title "$PR_TITLE" \
             -c 'model="gpt-5.3-codex"' \
             - < /tmp/review-prompt.md \
-            > /tmp/review-output.md 2>&1 || true
+            > /tmp/review-output.md 2>&1; then
+            if grep -Fq "cannot be used with '[PROMPT]'" /tmp/review-output.md; then
+              echo "Codex CLI rejected prompt input with --base; retrying without positional prompt."
+              codex review \
+                --base "origin/$PR_BASE_REF" \
+                --title "$PR_TITLE" \
+                -c 'model="gpt-5.3-codex"' \
+                > /tmp/review-output.md 2>&1 || true
+            fi
+          fi
 
           echo "Review output:"
           cat /tmp/review-output.md
