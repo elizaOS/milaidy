@@ -67,7 +67,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.event.pull_request.base.sha }}
           fetch-depth: 0
 
       - name: Read project scope
@@ -105,7 +105,8 @@ jobs:
 
             PRs are expected to follow the structured PR template with clear sections for what, why, how, and testing. Flag missing or weak sections.
 
-            The PR branch is already checked out in the current working directory.
+            This environment is checked out at the PR base ref.
+            The PR patch is available via \'gh pr diff\'.
 
             ## Classification
             This PR has been pre-classified as: ${{ needs.classify.outputs.category }}
