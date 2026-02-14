@@ -27,7 +27,6 @@ import {
   ModelType,
   mergeCharacterDefaults,
   type Plugin,
-  type SandboxFetchAuditEvent,
   stringToUuid,
   type UUID,
 } from "@elizaos/core";
@@ -92,6 +91,12 @@ interface ResolvedPlugin {
   /** The Plugin instance extracted from the module. */
   plugin: Plugin;
 }
+
+type SandboxFetchAuditEvent = {
+  direction: "inbound" | "outbound";
+  url: string;
+  tokenIds: string[];
+};
 
 /** Shape we expect from a dynamically-imported plugin package. */
 interface PluginModuleShape {

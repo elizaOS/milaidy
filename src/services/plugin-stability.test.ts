@@ -845,26 +845,39 @@ describe("Context Serialization", () => {
 // ============================================================================
 
 describe("Version Skew Detection (issue #10)", () => {
+  type PackageManifest = {
+    dependencies: Record<string, string>;
+    overrides?: Record<string, string>;
+    pnpm?: { overrides?: Record<string, string> };
+  };
+
+  async function readPackageManifest(): Promise<PackageManifest> {
+    const { readFileSync } = await import("node:fs");
+    const { resolve } = await import("node:path");
+    const pkgPath = resolve(process.cwd(), "package.json");
+    return JSON.parse(readFileSync(pkgPath, "utf-8")) as PackageManifest;
+  }
+
+  function getDependencyOverride(
+    manifest: PackageManifest,
+  ): string | undefined {
+    return (
+      manifest.overrides?.["@elizaos/core"] ??
+      manifest.pnpm?.overrides?.["@elizaos/core"]
+    );
+  }
+
   it("core is pinned to a version that includes MAX_EMBEDDING_TOKENS (issue #10 fix)", async () => {
     // Issue #10: plugins at "next" imported MAX_EMBEDDING_TOKENS from @elizaos/core,
     // which was missing in older core versions.
     // Fix: core is pinned to >= alpha.4 (where the export was introduced),
     // so plugins at "next" dist-tag resolve safely.
-    const { readFileSync } = await import("node:fs");
-    const { resolve } = await import("node:path");
-    // Use process.cwd() for reliable root resolution in forked vitest workers
-    // (import.meta.dirname may not resolve to the source tree in CI forks).
-    const pkgPath = resolve(process.cwd(), "package.json");
-    const pkg = JSON.parse(readFileSync(pkgPath, "utf-8")) as {
-      dependencies: Record<string, string>;
-    };
+    const pkg = await readPackageManifest();
 
     const coreVersion = pkg.dependencies["@elizaos/core"];
     expect(coreVersion).toBeDefined();
-    // Core can use "next" dist-tag if pnpm overrides pin the actual version
-    const pnpmOverride = (
-      pkg as Record<string, Record<string, Record<string, string>>>
-    ).pnpm?.overrides?.["@elizaos/core"];
+    // Core can use "next" dist-tag if overrides pin the actual version
+    const pnpmOverride = getDependencyOverride(pkg);
     if (coreVersion === "next") {
       expect(pnpmOverride).toBeDefined();
       expect(pnpmOverride).toMatch(/^\d+\.\d+\.\d+/);

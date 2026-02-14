@@ -1,5 +1,44 @@
-// @ts-expect-error - plugin package currently ships without type declarations
-import { markdownToTelegramChunks } from "@elizaos/plugin-telegram";
+import { createRequire } from "node:module";
+
+type TelegramChunkCandidate = { html?: string; text?: string };
+type MarkdownChunker = (
+  markdownText: string,
+  maxChars?: number,
+) => TelegramChunkCandidate[] | undefined;
+type TelegramPluginLike = { markdownToTelegramChunks?: MarkdownChunker };
+
+function fallbackMarkdownChunker(
+  markdownText: string,
+  maxChars?: number,
+): TelegramChunkCandidate[] {
+  const safeMax = maxChars ?? TELEGRAM_MESSAGE_LIMIT - DEFAULT_HEADROOM;
+  const limit = Math.max(1, safeMax);
+  const chunks: TelegramChunkCandidate[] = [];
+
+  for (let offset = 0; offset < markdownText.length; offset += limit) {
+    const end = offset + limit;
+    const piece = markdownText.slice(offset, end);
+    chunks.push({ html: piece, text: piece });
+  }
+  return chunks;
+}
+
+const markdownToTelegramChunks = (() => {
+  try {
+    const requireFromModule = createRequire(import.meta.url);
+    const pluginModule = requireFromModule(
+      "@elizaos/plugin-telegram",
+    ) as TelegramPluginLike;
+
+    const chunker = pluginModule?.markdownToTelegramChunks;
+    if (typeof chunker === "function") {
+      return chunker;
+    }
+  } catch {
+    return fallbackMarkdownChunker;
+  }
+  return fallbackMarkdownChunker;
+})();
 
 const TELEGRAM_MESSAGE_LIMIT = 4096;
 const DEFAULT_HEADROOM = 120;
