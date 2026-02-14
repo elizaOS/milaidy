@@ -81,13 +81,12 @@ export function App() {
     setEditingAction(null);
   }, []);
 
-  // DEV: skip loading/auth gates when API is unavailable
-  // if (onboardingLoading) {
-  //   return <LoadingScreen phase={startupPhase} />;
-  // }
+  if (onboardingLoading) {
+    return <LoadingScreen phase={startupPhase} />;
+  }
 
-  // if (authRequired) return <PairingView />;
-  // if (!onboardingComplete) return <OnboardingWizard />;
+  if (authRequired) return <PairingView />;
+  if (!onboardingComplete) return <OnboardingWizard />;
 
   const isChat = tab === "chat";
   const isAdvancedTab =
@@ -129,7 +128,7 @@ export function App() {
         <div className="flex flex-col flex-1 min-h-0 w-full font-body text-txt bg-bg">
           <Header />
           <Nav />
-          <main className={`flex-1 min-h-0 ${isAdvancedTab ? "overflow-hidden" : "overflow-y-auto py-6 px-5"}`}>
+          <main className={`flex-1 min-h-0 py-6 px-5 ${isAdvancedTab ? "overflow-hidden" : "overflow-y-auto"}`}>
             <ViewRouter />
           </main>
           <TerminalPanel />

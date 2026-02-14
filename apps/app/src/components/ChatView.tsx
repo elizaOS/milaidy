@@ -176,7 +176,16 @@ export function ChatView() {
 
   return (
     <div className="flex flex-col flex-1 min-h-0 px-3 relative">
-      {/* 3D Avatar moved to AutonomousPanel */}
+      {/* 3D Avatar — behind chat on the right side */}
+      {/* When using ElevenLabs audio analysis, mouthOpen carries real volume
+          data — don't pass isSpeaking so the engine uses the external values
+          instead of its own sine waves. */}
+      {avatarVisible && (
+        <ChatAvatar
+          mouthOpen={voice.mouthOpen}
+          isSpeaking={voice.isSpeaking && !voice.usingAudioAnalysis}
+        />
+      )}
 
       {/* ── Messages ───────────────────────────────────────────────── */}
       <div ref={messagesRef} className="flex-1 overflow-y-auto py-2 relative" style={{ zIndex: 1 }}>
@@ -334,7 +343,7 @@ export function ChatView() {
                 ? "border-accent text-accent"
                 : "border-border text-muted hover:border-accent hover:text-accent"
             }`}
-            onClick={() => { setAvatarVisible((v) => !v); setTimeout(() => window.dispatchEvent(new Event("milaidy:avatar-toggle")), 0); }}
+            onClick={() => setAvatarVisible((v) => !v)}
             title={avatarVisible ? "Hide avatar" : "Show avatar"}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

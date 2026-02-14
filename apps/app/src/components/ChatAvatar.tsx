@@ -61,17 +61,27 @@ export function ChatAvatar({ mouthOpen = 0, isSpeaking = false }: ChatAvatarProp
 
   return (
     <div
-      className="absolute inset-0 pointer-events-none"
+      className="absolute pointer-events-none"
       style={{
+        inset: 0,
         zIndex: 2,
         opacity: avatarReady ? 0.85 : 0,
         transition: "opacity 0.8s ease-in-out",
+        maskImage: "linear-gradient(to right, transparent 0%, black 25%)",
+        WebkitMaskImage: "linear-gradient(to right, transparent 0%, black 25%)",
       }}
     >
+      {/* Avatar canvas — pushed right (overflows edge), shifted down 10% */}
       <div
-        className="absolute inset-0"
+        className="absolute bottom-0"
         style={{
-          top: "5%",
+          width: "50%",
+          right: "-8%",
+          top: "10%",
+          opacity: avatarReady ? 0.85 : 0,
+          transition: "opacity 0.8s ease-in-out",
+          maskImage: "linear-gradient(to right, transparent 0%, black 25%)",
+          WebkitMaskImage: "linear-gradient(to right, transparent 0%, black 25%)",
         }}
       >
         <VrmViewer
