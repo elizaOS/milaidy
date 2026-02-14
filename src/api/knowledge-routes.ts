@@ -91,6 +91,39 @@ async function countKnowledgeFragmentsForDocument(
   return fragmentCount;
 }
 
+async function listKnowledgeFragmentsForDocument(
+  knowledgeService: KnowledgeServiceLike,
+  roomId: UUID,
+  documentId: UUID,
+): Promise<UUID[]> {
+  let offset = 0;
+  const fragmentIds: UUID[] = [];
+
+  while (true) {
+    const knowledgeBatch = await knowledgeService.getMemories({
+      tableName: "knowledge",
+      roomId,
+      count: FRAGMENT_COUNT_BATCH_SIZE,
+      offset,
+    });
+
+    for (const memory of knowledgeBatch) {
+      const metadata = memory.metadata as Record<string, unknown> | undefined;
+      if (metadata?.documentId === documentId) {
+        fragmentIds.push(memory.id);
+      }
+    }
+
+    if (knowledgeBatch.length < FRAGMENT_COUNT_BATCH_SIZE) {
+      break;
+    }
+
+    offset += FRAGMENT_COUNT_BATCH_SIZE;
+  }
+
+  return fragmentIds;
+}
+
 async function getKnowledgeService(
   runtime: AgentRuntime | null,
 ): Promise<KnowledgeServiceLike | null> {
@@ -422,20 +455,14 @@ export async function handleKnowledgeRoutes(
   if (method === "DELETE" && docIdMatch) {
     const documentId = decodeURIComponent(docIdMatch[1]) as UUID;
 
-    // First, delete all fragments associated with this document
-    const allFragments = await knowledgeService.getMemories({
-      tableName: "knowledge",
-      roomId: agentId,
-      count: 50000,
-    });
+    const fragmentIds = await listKnowledgeFragmentsForDocument(
+      knowledgeService,
+      agentId,
+      documentId,
+    );
 
-    const fragmentsToDelete = allFragments.filter((f) => {
-      const meta = f.metadata as Record<string, unknown> | undefined;
-      return meta?.documentId === documentId;
-    });
-
-    for (const fragment of fragmentsToDelete) {
-      await knowledgeService.deleteMemory(fragment.id as UUID);
+    for (const fragmentId of fragmentIds) {
+      await knowledgeService.deleteMemory(fragmentId);
     }
 
     // Then delete the document itself
@@ -443,7 +470,7 @@ export async function handleKnowledgeRoutes(
 
     json(res, {
       ok: true,
-      deletedFragments: fragmentsToDelete.length,
+      deletedFragments: fragmentIds.length,
     });
     return true;
   }
