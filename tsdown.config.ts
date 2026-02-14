@@ -62,4 +62,14 @@ export default defineConfig([
     inlineOnly: false,
     external: nativeExternals,
   },
+  {
+    entry: "src/plugins/vrm-converter/index.ts",
+    outDir: "dist/plugins/vrm-converter",
+    env,
+    fixedExtension: false,
+    platform: "node",
+    unbundle: true,
+    inlineOnly: false,
+    external: nativeExternals,
+  },
 ]);

@@ -143,11 +143,34 @@ export type VisionConfig = {
   ollama?: VisionOllamaConfig;
 };
 
+// 3D Model generation
+export type Model3DProvider = "fal" | "meshy";
+
+export type Model3DFalConfig = {
+  apiKey?: string;
+  model?: string;
+  baseUrl?: string;
+};
+
+export type Model3DMeshyConfig = {
+  apiKey?: string;
+  aiModel?: string;
+};
+
+export type Model3DConfig = {
+  enabled?: boolean;
+  mode?: MediaMode;
+  provider?: Model3DProvider;
+  fal?: Model3DFalConfig;
+  meshy?: Model3DMeshyConfig;
+};
+
 export type MediaConfig = {
   image?: ImageConfig;
   video?: VideoConfig;
   audio?: AudioGenConfig;
   vision?: VisionConfig;
+  model3d?: Model3DConfig;
 };
 
 export type ReleaseChannel = "stable" | "beta" | "nightly";

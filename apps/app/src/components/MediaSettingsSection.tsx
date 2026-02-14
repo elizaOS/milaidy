@@ -18,6 +18,7 @@ import {
   type VideoProvider,
   type AudioGenProvider,
   type VisionProvider,
+  type Model3DProvider,
 } from "../api-client";
 import {
   CloudConnectionStatus,
@@ -25,7 +26,7 @@ import {
 } from "./CloudSourceControls";
 import { ConfigSaveFooter } from "./ConfigSaveFooter";
 
-type MediaCategory = "image" | "video" | "audio" | "vision";
+type MediaCategory = "image" | "video" | "audio" | "vision" | "model3d";
 
 interface ProviderOption {
   id: string;
@@ -62,11 +63,17 @@ const VISION_PROVIDERS: ProviderOption[] = [
   { id: "xai", label: "xAI", hint: "Grok Vision" },
 ];
 
+const MODEL3D_PROVIDERS: ProviderOption[] = [
+  { id: "fal", label: "FAL.ai", hint: "Trellis, Hyper3D Rodin, TripoSR" },
+  { id: "meshy", label: "Meshy", hint: "Text & Image to 3D (Meshy-6)" },
+];
+
 const CATEGORY_LABELS: Record<MediaCategory, string> = {
   image: "Image Generation",
   video: "Video Generation",
   audio: "Audio / Music",
   vision: "Vision (Analysis)",
+  model3d: "3D Models",
 };
 
 function getProvidersForCategory(category: MediaCategory): ProviderOption[] {
@@ -79,6 +86,8 @@ function getProvidersForCategory(category: MediaCategory): ProviderOption[] {
       return AUDIO_PROVIDERS;
     case "vision":
       return VISION_PROVIDERS;
+    case "model3d":
+      return MODEL3D_PROVIDERS;
   }
 }
 
@@ -105,6 +114,10 @@ function getApiKeyField(
       if (provider === "google") return { path: "vision.google.apiKey", label: "Google API Key" };
       if (provider === "anthropic") return { path: "vision.anthropic.apiKey", label: "Anthropic API Key" };
       if (provider === "xai") return { path: "vision.xai.apiKey", label: "xAI API Key" };
+      break;
+    case "model3d":
+      if (provider === "fal") return { path: "model3d.fal.apiKey", label: "FAL API Key" };
+      if (provider === "meshy") return { path: "model3d.meshy.apiKey", label: "Meshy API Key" };
       break;
   }
   return null;
@@ -170,6 +183,7 @@ export function MediaSettingsSection() {
   // Get mode for category
   const getMode = useCallback(
     (category: MediaCategory): MediaMode => {
+      if (category === "model3d") return "own-key";
       const cfg = getCategoryConfig(category);
       return (cfg.mode as MediaMode) ?? "cloud";
     },
@@ -180,6 +194,7 @@ export function MediaSettingsSection() {
   const getProvider = useCallback(
     (category: MediaCategory): string => {
       const cfg = getCategoryConfig(category);
+      if (category === "model3d") return (cfg.provider as string) ?? "fal";
       return (cfg.provider as string) ?? "cloud";
     },
     [getCategoryConfig],
@@ -225,11 +240,11 @@ export function MediaSettingsSection() {
   const isProviderConfigured = useCallback(
     (category: MediaCategory): boolean => {
       const mode = getMode(category);
-      if (mode === "cloud") return true;
+      if (mode === "cloud" && category !== "model3d") return true;
 
       const provider = getProvider(category);
       const apiKeyField = getApiKeyField(category, provider);
-      if (!apiKeyField) return true;
+      if (!apiKeyField) return category !== "model3d";
 
       const value = getNestedValue(mediaConfig as Record<string, unknown>, apiKeyField.path);
       return typeof value === "string" && value.length > 0;
@@ -255,7 +270,7 @@ export function MediaSettingsSection() {
     <div className="flex flex-col gap-4">
       {/* Category tabs */}
       <div className="flex border border-[var(--border)]">
-        {(["image", "video", "audio", "vision"] as MediaCategory[]).map((cat) => {
+        {(["image", "video", "audio", "vision", "model3d"] as MediaCategory[]).map((cat) => {
           const active = activeTab === cat;
           const catConfigured = isProviderConfigured(cat);
           return (
@@ -280,42 +295,60 @@ export function MediaSettingsSection() {
         })}
       </div>
 
-      {/* Mode toggle (cloud vs own-key) */}
-      <div className="flex items-center gap-3">
-        <span className="text-xs font-semibold text-[var(--muted)]">API Source:</span>
-        <CloudSourceModeToggle
-          mode={currentMode}
-          onChange={(mode) => {
-            if (mode === "cloud") {
-              updateCategoryConfig(activeTab, { mode: "cloud", provider: "cloud" });
-              return;
-            }
-            updateCategoryConfig(activeTab, { mode: "own-key" });
-          }}
-        />
+      {/* Mode toggle (cloud vs own-key) — hidden for model3d (no cloud fallback) */}
+      {activeTab !== "model3d" && (
+        <div className="flex items-center gap-3">
+          <span className="text-xs font-semibold text-[var(--muted)]">API Source:</span>
+          <CloudSourceModeToggle
+            mode={currentMode}
+            onChange={(mode) => {
+              if (mode === "cloud") {
+                updateCategoryConfig(activeTab, { mode: "cloud", provider: "cloud" });
+                return;
+              }
+              updateCategoryConfig(activeTab, { mode: "own-key" });
+            }}
+          />
 
-        {/* Status badge */}
-        <span
-          className={`ml-auto text-[10px] px-2 py-0.5 border ${
-            configured
-              ? "border-green-600 text-green-600"
-              : "border-yellow-600 text-yellow-600"
-          }`}
-        >
-          {configured ? "Configured" : "Needs Setup"}
-        </span>
-      </div>
+          {/* Status badge */}
+          <span
+            className={`ml-auto text-[10px] px-2 py-0.5 border ${
+              configured
+                ? "border-green-600 text-green-600"
+                : "border-yellow-600 text-yellow-600"
+            }`}
+          >
+            {configured ? "Configured" : "Needs Setup"}
+          </span>
+        </div>
+      )}
+
+      {/* model3d: own-key-only status */}
+      {activeTab === "model3d" && (
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-[var(--muted)]">Requires your own API key (no cloud fallback)</span>
+          <span
+            className={`ml-auto text-[10px] px-2 py-0.5 border ${
+              configured
+                ? "border-green-600 text-green-600"
+                : "border-yellow-600 text-yellow-600"
+            }`}
+          >
+            {configured ? "Configured" : "Needs Setup"}
+          </span>
+        </div>
+      )}
 
       {/* Cloud mode status */}
-      {currentMode === "cloud" && (
+      {currentMode === "cloud" && activeTab !== "model3d" && (
         <CloudConnectionStatus
           connected={cloudConnected}
           disconnectedText="Eliza Cloud not connected - configure in Settings -> AI Model"
         />
       )}
 
-      {/* Own-key mode: provider selection */}
-      {currentMode === "own-key" && (
+      {/* Own-key mode: provider selection (model3d always shows) */}
+      {(currentMode === "own-key" || activeTab === "model3d") && (
         <div className="flex flex-col gap-3">
           <div className="text-xs font-semibold text-[var(--muted)]">Provider:</div>
           <div
@@ -336,7 +369,7 @@ export function MediaSettingsSection() {
                         : "border-[var(--border)] bg-[var(--card)] text-[var(--text)] hover:border-[var(--accent)]"
                     }`}
                     onClick={() =>
-                      updateCategoryConfig(activeTab, { provider: p.id as ImageProvider | VideoProvider | AudioGenProvider | VisionProvider })
+                      updateCategoryConfig(activeTab, { provider: p.id as ImageProvider | VideoProvider | AudioGenProvider | VisionProvider | Model3DProvider })
                     }
                   >
                     <div className="font-semibold">{p.label}</div>
@@ -534,6 +567,43 @@ export function MediaSettingsSection() {
                 <option value="claude-sonnet-4-20250514">Claude Sonnet 4</option>
                 <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
                 <option value="claude-3-haiku-20240307">Claude 3 Haiku</option>
+              </select>
+            </div>
+          )}
+
+          {/* 3D Model FAL model selection */}
+          {activeTab === "model3d" && currentProvider === "fal" && (
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-semibold">Model</label>
+              <select
+                className="px-2.5 py-1.5 border border-[var(--border)] bg-[var(--card)] text-xs focus:border-[var(--accent)] focus:outline-none"
+                value={(getNestedValue(mediaConfig as Record<string, unknown>, "model3d.fal.model") as string) ?? "fal-ai/trellis"}
+                onChange={(e) => updateNestedValue("model3d.fal.model", e.target.value)}
+              >
+                <optgroup label="Text to 3D">
+                  <option value="fal-ai/hyper3d/rodin/v2">Hyper3D Rodin v2</option>
+                </optgroup>
+                <optgroup label="Image to 3D">
+                  <option value="fal-ai/trellis">Trellis</option>
+                  <option value="fal-ai/trellis/multi">Trellis (Multi-Image)</option>
+                  <option value="fal-ai/triposr">TripoSR (Stability AI)</option>
+                  <option value="fal-ai/hunyuan3d/v2">Hunyuan3D v2</option>
+                </optgroup>
+              </select>
+            </div>
+          )}
+
+          {/* 3D Model Meshy model selection */}
+          {activeTab === "model3d" && currentProvider === "meshy" && (
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-semibold">AI Model</label>
+              <select
+                className="px-2.5 py-1.5 border border-[var(--border)] bg-[var(--card)] text-xs focus:border-[var(--accent)] focus:outline-none"
+                value={(getNestedValue(mediaConfig as Record<string, unknown>, "model3d.meshy.aiModel") as string) ?? "meshy-6"}
+                onChange={(e) => updateNestedValue("model3d.meshy.aiModel", e.target.value)}
+              >
+                <option value="meshy-6">Meshy 6 (Latest)</option>
+                <option value="meshy-5">Meshy 5 (Legacy)</option>
               </select>
             </div>
           )}

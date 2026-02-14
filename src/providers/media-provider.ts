@@ -16,6 +16,7 @@ import type {
   AudioGenConfig,
   ImageConfig,
   MediaConfig,
+  Model3DConfig,
   VideoConfig,
   VisionConfig,
 } from "../config/types.milaidy.js";
@@ -54,6 +55,13 @@ export interface VisionAnalysisResult {
   confidence?: number;
 }
 
+export interface Model3DGenerationResult {
+  modelUrl?: string;
+  thumbnailUrl?: string;
+  format?: string;
+  taskId?: string;
+}
+
 // ============================================================================
 // Options Types
 // ============================================================================
@@ -88,6 +96,13 @@ export interface VisionAnalysisOptions {
   maxTokens?: number;
 }
 
+export interface Model3DGenerationOptions {
+  prompt: string;
+  imageUrl?: string;
+  topology?: "quad" | "triangle";
+  aiModel?: string;
+}
+
 // ============================================================================
 // Provider Interfaces
 // ============================================================================
@@ -118,6 +133,13 @@ export interface VisionAnalysisProvider {
   analyze(
     options: VisionAnalysisOptions,
   ): Promise<MediaProviderResult<VisionAnalysisResult>>;
+}
+
+export interface Model3DGenerationProvider {
+  name: string;
+  generate(
+    options: Model3DGenerationOptions,
+  ): Promise<MediaProviderResult<Model3DGenerationResult>>;
 }
 
 // ============================================================================
@@ -1213,6 +1235,188 @@ class SunoAudioProvider implements AudioGenerationProvider {
 }
 
 // ============================================================================
+// Meshy 3D Model Provider
+// ============================================================================
+
+class MeshyModel3DProvider implements Model3DGenerationProvider {
+  name = "meshy";
+  private apiKey: string;
+  private aiModel: string;
+
+  constructor(config: NonNullable<Model3DConfig["meshy"]>) {
+    this.apiKey = config.apiKey ?? "";
+    this.aiModel = config.aiModel ?? "meshy-6";
+  }
+
+  async generate(
+    options: Model3DGenerationOptions,
+  ): Promise<MediaProviderResult<Model3DGenerationResult>> {
+    const baseUrl = "https://api.meshy.ai";
+    const headers = {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${this.apiKey}`,
+    };
+
+    const aiModel = options.aiModel ?? this.aiModel;
+    const topology = options.topology ?? "triangle";
+
+    let taskId: string;
+
+    if (options.imageUrl) {
+      // Image-to-3D
+      const response = await fetch(`${baseUrl}/openapi/v1/image-to-3d`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          image_url: options.imageUrl,
+          ai_model: aiModel,
+          topology,
+        }),
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        return { success: false, error: `Meshy error: ${text}` };
+      }
+
+      const data = (await response.json()) as { result: string };
+      taskId = data.result;
+    } else {
+      // Text-to-3D
+      const response = await fetch(`${baseUrl}/openapi/v2/text-to-3d`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          mode: "preview",
+          prompt: options.prompt,
+          ai_model: aiModel,
+          topology,
+        }),
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        return { success: false, error: `Meshy error: ${text}` };
+      }
+
+      const data = (await response.json()) as { result: string };
+      taskId = data.result;
+    }
+
+    // Poll for completion
+    const pollUrl = options.imageUrl
+      ? `${baseUrl}/openapi/v1/image-to-3d/${taskId}`
+      : `${baseUrl}/openapi/v2/text-to-3d/${taskId}`;
+
+    const maxWaitMs = 5 * 60 * 1000;
+    const pollIntervalMs = 3000;
+    const startTime = Date.now();
+
+    while (Date.now() - startTime < maxWaitMs) {
+      await new Promise((r) => setTimeout(r, pollIntervalMs));
+
+      const pollResponse = await fetch(pollUrl, { headers });
+      if (!pollResponse.ok) {
+        const text = await pollResponse.text();
+        return { success: false, error: `Meshy poll error: ${text}` };
+      }
+
+      const pollData = (await pollResponse.json()) as {
+        status: string;
+        model_urls?: { glb?: string };
+        thumbnail_url?: string;
+      };
+
+      if (pollData.status === "SUCCEEDED") {
+        return {
+          success: true,
+          data: {
+            modelUrl: pollData.model_urls?.glb,
+            thumbnailUrl: pollData.thumbnail_url,
+            format: "glb",
+            taskId,
+          },
+        };
+      }
+
+      if (pollData.status === "FAILED" || pollData.status === "EXPIRED") {
+        return {
+          success: false,
+          error: `Meshy task ${pollData.status.toLowerCase()}`,
+        };
+      }
+    }
+
+    return {
+      success: false,
+      error: "Meshy task timed out after 5 minutes",
+    };
+  }
+}
+
+// ============================================================================
+// FAL 3D Model Provider
+// ============================================================================
+
+class FalModel3DProvider implements Model3DGenerationProvider {
+  name = "fal";
+  private apiKey: string;
+  private model: string;
+  private baseUrl: string;
+
+  constructor(config: NonNullable<Model3DConfig["fal"]>) {
+    this.apiKey = config.apiKey ?? "";
+    this.model = config.model ?? "fal-ai/trellis";
+    this.baseUrl = config.baseUrl ?? "https://fal.run";
+  }
+
+  async generate(
+    options: Model3DGenerationOptions,
+  ): Promise<MediaProviderResult<Model3DGenerationResult>> {
+    const model = options.aiModel ?? this.model;
+
+    const body: Record<string, unknown> = {};
+    if (options.imageUrl) {
+      body.image_url = options.imageUrl;
+    }
+    if (options.prompt) {
+      body.prompt = options.prompt;
+    }
+
+    const response = await fetch(`${this.baseUrl}/${model}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Key ${this.apiKey}`,
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      return { success: false, error: `FAL 3D error: ${text}` };
+    }
+
+    const data = (await response.json()) as {
+      model_mesh?: { url?: string };
+    };
+
+    const modelUrl = data.model_mesh?.url;
+    if (!modelUrl) {
+      return { success: false, error: "No model returned from FAL" };
+    }
+
+    return {
+      success: true,
+      data: {
+        modelUrl,
+        format: "glb",
+      },
+    };
+  }
+}
+
+// ============================================================================
 // Provider Factories
 // ============================================================================
 
@@ -1344,6 +1548,22 @@ export function createVisionProvider(
   );
 }
 
+export function createModel3DProvider(
+  config: Model3DConfig | undefined,
+  _options: MediaProviderFactoryOptions,
+): Model3DGenerationProvider | null {
+  const provider = config?.provider;
+  switch (provider) {
+    case "meshy":
+      if (config?.meshy?.apiKey) return new MeshyModel3DProvider(config.meshy);
+      break;
+    case "fal":
+      if (config?.fal?.apiKey) return new FalModel3DProvider(config.fal);
+      break;
+  }
+  return null;
+}
+
 // ============================================================================
 // Convenience function to create all providers from MediaConfig
 // ============================================================================
@@ -1353,6 +1573,7 @@ export interface MediaProviders {
   video: VideoGenerationProvider;
   audio: AudioGenerationProvider;
   vision: VisionAnalysisProvider;
+  model3d: Model3DGenerationProvider | null;
 }
 
 export function createMediaProviders(
@@ -1364,5 +1585,6 @@ export function createMediaProviders(
     video: createVideoProvider(config?.video, options),
     audio: createAudioProvider(config?.audio, options),
     vision: createVisionProvider(config?.vision, options),
+    model3d: createModel3DProvider(config?.model3d, options),
   };
 }

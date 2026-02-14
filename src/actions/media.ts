@@ -18,6 +18,7 @@ import { loadMilaidyConfig } from "../config/config.js";
 import {
   createAudioProvider,
   createImageProvider,
+  createModel3DProvider,
   createVideoProvider,
   createVisionProvider,
   type MediaProviderFactoryOptions,
@@ -482,10 +483,120 @@ export const analyzeImageAction: Action = {
   ],
 };
 
+// ============================================================================
+// GENERATE_3D_MODEL Action
+// ============================================================================
+
+export const generateModel3DAction: Action = {
+  name: "GENERATE_3D_MODEL",
+
+  similes: [
+    "CREATE_3D_MODEL",
+    "MAKE_3D",
+    "TEXT_TO_3D",
+    "IMAGE_TO_3D",
+    "GENERATE_MESH",
+    "MODEL_GEN",
+  ],
+
+  description:
+    "Generate a 3D model (GLB format) from a text prompt or reference image. " +
+    "Supports Meshy and FAL.ai providers. Generated models can be converted to VRM for avatar use.",
+
+  validate: async (_runtime: IAgentRuntime) => true,
+
+  handler: async (_runtime, _message, _state, options) => {
+    const params = (options as HandlerOptions | undefined)?.parameters as
+      | {
+          prompt?: string;
+          imageUrl?: string;
+          topology?: "quad" | "triangle";
+        }
+      | undefined;
+
+    const prompt = params?.prompt;
+    if (!prompt || typeof prompt !== "string" || prompt.trim().length === 0) {
+      return {
+        text: "I need a prompt to generate a 3D model. Please describe what you'd like me to create.",
+        success: false,
+      };
+    }
+
+    const config = loadMilaidyConfig();
+    const provider = createModel3DProvider(
+      config.media?.model3d,
+      getMediaProviderOptions(),
+    );
+
+    if (!provider) {
+      return {
+        text: "3D model generation requires a Meshy or FAL.ai API key. Please configure one in Settings → Media → 3D Models.",
+        success: false,
+      };
+    }
+
+    const result = await provider.generate({
+      prompt: prompt.trim(),
+      imageUrl: params?.imageUrl,
+      topology: params?.topology,
+    });
+
+    if (!result.success || !result.data) {
+      return {
+        text: `I couldn't generate the 3D model: ${result.error ?? "Unknown error"}`,
+        success: false,
+      };
+    }
+
+    return {
+      text: "Here's the generated 3D model (GLB format). You can upload this in the Avatar section to convert it to VRM.",
+      success: true,
+      data: {
+        modelUrl: result.data.modelUrl,
+        thumbnailUrl: result.data.thumbnailUrl,
+        format: result.data.format,
+        taskId: result.data.taskId,
+      },
+      attachments: result.data.modelUrl
+        ? [
+            {
+              type: "file",
+              url: result.data.modelUrl,
+              mimeType: "model/gltf-binary",
+              title: "Generated 3D Model",
+            },
+          ]
+        : undefined,
+    };
+  },
+
+  parameters: [
+    {
+      name: "prompt",
+      description: "Text description of the 3D model to generate",
+      required: true,
+      schema: { type: "string" as const },
+    },
+    {
+      name: "imageUrl",
+      description: "Reference image URL for image-to-3D generation",
+      required: false,
+      schema: { type: "string" as const },
+    },
+    {
+      name: "topology",
+      description: "Mesh topology: 'quad' or 'triangle'",
+      required: false,
+      schema: { type: "string" as const, enum: ["quad", "triangle"] },
+    },
+  ],
+};
+
 // Export all media actions
 export const mediaActions = [
   generateImageAction,
   generateVideoAction,
   generateAudioAction,
   analyzeImageAction,
+  generateModel3DAction,
 ];

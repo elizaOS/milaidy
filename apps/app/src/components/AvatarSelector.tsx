@@ -15,6 +15,8 @@ export interface AvatarSelectorProps {
   onSelect: (index: number) => void;
   /** Called when a custom VRM is uploaded */
   onUpload?: (file: File) => void;
+  /** Called when a GLB file is uploaded (triggers conversion to VRM) */
+  onGlbConvert?: (file: File) => void;
   /** Whether to show the upload option */
   showUpload?: boolean;
   /** Expand selector to fill row width with responsive tile sizes */
@@ -25,6 +27,7 @@ export function AvatarSelector({
   selected,
   onSelect,
   onUpload,
+  onGlbConvert,
   showUpload = true,
   fullWidth = false,
 }: AvatarSelectorProps) {
@@ -33,8 +36,12 @@ export function AvatarSelector({
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (file.name.endsWith(".glb")) {
+      onGlbConvert?.(file);
+      return;
+    }
     if (!file.name.endsWith(".vrm")) {
-      alert("Please select a .vrm file");
+      alert("Please select a .vrm or .glb file");
       return;
     }
     onUpload?.(file);
@@ -79,7 +86,7 @@ export function AvatarSelector({
             <input
               ref={fileInputRef}
               type="file"
-              accept=".vrm"
+              accept=".vrm,.glb"
               className="hidden"
               onChange={handleFileChange}
             />
@@ -90,7 +97,7 @@ export function AvatarSelector({
                   : "border-[var(--border)] text-[var(--muted)] opacity-60 hover:opacity-100 hover:border-[var(--accent)] hover:scale-105"
               }`}
               onClick={() => fileInputRef.current?.click()}
-              title="Upload custom .vrm"
+              title="Upload .vrm or .glb"
               type="button"
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

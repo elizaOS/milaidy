@@ -74,6 +74,7 @@ import {
   type EmbeddingTier,
 } from "./embedding-presets.js";
 import { createMilaidyPlugin } from "./milaidy-plugin.js";
+import { vrmConverterPlugin } from "../plugins/vrm-converter/index.js";
 import {
   createPhettaCompanionPlugin,
   resolvePhettaCompanionOptionsFromEnv,
@@ -2114,6 +2115,7 @@ export async function startEliza(
     character,
     plugins: [
       milaidyPlugin,
+      vrmConverterPlugin,
       ...(phettaPlugin ? [phettaPlugin] : []),
       ...otherPlugins.map((p) => p.plugin),
     ],
@@ -2522,6 +2524,7 @@ export async function startEliza(
             character: freshCharacter,
             plugins: [
               freshMilaidyPlugin,
+              vrmConverterPlugin,
               ...freshOtherPlugins.map((p) => p.plugin),
             ],
             ...(runtimeLogLevel ? { logLevel: runtimeLogLevel } : {}),

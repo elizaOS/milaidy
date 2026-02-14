@@ -16,6 +16,8 @@ import type {
   ImageProvider,
   MediaConfig,
   MediaMode,
+  Model3DConfig,
+  Model3DProvider,
   ReleaseChannel,
   VideoConfig,
   VideoProvider,
@@ -54,6 +56,8 @@ export type {
   ImageProvider,
   MediaConfig,
   MediaMode,
+  Model3DConfig,
+  Model3DProvider,
   ReleaseChannel,
   VideoConfig,
   VideoProvider,
@@ -1572,6 +1576,36 @@ export class MilaidyClient {
     }
     const qs = params.toString();
     return this.fetch(`/api/runtime${qs ? `?${qs}` : ""}`);
+  }
+
+  async convertGlbToVrm(
+    file: File | ArrayBuffer,
+    options?: { save?: boolean },
+  ): Promise<{ vrmBlob: Blob; warnings: string; bonesMapped: number; savedPath?: string }> {
+    if (!this.apiAvailable) {
+      throw new Error("API not available (no HTTP origin)");
+    }
+    const body = file instanceof File ? await file.arrayBuffer() : file;
+    const qs = options?.save ? "?save=true" : "";
+    const res = await fetch(`${this.baseUrl}/api/convert-vrm${qs}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/octet-stream",
+        ...(this.apiToken ? { Authorization: `Bearer ${this.apiToken}` } : {}),
+      },
+      body,
+    });
+    if (!res.ok) {
+      const errText = await res.text().catch(() => "");
+      throw new Error(`VRM conversion failed: ${res.status} ${errText}`);
+    }
+    const vrmBlob = await res.blob();
+    return {
+      vrmBlob,
+      warnings: res.headers.get("X-VRM-Warnings") || "",
+      bonesMapped: Number(res.headers.get("X-VRM-Bones-Mapped") || "0"),
+      savedPath: res.headers.get("X-VRM-Saved-Path") || undefined,
+    };
   }
 
   async playEmote(emoteId: string): Promise<{ ok: boolean }> {

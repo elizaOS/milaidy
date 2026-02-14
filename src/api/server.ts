@@ -11432,6 +11432,61 @@ async function handleRequest(
     return;
   }
 
+  // ── POST /api/convert-vrm ──────────────────────────────────────────────
+  // Convert a GLB binary to VRM 1.0.  Accepts raw octet-stream body.
+  if (method === "POST" && pathname === "/api/convert-vrm") {
+    const MAX_GLB_BYTES = 100 * 1_048_576; // 100 MB
+    let glbBuf: Buffer;
+    try {
+      glbBuf = await readRawBody(req, MAX_GLB_BYTES);
+    } catch (err) {
+      const msg =
+        err instanceof Error ? err.message : "Failed to read request body";
+      error(res, msg, 413);
+      return;
+    }
+    if (glbBuf.length < 4) {
+      error(res, "Request body too small to be a valid GLB", 400);
+      return;
+    }
+    // Validate GLB magic bytes (0x46546c67 = "glTF").
+    const magic =
+      glbBuf[0]! | (glbBuf[1]! << 8) | (glbBuf[2]! << 16) | (glbBuf[3]! << 24);
+    if (magic !== 0x46546c67) {
+      error(res, "Invalid file: not a GLB (bad magic bytes)", 400);
+      return;
+    }
+    try {
+      const { convertGlbToVrm } = await import(
+        "../plugins/vrm-converter/converter/VRMConverter.js"
+      );
+      const parsedUrl = new URL(req.url ?? "/", `http://${req.headers.host}`);
+      const shouldSave = parsedUrl.searchParams.get("save") === "true";
+      const result = await convertGlbToVrm(
+        glbBuf.buffer.slice(
+          glbBuf.byteOffset,
+          glbBuf.byteOffset + glbBuf.byteLength,
+        ),
+        { save: shouldSave },
+      );
+      res.writeHead(200, {
+        "Content-Type": "model/gltf-binary",
+        "Content-Length": String(result.vrm.byteLength),
+        "X-VRM-Warnings": result.warnings.join("; "),
+        "X-VRM-Bones-Mapped": String(result.mappedBones),
+        ...(result.savedPath
+          ? { "X-VRM-Saved-Path": result.savedPath }
+          : {}),
+      });
+      res.end(Buffer.from(result.vrm));
+    } catch (err) {
+      const msg =
+        err instanceof Error ? err.message : "VRM conversion failed";
+      error(res, msg, 500);
+    }
+    return;
+  }
+
   // ── POST /api/terminal/run ──────────────────────────────────────────────
   // Execute a shell command server-side and stream output via WebSocket.
   if (method === "POST" && pathname === "/api/terminal/run") {

@@ -330,6 +330,17 @@ export function OnboardingWizard() {
                   setState("customVrmUrl", url);
                   setState("onboardingAvatar", 0);
                 }}
+                onGlbConvert={async (file) => {
+                  try {
+                    const { vrmBlob, warnings } = await client.convertGlbToVrm(file);
+                    const url = URL.createObjectURL(vrmBlob);
+                    setState("customVrmUrl", url);
+                    setState("onboardingAvatar", 0);
+                    if (warnings) console.warn("[vrm-converter]", warnings);
+                  } catch (err) {
+                    alert(`GLB conversion failed: ${err instanceof Error ? err.message : err}`);
+                  }
+                }}
                 showUpload
               />
             </div>

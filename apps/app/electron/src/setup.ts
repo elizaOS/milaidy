@@ -6,13 +6,72 @@ import {
 } from '@capacitor-community/electron';
 import chokidar from 'chokidar';
 import type { MenuItemConstructorOptions } from 'electron';
-import { app, BrowserWindow, clipboard, Menu, MenuItem, nativeImage, Tray, session, shell } from 'electron';
+import { app, BrowserWindow, clipboard, Menu, MenuItem, nativeImage, net, protocol, Tray, session, shell } from 'electron';
 import electronIsDev from 'electron-is-dev';
-import electronServe from 'electron-serve';
 import windowStateKeeper from 'electron-window-state';
-import { existsSync } from 'node:fs';
-import { join } from 'path';
+import { existsSync, statSync } from 'node:fs';
+import { extname, join, relative, resolve } from 'path';
+import { pathToFileURL } from 'url';
 import { buildMissingWebAssetsMessage, resolveWebAssetDirectory } from './web-assets';
+
+/**
+ * Replacement for electron-serve that uses the modern `protocol.handle` API
+ * (electron-serve 1.x used the deprecated `registerFileProtocol` which is
+ * broken in Electron ≥ 36).
+ */
+function createProtocolServe(options: { directory: string; scheme: string }) {
+  const dir = resolve(options.directory);
+
+  const getFilePath = (requested: string): string | null => {
+    const full = join(dir, decodeURIComponent(requested));
+    // Prevent path traversal
+    const rel = relative(dir, full);
+    if (rel.startsWith('..') || resolve(full) !== full && rel.includes('..')) return null;
+    try {
+      const st = statSync(full);
+      if (st.isFile()) return full;
+      if (st.isDirectory()) {
+        const idx = join(full, 'index.html');
+        if (existsSync(idx)) return idx;
+      }
+    } catch { /* not found */ }
+    return null;
+  };
+
+  protocol.registerSchemesAsPrivileged([
+    {
+      scheme: options.scheme,
+      privileges: {
+        standard: true,
+        secure: true,
+        allowServiceWorkers: true,
+        supportFetchAPI: true,
+        corsEnabled: true,
+        stream: true,
+        codeCache: true,
+      },
+    },
+  ]);
+
+  app.on('ready', () => {
+    session.defaultSession.protocol.handle(options.scheme, async (request) => {
+      const pathname = new URL(request.url).pathname;
+      const resolved = getFilePath(pathname);
+      const ext = extname(pathname);
+
+      if (!resolved && ext && ext !== '.html') {
+        return new Response(null, { status: 404, statusText: 'Not Found' });
+      }
+
+      const filePath = resolved || join(dir, 'index.html');
+      return net.fetch(pathToFileURL(filePath).toString());
+    });
+  });
+
+  return async (window_: BrowserWindow) => {
+    await window_.loadURL(`${options.scheme}://-`);
+  };
+}
 
 // Define components for a watcher to detect when the webapp is changed so we can reload in Dev mode.
 const reloadWatcher = {
@@ -105,7 +164,7 @@ export class ElectronCapacitorApp {
     }
 
     // Setup our web app loader, this lets us load apps like react, vue, and angular without changing their build chains.
-    this.loadWebApp = electronServe({
+    this.loadWebApp = createProtocolServe({
       directory: this.webAssetDirectory,
       scheme: this.customScheme,
     });
@@ -221,6 +280,7 @@ export class ElectronCapacitorApp {
       webPreferences: {
         nodeIntegration: true,
         contextIsolation: true,
+        webSecurity: true,
         // Use preload to inject the electron variant overrides for capacitor plugins.
         preload: preloadPath,
       },
@@ -323,6 +383,11 @@ export class ElectronCapacitorApp {
         event.preventDefault();
         openExternal(newURL);
       }
+    });
+
+    // Log renderer console messages to main process for debugging.
+    this.MainWindow.webContents.on('console-message', (_event, _level, message) => {
+      console.log(`[Renderer] ${message}`);
     });
 
     // Link electron plugins into the system.

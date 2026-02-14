@@ -27,7 +27,7 @@
   },
   "scripts": {
     "benchmark:server": "node --import tsx src/benchmark/server.ts",
-    "build": "tsdown && scripts/rt.sh scripts/write-build-info.ts && cd apps/app && ../../scripts/rt.sh run build",
+    "build": "tsdown && cp src/plugins/telegram-enhanced/package.json dist/plugins/telegram-enhanced/package.json && cp src/plugins/vrm-converter/package.json dist/plugins/vrm-converter/package.json && scripts/rt.sh scripts/write-build-info.ts && cd apps/app && ../../scripts/rt.sh run build",
     "build:node": "tsdown && node --import tsx scripts/write-build-info.ts && cd apps/app && npm run build",
     "build:android": "cd apps/app && ../../scripts/rt.sh run build:android",
     "build:desktop": "cd apps/app && ../../scripts/rt.sh run build:electron",
@@ -111,8 +111,10 @@
     "ethers": "^6.16.0",
     "json5": "^2.2.3",
     "node-llama-cpp": "^3.15.1",
+    "node-three-gltf": "^2.1.0",
     "pg": "^8.16.3",
     "telegraf": "^4.16.3",
+    "three": "^0.182.0",
     "whisper-node": "^1.1.1",
     "ws": "^8.19.0",
     "zod": "^4.3.6"
@@ -121,6 +123,7 @@
     "@biomejs/biome": "^2.3.11",
     "@types/node": "^25.2.0",
     "@types/pg": "^8.15.2",
+    "@types/three": "0.182.0",
     "@types/ws": "^8.18.1",
     "@vitest/coverage-v8": "^4.0.18",
     "react-test-renderer": "^19.2.4",
