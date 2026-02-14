@@ -104,19 +104,6 @@ export function validatePluginConfig(
     }
   }
 
-  // Reject any submitted keys that are not declared for this plugin.
-  if (providedConfig) {
-    const allowedConfigKeys = new Set(configKeys);
-    for (const key of Object.keys(providedConfig)) {
-      if (!allowedConfigKeys.has(key)) {
-        errors.push({
-          field: key,
-          message: `${key} is not a declared config key for this plugin`,
-        });
-      }
-    }
-  }
-
   // ── Check all required parameters ─────────────────────────────────────
   if (paramDefs && paramDefs.length > 0) {
     for (const param of paramDefs) {
