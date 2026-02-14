@@ -11,6 +11,7 @@ import { useApp } from "../AppContext";
 import { client } from "../api-client";
 import type { SkillInfo, SkillMarketplaceResult, SkillScanReportSummary } from "../api-client";
 import { StatusBadge } from "./shared/ui-badges";
+import { Switch } from "./shared/ui-switch";
 
 /* ── Shared style constants ─────────────────────────────────────────── */
 
@@ -22,37 +23,6 @@ const btnGhost =
   "px-3 py-1.5 text-xs bg-transparent text-[var(--muted)] border border-[var(--border)] cursor-pointer hover:text-[var(--txt)] hover:border-[var(--txt)] transition-colors disabled:opacity-40 disabled:cursor-default";
 const btnDanger =
   "px-2 py-1 text-[11px] bg-transparent text-[var(--muted)] border border-[var(--border)] cursor-pointer hover:text-[#e74c3c] hover:border-[#e74c3c] transition-colors";
-
-/* ── Toggle Switch ──────────────────────────────────────────────────── */
-
-function Toggle({
-  checked,
-  disabled,
-  onChange,
-}: {
-  checked: boolean;
-  disabled?: boolean;
-  onChange: (val: boolean) => void;
-}) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      disabled={disabled}
-      className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none disabled:opacity-40 disabled:cursor-default ${
-        checked ? "bg-[var(--accent)]" : "bg-[var(--border)]"
-      }`}
-      onClick={() => onChange(!checked)}
-    >
-      <span
-        className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${
-          checked ? "translate-x-4" : "translate-x-0"
-        }`}
-      />
-    </button>
-  );
-}
 
 /* ── Skill Card ─────────────────────────────────────────────────────── */
 
@@ -121,21 +91,25 @@ function SkillCard({
               withDot
             />
             {!isBlocked && !isQuarantined && (
-            <Toggle
-              checked={skill.enabled}
-              disabled={skillToggleAction === skill.id}
-              onChange={(val) => onToggle(skill.id, val)}
-            />
-          )}
-          {isQuarantined && !isReviewing && (
-            <button
-              className="px-2.5 py-1 text-[11px] font-medium bg-[#f39c12]/15 text-[#f39c12] border border-[#f39c12]/30 cursor-pointer hover:bg-[#f39c12]/25 transition-colors"
-              onClick={() => onReview(skill.id)}
-            >
-              Review Findings
-            </button>
-          )}
-        </div>
+              <Switch
+                checked={skill.enabled}
+                disabled={skillToggleAction === skill.id}
+                onChange={(val) => onToggle(skill.id, val)}
+                size="compact"
+                trackOnClass="bg-[var(--accent)]"
+                trackOffClass="bg-[var(--border)]"
+                knobClass="bg-white shadow-sm"
+              />
+            )}
+            {isQuarantined && !isReviewing && (
+              <button
+                className="px-2.5 py-1 text-[11px] font-medium bg-[#f39c12]/15 text-[#f39c12] border border-[#f39c12]/30 cursor-pointer hover:bg-[#f39c12]/25 transition-colors"
+                onClick={() => onReview(skill.id)}
+              >
+                Review Findings
+              </button>
+            )}
+          </div>
 
         {/* Name + description */}
         <div className="font-semibold text-sm text-[var(--txt)] mb-1 truncate" title={skill.name}>

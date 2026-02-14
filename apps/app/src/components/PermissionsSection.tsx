@@ -19,6 +19,7 @@ import {
   type PluginInfo,
 } from "../api-client";
 import { StatusBadge } from "./shared/ui-badges";
+import { Switch } from "./shared/ui-switch";
 
 /** Permission definition for UI rendering. */
 interface PermissionDef {
@@ -166,20 +167,13 @@ function PermissionRow({
       </div>
       <div className="flex items-center gap-2">
         {isShell && onToggleShell && status !== "not-applicable" && (
-          <button
-            type="button"
-            className={`relative w-10 h-5 rounded-full transition-colors ${
-              shellEnabled ? "bg-[var(--accent)]" : "bg-[var(--border)]"
-            }`}
-            onClick={() => onToggleShell(!shellEnabled)}
+          <Switch
+            checked={shellEnabled}
+            onChange={onToggleShell}
             title={shellEnabled ? "Disable shell access" : "Enable shell access"}
-          >
-            <span
-              className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
-                shellEnabled ? "left-[22px]" : "left-0.5"
-              }`}
-            />
-          </button>
+            trackOnClass="bg-[var(--accent)]"
+            trackOffClass="bg-[var(--border)]"
+          />
         )}
         {showAction && !isShell && (
           <>
@@ -241,13 +235,13 @@ function CapabilityToggle({
           {cap.description}
         </div>
       </div>
-      <button
-        type="button"
-        className={`relative w-10 h-5 rounded-full transition-colors ${
-          enabled ? "bg-[var(--accent)]" : "bg-[var(--border)]"
-        } ${!canEnable ? "opacity-50 cursor-not-allowed" : ""}`}
-        onClick={() => canEnable && onToggle(!enabled)}
+      <Switch
+        checked={enabled}
+        onChange={onToggle}
         disabled={!canEnable}
+        disabledClassName="opacity-50 cursor-not-allowed"
+        trackOnClass="bg-[var(--accent)]"
+        trackOffClass="bg-[var(--border)]"
         title={
           !available
             ? "Plugin not available"
@@ -257,13 +251,7 @@ function CapabilityToggle({
                 ? "Disable"
                 : "Enable"
         }
-      >
-        <span
-          className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
-            enabled ? "left-[22px]" : "left-0.5"
-          }`}
-        />
-      </button>
+      />
     </div>
   );
 }
