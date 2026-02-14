@@ -1,15 +1,7 @@
 /**
  * AdvancedPageView — container for advanced configuration sub-tabs.
  *
- * Sub-tabs:
- *   - Plugins: Feature/connector plugin management
- *   - Skills: Custom agent skills
- *   - Triggers: Automation trigger management
- *   - Fine-Tuning: Dataset and model training workflows
- *   - Trajectories: LLM call viewer and analysis
- *   - Runtime: Runtime object inspection
- *   - Databases: Tables/media/vector browser
- *   - Logs: Runtime log viewer
+ * Uses a side navigation with breadcrumb header.
  */
 
 import { useState } from "react";
@@ -27,22 +19,22 @@ import { TriggersView } from "./TriggersView";
 import type { Tab } from "../navigation";
 
 type SubTab =
-  | "plugins"
   | "skills"
+  | "plugins"
+  | "fine-tuning"
   | "actions"
   | "triggers"
-  | "fine-tuning"
   | "trajectories"
   | "runtime"
   | "database"
   | "logs";
 
 const SUB_TABS: Array<{ id: SubTab; label: string; description: string }> = [
-  { id: "plugins", label: "Plugins", description: "Features and connectors" },
   { id: "skills", label: "Skills", description: "Custom agent skills" },
+  { id: "plugins", label: "Plugins", description: "Features and connectors" },
+  { id: "fine-tuning", label: "Fine-Tuning", description: "Dataset and model training workflows" },
   { id: "actions", label: "Actions", description: "Custom agent actions" },
   { id: "triggers", label: "Triggers", description: "Scheduled and event-based automations" },
-  { id: "fine-tuning", label: "Fine-Tuning", description: "Dataset and model training workflows" },
   { id: "trajectories", label: "Trajectories", description: "LLM call history and analysis" },
   { id: "runtime", label: "Runtime", description: "Deep runtime object introspection and load order" },
   { id: "database", label: "Databases", description: "Tables, media, and vector browser" },
@@ -60,7 +52,7 @@ function mapTabToSubTab(tab: Tab): SubTab {
     case "runtime": return "runtime";
     case "database": return "database";
     case "logs": return "logs";
-    default: return "plugins";
+    default: return "skills";
   }
 }
 
@@ -69,40 +61,11 @@ export function AdvancedPageView() {
   const [selectedTrajectoryId, setSelectedTrajectoryId] = useState<string | null>(null);
 
   const currentSubTab = mapTabToSubTab(tab);
+  const currentLabel = SUB_TABS.find((s) => s.id === currentSubTab)?.label ?? "Advanced";
 
   const handleSubTabChange = (subTab: SubTab) => {
     setSelectedTrajectoryId(null);
-    switch (subTab) {
-      case "plugins":
-        setTab("plugins");
-        break;
-      case "skills":
-        setTab("skills");
-        break;
-      case "actions":
-        setTab("actions");
-        break;
-      case "triggers":
-        setTab("triggers");
-        break;
-      case "fine-tuning":
-        setTab("fine-tuning");
-        break;
-      case "trajectories":
-        setTab("trajectories");
-        break;
-      case "runtime":
-        setTab("runtime");
-        break;
-      case "database":
-        setTab("database");
-        break;
-      case "logs":
-        setTab("logs");
-        break;
-      default:
-        setTab("plugins");
-    }
+    setTab(subTab as Tab);
   };
 
   const renderContent = () => {
@@ -136,38 +99,48 @@ export function AdvancedPageView() {
       case "logs":
         return <LogsPageView />;
       default:
-        return <PluginsPageView />;
+        return <SkillsView />;
     }
   };
 
   return (
-    <div className="flex flex-col h-full min-h-0">
-      {/* Sub-tab navigation (fixed) */}
-      <div className="mb-4 shrink-0">
-        <div className="flex gap-1 border-b border-border">
-          {SUB_TABS.map((subTab) => {
-            const isActive = currentSubTab === subTab.id;
-            return (
-              <button
-                key={subTab.id}
-                className={`px-4 py-2 text-xs font-medium border-b-2 -mb-px transition-colors ${
-                  isActive
-                    ? "border-accent text-accent"
-                    : "border-transparent text-muted hover:text-txt hover:border-border"
-                }`}
-                onClick={() => handleSubTabChange(subTab.id)}
-                title={subTab.description}
-              >
-                {subTab.label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+    <div className="flex h-full min-h-0">
+      {/* Side navigation */}
+      <nav className="w-44 min-w-44 border-r border-border py-3 px-2 flex flex-col gap-0.5 overflow-y-auto shrink-0">
+        {SUB_TABS.map((subTab) => {
+          const isActive = currentSubTab === subTab.id;
+          return (
+            <button
+              key={subTab.id}
+              className={`text-left px-3 py-1.5 text-[13px] rounded border-0 cursor-pointer transition-colors ${
+                isActive
+                  ? "bg-accent text-accent-fg font-medium"
+                  : "bg-transparent text-muted hover:bg-bg-hover hover:text-txt"
+              }`}
+              onClick={() => handleSubTabChange(subTab.id)}
+              title={subTab.description}
+            >
+              {subTab.label}
+            </button>
+          );
+        })}
+      </nav>
 
-      {/* Content area (scrolls, header stays fixed) */}
-      <div className="flex-1 min-h-0 overflow-y-auto">
-        {renderContent()}
+      {/* Main content area */}
+      <div className="flex-1 min-w-0 flex flex-col min-h-0">
+        {/* Breadcrumb */}
+        <div className="px-5 py-2 border-b border-border shrink-0">
+          <div className="flex items-center gap-1.5 text-[13px]">
+            <span className="text-muted">Advanced</span>
+            <span className="text-muted">/</span>
+            <span className="text-txt font-medium">{currentLabel}</span>
+          </div>
+        </div>
+
+        {/* Scrollable content */}
+        <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4">
+          {renderContent()}
+        </div>
       </div>
     </div>
   );

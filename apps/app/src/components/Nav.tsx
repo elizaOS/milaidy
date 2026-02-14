@@ -12,10 +12,10 @@ export function Nav() {
         return (
           <button
             key={group.label}
-            className={`inline-block px-3 py-1.5 text-[13px] bg-transparent border-0 border-b-2 cursor-pointer transition-colors ${
+            className={`inline-block px-3 py-1.5 text-[13px] border-0 rounded cursor-pointer transition-colors ${
               isActive
-                ? "text-accent font-medium border-b-accent"
-                : "text-muted border-b-transparent hover:text-txt"
+                ? "bg-accent text-accent-fg font-medium"
+                : "bg-transparent text-muted hover:bg-bg-hover hover:text-txt"
             }`}
             onClick={() => setTab(primaryTab)}
           >

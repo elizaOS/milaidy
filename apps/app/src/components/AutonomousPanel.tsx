@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useApp } from "../AppContext";
 import type {
   StreamEventEnvelope,
@@ -7,6 +7,7 @@ import type {
   WorkbenchTodo,
 } from "../api-client";
 import { formatTime } from "./shared/format";
+import { ChatAvatar } from "./ChatAvatar";
 
 function getEventText(event: StreamEventEnvelope): string {
   const payload = event.payload as Record<string, string | number | boolean | null | object | undefined>;
@@ -57,7 +58,8 @@ export function AutonomousPanel() {
   const [todosCollapsed, setTodosCollapsed] = useState(false);
   const [eventsCollapsed, setEventsCollapsed] = useState(false);
 
-  const events = useMemo(() => autonomousEvents.slice(-120).reverse(), [autonomousEvents]);
+  const events = useMemo(() => autonomousEvents.slice(-120), [autonomousEvents]);
+  const eventsEndRef = useRef<HTMLDivElement>(null);
   const latestThought = useMemo(
     () =>
       autonomousEvents
@@ -74,6 +76,28 @@ export function AutonomousPanel() {
         .find((event) => isActionStream(event.stream)),
     [autonomousEvents],
   );
+
+  const [avatarVisible, setAvatarVisible] = useState(() => {
+    try { return localStorage.getItem("milaidy:chat:avatarVisible") !== "false"; } catch { return true; }
+  });
+
+  useEffect(() => {
+    const handler = () => {
+      try { setAvatarVisible(localStorage.getItem("milaidy:chat:avatarVisible") !== "false"); } catch {}
+    };
+    window.addEventListener("storage", handler);
+    // Also listen for same-tab changes via a custom event
+    window.addEventListener("milaidy:avatar-toggle", handler);
+    return () => {
+      window.removeEventListener("storage", handler);
+      window.removeEventListener("milaidy:avatar-toggle", handler);
+    };
+  }, []);
+
+  // Auto-scroll event stream to bottom when new events arrive
+  useEffect(() => {
+    eventsEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [events]);
 
   const isAgentStopped = agentStatus?.state === "stopped" || !agentStatus;
   const tasks = workbench?.tasks ?? [];
@@ -95,8 +119,11 @@ export function AutonomousPanel() {
       </div>
 
       {isAgentStopped ? (
-        <div className="flex items-center justify-center flex-1">
-          <p className="text-muted">Agent not running</p>
+        <div className="flex-1 relative overflow-hidden">
+          {avatarVisible && <ChatAvatar />}
+          <div className="absolute bottom-4 left-0 right-0 text-center">
+            <p className="text-muted">Agent not running</p>
+          </div>
         </div>
       ) : (
         <div className="flex-1 min-h-0 overflow-y-auto">
@@ -141,6 +168,7 @@ export function AutonomousPanel() {
                     </div>
                   ))
                 )}
+                <div ref={eventsEndRef} />
               </div>
             )}
           </div>
