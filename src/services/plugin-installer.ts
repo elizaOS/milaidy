@@ -175,17 +175,23 @@ export async function detectPackageManager(): Promise<"bun" | "npm"> {
  * 4. Writes an install record to milady.json.
  * 5. Returns metadata about the installation for the caller to
  *    decide whether to trigger a restart.
+ *
+ * @param pluginName - The plugin name (e.g., "@elizaos/plugin-twitter")
+ * @param onProgress - Optional progress callback
+ * @param requestedVersion - Optional specific version to install (e.g., "1.2.23-alpha.0")
  */
 export function installPlugin(
   pluginName: string,
   onProgress?: ProgressCallback,
+  requestedVersion?: string,
 ): Promise<InstallResult> {
-  return serialise(() => _installPlugin(pluginName, onProgress));
+  return serialise(() => _installPlugin(pluginName, onProgress, requestedVersion));
 }
 
 async function _installPlugin(
   pluginName: string,
   onProgress?: ProgressCallback,
+  requestedVersion?: string,
 ): Promise<InstallResult> {
   const emit = (phase: InstallPhase, message: string) =>
     onProgress?.({ phase, pluginName, message });
@@ -206,7 +212,8 @@ async function _installPlugin(
 
   // Determine the canonical package name and version to install
   const canonicalName = info.name;
-  const npmVersion = info.npm.v2Version || info.npm.v1Version || "next";
+  // Use requested version if provided, otherwise use registry version
+  const npmVersion = requestedVersion || info.npm.v2Version || info.npm.v1Version || "next";
   const localPath = info.localPath;
   const targetDir = pluginDir(canonicalName);
 
@@ -345,8 +352,9 @@ async function _installPlugin(
 export async function installAndRestart(
   pluginName: string,
   onProgress?: ProgressCallback,
+  requestedVersion?: string,
 ): Promise<InstallResult> {
-  const result = await installPlugin(pluginName, onProgress);
+  const result = await installPlugin(pluginName, onProgress, requestedVersion);
 
   if (result.success && result.requiresRestart) {
     onProgress?.({

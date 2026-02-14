@@ -115,6 +115,7 @@ export interface PluginManagerLike {
   installPlugin(
     pluginName: string,
     onProgress?: (progress: InstallProgressLike) => void,
+    requestedVersion?: string,
   ): Promise<PluginInstallResult>;
   uninstallPlugin(pluginName: string): Promise<PluginUninstallResult>;
   listEjectedPlugins(): Promise<InstalledPluginInfo[]>;

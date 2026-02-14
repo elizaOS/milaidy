@@ -12,10 +12,55 @@ import { parseClampedInteger } from "../utils/number-parsing";
  * Accepts `@scope/plugin-x`, `plugin-x`, or shorthand `x` (→ `@elizaos/plugin-x`).
  */
 function normalizePluginName(name: string): string {
+  // Already fully qualified (starts with @) or plugin- prefix
   if (name.startsWith("@") || name.startsWith("plugin-")) {
     return name;
   }
+  // Shorthand: add @elizaos/plugin- prefix
   return `@elizaos/plugin-${name}`;
+}
+
+/**
+ * Parse plugin name and optional version from user input.
+ * Examples:
+ *   - "twitter" → { name: "@elizaos/plugin-twitter", version: undefined }
+ *   - "twitter@1.2.3" → { name: "@elizaos/plugin-twitter", version: "1.2.3" }
+ *   - "@custom/plugin-x@2.0.0" → { name: "@custom/plugin-x", version: "2.0.0" }
+ */
+function parsePluginSpec(input: string): { name: string; version?: string } {
+  let namepart: string;
+  let version: string | undefined;
+
+  // Handle scoped packages like @scope/name@version
+  if (input.startsWith("@")) {
+    // Split on @ after the scope
+    const parts = input.split("@");
+    // parts = ["", "scope/name", "version"] or ["", "scope/name"]
+    if (parts.length >= 3) {
+      // Has version: @scope/name@version
+      namepart = `@${parts[1]}`;
+      version = parts.slice(2).join("@"); // In case version has @ in it
+    } else {
+      // No version: @scope/name
+      namepart = input;
+      version = undefined;
+    }
+  } else {
+    // Non-scoped package: name@version or name
+    const atIndex = input.indexOf("@");
+    if (atIndex > 0) {
+      namepart = input.substring(0, atIndex);
+      version = input.substring(atIndex + 1);
+    } else {
+      namepart = input;
+      version = undefined;
+    }
+  }
+
+  return {
+    name: normalizePluginName(namepart),
+    version: version?.trim(),
+  };
 }
 
 /**
@@ -96,7 +141,7 @@ export function registerPluginsCli(program: Command): void {
   const pluginsCommand = program
     .command("plugins")
     .description(
-      "Browse, search, install, and manage ElizaOS plugins from the registry",
+      "Browse, search, install, and manage ElizaOS plugins from the registry. Supports version pinning (e.g., install twitter@1.2.3)",
     );
 
   // ── list ─────────────────────────────────────────────────────────────
@@ -299,14 +344,15 @@ export function registerPluginsCli(program: Command): void {
   // ── install ──────────────────────────────────────────────────────────
   pluginsCommand
     .command("install <name>")
-    .description("Install a plugin from the registry")
+    .description("Install a plugin from the registry (supports name@version)")
     .option("--no-restart", "Install without restarting the agent")
     .action(async (name: string, opts: { restart: boolean }) => {
       const pluginManager = await getPluginManager();
 
-      const normalizedName = normalizePluginName(name);
+      const { name: normalizedName, version } = parsePluginSpec(name);
 
-      console.log(`\nInstalling ${chalk.cyan(normalizedName)}...\n`);
+      const displayName = version ? `${normalizedName}@${version}` : normalizedName;
+      console.log(`\nInstalling ${chalk.cyan(displayName)}...\n`);
 
       const progressHandler = (progress: InstallProgressLike) => {
         console.log(`  [${progress.phase}] ${progress.message}`);
@@ -315,6 +361,7 @@ export function registerPluginsCli(program: Command): void {
       const result = await pluginManager.installPlugin(
         normalizedName,
         progressHandler,
+        version,
       );
 
       if (result.success) {
