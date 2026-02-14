@@ -1,5 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EventEmitter } from "node:events";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("node:child_process", () => ({
   execSync: vi.fn(),
@@ -89,13 +89,7 @@ describe("SandboxEngine container exec command dispatch", () => {
 
     const [binary, args] = spawnMock.mock.calls.at(-1) ?? [];
     expect(binary).toBe("container");
-    expect(args).toEqual([
-      "exec",
-      "cid-2",
-      "python",
-      "-c",
-      "print(42)",
-    ]);
+    expect(args).toEqual(["exec", "cid-2", "python", "-c", "print(42)"]);
     expect(args).not.toContain("sh");
   });
 
@@ -144,7 +138,7 @@ describe("SandboxEngine container exec command dispatch", () => {
 
     await engine.execInContainer({
       containerId: "cid-7",
-      command: "python -c \"\\\"\\\"\"",
+      command: 'python -c "\\"""',
     });
 
     const [, args] = spawnMock.mock.calls.at(-1) ?? [];
@@ -159,7 +153,9 @@ describe("SandboxEngine container exec command dispatch", () => {
         containerId: "cid-3",
         command: "echo ok; whoami",
       }),
-    ).rejects.toThrow("Container exec command contains unsupported shell syntax");
+    ).rejects.toThrow(
+      "Container exec command contains unsupported shell syntax",
+    );
     expect(spawn).not.toHaveBeenCalled();
   });
 

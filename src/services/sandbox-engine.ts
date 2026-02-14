@@ -190,12 +190,7 @@ function parseContainerCommand(command: string): string[] {
         inDoubleQuote = false;
       } else if (char === "\\") {
         const next = trimmed[i + 1];
-        if (
-          next === "\\" ||
-          next === '"' ||
-          next === "$" ||
-          next === "`"
-        ) {
+        if (next === "\\" || next === '"' || next === "$" || next === "`") {
           i += 1;
           current += trimmed[i];
         } else {
@@ -222,7 +217,9 @@ function parseContainerCommand(command: string): string[] {
 
     if (char === "\\") {
       if (i + 1 >= trimmed.length) {
-        throw new Error("Container exec command cannot end with dangling escape");
+        throw new Error(
+          "Container exec command cannot end with dangling escape",
+        );
       }
       escaping = true;
       continue;
@@ -248,7 +245,9 @@ function parseContainerCommand(command: string): string[] {
       char === "\n" ||
       char === "\r"
     ) {
-      throw new Error("Container exec command contains unsupported shell syntax");
+      throw new Error(
+        "Container exec command contains unsupported shell syntax",
+      );
     }
 
     current += char;
