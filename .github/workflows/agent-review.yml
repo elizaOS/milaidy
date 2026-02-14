@@ -65,23 +65,12 @@ jobs:
       contents: read
       pull-requests: write
       issues: write
-      checks: write
-      actions: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
-
-      - name: Read project scope
-        id: scope
-        run: |
-          if [ -f SCOPE.md ]; then
-            echo "scope<<SCOPE_EOF" >> $GITHUB_OUTPUT
-            cat SCOPE.md >> $GITHUB_OUTPUT
-            echo "SCOPE_EOF" >> $GITHUB_OUTPUT
-          fi
 
       - name: Check PR author permissions
         id: check-author
@@ -111,50 +100,33 @@ jobs:
           npm install -g @openai/codex@latest
           codex --version
 
-      - name: Fetch contributor trust context
+      - name: Set contributor trust context
         id: trust-context
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const { computeTrustScore, DEFAULT_CONFIG, createContributorState } = require('./.github/trust-scoring.cjs');
-            const author = context.payload.pull_request.user.login;
-            let trustInfo = 'New contributor (no review history)';
-            try {
-              const { data } = await github.rest.actions.getRepoVariable({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                name: 'CONTRIBUTOR_TRUST_V2',
-              });
-              const allStates = JSON.parse(data.value);
-              if (allStates[author]) {
-                const result = computeTrustScore(allStates[author], DEFAULT_CONFIG);
-                trustInfo = `Trust score: ${result.score}/100 (${result.tier}) | Events: ${allStates[author].events.length} | ${result.tierInfo.description}`;
-                if (result.warnings.length > 0) {
-                  trustInfo += ` | Warnings: ${result.warnings.join('; ')}`;
-                }
-              }
-            } catch (e) {
-              // No trust data yet
-            }
-            core.setOutput('trust_info', trustInfo);
+        run: |
+          echo "trust_info=Trust tier unavailable in untrusted checkout context" >> "$GITHUB_OUTPUT"
 
       - name: Build review prompt
         id: build-prompt
         run: |
-          cat > /tmp/review-prompt.md << 'PROMPT_EOF'
-          You are the sole code reviewer for the Milaidy project (milady-ai/milaidy).
-          This is an agents-only codebase. No human code contributions are accepted — humans contribute by using the app and reporting bugs as QA testers. Your review is final.
-
-          ## PR Info
-          - **PR #${{ github.event.pull_request.number }}**: ${{ github.event.pull_request.title }}
-          - **Author**: ${{ github.event.pull_request.user.login }}
-          - **Base**: ${{ github.event.pull_request.base.ref }}
-          - **Pre-classification**: ${{ needs.classify.outputs.category }}
-          - **Contributor trust**: ${{ steps.trust-context.outputs.trust_info }}
-
-          ## Project Scope
-          ${{ steps.scope.outputs.scope }}
-
+          {
+            echo "You are the sole code reviewer for the Milaidy project (milady-ai/milaidy)."
+            echo "This is an agents-only codebase. No human code contributions are accepted — humans contribute by using the app and reporting bugs as QA testers. Your review is final."
+            echo ""
+            echo "## PR Info"
+            printf -- "- **PR #%s**: %s\n" "$PR_NUMBER" "$PR_TITLE"
+            printf -- "- **Author**: %s\n" "$PR_AUTHOR"
+            printf -- "- **Base**: %s\n" "$PR_BASE_REF"
+            printf -- "- **Pre-classification**: %s\n" "$PR_CATEGORY"
+            printf -- "- **Contributor trust**: %s\n" "$TRUST_INFO"
+            echo ""
+            echo "## Project Scope"
+            if [ -f SCOPE.md ]; then
+              cat SCOPE.md
+            else
+              echo "_SCOPE.md not found in PR branch._"
+            fi
+            echo ""
+            cat <<'PROMPT_EOF'
           ## Review Protocol
 
           ### 1. Scope Check
@@ -235,31 +207,40 @@ jobs:
 
           Be direct. Be opinionated. This repo's quality is your responsibility.
           PROMPT_EOF
+          } > /tmp/review-prompt.md
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
+          PR_CATEGORY: ${{ needs.classify.outputs.category }}
+          TRUST_INFO: ${{ steps.trust-context.outputs.trust_info }}
 
       - name: Run Codex Review
         id: codex-review
         run: |
           # Fetch base branch for diff comparison
-          git fetch origin ${{ github.event.pull_request.base.ref }}
+          git fetch origin "$PR_BASE_REF"
 
-          # Write review instructions to CODEX.md so codex reads them as project context
-          # (--base and [PROMPT] are mutually exclusive in codex CLI)
+          # Run codex review against base branch.
+          # --base and positional PROMPT are mutually exclusive in codex CLI.
+          # Write review instructions to CODEX.md (auto-read as project context).
           cp /tmp/review-prompt.md CODEX.md
 
-          # Run codex review against base branch
           codex review \
-            --base "origin/${{ github.event.pull_request.base.ref }}" \
-            --title "${{ github.event.pull_request.title }}" \
+            --base "origin/$PR_BASE_REF" \
+            --title "$PR_TITLE" \
             -c 'model="gpt-5.3-codex"' \
             > /tmp/review-output.md 2>&1 || true
 
-          # Clean up temp file
           rm -f CODEX.md
 
           echo "Review output:"
           cat /tmp/review-output.md
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
 
       - name: Post review as PR comment
         run: |
@@ -270,17 +251,21 @@ jobs:
 
           # Prepend header
           {
-            echo "## PR Review: ${{ github.event.pull_request.title }}"
+            printf -- "## PR Review: %s\n" "$PR_TITLE"
             echo ""
             echo "_Reviewed by Codex 5.3_"
+            echo "$AGENT_REVIEW_MARKER"
             echo ""
             cat /tmp/review-output.md
           } > /tmp/review-comment.md
 
-          gh pr comment ${{ github.event.pull_request.number }} --body-file /tmp/review-comment.md
+          gh pr comment "$PR_NUMBER" --body-file /tmp/review-comment.md
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          AGENT_REVIEW_MARKER: '<!-- agent-review-run:${{ github.run_id }}:${{ github.run_attempt }}:${{ github.event.pull_request.head.sha }} -->'
 
       - name: Extract review decision from PR comments
         id: extract-verdict
@@ -291,8 +276,8 @@ jobs:
             const owner = context.repo.owner;
             const repo = context.repo.repo;
             const issue_number = context.payload.pull_request.number;
+            const runMarker = (process.env.AGENT_REVIEW_MARKER || '').trim();
 
-            // Prefer bot-authored comments first, then fall back to any matching comment.
             // Match Decision in any format: **Decision:**, ### N. Decision:, 6. **Decision:**, etc.
             const decisionPattern = /(?:^|\n)\s*(?:#{1,4}\s+)?(?:\d+\.\s*)?(?:\*{0,2})Decision:(?:\*{0,2})\s*(APPROVE|REQUEST CHANGES|CLOSE)\b/i;
             const structuredPattern = /(?:#{1,4}\s+)?(?:\d+\.\s*)?(?:\*{0,2})(?:Classification|Scope verdict|Code quality)(?:\*{0,2}):/i;
@@ -304,6 +289,7 @@ jobs:
             const findLatest = (items) => {
               const filtered = items.filter((c) => {
                 if (!c?.body) return false;
+                if (!runMarker || !c.body.includes(runMarker)) return false;
                 if (!decisionPattern.test(c.body)) return false;
                 return structuredPattern.test(c.body);
               });
@@ -326,14 +312,14 @@ jobs:
               });
 
               const botComments = comments.filter((c) => c.user?.type === 'Bot');
-              latest = findLatest(botComments) || findLatest(comments);
+              latest = findLatest(botComments);
 
               if (latest) {
                 break;
               }
 
               if (attempt < maxAttempts) {
-                console.log(`Structured decision comment not found yet (attempt ${attempt}/${maxAttempts}); waiting ${pollIntervalMs / 1000}s...`);
+                console.log(`Structured decision comment for current run marker not found yet (attempt ${attempt}/${maxAttempts}); waiting ${pollIntervalMs / 1000}s...`);
                 await sleep(pollIntervalMs);
               }
             }
@@ -356,7 +342,7 @@ jobs:
                 verdict = 'reject';
               }
             } else {
-              core.warning(`No structured review decision comment found after ${attemptUsed} attempts. Treating as reject.`);
+              core.warning(`No structured review decision comment found for current run marker after ${attemptUsed} attempts. Treating as reject.`);
             }
 
             core.setOutput('verdict', verdict);
@@ -372,17 +358,37 @@ jobs:
               .write();
 
             console.log(`Verdict parsed from PR comments: ${verdict} (${decision})`);
+        env:
+          AGENT_REVIEW_MARKER: '<!-- agent-review-run:${{ github.run_id }}:${{ github.run_attempt }}:${{ github.event.pull_request.head.sha }} -->'
+
+  review-postprocess:
+    if: github.event_name == 'pull_request_target'
+    needs: [classify, review-pr]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      checks: write
+      statuses: write
+      actions: write
+    steps:
+      - name: Checkout trusted base ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          fetch-depth: 1
 
       - name: Create review check run
         if: always()
         uses: actions/github-script@v7
         with:
           script: |
-            const verdict = '${{ steps.extract-verdict.outputs.verdict }}';
-            const decision = '${{ steps.extract-verdict.outputs.decision }}';
+            const verdict = '${{ needs.review-pr.outputs.verdict }}';
+            const decision = '${{ needs.review-pr.outputs.decision }}';
             const author = context.payload.pull_request.user.login;
             const prNumber = context.payload.pull_request.number;
-            const commentUrl = '${{ steps.extract-verdict.outputs.decision_comment_url }}';
+            const commentUrl = '${{ needs.review-pr.outputs.decision_comment_url }}';
 
             const conclusionMap = {
               approve: 'success',
@@ -416,9 +422,14 @@ jobs:
                   summary: summaryLines,
                 },
               });
+
               console.log(`Check run created: ${verdict} → ${conclusionMap[verdict]}`);
-            } catch (e) {
-              console.log(`⚠️ Could not create check run (${e.status || 'unknown'}). GITHUB_TOKEN may lack checks:write for fork PRs. Verdict still posted as comment.`);
+            } catch (error) {
+              if (error?.status === 403) {
+                core.warning('Skipping check-run creation due to token permission limits (requires checks:write).');
+              } else {
+                throw error;
+              }
             }
 
       - name: Update contributor trust score (v2)
@@ -428,7 +439,7 @@ jobs:
           script: |
             const { computeTrustScore, DEFAULT_CONFIG, createContributorState, addEvent, getTier } = require('./.github/trust-scoring.cjs');
             const author = context.payload.pull_request.user.login;
-            const verdict = '${{ steps.extract-verdict.outputs.verdict }}';
+            const verdict = '${{ needs.review-pr.outputs.verdict }}';
             const category = '${{ needs.classify.outputs.category }}';
             const prNumber = context.payload.pull_request.number;
 
@@ -486,9 +497,6 @@ jobs:
             }
 
             // Write back to repo variable
-            // Note: GITHUB_TOKEN may lack actions_variables:write permission
-            // (fine-grained scope not available in workflow tokens).
-            // Gracefully degrade — score is computed and logged but may not persist.
             const value = JSON.stringify(allStates);
             try {
               await github.rest.actions.updateRepoVariable({
@@ -497,16 +505,26 @@ jobs:
                 name: 'CONTRIBUTOR_TRUST_V2',
                 value,
               });
-            } catch (e) {
-              try {
-                await github.rest.actions.createRepoVariable({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  name: 'CONTRIBUTOR_TRUST_V2',
-                  value,
-                });
-              } catch (e2) {
-                console.log(`⚠️ Could not persist trust scores (${e2.status || 'unknown'}). GITHUB_TOKEN lacks actions_variables:write. Scores computed but not saved.`);
+            } catch (updateError) {
+              if (updateError?.status === 403) {
+                core.warning('Skipping trust variable update due to token permission limits (requires actions:write).');
+              } else if (updateError?.status === 404) {
+                try {
+                  await github.rest.actions.createRepoVariable({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    name: 'CONTRIBUTOR_TRUST_V2',
+                    value,
+                  });
+                } catch (createError) {
+                  if (createError?.status === 403) {
+                    core.warning('Skipping trust variable create due to token permission limits (requires actions:write).');
+                  } else {
+                    throw createError;
+                  }
+                }
+              } else {
+                throw updateError;
               }
             }
 
