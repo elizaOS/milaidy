@@ -138,7 +138,7 @@ describe("SandboxEngine container exec command dispatch", () => {
 
     await engine.execInContainer({
       containerId: "cid-7",
-      command: 'python -c "\\"""',
+      command: `python -c "\\\"\\\""`,
     });
 
     const [, args] = spawnMock.mock.calls.at(-1) ?? [];

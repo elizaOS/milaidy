@@ -111,7 +111,8 @@ function getChildProcessErrorText(error: unknown): string {
     .map((value) => {
       if (value === undefined || value === null) return "";
       if (typeof value === "string") return value;
-      if (typeof value === "object" && "toString" in value) return value.toString();
+      if (typeof value === "object" && "toString" in value)
+        return value.toString();
       return "";
     })
     .filter(Boolean)
@@ -123,11 +124,11 @@ function getChildProcessErrorText(error: unknown): string {
 function isContainerVersionUnsupported(error: unknown): boolean {
   const errorText = getChildProcessErrorText(error);
   return (
-    errorText.includes("unknown option")
-    || errorText.includes("unrecognized option")
-    || errorText.includes("invalid option")
-    || errorText.includes("unknown flag")
-    || errorText.includes("no such option")
+    errorText.includes("unknown option") ||
+    errorText.includes("unrecognized option") ||
+    errorText.includes("invalid option") ||
+    errorText.includes("unknown flag") ||
+    errorText.includes("no such option")
   );
 }
 
@@ -440,11 +441,15 @@ export class DockerEngine implements ISandboxEngine {
 
   isContainerRunning(id: string): boolean {
     try {
-      const result = execFileSync("docker", ["inspect", "-f", "{{.State.Running}}", id], {
-        encoding: "utf-8",
-        timeout: 5000,
-        stdio: ["ignore", "pipe", "ignore"],
-      }).trim();
+      const result = execFileSync(
+        "docker",
+        ["inspect", "-f", "{{.State.Running}}", id],
+        {
+          encoding: "utf-8",
+          timeout: 5000,
+          stdio: ["ignore", "pipe", "ignore"],
+        },
+      ).trim();
       return result === "true";
     } catch {
       return false;
@@ -497,7 +502,10 @@ export class AppleContainerEngine implements ISandboxEngine {
   isAvailable(): boolean {
     if (platform() !== "darwin") return false;
     try {
-      execFileSync("container", ["--version"], { stdio: "ignore", timeout: 5000 });
+      execFileSync("container", ["--version"], {
+        stdio: "ignore",
+        timeout: 5000,
+      });
       return true;
     } catch (error) {
       if (!isContainerVersionUnsupported(error)) {
