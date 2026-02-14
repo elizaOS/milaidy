@@ -7,6 +7,14 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("node:os", async () => {
+  const actual = await vi.importActual("node:os");
+  return {
+    ...actual,
+    platform: () => "darwin",
+  };
+});
+
 // Mock command execution primitives before module import
 vi.mock("node:child_process", () => ({
   execFileSync: vi.fn(),

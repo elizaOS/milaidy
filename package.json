@@ -123,6 +123,7 @@
     "@types/pg": "^8.15.2",
     "@types/ws": "^8.18.1",
     "@vitest/coverage-v8": "^4.0.18",
+    "react-test-renderer": "^19.2.4",
     "rimraf": "^5.0.0",
     "tsdown": "^0.20.3",
     "tsx": "^4.21.0",
