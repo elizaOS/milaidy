@@ -296,10 +296,19 @@ jobs:
               ;;
           esac
 
+          pr_number="${{ github.event.pull_request.number }}"
+          echo "Waiting for required checks to pass for PR #${pr_number}"
+          if ! gh pr checks "$pr_number" \
+            --required \
+            --repo "$GH_REPO" \
+            --watch \
+            --fail-fast; then
+            echo "Required PR checks failed or are not passing. Aborting merge."
+            exit 1
+          fi
+
           echo "Merging PR #${{ github.event.pull_request.number }} using '$method' method"
-          gh pr merge ${{ github.event.pull_request.number }} --"$method" --delete-branch || \
-            gh pr merge ${{ github.event.pull_request.number }} --"$method" --admin || \
-            gh pr merge ${{ github.event.pull_request.number }} --"$method"
+          gh pr merge "$pr_number" --"$method" --delete-branch
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
