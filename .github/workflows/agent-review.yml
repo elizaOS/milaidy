@@ -55,6 +55,10 @@ jobs:
     if: github.event_name == 'pull_request_target'
     needs: classify
     runs-on: ubuntu-latest
+    outputs:
+      verdict: ${{ steps.extract-verdict.outputs.verdict }}
+      decision: ${{ steps.extract-verdict.outputs.decision }}
+      decision_comment_url: ${{ steps.extract-verdict.outputs.decision_comment_url }}
     permissions:
       contents: read
       pull-requests: write
@@ -76,6 +80,8 @@ jobs:
           fi
 
       - name: Agent Review
+        id: claude-review
+        continue-on-error: false
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -161,20 +167,123 @@ jobs:
 
             Be direct. Be opinionated. This repo's quality is your responsibility.
 
+      - name: Extract Claude decision from PR comments
+        id: extract-verdict
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const issue_number = context.payload.pull_request.number;
+
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner,
+              repo,
+              issue_number,
+              per_page: 100,
+            });
+
+            // Prefer bot-authored comments first, then fall back to any matching comment.
+            const decisionPattern = /(?:^|\n)\s*(?:\d+\.\s*)?\*\*?Decision:\*\*?\s*(APPROVE|REQUEST CHANGES|CLOSE)\b/i;
+            const structuredPattern = /\*\*?Classification:|\*\*?Scope verdict:|\*\*?Code quality:/i;
+
+            const findLatest = (items) => {
+              const filtered = items.filter((c) => {
+                if (!c?.body) return false;
+                if (!decisionPattern.test(c.body)) return false;
+                return structuredPattern.test(c.body);
+              });
+              return filtered.sort((a, b) =>
+                new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+              )[0];
+            };
+
+            const botComments = comments.filter((c) => c.user?.type === 'Bot');
+            const latest = findLatest(botComments) || findLatest(comments);
+
+            let verdict = 'reject';
+            let decision = 'REQUEST CHANGES';
+            let decisionCommentUrl = '';
+
+            if (latest) {
+              const match = latest.body.match(decisionPattern);
+              const normalized = (match?.[1] || '').toUpperCase();
+              decision = normalized || decision;
+              decisionCommentUrl = latest.html_url || '';
+
+              if (normalized === 'APPROVE') {
+                verdict = 'approve';
+              } else if (normalized === 'CLOSE') {
+                verdict = 'close';
+              } else {
+                verdict = 'reject';
+              }
+            } else {
+              core.warning('No structured Claude decision comment found. Treating as reject.');
+            }
+
+            core.setOutput('verdict', verdict);
+            core.setOutput('decision', decision);
+            core.setOutput('decision_comment_url', decisionCommentUrl);
+
+            core.summary
+              .addHeading('Agent review decision gate')
+              .addRaw(`- Verdict: ${verdict}\n`)
+              .addRaw(`- Decision: ${decision}\n`)
+              .addRaw(`- Decision comment: ${decisionCommentUrl || 'not found'}\n`)
+              .write();
+
+            console.log(`Verdict parsed from PR comments: ${verdict} (${decision})`);
+
   auto-merge:
     name: Auto-merge approved PRs
     needs: [classify, review-pr]
-    if: needs.review-pr.result == 'success' && github.event_name == 'pull_request_target'
+    if: github.event_name == 'pull_request_target' && needs.review-pr.result == 'success' && needs.review-pr.outputs.verdict == 'approve'
     runs-on: ubuntu-latest
     permissions:
       contents: write
       pull-requests: write
     steps:
       - name: Enable auto-merge
-        run: gh pr merge ${{ github.event.pull_request.number }} --auto --squash
+        run: |
+          method="${MERGE_METHOD:-squash}"
+          case "$method" in
+            merge|squash|rebase) ;;
+            *)
+              echo "Invalid AGENT_REVIEW_MERGE_METHOD='$method', defaulting to 'squash'"
+              method="squash"
+              ;;
+          esac
+
+          echo "Enabling auto-merge using '$method' method"
+          gh pr merge ${{ github.event.pull_request.number }} --auto --"$method"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
+          MERGE_METHOD: ${{ vars.AGENT_REVIEW_MERGE_METHOD }}
+
+  close-pr:
+    name: Close PRs with CLOSE verdict
+    needs: [review-pr]
+    if: github.event_name == 'pull_request_target' && needs.review-pr.result == 'success' && needs.review-pr.outputs.verdict == 'close'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Close PR after agent verdict
+        run: |
+          comment="Closing this pull request because the automated agent review decision was **CLOSE**."
+          if [ -n "${DECISION_COMMENT_URL}" ]; then
+            comment="$comment\n\nDecision source: ${DECISION_COMMENT_URL}"
+          fi
+
+          gh pr close ${{ github.event.pull_request.number }} --comment "$comment"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          DECISION_COMMENT_URL: ${{ needs.review-pr.outputs.decision_comment_url }}
 
   triage-issue:
     if: github.event_name == 'issues'
