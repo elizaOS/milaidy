@@ -79,6 +79,16 @@ describe("validateCloudBaseUrl", () => {
     expect(dnsMockState.lookupMock).not.toHaveBeenCalled();
   });
 
+  it("blocks direct IPv6 link-local targets across fe80::/10", async () => {
+    const fe80Result = await validateCloudBaseUrl("https://[fe80::1]");
+    const fea0Result = await validateCloudBaseUrl("https://[fea0::1]");
+    const febfResult = await validateCloudBaseUrl("https://[febf::1]");
+    expect(fe80Result).toContain("blocked");
+    expect(fea0Result).toContain("blocked");
+    expect(febfResult).toContain("blocked");
+    expect(dnsMockState.lookupMock).not.toHaveBeenCalled();
+  });
+
   it("blocks direct IPv6 ULA targets across fc00::/7", async () => {
     const fcResult = await validateCloudBaseUrl("https://[fc12::1]");
     const fdResult = await validateCloudBaseUrl("https://[fd12::1]");
