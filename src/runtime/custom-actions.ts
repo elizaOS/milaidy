@@ -7,6 +7,8 @@
  * @module runtime/custom-actions
  */
 
+import { lookup as dnsLookup } from "node:dns/promises";
+import net from "node:net";
 import type { Action, HandlerOptions, IAgentRuntime } from "@elizaos/core";
 import { loadMilaidyConfig } from "../config/config.js";
 import type {
@@ -80,14 +82,65 @@ function shellEscape(value: string): string {
   return `'${value.replace(/'/g, "'\\''")}'`;
 }
 
+const ALWAYS_BLOCKED_IP_PATTERNS: RegExp[] = [
+  /^0\./, // "this" network
+  /^169\.254\./, // link-local / metadata
+  /^fe80:/i, // IPv6 link-local
+  /^::$/i, // unspecified
+  /^::1$/i, // IPv6 loopback
+];
+
+const PRIVATE_IP_PATTERNS: RegExp[] = [
+  /^10\./, // RFC1918
+  /^127\./, // loopback
+  /^172\.(1[6-9]|2\d|3[01])\./, // RFC1918
+  /^192\.168\./, // RFC1918
+  /^f[cd][0-9a-f]{2}:/i, // IPv6 ULA fc00::/7
+];
+
+function normalizeHostLike(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/^\[|\]$/g, "");
+}
+
+function decodeIpv6MappedHex(mapped: string): string | null {
+  const match = /^([0-9a-f]{1,4}):([0-9a-f]{1,4})$/i.exec(mapped);
+  if (!match) return null;
+  const hi = Number.parseInt(match[1], 16);
+  const lo = Number.parseInt(match[2], 16);
+  if (!Number.isFinite(hi) || !Number.isFinite(lo)) return null;
+  const octets = [hi >> 8, hi & 0xff, lo >> 8, lo & 0xff];
+  return octets.join(".");
+}
+
+function normalizeIpForPolicy(ip: string): string {
+  const base = normalizeHostLike(ip).split("%")[0];
+  if (!base.startsWith("::ffff:")) return base;
+
+  const mapped = base.slice("::ffff:".length);
+  if (net.isIP(mapped) === 4) return mapped;
+  return decodeIpv6MappedHex(mapped) ?? mapped;
+}
+
+function isBlockedIp(ip: string): boolean {
+  const normalized = normalizeIpForPolicy(ip);
+  if (ALWAYS_BLOCKED_IP_PATTERNS.some((pattern) => pattern.test(normalized))) {
+    return true;
+  }
+  return PRIVATE_IP_PATTERNS.some((pattern) => pattern.test(normalized));
+}
+
 /**
  * Check whether a URL targets a private/internal network (SSRF guard).
  * Blocks loopback, link-local, and RFC-1918 ranges except our own API.
+ * Resolves hostnames to concrete IPs to prevent DNS-alias bypasses.
  */
-function isBlockedUrl(url: string): boolean {
+async function isBlockedUrl(url: string): Promise<boolean> {
   try {
     const parsed = new URL(url);
-    const hostname = parsed.hostname.toLowerCase();
+    const hostname = normalizeHostLike(parsed.hostname);
 
     // Allow requests to our own API (terminal/run endpoint etc.)
     if (
@@ -113,19 +166,23 @@ function isBlockedUrl(url: string): boolean {
       return true;
     }
 
-    // Block RFC-1918 / link-local ranges
-    const parts = hostname.split(".");
-    if (parts.length === 4 && parts.every((p) => /^\d+$/.test(p))) {
-      const [a, b] = parts.map(Number);
-      if (a === 10) return true; // 10.0.0.0/8
-      if (a === 172 && b >= 16 && b <= 31) return true; // 172.16.0.0/12
-      if (a === 192 && b === 168) return true; // 192.168.0.0/16
-      if (a === 169 && b === 254) return true; // link-local
+    // Direct IP literals can be checked immediately.
+    if (net.isIP(hostname)) {
+      return isBlockedIp(hostname);
+    }
+
+    // Resolve hostnames to catch aliases (e.g. nip.io) pointing at blocked IPs.
+    const records = await dnsLookup(hostname, { all: true });
+    const addresses = Array.isArray(records) ? records : [records];
+    for (const entry of addresses) {
+      if (isBlockedIp(entry.address)) {
+        return true;
+      }
     }
 
     return false;
   } catch {
-    // Malformed URL — block it
+    // Malformed URL or failed resolution — block it
     return true;
   }
 }
@@ -162,7 +219,7 @@ function buildHandler(
         }
 
         // SSRF guard — block requests to internal/private networks
-        if (isBlockedUrl(url)) {
+        if (await isBlockedUrl(url)) {
           return {
             ok: false,
             output:
@@ -177,12 +234,20 @@ function buildHandler(
         const fetchOpts: RequestInit = {
           method: handler.method || "GET",
           headers,
+          redirect: "manual",
         };
         if (body && handler.method !== "GET" && handler.method !== "HEAD") {
           fetchOpts.body = body;
         }
 
         const response = await fetch(url, fetchOpts);
+        if (response.status >= 300 && response.status < 400) {
+          return {
+            ok: false,
+            output:
+              "Blocked: redirects are not allowed for HTTP custom actions",
+          };
+        }
         const text = await response.text();
         return { ok: response.ok, output: text.slice(0, 4000) };
       };

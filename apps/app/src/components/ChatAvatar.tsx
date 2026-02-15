@@ -37,7 +37,7 @@ export function ChatAvatar({ mouthOpen = 0, isSpeaking = false }: ChatAvatarProp
   const [vrmLoaded, setVrmLoaded] = useState(false);
   const [showFallback, setShowFallback] = useState(false);
 
-  const avatarVisible = engineReady && (vrmLoaded || showFallback);
+  const avatarVisible = engineReady || vrmLoaded || showFallback;
 
   const handleEngineReady = useCallback((engine: VrmEngine) => {
     vrmEngineRef.current = engine;

@@ -54,18 +54,27 @@ import {
 // TrajectoryLoggerService is provided by @elizaos/plugin-trajectory-logger
 // We just need a type interface to call startTrajectory/endTrajectory
 interface TrajectoryLoggerLike {
-  isEnabled(): boolean;
-  startTrajectory(
-    stepId: string,
-    options: {
-      agentId: string;
-      roomId?: string;
-      entityId?: string;
-      source?: string;
-      metadata?: Record<string, unknown>;
+  isEnabled?: () => boolean;
+  setEnabled?: (enabled: boolean) => void;
+  startTrajectory?: (
+    stepIdOrAgentId: string,
+    options?: Record<string, unknown>,
+  ) => Promise<string> | string;
+  startStep?: (
+    trajectoryId: string,
+    envState: {
+      timestamp: number;
+      agentBalance: number;
+      agentPoints: number;
+      agentPnL: number;
+      openPositions: number;
     },
-  ): Promise<string>;
-  endTrajectory(stepId: string, status?: string): Promise<void>;
+  ) => string;
+  endTrajectory?: (
+    stepIdOrTrajectoryId: string,
+    status?: string,
+  ) => Promise<void> | void;
+  logLlmCall?: (params: Record<string, unknown>) => void;
 }
 
 function resolveTrajectoryLogger(
@@ -104,6 +113,7 @@ function resolveTrajectoryLogger(
     let score = 0;
     if (typeof candidate.startTrajectory === "function") score += 3;
     if (typeof candidate.endTrajectory === "function") score += 3;
+    if (typeof candidate.logLlmCall === "function") score += 2;
     if (candidateWithRuntime.initialized === true) score += 3;
     if (candidateWithRuntime.runtime?.adapter) score += 3;
     const enabled =
@@ -115,6 +125,91 @@ function resolveTrajectoryLogger(
     }
   }
   return best;
+}
+
+function isTrajectoryLoggerEnabled(
+  logger: TrajectoryLoggerLike | null,
+): boolean {
+  if (!logger) return false;
+  if (typeof logger.isEnabled === "function") {
+    if (logger.isEnabled()) return true;
+    if (typeof logger.setEnabled === "function") {
+      try {
+        logger.setEnabled(true);
+        return logger.isEnabled();
+      } catch {
+        return false;
+      }
+    }
+    return false;
+  }
+  return true;
+}
+
+async function startTrajectoryForMessage(params: {
+  logger: TrajectoryLoggerLike;
+  runtime: IAgentRuntime;
+  stepId: string;
+  roomId?: string;
+  entityId?: string;
+  source: string;
+  metadata: Record<string, unknown>;
+}): Promise<{ stepId: string; endTargetId: string | null }> {
+  const { logger, runtime, stepId, roomId, entityId, source, metadata } =
+    params;
+
+  if (typeof logger.startTrajectory !== "function") {
+    return { stepId, endTargetId: null };
+  }
+
+  if (typeof logger.startStep === "function") {
+    const trajectoryId = await logger.startTrajectory(runtime.agentId, {
+      source,
+      metadata: {
+        ...metadata,
+        roomId,
+        entityId,
+      },
+    });
+    const normalizedTrajectoryId =
+      typeof trajectoryId === "string" && trajectoryId.trim().length > 0
+        ? trajectoryId
+        : null;
+    if (!normalizedTrajectoryId) {
+      return { stepId, endTargetId: null };
+    }
+    const runtimeStepId = logger.startStep(normalizedTrajectoryId, {
+      timestamp: Date.now(),
+      agentBalance: 0,
+      agentPoints: 0,
+      agentPnL: 0,
+      openPositions: 0,
+    });
+    const normalizedStepId =
+      typeof runtimeStepId === "string" && runtimeStepId.trim().length > 0
+        ? runtimeStepId
+        : stepId;
+    return {
+      stepId: normalizedStepId,
+      endTargetId: normalizedTrajectoryId,
+    };
+  }
+
+  const startedId = await logger.startTrajectory(stepId, {
+    agentId: runtime.agentId,
+    roomId,
+    entityId,
+    source,
+    metadata,
+  });
+  const normalizedStartedId =
+    typeof startedId === "string" && startedId.trim().length > 0
+      ? startedId
+      : stepId;
+  return {
+    stepId,
+    endTargetId: normalizedStartedId,
+  };
 }
 
 import { generateCatalogPrompt } from "../shared/ui-catalog-prompt.js";
@@ -195,6 +290,7 @@ export function createMilaidyPlugin(config?: MilaidyPluginConfig): Plugin {
     config?.sessionStorePath ?? resolveDefaultSessionStorePath(agentId);
   const enableBootstrap = config?.enableBootstrapProviders ?? true;
   const pendingTrajectoryStepByReplyId = new Map<string, string>();
+  const pendingTrajectoryEndTargetByStepId = new Map<string, string>();
 
   const trimPendingTrajectories = () => {
     const maxPending = 1000;
@@ -204,7 +300,9 @@ export function createMilaidyPlugin(config?: MilaidyPluginConfig): Plugin {
     for (let i = 0; i < overflow; i++) {
       const next = keys.next();
       if (next.done) break;
+      const stepId = pendingTrajectoryStepByReplyId.get(next.value);
       pendingTrajectoryStepByReplyId.delete(next.value);
+      if (stepId) pendingTrajectoryEndTargetByStepId.delete(stepId);
     }
   };
 
@@ -214,6 +312,7 @@ export function createMilaidyPlugin(config?: MilaidyPluginConfig): Plugin {
         pendingTrajectoryStepByReplyId.delete(replyId);
       }
     }
+    pendingTrajectoryEndTargetByStepId.delete(trajectoryStepId);
   };
 
   const baseProviders = [
@@ -511,14 +610,14 @@ export function createMilaidyPlugin(config?: MilaidyPluginConfig): Plugin {
           // TrajectoryLoggerService is provided by @elizaos/plugin-trajectory-logger
           const trajectoryLogger = resolveTrajectoryLogger(runtime);
 
-          if (trajectoryLogger?.isEnabled()) {
+          if (trajectoryLogger && isTrajectoryLoggerEnabled(trajectoryLogger)) {
+            let trajectoryStepId: string = crypto.randomUUID();
+            meta.trajectoryStepId = trajectoryStepId;
             try {
-              const trajectoryStepId = crypto.randomUUID();
-              meta.trajectoryStepId = trajectoryStepId;
-
-              // Start the trajectory - this links the stepId to a new trajectory record
-              await trajectoryLogger.startTrajectory(trajectoryStepId, {
-                agentId: runtime.agentId,
+              const startResult = await startTrajectoryForMessage({
+                logger: trajectoryLogger,
+                runtime,
+                stepId: trajectoryStepId,
                 roomId: message.roomId,
                 entityId: message.entityId,
                 source: source ?? (meta.source as string) ?? "chat",
@@ -528,6 +627,14 @@ export function createMilaidyPlugin(config?: MilaidyPluginConfig): Plugin {
                   conversationId: meta.sessionKey,
                 },
               });
+              trajectoryStepId = startResult.stepId;
+              meta.trajectoryStepId = trajectoryStepId;
+              if (startResult.endTargetId) {
+                pendingTrajectoryEndTargetByStepId.set(
+                  trajectoryStepId,
+                  startResult.endTargetId,
+                );
+              }
 
               if (message.id) {
                 const replyId = createUniqueUuid(runtime, message.id);
@@ -572,12 +679,15 @@ export function createMilaidyPlugin(config?: MilaidyPluginConfig): Plugin {
           // TrajectoryLoggerService is provided by @elizaos/plugin-trajectory-logger
           const trajectoryLogger = resolveTrajectoryLogger(runtime);
 
-          if (trajectoryLogger) {
+          if (
+            trajectoryLogger &&
+            typeof trajectoryLogger.endTrajectory === "function"
+          ) {
             try {
-              await trajectoryLogger.endTrajectory(
-                trajectoryStepId,
-                "completed",
-              );
+              const endTarget =
+                pendingTrajectoryEndTargetByStepId.get(trajectoryStepId) ??
+                trajectoryStepId;
+              await trajectoryLogger.endTrajectory(endTarget, "completed");
             } catch (err) {
               runtime.logger?.warn(
                 {

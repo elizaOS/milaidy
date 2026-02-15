@@ -1,7 +1,12 @@
+import { lookup as dnsLookup } from "node:dns/promises";
 import type { AgentRuntime, Memory, UUID } from "@elizaos/core";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { createRouteInvoker } from "../test-support/route-test-helpers.js";
 import { handleKnowledgeRoutes } from "./knowledge-routes.js";
+
+vi.mock("node:dns/promises", () => ({
+  lookup: vi.fn(),
+}));
 
 const AGENT_ID = "00000000-0000-0000-0000-000000000001" as UUID;
 
@@ -23,19 +28,22 @@ function buildMemory(overrides: Partial<Memory> = {}): Memory {
 
 describe("knowledge routes", () => {
   let runtime: AgentRuntime | null;
+  let addKnowledgeMock: ReturnType<typeof vi.fn>;
   let getMemoriesMock: ReturnType<typeof vi.fn>;
   let deleteMemoryMock: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
+    vi.restoreAllMocks();
+    addKnowledgeMock = vi.fn(async () => ({
+      clientDocumentId: uuid(1111),
+      storedDocumentMemoryId: uuid(1112),
+      fragmentCount: 0,
+    }));
     getMemoriesMock = vi.fn(async () => []);
     deleteMemoryMock = vi.fn(async () => undefined);
 
     const knowledgeService = {
-      addKnowledge: vi.fn(async () => ({
-        clientDocumentId: uuid(1111),
-        storedDocumentMemoryId: uuid(1112),
-        fragmentCount: 0,
-      })),
+      addKnowledge: addKnowledgeMock,
       getKnowledge: vi.fn(async () => []),
       getMemories: getMemoriesMock,
       countMemories: vi.fn(async () => 0),
@@ -238,5 +246,95 @@ describe("knowledge routes", () => {
     expect(deleteMemoryMock).toHaveBeenNthCalledWith(1, validFragmentId);
     expect(deleteMemoryMock).toHaveBeenNthCalledWith(2, documentId);
     expect(result.payload).toMatchObject({ ok: true, deletedFragments: 1 });
+  });
+
+  test("blocks URL import to loopback hosts", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+
+    const result = await invoke({
+      method: "POST",
+      pathname: "/api/knowledge/documents/url",
+      body: { url: "http://127.0.0.1:8000/secrets" },
+    });
+
+    expect(result.status).toBe(400);
+    expect((result.payload as { error?: string }).error).toContain("blocked");
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(addKnowledgeMock).not.toHaveBeenCalled();
+  });
+
+  test("blocks URL import when DNS resolves to link-local/metadata IP", async () => {
+    vi.mocked(dnsLookup).mockResolvedValue([
+      { address: "169.254.169.254", family: 4 },
+    ]);
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+
+    const result = await invoke({
+      method: "POST",
+      pathname: "/api/knowledge/documents/url",
+      body: { url: "http://metadata.nip.io/latest/meta-data" },
+    });
+
+    expect(result.status).toBe(400);
+    expect((result.payload as { error?: string }).error).toContain("blocked");
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(addKnowledgeMock).not.toHaveBeenCalled();
+  });
+
+  test("allows URL import for public hosts", async () => {
+    vi.mocked(dnsLookup).mockResolvedValue([
+      { address: "93.184.216.34", family: 4 },
+    ]);
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      headers: new Headers({ "content-type": "text/plain; charset=utf-8" }),
+      arrayBuffer: async () => new TextEncoder().encode("hello").buffer,
+    } as Response);
+
+    const result = await invoke({
+      method: "POST",
+      pathname: "/api/knowledge/documents/url",
+      body: { url: "https://example.com/doc.txt" },
+    });
+
+    expect(result.status).toBe(200);
+    expect(result.payload).toMatchObject({
+      ok: true,
+      contentType: "text/plain; charset=utf-8",
+      filename: "doc.txt",
+      isYouTubeTranscript: false,
+    });
+    expect(addKnowledgeMock).toHaveBeenCalledTimes(1);
+  });
+
+  test("blocks URL import when fetch responds with redirect", async () => {
+    vi.mocked(dnsLookup).mockResolvedValue([
+      { address: "93.184.216.34", family: 4 },
+    ]);
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: false,
+      status: 302,
+      statusText: "Found",
+      headers: new Headers({ location: "http://169.254.169.254/latest" }),
+      arrayBuffer: async () => new ArrayBuffer(0),
+    } as Response);
+
+    const result = await invoke({
+      method: "POST",
+      pathname: "/api/knowledge/documents/url",
+      body: { url: "https://example.com/redirect" },
+    });
+
+    expect(result.status).toBe(400);
+    expect((result.payload as { error?: string }).error).toContain(
+      "redirects are not allowed",
+    );
+    expect(fetchSpy).toHaveBeenCalledWith(
+      "https://example.com/redirect",
+      expect.objectContaining({ redirect: "manual" }),
+    );
+    expect(addKnowledgeMock).not.toHaveBeenCalled();
   });
 });

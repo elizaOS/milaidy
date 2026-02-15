@@ -1809,19 +1809,24 @@ interface TrajectoryLoggerForChat {
   isEnabled?: () => boolean;
   setEnabled?: (enabled: boolean) => void;
   startTrajectory?: (
-    stepId: string,
-    options: {
-      agentId: string;
-      roomId?: string;
-      entityId?: string;
-      source?: string;
-      metadata?: Record<string, unknown>;
-    },
+    stepIdOrAgentId: string,
+    options?: Record<string, unknown>,
   ) => Promise<string> | string;
+  startStep?: (
+    trajectoryId: string,
+    envState: {
+      timestamp: number;
+      agentBalance: number;
+      agentPoints: number;
+      agentPnL: number;
+      openPositions: number;
+    },
+  ) => string;
   endTrajectory?: (
     stepIdOrTrajectoryId: string,
     status?: string,
   ) => Promise<void> | void;
+  logLlmCall?: (params: Record<string, unknown>) => void;
 }
 
 interface TrajectorySpanContext {
@@ -1851,6 +1856,7 @@ function scoreTrajectoryLoggerCandidate(
   let score = 0;
   if (typeof candidate.startTrajectory === "function") score += 3;
   if (typeof candidate.endTrajectory === "function") score += 3;
+  if (typeof candidate.logLlmCall === "function") score += 2;
   if (typeof candidateWithRuntime.listTrajectories === "function") score += 1;
   if (candidateWithRuntime.initialized === true) score += 3;
   if (candidateWithRuntime.runtime?.adapter) score += 3;
@@ -1894,6 +1900,7 @@ function getTrajectoryLoggerForRuntime(
   let bestScore = -1;
   for (const candidate of candidates) {
     const score = scoreTrajectoryLoggerCandidate(candidate);
+    if (score <= 0) continue;
     if (score > bestScore) {
       best = candidate;
       bestScore = score;
@@ -1948,7 +1955,7 @@ function createRuntimeWithTrajectoryLogger(
 function isTrajectoryLoggerEnabled(
   logger: TrajectoryLoggerForChat | null,
 ): boolean {
-  if (!logger || typeof logger.startTrajectory !== "function") return false;
+  if (!logger) return false;
   if (typeof logger.isEnabled !== "function") return true;
   if (logger.isEnabled()) return true;
   if (typeof logger.setEnabled === "function") {
@@ -1960,6 +1967,72 @@ function isTrajectoryLoggerEnabled(
     }
   }
   return false;
+}
+
+async function startApiMessageTrajectory(params: {
+  logger: TrajectoryLoggerForChat;
+  runtime: AgentRuntime;
+  stepId: string;
+  source: string;
+  roomId?: string;
+  entityId?: string;
+  metadata?: Record<string, unknown>;
+}): Promise<{ stepId: string; endTargetId: string | null }> {
+  const { logger, runtime, stepId, source, roomId, entityId, metadata } =
+    params;
+
+  if (typeof logger.startTrajectory !== "function") {
+    return { stepId, endTargetId: null };
+  }
+
+  if (typeof logger.startStep === "function") {
+    const trajectoryId = await logger.startTrajectory(runtime.agentId, {
+      source,
+      metadata: {
+        ...(metadata ?? {}),
+        roomId,
+        entityId,
+      },
+    });
+    const normalizedTrajectoryId =
+      typeof trajectoryId === "string" && trajectoryId.trim().length > 0
+        ? trajectoryId
+        : null;
+    if (!normalizedTrajectoryId) {
+      return { stepId, endTargetId: null };
+    }
+    const runtimeStepId = logger.startStep(normalizedTrajectoryId, {
+      timestamp: Date.now(),
+      agentBalance: 0,
+      agentPoints: 0,
+      agentPnL: 0,
+      openPositions: 0,
+    });
+    const normalizedStepId =
+      typeof runtimeStepId === "string" && runtimeStepId.trim().length > 0
+        ? runtimeStepId
+        : stepId;
+    return {
+      stepId: normalizedStepId,
+      endTargetId: normalizedTrajectoryId,
+    };
+  }
+
+  const startedId = await logger.startTrajectory(stepId, {
+    agentId: runtime.agentId,
+    roomId,
+    entityId,
+    source,
+    metadata,
+  });
+  const normalizedStartedId =
+    typeof startedId === "string" && startedId.trim().length > 0
+      ? startedId
+      : stepId;
+  return {
+    stepId,
+    endTargetId: normalizedStartedId,
+  };
 }
 
 function buildTrajectoryMetadata(
@@ -2213,6 +2286,7 @@ async function generateChatResponse(
       : "api";
   const trajectoryLogger = getTrajectoryLoggerForRuntime(runtime);
   let fallbackTrajectoryStepId: string | null = null;
+  let fallbackTrajectoryEndTargetId: string | null = null;
 
   // The core message service emits MESSAGE_SENT but not MESSAGE_RECEIVED.
   // Emit inbound events here so trajectory/session hooks run for API chat.
@@ -2248,7 +2322,6 @@ async function generateChatResponse(
   if (
     !eventTrajectoryStepId &&
     trajectoryLogger &&
-    typeof trajectoryLogger.startTrajectory === "function" &&
     isTrajectoryLoggerEnabled(trajectoryLogger)
   ) {
     const stepId = crypto.randomUUID();
@@ -2260,12 +2333,16 @@ async function generateChatResponse(
     const mutableMeta = message.metadata as Record<string, unknown>;
     mutableMeta.trajectoryStepId = stepId;
 
+    fallbackTrajectoryStepId = stepId;
+
     try {
-      await trajectoryLogger.startTrajectory(stepId, {
-        agentId: runtime.agentId,
+      const startResult = await startApiMessageTrajectory({
+        logger: trajectoryLogger,
+        runtime,
+        stepId,
+        source: messageSource,
         roomId: message.roomId,
         entityId: message.entityId,
-        source: messageSource,
         metadata: {
           messageId: message.id,
           conversationId:
@@ -2274,9 +2351,10 @@ async function generateChatResponse(
               : undefined,
         },
       });
-      fallbackTrajectoryStepId = stepId;
+      mutableMeta.trajectoryStepId = startResult.stepId;
+      fallbackTrajectoryStepId = startResult.stepId;
+      fallbackTrajectoryEndTargetId = startResult.endTargetId;
     } catch (err) {
-      delete mutableMeta.trajectoryStepId;
       runtime.logger?.warn(
         {
           err,
@@ -2365,6 +2443,7 @@ async function generateChatResponse(
         ? messageMeta.trajectoryStepId
         : null;
     const stepIdToEnd =
+      fallbackTrajectoryEndTargetId ??
       fallbackTrajectoryStepId ??
       metadataTrajectoryStepId ??
       eventTrajectoryStepId;

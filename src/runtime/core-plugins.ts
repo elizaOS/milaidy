@@ -39,4 +39,5 @@ export const OPTIONAL_CORE_PLUGINS: readonly string[] = [
   "@elizaos/plugin-code", // code writing and file operations
   "@elizaos/plugin-edge-tts", // text-to-speech
   "@elizaos/plugin-mcp", // MCP protocol support
+  "@elizaos/plugin-computeruse", // computer use automation
 ];

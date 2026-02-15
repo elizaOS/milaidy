@@ -50,6 +50,7 @@ milady-workspace/
 
 # Temporary capture files
 temp_capture_*.jpg
+src/benchmark/mock-plugin.ts
 
 # Agent learning docs & knowledge base
 knowledge/

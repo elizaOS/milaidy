@@ -94,6 +94,7 @@ const FEATURE_PLUGINS: Record<string, string> = {
   fal: "@elizaos/plugin-fal",
   suno: "@elizaos/plugin-suno",
   vision: "@elizaos/plugin-vision",
+  computeruse: "@elizaos/plugin-computeruse",
 };
 
 function isConnectorConfigured(
