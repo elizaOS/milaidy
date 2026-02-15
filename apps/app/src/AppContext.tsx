@@ -2287,12 +2287,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setSkillsMarketplaceAction(`install:${item.id}`);
       try {
         await client.installMarketplaceSkill({
+          slug: item.slug ?? item.id,
           githubUrl: item.githubUrl,
           repository: item.repository,
           path: item.path ?? undefined,
           name: item.name,
           description: item.description,
-          source: "skillsmp",
+          source: item.source ?? "clawhub",
           autoRefresh: true,
         });
         await refreshSkills();
@@ -2349,7 +2350,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     async (skillId: string, name: string) => {
       setSkillsMarketplaceAction(`uninstall:${skillId}`);
       try {
-        await client.uninstallMarketplaceSkill(skillId, true);
+        await client.deleteSkill(skillId);
         await refreshSkills();
         setActionNotice(`Uninstalled skill: ${name}`, "success");
       } catch (err) {

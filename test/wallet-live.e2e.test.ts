@@ -43,7 +43,10 @@ const hasEvmKey = Boolean(process.env.EVM_PRIVATE_KEY?.trim());
 const hasSolKey = Boolean(process.env.SOLANA_PRIVATE_KEY?.trim());
 const hasAlchemy = Boolean(process.env.ALCHEMY_API_KEY?.trim());
 const hasHelius = Boolean(process.env.HELIUS_API_KEY?.trim());
-const canRun = hasEvmKey && hasSolKey && hasAlchemy && hasHelius;
+const isLiveTest =
+  process.env.MILAIDY_LIVE_TEST === "1" ||
+  process.env.MILAIDY_LIVE_TEST === "true";
+const canRun = isLiveTest && hasEvmKey && hasSolKey && hasAlchemy && hasHelius;
 const WALLET_EXPORT_TOKEN = `wallet-live-export-token-${Date.now()}`;
 
 function req(
@@ -312,8 +315,10 @@ describe.skipIf(!canRun)("Wallet live E2E — real keys, real APIs", () => {
     const { deriveEvmAddress, deriveSolanaAddress } = await import(
       "../src/api/wallet.js"
     );
-    expect(deriveEvmAddress(evmExport?.privateKey)).toBe(addrs.evmAddress);
-    expect(deriveSolanaAddress(solExport?.privateKey)).toBe(
+    expect(deriveEvmAddress(evmExport?.privateKey as string)).toBe(
+      addrs.evmAddress,
+    );
+    expect(deriveSolanaAddress(solExport?.privateKey as string)).toBe(
       addrs.solanaAddress,
     );
   });

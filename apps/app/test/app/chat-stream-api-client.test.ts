@@ -18,6 +18,36 @@ function buildSseResponse(chunks: string[]): Response {
   });
 }
 
+function buildControlledSseResponse(initialChunk: string): {
+  response: Response;
+  push: (chunk: string) => void;
+  close: () => void;
+} {
+  const encoder = new TextEncoder();
+  let streamController: ReadableStreamDefaultController<Uint8Array> | null = null;
+
+  const body = new ReadableStream<Uint8Array>({
+    start(controller) {
+      streamController = controller;
+      controller.enqueue(encoder.encode(initialChunk));
+    },
+  });
+
+  return {
+    response: new Response(body, {
+      status: 200,
+      headers: { "Content-Type": "text/event-stream" },
+    }),
+    push: (chunk: string) => {
+      if (!streamController) throw new Error("SSE stream controller missing");
+      streamController.enqueue(encoder.encode(chunk));
+    },
+    close: () => {
+      streamController?.close();
+    },
+  };
+}
+
 describe("MilaidyClient streaming chat endpoints", () => {
   const originalFetch = globalThis.fetch;
   let fetchMock: ReturnType<typeof vi.fn>;
@@ -88,6 +118,38 @@ describe("MilaidyClient streaming chat endpoints", () => {
 
     expect(tokens).toEqual(["A", "B"]);
     expect(result).toEqual({ text: "AB", agentName: "Milaidy" });
+  });
+
+  test("streams CRLF-delimited SSE events before stream completion", async () => {
+    const controlled = buildControlledSseResponse(
+      'data: {"type":"token","text":"Hello"}\r\n\r\n',
+    );
+    fetchMock.mockResolvedValue(controlled.response);
+
+    const client = new MilaidyClient("http://localhost:2138");
+    const tokens: string[] = [];
+
+    const pending = client.sendConversationMessageStream(
+      "conv-crlf",
+      "hi",
+      (token) => {
+        tokens.push(token);
+      },
+    );
+
+    await vi.waitFor(() => {
+      expect(tokens).toEqual(["Hello"]);
+    });
+
+    controlled.push(
+      'data: {"type":"done","fullText":"Hello","agentName":"Milaidy"}\r\n\r\n',
+    );
+    controlled.close();
+
+    await expect(pending).resolves.toEqual({
+      text: "Hello",
+      agentName: "Milaidy",
+    });
   });
 
   test("throws when SSE emits an error payload", async () => {

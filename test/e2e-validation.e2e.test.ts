@@ -38,6 +38,7 @@ import { startApiServer } from "../src/api/server.js";
 import { ensureAgentWorkspace } from "../src/providers/workspace.js";
 import {
   extractPlugin,
+  isPackageImportResolvable,
   type PluginModuleShape,
 } from "../src/test-support/test-helpers.js";
 
@@ -91,6 +92,24 @@ async function loadPlugin(name: string): Promise<Plugin | null> {
     logger.warn(`[e2e-validation] FAILED to load plugin ${name}: ${msg}`);
     return null;
   }
+}
+
+function partitionResolvablePlugins(names: readonly string[]): {
+  resolvable: string[];
+  missing: string[];
+} {
+  const resolvable: string[] = [];
+  const missing: string[] = [];
+
+  for (const name of names) {
+    if (isPackageImportResolvable(name)) {
+      resolvable.push(name);
+    } else {
+      missing.push(name);
+    }
+  }
+
+  return { resolvable, missing };
 }
 
 // ---------------------------------------------------------------------------
@@ -570,9 +589,23 @@ describe("Plugin Stress Test", () => {
   ];
 
   it("all core plugins load without crashing", async () => {
+    const { resolvable: corePlugins, missing: missingCorePlugins } =
+      partitionResolvablePlugins(ALL_CORE_PLUGINS);
+
+    logger.info(
+      `[e2e-validation] Core plugins resolvable in this workspace: ${corePlugins.length}/${ALL_CORE_PLUGINS.length}`,
+    );
+    if (missingCorePlugins.length > 0) {
+      logger.info(
+        `[e2e-validation] Core plugins missing from workspace: ${missingCorePlugins.join(", ")}`,
+      );
+    }
+
+    expect(corePlugins.length).toBeGreaterThan(0);
+
     const results: Array<{ name: string; ok: boolean; error?: string }> = [];
 
-    for (const name of ALL_CORE_PLUGINS) {
+    for (const name of corePlugins) {
       try {
         const mod = (await import(name)) as PluginModule;
         const p = extractPlugin(mod);
@@ -591,7 +624,7 @@ describe("Plugin Stress Test", () => {
     const failed = results.filter((r) => !r.ok);
 
     logger.info(
-      `[e2e-validation] Core plugins: ${loaded.length}/${ALL_CORE_PLUGINS.length} loaded`,
+      `[e2e-validation] Core plugins loaded: ${loaded.length}/${corePlugins.length}`,
     );
     if (failed.length > 0) {
       logger.warn(
@@ -599,9 +632,9 @@ describe("Plugin Stress Test", () => {
       );
     }
 
-    // At least 75% of core plugins should load (some may have optional deps)
+    // At least 75% of resolvable core plugins should load
     expect(loaded.length).toBeGreaterThanOrEqual(
-      Math.floor(ALL_CORE_PLUGINS.length * 0.75),
+      Math.floor(corePlugins.length * 0.75),
     );
   }, 60_000);
 
@@ -649,7 +682,14 @@ describe("Plugin Stress Test", () => {
   }, 30_000);
 
   it("simultaneous plugin loading does not cause import deadlocks", async () => {
-    const allPlugins = [...ALL_CORE_PLUGINS, ...PROVIDER_PLUGINS.slice(0, 3)];
+    const { resolvable: corePlugins } =
+      partitionResolvablePlugins(ALL_CORE_PLUGINS);
+    const { resolvable: providerPlugins } = partitionResolvablePlugins(
+      PROVIDER_PLUGINS.slice(0, 3),
+    );
+    const allPlugins = [...corePlugins, ...providerPlugins];
+    expect(allPlugins.length).toBeGreaterThan(0);
+
     const startTime = performance.now();
 
     // Load all at once — this should NOT deadlock
@@ -670,8 +710,10 @@ describe("Plugin Stress Test", () => {
 
     // Should complete within 60s (deadlock would exceed this)
     expect(elapsed).toBeLessThan(60_000);
-    // At least half should succeed
-    expect(fulfilled.length).toBeGreaterThan(allPlugins.length / 2);
+    // At least 75% of resolvable plugins should load in parallel.
+    expect(fulfilled.length).toBeGreaterThanOrEqual(
+      Math.floor(allPlugins.length * 0.75),
+    );
   }, 90_000);
 });
 

@@ -980,17 +980,57 @@ export function registerPluginsCli(program: Command): void {
 export function findPluginExport(
   mod: Record<string, unknown>,
 ): { name: string; description: string } | null {
-  const isPlugin = (v: unknown): v is { name: string; description: string } =>
+  const isPluginBasic = (
+    v: unknown,
+  ): v is { name: string; description: string } =>
     v !== null &&
     typeof v === "object" &&
     typeof (v as Record<string, unknown>).name === "string" &&
     typeof (v as Record<string, unknown>).description === "string";
 
-  if (isPlugin(mod.default)) return mod.default;
-  if (isPlugin(mod.plugin)) return mod.plugin;
-  if (isPlugin(mod)) return mod as { name: string; description: string };
-  for (const value of Object.values(mod)) {
-    if (isPlugin(value)) return value;
+  const hasPluginCapabilities = (v: unknown): boolean => {
+    if (v === null || typeof v !== "object") return false;
+    const obj = v as Record<string, unknown>;
+    return (
+      Array.isArray(obj.services) ||
+      Array.isArray(obj.providers) ||
+      Array.isArray(obj.actions) ||
+      Array.isArray(obj.routes) ||
+      Array.isArray(obj.events) ||
+      typeof obj.init === "function"
+    );
+  };
+
+  const isPluginStrict = (
+    v: unknown,
+  ): v is { name: string; description: string } =>
+    isPluginBasic(v) && hasPluginCapabilities(v);
+
+  if (isPluginStrict(mod.default)) return mod.default;
+  if (isPluginStrict(mod.plugin)) return mod.plugin;
+  if (isPluginStrict(mod)) return mod as { name: string; description: string };
+
+  const keys = Object.keys(mod).filter(
+    (key) => key !== "default" && key !== "plugin",
+  );
+  const preferred = keys.filter(
+    (key) => /plugin$/i.test(key) || /^plugin/i.test(key),
+  );
+  const fallback = keys.filter((key) => !preferred.includes(key));
+
+  for (const key of [...preferred, ...fallback]) {
+    const value = mod[key];
+    if (isPluginStrict(value)) return value;
   }
+
+  for (const key of preferred) {
+    const value = mod[key];
+    if (isPluginBasic(value)) return value;
+  }
+
+  if (isPluginBasic(mod.default)) return mod.default;
+  if (isPluginBasic(mod.plugin)) return mod.plugin;
+  if (isPluginBasic(mod)) return mod as { name: string; description: string };
+
   return null;
 }

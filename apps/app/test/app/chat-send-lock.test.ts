@@ -91,6 +91,17 @@ type ProbeApi = {
   setChatInput: (text: string) => void;
   handleSelectConversation: (id: string) => Promise<void>;
   handleChatSend: () => Promise<void>;
+  snapshot: () => {
+    chatSending: boolean;
+    chatFirstTokenReceived: boolean;
+    conversationMessages: Array<{
+      id: string;
+      role: "user" | "assistant";
+      text: string;
+      timestamp: number;
+      source?: string;
+    }>;
+  };
 };
 
 function Probe(props: { onReady: (api: ProbeApi) => void }) {
@@ -102,6 +113,17 @@ function Probe(props: { onReady: (api: ProbeApi) => void }) {
       setChatInput: (text: string) => app.setState("chatInput", text),
       handleSelectConversation: app.handleSelectConversation,
       handleChatSend: () => app.handleChatSend("simple"),
+      snapshot: () => ({
+        chatSending: app.chatSending,
+        chatFirstTokenReceived: app.chatFirstTokenReceived,
+        conversationMessages: app.conversationMessages.map((message) => ({
+          id: message.id,
+          role: message.role,
+          text: message.text,
+          timestamp: message.timestamp,
+          source: message.source,
+        })),
+      }),
     });
   }, [app, onReady]);
 
@@ -276,6 +298,86 @@ describe("chat send locking", () => {
     });
 
     expect(mockClient.sendConversationMessageStream).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      tree!.unmount();
+    });
+  });
+
+  it("keeps optimistic user message and updates assistant text as stream chunks arrive", async () => {
+    const deferred = createDeferred<{ text: string; agentName: string }>();
+    mockClient.sendConversationMessageStream.mockImplementation(
+      async (
+        _conversationId: string,
+        _text: string,
+        onToken: (token: string) => void,
+      ) => {
+        onToken("Hello");
+        return deferred.promise;
+      },
+    );
+
+    let api: ProbeApi | null = null;
+    let tree: TestRenderer.ReactTestRenderer;
+
+    await act(async () => {
+      tree = TestRenderer.create(
+        React.createElement(
+          AppProvider,
+          null,
+          React.createElement(Probe, {
+            onReady: (nextApi) => {
+              api = nextApi;
+            },
+          }),
+        ),
+      );
+    });
+
+    expect(api).not.toBeNull();
+
+    await act(async () => {
+      await api!.handleSelectConversation("conv-1");
+      api!.setChatInput("stream me");
+    });
+
+    let sendPromise: Promise<void> | null = null;
+    await act(async () => {
+      sendPromise = api!.handleChatSend();
+      await Promise.resolve();
+    });
+
+    await vi.waitFor(() => {
+      const snapshot = api!.snapshot();
+      const optimisticUser = snapshot.conversationMessages.find(
+        (message) => message.role === "user" && message.text === "stream me",
+      );
+      const streamedAssistant = snapshot.conversationMessages.find(
+        (message) =>
+          message.role === "assistant" &&
+          message.id.startsWith("temp-resp-"),
+      );
+
+      expect(optimisticUser).toBeDefined();
+      expect(streamedAssistant?.text).toBe("Hello");
+      expect(snapshot.chatSending).toBe(true);
+      expect(snapshot.chatFirstTokenReceived).toBe(true);
+    });
+
+    await act(async () => {
+      deferred.resolve({ text: "Hello world", agentName: "Milaidy" });
+      await sendPromise;
+    });
+
+    const finalSnapshot = api!.snapshot();
+    const finalAssistant = finalSnapshot.conversationMessages.find(
+      (message) =>
+        message.role === "assistant" && message.id.startsWith("temp-resp-"),
+    );
+
+    expect(finalAssistant?.text).toBe("Hello world");
+    expect(finalSnapshot.chatSending).toBe(false);
+    expect(finalSnapshot.chatFirstTokenReceived).toBe(false);
 
     await act(async () => {
       tree!.unmount();

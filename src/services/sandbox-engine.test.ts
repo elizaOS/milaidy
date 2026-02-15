@@ -82,7 +82,9 @@ describe("sandbox-engine command safety", () => {
     expect(call[0]).toBe("docker");
     expect(Array.isArray(call[1])).toBe(true);
     expect(call[1]).toContain("repo/image; touch /tmp/injected");
-    expect((call[1] as string[]).join(" ")).toContain("repo/image; touch /tmp/injected");
+    expect((call[1] as string[]).join(" ")).toContain(
+      "repo/image; touch /tmp/injected",
+    );
     expect((call[1] as string[]).join(" ")).not.toContain(" && ");
   });
 

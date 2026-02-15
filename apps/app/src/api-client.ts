@@ -868,10 +868,11 @@ export interface CloudLoginPollResponse { status: "pending" | "authenticated" | 
 // Skills Marketplace
 export interface SkillMarketplaceResult {
   id: string;
+  slug?: string;
   name: string;
   description: string;
-  githubUrl: string;
-  repository: string;
+  githubUrl?: string;
+  repository?: string;
   path?: string;
   tags?: string[];
   score?: number;
@@ -2351,7 +2352,8 @@ export class MilaidyClient {
   }
 
   async installMarketplaceSkill(data: {
-    githubUrl: string;
+    slug?: string;
+    githubUrl?: string;
     repository?: string;
     path?: string;
     name?: string;
@@ -2363,9 +2365,9 @@ export class MilaidyClient {
   }
 
   async uninstallMarketplaceSkill(skillId: string, autoRefresh: boolean): Promise<void> {
-    await this.fetch(`/api/skills/marketplace/${encodeURIComponent(skillId)}`, {
-      method: "DELETE",
-      body: JSON.stringify({ autoRefresh }),
+    await this.fetch("/api/skills/marketplace/uninstall", {
+      method: "POST",
+      body: JSON.stringify({ id: skillId, autoRefresh }),
     });
   }
 
@@ -2810,6 +2812,20 @@ export class MilaidyClient {
     let doneText: string | null = null;
     let doneAgentName: string | null = null;
 
+    const findSseEventBreak = (
+      chunkBuffer: string,
+    ): { index: number; length: number } | null => {
+      const lfBreak = chunkBuffer.indexOf("\n\n");
+      const crlfBreak = chunkBuffer.indexOf("\r\n\r\n");
+
+      if (lfBreak === -1 && crlfBreak === -1) return null;
+      if (lfBreak === -1) return { index: crlfBreak, length: 4 };
+      if (crlfBreak === -1) return { index: lfBreak, length: 2 };
+      return lfBreak < crlfBreak
+        ? { index: lfBreak, length: 2 }
+        : { index: crlfBreak, length: 4 };
+    };
+
     const parseDataLine = (line: string): void => {
       const payload = line.startsWith("data:") ? line.slice(5).trim() : "";
       if (!payload) return;
@@ -2866,20 +2882,20 @@ export class MilaidyClient {
       if (done) break;
 
       buffer += decoder.decode(value, { stream: true });
-      let eventBreak = buffer.indexOf("\n\n");
-      while (eventBreak !== -1) {
-        const rawEvent = buffer.slice(0, eventBreak);
-        buffer = buffer.slice(eventBreak + 2);
-        for (const line of rawEvent.split("\n")) {
+      let eventBreak = findSseEventBreak(buffer);
+      while (eventBreak) {
+        const rawEvent = buffer.slice(0, eventBreak.index);
+        buffer = buffer.slice(eventBreak.index + eventBreak.length);
+        for (const line of rawEvent.split(/\r?\n/)) {
           if (!line.startsWith("data:")) continue;
           parseDataLine(line);
         }
-        eventBreak = buffer.indexOf("\n\n");
+        eventBreak = findSseEventBreak(buffer);
       }
     }
 
     if (buffer.trim()) {
-      for (const line of buffer.split("\n")) {
+      for (const line of buffer.split(/\r?\n/)) {
         if (line.startsWith("data:")) parseDataLine(line);
       }
     }

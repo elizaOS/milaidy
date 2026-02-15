@@ -71,6 +71,11 @@ describe("createTriggerTaskAction", () => {
     runtime = runtimePartial as IAgentRuntime;
   });
 
+  test("uses a trigger-specific action name", () => {
+    expect(createTriggerTaskAction.name).toBe("CREATE_TRIGGER_TASK");
+    expect(createTriggerTaskAction.similes ?? []).not.toContain("CREATE_TASK");
+  });
+
   test("validates trigger language when autonomy is enabled", async () => {
     const valid = await createTriggerTaskAction.validate(
       runtime,

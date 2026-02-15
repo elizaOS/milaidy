@@ -29,6 +29,7 @@ import {
 } from "@elizaos/core";
 import { emoteAction } from "../actions/emote.js";
 import { installPluginAction } from "../actions/install-plugin.js";
+import { logLevelAction } from "../actions/log-level.js";
 import { mediaActions } from "../actions/media.js";
 import { restartAction } from "../actions/restart.js";
 import { terminalAction } from "../actions/terminal.js";
@@ -65,6 +66,55 @@ interface TrajectoryLoggerLike {
     },
   ): Promise<string>;
   endTrajectory(stepId: string, status?: string): Promise<void>;
+}
+
+function resolveTrajectoryLogger(
+  runtime: IAgentRuntime,
+): TrajectoryLoggerLike | null {
+  const runtimeLike = runtime as unknown as {
+    getServicesByType?: (serviceType: string) => unknown;
+    getService?: (serviceType: string) => unknown;
+  };
+  const candidates: TrajectoryLoggerLike[] = [];
+
+  if (typeof runtimeLike.getServicesByType === "function") {
+    const byType = runtimeLike.getServicesByType("trajectory_logger");
+    if (Array.isArray(byType) && byType.length > 0) {
+      for (const service of byType) {
+        if (service) candidates.push(service as TrajectoryLoggerLike);
+      }
+    }
+    if (byType && !Array.isArray(byType)) {
+      candidates.push(byType as TrajectoryLoggerLike);
+    }
+  }
+
+  if (typeof runtimeLike.getService === "function") {
+    const single = runtimeLike.getService("trajectory_logger");
+    if (single) candidates.push(single as TrajectoryLoggerLike);
+  }
+
+  let best: TrajectoryLoggerLike | null = null;
+  let bestScore = -1;
+  for (const candidate of candidates) {
+    const candidateWithRuntime = candidate as TrajectoryLoggerLike & {
+      runtime?: { adapter?: unknown };
+      initialized?: boolean;
+    };
+    let score = 0;
+    if (typeof candidate.startTrajectory === "function") score += 3;
+    if (typeof candidate.endTrajectory === "function") score += 3;
+    if (candidateWithRuntime.initialized === true) score += 3;
+    if (candidateWithRuntime.runtime?.adapter) score += 3;
+    const enabled =
+      typeof candidate.isEnabled === "function" ? candidate.isEnabled() : true;
+    if (enabled) score += 1;
+    if (score > bestScore) {
+      best = candidate;
+      bestScore = score;
+    }
+  }
+  return best;
 }
 
 import { generateCatalogPrompt } from "../shared/ui-catalog-prompt.js";
@@ -422,6 +472,7 @@ export function createMilaidyPlugin(config?: MilaidyPluginConfig): Plugin {
       emoteAction,
       terminalAction,
       installPluginAction,
+      logLevelAction,
       ...mediaActions,
       ...loadCustomActions(),
     ],
@@ -458,9 +509,7 @@ export function createMilaidyPlugin(config?: MilaidyPluginConfig): Plugin {
 
           // Create a trajectory for this message if logging is enabled
           // TrajectoryLoggerService is provided by @elizaos/plugin-trajectory-logger
-          const trajectoryLogger = runtime.getService(
-            "trajectory_logger",
-          ) as TrajectoryLoggerLike | null;
+          const trajectoryLogger = resolveTrajectoryLogger(runtime);
 
           if (trajectoryLogger?.isEnabled()) {
             try {
@@ -521,9 +570,7 @@ export function createMilaidyPlugin(config?: MilaidyPluginConfig): Plugin {
           if (!trajectoryStepId) return;
 
           // TrajectoryLoggerService is provided by @elizaos/plugin-trajectory-logger
-          const trajectoryLogger = runtime.getService(
-            "trajectory_logger",
-          ) as TrajectoryLoggerLike | null;
+          const trajectoryLogger = resolveTrajectoryLogger(runtime);
 
           if (trajectoryLogger) {
             try {

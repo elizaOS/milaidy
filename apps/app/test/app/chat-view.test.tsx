@@ -22,11 +22,13 @@ interface ChatViewContextStub {
   selectedVrmIndex: number;
 }
 
-const mockClient = {
-  getConfig: vi.fn(),
-};
-const mockUseApp = vi.fn();
-const mockUseVoiceChat = vi.fn();
+const { mockClient, mockUseApp, mockUseVoiceChat } = vi.hoisted(() => ({
+  mockClient: {
+    getConfig: vi.fn(),
+  },
+  mockUseApp: vi.fn(),
+  mockUseVoiceChat: vi.fn(),
+}));
 
 vi.mock("../../src/AppContext", () => ({
   useApp: () => mockUseApp(),
@@ -131,5 +133,30 @@ describe("ChatView", () => {
       (node) => node.type === "div" && text(node) === "Milaidy",
     ).length;
     expect(headerCount).toBe(1);
+  });
+
+  it("keeps optimistic user text visible before the first assistant token", async () => {
+    mockUseApp.mockReturnValue(
+      createContext({
+        chatSending: true,
+        chatFirstTokenReceived: false,
+        conversationMessages: [
+          { id: "u1", role: "user", text: "stream me", timestamp: 1 },
+          { id: "a-temp", role: "assistant", text: "", timestamp: 2 },
+        ],
+      }),
+    );
+
+    let tree: TestRenderer.ReactTestRenderer;
+    await act(async () => {
+      tree = TestRenderer.create(React.createElement(ChatView));
+    });
+    await flush();
+
+    const root = tree!.root;
+    const userTextNodes = root.findAll(
+      (node) => node.type === "span" && text(node) === "stream me",
+    );
+    expect(userTextNodes.length).toBe(1);
   });
 });

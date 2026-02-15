@@ -19,7 +19,10 @@ import {
   buildCharacterFromConfig,
   CUSTOM_PLUGINS_DIRNAME,
   collectPluginNames,
+  findRuntimePluginExport,
+  isRecoverablePgliteInitError,
   mergeDropInPlugins,
+  repairBrokenInstallRecord,
   resolvePackageEntry,
   resolvePrimaryModel,
   scanDropInPlugins,
@@ -157,6 +160,24 @@ describe("collectPluginNames", () => {
     expect(names.has("@milaidy/plugin-telegram-enhanced")).toBe(true);
     expect(names.has("@elizaos/plugin-discord")).toBe(true);
     expect(names.has("@elizaos/plugin-slack")).toBe(false);
+  });
+
+  it("treats plugins.allow as additive instead of filtering connector plugins", () => {
+    const config = {
+      plugins: { allow: ["browser"] },
+      connectors: { discord: { token: "tok" } },
+    } as unknown as MilaidyConfig;
+    const names = collectPluginNames(config);
+    expect(names.has("@elizaos/plugin-browser")).toBe(true);
+    expect(names.has("@elizaos/plugin-discord")).toBe(true);
+  });
+
+  it("normalizes short plugin IDs in plugins.allow", () => {
+    const config = {
+      plugins: { allow: ["discord"] },
+    } as unknown as MilaidyConfig;
+    const names = collectPluginNames(config);
+    expect(names.has("@elizaos/plugin-discord")).toBe(true);
   });
 
   it("uses enhanced Telegram plugin when telegram is enabled via plugins.entries", () => {
@@ -346,11 +367,69 @@ describe("collectPluginNames", () => {
 });
 
 // ---------------------------------------------------------------------------
+// repairBrokenInstallRecord
+// ---------------------------------------------------------------------------
+
+describe("repairBrokenInstallRecord", () => {
+  it("clears a stale installPath and marks source as npm", () => {
+    const config = {
+      plugins: {
+        installs: {
+          "@elizaos/plugin-discord": {
+            source: "path",
+            installPath: "/tmp/broken-plugin",
+            version: "2.0.0-alpha.4",
+          },
+        },
+      },
+    } as unknown as MilaidyConfig;
+
+    const changed = repairBrokenInstallRecord(
+      config,
+      "@elizaos/plugin-discord",
+    );
+
+    expect(changed).toBe(true);
+    expect(
+      config.plugins?.installs?.["@elizaos/plugin-discord"]?.installPath,
+    ).toBe("");
+    expect(config.plugins?.installs?.["@elizaos/plugin-discord"]?.source).toBe(
+      "npm",
+    );
+  });
+
+  it("returns false when no install record exists", () => {
+    const config = { plugins: { installs: {} } } as unknown as MilaidyConfig;
+    expect(repairBrokenInstallRecord(config, "@elizaos/plugin-discord")).toBe(
+      false,
+    );
+  });
+
+  it("returns false when installPath is already empty", () => {
+    const config = {
+      plugins: {
+        installs: {
+          "@elizaos/plugin-discord": {
+            source: "npm",
+            installPath: "",
+          },
+        },
+      },
+    } as unknown as MilaidyConfig;
+
+    expect(repairBrokenInstallRecord(config, "@elizaos/plugin-discord")).toBe(
+      false,
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
 // applyConnectorSecretsToEnv
 // ---------------------------------------------------------------------------
 
 describe("applyConnectorSecretsToEnv", () => {
   const envKeys = [
+    "DISCORD_API_TOKEN",
     "DISCORD_BOT_TOKEN",
     "TELEGRAM_BOT_TOKEN",
     "SLACK_BOT_TOKEN",
@@ -375,7 +454,17 @@ describe("applyConnectorSecretsToEnv", () => {
       connectors: { discord: { token: "discord-tok-123" } },
     } as MilaidyConfig;
     applyConnectorSecretsToEnv(config);
+    expect(process.env.DISCORD_API_TOKEN).toBe("discord-tok-123");
     expect(process.env.DISCORD_BOT_TOKEN).toBe("discord-tok-123");
+  });
+
+  it("copies legacy Discord botToken from config to env", () => {
+    const config = {
+      connectors: { discord: { botToken: "discord-tok-legacy" } },
+    } as unknown as MilaidyConfig;
+    applyConnectorSecretsToEnv(config);
+    expect(process.env.DISCORD_API_TOKEN).toBe("discord-tok-legacy");
+    expect(process.env.DISCORD_BOT_TOKEN).toBe("discord-tok-legacy");
   });
 
   it("copies Telegram botToken from config to env", () => {
@@ -559,11 +648,47 @@ describe("applyDatabaseConfigToEnv", () => {
 });
 
 // ---------------------------------------------------------------------------
+// isRecoverablePgliteInitError
+// ---------------------------------------------------------------------------
+
+describe("isRecoverablePgliteInitError", () => {
+  it("returns true for the known PGLite abort + migrations signature", () => {
+    const err = new Error(
+      "Failed query: CREATE SCHEMA IF NOT EXISTS migrations",
+      {
+        cause: new Error(
+          "RuntimeError: Aborted(). Build with -sASSERTIONS for more info.",
+        ),
+      },
+    );
+    expect(isRecoverablePgliteInitError(err)).toBe(true);
+  });
+
+  it("returns true when abort and pglite both appear in the error chain", () => {
+    const err = new Error("PGlite adapter crashed", {
+      cause: new Error("Aborted(). Build with -sASSERTIONS for more info."),
+    });
+    expect(isRecoverablePgliteInitError(err)).toBe(true);
+  });
+
+  it("returns false for unrelated errors", () => {
+    expect(isRecoverablePgliteInitError(new Error("Connection refused"))).toBe(
+      false,
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
 // buildCharacterFromConfig
 // ---------------------------------------------------------------------------
 
 describe("buildCharacterFromConfig", () => {
-  const envKeys = ["ANTHROPIC_API_KEY", "OPENAI_API_KEY"];
+  const envKeys = [
+    "ANTHROPIC_API_KEY",
+    "OPENAI_API_KEY",
+    "DISCORD_API_TOKEN",
+    "DISCORD_APPLICATION_ID",
+  ];
   const snap = envSnapshot(envKeys);
   beforeEach(() => {
     snap.save();
@@ -595,9 +720,13 @@ describe("buildCharacterFromConfig", () => {
   it("collects API keys from process.env as secrets", () => {
     process.env.ANTHROPIC_API_KEY = "sk-ant-test";
     process.env.OPENAI_API_KEY = "sk-oai-test";
+    process.env.DISCORD_API_TOKEN = "discord-api-test";
+    process.env.DISCORD_APPLICATION_ID = "discord-app-123";
     const char = buildCharacterFromConfig({} as MilaidyConfig);
     expect(char.secrets?.ANTHROPIC_API_KEY).toBe("sk-ant-test");
     expect(char.secrets?.OPENAI_API_KEY).toBe("sk-oai-test");
+    expect(char.secrets?.DISCORD_API_TOKEN).toBe("discord-api-test");
+    expect(char.secrets?.DISCORD_APPLICATION_ID).toBe("discord-app-123");
   });
 
   it("excludes empty or whitespace-only env values from secrets", () => {
@@ -1180,6 +1309,26 @@ describe("findPluginExport", () => {
     expect(result).toEqual({ name: "custom", description: "arbitrary named" });
   });
 
+  it("prefers named plugin export over provider-like export", () => {
+    const result = findPluginExport({
+      documentsProvider: {
+        name: "AVAILABLE_DOCUMENTS",
+        description: "Provider export",
+        get: async () => ({}),
+      },
+      knowledgePlugin: {
+        name: "knowledge",
+        description: "Plugin export",
+        services: [],
+      },
+    });
+    expect(result).toEqual({
+      name: "knowledge",
+      description: "Plugin export",
+      services: [],
+    });
+  });
+
   it("returns null when no valid export exists", () => {
     const result = findPluginExport({
       default: "not an object",
@@ -1234,6 +1383,49 @@ describe("findPluginExport", () => {
       },
     });
     expect(result?.name).toBe("rich");
+  });
+});
+
+describe("findRuntimePluginExport", () => {
+  it("prefers plugin export over provider-like exports", () => {
+    const providerLike = {
+      name: "AVAILABLE_DOCUMENTS",
+      description: "Provider export",
+      get: async () => ({}),
+    };
+    const pluginLike = {
+      name: "knowledge",
+      description: "Knowledge plugin",
+      services: [],
+      providers: [],
+    };
+
+    const result = findRuntimePluginExport({
+      documentsProvider: providerLike,
+      knowledgePlugin: pluginLike,
+    });
+
+    expect(result).toBe(pluginLike);
+  });
+
+  it("uses default export when available", () => {
+    const defaultPlugin = {
+      name: "default-plugin",
+      description: "Default plugin export",
+      providers: [],
+    };
+    const namedPlugin = {
+      name: "named-plugin",
+      description: "Named plugin export",
+      services: [],
+    };
+
+    const result = findRuntimePluginExport({
+      default: defaultPlugin,
+      namedPlugin,
+    });
+
+    expect(result).toBe(defaultPlugin);
   });
 });
 

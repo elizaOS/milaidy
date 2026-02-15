@@ -111,7 +111,8 @@ function getChildProcessErrorText(error: unknown): string {
     .map((value) => {
       if (value === undefined || value === null) return "";
       if (typeof value === "string") return value;
-      if (typeof value === "object" && "toString" in value) return value.toString();
+      if (typeof value === "object" && "toString" in value)
+        return value.toString();
       return "";
     })
     .filter(Boolean)
@@ -123,11 +124,11 @@ function getChildProcessErrorText(error: unknown): string {
 function isContainerVersionUnsupported(error: unknown): boolean {
   const errorText = getChildProcessErrorText(error);
   return (
-    errorText.includes("unknown option")
-    || errorText.includes("unrecognized option")
-    || errorText.includes("invalid option")
-    || errorText.includes("unknown flag")
-    || errorText.includes("no such option")
+    errorText.includes("unknown option") ||
+    errorText.includes("unrecognized option") ||
+    errorText.includes("invalid option") ||
+    errorText.includes("unknown flag") ||
+    errorText.includes("no such option")
   );
 }
 
@@ -326,7 +327,6 @@ export interface ISandboxEngine {
   listContainers(prefix: string): string[];
   healthCheck(id: string): Promise<boolean>;
 }
-
 
 export class DockerEngine implements ISandboxEngine {
   readonly engineType: SandboxEngineType = "docker";

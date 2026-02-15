@@ -83,7 +83,7 @@ function makeRecord(
     path: overrides.path ?? ".",
     installPath: overrides.installPath ?? `/placeholder/${id}`,
     installedAt: overrides.installedAt ?? new Date().toISOString(),
-    source: overrides.source ?? "skillsmp",
+    source: overrides.source ?? "clawhub",
   };
 }
 
@@ -93,15 +93,20 @@ function makeRecord(
 
 let tmpDir: string;
 const savedApiKey = process.env.SKILLSMP_API_KEY;
+const savedRegistry = process.env.SKILLS_REGISTRY;
 
 beforeEach(async () => {
   tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "skill-mp-test-"));
+  delete process.env.SKILLSMP_API_KEY;
+  delete process.env.SKILLS_REGISTRY;
 });
 
 afterEach(async () => {
   vi.unstubAllGlobals();
   if (savedApiKey === undefined) delete process.env.SKILLSMP_API_KEY;
   else process.env.SKILLSMP_API_KEY = savedApiKey;
+  if (savedRegistry === undefined) delete process.env.SKILLS_REGISTRY;
+  else process.env.SKILLS_REGISTRY = savedRegistry;
   await fs.rm(tmpDir, { recursive: true, force: true });
 });
 
@@ -110,15 +115,15 @@ afterEach(async () => {
 // ============================================================================
 
 describe("searchSkillsMarketplace", () => {
-  it("throws when SKILLSMP_API_KEY is not set", async () => {
-    delete process.env.SKILLSMP_API_KEY;
+  it("does not require API key for default clawhub marketplace", async () => {
+    const mockFetch = vi.fn().mockResolvedValue(fakeResponse({ results: [] }));
+    vi.stubGlobal("fetch", mockFetch);
 
-    await expect(searchSkillsMarketplace("test")).rejects.toThrow(
-      "SKILLSMP_API_KEY",
-    );
+    await expect(searchSkillsMarketplace("test")).resolves.toEqual([]);
   });
 
-  it("sends Bearer token in Authorization header", async () => {
+  it("sends Bearer token in Authorization header for legacy skillsmp", async () => {
+    process.env.SKILLS_REGISTRY = "https://skillsmp.com";
     process.env.SKILLSMP_API_KEY = "sk-test-key";
     const mockFetch = vi.fn().mockResolvedValue(fakeResponse({ results: [] }));
     vi.stubGlobal("fetch", mockFetch);
@@ -141,19 +146,18 @@ describe("searchSkillsMarketplace", () => {
     expect(reqInit.signal).toBeInstanceOf(AbortSignal);
   });
 
-  it("uses /search endpoint for keyword search", async () => {
-    process.env.SKILLSMP_API_KEY = "sk-test";
+  it("uses /api/v1/search endpoint for clawhub keyword search", async () => {
     const mockFetch = vi.fn().mockResolvedValue(fakeResponse({ results: [] }));
     vi.stubGlobal("fetch", mockFetch);
 
     await searchSkillsMarketplace("my query", { aiSearch: false });
 
     const url = String(mockFetch.mock.calls[0][0]);
-    expect(url).toContain("/api/v1/skills/search");
-    expect(url).not.toContain("/ai-search");
+    expect(url).toContain("/api/v1/search");
   });
 
-  it("uses /ai-search endpoint when aiSearch is true", async () => {
+  it("uses /ai-search endpoint when aiSearch is true for legacy skillsmp", async () => {
+    process.env.SKILLS_REGISTRY = "https://skillsmp.com";
     process.env.SKILLSMP_API_KEY = "sk-test";
     const mockFetch = vi.fn().mockResolvedValue(fakeResponse({ results: [] }));
     vi.stubGlobal("fetch", mockFetch);
@@ -165,7 +169,6 @@ describe("searchSkillsMarketplace", () => {
   });
 
   it("includes query and limit as URL search params", async () => {
-    process.env.SKILLSMP_API_KEY = "sk-test";
     const mockFetch = vi.fn().mockResolvedValue(fakeResponse({ results: [] }));
     vi.stubGlobal("fetch", mockFetch);
 
@@ -177,7 +180,6 @@ describe("searchSkillsMarketplace", () => {
   });
 
   it("clamps limit to [1, 50] range", async () => {
-    process.env.SKILLSMP_API_KEY = "sk-test";
     const mockFetch = vi.fn().mockResolvedValue(fakeResponse({ results: [] }));
     vi.stubGlobal("fetch", mockFetch);
 
@@ -188,7 +190,6 @@ describe("searchSkillsMarketplace", () => {
   });
 
   it("normalizes results from 'results' response shape", async () => {
-    process.env.SKILLSMP_API_KEY = "sk-test";
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue(
@@ -204,14 +205,40 @@ describe("searchSkillsMarketplace", () => {
     const items = await searchSkillsMarketplace("test");
 
     expect(items).toHaveLength(2);
-    expect(items[0].source).toBe("skillsmp");
+    expect(items[0].source).toBe("clawhub");
     expect(items[0].repository).toBe("owner/skill-one");
     expect(items[0].githubUrl).toBe("https://github.com/owner/skill-one");
     expect(items[1].repository).toBe("owner/skill-two");
   });
 
+  it("normalizes clawhub slug/displayName/summary results", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        fakeResponse({
+          results: [
+            {
+              slug: "git-essentials",
+              displayName: "Git Essentials",
+              summary: "Essential Git commands.",
+              score: 0.82,
+            },
+          ],
+        }),
+      ),
+    );
+
+    const items = await searchSkillsMarketplace("git");
+
+    expect(items).toHaveLength(1);
+    expect(items[0].id).toBe("git-essentials");
+    expect(items[0].slug).toBe("git-essentials");
+    expect(items[0].name).toBe("Git Essentials");
+    expect(items[0].description).toBe("Essential Git commands.");
+    expect(items[0].repository).toBeUndefined();
+  });
+
   it("normalizes results from 'skills' response shape", async () => {
-    process.env.SKILLSMP_API_KEY = "sk-test";
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue(
@@ -228,7 +255,6 @@ describe("searchSkillsMarketplace", () => {
   });
 
   it("normalizes results from 'data' response shape", async () => {
-    process.env.SKILLSMP_API_KEY = "sk-test";
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue(
@@ -245,7 +271,6 @@ describe("searchSkillsMarketplace", () => {
   });
 
   it("normalizes results from nested 'data.results' shape", async () => {
-    process.env.SKILLSMP_API_KEY = "sk-test";
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue(

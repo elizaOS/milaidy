@@ -36,6 +36,23 @@ interface TrajectoryLoggerService {
   ): Promise<{ data: string; filename: string; mimeType: string }>;
 }
 
+function isRouteCompatibleTrajectoryLogger(
+  candidate: unknown,
+): candidate is TrajectoryLoggerService {
+  if (!candidate || typeof candidate !== "object") return false;
+  const logger = candidate as Partial<TrajectoryLoggerService>;
+  return (
+    typeof logger.isEnabled === "function" &&
+    typeof logger.setEnabled === "function" &&
+    typeof logger.listTrajectories === "function" &&
+    typeof logger.getTrajectoryDetail === "function" &&
+    typeof logger.getStats === "function" &&
+    typeof logger.deleteTrajectories === "function" &&
+    typeof logger.clearAllTrajectories === "function" &&
+    typeof logger.exportTrajectories === "function"
+  );
+}
+
 interface TrajectoryListOptions {
   limit?: number;
   offset?: number;
@@ -199,6 +216,197 @@ interface UITrajectoryDetailResult {
   providerAccesses: UIProviderAccess[];
 }
 
+interface RawSqlTrajectoryLoggerBridge {
+  executeRawSql?: (
+    sql: string,
+  ) => Promise<{ rows?: unknown[] } | unknown[] | null | undefined>;
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return value as Record<string, unknown>;
+}
+
+function readRecordValue(
+  record: Record<string, unknown>,
+  keys: string[],
+): unknown {
+  for (const key of keys) {
+    if (key in record) return record[key];
+  }
+  return undefined;
+}
+
+function toArray(value: unknown): unknown[] {
+  if (Array.isArray(value)) return value;
+  return [];
+}
+
+function toNumber(value: unknown, fallback = 0): number {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return fallback;
+}
+
+function toOptionalNumber(value: unknown): number | undefined {
+  if (value === undefined || value === null) return undefined;
+  const parsed = toNumber(value, Number.NaN);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function toText(value: unknown, fallback = ""): string {
+  if (typeof value === "string") return value;
+  if (value === null || value === undefined) return fallback;
+  return String(value);
+}
+
+function toNullableString(value: unknown): string | null {
+  const normalized = toText(value, "").trim();
+  return normalized.length > 0 ? normalized : null;
+}
+
+function toObject(value: unknown): Record<string, unknown> | undefined {
+  const record = asRecord(value);
+  return record ?? undefined;
+}
+
+function parseJsonValue(value: unknown): unknown {
+  if (typeof value !== "string") return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
+}
+
+function stepCalls(step: unknown): unknown[] {
+  const record = asRecord(step);
+  if (!record) return [];
+  return toArray(
+    parseJsonValue(
+      readRecordValue(record, ["llmCalls", "llm_calls", "calls", "llm"]),
+    ),
+  );
+}
+
+function stepProviderAccesses(step: unknown): unknown[] {
+  const record = asRecord(step);
+  if (!record) return [];
+  return toArray(
+    parseJsonValue(
+      readRecordValue(record, [
+        "providerAccesses",
+        "provider_accesses",
+        "providerLogs",
+      ]),
+    ),
+  );
+}
+
+function hasTrajectoryCallData(traj: Trajectory): boolean {
+  const steps = toArray(traj.steps as unknown);
+  for (const step of steps) {
+    if (stepCalls(step).length > 0 || stepProviderAccesses(step).length > 0) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function extractRows(result: unknown): unknown[] {
+  if (Array.isArray(result)) return result;
+  const record = asRecord(result);
+  if (!record) return [];
+  const rows = record.rows;
+  return Array.isArray(rows) ? rows : [];
+}
+
+function parseStepsValue(value: unknown): TrajectoryStep[] | null {
+  const parsed = parseJsonValue(value);
+  if (Array.isArray(parsed)) return parsed as TrajectoryStep[];
+  const parsedRecord = asRecord(parsed);
+  if (!parsedRecord) return null;
+  const nested = parseJsonValue(readRecordValue(parsedRecord, ["steps"]));
+  if (Array.isArray(nested)) return nested as TrajectoryStep[];
+  return null;
+}
+
+async function loadTrajectoryStepsFallback(
+  logger: TrajectoryLoggerService,
+  trajectoryId: string,
+): Promise<TrajectoryStep[] | null> {
+  const withRawSql = logger as TrajectoryLoggerService &
+    RawSqlTrajectoryLoggerBridge;
+  if (typeof withRawSql.executeRawSql !== "function") return null;
+
+  const safeId = trajectoryId.replace(/'/g, "''");
+  const result = await withRawSql.executeRawSql(
+    `SELECT steps_json FROM trajectories WHERE id = '${safeId}' LIMIT 1`,
+  );
+  const rows = extractRows(result);
+  if (rows.length === 0) return null;
+
+  const row = asRecord(rows[0]);
+  if (!row) return null;
+
+  return parseStepsValue(
+    readRecordValue(row, ["steps_json", "stepsJson", "steps"]),
+  );
+}
+
+async function getTrajectoryDetailWithFallback(
+  logger: TrajectoryLoggerService,
+  trajectoryId: string,
+): Promise<Trajectory | null> {
+  const trajectory = await logger.getTrajectoryDetail(trajectoryId);
+  if (!trajectory || hasTrajectoryCallData(trajectory)) {
+    return trajectory;
+  }
+
+  try {
+    const fallbackSteps = await loadTrajectoryStepsFallback(
+      logger,
+      trajectoryId,
+    );
+    if (fallbackSteps && fallbackSteps.length > 0) {
+      return {
+        ...trajectory,
+        steps: fallbackSteps,
+      };
+    }
+  } catch {
+    // Keep serving the original payload if SQL fallback is unavailable.
+  }
+
+  return trajectory;
+}
+
+function scoreTrajectoryLoggerServiceCandidate(
+  candidate: TrajectoryLoggerService | null,
+): number {
+  if (!candidate) return -1;
+  const candidateWithRuntime = candidate as TrajectoryLoggerService & {
+    runtime?: { adapter?: unknown };
+    initialized?: boolean;
+    startTrajectory?: unknown;
+    endTrajectory?: unknown;
+  };
+  let score = 0;
+  if (typeof candidate.listTrajectories === "function") score += 3;
+  if (typeof candidate.getStats === "function") score += 2;
+  if (typeof candidateWithRuntime.startTrajectory === "function") score += 2;
+  if (typeof candidateWithRuntime.endTrajectory === "function") score += 2;
+  if (candidateWithRuntime.initialized === true) score += 3;
+  if (candidateWithRuntime.runtime?.adapter) score += 3;
+  const enabled =
+    typeof candidate.isEnabled === "function" ? candidate.isEnabled() : true;
+  if (enabled) score += 1;
+  return score;
+}
+
 async function readJsonBody<T = Record<string, unknown>>(
   req: http.IncomingMessage,
   res: http.ServerResponse,
@@ -222,31 +430,42 @@ function getTrajectoryLogger(
   };
 
   const services: TrajectoryLoggerService[] = [];
+  const seen = new Set<unknown>();
+  const pushCandidate = (candidate: unknown) => {
+    if (!candidate || seen.has(candidate)) return;
+    seen.add(candidate);
+    if (isRouteCompatibleTrajectoryLogger(candidate)) {
+      services.push(candidate);
+    }
+  };
+
   if (typeof runtimeLike.getServicesByType === "function") {
     const byType = runtimeLike.getServicesByType("trajectory_logger");
     if (Array.isArray(byType)) {
-      services.push(...(byType as TrajectoryLoggerService[]));
+      for (const candidate of byType) {
+        pushCandidate(candidate);
+      }
     } else if (byType) {
-      services.push(byType as TrajectoryLoggerService);
+      pushCandidate(byType);
     }
   }
-  if (services.length === 0 && typeof runtimeLike.getService === "function") {
+  if (typeof runtimeLike.getService === "function") {
     const single = runtimeLike.getService("trajectory_logger");
-    if (single) {
-      services.push(single as TrajectoryLoggerService);
-    }
+    pushCandidate(single);
   }
   if (services.length === 0) return null;
 
-  // Find the service that has the listTrajectories method (the full plugin version)
+  let best: TrajectoryLoggerService | null = null;
+  let bestScore = -1;
   for (const svc of services) {
-    if (typeof svc.listTrajectories === "function") {
-      return svc;
+    const score = scoreTrajectoryLoggerServiceCandidate(svc);
+    if (score > bestScore) {
+      best = svc;
+      bestScore = score;
     }
   }
 
-  // Fallback to first service (may not have all methods)
-  return services[0] ?? null;
+  return best ?? null;
 }
 
 /**
@@ -295,53 +514,113 @@ function trajectoryToUIDetail(traj: Trajectory): UITrajectoryDetailResult {
   let totalPromptTokens = 0;
   let totalCompletionTokens = 0;
 
-  for (const step of traj.steps) {
-    for (const call of step.llmCalls) {
-      totalPromptTokens += call.promptTokens ?? 0;
-      totalCompletionTokens += call.completionTokens ?? 0;
+  const steps = toArray(traj.steps as unknown);
+  for (let stepIndex = 0; stepIndex < steps.length; stepIndex += 1) {
+    const step = asRecord(steps[stepIndex]);
+    if (!step) continue;
+
+    const stepId = toText(
+      readRecordValue(step, ["stepId", "step_id", "id"]),
+      `step-${stepIndex + 1}`,
+    );
+    const calls = stepCalls(step);
+    for (let callIndex = 0; callIndex < calls.length; callIndex += 1) {
+      const call = asRecord(calls[callIndex]);
+      if (!call) continue;
+
+      const timestamp = toNumber(
+        readRecordValue(call, ["timestamp", "createdAt", "created_at"]),
+        traj.startTime,
+      );
+      const promptTokens = toOptionalNumber(
+        readRecordValue(call, ["promptTokens", "prompt_tokens"]),
+      );
+      const completionTokens = toOptionalNumber(
+        readRecordValue(call, ["completionTokens", "completion_tokens"]),
+      );
 
       llmCalls.push({
-        id: call.callId,
+        id: toText(
+          readRecordValue(call, ["callId", "call_id", "id"]),
+          `${stepId}-call-${callIndex + 1}`,
+        ),
         trajectoryId: traj.trajectoryId,
-        stepId: step.stepId,
-        model: call.model,
-        systemPrompt: call.systemPrompt,
-        userPrompt: call.userPrompt,
-        response: call.response,
-        temperature: call.temperature,
-        maxTokens: call.maxTokens,
-        purpose: call.purpose,
-        actionType: call.actionType ?? "",
-        latencyMs: call.latencyMs ?? 0,
-        promptTokens: call.promptTokens,
-        completionTokens: call.completionTokens,
-        timestamp: call.timestamp,
-        createdAt: new Date(call.timestamp).toISOString(),
+        stepId,
+        model: toText(readRecordValue(call, ["model"]), "unknown"),
+        systemPrompt: toText(
+          readRecordValue(call, ["systemPrompt", "system_prompt"]),
+          "",
+        ),
+        userPrompt: toText(
+          readRecordValue(call, ["userPrompt", "user_prompt", "prompt"]),
+          "",
+        ),
+        response: toText(
+          readRecordValue(call, ["response", "output", "text"]),
+          "",
+        ),
+        temperature: toNumber(readRecordValue(call, ["temperature"]), 0),
+        maxTokens: toNumber(
+          readRecordValue(call, ["maxTokens", "max_tokens"]),
+          0,
+        ),
+        purpose: toText(readRecordValue(call, ["purpose"]), ""),
+        actionType: toText(
+          readRecordValue(call, ["actionType", "action_type"]),
+          "",
+        ),
+        latencyMs: toNumber(
+          readRecordValue(call, ["latencyMs", "latency_ms"]),
+          0,
+        ),
+        promptTokens,
+        completionTokens,
+        timestamp,
+        createdAt: new Date(timestamp).toISOString(),
       });
+
+      totalPromptTokens += promptTokens ?? 0;
+      totalCompletionTokens += completionTokens ?? 0;
     }
 
-    for (const access of step.providerAccesses) {
+    const accesses = stepProviderAccesses(step);
+    for (let accessIndex = 0; accessIndex < accesses.length; accessIndex += 1) {
+      const access = asRecord(accesses[accessIndex]);
+      if (!access) continue;
+
+      const timestamp = toNumber(
+        readRecordValue(access, ["timestamp", "createdAt", "created_at"]),
+        traj.startTime,
+      );
+
       providerAccesses.push({
-        id: access.providerId,
+        id: toText(
+          readRecordValue(access, ["providerId", "provider_id", "id"]),
+          `${stepId}-provider-${accessIndex + 1}`,
+        ),
         trajectoryId: traj.trajectoryId,
-        stepId: step.stepId,
-        providerName: access.providerName,
-        purpose: access.purpose,
-        data: access.data,
-        query: access.query,
-        timestamp: access.timestamp,
-        createdAt: new Date(access.timestamp).toISOString(),
+        stepId,
+        providerName: toText(
+          readRecordValue(access, ["providerName", "provider_name"]),
+          "unknown",
+        ),
+        purpose: toText(readRecordValue(access, ["purpose"]), ""),
+        data: toObject(readRecordValue(access, ["data"])) ?? {},
+        query: toObject(readRecordValue(access, ["query"])),
+        timestamp,
+        createdAt: new Date(timestamp).toISOString(),
       });
     }
   }
 
+  const metadata = asRecord(traj.metadata) ?? {};
   const trajectory: UITrajectoryRecord = {
     id: traj.trajectoryId,
     agentId: traj.agentId,
-    roomId: (traj.metadata.roomId as string) ?? null,
-    entityId: (traj.metadata.entityId as string) ?? null,
+    roomId: toNullableString(metadata.roomId),
+    entityId: toNullableString(metadata.entityId),
     conversationId: null,
-    source: (traj.metadata.source as string) ?? "chat",
+    source: toText(metadata.source, "chat"),
     status: status as "active" | "completed" | "error",
     startTime: traj.startTime,
     endTime: traj.endTime,
@@ -414,7 +693,10 @@ async function handleGetTrajectoryDetail(
     return;
   }
 
-  const trajectory = await logger.getTrajectoryDetail(trajectoryId);
+  const trajectory = await getTrajectoryDetailWithFallback(
+    logger,
+    trajectoryId,
+  );
   if (!trajectory) {
     sendJsonError(res, `Trajectory "${trajectoryId}" not found`, 404);
     return;

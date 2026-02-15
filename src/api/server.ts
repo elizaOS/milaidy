@@ -191,13 +191,13 @@ interface ServerState {
   runtime: AgentRuntime | null;
   config: MilaidyConfig;
   agentState:
-    | "not_started"
-    | "starting"
-    | "running"
-    | "paused"
-    | "stopped"
-    | "restarting"
-    | "error";
+  | "not_started"
+  | "starting"
+  | "running"
+  | "paused"
+  | "stopped"
+  | "restarting"
+  | "error";
   agentName: string;
   model: string | undefined;
   startedAt: number | undefined;
@@ -373,13 +373,13 @@ type ResponseBlock =
   | { type: "text"; text: string }
   | { type: "ui-spec"; spec: Record<string, unknown>; raw: string }
   | {
-      type: "config-form";
-      pluginId: string;
-      pluginName?: string;
-      schema: Record<string, unknown>;
-      hints?: Record<string, unknown>;
-      values?: Record<string, unknown>;
-    };
+    type: "config-form";
+    pluginId: string;
+    pluginName?: string;
+    schema: Record<string, unknown>;
+    hints?: Record<string, unknown>;
+    values?: Record<string, unknown>;
+  };
 
 /** Regex matching fenced JSON code blocks: ```json ... ``` or ``` ... ``` */
 const FENCED_JSON_RE_SERVER = /```(?:json)?\s*\n([\s\S]*?)```/g;
@@ -517,7 +517,7 @@ function _extractResponseBlocks(
 // Package root resolution (for reading bundled plugins.json)
 // ---------------------------------------------------------------------------
 
-function findOwnPackageRoot(startDir: string): string {
+export function findOwnPackageRoot(startDir: string): string {
   let dir = startDir;
   for (let i = 0; i < 10; i++) {
     const pkgPath = path.join(dir, "package.json");
@@ -527,7 +527,9 @@ function findOwnPackageRoot(startDir: string): string {
           string,
           unknown
         >;
-        if (pkg.name === "milaidy") return dir;
+        const pkgName =
+          typeof pkg.name === "string" ? pkg.name.toLowerCase() : "";
+        if (pkgName === "milaidy") return dir;
       } catch {
         /* keep searching */
       }
@@ -764,6 +766,50 @@ const BLOCKED_ENV_KEYS = new Set([
   "MILAIDY_WALLET_EXPORT_TOKEN",
   "DATABASE_URL",
   "POSTGRES_URL",
+]);
+
+/**
+ * Top-level config keys accepted by `PUT /api/config`.
+ * Keep this in sync with MilaidyConfig root fields and include both modern and
+ * legacy aliases (e.g. `connectors` + `channels`).
+ */
+export const CONFIG_WRITE_ALLOWED_TOP_KEYS = new Set([
+  "meta",
+  "auth",
+  "env",
+  "wizard",
+  "diagnostics",
+  "logging",
+  "update",
+  "browser",
+  "ui",
+  "skills",
+  "plugins",
+  "models",
+  "nodeHost",
+  "agents",
+  "tools",
+  "bindings",
+  "broadcast",
+  "audio",
+  "messages",
+  "commands",
+  "approvals",
+  "session",
+  "web",
+  "connectors",
+  "channels",
+  "cron",
+  "hooks",
+  "discovery",
+  "talk",
+  "gateway",
+  "memory",
+  "database",
+  "cloud",
+  "x402",
+  "mcp",
+  "features",
 ]);
 
 // ---------------------------------------------------------------------------
@@ -1023,10 +1069,10 @@ function discoverPluginsFromManifest(): PluginEntry[] {
             : filteredConfigKeys.length === 0;
           const filteredParams = p.pluginParameters
             ? Object.fromEntries(
-                Object.entries(p.pluginParameters).filter(
-                  ([k]) => !HIDDEN_KEYS.has(k),
-                ),
-              )
+              Object.entries(p.pluginParameters).filter(
+                ([k]) => !HIDDEN_KEYS.has(k),
+              ),
+            )
             : undefined;
           const parameters = filteredParams
             ? buildParamDefs(filteredParams)
@@ -1350,17 +1396,17 @@ async function discoverSkills(
       // eslint-disable-next-line -- runtime service is loosely typed; cast via unknown
       const svc = service as unknown as
         | {
-            getLoadedSkills?: () => Array<{
-              slug: string;
-              name: string;
-              description: string;
-              source: string;
-              path: string;
-            }>;
-            getSkillScanStatus?: (
-              slug: string,
-            ) => "clean" | "warning" | "critical" | "blocked" | null;
-          }
+          getLoadedSkills?: () => Array<{
+            slug: string;
+            name: string;
+            description: string;
+            source: string;
+            path: string;
+          }>;
+          getSkillScanStatus?: (
+            slug: string,
+          ) => "clean" | "warning" | "critical" | "blocked" | null;
+        }
         | undefined;
       if (svc && typeof svc.getLoadedSkills === "function") {
         const loadedSkills = svc.getLoadedSkills();
@@ -1759,6 +1805,224 @@ interface ChatGenerateOptions {
   resolveNoResponseText?: () => string;
 }
 
+interface TrajectoryLoggerForChat {
+  isEnabled?: () => boolean;
+  startTrajectory?: (
+    stepId: string,
+    options: {
+      agentId: string;
+      roomId?: string;
+      entityId?: string;
+      source?: string;
+      metadata?: Record<string, unknown>;
+    },
+  ) => Promise<string> | string;
+  endTrajectory?: (
+    stepIdOrTrajectoryId: string,
+    status?: string,
+  ) => Promise<void> | void;
+}
+
+interface TrajectorySpanContext {
+  runtime: AgentRuntime | null;
+  source: string;
+  roomId?: string;
+  entityId?: string;
+  conversationId?: string;
+  messageId?: string;
+  metadata?: Record<string, unknown>;
+}
+
+interface TrajectorySpanHandle {
+  stepId: string;
+  logger: TrajectoryLoggerForChat;
+}
+
+function scoreTrajectoryLoggerCandidate(
+  candidate: TrajectoryLoggerForChat | null,
+): number {
+  if (!candidate) return -1;
+  const candidateWithRuntime = candidate as TrajectoryLoggerForChat & {
+    runtime?: { adapter?: unknown };
+    initialized?: boolean;
+    listTrajectories?: unknown;
+  };
+  let score = 0;
+  if (typeof candidate.startTrajectory === "function") score += 3;
+  if (typeof candidate.endTrajectory === "function") score += 3;
+  if (typeof candidateWithRuntime.listTrajectories === "function") score += 1;
+  if (candidateWithRuntime.initialized === true) score += 3;
+  if (candidateWithRuntime.runtime?.adapter) score += 3;
+  const enabled =
+    typeof candidate.isEnabled === "function" ? candidate.isEnabled() : true;
+  if (enabled) score += 1;
+  return score;
+}
+
+function getTrajectoryLoggerForRuntime(
+  runtime: AgentRuntime | null,
+): TrajectoryLoggerForChat | null {
+  if (!runtime) return null;
+  const runtimeLike = runtime as unknown as {
+    getServicesByType?: (serviceType: string) => unknown;
+    getService?: (serviceType: string) => unknown;
+  };
+
+  const candidates: TrajectoryLoggerForChat[] = [];
+
+  if (typeof runtimeLike.getServicesByType === "function") {
+    const byType = runtimeLike.getServicesByType("trajectory_logger");
+    if (Array.isArray(byType) && byType.length > 0) {
+      for (const service of byType) {
+        if (service) {
+          candidates.push(service as TrajectoryLoggerForChat);
+        }
+      }
+    }
+    if (byType && !Array.isArray(byType)) {
+      candidates.push(byType as TrajectoryLoggerForChat);
+    }
+  }
+
+  if (typeof runtimeLike.getService === "function") {
+    const single = runtimeLike.getService("trajectory_logger");
+    if (single) candidates.push(single as TrajectoryLoggerForChat);
+  }
+
+  let best: TrajectoryLoggerForChat | null = null;
+  let bestScore = -1;
+  for (const candidate of candidates) {
+    const score = scoreTrajectoryLoggerCandidate(candidate);
+    if (score > bestScore) {
+      best = candidate;
+      bestScore = score;
+    }
+  }
+  return best;
+}
+
+function createRuntimeWithTrajectoryLogger(
+  runtime: AgentRuntime,
+  trajectoryLogger: TrajectoryLoggerForChat | null,
+): AgentRuntime {
+  if (!trajectoryLogger) return runtime;
+
+  const runtimeLike = runtime as AgentRuntime & {
+    getServicesByType?: (serviceType: string) => unknown;
+  };
+
+  return new Proxy(runtime, {
+    get(target, prop, receiver) {
+      if (prop === "getService") {
+        return (serviceName: string) => {
+          if (serviceName === "trajectory_logger") return trajectoryLogger;
+          return target.getService(serviceName);
+        };
+      }
+      if (prop === "getServicesByType") {
+        return (serviceName: string) => {
+          if (serviceName === "trajectory_logger") return [trajectoryLogger];
+          return typeof runtimeLike.getServicesByType === "function"
+            ? runtimeLike.getServicesByType.call(target, serviceName)
+            : [];
+        };
+      }
+      return Reflect.get(target, prop, receiver);
+    },
+  }) as AgentRuntime;
+}
+
+function isTrajectoryLoggerEnabled(
+  logger: TrajectoryLoggerForChat | null,
+): boolean {
+  if (!logger || typeof logger.startTrajectory !== "function") return false;
+  return typeof logger.isEnabled !== "function" || logger.isEnabled();
+}
+
+function buildTrajectoryMetadata(
+  context: TrajectorySpanContext,
+): Record<string, unknown> | undefined {
+  const metadata: Record<string, unknown> = {
+    ...(context.metadata ?? {}),
+  };
+  if (context.messageId) metadata.messageId = context.messageId;
+  if (context.conversationId) metadata.conversationId = context.conversationId;
+  return Object.keys(metadata).length > 0 ? metadata : undefined;
+}
+
+async function startTrajectorySpan(
+  context: TrajectorySpanContext,
+): Promise<TrajectorySpanHandle | null> {
+  const { runtime } = context;
+  const logger = getTrajectoryLoggerForRuntime(runtime);
+  if (!runtime || !isTrajectoryLoggerEnabled(logger)) return null;
+
+  const stepId = crypto.randomUUID();
+  try {
+    await logger?.startTrajectory?.(stepId, {
+      agentId: runtime.agentId,
+      roomId: context.roomId,
+      entityId: context.entityId,
+      source: context.source,
+      metadata: buildTrajectoryMetadata(context),
+    });
+    return { stepId, logger: logger as TrajectoryLoggerForChat };
+  } catch (err) {
+    runtime.logger?.warn(
+      {
+        err,
+        src: "milaidy-api",
+        stepId,
+        source: context.source,
+        roomId: context.roomId,
+      },
+      "Failed to start proxy trajectory logging",
+    );
+    return null;
+  }
+}
+
+async function endTrajectorySpan(
+  runtime: AgentRuntime | null,
+  span: TrajectorySpanHandle | null,
+  status: "completed" | "error",
+): Promise<void> {
+  if (!span || typeof span.logger.endTrajectory !== "function") return;
+  try {
+    await span.logger.endTrajectory(span.stepId, status);
+  } catch (err) {
+    runtime?.logger?.warn(
+      {
+        err,
+        src: "milaidy-api",
+        stepId: span.stepId,
+        status,
+      },
+      "Failed to end proxy trajectory logging",
+    );
+  }
+}
+
+async function withTrajectorySpan<T>(
+  context: TrajectorySpanContext,
+  operation: () => Promise<T>,
+): Promise<T> {
+  const span = await startTrajectorySpan(context);
+  let operationError: unknown = null;
+  try {
+    return await operation();
+  } catch (err) {
+    operationError = err;
+    throw err;
+  } finally {
+    await endTrajectorySpan(
+      context.runtime,
+      span,
+      operationError ? "error" : "completed",
+    );
+  }
+}
+
 const INSUFFICIENT_CREDITS_RE =
   /\b(?:insufficient(?:[_\s]+(?:credits?|quota))|insufficient_quota|out of credits|max usage reached|quota(?:\s+exceeded)?)\b/i;
 
@@ -1871,7 +2135,7 @@ async function fetchCloudCreditsByApiKey(
     typeof creditResponse.balance === "number"
       ? creditResponse.balance
       : typeof (creditResponse.data as Record<string, unknown>)?.balance ===
-          "number"
+        "number"
         ? ((creditResponse.data as Record<string, unknown>).balance as number)
         : undefined;
   return typeof rawBalance === "number" ? rawBalance : null;
@@ -1919,22 +2183,142 @@ async function generateChatResponse(
   opts?: ChatGenerateOptions,
 ): Promise<ChatGenerationResult> {
   let responseText = "";
+  const messageSource =
+    typeof message.content.source === "string" &&
+      message.content.source.trim().length > 0
+      ? message.content.source
+      : "api";
+  const trajectoryLogger = getTrajectoryLoggerForRuntime(runtime);
+  let fallbackTrajectoryStepId: string | null = null;
 
-  const result = await runtime.messageService?.handleMessage(
+  // The core message service emits MESSAGE_SENT but not MESSAGE_RECEIVED.
+  // Emit inbound events here so trajectory/session hooks run for API chat.
+  try {
+    if (typeof runtime.emitEvent === "function") {
+      await runtime.emitEvent("MESSAGE_RECEIVED", {
+        message,
+        source: messageSource,
+      });
+    }
+  } catch (err) {
+    runtime.logger?.warn(
+      {
+        err,
+        src: "milaidy-api",
+        messageId: message.id,
+        roomId: message.roomId,
+      },
+      "Failed to emit MESSAGE_RECEIVED event",
+    );
+  }
+
+  // Fallback when MESSAGE_RECEIVED hooks are unavailable: start a trajectory
+  // directly so /api/chat still produces rows for the Trajectories view.
+  const meta =
+    message.metadata && typeof message.metadata === "object"
+      ? (message.metadata as Record<string, unknown>)
+      : null;
+  const eventTrajectoryStepId =
+    typeof meta?.trajectoryStepId === "string" && meta.trajectoryStepId.trim()
+      ? meta.trajectoryStepId
+      : null;
+  if (
+    !eventTrajectoryStepId &&
+    trajectoryLogger &&
+    typeof trajectoryLogger.startTrajectory === "function" &&
+    (typeof trajectoryLogger.isEnabled !== "function" ||
+      trajectoryLogger.isEnabled())
+  ) {
+    const stepId = crypto.randomUUID();
+    if (!message.metadata || typeof message.metadata !== "object") {
+      message.metadata = {
+        type: "message",
+      } as unknown as typeof message.metadata;
+    }
+    const mutableMeta = message.metadata as Record<string, unknown>;
+    mutableMeta.trajectoryStepId = stepId;
+
+    try {
+      await trajectoryLogger.startTrajectory(stepId, {
+        agentId: runtime.agentId,
+        roomId: message.roomId,
+        entityId: message.entityId,
+        source: messageSource,
+        metadata: {
+          messageId: message.id,
+          conversationId:
+            typeof mutableMeta.sessionKey === "string"
+              ? mutableMeta.sessionKey
+              : undefined,
+        },
+      });
+      fallbackTrajectoryStepId = stepId;
+    } catch (err) {
+      delete mutableMeta.trajectoryStepId;
+      runtime.logger?.warn(
+        {
+          err,
+          src: "milaidy-api",
+          messageId: message.id,
+          roomId: message.roomId,
+        },
+        "Failed to start fallback trajectory logging",
+      );
+    }
+  }
+
+  let result:
+    | Awaited<
+      ReturnType<NonNullable<AgentRuntime["messageService"]>["handleMessage"]>
+    >
+    | undefined;
+  let handlerError: unknown = null;
+  const runtimeForMessageHandling = createRuntimeWithTrajectoryLogger(
     runtime,
-    message,
-    async (content: Content) => {
-      if (opts?.isAborted?.()) {
-        throw new Error("client_disconnected");
-      }
-
-      if (content?.text) {
-        responseText += content.text;
-        opts?.onChunk?.(content.text);
-      }
-      return [];
-    },
+    trajectoryLogger,
   );
+  try {
+    result = await runtime.messageService?.handleMessage(
+      runtimeForMessageHandling,
+      message,
+      async (content: Content) => {
+        if (opts?.isAborted?.()) {
+          throw new Error("client_disconnected");
+        }
+
+        if (content?.text) {
+          responseText += content.text;
+          opts?.onChunk?.(content.text);
+        }
+        return [];
+      },
+    );
+  } catch (err) {
+    handlerError = err;
+    throw err;
+  } finally {
+    if (
+      fallbackTrajectoryStepId &&
+      trajectoryLogger &&
+      typeof trajectoryLogger.endTrajectory === "function"
+    ) {
+      try {
+        await trajectoryLogger.endTrajectory(
+          fallbackTrajectoryStepId,
+          handlerError ? "error" : "completed",
+        );
+      } catch (err) {
+        runtime.logger?.warn(
+          {
+            err,
+            src: "milaidy-api",
+            trajectoryStepId: fallbackTrajectoryStepId,
+          },
+          "Failed to end fallback trajectory logging",
+        );
+      }
+    }
+  }
 
   // Fallback: if callback wasn't used for text, stream + return final text.
   if (!responseText && result?.responseContent?.text) {
@@ -1951,6 +2335,105 @@ async function generateChatResponse(
     text: finalText,
     agentName,
   };
+}
+
+function isDuplicateMemoryError(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  const msg = err.message.toLowerCase();
+  return (
+    msg.includes("duplicate") ||
+    msg.includes("already exists") ||
+    msg.includes("unique constraint")
+  );
+}
+
+async function persistConversationMemory(
+  runtime: AgentRuntime,
+  memory: ReturnType<typeof createMessageMemory>,
+): Promise<void> {
+  try {
+    await runtime.createMemory(memory, "messages");
+  } catch (err) {
+    if (isDuplicateMemoryError(err)) return;
+    throw err;
+  }
+}
+
+async function hasRecentAssistantMemory(
+  runtime: AgentRuntime,
+  roomId: UUID,
+  text: string,
+  sinceMs: number,
+): Promise<boolean> {
+  const trimmed = text.trim();
+  if (!trimmed) return false;
+
+  try {
+    const recent = await (async () => {
+      try {
+        return await runtime.getMemoriesByRoomIds({
+          roomIds: [roomId],
+          tableName: "messages",
+          limit: 12,
+        });
+      } catch {
+        return await runtime.getMemories({
+          roomId,
+          tableName: "messages",
+          count: 12,
+        });
+      }
+    })();
+
+    return recent.some((memory) => {
+      const contentText = (memory.content as { text?: string })?.text?.trim();
+      const createdAt = memory.createdAt ?? 0;
+      return (
+        memory.entityId === runtime.agentId &&
+        contentText === trimmed &&
+        createdAt >= sinceMs - 2000
+      );
+    });
+  } catch {
+    return false;
+  }
+}
+
+async function persistAssistantConversationMemory(
+  runtime: AgentRuntime,
+  roomId: UUID,
+  text: string,
+  mode: ChatMode,
+  dedupeSinceMs?: number,
+): Promise<void> {
+  const trimmed = text.trim();
+  if (!trimmed) return;
+
+  if (typeof dedupeSinceMs === "number") {
+    const alreadyPersisted = await hasRecentAssistantMemory(
+      runtime,
+      roomId,
+      trimmed,
+      dedupeSinceMs,
+    );
+    if (alreadyPersisted) return;
+  }
+
+  await persistConversationMemory(
+    runtime,
+    createMessageMemory({
+      id: crypto.randomUUID() as UUID,
+      entityId: runtime.agentId,
+      roomId,
+      content: {
+        text: trimmed,
+        mode,
+        simple: mode === "simple",
+        source: "client_chat",
+        channelType: ChannelType.DM,
+      },
+    }),
+  );
 }
 
 function parseBoundedLimit(rawLimit: string | null, fallback = 15): number {
@@ -3316,11 +3799,11 @@ function rejectWebSocketUpgrade(
   const body = `${message}\n`;
   socket.write(
     `HTTP/1.1 ${statusCode} ${statusText}\r\n` +
-      "Connection: close\r\n" +
-      "Content-Type: text/plain; charset=utf-8\r\n" +
-      `Content-Length: ${Buffer.byteLength(body)}\r\n` +
-      "\r\n" +
-      body,
+    "Connection: close\r\n" +
+    "Content-Type: text/plain; charset=utf-8\r\n" +
+    `Content-Length: ${Buffer.byteLength(body)}\r\n` +
+    "\r\n" +
+    body,
   );
   socket.destroy();
 }
@@ -4455,9 +4938,9 @@ async function handleRequest(
     const runMode = cloudProxy ? "cloud" : "local";
     const cloudStatus = state.cloudManager
       ? {
-          connectionStatus: state.cloudManager.getStatus(),
-          activeAgentId: state.cloudManager.getActiveAgentId(),
-        }
+        connectionStatus: state.cloudManager.getStatus(),
+        activeAgentId: state.cloudManager.getActiveAgentId(),
+      }
       : undefined;
 
     json(res, {
@@ -4828,7 +5311,7 @@ async function handleRequest(
       typeof body.discordToken === "string" &&
       body.discordToken.trim()
     ) {
-      config.connectors.discord = { botToken: body.discordToken.trim() };
+      config.connectors.discord = { token: body.discordToken.trim() };
     }
     if (
       body.whatsappSessionPath &&
@@ -4967,11 +5450,11 @@ async function handleRequest(
     state.startedAt = Date.now();
     const detectedModel = state.runtime
       ? (state.runtime.plugins.find(
-          (p) =>
-            p.name.includes("anthropic") ||
-            p.name.includes("openai") ||
-            p.name.includes("groq"),
-        )?.name ?? "unknown")
+        (p) =>
+          p.name.includes("anthropic") ||
+          p.name.includes("openai") ||
+          p.name.includes("groq"),
+      )?.name ?? "unknown")
       : "unknown";
     state.model = detectedModel;
 
@@ -6505,8 +6988,8 @@ async function handleRequest(
         try {
           const svc = state.runtime.getService("AGENT_SKILLS_SERVICE") as
             | {
-                getLoadedSkills?: () => Array<{ slug: string; source: string }>;
-              }
+              getLoadedSkills?: () => Array<{ slug: string; source: string }>;
+            }
             | undefined;
           if (svc && typeof svc.getLoadedSkills === "function") {
             for (const s of svc.getLoadedSkills()) {
@@ -6640,12 +7123,12 @@ async function handleRequest(
     try {
       const service = state.runtime.getService("AGENT_SKILLS_SERVICE") as
         | {
-            install?: (
-              slug: string,
-              opts?: { version?: string; force?: boolean },
-            ) => Promise<boolean>;
-            isInstalled?: (slug: string) => Promise<boolean>;
-          }
+          install?: (
+            slug: string,
+            opts?: { version?: string; force?: boolean },
+          ) => Promise<boolean>;
+          isInstalled?: (slug: string) => Promise<boolean>;
+        }
         | undefined;
 
       if (!service || typeof service.install !== "function") {
@@ -6722,8 +7205,8 @@ async function handleRequest(
     try {
       const service = state.runtime.getService("AGENT_SKILLS_SERVICE") as
         | {
-            uninstall?: (slug: string) => Promise<boolean>;
-          }
+          uninstall?: (slug: string) => Promise<boolean>;
+        }
         | undefined;
 
       if (!service || typeof service.uninstall !== "function") {
@@ -6984,12 +7467,12 @@ async function handleRequest(
       try {
         const svc = state.runtime.getService("AGENT_SKILLS_SERVICE") as
           | {
-              getLoadedSkills?: () => Array<{
-                slug: string;
-                path: string;
-                source: string;
-              }>;
-            }
+            getLoadedSkills?: () => Array<{
+              slug: string;
+              path: string;
+              source: string;
+            }>;
+          }
           | undefined;
         if (svc?.getLoadedSkills) {
           const loaded = svc.getLoadedSkills().find((s) => s.slug === skillId);
@@ -7068,12 +7551,12 @@ async function handleRequest(
       try {
         const svc = state.runtime.getService("AGENT_SKILLS_SERVICE") as
           | {
-              getLoadedSkills?: () => Array<{
-                slug: string;
-                path: string;
-                source: string;
-              }>;
-            }
+            getLoadedSkills?: () => Array<{
+              slug: string;
+              path: string;
+              source: string;
+            }>;
+          }
           | undefined;
         if (svc?.getLoadedSkills) {
           const loaded = svc.getLoadedSkills().find((s) => s.slug === skillId);
@@ -7163,12 +7646,12 @@ async function handleRequest(
       try {
         const svc = state.runtime.getService("AGENT_SKILLS_SERVICE") as
           | {
-              getLoadedSkills?: () => Array<{
-                slug: string;
-                path: string;
-                source: string;
-              }>;
-            }
+            getLoadedSkills?: () => Array<{
+              slug: string;
+              path: string;
+              source: string;
+            }>;
+          }
           | undefined;
         if (svc?.getLoadedSkills) {
           const loaded = svc.getLoadedSkills().find((s) => s.slug === skillId);
@@ -7340,16 +7823,22 @@ async function handleRequest(
   // ── POST /api/skills/marketplace/install ──────────────────────────────
   if (method === "POST" && pathname === "/api/skills/marketplace/install") {
     const body = await readJsonBody<{
+      slug?: string;
       githubUrl?: string;
       repository?: string;
       path?: string;
       name?: string;
       description?: string;
+      source?: "clawhub" | "skillsmp" | "manual";
     }>(req, res);
     if (!body) return;
 
-    if (!body.githubUrl?.trim() && !body.repository?.trim()) {
-      error(res, "Install requires a githubUrl or repository", 400);
+    const slug = body.slug?.trim() || "";
+    const githubUrl = body.githubUrl?.trim() || "";
+    const repository = body.repository?.trim() || "";
+
+    if (!slug && !githubUrl && !repository) {
+      error(res, "Install requires a slug, githubUrl, or repository", 400);
       return;
     }
 
@@ -7357,15 +7846,91 @@ async function handleRequest(
       const workspaceDir =
         state.config.agents?.defaults?.workspace ??
         resolveDefaultAgentWorkspaceDir();
-      const result = await installMarketplaceSkill(workspaceDir, {
-        githubUrl: body.githubUrl,
-        repository: body.repository,
-        path: body.path,
-        name: body.name,
-        description: body.description,
-        source: "skillsmp",
-      });
-      json(res, { ok: true, skill: result });
+
+      // ClawHub-native install path (slug-based via AgentSkillsService).
+      if (slug && !githubUrl && !repository) {
+        if (!state.runtime) {
+          error(
+            res,
+            "Agent runtime not available — start the agent first",
+            503,
+          );
+          return;
+        }
+
+        const service = state.runtime.getService("AGENT_SKILLS_SERVICE") as
+          | {
+            install?: (
+              skillSlug: string,
+              opts?: { version?: string; force?: boolean },
+            ) => Promise<boolean>;
+            isInstalled?: (skillSlug: string) => Promise<boolean>;
+          }
+          | undefined;
+
+        if (!service || typeof service.install !== "function") {
+          error(
+            res,
+            "AgentSkillsService not available — ensure @elizaos/plugin-agent-skills is loaded",
+            501,
+          );
+          return;
+        }
+
+        const alreadyInstalled =
+          typeof service.isInstalled === "function"
+            ? await service.isInstalled(slug)
+            : false;
+
+        if (alreadyInstalled) {
+          json(res, {
+            ok: true,
+            skill: {
+              id: slug,
+              name: body.name?.trim() || slug,
+              source: "clawhub",
+              installedAt: new Date().toISOString(),
+            },
+            alreadyInstalled: true,
+          });
+          return;
+        }
+
+        const success = await service.install(slug);
+        if (!success) {
+          error(res, `Failed to install skill "${slug}"`, 500);
+          return;
+        }
+
+        state.skills = await discoverSkills(
+          workspaceDir,
+          state.config,
+          state.runtime,
+        );
+
+        json(res, {
+          ok: true,
+          skill: {
+            id: slug,
+            name: body.name?.trim() || slug,
+            source: "clawhub",
+            installedAt: new Date().toISOString(),
+          },
+        });
+      } else {
+        const result = await installMarketplaceSkill(workspaceDir, {
+          githubUrl: body.githubUrl,
+          repository: body.repository,
+          path: body.path,
+          name: body.name,
+          description: body.description,
+          source:
+            body.source === "manual" || body.source === "skillsmp"
+              ? body.source
+              : "clawhub",
+        });
+        json(res, { ok: true, skill: result });
+      }
     } catch (err) {
       error(
         res,
@@ -8252,46 +8817,6 @@ async function handleRequest(
 
     // --- Security: validate and safely merge config updates ----------------
 
-    // Only accept known top-level keys from MilaidyConfig.
-    // Unknown or dangerous keys are silently dropped.
-    const ALLOWED_TOP_KEYS = new Set([
-      "meta",
-      "auth",
-      "env",
-      "wizard",
-      "diagnostics",
-      "logging",
-      "update",
-      "browser",
-      "ui",
-      "skills",
-      "plugins",
-      "models",
-      "nodeHost",
-      "agents",
-      "tools",
-      "bindings",
-      "broadcast",
-      "audio",
-      "messages",
-      "commands",
-      "approvals",
-      "session",
-      "web",
-      "channels",
-      "cron",
-      "hooks",
-      "discovery",
-      "talk",
-      "gateway",
-      "memory",
-      "database",
-      "cloud",
-      "x402",
-      "mcp",
-      "features",
-    ]);
-
     // Keys that could enable prototype pollution.
     /**
      * Deep-merge `src` into `target`, only touching keys present in `src`.
@@ -8328,7 +8853,7 @@ async function handleRequest(
     // Filter to allowed top-level keys, then deep-merge.
     const filtered: Record<string, unknown> = {};
     for (const key of Object.keys(body)) {
-      if (ALLOWED_TOP_KEYS.has(key) && !isBlockedObjectKey(key)) {
+      if (CONFIG_WRITE_ALLOWED_TOP_KEYS.has(key) && !isBlockedObjectKey(key)) {
         filtered[key] = body[key];
       }
     }
@@ -8946,15 +9471,25 @@ async function handleRequest(
         let fullText = "";
 
         if (proxy) {
-          for await (const chunk of proxy.handleChatMessageStream(
-            prompt,
-            "openai-compat",
-            mode,
-          )) {
-            if (aborted) throw new Error("client_disconnected");
-            fullText += chunk;
-            if (chunk) sendChunk({ content: chunk }, null);
-          }
+          await withTrajectorySpan(
+            {
+              runtime: state.runtime,
+              source: "compat_openai",
+              roomId: "openai-compat",
+              conversationId: roomKey,
+            },
+            async () => {
+              for await (const chunk of proxy.handleChatMessageStream(
+                prompt,
+                "openai-compat",
+                mode,
+              )) {
+                if (aborted) throw new Error("client_disconnected");
+                fullText += chunk;
+                if (chunk) sendChunk({ content: chunk }, null);
+              }
+            },
+          );
         } else {
           const runtime = state.runtime;
           if (!runtime) throw new Error("Agent is not running");
@@ -9025,10 +9560,14 @@ async function handleRequest(
       let responseText: string;
 
       if (proxy) {
-        responseText = await proxy.handleChatMessage(
-          prompt,
-          "openai-compat",
-          mode,
+        responseText = await withTrajectorySpan(
+          {
+            runtime: state.runtime,
+            source: "compat_openai",
+            roomId: "openai-compat",
+            conversationId: roomKey,
+          },
+          () => proxy.handleChatMessage(prompt, "openai-compat", mode),
         );
       } else {
         if (!state.runtime) {
@@ -9227,14 +9766,24 @@ async function handleRequest(
         };
 
         if (proxy) {
-          for await (const chunk of proxy.handleChatMessageStream(
-            prompt,
-            "anthropic-compat",
-            mode,
-          )) {
-            if (aborted) throw new Error("client_disconnected");
-            onDelta(chunk);
-          }
+          await withTrajectorySpan(
+            {
+              runtime: state.runtime,
+              source: "compat_anthropic",
+              roomId: "anthropic-compat",
+              conversationId: roomKey,
+            },
+            async () => {
+              for await (const chunk of proxy.handleChatMessageStream(
+                prompt,
+                "anthropic-compat",
+                mode,
+              )) {
+                if (aborted) throw new Error("client_disconnected");
+                onDelta(chunk);
+              }
+            },
+          );
         } else {
           const runtime = state.runtime;
           if (!runtime) throw new Error("Agent is not running");
@@ -9312,10 +9861,14 @@ async function handleRequest(
       let responseText: string;
 
       if (proxy) {
-        responseText = await proxy.handleChatMessage(
-          prompt,
-          "anthropic-compat",
-          mode,
+        responseText = await withTrajectorySpan(
+          {
+            runtime: state.runtime,
+            source: "compat_anthropic",
+            roomId: "anthropic-compat",
+            conversationId: roomKey,
+          },
+          () => proxy.handleChatMessage(prompt, "anthropic-compat", mode),
         );
       } else {
         if (!state.runtime) {
@@ -9431,19 +9984,36 @@ async function handleRequest(
       error(res, "Conversation not found", 404);
       return;
     }
-    if (!state.runtime || state.agentState !== "running") {
+    if (!state.runtime) {
       json(res, { messages: [] });
       return;
     }
+    const runtime = state.runtime;
     try {
-      const memories = await state.runtime.getMemories({
-        roomId: conv.roomId,
-        tableName: "messages",
-        count: 200,
-      });
+      const messagesTable = "messages";
+      const memories = await (async () => {
+        try {
+          // plugin-sql alpha.11 currently has a regression on getMemories() in some
+          // runtime paths; prefer room-ids retrieval and only fall back if needed.
+          return await runtime.getMemoriesByRoomIds({
+            roomIds: [conv.roomId],
+            tableName: messagesTable,
+            limit: 200,
+          });
+        } catch (roomFetchErr) {
+          logger.warn(
+            `[conversations] getMemoriesByRoomIds failed, retrying with getMemories: ${roomFetchErr instanceof Error ? roomFetchErr.message : String(roomFetchErr)}`,
+          );
+          return await runtime.getMemories({
+            roomId: conv.roomId,
+            tableName: messagesTable,
+            count: 200,
+          });
+        }
+      })();
       // Sort by createdAt ascending
       memories.sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0));
-      const agentId = state.runtime.agentId;
+      const agentId = runtime.agentId;
       const messages = memories.map((m) => {
         const contentSource = (m.content as Record<string, unknown>)?.source;
         return {
@@ -9492,24 +10062,82 @@ async function handleRequest(
     const mode: ChatMode = body.mode === "simple" ? "simple" : "power";
     const prompt = body.text.trim();
 
+    const runtime = state.runtime;
+    if (!runtime) {
+      error(res, "Agent is not running", 503);
+      return;
+    }
+
+    const userId = ensureAdminEntityId();
+    const turnStartedAt = Date.now();
+
+    try {
+      await ensureConversationRoom(conv);
+    } catch (err) {
+      error(
+        res,
+        `Failed to initialize conversation room: ${getErrorMessage(err)}`,
+        500,
+      );
+      return;
+    }
+
+    const userMessage = createMessageMemory({
+      id: crypto.randomUUID() as UUID,
+      entityId: userId,
+      roomId: conv.roomId,
+      content: {
+        text: prompt,
+        mode,
+        simple: mode === "simple",
+        source: "client_chat",
+        channelType: ChannelType.DM,
+      },
+    });
+
+    try {
+      await persistConversationMemory(runtime, userMessage);
+    } catch (err) {
+      error(res, `Failed to store user message: ${getErrorMessage(err)}`, 500);
+      return;
+    }
+
     // Cloud proxy path
     const proxy = state.cloudManager?.getProxy();
     if (proxy) {
       initSse(res);
       let fullText = "";
       try {
-        for await (const chunk of proxy.handleChatMessageStream(
-          prompt,
-          conv.roomId,
-          mode,
-        )) {
-          fullText += chunk;
-          writeSse(res, { type: "token", text: chunk });
-        }
+        await withTrajectorySpan(
+          {
+            runtime,
+            source: "client_chat",
+            roomId: conv.roomId,
+            entityId: userId,
+            conversationId: convId,
+            messageId: userMessage.id,
+          },
+          async () => {
+            for await (const chunk of proxy.handleChatMessageStream(
+              prompt,
+              conv.roomId,
+              mode,
+            )) {
+              fullText += chunk;
+              writeSse(res, { type: "token", text: chunk });
+            }
+          },
+        );
 
         const resolvedText = normalizeChatResponseText(
           fullText,
           state.logBuffer,
+        );
+        await persistAssistantConversationMemory(
+          runtime,
+          conv.roomId,
+          resolvedText,
+          mode,
         );
         conv.updatedAt = new Date().toISOString();
         writeSse(res, {
@@ -9520,12 +10148,25 @@ async function handleRequest(
       } catch (err) {
         const creditReply = getInsufficientCreditsReplyFromError(err);
         if (creditReply) {
-          conv.updatedAt = new Date().toISOString();
-          writeSse(res, {
-            type: "done",
-            fullText: creditReply,
-            agentName: proxy.agentName,
-          });
+          try {
+            await persistAssistantConversationMemory(
+              runtime,
+              conv.roomId,
+              creditReply,
+              mode,
+            );
+            conv.updatedAt = new Date().toISOString();
+            writeSse(res, {
+              type: "done",
+              fullText: creditReply,
+              agentName: proxy.agentName,
+            });
+          } catch (persistErr) {
+            writeSse(res, {
+              type: "error",
+              message: getErrorMessage(persistErr),
+            });
+          }
         } else {
           writeSse(res, {
             type: "error",
@@ -9538,11 +10179,6 @@ async function handleRequest(
       return;
     }
 
-    if (!state.runtime) {
-      error(res, "Agent is not running", 503);
-      return;
-    }
-
     initSse(res);
     let aborted = false;
     req.on("close", () => {
@@ -9550,26 +10186,9 @@ async function handleRequest(
     });
 
     try {
-      const runtime = state.runtime;
-      const userId = ensureAdminEntityId();
-      await ensureConversationRoom(conv);
-
-      const message = createMessageMemory({
-        id: crypto.randomUUID() as UUID,
-        entityId: userId,
-        roomId: conv.roomId,
-        content: {
-          text: prompt,
-          mode,
-          simple: mode === "simple",
-          source: "client_chat",
-          channelType: ChannelType.DM,
-        },
-      });
-
       const result = await generateChatResponse(
         runtime,
-        message,
+        userMessage,
         state.agentName,
         {
           isAborted: () => aborted,
@@ -9582,6 +10201,13 @@ async function handleRequest(
       );
 
       if (!aborted) {
+        await persistAssistantConversationMemory(
+          runtime,
+          conv.roomId,
+          result.text,
+          mode,
+          turnStartedAt,
+        );
         conv.updatedAt = new Date().toISOString();
         writeSse(res, {
           type: "done",
@@ -9593,12 +10219,25 @@ async function handleRequest(
       if (!aborted) {
         const creditReply = getInsufficientCreditsReplyFromError(err);
         if (creditReply) {
-          conv.updatedAt = new Date().toISOString();
-          writeSse(res, {
-            type: "done",
-            fullText: creditReply,
-            agentName: state.agentName,
-          });
+          try {
+            await persistAssistantConversationMemory(
+              runtime,
+              conv.roomId,
+              creditReply,
+              mode,
+            );
+            conv.updatedAt = new Date().toISOString();
+            writeSse(res, {
+              type: "done",
+              fullText: creditReply,
+              agentName: state.agentName,
+            });
+          } catch (persistErr) {
+            writeSse(res, {
+              type: "error",
+              message: getErrorMessage(persistErr),
+            });
+          }
         } else {
           writeSse(res, {
             type: "error",
@@ -9634,8 +10273,43 @@ async function handleRequest(
       return;
     }
     const mode: ChatMode = body.mode === "simple" ? "simple" : "power";
-    if (!state.runtime) {
+    const runtime = state.runtime;
+    if (!runtime) {
       error(res, "Agent is not running", 503);
+      return;
+    }
+    const prompt = body.text.trim();
+    const userId = ensureAdminEntityId();
+    const turnStartedAt = Date.now();
+
+    try {
+      await ensureConversationRoom(conv);
+    } catch (err) {
+      error(
+        res,
+        `Failed to initialize conversation room: ${getErrorMessage(err)}`,
+        500,
+      );
+      return;
+    }
+
+    const userMessage = createMessageMemory({
+      id: crypto.randomUUID() as UUID,
+      entityId: userId,
+      roomId: conv.roomId,
+      content: {
+        text: prompt,
+        mode,
+        simple: mode === "simple",
+        source: "client_chat",
+        channelType: ChannelType.DM,
+      },
+    });
+
+    try {
+      await persistConversationMemory(runtime, userMessage);
+    } catch (err) {
+      error(res, `Failed to store user message: ${getErrorMessage(err)}`, 500);
       return;
     }
 
@@ -9643,22 +10317,44 @@ async function handleRequest(
     const proxy = state.cloudManager?.getProxy();
     if (proxy) {
       try {
-        const responseText = await proxy.handleChatMessage(
-          body.text.trim(),
-          conv.roomId,
-          mode,
+        const responseText = await withTrajectorySpan(
+          {
+            runtime,
+            source: "client_chat",
+            roomId: conv.roomId,
+            entityId: userId,
+            conversationId: convId,
+            messageId: userMessage.id,
+          },
+          () => proxy.handleChatMessage(prompt, conv.roomId, mode),
         );
         const resolvedText = normalizeChatResponseText(
           responseText,
           state.logBuffer,
+        );
+        await persistAssistantConversationMemory(
+          runtime,
+          conv.roomId,
+          resolvedText,
+          mode,
         );
         conv.updatedAt = new Date().toISOString();
         json(res, { text: resolvedText, agentName: proxy.agentName });
       } catch (err) {
         const creditReply = getInsufficientCreditsReplyFromError(err);
         if (creditReply) {
-          conv.updatedAt = new Date().toISOString();
-          json(res, { text: creditReply, agentName: proxy.agentName });
+          try {
+            await persistAssistantConversationMemory(
+              runtime,
+              conv.roomId,
+              creditReply,
+              mode,
+            );
+            conv.updatedAt = new Date().toISOString();
+            json(res, { text: creditReply, agentName: proxy.agentName });
+          } catch (persistErr) {
+            error(res, getErrorMessage(persistErr), 500);
+          }
         } else {
           error(res, getErrorMessage(err), 500);
         }
@@ -9667,26 +10363,9 @@ async function handleRequest(
     }
 
     try {
-      const runtime = state.runtime;
-      const userId = ensureAdminEntityId();
-      await ensureConversationRoom(conv);
-
-      const message = createMessageMemory({
-        id: crypto.randomUUID() as UUID,
-        entityId: userId,
-        roomId: conv.roomId,
-        content: {
-          text: body.text.trim(),
-          mode,
-          simple: mode === "simple",
-          source: "client_chat",
-          channelType: ChannelType.DM,
-        },
-      });
-
       const result = await generateChatResponse(
         runtime,
-        message,
+        userMessage,
         state.agentName,
         {
           resolveNoResponseText: () =>
@@ -9694,19 +10373,39 @@ async function handleRequest(
         },
       );
 
+      await persistAssistantConversationMemory(
+        runtime,
+        conv.roomId,
+        result.text,
+        mode,
+        turnStartedAt,
+      );
       conv.updatedAt = new Date().toISOString();
       json(res, {
         text: result.text,
         agentName: result.agentName,
       });
     } catch (err) {
+      logger.warn(
+        `[conversations] POST /messages failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
       const creditReply = getInsufficientCreditsReplyFromError(err);
       if (creditReply) {
-        conv.updatedAt = new Date().toISOString();
-        json(res, {
-          text: creditReply,
-          agentName: state.agentName,
-        });
+        try {
+          await persistAssistantConversationMemory(
+            runtime,
+            conv.roomId,
+            creditReply,
+            mode,
+          );
+          conv.updatedAt = new Date().toISOString();
+          json(res, {
+            text: creditReply,
+            agentName: state.agentName,
+          });
+        } catch (persistErr) {
+          error(res, getErrorMessage(persistErr), 500);
+        }
       } else {
         error(res, getErrorMessage(err), 500);
       }
@@ -9730,17 +10429,41 @@ async function handleRequest(
     }
 
     const runtime = state.runtime;
-    const charName = runtime?.character.name ?? state.agentName ?? "Milaidy";
+    if (!runtime) {
+      error(res, "Agent is not running", 503);
+      return;
+    }
+    const charName = runtime.character.name ?? state.agentName ?? "Milaidy";
 
     // Collect post examples from the character
-    const postExamples = runtime?.character.postExamples ?? [];
-    const greeting = postExamples[Math.floor(Math.random() * postExamples.length)];
+    const postExamples = runtime.character.postExamples ?? [];
+    const greeting =
+      postExamples[Math.floor(Math.random() * postExamples.length)];
 
-    // Store the greeting as an agent message so it persists on refresh
-    if (runtime && state.agentState === "running") {
-      try {
-        await ensureConversationRoom(conv);
-        const agentMemory = createMessageMemory({
+    if (!greeting?.trim()) {
+      json(res, {
+        text: "",
+        agentName: charName,
+        generated: false,
+      });
+      return;
+    }
+
+    try {
+      await ensureConversationRoom(conv);
+    } catch (err) {
+      error(
+        res,
+        `Failed to initialize conversation room: ${getErrorMessage(err)}`,
+        500,
+      );
+      return;
+    }
+
+    try {
+      await persistConversationMemory(
+        runtime,
+        createMessageMemory({
           id: crypto.randomUUID() as UUID,
           entityId: runtime.agentId,
           roomId: conv.roomId,
@@ -9749,13 +10472,15 @@ async function handleRequest(
             source: "agent_greeting",
             channelType: ChannelType.DM,
           },
-        });
-        await runtime.createMemory(agentMemory, "messages");
-      } catch (memErr) {
-        logger.debug(
-          `[greeting] Failed to store greeting memory: ${memErr instanceof Error ? memErr.message : String(memErr)}`,
-        );
-      }
+        }),
+      );
+    } catch (err) {
+      error(
+        res,
+        `Failed to store greeting message: ${getErrorMessage(err)}`,
+        500,
+      );
+      return;
     }
 
     conv.updatedAt = new Date().toISOString();
@@ -9823,14 +10548,23 @@ async function handleRequest(
       initSse(res);
       let fullText = "";
       try {
-        for await (const chunk of proxy.handleChatMessageStream(
-          prompt,
-          "web-chat",
-          mode,
-        )) {
-          fullText += chunk;
-          writeSse(res, { type: "token", text: chunk });
-        }
+        await withTrajectorySpan(
+          {
+            runtime: state.runtime,
+            source: "client_chat",
+            roomId: "web-chat",
+          },
+          async () => {
+            for await (const chunk of proxy.handleChatMessageStream(
+              prompt,
+              "web-chat",
+              mode,
+            )) {
+              fullText += chunk;
+              writeSse(res, { type: "token", text: chunk });
+            }
+          },
+        );
 
         const resolvedText = normalizeChatResponseText(
           fullText,
@@ -9974,14 +10708,23 @@ async function handleRequest(
         let fullText = "";
 
         try {
-          for await (const chunk of proxy.handleChatMessageStream(
-            body.text.trim(),
-            "web-chat",
-            mode,
-          )) {
-            fullText += chunk;
-            writeSse(res, { type: "token", text: chunk });
-          }
+          await withTrajectorySpan(
+            {
+              runtime: state.runtime,
+              source: "client_chat",
+              roomId: "web-chat",
+            },
+            async () => {
+              for await (const chunk of proxy.handleChatMessageStream(
+                body.text?.trim() || "",
+                "web-chat",
+                mode,
+              )) {
+                fullText += chunk;
+                writeSse(res, { type: "token", text: chunk });
+              }
+            },
+          );
           const resolvedText = normalizeChatResponseText(
             fullText,
             state.logBuffer,
@@ -10009,10 +10752,13 @@ async function handleRequest(
         res.end();
       } else {
         try {
-          const responseText = await proxy.handleChatMessage(
-            body.text.trim(),
-            "web-chat",
-            mode,
+          const responseText = await withTrajectorySpan(
+            {
+              runtime: state.runtime,
+              source: "client_chat",
+              roomId: "web-chat",
+            },
+            () => proxy.handleChatMessage(body.text?.trim() || "", "web-chat", mode),
           );
           const resolvedText = normalizeChatResponseText(
             responseText,
@@ -10168,9 +10914,9 @@ async function handleRequest(
     const rt = state.runtime;
     const cloudAuth = rt
       ? (rt.getService("CLOUD_AUTH") as {
-          isAuthenticated: () => boolean;
-          getClient: () => { get: <T>(path: string) => Promise<T> };
-        } | null)
+        isAuthenticated: () => boolean;
+        getClient: () => { get: <T>(path: string) => Promise<T> };
+      } | null)
       : null;
     const configApiKey = state.config.cloud?.apiKey?.trim();
 
@@ -10230,9 +10976,9 @@ async function handleRequest(
         typeof creditResponse?.balance === "number"
           ? creditResponse.balance
           : typeof (creditResponse?.data as Record<string, unknown>)
-                ?.balance === "number"
+            ?.balance === "number"
             ? ((creditResponse.data as Record<string, unknown>)
-                .balance as number)
+              .balance as number)
             : undefined;
       if (typeof rawBalance !== "number") {
         logger.debug(
@@ -11574,10 +12320,10 @@ async function handleRequest(
         : [],
       parameters: Array.isArray(body.parameters)
         ? (body.parameters as Array<{
-            name: string;
-            description: string;
-            required: boolean;
-          }>)
+          name: string;
+          description: string;
+          required: boolean;
+        }>)
         : [],
       handler,
       enabled: body.enabled !== false,
@@ -11638,7 +12384,6 @@ async function handleRequest(
 
       const llmResponse = await runtime.useModel(ModelType.TEXT_SMALL, {
         prompt: `${systemPrompt}\n\nUser request: ${prompt}`,
-        stopSequences: [],
       });
 
       // Parse the JSON from the LLM response
@@ -11983,7 +12728,7 @@ export async function startApiServer(opts?: {
   );
 
   // Warm per-provider model caches in background (non-blocking)
-  void getOrFetchAllProviders().catch(() => {});
+  void getOrFetchAllProviders().catch(() => { });
 
   // ── Intercept loggers so ALL agent/plugin/service logs appear in the UI ──
   // We patch both the global `logger` singleton from @elizaos/core (used by
@@ -12137,6 +12882,15 @@ export async function startApiServer(opts?: {
     if (!svc) return;
 
     const unsubAgentEvents = svc.subscribe((event) => {
+      // Filter out messages from Discord so they don't appear in the UI chat
+      const payload = event.data as any;
+      if (
+        (payload.type === "received" || payload.type === "sent") &&
+        (payload.channel === "discord" || payload.source === "discord")
+      ) {
+        return;
+      }
+
       pushEvent({
         type: "agent_event",
         ts: event.ts,

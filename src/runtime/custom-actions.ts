@@ -66,11 +66,10 @@ async function runCodeHandler(
 
   const script = `(async () => { ${code} })();`;
   const context: Record<string, unknown> = { params, fetch };
-  return await vmRunner.runInNewContext(
-    `"use strict"; ${script}`,
-    context,
-    { filename: "milaidy-custom-action.js", timeout: 30_000 },
-  );
+  return await vmRunner.runInNewContext(`"use strict"; ${script}`, context, {
+    filename: "milaidy-custom-action.js",
+    timeout: 30_000,
+  });
 }
 
 /**

@@ -27,6 +27,8 @@ import {
   normalizeTriggerDraft,
 } from "./scheduling.js";
 
+const CREATE_TRIGGER_TASK_ACTION = "CREATE_TRIGGER_TASK";
+
 const CREATE_TRIGGER_KEYWORDS = [
   "create trigger",
   "create a trigger",
@@ -120,7 +122,7 @@ function scheduleText(
 }
 
 export const createTriggerTaskAction: Action = {
-  name: "CREATE_TASK",
+  name: CREATE_TRIGGER_TASK_ACTION,
   similes: ["CREATE_TRIGGER", "SCHEDULE_TRIGGER"],
   description:
     "Create an autonomous trigger task that executes interval, once, or cron schedules",
@@ -262,7 +264,7 @@ export const createTriggerTaskAction: Action = {
         if (callback) {
           await callback({
             text: duplicateText,
-            action: "CREATE_TASK",
+            action: CREATE_TRIGGER_TASK_ACTION,
             metadata: {
               duplicateTaskId: duplicate.id,
             },
@@ -312,7 +314,7 @@ export const createTriggerTaskAction: Action = {
       if (callback) {
         await callback({
           text: successText,
-          action: "CREATE_TASK",
+          action: CREATE_TRIGGER_TASK_ACTION,
           metadata: {
             triggerId,
             taskId: String(createdTaskId),

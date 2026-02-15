@@ -287,32 +287,29 @@ export function ChatView() {
         style={{ zIndex: 1 }}
       >
         <div className="flex items-center gap-1">
-          <span className="text-[11px] text-muted uppercase tracking-wide">
-            Mode
-          </span>
           <button
             className={`px-2 py-1 text-xs border rounded cursor-pointer transition-all ${
               chatMode === "simple"
-                ? "border-accent text-accent bg-card"
-                : "border-border text-muted bg-card hover:border-accent hover:text-accent"
+                ? "border-accent bg-accent text-accent-fg"
+                : "border-border text-muted bg-card hover:border-accent hover:text-accent text-accent-fg"
             }`}
             onClick={() => setChatMode("simple")}
             title="Simple mode: reply only, no tools"
             disabled={chatSending}
           >
-            Simple
+            Conversational (Fast)
           </button>
           <button
             className={`px-2 py-1 text-xs border rounded cursor-pointer transition-all ${
               chatMode === "power"
-                ? "border-accent text-accent bg-card"
-                : "border-border text-muted bg-card hover:border-accent hover:text-accent"
+                ? "border-accent bg-accent text-accent-fg"
+                : "border-border text-muted bg-card hover:border-accent hover:text-accent text-accent-fg"
             }`}
             onClick={() => setChatMode("power")}
             title="Power mode: tools/actions allowed"
             disabled={chatSending}
           >
-            Power
+            Powerful (Slow)
           </button>
         </div>
         <div className="flex gap-1.5">

@@ -19,9 +19,15 @@ interface AutonomousPanelContextStub {
 
 const mockUseApp = vi.fn<() => AutonomousPanelContextStub>();
 
-vi.mock("../../src/AppContext", () => ({
-  useApp: () => mockUseApp(),
-}));
+vi.mock("../../src/AppContext", async () => {
+  const actual = await vi.importActual<typeof import("../../src/AppContext")>(
+    "../../src/AppContext",
+  );
+  return {
+    ...actual,
+    useApp: () => mockUseApp(),
+  };
+});
 
 import { AutonomousPanel } from "../../src/components/AutonomousPanel";
 

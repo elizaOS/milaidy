@@ -212,6 +212,7 @@ function MarketplaceCard({
 }) {
   const isInstalling = skillsMarketplaceAction === `install:${item.id}`;
   const isUninstalling = skillsMarketplaceAction === `uninstall:${item.id}`;
+  const sourceLabel = item.repository || item.slug || item.id;
 
   return (
     <div className="flex items-start gap-4 p-4 border border-[var(--border)] bg-[var(--card)] hover:border-[var(--accent)]/50 transition-colors">
@@ -225,7 +226,7 @@ function MarketplaceCard({
           {item.description || "No description."}
         </div>
         <div className="flex items-center gap-2 mt-1.5 text-[10px] text-[var(--muted)]">
-          <span className="font-mono">{item.repository}</span>
+          <span className="font-mono">{sourceLabel}</span>
           {item.score != null && (
             <>
               <span className="text-[var(--border)]">/</span>
