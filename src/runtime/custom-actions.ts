@@ -55,7 +55,7 @@ function shellEscape(value: string): string {
 const ALWAYS_BLOCKED_IP_PATTERNS: RegExp[] = [
   /^0\./, // "this" network
   /^169\.254\./, // link-local / metadata
-  /^fe80:/i, // IPv6 link-local
+  /^fe[89ab][0-9a-f]:/i, // IPv6 link-local fe80::/10
   /^::$/i, // unspecified
   /^::1$/i, // IPv6 loopback
 ];

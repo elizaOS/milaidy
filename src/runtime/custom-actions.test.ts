@@ -67,6 +67,17 @@ describe("custom action SSRF guard", () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
+  it("rejects direct IPv6 link-local targets across fe80::/10", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    const handler = buildTestHandler(makeHttpAction("http://[fea0::1]/test"));
+
+    const result = await handler({});
+    expect(result.ok).toBe(false);
+    expect(result.output).toContain("Blocked");
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(vi.mocked(dnsLookup)).not.toHaveBeenCalled();
+  });
+
   it("allows explicit localhost API target on the configured API port", async () => {
     const fetchSpy = vi
       .spyOn(globalThis, "fetch")
