@@ -80,6 +80,62 @@ describe("database read-only query guard", () => {
     expect(execute).not.toHaveBeenCalled();
   });
 
+  it("rejects nextval() in read-only mode", async () => {
+    const { runtime, execute } = makeRuntime({
+      rows: [],
+      fields: [{ name: "value" }],
+    });
+    const req = createMockJsonRequest(
+      {
+        sql: "SELECT nextval('users_id_seq')",
+      },
+      { method: "POST", url: "/api/database/query" },
+    );
+    const { res, getStatus, getJson } = createMockHttpResponse<{
+      error?: string;
+    }>();
+
+    const handled = await handleDatabaseRoute(
+      req,
+      res,
+      runtime,
+      "/api/database/query",
+    );
+
+    expect(handled).toBe(true);
+    expect(getStatus()).toBe(400);
+    expect(String(getJson()?.error ?? "")).toContain('"NEXTVAL"');
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  it("rejects setval() in read-only mode", async () => {
+    const { runtime, execute } = makeRuntime({
+      rows: [],
+      fields: [{ name: "value" }],
+    });
+    const req = createMockJsonRequest(
+      {
+        sql: "SELECT setval('users_id_seq', 42)",
+      },
+      { method: "POST", url: "/api/database/query" },
+    );
+    const { res, getStatus, getJson } = createMockHttpResponse<{
+      error?: string;
+    }>();
+
+    const handled = await handleDatabaseRoute(
+      req,
+      res,
+      runtime,
+      "/api/database/query",
+    );
+
+    expect(handled).toBe(true);
+    expect(getStatus()).toBe(400);
+    expect(String(getJson()?.error ?? "")).toContain('"SETVAL"');
+    expect(execute).not.toHaveBeenCalled();
+  });
+
   it("allows COPY when readOnly is explicitly false", async () => {
     const { runtime, execute } = makeRuntime({
       rows: [],
