@@ -1592,6 +1592,13 @@ function isAuthorized(req: http.IncomingMessage): boolean {
   return crypto.timingSafeEqual(a, b);
 }
 
+function applySecurityHeaders(res: http.ServerResponse): void {
+  res.setHeader("Content-Security-Policy", "default-src 'none'");
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("Referrer-Policy", "no-referrer");
+}
+
 async function handleRequest(
   req: http.IncomingMessage,
   res: http.ServerResponse,
@@ -1605,6 +1612,8 @@ async function handleRequest(
   );
   const pathname = url.pathname;
   const isAuthEndpoint = pathname.startsWith("/api/auth/");
+
+  applySecurityHeaders(res);
 
   if (!applyCors(req, res)) {
     json(res, { error: "Origin not allowed" }, 403);
