@@ -314,6 +314,41 @@ describe("validatePluginConfig", () => {
     expect(result.errors.some((e) => e.field === "UNDECLARED_KEY")).toBe(true);
   });
 
+  it("reports exactly one error per undeclared config key", () => {
+    const result = validatePluginConfig(
+      "anthropic",
+      "ai-provider",
+      "ANTHROPIC_API_KEY",
+      ["ANTHROPIC_API_KEY", "ANTHROPIC_SMALL_MODEL"],
+      {
+        ANTHROPIC_API_KEY: "sk-ant-test-1234567890abcdef",
+        UNDECLARED_KEY: "oops",
+      },
+      [
+        {
+          key: "ANTHROPIC_API_KEY",
+          required: true,
+          sensitive: true,
+          type: "string",
+          description: "API key",
+        },
+        {
+          key: "ANTHROPIC_SMALL_MODEL",
+          required: false,
+          sensitive: false,
+          type: "string",
+          description: "Small model",
+          default: "claude-3-5-haiku-20241022",
+        },
+      ],
+    );
+
+    const undeclaredErrors = result.errors.filter(
+      (error) => error.field === "UNDECLARED_KEY",
+    );
+    expect(undeclaredErrors).toHaveLength(1);
+  });
+
   // ---------------------------------------------------------------------------
   // API key format validation
   // ---------------------------------------------------------------------------
