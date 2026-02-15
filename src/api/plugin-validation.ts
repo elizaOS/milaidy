@@ -89,18 +89,28 @@ export function validatePluginConfig(
 ): PluginValidationResult {
   const errors: Array<{ field: string; message: string }> = [];
   const warnings: Array<{ field: string; message: string }> = [];
-  const normalizedConfigKeys = new Set(
-    configKeys.map((key) => key.trim().toUpperCase()),
+  const allowedConfigKeys = new Set(configKeys);
+  const canonicalKeyByNormalized = new Map<string, string>(
+    configKeys.map((key) => [key.trim().toUpperCase(), key]),
   );
 
   if (providedConfig) {
     for (const key of Object.keys(providedConfig)) {
-      if (!normalizedConfigKeys.has(key.trim().toUpperCase())) {
+      if (allowedConfigKeys.has(key)) continue;
+
+      const canonical = canonicalKeyByNormalized.get(key.trim().toUpperCase());
+      if (canonical) {
         errors.push({
           field: key,
-          message: `${key} is not a declared config key for this plugin`,
+          message: `${key} does not match declared config key casing; use ${canonical}`,
         });
+        continue;
       }
+
+      errors.push({
+        field: key,
+        message: `${key} is not a declared config key for this plugin`,
+      });
     }
   }
 
