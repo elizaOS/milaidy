@@ -62,14 +62,26 @@ import { resolveAppAssetUrl } from "./asset-url";
 /** Number of built-in milady VRM avatars shipped with the app. */
 export const VRM_COUNT = 8;
 
+function normalizeAvatarIndex(index: number): number {
+  if (!Number.isFinite(index)) return 1;
+  const n = Math.trunc(index);
+  if (n === 0) return 0;
+  if (n < 1 || n > VRM_COUNT) return 1;
+  return n;
+}
+
 /** Resolve a built-in VRM index (1–8) to its public asset URL. */
 export function getVrmUrl(index: number): string {
-  return resolveAppAssetUrl(`vrms/${index}.vrm`);
+  const normalized = normalizeAvatarIndex(index);
+  const safeIndex = normalized > 0 ? normalized : 1;
+  return resolveAppAssetUrl(`vrms/${safeIndex}.vrm`);
 }
 
 /** Resolve a built-in VRM index (1–8) to its preview thumbnail URL. */
 export function getVrmPreviewUrl(index: number): string {
-  return resolveAppAssetUrl(`vrms/previews/milady-${index}.png`);
+  const normalized = normalizeAvatarIndex(index);
+  const safeIndex = normalized > 0 ? normalized : 1;
+  return resolveAppAssetUrl(`vrms/previews/milady-${safeIndex}.png`);
 }
 
 // ── Theme ──────────────────────────────────────────────────────────────
@@ -127,7 +139,7 @@ function loadAvatarIndex(): number {
     const stored = localStorage.getItem(AVATAR_INDEX_KEY);
     if (stored) {
       const n = parseInt(stored, 10);
-      if (!Number.isNaN(n) && n >= 0) return n;
+      return normalizeAvatarIndex(n);
     }
   } catch { /* ignore */ }
   return 1;
@@ -135,7 +147,7 @@ function loadAvatarIndex(): number {
 
 function saveAvatarIndex(index: number) {
   try {
-    localStorage.setItem(AVATAR_INDEX_KEY, String(index));
+    localStorage.setItem(AVATAR_INDEX_KEY, String(normalizeAvatarIndex(index)));
   } catch { /* ignore */ }
 }
 
@@ -852,8 +864,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // Wrap setter to also persist to localStorage
   const setSelectedVrmIndex = useCallback((v: number) => {
-    setSelectedVrmIndexRaw(v);
-    saveAvatarIndex(v);
+    const normalized = normalizeAvatarIndex(v);
+    setSelectedVrmIndexRaw(normalized);
+    saveAvatarIndex(normalized);
   }, []);
 
   // --- Cloud ---
@@ -3385,10 +3398,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const cfg = await client.getConfig();
         const settings = cfg.settings as Record<string, unknown> | undefined;
         if (settings?.avatarIndex != null) {
-          const idx = Number(settings.avatarIndex);
-          if (!Number.isNaN(idx) && idx >= 0) {
-            setSelectedVrmIndex(idx);
-          }
+          setSelectedVrmIndex(Number(settings.avatarIndex));
         }
       } catch {
         /* ignore — localStorage fallback already loaded */

@@ -117,7 +117,7 @@
     "@elizaos/plugin-scratchpad": "next",
     "@elizaos/plugin-secrets-manager": "next",
     "@elizaos/plugin-shell": "2.0.0-alpha.6",
-    "@elizaos/plugin-computeruse": "workspace:*",
+    "@elizaos/plugin-computeruse": "2.0.0-alpha.8",
     "@elizaos/plugin-sql": "2.0.0-alpha.11",
     "@elizaos/plugin-todo": "next",
     "@elizaos/plugin-trajectory-logger": "^2.0.0-alpha.1",

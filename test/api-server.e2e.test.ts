@@ -1678,6 +1678,77 @@ describe("API Server E2E (no runtime)", () => {
         await streamServer.close();
       }
     });
+
+    it("GET/PUT /api/trajectories/config always keeps logging enabled", async () => {
+      let enabled = false;
+      const setEnabledCalls: boolean[] = [];
+
+      const trajectoryLogger = {
+        isEnabled: () => enabled,
+        setEnabled: (next: boolean) => {
+          setEnabledCalls.push(next);
+          enabled = next;
+        },
+        listTrajectories: async () => ({
+          trajectories: [],
+          total: 0,
+          offset: 0,
+          limit: 50,
+        }),
+        getTrajectoryDetail: async () => null,
+        getStats: async () => ({
+          totalTrajectories: 0,
+          totalSteps: 0,
+          totalLlmCalls: 0,
+          totalPromptTokens: 0,
+          totalCompletionTokens: 0,
+          averageDurationMs: 0,
+          averageReward: 0,
+          bySource: {},
+          byStatus: {},
+          byScenario: {},
+        }),
+        deleteTrajectories: async () => 0,
+        clearAllTrajectories: async () => 0,
+        exportTrajectories: async () => ({
+          data: "[]",
+          filename: "trajectories.json",
+          mimeType: "application/json",
+        }),
+      };
+
+      const runtime = createRuntimeForChatSseTests({
+        getService: (serviceType) =>
+          serviceType === "trajectory_logger" ? trajectoryLogger : null,
+        getServicesByType: (serviceType) =>
+          serviceType === "trajectory_logger" ? [trajectoryLogger] : [],
+      }) as AgentRuntime & { adapter?: unknown };
+      runtime.adapter = {};
+
+      const streamServer = await startApiServer({ port: 0, runtime });
+      try {
+        const before = await req(
+          streamServer.port,
+          "GET",
+          "/api/trajectories/config",
+        );
+        expect(before.status).toBe(200);
+        expect(before.data.enabled).toBe(true);
+
+        const updated = await req(
+          streamServer.port,
+          "PUT",
+          "/api/trajectories/config",
+          { enabled: false },
+        );
+        expect(updated.status).toBe(200);
+        expect(updated.data.enabled).toBe(true);
+        expect(enabled).toBe(true);
+        expect(setEnabledCalls.some((value) => value === true)).toBe(true);
+      } finally {
+        await streamServer.close();
+      }
+    });
   });
 
   describe("insufficient credits fallback", () => {

@@ -17,6 +17,13 @@ describe("Avatar VRM Utilities", () => {
         expect(getVrmUrl(i)).toBe(`/vrms/${i}.vrm`);
       }
     });
+
+    it("clamps invalid indices to avatar 1", () => {
+      expect(getVrmUrl(9)).toBe("/vrms/1.vrm");
+      expect(getVrmUrl(-3)).toBe("/vrms/1.vrm");
+      expect(getVrmUrl(Number.NaN)).toBe("/vrms/1.vrm");
+      expect(getVrmUrl(0)).toBe("/vrms/1.vrm");
+    });
   });
 
   describe("getVrmPreviewUrl", () => {
@@ -24,6 +31,12 @@ describe("Avatar VRM Utilities", () => {
       for (let i = 1; i <= 8; i++) {
         expect(getVrmPreviewUrl(i)).toBe(`/vrms/previews/milady-${i}.png`);
       }
+    });
+
+    it("clamps invalid preview indices to avatar 1", () => {
+      expect(getVrmPreviewUrl(999)).toBe("/vrms/previews/milady-1.png");
+      expect(getVrmPreviewUrl(-1)).toBe("/vrms/previews/milady-1.png");
+      expect(getVrmPreviewUrl(0)).toBe("/vrms/previews/milady-1.png");
     });
   });
 });

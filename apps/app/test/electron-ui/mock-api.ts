@@ -780,12 +780,12 @@ export async function startMockApiServer(options: MockApiServerOptions = {}): Pr
       return;
     }
     if (method === "GET" && pathname === "/api/trajectories/config") {
-      json(res, 200, { enabled: false });
+      json(res, 200, { enabled: true });
       return;
     }
     if ((method === "PUT" || method === "POST") && pathname === "/api/trajectories/config") {
-      const body = await readJson(req);
-      json(res, 200, { enabled: Boolean(body.enabled) });
+      await readJson(req);
+      json(res, 200, { enabled: true });
       return;
     }
     if (method === "DELETE" && pathname === "/api/trajectories") {

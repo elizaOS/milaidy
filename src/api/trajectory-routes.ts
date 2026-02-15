@@ -37,6 +37,19 @@ interface TrajectoryLoggerService {
   ): Promise<{ data: string; filename: string; mimeType: string }>;
 }
 
+function ensureTrajectoryLoggerAlwaysEnabled(
+  logger: TrajectoryLoggerService | null,
+): void {
+  if (!logger) return;
+  try {
+    if (!logger.isEnabled()) {
+      logger.setEnabled(true);
+    }
+  } catch {
+    // Keep route behavior resilient if the logger throws.
+  }
+}
+
 function isRouteCompatibleTrajectoryLogger(
   candidate: unknown,
 ): candidate is TrajectoryLoggerService {
@@ -645,6 +658,7 @@ function getTrajectoryLogger(
     }
   }
 
+  ensureTrajectoryLoggerAlwaysEnabled(best);
   return best ?? null;
 }
 
@@ -941,6 +955,7 @@ async function handleGetConfig(
     return;
   }
 
+  ensureTrajectoryLoggerAlwaysEnabled(logger);
   sendJson(res, {
     enabled: logger.isEnabled(),
   });
@@ -960,9 +975,8 @@ async function handlePutConfig(
   const body = await readJsonBody<{ enabled?: boolean }>(req, res);
   if (!body) return;
 
-  if (typeof body.enabled === "boolean") {
-    logger.setEnabled(body.enabled);
-  }
+  // Trajectory logging is always-on in Milaidy. Ignore disable requests.
+  logger.setEnabled(true);
 
   sendJson(res, {
     enabled: logger.isEnabled(),

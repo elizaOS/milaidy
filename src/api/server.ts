@@ -1807,6 +1807,7 @@ interface ChatGenerateOptions {
 
 interface TrajectoryLoggerForChat {
   isEnabled?: () => boolean;
+  setEnabled?: (enabled: boolean) => void;
   startTrajectory?: (
     stepId: string,
     options: {
@@ -1898,6 +1899,18 @@ function getTrajectoryLoggerForRuntime(
       bestScore = score;
     }
   }
+  if (
+    best &&
+    typeof best.isEnabled === "function" &&
+    !best.isEnabled() &&
+    typeof best.setEnabled === "function"
+  ) {
+    try {
+      best.setEnabled(true);
+    } catch {
+      // Keep chat path resilient if logger enable fails.
+    }
+  }
   return best;
 }
 
@@ -1936,7 +1949,17 @@ function isTrajectoryLoggerEnabled(
   logger: TrajectoryLoggerForChat | null,
 ): boolean {
   if (!logger || typeof logger.startTrajectory !== "function") return false;
-  return typeof logger.isEnabled !== "function" || logger.isEnabled();
+  if (typeof logger.isEnabled !== "function") return true;
+  if (logger.isEnabled()) return true;
+  if (typeof logger.setEnabled === "function") {
+    try {
+      logger.setEnabled(true);
+      return logger.isEnabled();
+    } catch {
+      return false;
+    }
+  }
+  return false;
 }
 
 function buildTrajectoryMetadata(
@@ -2226,8 +2249,7 @@ async function generateChatResponse(
     !eventTrajectoryStepId &&
     trajectoryLogger &&
     typeof trajectoryLogger.startTrajectory === "function" &&
-    (typeof trajectoryLogger.isEnabled !== "function" ||
-      trajectoryLogger.isEnabled())
+    isTrajectoryLoggerEnabled(trajectoryLogger)
   ) {
     const stepId = crypto.randomUUID();
     if (!message.metadata || typeof message.metadata !== "object") {

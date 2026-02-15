@@ -86,10 +86,9 @@ export function TrajectoriesView({ onSelectTrajectory }: TrajectoriesViewProps) 
     void loadTrajectories();
   }, [loadTrajectories]);
 
-  const handleToggleEnabled = async () => {
-    if (!config) return;
+  const handleEnableLogging = async () => {
     try {
-      const updated = await client.updateTrajectoryConfig({ enabled: !config.enabled });
+      const updated = await client.updateTrajectoryConfig({ enabled: true });
       setConfig(updated);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update config");
@@ -175,17 +174,18 @@ export function TrajectoriesView({ onSelectTrajectory }: TrajectoriesViewProps) 
             <span className="font-semibold">{formatTrajectoryDuration(stats.averageDurationMs)}</span>
           </div>
           <div className="ml-auto flex items-center gap-2">
-            <label className="flex items-center gap-1.5 cursor-pointer">
+            <label className="flex items-center gap-1.5">
               <span className="text-muted">Logging:</span>
               <button
                 className={`px-2 py-0.5 text-[11px] border rounded ${
                   config?.enabled
                     ? "bg-success/20 border-success text-success"
-                    : "bg-danger/20 border-danger text-danger"
+                    : "bg-warn/20 border-warn text-warn"
                 }`}
-                onClick={handleToggleEnabled}
+                onClick={handleEnableLogging}
+                disabled={config?.enabled}
               >
-                {config?.enabled ? "ON" : "OFF"}
+                {config?.enabled ? "ON" : "ENABLE"}
               </button>
             </label>
           </div>
@@ -316,7 +316,7 @@ export function TrajectoriesView({ onSelectTrajectory }: TrajectoriesViewProps) 
             No trajectories {hasActiveFilters ? "matching filters" : "yet"}.
             {!config?.enabled && (
               <div className="mt-2 text-warn text-[11px]">
-                Trajectory logging is disabled. Enable it to start capturing LLM calls.
+                Trajectory logging should auto-enable; click ENABLE if startup is still settling.
               </div>
             )}
           </div>
