@@ -59,6 +59,30 @@ describe("database API security hardening", () => {
     expect(saveMilaidyConfigMock).not.toHaveBeenCalled();
   });
 
+  it("blocks IPv6 link-local hosts across fe80::/10", async () => {
+    const req = createMockJsonRequest(
+      {
+        postgres: { host: "fea0::1" },
+      },
+      { method: "PUT", url: "/api/database/config" },
+    );
+    const { res, getStatus, getJson } = createMockHttpResponse();
+
+    const handled = await handleDatabaseRoute(
+      req,
+      res,
+      null,
+      "/api/database/config",
+    );
+
+    expect(handled).toBe(true);
+    expect(getStatus()).toBe(400);
+    expect(String((getJson() as { error?: string }).error ?? "")).toContain(
+      'Connection to "fea0::1" is blocked',
+    );
+    expect(saveMilaidyConfigMock).not.toHaveBeenCalled();
+  });
+
   it("allows unresolved hostnames when saving config for remote runtime networks", async () => {
     const req = createMockJsonRequest(
       {

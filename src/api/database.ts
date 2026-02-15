@@ -149,7 +149,7 @@ const dnsLookupAll = promisify(dns.lookup);
 const ALWAYS_BLOCKED_IP_PATTERNS: RegExp[] = [
   /^169\.254\./, // Link-local / cloud metadata (AWS, GCP, Azure)
   /^0\./, // "This" network
-  /^fe80:/i, // IPv6 link-local
+  /^fe[89ab][0-9a-f]:/i, // IPv6 link-local fe80::/10
 ];
 
 /**
