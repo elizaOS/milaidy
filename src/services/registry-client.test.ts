@@ -221,6 +221,23 @@ async function writeLocalAppPackage(
 let tmpDir: string;
 let savedEnv: Record<string, string | undefined>;
 
+async function removeDirWithRetries(dir: string, attempts = 4): Promise<void> {
+  for (let i = 0; i < attempts; i += 1) {
+    try {
+      await fs.rm(dir, { recursive: true, force: true });
+      return;
+    } catch (error) {
+      const shouldRetry =
+        error instanceof Error &&
+        "code" in error &&
+        (error as NodeJS.ErrnoException).code === "ENOTEMPTY" &&
+        i < attempts - 1;
+      if (!shouldRetry) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+  }
+}
+
 beforeEach(async () => {
   // Reset module cache to get fresh module-level state
   vi.resetModules();
@@ -244,7 +261,7 @@ afterEach(async () => {
   vi.unstubAllGlobals();
   process.env.MILAIDY_STATE_DIR = savedEnv.MILAIDY_STATE_DIR;
   process.env.MILAIDY_WORKSPACE_ROOT = savedEnv.MILAIDY_WORKSPACE_ROOT;
-  await fs.rm(tmpDir, { recursive: true, force: true });
+  await removeDirWithRetries(tmpDir);
 });
 
 // ---------------------------------------------------------------------------

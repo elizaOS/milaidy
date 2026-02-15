@@ -11,6 +11,13 @@ const fetchMock =
   vi.fn<
     (input: string | URL | Request, init?: RequestInit) => Promise<Response>
   >();
+const { validateCloudBaseUrlMock } = vi.hoisted(() => ({
+  validateCloudBaseUrlMock: vi.fn<(rawUrl: string) => Promise<string | null>>(),
+}));
+
+vi.mock("../cloud/validate-url.js", () => ({
+  validateCloudBaseUrl: validateCloudBaseUrlMock,
+}));
 
 function createState(createAgent: (args: unknown) => Promise<unknown>) {
   return {
@@ -123,6 +130,7 @@ function cloudState(): CloudRouteState {
 describe("handleCloudRoute timeout behavior", () => {
   beforeEach(() => {
     vi.stubGlobal("fetch", fetchMock);
+    validateCloudBaseUrlMock.mockResolvedValue(null);
   });
 
   afterEach(() => {

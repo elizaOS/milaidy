@@ -44,7 +44,8 @@ describe("knowledge routes", () => {
 
     runtime = {
       agentId: AGENT_ID,
-      getService: (name: string) => (name === "knowledge" ? knowledgeService : null),
+      getService: (name: string) =>
+        name === "knowledge" ? knowledgeService : null,
       getServiceLoadPromise: async () => undefined,
     } as unknown as AgentRuntime;
   });
@@ -187,7 +188,12 @@ describe("knowledge routes", () => {
 
     const fragments = (
       result.payload as {
-        fragments: Array<{ id: UUID; text: string; position: unknown; createdAt: number }>;
+        fragments: Array<{
+          id: UUID;
+          text: string;
+          position: unknown;
+          createdAt: number;
+        }>;
       }
     ).fragments;
 
