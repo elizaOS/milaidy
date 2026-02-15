@@ -3082,7 +3082,7 @@ function isLoopbackBindHost(host: string): boolean {
   return false;
 }
 
-function ensureApiTokenForBindHost(host: string): void {
+export function ensureApiTokenForBindHost(host: string): void {
   const token = process.env.MILAIDY_API_TOKEN?.trim();
   if (token) return;
   if (isLoopbackBindHost(host)) return;
@@ -3093,8 +3093,9 @@ function ensureApiTokenForBindHost(host: string): void {
   logger.warn(
     `[milaidy-api] MILAIDY_API_BIND=${host} is non-loopback and MILAIDY_API_TOKEN is unset.`,
   );
+  const tokenFingerprint = `${generated.slice(0, 4)}...${generated.slice(-4)}`;
   logger.warn(
-    `[milaidy-api] Generated temporary MILAIDY_API_TOKEN=${generated}. Set MILAIDY_API_TOKEN explicitly to override.`,
+    `[milaidy-api] Generated temporary MILAIDY_API_TOKEN (${tokenFingerprint}) for this process. Set MILAIDY_API_TOKEN explicitly to override.`,
   );
 }
 
