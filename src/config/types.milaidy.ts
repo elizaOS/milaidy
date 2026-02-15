@@ -1,4 +1,10 @@
 import type { SessionConfig, SessionSendPolicyConfig } from "@elizaos/core";
+import type {
+  CustomActionDef,
+  DatabaseProviderType,
+  MediaConfig,
+  ReleaseChannel,
+} from "../contracts/config.js";
 import type { AgentBinding, AgentsConfig } from "./types.agents.js";
 import type {
   DiscoveryConfig,
@@ -13,6 +19,37 @@ import type {
   MessagesConfig,
 } from "./types.messages.js";
 import type { ToolsConfig } from "./types.tools.js";
+
+export type {
+  AudioElevenlabsSfxConfig,
+  AudioGenConfig,
+  AudioGenProvider,
+  AudioSunoConfig,
+  CustomActionDef,
+  CustomActionHandler,
+  DatabaseProviderType,
+  ImageConfig,
+  ImageFalConfig,
+  ImageGoogleConfig,
+  ImageOpenaiConfig,
+  ImageProvider,
+  ImageXaiConfig,
+  MediaConfig,
+  MediaMode,
+  ReleaseChannel,
+  VideoConfig,
+  VideoFalConfig,
+  VideoGoogleConfig,
+  VideoOpenaiConfig,
+  VideoProvider,
+  VisionAnthropicConfig,
+  VisionConfig,
+  VisionGoogleConfig,
+  VisionOllamaConfig,
+  VisionOpenaiConfig,
+  VisionProvider,
+  VisionXaiConfig,
+} from "../contracts/config.js";
 
 // --- Auth types (merged from types.auth.ts) ---
 
@@ -361,8 +398,6 @@ export type MemoryQmdLimitsConfig = {
 
 // --- Database types ---
 
-export type DatabaseProviderType = "pglite" | "postgres";
-
 export type PgliteConfig = {
   /** Custom PGLite data directory. Default: ~/.milaidy/workspace/.eliza/.elizadb */
   dataDir?: string;
@@ -499,9 +534,26 @@ export type X402Config = {
   dbPath?: string;
 };
 
-// --- Update/release channel types ---
+// ============================================================================
+// Media Generation Types
+// ============================================================================
 
-export type ReleaseChannel = "stable" | "beta" | "nightly";
+// --- Local embedding runtime config ---
+
+export type EmbeddingConfig = {
+  /** GGUF model filename (e.g. "nomic-embed-text-v1.5.Q5_K_M.gguf"). */
+  model?: string;
+  /** Optional Hugging Face repo/source for model resolution. */
+  modelRepo?: string;
+  /** Embedding vector dimension (default: 768). */
+  dimensions?: number;
+  /** GPU layers for model loading: "auto", "max", or a number. */
+  gpuLayers?: number | "auto" | "max";
+  /** Minutes of inactivity before unloading model from memory (default: 30, 0 = never). */
+  idleTimeoutMinutes?: number;
+};
+
+// --- Update/release channel types ---
 
 export type UpdateConfig = {
   channel?: ReleaseChannel;
@@ -512,6 +564,8 @@ export type UpdateConfig = {
   /** Seconds between automatic checks. Default: 14400 (4 hours). */
   checkIntervalSeconds?: number;
 };
+
+// --- Custom Actions types ---
 
 // --- Connector types ---
 
@@ -604,11 +658,15 @@ export type MilaidyConfig = {
   talk?: TalkConfig;
   gateway?: GatewayConfig;
   memory?: MemoryConfig;
+  /** Local embedding model configuration (Metal GPU, idle unloading, model selection). */
+  embedding?: EmbeddingConfig;
   /** Database provider and connection configuration (local-only feature). */
   database?: DatabaseConfig;
   /** ElizaCloud integration for remote agent provisioning and inference. */
   cloud?: CloudConfig;
   x402?: X402Config;
+  /** Media generation configuration (image, video, audio, vision providers). */
+  media?: MediaConfig;
   /** Messaging connector configuration (Telegram, Discord, Slack, etc.). */
   connectors?: Record<string, ConnectorConfig>;
   /** MCP server configuration. */
@@ -627,11 +685,22 @@ export type MilaidyConfig = {
       }
     >;
   };
+  /** ERC-8004 agent registry and MilaidyMaker NFT collection configuration. */
+  registry?: {
+    /** Ethereum mainnet (or local Anvil) RPC URL. */
+    mainnetRpc?: string;
+    /** MilaidyAgentRegistry contract address. */
+    registryAddress?: string;
+    /** MilaidyMaker collection contract address. */
+    collectionAddress?: string;
+  };
   /** Feature flags for plugin auto-enable. */
   features?: Record<
     string,
     boolean | { enabled?: boolean; [k: string]: unknown }
   >;
+  /** User-defined custom actions for the agent. */
+  customActions?: CustomActionDef[];
 };
 
 export type ConfigValidationIssue = {

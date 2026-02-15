@@ -80,6 +80,7 @@ const CONNECTORS = new Set([
   "telegram",
   "discord",
   "slack",
+  "twitter",
   "whatsapp",
   "signal",
   "imessage",

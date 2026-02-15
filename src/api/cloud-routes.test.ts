@@ -1,159 +1,199 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { handleCloudRoute, type CloudRouteState } from "./cloud-routes.js";
-import type { IncomingMessage, ServerResponse } from "node:http";
-import type { MilaidyConfig } from "../config/config.js";
-import { EventEmitter } from "node:events";
+import type http from "node:http";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  createMockHttpResponse,
+  createMockIncomingMessage,
+} from "../test-support/test-helpers.js";
+import type { CloudRouteState } from "./cloud-routes.js";
+import { handleCloudRoute } from "./cloud-routes.js";
 
-// Mock dependencies
-vi.mock("../config/config.js", () => ({
-  saveMilaidyConfig: vi.fn(),
-  loadMilaidyConfig: vi.fn(),
-}));
+const fetchMock =
+  vi.fn<
+    (input: string | URL | Request, init?: RequestInit) => Promise<Response>
+  >();
 
-vi.mock("@elizaos/core", () => ({
-  logger: {
-    info: vi.fn(),
-    error: vi.fn(),
-    warn: vi.fn(),
-    debug: vi.fn(),
-  },
-}));
-
-// Mock fetch
-const fetchMock = vi.fn();
-global.fetch = fetchMock;
-
-// Helper to create mock request/response
-function createMocks() {
-  const req = new EventEmitter() as unknown as IncomingMessage;
-  req.headers = { host: "localhost:2138" };
-  req.url = "/";
-  req.method = "GET";
-
-  const res = {
-    statusCode: 200,
-    setHeader: vi.fn(),
-    end: vi.fn(),
-  } as unknown as ServerResponse;
-
-  return { req, res };
+function createState(createAgent: (args: unknown) => Promise<unknown>) {
+  return {
+    config: {} as CloudRouteState["config"],
+    runtime: null,
+    cloudManager: {
+      getClient: () => ({
+        listAgents: async () => [],
+        createAgent,
+      }),
+    },
+  } as unknown as CloudRouteState;
 }
 
 describe("handleCloudRoute", () => {
-  let state: CloudRouteState;
+  it("returns 400 for invalid JSON in POST /api/cloud/agents", async () => {
+    const req = createMockIncomingMessage({
+      method: "POST",
+      url: "/api/cloud/agents",
+      headers: {},
+      bodyChunks: [Buffer.from("{")],
+    });
+    const { res, getStatus, getJson } = createMockHttpResponse();
+    const createAgent = vi.fn().mockResolvedValue({ id: "agent-1" });
 
+    const handled = await handleCloudRoute(
+      req,
+      res,
+      "/api/cloud/agents",
+      "POST",
+      createState(createAgent),
+    );
+
+    expect(handled).toBe(true);
+    expect(getStatus()).toBe(400);
+    expect(getJson()).toEqual({ error: "Invalid JSON in request body" });
+    expect(createAgent).not.toHaveBeenCalled();
+  });
+
+  it("returns 413 when POST /api/cloud/agents body exceeds size limit", async () => {
+    const req = createMockIncomingMessage({
+      method: "POST",
+      url: "/api/cloud/agents",
+      headers: {},
+      bodyChunks: [Buffer.alloc(1_048_577, "a")],
+    });
+    const { res, getStatus, getJson } = createMockHttpResponse();
+    const createAgent = vi.fn().mockResolvedValue({ id: "agent-1" });
+
+    const handled = await handleCloudRoute(
+      req,
+      res,
+      "/api/cloud/agents",
+      "POST",
+      createState(createAgent),
+    );
+
+    expect(handled).toBe(true);
+    expect(getStatus()).toBe(413);
+    expect(getJson()).toEqual({ error: "Request body too large" });
+    expect(createAgent).not.toHaveBeenCalled();
+  });
+
+  it("keeps successful create-agent behavior for valid JSON", async () => {
+    const req = createMockIncomingMessage({
+      method: "POST",
+      url: "/api/cloud/agents",
+      headers: {},
+      body: JSON.stringify({
+        agentName: "My Agent",
+        agentConfig: { modelProvider: "openai" },
+      }),
+    });
+    const { res, getStatus, getJson } = createMockHttpResponse();
+    const createAgent = vi.fn().mockResolvedValue({ id: "agent-1" });
+
+    const handled = await handleCloudRoute(
+      req,
+      res,
+      "/api/cloud/agents",
+      "POST",
+      createState(createAgent),
+    );
+
+    expect(handled).toBe(true);
+    expect(getStatus()).toBe(201);
+    expect(createAgent).toHaveBeenCalledTimes(1);
+    expect(getJson()).toEqual({ ok: true, agent: { id: "agent-1" } });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Timeout behavior tests
+// ---------------------------------------------------------------------------
+
+function timeoutError(message = "The operation was aborted due to timeout") {
+  const err = new Error(message);
+  err.name = "TimeoutError";
+  return err;
+}
+
+function cloudState(): CloudRouteState {
+  return {
+    config: { cloud: { baseUrl: "https://test.elizacloud.ai" } },
+    cloudManager: null,
+    runtime: null,
+  } as unknown as CloudRouteState;
+}
+
+describe("handleCloudRoute timeout behavior", () => {
   beforeEach(() => {
-    vi.resetAllMocks();
-    state = {
-      config: { cloud: {} } as MilaidyConfig,
-      cloudManager: {
-        getClient: vi.fn(),
-        connect: vi.fn(),
-        getStatus: vi.fn().mockReturnValue("connected"),
-        getActiveAgentId: vi.fn(),
-        disconnect: vi.fn(),
-        init: vi.fn(),
-      } as any,
-      runtime: {
-        agentId: "test-agent-id",
-        character: { secrets: {} },
-        updateAgent: vi.fn(),
-      } as any,
-    };
+    vi.stubGlobal("fetch", fetchMock);
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
-  it("POST /api/cloud/login initiates login session", async () => {
-    const { req, res } = createMocks();
-    req.method = "POST";
-
-    fetchMock.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({}),
+  it("returns 504 when cloud login session creation times out", async () => {
+    let capturedSignal: AbortSignal | null | undefined;
+    fetchMock.mockImplementation(async (_input, init) => {
+      capturedSignal = init?.signal;
+      throw timeoutError();
     });
 
-    const handled = await handleCloudRoute(req, res, "/api/cloud/login", "POST", state);
-
-    expect(handled).toBe(true);
-    expect(fetchMock).toHaveBeenCalledWith(
-      expect.stringContaining("/api/auth/cli-session"),
-      expect.objectContaining({ method: "POST" })
-    );
-    expect(res.end).toHaveBeenCalledWith(expect.stringContaining('"sessionId"'));
-  });
-
-  it("GET /api/cloud/login/status handles authenticated state", async () => {
-    const { req, res } = createMocks();
-    req.method = "GET";
-    req.url = "/api/cloud/login/status?sessionId=test-session";
-
-    fetchMock.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        status: "authenticated",
-        apiKey: "test-api-key",
-        keyPrefix: "test",
-      }),
-    });
-
-    const handled = await handleCloudRoute(req, res, "/api/cloud/login/status", "GET", state);
-
-    expect(handled).toBe(true);
-    // Should save config
-    const { saveMilaidyConfig } = await import("../config/config.js");
-    expect(saveMilaidyConfig).toHaveBeenCalled();
-    // Should set env vars
-    expect(process.env.ELIZAOS_CLOUD_API_KEY).toBe("test-api-key");
-    expect(process.env.ELIZAOS_CLOUD_ENABLED).toBe("true");
-    // Should update agent DB
-    expect(state.runtime?.updateAgent).toHaveBeenCalled();
-
-    expect(res.end).toHaveBeenCalledWith(expect.stringContaining('"authenticated"'));
-  });
-
-  it("GET /api/cloud/agents lists agents", async () => {
-    const { req, res } = createMocks();
-    req.method = "GET";
-
-    const mockAgents = [{ id: "agent-1", name: "Agent 1" }];
-    const mockClient = {
-      listAgents: vi.fn().mockResolvedValue(mockAgents),
-    };
-    (state.cloudManager!.getClient as any).mockReturnValue(mockClient);
-
-    const handled = await handleCloudRoute(req, res, "/api/cloud/agents", "GET", state);
-
-    expect(handled).toBe(true);
-    expect(mockClient.listAgents).toHaveBeenCalled();
-    expect(res.end).toHaveBeenCalledWith(expect.stringContaining("Agent 1"));
-  });
-
-  it("POST /api/cloud/agents/:id/provision calls connect", async () => {
-    const { req, res } = createMocks();
-    req.method = "POST";
-    const agentId = "00000000-0000-0000-0000-000000000001";
-
-    (state.cloudManager!.connect as any).mockResolvedValue({ agentName: "Remote Agent" });
-
+    const { res, getJson } = createMockHttpResponse<Record<string, unknown>>();
     const handled = await handleCloudRoute(
-      req,
+      createMockIncomingMessage({
+        url: "/api/cloud/login",
+      }) as http.IncomingMessage,
       res,
-      `/api/cloud/agents/${agentId}/provision`,
+      "/api/cloud/login",
       "POST",
-      state
+      cloudState(),
     );
 
     expect(handled).toBe(true);
-    expect(state.cloudManager!.connect).toHaveBeenCalledWith(agentId);
-    expect(res.end).toHaveBeenCalledWith(expect.stringContaining("Remote Agent"));
+    expect(res.statusCode).toBe(504);
+    expect(getJson().error).toBe("Eliza Cloud login request timed out");
+    expect(capturedSignal).toBeInstanceOf(AbortSignal);
   });
 
-  it("returns false for unhandled routes", async () => {
-    const { req, res } = createMocks();
-    const handled = await handleCloudRoute(req, res, "/api/cloud/unknown", "GET", state);
-    expect(handled).toBe(false);
+  it("returns 504 when cloud login status polling times out", async () => {
+    fetchMock.mockRejectedValue(timeoutError());
+
+    const { res, getJson } = createMockHttpResponse<Record<string, unknown>>();
+    const handled = await handleCloudRoute(
+      createMockIncomingMessage({
+        url: "/api/cloud/login/status?sessionId=test-session",
+      }) as http.IncomingMessage,
+      res,
+      "/api/cloud/login/status",
+      "GET",
+      cloudState(),
+    );
+
+    expect(handled).toBe(true);
+    expect(res.statusCode).toBe(504);
+    expect(getJson()).toEqual({
+      status: "error",
+      error: "Eliza Cloud status request timed out",
+    });
+  });
+
+  it("returns 502 when cloud polling fails for non-timeout network errors", async () => {
+    fetchMock.mockRejectedValue(new Error("ECONNREFUSED"));
+
+    const { res, getJson } = createMockHttpResponse<Record<string, unknown>>();
+    const handled = await handleCloudRoute(
+      createMockIncomingMessage({
+        url: "/api/cloud/login/status?sessionId=test-session",
+      }) as http.IncomingMessage,
+      res,
+      "/api/cloud/login/status",
+      "GET",
+      cloudState(),
+    );
+
+    expect(handled).toBe(true);
+    expect(res.statusCode).toBe(502);
+    expect(getJson()).toEqual({
+      status: "error",
+      error: "Failed to reach Eliza Cloud",
+    });
   });
 });

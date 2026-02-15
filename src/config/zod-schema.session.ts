@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   GroupChatSchema,
   InboundDebounceSchema,
+  MessagePolicySchema,
   NativeCommandsSettingSchema,
   QueueSchema,
   TtsConfigSchema,
@@ -15,34 +16,7 @@ const SessionResetConfigSchema = z
   })
   .strict();
 
-export const SessionSendPolicySchema = z
-  .object({
-    default: z.union([z.literal("allow"), z.literal("deny")]).optional(),
-    rules: z
-      .array(
-        z
-          .object({
-            action: z.union([z.literal("allow"), z.literal("deny")]),
-            match: z
-              .object({
-                channel: z.string().optional(),
-                chatType: z
-                  .union([
-                    z.literal("direct"),
-                    z.literal("group"),
-                    z.literal("channel"),
-                  ])
-                  .optional(),
-                keyPrefix: z.string().optional(),
-              })
-              .strict()
-              .optional(),
-          })
-          .strict(),
-      )
-      .optional(),
-  })
-  .strict();
+export const SessionSendPolicySchema = MessagePolicySchema;
 
 export const SessionSchema = z
   .object({

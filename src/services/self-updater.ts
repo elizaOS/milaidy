@@ -6,6 +6,7 @@
 import { execSync, spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import type { ReleaseChannel } from "../config/types.milaidy.js";
 import { CHANNEL_DIST_TAGS } from "./update-checker.js";
 
@@ -45,7 +46,7 @@ function whichSync(binary: string): string | null {
 function isLocalDev(): boolean {
   try {
     const rootPkg = path.resolve(
-      path.dirname(new URL(import.meta.url).pathname),
+      path.dirname(fileURLToPath(import.meta.url)),
       "../../package.json",
     );
     const content = JSON.parse(fs.readFileSync(rootPkg, "utf-8")) as {

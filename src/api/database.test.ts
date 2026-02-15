@@ -1,8 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { handleDatabaseRoute } from "./database.js";
+import dns from "node:dns";
 import { EventEmitter } from "node:events";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import dns from "node:dns";
+import type { AgentRuntime } from "@elizaos/core";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { handleDatabaseRoute } from "./database.js";
 
 // Mock dependencies
 vi.mock("../config/config.js", () => ({
@@ -29,14 +30,18 @@ vi.mock("node:dns", () => ({
 vi.mock("pg", () => ({
   default: {
     Pool: class {
-        connect() { return { query: () => ({ rows: [] }), release: () => {} }; }
-        end() {}
-    }
+      connect() {
+        return { query: () => ({ rows: [] }), release: () => {} };
+      }
+      end() {}
+    },
   },
   Pool: class {
-        connect() { return { query: () => ({ rows: [] }), release: () => {} }; }
-        end() {}
-  }
+    connect() {
+      return { query: () => ({ rows: [] }), release: () => {} };
+    }
+    end() {}
+  },
 }));
 
 // Mock drizzle-orm
@@ -74,17 +79,26 @@ describe("handleDatabaseRoute Security", () => {
     vi.resetAllMocks();
 
     // Default DNS mock behavior: valid IP
-    (dns.lookup as unknown as ReturnType<typeof vi.fn>).mockImplementation((hostname, options, callback) => {
-        const cb = typeof options === 'function' ? options : callback;
+    (dns.lookup as unknown as ReturnType<typeof vi.fn>).mockImplementation(
+      (hostname, options, callback) => {
+        const cb = typeof options === "function" ? options : callback;
         if (hostname === "google.com") {
-            cb(null, [{ address: "8.8.8.8", family: 4 }]);
+          cb(null, [{ address: "8.8.8.8", family: 4 }]);
         } else if (hostname === "metadata.internal") {
-            cb(null, [{ address: "169.254.169.254", family: 4 }]);
+          cb(null, [{ address: "169.254.169.254", family: 4 }]);
         } else {
-            // Default to resolving to itself if it looks like an IP, or 1.1.1.1
-            cb(null, [{ address: hostname.match(/^\d+\.\d+\.\d+\.\d+$/) ? hostname : "1.1.1.1", family: 4 }]);
+          // Default to resolving to itself if it looks like an IP, or 1.1.1.1
+          cb(null, [
+            {
+              address: hostname.match(/^\d+\.\d+\.\d+\.\d+$/)
+                ? hostname
+                : "1.1.1.1",
+              family: 4,
+            },
+          ]);
         }
-    });
+      },
+    );
   });
 
   it("POST /api/database/test rejects blocked IP (169.254.x.x)", async () => {
@@ -127,7 +141,9 @@ describe("handleDatabaseRoute Security", () => {
     // If fail, success: false. But NOT 400 blocked.
 
     expect(res.statusCode).toBe(200);
-    expect(res.end).not.toHaveBeenCalledWith(expect.stringContaining("blocked"));
+    expect(res.end).not.toHaveBeenCalledWith(
+      expect.stringContaining("blocked"),
+    );
   });
 
   it("POST /api/database/query rejects mutation keywords in read-only mode", async () => {
@@ -135,10 +151,17 @@ describe("handleDatabaseRoute Security", () => {
       sql: "DELETE FROM users",
     });
 
-    await handleDatabaseRoute(req, res, { adapter: {} } as any, "/api/database/query");
+    await handleDatabaseRoute(
+      req,
+      res,
+      { adapter: {} } as unknown as AgentRuntime,
+      "/api/database/query",
+    );
 
     expect(res.statusCode).toBe(400);
-    expect(res.end).toHaveBeenCalledWith(expect.stringContaining("mutation keyword"));
+    expect(res.end).toHaveBeenCalledWith(
+      expect.stringContaining("mutation keyword"),
+    );
   });
 
   it("POST /api/database/query allows SELECT in read-only mode", async () => {
@@ -152,7 +175,7 @@ describe("handleDatabaseRoute Security", () => {
           execute: vi.fn().mockResolvedValue({ rows: [], fields: [] }),
         },
       },
-    } as any;
+    } as unknown as AgentRuntime;
 
     await handleDatabaseRoute(req, res, runtime, "/api/database/query");
 

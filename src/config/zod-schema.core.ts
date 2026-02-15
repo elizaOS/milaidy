@@ -393,7 +393,18 @@ export const ExecutableTokenSchema = z
   .string()
   .refine(isSafeExecutableValue, "expected safe executable name or path");
 
-export const MediaUnderstandingScopeSchema = z
+const MessagePolicyMatchSchema = z
+  .object({
+    channel: z.string().optional(),
+    chatType: z
+      .union([z.literal("direct"), z.literal("group"), z.literal("channel")])
+      .optional(),
+    keyPrefix: z.string().optional(),
+  })
+  .strict()
+  .optional();
+
+const MessagePolicySchemaBase = z
   .object({
     default: z.union([z.literal("allow"), z.literal("deny")]).optional(),
     rules: z
@@ -401,20 +412,7 @@ export const MediaUnderstandingScopeSchema = z
         z
           .object({
             action: z.union([z.literal("allow"), z.literal("deny")]),
-            match: z
-              .object({
-                channel: z.string().optional(),
-                chatType: z
-                  .union([
-                    z.literal("direct"),
-                    z.literal("group"),
-                    z.literal("channel"),
-                  ])
-                  .optional(),
-                keyPrefix: z.string().optional(),
-              })
-              .strict()
-              .optional(),
+            match: MessagePolicyMatchSchema,
           })
           .strict(),
       )
@@ -422,6 +420,9 @@ export const MediaUnderstandingScopeSchema = z
   })
   .strict()
   .optional();
+
+export const MediaUnderstandingScopeSchema = MessagePolicySchemaBase;
+export const MessagePolicySchema = MessagePolicySchemaBase;
 
 export const MediaUnderstandingCapabilitiesSchema = z
   .array(z.union([z.literal("image"), z.literal("audio"), z.literal("video")]))
@@ -552,6 +553,226 @@ export const ChannelHeartbeatVisibilitySchema = z
     showOk: z.boolean().optional(),
     showAlerts: z.boolean().optional(),
     useIndicator: z.boolean().optional(),
+  })
+  .strict()
+  .optional();
+
+// ============================================================================
+// Media Generation Schemas
+// ============================================================================
+
+export const MediaModeSchema = z.enum(["cloud", "own-key"]);
+
+// --- Image Generation ---
+
+export const ImageProviderSchema = z.enum([
+  "cloud",
+  "fal",
+  "openai",
+  "google",
+  "xai",
+]);
+
+export const ImageFalConfigSchema = z
+  .object({
+    apiKey: z.string().optional(),
+    model: z.string().optional(),
+    baseUrl: z.string().optional(),
+  })
+  .strict()
+  .optional();
+
+export const ImageOpenaiConfigSchema = z
+  .object({
+    apiKey: z.string().optional(),
+    model: z.string().optional(),
+    quality: z.enum(["standard", "hd"]).optional(),
+    style: z.enum(["natural", "vivid"]).optional(),
+  })
+  .strict()
+  .optional();
+
+export const ImageGoogleConfigSchema = z
+  .object({
+    apiKey: z.string().optional(),
+    model: z.string().optional(),
+    aspectRatio: z.string().optional(),
+  })
+  .strict()
+  .optional();
+
+export const ImageXaiConfigSchema = z
+  .object({
+    apiKey: z.string().optional(),
+    model: z.string().optional(),
+  })
+  .strict()
+  .optional();
+
+export const ImageConfigSchema = z
+  .object({
+    enabled: z.boolean().optional(),
+    mode: MediaModeSchema.optional(),
+    provider: ImageProviderSchema.optional(),
+    defaultSize: z.string().optional(),
+    fal: ImageFalConfigSchema,
+    openai: ImageOpenaiConfigSchema,
+    google: ImageGoogleConfigSchema,
+    xai: ImageXaiConfigSchema,
+  })
+  .strict()
+  .optional();
+
+// --- Video Generation ---
+
+export const VideoProviderSchema = z.enum(["cloud", "fal", "openai", "google"]);
+
+export const VideoFalConfigSchema = z
+  .object({
+    apiKey: z.string().optional(),
+    model: z.string().optional(),
+    baseUrl: z.string().optional(),
+  })
+  .strict()
+  .optional();
+
+export const VideoOpenaiConfigSchema = z
+  .object({
+    apiKey: z.string().optional(),
+    model: z.string().optional(),
+  })
+  .strict()
+  .optional();
+
+export const VideoGoogleConfigSchema = z
+  .object({
+    apiKey: z.string().optional(),
+    model: z.string().optional(),
+  })
+  .strict()
+  .optional();
+
+export const VideoConfigSchema = z
+  .object({
+    enabled: z.boolean().optional(),
+    mode: MediaModeSchema.optional(),
+    provider: VideoProviderSchema.optional(),
+    defaultDuration: z.number().int().positive().optional(),
+    fal: VideoFalConfigSchema,
+    openai: VideoOpenaiConfigSchema,
+    google: VideoGoogleConfigSchema,
+  })
+  .strict()
+  .optional();
+
+// --- Audio/Music Generation ---
+
+export const AudioGenProviderSchema = z.enum(["cloud", "suno", "elevenlabs"]);
+
+export const AudioSunoConfigSchema = z
+  .object({
+    apiKey: z.string().optional(),
+    model: z.string().optional(),
+    baseUrl: z.string().optional(),
+  })
+  .strict()
+  .optional();
+
+export const AudioElevenlabsSfxConfigSchema = z
+  .object({
+    apiKey: z.string().optional(),
+    duration: z.number().min(0.5).max(22).optional(),
+  })
+  .strict()
+  .optional();
+
+export const AudioGenConfigSchema = z
+  .object({
+    enabled: z.boolean().optional(),
+    mode: MediaModeSchema.optional(),
+    provider: AudioGenProviderSchema.optional(),
+    suno: AudioSunoConfigSchema,
+    elevenlabs: AudioElevenlabsSfxConfigSchema,
+  })
+  .strict()
+  .optional();
+
+// --- Vision (Image Analysis) ---
+
+export const VisionProviderSchema = z.enum([
+  "cloud",
+  "openai",
+  "google",
+  "anthropic",
+  "xai",
+  "ollama",
+]);
+
+export const VisionOpenaiConfigSchema = z
+  .object({
+    apiKey: z.string().optional(),
+    model: z.string().optional(),
+    maxTokens: z.number().int().positive().optional(),
+  })
+  .strict()
+  .optional();
+
+export const VisionGoogleConfigSchema = z
+  .object({
+    apiKey: z.string().optional(),
+    model: z.string().optional(),
+  })
+  .strict()
+  .optional();
+
+export const VisionAnthropicConfigSchema = z
+  .object({
+    apiKey: z.string().optional(),
+    model: z.string().optional(),
+  })
+  .strict()
+  .optional();
+
+export const VisionXaiConfigSchema = z
+  .object({
+    apiKey: z.string().optional(),
+    model: z.string().optional(),
+  })
+  .strict()
+  .optional();
+
+export const VisionOllamaConfigSchema = z
+  .object({
+    baseUrl: z.string().url().optional(),
+    model: z.string().optional(),
+    maxTokens: z.number().int().positive().optional(),
+    autoDownload: z.boolean().optional(),
+  })
+  .strict()
+  .optional();
+
+export const VisionConfigSchema = z
+  .object({
+    enabled: z.boolean().optional(),
+    mode: MediaModeSchema.optional(),
+    provider: VisionProviderSchema.optional(),
+    openai: VisionOpenaiConfigSchema,
+    google: VisionGoogleConfigSchema,
+    anthropic: VisionAnthropicConfigSchema,
+    xai: VisionXaiConfigSchema,
+    ollama: VisionOllamaConfigSchema,
+  })
+  .strict()
+  .optional();
+
+// --- Combined Media Config ---
+
+export const MediaConfigSchema = z
+  .object({
+    image: ImageConfigSchema,
+    video: VideoConfigSchema,
+    audio: AudioGenConfigSchema,
+    vision: VisionConfigSchema,
   })
   .strict()
   .optional();

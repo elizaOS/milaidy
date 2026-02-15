@@ -2,7 +2,7 @@
  * Inventory view — wallet balances and NFTs.
  */
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useApp } from "../AppContext";
 import type { EvmChainBalance } from "../api-client";
 
@@ -49,11 +49,39 @@ interface NftItem {
   collectionName: string;
 }
 
+/* ── Copyable address (inline, for section headers) ──────────────────── */
+
+function CopyableAddress({ address, onCopy }: { address: string; onCopy: (text: string) => Promise<void> }) {
+  const [copied, setCopied] = useState(false);
+  const short = `${address.slice(0, 6)}...${address.slice(-4)}`;
+
+  const handleCopy = async () => {
+    await onCopy(address);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+
+  return (
+    <div className="ml-auto flex items-center gap-2">
+      <code className="font-mono text-xs text-muted truncate select-all" title={address}>
+        {short}
+      </code>
+      <button
+        onClick={handleCopy}
+        className="px-2 py-0.5 border border-border bg-bg text-[10px] font-mono cursor-pointer hover:border-accent hover:text-accent transition-colors shrink-0"
+      >
+        {copied ? "copied" : "copy"}
+      </button>
+    </div>
+  );
+}
+
 /* ── Component ───────────────────────────────────────────────────────── */
 
 export function InventoryView() {
   const {
     walletConfig,
+    walletAddresses,
     walletBalances,
     walletNfts,
     walletLoading,
@@ -66,6 +94,7 @@ export function InventoryView() {
     cloudConnected,
     setTab,
     setState,
+    copyToClipboard,
   } = useApp();
 
   // ── Setup detection ──────────────────────────────────────────────────
@@ -202,13 +231,13 @@ export function InventoryView() {
         <div className="text-sm font-bold mb-2">Wallet keys not configured</div>
         <p className="text-xs text-muted mb-4 leading-relaxed max-w-md mx-auto">
           To view balances and NFTs you need RPC provider keys (Alchemy, Helius, etc.)
-          or an Eliza Cloud connection. Head to <strong>Config</strong> to set them up.
+          or an Eliza Cloud connection. Head to <strong>Settings</strong> to set them up.
         </p>
         <button
           className="px-4 py-1.5 border border-accent bg-accent text-accent-fg cursor-pointer text-xs font-mono hover:bg-accent-hover hover:border-accent-hover"
-          onClick={() => setTab("config")}
+          onClick={() => setTab("settings")}
         >
-          Open Config
+          Open Settings
         </button>
       </div>
     );
@@ -291,125 +320,43 @@ export function InventoryView() {
     );
   }
 
-  /* ── Tokens table ────────────────────────────────────────────────── */
+  /* ── Tokens view (section per chain) ─────────────────────────────── */
 
   function renderTokensView() {
     if (walletLoading) {
       return <div className="text-center py-10 text-muted italic mt-6">Loading balances...</div>;
     }
-    if (!walletBalances) {
-      return (
-        <div className="text-center py-10 text-muted italic mt-6">No balance data yet. Click Refresh.</div>
-      );
-    }
-    if (sortedRows.length === 0) {
+
+    const evmAddr = walletAddresses?.evmAddress ?? walletConfig?.evmAddress;
+    const solAddr = walletAddresses?.solanaAddress ?? walletConfig?.solanaAddress;
+
+    if (!evmAddr && !solAddr) {
       return (
         <div className="text-center py-10 text-muted italic mt-6">
-          No wallet data available. Make sure RPC keys are configured in{" "}
+          No wallets connected. Configure wallets in{" "}
           <a
-            href="/config"
-            onClick={(e) => {
-              e.preventDefault();
-              setTab("config");
-            }}
+            href="/settings"
+            onClick={(e) => { e.preventDefault(); setTab("settings"); }}
             className="text-accent"
           >
-            Config
+            Settings
           </a>
           .
         </div>
       );
     }
 
-    return (
-      <>
-        <div className="mt-3 border border-border max-h-[60vh] overflow-y-auto bg-card">
-          <table className="w-full border-collapse text-xs">
-            <thead className="sticky top-0 z-10 bg-bg">
-              <tr>
-                {/* Icon column — empty header, fixed width */}
-                <th
-                  className="text-left px-3 py-2 text-[11px] font-semibold text-muted border-b border-border"
-                  style={{ width: 32 }}
-                />
-                <th
-                  className={`text-left px-3 py-2 text-[11px] font-semibold border-b border-border uppercase cursor-pointer select-none whitespace-nowrap hover:text-txt ${
-                    inventorySort === "symbol" ? "text-accent" : "text-muted"
-                  }`}
-                  style={{ letterSpacing: "0.04em" }}
-                  onClick={() => setState("inventorySort", "symbol")}
-                >
-                  Token
-                </th>
-                <th
-                  className={`text-left px-3 py-2 text-[11px] font-semibold border-b border-border uppercase cursor-pointer select-none whitespace-nowrap hover:text-txt ${
-                    inventorySort === "chain" ? "text-accent" : "text-muted"
-                  }`}
-                  style={{ letterSpacing: "0.04em" }}
-                  onClick={() => setState("inventorySort", "chain")}
-                >
-                  Chain
-                </th>
-                <th
-                  className={`text-right px-3 py-2 text-[11px] font-semibold border-b border-border uppercase cursor-pointer select-none whitespace-nowrap hover:text-txt ${
-                    inventorySort === "value" ? "text-accent" : "text-muted"
-                  }`}
-                  style={{ letterSpacing: "0.04em" }}
-                  onClick={() => setState("inventorySort", "value")}
-                >
-                  Balance
-                </th>
-                <th
-                  className={`text-right px-3 py-2 text-[11px] font-semibold border-b border-border uppercase cursor-pointer select-none whitespace-nowrap hover:text-txt ${
-                    inventorySort === "value" ? "text-accent" : "text-muted"
-                  }`}
-                  style={{ letterSpacing: "0.04em" }}
-                  onClick={() => setState("inventorySort", "value")}
-                >
-                  Value
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {sortedRows.map((row, idx) => {
-                const icon = chainIcon(row.chain);
-                return (
-                  <tr
-                    key={`${row.chain}-${row.symbol}-${idx}`}
-                    className="border-b border-border last:border-b-0"
-                  >
-                    <td className="px-3 py-[7px] align-middle">
-                      <span
-                        className={`inline-block w-4 h-4 rounded-full text-center leading-4 text-[9px] font-bold font-mono text-white shrink-0 align-middle ${icon.cls}`}
-                      >
-                        {icon.code}
-                      </span>
-                    </td>
-                    <td className="px-3 py-[7px] align-middle">
-                      <span className="font-bold font-mono">{row.symbol}</span>
-                      <span className="text-muted overflow-hidden text-ellipsis whitespace-nowrap max-w-[160px] inline-block align-bottom ml-2">
-                        {row.name}
-                      </span>
-                    </td>
-                    <td className="px-3 py-[7px] align-middle text-[11px] text-muted">{row.chain}</td>
-                    <td className="px-3 py-[7px] align-middle font-mono text-right whitespace-nowrap">
-                      {formatBalance(row.balance)}
-                    </td>
-                    <td className="px-3 py-[7px] align-middle font-mono text-right text-muted whitespace-nowrap">
-                      {row.valueUsd > 0
-                        ? `$${row.valueUsd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                        : ""}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+    const evmRows = sortedRows.filter((r) => r.chain.toLowerCase() !== "solana");
+    const solanaRows = sortedRows.filter((r) => r.chain.toLowerCase() === "solana");
 
-        {/* Per-chain errors */}
+    return (
+      <div className="mt-3 space-y-3">
+        {evmAddr && renderChainSection("Ethereum", "E", "bg-chain-eth", evmAddr, evmRows, true)}
+        {solAddr && renderChainSection("Solana", "S", "bg-chain-sol", solAddr, solanaRows, false)}
+
+        {/* Per-chain RPC errors */}
         {chainErrors.length > 0 && (
-          <div className="mt-2 text-[11px] text-muted">
+          <div className="text-[11px] text-muted">
             {chainErrors.map((c: EvmChainBalance) => {
               const icon = chainIcon(c.chain);
               return (
@@ -423,12 +370,7 @@ export function InventoryView() {
                   {c.error?.includes("not enabled") ? (
                     <>
                       Not enabled in Alchemy &mdash;{" "}
-                      <a
-                        href="https://dashboard.alchemy.com/"
-                        target="_blank"
-                        rel="noopener"
-                        className="text-accent"
-                      >
+                      <a href="https://dashboard.alchemy.com/" target="_blank" rel="noopener" className="text-accent">
                         enable it
                       </a>
                     </>
@@ -440,7 +382,86 @@ export function InventoryView() {
             })}
           </div>
         )}
-      </>
+      </div>
+    );
+  }
+
+  /* ── Single chain section ───────────────────────────────────────── */
+
+  function renderChainSection(
+    chainName: string,
+    iconCode: string,
+    iconCls: string,
+    address: string,
+    rows: TokenRow[],
+    showSubChain: boolean,
+  ) {
+    return (
+      <div className="border border-border bg-card">
+        {/* Section header: icon + chain name | address + copy */}
+        <div className="flex items-center gap-2.5 px-4 py-2.5 border-b border-border bg-bg">
+          <span
+            className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-[11px] font-bold font-mono text-white shrink-0 ${iconCls}`}
+          >
+            {iconCode}
+          </span>
+          <span className="text-sm font-bold">{chainName}</span>
+          <CopyableAddress address={address} onCopy={copyToClipboard} />
+        </div>
+
+        {/* Token rows or empty state */}
+        {!walletBalances ? (
+          <div className="px-4 py-6 text-center text-xs text-muted italic">
+            No data yet. Click Refresh.
+          </div>
+        ) : rows.length === 0 ? (
+          <div className="px-4 py-6 text-center text-xs text-muted italic">No wallet assets</div>
+        ) : (
+          <table className="w-full border-collapse text-xs">
+            <tbody>
+              {rows.map((row, idx) => {
+                const subIcon = showSubChain ? chainIcon(row.chain) : null;
+                return (
+                  <tr
+                    key={`${row.chain}-${row.symbol}-${idx}`}
+                    className="border-b border-border last:border-b-0"
+                  >
+                    {showSubChain && (
+                      <td className="pl-4 pr-1 py-[7px] align-middle" style={{ width: 28 }}>
+                        <span
+                          className={`inline-block w-4 h-4 rounded-full text-center leading-4 text-[9px] font-bold font-mono text-white ${subIcon?.cls ?? "bg-bg-muted"}`}
+                          title={row.chain}
+                        >
+                          {subIcon?.code ?? "?"}
+                        </span>
+                      </td>
+                    )}
+                    <td className={`${showSubChain ? "pl-1" : "pl-4"} pr-3 py-[7px] align-middle`}>
+                      <span className="font-bold font-mono">{row.symbol}</span>
+                      <span className="text-muted overflow-hidden text-ellipsis whitespace-nowrap max-w-[160px] inline-block align-bottom ml-2">
+                        {row.name}
+                      </span>
+                      {showSubChain && row.chain.toLowerCase() !== "ethereum" && row.chain.toLowerCase() !== "mainnet" && (
+                        <span className="ml-1.5 px-1.5 py-0 border border-border text-[9px] text-muted font-mono align-middle">
+                          {row.chain}
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-3 py-[7px] align-middle font-mono text-right whitespace-nowrap">
+                      {formatBalance(row.balance)}
+                    </td>
+                    <td className="px-4 py-[7px] align-middle font-mono text-right text-muted whitespace-nowrap">
+                      {row.valueUsd > 0
+                        ? `$${row.valueUsd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                        : ""}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
     );
   }
 

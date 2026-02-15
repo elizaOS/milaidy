@@ -1,3 +1,5 @@
+import { parsePositiveInteger } from "../utils/number-parsing.js";
+
 const HELP_FLAGS = new Set(["-h", "--help"]);
 const VERSION_FLAGS = new Set(["-v", "-V", "--version"]);
 const FLAG_TERMINATOR = "--";
@@ -17,14 +19,6 @@ function isValueToken(arg: string | undefined): boolean {
     return true;
   }
   return /^-\d+(?:\.\d+)?$/.test(arg);
-}
-
-function parsePositiveInt(value: string): number | undefined {
-  const parsed = Number.parseInt(value, 10);
-  if (Number.isNaN(parsed) || parsed <= 0) {
-    return undefined;
-  }
-  return parsed;
 }
 
 export function hasFlag(argv: string[], name: string): boolean {
@@ -83,7 +77,7 @@ export function getPositiveIntFlagValue(
   if (raw === null || raw === undefined) {
     return raw;
   }
-  return parsePositiveInt(raw);
+  return parsePositiveInteger(raw);
 }
 
 export function getCommandPath(argv: string[], depth = 2): string[] {

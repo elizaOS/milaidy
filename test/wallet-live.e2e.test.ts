@@ -25,14 +25,6 @@ try {
   // dotenv may not be available — keys must be in process.env already
 }
 
-// Also load the user's explicit API keys if not already set
-if (!process.env.ALCHEMY_API_KEY)
-  process.env.ALCHEMY_API_KEY = "b_Ou4aeoKR4tGaTPVp36T";
-if (!process.env.HELIUS_API_KEY)
-  process.env.HELIUS_API_KEY = "67ea9085-1406-4db8-8872-38ac77950d7a";
-if (!process.env.BIRDEYE_API_KEY)
-  process.env.BIRDEYE_API_KEY = "229f561f74844baebc96ce72aca959db";
-
 // Normalize key names: .env uses SOLANA_API_KEY, wallet expects SOLANA_PRIVATE_KEY
 if (!process.env.SOLANA_PRIVATE_KEY && process.env.SOLANA_API_KEY) {
   process.env.SOLANA_PRIVATE_KEY = process.env.SOLANA_API_KEY;
@@ -52,6 +44,7 @@ const hasSolKey = Boolean(process.env.SOLANA_PRIVATE_KEY?.trim());
 const hasAlchemy = Boolean(process.env.ALCHEMY_API_KEY?.trim());
 const hasHelius = Boolean(process.env.HELIUS_API_KEY?.trim());
 const canRun = hasEvmKey && hasSolKey && hasAlchemy && hasHelius;
+const WALLET_EXPORT_TOKEN = `wallet-live-export-token-${Date.now()}`;
 
 function req(
   port: number,
@@ -96,8 +89,11 @@ function req(
 describe.skipIf(!canRun)("Wallet live E2E — real keys, real APIs", () => {
   let port: number;
   let close: () => Promise<void>;
+  let savedExportToken: string | undefined;
 
   beforeAll(async () => {
+    savedExportToken = process.env.MILAIDY_WALLET_EXPORT_TOKEN;
+    process.env.MILAIDY_WALLET_EXPORT_TOKEN = WALLET_EXPORT_TOKEN;
     const { startApiServer } = await import("../src/api/server.js");
     const server = await startApiServer({ port: 0 });
     port = server.port;
@@ -106,6 +102,11 @@ describe.skipIf(!canRun)("Wallet live E2E — real keys, real APIs", () => {
 
   afterAll(async () => {
     await close();
+    if (savedExportToken === undefined) {
+      delete process.env.MILAIDY_WALLET_EXPORT_TOKEN;
+    } else {
+      process.env.MILAIDY_WALLET_EXPORT_TOKEN = savedExportToken;
+    }
   });
 
   // ── Addresses ──────────────────────────────────────────────────────────
@@ -284,6 +285,7 @@ describe.skipIf(!canRun)("Wallet live E2E — real keys, real APIs", () => {
     const { data: addrs } = await req(port, "GET", "/api/wallet/addresses");
     const { data: exported } = await req(port, "POST", "/api/wallet/export", {
       confirm: true,
+      exportToken: WALLET_EXPORT_TOKEN,
     });
 
     const evmExport = exported.evm as {

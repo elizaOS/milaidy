@@ -40,6 +40,13 @@ interface SpeechRecognitionResultList {
 
 type SpeechRecognitionCtor = new () => SpeechRecognitionInstance;
 
+declare global {
+  interface Window {
+    SpeechRecognition?: SpeechRecognitionCtor;
+    webkitSpeechRecognition?: SpeechRecognitionCtor;
+  }
+}
+
 // ── Public types ──────────────────────────────────────────────────────
 
 export interface VoiceChatOptions {
@@ -103,15 +110,14 @@ export function useVoiceChat(options: VoiceChatOptions): VoiceChatState {
   const audioCtxRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const audioSourceRef = useRef<AudioBufferSourceNode | null>(null);
-  const timeDomainDataRef = useRef<Float32Array | null>(null);
+  const timeDomainDataRef = useRef<Float32Array<ArrayBuffer> | null>(null);
   const usingAudioAnalysisRef = useRef(false);
 
   // ── Init ──────────────────────────────────────────────────────────
 
   useEffect(() => {
     const SpeechRecognitionAPI: SpeechRecognitionCtor | undefined =
-      (window as unknown as Record<string, SpeechRecognitionCtor | undefined>).SpeechRecognition ??
-      (window as unknown as Record<string, SpeechRecognitionCtor | undefined>).webkitSpeechRecognition;
+      window.SpeechRecognition ?? window.webkitSpeechRecognition;
     setSupported(!!SpeechRecognitionAPI && !!window.speechSynthesis);
     synthRef.current = window.speechSynthesis ?? null;
   }, []);
@@ -169,8 +175,7 @@ export function useVoiceChat(options: VoiceChatOptions): VoiceChatState {
 
   const startRecognition = useCallback(() => {
     const SpeechRecognitionAPI: SpeechRecognitionCtor | undefined =
-      (window as unknown as Record<string, SpeechRecognitionCtor | undefined>).SpeechRecognition ??
-      (window as unknown as Record<string, SpeechRecognitionCtor | undefined>).webkitSpeechRecognition;
+      window.SpeechRecognition ?? window.webkitSpeechRecognition;
     if (!SpeechRecognitionAPI) return;
 
     const recognition = new SpeechRecognitionAPI();
@@ -300,7 +305,9 @@ export function useVoiceChat(options: VoiceChatOptions): VoiceChatState {
     analyser.fftSize = 2048;
     analyser.smoothingTimeConstant = 0.8;
     analyserRef.current = analyser;
-    timeDomainDataRef.current = new Float32Array(analyser.fftSize);
+    timeDomainDataRef.current = new Float32Array(
+      new ArrayBuffer(analyser.fftSize * Float32Array.BYTES_PER_ELEMENT),
+    );
 
     // Source → analyser → speakers
     const source = ctx.createBufferSource();
@@ -375,8 +382,13 @@ export function useVoiceChat(options: VoiceChatOptions): VoiceChatState {
       const config = voiceConfigRef.current;
       const elConfig = config?.elevenlabs;
 
-      // Use ElevenLabs when configured with an API key + voice ID
-      if (config?.provider === "elevenlabs" && elConfig?.apiKey && elConfig?.voiceId) {
+      // Use direct ElevenLabs only in own-key mode when key + voice are set.
+      if (
+        config?.provider === "elevenlabs" &&
+        config?.mode !== "cloud" &&
+        elConfig?.apiKey &&
+        elConfig?.voiceId
+      ) {
         usingAudioAnalysisRef.current = true;
         setUsingAudioAnalysis(true);
 

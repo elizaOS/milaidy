@@ -341,6 +341,29 @@ describe("diagnoseNoAIProvider", () => {
 // ============================================================================
 
 describe("Package.json version pinning (issue #10)", () => {
+  type PackageManifest = {
+    dependencies: Record<string, string>;
+    overrides?: Record<string, string>;
+    pnpm?: { overrides?: Record<string, string> };
+  };
+
+  async function readPackageManifest(): Promise<PackageManifest> {
+    const { readFileSync } = await import("node:fs");
+    const { resolve } = await import("node:path");
+    // Use process.cwd() for reliable root resolution in forked vitest workers
+    const pkgPath = resolve(process.cwd(), "package.json");
+    return JSON.parse(readFileSync(pkgPath, "utf-8")) as PackageManifest;
+  }
+
+  function getDependencyOverride(
+    manifest: PackageManifest,
+  ): string | undefined {
+    return (
+      manifest.overrides?.["@elizaos/core"] ??
+      manifest.pnpm?.overrides?.["@elizaos/core"]
+    );
+  }
+
   /**
    * Verify that the affected plugins are pinned to a version compatible
    * with core@2.0.0-alpha.3 in milaidy's package.json.
@@ -348,24 +371,18 @@ describe("Package.json version pinning (issue #10)", () => {
    * This test reads the actual package.json to ensure the fix stays in place.
    */
   it("core is pinned to a version that includes MAX_EMBEDDING_TOKENS", async () => {
-    const { readFileSync } = await import("node:fs");
-    const { resolve } = await import("node:path");
-    // Use process.cwd() for reliable root resolution in forked vitest workers
-    // (import.meta.dirname may not resolve to the source tree in CI forks).
-    const pkgPath = resolve(process.cwd(), "package.json");
-    const pkg = JSON.parse(readFileSync(pkgPath, "utf-8")) as {
-      dependencies: Record<string, string>;
-      pnpm?: { overrides?: Record<string, string> };
-    };
+    const pkg = await readPackageManifest();
 
     const coreVersion = pkg.dependencies["@elizaos/core"];
     expect(coreVersion).toBeDefined();
     // Core can use "next" dist-tag if pnpm overrides pin the actual version
     if (coreVersion === "next") {
-      const pnpmPin = pkg.pnpm?.overrides?.["@elizaos/core"];
-      expect(pnpmPin).toBeDefined();
-      expect(pnpmPin).toMatch(/^\d+\.\d+\.\d+/);
-      expect(versionSatisfies(pnpmPin ?? "", "2.0.0-alpha.3")).toBe(true);
+      const pinnedCoreVersion = getDependencyOverride(pkg);
+      expect(pinnedCoreVersion).toBeDefined();
+      expect(pinnedCoreVersion).toMatch(/^\d+\.\d+\.\d+/);
+      expect(versionSatisfies(pinnedCoreVersion ?? "", "2.0.0-alpha.3")).toBe(
+        true,
+      );
     } else {
       expect(coreVersion).toMatch(/^\d+\.\d+\.\d+/);
       expect(versionSatisfies(coreVersion, "2.0.0-alpha.3")).toBe(true);
@@ -373,14 +390,7 @@ describe("Package.json version pinning (issue #10)", () => {
   });
 
   it("affected plugins are present in dependencies (core pin makes next safe)", async () => {
-    const { readFileSync } = await import("node:fs");
-    const { resolve } = await import("node:path");
-    // Use process.cwd() for reliable root resolution in forked vitest workers.
-    const pkgPath = resolve(process.cwd(), "package.json");
-    const pkg = JSON.parse(readFileSync(pkgPath, "utf-8")) as {
-      dependencies: Record<string, string>;
-      pnpm?: { overrides?: Record<string, string> };
-    };
+    const pkg = await readPackageManifest();
 
     // With core pinned via pnpm overrides, plugins at "next" are safe
     const affectedPlugins = [
@@ -394,9 +404,9 @@ describe("Package.json version pinning (issue #10)", () => {
     // If core is "next", ensure pnpm overrides pin the actual version
     const coreVersion = pkg.dependencies["@elizaos/core"];
     if (coreVersion === "next") {
-      const pnpmPin = pkg.pnpm?.overrides?.["@elizaos/core"];
-      expect(pnpmPin).toBeDefined();
-      expect(pnpmPin).toMatch(/^\d+\.\d+\.\d+/);
+      const pinnedCoreVersion = getDependencyOverride(pkg);
+      expect(pinnedCoreVersion).toBeDefined();
+      expect(pinnedCoreVersion).toMatch(/^\d+\.\d+\.\d+/);
     }
 
     for (const plugin of affectedPlugins) {
@@ -411,22 +421,16 @@ describe("Package.json version pinning (issue #10)", () => {
   });
 
   it("core is pinned to specific alpha version", async () => {
-    const { readFileSync } = await import("node:fs");
-    const { resolve } = await import("node:path");
-    const pkgPath = resolve(import.meta.dirname, "../../package.json");
-    const pkg = JSON.parse(readFileSync(pkgPath, "utf-8")) as {
-      dependencies: Record<string, string>;
-      pnpm?: { overrides?: Record<string, string> };
-    };
+    const pkg = await readPackageManifest();
 
-    // Core can use "next" dist-tag if pnpm overrides pin the actual version.
+    // Core can use "next" dist-tag if dependency overrides pin the actual version.
     // See docs/ELIZAOS_VERSIONING.md for explanation.
     const coreVersion = pkg.dependencies["@elizaos/core"];
     expect(coreVersion).toBeDefined();
     if (coreVersion === "next") {
-      const pnpmPin = pkg.pnpm?.overrides?.["@elizaos/core"];
-      expect(pnpmPin).toBeDefined();
-      expect(pnpmPin).toMatch(/^\d+\.\d+\.\d+/);
+      const pinnedCoreVersion = getDependencyOverride(pkg);
+      expect(pinnedCoreVersion).toBeDefined();
+      expect(pinnedCoreVersion).toMatch(/^\d+\.\d+\.\d+/);
     } else {
       expect(coreVersion).toMatch(/^\d+\.\d+\.\d+-alpha\.\d+$/);
     }

@@ -16,13 +16,20 @@ export function loadMilaidyConfig(): MilaidyConfig {
     raw = fs.readFileSync(configPath, "utf-8");
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === "ENOENT") {
-      return {} as MilaidyConfig;
+      return { logging: { level: "error" } } as MilaidyConfig;
     }
     throw err;
   }
 
   const parsed = JSON5.parse(raw) as Record<string, unknown>;
   const resolved = resolveConfigIncludes(parsed, configPath) as MilaidyConfig;
+
+  // Apply default log level so consumers don't need scattered fallbacks.
+  if (!resolved.logging) {
+    resolved.logging = { level: "error" };
+  } else if (!resolved.logging.level) {
+    resolved.logging.level = "error";
+  }
 
   const envVars = collectConfigEnvVars(resolved);
   for (const [key, value] of Object.entries(envVars)) {

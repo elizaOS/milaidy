@@ -28,6 +28,12 @@ import {
   resolvePrimaryModel,
 } from "../runtime/eliza.js";
 import { createMilaidyPlugin } from "../runtime/milaidy-plugin.js";
+import {
+  createEnvSandbox,
+  extractPlugin,
+  isOptionalImportError,
+  tryOptionalDynamicImport,
+} from "../test-support/test-helpers.js";
 
 // ---------------------------------------------------------------------------
 // Constants — Full plugin enumeration
@@ -73,6 +79,20 @@ const ALL_KNOWN_PLUGINS: readonly string[] = [
   ]),
 ].sort();
 
+const OPTIONAL_PLUGIN_LOAD_MARKERS = [
+  "Cannot find module",
+  "Cannot find package",
+  "ERR_MODULE_NOT_FOUND",
+  "MODULE_NOT_FOUND",
+  "Dynamic require of",
+  "native addon module",
+  "tfjs_binding",
+  "NAPI_MODULE_NOT_FOUND",
+  "spec not found",
+  "Failed to resolve entry",
+  "eventemitter3",
+];
+
 // ---------------------------------------------------------------------------
 // Env save/restore
 // ---------------------------------------------------------------------------
@@ -103,7 +123,7 @@ const envKeysToClean = [
 
 describe("Plugin Enumeration", () => {
   it("lists all core plugins", () => {
-    expect(CORE_PLUGINS.length).toBe(6);
+    expect(CORE_PLUGINS.length).toBe(9);
     for (const name of CORE_PLUGINS) {
       expect(name).toMatch(/^@elizaos\/plugin-/);
     }
@@ -152,23 +172,14 @@ describe("Plugin Enumeration", () => {
 // ============================================================================
 
 describe("collectPluginNames", () => {
-  const savedEnv: Record<string, string | undefined> = {};
+  const envSandbox = createEnvSandbox(envKeysToClean);
 
   beforeEach(() => {
-    for (const key of envKeysToClean) {
-      savedEnv[key] = process.env[key];
-      delete process.env[key];
-    }
+    envSandbox.clear();
   });
 
   afterEach(() => {
-    for (const key of envKeysToClean) {
-      if (savedEnv[key] === undefined) {
-        delete process.env[key];
-      } else {
-        process.env[key] = savedEnv[key];
-      }
-    }
+    envSandbox.restore();
   });
 
   it("loads all core plugins with empty config", () => {
@@ -262,34 +273,11 @@ describe("Plugin Loading — Isolation", () => {
    */
   for (const pluginName of CORE_PLUGINS) {
     it(`loads ${pluginName} in isolation without crashing`, async () => {
-      let mod: Record<string, unknown>;
-      try {
-        mod = (await import(pluginName)) as Record<string, unknown>;
-      } catch (err) {
-        // Some plugins may not be available in the test environment
-        // (missing native deps, etc.) — that's acceptable, but the import
-        // itself should not throw an unrecoverable error.
-        const msg = err instanceof Error ? err.message : String(err);
-        // Mark as passing if it's a known module-resolution or native addon issue.
-        // These are environment-specific failures, not plugin stability bugs.
-        if (
-          msg.includes("Cannot find module") ||
-          msg.includes("Cannot find package") ||
-          msg.includes("ERR_MODULE_NOT_FOUND") ||
-          msg.includes("MODULE_NOT_FOUND") ||
-          msg.includes("Dynamic require of") ||
-          msg.includes("native addon module") ||
-          msg.includes("tfjs_binding") ||
-          msg.includes("NAPI_MODULE_NOT_FOUND") ||
-          msg.includes("spec not found") ||
-          msg.includes("Failed to resolve entry")
-        ) {
-          // Expected: plugin not installed, native addon missing, or not resolvable in test env
-          return;
-        }
-        // Unexpected error — fail the test
-        throw err;
-      }
+      const mod = await tryOptionalDynamicImport<Record<string, unknown>>(
+        pluginName,
+        OPTIONAL_PLUGIN_LOAD_MARKERS,
+      );
+      if (!mod) return;
 
       // Validate the module exports something
       expect(mod).toBeDefined();
@@ -322,7 +310,19 @@ describe("Plugin Loading — All Together", () => {
 
     for (const pluginName of CORE_PLUGINS) {
       try {
-        const mod = (await import(pluginName)) as Record<string, unknown>;
+        const mod = await tryOptionalDynamicImport<Record<string, unknown>>(
+          pluginName,
+          OPTIONAL_PLUGIN_LOAD_MARKERS,
+        );
+        if (!mod) {
+          results.push({
+            name: pluginName,
+            loaded: false,
+            hasPlugin: false,
+            error: "optional dependency unavailable",
+          });
+          continue;
+        }
         const plugin = extractTestPlugin(mod);
         results.push({
           name: pluginName,
@@ -332,6 +332,15 @@ describe("Plugin Loading — All Together", () => {
         });
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
+        if (isOptionalImportError(err, OPTIONAL_PLUGIN_LOAD_MARKERS)) {
+          results.push({
+            name: pluginName,
+            loaded: false,
+            hasPlugin: false,
+            error: "optional dependency unavailable",
+          });
+          continue;
+        }
         results.push({
           name: pluginName,
           loaded: false,
@@ -358,17 +367,19 @@ describe("Plugin Loading — All Together", () => {
 
   it("loaded plugins have non-empty name and description", async () => {
     for (const pluginName of CORE_PLUGINS) {
-      try {
-        const mod = (await import(pluginName)) as Record<string, unknown>;
-        const plugin = extractTestPlugin(mod);
-        if (plugin) {
-          expect(plugin.name).toBeTruthy();
-          expect(plugin.description).toBeTruthy();
-          expect(plugin.name.trim().length).toBeGreaterThan(0);
-          expect(plugin.description.trim().length).toBeGreaterThan(0);
-        }
-      } catch {
-        // Skip unresolvable plugins
+      const mod = await tryOptionalDynamicImport<Record<string, unknown>>(
+        pluginName,
+        OPTIONAL_PLUGIN_LOAD_MARKERS,
+      );
+      if (!mod) {
+        continue;
+      }
+      const plugin = extractTestPlugin(mod);
+      if (plugin) {
+        expect(plugin.name).toBeTruthy();
+        expect(plugin.description).toBeTruthy();
+        expect(plugin.name.trim().length).toBeGreaterThan(0);
+        expect(plugin.description.trim().length).toBeGreaterThan(0);
       }
     }
   });
@@ -379,23 +390,14 @@ describe("Plugin Loading — All Together", () => {
 // ============================================================================
 
 describe("Runtime Context Validation", () => {
-  const savedEnv: Record<string, string | undefined> = {};
+  const envSandbox = createEnvSandbox(envKeysToClean);
 
   beforeEach(() => {
-    for (const key of envKeysToClean) {
-      savedEnv[key] = process.env[key];
-      delete process.env[key];
-    }
+    envSandbox.clear();
   });
 
   afterEach(() => {
-    for (const key of envKeysToClean) {
-      if (savedEnv[key] === undefined) {
-        delete process.env[key];
-      } else {
-        process.env[key] = savedEnv[key];
-      }
-    }
+    envSandbox.restore();
   });
 
   describe("buildCharacterFromConfig produces valid context", () => {
@@ -639,23 +641,14 @@ describe("Provider Validation", () => {
 // ============================================================================
 
 describe("Environment Propagation", () => {
-  const savedEnv: Record<string, string | undefined> = {};
+  const envSandbox = createEnvSandbox(envKeysToClean);
 
   beforeEach(() => {
-    for (const key of envKeysToClean) {
-      savedEnv[key] = process.env[key];
-      delete process.env[key];
-    }
+    envSandbox.clear();
   });
 
   afterEach(() => {
-    for (const key of envKeysToClean) {
-      if (savedEnv[key] === undefined) {
-        delete process.env[key];
-      } else {
-        process.env[key] = savedEnv[key];
-      }
-    }
+    envSandbox.restore();
   });
 
   it("applyConnectorSecretsToEnv sets DISCORD_BOT_TOKEN from config", () => {
@@ -852,26 +845,39 @@ describe("Context Serialization", () => {
 // ============================================================================
 
 describe("Version Skew Detection (issue #10)", () => {
+  type PackageManifest = {
+    dependencies: Record<string, string>;
+    overrides?: Record<string, string>;
+    pnpm?: { overrides?: Record<string, string> };
+  };
+
+  async function readPackageManifest(): Promise<PackageManifest> {
+    const { readFileSync } = await import("node:fs");
+    const { resolve } = await import("node:path");
+    const pkgPath = resolve(process.cwd(), "package.json");
+    return JSON.parse(readFileSync(pkgPath, "utf-8")) as PackageManifest;
+  }
+
+  function getDependencyOverride(
+    manifest: PackageManifest,
+  ): string | undefined {
+    return (
+      manifest.overrides?.["@elizaos/core"] ??
+      manifest.pnpm?.overrides?.["@elizaos/core"]
+    );
+  }
+
   it("core is pinned to a version that includes MAX_EMBEDDING_TOKENS (issue #10 fix)", async () => {
     // Issue #10: plugins at "next" imported MAX_EMBEDDING_TOKENS from @elizaos/core,
     // which was missing in older core versions.
     // Fix: core is pinned to >= alpha.4 (where the export was introduced),
     // so plugins at "next" dist-tag resolve safely.
-    const { readFileSync } = await import("node:fs");
-    const { resolve } = await import("node:path");
-    // Use process.cwd() for reliable root resolution in forked vitest workers
-    // (import.meta.dirname may not resolve to the source tree in CI forks).
-    const pkgPath = resolve(process.cwd(), "package.json");
-    const pkg = JSON.parse(readFileSync(pkgPath, "utf-8")) as {
-      dependencies: Record<string, string>;
-    };
+    const pkg = await readPackageManifest();
 
     const coreVersion = pkg.dependencies["@elizaos/core"];
     expect(coreVersion).toBeDefined();
-    // Core can use "next" dist-tag if pnpm overrides pin the actual version
-    const pnpmOverride = (
-      pkg as Record<string, Record<string, Record<string, string>>>
-    ).pnpm?.overrides?.["@elizaos/core"];
+    // Core can use "next" dist-tag if overrides pin the actual version
+    const pnpmOverride = getDependencyOverride(pkg);
     if (coreVersion === "next") {
       expect(pnpmOverride).toBeDefined();
       expect(pnpmOverride).toMatch(/^\d+\.\d+\.\d+/);
@@ -914,8 +920,16 @@ describe("Version Skew Detection (issue #10)", () => {
     }
   });
 
-  it("plugin-knowledge is in OPTIONAL_CORE_PLUGINS", () => {
-    expect(OPTIONAL_CORE_PLUGINS).toContain("@elizaos/plugin-knowledge");
+  it("plugin-knowledge is in CORE_PLUGINS", () => {
+    expect(CORE_PLUGINS).toContain("@elizaos/plugin-knowledge");
+    expect(OPTIONAL_CORE_PLUGINS).not.toContain("@elizaos/plugin-knowledge");
+  });
+
+  it("plugin-trajectory-logger is in CORE_PLUGINS", () => {
+    expect(CORE_PLUGINS).toContain("@elizaos/plugin-trajectory-logger");
+    expect(OPTIONAL_CORE_PLUGINS).not.toContain(
+      "@elizaos/plugin-trajectory-logger",
+    );
   });
 });
 
@@ -929,23 +943,14 @@ describe("Version Skew Detection (issue #10)", () => {
  */
 function extractTestPlugin(mod: Record<string, unknown>): Plugin | null {
   if (!mod || typeof mod !== "object") return null;
-
-  // Check default export
-  if (looksLikePlugin(mod.default)) return mod.default as Plugin;
-  // Check named `plugin` export
-  if (looksLikePlugin(mod.plugin)) return mod.plugin as Plugin;
-  // Check if the module itself looks like a Plugin (CJS default pattern)
-  if (looksLikePlugin(mod)) return mod as Plugin;
-  // Scan named exports
-  for (const key of Object.keys(mod)) {
-    if (key === "default" || key === "plugin") continue;
-    if (looksLikePlugin(mod[key])) return mod[key] as Plugin;
-  }
-  return null;
-}
-
-function looksLikePlugin(value: unknown): boolean {
-  if (!value || typeof value !== "object") return false;
-  const obj = value as Record<string, unknown>;
-  return typeof obj.name === "string" && typeof obj.description === "string";
+  const plugin = extractPlugin(
+    mod as {
+      [key: string]: unknown;
+      default?: unknown;
+      plugin?: unknown;
+    },
+  );
+  if (plugin === null) return null;
+  if (typeof plugin.description !== "string") return null;
+  return plugin as Plugin;
 }

@@ -57,30 +57,34 @@ jobs:
     name: Build ${{ matrix.platform.name }}
     needs: prepare
     runs-on: ${{ matrix.platform.runner }}
+    continue-on-error: ${{ matrix.platform.os == 'windows' }}
+    defaults:
+      run:
+        shell: bash
     strategy:
       fail-fast: false
       matrix:
         platform:
           # macos-14 (ARM64) cross-compiles x64 via Rosetta
           - name: macOS (Intel)
+            os: macos
             runner: macos-14
             electron-args: --mac --x64
-            artifact-glob: "*.dmg"
             artifact-name: macos-x64
           - name: macOS (Apple Silicon)
+            os: macos
             runner: macos-14
             electron-args: --mac --arm64
-            artifact-glob: "*.dmg"
             artifact-name: macos-arm64
           - name: Windows
+            os: windows
             runner: windows-latest
             electron-args: --win
-            artifact-glob: "*.exe"
             artifact-name: windows-x64
           - name: Linux
+            os: linux
             runner: ubuntu-latest
             electron-args: --linux
-            artifact-glob: "*.{AppImage,deb}"
             artifact-name: linux-x64
 
     steps:
@@ -98,7 +102,21 @@ jobs:
           bun-version: latest
 
       - name: Install root dependencies
-        run: bun install
+        run: bun install --frozen-lockfile
+
+      - name: Align package versions with release tag
+        run: |
+          node -e "
+            const fs = require('fs');
+            const version = process.env.RELEASE_VERSION;
+            for (const file of ['package.json', 'apps/app/package.json', 'apps/app/electron/package.json']) {
+              const pkg = JSON.parse(fs.readFileSync(file, 'utf8'));
+              pkg.version = version;
+              fs.writeFileSync(file, JSON.stringify(pkg, null, 2) + '\n');
+            }
+          "
+        env:
+          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
 
       - name: Build core
         run: |
@@ -124,7 +142,13 @@ jobs:
         working-directory: apps/app
 
       - name: Build Capacitor app
+        if: matrix.platform.os != 'windows'
         run: bun run build
+        working-directory: apps/app
+
+      - name: Build Capacitor app (Windows)
+        if: matrix.platform.os == 'windows'
+        run: npx vite build
         working-directory: apps/app
 
       - name: Sync Electron
@@ -138,6 +162,21 @@ jobs:
       - name: Build Electron app
         run: bun run build
         working-directory: apps/app/electron
+
+      - name: Prepare platform electron-builder config
+        run: |
+          node -e "
+            const fs = require('fs');
+            const c = JSON.parse(fs.readFileSync('./electron-builder.config.json', 'utf8'));
+            const os = process.env.MATRIX_OS;
+            if (os === 'macos') { delete c.win; delete c.linux; }
+            if (os === 'windows') { delete c.mac; delete c.linux; }
+            if (os === 'linux') { delete c.mac; delete c.win; }
+            fs.writeFileSync('./electron-builder.ci.json', JSON.stringify(c, null, 2));
+          "
+        working-directory: apps/app/electron
+        env:
+          MATRIX_OS: ${{ matrix.platform.os }}
 
       # ── Code signing & notarization ────────────────────────────────────
       # macOS: electron-builder v25+ notarizes via the "notarize": true
@@ -155,18 +194,139 @@ jobs:
       #   AZURE_CLIENT_ID              – App Registration application (client) ID
       #   AZURE_CLIENT_SECRET          – App Registration client secret value
       #
-      # If secrets are not set or signing fails, builds still produce
-      # unsigned installers (Gatekeeper/SmartScreen will show warnings).
+      - name: Validate macOS signing secrets
+        if: matrix.platform.os == 'macos'
+        run: |
+          missing=0
+          for required in CSC_LINK CSC_KEY_PASSWORD APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID; do
+            if [ -z "${!required:-}" ]; then
+              echo "::error::Missing required macOS signing secret: ${required}"
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            exit 1
+          fi
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK || '' }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD || '' }}
+          APPLE_ID: ${{ secrets.APPLE_ID || '' }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD || '' }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID || '' }}
+
+      - name: Validate Windows signing secrets
+        if: matrix.platform.os == 'windows'
+        run: |
+          missing=0
+          for required in AZURE_TENANT_ID AZURE_CLIENT_ID AZURE_CLIENT_SECRET; do
+            if [ -z "${!required:-}" ]; then
+              echo "::error::Missing required Windows signing secret: ${required}"
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            exit 1
+          fi
+        env:
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID || '' }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID || '' }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET || '' }}
+
+      - name: Preflight Azure Trusted Signing access
+        id: trusted_signing_preflight
+        continue-on-error: true
+        if: matrix.platform.os == 'windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          Set-StrictMode -Version Latest
+
+          $config = Get-Content "./electron-builder.ci.json" -Raw | ConvertFrom-Json
+          if (-not $config.win -or -not $config.win.azureSignOptions) {
+            throw "Missing win.azureSignOptions in electron-builder.ci.json"
+          }
+
+          $opts = $config.win.azureSignOptions
+          $endpoint = $opts.endpoint
+          $account = $opts.codeSigningAccountName
+          $profile = $opts.certificateProfileName
+
+          if (-not $endpoint -or -not $account -or -not $profile) {
+            throw "Trusted Signing config must include endpoint, codeSigningAccountName, and certificateProfileName."
+          }
+
+          Write-Host "Trusted Signing preflight target:"
+          Write-Host "  Endpoint: $endpoint"
+          Write-Host "  Account:  $account"
+          Write-Host "  Profile:  $profile"
+          Write-Host "Installing TrustedSigning PowerShell module..."
+          if (-not (Get-PackageProvider -Name NuGet -ListAvailable -ErrorAction SilentlyContinue)) {
+            Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Scope CurrentUser -Force | Out-Null
+          }
+          $psGallery = Get-PSRepository -Name "PSGallery" -ErrorAction Stop
+          if ($psGallery.InstallationPolicy -ne "Trusted") {
+            Set-PSRepository -Name "PSGallery" -InstallationPolicy Trusted
+          }
+          Install-Module -Name TrustedSigning -Scope CurrentUser -Force -AllowClobber
+          Import-Module TrustedSigning -ErrorAction Stop
+
+          # Sign a temporary copy of notepad.exe to validate auth and permissions
+          # before the full electron-builder packaging/sign step.
+          $probe = Join-Path $env:RUNNER_TEMP "trusted-signing-probe.exe"
+          Copy-Item -Path "$env:WINDIR\System32\notepad.exe" -Destination $probe -Force
+
+          try {
+            Invoke-TrustedSigning `
+              -Endpoint $endpoint `
+              -CertificateProfileName $profile `
+              -CodeSigningAccountName $account `
+              -TimestampRfc3161 "http://timestamp.acs.microsoft.com" `
+              -TimestampDigest "SHA256" `
+              -FileDigest "SHA256" `
+              -Files $probe
+          } catch {
+            Write-Host "::error::Azure Trusted Signing preflight failed."
+            Write-Host "::error::Most common causes: missing certificate-profile signer role, wrong endpoint region, wrong account/profile names, or wrong tenant/client/secret."
+            throw
+          }
+
+          Write-Host "Trusted Signing preflight succeeded."
+        working-directory: apps/app/electron
+        env:
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID || '' }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID || '' }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET || '' }}
+
+      - name: Fallback to unsigned Windows build when Trusted Signing preflight fails
+        if: matrix.platform.os == 'windows' && steps.trusted_signing_preflight.outcome != 'success'
+        run: |
+          node -e "
+            const fs = require('fs');
+            const file = './electron-builder.ci.json';
+            const cfg = JSON.parse(fs.readFileSync(file, 'utf8'));
+            if (cfg.win && cfg.win.azureSignOptions) {
+              delete cfg.win.azureSignOptions;
+              fs.writeFileSync(file, JSON.stringify(cfg, null, 2));
+            }
+          "
+          echo "::warning::Trusted Signing preflight failed; continuing with unsigned Windows artifact."
+        working-directory: apps/app/electron
+
       - name: Package desktop app
         run: |
           # Unset empty signing env vars — electron-builder treats "" as an invalid file path
-          [ -z "$CSC_LINK" ] && unset CSC_LINK CSC_KEY_PASSWORD
-          [ -z "$APPLE_ID" ] && unset APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID
-          [ -z "$AZURE_TENANT_ID" ] && unset AZURE_TENANT_ID AZURE_CLIENT_ID AZURE_CLIENT_SECRET
-          npx electron-builder build ${{ matrix.platform.electron-args }} -c ./electron-builder.config.json -p never
+          [ -z "${CSC_LINK:-}" ] && unset CSC_LINK CSC_KEY_PASSWORD
+          [ -z "${APPLE_ID:-}" ] && unset APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID
+          [ -z "${AZURE_TENANT_ID:-}" ] && unset AZURE_TENANT_ID AZURE_CLIENT_ID AZURE_CLIENT_SECRET
+          if [ "${MATRIX_OS:-}" = "windows" ] && [ "${TRUSTED_SIGNING_PREFLIGHT:-success}" != "success" ]; then
+            echo "Trusted Signing preflight failed; building Windows artifact without Azure signing."
+            unset AZURE_TENANT_ID AZURE_CLIENT_ID AZURE_CLIENT_SECRET
+          fi
+          npx electron-builder build ${{ matrix.platform.electron-args }} -c ./electron-builder.ci.json -p never
         working-directory: apps/app/electron
-        shell: bash
         env:
+          MATRIX_OS: ${{ matrix.platform.os }}
+          TRUSTED_SIGNING_PREFLIGHT: ${{ steps.trusted_signing_preflight.outcome || 'success' }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_LINK: ${{ secrets.CSC_LINK || '' }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD || '' }}
@@ -177,30 +337,64 @@ jobs:
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID || '' }}
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET || '' }}
 
-      # If signing failed, retry without signing so we still get an unsigned artifact
-      - name: Package desktop app (unsigned fallback)
-        if: failure()
+      - name: Install Playwright browser runtime
+        if: matrix.platform.os == 'macos'
+        run: bunx playwright install chromium
+        working-directory: apps/app
+
+      - name: Verify packaged DMG boots to chat
+        if: matrix.platform.os == 'macos'
         run: |
-          echo "⚠️  Signing failed — building unsigned fallback"
-          rm -rf dist/win-unpacked dist/mac dist/mac-arm64 dist/linux-unpacked 2>/dev/null || true
-          # Strip signing config so electron-builder doesn't attempt code signing
-          node -e "
-            const fs = require('fs');
-            const c = JSON.parse(fs.readFileSync('./electron-builder.config.json', 'utf8'));
-            if (c.win) { delete c.win.azureSignOptions; delete c.win.signingHashAlgorithms; }
-            if (c.mac) { c.mac.notarize = false; delete c.mac.entitlements; delete c.mac.entitlementsInherit; }
-            fs.writeFileSync('./eb-unsigned.json', JSON.stringify(c, null, 2));
-          "
-          unset CSC_LINK CSC_KEY_PASSWORD APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID
-          unset AZURE_TENANT_ID AZURE_CLIENT_ID AZURE_CLIENT_SECRET
-          CSC_IDENTITY_AUTO_DISCOVERY=false npx electron-builder build ${{ matrix.platform.electron-args }} -c ./eb-unsigned.json -p never
+          set -euo pipefail
+          if [ "${{ matrix.platform.electron-args }}" = "--mac --x64" ]; then
+            /usr/sbin/softwareupdate --install-rosetta --agree-to-license || true
+          fi
+
+          dmg_path=$(ls -t dist/*.dmg | head -n 1)
+          if [ -z "${dmg_path:-}" ]; then
+            echo "::error::No DMG artifact found under apps/app/electron/dist"
+            exit 1
+          fi
+
+          echo "Running packaged startup test against ${dmg_path}"
+          MILAIDY_TEST_DMG_PATH="${PWD}/${dmg_path}" bun run --cwd .. test:electron:packaged:e2e
         working-directory: apps/app/electron
-        shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify macOS signature and notarization
+        if: matrix.platform.os == 'macos'
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+
+          apps=(dist/mac*/Milaidy.app)
+          if [ "${#apps[@]}" -eq 0 ]; then
+            echo "::error::No macOS .app bundles found under dist/mac*"
+            exit 1
+          fi
+
+          for app in "${apps[@]}"; do
+            echo "Verifying signed app bundle: ${app}"
+            codesign --verify --deep --strict --verbose=2 "${app}"
+            sign_info="$(codesign -dv --verbose=4 "${app}" 2>&1 || true)"
+            echo "${sign_info}"
+            echo "${sign_info}" | grep -q "Authority=Developer ID Application" || { echo "::error::Expected Developer ID Application signature on ${app}"; exit 1; }
+            echo "${sign_info}" | grep -Eq "TeamIdentifier=[A-Z0-9]{10}" || { echo "::error::Missing TeamIdentifier on ${app}"; exit 1; }
+            spctl -a -vv --type exec "${app}"
+            xcrun stapler validate "${app}"
+          done
+
+          dmgs=(dist/*.dmg)
+          if [ "${#dmgs[@]}" -eq 0 ]; then
+            echo "::error::No DMG artifacts produced"
+            exit 1
+          fi
+
+          for dmg in "${dmgs[@]}"; do
+            echo "Built disk image: ${dmg}"
+          done
+        working-directory: apps/app/electron
 
       - name: Upload build artifacts
-        if: "!cancelled()"
         uses: actions/upload-artifact@v4
         with:
           name: desktop-${{ matrix.platform.artifact-name }}
@@ -212,14 +406,12 @@ jobs:
             apps/app/electron/dist/*.deb
             apps/app/electron/dist/*.yml
             apps/app/electron/dist/*.blockmap
-          if-no-files-found: warn
+          if-no-files-found: error
           retention-days: 30
 
   release:
     name: Create Release
     needs: [prepare, build-desktop]
-    # Run even if some builds failed — release whatever succeeded
-    if: "!cancelled()"
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -233,7 +425,6 @@ jobs:
           path: release-artifacts
           pattern: desktop-*
           merge-multiple: false
-        continue-on-error: true
 
       - name: List artifacts
         run: find release-artifacts -type f | sort 2>/dev/null || echo "No artifacts found"
@@ -252,6 +443,21 @@ jobs:
           \) -exec cp {} release-files/ \; 2>/dev/null || true
           echo "Release files:"
           ls -lh release-files/ 2>/dev/null || echo "No release files"
+
+      - name: Validate required macOS release artifacts
+        run: |
+          VERSION="${{ needs.prepare.outputs.version }}"
+          X64_DMG="release-files/Milaidy-${VERSION}.dmg"
+          ARM64_DMG="release-files/Milaidy-${VERSION}-arm64.dmg"
+          if [ ! -f "${X64_DMG}" ]; then
+            echo "::error::Missing required macOS x64 DMG: ${X64_DMG}"
+            exit 1
+          fi
+          if [ ! -f "${ARM64_DMG}" ]; then
+            echo "::error::Missing required macOS arm64 DMG: ${ARM64_DMG}"
+            exit 1
+          fi
+          echo "Found required macOS release DMGs for ${VERSION}"
 
       - name: Check for releasable files
         id: check

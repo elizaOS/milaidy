@@ -6,9 +6,9 @@
     "start": "tsx entrypoint.ts"
   },
   "dependencies": {
-    "@elizaos/core": "next",
-    "@elizaos/plugin-sql": "next",
-    "@elizaos/plugin-elizacloud": "next",
-    "tsx": "^4"
+    "@elizaos/core": "2.0.0-alpha.10",
+    "@elizaos/plugin-sql": "1.7.2",
+    "@elizaos/plugin-elizacloud": "2.0.0-alpha.5",
+    "tsx": "4.21.0"
   }
 }

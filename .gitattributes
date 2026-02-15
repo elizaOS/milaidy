@@ -1,1 +1,2 @@
 * text=auto eol=lf
+*.glb filter=lfs diff=lfs merge=lfs -text
