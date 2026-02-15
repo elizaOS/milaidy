@@ -366,6 +366,54 @@ describe("AppManager", () => {
       expect(result.launchUrl).toBe("https://babylon.social");
     });
 
+    it("rejects unsafe launch URL protocols", async () => {
+      const { getAppInfo } = await import("./registry-client.js");
+      vi.mocked(getAppInfo).mockResolvedValue(
+        makeRegistryAppInfo({
+          ...APP_INFO_BABYLON,
+          launchUrl: "javascript:alert(1)",
+        }),
+      );
+
+      const { listInstalledPlugins } = await import("./plugin-installer.js");
+      vi.mocked(listInstalledPlugins).mockReturnValue([
+        mockInstalledPlugin(APP_BABYLON, "/tmp/x"),
+      ]);
+
+      const { AppManager } = await import("./app-manager.js");
+      const mgr = new AppManager();
+
+      await expect(mgr.launch("@elizaos/app-babylon")).rejects.toThrow(
+        "unsafe launch URL",
+      );
+    });
+
+    it("rejects unsafe viewer URL protocols", async () => {
+      const { getAppInfo } = await import("./registry-client.js");
+      vi.mocked(getAppInfo).mockResolvedValue(
+        makeRegistryAppInfo({
+          ...APP_INFO_TEST_VIEWER,
+          launchUrl: "https://example.com/viewer",
+          viewer: {
+            url: "data:text/html,owned",
+            embedParams: { bot: "{TEST_VIEWER_BOT}" },
+          },
+        }),
+      );
+
+      const { listInstalledPlugins } = await import("./plugin-installer.js");
+      vi.mocked(listInstalledPlugins).mockReturnValue([
+        mockInstalledPlugin(APP_TEST, "/tmp/x"),
+      ]);
+
+      const { AppManager } = await import("./app-manager.js");
+      const mgr = new AppManager();
+
+      await expect(mgr.launch("@elizaos/app-test")).rejects.toThrow(
+        "unsafe viewer URL",
+      );
+    });
+
     it("substitutes environment placeholders in launch and viewer URLs", async () => {
       process.env.TEST_VIEWER_BOT = "agent77";
 

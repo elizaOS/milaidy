@@ -41,6 +41,7 @@ const HYPERSCAPE_APP_NAME = "@elizaos/app-hyperscape";
 const HYPERSCAPE_AUTH_MESSAGE_TYPE = "HYPERSCAPE_AUTH";
 const RS_2004SCAPE_APP_NAME = "@elizaos/app-2004scape";
 const RS_2004SCAPE_AUTH_MESSAGE_TYPE = "RS_2004SCAPE_AUTH";
+const SAFE_APP_URL_PROTOCOLS = new Set(["http:", "https:"]);
 
 type AppViewerConfig = NonNullable<AppLaunchResult["viewer"]>;
 
@@ -105,6 +106,26 @@ function buildViewerUrl(
   const query = queryParams.toString();
   const hash = hashPartRaw ? `#${hashPartRaw}` : "";
   return `${pathPart}${query.length > 0 ? `?${query}` : ""}${hash}`;
+}
+
+function normalizeSafeAppUrl(url: string): string | null {
+  const trimmed = url.trim();
+  if (!trimmed) return null;
+
+  if (trimmed.startsWith("/")) {
+    // Disallow protocol-relative form (`//evil.test`) which escapes same-origin.
+    return trimmed.startsWith("//") ? null : trimmed;
+  }
+
+  try {
+    const parsed = new URL(trimmed);
+    if (!SAFE_APP_URL_PROTOCOLS.has(parsed.protocol)) {
+      return null;
+    }
+    return trimmed;
+  } catch {
+    return null;
+  }
 }
 
 function buildViewerAuthMessage(
@@ -174,8 +195,17 @@ function buildViewerConfig(
         );
       }
     }
+    const viewerUrl = normalizeSafeAppUrl(
+      buildViewerUrl(appInfo.viewer.url, appInfo.viewer.embedParams),
+    );
+    if (!viewerUrl) {
+      throw new Error(
+        `Refusing to launch app "${appInfo.name}": unsafe viewer URL`,
+      );
+    }
+
     return {
-      url: buildViewerUrl(appInfo.viewer.url, appInfo.viewer.embedParams),
+      url: viewerUrl,
       embedParams: appInfo.viewer.embedParams,
       postMessageAuth,
       sandbox: appInfo.viewer.sandbox ?? DEFAULT_VIEWER_SANDBOX,
@@ -186,8 +216,14 @@ function buildViewerConfig(
     (appInfo.launchType === "connect" || appInfo.launchType === "local") &&
     launchUrl
   ) {
+    const viewerUrl = normalizeSafeAppUrl(launchUrl);
+    if (!viewerUrl) {
+      throw new Error(
+        `Refusing to launch app "${appInfo.name}": unsafe launch URL`,
+      );
+    }
     return {
-      url: launchUrl,
+      url: viewerUrl,
       sandbox: DEFAULT_VIEWER_SANDBOX,
     };
   }
@@ -262,9 +298,17 @@ export class AppManager {
     }
 
     // Build viewer config from registry app metadata
-    const launchUrl = appInfo.launchUrl
+    const resolvedLaunchUrl = appInfo.launchUrl
       ? substituteTemplateVars(appInfo.launchUrl)
       : null;
+    const launchUrl = resolvedLaunchUrl
+      ? normalizeSafeAppUrl(resolvedLaunchUrl)
+      : null;
+    if (resolvedLaunchUrl && !launchUrl) {
+      throw new Error(
+        `Refusing to launch app "${appInfo.name}": unsafe launch URL`,
+      );
+    }
     const viewer = buildViewerConfig(appInfo, launchUrl);
     this.activeSessions.set(name, {
       appName: name,
