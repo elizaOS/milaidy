@@ -556,12 +556,30 @@ jobs:
               ;;
           esac
 
-          echo "Merging PR #${{ github.event.pull_request.number }} using '$method' method"
-          gh pr merge ${{ github.event.pull_request.number }} --"$method" --delete-branch || \
-            gh pr merge ${{ github.event.pull_request.number }} --"$method" --admin || \
-            gh pr merge ${{ github.event.pull_request.number }} --"$method"
+          PR_NUM="${{ github.event.pull_request.number }}"
+          echo "Merging PR #${PR_NUM} using '$method' method"
+
+          # Try with PAT first (has workflows scope), fall back to GITHUB_TOKEN
+          if [ -n "$GH_PAT" ]; then
+            echo "Using PAT for merge (supports workflow file changes)"
+            GH_TOKEN="$GH_PAT" gh pr merge "$PR_NUM" --"$method" --delete-branch && exit 0
+          fi
+
+          # Fall back to default token
+          if gh pr merge "$PR_NUM" --"$method" --delete-branch 2>&1; then
+            exit 0
+          fi
+
+          # If merge failed (likely workflow permission issue), label for manual merge
+          echo "::warning::Auto-merge failed. PR may modify workflow files requiring 'workflows' scope."
+          gh pr comment "$PR_NUM" --body "⚠️ **Auto-merge failed** — this PR modifies workflow files which require a PAT with \`workflows\` scope to merge. A maintainer needs to merge this manually.
+
+          Agent review verdict: ✅ **APPROVED**"
+          gh pr edit "$PR_NUM" --add-label "needs-manual-merge" 2>/dev/null || true
+          exit 1
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_PAT: ${{ secrets.GH_PAT }}
           GH_REPO: ${{ github.repository }}
           MERGE_METHOD: ${{ vars.AGENT_REVIEW_MERGE_METHOD }}
 
