@@ -33,7 +33,7 @@ const DEFAULT_CONFIG = {
   basePoints: {
     approve: 12, // PR approved and merged
     reject: -6, // PR rejected (REQUEST_CHANGES)
-    close: -10, // PR closed without merge (wasted reviewer time)
+    close: -5, // PR closed without merge (reduced from -10; iteration is normal in agents-only repos)
     selfClose: -2, // Contributor closed their own PR (less punitive)
   },
 
@@ -43,14 +43,15 @@ const DEFAULT_CONFIG = {
   // At 5 prior approvals:  ~74% of points
   // At 20 prior approvals: ~62% of points
   // At 50 prior approvals: ~49% of points
-  // NOTE: Rate lowered from 0.25 → 0.20 for high-velocity repos (10 PRs/week baseline)
-  diminishingRate: 0.2,
+  // NOTE: Rate lowered from 0.25 → 0.08 for high-velocity agents-only repos
+  // At 0 prior: 100%, at 5: ~87%, at 20: ~80%, at 50: ~76%, at 66: ~68%
+  diminishingRate: 0.08,
 
   // --- Recency weighting (exponential decay) ---
   // Events lose relevance over time. Half-life in days.
   // After 1 half-life, event weight = 50%
   // After 2 half-lives, event weight = 25%
-  recencyHalfLifeDays: 45,
+  recencyHalfLifeDays: 60,
 
   // --- PR complexity/size multipliers ---
   // Based on total lines changed (additions + deletions)
@@ -104,9 +105,9 @@ const DEFAULT_CONFIG = {
   // Too many PRs too fast is suspicious (bot spam, gaming)
   velocity: {
     windowDays: 7, // look-back window
-    softCapPRs: 10, // PRs in window before penalty starts (10/week is baseline)
-    hardCapPRs: 25, // PRs in window where points are zeroed
-    penaltyPerExcess: 0.15, // 15% penalty per PR over soft cap
+    softCapPRs: 80, // PRs in window before penalty starts (high for agents-only repos)
+    hardCapPRs: 200, // PRs in window where points are zeroed
+    penaltyPerExcess: 0.03, // 3% penalty per PR over soft cap (softened for agents-only repos)
   },
 
   // --- Review severity ---
@@ -124,12 +125,12 @@ const DEFAULT_CONFIG = {
   // --- Score boundaries ---
   minScore: 0,
   maxScore: 100,
-  initialScore: 35, // new contributors start below midpoint — trust is earned
+  initialScore: 40, // new contributors start at probationary
 
   // --- Daily point cap ---
   // Maximum raw points (positive) that can be earned in a single calendar day
   // Prevents single-day trust explosion
-  dailyPointCap: 35,
+  dailyPointCap: 80,
 
   // --- Tier thresholds ---
   tiers: [
@@ -224,6 +225,7 @@ function computeTrustScore(history, config = DEFAULT_CONFIG, now = Date.now()) {
 
   // --- Phase 1: Compute per-event weighted points ---
   let approvalCount = 0;
+  let closeCount = 0;
   const currentStreak = { type: null, length: 0 };
   const dailyPoints = {}; // dateKey -> accumulated positive points
   let totalWeightedPoints = 0;
@@ -235,12 +237,16 @@ function computeTrustScore(history, config = DEFAULT_CONFIG, now = Date.now()) {
     const basePoints = config.basePoints[event.type] || 0;
     detail.basePoints = basePoints;
 
-    // 1b. Diminishing returns (only for positive events)
+    // 1b. Diminishing returns (applies to both positive AND negative events)
     let diminishingMultiplier = 1;
     if (basePoints > 0) {
       diminishingMultiplier =
         1 / (1 + config.diminishingRate * Math.log(1 + approvalCount));
       approvalCount++;
+    } else if (basePoints < 0 && (event.type === "close" || event.type === "selfClose" || event.type === "reject")) {
+      diminishingMultiplier =
+        1 / (1 + config.diminishingRate * Math.log(1 + closeCount));
+      closeCount++;
     }
     detail.diminishingMultiplier = round(diminishingMultiplier, 4);
 
@@ -289,11 +295,12 @@ function computeTrustScore(history, config = DEFAULT_CONFIG, now = Date.now()) {
         categoryMultiplier *
         streakMult;
     } else {
-      // Negative events: severity and streak compound the penalty
+      // Negative events: diminishing + severity and streak compound the penalty
       // Recency still applies (old mistakes fade)
       // Complexity/category still matter (closing a security PR is worse)
       eventPoints =
         basePoints *
+        diminishingMultiplier *
         recencyWeight *
         severityMultiplier *
         streakMult *
@@ -360,7 +367,28 @@ function computeTrustScore(history, config = DEFAULT_CONFIG, now = Date.now()) {
   // Score = initialScore + adjustedPoints, clamped to [0, 100]
   // The point scale is designed so that ~60 weighted points ≈ score of 95
   // This means a contributor needs sustained, quality contributions to reach top tier
-  let score = config.initialScore + adjustedPoints;
+  // --- Approve rate bonus ---
+  let approveRateBonus = 0;
+  const totalEvents = approvalCount + closeCount;
+  if (totalEvents > 0 && approvalCount > 0) {
+    const approveRate = approvalCount / totalEvents;
+    let rateMultiplier = 1;
+    if (approveRate >= 0.9) rateMultiplier = 1.5;
+    else if (approveRate >= 0.8) rateMultiplier = 1.3;
+    else if (approveRate >= 0.7) rateMultiplier = 1.2;
+    else if (approveRate >= 0.6) rateMultiplier = 1.1;
+
+    if (rateMultiplier > 1 && adjustedPoints > 0) {
+      approveRateBonus = round(adjustedPoints * (rateMultiplier - 1), 4);
+    }
+  }
+  breakdown.approveRateBonus = approveRateBonus;
+
+  // --- Volume bonus ---
+  const volumeBonus = round(Math.min(10, Math.sqrt(approvalCount) * 1.5), 4);
+  breakdown.volumeBonus = volumeBonus;
+
+  let score = config.initialScore + adjustedPoints + approveRateBonus + volumeBonus;
 
   // --- Phase 4: Inactivity decay ---
   const lastEventTime = sorted[sorted.length - 1].timestamp;

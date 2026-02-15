@@ -54,6 +54,86 @@ interface KnowledgeServiceLike {
   deleteMemory(memoryId: UUID): Promise<void>;
 }
 
+const FRAGMENT_COUNT_BATCH_SIZE = 500;
+
+function hasUuidId(memory: Memory): memory is Memory & { id: UUID } {
+  return typeof memory.id === "string" && memory.id.length > 0;
+}
+
+function hasUuidIdAndCreatedAt(
+  memory: Memory,
+): memory is Memory & { id: UUID; createdAt: number } {
+  return hasUuidId(memory) && typeof memory.createdAt === "number";
+}
+
+async function countKnowledgeFragmentsForDocument(
+  knowledgeService: KnowledgeServiceLike,
+  roomId: UUID,
+  documentId: UUID,
+): Promise<number> {
+  let offset = 0;
+  let fragmentCount = 0;
+
+  while (true) {
+    const knowledgeBatch = await knowledgeService.getMemories({
+      tableName: "knowledge",
+      roomId,
+      count: FRAGMENT_COUNT_BATCH_SIZE,
+      offset,
+    });
+
+    if (knowledgeBatch.length === 0) {
+      break;
+    }
+
+    fragmentCount += knowledgeBatch.filter((memory) => {
+      const metadata = memory.metadata as Record<string, unknown> | undefined;
+      return metadata?.documentId === documentId;
+    }).length;
+
+    if (knowledgeBatch.length < FRAGMENT_COUNT_BATCH_SIZE) {
+      break;
+    }
+
+    offset += FRAGMENT_COUNT_BATCH_SIZE;
+  }
+
+  return fragmentCount;
+}
+
+async function listKnowledgeFragmentsForDocument(
+  knowledgeService: KnowledgeServiceLike,
+  roomId: UUID,
+  documentId: UUID,
+): Promise<UUID[]> {
+  let offset = 0;
+  const fragmentIds: UUID[] = [];
+
+  while (true) {
+    const knowledgeBatch = await knowledgeService.getMemories({
+      tableName: "knowledge",
+      roomId,
+      count: FRAGMENT_COUNT_BATCH_SIZE,
+      offset,
+    });
+
+    for (const memory of knowledgeBatch) {
+      const metadata = memory.metadata as Record<string, unknown> | undefined;
+      if (metadata?.documentId === documentId && hasUuidId(memory)) {
+        fragmentIds.push(memory.id);
+      }
+    }
+
+    if (knowledgeBatch.length < FRAGMENT_COUNT_BATCH_SIZE) {
+      break;
+    }
+
+    offset += FRAGMENT_COUNT_BATCH_SIZE;
+  }
+
+  return fragmentIds;
+}
+
 async function getKnowledgeService(
   runtime: AgentRuntime | null,
 ): Promise<KnowledgeServiceLike | null> {
@@ -306,7 +386,7 @@ export async function handleKnowledgeRoutes(
   // ── GET /api/knowledge/documents ────────────────────────────────────────
   if (method === "GET" && pathname === "/api/knowledge/documents") {
     const limit = parsePositiveInteger(url.searchParams.get("limit"), 100);
-    const offset = parsePositiveInteger(url.searchParams.get("offset"), 0) - 1;
+    const offset = parsePositiveInteger(url.searchParams.get("offset"), 0);
 
     const documents = await knowledgeService.getMemories({
       tableName: "documents",
@@ -357,16 +437,11 @@ export async function handleKnowledgeRoutes(
     }
 
     // Get fragment count for this document
-    const allFragments = await knowledgeService.getMemories({
-      tableName: "knowledge",
-      roomId: agentId,
-      count: 50000,
-    });
-
-    const fragmentCount = allFragments.filter((f) => {
-      const meta = f.metadata as Record<string, unknown> | undefined;
-      return meta?.documentId === documentId;
-    }).length;
+    const fragmentCount = await countKnowledgeFragmentsForDocument(
+      knowledgeService,
+      agentId,
+      documentId,
+    );
 
     const metadata = document.metadata as Record<string, unknown> | undefined;
 
@@ -390,20 +465,14 @@ export async function handleKnowledgeRoutes(
   if (method === "DELETE" && docIdMatch) {
     const documentId = decodeURIComponent(docIdMatch[1]) as UUID;
 
-    // First, delete all fragments associated with this document
-    const allFragments = await knowledgeService.getMemories({
-      tableName: "knowledge",
-      roomId: agentId,
-      count: 50000,
-    });
+    const fragmentIds = await listKnowledgeFragmentsForDocument(
+      knowledgeService,
+      agentId,
+      documentId,
+    );
 
-    const fragmentsToDelete = allFragments.filter((f) => {
-      const meta = f.metadata as Record<string, unknown> | undefined;
-      return meta?.documentId === documentId;
-    });
-
-    for (const fragment of fragmentsToDelete) {
-      await knowledgeService.deleteMemory(fragment.id as UUID);
+    for (const fragmentId of fragmentIds) {
+      await knowledgeService.deleteMemory(fragmentId);
     }
 
     // Then delete the document itself
@@ -411,7 +480,7 @@ export async function handleKnowledgeRoutes(
 
     json(res, {
       ok: true,
-      deletedFragments: fragmentsToDelete.length,
+      deletedFragments: fragmentIds.length,
     });
     return true;
   }
@@ -568,33 +637,63 @@ export async function handleKnowledgeRoutes(
   if (method === "GET" && fragmentsMatch) {
     const documentId = decodeURIComponent(fragmentsMatch[1]) as UUID;
 
-    const allFragments = await knowledgeService.getMemories({
-      tableName: "knowledge",
-      roomId: agentId,
-      count: 50000,
-    });
+    const allFragments: Array<{
+      id: UUID;
+      text: string;
+      position: unknown;
+      createdAt: number;
+    }> = [];
+    let fragmentOffset = 0;
+
+    while (true) {
+      const fragmentBatch = await knowledgeService.getMemories({
+        tableName: "knowledge",
+        roomId: agentId,
+        count: FRAGMENT_COUNT_BATCH_SIZE,
+        offset: fragmentOffset,
+      });
+
+      if (fragmentBatch.length === 0) {
+        break;
+      }
+
+      const matchingFragments = fragmentBatch.filter((fragment) => {
+        const metadata = fragment.metadata as
+          | Record<string, unknown>
+          | undefined;
+        return metadata?.documentId === documentId;
+      });
+
+      for (const fragment of matchingFragments) {
+        if (!hasUuidIdAndCreatedAt(fragment)) {
+          continue;
+        }
+        const meta = fragment.metadata as Record<string, unknown> | undefined;
+        allFragments.push({
+          id: fragment.id,
+          text: (fragment.content as { text?: string })?.text || "",
+          position: meta?.position,
+          createdAt: fragment.createdAt,
+        });
+      }
+
+      if (fragmentBatch.length < FRAGMENT_COUNT_BATCH_SIZE) {
+        break;
+      }
+      fragmentOffset += FRAGMENT_COUNT_BATCH_SIZE;
+    }
 
     const documentFragments = allFragments
-      .filter((f) => {
-        const meta = f.metadata as Record<string, unknown> | undefined;
-        return meta?.documentId === documentId;
-      })
       .sort((a, b) => {
-        const posA = (a.metadata as Record<string, unknown> | undefined)
-          ?.position;
-        const posB = (b.metadata as Record<string, unknown> | undefined)
-          ?.position;
-        return (
-          (typeof posA === "number" ? posA : 0) -
-          (typeof posB === "number" ? posB : 0)
-        );
+        const posA = typeof a.position === "number" ? a.position : 0;
+        const posB = typeof b.position === "number" ? b.position : 0;
+        return posA - posB;
       })
       .map((f) => {
-        const meta = f.metadata as Record<string, unknown> | undefined;
         return {
           id: f.id,
-          text: (f.content as { text?: string })?.text || "",
-          position: meta?.position,
+          text: f.text,
+          position: f.position,
           createdAt: f.createdAt,
         };
       });
