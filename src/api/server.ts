@@ -1613,8 +1613,6 @@ async function handleRequest(
   const pathname = url.pathname;
   const isAuthEndpoint = pathname.startsWith("/api/auth/");
 
-  applySecurityHeaders(res);
-
   if (!applyCors(req, res)) {
     json(res, { error: "Origin not allowed" }, 403);
     return;
@@ -6202,6 +6200,7 @@ export async function startApiServer(opts?: {
   const onRestart = opts?.onRestart ?? null;
 
   const server = http.createServer(async (req, res) => {
+    applySecurityHeaders(res);
     try {
       await handleRequest(req, res, state, { onRestart });
     } catch (err) {
