@@ -1093,6 +1093,7 @@ async function handleQuery(
       "INSERT",
       "UPDATE",
       "DELETE",
+      "INTO",
       "DROP",
       "ALTER",
       "TRUNCATE",

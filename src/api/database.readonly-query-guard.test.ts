@@ -80,6 +80,34 @@ describe("database read-only query guard", () => {
     expect(execute).not.toHaveBeenCalled();
   });
 
+  it("rejects SELECT INTO statements in read-only mode", async () => {
+    const { runtime, execute } = makeRuntime({
+      rows: [],
+      fields: [{ name: "table_name" }],
+    });
+    const req = createMockJsonRequest(
+      {
+        sql: "SELECT id INTO users_backup FROM users",
+      },
+      { method: "POST", url: "/api/database/query" },
+    );
+    const { res, getStatus, getJson } = createMockHttpResponse<{
+      error?: string;
+    }>();
+
+    const handled = await handleDatabaseRoute(
+      req,
+      res,
+      runtime,
+      "/api/database/query",
+    );
+
+    expect(handled).toBe(true);
+    expect(getStatus()).toBe(400);
+    expect(String(getJson()?.error ?? "")).toContain('"INTO"');
+    expect(execute).not.toHaveBeenCalled();
+  });
+
   it("allows COPY when readOnly is explicitly false", async () => {
     const { runtime, execute } = makeRuntime({
       rows: [],
