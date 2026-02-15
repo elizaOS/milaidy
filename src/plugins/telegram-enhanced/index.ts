@@ -9,7 +9,7 @@ export const telegramEnhancedPlugin: Plugin = {
   ...basePlugin,
   name: `${basePlugin.name}-enhanced`,
   description:
-    "Enhanced Telegram plugin with typing indicators, smarter chunking, receipt reactions, and friendlier errors",
+    "Enhanced Telegram plugin with typing indicators, draft streaming, smarter chunking, receipt reactions, and friendlier errors",
   // biome-ignore lint/suspicious/noExplicitAny: Service class extends untyped external module — Plugin.services typing requires this cast
   services: [TelegramEnhancedService as any],
 };

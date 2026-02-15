@@ -579,50 +579,27 @@ async function runGitCloneSubset(
   if (skillPath !== ".") {
     sanitizeSkillPath(skillPath);
   }
-  const tmpBase = await fs.mkdtemp(path.join(stateDirBase(), "skill-install-"));
-  const cloneDir = path.join(tmpBase, "repo");
-  const repoUrl = `https://github.com/${repository}.git`;
 
-  try {
-    await execFileAsync(
-      "git",
-      [
-        "clone",
-        "--depth",
-        "1",
-        "--filter=blob:none",
-        "--sparse",
-        "--branch",
-        ref,
-        repoUrl,
-        cloneDir,
-      ],
-      { timeout: GIT_TIMEOUT_MS },
-    );
-    await execFileAsync(
-      "git",
-      ["-C", cloneDir, "sparse-checkout", "set", skillPath],
-      { timeout: GIT_TIMEOUT_MS },
-    );
+  await withTemporarySparseCheckout(
+    repository,
+    ref,
+    skillPath,
+    async (cloneDir) => {
+      const sourceDir = path.join(cloneDir, skillPath);
+      assertPathWithinRoot(cloneDir, sourceDir);
+      const stat = await fs.stat(sourceDir).catch(() => null);
+      if (!stat || !stat.isDirectory()) {
+        throw new Error(`Skill path not found in repository: ${skillPath}`);
+      }
 
-    const sourceDir = path.join(cloneDir, skillPath);
-    assertPathWithinRoot(cloneDir, sourceDir);
-    const stat = await fs.stat(sourceDir).catch(() => null);
-    if (!stat || !stat.isDirectory()) {
-      throw new Error(`Skill path not found in repository: ${skillPath}`);
-    }
-
-    await fs.mkdir(path.dirname(targetDir), { recursive: true });
-    await fs.cp(sourceDir, targetDir, {
-      recursive: true,
-      errorOnExist: true,
-      force: false,
-    });
-  } finally {
-    await fs
-      .rm(tmpBase, { recursive: true, force: true })
-      .catch(() => undefined);
-  }
+      await fs.mkdir(path.dirname(targetDir), { recursive: true });
+      await fs.cp(sourceDir, targetDir, {
+        recursive: true,
+        errorOnExist: true,
+        force: false,
+      });
+    },
+  );
 }
 
 async function resolveSkillPathInRepo(
@@ -633,32 +610,7 @@ async function resolveSkillPathInRepo(
   validateGitRef(ref);
   if (requestedPath) return sanitizeSkillPath(requestedPath);
 
-  const tmpBase = await fs.mkdtemp(path.join(stateDirBase(), "skill-probe-"));
-  const cloneDir = path.join(tmpBase, "repo");
-  const repoUrl = `https://github.com/${repository}.git`;
-
-  try {
-    await execFileAsync(
-      "git",
-      [
-        "clone",
-        "--depth",
-        "1",
-        "--filter=blob:none",
-        "--sparse",
-        "--branch",
-        ref,
-        repoUrl,
-        cloneDir,
-      ],
-      { timeout: GIT_TIMEOUT_MS },
-    );
-    await execFileAsync(
-      "git",
-      ["-C", cloneDir, "sparse-checkout", "set", "."],
-      { timeout: GIT_TIMEOUT_MS },
-    );
-
+  return withTemporarySparseCheckout(repository, ref, ".", async (cloneDir) => {
     const rootSkill = path.join(cloneDir, "SKILL.md");
     const hasRoot = await fs
       .stat(rootSkill)
@@ -683,6 +635,42 @@ async function resolveSkillPathInRepo(
     throw new Error(
       "Could not determine skill path automatically. Provide an explicit GitHub tree URL or path.",
     );
+  });
+}
+
+async function withTemporarySparseCheckout<T>(
+  repository: string,
+  ref: string,
+  checkoutPath: string,
+  task: (cloneDir: string) => Promise<T>,
+): Promise<T> {
+  const repoUrl = `https://github.com/${repository}.git`;
+  const tmpBase = await fs.mkdtemp(path.join(stateDirBase(), "skill-probe-"));
+  const cloneDir = path.join(tmpBase, "repo");
+
+  try {
+    await execFileAsync(
+      "git",
+      [
+        "clone",
+        "--depth",
+        "1",
+        "--filter=blob:none",
+        "--sparse",
+        "--branch",
+        ref,
+        repoUrl,
+        cloneDir,
+      ],
+      { timeout: GIT_TIMEOUT_MS },
+    );
+    await execFileAsync(
+      "git",
+      ["-C", cloneDir, "sparse-checkout", "set", checkoutPath],
+      { timeout: GIT_TIMEOUT_MS },
+    );
+
+    return await task(cloneDir);
   } finally {
     await fs
       .rm(tmpBase, { recursive: true, force: true })

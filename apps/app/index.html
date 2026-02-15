@@ -9,13 +9,14 @@
     <meta name="theme-color" content="#0a0a0a" />
     <meta name="color-scheme" content="dark light" />
     <meta http-equiv="Content-Security-Policy"
-      content="default-src 'self' capacitor-electron://* https://*;
-               script-src 'self' 'unsafe-inline' 'unsafe-eval';
+      content="default-src 'self' capacitor-electron://* https://* http://localhost:* http://127.0.0.1:*;
+               script-src 'self' 'unsafe-inline';
                style-src 'self' 'unsafe-inline';
-               connect-src 'self' blob: http://localhost:* ws://localhost:* wss://localhost:* https://* wss://*;
+               connect-src 'self' blob: http://localhost:* ws://localhost:* wss://localhost:* http://127.0.0.1:* ws://127.0.0.1:* wss://127.0.0.1:* https://* wss://*;
                img-src 'self' data: blob: https://*;
                media-src 'self' blob: https://*;
-               font-src 'self' data:;" />
+               font-src 'self' data:;
+               frame-src 'self' http://localhost:* http://127.0.0.1:* https://*;" />
     <title>Milaidy</title>
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />

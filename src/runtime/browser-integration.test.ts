@@ -13,11 +13,29 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import type { MilaidyConfig } from "../config/config.js";
+import { tryOptionalDynamicImport } from "../test-support/test-helpers.js";
 import {
   CORE_PLUGINS,
   collectPluginNames,
   ensureBrowserServerLink,
 } from "./eliza.js";
+
+async function loadBrowserPluginModule(): Promise<Record<
+  string,
+  unknown
+> | null> {
+  return tryOptionalDynamicImport<Record<string, unknown>>(
+    "@elizaos/plugin-browser",
+  );
+}
+
+async function withBrowserPlugin(
+  run: (mod: Record<string, unknown>) => void | Promise<void>,
+): Promise<void> {
+  const mod = await loadBrowserPluginModule();
+  if (!mod) return;
+  await run(mod);
+}
 
 // ---------------------------------------------------------------------------
 // ensureBrowserServerLink — symlink creation tests
@@ -88,38 +106,14 @@ describe("Browser plugin classification", () => {
 
 describe("Browser plugin module", () => {
   it("can be dynamically imported without crashing", async () => {
-    try {
-      const mod = (await import("@elizaos/plugin-browser")) as Record<
-        string,
-        unknown
-      >;
+    await withBrowserPlugin((mod) => {
       expect(mod).toBeDefined();
       expect(typeof mod).toBe("object");
-    } catch (err) {
-      // Plugin may not be fully available in test env (missing native deps)
-      const msg = err instanceof Error ? err.message : String(err);
-      if (
-        msg.includes("Cannot find module") ||
-        msg.includes("Cannot find package") ||
-        msg.includes("ERR_MODULE_NOT_FOUND") ||
-        msg.includes("MODULE_NOT_FOUND") ||
-        msg.includes("Dynamic require of") ||
-        msg.includes("native addon module") ||
-        msg.includes("Failed to resolve entry")
-      ) {
-        // Expected — plugin not usable in test environment
-        return;
-      }
-      throw err;
-    }
+    });
   });
 
   it("exports a valid Plugin shape if loadable", async () => {
-    try {
-      const mod = (await import("@elizaos/plugin-browser")) as Record<
-        string,
-        unknown
-      >;
+    await withBrowserPlugin((mod) => {
       // Check default export or named plugin export
       const plugin =
         (mod.default as Record<string, unknown>) ??
@@ -129,9 +123,7 @@ describe("Browser plugin module", () => {
         expect(typeof plugin.description).toBe("string");
         expect((plugin.name as string).length).toBeGreaterThan(0);
       }
-    } catch {
-      // Skip if not loadable in test env
-    }
+    });
   });
 });
 

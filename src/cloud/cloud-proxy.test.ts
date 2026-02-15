@@ -46,6 +46,7 @@ describe("CloudRuntimeProxy", () => {
       "a1",
       "Hi there",
       "web-chat",
+      "power",
     );
   });
 
@@ -54,7 +55,12 @@ describe("CloudRuntimeProxy", () => {
     const proxy = new CloudRuntimeProxy(client, "a1", "Bot");
 
     await proxy.handleChatMessage("Hi", "custom-room");
-    expect(client.sendMessage).toHaveBeenCalledWith("a1", "Hi", "custom-room");
+    expect(client.sendMessage).toHaveBeenCalledWith(
+      "a1",
+      "Hi",
+      "custom-room",
+      "power",
+    );
   });
 
   it("handleChatMessageStream yields only text chunks", async () => {

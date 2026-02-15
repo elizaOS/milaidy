@@ -61,12 +61,6 @@ function assertValidVersion(version: string): void {
   }
 }
 
-function assertValidBranch(branch: string): void {
-  if (!VALID_BRANCH.test(branch)) {
-    throw new Error(`Invalid branch name: "${branch}"`);
-  }
-}
-
 function assertValidGitUrl(url: string): void {
   if (!VALID_GIT_URL.test(url)) {
     throw new Error(`Invalid git URL: "${url}"`);
@@ -212,6 +206,7 @@ async function _installPlugin(
   // Determine the canonical package name and version to install
   const canonicalName = info.name;
   const npmVersion = info.npm.v2Version || info.npm.v1Version || "next";
+  const localPath = info.localPath;
   const targetDir = pluginDir(canonicalName);
 
   // Ensure the directory exists (idempotent)
@@ -229,54 +224,77 @@ async function _installPlugin(
     );
   }
 
-  // Try npm install; fall back to git clone
+  // Try local workspace install (when available), then npm install, then git clone.
   let installedVersion = npmVersion;
   let installSource: "npm" | "path" = "npm";
-  emit("downloading", `Installing ${canonicalName}@${npmVersion}...`);
+  const pm = await detectPackageManager();
+  let installed = false;
 
-  try {
-    const pm = await detectPackageManager();
-    await runPackageInstall(pm, canonicalName, npmVersion, targetDir);
-
-    // Read the actual installed version from node_modules
-    const installedPkgPath = path.join(
-      targetDir,
-      "node_modules",
-      ...canonicalName.split("/"),
-      "package.json",
-    );
+  if (localPath) {
+    emit("downloading", `Installing ${canonicalName} from local workspace...`);
     try {
-      const pkg = JSON.parse(await fs.readFile(installedPkgPath, "utf-8")) as {
-        version?: string;
-      };
-      if (typeof pkg.version === "string" && pkg.version.length > 0) {
-        installedVersion = pkg.version;
+      await runLocalPathInstall(pm, canonicalName, localPath, targetDir);
+      installedVersion = await readInstalledVersion(
+        targetDir,
+        canonicalName,
+        npmVersion,
+      );
+      installSource = "path";
+      installed = true;
+    } catch (localErr) {
+      logger.warn(
+        `[plugin-installer] local install failed for ${canonicalName}: ${localErr instanceof Error ? localErr.message : String(localErr)}`,
+      );
+    }
+  }
+
+  if (!installed) {
+    emit("downloading", `Installing ${canonicalName}@${npmVersion}...`);
+    try {
+      await runPackageInstall(pm, canonicalName, npmVersion, targetDir);
+      installedVersion = await readInstalledVersion(
+        targetDir,
+        canonicalName,
+        npmVersion,
+      );
+      installSource = "npm";
+      installed = true;
+    } catch (npmErr) {
+      logger.warn(
+        `[plugin-installer] npm failed for ${canonicalName}: ${npmErr instanceof Error ? npmErr.message : String(npmErr)}`,
+      );
+      emit("downloading", `npm failed, cloning from ${info.gitUrl}...`);
+
+      try {
+        await gitCloneInstall(info, targetDir, onProgress);
+        installedVersion = info.npm.v2Version || info.npm.v1Version || "git";
+        installSource = "path"; // git-cloned plugins are local path installs
+        installed = true;
+      } catch (gitErr) {
+        const msg = gitErr instanceof Error ? gitErr.message : String(gitErr);
+        emit("error", `Installation failed: ${msg}`);
+        return {
+          success: false,
+          pluginName: canonicalName,
+          version: "",
+          installPath: targetDir,
+          requiresRestart: false,
+          error: msg,
+        };
       }
-    } catch {
-      /* keep requested version */
     }
-  } catch (npmErr) {
-    logger.warn(
-      `[plugin-installer] npm failed for ${canonicalName}: ${npmErr instanceof Error ? npmErr.message : String(npmErr)}`,
-    );
-    emit("downloading", `npm failed, cloning from ${info.gitUrl}...`);
+  }
 
-    try {
-      await gitCloneInstall(info, targetDir, onProgress);
-      installedVersion = info.npm.v2Version || info.npm.v1Version || "git";
-      installSource = "path"; // git-cloned plugins are local path installs
-    } catch (gitErr) {
-      const msg = gitErr instanceof Error ? gitErr.message : String(gitErr);
-      emit("error", `Installation failed: ${msg}`);
-      return {
-        success: false,
-        pluginName: canonicalName,
-        version: "",
-        installPath: targetDir,
-        requiresRestart: false,
-        error: msg,
-      };
-    }
+  if (!installed) {
+    emit("error", "Installation failed");
+    return {
+      success: false,
+      pluginName: canonicalName,
+      version: "",
+      installPath: targetDir,
+      requiresRestart: false,
+      error: `Failed to install plugin "${canonicalName}"`,
+    };
   }
 
   emit("validating", "Verifying plugin can be loaded...");
@@ -385,11 +403,23 @@ async function _uninstallPlugin(pluginName: string): Promise<UninstallResult> {
 
   // Remove from disk
   try {
-    await fs.rm(dirToRemove, { recursive: true, force: true });
+    await fs.rm(dirToRemove, { recursive: true, force: false });
   } catch (err) {
-    logger.warn(
-      `[plugin-installer] Could not remove ${dirToRemove}: ${err instanceof Error ? err.message : String(err)}`,
-    );
+    const code =
+      typeof err === "object" &&
+      err !== null &&
+      "code" in err &&
+      typeof (err as { code?: string }).code === "string"
+        ? (err as { code: string }).code
+        : undefined;
+    if (code !== "ENOENT") {
+      return {
+        success: false,
+        pluginName,
+        requiresRestart: false,
+        error: `Failed to remove plugin directory "${dirToRemove}": ${err instanceof Error ? err.message : String(err)}`,
+      };
+    }
   }
 
   // Remove from config
@@ -431,7 +461,44 @@ async function runPackageInstall(
   assertValidPackageName(packageName);
   assertValidVersion(version);
   const spec = `${packageName}@${version}`;
+  await installSpecWithFallback(pm, spec, targetDir);
+}
 
+async function runLocalPathInstall(
+  pm: "bun" | "pnpm" | "npm",
+  packageName: string,
+  sourcePath: string,
+  targetDir: string,
+): Promise<void> {
+  assertValidPackageName(packageName);
+  const resolvedSourcePath = path.resolve(sourcePath);
+  const packageJsonPath = path.join(resolvedSourcePath, "package.json");
+  await fs.access(packageJsonPath);
+  const spec = `file:${resolvedSourcePath}`;
+  await installSpecWithFallback(pm, spec, targetDir);
+}
+
+async function installSpecWithFallback(
+  pm: "bun" | "pnpm" | "npm",
+  spec: string,
+  targetDir: string,
+): Promise<void> {
+  try {
+    await runInstallSpec(pm, spec, targetDir);
+  } catch (primaryErr) {
+    if (pm === "npm") throw primaryErr;
+    logger.warn(
+      `[plugin-installer] ${pm} install failed for ${spec}; retrying with npm: ${primaryErr instanceof Error ? primaryErr.message : String(primaryErr)}`,
+    );
+    await runInstallSpec("npm", spec, targetDir);
+  }
+}
+
+async function runInstallSpec(
+  pm: "bun" | "pnpm" | "npm",
+  spec: string,
+  targetDir: string,
+): Promise<void> {
   switch (pm) {
     case "bun":
       await execFileAsync("bun", ["add", spec], { cwd: targetDir });
@@ -444,14 +511,107 @@ async function runPackageInstall(
   }
 }
 
+async function readInstalledVersion(
+  targetDir: string,
+  packageName: string,
+  fallbackVersion: string,
+): Promise<string> {
+  const installedPkgPath = path.join(
+    targetDir,
+    "node_modules",
+    ...packageName.split("/"),
+    "package.json",
+  );
+  try {
+    const pkg = JSON.parse(await fs.readFile(installedPkgPath, "utf-8")) as {
+      version?: string;
+    };
+    if (typeof pkg.version === "string" && pkg.version.length > 0) {
+      return pkg.version;
+    }
+  } catch {
+    // Keep fallback version.
+  }
+  return fallbackVersion;
+}
+
+async function remoteBranchExists(
+  gitUrl: string,
+  branch: string,
+): Promise<boolean> {
+  try {
+    const { stdout } = await execFileAsync(
+      "git",
+      ["ls-remote", "--heads", gitUrl, branch],
+      { env: { ...process.env, GIT_TERMINAL_PROMPT: "0" } },
+    );
+    return stdout.trim().length > 0;
+  } catch {
+    return false;
+  }
+}
+
+async function listRemoteBranches(gitUrl: string): Promise<string[]> {
+  try {
+    const { stdout } = await execFileAsync(
+      "git",
+      ["ls-remote", "--heads", gitUrl],
+      { env: { ...process.env, GIT_TERMINAL_PROMPT: "0" } },
+    );
+    const branches: string[] = [];
+    for (const rawLine of stdout.split("\n")) {
+      const line = rawLine.trim();
+      if (!line) continue;
+      const parts = line.split(/\s+/);
+      if (parts.length < 2) continue;
+      const ref = parts[1];
+      if (!ref.startsWith("refs/heads/")) continue;
+      const branch = ref.replace(/^refs\/heads\//, "");
+      if (VALID_BRANCH.test(branch)) {
+        branches.push(branch);
+      }
+    }
+    return branches;
+  } catch {
+    return [];
+  }
+}
+
+async function resolveGitBranch(info: RegistryPluginInfo): Promise<string> {
+  assertValidGitUrl(info.gitUrl);
+  const rawCandidates = [
+    info.git.v2Branch,
+    info.git.v1Branch,
+    "next",
+    "main",
+    "master",
+  ];
+  const candidates = [
+    ...new Set(rawCandidates.filter((c): c is string => Boolean(c?.trim()))),
+  ];
+  for (const branch of candidates) {
+    if (!VALID_BRANCH.test(branch)) continue;
+    if (await remoteBranchExists(info.gitUrl, branch)) return branch;
+  }
+  const remoteBranches = await listRemoteBranches(info.gitUrl);
+  if (remoteBranches.length > 0) {
+    const preferred = ["main", "next", "master", "1.x", "develop", "dev"];
+    for (const branch of preferred) {
+      if (remoteBranches.includes(branch)) {
+        return branch;
+      }
+    }
+    return remoteBranches[0];
+  }
+  return "main";
+}
+
 async function gitCloneInstall(
   info: RegistryPluginInfo,
   targetDir: string,
   onProgress?: ProgressCallback,
 ): Promise<void> {
-  const branch = info.git.v2Branch || info.git.v1Branch || "next";
-  assertValidBranch(branch);
-  assertValidGitUrl(info.gitUrl);
+  const branch = await resolveGitBranch(info);
 
   const tempDir = path.join(path.dirname(targetDir), `temp-${Date.now()}`);
 

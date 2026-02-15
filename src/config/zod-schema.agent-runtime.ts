@@ -164,22 +164,33 @@ const ToolPolicyBaseSchema = z
   })
   .strict();
 
-export const ToolPolicySchema = ToolPolicyBaseSchema.superRefine(
-  (value, ctx) => {
-    if (
-      value.allow &&
-      value.allow.length > 0 &&
-      value.alsoAllow &&
-      value.alsoAllow.length > 0
-    ) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message:
-          "tools policy cannot set both allow and alsoAllow in the same scope (merge alsoAllow into allow, or remove allow and use profile + alsoAllow)",
-      });
-    }
-  },
-).optional();
+type ToolPolicyConflictValue = {
+  allow?: string[];
+  alsoAllow?: string[];
+};
+
+const validateToolPolicyConflict = (
+  scope: string,
+  value: ToolPolicyConflictValue,
+  ctx: z.RefinementCtx,
+) => {
+  if (
+    value.allow &&
+    value.allow.length > 0 &&
+    value.alsoAllow &&
+    value.alsoAllow.length > 0
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: `${scope} cannot set both allow and alsoAllow in the same scope (merge alsoAllow into allow, or remove allow and use profile + alsoAllow)`,
+    });
+  }
+};
+
+const makeToolPolicySchema = (scope: string) =>
+  ToolPolicyBaseSchema.superRefine((value, ctx) => {
+    validateToolPolicyConflict(scope, value, ctx);
+  });
 
 export const ToolsWebSearchSchema = z
   .object({
@@ -231,28 +242,15 @@ export const ToolProfileSchema = z
   ])
   .optional();
 
-export const ToolPolicyWithProfileSchema = z
-  .object({
-    allow: z.array(z.string()).optional(),
-    alsoAllow: z.array(z.string()).optional(),
-    deny: z.array(z.string()).optional(),
+export const ToolPolicySchema = makeToolPolicySchema("tools policy").optional();
+
+export const ToolPolicyWithProfileSchema = makeToolPolicySchema(
+  "tools.byProvider policy",
+)
+  .extend({
     profile: ToolProfileSchema,
   })
-  .strict()
-  .superRefine((value, ctx) => {
-    if (
-      value.allow &&
-      value.allow.length > 0 &&
-      value.alsoAllow &&
-      value.alsoAllow.length > 0
-    ) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message:
-          "tools.byProvider policy cannot set both allow and alsoAllow in the same scope (merge alsoAllow into allow, or remove allow and use profile + alsoAllow)",
-      });
-    }
-  });
+  .strict();
 
 // Provider docking: allowlists keyed by provider id (no schema updates when adding providers).
 export const ElevatedAllowFromSchema = z
@@ -328,18 +326,7 @@ export const AgentToolsSchema = z
   })
   .strict()
   .superRefine((value, ctx) => {
-    if (
-      value.allow &&
-      value.allow.length > 0 &&
-      value.alsoAllow &&
-      value.alsoAllow.length > 0
-    ) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message:
-          "agent tools cannot set both allow and alsoAllow in the same scope (merge alsoAllow into allow, or remove allow and use profile + alsoAllow)",
-      });
-    }
+    validateToolPolicyConflict("agent tools", value, ctx);
   })
   .optional();
 
@@ -591,18 +578,7 @@ export const ToolsSchema = z
   })
   .strict()
   .superRefine((value, ctx) => {
-    if (
-      value.allow &&
-      value.allow.length > 0 &&
-      value.alsoAllow &&
-      value.alsoAllow.length > 0
-    ) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message:
-          "tools cannot set both allow and alsoAllow in the same scope (merge alsoAllow into allow, or remove allow and use profile + alsoAllow)",
-      });
-    }
+    validateToolPolicyConflict("tools", value, ctx);
   })
   .optional();
 
@@ -635,6 +611,13 @@ export const AgentDefaultsSchema = z
       )
       .optional(),
     workspace: z.string().optional(),
+    adminEntityId: z
+      .string()
+      .regex(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+        "invalid UUID format",
+      )
+      .optional(),
     repoRoot: z.string().optional(),
     skipBootstrap: z.boolean().optional(),
     bootstrapMaxChars: z.number().int().positive().optional(),

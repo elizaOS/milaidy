@@ -19,6 +19,9 @@ try {
 } catch {
   // @playwright/test not available — playwright tests will be skipped
 }
+const shouldRunPlaywright =
+  Boolean(playwrightCli) &&
+  (process.env.MILAIDY_RUN_PLAYWRIGHT === "1" || process.env.CI !== "true");
 
 /**
  * Each entry describes a test suite to run in parallel.
@@ -26,6 +29,8 @@ try {
  * - `vitest: true` entries receive --maxWorkers and vitest-specific CI flags.
  * - Entries may specify a `cwd` to run from a different directory.
  * - Entries may specify a `cmd` to override the default (`bunx`).
+ * - `forceSerial: true` entries always run after parallel groups.
+ * - `maxWorkers` lets a suite pin worker concurrency.
  */
 const runs = [
   {
@@ -37,14 +42,21 @@ const runs = [
     name: "e2e",
     args: ["vitest", "run", "--config", "vitest.e2e.config.ts"],
     vitest: true,
+    forceSerial: true,
+    maxWorkers: 1,
   },
   // Only include playwright tests if @playwright/test is installed
-  ...(playwrightCli
+  ...(shouldRunPlaywright
     ? [
         {
           name: "e2e:playwright",
           cmd: "node",
-          args: [playwrightCli, "test"],
+          args: [
+            playwrightCli,
+            "test",
+            "--config",
+            "playwright.electron.config.ts",
+          ],
           cwd: appDir,
         },
       ]
@@ -78,8 +90,10 @@ const resolvedOverride =
   Number.isFinite(overrideWorkers) && overrideWorkers > 0
     ? overrideWorkers
     : null;
-const parallelRuns = isWindowsCi ? [] : runs;
-const serialRuns = isWindowsCi ? runs : [];
+const defaultParallelRuns = runs.filter((entry) => !entry.forceSerial);
+const defaultSerialRuns = runs.filter((entry) => entry.forceSerial);
+const parallelRuns = isWindowsCi ? [] : defaultParallelRuns;
+const serialRuns = isWindowsCi ? runs : defaultSerialRuns;
 const localWorkers = Math.max(4, Math.min(16, os.cpus().length));
 const parallelCount = Math.max(1, parallelRuns.length);
 const perRunWorkers = Math.max(1, Math.floor(localWorkers / parallelCount));
@@ -96,9 +110,11 @@ const WARNING_SUPPRESSION_FLAGS = [
 
 const runOnce = (entry, extraArgs = []) =>
   new Promise((resolve) => {
+    const entryWorkers =
+      typeof entry.maxWorkers === "number" ? entry.maxWorkers : maxWorkers;
     const vitestExtras = entry.vitest
       ? [
-          ...(maxWorkers ? ["--maxWorkers", String(maxWorkers)] : []),
+          ...(entryWorkers ? ["--maxWorkers", String(entryWorkers)] : []),
           ...windowsCiArgs,
         ]
       : [];

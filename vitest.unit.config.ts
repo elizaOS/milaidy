@@ -9,9 +9,13 @@ export default defineConfig({
   ...baseConfig,
   test: {
     ...baseTest,
-    include: baseTest.include ?? [
-      "src/**/*.test.ts",
-      "test/format-error.test.ts",
+    include: [
+      ...(baseTest.include ?? [
+        "src/**/*.test.ts",
+        "test/format-error.test.ts",
+      ]),
+      "apps/app/test/app/autonomous-panel.test.ts",
+      "apps/app/test/app/chat-stream-api-client.test.ts",
     ],
     exclude: baseTest.exclude ?? [],
   },

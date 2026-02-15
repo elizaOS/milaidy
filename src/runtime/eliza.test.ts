@@ -15,6 +15,7 @@ import type { MilaidyConfig } from "../config/config.js";
 import {
   applyCloudConfigToEnv,
   applyConnectorSecretsToEnv,
+  applyDatabaseConfigToEnv,
   buildCharacterFromConfig,
   CUSTOM_PLUGINS_DIRNAME,
   collectPluginNames,
@@ -112,10 +113,28 @@ describe("collectPluginNames", () => {
     const names = collectPluginNames({} as MilaidyConfig);
     expect(names.has("@elizaos/plugin-sql")).toBe(true);
     expect(names.has("@elizaos/plugin-local-embedding")).toBe(true);
+    expect(names.has("@elizaos/plugin-trajectory-logger")).toBe(true);
     expect(names.has("@elizaos/plugin-agent-skills")).toBe(true);
     expect(names.has("@elizaos/plugin-agent-orchestrator")).toBe(true);
     expect(names.has("@elizaos/plugin-shell")).toBe(true);
     expect(names.has("@elizaos/plugin-plugin-manager")).toBe(true);
+  });
+
+  it("does not load @elizaos/plugin-shell when features.shellEnabled is false", () => {
+    const config = {
+      features: { shellEnabled: false },
+    } as unknown as MilaidyConfig;
+    const names = collectPluginNames(config);
+    expect(names.has("@elizaos/plugin-shell")).toBe(false);
+  });
+
+  it("removes @elizaos/plugin-shell from explicit allowlist when shell is disabled", () => {
+    const config = {
+      plugins: { allow: ["@elizaos/plugin-shell"] },
+      features: { shellEnabled: false },
+    } as unknown as MilaidyConfig;
+    const names = collectPluginNames(config);
+    expect(names.has("@elizaos/plugin-shell")).toBe(false);
   });
 
   it("adds model-provider plugins when env keys are present", () => {
@@ -138,6 +157,43 @@ describe("collectPluginNames", () => {
     expect(names.has("@milaidy/plugin-telegram-enhanced")).toBe(true);
     expect(names.has("@elizaos/plugin-discord")).toBe(true);
     expect(names.has("@elizaos/plugin-slack")).toBe(false);
+  });
+
+  it("uses enhanced Telegram plugin when telegram is enabled via plugins.entries", () => {
+    const config = {
+      plugins: {
+        entries: { telegram: { enabled: true } },
+      },
+    } as unknown as MilaidyConfig;
+    const names = collectPluginNames(config);
+    // Should load the enhanced telegram plugin, NOT the base @elizaos/plugin-telegram
+    expect(names.has("@milaidy/plugin-telegram-enhanced")).toBe(true);
+    expect(names.has("@elizaos/plugin-telegram")).toBe(false);
+  });
+
+  it("uses enhanced Telegram plugin from CHANNEL_PLUGIN_MAP for connectors with plugins.entries", () => {
+    // When both connectors AND plugins.entries set telegram, the enhanced
+    // plugin should load (not both enhanced + base).
+    const config = {
+      connectors: { telegram: { botToken: "tok" } },
+      plugins: {
+        entries: { telegram: { enabled: true } },
+      },
+    } as unknown as MilaidyConfig;
+    const names = collectPluginNames(config);
+    expect(names.has("@milaidy/plugin-telegram-enhanced")).toBe(true);
+    expect(names.has("@elizaos/plugin-telegram")).toBe(false);
+  });
+
+  it("does not load telegram plugin when plugins.entries.telegram.enabled is false", () => {
+    const config = {
+      plugins: {
+        entries: { telegram: { enabled: false } },
+      },
+    } as unknown as MilaidyConfig;
+    const names = collectPluginNames(config);
+    expect(names.has("@milaidy/plugin-telegram-enhanced")).toBe(false);
+    expect(names.has("@elizaos/plugin-telegram")).toBe(false);
   });
 
   it("does not add connector plugins for empty connector configs", () => {
@@ -207,6 +263,7 @@ describe("collectPluginNames", () => {
     const names = collectPluginNames(config);
     // Should still have all core plugins, no crash
     expect(names.has("@elizaos/plugin-sql")).toBe(true);
+    expect(names.has("@elizaos/plugin-trajectory-logger")).toBe(true);
   });
 
   it("handles undefined plugins.installs gracefully", () => {
@@ -414,6 +471,90 @@ describe("applyCloudConfigToEnv", () => {
 
   it("handles missing cloud config gracefully", () => {
     expect(() => applyCloudConfigToEnv({} as MilaidyConfig)).not.toThrow();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// applyDatabaseConfigToEnv
+// ---------------------------------------------------------------------------
+
+describe("applyDatabaseConfigToEnv", () => {
+  const envKeys = ["POSTGRES_URL", "PGLITE_DATA_DIR", "MILAIDY_PROFILE"];
+  const snap = envSnapshot(envKeys);
+
+  beforeEach(() => {
+    snap.save();
+    for (const key of envKeys) delete process.env[key];
+  });
+
+  afterEach(() => snap.restore());
+
+  it("defaults PGLITE_DATA_DIR to the agent workspace when database config is missing", () => {
+    applyDatabaseConfigToEnv({} as MilaidyConfig);
+    expect(process.env.POSTGRES_URL).toBeUndefined();
+    expect(process.env.PGLITE_DATA_DIR).toBe(
+      path.join(os.homedir(), ".milaidy", "workspace", ".eliza", ".elizadb"),
+    );
+  });
+
+  it("uses configured agent workspace for default PGLite directory", () => {
+    const config = {
+      agents: {
+        defaults: {
+          workspace: "/tmp/milaidy-workspace",
+        },
+      },
+    } as MilaidyConfig;
+
+    applyDatabaseConfigToEnv(config);
+    expect(process.env.PGLITE_DATA_DIR).toBe(
+      path.join("/tmp/milaidy-workspace", ".eliza", ".elizadb"),
+    );
+  });
+
+  it("honors custom pglite.dataDir and clears stale POSTGRES_URL", () => {
+    process.env.POSTGRES_URL = "postgresql://localhost:5432/old";
+    const config = {
+      database: {
+        provider: "pglite",
+        pglite: { dataDir: "~/milaidy-pglite" },
+      },
+    } as MilaidyConfig;
+
+    applyDatabaseConfigToEnv(config);
+    expect(process.env.POSTGRES_URL).toBeUndefined();
+    expect(process.env.PGLITE_DATA_DIR).toBe(
+      path.resolve(path.join(os.homedir(), "milaidy-pglite")),
+    );
+  });
+
+  it("does not overwrite externally provided PGLITE_DATA_DIR when config has no override", () => {
+    process.env.PGLITE_DATA_DIR = "/tmp/external-pglite";
+    applyDatabaseConfigToEnv({} as MilaidyConfig);
+    expect(process.env.PGLITE_DATA_DIR).toBe("/tmp/external-pglite");
+  });
+
+  it("builds POSTGRES_URL for postgres provider and clears PGLITE_DATA_DIR", () => {
+    process.env.PGLITE_DATA_DIR = "/tmp/pglite";
+    const config = {
+      database: {
+        provider: "postgres",
+        postgres: {
+          host: "db.example.test",
+          port: 5433,
+          database: "milaidy",
+          user: "admin",
+          password: "secret",
+          ssl: true,
+        },
+      },
+    } as MilaidyConfig;
+
+    applyDatabaseConfigToEnv(config);
+    expect(process.env.PGLITE_DATA_DIR).toBeUndefined();
+    expect(process.env.POSTGRES_URL).toBe(
+      "postgresql://admin:secret@db.example.test:5433/milaidy?sslmode=require",
+    );
   });
 });
 

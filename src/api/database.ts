@@ -15,6 +15,7 @@
 
 import dns from "node:dns";
 import type http from "node:http";
+import net from "node:net";
 import { promisify } from "node:util";
 import { type AgentRuntime, logger } from "@elizaos/core";
 import { loadMilaidyConfig, saveMilaidyConfig } from "../config/config.js";
@@ -23,6 +24,11 @@ import type {
   DatabaseProviderType,
   PostgresCredentials,
 } from "../config/types.milaidy.js";
+import {
+  readJsonBody as parseJsonBody,
+  sendJson,
+  sendJsonError,
+} from "./http-helpers.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -70,69 +76,13 @@ interface ConnectionTestResult {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function jsonResponse(
-  res: http.ServerResponse,
-  data: unknown,
-  status = 200,
-): void {
-  res.statusCode = status;
-  res.setHeader("Content-Type", "application/json");
-  res.end(JSON.stringify(data));
-}
-
-function errorResponse(
-  res: http.ServerResponse,
-  message: string,
-  status = 400,
-): void {
-  jsonResponse(res, { error: message }, status);
-}
-
-function readBody(req: http.IncomingMessage): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const chunks: Buffer[] = [];
-    let totalBytes = 0;
-    req.on("data", (c: Buffer) => {
-      totalBytes += c.length;
-      if (totalBytes > 2 * 1024 * 1024) {
-        reject(new Error("Request body too large"));
-        return;
-      }
-      chunks.push(c);
-    });
-    req.on("end", () => resolve(Buffer.concat(chunks).toString()));
-    req.on("error", reject);
-  });
-}
-
-/**
- * Read and parse a JSON request body with size limits and error handling.
- * Returns null (and sends a 4xx response) if reading or parsing fails.
- */
 async function readJsonBody<T = Record<string, unknown>>(
   req: http.IncomingMessage,
   res: http.ServerResponse,
 ): Promise<T | null> {
-  let raw: string;
-  try {
-    raw = await readBody(req);
-  } catch (err) {
-    const msg =
-      err instanceof Error ? err.message : "Failed to read request body";
-    errorResponse(res, msg, 413);
-    return null;
-  }
-  try {
-    const parsed: unknown = JSON.parse(raw);
-    if (parsed == null || typeof parsed !== "object" || Array.isArray(parsed)) {
-      errorResponse(res, "Request body must be a JSON object", 400);
-      return null;
-    }
-    return parsed as T;
-  } catch {
-    errorResponse(res, "Invalid JSON in request body", 400);
-    return null;
-  }
+  return parseJsonBody(req, res, {
+    maxBytes: 2 * 1024 * 1024,
+  });
 }
 
 /**
@@ -156,6 +106,34 @@ function buildConnectionString(creds: PostgresCredentials): string {
   const auth = password ? `${user}:${password}` : user;
   const sslParam = creds.ssl ? "?sslmode=require" : "";
   return `postgresql://${auth}@${host}:${port}/${database}${sslParam}`;
+}
+
+/**
+ * Return a copy of credentials with host pinned to a validated IP address.
+ * For connection strings, rewrites URL hostname to avoid re-resolution later.
+ */
+function withPinnedHost(
+  creds: PostgresCredentials,
+  pinnedHost: string,
+): PostgresCredentials {
+  const normalizedPinned = pinnedHost.replace(/^::ffff:/i, "");
+  const next: PostgresCredentials = { ...creds, host: normalizedPinned };
+  if (next.connectionString) {
+    try {
+      const parsed = new URL(next.connectionString);
+      parsed.hostname = normalizedPinned;
+      // Preserve DNS pinning even when libpq-style query params are present.
+      // `host` / `hostaddr` can override URI hostname; force both to pinned IP.
+      parsed.searchParams.set("host", normalizedPinned);
+      parsed.searchParams.set("hostaddr", normalizedPinned);
+      next.connectionString = parsed.toString();
+    } catch {
+      // Validation has already parsed this once, but if URL rewriting fails,
+      // force builder path to use the pinned host.
+      delete next.connectionString;
+    }
+  }
+  return next;
 }
 
 // ---------------------------------------------------------------------------
@@ -187,7 +165,7 @@ const PRIVATE_IP_PATTERNS: RegExp[] = [
   /^172\.(1[6-9]|2\d|3[01])\./, // RFC 1918 Class B
   /^192\.168\./, // RFC 1918 Class C
   /^::1$/, // IPv6 loopback
-  /^fc00:/i, // IPv6 ULA
+  /^f[cd][0-9a-f]{2}:/i, // IPv6 ULA (fc00::/7 includes fc00::–fdff::)
 ];
 
 /**
@@ -203,20 +181,90 @@ function isApiLoopbackOnly(): boolean {
   );
 }
 
+function normalizeHostLike(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/^\[|\]$/g, "");
+}
+
 /**
- * Extract the host from a Postgres connection string or credentials object.
- * Returns `null` if no host can be determined.
+ * Decode IPv6-mapped IPv4 hex notation (::ffff:7f00:1 → 127.0.0.1).
+ * Returns null if not a valid hex-encoded IPv4.
  */
-function extractHost(creds: PostgresCredentials): string | null {
+function decodeIpv6MappedHex(mapped: string): string | null {
+  const match = /^([0-9a-f]{1,4}):([0-9a-f]{1,4})$/i.exec(mapped);
+  if (!match) return null;
+  const hi = Number.parseInt(match[1], 16);
+  const lo = Number.parseInt(match[2], 16);
+  if (!Number.isFinite(hi) || !Number.isFinite(lo)) return null;
+  const octets = [hi >> 8, hi & 0xff, lo >> 8, lo & 0xff];
+  return octets.join(".");
+}
+
+/**
+ * Normalize an IP for policy checks.
+ * Strips zone ID, handles IPv6-mapped IPv4 (both dotted and hex forms).
+ */
+function normalizeIpForPolicy(ip: string): string {
+  const base = normalizeHostLike(ip).split("%")[0];
+  if (!base.startsWith("::ffff:")) return base;
+
+  const mapped = base.slice("::ffff:".length);
+  // Dotted form like ::ffff:127.0.0.1
+  if (net.isIP(mapped) === 4) return mapped;
+  // Hex form like ::ffff:7f00:1
+  return decodeIpv6MappedHex(mapped) ?? mapped;
+}
+
+/**
+ * Extract all potential hosts from a Postgres connection string or credentials object.
+ * Includes query params like ?host= and ?hostaddr= which Postgres clients honor.
+ * Returns empty array if no host can be determined.
+ */
+function extractHosts(creds: PostgresCredentials): string[] {
   if (creds.connectionString) {
     try {
       const url = new URL(creds.connectionString);
-      return url.hostname || null;
+      const hosts: string[] = [];
+
+      // PostgreSQL connection strings can have ?host= param that overrides URI hostname
+      const hostParam = url.searchParams.get("host");
+      if (hostParam) {
+        hosts.push(
+          ...hostParam
+            .split(",")
+            .map((h) => normalizeHostLike(h))
+            .filter(Boolean),
+        );
+      }
+
+      // Also check hostaddr param
+      const hostAddrParam = url.searchParams.get("hostaddr");
+      if (hostAddrParam) {
+        hosts.push(
+          ...hostAddrParam
+            .split(",")
+            .map((h) => normalizeHostLike(h))
+            .filter(Boolean),
+        );
+      }
+
+      // Include URI hostname
+      if (url.hostname) {
+        hosts.push(normalizeHostLike(url.hostname));
+      }
+
+      return [...new Set(hosts)];
     } catch {
-      return null; // Unparseable — will be rejected
+      return []; // Unparseable — will be rejected
     }
   }
-  return creds.host ?? null;
+  if (creds.host) {
+    const host = normalizeHostLike(creds.host);
+    return host ? [host] : [];
+  }
+  return [];
 }
 
 /**
@@ -224,59 +272,101 @@ function extractHost(creds: PostgresCredentials): string | null {
  * When the API is remotely reachable, private ranges are also blocked.
  */
 function isBlockedIp(ip: string): boolean {
-  if (ALWAYS_BLOCKED_IP_PATTERNS.some((p) => p.test(ip))) return true;
-  if (!isApiLoopbackOnly() && PRIVATE_IP_PATTERNS.some((p) => p.test(ip)))
+  const normalized = normalizeIpForPolicy(ip);
+  if (ALWAYS_BLOCKED_IP_PATTERNS.some((p) => p.test(normalized))) return true;
+  if (
+    !isApiLoopbackOnly() &&
+    PRIVATE_IP_PATTERNS.some((p) => p.test(normalized))
+  )
     return true;
   return false;
 }
 
 /**
- * Validate that the target host does not resolve to a blocked address.
+ * Validate that all target hosts do not resolve to blocked addresses.
  *
  * Performs DNS resolution to catch hostnames like `metadata.google.internal`
  * or `169.254.169.254.nip.io` that resolve to link-local / cloud metadata
  * IPs.  Also handles IPv6-mapped IPv4 addresses (e.g. `::ffff:169.254.x.y`).
  *
- * Returns an error message if blocked, or `null` if allowed.
+ * Returns a validation result including a pinned host IP when successful.
  */
 async function validateDbHost(
   creds: PostgresCredentials,
-): Promise<string | null> {
-  const host = extractHost(creds);
-  if (!host) {
-    return "Could not determine target host from the provided credentials.";
+  opts: { allowUnresolvedHostnames?: boolean } = {},
+): Promise<{ error: string | null; pinnedHost: string | null }> {
+  const hosts = extractHosts(creds);
+  if (hosts.length === 0) {
+    return {
+      error: "Could not determine target host from the provided credentials.",
+      pinnedHost: null,
+    };
   }
 
-  // First check the literal host string (catches raw IPs without DNS lookup)
-  if (isBlockedIp(host)) {
-    return `Connection to "${host}" is blocked: link-local and metadata addresses are not allowed.`;
-  }
+  let pinnedHost: string | null = null;
 
-  // Resolve DNS and check all resulting IPs
-  try {
-    const results = await dnsLookupAll(host, { all: true });
-    const addresses = Array.isArray(results) ? results : [results];
-    for (const entry of addresses) {
-      const ip =
-        typeof entry === "string"
-          ? entry
-          : (entry as { address: string }).address;
-      // Strip IPv6-mapped IPv4 prefix (::ffff:169.254.x.y → 169.254.x.y)
-      const normalized = ip.replace(/^::ffff:/i, "");
-      if (isBlockedIp(normalized)) {
-        return (
-          `Connection to "${host}" is blocked: it resolves to ${ip} ` +
-          `which is a link-local or metadata address.`
-        );
+  for (const host of hosts) {
+    const literalNormalized = normalizeIpForPolicy(host);
+
+    // First check the literal host string (catches raw IPs without DNS lookup)
+    if (isBlockedIp(literalNormalized)) {
+      return {
+        error: `Connection to "${host}" is blocked: link-local and metadata addresses are not allowed.`,
+        pinnedHost: null,
+      };
+    }
+
+    // Literal IPs are already pinned and do not require DNS.
+    if (net.isIP(literalNormalized)) {
+      if (!pinnedHost) pinnedHost = literalNormalized;
+      continue;
+    }
+
+    // Resolve DNS and check all resulting IPs
+    try {
+      const results = await dnsLookupAll(host, { all: true });
+      const addresses = Array.isArray(results) ? results : [results];
+      for (const entry of addresses) {
+        const ip =
+          typeof entry === "string"
+            ? entry
+            : (entry as { address: string }).address;
+        const normalized = normalizeIpForPolicy(ip);
+        if (isBlockedIp(normalized)) {
+          return {
+            error:
+              `Connection to "${host}" is blocked: it resolves to ${ip} ` +
+              `which is a link-local or metadata address.`,
+            pinnedHost: null,
+          };
+        }
+        if (!pinnedHost) pinnedHost = normalized;
+      }
+    } catch {
+      // For "save config" flows we allow unresolved hostnames so users can
+      // persist remote endpoints that are only resolvable from their runtime
+      // network. For "test connection" flows we keep strict DNS requirements.
+      if (!opts.allowUnresolvedHostnames) {
+        return {
+          error:
+            `Connection to "${host}" failed DNS resolution during validation. ` +
+            "Use a resolvable hostname or a literal IP address.",
+          pinnedHost: null,
+        };
       }
     }
-  } catch {
-    // DNS resolution failed — let the Postgres client handle the error
-    // rather than blocking legitimate hostnames that may be temporarily
-    // unresolvable from this context
   }
 
-  return null;
+  if (!pinnedHost) {
+    if (opts.allowUnresolvedHostnames) {
+      return { error: null, pinnedHost: null };
+    }
+    return {
+      error: "Could not validate any host to a concrete IP address.",
+      pinnedHost: null,
+    };
+  }
+  return { error: null, pinnedHost };
 }
 
 /** Convert a JS value to a SQL literal for use in raw queries. */
@@ -380,7 +470,7 @@ async function handleGetStatus(
 ): Promise<void> {
   const provider = detectCurrentProvider();
   if (!runtime?.adapter) {
-    jsonResponse(res, {
+    sendJson(res, {
       provider,
       connected: false,
       serverVersion: null,
@@ -399,7 +489,7 @@ async function handleGetStatus(
 
   const tableResult = await executeRawSql(
     runtime,
-    `SELECT count(*)::int AS cnt
+    `SELECT count(*) AS cnt
        FROM information_schema.tables
       WHERE table_schema NOT IN ('pg_catalog', 'information_schema')
         AND table_type = 'BASE TABLE'`,
@@ -425,7 +515,7 @@ async function handleGetStatus(
         : null,
   };
 
-  jsonResponse(res, status);
+  sendJson(res, status);
 }
 
 /**
@@ -456,7 +546,7 @@ function handleGetConfig(
       ),
     };
   }
-  jsonResponse(res, {
+  sendJson(res, {
     config: sanitized,
     activeProvider: detectCurrentProvider(),
     needsRestart: (dbConfig.provider ?? "pglite") !== detectCurrentProvider(),
@@ -481,33 +571,41 @@ async function handlePutConfig(
     body.provider !== "pglite" &&
     body.provider !== "postgres"
   ) {
-    errorResponse(
+    sendJsonError(
       res,
       `Invalid provider: ${String(body.provider)}. Must be "pglite" or "postgres".`,
     );
     return;
   }
 
-  if (body.provider === "postgres" && body.postgres) {
+  // Load current config so validation can account for unchanged provider.
+  const config = loadMilaidyConfig();
+  const existingDb = config.database ?? {};
+  const effectiveProvider =
+    body.provider ?? existingDb.provider ?? ("pglite" as DatabaseProviderType);
+  let validatedPostgres: PostgresCredentials | null = null;
+
+  if (body.postgres) {
     const pg = body.postgres;
-    if (!pg.connectionString && !pg.host) {
-      errorResponse(
+    if (effectiveProvider === "postgres" && !pg.connectionString && !pg.host) {
+      sendJsonError(
         res,
         "Postgres configuration requires either a connectionString or at least a host.",
       );
       return;
     }
 
-    const hostError = await validateDbHost(pg);
-    if (hostError) {
-      errorResponse(res, hostError);
+    const validation = await validateDbHost(pg, {
+      allowUnresolvedHostnames: Boolean(pg.connectionString),
+    });
+    if (validation.error) {
+      sendJsonError(res, validation.error);
       return;
     }
+    validatedPostgres = validation.pinnedHost
+      ? withPinnedHost(pg, validation.pinnedHost)
+      : pg;
   }
-
-  // Load current config, merge database section, save
-  const config = loadMilaidyConfig();
-  const existingDb = config.database ?? {};
 
   // Merge: keep existing postgres/pglite sub-configs unless explicitly provided
   const merged: DatabaseConfig = {
@@ -517,7 +615,10 @@ async function handlePutConfig(
 
   // If switching to postgres, ensure postgres config is present
   if (merged.provider === "postgres" && body.postgres) {
-    merged.postgres = { ...existingDb.postgres, ...body.postgres };
+    merged.postgres = {
+      ...existingDb.postgres,
+      ...(validatedPostgres ?? body.postgres),
+    };
   }
   // If switching to pglite, ensure pglite config is present
   if (merged.provider === "pglite" && body.pglite) {
@@ -532,7 +633,7 @@ async function handlePutConfig(
     "Database configuration saved",
   );
 
-  jsonResponse(res, {
+  sendJson(res, {
     saved: true,
     config: merged,
     needsRestart: (merged.provider ?? "pglite") !== detectCurrentProvider(),
@@ -551,13 +652,16 @@ async function handleTestConnection(
   const body = await readJsonBody<PostgresCredentials>(req, res);
   if (!body) return;
 
-  const hostError = await validateDbHost(body);
-  if (hostError) {
-    errorResponse(res, hostError);
+  const validation = await validateDbHost(body);
+  if (validation.error) {
+    sendJsonError(res, validation.error);
     return;
   }
 
-  const connectionString = buildConnectionString(body);
+  const pinnedCreds = validation.pinnedHost
+    ? withPinnedHost(body, validation.pinnedHost)
+    : body;
+  const connectionString = buildConnectionString(pinnedCreds);
   const start = Date.now();
 
   // Dynamically import pg to avoid hard-coupling (it is a peer dep via plugin-sql)
@@ -566,7 +670,7 @@ async function handleTestConnection(
     const pgModule = await import("pg");
     Pool = pgModule.default?.Pool ?? pgModule.Pool;
   } catch {
-    jsonResponse(res, {
+    sendJson(res, {
       success: false,
       serverVersion: null,
       error:
@@ -590,7 +694,7 @@ async function handleTestConnection(
     const serverVersion = String(versionResult.rows[0]?.version ?? "");
     const durationMs = Date.now() - start;
 
-    jsonResponse(res, {
+    sendJson(res, {
       success: true,
       serverVersion,
       error: null,
@@ -599,7 +703,7 @@ async function handleTestConnection(
   } catch (err) {
     const durationMs = Date.now() - start;
     const message = err instanceof Error ? err.message : String(err);
-    jsonResponse(res, {
+    sendJson(res, {
       success: false,
       serverVersion: null,
       error: message,
@@ -626,7 +730,7 @@ async function handleGetTables(
     `SELECT
        t.table_schema AS schema,
        t.table_name AS name,
-       COALESCE(s.n_live_tup, 0)::int AS row_count
+       COALESCE(s.n_live_tup, 0) AS row_count
      FROM information_schema.tables t
      LEFT JOIN pg_stat_user_tables s
        ON s.schemaname = t.table_schema
@@ -689,7 +793,7 @@ async function handleGetTables(
     };
   });
 
-  jsonResponse(res, { tables });
+  sendJson(res, { tables });
 }
 
 /**
@@ -716,7 +820,7 @@ async function handleGetRows(
   const search = url.searchParams.get("search") ?? "";
 
   if (!(await assertTableExists(runtime, tableName))) {
-    errorResponse(res, `Table "${tableName}" not found`, 404);
+    sendJsonError(res, `Table "${tableName}" not found`, 404);
     return;
   }
 
@@ -775,7 +879,7 @@ async function handleGetRows(
   // Count total (with search filter)
   const countResult = await executeRawSql(
     runtime,
-    `SELECT count(*)::int AS total FROM ${quoteIdent(tableName)} ${whereClause}`,
+    `SELECT count(*) AS total FROM ${quoteIdent(tableName)} ${whereClause}`,
   );
   const total = Number(
     (countResult.rows[0] as Record<string, unknown>)?.total ?? 0,
@@ -789,7 +893,7 @@ async function handleGetRows(
 
   const result = await executeRawSql(runtime, query);
 
-  jsonResponse(res, {
+  sendJson(res, {
     table: tableName,
     rows: result.rows,
     columns: result.columns,
@@ -819,12 +923,12 @@ async function handleInsertRow(
     typeof body.data !== "object" ||
     Object.keys(body.data).length === 0
   ) {
-    errorResponse(res, "Request body must include a non-empty 'data' object.");
+    sendJsonError(res, "Request body must include a non-empty 'data' object.");
     return;
   }
 
   if (!(await assertTableExists(runtime, tableName))) {
-    errorResponse(res, `Table "${tableName}" not found`, 404);
+    sendJsonError(res, `Table "${tableName}" not found`, 404);
     return;
   }
 
@@ -838,7 +942,7 @@ async function handleInsertRow(
     `INSERT INTO ${quoteIdent(tableName)} (${colList}) VALUES (${valList}) RETURNING *`,
   );
 
-  jsonResponse(res, { inserted: true, row: result.rows[0] ?? null }, 201);
+  sendJson(res, { inserted: true, row: result.rows[0] ?? null }, 201);
 }
 
 /**
@@ -858,14 +962,14 @@ async function handleUpdateRow(
   if (!body) return;
 
   if (!body.where || Object.keys(body.where).length === 0) {
-    errorResponse(
+    sendJsonError(
       res,
       "Request body must include a non-empty 'where' object for row identification.",
     );
     return;
   }
   if (!body.data || Object.keys(body.data).length === 0) {
-    errorResponse(
+    sendJsonError(
       res,
       "Request body must include a non-empty 'data' object with fields to update.",
     );
@@ -888,11 +992,11 @@ async function handleUpdateRow(
   );
 
   if (result.rows.length === 0) {
-    errorResponse(res, "No matching row found to update.", 404);
+    sendJsonError(res, "No matching row found to update.", 404);
     return;
   }
 
-  jsonResponse(res, { updated: true, row: result.rows[0] });
+  sendJson(res, { updated: true, row: result.rows[0] });
 }
 
 /**
@@ -911,7 +1015,7 @@ async function handleDeleteRow(
   if (!body) return;
 
   if (!body.where || Object.keys(body.where).length === 0) {
-    errorResponse(
+    sendJsonError(
       res,
       "Request body must include a non-empty 'where' object for row identification.",
     );
@@ -930,11 +1034,11 @@ async function handleDeleteRow(
   );
 
   if (result.rows.length === 0) {
-    errorResponse(res, "No matching row found to delete.", 404);
+    sendJsonError(res, "No matching row found to delete.", 404);
     return;
   }
 
-  jsonResponse(res, { deleted: true, row: result.rows[0] });
+  sendJson(res, { deleted: true, row: result.rows[0] });
 }
 
 /**
@@ -957,7 +1061,7 @@ async function handleQuery(
     typeof body.sql !== "string" ||
     body.sql.trim().length === 0
   ) {
-    errorResponse(res, "Request body must include a non-empty 'sql' string.");
+    sendJsonError(res, "Request body must include a non-empty 'sql' string.");
     return;
   }
 
@@ -1004,7 +1108,7 @@ async function handleQuery(
     );
     const match = mutationPattern.exec(noStrings);
     if (match) {
-      errorResponse(
+      sendJsonError(
         res,
         `Query rejected: "${match[1].toUpperCase()}" is a mutation keyword. Set readOnly: false to execute mutations.`,
       );
@@ -1013,7 +1117,7 @@ async function handleQuery(
     // Reject multi-statement queries (naive: any semicolon not at the very end)
     const trimmedForSemicolon = stripped.replace(/;\s*$/, "");
     if (trimmedForSemicolon.includes(";")) {
-      errorResponse(
+      sendJsonError(
         res,
         "Query rejected: multi-statement queries are not allowed in read-only mode.",
       );
@@ -1032,7 +1136,7 @@ async function handleQuery(
     durationMs,
   };
 
-  jsonResponse(res, queryResult);
+  sendJson(res, queryResult);
 }
 
 // ---------------------------------------------------------------------------
@@ -1088,7 +1192,7 @@ export async function handleDatabaseRoute(
 
   // Routes below require a live runtime with a database adapter
   if (!runtime?.adapter) {
-    errorResponse(
+    sendJsonError(
       res,
       "Database not available. The agent may not be running or the database adapter is not initialized.",
       503,

@@ -13,7 +13,12 @@ export function scheduleUpdateNotification(): void {
   if (notified) return;
   notified = true;
 
-  const config = loadMilaidyConfig();
+  let config: Partial<ReturnType<typeof loadMilaidyConfig>> = {};
+  try {
+    config = loadMilaidyConfig();
+  } catch {
+    // Keep behavior resilient to malformed config files: continue with defaults.
+  }
   if (config.update?.checkOnStart === false) return;
   if (process.env.CI || !process.stderr.isTTY) return;
 

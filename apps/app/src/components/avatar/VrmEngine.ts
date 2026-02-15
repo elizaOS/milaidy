@@ -79,6 +79,12 @@ export class VrmEngine {
   /** Probability of a quick double-blink */
   private static readonly DOUBLE_BLINK_CHANCE = 0.15;
 
+  // ── Emote playback state ────────────────────────────────────────────────
+  private emoteAction: THREE.AnimationAction | null = null;
+  private emoteTimeout: ReturnType<typeof setTimeout> | null = null;
+  private emoteClipCache = new Map<string, THREE.AnimationClip>();
+  private emoteRequestId = 0;
+
   setup(canvas: HTMLCanvasElement, onUpdate: UpdateCallback): void {
     if (this.initialized && this.renderer?.domElement === canvas) {
       this.onUpdate = onUpdate;
@@ -140,6 +146,12 @@ export class VrmEngine {
     this.vrmName = null;
     this.mixer = null;
     this.idleAction = null;
+    if (this.emoteTimeout !== null) {
+      clearTimeout(this.emoteTimeout);
+      this.emoteTimeout = null;
+    }
+    this.emoteAction = null;
+    this.emoteClipCache.clear();
     this.renderer?.dispose();
     this.renderer = null;
     this.scene = null;
@@ -192,6 +204,75 @@ export class VrmEngine {
     this.forceFaceCameraFlip = enabled;
   }
 
+  /**
+   * Play an emote animation. Crossfades from idle into the emote, and for
+   * non-looping emotes automatically fades back to idle after `duration`
+   * seconds. For looping emotes, call {@link stopEmote} to return to idle.
+   */
+  async playEmote(glbPath: string, duration: number, loop: boolean): Promise<void> {
+    const vrm = this.vrm;
+    const mixer = this.mixer;
+    if (!vrm || !mixer) return;
+
+    // Stop any currently-playing emote first.
+    this.stopEmote();
+
+    // Track this request so stale async loads are discarded.
+    this.emoteRequestId++;
+    const requestId = this.emoteRequestId;
+
+    const clip = await this.loadEmoteClip(glbPath, vrm);
+    if (!clip || this.vrm !== vrm || this.mixer !== mixer) return;
+    if (this.emoteRequestId !== requestId) return; // superseded by newer call
+
+    const action = mixer.clipAction(clip);
+    action.reset();
+    action.setLoop(
+      loop ? THREE.LoopRepeat : THREE.LoopOnce,
+      loop ? Infinity : 1,
+    );
+    action.clampWhenFinished = !loop;
+
+    // Crossfade: idle out → emote in
+    const fadeDuration = 0.3;
+    if (this.idleAction) {
+      this.idleAction.fadeOut(fadeDuration);
+    }
+    action.fadeIn(fadeDuration);
+    action.play();
+    this.emoteAction = action;
+
+    if (!loop) {
+      // After the emote finishes, fade back to idle.
+      const safeDuration = Number.isFinite(duration) && duration > 0 ? duration : 3;
+      const returnDelay = Math.max(0.5, safeDuration) * 1000;
+      this.emoteTimeout = setTimeout(() => {
+        if (this.emoteRequestId === requestId) {
+          this.stopEmote();
+        }
+      }, returnDelay);
+    }
+  }
+
+  /** Stop the current emote and crossfade back to idle. */
+  stopEmote(): void {
+    if (this.emoteTimeout !== null) {
+      clearTimeout(this.emoteTimeout);
+      this.emoteTimeout = null;
+    }
+
+    const fadeDuration = 0.3;
+    if (this.emoteAction) {
+      this.emoteAction.fadeOut(fadeDuration);
+      this.emoteAction = null;
+    }
+    if (this.idleAction) {
+      this.idleAction.reset();
+      this.idleAction.fadeIn(fadeDuration);
+      this.idleAction.play();
+    }
+  }
+
   async loadVrmFromUrl(url: string, name?: string): Promise<void> {
     if (!this.scene) throw new Error("VrmEngine not initialized");
     if (!this.camera) throw new Error("VrmEngine not initialized");
@@ -204,6 +285,8 @@ export class VrmEngine {
       this.vrmName = null;
       this.mixer = null;
       this.idleAction = null;
+      this.stopEmote();
+      this.emoteClipCache.clear();
     }
 
     const loader = new GLTFLoader();
@@ -398,6 +481,39 @@ export class VrmEngine {
     action.fadeIn(0.25);
     action.play();
     this.idleAction = action;
+  }
+
+  private async loadEmoteClip(
+    glbPath: string,
+    vrm: VRM,
+  ): Promise<THREE.AnimationClip | null> {
+    // Return from cache if already loaded for this VRM.
+    const cached = this.emoteClipCache.get(glbPath);
+    if (cached) return cached;
+
+    try {
+      const { retargetMixamoGltfToVrm } = await import(
+        "./retargetMixamoGltfToVrm"
+      );
+      if (this.vrm !== vrm) return null;
+
+      const loader = new GLTFLoader();
+      const gltf = await loader.loadAsync(glbPath);
+      if (this.vrm !== vrm) return null;
+
+      gltf.scene.updateMatrixWorld(true);
+      vrm.scene.updateMatrixWorld(true);
+      const clip = retargetMixamoGltfToVrm(
+        { scene: gltf.scene, animations: gltf.animations },
+        vrm,
+      );
+
+      this.emoteClipCache.set(glbPath, clip);
+      return clip;
+    } catch (err) {
+      console.error(`[VrmEngine] Failed to load emote: ${glbPath}`, err);
+      return null;
+    }
   }
 
   /**

@@ -178,6 +178,42 @@ function fakeIndexJson() {
   };
 }
 
+async function writeLocalAppPackage(
+  workspaceRoot: string,
+  options: {
+    dirName: string;
+    packageName: string;
+    displayName: string;
+    launchType: string;
+    launchUrl: string;
+  },
+): Promise<void> {
+  const appDir = path.join(workspaceRoot, "plugins", options.dirName);
+  await fs.mkdir(appDir, { recursive: true });
+  await fs.writeFile(
+    path.join(appDir, "package.json"),
+    JSON.stringify(
+      {
+        name: options.packageName,
+        version: "1.0.0",
+        description: `${options.displayName} local package`,
+        elizaos: {
+          kind: "app",
+          app: {
+            displayName: options.displayName,
+            category: "game",
+            launchType: options.launchType,
+            launchUrl: options.launchUrl,
+            capabilities: ["demo"],
+          },
+        },
+      },
+      null,
+      2,
+    ),
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Setup
 // ---------------------------------------------------------------------------
@@ -192,9 +228,13 @@ beforeEach(async () => {
   tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "milaidy-reg-test-"));
   savedEnv = {
     MILAIDY_STATE_DIR: process.env.MILAIDY_STATE_DIR,
+    MILAIDY_WORKSPACE_ROOT: process.env.MILAIDY_WORKSPACE_ROOT,
   };
   // Point the file cache at our temp dir
   process.env.MILAIDY_STATE_DIR = tmpDir;
+  const isolatedWorkspaceRoot = path.join(tmpDir, "workspace-empty");
+  await fs.mkdir(isolatedWorkspaceRoot, { recursive: true });
+  process.env.MILAIDY_WORKSPACE_ROOT = isolatedWorkspaceRoot;
 
   // Mock global fetch
   vi.stubGlobal("fetch", vi.fn());
@@ -203,6 +243,7 @@ beforeEach(async () => {
 afterEach(async () => {
   vi.unstubAllGlobals();
   process.env.MILAIDY_STATE_DIR = savedEnv.MILAIDY_STATE_DIR;
+  process.env.MILAIDY_WORKSPACE_ROOT = savedEnv.MILAIDY_WORKSPACE_ROOT;
   await fs.rm(tmpDir, { recursive: true, force: true });
 });
 
@@ -751,6 +792,51 @@ describe("registry-client", () => {
       expect(dungeons?.icon).toBeNull();
       // minPlayers and maxPlayers are in the wire format but not in RegistryAppInfo
       // (they're in appMeta) — verify they're present on the raw entry
+    });
+  });
+
+  describe("local workspace app discovery", () => {
+    it("discovers local app packages when remote registry has no apps", async () => {
+      const workspaceRoot = path.join(tmpDir, "workspace");
+      await writeLocalAppPackage(workspaceRoot, {
+        dirName: "app-hyperscape",
+        packageName: "@elizaos/app-hyperscape",
+        displayName: "Hyperscape",
+        launchType: "connect",
+        launchUrl: "https://hyperscape.ai",
+      });
+      process.env.MILAIDY_WORKSPACE_ROOT = workspaceRoot;
+
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              lastUpdatedAt: "2026-02-07T00:00:00Z",
+              registry: {
+                "@elizaos/plugin-solana":
+                  fakeGeneratedRegistry().registry["@elizaos/plugin-solana"],
+              },
+            }),
+        }),
+      );
+
+      const { listApps, getPluginInfo } = await loadModule();
+      const apps = await listApps();
+      expect(apps.some((app) => app.name === "@elizaos/app-hyperscape")).toBe(
+        true,
+      );
+
+      const hyperscape = apps.find(
+        (app) => app.name === "@elizaos/app-hyperscape",
+      );
+      expect(hyperscape?.launchUrl).toBe("http://localhost:3333");
+      expect(hyperscape?.viewer?.url).toBe("http://localhost:3333");
+      expect(hyperscape?.viewer?.postMessageAuth).toBe(true);
+
+      const pluginInfo = await getPluginInfo("@elizaos/app-hyperscape");
+      expect(pluginInfo?.localPath).toContain("plugins/app-hyperscape");
     });
   });
 });

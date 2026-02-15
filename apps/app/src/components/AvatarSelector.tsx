@@ -17,6 +17,8 @@ export interface AvatarSelectorProps {
   onUpload?: (file: File) => void;
   /** Whether to show the upload option */
   showUpload?: boolean;
+  /** Expand selector to fill row width with responsive tile sizes */
+  fullWidth?: boolean;
 }
 
 export function AvatarSelector({
@@ -24,6 +26,7 @@ export function AvatarSelector({
   onSelect,
   onUpload,
   showUpload = true,
+  fullWidth = false,
 }: AvatarSelectorProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -39,14 +42,22 @@ export function AvatarSelector({
   };
 
   const avatarIndices = Array.from({ length: VRM_COUNT }, (_, i) => i + 1);
+  const containerClass = fullWidth ? "grid gap-3 w-full" : "flex flex-wrap gap-3 justify-start";
+  const containerStyle = fullWidth ? { gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))" } : undefined;
+  const avatarButtonClass = fullWidth
+    ? "relative w-full aspect-square shrink-0 rounded-lg overflow-hidden cursor-pointer transition-all"
+    : "relative w-24 h-24 shrink-0 rounded-lg overflow-hidden cursor-pointer transition-all";
+  const uploadButtonClass = fullWidth
+    ? "w-full aspect-square shrink-0 rounded-lg border-2 border-dashed flex items-center justify-center cursor-pointer transition-all"
+    : "w-24 h-24 shrink-0 rounded-lg border-2 border-dashed flex items-center justify-center cursor-pointer transition-all";
 
   return (
-    <div>
-      <div className="flex flex-wrap gap-3 justify-start">
+    <div className={fullWidth ? "w-full" : undefined}>
+      <div className={containerClass} style={containerStyle}>
         {avatarIndices.map((i) => (
           <button
             key={i}
-            className={`relative w-24 h-24 shrink-0 rounded-lg overflow-hidden cursor-pointer transition-all ${
+            className={`${avatarButtonClass} ${
               selected === i
                 ? "ring-2 ring-[var(--accent)] ring-offset-2 ring-offset-[var(--card)] scale-105"
                 : "opacity-60 hover:opacity-100 hover:scale-105"
@@ -73,7 +84,7 @@ export function AvatarSelector({
               onChange={handleFileChange}
             />
             <button
-              className={`w-24 h-24 shrink-0 rounded-lg border-2 border-dashed flex items-center justify-center cursor-pointer transition-all ${
+              className={`${uploadButtonClass} ${
                 selected === 0
                   ? "border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-foreground)] ring-2 ring-[var(--accent)] ring-offset-2 ring-offset-[var(--card)] scale-105"
                   : "border-[var(--border)] text-[var(--muted)] opacity-60 hover:opacity-100 hover:border-[var(--accent)] hover:scale-105"

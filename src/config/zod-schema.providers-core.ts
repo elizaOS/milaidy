@@ -1014,3 +1014,44 @@ export const WhatsAppConfigSchema = z
         'channels.whatsapp.dmPolicy="open" requires channels.whatsapp.allowFrom to include "*"',
     });
   });
+
+export const TwitterConfigSchema = z
+  .object({
+    enabled: z.boolean().optional(),
+    // Authentication
+    apiKey: z.string().optional(),
+    apiSecretKey: z.string().optional(),
+    accessToken: z.string().optional(),
+    accessTokenSecret: z.string().optional(),
+
+    // Posting configuration
+    postEnable: z.boolean().optional().default(true),
+    postImmediately: z.boolean().optional().default(false),
+    postIntervalMin: z.number().int().positive().optional().default(90),
+    postIntervalMax: z.number().int().positive().optional().default(180),
+    postIntervalVariance: z.number().min(0).max(1).optional().default(0.1),
+
+    // Interaction settings
+    searchEnable: z.boolean().optional().default(false),
+    autoRespondMentions: z.boolean().optional().default(true),
+    enableActionProcessing: z.boolean().optional().default(true),
+    timelineAlgorithm: z
+      .enum(["weighted", "latest"])
+      .optional()
+      .default("weighted"),
+
+    // DM settings
+    dmPolicy: DmPolicySchema.optional().default("pairing"),
+
+    // Safety and testing
+    dryRun: z.boolean().optional().default(false),
+    retryLimit: z.number().int().positive().optional().default(3),
+    pollInterval: z.number().int().positive().optional().default(120),
+
+    // Advanced
+    maxTweetLength: z.number().int().positive().optional().default(4000),
+    configWrites: z.boolean().optional(),
+  })
+  .strict();
+
+export type TwitterConfig = z.infer<typeof TwitterConfigSchema>;

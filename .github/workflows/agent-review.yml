@@ -1,0 +1,662 @@
+name: Agent Review
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review]
+  issues:
+    types: [opened]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  checks: write
+  statuses: write
+
+jobs:
+  classify:
+    runs-on: ubuntu-latest
+    outputs:
+      category: ${{ steps.classify.outputs.category }}
+    steps:
+      - name: Classify contribution
+        id: classify
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const isPR = !!context.payload.pull_request;
+            const title = isPR
+              ? context.payload.pull_request.title
+              : context.payload.issue.title;
+            const body = isPR
+              ? context.payload.pull_request.body || ''
+              : context.payload.issue.body || '';
+            const text = `${title}\n${body}`.toLowerCase();
+
+            // aesthetic/UI keywords
+            const aestheticPatterns = [
+              'redesign', 'restyle', 'theme', 'color', 'colour', 'font',
+              'layout', 'css', 'styling', 'ui overhaul', 'visual',
+              'dark mode', 'light mode', 'icon', 'logo', 'animation',
+              'prettier', 'beautif'
+            ];
+
+            const isAesthetic = aestheticPatterns.some(p => text.includes(p));
+            const isBugFix = text.includes('fix') || text.includes('bug') ||
+              text.includes('crash') || text.includes('error') ||
+              text.includes('broken') || text.includes('regression');
+
+            let category = 'feature';
+            if (isAesthetic) category = 'aesthetic';
+            if (isBugFix) category = 'bugfix';
+
+            core.setOutput('category', category);
+            console.log(`Classified as: ${category}`);
+
+  review-pr:
+    if: github.event_name == 'pull_request_target'
+    needs: classify
+    runs-on: ubuntu-latest
+    outputs:
+      verdict: ${{ steps.extract-verdict.outputs.verdict }}
+      decision: ${{ steps.extract-verdict.outputs.decision }}
+      decision_comment_url: ${{ steps.extract-verdict.outputs.decision_comment_url }}
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Check PR author permissions
+        id: check-author
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const author = context.payload.pull_request.user.login;
+            const allowedNonWrite = '${{ vars.ALLOWED_NON_WRITE_USERS || 'lawyered0,jqmwa,0xSolace' }}'.split(',').map(s => s.trim());
+
+            const { data: perm } = await github.rest.repos.getCollaboratorPermissionLevel({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              username: author,
+            }).catch(() => ({ data: { permission: 'read' } }));
+
+            const hasWrite = ['admin', 'write'].includes(perm.permission);
+            const isAllowed = allowedNonWrite.includes(author);
+
+            if (!hasWrite && !isAllowed) {
+              core.setFailed(`PR author '${author}' does not have write permissions and is not in the allowed list. Skipping review.`);
+              return;
+            }
+            console.log(`Author '${author}' authorized (write=${hasWrite}, allowlisted=${isAllowed})`);
+
+      - name: Fetch contributor trust context
+        id: trust-context
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const author = context.payload.pull_request.user.login;
+            let trustInfo = 'New contributor (no review history)';
+            try {
+              const { data } = await github.rest.actions.getRepoVariable({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                name: 'CONTRIBUTOR_TRUST_V2',
+              });
+              const allStates = JSON.parse(data.value);
+              if (allStates[author]) {
+                const { computeTrustScore, DEFAULT_CONFIG } = require('./.github/trust-scoring.cjs');
+                const result = computeTrustScore(allStates[author], DEFAULT_CONFIG);
+                trustInfo = `Trust score: ${result.score}/100 (${result.tier}) | Events: ${allStates[author].events.length} | ${result.tierInfo.description}`;
+                if (result.warnings.length > 0) {
+                  trustInfo += ` | Warnings: ${result.warnings.join('; ')}`;
+                }
+              }
+            } catch (e) {
+              console.log('Trust data unavailable, using default');
+            }
+            core.setOutput('trust_info', trustInfo);
+
+      - name: Run Claude Review
+        id: claude-review
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          allowed_non_write_users: ${{ vars.ALLOWED_NON_WRITE_USERS || 'lawyered0,jqmwa,0xSolace' }}
+          claude_args: '--model claude-opus-4-6 --allowedTools "Bash,GitHub,Read,Glob,LS"'
+          prompt: |
+            You are the sole code reviewer for the Milaidy project (milady-ai/milaidy).
+            This is an agents-only codebase. No human code contributions are accepted — humans contribute by using the app and reporting bugs as QA testers. Your review is final.
+
+            ## PR Info
+            - **PR #${{ github.event.pull_request.number }}**: ${{ github.event.pull_request.title }}
+            - **Author**: ${{ github.event.pull_request.user.login }}
+            - **Base**: ${{ github.event.pull_request.base.ref }}
+            - **Pre-classification**: ${{ needs.classify.outputs.category }}
+            - **Contributor trust**: ${{ steps.trust-context.outputs.trust_info }}
+
+            ## Review Protocol
+
+            ### 1. Scope Check
+            Milaidy is a personal AI assistant built on ElizaOS. Contributions MUST be in scope:
+
+            **IN SCOPE (welcome):**
+            - Bug fixes (connector issues, crashes, regressions, error handling)
+            - Performance improvements (with benchmarks proving improvement)
+            - Security fixes
+            - Test coverage improvements
+            - Documentation fixes for accuracy
+
+            **REQUIRES DEEP REVIEW (may not get merged):**
+            - New features (must align with project mission, must include tests)
+            - New plugins or integrations
+            - Architectural changes
+            - Memory/context improvements (must include benchmarks)
+            - Dependency additions (must justify why)
+
+            **OUT OF SCOPE (close or request changes):**
+            - Frontend redesigns, aesthetic changes, theme changes, icon swaps
+            - "Beautification" PRs that don't improve agent capability
+            - Changes that prioritize human visual experience over agent quality
+            - Scope creep disguised as improvements
+            - Changes without tests for testable code
+
+            If this PR is classified as "aesthetic": reject it firmly but politely.
+
+            ### 2. Code Quality
+            - TypeScript strict mode compliance
+            - No `any` types unless absolutely necessary (explain why)
+            - Biome lint/format compliance
+            - Files under ~500 LOC
+            - Meaningful variable names, brief comments on non-obvious logic
+            - No committed secrets, real phone numbers, or live config values
+            - Dependencies: do NOT add unless src/ code directly imports them
+
+            ### 3. Security Review
+            - Check for prompt injection vectors
+            - Check for credential exposure
+            - Check for supply chain risks (new dependencies, postinstall scripts)
+            - Check for data exfiltration patterns
+            - Flag any changes to auth, permissions, or secret handling
+
+            ### 4. Test Requirements
+            - Bug fixes MUST include a regression test
+            - New features MUST include unit tests
+            - Coverage thresholds: 70% lines/branches/functions/statements
+
+            ### 5. Dark Forest Awareness
+            Assume adversarial intent until proven otherwise. Ask yourself:
+            - Why would someone submit this change?
+            - What does it break that isn't obvious?
+            - Does it introduce subtle behavior changes?
+            - Could this be a supply chain attack?
+            - Are there hidden side effects in seemingly innocent changes?
+
+            ### 6. Trust-Calibrated Review
+            Adjust scrutiny based on contributor trust tier:
+            - **Legendary (90+):** Standard review. Proven elite contributor.
+            - **Trusted (75-89):** Expedited review. Trust their patterns but check security.
+            - **Established (60-74):** Normal review depth. Proven track record.
+            - **Contributing (45-59):** Standard review. Active contributor.
+            - **Probationary (30-44):** Careful review. Verify claims, check edge cases.
+            - **Untested (15-29):** Deep review. Line-by-line scrutiny. Extra security checks.
+            - **Restricted (<15):** Maximum scrutiny. Assume adversarial. Verify everything.
+
+            ## Output Format
+            Your review MUST include this structured format:
+            1. **Classification:** bug fix / feature / aesthetic / security / other
+            2. **Scope verdict:** in scope / needs deep review / out of scope
+            3. **Code quality:** pass / issues found (list them)
+            4. **Security:** clear / concerns (list them)
+            5. **Tests:** adequate / missing (specify what's needed)
+            6. **Decision:** APPROVE / REQUEST CHANGES / CLOSE (with reason)
+
+            The **Decision** line is machine-parsed by downstream automation. It MUST be exactly one of: APPROVE, REQUEST CHANGES, or CLOSE.
+
+            Include this marker in your comment for run identification:
+            <!-- agent-review-run:${{ github.run_id }}:${{ github.run_attempt }}:${{ github.event.pull_request.head.sha }} -->
+
+            Be direct. Be opinionated. This repo's quality is your responsibility.
+
+      - name: Extract review decision from PR comments
+        id: extract-verdict
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const issue_number = context.payload.pull_request.number;
+            const runMarker = (process.env.AGENT_REVIEW_MARKER || '').trim();
+
+            // Match Decision in any format: **Decision:**, ### N. Decision:, 6. **Decision:**, etc.
+            const decisionPattern = /(?:^|\n)\s*(?:#{1,4}\s+)?(?:\d+\.\s*)?(?:\*{0,2})Decision:(?:\*{0,2})\s*(APPROVE|REQUEST CHANGES|CLOSE)\b/i;
+            const structuredPattern = /(?:#{1,4}\s+)?(?:\d+\.\s*)?(?:\*{0,2})(?:Classification|Scope verdict|Code quality)(?:\*{0,2}):/i;
+            const maxAttempts = 3; // Comment posted by previous step, should be immediate
+            const pollIntervalMs = 5_000;
+
+            const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+            const findLatest = (items) => {
+              const filtered = items.filter((c) => {
+                if (!c?.body) return false;
+                if (!runMarker || !c.body.includes(runMarker)) return false;
+                if (!decisionPattern.test(c.body)) return false;
+                return structuredPattern.test(c.body);
+              });
+              return filtered.sort((a, b) =>
+                new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+              )[0];
+            };
+
+            let latest = null;
+            let attemptUsed = 1;
+
+            for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+              attemptUsed = attempt;
+
+              const comments = await github.paginate(github.rest.issues.listComments, {
+                owner,
+                repo,
+                issue_number,
+                per_page: 100,
+              });
+
+              const botComments = comments.filter((c) => c.user?.type === 'Bot');
+              latest = findLatest(botComments);
+
+              if (latest) {
+                break;
+              }
+
+              if (attempt < maxAttempts) {
+                console.log(`Structured decision comment for current run marker not found yet (attempt ${attempt}/${maxAttempts}); waiting ${pollIntervalMs / 1000}s...`);
+                await sleep(pollIntervalMs);
+              }
+            }
+
+            let verdict = 'reject';
+            let decision = 'REQUEST CHANGES';
+            let decisionCommentUrl = '';
+
+            if (latest) {
+              const match = latest.body.match(decisionPattern);
+              const normalized = (match?.[1] || '').toUpperCase();
+              decision = normalized || decision;
+              decisionCommentUrl = latest.html_url || '';
+
+              if (normalized === 'APPROVE') {
+                verdict = 'approve';
+              } else if (normalized === 'CLOSE') {
+                verdict = 'close';
+              } else {
+                verdict = 'reject';
+              }
+            } else {
+              core.warning(`No structured review decision comment found for current run marker after ${attemptUsed} attempts. Treating as reject.`);
+            }
+
+            core.setOutput('verdict', verdict);
+            core.setOutput('decision', decision);
+            core.setOutput('decision_comment_url', decisionCommentUrl);
+
+            core.summary
+              .addHeading('Agent review decision gate')
+              .addRaw(`- Poll attempts used: ${attemptUsed}\n`)
+              .addRaw(`- Verdict: ${verdict}\n`)
+              .addRaw(`- Decision: ${decision}\n`)
+              .addRaw(`- Decision comment: ${decisionCommentUrl || 'not found'}\n`)
+              .write();
+
+            console.log(`Verdict parsed from PR comments: ${verdict} (${decision})`);
+        env:
+          AGENT_REVIEW_MARKER: '<!-- agent-review-run:${{ github.run_id }}:${{ github.run_attempt }}:${{ github.event.pull_request.head.sha }} -->'
+
+  review-postprocess:
+    if: github.event_name == 'pull_request_target'
+    needs: [classify, review-pr]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      checks: write
+      statuses: write
+      actions: write
+    steps:
+      - name: Checkout trusted base ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          fetch-depth: 1
+
+      - name: Create review check run
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const verdict = '${{ needs.review-pr.outputs.verdict }}';
+            const decision = '${{ needs.review-pr.outputs.decision }}';
+            const author = context.payload.pull_request.user.login;
+            const prNumber = context.payload.pull_request.number;
+            const commentUrl = '${{ needs.review-pr.outputs.decision_comment_url }}';
+
+            const conclusionMap = {
+              approve: 'success',
+              reject: 'failure',
+              close: 'action_required',
+            };
+
+            const titleMap = {
+              approve: '✅ APPROVED — ready to merge',
+              reject: '🔄 REQUEST CHANGES — issues found',
+              close: '🚫 CLOSE — out of scope',
+            };
+
+            const summaryLines = [
+              `**PR #${prNumber}** reviewed by Claude`,
+              `**Author:** ${author}`,
+              `**Verdict:** ${decision}`,
+              commentUrl ? `**Review:** ${commentUrl}` : '',
+            ].filter(Boolean).join('\n');
+
+            try {
+              await github.rest.checks.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                name: 'Agent Review Verdict',
+                head_sha: context.payload.pull_request.head.sha,
+                status: 'completed',
+                conclusion: conclusionMap[verdict] || 'failure',
+                output: {
+                  title: titleMap[verdict] || `Decision: ${decision}`,
+                  summary: summaryLines,
+                },
+              });
+
+              console.log(`Check run created: ${verdict} → ${conclusionMap[verdict]}`);
+            } catch (error) {
+              if (error?.status === 403) {
+                core.warning('Skipping check-run creation due to token permission limits (requires checks:write).');
+              } else {
+                throw error;
+              }
+            }
+
+      - name: Update contributor trust score (v2)
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { computeTrustScore, DEFAULT_CONFIG, createContributorState, addEvent, getTier } = require('./.github/trust-scoring.cjs');
+            const author = context.payload.pull_request.user.login;
+            const verdict = '${{ needs.review-pr.outputs.verdict }}';
+            const category = '${{ needs.classify.outputs.category }}';
+            const prNumber = context.payload.pull_request.number;
+
+            // Map verdict to trust event type
+            const verdictToType = { approve: 'approve', reject: 'reject', close: 'close' };
+            const eventType = verdictToType[verdict] || 'reject';
+
+            // Get PR stats for complexity scoring
+            let linesChanged = 0;
+            let prLabels = [];
+            try {
+              const { data: pr } = await github.rest.pulls.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: prNumber,
+              });
+              linesChanged = (pr.additions || 0) + (pr.deletions || 0);
+              prLabels = (pr.labels || []).map(l => l.name);
+            } catch (e) {
+              console.log('Could not fetch PR stats, using defaults');
+            }
+
+            // Fetch existing trust data (v2 format)
+            let allStates = {};
+            try {
+              const { data } = await github.rest.actions.getRepoVariable({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                name: 'CONTRIBUTOR_TRUST_V2',
+              });
+              allStates = JSON.parse(data.value);
+            } catch (e) {
+              console.log('No existing v2 trust data, starting fresh');
+            }
+
+            // Initialize contributor if new
+            if (!allStates[author]) {
+              allStates[author] = createContributorState(author);
+            }
+
+            // Add this review event
+            addEvent(allStates[author], {
+              type: eventType,
+              timestamp: Date.now(),
+              linesChanged,
+              labels: prLabels.length > 0 ? prLabels : [category],
+              prNumber,
+            });
+
+            // Compute new score
+            const result = computeTrustScore(allStates[author], DEFAULT_CONFIG);
+            console.log(`Trust score for ${author}: ${result.score}/100 (${result.tier})`);
+            if (result.warnings.length > 0) {
+              console.log(`Warnings: ${result.warnings.join('; ')}`);
+            }
+
+            // Write back to repo variable
+            const value = JSON.stringify(allStates);
+            try {
+              await github.rest.actions.updateRepoVariable({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                name: 'CONTRIBUTOR_TRUST_V2',
+                value,
+              });
+            } catch (updateError) {
+              if (updateError?.status === 403) {
+                core.warning('Skipping trust variable update due to token permission limits (requires actions:write).');
+              } else if (updateError?.status === 404) {
+                try {
+                  await github.rest.actions.createRepoVariable({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    name: 'CONTRIBUTOR_TRUST_V2',
+                    value,
+                  });
+                } catch (createError) {
+                  if (createError?.status === 403) {
+                    core.warning('Skipping trust variable create due to token permission limits (requires actions:write).');
+                  } else {
+                    throw createError;
+                  }
+                }
+              } else {
+                throw updateError;
+              }
+            }
+
+            // Map tier to label
+            const tierLabel = `trust:${result.tier}`;
+
+            // Remove old trust labels
+            const { data: labels } = await github.rest.issues.listLabelsOnIssue({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+            });
+
+            for (const label of labels) {
+              if (label.name.startsWith('trust:')) {
+                await github.rest.issues.removeLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: prNumber,
+                  name: label.name,
+                }).catch(() => {});
+              }
+            }
+
+            // Tier color map
+            const tierColors = {
+              'trust:legendary': '8b5cf6',
+              'trust:trusted': '2ea44f',
+              'trust:established': '0969da',
+              'trust:contributing': 'e3b341',
+              'trust:probationary': 'd93f0b',
+              'trust:untested': '666666',
+              'trust:restricted': 'cb2431',
+            };
+
+            try {
+              await github.rest.issues.createLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                name: tierLabel,
+                color: tierColors[tierLabel] || '666666',
+                description: `${result.tierInfo.description} (auto-managed)`,
+              });
+            } catch (e) { /* label exists */ }
+
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              labels: [tierLabel],
+            });
+
+            console.log(`Trust updated: ${author} → ${result.score}/100 (${result.tier}), ${result.breakdown.recencyWeightedPoints} weighted pts`);
+
+  auto-merge:
+    name: Auto-merge approved PRs
+    needs: [classify, review-pr]
+    if: github.event_name == 'pull_request_target' && needs.review-pr.result == 'success' && needs.review-pr.outputs.verdict == 'approve' && github.event.pull_request.base.ref != 'main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Merge approved PR
+        run: |
+          method="${MERGE_METHOD:-squash}"
+          case "$method" in
+            merge|squash|rebase) ;;
+            *)
+              echo "Invalid AGENT_REVIEW_MERGE_METHOD='$method', defaulting to 'squash'"
+              method="squash"
+              ;;
+          esac
+
+          PR_NUM="${{ github.event.pull_request.number }}"
+          echo "Merging PR #${PR_NUM} using '$method' method"
+
+          # Try with PAT first (has workflows scope), fall back to GITHUB_TOKEN
+          if [ -n "$GH_PAT" ]; then
+            echo "Using PAT for merge (supports workflow file changes)"
+            GH_TOKEN="$GH_PAT" gh pr merge "$PR_NUM" --"$method" --delete-branch && exit 0
+          fi
+
+          # Fall back to default token
+          if gh pr merge "$PR_NUM" --"$method" --delete-branch 2>&1; then
+            exit 0
+          fi
+
+          # If merge failed (likely workflow permission issue), label for manual merge
+          echo "::warning::Auto-merge failed. PR may modify workflow files requiring 'workflows' scope."
+          gh pr comment "$PR_NUM" --body "⚠️ **Auto-merge failed** — this PR modifies workflow files which require a PAT with \`workflows\` scope to merge. A maintainer needs to merge this manually.
+
+          Agent review verdict: ✅ **APPROVED**"
+          gh pr edit "$PR_NUM" --add-label "needs-manual-merge" 2>/dev/null || true
+          exit 1
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_PAT: ${{ secrets.GH_PAT }}
+          GH_REPO: ${{ github.repository }}
+          MERGE_METHOD: ${{ vars.AGENT_REVIEW_MERGE_METHOD }}
+
+  close-pr:
+    name: Close PRs with CLOSE verdict
+    needs: [review-pr]
+    if: github.event_name == 'pull_request_target' && needs.review-pr.result == 'success' && needs.review-pr.outputs.verdict == 'close'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Close PR after agent verdict
+        run: |
+          comment="Closing this pull request because the automated agent review decision was **CLOSE**."
+          if [ -n "${DECISION_COMMENT_URL}" ]; then
+            comment="$comment\n\nDecision source: ${DECISION_COMMENT_URL}"
+          fi
+
+          gh pr close ${{ github.event.pull_request.number }} --comment "$comment"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          DECISION_COMMENT_URL: ${{ needs.review-pr.outputs.decision_comment_url }}
+
+  triage-issue:
+    if: github.event_name == 'issues'
+    needs: classify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Triage Issue
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          allowed_non_write_users: 'lawyered0,jqmwa,0xSolace'
+          claude_args: '--model claude-opus-4-6 --allowedTools "Bash(gh issue comment:*),Bash(gh issue edit:*),Bash(gh issue close:*),Bash(gh issue view:*),Bash(cat:*),Read,Glob,LS"'
+          prompt: |
+            You are the issue triager for the Milaidy project. This is an agents-only codebase where humans serve as QA testers.
+
+            ## Classification
+            This issue has been pre-classified as: ${{ needs.classify.outputs.category }}
+
+            ## Triage Protocol
+
+            **Valid issues (label and keep open):**
+            - Bug reports with reproduction steps
+            - Security vulnerabilities
+            - Performance regressions with evidence
+            - Connector/integration failures
+            - Documentation inaccuracies
+
+            **Needs more info (ask and label):**
+            - Bug reports without reproduction steps
+            - Vague descriptions ("it doesn't work")
+            - Environment-specific issues without system details
+
+            **Close immediately:**
+            - Feature requests for aesthetic/UI changes
+            - "Please redesign X" requests
+            - Issues that are actually feature requests disguised as bugs
+            - Duplicate issues (reference the original)
+            - Issues clearly out of project scope
+
+            **Respond with:**
+            1. Thank the reporter (they're QA testers, their role matters)
+            2. Classification and labels to apply
+            3. If valid: acknowledge and note priority
+            4. If closing: explain why clearly, reference scope
+            5. If needs info: ask specific questions
+
+            Remember: humans are QA testers here. Their bug reports are valuable. Their feature requests for visual changes are not. Be respectful but firm about scope.

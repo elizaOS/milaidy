@@ -1,5 +1,6 @@
 import chalk from "chalk";
 import type { Command } from "commander";
+import { parseClampedInteger } from "../utils/number-parsing.js";
 
 /**
  * Normalize a user-provided plugin name to its fully-qualified form.
@@ -12,17 +13,55 @@ function normalizePluginName(name: string): string {
   return `@elizaos/plugin-${name}`;
 }
 
-function clampInt(
-  raw: string,
-  min: number,
-  max: number,
-  fallback: number,
-): number {
-  const parsed = Number.parseInt(raw, 10);
-  if (!Number.isFinite(parsed)) {
-    return fallback;
+/**
+ * Display plugin configuration parameters in a formatted table.
+ */
+function displayPluginConfig(
+  plugin: {
+    id: string;
+    name?: string;
+    parameters?: Array<{
+      key: string;
+      description?: string;
+      required?: boolean;
+      sensitive?: boolean;
+    }>;
+    configUiHints?: Record<
+      string,
+      { label?: string; help?: string; sensitive?: boolean }
+    >;
+  },
+  currentEnv: Record<string, string | undefined>,
+): void {
+  const params = plugin.parameters ?? [];
+  if (params.length === 0) {
+    console.log(chalk.dim("  No configurable parameters."));
+    return;
   }
-  return Math.min(Math.max(parsed, min), max);
+
+  for (const param of params) {
+    const hint = plugin.configUiHints?.[param.key] ?? {};
+    const label = hint.label ?? param.key;
+    const value = currentEnv[param.key];
+    const isSet = value != null && value !== "";
+    const isSensitive = param.sensitive || hint.sensitive;
+
+    const displayValue = !isSet
+      ? chalk.dim("(not set)")
+      : isSensitive
+        ? chalk.dim("●●●●●●●●")
+        : chalk.white(value);
+
+    const required = param.required ? chalk.red(" *") : "";
+    const help =
+      (hint.help ?? param.description)
+        ? chalk.dim(` — ${hint.help ?? param.description}`)
+        : "";
+
+    console.log(
+      `  ${chalk.cyan(label.padEnd(30))} ${displayValue}${required}${help}`,
+    );
+  }
 }
 
 export function registerPluginsCli(program: Command): void {
@@ -46,7 +85,11 @@ export function registerPluginsCli(program: Command): void {
         "../services/plugin-installer.js"
       );
 
-      const limit = clampInt(opts.limit, 1, 500, 30);
+      const limit = parseClampedInteger(opts.limit, {
+        min: 1,
+        max: 500,
+        fallback: 30,
+      });
       const installed = await listInstalledPlugins();
       const installedNames = new Set(installed.map((p) => p.name));
 
@@ -139,7 +182,11 @@ export function registerPluginsCli(program: Command): void {
     .option("-l, --limit <number>", "Max results", "15")
     .action(async (query: string, opts: { limit: string }) => {
       const { searchPlugins } = await import("../services/registry-client.js");
-      const limit = clampInt(opts.limit, 1, 50, 15);
+      const limit = parseClampedInteger(opts.limit, {
+        min: 1,
+        max: 50,
+        fallback: 15,
+      });
 
       const results = await searchPlugins(query, limit);
 
@@ -596,6 +643,202 @@ export function registerPluginsCli(program: Command): void {
         }
       }
       console.log();
+    });
+
+  // ── config ──────────────────────────────────────────────────────────
+  pluginsCommand
+    .command("config <name>")
+    .description("Show or edit plugin configuration")
+    .option("-e, --edit", "Interactive edit mode")
+    .action(async (name: string, opts: { edit?: boolean }) => {
+      const nodeFs = await import("node:fs");
+      const nodePath = await import("node:path");
+
+      // Read plugins.json catalog
+      const pluginsPath = nodePath.resolve(process.cwd(), "plugins.json");
+      let catalog: { plugins?: Array<Record<string, unknown>> };
+      try {
+        catalog = JSON.parse(nodeFs.readFileSync(pluginsPath, "utf8"));
+      } catch (err) {
+        console.log(
+          `\n${chalk.red("Error:")} Could not read plugins.json: ${err instanceof Error ? err.message : String(err)}\n`,
+        );
+        process.exitCode = 1;
+        return;
+      }
+
+      // Find the plugin by id, npmName, or name
+      const plugins = catalog.plugins ?? [];
+      const plugin = plugins.find(
+        (p) =>
+          p.id === name ||
+          p.npmName === name ||
+          (typeof p.name === "string" &&
+            p.name.toLowerCase().includes(name.toLowerCase())),
+      );
+
+      if (!plugin) {
+        console.log(`\n${chalk.red("Not found:")} ${name}`);
+        console.log(
+          chalk.dim("Run 'milaidy plugins list' to see available plugins.\n"),
+        );
+        process.exitCode = 1;
+        return;
+      }
+
+      const pluginId = String(plugin.id ?? "");
+      const pluginName = String(plugin.name ?? pluginId);
+      const params = plugin.pluginParameters as
+        | Record<
+            string,
+            {
+              type?: string;
+              description?: string;
+              required?: boolean;
+              sensitive?: boolean;
+            }
+          >
+        | undefined;
+      const configUiHints = plugin.configUiHints as
+        | Record<string, { label?: string; help?: string; sensitive?: boolean }>
+        | undefined;
+
+      // Display mode
+      if (!opts.edit) {
+        console.log(
+          `\n${chalk.bold(pluginName)} ${chalk.dim(`(${pluginId})`)}`,
+        );
+        console.log(
+          chalk.dim("─".repeat(pluginName.length + pluginId.length + 3)),
+        );
+
+        displayPluginConfig(
+          {
+            id: pluginId,
+            name: pluginName,
+            parameters: params
+              ? Object.entries(params).map(([key, param]) => ({
+                  key,
+                  description: param.description,
+                  required: param.required,
+                  sensitive: param.sensitive,
+                }))
+              : [],
+            configUiHints,
+          },
+          process.env as Record<string, string | undefined>,
+        );
+        console.log();
+        return;
+      }
+
+      // Edit mode
+      const clack = await import("@clack/prompts");
+
+      console.log(`\n${chalk.bold("Configure")} ${chalk.cyan(pluginName)}\n`);
+
+      const newValues: Record<string, string> = {};
+
+      if (!params || Object.keys(params).length === 0) {
+        console.log(chalk.dim("  No configurable parameters.\n"));
+        return;
+      }
+
+      for (const [key, param] of Object.entries(params)) {
+        const hint = configUiHints?.[key] ?? {};
+        const label = hint.label ?? key;
+        const currentValue = process.env[key];
+        const isSensitive = param.sensitive || hint.sensitive;
+        const help = hint.help ?? param.description ?? "";
+
+        const displayCurrent = currentValue
+          ? isSensitive
+            ? chalk.dim("●●●●●●●●")
+            : chalk.dim(`(current: ${currentValue})`)
+          : chalk.dim("(not set)");
+
+        let promptValue: string | boolean | symbol;
+
+        if (param.type === "boolean") {
+          promptValue = await clack.confirm({
+            message: `${label} ${displayCurrent}`,
+            initialValue: currentValue === "true",
+          });
+        } else if (isSensitive) {
+          promptValue = await clack.password({
+            message: `${label} ${displayCurrent}`,
+            validate: (v) =>
+              param.required && !v ? "This field is required" : undefined,
+          });
+        } else {
+          promptValue = await clack.text({
+            message: `${label} ${displayCurrent}`,
+            placeholder: help || undefined,
+            validate: (v) =>
+              param.required && !v ? "This field is required" : undefined,
+          });
+        }
+
+        if (clack.isCancel(promptValue)) {
+          clack.cancel("Configuration cancelled.");
+          process.exit(0);
+        }
+
+        if (typeof promptValue === "boolean") {
+          newValues[key] = String(promptValue);
+        } else if (typeof promptValue === "string" && promptValue !== "") {
+          newValues[key] = promptValue;
+        }
+      }
+
+      // Save to config and env
+      const { loadMilaidyConfig, saveMilaidyConfig } = await import(
+        "../config/config.js"
+      );
+
+      let config: ReturnType<typeof loadMilaidyConfig>;
+      try {
+        config = loadMilaidyConfig();
+      } catch {
+        config = {} as ReturnType<typeof loadMilaidyConfig>;
+      }
+
+      // Initialize plugin config structure
+      const configAny = config as Record<string, unknown>;
+      if (!configAny.plugins || typeof configAny.plugins !== "object") {
+        configAny.plugins = {};
+      }
+      const pluginsObj = configAny.plugins as Record<string, unknown>;
+      if (!pluginsObj.entries || typeof pluginsObj.entries !== "object") {
+        pluginsObj.entries = {};
+      }
+      const entries = pluginsObj.entries as Record<
+        string,
+        Record<string, unknown>
+      >;
+      if (!entries[pluginId]) {
+        entries[pluginId] = { enabled: true, config: {} };
+      }
+      if (
+        !entries[pluginId].config ||
+        typeof entries[pluginId].config !== "object"
+      ) {
+        entries[pluginId].config = {};
+      }
+      const pluginConfig = entries[pluginId].config as Record<string, unknown>;
+
+      // Update both process.env and config file
+      for (const [key, value] of Object.entries(newValues)) {
+        process.env[key] = value;
+        pluginConfig[key] = value;
+      }
+
+      saveMilaidyConfig(config);
+
+      console.log(
+        `\n${chalk.green("Success!")} Configuration saved for ${pluginName}.`,
+      );
+      console.log(chalk.dim("Restart your agent to apply changes.\n"));
     });
 
   // ── open ────────────────────────────────────────────────────────────

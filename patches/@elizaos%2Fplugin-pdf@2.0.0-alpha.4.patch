@@ -1,0 +1,57 @@
+diff --git a/dist/cjs/index.node.cjs b/dist/cjs/index.node.cjs
+index c7dab90caca4ed0a9e8b4485a8f77de92af2a746..6c0ef4bb60449907189a05905242f45cbfd2654d 100644
+--- a/dist/cjs/index.node.cjs
++++ b/dist/cjs/index.node.cjs
+@@ -50,8 +50,13 @@ module.exports = __toCommonJS(exports_index_node);
+ 
+ // services/pdf.ts
+ var import_core = require("@elizaos/core");
+-var import_pdfjs_dist = __toESM(require("pdfjs-dist"));
+-var { getDocument } = import_pdfjs_dist.default;
++var pdfjsLegacyPromise;
++async function getLegacyPdfJs() {
++  if (!pdfjsLegacyPromise) {
++    pdfjsLegacyPromise = import("pdfjs-dist/legacy/build/pdf.mjs");
++  }
++  return pdfjsLegacyPromise;
++}
+ function isTextItem(item) {
+   return "str" in item;
+ }
+@@ -72,6 +77,7 @@ class PdfService extends import_core.Service {
+   async stop() {}
+   async convertPdfToText(pdfBuffer) {
+     try {
++      const { getDocument } = await getLegacyPdfJs();
+       const uint8Array = new Uint8Array(pdfBuffer);
+       const pdf = await getDocument({ data: uint8Array }).promise;
+       const numPages = pdf.numPages;
+@@ -92,6 +98,7 @@ class PdfService extends import_core.Service {
+   }
+   async convertPdfToTextWithOptions(pdfBuffer, options = {}) {
+     try {
++      const { getDocument } = await getLegacyPdfJs();
+       const uint8Array = new Uint8Array(pdfBuffer);
+       const pdf = await getDocument({ data: uint8Array }).promise;
+       const numPages = pdf.numPages;
+@@ -122,6 +129,7 @@ class PdfService extends import_core.Service {
+     }
+   }
+   async getDocumentInfo(pdfBuffer) {
++    const { getDocument } = await getLegacyPdfJs();
+     const uint8Array = new Uint8Array(pdfBuffer);
+     const pdf = await getDocument({ data: uint8Array }).promise;
+     const numPages = pdf.numPages;
+diff --git a/dist/node/index.node.js b/dist/node/index.node.js
+index 3e6297ef409de8a0a4ab72e320d4b36ad776d06b..d7485e19f8b09fbca8141bad6e12246e0037e927 100644
+--- a/dist/node/index.node.js
++++ b/dist/node/index.node.js
+@@ -1,7 +1,6 @@
+ // services/pdf.ts
+ import { logger, Service, ServiceType } from "@elizaos/core";
+-import pkg from "pdfjs-dist";
+-var { getDocument } = pkg;
++import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
+ function isTextItem(item) {
+   return "str" in item;
+ }

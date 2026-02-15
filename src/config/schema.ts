@@ -15,6 +15,12 @@ const CONNECTOR_IDS = [
 
 import { MilaidySchema } from "./zod-schema.js";
 
+export type ShowIfCondition = {
+  field: string;
+  op: "eq" | "neq" | "in" | "truthy" | "falsy";
+  value?: unknown;
+};
+
 export type ConfigUiHint = {
   label?: string;
   help?: string;
@@ -24,6 +30,46 @@ export type ConfigUiHint = {
   sensitive?: boolean;
   placeholder?: string;
   itemTemplate?: unknown;
+  /** Explicit field type override (must match a catalog field name). */
+  type?: string;
+  /** Icon name for the field label. */
+  icon?: string;
+  /** Whether the field is read-only. */
+  readonly?: boolean;
+  /** Hide this field from the UI entirely. */
+  hidden?: boolean;
+  /** Layout width hint. */
+  width?: "full" | "half" | "third";
+  /** Regex pattern for string validation. */
+  pattern?: string;
+  /** Error message when pattern doesn't match. */
+  patternError?: string;
+  /** Legacy conditional visibility. */
+  showIf?: ShowIfCondition;
+  /** Enhanced options for select/radio/multiselect fields. */
+  options?: Array<{
+    value: string;
+    label: string;
+    description?: string;
+    icon?: string;
+    disabled?: boolean;
+  }>;
+  /** Minimum value (for number fields). */
+  min?: number;
+  /** Maximum value (for number fields). */
+  max?: number;
+  /** Step increment (for number fields). */
+  step?: number;
+  /** Display unit label (e.g., "ms", "tokens", "%"). */
+  unit?: string;
+  /** Schema for array item fields. */
+  itemSchema?: ConfigUiHint;
+  /** Minimum items (for array fields). */
+  minItems?: number;
+  /** Maximum items (for array fields). */
+  maxItems?: number;
+  /** Plugin-provided custom React component name. */
+  component?: string;
 };
 
 export type ConfigUiHints = Record<string, ConfigUiHint>;
@@ -47,7 +93,24 @@ export type PluginUiMetadata = {
     string,
     Pick<
       ConfigUiHint,
-      "label" | "help" | "advanced" | "sensitive" | "placeholder"
+      | "label"
+      | "help"
+      | "advanced"
+      | "sensitive"
+      | "placeholder"
+      | "type"
+      | "icon"
+      | "readonly"
+      | "hidden"
+      | "width"
+      | "pattern"
+      | "patternError"
+      | "showIf"
+      | "options"
+      | "min"
+      | "max"
+      | "step"
+      | "unit"
     >
   >;
   configSchema?: JsonSchemaNode;
@@ -84,6 +147,7 @@ const GROUP_LABELS: Record<string, string> = {
   connectors: "Connectors",
   skills: "Skills",
   plugins: "Plugins",
+  embedding: "Embedding",
   discovery: "Discovery",
   presence: "Presence",
   voicewake: "Voice Wake",
@@ -111,6 +175,7 @@ const GROUP_ORDER: Record<string, number> = {
   connectors: 150,
   skills: 200,
   plugins: 205,
+  embedding: 205,
   discovery: 210,
   presence: 220,
   voicewake: 230,
@@ -287,6 +352,12 @@ const FIELD_LABELS: Record<string, string> = {
   "agents.defaults.memorySearch.cache.enabled": "Memory Search Embedding Cache",
   "agents.defaults.memorySearch.cache.maxEntries":
     "Memory Search Embedding Cache Max Entries",
+  embedding: "Embedding",
+  "embedding.model": "Embedding Model",
+  "embedding.modelRepo": "Embedding Model Repo",
+  "embedding.dimensions": "Embedding Dimensions",
+  "embedding.gpuLayers": "Embedding GPU Layers",
+  "embedding.idleTimeoutMinutes": "Embedding Idle Timeout (min)",
   memory: "Memory",
   "memory.backend": "Memory Backend",
   "memory.citations": "Memory Citations Mode",
@@ -642,6 +713,16 @@ const FIELD_HELP: Record<string, string> = {
     "Multiplier for candidate pool size (default: 4).",
   "agents.defaults.memorySearch.cache.enabled":
     "Cache chunk embeddings in SQLite to speed up reindexing and frequent updates (default: true).",
+  "embedding.model":
+    "GGUF model filename for local embeddings (default: nomic-embed-text-v1.5.Q5_K_M.gguf).",
+  "embedding.modelRepo":
+    "HuggingFace repo for auto-downloading the embedding model (default: nomic-ai/nomic-embed-text-v1.5-GGUF).",
+  "embedding.dimensions":
+    "Embedding vector dimensions (must match the model; default: 768).",
+  "embedding.gpuLayers":
+    'GPU layers for embedding model loading: "auto" (Metal on macOS), "max", or a number (default: "auto" on macOS, 0 elsewhere).',
+  "embedding.idleTimeoutMinutes":
+    "Minutes of inactivity before unloading the embedding model from memory (default: 30, 0 = never unload).",
   memory: "Memory backend configuration (global).",
   "memory.backend":
     'Memory backend ("builtin" for Milaidy embeddings, "qmd" for QMD sidecar).',

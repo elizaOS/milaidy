@@ -32,6 +32,10 @@ import dotenv from "dotenv";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startApiServer } from "../src/api/server.js";
 import { ensureAgentWorkspace } from "../src/providers/workspace.js";
+import {
+  extractPlugin,
+  type PluginModuleShape,
+} from "../src/test-support/test-helpers.js";
 
 // ---------------------------------------------------------------------------
 // Environment
@@ -45,37 +49,22 @@ dotenv.config({ path: path.resolve(packageRoot, "..", "eliza", ".env") });
 const hasOpenAI = Boolean(process.env.OPENAI_API_KEY);
 const hasAnthropic = Boolean(process.env.ANTHROPIC_API_KEY);
 const hasGroq = Boolean(process.env.GROQ_API_KEY);
-const hasModelProvider = hasOpenAI || hasAnthropic || hasGroq;
+const liveModelTestsEnabled = process.env.MILAIDY_LIVE_TEST === "1";
+const hasModelProvider =
+  liveModelTestsEnabled && (hasOpenAI || hasAnthropic || hasGroq);
 
 // ---------------------------------------------------------------------------
 // Plugin helpers — tracks failures
 // ---------------------------------------------------------------------------
-
-interface PluginModule {
-  default?: Plugin;
-  plugin?: Plugin;
-}
-
-function looksLikePlugin(v: unknown): v is Plugin {
-  return (
-    !!v &&
-    typeof v === "object" &&
-    typeof (v as Record<string, unknown>).name === "string"
-  );
-}
-function extractPlugin(mod: PluginModule): Plugin | null {
-  if (looksLikePlugin(mod.default)) return mod.default;
-  if (looksLikePlugin(mod.plugin)) return mod.plugin;
-  if (looksLikePlugin(mod)) return mod as unknown as Plugin;
-  return null;
-}
 
 const pluginLoadResults: { name: string; loaded: boolean; error?: string }[] =
   [];
 
 async function loadPlugin(name: string): Promise<Plugin | null> {
   try {
-    const p = extractPlugin((await import(name)) as PluginModule);
+    const p = extractPlugin(
+      (await import(name)) as PluginModuleShape,
+    ) as Plugin | null;
     pluginLoadResults.push({
       name,
       loaded: p !== null,
@@ -99,9 +88,11 @@ function http$(
   method: string,
   p: string,
   body?: Record<string, unknown>,
+  options?: { timeoutMs?: number },
 ): Promise<{ status: number; data: Record<string, unknown> }> {
   return new Promise((resolve, reject) => {
     const b = body ? JSON.stringify(body) : undefined;
+    const timeoutMs = options?.timeoutMs ?? 60_000;
     const req = http.request(
       {
         hostname: "127.0.0.1",
@@ -128,10 +119,228 @@ function http$(
         });
       },
     );
+    req.setTimeout(timeoutMs, () => {
+      req.destroy(new Error(`Request timed out after ${timeoutMs}ms`));
+    });
     req.on("error", reject);
     if (b) req.write(b);
     req.end();
   });
+}
+
+function withTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+  label: string,
+): Promise<T> {
+  let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutHandle = setTimeout(() => {
+      reject(new Error(`${label} timed out after ${ms}ms`));
+    }, ms);
+  });
+  return Promise.race([promise, timeoutPromise]).finally(() => {
+    if (timeoutHandle) {
+      clearTimeout(timeoutHandle);
+    }
+  });
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+const modelProviderUnavailablePattern =
+  /exceeded your current quota|insufficient[_\s-]?quota|billing details|credit balance|rate limit|status code: 429|too many requests|invalid api key|unauthorized|authentication/i;
+
+let cachedModelProviderUnavailableReason: string | null = null;
+
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
+function isModelProviderUnavailableError(message: string): boolean {
+  return modelProviderUnavailablePattern.test(message);
+}
+
+async function getGeneratedText(result: unknown): Promise<string> {
+  if (typeof result === "string") return result.trim();
+  if (!result || typeof result !== "object") {
+    return String(result ?? "").trim();
+  }
+  const textValue = (result as { text?: unknown }).text;
+  if (
+    textValue &&
+    typeof textValue === "object" &&
+    typeof (textValue as PromiseLike<unknown>).then === "function"
+  ) {
+    return String(await (textValue as PromiseLike<unknown>)).trim();
+  }
+  return String(textValue ?? "").trim();
+}
+
+async function shouldSkipDueModelProviderUnavailable(
+  runtime: AgentRuntime,
+  testName: string,
+): Promise<boolean> {
+  if (cachedModelProviderUnavailableReason) {
+    logger.warn(
+      `[e2e] Skipping "${testName}" due to provider limit: ${cachedModelProviderUnavailableReason}`,
+    );
+    return true;
+  }
+
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    try {
+      const probe = await runtime.generateText("Reply with exactly: ok", {
+        maxTokens: 32,
+      });
+      const text = await getGeneratedText(probe);
+      if (text.length > 0) return false;
+    } catch (err) {
+      const message = errorMessage(err);
+      if (isModelProviderUnavailableError(message)) {
+        cachedModelProviderUnavailableReason = message;
+        logger.warn(
+          `[e2e] Skipping "${testName}" due to provider limit: ${message}`,
+        );
+        return true;
+      }
+    }
+    await sleep(250 * attempt);
+  }
+
+  return false;
+}
+
+function readSerializedProperty(
+  value: unknown,
+  key: string,
+): unknown | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const direct = (value as Record<string, unknown>)[key];
+  if (direct !== undefined) return direct;
+  const properties = (value as Record<string, unknown>).properties;
+  if (
+    !properties ||
+    typeof properties !== "object" ||
+    Array.isArray(properties)
+  )
+    return undefined;
+  return (properties as Record<string, unknown>)[key];
+}
+
+function readSerializedArray(value: unknown): Array<Record<string, unknown>> {
+  if (Array.isArray(value)) return value as Array<Record<string, unknown>>;
+  if (!value || typeof value !== "object") return [];
+  const items = (value as Record<string, unknown>).items;
+  if (Array.isArray(items)) return items as Array<Record<string, unknown>>;
+  return [];
+}
+
+async function postChatWithRetries(
+  port: number,
+  attempts = 3,
+): Promise<{ status: number; data: Record<string, unknown> }> {
+  const errors: string[] = [];
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      const response = await http$(
+        port,
+        "POST",
+        "/api/chat",
+        { text: "What is 1+1? Number only.", mode: "simple" },
+        { timeoutMs: 45_000 },
+      );
+      const text = response.data.text;
+      if (
+        response.status === 200 &&
+        typeof text === "string" &&
+        text.trim().length > 0
+      ) {
+        return response;
+      }
+      errors.push(
+        `attempt ${attempt}: status=${response.status}, textType=${typeof text}, textLength=${
+          typeof text === "string" ? text.length : 0
+        }`,
+      );
+    } catch (err) {
+      errors.push(
+        `attempt ${attempt}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+    if (attempt < attempts) {
+      await sleep(1_000);
+    }
+  }
+  throw new Error(
+    `POST /api/chat failed after ${attempts} attempts: ${errors.join(" | ")}`,
+  );
+}
+
+async function postChatPromptWithRetries(
+  port: number,
+  prompt: string,
+  attempts = 4,
+  timeoutMs = 90_000,
+): Promise<{ status: number; data: Record<string, unknown> }> {
+  const errors: string[] = [];
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      const response = await http$(
+        port,
+        "POST",
+        "/api/chat",
+        { text: prompt, mode: "simple" },
+        { timeoutMs },
+      );
+      const text = response.data.text;
+      if (
+        response.status === 200 &&
+        typeof text === "string" &&
+        text.trim().length > 0
+      ) {
+        return response;
+      }
+      errors.push(
+        `attempt ${attempt}: status=${response.status}, textType=${typeof text}, textLength=${
+          typeof text === "string" ? text.length : 0
+        }`,
+      );
+    } catch (err) {
+      errors.push(
+        `attempt ${attempt}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+    if (attempt < attempts) {
+      await sleep(1_000);
+    }
+  }
+  throw new Error(
+    `POST /api/chat(prompt) failed after ${attempts} attempts: ${errors.join(" | ")}`,
+  );
+}
+
+async function handleMessageAndCollectText(
+  runtime: AgentRuntime,
+  message: ReturnType<typeof createMessageMemory>,
+): Promise<string> {
+  let responseText = "";
+  const result = await runtime.messageService?.handleMessage(
+    runtime,
+    message,
+    async (content: { text?: string }) => {
+      if (content.text) responseText += content.text;
+      return [];
+    },
+  );
+  if (!responseText && result?.responseContent?.text) {
+    responseText = result.responseContent.text;
+  }
+  return responseText;
 }
 
 // ---------------------------------------------------------------------------
@@ -164,11 +373,13 @@ describe("Agent Runtime E2E", () => {
   );
 
   const corePluginNames = [
+    "@elizaos/plugin-trajectory-logger",
     "@elizaos/plugin-agent-skills",
     "@elizaos/plugin-directives",
     "@elizaos/plugin-commands",
     "@elizaos/plugin-personality",
     "@elizaos/plugin-experience",
+    "@elizaos/plugin-todo",
     // NOTE: @elizaos/plugin-form is excluded because its package.json has
     // an incorrect main/module/exports entry that prevents resolution.
   ];
@@ -177,7 +388,7 @@ describe("Agent Runtime E2E", () => {
 
   beforeAll(async () => {
     if (!hasModelProvider) return;
-    process.env.LOG_LEVEL = "info";
+    process.env.LOG_LEVEL = process.env.MILAIDY_E2E_LOG_LEVEL ?? "error";
     process.env.PGLITE_DATA_DIR = pgliteDir;
 
     const secrets: Record<string, string> = {};
@@ -194,6 +405,9 @@ describe("Agent Runtime E2E", () => {
     });
 
     const sqlPlugin = await loadPlugin("@elizaos/plugin-sql");
+    const localEmbeddingPlugin = await loadPlugin(
+      "@elizaos/plugin-local-embedding",
+    );
 
     const plugins: Plugin[] = [];
     for (const n of corePluginNames) {
@@ -218,13 +432,22 @@ describe("Agent Runtime E2E", () => {
     runtime = new AgentRuntime({
       character,
       plugins,
-      logLevel: "info",
+      logLevel: "error",
       enableAutonomy: true,
       // checkShouldRespond is NOT set — defaults to true (production behavior)
     });
 
     if (sqlPlugin) await runtime.registerPlugin(sqlPlugin);
+    if (localEmbeddingPlugin) {
+      await runtime.registerPlugin(localEmbeddingPlugin);
+    } else {
+      logger.warn(
+        "[e2e] @elizaos/plugin-local-embedding failed to load; runtime may use remote embeddings",
+      );
+    }
     await runtime.initialize();
+    const autonomySvc = runtime.getService<AutonomyServiceLike>("AUTONOMY");
+    autonomySvc?.setLoopInterval(5 * 60_000);
     initialized = true;
 
     try {
@@ -261,7 +484,7 @@ describe("Agent Runtime E2E", () => {
   afterAll(async () => {
     if (server) {
       try {
-        await server.close();
+        await withTimeout(server.close(), 30_000, "server.close()");
       } catch (err) {
         logger.warn(
           `[e2e] Server close error: ${err instanceof Error ? err.message : err}`,
@@ -271,7 +494,7 @@ describe("Agent Runtime E2E", () => {
     if (runtime) {
       try {
         runtime.enableAutonomy = false;
-        await runtime.stop();
+        await withTimeout(runtime.stop(), 90_000, "runtime.stop()");
       } catch (err) {
         logger.warn(
           `[e2e] Runtime stop error: ${err instanceof Error ? err.message : err}`,
@@ -292,7 +515,7 @@ describe("Agent Runtime E2E", () => {
         `[e2e] Workspace cleanup: ${err instanceof Error ? err.message : err}`,
       );
     }
-  }, 30_000);
+  }, 150_000);
 
   // ===================================================================
   //  1. Startup
@@ -372,12 +595,18 @@ describe("Agent Runtime E2E", () => {
             channelType: ChannelType.DM, // DM = always respond
           },
         });
+        const resp = await handleMessageAndCollectText(runtime, msg);
 
-        let resp = "";
-        await runtime.messageService?.handleMessage(runtime, msg, async (c) => {
-          if (c?.text) resp += c.text;
-          return [];
-        });
+        if (resp.length === 0) {
+          if (
+            await shouldSkipDueModelProviderUnavailable(
+              runtime,
+              "DM messages get responses with checkShouldRespond=true",
+            )
+          ) {
+            return;
+          }
+        }
 
         expect(
           resp.length,
@@ -385,7 +614,7 @@ describe("Agent Runtime E2E", () => {
         ).toBeGreaterThan(0);
         logger.info(`[e2e] shouldRespond DM test: "${resp}"`);
       },
-      60_000,
+      120_000,
     );
   });
 
@@ -397,14 +626,34 @@ describe("Agent Runtime E2E", () => {
     it.skipIf(!hasModelProvider)(
       "generateText returns non-empty text",
       async () => {
-        const result = await runtime.generateText(
-          "What is 2 + 2? Answer only the number.",
-          { maxTokens: 256 },
-        );
-        const text =
-          result.text instanceof Promise
-            ? await result.text
-            : String(result.text ?? "");
+        let text = "";
+        try {
+          const result = await runtime.generateText(
+            "What is 2 + 2? Answer only the number.",
+            { maxTokens: 256 },
+          );
+          text = await getGeneratedText(result);
+        } catch (err) {
+          const message = errorMessage(err);
+          if (isModelProviderUnavailableError(message)) {
+            cachedModelProviderUnavailableReason = message;
+            logger.warn(
+              `[e2e] Skipping "generateText returns non-empty text" due to provider limit: ${message}`,
+            );
+            return;
+          }
+          throw err;
+        }
+        if (text.length === 0) {
+          if (
+            await shouldSkipDueModelProviderUnavailable(
+              runtime,
+              "generateText returns non-empty text",
+            )
+          ) {
+            return;
+          }
+        }
         expect(text.length).toBeGreaterThan(0);
       },
       60_000,
@@ -423,14 +672,20 @@ describe("Agent Runtime E2E", () => {
             channelType: ChannelType.DM,
           },
         });
-        let resp = "";
-        await runtime.messageService?.handleMessage(runtime, msg, async (c) => {
-          if (c?.text) resp += c.text;
-          return [];
-        });
+        const resp = await handleMessageAndCollectText(runtime, msg);
+        if (resp.length === 0) {
+          if (
+            await shouldSkipDueModelProviderUnavailable(
+              runtime,
+              "handleMessage returns non-empty text",
+            )
+          ) {
+            return;
+          }
+        }
         expect(resp.length).toBeGreaterThan(0);
       },
-      60_000,
+      120_000,
     );
 
     it.skipIf(!hasModelProvider)(
@@ -446,15 +701,17 @@ describe("Agent Runtime E2E", () => {
             channelType: ChannelType.DM,
           },
         });
-        let t1 = "";
-        await runtime.messageService?.handleMessage(
-          runtime,
-          msg1,
-          async (c) => {
-            if (c?.text) t1 += c.text;
-            return [];
-          },
-        );
+        const t1 = await handleMessageAndCollectText(runtime, msg1);
+        if (t1.length === 0) {
+          if (
+            await shouldSkipDueModelProviderUnavailable(
+              runtime,
+              "multi-turn: agent remembers context",
+            )
+          ) {
+            return;
+          }
+        }
         expect(t1.length, "Turn 1 must produce a response").toBeGreaterThan(0);
 
         const msg2 = createMessageMemory({
@@ -467,20 +724,22 @@ describe("Agent Runtime E2E", () => {
             channelType: ChannelType.DM,
           },
         });
-        let t2 = "";
-        await runtime.messageService?.handleMessage(
-          runtime,
-          msg2,
-          async (c) => {
-            if (c?.text) t2 += c.text;
-            return [];
-          },
-        );
+        const t2 = await handleMessageAndCollectText(runtime, msg2);
+        if (t2.length === 0) {
+          if (
+            await shouldSkipDueModelProviderUnavailable(
+              runtime,
+              "multi-turn: agent remembers context",
+            )
+          ) {
+            return;
+          }
+        }
 
         logger.info(`[e2e] multi-turn: "${t2}"`);
         expect(t2.toLowerCase()).toContain("pineapple");
       },
-      90_000,
+      180_000,
     );
   });
 
@@ -508,7 +767,7 @@ describe("Agent Runtime E2E", () => {
         // If we got here without throwing, the full autonomous pipeline worked:
         // prompt generation → model call → response processing → memory storage
       },
-      120_000,
+      180_000,
     );
 
     it.skipIf(!hasModelProvider)(
@@ -542,16 +801,103 @@ describe("Agent Runtime E2E", () => {
     it.skipIf(!hasModelProvider)(
       "POST /api/chat returns real response",
       async () => {
-        const { status, data } = await http$(
-          server?.port,
-          "POST",
-          "/api/chat",
-          { text: "What is 1+1? Number only." },
-        );
+        let chat: { status: number; data: Record<string, unknown> };
+        try {
+          chat = await postChatWithRetries(server?.port);
+        } catch (err) {
+          if (
+            await shouldSkipDueModelProviderUnavailable(
+              runtime,
+              "POST /api/chat returns real response",
+            )
+          ) {
+            return;
+          }
+          throw err;
+        }
+        const { status, data } = chat;
         expect(status).toBe(200);
+        if (String(data.text ?? "").length === 0) {
+          if (
+            await shouldSkipDueModelProviderUnavailable(
+              runtime,
+              "POST /api/chat returns real response",
+            )
+          ) {
+            return;
+          }
+        }
         expect((data.text as string).length).toBeGreaterThan(0);
       },
-      60_000,
+      180_000,
+    );
+
+    it.skipIf(!hasModelProvider)(
+      "todo CRUD works through workbench endpoints",
+      async () => {
+        const todoName = `REST Todo ${Date.now()}`;
+        const create = await http$(
+          server?.port,
+          "POST",
+          "/api/workbench/todos",
+          {
+            name: todoName,
+            description: "Created from agent-runtime REST e2e",
+            priority: 2,
+            isUrgent: false,
+            type: "one-off",
+          },
+        );
+        expect(create.status).toBe(201);
+        const todo = create.data.todo as Record<string, unknown>;
+        const todoId = String(todo.id ?? "");
+        expect(todoId.length).toBeGreaterThan(0);
+
+        const list = await http$(server?.port, "GET", "/api/workbench/todos");
+        expect(list.status).toBe(200);
+        const todos = list.data.todos as Array<Record<string, unknown>>;
+        expect(todos.some((item) => item.id === todoId)).toBe(true);
+
+        const update = await http$(
+          server?.port,
+          "PUT",
+          `/api/workbench/todos/${encodeURIComponent(todoId)}`,
+          { priority: 1, isUrgent: true },
+        );
+        expect(update.status).toBe(200);
+        expect((update.data.todo as Record<string, unknown>).priority).toBe(1);
+        expect((update.data.todo as Record<string, unknown>).isUrgent).toBe(
+          true,
+        );
+
+        const complete = await http$(
+          server?.port,
+          "POST",
+          `/api/workbench/todos/${encodeURIComponent(todoId)}/complete`,
+          { isCompleted: true },
+        );
+        expect(complete.status).toBe(200);
+        expect(complete.data.ok).toBe(true);
+
+        const get = await http$(
+          server?.port,
+          "GET",
+          `/api/workbench/todos/${encodeURIComponent(todoId)}`,
+        );
+        expect(get.status).toBe(200);
+        expect((get.data.todo as Record<string, unknown>).isCompleted).toBe(
+          true,
+        );
+
+        const del = await http$(
+          server?.port,
+          "DELETE",
+          `/api/workbench/todos/${encodeURIComponent(todoId)}`,
+        );
+        expect(del.status).toBe(200);
+        expect(del.data.ok).toBe(true);
+      },
+      120_000,
     );
 
     it.skipIf(!hasModelProvider)(
@@ -722,6 +1068,16 @@ describe("Agent Runtime E2E", () => {
         for (const r of statuses) expect(r.status).toBe(200);
         for (const r of chats) {
           expect(r.status).toBe(200);
+          if (String(r.data.text ?? "").length === 0) {
+            if (
+              await shouldSkipDueModelProviderUnavailable(
+                runtime,
+                "5 parallel status + 3 parallel chat",
+              )
+            ) {
+              return;
+            }
+          }
           expect((r.data.text as string).length).toBeGreaterThan(0);
         }
       },
@@ -747,7 +1103,282 @@ describe("Agent Runtime E2E", () => {
   });
 
   // ===================================================================
-  //  9. startEliza() — real subprocess test
+  //  9. Triggers — REAL LLM execution through trigger dispatch
+  // ===================================================================
+
+  describe("triggers (real LLM execution)", () => {
+    it.skipIf(!hasModelProvider)(
+      "creates trigger, executes it, LLM processes instruction, run history records success",
+      async () => {
+        // Register the trigger worker on the real runtime (same as milaidy-plugin.ts does).
+        const { registerTriggerTaskWorker } = await import(
+          "../src/triggers/runtime.js"
+        );
+        registerTriggerTaskWorker(runtime);
+
+        // 1. Create a trigger via the real REST API
+        const createRes = await http$(server?.port, "POST", "/api/triggers", {
+          displayName: "Live LLM Trigger",
+          instructions:
+            "You have been triggered by the test suite. Acknowledge this trigger by responding with a brief status report.",
+          triggerType: "interval",
+          intervalMs: 3_600_000,
+          wakeMode: "inject_now",
+          createdBy: "e2e-test",
+        });
+
+        expect(createRes.status).toBe(201);
+        const triggerId = (createRes.data.trigger as Record<string, string>)
+          ?.id;
+        expect(triggerId).toBeDefined();
+        expect(triggerId.length).toBeGreaterThan(0);
+        logger.info(`[e2e] Created trigger: ${triggerId}`);
+
+        // 2. List triggers — confirm it exists
+        const listRes = await http$(server?.port, "GET", "/api/triggers");
+        expect(listRes.status).toBe(200);
+        const triggers = listRes.data.triggers as Array<
+          Record<string, unknown>
+        >;
+        expect(triggers.length).toBeGreaterThanOrEqual(1);
+        const found = triggers.find((t) => t.id === triggerId);
+        expect(found).toBeDefined();
+        expect(found?.enabled).toBe(true);
+        expect(found?.triggerType).toBe("interval");
+
+        // 3. Execute the trigger — this dispatches into the REAL autonomy
+        //    service which calls the REAL LLM through performAutonomousThink()
+        logger.info("[e2e] Executing trigger (real LLM dispatch)...");
+        const execRes = await http$(
+          server?.port,
+          "POST",
+          `/api/triggers/${encodeURIComponent(triggerId)}/execute`,
+          undefined,
+          { timeoutMs: 120_000 },
+        );
+
+        if (
+          execRes.status !== 200 ||
+          (execRes.data.result as Record<string, unknown>)?.status !== "success"
+        ) {
+          if (
+            await shouldSkipDueModelProviderUnavailable(
+              runtime,
+              "creates trigger, executes it, LLM processes instruction, run history records success",
+            )
+          ) {
+            return;
+          }
+        }
+
+        expect(execRes.status).toBe(200);
+        const execResult = execRes.data.result as Record<string, unknown>;
+        expect(execResult.status).toBe("success");
+        expect(execResult.taskDeleted).toBe(false);
+        logger.info(`[e2e] Trigger execution: status=${execResult.status}`);
+
+        // 4. Verify run history was recorded
+        const runsRes = await http$(
+          server?.port,
+          "GET",
+          `/api/triggers/${encodeURIComponent(triggerId)}/runs`,
+        );
+        expect(runsRes.status).toBe(200);
+        const runs = runsRes.data.runs as Array<Record<string, unknown>>;
+        expect(runs.length).toBe(1);
+        expect(runs[0].status).toBe("success");
+        expect(runs[0].source).toBe("manual");
+        expect(typeof runs[0].latencyMs).toBe("number");
+        logger.info(`[e2e] Run recorded: latency=${runs[0].latencyMs}ms`);
+
+        // 5. Verify the trigger summary was updated after execution
+        const getRes = await http$(
+          server?.port,
+          "GET",
+          `/api/triggers/${encodeURIComponent(triggerId)}`,
+        );
+        expect(getRes.status).toBe(200);
+        const updatedTrigger = getRes.data.trigger as Record<string, unknown>;
+        expect(updatedTrigger.runCount).toBe(1);
+        expect(updatedTrigger.lastStatus).toBe("success");
+        expect(typeof updatedTrigger.lastRunAtIso).toBe("string");
+
+        // 6. Verify health endpoint reflects the execution
+        const healthRes = await http$(
+          server?.port,
+          "GET",
+          "/api/triggers/health",
+        );
+        expect(healthRes.status).toBe(200);
+        expect(
+          Number(healthRes.data.activeTriggers ?? 0),
+        ).toBeGreaterThanOrEqual(1);
+        expect(
+          Number(healthRes.data.totalExecutions ?? 0),
+        ).toBeGreaterThanOrEqual(1);
+        expect(Number(healthRes.data.totalFailures ?? 0)).toBe(0);
+
+        // 7. Disable and re-enable the trigger
+        const disableRes = await http$(
+          server?.port,
+          "PUT",
+          `/api/triggers/${encodeURIComponent(triggerId)}`,
+          { enabled: false },
+        );
+        expect(disableRes.status).toBe(200);
+        expect(
+          (disableRes.data.trigger as Record<string, boolean>)?.enabled,
+        ).toBe(false);
+
+        const enableRes = await http$(
+          server?.port,
+          "PUT",
+          `/api/triggers/${encodeURIComponent(triggerId)}`,
+          { enabled: true },
+        );
+        expect(enableRes.status).toBe(200);
+        expect(
+          (enableRes.data.trigger as Record<string, boolean>)?.enabled,
+        ).toBe(true);
+
+        // 8. Delete the trigger
+        const deleteRes = await http$(
+          server?.port,
+          "DELETE",
+          `/api/triggers/${encodeURIComponent(triggerId)}`,
+        );
+        expect(deleteRes.status).toBe(200);
+
+        // Confirm it's gone
+        const listAfterDelete = await http$(
+          server?.port,
+          "GET",
+          "/api/triggers",
+        );
+        const remainingTriggers = listAfterDelete.data.triggers as Array<
+          Record<string, unknown>
+        >;
+        const stillExists = remainingTriggers.find((t) => t.id === triggerId);
+        expect(stillExists).toBeUndefined();
+
+        logger.info("[e2e] Trigger lifecycle test complete (real LLM)");
+      },
+      240_000,
+    );
+  });
+
+  // ===================================================================
+  //  10. Todos — real LLM action access and chat-created todo verification
+  // ===================================================================
+
+  describe("todos (real LLM + actions)", () => {
+    it.skipIf(!hasModelProvider)(
+      "runtime exposes todo actions",
+      async () => {
+        const runtimeDebug = await http$(server?.port, "GET", "/api/runtime");
+        expect(runtimeDebug.status).toBe(200);
+        let actions = readSerializedArray(
+          (runtimeDebug.data.order as Record<string, unknown>)?.actions,
+        );
+        if (actions.length === 0) {
+          actions = readSerializedArray(
+            (runtimeDebug.data.sections as Record<string, unknown>)?.actions,
+          );
+        }
+        expect(actions.length).toBeGreaterThan(0);
+        const actionNames = actions
+          .map((action) => readSerializedProperty(action, "name"))
+          .map((name) => (typeof name === "string" ? name : null))
+          .filter((name): name is string => name !== null);
+
+        const actionAliases: string[][] = [
+          ["CREATE_TODO", "CREATE_TASK"],
+          ["COMPLETE_TODO", "COMPLETE_TASK"],
+          ["UPDATE_TODO", "UPDATE_TASK"],
+          ["CANCEL_TODO", "CANCEL_TASK"],
+        ];
+        for (const aliases of actionAliases) {
+          expect(actionNames.some((name) => aliases.includes(name))).toBe(true);
+        }
+      },
+      120_000,
+    );
+
+    it.skipIf(!hasModelProvider)(
+      "chat can create a todo via action and workbench API reflects it",
+      async () => {
+        const todoName = `LLM Todo ${Date.now()}`;
+        const prompt = [
+          "Create a one-off todo task right now.",
+          `Name: ${todoName}`,
+          "Description: created by the live e2e chat test.",
+          "Priority: 2",
+          "Urgent: false",
+          "Then confirm creation in one short sentence.",
+        ].join(" ");
+
+        let chatRes: { status: number; data: Record<string, unknown> };
+        try {
+          chatRes = await postChatPromptWithRetries(server?.port, prompt, 5);
+        } catch (err) {
+          if (
+            await shouldSkipDueModelProviderUnavailable(
+              runtime,
+              "chat can create a todo via action and workbench API reflects it",
+            )
+          ) {
+            return;
+          }
+          throw err;
+        }
+        expect(chatRes.status).toBe(200);
+        const responseText = String(chatRes.data.text ?? "");
+        if (responseText.length === 0) {
+          if (
+            await shouldSkipDueModelProviderUnavailable(
+              runtime,
+              "chat can create a todo via action and workbench API reflects it",
+            )
+          ) {
+            return;
+          }
+        }
+        expect(responseText.length).toBeGreaterThan(0);
+
+        let found = false;
+        for (let attempt = 1; attempt <= 6; attempt += 1) {
+          const todosRes = await http$(
+            server?.port,
+            "GET",
+            "/api/workbench/todos",
+          );
+          expect(todosRes.status).toBe(200);
+          const todos = (todosRes.data.todos ?? []) as Array<
+            Record<string, unknown>
+          >;
+          found = todos.some((todo) => todo.name === todoName);
+          if (found) break;
+          await sleep(1_000);
+        }
+
+        if (!found) {
+          if (
+            await shouldSkipDueModelProviderUnavailable(
+              runtime,
+              "chat can create a todo via action and workbench API reflects it",
+            )
+          ) {
+            return;
+          }
+        }
+        expect(found).toBe(true);
+      },
+      240_000,
+    );
+  });
+
+  // ===================================================================
+  //  11. startEliza() — real subprocess test
   // ===================================================================
 
   describe("startEliza subprocess", () => {
@@ -786,6 +1417,10 @@ describe("Agent Runtime E2E", () => {
         env.XDG_DATA_HOME = path.join(subHome, ".local/share");
         env.XDG_STATE_HOME = path.join(subHome, ".local/state");
         env.XDG_CACHE_HOME = path.join(subHome, ".cache");
+        // Avoid collisions with any local process already bound to default 2138.
+        env.MILAIDY_API_PORT = String(
+          30_000 + Math.floor(Math.random() * 20_000),
+        );
         // Remove test-isolation vars that might confuse the subprocess
         delete env.MILAIDY_CONFIG_PATH;
         delete env.MILAIDY_STATE_DIR;

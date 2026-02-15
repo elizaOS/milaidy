@@ -7,8 +7,8 @@ const config: CapacitorConfig = {
   server: {
     androidScheme: "https",
     iosScheme: "https",
-    // Allow the webview to connect to the embedded API server on localhost
-    allowNavigation: ["localhost"],
+    // Allow the webview to connect to the embedded API server on localhost/loopback
+    allowNavigation: ["localhost", "127.0.0.1"],
   },
   plugins: {
     Keyboard: {

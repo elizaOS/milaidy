@@ -14,6 +14,32 @@ type IpcPrimitive = string | number | boolean | null | undefined;
 type IpcObject = { [key: string]: IpcValue };
 type IpcValue = IpcPrimitive | IpcObject | IpcValue[] | ArrayBuffer | Float32Array | Uint8Array;
 type IpcListener = (...args: IpcValue[]) => void;
+type ElectronIpcListener = Parameters<typeof ipcRenderer.on>[1];
+
+const ipcListenerRegistry = new Map<string, WeakMap<IpcListener, ElectronIpcListener>>();
+
+function getWrappedListener(channel: string, listener: IpcListener): ElectronIpcListener {
+  let channelRegistry = ipcListenerRegistry.get(channel);
+  if (!channelRegistry) {
+    channelRegistry = new WeakMap<IpcListener, ElectronIpcListener>();
+    ipcListenerRegistry.set(channel, channelRegistry);
+  }
+
+  const existing = channelRegistry.get(listener);
+  if (existing) return existing;
+
+  const wrapped: ElectronIpcListener = (_event, ...args) => {
+    listener(...(args as IpcValue[]));
+  };
+  channelRegistry.set(listener, wrapped);
+  return wrapped;
+}
+
+function clearWrappedListener(channel: string, listener: IpcListener): void {
+  const channelRegistry = ipcListenerRegistry.get(channel);
+  if (!channelRegistry) return;
+  channelRegistry.delete(listener);
+}
 
 /**
  * IPC Renderer wrapper with type safety
@@ -23,16 +49,30 @@ const electronAPI = {
     invoke: (channel: string, ...args: IpcValue[]) => ipcRenderer.invoke(channel, ...args) as Promise<IpcValue>,
     send: (channel: string, ...args: IpcValue[]) => ipcRenderer.send(channel, ...args),
     on: (channel: string, listener: IpcListener) => {
-      ipcRenderer.on(channel, (_event, ...args) => listener(...args));
+      ipcRenderer.on(channel, getWrappedListener(channel, listener));
     },
     once: (channel: string, listener: IpcListener) => {
-      ipcRenderer.once(channel, (_event, ...args) => listener(...args));
+      const wrapped: ElectronIpcListener = (_event, ...args) => {
+        clearWrappedListener(channel, listener);
+        listener(...(args as IpcValue[]));
+      };
+      let channelRegistry = ipcListenerRegistry.get(channel);
+      if (!channelRegistry) {
+        channelRegistry = new WeakMap<IpcListener, ElectronIpcListener>();
+        ipcListenerRegistry.set(channel, channelRegistry);
+      }
+      channelRegistry.set(listener, wrapped);
+      ipcRenderer.once(channel, wrapped);
     },
     removeListener: (channel: string, listener: IpcListener) => {
-      ipcRenderer.removeListener(channel, listener);
+      const wrapped = ipcListenerRegistry.get(channel)?.get(listener);
+      if (!wrapped) return;
+      ipcRenderer.removeListener(channel, wrapped);
+      clearWrappedListener(channel, listener);
     },
     removeAllListeners: (channel: string) => {
       ipcRenderer.removeAllListeners(channel);
+      ipcListenerRegistry.delete(channel);
     },
   },
 
@@ -72,6 +112,3 @@ declare global {
     electron: typeof electronAPI;
   }
 }
-
-console.log("[Preload] Milaidy Electron bridge initialized");
-console.log(`[Preload] Platform: ${process.platform} (${process.arch})`);

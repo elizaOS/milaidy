@@ -77,6 +77,73 @@ cd apps/ui && bun run dev
 
 ---
 
+### 1.7 OpenAI + Anthropic Compatibility API
+- [ ] `GET /v1/models` returns a list of models
+- [ ] `POST /v1/chat/completions` returns an OpenAI-shaped response
+- [ ] `POST /v1/chat/completions` supports `stream: true` (SSE)
+- [ ] `POST /v1/messages` returns an Anthropic-shaped response
+- [ ] `POST /v1/messages` supports `stream: true` (SSE)
+
+**How to test**:
+```bash
+# Terminal 1
+bun run start
+
+# If you have MILAIDY_API_TOKEN set, add this to curl:
+#   -H "Authorization: Bearer $MILAIDY_API_TOKEN"
+
+curl -sS http://localhost:2138/v1/models | jq .
+
+curl -sS http://localhost:2138/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "milaidy",
+    "messages": [
+      { "role": "system", "content": "You are a helpful assistant." },
+      { "role": "user", "content": "Say hello in one sentence." }
+    ]
+  }' | jq .
+
+curl -N http://localhost:2138/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "milaidy",
+    "stream": true,
+    "messages": [
+      { "role": "user", "content": "Stream a short haiku." }
+    ]
+  }'
+
+curl -sS http://localhost:2138/v1/messages \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "milaidy",
+    "max_tokens": 256,
+    "system": "You are a helpful assistant.",
+    "messages": [
+      { "role": "user", "content": "What is 2+2?" }
+    ]
+  }' | jq .
+
+curl -N http://localhost:2138/v1/messages \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "milaidy",
+    "stream": true,
+    "max_tokens": 256,
+    "messages": [
+      { "role": "user", "content": "Stream the answer to 2+2." }
+    ]
+  }'
+```
+
+**Expected**:
+- OpenAI route returns `{ id, object, created, model, choices: [...] }`
+- Anthropic route returns `{ id, type: \"message\", role: \"assistant\", content: [{type:\"text\", text:\"...\"}] }`
+- Streaming routes produce `data:` SSE chunks and complete without hanging
+
+---
+
 ## Phase 2: Desktop App Testing (Windows)
 
 ### 2.1 Build Desktop App

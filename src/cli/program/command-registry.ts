@@ -5,6 +5,7 @@ import { registerDashboardCommand } from "./register.dashboard.js";
 import { registerSetupCommand } from "./register.setup.js";
 import { registerStartCommand } from "./register.start.js";
 import { registerSubCliCommands } from "./register.subclis.js";
+import { registerTuiCommand } from "./register.tui.js";
 import { registerUpdateCommand } from "./register.update.js";
 
 export function registerProgramCommands(
@@ -12,6 +13,7 @@ export function registerProgramCommands(
   argv: string[] = process.argv,
 ) {
   registerStartCommand(program);
+  registerTuiCommand(program);
   registerSetupCommand(program);
   registerConfigureCommand(program);
   registerConfigCli(program);

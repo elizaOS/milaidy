@@ -63,6 +63,34 @@ describe("resolveConfigIncludes", () => {
     expect(resolve(obj)).toEqual(obj);
   });
 
+  it("drops prototype-pollution keys in plain objects", () => {
+    const obj = {
+      safe: true,
+      __proto__: { polluted: true },
+      constructor: { hacked: true },
+      prototype: { hacked: true },
+    };
+    const resolved = resolve(obj) as Record<string, unknown>;
+    expect(resolved).toEqual({ safe: true });
+    expect(Object.hasOwn(resolved, "__proto__")).toBe(false);
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+  });
+
+  it("drops prototype-pollution keys from includes", () => {
+    const files = {
+      [configPath("bad.json")]: {
+        safe: 1,
+        __proto__: { polluted: true },
+        constructor: { hacked: true },
+        prototype: { hacked: true },
+      },
+    };
+    const obj = { $include: "./bad.json" };
+    const resolved = resolve(obj, files) as Record<string, unknown>;
+    expect(resolved).toEqual({ safe: 1 });
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+  });
+
   it("resolves single file $include", () => {
     const files = { [configPath("agents.json")]: { list: [{ id: "main" }] } };
     const obj = { agents: { $include: "./agents.json" } };

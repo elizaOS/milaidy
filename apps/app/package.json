@@ -6,20 +6,23 @@
   "scripts": {
     "dev": "vite",
     "preview": "vite preview",
-    "test": "npx --prefix ../.. vitest run --config vitest.config.ts",
-    "test:watch": "npx --prefix ../.. vitest --config vitest.config.ts",
+    "test": "vitest run --config vitest.config.ts",
+    "test:watch": "vitest --config vitest.config.ts",
+    "test:electron:e2e": "playwright test --config playwright.electron.config.ts",
+    "test:electron:packaged:e2e": "playwright test --config playwright.electron.packaged.config.ts",
     "plugin:build": "for d in gateway swabble camera screencapture canvas desktop location talkmode agent; do echo \"[plugin:$d] building...\" && (cd plugins/$d && ../../../../scripts/rt.sh run build) || exit 1; done",
-    "build": "../../scripts/rt.sh run plugin:build && ../../scripts/rt.sh install && vite build",
+    "sync:electron:web-assets": "node scripts/sync-electron-web-assets.mjs",
+    "build": "../../scripts/rt.sh install && ../../scripts/rt.sh run plugin:build && ../../scripts/rt.sh install && vite build",
     "build:ios": "../../scripts/rt.sh run build && capacitor sync ios",
     "build:android": "../../scripts/rt.sh run build && capacitor sync android",
-    "build:electron": "../../scripts/rt.sh run build && capacitor sync @capacitor-community/electron",
+    "build:electron": "../../scripts/rt.sh run build && ../../scripts/rt.sh run sync:electron:web-assets",
     "ios": "../../scripts/rt.sh run build:ios && capacitor open ios",
     "android": "../../scripts/rt.sh run build:android && capacitor open android",
     "electron": "../../scripts/rt.sh run build:electron && capacitor open @capacitor-community/electron",
     "cap:sync": "capacitor sync",
     "cap:sync:ios": "capacitor sync ios",
     "cap:sync:android": "capacitor sync android",
-    "cap:sync:electron": "capacitor sync @capacitor-community/electron",
+    "cap:sync:electron": "node scripts/sync-electron-web-assets.mjs",
     "cap:open:ios": "capacitor open ios",
     "cap:open:android": "capacitor open android",
     "cap:open:electron": "capacitor open @capacitor-community/electron"
@@ -45,18 +48,21 @@
     "@pixiv/three-vrm": "^3.4.5",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "three": "^0.182.0"
+    "three": "^0.182.0",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@capacitor/cli": "8.0.2",
+    "@playwright/test": "^1.55.0",
     "@tailwindcss/vite": "^4.1.18",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@types/three": "^0.182.0",
     "@vitejs/plugin-react": "^5.1.3",
+    "react-test-renderer": "^19.2.4",
     "tailwindcss": "^4.1.18",
     "typescript": "^5.9.3",
-    "vite": "^5.4.2",
-    "vitest": "^2.0.0"
+    "vite": "^5.4.21",
+    "vitest": "^2.1.9"
   }
 }

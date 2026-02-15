@@ -185,6 +185,55 @@
     }
     .footer a { color: #b9d9b7; }
     .footer a:hover { color: #fff; }
+
+    /* Coming soon popup */
+    .coming-soon-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(47, 77, 12, 0.45);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1em;
+      z-index: 1000;
+    }
+    .coming-soon-popup {
+      width: 100%;
+      max-width: 32em;
+      border: 1px solid #2f4d0c;
+      background: #fff;
+      box-shadow: 0 8px 22px rgba(47, 77, 12, 0.25);
+    }
+    .coming-soon-popup-header {
+      background: #2f4d0c;
+      color: #fff;
+      padding: 0.5em 0.8em;
+      font-weight: 700;
+      font-size: 13px;
+    }
+    .coming-soon-popup-body {
+      padding: 1em;
+      font-size: 14px;
+      color: #2f4d0c;
+      line-height: 1.6;
+    }
+    .coming-soon-popup-actions {
+      margin-top: 0.9em;
+      text-align: right;
+    }
+    .coming-soon-close {
+      background: #b9d9b7;
+      color: #2f4d0c;
+      border: 1px solid #2f4d0c;
+      font-weight: 700;
+      padding: 6px 14px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    .coming-soon-close:hover {
+      background: #2f4d0c;
+      color: #fff;
+    }
   </style>
 </head>
 <body>
@@ -296,6 +345,33 @@ milaidy start</code></pre>
   <a href="https://github.com/milady-ai/milaidy">GitHub</a> &middot;
   <a href="https://github.com/milady-ai/milaidy/blob/main/LICENSE">MIT License</a>
 </div>
+
+<div class="coming-soon-overlay" id="comingSoonPopup" role="dialog" aria-modal="true" aria-labelledby="comingSoonTitle">
+  <div class="coming-soon-popup">
+    <div class="coming-soon-popup-header" id="comingSoonTitle">milady update</div>
+    <div class="coming-soon-popup-body">
+      The app is not quite ready yet, but it is coming very, very soon.
+      <br>
+      Stay close, milady.
+      <div class="coming-soon-popup-actions">
+        <button type="button" class="coming-soon-close" id="comingSoonClose">ok</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    var popup = document.getElementById("comingSoonPopup");
+    var closeButton = document.getElementById("comingSoonClose");
+    if (!popup || !closeButton) {
+      return;
+    }
+    closeButton.addEventListener("click", function () {
+      popup.style.display = "none";
+    });
+  })();
+</script>
 
 </body>
 </html>

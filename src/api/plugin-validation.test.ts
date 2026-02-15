@@ -5,14 +5,13 @@
  * API key format validation, default-value handling, and edge cases.
  */
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { createEnvSandbox } from "../test-support/test-helpers.js";
 import {
   type PluginParamInfo,
   validatePluginConfig,
 } from "./plugin-validation.js";
 
 describe("validatePluginConfig", () => {
-  // Save and restore env vars
-  const savedEnv: Record<string, string | undefined> = {};
   const envKeysToClean = [
     "ANTHROPIC_API_KEY",
     "OPENAI_API_KEY",
@@ -23,22 +22,14 @@ describe("validatePluginConfig", () => {
     "SLACK_BOT_TOKEN",
     "SOME_API_KEY",
   ];
+  const envSandbox = createEnvSandbox(envKeysToClean);
 
   beforeEach(() => {
-    for (const key of envKeysToClean) {
-      savedEnv[key] = process.env[key];
-      delete process.env[key];
-    }
+    envSandbox.clear();
   });
 
   afterEach(() => {
-    for (const key of envKeysToClean) {
-      if (savedEnv[key] === undefined) {
-        delete process.env[key];
-      } else {
-        process.env[key] = savedEnv[key];
-      }
-    }
+    envSandbox.restore();
   });
 
   // ---------------------------------------------------------------------------
@@ -264,6 +255,63 @@ describe("validatePluginConfig", () => {
       );
       expect(result.valid).toBe(true);
     });
+
+    it("rejects undeclared keys even when all declared fields are valid", () => {
+      const result = validatePluginConfig(
+        "discord",
+        "connector",
+        "DISCORD_API_TOKEN",
+        ["DISCORD_API_TOKEN", "DISCORD_APPLICATION_ID", "CHANNEL_IDS"],
+        {
+          DISCORD_API_TOKEN: "MTE1MDY2NjQwOTA3MTQzODg5MA.token",
+          DISCORD_APPLICATION_ID: "1150666409071438890",
+          UNDECLARED_KEY: "x",
+        },
+        discordParams,
+      );
+      expect(result.valid).toBe(false);
+      expect(result.errors).toContainEqual({
+        field: "UNDECLARED_KEY",
+        message: "UNDECLARED_KEY is not a declared config key for this plugin",
+      });
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Config key allowlist
+  // ---------------------------------------------------------------------------
+
+  it("rejects undeclared config keys", () => {
+    const result = validatePluginConfig(
+      "anthropic",
+      "ai-provider",
+      "ANTHROPIC_API_KEY",
+      ["ANTHROPIC_API_KEY", "ANTHROPIC_SMALL_MODEL"],
+      {
+        ANTHROPIC_API_KEY: "sk-ant-test-1234567890abcdef",
+        UNDECLARED_KEY: "oops",
+      },
+      [
+        {
+          key: "ANTHROPIC_API_KEY",
+          required: true,
+          sensitive: true,
+          type: "string",
+          description: "API key",
+        },
+        {
+          key: "ANTHROPIC_SMALL_MODEL",
+          required: false,
+          sensitive: false,
+          type: "string",
+          description: "Small model",
+          default: "claude-3-5-haiku-20241022",
+        },
+      ],
+    );
+
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.field === "UNDECLARED_KEY")).toBe(true);
   });
 
   // ---------------------------------------------------------------------------
