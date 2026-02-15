@@ -13,10 +13,12 @@
  *   node scripts/dev-ui.mjs --ui-only  # starts only the Vite UI (API assumed running)
  */
 import { execSync, spawn } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { createConnection } from "node:net";
+import os from "node:os";
 import path from "node:path";
 import process from "node:process";
+import JSON5 from "json5";
 
 const API_PORT = 31337;
 const UI_PORT = 2138;
@@ -116,7 +118,8 @@ function which(cmd) {
   return null;
 }
 
-const hasBun = !!which("bun");
+const forceNodeRuntime = process.env.MILAIDY_FORCE_NODE === "1";
+const hasBun = !forceNodeRuntime && !!which("bun");
 
 if (!hasBun && !which("npx")) {
   console.error(
@@ -124,6 +127,131 @@ if (!hasBun && !which("npx")) {
       "Install Bun or Node.js with npx to run this dev script.",
   );
   process.exit(1);
+}
+
+// ---------------------------------------------------------------------------
+// Stealth import config
+// ---------------------------------------------------------------------------
+
+function coerceBoolean(value) {
+  if (typeof value === "boolean") return value;
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().toLowerCase();
+  if (["1", "true", "yes", "on"].includes(normalized)) return true;
+  if (["0", "false", "no", "off"].includes(normalized)) return false;
+  return null;
+}
+
+function resolveMilaidyConfigPath() {
+  const explicitConfigPath = process.env.MILAIDY_CONFIG_PATH?.trim();
+  if (explicitConfigPath) {
+    return path.resolve(explicitConfigPath);
+  }
+
+  const explicitStateDir = process.env.MILAIDY_STATE_DIR?.trim();
+  if (explicitStateDir) {
+    return path.join(path.resolve(explicitStateDir), "milaidy.json");
+  }
+
+  return path.join(os.homedir(), ".milaidy", "milaidy.json");
+}
+
+function loadMilaidyConfigForDev() {
+  const configPath = resolveMilaidyConfigPath();
+  if (!existsSync(configPath)) return null;
+  try {
+    const raw = readFileSync(configPath, "utf-8");
+    return JSON5.parse(raw);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn(
+      `${green("[milaidy]")} Failed to parse config at ${configPath}: ${msg}`,
+    );
+    return null;
+  }
+}
+
+function readPluginStealthFlag(entries, ids) {
+  if (!entries || typeof entries !== "object") return null;
+
+  for (const id of ids) {
+    const entry = entries[id];
+    if (!entry || typeof entry !== "object") continue;
+
+    const config = entry.config;
+    if (!config || typeof config !== "object") continue;
+
+    const stealthFlag =
+      config.stealthImport ??
+      config.enableStealthImport ??
+      config.enableStealth;
+    const parsed = coerceBoolean(stealthFlag);
+    if (parsed !== null) return parsed;
+  }
+
+  return null;
+}
+
+function resolveStealthImportFlags() {
+  let openaiFlag = coerceBoolean(process.env.MILAIDY_ENABLE_OPENAI_STEALTH);
+  let claudeFlag = coerceBoolean(process.env.MILAIDY_ENABLE_CLAUDE_STEALTH);
+
+  const globalFlag = coerceBoolean(process.env.MILAIDY_ENABLE_STEALTH_IMPORTS);
+  if (globalFlag !== null) {
+    openaiFlag = globalFlag;
+    claudeFlag = globalFlag;
+  }
+
+  const config = loadMilaidyConfigForDev();
+  if (config && typeof config === "object") {
+    const feature = config.features?.stealthImports;
+    if (typeof feature === "boolean") {
+      if (openaiFlag === null) openaiFlag = feature;
+      if (claudeFlag === null) claudeFlag = feature;
+    } else if (feature && typeof feature === "object") {
+      const enabled = coerceBoolean(feature.enabled);
+      if (enabled !== null) {
+        if (openaiFlag === null) openaiFlag = enabled;
+        if (claudeFlag === null) claudeFlag = enabled;
+      }
+
+      const openaiFeature =
+        coerceBoolean(feature.openai) ?? coerceBoolean(feature.codex);
+      const claudeFeature =
+        coerceBoolean(feature.claude) ?? coerceBoolean(feature.anthropic);
+
+      if (openaiFeature !== null && openaiFlag === null) {
+        openaiFlag = openaiFeature;
+      }
+      if (claudeFeature !== null && claudeFlag === null) {
+        claudeFlag = claudeFeature;
+      }
+    }
+
+    const pluginEntries = config.plugins?.entries;
+    const openaiPluginStealth = readPluginStealthFlag(pluginEntries, [
+      "openai",
+      "@elizaos/plugin-openai",
+      "openai-codex-stealth",
+    ]);
+    const claudePluginStealth = readPluginStealthFlag(pluginEntries, [
+      "anthropic",
+      "@elizaos/plugin-anthropic",
+      "claude-code-stealth",
+    ]);
+
+    if (openaiPluginStealth !== null && openaiFlag === null) {
+      openaiFlag = openaiPluginStealth;
+    }
+    if (claudePluginStealth !== null && claudeFlag === null) {
+      claudeFlag = claudePluginStealth;
+    }
+  }
+
+  return {
+    openai: openaiFlag === true,
+    claude: claudeFlag === true,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -275,14 +403,27 @@ if (uiOnly) {
   printBanner();
   console.log(`  ${green("[milaidy]")} ${green("Starting dev server...")}\n`);
 
+  // Security default: stealth shims are disabled unless explicitly enabled
+  // via env vars or plugin config in milaidy.json.
+  const stealth = resolveStealthImportFlags();
+  const nodeStealthImports = [];
+  if (stealth.openai) nodeStealthImports.push("./openai-codex-stealth.mjs");
+  if (stealth.claude) nodeStealthImports.push("./claude-code-stealth.mjs");
+
+  const resolvedStealthImports = nodeStealthImports.filter((filePath) =>
+    existsSync(path.join(cwd, filePath)),
+  );
+  if (resolvedStealthImports.length > 0) {
+    console.log(
+      `  ${green("[milaidy]")} ${dim(`Stealth imports enabled: ${resolvedStealthImports.join(", ")}`)}`,
+    );
+  }
+
   const apiCmd = hasBun
     ? ["bun", "--watch", "src/runtime/dev-server.ts"]
     : [
         "node",
-        "--import",
-        "./openai-codex-stealth.mjs",
-        "--import",
-        "./claude-code-stealth.mjs",
+        ...resolvedStealthImports.flatMap((filePath) => ["--import", filePath]),
         "--import",
         "tsx",
         "--watch",

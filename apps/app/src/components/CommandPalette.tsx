@@ -15,7 +15,6 @@ export function CommandPalette() {
     commandActiveIndex,
     agentStatus,
     handleStart,
-    handleStop,
     handlePauseResume,
     handleRestart,
     setTab,
@@ -24,6 +23,7 @@ export function CommandPalette() {
     loadLogs,
     loadWorkbench,
     handleChatClear,
+    activeGameViewerUrl,
     setState,
     closeCommandPalette,
   } = useApp();
@@ -33,6 +33,8 @@ export function CommandPalette() {
   const agentState = agentStatus?.state ?? "stopped";
   const isRunning = agentState === "running";
   const isPaused = agentState === "paused";
+  const currentGameViewerUrl =
+    typeof activeGameViewerUrl === "string" ? activeGameViewerUrl : "";
 
   // Build command list
   const allCommands = useMemo<CommandItem[]>(() => {
@@ -45,38 +47,46 @@ export function CommandPalette() {
         label: "Start Agent",
         action: handleStart,
       });
-    } else {
+    }
+    if (isRunning || isPaused) {
       commands.push({
-        id: "stop-agent",
-        label: "Stop Agent",
-        action: handleStop,
-      });
-      if (isRunning || isPaused) {
-        commands.push({
-          id: "pause-resume-agent",
-          label: isPaused ? "Resume Agent" : "Pause Agent",
-          action: handlePauseResume,
-        });
-      }
-      commands.push({
-        id: "restart-agent",
-        label: "Restart Agent",
-        action: handleRestart,
+        id: "pause-resume-agent",
+        label: isPaused ? "Resume Agent" : "Pause Agent",
+        action: handlePauseResume,
       });
     }
+    commands.push({
+      id: "restart-agent",
+      label: "Restart Agent",
+      action: handleRestart,
+    });
 
     // Navigation commands
     commands.push(
       { id: "nav-chat", label: "Open Chat", action: () => setTab("chat") },
-      { id: "nav-features", label: "Open Features", action: () => setTab("features") },
-      { id: "nav-connectors", label: "Open Connectors", action: () => setTab("connectors") },
-      { id: "nav-skills", label: "Open Skills", action: () => setTab("skills") },
+      { id: "nav-apps", label: "Open Apps", action: () => setTab("apps") },
       { id: "nav-character", label: "Open Character", action: () => setTab("character") },
-      { id: "nav-config", label: "Open Config", action: () => setTab("config") },
-      { id: "nav-admin", label: "Open Admin", action: () => setTab("admin") },
-      { id: "nav-inventory", label: "Open Inventory", action: () => setTab("inventory") },
-      { id: "nav-apps", label: "Open Apps", action: () => setTab("apps") }
+      { id: "nav-triggers", label: "Open Triggers", action: () => setTab("triggers") },
+      { id: "nav-wallets", label: "Open Wallets", action: () => setTab("wallets") },
+      { id: "nav-knowledge", label: "Open Knowledge", action: () => setTab("knowledge") },
+      { id: "nav-connectors", label: "Open Social", action: () => setTab("connectors") },
+      { id: "nav-plugins", label: "Open Plugins", action: () => setTab("plugins") },
+      { id: "nav-config", label: "Open Config", action: () => setTab("settings") },
+      { id: "nav-database", label: "Open Database", action: () => setTab("database") },
+      { id: "nav-settings", label: "Open Settings", action: () => setTab("settings") },
+      { id: "nav-logs", label: "Open Logs", action: () => setTab("logs") }
     );
+
+    if (currentGameViewerUrl.trim()) {
+      commands.push({
+        id: "nav-current-game",
+        label: "Open Current Game",
+        action: () => {
+          setTab("apps");
+          setState("appsSubTab", "games");
+        },
+      });
+    }
 
     // Refresh commands
     commands.push(
@@ -99,10 +109,11 @@ export function CommandPalette() {
     isRunning,
     isPaused,
     handleStart,
-    handleStop,
     handlePauseResume,
     handleRestart,
     setTab,
+    currentGameViewerUrl,
+    setState,
     handleChatClear,
     loadPlugins,
     loadSkills,

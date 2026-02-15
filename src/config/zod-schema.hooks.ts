@@ -62,7 +62,7 @@ const HookConfigSchema = z
   })
   .strict();
 
-const HookInstallRecordSchema = z
+export const InstallRecordSchema = z
   .object({
     source: z.union([
       z.literal("npm"),
@@ -89,7 +89,7 @@ export const InternalHooksSchema = z
       })
       .strict()
       .optional(),
-    installs: z.record(z.string(), HookInstallRecordSchema).optional(),
+    installs: z.record(z.string(), InstallRecordSchema).optional(),
   })
   .strict()
   .optional();

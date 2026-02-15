@@ -1,0 +1,77 @@
+name: QA Report
+description: Structured QA feedback from testers
+labels: ["qa", "triage"]
+body:
+  - type: textarea
+    id: test_scenario
+    attributes:
+      label: Test Scenario
+      description: What were you testing?
+      placeholder: Describe the feature, flow, or bugfix under test.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps_performed
+    attributes:
+      label: Steps Performed
+      description: What did you do?
+      placeholder: |
+        1. Opened ...
+        2. Configured ...
+        3. Verified ...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: result
+    attributes:
+      label: Result
+      options:
+        - Pass
+        - Fail
+        - Partial
+    validations:
+      required: true
+
+  - type: textarea
+    id: details
+    attributes:
+      label: Details
+      description: What worked, what didn't?
+      placeholder: Include observations, edge cases, and notable behavior.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: environment
+    attributes:
+      label: Environment
+      description: Select your operating system.
+      options:
+        - macOS
+        - Windows
+        - Linux
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      options:
+        - Critical
+        - High
+        - Medium
+        - Low
+    validations:
+      required: true
+
+  - type: textarea
+    id: screenshots_or_logs
+    attributes:
+      label: Screenshots or Logs
+      placeholder: Attach screenshots, logs, or other evidence if available.
+    validations:
+      required: false

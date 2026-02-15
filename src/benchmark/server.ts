@@ -27,14 +27,16 @@ import {
   stringToUuid,
   type UUID,
 } from "@elizaos/core";
-
+import {
+  readJsonBody as parseJsonBody,
+  writeJsonResponseSafe,
+} from "../api/http-helpers.js";
 import { loadMilaidyConfig, type MilaidyConfig } from "../config/config.js";
 import {
   ensureAgentWorkspace,
   resolveDefaultAgentWorkspaceDir,
 } from "../providers/workspace.js";
 import { createMilaidyPlugin } from "../runtime/milaidy-plugin.js";
-
 import {
   BENCHMARK_MESSAGE_TEMPLATE,
   type BenchmarkContext,
@@ -254,27 +256,6 @@ async function createBenchmarkRuntime(
 
 const MAX_BODY_BYTES = 10 * 1024 * 1024; // 10 MB
 
-function readBody(
-  req: http.IncomingMessage,
-  maxBytes = MAX_BODY_BYTES,
-): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const chunks: Buffer[] = [];
-    let totalBytes = 0;
-    req.on("data", (chunk: Buffer) => {
-      totalBytes += chunk.length;
-      if (totalBytes > maxBytes) {
-        req.destroy();
-        reject(new Error(`Request body exceeds ${maxBytes} bytes`));
-        return;
-      }
-      chunks.push(chunk);
-    });
-    req.on("end", () => resolve(Buffer.concat(chunks).toString("utf-8")));
-    req.on("error", reject);
-  });
-}
-
 function extractTag(text: string, tag: string): string | undefined {
   const re = new RegExp(`<${tag}>(.*?)</${tag}>`, "s");
   const m = text.match(re);
@@ -286,13 +267,8 @@ function jsonResponse(
   status: number,
   body: object,
 ): void {
-  const json = JSON.stringify(body);
-  res.writeHead(status, {
-    "Content-Type": "application/json",
-    "Access-Control-Allow-Origin": "*",
-    "Content-Length": Buffer.byteLength(json),
-  });
-  res.end(json);
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  writeJsonResponseSafe(res, body, status);
 }
 
 // ---------------------------------------------------------------------------
@@ -374,13 +350,15 @@ async function main(): Promise<void> {
 
       // Reset session
       if (pathname === "/api/benchmark/reset" && req.method === "POST") {
-        let body: ResetRequest;
-        try {
-          body = JSON.parse(await readBody(req)) as ResetRequest;
-        } catch {
-          jsonResponse(res, 400, { error: "Invalid JSON in request body" });
-          return;
-        }
+        const body = await parseJsonBody<ResetRequest>(req, res, {
+          maxBytes: MAX_BODY_BYTES,
+          readErrorMessage: "Invalid JSON in request body",
+          readErrorStatus: 400,
+          parseErrorMessage: "Invalid JSON in request body",
+          parseErrorStatus: 400,
+          requireObject: true,
+        });
+        if (!body) return;
 
         // Create a fresh room for the new task
         currentRoomId = stringToUuid(
@@ -398,13 +376,15 @@ async function main(): Promise<void> {
 
       // Send message
       if (pathname === "/api/benchmark/message" && req.method === "POST") {
-        let body: MessageRequest;
-        try {
-          body = JSON.parse(await readBody(req)) as MessageRequest;
-        } catch {
-          jsonResponse(res, 400, { error: "Invalid JSON in request body" });
-          return;
-        }
+        const body = await parseJsonBody<MessageRequest>(req, res, {
+          maxBytes: MAX_BODY_BYTES,
+          readErrorMessage: "Invalid JSON in request body",
+          readErrorStatus: 400,
+          parseErrorMessage: "Invalid JSON in request body",
+          parseErrorStatus: 400,
+          requireObject: true,
+        });
+        if (!body) return;
 
         if (!body.text) {
           jsonResponse(res, 400, { error: "Missing 'text' field" });

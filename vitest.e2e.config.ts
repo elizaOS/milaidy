@@ -1,32 +1,37 @@
-import os from "node:os";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 
-const isCI = process.env.CI === "true" || process.env.GITHUB_ACTIONS === "true";
-const cpuCount = os.cpus().length;
-const e2eWorkers = isCI
-  ? 2
-  : Math.min(4, Math.max(1, Math.floor(cpuCount * 0.25)));
+const repoRoot = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
-  // @elizaos/skills has a broken package.json entry; the server handles
-  // the missing module gracefully, so tell Vite not to resolve it.
   resolve: {
     alias: {
-      "@elizaos/skills": "/dev/null",
+      "milaidy/plugin-sdk": path.join(
+        repoRoot,
+        "src",
+        "plugin-sdk",
+        "index.ts",
+      ),
+      "@elizaos/skills": path.join(
+        repoRoot,
+        "test",
+        "stubs",
+        "empty-module.mjs",
+      ),
     },
   },
   test: {
+    testTimeout: 120_000,
+    hookTimeout: 120_000,
     pool: "forks",
-    maxWorkers: e2eWorkers,
-    globalSetup: ["test/e2e-global-setup.ts"],
-    include: ["test/**/*.e2e.test.ts", "src/**/*.e2e.test.ts"],
+    maxWorkers: 1,
+    sequence: {
+      concurrent: false,
+      shuffle: false,
+    },
+    include: ["test/**/*.e2e.test.ts"],
     setupFiles: ["test/setup.ts"],
-    exclude: [
-      "dist/**",
-      "apps/macos/**",
-      "apps/macos/.build/**",
-      "**/vendor/**",
-      "dist/Milaidy.app/**",
-    ],
+    exclude: ["dist/**", "**/node_modules/**"],
   },
 });

@@ -9,9 +9,17 @@
 
 import * as crypto from "node:crypto";
 import * as http from "node:http";
+import { readRequestBody } from "./http-helpers.js";
 
 const PORT = Number(process.env.PORT ?? "2138");
 const BRIDGE_PORT = Number(process.env.BRIDGE_PORT ?? "18790");
+type ChatMode = "simple" | "power";
+
+interface BridgeRpcParams {
+  text?: string;
+  roomId?: string;
+  mode?: string;
+}
 
 // ─── ElizaOS Runtime ────────────────────────────────────────────────────
 
@@ -21,10 +29,15 @@ const BRIDGE_PORT = Number(process.env.BRIDGE_PORT ?? "18790");
  * started yet.
  */
 let agentRuntime: {
-  processMessage: (text: string, roomId: string) => Promise<string>;
+  processMessage: (
+    text: string,
+    roomId: string,
+    mode: ChatMode,
+  ) => Promise<string>;
   processMessageStream: (
     text: string,
     roomId: string,
+    mode: ChatMode,
     onChunk: (chunk: string) => void,
   ) => Promise<string>;
   getMemories: () => Array<Record<string, unknown>>;
@@ -130,6 +143,7 @@ async function initRuntime(): Promise<void> {
       processMessage: async (
         text: string,
         _roomId: string,
+        mode: ChatMode,
       ): Promise<string> => {
         const message = createMessageMemory({
           id: crypto.randomUUID() as ReturnType<typeof stringToUuid>,
@@ -137,6 +151,8 @@ async function initRuntime(): Promise<void> {
           roomId,
           content: {
             text,
+            mode,
+            simple: mode === "simple",
             source: "cloud-bridge",
             channelType: ChannelType.DM,
           },
@@ -164,6 +180,7 @@ async function initRuntime(): Promise<void> {
       processMessageStream: async (
         text: string,
         _roomId: string,
+        mode: ChatMode,
         onChunk: (chunk: string) => void,
       ): Promise<string> => {
         const message = createMessageMemory({
@@ -172,6 +189,8 @@ async function initRuntime(): Promise<void> {
           roomId,
           content: {
             text,
+            mode,
+            simple: mode === "simple",
             source: "cloud-bridge",
             channelType: ChannelType.DM,
           },
@@ -210,7 +229,11 @@ async function initRuntime(): Promise<void> {
       "[cloud-agent] @elizaos/core not available, running in echo mode",
     );
     agentRuntime = {
-      processMessage: async (text: string): Promise<string> => {
+      processMessage: async (
+        text: string,
+        _roomId: string,
+        _mode: ChatMode,
+      ): Promise<string> => {
         state.memories.push({ role: "user", text, timestamp: Date.now() });
         const reply = `[echo] ${text}`;
         state.memories.push({
@@ -223,6 +246,7 @@ async function initRuntime(): Promise<void> {
       processMessageStream: async (
         text: string,
         _roomId: string,
+        _mode: ChatMode,
         onChunk: (chunk: string) => void,
       ): Promise<string> => {
         state.memories.push({ role: "user", text, timestamp: Date.now() });
@@ -274,15 +298,6 @@ healthServer.listen(PORT, "0.0.0.0", () => {
 
 // ─── Bridge HTTP server ─────────────────────────────────────────────────
 
-function readBody(req: http.IncomingMessage): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const chunks: Buffer[] = [];
-    req.on("data", (chunk: Buffer) => chunks.push(chunk));
-    req.on("end", () => resolve(Buffer.concat(chunks).toString("utf-8")));
-    req.on("error", reject);
-  });
-}
-
 const bridgeServer = http.createServer(async (req, res) => {
   res.setHeader("Content-Type", "application/json");
 
@@ -300,7 +315,7 @@ const bridgeServer = http.createServer(async (req, res) => {
   }
 
   if (req.method === "POST" && req.url === "/api/restore") {
-    const body = await readBody(req);
+    const body = await readRequestBody(req);
     const incoming = JSON.parse(body) as Partial<typeof state>;
     if (incoming.memories) state.memories = incoming.memories;
     if (incoming.config) state.config = incoming.config;
@@ -321,12 +336,12 @@ const bridgeServer = http.createServer(async (req, res) => {
       return;
     }
 
-    const body = await readBody(req);
+    const body = await readRequestBody(req);
     const rpc = JSON.parse(body) as {
       jsonrpc: string;
       id?: string | number;
       method?: string;
-      params?: Record<string, unknown>;
+      params?: BridgeRpcParams;
     };
 
     if (rpc.method !== "message.send") {
@@ -349,6 +364,7 @@ const bridgeServer = http.createServer(async (req, res) => {
 
     const text = (rpc.params?.text as string) ?? "";
     const roomId = (rpc.params?.roomId as string) ?? "default";
+    const mode: ChatMode = rpc.params?.mode === "simple" ? "simple" : "power";
 
     sendEvent("connected", { rpcId: rpc.id, timestamp: Date.now() });
 
@@ -358,9 +374,14 @@ const bridgeServer = http.createServer(async (req, res) => {
     // is not wired through the bridge protocol yet. For now, each
     // onChunk call emits one SSE event containing whatever text the
     // runtime produced in that callback invocation.
-    await agentRuntime.processMessageStream(text, roomId, (chunk: string) => {
-      sendEvent("chunk", { text: chunk });
-    });
+    await agentRuntime.processMessageStream(
+      text,
+      roomId,
+      mode,
+      (chunk: string) => {
+        sendEvent("chunk", { text: chunk });
+      },
+    );
 
     sendEvent("done", { rpcId: rpc.id, timestamp: Date.now() });
     res.end();
@@ -368,12 +389,12 @@ const bridgeServer = http.createServer(async (req, res) => {
   }
 
   if (req.method === "POST" && req.url === "/bridge") {
-    const body = await readBody(req);
+    const body = await readRequestBody(req);
     const rpc = JSON.parse(body) as {
       jsonrpc: string;
       id?: string | number;
       method?: string;
-      params?: Record<string, unknown>;
+      params?: BridgeRpcParams;
     };
 
     if (rpc.method === "message.send") {
@@ -390,7 +411,12 @@ const bridgeServer = http.createServer(async (req, res) => {
       }
       const text = (rpc.params?.text as string) ?? "";
       const roomId = (rpc.params?.roomId as string) ?? "default";
-      const responseText = await agentRuntime.processMessage(text, roomId);
+      const mode: ChatMode = rpc.params?.mode === "simple" ? "simple" : "power";
+      const responseText = await agentRuntime.processMessage(
+        text,
+        roomId,
+        mode,
+      );
       res.writeHead(200);
       res.end(
         JSON.stringify({

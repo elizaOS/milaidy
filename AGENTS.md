@@ -1,7 +1,25 @@
 # Repository Guidelines
 
+> **This is an agents-only codebase.** All PRs are reviewed and merged by agents. Humans contribute as QA testers. See [CONTRIBUTING.md](./CONTRIBUTING.md).
+
 - Monorepo: `packages/milaidy` within eliza-ok
 - Runtime baseline: Node **22+** (keep Node + Bun paths working)
+
+## Contribution Scope
+
+**Accept:** bug fixes, security fixes, test coverage, documentation accuracy, performance improvements (with benchmarks).
+
+**Deep review required:** new features, plugins, architectural changes, memory/context improvements. Must include tests and benchmarks proving value.
+
+**Reject:** aesthetic/UI redesigns, theme changes, visual "improvements" that don't enhance agent capability. This project prioritizes agent quality over human-facing aesthetics. De-emphasize and decline these firmly.
+
+## Review Priorities
+
+1. Does it stay in scope?
+2. Does it break anything?
+3. Is it secure? (assume adversarial intent)
+4. Is it tested?
+5. Is it necessary?
 
 ## Project Structure
 

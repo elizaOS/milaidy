@@ -5,6 +5,7 @@
 
 import crypto from "node:crypto";
 import { logger } from "@elizaos/core";
+import { validateCloudBaseUrl } from "./validate-url.js";
 
 export interface CloudLoginResult {
   apiKey: string;
@@ -15,9 +16,30 @@ export interface CloudLoginResult {
 export interface CloudLoginOptions {
   baseUrl?: string;
   timeoutMs?: number;
+  requestTimeoutMs?: number;
   pollIntervalMs?: number;
   onBrowserUrl?: (url: string) => void;
   onPollStatus?: (status: string) => void;
+}
+
+const DEFAULT_CLOUD_REQUEST_TIMEOUT_MS = 10_000;
+
+function isTimeoutError(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  if (err.name === "TimeoutError" || err.name === "AbortError") return true;
+  const msg = err.message.toLowerCase();
+  return msg.includes("timed out") || msg.includes("timeout");
+}
+
+async function fetchWithTimeout(
+  input: string,
+  init: RequestInit,
+  timeoutMs: number,
+): Promise<Response> {
+  return fetch(input, {
+    ...init,
+    signal: AbortSignal.timeout(timeoutMs),
+  });
 }
 
 export async function cloudLogin(
@@ -27,17 +49,39 @@ export async function cloudLogin(
     /\/+$/,
     "",
   );
+  const urlError = await validateCloudBaseUrl(baseUrl);
+  if (urlError) {
+    throw new Error(urlError);
+  }
   const timeoutMs = options.timeoutMs ?? 300_000;
+  const requestTimeoutMs =
+    options.requestTimeoutMs ?? DEFAULT_CLOUD_REQUEST_TIMEOUT_MS;
   const pollIntervalMs = options.pollIntervalMs ?? 2_000;
   const sessionId = crypto.randomUUID();
 
   logger.info("[cloud-auth] Creating auth session...");
 
-  const createResponse = await fetch(`${baseUrl}/api/auth/cli-session`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ sessionId }),
-  });
+  let createResponse: Response;
+  try {
+    createResponse = await fetchWithTimeout(
+      `${baseUrl}/api/auth/cli-session`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId }),
+      },
+      requestTimeoutMs,
+    );
+  } catch (err) {
+    if (isTimeoutError(err)) {
+      throw new Error(
+        `Cloud login request timed out while creating session (>${requestTimeoutMs}ms).`,
+      );
+    }
+    throw new Error(
+      `Failed to create auth session: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
 
   if (!createResponse.ok) {
     const errorText = await createResponse.text();
@@ -53,11 +97,32 @@ export async function cloudLogin(
   const deadline = Date.now() + timeoutMs;
 
   while (Date.now() < deadline) {
-    await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
-
-    const pollResponse = await fetch(
-      `${baseUrl}/api/auth/cli-session/${encodeURIComponent(sessionId)}`,
+    const remainingBeforeSleep = deadline - Date.now();
+    if (remainingBeforeSleep <= 0) break;
+    await new Promise((resolve) =>
+      setTimeout(resolve, Math.min(pollIntervalMs, remainingBeforeSleep)),
     );
+
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) break;
+
+    let pollResponse: Response;
+    try {
+      pollResponse = await fetchWithTimeout(
+        `${baseUrl}/api/auth/cli-session/${encodeURIComponent(sessionId)}`,
+        {},
+        Math.min(requestTimeoutMs, remaining),
+      );
+    } catch (err) {
+      if (isTimeoutError(err)) {
+        throw new Error(
+          `Cloud login polling request timed out (>${Math.min(requestTimeoutMs, remaining)}ms).`,
+        );
+      }
+      throw new Error(
+        `Cloud login polling failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
 
     if (!pollResponse.ok) {
       if (pollResponse.status === 404) {

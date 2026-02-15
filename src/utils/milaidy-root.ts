@@ -25,37 +25,39 @@ function readPackageNameSync(dir: string): string | null {
   }
 }
 
-async function findPackageRoot(
-  startDir: string,
-  maxDepth = 12,
-): Promise<string | null> {
+function listAncestorDirs(startDir: string, maxDepth = 12): string[] {
+  const dirs: string[] = [];
   let current = path.resolve(startDir);
   for (let i = 0; i < maxDepth; i += 1) {
-    const name = await readPackageName(current);
-    if (name === CORE_PACKAGE_NAME) {
-      return current;
-    }
+    dirs.push(current);
     const parent = path.dirname(current);
     if (parent === current) {
       break;
     }
     current = parent;
   }
+  return dirs;
+}
+
+async function findPackageRoot(
+  startDir: string,
+  maxDepth = 12,
+): Promise<string | null> {
+  for (const candidate of listAncestorDirs(startDir, maxDepth)) {
+    const name = await readPackageName(candidate);
+    if (name === CORE_PACKAGE_NAME) {
+      return candidate;
+    }
+  }
   return null;
 }
 
 function findPackageRootSync(startDir: string, maxDepth = 12): string | null {
-  let current = path.resolve(startDir);
-  for (let i = 0; i < maxDepth; i += 1) {
-    const name = readPackageNameSync(current);
+  for (const candidate of listAncestorDirs(startDir, maxDepth)) {
+    const name = readPackageNameSync(candidate);
     if (name === CORE_PACKAGE_NAME) {
-      return current;
+      return candidate;
     }
-    const parent = path.dirname(current);
-    if (parent === current) {
-      break;
-    }
-    current = parent;
   }
   return null;
 }
@@ -73,11 +75,13 @@ function candidateDirsFromArgv1(argv1: string): string[] {
   return candidates;
 }
 
-export async function resolveMilaidyPackageRoot(opts: {
+type ResolveMilaidyRootOptions = {
   cwd?: string;
   argv1?: string;
   moduleUrl?: string;
-}): Promise<string | null> {
+};
+
+function candidateDirsFromOptions(opts: ResolveMilaidyRootOptions): string[] {
   const candidates: string[] = [];
 
   if (opts.moduleUrl) {
@@ -89,6 +93,14 @@ export async function resolveMilaidyPackageRoot(opts: {
   if (opts.cwd) {
     candidates.push(opts.cwd);
   }
+
+  return candidates;
+}
+
+export async function resolveMilaidyPackageRoot(
+  opts: ResolveMilaidyRootOptions,
+): Promise<string | null> {
+  const candidates = candidateDirsFromOptions(opts);
 
   for (const candidate of candidates) {
     const found = await findPackageRoot(candidate);
@@ -100,22 +112,10 @@ export async function resolveMilaidyPackageRoot(opts: {
   return null;
 }
 
-export function resolveMilaidyPackageRootSync(opts: {
-  cwd?: string;
-  argv1?: string;
-  moduleUrl?: string;
-}): string | null {
-  const candidates: string[] = [];
-
-  if (opts.moduleUrl) {
-    candidates.push(path.dirname(fileURLToPath(opts.moduleUrl)));
-  }
-  if (opts.argv1) {
-    candidates.push(...candidateDirsFromArgv1(opts.argv1));
-  }
-  if (opts.cwd) {
-    candidates.push(opts.cwd);
-  }
+export function resolveMilaidyPackageRootSync(
+  opts: ResolveMilaidyRootOptions,
+): string | null {
+  const candidates = candidateDirsFromOptions(opts);
 
   for (const candidate of candidates) {
     const found = findPackageRootSync(candidate);

@@ -73,6 +73,33 @@ function testPluginInfo(overrides: Record<string, unknown> = {}) {
   };
 }
 
+async function writeLocalPluginSource(
+  rootDir: string,
+  packageName: string,
+  version: string,
+): Promise<string> {
+  const packageDir = path.join(rootDir, "local-plugin-src");
+  await fs.mkdir(packageDir, { recursive: true });
+  await fs.writeFile(
+    path.join(packageDir, "package.json"),
+    JSON.stringify(
+      {
+        name: packageName,
+        version,
+        type: "module",
+        main: "index.js",
+      },
+      null,
+      2,
+    ),
+  );
+  await fs.writeFile(
+    path.join(packageDir, "index.js"),
+    "export default { name: 'local-plugin' };",
+  );
+  return packageDir;
+}
+
 // ---------------------------------------------------------------------------
 // Setup / Teardown
 // ---------------------------------------------------------------------------
@@ -141,6 +168,41 @@ describe("plugin-installer", () => {
       expect(phases).toContain("downloading");
       // Both npm and git should fail for a nonexistent package
       expect(result.success).toBe(false);
+    }, 180_000);
+
+    it("installs from local workspace path when available", async () => {
+      const localSourcePath = await writeLocalPluginSource(
+        tmpDir,
+        "@elizaos/plugin-local-source",
+        "1.2.3",
+      );
+      const { getPluginInfo } = await import("./registry-client.js");
+      vi.mocked(getPluginInfo).mockResolvedValue(
+        testPluginInfo({
+          name: "@elizaos/plugin-local-source",
+          npm: {
+            package: "@elizaos/plugin-local-source",
+            v0Version: null,
+            v1Version: null,
+            v2Version: "1.2.3",
+          },
+          localPath: localSourcePath,
+        }),
+      );
+
+      const { installPlugin, listInstalledPlugins } = await loadInstaller();
+      const result = await installPlugin("@elizaos/plugin-local-source");
+
+      expect(result.success).toBe(true);
+      expect(result.pluginName).toBe("@elizaos/plugin-local-source");
+      expect(result.version).toBe("1.2.3");
+
+      const installed = listInstalledPlugins();
+      const localPlugin = installed.find(
+        (plugin) => plugin.name === "@elizaos/plugin-local-source",
+      );
+      expect(localPlugin).toBeDefined();
+      expect(localPlugin?.version).toBe("1.2.3");
     }, 180_000);
   });
 
@@ -219,6 +281,38 @@ describe("plugin-installer", () => {
       const result = await uninstallPlugin("@elizaos/plugin-ghost");
 
       expect(result.success).toBe(true);
+    });
+
+    it("fails when install directory removal errors unexpectedly", async () => {
+      const installDir = path.join(
+        configDir,
+        "plugins",
+        "installed",
+        "_elizaos_plugin-broken",
+      );
+      await fs.mkdir(installDir, { recursive: true });
+      writeConfig({
+        plugins: {
+          installs: {
+            "@elizaos/plugin-broken": {
+              source: "npm",
+              installPath: installDir,
+              version: "1.0.0",
+            },
+          },
+        },
+      });
+
+      const rmSpy = vi
+        .spyOn(fs, "rm")
+        .mockRejectedValueOnce(new Error("permission denied"));
+
+      const { uninstallPlugin } = await loadInstaller();
+      const result = await uninstallPlugin("@elizaos/plugin-broken");
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("Failed to remove plugin directory");
+      rmSpy.mockRestore();
     });
 
     it("refuses to remove install paths outside the plugins directory", async () => {

@@ -1,10 +1,14 @@
 import nodeResolve from "@rollup/plugin-node-resolve";
+import fs from "node:fs";
 
 const external = ["@capacitor/core"];
+const input = fs.existsSync("dist/esm/index.js")
+  ? "dist/esm/index.js"
+  : "dist/esm/src/index.js";
 
 export default [
   {
-    input: "dist/esm/index.js",
+    input,
     output: [
       {
         file: "dist/plugin.js",

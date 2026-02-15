@@ -2,34 +2,81 @@
  * Navigation — tabs + onboarding.
  */
 
-export type Tab = "chat" | "apps" | "game" | "inventory" | "features" | "connectors" | "skills" | "character" | "config" | "admin";
+export type Tab =
+  | "chat"
+  | "apps"
+  | "character"
+  | "wallets"
+  | "knowledge"
+  | "connectors"
+  | "triggers"
+  | "plugins"
+  | "skills"
+  | "actions"
+  | "advanced"
+  | "fine-tuning"
+  | "trajectories"
+  | "voice"
+  | "runtime"
+  | "database"
+  | "settings"
+  | "logs";
 
 export const TAB_GROUPS = [
   { label: "Chat", tabs: ["chat"] as Tab[] },
-  { label: "Play", tabs: ["apps"] as Tab[] },
-  { label: "Manage", tabs: ["inventory", "features", "connectors", "skills"] as Tab[] },
-  { label: "Settings", tabs: ["character", "config", "admin"] as Tab[] },
+  { label: "Character", tabs: ["character"] as Tab[] },
+  { label: "Wallets", tabs: ["wallets"] as Tab[] },
+  { label: "Knowledge", tabs: ["knowledge"] as Tab[] },
+  { label: "Social", tabs: ["connectors"] as Tab[] },
+  { label: "Apps", tabs: ["apps"] as Tab[] },
+  { label: "Settings", tabs: ["settings"] as Tab[] },
+  {
+    label: "Advanced",
+    tabs: [
+      "advanced",
+      "plugins",
+      "skills",
+      "actions",
+      "triggers",
+      "fine-tuning",
+      "trajectories",
+      "runtime",
+      "database",
+      "logs",
+    ] as Tab[],
+  },
 ] as const;
 
 const TAB_PATHS: Record<Tab, string> = {
   chat: "/chat",
   apps: "/apps",
-  game: "/game",
-  inventory: "/inventory",
-  features: "/features",
-  connectors: "/connectors",
-  skills: "/skills",
   character: "/character",
-  config: "/config",
-  admin: "/admin",
+  triggers: "/triggers",
+  wallets: "/wallets",
+  knowledge: "/knowledge",
+  connectors: "/connectors",
+  plugins: "/plugins",
+  skills: "/skills",
+  actions: "/actions",
+  advanced: "/advanced",
+  "fine-tuning": "/fine-tuning",
+  trajectories: "/trajectories",
+  voice: "/voice",
+  runtime: "/runtime",
+  database: "/database",
+  settings: "/settings",
+  logs: "/logs",
 };
 
 /** Legacy path redirects — old paths that now map to new tabs. */
 const LEGACY_PATHS: Record<string, Tab> = {
-  "/database": "admin",
-  "/logs": "admin",
   "/game": "apps",
-  "/plugins": "features",
+  "/agent": "character",
+  "/inventory": "wallets",
+  "/features": "plugins",
+  "/admin": "advanced",
+  "/config": "settings",
+  "/triggers": "triggers",
 };
 
 const PATH_TO_TAB = new Map(
@@ -52,6 +99,7 @@ export function tabFromPath(pathname: string, basePath = ""): Tab | null {
   let normalized = normalizePath(p).toLowerCase();
   if (normalized.endsWith("/index.html")) normalized = "/";
   if (normalized === "/") return "chat";
+  if (normalized === "/voice") return "settings";
   // Check current paths first, then legacy redirects
   return PATH_TO_TAB.get(normalized) ?? LEGACY_PATHS[normalized] ?? null;
 }
@@ -77,15 +125,22 @@ export function titleForTab(tab: Tab): string {
   switch (tab) {
     case "chat": return "Chat";
     case "apps": return "Apps";
-    case "game": return "Game";
-    case "inventory": return "Inventory";
-    case "features": return "Features";
-    case "connectors": return "Connectors";
-    case "skills": return "Skills";
     case "character": return "Character";
-    case "config": return "Config";
-    case "admin": return "Admin";
+    case "triggers": return "Triggers";
+    case "wallets": return "Wallets";
+    case "knowledge": return "Knowledge";
+    case "connectors": return "Social";
+    case "plugins": return "Plugins";
+    case "skills": return "Skills";
+    case "actions": return "Actions";
+    case "advanced": return "Advanced";
+    case "fine-tuning": return "Fine-Tuning";
+    case "trajectories": return "Trajectories";
+    case "voice": return "Voice";
+    case "runtime": return "Runtime";
+    case "database": return "Databases";
+    case "settings": return "Settings";
+    case "logs": return "Logs";
     default: return "Milaidy";
   }
 }
-

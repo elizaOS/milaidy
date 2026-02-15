@@ -25,6 +25,7 @@ export function ConversationsSidebar() {
   const {
     conversations,
     activeConversationId,
+    unreadConversations,
     handleNewConversation,
     handleSelectConversation,
     handleDeleteConversation,
@@ -124,6 +125,9 @@ export function ConversationsSidebar() {
                   />
                 ) : (
                   <>
+                    {unreadConversations.has(conv.id) && (
+                      <span className="w-2 h-2 rounded-full bg-accent shrink-0" />
+                    )}
                     <div className="flex-1 min-w-0">
                       <div className="font-medium truncate text-txt">{conv.title}</div>
                       <div className="text-[11px] text-muted mt-0.5">{formatRelativeTime(conv.updatedAt)}</div>

@@ -14,6 +14,7 @@ import {
 import {
   HookMappingSchema,
   HooksGmailSchema,
+  InstallRecordSchema,
   InternalHooksSchema,
 } from "./zod-schema.hooks.js";
 import {
@@ -25,6 +26,7 @@ import {
   SignalConfigSchema,
   SlackConfigSchema,
   TelegramConfigSchema,
+  TwitterConfigSchema,
   WhatsAppConfigSchema,
 } from "./zod-schema.providers-core.js";
 import {
@@ -134,6 +136,7 @@ const ConnectorsSchema = z
     whatsapp: WhatsAppConfigSchema.optional(),
     telegram: TelegramConfigSchema.optional(),
     discord: DiscordConfigSchema.optional(),
+    twitter: TwitterConfigSchema.optional(),
     googlechat: GoogleChatConfigSchema.optional(),
     slack: SlackConfigSchema.optional(),
     signal: SignalConfigSchema.optional(),
@@ -720,6 +723,18 @@ export const MilaidySchema = z
       .strict()
       .optional(),
     memory: MemorySchema,
+    embedding: z
+      .object({
+        model: z.string().optional(),
+        modelRepo: z.string().optional(),
+        dimensions: z.number().int().positive().optional(),
+        gpuLayers: z
+          .union([z.literal("auto"), z.literal("max"), z.number().int().min(0)])
+          .optional(),
+        idleTimeoutMinutes: z.number().min(0).optional(),
+      })
+      .strict()
+      .optional(),
     skills: z
       .object({
         allowBundled: z.array(z.string()).optional(),
@@ -790,25 +805,7 @@ export const MilaidySchema = z
               .strict(),
           )
           .optional(),
-        installs: z
-          .record(
-            z.string(),
-            z
-              .object({
-                source: z.union([
-                  z.literal("npm"),
-                  z.literal("archive"),
-                  z.literal("path"),
-                ]),
-                spec: z.string().optional(),
-                sourcePath: z.string().optional(),
-                installPath: z.string().optional(),
-                version: z.string().optional(),
-                installedAt: z.string().optional(),
-              })
-              .strict(),
-          )
-          .optional(),
+        installs: z.record(z.string(), InstallRecordSchema).optional(),
       })
       .strict()
       .optional(),

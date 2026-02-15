@@ -17,6 +17,7 @@ export * from "./location";
 export * from "./camera";
 export * from "./canvas";
 export * from "./agent";
+export * from "./permissions";
 
 // Import registration functions
 import { registerDesktopIPC, getDesktopManager } from "./desktop";
@@ -28,6 +29,7 @@ import { registerLocationIPC, getLocationManager } from "./location";
 import { registerCameraIPC, getCameraManager } from "./camera";
 import { registerCanvasIPC, getCanvasManager } from "./canvas";
 import { registerAgentIPC, getAgentManager } from "./agent";
+import { registerPermissionsIPC, getPermissionManager } from "./permissions";
 
 /**
  * Initialize all native modules with the main window
@@ -42,6 +44,7 @@ export function initializeNativeModules(mainWindow: BrowserWindow): void {
   getLocationManager().setMainWindow(mainWindow);
   getCameraManager().setMainWindow(mainWindow);
   getCanvasManager().setMainWindow(mainWindow);
+  getPermissionManager().setMainWindow(mainWindow);
 }
 
 /**
@@ -58,6 +61,7 @@ export function registerAllIPC(): void {
   registerCameraIPC();
   registerCanvasIPC();
   registerAgentIPC();
+  registerPermissionsIPC();
 }
 
 /**
@@ -73,4 +77,5 @@ export function disposeNativeModules(): void {
   getLocationManager().dispose();
   getCameraManager().dispose();
   getCanvasManager().dispose();
+  getPermissionManager().dispose();
 }

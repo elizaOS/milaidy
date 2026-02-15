@@ -16,12 +16,7 @@ dist
 **/dist
 **/*.trace
 
-# Large/binary files
-*.png
-*.jpg
-*.jpeg
-*.webp
-*.gif
+# Large binary media files (not needed for build)
 *.mp4
 *.mov
 *.wav

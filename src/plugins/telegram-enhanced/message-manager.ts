@@ -3,8 +3,10 @@ import { logger } from "@elizaos/core";
 import { MessageManager } from "@elizaos/plugin-telegram";
 import { Markup } from "telegraf";
 import { smartChunkTelegramText } from "./chunking.js";
+import { DraftStreamer, simulateSentenceStream } from "./draft-stream.js";
 
 const TYPING_INTERVAL_MS = 4000;
+const SIMULATED_STREAM_DELAY_MS = 200;
 const RECEIPT_REACTIONS = ["👀", "⏳"] as const;
 
 /** Minimal shape for a Telegram inline button. */
@@ -45,13 +47,23 @@ interface TelegramContext {
       chatId: number,
       text: string,
       extra?: Record<string, unknown>,
-    ) => Promise<unknown>;
+    ) => Promise<object | boolean | null | undefined>;
+    editMessageText?: (
+      chatId: number,
+      messageId: number,
+      inlineMessageId: undefined,
+      text: string,
+      extra?: Record<string, unknown>,
+    ) => Promise<object | boolean | null | undefined>;
     setMessageReaction?: (
       chatId: number,
       messageId: number,
       reactions: Array<{ type: string; emoji: string }>,
-    ) => Promise<unknown>;
-    sendChatAction: (chatId: number, action: string) => Promise<unknown>;
+    ) => Promise<object | boolean | null | undefined>;
+    sendChatAction: (
+      chatId: number,
+      action: string,
+    ) => Promise<object | boolean | null | undefined>;
   };
 }
 
@@ -72,30 +84,61 @@ export class EnhancedTelegramMessageManager extends MessageManager {
       return super.sendMessageInChunks(ctx, content, replyToMessageId);
     }
 
-    const chunks = smartChunkTelegramText(content?.text ?? "");
+    const finalText = content?.text ?? "";
+    const chunks = smartChunkTelegramText(finalText);
     if (!ctx?.chat || chunks.length === 0) {
       return [];
     }
 
     const telegramButtons = toTelegramButtons(content?.buttons);
-    const sentMessages: unknown[] = [];
+    const finalReplyMarkup = telegramButtons.length
+      ? Markup.inlineKeyboard(telegramButtons)
+      : undefined;
 
-    for (let i = 0; i < chunks.length; i += 1) {
-      const chunk = chunks[i];
-      const sent = await ctx.telegram.sendMessage(ctx.chat.id, chunk.html, {
-        parse_mode: "HTML",
-        reply_parameters:
-          i === 0 && replyToMessageId
-            ? { message_id: replyToMessageId }
-            : undefined,
-        ...(telegramButtons.length
-          ? Markup.inlineKeyboard(telegramButtons)
-          : {}),
-      });
-      sentMessages.push(sent);
+    if (typeof ctx.telegram.editMessageText !== "function") {
+      const sentMessages: Array<object | boolean | null | undefined> = [];
+      for (let i = 0; i < chunks.length; i += 1) {
+        const sent = await ctx.telegram.sendMessage(
+          ctx.chat.id,
+          chunks[i].html,
+          {
+            parse_mode: "HTML",
+            reply_parameters:
+              i === 0 && replyToMessageId
+                ? { message_id: replyToMessageId }
+                : undefined,
+            ...(i === 0 && finalReplyMarkup ? finalReplyMarkup : {}),
+          },
+        );
+        sentMessages.push(sent);
+      }
+      return sentMessages;
     }
 
-    return sentMessages;
+    const streamer = new DraftStreamer({
+      chatId: ctx.chat.id,
+      telegram: {
+        sendMessage: ctx.telegram.sendMessage.bind(ctx.telegram),
+        editMessageText: ctx.telegram.editMessageText.bind(ctx.telegram),
+      },
+      replyToMessageId,
+    });
+
+    try {
+      await simulateSentenceStream(
+        finalText,
+        (partialText) => {
+          streamer.update(partialText);
+        },
+        SIMULATED_STREAM_DELAY_MS,
+      );
+
+      return await streamer.finalize(finalText, {
+        ...(finalReplyMarkup ?? {}),
+      });
+    } finally {
+      streamer.stop();
+    }
   }
 
   // biome-ignore lint/suspicious/noExplicitAny: Telegram context type from untyped external library

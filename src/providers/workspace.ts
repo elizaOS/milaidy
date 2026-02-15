@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { isSubagentSessionKey, logger } from "@elizaos/core";
+import * as elizaCore from "@elizaos/core";
 import { resolveUserPath } from "../config/paths.js";
 
 export interface RunCommandResult {
@@ -207,6 +207,35 @@ export type WorkspaceBootstrapFile = {
   missing: boolean;
 };
 
+type ElizaCoreWorkspaceHelpers = {
+  isSubagentSessionKey?: (key: string) => boolean;
+  logger?: {
+    warn: (message: string) => void;
+  };
+};
+
+const coreWorkspaceHelpers = elizaCore as ElizaCoreWorkspaceHelpers;
+
+function isSubagentSessionKey(sessionKey: string): boolean {
+  if (typeof coreWorkspaceHelpers.isSubagentSessionKey === "function") {
+    return coreWorkspaceHelpers.isSubagentSessionKey(sessionKey);
+  }
+  // Older @elizaos/core versions do not expose subagent helpers.
+  // Treat all sessions as primary sessions in that case.
+  return false;
+}
+
+function logWarn(message: string): void {
+  if (
+    coreWorkspaceHelpers.logger &&
+    typeof coreWorkspaceHelpers.logger.warn === "function"
+  ) {
+    coreWorkspaceHelpers.logger.warn(message);
+    return;
+  }
+  console.warn(message);
+}
+
 async function writeFileIfMissing(filePath: string, content: string) {
   try {
     await fs.writeFile(filePath, content, {
@@ -259,7 +288,7 @@ async function ensureGitRepo(dir: string, isBrandNewWorkspace: boolean) {
       timeoutMs: 10_000,
     });
   } catch (err) {
-    logger.warn(
+    logWarn(
       `[workspace] git init failed: ${err instanceof Error ? err.message : err}`,
     );
   }

@@ -239,42 +239,42 @@ export function getPlugins(): MilaidyPlugins {
 
   pluginsInstance = {
     gateway: {
-      plugin: wrapPlugin(GatewayPlugin as unknown as IGatewayPlugin, "Gateway"),
+      plugin: wrapPlugin(GatewayPlugin as IGatewayPlugin, "Gateway"),
       isNative: isNative,
       hasFallback: true,
     },
     swabble: {
-      plugin: wrapPlugin(SwabblePlugin as unknown as ISwabblePlugin, "Swabble"),
+      plugin: wrapPlugin(SwabblePlugin as ISwabblePlugin, "Swabble"),
       isNative: isNative,
       hasFallback: capabilities.voiceWake.available,
     },
     talkMode: {
-      plugin: wrapPlugin(TalkModePlugin as unknown as ITalkModePlugin, "TalkMode"),
+      plugin: wrapPlugin(TalkModePlugin as ITalkModePlugin, "TalkMode"),
       isNative: isNative,
       hasFallback: capabilities.talkMode.available,
     },
     camera: {
-      plugin: wrapPlugin(CameraPlugin as unknown as ICameraPlugin, "Camera"),
+      plugin: wrapPlugin(CameraPlugin as ICameraPlugin, "Camera"),
       isNative: isNative,
       hasFallback: capabilities.camera.available,
     },
     location: {
-      plugin: wrapPlugin(LocationPlugin as unknown as ILocationPlugin, "Location"),
+      plugin: wrapPlugin(LocationPlugin as ILocationPlugin, "Location"),
       isNative: isNative,
       hasFallback: capabilities.location.available,
     },
     screenCapture: {
-      plugin: wrapPlugin(ScreenCapturePlugin as unknown as IScreenCapturePlugin, "ScreenCapture"),
+      plugin: wrapPlugin(ScreenCapturePlugin as IScreenCapturePlugin, "ScreenCapture"),
       isNative: isNative,
       hasFallback: capabilities.screenCapture.available,
     },
     canvas: {
-      plugin: wrapPlugin(CanvasPlugin as unknown as ICanvasPlugin, "Canvas"),
+      plugin: wrapPlugin(CanvasPlugin as ICanvasPlugin, "Canvas"),
       isNative: isNative,
       hasFallback: true,
     },
     desktop: {
-      plugin: wrapPlugin(DesktopPlugin as unknown as IDesktopPlugin, "Desktop"),
+      plugin: wrapPlugin(DesktopPlugin as IDesktopPlugin, "Desktop"),
       isNative: isElectron,
       hasFallback: false,
     },

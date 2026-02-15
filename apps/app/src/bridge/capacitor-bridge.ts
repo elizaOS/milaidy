@@ -260,11 +260,6 @@ export function initializeCapacitorBridge(): void {
   document.dispatchEvent(new CustomEvent("milaidy:bridge-ready", {
     detail: window.Milaidy,
   }));
-
-  console.log("[Capacitor Bridge] Initialized", {
-    platform,
-    capabilities: window.Milaidy.capabilities,
-  });
 }
 
 /**

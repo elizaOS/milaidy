@@ -1,5 +1,5 @@
 import { Command } from "commander";
-import { VERSION } from "../../runtime/version.js";
+import { CLI_VERSION } from "../version.js";
 import { registerProgramCommands } from "./command-registry.js";
 import { configureProgramHelp } from "./help.js";
 import { registerPreActionHooks } from "./preaction.js";
@@ -7,8 +7,8 @@ import { registerPreActionHooks } from "./preaction.js";
 export function buildProgram() {
   const program = new Command();
 
-  configureProgramHelp(program, VERSION);
-  registerPreActionHooks(program, VERSION);
+  configureProgramHelp(program, CLI_VERSION);
+  registerPreActionHooks(program, CLI_VERSION);
   registerProgramCommands(program);
 
   return program;

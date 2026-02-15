@@ -7,6 +7,7 @@
  */
 
 import { useMemo } from "react";
+import type { StartupPhase } from "../AppContext";
 
 /* ── ASCII source ──────────────────────────────────────────────────── */
 
@@ -41,7 +42,16 @@ interface CharCell {
 
 /* ── Component ─────────────────────────────────────────────────────── */
 
-export function LoadingScreen() {
+const PHASE_LABELS: Record<StartupPhase, string> = {
+  "starting-backend": "starting backend",
+  "initializing-agent": "initializing agent",
+};
+
+interface LoadingScreenProps {
+  phase?: StartupPhase;
+}
+
+export function LoadingScreen({ phase = "starting-backend" }: LoadingScreenProps) {
   /* Build the character grid once — each non-space character gets its
      own random timing so the dither pattern is never uniform. */
   const grid = useMemo<CharCell[][]>(
@@ -95,7 +105,7 @@ export function LoadingScreen() {
         className="text-muted text-xs tracking-widest uppercase"
         style={{ fontFamily: "var(--mono)" }}
       >
-        loading
+        {PHASE_LABELS[phase]}
       </div>
     </div>
   );

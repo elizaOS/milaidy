@@ -1,7 +1,16 @@
 /**
  * Tests for plugin-bridge — capabilities detection and feature flags on web platform.
  */
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
+
+vi.mock("@milaidy/capacitor-gateway", () => ({ Gateway: {} }));
+vi.mock("@milaidy/capacitor-swabble", () => ({ Swabble: {} }));
+vi.mock("@milaidy/capacitor-talkmode", () => ({ TalkMode: {} }));
+vi.mock("@milaidy/capacitor-camera", () => ({ Camera: {} }));
+vi.mock("@milaidy/capacitor-location", () => ({ Location: {} }));
+vi.mock("@milaidy/capacitor-screencapture", () => ({ ScreenCapture: {} }));
+vi.mock("@milaidy/capacitor-canvas", () => ({ Canvas: {} }));
+vi.mock("@milaidy/capacitor-desktop", () => ({ Desktop: {} }));
 import {
   getPluginCapabilities,
   isFeatureAvailable,

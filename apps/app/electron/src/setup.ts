@@ -6,11 +6,13 @@ import {
 } from '@capacitor-community/electron';
 import chokidar from 'chokidar';
 import type { MenuItemConstructorOptions } from 'electron';
-import { app, BrowserWindow, Menu, MenuItem, nativeImage, Tray, session, shell } from 'electron';
+import { app, BrowserWindow, clipboard, Menu, MenuItem, nativeImage, Tray, session, shell } from 'electron';
 import electronIsDev from 'electron-is-dev';
 import electronServe from 'electron-serve';
 import windowStateKeeper from 'electron-window-state';
+import { existsSync } from 'node:fs';
 import { join } from 'path';
+import { buildMissingWebAssetsMessage, resolveWebAssetDirectory } from './web-assets';
 
 // Define components for a watcher to detect when the webapp is changed so we can reload in Dev mode.
 const reloadWatcher = {
@@ -19,8 +21,9 @@ const reloadWatcher = {
   watcher: null,
 };
 export function setupReloadWatcher(electronCapacitorApp: ElectronCapacitorApp): void {
+  const watchDir = electronCapacitorApp.getWebAssetDirectory();
   reloadWatcher.watcher = chokidar
-    .watch(join(app.getAppPath(), 'app'), {
+    .watch(watchDir, {
       ignored: /[/\\]\./,
       persistent: true,
     })
@@ -56,8 +59,9 @@ export class ElectronCapacitorApp {
     { role: 'viewMenu' },
   ];
   private mainWindowState;
-  private loadWebApp;
+  private loadWebApp: (window: BrowserWindow) => Promise<void>;
   private customScheme: string;
+  private webAssetDirectory: string;
 
   constructor(
     capacitorFileConfig: CapacitorElectronConfig,
@@ -68,6 +72,14 @@ export class ElectronCapacitorApp {
 
     this.customScheme = this.CapacitorFileConfig.electron?.customUrlScheme ?? 'capacitor-electron';
 
+    const webAssets = resolveWebAssetDirectory({
+      appPath: app.getAppPath(),
+      cwd: process.cwd(),
+      webDir: this.CapacitorFileConfig.webDir,
+      preferBuildOutput: electronIsDev,
+    });
+    this.webAssetDirectory = webAssets.directory;
+
     if (trayMenuTemplate) {
       this.TrayMenuTemplate = trayMenuTemplate;
     }
@@ -76,9 +88,25 @@ export class ElectronCapacitorApp {
       this.AppMenuBarMenuTemplate = appMenuBarMenuTemplate;
     }
 
+    if (webAssets.usedFallback) {
+      if (webAssets.primaryHasIndexHtml && electronIsDev) {
+        console.info(
+          `[Milaidy] Dev mode: using web assets at ${this.webAssetDirectory} instead of synced ${join(app.getAppPath(), 'app')}`
+        );
+      } else {
+        console.warn(
+          `[Milaidy] Using fallback web assets at ${this.webAssetDirectory} because ${join(app.getAppPath(), 'app')} is missing index.html`
+        );
+      }
+    }
+
+    if (!webAssets.hasIndexHtml) {
+      console.error(buildMissingWebAssetsMessage(webAssets));
+    }
+
     // Setup our web app loader, this lets us load apps like react, vue, and angular without changing their build chains.
     this.loadWebApp = electronServe({
-      directory: join(app.getAppPath(), 'app'),
+      directory: this.webAssetDirectory,
       scheme: this.customScheme,
     });
   }
@@ -87,7 +115,75 @@ export class ElectronCapacitorApp {
   // Note: This method receives `thisRef` from CapacitorSplashScreen.init callback pattern.
   // The splash screen calls this as `loadMainWindow(thisRef)` where thisRef is passed back to us.
   private async loadMainWindow(thisRef: ElectronCapacitorApp): Promise<void> {
-    await thisRef.loadWebApp(thisRef.MainWindow);
+    if (!thisRef.MainWindow || thisRef.MainWindow.isDestroyed()) return;
+
+    const fallbackIndexPath = join(thisRef.webAssetDirectory, 'index.html');
+    const customSchemeUrl = `${thisRef.customScheme}://-`;
+
+    // On packaged builds, prefer direct file loading for startup stability.
+    // We still keep custom-scheme support as a fallback.
+    if (!electronIsDev && existsSync(fallbackIndexPath)) {
+      try {
+        if (!thisRef.MainWindow || thisRef.MainWindow.isDestroyed()) return;
+        await thisRef.MainWindow.loadFile(fallbackIndexPath);
+        console.info(`[Milaidy] Loaded packaged web assets from ${fallbackIndexPath}`);
+        return;
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        console.error(`[Milaidy] Packaged file:// load failed (${reason})`);
+      }
+    }
+
+    try {
+      if (!thisRef.MainWindow || thisRef.MainWindow.isDestroyed()) return;
+      // Use electron-serve's loader so custom-scheme startup matches its
+      // registered protocol behavior in packaged and dev environments.
+      await thisRef.loadWebApp(thisRef.MainWindow);
+      return;
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      console.error(`[Milaidy] Failed to load web app via ${customSchemeUrl} (${reason})`);
+    }
+
+    if (existsSync(fallbackIndexPath)) {
+      try {
+        if (!thisRef.MainWindow || thisRef.MainWindow.isDestroyed()) return;
+        await thisRef.MainWindow.loadFile(fallbackIndexPath);
+        console.info(`[Milaidy] Loaded fallback web assets from ${fallbackIndexPath}`);
+        return;
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        console.error(`[Milaidy] Fallback file:// load failed (${reason})`);
+      }
+    }
+
+    // Final fallback: render a diagnostic page instead of crashing with an unhandled rejection.
+    const diagnostics = buildMissingWebAssetsMessage({
+      directory: thisRef.webAssetDirectory,
+      searched: [thisRef.webAssetDirectory],
+      usedFallback: false,
+      hasIndexHtml: false,
+      primaryHasIndexHtml: false,
+    });
+    const html = `<html><body style="font-family: sans-serif; margin: 24px;"><h2>Milaidy Desktop Failed to Load UI Assets</h2><pre style="white-space: pre-wrap;">${diagnostics}</pre></body></html>`;
+    try {
+      if (!thisRef.MainWindow || thisRef.MainWindow.isDestroyed()) return;
+      await thisRef.MainWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      console.error(`[Milaidy] Failed to render diagnostics page (${reason})`);
+    }
+  }
+
+  // Capacitor splash invokes load callbacks without awaiting them.
+  // Keep startup errors contained so they never surface as unhandled rejections.
+  private async safeLoadMainWindow(thisRef: ElectronCapacitorApp): Promise<void> {
+    try {
+      await this.loadMainWindow(thisRef);
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      console.error(`[Milaidy] Unexpected startup load error (${reason})`);
+    }
   }
 
   // Expose the mainWindow ref for use outside of the class.
@@ -97,6 +193,10 @@ export class ElectronCapacitorApp {
 
   getCustomURLScheme(): string {
     return this.customScheme;
+  }
+
+  getWebAssetDirectory(): string {
+    return this.webAssetDirectory;
   }
 
   async init(): Promise<void> {
@@ -179,9 +279,11 @@ export class ElectronCapacitorApp {
         windowWidth: 400,
         windowHeight: 400,
       });
-      this.SplashScreen.init(this.loadMainWindow, this);
+      this.SplashScreen.init((thisRef) => {
+        void this.safeLoadMainWindow(thisRef as ElectronCapacitorApp);
+      }, this);
     } else {
-      this.loadMainWindow(this);
+      void this.safeLoadMainWindow(this);
     }
 
     // Security
@@ -249,11 +351,99 @@ export class ElectronCapacitorApp {
     this.MainWindow.webContents.on('dom-ready', () => {
       showWindow();
       setTimeout(() => {
-        if (electronIsDev && !this.MainWindow.isDestroyed()) {
+        const devtoolsDisabled = process.env.MILAIDY_ELECTRON_DISABLE_DEVTOOLS === '1';
+        if (electronIsDev && !devtoolsDisabled && !this.MainWindow.isDestroyed()) {
           this.MainWindow.webContents.openDevTools();
         }
         CapElectronEventEmitter.emit('CAPELECTRON_DeeplinkListenerInitialized', '');
       }, 400);
+    });
+
+    // ── Context menu ──────────────────────────────────────────────────
+    this.MainWindow.webContents.on('context-menu', (_event, params) => {
+      const menuItems: MenuItemConstructorOptions[] = [];
+
+      // Text selection actions
+      if (params.selectionText) {
+        const text = params.selectionText.trim();
+        menuItems.push(
+          { role: 'copy' },
+          { type: 'separator' },
+          {
+            label: 'Save as /Command',
+            click: () => this.MainWindow.webContents.send('contextMenu:saveAsCommand', { text }),
+          },
+          {
+            label: 'Ask Agent About This',
+            click: () => this.MainWindow.webContents.send('contextMenu:askAgent', { text }),
+          },
+          {
+            label: 'Create Skill from This',
+            click: () => this.MainWindow.webContents.send('contextMenu:createSkill', { text }),
+          },
+          {
+            label: 'Quote in Chat',
+            click: () => this.MainWindow.webContents.send('contextMenu:quoteInChat', { text }),
+          },
+        );
+      }
+
+      // Link actions
+      if (params.linkURL) {
+        if (menuItems.length > 0) menuItems.push({ type: 'separator' });
+        menuItems.push(
+          {
+            label: 'Open Link in Browser',
+            click: () => shell.openExternal(params.linkURL),
+          },
+          {
+            label: 'Copy Link Address',
+            click: () => clipboard.writeText(params.linkURL),
+          },
+        );
+      }
+
+      // Image actions
+      if (params.hasImageContents) {
+        if (menuItems.length > 0) menuItems.push({ type: 'separator' });
+        menuItems.push(
+          {
+            label: 'Copy Image',
+            click: () => this.MainWindow.webContents.copyImageAt(params.x, params.y),
+          },
+          {
+            label: 'Save Image As...',
+            click: () => this.MainWindow.webContents.downloadURL(params.srcURL),
+          },
+        );
+      }
+
+      // Editable field actions
+      if (params.isEditable) {
+        if (menuItems.length > 0) menuItems.push({ type: 'separator' });
+        menuItems.push(
+          { role: 'undo' },
+          { role: 'redo' },
+          { type: 'separator' },
+          { role: 'cut' },
+          { role: 'copy' },
+          { role: 'paste' },
+          { type: 'separator' },
+          { role: 'selectAll' },
+        );
+      }
+
+      // Always-present items
+      if (menuItems.length > 0) menuItems.push({ type: 'separator' });
+      menuItems.push({ role: 'reload' });
+      if (electronIsDev) {
+        menuItems.push({
+          label: 'Inspect Element',
+          click: () => this.MainWindow.webContents.inspectElement(params.x, params.y),
+        });
+      }
+
+      Menu.buildFromTemplate(menuItems).popup();
     });
 
     // Handle content load failures — still show the window so it isn't invisible.
@@ -276,9 +466,9 @@ export function setupContentSecurityPolicy(customScheme: string): void {
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     const base = [
       `default-src 'self' ${customScheme}://* https://*`,
-      `script-src 'self' ${customScheme}://* 'unsafe-inline'${electronIsDev ? " 'unsafe-eval' devtools://*" : ''}`,
+      `script-src 'self' ${customScheme}://* 'unsafe-inline'${electronIsDev ? " devtools://*" : ""}`,
       `style-src 'self' ${customScheme}://* 'unsafe-inline'`,
-      `connect-src 'self' ${customScheme}://* blob: http://localhost:* ws://localhost:* wss://localhost:* https://* wss://*`,
+      `connect-src 'self' ${customScheme}://* blob: http://localhost:* ws://localhost:* wss://localhost:* http://127.0.0.1:* ws://127.0.0.1:* wss://127.0.0.1:* https://* wss://*`,
       `img-src 'self' ${customScheme}://* data: blob: https://*`,
       `media-src 'self' ${customScheme}://* blob: https://*`,
       `font-src 'self' ${customScheme}://* data:`,

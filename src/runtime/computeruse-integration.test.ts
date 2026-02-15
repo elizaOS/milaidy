@@ -12,7 +12,25 @@
 
 import { describe, expect, it } from "vitest";
 import type { MilaidyConfig } from "../config/config.js";
+import { tryOptionalDynamicImport } from "../test-support/test-helpers.js";
 import { CORE_PLUGINS, collectPluginNames } from "./eliza.js";
+
+async function loadComputerUsePluginModule(): Promise<Record<
+  string,
+  unknown
+> | null> {
+  return tryOptionalDynamicImport<Record<string, unknown>>(
+    "@elizaos/plugin-computeruse",
+  );
+}
+
+async function withComputerUsePlugin(
+  run: (mod: Record<string, unknown>) => void | Promise<void>,
+): Promise<void> {
+  const mod = await loadComputerUsePluginModule();
+  if (!mod) return;
+  await run(mod);
+}
 
 // ---------------------------------------------------------------------------
 // Plugin classification — computeruse is optional, not core
@@ -96,37 +114,14 @@ describe("Computer Use plugin classification", () => {
 
 describe("Computer Use plugin module", () => {
   it("can be dynamically imported without crashing", async () => {
-    try {
-      const mod = (await import("@elizaos/plugin-computeruse")) as Record<
-        string,
-        unknown
-      >;
+    await withComputerUsePlugin((mod) => {
       expect(mod).toBeDefined();
       expect(typeof mod).toBe("object");
-    } catch (err) {
-      // Plugin may have native dep issues in test env
-      const msg = err instanceof Error ? err.message : String(err);
-      if (
-        msg.includes("Cannot find module") ||
-        msg.includes("Cannot find package") ||
-        msg.includes("ERR_MODULE_NOT_FOUND") ||
-        msg.includes("MODULE_NOT_FOUND") ||
-        msg.includes("Dynamic require of") ||
-        msg.includes("native addon module") ||
-        msg.includes("Failed to resolve entry")
-      ) {
-        return;
-      }
-      throw err;
-    }
+    });
   });
 
   it("exports a valid Plugin with name and description", async () => {
-    try {
-      const mod = (await import("@elizaos/plugin-computeruse")) as Record<
-        string,
-        unknown
-      >;
+    await withComputerUsePlugin((mod) => {
       // Check default export
       const plugin = (mod.default ?? mod.computerusePlugin) as Record<
         string,
@@ -138,52 +133,32 @@ describe("Computer Use plugin module", () => {
         expect((plugin.name as string).length).toBeGreaterThan(0);
         expect((plugin.description as string).length).toBeGreaterThan(0);
       }
-    } catch {
-      // Skip if not loadable
-    }
+    });
   });
 
   it("exports named computerusePlugin", async () => {
-    try {
-      const mod = (await import("@elizaos/plugin-computeruse")) as Record<
-        string,
-        unknown
-      >;
+    await withComputerUsePlugin((mod) => {
       expect(mod.computerusePlugin).toBeDefined();
       const plugin = mod.computerusePlugin as Record<string, unknown>;
       expect(typeof plugin.name).toBe("string");
-    } catch {
-      // Skip if not loadable
-    }
+    });
   });
 
   it("exports ComputerUseService class", async () => {
-    try {
-      const mod = (await import("@elizaos/plugin-computeruse")) as Record<
-        string,
-        unknown
-      >;
+    await withComputerUsePlugin((mod) => {
       expect(mod.ComputerUseService).toBeDefined();
       expect(typeof mod.ComputerUseService).toBe("function");
-    } catch {
-      // Skip if not loadable
-    }
+    });
   });
 
   it("exports computerUseConfigSchema for validation", async () => {
-    try {
-      const mod = (await import("@elizaos/plugin-computeruse")) as Record<
-        string,
-        unknown
-      >;
+    await withComputerUsePlugin((mod) => {
       const schema = mod.computerUseConfigSchema as Record<string, unknown>;
       if (schema) {
         expect(typeof schema.parse).toBe("function");
         expect(typeof schema.safeParse).toBe("function");
       }
-    } catch {
-      // Skip if not loadable
-    }
+    });
   });
 });
 
@@ -193,10 +168,8 @@ describe("Computer Use plugin module", () => {
 
 describe("Computer Use config schema", () => {
   it("validates default config with all defaults", async () => {
-    try {
-      const { computerUseConfigSchema } = (await import(
-        "@elizaos/plugin-computeruse"
-      )) as {
+    await withComputerUsePlugin((mod) => {
+      const { computerUseConfigSchema } = mod as {
         computerUseConfigSchema: {
           parse: (v: unknown) => Record<string, unknown>;
         };
@@ -205,16 +178,12 @@ describe("Computer Use config schema", () => {
       expect(result.COMPUTERUSE_ENABLED).toBe(false);
       expect(result.COMPUTERUSE_MODE).toBe("auto");
       expect(result.COMPUTERUSE_MCP_SERVER).toBe("computeruse");
-    } catch {
-      // Skip if not loadable
-    }
+    });
   });
 
   it("validates explicit enabled config", async () => {
-    try {
-      const { computerUseConfigSchema } = (await import(
-        "@elizaos/plugin-computeruse"
-      )) as {
+    await withComputerUsePlugin((mod) => {
+      const { computerUseConfigSchema } = mod as {
         computerUseConfigSchema: {
           parse: (v: unknown) => Record<string, unknown>;
         };
@@ -225,16 +194,12 @@ describe("Computer Use config schema", () => {
       });
       expect(result.COMPUTERUSE_ENABLED).toBe(true);
       expect(result.COMPUTERUSE_MODE).toBe("local");
-    } catch {
-      // Skip if not loadable
-    }
+    });
   });
 
   it("validates MCP mode config", async () => {
-    try {
-      const { computerUseConfigSchema } = (await import(
-        "@elizaos/plugin-computeruse"
-      )) as {
+    await withComputerUsePlugin((mod) => {
+      const { computerUseConfigSchema } = mod as {
         computerUseConfigSchema: {
           parse: (v: unknown) => Record<string, unknown>;
         };
@@ -246,9 +211,7 @@ describe("Computer Use config schema", () => {
       });
       expect(result.COMPUTERUSE_MODE).toBe("mcp");
       expect(result.COMPUTERUSE_MCP_SERVER).toBe("my-mcp-server");
-    } catch {
-      // Skip if not loadable
-    }
+    });
   });
 });
 
@@ -258,10 +221,10 @@ describe("Computer Use config schema", () => {
 
 describe("Computer Use plugin actions", () => {
   it("plugin declares actions array", async () => {
-    try {
-      const { computerusePlugin } = (await import(
-        "@elizaos/plugin-computeruse"
-      )) as { computerusePlugin: { actions?: Array<{ name: string }> } };
+    await withComputerUsePlugin((mod) => {
+      const { computerusePlugin } = mod as {
+        computerusePlugin: { actions?: Array<{ name: string }> };
+      };
       if (computerusePlugin.actions) {
         expect(Array.isArray(computerusePlugin.actions)).toBe(true);
         expect(computerusePlugin.actions.length).toBeGreaterThan(0);
@@ -270,16 +233,14 @@ describe("Computer Use plugin actions", () => {
           expect(action.name.length).toBeGreaterThan(0);
         }
       }
-    } catch {
-      // Skip if not loadable
-    }
+    });
   });
 
   it("plugin declares expected action names", async () => {
-    try {
-      const { computerusePlugin } = (await import(
-        "@elizaos/plugin-computeruse"
-      )) as { computerusePlugin: { actions?: Array<{ name: string }> } };
+    await withComputerUsePlugin((mod) => {
+      const { computerusePlugin } = mod as {
+        computerusePlugin: { actions?: Array<{ name: string }> };
+      };
       if (computerusePlugin.actions) {
         const actionNames = computerusePlugin.actions.map((a) => a.name);
         // These are the documented actions from the plugin
@@ -294,8 +255,6 @@ describe("Computer Use plugin actions", () => {
           expect(actionNames).toContain(expected);
         }
       }
-    } catch {
-      // Skip if not loadable
-    }
+    });
   });
 });
