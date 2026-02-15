@@ -13,15 +13,21 @@ var __export = (target, all) => {
   for (var name in all)
     __defProp(target, name, { get: all[name], enumerable: true });
 };
-var __copyProps = (to, from, except, desc) => {
-  if (from && typeof from === "object" || typeof from === "function") {
-    for (let key of __getOwnPropNames(from))
-      if (!__hasOwnProp.call(to, key) && key !== except)
-        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+var __copyProps = (to, from, except) => {
+  if ((from && typeof from === "object") || typeof from === "function") {
+    for (const key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except) {
+        const propDesc = __getOwnPropDesc(from, key);
+        __defProp(to, key, {
+          get: () => from[key],
+          enumerable: !propDesc || propDesc.enumerable,
+        });
+      }
   }
   return to;
 };
-var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+var __toCommonJS = (mod) =>
+  __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 var scoring_engine_exports = {};
 __export(scoring_engine_exports, {
   DEFAULT_CONFIG: () => DEFAULT_CONFIG,
@@ -35,7 +41,7 @@ __export(scoring_engine_exports, {
   getComplexityMultiplier: () => getComplexityMultiplier,
   getTier: () => getTier,
   round: () => round,
-  updateStreak: () => updateStreak
+  updateStreak: () => updateStreak,
 });
 module.exports = __toCommonJS(scoring_engine_exports);
 const DEFAULT_CONFIG = {
@@ -43,7 +49,7 @@ const DEFAULT_CONFIG = {
     approve: 12,
     reject: -6,
     close: -5,
-    selfClose: -2
+    selfClose: -2,
   },
   diminishingRate: 0.08,
   recencyHalfLifeDays: 60,
@@ -53,7 +59,7 @@ const DEFAULT_CONFIG = {
     { maxLines: 150, multiplier: 1, label: "medium" },
     { maxLines: 500, multiplier: 1.3, label: "large" },
     { maxLines: 1500, multiplier: 1.5, label: "xlarge" },
-    { maxLines: Number.POSITIVE_INFINITY, multiplier: 1.2, label: "massive" }
+    { maxLines: Number.POSITIVE_INFINITY, multiplier: 1.2, label: "massive" },
   ],
   categoryWeights: {
     security: 1.8,
@@ -65,33 +71,33 @@ const DEFAULT_CONFIG = {
     docs: 0.6,
     chore: 0.5,
     aesthetic: 0.4,
-    test: 0.8
+    test: 0.8,
   },
   defaultCategoryWeight: 0.8,
   streaks: {
     approvalBonus: 0.08,
     approvalMaxBonus: 0.5,
     rejectionPenalty: 0.15,
-    rejectionMaxPenalty: 2.5
+    rejectionMaxPenalty: 2.5,
   },
   inactivityDecay: {
     gracePeriodDays: 10,
     decayRatePerDay: 5e-3,
     decayFloor: 30,
-    decayTarget: 40
+    decayTarget: 40,
   },
   velocity: {
     windowDays: 7,
     softCapPRs: 80,
     hardCapPRs: 200,
-    penaltyPerExcess: 0.03
+    penaltyPerExcess: 0.03,
   },
   reviewSeverity: {
     critical: 1.8,
     major: 1.3,
     normal: 1,
     minor: 0.5,
-    trivial: 0.3
+    trivial: 0.3,
   },
   defaultReviewSeverity: "normal",
   minScore: 0,
@@ -99,14 +105,38 @@ const DEFAULT_CONFIG = {
   initialScore: 40,
   dailyPointCap: 80,
   tiers: [
-    { minScore: 90, label: "legendary", description: "Elite contributor, auto-merge eligible" },
-    { minScore: 75, label: "trusted", description: "Highly trusted, expedited review" },
+    {
+      minScore: 90,
+      label: "legendary",
+      description: "Elite contributor, auto-merge eligible",
+    },
+    {
+      minScore: 75,
+      label: "trusted",
+      description: "Highly trusted, expedited review",
+    },
     { minScore: 60, label: "established", description: "Proven track record" },
-    { minScore: 45, label: "contributing", description: "Active contributor, standard review" },
-    { minScore: 30, label: "probationary", description: "Building trust, closer scrutiny" },
-    { minScore: 15, label: "untested", description: "New or low-activity contributor" },
-    { minScore: 0, label: "restricted", description: "Trust deficit, requires sponsor review" }
-  ]
+    {
+      minScore: 45,
+      label: "contributing",
+      description: "Active contributor, standard review",
+    },
+    {
+      minScore: 30,
+      label: "probationary",
+      description: "Building trust, closer scrutiny",
+    },
+    {
+      minScore: 15,
+      label: "untested",
+      description: "New or low-activity contributor",
+    },
+    {
+      minScore: 0,
+      label: "restricted",
+      description: "Trust deficit, requires sponsor review",
+    },
+  ],
 };
 function computeTrustScore(history, config = DEFAULT_CONFIG, now = Date.now()) {
   const { events = [], manualAdjustment = 0 } = history;
@@ -121,7 +151,7 @@ function computeTrustScore(history, config = DEFAULT_CONFIG, now = Date.now()) {
     manualAdjustment: 0,
     approveRateBonus: 0,
     volumeBonus: 0,
-    eventDetails: []
+    eventDetails: [],
   };
   if (events.length === 0) {
     const score2 = config.initialScore;
@@ -130,7 +160,7 @@ function computeTrustScore(history, config = DEFAULT_CONFIG, now = Date.now()) {
       tier: getTier(score2, config).label,
       tierInfo: getTier(score2, config),
       breakdown,
-      warnings: ["No events recorded \u2014 using initial score"]
+      warnings: ["No events recorded \u2014 using initial score"],
     };
   }
   const sorted = [...events].sort((a, b) => a.timestamp - b.timestamp);
@@ -152,7 +182,7 @@ function computeTrustScore(history, config = DEFAULT_CONFIG, now = Date.now()) {
   let closeCount = 0;
   const currentStreak = {
     type: null,
-    length: 0
+    length: 0,
   };
   const dailyPoints = {};
   let totalWeightedPoints = 0;
@@ -169,17 +199,26 @@ function computeTrustScore(history, config = DEFAULT_CONFIG, now = Date.now()) {
       streakMultiplier: 1,
       severityMultiplier: 1,
       weightedPoints: 0,
-      finalPoints: 0
+      finalPoints: 0,
     };
-    const isSuperseded = (event.type === "close" || event.type === "selfClose") && supersededPRs.has(event.prNumber);
-    const basePoints = isSuperseded ? -2 : config.basePoints[event.type] ?? 0;
+    const isSuperseded =
+      (event.type === "close" || event.type === "selfClose") &&
+      supersededPRs.has(event.prNumber);
+    const basePoints = isSuperseded ? -2 : (config.basePoints[event.type] ?? 0);
     detail.basePoints = basePoints;
     let diminishingMultiplier = 1;
     if (basePoints > 0) {
-      diminishingMultiplier = 1 / (1 + config.diminishingRate * Math.log(1 + approvalCount));
+      diminishingMultiplier =
+        1 / (1 + config.diminishingRate * Math.log(1 + approvalCount));
       approvalCount++;
-    } else if (basePoints < 0 && (event.type === "close" || event.type === "selfClose" || event.type === "reject")) {
-      diminishingMultiplier = 1 / (1 + config.diminishingRate * Math.log(1 + closeCount));
+    } else if (
+      basePoints < 0 &&
+      (event.type === "close" ||
+        event.type === "selfClose" ||
+        event.type === "reject")
+    ) {
+      diminishingMultiplier =
+        1 / (1 + config.diminishingRate * Math.log(1 + closeCount));
       closeCount++;
     }
     detail.diminishingMultiplier = round(diminishingMultiplier, 4);
@@ -187,22 +226,42 @@ function computeTrustScore(history, config = DEFAULT_CONFIG, now = Date.now()) {
     const recencyWeight = 0.5 ** (daysSinceEvent / config.recencyHalfLifeDays);
     detail.recencyWeight = round(recencyWeight, 4);
     detail.daysSinceEvent = round(daysSinceEvent, 1);
-    const complexityMultiplier = getComplexityMultiplier(event.linesChanged || 0, config);
+    const complexityMultiplier = getComplexityMultiplier(
+      event.linesChanged || 0,
+      config,
+    );
     detail.complexityMultiplier = complexityMultiplier;
-    const categoryMultiplier = getCategoryMultiplier(event.labels || [], config);
+    const categoryMultiplier = getCategoryMultiplier(
+      event.labels || [],
+      config,
+    );
     detail.categoryMultiplier = categoryMultiplier;
     const streakMult = updateStreak(currentStreak, event.type, config);
     detail.streakMultiplier = round(streakMult, 4);
     let severityMultiplier = 1;
     if (event.type === "reject" && event.reviewSeverity) {
-      severityMultiplier = config.reviewSeverity[event.reviewSeverity] ?? config.reviewSeverity[config.defaultReviewSeverity];
+      severityMultiplier =
+        config.reviewSeverity[event.reviewSeverity] ??
+        config.reviewSeverity[config.defaultReviewSeverity];
     }
     detail.severityMultiplier = severityMultiplier;
     let eventPoints;
     if (basePoints >= 0) {
-      eventPoints = basePoints * diminishingMultiplier * recencyWeight * complexityMultiplier * categoryMultiplier * streakMult;
+      eventPoints =
+        basePoints *
+        diminishingMultiplier *
+        recencyWeight *
+        complexityMultiplier *
+        categoryMultiplier *
+        streakMult;
     } else {
-      eventPoints = basePoints * diminishingMultiplier * recencyWeight * severityMultiplier * streakMult * Math.max(categoryMultiplier, 0.8);
+      eventPoints =
+        basePoints *
+        diminishingMultiplier *
+        recencyWeight *
+        severityMultiplier *
+        streakMult *
+        Math.max(categoryMultiplier, 0.8);
     }
     detail.weightedPoints = round(eventPoints, 4);
     if (eventPoints > 0) {
@@ -213,7 +272,7 @@ function computeTrustScore(history, config = DEFAULT_CONFIG, now = Date.now()) {
       if (capped < eventPoints) {
         detail.cappedBy = round(eventPoints - capped, 4);
         warnings.push(
-          `Daily cap hit on ${dateKey}: PR #${event.prNumber} capped from ${round(eventPoints, 2)} to ${round(capped, 2)}`
+          `Daily cap hit on ${dateKey}: PR #${event.prNumber} capped from ${round(eventPoints, 2)} to ${round(capped, 2)}`,
         );
       }
       dailyPoints[dateKey] = currentDayTotal + capped;
@@ -230,17 +289,23 @@ function computeTrustScore(history, config = DEFAULT_CONFIG, now = Date.now()) {
   if (recentPRs > config.velocity.hardCapPRs) {
     velocityMultiplier = 0;
     warnings.push(
-      `VELOCITY HARD CAP: ${recentPRs} PRs in ${config.velocity.windowDays} days (limit: ${config.velocity.hardCapPRs})`
+      `VELOCITY HARD CAP: ${recentPRs} PRs in ${config.velocity.windowDays} days (limit: ${config.velocity.hardCapPRs})`,
     );
   } else if (recentPRs > config.velocity.softCapPRs) {
     const excess = recentPRs - config.velocity.softCapPRs;
-    velocityMultiplier = Math.max(0.1, 1 - excess * config.velocity.penaltyPerExcess);
+    velocityMultiplier = Math.max(
+      0.1,
+      1 - excess * config.velocity.penaltyPerExcess,
+    );
     warnings.push(
-      `Velocity warning: ${recentPRs} PRs in ${config.velocity.windowDays} days (soft cap: ${config.velocity.softCapPRs})`
+      `Velocity warning: ${recentPRs} PRs in ${config.velocity.windowDays} days (soft cap: ${config.velocity.softCapPRs})`,
     );
   }
   breakdown.velocityPenalty = round(1 - velocityMultiplier, 4);
-  const adjustedPoints = totalWeightedPoints > 0 ? totalWeightedPoints * velocityMultiplier : totalWeightedPoints;
+  const adjustedPoints =
+    totalWeightedPoints > 0
+      ? totalWeightedPoints * velocityMultiplier
+      : totalWeightedPoints;
   let approveRateBonus = 0;
   const totalEvents = approvalCount + closeCount;
   if (totalEvents > 0 && approvalCount > 0) {
@@ -251,8 +316,11 @@ function computeTrustScore(history, config = DEFAULT_CONFIG, now = Date.now()) {
     else if (approveRate >= 0.7) rateMultiplier = 1.2;
     else if (approveRate >= 0.6) rateMultiplier = 1.1;
     if (rateMultiplier > 1) {
-      const positivePoints = breakdown.eventDetails.filter((d) => d.finalPoints > 0).reduce((sum, d) => sum + d.finalPoints, 0);
-      const boostedPositive = positivePoints * velocityMultiplier * rateMultiplier;
+      const positivePoints = breakdown.eventDetails
+        .filter((d) => d.finalPoints > 0)
+        .reduce((sum, d) => sum + d.finalPoints, 0);
+      const boostedPositive =
+        positivePoints * velocityMultiplier * rateMultiplier;
       const originalPositive = positivePoints * velocityMultiplier;
       approveRateBonus = round(boostedPositive - originalPositive, 4);
     }
@@ -260,15 +328,18 @@ function computeTrustScore(history, config = DEFAULT_CONFIG, now = Date.now()) {
   breakdown.approveRateBonus = approveRateBonus;
   const volumeBonus = round(Math.min(10, Math.sqrt(approvalCount) * 1.5), 4);
   breakdown.volumeBonus = volumeBonus;
-  let score = config.initialScore + adjustedPoints + approveRateBonus + volumeBonus;
+  let score =
+    config.initialScore + adjustedPoints + approveRateBonus + volumeBonus;
   const lastEventTime = sorted[sorted.length - 1].timestamp;
   const daysSinceLastEvent = (now - lastEventTime) / (1e3 * 60 * 60 * 24);
   if (daysSinceLastEvent > config.inactivityDecay.gracePeriodDays) {
-    const decayDays = daysSinceLastEvent - config.inactivityDecay.gracePeriodDays;
+    const decayDays =
+      daysSinceLastEvent - config.inactivityDecay.gracePeriodDays;
     const decayAmount = decayDays * config.inactivityDecay.decayRatePerDay;
     const target = config.inactivityDecay.decayTarget;
     if (score > target) {
-      const maxDecay = score - Math.max(target, config.inactivityDecay.decayFloor);
+      const maxDecay =
+        score - Math.max(target, config.inactivityDecay.decayFloor);
       const actualDecay = Math.min(maxDecay, (score - target) * decayAmount);
       score -= actualDecay;
       breakdown.inactivityDecay = round(actualDecay, 4);
@@ -287,11 +358,17 @@ function computeTrustScore(history, config = DEFAULT_CONFIG, now = Date.now()) {
     tier: tierInfo.label,
     tierInfo,
     breakdown,
-    warnings
+    warnings,
   };
 }
-function computeScoreHistory(history, config = DEFAULT_CONFIG, now = Date.now()) {
-  const sorted = [...history.events ?? []].sort((a, b) => a.timestamp - b.timestamp);
+function computeScoreHistory(
+  history,
+  config = DEFAULT_CONFIG,
+  now = Date.now(),
+) {
+  const sorted = [...(history.events ?? [])].sort(
+    (a, b) => a.timestamp - b.timestamp,
+  );
   if (sorted.length === 0) {
     return [{ timestamp: now, score: config.initialScore }];
   }
@@ -299,7 +376,7 @@ function computeScoreHistory(history, config = DEFAULT_CONFIG, now = Date.now())
   for (let i = 0; i < sorted.length; i++) {
     const sliceHistory = {
       ...history,
-      events: sorted.slice(0, i + 1)
+      events: sorted.slice(0, i + 1),
     };
     const eventTimestamp = sorted[i].timestamp;
     const result = computeTrustScore(sliceHistory, config, eventTimestamp);
@@ -340,7 +417,7 @@ function updateStreak(currentStreak, eventType, config) {
     }
     const bonus = Math.min(
       (currentStreak.length - 1) * config.streaks.approvalBonus,
-      config.streaks.approvalMaxBonus
+      config.streaks.approvalMaxBonus,
     );
     return 1 + bonus;
   }
@@ -353,7 +430,7 @@ function updateStreak(currentStreak, eventType, config) {
     }
     const penalty = Math.min(
       1 + (currentStreak.length - 1) * config.streaks.rejectionPenalty,
-      config.streaks.rejectionMaxPenalty
+      config.streaks.rejectionMaxPenalty,
     );
     return penalty;
   }
@@ -376,7 +453,7 @@ function createContributorState(contributor) {
     contributor,
     createdAt: Date.now(),
     events: [],
-    manualAdjustment: 0
+    manualAdjustment: 0,
   };
 }
 function addEvent(state, event, maxEvents = 150) {
@@ -387,7 +464,7 @@ function addEvent(state, event, maxEvents = 150) {
     labels: event.labels ?? [],
     reviewSeverity: event.reviewSeverity,
     prNumber: event.prNumber,
-    filesChanged: event.filesChanged
+    filesChanged: event.filesChanged,
   });
   if (state.events.length > maxEvents) {
     state.events = state.events.slice(state.events.length - maxEvents);
@@ -404,9 +481,9 @@ function compactState(state) {
       ts: e.timestamp,
       l: e.linesChanged,
       lb: e.labels,
-      ...e.reviewSeverity ? { rs: e.reviewSeverity[0] } : {},
-      p: e.prNumber
-    }))
+      ...(e.reviewSeverity ? { rs: e.reviewSeverity[0] } : {}),
+      p: e.prNumber,
+    })),
   };
 }
 function expandState(compact) {
@@ -414,14 +491,14 @@ function expandState(compact) {
     a: "approve",
     r: "reject",
     c: "close",
-    s: "selfClose"
+    s: "selfClose",
   };
   const severityMap = {
     c: "critical",
     m: "major",
     n: "normal",
     i: "minor",
-    t: "trivial"
+    t: "trivial",
   };
   return {
     contributor: compact.c,
@@ -432,23 +509,8 @@ function expandState(compact) {
       timestamp: e.ts,
       linesChanged: e.l,
       labels: e.lb || [],
-      reviewSeverity: e.rs ? severityMap[e.rs] ?? e.rs : void 0,
-      prNumber: e.p
-    }))
+      reviewSeverity: e.rs ? (severityMap[e.rs] ?? e.rs) : void 0,
+      prNumber: e.p,
+    })),
   };
 }
-// Annotate the CommonJS export names for ESM import in node:
-0 && (module.exports = {
-  DEFAULT_CONFIG,
-  addEvent,
-  compactState,
-  computeScoreHistory,
-  computeTrustScore,
-  createContributorState,
-  expandState,
-  getCategoryMultiplier,
-  getComplexityMultiplier,
-  getTier,
-  round,
-  updateStreak
-});
