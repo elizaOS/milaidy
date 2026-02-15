@@ -103,14 +103,16 @@ jobs:
             const author = context.payload.pull_request.user.login;
             let trustInfo = 'New contributor (no review history)';
             try {
-              const { data } = await github.rest.actions.getRepoVariable({
+              // Read trust data from committed JSON file via Contents API
+              const { data: fileData } = await github.rest.repos.getContent({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                name: 'CONTRIBUTOR_TRUST_V2',
+                path: '.github/contributor-trust.json',
+                ref: context.payload.pull_request.base.ref,
               });
-              const allStates = JSON.parse(data.value);
+              const allStates = JSON.parse(Buffer.from(fileData.content, 'base64').toString());
               if (allStates[author]) {
-                const { computeTrustScore, DEFAULT_CONFIG, expandState, compactState } = require('./.github/trust-scoring.cjs');
+                const { computeTrustScore, DEFAULT_CONFIG, expandState } = require('./.github/trust-scoring.cjs');
                 const state = expandState(allStates[author]);
                 const result = computeTrustScore(state, DEFAULT_CONFIG);
                 trustInfo = `Trust score: ${result.score}/100 (${result.tier}) | Events: ${state.events.length} | ${result.tierInfo.description}`;
@@ -119,7 +121,7 @@ jobs:
                 }
               }
             } catch (e) {
-              console.log('Trust data unavailable, using default');
+              console.log('Trust data unavailable, using default:', e.message);
             }
             core.setOutput('trust_info', trustInfo);
 
@@ -406,12 +408,11 @@ jobs:
     needs: [classify, review-pr]
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       pull-requests: write
       issues: write
       checks: write
       statuses: write
-      actions: write
     steps:
       - name: Checkout trusted base ref
         uses: actions/checkout@v4
@@ -502,20 +503,29 @@ jobs:
               console.log('Could not fetch PR stats, using defaults');
             }
 
-            // Fetch existing trust data (v2 format)
+            // Fetch existing trust data from committed JSON file
             let allStates = {};
+            let fileSha = null;
+            const trustFilePath = '.github/contributor-trust.json';
             try {
-              const { data } = await github.rest.actions.getRepoVariable({
+              const { data: fileData } = await github.rest.repos.getContent({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                name: 'CONTRIBUTOR_TRUST_V2',
+                path: trustFilePath,
+                ref: '${{ github.event.pull_request.base.ref }}',
               });
-              allStates = JSON.parse(data.value);
+              fileSha = fileData.sha;
+              const parsed = JSON.parse(Buffer.from(fileData.content, 'base64').toString());
               allStates = Object.fromEntries(
-                Object.entries(allStates).map(([contributor, state]) => [contributor, expandState(state)])
+                Object.entries(parsed).map(([contributor, state]) => [contributor, expandState(state)])
               );
+              console.log(`Loaded trust data for ${Object.keys(allStates).length} contributors`);
             } catch (e) {
-              console.log('No existing v2 trust data, starting fresh');
+              if (e.status === 404) {
+                console.log('No existing trust file, will create one');
+              } else {
+                console.log('Error reading trust file:', e.message);
+              }
             }
 
             // Initialize contributor if new
@@ -539,38 +549,31 @@ jobs:
               console.log(`Warnings: ${result.warnings.join('; ')}`);
             }
 
-            // Write back to repo variable
+            // Write back to committed JSON file via Contents API
             const compactedStates = Object.fromEntries(
               Object.entries(allStates).map(([contributor, state]) => [contributor, compactState(state)])
             );
-            const value = JSON.stringify(compactedStates);
+            const content = Buffer.from(JSON.stringify(compactedStates)).toString('base64');
             try {
-              await github.rest.actions.updateRepoVariable({
+              const params = {
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                name: 'CONTRIBUTOR_TRUST_V2',
-                value,
-              });
-            } catch (updateError) {
-              if (updateError?.status === 403) {
-                core.warning('Skipping trust variable update due to token permission limits (requires actions:write).');
-              } else if (updateError?.status === 404) {
-                try {
-                  await github.rest.actions.createRepoVariable({
-                    owner: context.repo.owner,
-                    repo: context.repo.repo,
-                    name: 'CONTRIBUTOR_TRUST_V2',
-                    value,
-                  });
-                } catch (createError) {
-                  if (createError?.status === 403) {
-                    core.warning('Skipping trust variable create due to token permission limits (requires actions:write).');
-                  } else {
-                    throw createError;
-                  }
-                }
+                path: trustFilePath,
+                message: `chore: update trust scores [skip ci]\n\n${author}: ${result.score}/100 (${result.tier})`,
+                content,
+                branch: '${{ github.event.pull_request.base.ref }}',
+              };
+              if (fileSha) params.sha = fileSha;
+              await github.rest.repos.createOrUpdateFileContents(params);
+              console.log('Trust data saved to repo file');
+            } catch (writeErr) {
+              // 409 = concurrent update conflict, 403 = permission issue
+              if (writeErr.status === 409) {
+                core.warning('Trust file was updated concurrently. Score computed but not persisted — next review will pick up.');
+              } else if (writeErr.status === 403) {
+                core.warning('Cannot write trust file (permission denied). Trust label will still be applied.');
               } else {
-                throw updateError;
+                core.warning(`Failed to save trust data: ${writeErr.message}`);
               }
             }
 
