@@ -14,10 +14,15 @@ function req(
 
 describe("resolveWebSocketUpgradeRejection", () => {
   const prevToken = process.env.MILAIDY_API_TOKEN;
+  const prevAllowQueryToken = process.env.MILAIDY_ALLOW_WS_QUERY_TOKEN;
 
   afterEach(() => {
     if (prevToken === undefined) delete process.env.MILAIDY_API_TOKEN;
     else process.env.MILAIDY_API_TOKEN = prevToken;
+
+    if (prevAllowQueryToken === undefined)
+      delete process.env.MILAIDY_ALLOW_WS_QUERY_TOKEN;
+    else process.env.MILAIDY_ALLOW_WS_QUERY_TOKEN = prevAllowQueryToken;
   });
 
   it("rejects non-/ws paths", () => {
@@ -55,8 +60,21 @@ describe("resolveWebSocketUpgradeRejection", () => {
     expect(rejection).toBeNull();
   });
 
-  it("accepts valid query token", () => {
+  it("rejects query token auth by default", () => {
     process.env.MILAIDY_API_TOKEN = "test-token";
+    delete process.env.MILAIDY_ALLOW_WS_QUERY_TOKEN;
+
+    const rejection = resolveWebSocketUpgradeRejection(
+      req() as http.IncomingMessage,
+      new URL("ws://localhost/ws?token=test-token"),
+    );
+    expect(rejection).toEqual({ status: 401, reason: "Unauthorized" });
+  });
+
+  it("accepts valid query token when explicitly enabled", () => {
+    process.env.MILAIDY_API_TOKEN = "test-token";
+    process.env.MILAIDY_ALLOW_WS_QUERY_TOKEN = "1";
+
     const rejection = resolveWebSocketUpgradeRejection(
       req() as http.IncomingMessage,
       new URL("ws://localhost/ws?token=test-token"),
