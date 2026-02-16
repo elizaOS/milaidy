@@ -18,8 +18,10 @@ RUN if [ -n "$MILAIDY_DOCKER_APT_PACKAGES" ]; then \
 # Copy full source so Bun can resolve all workspaces declared in package.json.
 COPY . .
 
-# Install dependencies and build UI/server.
-RUN bun install
+# Install dependencies while skipping third-party postinstall hooks that
+# may fail in cloud builders. Then run our required local patch scripts.
+RUN bun install --ignore-scripts
+RUN node ./scripts/link-browser-server.mjs && node ./scripts/patch-deps.mjs
 RUN bun run build
 
 ENV NODE_ENV=production
