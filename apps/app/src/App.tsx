@@ -3,31 +3,32 @@
  */
 
 import { useState, useEffect, useCallback } from "react";
-import { useApp } from "./AppContext";
-import { Header } from "./components/Header";
-import { Nav } from "./components/Nav";
-import { CommandPalette } from "./components/CommandPalette";
-import { EmotePicker } from "./components/EmotePicker";
-import { SaveCommandModal } from "./components/SaveCommandModal";
-import { PairingView } from "./components/PairingView";
-import { OnboardingWizard } from "./components/OnboardingWizard";
-import { ChatView } from "./components/ChatView";
-import { ConversationsSidebar } from "./components/ConversationsSidebar";
-import { AutonomousPanel } from "./components/AutonomousPanel";
-import { CustomActionsPanel } from "./components/CustomActionsPanel";
-import { CustomActionEditor } from "./components/CustomActionEditor";
-import { AppsPageView } from "./components/AppsPageView";
-import { AdvancedPageView } from "./components/AdvancedPageView";
-import { CharacterView } from "./components/CharacterView";
-import { ConnectorsPageView } from "./components/ConnectorsPageView";
-import { InventoryView } from "./components/InventoryView";
-import { KnowledgeView } from "./components/KnowledgeView";
-import { SettingsView } from "./components/SettingsView";
-import { LoadingScreen } from "./components/LoadingScreen";
-import { useContextMenu } from "./hooks/useContextMenu";
-import { TerminalPanel } from "./components/TerminalPanel";
-
-const CHAT_MOBILE_BREAKPOINT_PX = 1024;
+import { useApp } from "./AppContext.js";
+import { Header } from "./components/Header.js";
+import { Nav } from "./components/Nav.js";
+import { CommandPalette } from "./components/CommandPalette.js";
+import { EmotePicker } from "./components/EmotePicker.js";
+import { SaveCommandModal } from "./components/SaveCommandModal.js";
+import { PairingView } from "./components/PairingView.js";
+import { OnboardingWizard } from "./components/OnboardingWizard.js";
+import { ChatView } from "./components/ChatView.js";
+import { ConversationsSidebar } from "./components/ConversationsSidebar.js";
+import { AutonomousPanel } from "./components/AutonomousPanel.js";
+import { CustomActionsPanel } from "./components/CustomActionsPanel.js";
+import { CustomActionEditor } from "./components/CustomActionEditor.js";
+import { WorkspaceNotesPanel } from "./components/WorkspaceNotesPanel.js";
+import { AppsPageView } from "./components/AppsPageView.js";
+import { AdvancedPageView } from "./components/AdvancedPageView.js";
+import { CharacterView } from "./components/CharacterView.js";
+import { ConnectorsPageView } from "./components/ConnectorsPageView.js";
+import { InventoryView } from "./components/InventoryView.js";
+import { KnowledgeView } from "./components/KnowledgeView.js";
+import { SettingsView } from "./components/SettingsView.js";
+import { LoadingScreen } from "./components/LoadingScreen.js";
+import { useContextMenu } from "./hooks/useContextMenu.js";
+import { TerminalPanel } from "./components/TerminalPanel.js";
+import { client } from "./api-client";
+import { type Tab } from "./navigation.js";
 
 function ViewRouter() {
   const { tab } = useApp();
@@ -56,6 +57,8 @@ function ViewRouter() {
 }
 
 export function App() {
+  type DashboardNotesMode = "edit" | "view" | "split";
+
   const {
     onboardingLoading,
     startupPhase,
@@ -63,19 +66,248 @@ export function App() {
     onboardingComplete,
     tab,
     actionNotice,
-    agentStatus,
-    unreadConversations,
+    handleStart,
+    handleStop,
+    handlePauseResume,
+    handleRestart,
+    setTab,
+    setActionNotice,
+    openCommandPalette,
+    loadPlugins,
+    loadSkills,
+    loadLogs,
+    loadWorkbench,
   } = useApp();
   const contextMenu = useContextMenu();
 
   const [customActionsPanelOpen, setCustomActionsPanelOpen] = useState(false);
   const [customActionsEditorOpen, setCustomActionsEditorOpen] = useState(false);
   const [editingAction, setEditingAction] = useState<import("./api-client").CustomActionDef | null>(null);
-  const [isChatMobileLayout, setIsChatMobileLayout] = useState(() => (
-    typeof window !== "undefined" ? window.innerWidth < CHAT_MOBILE_BREAKPOINT_PX : false
-  ));
-  const [mobileConversationsOpen, setMobileConversationsOpen] = useState(false);
-  const [mobileAutonomousOpen, setMobileAutonomousOpen] = useState(false);
+  const [customActionSeedPrompt, setCustomActionSeedPrompt] = useState("");
+  const [notesPanelOpen, setNotesPanelOpen] = useState(false);
+  const [notesPanelMode, setNotesPanelMode] = useState<DashboardNotesMode>("edit");
+	const [notesPanelSeedText, setNotesPanelSeedText] = useState("");
+
+	const openNotesPanel = useCallback((mode: DashboardNotesMode, seedText = "") => {
+	  setTab("chat");
+	  setCustomActionsPanelOpen(false);
+	  setCustomActionsEditorOpen(false);
+	  setNotesPanelMode(mode);
+	  setNotesPanelSeedText(seedText.trim());
+	  setNotesPanelOpen(true);
+	}, [setTab]);
+
+  const isValidTab = useCallback((value: string | undefined): value is Tab => {
+    if (typeof value !== "string") return false;
+    return (
+      value === "chat" ||
+      value === "apps" ||
+      value === "character" ||
+      value === "wallets" ||
+      value === "knowledge" ||
+      value === "connectors" ||
+      value === "triggers" ||
+      value === "plugins" ||
+      value === "skills" ||
+      value === "actions" ||
+      value === "advanced" ||
+      value === "fine-tuning" ||
+      value === "trajectories" ||
+      value === "voice" ||
+      value === "runtime" ||
+      value === "database" ||
+      value === "settings" ||
+      value === "logs"
+    );
+  }, []);
+
+  // Keep hook order stable across onboarding/auth state transitions.
+  // Otherwise React can throw when onboarding completes and the main shell mounts.
+  useEffect(() => {
+    const handler = () => setCustomActionsPanelOpen((v) => !v);
+    window.addEventListener("toggle-custom-actions-panel", handler);
+
+	  const handleOpenNotes = (event: Event) => {
+	    const detail = (event as CustomEvent<{ mode?: string; seedText?: string }>)?.detail;
+	    const mode =
+	      detail?.mode === "view"
+	        ? "view"
+	        : detail?.mode === "split"
+	          ? "split"
+	          : "edit";
+	    openNotesPanel(mode, detail?.seedText);
+	  };
+
+    const handleOpenActionEditor = (event: Event) => {
+      const detail = (event as CustomEvent<{ seedPrompt?: string }>)?.detail;
+      setNotesPanelOpen(false);
+      setCustomActionsPanelOpen(false);
+      setCustomActionSeedPrompt(detail?.seedPrompt?.trim() ?? "");
+      setEditingAction(null);
+      setCustomActionsEditorOpen(true);
+    };
+
+    const handleAgentControl = (event: Event) => {
+      const action = (event as CustomEvent<{ action?: string }>)?.detail?.action;
+      if (action === "start") {
+        void handleStart();
+      } else if (action === "stop") {
+        void handleStop();
+      } else if (action === "pause" || action === "resume") {
+        void handlePauseResume();
+      } else if (action === "restart") {
+        void handleRestart();
+      }
+    };
+
+    const handleOpenTab = (event: Event) => {
+      const detail = (event as CustomEvent<{ tab?: string }>)?.detail;
+      if (!isValidTab(detail?.tab)) return;
+      setNotesPanelOpen(false);
+      setCustomActionsPanelOpen(false);
+      setTab(detail.tab);
+    };
+
+	    const handleAppCommand = (event: Event) => {
+	      const detail = (event as CustomEvent<{
+	        command?: string;
+	        seedText?: string;
+	        seedPrompt?: string;
+	      }>)?.detail;
+	      const command = detail?.command;
+	      if (!command) return;
+
+      if (command === "open-command-palette") {
+        openCommandPalette();
+      } else if (command === "open-notes-new") {
+        openNotesPanel("edit", "");
+      } else if (command === "open-notes-edit") {
+        openNotesPanel("edit");
+      } else if (command === "open-notes-split") {
+        openNotesPanel("split");
+      } else if (command === "open-notes-view") {
+        openNotesPanel("view");
+      } else if (command === "open-notes-with-seed") {
+        openNotesPanel("edit", detail?.seedText);
+	      } else if (command === "open-custom-actions-panel") {
+	        setTab("chat");
+	        setNotesPanelOpen(false);
+	        setCustomActionsPanelOpen(true);
+	      } else if (command === "open-custom-action-editor") {
+	        setTab("chat");
+	        setNotesPanelOpen(false);
+	        setCustomActionsPanelOpen(false);
+	        setCustomActionSeedPrompt("");
+	        setEditingAction(null);
+	        setCustomActionsEditorOpen(true);
+	      } else if (command === "open-custom-action-editor-with-prompt") {
+	        setTab("chat");
+	        setNotesPanelOpen(false);
+	        setCustomActionsPanelOpen(false);
+	        setCustomActionSeedPrompt(detail?.seedPrompt?.trim() ?? "");
+	        setEditingAction(null);
+	        setCustomActionsEditorOpen(true);
+	      } else if (command === "agent-start") {
+        void handleStart();
+      } else if (command === "agent-stop") {
+        void handleStop();
+      } else if (command === "agent-pause") {
+        void handlePauseResume();
+      } else if (command === "agent-resume") {
+        void handlePauseResume();
+      } else if (command === "agent-restart") {
+        void handleRestart();
+      } else if (command === "refresh-plugins") {
+        void loadPlugins();
+      } else if (command === "refresh-skills") {
+        void loadSkills();
+      } else if (command === "refresh-logs") {
+        void loadLogs();
+      } else if (command === "refresh-workbench") {
+        void loadWorkbench();
+      } else {
+        setActionNotice(`Unknown dashboard command: ${command}`, "error");
+      }
+    };
+
+    window.addEventListener("milaidy:open-notes-panel", handleOpenNotes);
+    window.addEventListener("milaidy:open-custom-action-editor", handleOpenActionEditor);
+    window.addEventListener("milaidy:agent-control", handleAgentControl);
+    window.addEventListener("milaidy:open-tab", handleOpenTab);
+    window.addEventListener("milaidy:app-command", handleAppCommand);
+
+    return () => {
+      window.removeEventListener("toggle-custom-actions-panel", handler);
+      window.removeEventListener("milaidy:open-notes-panel", handleOpenNotes);
+      window.removeEventListener("milaidy:open-custom-action-editor", handleOpenActionEditor);
+      window.removeEventListener("milaidy:agent-control", handleAgentControl);
+      window.removeEventListener("milaidy:open-tab", handleOpenTab);
+      window.removeEventListener("milaidy:app-command", handleAppCommand);
+    };
+  }, [
+    handleStart,
+    handleStop,
+    handlePauseResume,
+    handleRestart,
+    openNotesPanel,
+    openCommandPalette,
+    isValidTab,
+    setTab,
+    setActionNotice,
+    loadPlugins,
+    loadSkills,
+    loadLogs,
+    loadWorkbench,
+  ]);
+
+  const handleEditorSave = useCallback(() => {
+    setCustomActionsEditorOpen(false);
+    setEditingAction(null);
+    setCustomActionSeedPrompt("");
+  }, []);
+
+  const handleOpenCustomActionFromNotes = useCallback((seedPrompt: string) => {
+    setNotesPanelOpen(false);
+    setCustomActionsPanelOpen(false);
+    setTab("chat");
+    setCustomActionSeedPrompt(seedPrompt);
+    setEditingAction(null);
+    setCustomActionsEditorOpen(true);
+  }, []);
+
+  const handleCreateSkillFromNotes = useCallback(async (noteContent: string, noteTitle = "") => {
+    const cleaned = noteContent.trim();
+    if (!cleaned) {
+      setActionNotice("Cannot create a skill from empty notes.", "error");
+      return;
+    }
+
+    const firstLine = (noteTitle || cleaned.split("\n").find((line) => line.trim().length > 0) || "NOTES_SKILL").trim();
+    const baseName = firstLine.replace(/^(#+\s*)?/, "").trim() || "NOTES_SKILL";
+    const safeName = baseName
+      .toUpperCase()
+      .replace(/[^A-Z0-9_]/g, "_")
+      .replace(/_+/g, "_")
+      .slice(0, 48) || `NOTES_SKILL_${Date.now()}`;
+
+    setActionNotice("Creating skill from notes...", "info", 2500);
+    try {
+      const result = await client.createSkill(safeName, cleaned);
+      setActionNotice(`Created skill "${safeName}".`, "success");
+      if (result.path) {
+        await client.openSkill(result.skill?.id ?? safeName).catch(() => undefined);
+      }
+    } catch (err) {
+      setActionNotice(`Failed to create skill from notes: ${err instanceof Error ? err.message : "unknown error"}`, "error", 4200);
+    }
+  }, [setActionNotice]);
+
+  if (onboardingLoading) {
+    return <LoadingScreen phase={startupPhase} />;
+  }
+
+  if (authRequired) return <PairingView />;
+  if (!onboardingComplete) return <OnboardingWizard />;
 
   const isChat = tab === "chat";
   const isAdvancedTab =
@@ -89,147 +321,19 @@ export function App() {
     tab === "runtime" ||
     tab === "database" ||
     tab === "logs";
-  const unreadCount = unreadConversations?.size ?? 0;
-  const statusIndicatorClass =
-    agentStatus?.state === "running"
-      ? "bg-ok shadow-[0_0_8px_color-mix(in_srgb,var(--ok)_60%,transparent)]"
-      : agentStatus?.state === "paused" || agentStatus?.state === "starting" || agentStatus?.state === "restarting"
-        ? "bg-warn"
-        : agentStatus?.state === "error"
-          ? "bg-danger"
-          : "bg-muted";
-  const mobileChatControls = isChatMobileLayout ? (
-    <div className="flex items-center gap-2 w-max">
-      <button
-        type="button"
-        className={`inline-flex items-center gap-2 px-3 py-2 border rounded-md text-[12px] font-semibold transition-all cursor-pointer ${
-          mobileConversationsOpen
-            ? "border-accent bg-accent-subtle text-accent"
-            : "border-border bg-card text-txt hover:border-accent hover:text-accent"
-        }`}
-        onClick={() => {
-          setMobileAutonomousOpen(false);
-          setMobileConversationsOpen(true);
-        }}
-        aria-label="Open chats panel"
-      >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-        </svg>
-        Chats
-        {unreadCount > 0 && (
-          <span className="inline-flex min-w-[18px] h-[18px] items-center justify-center rounded-full bg-accent text-accent-fg text-[10px] font-bold px-1">
-            {unreadCount > 99 ? "99+" : unreadCount}
-          </span>
-        )}
-      </button>
-      <button
-        type="button"
-        className={`inline-flex items-center gap-2 px-3 py-2 border rounded-md text-[12px] font-semibold transition-all cursor-pointer ${
-          mobileAutonomousOpen
-            ? "border-accent bg-accent-subtle text-accent"
-            : "border-border bg-card text-txt hover:border-accent hover:text-accent"
-        }`}
-        onClick={() => {
-          setMobileConversationsOpen(false);
-          setMobileAutonomousOpen(true);
-        }}
-        aria-label="Open status panel"
-      >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-          <path d="M3 3v18h18" />
-          <path d="m7 14 4-4 3 3 5-6" />
-        </svg>
-        Status
-        <span className={`w-2 h-2 rounded-full ${statusIndicatorClass}`} aria-hidden />
-      </button>
-    </div>
-  ) : undefined;
-
-  // Keep hook order stable across onboarding/auth state transitions.
-  // Otherwise React can throw when onboarding completes and the main shell mounts.
-  useEffect(() => {
-    const handler = () => setCustomActionsPanelOpen((v) => !v);
-    window.addEventListener("toggle-custom-actions-panel", handler);
-    return () => window.removeEventListener("toggle-custom-actions-panel", handler);
-  }, []);
-
-  const handleEditorSave = useCallback(() => {
-    setCustomActionsEditorOpen(false);
-    setEditingAction(null);
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const handleResize = () => {
-      setIsChatMobileLayout(window.innerWidth < CHAT_MOBILE_BREAKPOINT_PX);
-    };
-    handleResize();
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
-
-  useEffect(() => {
-    if (!isChatMobileLayout) {
-      setMobileConversationsOpen(false);
-      setMobileAutonomousOpen(false);
-    }
-  }, [isChatMobileLayout]);
-
-  useEffect(() => {
-    if (!isChat) {
-      setMobileConversationsOpen(false);
-      setMobileAutonomousOpen(false);
-    }
-  }, [isChat]);
-
-  if (onboardingLoading) {
-    return <LoadingScreen phase={startupPhase} />;
-  }
-
-  if (authRequired) return <PairingView />;
-  if (!onboardingComplete) return <OnboardingWizard />;
 
   return (
     <>
       {isChat ? (
         <div className="flex flex-col flex-1 min-h-0 w-full font-body text-txt bg-bg">
           <Header />
-          <Nav mobileLeft={mobileChatControls} />
+          <Nav />
           <div className="flex flex-1 min-h-0 relative">
-            {isChatMobileLayout ? (
-              <>
-                <main className="flex flex-col flex-1 min-w-0 overflow-visible pt-2 px-2">
-                  <ChatView />
-                </main>
-
-                {mobileConversationsOpen && (
-                  <div className="fixed inset-0 z-[120] bg-bg">
-                    <ConversationsSidebar
-                      mobile
-                      onClose={() => setMobileConversationsOpen(false)}
-                    />
-                  </div>
-                )}
-
-                {mobileAutonomousOpen && (
-                  <div className="fixed inset-0 z-[120] bg-bg">
-                    <AutonomousPanel
-                      mobile
-                      onClose={() => setMobileAutonomousOpen(false)}
-                    />
-                  </div>
-                )}
-              </>
-            ) : (
-              <>
-                <ConversationsSidebar />
-                <main className="flex flex-col flex-1 min-w-0 overflow-visible pt-3 px-5">
-                  <ChatView />
-                </main>
-                <AutonomousPanel />
-              </>
-            )}
+            <ConversationsSidebar />
+            <main className="flex flex-col flex-1 min-w-0 overflow-visible pt-3 px-5">
+              <ChatView />
+            </main>
+            <AutonomousPanel />
             <CustomActionsPanel
               open={customActionsPanelOpen}
               onClose={() => setCustomActionsPanelOpen(false)}
@@ -237,6 +341,17 @@ export function App() {
                 setEditingAction(action ?? null);
                 setCustomActionsEditorOpen(true);
               }}
+            />
+            <WorkspaceNotesPanel
+              open={notesPanelOpen}
+              mode={notesPanelMode}
+              seedText={notesPanelSeedText}
+              onClose={() => {
+                setNotesPanelOpen(false);
+                setNotesPanelSeedText("");
+              }}
+              onCreateActionFromNote={handleOpenCustomActionFromNotes}
+              onCreateSkillFromNote={handleCreateSkillFromNotes}
             />
           </div>
           <TerminalPanel />
@@ -262,8 +377,13 @@ export function App() {
       <CustomActionEditor
         open={customActionsEditorOpen}
         action={editingAction}
+        seedPrompt={customActionSeedPrompt}
         onSave={handleEditorSave}
-        onClose={() => { setCustomActionsEditorOpen(false); setEditingAction(null); }}
+        onClose={() => {
+          setCustomActionsEditorOpen(false);
+          setEditingAction(null);
+          setCustomActionSeedPrompt("");
+        }}
       />
       {actionNotice && (
         <div

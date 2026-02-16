@@ -1,6 +1,11 @@
 import { useEffect, useRef, useMemo } from "react";
 import { useApp } from "../AppContext";
 
+const dispatchAppEvent = (event: CustomEvent) => {
+  const target = typeof window.dispatchEvent === "function" ? window : document;
+  target.dispatchEvent(event);
+};
+
 interface CommandItem {
   id: string;
   label: string;
@@ -15,6 +20,7 @@ export function CommandPalette() {
     commandActiveIndex,
     agentStatus,
     handleStart,
+    handleStop,
     handlePauseResume,
     handleRestart,
     setTab,
@@ -39,6 +45,12 @@ export function CommandPalette() {
   // Build command list
   const allCommands = useMemo<CommandItem[]>(() => {
     const commands: CommandItem[] = [];
+    const dispatchEvent = (name: string, detail?: Record<string, unknown>) => {
+      dispatchAppEvent(new CustomEvent(name, { detail }));
+    };
+    const dispatchAppCommand = (command: string, detail: Record<string, unknown> = {}) => {
+      dispatchEvent("milaidy:app-command", { command, ...detail });
+    };
 
     // Lifecycle commands
     if (agentState === "stopped" || agentState === "not_started") {
@@ -46,6 +58,7 @@ export function CommandPalette() {
         id: "start-agent",
         label: "Start Agent",
         action: handleStart,
+        hint: "start",
       });
     }
     if (isRunning || isPaused) {
@@ -53,6 +66,14 @@ export function CommandPalette() {
         id: "pause-resume-agent",
         label: isPaused ? "Resume Agent" : "Pause Agent",
         action: handlePauseResume,
+      });
+    }
+    if (isRunning || isPaused || agentState === "stopped") {
+      commands.push({
+        id: "stop-agent",
+        label: "Stop Agent",
+        action: () => handleStop(),
+        hint: "stop",
       });
     }
     commands.push({
@@ -63,6 +84,74 @@ export function CommandPalette() {
 
     // Navigation commands
     commands.push(
+      {
+        id: "open-notes-edit",
+        label: "Open Notes (Edit)",
+        action: () => dispatchEvent("milaidy:open-notes-panel", { mode: "edit" }),
+        hint: "Ctrl/Cmd+Shift+N",
+      },
+      {
+        id: "open-notes-view",
+        label: "Open Notes (View)",
+        action: () => dispatchEvent("milaidy:open-notes-panel", { mode: "view" }),
+        hint: "Ctrl/Cmd+Shift+V",
+      },
+      {
+        id: "open-notes-skill-draft",
+        label: "New Skill Draft",
+        action: () => dispatchAppCommand("open-notes-with-seed", {
+          seedText: "## Skill Draft\n- Inputs:\n- Output:\n- Edge cases:\n",
+        }),
+      },
+      {
+        id: "open-notes-action-prompt",
+        label: "New Action Prompt",
+        action: () => dispatchAppCommand("open-notes-with-seed", {
+          seedText: "## Action\n\nGoal:\n- Why now:\n- Inputs:\n- Expected output:\n",
+        }),
+      },
+      {
+        id: "open-notes-runbook",
+        label: "New Runbook Draft",
+        action: () => dispatchAppCommand("open-notes-with-seed", {
+          seedText: "## Runbook\n\n## Trigger\n\n## Steps\n1.\n2.\n3.\n\n## Validation\n- [ ] \n",
+        }),
+      },
+      {
+        id: "open-notes-incident-log",
+        label: "New Incident Log",
+        action: () => dispatchAppCommand("open-notes-with-seed", {
+          seedText: "## Incident\n\n- Reported:\n- Impact:\n- Detection:\n- Resolution:\n- Next actions:\n",
+        }),
+      },
+      {
+        id: "open-notes-split",
+        label: "Open Notes (Split View)",
+        action: () => dispatchAppCommand("open-notes-split"),
+      },
+      {
+        id: "open-command-palette",
+        label: "Open Command Palette",
+        action: () => dispatchEvent("milaidy:app-command", { command: "open-command-palette" }),
+      },
+      {
+        id: "open-custom-actions",
+        label: "Open Custom Actions",
+        action: () => dispatchAppCommand("open-custom-actions-panel"),
+      },
+      { id: "open-custom-actions-page", label: "Open Custom Actions Page", action: () => setTab("actions") },
+      {
+        id: "open-custom-action-editor",
+        label: "Create New Custom Action",
+        action: () => dispatchEvent("milaidy:open-custom-action-editor"),
+      },
+      {
+        id: "open-custom-action-editor-with-prompt",
+        label: "Generate Custom Action from Prompt",
+        action: () => dispatchAppCommand("open-custom-action-editor-with-prompt", {
+          seedPrompt: "Generate a custom action that does the following:",
+        }),
+      },
       { id: "nav-chat", label: "Open Chat", action: () => setTab("chat") },
       { id: "nav-apps", label: "Open Apps", action: () => setTab("apps") },
       { id: "nav-character", label: "Open Character", action: () => setTab("character") },
@@ -90,10 +179,10 @@ export function CommandPalette() {
 
     // Refresh commands
     commands.push(
-      { id: "refresh-plugins", label: "Refresh Features", action: loadPlugins },
-      { id: "refresh-skills", label: "Refresh Skills", action: loadSkills },
-      { id: "refresh-logs", label: "Refresh Logs", action: loadLogs },
-      { id: "refresh-workbench", label: "Refresh Workbench", action: loadWorkbench }
+      { id: "refresh-plugins", label: "Refresh Plugins", action: () => dispatchAppCommand("refresh-plugins"), hint: "runtime" },
+      { id: "refresh-skills", label: "Refresh Skills", action: () => dispatchAppCommand("refresh-skills"), hint: "runtime" },
+      { id: "refresh-logs", label: "Refresh Logs", action: () => dispatchAppCommand("refresh-logs"), hint: "runtime" },
+      { id: "refresh-workbench", label: "Refresh Workbench", action: () => dispatchAppCommand("refresh-workbench"), hint: "runtime" },
     );
 
     // Chat commands
@@ -109,6 +198,7 @@ export function CommandPalette() {
     isRunning,
     isPaused,
     handleStart,
+    handleStop,
     handlePauseResume,
     handleRestart,
     setTab,
