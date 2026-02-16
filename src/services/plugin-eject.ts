@@ -203,13 +203,7 @@ async function maybeRunBuild(cwd: string): Promise<void> {
   }
 
   const pm = await detectPackageManager();
-  try {
-    await execFileAsync(pm, ["run", "build"], { cwd });
-  } catch (err) {
-    logger.warn(
-      `[plugin-eject] build failed in ${cwd}: ${err instanceof Error ? err.message : String(err)}`,
-    );
-  }
+  await execFileAsync(pm, ["run", "build"], { cwd });
 }
 
 async function resolveEjectedDirById(pluginId: string): Promise<string | null> {
@@ -512,8 +506,21 @@ export function syncPlugin(pluginId: string): Promise<SyncResult> {
       }
     }
 
-    await runInstallDeps(pluginDir);
-    await maybeRunBuild(pluginDir);
+    try {
+      await runInstallDeps(pluginDir);
+      await maybeRunBuild(pluginDir);
+    } catch (err) {
+      return {
+        success: false,
+        pluginName: pkg.name,
+        ejectedPath: pluginDir,
+        upstreamCommits,
+        localChanges,
+        conflicts: [],
+        commitHash: "",
+        error: `Post-sync build failed: ${err instanceof Error ? err.message : String(err)}`,
+      };
+    }
 
     const commitHash = await gitStdout(["rev-parse", "HEAD"], pluginDir);
     const localCommitsRaw = await gitStdout(

@@ -95,10 +95,11 @@
   "dependencies": {
     "@capacitor-community/electron": "^5.0.1",
     "@clack/prompts": "^1.0.0",
-    "@elizaos/core": "./eliza/packages/typescript",
+    "@elizaos/core": "next",
     "@elizaos/plugin-agent-orchestrator": "next",
     "@elizaos/plugin-agent-skills": "next",
     "@elizaos/plugin-browser": "next",
+    "@elizaos/plugin-computeruse": "2.0.0-alpha.8",
     "@elizaos/plugin-cron": "next",
     "@elizaos/plugin-discord": "next",
     "@elizaos/plugin-edge-tts": "next",

@@ -4059,6 +4059,9 @@ export function resolveWalletExportRejection(
 }
 
 function extractWsQueryToken(url: URL): string | null {
+  const allowQueryToken = process.env.MILADY_ALLOW_WS_QUERY_TOKEN === "1";
+  if (!allowQueryToken) return null;
+
   const token =
     url.searchParams.get("token") ??
     url.searchParams.get("apiKey") ??
@@ -7151,6 +7154,24 @@ async function handleRequest(
       error(
         res,
         `Failed to list ejected plugins: ${err instanceof Error ? err.message : String(err)}`,
+        500,
+      );
+    }
+    return;
+  }
+
+  // ── GET /api/core/status ────────────────────────────────────────────────
+  // Returns whether @elizaos/core is ejected or resolved from npm.
+  if (method === "GET" && pathname === "/api/core/status") {
+    const { getCoreStatus } = await import("../services/core-eject.js");
+
+    try {
+      const status = await getCoreStatus();
+      json(res, status);
+    } catch (err) {
+      error(
+        res,
+        `Failed to get core status: ${err instanceof Error ? err.message : String(err)}`,
         500,
       );
     }

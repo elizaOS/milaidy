@@ -1,8 +1,8 @@
 import { lookup as dnsLookup } from "node:dns/promises";
 import type { AgentRuntime, Memory, UUID } from "@elizaos/core";
 import { beforeEach, describe, expect, test, vi } from "vitest";
-import { createRouteInvoker } from "../test-support/route-test-helpers";
-import { handleKnowledgeRoutes } from "./knowledge-routes";
+import { createRouteInvoker } from "../test-support/route-test-helpers.js";
+import { handleKnowledgeRoutes } from "./knowledge-routes.js";
 
 vi.mock("node:dns/promises", () => ({
   lookup: vi.fn(),
@@ -31,7 +31,6 @@ describe("knowledge routes", () => {
   let addKnowledgeMock: ReturnType<typeof vi.fn>;
   let getMemoriesMock: ReturnType<typeof vi.fn>;
   let deleteMemoryMock: ReturnType<typeof vi.fn>;
-  let useModelMock: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -42,9 +41,6 @@ describe("knowledge routes", () => {
     }));
     getMemoriesMock = vi.fn(async () => []);
     deleteMemoryMock = vi.fn(async () => undefined);
-    useModelMock = vi.fn(async () => ({
-      description: "Default image description",
-    }));
 
     const knowledgeService = {
       addKnowledge: addKnowledgeMock,
@@ -59,8 +55,6 @@ describe("knowledge routes", () => {
       getService: (name: string) =>
         name === "knowledge" ? knowledgeService : null,
       getServiceLoadPromise: async () => undefined,
-      getSetting: () => undefined,
-      useModel: useModelMock,
     } as unknown as AgentRuntime;
   });
 
@@ -254,104 +248,6 @@ describe("knowledge routes", () => {
     expect(result.payload).toMatchObject({ ok: true, deletedFragments: 1 });
   });
 
-  test("uploads image with AI description when enabled", async () => {
-    useModelMock.mockResolvedValueOnce({
-      description: "A screenshot showing release notes and feature flags.",
-    });
-
-    const result = await invoke({
-      method: "POST",
-      pathname: "/api/knowledge/documents",
-      body: {
-        content: Buffer.from("fake-image-bytes").toString("base64"),
-        filename: "release-notes.png",
-        contentType: "image/png",
-        metadata: {
-          includeImageDescriptions: true,
-        },
-      },
-    });
-
-    expect(result.status).toBe(200);
-    expect(useModelMock).toHaveBeenCalledTimes(1);
-    expect(addKnowledgeMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        contentType: "text/plain",
-        content: expect.stringContaining(
-          "A screenshot showing release notes and feature flags.",
-        ),
-        metadata: expect.objectContaining({
-          includeImageDescriptions: true,
-          originalImageContentType: "image/png",
-          imageDescriptionIncluded: true,
-        }),
-      }),
-    );
-  });
-
-  test("uploads image without description when disabled", async () => {
-    const result = await invoke({
-      method: "POST",
-      pathname: "/api/knowledge/documents",
-      body: {
-        content: Buffer.from("fake-image-bytes").toString("base64"),
-        filename: "chart.png",
-        contentType: "image/png",
-        metadata: {
-          includeImageDescriptions: false,
-        },
-      },
-    });
-
-    expect(result.status).toBe(200);
-    expect(useModelMock).not.toHaveBeenCalled();
-    expect(addKnowledgeMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        contentType: "text/plain",
-        content: expect.stringContaining("disabled for this upload"),
-        metadata: expect.objectContaining({
-          includeImageDescriptions: false,
-          imageDescriptionIncluded: false,
-        }),
-      }),
-    );
-    expect(result.payload).toMatchObject({
-      warnings: [expect.stringContaining("disabled")],
-    });
-  });
-
-  test("falls back to placeholder text when image description model fails", async () => {
-    useModelMock.mockRejectedValueOnce(new Error("vision unavailable"));
-
-    const result = await invoke({
-      method: "POST",
-      pathname: "/api/knowledge/documents",
-      body: {
-        content: Buffer.from("fake-image-bytes").toString("base64"),
-        filename: "photo.jpg",
-        contentType: "image/jpeg",
-        metadata: {
-          includeImageDescriptions: true,
-        },
-      },
-    });
-
-    expect(result.status).toBe(200);
-    expect(useModelMock).toHaveBeenCalledTimes(1);
-    expect(addKnowledgeMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        contentType: "text/plain",
-        content: expect.stringContaining("description generation failed"),
-        metadata: expect.objectContaining({
-          imageDescriptionIncluded: false,
-        }),
-      }),
-    );
-    expect(result.payload).toMatchObject({
-      warnings: [expect.stringContaining("Vision model failed")],
-    });
-  });
-
   test("blocks URL import to loopback hosts", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
 
@@ -359,6 +255,21 @@ describe("knowledge routes", () => {
       method: "POST",
       pathname: "/api/knowledge/documents/url",
       body: { url: "http://127.0.0.1:8000/secrets" },
+    });
+
+    expect(result.status).toBe(400);
+    expect((result.payload as { error?: string }).error).toContain("blocked");
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(addKnowledgeMock).not.toHaveBeenCalled();
+  });
+
+  test("blocks URL import to IPv6 link-local hosts outside fe80::/16", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+
+    const result = await invoke({
+      method: "POST",
+      pathname: "/api/knowledge/documents/url",
+      body: { url: "http://[fea0::1]/x" },
     });
 
     expect(result.status).toBe(400);

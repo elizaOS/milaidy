@@ -10,19 +10,30 @@ import { promisify } from "node:util";
 
 const dnsLookupAll = promisify(dns.lookup);
 
-const ALWAYS_BLOCKED_IP_PATTERNS: RegExp[] = [
-  /^169\.254\./, // Link-local / cloud metadata endpoints
-  /^0\./, // "This" network
-  /^fe[89ab][0-9a-f]:/i, // IPv6 link-local fe80::/10
-];
-
-const PRIVATE_IP_PATTERNS: RegExp[] = [
-  /^127\./, // IPv4 loopback
-  /^10\./, // RFC 1918 Class A
-  /^172\.(1[6-9]|2\d|3[01])\./, // RFC 1918 Class B
-  /^192\.168\./, // RFC 1918 Class C
-  /^::1$/, // IPv6 loopback
-  /^f[cd][0-9a-f]{2}:/i, // IPv6 ULA (fc00::/7)
+const BLOCKED_IPV4_CIDRS: Array<{ base: number; mask: number }> = [
+  // "This" network / current host
+  cidrV4("0.0.0.0", 8),
+  // RFC 1918 private ranges
+  cidrV4("10.0.0.0", 8),
+  cidrV4("172.16.0.0", 12),
+  cidrV4("192.168.0.0", 16),
+  // RFC 6598 carrier-grade NAT
+  cidrV4("100.64.0.0", 10),
+  // Loopback
+  cidrV4("127.0.0.0", 8),
+  // Link-local / cloud metadata endpoints
+  cidrV4("169.254.0.0", 16),
+  // IETF protocol assignments (includes 192.0.0.0/24)
+  cidrV4("192.0.0.0", 24),
+  // Benchmark testing
+  cidrV4("198.18.0.0", 15),
+  // Documentation ranges
+  cidrV4("192.0.2.0", 24),
+  cidrV4("198.51.100.0", 24),
+  cidrV4("203.0.113.0", 24),
+  // Multicast / future-use / broadcast
+  cidrV4("224.0.0.0", 4),
+  cidrV4("240.0.0.0", 4),
 ];
 
 function normalizeHostLike(value: string): string {
@@ -30,6 +41,31 @@ function normalizeHostLike(value: string): string {
     .trim()
     .toLowerCase()
     .replace(/^\[|\]$/g, "");
+}
+
+function cidrV4(base: string, prefix: number): { base: number; mask: number } {
+  const parsed = parseIpv4ToInt(base);
+  if (parsed === null) {
+    throw new Error(`Invalid CIDR base IPv4 address: ${base}`);
+  }
+  const shift = 32 - prefix;
+  const mask = shift === 32 ? 0 : (0xffffffff << shift) >>> 0;
+  return { base: parsed & mask, mask };
+}
+
+function parseIpv4ToInt(ip: string): number | null {
+  const parts = ip.split(".");
+  if (parts.length !== 4) return null;
+
+  let value = 0;
+  for (const part of parts) {
+    if (!/^\d{1,3}$/.test(part)) return null;
+    const octet = Number.parseInt(part, 10);
+    if (!Number.isInteger(octet) || octet < 0 || octet > 255) return null;
+    value = (value << 8) | octet;
+  }
+
+  return value >>> 0;
 }
 
 function decodeIpv6MappedHex(mapped: string): string | null {
@@ -51,12 +87,29 @@ function normalizeIpForPolicy(ip: string): string {
   return decodeIpv6MappedHex(mapped) ?? mapped;
 }
 
+function isBlockedIpv4(ip: string): boolean {
+  const asInt = parseIpv4ToInt(ip);
+  if (asInt === null) return true;
+  return BLOCKED_IPV4_CIDRS.some((cidr) => (asInt & cidr.mask) === cidr.base);
+}
+
+function isBlockedIpv6(ip: string): boolean {
+  const normalized = ip.toLowerCase();
+  return (
+    normalized === "::" || // unspecified address
+    normalized === "::1" || // loopback
+    normalized.startsWith("fe80:") || // link-local
+    /^f[cd][0-9a-f]{2}:/i.test(normalized) || // ULA (fc00::/7)
+    normalized.startsWith("ff") // multicast (ff00::/8)
+  );
+}
+
 function isBlockedIp(ip: string): boolean {
   const normalized = normalizeIpForPolicy(ip);
-  return (
-    ALWAYS_BLOCKED_IP_PATTERNS.some((pattern) => pattern.test(normalized)) ||
-    PRIVATE_IP_PATTERNS.some((pattern) => pattern.test(normalized))
-  );
+  const family = net.isIP(normalized);
+  if (family === 4) return isBlockedIpv4(normalized);
+  if (family === 6) return isBlockedIpv6(normalized);
+  return false;
 }
 
 export async function validateCloudBaseUrl(
@@ -76,6 +129,14 @@ export async function validateCloudBaseUrl(
   const hostname = normalizeHostLike(parsed.hostname);
   if (!hostname) {
     return `Invalid cloud base URL: "${rawUrl}"`;
+  }
+
+  if (
+    hostname === "localhost" ||
+    hostname.endsWith(".localhost") ||
+    hostname.endsWith(".local")
+  ) {
+    return `Cloud base URL "${rawUrl}" points to a blocked local hostname.`;
   }
 
   if (isBlockedIp(hostname)) {
