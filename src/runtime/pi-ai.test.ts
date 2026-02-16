@@ -8,14 +8,14 @@ import { isPiAiEnabledFromEnv, registerPiAiRuntime } from "./pi-ai.js";
 describe("pi-ai runtime registration", () => {
   it("detects enable flag from env", () => {
     expect(isPiAiEnabledFromEnv({})).toBe(false);
-    expect(isPiAiEnabledFromEnv({ MILAIDY_USE_PI_AI: "1" })).toBe(true);
-    expect(isPiAiEnabledFromEnv({ MILAIDY_USE_PI_AI: "true" })).toBe(true);
-    expect(isPiAiEnabledFromEnv({ MILAIDY_USE_PI_AI: "yes" })).toBe(true);
-    expect(isPiAiEnabledFromEnv({ MILAIDY_USE_PI_AI: "0" })).toBe(false);
+    expect(isPiAiEnabledFromEnv({ MILADY_USE_PI_AI: "1" })).toBe(true);
+    expect(isPiAiEnabledFromEnv({ MILADY_USE_PI_AI: "true" })).toBe(true);
+    expect(isPiAiEnabledFromEnv({ MILADY_USE_PI_AI: "yes" })).toBe(true);
+    expect(isPiAiEnabledFromEnv({ MILADY_USE_PI_AI: "0" })).toBe(false);
   });
 
   it("registers model handlers using pi settings/auth files", async () => {
-    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "milaidy-pi-ai-"));
+    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "milady-pi-ai-"));
 
     // Minimal pi auth/settings files.
     await fs.writeFile(

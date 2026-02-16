@@ -7,10 +7,10 @@ ENV PATH="/root/.bun/bin:${PATH}"
 WORKDIR /app
 ENV NODE_LLAMA_CPP_SKIP_DOWNLOAD="true"
 
-ARG MILAIDY_DOCKER_APT_PACKAGES=""
-RUN if [ -n "$MILAIDY_DOCKER_APT_PACKAGES" ]; then \
+ARG MILADY_DOCKER_APT_PACKAGES=""
+RUN if [ -n "$MILADY_DOCKER_APT_PACKAGES" ]; then \
       apt-get update && \
-      DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends $MILAIDY_DOCKER_APT_PACKAGES && \
+      DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends $MILADY_DOCKER_APT_PACKAGES && \
       apt-get clean && \
       rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*; \
     fi
@@ -25,7 +25,7 @@ RUN node ./scripts/link-browser-server.mjs && node ./scripts/patch-deps.mjs
 RUN bun run build
 
 ENV NODE_ENV=production
-ENV MILAIDY_API_BIND="0.0.0.0"
+ENV MILADY_API_BIND="0.0.0.0"
 
-# Railway sets $PORT dynamically. Map it to MILAIDY_PORT at runtime.
-CMD ["sh", "-lc", "MILAIDY_PORT=${PORT:-2138} node milaidy.mjs start"]
+# Railway sets $PORT dynamically. Map it to MILADY_PORT at runtime.
+CMD ["sh", "-lc", "MILADY_PORT=${PORT:-2138} node milady.mjs start"]

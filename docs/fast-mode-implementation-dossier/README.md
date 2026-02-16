@@ -1,6 +1,6 @@
 # Fast Mode Implementation Dossier
 
-This dossier is a deep implementation and risk analysis for adding **per-message fast mode** to Milaidy + ElizaOS while preserving autonomous/full mode behavior.
+This dossier is a deep implementation and risk analysis for adding **per-message fast mode** to Milady + ElizaOS while preserving autonomous/full mode behavior.
 
 The goal is not just a feature spec. It is an execution blueprint:
 
@@ -89,19 +89,19 @@ The goal is not just a feature spec. It is an execution blueprint:
 
 This dossier is based on direct code-path inspection across:
 
-- Milaidy frontend:
+- Milady frontend:
   - `apps/app/src/components/ChatView.tsx`
   - `apps/app/src/hooks/useVoiceChat.ts`
   - `apps/app/src/AppContext.tsx`
   - `apps/app/src/api-client.ts`
-- Milaidy API and cloud bridge:
+- Milady API and cloud bridge:
   - `src/api/server.ts`
   - `src/cloud/cloud-proxy.ts`
   - `src/cloud/bridge-client.ts`
   - `deploy/cloud-agent-entrypoint.ts`
-- Milaidy runtime bootstrapping:
+- Milady runtime bootstrapping:
   - `src/runtime/eliza.ts`
-  - `src/runtime/milaidy-plugin.ts`
+  - `src/runtime/milady-plugin.ts`
   - `src/providers/workspace-provider.ts`
 - Eliza core runtime and message pipeline:
   - `eliza/packages/typescript/src/services/message.ts`
@@ -119,7 +119,7 @@ This dossier is based on direct code-path inspection across:
 
 After validating real control flow and runtime constraints, the recommended implementation is:
 
-1. **Stage A (safe, quick):** add end-to-end `fastMode` request contract and carry it through Milaidy local + cloud paths.
+1. **Stage A (safe, quick):** add end-to-end `fastMode` request contract and carry it through Milady local + cloud paths.
 2. **Stage B (core correctness):** add first-class per-message processing controls in Eliza MessageService and runtime (not runtime-global mutation).
 3. **Stage C (optimization):** introduce deterministic provider/action/evaluator fast profiles.
 4. **Stage D (production hardening):** add observability, test gating, and canary rollout.

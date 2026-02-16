@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * dev:all — Start the full Milaidy development environment.
+ * dev:all — Start the full Milady development environment.
  *
  * Launches in parallel:
  *   1. App (Vite dev server on port 2138, proxies /api and /ws to runtime)
@@ -69,7 +69,7 @@ const enabledServices = services.filter((s) => {
 });
 
 if (enabledServices.length === 0) {
-  console.error("[milaidy] No services enabled. Remove --no-* flags.");
+  console.error("[milady] No services enabled. Remove --no-* flags.");
   process.exit(1);
 }
 
@@ -90,7 +90,7 @@ function prefixStream(name, stream) {
   });
 }
 
-console.log(`\nMilaidy dev environment\n`);
+console.log(`\nMilady dev environment\n`);
 console.log(
   `Starting ${enabledServices.length} service(s): ${enabledServices.map((s) => s.name).join(", ")}\n`,
 );
@@ -114,7 +114,7 @@ for (const service of enabledServices) {
 }
 
 function cleanup() {
-  console.log("\n[milaidy] Shutting down dev environment...");
+  console.log("\n[milady] Shutting down dev environment...");
   for (const child of children) {
     try {
       child.kill("SIGTERM");

@@ -1,24 +1,24 @@
 -- Merging decision tree log ---
 manifest
-ADDED from /Users/shawwalters/eliza-ok/packages/milaidy/apps/app/plugins/talkmode/android/src/main/AndroidManifest.xml:2:1-7:12
-INJECTED from /Users/shawwalters/eliza-ok/packages/milaidy/apps/app/plugins/talkmode/android/src/main/AndroidManifest.xml:2:1-7:12
+ADDED from /Users/shawwalters/eliza-ok/packages/milady/apps/app/plugins/talkmode/android/src/main/AndroidManifest.xml:2:1-7:12
+INJECTED from /Users/shawwalters/eliza-ok/packages/milady/apps/app/plugins/talkmode/android/src/main/AndroidManifest.xml:2:1-7:12
 	package
-		INJECTED from /Users/shawwalters/eliza-ok/packages/milaidy/apps/app/plugins/talkmode/android/src/main/AndroidManifest.xml
+		INJECTED from /Users/shawwalters/eliza-ok/packages/milady/apps/app/plugins/talkmode/android/src/main/AndroidManifest.xml
 	xmlns:android
-		ADDED from /Users/shawwalters/eliza-ok/packages/milaidy/apps/app/plugins/talkmode/android/src/main/AndroidManifest.xml:2:11-69
+		ADDED from /Users/shawwalters/eliza-ok/packages/milady/apps/app/plugins/talkmode/android/src/main/AndroidManifest.xml:2:11-69
 uses-permission#android.permission.RECORD_AUDIO
-ADDED from /Users/shawwalters/eliza-ok/packages/milaidy/apps/app/plugins/talkmode/android/src/main/AndroidManifest.xml:4:5-71
+ADDED from /Users/shawwalters/eliza-ok/packages/milady/apps/app/plugins/talkmode/android/src/main/AndroidManifest.xml:4:5-71
 	android:name
-		ADDED from /Users/shawwalters/eliza-ok/packages/milaidy/apps/app/plugins/talkmode/android/src/main/AndroidManifest.xml:4:22-68
+		ADDED from /Users/shawwalters/eliza-ok/packages/milady/apps/app/plugins/talkmode/android/src/main/AndroidManifest.xml:4:22-68
 uses-permission#android.permission.INTERNET
-ADDED from /Users/shawwalters/eliza-ok/packages/milaidy/apps/app/plugins/talkmode/android/src/main/AndroidManifest.xml:6:5-67
+ADDED from /Users/shawwalters/eliza-ok/packages/milady/apps/app/plugins/talkmode/android/src/main/AndroidManifest.xml:6:5-67
 	android:name
-		ADDED from /Users/shawwalters/eliza-ok/packages/milaidy/apps/app/plugins/talkmode/android/src/main/AndroidManifest.xml:6:22-64
+		ADDED from /Users/shawwalters/eliza-ok/packages/milady/apps/app/plugins/talkmode/android/src/main/AndroidManifest.xml:6:22-64
 uses-sdk
-INJECTED from /Users/shawwalters/eliza-ok/packages/milaidy/apps/app/plugins/talkmode/android/src/main/AndroidManifest.xml reason: use-sdk injection requested
-INJECTED from /Users/shawwalters/eliza-ok/packages/milaidy/apps/app/plugins/talkmode/android/src/main/AndroidManifest.xml
-INJECTED from /Users/shawwalters/eliza-ok/packages/milaidy/apps/app/plugins/talkmode/android/src/main/AndroidManifest.xml
+INJECTED from /Users/shawwalters/eliza-ok/packages/milady/apps/app/plugins/talkmode/android/src/main/AndroidManifest.xml reason: use-sdk injection requested
+INJECTED from /Users/shawwalters/eliza-ok/packages/milady/apps/app/plugins/talkmode/android/src/main/AndroidManifest.xml
+INJECTED from /Users/shawwalters/eliza-ok/packages/milady/apps/app/plugins/talkmode/android/src/main/AndroidManifest.xml
 	android:targetSdkVersion
-		INJECTED from /Users/shawwalters/eliza-ok/packages/milaidy/apps/app/plugins/talkmode/android/src/main/AndroidManifest.xml
+		INJECTED from /Users/shawwalters/eliza-ok/packages/milady/apps/app/plugins/talkmode/android/src/main/AndroidManifest.xml
 	android:minSdkVersion
-		INJECTED from /Users/shawwalters/eliza-ok/packages/milaidy/apps/app/plugins/talkmode/android/src/main/AndroidManifest.xml
+		INJECTED from /Users/shawwalters/eliza-ok/packages/milady/apps/app/plugins/talkmode/android/src/main/AndroidManifest.xml

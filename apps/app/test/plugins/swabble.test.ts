@@ -1,10 +1,10 @@
 /**
- * Tests for @milaidy/capacitor-swabble — wake word, speech, audio devices, permissions.
+ * Tests for @milady/capacitor-swabble — wake word, speech, audio devices, permissions.
  */
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { SwabbleWeb } from "../../plugins/swabble/src/web";
 
-describe("@milaidy/capacitor-swabble", () => {
+describe("@milady/capacitor-swabble", () => {
   let sw: SwabbleWeb;
 
   beforeEach(() => {

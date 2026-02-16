@@ -50,7 +50,7 @@ async function clickOnboardingNext(page: Page): Promise<void> {
 test("electron app startup: onboarding -> chat -> all pages", async () => {
   await ensureBuildArtifacts();
 
-  const userDataDir = await fs.mkdtemp(path.join(os.tmpdir(), "milaidy-electron-e2e-"));
+  const userDataDir = await fs.mkdtemp(path.join(os.tmpdir(), "milady-electron-e2e-"));
   let api: MockApiServer | null = null;
   let app: ElectronApplication | null = null;
 
@@ -71,11 +71,11 @@ test("electron app startup: onboarding -> chat -> all pages", async () => {
       args: [electronAppDir],
       env: {
         ...process.env,
-        MILAIDY_ELECTRON_SKIP_EMBEDDED_AGENT: "1",
-        MILAIDY_ELECTRON_TEST_API_BASE: api.baseUrl,
-        MILAIDY_ELECTRON_DISABLE_AUTO_UPDATER: "1",
-        MILAIDY_ELECTRON_DISABLE_DEVTOOLS: "1",
-        MILAIDY_ELECTRON_USER_DATA_DIR: userDataDir,
+        MILADY_ELECTRON_SKIP_EMBEDDED_AGENT: "1",
+        MILADY_ELECTRON_TEST_API_BASE: api.baseUrl,
+        MILADY_ELECTRON_DISABLE_AUTO_UPDATER: "1",
+        MILADY_ELECTRON_DISABLE_DEVTOOLS: "1",
+        MILADY_ELECTRON_USER_DATA_DIR: userDataDir,
       },
     });
 
@@ -102,18 +102,18 @@ test("electron app startup: onboarding -> chat -> all pages", async () => {
         .isVisible()
         .catch(() => false);
       const onboardingVisible = await page
-        .getByText(/welcome to milaidy/i)
+        .getByText(/welcome to milady/i)
         .isVisible()
         .catch(() => false);
       return loadingVisible || onboardingVisible;
     }, { timeout: 60_000 }).toBe(true);
     await expect.poll(async () => {
-      return page.evaluate(() => (window as { __MILAIDY_API_BASE__?: string }).__MILAIDY_API_BASE__ ?? null);
+      return page.evaluate(() => (window as { __MILADY_API_BASE__?: string }).__MILADY_API_BASE__ ?? null);
     }, { timeout: 30_000 }).not.toBeNull();
     try {
-      await expect(page.getByText(/welcome to milaidy/i)).toBeVisible({ timeout: 60_000 });
+      await expect(page.getByText(/welcome to milady/i)).toBeVisible({ timeout: 60_000 });
     } catch (error) {
-      const apiBase = await page.evaluate(() => (window as { __MILAIDY_API_BASE__?: string }).__MILAIDY_API_BASE__ ?? null);
+      const apiBase = await page.evaluate(() => (window as { __MILADY_API_BASE__?: string }).__MILADY_API_BASE__ ?? null);
       const onboardingStatus = await page.evaluate(() => {
         const rootText = document.body?.innerText ?? "";
         return rootText.trim().slice(0, 800);
@@ -130,7 +130,7 @@ test("electron app startup: onboarding -> chat -> all pages", async () => {
     }
 
     await clickOnboardingNext(page); // welcome -> name
-    await page.getByRole("button", { name: "Milaidy", exact: true }).click();
+    await page.getByRole("button", { name: "Milady", exact: true }).click();
     await clickOnboardingNext(page); // name -> avatar
 
     await clickOnboardingNext(page); // avatar -> style

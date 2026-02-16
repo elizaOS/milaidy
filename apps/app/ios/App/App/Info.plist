@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-        <string>Milaidy</string>
+        <string>Milady</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -47,23 +47,23 @@
 	<true/>
 	<key>NSBonjourServices</key>
 	<array>
-		<string>_milaidy-gw._tcp</string>
+		<string>_milady-gw._tcp</string>
 	</array>
 	<key>NSCameraUsageDescription</key>
-	<string>Milaidy uses your camera to capture photos and video when you ask it to.</string>
+	<string>Milady uses your camera to capture photos and video when you ask it to.</string>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>Milaidy discovers and connects to your Milaidy gateway on the local network.</string>
+	<string>Milady discovers and connects to your Milady gateway on the local network.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>Milaidy can share your location in the background so it stays up to date even when the app is not in use.</string>
+	<string>Milady can share your location in the background so it stays up to date even when the app is not in use.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Milaidy uses your location to provide location-aware responses when you allow it.</string>
+	<string>Milady uses your location to provide location-aware responses when you allow it.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Milaidy needs microphone access for voice wake, talk mode, and video capture.</string>
+	<string>Milady needs microphone access for voice wake, talk mode, and video capture.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>Milaidy saves captured photos and videos to your photo library.</string>
+	<string>Milady saves captured photos and videos to your photo library.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Milaidy accesses your photo library to attach and share photos or videos.</string>
+	<string>Milady accesses your photo library to attach and share photos or videos.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>Milaidy uses on-device speech recognition to listen for voice commands and wake words.</string>
+	<string>Milady uses on-device speech recognition to listen for voice commands and wake words.</string>
 </dict>
 </plist>

@@ -12,7 +12,7 @@ const ciWorkers = isWindows ? 2 : 3;
 export default defineConfig({
   resolve: {
     alias: {
-      "milaidy/plugin-sdk": path.join(
+      "milady/plugin-sdk": path.join(
         repoRoot,
         "src",
         "plugin-sdk",

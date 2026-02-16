@@ -1,7 +1,7 @@
 /**
  * Unit tests for the CharacterSchema Zod validation.
  *
- * Verifies that the character section of MilaidyConfig is properly
+ * Verifies that the character section of MiladyConfig is properly
  * validated: correct shapes pass, invalid shapes are rejected,
  * and edge cases are handled.
  */

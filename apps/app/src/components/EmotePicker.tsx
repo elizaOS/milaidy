@@ -217,7 +217,7 @@ export function EmotePicker() {
 
   // Stop emote
   const stopEmote = useCallback(() => {
-    document.dispatchEvent(new CustomEvent("milaidy:stop-emote"));
+    document.dispatchEvent(new CustomEvent("milady:stop-emote"));
     setPlaying(null);
   }, []);
 
@@ -254,8 +254,8 @@ export function EmotePicker() {
       }
     };
 
-    document.addEventListener("milaidy:emote-picker", handleElectronToggle);
-    return () => document.removeEventListener("milaidy:emote-picker", handleElectronToggle);
+    document.addEventListener("milady:emote-picker", handleElectronToggle);
+    return () => document.removeEventListener("milady:emote-picker", handleElectronToggle);
   }, [emotePickerOpen, openEmotePicker, closeEmotePicker]);
 
   // Focus search input on open

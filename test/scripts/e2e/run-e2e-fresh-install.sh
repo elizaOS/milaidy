@@ -4,7 +4,7 @@
 #
 # Validates the full fresh-machine flow:
 #   1. Build from source (bun install && bun run build)
-#   2. CLI boots without errors (milaidy --help, --version)
+#   2. CLI boots without errors (milady --help, --version)
 #   3. API server starts and serves endpoints
 #   4. Onboarding flow completes
 #   5. Agent lifecycle transitions work
@@ -17,10 +17,10 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-IMAGE_NAME="milaidy-fresh-install-e2e"
+IMAGE_NAME="milady-fresh-install-e2e"
 
 echo "╔══════════════════════════════════════════════════╗"
-echo "║  Milaidy Fresh Install E2E (Issue #6)           ║"
+echo "║  Milady Fresh Install E2E (Issue #6)           ║"
 echo "╚══════════════════════════════════════════════════╝"
 
 echo "==> Building Docker image from source..."
@@ -33,24 +33,24 @@ docker run --rm -t "$IMAGE_NAME" bash -lc '
   echo "── Step 1: Verify build artifacts ──"
   test -f dist/index.js || { echo "ERROR: dist/index.js missing"; exit 1; }
   test -f dist/entry.js || { echo "ERROR: dist/entry.js missing"; exit 1; }
-  test -f milaidy.mjs || { echo "ERROR: milaidy.mjs missing"; exit 1; }
+  test -f milady.mjs || { echo "ERROR: milady.mjs missing"; exit 1; }
   echo "OK: build artifacts present"
 
   echo "── Step 2: CLI --help ──"
-  node milaidy.mjs --help > /tmp/help.txt 2>&1 || {
-    echo "ERROR: milaidy --help failed"
+  node milady.mjs --help > /tmp/help.txt 2>&1 || {
+    echo "ERROR: milady --help failed"
     cat /tmp/help.txt
     exit 1
   }
-  grep -q "milaidy" /tmp/help.txt || {
-    echo "ERROR: help output missing milaidy reference"
+  grep -q "milady" /tmp/help.txt || {
+    echo "ERROR: help output missing milady reference"
     cat /tmp/help.txt
     exit 1
   }
   echo "OK: --help works"
 
   echo "── Step 3: CLI --version ──"
-  VERSION="$(node milaidy.mjs --version 2>/dev/null | head -n 1 | tr -d "\r")"
+  VERSION="$(node milady.mjs --version 2>/dev/null | head -n 1 | tr -d "\r")"
   if ! echo "$VERSION" | grep -qE "^[0-9]+\.[0-9]+\.[0-9]+"; then
     echo "ERROR: --version did not print semver: $VERSION"
     exit 1
@@ -150,9 +150,9 @@ docker run --rm -t "$IMAGE_NAME" bash -lc '
   "
 
   echo "── Step 5: Onboarding flow ──"
-  home_dir="$(mktemp -d /tmp/milaidy-fresh-e2e.XXXXXX)"
+  home_dir="$(mktemp -d /tmp/milady-fresh-e2e.XXXXXX)"
   export HOME="$home_dir"
-  mkdir -p "$HOME/.milaidy"
+  mkdir -p "$HOME/.milady"
 
   node --input-type=module -e "
     import { startApiServer } from './dist/api/server.js';

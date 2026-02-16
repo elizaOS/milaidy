@@ -3273,7 +3273,7 @@ describe("API Server E2E (compat endpoints)", () => {
     expect(data.object).toBe("list");
     const models = data.data as Array<Record<string, unknown>>;
     expect(models.length).toBeGreaterThan(0);
-    expect(models.some((item) => item.id === "milaidy")).toBe(true);
+    expect(models.some((item) => item.id === "milady")).toBe(true);
     expect(models.some((item) => item.id === "CompatAgent")).toBe(true);
   });
 
@@ -3286,12 +3286,12 @@ describe("API Server E2E (compat endpoints)", () => {
     expect(status).toBe(200);
     expect(data.object).toBe("model");
     expect(data.id).toBe("compat-model-id");
-    expect(data.owned_by).toBe("milaidy");
+    expect(data.owned_by).toBe("milady");
   });
 
   it("POST /v1/chat/completions returns OpenAI-compatible completion", async () => {
     const { status, data } = await req(port, "POST", "/v1/chat/completions", {
-      model: "milaidy",
+      model: "milady",
       user: "compat-e2e",
       messages: [
         { role: "system", content: "You are concise." },
@@ -3315,7 +3315,7 @@ describe("API Server E2E (compat endpoints)", () => {
       port,
       "/v1/chat/completions",
       {
-        model: "milaidy",
+        model: "milady",
         stream: true,
         user: "compat-sse-e2e",
         messages: [{ role: "user", content: "Stream a short answer." }],
@@ -3354,7 +3354,7 @@ describe("API Server E2E (compat endpoints)", () => {
 
   it("POST /v1/messages returns Anthropic-compatible message", async () => {
     const { status, data } = await req(port, "POST", "/v1/messages", {
-      model: "milaidy",
+      model: "milady",
       system: "You are concise.",
       metadata: { conversation_id: "compat-room-1" },
       messages: [{ role: "user", content: "Say hi." }],
@@ -3372,7 +3372,7 @@ describe("API Server E2E (compat endpoints)", () => {
 
   it("POST /v1/messages streams Anthropic-compatible SSE events", async () => {
     const { status, headers, events } = await reqSse(port, "/v1/messages", {
-      model: "milaidy",
+      model: "milady",
       stream: true,
       metadata: { conversation_id: "compat-room-2" },
       messages: [{ role: "user", content: "Stream a short answer." }],

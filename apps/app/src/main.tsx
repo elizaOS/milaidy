@@ -1,5 +1,5 @@
 /**
- * Milaidy Capacitor App Entry Point
+ * Milady Capacitor App Entry Point
  *
  * This file initializes the Capacitor runtime, sets up platform-specific
  * features, and mounts the React application.
@@ -22,8 +22,8 @@ import { initializeCapacitorBridge } from "./bridge/capacitor-bridge.js";
 import { initializeStorageBridge } from "./bridge/storage-bridge.js";
 
 // Import the agent plugin
-import { Agent } from "@milaidy/capacitor-agent";
-import { Desktop } from "@milaidy/capacitor-desktop";
+import { Agent } from "@milady/capacitor-agent";
+import { Desktop } from "@milady/capacitor-desktop";
 
 /**
  * Platform detection utilities
@@ -50,17 +50,17 @@ interface ShareTargetPayload {
 
 declare global {
   interface Window {
-    __MILAIDY_SHARE_QUEUE__?: ShareTargetPayload[];
+    __MILADY_SHARE_QUEUE__?: ShareTargetPayload[];
   }
 }
 
 function dispatchShareTarget(payload: ShareTargetPayload): void {
-  if (!window.__MILAIDY_SHARE_QUEUE__) {
-    window.__MILAIDY_SHARE_QUEUE__ = [];
+  if (!window.__MILADY_SHARE_QUEUE__) {
+    window.__MILADY_SHARE_QUEUE__ = [];
   }
-  window.__MILAIDY_SHARE_QUEUE__.push(payload);
+  window.__MILADY_SHARE_QUEUE__.push(payload);
   document.dispatchEvent(
-    new CustomEvent("milaidy:share-target", {
+    new CustomEvent("milady:share-target", {
       detail: payload,
     }),
   );
@@ -74,14 +74,14 @@ function dispatchShareTarget(payload: ShareTargetPayload): void {
 async function initializeAgent(): Promise<void> {
   try {
     const status = await Agent.getStatus();
-    console.log(`[Milaidy] Agent status: ${status.state}`, status.agentName ?? "");
+    console.log(`[Milady] Agent status: ${status.state}`, status.agentName ?? "");
 
     // Dispatch event so the UI knows the agent is available
     document.dispatchEvent(
-      new CustomEvent("milaidy:agent-ready", { detail: status }),
+      new CustomEvent("milady:agent-ready", { detail: status }),
     );
   } catch (err) {
-    console.warn("[Milaidy] Agent not available:", err instanceof Error ? err.message : err);
+    console.warn("[Milady] Agent not available:", err instanceof Error ? err.message : err);
   }
 }
 
@@ -163,10 +163,10 @@ function initializeAppLifecycle(): void {
   CapacitorApp.addListener("appStateChange", ({ isActive }) => {
     if (isActive) {
       // App came to foreground - refresh data if needed
-      document.dispatchEvent(new CustomEvent("milaidy:app-resume"));
+      document.dispatchEvent(new CustomEvent("milady:app-resume"));
     } else {
       // App went to background
-      document.dispatchEvent(new CustomEvent("milaidy:app-pause"));
+      document.dispatchEvent(new CustomEvent("milady:app-pause"));
     }
   });
 
@@ -191,7 +191,7 @@ function initializeAppLifecycle(): void {
 }
 
 /**
- * Handle deep links (milaidy:// URLs)
+ * Handle deep links (milady:// URLs)
  */
 function handleDeepLink(url: string): void {
   let parsed: URL;
@@ -202,7 +202,7 @@ function handleDeepLink(url: string): void {
   }
 
   // Handle different deep link paths
-  if (parsed.protocol === "milaidy:") {
+  if (parsed.protocol === "milady:") {
     const path = (parsed.pathname || parsed.host || "").replace(/^\/+/, "");
 
     switch (path) {
@@ -222,16 +222,16 @@ function handleDeepLink(url: string): void {
           try {
             const validatedUrl = new URL(gatewayUrl);
             if (validatedUrl.protocol !== "https:" && validatedUrl.protocol !== "http:") {
-              console.error("[Milaidy] Invalid gateway URL protocol:", validatedUrl.protocol);
+              console.error("[Milady] Invalid gateway URL protocol:", validatedUrl.protocol);
               break;
             }
             document.dispatchEvent(
-              new CustomEvent("milaidy:connect", {
+              new CustomEvent("milady:connect", {
                 detail: { gatewayUrl: validatedUrl.href },
               }),
             );
           } catch {
-            console.error("[Milaidy] Invalid gateway URL format");
+            console.error("[Milady] Invalid gateway URL format");
           }
         }
         break;
@@ -260,7 +260,7 @@ function handleDeepLink(url: string): void {
         break;
       }
       default:
-        console.log(`[Milaidy] Unknown deep link path: ${path}`);
+        console.log(`[Milady] Unknown deep link path: ${path}`);
     }
   }
 }
@@ -295,10 +295,10 @@ async function initializeElectron(): Promise<void> {
 
     await Desktop.addListener("shortcutPressed", (event: { id: string }) => {
       if (event.id === "command-palette") {
-        document.dispatchEvent(new CustomEvent("milaidy:command-palette"));
+        document.dispatchEvent(new CustomEvent("milady:command-palette"));
       }
       if (event.id === "emote-picker") {
-        document.dispatchEvent(new CustomEvent("milaidy:emote-picker"));
+        document.dispatchEvent(new CustomEvent("milady:emote-picker"));
       }
     });
 
@@ -318,7 +318,7 @@ async function initializeElectron(): Promise<void> {
 
     await Desktop.addListener("trayMenuClick", (event: { itemId: string; checked?: boolean }) => {
       document.dispatchEvent(
-        new CustomEvent("milaidy:tray-action", {
+        new CustomEvent("milady:tray-action", {
           detail: event,
         }),
       );

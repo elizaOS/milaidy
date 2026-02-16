@@ -1,6 +1,6 @@
-# Milaidy — Package Publishing Guide
+# Milady — Package Publishing Guide
 
-This guide covers the **human steps** required to publish Milaidy across all five package managers. The packaging configs are ready — this document walks through account setup, credential configuration, and publishing commands.
+This guide covers the **human steps** required to publish Milady across all five package managers. The packaging configs are ready — this document walks through account setup, credential configuration, and publishing commands.
 
 ---
 
@@ -18,7 +18,7 @@ This guide covers the **human steps** required to publish Milaidy across all fiv
 
 ## 1. PyPI (milady)
 
-The `milady` package on PyPI is a **dynamic loader** — a thin Python wrapper that auto-installs and delegates to the Node.js milaidy CLI.
+The `milady` package on PyPI is a **dynamic loader** — a thin Python wrapper that auto-installs and delegates to the Node.js milady CLI.
 
 ### 1.1 Account Setup (one-time)
 
@@ -119,23 +119,23 @@ cd homebrew-tap
 
 # Copy the formula
 mkdir -p Formula
-cp /path/to/milaidy/packaging/homebrew/milaidy.rb Formula/milaidy.rb
+cp /path/to/milady/packaging/homebrew/milady.rb Formula/milady.rb
 ```
 
 3. **Get the SHA256 hash** of the npm tarball:
 
 ```bash
 # Download the tarball and compute hash
-curl -fsSL "https://registry.npmjs.org/milaidy/-/milaidy-2.0.0-alpha.7.tgz" -o milaidy.tgz
-shasum -a 256 milaidy.tgz
-# Replace PLACEHOLDER_SHA256 in milaidy.rb with the actual hash
+curl -fsSL "https://registry.npmjs.org/milady/-/milady-2.0.0-alpha.7.tgz" -o milady.tgz
+shasum -a 256 milady.tgz
+# Replace PLACEHOLDER_SHA256 in milady.rb with the actual hash
 ```
 
 4. **Push the formula**:
 
 ```bash
-git add Formula/milaidy.rb
-git commit -m "Add milaidy formula"
+git add Formula/milady.rb
+git commit -m "Add milady formula"
 git push origin main
 ```
 
@@ -143,32 +143,32 @@ git push origin main
 
 ```bash
 # Test locally before pushing
-brew install --build-from-source Formula/milaidy.rb
+brew install --build-from-source Formula/milady.rb
 
 # Or after pushing to the tap repo
 brew tap milady-ai/tap
-brew install milaidy
+brew install milady
 ```
 
 ### 2.3 Users Install With
 
 ```bash
 brew tap milady-ai/tap
-brew install milaidy
+brew install milady
 ```
 
 Or one-liner:
 
 ```bash
-brew install milady-ai/tap/milaidy
+brew install milady-ai/tap/milady
 ```
 
 ### 2.4 Updating for New Releases
 
 ```bash
 # Compute new SHA256
-curl -fsSL "https://registry.npmjs.org/milaidy/-/milaidy-NEW_VERSION.tgz" -o milaidy.tgz
-shasum -a 256 milaidy.tgz
+curl -fsSL "https://registry.npmjs.org/milady/-/milady-NEW_VERSION.tgz" -o milady.tgz
+shasum -a 256 milady.tgz
 
 # Update the formula: change url and sha256
 # Push to homebrew-tap repo
@@ -198,13 +198,13 @@ gpg --send-keys YOUR_KEY_ID
 
 3. **Create a PPA**:
    - Go to https://launchpad.net/~/+activate-ppa
-   - Name: `milaidy`
-   - Display name: "Milaidy — Personal AI Assistant"
+   - Name: `milady`
+   - Display name: "Milady — Personal AI Assistant"
 
 4. **Build and upload the source package**:
 
 ```bash
-cd /path/to/milaidy
+cd /path/to/milady
 
 # Copy debian/ packaging into place
 cp -r packaging/debian .
@@ -213,15 +213,15 @@ cp -r packaging/debian .
 dpkg-buildpackage -S -sa -k"YOUR_GPG_KEY_ID"
 
 # Upload to PPA
-dput ppa:YOUR_USERNAME/milaidy ../milaidy_2.0.0~alpha7-1_source.changes
+dput ppa:YOUR_USERNAME/milady ../milady_2.0.0~alpha7-1_source.changes
 ```
 
 5. **Users install with**:
 
 ```bash
-sudo add-apt-repository ppa:YOUR_USERNAME/milaidy
+sudo add-apt-repository ppa:YOUR_USERNAME/milady
 sudo apt update
-sudo apt install milaidy
+sudo apt install milady
 ```
 
 ### 3.2 Option B: Self-Hosted apt Repository
@@ -231,7 +231,7 @@ This gives you more control and works across all Debian-based distros.
 1. **Build the .deb package**:
 
 ```bash
-cd /path/to/milaidy
+cd /path/to/milady
 cp -r packaging/debian .
 
 # Install build dependencies
@@ -241,18 +241,18 @@ sudo apt install debhelper nodejs npm
 dpkg-buildpackage -us -uc -b
 
 # The .deb will be in the parent directory
-ls ../milaidy_*.deb
+ls ../milady_*.deb
 ```
 
 2. **Set up a repo using GitHub Pages or a server**:
 
 ```bash
 # Create repo structure
-mkdir -p apt-repo/pool/main/m/milaidy
+mkdir -p apt-repo/pool/main/m/milady
 mkdir -p apt-repo/dists/stable/main/binary-amd64
 
 # Copy the .deb
-cp ../milaidy_*.deb apt-repo/pool/main/m/milaidy/
+cp ../milady_*.deb apt-repo/pool/main/m/milady/
 
 # Generate Packages index
 cd apt-repo
@@ -274,14 +274,14 @@ gpg --armor --clearsign -o InRelease Release
 
 ```bash
 # Add the GPG key
-curl -fsSL https://apt.milady.ai/gpg.key | sudo gpg --dearmor -o /usr/share/keyrings/milaidy.gpg
+curl -fsSL https://apt.milady.ai/gpg.key | sudo gpg --dearmor -o /usr/share/keyrings/milady.gpg
 
 # Add the repo
-echo "deb [signed-by=/usr/share/keyrings/milaidy.gpg] https://apt.milady.ai stable main" | \
-  sudo tee /etc/apt/sources.list.d/milaidy.list
+echo "deb [signed-by=/usr/share/keyrings/milady.gpg] https://apt.milady.ai stable main" | \
+  sudo tee /etc/apt/sources.list.d/milady.list
 
 sudo apt update
-sudo apt install milaidy
+sudo apt install milady
 ```
 
 ---
@@ -307,13 +307,13 @@ snapcraft login
 4. **Register the snap name**:
 
 ```bash
-snapcraft register milaidy
+snapcraft register milady
 ```
 
 ### 4.2 Build the Snap
 
 ```bash
-cd /path/to/milaidy
+cd /path/to/milady
 
 # Copy snapcraft.yaml into place
 mkdir -p snap
@@ -322,34 +322,34 @@ cp packaging/snap/snapcraft.yaml snap/
 # Build the snap (requires LXD or Multipass)
 snapcraft
 
-# This produces: milaidy_2.0.0-alpha.7_amd64.snap
+# This produces: milady_2.0.0-alpha.7_amd64.snap
 ```
 
 ### 4.3 Test Locally
 
 ```bash
 # Install the local snap
-sudo snap install milaidy_*.snap --classic --dangerous
+sudo snap install milady_*.snap --classic --dangerous
 
 # Test
-milaidy --version
-milaidy --help
+milady --version
+milady --help
 ```
 
 ### 4.4 Publish to Snap Store
 
 ```bash
 # Upload to edge channel first
-snapcraft upload milaidy_*.snap --release=edge
+snapcraft upload milady_*.snap --release=edge
 
 # After testing, promote to stable
-snapcraft release milaidy <revision> stable
+snapcraft release milady <revision> stable
 ```
 
 ### 4.5 Users Install With
 
 ```bash
-sudo snap install milaidy --classic
+sudo snap install milady --classic
 ```
 
 ---
@@ -401,35 +401,35 @@ shasum -a 256 node-arm64.tar.xz
 cd packaging/flatpak
 
 # Build
-flatpak-builder --repo=repo build-dir ai.milady.Milaidy.yml
+flatpak-builder --repo=repo build-dir ai.milady.Milady.yml
 
 # Create a bundle for testing
-flatpak build-bundle repo milaidy.flatpak ai.milady.Milaidy
+flatpak build-bundle repo milady.flatpak ai.milady.Milady
 ```
 
 ### 5.4 Test Locally
 
 ```bash
 # Install from local bundle
-flatpak --user install milaidy.flatpak
+flatpak --user install milady.flatpak
 
 # Run
-flatpak run ai.milady.Milaidy --version
-flatpak run ai.milady.Milaidy start
+flatpak run ai.milady.Milady --version
+flatpak run ai.milady.Milady start
 ```
 
 ### 5.5 Publish to Flathub
 
 1. Fork https://github.com/flathub/flathub
-2. Create a new repo: `github.com/flathub/ai.milady.Milaidy`
+2. Create a new repo: `github.com/flathub/ai.milady.Milady`
 3. Add the manifest and supporting files
 4. Submit a PR — Flathub maintainers will review
 
 ### 5.6 Users Install With
 
 ```bash
-flatpak install flathub ai.milady.Milaidy
-flatpak run ai.milady.Milaidy start
+flatpak install flathub ai.milady.Milady
+flatpak run ai.milady.Milady start
 ```
 
 ---
@@ -502,20 +502,20 @@ jobs:
         run: |
           VERSION="${{ github.event.release.tag_name || github.event.inputs.version }}"
           VERSION="${VERSION#v}"
-          URL="https://registry.npmjs.org/milaidy/-/milaidy-${VERSION}.tgz"
+          URL="https://registry.npmjs.org/milady/-/milady-${VERSION}.tgz"
           SHA256=$(curl -fsSL "$URL" | shasum -a 256 | cut -d' ' -f1)
 
           git clone "https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/milady-ai/homebrew-tap.git"
           cd homebrew-tap
 
-          sed -i "s|url \".*\"|url \"${URL}\"|" Formula/milaidy.rb
-          sed -i "s|sha256 \".*\"|sha256 \"${SHA256}\"|" Formula/milaidy.rb
-          sed -i "s|version \".*\"|version \"${VERSION}\"|" Formula/milaidy.rb
+          sed -i "s|url \".*\"|url \"${URL}\"|" Formula/milady.rb
+          sed -i "s|sha256 \".*\"|sha256 \"${SHA256}\"|" Formula/milady.rb
+          sed -i "s|version \".*\"|version \"${VERSION}\"|" Formula/milady.rb
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add Formula/milaidy.rb
-          git commit -m "Update milaidy to ${VERSION}"
+          git add Formula/milady.rb
+          git commit -m "Update milady to ${VERSION}"
           git push
 ```
 
@@ -523,7 +523,7 @@ jobs:
 
 | Secret | Where to get it | Used by |
 |---|---|---|
-| `SNAP_TOKEN` | `snapcraft export-login --snaps=milaidy --acls=package_push -` | Snap publishing |
+| `SNAP_TOKEN` | `snapcraft export-login --snaps=milady --acls=package_push -` | Snap publishing |
 | `HOMEBREW_TAP_TOKEN` | GitHub PAT with `repo` scope for `milady-ai/homebrew-tap` | Homebrew formula updates |
 | `PYPI_API_TOKEN` | https://pypi.org/manage/account/token/ (or use trusted publishing) | PyPI uploads |
 
@@ -533,7 +533,7 @@ Instead of API tokens, use OIDC trusted publishing:
 1. Go to https://pypi.org/manage/project/milady/settings/publishing/
 2. Add a "GitHub Actions" publisher:
    - Owner: `milady-ai`
-   - Repository: `milaidy`
+   - Repository: `milady`
    - Workflow: `publish-packages.yml`
    - Environment: (leave blank or set one)
 
@@ -552,8 +552,8 @@ When releasing a new version, update these files:
 | `packaging/pypi/milady/__init__.py` | `__version__` |
 | `packaging/snap/snapcraft.yaml` | `version` |
 | `packaging/debian/changelog` | Add new entry at top |
-| `packaging/homebrew/milaidy.rb` | `url` + `sha256` (after npm publish) |
-| `packaging/flatpak/ai.milady.Milaidy.metainfo.xml` | Add new `<release>` entry |
+| `packaging/homebrew/milady.rb` | `url` + `sha256` (after npm publish) |
+| `packaging/flatpak/ai.milady.Milady.metainfo.xml` | Add new `<release>` entry |
 
 ### Version Format Mapping
 
@@ -572,11 +572,11 @@ When releasing a new version, update these files:
 
 | Platform | Command |
 |---|---|
-| **npm** | `npm install -g milaidy` |
+| **npm** | `npm install -g milady` |
 | **PyPI** | `pip install milady` |
-| **Homebrew** | `brew install milady-ai/tap/milaidy` |
-| **apt** | `sudo apt install milaidy` (after adding repo) |
-| **Snap** | `sudo snap install milaidy --classic` |
-| **Flatpak** | `flatpak install flathub ai.milady.Milaidy` |
-| **npx** | `npx milaidy` (no install) |
+| **Homebrew** | `brew install milady-ai/tap/milady` |
+| **apt** | `sudo apt install milady` (after adding repo) |
+| **Snap** | `sudo snap install milady --classic` |
+| **Flatpak** | `flatpak install flathub ai.milady.Milady` |
+| **npx** | `npx milady` (no install) |
 | **pipx** | `pipx install milady` |

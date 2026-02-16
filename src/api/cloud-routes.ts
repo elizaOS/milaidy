@@ -1,5 +1,5 @@
 /**
- * Cloud API routes for Milaidy — handles /api/cloud/* endpoints.
+ * Cloud API routes for Milady — handles /api/cloud/* endpoints.
  */
 
 import type http from "node:http";
@@ -7,8 +7,8 @@ import type { AgentRuntime } from "@elizaos/core";
 import { logger } from "@elizaos/core";
 import type { CloudManager } from "../cloud/cloud-manager.js";
 import { validateCloudBaseUrl } from "../cloud/validate-url.js";
-import type { MilaidyConfig } from "../config/config.js";
-import { saveMilaidyConfig } from "../config/config.js";
+import type { MiladyConfig } from "../config/config.js";
+import { saveMiladyConfig } from "../config/config.js";
 import {
   readJsonBody as parseJsonBody,
   sendJson,
@@ -16,7 +16,7 @@ import {
 } from "./http-helpers.js";
 
 export interface CloudRouteState {
-  config: MilaidyConfig;
+  config: MiladyConfig;
   cloudManager: CloudManager | null;
   /** The running agent runtime — needed to persist cloud credentials to the DB. */
   runtime: AgentRuntime | null;
@@ -222,7 +222,7 @@ export async function handleCloudRoute(
       cloud.apiKey = data.apiKey;
       (state.config as Record<string, unknown>).cloud = cloud;
       try {
-        saveMilaidyConfig(state.config);
+        saveMiladyConfig(state.config);
         logger.info("[cloud-login] API key saved to config file");
       } catch (saveErr) {
         logger.error(
@@ -390,7 +390,7 @@ export async function handleCloudRoute(
     (state.config as Record<string, unknown>).cloud = cloud;
 
     try {
-      saveMilaidyConfig(state.config);
+      saveMiladyConfig(state.config);
     } catch (saveErr) {
       logger.warn(
         `[cloud-login] Failed to save cloud disconnect state: ${saveErr instanceof Error ? saveErr.message : saveErr}`,

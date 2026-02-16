@@ -28,7 +28,7 @@ export class AgentWeb extends WebPlugin implements AgentPlugin {
 
   private apiBase(): string {
     const global = typeof window !== "undefined"
-      ? (window as unknown as Record<string, unknown>).__MILAIDY_API_BASE__
+      ? (window as unknown as Record<string, unknown>).__MILADY_API_BASE__
       : undefined;
     if (typeof global === "string" && global.trim().length > 0) return global;
     return this.electronLocalFallbackBase();
@@ -36,11 +36,11 @@ export class AgentWeb extends WebPlugin implements AgentPlugin {
 
   private apiToken(): string | null {
     const global = typeof window !== "undefined"
-      ? (window as unknown as Record<string, unknown>).__MILAIDY_API_TOKEN__
+      ? (window as unknown as Record<string, unknown>).__MILADY_API_TOKEN__
       : undefined;
     if (typeof global === "string" && global.trim()) return global.trim();
     if (typeof window === "undefined") return null;
-    const stored = window.sessionStorage.getItem("milaidy_api_token");
+    const stored = window.sessionStorage.getItem("milady_api_token");
     return stored && stored.trim() ? stored.trim() : null;
   }
 

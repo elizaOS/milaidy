@@ -1,10 +1,10 @@
 /**
- * Tests for @milaidy/capacitor-talkmode — state machine, speak, config, permissions.
+ * Tests for @milady/capacitor-talkmode — state machine, speak, config, permissions.
  */
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { TalkModeWeb } from "../../plugins/talkmode/src/web";
 
-describe("@milaidy/capacitor-talkmode", () => {
+describe("@milady/capacitor-talkmode", () => {
   let tm: TalkModeWeb;
 
   beforeEach(() => {

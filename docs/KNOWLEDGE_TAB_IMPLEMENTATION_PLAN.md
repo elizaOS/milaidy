@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-This document outlines the implementation plan for adding a Knowledge management feature to Milaidy, including:
+This document outlines the implementation plan for adding a Knowledge management feature to Milady, including:
 1. Installing `@elizaos/plugin-knowledge` as a default plugin
 2. Modifying the knowledge provider to skip when no knowledge exists
 3. Adding a new "Knowledge" tab in the UI for document management
@@ -38,7 +38,7 @@ let knowledge = `${
 ```
 The provider currently returns an empty string when no knowledge exists, but still contributes to the context. It should skip entirely.
 
-### 1.2 Milaidy UI Tab Architecture
+### 1.2 Milady UI Tab Architecture
 
 **Navigation System:** `apps/app/src/navigation.ts`
 - Tabs defined with: `id`, `label`, `icon`, `component`, `condition` (visibility rules)
@@ -55,7 +55,7 @@ The provider currently returns an empty string when no knowledge exists, but sti
 ### 1.3 Live Testing Patterns
 
 **Pattern from `test/api-auth-live.e2e.test.ts`:**
-- Tests run when `MILAIDY_LIVE_TEST=1` environment variable is set
+- Tests run when `MILADY_LIVE_TEST=1` environment variable is set
 - Tests load `.env` from eliza workspace for API keys
 - Uses `describe.skipIf(!canRun)` pattern to conditionally run
 - Tests real API endpoints with actual LLM providers
@@ -172,7 +172,7 @@ if (!knowledgeData || knowledgeData.length === 0) {
 
 **No ElizaOS core changes required** - the skip mechanism already exists.
 
-### Phase 3: API Endpoints in Milaidy
+### Phase 3: API Endpoints in Milady
 
 **Files to create/modify:**
 
@@ -312,7 +312,7 @@ describe.skipIf(!hasLLMKey)("Live: Knowledge integration with LLM", () => {
 ```
 
 **Environment Variables Required:**
-- `MILAIDY_LIVE_TEST=1` - Enable live tests
+- `MILADY_LIVE_TEST=1` - Enable live tests
 - `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` - For LLM and embeddings
 
 ---
@@ -331,7 +331,7 @@ describe.skipIf(!hasLLMKey)("Live: Knowledge integration with LLM", () => {
 
 ### Version Constraints
 - Must work with `@elizaos/core: next` (2.0.0-alpha.x)
-- Must work with existing milaidy build system (tsdown, vite)
+- Must work with existing milady build system (tsdown, vite)
 
 ---
 
@@ -345,7 +345,7 @@ describe.skipIf(!hasLLMKey)("Live: Knowledge integration with LLM", () => {
         │ HTTP API
         ▼
 ┌─────────────────┐
-│  Milaidy API    │
+│  Milady API    │
 │   Server        │
 └───────┬─────────┘
         │ Plugin Routes
@@ -436,7 +436,7 @@ Based on user feedback:
 ### Files to Modify
 - `apps/app/src/navigation.ts` - Add knowledge tab
 - `apps/app/src/api-client.ts` - Add knowledge API methods
-- `src/runtime/milaidy-plugin.ts` - Add default plugin
+- `src/runtime/milady-plugin.ts` - Add default plugin
 - `/plugins/plugin-knowledge/typescript/provider.ts` - Skip logic
 
 ### Files to Review

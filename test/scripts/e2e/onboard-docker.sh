@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-IMAGE_NAME="milaidy-onboard-e2e"
+IMAGE_NAME="milady-onboard-e2e"
 
 echo "Building Docker image..."
 docker build -t "$IMAGE_NAME" -f "$ROOT_DIR/scripts/e2e/Dockerfile" "$ROOT_DIR"
@@ -15,9 +15,9 @@ docker run --rm -t "$IMAGE_NAME" bash -lc '
   ONBOARD_FLAGS="--flow quickstart --auth-choice skip --skip-channels --skip-skills --skip-daemon --skip-ui"
 
   # Provide a minimal trash shim to avoid noisy "missing trash" logs in containers.
-  export PATH="/tmp/milaidy-bin:$PATH"
-  mkdir -p /tmp/milaidy-bin
-  cat > /tmp/milaidy-bin/trash <<'"'"'TRASH'"'"'
+  export PATH="/tmp/milady-bin:$PATH"
+  mkdir -p /tmp/milady-bin
+  cat > /tmp/milady-bin/trash <<'"'"'TRASH'"'"'
 #!/usr/bin/env bash
 set -euo pipefail
 trash_dir="$HOME/.Trash"
@@ -32,7 +32,7 @@ for target in "$@"; do
   mv "$target" "$dest"
 done
 TRASH
-  chmod +x /tmp/milaidy-bin/trash
+  chmod +x /tmp/milady-bin/trash
 
   send() {
     local payload="$1"
@@ -140,9 +140,9 @@ TRASH
     export HOME="$home_dir"
     mkdir -p "$HOME"
 
-    input_fifo="$(mktemp -u "/tmp/milaidy-onboard-${case_name}.XXXXXX")"
+    input_fifo="$(mktemp -u "/tmp/milady-onboard-${case_name}.XXXXXX")"
     mkfifo "$input_fifo"
-    local log_path="/tmp/milaidy-onboard-${case_name}.log"
+    local log_path="/tmp/milady-onboard-${case_name}.log"
     WIZARD_LOG_PATH="$log_path"
     export WIZARD_LOG_PATH
     # Run under script to keep an interactive TTY for clack prompts.
@@ -189,7 +189,7 @@ TRASH
   }
 
   make_home() {
-    mktemp -d "/tmp/milaidy-e2e-$1.XXXXXX"
+    mktemp -d "/tmp/milady-e2e-$1.XXXXXX"
   }
 
   assert_file() {
@@ -280,9 +280,9 @@ TRASH
       --skip-health
 
     # Assert config + workspace scaffolding.
-    workspace_dir="$HOME/.milaidy/workspace"
-    config_path="$HOME/.milaidy/milaidy.json"
-    sessions_dir="$HOME/.milaidy/agents/main/sessions"
+    workspace_dir="$HOME/.milady/workspace"
+    config_path="$HOME/.milady/milady.json"
+    sessions_dir="$HOME/.milady/agents/main/sessions"
 
     assert_file "$config_path"
     assert_dir "$sessions_dir"
@@ -352,7 +352,7 @@ NODE
       --skip-skills \
       --skip-health
 
-    config_path="$HOME/.milaidy/milaidy.json"
+    config_path="$HOME/.milady/milady.json"
     assert_file "$config_path"
 
     CONFIG_PATH="$config_path" node --input-type=module - <<'"'"'NODE'"'"'
@@ -386,9 +386,9 @@ NODE
     local home_dir
     home_dir="$(make_home reset-config)"
     export HOME="$home_dir"
-    mkdir -p "$HOME/.milaidy"
+    mkdir -p "$HOME/.milady"
     # Seed a remote config to exercise reset path.
-    cat > "$HOME/.milaidy/milaidy.json" <<'"'"'JSON'"'"'
+    cat > "$HOME/.milady/milady.json" <<'"'"'JSON'"'"'
 {
   "agents": { "defaults": { "workspace": "/root/old" } },
   "gateway": {
@@ -410,7 +410,7 @@ JSON
       --skip-ui \
       --skip-health
 
-    config_path="$HOME/.milaidy/milaidy.json"
+    config_path="$HOME/.milady/milady.json"
     assert_file "$config_path"
 
     CONFIG_PATH="$config_path" node --input-type=module - <<'"'"'NODE'"'"'
@@ -443,7 +443,7 @@ NODE
     # Channels-only configure flow.
     run_wizard_cmd channels "$home_dir" "node dist/index.js configure --section channels" send_channels_flow
 
-    config_path="$HOME/.milaidy/milaidy.json"
+    config_path="$HOME/.milady/milady.json"
     assert_file "$config_path"
 
     CONFIG_PATH="$config_path" node --input-type=module - <<'"'"'NODE'"'"'
@@ -481,9 +481,9 @@ NODE
     local home_dir
     home_dir="$(make_home skills)"
     export HOME="$home_dir"
-    mkdir -p "$HOME/.milaidy"
+    mkdir -p "$HOME/.milady"
     # Seed skills config to ensure it survives the wizard.
-    cat > "$HOME/.milaidy/milaidy.json" <<'"'"'JSON'"'"'
+    cat > "$HOME/.milady/milady.json" <<'"'"'JSON'"'"'
 {
   "skills": {
     "allowBundled": ["__none__"],
@@ -494,7 +494,7 @@ JSON
 
     run_wizard_cmd skills "$home_dir" "node dist/index.js configure --section skills" send_skills_flow
 
-    config_path="$HOME/.milaidy/milaidy.json"
+    config_path="$HOME/.milady/milady.json"
     assert_file "$config_path"
 
     CONFIG_PATH="$config_path" node --input-type=module - <<'"'"'NODE'"'"'

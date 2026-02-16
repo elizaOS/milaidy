@@ -506,7 +506,7 @@ export interface CanvasPlugin {
   ): Promise<PluginListenerHandle>;
 
   /**
-   * Add listener for deep link events (milaidy:// URL intercepts)
+   * Add listener for deep link events (milady:// URL intercepts)
    */
   addListener(
     eventName: "deepLink",

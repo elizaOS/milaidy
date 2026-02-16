@@ -1,4 +1,4 @@
-/* Milaidy — Theme System */
+/* Milady — Theme System */
 
 /* ═══════════════════════════════════════════════════════════════════════
    milady — miladymaker.net inspired: sage greens, warm cream, Y2K web
@@ -709,7 +709,7 @@ html:not([data-theme]) #root {
     -webkit-font-smoothing: antialiased;
   }
 
-  milaidy-app {
+  milady-app {
     display: flex;
     flex-direction: column;
     position: relative;

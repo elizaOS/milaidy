@@ -184,7 +184,7 @@ export class CanvasManager {
     const win = this.getWindow(options.windowId);
     const json = JSON.stringify(options.payload);
     await win.webContents.executeJavaScript(
-      `if (window.milaidyA2UI && typeof window.milaidyA2UI.push === 'function') { window.milaidyA2UI.push(${json}); }`,
+      `if (window.miladyA2UI && typeof window.miladyA2UI.push === 'function') { window.miladyA2UI.push(${json}); }`,
     );
   }
 
@@ -192,7 +192,7 @@ export class CanvasManager {
   async a2uiReset(options: { windowId: string }): Promise<void> {
     const win = this.getWindow(options.windowId);
     await win.webContents.executeJavaScript(
-      `if (window.milaidyA2UI && typeof window.milaidyA2UI.reset === 'function') { window.milaidyA2UI.reset(); }`,
+      `if (window.miladyA2UI && typeof window.miladyA2UI.reset === 'function') { window.miladyA2UI.reset(); }`,
     );
   }
 

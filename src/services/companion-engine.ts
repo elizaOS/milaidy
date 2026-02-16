@@ -11,9 +11,9 @@ import type {
   UpdateCompanionSettingsRequest,
 } from "../contracts/companion.js";
 
-export const COMPANION_TASK_NAME = "Milaidy Companion State";
-export const COMPANION_INTERNAL_TAG = "milaidy-internal";
-export const COMPANION_TASK_TAG = "milaidy-companion";
+export const COMPANION_TASK_NAME = "Milady Companion State";
+export const COMPANION_INTERNAL_TAG = "milady-internal";
+export const COMPANION_TASK_TAG = "milady-companion";
 export const COMPANION_STATE_METADATA_KEY = "companionState";
 
 const COMPANION_STATE_VERSION = 1;

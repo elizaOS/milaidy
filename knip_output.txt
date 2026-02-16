@@ -98,7 +98,7 @@ checkMicrophone                       win32   function  apps/app/electron/src/na
 checkCamera                           win32   function  apps/app/electron/src/native/permissions-win32.ts:75:23  
 getWhisperInstance                            function  apps/app/electron/src/native/whisper.ts:504:17           
 disposeWhisperInstance                        function  apps/app/electron/src/native/whisper.ts:511:17           
-MilaidyClient                                 class     apps/app/src/api-client.ts:1426:14                       
+MiladyClient                                 class     apps/app/src/api-client.ts:1426:14                       
 getCapabilities                               function  apps/app/src/bridge/capacitor-bridge.ts:62:17            
 haptics                                                 apps/app/src/bridge/capacitor-bridge.ts:81:14            
 registerPlugin                                function  apps/app/src/bridge/capacitor-bridge.ts:168:17           
@@ -289,11 +289,11 @@ looksLikePlugin                               function  src/test-support/test-he
 parseScheduledAtIso                           function  src/triggers/scheduling.ts:236:17                        
 registerPiAiModelHandler                                src/tui/index.ts:15:10                                   
 ElizaTUIBridge                                          src/tui/index.ts:16:10                                   
-MilaidyTUI                                              src/tui/index.ts:17:10                                   
-milaidySelectListTheme                                  src/tui/theme.ts:16:14                                   
-milaidyEditorTheme                                      src/tui/theme.ts:24:14                                   
+MiladyTUI                                              src/tui/index.ts:17:10                                   
+miladySelectListTheme                                  src/tui/theme.ts:16:14                                   
+miladyEditorTheme                                      src/tui/theme.ts:24:14                                   
 shouldLogVerbose                              function  src/utils/globals.ts:38:17                               
-resolveMilaidyPackageRoot                     function  src/utils/milaidy-root.ts:100:23                         
+resolveMiladyPackageRoot                     function  src/utils/milady-root.ts:100:23                         
 formatModelSpec                               function  src/utils/pi-ai.ts:20:17                                 
 Unused exported types (180)
 CameraDeviceInfo                         interface  apps/app/electron/src/native/camera.ts:16:18            
@@ -373,7 +373,7 @@ RegistryConfig                           interface  apps/app/src/api-client.ts:1
 VerificationMessageResponse              interface  apps/app/src/api-client.ts:1402:18                      
 AppActions                               interface  apps/app/src/AppContext.tsx:590:18                      
 CapacitorCapabilities                    interface  apps/app/src/bridge/capacitor-bridge.ts:34:18           
-MilaidyBridge                            interface  apps/app/src/bridge/capacitor-bridge.ts:190:18          
+MiladyBridge                            interface  apps/app/src/bridge/capacitor-bridge.ts:190:18          
 ActionBinding                            type       apps/app/src/components/config-catalog.ts:36:15         
 CatalogConfig                            interface  apps/app/src/components/config-catalog.ts:392:18        
 ConfigRendererProps                      interface  apps/app/src/components/config-renderer.tsx:35:18       

@@ -1,5 +1,5 @@
 /**
- * Tests for the Milaidy plugin installer.
+ * Tests for the Milady plugin installer.
  *
  * Exercises install/uninstall flows, config persistence, error handling,
  * concurrent operations, and cross-platform path logic.
@@ -107,25 +107,25 @@ async function writeLocalPluginSource(
 beforeEach(async () => {
   vi.resetModules();
 
-  tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "milaidy-inst-test-"));
-  configDir = path.join(tmpDir, ".milaidy");
-  configPath = path.join(configDir, "milaidy.json");
+  tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "milady-inst-test-"));
+  configDir = path.join(tmpDir, ".milady");
+  configPath = path.join(configDir, "milady.json");
 
   await fs.mkdir(configDir, { recursive: true });
   writeConfig({});
 
   savedEnv = {
-    MILAIDY_STATE_DIR: process.env.MILAIDY_STATE_DIR,
-    MILAIDY_CONFIG_PATH: process.env.MILAIDY_CONFIG_PATH,
+    MILADY_STATE_DIR: process.env.MILADY_STATE_DIR,
+    MILADY_CONFIG_PATH: process.env.MILADY_CONFIG_PATH,
   };
-  process.env.MILAIDY_STATE_DIR = configDir;
-  process.env.MILAIDY_CONFIG_PATH = configPath;
+  process.env.MILADY_STATE_DIR = configDir;
+  process.env.MILADY_CONFIG_PATH = configPath;
 });
 
 afterEach(async () => {
   vi.restoreAllMocks();
-  process.env.MILAIDY_STATE_DIR = savedEnv.MILAIDY_STATE_DIR;
-  process.env.MILAIDY_CONFIG_PATH = savedEnv.MILAIDY_CONFIG_PATH;
+  process.env.MILADY_STATE_DIR = savedEnv.MILADY_STATE_DIR;
+  process.env.MILADY_CONFIG_PATH = savedEnv.MILADY_CONFIG_PATH;
   await fs.rm(tmpDir, { recursive: true, force: true });
 });
 

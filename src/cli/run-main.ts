@@ -36,14 +36,14 @@ export async function runCli(argv: string[] = process.argv) {
 
   process.on("unhandledRejection", (reason) => {
     console.error(
-      "[milaidy] Unhandled rejection:",
+      "[milady] Unhandled rejection:",
       formatUncaughtError(reason),
     );
     process.exit(1);
   });
 
   process.on("uncaughtException", (error) => {
-    console.error("[milaidy] Uncaught exception:", formatUncaughtError(error));
+    console.error("[milady] Uncaught exception:", formatUncaughtError(error));
     process.exit(1);
   });
 

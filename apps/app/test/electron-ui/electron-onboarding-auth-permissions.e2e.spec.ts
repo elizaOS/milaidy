@@ -42,7 +42,7 @@ async function clickOnboardingNext(page: Page): Promise<void> {
 test("electron auth + onboarding permissions flow works end-to-end", async () => {
   await ensureBuildArtifacts();
 
-  const userDataDir = await fs.mkdtemp(path.join(os.tmpdir(), "milaidy-electron-e2e-auth-"));
+  const userDataDir = await fs.mkdtemp(path.join(os.tmpdir(), "milady-electron-e2e-auth-"));
   let api: MockApiServer | null = null;
   let app: ElectronApplication | null = null;
 
@@ -72,12 +72,12 @@ test("electron auth + onboarding permissions flow works end-to-end", async () =>
         args: [electronAppDir],
         env: {
           ...process.env,
-          MILAIDY_ELECTRON_SKIP_EMBEDDED_AGENT: "1",
-          MILAIDY_ELECTRON_TEST_API_BASE: api.baseUrl,
-          MILAIDY_ELECTRON_DISABLE_AUTO_UPDATER: "1",
-          MILAIDY_ELECTRON_DISABLE_DEVTOOLS: "1",
-          MILAIDY_ELECTRON_USER_DATA_DIR: userDataDir,
-          MILAIDY_API_TOKEN: token ?? "",
+          MILADY_ELECTRON_SKIP_EMBEDDED_AGENT: "1",
+          MILADY_ELECTRON_TEST_API_BASE: api.baseUrl,
+          MILADY_ELECTRON_DISABLE_AUTO_UPDATER: "1",
+          MILADY_ELECTRON_DISABLE_DEVTOOLS: "1",
+          MILADY_ELECTRON_USER_DATA_DIR: userDataDir,
+          MILADY_API_TOKEN: token ?? "",
         },
       });
       return app.firstWindow();
@@ -91,10 +91,10 @@ test("electron auth + onboarding permissions flow works end-to-end", async () =>
     app = null;
 
     const page = await launchApp("desktop-auth-token");
-    await expect(page.getByText(/welcome to milaidy/i)).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByText(/welcome to milady/i)).toBeVisible({ timeout: 60_000 });
 
     await clickOnboardingNext(page); // welcome -> name
-    await page.getByRole("button", { name: "Milaidy", exact: true }).click();
+    await page.getByRole("button", { name: "Milady", exact: true }).click();
     await clickOnboardingNext(page); // name -> avatar
     await clickOnboardingNext(page); // avatar -> style
     await page.getByRole("button", { name: /chaotic/i }).click();

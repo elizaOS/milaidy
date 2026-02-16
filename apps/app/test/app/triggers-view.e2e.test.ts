@@ -9,7 +9,7 @@ import React, {
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import TestRenderer, { act } from "react-test-renderer";
 import {
-  MilaidyClient,
+  MiladyClient,
   type CreateTriggerRequest,
   type TriggerHealthSnapshot,
   type TriggerRunRecord,
@@ -181,7 +181,7 @@ function sortTriggers(items: TriggerSummary[]): TriggerSummary[] {
   return [...items].sort((a, b) => a.displayName.localeCompare(b.displayName));
 }
 
-function TriggerUiHarness(props: { client: MilaidyClient }): ReactElement {
+function TriggerUiHarness(props: { client: MiladyClient }): ReactElement {
   const { client } = props;
   const [triggers, setTriggers] = useState<TriggerSummary[]>([]);
   const [triggersLoading, setTriggersLoading] = useState(false);
@@ -488,7 +488,7 @@ describe("TriggersView UI E2E", () => {
       throw new Error("Server was not initialized");
     }
 
-    const client = new MilaidyClient(`http://127.0.0.1:${server.port}`);
+    const client = new MiladyClient(`http://127.0.0.1:${server.port}`);
     const triggerDisplayName = "Trigger UI E2E";
 
     let tree: TestRenderer.ReactTestRenderer;

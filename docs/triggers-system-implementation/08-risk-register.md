@@ -30,7 +30,7 @@ Scale:
 
 | ID | Risk | Severity | Likelihood | Detection | Mitigation | Rollback |
 |---|---|---|---|---|---|---|
-| A-001 | Action added in wrong capability path, unavailable in Milaidy | S1 | L2 | action list diagnostics at runtime | dual-path registration or dedicated plugin | disable feature and fallback to API-only |
+| A-001 | Action added in wrong capability path, unavailable in Milady | S1 | L2 | action list diagnostics at runtime | dual-path registration or dedicated plugin | disable feature and fallback to API-only |
 | A-002 | `validate` passes but handler fails hard due missing runtime deps | S2 | L2 | handler error telemetry | enforce dependency checks in handler | hide action via config |
 | A-003 | Model false-positive selects CREATE_TASK too often | S2 | L1 | high create attempts with low confirmations | tighten validate keywords and prompt examples | temporary action disable |
 | A-004 | Duplicate trigger creation from repeated user phrasing | S2 | L1 | dedupe collision metrics | deterministic dedupe key and idempotent create | one-time dedupe migration pass |
@@ -93,7 +93,7 @@ Prioritize these before broad rollout:
 1. R-001 worker registration correctness
 2. R-002 one-time schedule correctness
 3. R-004 multi-process overlap
-4. A-001 capability path mismatch in Milaidy
+4. A-001 capability path mismatch in Milady
 5. A-005 abusive schedule creation
 6. P-001 route collision
 7. P-004 run-now race

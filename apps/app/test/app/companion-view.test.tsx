@@ -9,8 +9,8 @@ const { mockUseApp } = vi.hoisted(() => ({
 
 vi.mock("../../src/AppContext", () => ({
   useApp: () => mockUseApp(),
-  getVrmPreviewUrl: () => "/vrms/previews/milAIdy-1.png",
-  getVrmUrl: () => "/vrms/milAIdy-1.vrm",
+  getVrmPreviewUrl: () => "/vrms/previews/milady-1.png",
+  getVrmUrl: () => "/vrms/milady-1.vrm",
   VRM_COUNT: 24,
 }));
 

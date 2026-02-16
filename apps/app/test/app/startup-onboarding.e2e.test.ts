@@ -190,7 +190,7 @@ import { App } from "../../src/App";
 
 function onboardingOptions() {
   return {
-    names: ["Milaidy"],
+    names: ["Milady"],
     styles: [
       {
         catchphrase: "chaotic",

@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This document critically assesses the previous recommendation (custom Milaidy-side MessageService wrapper/fork + optional Eliza core changes) against verified control flow in the current codebase.
+This document critically assesses the previous recommendation (custom Milady-side MessageService wrapper/fork + optional Eliza core changes) against verified control flow in the current codebase.
 
 It focuses on:
 
@@ -17,9 +17,9 @@ It focuses on:
 
 The prior direction was:
 
-1. Add `fastMode` in Milaidy request path.
+1. Add `fastMode` in Milady request path.
 2. Use `MessageProcessingOptions` where possible.
-3. For missing controls (especially main model sizing), implement custom service behavior in Milaidy.
+3. For missing controls (especially main model sizing), implement custom service behavior in Milady.
 4. Propose longer-term Eliza core support for per-message mode.
 
 This was directionally correct, but there are important constraints and risks that require a more explicit staged architecture.
@@ -85,7 +85,7 @@ Any fine-grained filtering requires:
 - introducing first-class options in Eliza core.
 
 ### Consequence
-A robust solution requires core extension unless you accept brittle Milaidy-only patching.
+A robust solution requires core extension unless you accept brittle Milady-only patching.
 
 ---
 
@@ -172,7 +172,7 @@ Include abort propagation as part of fast-mode performance envelope, not as opti
 ## 9) Wrapper/fork strategy creates high drift tax
 
 ### Assumption
-A Milaidy custom MessageService can stay close enough to upstream.
+A Milady custom MessageService can stay close enough to upstream.
 
 ### Reality
 The message pipeline is large and evolving (prompt schema handling, structured validation, autonomy integration, streaming behavior, retries, evaluator flow).

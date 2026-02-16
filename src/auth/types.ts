@@ -1,5 +1,5 @@
 /**
- * Subscription auth types for milaidy.
+ * Subscription auth types for milady.
  * OAuth credential types come from @mariozechner/pi-ai.
  */
 

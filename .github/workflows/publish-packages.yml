@@ -163,7 +163,7 @@ jobs:
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
         run: |
           VERSION="${{ needs.prepare.outputs.npm_version }}"
-          URL="https://registry.npmjs.org/milaidy/-/milaidy-${VERSION}.tgz"
+          URL="https://registry.npmjs.org/milady/-/milady-${VERSION}.tgz"
 
           echo "Fetching tarball SHA256 for $URL ..."
           SHA256=$(curl -fsSL "$URL" | sha256sum | cut -d' ' -f1)
@@ -175,23 +175,23 @@ jobs:
           # Ensure Formula directory exists
           mkdir -p Formula
 
-          # Copy base formula if Formula/milaidy.rb doesn't exist yet
-          if [[ ! -f Formula/milaidy.rb ]]; then
-            cp "$GITHUB_WORKSPACE/packaging/homebrew/milaidy.rb" Formula/milaidy.rb
+          # Copy base formula if Formula/milady.rb doesn't exist yet
+          if [[ ! -f Formula/milady.rb ]]; then
+            cp "$GITHUB_WORKSPACE/packaging/homebrew/milady.rb" Formula/milady.rb
           fi
 
           # Update version, URL, and SHA256
-          sed -i "s|url \".*\"|url \"${URL}\"|" Formula/milaidy.rb
-          sed -i "s|sha256 \".*\"|sha256 \"${SHA256}\"|" Formula/milaidy.rb
+          sed -i "s|url \".*\"|url \"${URL}\"|" Formula/milady.rb
+          sed -i "s|sha256 \".*\"|sha256 \"${SHA256}\"|" Formula/milady.rb
 
           echo "Updated formula:"
-          grep -E "url|sha256" Formula/milaidy.rb
+          grep -E "url|sha256" Formula/milady.rb
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add Formula/milaidy.rb
+          git add Formula/milady.rb
           git diff --cached --quiet && echo "No changes" && exit 0
-          git commit -m "Update milaidy to ${VERSION}"
+          git commit -m "Update milady to ${VERSION}"
           git push
 
   # ── Snap ───────────────────────────────────────────────────────────────
@@ -221,7 +221,7 @@ jobs:
       - name: Test snap
         run: |
           sudo snap install ${{ steps.snapcraft.outputs.snap }} --classic --dangerous
-          milaidy --version || echo "Version check completed"
+          milady --version || echo "Version check completed"
 
       - name: Publish to Snap Store
         if: success()
@@ -276,8 +276,8 @@ jobs:
       - name: Test .deb package
         run: |
           sudo dpkg -i ../*.deb || sudo apt-get -f install -y
-          which milaidy
-          milaidy --version || echo "Version check completed"
+          which milady
+          milady --version || echo "Version check completed"
 
       - name: Upload .deb artifact
         uses: actions/upload-artifact@v4
@@ -307,7 +307,7 @@ jobs:
             --method POST \
             -f event_type=update-apt \
             -f "client_payload[version]=${{ needs.prepare.outputs.version }}" \
-            -f "client_payload[deb_url]=https://github.com/milady-ai/milaidy/releases/download/${{ github.event.release.tag_name }}/milaidy_${{ needs.prepare.outputs.deb_version }}_all.deb"
+            -f "client_payload[deb_url]=https://github.com/milady-ai/milady/releases/download/${{ github.event.release.tag_name }}/milady_${{ needs.prepare.outputs.deb_version }}_all.deb"
 
   # ── Flatpak ────────────────────────────────────────────────────────────
   build-flatpak:
@@ -332,20 +332,20 @@ jobs:
       - name: Build Flatpak
         working-directory: packaging/flatpak
         run: |
-          flatpak-builder --repo=repo --force-clean build-dir ai.milady.Milaidy.yml
-          flatpak build-bundle repo milaidy.flatpak ai.milady.Milaidy
+          flatpak-builder --repo=repo --force-clean build-dir ai.milady.Milady.yml
+          flatpak build-bundle repo milady.flatpak ai.milady.Milady
 
       - name: Test Flatpak
         working-directory: packaging/flatpak
         run: |
-          flatpak --user install -y milaidy.flatpak
-          flatpak run ai.milady.Milaidy --version || echo "Version check completed"
+          flatpak --user install -y milady.flatpak
+          flatpak run ai.milady.Milady --version || echo "Version check completed"
 
       - name: Upload Flatpak bundle
         uses: actions/upload-artifact@v4
         with:
           name: flatpak-bundle
-          path: packaging/flatpak/milaidy.flatpak
+          path: packaging/flatpak/milady.flatpak
           retention-days: 90
 
       - name: Attach Flatpak to GitHub Release
@@ -354,7 +354,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release upload "${{ github.event.release.tag_name }}" \
-            packaging/flatpak/milaidy.flatpak --clobber
+            packaging/flatpak/milady.flatpak --clobber
 
   # ── Summary ────────────────────────────────────────────────────────────
   publish-summary:
@@ -380,6 +380,6 @@ jobs:
           echo "### Install commands" >> $GITHUB_STEP_SUMMARY
           echo '```bash' >> $GITHUB_STEP_SUMMARY
           echo "pip install milady==${{ needs.prepare.outputs.pypi_version }}" >> $GITHUB_STEP_SUMMARY
-          echo "brew install milady-ai/tap/milaidy" >> $GITHUB_STEP_SUMMARY
-          echo "sudo snap install milaidy --classic" >> $GITHUB_STEP_SUMMARY
+          echo "brew install milady-ai/tap/milady" >> $GITHUB_STEP_SUMMARY
+          echo "sudo snap install milady --classic" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { MilaidyClient } from "../../src/api-client";
+import { MiladyClient } from "../../src/api-client";
 
-describe("MilaidyClient training endpoints", () => {
+describe("MiladyClient training endpoints", () => {
   const originalFetch = globalThis.fetch;
   let fetchMock: ReturnType<typeof vi.fn>;
 
@@ -29,7 +29,7 @@ describe("MilaidyClient training endpoints", () => {
   });
 
   test("calls training status and list endpoints", async () => {
-    const client = new MilaidyClient("http://localhost:2138", "token");
+    const client = new MiladyClient("http://localhost:2138", "token");
 
     await client.getTrainingStatus();
     await client.listTrainingTrajectories({ limit: 25, offset: 10 });
@@ -48,7 +48,7 @@ describe("MilaidyClient training endpoints", () => {
   });
 
   test("calls training mutation endpoints with expected methods and paths", async () => {
-    const client = new MilaidyClient("http://localhost:2138", "token");
+    const client = new MiladyClient("http://localhost:2138", "token");
 
     await client.buildTrainingDataset({
       limit: 120,
@@ -64,11 +64,11 @@ describe("MilaidyClient training endpoints", () => {
     await client.getTrainingJob("job-1");
     await client.cancelTrainingJob("job-1");
     await client.importTrainingModelToOllama("model-1", {
-      modelName: "milaidy-ft-model",
+      modelName: "milady-ft-model",
       baseModel: "qwen2.5:7b-instruct",
       ollamaUrl: "http://localhost:11434",
     });
-    await client.activateTrainingModel("model-1", "ollama/milaidy-ft-model");
+    await client.activateTrainingModel("model-1", "ollama/milady-ft-model");
     await client.benchmarkTrainingModel("model-1");
 
     const calls = fetchMock.mock.calls.map((call) => ({
@@ -107,7 +107,7 @@ describe("MilaidyClient training endpoints", () => {
       url: "http://localhost:2138/api/training/models/model-1/import-ollama",
       method: "POST",
       body: JSON.stringify({
-        modelName: "milaidy-ft-model",
+        modelName: "milady-ft-model",
         baseModel: "qwen2.5:7b-instruct",
         ollamaUrl: "http://localhost:11434",
       }),
@@ -115,7 +115,7 @@ describe("MilaidyClient training endpoints", () => {
     expect(calls).toContainEqual({
       url: "http://localhost:2138/api/training/models/model-1/activate",
       method: "POST",
-      body: JSON.stringify({ providerModel: "ollama/milaidy-ft-model" }),
+      body: JSON.stringify({ providerModel: "ollama/milady-ft-model" }),
     });
     expect(calls).toContainEqual({
       url: "http://localhost:2138/api/training/models/model-1/benchmark",

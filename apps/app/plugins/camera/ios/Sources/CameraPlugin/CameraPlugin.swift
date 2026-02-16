@@ -5,12 +5,12 @@ import UIKit
 import Photos
 import ImageIO
 
-// MARK: - MilaidyCameraPlugin
+// MARK: - MiladyCameraPlugin
 
-@objc(MilaidyCameraPlugin)
-public class MilaidyCameraPlugin: CAPPlugin, CAPBridgedPlugin {
-    public let identifier = "MilaidyCameraPlugin"
-    public let jsName = "MilaidyCamera"
+@objc(MiladyCameraPlugin)
+public class MiladyCameraPlugin: CAPPlugin, CAPBridgedPlugin {
+    public let identifier = "MiladyCameraPlugin"
+    public let jsName = "MiladyCamera"
     public let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "getDevices", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "startPreview", returnType: CAPPluginReturnPromise),
@@ -51,7 +51,7 @@ public class MilaidyCameraPlugin: CAPPlugin, CAPBridgedPlugin {
     private var lastFrameEmitTime: CFAbsoluteTime = 0
 
     /// Serial queue for video data output sample buffer callbacks (frame events).
-    private let videoDataQueue = DispatchQueue(label: "milaidy.camera.videodata", qos: .userInitiated)
+    private let videoDataQueue = DispatchQueue(label: "milady.camera.videodata", qos: .userInitiated)
 
     /// All device types to discover. Ported from classic CameraController to include
     /// dual, triple, TrueDepth, and LiDAR cameras.
@@ -938,7 +938,7 @@ public class MilaidyCameraPlugin: CAPPlugin, CAPBridgedPlugin {
             asset: asset,
             presetName: AVAssetExportPresetHighestQuality
         ) else {
-            completion(.failure(NSError(domain: "MilaidyCamera", code: 1, userInfo: [
+            completion(.failure(NSError(domain: "MiladyCamera", code: 1, userInfo: [
                 NSLocalizedDescriptionKey: "Failed to create export session",
             ])))
             return
@@ -953,15 +953,15 @@ public class MilaidyCameraPlugin: CAPPlugin, CAPBridgedPlugin {
             case .completed:
                 completion(.success(mp4URL))
             case .failed:
-                completion(.failure(exporter.error ?? NSError(domain: "MilaidyCamera", code: 2, userInfo: [
+                completion(.failure(exporter.error ?? NSError(domain: "MiladyCamera", code: 2, userInfo: [
                     NSLocalizedDescriptionKey: "Export failed",
                 ])))
             case .cancelled:
-                completion(.failure(NSError(domain: "MilaidyCamera", code: 3, userInfo: [
+                completion(.failure(NSError(domain: "MiladyCamera", code: 3, userInfo: [
                     NSLocalizedDescriptionKey: "Export cancelled",
                 ])))
             default:
-                completion(.failure(NSError(domain: "MilaidyCamera", code: 4, userInfo: [
+                completion(.failure(NSError(domain: "MiladyCamera", code: 4, userInfo: [
                     NSLocalizedDescriptionKey: "Export did not complete",
                 ])))
             }
@@ -971,7 +971,7 @@ public class MilaidyCameraPlugin: CAPPlugin, CAPBridgedPlugin {
 
 // MARK: - AVCapturePhotoCaptureDelegate
 
-extension MilaidyCameraPlugin: AVCapturePhotoCaptureDelegate {
+extension MiladyCameraPlugin: AVCapturePhotoCaptureDelegate {
     public func photoOutput(
         _ output: AVCapturePhotoOutput,
         didFinishProcessingPhoto photo: AVCapturePhoto,
@@ -1074,7 +1074,7 @@ extension MilaidyCameraPlugin: AVCapturePhotoCaptureDelegate {
 
 // MARK: - AVCaptureFileOutputRecordingDelegate
 
-extension MilaidyCameraPlugin: AVCaptureFileOutputRecordingDelegate {
+extension MiladyCameraPlugin: AVCaptureFileOutputRecordingDelegate {
     public func fileOutput(
         _ output: AVCaptureFileOutput,
         didFinishRecordingTo outputFileURL: URL,
@@ -1195,7 +1195,7 @@ extension MilaidyCameraPlugin: AVCaptureFileOutputRecordingDelegate {
 
 // MARK: - AVCaptureVideoDataOutputSampleBufferDelegate (Frame Events)
 
-extension MilaidyCameraPlugin: AVCaptureVideoDataOutputSampleBufferDelegate {
+extension MiladyCameraPlugin: AVCaptureVideoDataOutputSampleBufferDelegate {
     public func captureOutput(
         _ output: AVCaptureOutput,
         didOutput sampleBuffer: CMSampleBuffer,

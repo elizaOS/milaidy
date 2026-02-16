@@ -20,7 +20,7 @@ apply plugin: 'com.android.library'
 apply plugin: 'kotlin-android'
 
 android {
-    namespace "ai.milaidy.plugins.talkmode"
+    namespace "ai.milady.plugins.talkmode"
     compileSdk project.hasProperty('compileSdkVersion') ? rootProject.ext.compileSdkVersion : 35
     defaultConfig {
         minSdk project.hasProperty('minSdkVersion') ? rootProject.ext.minSdkVersion : 24

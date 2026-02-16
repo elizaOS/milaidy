@@ -1,12 +1,12 @@
-import type { MilaidyConfig } from "./types.js";
+import type { MiladyConfig } from "./types.js";
 
 export interface ApplyPluginAutoEnableResult {
-  config: MilaidyConfig;
+  config: MiladyConfig;
   changes: string[];
 }
 
 export interface ApplyPluginAutoEnableParams {
-  config: Partial<MilaidyConfig>;
+  config: Partial<MiladyConfig>;
   env: NodeJS.ProcessEnv;
 }
 
@@ -141,7 +141,7 @@ export function applyPluginAutoEnable(
 ): ApplyPluginAutoEnableResult {
   const { config, env } = params;
   const changes: string[] = [];
-  const updatedConfig = structuredClone(config) as MilaidyConfig;
+  const updatedConfig = structuredClone(config) as MiladyConfig;
 
   if (updatedConfig.plugins?.enabled === false) {
     return { config: updatedConfig, changes };

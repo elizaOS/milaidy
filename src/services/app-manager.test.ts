@@ -1,5 +1,5 @@
 /**
- * Tests for the Milaidy AppManager.
+ * Tests for the Milady AppManager.
  *
  * The new AppManager is simple: it lists apps from the registry, installs
  * plugins via plugin-installer, and returns viewer URLs. No dynamic import,
@@ -32,7 +32,7 @@ vi.mock("./plugin-installer.js", () => ({
 }));
 
 vi.mock("../config/config.js", () => ({
-  loadMilaidyConfig: vi.fn().mockReturnValue({ plugins: { installs: {} } }),
+  loadMiladyConfig: vi.fn().mockReturnValue({ plugins: { installs: {} } }),
 }));
 
 type RegistryAppInfoFixture = {

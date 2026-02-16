@@ -4,7 +4,7 @@
     "type": "AAPT_FRIENDLY_MERGED_MANIFESTS",
     "kind": "Directory"
   },
-  "applicationId": "ai.milaidy.plugins.camera",
+  "applicationId": "ai.milady.plugins.camera",
   "variantName": "debug",
   "elements": [
     {

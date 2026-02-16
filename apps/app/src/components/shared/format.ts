@@ -1,5 +1,5 @@
 /**
- * Shared formatting helpers for Milaidy app views.
+ * Shared formatting helpers for Milady app views.
  */
 
 type ByteSizeFormatterOptions = {

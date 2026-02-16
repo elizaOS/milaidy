@@ -1,11 +1,11 @@
 /**
  * Agent Native Module for Electron
  *
- * Embeds the Milaidy agent runtime (ElizaOS) directly in the Electron main
+ * Embeds the Milady agent runtime (ElizaOS) directly in the Electron main
  * process and exposes it to the renderer via IPC.
  *
  * On startup the module:
- *   1. Imports startEliza (headless) from the milaidy dist
+ *   1. Imports startEliza (headless) from the milady dist
  *   2. Starts the API server on an available port
  *   3. Sends the port number to the renderer so the UI's api-client can connect
  *
@@ -21,7 +21,7 @@ import type { IpcValue } from "./ipc-types";
 /**
  * Dynamic import that survives TypeScript's CommonJS transformation.
  * tsc converts `import()` to `require()` when targeting CommonJS, but the
- * milaidy dist bundles are ESM.  This wrapper keeps a real `import()` call
+ * milady dist bundles are ESM.  This wrapper keeps a real `import()` call
  * at runtime.
  */
 const dynamicImport = new Function("specifier", "return import(specifier)") as (
@@ -72,20 +72,20 @@ export class AgentManager {
     this.sendToRenderer("agent:status", this.status);
 
     try {
-      // Resolve the milaidy dist.
-      // In dev: __dirname = electron/build/src/native/ → 6 levels up to milaidy root/dist
-      // In packaged app: extraResources copies dist/ to Resources/milaidy-dist/
-      const milaidyDist = app.isPackaged
-        ? path.join(process.resourcesPath, "milaidy-dist")
+      // Resolve the milady dist.
+      // In dev: __dirname = electron/build/src/native/ → 6 levels up to milady root/dist
+      // In packaged app: extraResources copies dist/ to Resources/milady-dist/
+      const miladyDist = app.isPackaged
+        ? path.join(process.resourcesPath, "milady-dist")
         : path.resolve(__dirname, "../../../../../../dist");
 
-      console.log(`[Agent] Resolved milaidy dist: ${milaidyDist} (packaged: ${app.isPackaged})`);
+      console.log(`[Agent] Resolved milady dist: ${miladyDist} (packaged: ${app.isPackaged})`);
 
       // 1. Start API server immediately so the UI can bootstrap while runtime starts.
-      //    (or MILAIDY_PORT if set)
-      const apiPort = Number(process.env.MILAIDY_PORT) || 2138;
+      //    (or MILADY_PORT if set)
+      const apiPort = Number(process.env.MILADY_PORT) || 2138;
       const serverModule = await dynamicImport(
-        path.join(milaidyDist, "server.js")
+        path.join(miladyDist, "server.js")
       ).catch((err: unknown) => {
         console.warn("[Agent] Could not load server.js:", err instanceof Error ? err.message : err);
         return null;
@@ -141,7 +141,7 @@ export class AgentManager {
 
             // 3) Update the Electron-side status (renderer may be listening via IPC)
             const nextName =
-              (nextRuntime as { character?: { name?: string } }).character?.name ?? "Milaidy";
+              (nextRuntime as { character?: { name?: string } }).character?.name ?? "Milady";
             this.status = {
               ...this.status,
               state: "running",
@@ -171,7 +171,7 @@ export class AgentManager {
       this.sendToRenderer("agent:status", this.status);
 
       // 2. Resolve runtime bootstrap entry (may be slow on cold boot).
-      const elizaModule = await dynamicImport(path.join(milaidyDist, "eliza.js"));
+      const elizaModule = await dynamicImport(path.join(miladyDist, "eliza.js"));
       const resolvedStartEliza = (
         elizaModule.startEliza ?? (elizaModule.default as Record<string, unknown>)?.startEliza
       ) as ((opts: { headless: boolean }) => Promise<Record<string, unknown> | null>) | undefined;
@@ -189,7 +189,7 @@ export class AgentManager {
 
       this.runtime = runtimeResult as Record<string, unknown>;
       const agentName =
-        (runtimeResult as { character?: { name?: string } }).character?.name ?? "Milaidy";
+        (runtimeResult as { character?: { name?: string } }).character?.name ?? "Milady";
 
       // Attach runtime to the already-running API server.
       apiUpdateRuntime?.(runtimeResult as unknown);

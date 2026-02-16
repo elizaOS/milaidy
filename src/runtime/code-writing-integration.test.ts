@@ -12,7 +12,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import type { MilaidyConfig } from "../config/config.js";
+import type { MiladyConfig } from "../config/config.js";
 import { tryOptionalDynamicImport } from "../test-support/test-helpers.js";
 import {
   CORE_PLUGINS,
@@ -48,7 +48,7 @@ describe("Code writing plugin classification", () => {
   });
 
   it("@elizaos/plugin-code is not loaded with empty config (optional)", () => {
-    const names = collectPluginNames({} as MilaidyConfig);
+    const names = collectPluginNames({} as MiladyConfig);
     expect(names.has("@elizaos/plugin-code")).toBe(false);
   });
 
@@ -63,7 +63,7 @@ describe("Code writing plugin classification", () => {
           },
         },
       },
-    } as unknown as MilaidyConfig;
+    } as unknown as MiladyConfig;
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-code")).toBe(true);
     expect(names.has("@elizaos/plugin-shell")).toBe(true);
@@ -227,7 +227,7 @@ describe("Code writing plugin provider", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Coding agent context system (milaidy integration layer)
+// Coding agent context system (milady integration layer)
 // ---------------------------------------------------------------------------
 
 describe("Coding agent context system", () => {

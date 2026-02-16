@@ -67,7 +67,7 @@ export function startCodexLogin(): Promise<CodexFlow> {
         },
         onManualCodeInput: () => manualPromise,
         onProgress: () => {},
-        originator: "milaidy",
+        originator: "milady",
       });
       // Prevent unhandled rejections even if no one awaits this promise.
       void credentials.catch(() => {});

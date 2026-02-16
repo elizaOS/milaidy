@@ -10,11 +10,11 @@ import {
   parseModelSpec,
 } from "../utils/pi-ai.js";
 import { ElizaTUIBridge } from "./eliza-tui-bridge.js";
-import { MilaidyTUI } from "./tui-app.js";
+import { MiladyTUI } from "./tui-app.js";
 
 export { registerPiAiModelHandler } from "../runtime/pi-ai-model-handler.js";
 export { ElizaTUIBridge } from "./eliza-tui-bridge.js";
-export { MilaidyTUI } from "./tui-app.js";
+export { MiladyTUI } from "./tui-app.js";
 
 export interface LaunchTUIOptions {
   /** Override model, format: provider/modelId (e.g. anthropic/claude-sonnet-4-20250514) */
@@ -37,7 +37,7 @@ export async function launchTUI(
   const largeModel = getPiModel(provider, id);
   const smallModel = largeModel;
 
-  const tui = new MilaidyTUI({ runtime });
+  const tui = new MiladyTUI({ runtime });
   const bridge = new ElizaTUIBridge(runtime, tui);
 
   const controller = registerPiAiModelHandler(runtime, {
@@ -65,7 +65,7 @@ export async function launchTUI(
     if (!piCreds.hasCredentials(model.provider)) {
       tui.addToChatContainer(
         new Text(
-          `Warning: no credentials found for provider "${model.provider}" (neither Milaidy env nor pi auth). ` +
+          `Warning: no credentials found for provider "${model.provider}" (neither Milady env nor pi auth). ` +
             "Model calls may fail.",
           1,
           0,

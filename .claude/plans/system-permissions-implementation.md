@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-Implement a comprehensive system permissions management system for Milaidy that enables full computer control capabilities (accessibility, browser automation, voice I/O, camera, shell access) with cross-platform support (macOS, Windows, Linux) and a guided onboarding/settings experience.
+Implement a comprehensive system permissions management system for Milady that enables full computer control capabilities (accessibility, browser automation, voice I/O, camera, shell access) with cross-platform support (macOS, Windows, Linux) and a guided onboarding/settings experience.
 
 ---
 

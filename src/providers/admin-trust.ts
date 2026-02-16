@@ -17,7 +17,7 @@ function normalizeRole(role: string | undefined): string {
 
 export function createAdminTrustProvider(): Provider {
   return {
-    name: "milaidyAdminTrust",
+    name: "miladyAdminTrust",
     description:
       "Marks owner/admin chat identity as trusted for contact assertions (rolodex-oriented).",
     dynamic: true,

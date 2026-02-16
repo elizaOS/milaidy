@@ -1,5 +1,5 @@
 /**
- * API client for the Milaidy backend.
+ * API client for the Milady backend.
  *
  * Thin fetch wrapper + WebSocket for real-time chat/events.
  * Replaces the gateway WebSocket protocol entirely.
@@ -21,7 +21,7 @@ import type {
   VideoProvider,
   VisionConfig,
   VisionProvider,
-} from "../../../src/config/types.milaidy.js";
+} from "../../../src/config/types.milady.js";
 import type { StylePreset } from "../../../src/contracts/onboarding.js";
 import type {
   CompanionAction,
@@ -1426,8 +1426,8 @@ export interface VerificationMessageResponse {
 
 declare global {
   interface Window {
-    __MILAIDY_API_BASE__?: string;
-    __MILAIDY_API_TOKEN__?: string;
+    __MILADY_API_BASE__?: string;
+    __MILADY_API_TOKEN__?: string;
   }
 }
 
@@ -1439,7 +1439,7 @@ const GENERIC_NO_RESPONSE_TEXT =
   "Sorry, I couldn't generate a response right now. Please try again.";
 const AGENT_TRANSFER_MIN_PASSWORD_LENGTH = 4;
 
-export class MilaidyClient {
+export class MiladyClient {
   private _baseUrl: string;
   private _explicitBase: boolean;
   private _token: string | null;
@@ -1468,26 +1468,26 @@ export class MilaidyClient {
     this._explicitBase = baseUrl != null;
     const stored =
       typeof window !== "undefined"
-        ? window.sessionStorage.getItem("milaidy_api_token")
+        ? window.sessionStorage.getItem("milady_api_token")
         : null;
     this._token = token?.trim() || stored || null;
     // Priority: explicit arg > Capacitor/Electron injected global > same origin (Vite proxy)
     const injectedBase =
-      typeof window !== "undefined" ? window.__MILAIDY_API_BASE__ : undefined;
+      typeof window !== "undefined" ? window.__MILADY_API_BASE__ : undefined;
     this._baseUrl =
       baseUrl ??
-      (injectedBase ?? MilaidyClient.resolveElectronLocalFallbackBase());
+      (injectedBase ?? MiladyClient.resolveElectronLocalFallbackBase());
   }
 
   /**
    * Resolve the API base URL lazily.
-   * In Electron the main process injects window.__MILAIDY_API_BASE__ after the
+   * In Electron the main process injects window.__MILADY_API_BASE__ after the
    * page loads (once the agent runtime starts). Re-checking on every call
    * ensures we pick up the injected value even if it wasn't set at construction.
    */
   private get baseUrl(): string {
     if (!this._explicitBase && typeof window !== "undefined") {
-      const injected = window.__MILAIDY_API_BASE__;
+      const injected = window.__MILADY_API_BASE__;
       // In Electron the API base can be injected after initial render. Always
       // prefer the injected value when present so the client can switch away
       // from the localhost fallback once the main process publishes the real
@@ -1495,7 +1495,7 @@ export class MilaidyClient {
       if (injected && injected !== this._baseUrl) {
         this._baseUrl = injected;
       } else if (!this._baseUrl) {
-        this._baseUrl = MilaidyClient.resolveElectronLocalFallbackBase();
+        this._baseUrl = MiladyClient.resolveElectronLocalFallbackBase();
       }
     }
     return this._baseUrl;
@@ -1504,7 +1504,7 @@ export class MilaidyClient {
   private get apiToken(): string | null {
     if (this._token) return this._token;
     if (typeof window === "undefined") return null;
-    const injected = window.__MILAIDY_API_TOKEN__;
+    const injected = window.__MILADY_API_TOKEN__;
     if (typeof injected === "string" && injected.trim()) return injected.trim();
     return null;
   }
@@ -1517,9 +1517,9 @@ export class MilaidyClient {
     this._token = token?.trim() || null;
     if (typeof window !== "undefined") {
       if (this._token) {
-        window.sessionStorage.setItem("milaidy_api_token", this._token);
+        window.sessionStorage.setItem("milady_api_token", this._token);
       } else {
-        window.sessionStorage.removeItem("milaidy_api_token");
+        window.sessionStorage.removeItem("milady_api_token");
       }
     }
   }
@@ -2925,7 +2925,7 @@ export class MilaidyClient {
     const resolvedText = this.normalizeAssistantText(doneText ?? fullText);
     return {
       text: resolvedText,
-      agentName: doneAgentName ?? "Milaidy",
+      agentName: doneAgentName ?? "Milady",
     };
   }
 
@@ -3460,4 +3460,4 @@ export class MilaidyClient {
 }
 
 // Singleton
-export const client = new MilaidyClient();
+export const client = new MiladyClient();

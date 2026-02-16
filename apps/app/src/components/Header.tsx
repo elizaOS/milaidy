@@ -11,7 +11,7 @@ export function Header() {
 
   useEffect(() => { void loadDropStatus(); }, [loadDropStatus]);
 
-  const name = agentStatus?.agentName ?? "Milaidy";
+  const name = agentStatus?.agentName ?? "Milady";
   const state = agentStatus?.state ?? "not_started";
 
   const stateColor = state === "running" ? "text-ok border-ok" :

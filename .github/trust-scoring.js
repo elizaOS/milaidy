@@ -1,5 +1,5 @@
 /**
- * trust-scoring.js — Contributor Trust Scoring System for milady-ai/milaidy
+ * trust-scoring.js — Contributor Trust Scoring System for milady-ai/milady
  *
  * A robust, game-theory-resistant trust scoring algorithm for an agents-only
  * GitHub repository. Produces a score 0-100 and a tier label.

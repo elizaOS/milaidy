@@ -6,10 +6,10 @@ import react from "@vitejs/plugin-react";
 import type { Plugin } from "vite";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const milaidyRoot = path.resolve(here, "../..");
+const miladyRoot = path.resolve(here, "../..");
 
-// The dev script sets MILAIDY_API_PORT; default to 31337 for standalone vite dev.
-const apiPort = Number(process.env.MILAIDY_API_PORT) || 31337;
+// The dev script sets MILADY_API_PORT; default to 31337 for standalone vite dev.
+const apiPort = Number(process.env.MILADY_API_PORT) || 31337;
 
 /**
  * Dev-only middleware that handles CORS for Electron's custom-scheme origin
@@ -29,7 +29,7 @@ function electronCorsPlugin(): Plugin {
         res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
         res.setHeader(
           "Access-Control-Allow-Headers",
-          "Content-Type, Authorization, X-Milaidy-Token, X-Api-Key, X-Milaidy-Export-Token",
+          "Content-Type, Authorization, X-Milady-Token, X-Api-Key, X-Milady-Export-Token",
         );
 
         if (req.method === "OPTIONS") {
@@ -53,18 +53,18 @@ export default defineConfig({
     dedupe: ["react", "react-dom"],
     alias: [
       /**
-       * Map @milaidy/capacitor-* packages directly to their TS source.
+       * Map @milady/capacitor-* packages directly to their TS source.
        * This bypasses resolution issues with local workspace symlinks and
        * outdated bundle exports in the plugins' dist folders.
        */
       {
-        find: /^@milaidy\/capacitor-(.*)/,
+        find: /^@milady\/capacitor-(.*)/,
         replacement: path.resolve(here, "plugins/$1/src/index.ts"),
       },
-      // Allow importing from the milaidy src (but NOT @milaidy/capacitor-* plugin packages)
+      // Allow importing from the milady src (but NOT @milady/capacitor-* plugin packages)
       {
-        find: /^@milaidy(?!\/capacitor-)/,
-        replacement: path.resolve(milaidyRoot, "src"),
+        find: /^@milady(?!\/capacitor-)/,
+        replacement: path.resolve(miladyRoot, "src"),
       },
     ],
   },
@@ -107,8 +107,8 @@ export default defineConfig({
       },
     },
     fs: {
-      // Allow serving files from the app directory and milaidy src
-      allow: [here, milaidyRoot],
+      // Allow serving files from the app directory and milady src
+      allow: [here, miladyRoot],
     },
   },
 });

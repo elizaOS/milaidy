@@ -1,6 +1,6 @@
 import type { AgentRuntime } from "@elizaos/core";
 import { beforeEach, describe, expect, test, vi } from "vitest";
-import type { MilaidyConfig } from "../config/types.js";
+import type { MiladyConfig } from "../config/types.js";
 import { TrainingService } from "../services/training-service.js";
 import { createRouteInvoker } from "../test-support/route-test-helpers.js";
 import { handleTrainingRoutes } from "./training-routes.js";
@@ -10,9 +10,9 @@ describe("training routes", () => {
   let trainingService: TrainingService;
 
   beforeEach(() => {
-    runtime = { character: { name: "Milaidy" } } as AgentRuntime;
+    runtime = { character: { name: "Milady" } } as AgentRuntime;
 
-    const config = {} as MilaidyConfig;
+    const config = {} as MiladyConfig;
     trainingService = new TrainingService({
       getRuntime: () => runtime,
       getConfig: () => config,
@@ -106,13 +106,13 @@ describe("training routes", () => {
       adapterPath: "/tmp/out/adapter",
       sourceModel: "qwen",
       backend: "cpu",
-      ollamaModel: "milaidy-ft-model",
+      ollamaModel: "milady-ft-model",
       active: false,
       benchmark: { status: "not_run", lastRunAt: null, output: null },
     });
     vi.spyOn(trainingService, "activateModel").mockResolvedValue({
       modelId: "model-1",
-      providerModel: "ollama/milaidy-ft-model",
+      providerModel: "ollama/milady-ft-model",
       needsRestart: true,
     });
     vi.spyOn(trainingService, "benchmarkModel").mockResolvedValue({
@@ -255,12 +255,12 @@ describe("training routes", () => {
     const result = await invoke({
       method: "POST",
       pathname: "/api/training/models/model-1/activate",
-      body: { providerModel: "ollama/milaidy-ft-model" },
+      body: { providerModel: "ollama/milady-ft-model" },
     });
     expect(result.status).toBe(200);
     expect(trainingService.activateModel).toHaveBeenCalledWith(
       "model-1",
-      "ollama/milaidy-ft-model",
+      "ollama/milady-ft-model",
     );
   });
 
@@ -269,7 +269,7 @@ describe("training routes", () => {
       method: "POST",
       pathname: "/api/training/models/model-1/import-ollama",
       body: {
-        modelName: "milaidy-ft-model",
+        modelName: "milady-ft-model",
         baseModel: "qwen2.5:7b-instruct",
         ollamaUrl: "http://localhost:11434",
       },
@@ -278,7 +278,7 @@ describe("training routes", () => {
     expect(trainingService.importModelToOllama).toHaveBeenCalledWith(
       "model-1",
       {
-        modelName: "milaidy-ft-model",
+        modelName: "milady-ft-model",
         baseModel: "qwen2.5:7b-instruct",
         ollamaUrl: "http://localhost:11434",
       },

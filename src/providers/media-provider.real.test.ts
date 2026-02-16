@@ -13,7 +13,7 @@
  */
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import type { ImageConfig, VisionConfig } from "../config/types.milaidy.js";
+import type { ImageConfig, VisionConfig } from "../config/types.milady.js";
 import {
   createImageProvider,
   createVisionProvider,

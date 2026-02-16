@@ -6,7 +6,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useApp } from "../AppContext";
 
-const COMMANDS_STORAGE_KEY = "milaidy:custom-commands";
+const COMMANDS_STORAGE_KEY = "milady:custom-commands";
 
 export interface CustomCommand {
   name: string;

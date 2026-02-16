@@ -47,7 +47,7 @@ const markdownToTelegramChunks = (() => {
         ? error.message
         : String(errorLike?.message ?? errorLike?.toString?.() ?? error);
     logger.warn(
-      `[milaidy] Telegram plugin load failed: ${
+      `[milady] Telegram plugin load failed: ${
         errorMessage
       }; using fallback chunker`,
     );

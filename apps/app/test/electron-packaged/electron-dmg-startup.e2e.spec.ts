@@ -13,8 +13,8 @@ const execFileAsync = promisify(execFile);
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "../../../..");
 const electronDistDir = path.join(repoRoot, "apps", "app", "electron", "dist");
-const appBundleName = "Milaidy.app";
-const appExecutableName = "Milaidy";
+const appBundleName = "Milady.app";
+const appExecutableName = "Milady";
 
 function isIgnorableConsoleError(message: string): boolean {
   const patterns = [
@@ -41,7 +41,7 @@ function isIgnorableRequestFailure(
 }
 
 async function resolveDmgPath(): Promise<string> {
-  const explicit = process.env.MILAIDY_TEST_DMG_PATH?.trim();
+  const explicit = process.env.MILADY_TEST_DMG_PATH?.trim();
   if (explicit) {
     await fs.access(explicit);
     return fs.realpath(explicit);
@@ -203,10 +203,10 @@ test("packaged DMG app starts and reaches chat/agent-ready state", async () => {
 
   const dmgPath = await resolveDmgPath();
   const userDataDir = await fs.mkdtemp(
-    path.join(os.tmpdir(), "milaidy-packaged-userdata-"),
+    path.join(os.tmpdir(), "milady-packaged-userdata-"),
   );
   const appInstallDir = await fs.mkdtemp(
-    path.join(os.tmpdir(), "milaidy-packaged-app-"),
+    path.join(os.tmpdir(), "milady-packaged-app-"),
   );
   const debugPort = await getFreeTcpPort();
 
@@ -254,11 +254,11 @@ test("packaged DMG app starts and reaches chat/agent-ready state", async () => {
       {
         env: {
           ...process.env,
-          MILAIDY_ELECTRON_SKIP_EMBEDDED_AGENT: "1",
-          MILAIDY_ELECTRON_TEST_API_BASE: api.baseUrl,
-          MILAIDY_ELECTRON_DISABLE_AUTO_UPDATER: "1",
-          MILAIDY_ELECTRON_DISABLE_DEVTOOLS: "1",
-          MILAIDY_ELECTRON_USER_DATA_DIR: userDataDir,
+          MILADY_ELECTRON_SKIP_EMBEDDED_AGENT: "1",
+          MILADY_ELECTRON_TEST_API_BASE: api.baseUrl,
+          MILADY_ELECTRON_DISABLE_AUTO_UPDATER: "1",
+          MILADY_ELECTRON_DISABLE_DEVTOOLS: "1",
+          MILADY_ELECTRON_USER_DATA_DIR: userDataDir,
         },
         stdio: ["ignore", "pipe", "pipe"],
       },

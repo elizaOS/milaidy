@@ -8,7 +8,7 @@ import { resolveWebAssetDirectory } from "../../electron/src/web-assets";
 const tempDirs: string[] = [];
 
 function createTempDir(): string {
-  const dir = mkdtempSync(path.join(os.tmpdir(), "milaidy-electron-startup-"));
+  const dir = mkdtempSync(path.join(os.tmpdir(), "milady-electron-startup-"));
   tempDirs.push(dir);
   return dir;
 }

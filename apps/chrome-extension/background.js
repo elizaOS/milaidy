@@ -114,7 +114,7 @@ function onRelayClosed(reason) {
     setBadge(tabId, 'connecting')
     void chrome.action.setTitle({
       tabId,
-      title: 'Milaidy Browser Relay: disconnected (click to re-attach)',
+      title: 'Milady Browser Relay: disconnected (click to re-attach)',
     })
   }
   tabs.clear()
@@ -225,7 +225,7 @@ async function attachTab(tabId, opts = {}) {
   tabBySession.set(sessionId, tabId)
   void chrome.action.setTitle({
     tabId,
-    title: 'Milaidy Browser Relay: attached (click to detach)',
+    title: 'Milady Browser Relay: attached (click to detach)',
   })
 
   if (!opts.skipAttachedEvent) {
@@ -278,7 +278,7 @@ async function detachTab(tabId, reason) {
   setBadge(tabId, 'off')
   void chrome.action.setTitle({
     tabId,
-    title: 'Milaidy Browser Relay (click to attach/detach)',
+    title: 'Milady Browser Relay (click to attach/detach)',
   })
 }
 
@@ -297,7 +297,7 @@ async function connectOrToggleForActiveTab() {
   setBadge(tabId, 'connecting')
   void chrome.action.setTitle({
     tabId,
-    title: 'Milaidy Browser Relay: connecting to local relay…',
+    title: 'Milady Browser Relay: connecting to local relay…',
   })
 
   try {
@@ -308,7 +308,7 @@ async function connectOrToggleForActiveTab() {
     setBadge(tabId, 'error')
     void chrome.action.setTitle({
       tabId,
-      title: 'Milaidy Browser Relay: relay not running (open options for setup)',
+      title: 'Milady Browser Relay: relay not running (open options for setup)',
     })
     void maybeOpenHelpOnce()
     // Extra breadcrumbs in chrome://extensions service worker logs.

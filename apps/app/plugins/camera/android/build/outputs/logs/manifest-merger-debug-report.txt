@@ -1,42 +1,42 @@
 -- Merging decision tree log ---
 manifest
-ADDED from /Users/shawwalters/eliza-ok/packages/milaidy/apps/app/plugins/camera/android/src/main/AndroidManifest.xml:2:1-9:12
-INJECTED from /Users/shawwalters/eliza-ok/packages/milaidy/apps/app/plugins/camera/android/src/main/AndroidManifest.xml:2:1-9:12
+ADDED from /Users/shawwalters/eliza-ok/packages/milady/apps/app/plugins/camera/android/src/main/AndroidManifest.xml:2:1-9:12
+INJECTED from /Users/shawwalters/eliza-ok/packages/milady/apps/app/plugins/camera/android/src/main/AndroidManifest.xml:2:1-9:12
 	package
-		INJECTED from /Users/shawwalters/eliza-ok/packages/milaidy/apps/app/plugins/camera/android/src/main/AndroidManifest.xml
+		INJECTED from /Users/shawwalters/eliza-ok/packages/milady/apps/app/plugins/camera/android/src/main/AndroidManifest.xml
 	xmlns:android
-		ADDED from /Users/shawwalters/eliza-ok/packages/milaidy/apps/app/plugins/camera/android/src/main/AndroidManifest.xml:2:11-69
+		ADDED from /Users/shawwalters/eliza-ok/packages/milady/apps/app/plugins/camera/android/src/main/AndroidManifest.xml:2:11-69
 uses-permission#android.permission.CAMERA
-ADDED from /Users/shawwalters/eliza-ok/packages/milaidy/apps/app/plugins/camera/android/src/main/AndroidManifest.xml:3:5-65
+ADDED from /Users/shawwalters/eliza-ok/packages/milady/apps/app/plugins/camera/android/src/main/AndroidManifest.xml:3:5-65
 	android:name
-		ADDED from /Users/shawwalters/eliza-ok/packages/milaidy/apps/app/plugins/camera/android/src/main/AndroidManifest.xml:3:22-62
+		ADDED from /Users/shawwalters/eliza-ok/packages/milady/apps/app/plugins/camera/android/src/main/AndroidManifest.xml:3:22-62
 uses-permission#android.permission.RECORD_AUDIO
-ADDED from /Users/shawwalters/eliza-ok/packages/milaidy/apps/app/plugins/camera/android/src/main/AndroidManifest.xml:4:5-71
+ADDED from /Users/shawwalters/eliza-ok/packages/milady/apps/app/plugins/camera/android/src/main/AndroidManifest.xml:4:5-71
 	android:name
-		ADDED from /Users/shawwalters/eliza-ok/packages/milaidy/apps/app/plugins/camera/android/src/main/AndroidManifest.xml:4:22-68
+		ADDED from /Users/shawwalters/eliza-ok/packages/milady/apps/app/plugins/camera/android/src/main/AndroidManifest.xml:4:22-68
 uses-permission#android.permission.WRITE_EXTERNAL_STORAGE
-ADDED from /Users/shawwalters/eliza-ok/packages/milaidy/apps/app/plugins/camera/android/src/main/AndroidManifest.xml:5:5-108
+ADDED from /Users/shawwalters/eliza-ok/packages/milady/apps/app/plugins/camera/android/src/main/AndroidManifest.xml:5:5-108
 	android:maxSdkVersion
-		ADDED from /Users/shawwalters/eliza-ok/packages/milaidy/apps/app/plugins/camera/android/src/main/AndroidManifest.xml:5:79-105
+		ADDED from /Users/shawwalters/eliza-ok/packages/milady/apps/app/plugins/camera/android/src/main/AndroidManifest.xml:5:79-105
 	android:name
-		ADDED from /Users/shawwalters/eliza-ok/packages/milaidy/apps/app/plugins/camera/android/src/main/AndroidManifest.xml:5:22-78
+		ADDED from /Users/shawwalters/eliza-ok/packages/milady/apps/app/plugins/camera/android/src/main/AndroidManifest.xml:5:22-78
 uses-feature#android.hardware.camera
-ADDED from /Users/shawwalters/eliza-ok/packages/milaidy/apps/app/plugins/camera/android/src/main/AndroidManifest.xml:7:5-85
+ADDED from /Users/shawwalters/eliza-ok/packages/milady/apps/app/plugins/camera/android/src/main/AndroidManifest.xml:7:5-85
 	android:required
-		ADDED from /Users/shawwalters/eliza-ok/packages/milaidy/apps/app/plugins/camera/android/src/main/AndroidManifest.xml:7:58-82
+		ADDED from /Users/shawwalters/eliza-ok/packages/milady/apps/app/plugins/camera/android/src/main/AndroidManifest.xml:7:58-82
 	android:name
-		ADDED from /Users/shawwalters/eliza-ok/packages/milaidy/apps/app/plugins/camera/android/src/main/AndroidManifest.xml:7:19-57
+		ADDED from /Users/shawwalters/eliza-ok/packages/milady/apps/app/plugins/camera/android/src/main/AndroidManifest.xml:7:19-57
 uses-feature#android.hardware.camera.autofocus
-ADDED from /Users/shawwalters/eliza-ok/packages/milaidy/apps/app/plugins/camera/android/src/main/AndroidManifest.xml:8:5-95
+ADDED from /Users/shawwalters/eliza-ok/packages/milady/apps/app/plugins/camera/android/src/main/AndroidManifest.xml:8:5-95
 	android:required
-		ADDED from /Users/shawwalters/eliza-ok/packages/milaidy/apps/app/plugins/camera/android/src/main/AndroidManifest.xml:8:68-92
+		ADDED from /Users/shawwalters/eliza-ok/packages/milady/apps/app/plugins/camera/android/src/main/AndroidManifest.xml:8:68-92
 	android:name
-		ADDED from /Users/shawwalters/eliza-ok/packages/milaidy/apps/app/plugins/camera/android/src/main/AndroidManifest.xml:8:19-67
+		ADDED from /Users/shawwalters/eliza-ok/packages/milady/apps/app/plugins/camera/android/src/main/AndroidManifest.xml:8:19-67
 uses-sdk
-INJECTED from /Users/shawwalters/eliza-ok/packages/milaidy/apps/app/plugins/camera/android/src/main/AndroidManifest.xml reason: use-sdk injection requested
-INJECTED from /Users/shawwalters/eliza-ok/packages/milaidy/apps/app/plugins/camera/android/src/main/AndroidManifest.xml
-INJECTED from /Users/shawwalters/eliza-ok/packages/milaidy/apps/app/plugins/camera/android/src/main/AndroidManifest.xml
+INJECTED from /Users/shawwalters/eliza-ok/packages/milady/apps/app/plugins/camera/android/src/main/AndroidManifest.xml reason: use-sdk injection requested
+INJECTED from /Users/shawwalters/eliza-ok/packages/milady/apps/app/plugins/camera/android/src/main/AndroidManifest.xml
+INJECTED from /Users/shawwalters/eliza-ok/packages/milady/apps/app/plugins/camera/android/src/main/AndroidManifest.xml
 	android:targetSdkVersion
-		INJECTED from /Users/shawwalters/eliza-ok/packages/milaidy/apps/app/plugins/camera/android/src/main/AndroidManifest.xml
+		INJECTED from /Users/shawwalters/eliza-ok/packages/milady/apps/app/plugins/camera/android/src/main/AndroidManifest.xml
 	android:minSdkVersion
-		INJECTED from /Users/shawwalters/eliza-ok/packages/milaidy/apps/app/plugins/camera/android/src/main/AndroidManifest.xml
+		INJECTED from /Users/shawwalters/eliza-ok/packages/milady/apps/app/plugins/camera/android/src/main/AndroidManifest.xml

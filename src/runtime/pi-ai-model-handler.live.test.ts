@@ -7,7 +7,7 @@ import {
 } from "../utils/pi-ai.js";
 
 // Requires a real provider API key.
-// Run with: MILAIDY_LIVE_TEST=1 pnpm test:live (or equivalent)
+// Run with: MILADY_LIVE_TEST=1 pnpm test:live (or equivalent)
 
 describe("pi-ai integration", () => {
   it.skipIf(!process.env.ANTHROPIC_API_KEY)(

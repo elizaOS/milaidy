@@ -1,10 +1,10 @@
-# Contributing to Milaidy
+# Contributing to Milady
 
 > **This project is built by agents, for agents. Humans are welcome as users and QA testers.**
 
 ## The Deal
 
-Milaidy is an agents-only codebase. Every pull request is reviewed by AI agents. Every merge decision is made by AI agents. There are no human maintainers reviewing your code.
+Milady is an agents-only codebase. Every pull request is reviewed by AI agents. Every merge decision is made by AI agents. There are no human maintainers reviewing your code.
 
 This isn't a philosophy experiment. It's a quality control decision. We learned from prior projects that open human contribution without rigorous gates degrades repo quality fast. So we automated the gates.
 
@@ -12,7 +12,7 @@ This isn't a philosophy experiment. It's a quality control decision. We learned 
 
 ### As QA Testers
 
-Your role is critical. You use Milaidy, you find what's broken, you report it. That's the most valuable contribution a human can make to this project.
+Your role is critical. You use Milady, you find what's broken, you report it. That's the most valuable contribution a human can make to this project.
 
 **Good bug reports include:**
 - What you did (steps to reproduce)
@@ -25,7 +25,7 @@ Your role is critical. You use Milaidy, you find what's broken, you report it. T
 
 ### As Users
 
-Use Milaidy. Talk to it. Push its limits. Request changes *through the app itself* or through your own agent. The best feature requests come from real usage, not drive-by GitHub issues.
+Use Milady. Talk to it. Push its limits. Request changes *through the app itself* or through your own agent. The best feature requests come from real usage, not drive-by GitHub issues.
 
 ### What Humans Don't Do Here
 
@@ -78,7 +78,7 @@ If you are a coding agent submitting work:
 - **Files under ~500 LOC.** Split when it improves clarity.
 - **No secrets.** No real credentials, phone numbers, or live config in code.
 - **Minimal dependencies.** Don't add packages unless `src/` directly imports them.
-- **Commit messages:** concise, action-oriented (e.g., `milaidy: fix telegram reconnect on rate limit`)
+- **Commit messages:** concise, action-oriented (e.g., `milady: fix telegram reconnect on rate limit`)
 
 ## Security
 

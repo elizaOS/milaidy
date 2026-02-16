@@ -2,7 +2,7 @@ import Foundation
 import Capacitor
 import CoreLocation
 
-/// Native iOS implementation of the MilaidyLocation Capacitor plugin.
+/// Native iOS implementation of the MiladyLocation Capacitor plugin.
 ///
 /// Bridges CLLocationManager to the TypeScript LocationPlugin interface, providing:
 ///   - getCurrentPosition (one-shot with accuracy, maxAge cache, timeout)
@@ -10,10 +10,10 @@ import CoreLocation
 ///   - clearWatch (stop a running watch)
 ///   - checkPermissions / requestPermissions (whenInUse or always)
 ///   - Events: locationChange, error
-@objc(MilaidyLocationPlugin)
-public class MilaidyLocationPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDelegate {
-    public let identifier = "MilaidyLocationPlugin"
-    public let jsName = "MilaidyLocation"
+@objc(MiladyLocationPlugin)
+public class MiladyLocationPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDelegate {
+    public let identifier = "MiladyLocationPlugin"
+    public let jsName = "MiladyLocation"
     public let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "getCurrentPosition", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "watchPosition", returnType: CAPPluginReturnPromise),

@@ -11,7 +11,7 @@ import {
 const tempDirs: string[] = [];
 
 function createTempDir(): string {
-  const dir = mkdtempSync(path.join(os.tmpdir(), "milaidy-electron-web-assets-"));
+  const dir = mkdtempSync(path.join(os.tmpdir(), "milady-electron-web-assets-"));
   tempDirs.push(dir);
   return dir;
 }

@@ -1,5 +1,5 @@
 import type { Command } from "commander";
-import type { MilaidyConfig } from "../../config/types.milaidy.js";
+import type { MiladyConfig } from "../../config/types.milady.js";
 import { theme } from "../../terminal/theme.js";
 
 export function registerConfigCli(program: Command) {
@@ -11,17 +11,17 @@ export function registerConfigCli(program: Command) {
     .command("get <key>")
     .description("Get a config value")
     .action(async (key: string) => {
-      const { loadMilaidyConfig } = await import("../../config/config.js");
-      let milaidyConfig: ReturnType<typeof loadMilaidyConfig> | undefined;
+      const { loadMiladyConfig } = await import("../../config/config.js");
+      let miladyConfig: ReturnType<typeof loadMiladyConfig> | undefined;
       try {
-        milaidyConfig = loadMilaidyConfig();
+        miladyConfig = loadMiladyConfig();
       } catch (err) {
         const detail = err instanceof Error ? err.message : String(err);
-        console.error(`[milaidy] Could not load config: ${detail}`);
+        console.error(`[milady] Could not load config: ${detail}`);
         process.exit(1);
       }
       const parts = key.split(".");
-      let value: unknown = milaidyConfig;
+      let value: unknown = miladyConfig;
       for (const part of parts) {
         if (value && typeof value === "object") {
           value = (value as Record<string, unknown>)[part];
@@ -55,12 +55,12 @@ export function registerConfigCli(program: Command) {
     .option("-a, --all", "Include advanced/hidden fields")
     .option("--json", "Output as raw JSON")
     .action(async (opts: { all?: boolean; json?: boolean }) => {
-      const { loadMilaidyConfig } = await import("../../config/config.js");
+      const { loadMiladyConfig } = await import("../../config/config.js");
       const { buildConfigSchema } = await import("../../config/schema.js");
 
-      let config: MilaidyConfig | undefined;
+      let config: MiladyConfig | undefined;
       try {
-        config = loadMilaidyConfig();
+        config = loadMiladyConfig();
       } catch (err) {
         console.error(
           theme.error(

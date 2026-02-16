@@ -330,7 +330,7 @@ export class ScreenCaptureManager {
       throw new Error("Recording renderer lost");
     }
 
-    const tempDir = path.join(app.getPath("temp"), "milaidy-screencapture");
+    const tempDir = path.join(app.getPath("temp"), "milady-screencapture");
     await mkdir(tempDir, { recursive: true });
     const filePath = path.join(tempDir, `screenrec-${Date.now()}.webm`);
 

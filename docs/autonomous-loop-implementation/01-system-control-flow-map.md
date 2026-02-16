@@ -6,7 +6,7 @@ This document maps control flow across runtime, API, websocket, frontend, and on
 
 ## A1. Plugin and environment preparation
 
-1. Loads Milaidy config and applies environment-derived settings.
+1. Loads Milady config and applies environment-derived settings.
 2. Resolves plugin set from:
    - core plugins
    - provider env detection
@@ -213,7 +213,7 @@ Capabilities:
 
 Potential integration:
 
-- Milaidy API can subscribe and rebroadcast to websocket clients.
+- Milady API can subscribe and rebroadcast to websocket clients.
 
 ## D3. Autonomy service (`eliza/packages/typescript/src/autonomy/service.ts`)
 
@@ -235,7 +235,7 @@ Core role/settings logic expects:
 - role hierarchy via `world.metadata.roles`
 - DM/onboarding settings access based on owner-world lookup
 
-Milaidy currently populates ownership but does not systematically populate roles.
+Milady currently populates ownership but does not systematically populate roles.
 
 ## F. Legacy Reference Pattern (Hyperscape)
 
@@ -247,7 +247,7 @@ Hyperscape dashboard demonstrates:
 
 but mostly via polling intervals rather than push stream.
 
-Value for Milaidy:
+Value for Milady:
 
 - UI decomposition patterns are useful.
 - transport/event model should be upgraded to push+replay.
@@ -255,7 +255,7 @@ Value for Milaidy:
 ## G. Key Architectural Constraint Summary
 
 1. Event source quality already exists in core.
-2. Milaidy transport and state management is the bottleneck.
+2. Milady transport and state management is the bottleneck.
 3. Admin identity requires explicit persistent model.
 4. Context blending requires token-budget discipline.
 5. UI needs event-rate controls before "show everything" can be safe.

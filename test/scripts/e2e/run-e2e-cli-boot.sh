@@ -2,7 +2,7 @@
 # ==========================================================================
 # CLI Boot E2E — Docker-based CLI entry validation (Issue #6)
 #
-# Tests the full `npx milaidy` equivalent flow:
+# Tests the full `npx milady` equivalent flow:
 #   1. CLI entry point boots
 #   2. --help and --version work
 #   3. Subcommands are discoverable
@@ -14,10 +14,10 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-IMAGE_NAME="milaidy-cli-boot-e2e"
+IMAGE_NAME="milady-cli-boot-e2e"
 
 echo "╔══════════════════════════════════════════════════╗"
-echo "║  Milaidy CLI Boot E2E (Issue #6)                ║"
+echo "║  Milady CLI Boot E2E (Issue #6)                ║"
 echo "╚══════════════════════════════════════════════════╝"
 
 echo "==> Building Docker image..."
@@ -28,12 +28,12 @@ docker run --rm -t "$IMAGE_NAME" bash -lc '
   set -euo pipefail
 
   echo "── CLI --help ──"
-  node milaidy.mjs --help > /tmp/help.txt 2>&1
-  grep -q "milaidy" /tmp/help.txt
+  node milady.mjs --help > /tmp/help.txt 2>&1
+  grep -q "milady" /tmp/help.txt
   echo "OK: --help"
 
   echo "── CLI --version ──"
-  node milaidy.mjs --version > /tmp/version.txt 2>&1
+  node milady.mjs --version > /tmp/version.txt 2>&1
   grep -qE "[0-9]+\.[0-9]+\.[0-9]+" /tmp/version.txt
   echo "OK: --version"
 
@@ -50,14 +50,14 @@ docker run --rm -t "$IMAGE_NAME" bash -lc '
   echo "OK: entry.js loads"
 
   echo "── Doctor (non-interactive, skips repair) ──"
-  home_dir="$(mktemp -d /tmp/milaidy-cli-boot.XXXXXX)"
+  home_dir="$(mktemp -d /tmp/milady-cli-boot.XXXXXX)"
   export HOME="$home_dir"
-  mkdir -p "$HOME/.milaidy"
+  mkdir -p "$HOME/.milady"
   # Pre-seed minimal config
-  echo '"'"'{ "agent": { "name": "CLITest" } }'"'"' > "$HOME/.milaidy/milaidy.json"
+  echo '"'"'{ "agent": { "name": "CLITest" } }'"'"' > "$HOME/.milady/milady.json"
 
   # Attempt doctor without repair (may fail but should not crash)
-  node milaidy.mjs doctor --skip-repair 2>&1 || true
+  node milady.mjs doctor --skip-repair 2>&1 || true
   echo "OK: doctor command did not crash"
 
   echo ""

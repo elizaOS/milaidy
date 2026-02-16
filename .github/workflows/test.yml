@@ -225,7 +225,7 @@ jobs:
           bunx vitest run --config vitest.e2e.config.ts
           test/cloud-providers.e2e.test.ts
         env:
-          MILAIDY_LIVE_TEST: "1"
+          MILADY_LIVE_TEST: "1"
           ELIZAOS_CLOUD_API_KEY: ${{ secrets.ELIZAOS_CLOUD_API_KEY }}
           ELIZAOS_CLOUD_BASE_URL: ${{ secrets.ELIZAOS_CLOUD_BASE_URL }}
 

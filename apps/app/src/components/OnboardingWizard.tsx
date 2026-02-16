@@ -321,7 +321,7 @@ export function OnboardingWizard() {
               fallbackPreviewUrl={avatarFallbackPreviewUrl}
             />
             <h1 className="text-[28px] font-normal mb-1 text-txt-strong">ohhh uhhhh hey there!</h1>
-            <h1 className="text-[28px] font-normal mb-1 text-txt-strong">welcome to milaidy!</h1>
+            <h1 className="text-[28px] font-normal mb-1 text-txt-strong">welcome to milady!</h1>
           </div>
         );
 

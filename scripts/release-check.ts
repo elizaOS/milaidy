@@ -10,7 +10,7 @@ const requiredPaths = [
   "dist/entry.js",
   "dist/build-info.json",
 ];
-const forbiddenPrefixes = ["dist/Milaidy.app/"];
+const forbiddenPrefixes = ["dist/Milady.app/"];
 
 function runPackDry(): PackResult[] {
   const raw = execSync("npm pack --dry-run --json --ignore-scripts", {

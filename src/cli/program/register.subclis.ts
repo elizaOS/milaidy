@@ -89,7 +89,7 @@ export function registerSubCliCommands(
   argv: string[] = process.argv,
 ) {
   const eagerAll = isTruthyEnvValue(
-    process.env.MILAIDY_DISABLE_LAZY_SUBCOMMANDS,
+    process.env.MILADY_DISABLE_LAZY_SUBCOMMANDS,
   );
 
   if (eagerAll) {

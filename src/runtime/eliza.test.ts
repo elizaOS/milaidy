@@ -11,7 +11,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { findPluginExport } from "../cli/plugins-cli.js";
-import type { MilaidyConfig } from "../config/config.js";
+import type { MiladyConfig } from "../config/config.js";
 import {
   applyCloudConfigToEnv,
   applyConnectorSecretsToEnv,
@@ -91,7 +91,7 @@ describe("collectPluginNames", () => {
       // Set a remote provider env var (e.g., OPENAI_API_KEY)
       process.env.OPENAI_API_KEY = "test-api-key";
 
-      const plugins = collectPluginNames({} as MilaidyConfig);
+      const plugins = collectPluginNames({} as MiladyConfig);
 
       // local-embedding provides the TEXT_EMBEDDING delegate which remote
       // providers do NOT supply, so it must always stay loaded (see #10).
@@ -104,7 +104,7 @@ describe("collectPluginNames", () => {
       delete process.env.ANTHROPIC_API_KEY;
       delete process.env.OLLAMA_BASE_URL;
 
-      const plugins = collectPluginNames({} as MilaidyConfig);
+      const plugins = collectPluginNames({} as MiladyConfig);
 
       // Verify local-embedding IS in the set for offline/zero-config setups
       expect(plugins.has("@elizaos/plugin-local-embedding")).toBe(true);
@@ -113,7 +113,7 @@ describe("collectPluginNames", () => {
   afterEach(() => snap.restore());
 
   it("includes all core plugins for an empty config", () => {
-    const names = collectPluginNames({} as MilaidyConfig);
+    const names = collectPluginNames({} as MiladyConfig);
     expect(names.has("@elizaos/plugin-sql")).toBe(true);
     expect(names.has("@elizaos/plugin-local-embedding")).toBe(true);
     expect(names.has("@elizaos/plugin-trajectory-logger")).toBe(true);
@@ -129,7 +129,7 @@ describe("collectPluginNames", () => {
   it("does not load @elizaos/plugin-shell when features.shellEnabled is false", () => {
     const config = {
       features: { shellEnabled: false },
-    } as unknown as MilaidyConfig;
+    } as unknown as MiladyConfig;
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-shell")).toBe(false);
   });
@@ -138,7 +138,7 @@ describe("collectPluginNames", () => {
     const config = {
       plugins: { allow: ["@elizaos/plugin-shell"] },
       features: { shellEnabled: false },
-    } as unknown as MilaidyConfig;
+    } as unknown as MiladyConfig;
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-shell")).toBe(false);
   });
@@ -147,7 +147,7 @@ describe("collectPluginNames", () => {
     process.env.ANTHROPIC_API_KEY = "sk-test";
     process.env.OPENAI_API_KEY = "sk-test";
     process.env.AI_GATEWAY_API_KEY = "aigw-test";
-    const names = collectPluginNames({} as MilaidyConfig);
+    const names = collectPluginNames({} as MiladyConfig);
     expect(names.has("@elizaos/plugin-anthropic")).toBe(true);
     expect(names.has("@elizaos/plugin-openai")).toBe(true);
     expect(names.has("@elizaos/plugin-vercel-ai-gateway")).toBe(true);
@@ -157,10 +157,10 @@ describe("collectPluginNames", () => {
   it("adds connector plugins when config.connectors is populated", () => {
     const config = {
       connectors: { telegram: { botToken: "tok" }, discord: { token: "tok" } },
-    } as MilaidyConfig;
+    } as MiladyConfig;
     const names = collectPluginNames(config);
     // Telegram maps to the local enhanced plugin, not the upstream one
-    expect(names.has("@milaidy/plugin-telegram-enhanced")).toBe(true);
+    expect(names.has("@milady/plugin-telegram-enhanced")).toBe(true);
     expect(names.has("@elizaos/plugin-discord")).toBe(true);
     expect(names.has("@elizaos/plugin-slack")).toBe(false);
   });
@@ -169,7 +169,7 @@ describe("collectPluginNames", () => {
     const config = {
       plugins: { allow: ["browser"] },
       connectors: { discord: { token: "tok" } },
-    } as unknown as MilaidyConfig;
+    } as unknown as MiladyConfig;
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-browser")).toBe(true);
     expect(names.has("@elizaos/plugin-discord")).toBe(true);
@@ -178,7 +178,7 @@ describe("collectPluginNames", () => {
   it("normalizes short plugin IDs in plugins.allow", () => {
     const config = {
       plugins: { allow: ["discord"] },
-    } as unknown as MilaidyConfig;
+    } as unknown as MiladyConfig;
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-discord")).toBe(true);
   });
@@ -188,10 +188,10 @@ describe("collectPluginNames", () => {
       plugins: {
         entries: { telegram: { enabled: true } },
       },
-    } as unknown as MilaidyConfig;
+    } as unknown as MiladyConfig;
     const names = collectPluginNames(config);
     // Should load the enhanced telegram plugin, NOT the base @elizaos/plugin-telegram
-    expect(names.has("@milaidy/plugin-telegram-enhanced")).toBe(true);
+    expect(names.has("@milady/plugin-telegram-enhanced")).toBe(true);
     expect(names.has("@elizaos/plugin-telegram")).toBe(false);
   });
 
@@ -203,9 +203,9 @@ describe("collectPluginNames", () => {
       plugins: {
         entries: { telegram: { enabled: true } },
       },
-    } as unknown as MilaidyConfig;
+    } as unknown as MiladyConfig;
     const names = collectPluginNames(config);
-    expect(names.has("@milaidy/plugin-telegram-enhanced")).toBe(true);
+    expect(names.has("@milady/plugin-telegram-enhanced")).toBe(true);
     expect(names.has("@elizaos/plugin-telegram")).toBe(false);
   });
 
@@ -214,29 +214,29 @@ describe("collectPluginNames", () => {
       plugins: {
         entries: { telegram: { enabled: false } },
       },
-    } as unknown as MilaidyConfig;
+    } as unknown as MiladyConfig;
     const names = collectPluginNames(config);
-    expect(names.has("@milaidy/plugin-telegram-enhanced")).toBe(false);
+    expect(names.has("@milady/plugin-telegram-enhanced")).toBe(false);
     expect(names.has("@elizaos/plugin-telegram")).toBe(false);
   });
 
   it("does not add connector plugins for empty connector configs", () => {
     const config = {
       connectors: { telegram: null },
-    } as unknown as MilaidyConfig;
+    } as unknown as MiladyConfig;
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-telegram")).toBe(false);
   });
 
   it("adds ElizaCloud plugin when cloud is enabled in config", () => {
-    const config = { cloud: { enabled: true } } as MilaidyConfig;
+    const config = { cloud: { enabled: true } } as MiladyConfig;
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-elizacloud")).toBe(true);
   });
 
   it("adds ElizaCloud plugin when env key is present", () => {
     process.env.ELIZAOS_CLOUD_API_KEY = "ck-test";
-    const names = collectPluginNames({} as MilaidyConfig);
+    const names = collectPluginNames({} as MiladyConfig);
     expect(names.has("@elizaos/plugin-elizacloud")).toBe(true);
   });
 
@@ -245,7 +245,7 @@ describe("collectPluginNames", () => {
     // But the function should not crash on arbitrary features.
     const config = {
       features: { someFeature: true, another: { enabled: false } },
-    } as unknown as MilaidyConfig;
+    } as unknown as MiladyConfig;
     expect(() => collectPluginNames(config)).not.toThrow();
   });
 
@@ -258,32 +258,32 @@ describe("collectPluginNames", () => {
           "@elizaos/plugin-weather": {
             source: "npm",
             installPath:
-              "/home/user/.milaidy/plugins/installed/_elizaos_plugin-weather",
+              "/home/user/.milady/plugins/installed/_elizaos_plugin-weather",
             version: "1.0.0",
             installedAt: "2026-02-07T00:00:00Z",
           },
           "@elizaos/plugin-custom": {
             source: "npm",
             installPath:
-              "/home/user/.milaidy/plugins/installed/_elizaos_plugin-custom",
+              "/home/user/.milady/plugins/installed/_elizaos_plugin-custom",
             version: "2.0.0",
             installedAt: "2026-02-07T00:00:00Z",
           },
         },
       },
-    } as unknown as MilaidyConfig;
+    } as unknown as MiladyConfig;
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-weather")).toBe(true);
     expect(names.has("@elizaos/plugin-custom")).toBe(true);
   });
 
   it("includes plugin-plugin-manager in core plugins", () => {
-    const names = collectPluginNames({} as MilaidyConfig);
+    const names = collectPluginNames({} as MiladyConfig);
     expect(names.has("@elizaos/plugin-plugin-manager")).toBe(true);
   });
 
   it("handles empty plugins.installs gracefully", () => {
-    const config = { plugins: { installs: {} } } as unknown as MilaidyConfig;
+    const config = { plugins: { installs: {} } } as unknown as MiladyConfig;
     const names = collectPluginNames(config);
     // Should still have all core plugins, no crash
     expect(names.has("@elizaos/plugin-sql")).toBe(true);
@@ -291,7 +291,7 @@ describe("collectPluginNames", () => {
   });
 
   it("handles undefined plugins.installs gracefully", () => {
-    const config = { plugins: {} } as unknown as MilaidyConfig;
+    const config = { plugins: {} } as unknown as MiladyConfig;
     expect(() => collectPluginNames(config)).not.toThrow();
   });
 
@@ -302,7 +302,7 @@ describe("collectPluginNames", () => {
           "@elizaos/plugin-bad": null,
         },
       },
-    } as unknown as MilaidyConfig;
+    } as unknown as MiladyConfig;
     // null records should be skipped (the typeof check catches this)
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-bad")).toBe(false);
@@ -321,7 +321,7 @@ describe("collectPluginNames", () => {
           },
         },
       },
-    } as unknown as MilaidyConfig;
+    } as unknown as MiladyConfig;
     const names = collectPluginNames(config);
     // Core
     expect(names.has("@elizaos/plugin-sql")).toBe(true);
@@ -339,7 +339,7 @@ describe("collectPluginNames", () => {
   it("adds @elizaos/plugin-vision when features.vision = true", () => {
     const config = {
       features: { vision: true },
-    } as unknown as MilaidyConfig;
+    } as unknown as MiladyConfig;
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-vision")).toBe(true);
   });
@@ -347,13 +347,13 @@ describe("collectPluginNames", () => {
   it("does NOT add @elizaos/plugin-vision when features.vision = false", () => {
     const config = {
       features: { vision: false },
-    } as unknown as MilaidyConfig;
+    } as unknown as MiladyConfig;
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-vision")).toBe(false);
   });
 
   it("does NOT add @elizaos/plugin-vision when features.vision is absent", () => {
-    const config = {} as MilaidyConfig;
+    const config = {} as MiladyConfig;
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-vision")).toBe(false);
   });
@@ -362,7 +362,7 @@ describe("collectPluginNames", () => {
     const config = {
       cloud: { enabled: true },
       features: { vision: false },
-    } as unknown as MilaidyConfig;
+    } as unknown as MiladyConfig;
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-elizacloud")).toBe(true);
     expect(names.has("@elizaos/plugin-vision")).toBe(false);
@@ -385,7 +385,7 @@ describe("repairBrokenInstallRecord", () => {
           },
         },
       },
-    } as unknown as MilaidyConfig;
+    } as unknown as MiladyConfig;
 
     const changed = repairBrokenInstallRecord(
       config,
@@ -402,7 +402,7 @@ describe("repairBrokenInstallRecord", () => {
   });
 
   it("returns false when no install record exists", () => {
-    const config = { plugins: { installs: {} } } as unknown as MilaidyConfig;
+    const config = { plugins: { installs: {} } } as unknown as MiladyConfig;
     expect(repairBrokenInstallRecord(config, "@elizaos/plugin-discord")).toBe(
       false,
     );
@@ -418,7 +418,7 @@ describe("repairBrokenInstallRecord", () => {
           },
         },
       },
-    } as unknown as MilaidyConfig;
+    } as unknown as MiladyConfig;
 
     expect(repairBrokenInstallRecord(config, "@elizaos/plugin-discord")).toBe(
       false,
@@ -455,7 +455,7 @@ describe("applyConnectorSecretsToEnv", () => {
   it("copies Discord token from config to env", () => {
     const config = {
       connectors: { discord: { token: "discord-tok-123" } },
-    } as MilaidyConfig;
+    } as MiladyConfig;
     applyConnectorSecretsToEnv(config);
     expect(process.env.DISCORD_API_TOKEN).toBe("discord-tok-123");
     expect(process.env.DISCORD_BOT_TOKEN).toBe("discord-tok-123");
@@ -464,7 +464,7 @@ describe("applyConnectorSecretsToEnv", () => {
   it("copies legacy Discord botToken from config to env", () => {
     const config = {
       connectors: { discord: { botToken: "discord-tok-legacy" } },
-    } as unknown as MilaidyConfig;
+    } as unknown as MiladyConfig;
     applyConnectorSecretsToEnv(config);
     expect(process.env.DISCORD_API_TOKEN).toBe("discord-tok-legacy");
     expect(process.env.DISCORD_BOT_TOKEN).toBe("discord-tok-legacy");
@@ -473,7 +473,7 @@ describe("applyConnectorSecretsToEnv", () => {
   it("copies Telegram botToken from config to env", () => {
     const config = {
       connectors: { telegram: { botToken: "tg-tok-456" } },
-    } as MilaidyConfig;
+    } as MiladyConfig;
     applyConnectorSecretsToEnv(config);
     expect(process.env.TELEGRAM_BOT_TOKEN).toBe("tg-tok-456");
   });
@@ -483,7 +483,7 @@ describe("applyConnectorSecretsToEnv", () => {
       connectors: {
         slack: { botToken: "xoxb-1", appToken: "xapp-1", userToken: "xoxp-1" },
       },
-    } as MilaidyConfig;
+    } as MiladyConfig;
     applyConnectorSecretsToEnv(config);
     expect(process.env.SLACK_BOT_TOKEN).toBe("xoxb-1");
     expect(process.env.SLACK_APP_TOKEN).toBe("xapp-1");
@@ -494,7 +494,7 @@ describe("applyConnectorSecretsToEnv", () => {
     process.env.TELEGRAM_BOT_TOKEN = "already-set";
     const config = {
       connectors: { telegram: { botToken: "new-tok" } },
-    } as MilaidyConfig;
+    } as MiladyConfig;
     applyConnectorSecretsToEnv(config);
     expect(process.env.TELEGRAM_BOT_TOKEN).toBe("already-set");
   });
@@ -502,26 +502,26 @@ describe("applyConnectorSecretsToEnv", () => {
   it("skips empty or whitespace-only values", () => {
     const config = {
       connectors: { discord: { token: "  " } },
-    } as MilaidyConfig;
+    } as MiladyConfig;
     applyConnectorSecretsToEnv(config);
     expect(process.env.DISCORD_BOT_TOKEN).toBeUndefined();
   });
 
   it("handles missing connectors gracefully", () => {
-    expect(() => applyConnectorSecretsToEnv({} as MilaidyConfig)).not.toThrow();
+    expect(() => applyConnectorSecretsToEnv({} as MiladyConfig)).not.toThrow();
   });
 
   it("handles unknown connector names gracefully", () => {
     const config = {
       connectors: { unknownConnector: { token: "tok" } },
-    } as unknown as MilaidyConfig;
+    } as unknown as MiladyConfig;
     expect(() => applyConnectorSecretsToEnv(config)).not.toThrow();
   });
 
   it("supports legacy channels key for backward compat", () => {
     const config = {
       channels: { telegram: { botToken: "legacy-tg-tok" } },
-    } as MilaidyConfig;
+    } as MiladyConfig;
     applyConnectorSecretsToEnv(config);
     expect(process.env.TELEGRAM_BOT_TOKEN).toBe("legacy-tg-tok");
   });
@@ -547,7 +547,7 @@ describe("applyCloudConfigToEnv", () => {
   it("sets cloud env vars from config", () => {
     const config = {
       cloud: { enabled: true, apiKey: "ck-123", baseUrl: "https://cloud.test" },
-    } as MilaidyConfig;
+    } as MiladyConfig;
     applyCloudConfigToEnv(config);
     expect(process.env.ELIZAOS_CLOUD_ENABLED).toBe("true");
     expect(process.env.ELIZAOS_CLOUD_API_KEY).toBe("ck-123");
@@ -556,13 +556,13 @@ describe("applyCloudConfigToEnv", () => {
 
   it("overwrites stale env values with fresh config (hot-reload safety)", () => {
     process.env.ELIZAOS_CLOUD_API_KEY = "old-key";
-    const config = { cloud: { apiKey: "new-key" } } as MilaidyConfig;
+    const config = { cloud: { apiKey: "new-key" } } as MiladyConfig;
     applyCloudConfigToEnv(config);
     expect(process.env.ELIZAOS_CLOUD_API_KEY).toBe("new-key");
   });
 
   it("handles missing cloud config gracefully", () => {
-    expect(() => applyCloudConfigToEnv({} as MilaidyConfig)).not.toThrow();
+    expect(() => applyCloudConfigToEnv({} as MiladyConfig)).not.toThrow();
   });
 });
 
@@ -571,7 +571,7 @@ describe("applyCloudConfigToEnv", () => {
 // ---------------------------------------------------------------------------
 
 describe("applyDatabaseConfigToEnv", () => {
-  const envKeys = ["POSTGRES_URL", "PGLITE_DATA_DIR", "MILAIDY_PROFILE"];
+  const envKeys = ["POSTGRES_URL", "PGLITE_DATA_DIR", "MILADY_PROFILE"];
   const snap = envSnapshot(envKeys);
 
   beforeEach(() => {
@@ -582,10 +582,10 @@ describe("applyDatabaseConfigToEnv", () => {
   afterEach(() => snap.restore());
 
   it("defaults PGLITE_DATA_DIR to the agent workspace when database config is missing", () => {
-    applyDatabaseConfigToEnv({} as MilaidyConfig);
+    applyDatabaseConfigToEnv({} as MiladyConfig);
     expect(process.env.POSTGRES_URL).toBeUndefined();
     expect(process.env.PGLITE_DATA_DIR).toBe(
-      path.join(os.homedir(), ".milaidy", "workspace", ".eliza", ".elizadb"),
+      path.join(os.homedir(), ".milady", "workspace", ".eliza", ".elizadb"),
     );
   });
 
@@ -593,14 +593,14 @@ describe("applyDatabaseConfigToEnv", () => {
     const config = {
       agents: {
         defaults: {
-          workspace: "/tmp/milaidy-workspace",
+          workspace: "/tmp/milady-workspace",
         },
       },
-    } as MilaidyConfig;
+    } as MiladyConfig;
 
     applyDatabaseConfigToEnv(config);
     expect(process.env.PGLITE_DATA_DIR).toBe(
-      path.join("/tmp/milaidy-workspace", ".eliza", ".elizadb"),
+      path.join("/tmp/milady-workspace", ".eliza", ".elizadb"),
     );
   });
 
@@ -609,20 +609,20 @@ describe("applyDatabaseConfigToEnv", () => {
     const config = {
       database: {
         provider: "pglite",
-        pglite: { dataDir: "~/milaidy-pglite" },
+        pglite: { dataDir: "~/milady-pglite" },
       },
-    } as MilaidyConfig;
+    } as MiladyConfig;
 
     applyDatabaseConfigToEnv(config);
     expect(process.env.POSTGRES_URL).toBeUndefined();
     expect(process.env.PGLITE_DATA_DIR).toBe(
-      path.resolve(path.join(os.homedir(), "milaidy-pglite")),
+      path.resolve(path.join(os.homedir(), "milady-pglite")),
     );
   });
 
   it("does not overwrite externally provided PGLITE_DATA_DIR when config has no override", () => {
     process.env.PGLITE_DATA_DIR = "/tmp/external-pglite";
-    applyDatabaseConfigToEnv({} as MilaidyConfig);
+    applyDatabaseConfigToEnv({} as MiladyConfig);
     expect(process.env.PGLITE_DATA_DIR).toBe("/tmp/external-pglite");
   });
 
@@ -634,18 +634,18 @@ describe("applyDatabaseConfigToEnv", () => {
         postgres: {
           host: "db.example.test",
           port: 5433,
-          database: "milaidy",
+          database: "milady",
           user: "admin",
           password: "secret",
           ssl: true,
         },
       },
-    } as MilaidyConfig;
+    } as MiladyConfig;
 
     applyDatabaseConfigToEnv(config);
     expect(process.env.PGLITE_DATA_DIR).toBeUndefined();
     expect(process.env.POSTGRES_URL).toBe(
-      "postgresql://admin:secret@db.example.test:5433/milaidy?sslmode=require",
+      "postgresql://admin:secret@db.example.test:5433/milady?sslmode=require",
     );
   });
 });
@@ -702,7 +702,7 @@ describe("buildCharacterFromConfig", () => {
   it("uses agent name from agents.list", () => {
     const config = {
       agents: { list: [{ id: "main", name: "Sakuya" }] },
-    } as MilaidyConfig;
+    } as MiladyConfig;
     const char = buildCharacterFromConfig(config);
     expect(char.name).toBe("Sakuya");
   });
@@ -710,14 +710,14 @@ describe("buildCharacterFromConfig", () => {
   it("falls back to config.ui.assistant.name", () => {
     const config = {
       ui: { assistant: { name: "Reimu" } },
-    } as unknown as MilaidyConfig;
+    } as unknown as MiladyConfig;
     const char = buildCharacterFromConfig(config);
     expect(char.name).toBe("Reimu");
   });
 
-  it("defaults to 'Milaidy' when no name is configured", () => {
-    const char = buildCharacterFromConfig({} as MilaidyConfig);
-    expect(char.name).toBe("Milaidy");
+  it("defaults to 'Milady' when no name is configured", () => {
+    const char = buildCharacterFromConfig({} as MiladyConfig);
+    expect(char.name).toBe("Milady");
   });
 
   it("collects API keys from process.env as secrets", () => {
@@ -725,7 +725,7 @@ describe("buildCharacterFromConfig", () => {
     process.env.OPENAI_API_KEY = "sk-oai-test";
     process.env.DISCORD_API_TOKEN = "discord-api-test";
     process.env.DISCORD_APPLICATION_ID = "discord-app-123";
-    const char = buildCharacterFromConfig({} as MilaidyConfig);
+    const char = buildCharacterFromConfig({} as MiladyConfig);
     expect(char.secrets?.ANTHROPIC_API_KEY).toBe("sk-ant-test");
     expect(char.secrets?.OPENAI_API_KEY).toBe("sk-oai-test");
     expect(char.secrets?.DISCORD_API_TOKEN).toBe("discord-api-test");
@@ -734,14 +734,14 @@ describe("buildCharacterFromConfig", () => {
 
   it("excludes empty or whitespace-only env values from secrets", () => {
     process.env.ANTHROPIC_API_KEY = "  ";
-    const char = buildCharacterFromConfig({} as MilaidyConfig);
+    const char = buildCharacterFromConfig({} as MiladyConfig);
     expect(char.secrets?.ANTHROPIC_API_KEY).toBeUndefined();
   });
 
   it("uses default bio and system prompt (character data lives in DB)", () => {
     const config = {
       agents: { list: [{ id: "main", name: "Test" }] },
-    } as MilaidyConfig;
+    } as MiladyConfig;
     const char = buildCharacterFromConfig(config);
     const bioText = Array.isArray(char.bio) ? char.bio.join(" ") : char.bio;
     expect(bioText).toContain("AI assistant");
@@ -753,7 +753,7 @@ describe("buildCharacterFromConfig", () => {
   it("uses default bio with {{name}} placeholder", () => {
     const config = {
       agents: { list: [{ id: "main", name: "Sakuya" }] },
-    } as MilaidyConfig;
+    } as MiladyConfig;
     const char = buildCharacterFromConfig(config);
     expect(Array.isArray(char.bio)).toBe(true);
     const bioArr = char.bio as string[];
@@ -763,32 +763,32 @@ describe("buildCharacterFromConfig", () => {
   it("uses default system prompt with {{name}} placeholder", () => {
     const config = {
       agents: { list: [{ id: "main", name: "Sakuya" }] },
-    } as MilaidyConfig;
+    } as MiladyConfig;
     const char = buildCharacterFromConfig(config);
     expect(char.system).toContain("{{name}}");
   });
 
   it("defaults bio to {{name}} placeholder when not configured", () => {
-    const char = buildCharacterFromConfig({} as MilaidyConfig);
+    const char = buildCharacterFromConfig({} as MiladyConfig);
     const bioArr = char.bio as string[];
     expect(bioArr.some((b: string) => b.includes("{{name}}"))).toBe(true);
   });
 
   it("defaults system to {{name}} placeholder when not configured", () => {
-    const char = buildCharacterFromConfig({} as MilaidyConfig);
+    const char = buildCharacterFromConfig({} as MiladyConfig);
     expect(char.system).toContain("{{name}}");
   });
 
   it("does not throw when agents.list is empty", () => {
-    const config = { agents: { list: [] } } as MilaidyConfig;
+    const config = { agents: { list: [] } } as MiladyConfig;
     expect(() => buildCharacterFromConfig(config)).not.toThrow();
-    expect(buildCharacterFromConfig(config).name).toBe("Milaidy");
+    expect(buildCharacterFromConfig(config).name).toBe("Milady");
   });
 
   it("builds a character with name from agents.list and default personality", () => {
     const config = {
       agents: { list: [{ id: "main", name: "Reimu" }] },
-    } as MilaidyConfig;
+    } as MiladyConfig;
     const char = buildCharacterFromConfig(config);
 
     expect(char.name).toBe("Reimu");
@@ -805,25 +805,25 @@ describe("buildCharacterFromConfig", () => {
 
 describe("resolvePrimaryModel", () => {
   it("returns undefined when no model config exists", () => {
-    expect(resolvePrimaryModel({} as MilaidyConfig)).toBeUndefined();
+    expect(resolvePrimaryModel({} as MiladyConfig)).toBeUndefined();
   });
 
   it("returns undefined when agents.defaults.model is missing", () => {
-    const config = { agents: { defaults: {} } } as MilaidyConfig;
+    const config = { agents: { defaults: {} } } as MiladyConfig;
     expect(resolvePrimaryModel(config)).toBeUndefined();
   });
 
   it("returns the primary model when configured", () => {
     const config = {
       agents: { defaults: { model: { primary: "gpt-5" } } },
-    } as MilaidyConfig;
+    } as MiladyConfig;
     expect(resolvePrimaryModel(config)).toBe("gpt-5");
   });
 
   it("returns undefined when model has no primary", () => {
     const config = {
       agents: { defaults: { model: { fallbacks: ["gpt-5-mini"] } } },
-    } as unknown as MilaidyConfig;
+    } as unknown as MiladyConfig;
     expect(resolvePrimaryModel(config)).toBeUndefined();
   });
 });

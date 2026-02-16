@@ -1,5 +1,5 @@
 /**
- * Tests for @milaidy/capacitor-canvas — lifecycle, layers, error paths.
+ * Tests for @milady/capacitor-canvas — lifecycle, layers, error paths.
  *
  * Note: Drawing operations (drawRect, clear, etc.) require a real 2D canvas context
  * which is unavailable in Node.js. Those are tested via error paths for invalid IDs
@@ -8,7 +8,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { CanvasWeb } from "../../plugins/canvas/src/web";
 
-describe("@milaidy/capacitor-canvas", () => {
+describe("@milady/capacitor-canvas", () => {
   let c: CanvasWeb;
 
   beforeEach(() => { c = new CanvasWeb(); });

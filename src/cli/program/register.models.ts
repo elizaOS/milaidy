@@ -15,7 +15,7 @@ export function registerModelsCli(program: Command) {
         ["OPENROUTER_API_KEY", "OpenRouter"],
         ["OLLAMA_BASE_URL", "Ollama (local)"],
       ] as const;
-      console.log("[milaidy] Model providers:");
+      console.log("[milady] Model providers:");
       for (const [key, name] of envKeys) {
         const status = process.env[key] ? "configured" : "not set";
         console.log(`  ${name}: ${status}`);

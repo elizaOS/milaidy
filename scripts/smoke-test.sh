@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ╔════════════════════════════════════════════════════════════════════════════╗
-# ║  Milaidy pre-release smoke test                                          ║
+# ║  Milady pre-release smoke test                                          ║
 # ║                                                                          ║
 # ║  Usage:                                                                  ║
 # ║    bash scripts/smoke-test.sh              # full smoke test             ║
@@ -57,7 +57,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$ROOT_DIR"
 
-printf "\n${BOLD}Milaidy Pre-Release Smoke Test${RESET}\n"
+printf "\n${BOLD}Milady Pre-Release Smoke Test${RESET}\n"
 printf "${DIM}Project root: %s${RESET}\n" "$ROOT_DIR"
 printf "${DIM}Mode: %s${RESET}\n" "$MODE"
 
@@ -176,7 +176,7 @@ fi
 header "API Server Startup"
 
 SERVER_PID=""
-SERVER_PORT="${MILAIDY_TEST_PORT:-18799}"
+SERVER_PORT="${MILADY_TEST_PORT:-18799}"
 
 cleanup_server() {
   if [[ -n "$SERVER_PID" ]]; then
@@ -188,9 +188,9 @@ cleanup_server() {
 trap cleanup_server EXIT
 
 # Start the gateway in the background with a test port
-MILAIDY_GATEWAY_PORT="$SERVER_PORT" \
-  MILAIDY_PROFILE="test" \
-  MILAIDY_SKIP_ONBOARDING="1" \
+MILADY_GATEWAY_PORT="$SERVER_PORT" \
+  MILADY_PROFILE="test" \
+  MILADY_SKIP_ONBOARDING="1" \
   node scripts/run-node.mjs start --no-browser &>/dev/null &
 SERVER_PID=$!
 
@@ -239,7 +239,7 @@ if npm pack --dry-run --json --ignore-scripts &>/dev/null; then
   " 2>/dev/null || echo "")"
 
   PACK_REQUIRED=("dist/index.js" "dist/entry.js" "dist/build-info.json" "README.md")
-  PACK_FORBIDDEN_PREFIX="dist/Milaidy.app/"
+  PACK_FORBIDDEN_PREFIX="dist/Milady.app/"
 
   for req in "${PACK_REQUIRED[@]}"; do
     if echo "$PACK_FILES" | grep -qx "$req"; then

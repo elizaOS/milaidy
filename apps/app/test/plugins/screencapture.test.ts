@@ -1,10 +1,10 @@
 /**
- * Tests for @milaidy/capacitor-screencapture — feature detection, state, errors, events.
+ * Tests for @milady/capacitor-screencapture — feature detection, state, errors, events.
  */
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { ScreenCaptureWeb } from "../../plugins/screencapture/src/web";
 
-describe("@milaidy/capacitor-screencapture", () => {
+describe("@milady/capacitor-screencapture", () => {
   let sc: ScreenCaptureWeb;
 
   beforeEach(() => {

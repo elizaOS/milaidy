@@ -17,7 +17,7 @@ COPY package.json ./
 RUN bun install
 
 COPY . .
-COPY scripts/docker/cleanup-smoke/run.sh /usr/local/bin/milaidy-cleanup-smoke
-RUN chmod +x /usr/local/bin/milaidy-cleanup-smoke
+COPY scripts/docker/cleanup-smoke/run.sh /usr/local/bin/milady-cleanup-smoke
+RUN chmod +x /usr/local/bin/milady-cleanup-smoke
 
-ENTRYPOINT ["/usr/local/bin/milaidy-cleanup-smoke"]
+ENTRYPOINT ["/usr/local/bin/milady-cleanup-smoke"]

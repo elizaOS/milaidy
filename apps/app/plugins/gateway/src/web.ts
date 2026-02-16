@@ -192,7 +192,7 @@ export class GatewayWeb extends WebPlugin {
       minProtocol: 3,
       maxProtocol: 3,
       client: {
-        id: this.options.clientName || "milaidy-capacitor",
+        id: this.options.clientName || "milady-capacitor",
         version: this.options.clientVersion || "1.0.0",
         platform: this.getPlatform(),
         mode: "ui",

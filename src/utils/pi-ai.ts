@@ -23,7 +23,7 @@ export function formatModelSpec(parts: ModelSpecParts): string {
 
 /**
  * pi-ai's getModel() is typed with provider literals.
- * Milaidy frequently takes provider/model ids from config / user input,
+ * Milady frequently takes provider/model ids from config / user input,
  * so we expose a safely-typed wrapper for dynamic strings.
  */
 export function getPiModel(provider: string, modelId: string): Model<Api> {

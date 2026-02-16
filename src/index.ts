@@ -1,8 +1,8 @@
 /**
- * Public entry point for the milaidy package.
+ * Public entry point for the milady package.
  *
  * Config types are the primary public API surface.
- * @module milaidy
+ * @module milady
  */
 
 export * from "./config/types.js";

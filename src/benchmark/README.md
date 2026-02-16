@@ -1,13 +1,13 @@
-# Milaidy Benchmark Server
+# Milady Benchmark Server
 
-HTTP server and plugin that expose the milaidy agent runtime to Python benchmark runners.
+HTTP server and plugin that expose the milady agent runtime to Python benchmark runners.
 
 ## Architecture
 
 ```
 Python Benchmark Runner
-    |  (imports milaidy-adapter)
-milaidy-adapter  (Python client)
+    |  (imports milady-adapter)
+milady-adapter  (Python client)
     |  (HTTP requests)
 server.ts  (this directory)         <-- you are here
     |  (injects context via plugin)
@@ -21,21 +21,21 @@ This directory contains the **server side** of the benchmark bridge:
 | File | Purpose |
 |---|---|
 | `server.ts` | HTTP server on port 3939 (configurable). Wraps a full `AgentRuntime` and exposes it over three endpoints. |
-| `plugin.ts` | `milaidy-benchmark` plugin providing the `MILAIDY_BENCHMARK` context provider and `BENCHMARK_ACTION` action handler. |
+| `plugin.ts` | `milady-benchmark` plugin providing the `MILADY_BENCHMARK` context provider and `BENCHMARK_ACTION` action handler. |
 
-The **client side** (Python HTTP client + benchmark-specific adapters) lives at [`benchmarks/milaidy-adapter/`](../../../benchmarks/milaidy-adapter/).
+The **client side** (Python HTTP client + benchmark-specific adapters) lives at [`benchmarks/milady-adapter/`](../../../benchmarks/milady-adapter/).
 
 ## Starting the server
 
 ```bash
-# from the milaidy package root
+# from the milady package root
 npm run benchmark:server
 
 # or directly
 node --import tsx src/benchmark/server.ts
 ```
 
-The server prints `MILAIDY_BENCH_READY port=3939` to stdout once it is accepting connections. The Python `MilaidyServerManager` watches for this sentinel.
+The server prints `MILADY_BENCH_READY port=3939` to stdout once it is accepting connections. The Python `MiladyServerManager` watches for this sentinel.
 
 ## HTTP API
 
@@ -44,7 +44,7 @@ The server prints `MILAIDY_BENCH_READY port=3939` to stdout once it is accepting
 Returns server status.
 
 ```json
-{ "status": "ready", "agent_name": "Milaidy", "plugins": 4 }
+{ "status": "ready", "agent_name": "Milady", "plugins": 4 }
 ```
 
 ### `POST /api/benchmark/reset`
@@ -93,7 +93,7 @@ Response:
 
 ## Plugin details
 
-### `MILAIDY_BENCHMARK` provider
+### `MILADY_BENCHMARK` provider
 
 Injects benchmark task context (goal, observation, action space, tools, HTML elements, passages) into the agent's state so the LLM can reason about the task.
 
@@ -115,7 +115,7 @@ A custom `messageHandlerTemplate` is injected that instructs the LLM to read the
 
 | Environment variable | Default | Description |
 |---|---|---|
-| `MILAIDY_BENCH_PORT` | `3939` | Port to listen on |
+| `MILADY_BENCH_PORT` | `3939` | Port to listen on |
 
 Model provider plugins are auto-detected from API key env vars (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `AI_GATEWAY_API_KEY`, `GOOGLE_API_KEY`, `GROQ_API_KEY`, `XAI_API_KEY`, `OPENROUTER_API_KEY`, `OLLAMA_BASE_URL`).
 
@@ -123,9 +123,9 @@ Model provider plugins are auto-detected from API key env vars (`ANTHROPIC_API_K
 
 The Python client and benchmark-specific adapters are maintained separately:
 
-- **Package:** [`benchmarks/milaidy-adapter/`](../../../benchmarks/milaidy-adapter/)
-- **Client:** `MilaidyClient` -- HTTP client wrapping the endpoints above
-- **Server Manager:** `MilaidyServerManager` -- spawns this server as a subprocess
+- **Package:** [`benchmarks/milady-adapter/`](../../../benchmarks/milady-adapter/)
+- **Client:** `MiladyClient` -- HTTP client wrapping the endpoints above
+- **Server Manager:** `MiladyServerManager` -- spawns this server as a subprocess
 - **Adapters:** AgentBench, context-bench, Mind2Web, tau-bench
 
-See the [milaidy-adapter README](../../../benchmarks/milaidy-adapter/README.md) for usage examples and the full module listing.
+See the [milady-adapter README](../../../benchmarks/milady-adapter/README.md) for usage examples and the full module listing.

@@ -166,7 +166,7 @@ class WakeWordGate {
 
     // Allow for common transcription variations
     const variations: Record<string, string[]> = {
-      milaidy: ["melody", "milady", "my lady", "malady"],
+      milady: ["melody", "milady", "my lady", "malady"],
       alexa: ["alexia", "alexis"],
       hey: ["hay", "hi"],
       ok: ["okay", "o.k."],

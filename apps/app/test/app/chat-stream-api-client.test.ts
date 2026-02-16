@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { MilaidyClient } from "../../src/api-client";
+import { MiladyClient } from "../../src/api-client";
 
 function buildSseResponse(chunks: string[]): Response {
   const encoder = new TextEncoder();
@@ -48,7 +48,7 @@ function buildControlledSseResponse(initialChunk: string): {
   };
 }
 
-describe("MilaidyClient streaming chat endpoints", () => {
+describe("MiladyClient streaming chat endpoints", () => {
   const originalFetch = globalThis.fetch;
   let fetchMock: ReturnType<typeof vi.fn>;
 
@@ -66,11 +66,11 @@ describe("MilaidyClient streaming chat endpoints", () => {
       buildSseResponse([
         'data: {"type":"token","text":"Hello "}\n\n',
         'data: {"type":"token","text":"world"}\n\n',
-        'data: {"type":"done","fullText":"Hello world","agentName":"Milaidy"}\n\n',
+        'data: {"type":"done","fullText":"Hello world","agentName":"Milady"}\n\n',
       ]),
     );
 
-    const client = new MilaidyClient("http://localhost:2138", "token");
+    const client = new MiladyClient("http://localhost:2138", "token");
     const tokens: string[] = [];
     const result = await client.sendConversationMessageStream(
       "conv-1",
@@ -82,7 +82,7 @@ describe("MilaidyClient streaming chat endpoints", () => {
     );
 
     expect(tokens).toEqual(["Hello ", "world"]);
-    expect(result).toEqual({ text: "Hello world", agentName: "Milaidy" });
+    expect(result).toEqual({ text: "Hello world", agentName: "Milady" });
 
     const firstCall = fetchMock.mock.calls[0];
     const requestUrl = String(firstCall[0]);
@@ -106,7 +106,7 @@ describe("MilaidyClient streaming chat endpoints", () => {
       ]),
     );
 
-    const client = new MilaidyClient("http://localhost:2138");
+    const client = new MiladyClient("http://localhost:2138");
     const tokens: string[] = [];
     const result = await client.sendChatStream(
       "legacy",
@@ -117,7 +117,7 @@ describe("MilaidyClient streaming chat endpoints", () => {
     );
 
     expect(tokens).toEqual(["A", "B"]);
-    expect(result).toEqual({ text: "AB", agentName: "Milaidy" });
+    expect(result).toEqual({ text: "AB", agentName: "Milady" });
   });
 
   test("streams CRLF-delimited SSE events before stream completion", async () => {
@@ -126,7 +126,7 @@ describe("MilaidyClient streaming chat endpoints", () => {
     );
     fetchMock.mockResolvedValue(controlled.response);
 
-    const client = new MilaidyClient("http://localhost:2138");
+    const client = new MiladyClient("http://localhost:2138");
     const tokens: string[] = [];
 
     const pending = client.sendConversationMessageStream(
@@ -142,13 +142,13 @@ describe("MilaidyClient streaming chat endpoints", () => {
     });
 
     controlled.push(
-      'data: {"type":"done","fullText":"Hello","agentName":"Milaidy"}\r\n\r\n',
+      'data: {"type":"done","fullText":"Hello","agentName":"Milady"}\r\n\r\n',
     );
     controlled.close();
 
     await expect(pending).resolves.toEqual({
       text: "Hello",
-      agentName: "Milaidy",
+      agentName: "Milady",
     });
   });
 
@@ -157,7 +157,7 @@ describe("MilaidyClient streaming chat endpoints", () => {
       buildSseResponse(['data: {"type":"error","message":"stream failed"}\n\n']),
     );
 
-    const client = new MilaidyClient("http://localhost:2138");
+    const client = new MiladyClient("http://localhost:2138");
     await expect(
       client.sendChatStream(
         "boom",

@@ -1,5 +1,5 @@
 /**
- * REST API server for the Milaidy Control UI.
+ * REST API server for the Milady Control UI.
  *
  * Exposes HTTP endpoints that the UI frontend expects, backed by the
  * ElizaOS AgentRuntime. Default port: 2138. In dev mode, the Vite UI
@@ -29,15 +29,15 @@ import type { CloudManager } from "../cloud/cloud-manager.js";
 
 import {
   configFileExists,
-  loadMilaidyConfig,
-  type MilaidyConfig,
-  saveMilaidyConfig,
+  loadMiladyConfig,
+  type MiladyConfig,
+  saveMiladyConfig,
 } from "../config/config.js";
 import { resolveModelsCacheDir, resolveStateDir } from "../config/paths.js";
 import type {
   ConnectorConfig,
   CustomActionDef,
-} from "../config/types.milaidy.js";
+} from "../config/types.milady.js";
 import { CharacterSchema } from "../config/zod-schema.js";
 import { EMOTE_BY_ID, EMOTE_CATALOG } from "../emotes/catalog.js";
 import { resolveDefaultAgentWorkspaceDir } from "../providers/workspace.js";
@@ -207,7 +207,7 @@ type ChatMode = "simple" | "power";
 
 interface ServerState {
   runtime: AgentRuntime | null;
-  config: MilaidyConfig;
+  config: MiladyConfig;
   agentState:
     | "not_started"
     | "starting"
@@ -301,7 +301,7 @@ interface PluginEntry {
   configured: boolean;
   envKey: string | null;
   category: "ai-provider" | "connector" | "database" | "feature";
-  /** Where the plugin comes from: "bundled" (ships with Milaidy) or "store" (user-installed from registry). */
+  /** Where the plugin comes from: "bundled" (ships with Milady) or "store" (user-installed from registry). */
   source: "bundled" | "store";
   configKeys: string[];
   parameters: PluginParamDef[];
@@ -547,7 +547,7 @@ export function findOwnPackageRoot(startDir: string): string {
         >;
         const pkgName =
           typeof pkg.name === "string" ? pkg.name.toLowerCase() : "";
-        if (pkgName === "milaidy") return dir;
+        if (pkgName === "milady") return dir;
       } catch {
         /* keep searching */
       }
@@ -780,15 +780,15 @@ const BLOCKED_ENV_KEYS = new Set([
   "PATH",
   "HOME",
   "SHELL",
-  "MILAIDY_API_TOKEN",
-  "MILAIDY_WALLET_EXPORT_TOKEN",
+  "MILADY_API_TOKEN",
+  "MILADY_WALLET_EXPORT_TOKEN",
   "DATABASE_URL",
   "POSTGRES_URL",
 ]);
 
 /**
  * Top-level config keys accepted by `PUT /api/config`.
- * Keep this in sync with MilaidyConfig root fields and include both modern and
+ * Keep this in sync with MiladyConfig root fields and include both modern and
  * legacy aliases (e.g. `connectors` + `channels`).
  */
 export const CONFIG_WRITE_ALLOWED_TOP_KEYS = new Set([
@@ -959,7 +959,7 @@ function aggregateSecrets(plugins: PluginEntry[]): SecretEntry[] {
  * Reads from config.plugins.installs and tries to enrich with package.json metadata.
  */
 function discoverInstalledPlugins(
-  config: MilaidyConfig,
+  config: MiladyConfig,
   bundledIds: Set<string>,
 ): PluginEntry[] {
   const installs = config.plugins?.installs;
@@ -1134,14 +1134,14 @@ function discoverPluginsFromManifest(): PluginEntry[] {
         .sort((a, b) => a.name.localeCompare(b.name));
     } catch (err) {
       logger.debug(
-        `[milaidy-api] Failed to read plugins.json: ${err instanceof Error ? err.message : err}`,
+        `[milady-api] Failed to read plugins.json: ${err instanceof Error ? err.message : err}`,
       );
     }
   }
 
   // Fallback: no manifest found
   logger.debug(
-    "[milaidy-api] plugins.json not found — run `npm run generate:plugins`",
+    "[milady-api] plugins.json not found — run `npm run generate:plugins`",
   );
   return [];
 }
@@ -1206,7 +1206,7 @@ function categorizePlugin(
 // ---------------------------------------------------------------------------
 
 /** Cache key for persisting skill enable/disable state in the agent database. */
-const SKILL_PREFS_CACHE_KEY = "milaidy:skill-preferences";
+const SKILL_PREFS_CACHE_KEY = "milady:skill-preferences";
 
 /** Shape stored in the cache: maps skill ID → enabled flag. */
 type SkillPreferencesMap = Record<string, boolean>;
@@ -1240,7 +1240,7 @@ async function saveSkillPreferences(
     await runtime.setCache(SKILL_PREFS_CACHE_KEY, prefs);
   } catch (err) {
     logger.debug(
-      `[milaidy-api] Failed to save skill preferences: ${err instanceof Error ? err.message : err}`,
+      `[milady-api] Failed to save skill preferences: ${err instanceof Error ? err.message : err}`,
     );
   }
 }
@@ -1249,7 +1249,7 @@ async function saveSkillPreferences(
 // Skill scan acknowledgments — tracks user review of security findings
 // ---------------------------------------------------------------------------
 
-const SKILL_ACK_CACHE_KEY = "milaidy:skill-scan-acknowledgments";
+const SKILL_ACK_CACHE_KEY = "milady:skill-scan-acknowledgments";
 
 type SkillAcknowledgmentMap = Record<
   string,
@@ -1277,7 +1277,7 @@ async function saveSkillAcknowledgments(
     await runtime.setCache(SKILL_ACK_CACHE_KEY, acks);
   } catch (err) {
     logger.debug(
-      `[milaidy-api] Failed to save skill acknowledgments: ${err instanceof Error ? err.message : err}`,
+      `[milady-api] Failed to save skill acknowledgments: ${err instanceof Error ? err.message : err}`,
     );
   }
 }
@@ -1366,7 +1366,7 @@ async function loadScanReportFromDisk(
  */
 function resolveSkillEnabled(
   id: string,
-  config: MilaidyConfig,
+  config: MiladyConfig,
   dbPrefs: SkillPreferencesMap,
 ): boolean {
   // Database preference takes priority (explicit user action)
@@ -1401,7 +1401,7 @@ function resolveSkillEnabled(
  */
 async function discoverSkills(
   workspaceDir: string,
-  config: MilaidyConfig,
+  config: MiladyConfig,
   runtime: AgentRuntime | null,
 ): Promise<SkillEntry[]> {
   // Load persisted preferences from the agent database
@@ -1470,7 +1470,7 @@ async function discoverSkills(
       }
     } catch {
       logger.debug(
-        "[milaidy-api] AgentSkillsService not available, falling back to filesystem scan",
+        "[milady-api] AgentSkillsService not available, falling back to filesystem scan",
       );
     }
   }
@@ -1489,7 +1489,7 @@ async function discoverSkills(
     }
   } catch {
     logger.debug(
-      "[milaidy-api] @elizaos/skills not available for skill discovery",
+      "[milady-api] @elizaos/skills not available for skill discovery",
     );
   }
 
@@ -1524,7 +1524,7 @@ function scanSkillsDir(
   dir: string,
   skills: SkillEntry[],
   seen: Set<string>,
-  config: MilaidyConfig,
+  config: MiladyConfig,
   dbPrefs: SkillPreferencesMap,
 ): void {
   if (!fs.existsSync(dir)) return;
@@ -1707,7 +1707,7 @@ function resolveUiDir(): string | null {
       if (fs.statSync(indexPath).isFile()) {
         uiDir = candidate;
         uiIndexHtml = fs.readFileSync(indexPath);
-        logger.info(`[milaidy-api] Serving dashboard UI from ${candidate}`);
+        logger.info(`[milady-api] Serving dashboard UI from ${candidate}`);
         return uiDir;
       }
     } catch {
@@ -1717,7 +1717,7 @@ function resolveUiDir(): string | null {
 
   uiDir = null;
   logger.info(
-    "[milaidy-api] No built UI found — dashboard routes are disabled",
+    "[milady-api] No built UI found — dashboard routes are disabled",
   );
   return null;
 }
@@ -2240,7 +2240,7 @@ async function startTrajectorySpan(
     runtime.logger?.warn(
       {
         err,
-        src: "milaidy-api",
+        src: "milady-api",
         stepId,
         source: context.source,
         roomId: context.roomId,
@@ -2263,7 +2263,7 @@ async function endTrajectorySpan(
     runtime?.logger?.warn(
       {
         err,
-        src: "milaidy-api",
+        src: "milady-api",
         stepId: span.stepId,
         status,
       },
@@ -2474,7 +2474,7 @@ async function generateChatResponse(
     runtime.logger?.warn(
       {
         err,
-        src: "milaidy-api",
+        src: "milady-api",
         messageId: message.id,
         roomId: message.roomId,
       },
@@ -2531,7 +2531,7 @@ async function generateChatResponse(
       runtime.logger?.warn(
         {
           err,
-          src: "milaidy-api",
+          src: "milady-api",
           messageId: message.id,
           roomId: message.roomId,
         },
@@ -2595,7 +2595,7 @@ async function generateChatResponse(
       runtime.logger?.warn(
         {
           err,
-          src: "milaidy-api",
+          src: "milady-api",
           messageId: message.id,
           roomId: message.roomId,
         },
@@ -2635,7 +2635,7 @@ async function generateChatResponse(
         runtime.logger?.warn(
           {
             err,
-            src: "milaidy-api",
+            src: "milady-api",
             trajectoryStepId: stepIdToEnd,
           },
           "Failed to end API trajectory logging",
@@ -2946,7 +2946,7 @@ function getProviderOptions(): Array<{
       pluginName: "@mariozechner/pi-ai",
       keyPrefix: null,
       description:
-        "Use pi auth (~/.pi/agent/auth.json) for API keys / OAuth (no Milaidy API key required).",
+        "Use pi auth (~/.pi/agent/auth.json) for API keys / OAuth (no Milady API key required).",
     },
     {
       id: "anthropic",
@@ -3641,7 +3641,7 @@ function getPiModelOptions(): Array<{
     }
   } catch (err) {
     logger.warn(
-      `[milaidy-api] Failed to enumerate pi-ai models: ${String(err)}`,
+      `[milady-api] Failed to enumerate pi-ai models: ${String(err)}`,
     );
   }
 
@@ -3722,13 +3722,13 @@ function getInventoryProviderOptions(): Array<{
 
 type WalletMode = "privy" | "hybrid";
 
-export function resolveWalletMode(config?: MilaidyConfig): WalletMode {
+export function resolveWalletMode(config?: MiladyConfig): WalletMode {
   const configMode =
     config?.env && typeof config.env === "object" && !Array.isArray(config.env)
-      ? (config.env as Record<string, string>).MILAIDY_WALLET_MODE
+      ? (config.env as Record<string, string>).MILADY_WALLET_MODE
       : undefined;
 
-  const explicitMode = (process.env.MILAIDY_WALLET_MODE ?? configMode)
+  const explicitMode = (process.env.MILADY_WALLET_MODE ?? configMode)
     ?.trim()
     .toLowerCase();
 
@@ -3738,11 +3738,11 @@ export function resolveWalletMode(config?: MilaidyConfig): WalletMode {
   return isPrivyWalletProvisioningEnabled() ? "privy" : "hybrid";
 }
 
-export function isPurePrivyWalletMode(config?: MilaidyConfig): boolean {
+export function isPurePrivyWalletMode(config?: MiladyConfig): boolean {
   return resolveWalletMode(config) === "privy";
 }
 
-function ensureWalletKeysInEnvAndConfig(config: MilaidyConfig): boolean {
+function ensureWalletKeysInEnvAndConfig(config: MiladyConfig): boolean {
   if (isPurePrivyWalletMode(config)) {
     return false;
   }
@@ -3773,7 +3773,7 @@ function ensureWalletKeysInEnvAndConfig(config: MilaidyConfig): boolean {
       envConfig.EVM_PRIVATE_KEY = walletKeys.evmPrivateKey;
       process.env.EVM_PRIVATE_KEY = walletKeys.evmPrivateKey;
       logger.info(
-        `[milaidy-api] Generated EVM wallet: ${walletKeys.evmAddress}`,
+        `[milady-api] Generated EVM wallet: ${walletKeys.evmAddress}`,
       );
     }
 
@@ -3781,14 +3781,14 @@ function ensureWalletKeysInEnvAndConfig(config: MilaidyConfig): boolean {
       envConfig.SOLANA_PRIVATE_KEY = walletKeys.solanaPrivateKey;
       process.env.SOLANA_PRIVATE_KEY = walletKeys.solanaPrivateKey;
       logger.info(
-        `[milaidy-api] Generated Solana wallet: ${walletKeys.solanaAddress}`,
+        `[milady-api] Generated Solana wallet: ${walletKeys.solanaAddress}`,
       );
     }
 
     return true;
   } catch (err) {
     logger.warn(
-      `[milaidy-api] Failed to generate wallet keys: ${err instanceof Error ? err.message : String(err)}`,
+      `[milady-api] Failed to generate wallet keys: ${err instanceof Error ? err.message : String(err)}`,
     );
     return false;
   }
@@ -3895,7 +3895,7 @@ async function ensurePrivyManagedWalletAddresses(
   const changed = persistManagedWalletAddresses(state, addresses);
   if (changed) {
     try {
-      saveMilaidyConfig(state.config);
+      saveMiladyConfig(state.config);
     } catch (err) {
       logger.warn(
         `[wallet] Failed to persist managed wallet addresses: ${err instanceof Error ? err.message : String(err)}`,
@@ -3971,7 +3971,7 @@ function resolveCorsOrigin(origin?: string): string | null {
   if (!trimmed) return null;
 
   // Explicit allowlist via env (comma-separated)
-  const extra = process.env.MILAIDY_ALLOWED_ORIGINS;
+  const extra = process.env.MILADY_ALLOWED_ORIGINS;
   if (extra) {
     const allow = extra
       .split(",")
@@ -3982,7 +3982,7 @@ function resolveCorsOrigin(origin?: string): string | null {
 
   if (LOCAL_ORIGIN_RE.test(trimmed)) return trimmed;
   if (APP_ORIGIN_RE.test(trimmed)) return trimmed;
-  if (trimmed === "null" && process.env.MILAIDY_ALLOW_NULL_ORIGIN === "1")
+  if (trimmed === "null" && process.env.MILADY_ALLOW_NULL_ORIGIN === "1")
     return "null";
   return null;
 }
@@ -4006,7 +4006,7 @@ function applyCors(
     );
     res.setHeader(
       "Access-Control-Allow-Headers",
-      "Content-Type, Authorization, X-Milaidy-Token, X-Api-Key, X-Milaidy-Export-Token",
+      "Content-Type, Authorization, X-Milady-Token, X-Api-Key, X-Milady-Export-Token",
     );
   }
 
@@ -4025,8 +4025,8 @@ const pairingAttempts = new Map<string, { count: number; resetAt: number }>();
 
 function pairingEnabled(): boolean {
   return (
-    Boolean(process.env.MILAIDY_API_TOKEN?.trim()) &&
-    process.env.MILAIDY_PAIRING_DISABLED !== "1"
+    Boolean(process.env.MILADY_API_TOKEN?.trim()) &&
+    process.env.MILADY_PAIRING_DISABLED !== "1"
   );
 }
 
@@ -4050,7 +4050,7 @@ function ensurePairingCode(): string | null {
     pairingCode = generatePairingCode();
     pairingExpiresAt = now + PAIRING_TTL_MS;
     logger.warn(
-      `[milaidy-api] Pairing code: ${pairingCode} (valid for 10 minutes)`,
+      `[milady-api] Pairing code: ${pairingCode} (valid for 10 minutes)`,
     );
   }
   return pairingCode;
@@ -4080,8 +4080,8 @@ function extractAuthToken(req: http.IncomingMessage): string | null {
   }
 
   const header =
-    (typeof req.headers["x-milaidy-token"] === "string" &&
-      req.headers["x-milaidy-token"]) ||
+    (typeof req.headers["x-milady-token"] === "string" &&
+      req.headers["x-milady-token"]) ||
     (typeof req.headers["x-api-key"] === "string" && req.headers["x-api-key"]);
   if (typeof header === "string" && header.trim()) return header.trim();
 
@@ -4113,33 +4113,33 @@ function isLoopbackBindHost(host: string): boolean {
 }
 
 export function ensureApiTokenForBindHost(host: string): void {
-  const token = process.env.MILAIDY_API_TOKEN?.trim();
+  const token = process.env.MILADY_API_TOKEN?.trim();
   if (token) return;
   if (isLoopbackBindHost(host)) return;
   const allowInsecurePublicApi = /^(1|true|yes)$/i.test(
-    process.env.MILAIDY_ALLOW_INSECURE_PUBLIC_API?.trim() ?? "",
+    process.env.MILADY_ALLOW_INSECURE_PUBLIC_API?.trim() ?? "",
   );
   if (allowInsecurePublicApi) {
     logger.warn(
-      `[milaidy-api] MILAIDY_ALLOW_INSECURE_PUBLIC_API is enabled. Public bind ${host} is running without MILAIDY_API_TOKEN.`,
+      `[milady-api] MILADY_ALLOW_INSECURE_PUBLIC_API is enabled. Public bind ${host} is running without MILADY_API_TOKEN.`,
     );
     return;
   }
 
   const generated = crypto.randomBytes(32).toString("hex");
-  process.env.MILAIDY_API_TOKEN = generated;
+  process.env.MILADY_API_TOKEN = generated;
 
   logger.warn(
-    `[milaidy-api] MILAIDY_API_BIND=${host} is non-loopback and MILAIDY_API_TOKEN is unset.`,
+    `[milady-api] MILADY_API_BIND=${host} is non-loopback and MILADY_API_TOKEN is unset.`,
   );
   const tokenFingerprint = `${generated.slice(0, 4)}...${generated.slice(-4)}`;
   logger.warn(
-    `[milaidy-api] Generated temporary MILAIDY_API_TOKEN (${tokenFingerprint}) for this process. Set MILAIDY_API_TOKEN explicitly to override.`,
+    `[milady-api] Generated temporary MILADY_API_TOKEN (${tokenFingerprint}) for this process. Set MILADY_API_TOKEN explicitly to override.`,
   );
 }
 
 function isAuthorized(req: http.IncomingMessage): boolean {
-  const expected = process.env.MILAIDY_API_TOKEN?.trim();
+  const expected = process.env.MILADY_API_TOKEN?.trim();
   if (!expected) return true;
   const provided = extractAuthToken(req);
   if (!provided) return false;
@@ -4204,18 +4204,18 @@ export function resolveWalletExportRejection(
     };
   }
 
-  const expected = process.env.MILAIDY_WALLET_EXPORT_TOKEN?.trim();
+  const expected = process.env.MILADY_WALLET_EXPORT_TOKEN?.trim();
   if (!expected) {
     return {
       status: 403,
       reason:
-        "Wallet export is disabled. Set MILAIDY_WALLET_EXPORT_TOKEN to enable secure exports.",
+        "Wallet export is disabled. Set MILADY_WALLET_EXPORT_TOKEN to enable secure exports.",
     };
   }
 
   const headerToken =
-    typeof req.headers["x-milaidy-export-token"] === "string"
-      ? req.headers["x-milaidy-export-token"].trim()
+    typeof req.headers["x-milady-export-token"] === "string"
+      ? req.headers["x-milady-export-token"].trim()
       : "";
   const bodyToken =
     typeof body.exportToken === "string" ? body.exportToken.trim() : "";
@@ -4225,7 +4225,7 @@ export function resolveWalletExportRejection(
     return {
       status: 401,
       reason:
-        "Missing export token. Provide X-Milaidy-Export-Token header or exportToken in request body.",
+        "Missing export token. Provide X-Milady-Export-Token header or exportToken in request body.",
     };
   }
 
@@ -4248,7 +4248,7 @@ function isWebSocketAuthorized(
   request: http.IncomingMessage,
   url: URL,
 ): boolean {
-  const expected = process.env.MILAIDY_API_TOKEN?.trim();
+  const expected = process.env.MILADY_API_TOKEN?.trim();
   if (!expected) return true;
 
   const headerToken = extractAuthToken(request);
@@ -4286,7 +4286,7 @@ export function resolveWebSocketUpgradeRejection(
   return null;
 }
 
-const RESET_STATE_ALLOWED_SEGMENTS = new Set([".milaidy", "milaidy"]);
+const RESET_STATE_ALLOWED_SEGMENTS = new Set([".milady", "milady"]);
 
 function hasAllowedResetSegment(resolvedState: string): boolean {
   return resolvedState
@@ -5012,11 +5012,11 @@ function patchMessageServiceForAutonomy(state: ServerState): void {
       ) => Promise<import("@elizaos/core").Memory[]>,
       options?: import("@elizaos/core").MessageProcessingOptions,
     ) => Promise<import("@elizaos/core").MessageProcessingResult>;
-    __milaidyAutonomyPatched?: boolean;
+    __miladyAutonomyPatched?: boolean;
   };
 
-  if (svc.__milaidyAutonomyPatched) return;
-  svc.__milaidyAutonomyPatched = true;
+  if (svc.__miladyAutonomyPatched) return;
+  svc.__miladyAutonomyPatched = true;
 
   const orig = svc.handleMessage.bind(svc);
 
@@ -5072,20 +5072,20 @@ async function handleRequest(
   const scheduleRuntimeRestart = (reason: string, delayMs = 300): void => {
     const restart = () => {
       if (ctx?.onRestart) {
-        logger.info(`[milaidy-api] Triggering runtime restart (${reason})...`);
+        logger.info(`[milady-api] Triggering runtime restart (${reason})...`);
         Promise.resolve(ctx.onRestart())
           .then((newRuntime) => {
             if (!newRuntime) {
-              logger.warn("[milaidy-api] Runtime restart returned null");
+              logger.warn("[milady-api] Runtime restart returned null");
               return;
             }
             state.runtime = newRuntime;
             state.chatConnectionReady = null;
             state.chatConnectionPromise = null;
             state.agentState = "running";
-            state.agentName = newRuntime.character.name ?? "Milaidy";
+            state.agentName = newRuntime.character.name ?? "Milady";
             state.startedAt = Date.now();
-            logger.info("[milaidy-api] Runtime restarted successfully");
+            logger.info("[milady-api] Runtime restarted successfully");
             // Notify WebSocket clients so the UI can refresh
             state.broadcastWs?.({
               type: "status",
@@ -5097,18 +5097,18 @@ async function handleRequest(
           })
           .catch((err) => {
             logger.error(
-              `[milaidy-api] Runtime restart failed: ${err instanceof Error ? err.message : err}`,
+              `[milady-api] Runtime restart failed: ${err instanceof Error ? err.message : err}`,
             );
           });
         return;
       }
 
       logger.info(
-        `[milaidy-api] No in-process restart handler; exiting for external restart (${reason})`,
+        `[milady-api] No in-process restart handler; exiting for external restart (${reason})`,
       );
       if (process.env.VITEST || process.env.NODE_ENV === "test") {
         logger.info(
-          "[milaidy-api] Skipping process.exit during test execution",
+          "[milady-api] Skipping process.exit during test execution",
         );
         return;
       }
@@ -5245,7 +5245,7 @@ async function handleRequest(
 
   // ── GET /api/auth/status ───────────────────────────────────────────────
   if (method === "GET" && pathname === "/api/auth/status") {
-    const required = Boolean(process.env.MILAIDY_API_TOKEN?.trim());
+    const required = Boolean(process.env.MILADY_API_TOKEN?.trim());
     const enabled = pairingEnabled();
     if (enabled) ensurePairingCode();
     json(res, {
@@ -5261,7 +5261,7 @@ async function handleRequest(
     const body = await readJsonBody<{ code?: string }>(req, res);
     if (!body) return;
 
-    const token = process.env.MILAIDY_API_TOKEN?.trim();
+    const token = process.env.MILADY_API_TOKEN?.trim();
     if (!token) {
       error(res, "Pairing not enabled", 400);
       return;
@@ -5381,7 +5381,7 @@ async function handleRequest(
       if (!state.config.env) state.config.env = {};
       (state.config.env as Record<string, string>).ANTHROPIC_API_KEY =
         body.token.trim();
-      saveMilaidyConfig(state.config);
+      saveMiladyConfig(state.config);
       json(res, { success: true });
     } catch (err) {
       error(res, `Failed to save setup token: ${err}`, 500);
@@ -5783,7 +5783,7 @@ async function handleRequest(
           unknown
         >
       ).mode = sandboxMode;
-      logger.info(`[milaidy-api] Sandbox mode set to: ${sandboxMode}`);
+      logger.info(`[milady-api] Sandbox mode set to: ${sandboxMode}`);
     }
 
     if (runMode === "cloud") {
@@ -5815,8 +5815,8 @@ async function handleRequest(
       const wantsPiAi = runMode === "local" && providerId === "pi-ai";
 
       if (wantsPiAi) {
-        vars.MILAIDY_USE_PI_AI = "1";
-        process.env.MILAIDY_USE_PI_AI = "1";
+        vars.MILADY_USE_PI_AI = "1";
+        process.env.MILADY_USE_PI_AI = "1";
 
         // Optional: persist chosen primary model spec for pi-ai.
         // When omitted, the backend falls back to pi's default model from settings.json.
@@ -5838,8 +5838,8 @@ async function handleRequest(
           }
         }
       } else {
-        delete vars.MILAIDY_USE_PI_AI;
-        delete process.env.MILAIDY_USE_PI_AI;
+        delete vars.MILADY_USE_PI_AI;
+        delete process.env.MILADY_USE_PI_AI;
       }
 
       // Persist vars back onto config.env
@@ -5872,7 +5872,7 @@ async function handleRequest(
       (config.agents.defaults as Record<string, unknown>).subscriptionProvider =
         body.provider;
       logger.info(
-        `[milaidy-api] Subscription provider selected: ${body.provider} — complete OAuth via /api/subscription/ endpoints`,
+        `[milady-api] Subscription provider selected: ${body.provider} — complete OAuth via /api/subscription/ endpoints`,
       );
     }
 
@@ -5982,16 +5982,16 @@ async function handleRequest(
     state.config = config;
     state.agentName = (body.name as string) ?? state.agentName;
     try {
-      saveMilaidyConfig(config);
+      saveMiladyConfig(config);
     } catch (err) {
       logger.error(
-        `[milaidy-api] Failed to save config after onboarding: ${err}`,
+        `[milady-api] Failed to save config after onboarding: ${err}`,
       );
       error(res, "Failed to save configuration", 500);
       return;
     }
     logger.info(
-      `[milaidy-api] Onboarding complete for agent "${body.name}" (mode: ${(body.runMode as string) || "local"})`,
+      `[milady-api] Onboarding complete for agent "${body.name}" (mode: ${(body.runMode as string) || "local"})`,
     );
     json(res, { ok: true });
     return;
@@ -6179,7 +6179,7 @@ async function handleRequest(
         state.chatConnectionReady = null;
         state.chatConnectionPromise = null;
         state.agentState = "running";
-        state.agentName = newRuntime.character.name ?? "Milaidy";
+        state.agentName = newRuntime.character.name ?? "Milady";
         state.startedAt = Date.now();
         patchMessageServiceForAutonomy(state);
         json(res, {
@@ -6220,25 +6220,25 @@ async function handleRequest(
           const msg =
             stopErr instanceof Error ? stopErr.message : String(stopErr);
           logger.warn(
-            `[milaidy-api] Error stopping runtime during reset: ${msg}`,
+            `[milady-api] Error stopping runtime during reset: ${msg}`,
           );
         }
         state.runtime = null;
       }
 
-      // 2. Delete the state directory (~/.milaidy/) which contains
+      // 2. Delete the state directory (~/.milady/) which contains
       //    config, workspace, memory, oauth tokens, etc.
       const stateDir = resolveStateDir();
 
       // Safety: validate the resolved path before recursive deletion.
-      // MILAIDY_STATE_DIR can be overridden via env/config — if set to
+      // MILADY_STATE_DIR can be overridden via env/config — if set to
       // "/" or another sensitive path, rmSync would wipe the filesystem.
       const resolvedState = path.resolve(stateDir);
       const home = os.homedir();
       const isSafe = isSafeResetStateDir(resolvedState, home);
       if (!isSafe) {
         logger.warn(
-          `[milaidy-api] Refusing to delete unsafe state dir: "${resolvedState}"`,
+          `[milady-api] Refusing to delete unsafe state dir: "${resolvedState}"`,
         );
         error(
           res,
@@ -6254,10 +6254,10 @@ async function handleRequest(
 
       // 3. Reset server state
       state.agentState = "stopped";
-      state.agentName = "Milaidy";
+      state.agentName = "Milady";
       state.model = undefined;
       state.startedAt = undefined;
-      state.config = {} as MilaidyConfig;
+      state.config = {} as MiladyConfig;
       state.chatRoomId = null;
       state.chatUserId = null;
       state.chatConnectionReady = null;
@@ -6708,9 +6708,9 @@ async function handleRequest(
   // ── GET /api/plugins ────────────────────────────────────────────────────
   if (method === "GET" && pathname === "/api/plugins") {
     // Re-read config from disk so we pick up plugins installed since server start.
-    let freshConfig: MilaidyConfig;
+    let freshConfig: MiladyConfig;
     try {
-      freshConfig = loadMilaidyConfig();
+      freshConfig = loadMiladyConfig();
     } catch {
       freshConfig = state.config;
     }
@@ -6916,10 +6916,10 @@ async function handleRequest(
       // Save config even when only config values changed (no enable toggle)
       if (body.enabled === undefined) {
         try {
-          saveMilaidyConfig(state.config);
+          saveMiladyConfig(state.config);
         } catch (err) {
           logger.warn(
-            `[milaidy-api] Failed to save config: ${err instanceof Error ? err.message : err}`,
+            `[milady-api] Failed to save config: ${err instanceof Error ? err.message : err}`,
           );
         }
       }
@@ -6960,7 +6960,7 @@ async function handleRequest(
         .entries as Record<string, Record<string, unknown>>;
       entries[pluginId] = { enabled: body.enabled };
       logger.info(
-        `[milaidy-api] ${body.enabled ? "Enabled" : "Disabled"} plugin: ${packageName}`,
+        `[milady-api] ${body.enabled ? "Enabled" : "Disabled"} plugin: ${packageName}`,
       );
 
       // Persist capability toggle state in config.features so the runtime
@@ -6980,10 +6980,10 @@ async function handleRequest(
 
       // Save updated config
       try {
-        saveMilaidyConfig(state.config);
+        saveMiladyConfig(state.config);
       } catch (err) {
         logger.warn(
-          `[milaidy-api] Failed to save config: ${err instanceof Error ? err.message : err}`,
+          `[milady-api] Failed to save config: ${err instanceof Error ? err.message : err}`,
         );
       }
 
@@ -7499,7 +7499,7 @@ async function handleRequest(
     }
 
     try {
-      saveMilaidyConfig(state.config);
+      saveMiladyConfig(state.config);
     } catch (err) {
       logger.warn(
         `[api] Config save failed: ${err instanceof Error ? err.message : err}`,
@@ -8084,7 +8084,7 @@ async function handleRequest(
     execFile(opener, [skillPath], (err) => {
       if (err)
         logger.warn(
-          `[milaidy-api] Failed to open skill folder: ${err.message}`,
+          `[milady-api] Failed to open skill folder: ${err.message}`,
         );
     });
     json(res, { ok: true, path: skillPath });
@@ -8557,7 +8557,7 @@ async function handleRequest(
     process.env.SKILLSMP_API_KEY = apiKey;
     if (!state.config.env) state.config.env = {};
     (state.config.env as Record<string, string>).SKILLSMP_API_KEY = apiKey;
-    saveMilaidyConfig(state.config);
+    saveMiladyConfig(state.config);
     json(res, { ok: true, keySet: true });
     return;
   }
@@ -8861,7 +8861,7 @@ async function handleRequest(
       process.env[envKey] ?? "";
 
     try {
-      saveMilaidyConfig(state.config);
+      saveMiladyConfig(state.config);
     } catch (err) {
       logger.warn(
         `[api] Config save failed: ${err instanceof Error ? err.message : err}`,
@@ -9006,13 +9006,13 @@ async function handleRequest(
       generated.push({ chain: requested, address: result.address });
       saveConfigRequired = true;
       logger.info(
-        `[milaidy-api] Generated ${requested === "evm" ? "EVM" : "Solana"} wallet: ${result.address}`,
+        `[milady-api] Generated ${requested === "evm" ? "EVM" : "Solana"} wallet: ${result.address}`,
       );
     }
 
     if (saveConfigRequired) {
       try {
-        saveMilaidyConfig(state.config);
+        saveMiladyConfig(state.config);
       } catch (err) {
         logger.warn(
           `[api] Config save failed: ${err instanceof Error ? err.message : err}`,
@@ -9088,7 +9088,7 @@ async function handleRequest(
     ensureWalletKeysInEnvAndConfig(state.config);
 
     try {
-      saveMilaidyConfig(state.config);
+      saveMiladyConfig(state.config);
     } catch (err) {
       logger.warn(
         `[api] Config save failed: ${err instanceof Error ? err.message : err}`,
@@ -9176,7 +9176,7 @@ async function handleRequest(
     }>(req, res);
     if (!body) return;
 
-    const agentName = body.name || state.agentName || "Milaidy Agent";
+    const agentName = body.name || state.agentName || "Milady Agent";
     const endpoint = body.endpoint || "";
     const tokenURI = body.tokenURI || "";
 
@@ -9217,7 +9217,7 @@ async function handleRequest(
     }>(req, res);
     if (!body) return;
 
-    const agentName = body.name || state.agentName || "Milaidy Agent";
+    const agentName = body.name || state.agentName || "Milady Agent";
     const endpoint = body.endpoint || "";
     const tokenURI = body.tokenURI || "";
 
@@ -9279,7 +9279,7 @@ async function handleRequest(
     }>(req, res);
     if (!body) return;
 
-    const agentName = body.name || state.agentName || "Milaidy Agent";
+    const agentName = body.name || state.agentName || "Milady Agent";
     const endpoint = body.endpoint || "";
 
     const result = body.shiny
@@ -9304,7 +9304,7 @@ async function handleRequest(
       return;
     }
 
-    const agentName = body.name || state.agentName || "Milaidy Agent";
+    const agentName = body.name || state.agentName || "Milady Agent";
     const endpoint = body.endpoint || "";
     const result = await dropService.mintWithWhitelist(
       agentName,
@@ -9343,7 +9343,7 @@ async function handleRequest(
       error(res, "EVM wallet not configured. Complete onboarding first.");
       return;
     }
-    const agentName = state.agentName || "Milaidy Agent";
+    const agentName = state.agentName || "Milady Agent";
     const message = generateVerificationMessage(agentName, walletAddress);
     json(res, { message, walletAddress });
     return;
@@ -9421,7 +9421,7 @@ async function handleRequest(
       lastCheckAt: undefined,
       lastCheckVersion: undefined,
     };
-    saveMilaidyConfig(state.config);
+    saveMiladyConfig(state.config);
     json(res, { channel: ch });
     return;
   }
@@ -9462,7 +9462,7 @@ async function handleRequest(
     if (!state.config.connectors) state.config.connectors = {};
     state.config.connectors[connectorName] = config as ConnectorConfig;
     try {
-      saveMilaidyConfig(state.config);
+      saveMiladyConfig(state.config);
     } catch {
       /* test envs */
     }
@@ -9492,7 +9492,7 @@ async function handleRequest(
       delete state.config.channels[name];
     }
     try {
-      saveMilaidyConfig(state.config);
+      saveMiladyConfig(state.config);
     } catch {
       /* test envs */
     }
@@ -9585,23 +9585,23 @@ async function handleRequest(
       // merge, even though BLOCKED_ENV_KEYS also blocks them during process.env
       // sync below. Keeping both guards prevents accidental persistence if one
       // path changes in future refactors.
-      delete envPatch.MILAIDY_API_TOKEN;
-      delete envPatch.MILAIDY_WALLET_EXPORT_TOKEN;
+      delete envPatch.MILADY_API_TOKEN;
+      delete envPatch.MILADY_WALLET_EXPORT_TOKEN;
       if (
         envPatch.vars &&
         typeof envPatch.vars === "object" &&
         !Array.isArray(envPatch.vars)
       ) {
-        delete (envPatch.vars as Record<string, unknown>).MILAIDY_API_TOKEN;
+        delete (envPatch.vars as Record<string, unknown>).MILADY_API_TOKEN;
         delete (envPatch.vars as Record<string, unknown>)
-          .MILAIDY_WALLET_EXPORT_TOKEN;
+          .MILADY_WALLET_EXPORT_TOKEN;
       }
     }
 
     safeMerge(state.config as Record<string, unknown>, filtered);
 
     // If the client updated env vars, synchronise them into process.env so
-    // subsequent hot-restarts see the latest values (loadMilaidyConfig()
+    // subsequent hot-restarts see the latest values (loadMiladyConfig()
     // only fills missing env vars and does not override existing ones).
     if (
       filtered.env &&
@@ -9651,7 +9651,7 @@ async function handleRequest(
     }
 
     try {
-      saveMilaidyConfig(state.config);
+      saveMiladyConfig(state.config);
     } catch (err) {
       logger.warn(
         `[api] Config save failed: ${err instanceof Error ? err.message : err}`,
@@ -9792,7 +9792,7 @@ async function handleRequest(
       state.config.features = {};
     }
     state.config.features.shellEnabled = enabled;
-    saveMilaidyConfig(state.config);
+    saveMiladyConfig(state.config);
 
     // If a runtime is active, restart so plugin loading honors the new
     // shellEnabled flag and shell tools are loaded/unloaded consistently.
@@ -9869,7 +9869,7 @@ async function handleRequest(
         : (stringToUuid(`${state.agentName}-admin-entity`) as UUID);
     if (configured && !isUuidLike(configured)) {
       logger.warn(
-        `[milaidy-api] Invalid agents.defaults.adminEntityId "${configured}", using deterministic fallback`,
+        `[milady-api] Invalid agents.defaults.adminEntityId "${configured}", using deterministic fallback`,
       );
     }
     state.adminEntityId = nextAdminEntityId;
@@ -9920,7 +9920,7 @@ async function handleRequest(
   ): Promise<void> => {
     if (!state.runtime) return;
     const runtime = state.runtime;
-    const agentName = runtime.character.name ?? "Milaidy";
+    const agentName = runtime.character.name ?? "Milady";
     const userId = ensureAdminEntityId();
     const worldId = stringToUuid(`${agentName}-web-chat-world`);
     const messageServerId = stringToUuid(`${agentName}-web-server`) as UUID;
@@ -10041,7 +10041,7 @@ async function handleRequest(
   if (method === "GET" && pathname === "/v1/models") {
     const created = Math.floor(Date.now() / 1000);
     const ids = new Set<string>();
-    ids.add("milaidy");
+    ids.add("milady");
     if (state.agentName?.trim()) ids.add(state.agentName.trim());
     if (state.runtime?.character.name?.trim())
       ids.add(state.runtime.character.name.trim());
@@ -10052,7 +10052,7 @@ async function handleRequest(
         id,
         object: "model",
         created,
-        owned_by: "milaidy",
+        owned_by: "milady",
       })),
     });
     return;
@@ -10078,7 +10078,7 @@ async function handleRequest(
       );
       return;
     }
-    json(res, { id, object: "model", created, owned_by: "milaidy" });
+    json(res, { id, object: "model", created, owned_by: "milady" });
     return;
   }
 
@@ -10133,7 +10133,7 @@ async function handleRequest(
 
     const created = Math.floor(Date.now() / 1000);
     const id = `chatcmpl-${crypto.randomUUID()}`;
-    const model = requestedModel ?? state.agentName ?? "milaidy";
+    const model = requestedModel ?? state.agentName ?? "milady";
 
     if (wantsStream) {
       initSse(res);
@@ -10186,7 +10186,7 @@ async function handleRequest(
         {
           const runtime = state.runtime;
           if (!runtime) throw new Error("Agent is not running");
-          const agentName = runtime.character.name ?? "Milaidy";
+          const agentName = runtime.character.name ?? "Milady";
           const { userId, roomId } = await ensureCompatChatConnection(
             runtime,
             agentName,
@@ -10267,7 +10267,7 @@ async function handleRequest(
           return;
         }
         const runtime = state.runtime;
-        const agentName = runtime.character.name ?? "Milaidy";
+        const agentName = runtime.character.name ?? "Milady";
         const { userId, roomId } = await ensureCompatChatConnection(
           runtime,
           agentName,
@@ -10378,7 +10378,7 @@ async function handleRequest(
       : extracted.user;
 
     const id = `msg_${crypto.randomUUID().replace(/-/g, "")}`;
-    const model = requestedModel ?? state.agentName ?? "milaidy";
+    const model = requestedModel ?? state.agentName ?? "milady";
 
     if (wantsStream) {
       initSse(res);
@@ -10449,7 +10449,7 @@ async function handleRequest(
         {
           const runtime = state.runtime;
           if (!runtime) throw new Error("Agent is not running");
-          const agentName = runtime.character.name ?? "Milaidy";
+          const agentName = runtime.character.name ?? "Milady";
           const { userId, roomId } = await ensureCompatChatConnection(
             runtime,
             agentName,
@@ -10537,7 +10537,7 @@ async function handleRequest(
           return;
         }
         const runtime = state.runtime;
-        const agentName = runtime.character.name ?? "Milaidy";
+        const agentName = runtime.character.name ?? "Milady";
         const { userId, roomId } = await ensureCompatChatConnection(
           runtime,
           agentName,
@@ -10949,7 +10949,7 @@ async function handleRequest(
       error(res, "Agent is not running", 503);
       return;
     }
-    const charName = runtime.character.name ?? state.agentName ?? "Milaidy";
+    const charName = runtime.character.name ?? state.agentName ?? "Milady";
 
     // Collect post examples from the character
     const postExamples = runtime.character.postExamples ?? [];
@@ -11073,7 +11073,7 @@ async function handleRequest(
 
     try {
       const runtime = state.runtime;
-      const agentName = runtime.character.name ?? "Milaidy";
+      const agentName = runtime.character.name ?? "Milady";
       await ensureLegacyChatConnection(runtime, agentName);
       const chatUserId = state.chatUserId;
       const chatRoomId = state.chatRoomId;
@@ -11168,7 +11168,7 @@ async function handleRequest(
 
     try {
       const runtime = state.runtime;
-      const agentName = runtime.character.name ?? "Milaidy";
+      const agentName = runtime.character.name ?? "Milady";
       await ensureLegacyChatConnection(runtime, agentName);
       const chatUserId = state.chatUserId;
       const chatRoomId = state.chatRoomId;
@@ -12408,7 +12408,7 @@ async function handleRequest(
     >[string];
 
     try {
-      saveMilaidyConfig(state.config);
+      saveMiladyConfig(state.config);
     } catch (err) {
       logger.warn(
         `[api] Config save failed: ${err instanceof Error ? err.message : err}`,
@@ -12439,7 +12439,7 @@ async function handleRequest(
     if (state.config.mcp?.servers?.[serverName]) {
       delete state.config.mcp.servers[serverName];
       try {
-        saveMilaidyConfig(state.config);
+        saveMiladyConfig(state.config);
       } catch (err) {
         logger.warn(
           `[api] Config save failed: ${err instanceof Error ? err.message : err}`,
@@ -12475,7 +12475,7 @@ async function handleRequest(
     }
 
     try {
-      saveMilaidyConfig(state.config);
+      saveMiladyConfig(state.config);
     } catch (err) {
       logger.warn(
         `[api] Config save failed: ${err instanceof Error ? err.message : err}`,
@@ -12643,7 +12643,7 @@ async function handleRequest(
   // ── Custom Actions CRUD ──────────────────────────────────────────────
 
   if (method === "GET" && pathname === "/api/custom-actions") {
-    const config = loadMilaidyConfig();
+    const config = loadMiladyConfig();
     json(res, { actions: config.customActions ?? [] });
     return;
   }
@@ -12716,10 +12716,10 @@ async function handleRequest(
       updatedAt: now,
     };
 
-    const config = loadMilaidyConfig();
+    const config = loadMiladyConfig();
     if (!config.customActions) config.customActions = [];
     config.customActions.push(actionDef);
-    saveMilaidyConfig(config);
+    saveMiladyConfig(config);
 
     // Hot-register into the running agent so it's available immediately
     if (actionDef.enabled) {
@@ -12805,7 +12805,7 @@ async function handleRequest(
     );
     if (!body) return;
 
-    const config = loadMilaidyConfig();
+    const config = loadMiladyConfig();
     const def = (config.customActions ?? []).find((a) => a.id === actionId);
     if (!def) {
       error(res, "Action not found", 404);
@@ -12838,7 +12838,7 @@ async function handleRequest(
     const body = await readJsonBody<Record<string, unknown>>(req, res);
     if (!body) return;
 
-    const config = loadMilaidyConfig();
+    const config = loadMiladyConfig();
     const actions = config.customActions ?? [];
     const idx = actions.findIndex((a) => a.id === actionId);
     if (idx === -1) {
@@ -12884,7 +12884,7 @@ async function handleRequest(
 
     actions[idx] = updated;
     config.customActions = actions;
-    saveMilaidyConfig(config);
+    saveMiladyConfig(config);
 
     json(res, { ok: true, action: updated });
     return;
@@ -12893,7 +12893,7 @@ async function handleRequest(
   if (method === "DELETE" && customActionMatch) {
     const actionId = decodeURIComponent(customActionMatch[1]);
 
-    const config = loadMilaidyConfig();
+    const config = loadMiladyConfig();
     const actions = config.customActions ?? [];
     const idx = actions.findIndex((a) => a.id === actionId);
     if (idx === -1) {
@@ -12903,7 +12903,7 @@ async function handleRequest(
 
     actions.splice(idx, 1);
     config.customActions = actions;
-    saveMilaidyConfig(config);
+    saveMiladyConfig(config);
 
     json(res, { ok: true });
     return;
@@ -12950,24 +12950,24 @@ export async function startApiServer(opts?: {
 }> {
   const port = opts?.port ?? 2138;
   const host =
-    (process.env.MILAIDY_API_BIND ?? "127.0.0.1").trim() || "127.0.0.1";
+    (process.env.MILADY_API_BIND ?? "127.0.0.1").trim() || "127.0.0.1";
   ensureApiTokenForBindHost(host);
 
-  let config: MilaidyConfig;
+  let config: MiladyConfig;
   try {
-    config = loadMilaidyConfig();
+    config = loadMiladyConfig();
   } catch (err) {
     logger.warn(
-      `[milaidy-api] Failed to load config, starting with defaults: ${err instanceof Error ? err.message : err}`,
+      `[milady-api] Failed to load config, starting with defaults: ${err instanceof Error ? err.message : err}`,
     );
-    config = {} as MilaidyConfig;
+    config = {} as MiladyConfig;
   }
 
   // Wallet/inventory routes read from process.env at request-time.
   // Hydrate persisted config.env values so addresses remain visible after restarts.
   const persistedEnv = config.env as Record<string, string> | undefined;
   const envKeysToHydrate = [
-    "MILAIDY_WALLET_MODE",
+    "MILADY_WALLET_MODE",
     "PRIVY_APP_ID",
     "PRIVY_APP_SECRET",
     "PRIVY_API_BASE_URL",
@@ -12995,10 +12995,10 @@ export async function startApiServer(opts?: {
   // (e.g. RPC/cloud configured outside onboarding).
   if (ensureWalletKeysInEnvAndConfig(config)) {
     try {
-      saveMilaidyConfig(config);
+      saveMiladyConfig(config);
     } catch (err) {
       logger.warn(
-        `[milaidy-api] Failed to persist generated wallet keys: ${err instanceof Error ? err.message : err}`,
+        `[milady-api] Failed to persist generated wallet keys: ${err instanceof Error ? err.message : err}`,
       );
     }
   }
@@ -13012,10 +13012,10 @@ export async function startApiServer(opts?: {
     ? "running"
     : (opts?.initialAgentState ?? "not_started");
   const agentName = hasRuntime
-    ? (opts.runtime?.character.name ?? "Milaidy")
+    ? (opts.runtime?.character.name ?? "Milady")
     : (config.agents?.list?.[0]?.name ??
       config.ui?.assistant?.name ??
-      "Milaidy");
+      "Milady");
 
   const state: ServerState = {
     runtime: opts?.runtime ?? null,
@@ -13054,9 +13054,9 @@ export async function startApiServer(opts?: {
   const trainingService = new TrainingService({
     getRuntime: () => state.runtime,
     getConfig: () => state.config,
-    setConfig: (nextConfig: MilaidyConfig) => {
+    setConfig: (nextConfig: MiladyConfig) => {
       state.config = nextConfig;
-      saveMilaidyConfig(nextConfig);
+      saveMiladyConfig(nextConfig);
     },
   });
   // Register immediately so /api/training routes are available without a startup race.
@@ -13067,7 +13067,7 @@ export async function startApiServer(opts?: {
     state.chatUserId = state.adminEntityId;
   } else if (configuredAdminEntityId) {
     logger.warn(
-      `[milaidy-api] Ignoring invalid agents.defaults.adminEntityId "${configuredAdminEntityId}"`,
+      `[milady-api] Ignoring invalid agents.defaults.adminEntityId "${configuredAdminEntityId}"`,
     );
   }
 
@@ -13140,7 +13140,7 @@ export async function startApiServer(opts?: {
   // eliza.ts, services, plugins, etc.) AND the runtime instance logger.
   // A marker prevents double-patching on hot-restart and avoids stacking
   // wrapper functions that would leak memory.
-  const PATCHED_MARKER = "__milaidyLogPatched";
+  const PATCHED_MARKER = "__miladyLogPatched";
   const LEVELS = ["debug", "info", "warn", "error"] as const;
 
   /**
@@ -13176,7 +13176,7 @@ export async function startApiServer(opts?: {
           }
           msg = typeof args[1] === "string" ? args[1] : JSON.stringify(obj);
         }
-        // Auto-extract source from [bracket] prefixes (e.g. "[milaidy] ...")
+        // Auto-extract source from [bracket] prefixes (e.g. "[milady] ...")
         const bracketMatch = /^\[([^\]]+)\]\s*/.exec(msg);
         if (bracketMatch && source === defaultSource) {
           source = bracketMatch[1];
@@ -13253,7 +13253,7 @@ export async function startApiServer(opts?: {
           client.send(message);
         } catch (err) {
           logger.error(
-            `[milaidy-api] WebSocket broadcast error: ${err instanceof Error ? err.message : err}`,
+            `[milady-api] WebSocket broadcast error: ${err instanceof Error ? err.message : err}`,
           );
         }
       }
@@ -13348,7 +13348,7 @@ export async function startApiServer(opts?: {
         );
       } catch (err) {
         logger.warn(
-          `[milaidy-api] Skill discovery failed during startup: ${err instanceof Error ? err.message : String(err)}`,
+          `[milady-api] Skill discovery failed during startup: ${err instanceof Error ? err.message : String(err)}`,
         );
       }
     })();
@@ -13363,7 +13363,7 @@ export async function startApiServer(opts?: {
         ]);
       } catch (err) {
         logger.error(
-          `[milaidy-api] Training service init failed: ${err instanceof Error ? err.message : String(err)}`,
+          `[milady-api] Training service init failed: ${err instanceof Error ? err.message : String(err)}`,
         );
       }
     })();
@@ -13441,7 +13441,7 @@ export async function startApiServer(opts?: {
       });
     } catch (err) {
       logger.error(
-        `[milaidy-api] WebSocket upgrade error: ${err instanceof Error ? err.message : err}`,
+        `[milady-api] WebSocket upgrade error: ${err instanceof Error ? err.message : err}`,
       );
       rejectWebSocketUpgrade(socket, 404, "Not found");
     }
@@ -13472,7 +13472,7 @@ export async function startApiServer(opts?: {
       }
     } catch (err) {
       logger.error(
-        `[milaidy-api] WebSocket send error: ${err instanceof Error ? err.message : err}`,
+        `[milady-api] WebSocket send error: ${err instanceof Error ? err.message : err}`,
       );
     }
 
@@ -13487,7 +13487,7 @@ export async function startApiServer(opts?: {
         }
       } catch (err) {
         logger.error(
-          `[milaidy-api] WebSocket message error: ${err instanceof Error ? err.message : err}`,
+          `[milady-api] WebSocket message error: ${err instanceof Error ? err.message : err}`,
         );
       }
     });
@@ -13502,7 +13502,7 @@ export async function startApiServer(opts?: {
 
     ws.on("error", (err) => {
       logger.error(
-        `[milaidy-api] WebSocket error: ${err instanceof Error ? err.message : err}`,
+        `[milady-api] WebSocket error: ${err instanceof Error ? err.message : err}`,
       );
       wsClients.delete(ws);
     });
@@ -13531,7 +13531,7 @@ export async function startApiServer(opts?: {
           client.send(message);
         } catch (err) {
           logger.error(
-            `[milaidy-api] WebSocket broadcast error: ${err instanceof Error ? err.message : err}`,
+            `[milady-api] WebSocket broadcast error: ${err instanceof Error ? err.message : err}`,
           );
         }
       }
@@ -13550,7 +13550,7 @@ export async function startApiServer(opts?: {
           client.send(message);
         } catch (err) {
           logger.error(
-            `[milaidy-api] WebSocket broadcast error: ${err instanceof Error ? err.message : err}`,
+            `[milady-api] WebSocket broadcast error: ${err instanceof Error ? err.message : err}`,
           );
         }
       }
@@ -13585,7 +13585,7 @@ export async function startApiServer(opts?: {
     rt: AgentRuntime,
   ): Promise<void> => {
     try {
-      const agentName = rt.character.name ?? "Milaidy";
+      const agentName = rt.character.name ?? "Milady";
       const worldId = stringToUuid(`${agentName}-web-chat-world`);
       const rooms = await rt.getRoomsByWorld(worldId);
       if (!rooms?.length) return;
@@ -13635,7 +13635,7 @@ export async function startApiServer(opts?: {
       }
     } catch (err) {
       logger.warn(
-        `[milaidy-api] Failed to restore conversations from DB: ${err instanceof Error ? err.message : err}`,
+        `[milady-api] Failed to restore conversations from DB: ${err instanceof Error ? err.message : err}`,
       );
     }
   };
@@ -13654,7 +13654,7 @@ export async function startApiServer(opts?: {
     bindRuntimeStreams(rt);
     // AppManager doesn't need a runtime reference
     state.agentState = "running";
-    state.agentName = rt.character.name ?? "Milaidy";
+    state.agentName = rt.character.name ?? "Milady";
     state.startedAt = Date.now();
     addLog("info", `Runtime restarted — agent: ${state.agentName}`, "system", [
       "system",
@@ -13694,7 +13694,7 @@ export async function startApiServer(opts?: {
         ["server", "system"],
       );
       logger.info(
-        `[milaidy-api] Listening on http://${displayHost}:${actualPort}`,
+        `[milady-api] Listening on http://${displayHost}:${actualPort}`,
       );
       startDeferredStartupWork();
       resolve({

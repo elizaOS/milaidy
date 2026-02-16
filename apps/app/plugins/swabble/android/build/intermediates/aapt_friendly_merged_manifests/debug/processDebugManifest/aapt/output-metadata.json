@@ -4,7 +4,7 @@
     "type": "AAPT_FRIENDLY_MERGED_MANIFESTS",
     "kind": "Directory"
   },
-  "applicationId": "ai.milaidy.plugins.swabble",
+  "applicationId": "ai.milady.plugins.swabble",
   "variantName": "debug",
   "elements": [
     {

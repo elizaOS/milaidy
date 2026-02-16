@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { CustomActionDef } from "../config/types.milaidy.js";
+import type { CustomActionDef } from "../config/types.milady.js";
 
 vi.mock("node:dns/promises", () => ({
   lookup: vi.fn(),

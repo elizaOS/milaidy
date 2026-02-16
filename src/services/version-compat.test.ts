@@ -4,7 +4,7 @@
  * Validates the version-skew detection logic that prevents issue #10:
  * plugins at alpha.4 importing symbols missing from core at alpha.3.
  *
- * @see https://github.com/milady-ai/milaidy/issues/10
+ * @see https://github.com/milady-ai/milady/issues/10
  */
 import { describe, expect, it } from "vitest";
 import {
@@ -380,7 +380,7 @@ describe("Package.json version pinning (issue #10)", () => {
 
   /**
    * Verify that the affected plugins are pinned to a version compatible
-   * with core@2.0.0-alpha.3 in milaidy's package.json.
+   * with core@2.0.0-alpha.3 in milady's package.json.
    *
    * This test reads the actual package.json to ensure the fix stays in place.
    */

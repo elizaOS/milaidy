@@ -167,10 +167,10 @@ export function registerPluginsCli(program: Command): void {
       }
 
       console.log(
-        chalk.dim("Install a plugin: milaidy plugins install <name>"),
+        chalk.dim("Install a plugin: milady plugins install <name>"),
       );
       console.log(
-        chalk.dim("Search:           milaidy plugins list -q <keyword>"),
+        chalk.dim("Search:           milady plugins list -q <keyword>"),
       );
       console.log();
     });
@@ -229,7 +229,7 @@ export function registerPluginsCli(program: Command): void {
         console.log(`\n${chalk.red("Not found:")} ${normalizedName}`);
         console.log(
           chalk.dim(
-            "Run 'milaidy plugins search <keyword>' to find plugins.\n",
+            "Run 'milady plugins search <keyword>' to find plugins.\n",
           ),
         );
         return;
@@ -273,7 +273,7 @@ export function registerPluginsCli(program: Command): void {
       }
 
       console.log(
-        `\n  Install: ${chalk.cyan(`milaidy plugins install ${info.name}`)}\n`,
+        `\n  Install: ${chalk.cyan(`milady plugins install ${info.name}`)}\n`,
       );
     });
 
@@ -365,7 +365,7 @@ export function registerPluginsCli(program: Command): void {
 
       if (plugins.length === 0) {
         console.log("\nNo plugins installed from the registry.\n");
-        console.log(chalk.dim("Install one: milaidy plugins install <name>\n"));
+        console.log(chalk.dim("Install one: milady plugins install <name>\n"));
         return;
       }
 
@@ -398,7 +398,7 @@ export function registerPluginsCli(program: Command): void {
   pluginsCommand
     .command("test")
     .description(
-      "Validate custom drop-in plugins in ~/.milaidy/plugins/custom/",
+      "Validate custom drop-in plugins in ~/.milady/plugins/custom/",
     )
     .action(async () => {
       const nodePath = await import("node:path");
@@ -407,7 +407,7 @@ export function registerPluginsCli(program: Command): void {
       const { resolveStateDir, resolveUserPath } = await import(
         "../config/paths.js"
       );
-      const { loadMilaidyConfig } = await import("../config/config.js");
+      const { loadMiladyConfig } = await import("../config/config.js");
       const { CUSTOM_PLUGINS_DIRNAME, scanDropInPlugins, resolvePackageEntry } =
         await import("../runtime/eliza.js");
 
@@ -417,13 +417,13 @@ export function registerPluginsCli(program: Command): void {
       );
       const scanDirs = [customDir];
 
-      let config: ReturnType<typeof loadMilaidyConfig> | null = null;
+      let config: ReturnType<typeof loadMiladyConfig> | null = null;
       try {
-        config = loadMilaidyConfig();
+        config = loadMiladyConfig();
       } catch (err) {
         console.log(
           chalk.dim(
-            `  (Could not read milaidy.json: ${err instanceof Error ? err.message : String(err)} — scanning default directory only)\n`,
+            `  (Could not read milady.json: ${err instanceof Error ? err.message : String(err)} — scanning default directory only)\n`,
           ),
         );
       }
@@ -548,7 +548,7 @@ export function registerPluginsCli(program: Command): void {
       const _nodePath = await import("node:path");
       const nodeFs = await import("node:fs");
       const { resolveUserPath } = await import("../config/paths.js");
-      const { loadMilaidyConfig, saveMilaidyConfig } = await import(
+      const { loadMiladyConfig, saveMiladyConfig } = await import(
         "../config/config.js"
       );
 
@@ -565,11 +565,11 @@ export function registerPluginsCli(program: Command): void {
         return;
       }
 
-      let config: ReturnType<typeof loadMilaidyConfig>;
+      let config: ReturnType<typeof loadMiladyConfig>;
       try {
-        config = loadMilaidyConfig();
+        config = loadMiladyConfig();
       } catch {
-        config = {} as ReturnType<typeof loadMilaidyConfig>;
+        config = {} as ReturnType<typeof loadMiladyConfig>;
       }
 
       if (!config.plugins) config.plugins = {};
@@ -583,7 +583,7 @@ export function registerPluginsCli(program: Command): void {
       }
 
       config.plugins.load.paths.push(rawPath);
-      saveMilaidyConfig(config);
+      saveMiladyConfig(config);
 
       console.log(`\n${chalk.green("Added:")} ${rawPath} → ${resolved}`);
       console.log(
@@ -600,14 +600,14 @@ export function registerPluginsCli(program: Command): void {
       const { resolveStateDir, resolveUserPath } = await import(
         "../config/paths.js"
       );
-      const { loadMilaidyConfig } = await import("../config/config.js");
+      const { loadMiladyConfig } = await import("../config/config.js");
       const { CUSTOM_PLUGINS_DIRNAME, scanDropInPlugins } = await import(
         "../runtime/eliza.js"
       );
 
-      let config: ReturnType<typeof loadMilaidyConfig> | null = null;
+      let config: ReturnType<typeof loadMiladyConfig> | null = null;
       try {
-        config = loadMilaidyConfig();
+        config = loadMiladyConfig();
       } catch {
         // No config
       }
@@ -680,7 +680,7 @@ export function registerPluginsCli(program: Command): void {
       if (!plugin) {
         console.log(`\n${chalk.red("Not found:")} ${name}`);
         console.log(
-          chalk.dim("Run 'milaidy plugins list' to see available plugins.\n"),
+          chalk.dim("Run 'milady plugins list' to see available plugins.\n"),
         );
         process.exitCode = 1;
         return;
@@ -792,15 +792,15 @@ export function registerPluginsCli(program: Command): void {
       }
 
       // Save to config and env
-      const { loadMilaidyConfig, saveMilaidyConfig } = await import(
+      const { loadMiladyConfig, saveMiladyConfig } = await import(
         "../config/config.js"
       );
 
-      let config: ReturnType<typeof loadMilaidyConfig>;
+      let config: ReturnType<typeof loadMiladyConfig>;
       try {
-        config = loadMilaidyConfig();
+        config = loadMiladyConfig();
       } catch {
-        config = {} as ReturnType<typeof loadMilaidyConfig>;
+        config = {} as ReturnType<typeof loadMiladyConfig>;
       }
 
       // Initialize plugin config structure
@@ -833,7 +833,7 @@ export function registerPluginsCli(program: Command): void {
         pluginConfig[key] = value;
       }
 
-      saveMilaidyConfig(config);
+      saveMiladyConfig(config);
 
       console.log(
         `\n${chalk.green("Success!")} Configuration saved for ${pluginName}.`,
