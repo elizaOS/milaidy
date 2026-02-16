@@ -42,13 +42,22 @@ RUN set -e; \
         REPO_URL="$(echo "$REPO_URL" | sed "s#^https://#https://x-access-token:${GITHUB_TOKEN}@#")"; \
       fi; \
       rm -rf /tmp/milady-lfs-src; \
-      if GIT_LFS_SKIP_SMUDGE=1 git clone --depth 1 --branch "$REF" "$REPO_URL" /tmp/milady-lfs-src; then \
+      if git -c filter.lfs.smudge= -c filter.lfs.process= -c filter.lfs.required=false clone --depth 1 --branch "$REF" "$REPO_URL" /tmp/milady-lfs-src; then \
         cd /tmp/milady-lfs-src; \
         if [ -n "$COMMIT" ]; then \
-          git fetch --depth 1 origin "$COMMIT" && git checkout "$COMMIT"; \
+          git -c filter.lfs.smudge= -c filter.lfs.process= -c filter.lfs.required=false fetch --depth 1 origin "$COMMIT" && GIT_LFS_SKIP_SMUDGE=1 git checkout "$COMMIT"; \
         fi; \
         git lfs install --local; \
-        git lfs pull --include='apps/app/public/vrms/**,apps/app/public/animations/idle.glb,apps/app/public/animations/Idle.fbx,apps/app/public/animations/BreathingIdle.fbx,apps/app/public/animations/mixamo/**' || true; \
+        git lfs fetch origin "$REF" --include='apps/app/public/vrms/**' --exclude='*' || true; \
+        git lfs fetch origin "$REF" --include='apps/app/public/animations/mixamo/**' --exclude='*' || true; \
+        git lfs fetch origin "$REF" --include='apps/app/public/animations/idle.glb' --exclude='*' || true; \
+        git lfs fetch origin "$REF" --include='apps/app/public/animations/Idle.fbx' --exclude='*' || true; \
+        git lfs fetch origin "$REF" --include='apps/app/public/animations/BreathingIdle.fbx' --exclude='*' || true; \
+        git lfs checkout apps/app/public/vrms || true; \
+        git lfs checkout apps/app/public/animations/mixamo || true; \
+        git lfs checkout apps/app/public/animations/idle.glb || true; \
+        git lfs checkout apps/app/public/animations/Idle.fbx || true; \
+        git lfs checkout apps/app/public/animations/BreathingIdle.fbx || true; \
         cd /app; \
         rm -rf apps/app/public/vrms apps/app/public/animations; \
         mkdir -p apps/app/public/animations; \
