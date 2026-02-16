@@ -207,6 +207,11 @@ describe("Non-loopback binding enforces auth without explicit token", () => {
     expect(data.error).toBe("Unauthorized");
   });
 
+  it("allows unauthenticated UI routes", async () => {
+    const { status } = await req(port, "GET", "/");
+    expect([200, 404]).toContain(status);
+  });
+
   it("/api/auth/status reports auth required", async () => {
     const { status, data } = await req(port, "GET", "/api/auth/status");
     expect(status).toBe(200);
@@ -252,6 +257,11 @@ describe("Token auth gate (MILADY_API_TOKEN set)", () => {
     const { status, data } = await req(port, "GET", "/api/status");
     expect(status).toBe(401);
     expect(data.error).toBe("Unauthorized");
+  });
+
+  it("allows UI routes without auth token", async () => {
+    const { status } = await req(port, "GET", "/");
+    expect([200, 404]).toContain(status);
   });
 
   it("rejects requests with wrong token (401)", async () => {

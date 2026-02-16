@@ -5066,6 +5066,12 @@ async function handleRequest(
   }
   const pathname = url.pathname;
   const isAuthEndpoint = pathname.startsWith("/api/auth/");
+  // Public UI pages/assets should remain reachable when API auth is enabled.
+  // Keep all API and WebSocket endpoints protected by token auth.
+  const isPublicUiRequest =
+    (method === "GET" || method === "HEAD") &&
+    !pathname.startsWith("/api/") &&
+    pathname !== "/ws";
   const registryService = state.registryService;
   const dropService = state.dropService;
 
@@ -5231,7 +5237,12 @@ async function handleRequest(
     return;
   }
 
-  if (method !== "OPTIONS" && !isAuthEndpoint && !isAuthorized(req)) {
+  if (
+    method !== "OPTIONS" &&
+    !isAuthEndpoint &&
+    !isPublicUiRequest &&
+    !isAuthorized(req)
+  ) {
     json(res, { error: "Unauthorized" }, 401);
     return;
   }
