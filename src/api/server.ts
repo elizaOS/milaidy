@@ -58,6 +58,10 @@ import {
 } from "../services/agent-export.js";
 import { AppManager } from "../services/app-manager.js";
 import {
+  COMPANION_INTERNAL_TAG,
+  isExternalSocialSource,
+} from "../services/companion-engine.js";
+import {
   getMcpServerDetails,
   searchMcpMarketplace,
 } from "../services/mcp-marketplace.js";
@@ -76,7 +80,11 @@ import {
 } from "../triggers/runtime.js";
 import { parseClampedInteger } from "../utils/number-parsing.js";
 import { type CloudRouteState, handleCloudRoute } from "./cloud-routes.js";
-
+import {
+  applyCompanionSignalMutation,
+  handleCompanionRoutes,
+  runCompanionMinuteTick,
+} from "./companion-routes.js";
 import {
   extractAnthropicSystemAndLastUser,
   extractOpenAiSystemAndLastUser,
@@ -4270,8 +4278,18 @@ function isWorkbenchTodoTask(task: Task): boolean {
   );
 }
 
+function isCompanionInternalTask(task: Task): boolean {
+  const tags = normalizeStringArray(task.tags).map((tag) => tag.toLowerCase());
+  return tags.includes(COMPANION_INTERNAL_TAG.toLowerCase());
+}
+
 function toWorkbenchTask(task: Task): WorkbenchTaskView | null {
-  if (readTriggerConfig(task) || isWorkbenchTodoTask(task)) return null;
+  if (
+    readTriggerConfig(task) ||
+    isWorkbenchTodoTask(task) ||
+    isCompanionInternalTask(task)
+  )
+    return null;
   const id = normalizeTaskId(task);
   if (!id) return null;
   const metadata = readTaskMetadata(task);
@@ -4293,7 +4311,7 @@ function toWorkbenchTask(task: Task): WorkbenchTaskView | null {
 }
 
 function toWorkbenchTodo(task: Task): WorkbenchTodoView | null {
-  if (!isWorkbenchTodoTask(task)) return null;
+  if (!isWorkbenchTodoTask(task) || isCompanionInternalTask(task)) return null;
   const id = normalizeTaskId(task);
   if (!id) return null;
   const metadata = readTaskMetadata(task);
@@ -4688,6 +4706,22 @@ function serializeForRuntimeDebug(
 
 // ── Autonomy → User message routing ──────────────────────────────────
 
+function applyCompanionSignalToState(
+  state: ServerState,
+  runtime: AgentRuntime,
+  signal: "chat" | "external-source",
+): void {
+  void applyCompanionSignalMutation({
+    runtime,
+    signal,
+    broadcastWs: state.broadcastWs,
+  }).catch((err) => {
+    logger.warn(
+      `[companion] Failed to apply ${signal} signal: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  });
+}
+
 /**
  * Route non-conversation output to the user's active conversation.
  * Stores the message as a Memory in the conversation room and broadcasts
@@ -4752,6 +4786,10 @@ async function routeAutonomyToUser(
       source,
     },
   });
+
+  if (isExternalSocialSource(source)) {
+    applyCompanionSignalToState(state, runtime, "external-source");
+  }
 }
 
 /**
@@ -5859,6 +5897,22 @@ async function handleRequest(
     error,
   });
   if (triggerHandled) {
+    return;
+  }
+
+  const companionHandled = await handleCompanionRoutes({
+    req,
+    res,
+    method,
+    pathname,
+    url,
+    runtime: state.runtime,
+    readJsonBody,
+    json,
+    error,
+    broadcastWs: state.broadcastWs,
+  });
+  if (companionHandled) {
     return;
   }
 
@@ -10340,6 +10394,8 @@ async function handleRequest(
       return;
     }
 
+    applyCompanionSignalToState(state, runtime, "chat");
+
     // ── Local runtime path (existing code below) ───────────────────────
 
     initSse(res);
@@ -10475,6 +10531,8 @@ async function handleRequest(
       error(res, `Failed to store user message: ${getErrorMessage(err)}`, 500);
       return;
     }
+
+    applyCompanionSignalToState(state, runtime, "chat");
 
     try {
       const result = await generateChatResponse(
@@ -10692,6 +10750,8 @@ async function handleRequest(
         },
       });
 
+      applyCompanionSignalToState(state, runtime, "chat");
+
       const result = await generateChatResponse(
         runtime,
         message,
@@ -10784,6 +10844,8 @@ async function handleRequest(
           channelType: ChannelType.DM,
         },
       });
+
+      applyCompanionSignalToState(state, runtime, "chat");
 
       const result = await generateChatResponse(
         runtime,
@@ -13146,6 +13208,22 @@ export async function startApiServer(opts?: {
   // Broadcast status every 5 seconds
   const statusInterval = setInterval(broadcastStatus, 5000);
 
+  // Run companion decay/autopost checks every minute.
+  const companionTickInterval = setInterval(() => {
+    void runCompanionMinuteTick({
+      runtime: state.runtime,
+      broadcastWs: state.broadcastWs,
+      addLog,
+    }).catch((err) => {
+      addLog(
+        "warn",
+        `Companion minute tick failed: ${err instanceof Error ? err.message : String(err)}`,
+        "companion",
+        ["companion"],
+      );
+    });
+  }, 60_000);
+
   /**
    * Restore the in-memory conversation list from the database.
    * Web-chat rooms live in a deterministic world; we scan it for rooms
@@ -13279,6 +13357,7 @@ export async function startApiServer(opts?: {
             ).closeIdleConnections;
 
             clearInterval(statusInterval);
+            clearInterval(companionTickInterval);
             if (detachRuntimeStreams) {
               detachRuntimeStreams();
               detachRuntimeStreams = null;
