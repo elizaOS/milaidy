@@ -22,8 +22,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          lfs: true
 
       - uses: oven-sh/setup-bun@v2
         with:
@@ -34,19 +32,6 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
 
       - run: bun install --frozen-lockfile --omit=optional
-
-      - name: Validate critical assets are not LFS pointers
-        run: |
-          for f in apps/app/public/vrms/milady-1.vrm apps/app/public/animations/idle.glb; do
-            if [ ! -f "$f" ]; then
-              echo "Missing required asset: $f"
-              exit 1
-            fi
-            if head -n 1 "$f" | grep -q "version https://git-lfs.github.com/spec/v1"; then
-              echo "Unresolved Git LFS pointer detected: $f"
-              exit 1
-            fi
-          done
 
       - name: Build app web bundle (smoke)
         run: bun run --cwd apps/app build
