@@ -9,7 +9,7 @@ import { useEffect, useRef } from "react";
 import { VrmEngine, type VrmEngineState, type CameraProfile, type InteractionMode } from "./VrmEngine";
 import { resolveAppAssetUrl } from "../../asset-url";
 
-const DEFAULT_VRM_PATH = resolveAppAssetUrl("vrms/milAIdy-1.vrm");
+const DEFAULT_VRM_PATH = resolveAppAssetUrl("vrms/milady-1.vrm");
 
 export type VrmViewerProps = {
   /** Path to the VRM file to load (default: bundled Miwaifus #1) */

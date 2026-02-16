@@ -36,9 +36,9 @@ echo "--- Checking Notarization Credentials ---"
 if [ -n "${APPLE_KEYCHAIN_PROFILE:-}" ]; then
   echo "✅ APPLE_KEYCHAIN_PROFILE is set: ${APPLE_KEYCHAIN_PROFILE}"
   HAS_NOTARIZE_CREDS=true
-elif security find-generic-password -s "com.apple.gke.notary.tool" -a "milaidy-notarize" &>/dev/null; then
-  echo "✅ Found 'milaidy-notarize' keychain profile. Exporting APPLE_KEYCHAIN_PROFILE."
-  export APPLE_KEYCHAIN_PROFILE="milaidy-notarize"
+elif security find-generic-password -s "com.apple.gke.notary.tool" -a "milady-notarize" &>/dev/null; then
+  echo "✅ Found 'milady-notarize' keychain profile. Exporting APPLE_KEYCHAIN_PROFILE."
+  export APPLE_KEYCHAIN_PROFILE="milady-notarize"
   HAS_NOTARIZE_CREDS=true
 fi
 
@@ -53,7 +53,7 @@ fi
 if [ "$HAS_NOTARIZE_CREDS" = false ]; then
   echo "⚠️  No notarization credentials found."
   echo "   To notarize locally, run:"
-  echo "     xcrun notarytool store-credentials \"milaidy-notarize\" \\"
+  echo "     xcrun notarytool store-credentials \"milady-notarize\" \\"
   echo "       --apple-id \"YOUR_APPLE_ID\" \\"
   echo "       --password \"YOUR_APP_SPECIFIC_PASSWORD\" \\"
   echo "       --team-id \"25877RY2EH\""
@@ -96,10 +96,10 @@ fi
 
 # ── 3. Verify Signature ─────────────────────────────────────────────────────
 echo "--- Verifying Signature ---"
-APP_PATH=$(find dist/mac* -name "Milaidy.app" | head -n 1)
+APP_PATH=$(find dist/mac* -name "Milady.app" | head -n 1)
 
 if [ -z "$APP_PATH" ]; then
-  echo "❌ Build failed? Could not find Milaidy.app in dist/mac*"
+  echo "❌ Build failed? Could not find Milady.app in dist/mac*"
   exit 1
 fi
 
@@ -133,10 +133,10 @@ DMG_PATH=$(find dist -name "*.dmg" | head -n 1)
 
 if [ -n "$DMG_PATH" ]; then
   echo "Testing with DMG: $DMG_PATH"
-  export MILAIDY_TEST_DMG_PATH="${PWD}/${DMG_PATH}"
+  export MILADY_TEST_DMG_PATH="${PWD}/${DMG_PATH}"
 else
   echo "⚠️  No DMG found, testing with .app directly if supported"
-  export MILAIDY_TEST_DMG_PATH="${PWD}/${APP_PATH}"
+  export MILADY_TEST_DMG_PATH="${PWD}/${APP_PATH}"
 fi
 
 cd ..

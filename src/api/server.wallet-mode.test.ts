@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it } from "vitest";
-import type { MilaidyConfig } from "../config/config.js";
+import type { MiladyConfig } from "../config/config.js";
 import { isPurePrivyWalletMode, resolveWalletMode } from "./server.js";
 
 const envKeys = [
-  "MILAIDY_WALLET_MODE",
+  "MILADY_WALLET_MODE",
   "PRIVY_APP_ID",
   "PRIVY_APP_SECRET",
   "BABYLON_PRIVY_APP_ID",
@@ -31,7 +31,7 @@ describe("wallet mode resolution", () => {
   });
 
   it("defaults to hybrid when no Privy credentials are configured", () => {
-    delete process.env.MILAIDY_WALLET_MODE;
+    delete process.env.MILADY_WALLET_MODE;
     delete process.env.PRIVY_APP_ID;
     delete process.env.PRIVY_APP_SECRET;
     delete process.env.BABYLON_PRIVY_APP_ID;
@@ -42,7 +42,7 @@ describe("wallet mode resolution", () => {
   });
 
   it("defaults to privy when Privy credentials are configured", () => {
-    delete process.env.MILAIDY_WALLET_MODE;
+    delete process.env.MILADY_WALLET_MODE;
     process.env.PRIVY_APP_ID = "app-id";
     process.env.PRIVY_APP_SECRET = "app-secret";
 
@@ -51,7 +51,7 @@ describe("wallet mode resolution", () => {
   });
 
   it("honors explicit hybrid mode override", () => {
-    process.env.MILAIDY_WALLET_MODE = "hybrid";
+    process.env.MILADY_WALLET_MODE = "hybrid";
     process.env.PRIVY_APP_ID = "app-id";
     process.env.PRIVY_APP_SECRET = "app-secret";
 
@@ -60,7 +60,7 @@ describe("wallet mode resolution", () => {
   });
 
   it("honors explicit privy mode even without credentials", () => {
-    process.env.MILAIDY_WALLET_MODE = "privy";
+    process.env.MILADY_WALLET_MODE = "privy";
     delete process.env.PRIVY_APP_ID;
     delete process.env.PRIVY_APP_SECRET;
 
@@ -69,10 +69,10 @@ describe("wallet mode resolution", () => {
   });
 
   it("uses config env mode when process env override is absent", () => {
-    delete process.env.MILAIDY_WALLET_MODE;
+    delete process.env.MILADY_WALLET_MODE;
     const config = {
-      env: { MILAIDY_WALLET_MODE: "privy" },
-    } as MilaidyConfig;
+      env: { MILADY_WALLET_MODE: "privy" },
+    } as MiladyConfig;
     expect(resolveWalletMode(config)).toBe("privy");
   });
 });

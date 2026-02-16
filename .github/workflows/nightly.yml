@@ -139,7 +139,7 @@ jobs:
           echo "$PACK_OUTPUT"
 
           # Verify critical files are included in the package
-          for required in "milaidy.mjs" "dist/index.js" "package.json"; do
+          for required in "milady.mjs" "dist/index.js" "package.json"; do
             if ! echo "$PACK_OUTPUT" | grep -q "$required"; then
               echo "::error::Required file '$required' missing from package contents"
               exit 1
@@ -243,14 +243,14 @@ jobs:
 
             ### Install
             ```bash
-            npm install -g milaidy@nightly
+            npm install -g milady@nightly
             # or
-            milaidy update --channel nightly
+            milady update --channel nightly
             ```
 
             > This is an automated nightly build from the `main` branch.
             > It may contain experimental features and known issues.
-            > For stable releases, use `npm install -g milaidy@latest`.
+            > For stable releases, use `npm install -g milady@latest`.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -315,5 +315,5 @@ jobs:
           echo "| Cleanup | ${{ needs.cleanup.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo '```bash' >> $GITHUB_STEP_SUMMARY
-          echo "npm install -g milaidy@nightly" >> $GITHUB_STEP_SUMMARY
+          echo "npm install -g milady@nightly" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY

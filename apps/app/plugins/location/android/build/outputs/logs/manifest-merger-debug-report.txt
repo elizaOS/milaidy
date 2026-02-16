@@ -1,24 +1,24 @@
 -- Merging decision tree log ---
 manifest
-ADDED from /Users/shawwalters/eliza-ok/packages/milaidy/apps/app/plugins/location/android/src/main/AndroidManifest.xml:2:1-5:12
-INJECTED from /Users/shawwalters/eliza-ok/packages/milaidy/apps/app/plugins/location/android/src/main/AndroidManifest.xml:2:1-5:12
+ADDED from /Users/shawwalters/eliza-ok/packages/milady/apps/app/plugins/location/android/src/main/AndroidManifest.xml:2:1-5:12
+INJECTED from /Users/shawwalters/eliza-ok/packages/milady/apps/app/plugins/location/android/src/main/AndroidManifest.xml:2:1-5:12
 	package
-		INJECTED from /Users/shawwalters/eliza-ok/packages/milaidy/apps/app/plugins/location/android/src/main/AndroidManifest.xml
+		INJECTED from /Users/shawwalters/eliza-ok/packages/milady/apps/app/plugins/location/android/src/main/AndroidManifest.xml
 	xmlns:android
-		ADDED from /Users/shawwalters/eliza-ok/packages/milaidy/apps/app/plugins/location/android/src/main/AndroidManifest.xml:2:11-69
+		ADDED from /Users/shawwalters/eliza-ok/packages/milady/apps/app/plugins/location/android/src/main/AndroidManifest.xml:2:11-69
 uses-permission#android.permission.ACCESS_FINE_LOCATION
-ADDED from /Users/shawwalters/eliza-ok/packages/milaidy/apps/app/plugins/location/android/src/main/AndroidManifest.xml:3:5-79
+ADDED from /Users/shawwalters/eliza-ok/packages/milady/apps/app/plugins/location/android/src/main/AndroidManifest.xml:3:5-79
 	android:name
-		ADDED from /Users/shawwalters/eliza-ok/packages/milaidy/apps/app/plugins/location/android/src/main/AndroidManifest.xml:3:22-76
+		ADDED from /Users/shawwalters/eliza-ok/packages/milady/apps/app/plugins/location/android/src/main/AndroidManifest.xml:3:22-76
 uses-permission#android.permission.ACCESS_COARSE_LOCATION
-ADDED from /Users/shawwalters/eliza-ok/packages/milaidy/apps/app/plugins/location/android/src/main/AndroidManifest.xml:4:5-81
+ADDED from /Users/shawwalters/eliza-ok/packages/milady/apps/app/plugins/location/android/src/main/AndroidManifest.xml:4:5-81
 	android:name
-		ADDED from /Users/shawwalters/eliza-ok/packages/milaidy/apps/app/plugins/location/android/src/main/AndroidManifest.xml:4:22-78
+		ADDED from /Users/shawwalters/eliza-ok/packages/milady/apps/app/plugins/location/android/src/main/AndroidManifest.xml:4:22-78
 uses-sdk
-INJECTED from /Users/shawwalters/eliza-ok/packages/milaidy/apps/app/plugins/location/android/src/main/AndroidManifest.xml reason: use-sdk injection requested
-INJECTED from /Users/shawwalters/eliza-ok/packages/milaidy/apps/app/plugins/location/android/src/main/AndroidManifest.xml
-INJECTED from /Users/shawwalters/eliza-ok/packages/milaidy/apps/app/plugins/location/android/src/main/AndroidManifest.xml
+INJECTED from /Users/shawwalters/eliza-ok/packages/milady/apps/app/plugins/location/android/src/main/AndroidManifest.xml reason: use-sdk injection requested
+INJECTED from /Users/shawwalters/eliza-ok/packages/milady/apps/app/plugins/location/android/src/main/AndroidManifest.xml
+INJECTED from /Users/shawwalters/eliza-ok/packages/milady/apps/app/plugins/location/android/src/main/AndroidManifest.xml
 	android:targetSdkVersion
-		INJECTED from /Users/shawwalters/eliza-ok/packages/milaidy/apps/app/plugins/location/android/src/main/AndroidManifest.xml
+		INJECTED from /Users/shawwalters/eliza-ok/packages/milady/apps/app/plugins/location/android/src/main/AndroidManifest.xml
 	android:minSdkVersion
-		INJECTED from /Users/shawwalters/eliza-ok/packages/milaidy/apps/app/plugins/location/android/src/main/AndroidManifest.xml
+		INJECTED from /Users/shawwalters/eliza-ok/packages/milady/apps/app/plugins/location/android/src/main/AndroidManifest.xml

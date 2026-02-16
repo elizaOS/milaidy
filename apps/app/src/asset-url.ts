@@ -2,8 +2,8 @@
  * Resolve app-shipped public assets (e.g. vrms/, animations/) to runtime-safe URLs.
  *
  * In packaged Electron, the renderer can run on file:// and later navigate to
- * absolute paths (e.g. /chat). Root-relative assets like /vrms/milAIdy-1.vrm
- * then resolve to file:///vrms/milAIdy-1.vrm and fail. We lock the asset base
+ * absolute paths (e.g. /chat). Root-relative assets like /vrms/milady-1.vrm
+ * then resolve to file:///vrms/milady-1.vrm and fail. We lock the asset base
  * URL once from
  * initial startup and resolve assets against that stable base.
  */

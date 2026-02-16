@@ -1,16 +1,16 @@
 {
-  "name": "Milaidy",
+  "name": "Milady",
   "version": "2.0.0-alpha.7",
   "packageManager": "pnpm@10.0.0",
   "description": "Cute agents for the acceleration",
-  "homepage": "https://github.com/milady-ai/milaidy",
+  "homepage": "https://github.com/milady-ai/milady",
   "author": {
     "name": "Milady AI",
     "email": "hi@milady.ai"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/milady-ai/milaidy.git"
+    "url": "https://github.com/milady-ai/milady.git"
   },
   "license": "MIT",
   "workspaces": [
@@ -22,11 +22,11 @@
   "type": "module",
   "main": "build/src/index.js",
   "bin": {
-    "milaidy": "milaidy.mjs"
+    "milady": "milady.mjs"
   },
   "exports": {
     ".": "./dist/index.js",
-    "./cli-entry": "./milaidy.mjs",
+    "./cli-entry": "./milady.mjs",
     "./eliza": "./dist/runtime/eliza.js"
   },
   "engines": {
@@ -57,7 +57,7 @@
     "generate:plugins": "node scripts/generate-plugin-index.js",
     "learn:loop": "scripts/rt.sh scripts/knowledge-loop.mjs",
     "learn:snapshot": "scripts/rt.sh scripts/knowledge-loop.mjs --full",
-    "milaidy": "scripts/rt.sh scripts/run-node.mjs",
+    "milady": "scripts/rt.sh scripts/run-node.mjs",
     "postinstall": "node ./scripts/link-browser-server.mjs && node ./scripts/patch-deps.mjs",
     "prepack": "scripts/rt.sh run build",
     "prepare": "node -e \"try{require('child_process').execSync('git config core.hooksPath git-hooks',{stdio:'ignore'})}catch{}\"",
@@ -82,14 +82,14 @@
     "test:e2e": "bunx vitest run --config vitest.e2e.config.ts",
     "test:force": "node --import tsx test/scripts/test-force.ts",
     "test:install:e2e": "bash test/scripts/test-install-sh-e2e-docker.sh",
-    "test:install:e2e:anthropic": "MILAIDY_E2E_MODELS=anthropic bash test/scripts/test-install-sh-e2e-docker.sh",
-    "test:install:e2e:openai": "MILAIDY_E2E_MODELS=openai bash test/scripts/test-install-sh-e2e-docker.sh",
+    "test:install:e2e:anthropic": "MILADY_E2E_MODELS=anthropic bash test/scripts/test-install-sh-e2e-docker.sh",
+    "test:install:e2e:openai": "MILADY_E2E_MODELS=openai bash test/scripts/test-install-sh-e2e-docker.sh",
     "test:install:smoke": "bash test/scripts/test-install-sh-docker.sh",
-    "test:live": "MILAIDY_LIVE_TEST=1 bunx vitest run --config vitest.e2e.config.ts test/wallet-live.e2e.test.ts test/api-auth-live.e2e.test.ts test/cloud-providers.e2e.test.ts",
+    "test:live": "MILADY_LIVE_TEST=1 bunx vitest run --config vitest.e2e.config.ts test/wallet-live.e2e.test.ts test/api-auth-live.e2e.test.ts test/cloud-providers.e2e.test.ts",
     "test:watch": "bunx vitest",
     "typecheck": "tsc --noEmit",
     "tui": "scripts/rt.sh scripts/run-node.mjs tui",
-    "tui:dev": "MILAIDY_PROFILE=dev scripts/rt.sh scripts/run-node.mjs --dev tui"
+    "tui:dev": "MILADY_PROFILE=dev scripts/rt.sh scripts/run-node.mjs --dev tui"
   },
   "dependencies": {
     "@capacitor-community/electron": "^5.0.1",

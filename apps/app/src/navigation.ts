@@ -145,6 +145,6 @@ export function titleForTab(tab: Tab): string {
     case "database": return "Databases";
     case "settings": return "Settings";
     case "logs": return "Logs";
-    default: return "Milaidy";
+    default: return "Milady";
   }
 }

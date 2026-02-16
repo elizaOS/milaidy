@@ -21,7 +21,7 @@ async function tuiAction(options: { model?: string }) {
 export function registerTuiCommand(program: Command) {
   program
     .command("tui", { isDefault: true })
-    .description("Start Milaidy with the interactive TUI")
+    .description("Start Milady with the interactive TUI")
     .option(
       "-m, --model <model>",
       "Model to use (e.g. anthropic/claude-sonnet-4-20250514)",

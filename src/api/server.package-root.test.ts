@@ -22,12 +22,12 @@ afterEach(() => {
 
 describe("findOwnPackageRoot", () => {
   it("matches package name case-insensitively", () => {
-    const root = makeTempDir("milaidy-root-");
+    const root = makeTempDir("milady-root-");
     const nested = path.join(root, "src", "api");
     mkdirSync(nested, { recursive: true });
     writeFileSync(
       path.join(root, "package.json"),
-      JSON.stringify({ name: "Milaidy" }),
+      JSON.stringify({ name: "Milady" }),
       "utf8",
     );
 
@@ -35,7 +35,7 @@ describe("findOwnPackageRoot", () => {
   });
 
   it("returns start directory when no matching package root exists", () => {
-    const root = makeTempDir("not-milaidy-");
+    const root = makeTempDir("not-milady-");
     const nested = path.join(root, "src", "api");
     mkdirSync(nested, { recursive: true });
     writeFileSync(

@@ -1,5 +1,5 @@
 /**
- * Trajectory API routes for the Milaidy Control UI.
+ * Trajectory API routes for the Milady Control UI.
  *
  * Provides endpoints for:
  * - Listing and searching trajectories
@@ -1611,7 +1611,7 @@ async function handlePutConfig(
   const body = await readJsonBody<{ enabled?: boolean }>(req, res);
   if (!body) return;
 
-  // Trajectory logging is always-on in Milaidy. Ignore disable requests.
+  // Trajectory logging is always-on in Milady. Ignore disable requests.
   logger.setEnabled(true);
 
   sendJson(res, {

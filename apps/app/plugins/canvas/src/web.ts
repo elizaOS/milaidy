@@ -42,13 +42,13 @@ type CanvasEventData =
   | DeepLinkEvent
   | A2UIActionEvent;
 
-interface MilaidyA2UIBridge {
+interface MiladyA2UIBridge {
   push(messages: A2UIMessage[], jsonl: string, payload: A2UIPayload | null): void;
   reset(): void;
 }
 
 interface WebViewIncomingMessage {
-  type: "milaidy:deepLink" | "milaidy:a2uiAction" | "milaidy:evalResult";
+  type: "milady:deepLink" | "milady:a2uiAction" | "milady:evalResult";
   url?: string;
   path?: string;
   params?: Record<string, string>;
@@ -629,8 +629,8 @@ export class CanvasWeb extends WebPlugin {
     // Clean up any existing web view
     this.destroyWebView();
 
-    // Intercept milaidy:// deep links immediately
-    if (options.url.startsWith("milaidy://")) {
+    // Intercept milady:// deep links immediately
+    if (options.url.startsWith("milady://")) {
       const parsed = new URL(options.url);
       const params: Record<string, string> = {};
       parsed.searchParams.forEach((value, key) => {
@@ -811,8 +811,8 @@ export class CanvasWeb extends WebPlugin {
   }
 
   async a2uiPush(options: A2UIPushOptions): Promise<void> {
-    // Try window.milaidyA2UI bridge first (set up by the A2UI runtime)
-    const bridge = (window as Window & { milaidyA2UI?: MilaidyA2UIBridge }).milaidyA2UI;
+    // Try window.miladyA2UI bridge first (set up by the A2UI runtime)
+    const bridge = (window as Window & { miladyA2UI?: MiladyA2UIBridge }).miladyA2UI;
     if (bridge?.push) {
       bridge.push(
         options.messages || [],
@@ -828,7 +828,7 @@ export class CanvasWeb extends WebPlugin {
 
     if (target) {
       target.postMessage({
-        type: "milaidy:a2uiPush",
+        type: "milady:a2uiPush",
         messages: options.messages || [],
         jsonl: options.jsonl || "",
         payload: options.payload || null,
@@ -840,8 +840,8 @@ export class CanvasWeb extends WebPlugin {
   }
 
   async a2uiReset(): Promise<void> {
-    // Try window.milaidyA2UI bridge first
-    const bridge = (window as Window & { milaidyA2UI?: MilaidyA2UIBridge }).milaidyA2UI;
+    // Try window.miladyA2UI bridge first
+    const bridge = (window as Window & { miladyA2UI?: MiladyA2UIBridge }).miladyA2UI;
     if (bridge?.reset) {
       bridge.reset();
       return;
@@ -852,7 +852,7 @@ export class CanvasWeb extends WebPlugin {
       || (this.webViewPopup && !this.webViewPopup.closed ? this.webViewPopup : null);
 
     if (target) {
-      target.postMessage({ type: "milaidy:a2uiReset" }, "*");
+      target.postMessage({ type: "milady:a2uiReset" }, "*");
       return;
     }
 
@@ -882,7 +882,7 @@ export class CanvasWeb extends WebPlugin {
 
       const handler = (event: MessageEvent) => {
         const msg = event.data as WebViewIncomingMessage;
-        if (msg?.type === "milaidy:evalResult" && msg.result !== undefined) {
+        if (msg?.type === "milady:evalResult" && msg.result !== undefined) {
           clearTimeout(timeout);
           window.removeEventListener("message", handler);
           resolve({ result: String(msg.result) });
@@ -890,7 +890,7 @@ export class CanvasWeb extends WebPlugin {
       };
 
       window.addEventListener("message", handler);
-      target.postMessage({ type: "milaidy:eval", script }, "*");
+      target.postMessage({ type: "milady:eval", script }, "*");
     });
   }
 
@@ -907,7 +907,7 @@ export class CanvasWeb extends WebPlugin {
       const msg = event.data as WebViewIncomingMessage;
       if (!msg || typeof msg.type !== "string") return;
 
-      if (msg.type === "milaidy:deepLink" && msg.url && msg.path) {
+      if (msg.type === "milady:deepLink" && msg.url && msg.path) {
         this.notifyListeners("deepLink", {
           url: msg.url,
           path: msg.path,
@@ -915,7 +915,7 @@ export class CanvasWeb extends WebPlugin {
         });
       }
 
-      if (msg.type === "milaidy:a2uiAction" && msg.action) {
+      if (msg.type === "milady:a2uiAction" && msg.action) {
         this.notifyListeners("a2uiAction", {
           action: msg.action,
           data: msg.data || {},

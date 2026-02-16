@@ -43,11 +43,11 @@ const { mockClient } = vi.hoisted(() => ({
     })),
     sendConversationMessage: vi.fn(async () => ({
       text: "ok",
-      agentName: "Milaidy",
+      agentName: "Milady",
     })),
     sendConversationMessageStream: vi.fn(async () => ({
       text: "ok",
-      agentName: "Milaidy",
+      agentName: "Milady",
     })),
     sendWsMessage: vi.fn(),
     connectWs: vi.fn(),
@@ -56,7 +56,7 @@ const { mockClient } = vi.hoisted(() => ({
     getAgentEvents: vi.fn(async () => ({ events: [], latestEventId: null })),
     getStatus: vi.fn(async () => ({
       state: "running",
-      agentName: "Milaidy",
+      agentName: "Milady",
       model: undefined,
       startedAt: undefined,
       uptime: undefined,
@@ -186,11 +186,11 @@ describe("chat send locking", () => {
     });
     mockClient.sendConversationMessage.mockResolvedValue({
       text: "ok",
-      agentName: "Milaidy",
+      agentName: "Milady",
     });
     mockClient.sendConversationMessageStream.mockResolvedValue({
       text: "ok",
-      agentName: "Milaidy",
+      agentName: "Milady",
     });
     mockClient.sendWsMessage.mockImplementation(() => {});
     mockClient.connectWs.mockImplementation(() => {});
@@ -199,7 +199,7 @@ describe("chat send locking", () => {
     mockClient.getAgentEvents.mockResolvedValue({ events: [], latestEventId: null });
     mockClient.getStatus.mockResolvedValue({
       state: "running",
-      agentName: "Milaidy",
+      agentName: "Milady",
       model: undefined,
       startedAt: undefined,
       uptime: undefined,
@@ -250,7 +250,7 @@ describe("chat send locking", () => {
     expect(mockClient.sendConversationMessageStream).toHaveBeenCalledTimes(1);
 
     await act(async () => {
-      deferred.resolve({ text: "ok", agentName: "Milaidy" });
+      deferred.resolve({ text: "ok", agentName: "Milady" });
       await deferred.promise;
     });
 
@@ -365,7 +365,7 @@ describe("chat send locking", () => {
     });
 
     await act(async () => {
-      deferred.resolve({ text: "Hello world", agentName: "Milaidy" });
+      deferred.resolve({ text: "Hello world", agentName: "Milady" });
       await sendPromise;
     });
 

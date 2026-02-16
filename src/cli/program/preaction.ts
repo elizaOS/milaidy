@@ -29,7 +29,7 @@ export function registerPreActionHooks(
     }
     const commandPath = getCommandPath(argv, 2);
     const hideBanner =
-      isTruthyEnvValue(process.env.MILAIDY_HIDE_BANNER) ||
+      isTruthyEnvValue(process.env.MILADY_HIDE_BANNER) ||
       commandPath[0] === "update" ||
       commandPath[0] === "completion";
     if (!hideBanner) {

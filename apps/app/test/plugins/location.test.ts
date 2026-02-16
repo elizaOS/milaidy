@@ -1,10 +1,10 @@
 /**
- * Tests for @milaidy/capacitor-location — geolocation, watches, error codes, permissions.
+ * Tests for @milady/capacitor-location — geolocation, watches, error codes, permissions.
  */
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { LocationWeb } from "../../plugins/location/src/web";
 
-describe("@milaidy/capacitor-location", () => {
+describe("@milady/capacitor-location", () => {
   let loc: LocationWeb;
 
   beforeEach(() => {

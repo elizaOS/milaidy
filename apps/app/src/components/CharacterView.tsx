@@ -657,11 +657,11 @@ export function CharacterView() {
             <div className="flex items-center gap-2 px-3 py-2 border border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_8%,transparent)]">
               <span className="text-xs font-bold text-[var(--accent)]">MINT IS LIVE</span>
               <span className="text-[11px] text-[var(--muted)]">
-                MilaidyMaker #{(dropStatus?.currentSupply ?? 0) + 1} of {dropStatus?.maxSupply ?? 2138}
+                MiladyMaker #{(dropStatus?.currentSupply ?? 0) + 1} of {dropStatus?.maxSupply ?? 2138}
               </span>
             </div>
             <div className="text-[12px] text-[var(--muted)]">
-              Claim your limited-edition Milaidy Agent NFT. {dropStatus?.maxSupply ?? 2138} total.
+              Claim your limited-edition Milady Agent NFT. {dropStatus?.maxSupply ?? 2138} total.
               {" "}{(dropStatus?.maxSupply ?? 2138) - (dropStatus?.currentSupply ?? 0)} remaining.
             </div>
             <div className="flex items-center gap-2">
@@ -685,7 +685,7 @@ export function CharacterView() {
             )}
             {mintResult && (
               <div className="text-xs text-[var(--ok,#16a34a)]">
-                Minted! Token #{mintResult.agentId} | MilaidyMaker #{mintResult.mintNumber}
+                Minted! Token #{mintResult.agentId} | MiladyMaker #{mintResult.mintNumber}
                 {mintResult.isShiny && " (shiny)"}
                 {" "}<a
                   href={`https://etherscan.io/tx/${mintResult.txHash}`}

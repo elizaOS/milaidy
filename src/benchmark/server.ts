@@ -38,7 +38,7 @@ function toPlugin(candidate: unknown, source: string): Plugin {
 
 // Proper robust server implementation
 export async function startBenchmarkServer() {
-  elizaLogger.info("[bench] Initializing milaidy benchmark runtime...");
+  elizaLogger.info("[bench] Initializing milady benchmark runtime...");
 
   // Plugins
   const plugins: Plugin[] = [];
@@ -55,7 +55,7 @@ export async function startBenchmarkServer() {
   }
 
   // 2. Computer Use Plugin (Local)
-  if (process.env.MILAIDY_ENABLE_COMPUTERUSE) {
+  if (process.env.MILADY_ENABLE_COMPUTERUSE) {
     try {
       // Import directly from source to ensure we use Native backend (not MCP)
       // const computerUsePlugin = await import("@elizaos/plugin-computeruse").then(m => m.computerUsePlugin || m.default);
@@ -90,7 +90,7 @@ export async function startBenchmarkServer() {
   }
 
   // 4. Mock Plugin
-  if (process.env.MILAIDY_BENCH_MOCK === "true") {
+  if (process.env.MILADY_BENCH_MOCK === "true") {
     try {
       // Updated import path if needed, assuming relative to this file
       const { mockPlugin } = await import("./mock-plugin.ts");
@@ -246,9 +246,9 @@ export async function startBenchmarkServer() {
 
   server.listen(PORT, () => {
     elizaLogger.info(
-      `[bench] Milaidy benchmark server listening on port ${PORT}`,
+      `[bench] Milady benchmark server listening on port ${PORT}`,
     );
-    console.log(`MILAIDY_BENCH_READY port=${PORT}`); // Signal for python adapter
+    console.log(`MILADY_BENCH_READY port=${PORT}`); // Signal for python adapter
   });
 }
 

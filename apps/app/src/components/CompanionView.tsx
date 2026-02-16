@@ -169,7 +169,7 @@ export function CompanionView() {
         return {
           index,
           previewUrl: getVrmPreviewUrl(index),
-          title: `milAIdy-${String(index).padStart(2, "0")}`,
+          title: `milady-${String(index).padStart(2, "0")}`,
         };
       }),
     [],
@@ -258,7 +258,7 @@ export function CompanionView() {
 
     ctx.fillStyle = "#f5f5f5";
     ctx.font = "700 64px serif";
-    ctx.fillText("Milaidy Companion", 80, 130);
+    ctx.fillText("Milady Companion", 80, 130);
 
     ctx.font = "500 40px sans-serif";
     ctx.fillStyle = "#e5e5e5";
@@ -291,7 +291,7 @@ export function CompanionView() {
     const dataUrl = canvas.toDataURL("image/png");
     const anchor = document.createElement("a");
     anchor.href = dataUrl;
-    anchor.download = `milaidy-companion-lv${state.level}.png`;
+    anchor.download = `milady-companion-lv${state.level}.png`;
     anchor.click();
   };
 
@@ -299,7 +299,7 @@ export function CompanionView() {
     if (!companionSnapshot) return;
     const state = companionSnapshot.state;
     const text = [
-      `Milaidy Companion Level ${state.level} (${companionSnapshot.moodTier})`,
+      `Milady Companion Level ${state.level} (${companionSnapshot.moodTier})`,
       `Mood ${Math.round(state.stats.mood)} | Hunger ${Math.round(state.stats.hunger)} | Energy ${Math.round(state.stats.energy)} | Social ${Math.round(state.stats.social)}`,
       `XP ${state.xp}/${companionSnapshot.nextLevelXp} | Streak ${state.streakDays} day(s)`,
       `Today: chat ${companionSnapshot.today.chatCount}/${companionSnapshot.today.chatCap}, external ${companionSnapshot.today.externalCount}/${companionSnapshot.today.externalCap}, manual-share ${companionSnapshot.today.manualShareCount}/${companionSnapshot.today.manualShareCap}, autopost ${companionSnapshot.today.autoPostCount}/${companionSnapshot.today.autoPostCap}`,
@@ -386,7 +386,7 @@ export function CompanionView() {
             <span className="companion-game__utility-dot" />
             <span className="companion-game__utility-text">Companion Console</span>
           </div>
-          <div className="companion-game__logo-mark">milAIdy</div>
+          <div className="companion-game__logo-mark">milady</div>
           <div className="flex items-center gap-2">
             <button
               className="companion-game__top-btn"

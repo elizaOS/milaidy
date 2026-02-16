@@ -29,24 +29,24 @@ function resolveEsmIndexPath(pluginDir: string): string | null {
 }
 
 const PLUGINS = [
-  { dir: "gateway", name: "@milaidy/capacitor-gateway", exportName: "Gateway" },
-  { dir: "camera", name: "@milaidy/capacitor-camera", exportName: "Camera" },
-  { dir: "canvas", name: "@milaidy/capacitor-canvas", exportName: "Canvas" },
-  { dir: "desktop", name: "@milaidy/capacitor-desktop", exportName: "Desktop" },
+  { dir: "gateway", name: "@milady/capacitor-gateway", exportName: "Gateway" },
+  { dir: "camera", name: "@milady/capacitor-camera", exportName: "Camera" },
+  { dir: "canvas", name: "@milady/capacitor-canvas", exportName: "Canvas" },
+  { dir: "desktop", name: "@milady/capacitor-desktop", exportName: "Desktop" },
   {
     dir: "location",
-    name: "@milaidy/capacitor-location",
+    name: "@milady/capacitor-location",
     exportName: "Location",
   },
   {
     dir: "screencapture",
-    name: "@milaidy/capacitor-screencapture",
+    name: "@milady/capacitor-screencapture",
     exportName: "ScreenCapture",
   },
-  { dir: "swabble", name: "@milaidy/capacitor-swabble", exportName: "Swabble" },
+  { dir: "swabble", name: "@milady/capacitor-swabble", exportName: "Swabble" },
   {
     dir: "talkmode",
-    name: "@milaidy/capacitor-talkmode",
+    name: "@milady/capacitor-talkmode",
     exportName: "TalkMode",
   },
 ];
@@ -65,10 +65,10 @@ describe("Capacitor Plugin Build Verification", () => {
 
       it("has platform metadata", () => {
         const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
-        expect(pkg.milaidy).toBeDefined();
-        expect(pkg.milaidy.runtime).toBeDefined();
-        expect(Array.isArray(pkg.milaidy.platforms)).toBe(true);
-        expect(pkg.milaidy.platforms.length).toBeGreaterThan(0);
+        expect(pkg.milady).toBeDefined();
+        expect(pkg.milady.runtime).toBeDefined();
+        expect(Array.isArray(pkg.milady.platforms)).toBe(true);
+        expect(pkg.milady.platforms.length).toBeGreaterThan(0);
       });
 
       it("has main, module, and types entry points", () => {

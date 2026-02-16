@@ -39,7 +39,7 @@ const { mockClient } = vi.hoisted(() => ({
     getAgentEvents: vi.fn(async () => ({ events: [], latestEventId: null })),
     getStatus: vi.fn(async () => ({
       state: "running",
-      agentName: "Milaidy",
+      agentName: "Milady",
       model: undefined,
       startedAt: undefined,
       uptime: undefined,
@@ -55,7 +55,7 @@ const { mockClient } = vi.hoisted(() => ({
     updateWalletConfig: vi.fn(async () => ({ ok: true })),
     restartAgent: vi.fn(async () => ({
       state: "running",
-      agentName: "Milaidy",
+      agentName: "Milady",
       model: undefined,
       startedAt: undefined,
       uptime: undefined,
@@ -154,7 +154,7 @@ describe("wallet api key save locking", () => {
     mockClient.getAgentEvents.mockResolvedValue({ events: [], latestEventId: null });
     mockClient.getStatus.mockResolvedValue({
       state: "running",
-      agentName: "Milaidy",
+      agentName: "Milady",
       model: undefined,
       startedAt: undefined,
       uptime: undefined,
@@ -170,7 +170,7 @@ describe("wallet api key save locking", () => {
     mockClient.updateWalletConfig.mockResolvedValue({ ok: true });
     mockClient.restartAgent.mockResolvedValue({
       state: "running",
-      agentName: "Milaidy",
+      agentName: "Milady",
       model: undefined,
       startedAt: undefined,
       uptime: undefined,

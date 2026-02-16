@@ -1,7 +1,7 @@
 /**
  * Plugin Bridge
  *
- * This module provides a unified interface to all Milaidy Capacitor plugins
+ * This module provides a unified interface to all Milady Capacitor plugins
  * with platform-specific fallbacks and capability detection.
  *
  * When a native plugin is unavailable, it provides graceful degradation
@@ -203,9 +203,9 @@ function wrapPlugin<T extends Record<string, unknown>>(
 }
 
 /**
- * The plugin bridge providing access to all Milaidy plugins
+ * The plugin bridge providing access to all Milady plugins
  */
-export interface MilaidyPlugins {
+export interface MiladyPlugins {
   /** Gateway connection plugin */
   gateway: WrappedPlugin<IGatewayPlugin>;
   /** Voice wake word plugin */
@@ -227,12 +227,12 @@ export interface MilaidyPlugins {
 }
 
 // Singleton instance
-let pluginsInstance: MilaidyPlugins | null = null;
+let pluginsInstance: MiladyPlugins | null = null;
 
 /**
  * Initialize and get the plugins interface
  */
-export function getPlugins(): MilaidyPlugins {
+export function getPlugins(): MiladyPlugins {
   if (pluginsInstance) {
     return pluginsInstance;
   }

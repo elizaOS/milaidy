@@ -23,7 +23,7 @@ WORKDIR /home/app
 ENV NPM_CONFIG_FUND=false
 ENV NPM_CONFIG_AUDIT=false
 
-COPY run.sh /usr/local/bin/milaidy-install-nonroot
-RUN sudo chmod +x /usr/local/bin/milaidy-install-nonroot
+COPY run.sh /usr/local/bin/milady-install-nonroot
+RUN sudo chmod +x /usr/local/bin/milady-install-nonroot
 
-ENTRYPOINT ["/usr/local/bin/milaidy-install-nonroot"]
+ENTRYPOINT ["/usr/local/bin/milady-install-nonroot"]

@@ -15,10 +15,10 @@ describe("resolveAppAssetUrl", () => {
 
   it("resolves file:// assets relative to index directory", () => {
     const url = resolveAppAssetUrl("/vrms/1.vrm", {
-      currentUrl: "file:///Users/tester/Milaidy.app/Contents/Resources/app/dist/index.html",
+      currentUrl: "file:///Users/tester/Milady.app/Contents/Resources/app/dist/index.html",
       baseUrl: "./",
     });
-    expect(url).toBe("file:///Users/tester/Milaidy.app/Contents/Resources/app/dist/vrms/1.vrm");
+    expect(url).toBe("file:///Users/tester/Milady.app/Contents/Resources/app/dist/vrms/1.vrm");
   });
 
   it("resolves custom-scheme assets using base path", () => {

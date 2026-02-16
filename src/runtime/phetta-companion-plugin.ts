@@ -1,5 +1,5 @@
 /**
- * Phetta Companion bridge plugin for Milaidy.
+ * Phetta Companion bridge plugin for Milady.
  *
  * Bridges ElizaOS runtime events (messages, runs, actions) to the local
  * Phetta Companion desktop pet via its localhost-only HTTP API.
@@ -301,7 +301,7 @@ export function createPhettaCompanionPlugin(
   const plugin: Plugin = {
     name: "plugin-phetta-companion",
     description:
-      "Bridge Milaidy runtime events to the Phetta Companion VRM desktop pet (localhost HTTP API).",
+      "Bridge Milady runtime events to the Phetta Companion VRM desktop pet (localhost HTTP API).",
     init: async () => {
       logger.debug(
         "[phetta-companion] Plugin initialized, listening for runtime events",

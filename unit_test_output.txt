@@ -1,5 +1,5 @@
 
-[1m[46m RUN [49m[22m [36mv4.0.18 [39m[90m/Users/shawwalters/eliza-workspace/milaidy[39m
+[1m[46m RUN [49m[22m [36mv4.0.18 [39m[90m/Users/shawwalters/eliza-workspace/milady[39m
 
  [31m❯[39m src/services/version-compat.test.ts [2m([22m[2m0 test[22m[2m)[22m
  [31m❯[39m src/runtime/embedding-presets.test.ts [2m([22m[2m0 test[22m[2m)[22m
@@ -120,7 +120,7 @@
 [31m⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Suites 3 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
 
 [41m[1m FAIL [22m[49m src/runtime/embedding-presets.test.ts[2m [ src/runtime/embedding-presets.test.ts ][22m
-[31m[1mError[22m: Cannot find module './embedding-presets.js' imported from '/Users/shawwalters/eliza-workspace/milaidy/src/runtime/embedding-presets.test.ts'[39m
+[31m[1mError[22m: Cannot find module './embedding-presets.js' imported from '/Users/shawwalters/eliza-workspace/milady/src/runtime/embedding-presets.test.ts'[39m
 [36m [2m❯[22m src/runtime/embedding-presets.test.ts:[2m3:1[22m[39m
     [90m  1| [39m[35mimport[39m os [35mfrom[39m [32m"node:os"[39m[33m;[39m
     [90m  2| [39m[35mimport[39m { afterEach[33m,[39m describe[33m,[39m expect[33m,[39m it[33m,[39m vi } [35mfrom[39m [32m"vitest"[39m[33m;[39m
@@ -133,9 +133,9 @@
 
 [41m[1m FAIL [22m[49m src/services/version-compat.test.ts[2m [ src/services/version-compat.test.ts ][22m
 [31m[1mError[22m: Transform failed with 1 error:
-/Users/shawwalters/eliza-workspace/milaidy/src/services/version-compat.test.ts:421:0: ERROR: Unexpected "<<"[39m
+/Users/shawwalters/eliza-workspace/milady/src/services/version-compat.test.ts:421:0: ERROR: Unexpected "<<"[39m
   Plugin: [35mvite:esbuild[39m
-  File: [36m/Users/shawwalters/eliza-workspace/milaidy/src/services/version-compat.test.ts[39m:421:0
+  File: [36m/Users/shawwalters/eliza-workspace/milady/src/services/version-compat.test.ts[39m:421:0
 [33m  
   Unexpected "<<"
   419 |      const coreVersion = pkg.dependencies["@elizaos/core"];
@@ -172,7 +172,7 @@ vi.mock(import("@elizaos/core"), async (importOriginal) => {
     [90m   | [39m                                       [31m^[39m
     [90m 37| [39m  [33mDM[39m[33m:[39m [32m"DM"[39m[33m,[39m
     [90m 38| [39m  [33mSELF[39m[33m:[39m [32m"SELF"[39m[33m,[39m
-[90m [2m❯[22m src/runtime/milaidy-plugin.ts:[2m42:1[22m[39m
+[90m [2m❯[22m src/runtime/milady-plugin.ts:[2m42:1[22m[39m
 
 [31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯[22m[39m
 

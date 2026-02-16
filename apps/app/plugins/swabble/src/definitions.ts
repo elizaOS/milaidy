@@ -4,7 +4,7 @@ import type { PluginListenerHandle } from "@capacitor/core";
  * Configuration for voice wake detection
  */
 export interface SwabbleConfig {
-  /** Wake word triggers (e.g., ["milaidy"]) */
+  /** Wake word triggers (e.g., ["milady"]) */
   triggers: string[];
   /** Minimum gap after trigger before command starts (seconds) */
   minPostTriggerGap?: number;

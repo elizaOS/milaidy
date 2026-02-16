@@ -1,5 +1,5 @@
 /**
- * Tests for @milaidy/capacitor-gateway — WebSocket RPC and discovery.
+ * Tests for @milady/capacitor-gateway — WebSocket RPC and discovery.
  */
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import { GatewayWeb } from "../../plugins/gateway/src/web";
@@ -14,7 +14,7 @@ type Internals = GatewayWeb & {
   handleClose: (code: number, reason: string) => void;
 };
 
-describe("@milaidy/capacitor-gateway", () => {
+describe("@milady/capacitor-gateway", () => {
   let gw: GatewayWeb;
   let priv: Internals;
 

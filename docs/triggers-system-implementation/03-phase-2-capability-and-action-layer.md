@@ -25,11 +25,11 @@ There are at least two capability wiring paths in core:
 - `bootstrap/*`
 - `basic-capabilities/*` + `advanced-capabilities/*`
 
-Milaidy startup also explicitly sets `IGNORE_BOOTSTRAP=true`, and relies on plugin-driven capability composition.
+Milady startup also explicitly sets `IGNORE_BOOTSTRAP=true`, and relies on plugin-driven capability composition.
 
 ### Implication
 
-A bootstrap-only action implementation is likely insufficient for Milaidy.
+A bootstrap-only action implementation is likely insufficient for Milady.
 
 ---
 
@@ -49,7 +49,7 @@ Pros:
 
 Cons:
 
-- high risk of no-op in Milaidy due runtime plugin path divergence.
+- high risk of no-op in Milady due runtime plugin path divergence.
 
 ---
 
@@ -67,22 +67,22 @@ Pros:
 
 Cons:
 
-- still requires verifying Milaidy plugin path surfaces this action set.
+- still requires verifying Milady plugin path surfaces this action set.
 
 ---
 
-## Option C: Dedicated trigger plugin action (most robust for Milaidy)
+## Option C: Dedicated trigger plugin action (most robust for Milady)
 
 Files:
 
-- new plugin package (or Milaidy-local plugin) that registers:
+- new plugin package (or Milady-local plugin) that registers:
   - trigger worker service
   - trigger creation action
   - trigger providers
 
 Pros:
 
-- explicit runtime inclusion for Milaidy.
+- explicit runtime inclusion for Milady.
 - reduced ambiguity around capability path.
 
 Cons:
@@ -96,7 +96,7 @@ Cons:
 Use **B + C progressive path**:
 
 1. implement in core advanced capabilities for upstream consistency;
-2. if Milaidy runtime path does not expose it reliably, add explicit trigger plugin wiring in Milaidy.
+2. if Milady runtime path does not expose it reliably, add explicit trigger plugin wiring in Milady.
 
 ---
 
@@ -329,7 +329,7 @@ sequenceDiagram
 
 Phase 2 is complete when:
 
-1. conversational creation works end-to-end in runtime path used by Milaidy;
+1. conversational creation works end-to-end in runtime path used by Milady;
 2. invalid/abusive requests are reliably rejected;
 3. created tasks match phase 1 trigger metadata contract;
 4. unit + integration tests pass.

@@ -1,10 +1,10 @@
 /**
  * End-to-End Validation Tests — GitHub Issue #6
  *
- * Comprehensive E2E tests covering the full Milaidy validation matrix:
+ * Comprehensive E2E tests covering the full Milady validation matrix:
  *
  *   1. Fresh install simulation (build → CLI boot → onboarding → agent running)
- *   2. CLI entry point test (npx milaidy equivalent)
+ *   2. CLI entry point test (npx milady equivalent)
  *   3. Plugin stress test (all plugins loaded simultaneously)
  *   4. Long-running session test (simulated via timeout-based operations)
  *   5. Context integrity test (no corruption after multiple operations)
@@ -54,7 +54,7 @@ dotenv.config({ path: path.resolve(packageRoot, "..", "eliza", ".env") });
 const hasOpenAI = Boolean(process.env.OPENAI_API_KEY);
 const hasAnthropic = Boolean(process.env.ANTHROPIC_API_KEY);
 const hasGroq = Boolean(process.env.GROQ_API_KEY);
-const liveModelTestsEnabled = process.env.MILAIDY_LIVE_TEST === "1";
+const liveModelTestsEnabled = process.env.MILADY_LIVE_TEST === "1";
 const hasModelProvider =
   liveModelTestsEnabled && (hasOpenAI || hasAnthropic || hasGroq);
 
@@ -358,8 +358,8 @@ describe("Fresh Install Simulation", () => {
     expect(fs.existsSync(path.join(distDir, "index.js"))).toBe(true);
   });
 
-  it("milaidy.mjs entry point exists and is executable", () => {
-    const entry = path.join(packageRoot, "milaidy.mjs");
+  it("milady.mjs entry point exists and is executable", () => {
+    const entry = path.join(packageRoot, "milady.mjs");
     expect(fs.existsSync(entry)).toBe(true);
     const content = fs.readFileSync(entry, "utf-8");
     expect(content).toContain("#!/usr/bin/env node");
@@ -373,12 +373,12 @@ describe("Fresh Install Simulation", () => {
 
     const result = await runSubprocess(
       "node",
-      [path.join(packageRoot, "milaidy.mjs"), "--help"],
+      [path.join(packageRoot, "milady.mjs"), "--help"],
       { env, timeoutMs: 30_000 },
     );
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout + result.stderr).toContain("milaidy");
+    expect(result.stdout + result.stderr).toContain("milady");
   }, 45_000);
 
   it("API server starts and serves status endpoint", async () => {
@@ -442,10 +442,10 @@ describe("Fresh Install Simulation", () => {
 });
 
 // ===================================================================
-//  2. CLI ENTRY POINT TEST (npx milaidy equivalent)
+//  2. CLI ENTRY POINT TEST (npx milady equivalent)
 // ===================================================================
 
-describe("CLI Entry Point (npx milaidy equivalent)", () => {
+describe("CLI Entry Point (npx milady equivalent)", () => {
   it("dist/entry.js exists and is loadable", () => {
     const entryPath = path.join(packageRoot, "dist", "entry.js");
     expect(fs.existsSync(entryPath)).toBe(true);
@@ -459,7 +459,7 @@ describe("CLI Entry Point (npx milaidy equivalent)", () => {
 
     const result = await runSubprocess(
       "node",
-      [path.join(packageRoot, "milaidy.mjs"), "--version"],
+      [path.join(packageRoot, "milady.mjs"), "--version"],
       { env, timeoutMs: 30_000 },
     );
 
@@ -473,15 +473,15 @@ describe("CLI Entry Point (npx milaidy equivalent)", () => {
     "startEliza() boots, shows chat prompt, exits on 'exit'",
     async () => {
       const subHome = fs.mkdtempSync(
-        path.join(os.tmpdir(), "milaidy-e2e-cli-boot-"),
+        path.join(os.tmpdir(), "milady-e2e-cli-boot-"),
       );
       const subPglite = path.join(subHome, "pglite");
-      const subConfigDir = path.join(subHome, ".milaidy");
+      const subConfigDir = path.join(subHome, ".milady");
       fs.mkdirSync(subConfigDir, { recursive: true });
 
       // Write config so onboarding is skipped
       fs.writeFileSync(
-        path.join(subConfigDir, "milaidy.json"),
+        path.join(subConfigDir, "milady.json"),
         JSON.stringify({
           agents: {
             list: [{ id: "main", name: "CLIBootAgent", bio: ["cli test"] }],
@@ -501,7 +501,7 @@ describe("CLI Entry Point (npx milaidy equivalent)", () => {
       env.XDG_DATA_HOME = path.join(subHome, ".local/share");
       env.XDG_STATE_HOME = path.join(subHome, ".local/state");
       env.XDG_CACHE_HOME = path.join(subHome, ".cache");
-      env.MILAIDY_PORT = String(await reserveFreePort());
+      env.MILADY_PORT = String(await reserveFreePort());
       delete env.VITEST;
 
       const result = await runSubprocess(
@@ -534,7 +534,7 @@ describe("CLI Entry Point (npx milaidy equivalent)", () => {
 // ===================================================================
 
 describe("Plugin Stress Test", () => {
-  // All known plugin packages from the Milaidy ecosystem
+  // All known plugin packages from the Milady ecosystem
   const ALL_CORE_PLUGINS: readonly string[] = [
     "@elizaos/plugin-sql",
     "@elizaos/plugin-local-embedding",
@@ -1214,7 +1214,7 @@ describe("Rapid Sequential Operations", () => {
 
 describe("Workspace Integrity", () => {
   it("ensureAgentWorkspace creates directory and is idempotent", async () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "milaidy-e2e-ws-"));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "milady-e2e-ws-"));
     const wsDir = path.join(dir, "workspace");
 
     expect(fs.existsSync(wsDir)).toBe(false);
@@ -1235,7 +1235,7 @@ describe("Workspace Integrity", () => {
 
   it("workspace creation handles concurrent calls", async () => {
     const dir = fs.mkdtempSync(
-      path.join(os.tmpdir(), "milaidy-e2e-ws-concurrent-"),
+      path.join(os.tmpdir(), "milady-e2e-ws-concurrent-"),
     );
     const wsDir = path.join(dir, "concurrent-workspace");
 
@@ -1269,7 +1269,7 @@ describe("Runtime Integration (with model provider)", () => {
   let initialized = false;
 
   const pgliteDir = fs.mkdtempSync(
-    path.join(os.tmpdir(), "milaidy-e2e-validation-pglite-"),
+    path.join(os.tmpdir(), "milady-e2e-validation-pglite-"),
   );
   const roomId = stringToUuid("e2e-validation-room");
   const userId = crypto.randomUUID() as UUID;
@@ -1277,7 +1277,7 @@ describe("Runtime Integration (with model provider)", () => {
 
   beforeAll(async () => {
     if (!hasModelProvider) return;
-    process.env.LOG_LEVEL = process.env.MILAIDY_E2E_LOG_LEVEL ?? "error";
+    process.env.LOG_LEVEL = process.env.MILADY_E2E_LOG_LEVEL ?? "error";
     process.env.PGLITE_DATA_DIR = pgliteDir;
 
     const secrets: Record<string, string> = {};
@@ -1594,7 +1594,7 @@ describe("Fresh Machine Validation (non-Docker)", () => {
     const pkg = JSON.parse(
       fs.readFileSync(path.join(packageRoot, "package.json"), "utf-8"),
     ) as Record<string, Record<string, string>>;
-    expect(pkg.bin?.milaidy).toBe("milaidy.mjs");
+    expect(pkg.bin?.milady).toBe("milady.mjs");
   });
 
   it("package.json exports are valid", () => {
@@ -1602,7 +1602,7 @@ describe("Fresh Machine Validation (non-Docker)", () => {
       fs.readFileSync(path.join(packageRoot, "package.json"), "utf-8"),
     ) as Record<string, Record<string, string>>;
     expect(pkg.exports?.["."]).toBe("./dist/index.js");
-    expect(pkg.exports?.["./cli-entry"]).toBe("./milaidy.mjs");
+    expect(pkg.exports?.["./cli-entry"]).toBe("./milady.mjs");
     expect(pkg.exports?.["./eliza"]).toBe("./dist/runtime/eliza.js");
   });
 

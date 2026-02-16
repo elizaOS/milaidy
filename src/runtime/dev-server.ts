@@ -2,10 +2,10 @@
  * Combined dev server — starts the ElizaOS runtime in headless mode and
  * wires it into the API server so the Control UI has a live agent to talk to.
  *
- * The MILAIDY_HEADLESS env var tells startEliza() to skip the interactive
+ * The MILADY_HEADLESS env var tells startEliza() to skip the interactive
  * CLI chat loop and return the AgentRuntime instance.
  *
- * Usage: bun src/runtime/dev-server.ts   (with MILAIDY_HEADLESS=1)
+ * Usage: bun src/runtime/dev-server.ts   (with MILADY_HEADLESS=1)
  *        (or via the dev script: bun run dev)
  */
 import process from "node:process";
@@ -23,7 +23,7 @@ try {
   // dotenv not installed or .env not found — non-fatal.
 }
 
-const port = Number(process.env.MILAIDY_PORT) || 31337;
+const port = Number(process.env.MILADY_PORT) || 31337;
 
 /** The currently active runtime — swapped on restart. */
 let currentRuntime: AgentRuntime | null = null;
@@ -47,7 +47,7 @@ async function createRuntime(): Promise<AgentRuntime> {
       await currentRuntime.stop();
     } catch (err) {
       logger.warn(
-        `[milaidy] Error stopping old runtime: ${err instanceof Error ? err.message : err}`,
+        `[milady] Error stopping old runtime: ${err instanceof Error ? err.message : err}`,
       );
     }
     currentRuntime = null;
@@ -74,13 +74,13 @@ async function createRuntime(): Promise<AgentRuntime> {
  */
 async function handleRestart(reason?: string): Promise<void> {
   if (isShuttingDown) {
-    logger.warn("[milaidy] Restart skipped — process is shutting down");
+    logger.warn("[milady] Restart skipped — process is shutting down");
     return;
   }
 
   if (isRestarting) {
     logger.warn(
-      "[milaidy] Restart already in progress, skipping duplicate request",
+      "[milady] Restart already in progress, skipping duplicate request",
     );
     return;
   }
@@ -88,12 +88,12 @@ async function handleRestart(reason?: string): Promise<void> {
   isRestarting = true;
   try {
     logger.info(
-      `[milaidy] Restart requested${reason ? ` (${reason})` : ""} — bouncing runtime…`,
+      `[milady] Restart requested${reason ? ` (${reason})` : ""} — bouncing runtime…`,
     );
 
     const rt = await createRuntime();
-    const agentName = rt.character.name ?? "Milaidy";
-    logger.info(`[milaidy] Runtime restarted — agent: ${agentName}`);
+    const agentName = rt.character.name ?? "Milady";
+    logger.info(`[milady] Runtime restarted — agent: ${agentName}`);
 
     // Hot-swap the API server's runtime reference.
     if (apiUpdateRuntime) {
@@ -115,13 +115,13 @@ async function shutdown(): Promise<void> {
   if (isShuttingDown) return;
   isShuttingDown = true;
 
-  logger.info("[milaidy] Dev server shutting down…");
+  logger.info("[milady] Dev server shutting down…");
   if (currentRuntime) {
     try {
       await currentRuntime.stop();
     } catch (err) {
       logger.warn(
-        `[milaidy] Error stopping runtime during shutdown: ${err instanceof Error ? err.message : err}`,
+        `[milady] Error stopping runtime during shutdown: ${err instanceof Error ? err.message : err}`,
       );
     }
     currentRuntime = null;
@@ -148,12 +148,12 @@ async function main() {
     },
   });
   apiUpdateRuntime = updateRuntime;
-  logger.info(`[milaidy] API server ready on port ${actualPort}`);
+  logger.info(`[milady] API server ready on port ${actualPort}`);
 
   // 2. Boot the ElizaOS agent runtime (plugin loading, migrations, etc.).
   const runtime = await createRuntime();
-  const agentName = runtime.character.name ?? "Milaidy";
-  logger.info(`[milaidy] Runtime ready — agent: ${agentName}`);
+  const agentName = runtime.character.name ?? "Milady";
+  logger.info(`[milady] Runtime ready — agent: ${agentName}`);
 
   // 3. Wire the live runtime into the already-running API server.
   updateRuntime(runtime);
@@ -161,13 +161,13 @@ async function main() {
 
 main().catch((err: unknown) => {
   const error = err instanceof Error ? err : new Error(String(err));
-  console.error("[milaidy] Fatal error:", error.stack ?? error.message);
+  console.error("[milady] Fatal error:", error.stack ?? error.message);
   if (error.cause) {
     const cause =
       error.cause instanceof Error
         ? error.cause
         : new Error(String(error.cause));
-    console.error("[milaidy] Caused by:", cause.stack ?? cause.message);
+    console.error("[milady] Caused by:", cause.stack ?? cause.message);
   }
   process.exit(1);
 });

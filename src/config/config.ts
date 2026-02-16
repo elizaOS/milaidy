@@ -4,11 +4,11 @@ import JSON5 from "json5";
 import { collectConfigEnvVars } from "./env-vars.js";
 import { resolveConfigIncludes } from "./includes.js";
 import { resolveConfigPath, resolveUserPath } from "./paths.js";
-import type { MilaidyConfig } from "./types.js";
+import type { MiladyConfig } from "./types.js";
 
 export * from "./types.js";
 
-export function loadMilaidyConfig(): MilaidyConfig {
+export function loadMiladyConfig(): MiladyConfig {
   const configPath = resolveConfigPath();
 
   let raw: string;
@@ -16,13 +16,13 @@ export function loadMilaidyConfig(): MilaidyConfig {
     raw = fs.readFileSync(configPath, "utf-8");
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === "ENOENT") {
-      return { logging: { level: "error" } } as MilaidyConfig;
+      return { logging: { level: "error" } } as MiladyConfig;
     }
     throw err;
   }
 
   const parsed = JSON5.parse(raw) as Record<string, unknown>;
-  const resolved = resolveConfigIncludes(parsed, configPath) as MilaidyConfig;
+  const resolved = resolveConfigIncludes(parsed, configPath) as MiladyConfig;
 
   // Load local skills config from ~/.eliza/skills.json (if present)
   // This allows users to add local skill directories without modifying the main config.
@@ -42,7 +42,7 @@ export function loadMilaidyConfig(): MilaidyConfig {
       );
     } catch (err) {
       console.warn(
-        `[milaidy] Failed to auto-create ~/.eliza/skills.json: ${
+        `[milady] Failed to auto-create ~/.eliza/skills.json: ${
           err instanceof Error ? err.message : String(err)
         }`,
       );
@@ -75,7 +75,7 @@ export function loadMilaidyConfig(): MilaidyConfig {
       }
     } catch (err) {
       console.warn(
-        `[milaidy] Failed to load ~/.eliza/skills.json: ${
+        `[milady] Failed to load ~/.eliza/skills.json: ${
           err instanceof Error ? err.message : String(err)
         }`,
       );
@@ -99,7 +99,7 @@ export function loadMilaidyConfig(): MilaidyConfig {
   return resolved;
 }
 
-export function saveMilaidyConfig(config: MilaidyConfig): void {
+export function saveMiladyConfig(config: MiladyConfig): void {
   const configPath = resolveConfigPath();
   const dir = path.dirname(configPath);
 

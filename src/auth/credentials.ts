@@ -1,7 +1,7 @@
 /**
  * Credential storage and token refresh for subscription providers.
  *
- * Stores OAuth credentials in ~/.milaidy/auth/ as JSON files.
+ * Stores OAuth credentials in ~/.milady/auth/ as JSON files.
  * Uses @mariozechner/pi-ai for token refresh.
  */
 
@@ -18,7 +18,7 @@ import type {
 } from "./types.js";
 
 const AUTH_DIR = path.join(
-  process.env.MILAIDY_HOME || path.join(os.homedir(), ".milaidy"),
+  process.env.MILADY_HOME || path.join(os.homedir(), ".milady"),
   "auth",
 );
 

@@ -51,21 +51,21 @@ All you need to do is set up the certificate and add GitHub secrets.
 1. In Keychain Access, find the "Developer ID Application: ..." certificate
 2. Expand it to reveal the private key
 3. Select BOTH the certificate AND the private key
-4. Right-click > Export 2 items... > save as `milaidy-mac-cert.p12`
+4. Right-click > Export 2 items... > save as `milady-mac-cert.p12`
 5. Set a strong password (this becomes `CSC_KEY_PASSWORD`)
 
 ### Step 3: Base64-encode the .p12
 
 ```bash
-base64 -i milaidy-mac-cert.p12 | tr -d '\n' > milaidy-mac-cert.b64
-cat milaidy-mac-cert.b64
+base64 -i milady-mac-cert.p12 | tr -d '\n' > milady-mac-cert.b64
+cat milady-mac-cert.b64
 # Copy the entire output -- this is your CSC_LINK value
 ```
 
 ### Step 4: Generate an App-Specific Password
 
 1. Go to https://appleid.apple.com > Sign-In and Security > App-Specific Passwords
-2. Click Generate and name it "Milaidy Notarization"
+2. Click Generate and name it "Milady Notarization"
 3. Copy the generated password (format: `xxxx-xxxx-xxxx-xxxx`)
 
 ### Step 5: Add GitHub Secrets for macOS
@@ -106,7 +106,7 @@ Unsigned Windows apps trigger SmartScreen warnings ("Windows protected your PC")
 2. Base64-encode it:
 
 ```bash
-base64 -i milaidy-win-cert.pfx | tr -d '\n' > milaidy-win-cert.b64
+base64 -i milady-win-cert.pfx | tr -d '\n' > milady-win-cert.b64
 ```
 
 3. Add GitHub secrets:
@@ -123,7 +123,7 @@ No code signing required. AppImage and .deb targets work as-is.
 
 ## iOS -- App Store
 
-The bundle ID `com.miladyai.milaidy` is already registered in the Apple Developer portal.
+The bundle ID `com.miladyai.milady` is already registered in the Apple Developer portal.
 The Xcode project is configured with `DEVELOPMENT_TEAM = 25877RY2EH` and automatic signing.
 
 ### Build and Upload
@@ -148,9 +148,9 @@ In Xcode:
 2. Click + > New App
 3. Fill in:
    - Platform: iOS
-   - Name: Milaidy
-   - Bundle ID: `com.miladyai.milaidy`
-   - SKU: `milaidy`
+   - Name: Milady
+   - Bundle ID: `com.miladyai.milady`
+   - SKU: `milady`
 4. Set up your app listing (description, screenshots, etc.)
 
 ---
@@ -161,14 +161,14 @@ In Xcode:
 
 ```bash
 keytool -genkey -v \
-  -keystore milaidy-release.keystore \
-  -alias milaidy \
+  -keystore milady-release.keystore \
+  -alias milady \
   -keyalg RSA \
   -keysize 2048 \
   -validity 10000 \
   -storepass <your-store-password> \
   -keypass <your-key-password> \
-  -dname "CN=Milaidy, O=milady-ai"
+  -dname "CN=Milady, O=milady-ai"
 ```
 
 BACK UP THIS KEYSTORE. If you lose it, you cannot push updates to the same Play Store listing.
@@ -176,14 +176,14 @@ BACK UP THIS KEYSTORE. If you lose it, you cannot push updates to the same Play 
 ### Step 2: Base64-encode the Keystore
 
 ```bash
-base64 -i milaidy-release.keystore | tr -d '\n' > milaidy-release.b64
+base64 -i milady-release.keystore | tr -d '\n' > milady-release.b64
 ```
 
 ### Step 3: Add GitHub Secrets
 
 - `ANDROID_KEYSTORE` -- base64-encoded keystore
 - `ANDROID_KEYSTORE_PASSWORD` -- the storepass
-- `ANDROID_KEY_ALIAS` -- `milaidy`
+- `ANDROID_KEY_ALIAS` -- `milady`
 - `ANDROID_KEY_PASSWORD` -- the keypass
 
 ### Step 4: Configure Gradle Signing
@@ -197,7 +197,7 @@ signingConfigs {
         if (ksPath) {
             storeFile file(ksPath)
             storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
-            keyAlias System.getenv("ANDROID_KEY_ALIAS") ?: "milaidy"
+            keyAlias System.getenv("ANDROID_KEY_ALIAS") ?: "milady"
             keyPassword System.getenv("ANDROID_KEY_PASSWORD")
         }
     }
@@ -217,7 +217,7 @@ buildTypes {
 ### Step 5: Google Play Console
 
 1. Go to https://play.google.com/console and create a developer account ($25)
-2. Create a new app with package name `com.miladyai.milaidy`
+2. Create a new app with package name `com.miladyai.milady`
 3. Enable Play App Signing (recommended)
 4. Build and upload your first AAB:
 
@@ -232,7 +232,7 @@ npx cap open android
 
 ## GitHub Actions Secrets (Complete List)
 
-Add these at **Settings > Secrets and variables > Actions** in the `milady-ai/milaidy` repo.
+Add these at **Settings > Secrets and variables > Actions** in the `milady-ai/milady` repo.
 
 ### macOS Signing + Notarization (required for clean macOS builds)
 
@@ -257,7 +257,7 @@ Add these at **Settings > Secrets and variables > Actions** in the `milady-ai/mi
 |---|---|
 | `ANDROID_KEYSTORE` | Base64 keystore file |
 | `ANDROID_KEYSTORE_PASSWORD` | Keystore password |
-| `ANDROID_KEY_ALIAS` | `milaidy` |
+| `ANDROID_KEY_ALIAS` | `milady` |
 | `ANDROID_KEY_PASSWORD` | Key password |
 
 ### iOS CI/CD (optional, for automated App Store uploads)
@@ -279,7 +279,7 @@ To test signed macOS builds locally:
 
 ```bash
 # Set env vars (or add to .env / shell profile)
-export CSC_LINK="$(base64 -i ~/path/to/milaidy-mac-cert.p12 | tr -d '\n')"
+export CSC_LINK="$(base64 -i ~/path/to/milady-mac-cert.p12 | tr -d '\n')"
 export CSC_KEY_PASSWORD="your-password"
 export APPLE_ID="shawmakesmusic@gmail.com"
 export APPLE_APP_SPECIFIC_PASSWORD="xxxx-xxxx-xxxx-xxxx"
@@ -320,21 +320,21 @@ The `Build & Release` workflow triggers automatically. It builds for macOS (Inte
 ### Release Artifacts
 
 Each release includes:
-- `Milaidy-X.Y.Z-arm64.dmg` -- macOS Apple Silicon (signed + notarized)
-- `Milaidy-X.Y.Z.dmg` -- macOS Intel (signed + notarized)
-- `Milaidy-X.Y.Z-arm64-mac.zip` -- macOS Apple Silicon (for auto-updater)
-- `Milaidy-X.Y.Z-mac.zip` -- macOS Intel (for auto-updater)
-- `Milaidy-Setup-X.Y.Z.exe` -- Windows installer
-- `Milaidy-X.Y.Z.AppImage` -- Linux AppImage
-- `milaidy_X.Y.Z_amd64.deb` -- Debian/Ubuntu package
+- `Milady-X.Y.Z-arm64.dmg` -- macOS Apple Silicon (signed + notarized)
+- `Milady-X.Y.Z.dmg` -- macOS Intel (signed + notarized)
+- `Milady-X.Y.Z-arm64-mac.zip` -- macOS Apple Silicon (for auto-updater)
+- `Milady-X.Y.Z-mac.zip` -- macOS Intel (for auto-updater)
+- `Milady-Setup-X.Y.Z.exe` -- Windows installer
+- `Milady-X.Y.Z.AppImage` -- Linux AppImage
+- `milady_X.Y.Z_amd64.deb` -- Debian/Ubuntu package
 - `SHA256SUMS.txt` -- checksums for all files
 
 ### Serving via GitHub Pages
 
-The install scripts at `milady-ai.github.io/milaidy/` point to these releases. Users can install with:
+The install scripts at `milady-ai.github.io/milady/` point to these releases. Users can install with:
 
 ```bash
-curl -fsSL https://milady-ai.github.io/milaidy/install.sh | bash
+curl -fsSL https://milady-ai.github.io/milady/install.sh | bash
 ```
 
 ---
@@ -360,7 +360,7 @@ In CI, `CSC_LINK` must be the raw base64 string with no line breaks (`base64 | t
 Without an EV cert, SmartScreen reputation builds over time. Users click "More info > Run anyway". An EV cert gives immediate trust.
 
 ### Android "No key with alias found"
-Verify `ANDROID_KEY_ALIAS` matches the alias from keytool (default: `milaidy`).
+Verify `ANDROID_KEY_ALIAS` matches the alias from keytool (default: `milady`).
 
 ### iOS "No signing certificate found"
 Open Xcode > Preferences > Accounts, ensure your Apple ID is added and team `25877RY2EH` is visible. Click Manage Certificates.

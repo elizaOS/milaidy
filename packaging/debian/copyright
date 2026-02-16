@@ -1,7 +1,7 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
-Upstream-Name: milaidy
+Upstream-Name: milady
 Upstream-Contact: dev@milady.ai
-Source: https://github.com/milady-ai/milaidy
+Source: https://github.com/milady-ai/milady
 
 Files: *
 Copyright: 2024-2026 milady-ai

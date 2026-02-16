@@ -1,1 +1,1 @@
-ai.milaidy.plugins.location
+ai.milady.plugins.location

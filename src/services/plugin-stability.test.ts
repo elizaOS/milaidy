@@ -15,7 +15,7 @@
 import type { Plugin, Provider, ProviderResult } from "@elizaos/core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { validateRuntimeContext } from "../api/plugin-validation.js";
-import type { MilaidyConfig } from "../config/types.milaidy.js";
+import type { MiladyConfig } from "../config/types.milady.js";
 import { createSessionKeyProvider } from "../providers/session-bridge.js";
 import { createWorkspaceProvider } from "../providers/workspace-provider.js";
 import {
@@ -27,7 +27,7 @@ import {
   OPTIONAL_CORE_PLUGINS,
   resolvePrimaryModel,
 } from "../runtime/eliza.js";
-import { createMilaidyPlugin } from "../runtime/milaidy-plugin.js";
+import { createMiladyPlugin } from "../runtime/milady-plugin.js";
 import {
   createEnvSandbox,
   extractPlugin,
@@ -199,14 +199,14 @@ describe("collectPluginNames", () => {
   });
 
   it("loads all core plugins with empty config", () => {
-    const names = collectPluginNames({} as MilaidyConfig);
+    const names = collectPluginNames({} as MiladyConfig);
     for (const core of CORE_PLUGINS) {
       expect(names.has(core)).toBe(true);
     }
   });
 
   it("adds channel plugin when channel config is present", () => {
-    const config: MilaidyConfig = {
+    const config: MiladyConfig = {
       channels: {
         discord: { token: "test-token" },
       },
@@ -217,12 +217,12 @@ describe("collectPluginNames", () => {
 
   it("adds provider plugin when env key is set", () => {
     process.env.ANTHROPIC_API_KEY = "sk-ant-test-key-123";
-    const names = collectPluginNames({} as MilaidyConfig);
+    const names = collectPluginNames({} as MiladyConfig);
     expect(names.has("@elizaos/plugin-anthropic")).toBe(true);
   });
 
   it("adds cloud plugin when cloud is enabled in config", () => {
-    const config: MilaidyConfig = {
+    const config: MiladyConfig = {
       cloud: { enabled: true },
     };
     const names = collectPluginNames(config);
@@ -230,7 +230,7 @@ describe("collectPluginNames", () => {
   });
 
   it("adds user-installed plugins from config.plugins.installs", () => {
-    const config: MilaidyConfig = {
+    const config: MiladyConfig = {
       plugins: {
         installs: {
           "@elizaos/plugin-custom-test": {
@@ -248,7 +248,7 @@ describe("collectPluginNames", () => {
   it("returns a Set with no duplicates", () => {
     // Set a provider key AND include that same plugin via cloud config
     process.env.ELIZAOS_CLOUD_API_KEY = "test-key";
-    const config: MilaidyConfig = {
+    const config: MiladyConfig = {
       cloud: { enabled: true },
     };
     const names = collectPluginNames(config);
@@ -260,7 +260,7 @@ describe("collectPluginNames", () => {
   });
 
   it("does not add channel plugin for unknown channel names", () => {
-    const config: MilaidyConfig = {
+    const config: MiladyConfig = {
       channels: {
         unknownChannel: { token: "test" },
       },
@@ -418,7 +418,7 @@ describe("Runtime Context Validation", () => {
 
   describe("buildCharacterFromConfig produces valid context", () => {
     it("produces a character with no null or undefined required fields", () => {
-      const config: MilaidyConfig = {};
+      const config: MiladyConfig = {};
       const character = buildCharacterFromConfig(config);
 
       expect(character).toBeDefined();
@@ -443,7 +443,7 @@ describe("Runtime Context Validation", () => {
     });
 
     it("character with agent name from config is well-formed", () => {
-      const config: MilaidyConfig = {
+      const config: MiladyConfig = {
         agents: {
           list: [{ id: "main", name: "TestBot", default: true }],
         },
@@ -454,7 +454,7 @@ describe("Runtime Context Validation", () => {
 
     it("character secrets contain no empty strings", () => {
       process.env.ANTHROPIC_API_KEY = "sk-ant-test-1234567890";
-      const config: MilaidyConfig = {};
+      const config: MiladyConfig = {};
       const character = buildCharacterFromConfig(config);
 
       if (character.secrets) {
@@ -467,7 +467,7 @@ describe("Runtime Context Validation", () => {
     });
 
     it("character is JSON-serializable", () => {
-      const config: MilaidyConfig = {
+      const config: MiladyConfig = {
         agents: {
           list: [{ id: "main", name: "SerializeTest", default: true }],
         },
@@ -601,11 +601,11 @@ describe("Provider Validation", () => {
     expect(typeof provider.name).toBe("string");
     expect(typeof provider.description).toBe("string");
     expect(typeof provider.get).toBe("function");
-    expect(provider.name).toBe("milaidySessionKey");
+    expect(provider.name).toBe("miladySessionKey");
   });
 
-  it("createMilaidyPlugin returns a valid Plugin with providers", () => {
-    const plugin = createMilaidyPlugin({
+  it("createMiladyPlugin returns a valid Plugin with providers", () => {
+    const plugin = createMiladyPlugin({
       workspaceDir: "/tmp/test-workspace",
       agentId: "test-agent",
     });
@@ -613,7 +613,7 @@ describe("Provider Validation", () => {
     expect(plugin).toBeDefined();
     expect(typeof plugin.name).toBe("string");
     expect(typeof plugin.description).toBe("string");
-    expect(plugin.name).toBe("milaidy");
+    expect(plugin.name).toBe("milady");
 
     // Providers should be an array of valid provider shapes
     if (plugin.providers) {
@@ -631,8 +631,8 @@ describe("Provider Validation", () => {
     }
   });
 
-  it("milaidy plugin is JSON-serializable (metadata only)", () => {
-    const plugin = createMilaidyPlugin({
+  it("milady plugin is JSON-serializable (metadata only)", () => {
+    const plugin = createMiladyPlugin({
       workspaceDir: "/tmp/test-workspace",
       agentId: "test-agent",
     });
@@ -648,7 +648,7 @@ describe("Provider Validation", () => {
       name: string;
       description: string;
     };
-    expect(deserialized.name).toBe("milaidy");
+    expect(deserialized.name).toBe("milady");
   });
 });
 
@@ -668,7 +668,7 @@ describe("Environment Propagation", () => {
   });
 
   it("applyConnectorSecretsToEnv sets DISCORD_BOT_TOKEN from config", () => {
-    const config: MilaidyConfig = {
+    const config: MiladyConfig = {
       connectors: {
         discord: { token: "test-discord-token-123" },
       },
@@ -679,7 +679,7 @@ describe("Environment Propagation", () => {
 
   it("applyConnectorSecretsToEnv does not overwrite existing env vars", () => {
     process.env.DISCORD_BOT_TOKEN = "existing-token";
-    const config: MilaidyConfig = {
+    const config: MiladyConfig = {
       connectors: {
         discord: { token: "new-token" },
       },
@@ -689,7 +689,7 @@ describe("Environment Propagation", () => {
   });
 
   it("applyCloudConfigToEnv sets cloud env vars", () => {
-    const config: MilaidyConfig = {
+    const config: MiladyConfig = {
       cloud: {
         enabled: true,
         apiKey: "test-cloud-key",
@@ -705,12 +705,12 @@ describe("Environment Propagation", () => {
   });
 
   it("resolvePrimaryModel returns undefined for empty config", () => {
-    const config: MilaidyConfig = {};
+    const config: MiladyConfig = {};
     expect(resolvePrimaryModel(config)).toBeUndefined();
   });
 
   it("resolvePrimaryModel returns model from config", () => {
-    const config: MilaidyConfig = {
+    const config: MiladyConfig = {
       agents: {
         defaults: {
           model: { primary: "claude-3-opus" },
@@ -813,8 +813,8 @@ describe("Plugin Error Boundaries", () => {
 // ============================================================================
 
 describe("Context Serialization", () => {
-  it("MilaidyConfig objects are JSON-serializable", () => {
-    const config: MilaidyConfig = {
+  it("MiladyConfig objects are JSON-serializable", () => {
+    const config: MiladyConfig = {
       agents: {
         list: [{ id: "main", name: "TestBot", default: true }],
         defaults: {
@@ -837,13 +837,13 @@ describe("Context Serialization", () => {
     expect(typeof serialized).toBe("string");
     expect(serialized.length).toBeGreaterThan(0);
 
-    const deserialized = JSON.parse(serialized) as MilaidyConfig;
+    const deserialized = JSON.parse(serialized) as MiladyConfig;
     expect(deserialized.agents?.list?.[0]?.name).toBe("TestBot");
     expect(deserialized.cloud?.enabled).toBe(false);
   });
 
   it("plugin names set is serializable as array", () => {
-    const names = collectPluginNames({} as MilaidyConfig);
+    const names = collectPluginNames({} as MiladyConfig);
     const arr = [...names];
     const serialized = JSON.stringify(arr);
     expect(typeof serialized).toBe("string");

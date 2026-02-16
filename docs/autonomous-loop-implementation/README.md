@@ -1,6 +1,6 @@
 # Autonomous Loop Implementation Dossier
 
-This folder contains a detailed implementation dossier for making Milaidy "autonomy-first":
+This folder contains a detailed implementation dossier for making Milady "autonomy-first":
 
 - real-time visibility into autonomous reasoning/actions
 - clear admin identity and trust semantics
@@ -15,14 +15,14 @@ This folder contains a detailed implementation dossier for making Milaidy "auton
    - Corrected design constraints
 
 2. `01-system-control-flow-map.md`
-   - End-to-end control flow map of current Milaidy
+   - End-to-end control flow map of current Milady
    - Runtime, API server, websocket, frontend, onboarding, conversations
    - Current architecture boundaries and coupling points
 
 3. `02-phase-1-realtime-event-streaming.md`
    - Server event-streaming architecture
    - WebSocket event schema, buffering, replay, ordering, backpressure
-   - Bridging `AgentEventService` into Milaidy API
+   - Bridging `AgentEventService` into Milady API
 
 4. `03-phase-2-autonomous-state-provider.md`
    - Autonomous provider design
@@ -30,7 +30,7 @@ This folder contains a detailed implementation dossier for making Milaidy "auton
    - Fallback behavior and failure modes
 
 5. `04-phase-3-admin-identity-and-trust.md`
-   - Admin identity model (owner/admin/member) in Milaidy
+   - Admin identity model (owner/admin/member) in Milady
    - Ownership/roles world metadata migration strategy
    - Role assignment lifecycle from onboarding to runtime
 
@@ -68,9 +68,9 @@ This folder contains a detailed implementation dossier for making Milaidy "auton
 
 This dossier is grounded in direct code-path analysis across:
 
-- Milaidy runtime: `src/runtime/eliza.ts`
-- Milaidy API server: `src/api/server.ts`
-- Milaidy frontend: `apps/app/src/api-client.ts`, `apps/app/src/AppContext.tsx`, `apps/app/src/App.tsx`, `apps/app/src/components/*`
+- Milady runtime: `src/runtime/eliza.ts`
+- Milady API server: `src/api/server.ts`
+- Milady frontend: `apps/app/src/api-client.ts`, `apps/app/src/AppContext.tsx`, `apps/app/src/App.tsx`, `apps/app/src/components/*`
 - Eliza core event/autonomy internals:
   - `eliza/packages/typescript/src/services/agentEvent.ts`
   - `eliza/packages/typescript/src/types/agentEvent.ts`

@@ -73,7 +73,7 @@ import type {
   MediaConfig,
   VideoConfig,
   VisionConfig,
-} from "../config/types.milaidy.js";
+} from "../config/types.milady.js";
 import {
   type AudioGenerationOptions,
   createAudioProvider,

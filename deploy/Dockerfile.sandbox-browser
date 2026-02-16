@@ -20,9 +20,9 @@ RUN apt-get update \
     xvfb \
   && rm -rf /var/lib/apt/lists/*
 
-COPY scripts/sandbox-browser-entrypoint.sh /usr/local/bin/milaidy-sandbox-browser
-RUN chmod +x /usr/local/bin/milaidy-sandbox-browser
+COPY scripts/sandbox-browser-entrypoint.sh /usr/local/bin/milady-sandbox-browser
+RUN chmod +x /usr/local/bin/milady-sandbox-browser
 
 EXPOSE 9222 5900 6080
 
-CMD ["milaidy-sandbox-browser"]
+CMD ["milady-sandbox-browser"]

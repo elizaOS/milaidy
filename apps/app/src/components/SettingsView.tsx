@@ -165,7 +165,7 @@ export function SettingsView() {
         // pi-ai enabled flag + optional primary model
         const env = cfg.env as Record<string, unknown> | undefined;
         const vars = (env?.vars as Record<string, unknown> | undefined) ?? {};
-        const rawPiAi = vars.MILAIDY_USE_PI_AI;
+        const rawPiAi = vars.MILADY_USE_PI_AI;
         const piAiOn = typeof rawPiAi === "string" && ["1", "true", "yes"].includes(rawPiAi.trim().toLowerCase());
         setPiAiEnabled(piAiOn);
 
@@ -239,7 +239,7 @@ export function SettingsView() {
       try {
         await client.updateConfig({
           cloud: { enabled: false },
-          env: { vars: { MILAIDY_USE_PI_AI: "" } },
+          env: { vars: { MILADY_USE_PI_AI: "" } },
           agents: { defaults: { model: { primary: null } } },
         });
       } catch { /* non-fatal */ }
@@ -263,7 +263,7 @@ export function SettingsView() {
       await client.updateConfig({
         cloud: { enabled: true },
         // Ensure local pi-ai mode is disabled when switching to cloud.
-        env: { vars: { MILAIDY_USE_PI_AI: "" } },
+        env: { vars: { MILADY_USE_PI_AI: "" } },
         agents: { defaults: { model: { primary: null } } },
         models: {
           small: currentSmallModel || "moonshotai/kimi-k2-turbo",
@@ -286,7 +286,7 @@ export function SettingsView() {
     try {
       await client.updateConfig({
         cloud: { enabled: false },
-        env: { vars: { MILAIDY_USE_PI_AI: "1" } },
+        env: { vars: { MILADY_USE_PI_AI: "1" } },
         models: {
           piAiSmall: piAiSmallModel.trim() || null,
           piAiLarge: piAiLargeModel.trim() || null,
@@ -318,7 +318,7 @@ export function SettingsView() {
     try {
       await client.updateConfig({
         cloud: { enabled: false },
-        env: { vars: { MILAIDY_USE_PI_AI: "1" } },
+        env: { vars: { MILADY_USE_PI_AI: "1" } },
         models: {
           piAiSmall: piAiSmallModel.trim() || null,
           piAiLarge: piAiLargeModel.trim() || null,
@@ -975,7 +975,7 @@ export function SettingsView() {
                 <div className="text-[11px] text-[var(--muted)] text-right">
                   Run{" "}
                   <code className="bg-[var(--bg-hover,rgba(255,255,255,0.05))] px-1.5 py-0.5 rounded-sm">
-                    milaidy update
+                    milady update
                   </code>
                 </div>
               </div>
@@ -1068,13 +1068,13 @@ export function SettingsView() {
                     <code className="text-[11px] px-1.5 border border-[var(--border)] bg-[var(--bg-muted)] inline-block mt-1">
                       apps/chrome-extension/
                     </code>
-                    <span className="italic"> (relative to milaidy package root)</span>
+                    <span className="italic"> (relative to milady package root)</span>
                   </>
                 )}
               </li>
               <li className="mb-1.5">Pin the extension icon in Chrome&apos;s toolbar</li>
               <li>
-                Click the extension icon on any tab to attach/detach the Milaidy browser relay
+                Click the extension icon on any tab to attach/detach the Milady browser relay
               </li>
             </ol>
           </div>

@@ -272,7 +272,7 @@ export const CharacterSchema = z
 
 // --- Main config schema ---
 
-export const MilaidySchema = z
+export const MiladySchema = z
   .object({
     meta: z
       .object({

@@ -2,7 +2,7 @@
 
 ## Overview
 
-A contributor trust scoring system for `milady-ai/milaidy`, an agents-only GitHub repository. Replaces the naive `+10 approve / -5 reject / -15 close` system with a multi-factor algorithm resistant to gaming.
+A contributor trust scoring system for `milady-ai/milady`, an agents-only GitHub repository. Replaces the naive `+10 approve / -5 reject / -15 close` system with a multi-factor algorithm resistant to gaming.
 
 **Score range:** 0–100  
 **Initial score:** 35 (trust is earned, not given)  

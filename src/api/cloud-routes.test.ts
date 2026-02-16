@@ -11,8 +11,8 @@ const fetchMock =
   vi.fn<
     (input: string | URL | Request, init?: RequestInit) => Promise<Response>
   >();
-const { saveMilaidyConfigMock, validateCloudBaseUrlMock } = vi.hoisted(() => ({
-  saveMilaidyConfigMock: vi.fn<(config: unknown) => void>(),
+const { saveMiladyConfigMock, validateCloudBaseUrlMock } = vi.hoisted(() => ({
+  saveMiladyConfigMock: vi.fn<(config: unknown) => void>(),
   validateCloudBaseUrlMock: vi.fn<(rawUrl: string) => Promise<string | null>>(),
 }));
 
@@ -21,7 +21,7 @@ vi.mock("../cloud/validate-url.js", () => ({
 }));
 
 vi.mock("../config/config.js", () => ({
-  saveMilaidyConfig: saveMilaidyConfigMock,
+  saveMiladyConfig: saveMiladyConfigMock,
 }));
 
 function createState(createAgent: (args: unknown) => Promise<unknown>) {
@@ -114,7 +114,7 @@ describe("handleCloudRoute", () => {
   });
 
   it("clears cached cloud auth state for POST /api/cloud/disconnect", async () => {
-    saveMilaidyConfigMock.mockClear();
+    saveMiladyConfigMock.mockClear();
     process.env.ELIZAOS_CLOUD_API_KEY = "ck-test";
     process.env.ELIZAOS_CLOUD_ENABLED = "true";
 
@@ -158,7 +158,7 @@ describe("handleCloudRoute", () => {
     expect(getStatus()).toBe(200);
     expect(getJson()).toEqual({ ok: true, status: "disconnected" });
     expect(disconnectMock).toHaveBeenCalledTimes(1);
-    expect(saveMilaidyConfigMock).toHaveBeenCalledTimes(1);
+    expect(saveMiladyConfigMock).toHaveBeenCalledTimes(1);
 
     expect(state.config.cloud?.enabled).toBe(false);
     expect(state.config.cloud?.apiKey).toBeUndefined();

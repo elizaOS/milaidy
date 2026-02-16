@@ -25,7 +25,7 @@ describe("companion-routes", () => {
         task.tags.some(
           (tag) =>
             typeof tag === "string" &&
-            tag.toLowerCase() === "milaidy-companion",
+            tag.toLowerCase() === "milady-companion",
         ),
     );
 

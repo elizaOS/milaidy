@@ -60,7 +60,7 @@ Implication: autonomy observability cannot be delivered by frontend work alone.
 
 ## 2) Conversation identity is ephemeral and singleton
 
-Current chat identity (`state.chatUserId`) is generated server-side and kept in-memory, with ownership metadata set to that UUID. There is no persistent "admin entity" identity model in Milaidy API state.
+Current chat identity (`state.chatUserId`) is generated server-side and kept in-memory, with ownership metadata set to that UUID. There is no persistent "admin entity" identity model in Milady API state.
 
 Implication: trust semantics tied to role are fragile until identity is formalized.
 
@@ -92,7 +92,7 @@ Implication: "live autonomy loop" UI cannot be achieved with low latency unless 
 
 ## 6) Runtime ownership metadata exists, roles metadata does not
 
-Milaidy writes `world.metadata.ownership.ownerId` in multiple places (CLI and API room setup). It does not consistently initialize/populate `world.metadata.roles`.
+Milady writes `world.metadata.ownership.ownerId` in multiple places (CLI and API room setup). It does not consistently initialize/populate `world.metadata.roles`.
 
 Eliza role provider logic expects role metadata for hierarchy.
 
@@ -100,7 +100,7 @@ Implication: owner/admin semantics are partially present but not complete.
 
 ## 7) Rolodex plugin is listed, not guaranteed active
 
-`plugins.json` includes `@elizaos/plugin-rolodex`, but Milaidy default plugin loading is auto-detected + allowlist/entries driven. Rolodex is not guaranteed loaded unless configured.
+`plugins.json` includes `@elizaos/plugin-rolodex`, but Milady default plugin loading is auto-detected + allowlist/entries driven. Rolodex is not guaranteed loaded unless configured.
 
 Implication: trust behavior depending on rolodex requires explicit enable/load policy.
 

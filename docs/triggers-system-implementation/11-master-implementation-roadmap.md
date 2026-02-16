@@ -37,11 +37,11 @@ Deliverables:
 
 - `CREATE_TASK` action with schedule extraction + hard validation
 - dedupe and quota controls
-- capability registration verified in Milaidy runtime
+- capability registration verified in Milady runtime
 
 Gate:
 
-- action path tested in runtime used by Milaidy
+- action path tested in runtime used by Milady
 
 ## Milestone C — API complete
 
@@ -120,7 +120,7 @@ graph TD
 
 ## B Risks
 
-- capability path mismatch in Milaidy
+- capability path mismatch in Milady
 - excessive false-positive action selection
 
 ## C Risks

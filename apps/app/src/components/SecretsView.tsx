@@ -12,7 +12,7 @@ import type { SecretInfo } from "../api-client";
 
 /* ── Constants ──────────────────────────────────────────────────────── */
 
-const STORAGE_KEY = "milaidy:secrets-vault-keys";
+const STORAGE_KEY = "milady:secrets-vault-keys";
 
 const CATEGORY_ORDER = ["ai-provider", "blockchain", "connector", "auth", "other"] as const;
 

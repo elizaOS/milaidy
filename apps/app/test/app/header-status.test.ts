@@ -18,7 +18,7 @@ describe("header status", () => {
   beforeEach(() => {
     mockUseApp.mockReset();
     baseAppState = {
-      agentStatus: { state: "running", agentName: "Milaidy", model: undefined, startedAt: undefined, uptime: undefined },
+      agentStatus: { state: "running", agentName: "Milady", model: undefined, startedAt: undefined, uptime: undefined },
       cloudEnabled: false,
       cloudConnected: false,
       cloudCredits: null,
@@ -43,7 +43,7 @@ describe("header status", () => {
   it("renders starting state with loading indicator", async () => {
     mockUseApp.mockReturnValue({
       ...baseAppState,
-      agentStatus: { state: "starting", agentName: "Milaidy", model: undefined, startedAt: undefined, uptime: undefined },
+      agentStatus: { state: "starting", agentName: "Milady", model: undefined, startedAt: undefined, uptime: undefined },
     });
 
     let tree: TestRenderer.ReactTestRenderer;

@@ -290,7 +290,7 @@ export class CameraManager {
 
   async stopRecording(): Promise<VideoResult> {
     const renderer = await this.ensureRenderer();
-    const tempDir = path.join(app.getPath("temp"), "milaidy-camera");
+    const tempDir = path.join(app.getPath("temp"), "milady-camera");
     await mkdir(tempDir, { recursive: true });
     const filePath = path.join(tempDir, `recording-${Date.now()}.webm`);
 

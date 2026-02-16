@@ -17,7 +17,7 @@ export class StatusBar implements Component {
     inputTokens: 0,
     outputTokens: 0,
     isStreaming: false,
-    agentName: "milaidy",
+    agentName: "milady",
   };
 
   update(partial: Partial<StatusBarData>): void {

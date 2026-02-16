@@ -80,19 +80,19 @@ function normalizeAvatarIndex(index: number): number {
 export function getVrmUrl(index: number): string {
   const normalized = normalizeAvatarIndex(index);
   const safeIndex = normalized > 0 ? normalized : 1;
-  return resolveAppAssetUrl(`vrms/milAIdy-${safeIndex}.vrm`);
+  return resolveAppAssetUrl(`vrms/milady-${safeIndex}.vrm`);
 }
 
 /** Resolve a bundled VRM index (1–N) to its preview thumbnail URL. */
 export function getVrmPreviewUrl(index: number): string {
   const normalized = normalizeAvatarIndex(index);
   const safeIndex = normalized > 0 ? normalized : 1;
-  return resolveAppAssetUrl(`vrms/previews/milAIdy-${safeIndex}.png`);
+  return resolveAppAssetUrl(`vrms/previews/milady-${safeIndex}.png`);
 }
 
 // ── Theme ──────────────────────────────────────────────────────────────
 
-const THEME_STORAGE_KEY = "milaidy:theme";
+const THEME_STORAGE_KEY = "milady:theme";
 
 export type ThemeName =
   | "milady"
@@ -138,7 +138,7 @@ function applyTheme(name: ThemeName) {
 }
 
 /* ── Avatar persistence ───────────────────────────────────────────────── */
-const AVATAR_INDEX_KEY = "milaidy_avatar_index";
+const AVATAR_INDEX_KEY = "milady_avatar_index";
 
 function loadAvatarIndex(): number {
   try {
@@ -158,9 +158,9 @@ function saveAvatarIndex(index: number) {
 }
 
 /* ── Chat UI persistence ──────────────────────────────────────────────── */
-const CHAT_AVATAR_VISIBLE_KEY = "milaidy:chat:avatarVisible";
-const CHAT_VOICE_MUTED_KEY = "milaidy:chat:voiceMuted";
-const CHAT_MODE_KEY = "milaidy:chat:mode";
+const CHAT_AVATAR_VISIBLE_KEY = "milady:chat:avatarVisible";
+const CHAT_VOICE_MUTED_KEY = "milady:chat:voiceMuted";
+const CHAT_MODE_KEY = "milady:chat:mode";
 
 function loadChatAvatarVisible(): boolean {
   try {
@@ -1824,7 +1824,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setActionNotice(LIFECYCLE_MESSAGES.restart.progress, "info", 3200);
     try {
       setAgentStatus({
-        ...(agentStatus ?? { agentName: "Milaidy", model: undefined, uptime: undefined, startedAt: undefined }),
+        ...(agentStatus ?? { agentName: "Milady", model: undefined, uptime: undefined, startedAt: undefined }),
         state: "restarting",
       });
       // Server restart clears in-memory conversations — reset client state
@@ -2644,7 +2644,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     );
     if (!confirmed) return;
     const exportToken = window.prompt(
-      "Enter your wallet export token (MILAIDY_WALLET_EXPORT_TOKEN):",
+      "Enter your wallet export token (MILADY_WALLET_EXPORT_TOKEN):",
       "",
     );
     if (exportToken === null) return;
@@ -3514,7 +3514,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (!agentReady) {
         if (import.meta.env.DEV) {
           console.debug(
-            "[milaidy] Agent did not reach running/paused state during startup.",
+            "[milady] Agent did not reach running/paused state during startup.",
           );
         }
       }
@@ -3617,7 +3617,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           setAutonomousLatestEventId(replay.latestEventId);
         }
       } catch (err) {
-        console.warn("[milaidy] Failed to fetch autonomous event replay", err);
+        console.warn("[milady] Failed to fetch autonomous event replay", err);
       }
 
       // Handle proactive messages from autonomy

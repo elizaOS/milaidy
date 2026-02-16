@@ -4,7 +4,7 @@
  */
 
 import { logger } from "@elizaos/core";
-import type { CloudConfig } from "../config/types.milaidy.js";
+import type { CloudConfig } from "../config/types.milady.js";
 import { BackupScheduler } from "./backup.js";
 import { ElizaCloudClient } from "./bridge-client.js";
 import { CloudRuntimeProxy } from "./cloud-proxy.js";

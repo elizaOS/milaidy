@@ -1,15 +1,15 @@
 {
-  "name": "Milaidy",
+  "name": "Milady",
   "version": "2.0.0-alpha.7",
   "description": "Cute agents for the acceleration",
-  "homepage": "https://github.com/milady-ai/milaidy",
+  "homepage": "https://github.com/milady-ai/milady",
   "author": {
     "name": "Milady AI",
     "email": "hi@milady.ai"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/milady-ai/milaidy.git"
+    "url": "https://github.com/milady-ai/milady.git"
   },
   "license": "MIT",
   "main": "build/src/index.js",

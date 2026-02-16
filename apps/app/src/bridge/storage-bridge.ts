@@ -17,9 +17,9 @@ const isNative = Capacitor.isNativePlatform();
 
 // Keys that should be synced to Capacitor Preferences
 const SYNCED_KEYS = new Set([
-  "milaidy.control.settings.v1",
-  "milaidy.device.identity",
-  "milaidy.device.auth",
+  "milady.control.settings.v1",
+  "milady.device.identity",
+  "milady.device.auth",
 ]);
 
 // In-memory cache of values from Preferences (for native)

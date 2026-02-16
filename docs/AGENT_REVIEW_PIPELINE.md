@@ -1,6 +1,6 @@
 # Agent Review Pipeline — Complete Documentation
 
-> **Repository:** milady-ai/milaidy  
+> **Repository:** milady-ai/milady  
 > **Date:** February 14, 2026  
 > **Authors:** Sol (0xSolace) + Shadow (wakesync)  
 > **Status:** Production — fully operational on `develop` branch
@@ -24,7 +24,7 @@
 
 ## Overview
 
-Milaidy is an **agents-only codebase**. No human code contributions are accepted — humans contribute by using the app and reporting bugs as QA testers. Every PR is reviewed by an AI agent, and the agent's verdict is final.
+Milady is an **agents-only codebase**. No human code contributions are accepted — humans contribute by using the app and reporting bugs as QA testers. Every PR is reviewed by an AI agent, and the agent's verdict is final.
 
 The Agent Review Pipeline is the CI system that enforces this. It:
 - Classifies incoming PRs by type (bugfix, feature, aesthetic)

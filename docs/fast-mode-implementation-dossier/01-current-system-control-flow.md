@@ -25,7 +25,7 @@ This document maps current behavior from UI input to final model response, with 
   - HTTP request shape and auth headers
   - Endpoint-specific methods for conversations and agent APIs
 
-## Milaidy API / Runtime Bridge
+## Milady API / Runtime Bridge
 
 - `src/api/server.ts`
   - HTTP route parsing
@@ -101,7 +101,7 @@ When cloud manager/proxy is active in `server.ts`:
 3. Proxy calls bridge client (`sendMessage` or stream equivalent) with JSON-RPC method (for example `message.send`).
 4. Cloud bridge endpoint forwards to cloud-agent entrypoint runtime.
 5. Cloud entrypoint creates message memory and calls `runtime.messageService.handleMessage`.
-6. Cloud response text is returned back through bridge to Milaidy server to frontend.
+6. Cloud response text is returned back through bridge to Milady server to frontend.
 
 Critical observation: cloud parity requires preserving room/conversation identity and any new fast-mode fields through every layer.
 

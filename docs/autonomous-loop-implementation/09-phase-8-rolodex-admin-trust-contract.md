@@ -14,7 +14,7 @@ the system should accept this with reduced friction compared with non-privileged
 
 ## Current challenge
 
-Milaidy currently lacks a durable role-aware trust contract in its web chat identity path.
+Milady currently lacks a durable role-aware trust contract in its web chat identity path.
 
 Even if rolodex is enabled, claim trust quality depends on reliable role identity.
 
@@ -75,12 +75,12 @@ This is critical for forensic debugging and user trust.
 
 ## Integration options
 
-## Option A: role-aware wrapper in Milaidy before rolodex action
+## Option A: role-aware wrapper in Milady before rolodex action
 
 Pros:
 
 - minimal rolodex plugin changes
-- Milaidy controls trust gate
+- Milady controls trust gate
 
 Cons:
 
@@ -99,7 +99,7 @@ Cons:
 
 ## Option C: hybrid staged rollout (recommended)
 
-1. short term wrapper in Milaidy
+1. short term wrapper in Milady
 2. migrate logic into rolodex plugin once stable
 
 ## Security threat model highlights

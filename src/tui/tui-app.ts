@@ -25,11 +25,11 @@ import {
 } from "./components/index.js";
 import { tuiTheme } from "./theme.js";
 
-export interface MilaidyTUIOptions {
+export interface MiladyTUIOptions {
   runtime: AgentRuntime;
 }
 
-export class MilaidyTUI {
+export class MiladyTUI {
   private terminal = new ProcessTerminal();
   private ui!: TUI;
 
@@ -56,7 +56,7 @@ export class MilaidyTUI {
       }
     | undefined;
 
-  constructor(private options: MilaidyTUIOptions) {}
+  constructor(private options: MiladyTUIOptions) {}
 
   setOnSubmit(handler: (text: string) => Promise<void>): void {
     this.onSubmit = handler;
@@ -89,12 +89,12 @@ export class MilaidyTUI {
     this.ephemeralStatusContainer = new Container();
 
     this.statusBar.update({
-      agentName: this.options.runtime.character?.name ?? "milaidy",
+      agentName: this.options.runtime.character?.name ?? "milady",
     });
 
     // Welcome
     this.chatContainer.addChild(
-      new Text(tuiTheme.accent("Welcome to Milaidy"), 1, 0),
+      new Text(tuiTheme.accent("Welcome to Milady"), 1, 0),
     );
     this.chatContainer.addChild(new Spacer(1));
 
@@ -238,7 +238,7 @@ export class MilaidyTUI {
   clearChat(): void {
     this.chatContainer.clear();
     this.chatContainer.addChild(
-      new Text(tuiTheme.accent("Welcome to Milaidy"), 1, 0),
+      new Text(tuiTheme.accent("Welcome to Milady"), 1, 0),
     );
     this.chatContainer.addChild(new Spacer(1));
     this.ui.requestRender();

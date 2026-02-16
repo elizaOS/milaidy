@@ -134,7 +134,7 @@ jobs:
           allowed_non_write_users: ${{ vars.ALLOWED_NON_WRITE_USERS || 'lawyered0,jqmwa,0xSolace,0xVera' }}
           claude_args: '--model claude-opus-4-6 --allowedTools "Bash,GitHub,Read,Glob,LS"'
           prompt: |
-            You are the sole code reviewer for the Milaidy project (milady-ai/milaidy).
+            You are the sole code reviewer for the Milady project (milady-ai/milady).
             This is an agents-only codebase. No human code contributions are accepted — humans contribute by using the app and reporting bugs as QA testers. Your review is final.
 
             ## PR Info
@@ -147,7 +147,7 @@ jobs:
             ## Review Protocol
 
             ### 1. Scope Check
-            Milaidy is a personal AI assistant built on ElizaOS. Contributions MUST be in scope:
+            Milady is a personal AI assistant built on ElizaOS. Contributions MUST be in scope:
 
             **IN SCOPE (welcome):**
             - Bug fixes (connector issues, crashes, regressions, error handling)
@@ -718,7 +718,7 @@ jobs:
           allowed_non_write_users: 'lawyered0,jqmwa,0xSolace,0xVera'
           claude_args: '--model claude-opus-4-6 --allowedTools "Bash(gh issue comment:*),Bash(gh issue edit:*),Bash(gh issue close:*),Bash(gh issue view:*),Bash(cat:*),Read,Glob,LS"'
           prompt: |
-            You are the issue triager for the Milaidy project. This is an agents-only codebase where humans serve as QA testers.
+            You are the issue triager for the Milady project. This is an agents-only codebase where humans serve as QA testers.
 
             ## Classification
             This issue has been pre-classified as: ${{ needs.classify.outputs.category }}

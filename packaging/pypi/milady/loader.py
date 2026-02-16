@@ -1,9 +1,9 @@
 """
-Dynamic loader for the Milaidy Node.js runtime.
+Dynamic loader for the Milady Node.js runtime.
 
 Responsibilities:
   1. Detect a suitable Node.js installation (>= 22.12.0)
-  2. Detect or install the milaidy npm package
+  2. Detect or install the milady npm package
   3. Delegate CLI invocations to the Node.js process
   4. Provide a Python API for programmatic use
 """
@@ -21,7 +21,7 @@ from typing import Optional, Sequence, Tuple
 # ── Constants ────────────────────────────────────────────────────────────────
 
 REQUIRED_NODE_VERSION: Tuple[int, int, int] = (22, 12, 0)
-NPM_PACKAGE = "milaidy"
+NPM_PACKAGE = "milady"
 _VERSION_RE = re.compile(r"v?(\d+)\.(\d+)\.(\d+)")
 
 
@@ -37,7 +37,7 @@ class NodeNotFoundError(MiladyError):
 
 
 class RuntimeInstallError(MiladyError):
-    """Raised when the milaidy npm package cannot be installed."""
+    """Raised when the milady npm package cannot be installed."""
 
 
 # ── Node.js Detection ────────────────────────────────────────────────────────
@@ -83,7 +83,7 @@ def _check_node() -> str:
     if not node_bin:
         req = ".".join(str(v) for v in REQUIRED_NODE_VERSION)
         raise NodeNotFoundError(
-            f"Node.js not found. Milaidy requires Node.js >= {req}.\n"
+            f"Node.js not found. Milady requires Node.js >= {req}.\n"
             "Install it from https://nodejs.org or via your package manager:\n"
             "  macOS:   brew install node@22\n"
             "  Linux:   curl -fsSL https://deb.nodesource.com/setup_22.x | sudo bash -\n"
@@ -120,8 +120,8 @@ def _find_npm() -> Optional[str]:
     return shutil.which("npm")
 
 
-def _is_milaidy_installed_globally() -> bool:
-    """Check if milaidy is installed as a global npm package."""
+def _is_milady_installed_globally() -> bool:
+    """Check if milady is installed as a global npm package."""
     npm_bin = _find_npm()
     if not npm_bin:
         return False
@@ -141,22 +141,22 @@ def _is_milaidy_installed_globally() -> bool:
     return False
 
 
-def _find_milaidy_bin() -> Optional[str]:
-    """Find the milaidy CLI binary on PATH (from a global npm install)."""
-    return shutil.which("milaidy")
+def _find_milady_bin() -> Optional[str]:
+    """Find the milady CLI binary on PATH (from a global npm install)."""
+    return shutil.which("milady")
 
 
-def _install_milaidy_global() -> None:
-    """Install milaidy globally via npm."""
+def _install_milady_global() -> None:
+    """Install milady globally via npm."""
     npm_bin = _find_npm()
     if not npm_bin:
         raise RuntimeInstallError(
-            "npm not found. Cannot install milaidy runtime.\n"
+            "npm not found. Cannot install milady runtime.\n"
             "Install Node.js (which includes npm) from https://nodejs.org"
         )
 
     print(
-        "milady: installing milaidy runtime (npm install -g milaidy)...",
+        "milady: installing milady runtime (npm install -g milady)...",
         file=sys.stderr,
     )
     try:
@@ -167,9 +167,9 @@ def _install_milaidy_global() -> None:
         if result.returncode != 0:
             raise RuntimeInstallError(
                 f"Failed to install {NPM_PACKAGE} via npm (exit code {result.returncode}).\n"
-                "Try running manually: npm install -g milaidy"
+                "Try running manually: npm install -g milady"
             )
-        print("milady: milaidy runtime installed successfully.", file=sys.stderr)
+        print("milady: milady runtime installed successfully.", file=sys.stderr)
     except subprocess.TimeoutExpired:
         raise RuntimeInstallError(
             f"Timed out installing {NPM_PACKAGE}. Check your network connection."
@@ -181,51 +181,51 @@ def _install_milaidy_global() -> None:
 
 def ensure_runtime() -> str:
     """
-    Ensure the Milaidy Node.js runtime is available.
+    Ensure the Milady Node.js runtime is available.
 
-    Checks for Node.js, then checks for the milaidy npm package.
-    Installs milaidy globally if not found.
+    Checks for Node.js, then checks for the milady npm package.
+    Installs milady globally if not found.
 
     Returns:
-        Path to the milaidy CLI binary or npx fallback.
+        Path to the milady CLI binary or npx fallback.
 
     Raises:
         NodeNotFoundError: If Node.js is not installed or too old.
-        RuntimeInstallError: If milaidy cannot be installed.
+        RuntimeInstallError: If milady cannot be installed.
     """
     _check_node()
 
-    milaidy_bin = _find_milaidy_bin()
-    if milaidy_bin:
-        return milaidy_bin
+    milady_bin = _find_milady_bin()
+    if milady_bin:
+        return milady_bin
 
     # Not found on PATH — try installing globally
-    _install_milaidy_global()
+    _install_milady_global()
 
-    milaidy_bin = _find_milaidy_bin()
-    if not milaidy_bin:
+    milady_bin = _find_milady_bin()
+    if not milady_bin:
         # Fall back to npx
         npx_bin = _find_npx()
         if npx_bin:
             return npx_bin
         raise RuntimeInstallError(
-            "milaidy was installed but the binary was not found on PATH.\n"
+            "milady was installed but the binary was not found on PATH.\n"
             "Try: export PATH=\"$(npm config get prefix)/bin:$PATH\""
         )
 
-    return milaidy_bin
+    return milady_bin
 
 
 def run(args: Optional[Sequence[str]] = None) -> int:
     """
-    Run a milaidy CLI command.
+    Run a milady CLI command.
 
     Args:
-        args: CLI arguments to pass to milaidy (e.g. ["start", "--verbose"]).
+        args: CLI arguments to pass to milady (e.g. ["start", "--verbose"]).
               If None, defaults to empty list.
 
     Returns:
-        The exit code from the milaidy process.
+        The exit code from the milady process.
 
     Raises:
         MiladyError: If the runtime cannot be found or started.
@@ -247,23 +247,23 @@ def run(args: Optional[Sequence[str]] = None) -> int:
     except FileNotFoundError:
         raise MiladyError(f"Could not execute: {bin_path}")
     except OSError as exc:
-        raise MiladyError(f"Failed to run milaidy: {exc}")
+        raise MiladyError(f"Failed to run milady: {exc}")
 
 
 def get_version() -> Optional[str]:
     """
-    Get the installed milaidy version.
+    Get the installed milady version.
 
     Returns:
         Version string (e.g. "2.0.0-alpha.7") or None if not installed.
     """
-    milaidy_bin = _find_milaidy_bin()
-    if not milaidy_bin:
+    milady_bin = _find_milady_bin()
+    if not milady_bin:
         return None
 
     try:
         result = subprocess.run(
-            [milaidy_bin, "--version"],
+            [milady_bin, "--version"],
             capture_output=True,
             text=True,
             timeout=10,

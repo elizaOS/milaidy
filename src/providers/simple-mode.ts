@@ -23,7 +23,7 @@ function resolveInteractionMode(message: Memory): InteractionMode {
 
 export function createSimpleModeProvider(): Provider {
   return {
-    name: "milaidySimpleMode",
+    name: "miladySimpleMode",
     description:
       "Guides response behavior in simple mode; tools require power mode.",
     // Keep this always available so mode guidance is present even when

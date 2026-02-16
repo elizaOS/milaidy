@@ -3,7 +3,7 @@ import type { AgentRuntime, Memory, MessagePayload } from "@elizaos/core";
 import { createUniqueUuid } from "@elizaos/core";
 import { describe, expect, it } from "vitest";
 import { startApiServer } from "../src/api/server.js";
-import { createMilaidyPlugin } from "../src/runtime/milaidy-plugin.js";
+import { createMiladyPlugin } from "../src/runtime/milady-plugin.js";
 
 type TrajectoryStatus = "active" | "completed" | "error" | "timeout";
 
@@ -656,7 +656,7 @@ describe("trajectory collection bridge e2e", () => {
     };
     const runtime = runtimeSubset as unknown as AgentRuntime;
 
-    const plugin = createMilaidyPlugin({ agentId: runtime.agentId });
+    const plugin = createMiladyPlugin({ agentId: runtime.agentId });
     const onMessageReceived = plugin.events?.MESSAGE_RECEIVED?.[0];
     const onMessageSent = plugin.events?.MESSAGE_SENT?.[0];
     expect(onMessageReceived).toBeTypeOf("function");

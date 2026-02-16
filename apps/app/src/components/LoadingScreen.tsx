@@ -1,5 +1,5 @@
 /**
- * Loading screen — ASCII "milaidy" logo with per-character dither fade.
+ * Loading screen — ASCII "milady" logo with per-character dither fade.
  *
  * Each letter independently cycles through quantised opacity steps on its
  * own random schedule, producing a constantly shifting dither pattern that

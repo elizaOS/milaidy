@@ -9,7 +9,7 @@ Need per-chat/per-message fast mode with:
 - model override capability
 - minimal regressions to autonomous/default mode
 
-The architecture spans Milaidy app + API + cloud bridge + Eliza core.
+The architecture spans Milady app + API + cloud bridge + Eliza core.
 
 ---
 
@@ -24,11 +24,11 @@ The architecture spans Milaidy app + API + cloud bridge + Eliza core.
 
 ---
 
-## Option A: Milaidy-Only Fast Path (No Eliza core changes)
+## Option A: Milady-Only Fast Path (No Eliza core changes)
 
 ## Description
 
-Implement fast behavior in Milaidy layer only by controlling request flow and maybe bypassing portions of Eliza runtime.
+Implement fast behavior in Milady layer only by controlling request flow and maybe bypassing portions of Eliza runtime.
 
 ## Pros
 
@@ -78,11 +78,11 @@ Verdict: insufficient as final architecture.
 
 ---
 
-## Option C: Custom Milaidy MessageService Fork/Wrapper
+## Option C: Custom Milady MessageService Fork/Wrapper
 
 ## Description
 
-Replace or wrap default MessageService in Milaidy, implementing fast-mode branches and custom policy logic.
+Replace or wrap default MessageService in Milady, implementing fast-mode branches and custom policy logic.
 
 ## Pros
 
@@ -119,7 +119,7 @@ Add explicit message-scoped processing mode/profile in core:
 
 - strong correctness and consistency
 - low drift and good long-term maintainability
-- reusable for all Eliza-based clients beyond Milaidy
+- reusable for all Eliza-based clients beyond Milady
 
 ## Cons
 
@@ -142,7 +142,7 @@ Verdict: best long-term architecture.
 
 Stage implementation:
 
-1. contract plumbing through Milaidy + cloud
+1. contract plumbing through Milady + cloud
 2. minimal core extensions for message-scoped mode/profile and model routing
 3. deterministic capability profiles
 4. observability + canary rollout
@@ -173,7 +173,7 @@ Verdict: best balance of speed and long-term quality.
 
 | Option | Latency Potential | Concurrency Safety | Maint. Burden | Cloud Parity | Long-Term Fit |
 | --- | --- | --- | --- | --- | --- |
-| A Milaidy-only | Medium | Medium | High | Medium | Low |
+| A Milady-only | Medium | Medium | High | Medium | Low |
 | B Existing options only | Medium-Low | Medium-Low | Medium | Medium | Low |
 | C Custom service fork | High | Medium-High | Very High | Medium | Medium-Low |
 | D Core first-class | High | High | Medium | High | High |

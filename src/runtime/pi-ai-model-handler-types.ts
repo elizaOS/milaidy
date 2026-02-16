@@ -32,7 +32,7 @@ export interface PiAiConfig {
    * Whether to return an ElizaOS TextStreamResult object when params.stream === true.
    *
    * Some ElizaOS internals set stream=true but still expect a plain string.
-   * To avoid breaking those flows, Milaidy defaults this to false and always
+   * To avoid breaking those flows, Milady defaults this to false and always
    * returns a string while still streaming via callbacks.
    */
   returnTextStreamResult?: boolean;

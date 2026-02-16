@@ -1,7 +1,7 @@
 import { Editor, matchesKey } from "@elizaos/tui";
 
 /**
- * Small wrapper around @elizaos/tui's Editor to support Milaidy-wide keybindings.
+ * Small wrapper around @elizaos/tui's Editor to support Milady-wide keybindings.
  */
 export class ChatEditor extends Editor {
   onCtrlC?: () => void;

@@ -76,7 +76,7 @@ interface CustomActionRecord {
 }
 
 const onboardingOptions = {
-  names: ["Milaidy", "Lilypad", "Orbit", "Nova", "Echo"],
+  names: ["Milady", "Lilypad", "Orbit", "Nova", "Echo"],
   styles: [
     {
       catchphrase: "chaotic",
@@ -226,7 +226,7 @@ export async function startMockApiServer(options: MockApiServerOptions = {}): Pr
   const pairingEnabled = options.auth?.pairingEnabled ?? Boolean(requiredAuthToken);
   const pairingExpiresAt =
     options.auth?.expiresAt ?? (pairingEnabled ? Date.now() + 10 * 60 * 1000 : null);
-  const agentName = "Milaidy";
+  const agentName = "Milady";
 
   const conversations: ConversationRecord[] = [
     {
@@ -581,7 +581,7 @@ export async function startMockApiServer(options: MockApiServerOptions = {}): Pr
 
     const greetingMatch = pathname.match(/^\/api\/conversations\/([^/]+)\/greeting$/);
     if (method === "POST" && greetingMatch) {
-      json(res, 200, { text: "hello from milaidy" });
+      json(res, 200, { text: "hello from milady" });
       return;
     }
 
@@ -699,9 +699,9 @@ export async function startMockApiServer(options: MockApiServerOptions = {}): Pr
       json(res, 200, {
         character: {
           name: agentName,
-          username: "milaidy",
+          username: "milady",
           bio: ["A mock agent for desktop e2e"],
-          system: "You are Milaidy",
+          system: "You are Milady",
           adjectives: ["friendly"],
           topics: ["testing"],
           style: { all: [], chat: [], post: [] },
@@ -720,7 +720,7 @@ export async function startMockApiServer(options: MockApiServerOptions = {}): Pr
       return;
     }
     if (method === "POST" && pathname === "/api/character/random-name") {
-      json(res, 200, { name: "Milaidy" });
+      json(res, 200, { name: "Milady" });
       return;
     }
 

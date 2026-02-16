@@ -120,7 +120,7 @@ export class GatewayDiscovery extends EventEmitter {
   private browser: MDNSBrowser | BonjourBrowser | null = null;
   private discoveryType: "mdns" | "bonjour" | null = null;
   private isDiscovering = false;
-  private serviceType = "_milaidy._tcp";
+  private serviceType = "_milady._tcp";
   private mainWindow: BrowserWindow | null = null;
 
   constructor() {

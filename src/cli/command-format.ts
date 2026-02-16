@@ -13,7 +13,7 @@ export function formatCliCommand(
 ): string {
   const cliName = resolveCliName();
   const normalizedCommand = replaceCliName(command, cliName);
-  const profile = normalizeProfileName(env.MILAIDY_PROFILE);
+  const profile = normalizeProfileName(env.MILADY_PROFILE);
   if (!profile) {
     return normalizedCommand;
   }

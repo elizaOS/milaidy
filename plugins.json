@@ -284,7 +284,7 @@
           "type": "string",
           "description": "Legacy: Single directory containing Otto bundled skills",
           "required": false,
-          "example": "./milaidy/skills"
+          "example": "./milady/skills"
         }
       },
       "configUiHints": {

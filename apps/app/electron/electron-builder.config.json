@@ -1,6 +1,6 @@
 {
-  "appId": "com.miladyai.milaidy",
-  "productName": "Milaidy",
+  "appId": "com.miladyai.milady",
+  "productName": "Milady",
   "directories": {
     "buildResources": "resources"
   },
@@ -13,7 +13,7 @@
   "extraResources": [
     {
       "from": "../../../dist",
-      "to": "milaidy-dist",
+      "to": "milady-dist",
       "filter": [
         "**/*.js",
         "package.json"
@@ -23,7 +23,7 @@
   "publish": {
     "provider": "github",
     "owner": "milady-ai",
-    "repo": "milaidy"
+    "repo": "milady"
   },
   "nsis": {
     "allowElevation": true,
@@ -35,8 +35,8 @@
     "icon": "assets/appIcon.ico",
     "azureSignOptions": {
       "endpoint": "https://eus.codesigning.azure.net/",
-      "certificateProfileName": "milaidy-code-sign",
-      "codeSigningAccountName": "milaidy",
+      "certificateProfileName": "milady-code-sign",
+      "codeSigningAccountName": "milady",
       "publisherName": "Milady AI"
     }
   },

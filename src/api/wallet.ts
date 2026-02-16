@@ -38,8 +38,8 @@ export type {
 } from "../contracts/wallet.js";
 
 const FETCH_TIMEOUT_MS = 15_000;
-export const MANAGED_EVM_ADDRESS_ENV_KEY = "MILAIDY_MANAGED_EVM_ADDRESS";
-export const MANAGED_SOLANA_ADDRESS_ENV_KEY = "MILAIDY_MANAGED_SOLANA_ADDRESS";
+export const MANAGED_EVM_ADDRESS_ENV_KEY = "MILADY_MANAGED_EVM_ADDRESS";
+export const MANAGED_SOLANA_ADDRESS_ENV_KEY = "MILADY_MANAGED_SOLANA_ADDRESS";
 
 type EvmChainProvider = "alchemy" | "ankr";
 

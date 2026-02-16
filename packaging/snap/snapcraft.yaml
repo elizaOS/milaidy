@@ -1,8 +1,8 @@
-name: milaidy
+name: milady
 version: '2.0.0-alpha.7'
 summary: Personal AI assistant built on ElizaOS
 description: |
-  Milaidy is a personal AI assistant you run on your own devices, built on
+  Milady is a personal AI assistant you run on your own devices, built on
   ElizaOS. It provides zero-config onboarding, multi-provider AI support,
   a web dashboard, and a plugin system for extensibility.
 
@@ -14,15 +14,15 @@ description: |
   - Web3 wallet integration (EVM + Solana)
   - Desktop apps for macOS, Windows, and Linux
 
-  Quick start: milaidy start
+  Quick start: milady start
 
 grade: devel
 confinement: classic
 base: core22
 license: MIT
 website: https://milady.ai
-source-code: https://github.com/milady-ai/milaidy
-issues: https://github.com/milady-ai/milaidy/issues
+source-code: https://github.com/milady-ai/milady
+issues: https://github.com/milady-ai/milady/issues
 
 architectures:
   - build-on: [amd64]
@@ -31,11 +31,11 @@ architectures:
     build-for: [arm64]
 
 apps:
-  milaidy:
-    command: bin/milaidy-wrapper
+  milady:
+    command: bin/milady-wrapper
     environment:
       PATH: $SNAP/node/bin:$SNAP/usr/bin:$SNAP/bin:$PATH
-      NODE_PATH: $SNAP/lib/milaidy/node_modules
+      NODE_PATH: $SNAP/lib/milady/node_modules
 
 parts:
   node:
@@ -56,7 +56,7 @@ parts:
     organize:
       '*': node/
 
-  milaidy:
+  milady:
     after: [node]
     plugin: nil
     source: .
@@ -65,16 +65,16 @@ parts:
       export PATH="$CRAFT_STAGE/node/bin:$PATH"
       npm ci --ignore-scripts || npm install --ignore-scripts
       npm run build || true
-      mkdir -p "$CRAFT_PART_INSTALL/lib/milaidy"
-      cp -r dist/ "$CRAFT_PART_INSTALL/lib/milaidy/" 2>/dev/null || true
-      cp milaidy.mjs "$CRAFT_PART_INSTALL/lib/milaidy/"
-      cp package.json "$CRAFT_PART_INSTALL/lib/milaidy/"
-      cp plugins.json "$CRAFT_PART_INSTALL/lib/milaidy/"
-      cd "$CRAFT_PART_INSTALL/lib/milaidy"
+      mkdir -p "$CRAFT_PART_INSTALL/lib/milady"
+      cp -r dist/ "$CRAFT_PART_INSTALL/lib/milady/" 2>/dev/null || true
+      cp milady.mjs "$CRAFT_PART_INSTALL/lib/milady/"
+      cp package.json "$CRAFT_PART_INSTALL/lib/milady/"
+      cp plugins.json "$CRAFT_PART_INSTALL/lib/milady/"
+      cd "$CRAFT_PART_INSTALL/lib/milady"
       cp "$CRAFT_PART_SRC/package.json" .
       npm install --production --ignore-scripts 2>/dev/null || true
       mkdir -p "$CRAFT_PART_INSTALL/bin"
-      printf '#!/bin/sh\nexec "$SNAP/node/bin/node" "$SNAP/lib/milaidy/milaidy.mjs" "$@"\n' > "$CRAFT_PART_INSTALL/bin/milaidy-wrapper"
-      chmod +x "$CRAFT_PART_INSTALL/bin/milaidy-wrapper"
+      printf '#!/bin/sh\nexec "$SNAP/node/bin/node" "$SNAP/lib/milady/milady.mjs" "$@"\n' > "$CRAFT_PART_INSTALL/bin/milady-wrapper"
+      chmod +x "$CRAFT_PART_INSTALL/bin/milady-wrapper"
     build-packages:
       - curl

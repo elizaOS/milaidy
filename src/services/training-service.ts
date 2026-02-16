@@ -1,5 +1,5 @@
 /**
- * Fine-tuning service for Milaidy.
+ * Fine-tuning service for Milady.
  *
  * Provides:
  * - trajectory listing from runtime database
@@ -17,7 +17,7 @@ import path from "node:path";
 import type { AgentRuntime } from "@elizaos/core";
 import { logger } from "@elizaos/core";
 import { resolveStateDir } from "../config/paths.js";
-import type { MilaidyConfig } from "../config/types.js";
+import type { MiladyConfig } from "../config/types.js";
 
 type SqlPrimitive = string | number | boolean | null;
 interface SqlCellArray extends Array<SqlCell> {}
@@ -167,8 +167,8 @@ export interface ActivateModelResult {
 
 interface ServiceOptions {
   getRuntime: () => AgentRuntime | null;
-  getConfig: () => MilaidyConfig;
-  setConfig: (nextConfig: MilaidyConfig) => void;
+  getConfig: () => MiladyConfig;
+  setConfig: (nextConfig: MiladyConfig) => void;
 }
 
 interface SqlExecuteResult {
@@ -314,8 +314,8 @@ function summarizeTrajectory(row: SqlRow): TrainingTrajectorySummary {
 export class TrainingService {
   private readonly emitter = new EventEmitter();
   private readonly getRuntime: () => AgentRuntime | null;
-  private readonly getConfig: () => MilaidyConfig;
-  private readonly setConfig: (nextConfig: MilaidyConfig) => void;
+  private readonly getConfig: () => MiladyConfig;
+  private readonly setConfig: (nextConfig: MiladyConfig) => void;
 
   private initialized = false;
   private readonly baseDir: string;
@@ -611,7 +611,7 @@ export class TrainingService {
             { role: "assistant", content: call.response },
           ],
           metadata: {
-            source: "milaidy",
+            source: "milady",
             model: call.model ?? null,
             purpose: call.purpose ?? null,
             ai_judge_reward: item.summary.aiJudgeReward,
@@ -659,13 +659,13 @@ export class TrainingService {
   }
 
   private resolvePythonRoot(): string {
-    const override = process.env.MILAIDY_TRAINING_PYTHON_ROOT?.trim();
+    const override = process.env.MILADY_TRAINING_PYTHON_ROOT?.trim();
     if (override && override.length > 0) return path.resolve(override);
     return path.resolve(process.cwd(), "../eliza/packages/training/python");
   }
 
   private resolveTrainingScript(pythonRoot: string): string {
-    const override = process.env.MILAIDY_TRAINING_SCRIPT?.trim();
+    const override = process.env.MILADY_TRAINING_SCRIPT?.trim();
     if (override && override.length > 0) return path.resolve(override);
     return path.join(pythonRoot, "scripts", "train_local.py");
   }
@@ -878,7 +878,7 @@ export class TrainingService {
     const scriptPath = this.resolveTrainingScript(pythonRoot);
     if (!existsSync(scriptPath)) {
       throw new Error(
-        `Training script not found at ${scriptPath}. Set MILAIDY_TRAINING_SCRIPT to override.`,
+        `Training script not found at ${scriptPath}. Set MILADY_TRAINING_SCRIPT to override.`,
       );
     }
 
@@ -937,7 +937,7 @@ export class TrainingService {
     }
 
     const pythonExecutable =
-      process.env.MILAIDY_TRAINING_PYTHON_EXECUTABLE?.trim() || "python3";
+      process.env.MILADY_TRAINING_PYTHON_EXECUTABLE?.trim() || "python3";
     const processHandle = spawn(pythonExecutable, args, {
       cwd: pythonRoot,
       env: process.env,
@@ -1062,7 +1062,7 @@ export class TrainingService {
       "qwen2.5:7b-instruct";
     const ollamaModelName =
       options?.modelName?.trim() ||
-      `milaidy-ft-${model.id.slice(Math.max(0, model.id.length - 8))}`;
+      `milady-ft-${model.id.slice(Math.max(0, model.id.length - 8))}`;
     const ollamaUrl = options?.ollamaUrl?.trim() || "http://localhost:11434";
     const modelfile = `FROM ${baseModel}\nADAPTER ${model.adapterPath}\nPARAMETER temperature 0.2\n`;
 
@@ -1117,7 +1117,7 @@ export class TrainingService {
     }
 
     const config = this.getConfig();
-    const nextConfig: MilaidyConfig = {
+    const nextConfig: MiladyConfig = {
       ...config,
       agents: {
         ...config.agents,
@@ -1178,12 +1178,12 @@ export class TrainingService {
     );
     if (!existsSync(benchmarkScript)) {
       throw new Error(
-        `Benchmark script not found at ${benchmarkScript}. Set MILAIDY_TRAINING_PYTHON_ROOT to override.`,
+        `Benchmark script not found at ${benchmarkScript}. Set MILADY_TRAINING_PYTHON_ROOT to override.`,
       );
     }
 
     const pythonExecutable =
-      process.env.MILAIDY_TRAINING_PYTHON_EXECUTABLE?.trim() || "python3";
+      process.env.MILADY_TRAINING_PYTHON_EXECUTABLE?.trim() || "python3";
     const args = [
       benchmarkScript,
       "--adapter-path",

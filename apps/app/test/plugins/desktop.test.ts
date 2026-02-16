@@ -1,10 +1,10 @@
 /**
- * Tests for @milaidy/capacitor-desktop — web fallbacks, window ops, clipboard, events.
+ * Tests for @milady/capacitor-desktop — web fallbacks, window ops, clipboard, events.
  */
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { DesktopWeb } from "../../plugins/desktop/src/web";
 
-describe("@milaidy/capacitor-desktop", () => {
+describe("@milady/capacitor-desktop", () => {
   let d: DesktopWeb;
 
   beforeEach(() => {

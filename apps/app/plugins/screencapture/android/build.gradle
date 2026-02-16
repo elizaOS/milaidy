@@ -21,7 +21,7 @@ apply plugin: 'com.android.library'
 apply plugin: 'kotlin-android'
 
 android {
-    namespace "ai.milaidy.plugins.screencapture"
+    namespace "ai.milady.plugins.screencapture"
     compileSdk project.hasProperty('compileSdkVersion') ? rootProject.ext.compileSdkVersion : 34
 
     defaultConfig {

@@ -91,11 +91,11 @@ export class ElectronCapacitorApp {
     if (webAssets.usedFallback) {
       if (webAssets.primaryHasIndexHtml && electronIsDev) {
         console.info(
-          `[Milaidy] Dev mode: using web assets at ${this.webAssetDirectory} instead of synced ${join(app.getAppPath(), 'app')}`
+          `[Milady] Dev mode: using web assets at ${this.webAssetDirectory} instead of synced ${join(app.getAppPath(), 'app')}`
         );
       } else {
         console.warn(
-          `[Milaidy] Using fallback web assets at ${this.webAssetDirectory} because ${join(app.getAppPath(), 'app')} is missing index.html`
+          `[Milady] Using fallback web assets at ${this.webAssetDirectory} because ${join(app.getAppPath(), 'app')} is missing index.html`
         );
       }
     }
@@ -126,11 +126,11 @@ export class ElectronCapacitorApp {
       try {
         if (!thisRef.MainWindow || thisRef.MainWindow.isDestroyed()) return;
         await thisRef.MainWindow.loadFile(fallbackIndexPath);
-        console.info(`[Milaidy] Loaded packaged web assets from ${fallbackIndexPath}`);
+        console.info(`[Milady] Loaded packaged web assets from ${fallbackIndexPath}`);
         return;
       } catch (error) {
         const reason = error instanceof Error ? error.message : String(error);
-        console.error(`[Milaidy] Packaged file:// load failed (${reason})`);
+        console.error(`[Milady] Packaged file:// load failed (${reason})`);
       }
     }
 
@@ -142,18 +142,18 @@ export class ElectronCapacitorApp {
       return;
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
-      console.error(`[Milaidy] Failed to load web app via ${customSchemeUrl} (${reason})`);
+      console.error(`[Milady] Failed to load web app via ${customSchemeUrl} (${reason})`);
     }
 
     if (existsSync(fallbackIndexPath)) {
       try {
         if (!thisRef.MainWindow || thisRef.MainWindow.isDestroyed()) return;
         await thisRef.MainWindow.loadFile(fallbackIndexPath);
-        console.info(`[Milaidy] Loaded fallback web assets from ${fallbackIndexPath}`);
+        console.info(`[Milady] Loaded fallback web assets from ${fallbackIndexPath}`);
         return;
       } catch (error) {
         const reason = error instanceof Error ? error.message : String(error);
-        console.error(`[Milaidy] Fallback file:// load failed (${reason})`);
+        console.error(`[Milady] Fallback file:// load failed (${reason})`);
       }
     }
 
@@ -165,13 +165,13 @@ export class ElectronCapacitorApp {
       hasIndexHtml: false,
       primaryHasIndexHtml: false,
     });
-    const html = `<html><body style="font-family: sans-serif; margin: 24px;"><h2>Milaidy Desktop Failed to Load UI Assets</h2><pre style="white-space: pre-wrap;">${diagnostics}</pre></body></html>`;
+    const html = `<html><body style="font-family: sans-serif; margin: 24px;"><h2>Milady Desktop Failed to Load UI Assets</h2><pre style="white-space: pre-wrap;">${diagnostics}</pre></body></html>`;
     try {
       if (!thisRef.MainWindow || thisRef.MainWindow.isDestroyed()) return;
       await thisRef.MainWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
-      console.error(`[Milaidy] Failed to render diagnostics page (${reason})`);
+      console.error(`[Milady] Failed to render diagnostics page (${reason})`);
     }
   }
 
@@ -182,7 +182,7 @@ export class ElectronCapacitorApp {
       await this.loadMainWindow(thisRef);
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
-      console.error(`[Milaidy] Unexpected startup load error (${reason})`);
+      console.error(`[Milady] Unexpected startup load error (${reason})`);
     }
   }
 
@@ -219,7 +219,7 @@ export class ElectronCapacitorApp {
     this.MainWindow = new BrowserWindow({
       icon,
       show: false,
-      title: 'Milaidy',
+      title: 'Milady',
       backgroundColor: '#0a0a0a',
       x: this.mainWindowState.x,
       y: this.mainWindowState.y,
@@ -358,7 +358,7 @@ export class ElectronCapacitorApp {
     this.MainWindow.webContents.on('dom-ready', () => {
       showWindow();
       setTimeout(() => {
-        const devtoolsDisabled = process.env.MILAIDY_ELECTRON_DISABLE_DEVTOOLS === '1';
+        const devtoolsDisabled = process.env.MILADY_ELECTRON_DISABLE_DEVTOOLS === '1';
         if (electronIsDev && !devtoolsDisabled && !this.MainWindow.isDestroyed()) {
           this.MainWindow.webContents.openDevTools();
         }
@@ -455,7 +455,7 @@ export class ElectronCapacitorApp {
 
     // Handle content load failures — still show the window so it isn't invisible.
     this.MainWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription) => {
-      console.error(`[Milaidy] Content failed to load (${errorCode}): ${errorDescription}`);
+      console.error(`[Milady] Content failed to load (${errorCode}): ${errorDescription}`);
       showWindow();
     });
 

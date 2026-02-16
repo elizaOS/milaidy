@@ -11,10 +11,10 @@ It contained strong ideas (TaskService reuse, trigger UI, conversational task cr
 
 Top-level issues:
 
-1. It treated Milaidy as if it directly used bootstrap capability wiring.
+1. It treated Milady as if it directly used bootstrap capability wiring.
 2. It under-modeled TaskService scheduling truth (especially `dueAt` and metadata semantics).
 3. It did not account for action selection/execution asymmetry (`validate` at prompt-time vs execution-time).
-4. It omitted route-order hazards in Milaidy's imperative HTTP router.
+4. It omitted route-order hazards in Milady's imperative HTTP router.
 5. It did not define anti-spam and idempotency controls for LLM-created triggers.
 6. It did not provide an operations-grade observability and rollback model.
 
@@ -22,30 +22,30 @@ Top-level issues:
 
 ## A. Incorrect or Risky Assumptions in v1
 
-## 1) Assumption: "Modify bootstrap actions and Milaidy will get CREATE_TRIGGER"
+## 1) Assumption: "Modify bootstrap actions and Milady will get CREATE_TRIGGER"
 
 ### Why this is incomplete
 
-Milaidy runtime startup explicitly sets:
+Milady runtime startup explicitly sets:
 
-- `process.env.IGNORE_BOOTSTRAP = "true"` in `milaidy/src/runtime/eliza.ts`
+- `process.env.IGNORE_BOOTSTRAP = "true"` in `milady/src/runtime/eliza.ts`
 
-That means "auto bootstrap loading" behavior is intentionally bypassed in Milaidy's runtime stack. Milaidy also loads plugins via its own plugin resolution path and comments indicate reliance on `@elizaos/plugin-trust`.
+That means "auto bootstrap loading" behavior is intentionally bypassed in Milady's runtime stack. Milady also loads plugins via its own plugin resolution path and comments indicate reliance on `@elizaos/plugin-trust`.
 
 ### Impact
 
 A pure bootstrap-only implementation risks:
 
-- action exists in Eliza core, but Milaidy never exposes it;
-- mismatched behavior between "vanilla Eliza" and "Milaidy runtime";
-- false confidence from unit tests in `packages/typescript` while Milaidy behavior remains unchanged.
+- action exists in Eliza core, but Milady never exposes it;
+- mismatched behavior between "vanilla Eliza" and "Milady runtime";
+- false confidence from unit tests in `packages/typescript` while Milady behavior remains unchanged.
 
 ### Correction
 
 Define two explicit integration targets:
 
 - **Target A (Eliza core)**: add the action in `packages/typescript` capability stack.
-- **Target B (Milaidy runtime path)**: verify which capability/plugin path Milaidy actually runs and ensure the action is reachable there.
+- **Target B (Milady runtime path)**: verify which capability/plugin path Milady actually runs and ensure the action is reachable there.
 
 ---
 
@@ -127,7 +127,7 @@ For `CREATE_TASK`/`CREATE_TRIGGER`:
 
 ### Why this is risky
 
-`milaidy/src/api/server.ts` uses a single large imperative route chain:
+`milady/src/api/server.ts` uses a single large imperative route chain:
 
 - route matching is order-dependent;
 - `pathname.startsWith(...)` handlers can shadow narrower routes.
@@ -318,7 +318,7 @@ These remain valid, but require stronger invariants and control-flow detail.
 
 The revised plan must satisfy all of the following:
 
-1. **Milaidy capability path is explicit and verified**  
+1. **Milady capability path is explicit and verified**  
    (no bootstrap-only assumptions).
 
 2. **Trigger scheduling semantics align with current TaskService reality**  

@@ -1,1 +1,1 @@
-ai.milaidy.plugins.gateway
+ai.milady.plugins.gateway

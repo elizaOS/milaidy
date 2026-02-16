@@ -39,7 +39,7 @@ const { mockClient } = vi.hoisted(() => ({
     getAgentEvents: vi.fn(async () => ({ events: [], latestEventId: null })),
     getStatus: vi.fn(async () => ({
       state: "running",
-      agentName: "Milaidy",
+      agentName: "Milady",
       model: undefined,
       startedAt: undefined,
       uptime: undefined,
@@ -59,7 +59,7 @@ const { mockClient } = vi.hoisted(() => ({
       },
     })),
     importAgent: vi.fn(async () => ({
-      agentName: "Milaidy",
+      agentName: "Milady",
       counts: {
         memories: 1,
         entities: 0,
@@ -157,7 +157,7 @@ describe("agent transfer locking", () => {
     mockClient.getAgentEvents.mockResolvedValue({ events: [], latestEventId: null });
     mockClient.getStatus.mockResolvedValue({
       state: "running",
-      agentName: "Milaidy",
+      agentName: "Milady",
       model: undefined,
       startedAt: undefined,
       uptime: undefined,

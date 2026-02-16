@@ -12,7 +12,7 @@ const { mockClient } = vi.hoisted(() => ({
     })),
     getOnboardingStatus: vi.fn(async () => ({ complete: false })),
     getOnboardingOptions: vi.fn(async () => ({
-      names: ["Milaidy"],
+      names: ["Milady"],
       styles: [],
       providers: [],
       cloudProviders: [],
@@ -29,7 +29,7 @@ const { mockClient } = vi.hoisted(() => ({
     getAgentEvents: vi.fn(async () => ({ events: [], latestEventId: null })),
     getStatus: vi.fn(async () => ({
       state: "running",
-      agentName: "Milaidy",
+      agentName: "Milady",
       model: undefined,
       startedAt: undefined,
       uptime: undefined,
@@ -48,7 +48,7 @@ const { mockClient } = vi.hoisted(() => ({
     submitOnboarding: vi.fn(async () => ({ ok: true })),
     restartAgent: vi.fn(async () => ({
       state: "running",
-      agentName: "Milaidy",
+      agentName: "Milady",
       model: undefined,
       startedAt: undefined,
       uptime: undefined,
@@ -145,7 +145,7 @@ describe("onboarding finish locking", () => {
     });
     mockClient.getOnboardingStatus.mockResolvedValue({ complete: false });
     mockClient.getOnboardingOptions.mockResolvedValue({
-      names: ["Milaidy"],
+      names: ["Milady"],
       styles: [],
       providers: [],
       cloudProviders: [],
@@ -162,7 +162,7 @@ describe("onboarding finish locking", () => {
     mockClient.getAgentEvents.mockResolvedValue({ events: [], latestEventId: null });
     mockClient.getStatus.mockResolvedValue({
       state: "running",
-      agentName: "Milaidy",
+      agentName: "Milady",
       model: undefined,
       startedAt: undefined,
       uptime: undefined,
@@ -181,7 +181,7 @@ describe("onboarding finish locking", () => {
     mockClient.submitOnboarding.mockResolvedValue({ ok: true });
     mockClient.restartAgent.mockResolvedValue({
       state: "running",
-      agentName: "Milaidy",
+      agentName: "Milady",
       model: undefined,
       startedAt: undefined,
       uptime: undefined,

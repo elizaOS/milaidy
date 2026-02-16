@@ -15,7 +15,7 @@ import { initializeNativeModules, registerAllIPC, disposeNativeModules, getAgent
 unhandled();
 
 // Allow overriding Electron userData during automated E2E runs.
-const userDataOverride = process.env.MILAIDY_ELECTRON_USER_DATA_DIR?.trim();
+const userDataOverride = process.env.MILADY_ELECTRON_USER_DATA_DIR?.trim();
 if (userDataOverride) {
   app.setPath('userData', userDataOverride);
 }
@@ -52,7 +52,7 @@ function parseShareUrl(rawUrl: string): ShareTargetPayload | null {
     return null;
   }
 
-  if (parsed.protocol !== 'milaidy:') return null;
+  if (parsed.protocol !== 'milady:') return null;
   const sharePath = (parsed.pathname || parsed.host || '').replace(/^\/+/, '');
   if (sharePath !== 'share') return null;
 
@@ -83,11 +83,11 @@ function dispatchShareToRenderer(payload: ShareTargetPayload): void {
     return;
   }
 
-  const eventName = JSON.stringify('milaidy:share-target');
+  const eventName = JSON.stringify('milady:share-target');
   const detail = JSON.stringify(payload).replace(/</g, '\\u003c');
   mainWindow.webContents.executeJavaScript(
-    `window.__MILAIDY_SHARE_QUEUE__ = Array.isArray(window.__MILAIDY_SHARE_QUEUE__) ? window.__MILAIDY_SHARE_QUEUE__ : [];` +
-    `window.__MILAIDY_SHARE_QUEUE__.push(${detail});` +
+    `window.__MILADY_SHARE_QUEUE__ = Array.isArray(window.__MILADY_SHARE_QUEUE__) ? window.__MILADY_SHARE_QUEUE__ : [];` +
+    `window.__MILADY_SHARE_QUEUE__.push(${detail});` +
     `document.dispatchEvent(new CustomEvent(${eventName}, { detail: ${detail} }));`
   ).catch(() => {
     pendingSharePayloads.push(payload);
@@ -175,21 +175,21 @@ if (electronIsDev) {
   registerAllIPC();
 
   // Start the embedded agent runtime and pass the API port to the renderer.
-  // The UI's api-client reads window.__MILAIDY_API_BASE__ to know where to connect.
-  const externalApiBase = normalizeApiBase(process.env.MILAIDY_ELECTRON_TEST_API_BASE);
-  if (!externalApiBase && process.env.MILAIDY_ELECTRON_TEST_API_BASE) {
-    console.warn('[Milaidy] Ignoring invalid MILAIDY_ELECTRON_TEST_API_BASE value');
+  // The UI's api-client reads window.__MILADY_API_BASE__ to know where to connect.
+  const externalApiBase = normalizeApiBase(process.env.MILADY_ELECTRON_TEST_API_BASE);
+  if (!externalApiBase && process.env.MILADY_ELECTRON_TEST_API_BASE) {
+    console.warn('[Milady] Ignoring invalid MILADY_ELECTRON_TEST_API_BASE value');
   }
-  const skipEmbeddedAgent = process.env.MILAIDY_ELECTRON_SKIP_EMBEDDED_AGENT === '1' || Boolean(externalApiBase);
+  const skipEmbeddedAgent = process.env.MILADY_ELECTRON_SKIP_EMBEDDED_AGENT === '1' || Boolean(externalApiBase);
   const agentManager = getAgentManager();
   agentManager.setMainWindow(mainWindow);
   let injectedApiBase: string | null = null;
   const injectApiBase = (base: string | null): void => {
     if (!base || base === injectedApiBase || mainWindow.isDestroyed()) return;
     injectedApiBase = base;
-    const apiToken = process.env.MILAIDY_API_TOKEN;
-    const tokenSnippet = apiToken ? `window.__MILAIDY_API_TOKEN__ = ${JSON.stringify(apiToken)};` : "";
-    const baseSnippet = `window.__MILAIDY_API_BASE__ = ${JSON.stringify(base)};`;
+    const apiToken = process.env.MILADY_API_TOKEN;
+    const tokenSnippet = apiToken ? `window.__MILADY_API_TOKEN__ = ${JSON.stringify(apiToken)};` : "";
+    const baseSnippet = `window.__MILADY_API_BASE__ = ${JSON.stringify(base)};`;
     const inject = `${baseSnippet}${tokenSnippet}`;
 
     // Inject now if possible (no-op if the page isn't ready yet).
@@ -215,7 +215,7 @@ if (electronIsDev) {
   });
 
   if (externalApiBase) {
-    console.info(`[Milaidy] Using external API base for renderer: ${externalApiBase}`);
+    console.info(`[Milady] Using external API base for renderer: ${externalApiBase}`);
     injectApiBase(externalApiBase);
   } else if (!skipEmbeddedAgent) {
     // Start in background and inject API base as soon as the port is available,
@@ -235,16 +235,16 @@ if (electronIsDev) {
     })();
 
     startPromise.catch((err) => {
-      console.error('[Milaidy] Agent startup failed:', err);
+      console.error('[Milady] Agent startup failed:', err);
     });
   } else {
-    console.info('[Milaidy] Embedded agent startup disabled by configuration');
+    console.info('[Milady] Embedded agent startup disabled by configuration');
   }
 
   // Check for updates if we are in a packaged app.
-  if (process.env.MILAIDY_ELECTRON_DISABLE_AUTO_UPDATER !== '1') {
+  if (process.env.MILADY_ELECTRON_DISABLE_AUTO_UPDATER !== '1') {
     autoUpdater.checkForUpdatesAndNotify().catch((err: Error) => {
-      console.warn('[Milaidy] Update check failed (non-fatal):', err.message);
+      console.warn('[Milady] Update check failed (non-fatal):', err.message);
     });
   }
 })();

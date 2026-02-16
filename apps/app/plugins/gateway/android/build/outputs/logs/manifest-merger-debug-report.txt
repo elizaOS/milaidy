@@ -1,20 +1,20 @@
 -- Merging decision tree log ---
 manifest
-ADDED from /Users/shawwalters/eliza-ok/packages/milaidy/apps/app/plugins/gateway/android/src/main/AndroidManifest.xml:2:1-4:12
-INJECTED from /Users/shawwalters/eliza-ok/packages/milaidy/apps/app/plugins/gateway/android/src/main/AndroidManifest.xml:2:1-4:12
+ADDED from /Users/shawwalters/eliza-ok/packages/milady/apps/app/plugins/gateway/android/src/main/AndroidManifest.xml:2:1-4:12
+INJECTED from /Users/shawwalters/eliza-ok/packages/milady/apps/app/plugins/gateway/android/src/main/AndroidManifest.xml:2:1-4:12
 	package
-		INJECTED from /Users/shawwalters/eliza-ok/packages/milaidy/apps/app/plugins/gateway/android/src/main/AndroidManifest.xml
+		INJECTED from /Users/shawwalters/eliza-ok/packages/milady/apps/app/plugins/gateway/android/src/main/AndroidManifest.xml
 	xmlns:android
-		ADDED from /Users/shawwalters/eliza-ok/packages/milaidy/apps/app/plugins/gateway/android/src/main/AndroidManifest.xml:2:11-69
+		ADDED from /Users/shawwalters/eliza-ok/packages/milady/apps/app/plugins/gateway/android/src/main/AndroidManifest.xml:2:11-69
 uses-permission#android.permission.INTERNET
-ADDED from /Users/shawwalters/eliza-ok/packages/milaidy/apps/app/plugins/gateway/android/src/main/AndroidManifest.xml:3:5-67
+ADDED from /Users/shawwalters/eliza-ok/packages/milady/apps/app/plugins/gateway/android/src/main/AndroidManifest.xml:3:5-67
 	android:name
-		ADDED from /Users/shawwalters/eliza-ok/packages/milaidy/apps/app/plugins/gateway/android/src/main/AndroidManifest.xml:3:22-64
+		ADDED from /Users/shawwalters/eliza-ok/packages/milady/apps/app/plugins/gateway/android/src/main/AndroidManifest.xml:3:22-64
 uses-sdk
-INJECTED from /Users/shawwalters/eliza-ok/packages/milaidy/apps/app/plugins/gateway/android/src/main/AndroidManifest.xml reason: use-sdk injection requested
-INJECTED from /Users/shawwalters/eliza-ok/packages/milaidy/apps/app/plugins/gateway/android/src/main/AndroidManifest.xml
-INJECTED from /Users/shawwalters/eliza-ok/packages/milaidy/apps/app/plugins/gateway/android/src/main/AndroidManifest.xml
+INJECTED from /Users/shawwalters/eliza-ok/packages/milady/apps/app/plugins/gateway/android/src/main/AndroidManifest.xml reason: use-sdk injection requested
+INJECTED from /Users/shawwalters/eliza-ok/packages/milady/apps/app/plugins/gateway/android/src/main/AndroidManifest.xml
+INJECTED from /Users/shawwalters/eliza-ok/packages/milady/apps/app/plugins/gateway/android/src/main/AndroidManifest.xml
 	android:targetSdkVersion
-		INJECTED from /Users/shawwalters/eliza-ok/packages/milaidy/apps/app/plugins/gateway/android/src/main/AndroidManifest.xml
+		INJECTED from /Users/shawwalters/eliza-ok/packages/milady/apps/app/plugins/gateway/android/src/main/AndroidManifest.xml
 	android:minSdkVersion
-		INJECTED from /Users/shawwalters/eliza-ok/packages/milaidy/apps/app/plugins/gateway/android/src/main/AndroidManifest.xml
+		INJECTED from /Users/shawwalters/eliza-ok/packages/milady/apps/app/plugins/gateway/android/src/main/AndroidManifest.xml

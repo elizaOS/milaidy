@@ -1,12 +1,12 @@
 /**
- * Plugin Installer for Milaidy.
+ * Plugin Installer for Milady.
  *
  * Cross-platform plugin installation and lifecycle management.
  *
  * Install targets:
- *   ~/.milaidy/plugins/installed/<sanitised-name>/
+ *   ~/.milady/plugins/installed/<sanitised-name>/
  *
- * Works identically whether milaidy is:
+ * Works identically whether milady is:
  *   - Running from source (dev)
  *   - Running as a CLI install (npm global)
  *   - Running inside an Electron .app bundle
@@ -15,7 +15,7 @@
  * Strategy:
  *   1. npm/bun install to an isolated prefix directory
  *   2. Fallback: git clone from the plugin's GitHub repo
- *   3. Track the installation in milaidy.json config
+ *   3. Track the installation in milady.json config
  *   4. Trigger agent restart to load the new plugin
  *
  * @module services/plugin-installer
@@ -27,7 +27,7 @@ import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { logger } from "@elizaos/core";
-import { loadMilaidyConfig, saveMilaidyConfig } from "../config/config.js";
+import { loadMiladyConfig, saveMiladyConfig } from "../config/config.js";
 import { requestRestart } from "../runtime/restart.js";
 import { getPluginInfo, type RegistryPluginInfo } from "./registry-client.js";
 
@@ -125,8 +125,8 @@ export interface UninstallResult {
 // ---------------------------------------------------------------------------
 
 function pluginsBaseDir(): string {
-  const stateDir = process.env.MILAIDY_STATE_DIR?.trim();
-  const base = stateDir || path.join(os.homedir(), ".milaidy");
+  const stateDir = process.env.MILADY_STATE_DIR?.trim();
+  const base = stateDir || path.join(os.homedir(), ".milady");
   return path.join(base, "plugins", "installed");
 }
 
@@ -169,9 +169,9 @@ async function detectPackageManager(): Promise<"bun" | "pnpm" | "npm"> {
  * Install a plugin from the registry.
  *
  * 1. Resolves the plugin name in the registry.
- * 2. Installs via npm/bun to ~/.milaidy/plugins/installed/<name>/.
+ * 2. Installs via npm/bun to ~/.milady/plugins/installed/<name>/.
  * 3. Falls back to git clone if npm is not available for this package.
- * 4. Writes an install record to milaidy.json.
+ * 4. Writes an install record to milady.json.
  * 5. Returns metadata about the installation for the caller to
  *    decide whether to trigger a restart.
  */
@@ -315,7 +315,7 @@ async function _installPlugin(
 
   emit("configuring", "Recording installation in config...");
 
-  // Write install record to milaidy.json
+  // Write install record to milady.json
   recordInstallation(canonicalName, {
     source: installSource,
     spec: `${canonicalName}@${installedVersion}`,
@@ -375,7 +375,7 @@ export function uninstallPlugin(pluginName: string): Promise<UninstallResult> {
 }
 
 async function _uninstallPlugin(pluginName: string): Promise<UninstallResult> {
-  const config = loadMilaidyConfig();
+  const config = loadMiladyConfig();
   const installs = config.plugins?.installs;
 
   if (!installs || !installs[pluginName]) {
@@ -424,7 +424,7 @@ async function _uninstallPlugin(pluginName: string): Promise<UninstallResult> {
 
   // Remove from config
   delete installs[pluginName];
-  saveMilaidyConfig(config);
+  saveMiladyConfig(config);
 
   return {
     success: true,
@@ -716,7 +716,7 @@ function recordInstallation(
     installedAt: string;
   },
 ): void {
-  const config = loadMilaidyConfig();
+  const config = loadMiladyConfig();
 
   // Ensure the plugins.installs path exists in the config object
   if (!config.plugins) {
@@ -727,7 +727,7 @@ function recordInstallation(
   }
 
   config.plugins.installs[pluginName] = record;
-  saveMilaidyConfig(config);
+  saveMiladyConfig(config);
 }
 
 // ---------------------------------------------------------------------------
@@ -741,7 +741,7 @@ export function listInstalledPlugins(): Array<{
   installPath: string;
   installedAt: string;
 }> {
-  const config = loadMilaidyConfig();
+  const config = loadMiladyConfig();
   const installs = config.plugins?.installs ?? {};
 
   return Object.entries(installs).map(([name, record]) => ({
