@@ -9,7 +9,7 @@ ENV NODE_LLAMA_CPP_SKIP_DOWNLOAD="true"
 
 ARG MILADY_DOCKER_APT_PACKAGES=""
 RUN apt-get update && \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git-lfs $MILADY_DOCKER_APT_PACKAGES && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git git-lfs $MILADY_DOCKER_APT_PACKAGES && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
 
@@ -19,11 +19,43 @@ COPY . .
 # Pull large media tracked by Git LFS when git metadata is available (e.g. Railway GitHub deploy).
 RUN if [ -d .git ]; then \
       git lfs install --local && \
-      git lfs pull; \
+      git lfs pull || true; \
     fi
 
-# Fail fast if VRM/animation assets are still unresolved LFS pointer files.
+# If pointer files remain (common in some cloud build contexts), fallback to
+# cloning the repo and pulling LFS assets directly, then overwrite local media.
+ARG MILADY_LFS_REPO_URL="https://github.com/cayden970207/milady.git"
+ARG MILADY_LFS_REF=""
+ARG MILADY_LFS_COMMIT=""
+ARG GITHUB_TOKEN=""
 RUN set -e; \
+    POINTERS="$(grep -RIl '^version https://git-lfs.github.com/spec/v1' apps/app/public/vrms apps/app/public/animations || true)"; \
+    if [ -n "$POINTERS" ]; then \
+      echo '[build] Unresolved Git LFS pointers detected in build context; attempting fallback clone...'; \
+      REPO_URL="$MILADY_LFS_REPO_URL"; \
+      REF="$MILADY_LFS_REF"; \
+      COMMIT="$MILADY_LFS_COMMIT"; \
+      if [ -z "$REF" ] && [ -n "${RAILWAY_GIT_BRANCH:-}" ]; then REF="${RAILWAY_GIT_BRANCH}"; fi; \
+      if [ -z "$REF" ]; then REF="main"; fi; \
+      if [ -z "$COMMIT" ] && [ -n "${RAILWAY_GIT_COMMIT_SHA:-}" ]; then COMMIT="${RAILWAY_GIT_COMMIT_SHA}"; fi; \
+      if [ -n "$GITHUB_TOKEN" ] && echo "$REPO_URL" | grep -q '^https://github.com/'; then \
+        REPO_URL="$(echo "$REPO_URL" | sed "s#^https://#https://x-access-token:${GITHUB_TOKEN}@#")"; \
+      fi; \
+      rm -rf /tmp/milady-lfs-src; \
+      git clone --depth 1 --branch "$REF" "$REPO_URL" /tmp/milady-lfs-src; \
+      cd /tmp/milady-lfs-src; \
+      if [ -n "$COMMIT" ]; then \
+        git fetch --depth 1 origin "$COMMIT" && git checkout "$COMMIT"; \
+      fi; \
+      git lfs install --local; \
+      git lfs pull; \
+      cd /app; \
+      rm -rf apps/app/public/vrms apps/app/public/animations; \
+      mkdir -p apps/app/public; \
+      cp -a /tmp/milady-lfs-src/apps/app/public/vrms apps/app/public/; \
+      cp -a /tmp/milady-lfs-src/apps/app/public/animations apps/app/public/; \
+      rm -rf /tmp/milady-lfs-src; \
+    fi; \
     POINTERS="$(grep -RIl '^version https://git-lfs.github.com/spec/v1' apps/app/public/vrms apps/app/public/animations || true)"; \
     if [ -n "$POINTERS" ]; then \
       echo '[build] ERROR: unresolved Git LFS media pointers detected:'; \
