@@ -68,4 +68,10 @@ describe("API Security Headers", () => {
     expect(headers["x-content-type-options"]).toBe("nosniff");
     expect(headers["referrer-policy"]).toBe("no-referrer");
   });
+
+  it("non-API routes do not receive API-only CSP", async () => {
+    const { headers } = await req(port, "GET", "/");
+
+    expect(headers["content-security-policy"]).not.toBe("default-src 'none'");
+  });
 });

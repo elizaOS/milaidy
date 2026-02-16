@@ -3980,11 +3980,19 @@ function patchMessageServiceForAutonomy(state: ServerState): void {
   };
 }
 
+function isApiRequest(pathname: string): boolean {
+  return pathname === "/api" || pathname.startsWith("/api/") || pathname.startsWith("/v1/");
+}
+
 function applySecurityHeaders(res: http.ServerResponse): void {
-  res.setHeader("Content-Security-Policy", "default-src 'none'");
   res.setHeader("X-Frame-Options", "DENY");
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("Referrer-Policy", "no-referrer");
+}
+
+function applyApiSecurityHeaders(res: http.ServerResponse): void {
+  applySecurityHeaders(res);
+  res.setHeader("Content-Security-Policy", "default-src 'none'");
 }
 
 async function handleRequest(
@@ -4002,6 +4010,12 @@ async function handleRequest(
     return;
   }
   const pathname = url.pathname;
+  const isApi = isApiRequest(pathname);
+  if (isApi) {
+    applyApiSecurityHeaders(res);
+  } else {
+    applySecurityHeaders(res);
+  }
   const isAuthEndpoint = pathname.startsWith("/api/auth/");
   const registryService = state.registryService;
   const dropService = state.dropService;
@@ -12097,7 +12111,20 @@ export async function startApiServer(opts?: {
   const onRestart = opts?.onRestart ?? null;
 
   const server = http.createServer(async (req, res) => {
-    applySecurityHeaders(res);
+    const requestPath = req.url;
+    try {
+      const pathname = new URL(
+        requestPath ?? "/",
+        `http://${req.headers.host ?? "localhost"}`,
+      ).pathname;
+      if (isApiRequest(pathname)) {
+        applyApiSecurityHeaders(res);
+      } else {
+        applySecurityHeaders(res);
+      }
+    } catch {
+      applySecurityHeaders(res);
+    }
     try {
       await handleRequest(req, res, state, { onRestart });
     } catch (err) {
