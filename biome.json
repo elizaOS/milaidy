@@ -15,6 +15,7 @@
       "!dist",
       "!docs/_layouts",
       "!**/.github/contributor-trust.json",
+      "!.github/trust-scoring.cjs",
       "!node_modules",
       "!patches",
       "!pnpm-lock.yaml",

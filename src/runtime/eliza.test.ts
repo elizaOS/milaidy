@@ -114,8 +114,26 @@ describe("collectPluginNames", () => {
   afterEach(() => snap.restore());
 
   it("includes all core plugins for an empty config", () => {
+    // Guard against accidental removal from CORE_PLUGINS array
+    expect(CORE_PLUGINS).toHaveLength(13);
+
+    const expectedCorePlugins = [
+      "@elizaos/plugin-sql",
+      "@elizaos/plugin-local-embedding",
+      "@elizaos/plugin-form",
+      "@elizaos/plugin-elizacloud",
+      "@elizaos/plugin-knowledge",
+      "@elizaos/plugin-trajectory-logger",
+      "@elizaos/plugin-agent-orchestrator",
+      "@elizaos/plugin-cron",
+      "@elizaos/plugin-shell",
+      "@elizaos/plugin-plugin-manager",
+      "@elizaos/plugin-agent-skills",
+      "@elizaos/plugin-pdf",
+      "@elizaos/plugin-secrets-manager",
+    ];
     const names = collectPluginNames({} as MiladyConfig);
-    for (const plugin of CORE_PLUGINS) {
+    for (const plugin of expectedCorePlugins) {
       expect(names.has(plugin)).toBe(true);
     }
   });

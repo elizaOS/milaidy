@@ -7119,6 +7119,24 @@ async function handleRequest(
     return;
   }
 
+  // ── GET /api/core/status ────────────────────────────────────────────────
+  // Returns whether @elizaos/core is ejected or resolved from npm.
+  if (method === "GET" && pathname === "/api/core/status") {
+    const { getCoreStatus } = await import("../services/core-eject.js");
+
+    try {
+      const status = await getCoreStatus();
+      json(res, status);
+    } catch (err) {
+      error(
+        res,
+        `Failed to get core status: ${err instanceof Error ? err.message : String(err)}`,
+        500,
+      );
+    }
+    return;
+  }
+
   // ── GET /api/plugins/core ────────────────────────────────────────────
   // Returns all core and optional core plugins with their loaded/running status.
   if (method === "GET" && pathname === "/api/plugins/core") {

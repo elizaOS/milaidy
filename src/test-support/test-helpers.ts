@@ -96,6 +96,14 @@ export function isPackageImportResolvable(packageName: string): boolean {
   }
 }
 
+/** Check whether a dependency specifier should be treated as a workspace-local version. */
+export function isWorkspaceDependency(version: string | undefined): boolean {
+  return (
+    typeof version === "string" &&
+    (version.startsWith(".") || version.startsWith("workspace:"))
+  );
+}
+
 const DISCORD_PLUGIN_PACKAGE_NAME = "@elizaos/plugin-discord";
 const DISCORD_PLUGIN_LOCAL_ENTRY_CANDIDATES = [
   "../plugins/plugin-discord/typescript/dist/index",
