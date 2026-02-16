@@ -4,6 +4,7 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { FBXLoader } from "three/examples/jsm/loaders/FBXLoader.js";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { resolveAppAssetUrl } from "../../asset-url";
+import { MIXAMO_IDLE_CANDIDATE_URLS } from "./mixamoAnimationCatalog";
 
 export type VrmEngineState = {
   vrmLoaded: boolean;
@@ -22,6 +23,9 @@ export type CameraAnimationConfig = {
   rotationAmplitude: number;
   speed: number;
 };
+
+export type CameraProfile = "chat" | "companion";
+export type InteractionMode = "free" | "orbitZoom";
 
 const DEFAULT_CAMERA_ANIMATION: CameraAnimationConfig = {
   enabled: false,
@@ -92,6 +96,8 @@ export class VrmEngine {
   private footShadow: THREE.Mesh | null = null;
   private controls: OrbitControls | null = null;
   private interactionEnabled = false;
+  private interactionMode: InteractionMode = "free";
+  private cameraProfile: CameraProfile = "chat";
   private userInteracting = false;
   private userControlResumeAtMs = 0;
   private static readonly USER_CONTROL_GRACE_MS = 2200;
@@ -155,6 +161,7 @@ export class VrmEngine {
     controls.target.copy(this.lookAtTarget);
     controls.addEventListener("start", this.handleControlStart);
     controls.addEventListener("end", this.handleControlEnd);
+    this.applyInteractionMode(controls);
     controls.update();
     this.controls = controls;
     this.setInteractionEnabled(this.interactionEnabled);
@@ -244,6 +251,30 @@ export class VrmEngine {
     if (!enabled) {
       this.userInteracting = false;
       this.userControlResumeAtMs = 0;
+    }
+  }
+
+  setInteractionMode(mode: InteractionMode): void {
+    this.interactionMode = mode;
+    if (this.controls) {
+      this.applyInteractionMode(this.controls);
+      this.controls.update();
+    }
+  }
+
+  setCameraProfile(profile: CameraProfile): void {
+    this.cameraProfile = profile;
+    if (profile === "companion") {
+      this.cameraAnimation = {
+        ...this.cameraAnimation,
+        enabled: false,
+      };
+    }
+
+    if (this.vrm) {
+      this.centerAndFrame(this.vrm);
+    } else if (this.camera && this.controls) {
+      this.applyCameraProfileToCamera(this.camera, this.controls);
     }
   }
 
@@ -523,28 +554,31 @@ export class VrmEngine {
 
   private centerAndFrame(vrm: VRM): void {
     const camera = this.camera;
+    const controls = this.controls;
     if (!camera) return;
 
-    // Girlfie framing profile: fixed full-body scale/offset and camera.
-    vrm.scene.scale.set(1.45, 1.45, 1.45);
-    vrm.scene.position.set(0, -0.8, 0);
+    if (this.cameraProfile === "companion") {
+      // Companion stage profile: preserve hero presence while keeping full-body framing.
+      vrm.scene.scale.set(1.78, 1.78, 1.78);
+      vrm.scene.position.set(0, -0.84, 0);
+      this.lookAtTarget.set(0, 0.64, 0);
+    } else {
+      // Girlfie framing profile: fixed full-body scale/offset and camera.
+      vrm.scene.scale.set(1.45, 1.45, 1.45);
+      vrm.scene.position.set(0, -0.8, 0);
+      this.lookAtTarget.set(0, 0.5, 0);
+    }
     vrm.scene.updateMatrixWorld(true);
-
-    this.lookAtTarget.set(0, 0.5, 0);
     camera.near = 0.1;
     camera.far = 20.0;
+    this.applyCameraProfileToCamera(camera, controls);
     camera.updateProjectionMatrix();
-
-    camera.position.set(0, 1.2, 5.0);
     this.baseCameraPosition.copy(camera.position);
 
-    if (this.controls) {
-      this.controls.target.copy(this.lookAtTarget);
-      this.controls.minDistance = 2.4;
-      this.controls.maxDistance = 9.0;
-      this.controls.minPolarAngle = Math.PI * 0.1;
-      this.controls.maxPolarAngle = Math.PI * 0.9;
-      this.controls.update();
+    if (controls) {
+      controls.target.copy(this.lookAtTarget);
+      this.applyInteractionMode(controls);
+      controls.update();
     }
   }
 
@@ -626,7 +660,13 @@ export class VrmEngine {
       if (this.loadingAborted || this.vrm !== vrm) return;
 
       const fbxLoader = new FBXLoader();
-      const fallbackUrls = [this.idleBreathingFbxUrl, this.idleFallbackFbxUrl];
+      const fallbackUrls = Array.from(
+        new Set([
+          this.idleBreathingFbxUrl,
+          this.idleFallbackFbxUrl,
+          ...MIXAMO_IDLE_CANDIDATE_URLS,
+        ]),
+      );
       for (const url of fallbackUrls) {
         try {
           const fbx = await fbxLoader.loadAsync(url);
@@ -646,7 +686,9 @@ export class VrmEngine {
     }
 
     if (!clip) {
-      throw new Error("No usable idle animation (idle.glb/BreathingIdle.fbx/Idle.fbx)");
+      throw new Error(
+        "No usable idle animation (idle.glb/BreathingIdle.fbx/Idle.fbx/mixamo idle fallback)",
+      );
     }
     if (this.loadingAborted || this.vrm !== vrm) return;
 
@@ -859,5 +901,50 @@ export class VrmEngine {
 
   private nowMs(): number {
     return typeof performance !== "undefined" ? performance.now() : Date.now();
+  }
+
+  private applyInteractionMode(controls: OrbitControls): void {
+    if (this.interactionMode === "orbitZoom") {
+      controls.enablePan = false;
+      controls.enableRotate = true;
+      controls.enableZoom = true;
+      controls.screenSpacePanning = false;
+      controls.rotateSpeed = 0.68;
+      controls.zoomSpeed = 0.85;
+      return;
+    }
+
+    controls.enablePan = true;
+    controls.enableRotate = true;
+    controls.enableZoom = true;
+    controls.screenSpacePanning = true;
+    controls.rotateSpeed = 0.75;
+    controls.zoomSpeed = 0.9;
+  }
+
+  private applyCameraProfileToCamera(
+    camera: THREE.PerspectiveCamera,
+    controls: OrbitControls | null,
+  ): void {
+    if (this.cameraProfile === "companion") {
+      camera.position.set(0, 1.34, 4.62);
+      camera.fov = 28;
+      if (controls) {
+        controls.minDistance = 2.5;
+        controls.maxDistance = 7.0;
+        controls.minPolarAngle = Math.PI * 0.16;
+        controls.maxPolarAngle = Math.PI * 0.86;
+      }
+      return;
+    }
+
+    camera.position.set(0, 1.2, 5.0);
+    camera.fov = 30;
+    if (controls) {
+      controls.minDistance = 2.4;
+      controls.maxDistance = 9.0;
+      controls.minPolarAngle = Math.PI * 0.1;
+      controls.maxPolarAngle = Math.PI * 0.9;
+    }
   }
 }

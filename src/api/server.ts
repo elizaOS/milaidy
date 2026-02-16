@@ -65,6 +65,11 @@ import {
   getMcpServerDetails,
   searchMcpMarketplace,
 } from "../services/mcp-marketplace.js";
+import {
+  ensurePrivyWalletsForCustomUser,
+  isPrivyWalletProvisioningEnabled,
+  type PrivyWalletChain,
+} from "../services/privy-wallets.js";
 import type { SandboxManager } from "../services/sandbox-manager.js";
 import {
   installMarketplaceSkill,
@@ -125,7 +130,10 @@ import {
   generateWalletKeys,
   getWalletAddresses,
   importWallet,
+  MANAGED_EVM_ADDRESS_ENV_KEY,
+  MANAGED_SOLANA_ADDRESS_ENV_KEY,
   validatePrivateKey,
+  type WalletAddresses,
   type WalletBalancesResponse,
   type WalletChain,
   type WalletConfigStatus,
@@ -3656,7 +3664,7 @@ function getInventoryProviderOptions(): Array<{
     {
       id: "evm",
       name: "EVM",
-      description: "Ethereum, Base, Arbitrum, Optimism, Polygon.",
+      description: "Ethereum, Base, Arbitrum, Optimism, Polygon, BSC.",
       rpcProviders: [
         {
           id: "elizacloud",
@@ -3712,7 +3720,33 @@ function getInventoryProviderOptions(): Array<{
   ];
 }
 
+type WalletMode = "privy" | "hybrid";
+
+export function resolveWalletMode(config?: MilaidyConfig): WalletMode {
+  const configMode =
+    config?.env && typeof config.env === "object" && !Array.isArray(config.env)
+      ? (config.env as Record<string, string>).MILAIDY_WALLET_MODE
+      : undefined;
+
+  const explicitMode = (process.env.MILAIDY_WALLET_MODE ?? configMode)
+    ?.trim()
+    .toLowerCase();
+
+  if (explicitMode === "privy") return "privy";
+  if (explicitMode === "hybrid" || explicitMode === "local") return "hybrid";
+
+  return isPrivyWalletProvisioningEnabled() ? "privy" : "hybrid";
+}
+
+export function isPurePrivyWalletMode(config?: MilaidyConfig): boolean {
+  return resolveWalletMode(config) === "privy";
+}
+
 function ensureWalletKeysInEnvAndConfig(config: MilaidyConfig): boolean {
+  if (isPurePrivyWalletMode(config)) {
+    return false;
+  }
+
   const missingEvm =
     typeof process.env.EVM_PRIVATE_KEY !== "string" ||
     !process.env.EVM_PRIVATE_KEY.trim();
@@ -3757,6 +3791,165 @@ function ensureWalletKeysInEnvAndConfig(config: MilaidyConfig): boolean {
       `[milaidy-api] Failed to generate wallet keys: ${err instanceof Error ? err.message : String(err)}`,
     );
     return false;
+  }
+}
+
+function resolvePrivyCustomUserId(state: ServerState): string | null {
+  const cloudAuth = state.runtime
+    ? (state.runtime.getService("CLOUD_AUTH") as {
+        isAuthenticated?: () => boolean;
+        getUserId?: () => string | undefined;
+      } | null)
+    : null;
+
+  const cloudUserId =
+    cloudAuth?.isAuthenticated?.() === true ? cloudAuth.getUserId?.() : null;
+  if (typeof cloudUserId === "string" && cloudUserId.trim()) {
+    return `elizacloud-user:${cloudUserId.trim()}`;
+  }
+
+  const apiKey = state.config.cloud?.apiKey?.trim();
+  if (apiKey) {
+    const fingerprint = crypto
+      .createHash("sha256")
+      .update(apiKey)
+      .digest("hex")
+      .slice(0, 32);
+    return `elizacloud-apikey:${fingerprint}`;
+  }
+
+  return null;
+}
+
+function persistManagedWalletAddresses(
+  state: ServerState,
+  addresses: WalletAddresses,
+): boolean {
+  let envConfig: Record<string, string>;
+  if (
+    state.config.env &&
+    typeof state.config.env === "object" &&
+    !Array.isArray(state.config.env)
+  ) {
+    envConfig = state.config.env as Record<string, string>;
+  } else {
+    state.config.env = {};
+    envConfig = state.config.env as Record<string, string>;
+  }
+
+  let changed = false;
+  const updates: Array<[string, string | null]> = [
+    [MANAGED_EVM_ADDRESS_ENV_KEY, addresses.evmAddress],
+    [MANAGED_SOLANA_ADDRESS_ENV_KEY, addresses.solanaAddress],
+  ];
+
+  for (const [envKey, value] of updates) {
+    if (!value || !value.trim()) continue;
+    const next = value.trim();
+    if (process.env[envKey] !== next) {
+      process.env[envKey] = next;
+      changed = true;
+    }
+    if (envConfig[envKey] !== next) {
+      envConfig[envKey] = next;
+      changed = true;
+    }
+  }
+
+  return changed;
+}
+
+function mergeWalletAddresses(
+  primary: WalletAddresses,
+  fallback: WalletAddresses | null,
+): WalletAddresses {
+  return {
+    evmAddress: primary.evmAddress ?? fallback?.evmAddress ?? null,
+    solanaAddress: primary.solanaAddress ?? fallback?.solanaAddress ?? null,
+  };
+}
+
+async function ensurePrivyManagedWalletAddresses(
+  state: ServerState,
+  chains: WalletChain[],
+): Promise<WalletAddresses | null> {
+  if (!isPrivyWalletProvisioningEnabled()) return null;
+
+  const customUserId = resolvePrivyCustomUserId(state);
+  if (!customUserId) return null;
+
+  const targetChains: PrivyWalletChain[] = [];
+  if (chains.includes("evm")) targetChains.push("ethereum");
+  if (chains.includes("solana")) targetChains.push("solana");
+  if (targetChains.length === 0) return null;
+
+  const ensured = await ensurePrivyWalletsForCustomUser(
+    customUserId,
+    targetChains,
+  );
+  const addresses: WalletAddresses = {
+    evmAddress: ensured.evmAddress,
+    solanaAddress: ensured.solanaAddress,
+  };
+
+  const changed = persistManagedWalletAddresses(state, addresses);
+  if (changed) {
+    try {
+      saveMilaidyConfig(state.config);
+    } catch (err) {
+      logger.warn(
+        `[wallet] Failed to persist managed wallet addresses: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
+
+  return addresses;
+}
+
+async function resolveWalletAddressesForRequest(
+  state: ServerState,
+  requestedChains: WalletChain[] = ["evm", "solana"],
+): Promise<WalletAddresses> {
+  const current = getWalletAddresses();
+  const targetChains = Array.from(new Set(requestedChains));
+
+  if (isPurePrivyWalletMode(state.config)) {
+    try {
+      const managed = await ensurePrivyManagedWalletAddresses(
+        state,
+        targetChains,
+      );
+      return managed ?? { evmAddress: null, solanaAddress: null };
+    } catch (err) {
+      logger.warn(
+        `[wallet] Pure Privy address resolve failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      return { evmAddress: null, solanaAddress: null };
+    }
+  }
+
+  const missingChains: WalletChain[] = [];
+  if (targetChains.includes("evm") && !current.evmAddress) {
+    missingChains.push("evm");
+  }
+  if (targetChains.includes("solana") && !current.solanaAddress) {
+    missingChains.push("solana");
+  }
+  if (missingChains.length === 0) {
+    return current;
+  }
+
+  try {
+    const managed = await ensurePrivyManagedWalletAddresses(
+      state,
+      missingChains,
+    );
+    return mergeWalletAddresses(current, managed);
+  } catch (err) {
+    logger.warn(
+      `[wallet] Privy address sync failed: ${err instanceof Error ? err.message : String(err)}`,
+    );
+    return current;
   }
 }
 
@@ -8522,22 +8715,32 @@ async function handleRequest(
 
   // ── GET /api/wallet/addresses ──────────────────────────────────────────
   if (method === "GET" && pathname === "/api/wallet/addresses") {
-    const addrs = getWalletAddresses();
+    const addrs = await resolveWalletAddressesForRequest(state, [
+      "evm",
+      "solana",
+    ]);
     json(res, addrs);
     return;
   }
 
   // ── GET /api/wallet/balances ───────────────────────────────────────────
   if (method === "GET" && pathname === "/api/wallet/balances") {
-    const addrs = getWalletAddresses();
+    const addrs = await resolveWalletAddressesForRequest(state, [
+      "evm",
+      "solana",
+    ]);
     const alchemyKey = process.env.ALCHEMY_API_KEY;
+    const ankrKey = process.env.ANKR_API_KEY;
     const heliusKey = process.env.HELIUS_API_KEY;
 
     const result: WalletBalancesResponse = { evm: null, solana: null };
 
-    if (addrs.evmAddress && alchemyKey) {
+    if (addrs.evmAddress && (alchemyKey || ankrKey)) {
       try {
-        const chains = await fetchEvmBalances(addrs.evmAddress, alchemyKey);
+        const chains = await fetchEvmBalances(addrs.evmAddress, {
+          alchemyKey,
+          ankrKey,
+        });
         result.evm = { address: addrs.evmAddress, chains };
       } catch (err) {
         logger.warn(`[wallet] EVM balance fetch failed: ${err}`);
@@ -8562,15 +8765,22 @@ async function handleRequest(
 
   // ── GET /api/wallet/nfts ───────────────────────────────────────────────
   if (method === "GET" && pathname === "/api/wallet/nfts") {
-    const addrs = getWalletAddresses();
+    const addrs = await resolveWalletAddressesForRequest(state, [
+      "evm",
+      "solana",
+    ]);
     const alchemyKey = process.env.ALCHEMY_API_KEY;
+    const ankrKey = process.env.ANKR_API_KEY;
     const heliusKey = process.env.HELIUS_API_KEY;
 
     const result: WalletNftsResponse = { evm: [], solana: null };
 
-    if (addrs.evmAddress && alchemyKey) {
+    if (addrs.evmAddress && (alchemyKey || ankrKey)) {
       try {
-        result.evm = await fetchEvmNfts(addrs.evmAddress, alchemyKey);
+        result.evm = await fetchEvmNfts(addrs.evmAddress, {
+          alchemyKey,
+          ankrKey,
+        });
       } catch (err) {
         logger.warn(`[wallet] EVM NFT fetch failed: ${err}`);
       }
@@ -8592,6 +8802,15 @@ async function handleRequest(
   // ── POST /api/wallet/import ──────────────────────────────────────────
   // Import a wallet by providing a private key + chain.
   if (method === "POST" && pathname === "/api/wallet/import") {
+    if (isPurePrivyWalletMode(state.config)) {
+      error(
+        res,
+        "Wallet import is disabled in pure Privy mode. Wallets are managed by Privy.",
+        409,
+      );
+      return;
+    }
+
     const body = await readJsonBody<{ chain?: string; privateKey?: string }>(
       req,
       res,
@@ -8666,35 +8885,139 @@ async function handleRequest(
     }
 
     const targetChain = (chain ?? "both") as WalletChain | "both";
+    const requestedChains: WalletChain[] = [];
+    if (targetChain === "both" || targetChain === "evm") {
+      requestedChains.push("evm");
+    }
+    if (targetChain === "both" || targetChain === "solana") {
+      requestedChains.push("solana");
+    }
 
     if (!state.config.env) state.config.env = {};
+    const envConfig = state.config.env as Record<string, string>;
 
     const generated: Array<{ chain: WalletChain; address: string }> = [];
+    let saveConfigRequired = false;
 
-    if (targetChain === "both" || targetChain === "evm") {
-      const result = generateWalletForChain("evm");
-      process.env.EVM_PRIVATE_KEY = result.privateKey;
-      (state.config.env as Record<string, string>).EVM_PRIVATE_KEY =
-        result.privateKey;
-      generated.push({ chain: "evm", address: result.address });
-      logger.info(`[milaidy-api] Generated EVM wallet: ${result.address}`);
+    if (isPurePrivyWalletMode(state.config)) {
+      if (!isPrivyWalletProvisioningEnabled()) {
+        error(
+          res,
+          "Pure Privy mode is enabled, but Privy credentials are missing (PRIVY_APP_ID / PRIVY_APP_SECRET).",
+          503,
+        );
+        return;
+      }
+      const customUserId = resolvePrivyCustomUserId(state);
+      if (!customUserId) {
+        error(
+          res,
+          "Pure Privy mode requires a logged-in cloud identity before wallet provisioning.",
+          401,
+        );
+        return;
+      }
+
+      try {
+        const managed = await ensurePrivyManagedWalletAddresses(
+          state,
+          requestedChains,
+        );
+        if (managed?.evmAddress && requestedChains.includes("evm")) {
+          generated.push({ chain: "evm", address: managed.evmAddress });
+        }
+        if (managed?.solanaAddress && requestedChains.includes("solana")) {
+          generated.push({ chain: "solana", address: managed.solanaAddress });
+        }
+      } catch (err) {
+        error(
+          res,
+          `Privy wallet provisioning failed: ${err instanceof Error ? err.message : String(err)}`,
+          502,
+        );
+        return;
+      }
+
+      if (generated.length === 0) {
+        error(
+          res,
+          "Privy wallet provisioning completed without usable addresses.",
+          502,
+        );
+        return;
+      }
+
+      json(res, { ok: true, wallets: generated });
+      return;
     }
 
-    if (targetChain === "both" || targetChain === "solana") {
-      const result = generateWalletForChain("solana");
-      process.env.SOLANA_PRIVATE_KEY = result.privateKey;
-      (state.config.env as Record<string, string>).SOLANA_PRIVATE_KEY =
-        result.privateKey;
-      generated.push({ chain: "solana", address: result.address });
-      logger.info(`[milaidy-api] Generated Solana wallet: ${result.address}`);
+    const hasPrivyIdentity = resolvePrivyCustomUserId(state) !== null;
+    const usePrivy = isPrivyWalletProvisioningEnabled() && hasPrivyIdentity;
+
+    const wantsPrivyChains = requestedChains.filter((requested) => {
+      if (!usePrivy) return false;
+      if (requested === "evm") {
+        return !process.env.EVM_PRIVATE_KEY?.trim();
+      }
+      return !process.env.SOLANA_PRIVATE_KEY?.trim();
+    });
+
+    if (wantsPrivyChains.length > 0) {
+      try {
+        const managed = await ensurePrivyManagedWalletAddresses(
+          state,
+          wantsPrivyChains,
+        );
+        if (managed?.evmAddress && wantsPrivyChains.includes("evm")) {
+          generated.push({ chain: "evm", address: managed.evmAddress });
+        }
+        if (managed?.solanaAddress && wantsPrivyChains.includes("solana")) {
+          generated.push({ chain: "solana", address: managed.solanaAddress });
+        }
+      } catch (err) {
+        error(
+          res,
+          `Privy wallet provisioning failed: ${err instanceof Error ? err.message : String(err)}`,
+          502,
+        );
+        return;
+      }
     }
 
-    try {
-      saveMilaidyConfig(state.config);
-    } catch (err) {
-      logger.warn(
-        `[api] Config save failed: ${err instanceof Error ? err.message : err}`,
+    for (const requested of requestedChains) {
+      if (wantsPrivyChains.includes(requested)) continue;
+      const result = generateWalletForChain(requested);
+      if (requested === "evm") {
+        process.env.EVM_PRIVATE_KEY = result.privateKey;
+        envConfig.EVM_PRIVATE_KEY = result.privateKey;
+      } else {
+        process.env.SOLANA_PRIVATE_KEY = result.privateKey;
+        envConfig.SOLANA_PRIVATE_KEY = result.privateKey;
+      }
+      generated.push({ chain: requested, address: result.address });
+      saveConfigRequired = true;
+      logger.info(
+        `[milaidy-api] Generated ${requested === "evm" ? "EVM" : "Solana"} wallet: ${result.address}`,
       );
+    }
+
+    if (saveConfigRequired) {
+      try {
+        saveMilaidyConfig(state.config);
+      } catch (err) {
+        logger.warn(
+          `[api] Config save failed: ${err instanceof Error ? err.message : err}`,
+        );
+      }
+    }
+
+    if (generated.length === 0) {
+      error(
+        res,
+        "No wallet could be generated for the requested chain(s).",
+        502,
+      );
+      return;
     }
 
     json(res, { ok: true, wallets: generated });
@@ -8703,14 +9026,17 @@ async function handleRequest(
 
   // ── GET /api/wallet/config ─────────────────────────────────────────────
   if (method === "GET" && pathname === "/api/wallet/config") {
-    const addrs = getWalletAddresses();
+    const addrs = await resolveWalletAddressesForRequest(state, [
+      "evm",
+      "solana",
+    ]);
     const configStatus: WalletConfigStatus = {
       alchemyKeySet: Boolean(process.env.ALCHEMY_API_KEY),
       infuraKeySet: Boolean(process.env.INFURA_API_KEY),
       ankrKeySet: Boolean(process.env.ANKR_API_KEY),
       heliusKeySet: Boolean(process.env.HELIUS_API_KEY),
       birdeyeKeySet: Boolean(process.env.BIRDEYE_API_KEY),
-      evmChains: ["Ethereum", "Base", "Arbitrum", "Optimism", "Polygon"],
+      evmChains: ["Ethereum", "Base", "Arbitrum", "Optimism", "Polygon", "BSC"],
       evmAddress: addrs.evmAddress,
       solanaAddress: addrs.solanaAddress,
     };
@@ -8767,6 +9093,15 @@ async function handleRequest(
   // ── POST /api/wallet/export ────────────────────────────────────────────
   // SECURITY: Requires explicit confirmation + a dedicated export token.
   if (method === "POST" && pathname === "/api/wallet/export") {
+    if (isPurePrivyWalletMode(state.config)) {
+      error(
+        res,
+        "Wallet export is disabled in pure Privy mode because private keys are not stored locally.",
+        409,
+      );
+      return;
+    }
+
     const body = await readJsonBody<WalletExportRequestBody>(req, res);
     if (!body) return;
 
@@ -8976,7 +9311,7 @@ async function handleRequest(
   // ═══════════════════════════════════════════════════════════════════════
 
   if (method === "GET" && pathname === "/api/whitelist/status") {
-    const addrs = getWalletAddresses();
+    const addrs = await resolveWalletAddressesForRequest(state, ["evm"]);
     const walletAddress = addrs.evmAddress ?? "";
     const twitterVerified = walletAddress
       ? isAddressWhitelisted(walletAddress)
@@ -8993,7 +9328,7 @@ async function handleRequest(
   }
 
   if (method === "POST" && pathname === "/api/whitelist/twitter/message") {
-    const addrs = getWalletAddresses();
+    const addrs = await resolveWalletAddressesForRequest(state, ["evm"]);
     const walletAddress = addrs.evmAddress ?? "";
     if (!walletAddress) {
       error(res, "EVM wallet not configured. Complete onboarding first.");
@@ -9012,7 +9347,7 @@ async function handleRequest(
       return;
     }
 
-    const addrs = getWalletAddresses();
+    const addrs = await resolveWalletAddressesForRequest(state, ["evm"]);
     const walletAddress = addrs.evmAddress ?? "";
     if (!walletAddress) {
       error(res, "EVM wallet not configured.");
@@ -12623,6 +12958,14 @@ export async function startApiServer(opts?: {
   // Hydrate persisted config.env values so addresses remain visible after restarts.
   const persistedEnv = config.env as Record<string, string> | undefined;
   const envKeysToHydrate = [
+    "MILAIDY_WALLET_MODE",
+    "PRIVY_APP_ID",
+    "PRIVY_APP_SECRET",
+    "PRIVY_API_BASE_URL",
+    "BABYLON_PRIVY_APP_ID",
+    "BABYLON_PRIVY_APP_SECRET",
+    MANAGED_EVM_ADDRESS_ENV_KEY,
+    MANAGED_SOLANA_ADDRESS_ENV_KEY,
     "EVM_PRIVATE_KEY",
     "SOLANA_PRIVATE_KEY",
     "ALCHEMY_API_KEY",

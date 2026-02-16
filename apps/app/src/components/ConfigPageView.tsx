@@ -354,7 +354,7 @@ export function ConfigPageView({ embedded = false }: { embedded?: boolean }) {
           {/* EVM */}
           <RpcConfigSection
             title="EVM"
-            description="Ethereum, Base, Arbitrum, Optimism, Polygon"
+            description="Ethereum, Base, Arbitrum, Optimism, Polygon, BSC"
             options={EVM_RPC_OPTIONS}
             selectedProvider={selectedEvmRpc}
             onSelect={setSelectedEvmRpc}

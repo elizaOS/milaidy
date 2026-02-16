@@ -6,7 +6,7 @@
  */
 
 import { useEffect, useRef } from "react";
-import { VrmEngine, type VrmEngineState } from "./VrmEngine";
+import { VrmEngine, type VrmEngineState, type CameraProfile, type InteractionMode } from "./VrmEngine";
 import { resolveAppAssetUrl } from "../../asset-url";
 
 const DEFAULT_VRM_PATH = resolveAppAssetUrl("vrms/milAIdy-1.vrm");
@@ -19,6 +19,10 @@ export type VrmViewerProps = {
   isSpeaking?: boolean;
   /** Enable drag-rotate + wheel/pinch zoom camera controls */
   interactive?: boolean;
+  /** Camera profile preset (chat default, companion for hero-stage framing) */
+  cameraProfile?: CameraProfile;
+  /** Interaction behavior for camera controls */
+  interactiveMode?: InteractionMode;
   onEngineState?: (state: VrmEngineState) => void;
   onEngineReady?: (engine: VrmEngine) => void;
 };
@@ -29,6 +33,8 @@ export function VrmViewer(props: VrmViewerProps) {
   const mouthOpenRef = useRef<number>(props.mouthOpen);
   const isSpeakingRef = useRef<boolean>(props.isSpeaking ?? false);
   const interactiveRef = useRef<boolean>(props.interactive ?? false);
+  const cameraProfileRef = useRef<CameraProfile>(props.cameraProfile ?? "chat");
+  const interactionModeRef = useRef<InteractionMode>(props.interactiveMode ?? "free");
   const lastStateEmitMsRef = useRef<number>(0);
   const mountedRef = useRef(true);
   const currentVrmPathRef = useRef<string>("");
@@ -36,6 +42,8 @@ export function VrmViewer(props: VrmViewerProps) {
   mouthOpenRef.current = props.mouthOpen;
   isSpeakingRef.current = props.isSpeaking ?? false;
   interactiveRef.current = props.interactive ?? false;
+  cameraProfileRef.current = props.cameraProfile ?? "chat";
+  interactionModeRef.current = props.interactiveMode ?? "free";
 
   // Setup engine once
   useEffect(() => {
@@ -51,6 +59,8 @@ export function VrmViewer(props: VrmViewerProps) {
     }
 
     engine.setup(canvas, () => {
+      engine.setCameraProfile(cameraProfileRef.current);
+      engine.setInteractionMode(interactionModeRef.current);
       engine.setMouthOpen(mouthOpenRef.current);
       engine.setSpeaking(isSpeakingRef.current);
       engine.setInteractionEnabled(interactiveRef.current);
@@ -95,6 +105,18 @@ export function VrmViewer(props: VrmViewerProps) {
     if (!engine) return;
     engine.setInteractionEnabled(props.interactive ?? false);
   }, [props.interactive]);
+
+  useEffect(() => {
+    const engine = engineRef.current;
+    if (!engine) return;
+    engine.setCameraProfile(props.cameraProfile ?? "chat");
+  }, [props.cameraProfile]);
+
+  useEffect(() => {
+    const engine = engineRef.current;
+    if (!engine) return;
+    engine.setInteractionMode(props.interactiveMode ?? "free");
+  }, [props.interactiveMode]);
 
   // Load VRM when path changes
   useEffect(() => {

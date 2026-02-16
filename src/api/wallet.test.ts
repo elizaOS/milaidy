@@ -11,15 +11,19 @@
  * - Key format validation edge cases
  * - maskSecret utility
  */
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   DEFAULT_EVM_CHAINS,
   deriveEvmAddress,
   deriveSolanaAddress,
+  fetchEvmBalances,
+  fetchEvmNfts,
   generateWalletForChain,
   generateWalletKeys,
   getWalletAddresses,
   importWallet,
+  MANAGED_EVM_ADDRESS_ENV_KEY,
+  MANAGED_SOLANA_ADDRESS_ENV_KEY,
   validateEvmPrivateKey,
   validatePrivateKey,
   validateSolanaPrivateKey,
@@ -198,6 +202,7 @@ describe("Multi-chain support", () => {
     expect(chainNames).toContain("Arbitrum");
     expect(chainNames).toContain("Optimism");
     expect(chainNames).toContain("Polygon");
+    expect(chainNames).toContain("BSC");
   });
 
   it("each EVM chain has required fields", () => {
@@ -206,6 +211,9 @@ describe("Multi-chain support", () => {
       expect(chain.subdomain).toBeTruthy();
       expect(typeof chain.chainId).toBe("number");
       expect(chain.nativeSymbol).toBeTruthy();
+      expect(chain.provider === "alchemy" || chain.provider === "ankr").toBe(
+        true,
+      );
     }
   });
 
@@ -220,6 +228,115 @@ describe("Multi-chain support", () => {
     expect(result.chain).toBe("solana");
     // Solana keys don't have 0x prefix
     expect(result.privateKey.startsWith("0x")).toBe(false);
+  });
+});
+
+describe("EVM provider fetch routing", () => {
+  const originalFetch = globalThis.fetch;
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+    vi.restoreAllMocks();
+  });
+
+  it("fetches BSC balances via Ankr and parses native/token balances", async () => {
+    const fetchMock = vi.fn(async () => {
+      return new Response(
+        JSON.stringify({
+          result: {
+            assets: [
+              {
+                tokenType: "NATIVE",
+                tokenSymbol: "BNB",
+                tokenBalance: "1.5",
+                balanceUsd: "450.00",
+              },
+              {
+                contractAddress: "0x55d398326f99059fF775485246999027B3197955",
+                tokenName: "Tether USD",
+                tokenSymbol: "USDT",
+                tokenDecimals: 18,
+                tokenBalance: "23.75",
+                balanceUsd: "23.75",
+                thumbnail: "https://example.com/usdt.png",
+              },
+            ],
+          },
+        }),
+      );
+    });
+    globalThis.fetch = fetchMock as typeof fetch;
+
+    const balances = await fetchEvmBalances("0x1234", {
+      ankrKey: "ankr-test-key",
+    });
+    const bsc = balances.find((chain) => chain.chain === "BSC");
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("https://rpc.ankr.com/multichain/ankr-test-key");
+    const payload = JSON.parse(String(init.body)) as {
+      method: string;
+      params?: { blockchain?: string[] };
+    };
+    expect(payload.method).toBe("ankr_getAccountBalance");
+    expect(payload.params?.blockchain).toEqual(["bsc"]);
+
+    expect(bsc).toBeTruthy();
+    expect(bsc?.error).toBeNull();
+    expect(bsc?.nativeSymbol).toBe("BNB");
+    expect(bsc?.nativeBalance).toBe("1.5");
+    expect(bsc?.tokens).toHaveLength(1);
+    expect(bsc?.tokens[0]?.symbol).toBe("USDT");
+  });
+
+  it("omits BSC data when ANKR key is missing", async () => {
+    const balances = await fetchEvmBalances("0x1234", {
+      alchemyKey: "alchemy-test-key",
+    });
+    const bsc = balances.find((chain) => chain.chain === "BSC");
+
+    expect(bsc).toBeUndefined();
+  });
+
+  it("fetches BSC NFTs via Ankr", async () => {
+    const fetchMock = vi.fn(async () => {
+      return new Response(
+        JSON.stringify({
+          result: {
+            assets: [
+              {
+                contractAddress: "0xabc",
+                tokenId: "42",
+                name: "BSC Test NFT",
+                description: "hello",
+                imageUrl: "https://example.com/nft.png",
+                collectionName: "Test Collection",
+                tokenType: "ERC721",
+              },
+            ],
+          },
+        }),
+      );
+    });
+    globalThis.fetch = fetchMock as typeof fetch;
+
+    const nfts = await fetchEvmNfts("0x1234", { ankrKey: "ankr-test-key" });
+    const bsc = nfts.find((chain) => chain.chain === "BSC");
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("https://rpc.ankr.com/multichain/ankr-test-key");
+    const payload = JSON.parse(String(init.body)) as {
+      method: string;
+      params?: { blockchain?: string[] };
+    };
+    expect(payload.method).toBe("ankr_getNFTsByOwner");
+    expect(payload.params?.blockchain).toEqual(["bsc"]);
+
+    expect(bsc).toBeTruthy();
+    expect(bsc?.nfts).toHaveLength(1);
+    expect(bsc?.nfts[0]?.name).toBe("BSC Test NFT");
   });
 });
 
@@ -523,7 +640,12 @@ describe("getWalletAddresses — edge cases", () => {
   let envBackup: { restore: () => void };
 
   beforeEach(() => {
-    envBackup = saveEnvKeys("EVM_PRIVATE_KEY", "SOLANA_PRIVATE_KEY");
+    envBackup = saveEnvKeys(
+      "EVM_PRIVATE_KEY",
+      "SOLANA_PRIVATE_KEY",
+      MANAGED_EVM_ADDRESS_ENV_KEY,
+      MANAGED_SOLANA_ADDRESS_ENV_KEY,
+    );
   });
 
   afterEach(() => {
@@ -533,6 +655,8 @@ describe("getWalletAddresses — edge cases", () => {
   it("returns null for both when env is empty", () => {
     delete process.env.EVM_PRIVATE_KEY;
     delete process.env.SOLANA_PRIVATE_KEY;
+    delete process.env[MANAGED_EVM_ADDRESS_ENV_KEY];
+    delete process.env[MANAGED_SOLANA_ADDRESS_ENV_KEY];
     const addrs = getWalletAddresses();
     expect(addrs.evmAddress).toBeNull();
     expect(addrs.solanaAddress).toBeNull();
@@ -565,6 +689,30 @@ describe("getWalletAddresses — edge cases", () => {
     const addrs = getWalletAddresses();
     expect(addrs.evmAddress).toBeNull();
     expect(addrs.solanaAddress).toBe(keys.solanaAddress);
+  });
+
+  it("falls back to managed addresses when private keys are missing", () => {
+    delete process.env.EVM_PRIVATE_KEY;
+    delete process.env.SOLANA_PRIVATE_KEY;
+    process.env[MANAGED_EVM_ADDRESS_ENV_KEY] =
+      "0x1111111111111111111111111111111111111111";
+    process.env[MANAGED_SOLANA_ADDRESS_ENV_KEY] =
+      "So11111111111111111111111111111111111111112";
+
+    const addrs = getWalletAddresses();
+    expect(addrs.evmAddress).toBe("0x1111111111111111111111111111111111111111");
+    expect(addrs.solanaAddress).toBe(
+      "So11111111111111111111111111111111111111112",
+    );
+  });
+
+  it("prefers private-key-derived addresses over managed address fallback", () => {
+    process.env.EVM_PRIVATE_KEY = HARDHAT_PRIVATE_KEY;
+    process.env[MANAGED_EVM_ADDRESS_ENV_KEY] =
+      "0x1111111111111111111111111111111111111111";
+
+    const addrs = getWalletAddresses();
+    expect(addrs.evmAddress?.toLowerCase()).toBe(HARDHAT_ADDRESS.toLowerCase());
   });
 });
 

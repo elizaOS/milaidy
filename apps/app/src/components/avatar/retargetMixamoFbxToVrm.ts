@@ -49,7 +49,9 @@ export function retargetMixamoFbxToVrm(
 
   const motionHipsNode = findNode(sourceScene, "mixamorigHips", "mixamorigHips");
   const motionHipsHeight = Math.abs(motionHipsNode?.position.y ?? 0);
-  const vrmHipsHeight = Math.abs(vrm.humanoid?.normalizedRestPose.hips.position[1] ?? 0);
+  const vrmHipsHeight = Math.abs(
+    vrm.humanoid?.normalizedRestPose.hips?.position?.[1] ?? 0,
+  );
   const hipsPositionScale =
     motionHipsHeight > 1e-6 && vrmHipsHeight > 1e-6
       ? vrmHipsHeight / motionHipsHeight

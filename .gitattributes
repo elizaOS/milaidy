@@ -2,3 +2,4 @@
 *.glb filter=lfs diff=lfs merge=lfs -text
 apps/app/public/vrms/*.vrm filter=lfs diff=lfs merge=lfs -text
 apps/app/public/animations/*.fbx filter=lfs diff=lfs merge=lfs -text
+apps/app/public/animations/mixamo/*.fbx filter=lfs diff=lfs merge=lfs -text

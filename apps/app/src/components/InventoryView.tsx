@@ -15,6 +15,7 @@ function chainIcon(chain: string): { code: string; cls: string } {
   if (c === "arbitrum") return { code: "A", cls: "bg-chain-arb" };
   if (c === "optimism") return { code: "O", cls: "bg-chain-op" };
   if (c === "polygon") return { code: "P", cls: "bg-chain-pol" };
+  if (c === "bsc" || c === "bnb chain" || c === "bnb smart chain") return { code: "B", cls: "bg-chain-bsc" };
   if (c === "solana") return { code: "S", cls: "bg-chain-sol" };
   return { code: chain.charAt(0).toUpperCase(), cls: "bg-bg-muted" };
 }
@@ -101,7 +102,9 @@ export function InventoryView() {
   // If connected to Eliza Cloud, RPCs are managed — no local keys needed.
 
   const cfg = walletConfig;
-  const needsSetup = !cloudConnected && (!cfg || (!cfg.alchemyKeySet && !cfg.heliusKeySet));
+  const needsSetup =
+    !cloudConnected &&
+    (!cfg || (!cfg.alchemyKeySet && !cfg.ankrKeySet && !cfg.heliusKeySet));
 
   // ── Flatten & sort token rows (skip errored chains) ────────────────
 
@@ -348,11 +351,25 @@ export function InventoryView() {
 
     const evmRows = sortedRows.filter((r) => r.chain.toLowerCase() !== "solana");
     const solanaRows = sortedRows.filter((r) => r.chain.toLowerCase() === "solana");
+    const bscDisabled = Boolean(evmAddr) && !(walletConfig?.ankrKeySet ?? false);
 
     return (
       <div className="mt-3 space-y-3">
-        {evmAddr && renderChainSection("Ethereum", "E", "bg-chain-eth", evmAddr, evmRows, true)}
+        {evmAddr && (
+          <>
+            <div className="text-[11px] text-muted">
+              EVM wallet is shared across <strong>Ethereum</strong>, <strong>Base</strong>, and <strong>BSC</strong>.
+            </div>
+            {renderChainSection("EVM (ETH / Base / BSC)", "E", "bg-chain-eth", evmAddr, evmRows, true)}
+          </>
+        )}
         {solAddr && renderChainSection("Solana", "S", "bg-chain-sol", solAddr, solanaRows, false)}
+
+        {bscDisabled && (
+          <div className="text-[11px] text-muted">
+            BSC token and NFT indexing is optional. Add <code>ANKR_API_KEY</code> in Settings if you want BSC asset details.
+          </div>
+        )}
 
         {/* Per-chain RPC errors */}
         {chainErrors.length > 0 && (

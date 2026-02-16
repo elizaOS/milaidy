@@ -8,26 +8,28 @@
  * to web APIs or stub implementations where possible.
  */
 
-import { Capacitor } from "@capacitor/core";
-
-// Import all Milaidy plugins
-import { Gateway as GatewayPlugin } from "@milaidy/capacitor-gateway";
-import { Swabble as SwabblePlugin } from "@milaidy/capacitor-swabble";
-import { TalkMode as TalkModePlugin } from "@milaidy/capacitor-talkmode";
-import { Camera as CameraPlugin } from "@milaidy/capacitor-camera";
-import { Location as LocationPlugin } from "@milaidy/capacitor-location";
-import { ScreenCapture as ScreenCapturePlugin } from "@milaidy/capacitor-screencapture";
-import { Canvas as CanvasPlugin } from "@milaidy/capacitor-canvas";
-import { Desktop as DesktopPlugin } from "@milaidy/capacitor-desktop";
+import { Capacitor, registerPlugin } from "@capacitor/core";
 // Import types
-import type { GatewayPlugin as IGatewayPlugin } from "@milaidy/capacitor-gateway";
-import type { SwabblePlugin as ISwabblePlugin } from "@milaidy/capacitor-swabble";
-import type { TalkModePlugin as ITalkModePlugin } from "@milaidy/capacitor-talkmode";
-import type { CameraPlugin as ICameraPlugin } from "@milaidy/capacitor-camera";
-import type { LocationPlugin as ILocationPlugin } from "@milaidy/capacitor-location";
-import type { ScreenCapturePlugin as IScreenCapturePlugin } from "@milaidy/capacitor-screencapture";
-import type { CanvasPlugin as ICanvasPlugin } from "@milaidy/capacitor-canvas";
-import type { DesktopPlugin as IDesktopPlugin } from "@milaidy/capacitor-desktop";
+type PluginMethod = (...args: unknown[]) => unknown;
+type GenericPluginApi = Record<string, PluginMethod | unknown>;
+type IGatewayPlugin = GenericPluginApi;
+type ISwabblePlugin = GenericPluginApi;
+type ITalkModePlugin = GenericPluginApi;
+type ICameraPlugin = GenericPluginApi;
+type ILocationPlugin = GenericPluginApi;
+type IScreenCapturePlugin = GenericPluginApi;
+type ICanvasPlugin = GenericPluginApi;
+type IDesktopPlugin = GenericPluginApi;
+
+// Lazily resolve plugin bridges via Capacitor to avoid hard runtime imports in web/test environments.
+const GatewayPlugin = registerPlugin<IGatewayPlugin>("Gateway");
+const SwabblePlugin = registerPlugin<ISwabblePlugin>("Swabble");
+const TalkModePlugin = registerPlugin<ITalkModePlugin>("TalkMode");
+const CameraPlugin = registerPlugin<ICameraPlugin>("Camera");
+const LocationPlugin = registerPlugin<ILocationPlugin>("Location");
+const ScreenCapturePlugin = registerPlugin<IScreenCapturePlugin>("ScreenCapture");
+const CanvasPlugin = registerPlugin<ICanvasPlugin>("Canvas");
+const DesktopPlugin = registerPlugin<IDesktopPlugin>("Desktop");
 
 // Platform detection
 const platform = Capacitor.getPlatform();

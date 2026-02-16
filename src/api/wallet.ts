@@ -1,7 +1,7 @@
 /**
  * Wallet key generation, address derivation, and balance/NFT fetching.
  * Uses Node crypto primitives (no viem/@solana/web3.js dependency).
- * Balance data from Alchemy (EVM) and Helius (Solana) REST APIs.
+ * Balance data from Alchemy/Ankr (EVM) and Helius (Solana) REST APIs.
  */
 import crypto from "node:crypto";
 import { logger } from "@elizaos/core";
@@ -38,37 +38,69 @@ export type {
 } from "../contracts/wallet.js";
 
 const FETCH_TIMEOUT_MS = 15_000;
+export const MANAGED_EVM_ADDRESS_ENV_KEY = "MILAIDY_MANAGED_EVM_ADDRESS";
+export const MANAGED_SOLANA_ADDRESS_ENV_KEY = "MILAIDY_MANAGED_SOLANA_ADDRESS";
 
-export const DEFAULT_EVM_CHAINS = [
+type EvmChainProvider = "alchemy" | "ankr";
+
+interface EvmChainConfig {
+  name: string;
+  subdomain: string;
+  chainId: number;
+  nativeSymbol: string;
+  provider: EvmChainProvider;
+  ankrChain?: string;
+}
+
+export interface EvmProviderKeys {
+  alchemyKey?: string | null;
+  ankrKey?: string | null;
+}
+
+export const DEFAULT_EVM_CHAINS: readonly EvmChainConfig[] = [
   {
     name: "Ethereum",
     subdomain: "eth-mainnet",
     chainId: 1,
     nativeSymbol: "ETH",
+    provider: "alchemy",
   },
   {
     name: "Base",
     subdomain: "base-mainnet",
     chainId: 8453,
     nativeSymbol: "ETH",
+    provider: "alchemy",
   },
   {
     name: "Arbitrum",
     subdomain: "arb-mainnet",
     chainId: 42161,
     nativeSymbol: "ETH",
+    provider: "alchemy",
   },
   {
     name: "Optimism",
     subdomain: "opt-mainnet",
     chainId: 10,
     nativeSymbol: "ETH",
+    provider: "alchemy",
   },
   {
     name: "Polygon",
     subdomain: "polygon-mainnet",
     chainId: 137,
     nativeSymbol: "POL",
+    provider: "alchemy",
+  },
+  {
+    // Ankr handles BSC token + NFT inventory APIs.
+    name: "BSC",
+    subdomain: "bsc-mainnet",
+    chainId: 56,
+    nativeSymbol: "BNB",
+    provider: "ankr",
+    ankrChain: "bsc",
   },
 ] as const;
 
@@ -428,10 +460,42 @@ export function getWalletAddresses(): WalletAddresses {
       logger.warn(`Bad SOL key: ${e}`);
     }
   }
+
+  if (!evmAddress) {
+    const managedEvmAddress = process.env[MANAGED_EVM_ADDRESS_ENV_KEY];
+    if (managedEvmAddress) {
+      const trimmed = managedEvmAddress.trim();
+      if (/^0x[0-9a-fA-F]{40}$/.test(trimmed)) {
+        evmAddress = trimmed;
+      } else {
+        logger.warn("Bad managed EVM address in env");
+      }
+    }
+  }
+
+  if (!solanaAddress) {
+    const managedSolanaAddress = process.env[MANAGED_SOLANA_ADDRESS_ENV_KEY];
+    if (managedSolanaAddress) {
+      const trimmed = managedSolanaAddress.trim();
+      try {
+        const decoded = base58Decode(trimmed);
+        if (decoded.length === 32) {
+          solanaAddress = trimmed;
+        } else {
+          logger.warn("Bad managed Solana address in env");
+        }
+      } catch {
+        logger.warn("Bad managed Solana address in env");
+      }
+    }
+  }
+
   return { evmAddress, solanaAddress };
 }
 
-// Alchemy API (EVM tokens + NFTs)
+// EVM token + NFT APIs (Alchemy + Ankr)
+
+const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
 interface AlchemyTokenBalance {
   contractAddress: string;
@@ -442,6 +506,37 @@ interface AlchemyTokenMeta {
   symbol: string;
   decimals: number;
   logo: string | null;
+}
+
+interface AnkrTokenAsset {
+  contractAddress?: string;
+  tokenName?: string;
+  tokenSymbol?: string;
+  tokenDecimals?: number | string;
+  tokenType?: string;
+  tokenBalance?: string | number;
+  balance?: string | number;
+  balanceRawInteger?: string | number;
+  balanceUsd?: string | number;
+  thumbnail?: string;
+}
+
+interface AnkrNftAsset {
+  contractAddress?: string;
+  tokenId?: string | number;
+  name?: string;
+  description?: string;
+  imageUrl?: string;
+  imagePreviewUrl?: string;
+  imageOriginalUrl?: string;
+  collectionName?: string;
+  contractName?: string;
+  tokenType?: string;
+}
+
+interface EvmProviderKeyset {
+  alchemyKey: string | null;
+  ankrKey: string | null;
 }
 
 /** Parse JSON from a fetch response. If the body isn't JSON, throw with the raw text. */
@@ -455,119 +550,383 @@ async function jsonOrThrow<T>(res: Response): Promise<T> {
   }
 }
 
-export async function fetchEvmBalances(
+function normalizeApiKey(value: string | null | undefined): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function resolveEvmProviderKeys(
+  alchemyOrKeys: string | EvmProviderKeys | null | undefined,
+  maybeAnkrKey?: string | null,
+): EvmProviderKeyset {
+  if (typeof alchemyOrKeys === "string" || alchemyOrKeys == null) {
+    return {
+      alchemyKey: normalizeApiKey(alchemyOrKeys),
+      ankrKey: normalizeApiKey(maybeAnkrKey),
+    };
+  }
+  return {
+    alchemyKey: normalizeApiKey(alchemyOrKeys.alchemyKey),
+    ankrKey: normalizeApiKey(alchemyOrKeys.ankrKey ?? maybeAnkrKey),
+  };
+}
+
+function makeEvmChainFailure(
+  chain: EvmChainConfig,
+  message: string,
+): EvmChainBalance {
+  return {
+    chain: chain.name,
+    chainId: chain.chainId,
+    nativeBalance: "0",
+    nativeSymbol: chain.nativeSymbol,
+    nativeValueUsd: "0",
+    tokens: [],
+    error: message,
+  };
+}
+
+function rpcJsonRequest(body: string): RequestInit {
+  return {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    body,
+  };
+}
+
+function asString(value: unknown): string {
+  if (typeof value === "string") return value.trim();
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  return "";
+}
+
+function parseTokenDecimals(value: unknown, fallback = 18): number {
+  const num =
+    typeof value === "number"
+      ? value
+      : typeof value === "string"
+        ? Number.parseInt(value, 10)
+        : Number.NaN;
+  if (!Number.isFinite(num) || num < 0) return fallback;
+  return Math.trunc(num);
+}
+
+function parseUsdString(value: unknown): string {
+  const num =
+    typeof value === "number"
+      ? value
+      : typeof value === "string"
+        ? Number.parseFloat(value)
+        : Number.NaN;
+  if (!Number.isFinite(num) || num <= 0) return "0";
+  return num.toFixed(2);
+}
+
+function parseAnkrBalance(asset: AnkrTokenAsset, decimals: number): string {
+  const tokenBalance = asString(asset.tokenBalance);
+  if (tokenBalance) {
+    if (/^\d+$/.test(tokenBalance))
+      return formatWei(BigInt(tokenBalance), decimals);
+    return tokenBalance;
+  }
+
+  const displayBalance = asString(asset.balance);
+  if (displayBalance) {
+    if (/^\d+$/.test(displayBalance))
+      return formatWei(BigInt(displayBalance), decimals);
+    return displayBalance;
+  }
+
+  const rawBalance = asString(asset.balanceRawInteger);
+  if (rawBalance && /^\d+$/.test(rawBalance))
+    return formatWei(BigInt(rawBalance), decimals);
+
+  return "0";
+}
+
+function isZeroBalance(balance: string): boolean {
+  if (!balance) return true;
+  if (/^0+(\.0+)?$/.test(balance)) return true;
+  const parsed = Number.parseFloat(balance);
+  return Number.isFinite(parsed) ? parsed <= 0 : false;
+}
+
+function isAnkrNativeAsset(asset: AnkrTokenAsset): boolean {
+  const tokenType = (asset.tokenType ?? "").toUpperCase();
+  const symbol = (asset.tokenSymbol ?? "").toUpperCase();
+  const contract = (asset.contractAddress ?? "").toLowerCase();
+  if (tokenType === "NATIVE") return true;
+  return symbol === "BNB" && (!contract || contract === ZERO_ADDRESS);
+}
+
+async function fetchAlchemyChainBalances(
+  chain: EvmChainConfig,
   address: string,
   alchemyKey: string,
+): Promise<EvmChainBalance> {
+  const url = `https://${chain.subdomain}.g.alchemy.com/v2/${alchemyKey}`;
+
+  const nativeData = await jsonOrThrow<{ result?: string }>(
+    await fetch(
+      url,
+      rpcJsonRequest(
+        JSON.stringify({
+          jsonrpc: "2.0",
+          id: 1,
+          method: "eth_getBalance",
+          params: [address, "latest"],
+        }),
+      ),
+    ),
+  );
+  const nativeBalance = formatWei(
+    nativeData.result ? BigInt(nativeData.result) : 0n,
+    18,
+  );
+
+  const tokenData = await jsonOrThrow<{
+    result?: { tokenBalances?: AlchemyTokenBalance[] };
+  }>(
+    await fetch(
+      url,
+      rpcJsonRequest(
+        JSON.stringify({
+          jsonrpc: "2.0",
+          id: 2,
+          method: "alchemy_getTokenBalances",
+          params: [address, "DEFAULT_TOKENS"],
+        }),
+      ),
+    ),
+  );
+  const nonZero = (tokenData.result?.tokenBalances ?? []).filter(
+    (t) =>
+      t.tokenBalance && t.tokenBalance !== "0x0" && t.tokenBalance !== "0x",
+  );
+
+  const metaResults = await Promise.allSettled(
+    nonZero.slice(0, 50).map(async (tok): Promise<EvmTokenBalance> => {
+      const meta = (
+        await jsonOrThrow<{ result?: AlchemyTokenMeta }>(
+          await fetch(
+            url,
+            rpcJsonRequest(
+              JSON.stringify({
+                jsonrpc: "2.0",
+                id: 3,
+                method: "alchemy_getTokenMetadata",
+                params: [tok.contractAddress],
+              }),
+            ),
+          ),
+        )
+      ).result;
+      const decimals = meta?.decimals ?? 18;
+      return {
+        symbol: meta?.symbol ?? "???",
+        name: meta?.name ?? "Unknown Token",
+        contractAddress: tok.contractAddress,
+        balance: formatWei(BigInt(tok.tokenBalance), decimals),
+        decimals,
+        valueUsd: "0",
+        logoUrl: meta?.logo ?? "",
+      };
+    }),
+  );
+  const tokens = metaResults
+    .filter(
+      (r): r is PromiseFulfilledResult<EvmTokenBalance> =>
+        r.status === "fulfilled",
+    )
+    .map((r) => r.value);
+
+  return {
+    chain: chain.name,
+    chainId: chain.chainId,
+    nativeBalance,
+    nativeSymbol: chain.nativeSymbol,
+    nativeValueUsd: "0",
+    tokens,
+    error: null,
+  };
+}
+
+async function fetchAnkrChainBalances(
+  chain: EvmChainConfig,
+  address: string,
+  ankrKey: string,
+): Promise<EvmChainBalance> {
+  const res = await fetch(
+    `https://rpc.ankr.com/multichain/${ankrKey}`,
+    rpcJsonRequest(
+      JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "ankr_getAccountBalance",
+        params: {
+          walletAddress: address,
+          blockchain: [chain.ankrChain ?? "bsc"],
+          onlyWhitelisted: false,
+        },
+      }),
+    ),
+  );
+  const data = await jsonOrThrow<{ result?: { assets?: AnkrTokenAsset[] } }>(
+    res,
+  );
+  const assets = data.result?.assets ?? [];
+  const nativeAsset = assets.find(isAnkrNativeAsset);
+  const nativeBalance = nativeAsset
+    ? parseAnkrBalance(
+        nativeAsset,
+        parseTokenDecimals(nativeAsset.tokenDecimals),
+      )
+    : "0";
+  const nativeValueUsd = nativeAsset
+    ? parseUsdString(nativeAsset.balanceUsd)
+    : "0";
+
+  const tokens: EvmTokenBalance[] = [];
+  for (const asset of assets) {
+    if (isAnkrNativeAsset(asset)) continue;
+    const decimals = parseTokenDecimals(asset.tokenDecimals);
+    const balance = parseAnkrBalance(asset, decimals);
+    if (isZeroBalance(balance)) continue;
+    tokens.push({
+      symbol: asset.tokenSymbol ?? "???",
+      name: asset.tokenName ?? "Unknown Token",
+      contractAddress: asset.contractAddress ?? "",
+      balance,
+      decimals,
+      valueUsd: parseUsdString(asset.balanceUsd),
+      logoUrl: asset.thumbnail ?? "",
+    });
+  }
+
+  return {
+    chain: chain.name,
+    chainId: chain.chainId,
+    nativeBalance,
+    nativeSymbol: chain.nativeSymbol,
+    nativeValueUsd,
+    tokens,
+    error: null,
+  };
+}
+
+async function fetchAlchemyChainNfts(
+  chain: EvmChainConfig,
+  address: string,
+  alchemyKey: string,
+): Promise<{ chain: string; nfts: EvmNft[] }> {
+  const res = await fetch(
+    `https://${chain.subdomain}.g.alchemy.com/nft/v3/${alchemyKey}/getNFTsForOwner?owner=${address}&withMetadata=true&pageSize=50`,
+    { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) },
+  );
+  const data = await jsonOrThrow<{
+    ownedNfts?: Array<{
+      contract?: {
+        address?: string;
+        name?: string;
+        openSeaMetadata?: { collectionName?: string };
+      };
+      tokenId?: string;
+      name?: string;
+      description?: string;
+      image?: {
+        cachedUrl?: string;
+        thumbnailUrl?: string;
+        originalUrl?: string;
+      };
+      tokenType?: string;
+    }>;
+  }>(res);
+  return {
+    chain: chain.name,
+    nfts: (data.ownedNfts ?? []).map((nft) => ({
+      contractAddress: nft.contract?.address ?? "",
+      tokenId: nft.tokenId ?? "",
+      name: nft.name ?? "Untitled",
+      description: (nft.description ?? "").slice(0, 200),
+      imageUrl:
+        nft.image?.cachedUrl ??
+        nft.image?.thumbnailUrl ??
+        nft.image?.originalUrl ??
+        "",
+      collectionName:
+        nft.contract?.openSeaMetadata?.collectionName ??
+        nft.contract?.name ??
+        "",
+      tokenType: nft.tokenType ?? "ERC721",
+    })),
+  };
+}
+
+async function fetchAnkrChainNfts(
+  chain: EvmChainConfig,
+  address: string,
+  ankrKey: string,
+): Promise<{ chain: string; nfts: EvmNft[] }> {
+  const res = await fetch(
+    `https://rpc.ankr.com/multichain/${ankrKey}`,
+    rpcJsonRequest(
+      JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "ankr_getNFTsByOwner",
+        params: {
+          walletAddress: address,
+          blockchain: [chain.ankrChain ?? "bsc"],
+          pageSize: 50,
+        },
+      }),
+    ),
+  );
+  const data = await jsonOrThrow<{ result?: { assets?: AnkrNftAsset[] } }>(res);
+  return {
+    chain: chain.name,
+    nfts: (data.result?.assets ?? []).map((nft) => ({
+      contractAddress: nft.contractAddress ?? "",
+      tokenId: String(nft.tokenId ?? ""),
+      name: nft.name ?? "Untitled",
+      description: (nft.description ?? "").slice(0, 200),
+      imageUrl:
+        nft.imageUrl ?? nft.imagePreviewUrl ?? nft.imageOriginalUrl ?? "",
+      collectionName: nft.collectionName ?? nft.contractName ?? "",
+      tokenType: nft.tokenType ?? "ERC721",
+    })),
+  };
+}
+
+export async function fetchEvmBalances(
+  address: string,
+  alchemyOrKeys: string | EvmProviderKeys | null | undefined,
+  maybeAnkrKey?: string | null,
 ): Promise<EvmChainBalance[]> {
+  const keys = resolveEvmProviderKeys(alchemyOrKeys, maybeAnkrKey);
+  const activeChains = DEFAULT_EVM_CHAINS.filter((chain) =>
+    chain.provider === "ankr"
+      ? Boolean(keys.ankrKey)
+      : Boolean(keys.alchemyKey),
+  );
+
   return Promise.all(
-    DEFAULT_EVM_CHAINS.map(async (chain): Promise<EvmChainBalance> => {
-      const fail = (msg: string): EvmChainBalance => ({
-        chain: chain.name,
-        chainId: chain.chainId,
-        nativeBalance: "0",
-        nativeSymbol: chain.nativeSymbol,
-        nativeValueUsd: "0",
-        tokens: [],
-        error: msg,
-      });
+    activeChains.map(async (chain): Promise<EvmChainBalance> => {
       try {
-        const url = `https://${chain.subdomain}.g.alchemy.com/v2/${alchemyKey}`;
-        const rpc = (body: string): RequestInit => ({
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-          body,
-        });
-
-        const nativeData = await jsonOrThrow<{ result?: string }>(
-          await fetch(
-            url,
-            rpc(
-              JSON.stringify({
-                jsonrpc: "2.0",
-                id: 1,
-                method: "eth_getBalance",
-                params: [address, "latest"],
-              }),
-            ),
-          ),
-        );
-        const nativeBalance = formatWei(
-          nativeData.result ? BigInt(nativeData.result) : 0n,
-          18,
-        );
-
-        const tokenData = await jsonOrThrow<{
-          result?: { tokenBalances?: AlchemyTokenBalance[] };
-        }>(
-          await fetch(
-            url,
-            rpc(
-              JSON.stringify({
-                jsonrpc: "2.0",
-                id: 2,
-                method: "alchemy_getTokenBalances",
-                params: [address, "DEFAULT_TOKENS"],
-              }),
-            ),
-          ),
-        );
-        const nonZero = (tokenData.result?.tokenBalances ?? []).filter(
-          (t) =>
-            t.tokenBalance &&
-            t.tokenBalance !== "0x0" &&
-            t.tokenBalance !== "0x",
-        );
-
-        const metaResults = await Promise.allSettled(
-          nonZero.slice(0, 50).map(async (tok): Promise<EvmTokenBalance> => {
-            const meta = (
-              await jsonOrThrow<{ result?: AlchemyTokenMeta }>(
-                await fetch(
-                  url,
-                  rpc(
-                    JSON.stringify({
-                      jsonrpc: "2.0",
-                      id: 3,
-                      method: "alchemy_getTokenMetadata",
-                      params: [tok.contractAddress],
-                    }),
-                  ),
-                ),
-              )
-            ).result;
-            const decimals = meta?.decimals ?? 18;
-            return {
-              symbol: meta?.symbol ?? "???",
-              name: meta?.name ?? "Unknown Token",
-              contractAddress: tok.contractAddress,
-              balance: formatWei(BigInt(tok.tokenBalance), decimals),
-              decimals,
-              valueUsd: "0",
-              logoUrl: meta?.logo ?? "",
-            };
-          }),
-        );
-        const tokens = metaResults
-          .filter(
-            (r): r is PromiseFulfilledResult<EvmTokenBalance> =>
-              r.status === "fulfilled",
-          )
-          .map((r) => r.value);
-
-        return {
-          chain: chain.name,
-          chainId: chain.chainId,
-          nativeBalance,
-          nativeSymbol: chain.nativeSymbol,
-          nativeValueUsd: "0",
-          tokens,
-          error: null,
-        };
+        if (chain.provider === "ankr") {
+          if (!keys.ankrKey)
+            return makeEvmChainFailure(chain, "Missing ANKR_API_KEY");
+          return await fetchAnkrChainBalances(chain, address, keys.ankrKey);
+        }
+        if (!keys.alchemyKey)
+          return makeEvmChainFailure(chain, "Missing ALCHEMY_API_KEY");
+        return await fetchAlchemyChainBalances(chain, address, keys.alchemyKey);
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         logger.warn(`EVM balance fetch failed for ${chain.name}: ${msg}`);
-        return fail(msg);
+        return makeEvmChainFailure(chain, msg);
       }
     }),
   );
@@ -575,53 +934,26 @@ export async function fetchEvmBalances(
 
 export async function fetchEvmNfts(
   address: string,
-  alchemyKey: string,
+  alchemyOrKeys: string | EvmProviderKeys | null | undefined,
+  maybeAnkrKey?: string | null,
 ): Promise<Array<{ chain: string; nfts: EvmNft[] }>> {
+  const keys = resolveEvmProviderKeys(alchemyOrKeys, maybeAnkrKey);
+  const activeChains = DEFAULT_EVM_CHAINS.filter((chain) =>
+    chain.provider === "ankr"
+      ? Boolean(keys.ankrKey)
+      : Boolean(keys.alchemyKey),
+  );
+
   return Promise.all(
-    DEFAULT_EVM_CHAINS.map(
+    activeChains.map(
       async (chain): Promise<{ chain: string; nfts: EvmNft[] }> => {
         try {
-          const res = await fetch(
-            `https://${chain.subdomain}.g.alchemy.com/nft/v3/${alchemyKey}/getNFTsForOwner?owner=${address}&withMetadata=true&pageSize=50`,
-            { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) },
-          );
-          const data = await jsonOrThrow<{
-            ownedNfts?: Array<{
-              contract?: {
-                address?: string;
-                name?: string;
-                openSeaMetadata?: { collectionName?: string };
-              };
-              tokenId?: string;
-              name?: string;
-              description?: string;
-              image?: {
-                cachedUrl?: string;
-                thumbnailUrl?: string;
-                originalUrl?: string;
-              };
-              tokenType?: string;
-            }>;
-          }>(res);
-          return {
-            chain: chain.name,
-            nfts: (data.ownedNfts ?? []).map((nft) => ({
-              contractAddress: nft.contract?.address ?? "",
-              tokenId: nft.tokenId ?? "",
-              name: nft.name ?? "Untitled",
-              description: (nft.description ?? "").slice(0, 200),
-              imageUrl:
-                nft.image?.cachedUrl ??
-                nft.image?.thumbnailUrl ??
-                nft.image?.originalUrl ??
-                "",
-              collectionName:
-                nft.contract?.openSeaMetadata?.collectionName ??
-                nft.contract?.name ??
-                "",
-              tokenType: nft.tokenType ?? "ERC721",
-            })),
-          };
+          if (chain.provider === "ankr") {
+            if (!keys.ankrKey) return { chain: chain.name, nfts: [] };
+            return await fetchAnkrChainNfts(chain, address, keys.ankrKey);
+          }
+          if (!keys.alchemyKey) return { chain: chain.name, nfts: [] };
+          return await fetchAlchemyChainNfts(chain, address, keys.alchemyKey);
         } catch (err) {
           logger.warn(`EVM NFT fetch failed for ${chain.name}: ${err}`);
           return { chain: chain.name, nfts: [] };

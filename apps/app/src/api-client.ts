@@ -51,7 +51,7 @@ import type {
   PermissionStatus,
   SystemPermissionDefinition,
   SystemPermissionId,
-} from "../../../src/permissions/types.js";
+} from "../../../src/contracts/permissions.js";
 
 export type {
   AudioGenConfig,
@@ -2254,6 +2254,12 @@ export class MilaidyClient {
   async getWalletNfts(): Promise<WalletNftsResponse> { return this.fetch("/api/wallet/nfts"); }
   async getWalletConfig(): Promise<WalletConfigStatus> { return this.fetch("/api/wallet/config"); }
   async updateWalletConfig(config: Record<string, string>): Promise<{ ok: boolean }> { return this.fetch("/api/wallet/config", { method: "PUT", body: JSON.stringify(config) }); }
+  async generateWallets(chain: "evm" | "solana" | "both" = "both"): Promise<{ ok: boolean; wallets: Array<{ chain: "evm" | "solana"; address: string }> }> {
+    return this.fetch("/api/wallet/generate", {
+      method: "POST",
+      body: JSON.stringify({ chain }),
+    });
+  }
   async exportWalletKeys(exportToken: string): Promise<WalletExportResult> {
     return this.fetch("/api/wallet/export", {
       method: "POST",

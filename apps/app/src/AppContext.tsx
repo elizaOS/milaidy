@@ -1499,6 +1499,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const ensureManagedWallets = useCallback(async () => {
+    try {
+      const addrs = await client.getWalletAddresses();
+      if (addrs.evmAddress && addrs.solanaAddress) {
+        setWalletAddresses(addrs);
+        return;
+      }
+
+      if (!addrs.evmAddress) {
+        await client.generateWallets("evm");
+      }
+      if (!addrs.solanaAddress) {
+        await client.generateWallets("solana");
+      }
+      const refreshed = await client.getWalletAddresses();
+      setWalletAddresses(refreshed);
+    } catch (err) {
+      setWalletError(
+        `Failed to provision wallets: ${err instanceof Error ? err.message : "network error"}`,
+      );
+    }
+  }, []);
+
   const loadBalances = useCallback(async () => {
     setWalletLoading(true);
     setWalletError(null);
@@ -1524,8 +1547,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const loadInventory = useCallback(async () => {
+    await ensureManagedWallets();
     await loadWalletConfig();
-  }, [loadWalletConfig]);
+    await loadBalances();
+  }, [ensureManagedWallets, loadWalletConfig, loadBalances]);
 
   const loadCharacter = useCallback(async () => {
     setCharacterLoading(true);
@@ -3095,7 +3120,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
             setCloudConnected(true);
             setCloudEnabled(true);
             setActionNotice("Logged in to Eliza Cloud successfully.", "success", 6000);
-            void loadWalletConfig();
+            await ensureManagedWallets();
+            void loadInventory();
             // Delay the credit fetch slightly so the backend has time to
             // persist the API key before we query cloud status / credits.
             setTimeout(() => void pollCloudCredits(), 2000);
@@ -3114,7 +3140,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       cloudLoginBusyRef.current = false;
       setCloudLoginBusy(false);
     }
-  }, [cloudLoginBusy, setActionNotice, pollCloudCredits, loadWalletConfig]);
+  }, [cloudLoginBusy, setActionNotice, pollCloudCredits, ensureManagedWallets, loadInventory]);
 
   const handleCloudDisconnect = useCallback(async () => {
     if (!confirm("Disconnect from Eliza Cloud? The agent will need a local AI provider to continue working."))
@@ -3677,9 +3703,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (urlTab === "companion") {
           void loadCompanion();
         }
-        if (urlTab === "wallets") {
-          void loadInventory();
-        }
       }
     };
 
@@ -3706,6 +3729,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [appendAutonomousEvent]);
+
+  useEffect(() => {
+    if (tab === "wallets") {
+      void loadInventory();
+    }
+  }, [tab, loadInventory]);
 
   // When agent transitions to "running", send a greeting if conversation is empty
   useEffect(() => {

@@ -10,6 +10,12 @@ const { mockUseApp } = vi.hoisted(() => ({
 vi.mock("../../src/AppContext", () => ({
   useApp: () => mockUseApp(),
   getVrmPreviewUrl: () => "/vrms/previews/milAIdy-1.png",
+  getVrmUrl: () => "/vrms/milAIdy-1.vrm",
+  VRM_COUNT: 24,
+}));
+
+vi.mock("../../src/components/avatar/VrmViewer", () => ({
+  VrmViewer: () => React.createElement("div", null, "VrmViewer"),
 }));
 
 import { CompanionView } from "../../src/components/CompanionView";
@@ -129,7 +135,9 @@ function createContext(snapshot: CompanionStateSnapshot | null) {
     refreshCompanionActivity: vi.fn(async () => {}),
     runCompanionAction: vi.fn(async () => {}),
     updateCompanionSettings: vi.fn(async () => {}),
+    setState: vi.fn(),
     selectedVrmIndex: 1,
+    customVrmUrl: "",
     copyToClipboard: vi.fn(async () => {}),
   };
 }
@@ -141,7 +149,7 @@ function text(node: TestRenderer.ReactTestInstance): string {
 }
 
 describe("CompanionView", () => {
-  it("renders companion snapshot and autopost summary", async () => {
+  it("renders game-style companion sections and autopost summary", async () => {
     mockUseApp.mockReturnValue(createContext(createSnapshot()));
 
     let tree: TestRenderer.ReactTestRenderer;
@@ -150,10 +158,15 @@ describe("CompanionView", () => {
     });
 
     const content = text(tree!.root);
-    expect(content).toContain("Companion");
-    expect(content).toContain("Level 3");
+    expect(content).toContain("Companion Console");
+    expect(content).toContain("Cyber Companion");
+    expect(content).toContain("Character Roster");
+    expect(content).toContain("Mood");
+    expect(content).toContain("Hunger");
+    expect(content).toContain("Energy");
+    expect(content).toContain("Social");
     expect(content).toContain("Autopost today: 2/6");
-    expect(content).toContain("Today chat progress: 3/40");
+    expect(content).toContain("Control Hub");
   });
 
   it("disables action buttons when cooldown is active", async () => {
@@ -165,10 +178,47 @@ describe("CompanionView", () => {
     });
 
     const feedButton = tree!.root.findAll(
-      (node) => node.type === "button" && text(node).includes("Feed ("),
+      (node) => node.type === "button" && node.props["data-testid"] === "companion-action-feed",
     )[0];
     expect(feedButton).toBeDefined();
     expect(feedButton.props.disabled).toBe(true);
+  });
+
+  it("opens control drawer and saves settings", async () => {
+    const ctx = createContext(createSnapshot());
+    mockUseApp.mockReturnValue(ctx);
+
+    let tree: TestRenderer.ReactTestRenderer;
+    await act(async () => {
+      tree = TestRenderer.create(React.createElement(CompanionView));
+    });
+
+    const hubButton = tree!.root.findAll(
+      (node) => node.type === "button" && text(node).trim() === "Control Hub",
+    )[0];
+    expect(hubButton).toBeDefined();
+
+    await act(async () => {
+      hubButton.props.onClick();
+    });
+
+    const drawer = tree!.root.findAll(
+      (node) =>
+        node.type === "aside" &&
+        typeof node.props.className === "string" &&
+        node.props.className.includes("companion-game__drawer"),
+    )[0];
+    expect(drawer.props.className.includes("is-open")).toBe(true);
+
+    const saveButton = tree!.root.findAll(
+      (node) => node.type === "button" && text(node).trim() === "Save Settings",
+    )[0];
+    expect(saveButton).toBeDefined();
+
+    await act(async () => {
+      await saveButton.props.onClick();
+    });
+    expect(ctx.updateCompanionSettings).toHaveBeenCalledTimes(1);
   });
 
   it("shows retry state when snapshot is unavailable", async () => {

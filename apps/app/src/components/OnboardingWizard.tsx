@@ -92,13 +92,13 @@ function OnboardingVrmAvatar({
     setVrmLoaded(false);
     setShowFallback(false);
 
-    const timer = window.setTimeout(() => {
+    const timer = globalThis.setTimeout(() => {
       if (!loadedRef.current) {
         setShowFallback(true);
       }
     }, 3500);
 
-    return () => window.clearTimeout(timer);
+    return () => globalThis.clearTimeout(timer);
   }, [vrmPath]);
 
   return (
@@ -669,6 +669,10 @@ export function OnboardingWizard() {
           <div className="max-w-[500px] mx-auto mt-10 text-center font-body">
             <div className="onboarding-speech bg-card border border-border rounded-xl px-5 py-4 mx-auto mb-6 max-w-[600px] relative text-[15px] text-txt leading-relaxed">
               <h2 className="text-[28px] font-normal mb-1 text-txt-strong">Cloud Login</h2>
+              <p className="text-xs text-muted mt-2">
+                Pure Privy mode: after login, managed wallets are auto-created for ETH/Base/BSC + Solana.
+                No wallet API keys required.
+              </p>
             </div>
             {cloudConnected ? (
               <div className="max-w-[600px] mx-auto">
@@ -883,7 +887,10 @@ export function OnboardingWizard() {
                   </button>
                 )}
                 {cloudLoginError && <p className="text-danger text-[13px] mt-2">{cloudLoginError}</p>}
-                <p className="text-xs text-muted mt-3">Free credits to start. No API key needed.</p>
+                <p className="text-xs text-muted mt-3">
+                  Free credits to start. No AI API key needed.
+                  Wallets auto-provision after Cloud login (ETH/Base/BSC + Solana).
+                </p>
               </div>
             )}
 
@@ -1135,6 +1142,10 @@ export function OnboardingWizard() {
             />
             <div className="onboarding-speech bg-card border border-border rounded-xl px-5 py-4 mx-auto mb-6 max-w-[600px] relative text-[15px] text-txt leading-relaxed">
               <h2 className="text-[28px] font-normal mb-1 text-txt-strong">soooo can i have a wallet?</h2>
+              <p className="text-xs text-muted mt-2">
+                In Pure Privy mode, I create managed wallets automatically after Cloud login:
+                ETH/Base/BSC + Solana.
+              </p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-left w-full px-4">
               <h3 className="text-[13px] font-bold text-txt-strong col-span-full mb-2">Select Chains:</h3>

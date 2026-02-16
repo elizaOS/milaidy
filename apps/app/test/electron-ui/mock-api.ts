@@ -617,7 +617,7 @@ export async function startMockApiServer(options: MockApiServerOptions = {}): Pr
         ankrKeySet: false,
         heliusKeySet: true,
         birdeyeKeySet: false,
-        evmChains: ["ethereum", "base"],
+        evmChains: ["ethereum", "base", "bsc"],
         evmAddress: "0x1234567890abcdef1234567890abcdef12345678",
         solanaAddress: "7YfA9q2w8GJTkf3k4sydp6q9Q8h5k2m1u8r7t6v5w4x3",
       });

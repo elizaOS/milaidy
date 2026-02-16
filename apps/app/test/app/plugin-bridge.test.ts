@@ -1,16 +1,7 @@
 /**
  * Tests for plugin-bridge — capabilities detection and feature flags on web platform.
  */
-import { describe, it, expect, vi } from "vitest";
-
-vi.mock("@milaidy/capacitor-gateway", () => ({ Gateway: {} }));
-vi.mock("@milaidy/capacitor-swabble", () => ({ Swabble: {} }));
-vi.mock("@milaidy/capacitor-talkmode", () => ({ TalkMode: {} }));
-vi.mock("@milaidy/capacitor-camera", () => ({ Camera: {} }));
-vi.mock("@milaidy/capacitor-location", () => ({ Location: {} }));
-vi.mock("@milaidy/capacitor-screencapture", () => ({ ScreenCapture: {} }));
-vi.mock("@milaidy/capacitor-canvas", () => ({ Canvas: {} }));
-vi.mock("@milaidy/capacitor-desktop", () => ({ Desktop: {} }));
+import { describe, it, expect } from "vitest";
 import {
   getPluginCapabilities,
   isFeatureAvailable,
@@ -65,7 +56,7 @@ describe("plugin-bridge", () => {
     it.each([
       ["gatewayDiscovery", false],
       ["desktopTray", false],
-      ["elevenlabs", false],
+      ["elevenlabs", true],
       ["backgroundLocation", false],
     ] as const)("%s → %s on web", (feature, expected) => {
       expect(isFeatureAvailable(feature)).toBe(expected);
