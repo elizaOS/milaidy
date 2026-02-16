@@ -34,7 +34,9 @@ jobs:
       - run: bun install --frozen-lockfile --omit=optional
 
       - name: Build app web bundle (smoke)
-        run: bun run --cwd apps/app build
+        run: |
+          cd apps/app
+          bunx vite build
 
   lint:
     name: Lint & Format
