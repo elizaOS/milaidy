@@ -101,6 +101,8 @@ export function CompanionView() {
   const [quietStart, setQuietStart] = useState(1);
   const [quietEnd, setQuietEnd] = useState(8);
   const [policyLevel, setPolicyLevel] = useState<CompanionPolicyLevel>("balanced");
+  const [vrmLoaded, setVrmLoaded] = useState(false);
+  const [showVrmFallback, setShowVrmFallback] = useState(false);
   const vrmEngineRef = useRef<VrmEngine | null>(null);
   const currentAmbientIntentIdRef = useRef<string | null>(null);
 
@@ -158,6 +160,9 @@ export function CompanionView() {
   const vrmPath = selectedVrmIndex === 0 && customVrmUrl
     ? customVrmUrl
     : getVrmUrl(safeSelectedVrmIndex);
+  const fallbackPreviewUrl = selectedVrmIndex > 0
+    ? getVrmPreviewUrl(safeSelectedVrmIndex)
+    : getVrmPreviewUrl(1);
   const ambientIntent = useMemo(
     () => resolveCompanionAnimationIntent(companionSnapshot),
     [companionSnapshot],
@@ -196,12 +201,20 @@ export function CompanionView() {
 
   const handleVrmEngineState = useCallback((state: VrmEngineState) => {
     if (!state.vrmLoaded) return;
+    setVrmLoaded(true);
+    setShowVrmFallback(false);
     applyAmbientIntent();
   }, [applyAmbientIntent]);
 
   useEffect(() => {
+    setVrmLoaded(false);
+    setShowVrmFallback(false);
     currentAmbientIntentIdRef.current = null;
     applyAmbientIntent();
+    const timer = window.setTimeout(() => {
+      setShowVrmFallback(true);
+    }, 4000);
+    return () => window.clearTimeout(timer);
   }, [vrmPath, applyAmbientIntent]);
 
   useEffect(() => {
@@ -467,16 +480,33 @@ export function CompanionView() {
             </div>
 
             <div className="companion-game__vrm-shell">
-              <VrmViewer
-                vrmPath={vrmPath}
-                mouthOpen={0}
-                isSpeaking={false}
-                interactive
-                cameraProfile="companion"
-                interactiveMode="orbitZoom"
-                onEngineReady={handleVrmEngineReady}
-                onEngineState={handleVrmEngineState}
-              />
+              <div className="relative h-full w-full">
+                <div
+                  className="absolute inset-0"
+                  style={{
+                    opacity: vrmLoaded ? 1 : 0,
+                    transition: "opacity 220ms ease",
+                  }}
+                >
+                  <VrmViewer
+                    vrmPath={vrmPath}
+                    mouthOpen={0}
+                    isSpeaking={false}
+                    interactive
+                    cameraProfile="companion"
+                    interactiveMode="orbitZoom"
+                    onEngineReady={handleVrmEngineReady}
+                    onEngineState={handleVrmEngineState}
+                  />
+                </div>
+                {showVrmFallback && !vrmLoaded && (
+                  <img
+                    src={fallbackPreviewUrl}
+                    alt="companion avatar preview"
+                    className="absolute left-1/2 top-1/2 h-[78%] -translate-x-1/2 -translate-y-1/2 object-contain opacity-90"
+                  />
+                )}
+              </div>
             </div>
           </section>
 

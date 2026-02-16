@@ -8,15 +8,28 @@ WORKDIR /app
 ENV NODE_LLAMA_CPP_SKIP_DOWNLOAD="true"
 
 ARG MILADY_DOCKER_APT_PACKAGES=""
-RUN if [ -n "$MILADY_DOCKER_APT_PACKAGES" ]; then \
-      apt-get update && \
-      DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends $MILADY_DOCKER_APT_PACKAGES && \
-      apt-get clean && \
-      rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*; \
-    fi
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git-lfs $MILADY_DOCKER_APT_PACKAGES && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
 
 # Copy full source so Bun can resolve all workspaces declared in package.json.
 COPY . .
+
+# Pull large media tracked by Git LFS when git metadata is available (e.g. Railway GitHub deploy).
+RUN if [ -d .git ]; then \
+      git lfs install --local && \
+      git lfs pull; \
+    fi
+
+# Fail fast if VRM/animation assets are still unresolved LFS pointer files.
+RUN set -e; \
+    POINTERS="$(grep -RIl '^version https://git-lfs.github.com/spec/v1' apps/app/public/vrms apps/app/public/animations || true)"; \
+    if [ -n "$POINTERS" ]; then \
+      echo '[build] ERROR: unresolved Git LFS media pointers detected:'; \
+      echo "$POINTERS"; \
+      exit 1; \
+    fi
 
 # Install dependencies while skipping third-party postinstall hooks that
 # may fail in cloud builders. Then run our required local patch scripts.
