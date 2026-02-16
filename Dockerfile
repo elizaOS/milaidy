@@ -14,16 +14,11 @@ RUN if [ -n "$MILAIDY_DOCKER_APT_PACKAGES" ]; then \
       rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*; \
     fi
 
-# Copy dependency manifests first for better layer caching
-COPY package.json ./
-COPY apps/app/package.json ./apps/app/package.json
-COPY scripts ./scripts
-
-# Install dependencies (repo does not track bun.lock).
-RUN bun install
-
-# Copy source and build (includes apps/app/dist UI bundle)
+# Copy full source so Bun can resolve all workspaces declared in package.json.
 COPY . .
+
+# Install dependencies and build UI/server.
+RUN bun install
 RUN bun run build
 
 ENV NODE_ENV=production
