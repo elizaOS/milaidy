@@ -49,6 +49,25 @@ function _getCoreOverride(pkg: RootPackageJson): string | undefined {
   );
 }
 
+function _isLocalDependency(version: string): boolean {
+  return (
+    version.startsWith("./") ||
+    version.startsWith("../") ||
+    version.startsWith("file:")
+  );
+}
+
+function _resolveCoreVersion(
+  pkg: RootPackageJson,
+  coreVersion: string,
+): string {
+  if (_isLocalDependency(coreVersion) || coreVersion === "next") {
+    expect(_getCoreOverride(pkg)).toBeDefined();
+    return _getCoreOverride(pkg) as string;
+  }
+  return coreVersion;
+}
+
 // ---------------------------------------------------------------------------
 // Constants — Full plugin enumeration
 // ---------------------------------------------------------------------------
@@ -874,15 +893,6 @@ describe("Version Skew Detection (issue #10)", () => {
     return JSON.parse(readFileSync(pkgPath, "utf-8")) as PackageManifest;
   }
 
-  function getDependencyOverride(
-    manifest: PackageManifest,
-  ): string | undefined {
-    return (
-      manifest.overrides?.["@elizaos/core"] ??
-      manifest.pnpm?.overrides?.["@elizaos/core"]
-    );
-  }
-
   it("core is pinned to a version that includes MAX_EMBEDDING_TOKENS (issue #10 fix)", async () => {
     // Issue #10: plugins at "next" imported MAX_EMBEDDING_TOKENS from @elizaos/core,
     // which was missing in older core versions.
@@ -892,14 +902,8 @@ describe("Version Skew Detection (issue #10)", () => {
 
     const coreVersion = pkg.dependencies["@elizaos/core"];
     expect(coreVersion).toBeDefined();
-    // Core can use "next" dist-tag if overrides pin the actual version
-    const coreOverride = getDependencyOverride(pkg);
-    if (coreVersion === "next") {
-      expect(coreOverride).toBeDefined();
-      expect(coreOverride).toMatch(/^\d+\.\d+\.\d+/);
-    } else {
-      expect(coreVersion).toMatch(/^\d+\.\d+\.\d+/);
-    }
+    const resolvedCoreVersion = _resolveCoreVersion(pkg, coreVersion);
+    expect(resolvedCoreVersion).toMatch(/^\d+\.\d+\.\d+/);
 
     // The affected plugins should still be present in dependencies
     const affectedPlugins = [
