@@ -302,3 +302,19 @@ export async function tryOptionalDynamicImport<T>(
     throw error;
   }
 }
+
+/**
+ * Check if a package is a workspace dependency (managed by pnpm/bun workspace).
+ * Workspace dependencies are linked via symlinks and should not trigger version skew.
+ */
+export function isWorkspaceDependency(name: string): boolean {
+  try {
+    const require = createRequire(import.meta.url);
+    const pkgPath = require.resolve(`${name}/package.json`);
+    // Workspace packages are symlinked from ../../../packages/<name>
+    // This check is deliberately loose to handle different workspace layouts
+    return pkgPath.includes("/packages/") || pkgPath.includes("workspace");
+  } catch {
+    return false;
+  }
+}

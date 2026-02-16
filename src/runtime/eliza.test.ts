@@ -17,6 +17,7 @@ import {
   applyConnectorSecretsToEnv,
   applyDatabaseConfigToEnv,
   buildCharacterFromConfig,
+  CORE_PLUGINS,
   CUSTOM_PLUGINS_DIRNAME,
   collectPluginNames,
   findRuntimePluginExport,
@@ -113,6 +114,9 @@ describe("collectPluginNames", () => {
   afterEach(() => snap.restore());
 
   it("includes all core plugins for an empty config", () => {
+    // Guard against accidental removal from CORE_PLUGINS array
+    expect(CORE_PLUGINS).toHaveLength(14);
+
     const expectedCorePlugins = [
       "@elizaos/plugin-sql",
       "@elizaos/plugin-local-embedding",
