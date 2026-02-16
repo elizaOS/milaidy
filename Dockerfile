@@ -5,6 +5,7 @@ RUN curl -fsSL https://bun.sh/install | bash
 ENV PATH="/root/.bun/bin:${PATH}"
 
 WORKDIR /app
+ENV NODE_LLAMA_CPP_SKIP_DOWNLOAD="true"
 
 ARG MILAIDY_DOCKER_APT_PACKAGES=""
 RUN if [ -n "$MILAIDY_DOCKER_APT_PACKAGES" ]; then \
