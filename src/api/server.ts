@@ -4116,6 +4116,15 @@ export function ensureApiTokenForBindHost(host: string): void {
   const token = process.env.MILAIDY_API_TOKEN?.trim();
   if (token) return;
   if (isLoopbackBindHost(host)) return;
+  const allowInsecurePublicApi = /^(1|true|yes)$/i.test(
+    process.env.MILAIDY_ALLOW_INSECURE_PUBLIC_API?.trim() ?? "",
+  );
+  if (allowInsecurePublicApi) {
+    logger.warn(
+      `[milaidy-api] MILAIDY_ALLOW_INSECURE_PUBLIC_API is enabled. Public bind ${host} is running without MILAIDY_API_TOKEN.`,
+    );
+    return;
+  }
 
   const generated = crypto.randomBytes(32).toString("hex");
   process.env.MILAIDY_API_TOKEN = generated;
