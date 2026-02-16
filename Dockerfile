@@ -32,4 +32,4 @@ RUN chown -R node:node /app
 USER node
 
 # Railway sets $PORT dynamically. Map it to MILAIDY_PORT at runtime.
-CMD ["sh", "-lc", "MILAIDY_PORT=${PORT:-2138} node milaidy.mjs start --headless"]
+CMD ["sh", "-lc", "MILAIDY_PORT=${PORT:-2138} node milaidy.mjs start"]
