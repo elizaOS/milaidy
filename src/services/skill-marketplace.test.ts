@@ -8,6 +8,7 @@
  * - uninstallMarketplaceSkill (record lookup, path-containment safety, cleanup)
  */
 
+import { mkdirSync, writeFileSync } from "node:fs";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -20,6 +21,62 @@ import {
   searchSkillsMarketplace,
   uninstallMarketplaceSkill,
 } from "./skill-marketplace";
+
+const mockState = vi.hoisted(() => ({
+  createBlockedBinaryInClone: false,
+}));
+
+const mockedExecFile = vi.hoisted(() =>
+  vi.fn(
+    (
+      _command: string,
+      args: string[] = [],
+      _options: unknown,
+      callback?: (
+        error: Error | null,
+        stdout?: string,
+        stderr?: string,
+      ) => void,
+    ) => {
+      const cloneCommand = args.includes("clone");
+      const sparseCheckout = args.includes("sparse-checkout");
+
+      if (cloneCommand) {
+        const cloneDir = args[args.length - 1];
+        if (typeof cloneDir === "string") {
+          mkdirSync(cloneDir, { recursive: true });
+          writeFileSync(path.join(cloneDir, "SKILL.md"), "# Skill");
+          if (mockState.createBlockedBinaryInClone) {
+            writeFileSync(path.join(cloneDir, "payload.exe"), "MZ");
+          }
+        }
+      }
+
+      if (sparseCheckout) {
+        const cloneDir = args[1];
+        const checkoutPath = args[args.length - 1];
+        if (
+          typeof cloneDir === "string" &&
+          typeof checkoutPath === "string" &&
+          checkoutPath !== "."
+        ) {
+          const checkoutDir = path.join(cloneDir, checkoutPath);
+          mkdirSync(checkoutDir, { recursive: true });
+          writeFileSync(path.join(checkoutDir, "SKILL.md"), "# Skill");
+          if (mockState.createBlockedBinaryInClone) {
+            writeFileSync(path.join(checkoutDir, "payload.exe"), "MZ");
+          }
+        }
+      }
+
+      callback?.(null, "", "");
+    },
+  ),
+);
+
+vi.mock("node:child_process", () => ({
+  execFile: mockedExecFile,
+}));
 
 // ---------------------------------------------------------------------------
 // mocks
@@ -94,11 +151,16 @@ function makeRecord(
 let tmpDir: string;
 const savedApiKey = process.env.SKILLSMP_API_KEY;
 const savedRegistry = process.env.SKILLS_REGISTRY;
+const savedStateDir = process.env.MILADY_STATE_DIR;
 
 beforeEach(async () => {
   tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "skill-mp-test-"));
   delete process.env.SKILLSMP_API_KEY;
   delete process.env.SKILLS_REGISTRY;
+  process.env.MILADY_STATE_DIR = path.join(tmpDir, ".milady");
+  await fs.mkdir(process.env.MILADY_STATE_DIR, { recursive: true });
+  mockState.createBlockedBinaryInClone = false;
+  mockedExecFile.mockClear();
 });
 
 afterEach(async () => {
@@ -107,6 +169,8 @@ afterEach(async () => {
   else process.env.SKILLSMP_API_KEY = savedApiKey;
   if (savedRegistry === undefined) delete process.env.SKILLS_REGISTRY;
   else process.env.SKILLS_REGISTRY = savedRegistry;
+  if (savedStateDir === undefined) delete process.env.MILADY_STATE_DIR;
+  else process.env.MILADY_STATE_DIR = savedStateDir;
   await fs.rm(tmpDir, { recursive: true, force: true });
 });
 
@@ -502,6 +566,59 @@ describe("searchSkillsMarketplace", () => {
 // ============================================================================
 
 describe("installMarketplaceSkill", () => {
+  it("installs from repository when security scan is clean", async () => {
+    const installed = await installMarketplaceSkill(tmpDir, {
+      repository: "owner/clean-repo",
+      name: "clean-skill",
+    });
+
+    expect(installed.id).toBe("clean-skill");
+    expect(installed.scanStatus).toBe("clean");
+
+    const records = await listInstalledMarketplaceSkills(tmpDir);
+    expect(records).toHaveLength(1);
+    expect(records[0]?.id).toBe("clean-skill");
+
+    const scanReport = JSON.parse(
+      await fs.readFile(
+        path.join(installRoot(tmpDir), "clean-skill", ".scan-results.json"),
+        "utf-8",
+      ),
+    );
+    expect(scanReport.status).toBe("clean");
+    expect(mockedExecFile).toHaveBeenCalled();
+  });
+
+  it("parses repository and path from a GitHub URL", async () => {
+    const installed = await installMarketplaceSkill(tmpDir, {
+      githubUrl: "https://github.com/owner/repo/tree/main/skills/edge-skill",
+    });
+
+    expect(installed.path).toBe("skills/edge-skill");
+    expect(installed.id).toBe("edge-skill");
+  });
+
+  it("removes installation and throws when security scan blocks", async () => {
+    mockState.createBlockedBinaryInClone = true;
+    const target = path.join(installRoot(tmpDir), "blocked-skill");
+
+    await expect(
+      installMarketplaceSkill(tmpDir, {
+        repository: "owner/bad-repo",
+        name: "blocked-skill",
+      }),
+    ).rejects.toThrow("blocked by security scan");
+
+    const exists = await fs
+      .stat(target)
+      .then(() => true)
+      .catch(() => false);
+    expect(exists).toBe(false);
+
+    const records = await listInstalledMarketplaceSkills(tmpDir);
+    expect(records).toHaveLength(0);
+  });
+
   it("throws when neither repository nor GitHub URL is provided", async () => {
     await expect(installMarketplaceSkill(tmpDir, {})).rejects.toThrow(
       "Install requires a repository or GitHub URL",

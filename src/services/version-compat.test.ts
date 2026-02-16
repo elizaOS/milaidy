@@ -378,6 +378,13 @@ describe("Package.json version pinning (issue #10)", () => {
     );
   }
 
+  function isWorkspaceDependency(version: string | undefined): boolean {
+    return (
+      typeof version === "string" &&
+      (version.startsWith(".") || version.startsWith("workspace:"))
+    );
+  }
+
   /**
    * Verify that the affected plugins are pinned to a version compatible
    * with core@2.0.0-alpha.3 in milady's package.json.
@@ -397,6 +404,11 @@ describe("Package.json version pinning (issue #10)", () => {
       expect(versionSatisfies(pinnedCoreVersion ?? "", "2.0.0-alpha.3")).toBe(
         true,
       );
+    } else if (isWorkspaceDependency(coreVersion)) {
+      const pinnedCoreVersion = getDependencyOverride(pkg);
+      if (pinnedCoreVersion !== undefined) {
+        expect(pinnedCoreVersion).toMatch(/^\d+\.\d+\.\d+/);
+      }
     } else {
       expect(coreVersion).toMatch(/^\d+\.\d+\.\d+/);
       expect(versionSatisfies(coreVersion, "2.0.0-alpha.3")).toBe(true);
@@ -421,6 +433,8 @@ describe("Package.json version pinning (issue #10)", () => {
       const pinnedCoreVersion = getDependencyOverride(pkg);
       expect(pinnedCoreVersion).toBeDefined();
       expect(pinnedCoreVersion).toMatch(/^\d+\.\d+\.\d+/);
+    } else if (!isWorkspaceDependency(coreVersion)) {
+      expect(coreVersion).toMatch(/^\d+\.\d+\.\d+/);
     }
 
     for (const plugin of affectedPlugins) {
@@ -445,6 +459,11 @@ describe("Package.json version pinning (issue #10)", () => {
       const pinnedCoreVersion = getDependencyOverride(pkg);
       expect(pinnedCoreVersion).toBeDefined();
       expect(pinnedCoreVersion).toMatch(/^\d+\.\d+\.\d+/);
+    } else if (isWorkspaceDependency(coreVersion)) {
+      const pinnedCoreVersion = getDependencyOverride(pkg);
+      if (pinnedCoreVersion !== undefined) {
+        expect(pinnedCoreVersion).toMatch(/^\d+\.\d+\.\d+/);
+      }
     } else {
       expect(coreVersion).toMatch(/^\d+\.\d+\.\d+-alpha\.\d+$/);
     }

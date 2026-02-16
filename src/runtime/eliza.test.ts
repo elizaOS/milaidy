@@ -17,6 +17,7 @@ import {
   applyConnectorSecretsToEnv,
   applyDatabaseConfigToEnv,
   buildCharacterFromConfig,
+  CORE_PLUGINS,
   CUSTOM_PLUGINS_DIRNAME,
   collectPluginNames,
   findRuntimePluginExport,
@@ -114,16 +115,9 @@ describe("collectPluginNames", () => {
 
   it("includes all core plugins for an empty config", () => {
     const names = collectPluginNames({} as MiladyConfig);
-    expect(names.has("@elizaos/plugin-sql")).toBe(true);
-    expect(names.has("@elizaos/plugin-local-embedding")).toBe(true);
-    expect(names.has("@elizaos/plugin-trajectory-logger")).toBe(true);
-    expect(names.has("@elizaos/plugin-agent-skills")).toBe(true);
-    expect(names.has("@elizaos/plugin-agent-orchestrator")).toBe(true);
-    expect(names.has("@elizaos/plugin-cron")).toBe(true);
-    expect(names.has("@elizaos/plugin-rolodex")).toBe(true);
-    expect(names.has("@elizaos/plugin-trust")).toBe(true);
-    expect(names.has("@elizaos/plugin-shell")).toBe(true);
-    expect(names.has("@elizaos/plugin-plugin-manager")).toBe(true);
+    for (const plugin of CORE_PLUGINS) {
+      expect(names.has(plugin)).toBe(true);
+    }
   });
 
   it("does not load @elizaos/plugin-shell when features.shellEnabled is false", () => {

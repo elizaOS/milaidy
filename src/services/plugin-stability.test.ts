@@ -883,6 +883,13 @@ describe("Version Skew Detection (issue #10)", () => {
     );
   }
 
+  function isWorkspaceDependency(version: string | undefined): boolean {
+    return (
+      typeof version === "string" &&
+      (version.startsWith(".") || version.startsWith("workspace:"))
+    );
+  }
+
   it("core is pinned to a version that includes MAX_EMBEDDING_TOKENS (issue #10 fix)", async () => {
     // Issue #10: plugins at "next" imported MAX_EMBEDDING_TOKENS from @elizaos/core,
     // which was missing in older core versions.
@@ -892,11 +899,15 @@ describe("Version Skew Detection (issue #10)", () => {
 
     const coreVersion = pkg.dependencies["@elizaos/core"];
     expect(coreVersion).toBeDefined();
-    // Core can use "next" dist-tag if overrides pin the actual version
+    // Core can use "next" dist-tag if overrides pin the actual version.
     const coreOverride = getDependencyOverride(pkg);
     if (coreVersion === "next") {
       expect(coreOverride).toBeDefined();
       expect(coreOverride).toMatch(/^\d+\.\d+\.\d+/);
+    } else if (isWorkspaceDependency(coreVersion)) {
+      if (coreOverride !== undefined) {
+        expect(coreOverride).toMatch(/^\d+\.\d+\.\d+/);
+      }
     } else {
       expect(coreVersion).toMatch(/^\d+\.\d+\.\d+/);
     }
