@@ -28,6 +28,7 @@ import {
   stringToUuid,
   type UUID,
 } from "@elizaos/core";
+import { configureAgentOrchestratorPlugin } from "@elizaos/plugin-agent-orchestrator";
 import {
   debugLogResolvedContext,
   validateRuntimeContext,
@@ -1009,23 +1010,25 @@ Write a thought and plan for {{agentName}} and decide what actions to take. Also
 
 ACTION SELECTION — CRITICAL RULES:
 - You may ONLY select ONE action per response.
-- If the user is asking you to DO something (install, search, execute, create, restart, send), select the SPECIFIC action that performs that task. Do NOT select REPLY.
-- If the user is making conversation, asking a question, or no specific action applies, select REPLY.
+- ALWAYS prefer a specific action over REPLY. Actions fetch real data and perform real work; REPLY only uses what you already know.
 - If you should not respond at all, select IGNORE.
 
-ACTION SELECTION EXAMPLES:
-- User asks to install a plugin/skill → INSTALL_SKILL (not REPLY)
-- User asks to search/find/list plugins or skills → SEARCH_SKILLS (not REPLY)
-- User asks to list, browse, show, or discover skills/plugins → SEARCH_SKILLS (not EXECUTE_COMMAND)
-- User asks to run/execute a shell command → EXECUTE_COMMAND (not REPLY)
-- User asks to create a task or todo → CREATE_TASK (not REPLY)
-- User asks to restart the agent → RESTART_AGENT (not REPLY)
-- User asks to spawn a subagent → SPAWN_SUBAGENT (not REPLY)
-- User asks a question or makes conversation → REPLY
-- User says something that doesn't need a response → IGNORE
+ACTION vs REPLY decision:
+1. IMPERATIVE requests ("run X", "create X", "install X", "send X", "cancel X") → match the verb to the most specific available action. If no action name matches the verb exactly, look for an action whose description covers the intent.
+2. INFORMATION-RETRIEVAL questions ("show my X", "list X", "what are my X", "tell me about X", "how do I use X") → use the action that retrieves that data, if an available action can provide it. These are NOT general conversation — they request specific information.
+3. GENERAL conversation with no matching action (greetings, opinions, jokes, open-ended questions about topics) → REPLY.
+4. Nothing to say → IGNORE.
 
-WRONG: User says "run ls -la" → actions: REPLY (just describes what it would do)
+When multiple actions could match, prefer the one that matches the user's INTENT (what they want to happen) over the one that matches a keyword in their message.
+
+WRONG: User says "show my tasks" → actions: REPLY (describes tasks from memory)
+RIGHT: User says "show my tasks" → actions: LIST_TASKS (fetches real task data)
+
+WRONG: User says "run ls -la" → actions: REPLY (describes what it would do)
 RIGHT: User says "run ls -la" → actions: EXECUTE_COMMAND (actually runs the command)
+
+WRONG: User says "what do you think about AI?" → actions: SEARCH_SKILLS
+RIGHT: User says "what do you think about AI?" → actions: REPLY (general conversation, no action applies)
 
 IMPORTANT ACTION PARAMETERS:
 - Some actions accept input parameters that you should extract from the conversation
@@ -1964,6 +1967,34 @@ export async function startEliza(
 
   // Workspace skills directory (highest precedence for overrides)
   const workspaceSkillsDir = workspaceDir ? `${workspaceDir}/skills` : null;
+
+  // 7b. Configure plugin-agent-orchestrator before runtime init.
+  // The plugin is in CORE_PLUGINS but its service throws unless configured.
+  // Uses a no-op provider: tasks are tracked in DB but not auto-executed.
+  // TODO(prod-blocker): Replace with a real provider when task execution is needed.
+  configureAgentOrchestratorPlugin({
+    providers: [
+      {
+        id: "default",
+        label: "Milaidy (no-op)",
+        description:
+          "Tasks are tracked but not auto-executed. " +
+          "Replace with a real provider (claude-code, codex, etc.) for task delegation.",
+        executeTask: async (_task, ctx) => {
+          await ctx.appendOutput("Task tracked. No execution backend configured.");
+          await ctx.updateProgress(100);
+          return {
+            success: true,
+            summary: "Task tracked (no execution backend)",
+            filesCreated: [],
+            filesModified: [],
+          };
+        },
+      },
+    ],
+    defaultProviderId: "default",
+    getWorkingDirectory: () => workspaceDir ?? process.cwd(),
+  });
 
   let runtime = new AgentRuntime({
     character,
