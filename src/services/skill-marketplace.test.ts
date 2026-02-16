@@ -3,7 +3,7 @@
  *
  * Tests for:
  * - searchSkillsMarketplace (request construction, response normalization, error handling)
- * - installMarketplaceSkill (pre-network validation only; full git flow is covered by API e2e tests)
+ * - installMarketplaceSkill (pre-network validation + deterministic git/sparse-checkout flow + security scan outcomes)
  * - listInstalledMarketplaceSkills (record loading, sorting, corrupt-file resilience)
  * - uninstallMarketplaceSkill (record lookup, path-containment safety, cleanup)
  */
@@ -21,6 +21,12 @@ import {
   uninstallMarketplaceSkill,
 } from "./skill-marketplace.js";
 
+const execFileMock = vi.hoisted(() => vi.fn());
+
+vi.mock("node:child_process", () => ({
+  execFile: execFileMock,
+}));
+
 // ---------------------------------------------------------------------------
 // mocks
 // ---------------------------------------------------------------------------
@@ -32,6 +38,40 @@ vi.mock("@elizaos/core", () => ({
 // ---------------------------------------------------------------------------
 // helpers
 // ---------------------------------------------------------------------------
+
+type CloneTask = (
+  cloneDir: string,
+  checkoutPath: string,
+) => Promise<void> | void;
+
+const cloneTasks: CloneTask[] = [];
+
+function setCloneTasks(tasks: CloneTask[]): void {
+  cloneTasks.splice(0, cloneTasks.length, ...tasks);
+}
+
+async function populateCloneCheckout(
+  cloneDir: string,
+  checkoutPath: string,
+  options: { includeSkillMd?: boolean; includeBinary?: boolean } = {},
+): Promise<void> {
+  const targetDir =
+    checkoutPath === "." ? cloneDir : path.join(cloneDir, checkoutPath);
+  await fs.mkdir(targetDir, { recursive: true });
+  if (options.includeSkillMd ?? true) {
+    await fs.writeFile(path.join(targetDir, "SKILL.md"), "# skill");
+  }
+  if (options.includeBinary) {
+    await fs.writeFile(path.join(targetDir, "payload.exe"), "binary");
+  }
+}
+
+function nextCloneTask(): CloneTask {
+  return (
+    cloneTasks.shift() ??
+    ((cloneDir, checkoutPath) => populateCloneCheckout(cloneDir, checkoutPath))
+  );
+}
 
 /** Build a minimal fetch Response stub. */
 function fakeResponse(body: unknown, ok = true, status = 200) {
@@ -93,15 +133,59 @@ function makeRecord(
 
 let tmpDir: string;
 const savedApiKey = process.env.SKILLSMP_API_KEY;
+const savedStateDir = process.env.MILAIDY_STATE_DIR;
 
 beforeEach(async () => {
   tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "skill-mp-test-"));
+  delete process.env.SKILLSMP_API_KEY;
+  process.env.MILAIDY_STATE_DIR = tmpDir;
+  cloneTasks.length = 0;
+  execFileMock.mockReset();
+  execFileMock.mockImplementation(
+    (_cmd: string, args: string[], _options: unknown, callback?: unknown) => {
+      const done =
+        typeof callback === "function"
+          ? callback
+          : args[args.length - 1] && typeof args[args.length - 1] === "function"
+            ? (args[args.length - 1] as () => void)
+            : null;
+
+      void (async () => {
+        if (_cmd !== "git") {
+          if (done) done(null, "", "");
+          return;
+        }
+
+        if (args[0] === "clone") {
+          const cloneDir = args[args.length - 1];
+          await fs.mkdir(cloneDir, { recursive: true });
+          if (done) done(null, "", "");
+          return;
+        }
+
+        if (args[0] === "-C" && args[2] === "sparse-checkout") {
+          const cloneDir = args[1];
+          const checkoutPath = args[4];
+          const task = nextCloneTask();
+          await task(cloneDir, checkoutPath);
+          if (done) done(null, "", "");
+          return;
+        }
+
+        if (done) done(null, "", "");
+      })().catch((err) => {
+        if (done) done(err, "", "");
+      });
+    },
+  );
 });
 
 afterEach(async () => {
   vi.unstubAllGlobals();
   if (savedApiKey === undefined) delete process.env.SKILLSMP_API_KEY;
   else process.env.SKILLSMP_API_KEY = savedApiKey;
+  if (savedStateDir === undefined) delete process.env.MILAIDY_STATE_DIR;
+  else process.env.MILAIDY_STATE_DIR = savedStateDir;
   await fs.rm(tmpDir, { recursive: true, force: true });
 });
 
@@ -477,6 +561,99 @@ describe("searchSkillsMarketplace", () => {
 // ============================================================================
 
 describe("installMarketplaceSkill", () => {
+  it("installs and records a clean skill discovered from repository root", async () => {
+    setCloneTasks([
+      (cloneDir, checkoutPath) => populateCloneCheckout(cloneDir, checkoutPath),
+      (cloneDir, checkoutPath) => populateCloneCheckout(cloneDir, checkoutPath),
+    ]);
+
+    const installed = await installMarketplaceSkill(tmpDir, {
+      repository: "owner/repo",
+      name: "auto-skill",
+    });
+
+    expect(installed).toMatchObject({
+      id: "auto-skill",
+      name: "auto-skill",
+      repository: "owner/repo",
+      path: ".",
+      source: "manual",
+      scanStatus: "clean",
+    });
+
+    const records = await listInstalledMarketplaceSkills(tmpDir);
+    expect(records).toHaveLength(1);
+    expect(records[0]).toMatchObject({ id: "auto-skill" });
+    expect(records[0].scanStatus).toBe("clean");
+  });
+
+  it("supports GitHub tree URLs and infers the skill path from the tree segment", async () => {
+    setCloneTasks([
+      (cloneDir, checkoutPath) => populateCloneCheckout(cloneDir, checkoutPath),
+    ]);
+
+    const installed = await installMarketplaceSkill(tmpDir, {
+      githubUrl: "https://github.com/owner/repo/tree/main/skills/cli-runner",
+    });
+
+    expect(installed).toMatchObject({
+      id: "cli-runner",
+      repository: "owner/repo",
+      path: "skills/cli-runner",
+      scanStatus: "clean",
+    });
+  });
+
+  it("throws when installed payload lacks SKILL.md and removes partial install", async () => {
+    setCloneTasks([
+      (cloneDir, checkoutPath) =>
+        populateCloneCheckout(cloneDir, checkoutPath, {
+          includeSkillMd: false,
+        }),
+    ]);
+
+    await expect(
+      installMarketplaceSkill(tmpDir, {
+        repository: "owner/repo",
+        path: ".",
+        name: "missing-skill",
+      }),
+    ).rejects.toThrow("Installed path does not contain SKILL.md");
+
+    const installedDir = path.join(installRoot(tmpDir), "missing-skill");
+    const exists = await fs
+      .stat(installedDir)
+      .then(() => true)
+      .catch(() => false);
+    expect(exists).toBe(false);
+    expect(await listInstalledMarketplaceSkills(tmpDir)).toEqual([]);
+  });
+
+  it("throws with blocked security scan and removes the installed directory", async () => {
+    setCloneTasks([
+      (cloneDir, checkoutPath) =>
+        populateCloneCheckout(cloneDir, checkoutPath, {
+          includeBinary: true,
+        }),
+    ]);
+
+    await expect(
+      installMarketplaceSkill(tmpDir, {
+        repository: "owner/repo",
+        path: ".",
+        name: "blocked-skill",
+      }),
+    ).rejects.toThrow("blocked by security scan");
+
+    const installedDir = path.join(installRoot(tmpDir), "blocked-skill");
+    const exists = await fs
+      .stat(installedDir)
+      .then(() => true)
+      .catch(() => false);
+    expect(exists).toBe(false);
+    expect(await listInstalledMarketplaceSkills(tmpDir)).toEqual([]);
+  });
+
   it("throws when neither repository nor GitHub URL is provided", async () => {
     await expect(installMarketplaceSkill(tmpDir, {})).rejects.toThrow(
       "Install requires a repository or GitHub URL",
