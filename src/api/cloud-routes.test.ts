@@ -195,7 +195,8 @@ describe("handleCloudRoute", () => {
   });
 
   it("uses the default cloud base URL for /api/cloud/login", async () => {
-    const { res, getStatus, getJson } = createMockHttpResponse<Record<string, unknown>>();
+    const { res, getStatus, getJson } =
+      createMockHttpResponse<Record<string, unknown>>();
     fetchMock.mockResolvedValue({
       ok: true,
       headers: new Headers(),
@@ -482,7 +483,9 @@ describe("handleCloudRoute", () => {
 
   it("disconnects active cloud agent before connecting a new one", async () => {
     const validAgentId = "123e4567-e89b-12d3-a456-426614174000";
-    const connectMock = vi.fn().mockResolvedValue({ agentName: "Reconnected Agent" });
+    const connectMock = vi
+      .fn()
+      .mockResolvedValue({ agentName: "Reconnected Agent" });
     const statusMock = vi.fn(() => "connected");
     const disconnectMock = vi.fn();
     const state = {
