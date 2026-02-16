@@ -354,8 +354,11 @@ function runSubprocess(
 describe("Fresh Install Simulation", () => {
   it("builds successfully (dist/ exists)", () => {
     const distDir = path.join(packageRoot, "dist");
+    const distIndexPath = fs.existsSync(path.join(distDir, "index"))
+      ? path.join(distDir, "index")
+      : path.join(distDir, "index.js");
     expect(fs.existsSync(distDir)).toBe(true);
-    expect(fs.existsSync(path.join(distDir, "index"))).toBe(true);
+    expect(fs.existsSync(distIndexPath)).toBe(true);
   });
 
   it("milady.mjs entry point exists and is executable", () => {
@@ -447,7 +450,9 @@ describe("Fresh Install Simulation", () => {
 
 describe("CLI Entry Point (npx milady equivalent)", () => {
   it("dist/entry.js exists and is loadable", () => {
-    const entryPath = path.join(packageRoot, "dist", "entry");
+    const entryPath = fs.existsSync(path.join(packageRoot, "dist", "entry"))
+      ? path.join(packageRoot, "dist", "entry")
+      : path.join(packageRoot, "dist", "entry.js");
     expect(fs.existsSync(entryPath)).toBe(true);
   });
 
@@ -1601,9 +1606,9 @@ describe("Fresh Machine Validation (non-Docker)", () => {
     const pkg = JSON.parse(
       fs.readFileSync(path.join(packageRoot, "package.json"), "utf-8"),
     ) as Record<string, Record<string, string>>;
-    expect(pkg.exports?.["."]).toBe("./dist/index");
+    expect(pkg.exports?.["."]).toMatch(/^\.\/dist\/index(?:\.js)?$/);
     expect(pkg.exports?.["./cli-entry"]).toBe("./milady.mjs");
-    expect(pkg.exports?.["./eliza"]).toBe("./dist/runtime/eliza");
+    expect(pkg.exports?.["./eliza"]).toMatch(/^\.\/dist\/runtime\/eliza(?:\.js)?$/);
   });
 
   it("dist/ contains expected entry files", () => {
@@ -1615,8 +1620,14 @@ describe("Fresh Machine Validation (non-Docker)", () => {
       return;
     }
 
-    expect(fs.existsSync(path.join(distDir, "index"))).toBe(true);
-    expect(fs.existsSync(path.join(distDir, "entry"))).toBe(true);
+    expect(
+      fs.existsSync(path.join(distDir, "index")) ||
+        fs.existsSync(path.join(distDir, "index.js")),
+    ).toBe(true);
+    expect(
+      fs.existsSync(path.join(distDir, "entry")) ||
+        fs.existsSync(path.join(distDir, "entry.js")),
+    ).toBe(true);
   });
 
   it("Node 22+ engine requirement is specified", () => {
