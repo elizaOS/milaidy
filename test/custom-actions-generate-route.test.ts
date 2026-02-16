@@ -1,7 +1,15 @@
 import http from "node:http";
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { startApiServer } from "../src/api/server.js";
 import { ModelType } from "@elizaos/core";
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
+import { startApiServer } from "../src/api/server.js";
 
 type RuntimeWithModel = {
   useModel: (model: ModelType, options: { prompt: string }) => Promise<string>;
@@ -63,9 +71,7 @@ describe("/api/custom-actions/generate", () => {
       url: "https://api.example.com/weather",
     },
   });
-  const useModel = vi.fn(async () =>
-    responseFromModel,
-  );
+  const useModel = vi.fn(async () => responseFromModel);
 
   const runtime: RuntimeWithModel = {
     useModel,
@@ -97,9 +103,14 @@ describe("/api/custom-actions/generate", () => {
   });
 
   it("returns generated action from runtime model output", async () => {
-    const response = await req(apiPort, "POST", "/api/custom-actions/generate", {
-      prompt: "Create an action to check current weather",
-    });
+    const response = await req(
+      apiPort,
+      "POST",
+      "/api/custom-actions/generate",
+      {
+        prompt: "Create an action to check current weather",
+      },
+    );
 
     expect(response.status).toBe(200);
     expect(response.data.ok).toBe(true);
@@ -112,13 +123,20 @@ describe("/api/custom-actions/generate", () => {
     expect(useModel).toHaveBeenCalledWith(
       ModelType.TEXT_SMALL,
       expect.objectContaining({
-        prompt: expect.stringContaining("User request: Create an action to check current weather"),
+        prompt: expect.stringContaining(
+          "User request: Create an action to check current weather",
+        ),
       }),
     );
   });
 
   it("returns 400 when prompt is missing", async () => {
-    const response = await req(apiPort, "POST", "/api/custom-actions/generate", {});
+    const response = await req(
+      apiPort,
+      "POST",
+      "/api/custom-actions/generate",
+      {},
+    );
 
     expect(response.status).toBe(400);
     expect(response.data.error).toBe("prompt is required");
@@ -126,9 +144,14 @@ describe("/api/custom-actions/generate", () => {
 
   it("returns 503 when runtime is unavailable", async () => {
     const server = await startApiServer({ port: 0 });
-    const response = await req(server.port, "POST", "/api/custom-actions/generate", {
-      prompt: "Build a custom action",
-    });
+    const response = await req(
+      server.port,
+      "POST",
+      "/api/custom-actions/generate",
+      {
+        prompt: "Build a custom action",
+      },
+    );
 
     expect(response.status).toBe(503);
     expect(response.data.error).toBe("Agent runtime not available");
@@ -139,11 +162,18 @@ describe("/api/custom-actions/generate", () => {
   it("returns 500 when runtime output cannot be parsed", async () => {
     useModel.mockResolvedValue("This is not valid JSON");
 
-    const response = await req(apiPort, "POST", "/api/custom-actions/generate", {
-      prompt: "Build a webhook action",
-    });
+    const response = await req(
+      apiPort,
+      "POST",
+      "/api/custom-actions/generate",
+      {
+        prompt: "Build a webhook action",
+      },
+    );
 
     expect(response.status).toBe(500);
-    expect(response.data.error).toContain("Failed to generate action definition");
+    expect(response.data.error).toContain(
+      "Failed to generate action definition",
+    );
   });
 });

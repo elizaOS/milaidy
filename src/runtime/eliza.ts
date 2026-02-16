@@ -2576,8 +2576,8 @@ export async function startEliza(
         ? { RETAKE_ACCESS_TOKEN: process.env.RETAKE_ACCESS_TOKEN }
         : {}),
       // Also forward extra dirs from config
-      ...(config.plugins?.load?.extraDirs?.length
-        ? { EXTRA_SKILLS_DIRS: config.plugins.load.extraDirs.join(",") }
+      ...(config.skills?.load?.extraDirs?.length
+        ? { EXTRA_SKILLS_DIRS: config.skills.load.extraDirs.join(",") }
         : {}),
       // Disable image description when vision is explicitly toggled off.
       // The cloud plugin always registers IMAGE_DESCRIPTION, so we need a
@@ -2918,10 +2918,10 @@ export async function startEliza(
               ...(workspaceSkillsDir
                 ? { WORKSPACE_SKILLS_DIR: workspaceSkillsDir }
                 : {}),
-              ...(freshConfig.plugins?.load?.extraDirs?.length
+              ...(freshConfig.skills?.load?.extraDirs?.length
                 ? {
                     EXTRA_SKILLS_DIRS:
-                      freshConfig.plugins.load.extraDirs.join(","),
+                      freshConfig.skills.load.extraDirs.join(","),
                   }
                 : {}),
               ...(freshConfig.env?.RETAKE_ACCESS_TOKEN

@@ -7125,16 +7125,18 @@ async function handleRequest(
     return;
   }
 
+  // Normalize scoped plugin names once so matching and API operations stay
+  // consistent for both status and toggle endpoints.
+  const normalizeScopedPluginName = (npmName: string): string => {
+    const withoutScope = npmName.replace(/^@[^/]+\//, "");
+    return withoutScope.startsWith("plugin-")
+      ? withoutScope.slice("plugin-".length)
+      : withoutScope;
+  };
+
   // ── GET /api/plugins/core ────────────────────────────────────────────
   // Returns all core and optional core plugins with their loaded/running status.
   if (method === "GET" && pathname === "/api/plugins/core") {
-    const normalizeScopedPluginName = (npmName: string): string => {
-      const withoutScope = npmName.replace(/^@[^/]+\//, "");
-      return withoutScope.startsWith("plugin-")
-        ? withoutScope.slice("plugin-".length)
-        : withoutScope;
-    };
-
     const pluginMatchCandidates = (npmName: string): Set<string> => {
       const candidates = new Set<string>();
       const trimmed = npmName.trim();
