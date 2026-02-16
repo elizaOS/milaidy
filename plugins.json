@@ -6639,32 +6639,6 @@
       }
     },
     {
-      "id": "retake-tv",
-      "dirName": "plugin-retake-tv",
-      "name": "Retake TV",
-      "npmName": "@milady/plugin-retake-tv",
-      "description": "Stream and monitor on retake.tv.",
-      "category": "feature",
-      "envKey": "RETAKE_ACCESS_TOKEN",
-      "configKeys": ["RETAKE_ACCESS_TOKEN"],
-      "version": "0.0.0",
-      "pluginParameters": {
-        "RETAKE_ACCESS_TOKEN": {
-          "type": "string",
-          "description": "retake.tv access token for stream operations.",
-          "required": false,
-          "sensitive": true
-        }
-      },
-      "configUiHints": {
-        "RETAKE_ACCESS_TOKEN": {
-          "label": "Retake.tv Access Token",
-          "group": "Authentication",
-          "width": "full"
-        }
-      }
-    },
-    {
       "id": "rlm",
       "dirName": "plugin-rlm",
       "name": "Rlm",

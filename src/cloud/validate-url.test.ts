@@ -18,7 +18,7 @@ vi.mock("node:dns", () => {
   };
 });
 
-import { validateCloudBaseUrl } from "./validate-url";
+import { validateCloudBaseUrl } from "./validate-url.js";
 
 function setLookupAddresses(addresses: string[]): void {
   dnsMockState.lookupMock.mockImplementation(
@@ -79,13 +79,22 @@ describe("validateCloudBaseUrl", () => {
     expect(dnsMockState.lookupMock).not.toHaveBeenCalled();
   });
 
-  it("blocks direct IPv6 link-local targets across fe80::/10", async () => {
-    const fe80Result = await validateCloudBaseUrl("https://[fe80::1]");
-    const fea0Result = await validateCloudBaseUrl("https://[fea0::1]");
-    const febfResult = await validateCloudBaseUrl("https://[febf::1]");
-    expect(fe80Result).toContain("blocked");
-    expect(fea0Result).toContain("blocked");
-    expect(febfResult).toContain("blocked");
+  it("blocks additional special-use IPv4 ranges", async () => {
+    const cgnat = await validateCloudBaseUrl("https://100.64.1.10");
+    const benchmark = await validateCloudBaseUrl("https://198.18.0.5");
+    const multicast = await validateCloudBaseUrl("https://239.1.2.3");
+
+    expect(cgnat).toContain("blocked");
+    expect(benchmark).toContain("blocked");
+    expect(multicast).toContain("blocked");
+  });
+
+  it("blocks localhost-style hostnames before DNS resolution", async () => {
+    const localhost = await validateCloudBaseUrl("https://localhost");
+    const internalLocal = await validateCloudBaseUrl("https://api.local");
+
+    expect(localhost).toContain("blocked local hostname");
+    expect(internalLocal).toContain("blocked local hostname");
     expect(dnsMockState.lookupMock).not.toHaveBeenCalled();
   });
 
@@ -99,6 +108,13 @@ describe("validateCloudBaseUrl", () => {
   it("blocks IPv6-mapped IPv4 loopback targets", async () => {
     const result = await validateCloudBaseUrl("https://[::ffff:7f00:1]");
     expect(result).toContain("blocked");
+  });
+
+  it("blocks IPv6 multicast and unspecified addresses", async () => {
+    const multicast = await validateCloudBaseUrl("https://[ff02::1]");
+    const unspecified = await validateCloudBaseUrl("https://[::]");
+    expect(multicast).toContain("blocked");
+    expect(unspecified).toContain("blocked");
   });
 
   it("blocks hostnames that resolve to blocked IPs", async () => {

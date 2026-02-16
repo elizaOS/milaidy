@@ -24,6 +24,12 @@ const API_PORT = 31337;
 const UI_PORT = 2138;
 const cwd = process.cwd();
 const uiOnly = process.argv.includes("--ui-only");
+const devLogLevel =
+  (process.env.MILADY_DEV_LOG_LEVEL ?? process.env.LOG_LEVEL ?? "info")
+    .trim()
+    .toLowerCase() || "info";
+const quietApiLogs = process.env.MILADY_DEV_QUIET_LOGS === "1";
+const verboseApiLogs = process.env.MILADY_DEV_VERBOSE_LOGS === "1";
 
 // ---------------------------------------------------------------------------
 // ANSI colors — raw escape sequences so we don't need chalk in this .mjs file.
@@ -255,11 +261,13 @@ function resolveStealthImportFlags() {
 }
 
 // ---------------------------------------------------------------------------
-// Output filter — only forward error-level lines from the API server.
+// Output filters for API server logs.
 // ---------------------------------------------------------------------------
 
 const SUPPRESS_RE = /^\s*(Info|Warn|Debug|Trace)\s/;
 const SUPPRESS_UNSTRUCTURED_RE = /^\[dotenv[@\d]/;
+const STARTUP_RE =
+  /\[milady(?:-api)?\]|runtime bootstrap|runtime ready|api server ready/i;
 
 function createErrorFilter(dest) {
   let buf = "";
@@ -273,6 +281,37 @@ function createErrorFilter(dest) {
         !SUPPRESS_RE.test(line) &&
         !SUPPRESS_UNSTRUCTURED_RE.test(line)
       ) {
+        dest.write(`${line}\n`);
+      }
+    }
+  };
+}
+
+function createStartupFilter(dest) {
+  let buf = "";
+  let lastLine = "";
+  let repeatCount = 0;
+  return (chunk) => {
+    buf += chunk.toString();
+    const lines = buf.split("\n");
+    buf = lines.pop();
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      if (SUPPRESS_UNSTRUCTURED_RE.test(trimmed)) continue;
+      if (/embedding dimensions mismatch/i.test(trimmed)) continue;
+
+      if (trimmed === lastLine) {
+        repeatCount += 1;
+        if (repeatCount > 2) continue;
+      } else {
+        lastLine = trimmed;
+        repeatCount = 0;
+      }
+
+      const isWarnOrError = /^\s*(Warn|Error)\s/.test(trimmed);
+      const isStartupLine = STARTUP_RE.test(trimmed);
+      if (isWarnOrError || isStartupLine) {
         dest.write(`${line}\n`);
       }
     }
@@ -402,6 +441,17 @@ if (uiOnly) {
   console.log(`${orange("\nmilady dev mode")}\n`);
   printBanner();
   console.log(`  ${green("[milady]")} ${green("Starting dev server...")}\n`);
+  console.log(
+    `  ${green("[milady]")} ${dim(
+      `API log level=${devLogLevel}${
+        quietApiLogs
+          ? " (errors only)"
+          : verboseApiLogs
+            ? " (verbose)"
+            : " (startup + warnings/errors)"
+      }`,
+    )}`,
+  );
 
   // Security default: stealth shims are disabled unless explicitly enabled
   // via env vars or plugin config in milady.json.
@@ -435,13 +485,25 @@ if (uiOnly) {
       ...process.env,
       MILADY_PORT: String(API_PORT),
       MILADY_HEADLESS: "1",
-      LOG_LEVEL: "error",
+      LOG_LEVEL: devLogLevel,
     },
     stdio: ["inherit", "pipe", "pipe"],
   });
 
-  apiProcess.stderr.on("data", createErrorFilter(process.stderr));
-  apiProcess.stdout.on("data", () => {});
+  if (quietApiLogs) {
+    apiProcess.stderr.on("data", createErrorFilter(process.stderr));
+    apiProcess.stdout.on("data", () => {});
+  } else if (verboseApiLogs) {
+    apiProcess.stderr.on("data", (data) => {
+      process.stderr.write(data);
+    });
+    apiProcess.stdout.on("data", (data) => {
+      process.stdout.write(data);
+    });
+  } else {
+    apiProcess.stderr.on("data", createStartupFilter(process.stderr));
+    apiProcess.stdout.on("data", createStartupFilter(process.stdout));
+  }
 
   apiProcess.on("exit", (code) => {
     if (code !== 0) {

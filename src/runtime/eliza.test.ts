@@ -17,6 +17,7 @@ import {
   applyConnectorSecretsToEnv,
   applyDatabaseConfigToEnv,
   buildCharacterFromConfig,
+  CORE_PLUGINS,
   CUSTOM_PLUGINS_DIRNAME,
   collectPluginNames,
   findRuntimePluginExport,
@@ -114,16 +115,9 @@ describe("collectPluginNames", () => {
 
   it("includes all core plugins for an empty config", () => {
     const names = collectPluginNames({} as MiladyConfig);
-    expect(names.has("@elizaos/plugin-sql")).toBe(true);
-    expect(names.has("@elizaos/plugin-local-embedding")).toBe(true);
-    expect(names.has("@elizaos/plugin-trajectory-logger")).toBe(true);
-    expect(names.has("@elizaos/plugin-agent-skills")).toBe(true);
-    expect(names.has("@elizaos/plugin-agent-orchestrator")).toBe(true);
-    expect(names.has("@elizaos/plugin-cron")).toBe(true);
-    expect(names.has("@elizaos/plugin-rolodex")).toBe(true);
-    expect(names.has("@elizaos/plugin-trust")).toBe(true);
-    expect(names.has("@elizaos/plugin-shell")).toBe(true);
-    expect(names.has("@elizaos/plugin-plugin-manager")).toBe(true);
+    for (const plugin of CORE_PLUGINS) {
+      expect(names.has(plugin)).toBe(true);
+    }
   });
 
   it("does not load @elizaos/plugin-shell when features.shellEnabled is false", () => {
@@ -211,14 +205,6 @@ describe("collectPluginNames", () => {
     expect(names.has("@elizaos/plugin-discord")).toBe(true);
   });
 
-  it("supports full @milady plugin package IDs in plugins.allow", () => {
-    const config = {
-      plugins: { allow: ["@milady/plugin-retake-tv"] },
-    } as unknown as MiladyConfig;
-    const names = collectPluginNames(config);
-    expect(names.has("@milady/plugin-retake-tv")).toBe(true);
-  });
-
   it("uses @elizaos/plugin-telegram when telegram is enabled via plugins.entries", () => {
     const config = {
       plugins: {
@@ -240,16 +226,6 @@ describe("collectPluginNames", () => {
     } as unknown as MiladyConfig;
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-telegram")).toBe(true);
-  });
-
-  it("uses fully-qualified plugin IDs in plugins.entries", () => {
-    const config = {
-      plugins: {
-        entries: { "@milady/plugin-retake-tv": { enabled: true } },
-      },
-    } as unknown as MiladyConfig;
-    const names = collectPluginNames(config);
-    expect(names.has("@milady/plugin-retake-tv")).toBe(true);
   });
 
   it("does not load telegram plugin when plugins.entries.telegram.enabled is false", () => {
@@ -714,6 +690,13 @@ describe("isRecoverablePgliteInitError", () => {
     const err = new Error("PGlite adapter crashed", {
       cause: new Error("Aborted(). Build with -sASSERTIONS for more info."),
     });
+    expect(isRecoverablePgliteInitError(err)).toBe(true);
+  });
+
+  it("returns true for migrations schema failures even when abort text is absent", () => {
+    const err = new Error(
+      "Failed query: CREATE SCHEMA IF NOT EXISTS migrations",
+    );
     expect(isRecoverablePgliteInitError(err)).toBe(true);
   });
 

@@ -3423,8 +3423,11 @@ async function fetchGoogleModels(apiKey: string): Promise<CachedModel[]> {
 
 async function fetchOllamaModels(baseUrl: string): Promise<CachedModel[]> {
   try {
-    const url = baseUrl.replace(/\/+$/, "");
-    const res = await fetch(`${url}/api/tags`);
+    let urlStr = baseUrl.replace(/\/+$/, "");
+    if (!urlStr.startsWith("http://") && !urlStr.startsWith("https://")) {
+      urlStr = `http://${urlStr}`;
+    }
+    const res = await fetch(`${urlStr}/api/tags`);
     if (!res.ok) return [];
     const data = (await res.json()) as { models?: Array<{ name: string }> };
     return (data.models ?? []).map((m) => ({
@@ -3530,7 +3533,7 @@ async function fetchProviderModels(
     case "google-genai":
       return fetchGoogleModels(apiKey);
     case "ollama":
-      return fetchOllamaModels(normalizeBaseUrl(baseUrl));
+      return fetchOllamaModels(baseUrl || "http://localhost:11434");
     case "openrouter":
       return fetchOpenRouterModels(apiKey);
     case "openai":
@@ -3559,15 +3562,6 @@ async function fetchProviderModels(
       return [];
   }
 }
-
-const normalizeBaseUrl = (rawUrl?: string): string => {
-  const candidate = (rawUrl ?? "").trim();
-  if (!candidate) return "http://localhost:11434";
-  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(candidate)) {
-    return candidate.replace(/\/+$/, "");
-  }
-  return `http://${candidate.replace(/\/+$/, "")}`;
-};
 
 /** Fetch + cache a single provider. Returns cached models or empty array. */
 async function getOrFetchProvider(
@@ -4024,6 +4018,9 @@ export function resolveWalletExportRejection(
 }
 
 function extractWsQueryToken(url: URL): string | null {
+  const allowQueryToken = process.env.MILADY_ALLOW_WS_QUERY_TOKEN === "1";
+  if (!allowQueryToken) return null;
+
   const token =
     url.searchParams.get("token") ??
     url.searchParams.get("apiKey") ??
@@ -6458,12 +6455,9 @@ async function handleRequest(
         const installs = freshConfig.plugins?.installs as
           | Record<string, unknown>
           | undefined;
-        const packageName = plugin.npmName ?? `@elizaos/plugin-${plugin.id}`;
-        const legacyPackageName = `@elizaos/plugin-${plugin.id}`;
+        const packageName = `@elizaos/plugin-${plugin.id}`;
         const hasInstallRecord =
-          installs?.[packageName] ||
-          installs?.[legacyPackageName] ||
-          installs?.[plugin.id];
+          installs?.[packageName] || installs?.[plugin.id];
         if (hasInstallRecord) {
           plugin.loadError =
             "Plugin installed but failed to load — the package may be missing compiled files.";
@@ -6652,7 +6646,7 @@ async function handleRequest(
 
     // Update config.plugins.entries so the runtime loads/skips this plugin
     if (body.enabled !== undefined) {
-      const packageName = plugin.npmName ?? `@elizaos/plugin-${pluginId}`;
+      const packageName = `@elizaos/plugin-${pluginId}`;
 
       if (!state.config.plugins) {
         state.config.plugins = {};
@@ -6711,7 +6705,7 @@ async function handleRequest(
       const loadedNames = state.runtime.plugins.map((p) => p.name);
       for (const plugin of allPlugins) {
         const suffix = `plugin-${plugin.id}`;
-        const packageName = plugin.npmName ?? `@elizaos/plugin-${plugin.id}`;
+        const packageName = `@elizaos/plugin-${plugin.id}`;
         plugin.enabled = loadedNames.some(
           (name) =>
             name === plugin.id ||
@@ -7125,37 +7119,9 @@ async function handleRequest(
     return;
   }
 
-  // Normalize scoped plugin names once so matching and API operations stay
-  // consistent for both status and toggle endpoints.
-  const normalizeScopedPluginName = (npmName: string): string => {
-    const withoutScope = npmName.replace(/^@[^/]+\//, "");
-    return withoutScope.startsWith("plugin-")
-      ? withoutScope.slice("plugin-".length)
-      : withoutScope;
-  };
-
   // ── GET /api/plugins/core ────────────────────────────────────────────
   // Returns all core and optional core plugins with their loaded/running status.
   if (method === "GET" && pathname === "/api/plugins/core") {
-    const pluginMatchCandidates = (npmName: string): Set<string> => {
-      const candidates = new Set<string>();
-      const trimmed = npmName.trim();
-      if (!trimmed) return candidates;
-
-      const withoutScope = trimmed.replace(/^@[^/]+\//, "");
-      const pluginPrefixed = withoutScope.startsWith("plugin-")
-        ? withoutScope
-        : `plugin-${withoutScope}`;
-      const unscoped = pluginPrefixed.replace(/^plugin-/, "");
-
-      candidates.add(trimmed);
-      candidates.add(withoutScope);
-      candidates.add(pluginPrefixed);
-      candidates.add(unscoped);
-
-      return candidates;
-    };
-
     // Build a set of loaded plugin names for robust matching.
     // Plugin internal names vary wildly (e.g. "local-ai" for plugin-local-embedding,
     // "eliza-coder" for plugin-code), so we check loaded names against multiple
@@ -7165,16 +7131,16 @@ async function handleRequest(
       : new Set<string>();
 
     const isLoaded = (npmName: string): boolean => {
-      const expected = pluginMatchCandidates(npmName);
-      if ([...expected].some((candidate) => loadedNames.has(candidate)))
-        return true;
-
-      // Check if any loaded name contains a candidate match or is contained by
-      // one (covers short names like plugin-local-embedding ↔ local-embedding).
+      if (loadedNames.has(npmName)) return true;
+      // @elizaos/plugin-foo -> plugin-foo
+      const withoutScope = npmName.replace("@elizaos/", "");
+      if (loadedNames.has(withoutScope)) return true;
+      // plugin-foo -> foo
+      const shortId = withoutScope.replace("plugin-", "");
+      if (loadedNames.has(shortId)) return true;
+      // Check if ANY loaded name contains the short id or vice versa
       for (const n of loadedNames) {
-        for (const candidate of expected) {
-          if (n.includes(candidate) || candidate.includes(n)) return true;
-        }
+        if (n.includes(shortId) || shortId.includes(n)) return true;
       }
       return false;
     };
@@ -7183,7 +7149,7 @@ async function handleRequest(
     const allowList = new Set(state.config.plugins?.allow ?? []);
 
     const makeEntry = (npm: string, isCore: boolean) => {
-      const id = normalizeScopedPluginName(npm);
+      const id = npm.replace("@elizaos/plugin-", "");
       return {
         npmName: npm,
         id,
@@ -7235,7 +7201,7 @@ async function handleRequest(
     state.config.plugins = state.config.plugins ?? {};
     state.config.plugins.allow = state.config.plugins.allow ?? [];
     const allow = state.config.plugins.allow;
-    const shortId = normalizeScopedPluginName(body.npmName);
+    const shortId = body.npmName.replace("@elizaos/plugin-", "");
 
     if (body.enabled) {
       if (!allow.includes(body.npmName) && !allow.includes(shortId)) {
@@ -12509,6 +12475,7 @@ async function handleRequest(
         "",
         "- name: string (UPPER_SNAKE_CASE action name)",
         "- description: string (clear description of what the action does)",
+        "- similes: optional string[] of alternative action names and phrases",
         '- handlerType: "http" | "shell" | "code"',
         "- handler: object with type-specific fields:",
         '  For http: { type: "http", method: "GET"|"POST"|etc, url: string, headers?: object, bodyTemplate?: string }',

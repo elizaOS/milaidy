@@ -194,14 +194,25 @@ interface TrajectoryLoggerControl {
   setEnabled?: (enabled: boolean) => void;
 }
 
-function ensureTrajectoryLoggerEnabled(
-  runtime: AgentRuntime,
-  context: string,
-): void {
-  const runtimeLike = runtime as unknown as {
-    getServicesByType?: (serviceType: string) => unknown;
-    getService?: (serviceType: string) => unknown;
-  };
+type TrajectoryLoggerRegistrationStatus =
+  | "pending"
+  | "registering"
+  | "registered"
+  | "failed"
+  | "unknown";
+
+type TrajectoryLoggerRuntimeLike = {
+  getServicesByType?: (serviceType: string) => unknown;
+  getService?: (serviceType: string) => unknown;
+  getServiceLoadPromise?: (serviceType: string) => Promise<unknown>;
+  getServiceRegistrationStatus?: (
+    serviceType: string,
+  ) => TrajectoryLoggerRegistrationStatus;
+};
+
+function collectTrajectoryLoggerCandidates(
+  runtimeLike: TrajectoryLoggerRuntimeLike,
+): TrajectoryLoggerControl[] {
   const candidates: TrajectoryLoggerControl[] = [];
   if (typeof runtimeLike.getServicesByType === "function") {
     const byType = runtimeLike.getServicesByType("trajectory_logger");
@@ -217,6 +228,65 @@ function ensureTrajectoryLoggerEnabled(
     const single = runtimeLike.getService("trajectory_logger");
     if (single) candidates.push(single as TrajectoryLoggerControl);
   }
+  return candidates;
+}
+
+async function waitForTrajectoryLoggerService(
+  runtime: AgentRuntime,
+  context: string,
+  timeoutMs = 3000,
+): Promise<void> {
+  const runtimeLike = runtime as unknown as TrajectoryLoggerRuntimeLike;
+  if (collectTrajectoryLoggerCandidates(runtimeLike).length > 0) return;
+
+  const registrationStatus =
+    typeof runtimeLike.getServiceRegistrationStatus === "function"
+      ? runtimeLike.getServiceRegistrationStatus("trajectory_logger")
+      : "unknown";
+
+  if (
+    registrationStatus !== "pending" &&
+    registrationStatus !== "registering"
+  ) {
+    return;
+  }
+
+  if (typeof runtimeLike.getServiceLoadPromise !== "function") return;
+
+  let timedOut = false;
+  let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+  const timeoutPromise = new Promise<void>((resolve) => {
+    timeoutHandle = setTimeout(() => {
+      timedOut = true;
+      resolve();
+    }, timeoutMs);
+  });
+
+  try {
+    await Promise.race([
+      runtimeLike.getServiceLoadPromise("trajectory_logger").then(() => {}),
+      timeoutPromise,
+    ]);
+    if (timedOut) {
+      logger.debug(
+        `[milady] trajectory_logger still ${registrationStatus} after ${timeoutMs}ms (${context})`,
+      );
+    }
+  } catch (err) {
+    logger.debug(
+      `[milady] trajectory_logger registration failed while waiting (${context}): ${formatError(err)}`,
+    );
+  } finally {
+    if (timeoutHandle) clearTimeout(timeoutHandle);
+  }
+}
+
+function ensureTrajectoryLoggerEnabled(
+  runtime: AgentRuntime,
+  context: string,
+): void {
+  const runtimeLike = runtime as unknown as TrajectoryLoggerRuntimeLike;
+  const candidates = collectTrajectoryLoggerCandidates(runtimeLike);
 
   let trajectoryLogger: TrajectoryLoggerControl | null = null;
   let bestScore = -1;
@@ -360,8 +430,7 @@ const PROVIDER_PLUGIN_MAP: Readonly<Record<string, string>> = {
 /**
  * Optional feature plugins keyed by feature name.
  *
- * Optional feature/plugins can be added by key (for config.features/entries entries)
- * or by plugin package names from user config.
+ * Currently empty — reserved for future feature→plugin mappings.
  * The lookup code in {@link collectPluginNames} is intentionally kept
  * so new entries work without additional wiring.
  */
@@ -371,7 +440,6 @@ const OPTIONAL_PLUGIN_MAP: Readonly<Record<string, string>> = {
   cron: "@elizaos/plugin-cron",
   computeruse: "@elizaos/plugin-computeruse",
   x402: "@elizaos/plugin-x402",
-  "retake-tv": "@milady/plugin-retake-tv",
 };
 
 function looksLikePlugin(value: unknown): value is Plugin {
@@ -464,24 +532,6 @@ export function collectPluginNames(config: MiladyConfig): Set<string> {
     return pluginEntries?.[pluginId]?.enabled === false;
   };
 
-  const normalizeConfiguredPluginName = (value: string): string => {
-    const trimmed = value.trim();
-    if (!trimmed) return trimmed;
-
-    if (trimmed.startsWith("@")) {
-      return trimmed;
-    }
-
-    const shortName = trimmed.startsWith("plugin-")
-      ? trimmed.slice("plugin-".length)
-      : trimmed;
-    return (
-      CHANNEL_PLUGIN_MAP[shortName] ??
-      OPTIONAL_PLUGIN_MAP[shortName] ??
-      `@elizaos/plugin-${shortName}`
-    );
-  };
-
   const providerPluginIdSet = new Set(
     Object.values(PROVIDER_PLUGIN_MAP).map((pluginPackageName) => {
       const marker = "/plugin-";
@@ -506,7 +556,8 @@ export function collectPluginNames(config: MiladyConfig): Set<string> {
   // not an exclusive whitelist that blocks everything else.
   if (allowList && allowList.length > 0) {
     for (const item of allowList) {
-      const pluginName = normalizeConfiguredPluginName(item);
+      const pluginName =
+        CHANNEL_PLUGIN_MAP[item] ?? OPTIONAL_PLUGIN_MAP[item] ?? item;
       pluginsToLoad.add(pluginName);
     }
   }
@@ -577,7 +628,10 @@ export function collectPluginNames(config: MiladyConfig): Set<string> {
       ) {
         // Connector keys (telegram, discord, etc.) must use CHANNEL_PLUGIN_MAP
         // so the correct variant loads (e.g. enhanced telegram, not base).
-        const pluginName = normalizeConfiguredPluginName(key);
+        const pluginName =
+          CHANNEL_PLUGIN_MAP[key] ??
+          OPTIONAL_PLUGIN_MAP[key] ??
+          `@elizaos/plugin-${key}`;
         pluginsToLoad.add(pluginName);
       }
     }
@@ -943,26 +997,16 @@ async function resolvePlugins(
         // Local Milady plugin — resolve from the compiled dist directory.
         // These are built by tsdown into dist/plugins/<name>/ and are not
         // published to npm.  import.meta.url points to dist/runtime/eliza.js
-        // (unbundled) or src/runtime/eliza.ts (dev), so try multiple
-        // repository layouts for maximum compatibility.
+        // (unbundled) or dist/eliza.js (bundled), so we resolve relative to
+        // the dist root via the parent of the current file's directory.
         const shortName = pluginName.replace("@milady/plugin-", "");
         const thisDir = path.dirname(fileURLToPath(import.meta.url));
-
-        const candidateDirs = [
-          path.resolve(thisDir, "..", "plugins", shortName),
-          path.resolve(thisDir, "..", "..", "src", "plugins", shortName),
-          path.resolve(thisDir, "..", "..", "dist", "plugins", shortName),
-          path.resolve(thisDir, "..", "..", "plugins", shortName),
-          path.resolve(process.cwd(), "src", "plugins", shortName),
-          path.resolve(process.cwd(), "dist", "plugins", shortName),
-          path.resolve(process.cwd(), "plugins", shortName),
-        ];
-
-        const pluginDir =
-          candidateDirs.find((candidate) => existsSync(candidate)) ??
-          candidateDirs[0];
-
-        mod = await importFromPath(pluginDir, pluginName);
+        // Walk up until we find the dist directory that contains plugins/
+        const distRoot = thisDir.endsWith("runtime")
+          ? path.resolve(thisDir, "..")
+          : thisDir;
+        const distDir = path.resolve(distRoot, "plugins", shortName);
+        mod = await importFromPath(distDir, pluginName);
       } else {
         // Built-in/npm plugin — import by package name from node_modules.
         mod = (await import(pluginName)) as PluginModuleShape;
@@ -1411,6 +1455,7 @@ function collectErrorMessages(err: unknown): string[] {
 
     if (current instanceof Error) {
       if (current.message) messages.push(current.message);
+      if (current.stack) messages.push(current.stack);
       current = (current as Error & { cause?: unknown }).cause;
       continue;
     }
@@ -1439,9 +1484,9 @@ export function isRecoverablePgliteInitError(err: unknown): boolean {
 
   const hasAbort = haystack.includes("aborted(). build with -sassertions");
   const hasPglite = haystack.includes("pglite");
-  const hasMigrationsSchema = haystack.includes(
-    "create schema if not exists migrations",
-  );
+  const hasMigrationsSchema =
+    haystack.includes("create schema if not exists migrations") ||
+    haystack.includes("failed query: create schema if not exists migrations");
 
   return (hasAbort && hasPglite) || hasMigrationsSchema;
 }
@@ -2569,12 +2614,6 @@ export async function startEliza(
       ...(workspaceSkillsDir
         ? { WORKSPACE_SKILLS_DIR: workspaceSkillsDir }
         : {}),
-      ...(config.env?.RETAKE_ACCESS_TOKEN
-        ? { RETAKE_ACCESS_TOKEN: config.env.RETAKE_ACCESS_TOKEN }
-        : {}),
-      ...(process.env.RETAKE_ACCESS_TOKEN
-        ? { RETAKE_ACCESS_TOKEN: process.env.RETAKE_ACCESS_TOKEN }
-        : {}),
       // Also forward extra dirs from config
       ...(config.skills?.load?.extraDirs?.length
         ? { EXTRA_SKILLS_DIRS: config.skills.load.extraDirs.join(",") }
@@ -2630,23 +2669,13 @@ export async function startEliza(
     );
   }
 
-  const initializeRuntimeServices = async (): Promise<void> => {
-    // 8. Initialize the runtime (registers remaining plugins, starts services)
-    await runtime.initialize();
-    ensureTrajectoryLoggerEnabled(runtime, "runtime.initialize()");
-    installDatabaseTrajectoryLogger(runtime);
-
-    // 8b. Wait for AgentSkillsService to finish loading.
-    //     runtime.initialize() resolves the internal initPromise which unblocks
-    //     service registration, but services start asynchronously.  Without this
-    //     explicit await the runtime would be returned to the caller (API server,
-    //     dev-server) before skills are loaded, causing the /api/skills endpoint
-    //     to return an empty list.
+  const warmAgentSkillsService = async (): Promise<void> => {
+    // Let runtime startup complete first; this warm-up runs asynchronously
+    // so API + agent come online immediately.
     try {
       const skillServicePromise = runtime.getServiceLoadPromise(
         "AGENT_SKILLS_SERVICE",
       );
-      // Give the service up to 30 s to load (matches the core runtime timeout).
       const timeout = new Promise<never>((_resolve, reject) => {
         setTimeout(() => {
           reject(
@@ -2658,7 +2687,6 @@ export async function startEliza(
       });
       await Promise.race([skillServicePromise, timeout]);
 
-      // Log skill-loading summary now that the service is guaranteed ready.
       const svc = runtime.getService("AGENT_SKILLS_SERVICE") as
         | {
             getCatalogStats?: () => {
@@ -2710,6 +2738,17 @@ export async function startEliza(
         `[milady] AgentSkillsService did not initialise in time: ${formatError(err)}`,
       );
     }
+  };
+
+  const initializeRuntimeServices = async (): Promise<void> => {
+    // 8. Initialize the runtime (registers remaining plugins, starts services)
+    await runtime.initialize();
+    await waitForTrajectoryLoggerService(runtime, "runtime.initialize()");
+    ensureTrajectoryLoggerEnabled(runtime, "runtime.initialize()");
+    installDatabaseTrajectoryLogger(runtime);
+
+    // Do not block runtime startup on skills warm-up.
+    void warmAgentSkillsService();
   };
 
   try {
@@ -2786,32 +2825,37 @@ export async function startEliza(
     process.on("SIGTERM", () => void shutdown());
   }
 
-  // 10. Load hooks system
-  try {
-    const internalHooksConfig = config.hooks
-      ?.internal as LoadHooksOptions["internalConfig"];
+  const loadHooksSystem = async (): Promise<void> => {
+    try {
+      const internalHooksConfig = config.hooks
+        ?.internal as LoadHooksOptions["internalConfig"];
 
-    await loadHooks({
-      workspacePath: workspaceDir,
-      internalConfig: internalHooksConfig,
-      miladyConfig: config as Record<string, unknown>,
-    });
+      await loadHooks({
+        workspacePath: workspaceDir,
+        internalConfig: internalHooksConfig,
+        miladyConfig: config as Record<string, unknown>,
+      });
 
-    const startupEvent = createHookEvent("gateway", "startup", "system", {
-      cfg: config,
-    });
-    await triggerHook(startupEvent);
-  } catch (err) {
-    logger.warn(`[milady] Hooks system could not load: ${formatError(err)}`);
-  }
+      const startupEvent = createHookEvent("gateway", "startup", "system", {
+        cfg: config,
+      });
+      await triggerHook(startupEvent);
+    } catch (err) {
+      logger.warn(`[milady] Hooks system could not load: ${formatError(err)}`);
+    }
+  };
 
   // ── Headless mode — return runtime for API server wiring ──────────────
   if (opts?.headless) {
+    void loadHooksSystem();
     logger.info(
       "[milady] Runtime initialised in headless mode (autonomy enabled)",
     );
     return runtime;
   }
+
+  // 10. Load hooks system
+  await loadHooksSystem();
 
   // ── Start API server for GUI access ──────────────────────────────────────
   // In CLI mode (non-headless), start the API server in the background so
@@ -2898,37 +2942,8 @@ export async function startEliza(
             ],
             ...(runtimeLogLevel ? { logLevel: runtimeLogLevel } : {}),
             settings: {
-              VALIDATION_LEVEL: "fast",
               ...(freshPrimaryModel
                 ? { MODEL_PROVIDER: freshPrimaryModel }
-                : {}),
-              ...(freshConfig.skills?.allowBundled
-                ? {
-                    SKILLS_ALLOWLIST: freshConfig.skills.allowBundled.join(","),
-                  }
-                : {}),
-              ...(freshConfig.skills?.denyBundled
-                ? {
-                    SKILLS_DENYLIST: freshConfig.skills.denyBundled.join(","),
-                  }
-                : {}),
-              ...(bundledSkillsDir
-                ? { BUNDLED_SKILLS_DIRS: bundledSkillsDir }
-                : {}),
-              ...(workspaceSkillsDir
-                ? { WORKSPACE_SKILLS_DIR: workspaceSkillsDir }
-                : {}),
-              ...(freshConfig.skills?.load?.extraDirs?.length
-                ? {
-                    EXTRA_SKILLS_DIRS:
-                      freshConfig.skills.load.extraDirs.join(","),
-                  }
-                : {}),
-              ...(freshConfig.env?.RETAKE_ACCESS_TOKEN
-                ? { RETAKE_ACCESS_TOKEN: freshConfig.env.RETAKE_ACCESS_TOKEN }
-                : {}),
-              ...(process.env.RETAKE_ACCESS_TOKEN
-                ? { RETAKE_ACCESS_TOKEN: process.env.RETAKE_ACCESS_TOKEN }
                 : {}),
               // Disable image description when vision is explicitly toggled off.
               ...(freshConfig.features?.vision === false
@@ -2964,6 +2979,10 @@ export async function startEliza(
           }
 
           await newRuntime.initialize();
+          await waitForTrajectoryLoggerService(
+            newRuntime,
+            "hot-reload runtime.initialize()",
+          );
           ensureTrajectoryLoggerEnabled(
             newRuntime,
             "hot-reload runtime.initialize()",

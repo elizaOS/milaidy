@@ -25,10 +25,6 @@ try {
 
 const port = Number(process.env.MILADY_PORT) || 31337;
 
-const MAX_STARTUP_ATTEMPTS = 5;
-const BASE_RETRY_DELAY_MS = 500;
-const MAX_RETRY_DELAY_MS = 5_000;
-
 /** The currently active runtime — swapped on restart. */
 let currentRuntime: AgentRuntime | null = null;
 
@@ -41,38 +37,73 @@ let isRestarting = false;
 /** Tracks whether the process is shutting down to prevent restart during exit. */
 let isShuttingDown = false;
 
-const sleep = (ms: number): Promise<void> =>
-  new Promise((resolve) => setTimeout(resolve, ms));
+/** Runtime bootstrap loop state (initial startup + retries). */
+let runtimeBootAttempt = 0;
+let runtimeBootInProgress = false;
+let runtimeBootTimer: ReturnType<typeof setTimeout> | null = null;
 
-async function withRetries<T>(
-  label: string,
-  action: () => Promise<T>,
-): Promise<T> {
-  let lastError: unknown;
+function formatError(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
 
-  for (let attempt = 1; attempt <= MAX_STARTUP_ATTEMPTS; attempt++) {
-    try {
-      return await action();
-    } catch (error) {
-      lastError = error;
-      if (attempt >= MAX_STARTUP_ATTEMPTS) break;
+function nextRetryDelayMs(attempt: number): number {
+  // 1s, 2s, 4s, 8s, 16s, then cap at 30s.
+  const raw = 1000 * 2 ** Math.max(0, Math.min(attempt - 1, 5));
+  return Math.min(30_000, raw);
+}
 
-      const delay = Math.min(
-        MAX_RETRY_DELAY_MS,
-        BASE_RETRY_DELAY_MS * 2 ** (attempt - 1),
-      );
-      logger.warn(
-        `[milady] ${label} failed (attempt ${attempt}/${MAX_STARTUP_ATTEMPTS}) — retrying in ${delay}ms`,
-      );
-      await sleep(delay);
+function clearRuntimeBootTimer(): void {
+  if (runtimeBootTimer) {
+    clearTimeout(runtimeBootTimer);
+    runtimeBootTimer = null;
+  }
+}
+
+function scheduleRuntimeBootstrap(delayMs: number, reason: string): void {
+  if (isShuttingDown) return;
+  clearRuntimeBootTimer();
+  runtimeBootTimer = setTimeout(
+    () => {
+      runtimeBootTimer = null;
+      void bootstrapRuntime(reason);
+    },
+    Math.max(0, delayMs),
+  );
+}
+
+async function bootstrapRuntime(reason: string): Promise<void> {
+  if (isShuttingDown || isRestarting || runtimeBootInProgress) return;
+  runtimeBootInProgress = true;
+
+  try {
+    logger.info(`[milady] Runtime bootstrap starting (${reason})`);
+    const rt = await createRuntime();
+    const agentName = rt.character.name ?? "Milady";
+
+    if (isShuttingDown) {
+      try {
+        await rt.stop();
+      } catch {
+        // Best effort during shutdown race.
+      }
+      return;
     }
-  }
 
-  if (lastError instanceof Error) {
-    throw lastError;
+    if (apiUpdateRuntime) {
+      apiUpdateRuntime(rt);
+    }
+    runtimeBootAttempt = 0;
+    logger.info(`[milady] Runtime ready — agent: ${agentName}`);
+  } catch (err) {
+    runtimeBootAttempt += 1;
+    const delayMs = nextRetryDelayMs(runtimeBootAttempt);
+    logger.error(
+      `[milady] Runtime bootstrap failed (${formatError(err)}). Retrying in ${Math.round(delayMs / 1000)}s`,
+    );
+    scheduleRuntimeBootstrap(delayMs, "retry");
+  } finally {
+    runtimeBootInProgress = false;
   }
-
-  throw new Error(`Unknown error while ${label}`);
 }
 
 /**
@@ -125,11 +156,19 @@ async function handleRestart(reason?: string): Promise<void> {
 
   isRestarting = true;
   try {
+    clearRuntimeBootTimer();
+    if (runtimeBootInProgress) {
+      logger.warn(
+        "[milady] Restart requested while runtime bootstrap is in progress; skipping duplicate restart",
+      );
+      return;
+    }
+
     logger.info(
       `[milady] Restart requested${reason ? ` (${reason})` : ""} — bouncing runtime…`,
     );
 
-    const rt = await withRetries("runtime restart", createRuntime);
+    const rt = await createRuntime();
     const agentName = rt.character.name ?? "Milady";
     logger.info(`[milady] Runtime restarted — agent: ${agentName}`);
 
@@ -152,6 +191,7 @@ async function handleRestart(reason?: string): Promise<void> {
 async function shutdown(): Promise<void> {
   if (isShuttingDown) return;
   isShuttingDown = true;
+  clearRuntimeBootTimer();
 
   logger.info("[milady] Dev server shutting down…");
   if (currentRuntime) {
@@ -178,27 +218,19 @@ async function main() {
 
   // 1. Start the API server first (no runtime yet) so the UI can connect
   //    immediately while the heavier agent runtime boots in the background.
-  const { port: actualPort, updateRuntime } = await withRetries(
-    "API server startup",
-    () =>
-      startApiServer({
-        port,
-        onRestart: async () => {
-          await handleRestart("api");
-          return currentRuntime;
-        },
-      }),
-  );
+  const { port: actualPort, updateRuntime } = await startApiServer({
+    port,
+    initialAgentState: "starting",
+    onRestart: async () => {
+      await handleRestart("api");
+      return currentRuntime;
+    },
+  });
   apiUpdateRuntime = updateRuntime;
   logger.info(`[milady] API server ready on port ${actualPort}`);
 
-  // 2. Boot the ElizaOS agent runtime (plugin loading, migrations, etc.).
-  const runtime = await withRetries("runtime startup", createRuntime);
-  const agentName = runtime.character.name ?? "Milady";
-  logger.info(`[milady] Runtime ready — agent: ${agentName}`);
-
-  // 3. Wire the live runtime into the already-running API server.
-  updateRuntime(runtime);
+  // 2. Boot the ElizaOS agent runtime without blocking server readiness.
+  scheduleRuntimeBootstrap(0, "startup");
 }
 
 main().catch((err: unknown) => {
