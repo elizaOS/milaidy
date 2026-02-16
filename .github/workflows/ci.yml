@@ -31,7 +31,7 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
-      - run: bun install --frozen-lockfile --omit=optional
+      - run: bun install --frozen-lockfile --ignore-scripts
 
       - name: Build app web bundle (smoke)
         run: |
