@@ -15,12 +15,12 @@ RUN if [ -n "$MILAIDY_DOCKER_APT_PACKAGES" ]; then \
     fi
 
 # Copy dependency manifests first for better layer caching
-COPY package.json bun.lock ./
+COPY package.json ./
 COPY apps/app/package.json ./apps/app/package.json
 COPY scripts ./scripts
 
-# Install dependencies using committed lockfile.
-RUN bun install --frozen-lockfile
+# Install dependencies (repo does not track bun.lock).
+RUN bun install
 
 # Copy source and build (includes apps/app/dist UI bundle)
 COPY . .
