@@ -648,7 +648,7 @@ export function collectPluginNames(config: MiladyConfig): Set<string> {
         (entry as Record<string, unknown>).enabled !== false
       ) {
         // Connector keys (telegram, discord, etc.) must use CHANNEL_PLUGIN_MAP
-        // so the correct variant loads (e.g. enhanced telegram, not base).
+        // so the correct variant loads.
         const pluginName =
           CHANNEL_PLUGIN_MAP[key] ??
           OPTIONAL_PLUGIN_MAP[key] ??
