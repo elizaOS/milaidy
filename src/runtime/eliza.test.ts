@@ -120,8 +120,8 @@ describe("collectPluginNames", () => {
     expect(names.has("@elizaos/plugin-agent-skills")).toBe(true);
     expect(names.has("@elizaos/plugin-agent-orchestrator")).toBe(true);
     expect(names.has("@elizaos/plugin-cron")).toBe(true);
-    expect(names.has("@elizaos/plugin-rolodex")).toBe(true);
-    expect(names.has("@elizaos/plugin-trust")).toBe(true);
+    expect(names.has("@elizaos/plugin-rolodex")).toBe(false);
+    expect(names.has("@elizaos/plugin-trust")).toBe(false);
     expect(names.has("@elizaos/plugin-shell")).toBe(true);
     expect(names.has("@elizaos/plugin-plugin-manager")).toBe(true);
   });
