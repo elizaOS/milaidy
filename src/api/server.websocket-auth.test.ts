@@ -14,10 +14,18 @@ function req(
 
 describe("resolveWebSocketUpgradeRejection", () => {
   const prevToken = process.env.MILADY_API_TOKEN;
+  const prevPublicMode = process.env.MILADY_PUBLIC_APP_MODE;
+  const prevAuthMode = process.env.MILADY_AUTH_MODE;
 
   afterEach(() => {
     if (prevToken === undefined) delete process.env.MILADY_API_TOKEN;
     else process.env.MILADY_API_TOKEN = prevToken;
+
+    if (prevPublicMode === undefined) delete process.env.MILADY_PUBLIC_APP_MODE;
+    else process.env.MILADY_PUBLIC_APP_MODE = prevPublicMode;
+
+    if (prevAuthMode === undefined) delete process.env.MILADY_AUTH_MODE;
+    else process.env.MILADY_AUTH_MODE = prevAuthMode;
   });
 
   it("rejects non-/ws paths", () => {
@@ -68,6 +76,18 @@ describe("resolveWebSocketUpgradeRejection", () => {
     delete process.env.MILADY_API_TOKEN;
     const rejection = resolveWebSocketUpgradeRejection(
       req({ origin: "http://localhost:5173" }) as http.IncomingMessage,
+      new URL("ws://localhost/ws"),
+    );
+    expect(rejection).toBeNull();
+  });
+
+  it("accepts unauthenticated upgrade when public app mode is enabled", () => {
+    process.env.MILADY_API_TOKEN = "test-token";
+    process.env.MILADY_PUBLIC_APP_MODE = "true";
+    delete process.env.MILADY_AUTH_MODE;
+
+    const rejection = resolveWebSocketUpgradeRejection(
+      req() as http.IncomingMessage,
       new URL("ws://localhost/ws"),
     );
     expect(rejection).toBeNull();

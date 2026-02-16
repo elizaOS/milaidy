@@ -170,6 +170,70 @@ describe("Auth bypass (no MILADY_API_TOKEN)", () => {
   });
 });
 
+describe("Public app mode bypass (MILADY_PUBLIC_APP_MODE=1)", () => {
+  const TEST_TOKEN = "public-mode-token";
+  let port: number;
+  let close: () => Promise<void>;
+  let envBackup: { restore: () => void };
+
+  beforeAll(async () => {
+    envBackup = saveEnv(
+      "MILADY_API_TOKEN",
+      "MILADY_PAIRING_DISABLED",
+      "MILADY_PUBLIC_APP_MODE",
+      "MILADY_AUTH_MODE",
+    );
+    process.env.MILADY_API_TOKEN = TEST_TOKEN;
+    process.env.MILADY_PUBLIC_APP_MODE = "1";
+    delete process.env.MILADY_AUTH_MODE;
+
+    const server = await startApiServer({ port: 0 });
+    port = server.port;
+    close = server.close;
+  }, 30_000);
+
+  afterAll(async () => {
+    await close();
+    envBackup.restore();
+  });
+
+  it("allows unauthenticated API requests even when API token is configured", async () => {
+    const { status } = await req(port, "GET", "/api/status");
+    expect(status).toBe(200);
+  });
+
+  it("/api/auth/status reports auth not required and pairing disabled", async () => {
+    const { status, data } = await req(port, "GET", "/api/auth/status");
+    expect(status).toBe(200);
+    expect(data.required).toBe(false);
+    expect(data.pairingEnabled).toBe(false);
+    expect(data.expiresAt).toBeNull();
+  });
+
+  it("allows websocket connections without token", async () => {
+    const result = await connectWs(`ws://127.0.0.1:${port}/ws`);
+    expect(result.kind).toBe("open");
+  });
+
+  it("supports MILADY_AUTH_MODE=public alias", async () => {
+    delete process.env.MILADY_PUBLIC_APP_MODE;
+    process.env.MILADY_AUTH_MODE = "public";
+
+    try {
+      const statusResp = await req(port, "GET", "/api/status");
+      expect(statusResp.status).toBe(200);
+
+      const authResp = await req(port, "GET", "/api/auth/status");
+      expect(authResp.status).toBe(200);
+      expect(authResp.data.required).toBe(false);
+      expect(authResp.data.pairingEnabled).toBe(false);
+    } finally {
+      process.env.MILADY_PUBLIC_APP_MODE = "1";
+      delete process.env.MILADY_AUTH_MODE;
+    }
+  });
+});
+
 describe("Non-loopback binding enforces auth without explicit token", () => {
   let port: number;
   let close: () => Promise<void>;
