@@ -2,40 +2,18 @@
  * FFmpeg + Xvfb stream manager for retake.tv.
  *
  * Manages the full headless video pipeline:
- *   Xvfb (virtual display) → FFmpeg (capture + encode) → RTMP (retake.tv)
+ *   Xvfb (virtual display) -> FFmpeg capture -> RTMP push.
  *
- * When PulseAudio is available, creates a virtual audio sink so TTS audio
- * can be mixed into the stream. Falls back to silent audio otherwise.
- *
- * Also handles thumbnail capture via scrot and automatic recovery via
- * a watchdog interval.
- *
- * @see https://retake.tv/skill.md §4 "FFmpeg Headless Streaming"
+ * When PulseAudio is available, a virtual sink is created for TTS audio.
  */
 
-import { type ChildProcess, execSync, spawn } from "node:child_process";
-import { existsSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { type ChildProcess, execFileSync, spawn } from "node:child_process";
+import { existsSync, readFileSync, unlinkSync } from "node:fs";
 import { logger } from "@elizaos/core";
 import type { RtmpCredentials, StreamManagerOptions } from "./types.js";
+import { RetakeAudioManager } from "./audio-manager.js";
 
 const TAG = "[retake-tv:stream]";
-
-const PULSE_SINK_NAME = "retake_tts";
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-export type StreamManagerState = {
-  isStreaming: boolean;
-  hasAudio: boolean;
-  display: number;
-  xvfbPid: number | null;
-  ffmpegPid: number | null;
-  startedAt: number | null;
-};
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -43,7 +21,7 @@ export type StreamManagerState = {
 
 function isCommandAvailable(cmd: string): boolean {
   try {
-    execSync(`which ${cmd}`, { stdio: "ignore" });
+    execFileSync("which", [cmd], { stdio: "ignore" });
     return true;
   } catch {
     return false;
@@ -58,6 +36,15 @@ function isProcessRunning(pid: number): boolean {
     return false;
   }
 }
+
+export type StreamManagerState = {
+  isStreaming: boolean;
+  hasAudio: boolean;
+  display: number;
+  xvfbPid: number | null;
+  ffmpegPid: number | null;
+  startedAt: number | null;
+};
 
 // ---------------------------------------------------------------------------
 // StreamManager
@@ -74,16 +61,13 @@ export class StreamManager {
   private readonly watchdogIntervalMs: number;
   private readonly thumbnailPath: string;
 
+  private readonly audioManager: RetakeAudioManager;
+
   private xvfbProcess: ChildProcess | null = null;
   private ffmpegProcess: ChildProcess | null = null;
   private watchdogTimer: ReturnType<typeof setInterval> | null = null;
   private rtmpCredentials: RtmpCredentials | null = null;
   private startedAt: number | null = null;
-
-  /** Whether PulseAudio virtual sink is active for TTS audio. */
-  private pulseAudioReady = false;
-  /** PulseAudio module index for cleanup. */
-  private pulseSinkModuleId: number | null = null;
 
   constructor(opts?: StreamManagerOptions) {
     this.display = opts?.display ?? 99;
@@ -95,6 +79,8 @@ export class StreamManager {
     this.preset = opts?.preset ?? "veryfast";
     this.watchdogIntervalMs = opts?.watchdogIntervalMs ?? 15_000;
     this.thumbnailPath = opts?.thumbnailPath ?? "/tmp/retake-thumbnail.png";
+
+    this.audioManager = new RetakeAudioManager(isCommandAvailable);
   }
 
   get displayEnv(): string {
@@ -103,13 +89,13 @@ export class StreamManager {
 
   /** Whether TTS audio can be routed into the stream. */
   get hasAudio(): boolean {
-    return this.pulseAudioReady;
+    return this.audioManager.hasAudio;
   }
 
   getState(): StreamManagerState {
     return {
       isStreaming: this.ffmpegProcess !== null && !this.ffmpegProcess.killed,
-      hasAudio: this.pulseAudioReady,
+      hasAudio: this.audioManager.hasAudio,
       display: this.display,
       xvfbPid: this.xvfbProcess?.pid ?? null,
       ffmpegPid: this.ffmpegProcess?.pid ?? null,
@@ -123,7 +109,7 @@ export class StreamManager {
 
   checkDependencies(): { ok: boolean; missing: string[] } {
     const required = ["Xvfb", "ffmpeg"];
-    const optional = ["scrot", "xterm", "openbox", "pactl", "paplay"];
+    const optional = ["scrot", "openbox", "pactl", "paplay"];
     const missing: string[] = [];
 
     for (const cmd of required) {
@@ -140,129 +126,22 @@ export class StreamManager {
   }
 
   // -------------------------------------------------------------------------
-  // PulseAudio — virtual audio sink for TTS
+  // PulseAudio wrappers
   // -------------------------------------------------------------------------
 
-  /**
-   * Create a PulseAudio virtual sink so TTS audio can be captured by FFmpeg.
-   *
-   * Pipeline: TTS → paplay --device=retake_tts → FFmpeg -f pulse -i retake_tts.monitor → RTMP
-   *
-   * If PulseAudio isn't available, the stream falls back to silent audio.
-   */
+  /** Create a PulseAudio virtual sink so TTS audio can be captured by FFmpeg. */
   setupPulseAudioSink(): boolean {
-    if (!isCommandAvailable("pactl")) {
-      logger.debug(`${TAG} pactl not available, audio will be silent`);
-      return false;
-    }
-
-    try {
-      // Check if sink already exists
-      const sinks = execSync("pactl list short sinks", {
-        encoding: "utf-8",
-        timeout: 3000,
-      });
-      if (sinks.includes(PULSE_SINK_NAME)) {
-        logger.info(
-          `${TAG} PulseAudio sink "${PULSE_SINK_NAME}" already exists`,
-        );
-        this.pulseAudioReady = true;
-        return true;
-      }
-
-      // Create virtual null sink
-      const output = execSync(
-        `pactl load-module module-null-sink sink_name=${PULSE_SINK_NAME} sink_properties=device.description="Retake_TTS_Audio"`,
-        { encoding: "utf-8", timeout: 3000 },
-      ).trim();
-
-      this.pulseSinkModuleId = Number.parseInt(output, 10);
-      this.pulseAudioReady = true;
-
-      logger.info(
-        `${TAG} PulseAudio virtual sink created: ${PULSE_SINK_NAME} (module ${this.pulseSinkModuleId})`,
-      );
-      return true;
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      logger.warn(`${TAG} PulseAudio setup failed: ${msg}`);
-      this.pulseAudioReady = false;
-      return false;
-    }
+    return this.audioManager.setupPulseAudioSink();
   }
 
   /** Remove the PulseAudio virtual sink. */
   teardownPulseAudioSink(): void {
-    if (this.pulseSinkModuleId !== null) {
-      try {
-        execSync(`pactl unload-module ${this.pulseSinkModuleId}`, {
-          stdio: "ignore",
-          timeout: 3000,
-        });
-        logger.debug(`${TAG} PulseAudio sink removed`);
-      } catch {
-        // Best-effort
-      }
-      this.pulseSinkModuleId = null;
-    }
-    this.pulseAudioReady = false;
+    this.audioManager.teardownPulseAudioSink();
   }
 
-  // -------------------------------------------------------------------------
-  // TTS audio playback into the stream
-  // -------------------------------------------------------------------------
-
-  /**
-   * Play an audio buffer through the virtual PulseAudio sink so FFmpeg
-   * captures it into the RTMP stream.
-   *
-   * Accepts MP3, WAV, or OGG audio. Writes to a temp file and plays
-   * via paplay (WAV) or ffplay/ffmpeg decode → paplay.
-   *
-   * Fire-and-forget — returns immediately, audio plays in background.
-   */
+  /** Play an audio buffer into the stream if PulseAudio is available. */
   playAudio(audioBuffer: Buffer, format: "mp3" | "wav" | "ogg" = "mp3"): void {
-    if (!this.pulseAudioReady) {
-      logger.debug(`${TAG} No audio sink, skipping playAudio`);
-      return;
-    }
-
-    const tmpFile = join(tmpdir(), `retake-tts-${Date.now()}.${format}`);
-    try {
-      writeFileSync(tmpFile, audioBuffer);
-    } catch (err) {
-      logger.warn(`${TAG} Failed to write temp audio: ${String(err)}`);
-      return;
-    }
-
-    // For WAV we can use paplay directly. For MP3/OGG, use ffmpeg to
-    // decode to raw PCM and pipe into paplay, or use ffplay.
-    let proc: ChildProcess;
-
-    if (format === "wav" && isCommandAvailable("paplay")) {
-      proc = spawn("paplay", [`--device=${PULSE_SINK_NAME}`, tmpFile], {
-        stdio: "ignore",
-        detached: true,
-      });
-    } else {
-      // Use ffmpeg to decode any format → play through pulse sink
-      proc = spawn(
-        "ffmpeg",
-        ["-i", tmpFile, "-f", "pulse", "-device", PULSE_SINK_NAME, "-"],
-        { stdio: "ignore", detached: true },
-      );
-    }
-
-    proc.unref();
-
-    proc.on("exit", () => {
-      // Clean up temp file
-      try {
-        if (existsSync(tmpFile)) unlinkSync(tmpFile);
-      } catch {
-        // Best-effort cleanup
-      }
-    });
+    this.audioManager.playAudio(audioBuffer, format);
   }
 
   // -------------------------------------------------------------------------
@@ -275,13 +154,15 @@ export class StreamManager {
       return;
     }
 
-    // Check if something else is already using this display
+    // Check if something else is already using this display.
     try {
-      execSync(`xdpyinfo -display :${this.display}`, { stdio: "ignore" });
+      execFileSync("xdpyinfo", ["-display", this.displayEnv], {
+        stdio: "ignore",
+      });
       logger.info(`${TAG} Display :${this.display} already active, reusing`);
       return;
     } catch {
-      // Display not active, we'll start it
+      // Display not active, start it.
     }
 
     logger.info(
@@ -299,7 +180,6 @@ export class StreamManager {
       ],
       { stdio: "ignore", detached: true },
     );
-
     this.xvfbProcess.unref();
 
     this.xvfbProcess.on("exit", (code) => {
@@ -307,14 +187,13 @@ export class StreamManager {
       this.xvfbProcess = null;
     });
 
-    // Give Xvfb time to initialize
+    // Give Xvfb time to initialize.
     await new Promise((resolve) => setTimeout(resolve, 1500));
-
     logger.info(`${TAG} Xvfb started (pid: ${this.xvfbProcess.pid})`);
   }
 
   // -------------------------------------------------------------------------
-  // Window manager + content window (optional)
+  // Window manager
   // -------------------------------------------------------------------------
 
   startWindowManager(): void {
@@ -332,64 +211,15 @@ export class StreamManager {
     logger.debug(`${TAG} openbox started on :${this.display}`);
   }
 
-  /**
-   * Spawn a terminal window on the virtual display.
-   * Useful for rendering text content that FFmpeg will capture.
-   */
-  spawnTerminal(command?: string): ChildProcess | null {
-    if (!isCommandAvailable("xterm")) {
-      logger.debug(`${TAG} xterm not available`);
-      return null;
-    }
-
-    const args = [
-      "-fa",
-      "Monospace",
-      "-fs",
-      "12",
-      "-bg",
-      "black",
-      "-fg",
-      "#00ff00",
-      "-geometry",
-      "160x45+0+0",
-    ];
-
-    if (command) {
-      args.push("-e", command);
-    }
-
-    const proc = spawn("xterm", args, {
-      stdio: "ignore",
-      detached: true,
-      env: { ...process.env, DISPLAY: this.displayEnv },
-    });
-    proc.unref();
-
-    logger.debug(`${TAG} xterm spawned (pid: ${proc.pid})`);
-    return proc;
-  }
-
   // -------------------------------------------------------------------------
   // FFmpeg — capture + RTMP push
   // -------------------------------------------------------------------------
 
   /**
-   * Build FFmpeg audio input args.
-   * If PulseAudio sink is available, capture from it.
-   * Otherwise, use silent audio (anullsrc).
+   * Build FFmpeg audio input args based on TTS sink availability.
    */
   private buildAudioInputArgs(): string[] {
-    if (this.pulseAudioReady) {
-      return ["-f", "pulse", "-i", `${PULSE_SINK_NAME}.monitor`];
-    }
-    // Silent audio fallback
-    return [
-      "-f",
-      "lavfi",
-      "-i",
-      "anullsrc=channel_layout=stereo:sample_rate=44100",
-    ];
+    return this.audioManager.buildAudioInputArgs();
   }
 
   async startFFmpeg(rtmp: RtmpCredentials): Promise<void> {
@@ -401,18 +231,17 @@ export class StreamManager {
 
     this.rtmpCredentials = rtmp;
     const rtmpTarget = `${rtmp.url}/${rtmp.key}`;
-
-    const audioSource = this.pulseAudioReady
-      ? `PulseAudio sink "${PULSE_SINK_NAME}"`
+    const audioSource = this.audioManager.hasAudio
+      ? `PulseAudio sink "retake_tts"`
       : "silent (anullsrc)";
     logger.info(`${TAG} Starting FFmpeg stream (audio: ${audioSource})`);
 
     const audioArgs = this.buildAudioInputArgs();
-
+    const parsedBitrate = Number.parseInt(this.videoBitrate, 10);
+    const maxRate = Number.isNaN(parsedBitrate) ? 1500 : parsedBitrate;
     this.ffmpegProcess = spawn(
       "ffmpeg",
       [
-        // X11 grab input
         "-thread_queue_size",
         "512",
         "-f",
@@ -423,9 +252,7 @@ export class StreamManager {
         String(this.framerate),
         "-i",
         this.displayEnv,
-        // Audio input (PulseAudio or silent)
         ...audioArgs,
-        // Video encoding
         "-c:v",
         "libx264",
         "-preset",
@@ -437,17 +264,15 @@ export class StreamManager {
         "-maxrate",
         this.videoBitrate,
         "-bufsize",
-        `${Number.parseInt(this.videoBitrate, 10) * 2}k`,
+        `${maxRate * 2}k`,
         "-pix_fmt",
         "yuv420p",
         "-g",
         String(this.framerate * 2),
-        // Audio encoding
         "-c:a",
         "aac",
         "-b:a",
         this.audioBitrate,
-        // Output
         "-f",
         "flv",
         rtmpTarget,
@@ -472,7 +297,7 @@ export class StreamManager {
 
     this.startedAt = Date.now();
 
-    // Give FFmpeg time to connect
+    // Give FFmpeg time to connect.
     await new Promise((resolve) => setTimeout(resolve, 3000));
 
     if (this.ffmpegProcess && !this.ffmpegProcess.killed) {
@@ -488,14 +313,14 @@ export class StreamManager {
     logger.info(`${TAG} Stopping FFmpeg`);
     this.ffmpegProcess.kill("SIGTERM");
 
-    // Force kill after 5s if SIGTERM didn't work
+    // Force kill after 5s if SIGTERM didn't work.
     const pid = this.ffmpegProcess.pid;
     setTimeout(() => {
       if (pid && isProcessRunning(pid)) {
         try {
           process.kill(pid, "SIGKILL");
         } catch {
-          // Already dead
+          // Already dead.
         }
       }
     }, 5000);
@@ -515,10 +340,9 @@ export class StreamManager {
     }
 
     try {
-      // Remove stale file
       if (existsSync(this.thumbnailPath)) unlinkSync(this.thumbnailPath);
 
-      execSync(`scrot ${this.thumbnailPath}`, {
+      execFileSync("scrot", [this.thumbnailPath], {
         env: { ...process.env, DISPLAY: this.displayEnv },
         timeout: 5000,
       });
@@ -536,7 +360,7 @@ export class StreamManager {
   }
 
   // -------------------------------------------------------------------------
-  // Watchdog — auto-recovery
+  // Watchdog
   // -------------------------------------------------------------------------
 
   startWatchdog(onRestart?: () => Promise<void>): void {
@@ -548,14 +372,12 @@ export class StreamManager {
     );
 
     this.watchdogTimer = setInterval(async () => {
-      // Check Xvfb
       if (this.xvfbProcess?.pid && !isProcessRunning(this.xvfbProcess.pid)) {
         logger.warn(`${TAG} Watchdog: Xvfb died, restarting`);
         this.xvfbProcess = null;
         await this.startDisplay();
       }
 
-      // Check FFmpeg
       if (
         this.rtmpCredentials &&
         (!this.ffmpegProcess ||
@@ -586,14 +408,6 @@ export class StreamManager {
   // Full lifecycle
   // -------------------------------------------------------------------------
 
-  /**
-   * Full go-live sequence:
-   * 1. Start virtual display
-   * 2. Start window manager
-   * 3. Set up PulseAudio virtual sink (if available)
-   * 4. Start FFmpeg with RTMP credentials
-   * 5. Start watchdog
-   */
   async goLive(rtmp: RtmpCredentials): Promise<void> {
     const deps = this.checkDependencies();
     if (!deps.ok) {
@@ -609,13 +423,6 @@ export class StreamManager {
     this.startWatchdog();
   }
 
-  /**
-   * Full shutdown:
-   * 1. Stop watchdog
-   * 2. Stop FFmpeg
-   * 3. Teardown PulseAudio sink
-   * 4. Stop Xvfb
-   */
   shutdown(): void {
     logger.info(`${TAG} Shutting down stream pipeline`);
     this.stopWatchdog();
