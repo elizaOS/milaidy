@@ -51,9 +51,7 @@
     "gatekeeperAssess": false,
     "entitlements": "entitlements.mac.plist",
     "entitlementsInherit": "entitlements.mac.plist",
-    "notarize": {
-      "teamId": "25877RY2EH"
-    }
+    "notarize": true
   },
   "dmg": {
     "format": "UDZO",

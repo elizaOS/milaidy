@@ -40,7 +40,13 @@ function loadCompiledContract(contractName: string): CompiledContract {
 }
 
 function contractArtifactPath(contractName: string): string {
-  return path.join(__dirname, "contracts", "out", `${contractName}.sol`, `${contractName}.json`);
+  return path.join(
+    __dirname,
+    "contracts",
+    "out",
+    `${contractName}.sol`,
+    `${contractName}.json`,
+  );
 }
 
 export function hasContractArtifacts(): boolean {

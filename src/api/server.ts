@@ -613,47 +613,6 @@ export function isCorePluginLoaded(
   return false;
 }
 
-const CORE_PLUGIN_SCOPE_RE = /^@[^/]+\//;
-
-export function getCorePluginNameForms(pluginName: string): string[] {
-  const normalized = pluginName.trim().toLowerCase();
-  if (!normalized) return [];
-
-  const forms = new Set<string>([normalized]);
-  const withoutScope = normalized.replace(CORE_PLUGIN_SCOPE_RE, "");
-  if (withoutScope) {
-    forms.add(withoutScope);
-  }
-
-  const withoutPluginPrefix = withoutScope.replace(/^plugin-/, "");
-  if (withoutPluginPrefix) {
-    forms.add(withoutPluginPrefix);
-  }
-
-  if (withoutPluginPrefix === "local-embedding") {
-    forms.add("local-ai");
-  }
-  if (withoutPluginPrefix === "code") {
-    forms.add("eliza-coder");
-  }
-
-  return [...forms];
-}
-
-export function isCorePluginLoaded(
-  runtimePluginNames: Iterable<string>,
-  npmName: string,
-): boolean {
-  const expected = new Set(getCorePluginNameForms(npmName));
-  for (const runtimeName of runtimePluginNames) {
-    const candidates = getCorePluginNameForms(runtimeName);
-    if (candidates.some((candidate) => expected.has(candidate))) {
-      return true;
-    }
-  }
-  return false;
-}
-
 function buildParamDefs(
   pluginParams: Record<string, Record<string, unknown>>,
 ): PluginParamDef[] {

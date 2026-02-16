@@ -18,7 +18,11 @@ import { DropService } from "../src/api/drop-service";
 import { RegistryService } from "../src/api/registry-service";
 import { TxService } from "../src/api/tx-service";
 import { type AnvilInstance, startAnvil } from "./anvil-helper";
-import { type DeployedContracts, deployContracts, hasContractArtifacts } from "./contract-deployer";
+import {
+  type DeployedContracts,
+  deployContracts,
+  hasContractArtifacts,
+} from "./contract-deployer";
 
 function hasAnvilBinary(): boolean {
   try {
@@ -29,7 +33,8 @@ function hasAnvilBinary(): boolean {
   }
 }
 
-const describeAnvil = hasAnvilBinary() && hasContractArtifacts() ? describe : describe.skip;
+const describeAnvil =
+  hasAnvilBinary() && hasContractArtifacts() ? describe : describe.skip;
 
 // ---------------------------------------------------------------------------
 // Test Suite

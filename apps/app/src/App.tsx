@@ -185,14 +185,18 @@ export function App() {
   }, [handlePauseResume, handleRestart, setTab]);
 
   useEffect(() => {
+    if (typeof document === "undefined" || !document.addEventListener) return;
     const handler = () => handleOpenCommandPalette();
     document.addEventListener("milady:command-palette", handler);
-    return () => document.removeEventListener("milady:command-palette", handler);
+    return () =>
+      document.removeEventListener("milady:command-palette", handler);
   }, [handleOpenCommandPalette]);
 
   useEffect(() => {
+    if (typeof document === "undefined" || !document.addEventListener) return;
     document.addEventListener("milady:tray-action", handleTrayAction);
-    return () => document.removeEventListener("milady:tray-action", handleTrayAction);
+    return () =>
+      document.removeEventListener("milady:tray-action", handleTrayAction);
   }, [handleTrayAction]);
 
   const handleEditorSave = useCallback(() => {
