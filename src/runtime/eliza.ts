@@ -958,9 +958,9 @@ async function resolvePlugins(
           path.resolve(process.cwd(), "plugins", shortName),
         ];
 
-        const pluginDir = candidateDirs.find((candidate) =>
-          existsSync(candidate),
-        ) ?? candidateDirs[0];
+        const pluginDir =
+          candidateDirs.find((candidate) => existsSync(candidate)) ??
+          candidateDirs[0];
 
         mod = await importFromPath(pluginDir, pluginName);
       } else {
@@ -2576,8 +2576,8 @@ export async function startEliza(
         ? { RETAKE_ACCESS_TOKEN: process.env.RETAKE_ACCESS_TOKEN }
         : {}),
       // Also forward extra dirs from config
-      ...(config.skills?.load?.extraDirs?.length
-        ? { EXTRA_SKILLS_DIRS: config.skills.load.extraDirs.join(",") }
+      ...(config.plugins?.load?.extraDirs?.length
+        ? { EXTRA_SKILLS_DIRS: config.plugins.load.extraDirs.join(",") }
         : {}),
       // Disable image description when vision is explicitly toggled off.
       // The cloud plugin always registers IMAGE_DESCRIPTION, so we need a
@@ -2898,8 +2898,37 @@ export async function startEliza(
             ],
             ...(runtimeLogLevel ? { logLevel: runtimeLogLevel } : {}),
             settings: {
+              VALIDATION_LEVEL: "fast",
               ...(freshPrimaryModel
                 ? { MODEL_PROVIDER: freshPrimaryModel }
+                : {}),
+              ...(freshConfig.skills?.allowBundled
+                ? {
+                    SKILLS_ALLOWLIST: freshConfig.skills.allowBundled.join(","),
+                  }
+                : {}),
+              ...(freshConfig.skills?.denyBundled
+                ? {
+                    SKILLS_DENYLIST: freshConfig.skills.denyBundled.join(","),
+                  }
+                : {}),
+              ...(bundledSkillsDir
+                ? { BUNDLED_SKILLS_DIRS: bundledSkillsDir }
+                : {}),
+              ...(workspaceSkillsDir
+                ? { WORKSPACE_SKILLS_DIR: workspaceSkillsDir }
+                : {}),
+              ...(freshConfig.plugins?.load?.extraDirs?.length
+                ? {
+                    EXTRA_SKILLS_DIRS:
+                      freshConfig.plugins.load.extraDirs.join(","),
+                  }
+                : {}),
+              ...(freshConfig.env?.RETAKE_ACCESS_TOKEN
+                ? { RETAKE_ACCESS_TOKEN: freshConfig.env.RETAKE_ACCESS_TOKEN }
+                : {}),
+              ...(process.env.RETAKE_ACCESS_TOKEN
+                ? { RETAKE_ACCESS_TOKEN: process.env.RETAKE_ACCESS_TOKEN }
                 : {}),
               // Disable image description when vision is explicitly toggled off.
               ...(freshConfig.features?.vision === false
