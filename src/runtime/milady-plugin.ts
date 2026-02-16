@@ -27,14 +27,18 @@ import {
   getSessionProviders,
   resolveDefaultSessionStorePath,
 } from "@elizaos/core";
+import { coreStatusAction } from "../actions/core-status";
+import { ejectCoreAction } from "../actions/eject-core";
 import { ejectPluginAction } from "../actions/eject-plugin";
 import { emoteAction } from "../actions/emote";
 import { installPluginAction } from "../actions/install-plugin";
 import { listEjectedAction } from "../actions/list-ejected";
 import { logLevelAction } from "../actions/log-level";
 import { mediaActions } from "../actions/media";
+import { reinjectCoreAction } from "../actions/reinject-core";
 import { reinjectPluginAction } from "../actions/reinject-plugin";
 import { restartAction } from "../actions/restart";
+import { syncCoreAction } from "../actions/sync-core";
 import { syncPluginAction } from "../actions/sync-plugin";
 import { terminalAction } from "../actions/terminal";
 import { EMOTE_CATALOG } from "../emotes/catalog";
@@ -581,6 +585,10 @@ export function createMiladyPlugin(config?: MiladyPluginConfig): Plugin {
       syncPluginAction,
       reinjectPluginAction,
       listEjectedAction,
+      ejectCoreAction,
+      syncCoreAction,
+      reinjectCoreAction,
+      coreStatusAction,
       ...mediaActions,
       ...loadCustomActions(),
     ],

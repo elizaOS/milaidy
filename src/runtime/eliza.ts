@@ -189,6 +189,27 @@ function formatError(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
+async function logCoreRuntimeSource(): Promise<void> {
+  try {
+    const { getCoreStatus } = await import("../services/core-eject");
+    const status = await getCoreStatus();
+    if (status.ejected) {
+      const commit =
+        status.commitHash ?? status.upstream?.commitHash ?? "unknown";
+      logger.info(
+        `[milady] Using ejected @elizaos/core from ${status.coreDistPath} (commit ${commit})`,
+      );
+      return;
+    }
+
+    logger.info(`[milady] Using npm @elizaos/core v${status.version}`);
+  } catch (err) {
+    logger.debug(
+      `[milady] Failed to detect @elizaos/core source: ${formatError(err)}`,
+    );
+  }
+}
+
 interface TrajectoryLoggerControl {
   isEnabled?: () => boolean;
   setEnabled?: (enabled: boolean) => void;
@@ -2324,6 +2345,9 @@ export async function startEliza(
 
   // 2. Push channel secrets into process.env for plugin discovery
   applyConnectorSecretsToEnv(config);
+
+  // 2a. Detect whether @elizaos/core is running from npm or an ejected checkout.
+  await logCoreRuntimeSource();
 
   // 2b. Propagate cloud config into process.env for ElizaCloud plugin
   applyCloudConfigToEnv(config);
