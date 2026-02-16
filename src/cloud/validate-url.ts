@@ -98,7 +98,7 @@ function isBlockedIpv6(ip: string): boolean {
   return (
     normalized === "::" || // unspecified address
     normalized === "::1" || // loopback
-    normalized.startsWith("fe80:") || // link-local
+    /^fe[89ab][0-9a-f]:/.test(normalized) || // link-local fe80::/10
     /^f[cd][0-9a-f]{2}:/i.test(normalized) || // ULA (fc00::/7)
     normalized.startsWith("ff") // multicast (ff00::/8)
   );
