@@ -105,6 +105,9 @@ describe("retake-tv action validate + handler behavior", () => {
         agent_id: "a1",
       }),
     );
+    expect((ok.data as { access_token?: string } | undefined)?.access_token).toBe(
+      undefined,
+    );
   });
 
   it("go-live validate requires initialized client and non-live stream", async () => {

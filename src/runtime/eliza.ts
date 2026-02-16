@@ -103,6 +103,53 @@ interface PluginModuleShape {
   [key: string]: Plugin | undefined;
 }
 
+/**
+ * Build the runtime settings forwarded into AgentRuntime.
+ *
+ * Shared between startup and hot-reload so both paths stay in parity.
+ */
+export function buildRuntimeSettingsFromConfig(
+  config: MiladyConfig,
+  params?: {
+    primaryModel?: string | null;
+    bundledSkillsDir?: string | null;
+    workspaceDir?: string | null;
+  },
+): Record<string, string> {
+  const { primaryModel, bundledSkillsDir, workspaceDir } = params ?? {};
+  const workspaceSkillsDir = workspaceDir ? `${workspaceDir}/skills` : null;
+  const extraDirs = Array.isArray(config.skills?.load?.extraDirs)
+    ? config.skills.load.extraDirs
+        .filter((dir): dir is string => typeof dir === "string")
+        .map((dir) => dir.trim())
+        .filter((dir) => dir.length > 0)
+    : [];
+
+  const settings: Record<string, string> = {
+    VALIDATION_LEVEL: "fast",
+  };
+
+  if (primaryModel) settings.MODEL_PROVIDER = primaryModel;
+  if (config.skills?.allowBundled) {
+    settings.SKILLS_ALLOWLIST = config.skills.allowBundled.join(",");
+  }
+  if (config.skills?.denyBundled) {
+    settings.SKILLS_DENYLIST = config.skills.denyBundled.join(",");
+  }
+  if (bundledSkillsDir) settings.BUNDLED_SKILLS_DIRS = bundledSkillsDir;
+  if (workspaceSkillsDir) settings.WORKSPACE_SKILLS_DIR = workspaceSkillsDir;
+  if (extraDirs.length > 0) settings.EXTRA_SKILLS_DIRS = extraDirs.join(",");
+
+  if (config.features?.vision === false) {
+    settings.DISABLE_IMAGE_DESCRIPTION = "true";
+  }
+
+  const accessToken = process.env.RETAKE_ACCESS_TOKEN?.trim();
+  if (accessToken) settings.RETAKE_ACCESS_TOKEN = accessToken;
+
+  return settings;
+}
+
 function configureLocalEmbeddingPlugin(
   _plugin: Plugin,
   config?: MiladyConfig,
@@ -2507,9 +2554,6 @@ export async function startEliza(
     );
   }
 
-  // Workspace skills directory (highest precedence for overrides)
-  const workspaceSkillsDir = workspaceDir ? `${workspaceDir}/skills` : null;
-
   // ── Sandbox mode setup ──────────────────────────────────────────────────
   const sandboxConfig = config.agents?.defaults?.sandbox;
   const sandboxModeStr = (sandboxConfig as Record<string, unknown> | undefined)
@@ -2598,33 +2642,11 @@ export async function startEliza(
             : undefined,
         }
       : {}),
-    settings: {
-      VALIDATION_LEVEL: "fast",
-      // Forward Milady config env vars as runtime settings
-      ...(primaryModel ? { MODEL_PROVIDER: primaryModel } : {}),
-      // Forward skills config so plugin-agent-skills can apply allow/deny filtering
-      ...(config.skills?.allowBundled
-        ? { SKILLS_ALLOWLIST: config.skills.allowBundled.join(",") }
-        : {}),
-      ...(config.skills?.denyBundled
-        ? { SKILLS_DENYLIST: config.skills.denyBundled.join(",") }
-        : {}),
-      // Tell plugin-agent-skills where to find bundled + workspace skills
-      ...(bundledSkillsDir ? { BUNDLED_SKILLS_DIRS: bundledSkillsDir } : {}),
-      ...(workspaceSkillsDir
-        ? { WORKSPACE_SKILLS_DIR: workspaceSkillsDir }
-        : {}),
-      // Also forward extra dirs from config
-      ...(config.skills?.load?.extraDirs?.length
-        ? { EXTRA_SKILLS_DIRS: config.skills.load.extraDirs.join(",") }
-        : {}),
-      // Disable image description when vision is explicitly toggled off.
-      // The cloud plugin always registers IMAGE_DESCRIPTION, so we need a
-      // runtime setting to prevent the message service from calling it.
-      ...(config.features?.vision === false
-        ? { DISABLE_IMAGE_DESCRIPTION: "true" }
-        : {}),
-    },
+    settings: buildRuntimeSettingsFromConfig(config, {
+      primaryModel,
+      bundledSkillsDir,
+      workspaceDir,
+    }),
   });
   installRuntimeMethodBindings(runtime);
 
@@ -2916,9 +2938,10 @@ export async function startEliza(
           const freshCharacter = buildCharacterFromConfig(freshConfig);
 
           // Recreate Milady plugin with fresh workspace
+          const freshWorkspaceDir =
+            freshConfig.agents?.defaults?.workspace ?? workspaceDir;
           const freshMiladyPlugin = createMiladyPlugin({
-            workspaceDir:
-              freshConfig.agents?.defaults?.workspace ?? workspaceDir,
+            workspaceDir: freshWorkspaceDir,
             bootstrapMaxChars: freshConfig.agents?.defaults?.bootstrapMaxChars,
             enableBootstrapProviders:
               freshConfig.agents?.defaults?.enableBootstrapProviders,
@@ -2941,15 +2964,11 @@ export async function startEliza(
               ...freshOtherPlugins.map((p) => p.plugin),
             ],
             ...(runtimeLogLevel ? { logLevel: runtimeLogLevel } : {}),
-            settings: {
-              ...(freshPrimaryModel
-                ? { MODEL_PROVIDER: freshPrimaryModel }
-                : {}),
-              // Disable image description when vision is explicitly toggled off.
-              ...(freshConfig.features?.vision === false
-                ? { DISABLE_IMAGE_DESCRIPTION: "true" }
-                : {}),
-            },
+            settings: buildRuntimeSettingsFromConfig(freshConfig, {
+              primaryModel: freshPrimaryModel,
+              bundledSkillsDir,
+              workspaceDir: freshWorkspaceDir,
+            }),
           });
           installRuntimeMethodBindings(newRuntime);
 

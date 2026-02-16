@@ -572,6 +572,47 @@ function maskValue(value: string): string {
   return `${value.slice(0, 4)}...${value.slice(-4)}`;
 }
 
+const CORE_PLUGIN_SCOPE_RE = /^@[^/]+\//;
+
+export function getCorePluginNameForms(pluginName: string): string[] {
+  const normalized = pluginName.trim().toLowerCase();
+  if (!normalized) return [];
+
+  const forms = new Set<string>([normalized]);
+  const withoutScope = normalized.replace(CORE_PLUGIN_SCOPE_RE, "");
+  if (withoutScope) {
+    forms.add(withoutScope);
+  }
+
+  const withoutPluginPrefix = withoutScope.replace(/^plugin-/, "");
+  if (withoutPluginPrefix) {
+    forms.add(withoutPluginPrefix);
+  }
+
+  if (withoutPluginPrefix === "local-embedding") {
+    forms.add("local-ai");
+  }
+  if (withoutPluginPrefix === "code") {
+    forms.add("eliza-coder");
+  }
+
+  return [...forms];
+}
+
+export function isCorePluginLoaded(
+  runtimePluginNames: Iterable<string>,
+  npmName: string,
+): boolean {
+  const expected = new Set(getCorePluginNameForms(npmName));
+  for (const runtimeName of runtimePluginNames) {
+    const candidates = getCorePluginNameForms(runtimeName);
+    if (candidates.some((candidate) => expected.has(candidate))) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function buildParamDefs(
   pluginParams: Record<string, Record<string, unknown>>,
 ): PluginParamDef[] {
@@ -7124,23 +7165,11 @@ async function handleRequest(
     // "eliza-coder" for plugin-code), so we check loaded names against multiple
     // derived forms of the npm package name.
     const loadedNames = state.runtime
-      ? new Set(state.runtime.plugins.map((p: { name: string }) => p.name))
-      : new Set<string>();
+      ? state.runtime.plugins.map((p: { name: string }) => p.name)
+      : [];
 
-    const isLoaded = (npmName: string): boolean => {
-      if (loadedNames.has(npmName)) return true;
-      // @elizaos/plugin-foo -> plugin-foo
-      const withoutScope = npmName.replace("@elizaos/", "");
-      if (loadedNames.has(withoutScope)) return true;
-      // plugin-foo -> foo
-      const shortId = withoutScope.replace("plugin-", "");
-      if (loadedNames.has(shortId)) return true;
-      // Check if ANY loaded name contains the short id or vice versa
-      for (const n of loadedNames) {
-        if (n.includes(shortId) || shortId.includes(n)) return true;
-      }
-      return false;
-    };
+    const isLoaded = (npmName: string): boolean =>
+      isCorePluginLoaded(loadedNames, npmName);
 
     // Check which optional plugins are currently in the allow list
     const allowList = new Set(state.config.plugins?.allow ?? []);

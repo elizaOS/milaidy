@@ -94,6 +94,7 @@ export const registerAction: Action = {
       logger.info(
         `${TAG} Registered as "${agentName}" (agent: ${creds.agent_id})`,
       );
+      const { access_token: _accessToken, ...publicCredentials } = creds;
 
       return {
         text:
@@ -105,7 +106,7 @@ export const registerAction: Action = {
           token_ticker: creds.token_ticker,
           token_address: creds.token_address,
         },
-        data: creds,
+        data: publicCredentials,
       };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
