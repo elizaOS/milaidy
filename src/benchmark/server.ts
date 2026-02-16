@@ -4,7 +4,9 @@ import { fileURLToPath } from "node:url";
 import {
   AgentRuntime,
   elizaLogger,
+  type Memory,
   ModelType,
+  type Plugin,
   stringToUuid,
 } from "@elizaos/core";
 
@@ -13,22 +15,43 @@ const __dirname = path.dirname(__filename);
 
 const PORT = 3939; // Fixed port for benchmark
 
+function formatUnknownError(error: unknown): string {
+  if (error instanceof Error) {
+    return `${error.name}: ${error.message}`;
+  }
+  return String(error);
+}
+
+function toPlugin(candidate: unknown, source: string): Plugin {
+  if (!candidate || typeof candidate !== "object") {
+    throw new Error(`Plugin from ${source} was not an object`);
+  }
+
+  const pluginLike = candidate as { name?: unknown };
+  if (typeof pluginLike.name !== "string" || pluginLike.name.length === 0) {
+    throw new Error(`Plugin from ${source} was missing a valid name`);
+  }
+
+  // Local workspace plugins can carry a slightly different type identity.
+  return candidate as Plugin;
+}
+
 // Proper robust server implementation
 export async function startBenchmarkServer() {
   elizaLogger.info("[bench] Initializing milaidy benchmark runtime...");
 
   // Plugins
-  const plugins = [];
+  const plugins: Plugin[] = [];
 
   // 1. SQL Plugin (Core) - Registers adapter automatically?
   try {
-    const sqlPlugin = await import("@elizaos/plugin-sql").then(
-      (m) => m.sqlPlugin || m.default,
-    );
-    plugins.push(sqlPlugin);
+    const { default: sqlPlugin } = await import("@elizaos/plugin-sql");
+    plugins.push(toPlugin(sqlPlugin, "@elizaos/plugin-sql"));
     elizaLogger.info("[bench] Loaded core plugin: @elizaos/plugin-sql");
-  } catch (e) {
-    elizaLogger.error("Failed to load sql plugin", e);
+  } catch (error: unknown) {
+    elizaLogger.error(
+      `[bench] Failed to load sql plugin: ${formatUnknownError(error)}`,
+    );
   }
 
   // 2. Computer Use Plugin (Local)
@@ -39,24 +62,31 @@ export async function startBenchmarkServer() {
       const { computerUsePlugin } = await import(
         "../../../eliza/packages/plugin-computeruse/src/index.ts"
       );
-      plugins.push(computerUsePlugin);
+      plugins.push(
+        toPlugin(
+          computerUsePlugin,
+          "../../../eliza/packages/plugin-computeruse/src/index.ts",
+        ),
+      );
       elizaLogger.info(
         "[bench] Loaded local plugin: @elizaos/plugin-computeruse",
       );
-    } catch (e) {
-      elizaLogger.error("Failed to load computer use plugin", e);
+    } catch (error: unknown) {
+      elizaLogger.error(
+        `[bench] Failed to load computer use plugin: ${formatUnknownError(error)}`,
+      );
     }
   }
 
   // 3. OpenAI Plugin (for Groq)
   try {
-    const openaiPlugin = await import("@elizaos/plugin-openai").then(
-      (m) => m.openaiPlugin || m.default,
-    );
-    plugins.push(openaiPlugin);
+    const { default: openaiPlugin } = await import("@elizaos/plugin-openai");
+    plugins.push(toPlugin(openaiPlugin, "@elizaos/plugin-openai"));
     elizaLogger.info("[bench] Loaded plugin: @elizaos/plugin-openai");
-  } catch (e) {
-    elizaLogger.error("Failed to load openai plugin", e);
+  } catch (error: unknown) {
+    elizaLogger.error(
+      `[bench] Failed to load openai plugin: ${formatUnknownError(error)}`,
+    );
   }
 
   // 4. Mock Plugin
@@ -64,25 +94,21 @@ export async function startBenchmarkServer() {
     try {
       // Updated import path if needed, assuming relative to this file
       const { mockPlugin } = await import("./mock-plugin.ts");
-      plugins.push(mockPlugin);
+      plugins.push(toPlugin(mockPlugin, "./mock-plugin.ts"));
       elizaLogger.info("[bench] Loaded mock plugin");
-    } catch (e) {
-      elizaLogger.error("[bench] Failed to load mock plugin", e);
+    } catch (error: unknown) {
+      elizaLogger.error(
+        `[bench] Failed to load mock plugin: ${formatUnknownError(error)}`,
+      );
     }
   }
 
   // Runtime Configuration
   const runtime = new AgentRuntime({
-    token: "mock-token",
-    modelProvider: "openai",
     character: {
       name: "Kira",
-      modelProvider: "openai",
-      imageModelProvider: "openai",
       bio: ["A computer user agent."],
-      lore: [],
       messageExamples: [],
-      style: { all: [], chat: [], post: [] },
       topics: [],
       adjectives: [],
       plugins: [],
@@ -125,7 +151,16 @@ export async function startBenchmarkServer() {
       req.on("data", (chunk) => (body += chunk));
       req.on("end", async () => {
         try {
-          const { text, image } = JSON.parse(body);
+          const { text, image } = JSON.parse(body) as {
+            text?: unknown;
+            image?: unknown;
+          };
+          if (typeof text !== "string" || text.trim().length === 0) {
+            throw new Error(
+              "Request body must include non-empty string `text`",
+            );
+          }
+
           elizaLogger.info(`[bench] Received prompt: ${text}`);
 
           // Use Mock Plugin Text Generation directly if available?
@@ -141,24 +176,13 @@ export async function startBenchmarkServer() {
           // We will invoke `mockPlugin` logic if needed.
           // But preferably use standard `runtime.generateText`.
 
-          const state = await runtime.composeState(
-            {
-              content: { text: text },
-              senderId: stringToUuid("user"),
-              agentId: runtime.agentId,
-              roomId: stringToUuid("bench-room"),
-              userId: stringToUuid("user"),
-            },
-            {
-              agentName: "Kira",
-              senderName: "User",
-            },
-          );
-
-          // Add image to state context if present
-          if (image) {
-            state.image = image;
-          }
+          const incomingMessage: Memory = {
+            content: { text },
+            entityId: stringToUuid("user"),
+            agentId: runtime.agentId,
+            roomId: stringToUuid("bench-room"),
+          };
+          const state = await runtime.composeState(incomingMessage);
 
           // Force generation
           // We use `generateText` with basic context
@@ -173,6 +197,7 @@ export async function startBenchmarkServer() {
           
           Current State:
           ${JSON.stringify(state)}
+          ${image ? `\nAttached Image:\n${JSON.stringify(image)}\n` : ""}
           
           Generate the next action to take.
           `;
@@ -196,13 +221,17 @@ export async function startBenchmarkServer() {
           } catch (err: unknown) {
             const errorMessage =
               err instanceof Error ? err.message : String(err);
-            elizaLogger.error("[bench] Text generation error:", err);
+            elizaLogger.error(
+              `[bench] Text generation error: ${formatUnknownError(err)}`,
+            );
             res.writeHead(500, { "Content-Type": "application/json" });
             res.end(JSON.stringify({ error: errorMessage }));
           }
         } catch (err: unknown) {
           const errorMessage = err instanceof Error ? err.message : String(err);
-          elizaLogger.error("[bench] Request error:", err);
+          elizaLogger.error(
+            `[bench] Request error: ${formatUnknownError(err)}`,
+          );
           res.writeHead(500, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ error: errorMessage }));
         }
@@ -225,6 +254,8 @@ export async function startBenchmarkServer() {
 
 // Invoke start
 startBenchmarkServer().catch((err) => {
-  elizaLogger.error("Failed to start benchmark server", err);
+  elizaLogger.error(
+    `[bench] Failed to start benchmark server: ${formatUnknownError(err)}`,
+  );
   process.exit(1);
 });
