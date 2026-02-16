@@ -4010,12 +4010,6 @@ async function handleRequest(
     return;
   }
   const pathname = url.pathname;
-  const isApi = isApiRequest(pathname);
-  if (isApi) {
-    applyApiSecurityHeaders(res);
-  } else {
-    applySecurityHeaders(res);
-  }
   const isAuthEndpoint = pathname.startsWith("/api/auth/");
   const registryService = state.registryService;
   const dropService = state.dropService;
