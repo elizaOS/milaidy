@@ -807,6 +807,122 @@ describe("handleTrajectoryRoute", () => {
     );
   });
 
+  it("deduplicates and trims trajectoryIds for zip export", async () => {
+    const logger = makeLegacyLogger({
+      isEnabled: vi.fn(() => true),
+      getTrajectoryDetail: vi.fn().mockResolvedValue({
+        trajectoryId: "trajectory-1",
+        agentId: "agent-1",
+        startTime: 1,
+        endTime: 101,
+        durationMs: 100,
+        steps: [],
+        totalReward: 2,
+        metrics: { episodeLength: 1, finalStatus: "completed" },
+        metadata: { source: "runtime" },
+      }),
+    });
+    createZipArchiveMock.mockImplementation((entries) =>
+      Buffer.from(JSON.stringify(entries)),
+    );
+
+    const { res, getStatus } = createMockHttpResponse();
+
+    const handled = await handleTrajectoryRoute(
+      createMockIncomingMessage({
+        method: "POST",
+        url: "/api/trajectories/export",
+        body: {
+          format: "zip",
+          trajectoryIds: ["  trajectory-1 ", "", "trajectory-1"],
+        },
+        json: true,
+      }),
+      res,
+      runtimeWithLegacyLogger(logger),
+      "/api/trajectories/export",
+    );
+
+    expect(handled).toBe(true);
+    expect(getStatus()).toBe(200);
+    expect((res as unknown as { _body: string })._body).toContain(
+      "trajectory-1",
+    );
+    expect(logger.getTrajectoryDetail).toHaveBeenCalledTimes(1);
+    expect(logger.getTrajectoryDetail).toHaveBeenCalledWith("trajectory-1");
+    expect(logger.listTrajectories).not.toHaveBeenCalled();
+    const entries = JSON.parse(
+      (res as unknown as { _body: string })._body,
+    ) as Array<{ name: string; data: string }>;
+    const manifest = entries.find((entry) => entry.name === "manifest.json");
+    expect(manifest).toBeDefined();
+    const payload = JSON.parse(manifest?.data ?? "{}");
+    expect(payload.requestedTrajectoryCount).toBe(1);
+    expect(payload.exportedTrajectoryCount).toBe(1);
+    expect(payload.missingTrajectoryIds).toEqual([]);
+  });
+
+  it("records missing trajectories during zip export", async () => {
+    const logger = makeLegacyLogger({
+      isEnabled: vi.fn(() => true),
+      listTrajectories: vi.fn().mockResolvedValue({
+        trajectories: [
+          {
+            id: "trajectory-missing",
+            agentId: "agent-1",
+            source: "runtime",
+            status: "completed",
+            startTime: 1,
+            endTime: 101,
+            durationMs: 100,
+            stepCount: 1,
+            llmCallCount: 0,
+            totalPromptTokens: 9,
+            totalCompletionTokens: 1,
+            totalReward: 2,
+            scenarioId: null,
+            batchId: null,
+            createdAt: "2026-02-16T00:00:00.000Z",
+          },
+        ],
+        total: 1,
+        offset: 0,
+        limit: 1,
+      }),
+      getTrajectoryDetail: vi.fn().mockResolvedValue(null),
+    });
+    createZipArchiveMock.mockImplementation((entries) =>
+      Buffer.from(JSON.stringify(entries)),
+    );
+
+    const { res, getStatus } = createMockHttpResponse();
+
+    const handled = await handleTrajectoryRoute(
+      createMockIncomingMessage({
+        method: "POST",
+        url: "/api/trajectories/export",
+        body: {
+          format: "zip",
+        },
+        json: true,
+      }),
+      res,
+      runtimeWithLegacyLogger(logger),
+      "/api/trajectories/export",
+    );
+
+    expect(handled).toBe(true);
+    expect(getStatus()).toBe(200);
+    const entries = JSON.parse(
+      (res as unknown as { _body: string })._body,
+    ) as Array<{ name: string; data: string }>;
+    const manifest = entries.find((entry) => entry.name === "manifest.json");
+    const payload = JSON.parse(manifest?.data ?? "{}");
+    expect(payload.requestedTrajectoryCount).toBe(1);
+    expect(payload.exportedTrajectoryCount).toBe(0);
+    expect(payload.missingTrajectoryIds).toEqual(["trajectory-missing"]);
+  });
+
   it("returns 404 when trajectory detail is missing", async () => {
     const logger = makeLegacyLogger({
       getTrajectoryDetail: vi.fn().mockResolvedValue(null),
@@ -885,6 +1001,134 @@ describe("handleTrajectoryRoute", () => {
 
     const payload = readResponse<{ llmCalls: Array<{ id: string }> }>(res);
     expect(payload?.llmCalls?.[0]?.id).toBe("sql-call");
+  });
+
+  it("loads trajectory detail with nested steps object from SQL fallback", async () => {
+    const logger = makeLegacyLogger({
+      getTrajectoryDetail: vi.fn().mockResolvedValue({
+        trajectoryId: "trajectory-1",
+        agentId: "agent-1",
+        startTime: 1000,
+        endTime: 2000,
+        durationMs: 1000,
+        steps: [],
+        totalReward: 2,
+        metrics: { episodeLength: 1, finalStatus: "completed" },
+        metadata: { source: "runtime" },
+      }),
+      executeRawSql: vi.fn().mockResolvedValue({
+        rows: [
+          {
+            steps_json: JSON.stringify({
+              steps: [
+                {
+                  stepId: "from-sql-nested",
+                  stepNumber: 0,
+                  timestamp: 1500,
+                  llmCalls: [
+                    {
+                      callId: "sql-nested-call",
+                      timestamp: 1500,
+                      model: "gpt-4",
+                      systemPrompt: "sys",
+                      userPrompt: "hi",
+                      response: "ok",
+                      temperature: 0.1,
+                      maxTokens: 100,
+                      purpose: "query",
+                      actionType: "completion",
+                      promptTokens: 3,
+                      completionTokens: 4,
+                      latencyMs: 10,
+                    },
+                  ],
+                },
+              ],
+            }),
+          },
+        ],
+      }),
+    });
+    const { res } = createMockHttpResponse();
+
+    await handleTrajectoryRoute(
+      createMockIncomingMessage({
+        method: "GET",
+        url: "/api/trajectories/trajectory-1",
+      }),
+      res,
+      runtimeWithLegacyLogger(logger),
+      "/api/trajectories/trajectory-1",
+    );
+
+    const payload = readResponse<{ llmCalls: Array<{ id: string }> }>(res);
+    expect(payload?.llmCalls?.[0]?.id).toBe("sql-nested-call");
+  });
+
+  it("keeps original trajectory when SQL fallback has malformed JSON", async () => {
+    const logger = makeLegacyLogger({
+      getTrajectoryDetail: vi.fn().mockResolvedValue({
+        trajectoryId: "trajectory-1",
+        agentId: "agent-1",
+        startTime: 1000,
+        endTime: 2000,
+        durationMs: 1000,
+        steps: [],
+        totalReward: 2,
+        metrics: { episodeLength: 1, finalStatus: "completed" },
+        metadata: { source: "runtime" },
+      }),
+      executeRawSql: vi.fn().mockResolvedValue({
+        rows: [{ steps_json: "{not-json}" }],
+      }),
+    });
+    const { res } = createMockHttpResponse();
+
+    await handleTrajectoryRoute(
+      createMockIncomingMessage({
+        method: "GET",
+        url: "/api/trajectories/trajectory-1",
+      }),
+      res,
+      runtimeWithLegacyLogger(logger),
+      "/api/trajectories/trajectory-1",
+    );
+
+    const payload = readResponse<{ llmCalls: Array<{ id: string }> }>(res);
+    expect(payload?.llmCalls?.length).toBe(0);
+  });
+
+  it("ignores SQL fallback steps payload with missing steps array", async () => {
+    const logger = makeLegacyLogger({
+      getTrajectoryDetail: vi.fn().mockResolvedValue({
+        trajectoryId: "trajectory-1",
+        agentId: "agent-1",
+        startTime: 1000,
+        endTime: 2000,
+        durationMs: 1000,
+        steps: [],
+        totalReward: 2,
+        metrics: { episodeLength: 1, finalStatus: "completed" },
+        metadata: { source: "runtime" },
+      }),
+      executeRawSql: vi.fn().mockResolvedValue({
+        rows: [{ steps_json: JSON.stringify({ notSteps: [] }) }],
+      }),
+    });
+    const { res } = createMockHttpResponse();
+
+    await handleTrajectoryRoute(
+      createMockIncomingMessage({
+        method: "GET",
+        url: "/api/trajectories/trajectory-1",
+      }),
+      res,
+      runtimeWithLegacyLogger(logger),
+      "/api/trajectories/trajectory-1",
+    );
+
+    const payload = readResponse<{ llmCalls: Array<{ id: string }> }>(res);
+    expect(payload?.llmCalls?.length).toBe(0);
   });
 
   it("includes provider access entries when transforming trajectory detail", async () => {
@@ -1117,6 +1361,406 @@ describe("handleTrajectoryRoute", () => {
     expect(getJson().trajectories[0].llmCallCount).toBe(1);
   });
 
+  it("filters persisted core trajectories by endDate and search", async () => {
+    loadRowsMock.mockResolvedValue(
+      makePersistedRows([
+        {
+          trajectory_id: "core-filter-match",
+          source: "chat",
+          status: "completed",
+          start_time: 1_700_000_000_000,
+          metadata: { source: "chat" },
+          steps_json: JSON.stringify([
+            {
+              stepId: "core-match-step",
+              stepNumber: 1,
+              timestamp: 1_700_000_000_001,
+              llmCalls: [
+                {
+                  callId: "core-match-call",
+                  timestamp: 1_700_000_000_001,
+                  model: "gpt-4o-mini",
+                  systemPrompt: "system prompt",
+                  userPrompt: "trace search token",
+                  response: "search result",
+                  temperature: 0.2,
+                  maxTokens: 64,
+                  purpose: "query",
+                  actionType: "completion",
+                  promptTokens: 11,
+                  completionTokens: 9,
+                  latencyMs: 22,
+                },
+              ],
+            },
+          ]),
+        },
+        {
+          trajectory_id: "core-filter-no-match",
+          source: "runtime",
+          status: "completed",
+          start_time: 1_700_000_010_000,
+          metadata: { source: "runtime" },
+          steps_json: JSON.stringify([
+            {
+              stepId: "core-no-match-step",
+              stepNumber: 1,
+              timestamp: 1_700_000_010_001,
+              llmCalls: [
+                {
+                  callId: "core-no-match-call",
+                  timestamp: 1_700_000_010_001,
+                  model: "gpt-4o-mini",
+                  systemPrompt: "system prompt",
+                  userPrompt: "other text",
+                  response: "other reply",
+                  temperature: 0.2,
+                  maxTokens: 64,
+                  purpose: "query",
+                  actionType: "completion",
+                  promptTokens: 8,
+                  completionTokens: 7,
+                  latencyMs: 18,
+                },
+              ],
+            },
+          ]),
+        },
+      ]),
+    );
+    const runtime = runtimeWithCoreLogger([
+      { getLlmCallLogs: vi.fn(), getProviderAccessLogs: vi.fn() },
+    ]);
+    const endDate = new Date(1_700_000_005_000).toISOString();
+    const { res, getJson } = createMockHttpResponse<{
+      trajectories: Array<{
+        id: string;
+        llmCallCount: number;
+      }>;
+    }>();
+
+    const handled = await handleTrajectoryRoute(
+      createMockIncomingMessage({
+        method: "GET",
+        url: `/api/trajectories?endDate=${encodeURIComponent(endDate)}&search=trace`,
+      }),
+      res,
+      runtime,
+      "/api/trajectories",
+    );
+
+    expect(handled).toBe(true);
+    expect(getJson().trajectories).toHaveLength(1);
+    expect(getJson().trajectories[0].id).toBe("core-filter-match");
+  });
+
+  it("filters persisted core trajectories by startDate", async () => {
+    loadRowsMock.mockResolvedValue(
+      makePersistedRows([
+        {
+          trajectory_id: "core-start-old",
+          source: "chat",
+          status: "completed",
+          start_time: 1_700_000_000_000,
+        },
+        {
+          trajectory_id: "core-start-new",
+          source: "chat",
+          status: "completed",
+          start_time: 1_700_000_005_000,
+        },
+      ]),
+    );
+    const runtime = runtimeWithCoreLogger([
+      { getLlmCallLogs: vi.fn(), getProviderAccessLogs: vi.fn() },
+    ]);
+    const startDate = new Date(1_700_000_002_500).toISOString();
+    const { res, getJson } = createMockHttpResponse<{
+      trajectories: Array<{ id: string }>;
+    }>();
+
+    const handled = await handleTrajectoryRoute(
+      createMockIncomingMessage({
+        method: "GET",
+        url: `/api/trajectories?startDate=${encodeURIComponent(startDate)}`,
+      }),
+      res,
+      runtime,
+      "/api/trajectories",
+    );
+
+    expect(handled).toBe(true);
+    expect(getJson().trajectories.map((row) => row.id)).toEqual([
+      "core-start-new",
+    ]);
+  });
+
+  it("filters persisted core trajectories by status and source", async () => {
+    loadRowsMock.mockResolvedValue(
+      makePersistedRows([
+        {
+          trajectory_id: "core-status-completed",
+          source: "chat",
+          status: "completed",
+          start_time: 1_700_000_000_000,
+        },
+        {
+          trajectory_id: "core-status-active",
+          source: "runtime",
+          status: "active",
+          start_time: 1_700_000_010_000,
+          end_time: 1_700_000_010_000,
+        },
+        {
+          trajectory_id: "core-source-chat-active",
+          source: "chat",
+          status: "active",
+          start_time: 1_700_000_020_000,
+          end_time: 1_700_000_020_000,
+        },
+      ]),
+    );
+    const runtime = runtimeWithCoreLogger([
+      { getLlmCallLogs: vi.fn(), getProviderAccessLogs: vi.fn() },
+    ]);
+    const { res, getJson } = createMockHttpResponse<{
+      trajectories: Array<{ id: string; source: string }>;
+    }>();
+
+    const handled = await handleTrajectoryRoute(
+      createMockIncomingMessage({
+        method: "GET",
+        url: "/api/trajectories?status=active&source=chat",
+      }),
+      res,
+      runtime,
+      "/api/trajectories",
+    );
+
+    expect(handled).toBe(true);
+    expect(getJson().trajectories).toEqual([
+      expect.objectContaining({
+        id: "core-source-chat-active",
+        source: "chat",
+      }),
+    ]);
+  });
+
+  it("coerces numeric core trajectory fields into text form", async () => {
+    loadRowsMock.mockResolvedValue([
+      {
+        trajectory_id: 456 as unknown as string,
+        agent_id: 99 as unknown as string,
+        source: "runtime",
+        status: "completed",
+        start_time: 1_700_000_005_000,
+        steps_json: JSON.stringify([
+          {
+            stepId: "core-coerce-step",
+            stepNumber: 1,
+            timestamp: 1_700_000_005_100,
+            llmCalls: [
+              {
+                callId: "core-coerce-call",
+                timestamp: 1_700_000_005_101,
+                model: 42 as unknown as string,
+                systemPrompt: true as unknown as string,
+                userPrompt: false as unknown as string,
+                response: 1.23 as unknown as string,
+                temperature: 0.2,
+                maxTokens: 64,
+                purpose: 1 as unknown as string,
+                actionType: false as unknown as string,
+                promptTokens: 11,
+                completionTokens: 9,
+                latencyMs: 22,
+              },
+            ],
+          },
+        ]),
+      } as unknown as TrajectoryRecordCandidate,
+    ]);
+    const runtime = runtimeWithCoreLogger([
+      { getLlmCallLogs: vi.fn(), getProviderAccessLogs: vi.fn() },
+    ]);
+    const { res, getJson } = createMockHttpResponse<{
+      trajectories: Array<{
+        id: string;
+        agentId: string;
+        llmCallCount: number;
+      }>;
+    }>();
+
+    const handled = await handleTrajectoryRoute(
+      createMockIncomingMessage({
+        method: "GET",
+        url: "/api/trajectories?limit=1&offset=0",
+      }),
+      res,
+      runtime,
+      "/api/trajectories",
+    );
+
+    expect(handled).toBe(true);
+    expect(getJson().trajectories[0]).toEqual(
+      expect.objectContaining({
+        id: "456",
+        agentId: "99",
+      }),
+    );
+  });
+
+  it("parses numeric string timestamps when loading core trajectories", async () => {
+    loadRowsMock.mockResolvedValue([
+      {
+        trajectory_id: "core-string-start",
+        source: "runtime",
+        status: "completed",
+        start_time: "1700000000123",
+        end_time: "1700000000456",
+        steps_json: JSON.stringify([
+          {
+            stepId: "core-string-step",
+            stepNumber: 1,
+            timestamp: 1_700_000_001_123,
+            llmCalls: [
+              {
+                callId: "core-string-call",
+                timestamp: 1_700_000_001_123,
+                model: { value: "text-embedding-3-small" },
+                systemPrompt: { text: "system" },
+                userPrompt: {},
+                response: { text: "reply" },
+                temperature: 0.2,
+                maxTokens: 64,
+                purpose: { type: "query" },
+                actionType: [],
+                promptTokens: 11,
+                completionTokens: 9,
+                latencyMs: 22,
+              },
+            ],
+          },
+        ]),
+      } as unknown as TrajectoryRecordCandidate,
+    ]);
+    const runtime = runtimeWithCoreLogger([
+      { getLlmCallLogs: vi.fn(), getProviderAccessLogs: vi.fn() },
+    ]);
+    const { res, getJson } = createMockHttpResponse<{
+      trajectories: Array<{ id: string; agentId: string }>;
+    }>();
+
+    const handled = await handleTrajectoryRoute(
+      createMockIncomingMessage({
+        method: "GET",
+        url: "/api/trajectories?limit=1&offset=0",
+      }),
+      res,
+      runtime,
+      "/api/trajectories",
+    );
+
+    expect(handled).toBe(true);
+    expect(getJson().trajectories[0]).toEqual(
+      expect.objectContaining({
+        id: "core-string-start",
+      }),
+    );
+  });
+
+  it("returns empty trajectories when search finds no matches", async () => {
+    loadRowsMock.mockResolvedValue(
+      makePersistedRows([
+        {
+          trajectory_id: "core-no-search-match",
+          source: "chat",
+          status: "completed",
+          metadata: { source: "chat" },
+          steps_json: JSON.stringify([
+            {
+              stepId: "core-no-match-step",
+              stepNumber: 1,
+              timestamp: 1_700_000_000_001,
+              llmCalls: [
+                {
+                  callId: "core-no-search-call",
+                  timestamp: 1_700_000_000_001,
+                  model: "gpt-4o-mini",
+                  systemPrompt: "system prompt",
+                  userPrompt: "unrelated context",
+                  response: "plain response",
+                  temperature: 0.2,
+                  maxTokens: 64,
+                  purpose: "query",
+                  actionType: "completion",
+                  promptTokens: 4,
+                  completionTokens: 3,
+                  latencyMs: 11,
+                },
+              ],
+            },
+          ]),
+        },
+      ]),
+    );
+    const runtime = runtimeWithCoreLogger([
+      { getLlmCallLogs: vi.fn(), getProviderAccessLogs: vi.fn() },
+    ]);
+    const { res, getJson } = createMockHttpResponse<{
+      trajectories: Array<{ id: string }>;
+      total: number;
+    }>();
+
+    const handled = await handleTrajectoryRoute(
+      createMockIncomingMessage({
+        method: "GET",
+        url: `/api/trajectories?search=${encodeURIComponent("completely-missing")}`,
+      }),
+      res,
+      runtime,
+      "/api/trajectories",
+    );
+
+    expect(handled).toBe(true);
+    expect(getJson().trajectories).toHaveLength(0);
+    expect(getJson().total).toBe(0);
+  });
+
+  it("uses fallback source from row.source when metadata lacks source", async () => {
+    loadRowsMock.mockResolvedValue(
+      makePersistedRows([
+        {
+          trajectory_id: "core-metadata-fallback",
+          source: "db-source",
+          status: "completed",
+          metadata: { source: "" },
+          start_time: 1_700_000_020_000,
+        },
+      ]),
+    );
+    const runtime = runtimeWithCoreLogger([
+      { getLlmCallLogs: vi.fn(), getProviderAccessLogs: vi.fn() },
+    ]);
+    const { res, getJson } = createMockHttpResponse<{
+      trajectories: Array<{ id: string; source: string }>;
+    }>();
+
+    const handled = await handleTrajectoryRoute(
+      createMockIncomingMessage({
+        method: "GET",
+        url: "/api/trajectories?limit=5&offset=0",
+      }),
+      res,
+      runtime,
+      "/api/trajectories",
+    );
+
+    expect(handled).toBe(true);
+    expect(getJson().trajectories[0].source).toBe("db-source");
+    expect(getJson().trajectories[0].id).toBe("core-metadata-fallback");
+  });
+
   it("uses core logger stats path and core trajectory persistence", async () => {
     loadRowsMock.mockResolvedValue(
       makePersistedRows([
@@ -1178,6 +1822,68 @@ describe("handleTrajectoryRoute", () => {
     expect(handled).toBe(true);
     expect(getStatus()).toBe(503);
     expect(getJson().error).toBe("Trajectory logger service not available");
+  });
+
+  it("does not count embedding-only calls while filtering core trajectories", async () => {
+    loadRowsMock.mockResolvedValue(
+      makePersistedRows([
+        {
+          trajectory_id: "core-embed",
+          source: "runtime",
+          status: "completed",
+          steps_json: JSON.stringify([
+            {
+              stepId: "core-embed-step",
+              stepNumber: 1,
+              timestamp: 1_700_000_000_001,
+              llmCalls: [
+                {
+                  callId: "core-embed-call",
+                  timestamp: 1_700_000_000_001,
+                  model: "text-embedding-3-small",
+                  systemPrompt: "system prompt",
+                  userPrompt: "",
+                  response: "[0.01,0.02,0.03,0.04,0.05,0.06,0.07,0.08]",
+                  temperature: 0.2,
+                  maxTokens: 64,
+                  purpose: "embedding",
+                  actionType: "embedding",
+                  promptTokens: 0,
+                  completionTokens: 0,
+                  latencyMs: 12,
+                },
+              ],
+            },
+          ]),
+        },
+      ]),
+    );
+    const runtime = runtimeWithCoreLogger([
+      { getLlmCallLogs: vi.fn(), getProviderAccessLogs: vi.fn() },
+    ]);
+    const { res, getJson } = createMockHttpResponse<{
+      trajectories: Array<{ llmCallCount: number; id: string }>;
+    }>();
+
+    const handled = await handleTrajectoryRoute(
+      createMockIncomingMessage({
+        method: "GET",
+        url: "/api/trajectories?limit=10&offset=0",
+      }),
+      res,
+      runtime,
+      "/api/trajectories",
+    );
+
+    expect(handled).toBe(true);
+    expect(getJson().trajectories).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "core-embed",
+          llmCallCount: 0,
+        }),
+      ]),
+    );
   });
 
   it("exports core trajectories as CSV", async () => {
