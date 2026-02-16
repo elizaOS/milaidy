@@ -5,6 +5,7 @@ on:
     branches: [main, develop]
   push:
     branches: [main, develop]
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -15,8 +16,44 @@ env:
   BUN_VERSION: "1.3.9"
 
 jobs:
+  release-smoke:
+    name: Release Smoke
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - run: bun install --frozen-lockfile --omit=optional
+
+      - name: Validate critical assets are not LFS pointers
+        run: |
+          for f in apps/app/public/vrms/milady-1.vrm apps/app/public/animations/idle.glb; do
+            if [ ! -f "$f" ]; then
+              echo "Missing required asset: $f"
+              exit 1
+            fi
+            if head -n 1 "$f" | grep -q "version https://git-lfs.github.com/spec/v1"; then
+              echo "Unresolved Git LFS pointer detected: $f"
+              exit 1
+            fi
+          done
+
+      - name: Build app web bundle (smoke)
+        run: bun run --cwd apps/app build
+
   lint:
     name: Lint & Format
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -39,6 +76,7 @@ jobs:
 
   typecheck:
     name: Type Check
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -58,6 +96,7 @@ jobs:
 
   test:
     name: Unit Tests
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -81,6 +120,7 @@ jobs:
 
   build:
     name: Build
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
