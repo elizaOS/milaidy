@@ -145,7 +145,7 @@ export class RetakeClient {
     filename = "thumbnail.png",
   ): Promise<ThumbnailResponse> {
     const formData = new FormData();
-    formData.append("image", new Blob([new Uint8Array(imageBuffer)]), filename);
+    formData.append("image", new Blob([new Uint8Array(imageBuffer.buffer, imageBuffer.byteOffset, imageBuffer.byteLength)]), filename);
 
     logger.debug(`${TAG} Uploading thumbnail`);
     return this.request<ThumbnailResponse>("POST", "/agent/update-thumbnail", {
