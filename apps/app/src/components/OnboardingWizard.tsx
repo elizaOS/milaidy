@@ -2,7 +2,7 @@
  * Onboarding wizard component — multi-step onboarding flow.
  */
 
-import { useEffect, useState, type ChangeEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
 import { useApp, THEMES, type OnboardingStep } from "../AppContext";
 import {
   client,
@@ -113,6 +113,58 @@ export function OnboardingWizard() {
   const [anthropicError, setAnthropicError] = useState("");
   const [customNameText, setCustomNameText] = useState("");
   const [isCustomSelected, setIsCustomSelected] = useState(false);
+
+  // ── Agent import during onboarding ──────────────────────────────────
+  const [showImport, setShowImport] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importPassword, setImportPassword] = useState("");
+  const [importBusy, setImportBusy] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [importSuccess, setImportSuccess] = useState<string | null>(null);
+  const importFileRef = useRef<HTMLInputElement>(null);
+  const importBusyRef = useRef(false);
+
+  const handleImportAgent = useCallback(async () => {
+    if (importBusyRef.current || importBusy) return;
+    if (!importFile) {
+      setImportError("Select an export file before importing.");
+      return;
+    }
+    if (!importPassword || importPassword.length < 4) {
+      setImportError("Password must be at least 4 characters.");
+      return;
+    }
+    try {
+      importBusyRef.current = true;
+      setImportBusy(true);
+      setImportError(null);
+      setImportSuccess(null);
+      const fileBuffer = await importFile.arrayBuffer();
+      const result = await client.importAgent(importPassword, fileBuffer);
+      const counts = result.counts;
+      const summary = [
+        counts.memories ? `${counts.memories} memories` : null,
+        counts.entities ? `${counts.entities} entities` : null,
+        counts.rooms ? `${counts.rooms} rooms` : null,
+      ]
+        .filter(Boolean)
+        .join(", ");
+      setImportSuccess(
+        `Imported "${result.agentName}" successfully${summary ? `: ${summary}` : ""}. Restarting...`,
+      );
+      setImportPassword("");
+      setImportFile(null);
+      // Reload after short delay to let user see success message
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
+    } catch (err) {
+      setImportError(err instanceof Error ? err.message : "Import failed");
+    } finally {
+      importBusyRef.current = false;
+      setImportBusy(false);
+    }
+  }, [importBusy, importFile, importPassword]);
 
   useEffect(() => {
     if (onboardingStep === "theme") {
@@ -245,6 +297,72 @@ export function OnboardingWizard() {
             />
             <h1 className="text-[28px] font-normal mb-1 text-txt-strong">ohhh uhhhh hey there!</h1>
             <h1 className="text-[28px] font-normal mb-1 text-txt-strong">welcome to milady!</h1>
+
+            {!showImport ? (
+              <button
+                className="mt-6 text-[13px] text-muted hover:text-txt underline cursor-pointer bg-transparent border-none"
+                onClick={() => setShowImport(true)}
+              >
+                restore from backup
+              </button>
+            ) : (
+              <div className="mt-6 mx-auto max-w-[400px] border border-border bg-card rounded-xl p-4 text-left">
+                <div className="flex justify-between items-center mb-3">
+                  <div className="font-bold text-sm text-txt-strong">Import Agent</div>
+                  <button
+                    className="text-[11px] text-muted hover:text-txt cursor-pointer bg-transparent border-none"
+                    onClick={() => {
+                      setShowImport(false);
+                      setImportError(null);
+                      setImportSuccess(null);
+                      setImportFile(null);
+                      setImportPassword("");
+                    }}
+                  >
+                    cancel
+                  </button>
+                </div>
+                <div className="text-xs text-muted mb-3">
+                  Select an <code className="text-[11px]">.eliza-agent</code> export file and enter
+                  the password used during export.
+                </div>
+                <div className="flex flex-col gap-2">
+                  <input
+                    ref={importFileRef}
+                    type="file"
+                    accept=".eliza-agent"
+                    onChange={(e) => {
+                      setImportFile(e.target.files?.[0] ?? null);
+                      setImportError(null);
+                    }}
+                    className="text-xs"
+                  />
+                  <input
+                    type="password"
+                    placeholder="Decryption password"
+                    value={importPassword}
+                    onChange={(e) => {
+                      setImportPassword(e.target.value);
+                      setImportError(null);
+                    }}
+                    className="px-2.5 py-1.5 border border-border bg-bg text-xs font-mono focus:border-accent focus:outline-none rounded"
+                  />
+                  {importError && (
+                    <div className="text-[11px] text-[var(--danger,#e74c3c)]">{importError}</div>
+                  )}
+                  {importSuccess && (
+                    <div className="text-[11px] text-[var(--ok,#16a34a)]">{importSuccess}</div>
+                  )}
+                  <button
+                    className="btn text-xs py-1.5 px-4 mt-1"
+                    disabled={importBusy || !importFile}
+                    onClick={() => void handleImportAgent()}
+                  >
+                    {importBusy ? "Importing..." : "Import & Restore"}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         );
 

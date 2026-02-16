@@ -349,6 +349,231 @@ describe("plugin-eject", () => {
       expect(secondResult.success).toBe(true);
       expect(secondCloneStartedBeforeFirstFinished).toBe(false);
     });
+
+    it("cleans up cloned dir when install step fails", async () => {
+      const { getPluginInfo } = await import("./registry-client");
+      vi.mocked(getPluginInfo).mockResolvedValue(pluginInfo() as never);
+
+      const targetDir = path.join(
+        tmpDir,
+        "plugins",
+        "ejected",
+        "_elizaos_plugin-test",
+      );
+
+      setExecFileHandler(async (file, args) => {
+        if (file === "git" && args[0] === "clone") {
+          await fs.mkdir(targetDir, { recursive: true });
+          await fs.writeFile(
+            path.join(targetDir, "package.json"),
+            JSON.stringify({ name: "@elizaos/plugin-test", version: "1.0.0" }),
+          );
+          return;
+        }
+        if (file === "npm" && args.join(" ") === "install") {
+          throw new Error("install failed");
+        }
+        if (file === "git" && args.join(" ") === "rev-parse HEAD") {
+          return { stdout: "should-not-run\n" };
+        }
+      });
+
+      const { ejectPlugin } = await loadPluginEject();
+      const result = await ejectPlugin("@elizaos/plugin-test");
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("install failed");
+      await expect(fs.access(targetDir)).rejects.toThrow();
+    });
+
+    it("rejects invalid package name from registry info", async () => {
+      const { getPluginInfo } = await import("./registry-client");
+      vi.mocked(getPluginInfo).mockResolvedValue(
+        pluginInfo({ name: "bad name" }) as never,
+      );
+
+      const { ejectPlugin } = await loadPluginEject();
+      const result = await ejectPlugin("@elizaos/plugin-test");
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("Invalid package name");
+    });
+
+    it("rejects invalid git URL from registry info", async () => {
+      const { getPluginInfo } = await import("./registry-client");
+      vi.mocked(getPluginInfo).mockResolvedValue(
+        pluginInfo({
+          gitUrl: "git@github.com:elizaos-plugins/plugin-test.git",
+        }) as never,
+      );
+
+      const { ejectPlugin } = await loadPluginEject();
+      const result = await ejectPlugin("@elizaos/plugin-test");
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("Invalid git URL");
+    });
+
+    it("rejects invalid branch before attempting clone", async () => {
+      const installer = await import("./plugin-installer");
+      const { getPluginInfo } = await import("./registry-client");
+      vi.mocked(getPluginInfo).mockResolvedValue(pluginInfo() as never);
+      vi.mocked(installer.resolveGitBranch).mockResolvedValue("bad branch");
+
+      const { ejectPlugin } = await loadPluginEject();
+      const result = await ejectPlugin("@elizaos/plugin-test");
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("Invalid git branch");
+    });
+
+    it("propagates non-ENOENT access errors before cloning", async () => {
+      const installer = await import("./plugin-installer");
+      const { getPluginInfo } = await import("./registry-client");
+      vi.mocked(getPluginInfo).mockResolvedValue(pluginInfo() as never);
+      vi.mocked(installer.resolveGitBranch).mockResolvedValue("main");
+
+      vi.spyOn(fs, "access").mockRejectedValueOnce(
+        Object.assign(new Error("permission denied"), {
+          code: "EACCES",
+        }) as NodeJS.ErrnoException,
+      );
+
+      const { ejectPlugin } = await loadPluginEject();
+      await expect(ejectPlugin("@elizaos/plugin-test")).rejects.toThrow(
+        "permission denied",
+      );
+    });
+
+    it("falls back to npm when primary package manager install fails", async () => {
+      const installer = await import("./plugin-installer");
+      const { getPluginInfo } = await import("./registry-client");
+      vi.mocked(getPluginInfo).mockResolvedValue(pluginInfo() as never);
+      vi.mocked(installer.detectPackageManager).mockResolvedValue("bun");
+
+      const targetDir = path.join(
+        tmpDir,
+        "plugins",
+        "ejected",
+        "_elizaos_plugin-test",
+      );
+      setExecFileHandler(async (file, args) => {
+        if (file === "git" && args[0] === "clone") {
+          await fs.mkdir(targetDir, { recursive: true });
+          return;
+        }
+        if (file === "bun" && args[0] === "install") {
+          throw new Error("bun missing");
+        }
+        if (file === "npm" && args[0] === "install") {
+          return;
+        }
+        if (file === "git" && args.join(" ") === "rev-parse HEAD") {
+          return { stdout: "abc123\n" };
+        }
+      });
+
+      const { ejectPlugin } = await loadPluginEject();
+      const result = await ejectPlugin("@elizaos/plugin-test");
+
+      expect(result.success).toBe(true);
+      expect(result.pluginName).toBe("@elizaos/plugin-test");
+      expect(execFile).toHaveBeenCalledWith(
+        "bun",
+        ["install"],
+        expect.any(Object),
+        expect.any(Function),
+      );
+      expect(execFile).toHaveBeenCalledWith(
+        "npm",
+        ["install"],
+        expect.any(Object),
+        expect.any(Function),
+      );
+    });
+
+    it("continues when build script fails during ejected plugin install", async () => {
+      const installer = await import("./plugin-installer");
+      const { getPluginInfo } = await import("./registry-client");
+      vi.mocked(getPluginInfo).mockResolvedValue(pluginInfo() as never);
+      vi.mocked(installer.detectPackageManager).mockResolvedValue("npm");
+
+      const targetDir = path.join(
+        tmpDir,
+        "plugins",
+        "ejected",
+        "_elizaos_plugin-test",
+      );
+      setExecFileHandler(async (file, args) => {
+        if (file === "git" && args[0] === "clone") {
+          await fs.mkdir(targetDir, { recursive: true });
+          await fs.writeFile(
+            path.join(targetDir, "package.json"),
+            JSON.stringify(
+              { name: "@elizaos/plugin-test", scripts: { build: "echo" } },
+              null,
+              2,
+            ),
+          );
+          return;
+        }
+        if (file === "npm" && args.join(" ") === "install") return;
+        if (file === "npm" && args.join(" ") === "run build") {
+          throw new Error("build failed");
+        }
+        if (file === "git" && args.join(" ") === "rev-parse HEAD") {
+          return { stdout: "abc123\n" };
+        }
+      });
+
+      const { ejectPlugin } = await loadPluginEject();
+      const result = await ejectPlugin("@elizaos/plugin-test");
+
+      expect(result.success).toBe(true);
+      expect(execFile).toHaveBeenCalledWith(
+        "npm",
+        ["run", "build"],
+        expect.any(Object),
+        expect.any(Function),
+      );
+    });
+
+    it("converts non-Error install errors during eject", async () => {
+      const { getPluginInfo } = await import("./registry-client");
+      const installer = await import("./plugin-installer");
+      vi.mocked(getPluginInfo).mockResolvedValue(pluginInfo() as never);
+      vi.mocked(installer.detectPackageManager).mockResolvedValue("npm");
+
+      const targetDir = path.join(
+        tmpDir,
+        "plugins",
+        "ejected",
+        "_elizaos_plugin-test",
+      );
+      setExecFileHandler(async (file, args) => {
+        if (file === "git" && args[0] === "clone") {
+          await fs.mkdir(targetDir, { recursive: true });
+          await fs.writeFile(
+            path.join(targetDir, "package.json"),
+            JSON.stringify({ name: "@elizaos/plugin-test", version: "1.0.0" }),
+          );
+          return;
+        }
+        if (file === "npm" && args.join(" ") === "install") {
+          throw "install failed without Error";
+        }
+        if (file === "git" && args.join(" ") === "rev-parse HEAD") {
+          return { stdout: "should-not-run\n" };
+        }
+      });
+
+      const { ejectPlugin } = await loadPluginEject();
+      const result = await ejectPlugin("@elizaos/plugin-test");
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe("install failed without Error");
+      await expect(fs.access(targetDir)).rejects.toThrow();
+    });
   });
 
   describe("syncPlugin", () => {
@@ -360,6 +585,57 @@ describe("plugin-eject", () => {
       expect(result.error).toContain("is not ejected");
     });
 
+    it("treats unmatched installed entries as not ejected", async () => {
+      const baseDir = path.join(tmpDir, "plugins", "ejected");
+      const otherDir = path.join(baseDir, "_elizaos_plugin-other");
+      await fs.mkdir(otherDir, { recursive: true });
+      await fs.writeFile(
+        path.join(otherDir, "package.json"),
+        JSON.stringify({ name: "@elizaos/plugin-other", version: "1.0.0" }),
+      );
+
+      const { syncPlugin } = await loadPluginEject();
+      const result = await syncPlugin("plugin-missing");
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("is not ejected");
+    });
+
+    it("rethrows unexpected readdir errors when resolving plugin id", async () => {
+      const baseDir = path.join(tmpDir, "plugins", "ejected");
+      await fs.mkdir(baseDir, { recursive: true });
+
+      const expectedError = Object.assign(new Error("permission denied"), {
+        code: "EACCES",
+      });
+      const readdirSpy = vi
+        .spyOn(fs, "readdir")
+        .mockRejectedValueOnce(expectedError as NodeJS.ErrnoException);
+
+      const { syncPlugin } = await loadPluginEject();
+      await expect(syncPlugin("plugin-missing")).rejects.toThrow(
+        "permission denied",
+      );
+
+      readdirSpy.mockRestore();
+    });
+
+    it("refuses to sync resolved plugin paths outside ejected root", async () => {
+      vi.spyOn(fs, "readdir").mockResolvedValueOnce([
+        {
+          name: "../outside",
+          isDirectory: () => true,
+        },
+      ] as never);
+
+      const { syncPlugin } = await loadPluginEject();
+      const result = await syncPlugin("../outside");
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("Refusing to sync plugin outside");
+      expect(result.conflicts).toEqual([]);
+    });
+
     it("syncs successfully and updates upstream metadata", async () => {
       const pluginDir = await writeEjectedPlugin(
         tmpDir,
@@ -368,7 +644,7 @@ describe("plugin-eject", () => {
         {},
       );
 
-      setExecFileHandler(async (file, args, options) => {
+      setExecFileHandler(async (file, args, _options) => {
         if (
           file === "git" &&
           args.join(" ") === "rev-parse --is-shallow-repository"
@@ -544,6 +820,176 @@ describe("plugin-eject", () => {
       expect(result.success).toBe(false);
       expect(result.error).toContain("Missing or invalid");
     });
+
+    it("rejects metadata with invalid upstream URL or branch", async () => {
+      await writeEjectedPlugin(
+        tmpDir,
+        "_elizaos_plugin-test",
+        { name: "@elizaos/plugin-test", version: "1.0.0" },
+        {
+          gitUrl: "git@github.com:elizaos-plugins/plugin-test.git",
+          branch: "bad branch",
+          commitHash: "abc123",
+        },
+      );
+
+      const { syncPlugin } = await loadPluginEject();
+      const result = await syncPlugin("@elizaos/plugin-test");
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe("Invalid upstream metadata");
+      expect(result.upstreamCommits).toBe(0);
+    });
+
+    it("continues when shallow check throws and then applies normal fetch flow", async () => {
+      await writeEjectedPlugin(
+        tmpDir,
+        "_elizaos_plugin-test",
+        { name: "@elizaos/plugin-test", version: "1.0.0" },
+        {},
+      );
+
+      setExecFileHandler(async (file, args, _options) => {
+        if (
+          file === "git" &&
+          args.join(" ") === "rev-parse --is-shallow-repository"
+        ) {
+          throw new Error("transient git error");
+        }
+        if (
+          file === "git" &&
+          args.join(" ") === "fetch --unshallow origin main"
+        ) {
+          return;
+        }
+        if (file === "git" && args.join(" ") === "fetch origin main") return;
+        if (file === "git" && args.join(" ") === "status --porcelain")
+          return { stdout: "" };
+        if (
+          file === "git" &&
+          args.join(" ") === "rev-list --count HEAD..origin/main"
+        ) {
+          return { stdout: "0\n" };
+        }
+        if (file === "git" && args.join(" ") === "rev-parse HEAD") {
+          return { stdout: "head001\n" };
+        }
+        if (
+          file === "git" &&
+          args.join(" ") === "rev-list --count origin/main..HEAD"
+        ) {
+          return { stdout: "1\n" };
+        }
+        if (file === "npm" && args.join(" ") === "install") return;
+        if (file === "git" && args[0] === "merge") return;
+      });
+
+      const { syncPlugin } = await loadPluginEject();
+      const result = await syncPlugin("@elizaos/plugin-test");
+
+      expect(result.success).toBe(true);
+      expect(vi.mocked(execFile)).toHaveBeenCalledWith(
+        "git",
+        ["fetch", "origin", "main"],
+        expect.any(Object),
+        expect.any(Function),
+      );
+    });
+
+    it("treats merge conflicts as empty when conflict diff cannot be read", async () => {
+      await writeEjectedPlugin(
+        tmpDir,
+        "_elizaos_plugin-test",
+        { name: "@elizaos/plugin-test", version: "1.0.0" },
+        {},
+      );
+
+      setExecFileHandler(async (file, args) => {
+        if (
+          file === "git" &&
+          args.join(" ") === "rev-parse --is-shallow-repository"
+        ) {
+          return { stdout: "false\n" };
+        }
+        if (file === "git" && args[0] === "fetch") return;
+        if (file === "git" && args.join(" ") === "status --porcelain") {
+          return { stdout: "" };
+        }
+        if (
+          file === "git" &&
+          args.join(" ") === "rev-list --count HEAD..origin/main"
+        ) {
+          return { stdout: "1\n" };
+        }
+        if (
+          file === "git" &&
+          args.join(" ") === "merge --no-edit origin/main"
+        ) {
+          throw new Error("merge failed");
+        }
+        if (
+          file === "git" &&
+          args.join(" ") === "diff --name-only --diff-filter=U"
+        ) {
+          throw new Error("diff unavailable");
+        }
+      });
+
+      const { syncPlugin } = await loadPluginEject();
+      const result = await syncPlugin("@elizaos/plugin-test");
+
+      expect(result.success).toBe(false);
+      expect(result.conflicts).toEqual([]);
+      expect(result.error).toContain("merge failed");
+    });
+
+    it("reports non-Error merge errors as string", async () => {
+      await writeEjectedPlugin(
+        tmpDir,
+        "_elizaos_plugin-test",
+        { name: "@elizaos/plugin-test", version: "1.0.0" },
+        {},
+      );
+
+      setExecFileHandler(async (file, args) => {
+        if (
+          file === "git" &&
+          args.join(" ") === "rev-parse --is-shallow-repository"
+        ) {
+          return { stdout: "false\n" };
+        }
+        if (file === "git" && args[0] === "fetch") return;
+        if (file === "git" && args.join(" ") === "status --porcelain") {
+          return { stdout: "" };
+        }
+        if (
+          file === "git" &&
+          args.join(" ") === "rev-list --count HEAD..origin/main"
+        ) {
+          return { stdout: "1\n" };
+        }
+        if (
+          file === "git" &&
+          args.join(" ") === "merge --no-edit origin/main"
+        ) {
+          throw 123;
+        }
+        if (
+          file === "git" &&
+          args.join(" ") === "diff --name-only --diff-filter=U"
+        ) {
+          return { stdout: "src/conflict.ts\n" };
+        }
+      });
+
+      const { syncPlugin } = await loadPluginEject();
+      const result = await syncPlugin("@elizaos/plugin-test");
+
+      expect(result.success).toBe(false);
+      expect(result.conflicts).toEqual(["src/conflict.ts"]);
+      expect(result.error).toBe("123");
+      expect(result.upstreamCommits).toBe(1);
+    });
   });
 
   describe("reinjectPlugin", () => {
@@ -606,6 +1052,71 @@ describe("plugin-eject", () => {
       const { listEjectedPlugins } = await loadPluginEject();
       const list = await listEjectedPlugins();
       expect(list).toEqual([]);
+    });
+
+    it("rethrows unexpected readdir errors", async () => {
+      const expectedError = Object.assign(new Error("permission denied"), {
+        code: "EACCES",
+      });
+      const readdirSpy = vi
+        .spyOn(fs, "readdir")
+        .mockRejectedValueOnce(expectedError);
+
+      const { listEjectedPlugins } = await loadPluginEject();
+      await expect(listEjectedPlugins()).rejects.toThrow("permission denied");
+
+      readdirSpy.mockRestore();
+    });
+
+    it("skips non-directory and outside entries", async () => {
+      const base = path.join(tmpDir, "plugins", "ejected");
+      await fs.mkdir(base, { recursive: true });
+      await fs.writeFile(path.join(base, "not-dir.txt"), "ignore me");
+      const pluginDir = await writeEjectedPlugin(
+        tmpDir,
+        "_elizaos_plugin-test",
+        { name: "@elizaos/plugin-test", version: "1.0.0" },
+        { npmPackage: "@elizaos/plugin-test", commitHash: "abc" },
+      );
+      const readdirSpy = vi.spyOn(fs, "readdir").mockResolvedValueOnce([
+        {
+          name: "not-dir.txt",
+          isDirectory: () => false,
+        } as never,
+        {
+          name: "../outside",
+          isDirectory: () => true,
+        } as never,
+        {
+          name: "_elizaos_plugin-test",
+          isDirectory: () => true,
+        } as never,
+      ]);
+
+      const { listEjectedPlugins } = await loadPluginEject();
+      const list = await listEjectedPlugins();
+
+      expect(list).toEqual([
+        {
+          name: "@elizaos/plugin-test",
+          path: pluginDir,
+          version: "1.0.0",
+          upstream: {
+            $schema: "milaidy-upstream-v1",
+            source: "github:elizaos-plugins/plugin-test",
+            gitUrl: "https://github.com/elizaos-plugins/plugin-test.git",
+            branch: "main",
+            commitHash: "abc",
+            ejectedAt: expect.any(String),
+            npmPackage: "@elizaos/plugin-test",
+            npmVersion: "2.0.0",
+            lastSyncAt: null,
+            localCommits: 0,
+          },
+        },
+      ]);
+
+      readdirSpy.mockRestore();
     });
 
     it("lists multiple ejected plugins and handles missing upstream metadata", async () => {

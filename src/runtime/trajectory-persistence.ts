@@ -283,6 +283,78 @@ function normalizeStepId(value: unknown): string | null {
   return stepId.length > 0 ? stepId : null;
 }
 
+function normalizeLlmCallPayload(
+  args: unknown[],
+): { stepId: string; params: Record<string, unknown> } | null {
+  if (args.length === 0) return null;
+  if (typeof args[0] === "string") {
+    const stepId = normalizeStepId(args[0]);
+    const details = asRecord(args[1]);
+    if (!stepId || !details) return null;
+    return {
+      stepId,
+      params: {
+        ...details,
+        stepId,
+      },
+    };
+  }
+
+  const params = asRecord(args[0]);
+  if (!params) return null;
+  const stepId = normalizeStepId(params.stepId);
+  if (!stepId) return null;
+  if (params.stepId === stepId) {
+    return {
+      stepId,
+      params,
+    };
+  }
+  return {
+    stepId,
+    params: {
+      ...params,
+      stepId,
+    },
+  };
+}
+
+function normalizeProviderAccessPayload(
+  args: unknown[],
+): { stepId: string; params: Record<string, unknown> } | null {
+  if (args.length === 0) return null;
+  if (typeof args[0] === "string") {
+    const stepId = normalizeStepId(args[0]);
+    const details = asRecord(args[1]);
+    if (!stepId || !details) return null;
+    return {
+      stepId,
+      params: {
+        ...details,
+        stepId,
+      },
+    };
+  }
+
+  const params = asRecord(args[0]);
+  if (!params) return null;
+  const stepId = normalizeStepId(params.stepId);
+  if (!stepId) return null;
+  if (params.stepId === stepId) {
+    return {
+      stepId,
+      params,
+    };
+  }
+  return {
+    stepId,
+    params: {
+      ...params,
+      stepId,
+    },
+  };
+}
+
 function isNumericVectorString(value: string): boolean {
   const trimmed = value.trim();
   if (trimmed === "[array]") return true;
@@ -748,7 +820,7 @@ export function installDatabaseTrajectoryLogger(runtime: IAgentRuntime): void {
   if (!hasRuntimeDb(runtime)) return;
 
   const logger = resolveTrajectoryLogger(runtime);
-  if (!logger || isLegacyTrajectoryLogger(logger)) return;
+  if (!logger) return;
 
   const loggerObject = logger as unknown as object;
   if (patchedLoggers.has(loggerObject)) return;
@@ -768,25 +840,57 @@ export function installDatabaseTrajectoryLogger(runtime: IAgentRuntime): void {
     logger.providerAccess.splice(0, logger.providerAccess.length);
   }
 
-  logger.logLlmCall = (params: Record<string, unknown>) => {
-    const stepId = normalizeStepId(params.stepId);
-    if (!stepId) return;
-    void enqueueStepWrite(runtime, stepId, async () => {
-      const tableReady = await ensureTrajectoriesTable(runtime);
-      if (!tableReady) return;
-      await appendLlmCall(runtime, stepId, params);
-    });
-  };
+  type VariadicLoggerCall = (...args: unknown[]) => unknown;
+  const originalLogLlmCall =
+    typeof logger.logLlmCall === "function"
+      ? ((logger.logLlmCall as unknown as VariadicLoggerCall).bind(
+          logger,
+        ) as VariadicLoggerCall)
+      : null;
+  const originalLogProviderAccess =
+    typeof logger.logProviderAccess === "function"
+      ? ((logger.logProviderAccess as unknown as VariadicLoggerCall).bind(
+          logger,
+        ) as VariadicLoggerCall)
+      : null;
 
-  logger.logProviderAccess = (params: Record<string, unknown>) => {
-    const stepId = normalizeStepId(params.stepId);
-    if (!stepId) return;
-    void enqueueStepWrite(runtime, stepId, async () => {
+  logger.logLlmCall = ((...args: unknown[]) => {
+    if (originalLogLlmCall) {
+      try {
+        originalLogLlmCall(...args);
+      } catch (err) {
+        warnRuntime(runtime, "Trajectory logger logLlmCall threw", err);
+      }
+    }
+
+    const normalized = normalizeLlmCallPayload(args);
+    if (!normalized) return;
+
+    void enqueueStepWrite(runtime, normalized.stepId, async () => {
       const tableReady = await ensureTrajectoriesTable(runtime);
       if (!tableReady) return;
-      await appendProviderAccess(runtime, stepId, params);
+      await appendLlmCall(runtime, normalized.stepId, normalized.params);
     });
-  };
+  }) as unknown as (params: Record<string, unknown>) => void;
+
+  logger.logProviderAccess = ((...args: unknown[]) => {
+    if (originalLogProviderAccess) {
+      try {
+        originalLogProviderAccess(...args);
+      } catch (err) {
+        warnRuntime(runtime, "Trajectory logger logProviderAccess threw", err);
+      }
+    }
+
+    const normalized = normalizeProviderAccessPayload(args);
+    if (!normalized) return;
+
+    void enqueueStepWrite(runtime, normalized.stepId, async () => {
+      const tableReady = await ensureTrajectoriesTable(runtime);
+      if (!tableReady) return;
+      await appendProviderAccess(runtime, normalized.stepId, normalized.params);
+    });
+  }) as unknown as (params: Record<string, unknown>) => void;
 
   logger.getLlmCallLogs = () => [];
   logger.getProviderAccessLogs = () => [];

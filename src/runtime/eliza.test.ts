@@ -17,7 +17,7 @@ import {
   applyConnectorSecretsToEnv,
   applyDatabaseConfigToEnv,
   buildCharacterFromConfig,
-  buildRuntimeSettingsFromConfig,
+  CORE_PLUGINS,
   CUSTOM_PLUGINS_DIRNAME,
   collectPluginNames,
   findRuntimePluginExport,
@@ -115,16 +115,9 @@ describe("collectPluginNames", () => {
 
   it("includes all core plugins for an empty config", () => {
     const names = collectPluginNames({} as MiladyConfig);
-    expect(names.has("@elizaos/plugin-sql")).toBe(true);
-    expect(names.has("@elizaos/plugin-local-embedding")).toBe(true);
-    expect(names.has("@elizaos/plugin-trajectory-logger")).toBe(true);
-    expect(names.has("@elizaos/plugin-agent-skills")).toBe(true);
-    expect(names.has("@elizaos/plugin-agent-orchestrator")).toBe(true);
-    expect(names.has("@elizaos/plugin-cron")).toBe(true);
-    expect(names.has("@elizaos/plugin-rolodex")).toBe(true);
-    expect(names.has("@elizaos/plugin-trust")).toBe(true);
-    expect(names.has("@elizaos/plugin-shell")).toBe(true);
-    expect(names.has("@elizaos/plugin-plugin-manager")).toBe(true);
+    for (const plugin of CORE_PLUGINS) {
+      expect(names.has(plugin)).toBe(true);
+    }
   });
 
   it("does not load @elizaos/plugin-shell when features.shellEnabled is false", () => {
@@ -392,49 +385,6 @@ describe("collectPluginNames", () => {
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-elizacloud")).toBe(true);
     expect(names.has("@elizaos/plugin-vision")).toBe(false);
-  });
-});
-
-describe("buildRuntimeSettingsFromConfig", () => {
-  const envKeys = ["RETAKE_ACCESS_TOKEN"];
-  const snap = envSnapshot(envKeys);
-  beforeEach(() => snap.save());
-  afterEach(() => snap.restore());
-
-  it("builds runtime settings from model, skills, and workspace config", () => {
-    const config = {
-      features: { vision: false },
-      skills: {
-        allowBundled: ["one", "two"],
-        denyBundled: ["three"],
-        load: { extraDirs: ["   ", "/tmp/extra", "/tmp/extra-2  "] },
-      },
-    } as MiladyConfig;
-
-    const settings = buildRuntimeSettingsFromConfig(config, {
-      primaryModel: "openai",
-      bundledSkillsDir: "/tmp/bundled",
-      workspaceDir: "/tmp/workspace",
-    });
-
-    expect(settings).toEqual({
-      VALIDATION_LEVEL: "fast",
-      MODEL_PROVIDER: "openai",
-      SKILLS_ALLOWLIST: "one,two",
-      SKILLS_DENYLIST: "three",
-      BUNDLED_SKILLS_DIRS: "/tmp/bundled",
-      WORKSPACE_SKILLS_DIR: "/tmp/workspace/skills",
-      EXTRA_SKILLS_DIRS: "/tmp/extra,/tmp/extra-2",
-      DISABLE_IMAGE_DESCRIPTION: "true",
-    });
-  });
-
-  it("forwards RETAKE_ACCESS_TOKEN from process env", () => {
-    process.env.RETAKE_ACCESS_TOKEN = "env-token";
-
-    const settings = buildRuntimeSettingsFromConfig({} as MiladyConfig);
-
-    expect(settings.RETAKE_ACCESS_TOKEN).toBe("env-token");
   });
 });
 

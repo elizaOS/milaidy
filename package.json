@@ -120,6 +120,7 @@
     "@elizaos/plugin-shell": "next",
     "@elizaos/plugin-sql": "next",
     "@elizaos/plugin-telegram": "next",
+    "@elizaos/plugin-todo": "^2.0.0-alpha.4",
     "@elizaos/plugin-trajectory-logger": "next",
     "@elizaos/tui": "next",
     "@noble/curves": "^2.0.1",
