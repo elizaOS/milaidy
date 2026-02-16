@@ -35,6 +35,9 @@ export function Header() {
     ? `${walletAddresses.solanaAddress.slice(0, 4)}...${walletAddresses.solanaAddress.slice(-4)}` : null;
 
   const iconBtn = "inline-flex items-center justify-center w-7 h-7 border border-border bg-bg cursor-pointer text-sm leading-none hover:border-accent hover:text-accent transition-colors";
+  const quickActionButton =
+    "inline-flex items-center h-7 px-2.5 border border-border bg-bg text-xs cursor-pointer hover:border-accent hover:text-accent transition-colors shrink-0";
+  const quickActionBar = "flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0";
 
   const openNotesPanel = (mode: "edit" | "view" | "split") => {
     dispatchAppEvent(
@@ -75,11 +78,11 @@ export function Header() {
             </span>
           )
         )}
-        <div className="flex items-center gap-1.5">
+        <div className={quickActionBar}>
           <button
             type="button"
             onClick={() => openNotesPanel("edit")}
-            className="inline-flex items-center h-7 px-2.5 border border-border bg-bg text-xs cursor-pointer hover:border-accent hover:text-accent transition-colors"
+            className={quickActionButton}
             title="Open Notes"
           >
             Notes
@@ -87,7 +90,7 @@ export function Header() {
           <button
             type="button"
             onClick={() => openNotesPanel("split")}
-            className="inline-flex items-center h-7 px-2.5 border border-border bg-bg text-xs cursor-pointer hover:border-accent hover:text-accent transition-colors"
+            className={quickActionButton}
             title="Open Notes (Split View)"
           >
             Split Notes
@@ -95,7 +98,7 @@ export function Header() {
           <button
             type="button"
             onClick={() => openNotesPanel("view")}
-            className="inline-flex items-center h-7 px-2.5 border border-border bg-bg text-xs cursor-pointer hover:border-accent hover:text-accent transition-colors"
+            className={quickActionButton}
             title="Open Notes (Preview)"
           >
             Preview Notes
@@ -103,7 +106,7 @@ export function Header() {
           <button
             type="button"
             onClick={() => setTab("plugins")}
-            className="inline-flex items-center h-7 px-2.5 border border-border bg-bg text-xs cursor-pointer hover:border-accent hover:text-accent transition-colors"
+            className={quickActionButton}
             title="Open Plugins"
           >
             Plugins
@@ -111,7 +114,7 @@ export function Header() {
           <button
             type="button"
             onClick={() => setTab("skills")}
-            className="inline-flex items-center h-7 px-2.5 border border-border bg-bg text-xs cursor-pointer hover:border-accent hover:text-accent transition-colors"
+            className={quickActionButton}
             title="Open Skills"
           >
             Skills
@@ -119,7 +122,7 @@ export function Header() {
           <button
             type="button"
             onClick={() => setTab("logs")}
-            className="inline-flex items-center h-7 px-2.5 border border-border bg-bg text-xs cursor-pointer hover:border-accent hover:text-accent transition-colors"
+            className={quickActionButton}
             title="Open Logs"
           >
             Logs
@@ -127,7 +130,7 @@ export function Header() {
           <button
             type="button"
             onClick={openCustomActionsPanel}
-            className="inline-flex items-center h-7 px-2.5 border border-border bg-bg text-xs cursor-pointer hover:border-accent hover:text-accent transition-colors"
+            className={quickActionButton}
             title="Open Custom Actions"
           >
             Actions

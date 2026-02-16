@@ -6646,9 +6646,7 @@
       "description": "Stream and monitor on retake.tv.",
       "category": "feature",
       "envKey": "RETAKE_ACCESS_TOKEN",
-      "configKeys": [
-        "RETAKE_ACCESS_TOKEN"
-      ],
+      "configKeys": ["RETAKE_ACCESS_TOKEN"],
       "version": "0.0.0",
       "pluginParameters": {
         "RETAKE_ACCESS_TOKEN": {
