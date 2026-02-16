@@ -324,16 +324,18 @@ export function ChatView() {
             Power
           </button>
         </div>
-        <div className="flex gap-1.5">
+          <div className="flex gap-1.5">
           {/* Custom Actions panel toggle */}
           <button
-            className="w-7 h-7 flex items-center justify-center border rounded cursor-pointer transition-all bg-card border-border text-muted hover:border-accent hover:text-accent"
+            className="h-7 px-2 flex items-center gap-1 border rounded cursor-pointer transition-all bg-card border-border text-muted hover:border-accent hover:text-accent"
             onClick={() => window.dispatchEvent(new Event("toggle-custom-actions-panel"))}
             title="Custom Actions"
+            aria-label="Open custom actions panel"
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
             </svg>
+            <span className="text-[10px] font-medium">Actions</span>
           </button>
 
           {/* Show / hide avatar */}
