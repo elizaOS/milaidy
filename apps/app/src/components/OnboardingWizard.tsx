@@ -347,7 +347,7 @@ export function OnboardingWizard() {
             <div className="onboarding-speech bg-card border border-border rounded-xl px-5 py-4 mx-auto mb-6 max-w-[600px] relative text-[15px] text-txt leading-relaxed">
               <h2 className="text-[28px] font-normal mb-1 text-txt-strong">whats my vibe?</h2>
             </div>
-            <div className="grid grid-cols-3 gap-2 mx-auto max-w-[480px]">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mx-auto max-w-[480px]">
               {onboardingOptions?.styles.map((preset: StylePreset) => (
                 <button
                   key={preset.catchphrase}
@@ -379,7 +379,7 @@ export function OnboardingWizard() {
             <div className="onboarding-speech bg-card border border-border rounded-xl px-5 py-4 mx-auto mb-6 max-w-[600px] relative text-[15px] text-txt leading-relaxed">
               <h2 className="text-[28px] font-normal mb-1 text-txt-strong">what colors do u like?</h2>
             </div>
-            <div className="grid grid-cols-3 gap-2 max-w-[600px] mx-auto">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-w-[600px] mx-auto">
               {THEMES.map((theme) => (
                 <button
                   key={theme.id}
@@ -741,7 +741,7 @@ export function OnboardingWizard() {
                 )}
 
                 <div className="mb-4 text-left">
-                  <div className="grid grid-cols-4 gap-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
                     {cloudProviders.map((p: ProviderOption) => renderProviderCard(p))}
                     {subscriptionProviders.map((p: ProviderOption) => renderProviderCard(p))}
                     {apiProviders.map((p: ProviderOption) => renderProviderCard(p))}
