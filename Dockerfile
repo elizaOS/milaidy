@@ -27,9 +27,5 @@ RUN bun run build
 ENV NODE_ENV=production
 ENV MILAIDY_API_BIND="0.0.0.0"
 
-# Allow non-root user to write temp files during runtime.
-RUN chown -R node:node /app
-USER node
-
 # Railway sets $PORT dynamically. Map it to MILAIDY_PORT at runtime.
 CMD ["sh", "-lc", "MILAIDY_PORT=${PORT:-2138} node milaidy.mjs start"]
