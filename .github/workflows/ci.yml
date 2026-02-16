@@ -75,7 +75,7 @@ jobs:
         run: bun run postinstall
 
       - name: Install app dependencies for workspace tests
-        run: npm ci --no-audit --no-fund
+        run: bun install --frozen-lockfile --ignore-scripts
         working-directory: apps/app
 
       - name: Run unit tests
