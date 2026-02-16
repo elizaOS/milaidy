@@ -101,6 +101,22 @@ echo "MILADY_API_TOKEN=$(openssl rand -hex 32)" >> .env
 
 Without a token on a public bind, anyone who can reach the server gets full access to the dashboard, agent, and wallet endpoints.
 
+### User-facing app mode (no pairing gate)
+
+If you already protect access with your own login layer (for example, Privy or another auth gateway), you can disable the local pairing/token gate:
+
+```bash
+MILADY_PUBLIC_APP_MODE=true
+```
+
+This makes `/api/auth/status` report `required=false`, disables pairing, and allows websocket/API access without `MILADY_API_TOKEN`.
+
+For browser deployments, also set CORS allowlist explicitly:
+
+```bash
+MILADY_ALLOWED_ORIGINS=https://milady-app.com,https://www.milady-app.com
+```
+
 ---
 
 ## Terminal Commands

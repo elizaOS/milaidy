@@ -4023,7 +4023,15 @@ let pairingCode: string | null = null;
 let pairingExpiresAt = 0;
 const pairingAttempts = new Map<string, { count: number; resetAt: number }>();
 
+function isPublicAppModeEnabled(): boolean {
+  const flag = process.env.MILADY_PUBLIC_APP_MODE?.trim() ?? "";
+  if (/^(1|true|yes)$/i.test(flag)) return true;
+  const authMode = process.env.MILADY_AUTH_MODE?.trim().toLowerCase() ?? "";
+  return authMode === "user" || authMode === "public";
+}
+
 function pairingEnabled(): boolean {
+  if (isPublicAppModeEnabled()) return false;
   return (
     Boolean(process.env.MILADY_API_TOKEN?.trim()) &&
     process.env.MILADY_PAIRING_DISABLED !== "1"
@@ -4113,6 +4121,12 @@ function isLoopbackBindHost(host: string): boolean {
 }
 
 export function ensureApiTokenForBindHost(host: string): void {
+  if (isPublicAppModeEnabled()) {
+    logger.warn(
+      `[milady-api] Public app mode is enabled. API token enforcement is disabled for bind host ${host}.`,
+    );
+    return;
+  }
   const token = process.env.MILADY_API_TOKEN?.trim();
   if (token) return;
   if (isLoopbackBindHost(host)) return;
@@ -4139,6 +4153,7 @@ export function ensureApiTokenForBindHost(host: string): void {
 }
 
 function isAuthorized(req: http.IncomingMessage): boolean {
+  if (isPublicAppModeEnabled()) return true;
   const expected = process.env.MILADY_API_TOKEN?.trim();
   if (!expected) return true;
   const provided = extractAuthToken(req);
@@ -4248,6 +4263,7 @@ function isWebSocketAuthorized(
   request: http.IncomingMessage,
   url: URL,
 ): boolean {
+  if (isPublicAppModeEnabled()) return true;
   const expected = process.env.MILADY_API_TOKEN?.trim();
   if (!expected) return true;
 
@@ -5256,7 +5272,8 @@ async function handleRequest(
 
   // ── GET /api/auth/status ───────────────────────────────────────────────
   if (method === "GET" && pathname === "/api/auth/status") {
-    const required = Boolean(process.env.MILADY_API_TOKEN?.trim());
+    const required =
+      !isPublicAppModeEnabled() && Boolean(process.env.MILADY_API_TOKEN?.trim());
     const enabled = pairingEnabled();
     if (enabled) ensurePairingCode();
     json(res, {
