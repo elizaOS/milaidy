@@ -88,6 +88,11 @@ vi.mock("../../src/components/KnowledgeView.js", () => ({
     React.createElement("section", null, "KnowledgeView Ready"),
 }));
 
+vi.mock("../../src/components/CompanionView.js", () => ({
+  CompanionView: () =>
+    React.createElement("section", null, "CompanionView Ready"),
+}));
+
 vi.mock("../../src/components/SettingsView.js", () => ({
   SettingsView: () => React.createElement("section", null, "SettingsView Ready"),
 }));
@@ -247,6 +252,7 @@ describe("pages navigation smoke (e2e)", () => {
 
     const expectedByPrimaryTab: Record<Tab, string> = {
       chat: "ChatView Ready",
+      companion: "CompanionView Ready",
       character: "CharacterView Ready",
       wallets: "InventoryView Ready",
       knowledge: "KnowledgeView Ready",
@@ -353,6 +359,7 @@ describe("pages navigation smoke (e2e)", () => {
 
     const expectedByTab: Array<{ tab: Tab; token: string }> = [
       { tab: "chat", token: "ChatView Ready" },
+      { tab: "companion", token: "CompanionView Ready" },
       { tab: "apps", token: "AppsPageView Ready" },
       { tab: "character", token: "CharacterView Ready" },
       { tab: "wallets", token: "InventoryView Ready" },

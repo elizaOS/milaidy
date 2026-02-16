@@ -64,6 +64,7 @@ export function CommandPalette() {
     // Navigation commands
     commands.push(
       { id: "nav-chat", label: "Open Chat", action: () => setTab("chat") },
+      { id: "nav-companion", label: "Open Companion", action: () => setTab("companion") },
       { id: "nav-apps", label: "Open Apps", action: () => setTab("apps") },
       { id: "nav-character", label: "Open Character", action: () => setTab("character") },
       { id: "nav-triggers", label: "Open Triggers", action: () => setTab("triggers") },

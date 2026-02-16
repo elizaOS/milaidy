@@ -26,6 +26,10 @@ describe("navigation", () => {
     expect(pathForTab("triggers")).toBe("/triggers");
     expect(tabFromPath("/triggers")).toBe("triggers");
     expect(titleForTab("triggers")).toBe("Triggers");
+
+    expect(pathForTab("companion")).toBe("/companion");
+    expect(tabFromPath("/companion")).toBe("companion");
+    expect(titleForTab("companion")).toBe("Companion");
   });
 
   test("includes advanced tabs in Advanced group", () => {

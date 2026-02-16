@@ -22,6 +22,7 @@ import { CharacterView } from "./components/CharacterView.js";
 import { ConnectorsPageView } from "./components/ConnectorsPageView.js";
 import { InventoryView } from "./components/InventoryView.js";
 import { KnowledgeView } from "./components/KnowledgeView.js";
+import { CompanionView } from "./components/CompanionView.js";
 import { SettingsView } from "./components/SettingsView.js";
 import { LoadingScreen } from "./components/LoadingScreen.js";
 import { useContextMenu } from "./hooks/useContextMenu.js";
@@ -31,6 +32,7 @@ function ViewRouter() {
   const { tab } = useApp();
   switch (tab) {
     case "chat": return <ChatView />;
+    case "companion": return <CompanionView />;
     case "apps": return <AppsPageView />;
     case "character": return <CharacterView />;
     case "wallets": return <InventoryView />;

@@ -4,6 +4,7 @@
 
 export type Tab =
   | "chat"
+  | "companion"
   | "apps"
   | "character"
   | "wallets"
@@ -24,6 +25,7 @@ export type Tab =
 
 export const TAB_GROUPS = [
   { label: "Chat", tabs: ["chat"] as Tab[] },
+  { label: "Companion", tabs: ["companion"] as Tab[] },
   { label: "Character", tabs: ["character"] as Tab[] },
   { label: "Wallets", tabs: ["wallets"] as Tab[] },
   { label: "Knowledge", tabs: ["knowledge"] as Tab[] },
@@ -49,6 +51,7 @@ export const TAB_GROUPS = [
 
 const TAB_PATHS: Record<Tab, string> = {
   chat: "/chat",
+  companion: "/companion",
   apps: "/apps",
   character: "/character",
   triggers: "/triggers",
@@ -124,6 +127,7 @@ function normalizePath(p: string): string {
 export function titleForTab(tab: Tab): string {
   switch (tab) {
     case "chat": return "Chat";
+    case "companion": return "Companion";
     case "apps": return "Apps";
     case "character": return "Character";
     case "triggers": return "Triggers";
