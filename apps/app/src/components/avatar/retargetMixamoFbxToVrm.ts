@@ -30,32 +30,24 @@ function findNode(scene: THREE.Object3D, rawName: string, normalizedName: string
 }
 
 /**
- * Retarget a Mixamo-style GLB animation clip onto a VRM.
- * Intended for idle clips; quaternion tracks are converted into VRM space and
- * position tracks are scaled by hips height ratio.
+ * Retarget a Mixamo FBX animation clip onto a VRM.
+ * Quaternion tracks are converted into VRM space and position tracks are
+ * scaled by hips height ratio.
  */
-export function retargetMixamoGltfToVrm(
-  animation: { scene: THREE.Group; animations: THREE.AnimationClip[] },
+export function retargetMixamoFbxToVrm(
+  sourceScene: THREE.Group,
+  sourceClip: THREE.AnimationClip,
   vrm: VRM,
 ): THREE.AnimationClip {
-  animation.scene.updateMatrixWorld(true);
+  sourceScene.updateMatrixWorld(true);
   vrm.scene.updateMatrixWorld(true);
-
-  const sourceClip = animation.animations[0];
-  if (!sourceClip) {
-    throw new Error("idle.glb contains no animation clips");
-  }
 
   const tracks: THREE.KeyframeTrack[] = [];
   const restRotationInverse = new THREE.Quaternion();
   const parentRestWorldRotation = new THREE.Quaternion();
   const q = new THREE.Quaternion();
 
-  const motionHipsNode = findNode(
-    animation.scene,
-    "mixamorigHips",
-    "mixamorigHips",
-  );
+  const motionHipsNode = findNode(sourceScene, "mixamorigHips", "mixamorigHips");
   const motionHipsHeight = Math.abs(motionHipsNode?.position.y ?? 0);
   const vrmHipsHeight = Math.abs(vrm.humanoid?.normalizedRestPose.hips.position[1] ?? 0);
   const hipsPositionScale =
@@ -75,7 +67,7 @@ export function retargetMixamoGltfToVrm(
     const vrmNode = vrm.humanoid?.getNormalizedBoneNode(vrmBoneName as VRMHumanBoneName);
     if (!vrmNode) continue;
 
-    const mixamoRigNode = findNode(animation.scene, rawRigName, normalizedRigName);
+    const mixamoRigNode = findNode(sourceScene, rawRigName, normalizedRigName);
     if (!mixamoRigNode || !mixamoRigNode.parent) continue;
 
     mixamoRigNode.getWorldQuaternion(restRotationInverse).invert();
@@ -122,7 +114,7 @@ export function retargetMixamoGltfToVrm(
 
   if (tracks.length < 10) {
     throw new Error(
-      `Idle retargeting mapped too few tracks (${tracks.length}). ` +
+      `Idle FBX retargeting mapped too few tracks (${tracks.length}). ` +
         "Expected Mixamo bone names like mixamorigHips/mixamorigSpine...",
     );
   }

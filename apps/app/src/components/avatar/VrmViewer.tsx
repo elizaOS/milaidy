@@ -17,6 +17,8 @@ export type VrmViewerProps = {
   mouthOpen: number;
   /** When true the engine generates mouth animation internally */
   isSpeaking?: boolean;
+  /** Enable drag-rotate + wheel/pinch zoom camera controls */
+  interactive?: boolean;
   onEngineState?: (state: VrmEngineState) => void;
   onEngineReady?: (engine: VrmEngine) => void;
 };
@@ -26,12 +28,14 @@ export function VrmViewer(props: VrmViewerProps) {
   const engineRef = useRef<VrmEngine | null>(null);
   const mouthOpenRef = useRef<number>(props.mouthOpen);
   const isSpeakingRef = useRef<boolean>(props.isSpeaking ?? false);
+  const interactiveRef = useRef<boolean>(props.interactive ?? false);
   const lastStateEmitMsRef = useRef<number>(0);
   const mountedRef = useRef(true);
   const currentVrmPathRef = useRef<string>("");
 
   mouthOpenRef.current = props.mouthOpen;
   isSpeakingRef.current = props.isSpeaking ?? false;
+  interactiveRef.current = props.interactive ?? false;
 
   // Setup engine once
   useEffect(() => {
@@ -49,6 +53,7 @@ export function VrmViewer(props: VrmViewerProps) {
     engine.setup(canvas, () => {
       engine.setMouthOpen(mouthOpenRef.current);
       engine.setSpeaking(isSpeakingRef.current);
+      engine.setInteractionEnabled(interactiveRef.current);
       if (props.onEngineState && mountedRef.current) {
         const now = performance.now();
         if (now - lastStateEmitMsRef.current >= 250) {
@@ -85,6 +90,12 @@ export function VrmViewer(props: VrmViewerProps) {
     };
   }, []);
 
+  useEffect(() => {
+    const engine = engineRef.current;
+    if (!engine) return;
+    engine.setInteractionEnabled(props.interactive ?? false);
+  }, [props.interactive]);
+
   // Load VRM when path changes
   useEffect(() => {
     const engine = engineRef.current;
@@ -119,6 +130,7 @@ export function VrmViewer(props: VrmViewerProps) {
         width: "100%",
         height: "100%",
         background: "transparent",
+        cursor: props.interactive ? "grab" : "default",
       }}
     />
   );

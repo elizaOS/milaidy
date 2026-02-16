@@ -1,6 +1,8 @@
 import * as THREE from "three";
 import { VRM, VRMLoaderPlugin, VRMUtils } from "@pixiv/three-vrm";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { FBXLoader } from "three/examples/jsm/loaders/FBXLoader.js";
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { resolveAppAssetUrl } from "../../asset-url";
 
 export type VrmEngineState = {
@@ -22,7 +24,7 @@ export type CameraAnimationConfig = {
 };
 
 const DEFAULT_CAMERA_ANIMATION: CameraAnimationConfig = {
-  enabled: true,
+  enabled: false,
   swayAmplitude: 0.06,
   bobAmplitude: 0.03,
   rotationAmplitude: 0.01,
@@ -48,9 +50,11 @@ export class VrmEngine {
   private mouthValue = 0;
   private mouthSmoothed = 0;
   private vrmName: string | null = null;
-  private lookAtTarget = new THREE.Vector3(0, 1, 0);
+  private lookAtTarget = new THREE.Vector3(0, 0.5, 0);
   private readonly idleGlbUrl = resolveAppAssetUrl("animations/idle.glb");
-  private forceFaceCameraFlip = true;
+  private readonly idleBreathingFbxUrl = resolveAppAssetUrl("animations/BreathingIdle.fbx");
+  private readonly idleFallbackFbxUrl = resolveAppAssetUrl("animations/Idle.fbx");
+  private forceFaceCameraFlip = false;
 
   private cameraAnimation: CameraAnimationConfig = { ...DEFAULT_CAMERA_ANIMATION };
   private baseCameraPosition = new THREE.Vector3();
@@ -85,6 +89,30 @@ export class VrmEngine {
   private emoteTimeout: ReturnType<typeof setTimeout> | null = null;
   private emoteClipCache = new Map<string, THREE.AnimationClip>();
   private emoteRequestId = 0;
+  private footShadow: THREE.Mesh | null = null;
+  private controls: OrbitControls | null = null;
+  private interactionEnabled = false;
+  private userInteracting = false;
+  private userControlResumeAtMs = 0;
+  private static readonly USER_CONTROL_GRACE_MS = 2200;
+
+  private handleControlStart = (): void => {
+    if (!this.interactionEnabled) return;
+    this.userInteracting = true;
+    this.userControlResumeAtMs = 0;
+  };
+
+  private handleControlEnd = (): void => {
+    if (!this.interactionEnabled) return;
+    this.userInteracting = false;
+    this.userControlResumeAtMs = this.nowMs() + VrmEngine.USER_CONTROL_GRACE_MS;
+    if (this.camera) {
+      this.baseCameraPosition.copy(this.camera.position);
+    }
+    if (this.controls) {
+      this.lookAtTarget.copy(this.controls.target);
+    }
+  };
 
   setup(canvas: HTMLCanvasElement, onUpdate: UpdateCallback): void {
     if (this.initialized && this.renderer?.domElement === canvas) {
@@ -102,25 +130,50 @@ export class VrmEngine {
     const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setClearColor(0x000000, 0);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.NoToneMapping;
+    renderer.toneMappingExposure = 1.0;
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer = renderer;
 
     const scene = new THREE.Scene();
     this.scene = scene;
 
-    const camera = new THREE.PerspectiveCamera(25, 1, 0.01, 1000);
-    camera.position.set(0, 1.1, 2.8);
+    const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 20);
+    camera.position.set(0, 1.2, 5.0);
     this.camera = camera;
 
-    const keyLight = new THREE.DirectionalLight(0xffffff, 0.9);
-    keyLight.position.set(1.5, 2.0, 1.5);
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enablePan = true;
+    controls.enableRotate = true;
+    controls.enableZoom = true;
+    controls.enableDamping = false;
+    controls.screenSpacePanning = true;
+    controls.rotateSpeed = 0.75;
+    controls.zoomSpeed = 0.9;
+    controls.target.copy(this.lookAtTarget);
+    controls.addEventListener("start", this.handleControlStart);
+    controls.addEventListener("end", this.handleControlEnd);
+    controls.update();
+    this.controls = controls;
+    this.setInteractionEnabled(this.interactionEnabled);
+
+    // Match Girlfie chat lighting setup.
+    const ambient = new THREE.AmbientLight(0xffffff, 0.8);
+    scene.add(ambient);
+
+    const keyLight = new THREE.DirectionalLight(0xffffff, 1.2);
+    keyLight.position.set(1, 1, 1).normalize();
+    keyLight.castShadow = true;
+    keyLight.shadow.mapSize.setScalar(1024);
     scene.add(keyLight);
 
-    const fillLight = new THREE.DirectionalLight(0xffffff, 0.35);
-    fillLight.position.set(-1.8, 1.0, 1.0);
+    const fillLight = new THREE.DirectionalLight(0xffffff, 0.4);
+    fillLight.position.set(-1, 0.5, -1).normalize();
     scene.add(fillLight);
 
-    const ambient = new THREE.AmbientLight(0xffffff, 0.55);
-    scene.add(ambient);
+    this.createFootShadow();
 
     this.resize(canvas.clientWidth, canvas.clientHeight);
     this.initialized = true;
@@ -143,6 +196,29 @@ export class VrmEngine {
       this.scene.remove(this.vrm.scene);
       VRMUtils.deepDispose(this.vrm.scene);
     }
+    if (this.scene && this.footShadow) {
+      this.scene.remove(this.footShadow);
+      this.footShadow.geometry.dispose();
+      const material = this.footShadow.material;
+      if (Array.isArray(material)) {
+        for (const mat of material) {
+          const meshMat = mat as THREE.MeshBasicMaterial;
+          meshMat.map?.dispose();
+          meshMat.dispose();
+        }
+      } else {
+        const meshMat = material as THREE.MeshBasicMaterial;
+        meshMat.map?.dispose();
+        meshMat.dispose();
+      }
+      this.footShadow = null;
+    }
+    if (this.controls) {
+      this.controls.removeEventListener("start", this.handleControlStart);
+      this.controls.removeEventListener("end", this.handleControlEnd);
+      this.controls.dispose();
+      this.controls = null;
+    }
     this.vrm = null;
     this.vrmName = null;
     this.mixer = null;
@@ -158,6 +234,17 @@ export class VrmEngine {
     this.scene = null;
     this.camera = null;
     this.onUpdate = null;
+  }
+
+  setInteractionEnabled(enabled: boolean): void {
+    this.interactionEnabled = enabled;
+    if (this.controls) {
+      this.controls.enabled = enabled;
+    }
+    if (!enabled) {
+      this.userInteracting = false;
+      this.userControlResumeAtMs = 0;
+    }
   }
 
   resize(width: number, height: number): void {
@@ -315,14 +402,19 @@ export class VrmEngine {
       throw new Error("Loaded asset is not a VRM");
     }
 
-    if (vrm.humanoid) {
-      vrm.humanoid.autoUpdateHumanBones = true;
-    }
-
     VRMUtils.removeUnnecessaryVertices(vrm.scene);
-    VRMUtils.combineSkeletons(vrm.scene);
+
+    // Align with Girlfie behavior: keep original skeleton layout for
+    // spring-bone-heavy hair/outfit rigs to reduce unnatural deformation.
 
     this.centerAndFrame(vrm);
+
+    try {
+      VRMUtils.rotateVRM0(vrm);
+    } catch {
+      // rotateVRM0 is optional across three-vrm versions.
+    }
+
     if (this.forceFaceCameraFlip) {
       vrm.scene.rotateY(Math.PI);
       vrm.scene.updateMatrixWorld(true);
@@ -333,9 +425,13 @@ export class VrmEngine {
     if (this.loadingAborted || !this.scene) return;
 
     vrm.scene.visible = false;
+    vrm.scene.traverse((obj) => {
+      obj.frustumCulled = false;
+    });
     this.scene.add(vrm.scene);
     this.vrm = vrm;
     this.vrmName = name ?? null;
+    vrm.springBoneManager?.reset?.();
     this.resetBlink();
 
     try {
@@ -357,16 +453,27 @@ export class VrmEngine {
     const camera = this.camera;
     if (!renderer || !scene || !camera) return;
 
-    const delta = this.clock.getDelta();
-    this.elapsedTime += delta;
-    this.mixer?.update(delta);
+    const rawDelta = this.clock.getDelta();
+    const stableDelta = Math.min(rawDelta, 1 / 30);
+    this.elapsedTime += rawDelta;
+    this.mixer?.update(rawDelta);
     if (this.vrm) {
       this.applyMouthToVrm(this.vrm);
-      this.updateBlink(delta);
-      this.vrm.update(delta);
+      this.updateBlink(rawDelta);
+      // Keep spring bones stable after tab/background pauses.
+      this.vrm.update(stableDelta);
+      this.updateFootShadow();
     }
 
-    if (this.cameraAnimation.enabled && this.baseCameraPosition.length() > 0) {
+    const manualCameraActive =
+      this.interactionEnabled &&
+      (this.userInteracting || this.nowMs() < this.userControlResumeAtMs);
+
+    if (
+      !manualCameraActive &&
+      this.cameraAnimation.enabled &&
+      this.baseCameraPosition.length() > 0
+    ) {
       const t = this.elapsedTime * this.cameraAnimation.speed;
 
       const swayX =
@@ -397,7 +504,19 @@ export class VrmEngine {
       camera.rotation.y = rotY;
     }
 
-    camera.lookAt(this.lookAtTarget);
+    if (this.controls) {
+      if (manualCameraActive) {
+        this.controls.update();
+        this.lookAtTarget.copy(this.controls.target);
+      } else {
+        this.controls.target.copy(this.lookAtTarget);
+      }
+    }
+
+    if (!manualCameraActive) {
+      camera.lookAt(this.lookAtTarget);
+    }
+
     renderer.render(scene, camera);
     this.onUpdate?.();
   }
@@ -406,71 +525,129 @@ export class VrmEngine {
     const camera = this.camera;
     if (!camera) return;
 
-    const box = new THREE.Box3().setFromObject(vrm.scene);
-    const center = box.getCenter(new THREE.Vector3());
-    vrm.scene.position.sub(center);
-
-    const box2 = new THREE.Box3().setFromObject(vrm.scene);
-    const size2 = box2.getSize(new THREE.Vector3());
-
-    const height = Math.max(0.001, size2.y);
-    const width = Math.max(0.001, size2.x);
-    const depth = Math.max(0.001, size2.z);
-
-    // Normalize all models to a standard reference height (~1.0 unit) so
-    // oversized realistic characters and tiny chibi characters appear the
-    // same size in the chat viewport.
-    const STANDARD_HEIGHT = 1.0;
-    const scaleFactor = STANDARD_HEIGHT / height;
-    vrm.scene.scale.multiplyScalar(scaleFactor);
+    // Girlfie framing profile: fixed full-body scale/offset and camera.
+    vrm.scene.scale.set(1.45, 1.45, 1.45);
+    vrm.scene.position.set(0, -0.8, 0);
     vrm.scene.updateMatrixWorld(true);
 
-    // Re-center after scaling
-    const box3 = new THREE.Box3().setFromObject(vrm.scene);
-    const center3 = box3.getCenter(new THREE.Vector3());
-    vrm.scene.position.sub(center3);
-
-    const scaledHeight = STANDARD_HEIGHT;
-    const scaledWidth = width * scaleFactor;
-    const scaledDepth = depth * scaleFactor;
-
-    // Frame on upper body: look at shoulder height, zoom in to crop below waist.
-    // Offset camera left so the model renders on the right side of the canvas.
-    const upperBodyHeight = Math.max(scaledWidth, scaledHeight * 0.55, scaledDepth);
-    const shoulderHeight = scaledHeight * 0.42;
-
-    const fovRad = (camera.fov * Math.PI) / 180;
-    const distance = (upperBodyHeight * 0.5) / Math.tan(fovRad * 0.5);
-
-    this.lookAtTarget.set(0, shoulderHeight, 0);
-
-    camera.near = Math.max(0.01, distance / 100);
-    camera.far = Math.max(100, distance * 100);
+    this.lookAtTarget.set(0, 0.5, 0);
+    camera.near = 0.1;
+    camera.far = 20.0;
     camera.updateProjectionMatrix();
 
-    camera.position.set(0, shoulderHeight, distance);
+    camera.position.set(0, 1.2, 5.0);
     this.baseCameraPosition.copy(camera.position);
+
+    if (this.controls) {
+      this.controls.target.copy(this.lookAtTarget);
+      this.controls.minDistance = 2.4;
+      this.controls.maxDistance = 9.0;
+      this.controls.minPolarAngle = Math.PI * 0.1;
+      this.controls.maxPolarAngle = Math.PI * 0.9;
+      this.controls.update();
+    }
+  }
+
+  private createFootShadow(): void {
+    if (!this.scene) return;
+
+    if (this.footShadow) {
+      this.scene.remove(this.footShadow);
+      this.footShadow.geometry.dispose();
+      const material = this.footShadow.material as THREE.MeshBasicMaterial;
+      material.map?.dispose();
+      material.dispose();
+      this.footShadow = null;
+    }
+
+    const shadowCanvas = document.createElement("canvas");
+    shadowCanvas.width = 128;
+    shadowCanvas.height = 128;
+
+    const context = shadowCanvas.getContext("2d");
+    if (!context) return;
+
+    const gradient = context.createRadialGradient(64, 64, 0, 64, 64, 64);
+    gradient.addColorStop(0, "rgba(0, 0, 0, 0.4)");
+    gradient.addColorStop(0.5, "rgba(0, 0, 0, 0.2)");
+    gradient.addColorStop(1, "rgba(0, 0, 0, 0)");
+
+    context.fillStyle = gradient;
+    context.fillRect(0, 0, 128, 128);
+
+    const shadowTexture = new THREE.CanvasTexture(shadowCanvas);
+    const shadowGeometry = new THREE.PlaneGeometry(2.2, 2.2);
+    const shadowMaterial = new THREE.MeshBasicMaterial({
+      map: shadowTexture,
+      transparent: true,
+      alphaTest: 0.001,
+      depthWrite: false,
+    });
+
+    const shadow = new THREE.Mesh(shadowGeometry, shadowMaterial);
+    shadow.rotation.x = -Math.PI / 2;
+    shadow.position.set(0, -0.82, 0);
+    this.scene.add(shadow);
+    this.footShadow = shadow;
+  }
+
+  private updateFootShadow(): void {
+    if (!this.footShadow || !this.vrm) return;
+    this.footShadow.position.x = this.vrm.scene.position.x || 0;
+    this.footShadow.position.y = -0.82;
+    this.footShadow.position.z = this.vrm.scene.position.z || 0;
   }
 
   private async loadAndPlayIdle(vrm: VRM): Promise<void> {
     if (this.loadingAborted) return;
 
-    const { retargetMixamoGltfToVrm } = await import("./retargetMixamoGltfToVrm.ts");
+    let clip: THREE.AnimationClip | null = null;
 
-    if (this.loadingAborted || this.vrm !== vrm) return;
+    try {
+      const { retargetMixamoGltfToVrm } = await import("./retargetMixamoGltfToVrm.ts");
+      if (this.loadingAborted || this.vrm !== vrm) return;
 
-    const loader = new GLTFLoader();
-    const gltf = await loader.loadAsync(this.idleGlbUrl);
+      const gltfLoader = new GLTFLoader();
+      const gltf = await gltfLoader.loadAsync(this.idleGlbUrl);
+      if (this.loadingAborted || this.vrm !== vrm) return;
 
-    if (this.loadingAborted || this.vrm !== vrm) return;
+      gltf.scene.updateMatrixWorld(true);
+      vrm.scene.updateMatrixWorld(true);
+      clip = retargetMixamoGltfToVrm(
+        { scene: gltf.scene, animations: gltf.animations },
+        vrm,
+      );
+    } catch {
+      // LFS pointers or missing glb assets are common in forks; fall back to FBX.
+    }
 
-    gltf.scene.updateMatrixWorld(true);
-    vrm.scene.updateMatrixWorld(true);
-    const clip = retargetMixamoGltfToVrm(
-      { scene: gltf.scene, animations: gltf.animations },
-      vrm,
-    );
+    if (!clip) {
+      const { retargetMixamoFbxToVrm } = await import("./retargetMixamoFbxToVrm.ts");
+      if (this.loadingAborted || this.vrm !== vrm) return;
 
+      const fbxLoader = new FBXLoader();
+      const fallbackUrls = [this.idleBreathingFbxUrl, this.idleFallbackFbxUrl];
+      for (const url of fallbackUrls) {
+        try {
+          const fbx = await fbxLoader.loadAsync(url);
+          if (this.loadingAborted || this.vrm !== vrm) return;
+
+          fbx.updateMatrixWorld(true);
+          vrm.scene.updateMatrixWorld(true);
+          const sourceClip = THREE.AnimationClip.findByName(fbx.animations, "mixamo.com")
+            ?? fbx.animations[0];
+          if (!sourceClip) continue;
+          clip = retargetMixamoFbxToVrm(fbx, sourceClip, vrm);
+          if (clip) break;
+        } catch {
+          // Try the next fallback animation source.
+        }
+      }
+    }
+
+    if (!clip) {
+      throw new Error("No usable idle animation (idle.glb/BreathingIdle.fbx/Idle.fbx)");
+    }
     if (this.loadingAborted || this.vrm !== vrm) return;
 
     const mixer = new THREE.AnimationMixer(vrm.scene);
@@ -481,6 +658,7 @@ export class VrmEngine {
     action.setLoop(THREE.LoopRepeat, Infinity);
     action.fadeIn(0.25);
     action.play();
+    action.timeScale = 1.0;
     this.idleAction = action;
   }
 
@@ -634,16 +812,37 @@ export class VrmEngine {
     const camera = this.camera;
     if (!camera) return;
 
-    const probe = vrm.humanoid?.getNormalizedBoneNode("hips") ?? vrm.scene;
     vrm.scene.updateMatrixWorld(true);
 
     const forward = new THREE.Vector3();
-    probe.getWorldDirection(forward);
+    const leftEye = vrm.humanoid?.getNormalizedBoneNode("leftEye");
+    const rightEye = vrm.humanoid?.getNormalizedBoneNode("rightEye");
 
-    const vrmPos = new THREE.Vector3();
-    vrm.scene.getWorldPosition(vrmPos);
+    if (leftEye && rightEye) {
+      const left = new THREE.Vector3();
+      const right = new THREE.Vector3();
+      leftEye.getWorldPosition(left);
+      rightEye.getWorldPosition(right);
 
-    const toCamera = new THREE.Vector3().subVectors(camera.position, vrmPos);
+      const eyeRight = right.sub(left);
+      if (eyeRight.lengthSq() > 1e-6) {
+        // Up × Right gives an approximate face-forward vector for this rig setup.
+        forward.copy(new THREE.Vector3(0, 1, 0)).cross(eyeRight).normalize();
+      }
+    }
+
+    if (forward.lengthSq() < 1e-6) {
+      // Fallback when eye bones are unavailable.
+      vrm.scene.getWorldDirection(forward);
+    }
+
+    const anchor =
+      vrm.humanoid?.getNormalizedBoneNode("head") ??
+      vrm.humanoid?.getNormalizedBoneNode("hips") ??
+      vrm.scene;
+    const anchorPos = new THREE.Vector3();
+    anchor.getWorldPosition(anchorPos);
+    const toCamera = new THREE.Vector3().subVectors(camera.position, anchorPos);
 
     forward.y = 0;
     toCamera.y = 0;
@@ -656,5 +855,9 @@ export class VrmEngine {
       vrm.scene.rotateY(Math.PI);
       vrm.scene.updateMatrixWorld(true);
     }
+  }
+
+  private nowMs(): number {
+    return typeof performance !== "undefined" ? performance.now() : Date.now();
   }
 }

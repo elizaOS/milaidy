@@ -2,8 +2,14 @@
  * Onboarding wizard component — multi-step onboarding flow.
  */
 
-import { useEffect, useState, type ChangeEvent } from "react";
-import { useApp, THEMES, type OnboardingStep } from "../AppContext.js";
+import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import {
+  useApp,
+  THEMES,
+  getVrmPreviewUrl,
+  getVrmUrl,
+  type OnboardingStep,
+} from "../AppContext.js";
 import {
   client,
   type ProviderOption,
@@ -17,6 +23,7 @@ import {
 } from "../api-client";
 import { getProviderLogo } from "../provider-logos.js";
 import { AvatarSelector } from "./AvatarSelector.js";
+import { VrmViewer } from "./avatar/VrmViewer.js";
 import { PermissionsOnboardingSection } from "./PermissionsSection.js";
 
 const SANDBOX_POLL_INTERVAL_MS = 3000;
@@ -65,6 +72,68 @@ try {
   }
 }
 
+type OnboardingVrmAvatarProps = {
+  vrmPath: string;
+  fallbackPreviewUrl: string;
+  pulse?: boolean;
+};
+
+function OnboardingVrmAvatar({
+  vrmPath,
+  fallbackPreviewUrl,
+  pulse = false,
+}: OnboardingVrmAvatarProps) {
+  const loadedRef = useRef(false);
+  const [vrmLoaded, setVrmLoaded] = useState(false);
+  const [showFallback, setShowFallback] = useState(false);
+
+  useEffect(() => {
+    loadedRef.current = false;
+    setVrmLoaded(false);
+    setShowFallback(false);
+
+    const timer = window.setTimeout(() => {
+      if (!loadedRef.current) {
+        setShowFallback(true);
+      }
+    }, 3500);
+
+    return () => window.clearTimeout(timer);
+  }, [vrmPath]);
+
+  return (
+    <div
+      className={`relative w-[140px] h-[140px] rounded-full border-[3px] border-border mx-auto mb-5 overflow-hidden bg-card cursor-grab active:cursor-grabbing ${
+        pulse ? "animate-pulse" : ""
+      }`}
+    >
+      <div className="absolute inset-0">
+        <VrmViewer
+          vrmPath={vrmPath}
+          mouthOpen={0}
+          isSpeaking={false}
+          interactive
+          onEngineState={(state) => {
+            if (state.vrmLoaded && !loadedRef.current) {
+              loadedRef.current = true;
+              setVrmLoaded(true);
+              setShowFallback(false);
+            }
+          }}
+        />
+      </div>
+
+      {showFallback && !vrmLoaded && (
+        <img
+          src={fallbackPreviewUrl}
+          alt="Avatar"
+          className="absolute inset-0 w-full h-full object-cover"
+        />
+      )}
+    </div>
+  );
+}
+
 export function OnboardingWizard() {
   const {
     onboardingStep,
@@ -92,6 +161,7 @@ export function OnboardingWizard() {
     onboardingRpcSelections,
     onboardingRpcKeys,
     onboardingAvatar,
+    customVrmUrl,
     onboardingRestarting,
     cloudConnected,
     cloudLoginBusy,
@@ -114,6 +184,13 @@ export function OnboardingWizard() {
   const [anthropicError, setAnthropicError] = useState("");
   const [customNameText, setCustomNameText] = useState("");
   const [isCustomSelected, setIsCustomSelected] = useState(false);
+
+  const avatarVrmPath =
+    onboardingAvatar === 0 && customVrmUrl
+      ? customVrmUrl
+      : getVrmUrl(onboardingAvatar || 1);
+  const avatarFallbackPreviewUrl =
+    onboardingAvatar > 0 ? getVrmPreviewUrl(onboardingAvatar) : getVrmPreviewUrl(1);
 
   useEffect(() => {
     if (onboardingStep === "theme") {
@@ -239,10 +316,9 @@ export function OnboardingWizard() {
       case "welcome":
         return (
           <div className="max-w-[500px] mx-auto mt-10 text-center font-body">
-            <img
-              src="/android-chrome-512x512.png"
-              alt="Avatar"
-              className="w-[140px] h-[140px] rounded-full object-cover border-[3px] border-border mx-auto mb-5 block"
+            <OnboardingVrmAvatar
+              vrmPath={avatarVrmPath}
+              fallbackPreviewUrl={avatarFallbackPreviewUrl}
             />
             <h1 className="text-[28px] font-normal mb-1 text-txt-strong">ohhh uhhhh hey there!</h1>
             <h1 className="text-[28px] font-normal mb-1 text-txt-strong">welcome to milaidy!</h1>
@@ -252,10 +328,9 @@ export function OnboardingWizard() {
       case "name":
         return (
           <div className="max-w-[520px] mx-auto mt-10 text-center font-body">
-            <img
-              src="/android-chrome-512x512.png"
-              alt="Avatar"
-              className="w-[140px] h-[140px] rounded-full object-cover border-[3px] border-border mx-auto mb-5 block"
+            <OnboardingVrmAvatar
+              vrmPath={avatarVrmPath}
+              fallbackPreviewUrl={avatarFallbackPreviewUrl}
             />
             <div className="onboarding-speech bg-card border border-border rounded-xl px-5 py-4 mx-auto mb-6 max-w-[600px] relative text-[15px] text-txt leading-relaxed">
               <h2 className="text-[28px] font-normal mb-1 text-txt-strong">ohhh... what's my name again?</h2>
@@ -313,10 +388,9 @@ export function OnboardingWizard() {
       case "avatar":
         return (
           <div className="mx-auto mt-10 text-center font-body">
-                                    <img
-              src="/android-chrome-512x512.png"
-              alt="Avatar"
-              className="w-[140px] h-[140px] rounded-full object-cover border-[3px] border-border mx-auto mb-5 block"
+            <OnboardingVrmAvatar
+              vrmPath={avatarVrmPath}
+              fallbackPreviewUrl={avatarFallbackPreviewUrl}
             />
             <div className="onboarding-speech bg-card border border-border rounded-xl px-5 py-4 mx-auto mb-6 max-w-[600px] relative text-[15px] text-txt leading-relaxed">
               <h2 className="text-[28px] font-normal mb-1 text-txt-strong">what body should i, uhhh, use?</h2>
@@ -339,10 +413,9 @@ export function OnboardingWizard() {
       case "style":
         return (
           <div className="max-w-[520px] mx-auto mt-10 text-center font-body">
-            <img
-              src="/android-chrome-512x512.png"
-              alt="Avatar"
-              className="w-[140px] h-[140px] rounded-full object-cover border-[3px] border-border mx-auto mb-5 block"
+            <OnboardingVrmAvatar
+              vrmPath={avatarVrmPath}
+              fallbackPreviewUrl={avatarFallbackPreviewUrl}
             />
             <div className="onboarding-speech bg-card border border-border rounded-xl px-5 py-4 mx-auto mb-6 max-w-[600px] relative text-[15px] text-txt leading-relaxed">
               <h2 className="text-[28px] font-normal mb-1 text-txt-strong">whats my vibe?</h2>
@@ -371,10 +444,9 @@ export function OnboardingWizard() {
       case "theme":
         return (
           <div className="max-w-[520px] mx-auto mt-10 text-center font-body">
-            <img
-              src="/android-chrome-512x512.png"
-              alt="Avatar"
-              className="w-[140px] h-[140px] rounded-full object-cover border-[3px] border-border mx-auto mb-5 block"
+            <OnboardingVrmAvatar
+              vrmPath={avatarVrmPath}
+              fallbackPreviewUrl={avatarFallbackPreviewUrl}
             />
             <div className="onboarding-speech bg-card border border-border rounded-xl px-5 py-4 mx-auto mb-6 max-w-[600px] relative text-[15px] text-txt leading-relaxed">
               <h2 className="text-[28px] font-normal mb-1 text-txt-strong">what colors do u like?</h2>
@@ -406,10 +478,9 @@ export function OnboardingWizard() {
           }
           return (
             <div className="max-w-[520px] mx-auto mt-10 text-center font-body">
-              <img
-                src="/android-chrome-512x512.png"
-                alt="Avatar"
-                className="w-[140px] h-[140px] rounded-full object-cover border-[3px] border-border mx-auto mb-5 block"
+              <OnboardingVrmAvatar
+                vrmPath={avatarVrmPath}
+                fallbackPreviewUrl={avatarFallbackPreviewUrl}
               />
               <div className="onboarding-speech bg-card border border-border rounded-xl px-5 py-4 mx-auto mb-6 max-w-[600px] relative text-[15px] text-txt leading-relaxed">
                 <h2 className="text-[28px] font-normal mb-1 text-txt-strong">i'll live in the cloud~</h2>
@@ -431,10 +502,9 @@ export function OnboardingWizard() {
 
         return (
           <div className="max-w-[580px] mx-auto mt-10 text-center font-body">
-            <img
-              src="/android-chrome-512x512.png"
-              alt="Avatar"
-              className="w-[140px] h-[140px] rounded-full object-cover border-[3px] border-border mx-auto mb-5 block"
+            <OnboardingVrmAvatar
+              vrmPath={avatarVrmPath}
+              fallbackPreviewUrl={avatarFallbackPreviewUrl}
             />
             <div className="onboarding-speech bg-card border border-border rounded-xl px-5 py-4 mx-auto mb-6 max-w-[600px] relative text-[15px] text-txt leading-relaxed">
               <h2 className="text-[28px] font-normal mb-1 text-txt-strong">where should i live?</h2>
@@ -485,15 +555,19 @@ export function OnboardingWizard() {
         );
 
       case "dockerSetup":
-        return <DockerSetupStep />;
+        return (
+          <DockerSetupStep
+            avatarVrmPath={avatarVrmPath}
+            avatarFallbackPreviewUrl={avatarFallbackPreviewUrl}
+          />
+        );
 
       case "cloudProvider":
         return (
           <div className="max-w-[520px] mx-auto mt-10 text-center font-body">
-            <img
-              src="/android-chrome-512x512.png"
-              alt="Avatar"
-              className="w-[140px] h-[140px] rounded-full object-cover border-[3px] border-border mx-auto mb-5 block"
+            <OnboardingVrmAvatar
+              vrmPath={avatarVrmPath}
+              fallbackPreviewUrl={avatarFallbackPreviewUrl}
             />
             <div className="onboarding-speech bg-card border border-border rounded-xl px-5 py-4 mx-auto mb-6 max-w-[600px] relative text-[15px] text-txt leading-relaxed">
               <h2 className="text-[28px] font-normal mb-1 text-txt-strong">okay which cloud?</h2>
@@ -711,10 +785,9 @@ export function OnboardingWizard() {
         if (!onboardingProvider) {
           return (
             <div className="w-full mx-auto mt-10 text-center font-body">
-              <img
-                src="/android-chrome-512x512.png"
-                alt="Avatar"
-                className="w-[140px] h-[140px] rounded-full object-cover border-[3px] border-border mx-auto mb-5 block"
+              <OnboardingVrmAvatar
+                vrmPath={avatarVrmPath}
+                fallbackPreviewUrl={avatarFallbackPreviewUrl}
               />
               <div className="onboarding-speech bg-card border border-border rounded-xl px-5 py-4 mx-auto mb-4 max-w-[420px] relative text-[15px] text-txt leading-relaxed">
                 <h2 className="text-[28px] font-normal mb-1 text-txt-strong">what is my brain?</h2>
@@ -1056,10 +1129,9 @@ export function OnboardingWizard() {
       case "inventorySetup": {
         return (
           <div className="w-full mx-auto mt-10 text-center font-body">
-            <img
-              src="/android-chrome-512x512.png"
-              alt="Avatar"
-              className="w-[140px] h-[140px] rounded-full object-cover border-[3px] border-border mx-auto mb-5 block"
+            <OnboardingVrmAvatar
+              vrmPath={avatarVrmPath}
+              fallbackPreviewUrl={avatarFallbackPreviewUrl}
             />
             <div className="onboarding-speech bg-card border border-border rounded-xl px-5 py-4 mx-auto mb-6 max-w-[600px] relative text-[15px] text-txt leading-relaxed">
               <h2 className="text-[28px] font-normal mb-1 text-txt-strong">soooo can i have a wallet?</h2>
@@ -1162,10 +1234,9 @@ export function OnboardingWizard() {
       case "connectors":
         return (
           <div className="w-full mx-auto mt-10 text-center font-body">
-                        <img
-              src="/android-chrome-512x512.png"
-              alt="Avatar"
-              className="w-[140px] h-[140px] rounded-full object-cover border-[3px] border-border mx-auto mb-5 block"
+            <OnboardingVrmAvatar
+              vrmPath={avatarVrmPath}
+              fallbackPreviewUrl={avatarFallbackPreviewUrl}
             />
             <div className="onboarding-speech bg-card border border-border rounded-xl px-5 py-4 mx-auto mb-6 max-w-[600px] relative text-[15px] text-txt leading-relaxed">
               <h2 className="text-[28px] font-normal mb-1 text-txt-strong">how do you want to reach me?</h2>
@@ -1419,7 +1490,11 @@ export function OnboardingWizard() {
 // Docker Setup Step — checks Docker availability and guides installation
 // ═══════════════════════════════════════════════════════════════════════════
 
-function DockerSetupStep() {
+function DockerSetupStep(props: {
+  avatarVrmPath: string;
+  avatarFallbackPreviewUrl: string;
+}) {
+  const { avatarVrmPath, avatarFallbackPreviewUrl } = props;
   const [checking, setChecking] = useState(true);
   const [starting, setStarting] = useState(false);
   const [startMessage, setStartMessage] = useState("");
@@ -1518,10 +1593,10 @@ function DockerSetupStep() {
   if (checking) {
     return (
       <div className="max-w-[520px] mx-auto mt-10 text-center font-body">
-        <img
-          src="/android-chrome-512x512.png"
-          alt="Avatar"
-          className="w-[140px] h-[140px] rounded-full object-cover border-[3px] border-border mx-auto mb-5 block animate-pulse"
+        <OnboardingVrmAvatar
+          vrmPath={avatarVrmPath}
+          fallbackPreviewUrl={avatarFallbackPreviewUrl}
+          pulse
         />
         <div className="onboarding-speech bg-card border border-border rounded-xl px-5 py-4 mx-auto mb-6 max-w-[600px] relative text-[15px] text-txt leading-relaxed">
           <p>checking ur machine for sandbox stuff...</p>
@@ -1537,10 +1612,9 @@ function DockerSetupStep() {
 
   return (
     <div className="max-w-[540px] mx-auto mt-10 text-center font-body">
-      <img
-        src="/android-chrome-512x512.png"
-        alt="Avatar"
-        className="w-[140px] h-[140px] rounded-full object-cover border-[3px] border-border mx-auto mb-5 block"
+      <OnboardingVrmAvatar
+        vrmPath={avatarVrmPath}
+        fallbackPreviewUrl={avatarFallbackPreviewUrl}
       />
       <div className="onboarding-speech bg-card border border-border rounded-xl px-5 py-4 mx-auto mb-6 max-w-[600px] relative text-[15px] text-txt leading-relaxed">
         {isReady ? (

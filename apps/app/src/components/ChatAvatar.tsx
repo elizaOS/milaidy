@@ -81,7 +81,7 @@ export function ChatAvatar({ mouthOpen = 0, isSpeaking = false }: ChatAvatarProp
   }, [engineReady]);
 
   return (
-    <div className="relative h-full w-full pointer-events-none">
+    <div className="relative h-full w-full">
       <div
         className="absolute inset-0"
         style={{
@@ -104,6 +104,7 @@ export function ChatAvatar({ mouthOpen = 0, isSpeaking = false }: ChatAvatarProp
               vrmPath={vrmPath}
               mouthOpen={mouthOpen}
               isSpeaking={isSpeaking}
+              interactive
               onEngineReady={handleEngineReady}
               onEngineState={handleEngineState}
             />
