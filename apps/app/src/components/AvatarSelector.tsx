@@ -1,7 +1,7 @@
 /**
  * Reusable avatar/character VRM selector.
  *
- * Shows a single row of the 8 built-in milady VRMs as thumbnail images.
+ * Shows a single row/grid of bundled VRM avatars as thumbnail images.
  * The selected avatar gets a highlight ring. No text labels.
  */
 
@@ -9,7 +9,7 @@ import { useRef } from "react";
 import { VRM_COUNT, getVrmPreviewUrl } from "../AppContext";
 
 export interface AvatarSelectorProps {
-  /** Currently selected index (1-8 for built-in, 0 for custom) */
+  /** Currently selected index (1-N for bundled, 0 for custom) */
   selected: number;
   /** Called when a built-in avatar is selected */
   onSelect: (index: number) => void;

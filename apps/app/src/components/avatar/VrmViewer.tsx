@@ -9,10 +9,10 @@ import { useEffect, useRef } from "react";
 import { VrmEngine, type VrmEngineState } from "./VrmEngine";
 import { resolveAppAssetUrl } from "../../asset-url";
 
-const DEFAULT_VRM_PATH = resolveAppAssetUrl("vrms/1.vrm");
+const DEFAULT_VRM_PATH = resolveAppAssetUrl("vrms/milAIdy-1.vrm");
 
 export type VrmViewerProps = {
-  /** Path to the VRM file to load (default: built-in milady #1) */
+  /** Path to the VRM file to load (default: bundled Miwaifus #1) */
   vrmPath?: string;
   mouthOpen: number;
   /** When true the engine generates mouth animation internally */
