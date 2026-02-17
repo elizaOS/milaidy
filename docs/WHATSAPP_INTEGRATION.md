@@ -134,8 +134,8 @@ When using `dmPolicy: "open"`, you must also set `allowFrom: ["*"]` in your conf
 From issue [#147](https://github.com/milady-ai/milaidy/issues/147):
 
 ### Setup & Authentication
-- [x] QR code authentication flow
-- [x] Session persistence (`authDir`)
+- [ ] QR code authentication flow
+- [ ] Session persistence (`authDir`)
 - [ ] Reconnection after restart
 - [ ] Error messaging on auth failures
 

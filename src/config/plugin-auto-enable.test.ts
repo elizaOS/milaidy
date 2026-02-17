@@ -370,3 +370,71 @@ describe("AUTH_PROVIDER_PLUGINS", () => {
     );
   });
 });
+
+// ============================================================================
+//  WhatsApp connector auto-enable — Baileys auth fields
+// ============================================================================
+
+describe("WhatsApp connector auto-enable", () => {
+  it("auto-enables via legacy authState field", () => {
+    const { config } = applyPluginAutoEnable(
+      makeParams({
+        config: { connectors: { whatsapp: { authState: "./auth" } } },
+      }),
+    );
+    expect(config.plugins?.allow).toContain("whatsapp");
+  });
+
+  it("auto-enables via legacy sessionPath field", () => {
+    const { config } = applyPluginAutoEnable(
+      makeParams({
+        config: { connectors: { whatsapp: { sessionPath: "./auth" } } },
+      }),
+    );
+    expect(config.plugins?.allow).toContain("whatsapp");
+  });
+
+  it("auto-enables via authDir (Baileys WhatsAppAccountSchema field)", () => {
+    const { config } = applyPluginAutoEnable(
+      makeParams({
+        config: { connectors: { whatsapp: { authDir: "./auth/whatsapp" } } },
+      }),
+    );
+    expect(config.plugins?.allow).toContain("whatsapp");
+  });
+
+  it("auto-enables when accounts object is configured", () => {
+    const { config } = applyPluginAutoEnable(
+      makeParams({
+        config: {
+          connectors: {
+            whatsapp: {
+              accounts: { default: { enabled: true, authDir: "./auth" } },
+            },
+          },
+        },
+      }),
+    );
+    expect(config.plugins?.allow).toContain("whatsapp");
+  });
+
+  it("does not auto-enable when whatsapp config is empty", () => {
+    const { config } = applyPluginAutoEnable(
+      makeParams({ config: { connectors: { whatsapp: {} } } }),
+    );
+    expect(config.plugins?.allow ?? []).not.toContain("whatsapp");
+  });
+
+  it("does not auto-enable when enabled is explicitly false", () => {
+    const { config } = applyPluginAutoEnable(
+      makeParams({
+        config: {
+          connectors: {
+            whatsapp: { enabled: false, authDir: "./auth/whatsapp" },
+          },
+        },
+      }),
+    );
+    expect(config.plugins?.allow ?? []).not.toContain("whatsapp");
+  });
+});
