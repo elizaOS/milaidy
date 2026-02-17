@@ -3810,6 +3810,8 @@ const PAIRING_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const API_RESTART_EXIT_CODE = 75;
 
 let pairingCode: string | null = null;
+/** Guard against concurrent provider switch requests (P0 §3). */
+let providerSwitchInProgress = false;
 let pairingExpiresAt = 0;
 const pairingAttempts = new Map<string, { count: number; resetAt: number }>();
 
@@ -5068,6 +5070,31 @@ async function handleRequest(
       return;
     }
 
+    // P1 §7 — explicit provider allowlist
+    const VALID_PROVIDERS = new Set([
+      "elizacloud",
+      "openai-codex",
+      "openai-subscription",
+      "anthropic-subscription",
+      "openai",
+      "anthropic",
+      "google",
+      "groq",
+      "xai",
+      "openrouter",
+    ]);
+    if (!VALID_PROVIDERS.has(provider)) {
+      error(res, "Invalid provider", 400);
+      return;
+    }
+
+    // P0 §3 — race guard: reject concurrent provider switch requests
+    if (providerSwitchInProgress) {
+      error(res, "Provider switch already in progress", 409);
+      return;
+    }
+    providerSwitchInProgress = true;
+
     const config = state.config;
     if (!config.cloud) config.cloud = {} as NonNullable<typeof config.cloud>;
     if (!config.env) config.env = {};
@@ -5098,8 +5125,10 @@ async function handleRequest(
         const { deleteCredentials } = await import("../auth/index");
         deleteCredentials("anthropic-subscription");
         deleteCredentials("openai-codex");
-      } catch {
-        /* credentials may not exist */
+      } catch (err) {
+        logger.warn(
+          `[api] Failed to clear subscriptions: ${err instanceof Error ? err.message : err}`,
+        );
       }
       // Don't clear the env keys here — applySubscriptionCredentials on
       // restart will simply not set them if creds are gone.
@@ -5121,10 +5150,31 @@ async function handleRequest(
         if (envKey === keepKey) continue;
         delete process.env[envKey];
         delete envCfg[envKey];
+        // P1 §6 — also clear from runtime character secrets
+        if (state.runtime?.character?.secrets) {
+          const secrets = state.runtime.character.secrets as Record<
+            string,
+            unknown
+          >;
+          delete secrets[envKey];
+        }
       }
     };
 
     try {
+      // P0 §4 — input validation for direct API key providers
+      if (PROVIDER_ENV_KEYS[provider]) {
+        const trimmedKey =
+          typeof body.apiKey === "string" ? body.apiKey.trim() : "";
+        if (!trimmedKey) {
+          providerSwitchInProgress = false;
+          error(res, "API key is required for this provider", 400);
+          return;
+        }
+        // Store trimmed key back for use below
+        body.apiKey = trimmedKey;
+      }
+
       if (provider === "elizacloud") {
         // Switching TO elizacloud
         await clearSubscriptions();
@@ -5148,8 +5198,10 @@ async function handleRequest(
         try {
           const { deleteCredentials } = await import("../auth/index");
           deleteCredentials("anthropic-subscription");
-        } catch {
-          /* ok */
+        } catch (err) {
+          logger.warn(
+            `[api] Failed to clear Anthropic subscription: ${err instanceof Error ? err.message : err}`,
+          );
         }
         // Apply the OpenAI subscription credentials to env
         try {
@@ -5157,8 +5209,10 @@ async function handleRequest(
             "../auth/index"
           );
           await applySubscriptionCredentials();
-        } catch {
-          /* ok */
+        } catch (err) {
+          logger.warn(
+            `[api] Failed to apply OpenAI subscription creds: ${err instanceof Error ? err.message : err}`,
+          );
         }
       } else if (provider === "anthropic-subscription") {
         // Switching TO Anthropic subscription
@@ -5168,16 +5222,20 @@ async function handleRequest(
         try {
           const { deleteCredentials } = await import("../auth/index");
           deleteCredentials("openai-codex");
-        } catch {
-          /* ok */
+        } catch (err) {
+          logger.warn(
+            `[api] Failed to clear OpenAI subscription: ${err instanceof Error ? err.message : err}`,
+          );
         }
         try {
           const { applySubscriptionCredentials } = await import(
             "../auth/index"
           );
           await applySubscriptionCredentials();
-        } catch {
-          /* ok */
+        } catch (err) {
+          logger.warn(
+            `[api] Failed to apply Anthropic subscription creds: ${err instanceof Error ? err.message : err}`,
+          );
         }
       } else if (PROVIDER_ENV_KEYS[provider]) {
         // Switching TO a direct API key provider
@@ -5185,13 +5243,9 @@ async function handleRequest(
         await clearSubscriptions();
         const envKey = PROVIDER_ENV_KEYS[provider];
         clearOtherApiKeys(envKey);
-        if (body.apiKey) {
-          process.env[envKey] = body.apiKey;
-          envCfg[envKey] = body.apiKey;
-        }
-      } else {
-        error(res, `Unknown provider: ${provider}`, 400);
-        return;
+        // apiKey is already validated and trimmed above
+        process.env[envKey] = body.apiKey!;
+        envCfg[envKey] = body.apiKey!;
       }
 
       saveMiladyConfig(config);
@@ -5217,8 +5271,13 @@ async function handleRequest(
               `[api] Provider switch restart failed: ${err instanceof Error ? err.message : err}`,
             );
             state.agentState = "error";
+          })
+          .finally(() => {
+            providerSwitchInProgress = false;
           });
         state.agentState = "restarting";
+      } else {
+        providerSwitchInProgress = false;
       }
 
       json(res, {
@@ -5227,7 +5286,12 @@ async function handleRequest(
         restarting: Boolean(ctx?.onRestart),
       });
     } catch (err) {
-      error(res, `Provider switch failed: ${err}`, 500);
+      providerSwitchInProgress = false;
+      // P1 §8 — don't leak internal error details to client
+      logger.error(
+        `[api] Provider switch failed: ${err instanceof Error ? err.stack : err}`,
+      );
+      error(res, "Provider switch failed", 500);
     }
     return;
   }
