@@ -4013,6 +4013,27 @@ function applyCors(
   return true;
 }
 
+function applySecurityHeaders(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+): void {
+  const forwardedProtoHeader = req.headers["x-forwarded-proto"];
+  const forwardedProto =
+    typeof forwardedProtoHeader === "string"
+      ? forwardedProtoHeader.split(",")[0]?.trim().toLowerCase()
+      : "";
+
+  // Only set HSTS when the original request reached edge over HTTPS.
+  if (forwardedProto === "https") {
+    res.setHeader(
+      "Strict-Transport-Security",
+      "max-age=31536000; includeSubDomains; preload",
+    );
+  }
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+}
+
 const PAIRING_TTL_MS = 10 * 60 * 1000;
 const PAIRING_WINDOW_MS = 10 * 60 * 1000;
 const PAIRING_MAX_ATTEMPTS = 5;
@@ -5252,6 +5273,7 @@ async function handleRequest(
     json(res, { error: "Origin not allowed" }, 403);
     return;
   }
+  applySecurityHeaders(req, res);
 
   if (
     method !== "OPTIONS" &&

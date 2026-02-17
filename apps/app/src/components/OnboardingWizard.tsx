@@ -82,27 +82,17 @@ function OnboardingVrmAvatar({
   fallbackPreviewUrl: _fallbackPreviewUrl,
   pulse = false,
 }: OnboardingVrmAvatarProps) {
-  const { cloudUserId } = useApp();
-  const initials = (cloudUserId ?? "YOU")
-    .replace(/[^a-zA-Z0-9]/g, "")
-    .slice(0, 2)
-    .toUpperCase() || "YOU";
-
   return (
     <div
       className={`relative w-[140px] h-[140px] rounded-full border-[3px] border-border mx-auto mb-5 overflow-hidden bg-card ${
         pulse ? "animate-pulse" : ""
       }`}
     >
-      <div className="absolute inset-0 bg-gradient-to-br from-card to-bg" />
-      <div className="relative z-10 flex h-full w-full items-center justify-center">
-        <div className="flex h-[74px] w-[74px] items-center justify-center rounded-full border border-border bg-bg/70 text-[22px] font-bold tracking-wide text-txt-strong">
-          {initials}
-        </div>
-      </div>
-      <span className="absolute bottom-1.5 right-1.5 rounded-full border border-border bg-card px-2 py-[2px] text-[10px] font-semibold uppercase tracking-wide text-txt">
-        User
-      </span>
+      <img
+        src="/apple-touch-icon.png"
+        alt="Milady"
+        className="h-full w-full object-cover"
+      />
     </div>
   );
 }
