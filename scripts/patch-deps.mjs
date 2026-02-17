@@ -320,8 +320,9 @@ if (!existsSync(openrouterTarget)) {
  *
  * The action handler only passes text to sendTweet(), ignoring any
  * message.content.attachments (e.g. images sent from the chat UI).
- * This patch extracts image data-URL attachments, uploads them as Twitter
- * media, and passes the resulting media IDs to sendTweet().
+ * This patch reads image data from the non-standard `_data`/`_mimeType` fields
+ * that Milady sets on attachments (keeping the `url` field compact to avoid
+ * bloating the LLM context window with base64 strings).
  *
  * Remove once plugin-twitter ships native attachment support.
  */
@@ -335,10 +336,12 @@ if (!existsSync(twitterTarget)) {
 } else {
   let twitterSrc = readFileSync(twitterTarget, "utf8");
 
+  // Original unpatched code.
   const twitterBuggy =
     `      const result = await client.twitterClient.sendTweet(finalTweetText);`;
 
-  const twitterFixed =
+  // v1 patch (url-based — reads base64 from att.url, may already be applied).
+  const twitterV1Fixed =
     `      // Upload any image attachments from the user's chat message
       const imageAttachments = message.content?.attachments?.filter(
         (att) => att.contentType === "image" || (att.url && att.url.startsWith("data:image/"))
@@ -367,12 +370,55 @@ if (!existsSync(twitterTarget)) {
         tweetMediaIds.length > 0 ? tweetMediaIds : void 0
       );`;
 
-  if (twitterSrc.includes(twitterFixed.slice(0, 60))) {
-    console.log("[patch-deps] twitter POST_TWEET media patch already present.");
+  // v2 patch — reads base64 from att._data/_mimeType so the url field stays
+  // compact (attachment:img-0) and doesn't consume LLM context tokens.
+  const twitterFixed =
+    `      // Upload any image attachments from the user's chat message
+      const imageAttachments = message.content?.attachments?.filter(
+        (att) => att.contentType === "image" && (att._data || (att.url && att.url.startsWith("data:image/")))
+      ) ?? [];
+      const tweetMediaIds = [];
+      for (const att of imageAttachments) {
+        try {
+          let base64Data, mimeType;
+          if (att._data) {
+            base64Data = att._data;
+            mimeType = att._mimeType || "image/jpeg";
+          } else {
+            const dataUrl = att.url ?? "";
+            const commaIdx = dataUrl.indexOf(",");
+            if (commaIdx === -1) continue;
+            base64Data = dataUrl.slice(commaIdx + 1);
+            const mimeMatch = dataUrl.match(/^data:([^;]+);/);
+            mimeType = mimeMatch ? mimeMatch[1] : "image/jpeg";
+          }
+          const buffer = Buffer.from(base64Data, "base64");
+          const mediaId = await client.twitterClient.uploadMedia(buffer, { mimeType });
+          tweetMediaIds.push(mediaId);
+        } catch (mediaErr) {
+          logger14.warn("Failed to upload tweet media attachment:", mediaErr);
+        }
+      }
+      const result = await client.twitterClient.sendTweet(
+        finalTweetText,
+        void 0,
+        void 0,
+        void 0,
+        tweetMediaIds.length > 0 ? tweetMediaIds : void 0
+      );`;
+
+  // v2 is uniquely identified by reading from att._data (not att.url)
+  const twitterV2Marker = `if (att._data) {`;
+  if (twitterSrc.includes(twitterV2Marker)) {
+    console.log("[patch-deps] twitter POST_TWEET media patch (v2) already present.");
+  } else if (twitterSrc.includes(twitterV1Fixed.slice(0, 80))) {
+    twitterSrc = twitterSrc.replace(twitterV1Fixed, twitterFixed);
+    writeFileSync(twitterTarget, twitterSrc, "utf8");
+    console.log("[patch-deps] Upgraded twitter POST_TWEET media patch to v2.");
   } else if (twitterSrc.includes(twitterBuggy)) {
     twitterSrc = twitterSrc.replace(twitterBuggy, twitterFixed);
     writeFileSync(twitterTarget, twitterSrc, "utf8");
-    console.log("[patch-deps] Applied twitter POST_TWEET media upload patch.");
+    console.log("[patch-deps] Applied twitter POST_TWEET media upload patch (v2).");
   } else {
     console.log(
       "[patch-deps] twitter POST_TWEET sendTweet call changed — media patch may no longer be needed.",
