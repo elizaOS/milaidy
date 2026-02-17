@@ -456,6 +456,34 @@ describe("WhatsApp connector auto-enable", () => {
     expect(config.plugins?.allow ?? []).not.toContain("whatsapp");
   });
 
+  it("does not auto-enable when accounts object has no valid authDir", () => {
+    const { config } = applyPluginAutoEnable(
+      makeParams({
+        config: {
+          connectors: {
+            whatsapp: { accounts: { default: {} } },
+          },
+        },
+      }),
+    );
+    expect(config.plugins?.allow ?? []).not.toContain("whatsapp");
+  });
+
+  it("does not auto-enable when all accounts are explicitly disabled", () => {
+    const { config } = applyPluginAutoEnable(
+      makeParams({
+        config: {
+          connectors: {
+            whatsapp: {
+              accounts: { main: { enabled: false, authDir: "./auth" } },
+            },
+          },
+        },
+      }),
+    );
+    expect(config.plugins?.allow ?? []).not.toContain("whatsapp");
+  });
+
   it("does not auto-enable when enabled is explicitly false", () => {
     const { config } = applyPluginAutoEnable(
       makeParams({

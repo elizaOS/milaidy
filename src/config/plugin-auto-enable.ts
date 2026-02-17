@@ -151,14 +151,21 @@ function isConnectorConfigured(
     case "whatsapp":
       // authState/sessionPath: legacy field names
       // authDir: Baileys multi-file auth state directory (WhatsAppAccountSchema)
-      // accounts: at least one account configured
+      // accounts: at least one account with authDir set and not explicitly disabled
       return Boolean(
         config.authState ||
           config.sessionPath ||
           config.authDir ||
           (config.accounts &&
             typeof config.accounts === "object" &&
-            Object.keys(config.accounts as object).length > 0),
+            Object.values(config.accounts as Record<string, unknown>).some(
+              (account) => {
+                if (!account || typeof account !== "object") return false;
+                const acc = account as Record<string, unknown>;
+                if (acc.enabled === false) return false;
+                return Boolean(acc.authDir);
+              },
+            )),
       );
     default:
       return false;
