@@ -92,6 +92,7 @@ import {
   sendJsonError,
 } from "./http-helpers";
 import { handleKnowledgeRoutes } from "./knowledge-routes";
+import { handleModelsRoutes } from "./models-routes";
 import { handlePermissionRoutes } from "./permissions-routes";
 import {
   type PluginParamInfo,
@@ -190,8 +191,6 @@ interface ConversationMeta {
   createdAt: string;
   updatedAt: string;
 }
-
-type ChatMode = "simple" | "power";
 
 interface ServerState {
   runtime: AgentRuntime | null;
@@ -2144,7 +2143,7 @@ async function persistAssistantConversationMemory(
   runtime: AgentRuntime,
   roomId: UUID,
   text: string,
-  mode: ChatMode,
+  channelType: ChannelType,
   dedupeSinceMs?: number,
 ): Promise<void> {
   const trimmed = text.trim();
@@ -2168,13 +2167,30 @@ async function persistAssistantConversationMemory(
       roomId,
       content: {
         text: trimmed,
-        mode,
-        simple: mode === "simple",
         source: "client_chat",
-        channelType: ChannelType.DM,
+        channelType,
       },
     }),
   );
+}
+
+const VALID_CHANNEL_TYPES = new Set<string>(Object.values(ChannelType));
+
+function parseRequestChannelType(
+  value: unknown,
+  fallback: ChannelType = ChannelType.DM,
+): ChannelType | null {
+  if (value === undefined || value === null) {
+    return fallback;
+  }
+  if (typeof value !== "string") {
+    return null;
+  }
+  const normalized = value.trim().toUpperCase();
+  if (!VALID_CHANNEL_TYPES.has(normalized)) {
+    return null;
+  }
+  return normalized as ChannelType;
 }
 
 function parseBoundedLimit(rawLimit: string | null, fallback = 15): number {
@@ -4995,40 +5011,24 @@ async function handleRequest(
     return;
   }
 
-  // ── GET /api/models ─────────────────────────────────────────────────────
-  // Optional ?provider=openai to fetch a single provider, or all if omitted.
-  // ?refresh=true busts the cache for the requested provider(s).
-  if (method === "GET" && pathname === "/api/models") {
-    const force = url.searchParams.get("refresh") === "true";
-    const specificProvider = url.searchParams.get("provider");
-
-    if (specificProvider) {
-      if (force) {
-        try {
-          fs.unlinkSync(providerCachePath(specificProvider));
-        } catch {
-          /* ok */
-        }
-      }
-      const models = await getOrFetchProvider(specificProvider, force);
-      json(res, { provider: specificProvider, models });
-    } else {
-      if (force) {
-        // Bust all cache files
-        try {
-          const dir = resolveModelsCacheDir();
-          if (fs.existsSync(dir)) {
-            for (const f of fs.readdirSync(dir)) {
-              if (f.endsWith(".json")) fs.unlinkSync(path.join(dir, f));
-            }
-          }
-        } catch {
-          /* ok */
-        }
-      }
-      const all = await getOrFetchAllProviders(force);
-      json(res, { providers: all });
-    }
+  if (
+    await handleModelsRoutes({
+      req,
+      res,
+      method,
+      pathname,
+      url,
+      json,
+      providerCachePath,
+      getOrFetchProvider,
+      getOrFetchAllProviders,
+      resolveModelsCacheDir,
+      pathExists: fs.existsSync,
+      readDir: fs.readdirSync,
+      unlinkFile: fs.unlinkSync,
+      joinPath: path.join,
+    })
+  ) {
     return;
   }
 
@@ -8348,7 +8348,6 @@ async function handleRequest(
         ? safeBody.model.trim()
         : null;
 
-    const mode: ChatMode = "power";
     const prompt = extracted.system
       ? `${extracted.system}\n\n${extracted.user}`.trim()
       : extracted.user;
@@ -8422,10 +8421,8 @@ async function handleRequest(
             roomId,
             content: {
               text: prompt,
-              mode,
-              simple: false,
               source: "compat_openai",
-              channelType: ChannelType.DM,
+              channelType: ChannelType.API,
             },
           });
 
@@ -8502,10 +8499,8 @@ async function handleRequest(
           roomId,
           content: {
             text: prompt,
-            mode,
-            simple: false,
             source: "compat_openai",
-            channelType: ChannelType.DM,
+            channelType: ChannelType.API,
           },
         });
         const result = await generateChatResponse(
@@ -8594,7 +8589,6 @@ async function handleRequest(
         ? safeBody.model.trim()
         : null;
 
-    const mode: ChatMode = "power";
     const prompt = extracted.system
       ? `${extracted.system}\n\n${extracted.user}`.trim()
       : extracted.user;
@@ -8685,10 +8679,8 @@ async function handleRequest(
             roomId,
             content: {
               text: prompt,
-              mode,
-              simple: false,
               source: "compat_anthropic",
-              channelType: ChannelType.DM,
+              channelType: ChannelType.API,
             },
           });
 
@@ -8772,10 +8764,8 @@ async function handleRequest(
           roomId,
           content: {
             text: prompt,
-            mode,
-            simple: false,
             source: "compat_anthropic",
-            channelType: ChannelType.DM,
+            channelType: ChannelType.API,
           },
         });
         const result = await generateChatResponse(
@@ -8907,17 +8897,20 @@ async function handleRequest(
       return;
     }
 
-    const body = await readJsonBody<{ text?: string; mode?: string }>(req, res);
+    const body = await readJsonBody<{ text?: string; channelType?: string }>(
+      req,
+      res,
+    );
     if (!body) return;
     if (!body.text?.trim()) {
       error(res, "text is required");
       return;
     }
-    if (body.mode && body.mode !== "simple" && body.mode !== "power") {
-      error(res, "mode must be 'simple' or 'power'", 400);
+    const channelType = parseRequestChannelType(body.channelType, ChannelType.DM);
+    if (!channelType) {
+      error(res, "channelType is invalid", 400);
       return;
     }
-    const mode: ChatMode = body.mode === "simple" ? "simple" : "power";
     const prompt = body.text.trim();
 
     const runtime = state.runtime;
@@ -8946,10 +8939,8 @@ async function handleRequest(
       roomId: conv.roomId,
       content: {
         text: prompt,
-        mode,
-        simple: mode === "simple",
         source: "client_chat",
-        channelType: ChannelType.DM,
+        channelType,
       },
     });
 
@@ -8988,7 +8979,7 @@ async function handleRequest(
           runtime,
           conv.roomId,
           result.text,
-          mode,
+          channelType,
           turnStartedAt,
         );
         conv.updatedAt = new Date().toISOString();
@@ -9007,7 +8998,7 @@ async function handleRequest(
               runtime,
               conv.roomId,
               creditReply,
-              mode,
+              channelType,
             );
             conv.updatedAt = new Date().toISOString();
             writeSse(res, {
@@ -9045,17 +9036,20 @@ async function handleRequest(
       error(res, "Conversation not found", 404);
       return;
     }
-    const body = await readJsonBody<{ text?: string; mode?: string }>(req, res);
+    const body = await readJsonBody<{ text?: string; channelType?: string }>(
+      req,
+      res,
+    );
     if (!body) return;
     if (!body.text?.trim()) {
       error(res, "text is required");
       return;
     }
-    if (body.mode && body.mode !== "simple" && body.mode !== "power") {
-      error(res, "mode must be 'simple' or 'power'", 400);
+    const channelType = parseRequestChannelType(body.channelType, ChannelType.DM);
+    if (!channelType) {
+      error(res, "channelType is invalid", 400);
       return;
     }
-    const mode: ChatMode = body.mode === "simple" ? "simple" : "power";
     const runtime = state.runtime;
     if (!runtime) {
       error(res, "Agent is not running", 503);
@@ -9082,10 +9076,8 @@ async function handleRequest(
       roomId: conv.roomId,
       content: {
         text: prompt,
-        mode,
-        simple: mode === "simple",
         source: "client_chat",
-        channelType: ChannelType.DM,
+        channelType,
       },
     });
 
@@ -9111,7 +9103,7 @@ async function handleRequest(
         runtime,
         conv.roomId,
         result.text,
-        mode,
+        channelType,
         turnStartedAt,
       );
       conv.updatedAt = new Date().toISOString();
@@ -9130,7 +9122,7 @@ async function handleRequest(
             runtime,
             conv.roomId,
             creditReply,
-            mode,
+            channelType,
           );
           conv.updatedAt = new Date().toISOString();
           json(res, {
@@ -9263,17 +9255,20 @@ async function handleRequest(
 
   // ── POST /api/chat/stream ────────────────────────────────────────────
   if (method === "POST" && pathname === "/api/chat/stream") {
-    const body = await readJsonBody<{ text?: string; mode?: string }>(req, res);
+    const body = await readJsonBody<{ text?: string; channelType?: string }>(
+      req,
+      res,
+    );
     if (!body) return;
     if (!body.text?.trim()) {
       error(res, "text is required");
       return;
     }
-    if (body.mode && body.mode !== "simple" && body.mode !== "power") {
-      error(res, "mode must be 'simple' or 'power'", 400);
+    const channelType = parseRequestChannelType(body.channelType, ChannelType.DM);
+    if (!channelType) {
+      error(res, "channelType is invalid", 400);
       return;
     }
-    const mode: ChatMode = body.mode === "simple" ? "simple" : "power";
     const prompt = body.text.trim();
 
     // Cloud proxy path
@@ -9305,10 +9300,8 @@ async function handleRequest(
         roomId: chatRoomId,
         content: {
           text: prompt,
-          mode,
-          simple: mode === "simple",
           source: "client_chat",
-          channelType: ChannelType.DM,
+          channelType,
         },
       });
 
@@ -9364,17 +9357,20 @@ async function handleRequest(
   // remote sandbox instead of the local runtime.  Supports SSE streaming
   // when the client sends Accept: text/event-stream.
   if (method === "POST" && pathname === "/api/chat") {
-    const body = await readJsonBody<{ text?: string; mode?: string }>(req, res);
+    const body = await readJsonBody<{ text?: string; channelType?: string }>(
+      req,
+      res,
+    );
     if (!body) return;
     if (!body.text?.trim()) {
       error(res, "text is required");
       return;
     }
-    if (body.mode && body.mode !== "simple" && body.mode !== "power") {
-      error(res, "mode must be 'simple' or 'power'", 400);
+    const channelType = parseRequestChannelType(body.channelType, ChannelType.DM);
+    if (!channelType) {
+      error(res, "channelType is invalid", 400);
       return;
     }
-    const mode: ChatMode = body.mode === "simple" ? "simple" : "power";
     const prompt = body.text.trim();
 
     if (!state.runtime) {
@@ -9398,10 +9394,8 @@ async function handleRequest(
         roomId: chatRoomId,
         content: {
           text: prompt,
-          mode,
-          simple: mode === "simple",
           source: "client_chat",
-          channelType: ChannelType.DM,
+          channelType,
         },
       });
 
@@ -11582,7 +11576,7 @@ export async function startApiServer(opts?: {
       detachTrainingStream = null;
     }
     if (!state.trainingService) return;
-    detachTrainingStream = state.trainingService.subscribe((event) => {
+    detachTrainingStream = state.trainingService.subscribe((event: unknown) => {
       pushEvent({
         type: "training_event",
         ts: Date.now(),
