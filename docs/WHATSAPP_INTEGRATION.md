@@ -1,6 +1,6 @@
 # WhatsApp Connector Integration Guide
 
-This guide explains how to use the WhatsApp connector in Milaidy with Baileys (QR code) authentication.
+This guide explains how to use the WhatsApp connector in Milady with Baileys (QR code) authentication.
 
 ## Overview
 
@@ -33,7 +33,7 @@ Add the WhatsApp connector to your character configuration file. Each account is
 }
 ```
 
-### 2. Start Milaidy
+### 2. Start Milady
 
 ```bash
 npm start -- --character=./whatsapp-test.character.json
@@ -41,7 +41,7 @@ npm start -- --character=./whatsapp-test.character.json
 
 ### 3. Scan QR Code
 
-When Milaidy starts, a QR code will appear in your terminal:
+When Milady starts, a QR code will appear in your terminal:
 
 1. Open WhatsApp on your phone
 2. Go to **Settings** > **Linked Devices**
@@ -106,7 +106,7 @@ Baileys saves session state to `authDir`. This includes credentials, encryption 
 
 ## Reconnection
 
-Milaidy automatically reconnects using saved session files on restart. A new QR code is only needed if:
+Milady automatically reconnects using saved session files on restart. A new QR code is only needed if:
 - The session files are deleted
 - Your phone revokes the linked device
 - The session expires
@@ -119,7 +119,7 @@ If the WhatsApp plugin does not start, ensure your config has at least one accou
 
 ### QR Code Expires
 
-QR codes have a short TTL. Milaidy automatically generates a new one if the previous expires. Ensure your phone has internet access when scanning.
+QR codes have a short TTL. Milady automatically generates a new one if the previous expires. Ensure your phone has internet access when scanning.
 
 ### Session Expired
 
