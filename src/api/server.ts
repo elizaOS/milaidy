@@ -16,6 +16,7 @@ import {
   type AgentRuntime,
   ChannelType,
   type Content,
+  ContentType,
   createMessageMemory,
   logger,
   ModelType,
@@ -2223,6 +2224,13 @@ function parseRequestChannelType(
   return normalized as ChannelType;
 }
 
+interface ChatImageAttachment {
+  /** Base64-encoded image data (no data URL prefix). */
+  data: string;
+  mimeType: string;
+  name: string;
+}
+
 async function readChatRequestPayload(
   req: http.IncomingMessage,
   res: http.ServerResponse,
@@ -2234,10 +2242,11 @@ async function readChatRequestPayload(
     ) => Promise<T | null>;
     error: (res: http.ServerResponse, message: string, status?: number) => void;
   },
-): Promise<{ prompt: string; channelType: ChannelType } | null> {
+): Promise<{ prompt: string; channelType: ChannelType; images?: ChatImageAttachment[] } | null> {
   const body = await helpers.readJsonBody<{
     text?: string;
     channelType?: string;
+    images?: ChatImageAttachment[];
   }>(req, res);
   if (!body) return null;
   if (!body.text?.trim()) {
@@ -2249,9 +2258,11 @@ async function readChatRequestPayload(
     helpers.error(res, "channelType is invalid", 400);
     return null;
   }
+  const images = Array.isArray(body.images) ? body.images : undefined;
   return {
     prompt: body.text.trim(),
     channelType,
+    images,
   };
 }
 
@@ -8964,7 +8975,7 @@ async function handleRequest(
       error,
     });
     if (!chatPayload) return;
-    const { prompt, channelType } = chatPayload;
+    const { prompt, channelType, images } = chatPayload;
 
     const runtime = state.runtime;
     if (!runtime) {
@@ -8986,6 +8997,16 @@ async function handleRequest(
       return;
     }
 
+    const attachments = images?.map((img, i) => ({
+      id: `img-${i}`,
+      url: `data:${img.mimeType};base64,${img.data}`,
+      title: img.name,
+      source: "client_chat",
+      description: img.name,
+      text: "",
+      contentType: ContentType.IMAGE,
+    }));
+
     const userMessage = createMessageMemory({
       id: crypto.randomUUID() as UUID,
       entityId: userId,
@@ -8994,6 +9015,7 @@ async function handleRequest(
         text: prompt,
         source: "client_chat",
         channelType,
+        ...(attachments?.length ? { attachments } : {}),
       },
     });
 
@@ -9112,7 +9134,7 @@ async function handleRequest(
       error,
     });
     if (!chatPayload) return;
-    const { prompt, channelType } = chatPayload;
+    const { prompt, channelType, images } = chatPayload;
     const runtime = state.runtime;
     if (!runtime) {
       error(res, "Agent is not running", 503);
@@ -9132,6 +9154,16 @@ async function handleRequest(
       return;
     }
 
+    const msgAttachments = images?.map((img, i) => ({
+      id: `img-${i}`,
+      url: `data:${img.mimeType};base64,${img.data}`,
+      title: img.name,
+      source: "client_chat",
+      description: img.name,
+      text: "",
+      contentType: ContentType.IMAGE,
+    }));
+
     const userMessage = createMessageMemory({
       id: crypto.randomUUID() as UUID,
       entityId: userId,
@@ -9140,6 +9172,7 @@ async function handleRequest(
         text: prompt,
         source: "client_chat",
         channelType,
+        ...(msgAttachments?.length ? { attachments: msgAttachments } : {}),
       },
     });
 

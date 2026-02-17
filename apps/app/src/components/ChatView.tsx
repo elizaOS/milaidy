@@ -7,6 +7,8 @@
  */
 
 import {
+  type ChangeEvent,
+  type DragEvent,
   type KeyboardEvent,
   useCallback,
   useEffect,
@@ -14,7 +16,7 @@ import {
   useState,
 } from "react";
 import { getVrmPreviewUrl, useApp } from "../AppContext";
-import { client, type VoiceConfig } from "../api-client";
+import { client, type ImageAttachment, type VoiceConfig } from "../api-client";
 import {
   useVoiceChat,
   type VoicePlaybackStartEvent,
@@ -46,10 +48,14 @@ export function ChatView() {
     shareIngestNotice,
     chatAgentVoiceMuted: agentVoiceMuted,
     selectedVrmIndex,
+    chatPendingImages,
+    setChatPendingImages,
   } = useApp();
 
   const messagesRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [imageDragOver, setImageDragOver] = useState(false);
 
   // ── Voice config (ElevenLabs / browser TTS) ────────────────────────
   const [voiceConfig, setVoiceConfig] = useState<VoiceConfig | null>(null);
@@ -267,8 +273,70 @@ export function ChatView() {
     }
   };
 
+  const addImageFiles = useCallback(
+    (files: FileList | File[]) => {
+      const imageFiles = Array.from(files).filter((f) =>
+        f.type.startsWith("image/"),
+      );
+      if (!imageFiles.length) return;
+
+      const readers = imageFiles.map(
+        (file) =>
+          new Promise<ImageAttachment>((resolve) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+              const result = reader.result as string;
+              // result is "data:<mime>;base64,<data>" — strip the prefix
+              const commaIdx = result.indexOf(",");
+              const data = commaIdx >= 0 ? result.slice(commaIdx + 1) : result;
+              resolve({ data, mimeType: file.type, name: file.name });
+            };
+            reader.readAsDataURL(file);
+          }),
+      );
+
+      void Promise.all(readers).then((attachments) => {
+        setChatPendingImages([...chatPendingImages, ...attachments]);
+      });
+    },
+    [chatPendingImages, setChatPendingImages],
+  );
+
+  const handleImageDrop = useCallback(
+    (e: DragEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      setImageDragOver(false);
+      if (e.dataTransfer.files.length) {
+        addImageFiles(e.dataTransfer.files);
+      }
+    },
+    [addImageFiles],
+  );
+
+  const handleFileInputChange = useCallback(
+    (e: ChangeEvent<HTMLInputElement>) => {
+      if (e.target.files) {
+        addImageFiles(e.target.files);
+      }
+      e.target.value = "";
+    },
+    [addImageFiles],
+  );
+
+  const removeImage = useCallback(
+    (index: number) => {
+      setChatPendingImages(chatPendingImages.filter((_, i) => i !== index));
+    },
+    [chatPendingImages, setChatPendingImages],
+  );
+
   return (
-    <div className="flex flex-col flex-1 min-h-0 px-2 sm:px-3 relative">
+    <div
+      className={`flex flex-col flex-1 min-h-0 px-2 sm:px-3 relative${imageDragOver ? " ring-2 ring-accent ring-inset" : ""}`}
+      onDragOver={(e) => { e.preventDefault(); setImageDragOver(true); }}
+      onDragLeave={() => setImageDragOver(false)}
+      onDrop={handleImageDrop}
+    >
       {/* ── Messages ───────────────────────────────────────────────── */}
       <div
         ref={messagesRef}
@@ -383,6 +451,32 @@ export function ChatView() {
         </div>
       )}
 
+      {/* Pending image thumbnails */}
+      {chatPendingImages.length > 0 && (
+        <div
+          className="flex gap-2 flex-wrap py-1 relative"
+          style={{ zIndex: 1 }}
+        >
+          {chatPendingImages.map((img, i) => (
+            <div key={`${img.name}-${i}`} className="relative group w-16 h-16 shrink-0">
+              <img
+                src={`data:${img.mimeType};base64,${img.data}`}
+                alt={img.name}
+                className="w-16 h-16 object-cover border border-border rounded"
+              />
+              <button
+                type="button"
+                title="Remove image"
+                onClick={() => removeImage(i)}
+                className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-danger text-white text-[10px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+              >
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
       {voiceLatency && (
         <div
           className="pb-1 text-[10px] text-muted relative"
@@ -399,11 +493,37 @@ export function ChatView() {
         </div>
       )}
 
-      {/* ── Input row: mic + textarea + send ───────────────────────── */}
+      {/* ── Input row: mic + paperclip + textarea + send ───────────── */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        multiple
+        className="hidden"
+        onChange={handleFileInputChange}
+      />
       <div
         className="flex gap-1.5 sm:gap-2 items-end border-t border-border pt-3 pb-3 sm:pb-4 relative"
         style={{ zIndex: 1 }}
       >
+        {/* Paperclip / image attach button */}
+        <button
+          type="button"
+          className={`h-[38px] w-[38px] shrink-0 flex items-center justify-center border rounded cursor-pointer transition-all self-end ${
+            chatPendingImages.length > 0
+              ? "border-accent bg-accent/10 text-accent"
+              : "border-border bg-card text-muted hover:border-accent hover:text-accent"
+          }`}
+          onClick={() => fileInputRef.current?.click()}
+          title="Attach image"
+          disabled={chatSending}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <title>Attach image</title>
+            <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+          </svg>
+        </button>
+
         {/* Mic button — user voice input */}
         {voice.supported && (
           <button
