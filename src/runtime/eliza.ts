@@ -1203,11 +1203,11 @@ export function buildCharacterFromConfig(config: MilaidyConfig): Character {
       messageHandlerTemplate: MILAIDY_MESSAGE_HANDLER_TEMPLATE,
     },
     settings: {
-      // Raise the action filter threshold so all registered actions stay
-      // visible to the LLM.  With ~25 actions the default threshold of 15
-      // causes ActionFilterService to drop relevant actions.  Our custom
-      // messageHandlerTemplate already provides explicit selection guidance.
-      ACTION_FILTER_THRESHOLD: "50",
+      // Bypass the BM25 action filter entirely.  With ~52 actions the default
+      // threshold of 15 causes ActionFilterService to silently drop relevant
+      // actions.  At this scale, sending all validated actions to the LLM is
+      // fine — our custom messageHandlerTemplate provides routing guidance.
+      ACTION_FILTER_THRESHOLD: "100",
     },
   });
 }
@@ -2100,9 +2100,16 @@ export async function startEliza(
   await runtime.initialize();
 
   // 8b. Enrich action descriptions now that all plugins have registered their
-  //     actions.  This must happen AFTER initialize() so the ActionFilterService
-  //     BM25 index reflects the enriched text.
+  //     actions.  Then rebuild the ActionFilterService index so the BM25 scores
+  //     reflect the enriched text (buildIndex() ran during initialize() with
+  //     the original descriptions).
   enrichActionDescriptions(runtime);
+  const actionFilter = runtime.getService("action_filter") as
+    | { buildIndex(rt: typeof runtime): Promise<void> }
+    | undefined;
+  if (actionFilter?.buildIndex) {
+    await actionFilter.buildIndex(runtime);
+  }
 
   // 9. Graceful shutdown handler
   //

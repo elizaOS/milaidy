@@ -66,27 +66,43 @@ export function clearActionLog(): void {
  * guidance in the prompt.
  */
 const ACTION_DESCRIPTION_ENRICHMENTS: Record<string, string> = {
+  // Task management
   CREATE_TASK:
-    "Create, add, or make a new task, todo, or reminder. " +
-    "Use when the user asks to create a task, add a todo, make a reminder, " +
-    "or track something that needs to be done.",
+    "Create a new task, todo item, or reminder to track work that needs to be done.",
   CREATE_TODO:
-    "Create, add, or make a new todo item, task, or reminder. " +
-    "Use when the user asks to create a todo, add a task, make a reminder, " +
-    "or track something that needs to be done.",
+    "Create a new todo item, task, or reminder to track work that needs to be done.",
+
+  // Shell / commands
   EXECUTE_COMMAND:
-    "Run, execute, or invoke a shell command, terminal command, or script. " +
-    "Use when the user asks to run a command, execute code, install via npm/brew/apt, " +
-    "list files, or perform any shell operation.",
+    "Execute a shell command, terminal command, or script in the system shell.",
+
+  // Skill management
   INSTALL_SKILL:
-    "Install, add, set up, download, or enable a new skill, plugin, or extension. " +
-    "Use when the user asks to install, add, get, or set up any plugin or skill.",
+    "Install or add a skill or plugin by name from the catalog.",
   SEARCH_SKILLS:
-    "Search, find, browse, list, or discover available skills and plugins. " +
-    "Use when the user asks to search for, find, list, show, or browse plugins or skills. " +
-    "This is the correct action for 'list skills', 'list available plugins', 'show skills', " +
-    "or any request about discovering/browsing the skill catalog. " +
-    "Do NOT use EXECUTE_COMMAND for listing skills — use SEARCH_SKILLS instead.",
+    "Search, browse, or list available skills and plugins in the catalog.",
+  GET_SKILL_DETAILS:
+    "Get information, description, and stats about a specific installed skill by name.",
+  GET_SKILL_GUIDANCE:
+    "Explain how to use or configure a specific skill, including setup steps and options.",
+  TOGGLE_SKILL:
+    "Enable or disable an installed skill by name. Turn a skill on or off.",
+  UNINSTALL_SKILL:
+    "Remove or uninstall a skill or plugin that is currently installed.",
+
+  // File operations (plugin-code)
+  EDIT_FILE:
+    "Edit a file by replacing or modifying specific lines or text content within it.",
+  GIT:
+    "Run a git operation such as status, diff, log, commit, branch, merge, or checkout.",
+  READ_FILE:
+    "Read and display the contents of a specific file by path.",
+  WRITE_FILE:
+    "Create or overwrite a file with new content at a specified path.",
+  SEARCH_FILES:
+    "Search for files containing specific text, patterns, or keywords across the project.",
+  LIST_FILES:
+    "List files and directories at a given path to see what exists.",
 };
 
 /**
