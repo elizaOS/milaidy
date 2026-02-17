@@ -42,12 +42,6 @@ import {
   registerCustomActionLive,
 } from "../runtime/custom-actions";
 
-import {
-  AgentExportError,
-  estimateExportSize,
-  exportAgent,
-  importAgent,
-} from "../services/agent-export";
 import { AppManager } from "../services/app-manager";
 import {
   getMcpServerDetails,
@@ -67,7 +61,7 @@ import {
   searchSkillsMarketplace,
   uninstallMarketplaceSkill,
 } from "../services/skill-marketplace";
-import { TrainingService } from "../services/training-service";
+import { TrainingService } from "@elizaos/plugin-training";
 import {
   listTriggerTasks,
   readTriggerConfig,
@@ -75,6 +69,7 @@ import {
 } from "../triggers/runtime";
 import { parseClampedInteger } from "../utils/number-parsing";
 import { handleAgentLifecycleRoutes } from "./agent-lifecycle-routes";
+import { handleAgentTransferRoutes } from "./agent-transfer-routes";
 import { handleAuthRoutes } from "./auth-routes";
 import { getAutonomyState, handleAutonomyRoutes } from "./autonomy-routes";
 import { handleCharacterRoutes } from "./character-routes";
@@ -92,7 +87,6 @@ import {
   readJsonBody as parseJsonBody,
   type ReadJsonBodyOptions,
   readRequestBody,
-  readRequestBodyBuffer,
   sendJson,
   sendJsonError,
 } from "./http-helpers";
@@ -202,13 +196,13 @@ interface ServerState {
   runtime: AgentRuntime | null;
   config: MiladyConfig;
   agentState:
-    | "not_started"
-    | "starting"
-    | "running"
-    | "paused"
-    | "stopped"
-    | "restarting"
-    | "error";
+  | "not_started"
+  | "starting"
+  | "running"
+  | "paused"
+  | "stopped"
+  | "restarting"
+  | "error";
   agentName: string;
   model: string | undefined;
   startedAt: number | undefined;
@@ -384,13 +378,13 @@ type ResponseBlock =
   | { type: "text"; text: string }
   | { type: "ui-spec"; spec: Record<string, unknown>; raw: string }
   | {
-      type: "config-form";
-      pluginId: string;
-      pluginName?: string;
-      schema: Record<string, unknown>;
-      hints?: Record<string, unknown>;
-      values?: Record<string, unknown>;
-    };
+    type: "config-form";
+    pluginId: string;
+    pluginName?: string;
+    schema: Record<string, unknown>;
+    hints?: Record<string, unknown>;
+    values?: Record<string, unknown>;
+  };
 
 /** Regex matching fenced JSON code blocks: ```json ... ``` or ``` ... ``` */
 const FENCED_JSON_RE_SERVER = /```(?:json)?\s*\n([\s\S]*?)```/g;
@@ -1080,10 +1074,10 @@ function discoverPluginsFromManifest(): PluginEntry[] {
             : filteredConfigKeys.length === 0;
           const filteredParams = p.pluginParameters
             ? Object.fromEntries(
-                Object.entries(p.pluginParameters).filter(
-                  ([k]) => !HIDDEN_KEYS.has(k),
-                ),
-              )
+              Object.entries(p.pluginParameters).filter(
+                ([k]) => !HIDDEN_KEYS.has(k),
+              ),
+            )
             : undefined;
           const parameters = filteredParams
             ? buildParamDefs(filteredParams)
@@ -1407,17 +1401,17 @@ async function discoverSkills(
       // eslint-disable-next-line -- runtime service is loosely typed; cast via unknown
       const svc = service as unknown as
         | {
-            getLoadedSkills?: () => Array<{
-              slug: string;
-              name: string;
-              description: string;
-              source: string;
-              path: string;
-            }>;
-            getSkillScanStatus?: (
-              slug: string,
-            ) => "clean" | "warning" | "critical" | "blocked" | null;
-          }
+          getLoadedSkills?: () => Array<{
+            slug: string;
+            name: string;
+            description: string;
+            source: string;
+            path: string;
+          }>;
+          getSkillScanStatus?: (
+            slug: string,
+          ) => "clean" | "warning" | "critical" | "blocked" | null;
+        }
         | undefined;
       if (svc && typeof svc.getLoadedSkills === "function") {
         const loadedSkills = svc.getLoadedSkills();
@@ -1600,29 +1594,6 @@ function scanSkillsDir(
 
 /** Maximum request body size (1 MB) — prevents memory-based DoS. */
 const MAX_BODY_BYTES = 1_048_576;
-const MAX_IMPORT_BYTES = 512 * 1_048_576; // 512 MB for agent imports
-const AGENT_TRANSFER_MIN_PASSWORD_LENGTH = 4;
-const AGENT_TRANSFER_MAX_PASSWORD_LENGTH = 1024;
-
-/**
- * Read raw binary request body with a configurable size limit.
- * Used for agent import file uploads.
- */
-function readRawBody(
-  req: http.IncomingMessage,
-  maxBytes: number,
-): Promise<Buffer> {
-  return readRequestBodyBuffer(req, { maxBytes }).then(
-    (body: Buffer | null) => {
-      if (body === null) {
-        throw new Error(
-          `Request body exceeds maximum size (${maxBytes} bytes)`,
-        );
-      }
-      return body;
-    },
-  );
-}
 
 /**
  * Read and parse a JSON request body with size limits and error handling.
@@ -1930,7 +1901,7 @@ async function fetchCloudCreditsByApiKey(
     typeof creditResponse.balance === "number"
       ? creditResponse.balance
       : typeof (creditResponse.data as Record<string, unknown>)?.balance ===
-          "number"
+        "number"
         ? ((creditResponse.data as Record<string, unknown>).balance as number)
         : undefined;
   return typeof rawBalance === "number" ? rawBalance : null;
@@ -1981,7 +1952,7 @@ async function generateChatResponse(
   let streamedViaOnChunk = false;
   const messageSource =
     typeof message.content.source === "string" &&
-    message.content.source.trim().length > 0
+      message.content.source.trim().length > 0
       ? message.content.source
       : "api";
   const emitChunk = (chunk: string): void => {
@@ -2016,8 +1987,8 @@ async function generateChatResponse(
 
   let result:
     | Awaited<
-        ReturnType<NonNullable<AgentRuntime["messageService"]>["handleMessage"]>
-      >
+      ReturnType<NonNullable<AgentRuntime["messageService"]>["handleMessage"]>
+    >
     | undefined;
   let _handlerError: unknown = null;
   try {
@@ -2037,13 +2008,13 @@ async function generateChatResponse(
       {
         onStreamChunk: opts?.onChunk
           ? async (chunk: string) => {
-              if (opts?.isAborted?.()) {
-                throw new Error("client_disconnected");
-              }
-              if (!chunk) return;
-              streamedViaOnChunk = true;
-              emitChunk(chunk);
+            if (opts?.isAborted?.()) {
+              throw new Error("client_disconnected");
             }
+            if (!chunk) return;
+            streamedViaOnChunk = true;
+            emitChunk(chunk);
+          }
           : undefined,
       },
     );
@@ -3581,11 +3552,11 @@ function rejectWebSocketUpgrade(
   const body = `${message}\n`;
   socket.write(
     `HTTP/1.1 ${statusCode} ${statusText}\r\n` +
-      "Connection: close\r\n" +
-      "Content-Type: text/plain; charset=utf-8\r\n" +
-      `Content-Length: ${Buffer.byteLength(body)}\r\n` +
-      "\r\n" +
-      body,
+    "Connection: close\r\n" +
+    "Content-Type: text/plain; charset=utf-8\r\n" +
+    `Content-Length: ${Buffer.byteLength(body)}\r\n` +
+    "\r\n" +
+    body,
   );
   socket.destroy();
 }
@@ -5071,160 +5042,18 @@ async function handleRequest(
     return;
   }
 
-  // ── POST /api/agent/export ─────────────────────────────────────────────
-  // Export the entire agent as a password-encrypted binary file.
-  if (method === "POST" && pathname === "/api/agent/export") {
-    if (!state.runtime) {
-      error(res, "Agent is not running — start it before exporting.", 503);
-      return;
-    }
-
-    const body = await readJsonBody<{
-      password?: string;
-      includeLogs?: boolean;
-    }>(req, res);
-    if (!body) return;
-
-    if (!body.password || typeof body.password !== "string") {
-      error(
-        res,
-        `A password of at least ${AGENT_TRANSFER_MIN_PASSWORD_LENGTH} characters is required.`,
-        400,
-      );
-      return;
-    }
-
-    if (body.password.length < AGENT_TRANSFER_MIN_PASSWORD_LENGTH) {
-      error(
-        res,
-        `A password of at least ${AGENT_TRANSFER_MIN_PASSWORD_LENGTH} characters is required.`,
-        400,
-      );
-      return;
-    }
-
-    try {
-      const fileBuffer = await exportAgent(state.runtime, body.password, {
-        includeLogs: body.includeLogs === true,
-      });
-
-      const agentName = (state.runtime.character.name ?? "agent")
-        .replace(/[^a-zA-Z0-9_-]/g, "_")
-        .toLowerCase();
-      const timestamp = new Date()
-        .toISOString()
-        .replace(/[:.]/g, "-")
-        .slice(0, 19);
-      const filename = `${agentName}-${timestamp}.eliza-agent`;
-
-      res.statusCode = 200;
-      res.setHeader("Content-Type", "application/octet-stream");
-      res.setHeader(
-        "Content-Disposition",
-        `attachment; filename="${filename}"`,
-      );
-      res.setHeader("Content-Length", fileBuffer.length);
-      res.end(fileBuffer);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      if (err instanceof AgentExportError) {
-        error(res, msg, 400);
-      } else {
-        error(res, `Export failed: ${msg}`, 500);
-      }
-    }
-    return;
-  }
-
-  // ── GET /api/agent/export/estimate ─────────────────────────────────────────
-  // Get an estimate of the export size before downloading.
-  if (method === "GET" && pathname === "/api/agent/export/estimate") {
-    if (!state.runtime) {
-      error(res, "Agent is not running.", 503);
-      return;
-    }
-
-    try {
-      const estimate = await estimateExportSize(state.runtime);
-      json(res, estimate);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      error(res, `Estimate failed: ${msg}`, 500);
-    }
-    return;
-  }
-
-  // ── POST /api/agent/import ─────────────────────────────────────────────
-  // Import an agent from a password-encrypted .eliza-agent file.
-  if (method === "POST" && pathname === "/api/agent/import") {
-    if (!state.runtime) {
-      error(res, "Agent is not running — start it before importing.", 503);
-      return;
-    }
-
-    let rawBody: Buffer;
-    try {
-      rawBody = await readRawBody(req, MAX_IMPORT_BYTES);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      error(res, msg, 413);
-      return;
-    }
-
-    if (rawBody.length < 5) {
-      error(
-        res,
-        "Request body is too small — expected password + file data.",
-        400,
-      );
-      return;
-    }
-
-    // Parse binary envelope: [4 bytes password length][password][file data]
-    const passwordLength = rawBody.readUInt32BE(0);
-    if (passwordLength < AGENT_TRANSFER_MIN_PASSWORD_LENGTH) {
-      error(
-        res,
-        `Password must be at least ${AGENT_TRANSFER_MIN_PASSWORD_LENGTH} characters.`,
-        400,
-      );
-      return;
-    }
-    if (passwordLength > AGENT_TRANSFER_MAX_PASSWORD_LENGTH) {
-      error(
-        res,
-        `Password is too long (max ${AGENT_TRANSFER_MAX_PASSWORD_LENGTH} bytes).`,
-        400,
-      );
-      return;
-    }
-    if (rawBody.length < 4 + passwordLength + 1) {
-      error(
-        res,
-        "Request body is incomplete — missing file data after password.",
-        400,
-      );
-      return;
-    }
-
-    const password = rawBody.subarray(4, 4 + passwordLength).toString("utf-8");
-    const fileBuffer = rawBody.subarray(4 + passwordLength);
-
-    try {
-      const result = await importAgent(
-        state.runtime,
-        fileBuffer as Buffer,
-        password,
-      );
-      json(res, result);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      if (err instanceof AgentExportError) {
-        error(res, msg, 400);
-      } else {
-        error(res, `Import failed: ${msg}`, 500);
-      }
-    }
+  if (
+    await handleAgentTransferRoutes({
+      req,
+      res,
+      method,
+      pathname,
+      state,
+      readJsonBody,
+      json,
+      error,
+    })
+  ) {
     return;
   }
 
@@ -6177,8 +6006,8 @@ async function handleRequest(
         try {
           const svc = state.runtime.getService("AGENT_SKILLS_SERVICE") as
             | {
-                getLoadedSkills?: () => Array<{ slug: string; source: string }>;
-              }
+              getLoadedSkills?: () => Array<{ slug: string; source: string }>;
+            }
             | undefined;
           if (svc && typeof svc.getLoadedSkills === "function") {
             for (const s of svc.getLoadedSkills()) {
@@ -6312,12 +6141,12 @@ async function handleRequest(
     try {
       const service = state.runtime.getService("AGENT_SKILLS_SERVICE") as
         | {
-            install?: (
-              slug: string,
-              opts?: { version?: string; force?: boolean },
-            ) => Promise<boolean>;
-            isInstalled?: (slug: string) => Promise<boolean>;
-          }
+          install?: (
+            slug: string,
+            opts?: { version?: string; force?: boolean },
+          ) => Promise<boolean>;
+          isInstalled?: (slug: string) => Promise<boolean>;
+        }
         | undefined;
 
       if (!service || typeof service.install !== "function") {
@@ -6394,8 +6223,8 @@ async function handleRequest(
     try {
       const service = state.runtime.getService("AGENT_SKILLS_SERVICE") as
         | {
-            uninstall?: (slug: string) => Promise<boolean>;
-          }
+          uninstall?: (slug: string) => Promise<boolean>;
+        }
         | undefined;
 
       if (!service || typeof service.uninstall !== "function") {
@@ -6656,12 +6485,12 @@ async function handleRequest(
       try {
         const svc = state.runtime.getService("AGENT_SKILLS_SERVICE") as
           | {
-              getLoadedSkills?: () => Array<{
-                slug: string;
-                path: string;
-                source: string;
-              }>;
-            }
+            getLoadedSkills?: () => Array<{
+              slug: string;
+              path: string;
+              source: string;
+            }>;
+          }
           | undefined;
         if (svc?.getLoadedSkills) {
           const loaded = svc.getLoadedSkills().find((s) => s.slug === skillId);
@@ -6738,12 +6567,12 @@ async function handleRequest(
       try {
         const svc = state.runtime.getService("AGENT_SKILLS_SERVICE") as
           | {
-              getLoadedSkills?: () => Array<{
-                slug: string;
-                path: string;
-                source: string;
-              }>;
-            }
+            getLoadedSkills?: () => Array<{
+              slug: string;
+              path: string;
+              source: string;
+            }>;
+          }
           | undefined;
         if (svc?.getLoadedSkills) {
           const loaded = svc.getLoadedSkills().find((s) => s.slug === skillId);
@@ -6833,12 +6662,12 @@ async function handleRequest(
       try {
         const svc = state.runtime.getService("AGENT_SKILLS_SERVICE") as
           | {
-              getLoadedSkills?: () => Array<{
-                slug: string;
-                path: string;
-                source: string;
-              }>;
-            }
+            getLoadedSkills?: () => Array<{
+              slug: string;
+              path: string;
+              source: string;
+            }>;
+          }
           | undefined;
         if (svc?.getLoadedSkills) {
           const loaded = svc.getLoadedSkills().find((s) => s.slug === skillId);
@@ -7047,12 +6876,12 @@ async function handleRequest(
 
         const service = state.runtime.getService("AGENT_SKILLS_SERVICE") as
           | {
-              install?: (
-                skillSlug: string,
-                opts?: { version?: string; force?: boolean },
-              ) => Promise<boolean>;
-              isInstalled?: (skillSlug: string) => Promise<boolean>;
-            }
+            install?: (
+              skillSlug: string,
+              opts?: { version?: string; force?: boolean },
+            ) => Promise<boolean>;
+            isInstalled?: (skillSlug: string) => Promise<boolean>;
+          }
           | undefined;
 
         if (!service || typeof service.install !== "function") {
@@ -8013,8 +7842,8 @@ async function handleRequest(
     const messages =
       state.config && typeof state.config === "object"
         ? ((state.config as Record<string, unknown>).messages as
-            | Record<string, unknown>
-            | undefined)
+          | Record<string, unknown>
+          | undefined)
         : undefined;
     const tts =
       messages && typeof messages === "object"
@@ -8066,8 +7895,8 @@ async function handleRequest(
 
     const requestedVoiceSettings =
       body.voice_settings &&
-      typeof body.voice_settings === "object" &&
-      !Array.isArray(body.voice_settings)
+        typeof body.voice_settings === "object" &&
+        !Array.isArray(body.voice_settings)
         ? body.voice_settings
         : undefined;
 
@@ -8094,7 +7923,7 @@ async function handleRequest(
       model_id: modelId,
       apply_text_normalization:
         body.apply_text_normalization === "on" ||
-        body.apply_text_normalization === "off"
+          body.apply_text_normalization === "off"
           ? body.apply_text_normalization
           : "auto",
     };
@@ -9731,10 +9560,10 @@ async function handleRequest(
     const rt = state.runtime;
     const cloudAuth = rt
       ? (rt.getService("CLOUD_AUTH") as {
-          isAuthenticated: () => boolean;
-          getUserId: () => string | undefined;
-          getOrganizationId: () => string | undefined;
-        } | null)
+        isAuthenticated: () => boolean;
+        getUserId: () => string | undefined;
+        getOrganizationId: () => string | undefined;
+      } | null)
       : null;
     const authConnected = Boolean(cloudAuth?.isAuthenticated());
 
@@ -9781,9 +9610,9 @@ async function handleRequest(
     const rt = state.runtime;
     const cloudAuth = rt
       ? (rt.getService("CLOUD_AUTH") as {
-          isAuthenticated: () => boolean;
-          getClient: () => { get: <T>(path: string) => Promise<T> };
-        } | null)
+        isAuthenticated: () => boolean;
+        getClient: () => { get: <T>(path: string) => Promise<T> };
+      } | null)
       : null;
     const configApiKey = state.config.cloud?.apiKey?.trim();
 
@@ -9843,9 +9672,9 @@ async function handleRequest(
         typeof creditResponse?.balance === "number"
           ? creditResponse.balance
           : typeof (creditResponse?.data as Record<string, unknown>)
-                ?.balance === "number"
+            ?.balance === "number"
             ? ((creditResponse.data as Record<string, unknown>)
-                .balance as number)
+              .balance as number)
             : undefined;
       if (typeof rawBalance !== "number") {
         logger.debug(
@@ -9917,7 +9746,7 @@ async function handleRequest(
     const result = await state.appManager.launch(
       pluginManager,
       body.name.trim(),
-      (_progress: InstallProgressLike) => {},
+      (_progress: InstallProgressLike) => { },
     );
     json(res, result);
     return;
@@ -11231,10 +11060,10 @@ async function handleRequest(
         : [],
       parameters: Array.isArray(body.parameters)
         ? (body.parameters as Array<{
-            name: string;
-            description: string;
-            required: boolean;
-          }>)
+          name: string;
+          description: string;
+          required: boolean;
+        }>)
         : [],
       handler,
       enabled: body.enabled !== false,
@@ -11652,7 +11481,7 @@ export async function startApiServer(opts?: {
   );
 
   // Warm per-provider model caches in background (non-blocking)
-  void getOrFetchAllProviders().catch(() => {});
+  void getOrFetchAllProviders().catch(() => { });
 
   // ── Intercept loggers so ALL agent/plugin/service logs appear in the UI ──
   // We patch both the global `logger` singleton from @elizaos/core (used by
