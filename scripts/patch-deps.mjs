@@ -314,3 +314,68 @@ if (!existsSync(openrouterTarget)) {
     );
   }
 }
+
+/**
+ * Patch @elizaos/plugin-twitter POST_TWEET action to upload image attachments.
+ *
+ * The action handler only passes text to sendTweet(), ignoring any
+ * message.content.attachments (e.g. images sent from the chat UI).
+ * This patch extracts image data-URL attachments, uploads them as Twitter
+ * media, and passes the resulting media IDs to sendTweet().
+ *
+ * Remove once plugin-twitter ships native attachment support.
+ */
+const twitterTarget = resolve(
+  root,
+  "node_modules/@elizaos/plugin-twitter/dist/index.js",
+);
+
+if (!existsSync(twitterTarget)) {
+  console.log("[patch-deps] plugin-twitter dist not found, skipping patch.");
+} else {
+  let twitterSrc = readFileSync(twitterTarget, "utf8");
+
+  const twitterBuggy =
+    `      const result = await client.twitterClient.sendTweet(finalTweetText);`;
+
+  const twitterFixed =
+    `      // Upload any image attachments from the user's chat message
+      const imageAttachments = message.content?.attachments?.filter(
+        (att) => att.contentType === "image" || (att.url && att.url.startsWith("data:image/"))
+      ) ?? [];
+      const tweetMediaIds = [];
+      for (const att of imageAttachments) {
+        try {
+          const dataUrl = att.url ?? "";
+          const commaIdx = dataUrl.indexOf(",");
+          if (commaIdx === -1) continue;
+          const base64Data = dataUrl.slice(commaIdx + 1);
+          const mimeMatch = dataUrl.match(/^data:([^;]+);/);
+          const mimeType = mimeMatch ? mimeMatch[1] : "image/jpeg";
+          const buffer = Buffer.from(base64Data, "base64");
+          const mediaId = await client.twitterClient.uploadMedia(buffer, { mimeType });
+          tweetMediaIds.push(mediaId);
+        } catch (mediaErr) {
+          logger14.warn("Failed to upload tweet media attachment:", mediaErr);
+        }
+      }
+      const result = await client.twitterClient.sendTweet(
+        finalTweetText,
+        void 0,
+        void 0,
+        void 0,
+        tweetMediaIds.length > 0 ? tweetMediaIds : void 0
+      );`;
+
+  if (twitterSrc.includes(twitterFixed.slice(0, 60))) {
+    console.log("[patch-deps] twitter POST_TWEET media patch already present.");
+  } else if (twitterSrc.includes(twitterBuggy)) {
+    twitterSrc = twitterSrc.replace(twitterBuggy, twitterFixed);
+    writeFileSync(twitterTarget, twitterSrc, "utf8");
+    console.log("[patch-deps] Applied twitter POST_TWEET media upload patch.");
+  } else {
+    console.log(
+      "[patch-deps] twitter POST_TWEET sendTweet call changed — media patch may no longer be needed.",
+    );
+  }
+}
