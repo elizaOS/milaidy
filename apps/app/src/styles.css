@@ -213,7 +213,7 @@
   --cg-soft-shadow: 0 8px 16px rgba(41, 44, 58, 0.09);
   background:
     radial-gradient(circle at 84% 11%, rgba(213, 227, 128, 0.38), transparent 27%),
-    radial-gradient(circle at 16% 84%, rgba(185, 207, 255, 0.2), transparent 31%),
+    radial-gradient(circle at 16% 84%, rgba(252, 235, 150, 0.25), transparent 31%),
     var(--cg-bg);
   color: var(--cg-text);
   box-shadow: var(--cg-shadow);
@@ -223,31 +223,6 @@
 @keyframes companion-fade-in {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
-}
-
-.companion-game__line-art,
-.companion-game__line-art-secondary {
-  pointer-events: none;
-  position: absolute;
-  border: 7px solid rgba(199, 218, 99, 0.72);
-  border-radius: 30px;
-}
-
-.companion-game__line-art {
-  width: 410px;
-  height: 220px;
-  top: 124px;
-  left: 100px;
-  border-right: 0;
-}
-
-.companion-game__line-art-secondary {
-  width: 360px;
-  height: 186px;
-  top: 146px;
-  left: 122px;
-  border-right: 0;
-  border-color: rgba(199, 218, 99, 0.45);
 }
 
 .companion-game__utility-pill {
@@ -546,6 +521,73 @@
   background: radial-gradient(circle, rgba(13, 16, 26, 0.18) 0%, rgba(13, 16, 26, 0.045) 62%, rgba(13, 16, 26, 0) 100%);
   pointer-events: none;
   z-index: 1;
+}
+
+/* ── Bubble emote ─────────────────────────────────────────────────────── */
+
+@keyframes companion-bubble-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+.companion-bubble-emote__layer {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 6%;
+  animation: companion-bubble-bob 3s ease-in-out infinite;
+}
+
+.companion-bubble-emote {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  opacity: 0;
+  transform: scale(0.7);
+  transition: opacity 200ms ease, transform 200ms ease;
+}
+
+.companion-bubble-emote.is-visible {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.companion-bubble-emote.is-exiting {
+  opacity: 0;
+  transform: scale(0.7);
+}
+
+.companion-bubble-emote__icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(188, 194, 212, 0.75);
+  box-shadow: 0 4px 14px rgba(25, 30, 45, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #2a2d3a;
+}
+
+.companion-bubble-emote__icon svg {
+  width: 28px;
+  height: 28px;
+}
+
+.companion-bubble-emote__tail {
+  width: 12px;
+  height: 12px;
+  background: rgba(255, 255, 255, 0.95);
+  border-right: 1px solid rgba(188, 194, 212, 0.75);
+  border-bottom: 1px solid rgba(188, 194, 212, 0.75);
+  transform: rotate(45deg);
+  margin-top: -7px;
+  box-shadow: 3px 3px 6px rgba(25, 30, 45, 0.08);
 }
 
 .companion-game__roster {
@@ -975,11 +1017,6 @@
 }
 
 @media (max-width: 1279px) {
-  .companion-game__line-art,
-  .companion-game__line-art-secondary {
-    display: none;
-  }
-
   .companion-game__kpi-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -1038,5 +1075,22 @@
 
   .companion-game__drawer-grid {
     grid-template-columns: 1fr;
+  }
+
+  .companion-bubble-emote__icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 11px;
+  }
+
+  .companion-bubble-emote__icon svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  .companion-bubble-emote__tail {
+    width: 10px;
+    height: 10px;
+    margin-top: -6px;
   }
 }

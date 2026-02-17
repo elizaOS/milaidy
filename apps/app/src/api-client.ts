@@ -26,6 +26,7 @@ import type { StylePreset } from "../../../src/contracts/onboarding.js";
 import type {
   CompanionAction,
   CompanionActivityEvent,
+  CompanionMoodTier,
   CompanionPolicyLevel,
   CompanionStateSnapshot,
   RunCompanionActionResponse,
@@ -73,6 +74,7 @@ export type { StylePreset };
 export type {
   CompanionAction,
   CompanionActivityEvent,
+  CompanionMoodTier,
   CompanionPolicyLevel,
   CompanionStateSnapshot,
   UpdateCompanionSettingsRequest,
@@ -3248,6 +3250,56 @@ export class MiladyClient {
     });
   }
 
+  private static defaultPermissionsState(): AllPermissionsState {
+    const now = Date.now();
+    return {
+      accessibility: {
+        id: "accessibility",
+        status: "not-determined",
+        lastChecked: now,
+        canRequest: false,
+      },
+      "screen-recording": {
+        id: "screen-recording",
+        status: "not-determined",
+        lastChecked: now,
+        canRequest: false,
+      },
+      microphone: {
+        id: "microphone",
+        status: "not-determined",
+        lastChecked: now,
+        canRequest: false,
+      },
+      camera: {
+        id: "camera",
+        status: "not-determined",
+        lastChecked: now,
+        canRequest: false,
+      },
+      shell: {
+        id: "shell",
+        status: "granted",
+        lastChecked: now,
+        canRequest: false,
+      },
+    };
+  }
+
+  private static extractPermissionsState(
+    payload: unknown,
+  ): AllPermissionsState | null {
+    if (!payload || typeof payload !== "object") return null;
+    if ("permissions" in payload) {
+      const wrapped = payload as { permissions?: AllPermissionsState };
+      return wrapped.permissions ?? MiladyClient.defaultPermissionsState();
+    }
+    if ("accessibility" in payload && "microphone" in payload) {
+      return payload as AllPermissionsState;
+    }
+    return null;
+  }
+
   // ═══════════════════════════════════════════════════════════════════════
   //  System Permissions
   // ═══════════════════════════════════════════════════════════════════════
@@ -3256,7 +3308,11 @@ export class MiladyClient {
    * Get all system permission states.
    */
   async getPermissions(): Promise<AllPermissionsState> {
-    return this.fetch("/api/permissions");
+    const result = await this.fetch<unknown>("/api/permissions");
+    return (
+      MiladyClient.extractPermissionsState(result) ??
+      MiladyClient.defaultPermissionsState()
+    );
   }
 
   /**
@@ -3270,7 +3326,19 @@ export class MiladyClient {
    * Request a specific permission (triggers OS prompt if applicable).
    */
   async requestPermission(id: SystemPermissionId): Promise<PermissionState> {
-    return this.fetch(`/api/permissions/${id}/request`, { method: "POST" });
+    const response = await this.fetch<Record<string, unknown>>(
+      `/api/permissions/${id}/request`,
+      { method: "POST" },
+    );
+    if (
+      typeof response.id === "string" &&
+      typeof response.status === "string" &&
+      typeof response.lastChecked === "number" &&
+      typeof response.canRequest === "boolean"
+    ) {
+      return response as PermissionState;
+    }
+    return this.getPermission(id);
   }
 
   /**
@@ -3284,7 +3352,10 @@ export class MiladyClient {
    * Refresh all permission states from the OS.
    */
   async refreshPermissions(): Promise<AllPermissionsState> {
-    return this.fetch("/api/permissions/refresh", { method: "POST" });
+    const result = await this.fetch<unknown>("/api/permissions/refresh", {
+      method: "POST",
+    });
+    return MiladyClient.extractPermissionsState(result) ?? this.getPermissions();
   }
 
   /**

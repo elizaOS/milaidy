@@ -14,6 +14,7 @@ import { useApp } from "../AppContext";
 import {
   client,
   type AllPermissionsState,
+  type PermissionState,
   type SystemPermissionId,
   type PermissionStatus,
   type PluginInfo,
@@ -259,35 +260,97 @@ function CapabilityToggle({
 
 function usePermissionActions(
   setPermissions: Dispatch<SetStateAction<AllPermissionsState | null>>,
+  setActionNotice?: (text: string, tone?: "info" | "success" | "error", ttlMs?: number) => void,
 ) {
+  const hasNativePermissionBridge = useCallback(() => {
+    if (typeof window === "undefined") return false;
+    const maybeElectron = (
+      window as Window & {
+        electron?: { ipcRenderer?: { invoke?: (...args: unknown[]) => Promise<unknown> } };
+      }
+    ).electron;
+    return typeof maybeElectron?.ipcRenderer?.invoke === "function";
+  }, []);
+
   const handleRequest = useCallback(async (id: SystemPermissionId) => {
     try {
+      if (hasNativePermissionBridge()) {
+        const maybeElectron = (
+          window as Window & {
+            electron?: { ipcRenderer?: { invoke?: (...args: unknown[]) => Promise<unknown> } };
+          }
+        ).electron;
+        const state = (await maybeElectron?.ipcRenderer?.invoke?.(
+          "permissions:request",
+          id,
+        )) as Partial<PermissionState> | undefined;
+        if (
+          state &&
+          state.id === id &&
+          typeof state.status === "string" &&
+          typeof state.lastChecked === "number" &&
+          typeof state.canRequest === "boolean"
+        ) {
+          setPermissions((prev) => (prev ? { ...prev, [id]: state as PermissionState } : prev));
+          return;
+        }
+      }
+
       const state = await client.requestPermission(id);
       setPermissions((prev) => (prev ? { ...prev, [id]: state } : prev));
     } catch (err) {
       console.error("Failed to request permission:", err);
+      setActionNotice?.(
+        err instanceof Error ? err.message : "Failed to request permission.",
+        "error",
+        4200,
+      );
     }
-  }, [setPermissions]);
+  }, [hasNativePermissionBridge, setPermissions, setActionNotice]);
 
   const handleOpenSettings = useCallback(async (id: SystemPermissionId) => {
     try {
+      if (hasNativePermissionBridge()) {
+        const maybeElectron = (
+          window as Window & {
+            electron?: { ipcRenderer?: { invoke?: (...args: unknown[]) => Promise<unknown> } };
+          }
+        ).electron;
+        await maybeElectron?.ipcRenderer?.invoke?.("permissions:openSettings", id);
+        setActionNotice?.("Opened system settings.", "success", 2200);
+        return;
+      }
+
       await client.openPermissionSettings(id);
+      setActionNotice?.(
+        "Open Settings only works in Milady Desktop. In browser/cloud mode, open OS settings manually.",
+        "info",
+        5200,
+      );
     } catch (err) {
       console.error("Failed to open settings:", err);
+      setActionNotice?.(
+        err instanceof Error ? err.message : "Failed to open system settings.",
+        "error",
+        4200,
+      );
     }
-  }, []);
+  }, [hasNativePermissionBridge, setActionNotice]);
 
   return { handleRequest, handleOpenSettings };
 }
 
 export function PermissionsSection() {
-  const { plugins, handlePluginToggle } = useApp();
+  const { plugins, handlePluginToggle, setActionNotice } = useApp();
   const [permissions, setPermissions] = useState<AllPermissionsState | null>(null);
   const [platform, setPlatform] = useState<string>("unknown");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [shellEnabled, setShellEnabled] = useState(true);
-  const { handleRequest, handleOpenSettings } = usePermissionActions(setPermissions);
+  const { handleRequest, handleOpenSettings } = usePermissionActions(
+    setPermissions,
+    setActionNotice,
+  );
 
   /** Load permissions on mount. */
   useEffect(() => {
@@ -459,9 +522,13 @@ export function PermissionsOnboardingSection({
 }: {
   onContinue: (options?: { allowPermissionBypass?: boolean }) => void;
 }) {
+  const { setActionNotice } = useApp();
   const [permissions, setPermissions] = useState<AllPermissionsState | null>(null);
   const [loading, setLoading] = useState(true);
-  const { handleRequest, handleOpenSettings } = usePermissionActions(setPermissions);
+  const { handleRequest, handleOpenSettings } = usePermissionActions(
+    setPermissions,
+    setActionNotice,
+  );
 
   useEffect(() => {
     void (async () => {

@@ -1,9 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getVrmPreviewUrl, getVrmUrl, useApp, VRM_COUNT } from "../AppContext.js";
-import type { CompanionPolicyLevel } from "../api-client.js";
+import type { CompanionAction, CompanionPolicyLevel } from "../api-client.js";
 import { VrmViewer } from "./avatar/VrmViewer";
 import type { VrmEngine, VrmEngineState } from "./avatar/VrmEngine";
-import { resolveCompanionAnimationIntent } from "./avatar/companionAnimationIntent";
+import {
+  resolveCompanionAnimationIntent,
+  MOOD_ANIMATION_POOLS,
+  ACTION_ANIMATION_MAP,
+  pickRandomAnimationDef,
+} from "./avatar/companionAnimationIntent";
+import { BubbleEmote } from "./BubbleEmote";
 
 type QuickActionGlyph = "feed" | "rest" | "manual_share";
 type QuickActionTone = "ready" | "cooldown" | "limit";
@@ -103,8 +109,13 @@ export function CompanionView() {
   const [policyLevel, setPolicyLevel] = useState<CompanionPolicyLevel>("balanced");
   const [vrmLoaded, setVrmLoaded] = useState(false);
   const [showVrmFallback, setShowVrmFallback] = useState(false);
+  const [lastTriggeredAction, setLastTriggeredAction] = useState<CompanionAction | null>(null);
   const vrmEngineRef = useRef<VrmEngine | null>(null);
   const currentAmbientIntentIdRef = useRef<string | null>(null);
+  const idleCycleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const actionAnimatingRef = useRef(false);
+  const scheduleNextAccentRef = useRef<() => void>(() => {});
+  const prevSnapshotVersionRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!companionSnapshot && !companionLoading) {
@@ -193,6 +204,59 @@ export function CompanionView() {
     );
   }, [ambientIntent]);
 
+  // --- Feature A: Idle accent cycling ---
+  const scheduleNextAccent = useCallback(() => {
+    if (idleCycleTimerRef.current) {
+      clearTimeout(idleCycleTimerRef.current);
+      idleCycleTimerRef.current = null;
+    }
+    if (actionAnimatingRef.current) return;
+
+    const engine = vrmEngineRef.current;
+    if (!engine) return;
+
+    const moodTier = companionSnapshot?.moodTier ?? "neutral";
+    const pool = MOOD_ANIMATION_POOLS[moodTier];
+    if (!pool || pool.accents.length === 0) return;
+
+    const delayMs = (10 + Math.random() * 8) * 1000;
+
+    idleCycleTimerRef.current = setTimeout(() => {
+      if (actionAnimatingRef.current) return;
+      const anim = pickRandomAnimationDef(pool.accents);
+      if (anim) {
+        void engine.playEmote(anim.url, anim.durationSec, false);
+        idleCycleTimerRef.current = setTimeout(() => {
+          scheduleNextAccentRef.current();
+        }, (anim.durationSec + 0.5) * 1000);
+      } else {
+        scheduleNextAccentRef.current();
+      }
+    }, delayMs);
+  }, [companionSnapshot?.moodTier]);
+
+  scheduleNextAccentRef.current = scheduleNextAccent;
+
+  // --- Feature C: Action feedback animation ---
+  const playActionAnimation = useCallback((action: CompanionAction) => {
+    const engine = vrmEngineRef.current;
+    if (!engine) return;
+    const anim = pickRandomAnimationDef(ACTION_ANIMATION_MAP[action]);
+    if (!anim) return;
+
+    actionAnimatingRef.current = true;
+    if (idleCycleTimerRef.current) {
+      clearTimeout(idleCycleTimerRef.current);
+      idleCycleTimerRef.current = null;
+    }
+    void engine.playEmote(anim.url, anim.durationSec, false);
+
+    setTimeout(() => {
+      actionAnimatingRef.current = false;
+      scheduleNextAccentRef.current();
+    }, (anim.durationSec + 0.5) * 1000);
+  }, []);
+
   const handleVrmEngineReady = useCallback((engine: VrmEngine) => {
     vrmEngineRef.current = engine;
     currentAmbientIntentIdRef.current = null;
@@ -210,6 +274,10 @@ export function CompanionView() {
     setVrmLoaded(false);
     setShowVrmFallback(false);
     currentAmbientIntentIdRef.current = null;
+    if (idleCycleTimerRef.current) {
+      clearTimeout(idleCycleTimerRef.current);
+      idleCycleTimerRef.current = null;
+    }
     applyAmbientIntent();
     const timer = window.setTimeout(() => {
       setShowVrmFallback(true);
@@ -220,6 +288,62 @@ export function CompanionView() {
   useEffect(() => {
     applyAmbientIntent();
   }, [applyAmbientIntent]);
+
+  // --- Feature A lifecycle: start idle accent cycling when VRM is loaded ---
+  useEffect(() => {
+    if (!vrmLoaded) return;
+    scheduleNextAccent();
+    return () => {
+      if (idleCycleTimerRef.current) {
+        clearTimeout(idleCycleTimerRef.current);
+        idleCycleTimerRef.current = null;
+      }
+    };
+  }, [vrmLoaded, scheduleNextAccent]);
+
+  // --- Feature B: state-change reaction animations ---
+  useEffect(() => {
+    const version = companionSnapshot?.state.version ?? null;
+    const prevVersion = prevSnapshotVersionRef.current;
+    prevSnapshotVersionRef.current = version;
+
+    if (prevVersion === null || version === null || version === prevVersion) return;
+    if (actionAnimatingRef.current) return;
+
+    const engine = vrmEngineRef.current;
+    if (!engine) return;
+
+    const moodTier = companionSnapshot?.moodTier ?? "neutral";
+    const reactionPool: Record<string, string[]> = {
+      excited: ["cheering", "happy", "clapping"],
+      calm: ["agreeing", "acknowledging", "thankful"],
+      neutral: ["hard-head-nod", "agreeing"],
+      low: ["relieved-sigh", "shoulder-rubbing"],
+      burnout: ["crying", "relieved-sigh"],
+    };
+
+    const candidates = reactionPool[moodTier] ?? reactionPool.neutral;
+    const anim = pickRandomAnimationDef(candidates);
+    if (!anim) return;
+
+    actionAnimatingRef.current = true;
+    if (idleCycleTimerRef.current) {
+      clearTimeout(idleCycleTimerRef.current);
+      idleCycleTimerRef.current = null;
+    }
+    void engine.playEmote(anim.url, anim.durationSec, false);
+
+    setTimeout(() => {
+      actionAnimatingRef.current = false;
+      scheduleNextAccentRef.current();
+    }, (anim.durationSec + 0.5) * 1000);
+  }, [companionSnapshot?.state.version, companionSnapshot?.moodTier]);
+
+  useEffect(() => {
+    if (!lastTriggeredAction) return;
+    const t = setTimeout(() => setLastTriggeredAction(null), 3200);
+    return () => clearTimeout(t);
+  }, [lastTriggeredAction]);
 
   const handleApplySettings = async () => {
     const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
@@ -367,7 +491,7 @@ export function CompanionView() {
       label: "Feed",
       cooldownMs: cooldowns.feed,
       disabled: companionActionBusy || cooldowns.feed > 0,
-      onRun: () => { void runCompanionAction("feed"); },
+      onRun: () => { setLastTriggeredAction("feed"); playActionAnimation("feed"); void runCompanionAction("feed"); },
       kind: "feed" as QuickActionGlyph,
     },
     {
@@ -375,7 +499,7 @@ export function CompanionView() {
       label: "Rest",
       cooldownMs: cooldowns.rest,
       disabled: companionActionBusy || cooldowns.rest > 0,
-      onRun: () => { void runCompanionAction("rest"); },
+      onRun: () => { setLastTriggeredAction("rest"); playActionAnimation("rest"); void runCompanionAction("rest"); },
       kind: "rest" as QuickActionGlyph,
     },
     {
@@ -383,16 +507,13 @@ export function CompanionView() {
       label: "Share",
       cooldownMs: cooldowns.manualShare,
       disabled: companionActionBusy || cooldowns.manualShare > 0 || manualShareCapReached,
-      onRun: () => { void runCompanionAction("manual_share"); },
+      onRun: () => { setLastTriggeredAction("manual_share"); playActionAnimation("manual_share"); void runCompanionAction("manual_share"); },
       kind: "manual_share" as QuickActionGlyph,
     },
   ];
 
   return (
     <div className="companion-game relative min-h-[820px] overflow-hidden rounded-[34px] border border-[rgba(180,184,195,0.75)] px-4 py-5 md:px-6 md:py-6 lg:px-8 lg:py-7">
-      <div className="companion-game__line-art" aria-hidden="true" />
-      <div className="companion-game__line-art-secondary" aria-hidden="true" />
-
       <div className="relative z-[1] flex flex-col gap-6">
         <header className="flex flex-wrap items-center justify-between gap-3">
           <div className="companion-game__utility-pill" data-testid="companion-top-bar">
@@ -507,6 +628,11 @@ export function CompanionView() {
                   />
                 )}
               </div>
+              <BubbleEmote
+                moodTier={companionSnapshot.moodTier}
+                activeAction={lastTriggeredAction}
+                visible={vrmLoaded}
+              />
             </div>
           </section>
 

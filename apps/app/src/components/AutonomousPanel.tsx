@@ -102,12 +102,120 @@ export function AutonomousPanel() {
         </div>
       </div>
 
-      {isAgentStopped ? (
-        <div className="flex items-center justify-center flex-1">
-          <p className="text-muted">Agent not running</p>
+      <div className="flex-1 min-h-0 overflow-y-auto">
+        <div className="border-b border-border px-3 py-2">
+          <div className="text-xs uppercase tracking-wide text-muted mb-2">Chat Controls</div>
+
+          <div className="h-[420px] border border-border bg-bg-hover/20 rounded overflow-hidden relative">
+            {chatAvatarVisible ? (
+              <ChatAvatar
+                isSpeaking={chatAvatarSpeaking}
+              />
+            ) : (
+              <div className="h-full w-full flex items-end justify-center pb-5 text-xs text-muted">
+                Avatar hidden
+              </div>
+            )}
+          </div>
+
+          <div className="pt-2 flex flex-col gap-2">
+            <div className="grid grid-cols-2 gap-1.5">
+              <button
+                className={`px-2 py-1 text-xs border rounded cursor-pointer transition-all ${
+                  chatMode === "simple"
+                    ? "border-accent bg-accent text-accent-fg"
+                    : "border-border text-muted bg-card hover:border-accent hover:text-accent"
+                }`}
+                onClick={() => setState("chatMode", "simple")}
+                title="Conversational: no tools/actions"
+                disabled={chatSending}
+              >
+                Conversational
+              </button>
+              <button
+                className={`px-2 py-1 text-xs border rounded cursor-pointer transition-all ${
+                  chatMode === "power"
+                    ? "border-accent bg-accent text-accent-fg"
+                    : "border-border text-muted bg-card hover:border-accent hover:text-accent"
+                }`}
+                onClick={() => setState("chatMode", "power")}
+                title="Powerful: tools/actions enabled"
+                disabled={chatSending}
+              >
+                Powerful
+              </button>
+            </div>
+
+            <div className="text-[10px] leading-relaxed text-muted">
+              {chatMode === "simple"
+                ? "Conversational mode: direct replies only. Tool/action use is blocked."
+                : "Powerful mode: tool/action execution is enabled for richer responses."}
+            </div>
+
+            <div className="grid grid-cols-3 gap-1.5">
+              <button
+                className={`h-8 flex items-center justify-center border rounded cursor-pointer transition-all ${
+                  powerModeEnabled
+                    ? "bg-card border-border text-muted hover:border-accent hover:text-accent"
+                    : "bg-card border-border text-muted opacity-50 cursor-not-allowed"
+                }`}
+                onClick={() => powerModeEnabled && window.dispatchEvent(new Event("toggle-custom-actions-panel"))}
+                title={powerModeEnabled ? "Custom Actions" : "Custom Actions require Powerful mode"}
+                disabled={!powerModeEnabled}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                </svg>
+              </button>
+
+              <button
+                className={`h-8 flex items-center justify-center border rounded cursor-pointer transition-all bg-card ${
+                  chatAvatarVisible
+                    ? "border-accent text-accent"
+                    : "border-border text-muted hover:border-accent hover:text-accent"
+                }`}
+                onClick={() => setState("chatAvatarVisible", !chatAvatarVisible)}
+                title={chatAvatarVisible ? "Hide avatar" : "Show avatar"}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                  <circle cx="12" cy="7" r="4" />
+                  {!chatAvatarVisible && <line x1="3" y1="3" x2="21" y2="21" />}
+                </svg>
+              </button>
+
+              <button
+                className={`h-8 flex items-center justify-center border rounded cursor-pointer transition-all bg-card ${
+                  chatAgentVoiceMuted
+                    ? "border-border text-muted hover:border-accent hover:text-accent"
+                    : "border-accent text-accent"
+                }`}
+                onClick={() => setState("chatAgentVoiceMuted", !chatAgentVoiceMuted)}
+                title={chatAgentVoiceMuted ? "Unmute agent voice" : "Mute agent voice"}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                  {chatAgentVoiceMuted ? (
+                    <line x1="23" y1="9" x2="17" y2="15" />
+                  ) : (
+                    <>
+                      <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+                      <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+                    </>
+                  )}
+                  {chatAgentVoiceMuted && <line x1="17" y1="9" x2="23" y2="15" />}
+                </svg>
+              </button>
+            </div>
+          </div>
         </div>
-      ) : (
-        <div className="flex-1 min-h-0 overflow-y-auto">
+
+        {isAgentStopped ? (
+          <div className="flex items-center justify-center py-10">
+            <p className="text-muted">Agent not running</p>
+          </div>
+        ) : (
+          <>
           <div className="border-b border-border px-3 py-2">
             <div className="text-xs uppercase tracking-wide text-muted mb-2">Current</div>
             <div className="space-y-2">
@@ -276,114 +384,9 @@ export function AutonomousPanel() {
               )}
             </>
           )}
-        </div>
-      )}
+          </>
+        )}
 
-      <div className="border-t border-border px-3 py-2">
-        <div className="text-xs uppercase tracking-wide text-muted mb-2">Chat Controls</div>
-
-        <div className="h-[420px] border border-border bg-bg-hover/20 rounded overflow-hidden relative">
-          {chatAvatarVisible ? (
-            <ChatAvatar
-              isSpeaking={chatAvatarSpeaking}
-            />
-          ) : (
-            <div className="h-full w-full flex items-end justify-center pb-5 text-xs text-muted">
-              Avatar hidden
-            </div>
-          )}
-        </div>
-
-        <div className="pt-2 flex flex-col gap-2">
-          <div className="grid grid-cols-2 gap-1.5">
-            <button
-              className={`px-2 py-1 text-xs border rounded cursor-pointer transition-all ${
-                chatMode === "simple"
-                  ? "border-accent bg-accent text-accent-fg"
-                  : "border-border text-muted bg-card hover:border-accent hover:text-accent"
-              }`}
-              onClick={() => setState("chatMode", "simple")}
-              title="Conversational: no tools/actions"
-              disabled={chatSending}
-            >
-              Conversational
-            </button>
-            <button
-              className={`px-2 py-1 text-xs border rounded cursor-pointer transition-all ${
-                chatMode === "power"
-                  ? "border-accent bg-accent text-accent-fg"
-                  : "border-border text-muted bg-card hover:border-accent hover:text-accent"
-              }`}
-              onClick={() => setState("chatMode", "power")}
-              title="Powerful: tools/actions enabled"
-              disabled={chatSending}
-            >
-              Powerful
-            </button>
-          </div>
-
-          <div className="text-[10px] leading-relaxed text-muted">
-            {chatMode === "simple"
-              ? "Conversational mode: direct replies only. Tool/action use is blocked."
-              : "Powerful mode: tool/action execution is enabled for richer responses."}
-          </div>
-
-          <div className="grid grid-cols-3 gap-1.5">
-            <button
-              className={`h-8 flex items-center justify-center border rounded cursor-pointer transition-all ${
-                powerModeEnabled
-                  ? "bg-card border-border text-muted hover:border-accent hover:text-accent"
-                  : "bg-card border-border text-muted opacity-50 cursor-not-allowed"
-              }`}
-              onClick={() => powerModeEnabled && window.dispatchEvent(new Event("toggle-custom-actions-panel"))}
-              title={powerModeEnabled ? "Custom Actions" : "Custom Actions require Powerful mode"}
-              disabled={!powerModeEnabled}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-              </svg>
-            </button>
-
-            <button
-              className={`h-8 flex items-center justify-center border rounded cursor-pointer transition-all bg-card ${
-                chatAvatarVisible
-                  ? "border-accent text-accent"
-                  : "border-border text-muted hover:border-accent hover:text-accent"
-              }`}
-              onClick={() => setState("chatAvatarVisible", !chatAvatarVisible)}
-              title={chatAvatarVisible ? "Hide avatar" : "Show avatar"}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                <circle cx="12" cy="7" r="4" />
-                {!chatAvatarVisible && <line x1="3" y1="3" x2="21" y2="21" />}
-              </svg>
-            </button>
-
-            <button
-              className={`h-8 flex items-center justify-center border rounded cursor-pointer transition-all bg-card ${
-                chatAgentVoiceMuted
-                  ? "border-border text-muted hover:border-accent hover:text-accent"
-                  : "border-accent text-accent"
-              }`}
-              onClick={() => setState("chatAgentVoiceMuted", !chatAgentVoiceMuted)}
-              title={chatAgentVoiceMuted ? "Unmute agent voice" : "Mute agent voice"}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-                {chatAgentVoiceMuted ? (
-                  <line x1="23" y1="9" x2="17" y2="15" />
-                ) : (
-                  <>
-                    <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
-                    <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
-                  </>
-                )}
-                {chatAgentVoiceMuted && <line x1="17" y1="9" x2="23" y2="15" />}
-              </svg>
-            </button>
-          </div>
-        </div>
       </div>
     </aside>
   );

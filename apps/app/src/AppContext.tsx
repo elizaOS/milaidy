@@ -107,7 +107,7 @@ export const THEMES: ReadonlyArray<{
   label: string;
   hint: string;
 }> = [
-    { id: "milady", label: "milady", hint: "clean black & white" },
+    { id: "milady", label: "milady", hint: "light binance yellow" },
     { id: "qt314", label: "qt3.14", hint: "soft pastels" },
     { id: "web2000", label: "web2000", hint: "green hacker vibes" },
     { id: "programmer", label: "programmer", hint: "vscode dark" },

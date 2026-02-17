@@ -2,7 +2,7 @@
  * Onboarding wizard component — multi-step onboarding flow.
  */
 
-import { useEffect, useState, type ChangeEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import {
   useApp,
   THEMES,
@@ -129,7 +129,6 @@ export function OnboardingWizard() {
     cloudConnected,
     cloudLoginBusy,
     cloudLoginError,
-    cloudUserId,
     handleOnboardingNext,
     handleOnboardingBack,
     setState,
@@ -147,6 +146,7 @@ export function OnboardingWizard() {
   const [anthropicError, setAnthropicError] = useState("");
   const [customNameText, setCustomNameText] = useState("");
   const [isCustomSelected, setIsCustomSelected] = useState(false);
+  const cloudLoginAutoAdvanceRef = useRef(false);
 
   const avatarVrmPath =
     onboardingAvatar === 0 && customVrmUrl
@@ -160,6 +160,24 @@ export function OnboardingWizard() {
       setTheme(onboardingTheme);
     }
   }, [onboardingStep, onboardingTheme, setTheme]);
+
+  useEffect(() => {
+    if (onboardingStep !== "cloudLogin") {
+      cloudLoginAutoAdvanceRef.current = false;
+      return;
+    }
+    if (!cloudConnected) {
+      cloudLoginAutoAdvanceRef.current = false;
+      return;
+    }
+    if (cloudLoginAutoAdvanceRef.current) return;
+    cloudLoginAutoAdvanceRef.current = true;
+
+    const timer = window.setTimeout(() => {
+      void handleOnboardingNext();
+    }, 900);
+    return () => window.clearTimeout(timer);
+  }, [onboardingStep, cloudConnected, handleOnboardingNext]);
 
   const handleStyleSelect = (catchphrase: string) => {
     setState("onboardingStyle", catchphrase);
@@ -631,20 +649,18 @@ export function OnboardingWizard() {
         return (
           <div className="max-w-[500px] mx-auto mt-10 text-center font-body">
             <div className="onboarding-speech bg-card border border-border rounded-xl px-5 py-4 mx-auto mb-6 max-w-[600px] relative text-[15px] text-txt leading-relaxed">
-              <h2 className="text-[28px] font-normal mb-1 text-txt-strong">Cloud Login</h2>
+              <h2 className="text-[28px] font-normal mb-1 text-txt-strong">Sign in to continue</h2>
               <p className="text-xs text-muted mt-2">
-                Pure Privy mode: after login, managed wallets are auto-created for ETH/Base/BSC + Solana.
-                No wallet API keys required.
+                One login. Wallets are set up automatically.
               </p>
             </div>
             {cloudConnected ? (
               <div className="max-w-[600px] mx-auto">
-                <p className="text-txt mb-2">Logged in successfully!</p>
-                {cloudUserId && <p className="text-muted text-sm">User ID: {cloudUserId}</p>}
+                <p className="text-txt mb-2">You're in. Taking you to the next step...</p>
               </div>
             ) : (
               <div className="max-w-[600px] mx-auto">
-                <p className="text-txt mb-4">Click the button below to log in to Eliza Cloud</p>
+                <p className="text-txt mb-4">Continue with Eliza Cloud</p>
                 <button
                   className="px-6 py-2 border border-accent bg-accent text-accent-fg text-sm cursor-pointer hover:bg-accent-hover disabled:opacity-40 disabled:cursor-not-allowed mt-5"
                   onClick={handleCloudLogin}
@@ -653,10 +669,10 @@ export function OnboardingWizard() {
                   {cloudLoginBusy ? (
                     <span className="flex items-center justify-center gap-2">
                       <span className="inline-block w-5 h-5 border-2 border-border border-t-accent rounded-full animate-spin"></span>
-                      Logging in...
+                      Signing in...
                     </span>
                   ) : (
-                    "Login to Eliza Cloud"
+                    "Continue with Eliza Cloud"
                   )}
                 </button>
                 {cloudLoginError && <p className="text-danger text-[13px] mt-2.5">{cloudLoginError}</p>}
@@ -1420,7 +1436,9 @@ export function OnboardingWizard() {
   };
 
   const canGoBack = onboardingStep !== "welcome";
-  const showPrimaryNext = onboardingStep !== "permissions";
+  const showPrimaryNext =
+    onboardingStep !== "permissions" &&
+    !(onboardingStep === "cloudLogin" && cloudConnected);
 
   /** On the llmProvider config screen, "back" returns to the provider grid. */
   const handleBack = () => {
