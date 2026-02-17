@@ -398,12 +398,13 @@ export async function startBenchmarkServer() {
     }
   }
 
-  // Load mock plugin for testing
+  // Load mock plugin for testing (file is gitignored for local-only use)
   if (
     process.env.MILADY_BENCH_MOCK === "true" ||
     process.env.MILAIDY_BENCH_MOCK === "true"
   ) {
     try {
+      // @ts-expect-error - mock-plugin.ts is gitignored, only available locally
       const { mockPlugin } = await import("./mock-plugin.ts");
       plugins.push(toPlugin(mockPlugin, "./mock-plugin.ts"));
       elizaLogger.info("[bench] Loaded mock benchmark plugin");
