@@ -61,7 +61,7 @@ import {
   searchSkillsMarketplace,
   uninstallMarketplaceSkill,
 } from "../services/skill-marketplace";
-import { TrainingService } from "@elizaos/plugin-training";
+import { FallbackTrainingService } from "../services/fallback-training-service";
 import {
   listTriggerTasks,
   readTriggerConfig,
@@ -224,7 +224,7 @@ interface ServerState {
   /** App manager for launching and managing ElizaOS apps. */
   appManager: AppManager;
   /** Fine-tuning/training orchestration service. */
-  trainingService: TrainingService | null;
+  trainingService: TrainingServiceLike | null;
   /** ERC-8004 registry service (null when not configured). */
   registryService: RegistryService | null;
   /** Drop/mint service (null when not configured). */
@@ -3180,6 +3180,44 @@ interface RequestContext {
   onRestart: (() => Promise<AgentRuntime | null>) | null;
 }
 
+type TrainingRouteService = Parameters<
+  typeof handleTrainingRoutes
+>[0]["trainingService"];
+
+type TrainingServiceLike = TrainingRouteService & {
+  initialize: () => Promise<void>;
+  subscribe: (listener: (event: unknown) => void) => () => void;
+};
+
+type TrainingServiceCtor = new (options: {
+  getRuntime: () => AgentRuntime | null;
+  getConfig: () => MiladyConfig;
+  setConfig: (nextConfig: MiladyConfig) => void;
+}) => TrainingServiceLike;
+
+async function resolveTrainingServiceCtor(): Promise<TrainingServiceCtor | null> {
+  const candidates = [
+    "../services/training-service",
+    "@elizaos/plugin-training",
+  ] as const;
+
+  for (const specifier of candidates) {
+    try {
+      const loaded = (await import(
+        /* @vite-ignore */ specifier
+      )) as Record<string, unknown>;
+      const ctor = loaded.TrainingService;
+      if (typeof ctor === "function") {
+        return ctor as TrainingServiceCtor;
+      }
+    } catch {
+      // Keep trying fallbacks.
+    }
+  }
+
+  return null;
+}
+
 const LOCAL_ORIGIN_RE = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i;
 const APP_ORIGIN_RE =
   /^(capacitor|capacitor-electron|app):\/\/(localhost|-)?$/i;
@@ -4949,7 +4987,7 @@ async function handleRequest(
       method,
       pathname,
       state,
-      onRestart: ctx?.onRestart,
+      onRestart: ctx?.onRestart ?? undefined,
       json,
       error,
       resolveStateDir,
@@ -11301,16 +11339,24 @@ export async function startApiServer(opts?: {
     shellEnabled: config.features?.shellEnabled !== false,
   };
 
-  const trainingService = new TrainingService({
+  const trainingServiceCtor = await resolveTrainingServiceCtor();
+  const trainingServiceOptions = {
     getRuntime: () => state.runtime,
     getConfig: () => state.config,
     setConfig: (nextConfig: MiladyConfig) => {
       state.config = nextConfig;
       saveMiladyConfig(nextConfig);
     },
-  });
+  };
+  if (trainingServiceCtor) {
+    state.trainingService = new trainingServiceCtor(trainingServiceOptions);
+  } else {
+    logger.warn(
+      "[milady-api] Training service package unavailable; using fallback in-memory implementation",
+    );
+    state.trainingService = new FallbackTrainingService(trainingServiceOptions);
+  }
   // Register immediately so /api/training routes are available without a startup race.
-  state.trainingService = trainingService;
   const configuredAdminEntityId = config.agents?.defaults?.adminEntityId;
   if (configuredAdminEntityId && isUuidLike(configuredAdminEntityId)) {
     state.adminEntityId = configuredAdminEntityId;
@@ -11577,10 +11623,12 @@ export async function startApiServer(opts?: {
     }
     if (!state.trainingService) return;
     detachTrainingStream = state.trainingService.subscribe((event: unknown) => {
+      const payload =
+        typeof event === "object" && event !== null ? event : { value: event };
       pushEvent({
         type: "training_event",
         ts: Date.now(),
-        payload: event,
+        payload,
       });
     });
   };
@@ -11610,6 +11658,8 @@ export async function startApiServer(opts?: {
     })();
 
     void (async () => {
+      const trainingService = state.trainingService;
+      if (!trainingService) return;
       try {
         await trainingService.initialize();
         bindTrainingStream();

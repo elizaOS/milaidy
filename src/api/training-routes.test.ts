@@ -1,19 +1,19 @@
 import type { AgentRuntime } from "@elizaos/core";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import type { MiladyConfig } from "../config/types";
-import { TrainingService } from "../services/training-service";
+import { FallbackTrainingService } from "../services/fallback-training-service";
 import { createRouteInvoker } from "../test-support/route-test-helpers";
 import { handleTrainingRoutes } from "./training-routes";
 
 describe("training routes", () => {
   let runtime: AgentRuntime | null;
-  let trainingService: TrainingService;
+  let trainingService: FallbackTrainingService;
 
   beforeEach(() => {
     runtime = { character: { name: "Milady" } } as AgentRuntime;
 
     const config = {} as MiladyConfig;
-    trainingService = new TrainingService({
+    trainingService = new FallbackTrainingService({
       getRuntime: () => runtime,
       getConfig: () => config,
       setConfig: () => undefined,
