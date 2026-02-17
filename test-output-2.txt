@@ -1,0 +1,32 @@
+
+[1m[46m RUN [49m[22m [36mv4.0.18 [39m[90m/Users/shawwalters/eliza-workspace/milady[39m
+
+ [31m❯[39m test/plugin-management.e2e.test.ts [2m([22m[2m7 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[32m 104[2mms[22m[39m
+       [32m✓[39m returns 400 for missing name[32m 12[2mms[22m[39m
+       [32m✓[39m returns 400 for invalid name format[32m 1[2mms[22m[39m
+[31m       [31m×[31m returns 500/422 for non-existent plugin (verifies service is called)[39m[32m 3[2mms[22m[39m
+       [32m✓[39m returns 422/500 for non-installed plugin[32m 3[2mms[22m[39m
+       [32m✓[39m returns 422/500 for non-ejected plugin[32m 3[2mms[22m[39m
+       [32m✓[39m returns 422/500 for non-ejected plugin[32m 3[2mms[22m[39m
+       [32m✓[39m returns list[32m 0[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 1 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m test/plugin-management.e2e.test.ts[2m > [22mPlugin Management E2E[2m > [22mPOST /api/plugins/install[2m > [22mreturns 500/422 for non-existent plugin (verifies service is called)
+[31m[1mAssertionError[22m: expected 200 to be greater than or equal to 400[39m
+[36m [2m❯[22m test/plugin-management.e2e.test.ts:[2m117:28[22m[39m
+    [90m115| [39m            const { status, data } = await http$(server.port, "POST", …
+    [90m116| [39m            // Depending on how PluginManagerService handles it, might…
+    [90m117| [39m            [34mexpect[39m(status)[33m.[39m[34mtoBeGreaterThanOrEqual[39m([34m400[39m)[33m;[39m
+    [90m   | [39m                           [31m^[39m
+    [90m118| [39m            [90m// We assume service attempts to install and fails[39m
+    [90m119| [39m            [34mexpect[39m(data[33m.[39merror)[33m.[39m[34mtoBeDefined[39m()[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m6 passed[39m[22m[90m (7)[39m
+[2m   Start at [22m 00:20:57
+[2m   Duration [22m 2.37s[2m (transform 1.75s, setup 31ms, import 2.16s, tests 104ms, environment 0ms)[22m
+

@@ -8,7 +8,7 @@
  *   - Test functionality
  */
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useApp } from "../AppContext";
 import {
   client,
@@ -33,25 +33,133 @@ interface VoicePreset {
 
 const VOICE_PRESETS: VoicePreset[] = [
   // Female
-  { id: "rachel", name: "Rachel", voiceId: "21m00Tcm4TlvDq8ikWAM", gender: "female", hint: "Calm, clear", previewUrl: "https://storage.googleapis.com/eleven-public-prod/premade/voices/21m00Tcm4TlvDq8ikWAM/df6788f9-5c96-470d-8312-aab3b3d8f50a.mp3" },
-  { id: "sarah", name: "Sarah", voiceId: "EXAVITQu4vr4xnSDxMaL", gender: "female", hint: "Soft, warm", previewUrl: "https://storage.googleapis.com/eleven-public-prod/premade/voices/EXAVITQu4vr4xnSDxMaL/6851ec91-9950-471f-8586-357c52539069.mp3" },
-  { id: "matilda", name: "Matilda", voiceId: "XrExE9yKIg1WjnnlVkGX", gender: "female", hint: "Warm, friendly", previewUrl: "https://storage.googleapis.com/eleven-public-prod/premade/voices/XrExE9yKIg1WjnnlVkGX/b930e18d-6b4d-466e-bab2-0ae97c6d8535.mp3" },
-  { id: "lily", name: "Lily", voiceId: "pFZP5JQG7iQjIQuC4Bku", gender: "female", hint: "British, raspy", previewUrl: "https://storage.googleapis.com/eleven-public-prod/premade/voices/pFZP5JQG7iQjIQuC4Bku/0ab8bd74-fcd2-489d-b70a-3e1bcde8c999.mp3" },
+  {
+    id: "rachel",
+    name: "Rachel",
+    voiceId: "21m00Tcm4TlvDq8ikWAM",
+    gender: "female",
+    hint: "Calm, clear",
+    previewUrl:
+      "https://storage.googleapis.com/eleven-public-prod/premade/voices/21m00Tcm4TlvDq8ikWAM/df6788f9-5c96-470d-8312-aab3b3d8f50a.mp3",
+  },
+  {
+    id: "sarah",
+    name: "Sarah",
+    voiceId: "EXAVITQu4vr4xnSDxMaL",
+    gender: "female",
+    hint: "Soft, warm",
+    previewUrl:
+      "https://storage.googleapis.com/eleven-public-prod/premade/voices/EXAVITQu4vr4xnSDxMaL/6851ec91-9950-471f-8586-357c52539069.mp3",
+  },
+  {
+    id: "matilda",
+    name: "Matilda",
+    voiceId: "XrExE9yKIg1WjnnlVkGX",
+    gender: "female",
+    hint: "Warm, friendly",
+    previewUrl:
+      "https://storage.googleapis.com/eleven-public-prod/premade/voices/XrExE9yKIg1WjnnlVkGX/b930e18d-6b4d-466e-bab2-0ae97c6d8535.mp3",
+  },
+  {
+    id: "lily",
+    name: "Lily",
+    voiceId: "pFZP5JQG7iQjIQuC4Bku",
+    gender: "female",
+    hint: "British, raspy",
+    previewUrl:
+      "https://storage.googleapis.com/eleven-public-prod/premade/voices/pFZP5JQG7iQjIQuC4Bku/0ab8bd74-fcd2-489d-b70a-3e1bcde8c999.mp3",
+  },
   // Male
-  { id: "brian", name: "Brian", voiceId: "nPczCjzI2devNBz1zQrb", gender: "male", hint: "Deep, smooth", previewUrl: "https://storage.googleapis.com/eleven-public-prod/premade/voices/nPczCjzI2devNBz1zQrb/f4dbda0c-aff0-45c0-93fa-f5d5ec95a2eb.mp3" },
-  { id: "adam", name: "Adam", voiceId: "pNInz6obpgDQGcFmaJgB", gender: "male", hint: "Deep, authoritative", previewUrl: "https://storage.googleapis.com/eleven-public-prod/premade/voices/pNInz6obpgDQGcFmaJgB/38a69695-2ca9-4b9e-b9ec-f07ced494a58.mp3" },
-  { id: "josh", name: "Josh", voiceId: "TxGEqnHWrfWFTfGW9XjX", gender: "male", hint: "Young, deep", previewUrl: "https://storage.googleapis.com/eleven-public-prod/premade/voices/TxGEqnHWrfWFTfGW9XjX/3ae2fc71-d5f9-4769-bb71-2a43633cd186.mp3" },
-  { id: "daniel", name: "Daniel", voiceId: "onwK4e9ZLuTAKqWW03F9", gender: "male", hint: "British, presenter", previewUrl: "https://storage.googleapis.com/eleven-public-prod/premade/voices/onwK4e9ZLuTAKqWW03F9/7eee0236-1a72-4b86-b303-5dcadc007ba9.mp3" },
+  {
+    id: "brian",
+    name: "Brian",
+    voiceId: "nPczCjzI2devNBz1zQrb",
+    gender: "male",
+    hint: "Deep, smooth",
+    previewUrl:
+      "https://storage.googleapis.com/eleven-public-prod/premade/voices/nPczCjzI2devNBz1zQrb/f4dbda0c-aff0-45c0-93fa-f5d5ec95a2eb.mp3",
+  },
+  {
+    id: "adam",
+    name: "Adam",
+    voiceId: "pNInz6obpgDQGcFmaJgB",
+    gender: "male",
+    hint: "Deep, authoritative",
+    previewUrl:
+      "https://storage.googleapis.com/eleven-public-prod/premade/voices/pNInz6obpgDQGcFmaJgB/38a69695-2ca9-4b9e-b9ec-f07ced494a58.mp3",
+  },
+  {
+    id: "josh",
+    name: "Josh",
+    voiceId: "TxGEqnHWrfWFTfGW9XjX",
+    gender: "male",
+    hint: "Young, deep",
+    previewUrl:
+      "https://storage.googleapis.com/eleven-public-prod/premade/voices/TxGEqnHWrfWFTfGW9XjX/3ae2fc71-d5f9-4769-bb71-2a43633cd186.mp3",
+  },
+  {
+    id: "daniel",
+    name: "Daniel",
+    voiceId: "onwK4e9ZLuTAKqWW03F9",
+    gender: "male",
+    hint: "British, presenter",
+    previewUrl:
+      "https://storage.googleapis.com/eleven-public-prod/premade/voices/onwK4e9ZLuTAKqWW03F9/7eee0236-1a72-4b86-b303-5dcadc007ba9.mp3",
+  },
   // Character
-  { id: "gigi", name: "Gigi", voiceId: "jBpfuIE2acCO8z3wKNLl", gender: "character", hint: "Childish, cute", previewUrl: "https://storage.googleapis.com/eleven-public-prod/premade/voices/jBpfuIE2acCO8z3wKNLl/3a7e4339-78fa-404e-8d10-c3ef5587935b.mp3" },
-  { id: "mimi", name: "Mimi", voiceId: "zrHiDhphv9ZnVXBqCLjz", gender: "character", hint: "Cute, animated", previewUrl: "https://storage.googleapis.com/eleven-public-prod/premade/voices/zrHiDhphv9ZnVXBqCLjz/decbf20b-0f57-4fac-985b-a4f0290ebfc4.mp3" },
-  { id: "charlotte", name: "Charlotte", voiceId: "XB0fDUnXU5powFXDhCwa", gender: "character", hint: "Alluring, game NPC", previewUrl: "https://storage.googleapis.com/eleven-public-prod/premade/voices/XB0fDUnXU5powFXDhCwa/942356dc-f10d-4d89-bda5-4f8505ee038b.mp3" },
+  {
+    id: "gigi",
+    name: "Gigi",
+    voiceId: "jBpfuIE2acCO8z3wKNLl",
+    gender: "character",
+    hint: "Childish, cute",
+    previewUrl:
+      "https://storage.googleapis.com/eleven-public-prod/premade/voices/jBpfuIE2acCO8z3wKNLl/3a7e4339-78fa-404e-8d10-c3ef5587935b.mp3",
+  },
+  {
+    id: "mimi",
+    name: "Mimi",
+    voiceId: "zrHiDhphv9ZnVXBqCLjz",
+    gender: "character",
+    hint: "Cute, animated",
+    previewUrl:
+      "https://storage.googleapis.com/eleven-public-prod/premade/voices/zrHiDhphv9ZnVXBqCLjz/decbf20b-0f57-4fac-985b-a4f0290ebfc4.mp3",
+  },
+  {
+    id: "charlotte",
+    name: "Charlotte",
+    voiceId: "XB0fDUnXU5powFXDhCwa",
+    gender: "character",
+    hint: "Alluring, game NPC",
+    previewUrl:
+      "https://storage.googleapis.com/eleven-public-prod/premade/voices/XB0fDUnXU5powFXDhCwa/942356dc-f10d-4d89-bda5-4f8505ee038b.mp3",
+  },
 ];
 
-const PROVIDERS: Array<{ id: VoiceProvider; label: string; hint: string; needsKey: boolean }> = [
-  { id: "elevenlabs", label: "ElevenLabs", hint: "High quality, realistic voices", needsKey: true },
-  { id: "edge", label: "Edge TTS", hint: "Free, Microsoft voices", needsKey: false },
-  { id: "simple-voice", label: "Simple Voice", hint: "Basic browser TTS", needsKey: false },
+const PROVIDERS: Array<{
+  id: VoiceProvider;
+  label: string;
+  hint: string;
+  needsKey: boolean;
+}> = [
+  {
+    id: "elevenlabs",
+    label: "ElevenLabs",
+    hint: "High quality, realistic voices",
+    needsKey: true,
+  },
+  {
+    id: "edge",
+    label: "Edge TTS",
+    hint: "Free, Microsoft voices",
+    needsKey: false,
+  },
+  {
+    id: "simple-voice",
+    label: "Simple Voice",
+    hint: "Basic browser TTS",
+    needsKey: false,
+  },
 ];
 
 const DEFAULT_ELEVEN_FAST_MODEL = "eleven_flash_v2_5";
@@ -82,7 +190,9 @@ export function VoiceConfigView() {
       setLoading(true);
       try {
         const cfg = await client.getConfig();
-        const messages = cfg.messages as Record<string, Record<string, unknown>> | undefined;
+        const messages = cfg.messages as
+          | Record<string, Record<string, unknown>>
+          | undefined;
         const tts = messages?.tts as VoiceConfig | undefined;
         if (tts) {
           setVoiceConfig(tts);
@@ -164,7 +274,8 @@ export function VoiceConfigView() {
         provider === "elevenlabs"
           ? {
               ...voiceConfig.elevenlabs,
-              modelId: voiceConfig.elevenlabs?.modelId ?? DEFAULT_ELEVEN_FAST_MODEL,
+              modelId:
+                voiceConfig.elevenlabs?.modelId ?? DEFAULT_ELEVEN_FAST_MODEL,
             }
           : voiceConfig.elevenlabs;
       const sanitizedKey = sanitizeApiKey(normalizedElevenLabs?.apiKey);
@@ -175,7 +286,10 @@ export function VoiceConfigView() {
       const normalizedVoiceConfig: VoiceConfig = {
         ...voiceConfig,
         provider,
-        mode: provider === "elevenlabs" ? (voiceConfig.mode ?? "own-key") : undefined,
+        mode:
+          provider === "elevenlabs"
+            ? (voiceConfig.mode ?? "own-key")
+            : undefined,
         elevenlabs: normalizedElevenLabs,
       };
       await client.updateConfig({
@@ -207,13 +321,17 @@ export function VoiceConfigView() {
   }
 
   const selectedVoiceId = voiceConfig.elevenlabs?.voiceId;
-  const selectedPreset = VOICE_PRESETS.find((p) => p.voiceId === selectedVoiceId);
+  const selectedPreset = VOICE_PRESETS.find(
+    (p) => p.voiceId === selectedVoiceId,
+  );
 
   return (
     <div className="flex flex-col gap-4">
       {/* Provider selection */}
       <div className="flex flex-col gap-2">
-        <div className="text-xs font-semibold text-[var(--muted)]">TTS Provider</div>
+        <div className="text-xs font-semibold text-[var(--muted)]">
+          TTS Provider
+        </div>
         <div className="flex gap-2">
           {PROVIDERS.map((p) => {
             const active = currentProvider === p.id;
@@ -229,7 +347,9 @@ export function VoiceConfigView() {
                 onClick={() => handleProviderChange(p.id)}
               >
                 <div className="font-semibold">{p.label}</div>
-                <div className="text-[10px] text-[var(--muted)] mt-0.5">{p.hint}</div>
+                <div className="text-[10px] text-[var(--muted)] mt-0.5">
+                  {p.hint}
+                </div>
               </button>
             );
           })}
@@ -262,7 +382,10 @@ export function VoiceConfigView() {
             <span className="text-xs font-semibold text-[var(--muted)]">
               API Source
             </span>
-            <CloudSourceModeToggle mode={currentMode} onChange={handleModeChange} />
+            <CloudSourceModeToggle
+              mode={currentMode}
+              onChange={handleModeChange}
+            />
           </div>
 
           {/* Cloud mode status */}
@@ -276,7 +399,7 @@ export function VoiceConfigView() {
           {/* API Key */}
           {currentMode === "own-key" && (
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold">ElevenLabs API Key</label>
+              <span className="text-xs font-semibold">ElevenLabs API Key</span>
               <input
                 type="password"
                 className="px-2.5 py-1.5 border border-[var(--border)] bg-[var(--card)] text-xs focus:border-[var(--accent)] focus:outline-none"
@@ -299,7 +422,8 @@ export function VoiceConfigView() {
                 </a>
               </div>
               <div className="text-[10px] text-[var(--muted)]">
-                Fast path default: ElevenLabs Flash v2.5 streaming (`{DEFAULT_ELEVEN_FAST_MODEL}`).
+                Fast path default: ElevenLabs Flash v2.5 streaming (`
+                {DEFAULT_ELEVEN_FAST_MODEL}`).
               </div>
             </div>
           )}
@@ -322,7 +446,9 @@ export function VoiceConfigView() {
                     onClick={() => handleVoiceSelect(preset.voiceId)}
                   >
                     <div className="font-semibold">{preset.name}</div>
-                    <div className="text-[10px] text-[var(--muted)]">{preset.hint}</div>
+                    <div className="text-[10px] text-[var(--muted)]">
+                      {preset.hint}
+                    </div>
                   </button>
                 );
               })}
@@ -362,14 +488,16 @@ export function VoiceConfigView() {
       {/* Edge TTS settings */}
       {currentProvider === "edge" && (
         <div className="py-2 px-3 border border-[var(--border)] bg-[var(--bg-muted)] text-xs text-[var(--muted)]">
-          Edge TTS uses Microsoft's free text-to-speech service. No configuration needed.
+          Edge TTS uses Microsoft's free text-to-speech service. No
+          configuration needed.
         </div>
       )}
 
       {/* Simple voice settings */}
       {currentProvider === "simple-voice" && (
         <div className="py-2 px-3 border border-[var(--border)] bg-[var(--bg-muted)] text-xs text-[var(--muted)]">
-          Simple Voice uses your browser's built-in speech synthesis. No configuration needed.
+          Simple Voice uses your browser's built-in speech synthesis. No
+          configuration needed.
         </div>
       )}
 

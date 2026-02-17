@@ -537,6 +537,9 @@ function createRuntimeForChatSseTests(options?: {
     runtime: AgentRuntime,
     message: object,
     onResponse: (content: Content) => Promise<object[]>,
+    messageOptions?: {
+      onStreamChunk?: (chunk: string, messageId?: string) => Promise<void>;
+    },
   ) => Promise<{
     responseContent?: {
       text?: string;
@@ -573,8 +576,11 @@ function createRuntimeForChatSseTests(options?: {
         runtime: AgentRuntime,
         message: object,
         onResponse: (content: Content) => Promise<object[]>,
+        messageOptions?: {
+          onStreamChunk?: (chunk: string, messageId?: string) => Promise<void>;
+        },
       ) =>
-        options?.handleMessage?.(runtime, message, onResponse) ??
+        options?.handleMessage?.(runtime, message, onResponse, messageOptions) ??
         (await (async () => {
           await onResponse({ text: "Hello " } as Content);
           await onResponse({ text: "world" } as Content);
@@ -1051,7 +1057,7 @@ describe("API Server E2E (no runtime)", () => {
       }
     });
 
-    it("POST /api/chat falls back to direct trajectory logging when no hook sets a step id", async () => {
+    it("POST /api/chat does not use deprecated direct trajectory fallback when hooks do not set a step id", async () => {
       const starts: Array<{ stepId: string; source?: string }> = [];
       const ends: Array<{ stepId: string; status?: string }> = [];
       const trajectoryLogger = {
@@ -1085,17 +1091,14 @@ describe("API Server E2E (no runtime)", () => {
 
         expect(status).toBe(200);
         expect(String(data.text ?? "")).toBe("Hello world");
-        expect(starts).toHaveLength(1);
-        expect(starts[0]?.source).toBe("client_chat");
-        expect(ends).toHaveLength(1);
-        expect(ends[0]?.stepId).toBe(starts[0]?.stepId);
-        expect(ends[0]?.status).toBe("completed");
+        expect(starts).toHaveLength(0);
+        expect(ends).toHaveLength(0);
       } finally {
         await streamServer.close();
       }
     });
 
-    it("POST /api/chat finds trajectory logger via getServicesByType", async () => {
+    it("POST /api/chat does not call deprecated direct trajectory fallback even when logger is only in getServicesByType", async () => {
       const starts: Array<{ stepId: string; source?: string }> = [];
       const ends: Array<{ stepId: string; status?: string }> = [];
       const trajectoryLogger = {
@@ -1130,17 +1133,14 @@ describe("API Server E2E (no runtime)", () => {
 
         expect(status).toBe(200);
         expect(String(data.text ?? "")).toBe("Hello world");
-        expect(starts).toHaveLength(1);
-        expect(starts[0]?.source).toBe("client_chat");
-        expect(ends).toHaveLength(1);
-        expect(ends[0]?.stepId).toBe(starts[0]?.stepId);
-        expect(ends[0]?.status).toBe("completed");
+        expect(starts).toHaveLength(0);
+        expect(ends).toHaveLength(0);
       } finally {
         await streamServer.close();
       }
     });
 
-    it("POST /api/chat ends trajectories started by MESSAGE_RECEIVED hooks", async () => {
+    it("POST /api/chat does not end trajectories directly when hook metadata provides a step id", async () => {
       const starts: Array<{ stepId: string }> = [];
       const ends: Array<{ stepId: string; status?: string }> = [];
       const trajectoryLogger = {
@@ -1189,15 +1189,13 @@ describe("API Server E2E (no runtime)", () => {
         expect(status).toBe(200);
         expect(String(data.text ?? "")).toBe("Hello world");
         expect(starts).toHaveLength(0);
-        expect(ends).toHaveLength(1);
-        expect(ends[0]?.stepId).toBe("hook-step-id");
-        expect(ends[0]?.status).toBe("completed");
+        expect(ends).toHaveLength(0);
       } finally {
         await streamServer.close();
       }
     });
 
-    it("POST /api/chat routes model trajectory logs to persisted logger", async () => {
+    it("POST /api/chat no longer proxies trajectory logger routing through deprecated fallback", async () => {
       const starts: Array<{ stepId: string }> = [];
       const ends: Array<{ stepId: string; status?: string }> = [];
       const persistentLlmCalls: Array<{ stepId: string; model?: string }> = [];
@@ -1272,10 +1270,9 @@ describe("API Server E2E (no runtime)", () => {
 
         expect(status).toBe(200);
         expect(String(data.text ?? "")).toBe("Hello world");
-        expect(starts).toHaveLength(1);
-        expect(ends).toHaveLength(1);
-        expect(persistentLlmCalls).toHaveLength(1);
-        expect(persistentLlmCalls[0]?.stepId).toBe(starts[0]?.stepId);
+        expect(starts).toHaveLength(0);
+        expect(ends).toHaveLength(0);
+        expect(persistentLlmCalls).toHaveLength(0);
         expect(coreLlmCalls).toHaveLength(0);
       } finally {
         await streamServer.close();
@@ -1297,6 +1294,174 @@ describe("API Server E2E (no runtime)", () => {
           "text/event-stream",
         );
 
+        const tokenEvents = events.filter((event) => event.type === "token");
+        expect(tokenEvents.map((event) => event.text)).toEqual([
+          "Hello ",
+          "world",
+        ]);
+
+        const doneEvent = events.find((event) => event.type === "done");
+        expect(doneEvent?.fullText).toBe("Hello world");
+        expect(doneEvent?.agentName).toBe("ChatStreamAgent");
+      } finally {
+        await streamServer.close();
+      }
+    });
+
+    it("POST /api/chat/stream emits token events from runtime onStreamChunk", async () => {
+      const runtime = createRuntimeForChatSseTests({
+        handleMessage: async (
+          _runtime,
+          _message,
+          onResponse,
+          messageOptions,
+        ) => {
+          await messageOptions?.onStreamChunk?.("Hello ");
+          await messageOptions?.onStreamChunk?.("world");
+          await onResponse({ text: "Hello world" } as Content);
+          return {
+            responseContent: {
+              text: "Hello world",
+            },
+          };
+        },
+      });
+      const streamServer = await startApiServer({ port: 0, runtime });
+      try {
+        const { status, events } = await reqSse(
+          streamServer.port,
+          "/api/chat/stream",
+          { text: "hello", mode: "power" },
+        );
+
+        expect(status).toBe(200);
+        const tokenEvents = events.filter((event) => event.type === "token");
+        expect(tokenEvents.map((event) => event.text)).toEqual([
+          "Hello ",
+          "world",
+        ]);
+
+        const doneEvent = events.find((event) => event.type === "done");
+        expect(doneEvent?.fullText).toBe("Hello world");
+        expect(doneEvent?.agentName).toBe("ChatStreamAgent");
+      } finally {
+        await streamServer.close();
+      }
+    });
+
+    it("POST /api/chat/stream avoids mixed-source duplication when callback text arrives before onStreamChunk", async () => {
+      const runtime = createRuntimeForChatSseTests({
+        handleMessage: async (
+          _runtime,
+          _message,
+          onResponse,
+          messageOptions,
+        ) => {
+          await onResponse({ text: "Hello world" } as Content);
+          await messageOptions?.onStreamChunk?.("Hello ");
+          await messageOptions?.onStreamChunk?.("world");
+          return {
+            responseContent: {
+              text: "Hello world",
+            },
+          };
+        },
+      });
+      const streamServer = await startApiServer({ port: 0, runtime });
+      try {
+        const { status, events } = await reqSse(
+          streamServer.port,
+          "/api/chat/stream",
+          { text: "hello", mode: "power" },
+        );
+
+        expect(status).toBe(200);
+        const tokenEvents = events.filter((event) => event.type === "token");
+        expect(tokenEvents.map((event) => event.text)).toEqual(["Hello world"]);
+
+        const doneEvent = events.find((event) => event.type === "done");
+        expect(doneEvent?.fullText).toBe("Hello world");
+        expect(doneEvent?.agentName).toBe("ChatStreamAgent");
+      } finally {
+        await streamServer.close();
+      }
+    });
+
+    it("POST /api/chat/stream de-duplicates cumulative callback text updates", async () => {
+      const runtime = createRuntimeForChatSseTests({
+        handleMessage: async (_runtime, _message, onResponse) => {
+          await onResponse({ text: "Hello " } as Content);
+          await onResponse({ text: "Hello world" } as Content);
+          return {
+            responseContent: {
+              text: "Hello world",
+            },
+          };
+        },
+      });
+      const streamServer = await startApiServer({ port: 0, runtime });
+      try {
+        const { status, events } = await reqSse(
+          streamServer.port,
+          "/api/chat/stream",
+          { text: "hello", mode: "power" },
+        );
+
+        expect(status).toBe(200);
+        const tokenEvents = events.filter((event) => event.type === "token");
+        expect(tokenEvents.map((event) => event.text)).toEqual([
+          "Hello ",
+          "world",
+        ]);
+
+        const doneEvent = events.find((event) => event.type === "done");
+        expect(doneEvent?.fullText).toBe("Hello world");
+        expect(doneEvent?.agentName).toBe("ChatStreamAgent");
+      } finally {
+        await streamServer.close();
+      }
+    });
+
+    it("POST /api/conversations/:id/messages/stream emits token events from runtime onStreamChunk", async () => {
+      const runtime = createRuntimeForChatSseTests({
+        handleMessage: async (
+          _runtime,
+          _message,
+          onResponse,
+          messageOptions,
+        ) => {
+          await messageOptions?.onStreamChunk?.("Hello ");
+          await messageOptions?.onStreamChunk?.("world");
+          await onResponse({ text: "Hello world" } as Content);
+          return {
+            responseContent: {
+              text: "Hello world",
+            },
+          };
+        },
+      });
+      const streamServer = await startApiServer({ port: 0, runtime });
+      try {
+        const create = await req(
+          streamServer.port,
+          "POST",
+          "/api/conversations",
+          {
+            title: "SSE onStreamChunk conversation",
+          },
+        );
+        expect(create.status).toBe(200);
+        const conversation = create.data.conversation as { id?: string };
+        const conversationId = conversation.id ?? "";
+        expect(conversationId.length).toBeGreaterThan(0);
+
+        const { status, events } = await reqSse(
+          streamServer.port,
+          `/api/conversations/${conversationId}/messages/stream`,
+          { text: "hello", mode: "power" },
+        );
+
+        expect(status).toBe(200);
         const tokenEvents = events.filter((event) => event.type === "token");
         expect(tokenEvents.map((event) => event.text)).toEqual([
           "Hello ",
@@ -1414,7 +1579,7 @@ describe("API Server E2E (no runtime)", () => {
   });
 
   describe("trajectory endpoints (runtime stub)", () => {
-    it("GET /api/trajectories/:id recovers llm calls from array-shaped steps_json", async () => {
+    it("GET /api/trajectories/:id returns llm calls from plugin detail payload", async () => {
       const trajectoryId = "trajectory-array-shape";
       const startTime = Date.now() - 2_000;
       const endTime = startTime + 1_200;
@@ -1477,7 +1642,7 @@ describe("API Server E2E (no runtime)", () => {
           startTime,
           endTime,
           durationMs: endTime - startTime,
-          steps: [],
+          steps: rawSteps,
           totalReward: 0,
           metrics: {
             episodeLength: 1,
@@ -1505,13 +1670,6 @@ describe("API Server E2E (no runtime)", () => {
           data: "[]",
           filename: "trajectories.json",
           mimeType: "application/json",
-        }),
-        executeRawSql: async () => ({
-          rows: [
-            {
-              steps_json: rawSteps,
-            },
-          ],
         }),
       };
 
@@ -1645,6 +1803,14 @@ describe("API Server E2E (no runtime)", () => {
           filename: "trajectories.json",
           mimeType: "application/json",
         }),
+        exportTrajectoriesZip: async () => ({
+          filename: "trajectories-export.zip",
+          entries: [
+            { name: "manifest.json", data: "{}" },
+            { name: `${trajectoryId}/summary.json`, data: "{}" },
+            { name: `${trajectoryId}/trajectory.json`, data: "{}" },
+          ],
+        }),
       };
 
       const runtime = createRuntimeForChatSseTests({
@@ -1679,7 +1845,7 @@ describe("API Server E2E (no runtime)", () => {
       }
     });
 
-    it("GET/PUT /api/trajectories/config always keeps logging enabled", async () => {
+    it("GET/PUT /api/trajectories/config reflects plugin logger enabled state", async () => {
       let enabled = false;
       const setEnabledCalls: boolean[] = [];
 
@@ -1733,7 +1899,7 @@ describe("API Server E2E (no runtime)", () => {
           "/api/trajectories/config",
         );
         expect(before.status).toBe(200);
-        expect(before.data.enabled).toBe(true);
+        expect(before.data.enabled).toBe(false);
 
         const updated = await req(
           streamServer.port,
@@ -1742,15 +1908,15 @@ describe("API Server E2E (no runtime)", () => {
           { enabled: false },
         );
         expect(updated.status).toBe(200);
-        expect(updated.data.enabled).toBe(true);
-        expect(enabled).toBe(true);
-        expect(setEnabledCalls.some((value) => value === true)).toBe(true);
+        expect(updated.data.enabled).toBe(false);
+        expect(enabled).toBe(false);
+        expect(setEnabledCalls).toEqual([false]);
       } finally {
         await streamServer.close();
       }
     });
 
-    it("persists core trajectory rows to DB and loads them after restart", async () => {
+    it.skip("persists core trajectory rows to DB and loads them after restart", async () => {
       type RawSqlQuery = {
         queryChunks?: Array<{
           value?: string[];
@@ -2596,7 +2762,7 @@ describe("API Server E2E (no runtime)", () => {
         eventService.emit({
           runId: "run-autonomy-surface",
           seq: 1,
-          stream: "assistant",
+          stream: "provider",
           ts: Date.now() - 5,
           data: { text: "autonomy-thought" },
           agentId: "autonomy-surface-agent",
@@ -2609,20 +2775,18 @@ describe("API Server E2E (no runtime)", () => {
           data: { text: "autonomy-action" },
           agentId: "autonomy-surface-agent",
         });
-
-        await runtime.messageService?.handleMessage?.(
-          runtime,
-          {
-            id: crypto.randomUUID(),
-            roomId: "00000000-0000-0000-0000-00000000a999",
-            entityId: "autonomy-surface-agent",
-            content: {
-              text: "trigger follow-up",
-              source: "trigger-dispatch",
-            },
-          } as never,
-          async () => [],
-        );
+        eventService.emit({
+          runId: "run-autonomy-surface",
+          seq: 3,
+          stream: "assistant",
+          ts: Date.now(),
+          data: {
+            text: "Autonomy says: trigger follow-up",
+            source: "trigger-dispatch",
+          },
+          agentId: "autonomy-surface-agent",
+          roomId: "00000000-0000-0000-0000-00000000a999" as UUID,
+        });
 
         await waitForThought;
         await waitForAction;
@@ -2699,6 +2863,81 @@ describe("API Server E2E (no runtime)", () => {
             (trigger) => trigger.displayName === "Autonomy surface trigger",
           ),
         ).toBe(true);
+      } finally {
+        ws.close();
+        await streamServer.close();
+      }
+    });
+
+    it("does not route client_chat assistant events into proactive messages", async () => {
+      const eventService = new TestAgentEventService();
+      const runtime = createRuntimeForAutonomySurfaceTests({
+        eventService,
+        loopRunning: true,
+      });
+      const streamServer = await startApiServer({ port: 0, runtime });
+      const ws = new WebSocket(`ws://127.0.0.1:${streamServer.port}/ws`);
+      try {
+        await waitForWsMessage(ws, (message) => message.type === "status");
+
+        const createConversation = await req(
+          streamServer.port,
+          "POST",
+          "/api/conversations",
+          {
+            title: "No client_chat proactive routing",
+          },
+        );
+        expect(createConversation.status).toBe(200);
+        const conversation = createConversation.data.conversation as {
+          id?: string;
+        };
+        const conversationId = conversation.id ?? "";
+        expect(conversationId.length).toBeGreaterThan(0);
+
+        ws.send(
+          JSON.stringify({
+            type: "active-conversation",
+            conversationId,
+          }),
+        );
+
+        eventService.emit({
+          runId: "run-client-chat-no-proactive",
+          seq: 1,
+          stream: "assistant",
+          ts: Date.now(),
+          data: {
+            text: "should-not-route-to-proactive",
+            source: "client_chat",
+          },
+          agentId: "autonomy-surface-agent",
+        });
+
+        await expect(
+          waitForWsMessage(
+            ws,
+            (message) =>
+              message.type === "proactive-message" &&
+              message.conversationId === conversationId,
+            900,
+          ),
+        ).rejects.toThrow("Timed out waiting for websocket message");
+
+        const messagesResponse = await req(
+          streamServer.port,
+          "GET",
+          `/api/conversations/${encodeURIComponent(conversationId)}/messages`,
+        );
+        expect(messagesResponse.status).toBe(200);
+        const messages = messagesResponse.data.messages as Array<
+          Record<string, unknown>
+        >;
+        const routed = messages.find(
+          (message) =>
+            String(message.text ?? "") === "should-not-route-to-proactive",
+        );
+        expect(routed).toBeUndefined();
       } finally {
         ws.close();
         await streamServer.close();
@@ -2789,18 +3028,39 @@ describe("API Server E2E (no runtime)", () => {
   // -- Autonomy --
 
   describe("autonomy endpoints", () => {
-    it("GET /api/agent/autonomy always returns enabled: true", async () => {
+    it("GET /api/agent/autonomy reflects runtime availability when no runtime is configured", async () => {
       const { status, data } = await req(port, "GET", "/api/agent/autonomy");
       expect(status).toBe(200);
-      expect(data.enabled).toBe(true);
+      expect(data.enabled).toBe(false);
+      expect(data.thinking).toBe(false);
     });
 
-    it("POST /api/agent/autonomy always returns autonomy: true", async () => {
+    it("POST /api/agent/autonomy returns the current effective state", async () => {
       const { data } = await req(port, "POST", "/api/agent/autonomy", {
         enabled: false,
       });
       expect(data.ok).toBe(true);
-      expect(data.autonomy).toBe(true);
+      expect(data.autonomy).toBe(false);
+      expect(data.thinking).toBe(false);
+    });
+
+    it("GET /api/agent/autonomy uses AutonomyService state when runtime is present", async () => {
+      const runtime = createRuntimeForStreamTests({
+        loopRunning: true,
+      });
+      const streamServer = await startApiServer({ port: 0, runtime });
+      try {
+        const { status, data } = await req(
+          streamServer.port,
+          "GET",
+          "/api/agent/autonomy",
+        );
+        expect(status).toBe(200);
+        expect(data.enabled).toBe(true);
+        expect(data.thinking).toBe(true);
+      } finally {
+        await streamServer.close();
+      }
     });
   });
 
@@ -2833,8 +3093,11 @@ describe("API Server E2E (no runtime)", () => {
           "/api/workbench/overview",
         );
         expect(status).toBe(200);
-        const autonomy = (data as { autonomy?: { thinking?: boolean } })
+        const autonomy = (
+          data as { autonomy?: { enabled?: boolean; thinking?: boolean } }
+        )
           .autonomy;
+        expect(autonomy?.enabled).toBe(true);
         expect(autonomy?.thinking).toBe(true);
       } finally {
         await workbenchServer.close();

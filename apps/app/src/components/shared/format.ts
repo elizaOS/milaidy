@@ -51,13 +51,13 @@ export function formatByteSize(
 
   if (!Number.isFinite(bytes) || bytes < 0) return unknownLabel;
   if (bytes >= 1024 ** 4) {
-    return `${(bytes / (1024 ** 4)).toFixed(tbPrecision)} TB`;
+    return `${(bytes / 1024 ** 4).toFixed(tbPrecision)} TB`;
   }
   if (bytes >= 1024 ** 3) {
-    return `${(bytes / (1024 ** 3)).toFixed(gbPrecision)} GB`;
+    return `${(bytes / 1024 ** 3).toFixed(gbPrecision)} GB`;
   }
   if (bytes >= 1024 ** 2) {
-    return `${(bytes / (1024 ** 2)).toFixed(mbPrecision)} MB`;
+    return `${(bytes / 1024 ** 2).toFixed(mbPrecision)} MB`;
   }
   if (bytes >= 1024) {
     return `${(bytes / 1024).toFixed(kbPrecision)} KB`;

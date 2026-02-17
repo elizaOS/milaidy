@@ -1,3 +1,4 @@
+/** @vitest-environment jsdom */
 import React, { useEffect } from "react";
 import TestRenderer, { act } from "react-test-renderer";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -132,7 +133,7 @@ function Probe(props: { onReady: (api: ProbeApi) => void }) {
 
 describe("chat send locking", () => {
   beforeEach(() => {
-    Object.assign(window.location, { protocol: "file:", pathname: "/chat" });
+    window.history.replaceState({}, "", "/chat");
     Object.assign(window, {
       setTimeout: globalThis.setTimeout,
       clearTimeout: globalThis.clearTimeout,
@@ -196,7 +197,10 @@ describe("chat send locking", () => {
     mockClient.connectWs.mockImplementation(() => {});
     mockClient.disconnectWs.mockImplementation(() => {});
     mockClient.onWsEvent.mockReturnValue(() => {});
-    mockClient.getAgentEvents.mockResolvedValue({ events: [], latestEventId: null });
+    mockClient.getAgentEvents.mockResolvedValue({
+      events: [],
+      latestEventId: null,
+    });
     mockClient.getStatus.mockResolvedValue({
       state: "running",
       agentName: "Milady",
@@ -206,7 +210,10 @@ describe("chat send locking", () => {
     });
     mockClient.getWalletAddresses.mockResolvedValue(null);
     mockClient.getConfig.mockResolvedValue({});
-    mockClient.getCloudStatus.mockResolvedValue({ enabled: false, connected: false });
+    mockClient.getCloudStatus.mockResolvedValue({
+      enabled: false,
+      connected: false,
+    });
     mockClient.getWorkbenchOverview.mockResolvedValue({
       tasks: [],
       triggers: [],
@@ -238,13 +245,13 @@ describe("chat send locking", () => {
     expect(api).not.toBeNull();
 
     await act(async () => {
-      await api!.handleSelectConversation("conv-1");
-      api!.setChatInput("hello");
+      await api?.handleSelectConversation("conv-1");
+      api?.setChatInput("hello");
     });
 
     await act(async () => {
-      void api!.handleChatSend();
-      void api!.handleChatSend();
+      void api?.handleChatSend();
+      void api?.handleChatSend();
     });
 
     expect(mockClient.sendConversationMessageStream).toHaveBeenCalledTimes(1);
@@ -255,7 +262,7 @@ describe("chat send locking", () => {
     });
 
     await act(async () => {
-      tree!.unmount();
+      tree?.unmount();
     });
   });
 
@@ -280,8 +287,8 @@ describe("chat send locking", () => {
     expect(api).not.toBeNull();
 
     await act(async () => {
-      await api!.handleSelectConversation("conv-1");
-      api!.setChatInput("hello");
+      await api?.handleSelectConversation("conv-1");
+      api?.setChatInput("hello");
     });
 
     mockClient.sendWsMessage.mockImplementationOnce(() => {
@@ -289,18 +296,18 @@ describe("chat send locking", () => {
     });
 
     await act(async () => {
-      await expect(api!.handleChatSend()).rejects.toThrow("ws boom");
+      await expect(api?.handleChatSend()).rejects.toThrow("ws boom");
     });
 
     await act(async () => {
-      api!.setChatInput("hello again");
-      await api!.handleChatSend();
+      api?.setChatInput("hello again");
+      await api?.handleChatSend();
     });
 
     expect(mockClient.sendConversationMessageStream).toHaveBeenCalledTimes(1);
 
     await act(async () => {
-      tree!.unmount();
+      tree?.unmount();
     });
   });
 
@@ -337,25 +344,24 @@ describe("chat send locking", () => {
     expect(api).not.toBeNull();
 
     await act(async () => {
-      await api!.handleSelectConversation("conv-1");
-      api!.setChatInput("stream me");
+      await api?.handleSelectConversation("conv-1");
+      api?.setChatInput("stream me");
     });
 
     let sendPromise: Promise<void> | null = null;
     await act(async () => {
-      sendPromise = api!.handleChatSend();
+      sendPromise = api?.handleChatSend();
       await Promise.resolve();
     });
 
     await vi.waitFor(() => {
-      const snapshot = api!.snapshot();
+      const snapshot = api?.snapshot();
       const optimisticUser = snapshot.conversationMessages.find(
         (message) => message.role === "user" && message.text === "stream me",
       );
       const streamedAssistant = snapshot.conversationMessages.find(
         (message) =>
-          message.role === "assistant" &&
-          message.id.startsWith("temp-resp-"),
+          message.role === "assistant" && message.id.startsWith("temp-resp-"),
       );
 
       expect(optimisticUser).toBeDefined();
@@ -369,18 +375,72 @@ describe("chat send locking", () => {
       await sendPromise;
     });
 
-    const finalSnapshot = api!.snapshot();
-    const finalAssistant = finalSnapshot.conversationMessages.find(
-      (message) =>
-        message.role === "assistant" && message.id.startsWith("temp-resp-"),
-    );
+    const finalSnapshot = api?.snapshot();
+    const finalAssistant = [...finalSnapshot.conversationMessages]
+      .reverse()
+      .find((message) => message.role === "assistant");
 
     expect(finalAssistant?.text).toBe("Hello world");
     expect(finalSnapshot.chatSending).toBe(false);
     expect(finalSnapshot.chatFirstTokenReceived).toBe(false);
 
     await act(async () => {
-      tree!.unmount();
+      tree?.unmount();
+    });
+  });
+
+  it("de-duplicates cumulative stream token updates", async () => {
+    mockClient.sendConversationMessageStream.mockImplementation(
+      async (
+        _conversationId: string,
+        _text: string,
+        onToken: (token: string) => void,
+      ) => {
+        onToken("Hello ");
+        onToken("Hello world");
+        return { text: "Hello world", agentName: "Milady" };
+      },
+    );
+
+    let api: ProbeApi | null = null;
+    let tree: TestRenderer.ReactTestRenderer;
+
+    await act(async () => {
+      tree = TestRenderer.create(
+        React.createElement(
+          AppProvider,
+          null,
+          React.createElement(Probe, {
+            onReady: (nextApi) => {
+              api = nextApi;
+            },
+          }),
+        ),
+      );
+    });
+
+    expect(api).not.toBeNull();
+
+    await act(async () => {
+      await api?.handleSelectConversation("conv-1");
+      api?.setChatInput("stream me");
+    });
+
+    await act(async () => {
+      await api?.handleChatSend();
+    });
+
+    const finalSnapshot = api?.snapshot();
+    const finalAssistant = [...finalSnapshot.conversationMessages]
+      .reverse()
+      .find((message) => message.role === "assistant");
+
+    expect(finalAssistant?.text).toBe("Hello world");
+    expect(finalSnapshot.chatSending).toBe(false);
+    expect(finalSnapshot.chatFirstTokenReceived).toBe(false);
+
+    await act(async () => {
+      tree?.unmount();
     });
   });
 });

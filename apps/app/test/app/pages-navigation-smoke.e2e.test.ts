@@ -61,7 +61,8 @@ vi.mock("../../src/components/CustomActionEditor", () => ({
 }));
 
 vi.mock("../../src/components/AppsPageView", () => ({
-  AppsPageView: () => React.createElement("section", null, "AppsPageView Ready"),
+  AppsPageView: () =>
+    React.createElement("section", null, "AppsPageView Ready"),
 }));
 
 vi.mock("../../src/components/CharacterView", () => ({
@@ -70,7 +71,8 @@ vi.mock("../../src/components/CharacterView", () => ({
 }));
 
 vi.mock("../../src/components/TriggersView", () => ({
-  TriggersView: () => React.createElement("section", null, "TriggersView Ready"),
+  TriggersView: () =>
+    React.createElement("section", null, "TriggersView Ready"),
 }));
 
 vi.mock("../../src/components/ConnectorsPageView", () => ({
@@ -89,12 +91,12 @@ vi.mock("../../src/components/KnowledgeView", () => ({
 }));
 
 vi.mock("../../src/components/SettingsView", () => ({
-  SettingsView: () => React.createElement("section", null, "SettingsView Ready"),
+  SettingsView: () =>
+    React.createElement("section", null, "SettingsView Ready"),
 }));
 
 vi.mock("../../src/components/LoadingScreen", () => ({
-  LoadingScreen: () =>
-    React.createElement("div", null, "LoadingScreen"),
+  LoadingScreen: () => React.createElement("div", null, "LoadingScreen"),
 }));
 
 vi.mock("../../src/components/TerminalPanel", () => ({
@@ -205,6 +207,13 @@ function mainContent(tree: TestRenderer.ReactTestRenderer): string {
   return textOf(mains[0]);
 }
 
+function requireTree(
+  tree: TestRenderer.ReactTestRenderer | null,
+): TestRenderer.ReactTestRenderer {
+  if (!tree) throw new Error("failed to render App");
+  return tree;
+}
+
 async function clickAndRerender(
   tree: TestRenderer.ReactTestRenderer,
   label: string,
@@ -240,10 +249,11 @@ describe("pages navigation smoke (e2e)", () => {
     const errorSpy = vi.spyOn(console, "error");
     const warnSpy = vi.spyOn(console, "warn");
 
-    let tree: TestRenderer.ReactTestRenderer;
+    let tree: TestRenderer.ReactTestRenderer | null = null;
     await act(async () => {
       tree = TestRenderer.create(React.createElement(App));
     });
+    const renderedTree = requireTree(tree);
 
     const expectedByPrimaryTab: Record<Tab, string> = {
       chat: "ChatView Ready",
@@ -267,9 +277,9 @@ describe("pages navigation smoke (e2e)", () => {
     };
 
     for (const group of TAB_GROUPS) {
-      await clickAndRerender(tree!, group.label);
+      await clickAndRerender(renderedTree, group.label);
       const nextTab = group.tabs[0];
-      const content = mainContent(tree!);
+      const content = mainContent(renderedTree);
       expect(state.tab).toBe(nextTab);
       expect(content).toContain(expectedByPrimaryTab[nextTab]);
       expectValidContent(content);
@@ -295,12 +305,13 @@ describe("pages navigation smoke (e2e)", () => {
     const errorSpy = vi.spyOn(console, "error");
     const warnSpy = vi.spyOn(console, "warn");
 
-    let tree: TestRenderer.ReactTestRenderer;
+    let tree: TestRenderer.ReactTestRenderer | null = null;
     await act(async () => {
       tree = TestRenderer.create(React.createElement(App));
     });
+    const renderedTree = requireTree(tree);
 
-    await clickAndRerender(tree!, "Advanced");
+    await clickAndRerender(renderedTree, "Advanced");
     expect(state.tab).toBe("advanced");
 
     const subPages: Array<{ label: string; tab: Tab; token: string }> = [
@@ -324,8 +335,8 @@ describe("pages navigation smoke (e2e)", () => {
     ];
 
     for (const subPage of subPages) {
-      await clickAndRerender(tree!, subPage.label);
-      const content = mainContent(tree!);
+      await clickAndRerender(renderedTree, subPage.label);
+      const content = mainContent(renderedTree);
       expect(state.tab).toBe(subPage.tab);
       expect(content).toContain(subPage.token);
       expectValidContent(content);
@@ -372,17 +383,18 @@ describe("pages navigation smoke (e2e)", () => {
       { tab: "logs", token: "LogsPageView Ready" },
     ];
 
-    let tree: TestRenderer.ReactTestRenderer;
+    let tree: TestRenderer.ReactTestRenderer | null = null;
     await act(async () => {
       tree = TestRenderer.create(React.createElement(App));
     });
+    const renderedTree = requireTree(tree);
 
     for (const entry of expectedByTab) {
       state.tab = entry.tab;
       await act(async () => {
-        tree!.update(React.createElement(App));
+        renderedTree.update(React.createElement(App));
       });
-      const content = mainContent(tree!);
+      const content = mainContent(renderedTree);
       expect(content).toContain(entry.token);
       expectValidContent(content);
     }
@@ -419,12 +431,20 @@ describe("pages navigation smoke (e2e)", () => {
       },
       {
         name: "pairing",
-        patch: { onboardingLoading: false, onboardingComplete: true, authRequired: true },
+        patch: {
+          onboardingLoading: false,
+          onboardingComplete: true,
+          authRequired: true,
+        },
         token: "PairingView",
       },
       {
         name: "onboarding",
-        patch: { onboardingLoading: false, authRequired: false, onboardingComplete: false },
+        patch: {
+          onboardingLoading: false,
+          authRequired: false,
+          onboardingComplete: false,
+        },
         token: "OnboardingWizard",
       },
     ];
@@ -447,7 +467,7 @@ describe("pages navigation smoke (e2e)", () => {
       await act(async () => {
         tree = TestRenderer.create(React.createElement(App));
       });
-      const appText = textOf(tree!.root);
+      const appText = textOf(tree?.root);
       expect(appText).toContain(entry.token);
       expectValidContent(appText);
     }

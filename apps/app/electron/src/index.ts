@@ -1,15 +1,26 @@
-import type { CapacitorElectronConfig } from '@capacitor-community/electron';
-import { getCapacitorElectronConfig, setupElectronDeepLinking } from '@capacitor-community/electron';
-import type { MenuItemConstructorOptions } from 'electron';
-import { app, MenuItem } from 'electron';
-import electronIsDev from 'electron-is-dev';
-import unhandled from 'electron-unhandled';
-import { autoUpdater } from 'electron-updater';
-import { File as NodeFile } from 'node:buffer';
-import path from 'node:path';
-
-import { ElectronCapacitorApp, setupContentSecurityPolicy, setupReloadWatcher } from './setup';
-import { initializeNativeModules, registerAllIPC, disposeNativeModules, getAgentManager } from './native';
+import { File as NodeFile } from "node:buffer";
+import path from "node:path";
+import type { CapacitorElectronConfig } from "@capacitor-community/electron";
+import {
+  getCapacitorElectronConfig,
+  setupElectronDeepLinking,
+} from "@capacitor-community/electron";
+import type { MenuItemConstructorOptions } from "electron";
+import { app, MenuItem } from "electron";
+import electronIsDev from "electron-is-dev";
+import unhandled from "electron-unhandled";
+import { autoUpdater } from "electron-updater";
+import {
+  disposeNativeModules,
+  getAgentManager,
+  initializeNativeModules,
+  registerAllIPC,
+} from "./native";
+import {
+  ElectronCapacitorApp,
+  setupContentSecurityPolicy,
+  setupReloadWatcher,
+} from "./setup";
 
 // Graceful handling of unhandled errors.
 unhandled();
@@ -17,21 +28,26 @@ unhandled();
 // Allow overriding Electron userData during automated E2E runs.
 const userDataOverride = process.env.MILADY_ELECTRON_USER_DATA_DIR?.trim();
 if (userDataOverride) {
-  app.setPath('userData', userDataOverride);
+  app.setPath("userData", userDataOverride);
 }
 
 // Electron 26 (Node 18) can miss global File, which breaks undici-based deps.
 const globalWithFile = globalThis as unknown as { File?: typeof NodeFile };
-if (typeof globalWithFile.File === 'undefined' && typeof NodeFile === 'function') {
+if (
+  typeof globalWithFile.File === "undefined" &&
+  typeof NodeFile === "function"
+) {
   globalWithFile.File = NodeFile;
 }
 
 // Define our menu templates (these are optional)
-const trayMenuTemplate: (MenuItemConstructorOptions | MenuItem)[] = [new MenuItem({ label: 'Quit App', role: 'quit' })];
+const trayMenuTemplate: (MenuItemConstructorOptions | MenuItem)[] = [
+  new MenuItem({ label: "Quit App", role: "quit" }),
+];
 const appMenuBarMenuTemplate: (MenuItemConstructorOptions | MenuItem)[] = [
-  { role: process.platform === 'darwin' ? 'appMenu' : 'fileMenu' },
-  { role: 'editMenu' },
-  { role: 'viewMenu' },
+  { role: process.platform === "darwin" ? "appMenu" : "fileMenu" },
+  { role: "editMenu" },
+  { role: "viewMenu" },
 ];
 
 interface ShareTargetPayload {
@@ -52,14 +68,15 @@ function parseShareUrl(rawUrl: string): ShareTargetPayload | null {
     return null;
   }
 
-  if (parsed.protocol !== 'milady:') return null;
-  const sharePath = (parsed.pathname || parsed.host || '').replace(/^\/+/, '');
-  if (sharePath !== 'share') return null;
+  if (parsed.protocol !== "milady:") return null;
+  const sharePath = (parsed.pathname || parsed.host || "").replace(/^\/+/, "");
+  if (sharePath !== "share") return null;
 
-  const title = parsed.searchParams.get('title')?.trim() || undefined;
-  const text = parsed.searchParams.get('text')?.trim() || undefined;
-  const sharedUrl = parsed.searchParams.get('url')?.trim() || undefined;
-  const files = parsed.searchParams.getAll('file')
+  const title = parsed.searchParams.get("title")?.trim() || undefined;
+  const text = parsed.searchParams.get("text")?.trim() || undefined;
+  const sharedUrl = parsed.searchParams.get("url")?.trim() || undefined;
+  const files = parsed.searchParams
+    .getAll("file")
     .map((filePath) => filePath.trim())
     .filter((filePath) => filePath.length > 0)
     .map((filePath) => ({
@@ -68,7 +85,7 @@ function parseShareUrl(rawUrl: string): ShareTargetPayload | null {
     }));
 
   return {
-    source: 'electron-open-url',
+    source: "electron-open-url",
     title,
     text,
     url: sharedUrl,
@@ -83,15 +100,17 @@ function dispatchShareToRenderer(payload: ShareTargetPayload): void {
     return;
   }
 
-  const eventName = JSON.stringify('milady:share-target');
-  const detail = JSON.stringify(payload).replace(/</g, '\\u003c');
-  mainWindow.webContents.executeJavaScript(
-    `window.__MILADY_SHARE_QUEUE__ = Array.isArray(window.__MILADY_SHARE_QUEUE__) ? window.__MILADY_SHARE_QUEUE__ : [];` +
-    `window.__MILADY_SHARE_QUEUE__.push(${detail});` +
-    `document.dispatchEvent(new CustomEvent(${eventName}, { detail: ${detail} }));`
-  ).catch(() => {
-    pendingSharePayloads.push(payload);
-  });
+  const eventName = JSON.stringify("milady:share-target");
+  const detail = JSON.stringify(payload).replace(/</g, "\\u003c");
+  mainWindow.webContents
+    .executeJavaScript(
+      `window.__MILADY_SHARE_QUEUE__ = Array.isArray(window.__MILADY_SHARE_QUEUE__) ? window.__MILADY_SHARE_QUEUE__ : [];` +
+        `window.__MILADY_SHARE_QUEUE__.push(${detail});` +
+        `document.dispatchEvent(new CustomEvent(${eventName}, { detail: ${detail} }));`,
+    )
+    .catch(() => {
+      pendingSharePayloads.push(payload);
+    });
 }
 
 function flushPendingSharePayloads(): void {
@@ -114,23 +133,24 @@ function normalizeApiBase(raw: string | undefined): string | null {
   if (!raw) return null;
   try {
     const parsed = new URL(raw);
-    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:")
+      return null;
     return parsed.origin;
   } catch {
     return null;
   }
 }
 
-app.on('open-file', (event, filePath) => {
+app.on("open-file", (event, filePath) => {
   event.preventDefault();
   dispatchShareToRenderer({
-    source: 'electron-open-file',
+    source: "electron-open-file",
     files: [{ name: path.basename(filePath), path: filePath }],
   });
   revealMainWindow();
 });
 
-app.on('open-url', (event, url) => {
+app.on("open-url", (event, url) => {
   const payload = parseShareUrl(url);
   if (!payload) return;
   event.preventDefault();
@@ -144,16 +164,23 @@ for (const arg of process.argv) {
 }
 
 // Get Config options from capacitor.config
-const capacitorFileConfig: CapacitorElectronConfig = getCapacitorElectronConfig();
+const capacitorFileConfig: CapacitorElectronConfig =
+  getCapacitorElectronConfig();
 
 // Initialize our app. You can pass menu templates into the app here.
 // const myCapacitorApp = new ElectronCapacitorApp(capacitorFileConfig);
-const myCapacitorApp = new ElectronCapacitorApp(capacitorFileConfig, trayMenuTemplate, appMenuBarMenuTemplate);
+const myCapacitorApp = new ElectronCapacitorApp(
+  capacitorFileConfig,
+  trayMenuTemplate,
+  appMenuBarMenuTemplate,
+);
 
 // If deeplinking is enabled then we will set it up here.
 if (capacitorFileConfig.electron?.deepLinkingEnabled) {
   setupElectronDeepLinking(myCapacitorApp, {
-    customProtocol: capacitorFileConfig.electron.deepLinkingCustomProtocol ?? 'mycapacitorapp',
+    customProtocol:
+      capacitorFileConfig.electron.deepLinkingCustomProtocol ??
+      "mycapacitorapp",
   });
 }
 
@@ -176,11 +203,17 @@ if (electronIsDev) {
 
   // Start the embedded agent runtime and pass the API port to the renderer.
   // The UI's api-client reads window.__MILADY_API_BASE__ to know where to connect.
-  const externalApiBase = normalizeApiBase(process.env.MILADY_ELECTRON_TEST_API_BASE);
+  const externalApiBase = normalizeApiBase(
+    process.env.MILADY_ELECTRON_TEST_API_BASE,
+  );
   if (!externalApiBase && process.env.MILADY_ELECTRON_TEST_API_BASE) {
-    console.warn('[Milady] Ignoring invalid MILADY_ELECTRON_TEST_API_BASE value');
+    console.warn(
+      "[Milady] Ignoring invalid MILADY_ELECTRON_TEST_API_BASE value",
+    );
   }
-  const skipEmbeddedAgent = process.env.MILADY_ELECTRON_SKIP_EMBEDDED_AGENT === '1' || Boolean(externalApiBase);
+  const skipEmbeddedAgent =
+    process.env.MILADY_ELECTRON_SKIP_EMBEDDED_AGENT === "1" ||
+    Boolean(externalApiBase);
   const agentManager = getAgentManager();
   agentManager.setMainWindow(mainWindow);
   let injectedApiBase: string | null = null;
@@ -188,16 +221,21 @@ if (electronIsDev) {
     if (!base || base === injectedApiBase || mainWindow.isDestroyed()) return;
     injectedApiBase = base;
     const apiToken = process.env.MILADY_API_TOKEN;
-    const tokenSnippet = apiToken ? `window.__MILADY_API_TOKEN__ = ${JSON.stringify(apiToken)};` : "";
+    const tokenSnippet = apiToken
+      ? `window.__MILADY_API_TOKEN__ = ${JSON.stringify(apiToken)};`
+      : "";
     const baseSnippet = `window.__MILADY_API_BASE__ = ${JSON.stringify(base)};`;
     const inject = `${baseSnippet}${tokenSnippet}`;
 
     // Inject now if possible (no-op if the page isn't ready yet).
-    void mainWindow.webContents.executeJavaScript(inject)
+    void mainWindow.webContents
+      .executeJavaScript(inject)
       .then(() => {
         flushPendingSharePayloads();
       })
-      .catch(() => { /* did-finish-load hook below handles first successful injection */ });
+      .catch(() => {
+        /* did-finish-load hook below handles first successful injection */
+      });
   };
   const injectApiEndpoint = (port: number | null): void => {
     if (!port) return;
@@ -205,7 +243,7 @@ if (electronIsDev) {
   };
 
   // Always inject on renderer reload/navigation once we know the port.
-  mainWindow.webContents.on('did-finish-load', () => {
+  mainWindow.webContents.on("did-finish-load", () => {
     if (externalApiBase) {
       injectApiBase(externalApiBase);
     } else {
@@ -215,7 +253,9 @@ if (electronIsDev) {
   });
 
   if (externalApiBase) {
-    console.info(`[Milady] Using external API base for renderer: ${externalApiBase}`);
+    console.info(
+      `[Milady] Using external API base for renderer: ${externalApiBase}`,
+    );
     injectApiBase(externalApiBase);
   } else if (!skipEmbeddedAgent) {
     // Start in background and inject API base as soon as the port is available,
@@ -235,31 +275,31 @@ if (electronIsDev) {
     })();
 
     startPromise.catch((err) => {
-      console.error('[Milady] Agent startup failed:', err);
+      console.error("[Milady] Agent startup failed:", err);
     });
   } else {
-    console.info('[Milady] Embedded agent startup disabled by configuration');
+    console.info("[Milady] Embedded agent startup disabled by configuration");
   }
 
   // Check for updates if we are in a packaged app.
-  if (process.env.MILADY_ELECTRON_DISABLE_AUTO_UPDATER !== '1') {
+  if (process.env.MILADY_ELECTRON_DISABLE_AUTO_UPDATER !== "1") {
     autoUpdater.checkForUpdatesAndNotify().catch((err: Error) => {
-      console.warn('[Milady] Update check failed (non-fatal):', err.message);
+      console.warn("[Milady] Update check failed (non-fatal):", err.message);
     });
   }
 })();
 
 // Handle when all of our windows are close (platforms have their own expectations).
-app.on('window-all-closed', function () {
+app.on("window-all-closed", () => {
   // On OS X it is common for applications and their menu bar
   // to stay active until the user quits explicitly with Cmd + Q
-  if (process.platform !== 'darwin') {
+  if (process.platform !== "darwin") {
     app.quit();
   }
 });
 
 // When the dock icon is clicked.
-app.on('activate', async function () {
+app.on("activate", async () => {
   // On OS X it's common to re-create a window in the app when the
   // dock icon is clicked and there are no other windows open.
   if (myCapacitorApp.getMainWindow().isDestroyed()) {
@@ -267,7 +307,7 @@ app.on('activate', async function () {
   }
 });
 
-app.on('before-quit', () => {
+app.on("before-quit", () => {
   disposeNativeModules();
 });
 

@@ -32,7 +32,10 @@
     "@capacitor/core": "^8.0.0"
   },
   "milady": {
-    "platforms": ["browser", "node"],
+    "platforms": [
+      "browser",
+      "node"
+    ],
     "runtime": "both",
     "platformDetails": {
       "browser": "Limited support with graceful fallbacks (notifications via Web API, clipboard, basic window ops). System tray, global shortcuts, and auto-launch unavailable.",

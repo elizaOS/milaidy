@@ -5,10 +5,7 @@
  * platform availability, and feature dependencies.
  */
 
-import type {
-  SystemPermissionDefinition,
-  SystemPermissionId,
-} from "./types";
+import type { SystemPermissionDefinition, SystemPermissionId } from "./types";
 
 export const SYSTEM_PERMISSIONS: SystemPermissionDefinition[] = [
   {

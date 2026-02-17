@@ -37,7 +37,12 @@ export interface BackupInfo {
   createdAt: string;
 }
 
-export type ChatMode = "simple" | "power";
+export type ChatChannelType =
+  | "DM"
+  | "GROUP"
+  | "VOICE_DM"
+  | "VOICE_GROUP"
+  | "API";
 
 interface ApiResponse<T> {
   success: boolean;
@@ -109,7 +114,7 @@ export class ElizaCloudClient {
     agentId: string,
     text: string,
     roomId = "web-chat",
-    mode: ChatMode = "power",
+    channelType: ChatChannelType = "DM",
   ): Promise<string> {
     const url = `${this.baseUrl}/api/v1/milady/agents/${agentId}/bridge`;
     const response = await fetch(url, {
@@ -119,7 +124,7 @@ export class ElizaCloudClient {
         jsonrpc: "2.0",
         id: crypto.randomUUID(),
         method: "message.send",
-        params: { text, roomId, mode },
+        params: { text, roomId, channelType },
       }),
       redirect: "manual",
       signal: AbortSignal.timeout(60_000),
@@ -151,7 +156,7 @@ export class ElizaCloudClient {
     agentId: string,
     text: string,
     roomId = "web-chat",
-    mode: ChatMode = "power",
+    channelType: ChatChannelType = "DM",
   ): AsyncGenerator<{ type: string; data: Record<string, unknown> }> {
     const url = `${this.baseUrl}/api/v1/milady/agents/${agentId}/stream`;
     const response = await fetch(url, {
@@ -161,7 +166,7 @@ export class ElizaCloudClient {
         jsonrpc: "2.0",
         id: crypto.randomUUID(),
         method: "message.send",
-        params: { text, roomId, mode },
+        params: { text, roomId, channelType },
       }),
       redirect: "manual",
     });

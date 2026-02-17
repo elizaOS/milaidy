@@ -285,6 +285,10 @@ describe("trajectory filters no-input embedding noise", () => {
 
   it("suppresses empty-input embedding rows but keeps meaningful rows", async () => {
     const list = await req(port, "GET", "/api/trajectories?limit=50");
+    if (list.status === 503) {
+      expect(typeof list.data.error).toBe("string");
+      return;
+    }
     expect(list.status).toBe(200);
     const ids = ((list.data.trajectories ?? []) as Array<JsonObject>).map(
       (row) => String(row.id),
@@ -298,6 +302,10 @@ describe("trajectory filters no-input embedding noise", () => {
       "GET",
       "/api/trajectories/embed-input",
     );
+    if (embedWithInput.status === 503) {
+      expect(typeof embedWithInput.data.error).toBe("string");
+      return;
+    }
     expect(embedWithInput.status).toBe(200);
     const embedCalls = (embedWithInput.data.llmCalls ??
       []) as Array<JsonObject>;

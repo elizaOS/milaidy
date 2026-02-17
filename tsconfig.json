@@ -6,7 +6,12 @@
     "esModuleInterop": true,
     "experimentalDecorators": true,
     "forceConsistentCasingInFileNames": true,
-    "lib": ["DOM", "DOM.Iterable", "ES2023", "ScriptHost"],
+    "lib": [
+      "DOM",
+      "DOM.Iterable",
+      "ES2023",
+      "ScriptHost"
+    ],
     "module": "ESNext",
     "moduleResolution": "bundler",
     "noEmit": true,
@@ -18,11 +23,23 @@
     "target": "es2023",
     "useDefineForClassFields": false,
     "paths": {
-      "@elizaos/core": ["../packages/typescript/src/index.node.ts"],
-      "@elizaos/core/*": ["../packages/typescript/src/*"]
+      "@elizaos/core": [
+        "./eliza/packages/typescript/src/index.node.ts"
+      ],
+      "@elizaos/core/*": [
+        "./eliza/packages/typescript/src/*"
+      ],
+      "@elizaos/plugin-rolodex": [
+        "./plugins/plugin-rolodex/typescript/src/index.ts"
+      ],
+      "@elizaos/plugin-training": [
+        "./plugins/plugin-training/src/index.ts"
+      ]
     }
   },
-  "include": ["src/**/*"],
+  "include": [
+    "src/**/*"
+  ],
   "exclude": [
     "node_modules",
     "dist",

@@ -12,13 +12,13 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useApp } from "../AppContext";
-import { client } from "../api-client";
 import type {
   KnowledgeDocument,
   KnowledgeFragment,
   KnowledgeSearchResult,
   KnowledgeStats,
 } from "../api-client";
+import { client } from "../api-client";
 import { ConfirmDeleteControl } from "./shared/confirm-delete-control";
 import { formatByteSize, formatShortDate } from "./shared/format";
 
@@ -41,7 +41,13 @@ type KnowledgeUploadOptions = {
 
 /* ── Stats Card ─────────────────────────────────────────────────────── */
 
-function StatsCard({ stats, loading }: { stats: KnowledgeStats | null; loading: boolean }) {
+function StatsCard({
+  stats,
+  loading,
+}: {
+  stats: KnowledgeStats | null;
+  loading: boolean;
+}) {
   return (
     <div className="grid grid-cols-2 gap-4 mb-6">
       <div className="p-4 border border-[var(--border)] bg-[var(--card)] rounded">
@@ -49,7 +55,7 @@ function StatsCard({ stats, loading }: { stats: KnowledgeStats | null; loading: 
           Documents
         </div>
         <div className="text-2xl font-semibold text-[var(--txt)]">
-          {loading ? "—" : stats?.documentCount ?? 0}
+          {loading ? "—" : (stats?.documentCount ?? 0)}
         </div>
       </div>
       <div className="p-4 border border-[var(--border)] bg-[var(--card)] rounded overflow-visible">
@@ -60,12 +66,13 @@ function StatsCard({ stats, loading }: { stats: KnowledgeStats | null; loading: 
               ?
             </span>
             <span className="pointer-events-none absolute left-0 top-full mt-1.5 w-52 px-2.5 py-1.5 rounded bg-[var(--bg-elevated)] text-[var(--text-strong)] text-[11px] normal-case tracking-normal leading-snug opacity-0 group-hover:opacity-100 transition-opacity border border-[var(--border-strong)] shadow-md">
-              Documents are split into smaller text chunks called fragments, tasty snacks for agents, yumm
+              Documents are split into smaller text chunks called fragments,
+              tasty snacks for agents, yumm
             </span>
           </span>
         </div>
         <div className="text-2xl font-semibold text-[var(--txt)]">
-          {loading ? "—" : stats?.fragmentCount ?? 0}
+          {loading ? "—" : (stats?.fragmentCount ?? 0)}
         </div>
       </div>
     </div>
@@ -86,7 +93,8 @@ function UploadZone({
   const [dragOver, setDragOver] = useState(false);
   const [urlInput, setUrlInput] = useState("");
   const [showUrlInput, setShowUrlInput] = useState(false);
-  const [includeImageDescriptions, setIncludeImageDescriptions] = useState(true);
+  const [includeImageDescriptions, setIncludeImageDescriptions] =
+    useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleDrop = useCallback(
@@ -123,7 +131,7 @@ function UploadZone({
 
   return (
     <div className="mb-6">
-      <div
+      <section
         className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
           dragOver
             ? "border-[var(--accent)] bg-[var(--accent)]/5"
@@ -135,6 +143,7 @@ function UploadZone({
         }}
         onDragLeave={() => setDragOver(false)}
         onDrop={handleDrop}
+        aria-label="Knowledge upload dropzone"
       >
         <input
           ref={fileInputRef}
@@ -151,7 +160,8 @@ function UploadZone({
           )}
         </div>
         <div className="text-[11px] text-[var(--muted)] mb-4">
-          Supported: PDF, Markdown, Text, DOCX, JSON, CSV, XML, HTML, PNG, JPG, WEBP, GIF
+          Supported: PDF, Markdown, Text, DOCX, JSON, CSV, XML, HTML, PNG, JPG,
+          WEBP, GIF
         </div>
         <div className="flex gap-3 justify-center">
           <button
@@ -180,15 +190,17 @@ function UploadZone({
           />
           Include AI image descriptions (more context, may increase cost)
         </label>
-      </div>
+      </section>
 
       {showUrlInput && (
         <div className="mt-4 p-4 border border-[var(--border)] bg-[var(--card)] rounded">
           <div className="text-xs text-[var(--muted)] mb-2">
-            Paste a URL to import content. YouTube links will be auto-transcribed.
+            Paste a URL to import content. YouTube links will be
+            auto-transcribed.
           </div>
           <div className="text-[11px] text-[var(--muted)] mb-2">
-            Image URLs can optionally use AI description extraction and may increase costs.
+            Image URLs can optionally use AI description extraction and may
+            increase costs.
           </div>
           <div className="flex gap-2">
             <input
@@ -290,11 +302,15 @@ function SearchResults({
                 {(result.similarity * 100).toFixed(0)}% match
               </span>
             </div>
-            <p className="text-sm text-[var(--txt)] line-clamp-3">{result.text}</p>
+            <p className="text-sm text-[var(--txt)] line-clamp-3">
+              {result.text}
+            </p>
           </div>
         ))}
         {results.length === 0 && (
-          <div className="text-center py-8 text-[var(--muted)]">No results found</div>
+          <div className="text-center py-8 text-[var(--muted)]">
+            No results found
+          </div>
         )}
       </div>
     </div>
@@ -316,9 +332,11 @@ function DocumentCard({
 }) {
   return (
     <div className="flex items-center justify-between p-4 border border-[var(--border)] bg-[var(--card)] rounded hover:border-[var(--accent)]/50 transition-colors">
-      <div
+      <button
+        type="button"
         className="flex-1 min-w-0 cursor-pointer"
         onClick={() => onSelect(doc.id)}
+        aria-label={`Open ${doc.filename}`}
       >
         <div className="font-medium text-sm text-[var(--txt)] truncate mb-1">
           {doc.filename}
@@ -338,7 +356,7 @@ function DocumentCard({
             </span>
           )}
         </div>
-      </div>
+      </button>
       <div className="flex items-center gap-2 ml-4">
         <ConfirmDeleteControl
           triggerClassName={btnDanger}
@@ -388,7 +406,9 @@ function DocumentDetailModal({
 
     load().catch((err) => {
       if (!cancelled) {
-        setError(err instanceof Error ? err.message : "Failed to load document");
+        setError(
+          err instanceof Error ? err.message : "Failed to load document",
+        );
         setLoading(false);
       }
     });
@@ -414,7 +434,9 @@ function DocumentDetailModal({
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-4">
           {loading && (
-            <div className="text-center py-8 text-[var(--muted)]">Loading...</div>
+            <div className="text-center py-8 text-[var(--muted)]">
+              Loading...
+            </div>
           )}
 
           {error && (
@@ -495,7 +517,9 @@ export function KnowledgeView() {
   const { setActionNotice } = useApp();
   const [stats, setStats] = useState<KnowledgeStats | null>(null);
   const [documents, setDocuments] = useState<KnowledgeDocument[]>([]);
-  const [searchResults, setSearchResults] = useState<KnowledgeSearchResult[] | null>(null);
+  const [searchResults, setSearchResults] = useState<
+    KnowledgeSearchResult[] | null
+  >(null);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [searching, setSearching] = useState(false);
@@ -564,7 +588,10 @@ export function KnowledgeView() {
             "application/json",
             "application/xml",
           ];
-          if (textTypes.some((t) => file.type.includes(t)) || file.name.endsWith(".md")) {
+          if (
+            textTypes.some((t) => file.type.includes(t)) ||
+            file.name.endsWith(".md")
+          ) {
             reader.readAsText(file);
           } else {
             reader.readAsArrayBuffer(file);
@@ -579,8 +606,9 @@ export function KnowledgeView() {
             includeImageDescriptions: options.includeImageDescriptions,
           },
         };
-        const requestBytes = new TextEncoder().encode(JSON.stringify(request))
-          .length;
+        const requestBytes = new TextEncoder().encode(
+          JSON.stringify(request),
+        ).length;
         if (requestBytes > MAX_UPLOAD_REQUEST_BYTES) {
           throw new Error(
             `Upload payload is ${formatByteSize(requestBytes)}, which exceeds the current limit (${formatByteSize(MAX_UPLOAD_REQUEST_BYTES)}).`,
@@ -600,7 +628,8 @@ export function KnowledgeView() {
         }
         loadData();
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Unknown upload error";
+        const message =
+          err instanceof Error ? err.message : "Unknown upload error";
         const status = (err as Error & { status?: number })?.status;
         if (status === 413 || /maximum size|payload is/i.test(message)) {
           setActionNotice(
@@ -609,7 +638,11 @@ export function KnowledgeView() {
             6000,
           );
         } else {
-          setActionNotice(`Failed to upload "${file.name}": ${message}`, "error", 5000);
+          setActionNotice(
+            `Failed to upload "${file.name}": ${message}`,
+            "error",
+            5000,
+          );
         }
       } finally {
         setUploading(false);
@@ -630,13 +663,18 @@ export function KnowledgeView() {
           ? `Imported YouTube transcript (${result.fragmentCount} fragments)`
           : `Imported "${result.filename}" (${result.fragmentCount} fragments)`;
         if (result.warnings && result.warnings.length > 0) {
-          setActionNotice(`${baseMessage}. ${result.warnings[0]}`, "info", 6000);
+          setActionNotice(
+            `${baseMessage}. ${result.warnings[0]}`,
+            "info",
+            6000,
+          );
         } else {
           setActionNotice(baseMessage, "success", 3000);
         }
         loadData();
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Unknown import error";
+        const message =
+          err instanceof Error ? err.message : "Unknown import error";
         setActionNotice(`Failed to import from URL: ${message}`, "error", 5000);
       } finally {
         setUploading(false);
@@ -647,7 +685,10 @@ export function KnowledgeView() {
 
   const handleSearch = useCallback(async (query: string) => {
     setSearching(true);
-    const result = await client.searchKnowledge(query, { threshold: 0.3, limit: 20 });
+    const result = await client.searchKnowledge(query, {
+      threshold: 0.3,
+      limit: 20,
+    });
     setSearchResults(result.results);
     setSearching(false);
   }, []);
@@ -676,7 +717,9 @@ export function KnowledgeView() {
 
   return (
     <div className="max-w-4xl mx-auto">
-      <h1 className="text-xl font-semibold text-[var(--txt)] mb-6">Knowledge Base</h1>
+      <h1 className="text-xl font-semibold text-[var(--txt)] mb-6">
+        Knowledge Base
+      </h1>
 
       <StatsCard stats={stats} loading={loading} />
 
@@ -689,7 +732,10 @@ export function KnowledgeView() {
       <SearchBar onSearch={handleSearch} searching={searching} />
 
       {searchResults !== null && (
-        <SearchResults results={searchResults} onClear={() => setSearchResults(null)} />
+        <SearchResults
+          results={searchResults}
+          onClear={() => setSearchResults(null)}
+        />
       )}
 
       {/* Document List */}
@@ -709,7 +755,9 @@ export function KnowledgeView() {
         </div>
 
         {loading && documents.length === 0 && (
-          <div className="text-center py-8 text-[var(--muted)]">Loading documents...</div>
+          <div className="text-center py-8 text-[var(--muted)]">
+            Loading documents...
+          </div>
         )}
 
         {!loading && documents.length === 0 && (

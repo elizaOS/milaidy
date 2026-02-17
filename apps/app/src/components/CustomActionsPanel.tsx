@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { client, type CustomActionDef } from "../api-client";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { type CustomActionDef, client } from "../api-client";
 
 interface CustomActionsPanelProps {
   open: boolean;
@@ -29,7 +29,7 @@ export function CustomActionsPanel({
   const [search, setSearch] = useState("");
   const [error, setError] = useState("");
 
-  const loadActions = async () => {
+  const loadActions = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
@@ -41,13 +41,13 @@ export function CustomActionsPanel({
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     if (open) {
       void loadActions();
     }
-  }, [open]);
+  }, [open, loadActions]);
 
   const filteredActions = useMemo(() => {
     const searchTerm = search.trim().toLowerCase();
@@ -58,10 +58,9 @@ export function CustomActionsPanel({
       const hasDescription =
         typeof action.description === "string" &&
         action.description.toLowerCase().includes(searchTerm);
-      const hasAlias =
-        (action.similes ?? []).some((alias) =>
-          alias.toLowerCase().includes(searchTerm),
-        );
+      const hasAlias = (action.similes ?? []).some((alias) =>
+        alias.toLowerCase().includes(searchTerm),
+      );
       return hasName || hasDescription || hasAlias;
     });
   }, [actions, search]);
@@ -131,10 +130,12 @@ export function CustomActionsPanel({
             <div>
               <h2 className="text-sm font-semibold text-txt">Custom Actions</h2>
               <p className="text-xs text-muted mt-0.5">
-                {actions.length} action{actions.length === 1 ? "" : "s"} · {enabledCount} enabled
+                {actions.length} action{actions.length === 1 ? "" : "s"} ·{" "}
+                {enabledCount} enabled
               </p>
             </div>
             <button
+              type="button"
               onClick={onClose}
               className="text-muted hover:text-txt transition-colors"
               aria-label="Close panel"
@@ -148,6 +149,7 @@ export function CustomActionsPanel({
                 strokeWidth="2"
                 strokeLinecap="round"
               >
+                <title>Close panel</title>
                 <path d="M12 4L4 12M4 4l8 8" />
               </svg>
             </button>
@@ -155,6 +157,7 @@ export function CustomActionsPanel({
 
           <div className="space-y-3 p-3 border-b border-border">
             <button
+              type="button"
               onClick={handleCreate}
               className="w-full bg-accent text-txt hover:bg-accent/90 transition-colors rounded px-3 py-2 text-sm font-medium"
             >
@@ -203,11 +206,11 @@ export function CustomActionsPanel({
                       <p className="text-[10px] text-muted mt-0.5">
                         {action.parameters?.length || 0} parameter
                         {(action.parameters?.length || 0) === 1 ? "" : "s"}
-                        {action.similes?.length ?
-                          ` • ${action.similes.length} alias`
-                            .concat(action.similes.length === 1 ? "" : "es") :
-                          ""
-                        }
+                        {action.similes?.length
+                          ? ` • ${action.similes.length} alias`.concat(
+                              action.similes.length === 1 ? "" : "es",
+                            )
+                          : ""}
                       </p>
                     </div>
 
@@ -217,7 +220,8 @@ export function CustomActionsPanel({
                         "bg-surface text-muted"
                       }`}
                     >
-                      {HANDLER_TYPE_NAMES[action.handler.type] ?? action.handler.type}
+                      {HANDLER_TYPE_NAMES[action.handler.type] ??
+                        action.handler.type}
                     </span>
                   </div>
 
@@ -240,6 +244,7 @@ export function CustomActionsPanel({
 
                     <div className="ml-auto flex items-center gap-2">
                       <button
+                        type="button"
                         onClick={() => handleEdit(action)}
                         className="text-xs text-accent hover:text-accent/80 transition-colors"
                         title="Edit action"
@@ -247,6 +252,7 @@ export function CustomActionsPanel({
                         Edit
                       </button>
                       <button
+                        type="button"
                         onClick={() => handleDelete(action)}
                         className="text-xs text-danger hover:text-danger/80 transition-colors"
                         title="Delete action"

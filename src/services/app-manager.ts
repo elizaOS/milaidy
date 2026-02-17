@@ -9,6 +9,8 @@
  * @module services/app-manager
  */
 
+import * as fs from "node:fs";
+import * as path from "node:path";
 import { logger } from "@elizaos/core";
 import type {
   AppLaunchResult,
@@ -16,18 +18,15 @@ import type {
   AppViewerAuthMessage,
   InstalledAppInfo,
 } from "../contracts/apps";
-import {
-  installPlugin,
-  listInstalledPlugins,
-  type ProgressCallback,
-  uninstallPlugin,
-} from "./plugin-installer";
-import {
-  type RegistryAppInfo,
-  getAppInfo as registryGetAppInfo,
-  listApps as registryListApps,
-  searchApps as registrySearchApps,
-} from "./registry-client";
+import type {
+  InstalledPluginInfo,
+  InstallProgressLike,
+  PluginManagerLike,
+  RegistryPluginInfo,
+  RegistrySearchResult,
+} from "./plugin-manager-types";
+
+const LOCAL_PLUGINS_DIR = "plugins";
 
 export type {
   AppLaunchResult,
@@ -45,6 +44,18 @@ const SAFE_APP_URL_PROTOCOLS = new Set(["http:", "https:"]);
 
 type AppViewerConfig = NonNullable<AppLaunchResult["viewer"]>;
 
+interface RegistryAppPlugin extends RegistryPluginInfo {
+  viewer?: {
+    url: string;
+    embedParams?: Record<string, string>;
+    postMessageAuth?: boolean;
+    sandbox?: string;
+  };
+  launchType?: "connect" | "local";
+  launchUrl?: string;
+  displayName?: string;
+}
+
 interface ActiveAppSession {
   appName: string;
   pluginName: string;
@@ -54,18 +65,44 @@ interface ActiveAppSession {
   startedAt: string;
 }
 
-function resolvePluginPackageName(appInfo: RegistryAppInfo): string {
-  const npmPackage = appInfo.npm.package?.trim();
+function resolvePluginPackageName(appInfo: RegistryPluginInfo): string {
+  const npmPackage = appInfo.npm.package.trim();
   return npmPackage && npmPackage.length > 0 ? npmPackage : appInfo.name;
 }
 
-function isAutoInstallable(appInfo: RegistryAppInfo): boolean {
+function isAutoInstallable(appInfo: RegistryPluginInfo): boolean {
   const supportsRuntime =
     appInfo.supports.v0 || appInfo.supports.v1 || appInfo.supports.v2;
   const hasVersion = Boolean(
     appInfo.npm.v0Version || appInfo.npm.v1Version || appInfo.npm.v2Version,
   );
   return supportsRuntime && hasVersion;
+}
+
+/**
+ * Check if a plugin exists locally in the plugins/ directory.
+ * Local plugins don't need to be installed - they're already available.
+ */
+function isLocalPlugin(appInfo: RegistryPluginInfo): boolean {
+  const pluginsDir = path.resolve(process.cwd(), LOCAL_PLUGINS_DIR);
+  if (!fs.existsSync(pluginsDir)) {
+    return false;
+  }
+
+  // Check for directory names that match the app
+  // E.g., @elizaos/app-hyperscape -> app-hyperscape
+  const bareName = appInfo.name.replace(/^@[^/]+\//, "");
+  const possibleDirs = [bareName, appInfo.name.replace("/", "-")];
+
+  for (const dirName of possibleDirs) {
+    const pluginPath = path.join(pluginsDir, dirName);
+    const pluginJsonPath = path.join(pluginPath, "elizaos.plugin.json");
+    if (fs.existsSync(pluginJsonPath)) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 function getTemplateFallbackValue(key: string): string | undefined {
@@ -75,6 +112,14 @@ function getTemplateFallbackValue(key: string): string | undefined {
       return runtimeBotName;
     }
     return "testbot";
+  }
+  // Hyperscape client URL defaults to localhost:3333
+  if (key === "HYPERSCAPE_CLIENT_URL") {
+    return "http://localhost:3333";
+  }
+  // Hyperscape server URL defaults to localhost:5555
+  if (key === "HYPERSCAPE_SERVER_URL") {
+    return "ws://localhost:5555/ws";
   }
   return undefined;
 }
@@ -174,11 +219,12 @@ function buildViewerAuthMessage(
 }
 
 function buildViewerConfig(
-  appInfo: RegistryAppInfo,
+  appInfo: RegistryAppPlugin,
   launchUrl: string | null,
 ): AppViewerConfig | null {
-  if (appInfo.viewer) {
-    const requestedPostMessageAuth = Boolean(appInfo.viewer.postMessageAuth);
+  const viewerInfo = appInfo.viewer;
+  if (viewerInfo) {
+    const requestedPostMessageAuth = Boolean(viewerInfo.postMessageAuth);
     const authMessage = buildViewerAuthMessage(
       appInfo.name,
       requestedPostMessageAuth,
@@ -196,7 +242,7 @@ function buildViewerConfig(
       }
     }
     const viewerUrl = normalizeSafeAppUrl(
-      buildViewerUrl(appInfo.viewer.url, appInfo.viewer.embedParams),
+      buildViewerUrl(viewerInfo.url, viewerInfo.embedParams),
     );
     if (!viewerUrl) {
       throw new Error(
@@ -206,9 +252,9 @@ function buildViewerConfig(
 
     return {
       url: viewerUrl,
-      embedParams: appInfo.viewer.embedParams,
+      embedParams: viewerInfo.embedParams,
       postMessageAuth,
-      sandbox: appInfo.viewer.sandbox ?? DEFAULT_VIEWER_SANDBOX,
+      sandbox: viewerInfo.sandbox ?? DEFAULT_VIEWER_SANDBOX,
       authMessage,
     };
   }
@@ -233,16 +279,37 @@ function buildViewerConfig(
 export class AppManager {
   private readonly activeSessions = new Map<string, ActiveAppSession>();
 
-  async listAvailable(): Promise<RegistryAppInfo[]> {
-    return registryListApps();
+  async listAvailable(
+    pluginManager: PluginManagerLike,
+  ): Promise<RegistryPluginInfo[]> {
+    const registry = await pluginManager.refreshRegistry();
+    // Filter to only include app packages (those with "/app-" in the name)
+    return Array.from(registry.values()).filter((plugin) => {
+      const name = plugin.name.toLowerCase();
+      const npmPackage = plugin.npm.package.toLowerCase();
+      return name.includes("/app-") || npmPackage.includes("/app-");
+    });
   }
 
-  async search(query: string, limit = 15): Promise<RegistryAppInfo[]> {
-    return registrySearchApps(query, limit);
+  async search(
+    pluginManager: PluginManagerLike,
+    query: string,
+    limit = 15,
+  ): Promise<RegistrySearchResult[]> {
+    const results = await pluginManager.searchRegistry(query, limit);
+    // Filter to only include app packages
+    return results.filter((result) => {
+      const name = result.name.toLowerCase();
+      const npmPackage = result.npmPackage.toLowerCase();
+      return name.includes("/app-") || npmPackage.includes("/app-");
+    });
   }
 
-  async getInfo(name: string): Promise<RegistryAppInfo | null> {
-    return registryGetAppInfo(name);
+  async getInfo(
+    pluginManager: PluginManagerLike,
+    name: string,
+  ): Promise<RegistryPluginInfo | null> {
+    return pluginManager.getRegistryPlugin(name);
   }
 
   /**
@@ -255,10 +322,13 @@ export class AppManager {
    * handle this by showing "connecting..." while the runtime restarts.
    */
   async launch(
+    pluginManager: PluginManagerLike,
     name: string,
-    onProgress?: ProgressCallback,
+    onProgress?: (progress: InstallProgressLike) => void,
   ): Promise<AppLaunchResult> {
-    const appInfo = await registryGetAppInfo(name);
+    const appInfo = (await pluginManager.getRegistryPlugin(
+      name,
+    )) as RegistryAppPlugin | null;
     if (!appInfo) {
       throw new Error(`App "${name}" not found in the registry.`);
     }
@@ -267,17 +337,28 @@ export class AppManager {
     // It's the same npm package name as the app, or a separate plugin ref.
     const pluginName = resolvePluginPackageName(appInfo);
 
+    // Check if this is a local plugin (already present in plugins/ directory)
+    const isLocal = isLocalPlugin(appInfo);
+
     // Check if the plugin is already installed
-    const installed = listInstalledPlugins();
+    const installed = await pluginManager.listInstalledPlugins();
     const alreadyInstalled = installed.some((p) => p.name === pluginName);
-    let pluginInstalled = alreadyInstalled;
+    let pluginInstalled = alreadyInstalled || isLocal;
 
     let needsRestart = false;
 
-    if (!alreadyInstalled) {
+    if (isLocal) {
+      // Local plugins are already available, no installation needed
+      logger.info(
+        `[app-manager] Using local plugin for ${name}: ${pluginName}`,
+      );
+    } else if (!alreadyInstalled) {
       if (isAutoInstallable(appInfo)) {
         logger.info(`[app-manager] Installing plugin for app: ${pluginName}`);
-        const result = await installPlugin(pluginName, onProgress);
+        const result = await pluginManager.installPlugin(
+          pluginName,
+          onProgress,
+        );
         if (!result.success) {
           throw new Error(
             `Failed to install plugin "${pluginName}": ${result.error}`,
@@ -313,7 +394,7 @@ export class AppManager {
     this.activeSessions.set(name, {
       appName: name,
       pluginName,
-      launchType: appInfo.launchType,
+      launchType: appInfo.launchType ?? "connect",
       launchUrl,
       viewerUrl: viewer?.url ?? null,
       startedAt: new Date().toISOString(),
@@ -322,22 +403,27 @@ export class AppManager {
     return {
       pluginInstalled,
       needsRestart,
-      displayName: appInfo.displayName,
-      launchType: appInfo.launchType,
+      displayName: appInfo.displayName ?? appInfo.name,
+      launchType: appInfo.launchType ?? "connect",
       launchUrl,
       viewer,
     };
   }
 
-  async stop(name: string): Promise<AppStopResult> {
-    const appInfo = await registryGetAppInfo(name);
+  async stop(
+    pluginManager: PluginManagerLike,
+    name: string,
+  ): Promise<AppStopResult> {
+    const appInfo = (await pluginManager.getRegistryPlugin(
+      name,
+    )) as RegistryAppPlugin | null;
     if (!appInfo) {
       throw new Error(`App "${name}" not found in the registry.`);
     }
 
     const hadSession = this.activeSessions.delete(name);
     const pluginName = resolvePluginPackageName(appInfo);
-    const installed = listInstalledPlugins();
+    const installed = await pluginManager.listInstalledPlugins();
     const isPluginInstalled = installed.some(
       (plugin) => plugin.name === pluginName,
     );
@@ -354,7 +440,7 @@ export class AppManager {
     }
 
     if (isPluginInstalled) {
-      const uninstallResult = await uninstallPlugin(pluginName);
+      const uninstallResult = await pluginManager.uninstallPlugin(pluginName);
       if (!uninstallResult.success) {
         throw new Error(
           `Failed to stop "${name}": ${uninstallResult.error ?? "plugin uninstall failed"}`,
@@ -385,19 +471,24 @@ export class AppManager {
   }
 
   /** List apps whose plugins are currently installed on the agent. */
-  listInstalled(): InstalledAppInfo[] {
-    const installed = listInstalledPlugins();
-    // For now, any installed plugin that has app metadata in the registry is an "installed app"
-    // This is a sync check against the local config, not a registry fetch
-    return installed.map((p) => ({
+  async listInstalled(
+    pluginManager: PluginManagerLike,
+  ): Promise<InstalledAppInfo[]> {
+    const installed = await pluginManager.listInstalledPlugins();
+    // Filter to only include app plugins
+    const appPlugins = installed.filter((p: InstalledPluginInfo) => {
+      const name = p.name.toLowerCase();
+      return name.includes("/app-");
+    });
+    return appPlugins.map((p: InstalledPluginInfo) => ({
       name: p.name,
       displayName: p.name
         .replace(/^@elizaos\/(app-|plugin-)/, "")
         .replace(/-/g, " ")
-        .replace(/\b\w/g, (c) => c.toUpperCase()),
+        .replace(/\b\w/g, (c: string) => c.toUpperCase()),
       pluginName: p.name,
-      version: p.version,
-      installedAt: p.installedAt,
+      version: p.version ?? "unknown",
+      installedAt: new Date().toISOString(), // Ejected plugins don't track install time yet
     }));
   }
 }

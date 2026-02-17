@@ -289,7 +289,7 @@
       <p>On first run, Milady walks you through:</p>
       <ol>
         <li><strong>Pick a name</strong> for your agent (or use a random one)</li>
-        <li><strong>Choose a personality</strong> style</li>
+        <li><strong>Choose a personality tone</strong></li>
         <li><strong>Connect a model</strong> provider (or skip to configure later)</li>
       </ol>
       <p>The agent starts immediately after onboarding. The web dashboard opens at <code>http://localhost:18789</code>.</p>
@@ -361,13 +361,13 @@ milady start</code></pre>
 </div>
 
 <script>
-  (function () {
+  (() => {
     var popup = document.getElementById("comingSoonPopup");
     var closeButton = document.getElementById("comingSoonClose");
     if (!popup || !closeButton) {
       return;
     }
-    closeButton.addEventListener("click", function () {
+    closeButton.addEventListener("click", () => {
       popup.style.display = "none";
     });
   })();

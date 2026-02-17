@@ -1,9 +1,9 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { defineConfig } from "vite";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import type { Plugin } from "vite";
+import { defineConfig } from "vite";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const miladyRoot = path.resolve(here, "../..");
@@ -26,7 +26,10 @@ function electronCorsPlugin(): Plugin {
         if (!origin || !req.url?.startsWith("/api")) return next();
 
         res.setHeader("Access-Control-Allow-Origin", origin);
-        res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+        res.setHeader(
+          "Access-Control-Allow-Methods",
+          "GET, POST, PUT, DELETE, OPTIONS",
+        );
         res.setHeader(
           "Access-Control-Allow-Headers",
           "Content-Type, Authorization, X-Milady-Token, X-Api-Key, X-Milady-Export-Token",
@@ -69,10 +72,7 @@ export default defineConfig({
     ],
   },
   optimizeDeps: {
-    include: [
-      "react",
-      "react-dom",
-    ],
+    include: ["react", "react-dom"],
   },
   build: {
     outDir: path.resolve(here, "dist"),
@@ -109,6 +109,9 @@ export default defineConfig({
     fs: {
       // Allow serving files from the app directory and milady src
       allow: [here, miladyRoot],
+    },
+    watch: {
+      usePolling: true,
     },
   },
 });

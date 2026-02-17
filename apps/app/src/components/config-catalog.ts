@@ -21,16 +21,16 @@
  * @module config-catalog
  */
 
-import { z } from "zod";
 import type { ReactNode } from "react";
+import { z } from "zod";
 import type {
   ConfigUiHint,
-  ShowIfCondition,
-  VisibilityCondition,
-  LogicExpression,
   DynamicValue,
+  LogicExpression,
+  ShowIfCondition,
   ValidationCheck,
   ValidationConfig,
+  VisibilityCondition,
 } from "../types";
 
 export type { ActionBinding } from "../types";
@@ -91,7 +91,11 @@ export function getByPath(obj: unknown, path: string): unknown {
 /**
  * Set a value in a nested object by slash-delimited path.
  */
-export function setByPath(obj: Record<string, unknown>, path: string, value: unknown): void {
+export function setByPath(
+  obj: Record<string, unknown>,
+  path: string,
+  value: unknown,
+): void {
   const segments = (path.startsWith("/") ? path.slice(1) : path).split("/");
   if (segments.length === 0) return;
   const BLOCKED_KEYS = ["__proto__", "constructor", "prototype"];
@@ -112,7 +116,10 @@ export function setByPath(obj: Record<string, unknown>, path: string, value: unk
 /**
  * Resolve a DynamicValue — if it's a {path} reference, look up in state.
  */
-export function resolveDynamic<T>(value: DynamicValue<T>, state: Record<string, unknown>): T | undefined {
+export function resolveDynamic<T>(
+  value: DynamicValue<T>,
+  state: Record<string, unknown>,
+): T | undefined {
   if (value != null && typeof value === "object" && "path" in value) {
     return getByPath(state, (value as { path: string }).path) as T | undefined;
   }
@@ -143,7 +150,7 @@ export function findFormValue(
 
   // 3. Search state - check common form prefixes
   if (state) {
-    const prefixes = ['form', 'newItem', 'create', 'edit', ''];
+    const prefixes = ["form", "newItem", "create", "edit", ""];
     for (const prefix of prefixes) {
       const path = prefix ? `/${prefix}/${fieldName}` : `/${fieldName}`;
       const val = getByPath(state, path);
@@ -168,8 +175,11 @@ export function interpolateString(
   context: Record<string, unknown>,
 ): string {
   return template.replace(/\{\{([^}]+)\}\}/g, (_, path) => {
-    const value = getByPath(context, path.trim().startsWith('/') ? path.trim() : `/${path.trim()}`);
-    return value !== undefined ? String(value) : '';
+    const value = getByPath(
+      context,
+      path.trim().startsWith("/") ? path.trim() : `/${path.trim()}`,
+    );
+    return value !== undefined ? String(value) : "";
   });
 }
 
@@ -182,10 +192,21 @@ export function evaluateLogicExpression(
   expr: LogicExpression,
   state: Record<string, unknown>,
 ): boolean {
-  if ("and" in expr) return (expr as { and: LogicExpression[] }).and.every((e) => evaluateLogicExpression(e, state));
-  if ("or" in expr) return (expr as { or: LogicExpression[] }).or.some((e) => evaluateLogicExpression(e, state));
-  if ("not" in expr) return !evaluateLogicExpression((expr as { not: LogicExpression }).not, state);
-  if ("path" in expr) return Boolean(getByPath(state, (expr as { path: string }).path));
+  if ("and" in expr)
+    return (expr as { and: LogicExpression[] }).and.every((e) =>
+      evaluateLogicExpression(e, state),
+    );
+  if ("or" in expr)
+    return (expr as { or: LogicExpression[] }).or.some((e) =>
+      evaluateLogicExpression(e, state),
+    );
+  if ("not" in expr)
+    return !evaluateLogicExpression(
+      (expr as { not: LogicExpression }).not,
+      state,
+    );
+  if ("path" in expr)
+    return Boolean(getByPath(state, (expr as { path: string }).path));
   if ("eq" in expr) {
     const [l, r] = (expr as { eq: [DynamicValue, DynamicValue] }).eq;
     return resolveDynamic(l, state) === resolveDynamic(r, state);
@@ -195,23 +216,35 @@ export function evaluateLogicExpression(
     return resolveDynamic(l, state) !== resolveDynamic(r, state);
   }
   if ("gt" in expr) {
-    const [l, r] = (expr as { gt: [DynamicValue<number>, DynamicValue<number>] }).gt;
-    const lv = resolveDynamic(l, state), rv = resolveDynamic(r, state);
+    const [l, r] = (
+      expr as { gt: [DynamicValue<number>, DynamicValue<number>] }
+    ).gt;
+    const lv = resolveDynamic(l, state),
+      rv = resolveDynamic(r, state);
     return typeof lv === "number" && typeof rv === "number" && lv > rv;
   }
   if ("gte" in expr) {
-    const [l, r] = (expr as { gte: [DynamicValue<number>, DynamicValue<number>] }).gte;
-    const lv = resolveDynamic(l, state), rv = resolveDynamic(r, state);
+    const [l, r] = (
+      expr as { gte: [DynamicValue<number>, DynamicValue<number>] }
+    ).gte;
+    const lv = resolveDynamic(l, state),
+      rv = resolveDynamic(r, state);
     return typeof lv === "number" && typeof rv === "number" && lv >= rv;
   }
   if ("lt" in expr) {
-    const [l, r] = (expr as { lt: [DynamicValue<number>, DynamicValue<number>] }).lt;
-    const lv = resolveDynamic(l, state), rv = resolveDynamic(r, state);
+    const [l, r] = (
+      expr as { lt: [DynamicValue<number>, DynamicValue<number>] }
+    ).lt;
+    const lv = resolveDynamic(l, state),
+      rv = resolveDynamic(r, state);
     return typeof lv === "number" && typeof rv === "number" && lv < rv;
   }
   if ("lte" in expr) {
-    const [l, r] = (expr as { lte: [DynamicValue<number>, DynamicValue<number>] }).lte;
-    const lv = resolveDynamic(l, state), rv = resolveDynamic(r, state);
+    const [l, r] = (
+      expr as { lte: [DynamicValue<number>, DynamicValue<number>] }
+    ).lte;
+    const lv = resolveDynamic(l, state),
+      rv = resolveDynamic(r, state);
     return typeof lv === "number" && typeof rv === "number" && lv <= rv;
   }
   return false;
@@ -242,12 +275,18 @@ export function evaluateShowIf(
   if (!condition) return true;
   const val = values[condition.field];
   switch (condition.op) {
-    case "eq": return val === condition.value;
-    case "neq": return val !== condition.value;
-    case "in": return Array.isArray(condition.value) && condition.value.includes(val);
-    case "truthy": return Boolean(val);
-    case "falsy": return !val;
-    default: return true;
+    case "eq":
+      return val === condition.value;
+    case "neq":
+      return val !== condition.value;
+    case "in":
+      return Array.isArray(condition.value) && condition.value.includes(val);
+    case "truthy":
+      return Boolean(val);
+    case "falsy":
+      return !val;
+    default:
+      return true;
   }
 }
 
@@ -257,20 +296,43 @@ export const visibility = {
   always: true as const,
   never: false as const,
   when: (path: string): VisibilityCondition => ({ path }),
-  and: (...conditions: LogicExpression[]): LogicExpression => ({ and: conditions }),
-  or: (...conditions: LogicExpression[]): LogicExpression => ({ or: conditions }),
+  and: (...conditions: LogicExpression[]): LogicExpression => ({
+    and: conditions,
+  }),
+  or: (...conditions: LogicExpression[]): LogicExpression => ({
+    or: conditions,
+  }),
   not: (condition: LogicExpression): LogicExpression => ({ not: condition }),
-  eq: (left: DynamicValue, right: DynamicValue): LogicExpression => ({ eq: [left, right] }),
-  neq: (left: DynamicValue, right: DynamicValue): LogicExpression => ({ neq: [left, right] }),
-  gt: (left: DynamicValue<number>, right: DynamicValue<number>): LogicExpression => ({ gt: [left, right] }),
-  gte: (left: DynamicValue<number>, right: DynamicValue<number>): LogicExpression => ({ gte: [left, right] }),
-  lt: (left: DynamicValue<number>, right: DynamicValue<number>): LogicExpression => ({ lt: [left, right] }),
-  lte: (left: DynamicValue<number>, right: DynamicValue<number>): LogicExpression => ({ lte: [left, right] }),
+  eq: (left: DynamicValue, right: DynamicValue): LogicExpression => ({
+    eq: [left, right],
+  }),
+  neq: (left: DynamicValue, right: DynamicValue): LogicExpression => ({
+    neq: [left, right],
+  }),
+  gt: (
+    left: DynamicValue<number>,
+    right: DynamicValue<number>,
+  ): LogicExpression => ({ gt: [left, right] }),
+  gte: (
+    left: DynamicValue<number>,
+    right: DynamicValue<number>,
+  ): LogicExpression => ({ gte: [left, right] }),
+  lt: (
+    left: DynamicValue<number>,
+    right: DynamicValue<number>,
+  ): LogicExpression => ({ lt: [left, right] }),
+  lte: (
+    left: DynamicValue<number>,
+    right: DynamicValue<number>,
+  ): LogicExpression => ({ lte: [left, right] }),
 };
 
 // ── Built-in validation functions (≈ json-render builtInValidationFunctions)
 
-export type ValidationFunction = (value: unknown, args?: Record<string, unknown>) => boolean;
+export type ValidationFunction = (
+  value: unknown,
+  args?: Record<string, unknown>,
+) => boolean;
 
 export const builtInValidators: Record<string, ValidationFunction> = {
   required: (value) => {
@@ -279,17 +341,46 @@ export const builtInValidators: Record<string, ValidationFunction> = {
     if (Array.isArray(value)) return value.length > 0;
     return true;
   },
-  email: (value) => typeof value === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value),
-  minLength: (value, args) => typeof value === "string" && typeof args?.min === "number" && value.length >= args.min,
-  maxLength: (value, args) => typeof value === "string" && typeof args?.max === "number" && value.length <= args.max,
+  email: (value) =>
+    typeof value === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value),
+  minLength: (value, args) =>
+    typeof value === "string" &&
+    typeof args?.min === "number" &&
+    value.length >= args.min,
+  maxLength: (value, args) =>
+    typeof value === "string" &&
+    typeof args?.max === "number" &&
+    value.length <= args.max,
   pattern: (value, args) => {
-    if (typeof value !== "string" || typeof args?.pattern !== "string") return false;
-    try { return new RegExp(args.pattern).test(value); } catch { return false; }
+    if (typeof value !== "string" || typeof args?.pattern !== "string")
+      return false;
+    try {
+      return new RegExp(args.pattern).test(value);
+    } catch {
+      return false;
+    }
   },
-  min: (value, args) => typeof value === "number" && typeof args?.min === "number" && value >= args.min,
-  max: (value, args) => typeof value === "number" && typeof args?.max === "number" && value <= args.max,
-  numeric: (value) => typeof value === "number" ? !isNaN(value) : typeof value === "string" && !isNaN(parseFloat(value)),
-  url: (value) => { if (typeof value !== "string") return false; try { new URL(value); return true; } catch { return false; } },
+  min: (value, args) =>
+    typeof value === "number" &&
+    typeof args?.min === "number" &&
+    value >= args.min,
+  max: (value, args) =>
+    typeof value === "number" &&
+    typeof args?.max === "number" &&
+    value <= args.max,
+  numeric: (value) =>
+    typeof value === "number"
+      ? !Number.isNaN(value)
+      : typeof value === "string" && !Number.isNaN(parseFloat(value)),
+  url: (value) => {
+    if (typeof value !== "string") return false;
+    try {
+      new URL(value);
+      return true;
+    } catch {
+      return false;
+    }
+  },
   matches: (value, args) => value === args?.other,
 };
 
@@ -331,15 +422,48 @@ export function runValidation(
 // ── Validation check helpers (≈ json-render check.*) ────────────────────
 
 export const check = {
-  required: (message = "This field is required"): ValidationCheck => ({ fn: "required", message }),
-  email: (message = "Invalid email address"): ValidationCheck => ({ fn: "email", message }),
-  minLength: (min: number, message?: string): ValidationCheck => ({ fn: "minLength", args: { min }, message: message ?? `Must be at least ${min} characters` }),
-  maxLength: (max: number, message?: string): ValidationCheck => ({ fn: "maxLength", args: { max }, message: message ?? `Must be at most ${max} characters` }),
-  pattern: (pattern: string, message = "Invalid format"): ValidationCheck => ({ fn: "pattern", args: { pattern }, message }),
-  min: (min: number, message?: string): ValidationCheck => ({ fn: "min", args: { min }, message: message ?? `Must be at least ${min}` }),
-  max: (max: number, message?: string): ValidationCheck => ({ fn: "max", args: { max }, message: message ?? `Must be at most ${max}` }),
+  required: (message = "This field is required"): ValidationCheck => ({
+    fn: "required",
+    message,
+  }),
+  email: (message = "Invalid email address"): ValidationCheck => ({
+    fn: "email",
+    message,
+  }),
+  minLength: (min: number, message?: string): ValidationCheck => ({
+    fn: "minLength",
+    args: { min },
+    message: message ?? `Must be at least ${min} characters`,
+  }),
+  maxLength: (max: number, message?: string): ValidationCheck => ({
+    fn: "maxLength",
+    args: { max },
+    message: message ?? `Must be at most ${max} characters`,
+  }),
+  pattern: (pattern: string, message = "Invalid format"): ValidationCheck => ({
+    fn: "pattern",
+    args: { pattern },
+    message,
+  }),
+  min: (min: number, message?: string): ValidationCheck => ({
+    fn: "min",
+    args: { min },
+    message: message ?? `Must be at least ${min}`,
+  }),
+  max: (max: number, message?: string): ValidationCheck => ({
+    fn: "max",
+    args: { max },
+    message: message ?? `Must be at most ${max}`,
+  }),
   url: (message = "Invalid URL"): ValidationCheck => ({ fn: "url", message }),
-  matches: (otherPath: string, message = "Fields must match"): ValidationCheck => ({ fn: "matches", args: { other: { path: otherPath } }, message }),
+  matches: (
+    otherPath: string,
+    message = "Fields must match",
+  ): ValidationCheck => ({
+    fn: "matches",
+    args: { other: { path: otherPath } },
+    message,
+  }),
 };
 
 // ── Action definitions (≈ json-render ActionDefinition) ─────────────────
@@ -351,8 +475,13 @@ export interface ActionDefinition<TParams = Record<string, unknown>> {
   description?: string;
 }
 
-export type ActionHandler<TParams = Record<string, unknown>, TResult = unknown> =
-  (params: TParams, state: Record<string, unknown>) => Promise<TResult> | TResult;
+export type ActionHandler<
+  TParams = Record<string, unknown>,
+  TResult = unknown,
+> = (
+  params: TParams,
+  state: Record<string, unknown>,
+) => Promise<TResult> | TResult;
 
 // ── Field definition (≈ json-render ComponentDefinition) ───────────────
 
@@ -366,8 +495,14 @@ export interface FieldDefinition<TValidator extends z.ZodType = z.ZodType> {
 // ── Catalog (≈ json-render Catalog) ────────────────────────────────────
 
 export interface FieldCatalog<
-  TFields extends Record<string, FieldDefinition> = Record<string, FieldDefinition>,
-  TActions extends Record<string, ActionDefinition> = Record<string, ActionDefinition>,
+  TFields extends Record<string, FieldDefinition> = Record<
+    string,
+    FieldDefinition
+  >,
+  TActions extends Record<string, ActionDefinition> = Record<
+    string,
+    ActionDefinition
+  >,
 > {
   readonly fields: TFields;
   readonly fieldNames: string[];
@@ -390,8 +525,14 @@ export interface FieldCatalog<
  * Catalog configuration.
  */
 export interface CatalogConfig<
-  TFields extends Record<string, FieldDefinition> = Record<string, FieldDefinition>,
-  TActions extends Record<string, ActionDefinition> = Record<string, ActionDefinition>,
+  TFields extends Record<string, FieldDefinition> = Record<
+    string,
+    FieldDefinition
+  >,
+  TActions extends Record<string, ActionDefinition> = Record<
+    string,
+    ActionDefinition
+  >,
 > {
   /** Field type definitions. */
   fields: TFields;
@@ -409,7 +550,10 @@ export interface CatalogConfig<
  */
 export function defineCatalog<
   TFields extends Record<string, FieldDefinition>,
-  TActions extends Record<string, ActionDefinition> = Record<string, ActionDefinition>,
+  TActions extends Record<string, ActionDefinition> = Record<
+    string,
+    ActionDefinition
+  >,
 >(
   fieldsOrConfig: TFields | CatalogConfig<TFields, TActions>,
 ): FieldCatalog<TFields, TActions> {
@@ -417,13 +561,16 @@ export function defineCatalog<
   // Old format: { text: { validator, ... }, ... } — values have "validator".
   // New format: { fields: { text: { ... } }, actions?: { ... } } — top-level "fields" key.
   const firstVal = Object.values(fieldsOrConfig)[0];
-  const isPlainFields = firstVal && typeof firstVal === "object" && "validator" in (firstVal as Record<string, unknown>);
+  const isPlainFields =
+    firstVal &&
+    typeof firstVal === "object" &&
+    "validator" in (firstVal as Record<string, unknown>);
   const config: CatalogConfig<TFields, TActions> = isPlainFields
     ? { fields: fieldsOrConfig as TFields, actions: {} as TActions }
     : (fieldsOrConfig as CatalogConfig<TFields, TActions>);
 
   const fields = config.fields;
-  const actions = config.actions ?? {} as TActions;
+  const actions = config.actions ?? ({} as TActions);
   const functions = config.functions ?? {};
   const fieldNames = Object.keys(fields);
   const actionNames = Object.keys(actions);
@@ -445,7 +592,17 @@ export function defineCatalog<
 
     validate(type: string, value: unknown) {
       const def = fields[type];
-      if (!def) return { success: false, error: new z.ZodError([{ code: "custom", message: `Unknown field type: ${type}`, path: [] }]) } as z.ZodSafeParseResult<unknown>;
+      if (!def)
+        return {
+          success: false,
+          error: new z.ZodError([
+            {
+              code: "custom",
+              message: `Unknown field type: ${type}`,
+              path: [],
+            },
+          ]),
+        } as z.ZodSafeParseResult<unknown>;
       return def.validator.safeParse(value);
     },
 
@@ -470,7 +627,9 @@ function generateCatalogPrompt(
 
   lines.push("# Plugin Configuration UI Catalog");
   lines.push("");
-  lines.push("You are generating a plugin configuration form. Below are the available field types, actions, and validation functions.");
+  lines.push(
+    "You are generating a plugin configuration form. Below are the available field types, actions, and validation functions.",
+  );
   lines.push("");
 
   // Field types
@@ -495,20 +654,34 @@ function generateCatalogPrompt(
   const allFunctions = { ...builtInValidators, ...functions };
   lines.push("## Validation Functions");
   lines.push("");
-  lines.push("Built-in: " + Object.keys(allFunctions).join(", "));
+  lines.push(`Built-in: ${Object.keys(allFunctions).join(", ")}`);
   lines.push("");
 
   // Schema format
   lines.push("## Schema Format");
   lines.push("");
-  lines.push("Each field is described by a JSON Schema property + ConfigUiHint:");
+  lines.push(
+    "Each field is described by a JSON Schema property + ConfigUiHint:",
+  );
   lines.push("```json");
-  lines.push(JSON.stringify({
-    "FIELD_NAME": {
-      schema: { type: "string", description: "..." },
-      hint: { type: "text", label: "...", help: "...", group: "...", validation: { checks: [{ fn: "required", message: "..." }] } },
-    },
-  }, null, 2));
+  lines.push(
+    JSON.stringify(
+      {
+        FIELD_NAME: {
+          schema: { type: "string", description: "..." },
+          hint: {
+            type: "text",
+            label: "...",
+            help: "...",
+            group: "...",
+            validation: { checks: [{ fn: "required", message: "..." }] },
+          },
+        },
+      },
+      null,
+      2,
+    ),
+  );
   lines.push("```");
   lines.push("");
 
@@ -516,9 +689,11 @@ function generateCatalogPrompt(
   lines.push("## Visibility Conditions");
   lines.push("");
   lines.push("Fields support `visible` conditions using LogicExpression:");
-  lines.push("- `{ path: \"FIELD_NAME\" }` — truthy check");
-  lines.push("- `{ eq: [{ path: \"FIELD\" }, \"value\"] }` — equality");
-  lines.push("- `{ and: [...] }`, `{ or: [...] }`, `{ not: {...} }` — logical operators");
+  lines.push('- `{ path: "FIELD_NAME" }` — truthy check');
+  lines.push('- `{ eq: [{ path: "FIELD" }, "value"] }` — equality');
+  lines.push(
+    "- `{ and: [...] }`, `{ or: [...] }`, `{ not: {...} }` — logical operators",
+  );
   lines.push("- `{ gt, gte, lt, lte }` — numeric comparisons");
 
   return lines.join("\n");
@@ -568,7 +743,10 @@ export interface FieldRenderProps {
   /** For sensitive fields — async callback to fetch the real value from the server. */
   onReveal?: () => Promise<string | null>;
   /** Dispatch a named action with optional parameters. */
-  onAction?: (action: string, params?: Record<string, unknown>) => Promise<unknown>;
+  onAction?: (
+    action: string,
+    params?: Record<string, unknown>,
+  ) => Promise<unknown>;
 }
 
 /** A render function that returns a React node for a given field type. */
@@ -577,8 +755,14 @@ export type FieldRenderer = (props: FieldRenderProps) => ReactNode;
 // ── Registry (≈ json-render ComponentRegistry + defineRegistry) ────────
 
 export interface FieldRegistry<
-  TFields extends Record<string, FieldDefinition> = Record<string, FieldDefinition>,
-  TActions extends Record<string, ActionDefinition> = Record<string, ActionDefinition>,
+  TFields extends Record<string, FieldDefinition> = Record<
+    string,
+    FieldDefinition
+  >,
+  TActions extends Record<string, ActionDefinition> = Record<
+    string,
+    ActionDefinition
+  >,
 > {
   readonly catalog: FieldCatalog<TFields, TActions>;
   readonly renderers: Record<string, FieldRenderer>;
@@ -598,7 +782,10 @@ export interface FieldRegistry<
  */
 export function defineRegistry<
   TFields extends Record<string, FieldDefinition>,
-  TActions extends Record<string, ActionDefinition> = Record<string, ActionDefinition>,
+  TActions extends Record<string, ActionDefinition> = Record<
+    string,
+    ActionDefinition
+  >,
 >(
   catalog: FieldCatalog<TFields, TActions>,
   renderers: Partial<Record<keyof TFields & string, FieldRenderer>>,
@@ -617,7 +804,7 @@ export function defineRegistry<
     },
 
     resolveOrFallback(type: string): FieldRenderer {
-      return rendererMap[type] ?? rendererMap["text"];
+      return rendererMap[type] ?? rendererMap.text;
     },
 
     resolveAction(name: string): ActionHandler | undefined {
@@ -646,7 +833,9 @@ function resolveFieldType(
   const knownSet = new Set(knownTypes);
 
   // 1. Explicit type override from hint
-  const hintType = (hint as Record<string, unknown> | undefined)?.type as string | undefined;
+  const hintType = (hint as Record<string, unknown> | undefined)?.type as
+    | string
+    | undefined;
   if (hintType && knownSet.has(hintType)) return hintType;
 
   // 2. Sensitive → password
@@ -658,7 +847,9 @@ function resolveFieldType(
   }
 
   // 4. Schema type + format
-  const schemaType = Array.isArray(property.type) ? property.type[0] : property.type;
+  const schemaType = Array.isArray(property.type)
+    ? property.type[0]
+    : property.type;
 
   switch (schemaType) {
     case "boolean":
@@ -667,12 +858,13 @@ function resolveFieldType(
     case "integer":
       return knownSet.has("number") ? "number" : "text";
     case "array":
-      if (property.items?.enum && knownSet.has("multiselect")) return "multiselect";
+      if (property.items?.enum && knownSet.has("multiselect"))
+        return "multiselect";
       return knownSet.has("array") ? "array" : "text";
     case "object":
-      if (property.additionalProperties && knownSet.has("keyvalue")) return "keyvalue";
+      if (property.additionalProperties && knownSet.has("keyvalue"))
+        return "keyvalue";
       return knownSet.has("json") ? "json" : "text";
-    case "string":
     default:
       break;
   }
@@ -680,9 +872,15 @@ function resolveFieldType(
   // String format heuristics
   if (schemaType === "string" || !schemaType) {
     const fmt = property.format;
-    if (fmt === "uri" || fmt === "url") return knownSet.has("url") ? "url" : "text";
+    if (fmt === "uri" || fmt === "url")
+      return knownSet.has("url") ? "url" : "text";
     if (fmt === "email") return knownSet.has("email") ? "email" : "text";
-    if (fmt === "date-time") return knownSet.has("datetime") ? "datetime" : knownSet.has("date") ? "date" : "text";
+    if (fmt === "date-time")
+      return knownSet.has("datetime")
+        ? "datetime"
+        : knownSet.has("date")
+          ? "date"
+          : "text";
     if (fmt === "date") return knownSet.has("date") ? "date" : "text";
     if (fmt === "color") return knownSet.has("color") ? "color" : "text";
 
@@ -736,7 +934,10 @@ export const defaultCatalog = defineCatalog({
       description: "Email address input with validation",
     },
     color: {
-      validator: z.string().regex(/^#[0-9a-fA-F]{3,8}$/).or(z.literal("")),
+      validator: z
+        .string()
+        .regex(/^#[0-9a-fA-F]{3,8}$/)
+        .or(z.literal("")),
       description: "Color picker with hex value display",
     },
     radio: {
@@ -848,8 +1049,17 @@ export function resolveFields(
 
   // Field types that are compact enough for half-width columns
   const HALF_WIDTH_TYPES = new Set([
-    "text", "password", "number", "url", "email", "boolean",
-    "select", "date", "datetime", "color", "file",
+    "text",
+    "password",
+    "number",
+    "url",
+    "email",
+    "boolean",
+    "select",
+    "date",
+    "datetime",
+    "color",
+    "file",
   ]);
 
   for (const [key, prop] of Object.entries(properties)) {

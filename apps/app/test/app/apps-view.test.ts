@@ -1,6 +1,6 @@
 import React from "react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import TestRenderer, { act } from "react-test-renderer";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type {
   AppLaunchResult,
   AppViewerAuthMessage,
@@ -62,11 +62,18 @@ function createApp(
     repository: "https://github.com/example/repo",
     latestVersion: "1.0.0",
     supports: { v0: false, v1: false, v2: true },
-    npm: { package: name, v0Version: null, v1Version: null, v2Version: "1.0.0" },
+    npm: {
+      package: name,
+      v0Version: null,
+      v1Version: null,
+      v2Version: "1.0.0",
+    },
   };
 }
 
-function createLaunchResult(overrides?: Partial<AppLaunchResult>): AppLaunchResult {
+function createLaunchResult(
+  overrides?: Partial<AppLaunchResult>,
+): AppLaunchResult {
   return {
     pluginInstalled: true,
     needsRestart: false,
@@ -120,7 +127,8 @@ function findTextareaByPlaceholder(
   placeholder: string,
 ): TestRenderer.ReactTestInstance {
   const matches = root.findAll(
-    (node) => node.type === "textarea" && node.props.placeholder === placeholder,
+    (node) =>
+      node.type === "textarea" && node.props.placeholder === placeholder,
   );
   if (!matches[0]) {
     throw new Error(`Textarea "${placeholder}" not found`);
@@ -213,15 +221,21 @@ describe("AppsView", () => {
     });
     await flush();
 
-    const launchButton = findButtonByText(tree!.root, "Launch");
+    const launchButton = findButtonByText(tree?.root, "Launch");
     await act(async () => {
       await launchButton.props.onClick();
     });
 
     expect(mockClientFns.launchApp).toHaveBeenCalledWith(app.name);
     expect(setState).toHaveBeenCalledWith("activeGameApp", app.name);
-    expect(setState).toHaveBeenCalledWith("activeGameDisplayName", app.displayName);
-    expect(setState).toHaveBeenCalledWith("activeGameViewerUrl", "http://localhost:5175");
+    expect(setState).toHaveBeenCalledWith(
+      "activeGameDisplayName",
+      app.displayName,
+    );
+    expect(setState).toHaveBeenCalledWith(
+      "activeGameViewerUrl",
+      "http://localhost:5175",
+    );
     expect(setState).toHaveBeenCalledWith("activeGamePostMessageAuth", true);
     expect(setState).toHaveBeenCalledWith("tab", "apps");
     expect(setState).toHaveBeenCalledWith("appsSubTab", "games");
@@ -256,7 +270,7 @@ describe("AppsView", () => {
     await flush();
 
     await act(async () => {
-      await findButtonByText(tree!.root, "Launch").props.onClick();
+      await findButtonByText(tree?.root, "Launch").props.onClick();
     });
 
     expect(setActionNotice).toHaveBeenCalledWith(
@@ -282,9 +296,7 @@ describe("AppsView", () => {
       }),
     );
 
-    const popupSpy = vi
-      .spyOn(window, "open")
-      .mockReturnValue({} as Window);
+    const popupSpy = vi.spyOn(window, "open").mockReturnValue({} as Window);
 
     let tree: TestRenderer.ReactTestRenderer;
     await act(async () => {
@@ -293,7 +305,7 @@ describe("AppsView", () => {
     await flush();
 
     await act(async () => {
-      await findButtonByText(tree!.root, "Launch").props.onClick();
+      await findButtonByText(tree?.root, "Launch").props.onClick();
     });
 
     expect(popupSpy).toHaveBeenCalledWith(
@@ -335,7 +347,7 @@ describe("AppsView", () => {
     await flush();
 
     await act(async () => {
-      await findButtonByText(tree!.root, "Launch").props.onClick();
+      await findButtonByText(tree?.root, "Launch").props.onClick();
     });
     expect(setActionNotice).toHaveBeenCalledWith(
       "Popup blocked while opening Babylon. Allow popups and try again.",
@@ -344,7 +356,7 @@ describe("AppsView", () => {
     );
 
     await act(async () => {
-      await findButtonByText(tree!.root, "Launch").props.onClick();
+      await findButtonByText(tree?.root, "Launch").props.onClick();
     });
     expect(setActionNotice).toHaveBeenCalledWith(
       "Failed to launch Babylon: network down",
@@ -377,7 +389,7 @@ describe("AppsView", () => {
     });
     await flush();
 
-    const root = tree!.root;
+    const root = tree?.root;
     expect(root.findAll((node) => text(node) === "Hyperscape").length).toBe(1);
     expect(root.findAll((node) => text(node) === "Babylon").length).toBe(1);
     expect(root.findAll((node) => text(node) === "Active").length).toBe(1);
@@ -461,30 +473,32 @@ describe("AppsView", () => {
     await flush();
 
     await act(async () => {
-      findButtonByTitle(tree!.root, "Open Hyperscape").props.onClick();
+      findButtonByTitle(tree?.root, "Open Hyperscape").props.onClick();
     });
     await flush();
 
     await act(async () => {
-      findButtonByText(tree!.root, "Show Hyperscape Controls").props.onClick();
+      findButtonByText(tree?.root, "Show Hyperscape Controls").props.onClick();
     });
     await flush();
 
     expect(mockClientFns.listHyperscapeEmbeddedAgents).toHaveBeenCalled();
-    expect(mockClientFns.getHyperscapeAgentGoal).toHaveBeenCalledWith("agent-1");
+    expect(mockClientFns.getHyperscapeAgentGoal).toHaveBeenCalledWith(
+      "agent-1",
+    );
     expect(mockClientFns.getHyperscapeAgentQuickActions).toHaveBeenCalledWith(
       "agent-1",
     );
 
     const messageInput = findTextareaByPlaceholder(
-      tree!.root,
+      tree?.root,
       "Say something to selected agent...",
     );
     await act(async () => {
       messageInput.props.onChange({ target: { value: "hello there" } });
     });
     await act(async () => {
-      await findButtonByText(tree!.root, "Send Message").props.onClick();
+      await findButtonByText(tree?.root, "Send Message").props.onClick();
     });
     expect(mockClientFns.sendHyperscapeAgentMessage).toHaveBeenCalledWith(
       "agent-1",
@@ -492,20 +506,20 @@ describe("AppsView", () => {
     );
 
     const commandDataInput = findTextareaByPlaceholder(
-      tree!.root,
+      tree?.root,
       '{"target":[0,0,0]}',
     );
     await act(async () => {
-      commandDataInput.props.onChange({ target: { value: '{"message":"hi"}' } });
+      commandDataInput.props.onChange({
+        target: { value: '{"message":"hi"}' },
+      });
     });
     await act(async () => {
-      await findButtonByText(tree!.root, "Send Command").props.onClick();
+      await findButtonByText(tree?.root, "Send Command").props.onClick();
     });
-    expect(mockClientFns.sendHyperscapeEmbeddedAgentCommand).toHaveBeenCalledWith(
-      "char-1",
-      "chat",
-      { message: "hi" },
-    );
+    expect(
+      mockClientFns.sendHyperscapeEmbeddedAgentCommand,
+    ).toHaveBeenCalledWith("char-1", "chat", { message: "hi" });
   });
 
   it("opens app details and can return to the app list", async () => {
@@ -523,16 +537,24 @@ describe("AppsView", () => {
     await flush();
 
     await act(async () => {
-      findButtonByTitle(tree!.root, "Open Babylon").props.onClick();
+      findButtonByTitle(tree?.root, "Open Babylon").props.onClick();
     });
-    expect(tree!.root.findAll((node) => text(node) === "Back").length).toBe(1);
-    expect(tree!.root.findAll((node) => text(node) === "Hyperscape").length).toBe(0);
-    expect(tree!.root.findAll((node) => text(node) === "Babylon").length).toBe(1);
+    expect(tree?.root.findAll((node) => text(node) === "Back").length).toBe(1);
+    expect(
+      tree?.root.findAll((node) => text(node) === "Hyperscape").length,
+    ).toBe(0);
+    expect(tree?.root.findAll((node) => text(node) === "Babylon").length).toBe(
+      1,
+    );
 
     await act(async () => {
-      findButtonByText(tree!.root, "Back").props.onClick();
+      findButtonByText(tree?.root, "Back").props.onClick();
     });
-    expect(tree!.root.findAll((node) => text(node) === "Hyperscape").length).toBe(1);
-    expect(tree!.root.findAll((node) => text(node) === "Babylon").length).toBe(1);
+    expect(
+      tree?.root.findAll((node) => text(node) === "Hyperscape").length,
+    ).toBe(1);
+    expect(tree?.root.findAll((node) => text(node) === "Babylon").length).toBe(
+      1,
+    );
   });
 });

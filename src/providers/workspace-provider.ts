@@ -8,6 +8,7 @@
  */
 
 import {
+  ChannelType,
   type IAgentRuntime,
   logger,
   type Memory,
@@ -15,7 +16,7 @@ import {
   type ProviderResult,
   type State,
 } from "@elizaos/core";
-import type { CodingAgentContext } from "../services/coding-agent-context";
+
 import {
   DEFAULT_AGENT_WORKSPACE_DIR,
   filterBootstrapFilesForSession,
@@ -90,98 +91,6 @@ export function buildContext(
   return `## Project Context (Workspace)\n\n${sections.join("\n\n---\n\n")}`;
 }
 
-// ---------------------------------------------------------------------------
-// Coding Agent Context Enrichment
-// ---------------------------------------------------------------------------
-
-/**
- * Build a text summary of coding agent context for prompt injection.
- *
- * When a coding session is active, this gives the LLM visibility into:
- * - Current iteration number and status
- * - Recent errors that need self-correction
- * - Pending human feedback to incorporate
- * - Connector type and availability
- *
- * @internal Exported for testing.
- */
-export function buildCodingAgentSummary(ctx: CodingAgentContext): string {
-  const lines: string[] = [];
-  lines.push("## Coding Agent Session");
-  lines.push("");
-  lines.push(`- **Task:** ${ctx.taskDescription}`);
-  lines.push(`- **Working Directory:** ${ctx.workingDirectory}`);
-  lines.push(
-    `- **Connector:** ${ctx.connector.type} (${ctx.connector.available ? "available" : "unavailable"})`,
-  );
-  lines.push(`- **Mode:** ${ctx.interactionMode}`);
-  lines.push(
-    `- **Iterations:** ${ctx.iterations.length} / ${ctx.maxIterations}`,
-  );
-  lines.push(`- **Active:** ${ctx.active ? "yes" : "no"}`);
-
-  // Recent errors from the last iteration
-  const lastIteration = ctx.iterations[ctx.iterations.length - 1];
-  if (lastIteration && lastIteration.errors.length > 0) {
-    lines.push("");
-    lines.push("### Errors to Resolve");
-    for (const err of lastIteration.errors) {
-      const location = err.filePath
-        ? ` at ${err.filePath}${err.line ? `:${err.line}` : ""}`
-        : "";
-      lines.push(`- [${err.category}]${location}: ${err.message}`);
-    }
-  }
-
-  // Pending feedback
-  const pendingFeedback = ctx.allFeedback.filter((f) => {
-    // Feedback is "pending" if it was submitted after the last iteration started
-    if (!lastIteration) return true;
-    return f.timestamp > lastIteration.startedAt;
-  });
-  if (pendingFeedback.length > 0) {
-    lines.push("");
-    lines.push("### Human Feedback");
-    for (const fb of pendingFeedback) {
-      lines.push(`- [${fb.type}]: ${fb.text}`);
-    }
-  }
-
-  // Recent command results from the last iteration
-  if (lastIteration && lastIteration.commandResults.length > 0) {
-    lines.push("");
-    lines.push("### Recent Commands");
-    for (const cmd of lastIteration.commandResults.slice(-5)) {
-      const status = cmd.success ? "OK" : `FAIL(${cmd.exitCode})`;
-      lines.push(`- \`${cmd.command}\` → ${status}`);
-    }
-  }
-
-  return lines.join("\n");
-}
-
-/**
- * Check if a message carries coding agent context in its metadata.
- */
-function extractCodingAgentContext(message: Memory): CodingAgentContext | null {
-  const meta = message.metadata as Record<string, unknown> | undefined;
-  if (!meta) return null;
-
-  const codingCtx = meta.codingAgentContext;
-  if (!codingCtx || typeof codingCtx !== "object") return null;
-
-  // Lightweight duck-type check — full validation happens in the service layer
-  const ctx = codingCtx as Record<string, unknown>;
-  if (
-    typeof ctx.sessionId !== "string" ||
-    typeof ctx.taskDescription !== "string"
-  ) {
-    return null;
-  }
-
-  return codingCtx as CodingAgentContext;
-}
-
 export function createWorkspaceProvider(options?: {
   workspaceDir?: string;
   maxCharsPerFile?: number;
@@ -200,26 +109,32 @@ export function createWorkspaceProvider(options?: {
       message: Memory,
       _state: State,
     ): Promise<ProviderResult> {
+      const channelType = message.content?.channelType;
+      if (
+        channelType === ChannelType.VOICE_DM ||
+        channelType === ChannelType.VOICE_GROUP
+      ) {
+        return {
+          text: "",
+          data: {
+            workspaceDir: dir,
+            skipped: "voice_channel",
+          },
+        };
+      }
+
       try {
         const allFiles = await getFiles(dir);
         const meta = message.metadata as Record<string, unknown> | undefined;
         const sessionKey =
           typeof meta?.sessionKey === "string" ? meta.sessionKey : undefined;
         const files = filterBootstrapFilesForSession(allFiles, sessionKey);
-        let text = buildContext(files, maxChars);
-
-        // Enrich with coding agent context if present
-        const codingCtx = extractCodingAgentContext(message);
-        if (codingCtx) {
-          const codingSummary = buildCodingAgentSummary(codingCtx);
-          text = text ? `${text}\n\n---\n\n${codingSummary}` : codingSummary;
-        }
+        const text = buildContext(files, maxChars);
 
         return {
           text,
           data: {
             workspaceDir: dir,
-            ...(codingCtx ? { codingSession: codingCtx.sessionId } : {}),
           },
         };
       } catch (err) {

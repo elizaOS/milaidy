@@ -11,7 +11,10 @@
  * - NFT queries for inventory display
  */
 
+import fs from "node:fs";
+import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import { ethers } from "ethers";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { DropService } from "../src/api/drop-service";
@@ -19,6 +22,8 @@ import { RegistryService } from "../src/api/registry-service";
 import { TxService } from "../src/api/tx-service";
 import { type AnvilInstance, startAnvil } from "./anvil-helper";
 import { type DeployedContracts, deployContracts } from "./contract-deployer";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 function hasAnvilBinary(): boolean {
   try {
@@ -29,7 +34,28 @@ function hasAnvilBinary(): boolean {
   }
 }
 
-const describeAnvil = hasAnvilBinary() ? describe : describe.skip;
+function hasContractArtifacts(): boolean {
+  const artifactFiles = [
+    path.join(
+      __dirname,
+      "contracts",
+      "out",
+      "MockMiladyAgentRegistry.sol",
+      "MockMiladyAgentRegistry.json",
+    ),
+    path.join(
+      __dirname,
+      "contracts",
+      "out",
+      "MockMiladyCollection.sol",
+      "MockMiladyCollection.json",
+    ),
+  ];
+  return artifactFiles.every((filePath) => fs.existsSync(filePath));
+}
+
+const describeAnvil =
+  hasAnvilBinary() && hasContractArtifacts() ? describe : describe.skip;
 
 // ---------------------------------------------------------------------------
 // Test Suite

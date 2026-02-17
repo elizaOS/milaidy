@@ -1,7 +1,7 @@
 /**
  * Tests for @milady/capacitor-screencapture — feature detection, state, errors, events.
  */
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ScreenCaptureWeb } from "../../plugins/screencapture/src/web";
 
 describe("@milady/capacitor-screencapture", () => {
@@ -27,26 +27,37 @@ describe("@milady/capacitor-screencapture", () => {
   // -- Recording state --
 
   it("reports not recording by default", async () => {
-    expect(await sc.getRecordingState()).toEqual({ isRecording: false, duration: 0, fileSize: 0 });
+    expect(await sc.getRecordingState()).toEqual({
+      isRecording: false,
+      duration: 0,
+      fileSize: 0,
+    });
   });
 
   // -- Error paths --
 
   describe("errors when not recording", () => {
-    it.each(["stopRecording", "pauseRecording", "resumeRecording"] as const)(
-      "%s throws", async (method) => { await expect((sc as Record<string, () => Promise<unknown>>)[method]()).rejects.toThrow(); },
-    );
+    it.each([
+      "stopRecording",
+      "pauseRecording",
+      "resumeRecording",
+    ] as const)("%s throws", async (method) => {
+      await expect(
+        (sc as Record<string, () => Promise<unknown>>)[method](),
+      ).rejects.toThrow();
+    });
   });
 
   // -- Event listeners --
 
   describe("event listeners", () => {
-    it.each(["recordingState", "error"] as const)(
-      "registers/removes %s listener", async (event) => {
-        const h = await sc.addListener(event, vi.fn());
-        await h.remove();
-      },
-    );
+    it.each([
+      "recordingState",
+      "error",
+    ] as const)("registers/removes %s listener", async (event) => {
+      const h = await sc.addListener(event, vi.fn());
+      await h.remove();
+    });
 
     it("removeAllListeners clears all", async () => {
       await sc.addListener("recordingState", vi.fn());
@@ -55,14 +66,24 @@ describe("@milady/capacitor-screencapture", () => {
     });
 
     it("notifyListeners dispatches to correct event type", async () => {
-      const rec = vi.fn(), err = vi.fn();
+      const rec = vi.fn(),
+        err = vi.fn();
       await sc.addListener("recordingState", rec);
       await sc.addListener("error", err);
 
-      (sc as unknown as { notifyListeners: (n: string, d: unknown) => void })
-        .notifyListeners("recordingState", { isRecording: true, duration: 5, fileSize: 1000 });
+      (
+        sc as unknown as { notifyListeners: (n: string, d: unknown) => void }
+      ).notifyListeners("recordingState", {
+        isRecording: true,
+        duration: 5,
+        fileSize: 1000,
+      });
 
-      expect(rec).toHaveBeenCalledWith({ isRecording: true, duration: 5, fileSize: 1000 });
+      expect(rec).toHaveBeenCalledWith({
+        isRecording: true,
+        duration: 5,
+        fileSize: 1000,
+      });
       expect(err).not.toHaveBeenCalled();
     });
   });

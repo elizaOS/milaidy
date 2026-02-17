@@ -15,11 +15,14 @@
  * Wayland introduces portals for some permissions.
  */
 
-import { exec } from "child_process";
-import { promisify } from "util";
-import { access, constants } from "fs/promises";
+import { exec } from "node:child_process";
+import { access, constants } from "node:fs/promises";
+import { promisify } from "node:util";
 import { shell } from "electron";
-import type { PermissionCheckResult, SystemPermissionId } from "./permissions-shared";
+import type {
+  PermissionCheckResult,
+  SystemPermissionId,
+} from "./permissions-shared";
 
 const execAsync = promisify(exec);
 
@@ -33,14 +36,18 @@ const execAsync = promisify(exec);
  */
 export async function checkMicrophone(): Promise<PermissionCheckResult> {
   // Check if PulseAudio is running and accessible
-  const { stdout: paInfo, stderr: paErr } = await execAsync("pactl info 2>&1").catch(() => ({
+  const { stdout: paInfo, stderr: paErr } = await execAsync(
+    "pactl info 2>&1",
+  ).catch(() => ({
     stdout: "",
     stderr: "failed",
   }));
 
   if (!paErr && paInfo.includes("Server Name:")) {
     // PulseAudio is running, check if we can list sources (input devices)
-    const { stdout: sources } = await execAsync("pactl list sources short 2>&1").catch(() => ({
+    const { stdout: sources } = await execAsync(
+      "pactl list sources short 2>&1",
+    ).catch(() => ({
       stdout: "",
     }));
 
@@ -50,20 +57,26 @@ export async function checkMicrophone(): Promise<PermissionCheckResult> {
   }
 
   // Try PipeWire
-  const { stdout: pwInfo } = await execAsync("pw-cli info 0 2>&1").catch(() => ({ stdout: "" }));
-  if (pwInfo && pwInfo.includes("id:")) {
+  const { stdout: pwInfo } = await execAsync("pw-cli info 0 2>&1").catch(
+    () => ({ stdout: "" }),
+  );
+  if (pwInfo?.includes("id:")) {
     return { status: "granted", canRequest: false };
   }
 
   // Check if ALSA devices exist
-  const { stdout: alsaDevices } = await execAsync("arecord -l 2>&1").catch(() => ({ stdout: "" }));
-  if (alsaDevices && alsaDevices.includes("card")) {
+  const { stdout: alsaDevices } = await execAsync("arecord -l 2>&1").catch(
+    () => ({ stdout: "" }),
+  );
+  if (alsaDevices?.includes("card")) {
     // Devices exist, likely accessible
     return { status: "granted", canRequest: false };
   }
 
   // Check user groups
-  const { stdout: groups } = await execAsync("groups 2>&1").catch(() => ({ stdout: "" }));
+  const { stdout: groups } = await execAsync("groups 2>&1").catch(() => ({
+    stdout: "",
+  }));
   if (groups.includes("audio")) {
     // User has audio group membership
     return { status: "granted", canRequest: false };
@@ -82,9 +95,11 @@ export async function checkMicrophone(): Promise<PermissionCheckResult> {
  */
 export async function checkCamera(): Promise<PermissionCheckResult> {
   // Check if video devices exist
-  const { stdout: videoDevices } = await execAsync("ls /dev/video* 2>&1").catch(() => ({
-    stdout: "",
-  }));
+  const { stdout: videoDevices } = await execAsync("ls /dev/video* 2>&1").catch(
+    () => ({
+      stdout: "",
+    }),
+  );
 
   if (!videoDevices || videoDevices.includes("No such file")) {
     // No video devices found
@@ -105,7 +120,9 @@ export async function checkCamera(): Promise<PermissionCheckResult> {
   }
 
   // Check user groups
-  const { stdout: groups } = await execAsync("groups 2>&1").catch(() => ({ stdout: "" }));
+  const { stdout: groups } = await execAsync("groups 2>&1").catch(() => ({
+    stdout: "",
+  }));
   if (groups.includes("video")) {
     return { status: "granted", canRequest: false };
   }
@@ -140,7 +157,9 @@ export async function checkScreenRecording(): Promise<PermissionCheckResult> {
  *
  * This varies by desktop environment. We try common options.
  */
-export async function openPrivacySettings(permission: SystemPermissionId): Promise<void> {
+export async function openPrivacySettings(
+  permission: SystemPermissionId,
+): Promise<void> {
   // Try to detect desktop environment
   const desktopEnv = process.env.XDG_CURRENT_DESKTOP?.toLowerCase() || "";
 
@@ -166,9 +185,11 @@ export async function openPrivacySettings(permission: SystemPermissionId): Promi
 
   // Try each command until one works
   for (const cmd of commands) {
-    const result = await execAsync(`which ${cmd.split(" ")[0]} 2>&1`).catch(() => ({
-      stdout: "",
-    }));
+    const result = await execAsync(`which ${cmd.split(" ")[0]} 2>&1`).catch(
+      () => ({
+        stdout: "",
+      }),
+    );
     if (result.stdout.trim()) {
       await execAsync(`${cmd} &`).catch(() => {});
       return;
@@ -182,7 +203,9 @@ export async function openPrivacySettings(permission: SystemPermissionId): Promi
 /**
  * Check a specific permission by ID.
  */
-export async function checkPermission(id: SystemPermissionId): Promise<PermissionCheckResult> {
+export async function checkPermission(
+  id: SystemPermissionId,
+): Promise<PermissionCheckResult> {
   switch (id) {
     case "accessibility":
       // Linux doesn't have a unified accessibility permission system
@@ -207,7 +230,9 @@ export async function checkPermission(id: SystemPermissionId): Promise<Permissio
  * On Linux, most permissions are managed through group membership
  * or desktop environment settings, not runtime prompts.
  */
-export async function requestPermission(id: SystemPermissionId): Promise<PermissionCheckResult> {
+export async function requestPermission(
+  id: SystemPermissionId,
+): Promise<PermissionCheckResult> {
   switch (id) {
     case "microphone":
     case "camera":

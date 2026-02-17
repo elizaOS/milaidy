@@ -1,13 +1,26 @@
-import { execFile, spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import {
+  type ChildProcessWithoutNullStreams,
+  execFile,
+  spawn,
+} from "node:child_process";
 import fs from "node:fs/promises";
 import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
-import { chromium, expect, test, type Browser, type Page } from "@playwright/test";
+import {
+  type Browser,
+  chromium,
+  expect,
+  type Page,
+  test,
+} from "@playwright/test";
 
-import { startMockApiServer, type MockApiServer } from "../electron-ui/mock-api";
+import {
+  type MockApiServer,
+  startMockApiServer,
+} from "../electron-ui/mock-api";
 
 const execFileAsync = promisify(execFile);
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -53,7 +66,9 @@ async function resolveDmgPath(): Promise<string> {
     .map((entry) => path.join(electronDistDir, entry.name));
 
   if (dmgs.length === 0) {
-    throw new Error(`No DMG artifacts found in ${electronDistDir}. Build DMG first.`);
+    throw new Error(
+      `No DMG artifacts found in ${electronDistDir}. Build DMG first.`,
+    );
   }
 
   const stats = await Promise.all(
@@ -72,7 +87,9 @@ function extractMountPointFromDiskLine(line: string): string | null {
 
 async function findExistingMountPoint(dmgPath: string): Promise<string | null> {
   const { stdout } = await execFileAsync("hdiutil", ["info"]);
-  const blocks = stdout.split("================================================");
+  const blocks = stdout.split(
+    "================================================",
+  );
   for (const block of blocks) {
     if (!block.includes(`image-path      : ${dmgPath}`)) continue;
     const lines = block.split("\n").map((line) => line.trimEnd());
@@ -84,7 +101,9 @@ async function findExistingMountPoint(dmgPath: string): Promise<string | null> {
   return null;
 }
 
-async function attachOrReuseDmg(dmgPath: string): Promise<{ mountPoint: string; detachWhenDone: boolean }> {
+async function attachOrReuseDmg(
+  dmgPath: string,
+): Promise<{ mountPoint: string; detachWhenDone: boolean }> {
   const existing = await findExistingMountPoint(dmgPath);
   if (existing) {
     return { mountPoint: existing, detachWhenDone: false };
@@ -105,7 +124,9 @@ async function attachOrReuseDmg(dmgPath: string): Promise<{ mountPoint: string; 
     }
   }
 
-  throw new Error(`Unable to determine DMG mount point from hdiutil output:\n${output}`);
+  throw new Error(
+    `Unable to determine DMG mount point from hdiutil output:\n${output}`,
+  );
 }
 
 async function unmountDmg(mountPoint: string): Promise<void> {
@@ -125,7 +146,9 @@ async function getFreeTcpPort(): Promise<number> {
     server.listen(0, "127.0.0.1", () => {
       const address = server.address();
       if (!address || typeof address === "string") {
-        server.close(() => reject(new Error("Unable to resolve free TCP port.")));
+        server.close(() =>
+          reject(new Error("Unable to resolve free TCP port.")),
+        );
         return;
       }
       const { port } = address;
@@ -141,7 +164,9 @@ async function waitForCdp(debugPort: number, timeoutMs: number): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     try {
-      const response = await fetch(`http://127.0.0.1:${debugPort}/json/version`);
+      const response = await fetch(
+        `http://127.0.0.1:${debugPort}/json/version`,
+      );
       if (response.ok) return;
     } catch {
       // retry
@@ -151,7 +176,10 @@ async function waitForCdp(debugPort: number, timeoutMs: number): Promise<void> {
   throw new Error(`Timed out waiting for CDP endpoint at :${debugPort}`);
 }
 
-async function waitForAppPage(browser: Browser, timeoutMs: number): Promise<Page> {
+async function waitForAppPage(
+  browser: Browser,
+  timeoutMs: number,
+): Promise<Page> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     for (const context of browser.contexts()) {
@@ -183,7 +211,9 @@ function collectProcessLogs(child: ChildProcessWithoutNullStreams): {
   return { stdout, stderr };
 }
 
-async function killProcess(child: ChildProcessWithoutNullStreams): Promise<void> {
+async function killProcess(
+  child: ChildProcessWithoutNullStreams,
+): Promise<void> {
   if (child.exitCode !== null || child.killed) return;
   child.kill("SIGTERM");
   await new Promise<void>((resolve) => {
@@ -292,13 +322,15 @@ test("packaged DMG app starts and reaches chat/agent-ready state", async () => {
     await expect(page.getByPlaceholder("Type a message...")).toBeVisible({
       timeout: 120_000,
     });
-    await expect(page.getByRole("button", { name: "Chat", exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Chat", exact: true }),
+    ).toBeVisible();
     await expect(page.getByTestId("status-pill")).toContainText(
       /(running|paused)/i,
     );
-    expect(api.requests.some((request) => request.includes("/api/status"))).toBe(
-      true,
-    );
+    expect(
+      api.requests.some((request) => request.includes("/api/status")),
+    ).toBe(true);
 
     const stdoutText = processLogs?.stdout.join("") ?? "";
     const stderrText = processLogs?.stderr.join("") ?? "";

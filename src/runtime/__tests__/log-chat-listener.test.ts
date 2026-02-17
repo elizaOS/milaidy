@@ -2,8 +2,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { logToChatListener } from "../eliza";
 
 // Mock @elizaos/core
-vi.mock("@elizaos/core", () => {
+vi.mock("@elizaos/core", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@elizaos/core")>();
   return {
+    ...actual,
     loggerScope: {
       run: vi.fn((_ctx, fn) => fn()),
     },

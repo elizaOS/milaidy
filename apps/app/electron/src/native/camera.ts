@@ -5,11 +5,10 @@
  * since these Web APIs require a renderer context.
  */
 
-import { BrowserWindow, ipcMain, app } from "electron";
+import { mkdir, writeFile } from "node:fs/promises";
+import path from "node:path";
 import type { IpcMainInvokeEvent } from "electron";
-import path from "path";
-import { writeFile, mkdir } from "fs/promises";
-import type { IpcValue } from "./ipc-types";
+import { app, BrowserWindow, ipcMain } from "electron";
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -139,7 +138,8 @@ export class CameraManager {
   async getDevices(): Promise<{ devices: CameraDeviceInfo[] }> {
     const renderer = await this.ensureRenderer();
 
-    const devices: CameraDeviceInfo[] = await renderer.webContents.executeJavaScript(`
+    const devices: CameraDeviceInfo[] =
+      await renderer.webContents.executeJavaScript(`
       (async () => {
         try {
           const tmp = await navigator.mediaDevices.getUserMedia({ video: true });
@@ -167,7 +167,9 @@ export class CameraManager {
 
   // ── Preview (stream) ───────────────────────────────────────────────────
 
-  async startPreview(options?: CameraPreviewOptions): Promise<CameraPreviewResult> {
+  async startPreview(
+    options?: CameraPreviewOptions,
+  ): Promise<CameraPreviewResult> {
     const renderer = await this.ensureRenderer();
     const cfg = JSON.stringify({
       deviceId: options?.deviceId,
@@ -176,7 +178,8 @@ export class CameraManager {
       frameRate: options?.frameRate,
     });
 
-    const result: CameraPreviewResult = await renderer.webContents.executeJavaScript(`
+    const result: CameraPreviewResult =
+      await renderer.webContents.executeJavaScript(`
       (async () => {
         const o = ${cfg};
         const vc = {};
@@ -210,7 +213,10 @@ export class CameraManager {
     `);
   }
 
-  async switchCamera(options: { deviceId?: string; direction?: string }): Promise<CameraPreviewResult> {
+  async switchCamera(options: {
+    deviceId?: string;
+    direction?: string;
+  }): Promise<CameraPreviewResult> {
     return this.startPreview({ deviceId: options.deviceId });
   }
 
@@ -249,7 +255,8 @@ export class CameraManager {
 
   async startRecording(options?: VideoCaptureOptions): Promise<void> {
     const renderer = await this.ensureRenderer();
-    const bitrate = options?.bitrate ?? VIDEO_BITRATE[options?.quality ?? "medium"];
+    const bitrate =
+      options?.bitrate ?? VIDEO_BITRATE[options?.quality ?? "medium"];
     const cfg = JSON.stringify({
       audio: options?.audio ?? false,
       bitrate,
@@ -379,14 +386,6 @@ export class CameraManager {
     `);
   }
 
-  // ── Helpers ───────────────────────────────────────────────────────────
-
-  private sendToRenderer(channel: string, data?: IpcValue): void {
-    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-      this.mainWindow.webContents.send(channel, data);
-    }
-  }
-
   dispose(): void {
     if (this.rendererWindow && !this.rendererWindow.isDestroyed()) {
       this.rendererWindow.webContents
@@ -416,13 +415,33 @@ export function registerCameraIPC(): void {
   const m = getCameraManager();
 
   ipcMain.handle("camera:getDevices", async () => m.getDevices());
-  ipcMain.handle("camera:startPreview", async (_e: IpcMainInvokeEvent, opts?: CameraPreviewOptions) => m.startPreview(opts));
+  ipcMain.handle(
+    "camera:startPreview",
+    async (_e: IpcMainInvokeEvent, opts?: CameraPreviewOptions) =>
+      m.startPreview(opts),
+  );
   ipcMain.handle("camera:stopPreview", async () => m.stopPreview());
-  ipcMain.handle("camera:switchCamera", async (_e: IpcMainInvokeEvent, opts: { deviceId?: string; direction?: string }) => m.switchCamera(opts));
-  ipcMain.handle("camera:capturePhoto", async (_e: IpcMainInvokeEvent, opts?: PhotoCaptureOptions) => m.capturePhoto(opts));
-  ipcMain.handle("camera:startRecording", async (_e: IpcMainInvokeEvent, opts?: VideoCaptureOptions) => m.startRecording(opts));
+  ipcMain.handle(
+    "camera:switchCamera",
+    async (
+      _e: IpcMainInvokeEvent,
+      opts: { deviceId?: string; direction?: string },
+    ) => m.switchCamera(opts),
+  );
+  ipcMain.handle(
+    "camera:capturePhoto",
+    async (_e: IpcMainInvokeEvent, opts?: PhotoCaptureOptions) =>
+      m.capturePhoto(opts),
+  );
+  ipcMain.handle(
+    "camera:startRecording",
+    async (_e: IpcMainInvokeEvent, opts?: VideoCaptureOptions) =>
+      m.startRecording(opts),
+  );
   ipcMain.handle("camera:stopRecording", async () => m.stopRecording());
   ipcMain.handle("camera:getRecordingState", async () => m.getRecordingState());
   ipcMain.handle("camera:checkPermissions", async () => m.checkPermissions());
-  ipcMain.handle("camera:requestPermissions", async () => m.requestPermissions());
+  ipcMain.handle("camera:requestPermissions", async () =>
+    m.requestPermissions(),
+  );
 }

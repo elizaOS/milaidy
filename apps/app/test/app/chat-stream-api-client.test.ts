@@ -24,7 +24,8 @@ function buildControlledSseResponse(initialChunk: string): {
   close: () => void;
 } {
   const encoder = new TextEncoder();
-  let streamController: ReadableStreamDefaultController<Uint8Array> | null = null;
+  let streamController: ReadableStreamDefaultController<Uint8Array> | null =
+    null;
 
   const body = new ReadableStream<Uint8Array>({
     start(controller) {
@@ -95,15 +96,14 @@ describe("MiladyClient streaming chat endpoints", () => {
     expect(requestInit.method).toBe("POST");
     expect(requestHeaders.Accept).toBe("text/event-stream");
     expect(requestHeaders.Authorization).toBe("Bearer token");
-    expect(requestInit.body).toBe(JSON.stringify({ text: "hi", mode: "power" }));
+    expect(requestInit.body).toBe(
+      JSON.stringify({ text: "hi", channelType: "power" }),
+    );
   });
 
   test("supports legacy SSE payloads containing only text", async () => {
     fetchMock.mockResolvedValue(
-      buildSseResponse([
-        'data: {"text":"A"}\n\n',
-        'data: {"text":"B"}\n\n',
-      ]),
+      buildSseResponse(['data: {"text":"A"}\n\n', 'data: {"text":"B"}\n\n']),
     );
 
     const client = new MiladyClient("http://localhost:2138");
@@ -154,16 +154,14 @@ describe("MiladyClient streaming chat endpoints", () => {
 
   test("throws when SSE emits an error payload", async () => {
     fetchMock.mockResolvedValue(
-      buildSseResponse(['data: {"type":"error","message":"stream failed"}\n\n']),
+      buildSseResponse([
+        'data: {"type":"error","message":"stream failed"}\n\n',
+      ]),
     );
 
     const client = new MiladyClient("http://localhost:2138");
     await expect(
-      client.sendChatStream(
-        "boom",
-        () => {},
-        "simple",
-      ),
+      client.sendChatStream("boom", () => {}, "simple"),
     ).rejects.toThrow("stream failed");
   });
 });

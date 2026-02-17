@@ -2,9 +2,9 @@ import { WebPlugin } from "@capacitor/core";
 
 import type {
   LocationOptions,
+  LocationPermissionStatus,
   LocationResult,
   WatchLocationOptions,
-  LocationPermissionStatus,
 } from "./definitions";
 
 /**
@@ -18,7 +18,8 @@ export class LocationWeb extends WebPlugin {
   async getCurrentPosition(options?: LocationOptions): Promise<LocationResult> {
     return new Promise((resolve, reject) => {
       const geoOptions: PositionOptions = {
-        enableHighAccuracy: options?.accuracy === "best" || options?.accuracy === "high",
+        enableHighAccuracy:
+          options?.accuracy === "best" || options?.accuracy === "high",
         maximumAge: options?.maxAge ?? 0,
         timeout: options?.timeout ?? 10000,
       };
@@ -40,7 +41,11 @@ export class LocationWeb extends WebPlugin {
           });
         },
         (error) => {
-          let code: "PERMISSION_DENIED" | "POSITION_UNAVAILABLE" | "TIMEOUT" | "UNKNOWN";
+          let code:
+            | "PERMISSION_DENIED"
+            | "POSITION_UNAVAILABLE"
+            | "TIMEOUT"
+            | "UNKNOWN";
           switch (error.code) {
             case error.PERMISSION_DENIED:
               code = "PERMISSION_DENIED";
@@ -56,16 +61,19 @@ export class LocationWeb extends WebPlugin {
           }
           reject({ code, message: error.message });
         },
-        geoOptions
+        geoOptions,
       );
     });
   }
 
-  async watchPosition(options?: WatchLocationOptions): Promise<{ watchId: string }> {
+  async watchPosition(
+    options?: WatchLocationOptions,
+  ): Promise<{ watchId: string }> {
     const watchId = `watch-${Date.now()}-${Math.random().toString(36).substring(7)}`;
 
     const geoOptions: PositionOptions = {
-      enableHighAccuracy: options?.accuracy === "best" || options?.accuracy === "high",
+      enableHighAccuracy:
+        options?.accuracy === "best" || options?.accuracy === "high",
       maximumAge: options?.maxAge ?? 0,
       timeout: options?.timeout ?? 10000,
     };
@@ -87,7 +95,11 @@ export class LocationWeb extends WebPlugin {
         });
       },
       (error) => {
-        let code: "PERMISSION_DENIED" | "POSITION_UNAVAILABLE" | "TIMEOUT" | "UNKNOWN";
+        let code:
+          | "PERMISSION_DENIED"
+          | "POSITION_UNAVAILABLE"
+          | "TIMEOUT"
+          | "UNKNOWN";
         switch (error.code) {
           case error.PERMISSION_DENIED:
             code = "PERMISSION_DENIED";
@@ -103,7 +115,7 @@ export class LocationWeb extends WebPlugin {
         }
         this.notifyListeners("error", { code, message: error.message });
       },
-      geoOptions
+      geoOptions,
     );
 
     this.watches.set(watchId, nativeWatchId);
@@ -121,10 +133,16 @@ export class LocationWeb extends WebPlugin {
   async checkPermissions(): Promise<LocationPermissionStatus> {
     if ("permissions" in navigator) {
       try {
-        const result = await navigator.permissions.query({ name: "geolocation" });
+        const result = await navigator.permissions.query({
+          name: "geolocation",
+        });
         return {
-          location: result.state === "granted" ? "granted" :
-                   result.state === "denied" ? "denied" : "prompt",
+          location:
+            result.state === "granted"
+              ? "granted"
+              : result.state === "denied"
+                ? "denied"
+                : "prompt",
         };
       } catch {
         return { location: "prompt" };

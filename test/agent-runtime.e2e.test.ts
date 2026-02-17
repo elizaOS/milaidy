@@ -771,9 +771,8 @@ describe("Agent Runtime E2E", () => {
     );
 
     it.skipIf(!hasModelProvider)(
-      "autonomy REST endpoint always reports enabled",
+      "autonomy REST endpoint reflects enabled state",
       async () => {
-        // Autonomy is always enabled — the endpoint is a no-op for backward compat.
         const get1 = await http$(server?.port, "GET", "/api/agent/autonomy");
         expect(get1.data.enabled).toBe(true);
 
@@ -781,7 +780,13 @@ describe("Agent Runtime E2E", () => {
           enabled: false,
         });
         const get2 = await http$(server?.port, "GET", "/api/agent/autonomy");
-        expect(get2.data.enabled).toBe(true);
+        expect(get2.data.enabled).toBe(false);
+
+        await http$(server?.port, "POST", "/api/agent/autonomy", {
+          enabled: true,
+        });
+        const get3 = await http$(server?.port, "GET", "/api/agent/autonomy");
+        expect(get3.data.enabled).toBe(true);
       },
     );
   });

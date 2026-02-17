@@ -4,7 +4,7 @@
  * Validates:
  * - Plugin classification (core — always loaded)
  * - Plugin module import and export shape
- * - Plugin actions (executeCommand, processAction, clearHistory)
+ * - Plugin actions (clearHistory and plugin action declarations)
  * - Plugin services (ShellService, processRegistry)
  * - Approval system exports
  * - Shell utilities and config validation
@@ -105,22 +105,6 @@ describe("Shell plugin module", () => {
 // ---------------------------------------------------------------------------
 
 describe("Shell plugin actions", () => {
-  it("exports executeCommand action", async () => {
-    await withShellPlugin((mod) => {
-      expect(mod.executeCommand).toBeDefined();
-      const action = mod.executeCommand as Record<string, unknown>;
-      expect(typeof action.name).toBe("string");
-    });
-  });
-
-  it("exports processAction", async () => {
-    await withShellPlugin((mod) => {
-      expect(mod.processAction).toBeDefined();
-      const action = mod.processAction as Record<string, unknown>;
-      expect(typeof action.name).toBe("string");
-    });
-  });
-
   it("exports clearHistory action", async () => {
     await withShellPlugin((mod) => {
       expect(mod.clearHistory).toBeDefined();

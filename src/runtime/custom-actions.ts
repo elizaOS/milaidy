@@ -15,6 +15,10 @@ import type {
   CustomActionDef,
   CustomActionHandler,
 } from "../config/types.milady";
+import {
+  isBlockedPrivateOrLinkLocalIp,
+  normalizeHostLike,
+} from "../security/network-policy";
 
 /** Cached runtime reference for hot-registration of new actions. */
 let _runtime: IAgentRuntime | null = null;
@@ -82,54 +86,8 @@ function shellEscape(value: string): string {
   return `'${value.replace(/'/g, "'\\''")}'`;
 }
 
-const ALWAYS_BLOCKED_IP_PATTERNS: RegExp[] = [
-  /^0\./, // "this" network
-  /^169\.254\./, // link-local / metadata
-  /^fe80:/i, // IPv6 link-local
-  /^::$/i, // unspecified
-  /^::1$/i, // IPv6 loopback
-];
-
-const PRIVATE_IP_PATTERNS: RegExp[] = [
-  /^10\./, // RFC1918
-  /^127\./, // loopback
-  /^172\.(1[6-9]|2\d|3[01])\./, // RFC1918
-  /^192\.168\./, // RFC1918
-  /^f[cd][0-9a-f]{2}:/i, // IPv6 ULA fc00::/7
-];
-
-function normalizeHostLike(value: string): string {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/^\[|\]$/g, "");
-}
-
-function decodeIpv6MappedHex(mapped: string): string | null {
-  const match = /^([0-9a-f]{1,4}):([0-9a-f]{1,4})$/i.exec(mapped);
-  if (!match) return null;
-  const hi = Number.parseInt(match[1], 16);
-  const lo = Number.parseInt(match[2], 16);
-  if (!Number.isFinite(hi) || !Number.isFinite(lo)) return null;
-  const octets = [hi >> 8, hi & 0xff, lo >> 8, lo & 0xff];
-  return octets.join(".");
-}
-
-function normalizeIpForPolicy(ip: string): string {
-  const base = normalizeHostLike(ip).split("%")[0];
-  if (!base.startsWith("::ffff:")) return base;
-
-  const mapped = base.slice("::ffff:".length);
-  if (net.isIP(mapped) === 4) return mapped;
-  return decodeIpv6MappedHex(mapped) ?? mapped;
-}
-
 function isBlockedIp(ip: string): boolean {
-  const normalized = normalizeIpForPolicy(ip);
-  if (ALWAYS_BLOCKED_IP_PATTERNS.some((pattern) => pattern.test(normalized))) {
-    return true;
-  }
-  return PRIVATE_IP_PATTERNS.some((pattern) => pattern.test(normalized));
+  return isBlockedPrivateOrLinkLocalIp(ip);
 }
 
 /**

@@ -5,10 +5,10 @@
  * Electron's desktopCapturer + a hidden renderer for MediaRecorder.
  */
 
-import { desktopCapturer, ipcMain, BrowserWindow, screen, app } from "electron";
+import { mkdir, writeFile } from "node:fs/promises";
+import path from "node:path";
 import type { IpcMainInvokeEvent } from "electron";
-import { writeFile, mkdir } from "fs/promises";
-import path from "path";
+import { app, BrowserWindow, desktopCapturer, ipcMain, screen } from "electron";
 import type { IpcValue } from "./ipc-types";
 
 // ── Screenshot types ────────────────────────────────────────────────────────
@@ -107,7 +107,9 @@ export class ScreenCaptureManager {
       sources: sources.map((source) => ({
         id: source.id,
         name: source.name,
-        type: source.id.startsWith("screen:") ? "screen" as const : "window" as const,
+        type: source.id.startsWith("screen:")
+          ? ("screen" as const)
+          : ("window" as const),
         thumbnail: source.thumbnail.toDataURL(),
         appIcon: source.appIcon?.toDataURL(),
       })),
@@ -180,10 +182,11 @@ export class ScreenCaptureManager {
    */
   async saveScreenshot(
     screenshot: ScreenshotResult,
-    filename?: string
+    filename?: string,
   ): Promise<{ path: string }> {
     const dir = app.getPath("pictures");
-    const name = filename?.trim() || `screenshot-${Date.now()}.${screenshot.format}`;
+    const name =
+      filename?.trim() || `screenshot-${Date.now()}.${screenshot.format}`;
     const baseName = path.basename(name);
     const safeName = baseName.replace(/[^a-zA-Z0-9._-]/g, "_");
     const filePath = path.join(dir, safeName);
@@ -257,7 +260,8 @@ export class ScreenCaptureManager {
     }
 
     const renderer = await this.ensureRecordingRenderer();
-    const bitrate = options?.bitrate ?? RECORDING_BITRATE[options?.quality ?? "medium"];
+    const bitrate =
+      options?.bitrate ?? RECORDING_BITRATE[options?.quality ?? "medium"];
     const fps = options?.fps ?? 30;
     const enableAudio = options?.enableSystemAudio ?? false;
 
@@ -302,20 +306,27 @@ export class ScreenCaptureManager {
     `);
 
     this.recordingStartTime = Date.now();
-    this._recordingState = { isRecording: true, isPaused: false, duration: 0, fileSize: 0 };
+    this._recordingState = {
+      isRecording: true,
+      isPaused: false,
+      duration: 0,
+      fileSize: 0,
+    };
     this.emitRecordingState();
 
     // Auto-stop when maxDuration is reached
     if (options?.maxDuration) {
       const dur = options.maxDuration;
-      renderer.webContents.executeJavaScript(`
+      renderer.webContents
+        .executeJavaScript(`
         window._scrMaxDurTimeout = setTimeout(() => {
           if (window._scrMR && window._scrMR.state === 'recording') {
             window._scrMR.stop();
             window._scrIsRec = false;
           }
         }, ${dur * 1000});
-      `).catch(() => {});
+      `)
+        .catch(() => {});
     }
   }
 
@@ -378,7 +389,12 @@ export class ScreenCaptureManager {
     const buffer = Buffer.from(result.base64 as string, "base64");
     await writeFile(filePath, buffer);
 
-    this._recordingState = { isRecording: false, isPaused: false, duration: 0, fileSize: 0 };
+    this._recordingState = {
+      isRecording: false,
+      isPaused: false,
+      duration: 0,
+      fileSize: 0,
+    };
     this.emitRecordingState();
 
     return {
@@ -395,7 +411,8 @@ export class ScreenCaptureManager {
    * Pause the current recording.
    */
   async pauseRecording(): Promise<void> {
-    if (!this._recordingState.isRecording || this._recordingState.isPaused) return;
+    if (!this._recordingState.isRecording || this._recordingState.isPaused)
+      return;
     if (!this.recordingWindow || this.recordingWindow.isDestroyed()) return;
 
     await this.recordingWindow.webContents.executeJavaScript(`
@@ -415,7 +432,8 @@ export class ScreenCaptureManager {
    * Resume a paused recording.
    */
   async resumeRecording(): Promise<void> {
-    if (!this._recordingState.isRecording || !this._recordingState.isPaused) return;
+    if (!this._recordingState.isRecording || !this._recordingState.isPaused)
+      return;
     if (!this.recordingWindow || this.recordingWindow.isDestroyed()) return;
 
     await this.recordingWindow.webContents.executeJavaScript(`
@@ -440,12 +458,14 @@ export class ScreenCaptureManager {
     }
 
     if (this.recordingWindow && !this.recordingWindow.isDestroyed()) {
-      const live: { fileSize: number } = await this.recordingWindow.webContents.executeJavaScript(`
+      const live: { fileSize: number } =
+        await this.recordingWindow.webContents.executeJavaScript(`
         (() => ({
           fileSize: (window._scrChunks || []).reduce((s, c) => s + c.size, 0),
         }))()
       `);
-      this._recordingState.duration = (Date.now() - this.recordingStartTime) / 1000;
+      this._recordingState.duration =
+        (Date.now() - this.recordingStartTime) / 1000;
       this._recordingState.fileSize = live.fileSize;
     }
 
@@ -483,7 +503,12 @@ export class ScreenCaptureManager {
       this.recordingWindow.close();
       this.recordingWindow = null;
     }
-    this._recordingState = { isRecording: false, isPaused: false, duration: 0, fileSize: 0 };
+    this._recordingState = {
+      isRecording: false,
+      isPaused: false,
+      duration: 0,
+      fileSize: 0,
+    };
   }
 }
 
@@ -508,14 +533,35 @@ export function registerScreenCaptureIPC(): void {
 
   // Existing screenshot handlers
   ipcMain.handle("screencapture:getSources", async () => m.getSources());
-  ipcMain.handle("screencapture:takeScreenshot", async (_e: IpcMainInvokeEvent, options?: ScreenshotOptions) => m.takeScreenshot(options));
+  ipcMain.handle(
+    "screencapture:takeScreenshot",
+    async (_e: IpcMainInvokeEvent, options?: ScreenshotOptions) =>
+      m.takeScreenshot(options),
+  );
   ipcMain.handle("screencapture:captureWindow", async () => m.captureWindow());
-  ipcMain.handle("screencapture:saveScreenshot", async (_e: IpcMainInvokeEvent, screenshot: ScreenshotResult, filename?: string) => m.saveScreenshot(screenshot, filename));
+  ipcMain.handle(
+    "screencapture:saveScreenshot",
+    async (
+      _e: IpcMainInvokeEvent,
+      screenshot: ScreenshotResult,
+      filename?: string,
+    ) => m.saveScreenshot(screenshot, filename),
+  );
 
   // Recording handlers
-  ipcMain.handle("screencapture:startRecording", async (_e: IpcMainInvokeEvent, options?: ScreenRecordingOptions) => m.startRecording(options));
+  ipcMain.handle(
+    "screencapture:startRecording",
+    async (_e: IpcMainInvokeEvent, options?: ScreenRecordingOptions) =>
+      m.startRecording(options),
+  );
   ipcMain.handle("screencapture:stopRecording", async () => m.stopRecording());
-  ipcMain.handle("screencapture:pauseRecording", async () => m.pauseRecording());
-  ipcMain.handle("screencapture:resumeRecording", async () => m.resumeRecording());
-  ipcMain.handle("screencapture:getRecordingState", async () => m.getRecordingState());
+  ipcMain.handle("screencapture:pauseRecording", async () =>
+    m.pauseRecording(),
+  );
+  ipcMain.handle("screencapture:resumeRecording", async () =>
+    m.resumeRecording(),
+  );
+  ipcMain.handle("screencapture:getRecordingState", async () =>
+    m.getRecordingState(),
+  );
 }

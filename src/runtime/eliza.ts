@@ -68,7 +68,6 @@ import { SandboxManager, type SandboxMode } from "../services/sandbox-manager";
 import { diagnoseNoAIProvider } from "../services/version-compat";
 import { CORE_PLUGINS, OPTIONAL_CORE_PLUGINS } from "./core-plugins";
 import { createMiladyPlugin } from "./milady-plugin";
-import { installDatabaseTrajectoryLogger } from "./trajectory-persistence";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -187,27 +186,6 @@ function configureLocalEmbeddingPlugin(
 /** Extract a human-readable error message from an unknown thrown value. */
 function formatError(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
-}
-
-async function logCoreRuntimeSource(): Promise<void> {
-  try {
-    const { getCoreStatus } = await import("../services/core-eject");
-    const status = await getCoreStatus();
-    if (status.ejected) {
-      const commit =
-        status.commitHash ?? status.upstream?.commitHash ?? "unknown";
-      logger.info(
-        `[milady] Using ejected @elizaos/core from ${status.coreDistPath} (commit ${commit})`,
-      );
-      return;
-    }
-
-    logger.info(`[milady] Using npm @elizaos/core v${status.version}`);
-  } catch (err) {
-    logger.debug(
-      `[milady] Failed to detect @elizaos/core source: ${formatError(err)}`,
-    );
-  }
 }
 
 interface TrajectoryLoggerControl {
@@ -798,6 +776,43 @@ export function mergeDropInPlugins(params: {
   return { accepted, skipped };
 }
 
+const WORKSPACE_PLUGIN_OVERRIDES = new Set<string>([
+  "@elizaos/plugin-trajectory-logger",
+  "@elizaos/plugin-plugin-manager",
+  "@elizaos/plugin-media-generation",
+]);
+
+function getWorkspacePluginOverridePath(pluginName: string): string | null {
+  if (process.env.MILADY_DISABLE_WORKSPACE_PLUGIN_OVERRIDES === "1") {
+    return null;
+  }
+  if (!WORKSPACE_PLUGIN_OVERRIDES.has(pluginName)) {
+    return null;
+  }
+
+  const pluginSegmentMatch = pluginName.match(/^@[^/]+\/(plugin-[^/]+)$/);
+  const pluginSegment = pluginSegmentMatch?.[1];
+  if (!pluginSegment) return null;
+
+  const thisDir = path.dirname(fileURLToPath(import.meta.url));
+  const miladyRoot = path.resolve(thisDir, "..", "..");
+  const workspaceRoot = path.resolve(miladyRoot, "..");
+  const candidates = [
+    path.join(miladyRoot, "plugins", pluginSegment, "typescript"),
+    path.join(workspaceRoot, "plugins", pluginSegment, "typescript"),
+    path.join(miladyRoot, "plugins", pluginSegment),
+    path.join(workspaceRoot, "plugins", pluginSegment),
+  ];
+
+  for (const candidate of candidates) {
+    if (existsSync(path.join(candidate, "package.json"))) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
 // ---------------------------------------------------------------------------
 // Plugin resolution
 // ---------------------------------------------------------------------------
@@ -955,6 +970,7 @@ async function resolvePlugins(
     const isCore = corePluginSet.has(pluginName);
     const ejectedRecord = ejectedRecords[pluginName];
     const installRecord = installRecords[pluginName];
+    const workspaceOverridePath = getWorkspacePluginOverridePath(pluginName);
 
     // Pre-flight: ensure native dependencies are available for special plugins.
     if (pluginName === "@elizaos/plugin-browser") {
@@ -980,6 +996,11 @@ async function resolvePlugins(
           `[milady] Loading ejected plugin: ${pluginName} from ${ejectedRecord.installPath}`,
         );
         mod = await importFromPath(ejectedRecord.installPath, pluginName);
+      } else if (workspaceOverridePath) {
+        logger.info(
+          `[milady] Loading workspace plugin override: ${pluginName} from ${workspaceOverridePath}`,
+        );
+        mod = await importFromPath(workspaceOverridePath, pluginName);
       } else if (installRecord?.installPath) {
         // Prefer bundled/node_modules copies for official Eliza plugins.
         // User install records can pin stale versions that drift from the
@@ -2383,9 +2404,6 @@ export async function startEliza(
   // 2. Push channel secrets into process.env for plugin discovery
   applyConnectorSecretsToEnv(config);
 
-  // 2a. Detect whether @elizaos/core is running from npm or an ejected checkout.
-  await logCoreRuntimeSource();
-
   // 2b. Propagate cloud config into process.env for ElizaCloud plugin
   applyCloudConfigToEnv(config);
 
@@ -2463,7 +2481,7 @@ export async function startEliza(
   const miladyPlugin = createMiladyPlugin({
     workspaceDir,
     bootstrapMaxChars: config.agents?.defaults?.bootstrapMaxChars,
-    enableBootstrapProviders: config.agents?.defaults?.enableBootstrapProviders,
+
     agentId,
   });
 
@@ -2822,7 +2840,6 @@ export async function startEliza(
     await runtime.initialize();
     await waitForTrajectoryLoggerService(runtime, "runtime.initialize()");
     ensureTrajectoryLoggerEnabled(runtime, "runtime.initialize()");
-    installDatabaseTrajectoryLogger(runtime);
 
     // Do not block runtime startup on skills warm-up.
     void warmAgentSkillsService();
@@ -2997,8 +3014,7 @@ export async function startEliza(
             workspaceDir:
               freshConfig.agents?.defaults?.workspace ?? workspaceDir,
             bootstrapMaxChars: freshConfig.agents?.defaults?.bootstrapMaxChars,
-            enableBootstrapProviders:
-              freshConfig.agents?.defaults?.enableBootstrapProviders,
+
             agentId:
               freshCharacter.name?.toLowerCase().replace(/\s+/g, "-") ?? "main",
           });
@@ -3064,7 +3080,7 @@ export async function startEliza(
             newRuntime,
             "hot-reload runtime.initialize()",
           );
-          installDatabaseTrajectoryLogger(newRuntime);
+
           installActionAliases(newRuntime);
           runtime = newRuntime;
           logger.info("[milady] Hot-reload: Runtime restarted successfully");

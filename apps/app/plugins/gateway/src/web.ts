@@ -1,16 +1,15 @@
 import { WebPlugin } from "@capacitor/core";
 
 import type {
-  GatewayPlugin,
   GatewayConnectOptions,
   GatewayConnectResult,
   GatewayDiscoveryOptions,
   GatewayDiscoveryResult,
+  GatewayErrorEvent,
+  GatewayEvent,
   GatewaySendOptions,
   GatewaySendResult,
-  GatewayEvent,
   GatewayStateEvent,
-  GatewayErrorEvent,
   JsonObject,
   JsonValue,
 } from "./definitions";
@@ -52,9 +51,13 @@ const getBoolean = (value: JsonValue | undefined): boolean | undefined =>
   typeof value === "boolean" ? value : undefined;
 
 const toStringArray = (value: JsonValue | undefined): string[] =>
-  Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+  Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : [];
 
-const parseGatewayError = (value: JsonValue | undefined): GatewaySendResult["error"] | undefined => {
+const parseGatewayError = (
+  value: JsonValue | undefined,
+): GatewaySendResult["error"] | undefined => {
   if (!value || !isJsonObject(value)) return undefined;
   const code = getString(value.code);
   const message = getString(value.message);
@@ -86,7 +89,8 @@ export class GatewayWeb extends WebPlugin {
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private backoffMs = 800;
   private closed = false;
-  private connectResolve: ((result: GatewayConnectResult) => void) | null = null;
+  private connectResolve: ((result: GatewayConnectResult) => void) | null =
+    null;
   private connectReject: ((error: Error) => void) | null = null;
 
   /**
@@ -95,7 +99,9 @@ export class GatewayWeb extends WebPlugin {
    * On web platforms, Bonjour/mDNS discovery is not available.
    * Returns an empty list of gateways.
    */
-  async startDiscovery(_options?: GatewayDiscoveryOptions): Promise<GatewayDiscoveryResult> {
+  async startDiscovery(
+    _options?: GatewayDiscoveryOptions,
+  ): Promise<GatewayDiscoveryResult> {
     console.warn("[Gateway] Discovery not supported on web platform");
     return {
       gateways: [],
@@ -228,7 +234,9 @@ export class GatewayWeb extends WebPlugin {
           this.handleHelloOk(result.payload);
         } else {
           if (this.connectReject) {
-            this.connectReject(new Error(result.error?.message || "Connection failed"));
+            this.connectReject(
+              new Error(result.error?.message || "Connection failed"),
+            );
           }
         }
         this.connectReject = null;
@@ -322,8 +330,14 @@ export class GatewayWeb extends WebPlugin {
       const seq = getNumber(parsedValue.seq);
 
       // Check for sequence gap
-      if (seq !== undefined && this.lastSeq !== null && seq > this.lastSeq + 1) {
-        console.warn(`[Gateway] Event sequence gap: expected ${this.lastSeq + 1}, got ${seq}`);
+      if (
+        seq !== undefined &&
+        this.lastSeq !== null &&
+        seq > this.lastSeq + 1
+      ) {
+        console.warn(
+          `[Gateway] Event sequence gap: expected ${this.lastSeq + 1}, got ${seq}`,
+        );
       }
       if (seq !== undefined) {
         this.lastSeq = seq;
@@ -388,7 +402,7 @@ export class GatewayWeb extends WebPlugin {
    */
   private notifyStateChange(
     state: GatewayStateEvent["state"],
-    reason?: string
+    reason?: string,
   ): void {
     this.notifyListeners("stateChange", {
       state,
@@ -473,7 +487,7 @@ export class GatewayWeb extends WebPlugin {
         timeout,
       });
 
-      this.ws!.send(JSON.stringify(frame));
+      this.ws?.send(JSON.stringify(frame));
     });
   }
 

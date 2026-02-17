@@ -435,8 +435,8 @@ describe("Package.json version pinning (issue #10)", () => {
       const version = pkg.dependencies[plugin];
       expect(version).toBeDefined();
       // Plugins can use "next" when core is pinned via pnpm overrides.
-      // When not "next", they should be pinned to a specific version.
-      if (version !== "next") {
+      // Workspace links are valid in monorepo development.
+      if (version !== "next" && !isWorkspaceDependency(version)) {
         expect(version).toMatch(/^\d+\.\d+\.\d+/);
       }
     }

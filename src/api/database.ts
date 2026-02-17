@@ -25,6 +25,10 @@ import type {
   PostgresCredentials,
 } from "../config/types.milady";
 import {
+  normalizeHostLike,
+  normalizeIpForPolicy,
+} from "../security/network-policy";
+import {
   readJsonBody as parseJsonBody,
   sendJson,
   sendJsonError,
@@ -179,42 +183,6 @@ function isApiLoopbackOnly(): boolean {
   return (
     bind === "127.0.0.1" || bind === "::1" || bind.toLowerCase() === "localhost"
   );
-}
-
-function normalizeHostLike(value: string): string {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/^\[|\]$/g, "");
-}
-
-/**
- * Decode IPv6-mapped IPv4 hex notation (::ffff:7f00:1 → 127.0.0.1).
- * Returns null if not a valid hex-encoded IPv4.
- */
-function decodeIpv6MappedHex(mapped: string): string | null {
-  const match = /^([0-9a-f]{1,4}):([0-9a-f]{1,4})$/i.exec(mapped);
-  if (!match) return null;
-  const hi = Number.parseInt(match[1], 16);
-  const lo = Number.parseInt(match[2], 16);
-  if (!Number.isFinite(hi) || !Number.isFinite(lo)) return null;
-  const octets = [hi >> 8, hi & 0xff, lo >> 8, lo & 0xff];
-  return octets.join(".");
-}
-
-/**
- * Normalize an IP for policy checks.
- * Strips zone ID, handles IPv6-mapped IPv4 (both dotted and hex forms).
- */
-function normalizeIpForPolicy(ip: string): string {
-  const base = normalizeHostLike(ip).split("%")[0];
-  if (!base.startsWith("::ffff:")) return base;
-
-  const mapped = base.slice("::ffff:".length);
-  // Dotted form like ::ffff:127.0.0.1
-  if (net.isIP(mapped) === 4) return mapped;
-  // Hex form like ::ffff:7f00:1
-  return decodeIpv6MappedHex(mapped) ?? mapped;
 }
 
 /**

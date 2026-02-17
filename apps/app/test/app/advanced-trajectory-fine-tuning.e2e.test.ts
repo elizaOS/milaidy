@@ -1,13 +1,13 @@
 import React from "react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import TestRenderer, { act } from "react-test-renderer";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type {
+  TrainingStatus,
+  TrainingTrajectoryList,
   TrajectoryConfig,
   TrajectoryDetailResult,
   TrajectoryListResult,
   TrajectoryStats,
-  TrainingStatus,
-  TrainingTrajectoryList,
 } from "../../src/api-client";
 
 const { mockUseApp, mockClientFns } = vi.hoisted(() => ({
@@ -183,11 +183,15 @@ describe("Advanced trajectories/fine-tuning integration", () => {
     mockClientFns.getTrajectoryConfig.mockResolvedValue(trajectoryConfig);
     mockClientFns.getTrajectoryDetail.mockResolvedValue(trajectoryDetail);
     mockClientFns.updateTrajectoryConfig.mockResolvedValue(trajectoryConfig);
-    mockClientFns.exportTrajectories.mockResolvedValue(new Blob(["[]"], { type: "application/json" }));
+    mockClientFns.exportTrajectories.mockResolvedValue(
+      new Blob(["[]"], { type: "application/json" }),
+    );
     mockClientFns.clearAllTrajectories.mockResolvedValue({ deleted: 0 });
 
     mockClientFns.getTrainingStatus.mockResolvedValue(trainingStatus);
-    mockClientFns.listTrainingTrajectories.mockResolvedValue(trainingTrajectories);
+    mockClientFns.listTrainingTrajectories.mockResolvedValue(
+      trainingTrajectories,
+    );
     mockClientFns.listTrainingDatasets.mockResolvedValue({ datasets: [] });
     mockClientFns.listTrainingJobs.mockResolvedValue({ jobs: [] });
     mockClientFns.listTrainingModels.mockResolvedValue({ models: [] });
@@ -223,10 +227,8 @@ describe("Advanced trajectories/fine-tuning integration", () => {
     });
     await flush();
 
-    const clickableRows = tree!.root.findAll(
-      (node) =>
-        node.type === "tr" &&
-        typeof node.props.onClick === "function",
+    const clickableRows = tree?.root.findAll(
+      (node) => node.type === "tr" && typeof node.props.onClick === "function",
     );
     expect(clickableRows.length).toBeGreaterThan(0);
 
@@ -236,17 +238,16 @@ describe("Advanced trajectories/fine-tuning integration", () => {
     await flush();
 
     const trajectoryPrefix = `${SHARED_TRAJECTORY_ID.slice(0, 8)}...`;
-    const detailIdFound = tree!.root.findAll(
+    const detailIdFound = tree?.root.findAll(
       (node) =>
-        typeof node.type === "string" &&
-        containsText(node, trajectoryPrefix),
+        typeof node.type === "string" && containsText(node, trajectoryPrefix),
     );
     expect(detailIdFound.length).toBeGreaterThan(0);
     expect(mockClientFns.getTrajectoryDetail).toHaveBeenCalledWith(
       SHARED_TRAJECTORY_ID,
     );
 
-    const backButton = tree!.root.findAll(
+    const backButton = tree?.root.findAll(
       (node) =>
         node.type === "button" &&
         Array.isArray(node.children) &&
@@ -259,7 +260,7 @@ describe("Advanced trajectories/fine-tuning integration", () => {
     });
     await flush();
 
-    const fineTuningTabButton = tree!.root.findAll(
+    const fineTuningTabButton = tree?.root.findAll(
       (node) =>
         node.type === "button" &&
         Array.isArray(node.children) &&
@@ -272,13 +273,13 @@ describe("Advanced trajectories/fine-tuning integration", () => {
     });
 
     await act(async () => {
-      tree!.update(React.createElement(AdvancedPageView));
+      tree?.update(React.createElement(AdvancedPageView));
     });
     await flush();
 
     expect(setTab).toHaveBeenCalledWith("fine-tuning");
 
-    const fineTuningIdFound = tree!.root.findAll(
+    const fineTuningIdFound = tree?.root.findAll(
       (node) =>
         typeof node.type === "string" &&
         containsText(node, SHARED_TRAJECTORY_ID),

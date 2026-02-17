@@ -311,10 +311,7 @@ export type LogicExpression =
  * Full visibility condition — supports boolean, path, or logic expression.
  * Used for rich conditional rendering.
  */
-export type VisibilityCondition =
-  | boolean
-  | { path: string }
-  | LogicExpression;
+export type VisibilityCondition = boolean | { path: string } | LogicExpression;
 
 // ── Validation checks (Phase 2) ─────────────────────────────────────
 
@@ -357,7 +354,11 @@ export type ConfigUiHint = {
   sensitive?: boolean;
   placeholder?: string;
   /** Default value template for new array items (e.g. `""`, `0`, `{ key: "", value: "" }`). */
-  itemTemplate?: string | number | boolean | Record<string, string | number | boolean>;
+  itemTemplate?:
+    | string
+    | number
+    | boolean
+    | Record<string, string | number | boolean>;
   /** Explicit field type override (must match a catalog field name). */
   type?: string;
   /** Hide this field from the UI entirely. */

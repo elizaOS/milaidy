@@ -8,8 +8,7 @@
 export type { AnthropicFlow } from "./anthropic";
 // Anthropic (Claude Pro/Max)
 export { refreshAnthropicToken, startAnthropicLogin } from "./anthropic";
-// Claude Code setup token runtime support
-export { applyClaudeCodeStealth } from "./apply-stealth";
+
 // Credential storage + management
 export {
   applySubscriptionCredentials,

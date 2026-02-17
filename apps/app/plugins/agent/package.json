@@ -2,7 +2,7 @@
   "name": "@milady/capacitor-agent",
   "version": "1.0.0",
   "description": "Milady Agent Plugin for Capacitor — agent lifecycle management",
- "main": "./dist/plugin.cjs.js",
+  "main": "./dist/plugin.cjs.js",
   "module": "./src/index.ts",
   "types": "./dist/plugin.d.ts",
   "exports": {

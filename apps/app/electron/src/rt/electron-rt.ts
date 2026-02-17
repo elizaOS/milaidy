@@ -1,11 +1,18 @@
-import { randomBytes } from 'crypto';
-import { ipcRenderer, contextBridge, type IpcRendererEvent } from 'electron';
-import { EventEmitter } from 'events';
+import { randomBytes } from "node:crypto";
+import { EventEmitter } from "node:events";
+import { contextBridge, type IpcRendererEvent, ipcRenderer } from "electron";
 
 ////////////////////////////////////////////////////////
 
 /** Type-safe IPC value that can be serialized across the Electron bridge */
-type IpcSerializable = string | number | boolean | null | undefined | IpcSerializable[] | { [key: string]: IpcSerializable };
+type IpcSerializable =
+  | string
+  | number
+  | boolean
+  | null
+  | undefined
+  | IpcSerializable[]
+  | { [key: string]: IpcSerializable };
 
 /** Listener callback type for IPC events */
 type IpcEventListener = (...args: IpcSerializable[]) => void;
@@ -36,9 +43,9 @@ interface PluginsRegistry {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const plugins: PluginsRegistry = require('./electron-plugins');
+const plugins: PluginsRegistry = require("./electron-plugins");
 
-const randomId = (length = 5): string => randomBytes(length).toString('hex');
+const randomId = (length = 5): string => randomBytes(length).toString("hex");
 
 const contextApi: {
   [plugin: string]: { [functionName: string]: PluginMethod };
@@ -46,11 +53,11 @@ const contextApi: {
 
 Object.keys(plugins).forEach((pluginKey) => {
   Object.keys(plugins[pluginKey])
-    .filter((className) => className !== 'default')
+    .filter((className) => className !== "default")
     .forEach((classKey) => {
       const classPrototype = plugins[pluginKey][classKey].prototype;
       const functionList = Object.getOwnPropertyNames(classPrototype).filter(
-        (v) => v !== 'constructor'
+        (v) => v !== "constructor",
       );
 
       if (!contextApi[classKey]) {
@@ -59,8 +66,13 @@ Object.keys(plugins).forEach((pluginKey) => {
 
       functionList.forEach((functionName) => {
         if (!contextApi[classKey][functionName]) {
-          contextApi[classKey][functionName] = (...args: IpcSerializable[]): Promise<IpcSerializable> =>
-            ipcRenderer.invoke(`${classKey}-${functionName}`, ...args) as Promise<IpcSerializable>;
+          contextApi[classKey][functionName] = (
+            ...args: IpcSerializable[]
+          ): Promise<IpcSerializable> =>
+            ipcRenderer.invoke(
+              `${classKey}-${functionName}`,
+              ...args,
+            ) as Promise<IpcSerializable>;
         }
       });
 
@@ -68,7 +80,9 @@ Object.keys(plugins).forEach((pluginKey) => {
       if (classPrototype instanceof EventEmitter) {
         const listeners: { [key: string]: ListenerEntry } = {};
         const listenersOfTypeExist = (type: string): boolean =>
-          !!Object.values(listeners).find((listenerObj) => listenerObj.type === type);
+          !!Object.values(listeners).find(
+            (listenerObj) => listenerObj.type === type,
+          );
 
         Object.assign(contextApi[classKey], {
           addListener(type: string, callback: IpcEventListener): string {
@@ -79,7 +93,10 @@ Object.keys(plugins).forEach((pluginKey) => {
               ipcRenderer.send(`event-add-${classKey}`, type);
             }
 
-            const eventHandler = (_event: IpcRendererEvent, ...args: IpcSerializable[]): void => callback(...args);
+            const eventHandler = (
+              _event: IpcRendererEvent,
+              ...args: IpcSerializable[]
+            ): void => callback(...args);
 
             ipcRenderer.addListener(`event-${classKey}-${type}`, eventHandler);
             listeners[id] = { type, listener: eventHandler };
@@ -88,7 +105,7 @@ Object.keys(plugins).forEach((pluginKey) => {
           },
           removeListener(id: string): void {
             if (!listeners[id]) {
-              throw new Error('Invalid id');
+              throw new Error("Invalid id");
             }
 
             const { type, listener } = listeners[id];
@@ -104,8 +121,13 @@ Object.keys(plugins).forEach((pluginKey) => {
           removeAllListeners(type: string): void {
             Object.entries(listeners).forEach(([id, listenerObj]) => {
               if (!type || listenerObj.type === type) {
-                ipcRenderer.removeListener(`event-${classKey}-${listenerObj.type}`, listenerObj.listener);
-                ipcRenderer.send(`event-remove-${classKey}-${listenerObj.type}`);
+                ipcRenderer.removeListener(
+                  `event-${classKey}-${listenerObj.type}`,
+                  listenerObj.listener,
+                );
+                ipcRenderer.send(
+                  `event-remove-${classKey}-${listenerObj.type}`,
+                );
                 delete listeners[id];
               }
             });
@@ -115,8 +137,8 @@ Object.keys(plugins).forEach((pluginKey) => {
     });
 });
 
-contextBridge.exposeInMainWorld('CapacitorCustomPlatform', {
-  name: 'electron',
+contextBridge.exposeInMainWorld("CapacitorCustomPlatform", {
+  name: "electron",
   plugins: contextApi,
 });
 ////////////////////////////////////////////////////////

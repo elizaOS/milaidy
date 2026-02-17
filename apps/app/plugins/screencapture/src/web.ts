@@ -1,23 +1,33 @@
 import { WebPlugin } from "@capacitor/core";
 
 import type {
-  ScreenCapturePlugin,
-  ScreenshotOptions,
-  ScreenshotResult,
+  ScreenCaptureErrorEvent,
+  ScreenCapturePermissionStatus,
   ScreenRecordingOptions,
   ScreenRecordingResult,
   ScreenRecordingState,
-  ScreenCapturePermissionStatus,
-  ScreenCaptureErrorEvent,
+  ScreenshotOptions,
+  ScreenshotResult,
 } from "./definitions";
 
 type ScreenCaptureEventData = ScreenRecordingState | ScreenCaptureErrorEvent;
 
-const VIDEO_MIME_TYPES = ["video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm", "video/mp4"];
-const getSupportedMimeType = (): string | null => VIDEO_MIME_TYPES.find((m) => MediaRecorder.isTypeSupported(m)) ?? null;
+const VIDEO_MIME_TYPES = [
+  "video/webm;codecs=vp9,opus",
+  "video/webm;codecs=vp8,opus",
+  "video/webm",
+  "video/mp4",
+];
+const getSupportedMimeType = (): string | null =>
+  VIDEO_MIME_TYPES.find((m) => MediaRecorder.isTypeSupported(m)) ?? null;
 
-type DisplayMediaDevices = MediaDevices & { getDisplayMedia(constraints?: DisplayMediaStreamOptions): Promise<MediaStream> };
-const hasDisplayMedia = (): boolean => !!(navigator.mediaDevices as Partial<DisplayMediaDevices>).getDisplayMedia;
+type DisplayMediaDevices = MediaDevices & {
+  getDisplayMedia(
+    constraints?: DisplayMediaStreamOptions,
+  ): Promise<MediaStream>;
+};
+const hasDisplayMedia = (): boolean =>
+  !!(navigator.mediaDevices as Partial<DisplayMediaDevices>).getDisplayMedia;
 
 /** ImageCapture is a newer web API not yet in all TS lib definitions */
 declare class ImageCapture {
@@ -25,7 +35,8 @@ declare class ImageCapture {
   grabFrame(): Promise<ImageBitmap>;
   takePhoto(photoSettings?: Record<string, unknown>): Promise<Blob>;
 }
-const getDisplayMedia = (opts: DisplayMediaStreamOptions) => (navigator.mediaDevices as DisplayMediaDevices).getDisplayMedia(opts);
+const getDisplayMedia = (opts: DisplayMediaStreamOptions) =>
+  (navigator.mediaDevices as DisplayMediaDevices).getDisplayMedia(opts);
 
 export class ScreenCaptureWeb extends WebPlugin {
   private mediaStream: MediaStream | null = null;
@@ -37,7 +48,10 @@ export class ScreenCaptureWeb extends WebPlugin {
   private pausedDuration = 0;
   private pauseStartTime = 0;
   private recordingStateInterval: ReturnType<typeof setInterval> | null = null;
-  private pluginListeners: Array<{ eventName: string; callback: (event: ScreenCaptureEventData) => void }> = [];
+  private pluginListeners: Array<{
+    eventName: string;
+    callback: (event: ScreenCaptureEventData) => void;
+  }> = [];
 
   async isSupported(): Promise<{ supported: boolean; features: string[] }> {
     const supported = hasDisplayMedia();
@@ -48,12 +62,17 @@ export class ScreenCaptureWeb extends WebPlugin {
     return { supported, features };
   }
 
-  async captureScreenshot(options?: ScreenshotOptions): Promise<ScreenshotResult> {
+  async captureScreenshot(
+    options?: ScreenshotOptions,
+  ): Promise<ScreenshotResult> {
     const format = options?.format || "png";
     const quality = (options?.quality || 100) / 100;
     const scale = options?.scale || 1;
 
-    const stream = await getDisplayMedia({ video: { displaySurface: "monitor" }, audio: false });
+    const stream = await getDisplayMedia({
+      video: { displaySurface: "monitor" },
+      audio: false,
+    });
 
     const track = stream.getVideoTracks()[0];
     const settings = track.getSettings();
@@ -63,7 +82,9 @@ export class ScreenCaptureWeb extends WebPlugin {
     const imageCapture = new ImageCapture(track);
     const bitmap = await imageCapture.grabFrame();
 
-    stream.getTracks().forEach((t) => t.stop());
+    stream.getTracks().forEach((t) => {
+      t.stop();
+    });
 
     const canvas = document.createElement("canvas");
     canvas.width = width;
@@ -77,7 +98,12 @@ export class ScreenCaptureWeb extends WebPlugin {
     ctx.drawImage(bitmap, 0, 0, width, height);
     bitmap.close();
 
-    const mimeType = format === "png" ? "image/png" : format === "webp" ? "image/webp" : "image/jpeg";
+    const mimeType =
+      format === "png"
+        ? "image/png"
+        : format === "webp"
+          ? "image/webp"
+          : "image/jpeg";
     const dataUrl = canvas.toDataURL(mimeType, quality);
     const base64 = dataUrl.split(",")[1];
 
@@ -93,19 +119,30 @@ export class ScreenCaptureWeb extends WebPlugin {
   async startRecording(options?: ScreenRecordingOptions): Promise<void> {
     if (this.isRecording) throw new Error("Recording already in progress");
 
-    const videoConstraints: MediaTrackConstraints = { displaySurface: "monitor" };
+    const videoConstraints: MediaTrackConstraints = {
+      displaySurface: "monitor",
+    };
     if (options?.fps) videoConstraints.frameRate = { ideal: options.fps };
 
-    this.mediaStream = await getDisplayMedia({ video: videoConstraints, audio: options?.captureSystemAudio !== false });
+    this.mediaStream = await getDisplayMedia({
+      video: videoConstraints,
+      audio: options?.captureSystemAudio !== false,
+    });
 
     if (options?.captureMicrophone) {
-      const micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      micStream.getAudioTracks().forEach((t) => this.mediaStream?.addTrack(t));
+      const micStream = await navigator.mediaDevices.getUserMedia({
+        audio: true,
+      });
+      micStream.getAudioTracks().forEach((t) => {
+        this.mediaStream?.addTrack(t);
+      });
     }
 
     const mimeType = getSupportedMimeType();
     if (!mimeType) {
-      this.mediaStream.getTracks().forEach((t) => t.stop());
+      this.mediaStream.getTracks().forEach((t) => {
+        t.stop();
+      });
       throw new Error("No supported video mime type found");
     }
 
@@ -142,19 +179,32 @@ export class ScreenCaptureWeb extends WebPlugin {
     this.isPaused = false;
     this.mediaRecorder.start(1000);
 
-    this.notifyListeners("recordingState", { isRecording: true, duration: 0, fileSize: 0 });
+    this.notifyListeners("recordingState", {
+      isRecording: true,
+      duration: 0,
+      fileSize: 0,
+    });
 
     let autoStopping = false;
     this.recordingStateInterval = setInterval(() => {
       if (!this.isRecording || this.isPaused || autoStopping) return;
 
-      const duration = (Date.now() - this.recordingStartTime - this.pausedDuration) / 1000;
-      const fileSize = this.recordedChunks.reduce((acc, chunk) => acc + chunk.size, 0);
+      const duration =
+        (Date.now() - this.recordingStartTime - this.pausedDuration) / 1000;
+      const fileSize = this.recordedChunks.reduce(
+        (acc, chunk) => acc + chunk.size,
+        0,
+      );
 
-      this.notifyListeners("recordingState", { isRecording: true, duration, fileSize });
+      this.notifyListeners("recordingState", {
+        isRecording: true,
+        duration,
+        fileSize,
+      });
 
-      const overLimit = (options?.maxDuration && duration >= options.maxDuration)
-        || (options?.maxFileSize && fileSize >= options.maxFileSize);
+      const overLimit =
+        (options?.maxDuration && duration >= options.maxDuration) ||
+        (options?.maxFileSize && fileSize >= options.maxFileSize);
 
       if (overLimit) {
         autoStopping = true;
@@ -176,7 +226,8 @@ export class ScreenCaptureWeb extends WebPlugin {
         return;
       }
 
-      const duration = (Date.now() - this.recordingStartTime - this.pausedDuration) / 1000;
+      const duration =
+        (Date.now() - this.recordingStartTime - this.pausedDuration) / 1000;
 
       this.mediaRecorder.onstop = () => {
         if (this.recordingStateInterval) {
@@ -188,11 +239,15 @@ export class ScreenCaptureWeb extends WebPlugin {
         this.isPaused = false;
 
         if (this.mediaStream) {
-          this.mediaStream.getTracks().forEach((track) => track.stop());
+          this.mediaStream.getTracks().forEach((track) => {
+            track.stop();
+          });
           this.mediaStream = null;
         }
 
-        const blob = new Blob(this.recordedChunks, { type: this.mediaRecorder?.mimeType || "video/webm" });
+        const blob = new Blob(this.recordedChunks, {
+          type: this.mediaRecorder?.mimeType || "video/webm",
+        });
         const url = URL.createObjectURL(blob);
 
         const video = document.createElement("video");
@@ -244,8 +299,12 @@ export class ScreenCaptureWeb extends WebPlugin {
     this.isPaused = true;
     this.pauseStartTime = Date.now();
 
-    const duration = (Date.now() - this.recordingStartTime - this.pausedDuration) / 1000;
-    const fileSize = this.recordedChunks.reduce((acc, chunk) => acc + chunk.size, 0);
+    const duration =
+      (Date.now() - this.recordingStartTime - this.pausedDuration) / 1000;
+    const fileSize = this.recordedChunks.reduce(
+      (acc, chunk) => acc + chunk.size,
+      0,
+    );
 
     this.notifyListeners("recordingState", {
       isRecording: true,
@@ -272,7 +331,10 @@ export class ScreenCaptureWeb extends WebPlugin {
     const duration = this.isRecording
       ? (Date.now() - this.recordingStartTime - this.pausedDuration) / 1000
       : 0;
-    const fileSize = this.recordedChunks.reduce((acc, chunk) => acc + chunk.size, 0);
+    const fileSize = this.recordedChunks.reduce(
+      (acc, chunk) => acc + chunk.size,
+      0,
+    );
 
     return {
       isRecording: this.isRecording,
@@ -283,11 +345,11 @@ export class ScreenCaptureWeb extends WebPlugin {
 
   /**
    * Check screen capture permissions.
-   * 
+   *
    * LIMITATION: The Screen Capture API (getDisplayMedia) does not support permission queries.
    * Unlike camera/microphone, there's no way to check if permission was previously granted.
    * Each call to getDisplayMedia always prompts the user.
-   * 
+   *
    * `screenCapture` will be:
    * - "not_supported": getDisplayMedia API not available
    * - "prompt": API available, but actual permission state is unknown (always requires prompt)
@@ -295,7 +357,9 @@ export class ScreenCaptureWeb extends WebPlugin {
   async checkPermissions(): Promise<ScreenCapturePermissionStatus> {
     let microphone: "granted" | "denied" | "prompt" = "prompt";
     try {
-      const result = await navigator.permissions.query({ name: "microphone" as PermissionName });
+      const result = await navigator.permissions.query({
+        name: "microphone" as PermissionName,
+      });
       microphone = result.state as "granted" | "denied" | "prompt";
     } catch {
       // Permissions API may not support microphone query in this browser
@@ -309,20 +373,22 @@ export class ScreenCaptureWeb extends WebPlugin {
 
   /**
    * Request screen capture permissions.
-   * 
+   *
    * LIMITATION: Screen capture (getDisplayMedia) cannot be pre-requested.
    * The user is prompted only when an actual capture is initiated.
    * This method only requests microphone permission for audio capture during recording.
-   * 
+   *
    * `screenCapture` will be:
-   * - "not_supported": getDisplayMedia API not available  
+   * - "not_supported": getDisplayMedia API not available
    * - "prompt": API available (permission prompt happens during actual capture)
    */
   async requestPermissions(): Promise<ScreenCapturePermissionStatus> {
     let microphone: "granted" | "denied" | "prompt" = "denied";
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      stream.getTracks().forEach((t) => t.stop());
+      stream.getTracks().forEach((t) => {
+        t.stop();
+      });
       microphone = "granted";
     } catch {
       microphone = "denied";
@@ -336,16 +402,30 @@ export class ScreenCaptureWeb extends WebPlugin {
 
   async addListener(
     eventName: string,
-    listenerFunc: (event: ScreenCaptureEventData) => void
+    listenerFunc: (event: ScreenCaptureEventData) => void,
   ): Promise<{ remove: () => Promise<void> }> {
     const entry = { eventName, callback: listenerFunc };
     this.pluginListeners.push(entry);
-    return { remove: async () => { const i = this.pluginListeners.indexOf(entry); if (i >= 0) this.pluginListeners.splice(i, 1); } };
+    return {
+      remove: async () => {
+        const i = this.pluginListeners.indexOf(entry);
+        if (i >= 0) this.pluginListeners.splice(i, 1);
+      },
+    };
   }
 
-  async removeAllListeners(): Promise<void> { this.pluginListeners = []; }
+  async removeAllListeners(): Promise<void> {
+    this.pluginListeners = [];
+  }
 
-  protected notifyListeners(eventName: string, data: ScreenCaptureEventData): void {
-    this.pluginListeners.filter((l) => l.eventName === eventName).forEach((l) => l.callback(data));
+  protected notifyListeners(
+    eventName: string,
+    data: ScreenCaptureEventData,
+  ): void {
+    this.pluginListeners
+      .filter((l) => l.eventName === eventName)
+      .forEach((l) => {
+        l.callback(data);
+      });
   }
 }

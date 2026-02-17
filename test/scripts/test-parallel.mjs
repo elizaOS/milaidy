@@ -20,8 +20,7 @@ try {
   // @playwright/test not available — playwright tests will be skipped
 }
 const shouldRunPlaywright =
-  Boolean(playwrightCli) &&
-  (process.env.MILADY_RUN_PLAYWRIGHT === "1" || process.env.CI !== "true");
+  Boolean(playwrightCli) && process.env.MILADY_RUN_PLAYWRIGHT === "1";
 
 /**
  * Each entry describes a test suite to run in parallel.

@@ -66,8 +66,12 @@
   --link-hover-color: #c44536;
 
   --mono: "Courier New", Courier, monospace;
-  --font-body: "Hiragino Kaku Gothic Pro", Osaka, Meiryo, "MS PGothic", arial, helvetica, clean, sans-serif;
-  --font-display: "Hiragino Kaku Gothic Pro", Osaka, Meiryo, "MS PGothic", arial, helvetica, clean, sans-serif;
+  --font-body:
+    "Hiragino Kaku Gothic Pro", Osaka, Meiryo, "MS PGothic", arial, helvetica,
+    clean, sans-serif;
+  --font-display:
+    "Hiragino Kaku Gothic Pro", Osaka, Meiryo, "MS PGothic", arial, helvetica,
+    clean, sans-serif;
 
   /* No shadows — flat retro web aesthetic */
   --shadow-sm: none;
@@ -162,8 +166,12 @@
   --link-hover-color: #f43f5e;
 
   --mono: "Courier New", Courier, monospace;
-  --font-body: "Hiragino Kaku Gothic Pro", Osaka, Meiryo, "MS PGothic", arial, helvetica, clean, sans-serif;
-  --font-display: "Hiragino Kaku Gothic Pro", Osaka, Meiryo, "MS PGothic", arial, helvetica, clean, sans-serif;
+  --font-body:
+    "Hiragino Kaku Gothic Pro", Osaka, Meiryo, "MS PGothic", arial, helvetica,
+    clean, sans-serif;
+  --font-display:
+    "Hiragino Kaku Gothic Pro", Osaka, Meiryo, "MS PGothic", arial, helvetica,
+    clean, sans-serif;
 
   --shadow-sm: 0 1px 2px rgba(217, 70, 239, 0.06);
   --shadow-md: 0 2px 8px rgba(217, 70, 239, 0.08);
@@ -256,8 +264,12 @@
   --link-hover-color: #ef4444;
 
   --mono: "Courier New", Courier, monospace;
-  --font-body: "Hiragino Kaku Gothic Pro", Osaka, Meiryo, "MS PGothic", arial, helvetica, clean, sans-serif;
-  --font-display: "Hiragino Kaku Gothic Pro", Osaka, Meiryo, "MS PGothic", arial, helvetica, clean, sans-serif;
+  --font-body:
+    "Hiragino Kaku Gothic Pro", Osaka, Meiryo, "MS PGothic", arial, helvetica,
+    clean, sans-serif;
+  --font-display:
+    "Hiragino Kaku Gothic Pro", Osaka, Meiryo, "MS PGothic", arial, helvetica,
+    clean, sans-serif;
 
   --shadow-sm: none;
   --shadow-md: none;
@@ -350,8 +362,12 @@
   --link-hover-color: #f44747;
 
   --mono: "Cascadia Code", "Fira Code", Consolas, "Courier New", monospace;
-  --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  --font-display: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-body:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial,
+    sans-serif;
+  --font-display:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial,
+    sans-serif;
 
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
   --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.3);
@@ -538,7 +554,8 @@
   --link-hover-color: #ff073a;
 
   --mono: "Courier New", Courier, monospace;
-  --font-body: "Comic Sans MS", "Chalkboard SE", "Hiragino Kaku Gothic Pro", sans-serif;
+  --font-body:
+    "Comic Sans MS", "Chalkboard SE", "Hiragino Kaku Gothic Pro", sans-serif;
   --font-display: Impact, "Arial Black", "Hiragino Kaku Gothic Pro", sans-serif;
 
   --shadow-sm: 0 0 6px rgba(255, 0, 255, 0.3), 0 0 6px rgba(0, 255, 255, 0.2);
@@ -582,56 +599,62 @@
    Targets explicit milady theme + default (no data-theme attr). */
 [data-theme="milady"] #root,
 html:not([data-theme]) #root {
-  background: linear-gradient(180deg, #b6d4a8 0%, #d4e8cc 25%, #eaf3e6 55%, #ffffff 100%);
+  background: linear-gradient(
+    180deg,
+    #b6d4a8 0%,
+    #d4e8cc 25%,
+    #eaf3e6 55%,
+    #ffffff 100%
+  );
 }
 
 [data-theme="dark"] {
   /* Backgrounds - zinc-950/900 range */
-  --bg: hsl(240 10% 3.9%);           /* #09090b main background */
-  --bg-accent: hsl(240 5.9% 10%);    /* #18181b subtle elevation */
-  --bg-elevated: hsl(240 4.8% 7%);   /* #121214 elevated surfaces */
-  --bg-hover: hsl(240 3.7% 15.9%);   /* #27272a hover states */
-  --bg-muted: hsl(240 3.7% 15.9%);   /* #27272a muted background */
+  --bg: hsl(240 10% 3.9%); /* #09090b main background */
+  --bg-accent: hsl(240 5.9% 10%); /* #18181b subtle elevation */
+  --bg-elevated: hsl(240 4.8% 7%); /* #121214 elevated surfaces */
+  --bg-hover: hsl(240 3.7% 15.9%); /* #27272a hover states */
+  --bg-muted: hsl(240 3.7% 15.9%); /* #27272a muted background */
 
-  --card: hsl(240 4.8% 7%);          /* #121214 card background */
+  --card: hsl(240 4.8% 7%); /* #121214 card background */
   --card-foreground: hsl(240 5% 96%); /* #f4f4f5 card text */
-  --surface: hsl(240 4.8% 7%);       /* #121214 */
+  --surface: hsl(240 4.8% 7%); /* #121214 */
 
   /* Text - zinc-300/100 range */
-  --text: hsl(240 5% 84%);           /* #d4d4d8 body text */
-  --text-strong: hsl(240 5% 96%);    /* #f4f4f5 headings */
-  --chat-text: hsl(240 5% 84%);      /* #d4d4d8 */
-  --muted: hsl(240 5% 64.9%);        /* #a1a1aa muted text */
-  --muted-strong: hsl(240 4% 74%);   /* #bdbdc0 */
+  --text: hsl(240 5% 84%); /* #d4d4d8 body text */
+  --text-strong: hsl(240 5% 96%); /* #f4f4f5 headings */
+  --chat-text: hsl(240 5% 84%); /* #d4d4d8 */
+  --muted: hsl(240 5% 64.9%); /* #a1a1aa muted text */
+  --muted-strong: hsl(240 4% 74%); /* #bdbdc0 */
 
   /* Borders */
-  --border: hsl(240 3.7% 15.9%);     /* #27272a */
-  --border-strong: hsl(240 5% 26%);  /* #3f3f46 */
-  --border-hover: hsl(240 5% 34%);   /* #52525b */
-  --input: hsl(240 3.7% 15.9%);      /* #27272a */
-  --ring: hsl(217 91% 60%);          /* #3b82f6 focus ring */
+  --border: hsl(240 3.7% 15.9%); /* #27272a */
+  --border-strong: hsl(240 5% 26%); /* #3f3f46 */
+  --border-hover: hsl(240 5% 34%); /* #52525b */
+  --input: hsl(240 3.7% 15.9%); /* #27272a */
+  --ring: hsl(217 91% 60%); /* #3b82f6 focus ring */
 
   /* Accent - blue-500 */
-  --accent: hsl(217 91% 60%);        /* #3b82f6 primary actions */
-  --accent-hover: hsl(217 91% 55%);  /* slightly darker blue */
-  --accent-muted: hsl(217 91% 70%);  /* lighter blue */
+  --accent: hsl(217 91% 60%); /* #3b82f6 primary actions */
+  --accent-hover: hsl(217 91% 55%); /* slightly darker blue */
+  --accent-muted: hsl(217 91% 70%); /* lighter blue */
   --accent-subtle: hsla(217 91% 60% / 0.1); /* transparent blue */
   --accent-foreground: hsl(0 0% 100%); /* white text on blue */
-  --primary: hsl(217 91% 60%);       /* #3b82f6 */
+  --primary: hsl(217 91% 60%); /* #3b82f6 */
   --primary-foreground: hsl(0 0% 100%); /* white */
 
   /* Status colors */
-  --ok: hsl(142 76% 36%);            /* #16a34a green */
+  --ok: hsl(142 76% 36%); /* #16a34a green */
   --ok-muted: hsla(142 76% 36% / 0.7);
   --ok-subtle: hsla(142 76% 36% / 0.1);
   --destructive: hsl(0 84.2% 60.2%); /* #ef4444 red */
   --destructive-foreground: hsl(0 0% 100%);
   --destructive-subtle: hsla(0 84% 60% / 0.1);
-  --warn: hsl(38 92% 50%);           /* #f59e0b orange */
+  --warn: hsl(38 92% 50%); /* #f59e0b orange */
   --warn-muted: hsla(38 92% 50% / 0.7);
   --warn-subtle: hsla(38 92% 50% / 0.1);
-  --danger: hsl(0 84.2% 60.2%);      /* #ef4444 */
-  --info: hsl(217 91% 60%);          /* #3b82f6 */
+  --danger: hsl(0 84.2% 60.2%); /* #ef4444 */
+  --info: hsl(217 91% 60%); /* #3b82f6 */
 
   /* Focus */
   --focus: hsla(217 91% 60% / 0.2);
@@ -647,21 +670,24 @@ html:not([data-theme]) #root {
 
   /* Typography */
   --mono: "Courier New", Courier, monospace;
-  --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", sans-serif;
-  --font-display: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", sans-serif;
+  --font-body:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", sans-serif;
+  --font-display:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", sans-serif;
 
   /* Shadows - add depth */
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
   --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-lg:
+    0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
 
   /* Radii - more rounded */
-  --radius-sm: 0.375rem;   /* 6px */
-  --radius-md: 0.5rem;     /* 8px */
-  --radius-lg: 0.75rem;    /* 12px */
-  --radius-xl: 1rem;       /* 16px */
+  --radius-sm: 0.375rem; /* 6px */
+  --radius-md: 0.5rem; /* 8px */
+  --radius-lg: 0.75rem; /* 12px */
+  --radius-xl: 1rem; /* 16px */
   --radius-full: 9999px;
-  --radius: 0.5rem;        /* 8px default */
+  --radius: 0.5rem; /* 8px default */
 
   /* Timing */
   --duration-fast: 150ms;
@@ -703,7 +729,7 @@ html:not([data-theme]) #root {
 
   body {
     margin: 0;
-    font: 400 14px/1.65 var(--font-body);
+    font: 400 14px / 1.65 var(--font-body);
     background: var(--bg);
     color: var(--text);
     -webkit-font-smoothing: antialiased;
@@ -779,6 +805,10 @@ html:not([data-theme]) #root {
 
 /* Simple animations (outside layer — keyframes don't participate in cascade layers) */
 @keyframes fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }

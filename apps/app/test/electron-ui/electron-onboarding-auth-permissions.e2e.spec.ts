@@ -1,11 +1,17 @@
 import fs from "node:fs/promises";
+import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
-import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
-import { _electron as electron, expect, test, type ElectronApplication, type Page } from "@playwright/test";
+import {
+  type ElectronApplication,
+  _electron as electron,
+  expect,
+  type Page,
+  test,
+} from "@playwright/test";
 
-import { startMockApiServer, type MockApiServer } from "./mock-api";
+import { type MockApiServer, startMockApiServer } from "./mock-api";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "../../../..");
@@ -42,7 +48,9 @@ async function clickOnboardingNext(page: Page): Promise<void> {
 test("electron auth + onboarding permissions flow works end-to-end", async () => {
   await ensureBuildArtifacts();
 
-  const userDataDir = await fs.mkdtemp(path.join(os.tmpdir(), "milady-electron-e2e-auth-"));
+  const userDataDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), "milady-electron-e2e-auth-"),
+  );
   let api: MockApiServer | null = null;
   let app: ElectronApplication | null = null;
 
@@ -62,7 +70,9 @@ test("electron auth + onboarding permissions flow works end-to-end", async () =>
       },
     });
 
-    const electronRequire = createRequire(path.join(electronAppDir, "package.json"));
+    const electronRequire = createRequire(
+      path.join(electronAppDir, "package.json"),
+    );
     const electronExecutable = electronRequire("electron") as string;
 
     const launchApp = async (token?: string): Promise<Page> => {
@@ -84,14 +94,18 @@ test("electron auth + onboarding permissions flow works end-to-end", async () =>
     };
 
     const unauthPage = await launchApp();
-    await expect(unauthPage.getByRole("heading", { name: /pairing required/i })).toBeVisible({
+    await expect(
+      unauthPage.getByRole("heading", { name: /pairing required/i }),
+    ).toBeVisible({
       timeout: 60_000,
     });
     await app.close();
     app = null;
 
     const page = await launchApp("desktop-auth-token");
-    await expect(page.getByText(/welcome to milady/i)).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByText(/welcome to milady/i)).toBeVisible({
+      timeout: 60_000,
+    });
 
     await clickOnboardingNext(page); // welcome -> name
     await page.getByRole("button", { name: "Milady", exact: true }).click();
@@ -99,25 +113,46 @@ test("electron auth + onboarding permissions flow works end-to-end", async () =>
     await clickOnboardingNext(page); // avatar -> style
     await page.getByRole("button", { name: /chaotic/i }).click();
     await clickOnboardingNext(page); // style -> theme
-    await page.getByRole("button", { name: /milady/i }).first().click();
+    await page
+      .getByRole("button", { name: /milady/i })
+      .first()
+      .click();
     await clickOnboardingNext(page); // theme -> runMode
     await page.getByRole("button", { name: /local \(raw\)/i }).click();
     await clickOnboardingNext(page); // runMode -> llm provider
-    await page.getByRole("button", { name: /ollama/i }).first().click();
+    await page
+      .getByRole("button", { name: /ollama/i })
+      .first()
+      .click();
     await clickOnboardingNext(page); // llm provider -> inventory setup
     await clickOnboardingNext(page); // inventory setup -> connectors
     await clickOnboardingNext(page); // connectors -> permissions
 
-    await expect(page.getByRole("button", { name: /^continue$/i })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /^continue$/i })).toHaveCount(
+      0,
+    );
 
-    await page.getByRole("button", { name: /^grant$/i }).nth(0).click();
-    await page.getByRole("button", { name: /^grant$/i }).nth(0).click();
-    await page.getByRole("button", { name: /^grant$/i }).nth(0).click();
+    await page
+      .getByRole("button", { name: /^grant$/i })
+      .nth(0)
+      .click();
+    await page
+      .getByRole("button", { name: /^grant$/i })
+      .nth(0)
+      .click();
+    await page
+      .getByRole("button", { name: /^grant$/i })
+      .nth(0)
+      .click();
 
-    await expect(page.getByRole("button", { name: /^continue$/i })).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole("button", { name: /^continue$/i })).toBeVisible(
+      { timeout: 20_000 },
+    );
     await page.getByRole("button", { name: /^continue$/i }).click();
 
-    await expect(page.getByPlaceholder("Type a message...")).toBeVisible({ timeout: 45_000 });
+    await expect(page.getByPlaceholder("Type a message...")).toBeVisible({
+      timeout: 45_000,
+    });
     expect(api.requests).toContain("GET /api/auth/status");
     expect(api.requests).toContain("GET /api/onboarding/status");
   } finally {

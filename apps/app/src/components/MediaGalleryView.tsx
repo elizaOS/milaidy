@@ -6,7 +6,7 @@
  * APIs (getDatabaseTables, executeDatabaseQuery).
  */
 
-import { useState, useEffect, useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { client, type QueryResult } from "../api-client";
 
 type MediaType = "all" | "image" | "video" | "audio";
@@ -51,12 +51,17 @@ const FILTER_CHIPS: { id: MediaType; label: string }[] = [
 ];
 
 /** Extract media URLs from arbitrary row data by scanning all string values. */
-function extractMediaFromRows(rows: Record<string, unknown>[], tableName: string): MediaItem[] {
+function extractMediaFromRows(
+  rows: Record<string, unknown>[],
+  tableName: string,
+): MediaItem[] {
   const items: MediaItem[] = [];
   const seen = new Set<string>();
 
   for (const row of rows) {
-    const createdAt = String(row.createdAt ?? row.created_at ?? row.timestamp ?? "");
+    const createdAt = String(
+      row.createdAt ?? row.created_at ?? row.timestamp ?? "",
+    );
     for (const val of Object.values(row)) {
       if (typeof val !== "string") continue;
 
@@ -153,7 +158,10 @@ export function MediaGalleryView() {
         });
 
       // If no likely tables found, scan all tables with modest limits
-      const tablesToScan = mediaTableNames.length > 0 ? mediaTableNames : tables.map((t) => t.name);
+      const tablesToScan =
+        mediaTableNames.length > 0
+          ? mediaTableNames
+          : tables.map((t) => t.name);
       const scanLimit = mediaTableNames.length > 0 ? 500 : 100;
 
       for (const tableName of tablesToScan.slice(0, 10)) {
@@ -178,7 +186,9 @@ export function MediaGalleryView() {
 
       setMedia(allMedia);
     } catch (err) {
-      setError(`Failed to load media: ${err instanceof Error ? err.message : "error"}`);
+      setError(
+        `Failed to load media: ${err instanceof Error ? err.message : "error"}`,
+      );
     }
     setLoading(false);
   }, []);
@@ -189,7 +199,12 @@ export function MediaGalleryView() {
 
   const filtered = media.filter((m) => {
     if (filter !== "all" && m.type !== filter) return false;
-    if (search && !m.filename.toLowerCase().includes(search.toLowerCase()) && !m.url.toLowerCase().includes(search.toLowerCase())) return false;
+    if (
+      search &&
+      !m.filename.toLowerCase().includes(search.toLowerCase()) &&
+      !m.url.toLowerCase().includes(search.toLowerCase())
+    )
+      return false;
     return true;
   });
 
@@ -207,6 +222,7 @@ export function MediaGalleryView() {
         <div className="flex gap-1">
           {FILTER_CHIPS.map((chip) => (
             <button
+              type="button"
               key={chip.id}
               className={`px-3 py-1 text-xs cursor-pointer border transition-colors ${
                 filter === chip.id
@@ -231,7 +247,9 @@ export function MediaGalleryView() {
       )}
 
       {loading ? (
-        <div className="text-center py-16 text-[var(--muted)] text-sm italic">Scanning for media...</div>
+        <div className="text-center py-16 text-[var(--muted)] text-sm italic">
+          Scanning for media...
+        </div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-16">
           <div className="text-[var(--muted)] text-sm mb-2">No media found</div>
@@ -245,6 +263,7 @@ export function MediaGalleryView() {
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
           {filtered.map((item, i) => (
             <button
+              type="button"
               key={`${item.url}-${i}`}
               className="bg-[var(--card)] border border-[var(--border)] p-0 cursor-pointer text-left hover:border-[var(--accent)] transition-colors group"
               onClick={() => setLightboxItem(item)}
@@ -258,9 +277,12 @@ export function MediaGalleryView() {
                     className="w-full h-full object-cover"
                     loading="lazy"
                     onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = "none";
-                      (e.target as HTMLImageElement).parentElement!.innerHTML =
-                        '<span style="font-size:24px">🖼</span>';
+                      const image = e.target as HTMLImageElement;
+                      image.style.display = "none";
+                      if (image.parentElement) {
+                        image.parentElement.innerHTML =
+                          '<span style="font-size:24px">🖼</span>';
+                      }
                     }}
                   />
                 ) : item.type === "video" ? (
@@ -271,18 +293,24 @@ export function MediaGalleryView() {
               </div>
               {/* Info */}
               <div className="p-2">
-                <div className="text-[11px] text-[var(--txt)] truncate">{item.filename}</div>
+                <div className="text-[11px] text-[var(--txt)] truncate">
+                  {item.filename}
+                </div>
                 <div className="flex items-center gap-1 mt-1">
-                  <span className={`text-[9px] px-1.5 py-0.5 uppercase font-bold ${
-                    item.type === "image"
-                      ? "bg-blue-500/20 text-blue-400"
-                      : item.type === "video"
-                        ? "bg-purple-500/20 text-purple-400"
-                        : "bg-green-500/20 text-green-400"
-                  }`}>
+                  <span
+                    className={`text-[9px] px-1.5 py-0.5 uppercase font-bold ${
+                      item.type === "image"
+                        ? "bg-blue-500/20 text-blue-400"
+                        : item.type === "video"
+                          ? "bg-purple-500/20 text-purple-400"
+                          : "bg-green-500/20 text-green-400"
+                    }`}
+                  >
                     {item.type}
                   </span>
-                  <span className="text-[9px] text-[var(--muted)] truncate">{item.source}</span>
+                  <span className="text-[9px] text-[var(--muted)] truncate">
+                    {item.source}
+                  </span>
                 </div>
               </div>
             </button>
@@ -294,18 +322,26 @@ export function MediaGalleryView() {
       {lightboxItem && (
         <div
           className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-8"
-          onClick={() => setLightboxItem(null)}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setLightboxItem(null);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Escape" || e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              setLightboxItem(null);
+            }
+          }}
+          role="dialog"
+          aria-modal="true"
         >
-          <div
-            className="bg-[var(--card)] border border-[var(--border)] max-w-[90vw] max-h-[90vh] overflow-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
+          <div className="bg-[var(--card)] border border-[var(--border)] max-w-[90vw] max-h-[90vh] overflow-auto">
             {/* Header */}
             <div className="flex items-center justify-between p-3 border-b border-[var(--border)]">
               <div className="text-xs text-[var(--txt)] font-medium truncate mr-4">
                 {lightboxItem.filename}
               </div>
               <button
+                type="button"
                 className="text-[var(--muted)] hover:text-[var(--txt)] bg-transparent border-0 cursor-pointer text-lg px-2"
                 onClick={() => setLightboxItem(null)}
               >
@@ -329,7 +365,11 @@ export function MediaGalleryView() {
                   <track kind="captions" />
                 </video>
               ) : (
-                <audio src={lightboxItem.url} controls className="w-full max-w-[400px]">
+                <audio
+                  src={lightboxItem.url}
+                  controls
+                  className="w-full max-w-[400px]"
+                >
                   <track kind="captions" />
                 </audio>
               )}
@@ -338,7 +378,9 @@ export function MediaGalleryView() {
             <div className="p-3 border-t border-[var(--border)] text-[11px] text-[var(--muted)] flex gap-4">
               <span>Type: {lightboxItem.type}</span>
               <span>Source: {lightboxItem.source}</span>
-              {lightboxItem.createdAt && <span>Date: {lightboxItem.createdAt}</span>}
+              {lightboxItem.createdAt && (
+                <span>Date: {lightboxItem.createdAt}</span>
+              )}
             </div>
           </div>
         </div>

@@ -70,7 +70,9 @@ function setupStorageProxy(): void {
 
   const originalSetItem = window.localStorage.setItem.bind(window.localStorage);
   const originalGetItem = window.localStorage.getItem.bind(window.localStorage);
-  const originalRemoveItem = window.localStorage.removeItem.bind(window.localStorage);
+  const originalRemoveItem = window.localStorage.removeItem.bind(
+    window.localStorage,
+  );
 
   // Override setItem
   window.localStorage.setItem = (key: string, value: string): void => {
@@ -123,7 +125,10 @@ export async function getStorageValue(key: string): Promise<string | null> {
 /**
  * Set a value in storage (works on both native and web)
  */
-export async function setStorageValue(key: string, value: string): Promise<void> {
+export async function setStorageValue(
+  key: string,
+  value: string,
+): Promise<void> {
   window.localStorage.setItem(key, value);
 
   if (isNative && SYNCED_KEYS.has(key)) {

@@ -1,4 +1,4 @@
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -28,7 +28,10 @@ describe("electron startup web asset resolution (e2e)", () => {
 
     mkdirSync(electronDir, { recursive: true });
     mkdirSync(distDir, { recursive: true });
-    writeFileSync(path.join(distDir, "index.html"), "<html><body>chat</body></html>");
+    writeFileSync(
+      path.join(distDir, "index.html"),
+      "<html><body>chat</body></html>",
+    );
 
     const result = resolveWebAssetDirectory({
       appPath: electronDir,
@@ -50,8 +53,14 @@ describe("electron startup web asset resolution (e2e)", () => {
 
     mkdirSync(syncedAppDir, { recursive: true });
     mkdirSync(distDir, { recursive: true });
-    writeFileSync(path.join(syncedAppDir, "index.html"), "<html><body>stale</body></html>");
-    writeFileSync(path.join(distDir, "index.html"), "<html><body>fresh</body></html>");
+    writeFileSync(
+      path.join(syncedAppDir, "index.html"),
+      "<html><body>stale</body></html>",
+    );
+    writeFileSync(
+      path.join(distDir, "index.html"),
+      "<html><body>fresh</body></html>",
+    );
 
     const result = resolveWebAssetDirectory({
       appPath: electronDir,

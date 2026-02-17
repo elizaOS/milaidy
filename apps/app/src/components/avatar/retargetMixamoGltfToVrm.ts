@@ -1,5 +1,5 @@
-import * as THREE from "three";
 import type { VRM, VRMHumanBoneName } from "@pixiv/three-vrm";
+import * as THREE from "three";
 import { mixamoVRMRigMap } from "./mixamoVRMRigMap";
 
 function normalizeMixamoRigName(name: string): string {
@@ -20,11 +20,17 @@ function isVrm0(vrm: VRM): boolean {
   return mv.startsWith("0");
 }
 
-function findNode(scene: THREE.Object3D, rawName: string, normalizedName: string): THREE.Object3D | null {
+function findNode(
+  scene: THREE.Object3D,
+  rawName: string,
+  normalizedName: string,
+): THREE.Object3D | null {
   return (
     scene.getObjectByName(rawName) ??
     scene.getObjectByName(normalizedName) ??
-    scene.getObjectByName(rawName.includes(":") ? rawName.split(":")[1] ?? rawName : rawName) ??
+    scene.getObjectByName(
+      rawName.includes(":") ? (rawName.split(":")[1] ?? rawName) : rawName,
+    ) ??
     null
   );
 }
@@ -62,10 +68,16 @@ export function retargetMixamoGltfToVrm(
     const vrmBoneName = mixamoVRMRigMap[normalizedRigName];
     if (!vrmBoneName) continue;
 
-    const vrmNode = vrm.humanoid?.getNormalizedBoneNode(vrmBoneName as VRMHumanBoneName);
+    const vrmNode = vrm.humanoid?.getNormalizedBoneNode(
+      vrmBoneName as VRMHumanBoneName,
+    );
     if (!vrmNode) continue;
 
-    const mixamoRigNode = findNode(animation.scene, rawRigName, normalizedRigName);
+    const mixamoRigNode = findNode(
+      animation.scene,
+      rawRigName,
+      normalizedRigName,
+    );
     if (!mixamoRigNode || !mixamoRigNode.parent) continue;
 
     mixamoRigNode.getWorldQuaternion(restRotationInverse).invert();

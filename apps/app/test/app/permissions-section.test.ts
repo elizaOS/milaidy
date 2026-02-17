@@ -9,7 +9,7 @@
  * - Shell access toggle
  * - Onboarding section functionality
  */
-import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // ---------------------------------------------------------------------------
 // Mock setup - must be before imports
@@ -174,19 +174,23 @@ describe("PermissionsSection", () => {
 
   describe("Capability gating logic", () => {
     it("browser capability requires accessibility permission", () => {
-      const accessibilityGranted = mockPermissionStates.accessibility.status === "granted";
+      const accessibilityGranted =
+        mockPermissionStates.accessibility.status === "granted";
       expect(accessibilityGranted).toBe(true);
     });
 
     it("computeruse capability requires accessibility and screen-recording", () => {
-      const accessibilityGranted = mockPermissionStates.accessibility.status === "granted";
-      const screenRecordingGranted = mockPermissionStates["screen-recording"].status === "granted";
+      const accessibilityGranted =
+        mockPermissionStates.accessibility.status === "granted";
+      const screenRecordingGranted =
+        mockPermissionStates["screen-recording"].status === "granted";
       const computeruseAllowed = accessibilityGranted && screenRecordingGranted;
       expect(computeruseAllowed).toBe(false); // screen-recording is denied
     });
 
     it("vision capability requires screen-recording", () => {
-      const screenRecordingGranted = mockPermissionStates["screen-recording"].status === "granted";
+      const screenRecordingGranted =
+        mockPermissionStates["screen-recording"].status === "granted";
       expect(screenRecordingGranted).toBe(false);
     });
   });
@@ -215,41 +219,71 @@ describe("PermissionsOnboardingSection", () => {
   describe("All permissions granted check", () => {
     it("identifies when critical permissions are missing", () => {
       const permissions = mockPermissionStates;
-      const allGranted = ["accessibility", "screen-recording", "microphone"].every((id) => {
+      const allGranted = [
+        "accessibility",
+        "screen-recording",
+        "microphone",
+      ].every((id) => {
         const state = permissions[id as keyof typeof permissions];
-        return state?.status === "granted" || state?.status === "not-applicable";
+        return (
+          state?.status === "granted" || state?.status === "not-applicable"
+        );
       });
       expect(allGranted).toBe(false); // screen-recording is denied, microphone is not-determined
     });
 
     it("identifies when all permissions are granted", () => {
       const grantedPermissions = {
-        accessibility: { ...mockPermissionStates.accessibility, status: "granted" },
-        "screen-recording": { ...mockPermissionStates["screen-recording"], status: "granted" },
+        accessibility: {
+          ...mockPermissionStates.accessibility,
+          status: "granted",
+        },
+        "screen-recording": {
+          ...mockPermissionStates["screen-recording"],
+          status: "granted",
+        },
         microphone: { ...mockPermissionStates.microphone, status: "granted" },
         camera: { ...mockPermissionStates.camera, status: "granted" },
         shell: { ...mockPermissionStates.shell, status: "granted" },
       };
 
-      const allGranted = ["accessibility", "screen-recording", "microphone"].every((id) => {
+      const allGranted = [
+        "accessibility",
+        "screen-recording",
+        "microphone",
+      ].every((id) => {
         const state = grantedPermissions[id as keyof typeof grantedPermissions];
-        return state?.status === "granted" || state?.status === "not-applicable";
+        return (
+          state?.status === "granted" || state?.status === "not-applicable"
+        );
       });
       expect(allGranted).toBe(true);
     });
 
     it("handles not-applicable status as granted", () => {
       const windowsPermissions = {
-        accessibility: { ...mockPermissionStates.accessibility, status: "not-applicable" },
-        "screen-recording": { ...mockPermissionStates["screen-recording"], status: "not-applicable" },
+        accessibility: {
+          ...mockPermissionStates.accessibility,
+          status: "not-applicable",
+        },
+        "screen-recording": {
+          ...mockPermissionStates["screen-recording"],
+          status: "not-applicable",
+        },
         microphone: { ...mockPermissionStates.microphone, status: "granted" },
         camera: { ...mockPermissionStates.camera, status: "granted" },
         shell: { ...mockPermissionStates.shell, status: "granted" },
       };
 
-      const allGranted = ["accessibility", "screen-recording", "microphone"].every((id) => {
+      const allGranted = [
+        "accessibility",
+        "screen-recording",
+        "microphone",
+      ].every((id) => {
         const state = windowsPermissions[id as keyof typeof windowsPermissions];
-        return state?.status === "granted" || state?.status === "not-applicable";
+        return (
+          state?.status === "granted" || state?.status === "not-applicable"
+        );
       });
       expect(allGranted).toBe(true);
     });
@@ -257,7 +291,12 @@ describe("PermissionsOnboardingSection", () => {
 
   describe("Essential permissions filtering", () => {
     it("excludes shell from onboarding permissions", () => {
-      const essentialIds = ["accessibility", "screen-recording", "microphone", "camera"];
+      const essentialIds = [
+        "accessibility",
+        "screen-recording",
+        "microphone",
+        "camera",
+      ];
       expect(essentialIds).not.toContain("shell");
     });
 
@@ -292,7 +331,13 @@ describe("Status Configuration", () => {
   };
 
   it("has configuration for all status types", () => {
-    const statuses = ["granted", "denied", "not-determined", "restricted", "not-applicable"];
+    const statuses = [
+      "granted",
+      "denied",
+      "not-determined",
+      "restricted",
+      "not-applicable",
+    ];
     for (const status of statuses) {
       expect(STATUS_CONFIG[status as keyof typeof STATUS_CONFIG]).toBeDefined();
     }

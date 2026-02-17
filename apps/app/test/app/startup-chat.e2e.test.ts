@@ -1,8 +1,8 @@
 import React from "react";
+import type { ReactTestInstance } from "react-test-renderer";
 import TestRenderer, { act } from "react-test-renderer";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { pathForTab, tabFromPath } from "../../src/navigation";
-import type { ReactTestInstance } from "react-test-renderer";
 
 const { mockUseApp } = vi.hoisted(() => ({
   mockUseApp: vi.fn(),
@@ -35,7 +35,8 @@ vi.mock("../../src/components/ChatView", () => ({
   ChatView: () => React.createElement("div", null, "ChatView"),
 }));
 vi.mock("../../src/components/ConversationsSidebar", () => ({
-  ConversationsSidebar: () => React.createElement("div", null, "ConversationsSidebar"),
+  ConversationsSidebar: () =>
+    React.createElement("div", null, "ConversationsSidebar"),
 }));
 vi.mock("../../src/components/AutonomousPanel", () => ({
   AutonomousPanel: () => React.createElement("div", null, "AutonomousPanel"),
@@ -53,7 +54,8 @@ vi.mock("../../src/components/TriggersView", () => ({
   TriggersView: () => React.createElement("div", null, "TriggersView"),
 }));
 vi.mock("../../src/components/ConnectorsPageView", () => ({
-  ConnectorsPageView: () => React.createElement("div", null, "ConnectorsPageView"),
+  ConnectorsPageView: () =>
+    React.createElement("div", null, "ConnectorsPageView"),
 }));
 vi.mock("../../src/components/InventoryView", () => ({
   InventoryView: () => React.createElement("div", null, "InventoryView"),
@@ -109,7 +111,8 @@ describe("app startup routing (e2e)", () => {
       tree = TestRenderer.create(React.createElement(App));
     });
 
-    const renderedText = tree!.root.findAllByType("div")
+    const renderedText = tree?.root
+      .findAllByType("div")
       .map((node) => node.children.join(""))
       .join("\n");
 
@@ -133,7 +136,8 @@ describe("app startup routing (e2e)", () => {
       tree = TestRenderer.create(React.createElement(App));
     });
 
-    const renderedText = tree!.root.findAllByType("div")
+    const renderedText = tree?.root
+      .findAllByType("div")
       .map((node) => node.children.join(""))
       .join("\n");
 
@@ -155,33 +159,40 @@ describe("app startup routing (e2e)", () => {
       tree = TestRenderer.create(React.createElement(App));
     });
 
-    const root = tree!.root;
+    const root = tree?.root;
     const buttons = root.findAllByType("button");
-    const chatDrawerButton = buttons.find((node) => buttonText(node).includes("Chats"));
-    const statusDrawerButton = buttons.find((node) => buttonText(node).includes("Status"));
+    const chatDrawerButton = buttons.find((node) =>
+      buttonText(node).includes("Chats"),
+    );
+    const statusDrawerButton = buttons.find((node) =>
+      buttonText(node).includes("Status"),
+    );
     expect(chatDrawerButton).toBeDefined();
     expect(statusDrawerButton).toBeDefined();
 
-    let renderedText = root.findAllByType("div")
+    let renderedText = root
+      .findAllByType("div")
       .map((node) => node.children.join(""))
       .join("\n");
     expect(renderedText).not.toContain("ConversationsSidebar");
     expect(renderedText).not.toContain("AutonomousPanel");
 
     await act(async () => {
-      chatDrawerButton!.props.onClick();
+      chatDrawerButton?.props.onClick();
     });
 
-    renderedText = root.findAllByType("div")
+    renderedText = root
+      .findAllByType("div")
       .map((node) => node.children.join(""))
       .join("\n");
     expect(renderedText).toContain("ConversationsSidebar");
 
     await act(async () => {
-      statusDrawerButton!.props.onClick();
+      statusDrawerButton?.props.onClick();
     });
 
-    renderedText = root.findAllByType("div")
+    renderedText = root
+      .findAllByType("div")
       .map((node) => node.children.join(""))
       .join("\n");
     expect(renderedText).toContain("AutonomousPanel");

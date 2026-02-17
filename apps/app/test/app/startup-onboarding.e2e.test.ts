@@ -36,7 +36,9 @@ type AppHarnessState = {
       adjectives: string[];
       topics: string[];
       postExamples: string[];
-      messageExamples: Array<Array<{ name: string; content: { text: string } }>>;
+      messageExamples: Array<
+        Array<{ name: string; content: { text: string } }>
+      >;
     }>;
     providers: Array<{
       id: string;
@@ -48,8 +50,18 @@ type AppHarnessState = {
     }>;
     cloudProviders: Array<{ id: string; name: string; description: string }>;
     models: {
-      small: Array<{ id: string; name: string; provider: string; description: string }>;
-      large: Array<{ id: string; name: string; provider: string; description: string }>;
+      small: Array<{
+        id: string;
+        name: string;
+        provider: string;
+        description: string;
+      }>;
+      large: Array<{
+        id: string;
+        name: string;
+        provider: string;
+        description: string;
+      }>;
     };
     inventoryProviders: Array<{
       id: string;
@@ -124,16 +136,19 @@ vi.mock("../../src/components/SaveCommandModal", () => ({
   SaveCommandModal: () => React.createElement("div", null, "SaveCommandModal"),
 }));
 vi.mock("../../src/components/ConversationsSidebar", () => ({
-  ConversationsSidebar: () => React.createElement("div", null, "ConversationsSidebar"),
+  ConversationsSidebar: () =>
+    React.createElement("div", null, "ConversationsSidebar"),
 }));
 vi.mock("../../src/components/AutonomousPanel", () => ({
   AutonomousPanel: () => React.createElement("div", null, "AutonomousPanel"),
 }));
 vi.mock("../../src/components/CustomActionsPanel", () => ({
-  CustomActionsPanel: () => React.createElement("div", null, "CustomActionsPanel"),
+  CustomActionsPanel: () =>
+    React.createElement("div", null, "CustomActionsPanel"),
 }));
 vi.mock("../../src/components/CustomActionEditor", () => ({
-  CustomActionEditor: () => React.createElement("div", null, "CustomActionEditor"),
+  CustomActionEditor: () =>
+    React.createElement("div", null, "CustomActionEditor"),
 }));
 vi.mock("../../src/components/AppsPageView", () => ({
   AppsPageView: () => React.createElement("div", null, "AppsPageView"),
@@ -148,7 +163,8 @@ vi.mock("../../src/components/TriggersView", () => ({
   TriggersView: () => React.createElement("div", null, "TriggersView"),
 }));
 vi.mock("../../src/components/ConnectorsPageView", () => ({
-  ConnectorsPageView: () => React.createElement("div", null, "ConnectorsPageView"),
+  ConnectorsPageView: () =>
+    React.createElement("div", null, "ConnectorsPageView"),
 }));
 vi.mock("../../src/components/InventoryView", () => ({
   InventoryView: () => React.createElement("div", null, "InventoryView"),
@@ -179,11 +195,12 @@ vi.mock("../../src/components/PermissionsSection", () => ({
     onContinue,
   }: {
     onContinue: (options?: { allowPermissionBypass?: boolean }) => void;
-  }) => React.createElement(
-    "button",
-    { onClick: () => onContinue() },
-    "permissions-continue",
-  ),
+  }) =>
+    React.createElement(
+      "button",
+      { onClick: () => onContinue(), type: "button" },
+      "permissions-continue",
+    ),
 }));
 
 import { App } from "../../src/App";
@@ -214,10 +231,26 @@ function onboardingOptions() {
         description: "Use local Ollama",
       },
     ],
-    cloudProviders: [{ id: "openrouter", name: "OpenRouter", description: "Cloud provider" }],
+    cloudProviders: [
+      { id: "openrouter", name: "OpenRouter", description: "Cloud provider" },
+    ],
     models: {
-      small: [{ id: "small-model", name: "Small", provider: "openrouter", description: "small" }],
-      large: [{ id: "large-model", name: "Large", provider: "openrouter", description: "large" }],
+      small: [
+        {
+          id: "small-model",
+          name: "Small",
+          provider: "openrouter",
+          description: "small",
+        },
+      ],
+      large: [
+        {
+          id: "large-model",
+          name: "Large",
+          provider: "openrouter",
+          description: "large",
+        },
+      ],
     },
     inventoryProviders: [
       {
@@ -285,11 +318,17 @@ function textOf(node: TestRenderer.ReactTestInstance): string {
     .join("");
 }
 
-function hasText(node: TestRenderer.ReactTestInstance, target: string): boolean {
+function hasText(
+  node: TestRenderer.ReactTestInstance,
+  target: string,
+): boolean {
   return textOf(node).includes(target);
 }
 
-function clickButton(tree: TestRenderer.ReactTestRenderer, labelFragment: string): void {
+function clickButton(
+  tree: TestRenderer.ReactTestRenderer,
+  labelFragment: string,
+): void {
   const button = tree.root.findAll(
     (node) => node.type === "button" && hasText(node, labelFragment),
   )[0];
@@ -329,7 +368,10 @@ describe("app startup onboarding flow (e2e)", () => {
           state.onboardingStep = "runMode";
           break;
         case "runMode":
-          state.onboardingStep = state.onboardingRunMode === "local-sandbox" ? "dockerSetup" : "llmProvider";
+          state.onboardingStep =
+            state.onboardingRunMode === "local-sandbox"
+              ? "dockerSetup"
+              : "llmProvider";
           break;
         case "dockerSetup":
           state.onboardingStep = "llmProvider";
@@ -405,50 +447,55 @@ describe("app startup onboarding flow (e2e)", () => {
   });
 
   it("progresses through onboarding and lands in chat", async () => {
-    let tree: TestRenderer.ReactTestRenderer;
+    let tree: TestRenderer.ReactTestRenderer | null = null;
 
     await act(async () => {
       tree = TestRenderer.create(React.createElement(App));
     });
+    if (!tree) throw new Error("failed to render App");
+    const renderedTree = tree;
 
     for (let i = 0; i < 20 && !state.onboardingComplete; i += 1) {
       if (state.onboardingStep === "name") {
-        const nameInput = tree!.root.findAll(
-          (node) => node.type === "input" && node.props.placeholder === "enter custom name...",
+        const nameInput = renderedTree.root.findAll(
+          (node) =>
+            node.type === "input" &&
+            node.props.placeholder === "enter custom name...",
         )[0];
         expect(nameInput).toBeDefined();
         await act(async () => {
           nameInput.props.onChange({ target: { value: "Onboarding Smoke" } });
         });
-        await rerender(tree!);
+        await rerender(renderedTree);
       }
 
       if (state.onboardingStep === "style" && !state.onboardingStyle) {
-        clickButton(tree!, "chaotic");
-        await rerender(tree!);
+        clickButton(renderedTree, "chaotic");
+        await rerender(renderedTree);
       }
 
       if (state.onboardingStep === "runMode") {
         state.onboardingRunMode = "local-rawdog";
-        await rerender(tree!);
+        await rerender(renderedTree);
       }
 
       if (state.onboardingStep === "llmProvider") {
         state.onboardingProvider = "ollama";
-        await rerender(tree!);
+        await rerender(renderedTree);
       }
 
       if (state.onboardingStep === "permissions") {
-        clickButton(tree!, "permissions-continue");
+        clickButton(renderedTree, "permissions-continue");
       } else {
-        clickButton(tree!, "next");
+        clickButton(renderedTree, "next");
       }
-      await rerender(tree!);
+      await rerender(renderedTree);
     }
 
     expect(state.onboardingComplete).toBe(true);
 
-    const renderedText = tree!.root.findAllByType("div")
+    const renderedText = renderedTree.root
+      .findAllByType("div")
       .map((node) => node.children.join(""))
       .join("\n");
 

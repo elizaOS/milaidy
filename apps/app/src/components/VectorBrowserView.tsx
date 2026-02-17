@@ -7,16 +7,23 @@
  * Toggle to a 2D scatter-plot graph view of embeddings.
  */
 
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
-import { client, type TableInfo, type QueryResult } from "../api-client";
+import { client, type QueryResult, type TableInfo } from "../api-client";
 
 const PAGE_SIZE = 25;
 
 type ViewMode = "list" | "graph" | "3d";
 
 /** The dimension columns in the ElizaOS `embeddings` table. */
-const DIM_COLUMNS = ["dim_384", "dim_512", "dim_768", "dim_1024", "dim_1536", "dim_3072"] as const;
+const DIM_COLUMNS = [
+  "dim_384",
+  "dim_512",
+  "dim_768",
+  "dim_1024",
+  "dim_1536",
+  "dim_3072",
+] as const;
 
 interface MemoryRecord {
   id: string;
@@ -28,6 +35,12 @@ interface MemoryRecord {
   unique: boolean;
   embedding: number[] | null;
   raw: Record<string, unknown>;
+}
+
+function hasEmbedding(
+  memory: MemoryRecord,
+): memory is MemoryRecord & { embedding: number[] } {
+  return memory.embedding !== null;
 }
 
 /** Try to parse a JSON content field, returning the text content or the raw string. */
@@ -57,9 +70,10 @@ function parseEmbedding(val: unknown): number[] | null {
     const trimmed = val.trim();
     // pgvector text format: [0.1,0.2,0.3] — also valid JSON
     // Also handle without brackets: 0.1,0.2,0.3
-    const inner = trimmed.startsWith("[") && trimmed.endsWith("]")
-      ? trimmed.slice(1, -1)
-      : trimmed;
+    const inner =
+      trimmed.startsWith("[") && trimmed.endsWith("]")
+        ? trimmed.slice(1, -1)
+        : trimmed;
     if (!inner) return null;
     // Fast path: split by comma and parse floats
     const parts = inner.split(",");
@@ -91,7 +105,14 @@ function rowToMemory(row: Record<string, unknown>): MemoryRecord {
     id: String(row.id ?? row.ID ?? row.memory_id ?? ""),
     content: parseContent(row.content ?? row.body ?? row.text ?? ""),
     roomId: String(row.roomId ?? row.room_id ?? row.roomID ?? ""),
-    entityId: String(row.entityId ?? row.entity_id ?? row.entityID ?? row.userId ?? row.user_id ?? ""),
+    entityId: String(
+      row.entityId ??
+        row.entity_id ??
+        row.entityID ??
+        row.userId ??
+        row.user_id ??
+        "",
+    ),
     type: String(row.type ?? row.memoryType ?? row.memory_type ?? ""),
     createdAt: String(row.createdAt ?? row.created_at ?? row.timestamp ?? ""),
     unique: row.unique === true || row.unique === 1 || row.isUnique === true,
@@ -108,7 +129,11 @@ function dot(a: number[], b: Float64Array | number[]): number {
   return s;
 }
 
-function powerIteration(data: number[][], dims: number, iters = 30): Float64Array {
+function powerIteration(
+  data: number[][],
+  dims: number,
+  iters = 30,
+): Float64Array {
   const v = new Float64Array(dims);
   // Random init
   for (let d = 0; d < dims; d++) v[d] = Math.random() - 0.5;
@@ -134,7 +159,10 @@ function normalize(v: Float64Array) {
 }
 
 /** Compute mean and center data for PCA. */
-function centerData(vectors: number[][]): { centered: number[][]; mean: Float64Array } {
+function centerData(vectors: number[][]): {
+  centered: number[][];
+  mean: Float64Array;
+} {
   const dims = vectors[0].length;
   const n = vectors.length;
   const mean = new Float64Array(dims);
@@ -177,7 +205,9 @@ function projectTo3D(vectors: number[][]): [number, number, number][] {
   const deflated2 = deflate(deflated1, pc2);
   const pc3 = powerIteration(deflated2, dims);
 
-  return centered.map((v) => [dot(v, pc1), dot(v, pc2), dot(v, pc3)] as [number, number, number]);
+  return centered.map(
+    (v) => [dot(v, pc1), dot(v, pc2), dot(v, pc3)] as [number, number, number],
+  );
 }
 
 // ── Graph sub-component ────────────────────────────────────────────────
@@ -196,7 +226,7 @@ function VectorGraph({
 
   // Keep embeddings subset for the graph — memoize to avoid recomputation
   const withEmbeddings = useMemo(
-    () => memories.filter((m) => m.embedding !== null),
+    () => memories.filter(hasEmbedding),
     [memories],
   );
 
@@ -205,7 +235,7 @@ function VectorGraph({
       setPoints([]);
       return;
     }
-    const vecs = withEmbeddings.map((m) => m.embedding!);
+    const vecs = withEmbeddings.map((m) => m.embedding);
     const projected = projectTo2D(vecs);
     setPoints(projected);
   }, [withEmbeddings]);
@@ -229,7 +259,10 @@ function VectorGraph({
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     // Compute bounds
-    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    let minX = Infinity,
+      maxX = -Infinity,
+      minY = Infinity,
+      maxY = -Infinity;
     for (const [x, y] of points) {
       if (x < minX) minX = x;
       if (x > maxX) maxX = x;
@@ -240,8 +273,10 @@ function VectorGraph({
     const rangeY = maxY - minY || 1;
     const pad = 40;
 
-    const toScreenX = (x: number) => pad + ((x - minX) / rangeX) * (W - 2 * pad);
-    const toScreenY = (y: number) => pad + ((y - minY) / rangeY) * (H - 2 * pad);
+    const toScreenX = (x: number) =>
+      pad + ((x - minX) / rangeX) * (W - 2 * pad);
+    const toScreenY = (y: number) =>
+      pad + ((y - minY) / rangeY) * (H - 2 * pad);
 
     // Background
     const style = getComputedStyle(document.documentElement);
@@ -259,8 +294,14 @@ function VectorGraph({
     for (let i = 0; i <= 4; i++) {
       const x = pad + (i / 4) * (W - 2 * pad);
       const y = pad + (i / 4) * (H - 2 * pad);
-      ctx.beginPath(); ctx.moveTo(x, pad); ctx.lineTo(x, H - pad); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(pad, y); ctx.lineTo(W - pad, y); ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(x, pad);
+      ctx.lineTo(x, H - pad);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(pad, y);
+      ctx.lineTo(W - pad, y);
+      ctx.stroke();
     }
 
     // Axis labels
@@ -277,7 +318,16 @@ function VectorGraph({
     // Collect unique types for color mapping
     const types = [...new Set(withEmbeddings.map((m) => m.type))];
     const typeColors: Record<string, string> = {};
-    const palette = [accentColor, "#f59e0b", "#10b981", "#ef4444", "#8b5cf6", "#ec4899", "#06b6d4", "#84cc16"];
+    const palette = [
+      accentColor,
+      "#f59e0b",
+      "#10b981",
+      "#ef4444",
+      "#8b5cf6",
+      "#ec4899",
+      "#06b6d4",
+      "#84cc16",
+    ];
     for (let i = 0; i < types.length; i++) {
       typeColors[types[i]] = palette[i % palette.length];
     }
@@ -309,7 +359,8 @@ function VectorGraph({
       const sx = toScreenX(points[hoveredIdx][0]);
       const sy = toScreenY(points[hoveredIdx][1]);
       const mem = withEmbeddings[hoveredIdx];
-      const label = mem.content.slice(0, 60) + (mem.content.length > 60 ? "..." : "");
+      const label =
+        mem.content.slice(0, 60) + (mem.content.length > 60 ? "..." : "");
 
       ctx.font = "11px sans-serif";
       const metrics = ctx.measureText(label);
@@ -357,7 +408,10 @@ function VectorGraph({
       const H = rect.height;
       const pad = 40;
 
-      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+      let minX = Infinity,
+        maxX = -Infinity,
+        minY = Infinity,
+        maxY = -Infinity;
       for (const [x, y] of points) {
         if (x < minX) minX = x;
         if (x > maxX) maxX = x;
@@ -367,8 +421,10 @@ function VectorGraph({
       const rangeX = maxX - minX || 1;
       const rangeY = maxY - minY || 1;
 
-      const toScreenX = (x: number) => pad + ((x - minX) / rangeX) * (W - 2 * pad);
-      const toScreenY = (y: number) => pad + ((y - minY) / rangeY) * (H - 2 * pad);
+      const toScreenX = (x: number) =>
+        pad + ((x - minX) / rangeX) * (W - 2 * pad);
+      const toScreenY = (y: number) =>
+        pad + ((y - minY) / rangeY) * (H - 2 * pad);
 
       let closest = -1;
       let closestDist = 15; // max pixel distance
@@ -395,9 +451,12 @@ function VectorGraph({
   if (withEmbeddings.length < 2) {
     return (
       <div className="text-center py-16">
-        <div className="text-[var(--muted)] text-sm mb-2">Not enough embeddings for graph view</div>
+        <div className="text-[var(--muted)] text-sm mb-2">
+          Not enough embeddings for graph view
+        </div>
         <div className="text-[var(--muted)] text-xs">
-          Need at least 2 memories with embedding data. Found {withEmbeddings.length}.
+          Need at least 2 memories with embedding data. Found{" "}
+          {withEmbeddings.length}.
         </div>
       </div>
     );
@@ -406,7 +465,8 @@ function VectorGraph({
   return (
     <div ref={containerRef} className="w-full">
       <div className="text-[11px] text-[var(--muted)] mb-2">
-        {withEmbeddings.length} vectors projected to 2D via PCA — click a point to view details
+        {withEmbeddings.length} vectors projected to 2D via PCA — click a point
+        to view details
       </div>
       <canvas
         ref={canvasRef}
@@ -436,25 +496,30 @@ function VectorGraph3D({
   const spheresRef = useRef<THREE.Mesh[]>([]);
   const animationRef = useRef<number>(0);
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
-  const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null);
+  const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(
+    null,
+  );
   const isDraggingRef = useRef(false);
   const mouseDownPosRef = useRef<{ x: number; y: number } | null>(null);
 
   const withEmbeddings = useMemo(
-    () => memories.filter((m) => m.embedding !== null),
+    () => memories.filter(hasEmbedding),
     [memories],
   );
 
   const points3D = useMemo(() => {
     if (withEmbeddings.length < 2) return [];
-    const vecs = withEmbeddings.map((m) => m.embedding!);
+    const vecs = withEmbeddings.map((m) => m.embedding);
     return projectTo3D(vecs);
   }, [withEmbeddings]);
 
   // Color palette for types
   const typeColors = useMemo(() => {
     const types = [...new Set(withEmbeddings.map((m) => m.type))];
-    const palette = [0x6699ff, 0xf59e0b, 0x10b981, 0xef4444, 0x8b5cf6, 0xec4899, 0x06b6d4, 0x84cc16];
+    const palette = [
+      0x6699ff, 0xf59e0b, 0x10b981, 0xef4444, 0x8b5cf6, 0xec4899, 0x06b6d4,
+      0x84cc16,
+    ];
     const map: Record<string, number> = {};
     types.forEach((t, i) => {
       map[t] = palette[i % palette.length];
@@ -488,9 +553,12 @@ function VectorGraph3D({
     rendererRef.current = renderer;
 
     // Compute bounds for scaling
-    let minX = Infinity, maxX = -Infinity;
-    let minY = Infinity, maxY = -Infinity;
-    let minZ = Infinity, maxZ = -Infinity;
+    let minX = Infinity,
+      maxX = -Infinity;
+    let minY = Infinity,
+      maxY = -Infinity;
+    let minZ = Infinity,
+      maxZ = -Infinity;
     for (const [x, y, z] of points3D) {
       if (x < minX) minX = x;
       if (x > maxX) maxX = x;
@@ -516,12 +584,16 @@ function VectorGraph3D({
       const [x, y, z] = points3D[i];
       const mem = withEmbeddings[i];
       const color = typeColors[mem.type] ?? 0x6699ff;
-      const material = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.85 });
+      const material = new THREE.MeshBasicMaterial({
+        color,
+        transparent: true,
+        opacity: 0.85,
+      });
       const sphere = new THREE.Mesh(geometry, material);
       sphere.position.set(
         (x - centerX) * scale,
         (y - centerY) * scale,
-        (z - centerZ) * scale
+        (z - centerZ) * scale,
       );
       sphere.userData = { index: i };
       scene.add(sphere);
@@ -538,11 +610,29 @@ function VectorGraph3D({
     const axisLength = 2.5;
     const axisGeom = new THREE.BufferGeometry();
     const axisPositions = new Float32Array([
-      -axisLength, 0, 0, axisLength, 0, 0,  // X axis
-      0, -axisLength, 0, 0, axisLength, 0,  // Y axis
-      0, 0, -axisLength, 0, 0, axisLength,  // Z axis
+      -axisLength,
+      0,
+      0,
+      axisLength,
+      0,
+      0, // X axis
+      0,
+      -axisLength,
+      0,
+      0,
+      axisLength,
+      0, // Y axis
+      0,
+      0,
+      -axisLength,
+      0,
+      0,
+      axisLength, // Z axis
     ]);
-    axisGeom.setAttribute('position', new THREE.BufferAttribute(axisPositions, 3));
+    axisGeom.setAttribute(
+      "position",
+      new THREE.BufferAttribute(axisPositions, 3),
+    );
     const axisMat = new THREE.LineBasicMaterial({ color: 0x444444 });
     const axisLines = new THREE.LineSegments(axisGeom, axisMat);
     scene.add(axisLines);
@@ -586,7 +676,7 @@ function VectorGraph3D({
       const rect = renderer.domElement.getBoundingClientRect();
       const mouse = new THREE.Vector2(
         ((e.clientX - rect.left) / rect.width) * 2 - 1,
-        -((e.clientY - rect.top) / rect.height) * 2 + 1
+        -((e.clientY - rect.top) / rect.height) * 2 + 1,
       );
       const raycaster = new THREE.Raycaster();
       raycaster.setFromCamera(mouse, camera);
@@ -624,7 +714,7 @@ function VectorGraph3D({
       const rect = renderer.domElement.getBoundingClientRect();
       const mouse = new THREE.Vector2(
         ((e.clientX - rect.left) / rect.width) * 2 - 1,
-        -((e.clientY - rect.top) / rect.height) * 2 + 1
+        -((e.clientY - rect.top) / rect.height) * 2 + 1,
       );
       const raycaster = new THREE.Raycaster();
       raycaster.setFromCamera(mouse, camera);
@@ -643,12 +733,12 @@ function VectorGraph3D({
       targetRadius = Math.max(2, Math.min(15, targetRadius));
     };
 
-    renderer.domElement.addEventListener('mousedown', onMouseDown);
-    renderer.domElement.addEventListener('mouseup', onMouseUp);
-    renderer.domElement.addEventListener('mousemove', onMouseMove);
-    renderer.domElement.addEventListener('click', onClick);
-    renderer.domElement.addEventListener('wheel', onWheel, { passive: false });
-    renderer.domElement.addEventListener('mouseleave', () => {
+    renderer.domElement.addEventListener("mousedown", onMouseDown);
+    renderer.domElement.addEventListener("mouseup", onMouseUp);
+    renderer.domElement.addEventListener("mousemove", onMouseMove);
+    renderer.domElement.addEventListener("click", onClick);
+    renderer.domElement.addEventListener("wheel", onWheel, { passive: false });
+    renderer.domElement.addEventListener("mouseleave", () => {
       isDraggingRef.current = false;
       setHoveredIdx(null);
       setTooltipPos(null);
@@ -669,16 +759,16 @@ function VectorGraph3D({
       camera.updateProjectionMatrix();
       renderer.setSize(newW, H);
     };
-    window.addEventListener('resize', handleResize);
+    window.addEventListener("resize", handleResize);
 
     return () => {
       cancelAnimationFrame(animationRef.current);
-      window.removeEventListener('resize', handleResize);
-      renderer.domElement.removeEventListener('mousedown', onMouseDown);
-      renderer.domElement.removeEventListener('mouseup', onMouseUp);
-      renderer.domElement.removeEventListener('mousemove', onMouseMove);
-      renderer.domElement.removeEventListener('click', onClick);
-      renderer.domElement.removeEventListener('wheel', onWheel);
+      window.removeEventListener("resize", handleResize);
+      renderer.domElement.removeEventListener("mousedown", onMouseDown);
+      renderer.domElement.removeEventListener("mouseup", onMouseUp);
+      renderer.domElement.removeEventListener("mousemove", onMouseMove);
+      renderer.domElement.removeEventListener("click", onClick);
+      renderer.domElement.removeEventListener("wheel", onWheel);
       renderer.dispose();
       if (container.contains(renderer.domElement)) {
         container.removeChild(renderer.domElement);
@@ -689,9 +779,12 @@ function VectorGraph3D({
   if (withEmbeddings.length < 2) {
     return (
       <div className="text-center py-16">
-        <div className="text-[var(--muted)] text-sm mb-2">Not enough embeddings for 3D view</div>
+        <div className="text-[var(--muted)] text-sm mb-2">
+          Not enough embeddings for 3D view
+        </div>
         <div className="text-[var(--muted)] text-xs">
-          Need at least 2 memories with embedding data. Found {withEmbeddings.length}.
+          Need at least 2 memories with embedding data. Found{" "}
+          {withEmbeddings.length}.
         </div>
       </div>
     );
@@ -702,7 +795,8 @@ function VectorGraph3D({
   return (
     <div className="relative">
       <div className="text-[11px] text-[var(--muted)] mb-2">
-        {withEmbeddings.length} vectors projected to 3D via PCA — drag to rotate, scroll to zoom, click a node to view details
+        {withEmbeddings.length} vectors projected to 3D via PCA — drag to
+        rotate, scroll to zoom, click a node to view details
       </div>
       <div
         ref={containerRef}
@@ -716,7 +810,7 @@ function VectorGraph3D({
           style={{
             left: tooltipPos.x + 15,
             top: tooltipPos.y + 15,
-            transform: tooltipPos.x > 400 ? 'translateX(-100%)' : undefined,
+            transform: tooltipPos.x > 400 ? "translateX(-100%)" : undefined,
           }}
         >
           <div className="font-medium mb-1 truncate">
@@ -728,23 +822,28 @@ function VectorGraph3D({
             {hoveredMem.id.slice(0, 12)}...
           </div>
           <div className="text-[var(--muted)] line-clamp-3">
-            {hoveredMem.content.slice(0, 150)}{hoveredMem.content.length > 150 ? "..." : ""}
+            {hoveredMem.content.slice(0, 150)}
+            {hoveredMem.content.length > 150 ? "..." : ""}
           </div>
         </div>
       )}
       {/* Legend */}
       <div className="flex flex-wrap gap-3 mt-2 text-[10px]">
-        {Object.entries(typeColors).map(([type, color]) => (
-          type && type !== "undefined" && (
-            <div key={type} className="flex items-center gap-1.5">
-              <div
-                className="w-3 h-3 rounded-full"
-                style={{ backgroundColor: `#${color.toString(16).padStart(6, '0')}` }}
-              />
-              <span className="text-[var(--muted)]">{type}</span>
-            </div>
-          )
-        ))}
+        {Object.entries(typeColors).map(
+          ([type, color]) =>
+            type &&
+            type !== "undefined" && (
+              <div key={type} className="flex items-center gap-1.5">
+                <div
+                  className="w-3 h-3 rounded-full"
+                  style={{
+                    backgroundColor: `#${color.toString(16).padStart(6, "0")}`,
+                  }}
+                />
+                <span className="text-[var(--muted)]">{type}</span>
+              </div>
+            ),
+        )}
       </div>
     </div>
   );
@@ -762,16 +861,26 @@ function MemoryDetailModal({
   return (
     <div
       className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-8"
-      onClick={onClose}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Escape" || e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onClose();
+        }
+      }}
+      role="dialog"
+      aria-modal="true"
     >
-      <div
-        className="bg-[var(--card)] border border-[var(--border)] max-w-[700px] w-full max-h-[90vh] overflow-auto"
-        onClick={(e) => e.stopPropagation()}
-      >
+      <div className="bg-[var(--card)] border border-[var(--border)] max-w-[700px] w-full max-h-[90vh] overflow-auto">
         {/* Header */}
         <div className="flex items-center justify-between p-3 border-b border-[var(--border)]">
-          <div className="text-xs font-medium text-[var(--txt)]">Memory Detail</div>
+          <div className="text-xs font-medium text-[var(--txt)]">
+            Memory Detail
+          </div>
           <button
+            type="button"
             className="text-[var(--muted)] hover:text-[var(--txt)] bg-transparent border-0 cursor-pointer text-lg px-2"
             onClick={onClose}
           >
@@ -781,26 +890,38 @@ function MemoryDetailModal({
 
         {/* Content */}
         <div className="p-4">
-          <div className="text-[11px] text-[var(--muted)] mb-1 uppercase font-bold">Content</div>
+          <div className="text-[11px] text-[var(--muted)] mb-1 uppercase font-bold">
+            Content
+          </div>
           <div className="text-xs text-[var(--txt)] whitespace-pre-wrap break-words mb-4 p-2 bg-[var(--bg)] border border-[var(--border)] max-h-[200px] overflow-auto">
             {memory.content || "(empty)"}
           </div>
 
           {/* Metadata */}
-          <div className="text-[11px] text-[var(--muted)] mb-1 uppercase font-bold">Metadata</div>
+          <div className="text-[11px] text-[var(--muted)] mb-1 uppercase font-bold">
+            Metadata
+          </div>
           <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs mb-4">
             <span className="text-[var(--muted)]">ID</span>
-            <span className="text-[var(--txt)] font-mono truncate">{memory.id || "—"}</span>
+            <span className="text-[var(--txt)] font-mono truncate">
+              {memory.id || "—"}
+            </span>
             <span className="text-[var(--muted)]">Type</span>
             <span className="text-[var(--txt)]">{memory.type || "—"}</span>
             <span className="text-[var(--muted)]">Room</span>
-            <span className="text-[var(--txt)] font-mono truncate">{memory.roomId || "—"}</span>
+            <span className="text-[var(--txt)] font-mono truncate">
+              {memory.roomId || "—"}
+            </span>
             <span className="text-[var(--muted)]">Entity</span>
-            <span className="text-[var(--txt)] font-mono truncate">{memory.entityId || "—"}</span>
+            <span className="text-[var(--txt)] font-mono truncate">
+              {memory.entityId || "—"}
+            </span>
             <span className="text-[var(--muted)]">Created</span>
             <span className="text-[var(--txt)]">{memory.createdAt || "—"}</span>
             <span className="text-[var(--muted)]">Unique</span>
-            <span className="text-[var(--txt)]">{memory.unique ? "Yes" : "No"}</span>
+            <span className="text-[var(--txt)]">
+              {memory.unique ? "Yes" : "No"}
+            </span>
           </div>
 
           {/* Embedding */}
@@ -842,11 +963,17 @@ export function VectorBrowserView() {
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [searchInput, setSearchInput] = useState("");
-  const [selectedMemory, setSelectedMemory] = useState<MemoryRecord | null>(null);
+  const [selectedMemory, setSelectedMemory] = useState<MemoryRecord | null>(
+    null,
+  );
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [graphMemories, setGraphMemories] = useState<MemoryRecord[]>([]);
   const [graphLoading, setGraphLoading] = useState(false);
-  const [stats, setStats] = useState<{ total: number; dimensions: number; uniqueCount: number } | null>(null);
+  const [stats, setStats] = useState<{
+    total: number;
+    dimensions: number;
+    uniqueCount: number;
+  } | null>(null);
 
   // Track whether the `embeddings` table exists for JOIN queries
   const [hasEmbeddingsTable, setHasEmbeddingsTable] = useState(false);
@@ -857,7 +984,12 @@ export function VectorBrowserView() {
       const { tables: allTables } = await client.getDatabaseTables();
       const vectorTables = allTables.filter((t) => {
         const n = t.name.toLowerCase();
-        return n.includes("memor") || n.includes("embed") || n.includes("vector") || n.includes("knowledge");
+        return (
+          n.includes("memor") ||
+          n.includes("embed") ||
+          n.includes("vector") ||
+          n.includes("knowledge")
+        );
       });
       const available = vectorTables.length > 0 ? vectorTables : allTables;
       setTables(available);
@@ -867,8 +999,9 @@ export function VectorBrowserView() {
       setHasEmbeddingsTable(!!embTbl);
 
       if (available.length > 0 && !selectedTable) {
-        const preferred = available.find((t) => t.name.toLowerCase() === "memories")
-          ?? available.find((t) => t.name.toLowerCase().includes("memor"));
+        const preferred =
+          available.find((t) => t.name.toLowerCase() === "memories") ??
+          available.find((t) => t.name.toLowerCase().includes("memor"));
         setSelectedTable(preferred?.name ?? available[0].name);
       }
     } catch (err) {
@@ -883,29 +1016,30 @@ export function VectorBrowserView() {
 
   // Build a SELECT that casts any vector/embedding column to text so the raw
   // driver returns a parseable string instead of a binary blob.
-  const buildSelect = useCallback(
-    async (table: string): Promise<string> => {
-      try {
-        const colResult: QueryResult = await client.executeDatabaseQuery(
-          `SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '${table.replace(/'/g, "''")}' AND table_schema NOT IN ('pg_catalog','information_schema') ORDER BY ordinal_position`,
-        );
-        const cols = colResult.rows.map((r) => {
-          const name = String(r.column_name);
-          const dtype = String(r.data_type).toLowerCase();
-          // Cast USER-DEFINED types (pgvector) and bytea to text
-          if (dtype === "user-defined" || dtype === "bytea" || dtype === "vector") {
-            return `"${name}"::text AS "${name}"`;
-          }
-          return `"${name}"`;
-        });
-        if (cols.length > 0) return cols.join(", ");
-      } catch {
-        // fall through to SELECT *
-      }
-      return "*";
-    },
-    [],
-  );
+  const buildSelect = useCallback(async (table: string): Promise<string> => {
+    try {
+      const colResult: QueryResult = await client.executeDatabaseQuery(
+        `SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '${table.replace(/'/g, "''")}' AND table_schema NOT IN ('pg_catalog','information_schema') ORDER BY ordinal_position`,
+      );
+      const cols = colResult.rows.map((r) => {
+        const name = String(r.column_name);
+        const dtype = String(r.data_type).toLowerCase();
+        // Cast USER-DEFINED types (pgvector) and bytea to text
+        if (
+          dtype === "user-defined" ||
+          dtype === "bytea" ||
+          dtype === "vector"
+        ) {
+          return `"${name}"::text AS "${name}"`;
+        }
+        return `"${name}"`;
+      });
+      if (cols.length > 0) return cols.join(", ");
+    } catch {
+      // fall through to SELECT *
+    }
+    return "*";
+  }, []);
 
   /**
    * Build a query that JOINs memories with the embeddings table when applicable.
@@ -919,7 +1053,9 @@ export function VectorBrowserView() {
 
       if (isMemories) {
         // Build dim column selects with ::text cast
-        const dimCols = DIM_COLUMNS.map((d) => `e."${d}"::text AS "${d}"`).join(", ");
+        const dimCols = DIM_COLUMNS.map((d) => `e."${d}"::text AS "${d}"`).join(
+          ", ",
+        );
         return [
           `SELECT m.*, ${dimCols}`,
           `FROM "memories" m`,
@@ -928,7 +1064,9 @@ export function VectorBrowserView() {
           `ORDER BY m."created_at" DESC`,
           `LIMIT ${limit}`,
           offset ? `OFFSET ${offset}` : "",
-        ].filter(Boolean).join(" ");
+        ]
+          .filter(Boolean)
+          .join(" ");
       }
 
       // For other tables, use buildSelect to cast any vector columns
@@ -945,7 +1083,9 @@ export function VectorBrowserView() {
     try {
       const offset = page * PAGE_SIZE;
       const searchEscaped = search.replace(/'/g, "''");
-      const countWhere = search ? ` WHERE "content"::text LIKE '%${searchEscaped}%'` : "";
+      const countWhere = search
+        ? ` WHERE "content"::text LIKE '%${searchEscaped}%'`
+        : "";
       const joinWhere = search
         ? `m."content"::text LIKE '%${searchEscaped}%'`
         : undefined;
@@ -957,14 +1097,20 @@ export function VectorBrowserView() {
       setTotalCount(total);
 
       // Try JOIN path for memories + embeddings
-      const joinSql = buildJoinQuery({ where: joinWhere, limit: PAGE_SIZE, offset });
+      const joinSql = buildJoinQuery({
+        where: joinWhere,
+        limit: PAGE_SIZE,
+        offset,
+      });
       let result: QueryResult;
 
       if (joinSql) {
         result = await client.executeDatabaseQuery(joinSql);
       } else {
         const selectCols = await buildSelect(selectedTable);
-        const plainWhere = search ? ` WHERE "content"::text LIKE '%${searchEscaped}%'` : "";
+        const plainWhere = search
+          ? ` WHERE "content"::text LIKE '%${searchEscaped}%'`
+          : "";
         result = await client.executeDatabaseQuery(
           `SELECT ${selectCols} FROM "${selectedTable}"${plainWhere} LIMIT ${PAGE_SIZE} OFFSET ${offset}`,
         );
@@ -993,10 +1139,12 @@ export function VectorBrowserView() {
         setStats({ total, dimensions: dims, uniqueCount });
       }
     } catch (err) {
-      setError(`Failed to load memories: ${err instanceof Error ? err.message : "error"}`);
+      setError(
+        `Failed to load memories: ${err instanceof Error ? err.message : "error"}`,
+      );
     }
     setLoading(false);
-  }, [selectedTable, page, search, buildSelect, buildJoinQuery, hasEmbeddingsTable]);
+  }, [selectedTable, page, search, buildSelect, buildJoinQuery]);
 
   // Load embeddings for graph view (fetch more rows to make graph useful)
   // Only include rows that actually have embeddings (INNER JOIN or filter).
@@ -1009,7 +1157,9 @@ export function VectorBrowserView() {
 
       if (isMemories) {
         // INNER JOIN ensures only rows with embeddings are returned
-        const dimCols = DIM_COLUMNS.map((d) => `e."${d}"::text AS "${d}"`).join(", ");
+        const dimCols = DIM_COLUMNS.map((d) => `e."${d}"::text AS "${d}"`).join(
+          ", ",
+        );
         result = await client.executeDatabaseQuery(
           `SELECT m.*, ${dimCols} FROM "memories" m INNER JOIN "embeddings" e ON e."memory_id" = m."id" ORDER BY m."created_at" DESC LIMIT 500`,
         );
@@ -1021,7 +1171,9 @@ export function VectorBrowserView() {
       }
       setGraphMemories(result.rows.map(rowToMemory));
     } catch (err) {
-      setError(`Failed to load graph data: ${err instanceof Error ? err.message : "error"}`);
+      setError(
+        `Failed to load graph data: ${err instanceof Error ? err.message : "error"}`,
+      );
     }
     setGraphLoading(false);
   }, [selectedTable, buildSelect, hasEmbeddingsTable]);
@@ -1054,106 +1206,124 @@ export function VectorBrowserView() {
       {stats && !isConnectionError && (
         <div className="flex gap-4 mb-4 text-[11px] text-[var(--muted)]">
           <span>{Number(stats.total).toLocaleString()} memories</span>
-          {Number(stats.uniqueCount) > 0 && <span>{Number(stats.uniqueCount).toLocaleString()} unique</span>}
-          {Number(stats.dimensions) > 0 && <span>{stats.dimensions} dimensions</span>}
+          {Number(stats.uniqueCount) > 0 && (
+            <span>{Number(stats.uniqueCount).toLocaleString()} unique</span>
+          )}
+          {Number(stats.dimensions) > 0 && (
+            <span>{stats.dimensions} dimensions</span>
+          )}
         </div>
       )}
 
       {/* Toolbar - hide when not connected */}
       {!isConnectionError && (
-      <div className="flex flex-wrap items-center gap-3 mb-4">
-        {viewMode === "list" && (
-          <div className="flex gap-1">
-            <input
-              type="text"
-              placeholder="Search content..."
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-              className="px-2.5 py-1.5 border border-[var(--border)] bg-[var(--card)] text-[var(--txt)] text-xs w-[220px]"
-            />
-            <button
-              className="px-3 py-1.5 text-xs bg-[var(--accent)] text-[var(--accent-foreground)] border border-[var(--accent)] cursor-pointer hover:opacity-80"
-              onClick={handleSearch}
+        <div className="flex flex-wrap items-center gap-3 mb-4">
+          {viewMode === "list" && (
+            <div className="flex gap-1">
+              <input
+                type="text"
+                placeholder="Search content..."
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                className="px-2.5 py-1.5 border border-[var(--border)] bg-[var(--card)] text-[var(--txt)] text-xs w-[220px]"
+              />
+              <button
+                type="button"
+                className="px-3 py-1.5 text-xs bg-[var(--accent)] text-[var(--accent-foreground)] border border-[var(--accent)] cursor-pointer hover:opacity-80"
+                onClick={handleSearch}
+              >
+                Search
+              </button>
+            </div>
+          )}
+
+          {tables.length > 1 && (
+            <select
+              value={selectedTable}
+              onChange={(e) => {
+                setSelectedTable(e.target.value);
+                setPage(0);
+                setSearch("");
+                setSearchInput("");
+              }}
+              className="px-2 py-1.5 border border-[var(--border)] bg-[var(--card)] text-[var(--txt)] text-xs"
             >
-              Search
+              {tables.map((t) => (
+                <option key={t.name} value={t.name}>
+                  {t.name} (
+                  {typeof t.rowCount === "object"
+                    ? JSON.stringify(t.rowCount)
+                    : t.rowCount}
+                  )
+                </option>
+              ))}
+            </select>
+          )}
+
+          {/* View mode toggle */}
+          <div className="flex gap-1 ml-auto">
+            <button
+              type="button"
+              className={`px-3 py-1.5 text-xs cursor-pointer border transition-colors ${
+                viewMode === "list"
+                  ? "bg-[var(--accent)] text-[var(--accent-foreground)] border-[var(--accent)]"
+                  : "bg-transparent text-[var(--muted)] border-[var(--border)] hover:text-[var(--txt)]"
+              }`}
+              onClick={() => setViewMode("list")}
+            >
+              List
+            </button>
+            <button
+              type="button"
+              className={`px-3 py-1.5 text-xs cursor-pointer border transition-colors ${
+                viewMode === "graph"
+                  ? "bg-[var(--accent)] text-[var(--accent-foreground)] border-[var(--accent)]"
+                  : "bg-transparent text-[var(--muted)] border-[var(--border)] hover:text-[var(--txt)]"
+              }`}
+              onClick={() => setViewMode("graph")}
+            >
+              2D
+            </button>
+            <button
+              type="button"
+              className={`px-3 py-1.5 text-xs cursor-pointer border transition-colors ${
+                viewMode === "3d"
+                  ? "bg-[var(--accent)] text-[var(--accent-foreground)] border-[var(--accent)]"
+                  : "bg-transparent text-[var(--muted)] border-[var(--border)] hover:text-[var(--txt)]"
+              }`}
+              onClick={() => setViewMode("3d")}
+            >
+              3D
             </button>
           </div>
-        )}
 
-        {tables.length > 1 && (
-          <select
-            value={selectedTable}
-            onChange={(e) => {
-              setSelectedTable(e.target.value);
-              setPage(0);
-              setSearch("");
-              setSearchInput("");
-            }}
-            className="px-2 py-1.5 border border-[var(--border)] bg-[var(--card)] text-[var(--txt)] text-xs"
-          >
-            {tables.map((t) => (
-              <option key={t.name} value={t.name}>
-                {t.name} ({typeof t.rowCount === 'object' ? JSON.stringify(t.rowCount) : t.rowCount})
-              </option>
-            ))}
-          </select>
-        )}
-
-        {/* View mode toggle */}
-        <div className="flex gap-1 ml-auto">
-          <button
-            className={`px-3 py-1.5 text-xs cursor-pointer border transition-colors ${
-              viewMode === "list"
-                ? "bg-[var(--accent)] text-[var(--accent-foreground)] border-[var(--accent)]"
-                : "bg-transparent text-[var(--muted)] border-[var(--border)] hover:text-[var(--txt)]"
-            }`}
-            onClick={() => setViewMode("list")}
-          >
-            List
-          </button>
-          <button
-            className={`px-3 py-1.5 text-xs cursor-pointer border transition-colors ${
-              viewMode === "graph"
-                ? "bg-[var(--accent)] text-[var(--accent-foreground)] border-[var(--accent)]"
-                : "bg-transparent text-[var(--muted)] border-[var(--border)] hover:text-[var(--txt)]"
-            }`}
-            onClick={() => setViewMode("graph")}
-          >
-            2D
-          </button>
-          <button
-            className={`px-3 py-1.5 text-xs cursor-pointer border transition-colors ${
-              viewMode === "3d"
-                ? "bg-[var(--accent)] text-[var(--accent-foreground)] border-[var(--accent)]"
-                : "bg-transparent text-[var(--muted)] border-[var(--border)] hover:text-[var(--txt)]"
-            }`}
-            onClick={() => setViewMode("3d")}
-          >
-            3D
-          </button>
+          {viewMode === "list" && (
+            <span className="text-[11px] text-[var(--muted)]">
+              {Number(totalCount) > 0
+                ? `${page * PAGE_SIZE + 1}-${Math.min((page + 1) * PAGE_SIZE, Number(totalCount))} of ${Number(totalCount).toLocaleString()}`
+                : ""}
+            </span>
+          )}
         </div>
-
-        {viewMode === "list" && (
-          <span className="text-[11px] text-[var(--muted)]">
-            {Number(totalCount) > 0
-              ? `${page * PAGE_SIZE + 1}-${Math.min((page + 1) * PAGE_SIZE, Number(totalCount))} of ${Number(totalCount).toLocaleString()}`
-              : ""}
-          </span>
-        )}
-      </div>
       )}
 
-      {error && (
-        error.includes("agent is running") ? (
+      {error &&
+        (error.includes("agent is running") ? (
           <div className="text-center py-16">
-            <div className="text-[var(--muted)] text-sm mb-2">Database not available</div>
+            <div className="text-[var(--muted)] text-sm mb-2">
+              Database not available
+            </div>
             <div className="text-[var(--muted)] text-xs mb-4">
               Start the agent to browse vector embeddings.
             </div>
             <button
+              type="button"
               className="px-3 py-1.5 text-xs bg-[var(--accent)] text-[var(--accent-foreground)] border border-[var(--accent)] cursor-pointer hover:opacity-80"
-              onClick={() => { setError(""); loadTables(); }}
+              onClick={() => {
+                setError("");
+                loadTables();
+              }}
             >
               Retry Connection
             </button>
@@ -1162,34 +1332,42 @@ export function VectorBrowserView() {
           <div className="p-2.5 border border-[var(--danger)] text-[var(--danger)] text-xs mb-3">
             {error}
           </div>
-        )
-      )}
+        ))}
 
       {/* 2D Graph view */}
-      {viewMode === "graph" && (
-        graphLoading ? (
-          <div className="text-center py-16 text-[var(--muted)] text-sm italic">Loading embeddings...</div>
+      {viewMode === "graph" &&
+        (graphLoading ? (
+          <div className="text-center py-16 text-[var(--muted)] text-sm italic">
+            Loading embeddings...
+          </div>
         ) : (
           <VectorGraph memories={graphMemories} onSelect={setSelectedMemory} />
-        )
-      )}
+        ))}
 
       {/* 3D Graph view */}
-      {viewMode === "3d" && (
-        graphLoading ? (
-          <div className="text-center py-16 text-[var(--muted)] text-sm italic">Loading embeddings...</div>
+      {viewMode === "3d" &&
+        (graphLoading ? (
+          <div className="text-center py-16 text-[var(--muted)] text-sm italic">
+            Loading embeddings...
+          </div>
         ) : (
-          <VectorGraph3D memories={graphMemories} onSelect={setSelectedMemory} />
-        )
-      )}
+          <VectorGraph3D
+            memories={graphMemories}
+            onSelect={setSelectedMemory}
+          />
+        ))}
 
       {/* List view */}
-      {viewMode === "list" && (
-        loading ? (
-          <div className="text-center py-16 text-[var(--muted)] text-sm italic">Loading memories...</div>
+      {viewMode === "list" &&
+        (loading ? (
+          <div className="text-center py-16 text-[var(--muted)] text-sm italic">
+            Loading memories...
+          </div>
         ) : memories.length === 0 ? (
           <div className="text-center py-16">
-            <div className="text-[var(--muted)] text-sm mb-2">No memories found</div>
+            <div className="text-[var(--muted)] text-sm mb-2">
+              No memories found
+            </div>
             <div className="text-[var(--muted)] text-xs">
               {search
                 ? "No records match your search query."
@@ -1200,13 +1378,16 @@ export function VectorBrowserView() {
           <div className="flex flex-col gap-2">
             {memories.map((mem) => (
               <button
+                type="button"
                 key={mem.id || `${mem.content.slice(0, 30)}-${mem.createdAt}`}
                 className="border border-[var(--border)] bg-[var(--card)] p-3 cursor-pointer text-left hover:border-[var(--accent)] transition-colors w-full"
                 onClick={() => setSelectedMemory(mem)}
               >
                 {/* Content preview */}
                 <div className="text-xs text-[var(--txt)] mb-2 whitespace-pre-wrap break-words">
-                  {mem.content.length > 200 ? `${mem.content.slice(0, 200)}...` : mem.content}
+                  {mem.content.length > 200
+                    ? `${mem.content.slice(0, 200)}...`
+                    : mem.content}
                 </div>
 
                 {/* Metadata row */}
@@ -1226,24 +1407,24 @@ export function VectorBrowserView() {
                     <span>{mem.createdAt}</span>
                   )}
                   {mem.unique && (
-                    <span className="px-1.5 py-0.5 bg-green-500/20 text-green-400 font-bold">unique</span>
+                    <span className="px-1.5 py-0.5 bg-green-500/20 text-green-400 font-bold">
+                      unique
+                    </span>
                   )}
                   {mem.embedding && (
-                    <span className="font-mono">
-                      [{mem.embedding.length}d]
-                    </span>
+                    <span className="font-mono">[{mem.embedding.length}d]</span>
                   )}
                 </div>
               </button>
             ))}
           </div>
-        )
-      )}
+        ))}
 
       {/* Pagination (list view only) */}
       {viewMode === "list" && totalPages > 1 && (
         <div className="flex items-center justify-center gap-3 mt-4 pb-4">
           <button
+            type="button"
             className="px-3 py-1.5 text-xs bg-[var(--accent)] text-[var(--accent-foreground)] border border-[var(--accent)] cursor-pointer hover:opacity-80 disabled:opacity-40 disabled:cursor-default"
             disabled={page === 0}
             onClick={() => setPage((p) => p - 1)}
@@ -1254,6 +1435,7 @@ export function VectorBrowserView() {
             Page {page + 1} of {totalPages}
           </span>
           <button
+            type="button"
             className="px-3 py-1.5 text-xs bg-[var(--accent)] text-[var(--accent-foreground)] border border-[var(--accent)] cursor-pointer hover:opacity-80 disabled:opacity-40 disabled:cursor-default"
             disabled={page >= totalPages - 1}
             onClick={() => setPage((p) => p + 1)}

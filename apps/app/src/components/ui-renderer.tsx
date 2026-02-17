@@ -10,18 +10,24 @@
  *   - Event bindings via on.press / on.change
  */
 
-import React, { useState, useCallback, useMemo, createContext, useContext } from "react";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+} from "react";
+import { getByPath, setByPath } from "./config-catalog";
 import type {
-  UiSpec,
+  AuthState,
+  CondExpr,
+  UiAction,
   UiElement,
   UiRenderContext,
-  UiAction,
-  CondExpr,
-  VisibilityCondition,
-  AuthState,
+  UiSpec,
   ValidationCheck,
+  VisibilityCondition,
 } from "./ui-spec";
-import { getByPath, setByPath } from "./config-catalog";
 
 // ── Context ─────────────────────────────────────────────────────────
 
@@ -48,7 +54,10 @@ function resolveProp(value: unknown, ctx: UiRenderContext): unknown {
   }
 
   // $path reference
-  if (typeof value === "object" && "$path" in (value as Record<string, unknown>)) {
+  if (
+    typeof value === "object" &&
+    "$path" in (value as Record<string, unknown>)
+  ) {
     const path = (value as { $path: string }).$path;
     if (path.startsWith("$item/") && ctx.repeatItem) {
       return ctx.repeatItem[path.slice(6)];
@@ -57,7 +66,10 @@ function resolveProp(value: unknown, ctx: UiRenderContext): unknown {
   }
 
   // $cond expression
-  if (typeof value === "object" && "$cond" in (value as Record<string, unknown>)) {
+  if (
+    typeof value === "object" &&
+    "$cond" in (value as Record<string, unknown>)
+  ) {
     const expr = value as CondExpr;
     const cond = expr.$cond;
     let result = false;
@@ -86,7 +98,11 @@ function resolveProp(value: unknown, ctx: UiRenderContext): unknown {
   }
 
   // Object with path references
-  if (typeof value === "object" && value !== null && "path" in (value as Record<string, unknown>)) {
+  if (
+    typeof value === "object" &&
+    value !== null &&
+    "path" in (value as Record<string, unknown>)
+  ) {
     const p = (value as { path: string }).path;
     if (p.startsWith("$item/") && ctx.repeatItem) {
       return ctx.repeatItem[p.slice(6)];
@@ -97,7 +113,10 @@ function resolveProp(value: unknown, ctx: UiRenderContext): unknown {
   return value;
 }
 
-function resolveProps(props: Record<string, unknown>, ctx: UiRenderContext): Record<string, unknown> {
+function resolveProps(
+  props: Record<string, unknown>,
+  ctx: UiRenderContext,
+): Record<string, unknown> {
   const resolved: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(props)) {
     resolved[k] = resolveProp(v, ctx);
@@ -119,13 +138,20 @@ export function evaluateUiVisibility(
     const val = getByPath(state, condition.path);
     const target = condition.value;
     switch (condition.operator) {
-      case "eq": return val === target;
-      case "ne": return val !== target;
-      case "gt": return Number(val) > Number(target);
-      case "gte": return Number(val) >= Number(target);
-      case "lt": return Number(val) < Number(target);
-      case "lte": return Number(val) <= Number(target);
-      default: return true;
+      case "eq":
+        return val === target;
+      case "ne":
+        return val !== target;
+      case "gt":
+        return Number(val) > Number(target);
+      case "gte":
+        return Number(val) >= Number(target);
+      case "lt":
+        return Number(val) < Number(target);
+      case "lte":
+        return Number(val) <= Number(target);
+      default:
+        return true;
     }
   }
 
@@ -133,31 +159,47 @@ export function evaluateUiVisibility(
   if ("auth" in condition) {
     if (!auth) return false;
     switch (condition.auth) {
-      case "signedIn": return auth.isSignedIn;
-      case "signedOut": return !auth.isSignedIn;
-      case "admin": return auth.roles?.includes("admin") ?? false;
-      default: return auth.roles?.includes(condition.auth) ?? false;
+      case "signedIn":
+        return auth.isSignedIn;
+      case "signedOut":
+        return !auth.isSignedIn;
+      case "admin":
+        return auth.roles?.includes("admin") ?? false;
+      default:
+        return auth.roles?.includes(condition.auth) ?? false;
     }
   }
 
   // Logic combinators
-  if ("and" in condition) return condition.and.every((c) => evaluateUiVisibility(c, state, auth));
-  if ("or" in condition) return condition.or.some((c) => evaluateUiVisibility(c, state, auth));
-  if ("not" in condition) return !evaluateUiVisibility(condition.not, state, auth);
+  if ("and" in condition)
+    return condition.and.every((c) => evaluateUiVisibility(c, state, auth));
+  if ("or" in condition)
+    return condition.or.some((c) => evaluateUiVisibility(c, state, auth));
+  if ("not" in condition)
+    return !evaluateUiVisibility(condition.not, state, auth);
 
   return true;
 }
 
 // ── Built-in validators ─────────────────────────────────────────────
 
-const BUILTIN_VALIDATORS: Record<string, (value: unknown, args?: Record<string, unknown>) => boolean> = {
+const BUILTIN_VALIDATORS: Record<
+  string,
+  (value: unknown, args?: Record<string, unknown>) => boolean
+> = {
   required: (v) => v != null && v !== "",
   email: (v) => typeof v === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v),
-  minLength: (v, args) => typeof v === "string" && v.length >= Number(args?.length ?? 0),
-  maxLength: (v, args) => typeof v === "string" && v.length <= Number(args?.length ?? Infinity),
+  minLength: (v, args) =>
+    typeof v === "string" && v.length >= Number(args?.length ?? 0),
+  maxLength: (v, args) =>
+    typeof v === "string" && v.length <= Number(args?.length ?? Infinity),
   pattern: (v, args) => {
     if (typeof v !== "string" || !args?.pattern) return true;
-    try { return new RegExp(String(args.pattern)).test(v); } catch { return true; }
+    try {
+      return new RegExp(String(args.pattern)).test(v);
+    } catch {
+      return true;
+    }
   },
   min: (v, args) => Number(v) >= Number(args?.value ?? -Infinity),
   max: (v, args) => Number(v) <= Number(args?.value ?? Infinity),
@@ -168,7 +210,13 @@ const BUILTIN_VALIDATORS: Record<string, (value: unknown, args?: Record<string, 
 export function runValidation(
   checks: ValidationCheck[],
   value: unknown,
-  customValidators?: Record<string, (value: unknown, args?: Record<string, unknown>) => boolean | Promise<boolean>>,
+  customValidators?: Record<
+    string,
+    (
+      value: unknown,
+      args?: Record<string, unknown>,
+    ) => boolean | Promise<boolean>
+  >,
 ): string[] {
   const errors: string[] = [];
   for (const check of checks) {
@@ -210,9 +258,11 @@ function fireEvent(action: UiAction | undefined, ctx: UiRenderContext) {
     } else if (ctx.onAction) {
       try {
         ctx.onAction(action.action, action.params);
-        if (action.onSuccess) ctx.onAction(action.onSuccess.action, action.onSuccess.params);
+        if (action.onSuccess)
+          ctx.onAction(action.onSuccess.action, action.onSuccess.params);
       } catch {
-        if (action.onError && ctx.onAction) ctx.onAction(action.onError.action, action.onError.params);
+        if (action.onError && ctx.onAction)
+          ctx.onAction(action.onError.action, action.onError.params);
       }
     }
   };
@@ -221,7 +271,7 @@ function fireEvent(action: UiAction | undefined, ctx: UiRenderContext) {
     const ok = window.confirm(
       action.confirm.message
         ? `${action.confirm.title}\n\n${action.confirm.message}`
-        : action.confirm.title
+        : action.confirm.title,
     );
     if (ok) execute();
   } else {
@@ -264,7 +314,12 @@ const INPUT_CLS =
 // COMPONENT REGISTRY
 // ══════════════════════════════════════════════════════════════════════
 
-type ComponentFn = (props: Record<string, unknown>, children: React.ReactNode, ctx: UiRenderContext, el: UiElement) => React.ReactNode;
+type ComponentFn = (
+  props: Record<string, unknown>,
+  children: React.ReactNode,
+  ctx: UiRenderContext,
+  el: UiElement,
+) => React.ReactNode;
 
 // ── Layout ──────────────────────────────────────────────────────────
 
@@ -273,14 +328,19 @@ const StackComponent: ComponentFn = (props, children) => {
   const gap = GAP[String(props.gap ?? "md")] ?? "gap-3";
   const align = ALIGN[String(props.align ?? "stretch")] ?? "";
   const justify = JUSTIFY[String(props.justify ?? "start")] ?? "";
-  return <div className={`flex ${dir} ${gap} ${align} ${justify}`}>{children}</div>;
+  return (
+    <div className={`flex ${dir} ${gap} ${align} ${justify}`}>{children}</div>
+  );
 };
 
 const GridComponent: ComponentFn = (props, children) => {
   const cols = Number(props.columns ?? 2);
   const gap = GAP[String(props.gap ?? "md")] ?? "gap-3";
   return (
-    <div className={`grid ${gap}`} style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
+    <div
+      className={`grid ${gap}`}
+      style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}
+    >
       {children}
     </div>
   );
@@ -289,10 +349,16 @@ const GridComponent: ComponentFn = (props, children) => {
 const CardComponent: ComponentFn = (props, children) => {
   const maxW = props.maxWidth === "full" ? "max-w-full" : "";
   return (
-    <div className={`border border-[var(--border)] bg-[var(--card)] p-4 ${maxW}`}>
-      {props.title ? <div className="font-bold text-sm mb-0.5">{String(props.title)}</div> : null}
+    <div
+      className={`border border-[var(--border)] bg-[var(--card)] p-4 ${maxW}`}
+    >
+      {props.title ? (
+        <div className="font-bold text-sm mb-0.5">{String(props.title)}</div>
+      ) : null}
       {props.description ? (
-        <div className="text-xs text-[var(--muted)] mb-3">{String(props.description)}</div>
+        <div className="text-xs text-[var(--muted)] mb-3">
+          {String(props.description)}
+        </div>
       ) : null}
       {children}
     </div>
@@ -338,14 +404,18 @@ const TextComponent: ComponentFn = (props) => {
 // ── Form ────────────────────────────────────────────────────────────
 
 const InputComponent: ComponentFn = (props, _children, ctx, el) => {
-  const [value, setValue] = useStatePath(props.statePath as string | undefined, ctx);
+  const [value, setValue] = useStatePath(
+    props.statePath as string | undefined,
+    ctx,
+  );
   const sp = props.statePath as string | undefined;
   const errors = sp ? ctx.fieldErrors?.[sp] : undefined;
   const validateOn = el.validation?.validateOn ?? "blur";
 
   const handleChange = (v: string) => {
     setValue(v);
-    if (validateOn === "change" && sp && ctx.validateField) ctx.validateField(sp);
+    if (validateOn === "change" && sp && ctx.validateField)
+      ctx.validateField(sp);
   };
   const handleBlur = () => {
     if (validateOn === "blur" && sp && ctx.validateField) ctx.validateField(sp);
@@ -353,7 +423,9 @@ const InputComponent: ComponentFn = (props, _children, ctx, el) => {
 
   return (
     <div className="flex flex-col gap-1">
-      {props.label ? <label className="text-xs font-semibold">{String(props.label)}</label> : null}
+      {props.label ? (
+        <span className="text-xs font-semibold">{String(props.label)}</span>
+      ) : null}
       <input
         className={`${INPUT_CLS}${errors?.length ? " border-[var(--destructive)]" : ""}`}
         type={String(props.type ?? "text")}
@@ -365,8 +437,10 @@ const InputComponent: ComponentFn = (props, _children, ctx, el) => {
       />
       {errors?.length ? (
         <div className="flex flex-col gap-0.5">
-          {errors.map((err, i) => (
-            <span key={i} className="text-[10px] text-[var(--destructive)]">{err}</span>
+          {errors.map((err) => (
+            <span key={err} className="text-[10px] text-[var(--destructive)]">
+              {err}
+            </span>
           ))}
         </div>
       ) : null}
@@ -375,14 +449,18 @@ const InputComponent: ComponentFn = (props, _children, ctx, el) => {
 };
 
 const TextareaComponent: ComponentFn = (props, _children, ctx, el) => {
-  const [value, setValue] = useStatePath(props.statePath as string | undefined, ctx);
+  const [value, setValue] = useStatePath(
+    props.statePath as string | undefined,
+    ctx,
+  );
   const sp = props.statePath as string | undefined;
   const errors = sp ? ctx.fieldErrors?.[sp] : undefined;
   const validateOn = el.validation?.validateOn ?? "blur";
 
   const handleChange = (v: string) => {
     setValue(v);
-    if (validateOn === "change" && sp && ctx.validateField) ctx.validateField(sp);
+    if (validateOn === "change" && sp && ctx.validateField)
+      ctx.validateField(sp);
   };
   const handleBlur = () => {
     if (validateOn === "blur" && sp && ctx.validateField) ctx.validateField(sp);
@@ -390,7 +468,9 @@ const TextareaComponent: ComponentFn = (props, _children, ctx, el) => {
 
   return (
     <div className="flex flex-col gap-1">
-      {props.label ? <label className="text-xs font-semibold">{String(props.label)}</label> : null}
+      {props.label ? (
+        <span className="text-xs font-semibold">{String(props.label)}</span>
+      ) : null}
       <textarea
         className={`w-full px-2 py-[5px] border border-[var(--border)] bg-[var(--card)] text-xs font-[var(--mono)] transition-colors focus:border-[var(--accent)] focus:outline-none box-border min-h-[64px] resize-y${errors?.length ? " border-[var(--destructive)]" : ""}`}
         name={String(props.name ?? "")}
@@ -402,8 +482,10 @@ const TextareaComponent: ComponentFn = (props, _children, ctx, el) => {
       />
       {errors?.length ? (
         <div className="flex flex-col gap-0.5">
-          {errors.map((err, i) => (
-            <span key={i} className="text-[10px] text-[var(--destructive)]">{err}</span>
+          {errors.map((err) => (
+            <span key={err} className="text-[10px] text-[var(--destructive)]">
+              {err}
+            </span>
           ))}
         </div>
       ) : null}
@@ -412,15 +494,20 @@ const TextareaComponent: ComponentFn = (props, _children, ctx, el) => {
 };
 
 const SelectComponent: ComponentFn = (props, _children, ctx, el) => {
-  const [value, setValue] = useStatePath(props.statePath as string | undefined, ctx);
-  const options = (props.options as Array<{ label: string; value: string }>) ?? [];
+  const [value, setValue] = useStatePath(
+    props.statePath as string | undefined,
+    ctx,
+  );
+  const options =
+    (props.options as Array<{ label: string; value: string }>) ?? [];
   const sp = props.statePath as string | undefined;
   const errors = sp ? ctx.fieldErrors?.[sp] : undefined;
   const validateOn = el.validation?.validateOn ?? "blur";
 
   const handleChange = (v: string) => {
     setValue(v);
-    if (validateOn === "change" && sp && ctx.validateField) ctx.validateField(sp);
+    if (validateOn === "change" && sp && ctx.validateField)
+      ctx.validateField(sp);
   };
   const handleBlur = () => {
     if (validateOn === "blur" && sp && ctx.validateField) ctx.validateField(sp);
@@ -428,22 +515,30 @@ const SelectComponent: ComponentFn = (props, _children, ctx, el) => {
 
   return (
     <div className="flex flex-col gap-1">
-      {props.label ? <label className="text-xs font-semibold">{String(props.label)}</label> : null}
+      {props.label ? (
+        <span className="text-xs font-semibold">{String(props.label)}</span>
+      ) : null}
       <select
         className={`${INPUT_CLS} appearance-auto${errors?.length ? " border-[var(--destructive)]" : ""}`}
         value={String(value ?? "")}
         onChange={(e) => handleChange(e.target.value)}
         onBlur={handleBlur}
       >
-        {props.placeholder ? <option value="">{String(props.placeholder)}</option> : null}
+        {props.placeholder ? (
+          <option value="">{String(props.placeholder)}</option>
+        ) : null}
         {options.map((o) => (
-          <option key={o.value} value={o.value}>{o.label}</option>
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
         ))}
       </select>
       {errors?.length ? (
         <div className="flex flex-col gap-0.5">
-          {errors.map((err, i) => (
-            <span key={i} className="text-[10px] text-[var(--destructive)]">{err}</span>
+          {errors.map((err) => (
+            <span key={err} className="text-[10px] text-[var(--destructive)]">
+              {err}
+            </span>
           ))}
         </div>
       ) : null}
@@ -452,27 +547,41 @@ const SelectComponent: ComponentFn = (props, _children, ctx, el) => {
 };
 
 const CheckboxComponent: ComponentFn = (props, _children, ctx) => {
-  const [value, setValue] = useStatePath(props.statePath as string | undefined, ctx);
+  const [value, setValue] = useStatePath(
+    props.statePath as string | undefined,
+    ctx,
+  );
   return (
-    <label className="flex items-center gap-2 text-xs cursor-pointer">
+    <span className="flex items-center gap-2 text-xs cursor-pointer">
       <input
         type="checkbox"
         checked={!!value}
         onChange={(e) => setValue(e.target.checked)}
       />
       <span className="font-semibold">{String(props.label ?? "")}</span>
-    </label>
+    </span>
   );
 };
 
 const RadioComponent: ComponentFn = (props, _children, ctx) => {
-  const [value, setValue] = useStatePath(props.statePath as string | undefined, ctx);
-  const options = (props.options as Array<{ label: string; value: string }>) ?? [];
+  const [value, setValue] = useStatePath(
+    props.statePath as string | undefined,
+    ctx,
+  );
+  const options =
+    (props.options as Array<{ label: string; value: string }>) ?? [];
   return (
     <div className="flex flex-col gap-1">
-      {props.label ? <label className="text-xs font-semibold mb-0.5">{String(props.label)}</label> : null}
+      {props.label ? (
+        <span className="text-xs font-semibold mb-0.5">
+          {String(props.label)}
+        </span>
+      ) : null}
       {options.map((o) => (
-        <label key={o.value} className="flex items-center gap-2 text-xs cursor-pointer">
+        <span
+          key={o.value}
+          className="flex items-center gap-2 text-xs cursor-pointer"
+        >
           <input
             type="radio"
             name={String(props.name ?? "")}
@@ -481,37 +590,47 @@ const RadioComponent: ComponentFn = (props, _children, ctx) => {
             onChange={() => setValue(o.value)}
           />
           <span>{o.label}</span>
-        </label>
+        </span>
       ))}
     </div>
   );
 };
 
 const SwitchComponent: ComponentFn = (props, _children, ctx) => {
-  const [value, setValue] = useStatePath(props.statePath as string | undefined, ctx);
+  const [value, setValue] = useStatePath(
+    props.statePath as string | undefined,
+    ctx,
+  );
   const checked = !!value;
   return (
-    <label className="flex items-center gap-2 cursor-pointer">
+    <span className="flex items-center gap-2 cursor-pointer">
       <button
         type="button"
         className={`relative w-9 h-[18px] transition-colors ${checked ? "bg-[var(--accent)]" : "bg-[var(--muted)]"}`}
         onClick={() => setValue(!checked)}
       >
-        <div className={`absolute top-0.5 w-[14px] h-[14px] bg-white transition-all ${checked ? "left-5" : "left-0.5"}`} />
+        <div
+          className={`absolute top-0.5 w-[14px] h-[14px] bg-white transition-all ${checked ? "left-5" : "left-0.5"}`}
+        />
       </button>
       <span className="text-xs font-semibold">{String(props.label ?? "")}</span>
-    </label>
+    </span>
   );
 };
 
 const SliderComponent: ComponentFn = (props, _children, ctx) => {
-  const [value, setValue] = useStatePath(props.statePath as string | undefined, ctx);
+  const [value, setValue] = useStatePath(
+    props.statePath as string | undefined,
+    ctx,
+  );
   return (
     <div className="flex flex-col gap-1">
       {props.label ? (
         <div className="flex justify-between text-xs">
           <span className="font-semibold">{String(props.label)}</span>
-          <span className="text-[var(--muted)]">{String(value ?? props.min ?? 0)}</span>
+          <span className="text-[var(--muted)]">
+            {String(value ?? props.min ?? 0)}
+          </span>
         </div>
       ) : null}
       <input
@@ -528,7 +647,10 @@ const SliderComponent: ComponentFn = (props, _children, ctx) => {
 };
 
 const ToggleComponent: ComponentFn = (props, _children, ctx, el) => {
-  const [value, setValue] = useStatePath(props.statePath as string | undefined, ctx);
+  const [value, setValue] = useStatePath(
+    props.statePath as string | undefined,
+    ctx,
+  );
   const pressed = !!value;
   return (
     <button
@@ -549,7 +671,10 @@ const ToggleComponent: ComponentFn = (props, _children, ctx, el) => {
 };
 
 const ToggleGroupComponent: ComponentFn = (props, _children, ctx) => {
-  const [value, setValue] = useStatePath(props.statePath as string | undefined, ctx);
+  const [value, setValue] = useStatePath(
+    props.statePath as string | undefined,
+    ctx,
+  );
   const items = (props.items as Array<{ label: string; value: string }>) ?? [];
   const isMultiple = props.type === "multiple";
   const selected = new Set(Array.isArray(value) ? (value as string[]) : []);
@@ -568,7 +693,9 @@ const ToggleGroupComponent: ComponentFn = (props, _children, ctx) => {
   return (
     <div className="flex gap-1">
       {items.map((item) => {
-        const active = isMultiple ? selected.has(item.value) : value === item.value;
+        const active = isMultiple
+          ? selected.has(item.value)
+          : value === item.value;
         return (
           <button
             key={item.value}
@@ -589,8 +716,12 @@ const ToggleGroupComponent: ComponentFn = (props, _children, ctx) => {
 };
 
 const ButtonGroupComponent: ComponentFn = (props, _children, ctx) => {
-  const [value, setValue] = useStatePath(props.statePath as string | undefined, ctx);
-  const buttons = (props.buttons as Array<{ label: string; value: string }>) ?? [];
+  const [value, setValue] = useStatePath(
+    props.statePath as string | undefined,
+    ctx,
+  );
+  const buttons =
+    (props.buttons as Array<{ label: string; value: string }>) ?? [];
   return (
     <div className="flex gap-1">
       {buttons.map((btn) => {
@@ -622,7 +753,9 @@ const TableComponent: ComponentFn = (props) => {
   return (
     <div className="overflow-x-auto">
       {props.caption ? (
-        <div className="text-xs font-semibold mb-1.5">{String(props.caption)}</div>
+        <div className="text-xs font-semibold mb-1.5">
+          {String(props.caption)}
+        </div>
       ) : null}
       <table className="w-full text-xs border-collapse">
         <thead>
@@ -638,10 +771,13 @@ const TableComponent: ComponentFn = (props) => {
           </tr>
         </thead>
         <tbody>
-          {rows.map((row, i) => (
-            <tr key={i} className="border-b border-[var(--border)] last:border-b-0">
-              {row.map((cell, j) => (
-                <td key={j} className="px-2.5 py-1.5">
+          {rows.map((row) => (
+            <tr
+              key={row.join("|")}
+              className="border-b border-[var(--border)] last:border-b-0"
+            >
+              {row.map((cell) => (
+                <td key={cell} className="px-2.5 py-1.5">
                   {cell}
                 </td>
               ))}
@@ -654,7 +790,8 @@ const TableComponent: ComponentFn = (props) => {
 };
 
 const CarouselComponent: ComponentFn = (props) => {
-  const items = (props.items as Array<{ title: string; description: string }>) ?? [];
+  const items =
+    (props.items as Array<{ title: string; description: string }>) ?? [];
   const [current, setCurrent] = useState(0);
   return (
     <div className="relative">
@@ -662,7 +799,9 @@ const CarouselComponent: ComponentFn = (props) => {
         {items[current] && (
           <div>
             <div className="text-xs font-bold">{items[current].title}</div>
-            <div className="text-xs text-[var(--muted)] mt-0.5">{items[current].description}</div>
+            <div className="text-xs text-[var(--muted)] mt-0.5">
+              {items[current].description}
+            </div>
           </div>
         )}
       </div>
@@ -696,12 +835,16 @@ const BadgeComponent: ComponentFn = (props) => {
   const cls: Record<string, string> = {
     default: "bg-[var(--surface)] text-[var(--text)] border-[var(--border)]",
     success: "bg-[rgba(22,163,106,0.1)] text-[var(--ok)] border-[var(--ok)]",
-    warning: "bg-[rgba(243,156,18,0.1)] text-[var(--warn,#f39c12)] border-[var(--warn,#f39c12)]",
-    error: "bg-[rgba(231,76,60,0.1)] text-[var(--destructive)] border-[var(--destructive)]",
+    warning:
+      "bg-[rgba(243,156,18,0.1)] text-[var(--warn,#f39c12)] border-[var(--warn,#f39c12)]",
+    error:
+      "bg-[rgba(231,76,60,0.1)] text-[var(--destructive)] border-[var(--destructive)]",
     info: "bg-[rgba(52,152,219,0.1)] text-[var(--accent)] border-[var(--accent)]",
   };
   return (
-    <span className={`inline-block text-[10px] font-medium px-2 py-0.5 border ${cls[variant] ?? cls.default}`}>
+    <span
+      className={`inline-block text-[10px] font-medium px-2 py-0.5 border ${cls[variant] ?? cls.default}`}
+    >
       {String(props.text ?? "")}
     </span>
   );
@@ -709,7 +852,12 @@ const BadgeComponent: ComponentFn = (props) => {
 
 const AvatarComponent: ComponentFn = (props) => {
   const name = String(props.name ?? "?");
-  const size = props.size === "lg" ? "w-10 h-10 text-sm" : props.size === "sm" ? "w-6 h-6 text-[10px]" : "w-8 h-8 text-xs";
+  const size =
+    props.size === "lg"
+      ? "w-10 h-10 text-sm"
+      : props.size === "sm"
+        ? "w-6 h-6 text-[10px]"
+        : "w-8 h-8 text-xs";
   const initials = name
     .split(" ")
     .map((w) => w[0])
@@ -717,7 +865,9 @@ const AvatarComponent: ComponentFn = (props) => {
     .slice(0, 2)
     .toUpperCase();
   return (
-    <div className={`${size} rounded-full bg-[var(--accent)] text-[var(--accent-foreground,#fff)] flex items-center justify-center font-bold shrink-0`}>
+    <div
+      className={`${size} rounded-full bg-[var(--accent)] text-[var(--accent-foreground,#fff)] flex items-center justify-center font-bold shrink-0`}
+    >
       {initials}
     </div>
   );
@@ -729,7 +879,12 @@ const ImageComponent: ComponentFn = (props) => {
   const w = props.width ? `${props.width}px` : "auto";
   const h = props.height ? `${props.height}px` : "auto";
   return src ? (
-    <img src={src} alt={alt} style={{ width: w, height: h }} className="object-cover border border-[var(--border)]" />
+    <img
+      src={src}
+      alt={alt}
+      style={{ width: w, height: h }}
+      className="object-cover border border-[var(--border)]"
+    />
   ) : (
     <div
       className="bg-[var(--bg-hover)] border border-[var(--border)] flex items-center justify-center text-xs text-[var(--muted)]"
@@ -757,9 +912,19 @@ const AlertComponent: ComponentFn = (props) => {
     error: "text-[var(--destructive)]",
   };
   return (
-    <div className={`border-l-[3px] ${borderCls[type] ?? ""} bg-[var(--bg-hover)] px-3 py-2`}>
-      {props.title ? <div className={`text-xs font-bold ${textCls[type] ?? ""}`}>{String(props.title)}</div> : null}
-      {props.message ? <div className="text-xs text-[var(--text)] mt-0.5">{String(props.message)}</div> : null}
+    <div
+      className={`border-l-[3px] ${borderCls[type] ?? ""} bg-[var(--bg-hover)] px-3 py-2`}
+    >
+      {props.title ? (
+        <div className={`text-xs font-bold ${textCls[type] ?? ""}`}>
+          {String(props.title)}
+        </div>
+      ) : null}
+      {props.message ? (
+        <div className="text-xs text-[var(--text)] mt-0.5">
+          {String(props.message)}
+        </div>
+      ) : null}
     </div>
   );
 };
@@ -791,10 +956,15 @@ const RatingComponent: ComponentFn = (props) => {
   const max = Number(props.max ?? 5);
   return (
     <div className="flex flex-col gap-1">
-      {props.label ? <div className="text-xs font-semibold">{String(props.label)}</div> : null}
+      {props.label ? (
+        <div className="text-xs font-semibold">{String(props.label)}</div>
+      ) : null}
       <div className="flex gap-0.5">
-        {Array.from({ length: max }, (_, i) => (
-          <span key={i} className={`text-sm ${i < value ? "text-[var(--warn,#f39c12)]" : "text-[var(--muted)] opacity-30"}`}>
+        {Array.from({ length: max }, (_, i) => i + 1).map((starValue) => (
+          <span
+            key={starValue}
+            className={`text-sm ${starValue <= value ? "text-[var(--warn,#f39c12)]" : "text-[var(--muted)] opacity-30"}`}
+          >
             ★
           </span>
         ))}
@@ -816,11 +986,22 @@ const SkeletonComponent: ComponentFn = (props) => {
 };
 
 const SpinnerComponent: ComponentFn = (props) => {
-  const size = props.size === "lg" ? "w-8 h-8" : props.size === "sm" ? "w-4 h-4" : "w-6 h-6";
+  const size =
+    props.size === "lg"
+      ? "w-8 h-8"
+      : props.size === "sm"
+        ? "w-4 h-4"
+        : "w-6 h-6";
   return (
     <div className="flex items-center gap-2">
-      <div className={`${size} border-2 border-[var(--border)] border-t-[var(--accent)] rounded-full animate-spin`} />
-      {props.label ? <span className="text-xs text-[var(--muted)]">{String(props.label)}</span> : null}
+      <div
+        className={`${size} border-2 border-[var(--border)] border-t-[var(--accent)] rounded-full animate-spin`}
+      />
+      {props.label ? (
+        <span className="text-xs text-[var(--muted)]">
+          {String(props.label)}
+        </span>
+      ) : null}
     </div>
   );
 };
@@ -830,10 +1011,14 @@ const SpinnerComponent: ComponentFn = (props) => {
 const ButtonComponent: ComponentFn = (props, _children, ctx, el) => {
   const variant = String(props.variant ?? "primary");
   const cls: Record<string, string> = {
-    primary: "bg-[var(--accent)] text-[var(--accent-foreground,#fff)] border-[var(--accent)] hover:opacity-90",
-    secondary: "bg-[var(--card)] text-[var(--text)] border-[var(--border)] hover:bg-[var(--bg-hover)]",
-    danger: "bg-[var(--destructive)] text-white border-[var(--destructive)] hover:opacity-90",
-    ghost: "bg-transparent text-[var(--text)] border-transparent hover:bg-[var(--bg-hover)]",
+    primary:
+      "bg-[var(--accent)] text-[var(--accent-foreground,#fff)] border-[var(--accent)] hover:opacity-90",
+    secondary:
+      "bg-[var(--card)] text-[var(--text)] border-[var(--border)] hover:bg-[var(--bg-hover)]",
+    danger:
+      "bg-[var(--destructive)] text-white border-[var(--destructive)] hover:opacity-90",
+    ghost:
+      "bg-transparent text-[var(--text)] border-transparent hover:bg-[var(--bg-hover)]",
   };
   return (
     <button
@@ -887,7 +1072,11 @@ const DropdownMenuComponent: ComponentFn = (props, _children, ctx) => {
               className="block w-full text-left px-3 py-1.5 text-xs hover:bg-[var(--bg-hover)] cursor-pointer"
               onClick={() => {
                 setOpen(false);
-                if (ctx.onAction) ctx.onAction("menuSelect", { value: item.value, label: item.label });
+                if (ctx.onAction)
+                  ctx.onAction("menuSelect", {
+                    value: item.value,
+                    label: item.label,
+                  });
               }}
             >
               {item.label}
@@ -900,8 +1089,13 @@ const DropdownMenuComponent: ComponentFn = (props, _children, ctx) => {
 };
 
 const TabsComponent: ComponentFn = (props, _children, ctx) => {
-  const tabs = (props.tabs as Array<{ label: string; value: string; content: string }>) ?? [];
-  const [value, setValue] = useStatePath(props.statePath as string | undefined, ctx);
+  const tabs =
+    (props.tabs as Array<{ label: string; value: string; content: string }>) ??
+    [];
+  const [value, setValue] = useStatePath(
+    props.statePath as string | undefined,
+    ctx,
+  );
   const active = String(value ?? props.defaultValue ?? tabs[0]?.value ?? "");
   const activeTab = tabs.find((t) => t.value === active);
   return (
@@ -922,16 +1116,17 @@ const TabsComponent: ComponentFn = (props, _children, ctx) => {
           </button>
         ))}
       </div>
-      {activeTab && (
-        <div className="py-3 text-xs">{activeTab.content}</div>
-      )}
+      {activeTab && <div className="py-3 text-xs">{activeTab.content}</div>}
     </div>
   );
 };
 
 const PaginationComponent: ComponentFn = (props, _children, ctx) => {
   const total = Number(props.totalPages ?? 1);
-  const [value, setValue] = useStatePath(props.statePath as string | undefined, ctx);
+  const [value, setValue] = useStatePath(
+    props.statePath as string | undefined,
+    ctx,
+  );
   const current = Number(value ?? 1);
   return (
     <div className="flex items-center gap-1">
@@ -943,18 +1138,18 @@ const PaginationComponent: ComponentFn = (props, _children, ctx) => {
       >
         &larr;
       </button>
-      {Array.from({ length: total }, (_, i) => (
+      {Array.from({ length: total }, (_, i) => i + 1).map((page) => (
         <button
-          key={i + 1}
+          key={page}
           type="button"
           className={`px-2 py-1 text-xs border cursor-pointer ${
-            i + 1 === current
+            page === current
               ? "bg-[var(--accent)] text-[var(--accent-foreground,#fff)] border-[var(--accent)]"
               : "border-[var(--border)] bg-[var(--card)] hover:bg-[var(--bg-hover)]"
           }`}
-          onClick={() => setValue(i + 1)}
+          onClick={() => setValue(page)}
         >
-          {i + 1}
+          {page}
         </button>
       ))}
       <button
@@ -976,16 +1171,23 @@ const BarGraphComponent: ComponentFn = (props) => {
   const maxVal = Math.max(...data.map((d) => d.value), 1);
   return (
     <div>
-      {props.title ? <div className="text-xs font-bold mb-2">{String(props.title)}</div> : null}
+      {props.title ? (
+        <div className="text-xs font-bold mb-2">{String(props.title)}</div>
+      ) : null}
       <div className="flex items-end gap-2 h-[100px]">
         {data.map((d) => (
-          <div key={d.label} className="flex-1 flex flex-col items-center gap-0.5">
+          <div
+            key={d.label}
+            className="flex-1 flex flex-col items-center gap-0.5"
+          >
             <div className="text-[9px] text-[var(--muted)]">{d.value}</div>
             <div
               className="w-full bg-[var(--accent)] transition-all duration-300 min-h-[2px]"
               style={{ height: `${(d.value / maxVal) * 80}px` }}
             />
-            <div className="text-[9px] text-[var(--muted)] truncate max-w-full">{d.label}</div>
+            <div className="text-[9px] text-[var(--muted)] truncate max-w-full">
+              {d.label}
+            </div>
           </div>
         ))}
       </div>
@@ -1002,17 +1204,46 @@ const LineGraphComponent: ComponentFn = (props) => {
     x: (i / Math.max(data.length - 1, 1)) * w,
     y: h - (d.value / maxVal) * h,
   }));
-  const pathD = points.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ");
+  const pathD = points
+    .map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`)
+    .join(" ");
   return (
     <div>
-      {props.title ? <div className="text-xs font-bold mb-2">{String(props.title)}</div> : null}
-      <svg viewBox={`0 0 ${w} ${h + 20}`} className="w-full h-[100px]" preserveAspectRatio="none">
-        <path d={pathD} fill="none" stroke="var(--accent)" strokeWidth="2" vectorEffect="non-scaling-stroke" />
-        {points.map((p, i) => (
-          <circle key={i} cx={p.x} cy={p.y} r="3" fill="var(--accent)" vectorEffect="non-scaling-stroke" />
+      {props.title ? (
+        <div className="text-xs font-bold mb-2">{String(props.title)}</div>
+      ) : null}
+      <svg
+        viewBox={`0 0 ${w} ${h + 20}`}
+        className="w-full h-[100px]"
+        preserveAspectRatio="none"
+      >
+        <title>{String(props.title ?? "Line graph")}</title>
+        <path
+          d={pathD}
+          fill="none"
+          stroke="var(--accent)"
+          strokeWidth="2"
+          vectorEffect="non-scaling-stroke"
+        />
+        {points.map((p) => (
+          <circle
+            key={`${p.x}:${p.y}`}
+            cx={p.x}
+            cy={p.y}
+            r="3"
+            fill="var(--accent)"
+            vectorEffect="non-scaling-stroke"
+          />
         ))}
         {data.map((d, i) => (
-          <text key={i} x={points[i].x} y={h + 14} textAnchor="middle" fontSize="8" fill="var(--muted)">
+          <text
+            key={`${d.label}:${d.value}`}
+            x={points[i].x}
+            y={h + 14}
+            textAnchor="middle"
+            fontSize="8"
+            fill="var(--muted)"
+          >
             {d.label}
           </text>
         ))}
@@ -1026,14 +1257,24 @@ const LineGraphComponent: ComponentFn = (props) => {
 const TooltipComponent: ComponentFn = (props) => {
   const [show, setShow] = useState(false);
   return (
-    <div className="relative inline-block" onMouseEnter={() => setShow(true)} onMouseLeave={() => setShow(false)}>
-      <span className="text-xs text-[var(--accent)] underline cursor-help">{String(props.text ?? "Hover")}</span>
+    <button
+      type="button"
+      className="relative inline-block"
+      onMouseEnter={() => setShow(true)}
+      onMouseLeave={() => setShow(false)}
+      onFocus={() => setShow(true)}
+      onBlur={() => setShow(false)}
+      onClick={() => setShow((prev) => !prev)}
+    >
+      <span className="text-xs text-[var(--accent)] underline cursor-help">
+        {String(props.text ?? "Hover")}
+      </span>
       {show && (
         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 text-[10px] bg-[var(--text)] text-[var(--card)] whitespace-nowrap z-10">
           {String(props.content ?? "")}
         </div>
       )}
-    </div>
+    </button>
   );
 };
 
@@ -1073,7 +1314,10 @@ const CollapsibleComponent: ComponentFn = (props, children) => {
         className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold cursor-pointer hover:bg-[var(--bg-hover)] transition-colors"
         onClick={() => setOpen(!open)}
       >
-        <span className="text-[10px] transition-transform" style={{ transform: open ? "rotate(90deg)" : "none" }}>
+        <span
+          className="text-[10px] transition-transform"
+          style={{ transform: open ? "rotate(90deg)" : "none" }}
+        >
           &#9654;
         </span>
         {String(props.title ?? "Collapsible")}
@@ -1084,7 +1328,8 @@ const CollapsibleComponent: ComponentFn = (props, children) => {
 };
 
 const AccordionComponent: ComponentFn = (props) => {
-  const items = (props.items as Array<{ title: string; content: string }>) ?? [];
+  const items =
+    (props.items as Array<{ title: string; content: string }>) ?? [];
   const isSingle = props.type === "single";
   const [openSet, setOpenSet] = useState<Set<number>>(new Set());
 
@@ -1100,18 +1345,23 @@ const AccordionComponent: ComponentFn = (props) => {
   return (
     <div className="border border-[var(--border)] divide-y divide-[var(--border)]">
       {items.map((item, i) => (
-        <div key={i}>
+        <div key={`${item.title}:${item.content}`}>
           <button
             type="button"
             className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold cursor-pointer hover:bg-[var(--bg-hover)]"
             onClick={() => toggle(i)}
           >
-            <span className="text-[10px] transition-transform" style={{ transform: openSet.has(i) ? "rotate(90deg)" : "none" }}>
+            <span
+              className="text-[10px] transition-transform"
+              style={{ transform: openSet.has(i) ? "rotate(90deg)" : "none" }}
+            >
               &#9654;
             </span>
             {item.title}
           </button>
-          {openSet.has(i) && <div className="px-3 pb-3 text-xs">{item.content}</div>}
+          {openSet.has(i) && (
+            <div className="px-3 pb-3 text-xs">{item.content}</div>
+          )}
         </div>
       ))}
     </div>
@@ -1126,14 +1376,37 @@ const DialogComponent: ComponentFn = (props, children, ctx) => {
     if (openPath) ctx.setState(openPath, false);
   };
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={(e) => { if (e.target === e.currentTarget) close(); }}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) close();
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Escape" || e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          close();
+        }
+      }}
+      role="dialog"
+      aria-modal="true"
+    >
       <div className="w-full max-w-md border border-[var(--border)] bg-[var(--card)] p-5 shadow-lg">
         <div className="flex items-center justify-between mb-3">
           <div>
-            {props.title ? <div className="font-bold text-sm">{String(props.title)}</div> : null}
-            {props.description ? <div className="text-xs text-[var(--muted)] mt-0.5">{String(props.description)}</div> : null}
+            {props.title ? (
+              <div className="font-bold text-sm">{String(props.title)}</div>
+            ) : null}
+            {props.description ? (
+              <div className="text-xs text-[var(--muted)] mt-0.5">
+                {String(props.description)}
+              </div>
+            ) : null}
           </div>
-          <button className="text-[var(--muted)] hover:text-[var(--text)] text-lg leading-none px-1 cursor-pointer" onClick={close}>
+          <button
+            type="button"
+            className="text-[var(--muted)] hover:text-[var(--text)] text-lg leading-none px-1 cursor-pointer"
+            onClick={close}
+          >
             &times;
           </button>
         </div>
@@ -1151,11 +1424,30 @@ const DrawerComponent: ComponentFn = (props, children, ctx) => {
     if (openPath) ctx.setState(openPath, false);
   };
   return (
-    <div className="fixed inset-0 z-50 flex items-end bg-black/50" onClick={(e) => { if (e.target === e.currentTarget) close(); }}>
+    <div
+      className="fixed inset-0 z-50 flex items-end bg-black/50"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) close();
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Escape" || e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          close();
+        }
+      }}
+      role="dialog"
+      aria-modal="true"
+    >
       <div className="w-full max-h-[80vh] border-t border-[var(--border)] bg-[var(--card)] p-5 shadow-lg overflow-y-auto animate-[slide-up_200ms_ease]">
         <div className="w-10 h-1 bg-[var(--border)] mx-auto mb-3 rounded-full" />
-        {props.title ? <div className="font-bold text-sm">{String(props.title)}</div> : null}
-        {props.description ? <div className="text-xs text-[var(--muted)] mt-0.5 mb-3">{String(props.description)}</div> : null}
+        {props.title ? (
+          <div className="font-bold text-sm">{String(props.title)}</div>
+        ) : null}
+        {props.description ? (
+          <div className="text-xs text-[var(--muted)] mt-0.5 mb-3">
+            {String(props.description)}
+          </div>
+        ) : null}
         {children}
       </div>
     </div>
@@ -1241,7 +1533,9 @@ function ElementRenderer({ elementId }: { elementId: string }) {
 
   // Handle repeat / list rendering
   if (el.repeat) {
-    const listData = getByPath(ctx.state, el.repeat.path) as Array<Record<string, unknown>> | undefined;
+    const listData = getByPath(ctx.state, el.repeat.path) as
+      | Array<Record<string, unknown>>
+      | undefined;
     if (!Array.isArray(listData)) return null;
 
     return (
@@ -1253,10 +1547,10 @@ function ElementRenderer({ elementId }: { elementId: string }) {
               <ElementRenderer elementId={childId} />
             </UiContext.Provider>
           ));
-          const itemKey = String(item[el.repeat!.key] ?? Math.random());
+          const itemKey = String(item[el.repeat?.key] ?? Math.random());
           return (
             <React.Fragment key={itemKey}>
-              {component(resolvedProps, <>{childNodes}</>, itemCtx, el)}
+              {component(resolvedProps, childNodes, itemCtx, el)}
             </React.Fragment>
           );
         })}
@@ -1269,7 +1563,7 @@ function ElementRenderer({ elementId }: { elementId: string }) {
     <ElementRenderer key={childId} elementId={childId} />
   ));
 
-  return <>{component(resolvedProps, <>{childNodes}</>, ctx, el)}</>;
+  return <>{component(resolvedProps, childNodes, ctx, el)}</>;
 }
 
 // ══════════════════════════════════════════════════════════════════════
@@ -1281,11 +1575,25 @@ export interface UiRendererProps {
   onAction?: (action: string, params?: Record<string, unknown>) => void;
   loading?: boolean;
   auth?: AuthState;
-  validators?: Record<string, (value: unknown, args?: Record<string, unknown>) => boolean | Promise<boolean>>;
+  validators?: Record<
+    string,
+    (
+      value: unknown,
+      args?: Record<string, unknown>,
+    ) => boolean | Promise<boolean>
+  >;
 }
 
-export function UiRenderer({ spec, onAction, loading, auth, validators }: UiRendererProps) {
-  const [state, setStateRaw] = useState<Record<string, unknown>>(() => ({ ...spec.state }));
+export function UiRenderer({
+  spec,
+  onAction,
+  loading,
+  auth,
+  validators,
+}: UiRendererProps) {
+  const [state, setStateRaw] = useState<Record<string, unknown>>(() => ({
+    ...spec.state,
+  }));
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
 
   const setState = useCallback((path: string, value: unknown) => {
@@ -1312,8 +1620,28 @@ export function UiRenderer({ spec, onAction, loading, auth, validators }: UiRend
   );
 
   const ctx = useMemo<UiRenderContext>(
-    () => ({ spec, state, setState, onAction, auth, loading, validators, fieldErrors, validateField }),
-    [spec, state, setState, onAction, auth, loading, validators, fieldErrors, validateField],
+    () => ({
+      spec,
+      state,
+      setState,
+      onAction,
+      auth,
+      loading,
+      validators,
+      fieldErrors,
+      validateField,
+    }),
+    [
+      spec,
+      state,
+      setState,
+      onAction,
+      auth,
+      loading,
+      validators,
+      fieldErrors,
+      validateField,
+    ],
   );
 
   // Loading skeleton when no elements

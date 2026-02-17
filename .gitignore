@@ -5,7 +5,6 @@ dist
 coverage
 tmp/
 apps/app/electron/build/
-.pnpm-store
 .bun
 .DS_Store
 **/.DS_Store
@@ -16,7 +15,6 @@ apps/app/electron/build/
 
 # Lock files (managed at repo root)
 package-lock.json
-pnpm-lock.yaml
 bun.lock
 bun.lockb
 !deploy/cloud-agent-template/package-lock.json
@@ -31,9 +29,6 @@ apps/ui/test-results/
 
 # Vendored repos (clone separately if needed)
 vendor/
-
-# Local plugin development (ejected/custom plugins live outside repo)
-plugins/
 
 # Local untracked files
 .local/
@@ -53,7 +48,12 @@ milady-workspace/
 
 # Temporary capture files
 temp_capture_*.jpg
+knip_output*.txt
 src/benchmark/mock-plugin.ts
+biome-report.json
+
+# Local audit outputs
+report/
 
 # Agent learning docs & knowledge base
 knowledge/
@@ -61,4 +61,3 @@ scripts/knowledge-loop.mjs
 test/contracts/
 apps/app/test-results/
 :memory:/
-eliza/

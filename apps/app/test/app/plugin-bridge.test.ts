@@ -1,7 +1,7 @@
 /**
  * Tests for plugin-bridge — capabilities detection and feature flags on web platform.
  */
-import { describe, it, expect, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@milady/capacitor-gateway", () => ({ Gateway: {} }));
 vi.mock("@milady/capacitor-swabble", () => ({ Swabble: {} }));
@@ -11,10 +11,17 @@ vi.mock("@milady/capacitor-location", () => ({ Location: {} }));
 vi.mock("@milady/capacitor-screencapture", () => ({ ScreenCapture: {} }));
 vi.mock("@milady/capacitor-canvas", () => ({ Canvas: {} }));
 vi.mock("@milady/capacitor-desktop", () => ({ Desktop: {} }));
+
 import {
   getPluginCapabilities,
+  isAndroid,
+  isElectron,
   isFeatureAvailable,
-  platform, isNative, isIOS, isAndroid, isElectron, isWeb, isMacOS,
+  isIOS,
+  isMacOS,
+  isNative,
+  isWeb,
+  platform,
 } from "../../src/bridge/plugin-bridge";
 
 describe("plugin-bridge", () => {
@@ -36,7 +43,13 @@ describe("plugin-bridge", () => {
     const caps = getPluginCapabilities();
 
     it("gateway: available with websocket, no discovery", () => {
-      expect(caps.gateway).toEqual(expect.objectContaining({ available: true, websocket: true, discovery: false }));
+      expect(caps.gateway).toEqual(
+        expect.objectContaining({
+          available: true,
+          websocket: true,
+          discovery: false,
+        }),
+      );
     });
 
     it("canvas: always available", () => {
@@ -44,7 +57,12 @@ describe("plugin-bridge", () => {
     });
 
     it("desktop: unavailable on web", () => {
-      expect(caps.desktop).toEqual({ available: false, tray: false, shortcuts: false, menu: false });
+      expect(caps.desktop).toEqual({
+        available: false,
+        tray: false,
+        shortcuts: false,
+        menu: false,
+      });
     });
 
     it("location: no GPS or background on web", () => {
@@ -53,7 +71,16 @@ describe("plugin-bridge", () => {
     });
 
     it("has all expected capability groups", () => {
-      for (const key of ["gateway", "voiceWake", "talkMode", "camera", "location", "screenCapture", "canvas", "desktop"]) {
+      for (const key of [
+        "gateway",
+        "voiceWake",
+        "talkMode",
+        "camera",
+        "location",
+        "screenCapture",
+        "canvas",
+        "desktop",
+      ]) {
         expect(caps).toHaveProperty(key);
       }
     });
@@ -73,10 +100,18 @@ describe("plugin-bridge", () => {
 
     it("returns boolean for all known features", () => {
       const features = [
-        "gatewayDiscovery", "voiceWake", "talkMode", "elevenlabs",
-        "camera", "location", "backgroundLocation", "screenCapture", "desktopTray",
+        "gatewayDiscovery",
+        "voiceWake",
+        "talkMode",
+        "elevenlabs",
+        "camera",
+        "location",
+        "backgroundLocation",
+        "screenCapture",
+        "desktopTray",
       ] as const;
-      for (const f of features) expect(typeof isFeatureAvailable(f)).toBe("boolean");
+      for (const f of features)
+        expect(typeof isFeatureAvailable(f)).toBe("boolean");
     });
   });
 });

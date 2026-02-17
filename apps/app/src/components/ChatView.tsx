@@ -7,15 +7,18 @@
  */
 
 import {
-  useRef,
-  useEffect,
-  useCallback,
-  useState,
   type KeyboardEvent,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
 } from "react";
 import { getVrmPreviewUrl, useApp } from "../AppContext";
-import { useVoiceChat, type VoicePlaybackStartEvent } from "../hooks/useVoiceChat";
 import { client, type VoiceConfig } from "../api-client";
+import {
+  useVoiceChat,
+  type VoicePlaybackStartEvent,
+} from "../hooks/useVoiceChat";
 import { MessageContent } from "./MessageContent";
 
 function nowMs(): number {
@@ -73,6 +76,10 @@ export function ChatView() {
 
   // Keep chat voice config synchronized when Settings/Character voice is saved.
   useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
     const handler = (event: Event) => {
       const detail = (event as CustomEvent<VoiceConfig | undefined>).detail;
       if (detail && typeof detail === "object") {
@@ -83,7 +90,8 @@ export function ChatView() {
     };
 
     window.addEventListener("milady:voice-config-updated", handler);
-    return () => window.removeEventListener("milady:voice-config-updated", handler);
+    return () =>
+      window.removeEventListener("milady:voice-config-updated", handler);
   }, [loadVoiceConfig]);
 
   // ── Voice chat ────────────────────────────────────────────────────
@@ -111,30 +119,36 @@ export function ChatView() {
       };
       setVoiceLatency(null);
       setState("chatInput", text);
-      setTimeout(() => void handleChatSend(chatMode), 50);
+      setTimeout(() => void handleChatSend("VOICE_DM"), 50);
     },
-    [chatMode, chatSending, setState, handleChatSend],
+    [chatSending, setState, handleChatSend],
   );
 
-  const handleVoicePlaybackStart = useCallback((event: VoicePlaybackStartEvent) => {
-    const pending = pendingVoiceTurnRef.current;
-    if (!pending) return;
-    if (event.startedAtMs > pending.expiresAtMs) {
-      pendingVoiceTurnRef.current = null;
-      return;
-    }
-    if (pending.voiceStartedAtMs != null) return;
+  const handleVoicePlaybackStart = useCallback(
+    (event: VoicePlaybackStartEvent) => {
+      const pending = pendingVoiceTurnRef.current;
+      if (!pending) return;
+      if (event.startedAtMs > pending.expiresAtMs) {
+        pendingVoiceTurnRef.current = null;
+        return;
+      }
+      if (pending.voiceStartedAtMs != null) return;
 
-    pending.voiceStartedAtMs = event.startedAtMs;
-    pending.firstSegmentCached = event.cached;
+      pending.voiceStartedAtMs = event.startedAtMs;
+      pending.firstSegmentCached = event.cached;
 
-    const silenceMs = Math.max(0, Math.round(event.startedAtMs - pending.speechEndedAtMs));
-    setVoiceLatency((prev) => ({
-      speechEndToFirstTokenMs: prev?.speechEndToFirstTokenMs ?? null,
-      speechEndToVoiceStartMs: silenceMs,
-      firstSegmentCached: event.cached,
-    }));
-  }, []);
+      const silenceMs = Math.max(
+        0,
+        Math.round(event.startedAtMs - pending.speechEndedAtMs),
+      );
+      setVoiceLatency((prev) => ({
+        speechEndToFirstTokenMs: prev?.speechEndToFirstTokenMs ?? null,
+        speechEndToVoiceStartMs: silenceMs,
+        firstSegmentCached: event.cached,
+      }));
+    },
+    [],
+  );
 
   const voice = useVoiceChat({
     onTranscript: handleVoiceTranscript,
@@ -154,7 +168,8 @@ export function ChatView() {
         !msg.text.trim()
       ),
   );
-  const agentAvatarSrc = selectedVrmIndex > 0 ? getVrmPreviewUrl(selectedVrmIndex) : null;
+  const agentAvatarSrc =
+    selectedVrmIndex > 0 ? getVrmPreviewUrl(selectedVrmIndex) : null;
   const agentInitial = agentName.trim().charAt(0).toUpperCase() || "A";
 
   useEffect(() => {
@@ -174,7 +189,10 @@ export function ChatView() {
   }, [agentVoiceMuted, stopSpeaking]);
 
   useEffect(() => {
-    setState("chatAvatarSpeaking", voice.isSpeaking && !voice.usingAudioAnalysis);
+    setState(
+      "chatAvatarSpeaking",
+      voice.isSpeaking && !voice.usingAudioAnalysis,
+    );
     return () => {
       setState("chatAvatarSpeaking", false);
     };
@@ -191,7 +209,10 @@ export function ChatView() {
 
     const firstTokenAtMs = nowMs();
     pending.firstTokenAtMs = firstTokenAtMs;
-    const ttftMs = Math.max(0, Math.round(firstTokenAtMs - pending.speechEndedAtMs));
+    const ttftMs = Math.max(
+      0,
+      Math.round(firstTokenAtMs - pending.speechEndedAtMs),
+    );
 
     setVoiceLatency((prev) => ({
       speechEndToFirstTokenMs: ttftMs,
@@ -206,14 +227,14 @@ export function ChatView() {
     if (nowMs() > pending.expiresAtMs) {
       pendingVoiceTurnRef.current = null;
     }
-  }, [chatSending, msgs]);
+  }, []);
 
   // Smooth auto-scroll while streaming and on new messages.
   useEffect(() => {
     const el = messagesRef.current;
     if (!el) return;
     el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
-  }, [conversationMessages, chatSending]);
+  }, []);
 
   // Auto-resize textarea
   useEffect(() => {
@@ -231,7 +252,8 @@ export function ChatView() {
     ta.style.overflowY = "hidden";
     const h = Math.min(ta.scrollHeight, CHAT_INPUT_MAX_HEIGHT_PX);
     ta.style.height = `${h}px`;
-    ta.style.overflowY = ta.scrollHeight > CHAT_INPUT_MAX_HEIGHT_PX ? "auto" : "hidden";
+    ta.style.overflowY =
+      ta.scrollHeight > CHAT_INPUT_MAX_HEIGHT_PX ? "auto" : "hidden";
   }, [chatInput]);
 
   // Keep input focused for fast multi-turn chat.
@@ -243,20 +265,24 @@ export function ChatView() {
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      void handleChatSend(chatMode);
+      void handleChatSend();
     }
   };
 
   return (
     <div className="flex flex-col flex-1 min-h-0 px-2 sm:px-3 relative">
       {/* ── Messages ───────────────────────────────────────────────── */}
-      <div ref={messagesRef} className="flex-1 overflow-y-auto py-2 relative" style={{ zIndex: 1 }}>
+      <div
+        ref={messagesRef}
+        className="flex-1 overflow-y-auto py-2 pr-2 sm:pr-3 relative"
+        style={{ zIndex: 1, scrollbarGutter: "stable" }}
+      >
         {visibleMsgs.length === 0 && !chatSending ? (
           <div className="text-center py-10 text-muted italic">
             Send a message to start chatting.
           </div>
         ) : (
-          <div className="w-full px-0">
+          <div className="w-full pr-1">
             {visibleMsgs.map((msg, i) => {
               const prev = i > 0 ? visibleMsgs[i - 1] : null;
               const grouped = prev?.role === msg.role;
@@ -287,9 +313,7 @@ export function ChatView() {
                         )}
                       </div>
                     ))}
-                  <div
-                    className="max-w-[92%] sm:max-w-[85%] min-w-0 px-0 py-1 text-sm leading-relaxed whitespace-pre-wrap break-words"
-                  >
+                  <div className="max-w-[92%] sm:max-w-[85%] min-w-0 px-0 py-1 text-sm leading-relaxed whitespace-pre-wrap break-words">
                     {!grouped && (
                       <div className="font-bold text-[12px] mb-1 text-accent">
                         {isUser ? "You" : agentName}
@@ -303,7 +327,9 @@ export function ChatView() {
                           )}
                       </div>
                     )}
-                    <div><MessageContent message={msg} /></div>
+                    <div>
+                      <MessageContent message={msg} />
+                    </div>
                   </div>
                 </div>
               );
@@ -325,7 +351,9 @@ export function ChatView() {
                   )}
                 </div>
                 <div className="max-w-[92%] sm:max-w-[85%] min-w-0 px-0 py-1 text-sm leading-relaxed">
-                  <div className="font-bold text-[12px] mb-1 text-accent">{agentName}</div>
+                  <div className="font-bold text-[12px] mb-1 text-accent">
+                    {agentName}
+                  </div>
                   <div className="flex gap-1 py-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-muted-strong animate-[typing-bounce_1.2s_ease-in-out_infinite]" />
                     <span className="w-1.5 h-1.5 rounded-full bg-muted-strong animate-[typing-bounce_1.2s_ease-in-out_infinite_0.2s]" />
@@ -340,22 +368,31 @@ export function ChatView() {
 
       {/* Share ingest notice */}
       {shareIngestNotice && (
-        <div className="text-xs text-ok py-1 relative" style={{ zIndex: 1 }}>{shareIngestNotice}</div>
+        <div className="text-xs text-ok py-1 relative" style={{ zIndex: 1 }}>
+          {shareIngestNotice}
+        </div>
       )}
 
       {/* Dropped files */}
       {droppedFiles.length > 0 && (
-        <div className="text-xs text-muted py-0.5 flex gap-2 relative" style={{ zIndex: 1 }}>
-          {droppedFiles.map((f, i) => (
-            <span key={i}>{f}</span>
+        <div
+          className="text-xs text-muted py-0.5 flex gap-2 relative"
+          style={{ zIndex: 1 }}
+        >
+          {droppedFiles.map((f) => (
+            <span key={f}>{f}</span>
           ))}
         </div>
       )}
 
       {voiceLatency && (
-        <div className="pb-1 text-[10px] text-muted relative" style={{ zIndex: 1 }}>
-          Silence end→first token: {voiceLatency.speechEndToFirstTokenMs ?? "—"}ms · end→voice start:{" "}
-          {voiceLatency.speechEndToVoiceStartMs ?? "—"}ms · first sentence:{" "}
+        <div
+          className="pb-1 text-[10px] text-muted relative"
+          style={{ zIndex: 1 }}
+        >
+          Silence end→first token: {voiceLatency.speechEndToFirstTokenMs ?? "—"}
+          ms · end→voice start: {voiceLatency.speechEndToVoiceStartMs ?? "—"}ms
+          · first sentence:{" "}
           {voiceLatency.firstSegmentCached == null
             ? "—"
             : voiceLatency.firstSegmentCached
@@ -426,10 +463,14 @@ export function ChatView() {
         </div>
 
       {/* ── Input row: mic + textarea + send ───────────────────────── */}
-      <div className="flex gap-1.5 sm:gap-2 items-end border-t border-border pt-3 pb-3 sm:pb-4 relative" style={{ zIndex: 1 }}>
+      <div
+        className="flex gap-1.5 sm:gap-2 items-end border-t border-border pt-3 pb-3 sm:pb-4 relative"
+        style={{ zIndex: 1 }}
+      >
         {/* Mic button — user voice input */}
         {voice.supported && (
           <button
+            type="button"
             className={`h-[38px] w-[38px] flex-shrink-0 flex items-center justify-center border rounded cursor-pointer transition-all self-end ${
               voice.isListening
                 ? "bg-accent border-accent text-accent-fg shadow-[0_0_10px_rgba(124,58,237,0.4)] animate-pulse"
@@ -438,7 +479,17 @@ export function ChatView() {
             onClick={voice.toggleListening}
             title={voice.isListening ? "Stop listening" : "Voice input"}
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill={voice.isListening ? "currentColor" : "none"} stroke="currentColor" strokeWidth={voice.isListening ? "0" : "2"}>
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill={voice.isListening ? "currentColor" : "none"}
+              stroke="currentColor"
+              strokeWidth={voice.isListening ? "0" : "2"}
+            >
+              <title>
+                {voice.isListening ? "Stop listening" : "Voice input"}
+              </title>
               {voice.isListening ? (
                 <>
                   <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" />
@@ -466,7 +517,9 @@ export function ChatView() {
             ref={textareaRef}
             className="flex-1 min-w-0 px-3 py-2 border border-border bg-card text-txt text-sm font-body leading-relaxed resize-none overflow-y-hidden min-h-[38px] max-h-[200px] focus:border-accent focus:outline-none"
             rows={1}
-            placeholder={voice.isListening ? "Listening..." : "Type a message..."}
+            placeholder={
+              voice.isListening ? "Listening..." : "Type a message..."
+            }
             value={chatInput}
             onChange={(e) => setState("chatInput", e.target.value)}
             onKeyDown={handleKeyDown}
@@ -477,6 +530,7 @@ export function ChatView() {
         {/* Send / Stop */}
         {chatSending ? (
           <button
+            type="button"
             className="h-[38px] shrink-0 px-3 sm:px-4 py-2 border border-danger bg-danger/10 text-danger text-sm cursor-pointer hover:bg-danger/20 self-end"
             onClick={handleChatStop}
             title="Stop generation"
@@ -485,6 +539,7 @@ export function ChatView() {
           </button>
         ) : voice.isSpeaking ? (
           <button
+            type="button"
             className="h-[38px] shrink-0 px-3 sm:px-4 py-2 border border-danger bg-danger/10 text-danger text-sm cursor-pointer hover:bg-danger/20 self-end"
             onClick={stopSpeaking}
             title="Stop speaking"
@@ -493,8 +548,9 @@ export function ChatView() {
           </button>
         ) : (
           <button
+            type="button"
             className="h-[38px] shrink-0 px-4 sm:px-6 py-2 border border-accent bg-accent text-accent-fg text-sm cursor-pointer hover:bg-accent-hover disabled:opacity-40 disabled:cursor-not-allowed self-end"
-            onClick={() => void handleChatSend(chatMode)}
+            onClick={() => void handleChatSend()}
             disabled={chatSending}
           >
             Send

@@ -1,7 +1,7 @@
 /**
  * Tests for @milady/capacitor-camera — settings, state, direction inference, errors, events.
  */
-import { describe, it, expect, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { CameraWeb } from "../../plugins/camera/src/web";
 
 type Internals = CameraWeb & {
@@ -23,8 +23,12 @@ describe("@milady/capacitor-camera", () => {
   describe("settings", () => {
     it("returns correct defaults", async () => {
       expect((await cam.getSettings()).settings).toEqual({
-        flash: "off", zoom: 1, focusMode: "continuous",
-        exposureMode: "continuous", exposureCompensation: 0, whiteBalance: "auto",
+        flash: "off",
+        zoom: 1,
+        focusMode: "continuous",
+        exposureMode: "continuous",
+        exposureCompensation: 0,
+        whiteBalance: "auto",
       });
     });
 
@@ -63,7 +67,12 @@ describe("@milady/capacitor-camera", () => {
       expect((await cam.getSettings()).settings.zoom).toBe(z);
     });
 
-    it.each([-1, -Infinity, NaN, Infinity])("setZoom rejects invalid value %s", async (z) => {
+    it.each([
+      -1,
+      -Infinity,
+      NaN,
+      Infinity,
+    ])("setZoom rejects invalid value %s", async (z) => {
       await expect(cam.setZoom({ zoom: z })).rejects.toThrow(/invalid zoom/i);
     });
   });
@@ -88,16 +97,19 @@ describe("@milady/capacitor-camera", () => {
       expect(priv.inferDirection(label)).toBe(expected);
     });
 
-    it.each(["USB Webcam", "Logitech C920", ""])(
-      '"%s" → external',
-      (label) => { expect(priv.inferDirection(label)).toBe("external"); },
-    );
+    it.each(["USB Webcam", "Logitech C920", ""])('"%s" → external', (label) => {
+      expect(priv.inferDirection(label)).toBe("external");
+    });
   });
 
   // -- Recording state --
 
   it("reports not recording by default", async () => {
-    expect(await cam.getRecordingState()).toEqual({ isRecording: false, duration: 0, fileSize: 0 });
+    expect(await cam.getRecordingState()).toEqual({
+      isRecording: false,
+      duration: 0,
+      fileSize: 0,
+    });
   });
 
   // -- Error paths (no preview) --
@@ -105,7 +117,10 @@ describe("@milady/capacitor-camera", () => {
   describe("errors without preview", () => {
     it.each([
       ["capturePhoto", () => cam.capturePhoto()],
-      ["capturePhoto with opts", () => cam.capturePhoto({ quality: 90, format: "png" })],
+      [
+        "capturePhoto with opts",
+        () => cam.capturePhoto({ quality: 90, format: "png" }),
+      ],
       ["switchCamera", () => cam.switchCamera({ direction: "front" })],
       ["startRecording", () => cam.startRecording()],
       ["setFocusPoint", () => cam.setFocusPoint({ x: 0.5, y: 0.5 })],
@@ -126,7 +141,11 @@ describe("@milady/capacitor-camera", () => {
       const received: unknown[] = [];
       await cam.addListener("frame", (e) => received.push(e));
 
-      priv.notifyListeners("frame", { timestamp: 1, width: 1920, height: 1080 });
+      priv.notifyListeners("frame", {
+        timestamp: 1,
+        width: 1920,
+        height: 1080,
+      });
       expect(received).toEqual([{ timestamp: 1, width: 1920, height: 1080 }]);
     });
 
@@ -139,7 +158,8 @@ describe("@milady/capacitor-camera", () => {
     });
 
     it("remove only removes the specific listener", async () => {
-      let a = 0, b = 0;
+      let a = 0,
+        b = 0;
       const h = await cam.addListener("frame", () => a++);
       await cam.addListener("frame", () => b++);
       await h.remove();
@@ -150,7 +170,8 @@ describe("@milady/capacitor-camera", () => {
     });
 
     it("events don't cross between event names", async () => {
-      let frames = 0, errors = 0;
+      let frames = 0,
+        errors = 0;
       await cam.addListener("frame", () => frames++);
       await cam.addListener("error", () => errors++);
       priv.notifyListeners("frame", {});

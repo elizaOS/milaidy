@@ -5,7 +5,14 @@
  * a collapsible bottom panel with command output. Auto-opens when a command starts.
  */
 
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from "react";
 import { client } from "../api-client";
 
 export interface TerminalPanelHandle {
@@ -39,7 +46,7 @@ export const TerminalPanel = forwardRef<TerminalPanelHandle>(
     useEffect(() => {
       const el = scrollRef.current;
       if (el) el.scrollTop = el.scrollHeight;
-    }, [lines]);
+    }, []);
 
     // Listen for terminal-output WebSocket events
     useEffect(() => {
@@ -96,10 +103,15 @@ export const TerminalPanel = forwardRef<TerminalPanelHandle>(
     if (!open) return null;
 
     return (
-      <div className="border-t border-border bg-[#1a1a1a] flex flex-col" style={{ height: 220 }}>
+      <div
+        className="border-t border-border bg-[#1a1a1a] flex flex-col"
+        style={{ height: 220 }}
+      >
         {/* Header bar */}
         <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border bg-[#111] shrink-0">
-          <span className="text-[11px] font-mono text-muted tracking-wide">TERMINAL</span>
+          <span className="text-[11px] font-mono text-muted tracking-wide">
+            TERMINAL
+          </span>
           <div className="flex-1" />
           <button
             type="button"

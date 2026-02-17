@@ -17,27 +17,44 @@
  * - Config persistence, onboarding side effects
  * - The real server's error handling
  */
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+
 import http from "node:http";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 // ---------------------------------------------------------------------------
 // HTTP helper
 // ---------------------------------------------------------------------------
 
 async function req(
-  port: number, method: string, path: string, body?: Record<string, unknown>,
+  port: number,
+  method: string,
+  path: string,
+  body?: Record<string, unknown>,
 ): Promise<{ status: number; data: Record<string, unknown> }> {
   return new Promise((resolve, reject) => {
     const payload = body ? JSON.stringify(body) : undefined;
     const r = http.request(
-      { hostname: "127.0.0.1", port, path, method, headers: { "Content-Type": "application/json", ...(payload ? { "Content-Length": Buffer.byteLength(payload) } : {}) } },
+      {
+        hostname: "127.0.0.1",
+        port,
+        path,
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          ...(payload ? { "Content-Length": Buffer.byteLength(payload) } : {}),
+        },
+      },
       (res) => {
         const chunks: Buffer[] = [];
         res.on("data", (c: Buffer) => chunks.push(c));
         res.on("end", () => {
           const raw = Buffer.concat(chunks).toString("utf-8");
           let data: Record<string, unknown> = {};
-          try { data = JSON.parse(raw) as Record<string, unknown>; } catch { data = { _raw: raw }; }
+          try {
+            data = JSON.parse(raw) as Record<string, unknown>;
+          } catch {
+            data = { _raw: raw };
+          }
           resolve({ status: res.statusCode ?? 0, data });
         });
       },
@@ -52,7 +69,10 @@ async function req(
 // Test server (mirrors real API server endpoints without heavy deps)
 // ---------------------------------------------------------------------------
 
-function createTestServer(): Promise<{ port: number; close: () => Promise<void> }> {
+function createTestServer(): Promise<{
+  port: number;
+  close: () => Promise<void>;
+}> {
   const state = {
     agentState: "not_started" as string,
     agentName: "TestAgent",
@@ -62,43 +82,115 @@ function createTestServer(): Promise<{ port: number; close: () => Promise<void> 
   };
 
   const json = (res: http.ServerResponse, data: unknown, status = 200) => {
-    res.writeHead(status, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+    res.writeHead(status, {
+      "Content-Type": "application/json",
+      "Access-Control-Allow-Origin": "*",
+    });
     res.end(JSON.stringify(data));
   };
 
   const readBody = (r: http.IncomingMessage): Promise<string> =>
-    new Promise((ok) => { const c: Buffer[] = []; r.on("data", (d: Buffer) => c.push(d)); r.on("end", () => ok(Buffer.concat(c).toString())); });
+    new Promise((ok) => {
+      const c: Buffer[] = [];
+      r.on("data", (d: Buffer) => c.push(d));
+      r.on("end", () => ok(Buffer.concat(c).toString()));
+    });
 
-  const routes: Record<string, (req: http.IncomingMessage, res: http.ServerResponse) => Promise<void> | void> = {
-    "GET /api/status": (_r, res) => json(res, { state: state.agentState, agentName: state.agentName, model: state.model, startedAt: state.startedAt, uptime: state.startedAt ? Date.now() - state.startedAt : undefined }),
-    "POST /api/agent/start": (_r, res) => { state.agentState = "running"; state.startedAt = Date.now(); state.model = "test-model"; state.runtime = {}; json(res, { ok: true, status: { state: "running", agentName: state.agentName } }); },
-    "POST /api/agent/stop": (_r, res) => { state.agentState = "stopped"; state.startedAt = undefined; state.model = undefined; state.runtime = null; json(res, { ok: true, status: { state: "stopped", agentName: state.agentName } }); },
-    "POST /api/agent/pause": (_r, res) => { state.agentState = "paused"; json(res, { ok: true, status: { state: "paused", agentName: state.agentName } }); },
-    "POST /api/agent/resume": (_r, res) => { state.agentState = "running"; json(res, { ok: true, status: { state: "running", agentName: state.agentName } }); },
+  const routes: Record<
+    string,
+    (
+      req: http.IncomingMessage,
+      res: http.ServerResponse,
+    ) => Promise<void> | void
+  > = {
+    "GET /api/status": (_r, res) =>
+      json(res, {
+        state: state.agentState,
+        agentName: state.agentName,
+        model: state.model,
+        startedAt: state.startedAt,
+        uptime: state.startedAt ? Date.now() - state.startedAt : undefined,
+      }),
+    "POST /api/agent/start": (_r, res) => {
+      state.agentState = "running";
+      state.startedAt = Date.now();
+      state.model = "test-model";
+      state.runtime = {};
+      json(res, {
+        ok: true,
+        status: { state: "running", agentName: state.agentName },
+      });
+    },
+    "POST /api/agent/stop": (_r, res) => {
+      state.agentState = "stopped";
+      state.startedAt = undefined;
+      state.model = undefined;
+      state.runtime = null;
+      json(res, {
+        ok: true,
+        status: { state: "stopped", agentName: state.agentName },
+      });
+    },
+    "POST /api/agent/pause": (_r, res) => {
+      state.agentState = "paused";
+      json(res, {
+        ok: true,
+        status: { state: "paused", agentName: state.agentName },
+      });
+    },
+    "POST /api/agent/resume": (_r, res) => {
+      state.agentState = "running";
+      json(res, {
+        ok: true,
+        status: { state: "running", agentName: state.agentName },
+      });
+    },
     "POST /api/chat": async (r, res) => {
       const body = JSON.parse(await readBody(r)) as Record<string, unknown>;
-      if (!body.text || !(body.text as string).trim()) return json(res, { error: "text is required" }, 400);
-      if (!state.runtime) return json(res, { error: "Agent is not running" }, 503);
+      if (!body.text || !(body.text as string).trim())
+        return json(res, { error: "text is required" }, 400);
+      if (!state.runtime)
+        return json(res, { error: "Agent is not running" }, 503);
       json(res, { text: `Echo: ${body.text}`, agentName: state.agentName });
     },
     "GET /api/plugins": (_r, res) => json(res, { plugins: [] }),
     "GET /api/skills": (_r, res) => json(res, { skills: [] }),
     "GET /api/logs": (_r, res) => json(res, { entries: [] }),
     "GET /api/onboarding/status": (_r, res) => json(res, { complete: false }),
-    "GET /api/onboarding/options": (_r, res) => json(res, { names: ["Reimu"], styles: [{ catchphrase: "uwu~" }], providers: [{ id: "anthropic" }] }),
+    "GET /api/onboarding/options": (_r, res) =>
+      json(res, {
+        names: ["Reimu"],
+        styles: [{ catchphrase: "uwu~" }],
+        providers: [{ id: "anthropic" }],
+      }),
   };
 
   const server = http.createServer(async (rq, rs) => {
-    if (rq.method === "OPTIONS") { rs.writeHead(204, { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "*", "Access-Control-Allow-Headers": "*" }); rs.end(); return; }
+    if (rq.method === "OPTIONS") {
+      rs.writeHead(204, {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "*",
+        "Access-Control-Allow-Headers": "*",
+      });
+      rs.end();
+      return;
+    }
     const key = `${rq.method} ${new URL(rq.url ?? "/", "http://localhost").pathname}`;
     const handler = routes[key];
-    if (handler) { await handler(rq, rs); } else { json(rs, { error: "Not found" }, 404); }
+    if (handler) {
+      await handler(rq, rs);
+    } else {
+      json(rs, { error: "Not found" }, 404);
+    }
   });
 
   return new Promise((ok) => {
     server.listen(0, "127.0.0.1", () => {
       const addr = server.address();
-      ok({ port: typeof addr === "object" && addr ? addr.port : 0, close: () => new Promise<void>((r) => server.close(() => r())) });
+      ok({
+        port: typeof addr === "object" && addr ? addr.port : 0,
+        close: () => new Promise<void>((r) => server.close(() => r())),
+      });
     });
   });
 }
@@ -111,8 +203,12 @@ describe("Agent Lifecycle API", () => {
   let port: number;
   let close: () => Promise<void>;
 
-  beforeAll(async () => { ({ port, close } = await createTestServer()); });
-  afterAll(async () => { await close(); });
+  beforeAll(async () => {
+    ({ port, close } = await createTestServer());
+  });
+  afterAll(async () => {
+    await close();
+  });
 
   // -- Status --
 
@@ -139,14 +235,18 @@ describe("Agent Lifecycle API", () => {
 
   describe("chat", () => {
     it("responds when running", async () => {
-      const { status, data } = await req(port, "POST", "/api/chat", { text: "Hello" });
+      const { status, data } = await req(port, "POST", "/api/chat", {
+        text: "Hello",
+      });
       expect(status).toBe(200);
       expect(data.text).toBeDefined();
       expect(data.agentName).toBe("TestAgent");
     });
 
     it("rejects empty text", async () => {
-      expect((await req(port, "POST", "/api/chat", { text: "" })).status).toBe(400);
+      expect((await req(port, "POST", "/api/chat", { text: "" })).status).toBe(
+        400,
+      );
     });
 
     it("rejects missing text", async () => {
@@ -161,7 +261,9 @@ describe("Agent Lifecycle API", () => {
   it("pause transitions to paused, chat still works (runtime exists)", async () => {
     expect((await req(port, "POST", "/api/agent/pause")).data.ok).toBe(true);
     expect((await req(port, "GET", "/api/status")).data.state).toBe("paused");
-    expect((await req(port, "POST", "/api/chat", { text: "hi" })).status).toBe(200);
+    expect((await req(port, "POST", "/api/chat", { text: "hi" })).status).toBe(
+      200,
+    );
   });
 
   // -- Resume --
@@ -169,7 +271,9 @@ describe("Agent Lifecycle API", () => {
   it("resume transitions back to running, chat works", async () => {
     expect((await req(port, "POST", "/api/agent/resume")).data.ok).toBe(true);
     expect((await req(port, "GET", "/api/status")).data.state).toBe("running");
-    expect((await req(port, "POST", "/api/chat", { text: "hi" })).status).toBe(200);
+    expect((await req(port, "POST", "/api/chat", { text: "hi" })).status).toBe(
+      200,
+    );
   });
 
   // -- Stop --
@@ -180,7 +284,9 @@ describe("Agent Lifecycle API", () => {
     expect(data.state).toBe("stopped");
     expect(data.model).toBeUndefined();
     expect(data.startedAt).toBeUndefined();
-    expect((await req(port, "POST", "/api/chat", { text: "hi" })).status).toBe(503);
+    expect((await req(port, "POST", "/api/chat", { text: "hi" })).status).toBe(
+      503,
+    );
   });
 
   // -- Full lifecycle --
@@ -218,7 +324,9 @@ describe("Agent Lifecycle API", () => {
   });
 
   it("onboarding status returns complete flag", async () => {
-    expect(typeof (await req(port, "GET", "/api/onboarding/status")).data.complete).toBe("boolean");
+    expect(
+      typeof (await req(port, "GET", "/api/onboarding/status")).data.complete,
+    ).toBe("boolean");
   });
 
   it("onboarding options returns names, styles, providers", async () => {

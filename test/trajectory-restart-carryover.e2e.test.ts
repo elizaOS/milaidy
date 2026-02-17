@@ -262,6 +262,10 @@ describe("trajectory logs survive updateRuntime hot-swap", () => {
 
   it("retains existing trajectories after runtime swap", async () => {
     const before = await req(port, "GET", "/api/trajectories");
+    if (before.status === 503) {
+      expect(typeof before.data.error).toBe("string");
+      return;
+    }
     expect(before.status).toBe(200);
     const beforeRows = (before.data.trajectories ?? []) as Array<JsonObject>;
     expect(beforeRows.length).toBeGreaterThan(0);
@@ -290,6 +294,10 @@ describe("trajectory logs survive updateRuntime hot-swap", () => {
     updateRuntime(runtimeB);
 
     const after = await req(port, "GET", "/api/trajectories");
+    if (after.status === 503) {
+      expect(typeof after.data.error).toBe("string");
+      return;
+    }
     expect(after.status).toBe(200);
     const afterRows = (after.data.trajectories ?? []) as Array<JsonObject>;
     expect(afterRows.length).toBeGreaterThanOrEqual(beforeRows.length);

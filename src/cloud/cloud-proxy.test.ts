@@ -46,7 +46,7 @@ describe("CloudRuntimeProxy", () => {
       "a1",
       "Hi there",
       "web-chat",
-      "power",
+      "DM",
     );
   });
 
@@ -59,7 +59,7 @@ describe("CloudRuntimeProxy", () => {
       "a1",
       "Hi",
       "custom-room",
-      "power",
+      "DM",
     );
   });
 

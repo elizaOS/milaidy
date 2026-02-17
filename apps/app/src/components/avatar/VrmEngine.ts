@@ -1,5 +1,5 @@
+import { type VRM, VRMLoaderPlugin, VRMUtils } from "@pixiv/three-vrm";
 import * as THREE from "three";
-import { VRM, VRMLoaderPlugin, VRMUtils } from "@pixiv/three-vrm";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
 import { resolveAppAssetUrl } from "../../asset-url";
 
@@ -52,7 +52,9 @@ export class VrmEngine {
   private readonly idleGlbUrl = resolveAppAssetUrl("animations/idle.glb");
   private forceFaceCameraFlip = true;
 
-  private cameraAnimation: CameraAnimationConfig = { ...DEFAULT_CAMERA_ANIMATION };
+  private cameraAnimation: CameraAnimationConfig = {
+    ...DEFAULT_CAMERA_ANIMATION,
+  };
   private baseCameraPosition = new THREE.Vector3();
   private elapsedTime = 0;
 
@@ -99,7 +101,11 @@ export class VrmEngine {
     this.onUpdate = onUpdate;
     this.loadingAborted = false;
 
-    const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+    const renderer = new THREE.WebGLRenderer({
+      canvas,
+      alpha: true,
+      antialias: true,
+    });
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setClearColor(0x000000, 0);
     this.renderer = renderer;
@@ -210,7 +216,11 @@ export class VrmEngine {
    * non-looping emotes automatically fades back to idle after `duration`
    * seconds. For looping emotes, call {@link stopEmote} to return to idle.
    */
-  async playEmote(glbPath: string, duration: number, loop: boolean): Promise<void> {
+  async playEmote(
+    glbPath: string,
+    duration: number,
+    loop: boolean,
+  ): Promise<void> {
     const vrm = this.vrm;
     const mixer = this.mixer;
     if (!vrm || !mixer) return;
@@ -245,7 +255,8 @@ export class VrmEngine {
 
     if (!loop) {
       // After the emote finishes, fade back to idle.
-      const safeDuration = Number.isFinite(duration) && duration > 0 ? duration : 3;
+      const safeDuration =
+        Number.isFinite(duration) && duration > 0 ? duration : 3;
       const returnDelay = Math.max(0.5, safeDuration) * 1000;
       this.emoteTimeout = setTimeout(() => {
         if (this.emoteRequestId === requestId) {
@@ -294,10 +305,19 @@ export class VrmEngine {
     loader.register((parser) => new VRMLoaderPlugin(parser));
 
     const originalWarn = console.warn;
-    type ConsoleArg = string | number | boolean | bigint | symbol | null | undefined | object;
+    type ConsoleArg =
+      | string
+      | number
+      | boolean
+      | bigint
+      | symbol
+      | null
+      | undefined
+      | object;
     console.warn = (...args: ConsoleArg[]) => {
       const msg = args.map((a) => String(a)).join(" ");
-      if (msg.includes("VRMExpressionLoaderPlugin: An expression preset")) return;
+      if (msg.includes("VRMExpressionLoaderPlugin: An expression preset"))
+        return;
       originalWarn(...args);
     };
 
@@ -380,17 +400,18 @@ export class VrmEngine {
         Math.sin(t * 0.3) * 0.2;
 
       const swayZ =
-        Math.sin(t * 0.4 + 1.0) * 0.4 +
-        Math.sin(t * 0.9 + 2.0) * 0.3;
+        Math.sin(t * 0.4 + 1.0) * 0.4 + Math.sin(t * 0.9 + 2.0) * 0.3;
 
       camera.position.x =
         this.baseCameraPosition.x + swayX * this.cameraAnimation.swayAmplitude;
       camera.position.y =
         this.baseCameraPosition.y + bobY * this.cameraAnimation.bobAmplitude;
       camera.position.z =
-        this.baseCameraPosition.z + swayZ * this.cameraAnimation.swayAmplitude * 0.5;
+        this.baseCameraPosition.z +
+        swayZ * this.cameraAnimation.swayAmplitude * 0.5;
 
-      const rotX = Math.sin(t * 0.6 + 0.3) * this.cameraAnimation.rotationAmplitude * 0.5;
+      const rotX =
+        Math.sin(t * 0.6 + 0.3) * this.cameraAnimation.rotationAmplitude * 0.5;
       const rotY = Math.sin(t * 0.4) * this.cameraAnimation.rotationAmplitude;
 
       camera.rotation.x = rotX;
@@ -436,7 +457,11 @@ export class VrmEngine {
 
     // Frame on upper body: look at shoulder height, zoom in to crop below waist.
     // Offset camera left so the model renders on the right side of the canvas.
-    const upperBodyHeight = Math.max(scaledWidth, scaledHeight * 0.55, scaledDepth);
+    const upperBodyHeight = Math.max(
+      scaledWidth,
+      scaledHeight * 0.55,
+      scaledDepth,
+    );
     const shoulderHeight = scaledHeight * 0.42;
 
     const fovRad = (camera.fov * Math.PI) / 180;
@@ -455,7 +480,9 @@ export class VrmEngine {
   private async loadAndPlayIdle(vrm: VRM): Promise<void> {
     if (this.loadingAborted) return;
 
-    const { retargetMixamoGltfToVrm } = await import("./retargetMixamoGltfToVrm.ts");
+    const { retargetMixamoGltfToVrm } = await import(
+      "./retargetMixamoGltfToVrm.ts"
+    );
 
     if (this.loadingAborted || this.vrm !== vrm) return;
 
@@ -571,7 +598,10 @@ export class VrmEngine {
 
       case "closing": {
         this.blinkPhaseTimer += delta;
-        const t = Math.min(1, this.blinkPhaseTimer / VrmEngine.BLINK_CLOSE_DURATION);
+        const t = Math.min(
+          1,
+          this.blinkPhaseTimer / VrmEngine.BLINK_CLOSE_DURATION,
+        );
         // Ease-in (accelerate) — eyelids speed up as they close
         this.blinkValue = t * t;
         if (t >= 1) {
@@ -592,7 +622,10 @@ export class VrmEngine {
 
       case "opening": {
         this.blinkPhaseTimer += delta;
-        const t = Math.min(1, this.blinkPhaseTimer / VrmEngine.BLINK_OPEN_DURATION);
+        const t = Math.min(
+          1,
+          this.blinkPhaseTimer / VrmEngine.BLINK_OPEN_DURATION,
+        );
         // Ease-out (decelerate) — eyelids slow down as they finish opening
         const eased = 1 - (1 - t) * (1 - t);
         this.blinkValue = 1 - eased;

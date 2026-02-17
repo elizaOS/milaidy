@@ -1,13 +1,36 @@
 import type { AgentRuntime } from "@elizaos/core";
-import type { TrainingService } from "../services/training-service";
+import { isLoopbackHost } from "../security/network-policy";
 import { parsePositiveInteger } from "../utils/number-parsing";
 import type { RouteHelpers, RouteRequestContext } from "./route-helpers";
+import type { TrainingServiceLike } from "./training-service-like";
 
 export type TrainingRouteHelpers = RouteHelpers;
 
 export interface TrainingRouteContext extends RouteRequestContext {
   runtime: AgentRuntime | null;
-  trainingService: TrainingService;
+  trainingService: TrainingServiceLike;
+}
+
+function resolveOllamaUrlRejection(rawUrl: string): string | null {
+  const trimmed = rawUrl.trim();
+  if (!trimmed) return null;
+
+  let parsed: URL;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    return "ollamaUrl must be a valid URL";
+  }
+
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    return "ollamaUrl must use http:// or https://";
+  }
+
+  if (!isLoopbackHost(parsed.hostname)) {
+    return "ollamaUrl must target a loopback host (localhost, 127.0.0.1, or ::1)";
+  }
+
+  return null;
 }
 
 export async function handleTrainingRoutes(
@@ -169,6 +192,19 @@ export async function handleTrainingRoutes(
       ollamaUrl?: string;
     }>(req, res);
     if (!body) return true;
+
+    if (body.ollamaUrl !== undefined && typeof body.ollamaUrl !== "string") {
+      error(res, "ollamaUrl must be a string", 400);
+      return true;
+    }
+    if (typeof body.ollamaUrl === "string") {
+      const ollamaUrlRejection = resolveOllamaUrlRejection(body.ollamaUrl);
+      if (ollamaUrlRejection) {
+        error(res, ollamaUrlRejection, 400);
+        return true;
+      }
+    }
+
     try {
       const model = await trainingService.importModelToOllama(modelId, body);
       json(res, { model });

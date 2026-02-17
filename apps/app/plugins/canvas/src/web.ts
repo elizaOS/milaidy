@@ -1,37 +1,35 @@
 import { WebPlugin } from "@capacitor/core";
 
 import type {
-  CanvasPlugin,
-  CanvasSize,
-  CanvasRect,
-  CanvasPoint,
-  CanvasColor,
-  CanvasStrokeStyle,
-  CanvasFillStyle,
-  CanvasTextStyle,
-  CanvasShadow,
-  CanvasGradient,
-  CanvasLayer,
-  CanvasTransform,
-  CanvasImageData,
-  CanvasPath,
-  CanvasDrawOptions,
-  CanvasDrawBatchCommand,
-  CanvasTouchEvent,
-  CanvasRenderEvent,
-  NavigateOptions,
-  EvalOptions,
-  EvalResult,
-  SnapshotOptions,
-  SnapshotResult,
-  SnapshotFormat,
-  A2UIPushOptions,
+  A2UIActionEvent,
   A2UIMessage,
   A2UIPayload,
-  WebViewReadyEvent,
-  NavigationErrorEvent,
+  A2UIPushOptions,
+  CanvasColor,
+  CanvasDrawBatchCommand,
+  CanvasDrawOptions,
+  CanvasFillStyle,
+  CanvasGradient,
+  CanvasImageData,
+  CanvasLayer,
+  CanvasPath,
+  CanvasPoint,
+  CanvasRect,
+  CanvasRenderEvent,
+  CanvasSize,
+  CanvasStrokeStyle,
+  CanvasTextStyle,
+  CanvasTouchEvent,
+  CanvasTransform,
   DeepLinkEvent,
-  A2UIActionEvent,
+  EvalOptions,
+  EvalResult,
+  NavigateOptions,
+  NavigationErrorEvent,
+  SnapshotFormat,
+  SnapshotOptions,
+  SnapshotResult,
+  WebViewReadyEvent,
 } from "./definitions";
 
 type CanvasEventData =
@@ -43,7 +41,11 @@ type CanvasEventData =
   | A2UIActionEvent;
 
 interface MiladyA2UIBridge {
-  push(messages: A2UIMessage[], jsonl: string, payload: A2UIPayload | null): void;
+  push(
+    messages: A2UIMessage[],
+    jsonl: string,
+    payload: A2UIPayload | null,
+  ): void;
   reset(): void;
 }
 
@@ -83,30 +85,36 @@ export class CanvasWeb extends WebPlugin {
   private canvases = new Map<string, ManagedCanvas>();
   private nextCanvasId = 1;
   private nextLayerId = 1;
-  private pluginListeners: Array<{ eventName: string; callback: (event: CanvasEventData) => void }> = [];
+  private pluginListeners: Array<{
+    eventName: string;
+    callback: (event: CanvasEventData) => void;
+  }> = [];
   private webViewIframe: HTMLIFrameElement | null = null;
   private webViewPopup: Window | null = null;
   private messageListenerBound = false;
 
-  async create(options: { size: CanvasSize; backgroundColor?: CanvasColor | string }): Promise<{ canvasId: string }> {
+  async create(options: {
+    size: CanvasSize;
+    backgroundColor?: CanvasColor | string;
+  }): Promise<{ canvasId: string }> {
     const canvasId = `canvas_${this.nextCanvasId++}`;
-    
+
     const canvas = document.createElement("canvas");
     canvas.width = options.size.width;
     canvas.height = options.size.height;
     canvas.style.width = "100%";
     canvas.style.height = "100%";
-    
+
     const ctx = canvas.getContext("2d");
     if (!ctx) {
       throw new Error("Failed to get 2D context");
     }
-    
+
     if (options.backgroundColor) {
       ctx.fillStyle = this.colorToString(options.backgroundColor);
       ctx.fillRect(0, 0, options.size.width, options.size.height);
     }
-    
+
     const managedCanvas: ManagedCanvas = {
       id: canvasId,
       canvas,
@@ -116,24 +124,29 @@ export class CanvasWeb extends WebPlugin {
       transform: {},
       touchEnabled: false,
     };
-    
+
     this.canvases.set(canvasId, managedCanvas);
-    
+
     return { canvasId };
   }
 
   async destroy(options: { canvasId: string }): Promise<void> {
     const managed = this.canvases.get(options.canvasId);
     if (!managed) return;
-    managed.layers.forEach((layer) => layer.canvas.remove());
+    managed.layers.forEach((layer) => {
+      layer.canvas.remove();
+    });
     managed.canvas.remove();
     this.canvases.delete(options.canvasId);
   }
 
-  async attach(options: { canvasId: string; element: HTMLElement }): Promise<void> {
+  async attach(options: {
+    canvasId: string;
+    element: HTMLElement;
+  }): Promise<void> {
     const managed = this.canvases.get(options.canvasId);
     if (!managed) throw new Error("Canvas not found");
-    
+
     options.element.appendChild(managed.canvas);
     this.setupTouchHandlers(managed);
   }
@@ -141,53 +154,75 @@ export class CanvasWeb extends WebPlugin {
   async detach(options: { canvasId: string }): Promise<void> {
     const managed = this.canvases.get(options.canvasId);
     if (!managed) throw new Error("Canvas not found");
-    
+
     managed.canvas.remove();
   }
 
   async resize(options: { canvasId: string; size: CanvasSize }): Promise<void> {
     const managed = this.canvases.get(options.canvasId);
     if (!managed) throw new Error("Canvas not found");
-    
-    const imageData = managed.ctx.getImageData(0, 0, managed.canvas.width, managed.canvas.height);
-    
+
+    const imageData = managed.ctx.getImageData(
+      0,
+      0,
+      managed.canvas.width,
+      managed.canvas.height,
+    );
+
     managed.canvas.width = options.size.width;
     managed.canvas.height = options.size.height;
     managed.size = options.size;
-    
+
     managed.ctx.putImageData(imageData, 0, 0);
-    
+
     for (const layer of managed.layers.values()) {
-      const layerImageData = layer.ctx.getImageData(0, 0, layer.canvas.width, layer.canvas.height);
+      const layerImageData = layer.ctx.getImageData(
+        0,
+        0,
+        layer.canvas.width,
+        layer.canvas.height,
+      );
       layer.canvas.width = options.size.width;
       layer.canvas.height = options.size.height;
       layer.ctx.putImageData(layerImageData, 0, 0);
     }
   }
 
-  async clear(options: { canvasId: string; rect?: CanvasRect; layerId?: string }): Promise<void> {
+  async clear(options: {
+    canvasId: string;
+    rect?: CanvasRect;
+    layerId?: string;
+  }): Promise<void> {
     const managed = this.canvases.get(options.canvasId);
     if (!managed) throw new Error("Canvas not found");
-    
-    const ctx = options.layerId 
-      ? managed.layers.get(options.layerId)?.ctx 
+
+    const ctx = options.layerId
+      ? managed.layers.get(options.layerId)?.ctx
       : managed.ctx;
-    
+
     if (!ctx) throw new Error("Context not found");
-    
+
     if (options.rect) {
-      ctx.clearRect(options.rect.x, options.rect.y, options.rect.width, options.rect.height);
+      ctx.clearRect(
+        options.rect.x,
+        options.rect.y,
+        options.rect.width,
+        options.rect.height,
+      );
     } else {
       ctx.clearRect(0, 0, managed.size.width, managed.size.height);
     }
   }
 
-  async createLayer(options: { canvasId: string; layer: Omit<CanvasLayer, "id"> }): Promise<{ layerId: string }> {
+  async createLayer(options: {
+    canvasId: string;
+    layer: Omit<CanvasLayer, "id">;
+  }): Promise<{ layerId: string }> {
     const managed = this.canvases.get(options.canvasId);
     if (!managed) throw new Error("Canvas not found");
-    
+
     const layerId = `layer_${this.nextLayerId++}`;
-    
+
     const layerCanvas = document.createElement("canvas");
     layerCanvas.width = managed.size.width;
     layerCanvas.height = managed.size.height;
@@ -196,10 +231,10 @@ export class CanvasWeb extends WebPlugin {
     layerCanvas.style.display = options.layer.visible ? "block" : "none";
     layerCanvas.style.opacity = String(options.layer.opacity);
     layerCanvas.style.zIndex = String(options.layer.zIndex);
-    
+
     const layerCtx = layerCanvas.getContext("2d");
     if (!layerCtx) throw new Error("Failed to get layer context");
-    
+
     const managedLayer: ManagedLayer = {
       id: layerId,
       name: options.layer.name,
@@ -210,72 +245,83 @@ export class CanvasWeb extends WebPlugin {
       canvas: layerCanvas,
       ctx: layerCtx,
     };
-    
+
     managed.layers.set(layerId, managedLayer);
-    
+
     const parent = managed.canvas.parentElement;
     if (parent) {
       parent.appendChild(layerCanvas);
     }
-    
+
     return { layerId };
   }
 
-  async updateLayer(options: { canvasId: string; layerId: string; layer: Partial<CanvasLayer> }): Promise<void> {
+  async updateLayer(options: {
+    canvasId: string;
+    layerId: string;
+    layer: Partial<CanvasLayer>;
+  }): Promise<void> {
     const managed = this.canvases.get(options.canvasId);
     if (!managed) throw new Error("Canvas not found");
-    
+
     const layer = managed.layers.get(options.layerId);
     if (!layer) throw new Error("Layer not found");
-    
+
     if (options.layer.visible !== undefined) {
       layer.visible = options.layer.visible;
       layer.canvas.style.display = options.layer.visible ? "block" : "none";
     }
-    
+
     if (options.layer.opacity !== undefined) {
       layer.opacity = options.layer.opacity;
       layer.canvas.style.opacity = String(options.layer.opacity);
     }
-    
+
     if (options.layer.zIndex !== undefined) {
       layer.zIndex = options.layer.zIndex;
       layer.canvas.style.zIndex = String(options.layer.zIndex);
     }
-    
+
     if (options.layer.name !== undefined) {
       layer.name = options.layer.name;
     }
-    
+
     if (options.layer.transform !== undefined) {
       layer.transform = options.layer.transform;
     }
   }
 
-  async deleteLayer(options: { canvasId: string; layerId: string }): Promise<void> {
+  async deleteLayer(options: {
+    canvasId: string;
+    layerId: string;
+  }): Promise<void> {
     const managed = this.canvases.get(options.canvasId);
     if (!managed) throw new Error("Canvas not found");
-    
+
     const layer = managed.layers.get(options.layerId);
     if (!layer) throw new Error("Layer not found");
-    
+
     layer.canvas.remove();
     managed.layers.delete(options.layerId);
   }
 
-  async getLayers(options: { canvasId: string }): Promise<{ layers: CanvasLayer[] }> {
+  async getLayers(options: {
+    canvasId: string;
+  }): Promise<{ layers: CanvasLayer[] }> {
     const managed = this.canvases.get(options.canvasId);
     if (!managed) throw new Error("Canvas not found");
-    
-    const layers: CanvasLayer[] = Array.from(managed.layers.values()).map(layer => ({
-      id: layer.id,
-      name: layer.name,
-      visible: layer.visible,
-      opacity: layer.opacity,
-      zIndex: layer.zIndex,
-      transform: layer.transform,
-    }));
-    
+
+    const layers: CanvasLayer[] = Array.from(managed.layers.values()).map(
+      (layer) => ({
+        id: layer.id,
+        name: layer.name,
+        visible: layer.visible,
+        opacity: layer.opacity,
+        zIndex: layer.zIndex,
+        transform: layer.transform,
+      }),
+    );
+
     return { layers };
   }
 
@@ -288,11 +334,11 @@ export class CanvasWeb extends WebPlugin {
     drawOptions?: CanvasDrawOptions;
   }): Promise<void> {
     const ctx = this.getContext(options.canvasId, options.drawOptions?.layerId);
-    
+
     this.applyDrawOptions(ctx, options.canvasId, options.drawOptions);
-    
+
     ctx.beginPath();
-    
+
     if (options.cornerRadius && options.cornerRadius > 0) {
       const r = options.cornerRadius;
       const { x, y, width, height } = options.rect;
@@ -307,19 +353,24 @@ export class CanvasWeb extends WebPlugin {
       ctx.quadraticCurveTo(x, y, x + r, y);
       ctx.closePath();
     } else {
-      ctx.rect(options.rect.x, options.rect.y, options.rect.width, options.rect.height);
+      ctx.rect(
+        options.rect.x,
+        options.rect.y,
+        options.rect.width,
+        options.rect.height,
+      );
     }
-    
+
     if (options.fill) {
       ctx.fillStyle = this.createFillStyle(ctx, options.fill);
       ctx.fill();
     }
-    
+
     if (options.stroke) {
       this.applyStrokeStyle(ctx, options.stroke);
       ctx.stroke();
     }
-    
+
     ctx.restore();
   }
 
@@ -333,22 +384,30 @@ export class CanvasWeb extends WebPlugin {
     drawOptions?: CanvasDrawOptions;
   }): Promise<void> {
     const ctx = this.getContext(options.canvasId, options.drawOptions?.layerId);
-    
+
     this.applyDrawOptions(ctx, options.canvasId, options.drawOptions);
-    
+
     ctx.beginPath();
-    ctx.ellipse(options.center.x, options.center.y, options.radiusX, options.radiusY, 0, 0, Math.PI * 2);
-    
+    ctx.ellipse(
+      options.center.x,
+      options.center.y,
+      options.radiusX,
+      options.radiusY,
+      0,
+      0,
+      Math.PI * 2,
+    );
+
     if (options.fill) {
       ctx.fillStyle = this.createFillStyle(ctx, options.fill);
       ctx.fill();
     }
-    
+
     if (options.stroke) {
       this.applyStrokeStyle(ctx, options.stroke);
       ctx.stroke();
     }
-    
+
     ctx.restore();
   }
 
@@ -360,15 +419,15 @@ export class CanvasWeb extends WebPlugin {
     drawOptions?: CanvasDrawOptions;
   }): Promise<void> {
     const ctx = this.getContext(options.canvasId, options.drawOptions?.layerId);
-    
+
     this.applyDrawOptions(ctx, options.canvasId, options.drawOptions);
     this.applyStrokeStyle(ctx, options.stroke);
-    
+
     ctx.beginPath();
     ctx.moveTo(options.from.x, options.from.y);
     ctx.lineTo(options.to.x, options.to.y);
     ctx.stroke();
-    
+
     ctx.restore();
   }
 
@@ -380,11 +439,11 @@ export class CanvasWeb extends WebPlugin {
     drawOptions?: CanvasDrawOptions;
   }): Promise<void> {
     const ctx = this.getContext(options.canvasId, options.drawOptions?.layerId);
-    
+
     this.applyDrawOptions(ctx, options.canvasId, options.drawOptions);
-    
+
     ctx.beginPath();
-    
+
     for (const cmd of options.path.commands) {
       switch (cmd.type) {
         case "moveTo":
@@ -394,19 +453,53 @@ export class CanvasWeb extends WebPlugin {
           ctx.lineTo(cmd.args[0], cmd.args[1]);
           break;
         case "quadraticCurveTo":
-          ctx.quadraticCurveTo(cmd.args[0], cmd.args[1], cmd.args[2], cmd.args[3]);
+          ctx.quadraticCurveTo(
+            cmd.args[0],
+            cmd.args[1],
+            cmd.args[2],
+            cmd.args[3],
+          );
           break;
         case "bezierCurveTo":
-          ctx.bezierCurveTo(cmd.args[0], cmd.args[1], cmd.args[2], cmd.args[3], cmd.args[4], cmd.args[5]);
+          ctx.bezierCurveTo(
+            cmd.args[0],
+            cmd.args[1],
+            cmd.args[2],
+            cmd.args[3],
+            cmd.args[4],
+            cmd.args[5],
+          );
           break;
         case "arcTo":
-          ctx.arcTo(cmd.args[0], cmd.args[1], cmd.args[2], cmd.args[3], cmd.args[4]);
+          ctx.arcTo(
+            cmd.args[0],
+            cmd.args[1],
+            cmd.args[2],
+            cmd.args[3],
+            cmd.args[4],
+          );
           break;
         case "arc":
-          ctx.arc(cmd.args[0], cmd.args[1], cmd.args[2], cmd.args[3], cmd.args[4], cmd.args[5] === 1);
+          ctx.arc(
+            cmd.args[0],
+            cmd.args[1],
+            cmd.args[2],
+            cmd.args[3],
+            cmd.args[4],
+            cmd.args[5] === 1,
+          );
           break;
         case "ellipse":
-          ctx.ellipse(cmd.args[0], cmd.args[1], cmd.args[2], cmd.args[3], cmd.args[4], cmd.args[5], cmd.args[6], cmd.args[7] === 1);
+          ctx.ellipse(
+            cmd.args[0],
+            cmd.args[1],
+            cmd.args[2],
+            cmd.args[3],
+            cmd.args[4],
+            cmd.args[5],
+            cmd.args[6],
+            cmd.args[7] === 1,
+          );
           break;
         case "rect":
           ctx.rect(cmd.args[0], cmd.args[1], cmd.args[2], cmd.args[3]);
@@ -416,17 +509,17 @@ export class CanvasWeb extends WebPlugin {
           break;
       }
     }
-    
+
     if (options.fill) {
       ctx.fillStyle = this.createFillStyle(ctx, options.fill);
       ctx.fill();
     }
-    
+
     if (options.stroke) {
       this.applyStrokeStyle(ctx, options.stroke);
       ctx.stroke();
     }
-    
+
     ctx.restore();
   }
 
@@ -438,20 +531,26 @@ export class CanvasWeb extends WebPlugin {
     drawOptions?: CanvasDrawOptions;
   }): Promise<void> {
     const ctx = this.getContext(options.canvasId, options.drawOptions?.layerId);
-    
+
     this.applyDrawOptions(ctx, options.canvasId, options.drawOptions);
-    
+
     ctx.font = `${options.style.size}px ${options.style.font}`;
     ctx.fillStyle = this.colorToString(options.style.color);
     ctx.textAlign = options.style.align || "left";
-    ctx.textBaseline = (options.style.baseline || "alphabetic") as CanvasTextBaseline;
-    
+    ctx.textBaseline = (options.style.baseline ||
+      "alphabetic") as CanvasTextBaseline;
+
     if (options.style.maxWidth) {
-      ctx.fillText(options.text, options.position.x, options.position.y, options.style.maxWidth);
+      ctx.fillText(
+        options.text,
+        options.position.x,
+        options.position.y,
+        options.style.maxWidth,
+      );
     } else {
       ctx.fillText(options.text, options.position.x, options.position.y);
     }
-    
+
     ctx.restore();
   }
 
@@ -463,22 +562,22 @@ export class CanvasWeb extends WebPlugin {
     drawOptions?: CanvasDrawOptions;
   }): Promise<void> {
     const ctx = this.getContext(options.canvasId, options.drawOptions?.layerId);
-    
+
     this.applyDrawOptions(ctx, options.canvasId, options.drawOptions);
-    
+
     const img = new Image();
-    
+
     if (typeof options.image === "string") {
       img.src = options.image;
     } else {
       img.src = `data:image/${options.image.format};base64,${options.image.base64}`;
     }
-    
+
     await new Promise<void>((resolve, reject) => {
       img.onload = () => resolve();
       img.onerror = () => reject(new Error("Failed to load image"));
     });
-    
+
     if (options.srcRect) {
       ctx.drawImage(
         img,
@@ -489,7 +588,7 @@ export class CanvasWeb extends WebPlugin {
         options.destRect.x,
         options.destRect.y,
         options.destRect.width,
-        options.destRect.height
+        options.destRect.height,
       );
     } else {
       ctx.drawImage(
@@ -497,10 +596,10 @@ export class CanvasWeb extends WebPlugin {
         options.destRect.x,
         options.destRect.y,
         options.destRect.width,
-        options.destRect.height
+        options.destRect.height,
       );
     }
-    
+
     ctx.restore();
   }
 
@@ -536,17 +635,30 @@ export class CanvasWeb extends WebPlugin {
     }
   }
 
-  async getPixelData(options: { canvasId: string; rect?: CanvasRect }): Promise<{
+  async getPixelData(options: {
+    canvasId: string;
+    rect?: CanvasRect;
+  }): Promise<{
     data: Uint8ClampedArray;
     width: number;
     height: number;
   }> {
     const managed = this.canvases.get(options.canvasId);
     if (!managed) throw new Error("Canvas not found");
-    
-    const rect = options.rect || { x: 0, y: 0, width: managed.size.width, height: managed.size.height };
-    const imageData = managed.ctx.getImageData(rect.x, rect.y, rect.width, rect.height);
-    
+
+    const rect = options.rect || {
+      x: 0,
+      y: 0,
+      width: managed.size.width,
+      height: managed.size.height,
+    };
+    const imageData = managed.ctx.getImageData(
+      rect.x,
+      rect.y,
+      rect.width,
+      rect.height,
+    );
+
     return {
       data: imageData.data,
       width: imageData.width,
@@ -562,35 +674,40 @@ export class CanvasWeb extends WebPlugin {
   }): Promise<CanvasImageData> {
     const managed = this.canvases.get(options.canvasId);
     if (!managed) throw new Error("Canvas not found");
-    
+
     const format = options.format || "png";
     const quality = (options.quality || 100) / 100;
-    
+
     let sourceCanvas = managed.canvas;
-    
+
     if (options.layerIds && options.layerIds.length > 0) {
       const tempCanvas = document.createElement("canvas");
       tempCanvas.width = managed.size.width;
       tempCanvas.height = managed.size.height;
       const tempCtx = tempCanvas.getContext("2d");
-      
+
       if (!tempCtx) throw new Error("Failed to create temp canvas");
-      
+
       for (const layerId of options.layerIds) {
         const layer = managed.layers.get(layerId);
-        if (layer && layer.visible) {
+        if (layer?.visible) {
           tempCtx.globalAlpha = layer.opacity;
           tempCtx.drawImage(layer.canvas, 0, 0);
         }
       }
-      
+
       sourceCanvas = tempCanvas;
     }
-    
-    const mimeType = format === "png" ? "image/png" : format === "webp" ? "image/webp" : "image/jpeg";
+
+    const mimeType =
+      format === "png"
+        ? "image/png"
+        : format === "webp"
+          ? "image/webp"
+          : "image/jpeg";
     const dataUrl = sourceCanvas.toDataURL(mimeType, quality);
     const base64 = dataUrl.split(",")[1];
-    
+
     return {
       base64,
       format,
@@ -599,25 +716,31 @@ export class CanvasWeb extends WebPlugin {
     };
   }
 
-  async setTransform(options: { canvasId: string; transform: CanvasTransform }): Promise<void> {
+  async setTransform(options: {
+    canvasId: string;
+    transform: CanvasTransform;
+  }): Promise<void> {
     const managed = this.canvases.get(options.canvasId);
     if (!managed) throw new Error("Canvas not found");
-    
+
     managed.transform = options.transform;
   }
 
   async resetTransform(options: { canvasId: string }): Promise<void> {
     const managed = this.canvases.get(options.canvasId);
     if (!managed) throw new Error("Canvas not found");
-    
+
     managed.transform = {};
     managed.ctx.setTransform(1, 0, 0, 1, 0, 0);
   }
 
-  async setTouchEnabled(options: { canvasId: string; enabled: boolean }): Promise<void> {
+  async setTouchEnabled(options: {
+    canvasId: string;
+    enabled: boolean;
+  }): Promise<void> {
     const managed = this.canvases.get(options.canvasId);
     if (!managed) throw new Error("Canvas not found");
-    
+
     managed.touchEnabled = options.enabled;
   }
 
@@ -645,7 +768,11 @@ export class CanvasWeb extends WebPlugin {
     }
 
     if (placement === "popup") {
-      const popup = window.open(options.url, "_blank", "width=800,height=600,menubar=no,toolbar=no");
+      const popup = window.open(
+        options.url,
+        "_blank",
+        "width=800,height=600,menubar=no,toolbar=no",
+      );
       if (!popup) {
         this.notifyListeners("navigationError", {
           url: options.url,
@@ -678,7 +805,10 @@ export class CanvasWeb extends WebPlugin {
     // Inline or fullscreen: use an iframe
     const iframe = document.createElement("iframe");
     iframe.style.border = "none";
-    iframe.setAttribute("sandbox", "allow-scripts allow-same-origin allow-forms allow-popups");
+    iframe.setAttribute(
+      "sandbox",
+      "allow-scripts allow-same-origin allow-forms allow-popups",
+    );
 
     if (placement === "fullscreen") {
       iframe.style.position = "fixed";
@@ -720,7 +850,9 @@ export class CanvasWeb extends WebPlugin {
   async eval(options: EvalOptions): Promise<EvalResult> {
     const target =
       this.webViewIframe?.contentWindow ??
-      (this.webViewPopup && !this.webViewPopup.closed ? this.webViewPopup : null);
+      (this.webViewPopup && !this.webViewPopup.closed
+        ? this.webViewPopup
+        : null);
 
     if (!target) {
       throw new Error("No web view active. Call navigate() first.");
@@ -771,7 +903,9 @@ export class CanvasWeb extends WebPlugin {
         ];
 
         const img = new Image();
-        const blob = new Blob([svgParts.join("")], { type: "image/svg+xml;charset=utf-8" });
+        const blob = new Blob([svgParts.join("")], {
+          type: "image/svg+xml;charset=utf-8",
+        });
         const blobUrl = URL.createObjectURL(blob);
 
         try {
@@ -800,10 +934,19 @@ export class CanvasWeb extends WebPlugin {
       ctx.font = "14px -apple-system, BlinkMacSystemFont, sans-serif";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillText("Snapshot unavailable (cross-origin content)", width / 2, height / 2);
+      ctx.fillText(
+        "Snapshot unavailable (cross-origin content)",
+        width / 2,
+        height / 2,
+      );
     }
 
-    const mimeType = format === "jpeg" ? "image/jpeg" : format === "webp" ? "image/webp" : "image/png";
+    const mimeType =
+      format === "jpeg"
+        ? "image/jpeg"
+        : format === "webp"
+          ? "image/webp"
+          : "image/png";
     const dataUrl = canvas.toDataURL(mimeType, quality);
     const base64 = dataUrl.split(",")[1];
 
@@ -812,7 +955,8 @@ export class CanvasWeb extends WebPlugin {
 
   async a2uiPush(options: A2UIPushOptions): Promise<void> {
     // Try window.miladyA2UI bridge first (set up by the A2UI runtime)
-    const bridge = (window as Window & { miladyA2UI?: MiladyA2UIBridge }).miladyA2UI;
+    const bridge = (window as Window & { miladyA2UI?: MiladyA2UIBridge })
+      .miladyA2UI;
     if (bridge?.push) {
       bridge.push(
         options.messages || [],
@@ -823,16 +967,22 @@ export class CanvasWeb extends WebPlugin {
     }
 
     // Fall back to postMessage into the web view
-    const target = this.webViewIframe?.contentWindow
-      || (this.webViewPopup && !this.webViewPopup.closed ? this.webViewPopup : null);
+    const target =
+      this.webViewIframe?.contentWindow ||
+      (this.webViewPopup && !this.webViewPopup.closed
+        ? this.webViewPopup
+        : null);
 
     if (target) {
-      target.postMessage({
-        type: "milady:a2uiPush",
-        messages: options.messages || [],
-        jsonl: options.jsonl || "",
-        payload: options.payload || null,
-      }, "*");
+      target.postMessage(
+        {
+          type: "milady:a2uiPush",
+          messages: options.messages || [],
+          jsonl: options.jsonl || "",
+          payload: options.payload || null,
+        },
+        "*",
+      );
       return;
     }
 
@@ -841,15 +991,19 @@ export class CanvasWeb extends WebPlugin {
 
   async a2uiReset(): Promise<void> {
     // Try window.miladyA2UI bridge first
-    const bridge = (window as Window & { miladyA2UI?: MiladyA2UIBridge }).miladyA2UI;
+    const bridge = (window as Window & { miladyA2UI?: MiladyA2UIBridge })
+      .miladyA2UI;
     if (bridge?.reset) {
       bridge.reset();
       return;
     }
 
     // Fall back to postMessage into the web view
-    const target = this.webViewIframe?.contentWindow
-      || (this.webViewPopup && !this.webViewPopup.closed ? this.webViewPopup : null);
+    const target =
+      this.webViewIframe?.contentWindow ||
+      (this.webViewPopup && !this.webViewPopup.closed
+        ? this.webViewPopup
+        : null);
 
     if (target) {
       target.postMessage({ type: "milady:a2uiReset" }, "*");
@@ -872,7 +1026,10 @@ export class CanvasWeb extends WebPlugin {
     this.webViewPopup = null;
   }
 
-  private evalViaPostMessage(target: Window, script: string): Promise<EvalResult> {
+  private evalViaPostMessage(
+    target: Window,
+    script: string,
+  ): Promise<EvalResult> {
     return new Promise<EvalResult>((resolve, reject) => {
       const timeoutMs = 5000;
       const timeout = setTimeout(() => {
@@ -927,16 +1084,19 @@ export class CanvasWeb extends WebPlugin {
 
   // ---- Drawing Helpers ----
 
-  private getContext(canvasId: string, layerId?: string): CanvasRenderingContext2D {
+  private getContext(
+    canvasId: string,
+    layerId?: string,
+  ): CanvasRenderingContext2D {
     const managed = this.canvases.get(canvasId);
     if (!managed) throw new Error("Canvas not found");
-    
+
     if (layerId) {
       const layer = managed.layers.get(layerId);
       if (!layer) throw new Error("Layer not found");
       return layer.ctx;
     }
-    
+
     return managed.ctx;
   }
 
@@ -946,35 +1106,56 @@ export class CanvasWeb extends WebPlugin {
     return `rgba(${color.r}, ${color.g}, ${color.b}, ${a})`;
   }
 
-  private createFillStyle(ctx: CanvasRenderingContext2D, fill: CanvasFillStyle | CanvasGradient): string | CanvasGradient2D {
+  private createFillStyle(
+    ctx: CanvasRenderingContext2D,
+    fill: CanvasFillStyle | CanvasGradient,
+  ): string | CanvasGradient2D {
     if ("type" in fill) {
       return this.createGradient(ctx, fill);
     }
     return this.colorToString(fill.color);
   }
 
-  private createGradient(ctx: CanvasRenderingContext2D, gradient: CanvasGradient): CanvasGradient2D {
+  private createGradient(
+    ctx: CanvasRenderingContext2D,
+    gradient: CanvasGradient,
+  ): CanvasGradient2D {
     let grad: CanvasGradient2D;
-    
+
     if (gradient.type === "linear") {
-      grad = ctx.createLinearGradient(gradient.x0, gradient.y0, gradient.x1, gradient.y1);
+      grad = ctx.createLinearGradient(
+        gradient.x0,
+        gradient.y0,
+        gradient.x1,
+        gradient.y1,
+      );
     } else {
-      grad = ctx.createRadialGradient(gradient.x0, gradient.y0, gradient.r0, gradient.x1, gradient.y1, gradient.r1);
+      grad = ctx.createRadialGradient(
+        gradient.x0,
+        gradient.y0,
+        gradient.r0,
+        gradient.x1,
+        gradient.y1,
+        gradient.r1,
+      );
     }
-    
+
     for (const stop of gradient.stops) {
       grad.addColorStop(stop.offset, this.colorToString(stop.color));
     }
-    
+
     return grad;
   }
 
-  private applyStrokeStyle(ctx: CanvasRenderingContext2D, stroke: CanvasStrokeStyle): void {
+  private applyStrokeStyle(
+    ctx: CanvasRenderingContext2D,
+    stroke: CanvasStrokeStyle,
+  ): void {
     ctx.strokeStyle = this.colorToString(stroke.color);
     ctx.lineWidth = stroke.width;
     ctx.lineCap = stroke.lineCap || "butt";
     ctx.lineJoin = stroke.lineJoin || "miter";
-    
+
     if (stroke.dashPattern) {
       ctx.setLineDash(stroke.dashPattern);
     } else {
@@ -982,7 +1163,11 @@ export class CanvasWeb extends WebPlugin {
     }
   }
 
-  private applyDrawOptions(ctx: CanvasRenderingContext2D, canvasId: string, options?: CanvasDrawOptions): void {
+  private applyDrawOptions(
+    ctx: CanvasRenderingContext2D,
+    canvasId: string,
+    options?: CanvasDrawOptions,
+  ): void {
     ctx.save();
 
     // Apply canvas-level transform first (from setTransform)
@@ -990,51 +1175,55 @@ export class CanvasWeb extends WebPlugin {
     if (managed && Object.keys(managed.transform).length > 0) {
       this.applyTransform(ctx, managed.transform);
     }
-    
+
     if (options?.opacity !== undefined) {
       ctx.globalAlpha = options.opacity;
     }
-    
+
     if (options?.blendMode) {
       const blendMap: Record<string, GlobalCompositeOperation> = {
-        "normal": "source-over",
-        "multiply": "multiply",
-        "screen": "screen",
-        "overlay": "overlay",
-        "darken": "darken",
-        "lighten": "lighten",
+        normal: "source-over",
+        multiply: "multiply",
+        screen: "screen",
+        overlay: "overlay",
+        darken: "darken",
+        lighten: "lighten",
         "color-dodge": "color-dodge",
         "color-burn": "color-burn",
       };
-      ctx.globalCompositeOperation = blendMap[options.blendMode] ?? "source-over";
+      ctx.globalCompositeOperation =
+        blendMap[options.blendMode] ?? "source-over";
     }
-    
+
     if (options?.shadow) {
       ctx.shadowColor = this.colorToString(options.shadow.color);
       ctx.shadowBlur = options.shadow.blur;
       ctx.shadowOffsetX = options.shadow.offsetX;
       ctx.shadowOffsetY = options.shadow.offsetY;
     }
-    
+
     // Apply draw-specific transform on top of canvas transform
     if (options?.transform) {
       this.applyTransform(ctx, options.transform);
     }
   }
 
-  private applyTransform(ctx: CanvasRenderingContext2D, transform: CanvasTransform): void {
+  private applyTransform(
+    ctx: CanvasRenderingContext2D,
+    transform: CanvasTransform,
+  ): void {
     if (transform.translateX || transform.translateY) {
       ctx.translate(transform.translateX || 0, transform.translateY || 0);
     }
-    
+
     if (transform.rotation) {
       ctx.rotate(transform.rotation);
     }
-    
+
     if (transform.scaleX !== undefined || transform.scaleY !== undefined) {
       ctx.scale(transform.scaleX ?? 1, transform.scaleY ?? 1);
     }
-    
+
     if (transform.skewX || transform.skewY) {
       ctx.transform(1, transform.skewY || 0, transform.skewX || 0, 1, 0, 0);
     }
@@ -1049,11 +1238,17 @@ export class CanvasWeb extends WebPlugin {
       };
     };
 
-    const emitTouch = (type: CanvasTouchEvent["type"], touches: CanvasTouchEvent["touches"]) => {
+    const emitTouch = (
+      type: CanvasTouchEvent["type"],
+      touches: CanvasTouchEvent["touches"],
+    ) => {
       this.notifyListeners("touch", { type, touches, timestamp: Date.now() });
     };
 
-    const handleTouchEvent = (e: TouchEvent, type: CanvasTouchEvent["type"]) => {
+    const handleTouchEvent = (
+      e: TouchEvent,
+      type: CanvasTouchEvent["type"],
+    ) => {
       if (!managed.touchEnabled) return;
       const touches = Array.from(e.touches).map((t) => ({
         id: t.identifier,
@@ -1063,10 +1258,18 @@ export class CanvasWeb extends WebPlugin {
       emitTouch(type, touches);
     };
 
-    managed.canvas.addEventListener("touchstart", (e) => handleTouchEvent(e, "start"));
-    managed.canvas.addEventListener("touchmove", (e) => handleTouchEvent(e, "move"));
-    managed.canvas.addEventListener("touchend", (e) => handleTouchEvent(e, "end"));
-    managed.canvas.addEventListener("touchcancel", (e) => handleTouchEvent(e, "cancel"));
+    managed.canvas.addEventListener("touchstart", (e) =>
+      handleTouchEvent(e, "start"),
+    );
+    managed.canvas.addEventListener("touchmove", (e) =>
+      handleTouchEvent(e, "move"),
+    );
+    managed.canvas.addEventListener("touchend", (e) =>
+      handleTouchEvent(e, "end"),
+    );
+    managed.canvas.addEventListener("touchcancel", (e) =>
+      handleTouchEvent(e, "cancel"),
+    );
 
     managed.canvas.addEventListener("mousedown", (e) => {
       if (!managed.touchEnabled) return;
@@ -1086,17 +1289,28 @@ export class CanvasWeb extends WebPlugin {
 
   async addListener(
     eventName: string,
-    listenerFunc: (event: CanvasEventData) => void
+    listenerFunc: (event: CanvasEventData) => void,
   ): Promise<{ remove: () => Promise<void> }> {
     const entry = { eventName, callback: listenerFunc };
     this.pluginListeners.push(entry);
-    return { remove: async () => { const i = this.pluginListeners.indexOf(entry); if (i >= 0) this.pluginListeners.splice(i, 1); } };
+    return {
+      remove: async () => {
+        const i = this.pluginListeners.indexOf(entry);
+        if (i >= 0) this.pluginListeners.splice(i, 1);
+      },
+    };
   }
 
-  async removeAllListeners(): Promise<void> { this.pluginListeners = []; }
+  async removeAllListeners(): Promise<void> {
+    this.pluginListeners = [];
+  }
 
   protected notifyListeners(eventName: string, data: CanvasEventData): void {
-    this.pluginListeners.filter((l) => l.eventName === eventName).forEach((l) => l.callback(data));
+    this.pluginListeners
+      .filter((l) => l.eventName === eventName)
+      .forEach((l) => {
+        l.callback(data);
+      });
   }
 }
 

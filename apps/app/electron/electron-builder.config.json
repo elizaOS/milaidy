@@ -4,20 +4,12 @@
   "directories": {
     "buildResources": "resources"
   },
-  "files": [
-    "assets/**/*",
-    "build/**/*",
-    "capacitor.config.*",
-    "app/**/*"
-  ],
+  "files": ["assets/**/*", "build/**/*", "capacitor.config.*", "app/**/*"],
   "extraResources": [
     {
       "from": "../../../dist",
       "to": "milady-dist",
-      "filter": [
-        "**/*.js",
-        "package.json"
-      ]
+      "filter": ["**/*.js", "package.json"]
     }
   ],
   "publish": {
@@ -42,10 +34,7 @@
   },
   "mac": {
     "category": "public.app-category.productivity",
-    "target": [
-      "dmg",
-      "zip"
-    ],
+    "target": ["dmg", "zip"],
     "icon": "assets/appIcon.png",
     "hardenedRuntime": true,
     "gatekeeperAssess": false,
@@ -76,10 +65,7 @@
     ]
   },
   "linux": {
-    "target": [
-      "AppImage",
-      "deb"
-    ],
+    "target": ["AppImage", "deb"],
     "category": "Utility",
     "icon": "assets/appIcon.png"
   }

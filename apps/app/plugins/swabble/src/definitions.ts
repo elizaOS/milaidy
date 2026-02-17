@@ -203,7 +203,7 @@ export interface SwabblePlugin {
    */
   addListener(
     eventName: "wakeWord",
-    listenerFunc: (event: SwabbleWakeWordEvent) => void
+    listenerFunc: (event: SwabbleWakeWordEvent) => void,
   ): Promise<PluginListenerHandle>;
 
   /**
@@ -211,7 +211,7 @@ export interface SwabblePlugin {
    */
   addListener(
     eventName: "transcript",
-    listenerFunc: (event: SwabbleTranscriptEvent) => void
+    listenerFunc: (event: SwabbleTranscriptEvent) => void,
   ): Promise<PluginListenerHandle>;
 
   /**
@@ -219,7 +219,7 @@ export interface SwabblePlugin {
    */
   addListener(
     eventName: "stateChange",
-    listenerFunc: (event: SwabbleStateEvent) => void
+    listenerFunc: (event: SwabbleStateEvent) => void,
   ): Promise<PluginListenerHandle>;
 
   /**
@@ -227,7 +227,7 @@ export interface SwabblePlugin {
    */
   addListener(
     eventName: "audioLevel",
-    listenerFunc: (event: SwabbleAudioLevelEvent) => void
+    listenerFunc: (event: SwabbleAudioLevelEvent) => void,
   ): Promise<PluginListenerHandle>;
 
   /**
@@ -235,7 +235,7 @@ export interface SwabblePlugin {
    */
   addListener(
     eventName: "error",
-    listenerFunc: (event: SwabbleErrorEvent) => void
+    listenerFunc: (event: SwabbleErrorEvent) => void,
   ): Promise<PluginListenerHandle>;
 
   /**

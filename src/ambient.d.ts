@@ -8,3 +8,9 @@ declare module "@elizaos/skills" {
   /** Returns the absolute path to the bundled skills directory. */
   export function getSkillsDir(): string;
 }
+
+declare module "@elizaos/plugin-trajectory-logger" {
+  import type { Plugin } from "@elizaos/core";
+  const plugin: Plugin;
+  export default plugin;
+}

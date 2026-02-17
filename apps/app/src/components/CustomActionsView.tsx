@@ -1,12 +1,14 @@
-import { useState, useEffect, useCallback } from "react";
-import { client, type CustomActionDef } from "../api-client";
+import { useCallback, useEffect, useState } from "react";
+import { type CustomActionDef, client } from "../api-client";
 import { CustomActionEditor } from "./CustomActionEditor";
 
 export function CustomActionsView() {
   const [actions, setActions] = useState<CustomActionDef[]>([]);
   const [search, setSearch] = useState("");
   const [editorOpen, setEditorOpen] = useState(false);
-  const [editingAction, setEditingAction] = useState<CustomActionDef | null>(null);
+  const [editingAction, setEditingAction] = useState<CustomActionDef | null>(
+    null,
+  );
   const [loading, setLoading] = useState(true);
 
   const loadActions = useCallback(async () => {
@@ -46,18 +48,21 @@ export function CustomActionsView() {
     await loadActions();
   }, [loadActions]);
 
-  const handleToggleEnabled = useCallback(async (id: string, enabled: boolean) => {
-    try {
-      await client.updateCustomAction(id, { enabled });
-      setActions(prev =>
-        prev.map(action =>
-          action.id === id ? { ...action, enabled } : action
-        )
-      );
-    } catch (error) {
-      console.error("Failed to toggle action:", error);
-    }
-  }, []);
+  const handleToggleEnabled = useCallback(
+    async (id: string, enabled: boolean) => {
+      try {
+        await client.updateCustomAction(id, { enabled });
+        setActions((prev) =>
+          prev.map((action) =>
+            action.id === id ? { ...action, enabled } : action,
+          ),
+        );
+      } catch (error) {
+        console.error("Failed to toggle action:", error);
+      }
+    },
+    [],
+  );
 
   const handleDelete = useCallback(async (id: string, name: string) => {
     if (!confirm(`Are you sure you want to delete "${name}"?`)) {
@@ -66,32 +71,35 @@ export function CustomActionsView() {
 
     try {
       await client.deleteCustomAction(id);
-      setActions(prev => prev.filter(action => action.id !== id));
+      setActions((prev) => prev.filter((action) => action.id !== id));
     } catch (error) {
       console.error("Failed to delete action:", error);
     }
   }, []);
 
-  const handleImport = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+  const handleImport = useCallback(
+    async (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
 
-    try {
-      const text = await file.text();
-      const imported = JSON.parse(text);
-      const actionsToImport = Array.isArray(imported) ? imported : [imported];
+      try {
+        const text = await file.text();
+        const imported = JSON.parse(text);
+        const actionsToImport = Array.isArray(imported) ? imported : [imported];
 
-      for (const action of actionsToImport) {
-        await client.createCustomAction(action);
+        for (const action of actionsToImport) {
+          await client.createCustomAction(action);
+        }
+
+        await loadActions();
+        event.target.value = "";
+      } catch (error) {
+        console.error("Failed to import actions:", error);
+        alert("Failed to import actions. Please check the file format.");
       }
-
-      await loadActions();
-      event.target.value = "";
-    } catch (error) {
-      console.error("Failed to import actions:", error);
-      alert("Failed to import actions. Please check the file format.");
-    }
-  }, [loadActions]);
+    },
+    [loadActions],
+  );
 
   const handleExport = useCallback(() => {
     const dataStr = JSON.stringify(actions, null, 2);
@@ -106,7 +114,7 @@ export function CustomActionsView() {
     URL.revokeObjectURL(url);
   }, [actions]);
 
-  const filteredActions = actions.filter(action => {
+  const filteredActions = actions.filter((action) => {
     const searchLower = search.toLowerCase();
     return (
       action.name.toLowerCase().includes(searchLower) ||
@@ -151,6 +159,7 @@ export function CustomActionsView() {
             />
           </label>
           <button
+            type="button"
             onClick={handleExport}
             disabled={actions.length === 0}
             className="px-3 py-1.5 text-sm border border-border bg-surface text-muted rounded hover:bg-card transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -158,6 +167,7 @@ export function CustomActionsView() {
             Export
           </button>
           <button
+            type="button"
             onClick={handleCreate}
             className="px-3 py-1.5 text-sm border border-accent bg-accent text-txt rounded hover:bg-accent/80 transition-colors"
           >
@@ -187,6 +197,7 @@ export function CustomActionsView() {
           </p>
           {!search && (
             <button
+              type="button"
               onClick={handleCreate}
               className="px-4 py-2 text-sm border border-accent bg-accent text-txt rounded hover:bg-accent/80 transition-colors"
             >
@@ -199,44 +210,40 @@ export function CustomActionsView() {
           {filteredActions.map((action) => (
             <div
               key={action.id}
-              onClick={(e) => {
-                // Don't open editor if clicking on interactive elements
-                if (
-                  e.target instanceof HTMLButtonElement ||
-                  e.target instanceof HTMLInputElement
-                ) {
-                  return;
-                }
-                handleEdit(action);
-              }}
               className="border border-border bg-card rounded p-4 space-y-3 cursor-pointer hover:border-accent/50 transition-colors"
             >
-              {/* Name and Badge */}
-              <div className="flex items-start justify-between gap-2">
-                <h3 className="font-bold text-sm text-txt flex-1 break-words">
-                  {action.name}
-                </h3>
-                <span
-                  className={`px-2 py-0.5 text-xs rounded ${getBadgeColor(
-                    action.handler.type
-                  )}`}
-                >
-                  {action.handler.type}
-                </span>
-              </div>
+              <button
+                type="button"
+                className="w-full bg-transparent border-0 p-0 m-0 text-left cursor-pointer"
+                onClick={() => handleEdit(action)}
+              >
+                {/* Name and Badge */}
+                <div className="flex items-start justify-between gap-2">
+                  <h3 className="font-bold text-sm text-txt flex-1 break-words">
+                    {action.name}
+                  </h3>
+                  <span
+                    className={`px-2 py-0.5 text-xs rounded ${getBadgeColor(
+                      action.handler.type,
+                    )}`}
+                  >
+                    {action.handler.type}
+                  </span>
+                </div>
 
-              {/* Description */}
-              {action.description && (
-                <p className="text-xs text-muted line-clamp-3">
-                  {action.description}
+                {/* Description */}
+                {action.description && (
+                  <p className="text-xs text-muted line-clamp-3">
+                    {action.description}
+                  </p>
+                )}
+
+                {/* Parameters Count */}
+                <p className="text-xs text-muted">
+                  {action.parameters?.length || 0} parameter
+                  {action.parameters?.length === 1 ? "" : "s"}
                 </p>
-              )}
-
-              {/* Parameters Count */}
-              <p className="text-xs text-muted">
-                {action.parameters?.length || 0} parameter
-                {action.parameters?.length === 1 ? "" : "s"}
-              </p>
+              </button>
 
               {/* Actions Row */}
               <div className="flex items-center justify-between pt-2 border-t border-border">
@@ -254,19 +261,15 @@ export function CustomActionsView() {
 
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleEdit(action);
-                    }}
+                    type="button"
+                    onClick={() => handleEdit(action)}
                     className="px-2 py-1 text-xs border border-border bg-surface text-muted rounded hover:bg-card transition-colors"
                   >
                     Edit
                   </button>
                   <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDelete(action.id, action.name);
-                    }}
+                    type="button"
+                    onClick={() => handleDelete(action.id, action.name)}
                     className="px-2 py-1 text-xs border border-border bg-surface text-danger rounded hover:bg-card transition-colors"
                   >
                     Delete

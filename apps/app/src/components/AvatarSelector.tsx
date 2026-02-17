@@ -6,7 +6,7 @@
  */
 
 import { useRef } from "react";
-import { VRM_COUNT, getVrmPreviewUrl } from "../AppContext";
+import { getVrmPreviewUrl, VRM_COUNT } from "../AppContext";
 
 export interface AvatarSelectorProps {
   /** Currently selected index (1-8 for built-in, 0 for custom) */
@@ -42,8 +42,12 @@ export function AvatarSelector({
   };
 
   const avatarIndices = Array.from({ length: VRM_COUNT }, (_, i) => i + 1);
-  const containerClass = fullWidth ? "grid gap-3 w-full" : "flex flex-wrap gap-3 justify-start";
-  const containerStyle = fullWidth ? { gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))" } : undefined;
+  const containerClass = fullWidth
+    ? "grid gap-3 w-full"
+    : "flex flex-wrap gap-3 justify-start";
+  const containerStyle = fullWidth
+    ? { gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))" }
+    : undefined;
   const avatarButtonClass = fullWidth
     ? "relative w-full aspect-square shrink-0 rounded-lg overflow-hidden cursor-pointer transition-all"
     : "relative w-24 h-24 shrink-0 rounded-lg overflow-hidden cursor-pointer transition-all";
@@ -93,7 +97,17 @@ export function AvatarSelector({
               title="Upload custom .vrm"
               type="button"
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-label="Add new persona"
+              >
                 <path d="M12 5v14m-7-7h14" />
               </svg>
             </button>

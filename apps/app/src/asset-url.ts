@@ -15,7 +15,10 @@ type AssetUrlResolveOptions = {
 let cachedRuntimeBaseHref: string | null = null;
 
 function stripLeadingPathMarkers(assetPath: string): string {
-  return assetPath.trim().replace(/^\.?\//, "").replace(/^\/+/, "");
+  return assetPath
+    .trim()
+    .replace(/^\.?\//, "")
+    .replace(/^\/+/, "");
 }
 
 function isAlreadyAbsolute(assetPath: string): boolean {
@@ -53,7 +56,8 @@ function runtimeBaseHref(): string | null {
   if (typeof href !== "string" || !href) return null;
 
   try {
-    const viteBaseUrl = (import.meta as { env?: { BASE_URL?: string } }).env?.BASE_URL;
+    const viteBaseUrl = (import.meta as { env?: { BASE_URL?: string } }).env
+      ?.BASE_URL;
     cachedRuntimeBaseHref = computeBaseHref(href, viteBaseUrl);
     return cachedRuntimeBaseHref;
   } catch {

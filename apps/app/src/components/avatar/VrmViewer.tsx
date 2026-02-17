@@ -6,8 +6,8 @@
  */
 
 import { useEffect, useRef } from "react";
-import { VrmEngine, type VrmEngineState } from "./VrmEngine";
 import { resolveAppAssetUrl } from "../../asset-url";
+import { VrmEngine, type VrmEngineState } from "./VrmEngine";
 
 const DEFAULT_VRM_PATH = resolveAppAssetUrl("vrms/1.vrm");
 
@@ -83,7 +83,7 @@ export function VrmViewer(props: VrmViewerProps) {
         }
       }, 100);
     };
-  }, []);
+  }, [props.onEngineReady, props.onEngineState]);
 
   // Load VRM when path changes
   useEffect(() => {
@@ -99,7 +99,10 @@ export function VrmViewer(props: VrmViewerProps) {
     void (async () => {
       try {
         if (!mountedRef.current || abortController.signal.aborted) return;
-        await engine.loadVrmFromUrl(vrmUrl, vrmUrl.split("/").pop() ?? "avatar.vrm");
+        await engine.loadVrmFromUrl(
+          vrmUrl,
+          vrmUrl.split("/").pop() ?? "avatar.vrm",
+        );
         if (!mountedRef.current || abortController.signal.aborted) return;
         props.onEngineState?.(engine.getState());
       } catch (err) {
@@ -108,8 +111,10 @@ export function VrmViewer(props: VrmViewerProps) {
       }
     })();
 
-    return () => { abortController.abort(); };
-  }, [props.vrmPath]);
+    return () => {
+      abortController.abort();
+    };
+  }, [props.vrmPath, props.onEngineState]);
 
   return (
     <canvas

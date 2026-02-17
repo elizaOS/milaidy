@@ -36,13 +36,20 @@ export function PairingView() {
 
   return (
     <div className="max-w-[560px] mx-auto mt-15 p-6 border border-border bg-card rounded-[10px]">
-      <h1 className="text-lg font-semibold mb-2 text-txt-strong">Pairing Required</h1>
-      <p className="text-muted mb-4 leading-relaxed">Enter the pairing code from the server logs to authenticate.</p>
+      <h1 className="text-lg font-semibold mb-2 text-txt-strong">
+        Pairing Required
+      </h1>
+      <p className="text-muted mb-4 leading-relaxed">
+        Enter the pairing code from the server logs to authenticate.
+      </p>
 
       {pairingEnabled ? (
         <form onSubmit={handleSubmit}>
           <div>
-            <label htmlFor="pairing-code" className="text-sm text-txt-strong block mb-2">
+            <label
+              htmlFor="pairing-code"
+              className="text-sm text-txt-strong block mb-2"
+            >
               Pairing Code
             </label>
             <input
@@ -52,7 +59,6 @@ export function PairingView() {
               onChange={handleCodeChange}
               placeholder="Enter pairing code"
               disabled={pairingBusy}
-              autoFocus
               className="w-full px-3 py-2.5 rounded-lg border border-border bg-bg-muted text-txt text-sm focus:border-accent focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
             />
           </div>
@@ -67,10 +73,14 @@ export function PairingView() {
             </button>
           </div>
 
-          {pairingError && <p className="mt-2.5 text-danger text-[13px]">{pairingError}</p>}
+          {pairingError && (
+            <p className="mt-2.5 text-danger text-[13px]">{pairingError}</p>
+          )}
 
           {pairingExpiresAt && (
-            <p className="mt-2.5 text-muted text-[13px]">{formatExpiry(pairingExpiresAt)}</p>
+            <p className="mt-2.5 text-muted text-[13px]">
+              {formatExpiry(pairingExpiresAt)}
+            </p>
           )}
         </form>
       ) : (

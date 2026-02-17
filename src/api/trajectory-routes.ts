@@ -4,7 +4,7 @@
  * Provides endpoints for:
  * - Listing and searching trajectories
  * - Viewing trajectory details with LLM calls and provider accesses
- * - Exporting trajectories to JSON or CSV
+ * - Exporting trajectories to JSON, CSV, or ZIP
  * - Deleting trajectories
  * - Getting trajectory statistics
  * - Enabling/disabling trajectory logging
@@ -15,128 +15,86 @@
 import type http from "node:http";
 import type { AgentRuntime } from "@elizaos/core";
 import {
-  clearPersistedTrajectoryRows,
-  deletePersistedTrajectoryRows,
-  loadPersistedTrajectoryRows,
-} from "../runtime/trajectory-persistence";
-import {
   readJsonBody as parseJsonBody,
   sendJson,
   sendJsonError,
 } from "./http-helpers";
 import { createZipArchive } from "./zip-utils";
 
-interface TrajectoryLoggerService {
-  isEnabled?: () => boolean;
-  setEnabled?: (enabled: boolean) => void;
-  listTrajectories?: (
-    options: TrajectoryListOptions,
-  ) => Promise<TrajectoryListResult>;
-  getTrajectoryDetail?: (trajectoryId: string) => Promise<Trajectory | null>;
-  getStats?: () => Promise<TrajectoryStats>;
-  deleteTrajectories?: (trajectoryIds: string[]) => Promise<number>;
-  clearAllTrajectories?: () => Promise<number>;
-  exportTrajectories?: (
-    options: TrajectoryExportOptions,
-  ) => Promise<{ data: string; filename: string; mimeType: string }>;
-  getLlmCallLogs?: () => readonly unknown[];
-  getProviderAccessLogs?: () => readonly unknown[];
-}
+// ============================================================================
+// Types
+// ============================================================================
 
-interface RouteTrajectoryLogger {
-  isEnabled(): boolean;
-  setEnabled(enabled: boolean): void;
-  listTrajectories(
-    options: TrajectoryListOptions,
-  ): Promise<TrajectoryListResult>;
-  getTrajectoryDetail(trajectoryId: string): Promise<Trajectory | null>;
-  getStats(): Promise<TrajectoryStats>;
-  deleteTrajectories(trajectoryIds: string[]): Promise<number>;
-  clearAllTrajectories(): Promise<number>;
-  exportTrajectories(
-    options: TrajectoryExportOptions,
-  ): Promise<{ data: string; filename: string; mimeType: string }>;
-}
-
-function ensureTrajectoryLoggerAlwaysEnabled(
-  logger: RouteTrajectoryLogger | null,
-): void {
-  if (!logger) return;
-  try {
-    if (!logger.isEnabled()) {
-      logger.setEnabled(true);
-    }
-  } catch {
-    // Keep route behavior resilient if the logger throws.
-  }
-}
-
-function isLegacyTrajectoryLogger(
-  candidate: unknown,
-): candidate is Required<
-  Pick<
-    TrajectoryLoggerService,
-    | "listTrajectories"
-    | "getTrajectoryDetail"
-    | "getStats"
-    | "deleteTrajectories"
-    | "clearAllTrajectories"
-    | "exportTrajectories"
-  >
-> &
-  TrajectoryLoggerService {
-  if (!candidate || typeof candidate !== "object") return false;
-  const logger = candidate as Partial<TrajectoryLoggerService>;
-  return (
-    typeof logger.listTrajectories === "function" &&
-    typeof logger.getTrajectoryDetail === "function" &&
-    typeof logger.getStats === "function" &&
-    typeof logger.deleteTrajectories === "function" &&
-    typeof logger.clearAllTrajectories === "function" &&
-    typeof logger.exportTrajectories === "function"
-  );
-}
-
-function isCoreTrajectoryLogger(
-  candidate: unknown,
-): candidate is Required<
-  Pick<TrajectoryLoggerService, "getLlmCallLogs" | "getProviderAccessLogs">
-> &
-  TrajectoryLoggerService {
-  if (!candidate || typeof candidate !== "object") return false;
-  const logger = candidate as Partial<TrajectoryLoggerService>;
-  return (
-    typeof logger.getLlmCallLogs === "function" &&
-    typeof logger.getProviderAccessLogs === "function"
-  );
-}
+type TrajectoryStatus = "active" | "completed" | "error" | "timeout";
 
 interface TrajectoryListOptions {
   limit?: number;
   offset?: number;
-  status?: "active" | "completed" | "error" | "timeout";
   source?: string;
+  status?: TrajectoryStatus;
   startDate?: string;
   endDate?: string;
   search?: string;
+  scenarioId?: string;
+  batchId?: string;
+  isTrainingData?: boolean;
 }
 
 interface TrajectoryListItem {
   id: string;
   agentId: string;
   source: string;
-  status: "active" | "completed" | "error" | "timeout";
+  status: TrajectoryStatus;
   startTime: number;
   endTime: number | null;
   durationMs: number | null;
-  stepCount: number;
   llmCallCount: number;
   totalPromptTokens: number;
   totalCompletionTokens: number;
-  totalReward: number;
-  scenarioId: string | null;
-  batchId: string | null;
   createdAt: string;
+}
+
+interface TrajectoryLlmCall {
+  callId?: string;
+  timestamp?: number;
+  model?: string;
+  systemPrompt?: string;
+  userPrompt?: string;
+  response?: string;
+  temperature?: number;
+  maxTokens?: number;
+  purpose?: string;
+  actionType?: string;
+  latencyMs?: number;
+  promptTokens?: number;
+  completionTokens?: number;
+}
+
+interface TrajectoryProviderAccess {
+  providerId?: string;
+  providerName?: string;
+  purpose?: string;
+  data?: Record<string, unknown>;
+  query?: Record<string, unknown>;
+  timestamp?: number;
+}
+
+interface TrajectoryStep {
+  stepId?: string;
+  timestamp: number;
+  llmCalls?: TrajectoryLlmCall[];
+  providerAccesses?: TrajectoryProviderAccess[];
+}
+
+interface Trajectory {
+  trajectoryId: string;
+  agentId: string;
+  startTime: number;
+  endTime?: number;
+  durationMs?: number;
+  steps?: TrajectoryStep[];
+  metrics?: { finalStatus?: string };
+  metadata?: Record<string, unknown>;
 }
 
 interface TrajectoryListResult {
@@ -146,84 +104,58 @@ interface TrajectoryListResult {
   limit: number;
 }
 
-interface TrajectoryStats {
-  totalTrajectories: number;
-  totalSteps: number;
-  totalLlmCalls: number;
-  totalPromptTokens: number;
-  totalCompletionTokens: number;
-  averageDurationMs: number;
-  averageReward: number;
-  bySource: Record<string, number>;
-  byStatus: Record<string, number>;
-  byScenario: Record<string, number>;
-}
+type TrajectoryExportFormat = "json" | "csv" | "art";
 
 interface TrajectoryExportOptions {
-  format: "json" | "art" | "csv";
+  format: TrajectoryExportFormat;
   includePrompts?: boolean;
   trajectoryIds?: string[];
   startDate?: string;
   endDate?: string;
+  scenarioId?: string;
+  batchId?: string;
 }
 
-interface TrajectoryZipExportRequest {
-  includePrompts: boolean;
+interface TrajectoryExportResult {
+  filename: string;
+  data: string | Uint8Array;
+  mimeType: string;
+}
+
+interface TrajectoryLoggerApi {
+  isEnabled(): boolean;
+  setEnabled(enabled: boolean): void;
+  listTrajectories(
+    options: TrajectoryListOptions,
+  ): Promise<TrajectoryListResult>;
+  getTrajectoryDetail(trajectoryId: string): Promise<Trajectory | null>;
+  getStats(): Promise<unknown>;
+  deleteTrajectories(trajectoryIds: string[]): Promise<number>;
+  clearAllTrajectories(): Promise<number>;
+  exportTrajectories(
+    options: TrajectoryExportOptions,
+  ): Promise<TrajectoryExportResult>;
+  exportTrajectoriesZip?: (
+    options: TrajectoryZipExportOptions,
+  ) => Promise<TrajectoryZipExportResult>;
+}
+
+type TrajectoryZipExportOptions = {
+  includePrompts?: boolean;
   trajectoryIds?: string[];
   startDate?: string;
   endDate?: string;
-}
+  scenarioId?: string;
+  batchId?: string;
+};
 
-// Plugin's internal types for trajectory data
-interface LLMCall {
-  callId: string;
-  timestamp: number;
-  model: string;
-  systemPrompt: string;
-  userPrompt: string;
-  response: string;
-  temperature: number;
-  maxTokens: number;
-  purpose: string;
-  actionType?: string;
-  promptTokens?: number;
-  completionTokens?: number;
-  latencyMs?: number;
-}
+type TrajectoryZipExportResult = {
+  filename: string;
+  entries: Array<{ name: string; data: string }>;
+};
 
-interface ProviderAccess {
-  providerId: string;
-  providerName: string;
-  timestamp: number;
-  data: Record<string, unknown>;
-  query?: Record<string, unknown>;
-  purpose: string;
-}
+// UI Compatible Types
 
-interface TrajectoryStep {
-  stepId: string;
-  stepNumber: number;
-  timestamp: number;
-  llmCalls: LLMCall[];
-  providerAccesses: ProviderAccess[];
-}
-
-interface Trajectory {
-  trajectoryId: string;
-  agentId: string;
-  startTime: number;
-  endTime: number;
-  durationMs: number;
-  steps: TrajectoryStep[];
-  totalReward: number;
-  metrics: {
-    episodeLength: number;
-    finalStatus: "completed" | "terminated" | "error" | "timeout";
-  };
-  metadata: Record<string, unknown>;
-}
-
-// UI-compatible response types
 interface UITrajectoryRecord {
   id: string;
   agentId: string;
@@ -281,959 +213,72 @@ interface UITrajectoryDetailResult {
   providerAccesses: UIProviderAccess[];
 }
 
-interface RawSqlTrajectoryLoggerBridge {
-  executeRawSql?: (
-    sql: string,
-  ) => Promise<{ rows?: unknown[] } | unknown[] | null | undefined>;
-}
+// ============================================================================
+// Helpers
+// ============================================================================
 
-function asRecord(value: unknown): Record<string, unknown> | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  return value as Record<string, unknown>;
-}
+function isRouteCompatibleTrajectoryLogger(
+  candidate: unknown,
+): candidate is TrajectoryLoggerApi {
+  if (!candidate || typeof candidate !== "object") return false;
+  const logger = candidate as Partial<TrajectoryLoggerApi>;
 
-function readRecordValue(
-  record: Record<string, unknown>,
-  keys: string[],
-): unknown {
-  for (const key of keys) {
-    if (key in record) return record[key];
-  }
-  return undefined;
-}
-
-function toArray(value: unknown): unknown[] {
-  if (Array.isArray(value)) return value;
-  return [];
-}
-
-function toNumber(value: unknown, fallback = 0): number {
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value === "string") {
-    const parsed = Number(value);
-    if (Number.isFinite(parsed)) return parsed;
-  }
-  return fallback;
-}
-
-function toOptionalNumber(value: unknown): number | undefined {
-  if (value === undefined || value === null) return undefined;
-  const parsed = toNumber(value, Number.NaN);
-  return Number.isFinite(parsed) ? parsed : undefined;
-}
-
-function toText(value: unknown, fallback = ""): string {
-  if (typeof value === "string") return value;
-  if (value === null || value === undefined) return fallback;
-  return String(value);
-}
-
-function toNullableString(value: unknown): string | null {
-  const normalized = toText(value, "").trim();
-  return normalized.length > 0 ? normalized : null;
-}
-
-function toObject(value: unknown): Record<string, unknown> | undefined {
-  const record = asRecord(value);
-  return record ?? undefined;
-}
-
-function readTextField(
-  record: Record<string, unknown>,
-  keys: string[],
-  fallback = "",
-): string {
-  for (const key of keys) {
-    if (!(key in record)) continue;
-    const value = record[key];
-    if (typeof value === "string") return value;
-    if (typeof value === "number" || typeof value === "boolean") {
-      return String(value);
-    }
-  }
-  return fallback;
-}
-
-function readLlmModel(record: Record<string, unknown>): string {
-  return readTextField(
-    record,
-    ["model", "modelKey", "model_key", "modelType", "model_type"],
-    "unknown",
-  );
-}
-
-function readLlmUserPrompt(record: Record<string, unknown>): string {
-  return readTextField(
-    record,
-    ["userPrompt", "user_prompt", "prompt", "input"],
-    "",
-  );
-}
-
-function readLlmResponse(record: Record<string, unknown>): string {
-  return readTextField(record, ["response", "output", "text"], "");
-}
-
-function isNumericVectorString(value: string): boolean {
-  const trimmed = value.trim();
-  if (trimmed === "[array]") return true;
-  if (!trimmed.startsWith("[") || !trimmed.endsWith("]")) return false;
-  const inner = trimmed.slice(1, -1).trim();
-  if (!inner) return false;
-  const parts = inner
-    .split(",")
-    .map((part) => part.trim())
-    .filter((part) => part.length > 0);
-  if (parts.length < 8) return false;
-  const sampleSize = Math.min(parts.length, 16);
-  for (let i = 0; i < sampleSize; i += 1) {
-    const numeric = Number(parts[i]);
-    if (!Number.isFinite(numeric)) return false;
-  }
-  return true;
-}
-
-function isEmbeddingLikeLlmCall(record: Record<string, unknown>): boolean {
-  const model = readLlmModel(record).toLowerCase();
-  const actionType = toText(
-    readRecordValue(record, ["actionType", "action_type"]),
-    "",
-  ).toLowerCase();
-  const purpose = toText(
-    readRecordValue(record, ["purpose"]),
-    "",
-  ).toLowerCase();
   return (
-    model.includes("embed") ||
-    actionType.includes("embed") ||
-    purpose.includes("embed")
+    typeof logger.isEnabled === "function" &&
+    typeof logger.setEnabled === "function" &&
+    typeof logger.listTrajectories === "function" &&
+    typeof logger.getTrajectoryDetail === "function" &&
+    typeof logger.getStats === "function" &&
+    typeof logger.deleteTrajectories === "function" &&
+    typeof logger.clearAllTrajectories === "function" &&
+    typeof logger.exportTrajectories === "function"
   );
-}
-
-function shouldSuppressNoInputEmbeddingCall(
-  record: Record<string, unknown>,
-): boolean {
-  if (!isEmbeddingLikeLlmCall(record)) return false;
-  if (readLlmUserPrompt(record).trim().length > 0) return false;
-  const response = readLlmResponse(record);
-  if (!response.trim()) return true;
-  return isNumericVectorString(response);
-}
-
-function uniqueStrings(values: string[]): string[] {
-  const seen = new Set<string>();
-  const unique: string[] = [];
-  for (const value of values) {
-    if (!seen.has(value)) {
-      seen.add(value);
-      unique.push(value);
-    }
-  }
-  return unique;
-}
-
-function sanitizeFolderName(value: string): string {
-  const sanitized = value
-    .trim()
-    .replace(/[^a-zA-Z0-9._-]+/g, "_")
-    .replace(/^_+|_+$/g, "");
-  return sanitized || "trajectory";
-}
-
-function redactTrajectoryPrompts(value: unknown): unknown {
-  if (Array.isArray(value)) {
-    return value.map((item) => redactTrajectoryPrompts(item));
-  }
-  const record = asRecord(value);
-  if (!record) return value;
-
-  const redacted: Record<string, unknown> = {};
-  for (const [key, val] of Object.entries(record)) {
-    if (
-      key === "systemPrompt" ||
-      key === "system_prompt" ||
-      key === "userPrompt" ||
-      key === "user_prompt" ||
-      key === "prompt" ||
-      key === "input" ||
-      key === "response"
-    ) {
-      redacted[key] = "[redacted]";
-      continue;
-    }
-    redacted[key] = redactTrajectoryPrompts(val);
-  }
-  return redacted;
-}
-
-function parseJsonValue(value: unknown): unknown {
-  if (typeof value !== "string") return value;
-  try {
-    return JSON.parse(value);
-  } catch {
-    return value;
-  }
-}
-
-function stepCalls(step: unknown): unknown[] {
-  const record = asRecord(step);
-  if (!record) return [];
-  return toArray(
-    parseJsonValue(
-      readRecordValue(record, ["llmCalls", "llm_calls", "calls", "llm"]),
-    ),
-  );
-}
-
-function stepProviderAccesses(step: unknown): unknown[] {
-  const record = asRecord(step);
-  if (!record) return [];
-  return toArray(
-    parseJsonValue(
-      readRecordValue(record, [
-        "providerAccesses",
-        "provider_accesses",
-        "providerLogs",
-      ]),
-    ),
-  );
-}
-
-function hasTrajectoryCallData(traj: Trajectory): boolean {
-  const steps = toArray(traj.steps as unknown);
-  for (const step of steps) {
-    if (stepCalls(step).length > 0 || stepProviderAccesses(step).length > 0) {
-      return true;
-    }
-  }
-  return false;
-}
-
-function extractRows(result: unknown): unknown[] {
-  if (Array.isArray(result)) return result;
-  const record = asRecord(result);
-  if (!record) return [];
-  const rows = record.rows;
-  return Array.isArray(rows) ? rows : [];
-}
-
-function parseStepsValue(value: unknown): TrajectoryStep[] | null {
-  const parsed = parseJsonValue(value);
-  if (Array.isArray(parsed)) return parsed as TrajectoryStep[];
-  const parsedRecord = asRecord(parsed);
-  if (!parsedRecord) return null;
-  const nested = parseJsonValue(readRecordValue(parsedRecord, ["steps"]));
-  if (Array.isArray(nested)) return nested as TrajectoryStep[];
-  return null;
-}
-
-async function loadTrajectoryStepsFallback(
-  logger: RouteTrajectoryLogger,
-  trajectoryId: string,
-): Promise<TrajectoryStep[] | null> {
-  const withRawSql = logger as RouteTrajectoryLogger &
-    RawSqlTrajectoryLoggerBridge;
-  if (typeof withRawSql.executeRawSql !== "function") return null;
-
-  const safeId = trajectoryId.replace(/'/g, "''");
-  const result = await withRawSql.executeRawSql(
-    `SELECT steps_json FROM trajectories WHERE id = '${safeId}' LIMIT 1`,
-  );
-  const rows = extractRows(result);
-  if (rows.length === 0) return null;
-
-  const row = asRecord(rows[0]);
-  if (!row) return null;
-
-  return parseStepsValue(
-    readRecordValue(row, ["steps_json", "stepsJson", "steps"]),
-  );
-}
-
-async function getTrajectoryDetailWithFallback(
-  logger: RouteTrajectoryLogger,
-  trajectoryId: string,
-): Promise<Trajectory | null> {
-  const trajectory = await logger.getTrajectoryDetail(trajectoryId);
-  if (!trajectory || hasTrajectoryCallData(trajectory)) {
-    return trajectory;
-  }
-
-  try {
-    const fallbackSteps = await loadTrajectoryStepsFallback(
-      logger,
-      trajectoryId,
-    );
-    if (fallbackSteps && fallbackSteps.length > 0) {
-      return {
-        ...trajectory,
-        steps: fallbackSteps,
-      };
-    }
-  } catch {
-    // Keep serving the original payload if SQL fallback is unavailable.
-  }
-
-  return trajectory;
-}
-
-async function resolveTrajectoryIdsForZipExport(
-  logger: RouteTrajectoryLogger,
-  request: TrajectoryZipExportRequest,
-): Promise<string[]> {
-  const requestedIds = uniqueStrings(
-    (request.trajectoryIds ?? [])
-      .map((id) => id.trim())
-      .filter((id) => id.length > 0),
-  );
-  if (requestedIds.length > 0) {
-    return requestedIds;
-  }
-
-  const limit = 500;
-  let offset = 0;
-  let total = Number.POSITIVE_INFINITY;
-  const ids: string[] = [];
-
-  while (offset < total) {
-    const page = await logger.listTrajectories({
-      limit,
-      offset,
-      startDate: request.startDate,
-      endDate: request.endDate,
-    });
-    total = Math.max(0, page.total);
-    for (const row of page.trajectories) {
-      if (typeof row.id === "string" && row.id.length > 0) {
-        ids.push(row.id);
-      }
-    }
-    if (page.trajectories.length === 0) break;
-    offset += page.trajectories.length;
-  }
-
-  return uniqueStrings(ids);
-}
-
-async function buildZipExport(
-  logger: RouteTrajectoryLogger,
-  request: TrajectoryZipExportRequest,
-): Promise<{ data: Buffer; filename: string; mimeType: string }> {
-  const trajectoryIds = await resolveTrajectoryIdsForZipExport(logger, request);
-  const includePrompts = request.includePrompts;
-
-  const entries: Array<{ name: string; data: string }> = [];
-  const manifestRows: Array<Record<string, unknown>> = [];
-  const missingTrajectoryIds: string[] = [];
-  const folderNameCounts = new Map<string, number>();
-
-  for (const trajectoryId of trajectoryIds) {
-    const detail = await getTrajectoryDetailWithFallback(logger, trajectoryId);
-    if (!detail) {
-      missingTrajectoryIds.push(trajectoryId);
-      continue;
-    }
-
-    const normalizedDetail = includePrompts
-      ? detail
-      : (redactTrajectoryPrompts(detail) as Trajectory);
-    const uiDetail = trajectoryToUIDetail(normalizedDetail);
-
-    const baseFolder = sanitizeFolderName(trajectoryId);
-    const seenCount = folderNameCounts.get(baseFolder) ?? 0;
-    folderNameCounts.set(baseFolder, seenCount + 1);
-    const folderName =
-      seenCount === 0 ? baseFolder : `${baseFolder}-${seenCount + 1}`;
-
-    entries.push({
-      name: `${folderName}/trajectory.json`,
-      data: JSON.stringify(normalizedDetail, null, 2),
-    });
-    entries.push({
-      name: `${folderName}/summary.json`,
-      data: JSON.stringify(uiDetail.trajectory, null, 2),
-    });
-    entries.push({
-      name: `${folderName}/llm-calls.json`,
-      data: JSON.stringify(uiDetail.llmCalls, null, 2),
-    });
-    entries.push({
-      name: `${folderName}/provider-accesses.json`,
-      data: JSON.stringify(uiDetail.providerAccesses, null, 2),
-    });
-
-    manifestRows.push({
-      trajectoryId: trajectoryId,
-      folder: folderName,
-      source: uiDetail.trajectory.source,
-      status: uiDetail.trajectory.status,
-      startTime: uiDetail.trajectory.startTime,
-      endTime: uiDetail.trajectory.endTime,
-      llmCallCount: uiDetail.llmCalls.length,
-      providerAccessCount: uiDetail.providerAccesses.length,
-      totalPromptTokens: uiDetail.trajectory.totalPromptTokens,
-      totalCompletionTokens: uiDetail.trajectory.totalCompletionTokens,
-      createdAt: uiDetail.trajectory.createdAt,
-    });
-  }
-
-  const manifest = {
-    exportedAt: new Date().toISOString(),
-    includePrompts,
-    requestedTrajectoryCount: trajectoryIds.length,
-    exportedTrajectoryCount: manifestRows.length,
-    missingTrajectoryIds,
-    trajectories: manifestRows,
-  };
-
-  entries.unshift({
-    name: "manifest.json",
-    data: JSON.stringify(manifest, null, 2),
-  });
-
-  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-  const archive = createZipArchive(
-    entries.map((entry) => ({
-      name: entry.name,
-      data: entry.data,
-    })),
-  );
-  return {
-    data: archive,
-    filename: `trajectories-${timestamp}.zip`,
-    mimeType: "application/zip",
-  };
-}
-
-async function readJsonBody<T = Record<string, unknown>>(
-  req: http.IncomingMessage,
-  res: http.ServerResponse,
-): Promise<T | null> {
-  return parseJsonBody(req, res, {
-    maxBytes: 2 * 1024 * 1024,
-  });
-}
-
-function trajectorySource(traj: Trajectory): string {
-  const metadata = asRecord(traj.metadata) ?? {};
-  return toText(readRecordValue(metadata, ["source"]), "runtime");
-}
-
-function trajectoryStatus(
-  traj: Trajectory,
-): "active" | "completed" | "error" | "timeout" {
-  const finalStatus = toText(
-    readRecordValue(traj.metrics, ["finalStatus"]),
-    "",
-  );
-  if (finalStatus === "error") return "error";
-  if (finalStatus === "timeout") return "timeout";
-  if (traj.endTime && traj.endTime > traj.startTime) return "completed";
-  return "active";
-}
-
-function aggregateTrajectoryTokenUsage(traj: Trajectory): {
-  prompt: number;
-  completion: number;
-  llmCalls: number;
-} {
-  let prompt = 0;
-  let completion = 0;
-  let llmCalls = 0;
-  const steps = toArray(traj.steps as unknown);
-  for (const step of steps) {
-    for (const call of stepCalls(step)) {
-      const row = asRecord(call);
-      if (!row || shouldSuppressNoInputEmbeddingCall(row)) continue;
-      llmCalls += 1;
-      prompt +=
-        toOptionalNumber(
-          readRecordValue(row, ["promptTokens", "prompt_tokens"]),
-        ) ?? 0;
-      completion +=
-        toOptionalNumber(
-          readRecordValue(row, ["completionTokens", "completion_tokens"]),
-        ) ?? 0;
-    }
-  }
-  return { prompt, completion, llmCalls };
-}
-
-function filterCoreTrajectories(
-  trajectories: Trajectory[],
-  options: Partial<TrajectoryListOptions>,
-): Trajectory[] {
-  let out = trajectories.slice();
-  if (options.status) {
-    out = out.filter((traj) => trajectoryStatus(traj) === options.status);
-  }
-  if (options.source) {
-    out = out.filter((traj) => trajectorySource(traj) === options.source);
-  }
-  if (options.startDate) {
-    const startMs = Date.parse(options.startDate);
-    if (Number.isFinite(startMs)) {
-      out = out.filter((traj) => traj.startTime >= startMs);
-    }
-  }
-  if (options.endDate) {
-    const endMs = Date.parse(options.endDate);
-    if (Number.isFinite(endMs)) {
-      out = out.filter((traj) => traj.startTime <= endMs);
-    }
-  }
-  if (options.search && options.search.trim().length > 0) {
-    const needle = options.search.trim().toLowerCase();
-    out = out.filter((traj) => {
-      if (traj.trajectoryId.toLowerCase().includes(needle)) return true;
-      if (trajectorySource(traj).toLowerCase().includes(needle)) return true;
-      const steps = toArray(traj.steps as unknown);
-      for (const step of steps) {
-        for (const call of stepCalls(step)) {
-          const row = asRecord(call);
-          if (!row) continue;
-          if (shouldSuppressNoInputEmbeddingCall(row)) continue;
-          const haystack = [
-            readLlmModel(row),
-            readLlmUserPrompt(row),
-            readLlmResponse(row),
-          ]
-            .join(" ")
-            .toLowerCase();
-          if (haystack.includes(needle)) return true;
-        }
-      }
-      return false;
-    });
-  }
-  return out;
-}
-
-function trajectoriesToCsv(trajectories: Trajectory[]): string {
-  const header = [
-    "id",
-    "agentId",
-    "source",
-    "status",
-    "startTime",
-    "endTime",
-    "durationMs",
-    "llmCallCount",
-    "providerAccessCount",
-    "totalPromptTokens",
-    "totalCompletionTokens",
-    "createdAt",
-  ];
-  const csvEscape = (value: unknown) =>
-    `"${String(value ?? "").replace(/"/g, '""')}"`;
-  const rows = trajectories.map((traj) => {
-    const detail = trajectoryToUIDetail(traj);
-    return [
-      detail.trajectory.id,
-      detail.trajectory.agentId,
-      detail.trajectory.source,
-      detail.trajectory.status,
-      detail.trajectory.startTime,
-      detail.trajectory.endTime ?? "",
-      detail.trajectory.durationMs ?? "",
-      detail.llmCalls.length,
-      detail.providerAccesses.length,
-      detail.trajectory.totalPromptTokens,
-      detail.trajectory.totalCompletionTokens,
-      detail.trajectory.createdAt,
-    ]
-      .map(csvEscape)
-      .join(",");
-  });
-  return [header.join(","), ...rows].join("\n");
-}
-
-function trajectoriesToArtJsonl(trajectories: Trajectory[]): string {
-  const lines = trajectories.map((traj) => {
-    const detail = trajectoryToUIDetail(traj);
-    const messages: Array<{
-      role: "system" | "user" | "assistant";
-      content: string;
-    }> = [];
-    const firstCall = detail.llmCalls[0];
-    if (firstCall?.systemPrompt) {
-      messages.push({
-        role: "system",
-        content: firstCall.systemPrompt,
-      });
-    }
-    for (const call of detail.llmCalls) {
-      messages.push({
-        role: "user",
-        content: call.userPrompt,
-      });
-      messages.push({
-        role: "assistant",
-        content: call.response,
-      });
-    }
-    return JSON.stringify({
-      messages,
-      reward: 0,
-      metadata: {
-        trajectoryId: detail.trajectory.id,
-        agentId: detail.trajectory.agentId,
-      },
-    });
-  });
-  return `${lines.join("\n")}\n`;
-}
-
-function rowToPersistedTrajectory(row: Record<string, unknown>): Trajectory {
-  const trajectoryId = toText(
-    readRecordValue(row, ["trajectory_id", "trajectoryId", "id"]),
-    "",
-  );
-  const startTime = toNumber(
-    readRecordValue(row, ["start_time", "startTime"]),
-    Date.now(),
-  );
-  const rawEndTime = toOptionalNumber(
-    readRecordValue(row, ["end_time", "endTime"]),
-  );
-  const status = toText(readRecordValue(row, ["status"]), "completed");
-  const shouldForceCompleted = status !== "active";
-  const normalizedEndTime =
-    rawEndTime === undefined || rawEndTime === null
-      ? shouldForceCompleted
-        ? startTime + 1
-        : startTime
-      : rawEndTime <= startTime && shouldForceCompleted
-        ? startTime + 1
-        : rawEndTime;
-  const steps =
-    parseStepsValue(
-      readRecordValue(row, ["steps_json", "stepsJson", "steps"]),
-    ) ?? [];
-
-  let metadata = toObject(
-    parseJsonValue(readRecordValue(row, ["metadata", "meta"])),
-  ) ?? {
-    source: toText(readRecordValue(row, ["source"]), "runtime"),
-  };
-  if (!metadata.source) {
-    metadata = {
-      ...metadata,
-      source: toText(readRecordValue(row, ["source"]), "runtime"),
-    };
-  }
-
-  const finalStatus: "completed" | "terminated" | "error" | "timeout" =
-    status === "error"
-      ? "error"
-      : status === "timeout"
-        ? "timeout"
-        : "completed";
-
-  return {
-    trajectoryId:
-      trajectoryId.length > 0
-        ? trajectoryId
-        : toText(readRecordValue(row, ["id"]), ""),
-    agentId: toText(
-      readRecordValue(row, ["agent_id", "agentId"]),
-      "unknown-agent",
-    ),
-    startTime,
-    endTime: normalizedEndTime,
-    durationMs:
-      toOptionalNumber(readRecordValue(row, ["duration_ms", "durationMs"])) ??
-      Math.max(0, normalizedEndTime - startTime),
-    steps,
-    totalReward: toNumber(
-      readRecordValue(row, ["total_reward", "totalReward"]),
-      0,
-    ),
-    metrics: {
-      episodeLength:
-        toOptionalNumber(
-          readRecordValue(row, ["episode_length", "episodeLength"]),
-        ) ?? Math.max(1, steps.length || 1),
-      finalStatus,
-    },
-    metadata,
-  };
-}
-
-async function loadPersistedCoreTrajectories(
-  runtime: AgentRuntime,
-): Promise<Trajectory[] | null> {
-  const rows = await loadPersistedTrajectoryRows(runtime);
-  if (!rows || rows.length === 0) return rows ? [] : null;
-  const trajectories = rows.map(rowToPersistedTrajectory);
-  trajectories.sort((a, b) => b.startTime - a.startTime);
-  return trajectories;
-}
-
-function createLegacyRouteLogger(
-  logger: TrajectoryLoggerService,
-): RouteTrajectoryLogger | null {
-  if (!isLegacyTrajectoryLogger(logger)) return null;
-  const withRawSql = logger as TrajectoryLoggerService &
-    RawSqlTrajectoryLoggerBridge;
-  const adapted: RouteTrajectoryLogger & RawSqlTrajectoryLoggerBridge = {
-    isEnabled: () =>
-      typeof logger.isEnabled === "function" ? logger.isEnabled() : true,
-    setEnabled: (enabled) => {
-      if (typeof logger.setEnabled === "function") {
-        logger.setEnabled(enabled);
-      }
-    },
-    listTrajectories: (options) => logger.listTrajectories(options),
-    getTrajectoryDetail: (trajectoryId) =>
-      logger.getTrajectoryDetail(trajectoryId),
-    getStats: () => logger.getStats(),
-    deleteTrajectories: (trajectoryIds) =>
-      logger.deleteTrajectories(trajectoryIds),
-    clearAllTrajectories: () => logger.clearAllTrajectories(),
-    exportTrajectories: (options) => logger.exportTrajectories(options),
-  };
-  if (typeof withRawSql.executeRawSql === "function") {
-    adapted.executeRawSql = withRawSql.executeRawSql.bind(withRawSql);
-  }
-  return adapted;
-}
-
-function createCoreRouteLogger(
-  logger: TrajectoryLoggerService,
-  runtime: AgentRuntime,
-): RouteTrajectoryLogger | null {
-  if (!isCoreTrajectoryLogger(logger)) return null;
-  const runtimeWithAdapter = runtime as AgentRuntime & {
-    adapter?: { db?: { execute?: unknown } };
-  };
-  if (typeof runtimeWithAdapter.adapter?.db?.execute !== "function") {
-    return null;
-  }
-
-  const listPersisted = async (
-    options: Partial<TrajectoryListOptions>,
-  ): Promise<Trajectory[]> => {
-    const persisted = await loadPersistedCoreTrajectories(runtime);
-    return filterCoreTrajectories(persisted ?? [], options);
-  };
-
-  const listAllPersisted = async (): Promise<Trajectory[]> =>
-    (await loadPersistedCoreTrajectories(runtime)) ?? [];
-
-  return {
-    isEnabled: () => true,
-    setEnabled: (_enabled: boolean) => {
-      // Core logger is always on; no runtime toggle.
-    },
-    listTrajectories: async (options) => {
-      const filtered = await listPersisted(options);
-      const limit = Math.max(1, Math.min(500, options.limit ?? 50));
-      const offset = Math.max(0, options.offset ?? 0);
-      const paged = filtered.slice(offset, offset + limit);
-      return {
-        trajectories: paged.map((traj) => {
-          const tokenUsage = aggregateTrajectoryTokenUsage(traj);
-          return {
-            id: traj.trajectoryId,
-            agentId: traj.agentId,
-            source: trajectorySource(traj),
-            status: trajectoryStatus(traj),
-            startTime: traj.startTime,
-            endTime: traj.endTime ?? null,
-            durationMs: traj.durationMs ?? null,
-            stepCount: toArray(traj.steps as unknown).length,
-            llmCallCount: tokenUsage.llmCalls,
-            totalPromptTokens: tokenUsage.prompt,
-            totalCompletionTokens: tokenUsage.completion,
-            totalReward: 0,
-            scenarioId: null,
-            batchId: null,
-            createdAt: new Date(traj.startTime).toISOString(),
-          };
-        }),
-        total: filtered.length,
-        offset,
-        limit,
-      };
-    },
-    getTrajectoryDetail: async (trajectoryId) => {
-      const all = await listAllPersisted();
-      return all.find((traj) => traj.trajectoryId === trajectoryId) ?? null;
-    },
-    getStats: async () => {
-      const all = await listAllPersisted();
-      let totalSteps = 0;
-      let totalLlmCalls = 0;
-      let totalPromptTokens = 0;
-      let totalCompletionTokens = 0;
-      let durationSum = 0;
-      const bySource: Record<string, number> = {};
-      const byStatus: Record<string, number> = {};
-      for (const traj of all) {
-        const status = trajectoryStatus(traj);
-        const source = trajectorySource(traj);
-        bySource[source] = (bySource[source] ?? 0) + 1;
-        byStatus[status] = (byStatus[status] ?? 0) + 1;
-        totalSteps += toArray(traj.steps as unknown).length;
-        totalLlmCalls += aggregateTrajectoryTokenUsage(traj).llmCalls;
-        totalPromptTokens += aggregateTrajectoryTokenUsage(traj).prompt;
-        totalCompletionTokens += aggregateTrajectoryTokenUsage(traj).completion;
-        durationSum += traj.durationMs || 0;
-      }
-      return {
-        totalTrajectories: all.length,
-        totalSteps,
-        totalLlmCalls,
-        totalPromptTokens,
-        totalCompletionTokens,
-        averageDurationMs:
-          all.length > 0 ? Math.round(durationSum / all.length) : 0,
-        averageReward: 0,
-        bySource,
-        byStatus,
-        byScenario: {},
-      };
-    },
-    deleteTrajectories: async (trajectoryIds) => {
-      const ids = new Set(trajectoryIds);
-      if (ids.size === 0) return 0;
-      const deletedFromDb = await deletePersistedTrajectoryRows(
-        runtime,
-        Array.from(ids),
-      );
-      return deletedFromDb ?? 0;
-    },
-    clearAllTrajectories: async () => {
-      const deletedFromDb = await clearPersistedTrajectoryRows(runtime);
-      return deletedFromDb ?? 0;
-    },
-    exportTrajectories: async (options) => {
-      const trajectoryIdSet = new Set(options.trajectoryIds ?? []);
-      let selected = filterCoreTrajectories(await listAllPersisted(), {
-        startDate: options.startDate,
-        endDate: options.endDate,
-      });
-      if (trajectoryIdSet.size > 0) {
-        selected = selected.filter((traj) =>
-          trajectoryIdSet.has(traj.trajectoryId),
-        );
-      }
-      const includePrompts = options.includePrompts !== false;
-      const payload = includePrompts
-        ? selected
-        : selected.map((traj) => redactTrajectoryPrompts(traj) as Trajectory);
-      if (options.format === "csv") {
-        return {
-          data: trajectoriesToCsv(payload),
-          filename: "trajectories.csv",
-          mimeType: "text/csv",
-        };
-      }
-      if (options.format === "art") {
-        return {
-          data: trajectoriesToArtJsonl(payload),
-          filename: "trajectories.art.jsonl",
-          mimeType: "application/x-ndjson",
-        };
-      }
-      return {
-        data: JSON.stringify(payload, null, 2),
-        filename: "trajectories.json",
-        mimeType: "application/json",
-      };
-    },
-  };
-}
-
-function scoreTrajectoryLoggerCandidate(
-  candidate: TrajectoryLoggerService | null,
-): number {
-  if (!candidate) return -1;
-  const candidateWithRuntime = candidate as TrajectoryLoggerService & {
-    runtime?: { adapter?: unknown };
-    initialized?: boolean;
-    startTrajectory?: unknown;
-    endTrajectory?: unknown;
-  };
-  let score = 0;
-  if (isLegacyTrajectoryLogger(candidate)) score += 20;
-  if (isCoreTrajectoryLogger(candidate)) score += 10;
-  if (candidateWithRuntime.initialized === true) score += 3;
-  if (candidateWithRuntime.runtime?.adapter) score += 3;
-  if (typeof candidateWithRuntime.startTrajectory === "function") score += 2;
-  if (typeof candidateWithRuntime.endTrajectory === "function") score += 2;
-  return score;
 }
 
 function getTrajectoryLogger(
-  runtime: AgentRuntime | null,
-): RouteTrajectoryLogger | null {
-  if (!runtime) return null;
-
-  // Runtime API shape differs across versions:
-  // - newer runtimes expose getServicesByType()
-  // - older/test runtimes may only expose getService()
-  const runtimeLike = runtime as unknown as {
+  runtime: AgentRuntime,
+): TrajectoryLoggerApi | null {
+  const runtimeLike = runtime as AgentRuntime & {
     getServicesByType?: (serviceType: string) => unknown;
     getService?: (serviceType: string) => unknown;
   };
 
-  const services: TrajectoryLoggerService[] = [];
   const seen = new Set<unknown>();
-  const pushCandidate = (candidate: unknown) => {
-    if (!candidate || typeof candidate !== "object" || seen.has(candidate))
-      return;
+  const candidates: unknown[] = [];
+  const addCandidate = (candidate: unknown): void => {
+    if (!candidate || seen.has(candidate)) return;
     seen.add(candidate);
-    services.push(candidate as TrajectoryLoggerService);
+    candidates.push(candidate);
   };
 
   if (typeof runtimeLike.getServicesByType === "function") {
     const byType = runtimeLike.getServicesByType("trajectory_logger");
     if (Array.isArray(byType)) {
       for (const candidate of byType) {
-        pushCandidate(candidate);
+        addCandidate(candidate);
       }
-    } else if (byType) {
-      pushCandidate(byType);
+    } else {
+      addCandidate(byType);
     }
   }
+
   if (typeof runtimeLike.getService === "function") {
-    const single = runtimeLike.getService("trajectory_logger");
-    pushCandidate(single);
+    addCandidate(runtimeLike.getService("trajectory_logger"));
   }
-  if (services.length === 0) return null;
 
-  let best: TrajectoryLoggerService | null = null;
-  let bestScore = -1;
-  for (const svc of services) {
-    const score = scoreTrajectoryLoggerCandidate(svc);
-    if (score > bestScore) {
-      best = svc;
-      bestScore = score;
+  for (const candidate of candidates) {
+    if (isRouteCompatibleTrajectoryLogger(candidate)) {
+      return candidate;
     }
-  }
-
-  if (!best) return null;
-
-  const legacy = createLegacyRouteLogger(best);
-  if (legacy) {
-    ensureTrajectoryLoggerAlwaysEnabled(legacy);
-    return legacy;
-  }
-
-  const core = createCoreRouteLogger(best, runtime);
-  if (core) {
-    ensureTrajectoryLoggerAlwaysEnabled(core);
-    return core;
   }
 
   return null;
 }
 
-/**
- * Transform plugin's TrajectoryListItem to UI-compatible TrajectoryRecord
- */
+function toNullableString(value: unknown): string | null {
+  return typeof value === "string" ? value : null;
+}
+
 function listItemToUIRecord(item: TrajectoryListItem): UITrajectoryRecord {
   const status =
     item.status === "timeout" || item.status === "error"
@@ -1260,11 +305,8 @@ function listItemToUIRecord(item: TrajectoryListItem): UITrajectoryRecord {
   };
 }
 
-/**
- * Transform plugin's Trajectory to UI-compatible TrajectoryDetailResult
- */
 function trajectoryToUIDetail(traj: Trajectory): UITrajectoryDetailResult {
-  const finalStatus = toText(traj.metrics?.finalStatus, "");
+  const finalStatus = (traj.metrics?.finalStatus as string) ?? "completed";
   const normalizedEndTime =
     typeof traj.endTime === "number" && traj.endTime > 0 ? traj.endTime : null;
   const status: "active" | "completed" | "error" =
@@ -1278,122 +320,80 @@ function trajectoryToUIDetail(traj: Trajectory): UITrajectoryDetailResult {
           ? "completed"
           : "active";
 
-  // Flatten all LLM calls from all steps
   const llmCalls: UILlmCall[] = [];
   const providerAccesses: UIProviderAccess[] = [];
 
   let totalPromptTokens = 0;
   let totalCompletionTokens = 0;
 
-  const steps = toArray(traj.steps as unknown);
-  for (let stepIndex = 0; stepIndex < steps.length; stepIndex += 1) {
-    const step = asRecord(steps[stepIndex]);
-    if (!step) continue;
+  const steps = traj.steps || [];
+  const trajectoryId = String(traj.trajectoryId);
 
-    const stepId = toText(
-      readRecordValue(step, ["stepId", "step_id", "id"]),
-      `step-${stepIndex + 1}`,
-    );
-    const calls = stepCalls(step);
-    for (let callIndex = 0; callIndex < calls.length; callIndex += 1) {
-      const call = asRecord(calls[callIndex]);
-      if (!call) continue;
-      if (shouldSuppressNoInputEmbeddingCall(call)) continue;
+  for (let i = 0; i < steps.length; i++) {
+    const step = steps[i];
+    const stepId = typeof step.stepId === "string" ? step.stepId : `step-${i}`;
 
-      const timestamp = toNumber(
-        readRecordValue(call, ["timestamp", "createdAt", "created_at"]),
-        traj.startTime,
-      );
-      const promptTokens = toOptionalNumber(
-        readRecordValue(call, ["promptTokens", "prompt_tokens"]),
-      );
-      const completionTokens = toOptionalNumber(
-        readRecordValue(call, ["completionTokens", "completion_tokens"]),
-      );
-
+    // Process LLM Calls
+    const calls = step.llmCalls || [];
+    for (let j = 0; j < calls.length; j++) {
+      const call = calls[j];
       llmCalls.push({
-        id: toText(
-          readRecordValue(call, ["callId", "call_id", "id"]),
-          `${stepId}-call-${callIndex + 1}`,
-        ),
-        trajectoryId: traj.trajectoryId,
+        id: call.callId || `${stepId}-call-${j}`,
+        trajectoryId,
         stepId,
-        model: readLlmModel(call),
-        systemPrompt: toText(
-          readRecordValue(call, ["systemPrompt", "system_prompt"]),
-          "",
-        ),
-        userPrompt: readLlmUserPrompt(call),
-        response: readLlmResponse(call),
-        temperature: toNumber(readRecordValue(call, ["temperature"]), 0),
-        maxTokens: toNumber(
-          readRecordValue(call, ["maxTokens", "max_tokens"]),
-          0,
-        ),
-        purpose: toText(readRecordValue(call, ["purpose"]), ""),
-        actionType: toText(
-          readRecordValue(call, ["actionType", "action_type"]),
-          "",
-        ),
-        latencyMs: toNumber(
-          readRecordValue(call, ["latencyMs", "latency_ms"]),
-          0,
-        ),
-        promptTokens,
-        completionTokens,
-        timestamp,
-        createdAt: new Date(timestamp).toISOString(),
+        model: call.model || "unknown",
+        systemPrompt: call.systemPrompt || "",
+        userPrompt: call.userPrompt || "",
+        response: call.response || "",
+        temperature:
+          typeof call.temperature === "number" ? call.temperature : 0,
+        maxTokens: typeof call.maxTokens === "number" ? call.maxTokens : 0,
+        purpose: call.purpose || "",
+        actionType: call.actionType || "",
+        latencyMs: call.latencyMs || 0,
+        promptTokens: call.promptTokens,
+        completionTokens: call.completionTokens,
+        timestamp: call.timestamp || step.timestamp,
+        createdAt: new Date(call.timestamp || step.timestamp).toISOString(),
       });
-
-      totalPromptTokens += promptTokens ?? 0;
-      totalCompletionTokens += completionTokens ?? 0;
+      totalPromptTokens += call.promptTokens || 0;
+      totalCompletionTokens += call.completionTokens || 0;
     }
 
-    const accesses = stepProviderAccesses(step);
-    for (let accessIndex = 0; accessIndex < accesses.length; accessIndex += 1) {
-      const access = asRecord(accesses[accessIndex]);
-      if (!access) continue;
-
-      const timestamp = toNumber(
-        readRecordValue(access, ["timestamp", "createdAt", "created_at"]),
-        traj.startTime,
-      );
-
+    // Process Provider Accesses
+    const accesses = step.providerAccesses || [];
+    for (let k = 0; k < accesses.length; k++) {
+      const access = accesses[k];
       providerAccesses.push({
-        id: toText(
-          readRecordValue(access, ["providerId", "provider_id", "id"]),
-          `${stepId}-provider-${accessIndex + 1}`,
-        ),
-        trajectoryId: traj.trajectoryId,
+        id: access.providerId || `${stepId}-provider-${k}`,
+        trajectoryId,
         stepId,
-        providerName: toText(
-          readRecordValue(access, ["providerName", "provider_name"]),
-          "unknown",
-        ),
-        purpose: toText(readRecordValue(access, ["purpose"]), ""),
-        data: toObject(readRecordValue(access, ["data"])) ?? {},
-        query: toObject(readRecordValue(access, ["query"])),
-        timestamp,
-        createdAt: new Date(timestamp).toISOString(),
+        providerName: access.providerName || "unknown",
+        purpose: access.purpose || "",
+        data: access.data || {},
+        query: access.query,
+        timestamp: access.timestamp || step.timestamp,
+        createdAt: new Date(access.timestamp || step.timestamp).toISOString(),
       });
     }
   }
 
-  const metadata = asRecord(traj.metadata) ?? {};
+  const metadata = (traj.metadata ?? {}) as Record<string, unknown>;
   const normalizedDurationMs =
     status === "active"
       ? null
       : typeof traj.durationMs === "number"
         ? traj.durationMs
         : null;
-  const updatedAtMs = normalizedEndTime ?? traj.startTime;
+  const updatedAtMs = normalizedEndTime ?? (traj.startTime || Date.now());
+
   const trajectory: UITrajectoryRecord = {
-    id: traj.trajectoryId,
-    agentId: traj.agentId,
+    id: trajectoryId,
+    agentId: String(traj.agentId),
     roomId: toNullableString(metadata.roomId),
     entityId: toNullableString(metadata.entityId),
     conversationId: toNullableString(metadata.conversationId),
-    source: toText(metadata.source, "chat"),
+    source: toNullableString(metadata.source) ?? "chat",
     status,
     startTime: traj.startTime,
     endTime: normalizedEndTime,
@@ -1402,13 +402,17 @@ function trajectoryToUIDetail(traj: Trajectory): UITrajectoryDetailResult {
     providerAccessCount: providerAccesses.length,
     totalPromptTokens,
     totalCompletionTokens,
-    metadata: traj.metadata,
+    metadata,
     createdAt: new Date(traj.startTime).toISOString(),
     updatedAt: new Date(updatedAtMs).toISOString(),
   };
 
   return { trajectory, llmCalls, providerAccesses };
 }
+
+// ============================================================================
+// Handlers
+// ============================================================================
 
 async function handleGetTrajectories(
   req: http.IncomingMessage,
@@ -1434,16 +438,23 @@ async function handleGetTrajectories(
     offset: Math.max(0, Number(url.searchParams.get("offset")) || 0),
     source: url.searchParams.get("source") || undefined,
     status:
-      (url.searchParams.get("status") as "active" | "completed" | "error") ||
-      undefined,
+      (url.searchParams.get("status") as
+        | "active"
+        | "completed"
+        | "error"
+        | "timeout") || undefined,
     startDate: url.searchParams.get("startDate") || undefined,
     endDate: url.searchParams.get("endDate") || undefined,
     search: url.searchParams.get("search") || undefined,
+    scenarioId: url.searchParams.get("scenarioId") || undefined,
+    batchId: url.searchParams.get("batchId") || undefined,
+    isTrainingData: url.searchParams.has("isTrainingData")
+      ? url.searchParams.get("isTrainingData") === "true"
+      : undefined,
   };
 
   const result = await logger.listTrajectories(options);
 
-  // Transform to UI-compatible format
   const uiResult = {
     trajectories: result.trajectories.map(listItemToUIRecord),
     total: result.total,
@@ -1466,16 +477,12 @@ async function handleGetTrajectoryDetail(
     return;
   }
 
-  const trajectory = await getTrajectoryDetailWithFallback(
-    logger,
-    trajectoryId,
-  );
+  const trajectory = await logger.getTrajectoryDetail(trajectoryId);
   if (!trajectory) {
     sendJsonError(res, `Trajectory "${trajectoryId}" not found`, 404);
     return;
   }
 
-  // Transform to UI-compatible format
   const uiDetail = trajectoryToUIDetail(trajectory);
   sendJson(res, uiDetail);
 }
@@ -1492,20 +499,7 @@ async function handleGetStats(
   }
 
   const stats = await logger.getStats();
-
-  // Transform to UI-compatible format
-  const uiStats = {
-    totalTrajectories: stats.totalTrajectories,
-    totalLlmCalls: stats.totalLlmCalls,
-    totalProviderAccesses: 0, // Not tracked at aggregate level
-    totalPromptTokens: stats.totalPromptTokens,
-    totalCompletionTokens: stats.totalCompletionTokens,
-    averageDurationMs: stats.averageDurationMs,
-    bySource: stats.bySource,
-    byModel: {}, // Would need additional query to aggregate by model
-  };
-
-  sendJson(res, uiStats);
+  sendJson(res, stats);
 }
 
 async function handleGetConfig(
@@ -1519,7 +513,6 @@ async function handleGetConfig(
     return;
   }
 
-  ensureTrajectoryLoggerAlwaysEnabled(logger);
   sendJson(res, {
     enabled: logger.isEnabled(),
   });
@@ -1536,11 +529,12 @@ async function handlePutConfig(
     return;
   }
 
-  const body = await readJsonBody<{ enabled?: boolean }>(req, res);
+  const body = await parseJsonBody<{ enabled?: boolean }>(req, res);
   if (!body) return;
 
-  // Trajectory logging is always-on in Milady. Ignore disable requests.
-  logger.setEnabled(true);
+  if (typeof body.enabled === "boolean") {
+    logger.setEnabled(body.enabled);
+  }
 
   sendJson(res, {
     enabled: logger.isEnabled(),
@@ -1558,53 +552,66 @@ async function handleExportTrajectories(
     return;
   }
 
-  const body = await readJsonBody<{
+  const body = await parseJsonBody<{
     format?: string;
     includePrompts?: boolean;
     trajectoryIds?: string[];
     startDate?: string;
     endDate?: string;
+    scenarioId?: string;
+    batchId?: string;
   }>(req, res);
   if (!body) return;
 
+  if (body.format === "zip") {
+    if (typeof logger.exportTrajectoriesZip !== "function") {
+      sendJsonError(
+        res,
+        "Trajectory ZIP export is unavailable in the active logger",
+        503,
+      );
+      return;
+    }
+
+    const zipOptions: TrajectoryZipExportOptions = {
+      includePrompts: body.includePrompts,
+      trajectoryIds: body.trajectoryIds,
+      startDate: body.startDate,
+      endDate: body.endDate,
+      scenarioId: body.scenarioId,
+      batchId: body.batchId,
+    };
+    const zipResult = await logger.exportTrajectoriesZip(zipOptions);
+    const archive = createZipArchive(zipResult.entries);
+
+    res.statusCode = 200;
+    res.setHeader("Content-Type", "application/zip");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${zipResult.filename}"`,
+    );
+    res.end(archive);
+    return;
+  }
+
   if (
-    !body.format ||
-    (body.format !== "json" &&
-      body.format !== "csv" &&
-      body.format !== "art" &&
-      body.format !== "zip")
+    body.format !== "json" &&
+    body.format !== "csv" &&
+    body.format !== "art"
   ) {
     sendJsonError(res, "Format must be 'json', 'csv', 'art', or 'zip'", 400);
     return;
   }
 
-  if (body.format === "zip") {
-    const zipResult = await buildZipExport(logger, {
-      includePrompts: body.includePrompts !== false,
-      trajectoryIds: body.trajectoryIds,
-      startDate: body.startDate,
-      endDate: body.endDate,
-    });
-
-    res.statusCode = 200;
-    res.setHeader("Content-Type", zipResult.mimeType);
-    res.setHeader(
-      "Content-Disposition",
-      `attachment; filename="${zipResult.filename}"`,
-    );
-    res.end(zipResult.data);
-    return;
-  }
-
-  const exportOptions: TrajectoryExportOptions = {
-    format: body.format as "json" | "art" | "csv",
+  const result = await logger.exportTrajectories({
+    format: body.format,
     includePrompts: body.includePrompts,
     trajectoryIds: body.trajectoryIds,
     startDate: body.startDate,
     endDate: body.endDate,
-  };
-
-  const result = await logger.exportTrajectories(exportOptions);
+    scenarioId: body.scenarioId,
+    batchId: body.batchId,
+  });
 
   res.statusCode = 200;
   res.setHeader("Content-Type", result.mimeType);
@@ -1626,100 +633,81 @@ async function handleDeleteTrajectories(
     return;
   }
 
-  const body = await readJsonBody<{
+  const body = await parseJsonBody<{
     trajectoryIds?: string[];
-    clearAll?: boolean;
+    all?: boolean;
   }>(req, res);
   if (!body) return;
 
-  let deleted = 0;
-
-  if (body.clearAll === true) {
-    deleted = await logger.clearAllTrajectories();
-  } else if (body.trajectoryIds && Array.isArray(body.trajectoryIds)) {
-    deleted = await logger.deleteTrajectories(body.trajectoryIds);
-  } else {
-    sendJsonError(
-      res,
-      "Request must include 'trajectoryIds' array or 'clearAll: true'",
-      400,
-    );
+  if (body.all) {
+    const deletedCount = await logger.clearAllTrajectories();
+    sendJson(res, { deleted: deletedCount });
     return;
   }
 
-  sendJson(res, { deleted });
+  if (Array.isArray(body.trajectoryIds) && body.trajectoryIds.length > 0) {
+    const deletedCount = await logger.deleteTrajectories(body.trajectoryIds);
+    sendJson(res, { deleted: deletedCount });
+    return;
+  }
+
+  sendJson(res, { deleted: 0 });
 }
 
-/**
- * Route a trajectory API request. Returns true if handled, false if not matched.
- *
- * Expected URL patterns:
- *   GET    /api/trajectories                     - List trajectories
- *   GET    /api/trajectories/stats               - Get statistics
- *   GET    /api/trajectories/config              - Get logging config
- *   PUT    /api/trajectories/config              - Update logging config
- *   POST   /api/trajectories/export              - Export trajectories
- *   DELETE /api/trajectories                     - Delete trajectories
- *   GET    /api/trajectories/:id                 - Get trajectory detail
- */
+// ============================================================================
+// Main Router
+// ============================================================================
+
 export async function handleTrajectoryRoute(
   req: http.IncomingMessage,
   res: http.ServerResponse,
-  runtime: AgentRuntime | null,
+  runtime: AgentRuntime,
   pathname: string,
+  method: string,
 ): Promise<boolean> {
-  const method = req.method ?? "GET";
+  if (!pathname.startsWith("/api/trajectories")) return false;
 
-  if (!runtime?.adapter) {
-    sendJsonError(
-      res,
-      "Database not available. The agent may not be running or the database adapter is not initialized.",
-      503,
-    );
-    return true;
-  }
-
-  if (method === "GET" && pathname === "/api/trajectories") {
-    await handleGetTrajectories(req, res, runtime);
-    return true;
-  }
-
-  if (method === "GET" && pathname === "/api/trajectories/stats") {
-    await handleGetStats(req, res, runtime);
-    return true;
-  }
-
-  if (method === "GET" && pathname === "/api/trajectories/config") {
+  // GET /api/trajectories/config
+  if (pathname === "/api/trajectories/config" && method === "GET") {
     await handleGetConfig(req, res, runtime);
     return true;
   }
 
-  if (method === "PUT" && pathname === "/api/trajectories/config") {
+  // PUT /api/trajectories/config
+  if (pathname === "/api/trajectories/config" && method === "PUT") {
     await handlePutConfig(req, res, runtime);
     return true;
   }
 
-  if (method === "POST" && pathname === "/api/trajectories/export") {
+  // POST /api/trajectories/export
+  if (pathname === "/api/trajectories/export" && method === "POST") {
     await handleExportTrajectories(req, res, runtime);
     return true;
   }
 
-  if (method === "DELETE" && pathname === "/api/trajectories") {
+  // DELETE /api/trajectories
+  if (pathname === "/api/trajectories" && method === "DELETE") {
     await handleDeleteTrajectories(req, res, runtime);
     return true;
   }
 
+  // GET /api/trajectories/stats
+  if (pathname === "/api/trajectories/stats" && method === "GET") {
+    await handleGetStats(req, res, runtime);
+    return true;
+  }
+
+  // GET /api/trajectories/:id
   const detailMatch = pathname.match(/^\/api\/trajectories\/([^/]+)$/);
   if (detailMatch && method === "GET") {
-    const trajectoryId = decodeURIComponent(detailMatch[1]);
-    if (
-      trajectoryId !== "stats" &&
-      trajectoryId !== "config" &&
-      trajectoryId !== "export"
-    ) {
-      await handleGetTrajectoryDetail(req, res, runtime, trajectoryId);
-      return true;
-    }
+    await handleGetTrajectoryDetail(req, res, runtime, detailMatch[1]);
+    return true;
+  }
+
+  // GET /api/trajectories
+  if (pathname === "/api/trajectories" && method === "GET") {
+    await handleGetTrajectories(req, res, runtime);
+    return true;
   }
 
   return false;

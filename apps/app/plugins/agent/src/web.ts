@@ -27,21 +27,23 @@ export class AgentWeb extends WebPlugin implements AgentPlugin {
   }
 
   private apiBase(): string {
-    const global = typeof window !== "undefined"
-      ? (window as unknown as Record<string, unknown>).__MILADY_API_BASE__
-      : undefined;
+    const global =
+      typeof window !== "undefined"
+        ? (window as unknown as Record<string, unknown>).__MILADY_API_BASE__
+        : undefined;
     if (typeof global === "string" && global.trim().length > 0) return global;
     return this.electronLocalFallbackBase();
   }
 
   private apiToken(): string | null {
-    const global = typeof window !== "undefined"
-      ? (window as unknown as Record<string, unknown>).__MILADY_API_TOKEN__
-      : undefined;
+    const global =
+      typeof window !== "undefined"
+        ? (window as unknown as Record<string, unknown>).__MILADY_API_TOKEN__
+        : undefined;
     if (typeof global === "string" && global.trim()) return global.trim();
     if (typeof window === "undefined") return null;
     const stored = window.sessionStorage.getItem("milady_api_token");
-    return stored && stored.trim() ? stored.trim() : null;
+    return stored?.trim() ? stored.trim() : null;
   }
 
   private authHeaders(): Record<string, string> {
@@ -61,7 +63,13 @@ export class AgentWeb extends WebPlugin implements AgentPlugin {
 
   async start(): Promise<AgentStatus> {
     if (!this.canReachApi()) {
-      return { state: "not_started", agentName: null, port: null, startedAt: null, error: "No API endpoint" };
+      return {
+        state: "not_started",
+        agentName: null,
+        port: null,
+        startedAt: null,
+        error: "No API endpoint",
+      };
     }
     const res = await fetch(`${this.apiBase()}/api/agent/start`, {
       method: "POST",
@@ -84,7 +92,13 @@ export class AgentWeb extends WebPlugin implements AgentPlugin {
 
   async getStatus(): Promise<AgentStatus> {
     if (!this.canReachApi()) {
-      return { state: "not_started", agentName: null, port: null, startedAt: null, error: "No API endpoint" };
+      return {
+        state: "not_started",
+        agentName: null,
+        port: null,
+        startedAt: null,
+        error: "No API endpoint",
+      };
     }
     const res = await fetch(`${this.apiBase()}/api/status`, {
       headers: this.authHeaders(),

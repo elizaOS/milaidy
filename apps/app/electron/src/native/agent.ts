@@ -13,9 +13,8 @@
  * remote — it simply connects to `http://localhost:{port}`.
  */
 
-import { ipcMain, BrowserWindow, app } from "electron";
-import type { IpcMainInvokeEvent } from "electron";
-import path from "path";
+import path from "node:path";
+import { app, type BrowserWindow, ipcMain } from "electron";
 import type { IpcValue } from "./ipc-types";
 
 /**
@@ -79,38 +78,57 @@ export class AgentManager {
         ? path.join(process.resourcesPath, "milady-dist")
         : path.resolve(__dirname, "../../../../../../dist");
 
-      console.log(`[Agent] Resolved milady dist: ${miladyDist} (packaged: ${app.isPackaged})`);
+      console.log(
+        `[Agent] Resolved milady dist: ${miladyDist} (packaged: ${app.isPackaged})`,
+      );
 
       // 1. Start API server immediately so the UI can bootstrap while runtime starts.
       //    (or MILADY_PORT if set)
       const apiPort = Number(process.env.MILADY_PORT) || 2138;
       const serverModule = await dynamicImport(
-        path.join(miladyDist, "server")
+        path.join(miladyDist, "server"),
       ).catch((err: unknown) => {
-        console.warn("[Agent] Could not load server.js:", err instanceof Error ? err.message : err);
+        console.warn(
+          "[Agent] Could not load server.js:",
+          err instanceof Error ? err.message : err,
+        );
         return null;
       });
 
       let actualPort: number | null = null;
-      let startEliza: ((opts: { headless: boolean }) => Promise<Record<string, unknown> | null>) | null = null;
+      let startEliza:
+        | ((opts: {
+            headless: boolean;
+          }) => Promise<Record<string, unknown> | null>)
+        | null = null;
       // `startApiServer()` returns an `updateRuntime()` helper that broadcasts
       // status updates and restores conversation state after a hot restart.
       // Keep it around so our onRestart hook can call it.
       let apiUpdateRuntime: ((rt: unknown) => void) | null = null;
 
       if (serverModule?.startApiServer) {
-        const { port: resolvedPort, close, updateRuntime } = await serverModule.startApiServer({
+        const {
+          port: resolvedPort,
+          close,
+          updateRuntime,
+        } = await serverModule.startApiServer({
           port: apiPort,
           initialAgentState: "starting",
           // IMPORTANT: the web UI expects POST /api/agent/restart to work.
           // Without an onRestart handler, config changes that require a runtime
           // restart appear to "not work".
           onRestart: async () => {
-            console.log("[Agent] HTTP restart requested — restarting embedded runtime…");
+            console.log(
+              "[Agent] HTTP restart requested — restarting embedded runtime…",
+            );
 
             // 1) Stop old runtime (do NOT stop the API server)
             const prevRuntime = this.runtime;
-            if (prevRuntime && typeof (prevRuntime as { stop?: () => Promise<void> }).stop === "function") {
+            if (
+              prevRuntime &&
+              typeof (prevRuntime as { stop?: () => Promise<void> }).stop ===
+                "function"
+            ) {
               try {
                 await (prevRuntime as { stop: () => Promise<void> }).stop();
               } catch (stopErr) {
@@ -122,14 +140,18 @@ export class AgentManager {
             }
 
             if (!startEliza) {
-              console.error("[Agent] HTTP restart failed: runtime bootstrap not initialized");
+              console.error(
+                "[Agent] HTTP restart failed: runtime bootstrap not initialized",
+              );
               return null;
             }
 
             // 2) Start new runtime (picks up latest config/env from disk)
             const nextRuntime = await startEliza({ headless: true });
             if (!nextRuntime) {
-              console.error("[Agent] HTTP restart failed: startEliza returned null");
+              console.error(
+                "[Agent] HTTP restart failed: startEliza returned null",
+              );
               return null;
             }
 
@@ -141,7 +163,8 @@ export class AgentManager {
 
             // 3) Update the Electron-side status (renderer may be listening via IPC)
             const nextName =
-              (nextRuntime as { character?: { name?: string } }).character?.name ?? "Milady";
+              (nextRuntime as { character?: { name?: string } }).character
+                ?.name ?? "Milady";
             this.status = {
               ...this.status,
               state: "running",
@@ -160,7 +183,9 @@ export class AgentManager {
         this.apiClose = close;
         apiUpdateRuntime = updateRuntime;
       } else {
-        console.warn("[Agent] Could not find API server module — runtime will start without HTTP API");
+        console.warn(
+          "[Agent] Could not find API server module — runtime will start without HTTP API",
+        );
       }
 
       // Surface the API port while runtime is still booting.
@@ -172,9 +197,12 @@ export class AgentManager {
 
       // 2. Resolve runtime bootstrap entry (may be slow on cold boot).
       const elizaModule = await dynamicImport(path.join(miladyDist, "eliza"));
-      const resolvedStartEliza = (
-        elizaModule.startEliza ?? (elizaModule.default as Record<string, unknown>)?.startEliza
-      ) as ((opts: { headless: boolean }) => Promise<Record<string, unknown> | null>) | undefined;
+      const resolvedStartEliza = (elizaModule.startEliza ??
+        (elizaModule.default as Record<string, unknown>)?.startEliza) as
+        | ((opts: {
+            headless: boolean;
+          }) => Promise<Record<string, unknown> | null>)
+        | undefined;
 
       if (typeof resolvedStartEliza !== "function") {
         throw new Error("eliza.js does not export startEliza");
@@ -184,12 +212,15 @@ export class AgentManager {
       // 3. Start Eliza runtime in headless mode.
       const runtimeResult = await startEliza({ headless: true });
       if (!runtimeResult) {
-        throw new Error("startEliza returned null — runtime failed to initialize");
+        throw new Error(
+          "startEliza returned null — runtime failed to initialize",
+        );
       }
 
       this.runtime = runtimeResult as Record<string, unknown>;
       const agentName =
-        (runtimeResult as { character?: { name?: string } }).character?.name ?? "Milady";
+        (runtimeResult as { character?: { name?: string } }).character?.name ??
+        "Milady";
 
       // Attach runtime to the already-running API server.
       apiUpdateRuntime?.(runtimeResult as unknown);
@@ -204,9 +235,13 @@ export class AgentManager {
 
       this.sendToRenderer("agent:status", this.status);
       if (actualPort) {
-        console.log(`[Agent] Runtime started — agent: ${agentName}, port: ${actualPort}`);
+        console.log(
+          `[Agent] Runtime started — agent: ${agentName}, port: ${actualPort}`,
+        );
       } else {
-        console.log(`[Agent] Runtime started — agent: ${agentName}, API unavailable`);
+        console.log(
+          `[Agent] Runtime started — agent: ${agentName}, API unavailable`,
+        );
       }
       return this.status;
     } catch (err) {
@@ -235,11 +270,18 @@ export class AgentManager {
         await this.apiClose();
         this.apiClose = null;
       }
-      if (this.runtime && typeof (this.runtime as { stop?: () => Promise<void> }).stop === "function") {
+      if (
+        this.runtime &&
+        typeof (this.runtime as { stop?: () => Promise<void> }).stop ===
+          "function"
+      ) {
         await (this.runtime as { stop: () => Promise<void> }).stop();
       }
     } catch (err) {
-      console.warn("[Agent] Error during shutdown:", err instanceof Error ? err.message : err);
+      console.warn(
+        "[Agent] Error during shutdown:",
+        err instanceof Error ? err.message : err,
+      );
     }
 
     this.runtime = null;
@@ -282,7 +324,10 @@ export class AgentManager {
   /** Clean up on app quit. */
   dispose(): void {
     this.stop().catch((err) =>
-      console.warn("[Agent] dispose error:", err instanceof Error ? err.message : err)
+      console.warn(
+        "[Agent] dispose error:",
+        err instanceof Error ? err.message : err,
+      ),
     );
   }
 }

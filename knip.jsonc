@@ -5,13 +5,22 @@
       "entry": [
         "src/index.ts",
         "src/runtime/eliza.ts",
-        "milady.mjs",
+        "src/entry.ts",
+        "milaidy.mjs",
         "scripts/**/*.ts",
         "scripts/**/*.mjs",
         "scripts/**/*.js"
       ],
-      "project": ["src/**/*.ts", "scripts/**/*.ts"],
-      "ignore": ["dist/**", "build/**", "coverage/**", "**/*.test.ts"]
+      "project": [
+        "src/**/*.ts",
+        "scripts/**/*.ts"
+      ],
+      "ignore": [
+        "dist/**",
+        "build/**",
+        "coverage/**",
+        "**/*.test.ts"
+      ]
     },
     "apps/app": {
       "entry": [
@@ -21,19 +30,37 @@
         "vite.config.ts",
         "vitest.config.ts",
         "index.html",
-        "capacitor.config.ts",
-        "playwright.electron.config.ts",
-        "playwright.electron.packaged.config.ts"
+        "src/main.tsx",
+        "electron/main.ts",
+        "electron/preload.ts",
+        "vite.config.ts",
+        "vitest.config.ts",
+        "index.html",
+        "capacitor.config.ts"
       ],
-      "project": ["src/**/*.{ts,tsx}", "electron/**/*.{ts,tsx}"],
+      "project": [
+        "src/**/*.{ts,tsx}",
+        "electron/**/*.{ts,tsx}"
+      ],
       "ignore": [
         "dist/**",
         "build/**",
         "coverage/**",
         "**/*.test.ts",
-        "public/**"
+        "public/**",
+        "playwright.electron.config.ts",
+        "playwright.electron.packaged.config.ts",
+        "cypress.config.ts",
+        "**/*.cy.ts",
+        "**/cypress/**",
+        "tsdown.config.ts"
       ]
     }
   },
-  "ignore": ["**/*.d.ts", ".eslintrc.js", "**/__tests__/**", "**/__mocks__/**"]
+  "ignore": [
+    "**/*.d.ts",
+    ".eslintrc.js",
+    "**/__tests__/**",
+    "**/__mocks__/**"
+  ]
 }

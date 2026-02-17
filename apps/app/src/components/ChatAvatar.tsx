@@ -6,10 +6,10 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { VrmViewer } from "./avatar/VrmViewer";
-import type { VrmEngine, VrmEngineState } from "./avatar/VrmEngine";
-import { useApp, getVrmPreviewUrl, getVrmUrl } from "../AppContext";
+import { getVrmPreviewUrl, getVrmUrl, useApp } from "../AppContext";
 import { client } from "../api-client";
+import type { VrmEngine, VrmEngineState } from "./avatar/VrmEngine";
+import { VrmViewer } from "./avatar/VrmViewer";
 
 export interface ChatAvatarProps {
   /** Mouth openness value (0-1) for lip sync animation */
@@ -18,16 +18,21 @@ export interface ChatAvatarProps {
   isSpeaking?: boolean;
 }
 
-export function ChatAvatar({ mouthOpen = 0, isSpeaking = false }: ChatAvatarProps) {
+export function ChatAvatar({
+  mouthOpen = 0,
+  isSpeaking = false,
+}: ChatAvatarProps) {
   const { selectedVrmIndex, customVrmUrl } = useApp();
 
   // Resolve VRM path from selected index or custom upload
-  const vrmPath = selectedVrmIndex === 0 && customVrmUrl
-    ? customVrmUrl
-    : getVrmUrl(selectedVrmIndex || 1);
-  const fallbackPreviewUrl = selectedVrmIndex > 0
-    ? getVrmPreviewUrl(selectedVrmIndex)
-    : getVrmPreviewUrl(1);
+  const vrmPath =
+    selectedVrmIndex === 0 && customVrmUrl
+      ? customVrmUrl
+      : getVrmUrl(selectedVrmIndex || 1);
+  const fallbackPreviewUrl =
+    selectedVrmIndex > 0
+      ? getVrmPreviewUrl(selectedVrmIndex)
+      : getVrmPreviewUrl(1);
 
   const vrmEngineRef = useRef<VrmEngine | null>(null);
   const [engineReady, setEngineReady] = useState(false);
@@ -56,7 +61,7 @@ export function ChatAvatar({ mouthOpen = 0, isSpeaking = false }: ChatAvatarProp
       setShowFallback(true);
     }, 4000);
     return () => window.clearTimeout(timer);
-  }, [vrmPath]);
+  }, []);
 
   // Subscribe to WebSocket emote events and trigger avatar animations.
   useEffect(() => {
@@ -87,7 +92,8 @@ export function ChatAvatar({ mouthOpen = 0, isSpeaking = false }: ChatAvatarProp
         style={{
           opacity: avatarVisible ? 0.95 : 0,
           transition: "opacity 0.45s ease-in-out",
-          background: "radial-gradient(circle at 50% 100%, rgba(255,255,255,0.08), transparent 60%)",
+          background:
+            "radial-gradient(circle at 50% 100%, rgba(255,255,255,0.08), transparent 60%)",
         }}
       >
         <div className="absolute inset-0 overflow-hidden">

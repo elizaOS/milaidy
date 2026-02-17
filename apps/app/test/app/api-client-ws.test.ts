@@ -76,8 +76,14 @@ describe("MiladyClient websocket queue", () => {
 
   it("keeps only the newest queued active-conversation update", () => {
     const client = new MiladyClient("http://localhost:3137");
-    client.sendWsMessage({ type: "active-conversation", conversationId: "conv-1" });
-    client.sendWsMessage({ type: "active-conversation", conversationId: "conv-2" });
+    client.sendWsMessage({
+      type: "active-conversation",
+      conversationId: "conv-1",
+    });
+    client.sendWsMessage({
+      type: "active-conversation",
+      conversationId: "conv-2",
+    });
 
     expect(ControlledWebSocket.instances).toHaveLength(1);
     const ws = ControlledWebSocket.instances[0];
@@ -88,4 +94,3 @@ describe("MiladyClient websocket queue", () => {
     ]);
   });
 });
-

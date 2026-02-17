@@ -1,13 +1,6 @@
 import React, { useEffect, useState } from "react";
 import TestRenderer, { act } from "react-test-renderer";
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CustomActionDef } from "../../src/api-client";
 
 const { mockClient, mockUseApp, mockUseVoiceChat } = vi.hoisted(() => ({
@@ -86,7 +79,11 @@ function createContext(
 
 function text(node: TestRenderer.ReactTestInstance): string {
   return node.children
-    .map((child) => (typeof child === "string" ? child : text(child as TestRenderer.ReactTestInstance)))
+    .map((child) =>
+      typeof child === "string"
+        ? child
+        : text(child as TestRenderer.ReactTestInstance),
+    )
     .join("")
     .trim();
 }
@@ -121,8 +118,8 @@ async function flush(): Promise<void> {
 }
 
 import { ChatView } from "../../src/components/ChatView";
-import { CustomActionsPanel } from "../../src/components/CustomActionsPanel";
 import { CustomActionEditor } from "../../src/components/CustomActionEditor";
+import { CustomActionsPanel } from "../../src/components/CustomActionsPanel";
 
 function FlowHarness({
   onSaved,
@@ -131,12 +128,15 @@ function FlowHarness({
 }) {
   const [panelOpen, setPanelOpen] = useState(false);
   const [editorOpen, setEditorOpen] = useState(false);
-  const [editingAction, setEditingAction] = useState<CustomActionDef | null>(null);
+  const [editingAction, setEditingAction] = useState<CustomActionDef | null>(
+    null,
+  );
 
   useEffect(() => {
     const handler = () => setPanelOpen((open) => !open);
     window.addEventListener("toggle-custom-actions-panel", handler);
-    return () => window.removeEventListener("toggle-custom-actions-panel", handler);
+    return () =>
+      window.removeEventListener("toggle-custom-actions-panel", handler);
   }, []);
 
   return React.createElement(
@@ -244,21 +244,22 @@ describe("custom actions smoke flow", () => {
         similes: ["site", "health check"],
       },
     });
-    mockClient.createCustomAction.mockImplementation(async (payload: CustomActionDef) => ({
-      ...payload,
-      id: "act-1",
-    }));
+    mockClient.createCustomAction.mockImplementation(
+      async (payload: CustomActionDef) => ({
+        ...payload,
+        id: "act-1",
+      }),
+    );
 
     const onSaved = vi.fn();
 
-    let tree: TestRenderer.ReactTestRenderer;
+    let tree: TestRenderer.ReactTestRenderer | null = null;
     await act(async () => {
-      tree = TestRenderer.create(
-        React.createElement(FlowHarness, { onSaved }),
-      );
+      tree = TestRenderer.create(React.createElement(FlowHarness, { onSaved }));
     });
+    if (!tree) throw new Error("failed to render FlowHarness");
 
-    const actionsButton = findButtonByText(tree!, "Actions");
+    const actionsButton = findButtonByText(tree, "Actions");
     await act(async () => {
       actionsButton.props.onClick();
     });
@@ -266,32 +267,34 @@ describe("custom actions smoke flow", () => {
 
     expect(mockClient.listCustomActions).toHaveBeenCalledTimes(1);
 
-    const title = tree!.root.findAll(
+    const title = tree?.root.findAll(
       (node) => node.type === "h2" && text(node) === "Custom Actions",
     );
     expect(title.length).toBe(1);
 
-    const createButton = findButtonByText(tree!, "+ New Custom Action");
+    const createButton = findButtonByText(tree, "+ New Custom Action");
     await act(async () => {
       createButton.props.onClick();
     });
     await flush();
 
-    const editorHeader = tree!.root.findAll(
+    const editorHeader = tree?.root.findAll(
       (node) => node.type === "h2" && text(node) === "New Custom Action",
     );
     expect(editorHeader.length).toBe(1);
 
     const promptInput = findInputByPlaceholder(
-      tree!,
+      tree,
       "e.g. Check if a website is up and return status",
     );
     await act(async () => {
-      promptInput.props.onChange({ target: { value: "Build a URL health check action" } });
+      promptInput.props.onChange({
+        target: { value: "Build a URL health check action" },
+      });
     });
     await flush();
 
-    const generateButton = findButtonByText(tree!, "Generate");
+    const generateButton = findButtonByText(tree, "Generate");
     await act(async () => {
       generateButton.props.onClick();
     });
@@ -301,15 +304,17 @@ describe("custom actions smoke flow", () => {
       "Build a URL health check action",
     );
 
-    const nameInput = findInputByPlaceholder(tree!, "MY_ACTION");
+    const nameInput = findInputByPlaceholder(tree, "MY_ACTION");
     expect(nameInput.props.value).toBe("CHECK_SITE");
 
-    const descriptionArea = tree!.root.findAll(
-      (node) => node.type === "textarea" && node.props.placeholder === "What does this action do?",
+    const descriptionArea = tree?.root.findAll(
+      (node) =>
+        node.type === "textarea" &&
+        node.props.placeholder === "What does this action do?",
     )[0];
     expect(descriptionArea.props.value).toBe("Checks if a URL responds.");
 
-    const saveButton = findButtonByText(tree!, "Save");
+    const saveButton = findButtonByText(tree, "Save");
     await act(async () => {
       saveButton.props.onClick();
     });

@@ -11,23 +11,29 @@
  *   - Prompt generation: registry.catalog.prompt() for AI system prompts
  */
 
-import React, { useState, useCallback, useMemo, useImperativeHandle, forwardRef } from "react";
+import React, {
+  forwardRef,
+  useCallback,
+  useImperativeHandle,
+  useMemo,
+  useState,
+} from "react";
+import type { ConfigUiHint } from "../types";
 import type {
-  FieldRenderProps,
   FieldRegistry,
   FieldRenderer,
+  FieldRenderProps,
   JsonSchemaObject,
   ResolvedField,
 } from "./config-catalog";
 import {
   defaultCatalog,
   defineRegistry,
-  resolveFields,
   evaluateShowIf,
   evaluateVisibility,
+  resolveFields,
   runValidation,
 } from "./config-catalog";
-import type { ConfigUiHint } from "../types";
 import { ConfigField } from "./config-field";
 
 // ── Props ──────────────────────────────────────────────────────────────
@@ -50,7 +56,10 @@ export interface ConfigRendererProps {
   /** Callback when a field value changes. */
   onChange?: (key: string, value: unknown) => void;
   /** Render function for each field — receives renderProps and the resolved renderer. */
-  renderField?: (renderProps: FieldRenderProps, renderer: FieldRenderer) => React.ReactNode;
+  renderField?: (
+    renderProps: FieldRenderProps,
+    renderer: FieldRenderer,
+  ) => React.ReactNode;
   /** Show a validation error summary above the form fields when errors exist. Defaults to true. */
   showValidationSummary?: boolean;
   /** Partial theme overrides for plugin UI tokens. */
@@ -175,7 +184,11 @@ interface ValidationSummaryProps {
   pluginId?: string;
 }
 
-function ValidationSummary({ fieldErrors, fieldLabels, pluginId }: ValidationSummaryProps) {
+function ValidationSummary({
+  fieldErrors,
+  fieldLabels,
+  pluginId,
+}: ValidationSummaryProps) {
   const errorEntries = [...fieldErrors.entries()].filter(
     ([, errors]) => errors.length > 0,
   );
@@ -184,7 +197,9 @@ function ValidationSummary({ fieldErrors, fieldLabels, pluginId }: ValidationSum
   if (totalErrors === 0) return null;
 
   const handleFieldClick = (key: string) => {
-    const el = document.getElementById(pluginId ? `field-${pluginId}-${key}` : `field-${key}`);
+    const el = document.getElementById(
+      pluginId ? `field-${pluginId}-${key}` : `field-${key}`,
+    );
     if (el) {
       el.scrollIntoView({ behavior: "smooth", block: "center" });
     }
@@ -196,7 +211,8 @@ function ValidationSummary({ fieldErrors, fieldLabels, pluginId }: ValidationSum
       role="alert"
     >
       <div className="text-[13px] font-semibold text-[var(--destructive)] mb-2">
-        {totalErrors} {totalErrors === 1 ? "field needs" : "fields need"} attention
+        {totalErrors} {totalErrors === 1 ? "field needs" : "fields need"}{" "}
+        attention
       </div>
       <ul className="list-none m-0 p-0 flex flex-col gap-1">
         {errorEntries.map(([key]) => (
@@ -237,21 +253,29 @@ const THEME_TO_CSS: Record<keyof import("../types").PluginUiTheme, string> = {
 
 // ── Component ──────────────────────────────────────────────────────────
 
-export const ConfigRenderer = forwardRef<ConfigRendererHandle, ConfigRendererProps>(function ConfigRenderer({
-  schema,
-  hints = {},
-  values = {},
-  setKeys = new Set(),
-  registry,
-  pluginId = "",
-  revealSecret,
-  onChange,
-  renderField: renderFieldOverride,
-  showValidationSummary = true,
-  theme,
-}: ConfigRendererProps, ref) {
+export const ConfigRenderer = forwardRef<
+  ConfigRendererHandle,
+  ConfigRendererProps
+>(function ConfigRenderer(
+  {
+    schema,
+    hints = {},
+    values = {},
+    setKeys = new Set(),
+    registry,
+    pluginId = "",
+    revealSecret,
+    onChange,
+    renderField: renderFieldOverride,
+    showValidationSummary = true,
+    theme,
+  }: ConfigRendererProps,
+  ref,
+) {
   const [advancedOpen, setAdvancedOpen] = useState(false);
-  const [fieldErrors, setFieldErrors] = useState<Map<string, string[]>>(new Map());
+  const [fieldErrors, setFieldErrors] = useState<Map<string, string[]>>(
+    new Map(),
+  );
 
   // ── Validation pipeline (4 stages) ──────────────────────────────────
 
@@ -347,7 +371,10 @@ export const ConfigRenderer = forwardRef<ConfigRendererHandle, ConfigRendererPro
   // ── Action execution ─────────────────────────────────────────────────
 
   const executeAction = useCallback(
-    async (action: string, params?: Record<string, unknown>): Promise<unknown> => {
+    async (
+      action: string,
+      params?: Record<string, unknown>,
+    ): Promise<unknown> => {
       const handler = registry.resolveAction(action);
       if (!handler) {
         console.warn(`[config-renderer] No handler for action: ${action}`);
@@ -382,7 +409,15 @@ export const ConfigRenderer = forwardRef<ConfigRendererHandle, ConfigRendererPro
           executeAction(action, params),
       };
     },
-    [values, setKeys, fieldErrors, handleFieldChange, revealSecret, pluginId, executeAction],
+    [
+      values,
+      setKeys,
+      fieldErrors,
+      handleFieldChange,
+      revealSecret,
+      pluginId,
+      executeAction,
+    ],
   );
 
   // ── Render a single field ────────────────────────────────────────────
@@ -402,7 +437,11 @@ export const ConfigRenderer = forwardRef<ConfigRendererHandle, ConfigRendererPro
 
       return (
         <div key={field.key} className={widthClass(field.width)}>
-          <ConfigField renderProps={rp} renderer={renderer} pluginId={pluginId} />
+          <ConfigField
+            renderProps={rp}
+            renderer={renderer}
+            pluginId={pluginId}
+          />
         </div>
       );
     },
@@ -412,7 +451,13 @@ export const ConfigRenderer = forwardRef<ConfigRendererHandle, ConfigRendererPro
   // ── Resolve and partition fields ─────────────────────────────────────
 
   const { groups, advanced, showHeaders, allVisibleFields } = useMemo(() => {
-    if (!schema) return { groups: new Map<string, ResolvedField[]>(), advanced: [] as ResolvedField[], showHeaders: false, allVisibleFields: [] as ResolvedField[] };
+    if (!schema)
+      return {
+        groups: new Map<string, ResolvedField[]>(),
+        advanced: [] as ResolvedField[],
+        showHeaders: false,
+        allVisibleFields: [] as ResolvedField[],
+      };
 
     const catalog = registry.catalog;
     const allFields = resolveFields(schema, hints, catalog);
@@ -432,8 +477,10 @@ export const ConfigRenderer = forwardRef<ConfigRendererHandle, ConfigRendererPro
     }
     for (const [, fields] of fieldGroups) {
       fields.sort((a, b) => {
-        const aEmpty = a.required && (values[a.key] == null || values[a.key] === "");
-        const bEmpty = b.required && (values[b.key] == null || values[b.key] === "");
+        const aEmpty =
+          a.required && (values[a.key] == null || values[a.key] === "");
+        const bEmpty =
+          b.required && (values[b.key] == null || values[b.key] === "");
         if (aEmpty && !bEmpty) return -1;
         if (!aEmpty && bEmpty) return 1;
         return (a.hint.order ?? 999) - (b.hint.order ?? 999);
@@ -446,7 +493,7 @@ export const ConfigRenderer = forwardRef<ConfigRendererHandle, ConfigRendererPro
       showHeaders: fieldGroups.size > 1,
       allVisibleFields: visibleFields,
     };
-  }, [schema, hints, registry, isFieldVisible]);
+  }, [schema, hints, registry, isFieldVisible, values]);
 
   // ── Field labels for validation summary ────────────────────────────
 
@@ -476,16 +523,6 @@ export const ConfigRenderer = forwardRef<ConfigRendererHandle, ConfigRendererPro
 
   useImperativeHandle(ref, () => ({ validateAll }), [validateAll]);
 
-  // ── Empty state ──────────────────────────────────────────────────────
-
-  if (!schema) {
-    return (
-      <div className="text-xs text-[var(--muted)] italic py-3">
-        No schema provided.
-      </div>
-    );
-  }
-
   // ── Configuration progress ─────────────────────────────────────────
 
   const configProgress = useMemo(() => {
@@ -498,7 +535,9 @@ export const ConfigRenderer = forwardRef<ConfigRendererHandle, ConfigRendererPro
     };
     const configured = allVisibleFields.filter(isConfigured).length;
     const requiredTotal = allVisibleFields.filter((f) => f.required).length;
-    const requiredSet = allVisibleFields.filter((f) => f.required && isConfigured(f)).length;
+    const requiredSet = allVisibleFields.filter(
+      (f) => f.required && isConfigured(f),
+    ).length;
     return { total, configured, requiredTotal, requiredSet };
   }, [allVisibleFields, values, setKeys]);
 
@@ -516,32 +555,51 @@ export const ConfigRenderer = forwardRef<ConfigRendererHandle, ConfigRendererPro
     return Object.keys(style).length > 0 ? style : undefined;
   }, [theme]);
 
+  // ── Empty state ──────────────────────────────────────────────────────
+
+  if (!schema) {
+    return (
+      <div className="text-xs text-[var(--muted)] italic py-3">
+        No schema provided.
+      </div>
+    );
+  }
+
   // ── Render ───────────────────────────────────────────────────────────
 
   return (
     <div style={themeStyle}>
       {/* Progress indicator */}
-      {configProgress && configProgress.requiredTotal > 0 && configProgress.requiredSet < configProgress.requiredTotal && (
-        <div className="mb-4 px-3.5 py-2.5 border border-[var(--warning,#f39c12)] bg-[color-mix(in_srgb,var(--warning,#f39c12)_6%,transparent)] rounded-sm">
-          <div className="flex items-center justify-between mb-1.5">
-            <span className="text-[12px] font-semibold text-[var(--warning,#f39c12)]">
-              {configProgress.requiredSet}/{configProgress.requiredTotal} required fields configured
-            </span>
-            <span className="text-[11px] text-[var(--muted)]">
-              {configProgress.configured}/{configProgress.total} total
-            </span>
+      {configProgress &&
+        configProgress.requiredTotal > 0 &&
+        configProgress.requiredSet < configProgress.requiredTotal && (
+          <div className="mb-4 px-3.5 py-2.5 border border-[var(--warning,#f39c12)] bg-[color-mix(in_srgb,var(--warning,#f39c12)_6%,transparent)] rounded-sm">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-[12px] font-semibold text-[var(--warning,#f39c12)]">
+                {configProgress.requiredSet}/{configProgress.requiredTotal}{" "}
+                required fields configured
+              </span>
+              <span className="text-[11px] text-[var(--muted)]">
+                {configProgress.configured}/{configProgress.total} total
+              </span>
+            </div>
+            <div className="w-full h-1.5 bg-[var(--border)] rounded-full overflow-hidden">
+              <div
+                className="h-full bg-[var(--warning,#f39c12)] rounded-full transition-all duration-300"
+                style={{
+                  width: `${(configProgress.requiredSet / configProgress.requiredTotal) * 100}%`,
+                }}
+              />
+            </div>
           </div>
-          <div className="w-full h-1.5 bg-[var(--border)] rounded-full overflow-hidden">
-            <div
-              className="h-full bg-[var(--warning,#f39c12)] rounded-full transition-all duration-300"
-              style={{ width: `${(configProgress.requiredSet / configProgress.requiredTotal) * 100}%` }}
-            />
-          </div>
-        </div>
-      )}
+        )}
 
       {showValidationSummary && fieldErrors.size > 0 ? (
-        <ValidationSummary fieldErrors={fieldErrors} fieldLabels={fieldLabels} pluginId={pluginId} />
+        <ValidationSummary
+          fieldErrors={fieldErrors}
+          fieldLabels={fieldLabels}
+          pluginId={pluginId}
+        />
       ) : null}
 
       {[...groups.entries()].map(([group, fields], groupIndex) => (
@@ -549,7 +607,9 @@ export const ConfigRenderer = forwardRef<ConfigRendererHandle, ConfigRendererPro
           {showHeaders && (
             <div className="flex items-center gap-2 mb-3">
               <span className="text-base leading-none">{groupIcon(group)}</span>
-              <span className="text-[12px] font-bold uppercase tracking-wider text-[var(--text)] opacity-70">{group}</span>
+              <span className="text-[12px] font-bold uppercase tracking-wider text-[var(--text)] opacity-70">
+                {group}
+              </span>
               <span className="flex-1 h-px bg-[var(--border)] ml-1" />
             </div>
           )}
@@ -561,7 +621,8 @@ export const ConfigRenderer = forwardRef<ConfigRendererHandle, ConfigRendererPro
 
       {advanced.length > 0 && (
         <div className="mt-5 pt-4 border-t border-[var(--border)]">
-          <div
+          <button
+            type="button"
             className="flex items-center gap-2 cursor-pointer select-none group mb-3"
             onClick={() => setAdvancedOpen((prev) => !prev)}
           >
@@ -578,7 +639,7 @@ export const ConfigRenderer = forwardRef<ConfigRendererHandle, ConfigRendererPro
               {advanced.length}
             </span>
             <span className="flex-1 h-px bg-[var(--border)] opacity-50 ml-1" />
-          </div>
+          </button>
           {advancedOpen && (
             <div className="grid grid-cols-6 gap-x-5 gap-y-0 pt-1 animate-[cr-slide_var(--duration-normal,200ms)_ease]">
               {advanced.map((f) => renderField(f))}

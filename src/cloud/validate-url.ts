@@ -7,6 +7,10 @@
 import dns from "node:dns";
 import net from "node:net";
 import { promisify } from "node:util";
+import {
+  normalizeHostLike,
+  normalizeIpForPolicy,
+} from "../security/network-policy";
 
 const dnsLookupAll = promisify(dns.lookup);
 
@@ -36,13 +40,6 @@ const BLOCKED_IPV4_CIDRS: Array<{ base: number; mask: number }> = [
   cidrV4("240.0.0.0", 4),
 ];
 
-function normalizeHostLike(value: string): string {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/^\[|\]$/g, "");
-}
-
 function cidrV4(base: string, prefix: number): { base: number; mask: number } {
   const parsed = parseIpv4ToInt(base);
   if (parsed === null) {
@@ -66,25 +63,6 @@ function parseIpv4ToInt(ip: string): number | null {
   }
 
   return value >>> 0;
-}
-
-function decodeIpv6MappedHex(mapped: string): string | null {
-  const match = /^([0-9a-f]{1,4}):([0-9a-f]{1,4})$/i.exec(mapped);
-  if (!match) return null;
-  const hi = Number.parseInt(match[1], 16);
-  const lo = Number.parseInt(match[2], 16);
-  if (!Number.isFinite(hi) || !Number.isFinite(lo)) return null;
-  const octets = [hi >> 8, hi & 0xff, lo >> 8, lo & 0xff];
-  return octets.join(".");
-}
-
-function normalizeIpForPolicy(ip: string): string {
-  const base = normalizeHostLike(ip).split("%")[0];
-  if (!base.startsWith("::ffff:")) return base;
-
-  const mapped = base.slice("::ffff:".length);
-  if (net.isIP(mapped) === 4) return mapped;
-  return decodeIpv6MappedHex(mapped) ?? mapped;
 }
 
 function isBlockedIpv4(ip: string): boolean {

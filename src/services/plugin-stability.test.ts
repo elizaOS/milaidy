@@ -12,11 +12,15 @@
  * Issue: #3 — Plugin & Provider Stability
  */
 
-import type { Plugin, Provider, ProviderResult } from "@elizaos/core";
+import {
+  createSessionKeyProvider,
+  type Plugin,
+  type Provider,
+  type ProviderResult,
+} from "@elizaos/core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { validateRuntimeContext } from "../api/plugin-validation";
 import type { MiladyConfig } from "../config/types.milady";
-import { createSessionKeyProvider } from "../providers/session-bridge";
 import { createWorkspaceProvider } from "../providers/workspace-provider";
 import {
   applyCloudConfigToEnv,
@@ -602,7 +606,7 @@ describe("Provider Validation", () => {
     expect(typeof provider.name).toBe("string");
     expect(typeof provider.description).toBe("string");
     expect(typeof provider.get).toBe("function");
-    expect(provider.name).toBe("miladySessionKey");
+    expect(provider.name).toBe("session-key");
   });
 
   it("createMiladyPlugin returns a valid Plugin with providers", () => {
@@ -920,8 +924,9 @@ describe("Version Skew Detection (issue #10)", () => {
       expect(ver).toBeDefined();
       // Plugins can use "next" dist-tag when core is pinned via pnpm overrides,
       // or they can be pinned to a specific alpha version.
+      // Workspace links are valid in monorepo development.
       // See docs/ELIZAOS_VERSIONING.md for details and update procedures
-      if (ver !== "next") {
+      if (ver !== "next" && !isWorkspaceDependency(ver)) {
         expect(ver).toMatch(/^\d+\.\d+\.\d+/);
       }
     }

@@ -5,10 +5,7 @@
   "server": {
     "androidScheme": "https",
     "iosScheme": "https",
-    "allowNavigation": [
-      "localhost",
-      "127.0.0.1"
-    ]
+    "allowNavigation": ["localhost", "127.0.0.1"]
   },
   "plugins": {
     "Keyboard": {

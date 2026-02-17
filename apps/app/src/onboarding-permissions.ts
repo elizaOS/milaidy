@@ -8,11 +8,8 @@ import type {
   SystemPermissionId,
 } from "./api-client";
 
-export const REQUIRED_ONBOARDING_PERMISSION_IDS: ReadonlyArray<SystemPermissionId> = [
-  "accessibility",
-  "screen-recording",
-  "microphone",
-];
+export const REQUIRED_ONBOARDING_PERMISSION_IDS: ReadonlyArray<SystemPermissionId> =
+  ["accessibility", "screen-recording", "microphone"];
 
 export function isOnboardingPermissionGranted(
   status: PermissionStatus | undefined,

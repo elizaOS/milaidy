@@ -1,8 +1,8 @@
 /**
  * Tests for avatar selection logic — VRM index management, path resolution, localStorage persistence.
  */
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { VRM_COUNT, getVrmUrl, getVrmPreviewUrl } from "../../src/AppContext";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { getVrmPreviewUrl, getVrmUrl, VRM_COUNT } from "../../src/AppContext";
 
 describe("Avatar VRM Utilities", () => {
   describe("VRM_COUNT", () => {
@@ -52,7 +52,9 @@ describe("Avatar Selection State", () => {
     it("stores selected VRM index", () => {
       const mockStorage = new Map<string, string>();
       const mockGetItem = vi.fn((key: string) => mockStorage.get(key) ?? null);
-      const mockSetItem = vi.fn((key: string, value: string) => { mockStorage.set(key, value); });
+      const mockSetItem = vi.fn((key: string, value: string) => {
+        mockStorage.set(key, value);
+      });
 
       // Simulate saving avatar selection
       mockSetItem(AVATAR_STORAGE_KEY, "3");
@@ -80,7 +82,7 @@ describe("Avatar Selection State", () => {
 
       for (const invalid of testCases) {
         const n = Number(invalid);
-        const isValid = !isNaN(n) && n >= 0 && n <= VRM_COUNT;
+        const isValid = !Number.isNaN(n) && n >= 0 && n <= VRM_COUNT;
         const result = isValid ? n : 1;
         // Invalid cases should fall back to 1
         if (["", "abc", "-1", "9", "NaN"].includes(invalid) && !isValid) {
@@ -95,9 +97,10 @@ describe("Avatar Selection State", () => {
       const selectedVrmIndex = 5;
       const customVrmUrl: string | null = null;
 
-      const vrmPath = selectedVrmIndex === 0 && customVrmUrl
-        ? customVrmUrl
-        : getVrmUrl(selectedVrmIndex || 1);
+      const vrmPath =
+        selectedVrmIndex === 0 && customVrmUrl
+          ? customVrmUrl
+          : getVrmUrl(selectedVrmIndex || 1);
 
       expect(vrmPath).toBe("/vrms/5.vrm");
     });
@@ -106,9 +109,10 @@ describe("Avatar Selection State", () => {
       const selectedVrmIndex = 0;
       const customVrmUrl = "blob:http://localhost/abc-123";
 
-      const vrmPath = selectedVrmIndex === 0 && customVrmUrl
-        ? customVrmUrl
-        : getVrmUrl(selectedVrmIndex || 1);
+      const vrmPath =
+        selectedVrmIndex === 0 && customVrmUrl
+          ? customVrmUrl
+          : getVrmUrl(selectedVrmIndex || 1);
 
       expect(vrmPath).toBe("blob:http://localhost/abc-123");
     });
@@ -117,9 +121,10 @@ describe("Avatar Selection State", () => {
       const selectedVrmIndex = 0;
       const customVrmUrl: string | null = null;
 
-      const vrmPath = selectedVrmIndex === 0 && customVrmUrl
-        ? customVrmUrl
-        : getVrmUrl(selectedVrmIndex || 1);
+      const vrmPath =
+        selectedVrmIndex === 0 && customVrmUrl
+          ? customVrmUrl
+          : getVrmUrl(selectedVrmIndex || 1);
 
       expect(vrmPath).toBe("/vrms/1.vrm");
     });
@@ -135,8 +140,15 @@ describe("Avatar Selection State", () => {
 describe("Onboarding Avatar Step", () => {
   it("avatar step comes after name and before style", () => {
     const steps = [
-      "welcome", "name", "avatar", "style", "theme",
-      "runMode", "llmProvider", "inventorySetup", "connectors",
+      "welcome",
+      "name",
+      "avatar",
+      "style",
+      "theme",
+      "runMode",
+      "llmProvider",
+      "inventorySetup",
+      "connectors",
     ];
 
     const nameIdx = steps.indexOf("name");

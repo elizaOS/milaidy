@@ -99,17 +99,33 @@
 /* ── Typing indicator animation ─────────────────────────────────────── */
 
 @keyframes typing-bounce {
-  0%, 60%, 100% { opacity: 0.3; transform: translateY(0); }
-  30% { opacity: 1; transform: translateY(-4px); }
+  0%,
+  60%,
+  100% {
+    opacity: 0.3;
+    transform: translateY(0);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-4px);
+  }
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @keyframes pc-slide-in {
-  from { opacity: 0; transform: translateY(-4px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* ── Onboarding speech bubble arrow ─────────────────────────────────── */
@@ -139,8 +155,12 @@
   height: 8px;
 }
 
-.wallet-wrapper:hover::after { display: block; }
-.wallet-wrapper:hover .wallet-tooltip { display: block !important; }
+.wallet-wrapper:hover::after {
+  display: block;
+}
+.wallet-wrapper:hover .wallet-tooltip {
+  display: block;
+}
 
 /* ── Button base classes ───────────────────────────────────────────── */
 
@@ -160,8 +180,13 @@
   transition: opacity var(--duration-fast, 100ms);
 }
 
-.btn:hover { opacity: 0.85; }
-.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn:hover {
+  opacity: 0.85;
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 
 .theme-btn {
   padding: 6px 14px;
@@ -170,10 +195,14 @@
   font-family: inherit;
   border: 1px solid var(--border);
   background: var(--bg);
-  transition: border-color var(--duration-fast, 100ms), color var(--duration-fast, 100ms);
+  transition:
+    border-color var(--duration-fast, 100ms),
+    color var(--duration-fast, 100ms);
 }
 
-.theme-btn:hover { border-color: var(--accent); }
+.theme-btn:hover {
+  border-color: var(--accent);
+}
 
 .theme-btn.active {
   border-color: var(--accent);
@@ -184,8 +213,14 @@
 /* ── Loading screen dither effect ─────────────────────────────────── */
 
 @keyframes dither-fade {
-  0%, 100% { opacity: 0.02; }
-  45%, 55% { opacity: 1; }
+  0%,
+  100% {
+    opacity: 0.02;
+  }
+  45%,
+  55% {
+    opacity: 1;
+  }
 }
 
 .dither-char {

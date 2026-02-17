@@ -37,6 +37,10 @@ export function autoLabel(key: string, pluginId: string): string {
 
   return remainder
     .split("_")
-    .map((word) => (ENV_KEY_ACRONYMS.has(word) ? word : `${word[0]}${word.slice(1).toLowerCase()}`))
+    .map((word) =>
+      ENV_KEY_ACRONYMS.has(word)
+        ? word
+        : `${word[0]}${word.slice(1).toLowerCase()}`,
+    )
     .join(" ");
 }

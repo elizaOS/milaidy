@@ -1,6 +1,6 @@
 import React from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
 import TestRenderer, { act } from "react-test-renderer";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockUseApp = vi.fn();
 const mockOnWsEvent = vi.fn(() => () => {});
@@ -89,7 +89,7 @@ describe("PluginsView restart-aware toggles", () => {
     });
 
     const getToggle = () =>
-      tree!.root.find(
+      tree?.root.find(
         (node) =>
           node.type === "button" &&
           node.props["data-plugin-toggle"] === "test-plugin",
@@ -105,13 +105,12 @@ describe("PluginsView restart-aware toggles", () => {
     expect(getToggle().props.disabled).toBe(true);
     expect(String(getToggle().props.children)).toContain("APPLYING");
     expect(
-      tree!.root
-        .findAll((node) =>
+      tree?.root.findAll(
+        (node) =>
           typeof node.props.className === "string" &&
           node.props.className.includes("border-accent") &&
           node.children.join("").includes("Applying plugin change"),
-        )
-        .length,
+      ).length,
     ).toBeGreaterThan(0);
 
     await act(async () => {

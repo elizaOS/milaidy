@@ -6,21 +6,23 @@ describe("MiladyClient training endpoints", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
-    fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => {
-      return new Response(
-        JSON.stringify({
-          ok: true,
-          trajectories: [],
-          datasets: [],
-          jobs: [],
-          models: [],
-        }),
-        {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        },
-      );
-    });
+    fetchMock = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit) => {
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            trajectories: [],
+            datasets: [],
+            jobs: [],
+            models: [],
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      },
+    );
     globalThis.fetch = fetchMock as typeof globalThis.fetch;
   });
 

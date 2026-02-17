@@ -98,12 +98,12 @@ describe("Provider plugin selection (auto-detect, no allowlist)", () => {
     expect(names.has("@elizaos/plugin-elizacloud")).toBe(true);
   });
 
-  it("does NOT load cloud plugin when cloud is explicitly disabled", () => {
+  it("keeps core cloud plugin loaded when cloud is explicitly disabled", () => {
     const config = {
       cloud: { enabled: false, apiKey: "ck-test" },
     } as MiladyConfig;
     const names = collectPluginNames(config);
-    expect(names.has("@elizaos/plugin-elizacloud")).toBe(false);
+    expect(names.has("@elizaos/plugin-elizacloud")).toBe(true);
   });
 
   it("loads multiple providers when multiple keys are set", () => {
@@ -114,11 +114,11 @@ describe("Provider plugin selection (auto-detect, no allowlist)", () => {
     expect(names.has("@elizaos/plugin-anthropic")).toBe(true);
   });
 
-  it("loads no AI provider when nothing is configured", () => {
+  it("loads no direct AI provider when nothing is configured", () => {
     const names = collectPluginNames({} as MiladyConfig);
     expect(names.has("@elizaos/plugin-openai")).toBe(false);
     expect(names.has("@elizaos/plugin-anthropic")).toBe(false);
-    expect(names.has("@elizaos/plugin-elizacloud")).toBe(false);
+    expect(names.has("@elizaos/plugin-elizacloud")).toBe(true);
   });
 });
 
@@ -162,13 +162,13 @@ describe("Provider plugin selection (explicit allowlist)", () => {
     expect(names.has("@elizaos/plugin-elizacloud")).toBe(true);
   });
 
-  it("does NOT inject cloud plugin when cloud is explicitly disabled", () => {
+  it("keeps core cloud plugin when cloud is explicitly disabled", () => {
     const config = makeConfig(["@elizaos/plugin-anthropic"], {
       enabled: false,
       apiKey: "ck-test",
     });
     const names = collectPluginNames(config);
-    expect(names.has("@elizaos/plugin-elizacloud")).toBe(false);
+    expect(names.has("@elizaos/plugin-elizacloud")).toBe(true);
   });
 
   it("removes direct AI providers when cloud is active", () => {
@@ -201,7 +201,7 @@ describe("Provider plugin selection (explicit allowlist)", () => {
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-anthropic")).toBe(true);
     expect(names.has("@elizaos/plugin-openai")).toBe(true);
-    expect(names.has("@elizaos/plugin-elizacloud")).toBe(false);
+    expect(names.has("@elizaos/plugin-elizacloud")).toBe(true);
   });
 });
 
@@ -317,7 +317,7 @@ describe("Provider switching simulation", () => {
     } as MiladyConfig;
     const localPlugins = collectPluginNames(localConfig);
     expect(localPlugins.has("@elizaos/plugin-anthropic")).toBe(true);
-    expect(localPlugins.has("@elizaos/plugin-elizacloud")).toBe(false);
+    expect(localPlugins.has("@elizaos/plugin-elizacloud")).toBe(true);
 
     // User enables cloud
     const cloudConfig = {
@@ -334,7 +334,7 @@ describe("Provider switching simulation", () => {
     expect(cloudPlugins.has("@elizaos/plugin-browser")).toBe(true);
   });
 
-  it("switch cloud → local: cloud removed, Anthropic restored", () => {
+  it("switch cloud → local: Anthropic restored while cloud core remains", () => {
     // Start with cloud
     const cloudConfig = {
       plugins: {
@@ -356,15 +356,15 @@ describe("Provider switching simulation", () => {
     const localPlugins = collectPluginNames(localConfig);
 
     expect(localPlugins.has("@elizaos/plugin-anthropic")).toBe(true);
-    expect(localPlugins.has("@elizaos/plugin-elizacloud")).toBe(false);
+    expect(localPlugins.has("@elizaos/plugin-elizacloud")).toBe(true);
     expect(localPlugins.has("@elizaos/plugin-browser")).toBe(true);
   });
 
-  it("full cycle: no config → cloud login → switch to OpenAI → back to cloud", () => {
+  it("full cycle: no config → cloud login → switch to OpenAI → back to cloud mode", () => {
     // Step 1: Fresh start, nothing configured
     let config = {} as MiladyConfig;
     let plugins = collectPluginNames(config);
-    expect(plugins.has("@elizaos/plugin-elizacloud")).toBe(false);
+    expect(plugins.has("@elizaos/plugin-elizacloud")).toBe(true);
     expect(plugins.has("@elizaos/plugin-openai")).toBe(false);
 
     // Step 2: User logs in to cloud
@@ -381,7 +381,7 @@ describe("Provider switching simulation", () => {
     config = { cloud: { enabled: false } } as MiladyConfig;
     plugins = collectPluginNames(config);
     expect(plugins.has("@elizaos/plugin-openai")).toBe(true);
-    expect(plugins.has("@elizaos/plugin-elizacloud")).toBe(false);
+    expect(plugins.has("@elizaos/plugin-elizacloud")).toBe(true);
 
     // Step 4: User switches back to cloud
     config = { cloud: { enabled: true, apiKey: "ck-login" } } as MiladyConfig;

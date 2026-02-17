@@ -108,7 +108,9 @@ describe("AutonomousPanel", () => {
       agentStatus: makeStatus("running"),
       autonomousEvents: [
         makeEvent("evt-1", "evaluator", { text: "Thinking about priorities" }),
-        makeEvent("evt-2", "action", { text: "Called resolve_priority action" }),
+        makeEvent("evt-2", "action", {
+          text: "Called resolve_priority action",
+        }),
       ],
     });
     mockUseApp.mockImplementation(() => liveState);

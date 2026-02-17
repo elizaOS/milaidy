@@ -6,14 +6,14 @@
  *  - SQL editor: code textarea with run button and results grid
  */
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  type ColumnInfo,
   client,
   type DatabaseStatus,
-  type TableInfo,
-  type ColumnInfo,
-  type TableRowsResponse,
   type QueryResult,
+  type TableInfo,
+  type TableRowsResponse,
 } from "../api-client";
 
 type DbView = "tables" | "query";
@@ -39,12 +39,19 @@ function typeLabel(type: string): string {
   if (t.includes("int")) return "int";
   if (t.includes("serial")) return "serial";
   if (t.includes("bool")) return "bool";
-  if (t.includes("float") || t.includes("double") || t.includes("numeric") || t.includes("real")) return "float";
+  if (
+    t.includes("float") ||
+    t.includes("double") ||
+    t.includes("numeric") ||
+    t.includes("real")
+  )
+    return "float";
   if (t.includes("json")) return "json";
   if (t.includes("uuid")) return "uuid";
   if (t.includes("timestamp")) return "time";
   if (t.includes("date")) return "date";
-  if (t.includes("text") || t.includes("char") || t.includes("varchar")) return "text";
+  if (t.includes("text") || t.includes("char") || t.includes("varchar"))
+    return "text";
   if (t.includes("vector")) return "vector";
   if (t.includes("bytea")) return "bytes";
   return type.slice(0, 6);
@@ -53,19 +60,35 @@ function typeLabel(type: string): string {
 /** Color for column type badge. */
 function typeBadgeColor(type: string): string {
   const t = type.toLowerCase();
-  if (t.includes("int") || t.includes("serial") || t.includes("float") || t.includes("numeric") || t.includes("real") || t.includes("double")) return "text-amber-400 bg-amber-400/10";
+  if (
+    t.includes("int") ||
+    t.includes("serial") ||
+    t.includes("float") ||
+    t.includes("numeric") ||
+    t.includes("real") ||
+    t.includes("double")
+  )
+    return "text-amber-400 bg-amber-400/10";
   if (t.includes("bool")) return "text-purple-400 bg-purple-400/10";
   if (t.includes("json")) return "text-orange-400 bg-orange-400/10";
   if (t.includes("uuid")) return "text-cyan-400 bg-cyan-400/10";
-  if (t.includes("timestamp") || t.includes("date")) return "text-pink-400 bg-pink-400/10";
-  if (t.includes("text") || t.includes("char")) return "text-green-400 bg-green-400/10";
+  if (t.includes("timestamp") || t.includes("date"))
+    return "text-pink-400 bg-pink-400/10";
+  if (t.includes("text") || t.includes("char"))
+    return "text-green-400 bg-green-400/10";
   if (t.includes("vector")) return "text-blue-400 bg-blue-400/10";
   return "text-[var(--muted)] bg-[var(--muted)]/10";
 }
 
 // ── Cell inspect popover ──────────────────────────────────────────────
 
-function CellPopover({ value, onClose }: { value: string; onClose: () => void }) {
+function CellPopover({
+  value,
+  onClose,
+}: {
+  value: string;
+  onClose: () => void;
+}) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -82,10 +105,20 @@ function CellPopover({ value, onClose }: { value: string; onClose: () => void })
       style={{ top: "50%", left: "50%", transform: "translate(-50%, -50%)" }}
     >
       <div className="flex items-center justify-between mb-2">
-        <span className="text-[10px] text-[var(--muted)] uppercase font-bold">Cell Value</span>
-        <button className="text-[var(--muted)] hover:text-[var(--txt)] bg-transparent border-0 cursor-pointer text-sm" onClick={onClose}>×</button>
+        <span className="text-[10px] text-[var(--muted)] uppercase font-bold">
+          Cell Value
+        </span>
+        <button
+          type="button"
+          className="text-[var(--muted)] hover:text-[var(--txt)] bg-transparent border-0 cursor-pointer text-sm"
+          onClick={onClose}
+        >
+          ×
+        </button>
       </div>
-      <pre className="text-xs text-[var(--txt)] font-mono whitespace-pre-wrap break-all m-0">{value}</pre>
+      <pre className="text-xs text-[var(--txt)] font-mono whitespace-pre-wrap break-all m-0">
+        {value}
+      </pre>
     </div>
   );
 }
@@ -110,7 +143,10 @@ function ResultsGrid({
   onCellClick?: (value: string) => void;
 }) {
   return (
-    <div className="overflow-auto border border-[var(--border)] bg-[var(--card)]" style={{ maxHeight: "calc(100vh - 340px)" }}>
+    <div
+      className="overflow-auto border border-[var(--border)] bg-[var(--card)]"
+      style={{ maxHeight: "calc(100vh - 340px)" }}
+    >
       <table className="w-full border-collapse text-[12px] font-mono">
         <thead className="sticky top-0 z-10">
           <tr className="bg-[var(--bg)]">
@@ -128,14 +164,20 @@ function ResultsGrid({
                   onClick={() => onSort?.(col)}
                 >
                   <div className="flex items-center gap-1.5">
-                    <span className="text-[11px] text-[var(--txt)] font-semibold">{col}</span>
+                    <span className="text-[11px] text-[var(--txt)] font-semibold">
+                      {col}
+                    </span>
                     {meta && (
-                      <span className={`text-[9px] px-1 py-px rounded font-medium ${typeBadgeColor(meta.type)}`}>
+                      <span
+                        className={`text-[9px] px-1 py-px rounded font-medium ${typeBadgeColor(meta.type)}`}
+                      >
                         {typeLabel(meta.type)}
                       </span>
                     )}
                     {meta?.isPrimaryKey && (
-                      <span className="text-[9px] px-1 py-px rounded font-bold text-yellow-400 bg-yellow-400/10">PK</span>
+                      <span className="text-[9px] px-1 py-px rounded font-bold text-yellow-400 bg-yellow-400/10">
+                        PK
+                      </span>
                     )}
                     {isSorted && (
                       <span className="text-[10px] text-[var(--accent)]">
@@ -151,7 +193,7 @@ function ResultsGrid({
         <tbody>
           {rows.map((row, i) => (
             <tr
-              key={i}
+              key={JSON.stringify(row)}
               className="border-b border-[var(--border)] hover:bg-[var(--accent)]/5 transition-colors"
             >
               <td className="px-2 py-1.5 text-[10px] text-[var(--muted)] text-right border-r border-[var(--border)] bg-[var(--bg)]/50 tabular-nums">
@@ -161,15 +203,29 @@ function ResultsGrid({
                 const raw = row[col];
                 const display = formatCell(raw);
                 const isNull = raw === null || raw === undefined;
+                const isExpandable = display.length > 40 && !!onCellClick;
                 return (
                   <td
                     key={col}
                     className="px-3 py-1.5 border-r border-[var(--border)] max-w-[280px] truncate cursor-default"
                     title={display}
-                    onClick={() => display.length > 40 && onCellClick?.(display)}
+                    onClick={() => {
+                      if (isExpandable) onCellClick(display);
+                    }}
+                    onKeyDown={(e) => {
+                      if (!isExpandable) return;
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        onCellClick(display);
+                      }
+                    }}
+                    role={isExpandable ? "button" : undefined}
+                    tabIndex={isExpandable ? 0 : undefined}
                   >
                     {isNull ? (
-                      <span className="text-[var(--muted)] italic opacity-50">NULL</span>
+                      <span className="text-[var(--muted)] italic opacity-50">
+                        NULL
+                      </span>
                     ) : (
                       <span className="text-[var(--txt)]">{display}</span>
                     )}
@@ -212,6 +268,7 @@ function PaginationBar({
       </span>
       <div className="flex items-center gap-1">
         <button
+          type="button"
           className="px-2 py-1 border border-[var(--border)] bg-[var(--card)] text-[var(--txt)] text-[11px] cursor-pointer disabled:opacity-30 disabled:cursor-default hover:bg-[var(--border)]/30"
           disabled={!hasPrev}
           onClick={onPrev}
@@ -219,6 +276,7 @@ function PaginationBar({
           Prev
         </button>
         <button
+          type="button"
           className="px-2 py-1 border border-[var(--border)] bg-[var(--card)] text-[var(--txt)] text-[11px] cursor-pointer disabled:opacity-30 disabled:cursor-default hover:bg-[var(--border)]/30"
           disabled={!hasNext}
           onClick={onNext}
@@ -237,7 +295,9 @@ export function DatabaseView() {
   const [tables, setTables] = useState<TableInfo[]>([]);
   const [selectedTable, setSelectedTable] = useState("");
   const [tableData, setTableData] = useState<TableRowsResponse | null>(null);
-  const [columnMeta, setColumnMeta] = useState<Map<string, ColumnInfo>>(new Map());
+  const [columnMeta, setColumnMeta] = useState<Map<string, ColumnInfo>>(
+    new Map(),
+  );
   const [view, setView] = useState<DbView>("tables");
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -282,59 +342,73 @@ export function DatabaseView() {
     setLoading(false);
   }, []);
 
-  const loadTableData = useCallback(async (tableName: string, opts?: { sort?: string; order?: "asc" | "desc"; offset?: number }) => {
-    setLoading(true);
-    setErrorMessage("");
-    try {
-      const data = await client.getDatabaseRows(tableName, {
-        limit: ROW_LIMIT,
-        offset: opts?.offset ?? 0,
-        sort: opts?.sort,
-        order: opts?.order,
-      });
-      setTableData(data);
-      setSelectedTable(tableName);
+  const loadTableData = useCallback(
+    async (
+      tableName: string,
+      opts?: { sort?: string; order?: "asc" | "desc"; offset?: number },
+    ) => {
+      setLoading(true);
+      setErrorMessage("");
+      try {
+        const data = await client.getDatabaseRows(tableName, {
+          limit: ROW_LIMIT,
+          offset: opts?.offset ?? 0,
+          sort: opts?.sort,
+          order: opts?.order,
+        });
+        setTableData(data);
+        setSelectedTable(tableName);
 
-      // Get column metadata for the table
-      const info = tables.find((t) => t.name === tableName);
-      if (info?.columns) {
-        const meta = new Map<string, ColumnInfo>();
-        for (const col of info.columns) meta.set(col.name, col);
-        setColumnMeta(meta);
+        // Get column metadata for the table
+        const info = tables.find((t) => t.name === tableName);
+        if (info?.columns) {
+          const meta = new Map<string, ColumnInfo>();
+          for (const col of info.columns) meta.set(col.name, col);
+          setColumnMeta(meta);
+        }
+      } catch (err) {
+        setErrorMessage(
+          `Failed to load table: ${err instanceof Error ? err.message : "error"}`,
+        );
       }
-    } catch (err) {
-      setErrorMessage(`Failed to load table: ${err instanceof Error ? err.message : "error"}`);
-    }
-    setLoading(false);
-  }, [tables]);
+      setLoading(false);
+    },
+    [tables],
+  );
 
-  const handleSort = useCallback((col: string) => {
-    let newDir: SortDir;
-    if (sortCol !== col) {
-      newDir = "asc";
-    } else if (sortDir === "asc") {
-      newDir = "desc";
-    } else {
-      newDir = null;
-    }
-    setSortCol(newDir ? col : "");
-    setSortDir(newDir);
-    setRowOffset(0);
-    if (selectedTable) {
-      loadTableData(selectedTable, {
-        sort: newDir ? col : undefined,
-        order: newDir ?? undefined,
-        offset: 0,
-      });
-    }
-  }, [sortCol, sortDir, selectedTable, loadTableData]);
+  const handleSort = useCallback(
+    (col: string) => {
+      let newDir: SortDir;
+      if (sortCol !== col) {
+        newDir = "asc";
+      } else if (sortDir === "asc") {
+        newDir = "desc";
+      } else {
+        newDir = null;
+      }
+      setSortCol(newDir ? col : "");
+      setSortDir(newDir);
+      setRowOffset(0);
+      if (selectedTable) {
+        loadTableData(selectedTable, {
+          sort: newDir ? col : undefined,
+          order: newDir ?? undefined,
+          offset: 0,
+        });
+      }
+    },
+    [sortCol, sortDir, selectedTable, loadTableData],
+  );
 
-  const handleSelectTable = useCallback((tableName: string) => {
-    setSortCol("");
-    setSortDir(null);
-    setRowOffset(0);
-    loadTableData(tableName);
-  }, [loadTableData]);
+  const handleSelectTable = useCallback(
+    (tableName: string) => {
+      setSortCol("");
+      setSortDir(null);
+      setRowOffset(0);
+      loadTableData(tableName);
+    },
+    [loadTableData],
+  );
 
   const handlePrev = useCallback(() => {
     const newOffset = Math.max(0, rowOffset - ROW_LIMIT);
@@ -368,7 +442,9 @@ export function DatabaseView() {
         return next.slice(0, 20);
       });
     } catch (err) {
-      setErrorMessage(`Query failed: ${err instanceof Error ? err.message : "error"}`);
+      setErrorMessage(
+        `Query failed: ${err instanceof Error ? err.message : "error"}`,
+      );
     }
     setQueryLoading(false);
   }, [queryText]);
@@ -383,8 +459,10 @@ export function DatabaseView() {
     void init();
   }, [loadStatus, loadTables]);
 
-  const filteredTables = tables.filter((t) =>
-    !sidebarSearch || t.name.toLowerCase().includes(sidebarSearch.toLowerCase()),
+  const filteredTables = tables.filter(
+    (t) =>
+      !sidebarSearch ||
+      t.name.toLowerCase().includes(sidebarSearch.toLowerCase()),
   );
 
   return (
@@ -394,7 +472,9 @@ export function DatabaseView() {
         <div className="flex items-center gap-1.5 text-[11px] text-[var(--muted)]">
           {dbStatus ? (
             <>
-              <span className={`w-1.5 h-1.5 rounded-full ${dbStatus.connected ? "bg-green-400" : "bg-red-400"}`} />
+              <span
+                className={`w-1.5 h-1.5 rounded-full ${dbStatus.connected ? "bg-green-400" : "bg-red-400"}`}
+              />
               <span>{dbStatus.provider}</span>
               <span className="opacity-40">·</span>
               <span>{dbStatus.tableCount} tables</span>
@@ -409,6 +489,7 @@ export function DatabaseView() {
         {/* View toggle */}
         <div className="flex border border-[var(--border)] rounded-sm overflow-hidden">
           <button
+            type="button"
             className={`px-3 py-1 text-[11px] cursor-pointer border-0 transition-colors ${
               view === "tables"
                 ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
@@ -419,6 +500,7 @@ export function DatabaseView() {
             Table Editor
           </button>
           <button
+            type="button"
             className={`px-3 py-1 text-[11px] cursor-pointer border-0 border-l border-[var(--border)] transition-colors ${
               view === "query"
                 ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
@@ -431,6 +513,7 @@ export function DatabaseView() {
         </div>
 
         <button
+          type="button"
           className="px-2.5 py-1 text-[11px] border border-[var(--border)] bg-[var(--card)] text-[var(--muted)] cursor-pointer hover:text-[var(--txt)] hover:bg-[var(--border)]/30"
           onClick={async () => {
             const status = await loadStatus();
@@ -445,15 +528,27 @@ export function DatabaseView() {
 
       {dbStatus && !dbStatus.connected && (
         <div className="p-3 border border-[var(--border)] bg-[var(--card)] text-[var(--muted)] text-xs mb-3">
-          <p className="m-0 mb-1 font-medium text-[var(--txt)]">Database not available</p>
-          <p className="m-0">The database viewer requires a local agent with a database connection. If you're running in cloud mode, the database is managed remotely.</p>
+          <p className="m-0 mb-1 font-medium text-[var(--txt)]">
+            Database not available
+          </p>
+          <p className="m-0">
+            The database viewer requires a local agent with a database
+            connection. If you're running in cloud mode, the database is managed
+            remotely.
+          </p>
         </div>
       )}
 
       {errorMessage && (
         <div className="p-2.5 border border-[var(--danger)] text-[var(--danger)] text-xs mb-3 flex items-center justify-between">
           <span>{errorMessage}</span>
-          <button className="text-[var(--danger)] opacity-60 hover:opacity-100 bg-transparent border-0 cursor-pointer text-sm" onClick={() => setErrorMessage("")}>×</button>
+          <button
+            type="button"
+            className="text-[var(--danger)] opacity-60 hover:opacity-100 bg-transparent border-0 cursor-pointer text-sm"
+            onClick={() => setErrorMessage("")}
+          >
+            ×
+          </button>
         </div>
       )}
 
@@ -461,7 +556,9 @@ export function DatabaseView() {
         /* ── Table Editor ──────────────────────────────────────── */
         <div className="flex flex-1 min-h-0 gap-0">
           {/* Sidebar */}
-          <div className={`flex-shrink-0 border-r border-[var(--border)] bg-[var(--bg)] transition-all overflow-hidden ${sidebarCollapsed ? "w-0 border-r-0" : "w-[200px]"}`}>
+          <div
+            className={`flex-shrink-0 border-r border-[var(--border)] bg-[var(--bg)] transition-all overflow-hidden ${sidebarCollapsed ? "w-0 border-r-0" : "w-[200px]"}`}
+          >
             <div className="p-2">
               <div className="flex items-center gap-1 mb-2">
                 <input
@@ -476,11 +573,14 @@ export function DatabaseView() {
                 Tables ({filteredTables.length})
               </div>
               {loading && tables.length === 0 ? (
-                <div className="text-[11px] text-[var(--muted)] px-1">Loading...</div>
+                <div className="text-[11px] text-[var(--muted)] px-1">
+                  Loading...
+                </div>
               ) : (
                 <div className="flex flex-col gap-px max-h-[calc(100vh-280px)] overflow-auto">
                   {filteredTables.map((t) => (
                     <button
+                      type="button"
                       key={t.name}
                       onClick={() => handleSelectTable(t.name)}
                       className={`flex items-center justify-between px-2 py-1.5 text-[11px] text-left border-0 cursor-pointer transition-colors rounded-sm w-full ${
@@ -502,6 +602,7 @@ export function DatabaseView() {
 
           {/* Toggle sidebar */}
           <button
+            type="button"
             className="flex-shrink-0 w-4 flex items-center justify-center bg-transparent border-0 cursor-pointer text-[var(--muted)] hover:text-[var(--txt)] hover:bg-[var(--border)]/20"
             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
             title={sidebarCollapsed ? "Show sidebar" : "Hide sidebar"}
@@ -514,7 +615,9 @@ export function DatabaseView() {
             {!selectedTable ? (
               <div className="flex-1 flex items-center justify-center">
                 <div className="text-center">
-                  <div className="text-[var(--muted)] text-sm mb-1">Select a table</div>
+                  <div className="text-[var(--muted)] text-sm mb-1">
+                    Select a table
+                  </div>
                   <div className="text-[var(--muted)] text-[11px] opacity-60">
                     Choose a table from the sidebar to browse its data
                   </div>
@@ -528,9 +631,13 @@ export function DatabaseView() {
               <>
                 {/* Table header bar */}
                 <div className="flex items-center gap-2 px-1 py-1.5 text-[11px]">
-                  <span className="text-[var(--txt)] font-semibold">{selectedTable}</span>
+                  <span className="text-[var(--txt)] font-semibold">
+                    {selectedTable}
+                  </span>
                   {columnMeta.size > 0 && (
-                    <span className="text-[var(--muted)]">({columnMeta.size} columns)</span>
+                    <span className="text-[var(--muted)]">
+                      ({columnMeta.size} columns)
+                    </span>
                   )}
                 </div>
 
@@ -538,7 +645,9 @@ export function DatabaseView() {
                 <div className="flex-1 min-h-0">
                   {tableData.rows.length === 0 ? (
                     <div className="flex items-center justify-center h-full border border-[var(--border)] bg-[var(--card)]">
-                      <div className="text-[var(--muted)] text-sm">Table is empty</div>
+                      <div className="text-[var(--muted)] text-sm">
+                        Table is empty
+                      </div>
                     </div>
                   ) : (
                     <ResultsGrid
@@ -588,6 +697,7 @@ export function DatabaseView() {
             </div>
             <div className="flex items-center gap-2 mt-2">
               <button
+                type="button"
                 className="px-4 py-1.5 text-[11px] font-medium bg-[var(--accent)] text-[var(--accent-foreground)] border border-[var(--accent)] cursor-pointer hover:opacity-80 disabled:opacity-30 disabled:cursor-default transition-opacity"
                 disabled={queryLoading || !queryText.trim()}
                 onClick={runQuery}
@@ -599,7 +709,9 @@ export function DatabaseView() {
               </span>
               {queryResult && (
                 <span className="text-[10px] text-[var(--muted)] ml-auto">
-                  {queryResult.rowCount} row{queryResult.rowCount !== 1 ? "s" : ""} · {queryResult.durationMs}ms
+                  {queryResult.rowCount} row
+                  {queryResult.rowCount !== 1 ? "s" : ""} ·{" "}
+                  {queryResult.durationMs}ms
                 </span>
               )}
             </div>
@@ -611,9 +723,10 @@ export function DatabaseView() {
               <div className="px-3 py-1.5 text-[9px] text-[var(--muted)] uppercase font-bold tracking-wider border-b border-[var(--border)]">
                 Recent queries
               </div>
-              {queryHistory.slice(0, 5).map((q, i) => (
+              {queryHistory.slice(0, 5).map((q) => (
                 <button
-                  key={i}
+                  type="button"
+                  key={q}
                   className="w-full px-3 py-1.5 text-[11px] font-mono text-[var(--txt)] text-left bg-transparent border-0 border-b border-[var(--border)] cursor-pointer hover:bg-[var(--accent)]/5 truncate"
                   onClick={() => setQueryText(q)}
                 >

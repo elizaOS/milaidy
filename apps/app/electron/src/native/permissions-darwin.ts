@@ -13,10 +13,13 @@
  * them in System Preferences.
  */
 
-import { exec } from "child_process";
-import { promisify } from "util";
-import { systemPreferences, desktopCapturer, shell } from "electron";
-import type { PermissionCheckResult, SystemPermissionId } from "./permissions-shared";
+import { exec } from "node:child_process";
+import { promisify } from "node:util";
+import { desktopCapturer, shell, systemPreferences } from "electron";
+import type {
+  PermissionCheckResult,
+  SystemPermissionId,
+} from "./permissions-shared";
 
 const execAsync = promisify(exec);
 
@@ -43,7 +46,10 @@ export async function checkAccessibility(): Promise<PermissionCheckResult> {
     timeout: 5000,
   }).catch((err) => ({ stdout: "", stderr: err.message || "failed" }));
 
-  if (stderr && (stderr.includes("not allowed") || stderr.includes("assistive"))) {
+  if (
+    stderr &&
+    (stderr.includes("not allowed") || stderr.includes("assistive"))
+  ) {
     return { status: "denied", canRequest: false };
   }
 
@@ -201,15 +207,20 @@ export async function requestCamera(): Promise<PermissionCheckResult> {
  *
  * macOS uses URL schemes to open specific preference panes.
  */
-export async function openPrivacySettings(permission: SystemPermissionId): Promise<void> {
+export async function openPrivacySettings(
+  permission: SystemPermissionId,
+): Promise<void> {
   const paneUrls: Record<string, string> = {
     accessibility:
       "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility",
     "screen-recording":
       "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture",
-    microphone: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone",
-    camera: "x-apple.systempreferences:com.apple.preference.security?Privacy_Camera",
-    shell: "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles",
+    microphone:
+      "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone",
+    camera:
+      "x-apple.systempreferences:com.apple.preference.security?Privacy_Camera",
+    shell:
+      "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles",
   };
 
   const url = paneUrls[permission];
@@ -221,7 +232,9 @@ export async function openPrivacySettings(permission: SystemPermissionId): Promi
 /**
  * Check a specific permission by ID.
  */
-export async function checkPermission(id: SystemPermissionId): Promise<PermissionCheckResult> {
+export async function checkPermission(
+  id: SystemPermissionId,
+): Promise<PermissionCheckResult> {
   switch (id) {
     case "accessibility":
       return checkAccessibility();
@@ -244,7 +257,9 @@ export async function checkPermission(id: SystemPermissionId): Promise<Permissio
  * Only microphone and camera can be requested programmatically.
  * For other permissions, this opens the settings pane.
  */
-export async function requestPermission(id: SystemPermissionId): Promise<PermissionCheckResult> {
+export async function requestPermission(
+  id: SystemPermissionId,
+): Promise<PermissionCheckResult> {
   switch (id) {
     case "microphone":
       return requestMicrophone();

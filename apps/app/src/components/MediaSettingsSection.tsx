@@ -8,15 +8,15 @@
  *   - Status badges (Configured / Needs Setup)
  */
 
-import { useState, useCallback, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useApp } from "../AppContext";
 import {
+  type AudioGenProvider,
   client,
+  type ImageProvider,
   type MediaConfig,
   type MediaMode,
-  type ImageProvider,
   type VideoProvider,
-  type AudioGenProvider,
   type VisionProvider,
 } from "../api-client";
 import {
@@ -91,20 +91,30 @@ function getApiKeyField(
   switch (category) {
     case "image":
     case "video":
-      if (provider === "fal") return { path: `${category}.fal.apiKey`, label: "FAL API Key" };
-      if (provider === "openai") return { path: `${category}.openai.apiKey`, label: "OpenAI API Key" };
-      if (provider === "google") return { path: `${category}.google.apiKey`, label: "Google API Key" };
-      if (provider === "xai") return { path: `${category}.xai.apiKey`, label: "xAI API Key" };
+      if (provider === "fal")
+        return { path: `${category}.fal.apiKey`, label: "FAL API Key" };
+      if (provider === "openai")
+        return { path: `${category}.openai.apiKey`, label: "OpenAI API Key" };
+      if (provider === "google")
+        return { path: `${category}.google.apiKey`, label: "Google API Key" };
+      if (provider === "xai")
+        return { path: `${category}.xai.apiKey`, label: "xAI API Key" };
       break;
     case "audio":
-      if (provider === "suno") return { path: "audio.suno.apiKey", label: "Suno API Key" };
-      if (provider === "elevenlabs") return { path: "audio.elevenlabs.apiKey", label: "ElevenLabs API Key" };
+      if (provider === "suno")
+        return { path: "audio.suno.apiKey", label: "Suno API Key" };
+      if (provider === "elevenlabs")
+        return { path: "audio.elevenlabs.apiKey", label: "ElevenLabs API Key" };
       break;
     case "vision":
-      if (provider === "openai") return { path: "vision.openai.apiKey", label: "OpenAI API Key" };
-      if (provider === "google") return { path: "vision.google.apiKey", label: "Google API Key" };
-      if (provider === "anthropic") return { path: "vision.anthropic.apiKey", label: "Anthropic API Key" };
-      if (provider === "xai") return { path: "vision.xai.apiKey", label: "xAI API Key" };
+      if (provider === "openai")
+        return { path: "vision.openai.apiKey", label: "OpenAI API Key" };
+      if (provider === "google")
+        return { path: "vision.google.apiKey", label: "Google API Key" };
+      if (provider === "anthropic")
+        return { path: "vision.anthropic.apiKey", label: "Anthropic API Key" };
+      if (provider === "xai")
+        return { path: "vision.xai.apiKey", label: "xAI API Key" };
       break;
   }
   return null;
@@ -201,13 +211,17 @@ export function MediaSettingsSection() {
   );
 
   // Update nested value in config
-  const updateNestedValue = useCallback(
-    (path: string, value: unknown) => {
-      setMediaConfig((prev) => setNestedValue(prev as Record<string, unknown>, path, value) as MediaConfig);
-      setDirty(true);
-    },
-    [],
-  );
+  const updateNestedValue = useCallback((path: string, value: unknown) => {
+    setMediaConfig(
+      (prev) =>
+        setNestedValue(
+          prev as Record<string, unknown>,
+          path,
+          value,
+        ) as MediaConfig,
+    );
+    setDirty(true);
+  }, []);
 
   // Save handler
   const handleSave = useCallback(async () => {
@@ -231,7 +245,10 @@ export function MediaSettingsSection() {
       const apiKeyField = getApiKeyField(category, provider);
       if (!apiKeyField) return true;
 
-      const value = getNestedValue(mediaConfig as Record<string, unknown>, apiKeyField.path);
+      const value = getNestedValue(
+        mediaConfig as Record<string, unknown>,
+        apiKeyField.path,
+      );
       return typeof value === "string" && value.length > 0;
     },
     [getMode, getProvider, mediaConfig],
@@ -255,39 +272,46 @@ export function MediaSettingsSection() {
     <div className="flex flex-col gap-4">
       {/* Category tabs */}
       <div className="flex border border-[var(--border)]">
-        {(["image", "video", "audio", "vision"] as MediaCategory[]).map((cat) => {
-          const active = activeTab === cat;
-          const catConfigured = isProviderConfigured(cat);
-          return (
-            <button
-              key={cat}
-              type="button"
-              className={`flex-1 px-3 py-2 text-xs font-semibold cursor-pointer transition-colors border-r last:border-r-0 border-[var(--border)] ${
-                active
-                  ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
-                  : "bg-[var(--card)] text-[var(--muted)] hover:text-[var(--text)]"
-              }`}
-              onClick={() => setActiveTab(cat)}
-            >
-              <span>{CATEGORY_LABELS[cat]}</span>
-              <span
-                className={`ml-1.5 inline-block w-1.5 h-1.5 rounded-full ${
-                  catConfigured ? "bg-green-500" : "bg-yellow-500"
+        {(["image", "video", "audio", "vision"] as MediaCategory[]).map(
+          (cat) => {
+            const active = activeTab === cat;
+            const catConfigured = isProviderConfigured(cat);
+            return (
+              <button
+                key={cat}
+                type="button"
+                className={`flex-1 px-3 py-2 text-xs font-semibold cursor-pointer transition-colors border-r last:border-r-0 border-[var(--border)] ${
+                  active
+                    ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
+                    : "bg-[var(--card)] text-[var(--muted)] hover:text-[var(--text)]"
                 }`}
-              />
-            </button>
-          );
-        })}
+                onClick={() => setActiveTab(cat)}
+              >
+                <span>{CATEGORY_LABELS[cat]}</span>
+                <span
+                  className={`ml-1.5 inline-block w-1.5 h-1.5 rounded-full ${
+                    catConfigured ? "bg-green-500" : "bg-yellow-500"
+                  }`}
+                />
+              </button>
+            );
+          },
+        )}
       </div>
 
       {/* Mode toggle (cloud vs own-key) */}
       <div className="flex items-center gap-3">
-        <span className="text-xs font-semibold text-[var(--muted)]">API Source:</span>
+        <span className="text-xs font-semibold text-[var(--muted)]">
+          API Source:
+        </span>
         <CloudSourceModeToggle
           mode={currentMode}
           onChange={(mode) => {
             if (mode === "cloud") {
-              updateCategoryConfig(activeTab, { mode: "cloud", provider: "cloud" });
+              updateCategoryConfig(activeTab, {
+                mode: "cloud",
+                provider: "cloud",
+              });
               return;
             }
             updateCategoryConfig(activeTab, { mode: "own-key" });
@@ -317,7 +341,9 @@ export function MediaSettingsSection() {
       {/* Own-key mode: provider selection */}
       {currentMode === "own-key" && (
         <div className="flex flex-col gap-3">
-          <div className="text-xs font-semibold text-[var(--muted)]">Provider:</div>
+          <div className="text-xs font-semibold text-[var(--muted)]">
+            Provider:
+          </div>
           <div
             className="grid gap-1.5"
             style={{ gridTemplateColumns: `repeat(${providers.length}, 1fr)` }}
@@ -336,11 +362,19 @@ export function MediaSettingsSection() {
                         : "border-[var(--border)] bg-[var(--card)] text-[var(--text)] hover:border-[var(--accent)]"
                     }`}
                     onClick={() =>
-                      updateCategoryConfig(activeTab, { provider: p.id as ImageProvider | VideoProvider | AudioGenProvider | VisionProvider })
+                      updateCategoryConfig(activeTab, {
+                        provider: p.id as
+                          | ImageProvider
+                          | VideoProvider
+                          | AudioGenProvider
+                          | VisionProvider,
+                      })
                     }
                   >
                     <div className="font-semibold">{p.label}</div>
-                    <div className="text-[10px] text-[var(--muted)] mt-0.5">{p.hint}</div>
+                    <div className="text-[10px] text-[var(--muted)] mt-0.5">
+                      {p.hint}
+                    </div>
                   </button>
                 );
               })}
@@ -349,16 +383,24 @@ export function MediaSettingsSection() {
           {/* API Key input */}
           {apiKeyField && (
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold">{apiKeyField.label}</label>
+              <span className="text-xs font-semibold">{apiKeyField.label}</span>
               <input
                 type="password"
                 className="px-2.5 py-1.5 border border-[var(--border)] bg-[var(--card)] text-xs focus:border-[var(--accent)] focus:outline-none"
                 placeholder={
-                  getNestedValue(mediaConfig as Record<string, unknown>, apiKeyField.path)
+                  getNestedValue(
+                    mediaConfig as Record<string, unknown>,
+                    apiKeyField.path,
+                  )
                     ? "API key set — leave blank to keep"
                     : "Enter API key..."
                 }
-                onChange={(e) => updateNestedValue(apiKeyField.path, e.target.value || undefined)}
+                onChange={(e) =>
+                  updateNestedValue(
+                    apiKeyField.path,
+                    e.target.value || undefined,
+                  )
+                }
               />
             </div>
           )}
@@ -366,28 +408,49 @@ export function MediaSettingsSection() {
           {/* Provider-specific model selection for image generation */}
           {activeTab === "image" && currentProvider === "fal" && (
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold">Model</label>
+              <span className="text-xs font-semibold">Model</span>
               <select
                 className="px-2.5 py-1.5 border border-[var(--border)] bg-[var(--card)] text-xs focus:border-[var(--accent)] focus:outline-none"
-                value={(getNestedValue(mediaConfig as Record<string, unknown>, "image.fal.model") as string) ?? "fal-ai/flux-pro"}
-                onChange={(e) => updateNestedValue("image.fal.model", e.target.value)}
+                value={
+                  (getNestedValue(
+                    mediaConfig as Record<string, unknown>,
+                    "image.fal.model",
+                  ) as string) ?? "fal-ai/flux-pro"
+                }
+                onChange={(e) =>
+                  updateNestedValue("image.fal.model", e.target.value)
+                }
               >
                 <optgroup label="Flux">
                   <option value="fal-ai/flux-pro">Flux Pro</option>
                   <option value="fal-ai/flux-pro/v1.1">Flux Pro v1.1</option>
-                  <option value="fal-ai/flux-pro/kontext">Flux Kontext Pro</option>
+                  <option value="fal-ai/flux-pro/kontext">
+                    Flux Kontext Pro
+                  </option>
                   <option value="fal-ai/flux-2-flex">Flux 2 Flex</option>
                   <option value="fal-ai/flux/dev">Flux Dev</option>
                   <option value="fal-ai/flux/schnell">Flux Schnell</option>
                   <option value="fal-ai/fast-flux">Fast Flux</option>
                 </optgroup>
                 <optgroup label="Other Models">
-                  <option value="fal-ai/nano-banana-pro">Nano Banana Pro (Google)</option>
-                  <option value="fal-ai/recraft/v3/text-to-image">Recraft V3</option>
-                  <option value="fal-ai/kling-image/v3/text-to-image">Kling Image v3</option>
-                  <option value="fal-ai/kling-image/o3/text-to-image">Kling Image O3</option>
-                  <option value="xai/grok-imagine-image">Grok Imagine (xAI)</option>
-                  <option value="fal-ai/stable-diffusion-3">Stable Diffusion 3</option>
+                  <option value="fal-ai/nano-banana-pro">
+                    Nano Banana Pro (Google)
+                  </option>
+                  <option value="fal-ai/recraft/v3/text-to-image">
+                    Recraft V3
+                  </option>
+                  <option value="fal-ai/kling-image/v3/text-to-image">
+                    Kling Image v3
+                  </option>
+                  <option value="fal-ai/kling-image/o3/text-to-image">
+                    Kling Image O3
+                  </option>
+                  <option value="xai/grok-imagine-image">
+                    Grok Imagine (xAI)
+                  </option>
+                  <option value="fal-ai/stable-diffusion-3">
+                    Stable Diffusion 3
+                  </option>
                 </optgroup>
               </select>
             </div>
@@ -396,22 +459,36 @@ export function MediaSettingsSection() {
           {activeTab === "image" && currentProvider === "openai" && (
             <div className="flex gap-3">
               <div className="flex-1 flex flex-col gap-1.5">
-                <label className="text-xs font-semibold">Model</label>
+                <span className="text-xs font-semibold">Model</span>
                 <select
                   className="px-2.5 py-1.5 border border-[var(--border)] bg-[var(--card)] text-xs focus:border-[var(--accent)] focus:outline-none"
-                  value={(getNestedValue(mediaConfig as Record<string, unknown>, "image.openai.model") as string) ?? "dall-e-3"}
-                  onChange={(e) => updateNestedValue("image.openai.model", e.target.value)}
+                  value={
+                    (getNestedValue(
+                      mediaConfig as Record<string, unknown>,
+                      "image.openai.model",
+                    ) as string) ?? "dall-e-3"
+                  }
+                  onChange={(e) =>
+                    updateNestedValue("image.openai.model", e.target.value)
+                  }
                 >
                   <option value="dall-e-3">DALL-E 3</option>
                   <option value="dall-e-2">DALL-E 2</option>
                 </select>
               </div>
               <div className="flex-1 flex flex-col gap-1.5">
-                <label className="text-xs font-semibold">Quality</label>
+                <span className="text-xs font-semibold">Quality</span>
                 <select
                   className="px-2.5 py-1.5 border border-[var(--border)] bg-[var(--card)] text-xs focus:border-[var(--accent)] focus:outline-none"
-                  value={(getNestedValue(mediaConfig as Record<string, unknown>, "image.openai.quality") as string) ?? "standard"}
-                  onChange={(e) => updateNestedValue("image.openai.quality", e.target.value)}
+                  value={
+                    (getNestedValue(
+                      mediaConfig as Record<string, unknown>,
+                      "image.openai.quality",
+                    ) as string) ?? "standard"
+                  }
+                  onChange={(e) =>
+                    updateNestedValue("image.openai.quality", e.target.value)
+                  }
                 >
                   <option value="standard">Standard</option>
                   <option value="hd">HD</option>
@@ -423,39 +500,80 @@ export function MediaSettingsSection() {
           {/* Video FAL model selection */}
           {activeTab === "video" && currentProvider === "fal" && (
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold">Model</label>
+              <span className="text-xs font-semibold">Model</span>
               <select
                 className="px-2.5 py-1.5 border border-[var(--border)] bg-[var(--card)] text-xs focus:border-[var(--accent)] focus:outline-none"
-                value={(getNestedValue(mediaConfig as Record<string, unknown>, "video.fal.model") as string) ?? "fal-ai/kling-video/v3/pro/text-to-video"}
-                onChange={(e) => updateNestedValue("video.fal.model", e.target.value)}
+                value={
+                  (getNestedValue(
+                    mediaConfig as Record<string, unknown>,
+                    "video.fal.model",
+                  ) as string) ?? "fal-ai/kling-video/v3/pro/text-to-video"
+                }
+                onChange={(e) =>
+                  updateNestedValue("video.fal.model", e.target.value)
+                }
               >
                 <optgroup label="Text to Video">
                   <option value="fal-ai/veo3.1">Veo 3.1 (Google)</option>
                   <option value="fal-ai/veo3.1/fast">Veo 3.1 Fast</option>
                   <option value="fal-ai/sora-2/text-to-video">Sora 2</option>
-                  <option value="fal-ai/sora-2/text-to-video/pro">Sora 2 Pro</option>
-                  <option value="fal-ai/kling-video/v3/pro/text-to-video">Kling 3.0 Pro</option>
-                  <option value="fal-ai/kling-video/v3/standard/text-to-video">Kling 3.0</option>
-                  <option value="fal-ai/kling-video/o3/pro/text-to-video">Kling O3 Pro</option>
-                  <option value="fal-ai/kling-video/o3/standard/text-to-video">Kling O3</option>
-                  <option value="xai/grok-imagine-video/text-to-video">Grok Video (xAI)</option>
-                  <option value="fal-ai/minimax/video-01-live">Minimax Hailuo</option>
+                  <option value="fal-ai/sora-2/text-to-video/pro">
+                    Sora 2 Pro
+                  </option>
+                  <option value="fal-ai/kling-video/v3/pro/text-to-video">
+                    Kling 3.0 Pro
+                  </option>
+                  <option value="fal-ai/kling-video/v3/standard/text-to-video">
+                    Kling 3.0
+                  </option>
+                  <option value="fal-ai/kling-video/o3/pro/text-to-video">
+                    Kling O3 Pro
+                  </option>
+                  <option value="fal-ai/kling-video/o3/standard/text-to-video">
+                    Kling O3
+                  </option>
+                  <option value="xai/grok-imagine-video/text-to-video">
+                    Grok Video (xAI)
+                  </option>
+                  <option value="fal-ai/minimax/video-01-live">
+                    Minimax Hailuo
+                  </option>
                   <option value="fal-ai/hunyuan-video">Hunyuan Video</option>
                   <option value="fal-ai/mochi-v1">Mochi 1</option>
-                  <option value="fal-ai/wan/v2.2-a14b/text-to-video">Wan 2.2</option>
+                  <option value="fal-ai/wan/v2.2-a14b/text-to-video">
+                    Wan 2.2
+                  </option>
                 </optgroup>
                 <optgroup label="Image to Video">
-                  <option value="fal-ai/kling-video/v3/pro/image-to-video">Kling 3.0 Pro</option>
-                  <option value="fal-ai/kling-video/o3/standard/image-to-video">Kling O3</option>
+                  <option value="fal-ai/kling-video/v3/pro/image-to-video">
+                    Kling 3.0 Pro
+                  </option>
+                  <option value="fal-ai/kling-video/o3/standard/image-to-video">
+                    Kling O3
+                  </option>
                   <option value="fal-ai/veo3.1/image-to-video">Veo 3.1</option>
-                  <option value="fal-ai/veo3.1/fast/image-to-video">Veo 3.1 Fast</option>
+                  <option value="fal-ai/veo3.1/fast/image-to-video">
+                    Veo 3.1 Fast
+                  </option>
                   <option value="fal-ai/sora-2/image-to-video">Sora 2</option>
-                  <option value="fal-ai/sora-2/image-to-video/pro">Sora 2 Pro</option>
-                  <option value="xai/grok-imagine-video/image-to-video">Grok (xAI)</option>
-                  <option value="fal-ai/minimax/video-01-live/image-to-video">Minimax Hailuo</option>
-                  <option value="fal-ai/luma-dream-machine/image-to-video">Luma Dream Machine</option>
-                  <option value="fal-ai/pixverse/v4.5/image-to-video">Pixverse v4.5</option>
-                  <option value="fal-ai/ltx-2-19b/image-to-video">LTX-2 19B</option>
+                  <option value="fal-ai/sora-2/image-to-video/pro">
+                    Sora 2 Pro
+                  </option>
+                  <option value="xai/grok-imagine-video/image-to-video">
+                    Grok (xAI)
+                  </option>
+                  <option value="fal-ai/minimax/video-01-live/image-to-video">
+                    Minimax Hailuo
+                  </option>
+                  <option value="fal-ai/luma-dream-machine/image-to-video">
+                    Luma Dream Machine
+                  </option>
+                  <option value="fal-ai/pixverse/v4.5/image-to-video">
+                    Pixverse v4.5
+                  </option>
+                  <option value="fal-ai/ltx-2-19b/image-to-video">
+                    LTX-2 19B
+                  </option>
                 </optgroup>
               </select>
             </div>
@@ -464,11 +582,18 @@ export function MediaSettingsSection() {
           {/* Audio Suno model selection */}
           {activeTab === "audio" && currentProvider === "suno" && (
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold">Model</label>
+              <span className="text-xs font-semibold">Model</span>
               <select
                 className="px-2.5 py-1.5 border border-[var(--border)] bg-[var(--card)] text-xs focus:border-[var(--accent)] focus:outline-none"
-                value={(getNestedValue(mediaConfig as Record<string, unknown>, "audio.suno.model") as string) ?? "chirp-v3.5"}
-                onChange={(e) => updateNestedValue("audio.suno.model", e.target.value)}
+                value={
+                  (getNestedValue(
+                    mediaConfig as Record<string, unknown>,
+                    "audio.suno.model",
+                  ) as string) ?? "chirp-v3.5"
+                }
+                onChange={(e) =>
+                  updateNestedValue("audio.suno.model", e.target.value)
+                }
               >
                 <option value="chirp-v3.5">Chirp v3.5</option>
                 <option value="chirp-v3">Chirp v3</option>
@@ -479,15 +604,27 @@ export function MediaSettingsSection() {
           {/* Audio ElevenLabs duration */}
           {activeTab === "audio" && currentProvider === "elevenlabs" && (
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold">Max Duration (seconds)</label>
+              <span className="text-xs font-semibold">
+                Max Duration (seconds)
+              </span>
               <input
                 type="number"
                 min={0.5}
                 max={22}
                 step={0.5}
                 className="px-2.5 py-1.5 border border-[var(--border)] bg-[var(--card)] text-xs focus:border-[var(--accent)] focus:outline-none w-24"
-                value={(getNestedValue(mediaConfig as Record<string, unknown>, "audio.elevenlabs.duration") as number) ?? 5}
-                onChange={(e) => updateNestedValue("audio.elevenlabs.duration", parseFloat(e.target.value))}
+                value={
+                  (getNestedValue(
+                    mediaConfig as Record<string, unknown>,
+                    "audio.elevenlabs.duration",
+                  ) as number) ?? 5
+                }
+                onChange={(e) =>
+                  updateNestedValue(
+                    "audio.elevenlabs.duration",
+                    parseFloat(e.target.value),
+                  )
+                }
               />
             </div>
           )}
@@ -495,11 +632,18 @@ export function MediaSettingsSection() {
           {/* Vision model selection */}
           {activeTab === "vision" && currentProvider === "openai" && (
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold">Model</label>
+              <span className="text-xs font-semibold">Model</span>
               <select
                 className="px-2.5 py-1.5 border border-[var(--border)] bg-[var(--card)] text-xs focus:border-[var(--accent)] focus:outline-none"
-                value={(getNestedValue(mediaConfig as Record<string, unknown>, "vision.openai.model") as string) ?? "gpt-4o"}
-                onChange={(e) => updateNestedValue("vision.openai.model", e.target.value)}
+                value={
+                  (getNestedValue(
+                    mediaConfig as Record<string, unknown>,
+                    "vision.openai.model",
+                  ) as string) ?? "gpt-4o"
+                }
+                onChange={(e) =>
+                  updateNestedValue("vision.openai.model", e.target.value)
+                }
               >
                 <option value="gpt-4o">GPT-4o</option>
                 <option value="gpt-4o-mini">GPT-4o Mini</option>
@@ -510,11 +654,18 @@ export function MediaSettingsSection() {
 
           {activeTab === "vision" && currentProvider === "google" && (
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold">Model</label>
+              <span className="text-xs font-semibold">Model</span>
               <select
                 className="px-2.5 py-1.5 border border-[var(--border)] bg-[var(--card)] text-xs focus:border-[var(--accent)] focus:outline-none"
-                value={(getNestedValue(mediaConfig as Record<string, unknown>, "vision.google.model") as string) ?? "gemini-2.0-flash"}
-                onChange={(e) => updateNestedValue("vision.google.model", e.target.value)}
+                value={
+                  (getNestedValue(
+                    mediaConfig as Record<string, unknown>,
+                    "vision.google.model",
+                  ) as string) ?? "gemini-2.0-flash"
+                }
+                onChange={(e) =>
+                  updateNestedValue("vision.google.model", e.target.value)
+                }
               >
                 <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
                 <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
@@ -525,14 +676,25 @@ export function MediaSettingsSection() {
 
           {activeTab === "vision" && currentProvider === "anthropic" && (
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold">Model</label>
+              <span className="text-xs font-semibold">Model</span>
               <select
                 className="px-2.5 py-1.5 border border-[var(--border)] bg-[var(--card)] text-xs focus:border-[var(--accent)] focus:outline-none"
-                value={(getNestedValue(mediaConfig as Record<string, unknown>, "vision.anthropic.model") as string) ?? "claude-sonnet-4-20250514"}
-                onChange={(e) => updateNestedValue("vision.anthropic.model", e.target.value)}
+                value={
+                  (getNestedValue(
+                    mediaConfig as Record<string, unknown>,
+                    "vision.anthropic.model",
+                  ) as string) ?? "claude-sonnet-4-20250514"
+                }
+                onChange={(e) =>
+                  updateNestedValue("vision.anthropic.model", e.target.value)
+                }
               >
-                <option value="claude-sonnet-4-20250514">Claude Sonnet 4</option>
-                <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
+                <option value="claude-sonnet-4-20250514">
+                  Claude Sonnet 4
+                </option>
+                <option value="claude-3-5-sonnet-20241022">
+                  Claude 3.5 Sonnet
+                </option>
                 <option value="claude-3-haiku-20240307">Claude 3 Haiku</option>
               </select>
             </div>

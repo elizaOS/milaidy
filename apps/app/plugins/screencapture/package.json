@@ -47,7 +47,10 @@
     }
   },
   "milady": {
-    "platforms": ["browser", "node"],
+    "platforms": [
+      "browser",
+      "node"
+    ],
     "runtime": "both",
     "platformDetails": {
       "browser": "Full support via Screen Capture API (getDisplayMedia) for screenshots and screen recording with pause/resume",

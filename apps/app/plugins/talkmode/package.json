@@ -40,7 +40,10 @@
     "@capacitor/core": "^8.0.0"
   },
   "milady": {
-    "platforms": ["browser", "node"],
+    "platforms": [
+      "browser",
+      "node"
+    ],
     "runtime": "both",
     "platformDetails": {
       "browser": "Support via Web Speech API for STT/TTS. No ElevenLabs streaming (CORS). System TTS fallback.",

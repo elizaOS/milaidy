@@ -1,11 +1,17 @@
 import fs from "node:fs/promises";
+import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
-import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
-import { _electron as electron, expect, test, type ElectronApplication, type Page } from "@playwright/test";
+import {
+  type ElectronApplication,
+  _electron as electron,
+  expect,
+  type Page,
+  test,
+} from "@playwright/test";
 
-import { startMockApiServer, type MockApiServer } from "./mock-api";
+import { type MockApiServer, startMockApiServer } from "./mock-api";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "../../../..");
@@ -50,7 +56,9 @@ async function clickOnboardingNext(page: Page): Promise<void> {
 test("electron app startup: onboarding -> chat -> all pages", async () => {
   await ensureBuildArtifacts();
 
-  const userDataDir = await fs.mkdtemp(path.join(os.tmpdir(), "milady-electron-e2e-"));
+  const userDataDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), "milady-electron-e2e-"),
+  );
   let api: MockApiServer | null = null;
   let app: ElectronApplication | null = null;
 
@@ -62,7 +70,9 @@ test("electron app startup: onboarding -> chat -> all pages", async () => {
   try {
     api = await startMockApiServer({ onboardingComplete: false, port: 0 });
 
-    const electronRequire = createRequire(path.join(electronAppDir, "package.json"));
+    const electronRequire = createRequire(
+      path.join(electronAppDir, "package.json"),
+    );
     const electronExecutable = electronRequire("electron") as string;
 
     app = await electron.launch({
@@ -92,40 +102,62 @@ test("electron app startup: onboarding -> chat -> all pages", async () => {
     });
     page.on("requestfailed", (request) => {
       const failure = request.failure();
-      requestFailures.push(`${request.method()} ${request.url()} :: ${failure?.errorText ?? "failed"}`);
+      requestFailures.push(
+        `${request.method()} ${request.url()} :: ${failure?.errorText ?? "failed"}`,
+      );
     });
 
     // Startup can be fast enough to skip the loading text and render onboarding directly.
-    await expect.poll(async () => {
-      const loadingVisible = await page
-        .getByText(/starting backend|initializing agent/i)
-        .isVisible()
-        .catch(() => false);
-      const onboardingVisible = await page
-        .getByText(/welcome to milady/i)
-        .isVisible()
-        .catch(() => false);
-      return loadingVisible || onboardingVisible;
-    }, { timeout: 60_000 }).toBe(true);
-    await expect.poll(async () => {
-      return page.evaluate(() => (window as { __MILADY_API_BASE__?: string }).__MILADY_API_BASE__ ?? null);
-    }, { timeout: 30_000 }).not.toBeNull();
+    await expect
+      .poll(
+        async () => {
+          const loadingVisible = await page
+            .getByText(/starting backend|initializing agent/i)
+            .isVisible()
+            .catch(() => false);
+          const onboardingVisible = await page
+            .getByText(/welcome to milady/i)
+            .isVisible()
+            .catch(() => false);
+          return loadingVisible || onboardingVisible;
+        },
+        { timeout: 60_000 },
+      )
+      .toBe(true);
+    await expect
+      .poll(
+        async () => {
+          return page.evaluate(
+            () =>
+              (window as { __MILADY_API_BASE__?: string })
+                .__MILADY_API_BASE__ ?? null,
+          );
+        },
+        { timeout: 30_000 },
+      )
+      .not.toBeNull();
     try {
-      await expect(page.getByText(/welcome to milady/i)).toBeVisible({ timeout: 60_000 });
+      await expect(page.getByText(/welcome to milady/i)).toBeVisible({
+        timeout: 60_000,
+      });
     } catch (error) {
-      const apiBase = await page.evaluate(() => (window as { __MILADY_API_BASE__?: string }).__MILADY_API_BASE__ ?? null);
+      const apiBase = await page.evaluate(
+        () =>
+          (window as { __MILADY_API_BASE__?: string }).__MILADY_API_BASE__ ??
+          null,
+      );
       const onboardingStatus = await page.evaluate(() => {
         const rootText = document.body?.innerText ?? "";
         return rootText.trim().slice(0, 800);
       });
       throw new Error(
         `Onboarding welcome did not appear. apiBase=${String(apiBase)}.\n` +
-        `Body text:\n${onboardingStatus}\n\n` +
-        `Mock requests:\n${api.requests.join("\n")}\n\n` +
-        `Console logs:\n${consoleLogs.join("\n")}\n\n` +
-        `Page errors:\n${pageErrors.join("\n")}\n\n` +
-        `Request failures:\n${requestFailures.join("\n")}\n\n` +
-        `Original error: ${error instanceof Error ? error.message : String(error)}`,
+          `Body text:\n${onboardingStatus}\n\n` +
+          `Mock requests:\n${api.requests.join("\n")}\n\n` +
+          `Console logs:\n${consoleLogs.join("\n")}\n\n` +
+          `Page errors:\n${pageErrors.join("\n")}\n\n` +
+          `Request failures:\n${requestFailures.join("\n")}\n\n` +
+          `Original error: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
 
@@ -137,38 +169,52 @@ test("electron app startup: onboarding -> chat -> all pages", async () => {
     await page.getByRole("button", { name: /chaotic/i }).click();
     await clickOnboardingNext(page); // style -> theme
 
-    await page.getByRole("button", { name: /milady/i }).first().click();
+    await page
+      .getByRole("button", { name: /milady/i })
+      .first()
+      .click();
     await clickOnboardingNext(page); // theme -> runMode
 
     await page.getByRole("button", { name: /local \(raw\)/i }).click();
     await clickOnboardingNext(page); // runMode -> llm provider
 
-    await page.getByRole("button", { name: /ollama/i }).first().click();
+    await page
+      .getByRole("button", { name: /ollama/i })
+      .first()
+      .click();
     await clickOnboardingNext(page); // llm provider -> inventory setup
     await clickOnboardingNext(page); // inventory setup -> connectors
     await clickOnboardingNext(page); // connectors -> permissions
     await page.getByRole("button", { name: /^continue$/i }).click(); // permissions -> finish
 
-    await expect(page.getByPlaceholder("Type a message...")).toBeVisible({ timeout: 45_000 });
+    await expect(page.getByPlaceholder("Type a message...")).toBeVisible({
+      timeout: 45_000,
+    });
     await expect(page).toHaveURL(/\/chat$/);
 
     const topNav = page.locator("nav");
 
-    await topNav.getByRole("button", { name: "Character", exact: true }).click();
+    await topNav
+      .getByRole("button", { name: "Character", exact: true })
+      .click();
     await expect(page).toHaveURL(/\/character$/);
     await expect(page.getByText("Identity & Personality")).toBeVisible();
 
     await topNav.getByRole("button", { name: "Wallets", exact: true }).click();
     await expect(page).toHaveURL(/\/wallets$/);
     await expect(
-      page.getByRole("button", { name: "Tokens", exact: true }).or(
-        page.getByText("Wallet keys not configured", { exact: true }),
-      ),
+      page
+        .getByRole("button", { name: "Tokens", exact: true })
+        .or(page.getByText("Wallet keys not configured", { exact: true })),
     ).toBeVisible();
 
-    await topNav.getByRole("button", { name: "Knowledge", exact: true }).click();
+    await topNav
+      .getByRole("button", { name: "Knowledge", exact: true })
+      .click();
     await expect(page).toHaveURL(/\/knowledge$/);
-    await expect(page.getByRole("heading", { name: "Knowledge Base", exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Knowledge Base", exact: true }),
+    ).toBeVisible();
 
     await topNav.getByRole("button", { name: "Social", exact: true }).click();
     await expect(page).toHaveURL(/\/connectors$/);
@@ -180,7 +226,9 @@ test("electron app startup: onboarding -> chat -> all pages", async () => {
 
     await topNav.getByRole("button", { name: "Settings", exact: true }).click();
     await expect(page).toHaveURL(/\/settings$/);
-    await expect(page.getByRole("heading", { name: "Settings", exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Settings", exact: true }),
+    ).toBeVisible();
 
     await topNav.getByRole("button", { name: "Advanced", exact: true }).click();
     await expect(page).toHaveURL(/\/advanced$/);
@@ -195,7 +243,9 @@ test("electron app startup: onboarding -> chat -> all pages", async () => {
 
     await page.getByRole("button", { name: "Actions", exact: true }).click();
     await expect(page).toHaveURL(/\/actions$/);
-    await expect(page.getByRole("heading", { name: "Custom Actions", exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Custom Actions", exact: true }),
+    ).toBeVisible();
 
     await page.getByRole("button", { name: "Triggers", exact: true }).click();
     await expect(page).toHaveURL(/\/triggers$/);
@@ -218,11 +268,17 @@ test("electron app startup: onboarding -> chat -> all pages", async () => {
       );
     }
 
-    await page.getByRole("button", { name: "Fine-Tuning", exact: true }).click();
+    await page
+      .getByRole("button", { name: "Fine-Tuning", exact: true })
+      .click();
     await expect(page).toHaveURL(/\/fine-tuning$/);
-    await expect(page.getByRole("heading", { name: "Fine-Tuning", exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Fine-Tuning", exact: true }),
+    ).toBeVisible();
 
-    await page.getByRole("button", { name: "Trajectories", exact: true }).click();
+    await page
+      .getByRole("button", { name: "Trajectories", exact: true })
+      .click();
     await expect(page).toHaveURL(/\/trajectories$/);
     await expect(page.getByPlaceholder("Search...")).toBeVisible();
 
@@ -232,11 +288,15 @@ test("electron app startup: onboarding -> chat -> all pages", async () => {
 
     await page.getByRole("button", { name: "Databases", exact: true }).click();
     await expect(page).toHaveURL(/\/database$/);
-    await expect(page.getByRole("heading", { name: "Databases", exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Databases", exact: true }),
+    ).toBeVisible();
 
     await page.getByRole("button", { name: "Logs", exact: true }).click();
     await expect(page).toHaveURL(/\/logs$/);
-    await expect(page.getByRole("heading", { name: "Logs", exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Logs", exact: true }),
+    ).toBeVisible();
 
     expect(
       pageErrors,

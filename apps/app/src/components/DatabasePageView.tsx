@@ -19,12 +19,15 @@ export function DatabasePageView() {
   return (
     <div className="flex flex-col h-full">
       <h2 className="text-lg font-bold mb-1">Databases</h2>
-      <p className="text-[13px] text-[var(--muted)] mb-4">Browse and query agent data.</p>
+      <p className="text-[13px] text-[var(--muted)] mb-4">
+        Browse and query agent data.
+      </p>
 
       {/* Sub-tab bar */}
       <div className="flex gap-1 border-b border-[var(--border)] mb-5">
         {DB_TABS.map((t) => (
           <button
+            type="button"
             key={t.id}
             className={`px-4 py-2 text-[13px] bg-transparent border-0 border-b-2 cursor-pointer transition-colors ${
               databaseSubTab === t.id

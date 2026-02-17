@@ -1,4 +1,4 @@
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -11,7 +11,9 @@ import {
 const tempDirs: string[] = [];
 
 function createTempDir(): string {
-  const dir = mkdtempSync(path.join(os.tmpdir(), "milady-electron-web-assets-"));
+  const dir = mkdtempSync(
+    path.join(os.tmpdir(), "milady-electron-web-assets-"),
+  );
   tempDirs.push(dir);
   return dir;
 }
@@ -30,7 +32,11 @@ describe("resolveWebAssetDirectory", () => {
     mkdirSync(appDir, { recursive: true });
     writeFileSync(path.join(appDir, "index.html"), "<html></html>");
 
-    const result = resolveWebAssetDirectory({ appPath, cwd: appPath, webDir: "dist" });
+    const result = resolveWebAssetDirectory({
+      appPath,
+      cwd: appPath,
+      webDir: "dist",
+    });
 
     expect(result.directory).toBe(path.resolve(appDir));
     expect(result.usedFallback).toBe(false);
@@ -45,7 +51,11 @@ describe("resolveWebAssetDirectory", () => {
     mkdirSync(distDir, { recursive: true });
     writeFileSync(path.join(distDir, "index.html"), "<html></html>");
 
-    const result = resolveWebAssetDirectory({ appPath, cwd: appPath, webDir: "dist" });
+    const result = resolveWebAssetDirectory({
+      appPath,
+      cwd: appPath,
+      webDir: "dist",
+    });
 
     expect(result.directory).toBe(path.resolve(distDir));
     expect(result.usedFallback).toBe(true);
@@ -59,8 +69,14 @@ describe("resolveWebAssetDirectory", () => {
     const distDir = path.join(root, "dist");
     mkdirSync(appDir, { recursive: true });
     mkdirSync(distDir, { recursive: true });
-    writeFileSync(path.join(appDir, "index.html"), "<html><body>stale</body></html>");
-    writeFileSync(path.join(distDir, "index.html"), "<html><body>fresh</body></html>");
+    writeFileSync(
+      path.join(appDir, "index.html"),
+      "<html><body>stale</body></html>",
+    );
+    writeFileSync(
+      path.join(distDir, "index.html"),
+      "<html><body>fresh</body></html>",
+    );
 
     const result = resolveWebAssetDirectory({
       appPath,
@@ -80,7 +96,11 @@ describe("resolveWebAssetDirectory", () => {
     const appPath = path.join(root, "electron");
     mkdirSync(appPath, { recursive: true });
 
-    const result = resolveWebAssetDirectory({ appPath, cwd: appPath, webDir: "dist" });
+    const result = resolveWebAssetDirectory({
+      appPath,
+      cwd: appPath,
+      webDir: "dist",
+    });
     const message = buildMissingWebAssetsMessage(result);
 
     expect(result.hasIndexHtml).toBe(false);

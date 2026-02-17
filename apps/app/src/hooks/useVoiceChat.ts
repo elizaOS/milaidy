@@ -8,7 +8,7 @@
  * STT: Web Speech API (SpeechRecognition) for user voice input.
  */
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { VoiceConfig } from "../api-client";
 
 // ── Speech Recognition types ──────────────────────────────────────────
@@ -33,7 +33,10 @@ interface SpeechRecognitionResultEvent {
 
 interface SpeechRecognitionResultList {
   length: number;
-  [index: number]: { isFinal: boolean; 0: { transcript: string; confidence: number } };
+  [index: number]: {
+    isFinal: boolean;
+    0: { transcript: string; confidence: number };
+  };
 }
 
 type SpeechRecognitionCtor = new () => SpeechRecognitionInstance;
@@ -87,7 +90,11 @@ export interface VoiceChatState {
   /** Speak text aloud with mouth animation */
   speak: (text: string, options?: { append?: boolean }) => void;
   /** Progressively speak an assistant message while it streams */
-  queueAssistantSpeech: (messageId: string, text: string, isFinal: boolean) => void;
+  queueAssistantSpeech: (
+    messageId: string,
+    text: string,
+    isFinal: boolean,
+  ) => void;
   /** Stop any current speech */
   stopSpeaking: () => void;
 }
@@ -104,6 +111,7 @@ interface AssistantSpeechState {
   lastObservedText: string;
   firstSentenceSpoken: boolean;
   firstSentenceText: string;
+  queuedRemainderText: string;
   finalQueued: boolean;
 }
 
@@ -130,13 +138,18 @@ function normalizeCacheText(input: string): string {
 }
 
 function isRedactedSecret(value: unknown): boolean {
-  return typeof value === "string" && value.trim().toUpperCase() === REDACTED_SECRET;
+  return (
+    typeof value === "string" && value.trim().toUpperCase() === REDACTED_SECRET
+  );
 }
 
 function stripThinkingAndMarkup(input: string): string {
   let text = input;
   text = text.replace(/<think\b[^>]*>[\s\S]*?<\/think>/gi, " ");
-  text = text.replace(/<(analysis|reasoning|scratchpad|tool_calls?|tools?)\b[^>]*>[\s\S]*?<\/\1>/gi, " ");
+  text = text.replace(
+    /<(analysis|reasoning|scratchpad|tool_calls?|tools?)\b[^>]*>[\s\S]*?<\/\1>/gi,
+    " ",
+  );
   text = text.replace(/```[\s\S]*?```/g, " ");
   text = text.replace(/`([^`]+)`/g, "$1");
   text = text.replace(/\[([^\]]+)\]\([^)]+\)/g, "$1");
@@ -159,7 +172,11 @@ function toSpeakableText(input: string): string {
   return capSpeechLength(normalized);
 }
 
-function splitFirstSentence(text: string): { complete: boolean; firstSentence: string; remainder: string } {
+function splitFirstSentence(text: string): {
+  complete: boolean;
+  firstSentence: string;
+  remainder: string;
+} {
   const value = collapseWhitespace(text);
   if (!value) return { complete: false, firstSentence: "", remainder: "" };
 
@@ -207,8 +224,42 @@ function remainderAfter(fullText: string, firstSentence: string): string {
     return full.slice(idx + first.length).trim();
   }
 
-  return full;
+  return "";
 }
+
+function queueableSpeechPrefix(text: string, isFinal: boolean): string {
+  const value = collapseWhitespace(text);
+  if (!value) return "";
+  if (isFinal) return value;
+
+  let lastSentenceEnd = 0;
+  const boundary = /([.!?]+(?:["')\]]+)?)(?:\s|$)/g;
+  let match: RegExpExecArray | null = null;
+  while (true) {
+    match = boundary.exec(value);
+    if (!match || typeof match.index !== "number") break;
+    lastSentenceEnd = match.index + match[0].length;
+  }
+  if (lastSentenceEnd > 0) {
+    return value.slice(0, lastSentenceEnd).trim();
+  }
+
+  // Fallback for long content with no punctuation yet.
+  if (value.length >= 180) {
+    const window = value.slice(0, 180);
+    const splitAt = window.lastIndexOf(" ");
+    if (splitAt > 100) {
+      return window.slice(0, splitAt).trim();
+    }
+  }
+  return "";
+}
+
+export const __voiceChatInternals = {
+  splitFirstSentence,
+  remainderAfter,
+  queueableSpeechPrefix,
+};
 
 function isAbortError(error: unknown): boolean {
   if (error instanceof DOMException && error.name === "AbortError") return true;
@@ -266,30 +317,43 @@ export function useVoiceChat(options: VoiceChatOptions): VoiceChatState {
     }
   }, []);
 
-  const rememberCachedSegment = useCallback((key: string, bytes: Uint8Array) => {
-    const cache = elevenCacheRef.current;
-    cache.delete(key);
-    cache.set(key, bytes);
-    if (cache.size <= MAX_CACHED_SEGMENTS) return;
-    const oldest = cache.keys().next().value;
-    if (oldest) cache.delete(oldest);
-  }, []);
+  const rememberCachedSegment = useCallback(
+    (key: string, bytes: Uint8Array) => {
+      const cache = elevenCacheRef.current;
+      cache.delete(key);
+      cache.set(key, bytes);
+      if (cache.size <= MAX_CACHED_SEGMENTS) return;
+      const oldest = cache.keys().next().value;
+      if (oldest) cache.delete(oldest);
+    },
+    [],
+  );
 
-  const makeElevenCacheKey = useCallback((text: string, config: NonNullable<VoiceConfig["elevenlabs"]>) => {
-    const voiceId = config.voiceId ?? DEFAULT_ELEVEN_VOICE;
-    const modelId = config.modelId ?? DEFAULT_ELEVEN_MODEL;
-    const stability = typeof config.stability === "number" ? config.stability.toFixed(2) : "0.50";
-    const similarity = typeof config.similarityBoost === "number" ? config.similarityBoost.toFixed(2) : "0.75";
-    const speed = typeof config.speed === "number" ? config.speed.toFixed(2) : "1.00";
-    return [
-      voiceId,
-      modelId,
-      stability,
-      similarity,
-      speed,
-      normalizeCacheText(text),
-    ].join("|");
-  }, []);
+  const makeElevenCacheKey = useCallback(
+    (text: string, config: NonNullable<VoiceConfig["elevenlabs"]>) => {
+      const voiceId = config.voiceId ?? DEFAULT_ELEVEN_VOICE;
+      const modelId = config.modelId ?? DEFAULT_ELEVEN_MODEL;
+      const stability =
+        typeof config.stability === "number"
+          ? config.stability.toFixed(2)
+          : "0.50";
+      const similarity =
+        typeof config.similarityBoost === "number"
+          ? config.similarityBoost.toFixed(2)
+          : "0.75";
+      const speed =
+        typeof config.speed === "number" ? config.speed.toFixed(2) : "1.00";
+      return [
+        voiceId,
+        modelId,
+        stability,
+        similarity,
+        speed,
+        normalizeCacheText(text),
+      ].join("|");
+    },
+    [],
+  );
 
   // ── Init ──────────────────────────────────────────────────────────
 
@@ -323,7 +387,10 @@ export function useVoiceChat(options: VoiceChatOptions): VoiceChatState {
             sum += v * v;
           }
           const rms = Math.sqrt(sum / data.length);
-          const volume = Math.max(0, Math.min(1, 1 / (1 + Math.exp(-(rms * 30 - 2)))));
+          const volume = Math.max(
+            0,
+            Math.min(1, 1 / (1 + Math.exp(-(rms * 30 - 2)))),
+          );
           setMouthOpen(volume);
         }
         return;
@@ -331,7 +398,12 @@ export function useVoiceChat(options: VoiceChatOptions): VoiceChatState {
 
       // ── Browser TTS: sine-wave mouth + safety check ──────────────
       const sinceStart = Date.now() - speakingStartRef.current;
-      if (sinceStart > 500 && synthRef.current && !synthRef.current.speaking && !synthRef.current.pending) {
+      if (
+        sinceStart > 500 &&
+        synthRef.current &&
+        !synthRef.current.speaking &&
+        !synthRef.current.pending
+      ) {
         utteranceRef.current = null;
         setIsSpeaking(false);
         return;
@@ -373,7 +445,10 @@ export function useVoiceChat(options: VoiceChatOptions): VoiceChatState {
     };
 
     recognition.onerror = (event: { error: string }) => {
-      if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+      if (
+        event.error === "not-allowed" ||
+        event.error === "service-not-allowed"
+      ) {
         enabledRef.current = false;
         setIsListening(false);
       }
@@ -381,7 +456,11 @@ export function useVoiceChat(options: VoiceChatOptions): VoiceChatState {
 
     recognition.onend = () => {
       if (enabledRef.current) {
-        try { recognition.start(); } catch { /* already started */ }
+        try {
+          recognition.start();
+        } catch {
+          /* already started */
+        }
       }
     };
 
@@ -390,7 +469,9 @@ export function useVoiceChat(options: VoiceChatOptions): VoiceChatState {
       recognition.start();
       enabledRef.current = true;
       setIsListening(true);
-    } catch { /* failed to start */ }
+    } catch {
+      /* failed to start */
+    }
   }, [options.lang]);
 
   const stopRecognition = useCallback(() => {
@@ -425,8 +506,16 @@ export function useVoiceChat(options: VoiceChatOptions): VoiceChatState {
 
     // ElevenLabs audio
     if (audioSourceRef.current) {
-      try { audioSourceRef.current.stop(); } catch { /* ok */ }
-      try { audioSourceRef.current.disconnect(); } catch { /* ok */ }
+      try {
+        audioSourceRef.current.stop();
+      } catch {
+        /* ok */
+      }
+      try {
+        audioSourceRef.current.disconnect();
+      } catch {
+        /* ok */
+      }
       audioSourceRef.current = null;
     }
 
@@ -444,233 +533,249 @@ export function useVoiceChat(options: VoiceChatOptions): VoiceChatState {
 
   // ── ElevenLabs TTS ────────────────────────────────────────────────
 
-  const speakElevenLabs = useCallback(async (
-    text: string,
-    elConfig: NonNullable<VoiceConfig["elevenlabs"]>,
-    task: SpeakTask,
-    generation: number,
-  ) => {
-    let ctx = audioCtxRef.current;
-    if (!ctx) {
-      ctx = new AudioContext();
-      audioCtxRef.current = ctx;
-    }
-    if (ctx.state === "suspended") {
-      await ctx.resume();
-    }
+  const speakElevenLabs = useCallback(
+    async (
+      text: string,
+      elConfig: NonNullable<VoiceConfig["elevenlabs"]>,
+      task: SpeakTask,
+      generation: number,
+    ) => {
+      let ctx = audioCtxRef.current;
+      if (!ctx) {
+        ctx = new AudioContext();
+        audioCtxRef.current = ctx;
+      }
+      if (ctx.state === "suspended") {
+        await ctx.resume();
+      }
 
-    const voiceId = elConfig.voiceId ?? DEFAULT_ELEVEN_VOICE;
-    const modelId = elConfig.modelId ?? DEFAULT_ELEVEN_MODEL;
+      const voiceId = elConfig.voiceId ?? DEFAULT_ELEVEN_VOICE;
+      const modelId = elConfig.modelId ?? DEFAULT_ELEVEN_MODEL;
 
-    const cacheKey = task.cacheKey ?? makeElevenCacheKey(text, elConfig);
-    const cachedBytes = elevenCacheRef.current.get(cacheKey);
-    let audioBytes: Uint8Array | null = null;
-    let cached = false;
+      const cacheKey = task.cacheKey ?? makeElevenCacheKey(text, elConfig);
+      const cachedBytes = elevenCacheRef.current.get(cacheKey);
+      let audioBytes: Uint8Array | null = null;
+      let cached = false;
 
-    if (cachedBytes) {
-      elevenCacheRef.current.delete(cacheKey);
-      elevenCacheRef.current.set(cacheKey, cachedBytes);
-      audioBytes = cachedBytes.slice();
-      cached = true;
-    }
+      if (cachedBytes) {
+        elevenCacheRef.current.delete(cacheKey);
+        elevenCacheRef.current.set(cacheKey, cachedBytes);
+        audioBytes = cachedBytes.slice();
+        cached = true;
+      }
 
-    if (!audioBytes) {
-      const controller = new AbortController();
-      activeFetchAbortRef.current = controller;
+      if (!audioBytes) {
+        const controller = new AbortController();
+        activeFetchAbortRef.current = controller;
 
-      const requestBody = {
-        text,
-        model_id: modelId,
-        apply_text_normalization: "auto",
-        voice_settings: {
-          stability: elConfig.stability ?? 0.5,
-          similarity_boost: elConfig.similarityBoost ?? 0.75,
-          speed: elConfig.speed ?? 1.0,
-        },
-      };
-      const apiToken =
-        typeof window !== "undefined" &&
-        typeof window.__MILADY_API_TOKEN__ === "string"
-          ? window.__MILADY_API_TOKEN__.trim()
-          : "";
-
-      const fetchViaProxy = async () => {
-        return fetch(ELEVEN_PROXY_ENDPOINT, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "audio/mpeg",
-            ...(apiToken ? { Authorization: `Bearer ${apiToken}` } : {}),
+        const requestBody = {
+          text,
+          model_id: modelId,
+          apply_text_normalization: "auto",
+          voice_settings: {
+            stability: elConfig.stability ?? 0.5,
+            similarity_boost: elConfig.similarityBoost ?? 0.75,
+            speed: elConfig.speed ?? 1.0,
           },
-          body: JSON.stringify({
-            ...requestBody,
-            voiceId,
-            modelId,
-            outputFormat: "mp3_22050_32",
-          }),
-          signal: controller.signal,
-        });
-      };
+        };
+        const apiToken =
+          typeof window !== "undefined" &&
+          typeof window.__MILADY_API_TOKEN__ === "string"
+            ? window.__MILADY_API_TOKEN__.trim()
+            : "";
 
-      const trimmedApiKey =
-        typeof elConfig.apiKey === "string" ? elConfig.apiKey.trim() : "";
-      const hasDirectKey =
-        trimmedApiKey.length > 0 && !isRedactedSecret(trimmedApiKey);
-
-      let res: Response;
-      if (hasDirectKey) {
-        try {
-          const url = new URL(`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voiceId)}/stream`);
-          url.searchParams.set("output_format", "mp3_22050_32");
-          res = await fetch(url.toString(), {
+        const fetchViaProxy = async () => {
+          return fetch(ELEVEN_PROXY_ENDPOINT, {
             method: "POST",
             headers: {
-              "xi-api-key": trimmedApiKey,
               "Content-Type": "application/json",
               Accept: "audio/mpeg",
+              ...(apiToken ? { Authorization: `Bearer ${apiToken}` } : {}),
             },
-            body: JSON.stringify(requestBody),
+            body: JSON.stringify({
+              ...requestBody,
+              voiceId,
+              modelId,
+              outputFormat: "mp3_22050_32",
+            }),
             signal: controller.signal,
           });
-        } catch {
+        };
+
+        const trimmedApiKey =
+          typeof elConfig.apiKey === "string" ? elConfig.apiKey.trim() : "";
+        const hasDirectKey =
+          trimmedApiKey.length > 0 && !isRedactedSecret(trimmedApiKey);
+
+        let res: Response;
+        if (hasDirectKey) {
+          try {
+            const url = new URL(
+              `https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voiceId)}/stream`,
+            );
+            url.searchParams.set("output_format", "mp3_22050_32");
+            res = await fetch(url.toString(), {
+              method: "POST",
+              headers: {
+                "xi-api-key": trimmedApiKey,
+                "Content-Type": "application/json",
+                Accept: "audio/mpeg",
+              },
+              body: JSON.stringify(requestBody),
+              signal: controller.signal,
+            });
+          } catch {
+            res = await fetchViaProxy();
+          }
+
+          // If the locally-available key is stale, fall back to server-side key.
+          if (!res.ok && (res.status === 401 || res.status === 403)) {
+            const proxyRes = await fetchViaProxy();
+            if (proxyRes.ok) {
+              res = proxyRes;
+            }
+          }
+        } else {
           res = await fetchViaProxy();
         }
 
-        // If the locally-available key is stale, fall back to server-side key.
-        if (!res.ok && (res.status === 401 || res.status === 403)) {
-          const proxyRes = await fetchViaProxy();
-          if (proxyRes.ok) {
-            res = proxyRes;
-          }
+        if (activeFetchAbortRef.current === controller) {
+          activeFetchAbortRef.current = null;
         }
-      } else {
-        res = await fetchViaProxy();
+
+        if (!res.ok) {
+          const body = await res.text().catch(() => "");
+          throw new Error(`ElevenLabs ${res.status}: ${body.slice(0, 200)}`);
+        }
+
+        const audioData = await res.arrayBuffer();
+        audioBytes = new Uint8Array(audioData);
+        rememberCachedSegment(cacheKey, audioBytes.slice());
       }
 
-      if (activeFetchAbortRef.current === controller) {
-        activeFetchAbortRef.current = null;
-      }
+      if (generation !== generationRef.current) return;
+      const audioBuffer = await ctx.decodeAudioData(toArrayBuffer(audioBytes));
+      if (generation !== generationRef.current) return;
 
-      if (!res.ok) {
-        const body = await res.text().catch(() => "");
-        throw new Error(`ElevenLabs ${res.status}: ${body.slice(0, 200)}`);
-      }
-
-      const audioData = await res.arrayBuffer();
-      audioBytes = new Uint8Array(audioData);
-      rememberCachedSegment(cacheKey, audioBytes.slice());
-    }
-
-    if (generation !== generationRef.current) return;
-    const audioBuffer = await ctx.decodeAudioData(toArrayBuffer(audioBytes));
-    if (generation !== generationRef.current) return;
-
-    const analyser = ctx.createAnalyser();
-    analyser.fftSize = 2048;
-    analyser.smoothingTimeConstant = 0.8;
-    analyserRef.current = analyser;
-    timeDomainDataRef.current = new Float32Array(
-      new ArrayBuffer(analyser.fftSize * Float32Array.BYTES_PER_ELEMENT),
-    );
-
-    const source = ctx.createBufferSource();
-    source.buffer = audioBuffer;
-    source.connect(analyser);
-    analyser.connect(ctx.destination);
-    audioSourceRef.current = source;
-
-    await new Promise<void>((resolve) => {
-      let finished = false;
-      const finish = () => {
-        if (finished) return;
-        finished = true;
-        if (activeTaskFinishRef.current === finish) {
-          activeTaskFinishRef.current = null;
-        }
-        if (audioSourceRef.current === source) {
-          audioSourceRef.current = null;
-        }
-        source.onended = null;
-        try { source.disconnect(); } catch { /* ok */ }
-        try { analyser.disconnect(); } catch { /* ok */ }
-        clearSpeechTimers();
-        resolve();
-      };
-
-      activeTaskFinishRef.current = finish;
-      source.onended = finish;
-
-      speechTimeoutRef.current = setTimeout(
-        finish,
-        Math.max(2500, Math.ceil(audioBuffer.duration * 1000) + 1200),
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 2048;
+      analyser.smoothingTimeConstant = 0.8;
+      analyserRef.current = analyser;
+      timeDomainDataRef.current = new Float32Array(
+        new ArrayBuffer(analyser.fftSize * Float32Array.BYTES_PER_ELEMENT),
       );
 
-      source.start(0);
-      onPlaybackStartRef.current?.({
-        text,
-        segment: task.segment,
-        provider: "elevenlabs",
-        cached,
-        startedAtMs: performance.now(),
+      const source = ctx.createBufferSource();
+      source.buffer = audioBuffer;
+      source.connect(analyser);
+      analyser.connect(ctx.destination);
+      audioSourceRef.current = source;
+
+      await new Promise<void>((resolve) => {
+        let finished = false;
+        const finish = () => {
+          if (finished) return;
+          finished = true;
+          if (activeTaskFinishRef.current === finish) {
+            activeTaskFinishRef.current = null;
+          }
+          if (audioSourceRef.current === source) {
+            audioSourceRef.current = null;
+          }
+          source.onended = null;
+          try {
+            source.disconnect();
+          } catch {
+            /* ok */
+          }
+          try {
+            analyser.disconnect();
+          } catch {
+            /* ok */
+          }
+          clearSpeechTimers();
+          resolve();
+        };
+
+        activeTaskFinishRef.current = finish;
+        source.onended = finish;
+
+        speechTimeoutRef.current = setTimeout(
+          finish,
+          Math.max(2500, Math.ceil(audioBuffer.duration * 1000) + 1200),
+        );
+
+        source.start(0);
+        onPlaybackStartRef.current?.({
+          text,
+          segment: task.segment,
+          provider: "elevenlabs",
+          cached,
+          startedAtMs: performance.now(),
+        });
       });
-    });
-  }, [clearSpeechTimers, makeElevenCacheKey, rememberCachedSegment]);
+    },
+    [clearSpeechTimers, makeElevenCacheKey, rememberCachedSegment],
+  );
 
   // ── Browser SpeechSynthesis TTS ───────────────────────────────────
 
-  const speakBrowser = useCallback((text: string, task: SpeakTask, generation: number) => {
-    const synth = synthRef.current;
-    const words = text.trim().split(/\s+/).length;
-    const estimatedMs = Math.max(1200, (words / 3) * 1000);
+  const speakBrowser = useCallback(
+    (text: string, task: SpeakTask, generation: number) => {
+      const synth = synthRef.current;
+      const words = text.trim().split(/\s+/).length;
+      const estimatedMs = Math.max(1200, (words / 3) * 1000);
 
-    return new Promise<void>((resolve) => {
-      let finished = false;
-      const finish = () => {
-        if (finished) return;
-        finished = true;
-        if (activeTaskFinishRef.current === finish) {
-          activeTaskFinishRef.current = null;
+      return new Promise<void>((resolve) => {
+        let finished = false;
+        const finish = () => {
+          if (finished) return;
+          finished = true;
+          if (activeTaskFinishRef.current === finish) {
+            activeTaskFinishRef.current = null;
+          }
+          clearSpeechTimers();
+          utteranceRef.current = null;
+          resolve();
+        };
+
+        activeTaskFinishRef.current = finish;
+
+        if (!synth) {
+          onPlaybackStartRef.current?.({
+            text,
+            segment: task.segment,
+            provider: "browser",
+            cached: false,
+            startedAtMs: performance.now(),
+          });
+          speechTimeoutRef.current = setTimeout(finish, estimatedMs);
+          return;
         }
-        clearSpeechTimers();
-        utteranceRef.current = null;
-        resolve();
-      };
 
-      activeTaskFinishRef.current = finish;
+        const utterance = new SpeechSynthesisUtterance(text.trim());
+        utteranceRef.current = utterance;
+        utterance.rate = 1.0;
+        utterance.pitch = 1.0;
+        utterance.onstart = () => {
+          if (generation !== generationRef.current) return;
+          onPlaybackStartRef.current?.({
+            text,
+            segment: task.segment,
+            provider: "browser",
+            cached: false,
+            startedAtMs: performance.now(),
+          });
+        };
+        utterance.onend = finish;
+        utterance.onerror = finish;
+        synth.speak(utterance);
 
-      if (!synth) {
-        onPlaybackStartRef.current?.({
-          text,
-          segment: task.segment,
-          provider: "browser",
-          cached: false,
-          startedAtMs: performance.now(),
-        });
-        speechTimeoutRef.current = setTimeout(finish, estimatedMs);
-        return;
-      }
-
-      const utterance = new SpeechSynthesisUtterance(text.trim());
-      utteranceRef.current = utterance;
-      utterance.rate = 1.0;
-      utterance.pitch = 1.0;
-      utterance.onstart = () => {
-        if (generation !== generationRef.current) return;
-        onPlaybackStartRef.current?.({
-          text,
-          segment: task.segment,
-          provider: "browser",
-          cached: false,
-          startedAtMs: performance.now(),
-        });
-      };
-      utterance.onend = finish;
-      utterance.onerror = finish;
-      synth.speak(utterance);
-
-      speechTimeoutRef.current = setTimeout(finish, estimatedMs + 5000);
-    });
-  }, [clearSpeechTimers]);
+        speechTimeoutRef.current = setTimeout(finish, estimatedMs + 5000);
+      });
+    },
+    [clearSpeechTimers],
+  );
 
   const processQueue = useCallback(() => {
     if (queueWorkerRunningRef.current) return;
@@ -686,21 +791,30 @@ export function useVoiceChat(options: VoiceChatOptions): VoiceChatState {
 
           const config = voiceConfigRef.current;
           const elConfig = config?.elevenlabs;
-          const useElevenLabs =
-            config?.provider === "elevenlabs" &&
-            config?.mode !== "cloud";
+          const useElevenLabs = config?.provider === "elevenlabs";
 
           if (useElevenLabs && elConfig) {
             usingAudioAnalysisRef.current = true;
             setUsingAudioAnalysis(true);
             try {
-              await speakElevenLabs(task.text, elConfig, task, workerGeneration);
+              await speakElevenLabs(
+                task.text,
+                elConfig,
+                task,
+                workerGeneration,
+              );
               continue;
             } catch (error) {
-              if (workerGeneration !== generationRef.current || isAbortError(error)) {
+              if (
+                workerGeneration !== generationRef.current ||
+                isAbortError(error)
+              ) {
                 return;
               }
-              console.warn("[useVoiceChat] ElevenLabs TTS failed, falling back to browser:", error);
+              console.warn(
+                "[useVoiceChat] ElevenLabs TTS failed, falling back to browser:",
+                error,
+              );
               usingAudioAnalysisRef.current = false;
               setUsingAudioAnalysis(false);
             }
@@ -713,136 +827,157 @@ export function useVoiceChat(options: VoiceChatOptions): VoiceChatState {
         }
       } finally {
         queueWorkerRunningRef.current = false;
-        if (workerGeneration !== generationRef.current) return;
-        if (queueRef.current.length > 0) {
-          processQueue();
-          return;
-        }
-        usingAudioAnalysisRef.current = false;
-        setUsingAudioAnalysis(false);
-        setIsSpeaking(false);
       }
+      if (workerGeneration !== generationRef.current) return;
+      if (queueRef.current.length > 0) {
+        processQueue();
+        return;
+      }
+      usingAudioAnalysisRef.current = false;
+      setUsingAudioAnalysis(false);
+      setIsSpeaking(false);
     })();
   }, [speakBrowser, speakElevenLabs]);
 
-  const enqueueSpeech = useCallback((task: SpeakTask) => {
-    const speakable = toSpeakableText(task.text);
-    if (!speakable) return;
+  const enqueueSpeech = useCallback(
+    (task: SpeakTask) => {
+      const speakable = toSpeakableText(task.text);
+      if (!speakable) return;
 
-    if (!task.append) {
-      cancelPlayback();
-    }
+      if (!task.append) {
+        cancelPlayback();
+      }
 
-    queueRef.current.push({ ...task, text: speakable });
-    speakingStartRef.current = Date.now();
-    setIsSpeaking(true);
-    processQueue();
-  }, [cancelPlayback, processQueue]);
+      queueRef.current.push({ ...task, text: speakable });
+      speakingStartRef.current = Date.now();
+      setIsSpeaking(true);
+      processQueue();
+    },
+    [cancelPlayback, processQueue],
+  );
 
   // ── Public speak APIs ─────────────────────────────────────────────
 
-  const speak = useCallback((text: string, speakOptions?: { append?: boolean }) => {
-    assistantSpeechRef.current = null;
-    enqueueSpeech({
-      text,
-      append: Boolean(speakOptions?.append),
-      segment: "full",
-    });
-  }, [enqueueSpeech]);
+  const speak = useCallback(
+    (text: string, speakOptions?: { append?: boolean }) => {
+      assistantSpeechRef.current = null;
+      enqueueSpeech({
+        text,
+        append: Boolean(speakOptions?.append),
+        segment: "full",
+      });
+    },
+    [enqueueSpeech],
+  );
 
-  const queueAssistantSpeech = useCallback((messageId: string, text: string, isFinal: boolean) => {
-    if (!messageId) return;
+  const queueAssistantSpeech = useCallback(
+    (messageId: string, text: string, isFinal: boolean) => {
+      if (!messageId) return;
 
-    const speakable = toSpeakableText(text);
-    if (!speakable) return;
+      const speakable = toSpeakableText(text);
+      if (!speakable) return;
 
-    const current = assistantSpeechRef.current;
-    if (!current || current.messageId !== messageId) {
-      assistantSpeechRef.current = {
-        messageId,
-        lastObservedText: "",
-        firstSentenceSpoken: false,
-        firstSentenceText: "",
-        finalQueued: false,
-      };
-    }
+      const current = assistantSpeechRef.current;
+      if (!current || current.messageId !== messageId) {
+        assistantSpeechRef.current = {
+          messageId,
+          lastObservedText: "",
+          firstSentenceSpoken: false,
+          firstSentenceText: "",
+          queuedRemainderText: "",
+          finalQueued: false,
+        };
+      }
 
-    const state = assistantSpeechRef.current;
-    if (!state) return;
+      const state = assistantSpeechRef.current;
+      if (!state) return;
 
-    if (speakable === state.lastObservedText && (!isFinal || state.finalQueued)) {
-      return;
-    }
-    state.lastObservedText = speakable;
+      if (
+        speakable === state.lastObservedText &&
+        (!isFinal || state.finalQueued)
+      ) {
+        return;
+      }
+      state.lastObservedText = speakable;
 
-    if (!state.firstSentenceSpoken) {
-      const split = splitFirstSentence(speakable);
-      if (!split.complete && !isFinal) return;
+      if (!state.firstSentenceSpoken) {
+        const split = splitFirstSentence(speakable);
+        if (!split.complete && !isFinal) return;
 
-      if (split.complete) {
-        const firstSentence = split.firstSentence;
-        state.firstSentenceSpoken = true;
-        state.firstSentenceText = firstSentence;
+        if (split.complete) {
+          const firstSentence = split.firstSentence;
+          state.firstSentenceSpoken = true;
+          state.firstSentenceText = firstSentence;
 
-        const elConfig = voiceConfigRef.current?.elevenlabs;
-        const cacheKey =
-          voiceConfigRef.current?.provider === "elevenlabs" &&
-          voiceConfigRef.current?.mode !== "cloud" &&
-          elConfig
-            ? makeElevenCacheKey(firstSentence, elConfig)
-            : undefined;
+          const elConfig = voiceConfigRef.current?.elevenlabs;
+          const cacheKey =
+            voiceConfigRef.current?.provider === "elevenlabs" &&
+            voiceConfigRef.current?.mode !== "cloud" &&
+            elConfig
+              ? makeElevenCacheKey(firstSentence, elConfig)
+              : undefined;
 
-        enqueueSpeech({
-          text: firstSentence,
-          append: false,
-          segment: "first-sentence",
-          cacheKey,
-        });
+          enqueueSpeech({
+            text: firstSentence,
+            append: false,
+            segment: "first-sentence",
+            cacheKey,
+          });
 
-        if (isFinal) {
-          const remainder = split.remainder.trim();
-          if (remainder) {
+          const queueableRemainder = queueableSpeechPrefix(
+            split.remainder,
+            isFinal,
+          );
+          if (queueableRemainder) {
             enqueueSpeech({
-              text: remainder,
+              text: queueableRemainder,
               append: true,
               segment: "remainder",
             });
+            state.queuedRemainderText = queueableRemainder;
           }
-          state.finalQueued = true;
+          if (isFinal) {
+            state.finalQueued = true;
+          }
+          return;
         }
+
+        enqueueSpeech({
+          text: speakable,
+          append: false,
+          segment: "full",
+        });
+        state.finalQueued = true;
         return;
       }
 
-      enqueueSpeech({
-        text: speakable,
-        append: false,
-        segment: "full",
-      });
-      state.finalQueued = true;
-      return;
-    }
-
-    if (isFinal && !state.finalQueued) {
       const remainder = remainderAfter(speakable, state.firstSentenceText);
-      if (remainder) {
+      const queueableRemainder = queueableSpeechPrefix(remainder, isFinal);
+      const newRemainderDelta = remainderAfter(
+        queueableRemainder,
+        state.queuedRemainderText,
+      );
+      if (newRemainderDelta) {
         enqueueSpeech({
-          text: remainder,
+          text: newRemainderDelta,
           append: true,
           segment: "remainder",
         });
+        state.queuedRemainderText = queueableRemainder;
       }
-      state.finalQueued = true;
-    }
-  }, [enqueueSpeech, makeElevenCacheKey]);
+
+      if (isFinal && !state.finalQueued) {
+        state.finalQueued = true;
+      }
+    },
+    [enqueueSpeech, makeElevenCacheKey],
+  );
 
   // ── Keep ElevenLabs runtime warm for lower startup latency ────────
 
   useEffect(() => {
     const config = voiceConfigRef.current;
-    if (
-      config?.provider !== "elevenlabs" ||
-      config.mode === "cloud"
-    ) {
+    if (config?.provider !== "elevenlabs" || config.mode === "cloud") {
       return;
     }
 
@@ -853,7 +988,7 @@ export function useVoiceChat(options: VoiceChatOptions): VoiceChatState {
     void audioCtxRef.current.resume().catch(() => {
       // Can fail until a user gesture; next speak() call resumes again.
     });
-  }, [options.voiceConfig]);
+  }, []);
 
   // ── Cleanup on unmount ────────────────────────────────────────────
 

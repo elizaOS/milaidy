@@ -5,13 +5,13 @@
  * Supports filtering, search, export, and clearing trajectories.
  */
 
-import { useEffect, useState, useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   client,
-  type TrajectoryRecord,
-  type TrajectoryListResult,
-  type TrajectoryStats,
   type TrajectoryConfig,
+  type TrajectoryListResult,
+  type TrajectoryRecord,
+  type TrajectoryStats,
 } from "../api-client";
 import {
   formatTrajectoryDuration,
@@ -39,7 +39,9 @@ interface TrajectoriesViewProps {
   onSelectTrajectory?: (id: string) => void;
 }
 
-export function TrajectoriesView({ onSelectTrajectory }: TrajectoriesViewProps) {
+export function TrajectoriesView({
+  onSelectTrajectory,
+}: TrajectoriesViewProps) {
   const [loading, setLoading] = useState(true);
   const [result, setResult] = useState<TrajectoryListResult | null>(null);
   const [stats, setStats] = useState<TrajectoryStats | null>(null);
@@ -76,7 +78,9 @@ export function TrajectoriesView({ onSelectTrajectory }: TrajectoriesViewProps) 
       setStats(statsResult);
       setConfig(configResult);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load trajectories");
+      setError(
+        err instanceof Error ? err.message : "Failed to load trajectories",
+      );
     } finally {
       setLoading(false);
     }
@@ -116,7 +120,11 @@ export function TrajectoriesView({ onSelectTrajectory }: TrajectoriesViewProps) 
   };
 
   const handleClearAll = async () => {
-    if (!confirm("Are you sure you want to delete ALL trajectories? This cannot be undone.")) {
+    if (
+      !confirm(
+        "Are you sure you want to delete ALL trajectories? This cannot be undone.",
+      )
+    ) {
       return;
     }
     setClearing(true);
@@ -124,7 +132,9 @@ export function TrajectoriesView({ onSelectTrajectory }: TrajectoriesViewProps) 
       await client.clearAllTrajectories();
       void loadTrajectories();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to clear trajectories");
+      setError(
+        err instanceof Error ? err.message : "Failed to clear trajectories",
+      );
     } finally {
       setClearing(false);
     }
@@ -137,7 +147,8 @@ export function TrajectoriesView({ onSelectTrajectory }: TrajectoriesViewProps) 
     setPage(0);
   };
 
-  const hasActiveFilters = statusFilter !== "" || sourceFilter !== "" || searchQuery !== "";
+  const hasActiveFilters =
+    statusFilter !== "" || sourceFilter !== "" || searchQuery !== "";
   const trajectories = result?.trajectories ?? [];
   const total = result?.total ?? 0;
   const totalPages = Math.ceil(total / pageSize);
@@ -151,11 +162,15 @@ export function TrajectoriesView({ onSelectTrajectory }: TrajectoriesViewProps) 
         <div className="flex flex-wrap gap-4 text-xs">
           <div className="flex items-center gap-1.5">
             <span className="text-muted">Total:</span>
-            <span className="font-semibold">{stats.totalTrajectories.toLocaleString()}</span>
+            <span className="font-semibold">
+              {stats.totalTrajectories.toLocaleString()}
+            </span>
           </div>
           <div className="flex items-center gap-1.5">
             <span className="text-muted">LLM Calls:</span>
-            <span className="font-semibold">{stats.totalLlmCalls.toLocaleString()}</span>
+            <span className="font-semibold">
+              {stats.totalLlmCalls.toLocaleString()}
+            </span>
           </div>
           <div className="flex items-center gap-1.5">
             <span className="text-muted">Tokens:</span>
@@ -166,17 +181,28 @@ export function TrajectoriesView({ onSelectTrajectory }: TrajectoriesViewProps) 
               )}
             </span>
             <span className="text-muted text-[10px]">
-              ({formatTrajectoryTokenCount(stats.totalPromptTokens, { emptyLabel: "0" })}↑ {formatTrajectoryTokenCount(stats.totalCompletionTokens, { emptyLabel: "0" })}↓)
+              (
+              {formatTrajectoryTokenCount(stats.totalPromptTokens, {
+                emptyLabel: "0",
+              })}
+              ↑{" "}
+              {formatTrajectoryTokenCount(stats.totalCompletionTokens, {
+                emptyLabel: "0",
+              })}
+              ↓)
             </span>
           </div>
           <div className="flex items-center gap-1.5">
             <span className="text-muted">Avg Duration:</span>
-            <span className="font-semibold">{formatTrajectoryDuration(stats.averageDurationMs)}</span>
+            <span className="font-semibold">
+              {formatTrajectoryDuration(stats.averageDurationMs)}
+            </span>
           </div>
           <div className="ml-auto flex items-center gap-2">
             <label className="flex items-center gap-1.5">
               <span className="text-muted">Logging:</span>
               <button
+                type="button"
                 className={`px-2 py-0.5 text-[11px] border rounded ${
                   config?.enabled
                     ? "bg-success/20 border-success text-success"
@@ -239,6 +265,7 @@ export function TrajectoriesView({ onSelectTrajectory }: TrajectoriesViewProps) 
 
         {hasActiveFilters && (
           <button
+            type="button"
             className="text-xs px-3 py-1.5 border border-border bg-card text-txt cursor-pointer hover:border-accent hover:text-accent"
             onClick={handleClearFilters}
           >
@@ -248,6 +275,7 @@ export function TrajectoriesView({ onSelectTrajectory }: TrajectoriesViewProps) 
 
         <div className="ml-auto flex gap-1.5">
           <button
+            type="button"
             className="text-xs px-3 py-1.5 border border-border bg-card text-txt cursor-pointer hover:border-accent hover:text-accent"
             onClick={() => void loadTrajectories()}
             disabled={loading}
@@ -257,6 +285,7 @@ export function TrajectoriesView({ onSelectTrajectory }: TrajectoriesViewProps) 
 
           <div className="relative group">
             <button
+              type="button"
               className="text-xs px-3 py-1.5 border border-border bg-card text-txt cursor-pointer hover:border-accent hover:text-accent"
               disabled={exporting || trajectories.length === 0}
             >
@@ -264,24 +293,28 @@ export function TrajectoriesView({ onSelectTrajectory }: TrajectoriesViewProps) 
             </button>
             <div className="absolute right-0 mt-1 hidden group-hover:block bg-card border border-border shadow-lg z-10">
               <button
+                type="button"
                 className="block w-full text-left text-xs px-3 py-1.5 hover:bg-muted/20"
                 onClick={() => handleExport("json", true)}
               >
                 JSON (with prompts)
               </button>
               <button
+                type="button"
                 className="block w-full text-left text-xs px-3 py-1.5 hover:bg-muted/20"
                 onClick={() => handleExport("json", false)}
               >
                 JSON (redacted)
               </button>
               <button
+                type="button"
                 className="block w-full text-left text-xs px-3 py-1.5 hover:bg-muted/20"
                 onClick={() => handleExport("csv", false)}
               >
                 CSV (summary only)
               </button>
               <button
+                type="button"
                 className="block w-full text-left text-xs px-3 py-1.5 hover:bg-muted/20"
                 onClick={() => handleExport("zip", true)}
               >
@@ -291,6 +324,7 @@ export function TrajectoriesView({ onSelectTrajectory }: TrajectoriesViewProps) 
           </div>
 
           <button
+            type="button"
             className="text-xs px-3 py-1.5 border border-danger/50 bg-card text-danger cursor-pointer hover:border-danger hover:bg-danger/10"
             onClick={handleClearAll}
             disabled={clearing || stats?.totalTrajectories === 0}
@@ -310,13 +344,16 @@ export function TrajectoriesView({ onSelectTrajectory }: TrajectoriesViewProps) 
       {/* Trajectories list */}
       <div className="flex-1 min-h-0 overflow-y-auto border border-border bg-card">
         {loading && trajectories.length === 0 ? (
-          <div className="text-center py-8 text-muted">Loading trajectories...</div>
+          <div className="text-center py-8 text-muted">
+            Loading trajectories...
+          </div>
         ) : trajectories.length === 0 ? (
           <div className="text-center py-8 text-muted">
             No trajectories {hasActiveFilters ? "matching filters" : "yet"}.
             {!config?.enabled && (
               <div className="mt-2 text-warn text-[11px]">
-                Trajectory logging should auto-enable; click ENABLE if startup is still settling.
+                Trajectory logging should auto-enable; click ENABLE if startup
+                is still settling.
               </div>
             )}
           </div>
@@ -334,8 +371,10 @@ export function TrajectoriesView({ onSelectTrajectory }: TrajectoriesViewProps) 
             </thead>
             <tbody>
               {trajectories.map((traj: TrajectoryRecord) => {
-                const statusColor = STATUS_COLORS[traj.status] ?? STATUS_COLORS.completed;
-                const sourceColor = SOURCE_COLORS[traj.source] ?? SOURCE_COLORS.api;
+                const statusColor =
+                  STATUS_COLORS[traj.status] ?? STATUS_COLORS.completed;
+                const sourceColor =
+                  SOURCE_COLORS[traj.source] ?? SOURCE_COLORS.api;
                 return (
                   <tr
                     key={traj.id}
@@ -393,10 +432,12 @@ export function TrajectoriesView({ onSelectTrajectory }: TrajectoriesViewProps) 
       {totalPages > 1 && (
         <div className="flex items-center justify-between text-xs">
           <span className="text-muted">
-            Showing {page * pageSize + 1}–{Math.min((page + 1) * pageSize, total)} of {total}
+            Showing {page * pageSize + 1}–
+            {Math.min((page + 1) * pageSize, total)} of {total}
           </span>
           <div className="flex gap-1">
             <button
+              type="button"
               className="px-2 py-1 border border-border bg-card disabled:opacity-50"
               onClick={() => setPage((p) => Math.max(0, p - 1))}
               disabled={page === 0}
@@ -404,6 +445,7 @@ export function TrajectoriesView({ onSelectTrajectory }: TrajectoriesViewProps) 
               Prev
             </button>
             <button
+              type="button"
               className="px-2 py-1 border border-border bg-card disabled:opacity-50"
               onClick={() => setPage((p) => p + 1)}
               disabled={page >= totalPages - 1}

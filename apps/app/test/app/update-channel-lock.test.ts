@@ -72,7 +72,9 @@ vi.mock("../../src/api-client", () => ({
 import { AppProvider, useApp } from "../../src/AppContext";
 
 type ProbeApi = {
-  handleChannelChange: (channel: "stable" | "beta" | "nightly") => Promise<void>;
+  handleChannelChange: (
+    channel: "stable" | "beta" | "nightly",
+  ) => Promise<void>;
 };
 
 function Probe(props: { onReady: (api: ProbeApi) => void }) {
@@ -143,7 +145,10 @@ describe("update channel locking", () => {
     mockClient.connectWs.mockImplementation(() => {});
     mockClient.disconnectWs.mockImplementation(() => {});
     mockClient.onWsEvent.mockReturnValue(() => {});
-    mockClient.getAgentEvents.mockResolvedValue({ events: [], latestEventId: null });
+    mockClient.getAgentEvents.mockResolvedValue({
+      events: [],
+      latestEventId: null,
+    });
     mockClient.getStatus.mockResolvedValue({
       state: "running",
       agentName: "Milady",
@@ -153,7 +158,10 @@ describe("update channel locking", () => {
     });
     mockClient.getWalletAddresses.mockResolvedValue(null);
     mockClient.getConfig.mockResolvedValue({});
-    mockClient.getCloudStatus.mockResolvedValue({ enabled: false, connected: false });
+    mockClient.getCloudStatus.mockResolvedValue({
+      enabled: false,
+      connected: false,
+    });
     mockClient.getWorkbenchOverview.mockResolvedValue({
       tasks: [],
       triggers: [],
@@ -193,8 +201,8 @@ describe("update channel locking", () => {
     expect(api).not.toBeNull();
 
     await act(async () => {
-      void api!.handleChannelChange("beta");
-      void api!.handleChannelChange("beta");
+      void api?.handleChannelChange("beta");
+      void api?.handleChannelChange("beta");
     });
 
     expect(mockClient.setUpdateChannel).toHaveBeenCalledTimes(1);
@@ -205,7 +213,7 @@ describe("update channel locking", () => {
     });
 
     await act(async () => {
-      tree!.unmount();
+      tree?.unmount();
     });
   });
 
@@ -233,16 +241,16 @@ describe("update channel locking", () => {
     expect(api).not.toBeNull();
 
     await act(async () => {
-      await api!.handleChannelChange("beta");
+      await api?.handleChannelChange("beta");
     });
     await act(async () => {
-      await api!.handleChannelChange("beta");
+      await api?.handleChannelChange("beta");
     });
 
     expect(mockClient.setUpdateChannel).toHaveBeenCalledTimes(2);
 
     await act(async () => {
-      tree!.unmount();
+      tree?.unmount();
     });
   });
 });

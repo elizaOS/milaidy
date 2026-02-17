@@ -9,14 +9,20 @@
  * Works cross-platform with platform-specific permission requirements.
  */
 
-import { useState, useEffect, useCallback, type Dispatch, type SetStateAction } from "react";
+import {
+  type Dispatch,
+  type SetStateAction,
+  useCallback,
+  useEffect,
+  useState,
+} from "react";
 import { useApp } from "../AppContext";
 import {
-  client,
   type AllPermissionsState,
-  type SystemPermissionId,
+  client,
   type PermissionStatus,
   type PluginInfo,
+  type SystemPermissionId,
 } from "../api-client";
 import { hasRequiredOnboardingPermissions } from "../onboarding-permissions";
 import { StatusBadge } from "./shared/ui-badges";
@@ -36,7 +42,8 @@ const SYSTEM_PERMISSIONS: PermissionDef[] = [
   {
     id: "accessibility",
     name: "Accessibility",
-    description: "Control mouse, keyboard, and interact with other applications",
+    description:
+      "Control mouse, keyboard, and interact with other applications",
     icon: "cursor",
     platforms: ["darwin"],
     requiredForFeatures: ["computeruse", "browser"],
@@ -171,7 +178,9 @@ function PermissionRow({
           <Switch
             checked={shellEnabled}
             onChange={onToggleShell}
-            title={shellEnabled ? "Disable shell access" : "Enable shell access"}
+            title={
+              shellEnabled ? "Disable shell access" : "Enable shell access"
+            }
             trackOnClass="bg-[var(--accent)]"
             trackOffClass="bg-[var(--border)]"
           />
@@ -260,14 +269,17 @@ function CapabilityToggle({
 function usePermissionActions(
   setPermissions: Dispatch<SetStateAction<AllPermissionsState | null>>,
 ) {
-  const handleRequest = useCallback(async (id: SystemPermissionId) => {
-    try {
-      const state = await client.requestPermission(id);
-      setPermissions((prev) => (prev ? { ...prev, [id]: state } : prev));
-    } catch (err) {
-      console.error("Failed to request permission:", err);
-    }
-  }, [setPermissions]);
+  const handleRequest = useCallback(
+    async (id: SystemPermissionId) => {
+      try {
+        const state = await client.requestPermission(id);
+        setPermissions((prev) => (prev ? { ...prev, [id]: state } : prev));
+      } catch (err) {
+        console.error("Failed to request permission:", err);
+      }
+    },
+    [setPermissions],
+  );
 
   const handleOpenSettings = useCallback(async (id: SystemPermissionId) => {
     try {
@@ -282,12 +294,15 @@ function usePermissionActions(
 
 export function PermissionsSection() {
   const { plugins, handlePluginToggle } = useApp();
-  const [permissions, setPermissions] = useState<AllPermissionsState | null>(null);
+  const [permissions, setPermissions] = useState<AllPermissionsState | null>(
+    null,
+  );
   const [platform, setPlatform] = useState<string>("unknown");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [shellEnabled, setShellEnabled] = useState(true);
-  const { handleRequest, handleOpenSettings } = usePermissionActions(setPermissions);
+  const { handleRequest, handleOpenSettings } =
+    usePermissionActions(setPermissions);
 
   /** Load permissions on mount. */
   useEffect(() => {
@@ -344,7 +359,9 @@ export function PermissionsSection() {
       if (!permissions) return false;
       return requiredPerms.every((id) => {
         const state = permissions[id];
-        return state?.status === "granted" || state?.status === "not-applicable";
+        return (
+          state?.status === "granted" || state?.status === "not-applicable"
+        );
       });
     },
     [permissions],
@@ -401,7 +418,9 @@ export function PermissionsSection() {
                 onOpenSettings={() => handleOpenSettings(def.id)}
                 isShell={def.id === "shell"}
                 shellEnabled={shellEnabled}
-                onToggleShell={def.id === "shell" ? handleToggleShell : undefined}
+                onToggleShell={
+                  def.id === "shell" ? handleToggleShell : undefined
+                }
               />
             );
           })}
@@ -409,12 +428,13 @@ export function PermissionsSection() {
         <div className="text-[11px] text-[var(--muted)] mt-2">
           {platform === "darwin" ? (
             <>
-              macOS requires Accessibility permission for computer control.
-              Open System Preferences → Security & Privacy → Privacy to grant access.
+              macOS requires Accessibility permission for computer control. Open
+              System Preferences → Security & Privacy → Privacy to grant access.
             </>
           ) : (
             <>
-              Grant permissions to enable features like voice input and computer control.
+              Grant permissions to enable features like voice input and computer
+              control.
             </>
           )}
         </div>
@@ -426,7 +446,9 @@ export function PermissionsSection() {
         <div className="space-y-2">
           {CAPABILITIES.map((cap) => {
             const plugin = plugins.find((p) => p.id === cap.id) ?? null;
-            const permissionsGranted = arePermissionsGranted(cap.requiredPermissions);
+            const permissionsGranted = arePermissionsGranted(
+              cap.requiredPermissions,
+            );
             return (
               <CapabilityToggle
                 key={cap.id}
@@ -441,8 +463,8 @@ export function PermissionsSection() {
           })}
         </div>
         <div className="text-[11px] text-[var(--muted)] mt-2">
-          Capabilities require their underlying system permissions to be granted.
-          Enable capabilities to unlock agent features.
+          Capabilities require their underlying system permissions to be
+          granted. Enable capabilities to unlock agent features.
         </div>
       </div>
     </div>
@@ -459,9 +481,12 @@ export function PermissionsOnboardingSection({
 }: {
   onContinue: (options?: { allowPermissionBypass?: boolean }) => void;
 }) {
-  const [permissions, setPermissions] = useState<AllPermissionsState | null>(null);
+  const [permissions, setPermissions] = useState<AllPermissionsState | null>(
+    null,
+  );
   const [loading, setLoading] = useState(true);
-  const { handleRequest, handleOpenSettings } = usePermissionActions(setPermissions);
+  const { handleRequest, handleOpenSettings } =
+    usePermissionActions(setPermissions);
 
   useEffect(() => {
     void (async () => {
@@ -483,7 +508,9 @@ export function PermissionsOnboardingSection({
   if (loading) {
     return (
       <div className="text-center py-8">
-        <div className="text-[var(--muted)] text-sm">Checking permissions...</div>
+        <div className="text-[var(--muted)] text-sm">
+          Checking permissions...
+        </div>
       </div>
     );
   }

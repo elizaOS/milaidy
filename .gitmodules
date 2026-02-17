@@ -1,3 +1,15 @@
 [submodule "test/contracts/lib/openzeppelin-contracts"]
 	path = test/contracts/lib/openzeppelin-contracts
 	url = https://github.com/OpenZeppelin/openzeppelin-contracts
+[submodule "plugins"]
+	path = plugins
+	url = https://github.com/lalalune/plugins.git
+	branch = main
+[submodule "eliza"]
+	path = eliza
+	url = https://github.com/elizaos/eliza.git
+	branch = next
+[submodule "benchmarks"]
+	path = benchmarks
+	url = https://github.com/elizaOS/benchmarks.git
+	branch = main

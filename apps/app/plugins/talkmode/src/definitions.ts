@@ -108,7 +108,7 @@ export interface TalkModeConfig {
 /**
  * Talk mode state
  */
-export type TalkModeState = 
+export type TalkModeState =
   | "idle"
   | "listening"
   | "processing"
@@ -194,7 +194,9 @@ export interface TalkModePlugin {
    * @param options - Configuration options
    * @returns Promise resolving when started
    */
-  start(options?: { config?: TalkModeConfig }): Promise<{ started: boolean; error?: string }>;
+  start(options?: {
+    config?: TalkModeConfig;
+  }): Promise<{ started: boolean; error?: string }>;
 
   /**
    * Stop talk mode
@@ -266,7 +268,7 @@ export interface TalkModePlugin {
    */
   addListener(
     eventName: "stateChange",
-    listenerFunc: (event: TalkModeStateEvent) => void
+    listenerFunc: (event: TalkModeStateEvent) => void,
   ): Promise<PluginListenerHandle>;
 
   /**
@@ -274,7 +276,7 @@ export interface TalkModePlugin {
    */
   addListener(
     eventName: "transcript",
-    listenerFunc: (event: TalkModeTranscriptEvent) => void
+    listenerFunc: (event: TalkModeTranscriptEvent) => void,
   ): Promise<PluginListenerHandle>;
 
   /**
@@ -282,7 +284,7 @@ export interface TalkModePlugin {
    */
   addListener(
     eventName: "speaking",
-    listenerFunc: (event: TTSSpeakingEvent) => void
+    listenerFunc: (event: TTSSpeakingEvent) => void,
   ): Promise<PluginListenerHandle>;
 
   /**
@@ -290,7 +292,7 @@ export interface TalkModePlugin {
    */
   addListener(
     eventName: "speakComplete",
-    listenerFunc: (event: TTSCompleteEvent) => void
+    listenerFunc: (event: TTSCompleteEvent) => void,
   ): Promise<PluginListenerHandle>;
 
   /**
@@ -298,7 +300,7 @@ export interface TalkModePlugin {
    */
   addListener(
     eventName: "error",
-    listenerFunc: (event: TalkModeErrorEvent) => void
+    listenerFunc: (event: TalkModeErrorEvent) => void,
   ): Promise<PluginListenerHandle>;
 
   /**

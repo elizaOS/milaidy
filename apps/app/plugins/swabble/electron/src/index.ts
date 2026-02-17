@@ -1,16 +1,17 @@
+/// <reference path="./global.d.ts" />
 import type { PluginListenerHandle } from "@capacitor/core";
 import type {
+  SwabbleAudioLevelEvent,
+  SwabbleConfig,
+  SwabbleErrorEvent,
+  SwabblePermissionStatus,
   SwabblePlugin,
+  SwabbleSpeechSegment,
   SwabbleStartOptions,
   SwabbleStartResult,
-  SwabbleConfig,
-  SwabblePermissionStatus,
-  SwabbleWakeWordEvent,
-  SwabbleTranscriptEvent,
   SwabbleStateEvent,
-  SwabbleAudioLevelEvent,
-  SwabbleErrorEvent,
-  SwabbleSpeechSegment,
+  SwabbleTranscriptEvent,
+  SwabbleWakeWordEvent,
 } from "../../src/definitions";
 
 type EventCallback<T> = (event: T) => void;
@@ -28,7 +29,13 @@ interface ListenerEntry {
 
 type IpcPrimitive = string | number | boolean | null | undefined;
 type IpcObject = { [key: string]: IpcValue };
-type IpcValue = IpcPrimitive | IpcObject | IpcValue[] | ArrayBuffer | Float32Array | Uint8Array;
+type IpcValue =
+  | IpcPrimitive
+  | IpcObject
+  | IpcValue[]
+  | ArrayBuffer
+  | Float32Array
+  | Uint8Array;
 type IpcListener = (...args: IpcValue[]) => void;
 
 interface ElectronAPI {
@@ -75,7 +82,9 @@ class WakeWordGate {
    * Match wake word in transcript using text-only detection.
    * Returns postGap=-1 to indicate timing data is unavailable on Electron/web.
    */
-  match(transcript: string): { wakeWord: string; command: string; postGap: number } | null {
+  match(
+    transcript: string,
+  ): { wakeWord: string; command: string; postGap: number } | null {
     const normalizedTranscript = transcript.toLowerCase();
 
     for (const trigger of this.triggers) {
@@ -119,7 +128,10 @@ export class SwabbleElectron implements SwabblePlugin {
   private captureProcessor: ScriptProcessorNode | null = null;
   private captureGain: GainNode | null = null;
   private captureSampleRate = 16000;
-  private ipcHandlers: Array<{ channel: string; handler: (data: IpcValue) => void }> = [];
+  private ipcHandlers: Array<{
+    channel: string;
+    handler: (data: IpcValue) => void;
+  }> = [];
 
   async start(options: SwabbleStartOptions): Promise<SwabbleStartResult> {
     if (this.isActive) {
@@ -134,7 +146,10 @@ export class SwabbleElectron implements SwabblePlugin {
     // Try native Whisper via Electron IPC first
     if (window.electron?.ipcRenderer) {
       try {
-        const result = await window.electron.ipcRenderer.invoke("swabble:start", options as IpcValue) as SwabbleStartResult;
+        const result = (await window.electron.ipcRenderer.invoke(
+          "swabble:start",
+          options as unknown as IpcValue,
+        )) as unknown as SwabbleStartResult;
         if (result.started) {
           this.isActive = true;
           this.setupIpcListeners();
@@ -147,8 +162,13 @@ export class SwabbleElectron implements SwabblePlugin {
     }
 
     const SpeechRecognitionAPI =
-      (window as Window & { SpeechRecognition?: typeof SpeechRecognition }).SpeechRecognition ||
-      (window as Window & { webkitSpeechRecognition?: typeof SpeechRecognition }).webkitSpeechRecognition;
+      (window as Window & { SpeechRecognition?: typeof SpeechRecognition })
+        .SpeechRecognition ||
+      (
+        window as Window & {
+          webkitSpeechRecognition?: typeof SpeechRecognition;
+        }
+      ).webkitSpeechRecognition;
 
     if (!SpeechRecognitionAPI) {
       return {
@@ -181,7 +201,8 @@ export class SwabbleElectron implements SwabblePlugin {
     };
 
     this.recognition.onerror = (event) => {
-      const recoverable = event.error === "no-speech" || event.error === "aborted";
+      const recoverable =
+        event.error === "no-speech" || event.error === "aborted";
 
       this.notifyListeners("error", {
         code: event.error,
@@ -191,7 +212,10 @@ export class SwabbleElectron implements SwabblePlugin {
 
       if (!recoverable) {
         this.isActive = false;
-        this.notifyListeners("stateChange", { state: "error", reason: event.error });
+        this.notifyListeners("stateChange", {
+          state: "error",
+          reason: event.error,
+        });
       }
     };
 
@@ -222,7 +246,7 @@ export class SwabbleElectron implements SwabblePlugin {
     const words = transcript.split(/\s+/).filter((w) => w.length > 0);
     this.segments = words.map((text) => ({
       text,
-      start: -1,    // Unavailable on Electron/web
+      start: -1, // Unavailable on Electron/web
       duration: -1, // Unavailable on Electron/web
       isFinal,
     }));
@@ -253,26 +277,46 @@ export class SwabbleElectron implements SwabblePlugin {
 
     this.removeIpcListeners();
 
-    const handlers: Array<{ channel: string; handler: (data: IpcValue) => void }> = [
+    const handlers: Array<{
+      channel: string;
+      handler: (data: IpcValue) => void;
+    }> = [
       {
         channel: "swabble:transcript",
-        handler: (data) => this.notifyListeners("transcript", data as SwabbleTranscriptEvent),
+        handler: (data) =>
+          this.notifyListeners(
+            "transcript",
+            data as unknown as SwabbleTranscriptEvent,
+          ),
       },
       {
         channel: "swabble:wakeWord",
-        handler: (data) => this.notifyListeners("wakeWord", data as SwabbleWakeWordEvent),
+        handler: (data) =>
+          this.notifyListeners(
+            "wakeWord",
+            data as unknown as SwabbleWakeWordEvent,
+          ),
       },
       {
         channel: "swabble:stateChange",
-        handler: (data) => this.notifyListeners("stateChange", data as SwabbleStateEvent),
+        handler: (data) =>
+          this.notifyListeners(
+            "stateChange",
+            data as unknown as SwabbleStateEvent,
+          ),
       },
       {
         channel: "swabble:audioLevel",
-        handler: (data) => this.notifyListeners("audioLevel", data as SwabbleAudioLevelEvent),
+        handler: (data) =>
+          this.notifyListeners(
+            "audioLevel",
+            data as unknown as SwabbleAudioLevelEvent,
+          ),
       },
       {
         channel: "swabble:error",
-        handler: (data) => this.notifyListeners("error", data as SwabbleErrorEvent),
+        handler: (data) =>
+          this.notifyListeners("error", data as unknown as SwabbleErrorEvent),
       },
     ];
 
@@ -295,13 +339,17 @@ export class SwabbleElectron implements SwabblePlugin {
     if (this.captureContext || !window.electron?.ipcRenderer) return;
 
     const constraints: MediaStreamConstraints = {
-      audio: this.selectedDeviceId ? { deviceId: { exact: this.selectedDeviceId } } : true,
+      audio: this.selectedDeviceId
+        ? { deviceId: { exact: this.selectedDeviceId } }
+        : true,
     };
 
     this.captureStream = await navigator.mediaDevices.getUserMedia(constraints);
     this.captureContext = new AudioContext();
 
-    const source = this.captureContext.createMediaStreamSource(this.captureStream);
+    const source = this.captureContext.createMediaStreamSource(
+      this.captureStream,
+    );
     const processor = this.captureContext.createScriptProcessor(4096, 1, 1);
     const gain = this.captureContext.createGain();
     gain.gain.value = 0;
@@ -313,7 +361,11 @@ export class SwabbleElectron implements SwabblePlugin {
 
     processor.onaudioprocess = (event: AudioProcessingEvent) => {
       const input = event.inputBuffer.getChannelData(0);
-      const downsampled = this.downsampleBuffer(input, inputSampleRate, this.captureSampleRate);
+      const downsampled = this.downsampleBuffer(
+        input,
+        inputSampleRate,
+        this.captureSampleRate,
+      );
       if (downsampled.length > 0) {
         window.electron?.ipcRenderer.send("swabble:audioChunk", downsampled);
       }
@@ -342,12 +394,18 @@ export class SwabbleElectron implements SwabblePlugin {
       this.captureContext = null;
     }
     if (this.captureStream) {
-      this.captureStream.getTracks().forEach((track) => track.stop());
+      this.captureStream.getTracks().forEach((track) => {
+        track.stop();
+      });
       this.captureStream = null;
     }
   }
 
-  private downsampleBuffer(buffer: Float32Array, inputSampleRate: number, targetSampleRate: number): Float32Array {
+  private downsampleBuffer(
+    buffer: Float32Array,
+    inputSampleRate: number,
+    targetSampleRate: number,
+  ): Float32Array {
     if (targetSampleRate >= inputSampleRate) {
       return buffer;
     }
@@ -362,7 +420,11 @@ export class SwabbleElectron implements SwabblePlugin {
       const nextOffsetBuffer = Math.round((offsetResult + 1) * ratio);
       let acc = 0;
       let count = 0;
-      for (let i = offsetBuffer; i < nextOffsetBuffer && i < buffer.length; i++) {
+      for (
+        let i = offsetBuffer;
+        i < nextOffsetBuffer && i < buffer.length;
+        i++
+      ) {
         acc += buffer[i];
         count += 1;
       }
@@ -394,14 +456,18 @@ export class SwabbleElectron implements SwabblePlugin {
   private async startAudioLevelMonitoring(): Promise<void> {
     try {
       const constraints: MediaStreamConstraints = {
-        audio: this.selectedDeviceId ? { deviceId: { exact: this.selectedDeviceId } } : true,
+        audio: this.selectedDeviceId
+          ? { deviceId: { exact: this.selectedDeviceId } }
+          : true,
       };
       this.mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
       this.audioContext = new AudioContext();
       this.analyser = this.audioContext.createAnalyser();
       this.analyser.fftSize = 256;
 
-      const source = this.audioContext.createMediaStreamSource(this.mediaStream);
+      const source = this.audioContext.createMediaStreamSource(
+        this.mediaStream,
+      );
       source.connect(this.analyser);
 
       const dataArray = new Uint8Array(this.analyser.frequencyBinCount);
@@ -441,7 +507,9 @@ export class SwabbleElectron implements SwabblePlugin {
     }
 
     if (this.mediaStream) {
-      this.mediaStream.getTracks().forEach((track) => track.stop());
+      this.mediaStream.getTracks().forEach((track) => {
+        track.stop();
+      });
       this.mediaStream = null;
     }
 
@@ -478,7 +546,9 @@ export class SwabbleElectron implements SwabblePlugin {
     return { config: this.config };
   }
 
-  async updateConfig(options: { config: Partial<SwabbleConfig> }): Promise<void> {
+  async updateConfig(options: {
+    config: Partial<SwabbleConfig>;
+  }): Promise<void> {
     if (this.config) {
       this.config = { ...this.config, ...options.config };
       this.wakeGate?.updateConfig(options.config);
@@ -487,7 +557,9 @@ export class SwabbleElectron implements SwabblePlugin {
 
     if (window.electron?.ipcRenderer) {
       try {
-        await window.electron.ipcRenderer.invoke("swabble:updateConfig", { config: options.config });
+        await window.electron.ipcRenderer.invoke("swabble:updateConfig", {
+          config: options.config,
+        });
       } catch {
         // Ignore
       }
@@ -498,21 +570,31 @@ export class SwabbleElectron implements SwabblePlugin {
     let micStatus: "granted" | "denied" | "prompt" = "prompt";
 
     try {
-      const result = await navigator.permissions.query({ name: "microphone" as PermissionName });
+      const result = await navigator.permissions.query({
+        name: "microphone" as PermissionName,
+      });
       micStatus = result.state as "granted" | "denied" | "prompt";
     } catch {
       // Permissions API may not support microphone query
     }
 
     const SpeechRecognitionAPI =
-      (window as Window & { SpeechRecognition?: typeof SpeechRecognition }).SpeechRecognition ||
-      (window as Window & { webkitSpeechRecognition?: typeof SpeechRecognition }).webkitSpeechRecognition;
+      (window as Window & { SpeechRecognition?: typeof SpeechRecognition })
+        .SpeechRecognition ||
+      (
+        window as Window & {
+          webkitSpeechRecognition?: typeof SpeechRecognition;
+        }
+      ).webkitSpeechRecognition;
 
-    let speechRecognition: SwabblePermissionStatus["speechRecognition"] = SpeechRecognitionAPI ? "granted" : "not_supported";
+    let speechRecognition: SwabblePermissionStatus["speechRecognition"] =
+      SpeechRecognitionAPI ? "granted" : "not_supported";
 
     if (window.electron?.ipcRenderer) {
       try {
-        const whisperStatus = await window.electron.ipcRenderer.invoke("swabble:isWhisperAvailable") as {
+        const whisperStatus = (await window.electron.ipcRenderer.invoke(
+          "swabble:isWhisperAvailable",
+        )) as {
           available: boolean;
         };
         if (whisperStatus.available) {
@@ -532,7 +614,9 @@ export class SwabbleElectron implements SwabblePlugin {
   async requestPermissions(): Promise<SwabblePermissionStatus> {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      stream.getTracks().forEach((track) => track.stop());
+      stream.getTracks().forEach((track) => {
+        track.stop();
+      });
       return this.checkPermissions();
     } catch {
       return {
@@ -570,14 +654,18 @@ export class SwabbleElectron implements SwabblePlugin {
 
     throw new Error(
       "setAudioDevice is not supported for Web Speech API. " +
-        "Use Whisper.cpp mode for device selection."
+        "Use Whisper.cpp mode for device selection.",
     );
   }
 
-  private notifyListeners<T extends SwabbleWakeWordEvent | SwabbleTranscriptEvent | SwabbleStateEvent | SwabbleAudioLevelEvent | SwabbleErrorEvent>(
-    eventName: string,
-    data: T
-  ): void {
+  private notifyListeners<
+    T extends
+      | SwabbleWakeWordEvent
+      | SwabbleTranscriptEvent
+      | SwabbleStateEvent
+      | SwabbleAudioLevelEvent
+      | SwabbleErrorEvent,
+  >(eventName: string, data: T): void {
     for (const listener of this.listeners) {
       if (listener.eventName === eventName) {
         (listener.callback as EventCallback<T>)(data);
@@ -587,27 +675,27 @@ export class SwabbleElectron implements SwabblePlugin {
 
   async addListener(
     eventName: "wakeWord",
-    listenerFunc: (event: SwabbleWakeWordEvent) => void
+    listenerFunc: (event: SwabbleWakeWordEvent) => void,
   ): Promise<PluginListenerHandle>;
   async addListener(
     eventName: "transcript",
-    listenerFunc: (event: SwabbleTranscriptEvent) => void
+    listenerFunc: (event: SwabbleTranscriptEvent) => void,
   ): Promise<PluginListenerHandle>;
   async addListener(
     eventName: "stateChange",
-    listenerFunc: (event: SwabbleStateEvent) => void
+    listenerFunc: (event: SwabbleStateEvent) => void,
   ): Promise<PluginListenerHandle>;
   async addListener(
     eventName: "audioLevel",
-    listenerFunc: (event: SwabbleAudioLevelEvent) => void
+    listenerFunc: (event: SwabbleAudioLevelEvent) => void,
   ): Promise<PluginListenerHandle>;
   async addListener(
     eventName: "error",
-    listenerFunc: (event: SwabbleErrorEvent) => void
+    listenerFunc: (event: SwabbleErrorEvent) => void,
   ): Promise<PluginListenerHandle>;
   async addListener(
     eventName: string,
-    listenerFunc: EventCallback<SwabbleEvent>
+    listenerFunc: EventCallback<unknown>,
   ): Promise<PluginListenerHandle> {
     const entry: ListenerEntry = { eventName, callback: listenerFunc };
     this.listeners.push(entry);

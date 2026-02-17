@@ -83,7 +83,8 @@ function Probe(props: { onReady: (api: ProbeApi) => void }) {
 
   useEffect(() => {
     onReady({
-      setPairingCodeInput: (code: string) => app.setState("pairingCodeInput", code),
+      setPairingCodeInput: (code: string) =>
+        app.setState("pairingCodeInput", code),
       handlePairingSubmit: app.handlePairingSubmit,
     });
   }, [app, onReady]);
@@ -144,7 +145,10 @@ describe("pairing submit locking", () => {
     mockClient.connectWs.mockImplementation(() => {});
     mockClient.disconnectWs.mockImplementation(() => {});
     mockClient.onWsEvent.mockReturnValue(() => {});
-    mockClient.getAgentEvents.mockResolvedValue({ events: [], latestEventId: null });
+    mockClient.getAgentEvents.mockResolvedValue({
+      events: [],
+      latestEventId: null,
+    });
     mockClient.getStatus.mockResolvedValue({
       state: "running",
       agentName: "Milady",
@@ -154,7 +158,10 @@ describe("pairing submit locking", () => {
     });
     mockClient.getWalletAddresses.mockResolvedValue(null);
     mockClient.getConfig.mockResolvedValue({});
-    mockClient.getCloudStatus.mockResolvedValue({ enabled: false, connected: false });
+    mockClient.getCloudStatus.mockResolvedValue({
+      enabled: false,
+      connected: false,
+    });
     mockClient.getWorkbenchOverview.mockResolvedValue({
       tasks: [],
       triggers: [],
@@ -187,18 +194,18 @@ describe("pairing submit locking", () => {
     expect(api).not.toBeNull();
 
     await act(async () => {
-      api!.setPairingCodeInput("abcd");
+      api?.setPairingCodeInput("abcd");
     });
 
     await act(async () => {
-      void api!.handlePairingSubmit();
-      void api!.handlePairingSubmit();
+      void api?.handlePairingSubmit();
+      void api?.handlePairingSubmit();
     });
 
     expect(mockClient.pair).toHaveBeenCalledTimes(1);
 
     await act(async () => {
-      tree!.unmount();
+      tree?.unmount();
     });
   });
 
@@ -226,20 +233,20 @@ describe("pairing submit locking", () => {
     expect(api).not.toBeNull();
 
     await act(async () => {
-      api!.setPairingCodeInput("abcd");
+      api?.setPairingCodeInput("abcd");
     });
 
     await act(async () => {
-      await api!.handlePairingSubmit();
+      await api?.handlePairingSubmit();
     });
     await act(async () => {
-      await api!.handlePairingSubmit();
+      await api?.handlePairingSubmit();
     });
 
     expect(mockClient.pair).toHaveBeenCalledTimes(2);
 
     await act(async () => {
-      tree!.unmount();
+      tree?.unmount();
     });
   });
 });
