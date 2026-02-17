@@ -2,7 +2,7 @@
  * Onboarding wizard component — multi-step onboarding flow.
  */
 
-import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useState, type ChangeEvent } from "react";
 import {
   useApp,
   THEMES,
@@ -23,7 +23,6 @@ import {
 } from "../api-client";
 import { getProviderLogo } from "../provider-logos.js";
 import { AvatarSelector } from "./AvatarSelector.js";
-import { VrmViewer } from "./avatar/VrmViewer.js";
 import { PermissionsOnboardingSection } from "./PermissionsSection.js";
 
 const SANDBOX_POLL_INTERVAL_MS = 3000;
@@ -79,57 +78,31 @@ type OnboardingVrmAvatarProps = {
 };
 
 function OnboardingVrmAvatar({
-  vrmPath,
-  fallbackPreviewUrl,
+  vrmPath: _vrmPath,
+  fallbackPreviewUrl: _fallbackPreviewUrl,
   pulse = false,
 }: OnboardingVrmAvatarProps) {
-  const loadedRef = useRef(false);
-  const [vrmLoaded, setVrmLoaded] = useState(false);
-  const [showFallback, setShowFallback] = useState(false);
-
-  useEffect(() => {
-    loadedRef.current = false;
-    setVrmLoaded(false);
-    setShowFallback(false);
-
-    const timer = globalThis.setTimeout(() => {
-      if (!loadedRef.current) {
-        setShowFallback(true);
-      }
-    }, 3500);
-
-    return () => globalThis.clearTimeout(timer);
-  }, [vrmPath]);
+  const { cloudUserId } = useApp();
+  const initials = (cloudUserId ?? "YOU")
+    .replace(/[^a-zA-Z0-9]/g, "")
+    .slice(0, 2)
+    .toUpperCase() || "YOU";
 
   return (
     <div
-      className={`relative w-[140px] h-[140px] rounded-full border-[3px] border-border mx-auto mb-5 overflow-hidden bg-card cursor-grab active:cursor-grabbing ${
+      className={`relative w-[140px] h-[140px] rounded-full border-[3px] border-border mx-auto mb-5 overflow-hidden bg-card ${
         pulse ? "animate-pulse" : ""
       }`}
     >
-      <div className="absolute inset-0">
-        <VrmViewer
-          vrmPath={vrmPath}
-          mouthOpen={0}
-          isSpeaking={false}
-          interactive
-          onEngineState={(state) => {
-            if (state.vrmLoaded && !loadedRef.current) {
-              loadedRef.current = true;
-              setVrmLoaded(true);
-              setShowFallback(false);
-            }
-          }}
-        />
+      <div className="absolute inset-0 bg-gradient-to-br from-card to-bg" />
+      <div className="relative z-10 flex h-full w-full items-center justify-center">
+        <div className="flex h-[74px] w-[74px] items-center justify-center rounded-full border border-border bg-bg/70 text-[22px] font-bold tracking-wide text-txt-strong">
+          {initials}
+        </div>
       </div>
-
-      {showFallback && !vrmLoaded && (
-        <img
-          src={fallbackPreviewUrl}
-          alt="Avatar"
-          className="absolute inset-0 w-full h-full object-cover"
-        />
-      )}
+      <span className="absolute bottom-1.5 right-1.5 rounded-full border border-border bg-card px-2 py-[2px] text-[10px] font-semibold uppercase tracking-wide text-txt">
+        User
+      </span>
     </div>
   );
 }
@@ -490,7 +463,7 @@ export function OnboardingWizard() {
               </div>
               <div className="flex flex-col gap-3 max-w-[460px] mx-auto">
                 <div className="px-4 py-4 border border-accent bg-accent text-accent-fg rounded-lg text-left">
-                  <div className="font-bold text-sm">☁️ cloud</div>
+                  <div className="font-bold text-sm">☁️ cloud (Recommended)</div>
                   <div className="text-[12px] mt-1 opacity-80">
                     always on, works from any device, easiest setup
                   </div>
@@ -519,7 +492,7 @@ export function OnboardingWizard() {
                 }`}
                 onClick={() => handleRunModeSelect("cloud")}
               >
-                <div className="font-bold text-sm">☁️ cloud</div>
+                <div className="font-bold text-sm">☁️ cloud (Recommended)</div>
                 <div className="text-[12px] mt-1 opacity-70">
                   i run on eliza cloud. easiest setup, always on, can still use ur browser &amp; computer if u let me
                 </div>

@@ -451,6 +451,7 @@ export interface AppState {
   onboardingLoading: boolean;
   startupPhase: StartupPhase;
   authRequired: boolean;
+  publicAppMode: boolean;
   actionNotice: ActionNotice | null;
   lifecycleBusy: boolean;
   lifecycleAction: LifecycleAction | null;
@@ -859,6 +860,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [startupPhase, setStartupPhase] =
     useState<StartupPhase>("starting-backend");
   const [authRequired, setAuthRequired] = useState(false);
+  const [publicAppMode, setPublicAppMode] = useState(false);
   const [actionNotice, setActionNoticeState] = useState<ActionNotice | null>(null);
   const [lifecycleBusy, setLifecycleBusy] = useState(false);
   const [lifecycleAction, setLifecycleAction] = useState<LifecycleAction | null>(null);
@@ -2862,7 +2864,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setOnboardingStep("avatar");
         break;
       case "avatar":
-        setOnboardingStep("style");
+        if (publicAppMode) {
+          if (cloudConnected) {
+            await handleOnboardingFinish();
+          } else {
+            setOnboardingStep("cloudLogin");
+          }
+        } else {
+          setOnboardingStep("style");
+        }
         break;
       case "style":
         setOnboardingStep("theme");
@@ -2899,7 +2909,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
         break;
       case "cloudLogin":
-        setOnboardingStep("connectors");
+        if (publicAppMode) {
+          await handleOnboardingFinish();
+        } else {
+          setOnboardingStep("connectors");
+        }
         break;
       case "llmProvider":
         setOnboardingStep("inventorySetup");
@@ -2941,7 +2955,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         break;
       }
     }
-  }, [onboardingStep, onboardingOptions, onboardingRunMode, onboardingTheme, setTheme, cloudConnected, setActionNotice]);
+  }, [onboardingStep, onboardingOptions, onboardingRunMode, onboardingTheme, setTheme, cloudConnected, publicAppMode, setActionNotice]);
 
   const handleOnboardingBack = useCallback(() => {
     switch (onboardingStep) {
@@ -2967,7 +2981,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setOnboardingStep("cloudProvider");
         break;
       case "cloudLogin":
-        setOnboardingStep("modelSelection");
+        setOnboardingStep(publicAppMode ? "avatar" : "modelSelection");
         if (cloudLoginPollTimer.current) {
           clearInterval(cloudLoginPollTimer.current);
           cloudLoginPollTimer.current = null;
@@ -3001,7 +3015,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setOnboardingStep("connectors");
         break;
     }
-  }, [onboardingStep, onboardingOptions, onboardingRunMode]);
+  }, [onboardingStep, onboardingOptions, onboardingRunMode, publicAppMode]);
 
   const handleOnboardingFinish = useCallback(async () => {
     if (onboardingFinishBusyRef.current || onboardingRestarting) return;
@@ -3012,7 +3026,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
       ? style.system.replace(/\{\{name\}\}/g, onboardingName)
       : `You are ${onboardingName}, an autonomous AI agent powered by ElizaOS. ${onboardingOptions.sharedStyleRules}`;
 
-    const isLocalMode = onboardingRunMode === "local-rawdog" || onboardingRunMode === "local-sandbox";
+    const effectiveRunMode: "local-rawdog" | "local-sandbox" | "cloud" =
+      publicAppMode ? "cloud" : (onboardingRunMode || "local-rawdog");
+    const effectiveCloudProvider =
+      effectiveRunMode === "cloud"
+        ? onboardingCloudProvider || "elizacloud"
+        : onboardingCloudProvider;
+    const isLocalMode = effectiveRunMode === "local-rawdog" || effectiveRunMode === "local-sandbox";
     const inventoryProviders: Array<{ chain: string; rpcProvider: string; rpcApiKey?: string }> = [];
     if (isLocalMode) {
       for (const chain of onboardingSelectedChains) {
@@ -3025,7 +3045,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     // Map the 3-mode selection to the API's runMode field
     // "local-rawdog" and "local-sandbox" both map to "local" for backward compat
     // Sandbox mode is additionally stored as a separate flag
-    const apiRunMode = onboardingRunMode === "cloud" ? "cloud" : "local";
+    const apiRunMode = effectiveRunMode === "cloud" ? "cloud" : "local";
 
     onboardingFinishBusyRef.current = true;
     setOnboardingRestarting(true);
@@ -3036,7 +3056,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         name: onboardingName,
         theme: onboardingTheme,
         runMode: apiRunMode as "local" | "cloud",
-        sandboxMode: onboardingRunMode === "local-sandbox" ? "standard" : onboardingRunMode === "cloud" ? "light" : "off",
+        sandboxMode: effectiveRunMode === "local-sandbox" ? "standard" : effectiveRunMode === "cloud" ? "light" : "off",
         bio: style?.bio ?? ["An autonomous AI agent."],
         systemPrompt,
         style: style?.style,
@@ -3044,9 +3064,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         topics: style?.topics,
         postExamples: style?.postExamples,
         messageExamples: style?.messageExamples,
-        cloudProvider: onboardingRunMode === "cloud" ? onboardingCloudProvider : undefined,
-        smallModel: onboardingRunMode === "cloud" ? onboardingSmallModel : undefined,
-        largeModel: onboardingRunMode === "cloud" ? onboardingLargeModel : undefined,
+        cloudProvider: apiRunMode === "cloud" ? effectiveCloudProvider : undefined,
+        smallModel: apiRunMode === "cloud" ? onboardingSmallModel : undefined,
+        largeModel: apiRunMode === "cloud" ? onboardingLargeModel : undefined,
         provider: isLocalMode ? onboardingProvider || undefined : undefined,
         providerApiKey: isLocalMode ? onboardingApiKey || undefined : undefined,
         inventoryProviders: inventoryProviders.length > 0 ? inventoryProviders : undefined,
@@ -3084,6 +3104,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     onboardingTelegramToken, onboardingDiscordToken, onboardingWhatsAppSessionPath,
     onboardingTwilioAccountSid, onboardingTwilioAuthToken, onboardingTwilioPhoneNumber,
     onboardingBlooioApiKey, onboardingBlooioPhoneNumber,
+    publicAppMode,
     setTab,
   ]);
 
@@ -3424,6 +3445,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
       let onboardingNeedsOptions = false;
       let requiresAuth = false;
+      let isPublicMode = false;
       setStartupPhase("starting-backend");
 
       // Keep the splash screen up until the backend is reachable.
@@ -3431,6 +3453,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       while (!cancelled) {
         try {
           const auth = await client.getAuthStatus();
+          isPublicMode = Boolean((auth as { publicMode?: boolean }).publicMode);
+          setPublicAppMode(isPublicMode);
           if (auth.required && !client.hasToken()) {
             setAuthRequired(true);
             setPairingEnabled(auth.pairingEnabled);
@@ -3466,6 +3490,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
           try {
             const options = await client.getOnboardingOptions();
             setOnboardingOptions(options);
+            if (isPublicMode) {
+              setOnboardingRunMode("cloud");
+              setOnboardingCloudProvider("elizacloud");
+              setOnboardingName((prev) => prev.trim() || options.names?.[0] || "Milady");
+            }
             optionsLoaded = true;
           } catch {
             await sleep(500);
@@ -3760,7 +3789,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const value: AppContextValue = {
     // State
     tab, currentTheme, connected, agentStatus, onboardingComplete, onboardingLoading,
-    startupPhase, authRequired, actionNotice, lifecycleBusy, lifecycleAction,
+    startupPhase, authRequired, publicAppMode, actionNotice, lifecycleBusy, lifecycleAction,
     pairingEnabled, pairingExpiresAt, pairingCodeInput, pairingError, pairingBusy,
     chatInput, chatSending, chatFirstTokenReceived,
     chatAvatarVisible, chatAgentVoiceMuted, chatMode, chatAvatarSpeaking,

@@ -5272,12 +5272,14 @@ async function handleRequest(
 
   // ── GET /api/auth/status ───────────────────────────────────────────────
   if (method === "GET" && pathname === "/api/auth/status") {
+    const publicMode = isPublicAppModeEnabled();
     const required =
-      !isPublicAppModeEnabled() && Boolean(process.env.MILADY_API_TOKEN?.trim());
+      !publicMode && Boolean(process.env.MILADY_API_TOKEN?.trim());
     const enabled = pairingEnabled();
     if (enabled) ensurePairingCode();
     json(res, {
       required,
+      publicMode,
       pairingEnabled: enabled,
       expiresAt: enabled ? pairingExpiresAt : null,
     });
