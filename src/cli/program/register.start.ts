@@ -8,7 +8,8 @@ const defaultRuntime = { error: console.error, exit: process.exit };
 async function startAction() {
   await runCommandWithRuntime(defaultRuntime, async () => {
     const { startEliza } = await import("../../runtime/eliza");
-    await startEliza();
+    // Use serverOnly mode: starts API server, no interactive chat loop
+    await startEliza({ serverOnly: true });
   });
 }
 

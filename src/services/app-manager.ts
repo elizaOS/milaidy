@@ -12,6 +12,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { logger } from "@elizaos/core";
+import { getWalletAddresses } from "../api/wallet";
 import type {
   AppLaunchResult,
   AppStopResult,
@@ -294,18 +295,19 @@ async function autoProvisionHyperscapeAgent(): Promise<{
     return { characterId: existingCharId, authToken: existingToken };
   }
 
-  // Get wallet address - try EVM first, then Solana
+  // Derive wallet addresses from private keys
+  const walletAddresses = getWalletAddresses();
   const walletAddress =
-    process.env.EVM_PUBLIC_KEY?.trim() || process.env.SOLANA_PUBLIC_KEY?.trim();
+    walletAddresses.evmAddress || walletAddresses.solanaAddress;
 
   if (!walletAddress) {
     logger.warn(
-      "[app-manager] No wallet address found for hyperscape auto-auth (need EVM_PUBLIC_KEY or SOLANA_PUBLIC_KEY)",
+      "[app-manager] No wallet address found for hyperscape auto-auth (need EVM_PRIVATE_KEY or SOLANA_PRIVATE_KEY)",
     );
     return null;
   }
 
-  const walletType = walletAddress.startsWith("0x") ? "evm" : "solana";
+  const walletType = walletAddresses.evmAddress ? "evm" : "solana";
 
   // Get server URL for API calls
   const serverUrl =

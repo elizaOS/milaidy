@@ -6,22 +6,54 @@
  *    insert errors on repeated ensureWorldExists() calls.
  * 2) Guards ensureEmbeddingDimension() so unsupported dimensions don't set the
  *    embedding column to undefined (which crashes drizzle query planning).
+ * 3) Skips pgcrypto extension for PGlite (doesn't support extensions).
  *
  * Remove these once plugin-sql publishes fixes for both paths.
  */
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, "..");
 
-const target = resolve(
-  root,
-  "node_modules/@elizaos/plugin-sql/dist/node/index.node.js",
-);
+/**
+ * Find plugin-sql dist file - handles both npm and bun cache structures.
+ */
+function findPluginSqlDist() {
+  // Standard npm location
+  const npmTarget = resolve(
+    root,
+    "node_modules/@elizaos/plugin-sql/dist/node/index.node.js",
+  );
+  if (existsSync(npmTarget)) return npmTarget;
 
-if (!existsSync(target)) {
+  // Bun cache location (node_modules/.bun/@elizaos+plugin-sql@*/...)
+  const bunCacheDir = resolve(root, "node_modules/.bun");
+  if (existsSync(bunCacheDir)) {
+    try {
+      const entries = readdirSync(bunCacheDir);
+      for (const entry of entries) {
+        if (entry.startsWith("@elizaos+plugin-sql@")) {
+          const bunTarget = resolve(
+            bunCacheDir,
+            entry,
+            "node_modules/@elizaos/plugin-sql/dist/node/index.node.js",
+          );
+          if (existsSync(bunTarget)) return bunTarget;
+        }
+      }
+    } catch {
+      // Ignore errors reading bun cache
+    }
+  }
+
+  return null;
+}
+
+const target = findPluginSqlDist();
+
+if (!target) {
   console.log("[patch-deps] plugin-sql dist not found, skipping patch.");
   process.exit(0);
 }
@@ -81,6 +113,24 @@ if (src.includes(embeddingFixed)) {
 } else {
   console.log(
     "[patch-deps] ensureEmbeddingDimension signature changed — embedding patch may no longer be needed.",
+  );
+}
+
+// Patch: Skip pgcrypto extension for PGlite (doesn't support it)
+// Change the extension list to exclude pgcrypto when PGLITE_DATA_DIR is set
+const extensionsBuggy = `const extensions = isRealPostgres ? ["vector", "fuzzystrmatch", "pgcrypto"] : ["vector", "fuzzystrmatch"];`;
+const extensionsFixed = `const isPglite = !!process.env.PGLITE_DATA_DIR;
+      const extensions = isRealPostgres && !isPglite ? ["vector", "fuzzystrmatch", "pgcrypto"] : ["vector", "fuzzystrmatch"];`;
+
+if (src.includes(extensionsFixed)) {
+  console.log("[patch-deps] PGlite extension patch already present.");
+} else if (src.includes(extensionsBuggy)) {
+  src = src.replace(extensionsBuggy, extensionsFixed);
+  patched += 1;
+  console.log("[patch-deps] Applied PGlite extension exclusion patch.");
+} else {
+  console.log(
+    "[patch-deps] Extension installation code changed — PGlite patch may no longer be needed.",
   );
 }
 

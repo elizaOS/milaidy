@@ -17,7 +17,8 @@
     "apps/*/plugins/*",
     "apps/*/electron",
     "apps/app/electron",
-    "deploy/cloud-agent-template"
+    "deploy/cloud-agent-template",
+    "plugins/plugin-*"
   ],
   "type": "module",
   "main": "build/src/index.js",
@@ -126,7 +127,7 @@
     "@elizaos/plugin-todo": "next",
     "@elizaos/plugin-trajectory-logger": "next",
     "@elizaos/plugin-trust": "next",
-    "@elizaos/prompts": "^2.0.0-alpha.12",
+    "@elizaos/prompts": "next",
     "@elizaos/sweagent-root": "next",
     "@elizaos/tui": "next",
     "@langchain/core": "^1.1.12",

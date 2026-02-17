@@ -86,7 +86,7 @@ export class AgentManager {
       //    (or MILADY_PORT if set)
       const apiPort = Number(process.env.MILADY_PORT) || 2138;
       const serverModule = await dynamicImport(
-        path.join(miladyDist, "server"),
+        path.join(miladyDist, "server.js"),
       ).catch((err: unknown) => {
         console.warn(
           "[Agent] Could not load server.js:",
@@ -196,7 +196,7 @@ export class AgentManager {
       this.sendToRenderer("agent:status", this.status);
 
       // 2. Resolve runtime bootstrap entry (may be slow on cold boot).
-      const elizaModule = await dynamicImport(path.join(miladyDist, "eliza"));
+      const elizaModule = await dynamicImport(path.join(miladyDist, "eliza.js"));
       const resolvedStartEliza = (elizaModule.startEliza ??
         (elizaModule.default as Record<string, unknown>)?.startEliza) as
         | ((opts: {
