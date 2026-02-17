@@ -1001,10 +1001,6 @@ export function applyDatabaseConfigToEnv(config: MilaidyConfig): void {
  */
 const MILAIDY_MESSAGE_HANDLER_TEMPLATE = `<task>Generate dialog and actions for the character {{agentName}}.</task>
 
-<providers>
-{{providers}}
-</providers>
-
 <instructions>
 Write a thought and plan for {{agentName}} and decide what actions to take. Also include the providers that {{agentName}} will use to have the right context for responding and acting, if any.
 
@@ -1098,7 +1094,11 @@ The <params> block is optional - only include when actions require input paramet
 If an action has no parameters or you're only using REPLY/IGNORE, omit <params> entirely.
 
 IMPORTANT: Your response must ONLY contain the <response></response> XML block above. Do not include any text, thinking, or reasoning before or after this XML block. Start your response immediately with <response> and end with </response>.
-</output>`;
+</output>
+
+<providers>
+{{providers}}
+</providers>`;
 
 /** @internal Exported for testing. */
 export function buildCharacterFromConfig(config: MilaidyConfig): Character {
