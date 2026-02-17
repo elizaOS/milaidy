@@ -48,12 +48,12 @@ RUN set -e; \
           git -c filter.lfs.smudge= -c filter.lfs.process= -c filter.lfs.required=false fetch --depth 1 origin "$COMMIT" && GIT_LFS_SKIP_SMUDGE=1 git checkout "$COMMIT"; \
         fi; \
         git lfs install --local; \
-        git lfs fetch origin "$REF" --include='apps/app/public/vrms/**' --exclude='*' || true; \
+        git lfs fetch origin "$REF" --include='apps/app/public/vrms/**' --exclude='*'; \
         git lfs fetch origin "$REF" --include='apps/app/public/animations/mixamo/**' --exclude='*' || true; \
         git lfs fetch origin "$REF" --include='apps/app/public/animations/idle.glb' --exclude='*' || true; \
         git lfs fetch origin "$REF" --include='apps/app/public/animations/Idle.fbx' --exclude='*' || true; \
         git lfs fetch origin "$REF" --include='apps/app/public/animations/BreathingIdle.fbx' --exclude='*' || true; \
-        git lfs checkout apps/app/public/vrms || true; \
+        git lfs checkout apps/app/public/vrms; \
         git lfs checkout apps/app/public/animations/mixamo || true; \
         git lfs checkout apps/app/public/animations/idle.glb || true; \
         git lfs checkout apps/app/public/animations/Idle.fbx || true; \
@@ -61,7 +61,7 @@ RUN set -e; \
         cd /app; \
         rm -rf apps/app/public/vrms apps/app/public/animations; \
         mkdir -p apps/app/public/animations; \
-        cp -a /tmp/milady-lfs-src/apps/app/public/vrms apps/app/public/ || true; \
+        cp -a /tmp/milady-lfs-src/apps/app/public/vrms apps/app/public/; \
         cp -a /tmp/milady-lfs-src/apps/app/public/animations/mixamo apps/app/public/animations/ || true; \
         cp -a /tmp/milady-lfs-src/apps/app/public/animations/idle.glb apps/app/public/animations/ || true; \
         cp -a /tmp/milady-lfs-src/apps/app/public/animations/Idle.fbx apps/app/public/animations/ || true; \
@@ -71,10 +71,32 @@ RUN set -e; \
         echo '[build] WARNING: fallback clone failed; continuing with existing assets.'; \
       fi; \
     fi; \
-    POINTERS="$(grep -RIl '^version https://git-lfs.github.com/spec/v1' apps/app/public/vrms apps/app/public/animations || true)"; \
-    if [ -n "$POINTERS" ]; then \
-      echo '[build] WARNING: unresolved Git LFS media pointers remain; build will continue.'; \
-      echo "$POINTERS" | head -n 60; \
+    MEDIA_REPO="$MILADY_LFS_REPO_URL"; \
+    MEDIA_REPO_PATH="$(echo "$MEDIA_REPO" | sed -E 's#^https://github.com/([^/]+/[^/.]+)(\\.git)?$#\\1#')"; \
+    if [ -z "$MEDIA_REPO_PATH" ] || [ "$MEDIA_REPO_PATH" = "$MEDIA_REPO" ]; then MEDIA_REPO_PATH="cayden970207/milady"; fi; \
+    MEDIA_REF="$MILADY_LFS_REF"; \
+    if [ -z "$MEDIA_REF" ] && [ -n "${RAILWAY_GIT_BRANCH:-}" ]; then MEDIA_REF="${RAILWAY_GIT_BRANCH}"; fi; \
+    if [ -z "$MEDIA_REF" ]; then MEDIA_REF="main"; fi; \
+    VRM_POINTERS="$(grep -RIl '^version https://git-lfs.github.com/spec/v1' apps/app/public/vrms || true)"; \
+    if [ -n "$VRM_POINTERS" ]; then \
+      echo '[build] VRM pointers detected after LFS restore; attempting media.githubusercontent fallback...'; \
+      echo "$VRM_POINTERS" | while IFS= read -r FILE; do \
+        [ -z "$FILE" ] && continue; \
+        URL="https://media.githubusercontent.com/media/${MEDIA_REPO_PATH}/${MEDIA_REF}/${FILE}"; \
+        echo "[build] downloading $FILE"; \
+        curl -fsSL "$URL" -o "$FILE" || true; \
+      done; \
+    fi; \
+    VRM_POINTERS="$(grep -RIl '^version https://git-lfs.github.com/spec/v1' apps/app/public/vrms || true)"; \
+    if [ -n "$VRM_POINTERS" ]; then \
+      echo '[build] ERROR: unresolved Git LFS pointers remain in VRM assets:'; \
+      echo "$VRM_POINTERS"; \
+      exit 1; \
+    fi; \
+    ANIMATION_POINTERS="$(grep -RIl '^version https://git-lfs.github.com/spec/v1' apps/app/public/animations || true)"; \
+    if [ -n "$ANIMATION_POINTERS" ]; then \
+      echo '[build] WARNING: unresolved Git LFS pointers remain in animation assets; build will continue.'; \
+      echo "$ANIMATION_POINTERS" | head -n 60; \
     fi
 
 # Install dependencies while skipping third-party postinstall hooks that
