@@ -2229,6 +2229,80 @@ interface ChatImageAttachment {
   name: string;
 }
 
+const MAX_CHAT_IMAGES = 4;
+
+const ALLOWED_IMAGE_MIME_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+]);
+
+/** Returns an error message string, or null if valid. Exported for unit tests. */
+export function validateChatImages(images: unknown): string | null {
+  if (!Array.isArray(images) || images.length === 0) return null;
+  if (images.length > MAX_CHAT_IMAGES)
+    return `Too many images (max ${MAX_CHAT_IMAGES})`;
+  for (const img of images) {
+    if (!img || typeof img !== "object") return "Each image must be an object";
+    const { data, mimeType, name } = img as Record<string, unknown>;
+    if (typeof data !== "string" || !data)
+      return "Each image must have a non-empty data string";
+    if (data.startsWith("data:"))
+      return "Image data must be raw base64, not a data URL";
+    if (typeof mimeType !== "string" || !mimeType)
+      return "Each image must have a mimeType string";
+    if (!ALLOWED_IMAGE_MIME_TYPES.has(mimeType.toLowerCase()))
+      return `Unsupported image type: ${mimeType}`;
+    if (typeof name !== "string" || !name)
+      return "Each image must have a name string";
+  }
+  return null;
+}
+
+/** Builds in-memory and compact (DB-persisted) attachment arrays from validated images. */
+function buildChatAttachments(images: ChatImageAttachment[] | undefined): {
+  attachments: Array<{
+    id: string;
+    url: string;
+    title: string;
+    source: string;
+    description: string;
+    text: string;
+    contentType: ContentType;
+    _data: string;
+    _mimeType: string;
+  }> | undefined;
+  compactAttachments: Array<{
+    id: string;
+    url: string;
+    title: string;
+    source: string;
+    description: string;
+    text: string;
+    contentType: ContentType;
+  }> | undefined;
+} {
+  if (!images?.length) return { attachments: undefined, compactAttachments: undefined };
+  // Compact placeholder URL (no base64) keeps the LLM context lean. The raw
+  // image bytes are stashed in `_data`/`_mimeType` for action handlers (e.g.
+  // POST_TWEET) that need to upload them.
+  const attachments = images.map((img, i) => ({
+    id: `img-${i}`,
+    url: `attachment:img-${i}`,
+    title: img.name,
+    source: "client_chat",
+    description: "User-attached image",
+    text: "",
+    contentType: ContentType.IMAGE,
+    _data: img.data,
+    _mimeType: img.mimeType,
+  }));
+  // DB-persisted version omits _data/_mimeType so raw bytes aren't stored.
+  const compactAttachments = attachments.map(({ _data: _d, _mimeType: _m, ...rest }) => rest);
+  return { attachments, compactAttachments };
+}
+
 async function readChatRequestPayload(
   req: http.IncomingMessage,
   res: http.ServerResponse,
@@ -2256,7 +2330,12 @@ async function readChatRequestPayload(
     helpers.error(res, "channelType is invalid", 400);
     return null;
   }
-  const images = Array.isArray(body.images) ? body.images : undefined;
+  const imageValidationError = validateChatImages(body.images);
+  if (imageValidationError) {
+    helpers.error(res, imageValidationError, 400);
+    return null;
+  }
+  const images = Array.isArray(body.images) ? (body.images as ChatImageAttachment[]) : undefined;
   return {
     prompt: body.text.trim(),
     channelType,
@@ -8713,23 +8792,7 @@ async function handleRequest(
       return;
     }
 
-    // Compact attachments: placeholder URL (no base64) to avoid bloating the
-    // LLM prompt context. The raw image data is stashed in `_data`/`_mimeType`
-    // for action handlers (e.g. POST_TWEET) that need to upload the bytes.
-    const attachments = images?.map((img, i) => ({
-      id: `img-${i}`,
-      url: `attachment:img-${i}`,
-      title: img.name,
-      source: "client_chat",
-      description: "User-attached image",
-      text: "",
-      contentType: ContentType.IMAGE,
-      _data: img.data,
-      _mimeType: img.mimeType,
-    }));
-
-    // DB-persisted version omits _data so the raw bytes aren't stored.
-    const compactAttachments = attachments?.map(({ _data: _d, _mimeType: _m, ...rest }) => rest);
+    const { attachments, compactAttachments } = buildChatAttachments(images);
 
     const msgId = crypto.randomUUID() as UUID;
 
@@ -8897,21 +8960,8 @@ async function handleRequest(
       return;
     }
 
-    const msgAttachments = images?.map((img, i) => ({
-      id: `img-${i}`,
-      url: `attachment:img-${i}`,
-      title: img.name,
-      source: "client_chat",
-      description: "User-attached image",
-      text: "",
-      contentType: ContentType.IMAGE,
-      _data: img.data,
-      _mimeType: img.mimeType,
-    }));
-
-    const compactMsgAttachments = msgAttachments?.map(
-      ({ _data: _d, _mimeType: _m, ...rest }) => rest,
-    );
+    const { attachments: msgAttachments, compactAttachments: compactMsgAttachments } =
+      buildChatAttachments(images);
 
     const msgId2 = crypto.randomUUID() as UUID;
 

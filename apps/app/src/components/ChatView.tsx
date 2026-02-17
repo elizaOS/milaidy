@@ -298,10 +298,10 @@ export function ChatView() {
       );
 
       void Promise.all(readers).then((attachments) => {
-        setChatPendingImages([...chatPendingImages, ...attachments]);
+        setChatPendingImages((prev) => [...prev, ...attachments]);
       });
     },
-    [chatPendingImages, setChatPendingImages],
+    [setChatPendingImages],
   );
 
   const handleImageDrop = useCallback(

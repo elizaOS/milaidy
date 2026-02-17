@@ -20,6 +20,14 @@ interface ChatViewContextStub {
   droppedFiles: string[];
   shareIngestNotice: string;
   selectedVrmIndex: number;
+  chatPendingImages: Array<{ data: string; mimeType: string; name: string }>;
+  setChatPendingImages: (
+    updater:
+      | Array<{ data: string; mimeType: string; name: string }>
+      | ((
+          prev: Array<{ data: string; mimeType: string; name: string }>,
+        ) => Array<{ data: string; mimeType: string; name: string }>),
+  ) => void;
 }
 
 const { mockClient, mockUseApp, mockUseVoiceChat } = vi.hoisted(() => ({
@@ -69,6 +77,8 @@ function createContext(
     droppedFiles: [],
     shareIngestNotice: "",
     selectedVrmIndex: 0,
+    chatPendingImages: [],
+    setChatPendingImages: vi.fn(),
     ...overrides,
   };
 }
@@ -232,5 +242,87 @@ describe("ChatView", () => {
       "Hello world.",
       true,
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// addImageFiles — functional updater (stale closure fix)
+// ---------------------------------------------------------------------------
+
+describe("addImageFiles functional updater", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("calls setChatPendingImages with a functional updater, not a static array", async () => {
+    // Synchronous FileReader mock — calls onload immediately so we don't need
+    // to wait for real async I/O inside the test.
+    let readerInstance: { onload?: (() => void) | null; result: string };
+    const MockFileReader = vi.fn().mockImplementation(() => {
+      readerInstance = { onload: null, result: "" };
+      return {
+        get onload() {
+          return readerInstance.onload;
+        },
+        set onload(fn) {
+          readerInstance.onload = fn;
+        },
+        get result() {
+          return readerInstance.result;
+        },
+        readAsDataURL() {
+          readerInstance.result = "data:image/png;base64,abc123";
+          readerInstance.onload?.();
+        },
+      };
+    });
+    vi.stubGlobal("FileReader", MockFileReader);
+
+    const setChatPendingImages = vi.fn();
+    mockUseApp.mockReturnValue(
+      createContext({ chatPendingImages: [], setChatPendingImages }),
+    );
+
+    let tree: TestRenderer.ReactTestRenderer;
+    await act(async () => {
+      tree = TestRenderer.create(React.createElement(ChatView));
+    });
+    await flush();
+
+    // Find the hidden <input type="file"> and fire onChange with a fake File
+    const fileInput = tree!.root.find(
+      (node) => node.type === "input" && node.props.accept === "image/*",
+    );
+
+    const fakeFile = new Proxy(
+      { type: "image/png", name: "test.png" },
+      {
+        get(target, prop) {
+          return (target as Record<string | symbol, unknown>)[prop as string];
+        },
+      },
+    ) as unknown as File;
+
+    await act(async () => {
+      fileInput.props.onChange({
+        target: { files: [fakeFile], value: "" },
+      });
+    });
+    await flush();
+
+    // The fix: setChatPendingImages must be called with a function (functional
+    // updater), not a static array. This ensures rapid consecutive drops
+    // accumulate all images instead of overwriting with stale state.
+    expect(setChatPendingImages).toHaveBeenCalled();
+    const callArg = setChatPendingImages.mock.calls[0]?.[0];
+    expect(typeof callArg).toBe("function");
+
+    // Verify the updater correctly appends to the existing array
+    const prev = [{ data: "existing", mimeType: "image/jpeg", name: "prev.jpg" }];
+    const next = callArg(prev);
+    expect(next).toHaveLength(2);
+    expect(next[0]).toEqual(prev[0]);
+    expect(next[1]).toMatchObject({ mimeType: "image/png", name: "test.png" });
   });
 });
