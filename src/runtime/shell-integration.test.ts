@@ -11,10 +11,29 @@
  * - Provider (shellHistoryProvider) shape
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { MiladyConfig } from "../config/config";
 import { tryOptionalDynamicImport } from "../test-support/test-helpers";
 import { CORE_PLUGINS, collectPluginNames } from "./eliza";
+
+// Verify plugin-shell works by mocking missing core export if needed
+vi.mock("@elizaos/core", async () => {
+  const actual = await import("@elizaos/core");
+  return {
+    ...actual,
+    validateActionKeywords: vi.fn(() => true),
+  };
+});
+
+// Mock node-pty to prevent native module errors during testing
+vi.mock("@lydell/node-pty", () => {
+  return {
+    spawn: vi.fn(),
+    default: {
+      spawn: vi.fn(),
+    },
+  };
+});
 
 async function loadShellPluginModule(): Promise<Record<
   string,

@@ -13,7 +13,6 @@ import { CHANNEL_DIST_TAGS } from "./update-checker";
 export type InstallMethod =
   | "npm-global"
   | "bun-global"
-  | "pnpm-global"
   | "homebrew"
   | "snap"
   | "apt"
@@ -80,7 +79,6 @@ export function detectInstallMethod(): InstallMethod {
   if (resolved.startsWith("/usr/") && !resolved.includes("node_modules"))
     return "apt";
   if (resolved.includes("/.bun/")) return "bun-global";
-  if (resolved.includes("/pnpm/")) return "pnpm-global";
   if (resolved.includes("node_modules")) return "npm-global";
 
   return "unknown";
@@ -97,8 +95,6 @@ export function buildUpdateCommand(
       return { command: "npm", args: ["install", "-g", spec] };
     case "bun-global":
       return { command: "bun", args: ["install", "-g", spec] };
-    case "pnpm-global":
-      return { command: "pnpm", args: ["add", "-g", spec] };
     case "homebrew":
       return { command: "brew", args: ["upgrade", "milady"] };
     case "snap": {

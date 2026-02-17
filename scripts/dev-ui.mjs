@@ -267,7 +267,7 @@ function resolveStealthImportFlags() {
 const SUPPRESS_RE = /^\s*(Info|Warn|Debug|Trace)\s/;
 const SUPPRESS_UNSTRUCTURED_RE = /^\[dotenv[@\d]/;
 const STARTUP_RE =
-  /\[milady(?:-api)?\]|runtime bootstrap|runtime ready|api server ready/i;
+  /\[milady(?:-api)?\]|runtime bootstrap|runtime ready|runtime created|api server ready|plugin.*load|startup.*complete|\d+ms/i;
 
 function createErrorFilter(dest) {
   let buf = "";

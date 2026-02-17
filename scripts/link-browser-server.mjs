@@ -25,7 +25,8 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const miladyRoot = resolve(__dirname, "..");
-const workspaceRoot = resolve(miladyRoot, "..");
+// plugins are inside milady, not one level up
+const workspaceRoot = miladyRoot;
 
 // ── Resolve plugin-browser package ───────────────────────────────────────────
 

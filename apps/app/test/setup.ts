@@ -124,8 +124,18 @@ ensureObj(nav, "clipboard", {
   write: vi.fn().mockResolvedValue(undefined),
 });
 
-if (!nav.platform) nav.platform = "test";
-if (!nav.userAgent) nav.userAgent = "test-agent";
+if (!nav.platform) {
+  Object.defineProperty(nav, "platform", {
+    value: "test",
+    writable: true,
+  });
+}
+if (!nav.userAgent) {
+  Object.defineProperty(nav, "userAgent", {
+    value: "test-agent",
+    writable: true,
+  });
+}
 
 // ---------------------------------------------------------------------------
 // DOM mocks
@@ -334,8 +344,8 @@ if (typeof globalThis.AudioContext === "undefined") {
         length: 44100,
         sampleRate: 44100,
       }));
-      resume = vi.fn(async () => {});
-      close = vi.fn(async () => {});
+      resume = vi.fn(async () => { });
+      close = vi.fn(async () => { });
     },
     writable: true,
     configurable: true,

@@ -274,24 +274,23 @@ Or use `~/.milady/.env` for secrets.
 | | Version | Notes |
 |---|---------|-------|
 | **Node.js** | >= 22 | `node --version` to check |
-| **pnpm** | >= 10 | for building from source. `npm i -g pnpm` |
-| **bun** | latest | optional — `scripts/rt.sh` auto-falls back to npm |
+| **bun** | latest | for building and running. `curl -fsSL https://bun.sh/install \| bash` |
 
 ## Build from Source
 
 ```bash
 git clone https://github.com/milady-ai/milady.git
 cd milady
-pnpm install        # or: bun install
-pnpm build          # or: bun run build (rt.sh picks bun if available)
-pnpm run milady start
+bun install
+bun run build
+bun run milady start
 ```
 
-> `scripts/rt.sh` prefers bun but falls back to npm automatically. You don't need bun installed. If you want to be explicit: `pnpm run build:node` uses only Node.
+> `scripts/rt.sh` prefers bun but falls back to npm automatically. If you want to be explicit: `bun run build:node` uses only Node.
 
 Dev mode with hot reload:
 ```bash
-bun run dev         # or: pnpm dev
+bun run dev
 ```
 
 ---

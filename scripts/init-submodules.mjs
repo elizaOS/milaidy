@@ -23,8 +23,8 @@ if (!existsSync(gitDir)) {
 }
 
 // List of submodules to check
+// Note: eliza is no longer a submodule - it's cloned to ~/.milady/eliza by setup-local-eliza.mjs
 const submodules = [
-  { path: "eliza", name: "eliza" },
   { path: "plugins", name: "plugins" },
   { path: "benchmarks", name: "benchmarks" },
 ];

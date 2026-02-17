@@ -752,12 +752,7 @@ export const MiladySchema = z
           .object({
             preferBrew: z.boolean().optional(),
             nodeManager: z
-              .union([
-                z.literal("npm"),
-                z.literal("pnpm"),
-                z.literal("yarn"),
-                z.literal("bun"),
-              ])
+              .union([z.literal("npm"), z.literal("yarn"), z.literal("bun")])
               .optional(),
           })
           .strict()

@@ -57,12 +57,12 @@ describe("terminalAction", () => {
       undefined,
       { roomId: "room", content: { text: "" } },
       undefined,
-      { parameters: { command: "pnpm --version" } },
+      { parameters: { command: "bun --version" } },
     );
 
     expect(result.success).toBe(true);
-    expect(result.text).toBe("Running in terminal: `pnpm --version`");
-    expect(result.data).toEqual({ command: "pnpm --version" });
+    expect(result.text).toBe("Running in terminal: `bun --version`");
+    expect(result.data).toEqual({ command: "bun --version" });
   });
 
   it("handles fetch exceptions", async () => {

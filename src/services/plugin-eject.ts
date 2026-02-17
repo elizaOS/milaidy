@@ -158,7 +158,7 @@ async function readUpstreamMetadata(
           : null,
       localCommits:
         typeof parsed.localCommits === "number" &&
-          Number.isFinite(parsed.localCommits)
+        Number.isFinite(parsed.localCommits)
           ? parsed.localCommits
           : 0,
     };

@@ -21,7 +21,18 @@
     "skipLibCheck": true,
     "strict": true,
     "target": "es2023",
-    "useDefineForClassFields": false
+    "useDefineForClassFields": false,
+    "baseUrl": ".",
+    "paths": {
+      "@elizaos/core": [
+        "/Users/shawwalters/.milady/eliza/packages/typescript/src/index.node.ts",
+        "/Users/shawwalters/.milady/eliza/packages/typescript/dist/node/index.node.js"
+      ],
+      "@elizaos/core/*": [
+        "/Users/shawwalters/.milady/eliza/packages/typescript/src/*",
+        "/Users/shawwalters/.milady/eliza/packages/typescript/dist/node/*"
+      ]
+    }
   },
   "include": [
     "src/**/*"
@@ -31,6 +42,7 @@
     "dist",
     "src/**/*.test.ts",
     "src/**/*.test.tsx",
-    "src/**/test-helpers.ts"
+    "src/**/test-helpers.ts",
+    "src/services/training-service.ts"
   ]
 }

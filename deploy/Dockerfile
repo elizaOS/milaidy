@@ -15,7 +15,7 @@ RUN if [ -n "$MILADY_DOCKER_APT_PACKAGES" ]; then \
     fi
 
 # Copy dependency manifests first for better layer caching
-COPY package.json bun.lock* pnpm-lock.yaml .npmrc ./
+COPY package.json bun.lock* .npmrc ./
 COPY apps/app/package.json ./apps/app/package.json
 COPY scripts ./scripts
 

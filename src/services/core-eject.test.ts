@@ -413,7 +413,6 @@ describe("core-eject", () => {
       ]);
       expect(result.error).toContain("merge failed");
     });
-
   });
 
   describe("reinjectCore", () => {

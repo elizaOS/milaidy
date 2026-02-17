@@ -12,15 +12,11 @@
  * Issue: #3 — Plugin & Provider Stability
  */
 
-import {
-  createSessionKeyProvider,
-  type Plugin,
-  type Provider,
-  type ProviderResult,
-} from "@elizaos/core";
+import type { Plugin, Provider, ProviderResult } from "@elizaos/core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { validateRuntimeContext } from "../api/plugin-validation";
 import type { MiladyConfig } from "../config/types.milady";
+import { createSessionKeyProvider } from "../providers/session-bridge";
 import { createWorkspaceProvider } from "../providers/workspace-provider";
 import {
   applyCloudConfigToEnv,
@@ -43,15 +39,10 @@ import {
 type RootPackageJson = {
   dependencies: Record<string, string>;
   overrides?: Record<string, string>;
-  pnpm?: {
-    overrides?: Record<string, string>;
-  };
 };
 
 function _getCoreOverride(pkg: RootPackageJson): string | undefined {
-  return (
-    pkg.overrides?.["@elizaos/core"] ?? pkg.pnpm?.overrides?.["@elizaos/core"]
-  );
+  return pkg.overrides?.["@elizaos/core"];
 }
 
 // ---------------------------------------------------------------------------
@@ -888,9 +879,7 @@ describe("Context Serialization", () => {
 
 describe("Version Skew Detection (issue #10)", () => {
   type PackageManifest = {
-    dependencies: Record<string, string>;
     overrides?: Record<string, string>;
-    pnpm?: { overrides?: Record<string, string> };
   };
 
   async function readPackageManifest(): Promise<PackageManifest> {
@@ -903,10 +892,7 @@ describe("Version Skew Detection (issue #10)", () => {
   function getDependencyOverride(
     manifest: PackageManifest,
   ): string | undefined {
-    return (
-      manifest.overrides?.["@elizaos/core"] ??
-      manifest.pnpm?.overrides?.["@elizaos/core"]
-    );
+    return manifest.overrides?.["@elizaos/core"];
   }
 
   it("core is pinned to a version that includes MAX_EMBEDDING_TOKENS (issue #10 fix)", async () => {
@@ -945,7 +931,7 @@ describe("Version Skew Detection (issue #10)", () => {
     for (const name of affectedPlugins) {
       const ver = pkg.dependencies[name];
       expect(ver).toBeDefined();
-      // Plugins can use "next" dist-tag when core is pinned via pnpm overrides,
+      // Plugins can use "next" dist-tag when core is pinned via overrides,
       // or they can be pinned to a specific alpha version.
       // Workspace links are valid in monorepo development.
       // See docs/ELIZAOS_VERSIONING.md for details and update procedures
