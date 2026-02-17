@@ -64,10 +64,10 @@ jobs:
       fail-fast: false
       matrix:
         platform:
-          # Use native Intel runner for x64 builds to avoid Rosetta timing issues in E2E tests
+          # macos-14 (ARM64) cross-compiles x64 via Rosetta; E2E test runs on arm64 only
           - name: macOS (Intel)
             os: macos
-            runner: macos-13
+            runner: macos-14
             electron-args: --mac --x64
             artifact-name: macos-x64
           - name: macOS (Apple Silicon)
@@ -353,12 +353,13 @@ jobs:
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET || '' }}
 
       - name: Install Playwright browser runtime
-        if: matrix.platform.os == 'macos'
+        if: matrix.platform.os == 'macos' && matrix.platform.artifact-name == 'macos-arm64'
         run: bunx playwright install chromium
         working-directory: apps/app
 
+      # E2E test only runs on arm64 (native) - x64 runs under Rosetta which has timing issues
       - name: Verify packaged DMG boots to chat
-        if: matrix.platform.os == 'macos'
+        if: matrix.platform.os == 'macos' && matrix.platform.artifact-name == 'macos-arm64'
         run: |
           set -euo pipefail
 
