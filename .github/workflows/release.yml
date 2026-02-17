@@ -328,6 +328,14 @@ jobs:
           if [ "${MATRIX_OS:-}" = "windows" ] && [ "${TRUSTED_SIGNING_PREFLIGHT:-success}" != "success" ]; then
             echo "Trusted Signing preflight failed; building Windows artifact without Azure signing."
             unset AZURE_TENANT_ID AZURE_CLIENT_ID AZURE_CLIENT_SECRET
+            # Remove azureSignOptions from config so electron-builder doesn't attempt signing
+            node -e "
+              const fs = require('fs');
+              const c = JSON.parse(fs.readFileSync('./electron-builder.ci.json', 'utf8'));
+              if (c.win) delete c.win.azureSignOptions;
+              fs.writeFileSync('./electron-builder.ci.json', JSON.stringify(c, null, 2));
+            "
+            echo "Removed azureSignOptions from config"
           fi
           npx electron-builder build ${{ matrix.platform.electron-args }} -c ./electron-builder.ci.json -p never
         working-directory: apps/app/electron
