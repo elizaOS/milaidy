@@ -25,6 +25,7 @@ import {
   client,
   type DropStatus,
   type ExtensionStatus,
+  type ImageAttachment,
   type LogEntry,
   type McpMarketplaceResult,
   type McpRegistryServerDetail,
@@ -682,6 +683,9 @@ export interface AppState {
   droppedFiles: string[];
   shareIngestNotice: string;
 
+  // Chat image attachments queued for the next message
+  chatPendingImages: ImageAttachment[];
+
   // Game
   activeGameApp: string;
   activeGameDisplayName: string;
@@ -718,6 +722,7 @@ export interface AppActions {
   handleChatStop: () => void;
   handleChatClear: () => Promise<void>;
   handleNewConversation: () => Promise<void>;
+  setChatPendingImages: (images: ImageAttachment[]) => void;
   handleSelectConversation: (id: string) => Promise<void>;
   handleDeleteConversation: (id: string) => Promise<void>;
   handleRenameConversation: (id: string, title: string) => Promise<void>;
@@ -1216,6 +1221,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // --- Share ingest ---
   const [droppedFiles, setDroppedFiles] = useState<string[]>([]);
   const [shareIngestNotice, setShareIngestNotice] = useState("");
+
+  // --- Chat pending images ---
+  const [chatPendingImages, setChatPendingImages] = useState<ImageAttachment[]>([]);
 
   // --- Game ---
   const [activeGameApp, setActiveGameApp] = useState("");
@@ -2033,6 +2041,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (chatSendBusyRef.current || chatSending) return;
       chatSendBusyRef.current = true;
 
+      // Capture and clear pending images before async work
+      const imagesToSend = chatPendingImages.length ? chatPendingImages : undefined;
+      setChatPendingImages([]);
+
       try {
         let convId: string = activeConversationId ?? "";
         if (!convId) {
@@ -2089,6 +2101,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             },
             channelType,
             controller.signal,
+            imagesToSend,
           );
 
           if (shouldApplyFinalStreamText(streamedAssistantText, data.text)) {
@@ -2133,6 +2146,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
                 conversation.id,
                 text,
                 channelType,
+                imagesToSend,
               );
               setConversationMessages([
                 {
@@ -2173,6 +2187,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [
       chatInput,
       chatSending,
+      chatPendingImages,
       activeConversationId,
       loadConversationMessages,
       loadConversations,
@@ -4327,6 +4342,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     mcpHeaderInputs,
     droppedFiles,
     shareIngestNotice,
+    chatPendingImages,
     activeGameApp,
     activeGameDisplayName,
     activeGameViewerUrl,
@@ -4352,6 +4368,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     handleChatStop,
     handleChatClear,
     handleNewConversation,
+    setChatPendingImages,
     handleSelectConversation,
     handleDeleteConversation,
     handleRenameConversation,

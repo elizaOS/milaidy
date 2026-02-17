@@ -543,6 +543,14 @@ export interface UiSpecBlock {
 /** Union of all content block types. */
 export type ContentBlock = TextBlock | ConfigFormBlock | UiSpecBlock;
 
+/** An image attachment to send with a chat message. */
+export interface ImageAttachment {
+  /** Base64-encoded image data (no data URL prefix). */
+  data: string;
+  mimeType: string;
+  name: string;
+}
+
 export interface ConfigSchemaResponse {
   schema: unknown;
   uiHints: Record<string, unknown>;
@@ -3099,6 +3107,7 @@ export class MiladyClient {
     onToken: (token: string) => void,
     channelType: ConversationChannelType = "DM",
     signal?: AbortSignal,
+    images?: ImageAttachment[],
   ): Promise<{ text: string; agentName: string }> {
     if (!this.apiAvailable) {
       throw new Error("API not available (no HTTP origin)");
@@ -3112,7 +3121,7 @@ export class MiladyClient {
         Accept: "text/event-stream",
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
-      body: JSON.stringify({ text, channelType }),
+      body: JSON.stringify({ text, channelType, ...(images?.length ? { images } : {}) }),
       signal,
     });
 
@@ -3292,6 +3301,7 @@ export class MiladyClient {
     id: string,
     text: string,
     channelType: ConversationChannelType = "DM",
+    images?: ImageAttachment[],
   ): Promise<{ text: string; agentName: string; blocks?: ContentBlock[] }> {
     const response = await this.fetch<{
       text: string;
@@ -3299,7 +3309,7 @@ export class MiladyClient {
       blocks?: ContentBlock[];
     }>(`/api/conversations/${encodeURIComponent(id)}/messages`, {
       method: "POST",
-      body: JSON.stringify({ text, channelType }),
+      body: JSON.stringify({ text, channelType, ...(images?.length ? { images } : {}) }),
     });
     return {
       ...response,
@@ -3313,6 +3323,7 @@ export class MiladyClient {
     onToken: (token: string) => void,
     channelType: ConversationChannelType = "DM",
     signal?: AbortSignal,
+    images?: ImageAttachment[],
   ): Promise<{ text: string; agentName: string }> {
     return this.streamChatEndpoint(
       `/api/conversations/${encodeURIComponent(id)}/messages/stream`,
@@ -3320,6 +3331,7 @@ export class MiladyClient {
       onToken,
       channelType,
       signal,
+      images,
     );
   }
 
