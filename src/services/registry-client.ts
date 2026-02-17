@@ -2,7 +2,7 @@
  * Registry Client for Milady.
  *
  * Provides a 3-tier cached registry (memory → file → network) that works
- * offline, in .app bundles, and in dev. Fetches from the next@registry branch.
+ * offline, in .app bundles, and in dev. Fetches from the next branch.
  *
  * @module services/registry-client
  */
@@ -18,9 +18,9 @@ import { logger } from "@elizaos/core";
 // ---------------------------------------------------------------------------
 
 const GENERATED_REGISTRY_URL =
-  "https://raw.githubusercontent.com/elizaos-plugins/registry/refs/heads/next%40registry/generated-registry.json";
+  "https://raw.githubusercontent.com/elizaos-plugins/registry/next/generated-registry.json";
 const INDEX_REGISTRY_URL =
-  "https://raw.githubusercontent.com/elizaos-plugins/registry/refs/heads/next%40registry/index.json";
+  "https://raw.githubusercontent.com/elizaos-plugins/registry/next/index.json";
 const CACHE_TTL_MS = 3_600_000; // 1 hour
 
 const LOCAL_APP_DEFAULT_SANDBOX =
@@ -791,9 +791,7 @@ export async function getRegistryPlugins(): Promise<
     return fromFile;
   }
 
-  logger.info(
-    "[registry-client] Fetching plugin registry from next@registry...",
-  );
+  logger.info("[registry-client] Fetching plugin registry from next branch...");
   const plugins = await fetchFromNetwork();
   logger.info(`[registry-client] Loaded ${plugins.size} plugins`);
 
