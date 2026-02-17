@@ -1684,6 +1684,30 @@ const STATIC_MIME: Record<string, string> = {
   ".woff2": "font/woff2",
 };
 
+const LFS_POINTER_PREFIX = "version https://git-lfs.github.com/spec/v1";
+const DEFAULT_LFS_REPO_URL = "https://github.com/cayden970207/milady.git";
+const DEFAULT_LFS_MEDIA_REF = "main";
+
+function resolveMediaRepoPath(repoUrlRaw: string | undefined): string {
+  const source = (repoUrlRaw ?? "").trim() || DEFAULT_LFS_REPO_URL;
+  const match = source.match(/^https:\/\/github\.com\/([^/]+\/[^/.]+)(?:\.git)?$/i);
+  if (match?.[1]) return match[1];
+  return "cayden970207/milady";
+}
+
+function resolveMediaRef(): string {
+  const configuredRef = process.env.MILADY_LFS_REF?.trim();
+  if (configuredRef) return configuredRef;
+  const railwayRef = process.env.RAILWAY_GIT_BRANCH?.trim();
+  if (railwayRef) return railwayRef;
+  return DEFAULT_LFS_MEDIA_REF;
+}
+
+function isLikelyLfsPointer(body: Buffer): boolean {
+  const head = body.subarray(0, Math.min(body.length, 80)).toString("utf8");
+  return head.startsWith(LFS_POINTER_PREFIX);
+}
+
 /** Resolved UI directory. Lazily computed once on first request. */
 let uiDir: string | null | undefined;
 let uiIndexHtml: Buffer | null = null;
@@ -12959,6 +12983,112 @@ async function handleRequest(
 
     json(res, { ok: true });
     return;
+  }
+
+  // ── VRM media fallback (production) ─────────────────────────────────────
+  // When cloud builds receive unresolved Git LFS pointer files, the frontend
+  // cannot load VRM models. This fallback proxies the real binary from
+  // media.githubusercontent.com for /vrms/*.vrm requests.
+  if (
+    (method === "GET" || method === "HEAD") &&
+    pathname.startsWith("/vrms/") &&
+    pathname.toLowerCase().endsWith(".vrm")
+  ) {
+    const root = resolveUiDir();
+    if (root) {
+      let decodedPath: string;
+      try {
+        decodedPath = decodeURIComponent(pathname);
+      } catch {
+        error(res, "Invalid URL path encoding", 400);
+        return;
+      }
+
+      const relativePath = decodedPath.replace(/^\/+/, "");
+      const localPath = path.resolve(root, relativePath);
+      if (
+        localPath !== root &&
+        !localPath.startsWith(`${root}${path.sep}`)
+      ) {
+        error(res, "Forbidden", 403);
+        return;
+      }
+
+      try {
+        const localStat = fs.statSync(localPath);
+        if (localStat.isFile()) {
+          const localBody = fs.readFileSync(localPath);
+          if (!isLikelyLfsPointer(localBody)) {
+            sendStaticResponse(
+              req,
+              res,
+              200,
+              {
+                "Cache-Control": "public, max-age=0, must-revalidate",
+                "Content-Type": "application/octet-stream",
+                "Content-Length": localBody.byteLength,
+              },
+              localBody,
+            );
+            return;
+          }
+        }
+      } catch {
+        // Fall through to remote media fallback.
+      }
+
+      const repoPath = resolveMediaRepoPath(process.env.MILADY_LFS_REPO_URL);
+      const mediaRef = resolveMediaRef();
+      const encodedRelativePath = relativePath
+        .split("/")
+        .map((part) => encodeURIComponent(part))
+        .join("/");
+      const mediaUrl = `https://media.githubusercontent.com/media/${repoPath}/${encodeURIComponent(mediaRef)}/${encodedRelativePath}`;
+
+      try {
+        const upstream = await fetch(mediaUrl, {
+          method: "GET",
+          signal: AbortSignal.timeout(20_000),
+        });
+        if (!upstream.ok) {
+          error(
+            res,
+            `VRM upstream fetch failed (${upstream.status}).`,
+            upstream.status === 404 ? 404 : 502,
+          );
+          return;
+        }
+        const upstreamBody = Buffer.from(await upstream.arrayBuffer());
+        if (!upstreamBody.length || isLikelyLfsPointer(upstreamBody)) {
+          error(
+            res,
+            "VRM upstream returned an unresolved LFS pointer.",
+            502,
+          );
+          return;
+        }
+
+        sendStaticResponse(
+          req,
+          res,
+          200,
+          {
+            "Cache-Control": "public, max-age=300",
+            "Content-Type": "application/octet-stream",
+            "Content-Length": upstreamBody.byteLength,
+          },
+          upstreamBody,
+        );
+        return;
+      } catch (err) {
+        error(
+          res,
+          `VRM upstream fetch error: ${err instanceof Error ? err.message : String(err)}`,
+          502,
+        );
+        return;
+      }
+    }
   }
 
   // ── Static UI serving (production) ──────────────────────────────────────
