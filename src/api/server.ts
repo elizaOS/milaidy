@@ -8723,8 +8723,11 @@ async function handleRequest(
       contentType: ContentType.IMAGE,
     }));
 
+    const msgId = crypto.randomUUID() as UUID;
+
+    // In-memory message carries full base64 data so action handlers can upload it.
     const userMessage = createMessageMemory({
-      id: crypto.randomUUID() as UUID,
+      id: msgId,
       entityId: userId,
       roomId: conv.roomId,
       content: {
@@ -8735,8 +8738,27 @@ async function handleRequest(
       },
     });
 
+    // Persisted message strips the base64 payload to prevent it from bloating
+    // the LLM context window on subsequent conversation turns.
+    const messageToStore = attachments?.length
+      ? createMessageMemory({
+          id: msgId,
+          entityId: userId,
+          roomId: conv.roomId,
+          content: {
+            text: prompt,
+            source: "client_chat",
+            channelType,
+            attachments: attachments.map((att) => ({
+              ...att,
+              url: `attachment:${att.id}`,
+            })),
+          },
+        })
+      : userMessage;
+
     try {
-      await persistConversationMemory(runtime, userMessage);
+      await persistConversationMemory(runtime, messageToStore);
     } catch (err) {
       error(res, `Failed to store user message: ${getErrorMessage(err)}`, 500);
       return;
@@ -8880,8 +8902,10 @@ async function handleRequest(
       contentType: ContentType.IMAGE,
     }));
 
+    const msgId2 = crypto.randomUUID() as UUID;
+
     const userMessage = createMessageMemory({
-      id: crypto.randomUUID() as UUID,
+      id: msgId2,
       entityId: userId,
       roomId: conv.roomId,
       content: {
@@ -8892,8 +8916,25 @@ async function handleRequest(
       },
     });
 
+    const msgToStore2 = msgAttachments?.length
+      ? createMessageMemory({
+          id: msgId2,
+          entityId: userId,
+          roomId: conv.roomId,
+          content: {
+            text: prompt,
+            source: "client_chat",
+            channelType,
+            attachments: msgAttachments.map((att) => ({
+              ...att,
+              url: `attachment:${att.id}`,
+            })),
+          },
+        })
+      : userMessage;
+
     try {
-      await persistConversationMemory(runtime, userMessage);
+      await persistConversationMemory(runtime, msgToStore2);
     } catch (err) {
       error(res, `Failed to store user message: ${getErrorMessage(err)}`, 500);
       return;
