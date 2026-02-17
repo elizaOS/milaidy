@@ -157,7 +157,10 @@ jobs:
 
       - name: Build Capacitor app
         if: matrix.platform.os != 'windows'
-        run: bun run build
+        run: |
+          # Run vite build directly instead of the build script
+          # (the build script's rt.sh install is handled by previous steps)
+          npx vite build
         working-directory: apps/app
 
       - name: Build Capacitor app (Windows)
