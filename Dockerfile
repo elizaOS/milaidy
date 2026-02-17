@@ -85,6 +85,13 @@ RUN bun run build
 
 ENV NODE_ENV=production
 ENV MILADY_API_BIND="0.0.0.0"
+ENV MILADY_STATE_DIR="/data/.milady"
+ENV MILADY_CONFIG_PATH="/data/.milady/milady.json"
+ENV PGLITE_DATA_DIR="/data/.milady/workspace/.eliza/.elizadb"
+
+# Railway volume mount target. If /data is backed by a persistent volume,
+# onboarding/config/database survive redeploys.
+RUN mkdir -p /data/.milady/workspace/.eliza/.elizadb
 
 # Railway sets $PORT dynamically. Map it to MILADY_PORT at runtime.
 CMD ["sh", "-lc", "MILADY_PORT=${PORT:-2138} node milady.mjs start"]

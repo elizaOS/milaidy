@@ -117,6 +117,24 @@ For browser deployments, also set CORS allowlist explicitly:
 MILADY_ALLOWED_ORIGINS=https://milady-app.com,https://www.milady-app.com
 ```
 
+### Railway persistence (required)
+
+If you deploy on Railway without a persistent volume, every redeploy can reset onboarding/config/database state.
+
+Use a Railway volume mounted at `/data`, then keep these env vars:
+
+```bash
+MILADY_STATE_DIR=/data/.milady
+MILADY_CONFIG_PATH=/data/.milady/milady.json
+PGLITE_DATA_DIR=/data/.milady/workspace/.eliza/.elizadb
+```
+
+If you already use your own login layer (Privy, etc.), keep:
+
+```bash
+MILADY_PUBLIC_APP_MODE=true
+```
+
 ---
 
 ## Terminal Commands
