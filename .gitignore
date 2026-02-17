@@ -44,6 +44,9 @@ apps/app/electron/skills/
 # Temporary capture files
 temp_capture_*.jpg
 
+# Benchmark output & sandbox
+tmp/
+
 # Agent learning docs & knowledge base
 knowledge/
 scripts/knowledge-loop.mjs

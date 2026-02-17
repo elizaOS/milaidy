@@ -235,9 +235,11 @@ const PROVIDER_PLUGIN_MAP: Readonly<Record<string, string>> = {
  */
 const OPTIONAL_PLUGIN_MAP: Readonly<Record<string, string>> = {
   browser: "@elizaos/plugin-browser",
-  vision: "@elizaos/plugin-vision",
+  code: "@elizaos/plugin-code",
   cron: "@elizaos/plugin-cron",
   computeruse: "@elizaos/plugin-computeruse",
+  knowledge: "@elizaos/plugin-knowledge",
+  vision: "@elizaos/plugin-vision",
   x402: "@elizaos/plugin-x402",
 };
 

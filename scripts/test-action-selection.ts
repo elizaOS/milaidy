@@ -10,20 +10,46 @@
  *   - Dev server running at localhost:2138
  *   - MILAIDY_DEBUG_ACTIONS=1 environment variable set
  *
- * Usage: bun run scripts/test-action-selection.ts
+ * Usage:
+ *   bun run scripts/test-action-selection.ts                    # all tests
+ *   bun run scripts/test-action-selection.ts --group=coder      # only coder tests
+ *   bun run scripts/test-action-selection.ts --group=skill,task # multiple groups
+ *
+ * Groups: conversational, search, task, shell, coder, knowledge,
+ *         skill, plugin, subagent, messaging, edge, system
  */
+
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 
 const BASE = "http://localhost:2138";
 const CHAT_TIMEOUT_MS = 90_000;
 const POST_RESPONSE_WAIT_MS = 1_000;
 /** Abort the run after this many consecutive (none) results on tests that expect a specific action. */
 const CONSECUTIVE_NONE_ABORT_THRESHOLD = 3;
+/** Directory for benchmark output files (relative to cwd) */
+const OUTPUT_DIR = join(process.cwd(), "tmp", "benchmarks");
 
 // ── Types ──────────────────────────────────────────────────────────────
+
+type TestGroup =
+  | "conversational"
+  | "search"
+  | "task"
+  | "shell"
+  | "coder"
+  | "knowledge"
+  | "skill"
+  | "plugin"
+  | "subagent"
+  | "messaging"
+  | "edge"
+  | "system";
 
 interface TestCase {
   input: string;
   expected: string | string[];
+  group: TestGroup;
   /** Message sent before input to establish context (e.g. create a task).
    *  Runs in a per-test isolated conversation. Not scored. */
   setup?: string;
@@ -51,6 +77,7 @@ interface TestResult {
   expected: string | string[];
   actual: string;
   status: TestStatus;
+  group: TestGroup;
   note?: string;
 }
 
@@ -58,37 +85,43 @@ interface TestResult {
 
 const TEST_CASES: TestCase[] = [
   // ── Conversational / REPLY ──────────────────────────────────────────
-  { input: "what's the weather like?", expected: ["REPLY", "NONE"] },
-  { input: "what can you do?", expected: ["REPLY", "NONE"] },
-  { input: "never mind, forget it", expected: "IGNORE" },
+  { input: "what's the weather like?", expected: ["REPLY", "NONE"], group: "conversational" },
+  { input: "what can you do?", expected: ["REPLY", "NONE"], group: "conversational" },
+  { input: "never mind, forget it", expected: "IGNORE", group: "conversational" },
   {
     input: "tell me a joke",
     expected: ["REPLY", "NONE"],
+    group: "conversational",
     note: "simple conversational",
   },
   {
     input: "what plugins do I have installed?",
     expected: ["REPLY", "NONE"],
+    group: "conversational",
     note: "informational question, not a search/install action",
   },
   {
     input: "check my goals",
     expected: ["REPLY", "NONE"],
+    group: "conversational",
     note: "goals action may not validate",
   },
   {
     input: "schedule a cron job every hour",
     expected: ["REPLY", "NONE"],
+    group: "conversational",
     note: "cron may not validate",
   },
   {
     input: "post something on farcaster",
     expected: ["REPLY", "NONE", "SEARCH_SKILLS"],
+    group: "conversational",
     note: "no farcaster configured — searching for a skill is also reasonable",
   },
   {
     input: "provision a cloud agent for me",
     expected: ["REPLY", "NONE"],
+    group: "conversational",
     note: "action does not exist (cloud disabled)",
   },
 
@@ -96,189 +129,212 @@ const TEST_CASES: TestCase[] = [
   {
     input: "search for a twitter plugin",
     expected: ["SEARCH_SKILLS", "SEARCH_PLUGINS"],
+    group: "search",
     note: "both are reasonable — 'plugin' keyword can trigger either",
   },
-  // #11 removed: "find me a blockchain plugin" — SEARCH_SKILLS vs SEARCH_PLUGINS
-  // is genuinely ambiguous ("plugin" keyword triggers both). Not a useful signal.
   {
     input: "list all available skills",
     expected: "SEARCH_SKILLS",
+    group: "search",
     note: "'list skills' maps to SEARCH_SKILLS",
   },
   {
     input: "search the plugin registry for auth",
     expected: "SEARCH_PLUGINS",
+    group: "search",
     note: "explicit 'plugin registry' → SEARCH_PLUGINS",
   },
   {
     input: "search for tasks about deployment",
     expected: ["SEARCH_TASKS", "REPLY", "NONE"],
+    group: "search",
     note: "SEARCH_TASKS may fail validate if orchestrator not configured",
   },
 
   // ── Task Management ─────────────────────────────────────────────────
-  { input: "create a new task called fix the bug", expected: "CREATE_TASK" },
+  { input: "create a new task called fix the bug", expected: "CREATE_TASK", group: "task" },
   {
     input: "add a task to review the PR",
     expected: "CREATE_TASK",
+    group: "task",
     note: "alternate phrasing for task creation",
   },
-  { input: "show my tasks", expected: "LIST_TASKS" },
+  { input: "show my tasks", expected: "LIST_TASKS", group: "task" },
   {
     input: "what tasks are active?",
     expected: ["REPLY", "NONE"],
+    group: "task",
     note: "LIST_TASKS.validate() requires 'list task'/'show task'/'my task' — this phrasing fails validate",
   },
   {
     input: "switch to the auth bug task",
     expected: "SWITCH_TASK",
+    group: "task",
     note: "validates even without matching task",
   },
-  { input: "pause the current task", expected: "PAUSE_TASK" },
-  { input: "resume the paused task", expected: "RESUME_TASK" },
-  // #22 converted to two-step: cancel needs an existing task to work
+  { input: "pause the current task", expected: "PAUSE_TASK", group: "task" },
+  { input: "resume the paused task", expected: "RESUME_TASK", group: "task" },
   {
     setup: "create a task called bugfix number 3",
     input: "cancel the bugfix number 3 task",
     expected: "CANCEL_TASK",
+    group: "task",
     note: "two-step: cancel requires existing task",
   },
-  // Two-step task tests (setup creates real task, then test the action)
   {
     setup: "create a task called deploy fixes",
     input: "switch to the deploy fixes task",
     expected: "SWITCH_TASK",
+    group: "task",
     note: "two-step: requires task from setup",
   },
   {
     setup: "create a task called test runner",
     input: "pause the current task",
     expected: "PAUSE_TASK",
+    group: "task",
     note: "two-step: requires active task",
   },
   {
     setup: "create a task called cleanup job",
     input: "cancel the cleanup job task",
     expected: "CANCEL_TASK",
+    group: "task",
     note: "two-step: requires task from setup",
   },
 
   // ── Shell / Command ─────────────────────────────────────────────────
-  { input: "run ls -la", expected: "EXECUTE_COMMAND" },
+  { input: "run ls -la", expected: "EXECUTE_COMMAND", group: "shell" },
   {
     input: "execute echo hello world",
     expected: "EXECUTE_COMMAND",
+    group: "shell",
     note: "alternate phrasing for shell command",
   },
   {
     input: "run npm --version",
     expected: "EXECUTE_COMMAND",
+    group: "shell",
     note: "fast shell command",
   },
   {
     input: "clear the terminal history",
     expected: "CLEAR_SHELL_HISTORY",
+    group: "shell",
   },
   {
     input: "show running processes",
     expected: ["MANAGE_PROCESS", "EXECUTE_COMMAND"],
+    group: "shell",
     note: "may route to EXECUTE_COMMAND instead",
   },
   {
     input: "kill the process running on port 8080",
     expected: ["MANAGE_PROCESS", "EXECUTE_COMMAND"],
+    group: "shell",
     note: "natural phrasing for process management",
   },
 
-  // ── File Operations ───────────────────────────────────────────────
+  // ── File Operations + Git + Knowledge (require plugin-code / plugin-knowledge) ──
   {
     input: "read the contents of package.json",
     expected: "READ_FILE",
+    group: "coder",
   },
   {
     input: "write 'hello world' to output.txt",
     expected: "WRITE_FILE",
+    group: "coder",
   },
   {
     input: "edit line 10 of src/index.ts to fix the import",
     expected: "EDIT_FILE",
+    group: "coder",
   },
   {
     input: "find all files that contain TODO",
     expected: "SEARCH_FILES",
+    group: "coder",
   },
   {
     input: "what files are in the src directory?",
     expected: ["LIST_FILES", "EXECUTE_COMMAND"],
+    group: "coder",
     note: "both are reasonable approaches to list directory contents",
   },
-
-  // ── Git ───────────────────────────────────────────────────────────
   {
     input: "commit my changes with message 'update config'",
     expected: "GIT",
+    group: "coder",
   },
   {
     input: "show me the git diff",
     expected: "GIT",
+    group: "coder",
   },
-
-  // ── Knowledge ─────────────────────────────────────────────────────
   {
     input: "search my knowledge base for API documentation",
     expected: "SEARCH_KNOWLEDGE",
+    group: "knowledge",
   },
 
   // ── Skill Management ────────────────────────────────────────────────
   {
     input: "install the discord plugin",
     expected: ["INSTALL_SKILL", "INSTALL_PLUGIN_FROM_REGISTRY"],
+    group: "skill",
     note: "both validate — 'plugin' keyword can trigger either",
   },
   {
     input: "add the weather skill",
     expected: "INSTALL_SKILL",
+    group: "skill",
     note: "'add' is a simile for INSTALL_SKILL",
   },
-  { input: "uninstall the twitter plugin", expected: "UNINSTALL_SKILL" },
-  { input: "tell me about the weather skill", expected: "GET_SKILL_DETAILS" },
+  { input: "uninstall the twitter plugin", expected: "UNINSTALL_SKILL", group: "skill" },
+  { input: "tell me about the weather skill", expected: "GET_SKILL_DETAILS", group: "skill" },
   {
     input: "how do I use the browser skill?",
     expected: "GET_SKILL_GUIDANCE",
+    group: "skill",
   },
-  { input: "refresh the skill catalog", expected: "SYNC_SKILL_CATALOG" },
-  { input: "enable the discord skill", expected: "TOGGLE_SKILL" },
-  { input: "disable the telegram skill", expected: "TOGGLE_SKILL" },
+  { input: "refresh the skill catalog", expected: "SYNC_SKILL_CATALOG", group: "skill" },
+  { input: "enable the discord skill", expected: "TOGGLE_SKILL", group: "skill" },
+  { input: "disable the telegram skill", expected: "TOGGLE_SKILL", group: "skill" },
   {
     input: "run the setup script for the twitter skill",
     expected: "RUN_SKILL_SCRIPT",
+    group: "skill",
   },
 
   // ── Plugin Lifecycle ────────────────────────────────────────────────
   {
     input: "load the anthropic plugin",
     expected: ["INSTALL_PLUGIN_FROM_REGISTRY", "INSTALL_SKILL"],
+    group: "plugin",
     note: "LOAD_PLUGIN fails validate — installing is the correct fallback",
   },
   {
     input: "unload the discord plugin",
     expected: ["REPLY", "NONE", "TOGGLE_SKILL"],
+    group: "plugin",
     note: "UNLOAD_PLUGIN fails validate — toggling is reasonable, uninstalling is too destructive",
   },
   {
     input: "clone the weather plugin from registry",
     expected: "CLONE_PLUGIN",
+    group: "plugin",
   },
-  // #44 removed: "publish my custom plugin" — PUBLISH_PLUGIN handler is a stub
-  // that returns undefined, never fires ACTION_COMPLETED event.
   {
     input: "install plugin @elizaos/plugin-weather",
     expected: "INSTALL_PLUGIN_FROM_REGISTRY",
+    group: "plugin",
     note: "uses @elizaos/ prefix",
   },
   {
     input: "tell me more about the twitter plugin",
     expected: ["REPLY", "NONE"],
+    group: "plugin",
     note: "GET_PLUGIN_DETAILS fails validate",
   },
 
@@ -286,79 +342,92 @@ const TEST_CASES: TestCase[] = [
   {
     input: "spawn a subagent to research AI trends",
     expected: "SPAWN_SUBAGENT",
+    group: "subagent",
   },
   {
     input: "show all running subagents",
     expected: ["REPLY", "NONE"],
+    group: "subagent",
     note: "LIST_SUBAGENTS fails validate (needs active subagents)",
   },
   {
     input: "what's the status of my research subagent?",
     expected: ["REPLY", "NONE"],
+    group: "subagent",
     note: "GET_SUBAGENT_STATUS fails validate",
   },
   {
     input: "cancel the background research agent",
     expected: "CANCEL_SUBAGENT",
+    group: "subagent",
     note: "uses 'agent' not 'task' to avoid SEARCH_TASKS substring match on 'research task'",
   },
   {
     input: 'send "check the logs" to the monitor agent',
     expected: "SEND_TO_SESSION",
+    group: "subagent",
   },
 
   // ── Communication ───────────────────────────────────────────────────
   {
     input: "send a message to alice on discord",
     expected: ["REPLY", "NONE", "SEND_CROSS_PLATFORM_MESSAGE"],
+    group: "messaging",
     note: "no discord configured",
   },
   {
     input: "list my messaging channels",
     expected: "LIST_MESSAGING_CHANNELS",
+    group: "messaging",
   },
   {
     input: 'send "hello" to the general room',
     expected: ["REPLY", "NONE"],
+    group: "messaging",
     note: "SEND_TO_ROOM fails validate (no rooms configured)",
   },
   {
     input: "send this to the delivery context",
     expected: ["REPLY", "NONE", "SEND_TO_SESSION"],
+    group: "messaging",
     note: "SEND_TO_DELIVERY_CONTEXT fails validate — SEND_TO_SESSION is reasonable, listing channels is not",
   },
   {
     input: "deliver this to the context",
     expected: ["REPLY", "NONE"],
+    group: "messaging",
     note: "SEND_TO_DELIVERY_CONTEXT fails validate",
   },
 
-  // ── Computer Use (validate fails → REPLY) ──────────────────────────
+  // ── Edge / Disambiguation ──────────────────────────────────────────
   {
     input: "list running applications",
     expected: ["REPLY", "NONE", "EXECUTE_COMMAND", "MANAGE_PROCESS"],
+    group: "edge",
     note: "computer use not configured — shell actions are a reasonable fallback",
   },
   {
     input: "show the window tree",
     expected: ["REPLY", "NONE"],
+    group: "edge",
     note: "computer use not configured",
   },
-
-  // ── Edge / Disambiguation ──────────────────────────────────────────
   {
     input: "do nothing",
-    expected: ["NONE", "REPLY"],
-    note: "explicit no-action",
+    expected: ["NONE", "REPLY", "IGNORE"],
+    group: "edge",
+    note: "explicit no-action — IGNORE is semantically equivalent to NONE",
   },
   {
     input: "tell me more about the weather skill",
     expected: ["GET_SKILL_DETAILS", "GET_SKILL_GUIDANCE"],
+    group: "edge",
     note: "'more about' + 'skill' — both actions are reasonable for this phrasing",
   },
   {
     input: "send a notification to the session",
     expected: ["SEND_TO_SESSION", "REPLY", "NONE"],
+    group: "edge",
     note: "SEND_TO_SESSION_MESSAGE may not validate",
   },
 
@@ -366,6 +435,7 @@ const TEST_CASES: TestCase[] = [
   {
     input: "restart yourself",
     expected: "RESTART_AGENT",
+    group: "system",
     note: "PLACE LAST — causes actual restart",
   },
 ];
@@ -473,10 +543,36 @@ function pad(s: string, w: number): string {
 
 // ── Main ────────────────────────────────────────────────────────────────
 
+// ── CLI args ──────────────────────────────────────────────────────────
+
+function parseArgs(): { groups: TestGroup[] | null } {
+  const groupArg = process.argv.find((a) => a.startsWith("--group="));
+  if (!groupArg) return { groups: null };
+  const raw = groupArg.split("=")[1];
+  const groups = raw.split(",").map((g) => g.trim()) as TestGroup[];
+  const valid: TestGroup[] = [
+    "conversational", "search", "task", "shell", "coder",
+    "knowledge", "skill", "plugin", "subagent", "messaging", "edge", "system",
+  ];
+  for (const g of groups) {
+    if (!valid.includes(g)) {
+      console.error(`Unknown group: "${g}". Valid: ${valid.join(", ")}`);
+      process.exit(1);
+    }
+  }
+  return { groups };
+}
+
 async function main() {
+  const { groups: filterGroups } = parseArgs();
+
   console.log("╔═════════════════════════════════════════════╗");
   console.log("║    ACTION SELECTION BASELINE TEST            ║");
   console.log("╚═════════════════════════════════════════════╝\n");
+
+  if (filterGroups) {
+    console.log(`Filtering to groups: ${filterGroups.join(", ")}\n`);
+  }
 
   // 1. Check agent is running
   let agentName = "unknown";
@@ -587,6 +683,9 @@ async function main() {
     const tc = TEST_CASES[i];
     const testNum = i + 1;
 
+    // Skip tests not in the selected group(s)
+    if (filterGroups && !filterGroups.includes(tc.group)) continue;
+
     // a. Create isolated conversation for this test
     let convId: string;
     let roomId: string;
@@ -600,6 +699,7 @@ async function main() {
         expected: tc.expected,
         actual: "(no conv)",
         status: "FAIL",
+        group: tc.group,
         note: tc.note,
       });
       continue;
@@ -643,6 +743,7 @@ async function main() {
           expected: tc.expected,
           actual: "(setup failed)",
           status: "SKIP",
+          group: tc.group,
           note: tc.note,
         });
         console.log(
@@ -677,6 +778,7 @@ async function main() {
         expected: tc.expected,
         actual: "—",
         status: "TIMEOUT",
+        group: tc.group,
         note: tc.note,
       });
       const expectedDisplayTimeout = Array.isArray(tc.expected)
@@ -746,21 +848,22 @@ async function main() {
       expected: tc.expected,
       actual,
       status,
+      group: tc.group,
       note: tc.note,
     });
 
-    // Circuit breaker: detect likely quota exhaustion
-    // Only count (none) on tests that expect a specific action (not REPLY/NONE/IGNORE)
+    // Circuit breaker: too many consecutive (none) on action-expecting tests
+    // Could indicate: LLM quota exhausted, or all tests in a group fail validate()
     const expectsSpecificAction =
       !expectedArr.every((e) => ["REPLY", "NONE", "IGNORE"].includes(e));
     if (status === "FAIL" && actual === "(none)" && expectsSpecificAction) {
       consecutiveNoneCount++;
       if (consecutiveNoneCount >= CONSECUTIVE_NONE_ABORT_THRESHOLD) {
         console.log(
-          `\n\x1b[31m  ABORT: ${consecutiveNoneCount} consecutive (none) failures on action tests.\x1b[0m`,
+          `\n\x1b[31m  CIRCUIT BREAKER: ${consecutiveNoneCount} consecutive (none) on action-expecting tests.\x1b[0m`,
         );
         console.log(
-          `\x1b[31m  Likely cause: LLM API quota exhausted. Check server logs and OpenAI billing.\x1b[0m`,
+          `\x1b[31m  Possible causes: LLM quota exhausted, or actions fail validate() (e.g. coder group needs CODER_ENABLED=true).\x1b[0m`,
         );
         console.log(
           `\x1b[31m  Skipping remaining ${TEST_CASES.length - i - 1} tests.\x1b[0m\n`,
@@ -808,7 +911,7 @@ async function main() {
   console.log("\n═══ SUMMARY ═══\n");
   if (abortedAtTest > 0) {
     console.log(
-      `\x1b[31mRUN ABORTED at test #${abortedAtTest} — LLM quota likely exhausted.\x1b[0m`,
+      `\x1b[31mRUN ABORTED at test #${abortedAtTest} — circuit breaker tripped (see above).\x1b[0m`,
     );
     console.log(
       `\x1b[31mResults below only reflect tests 1-${abortedAtTest}. ${notRun} tests not run.\x1b[0m\n`,
@@ -851,6 +954,84 @@ async function main() {
     );
   }
 
+  // 7. Save results to tmp/benchmarks/
+  const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+  const runDir = join(OUTPUT_DIR, timestamp);
+  mkdirSync(runDir, { recursive: true });
+
+  // JSON — structured data for programmatic analysis
+  const jsonPayload = {
+    timestamp: new Date().toISOString(),
+    agent: agentName,
+    model,
+    config: {
+      chatTimeoutMs: CHAT_TIMEOUT_MS,
+      postResponseWaitMs: POST_RESPONSE_WAIT_MS,
+      consecutiveNoneAbortThreshold: CONSECUTIVE_NONE_ABORT_THRESHOLD,
+      totalTestCases: TEST_CASES.length,
+    },
+    summary: {
+      total,
+      scored,
+      pass: passCount,
+      fail: failCount,
+      implicit: implicitCount,
+      timeout: timeoutCount,
+      skip: skipCount,
+      notRun,
+      accuracy: scored > 0 ? +((passCount + implicitCount) / scored * 100).toFixed(1) : null,
+      abortedAtTest: abortedAtTest > 0 ? abortedAtTest : null,
+    },
+    filterGroups: filterGroups ?? "all",
+    results: results.map((r) => ({
+      index: r.index,
+      input: r.input,
+      expected: r.expected,
+      actual: r.actual,
+      status: r.status,
+      group: r.group,
+      ...(r.note ? { note: r.note } : {}),
+    })),
+  };
+  const jsonPath = join(runDir, "results.json");
+  writeFileSync(jsonPath, JSON.stringify(jsonPayload, null, 2));
+
+  // TXT — plain text (same as stdout, without ANSI codes)
+  const lines: string[] = [];
+  lines.push(`ACTION SELECTION BENCHMARK — ${jsonPayload.timestamp}`);
+  lines.push(`Agent: ${agentName} | Model: ${model}`);
+  lines.push("");
+  lines.push(` ${pad("#", colNum)} ${pad("Input", colInput)} ${pad("Expected", colExpected)} ${pad("Actual", colActual)} Status`);
+  for (const r of results) {
+    const expectedDisplay = Array.isArray(r.expected) ? r.expected.join("|") : r.expected;
+    const label = r.note ? `${r.input}` : r.input;
+    lines.push(` ${pad(String(r.index), colNum)} ${pad(label, colInput)} ${pad(expectedDisplay, colExpected)} ${pad(r.actual, colActual)} ${r.status}`);
+  }
+  lines.push("");
+  lines.push("═══ SUMMARY ═══");
+  if (abortedAtTest > 0) {
+    lines.push(`RUN ABORTED at test #${abortedAtTest} — circuit breaker tripped (see above).`);
+    lines.push(`Results below only reflect tests 1-${abortedAtTest}. ${notRun} tests not run.`);
+  }
+  lines.push(`Total:      ${total} of ${TEST_CASES.length}`);
+  lines.push(`Pass:       ${passCount}`);
+  lines.push(`Fail:       ${failCount}`);
+  lines.push(`Implicit:   ${implicitCount}`);
+  lines.push(`Timeout:    ${timeoutCount}`);
+  lines.push(`Accuracy:   ${accuracy}%`);
+  if (failures.length > 0) {
+    lines.push("");
+    lines.push("Failures:");
+    for (const f of failures) {
+      const fExp = Array.isArray(f.expected) ? f.expected.join("|") : f.expected;
+      const suffix = f.status === "TIMEOUT" ? `timed out after ${CHAT_TIMEOUT_MS / 1000}s` : `expected ${fExp}, got ${f.actual}`;
+      lines.push(`  #${f.index}  "${f.input}" → ${suffix}`);
+    }
+  }
+  const txtPath = join(runDir, "results.txt");
+  writeFileSync(txtPath, lines.join("\n") + "\n");
+
+  console.log(`\nResults saved to: ${runDir}/`);
   console.log();
 }
 
