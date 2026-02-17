@@ -2194,6 +2194,38 @@ function parseRequestChannelType(
   return normalized as ChannelType;
 }
 
+async function readChatRequestPayload(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  helpers: {
+    readJsonBody: <T = Record<string, unknown>>(
+      req: http.IncomingMessage,
+      res: http.ServerResponse,
+      options?: ReadJsonBodyOptions,
+    ) => Promise<T | null>;
+    error: (res: http.ServerResponse, message: string, status?: number) => void;
+  },
+): Promise<{ prompt: string; channelType: ChannelType } | null> {
+  const body = await helpers.readJsonBody<{
+    text?: string;
+    channelType?: string;
+  }>(req, res);
+  if (!body) return null;
+  if (!body.text?.trim()) {
+    helpers.error(res, "text is required");
+    return null;
+  }
+  const channelType = parseRequestChannelType(body.channelType, ChannelType.DM);
+  if (!channelType) {
+    helpers.error(res, "channelType is invalid", 400);
+    return null;
+  }
+  return {
+    prompt: body.text.trim(),
+    channelType,
+  };
+}
+
 function parseBoundedLimit(rawLimit: string | null, fallback = 15): number {
   return parseClampedInteger(rawLimit, {
     min: 1,
@@ -8930,24 +8962,12 @@ async function handleRequest(
       return;
     }
 
-    const body = await readJsonBody<{ text?: string; channelType?: string }>(
-      req,
-      res,
-    );
-    if (!body) return;
-    if (!body.text?.trim()) {
-      error(res, "text is required");
-      return;
-    }
-    const channelType = parseRequestChannelType(
-      body.channelType,
-      ChannelType.DM,
-    );
-    if (!channelType) {
-      error(res, "channelType is invalid", 400);
-      return;
-    }
-    const prompt = body.text.trim();
+    const chatPayload = await readChatRequestPayload(req, res, {
+      readJsonBody,
+      error,
+    });
+    if (!chatPayload) return;
+    const { prompt, channelType } = chatPayload;
 
     const runtime = state.runtime;
     if (!runtime) {
@@ -9072,29 +9092,17 @@ async function handleRequest(
       error(res, "Conversation not found", 404);
       return;
     }
-    const body = await readJsonBody<{ text?: string; channelType?: string }>(
-      req,
-      res,
-    );
-    if (!body) return;
-    if (!body.text?.trim()) {
-      error(res, "text is required");
-      return;
-    }
-    const channelType = parseRequestChannelType(
-      body.channelType,
-      ChannelType.DM,
-    );
-    if (!channelType) {
-      error(res, "channelType is invalid", 400);
-      return;
-    }
+    const chatPayload = await readChatRequestPayload(req, res, {
+      readJsonBody,
+      error,
+    });
+    if (!chatPayload) return;
+    const { prompt, channelType } = chatPayload;
     const runtime = state.runtime;
     if (!runtime) {
       error(res, "Agent is not running", 503);
       return;
     }
-    const prompt = body.text.trim();
     const userId = ensureAdminEntityId();
     const turnStartedAt = Date.now();
 
@@ -9294,24 +9302,12 @@ async function handleRequest(
 
   // ── POST /api/chat/stream ────────────────────────────────────────────
   if (method === "POST" && pathname === "/api/chat/stream") {
-    const body = await readJsonBody<{ text?: string; channelType?: string }>(
-      req,
-      res,
-    );
-    if (!body) return;
-    if (!body.text?.trim()) {
-      error(res, "text is required");
-      return;
-    }
-    const channelType = parseRequestChannelType(
-      body.channelType,
-      ChannelType.DM,
-    );
-    if (!channelType) {
-      error(res, "channelType is invalid", 400);
-      return;
-    }
-    const prompt = body.text.trim();
+    const chatPayload = await readChatRequestPayload(req, res, {
+      readJsonBody,
+      error,
+    });
+    if (!chatPayload) return;
+    const { prompt, channelType } = chatPayload;
 
     // Cloud proxy path
 
@@ -9399,24 +9395,12 @@ async function handleRequest(
   // remote sandbox instead of the local runtime.  Supports SSE streaming
   // when the client sends Accept: text/event-stream.
   if (method === "POST" && pathname === "/api/chat") {
-    const body = await readJsonBody<{ text?: string; channelType?: string }>(
-      req,
-      res,
-    );
-    if (!body) return;
-    if (!body.text?.trim()) {
-      error(res, "text is required");
-      return;
-    }
-    const channelType = parseRequestChannelType(
-      body.channelType,
-      ChannelType.DM,
-    );
-    if (!channelType) {
-      error(res, "channelType is invalid", 400);
-      return;
-    }
-    const prompt = body.text.trim();
+    const chatPayload = await readChatRequestPayload(req, res, {
+      readJsonBody,
+      error,
+    });
+    if (!chatPayload) return;
+    const { prompt, channelType } = chatPayload;
 
     if (!state.runtime) {
       error(res, "Agent is not running", 503);
