@@ -1,7 +1,7 @@
-import type { MilaidyConfig } from "./types.js";
+import type { MiladyConfig } from "./types";
 
 export function collectConfigEnvVars(
-  cfg?: MilaidyConfig,
+  cfg?: MiladyConfig,
 ): Record<string, string> {
   const envConfig = cfg?.env;
   if (!envConfig) {

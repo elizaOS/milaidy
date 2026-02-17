@@ -1,6 +1,6 @@
 import type { Command } from "commander";
-import { formatDocsLink } from "../../terminal/links.js";
-import { theme } from "../../terminal/theme.js";
+import { formatDocsLink } from "../../terminal/links";
+import { theme } from "../../terminal/theme";
 
 export function registerConfigureCommand(program: Command) {
   program
@@ -12,14 +12,12 @@ export function registerConfigureCommand(program: Command) {
         `\n${theme.muted("Docs:")} ${formatDocsLink("/configuration", "docs.milady.ai/configuration")}\n`,
     )
     .action(() => {
-      console.log(`\n${theme.heading("Milaidy Configuration")}\n`);
+      console.log(`\n${theme.heading("Milady Configuration")}\n`);
       console.log("Set values with:");
       console.log(
-        `  ${theme.command("milaidy config get <key>")}     Read a config value`,
+        `  ${theme.command("milady config get <key>")}     Read a config value`,
       );
-      console.log(
-        `  Edit ~/.milaidy/milaidy.json directly for full control.\n`,
-      );
+      console.log(`  Edit ~/.milady/milady.json directly for full control.\n`);
       console.log("Common environment variables:");
       console.log(
         `  ${theme.command("ANTHROPIC_API_KEY")}    Anthropic (Claude)`,

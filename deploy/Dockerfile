@@ -6,16 +6,16 @@ ENV PATH="/root/.bun/bin:${PATH}"
 
 WORKDIR /app
 
-ARG MILAIDY_DOCKER_APT_PACKAGES=""
-RUN if [ -n "$MILAIDY_DOCKER_APT_PACKAGES" ]; then \
+ARG MILADY_DOCKER_APT_PACKAGES=""
+RUN if [ -n "$MILADY_DOCKER_APT_PACKAGES" ]; then \
       apt-get update && \
-      DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends $MILAIDY_DOCKER_APT_PACKAGES && \
+      DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends $MILADY_DOCKER_APT_PACKAGES && \
       apt-get clean && \
       rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*; \
     fi
 
 # Copy dependency manifests first for better layer caching
-COPY package.json bun.lock* pnpm-lock.yaml .npmrc ./
+COPY package.json bun.lock* .npmrc ./
 COPY apps/app/package.json ./apps/app/package.json
 COPY scripts ./scripts
 
@@ -35,8 +35,8 @@ RUN chown -R node:node /app
 USER node
 
 # Default: bind to 0.0.0.0 in containers so the service is reachable.
-# Set MILAIDY_API_TOKEN in production to require auth.
-ENV MILAIDY_API_BIND="0.0.0.0"
+# Set MILADY_API_TOKEN in production to require auth.
+ENV MILADY_API_BIND="0.0.0.0"
 
 # Start the API server + dashboard UI on port 2138.
-CMD ["node", "milaidy.mjs", "start"]
+CMD ["node", "milady.mjs", "start"]

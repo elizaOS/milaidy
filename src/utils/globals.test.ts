@@ -6,7 +6,7 @@ import {
   logVerbose,
   setVerbose,
   setYes,
-} from "./globals.js";
+} from "./globals";
 
 describe("globals", () => {
   afterEach(() => {

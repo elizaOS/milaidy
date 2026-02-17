@@ -11,22 +11,57 @@
  * - NFT queries for inventory display
  */
 
+import fs from "node:fs";
+import path from "node:path";
+import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import { ethers } from "ethers";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { DropService } from "../src/api/drop-service.js";
-import { RegistryService } from "../src/api/registry-service.js";
-import { TxService } from "../src/api/tx-service.js";
-import { type AnvilInstance, startAnvil } from "./anvil-helper.js";
-import {
-  type DeployedContracts,
-  deployContracts,
-} from "./contract-deployer.js";
+import { DropService } from "../src/api/drop-service";
+import { RegistryService } from "../src/api/registry-service";
+import { TxService } from "../src/api/tx-service";
+import { type AnvilInstance, startAnvil } from "./anvil-helper";
+import { type DeployedContracts, deployContracts } from "./contract-deployer";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+function hasAnvilBinary(): boolean {
+  try {
+    const result = spawnSync("anvil", ["--version"], { stdio: "ignore" });
+    return result.status === 0;
+  } catch {
+    return false;
+  }
+}
+
+function hasContractArtifacts(): boolean {
+  const artifactFiles = [
+    path.join(
+      __dirname,
+      "contracts",
+      "out",
+      "MockMiladyAgentRegistry.sol",
+      "MockMiladyAgentRegistry.json",
+    ),
+    path.join(
+      __dirname,
+      "contracts",
+      "out",
+      "MockMiladyCollection.sol",
+      "MockMiladyCollection.json",
+    ),
+  ];
+  return artifactFiles.every((filePath) => fs.existsSync(filePath));
+}
+
+const describeAnvil =
+  hasAnvilBinary() && hasContractArtifacts() ? describe : describe.skip;
 
 // ---------------------------------------------------------------------------
 // Test Suite
 // ---------------------------------------------------------------------------
 
-describe("Anvil Contract E2E Tests", () => {
+describeAnvil("Anvil Contract E2E Tests", () => {
   let anvil: AnvilInstance;
   let contracts: DeployedContracts;
   let txService: TxService;
@@ -65,7 +100,7 @@ describe("Anvil Contract E2E Tests", () => {
   }, 60_000);
 
   afterAll(async () => {
-    await anvil.stop();
+    if (anvil) await anvil.stop();
   });
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -97,7 +132,7 @@ describe("Anvil Contract E2E Tests", () => {
 
     it("registers an agent and mints identity NFT", async () => {
       const result = await registryService.register({
-        name: "TestMilaidyAgent",
+        name: "TestMiladyAgent",
         endpoint: "http://localhost:3000/agent",
         capabilitiesHash: ethers.id("test-capabilities"),
         tokenURI: "ipfs://QmTestTokenURI",
@@ -111,7 +146,7 @@ describe("Anvil Contract E2E Tests", () => {
       const status = await registryService.getStatus();
       expect(status.registered).toBe(true);
       expect(status.tokenId).toBeGreaterThan(0);
-      expect(status.agentName).toBe("TestMilaidyAgent");
+      expect(status.agentName).toBe("TestMiladyAgent");
       expect(status.agentEndpoint).toBe("http://localhost:3000/agent");
       expect(status.isActive).toBe(true);
       expect(status.tokenURI).toBe("ipfs://QmTestTokenURI");
@@ -140,14 +175,14 @@ describe("Anvil Contract E2E Tests", () => {
 
     it("can sync full profile", async () => {
       await registryService.syncProfile({
-        name: "SyncedMilaidyAgent",
+        name: "SyncedMiladyAgent",
         endpoint: "http://localhost:5000/agent",
         capabilitiesHash: ethers.id("synced-capabilities"),
         tokenURI: "ipfs://QmSyncedTokenURI",
       });
 
       const status = await registryService.getStatus();
-      expect(status.agentName).toBe("SyncedMilaidyAgent");
+      expect(status.agentName).toBe("SyncedMiladyAgent");
       expect(status.agentEndpoint).toBe("http://localhost:5000/agent");
       expect(status.tokenURI).toBe("ipfs://QmSyncedTokenURI");
     });
@@ -260,7 +295,7 @@ describe("Anvil Contract E2E Tests", () => {
       expect(owner.toLowerCase()).toBe(TEST_ADDRESS.toLowerCase());
 
       const uri = await collectionContract.tokenURI(1);
-      expect(uri).toBe("ipfs://QmMilaidyMetadata");
+      expect(uri).toBe("ipfs://QmMiladyMetadata");
     });
   });
 
@@ -315,7 +350,7 @@ describe("Anvil Contract E2E Tests", () => {
       );
 
       const uri = await collectionContract.tokenURI(2);
-      expect(uri).toBe("ipfs://QmShinyMilaidyMetadata");
+      expect(uri).toBe("ipfs://QmShinyMiladyMetadata");
     });
   });
 
@@ -372,7 +407,7 @@ describe("Anvil Contract E2E Tests", () => {
       };
 
       expect(inventory.agentIdentity).not.toBeNull();
-      expect(inventory.agentIdentity?.name).toBe("SyncedMilaidyAgent");
+      expect(inventory.agentIdentity?.name).toBe("SyncedMiladyAgent");
       expect(inventory.dropNFTs).not.toBeNull();
       expect(inventory.dropNFTs?.minted).toBe(true);
     });

@@ -1,18 +1,18 @@
 import crypto from "node:crypto";
-import type { IAgentRuntime, Memory, Task, UUID } from "@elizaos/core";
+import type { IAgentRuntime, Task, UUID } from "@elizaos/core";
 import { stringToUuid } from "@elizaos/core";
 import {
   buildTriggerMetadata,
   DISABLED_TRIGGER_INTERVAL_MS,
   MAX_TRIGGER_RUN_HISTORY,
-} from "./scheduling.js";
+} from "./scheduling";
 import type {
   TriggerConfig,
   TriggerHealthSnapshot,
   TriggerRunRecord,
   TriggerSummary,
   TriggerTaskMetadata,
-} from "./types.js";
+} from "./types";
 
 export const TRIGGER_TASK_NAME = "TRIGGER_DISPATCH" as const;
 export const TRIGGER_TASK_TAGS = ["queue", "repeat", "trigger"] as const;
@@ -24,19 +24,6 @@ interface TriggerMetricsState {
   totalFailures: number;
   totalSkipped: number;
   lastExecutionAt?: number;
-}
-
-interface AutonomyServiceLike {
-  enableAutonomy?(): Promise<void>;
-  getAutonomousRoomId?(): UUID;
-  injectAutonomousInstruction?(params: {
-    instructions: string;
-    source: string;
-    wakeMode: "inject_now" | "next_autonomy_cycle";
-    triggerId: UUID;
-    triggerTaskId: UUID;
-  }): Promise<void>;
-  triggerThinkNow?(): Promise<boolean>;
 }
 
 export interface TriggerExecutionOptions {
@@ -118,7 +105,7 @@ export function readTriggerRuns(task: Task): TriggerRunRecord[] {
 }
 
 export function triggersFeatureEnabled(runtime?: IAgentRuntime): boolean {
-  const runtimeSetting = runtime?.getSetting("MILAIDY_TRIGGERS_ENABLED");
+  const runtimeSetting = runtime?.getSetting("MILADY_TRIGGERS_ENABLED");
   if (
     runtimeSetting === false ||
     runtimeSetting === "false" ||
@@ -126,21 +113,21 @@ export function triggersFeatureEnabled(runtime?: IAgentRuntime): boolean {
   ) {
     return false;
   }
-  const env = process.env.MILAIDY_TRIGGERS_ENABLED;
+  const env = process.env.MILADY_TRIGGERS_ENABLED;
   if (!env) return true;
   const normalized = env.trim().toLowerCase();
   return normalized !== "0" && normalized !== "false";
 }
 
 export function getTriggerLimit(runtime?: IAgentRuntime): number {
-  const runtimeSetting = runtime?.getSetting("MILAIDY_TRIGGERS_MAX_ACTIVE");
+  const runtimeSetting = runtime?.getSetting("MILADY_TRIGGERS_MAX_ACTIVE");
   if (typeof runtimeSetting === "number" && Number.isFinite(runtimeSetting)) {
     return Math.max(1, Math.floor(runtimeSetting));
   }
   if (typeof runtimeSetting === "string" && /^\d+$/.test(runtimeSetting)) {
     return Math.max(1, Number(runtimeSetting));
   }
-  const env = process.env.MILAIDY_TRIGGERS_MAX_ACTIVE;
+  const env = process.env.MILADY_TRIGGERS_MAX_ACTIVE;
   if (env && /^\d+$/.test(env)) {
     return Math.max(1, Number(env));
   }
@@ -152,53 +139,43 @@ async function dispatchInstruction(
   taskId: UUID,
   trigger: TriggerConfig,
 ): Promise<void> {
-  const autonomy = runtime.getService("AUTONOMY") as AutonomyServiceLike | null;
-  if (!autonomy) {
-    throw new Error("Autonomy service unavailable");
-  }
-
-  if (autonomy.injectAutonomousInstruction) {
-    await autonomy.injectAutonomousInstruction({
-      instructions: trigger.instructions,
-      source: "trigger-dispatch",
-      wakeMode: trigger.wakeMode,
-      triggerId: trigger.triggerId,
-      triggerTaskId: taskId,
-    });
-    return;
-  }
-
-  if (autonomy.enableAutonomy) {
-    await autonomy.enableAutonomy();
-  }
-
-  const roomId = autonomy.getAutonomousRoomId?.();
-  if (!roomId) {
-    throw new Error("Autonomous room unavailable");
-  }
-
-  const memory: Memory = {
-    id: stringToUuid(crypto.randomUUID()),
-    entityId: runtime.agentId,
-    agentId: runtime.agentId,
-    roomId,
-    createdAt: Date.now(),
-    content: {
-      text: trigger.instructions,
-      source: "trigger-dispatch",
-      metadata: {
-        type: "autonomous-trigger",
-        triggerId: trigger.triggerId,
-        triggerTaskId: taskId,
-        wakeMode: trigger.wakeMode,
-      },
-    },
+  type TriggerAutonomyService = {
+    getAutonomousRoomId?: () => UUID;
+    injectAutonomousInstruction?: (payload: {
+      instructions: string;
+      source: string;
+      wakeMode: TriggerConfig["wakeMode"];
+      triggerId: UUID;
+      triggerTaskId: UUID;
+      taskId?: UUID;
+      roomId?: UUID;
+    }) => Promise<void> | void;
   };
-  await runtime.createMemory(memory, "memories");
+  const autonomyService =
+    (runtime.getService("autonomy") as TriggerAutonomyService | null) ??
+    (runtime.getService("AUTONOMY") as TriggerAutonomyService | null);
 
-  if (trigger.wakeMode === "inject_now" && autonomy.triggerThinkNow) {
-    await autonomy.triggerThinkNow();
+  if (!autonomyService?.injectAutonomousInstruction) {
+    runtime.logger.warn?.(
+      `Autonomy service missing injectAutonomousInstruction (taskId=${taskId}, triggerId=${trigger.triggerId})`,
+    );
+    throw new Error("Autonomy service unavailable for trigger dispatch");
   }
+
+  const roomId =
+    typeof autonomyService.getAutonomousRoomId === "function"
+      ? autonomyService.getAutonomousRoomId()
+      : undefined;
+
+  await autonomyService.injectAutonomousInstruction({
+    instructions: trigger.instructions,
+    source: "trigger-runtime",
+    wakeMode: trigger.wakeMode,
+    triggerId: trigger.triggerId,
+    triggerTaskId: taskId,
+    taskId,
+    roomId,
+  });
 }
 
 export async function executeTriggerTask(

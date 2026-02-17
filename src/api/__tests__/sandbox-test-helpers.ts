@@ -6,7 +6,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import {
   createMockHttpResponse,
   createMockIncomingMessage,
-} from "../../test-support/test-helpers.js";
+} from "../../test-support/test-helpers";
 
 export function createMockReq(method: string, body?: string): IncomingMessage {
   return createMockIncomingMessage({

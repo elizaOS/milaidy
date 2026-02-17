@@ -1,11 +1,25 @@
+import { randomUUID } from "node:crypto";
 import http from "node:http";
 import type { AddressInfo } from "node:net";
-import { randomUUID } from "node:crypto";
 import { WebSocketServer } from "ws";
 
 export interface MockApiServerOptions {
   port?: number;
   onboardingComplete?: boolean;
+  auth?: {
+    token: string;
+    pairingCode?: string;
+    pairingEnabled?: boolean;
+    expiresAt?: number | null;
+  };
+  permissions?: Partial<
+    Record<
+      PermissionId,
+      Partial<
+        Pick<PermissionStateRecord, "status" | "canRequest" | "lastChecked">
+      >
+    >
+  >;
 }
 
 export interface MockApiServer {
@@ -16,7 +30,33 @@ export interface MockApiServer {
 
 type JsonObject = Record<string, unknown>;
 
-type AgentState = "not_started" | "starting" | "running" | "paused" | "stopped" | "restarting" | "error";
+type AgentState =
+  | "not_started"
+  | "starting"
+  | "running"
+  | "paused"
+  | "stopped"
+  | "restarting"
+  | "error";
+type PermissionStatus =
+  | "granted"
+  | "denied"
+  | "not-determined"
+  | "restricted"
+  | "not-applicable";
+type PermissionId =
+  | "accessibility"
+  | "screen-recording"
+  | "microphone"
+  | "camera"
+  | "shell";
+type PermissionStateRecord = {
+  id: PermissionId;
+  status: PermissionStatus;
+  lastChecked: number;
+  canRequest: boolean;
+};
+type PermissionsStateRecord = Record<PermissionId, PermissionStateRecord>;
 
 interface ConversationRecord {
   id: string;
@@ -45,7 +85,7 @@ interface CustomActionRecord {
 }
 
 const onboardingOptions = {
-  names: ["Milaidy", "Lilypad", "Orbit", "Nova", "Echo"],
+  names: ["Milady", "Lilypad", "Orbit", "Nova", "Echo"],
   styles: [
     {
       catchphrase: "chaotic",
@@ -88,10 +128,30 @@ const onboardingOptions = {
       description: "OpenAI API",
     },
   ],
-  cloudProviders: [{ id: "elizacloud", name: "Eliza Cloud", description: "Managed cloud runtime" }],
+  cloudProviders: [
+    {
+      id: "elizacloud",
+      name: "Eliza Cloud",
+      description: "Managed cloud runtime",
+    },
+  ],
   models: {
-    small: [{ id: "small-model", name: "Small Model", provider: "elizacloud", description: "Fast" }],
-    large: [{ id: "large-model", name: "Large Model", provider: "elizacloud", description: "High quality" }],
+    small: [
+      {
+        id: "small-model",
+        name: "Small Model",
+        provider: "elizacloud",
+        description: "Fast",
+      },
+    ],
+    large: [
+      {
+        id: "large-model",
+        name: "Large Model",
+        provider: "elizacloud",
+        description: "High quality",
+      },
+    ],
   },
   inventoryProviders: [
     {
@@ -156,11 +216,80 @@ function nowIso(): string {
   return new Date().toISOString();
 }
 
-export async function startMockApiServer(options: MockApiServerOptions = {}): Promise<MockApiServer> {
+function createDefaultPermissionsState(): PermissionsStateRecord {
+  const now = Date.now();
+  return {
+    accessibility: {
+      id: "accessibility",
+      status: "granted",
+      lastChecked: now,
+      canRequest: false,
+    },
+    "screen-recording": {
+      id: "screen-recording",
+      status: "granted",
+      lastChecked: now,
+      canRequest: false,
+    },
+    microphone: {
+      id: "microphone",
+      status: "granted",
+      lastChecked: now,
+      canRequest: false,
+    },
+    camera: {
+      id: "camera",
+      status: "granted",
+      lastChecked: now,
+      canRequest: false,
+    },
+    shell: {
+      id: "shell",
+      status: "granted",
+      lastChecked: now,
+      canRequest: false,
+    },
+  };
+}
+
+function mergePermissionsState(
+  base: PermissionsStateRecord,
+  patch?: MockApiServerOptions["permissions"],
+): PermissionsStateRecord {
+  if (!patch) return base;
+  const next = { ...base };
+  for (const [id, partialState] of Object.entries(patch) as Array<
+    [PermissionId, MockApiServerOptions["permissions"][PermissionId]]
+  >) {
+    if (!partialState) continue;
+    next[id] = {
+      ...next[id],
+      ...partialState,
+      id,
+      lastChecked: partialState.lastChecked ?? Date.now(),
+    };
+  }
+  return next;
+}
+
+export async function startMockApiServer(
+  options: MockApiServerOptions = {},
+): Promise<MockApiServer> {
   const requests: string[] = [];
   let onboardingComplete = Boolean(options.onboardingComplete);
   let agentState: AgentState = onboardingComplete ? "running" : "not_started";
-  const agentName = "Milaidy";
+  let permissionStates = mergePermissionsState(
+    createDefaultPermissionsState(),
+    options.permissions,
+  );
+  const requiredAuthToken = options.auth?.token?.trim() || null;
+  const pairingCode = options.auth?.pairingCode ?? "1234-5678";
+  const pairingEnabled =
+    options.auth?.pairingEnabled ?? Boolean(requiredAuthToken);
+  const pairingExpiresAt =
+    options.auth?.expiresAt ??
+    (pairingEnabled ? Date.now() + 10 * 60 * 1000 : null);
+  const agentName = "Milady";
 
   const conversations: ConversationRecord[] = [
     {
@@ -305,7 +434,138 @@ export async function startMockApiServer(options: MockApiServerOptions = {}): Pr
     }
 
     if (method === "GET" && pathname === "/api/auth/status") {
-      json(res, 200, { required: false, pairingEnabled: false, expiresAt: null });
+      json(res, 200, {
+        required: Boolean(requiredAuthToken),
+        pairingEnabled,
+        expiresAt: pairingExpiresAt,
+      });
+      return;
+    }
+    if (method === "POST" && pathname === "/api/auth/pair") {
+      if (!requiredAuthToken || !pairingEnabled) {
+        json(res, 400, { error: "Pairing is not enabled" });
+        return;
+      }
+      const body = await readJson(req);
+      const code = typeof body.code === "string" ? body.code.trim() : "";
+      if (!code) {
+        json(res, 400, { error: "Pairing code required" });
+        return;
+      }
+      if (code !== pairingCode) {
+        json(res, 403, { error: "Invalid pairing code" });
+        return;
+      }
+      json(res, 200, { token: requiredAuthToken });
+      return;
+    }
+
+    if (requiredAuthToken) {
+      const authHeader = req.headers.authorization ?? "";
+      if (authHeader !== `Bearer ${requiredAuthToken}`) {
+        json(res, 401, { error: "Unauthorized" });
+        return;
+      }
+    }
+
+    if (method === "GET" && pathname === "/api/permissions") {
+      json(res, 200, permissionStates);
+      return;
+    }
+    if (method === "POST" && pathname === "/api/permissions/refresh") {
+      json(res, 200, permissionStates);
+      return;
+    }
+    if (method === "GET" && pathname === "/api/permissions/shell") {
+      json(res, 200, { enabled: permissionStates.shell.status === "granted" });
+      return;
+    }
+    if (method === "PUT" && pathname === "/api/permissions/shell") {
+      const body = await readJson(req);
+      const enabled = body.enabled === true;
+      permissionStates = {
+        ...permissionStates,
+        shell: {
+          ...permissionStates.shell,
+          status: enabled ? "granted" : "denied",
+          canRequest: !enabled,
+          lastChecked: Date.now(),
+        },
+      };
+      json(res, 200, permissionStates.shell);
+      return;
+    }
+    if (method === "PUT" && pathname === "/api/permissions/state") {
+      const body = await readJson(req);
+      const incoming = body.permissions as
+        | Record<string, PermissionStateRecord>
+        | undefined;
+      if (!incoming || typeof incoming !== "object") {
+        json(res, 400, { error: "Invalid permissions payload" });
+        return;
+      }
+      for (const [id, state] of Object.entries(incoming) as Array<
+        [PermissionId, PermissionStateRecord]
+      >) {
+        if (!permissionStates[id] || !state) continue;
+        permissionStates[id] = {
+          ...permissionStates[id],
+          ...state,
+          id,
+          lastChecked: state.lastChecked ?? Date.now(),
+        };
+      }
+      json(res, 200, { updated: true, permissions: permissionStates });
+      return;
+    }
+    if (
+      method === "POST" &&
+      pathname.startsWith("/api/permissions/") &&
+      pathname.endsWith("/request")
+    ) {
+      const id = pathname.slice(
+        "/api/permissions/".length,
+        -"/request".length,
+      ) as PermissionId;
+      if (!permissionStates[id]) {
+        json(res, 400, { error: "Unknown permission" });
+        return;
+      }
+      permissionStates = {
+        ...permissionStates,
+        [id]: {
+          ...permissionStates[id],
+          status: "granted",
+          canRequest: false,
+          lastChecked: Date.now(),
+        },
+      };
+      json(res, 200, permissionStates[id]);
+      return;
+    }
+    if (
+      method === "POST" &&
+      pathname.startsWith("/api/permissions/") &&
+      pathname.endsWith("/open-settings")
+    ) {
+      const id = pathname.slice(
+        "/api/permissions/".length,
+        -"/open-settings".length,
+      ) as PermissionId;
+      if (!permissionStates[id]) {
+        json(res, 400, { error: "Unknown permission" });
+        return;
+      }
+      json(res, 200, { ok: true, id });
+      return;
+    }
+    if (method === "GET" && pathname.startsWith("/api/permissions/")) {
+      const id = pathname.slice("/api/permissions/".length) as PermissionId;
+      if (!permissionStates[id]) {
+        json(res, 404, { error: "Unknown permission" });
+        return;
+      }
+      json(res, 200, permissionStates[id]);
       return;
     }
     if (method === "GET" && pathname === "/api/onboarding/status") {
@@ -382,21 +642,30 @@ export async function startMockApiServer(options: MockApiServerOptions = {}): Pr
       return;
     }
 
-    const conversationMessagesMatch = pathname.match(/^\/api\/conversations\/([^/]+)\/messages$/);
+    const conversationMessagesMatch = pathname.match(
+      /^\/api\/conversations\/([^/]+)\/messages$/,
+    );
     if (method === "GET" && conversationMessagesMatch) {
       const id = decodeURIComponent(conversationMessagesMatch[1]);
       json(res, 200, { messages: messagesByConversation.get(id) ?? [] });
       return;
     }
 
-    const greetingMatch = pathname.match(/^\/api\/conversations\/([^/]+)\/greeting$/);
+    const greetingMatch = pathname.match(
+      /^\/api\/conversations\/([^/]+)\/greeting$/,
+    );
     if (method === "POST" && greetingMatch) {
-      json(res, 200, { text: "hello from milaidy" });
+      json(res, 200, { text: "hello from milady" });
       return;
     }
 
     if (method === "GET" && pathname === "/api/agent/events") {
-      json(res, 200, { events: [], latestEventId: null, totalBuffered: 0, replayed: true });
+      json(res, 200, {
+        events: [],
+        latestEventId: null,
+        totalBuffered: 0,
+        replayed: true,
+      });
       return;
     }
 
@@ -509,9 +778,9 @@ export async function startMockApiServer(options: MockApiServerOptions = {}): Pr
       json(res, 200, {
         character: {
           name: agentName,
-          username: "milaidy",
+          username: "milady",
           bio: ["A mock agent for desktop e2e"],
-          system: "You are Milaidy",
+          system: "You are Milady",
           adjectives: ["friendly"],
           topics: ["testing"],
           style: { all: [], chat: [], post: [] },
@@ -530,7 +799,7 @@ export async function startMockApiServer(options: MockApiServerOptions = {}): Pr
       return;
     }
     if (method === "POST" && pathname === "/api/character/random-name") {
-      json(res, 200, { name: "Milaidy" });
+      json(res, 200, { name: "Milady" });
       return;
     }
 
@@ -562,10 +831,15 @@ export async function startMockApiServer(options: MockApiServerOptions = {}): Pr
       const action: CustomActionRecord = {
         id: randomUUID(),
         name: String(body.name ?? "Mock Action"),
-        description: typeof body.description === "string" ? body.description : undefined,
+        description:
+          typeof body.description === "string" ? body.description : undefined,
         enabled: body.enabled !== false,
-        handler: (body.handler as CustomActionRecord["handler"]) ?? { type: "code" },
-        parameters: Array.isArray(body.parameters) ? body.parameters as CustomActionRecord["parameters"] : [],
+        handler: (body.handler as CustomActionRecord["handler"]) ?? {
+          type: "code",
+        },
+        parameters: Array.isArray(body.parameters)
+          ? (body.parameters as CustomActionRecord["parameters"])
+          : [],
         createdAt: now,
         updatedAt: now,
       };
@@ -573,7 +847,9 @@ export async function startMockApiServer(options: MockApiServerOptions = {}): Pr
       json(res, 200, { ok: true, action });
       return;
     }
-    const customActionMatch = pathname.match(/^\/api\/custom-actions\/([^/]+)$/);
+    const customActionMatch = pathname.match(
+      /^\/api\/custom-actions\/([^/]+)$/,
+    );
     if (method === "PUT" && customActionMatch) {
       const id = decodeURIComponent(customActionMatch[1]);
       const body = await readJson(req);
@@ -599,7 +875,9 @@ export async function startMockApiServer(options: MockApiServerOptions = {}): Pr
       json(res, 200, { ok: true });
       return;
     }
-    const customActionTestMatch = pathname.match(/^\/api\/custom-actions\/([^/]+)\/test$/);
+    const customActionTestMatch = pathname.match(
+      /^\/api\/custom-actions\/([^/]+)\/test$/,
+    );
     if (method === "POST" && customActionTestMatch) {
       json(res, 200, { ok: true, output: "Mock action output", durationMs: 1 });
       return;
@@ -668,7 +946,10 @@ export async function startMockApiServer(options: MockApiServerOptions = {}): Pr
       });
       return;
     }
-    if (method === "GET" && pathname === "/api/apps/hyperscape/embedded-agents") {
+    if (
+      method === "GET" &&
+      pathname === "/api/apps/hyperscape/embedded-agents"
+    ) {
       json(res, 200, { success: true, agents: [], count: 0 });
       return;
     }
@@ -780,12 +1061,15 @@ export async function startMockApiServer(options: MockApiServerOptions = {}): Pr
       return;
     }
     if (method === "GET" && pathname === "/api/trajectories/config") {
-      json(res, 200, { enabled: false });
+      json(res, 200, { enabled: true });
       return;
     }
-    if ((method === "PUT" || method === "POST") && pathname === "/api/trajectories/config") {
-      const body = await readJson(req);
-      json(res, 200, { enabled: Boolean(body.enabled) });
+    if (
+      (method === "PUT" || method === "POST") &&
+      pathname === "/api/trajectories/config"
+    ) {
+      await readJson(req);
+      json(res, 200, { enabled: true });
       return;
     }
     if (method === "DELETE" && pathname === "/api/trajectories") {
@@ -880,7 +1164,11 @@ export async function startMockApiServer(options: MockApiServerOptions = {}): Pr
     }
 
     if (method === "GET" && pathname === "/api/knowledge/stats") {
-      json(res, 200, { documentCount: 0, fragmentCount: 0, agentId: "agent-1" });
+      json(res, 200, {
+        documentCount: 0,
+        fragmentCount: 0,
+        agentId: "agent-1",
+      });
       return;
     }
     if (method === "GET" && pathname === "/api/knowledge/documents") {
@@ -908,26 +1196,6 @@ export async function startMockApiServer(options: MockApiServerOptions = {}): Pr
         relayPort: 18792,
         extensionPath: null,
       });
-      return;
-    }
-
-    const allPermissions = {
-      accessibility: { id: "accessibility", status: "granted", lastChecked: Date.now(), canRequest: false },
-      "screen-recording": { id: "screen-recording", status: "granted", lastChecked: Date.now(), canRequest: false },
-      microphone: { id: "microphone", status: "granted", lastChecked: Date.now(), canRequest: false },
-      camera: { id: "camera", status: "granted", lastChecked: Date.now(), canRequest: false },
-      shell: { id: "shell", status: "granted", lastChecked: Date.now(), canRequest: false },
-    };
-    if (method === "GET" && pathname === "/api/permissions") {
-      json(res, 200, allPermissions);
-      return;
-    }
-    if (method === "POST" && pathname === "/api/permissions/refresh") {
-      json(res, 200, allPermissions);
-      return;
-    }
-    if (method === "GET" && pathname === "/api/permissions/shell") {
-      json(res, 200, { enabled: true });
       return;
     }
 

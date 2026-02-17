@@ -168,7 +168,15 @@ export async function startAnvil(options?: {
   const rpcUrl = `http://127.0.0.1:${port}`;
 
   // Wait for Anvil to be ready
-  const ready = await waitForAnvil(rpcUrl);
+  const ready = await Promise.race([
+    waitForAnvil(rpcUrl),
+    new Promise<boolean>((_resolve, reject) => {
+      anvilProcess.once("error", (error) => reject(error));
+    }),
+  ]).catch((error) => {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Failed to start Anvil process: ${message}`);
+  });
   if (!ready) {
     anvilProcess.kill();
     throw new Error(`Anvil failed to start on port ${port}`);

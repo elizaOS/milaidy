@@ -1,1 +1,1 @@
-export { readRequestBody } from "../src/api/http-helpers.js";
+export { readRequestBody } from "../src/api/http-helpers";

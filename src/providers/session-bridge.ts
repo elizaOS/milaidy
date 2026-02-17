@@ -1,7 +1,7 @@
 /**
- * Bridges Milaidy session keys with ElizaOS rooms.
+ * Bridges Milady session keys with ElizaOS rooms.
  *
- * Milaidy keys: agent:{agentId}:main (DMs), agent:{agentId}:{channel}:group:{id} (groups)
+ * Milady keys: agent:{agentId}:main (DMs), agent:{agentId}:{channel}:group:{id} (groups)
  * ElizaOS rooms: per-agent UUIDs via createUniqueUuid(runtime, channelId)
  */
 
@@ -33,6 +33,7 @@ type ElizaCoreSessionHelpers = {
 };
 
 const coreSessionHelpers = elizaCore as ElizaCoreSessionHelpers;
+// Fallback for when ChannelType is not exported by @elizaos/core (e.g. in tests)
 const channelType = coreSessionHelpers.ChannelType ?? {
   DM: "DM",
   SELF: "SELF",
@@ -61,7 +62,7 @@ function parseAgentSessionKey(key: string):
 }
 
 /**
- * Resolve an Milaidy session key from an ElizaOS room.
+ * Resolve an Milady session key from an ElizaOS room.
  *
  * DMs -> agent:{agentId}:main
  * Groups -> agent:{agentId}:{channel}:group:{groupId}
@@ -91,8 +92,8 @@ export function createSessionKeyProvider(options?: {
   const agentId = options?.defaultAgentId ?? "main";
 
   return {
-    name: "milaidySessionKey",
-    description: "Milaidy session key (DM/group/thread isolation)",
+    name: "miladySessionKey",
+    description: "Milady session key (DM/group/thread isolation)",
     dynamic: true,
     position: 5,
 

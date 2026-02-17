@@ -6,10 +6,10 @@ import WebKit
 
 // MARK: - Plugin Registration
 
-@objc(MilaidyCanvasPlugin)
-public class MilaidyCanvasPlugin: CAPPlugin, CAPBridgedPlugin {
-    public let identifier = "MilaidyCanvasPlugin"
-    public let jsName = "MilaidyCanvas"
+@objc(MiladyCanvasPlugin)
+public class MiladyCanvasPlugin: CAPPlugin, CAPBridgedPlugin {
+    public let identifier = "MiladyCanvasPlugin"
+    public let jsName = "MiladyCanvas"
     public let pluginMethods: [CAPPluginMethod] = [
         // Drawing canvas
         CAPPluginMethod(name: "create", returnType: CAPPluginReturnPromise),
@@ -1023,7 +1023,7 @@ public class MilaidyCanvasPlugin: CAPPlugin, CAPBridgedPlugin {
         let js = """
         (() => {
           try {
-            const host = globalThis.milaidyA2UI;
+            const host = globalThis.miladyA2UI;
             if (host && typeof host.applyMessages === 'function') {
               host.applyMessages(JSON.parse(\(escapedJSON)));
               return 'ok';
@@ -1070,7 +1070,7 @@ public class MilaidyCanvasPlugin: CAPPlugin, CAPBridgedPlugin {
         let js = """
         (() => {
           try {
-            const host = globalThis.milaidyA2UI;
+            const host = globalThis.miladyA2UI;
             if (host && typeof host.reset === 'function') {
               host.reset();
               return 'ok';
@@ -1617,7 +1617,7 @@ public class MilaidyCanvasPlugin: CAPPlugin, CAPBridgedPlugin {
 
 // MARK: - ManagedCanvas
 
-extension MilaidyCanvasPlugin {
+extension MiladyCanvasPlugin {
     class ManagedCanvas {
         let id: String
         var view: CanvasView
@@ -1659,7 +1659,7 @@ extension MilaidyCanvasPlugin {
 
 // MARK: - CanvasView
 
-extension MilaidyCanvasPlugin {
+extension MiladyCanvasPlugin {
     class CanvasView: UIView {
         private var drawingImage: UIImage?
         var touchHandler: ((String, [TouchInfo]) -> Void)?
@@ -1733,13 +1733,13 @@ extension MilaidyCanvasPlugin {
 
 // MARK: - WKNavigationDelegate
 
-/// Handles navigation policy for the canvas web view: intercepts milaidy:// deep links,
+/// Handles navigation policy for the canvas web view: intercepts milady:// deep links,
 /// reports load errors, and emits navigation events to the Capacitor layer.
 final class CanvasNavigationDelegate: NSObject, WKNavigationDelegate {
-    weak var plugin: MilaidyCanvasPlugin?
+    weak var plugin: MiladyCanvasPlugin?
     let canvasId: String
 
-    init(plugin: MilaidyCanvasPlugin, canvasId: String) {
+    init(plugin: MiladyCanvasPlugin, canvasId: String) {
         self.plugin = plugin
         self.canvasId = canvasId
         super.init()
@@ -1755,8 +1755,8 @@ final class CanvasNavigationDelegate: NSObject, WKNavigationDelegate {
             return
         }
 
-        // Intercept milaidy:// deep links.
-        if url.scheme?.lowercased() == "milaidy" {
+        // Intercept milady:// deep links.
+        if url.scheme?.lowercased() == "milady" {
             decisionHandler(.cancel)
             plugin?.notifyListeners("deepLink", data: [
                 "canvasId": canvasId,
@@ -1795,12 +1795,12 @@ final class CanvasNavigationDelegate: NSObject, WKNavigationDelegate {
 /// Receives A2UI action messages from the canvas web view (e.g. button taps in A2UI components)
 /// and forwards them as Capacitor events.
 final class CanvasA2UIMessageHandler: NSObject, WKScriptMessageHandler {
-    static let messageName = "milaidyCanvasA2UIAction"
+    static let messageName = "miladyCanvasA2UIAction"
 
-    weak var plugin: MilaidyCanvasPlugin?
+    weak var plugin: MiladyCanvasPlugin?
     let canvasId: String
 
-    init(plugin: MilaidyCanvasPlugin, canvasId: String) {
+    init(plugin: MiladyCanvasPlugin, canvasId: String) {
         self.plugin = plugin
         self.canvasId = canvasId
         super.init()
@@ -1835,8 +1835,8 @@ final class CanvasA2UIMessageHandler: NSObject, WKScriptMessageHandler {
         // Dispatch action status acknowledgement back to the web view.
         let statusJS = """
         (() => {
-          const detail = { id: \(MilaidyCanvasPlugin.jsStringLiteral(actionId)), ok: true, error: '' };
-          window.dispatchEvent(new CustomEvent('milaidy:a2ui-action-status', { detail }));
+          const detail = { id: \(MiladyCanvasPlugin.jsStringLiteral(actionId)), ok: true, error: '' };
+          window.dispatchEvent(new CustomEvent('milady:a2ui-action-status', { detail }));
         })();
         """
         webView.evaluateJavaScript(statusJS) { _, _ in }

@@ -12,7 +12,7 @@ const { mockClient } = vi.hoisted(() => ({
     })),
     getOnboardingStatus: vi.fn(async () => ({ complete: false })),
     getOnboardingOptions: vi.fn(async () => ({
-      names: ["Milaidy"],
+      names: ["Milady"],
       styles: [],
       providers: [],
       cloudProviders: [],
@@ -29,7 +29,7 @@ const { mockClient } = vi.hoisted(() => ({
     getAgentEvents: vi.fn(async () => ({ events: [], latestEventId: null })),
     getStatus: vi.fn(async () => ({
       state: "running",
-      agentName: "Milaidy",
+      agentName: "Milady",
       model: undefined,
       startedAt: undefined,
       uptime: undefined,
@@ -37,11 +37,47 @@ const { mockClient } = vi.hoisted(() => ({
     getWalletAddresses: vi.fn(async () => null),
     getConfig: vi.fn(async () => ({})),
     getCloudStatus: vi.fn(async () => ({ enabled: false, connected: false })),
-    getWorkbenchOverview: vi.fn(async () => ({ tasks: [], triggers: [], todos: [] })),
+    getWorkbenchOverview: vi.fn(async () => ({
+      tasks: [],
+      triggers: [],
+      todos: [],
+    })),
+    getPermissions: vi.fn(async () => ({
+      accessibility: {
+        id: "accessibility",
+        status: "granted",
+        lastChecked: Date.now(),
+        canRequest: false,
+      },
+      "screen-recording": {
+        id: "screen-recording",
+        status: "granted",
+        lastChecked: Date.now(),
+        canRequest: false,
+      },
+      microphone: {
+        id: "microphone",
+        status: "granted",
+        lastChecked: Date.now(),
+        canRequest: false,
+      },
+      camera: {
+        id: "camera",
+        status: "granted",
+        lastChecked: Date.now(),
+        canRequest: false,
+      },
+      shell: {
+        id: "shell",
+        status: "granted",
+        lastChecked: Date.now(),
+        canRequest: false,
+      },
+    })),
     submitOnboarding: vi.fn(async () => ({ ok: true })),
     restartAgent: vi.fn(async () => ({
       state: "running",
-      agentName: "Milaidy",
+      agentName: "Milady",
       model: undefined,
       startedAt: undefined,
       uptime: undefined,
@@ -65,7 +101,9 @@ function createDeferred<T>() {
 }
 
 type ProbeApi = {
-  handleOnboardingNext: () => Promise<void>;
+  handleOnboardingNext: (options?: {
+    allowPermissionBypass?: boolean;
+  }) => Promise<void>;
   hasOnboardingOptions: () => boolean;
   getOnboardingStep: () => string;
 };
@@ -83,6 +121,18 @@ function Probe(props: { onReady: (api: ProbeApi) => void }) {
   }, [app, onReady]);
 
   return null;
+}
+
+function permissionState(
+  status:
+    | "granted"
+    | "denied"
+    | "not-determined"
+    | "restricted"
+    | "not-applicable",
+  canRequest = false,
+) {
+  return { status, canRequest, lastChecked: Date.now() };
 }
 
 async function advanceToPermissions(getApi: () => ProbeApi) {
@@ -131,7 +181,7 @@ describe("onboarding finish locking", () => {
     });
     mockClient.getOnboardingStatus.mockResolvedValue({ complete: false });
     mockClient.getOnboardingOptions.mockResolvedValue({
-      names: ["Milaidy"],
+      names: ["Milady"],
       styles: [],
       providers: [],
       cloudProviders: [],
@@ -145,22 +195,42 @@ describe("onboarding finish locking", () => {
     mockClient.connectWs.mockImplementation(() => {});
     mockClient.disconnectWs.mockImplementation(() => {});
     mockClient.onWsEvent.mockReturnValue(() => {});
-    mockClient.getAgentEvents.mockResolvedValue({ events: [], latestEventId: null });
+    mockClient.getAgentEvents.mockResolvedValue({
+      events: [],
+      latestEventId: null,
+    });
     mockClient.getStatus.mockResolvedValue({
       state: "running",
-      agentName: "Milaidy",
+      agentName: "Milady",
       model: undefined,
       startedAt: undefined,
       uptime: undefined,
     });
     mockClient.getWalletAddresses.mockResolvedValue(null);
     mockClient.getConfig.mockResolvedValue({});
-    mockClient.getCloudStatus.mockResolvedValue({ enabled: false, connected: false });
-    mockClient.getWorkbenchOverview.mockResolvedValue({ tasks: [], triggers: [], todos: [] });
+    mockClient.getCloudStatus.mockResolvedValue({
+      enabled: false,
+      connected: false,
+    });
+    mockClient.getWorkbenchOverview.mockResolvedValue({
+      tasks: [],
+      triggers: [],
+      todos: [],
+    });
+    mockClient.getPermissions.mockResolvedValue({
+      accessibility: { id: "accessibility", ...permissionState("granted") },
+      "screen-recording": {
+        id: "screen-recording",
+        ...permissionState("granted"),
+      },
+      microphone: { id: "microphone", ...permissionState("granted") },
+      camera: { id: "camera", ...permissionState("granted") },
+      shell: { id: "shell", ...permissionState("granted") },
+    });
     mockClient.submitOnboarding.mockResolvedValue({ ok: true });
     mockClient.restartAgent.mockResolvedValue({
       state: "running",
-      agentName: "Milaidy",
+      agentName: "Milady",
       model: undefined,
       startedAt: undefined,
       uptime: undefined,
@@ -188,13 +258,17 @@ describe("onboarding finish locking", () => {
     });
 
     expect(api).not.toBeNull();
+    const requireApi = () => {
+      if (!api) throw new Error("onboarding probe API was not initialized");
+      return api;
+    };
 
-    await waitForOnboardingOptions(() => api!);
-    await advanceToPermissions(() => api!);
+    await waitForOnboardingOptions(requireApi);
+    await advanceToPermissions(requireApi);
 
     await act(async () => {
-      void api!.handleOnboardingNext();
-      void api!.handleOnboardingNext();
+      void api?.handleOnboardingNext();
+      void api?.handleOnboardingNext();
     });
 
     expect(mockClient.submitOnboarding).toHaveBeenCalledTimes(1);
@@ -205,7 +279,7 @@ describe("onboarding finish locking", () => {
     });
 
     await act(async () => {
-      tree!.unmount();
+      tree?.unmount();
     });
   });
 
@@ -231,21 +305,77 @@ describe("onboarding finish locking", () => {
     });
 
     expect(api).not.toBeNull();
+    const requireApi = () => {
+      if (!api) throw new Error("onboarding probe API was not initialized");
+      return api;
+    };
 
-    await waitForOnboardingOptions(() => api!);
-    await advanceToPermissions(() => api!);
+    await waitForOnboardingOptions(requireApi);
+    await advanceToPermissions(requireApi);
 
     await act(async () => {
-      await api!.handleOnboardingNext();
+      await api?.handleOnboardingNext();
     });
     await act(async () => {
-      await api!.handleOnboardingNext();
+      await api?.handleOnboardingNext();
     });
 
     expect(mockClient.submitOnboarding).toHaveBeenCalledTimes(2);
 
     await act(async () => {
-      tree!.unmount();
+      tree?.unmount();
+    });
+  });
+
+  it("requires permissions check before finishing unless user explicitly skips", async () => {
+    mockClient.getPermissions.mockResolvedValue({
+      accessibility: { id: "accessibility", ...permissionState("granted") },
+      "screen-recording": {
+        id: "screen-recording",
+        ...permissionState("denied", true),
+      },
+      microphone: { id: "microphone", ...permissionState("granted") },
+      camera: { id: "camera", ...permissionState("granted") },
+      shell: { id: "shell", ...permissionState("granted") },
+    });
+
+    let api: ProbeApi | null = null;
+    let tree: TestRenderer.ReactTestRenderer;
+    await act(async () => {
+      tree = TestRenderer.create(
+        React.createElement(
+          AppProvider,
+          null,
+          React.createElement(Probe, {
+            onReady: (nextApi) => {
+              api = nextApi;
+            },
+          }),
+        ),
+      );
+    });
+
+    expect(api).not.toBeNull();
+    const requireApi = () => {
+      if (!api) throw new Error("onboarding probe API was not initialized");
+      return api;
+    };
+
+    await waitForOnboardingOptions(requireApi);
+    await advanceToPermissions(requireApi);
+
+    await act(async () => {
+      await api?.handleOnboardingNext();
+    });
+    expect(mockClient.submitOnboarding).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await api?.handleOnboardingNext({ allowPermissionBypass: true });
+    });
+    expect(mockClient.submitOnboarding).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      tree?.unmount();
     });
   });
 });

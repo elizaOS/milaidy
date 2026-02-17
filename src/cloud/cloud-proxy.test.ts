@@ -9,8 +9,8 @@
  */
 
 import { describe, expect, it, vi } from "vitest";
-import type { ElizaCloudClient } from "./bridge-client.js";
-import { CloudRuntimeProxy } from "./cloud-proxy.js";
+import type { ElizaCloudClient } from "./bridge-client";
+import { CloudRuntimeProxy } from "./cloud-proxy";
 
 function createMockClient(
   overrides: Partial<ElizaCloudClient> = {},
@@ -46,7 +46,7 @@ describe("CloudRuntimeProxy", () => {
       "a1",
       "Hi there",
       "web-chat",
-      "power",
+      "DM",
     );
   });
 
@@ -59,7 +59,7 @@ describe("CloudRuntimeProxy", () => {
       "a1",
       "Hi",
       "custom-room",
-      "power",
+      "DM",
     );
   });
 

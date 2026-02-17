@@ -1,24 +1,21 @@
 import type { Command } from "commander";
-import { formatDocsLink } from "../../terminal/links.js";
-import { isRich, theme } from "../../terminal/theme.js";
-import { formatCliBannerLine, hasEmittedCliBanner } from "../banner.js";
-import { replaceCliName, resolveCliName } from "../cli-name.js";
+import { formatDocsLink } from "../../terminal/links";
+import { isRich, theme } from "../../terminal/theme";
+import { formatCliBannerLine, hasEmittedCliBanner } from "../banner";
+import { replaceCliName, resolveCliName } from "../cli-name";
 
 const CLI_NAME = resolveCliName();
 
 const EXAMPLES = [
-  ["milaidy", "Start Milaidy in the interactive TUI."],
-  ["milaidy start", "Start the classic runtime/chat loop."],
-  ["milaidy dashboard", "Open the Control UI in your browser."],
-  [
-    "milaidy setup",
-    "Initialize ~/.milaidy/milaidy.json and the agent workspace.",
-  ],
-  ["milaidy config get agents.defaults.model.primary", "Read a config value."],
-  ["milaidy models", "Show configured model providers."],
-  ["milaidy plugins list", "List available plugins."],
-  ["milaidy update", "Check for and install the latest version."],
-  ["milaidy update channel beta", "Switch to the beta release channel."],
+  ["milady", "Start Milady in the interactive TUI."],
+  ["milady start", "Start the classic runtime/chat loop."],
+  ["milady dashboard", "Open the Control UI in your browser."],
+  ["milady setup", "Initialize ~/.milady/milady.json and the agent workspace."],
+  ["milady config get agents.defaults.model.primary", "Read a config value."],
+  ["milady models", "Show configured model providers."],
+  ["milady plugins list", "List available plugins."],
+  ["milady update", "Check for and install the latest version."],
+  ["milady update channel beta", "Switch to the beta release channel."],
 ] as const;
 
 export function configureProgramHelp(program: Command, programVersion: string) {
@@ -30,11 +27,11 @@ export function configureProgramHelp(program: Command, programVersion: string) {
     .option("--debug", "Enable debug-level runtime logs")
     .option(
       "--dev",
-      "Dev profile: isolate state under ~/.milaidy-dev with separate config and ports",
+      "Dev profile: isolate state under ~/.milady-dev with separate config and ports",
     )
     .option(
       "--profile <name>",
-      "Use a named profile (isolates MILAIDY_STATE_DIR/MILAIDY_CONFIG_PATH under ~/.milaidy-<name>)",
+      "Use a named profile (isolates MILADY_STATE_DIR/MILADY_CONFIG_PATH under ~/.milady-<name>)",
     );
 
   program.option("--no-color", "Disable ANSI colors", false);

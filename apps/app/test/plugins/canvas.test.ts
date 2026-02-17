@@ -1,29 +1,35 @@
 /**
- * Tests for @milaidy/capacitor-canvas — lifecycle, layers, error paths.
+ * Tests for @milady/capacitor-canvas — lifecycle, layers, error paths.
  *
  * Note: Drawing operations (drawRect, clear, etc.) require a real 2D canvas context
  * which is unavailable in Node.js. Those are tested via error paths for invalid IDs
  * and method existence checks. Full rendering is tested in browser/e2e tests.
  */
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CanvasWeb } from "../../plugins/canvas/src/web";
 
-describe("@milaidy/capacitor-canvas", () => {
+describe("@milady/capacitor-canvas", () => {
   let c: CanvasWeb;
 
-  beforeEach(() => { c = new CanvasWeb(); });
+  beforeEach(() => {
+    c = new CanvasWeb();
+  });
 
   // -- Canvas lifecycle --
 
   describe("lifecycle", () => {
     it("create returns a non-empty canvasId string", async () => {
-      const { canvasId } = await c.create({ size: { width: 800, height: 600 } });
+      const { canvasId } = await c.create({
+        size: { width: 800, height: 600 },
+      });
       expect(typeof canvasId).toBe("string");
       expect(canvasId.length).toBeGreaterThan(0);
     });
 
     it("creates with zero size", async () => {
-      expect((await c.create({ size: { width: 0, height: 0 } })).canvasId).toBeDefined();
+      expect(
+        (await c.create({ size: { width: 0, height: 0 } })).canvasId,
+      ).toBeDefined();
     });
 
     it("multiple creates return unique IDs", async () => {
@@ -41,16 +47,28 @@ describe("@milaidy/capacitor-canvas", () => {
 
   describe("layers", () => {
     let canvasId: string;
-    beforeEach(async () => { canvasId = (await c.create({ size: { width: 400, height: 400 } })).canvasId; });
+    beforeEach(async () => {
+      canvasId = (await c.create({ size: { width: 400, height: 400 } }))
+        .canvasId;
+    });
 
     it("createLayer returns layerId", async () => {
-      const { layerId } = await c.createLayer({ canvasId, layer: { visible: true, opacity: 1, zIndex: 0 } });
+      const { layerId } = await c.createLayer({
+        canvasId,
+        layer: { visible: true, opacity: 1, zIndex: 0 },
+      });
       expect(typeof layerId).toBe("string");
     });
 
     it("getLayers returns all created layers", async () => {
-      await c.createLayer({ canvasId, layer: { visible: true, opacity: 1, zIndex: 0 } });
-      await c.createLayer({ canvasId, layer: { visible: true, opacity: 0.5, zIndex: 1 } });
+      await c.createLayer({
+        canvasId,
+        layer: { visible: true, opacity: 1, zIndex: 0 },
+      });
+      await c.createLayer({
+        canvasId,
+        layer: { visible: true, opacity: 0.5, zIndex: 1 },
+      });
       expect((await c.getLayers({ canvasId })).layers).toHaveLength(2);
     });
 
@@ -59,19 +77,36 @@ describe("@milaidy/capacitor-canvas", () => {
     });
 
     it("updateLayer changes properties", async () => {
-      const { layerId } = await c.createLayer({ canvasId, layer: { visible: true, opacity: 1, zIndex: 0 } });
-      await c.updateLayer({ canvasId, layerId, layer: { opacity: 0.5, visible: false } });
-      const updated = (await c.getLayers({ canvasId })).layers.find((l) => l.id === layerId)!;
+      const { layerId } = await c.createLayer({
+        canvasId,
+        layer: { visible: true, opacity: 1, zIndex: 0 },
+      });
+      await c.updateLayer({
+        canvasId,
+        layerId,
+        layer: { opacity: 0.5, visible: false },
+      });
+      const updated = (await c.getLayers({ canvasId })).layers.find(
+        (l) => l.id === layerId,
+      );
+      expect(updated).toBeDefined();
+      if (!updated) {
+        throw new Error("updated layer not found");
+      }
       expect(updated.opacity).toBe(0.5);
       expect(updated.visible).toBe(false);
     });
 
     it("deleteLayer on invalid ID throws 'Layer not found'", async () => {
-      await expect(c.deleteLayer({ canvasId, layerId: "bad" })).rejects.toThrow("Layer not found");
+      await expect(c.deleteLayer({ canvasId, layerId: "bad" })).rejects.toThrow(
+        "Layer not found",
+      );
     });
 
     it("deleteLayer on invalid canvas throws 'Canvas not found'", async () => {
-      await expect(c.deleteLayer({ canvasId: "bad", layerId: "bad" })).rejects.toThrow("Canvas not found");
+      await expect(
+        c.deleteLayer({ canvasId: "bad", layerId: "bad" }),
+      ).rejects.toThrow("Canvas not found");
     });
   });
 
@@ -79,13 +114,18 @@ describe("@milaidy/capacitor-canvas", () => {
 
   describe("error paths", () => {
     it("clear on invalid canvas throws 'Canvas not found'", async () => {
-      await expect(c.clear({ canvasId: "bad" })).rejects.toThrow("Canvas not found");
+      await expect(c.clear({ canvasId: "bad" })).rejects.toThrow(
+        "Canvas not found",
+      );
     });
 
     it("drawRect on invalid canvas throws 'Canvas not found'", async () => {
-      await expect(c.drawRect({
-        canvasId: "bad", rect: { x: 0, y: 0, width: 10, height: 10 },
-      })).rejects.toThrow("Canvas not found");
+      await expect(
+        c.drawRect({
+          canvasId: "bad",
+          rect: { x: 0, y: 0, width: 10, height: 10 },
+        }),
+      ).rejects.toThrow("Canvas not found");
     });
 
     it("eval without web view throws", async () => {

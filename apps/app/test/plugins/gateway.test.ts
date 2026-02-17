@@ -1,11 +1,18 @@
 /**
- * Tests for @milaidy/capacitor-gateway — WebSocket RPC and discovery.
+ * Tests for @milady/capacitor-gateway — WebSocket RPC and discovery.
  */
-import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GatewayWeb } from "../../plugins/gateway/src/web";
 
 type Internals = GatewayWeb & {
-  pending: Map<string, { resolve: (v: unknown) => void; reject: (e: Error) => void; timeout: ReturnType<typeof setTimeout> }>;
+  pending: Map<
+    string,
+    {
+      resolve: (v: unknown) => void;
+      reject: (e: Error) => void;
+      timeout: ReturnType<typeof setTimeout>;
+    }
+  >;
   closed: boolean;
   backoffMs: number;
   lastSeq: number | null;
@@ -14,7 +21,7 @@ type Internals = GatewayWeb & {
   handleClose: (code: number, reason: string) => void;
 };
 
-describe("@milaidy/capacitor-gateway", () => {
+describe("@milady/capacitor-gateway", () => {
   let gw: GatewayWeb;
   let priv: Internals;
 
@@ -36,7 +43,10 @@ describe("@milaidy/capacitor-gateway", () => {
     });
 
     it("startDiscovery with options still returns empty", async () => {
-      expect((await gw.startDiscovery({ wideAreaDomain: "x", timeout: 5000 })).gateways).toEqual([]);
+      expect(
+        (await gw.startDiscovery({ wideAreaDomain: "x", timeout: 5000 }))
+          .gateways,
+      ).toEqual([]);
     });
 
     it("stopDiscovery/getDiscoveredGateways are no-ops", async () => {
@@ -50,7 +60,12 @@ describe("@milaidy/capacitor-gateway", () => {
   describe("connection state", () => {
     it("starts disconnected with null info", async () => {
       expect((await gw.isConnected()).connected).toBe(false);
-      expect(await gw.getConnectionInfo()).toEqual({ url: null, sessionId: null, protocol: null, role: null });
+      expect(await gw.getConnectionInfo()).toEqual({
+        url: null,
+        sessionId: null,
+        protocol: null,
+        role: null,
+      });
     });
 
     it("disconnect is idempotent", async () => {
@@ -76,10 +91,17 @@ describe("@milaidy/capacitor-gateway", () => {
   // -- Message frame parsing --
 
   describe("handleMessage", () => {
-    it.each(["not json", "{bad", "", '"string"', "42", "null", "[]"])(
-      "ignores invalid input: %s",
-      (raw) => { priv.handleMessage(raw); /* no throw */ },
-    );
+    it.each([
+      "not json",
+      "{bad",
+      "",
+      '"string"',
+      "42",
+      "null",
+      "[]",
+    ])("ignores invalid input: %s", (raw) => {
+      priv.handleMessage(raw); /* no throw */
+    });
 
     it("ignores objects without type", () => {
       priv.handleMessage(JSON.stringify({ id: "x" }));
@@ -87,25 +109,54 @@ describe("@milaidy/capacitor-gateway", () => {
 
     it("resolves pending request on response frame", () => {
       const resolve = vi.fn();
-      priv.pending.set("r1", { resolve, reject: vi.fn(), timeout: setTimeout(() => {}, 60000) });
+      priv.pending.set("r1", {
+        resolve,
+        reject: vi.fn(),
+        timeout: setTimeout(() => {}, 60000),
+      });
 
-      priv.handleMessage(JSON.stringify({ type: "res", id: "r1", ok: true, payload: { text: "hi" } }));
+      priv.handleMessage(
+        JSON.stringify({
+          type: "res",
+          id: "r1",
+          ok: true,
+          payload: { text: "hi" },
+        }),
+      );
 
-      expect(resolve).toHaveBeenCalledWith(expect.objectContaining({ ok: true, payload: { text: "hi" } }));
+      expect(resolve).toHaveBeenCalledWith(
+        expect.objectContaining({ ok: true, payload: { text: "hi" } }),
+      );
       expect(priv.pending.has("r1")).toBe(false);
     });
 
     it("resolves with error info on failed response", () => {
       const resolve = vi.fn();
-      priv.pending.set("r2", { resolve, reject: vi.fn(), timeout: setTimeout(() => {}, 60000) });
+      priv.pending.set("r2", {
+        resolve,
+        reject: vi.fn(),
+        timeout: setTimeout(() => {}, 60000),
+      });
 
-      priv.handleMessage(JSON.stringify({ type: "res", id: "r2", ok: false, error: { code: "BAD", message: "nope" } }));
+      priv.handleMessage(
+        JSON.stringify({
+          type: "res",
+          id: "r2",
+          ok: false,
+          error: { code: "BAD", message: "nope" },
+        }),
+      );
 
-      expect(resolve.mock.calls[0][0].error).toEqual({ code: "BAD", message: "nope" });
+      expect(resolve.mock.calls[0][0].error).toEqual({
+        code: "BAD",
+        message: "nope",
+      });
     });
 
     it("silently ignores response for unknown request id", () => {
-      priv.handleMessage(JSON.stringify({ type: "res", id: "unknown", ok: true }));
+      priv.handleMessage(
+        JSON.stringify({ type: "res", id: "unknown", ok: true }),
+      );
     });
 
     it("tracks sequence and warns on gap", () => {
@@ -113,7 +164,9 @@ describe("@milaidy/capacitor-gateway", () => {
       const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 
       priv.handleMessage(JSON.stringify({ type: "event", event: "x", seq: 8 }));
-      expect(warn).toHaveBeenCalledWith(expect.stringContaining("sequence gap"));
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining("sequence gap"),
+      );
       expect(priv.lastSeq).toBe(8);
 
       warn.mockClear();
@@ -133,9 +186,18 @@ describe("@milaidy/capacitor-gateway", () => {
 
   describe("handleClose", () => {
     it("rejects all pending requests", () => {
-      const rej1 = vi.fn(), rej2 = vi.fn();
-      priv.pending.set("a", { resolve: vi.fn(), reject: rej1, timeout: setTimeout(() => {}, 1000) });
-      priv.pending.set("b", { resolve: vi.fn(), reject: rej2, timeout: setTimeout(() => {}, 1000) });
+      const rej1 = vi.fn(),
+        rej2 = vi.fn();
+      priv.pending.set("a", {
+        resolve: vi.fn(),
+        reject: rej1,
+        timeout: setTimeout(() => {}, 1000),
+      });
+      priv.pending.set("b", {
+        resolve: vi.fn(),
+        reject: rej2,
+        timeout: setTimeout(() => {}, 1000),
+      });
       priv.closed = true;
 
       priv.handleClose(1006, "Abnormal");
@@ -155,14 +217,16 @@ describe("@milaidy/capacitor-gateway", () => {
   // -- Event listeners --
 
   describe("event listeners", () => {
-    it.each(["gatewayEvent", "stateChange", "error", "discovery"] as const)(
-      "registers/removes %s listener",
-      async (event) => {
-        const h = await gw.addListener(event, vi.fn());
-        expect(typeof h.remove).toBe("function");
-        await h.remove();
-      },
-    );
+    it.each([
+      "gatewayEvent",
+      "stateChange",
+      "error",
+      "discovery",
+    ] as const)("registers/removes %s listener", async (event) => {
+      const h = await gw.addListener(event, vi.fn());
+      expect(typeof h.remove).toBe("function");
+      await h.remove();
+    });
 
     it("removeAllListeners clears all", async () => {
       await gw.addListener("gatewayEvent", vi.fn());

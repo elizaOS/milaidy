@@ -13,7 +13,7 @@ import {
   type McpMarketplaceSearchItem,
   type McpRegistryServer,
   type McpServerConfig,
-} from "./mcp-marketplace.js";
+} from "./mcp-marketplace";
 
 // ============================================================================
 //  1. generateMcpConfigFromRegistry (existing function)

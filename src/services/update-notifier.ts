@@ -3,9 +3,9 @@
  * to stderr if a newer version is available (like npm's update-notifier).
  */
 
-import { loadMilaidyConfig } from "../config/config.js";
-import { theme } from "../terminal/theme.js";
-import { checkForUpdate, resolveChannel } from "./update-checker.js";
+import { loadMiladyConfig } from "../config/config";
+import { theme } from "../terminal/theme";
+import { checkForUpdate, resolveChannel } from "./update-checker";
 
 let notified = false;
 
@@ -13,9 +13,9 @@ export function scheduleUpdateNotification(): void {
   if (notified) return;
   notified = true;
 
-  let config: Partial<ReturnType<typeof loadMilaidyConfig>> = {};
+  let config: Partial<ReturnType<typeof loadMiladyConfig>> = {};
   try {
-    config = loadMilaidyConfig();
+    config = loadMiladyConfig();
   } catch {
     // Keep behavior resilient to malformed config files: continue with defaults.
   }
@@ -31,7 +31,7 @@ export function scheduleUpdateNotification(): void {
 
       process.stderr.write(
         `\n${theme.accent("Update available:")} ${theme.muted(result.currentVersion)} -> ${theme.success(result.latestVersion)}${theme.muted(suffix)}\n` +
-          `${theme.muted("Run")} ${theme.command("milaidy update")} ${theme.muted("to install")}\n\n`,
+          `${theme.muted("Run")} ${theme.command("milady update")} ${theme.muted("to install")}\n\n`,
       );
     })
     .catch(() => {});

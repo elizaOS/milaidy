@@ -4,7 +4,7 @@ import {
   extractCompatTextContent,
   extractOpenAiSystemAndLastUser,
   resolveCompatRoomKey,
-} from "./compat-utils.js";
+} from "./compat-utils";
 
 describe("extractCompatTextContent", () => {
   it("returns string content directly", () => {

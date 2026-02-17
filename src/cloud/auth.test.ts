@@ -11,13 +11,13 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("./validate-url.js", () => {
+vi.mock("./validate-url", () => {
   return {
     validateCloudBaseUrl: vi.fn().mockResolvedValue(null),
   };
 });
 
-import { cloudLogin } from "./auth.js";
+import { cloudLogin } from "./auth";
 
 // ---------------------------------------------------------------------------
 // fetch mock
@@ -186,9 +186,11 @@ describe("cloudLogin", () => {
 
   it("sets per-request timeout signal on cloud fetches", async () => {
     const signals: Array<AbortSignal | null | undefined> = [];
+    const redirects: Array<RequestRedirect | undefined> = [];
     let callCount = 0;
     fetchMock.mockImplementation(async (_input, init) => {
       signals.push(init?.signal);
+      redirects.push(init?.redirect);
       callCount++;
       if (callCount === 1)
         return jsonResponse({ sessionId: "test-session" }, 201);
@@ -210,6 +212,30 @@ describe("cloudLogin", () => {
     for (const signal of signals) {
       expect(signal).toBeInstanceOf(AbortSignal);
     }
+    for (const redirect of redirects) {
+      expect(redirect).toBe("manual");
+    }
+  });
+
+  it("rejects redirect responses during session creation", async () => {
+    fetchMock.mockResolvedValue(
+      new Response("", {
+        status: 302,
+        headers: { location: "https://evil.example" },
+      }),
+    );
+
+    await expect(
+      cloudLogin({
+        baseUrl: "https://test.elizacloud.ai",
+        requestTimeoutMs: 50,
+      }),
+    ).rejects.toThrow("redirected");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://test.elizacloud.ai/api/auth/cli-session",
+      expect.objectContaining({ redirect: "manual" }),
+    );
   });
 
   it("throws when session becomes 404 mid-poll", async () => {

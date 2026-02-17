@@ -1,545 +1,866 @@
-/**
- * Milaidy Benchmark Server.
- *
- * Starts a lightweight HTTP server wrapping the full milaidy agent runtime
- * so that Python benchmark runners can communicate via HTTP.
- *
- * Usage:
- *   node --import tsx packages/milaidy/src/benchmark/server.ts
- *
- * Env vars:
- *   MILAIDY_BENCH_PORT  – port to listen on (default 3939)
- *
- * @module benchmark/server
- */
-import crypto from "node:crypto";
 import http from "node:http";
-import process from "node:process";
-
+import path from "node:path";
 import {
   AgentRuntime,
   ChannelType,
-  type Character,
-  createMessageMemory,
-  logger,
-  mergeCharacterDefaults,
+  type Content,
+  elizaLogger,
+  type Memory,
   type Plugin,
   stringToUuid,
   type UUID,
 } from "@elizaos/core";
-import {
-  readJsonBody as parseJsonBody,
-  writeJsonResponseSafe,
-} from "../api/http-helpers.js";
-import { loadMilaidyConfig, type MilaidyConfig } from "../config/config.js";
-import {
-  ensureAgentWorkspace,
-  resolveDefaultAgentWorkspaceDir,
-} from "../providers/workspace.js";
-import { createMilaidyPlugin } from "../runtime/milaidy-plugin.js";
-import {
-  BENCHMARK_MESSAGE_TEMPLATE,
-  type BenchmarkContext,
-  clearCapturedAction,
-  createBenchmarkPlugin,
-  getCapturedAction,
-  setBenchmarkContext,
-} from "./plugin.js";
+import dotenv from "dotenv";
+import { CORE_PLUGINS } from "../runtime/core-plugins";
+import { createMiladyPlugin } from "../runtime/milady-plugin";
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
+// Load environment variables BEFORE anything else
+// This ensures API keys are available when plugins initialize
+dotenv.config({ path: path.resolve(process.cwd(), ".env") });
 
-interface PluginModuleShape {
-  default?: Plugin;
-  plugin?: Plugin;
+const DEFAULT_PORT = 3939;
+const BENCHMARK_WORLD_ID = stringToUuid("milady-benchmark-world");
+const BENCHMARK_MESSAGE_SERVER_ID = stringToUuid(
+  "milady-benchmark-message-server",
+);
+
+interface BenchmarkSession {
+  benchmark: string;
+  taskId: string;
+  roomId: UUID;
+  relayRoomId: UUID;
+  userEntityId: UUID;
 }
 
-interface MessageRequest {
+interface BenchmarkOutboxEntry {
+  kind: "direct" | "room";
+  targetId: string;
   text: string;
-  context?: BenchmarkContext;
+  source: string;
+  ts: number;
 }
 
-interface MessageResponse {
-  text: string;
+interface BenchmarkTrajectoryStep {
+  step: number;
+  startedAt: number;
+  finishedAt: number;
+  inputText: string;
+  promptText: string;
+  context?: Record<string, unknown>;
   thought: string | null;
+  responseText: string;
   actions: string[];
   params: Record<string, unknown>;
 }
 
-interface ResetRequest {
-  task_id: string;
-  benchmark: string;
+function formatUnknownError(error: unknown): string {
+  if (error instanceof Error) {
+    return `${error.name}: ${error.message}`;
+  }
+  return String(error);
 }
 
-// ---------------------------------------------------------------------------
-// Plugin resolution (simplified from eliza.ts — benchmarks only need model
-// providers, not channels or UI plugins)
-// ---------------------------------------------------------------------------
-
-const PROVIDER_PLUGIN_MAP: Readonly<Record<string, string>> = {
-  ANTHROPIC_API_KEY: "@elizaos/plugin-anthropic",
-  OPENAI_API_KEY: "@elizaos/plugin-openai",
-  AI_GATEWAY_API_KEY: "@elizaos/plugin-vercel-ai-gateway",
-  AIGATEWAY_API_KEY: "@elizaos/plugin-vercel-ai-gateway",
-  GOOGLE_API_KEY: "@elizaos/plugin-google-genai",
-  GOOGLE_GENERATIVE_AI_API_KEY: "@elizaos/plugin-google-genai",
-  GROQ_API_KEY: "@elizaos/plugin-groq",
-  XAI_API_KEY: "@elizaos/plugin-xai",
-  OPENROUTER_API_KEY: "@elizaos/plugin-openrouter",
-  OLLAMA_BASE_URL: "@elizaos/plugin-ollama",
-};
-
-function looksLikePlugin(value: unknown): value is Plugin {
-  if (!value || typeof value !== "object") return false;
-  const obj = value as Record<string, unknown>;
-  return typeof obj.name === "string" && typeof obj.description === "string";
-}
-
-function extractPlugin(mod: PluginModuleShape): Plugin | null {
-  if (looksLikePlugin(mod.default)) return mod.default;
-  if (looksLikePlugin(mod.plugin)) return mod.plugin;
-  if (looksLikePlugin(mod)) return mod as unknown as Plugin;
-  return null;
-}
-
-async function resolveModelPlugins(): Promise<Plugin[]> {
-  const plugins: Plugin[] = [];
-
-  for (const [envKey, pluginName] of Object.entries(PROVIDER_PLUGIN_MAP)) {
-    if (!process.env[envKey]) continue;
-    try {
-      const mod = (await import(pluginName)) as PluginModuleShape;
-      const pluginInstance = extractPlugin(mod);
-      if (pluginInstance) {
-        plugins.push(pluginInstance);
-        logger.info(`[bench] Loaded model plugin: ${pluginName}`);
-      }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      logger.warn(`[bench] Could not load ${pluginName}: ${msg}`);
-    }
+function toPlugin(candidate: unknown, source: string): Plugin {
+  if (!candidate || typeof candidate !== "object") {
+    throw new Error(`Plugin from ${source} was not an object`);
   }
 
-  // Also try core plugins needed for basic operation
-  for (const coreName of ["@elizaos/plugin-sql"]) {
-    try {
-      const mod = (await import(coreName)) as PluginModuleShape;
-      const pluginInstance = extractPlugin(mod);
-      if (pluginInstance) {
-        plugins.push(pluginInstance);
-        logger.info(`[bench] Loaded core plugin: ${coreName}`);
-      }
-    } catch {
-      // Non-fatal — SQL plugin may not be needed for all benchmarks
-    }
+  const pluginLike = candidate as { name?: unknown };
+  if (typeof pluginLike.name !== "string" || pluginLike.name.length === 0) {
+    throw new Error(`Plugin from ${source} was missing a valid name`);
   }
 
-  return plugins;
+  return candidate as Plugin;
 }
 
-// ---------------------------------------------------------------------------
-// Build Character
-// ---------------------------------------------------------------------------
-
-function buildBenchmarkCharacter(config: MilaidyConfig): Character {
-  const name = config.agents?.list?.[0]?.name ?? "Milaidy";
-  const bio =
-    "An AI assistant powered by Milaidy and ElizaOS, executing benchmark tasks with precision.";
-
-  // Collect API secrets from env — must match PROVIDER_PLUGIN_MAP keys
-  const secretKeys = [
-    "ANTHROPIC_API_KEY",
-    "OPENAI_API_KEY",
-    "AI_GATEWAY_API_KEY",
-    "AIGATEWAY_API_KEY",
-    "AI_GATEWAY_BASE_URL",
-    "AI_GATEWAY_SMALL_MODEL",
-    "AI_GATEWAY_LARGE_MODEL",
-    "AI_GATEWAY_EMBEDDING_MODEL",
-    "AI_GATEWAY_EMBEDDING_DIMENSIONS",
-    "AI_GATEWAY_IMAGE_MODEL",
-    "AI_GATEWAY_TIMEOUT_MS",
-    "GOOGLE_API_KEY",
-    "GOOGLE_GENERATIVE_AI_API_KEY",
-    "GROQ_API_KEY",
-    "XAI_API_KEY",
-    "OPENROUTER_API_KEY",
-    "OLLAMA_BASE_URL",
-  ];
-
-  const secrets: Record<string, string> = {};
-  for (const key of secretKeys) {
-    const value = process.env[key];
-    if (value?.trim()) {
-      secrets[key] = value;
-    }
+function resolvePort(): number {
+  const raw = process.env.MILADY_BENCH_PORT;
+  if (!raw) return DEFAULT_PORT;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed < 1 || parsed > 65535) {
+    elizaLogger.warn(
+      `[bench] Invalid MILADY_BENCH_PORT="${raw}"; using ${DEFAULT_PORT}`,
+    );
+    return DEFAULT_PORT;
   }
-
-  return mergeCharacterDefaults({
-    name,
-    bio,
-    system:
-      `You are ${name}, an autonomous AI agent executing benchmark tasks. ` +
-      `Analyze the task context carefully and take precise, effective actions.`,
-    secrets,
-    templates: {
-      messageHandlerTemplate: BENCHMARK_MESSAGE_TEMPLATE,
-    },
-    settings: {
-      checkShouldRespond: false, // Always respond in benchmark mode
-    },
-  });
+  return Math.floor(parsed);
 }
 
-// ---------------------------------------------------------------------------
-// Runtime creation
-// ---------------------------------------------------------------------------
+function extractRecord(value: unknown): Record<string, unknown> | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+  return value as Record<string, unknown>;
+}
 
-async function createBenchmarkRuntime(
-  config: MilaidyConfig,
-): Promise<AgentRuntime> {
-  const character = buildBenchmarkCharacter(config);
+function extractTaskId(context: Record<string, unknown> | undefined): string {
+  const bySnake = context?.task_id;
+  if (typeof bySnake === "string" && bySnake.trim()) return bySnake.trim();
+  const byCamel = context?.taskId;
+  if (typeof byCamel === "string" && byCamel.trim()) return byCamel.trim();
+  return "default-task";
+}
 
-  // Workspace setup
-  const workspaceDir =
-    config.agents?.defaults?.workspace ?? resolveDefaultAgentWorkspaceDir();
-  // Skip bootstrap files for benchmarks — the benchmark plugin provides all
-  // context and the templates may not be present in development layouts.
-  await ensureAgentWorkspace({
-    dir: workspaceDir,
-    ensureBootstrapFiles: false,
-  });
+function extractBenchmarkName(
+  context: Record<string, unknown> | undefined,
+): string {
+  const benchmark = context?.benchmark;
+  if (typeof benchmark === "string" && benchmark.trim()) {
+    return benchmark.trim();
+  }
+  return "unknown";
+}
 
-  // Create plugins
-  const agentId = character.name?.toLowerCase().replace(/\s+/g, "-") ?? "main";
-  const milaidyPlugin = createMilaidyPlugin({
-    workspaceDir,
-    bootstrapMaxChars: config.agents?.defaults?.bootstrapMaxChars,
-    agentId,
-  });
-  const benchmarkPlugin = createBenchmarkPlugin();
+function composeBenchmarkPrompt(params: {
+  text: string;
+  context?: Record<string, unknown>;
+  image?: unknown;
+}): string {
+  const segments: string[] = [params.text.trim()];
 
-  const modelPlugins = await resolveModelPlugins();
-
-  if (modelPlugins.length === 0) {
-    logger.warn(
-      "[bench] No model provider plugins loaded — set an API key (ANTHROPIC_API_KEY, OPENAI_API_KEY, etc.)",
+  if (params.context && Object.keys(params.context).length > 0) {
+    segments.push(
+      [
+        "BENCHMARK CONTEXT (authoritative):",
+        JSON.stringify(params.context, null, 2),
+      ].join("\n"),
     );
   }
 
-  // Separate SQL plugin for pre-registration
-  const sqlPlugin = modelPlugins.find((p) => p.name === "sql");
-  const otherPlugins = modelPlugins.filter((p) => p.name !== "sql");
-
-  const runtime = new AgentRuntime({
-    character,
-    plugins: [milaidyPlugin, benchmarkPlugin, ...otherPlugins],
-  });
-
-  if (sqlPlugin) {
-    await runtime.registerPlugin(sqlPlugin);
+  if (params.image !== undefined) {
+    segments.push(
+      ["IMAGE PAYLOAD:", JSON.stringify(params.image, null, 2)].join("\n"),
+    );
   }
 
-  await runtime.initialize();
-
-  logger.info(
-    `[bench] Runtime initialized — agent=${character.name}, plugins=${runtime.plugins?.length ?? 0}`,
+  segments.push(
+    "Respond using normal Eliza action output so actions/params can be executed and evaluated.",
   );
 
-  return runtime;
+  return segments.join("\n\n");
 }
 
-// ---------------------------------------------------------------------------
-// HTTP helpers
-// ---------------------------------------------------------------------------
-
-const MAX_BODY_BYTES = 10 * 1024 * 1024; // 10 MB
-
-function extractTag(text: string, tag: string): string | undefined {
-  const re = new RegExp(`<${tag}>(.*?)</${tag}>`, "s");
-  const m = text.match(re);
-  return m ? m[1].trim() : undefined;
+function coerceActions(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((entry): entry is string => typeof entry === "string");
 }
 
-function jsonResponse(
-  res: http.ServerResponse,
-  status: number,
-  body: object,
-): void {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  writeJsonResponseSafe(res, body, status);
-}
-
-// ---------------------------------------------------------------------------
-// Server
-// ---------------------------------------------------------------------------
-
-async function main(): Promise<void> {
-  const port = Number(process.env.MILAIDY_BENCH_PORT ?? "3939");
-  if (!Number.isInteger(port) || port < 1 || port > 65535) {
-    logger.error(
-      `[bench] Invalid port: ${process.env.MILAIDY_BENCH_PORT ?? "(undefined)"}`,
-    );
-    process.exit(1);
+function coerceParams(value: unknown): Record<string, unknown> {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
   }
 
-  // Load config
-  let config: MilaidyConfig;
-  try {
-    config = loadMilaidyConfig();
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === "ENOENT") {
-      logger.warn("[bench] No config found, using defaults");
-      config = {} as MilaidyConfig;
-    } else {
-      throw err;
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        return parsed as Record<string, unknown>;
+      }
+    } catch {
+      // ignore malformed param strings
     }
   }
 
-  // Create runtime
-  logger.info("[bench] Initializing milaidy benchmark runtime...");
-  const runtime = await createBenchmarkRuntime(config);
+  return {};
+}
 
-  const agentName = runtime.character?.name ?? "Milaidy";
-  const userId = crypto.randomUUID() as UUID;
+function sessionKey(session: BenchmarkSession): string {
+  return `${session.benchmark}:${session.taskId}`;
+}
 
-  // Per-session state
-  let currentRoomId = stringToUuid(`bench-${crypto.randomUUID()}`);
+async function ensureBenchmarkSessionContext(
+  runtime: AgentRuntime,
+  session: BenchmarkSession,
+): Promise<void> {
+  await runtime.ensureWorldExists({
+    id: BENCHMARK_WORLD_ID,
+    name: "Milady Benchmark World",
+    agentId: runtime.agentId,
+    messageServerId: BENCHMARK_MESSAGE_SERVER_ID,
+    metadata: {
+      type: "benchmark",
+      description: "World used for benchmark sessions",
+      extra: {
+        benchmark: session.benchmark,
+      },
+    },
+  });
 
-  async function ensureRoom(roomId: UUID): Promise<void> {
-    await runtime.ensureConnection({
-      entityId: userId,
-      roomId,
-      worldId: stringToUuid("benchmark-world"),
-      userName: "BenchmarkRunner",
-      source: "benchmark",
-      channelId: "benchmark",
-      type: ChannelType.API,
-    });
+  // Use ChannelType.API to ensure the agent always responds to benchmark messages
+  // (API channel type bypasses shouldRespond evaluation)
+  await runtime.ensureRoomExists({
+    id: session.roomId,
+    name: `benchmark:${session.taskId}`,
+    source: "benchmark",
+    type: ChannelType.API,
+    channelId: `bench-${session.taskId}`,
+    messageServerId: BENCHMARK_MESSAGE_SERVER_ID,
+    worldId: BENCHMARK_WORLD_ID,
+    metadata: {
+      benchmark: session.benchmark,
+      taskId: session.taskId,
+    },
+  });
+
+  await runtime.ensureRoomExists({
+    id: session.relayRoomId,
+    name: "relay-room",
+    source: "benchmark",
+    type: ChannelType.API,
+    channelId: `relay-${session.taskId}`,
+    messageServerId: BENCHMARK_MESSAGE_SERVER_ID,
+    worldId: BENCHMARK_WORLD_ID,
+    metadata: {
+      benchmark: session.benchmark,
+      taskId: session.taskId,
+      role: "relay-room",
+    },
+  });
+
+  await runtime.ensureConnection({
+    entityId: session.userEntityId,
+    roomId: session.roomId,
+    worldId: BENCHMARK_WORLD_ID,
+    userName: "Benchmark User",
+    source: "benchmark",
+    channelId: `bench-${session.taskId}`,
+    type: ChannelType.API,
+    messageServerId: BENCHMARK_MESSAGE_SERVER_ID,
+    metadata: {
+      benchmark: session.benchmark,
+      taskId: session.taskId,
+      role: "benchmark-room",
+    },
+  });
+  await runtime.ensureParticipantInRoom(runtime.agentId, session.relayRoomId);
+}
+
+function createSession(taskId: string, benchmark: string): BenchmarkSession {
+  const normalizedTaskId = taskId.trim() || "default-task";
+  const normalizedBenchmark = benchmark.trim() || "unknown";
+  const seed = `${normalizedBenchmark}:${normalizedTaskId}:${Date.now()}:${Math.random()}`;
+
+  return {
+    benchmark: normalizedBenchmark,
+    taskId: normalizedTaskId,
+    roomId: stringToUuid(`benchmark-room:${seed}`),
+    relayRoomId: stringToUuid(`benchmark-relay:${seed}`),
+    userEntityId: stringToUuid(`benchmark-user:${seed}`),
+  };
+}
+
+// Proper robust server implementation
+export async function startBenchmarkServer() {
+  const port = resolvePort();
+  elizaLogger.info(
+    `[bench] Initializing milady benchmark runtime on port ${port}...`,
+  );
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PLUGIN LOADING — Use full CORE_PLUGINS to test with realistic context
+  // ═══════════════════════════════════════════════════════════════════════════
+  // We intentionally load the full Milady plugin set to ensure benchmarks test
+  // the agent's ability to perform tasks despite context "pollution" from all
+  // the default actions, providers, evaluators, etc. If the agent can still
+  // succeed with a crowded context, it demonstrates sufficient context handling.
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  const plugins: Plugin[] = [];
+  const loadedPlugins: string[] = [];
+  const failedPlugins: string[] = [];
+
+  // Plugins to skip in benchmark context — these require external auth or
+  // interfere with benchmark operation
+  const skipPlugins = new Set([
+    "@elizaos/plugin-elizacloud", // Requires ElizaOS cloud auth, conflicts with local LLM
+  ]);
+
+  // Load all CORE_PLUGINS — these are what the production Milady runtime uses
+  for (const pluginName of CORE_PLUGINS) {
+    if (skipPlugins.has(pluginName)) {
+      elizaLogger.debug(
+        `[bench] Skipping plugin (benchmark mode): ${pluginName}`,
+      );
+      continue;
+    }
+    try {
+      const pluginModule = await import(pluginName);
+      const plugin =
+        pluginModule.default ?? pluginModule[Object.keys(pluginModule)[0]];
+      if (plugin) {
+        plugins.push(toPlugin(plugin, pluginName));
+        loadedPlugins.push(pluginName);
+      }
+    } catch (error: unknown) {
+      // Some plugins may not be available in all environments — that's OK
+      failedPlugins.push(pluginName);
+      elizaLogger.debug(
+        `[bench] Plugin not available: ${pluginName} (${formatUnknownError(error)})`,
+      );
+    }
   }
 
-  await ensureRoom(currentRoomId);
+  elizaLogger.info(
+    `[bench] Loaded ${loadedPlugins.length}/${CORE_PLUGINS.length} core plugins`,
+  );
+  if (failedPlugins.length > 0) {
+    elizaLogger.debug(
+      `[bench] Unavailable plugins: ${failedPlugins.join(", ")}`,
+    );
+  }
 
-  // Request handler
-  const server = http.createServer(async (req, res) => {
-    // CORS
-    if (req.method === "OPTIONS") {
-      res.writeHead(204, {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type",
+  // Load Milady plugin — provides workspace context, session keys, autonomous state,
+  // custom actions, and lifecycle actions (restart, trigger tasks)
+  try {
+    const workspaceDir = process.env.MILADY_WORKSPACE_DIR ?? process.cwd();
+    const miladyPlugin = createMiladyPlugin({
+      workspaceDir,
+      agentId: "benchmark",
+    });
+    plugins.push(toPlugin(miladyPlugin, "milady-plugin"));
+    elizaLogger.info(
+      `[bench] Loaded milady plugin with workspace: ${workspaceDir}`,
+    );
+  } catch (error: unknown) {
+    elizaLogger.error(
+      `[bench] Failed to load milady plugin: ${formatUnknownError(error)}`,
+    );
+  }
+
+  // Load trust plugin — provides trust engine, security module, and permission system
+  // (may already be in CORE_PLUGINS but we want to ensure it's loaded)
+  if (!loadedPlugins.includes("@elizaos/plugin-trust")) {
+    try {
+      const { default: trustPlugin } = await import("@elizaos/plugin-trust");
+      plugins.push(toPlugin(trustPlugin, "@elizaos/plugin-trust"));
+      elizaLogger.info("[bench] Loaded plugin: @elizaos/plugin-trust");
+    } catch (error: unknown) {
+      elizaLogger.debug(
+        `[bench] Trust plugin not available: ${formatUnknownError(error)}`,
+      );
+    }
+  }
+
+  // Load LLM provider plugins based on environment
+  const groqApiKey = process.env.GROQ_API_KEY?.trim();
+  if (groqApiKey) {
+    process.env.GROQ_API_KEY = groqApiKey;
+    try {
+      const { default: groqPlugin } = await import("@elizaos/plugin-groq");
+      plugins.push(toPlugin(groqPlugin, "@elizaos/plugin-groq"));
+      elizaLogger.info("[bench] Loaded LLM plugin: @elizaos/plugin-groq");
+    } catch (error: unknown) {
+      elizaLogger.warn(
+        `[bench] Groq plugin not available: ${formatUnknownError(error)}`,
+      );
+    }
+  }
+
+  const openAiApiKey = process.env.OPENAI_API_KEY?.trim();
+  if (openAiApiKey && !openAiApiKey.startsWith("gsk_")) {
+    process.env.OPENAI_API_KEY = openAiApiKey;
+    try {
+      const { default: openaiPlugin } = await import("@elizaos/plugin-openai");
+      plugins.push(toPlugin(openaiPlugin, "@elizaos/plugin-openai"));
+      elizaLogger.info("[bench] Loaded LLM plugin: @elizaos/plugin-openai");
+    } catch (error: unknown) {
+      elizaLogger.debug(
+        `[bench] OpenAI plugin not available: ${formatUnknownError(error)}`,
+      );
+    }
+  }
+
+  // Load computer use plugin if enabled
+  if (process.env.MILADY_ENABLE_COMPUTERUSE) {
+    try {
+      process.env.COMPUTERUSE_ENABLED ??= "true";
+      process.env.COMPUTERUSE_MODE ??= "local";
+      const localComputerusePath =
+        "../../../plugins/plugin-computeruse/typescript/src/index.ts";
+      const computeruseModule = (await import(localComputerusePath)) as Record<
+        string,
+        unknown
+      >;
+      const computerusePlugin =
+        computeruseModule.computerusePlugin ??
+        computeruseModule.computerUsePlugin ??
+        computeruseModule.default;
+      if (computerusePlugin) {
+        plugins.push(toPlugin(computerusePlugin, localComputerusePath));
+        elizaLogger.info(
+          "[bench] Loaded local plugin: @elizaos/plugin-computeruse",
+        );
+      }
+    } catch (error: unknown) {
+      elizaLogger.debug(
+        `[bench] Computer use plugin not available: ${formatUnknownError(error)}`,
+      );
+    }
+  }
+
+  // Load mock plugin for testing (file is gitignored for local-only use)
+  if (
+    process.env.MILADY_BENCH_MOCK === "true" ||
+    process.env.MILAIDY_BENCH_MOCK === "true"
+  ) {
+    try {
+      // @ts-expect-error
+      const { mockPlugin } = await import("./mock-plugin.ts");
+      plugins.push(toPlugin(mockPlugin, "./mock-plugin.ts"));
+      elizaLogger.info("[bench] Loaded mock benchmark plugin");
+    } catch (error: unknown) {
+      elizaLogger.error(
+        `[bench] Failed to load mock benchmark plugin: ${formatUnknownError(error)}`,
+      );
+    }
+  }
+
+  // Build settings object from environment variables
+  // These are needed by plugins like Groq that use runtime.getSetting()
+  const settings: Record<string, string> = {
+    // Use in-memory database for benchmarks to avoid pglite corruption issues
+    // and ensure a clean state for each benchmark run
+    PGLITE_DATA_DIR: "memory://",
+  };
+  const envKeys = [
+    "GROQ_API_KEY",
+    "OPENAI_API_KEY",
+    "ANTHROPIC_API_KEY",
+    "OPENROUTER_API_KEY",
+    "GOOGLE_GENERATIVE_AI_API_KEY",
+  ];
+  for (const key of envKeys) {
+    const value = process.env[key]?.trim();
+    if (value) {
+      settings[key] = value;
+    }
+  }
+
+  const runtime = new AgentRuntime({
+    character: {
+      name: "Kira",
+      bio: ["A benchmark execution agent."],
+      messageExamples: [],
+      topics: [],
+      adjectives: [],
+      plugins: [],
+      settings: {
+        secrets: settings,
+      },
+    },
+    plugins,
+  });
+
+  await runtime.initialize();
+  const modelHandlers = (
+    runtime as unknown as { models?: Map<string, unknown[]> }
+  ).models;
+  const modelHandlerSummary = Object.fromEntries(
+    [...(modelHandlers?.entries() ?? [])].map(([modelType, handlers]) => [
+      modelType,
+      (handlers as Array<{ provider?: string; priority?: number }>).map(
+        (handler) => ({
+          provider: handler.provider ?? "unknown",
+          priority: handler.priority ?? 0,
+        }),
+      ),
+    ]),
+  );
+  elizaLogger.info(
+    `[bench] Model handlers: ${JSON.stringify(modelHandlerSummary)}`,
+  );
+  elizaLogger.info(
+    `[bench] Runtime initialized — agent=${runtime.character.name}, plugins=${plugins.length}`,
+  );
+
+  const roomToSession = new Map<string, string>();
+  const entityToSession = new Map<string, string>();
+  const trajectoriesBySession = new Map<string, BenchmarkTrajectoryStep[]>();
+  const outboxBySession = new Map<string, BenchmarkOutboxEntry[]>();
+
+  const benchmarkTransport = {
+    sendDirectMessage: async (targetEntityId: string, content: Content) => {
+      const key = entityToSession.get(targetEntityId);
+      const text = typeof content.text === "string" ? content.text : "";
+      const source =
+        typeof content.source === "string" ? content.source : "benchmark";
+      if (!key) return;
+      const current = outboxBySession.get(key) ?? [];
+      current.push({
+        kind: "direct",
+        targetId: targetEntityId,
+        text,
+        source,
+        ts: Date.now(),
       });
+      outboxBySession.set(key, current);
+    },
+    sendRoomMessage: async (targetRoomId: string, content: Content) => {
+      const key = roomToSession.get(targetRoomId);
+      const text = typeof content.text === "string" ? content.text : "";
+      const source =
+        typeof content.source === "string" ? content.source : "benchmark";
+      if (!key) return;
+      const current = outboxBySession.get(key) ?? [];
+      current.push({
+        kind: "room",
+        targetId: targetRoomId,
+        text,
+        source,
+        ts: Date.now(),
+      });
+      outboxBySession.set(key, current);
+    },
+  };
+
+  const runtimeWithServiceOverride = runtime as unknown as {
+    getService: (serviceType: string) => unknown;
+  };
+  const originalGetService =
+    runtimeWithServiceOverride.getService.bind(runtime);
+  runtimeWithServiceOverride.getService = (serviceType: string) => {
+    if (serviceType === "benchmark") {
+      return benchmarkTransport;
+    }
+    return originalGetService(serviceType);
+  };
+
+  const sessions = new Map<string, BenchmarkSession>();
+  let activeSession: BenchmarkSession | null = null;
+
+  const registerSessionRefs = (session: BenchmarkSession): void => {
+    const key = sessionKey(session);
+    roomToSession.set(session.roomId, key);
+    roomToSession.set(session.relayRoomId, key);
+    entityToSession.set(session.userEntityId, key);
+  };
+
+  const resolveSession = (
+    taskId: string,
+    benchmark: string,
+    createIfMissing = true,
+  ): BenchmarkSession | null => {
+    const key = `${benchmark}:${taskId}`;
+    const existing = sessions.get(key);
+    if (existing) {
+      activeSession = existing;
+      return existing;
+    }
+    if (!createIfMissing) return null;
+    const created = createSession(taskId, benchmark);
+    sessions.set(key, created);
+    registerSessionRefs(created);
+    activeSession = created;
+    return created;
+  };
+
+  const server = http.createServer(async (req, res) => {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "POST, GET, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
+    const requestUrl = new URL(req.url ?? "/", "http://localhost");
+    const pathname = requestUrl.pathname;
+
+    if (req.method === "OPTIONS") {
+      res.writeHead(200);
       res.end();
       return;
     }
 
-    const url = new URL(req.url ?? "/", `http://localhost:${port}`);
-    const pathname = url.pathname;
-
-    try {
-      // Health check
-      if (pathname === "/api/benchmark/health" && req.method === "GET") {
-        jsonResponse(res, 200, {
+    if (pathname === "/api/benchmark/health" && req.method === "GET") {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(
+        JSON.stringify({
           status: "ready",
-          agent_name: agentName,
-          plugins: runtime.plugins?.length ?? 0,
-        });
+          agent_name: runtime.character.name ?? "Milady",
+          plugins: plugins.length,
+          active_session: activeSession
+            ? {
+                benchmark: activeSession.benchmark,
+                task_id: activeSession.taskId,
+                room_id: activeSession.roomId,
+              }
+            : null,
+        }),
+      );
+      return;
+    }
+
+    if (pathname === "/api/benchmark/reset" && req.method === "POST") {
+      let body = "";
+      req.on("data", (chunk) => (body += chunk));
+      req.on("end", async () => {
+        try {
+          const parsed = body.trim()
+            ? (JSON.parse(body) as {
+                task_id?: unknown;
+                benchmark?: unknown;
+              })
+            : {};
+          const taskId =
+            typeof parsed.task_id === "string" &&
+            parsed.task_id.trim().length > 0
+              ? parsed.task_id
+              : "default-task";
+          const benchmark =
+            typeof parsed.benchmark === "string" &&
+            parsed.benchmark.trim().length > 0
+              ? parsed.benchmark
+              : "unknown";
+
+          const session = resolveSession(taskId, benchmark, true);
+          if (!session) {
+            throw new Error("Failed to initialize benchmark session");
+          }
+          const key = sessionKey(session);
+          trajectoriesBySession.set(key, []);
+          outboxBySession.set(key, []);
+
+          await ensureBenchmarkSessionContext(runtime, session);
+
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(
+            JSON.stringify({
+              status: "ok",
+              room_id: session.roomId,
+              task_id: session.taskId,
+              benchmark: session.benchmark,
+            }),
+          );
+        } catch (err: unknown) {
+          const errorMessage = err instanceof Error ? err.message : String(err);
+          elizaLogger.error(`[bench] Reset error: ${formatUnknownError(err)}`);
+          res.writeHead(500, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: errorMessage }));
+        }
+      });
+      return;
+    }
+
+    if (pathname === "/api/benchmark/outbox" && req.method === "GET") {
+      const context = extractRecord({
+        benchmark: requestUrl.searchParams.get("benchmark") ?? undefined,
+        task_id:
+          requestUrl.searchParams.get("task_id") ??
+          requestUrl.searchParams.get("taskId") ??
+          undefined,
+      });
+      const taskId = extractTaskId(context);
+      const benchmark = extractBenchmarkName(context);
+      const session =
+        resolveSession(taskId, benchmark, false) ??
+        activeSession ??
+        resolveSession("default-task", "unknown", false);
+
+      if (!session) {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ status: "ok", outbox: [] }));
         return;
       }
 
-      // Reset session
-      if (pathname === "/api/benchmark/reset" && req.method === "POST") {
-        const body = await parseJsonBody<ResetRequest>(req, res, {
-          maxBytes: MAX_BODY_BYTES,
-          readErrorMessage: "Invalid JSON in request body",
-          readErrorStatus: 400,
-          parseErrorMessage: "Invalid JSON in request body",
-          parseErrorStatus: 400,
-          requireObject: true,
-        });
-        if (!body) return;
+      const key = sessionKey(session);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(
+        JSON.stringify({
+          status: "ok",
+          benchmark: session.benchmark,
+          task_id: session.taskId,
+          room_id: session.roomId,
+          outbox: outboxBySession.get(key) ?? [],
+        }),
+      );
+      return;
+    }
 
-        // Create a fresh room for the new task
-        currentRoomId = stringToUuid(
-          `bench-${body.task_id}-${crypto.randomUUID()}`,
+    if (pathname === "/api/benchmark/trajectory" && req.method === "GET") {
+      const context = extractRecord({
+        benchmark: requestUrl.searchParams.get("benchmark") ?? undefined,
+        task_id:
+          requestUrl.searchParams.get("task_id") ??
+          requestUrl.searchParams.get("taskId") ??
+          undefined,
+      });
+      const taskId = extractTaskId(context);
+      const benchmark = extractBenchmarkName(context);
+      const session =
+        resolveSession(taskId, benchmark, false) ??
+        activeSession ??
+        resolveSession("default-task", "unknown", false);
+
+      if (!session) {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(
+          JSON.stringify({
+            status: "ok",
+            steps: [],
+            outbox: [],
+          }),
         );
-        await ensureRoom(currentRoomId);
-
-        // Clear benchmark state
-        setBenchmarkContext(null);
-        clearCapturedAction();
-
-        jsonResponse(res, 200, { status: "ok", room_id: currentRoomId });
         return;
       }
 
-      // Send message
-      if (pathname === "/api/benchmark/message" && req.method === "POST") {
-        const body = await parseJsonBody<MessageRequest>(req, res, {
-          maxBytes: MAX_BODY_BYTES,
-          readErrorMessage: "Invalid JSON in request body",
-          readErrorStatus: 400,
-          parseErrorMessage: "Invalid JSON in request body",
-          parseErrorStatus: 400,
-          requireObject: true,
-        });
-        if (!body) return;
+      const key = sessionKey(session);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(
+        JSON.stringify({
+          status: "ok",
+          benchmark: session.benchmark,
+          task_id: session.taskId,
+          room_id: session.roomId,
+          relay_room_id: session.relayRoomId,
+          steps: trajectoriesBySession.get(key) ?? [],
+          outbox: outboxBySession.get(key) ?? [],
+        }),
+      );
+      return;
+    }
 
-        if (!body.text) {
-          jsonResponse(res, 400, { error: "Missing 'text' field" });
-          return;
-        }
+    if (pathname === "/api/benchmark/message" && req.method === "POST") {
+      let body = "";
+      req.on("data", (chunk) => (body += chunk));
+      req.on("end", async () => {
+        try {
+          const parsed = JSON.parse(body) as {
+            text?: unknown;
+            context?: unknown;
+            image?: unknown;
+          };
 
-        // Set benchmark context for the provider
-        if (body.context) {
-          setBenchmarkContext(body.context);
-        }
+          const text =
+            typeof parsed.text === "string" ? parsed.text.trim() : "";
+          if (!text) {
+            throw new Error(
+              "Request body must include non-empty string `text`",
+            );
+          }
 
-        // Clear previous captured action
-        clearCapturedAction();
+          const context = extractRecord(parsed.context);
+          const taskId = extractTaskId(context);
+          const benchmark = extractBenchmarkName(context);
+          const session =
+            resolveSession(taskId, benchmark, true) ??
+            activeSession ??
+            resolveSession("default-task", "unknown", true);
+          if (!session) {
+            throw new Error("Failed to resolve benchmark session");
+          }
+          const key = sessionKey(session);
+          const trajectory = trajectoriesBySession.get(key) ?? [];
+          const startedAt = Date.now();
 
-        // Create message memory
-        const message = createMessageMemory({
-          id: crypto.randomUUID() as UUID,
-          entityId: userId,
-          roomId: currentRoomId,
-          content: {
-            text: body.text,
-            source: "benchmark",
-            channelType: ChannelType.API,
-          },
-        });
+          await ensureBenchmarkSessionContext(runtime, session);
 
-        // Process through the FULL canonical pipeline.
-        let responseText = "";
-        const callbackTexts: string[] = [];
-        let responseThought: string | null = null;
-        let responseActions: string[] = [];
+          const composedPrompt = composeBenchmarkPrompt({
+            text,
+            context,
+            image: parsed.image,
+          });
 
-        const result = await runtime.messageService?.handleMessage(
-          runtime,
-          message,
-          async (content) => {
-            if (content?.text) {
-              responseText += content.text;
-              callbackTexts.push(content.text);
-            }
-            // Also capture the full content object for XML extraction
-            const rawContent = JSON.stringify(content ?? {});
+          const incomingMessage: Memory = {
+            id: stringToUuid(`benchmark-msg:${Date.now()}:${Math.random()}`),
+            content: {
+              text: composedPrompt,
+              source: "benchmark",
+              metadata: {
+                benchmark: session.benchmark,
+                taskId: session.taskId,
+                ...(context ? { contextJson: JSON.stringify(context) } : {}),
+              },
+            },
+            entityId: session.userEntityId,
+            agentId: runtime.agentId,
+            roomId: session.roomId,
+            createdAt: Date.now(),
+          };
+
+          const callbackTexts: string[] = [];
+          const callback = async (content: Content): Promise<Memory[]> => {
             if (
-              rawContent.includes("tool_name") ||
-              rawContent.includes("command") ||
-              rawContent.includes("operation")
+              typeof content.text === "string" &&
+              content.text.trim().length > 0
             ) {
-              callbackTexts.push(rawContent);
+              callbackTexts.push(content.text.trim());
             }
             return [];
-          },
-        );
+          };
 
-        // Extract structured data from result
-        if (result?.responseContent) {
-          const rc = result.responseContent;
-          responseText = responseText || rc.text || "";
-          responseThought = rc.thought ?? null;
-          responseActions = rc.actions ?? [];
-        }
-
-        // Build params from captured action handler or XML in response text.
-        // The TS runtime may not pass XML params to the action handler, so we
-        // also extract them directly from the raw LLM output.
-        const captured = getCapturedAction();
-        const params: Record<string, unknown> = {};
-        if (captured) {
-          if (captured.command !== undefined) params.command = captured.command;
-          if (captured.toolName !== undefined)
-            params.tool_name = captured.toolName;
-          if (captured.arguments !== undefined)
-            params.arguments = captured.arguments;
-          if (captured.operation !== undefined)
-            params.operation = captured.operation;
-          if (captured.elementId !== undefined)
-            params.element_id = captured.elementId;
-          if (captured.value !== undefined) params.value = captured.value;
-        }
-
-        // Fallback: extract XML tags from all available text sources.
-        // The TS runtime strips XML from response text, so check thought,
-        // callback captures, and raw model output.
-        const allText = [
-          responseThought || "",
-          responseText,
-          ...callbackTexts,
-        ].join("\n");
-        if (!params.command && !params.tool_name && !params.operation) {
-          const cmd = extractTag(allText, "command");
-          const tn = extractTag(allText, "tool_name");
-          const args = extractTag(allText, "arguments");
-          const op = extractTag(allText, "operation");
-          const eid = extractTag(allText, "element_id");
-          const val = extractTag(allText, "value");
-
-          if (cmd) params.command = cmd;
-          if (tn) params.tool_name = tn;
-          if (args) {
-            try {
-              params.arguments = JSON.parse(args);
-            } catch {
-              params.arguments = args;
-            }
+          if (!runtime.messageService) {
+            throw new Error("Runtime message service is not available");
           }
-          if (op) params.operation = op;
-          if (eid) params.element_id = eid;
-          if (val) params.value = val;
+
+          const result = await runtime.messageService.handleMessage(
+            runtime,
+            incomingMessage,
+            callback,
+          );
+
+          const responseText =
+            typeof result.responseContent?.text === "string"
+              ? result.responseContent.text
+              : callbackTexts.join("\n\n");
+          const thought =
+            typeof result.responseContent?.thought === "string"
+              ? result.responseContent.thought
+              : null;
+          const actions = coerceActions(result.responseContent?.actions);
+          const params = coerceParams(result.responseContent?.params);
+          const finishedAt = Date.now();
+
+          trajectory.push({
+            step: trajectory.length + 1,
+            startedAt,
+            finishedAt,
+            inputText: text,
+            promptText: composedPrompt,
+            context,
+            thought,
+            responseText,
+            actions,
+            params,
+          });
+          trajectoriesBySession.set(key, trajectory);
+
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(
+            JSON.stringify({
+              text: responseText,
+              thought,
+              actions,
+              params,
+              benchmark: session.benchmark,
+              task_id: session.taskId,
+              room_id: session.roomId,
+              trajectory_step: trajectory.length,
+            }),
+          );
+        } catch (err: unknown) {
+          const errorMessage = err instanceof Error ? err.message : String(err);
+          const errorDetail =
+            err instanceof Error && err.stack
+              ? err.stack
+              : formatUnknownError(err);
+          elizaLogger.error(`[bench] Request error: ${errorDetail}`);
+          res.writeHead(500, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: errorMessage }));
         }
-
-        const response: MessageResponse = {
-          text: responseText,
-          thought: responseThought,
-          actions: responseActions,
-          params,
-        };
-
-        jsonResponse(res, 200, response);
-        return;
-      }
-
-      // 404
-      jsonResponse(res, 404, { error: "Not found" });
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      logger.error(`[bench] Request error: ${msg}`);
-      jsonResponse(res, 500, { error: msg });
+      });
+      return;
     }
+
+    res.writeHead(404);
+    res.end("Not Found");
   });
 
   server.listen(port, () => {
-    logger.info(`[bench] Milaidy benchmark server listening on port ${port}`);
-    // Print to stdout so the Python manager can detect startup
-    console.log(`MILAIDY_BENCH_READY port=${port}`);
+    elizaLogger.info(
+      `[bench] Milady benchmark server listening on port ${port}`,
+    );
+    console.log(`MILADY_BENCH_READY port=${port}`);
   });
-
-  // Graceful shutdown
-  const shutdown = (): void => {
-    logger.info("[bench] Shutting down...");
-    server.close();
-    runtime
-      .stop()
-      .catch((err: Error) => {
-        logger.error(`[bench] Error during shutdown: ${err.message}`);
-      })
-      .finally(() => process.exit(0));
-  };
-
-  process.on("SIGINT", shutdown);
-  process.on("SIGTERM", shutdown);
 }
 
-main().catch((err) => {
-  console.error(
-    "[bench] Fatal:",
-    err instanceof Error ? (err.stack ?? err.message) : err,
-  );
+startBenchmarkServer().catch((err) => {
+  console.error("Failed to start benchmark server:", err);
   process.exit(1);
 });

@@ -96,10 +96,18 @@ export function isPackageImportResolvable(packageName: string): boolean {
   }
 }
 
+/** Check whether a dependency specifier should be treated as a workspace-local version. */
+export function isWorkspaceDependency(version: string | undefined): boolean {
+  return (
+    typeof version === "string" &&
+    (version.startsWith(".") || version.startsWith("workspace:"))
+  );
+}
+
 const DISCORD_PLUGIN_PACKAGE_NAME = "@elizaos/plugin-discord";
 const DISCORD_PLUGIN_LOCAL_ENTRY_CANDIDATES = [
-  "../plugins/plugin-discord/typescript/dist/index.js",
-  "../plugins/plugin-discord/dist/index.js",
+  "../plugins/plugin-discord/typescript/dist/index",
+  "../plugins/plugin-discord/dist/index",
 ] as const;
 
 /**
@@ -164,24 +172,6 @@ export type MockRequestOptions = {
   body?: unknown;
   bodyChunks?: MockBodyChunk[];
   json?: boolean;
-};
-
-type ModelRegistrationCapture = {
-  calls: Array<{
-    modelType: string;
-    provider: string;
-    priority: number;
-    handler: unknown;
-  }>;
-  getLargeHandler: () => unknown | null;
-  runtime: {
-    registerModel: (
-      modelType: string,
-      handler: unknown,
-      provider: string,
-      priority?: number,
-    ) => void;
-  };
 };
 
 /** Create a lightweight mocked HTTP response used by handler tests. */
@@ -311,34 +301,4 @@ export async function tryOptionalDynamicImport<T>(
     if (isOptionalImportError(error, markers)) return null;
     throw error;
   }
-}
-
-/** Shared helper to capture handlers registered by runtime schema handlers. */
-export function createModelRegistrationContext(): ModelRegistrationCapture {
-  const calls: ModelRegistrationCapture["calls"] = [];
-
-  const runtime = {
-    registerModel: (
-      modelType: string,
-      handler: unknown,
-      provider: string,
-      priority?: number,
-    ) => {
-      calls.push({
-        modelType,
-        handler,
-        provider,
-        priority: priority ?? 0,
-      });
-    },
-  };
-
-  const getLargeHandler = (): unknown => {
-    const entry = calls.find(
-      (value) => value.modelType === "TEXT_LARGE" && value.provider === "pi-ai",
-    );
-    return entry ? entry.handler : null;
-  };
-
-  return { calls, getLargeHandler: () => getLargeHandler(), runtime };
 }

@@ -1,3 +1,4 @@
+/// <reference path="./global.d.ts" />
 /**
  * TalkMode Plugin for Electron
  *
@@ -15,21 +16,26 @@
 
 import type { PluginListenerHandle } from "@capacitor/core";
 import type {
-  TalkModePlugin,
-  TalkModeConfig,
-  TalkModeState,
-  TalkModePermissionStatus,
   SpeakOptions,
   SpeakResult,
+  TalkModeConfig,
+  TalkModeErrorEvent,
+  TalkModePermissionStatus,
+  TalkModePlugin,
+  TalkModeState,
   TalkModeStateEvent,
   TalkModeTranscriptEvent,
-  TTSSpeakingEvent,
   TTSCompleteEvent,
-  TalkModeErrorEvent,
+  TTSSpeakingEvent,
 } from "../../src/definitions";
 
 type EventCallback<T> = (event: T) => void;
-type TalkModeEvent = TalkModeStateEvent | TalkModeTranscriptEvent | TTSSpeakingEvent | TTSCompleteEvent | TalkModeErrorEvent;
+type TalkModeEvent =
+  | TalkModeStateEvent
+  | TalkModeTranscriptEvent
+  | TTSSpeakingEvent
+  | TTSCompleteEvent
+  | TalkModeErrorEvent;
 
 interface ListenerEntry {
   eventName: string;
@@ -38,7 +44,13 @@ interface ListenerEntry {
 
 type IpcPrimitive = string | number | boolean | null | undefined;
 type IpcObject = { [key: string]: IpcValue };
-type IpcValue = IpcPrimitive | IpcObject | IpcValue[] | ArrayBuffer | Float32Array | Uint8Array;
+type IpcValue =
+  | IpcPrimitive
+  | IpcObject
+  | IpcValue[]
+  | ArrayBuffer
+  | Float32Array
+  | Uint8Array;
 type IpcListener = (...args: IpcValue[]) => void;
 
 // Type for Electron IPC
@@ -86,10 +98,14 @@ export class TalkModeElectron implements TalkModePlugin {
   private captureSampleRate = 16000;
 
   // Native TTS playback tracking
-  private pendingNativeSpeakResolve: ((result: SpeakResult) => void) | null = null;
+  private pendingNativeSpeakResolve: ((result: SpeakResult) => void) | null =
+    null;
   private pendingNativeSpeakComplete: TTSCompleteEvent | null = null;
   private awaitingNativeAudio = false;
-  private ipcHandlers: Array<{ channel: string; handler: (data: IpcValue) => void }> = [];
+  private ipcHandlers: Array<{
+    channel: string;
+    handler: (data: IpcValue) => void;
+  }> = [];
 
   constructor() {
     if (typeof window !== "undefined" && window.speechSynthesis) {
@@ -99,7 +115,9 @@ export class TalkModeElectron implements TalkModePlugin {
 
   // MARK: - Plugin Methods
 
-  async start(options?: { config?: TalkModeConfig }): Promise<{ started: boolean; error?: string }> {
+  async start(options?: {
+    config?: TalkModeConfig;
+  }): Promise<{ started: boolean; error?: string }> {
     if (options?.config) {
       this.config = { ...this.config, ...options.config };
     }
@@ -107,7 +125,10 @@ export class TalkModeElectron implements TalkModePlugin {
     // Try native STT/TTS via Electron IPC first
     if (window.electron?.ipcRenderer) {
       try {
-        const result = await window.electron.ipcRenderer.invoke("talkmode:start", options as IpcValue) as {
+        const result = (await window.electron.ipcRenderer.invoke(
+          "talkmode:start",
+          options as unknown as IpcValue,
+        )) as {
           started: boolean;
           error?: string;
         };
@@ -116,7 +137,9 @@ export class TalkModeElectron implements TalkModePlugin {
           this.setupElectronListeners();
           this.setState("listening", "Listening");
 
-          const whisperStatus = await window.electron.ipcRenderer.invoke("talkmode:isWhisperAvailable") as {
+          const whisperStatus = (await window.electron.ipcRenderer.invoke(
+            "talkmode:isWhisperAvailable",
+          )) as {
             available: boolean;
           };
           if (whisperStatus.available) {
@@ -132,13 +155,24 @@ export class TalkModeElectron implements TalkModePlugin {
     }
 
     // Fallback to Web Speech API
-    const SpeechRecognitionAPI = (window as Window & { SpeechRecognition?: typeof SpeechRecognition; webkitSpeechRecognition?: typeof SpeechRecognition }).SpeechRecognition ||
-      (window as Window & { webkitSpeechRecognition?: typeof SpeechRecognition }).webkitSpeechRecognition;
+    const SpeechRecognitionAPI =
+      (
+        window as Window & {
+          SpeechRecognition?: typeof SpeechRecognition;
+          webkitSpeechRecognition?: typeof SpeechRecognition;
+        }
+      ).SpeechRecognition ||
+      (
+        window as Window & {
+          webkitSpeechRecognition?: typeof SpeechRecognition;
+        }
+      ).webkitSpeechRecognition;
 
     if (!SpeechRecognitionAPI) {
       return {
         started: false,
-        error: "Speech recognition not supported. Consider installing Whisper.cpp for offline support.",
+        error:
+          "Speech recognition not supported. Consider installing Whisper.cpp for offline support.",
       };
     }
 
@@ -178,7 +212,8 @@ export class TalkModeElectron implements TalkModePlugin {
       this.setState("listening", "Listening");
       return { started: true };
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to start";
+      const message =
+        error instanceof Error ? error.message : "Failed to start";
       return { started: false, error: message };
     }
   }
@@ -189,18 +224,24 @@ export class TalkModeElectron implements TalkModePlugin {
     this.removeElectronListeners();
 
     const events = ["stateChange", "transcript", "speaking", "error"] as const;
-    const handlers: Array<{ channel: string; handler: (data: IpcValue) => void }> = [
+    const handlers: Array<{
+      channel: string;
+      handler: (data: IpcValue) => void;
+    }> = [
       ...events.map((eventName) => ({
         channel: `talkmode:${eventName}`,
-        handler: (data: IpcValue) => this.notifyListeners(eventName, data as TalkModeEvent),
+        handler: (data: IpcValue) =>
+          this.notifyListeners(eventName, data as unknown as TalkModeEvent),
       })),
       {
         channel: "talkmode:speakComplete",
-        handler: (data: IpcValue) => this.handleNativeSpeakComplete(data as TTSCompleteEvent),
+        handler: (data: IpcValue) =>
+          this.handleNativeSpeakComplete(data as unknown as TTSCompleteEvent),
       },
       {
         channel: "talkmode:audioComplete",
-        handler: (data: IpcValue) => void this.handleNativeAudioComplete(data as { audioBase64: string }),
+        handler: (data: IpcValue) =>
+          void this.handleNativeAudioComplete(data as { audioBase64: string }),
       },
     ];
 
@@ -250,12 +291,17 @@ export class TalkModeElectron implements TalkModePlugin {
     return { state: this.state, statusText: this.statusText };
   }
 
-  async updateConfig(options: { config: Partial<TalkModeConfig> }): Promise<void> {
+  async updateConfig(options: {
+    config: Partial<TalkModeConfig>;
+  }): Promise<void> {
     this.config = { ...this.config, ...options.config };
 
     if (window.electron?.ipcRenderer) {
       try {
-        await window.electron.ipcRenderer.invoke("talkmode:updateConfig", options);
+        await window.electron.ipcRenderer.invoke(
+          "talkmode:updateConfig",
+          options as unknown as IpcObject,
+        );
       } catch {
         // Ignore
       }
@@ -275,7 +321,11 @@ export class TalkModeElectron implements TalkModePlugin {
     this.pendingNativeSpeakComplete = null;
 
     // Try ElevenLabs via Electron IPC if available
-    if (!options.useSystemTts && window.electron?.ipcRenderer && this.config.tts?.apiKey) {
+    if (
+      !options.useSystemTts &&
+      window.electron?.ipcRenderer &&
+      this.config.tts?.apiKey
+    ) {
       try {
         this.awaitingNativeAudio = true;
         this.isSpeakingValue = true;
@@ -286,7 +336,10 @@ export class TalkModeElectron implements TalkModePlugin {
           this.pendingNativeSpeakResolve = resolve;
         });
 
-        const result = await window.electron.ipcRenderer.invoke("talkmode:speak", options as IpcValue) as SpeakResult;
+        const result = (await window.electron.ipcRenderer.invoke(
+          "talkmode:speak",
+          options as unknown as IpcValue,
+        )) as unknown as SpeakResult;
         if (!result.completed) {
           this.awaitingNativeAudio = false;
           this.isSpeakingValue = false;
@@ -296,7 +349,10 @@ export class TalkModeElectron implements TalkModePlugin {
 
         return pending;
       } catch (error) {
-        console.warn("[TalkMode] Electron TTS failed, falling back to system:", error);
+        console.warn(
+          "[TalkMode] Electron TTS failed, falling back to system:",
+          error,
+        );
         this.awaitingNativeAudio = false;
         this.isSpeakingValue = false;
         this.pendingNativeSpeakResolve = null;
@@ -304,11 +360,18 @@ export class TalkModeElectron implements TalkModePlugin {
     }
 
     // Try ElevenLabs via fetch (may have CORS issues in Electron)
-    if (!options.useSystemTts && this.config.tts?.apiKey && this.config.tts?.voiceId) {
+    if (
+      !options.useSystemTts &&
+      this.config.tts?.apiKey &&
+      this.config.tts?.voiceId
+    ) {
       try {
         return await this.speakWithElevenLabs(text, options);
       } catch (error) {
-        console.warn("[TalkMode] ElevenLabs TTS failed, falling back to system:", error);
+        console.warn(
+          "[TalkMode] ElevenLabs TTS failed, falling back to system:",
+          error,
+        );
       }
     }
 
@@ -316,10 +379,16 @@ export class TalkModeElectron implements TalkModePlugin {
     return this.speakWithSystemTts(text);
   }
 
-  private async speakWithElevenLabs(text: string, options: SpeakOptions): Promise<SpeakResult> {
+  private async speakWithElevenLabs(
+    text: string,
+    options: SpeakOptions,
+  ): Promise<SpeakResult> {
     const voiceId = options.directive?.voiceId || this.config.tts?.voiceId;
     const apiKey = this.config.tts?.apiKey;
-    const modelId = options.directive?.modelId || this.config.tts?.modelId || "eleven_v3";
+    const modelId =
+      options.directive?.modelId ||
+      this.config.tts?.modelId ||
+      "eleven_flash_v2_5";
 
     if (!voiceId || !apiKey) {
       throw new Error("Missing voiceId or apiKey for ElevenLabs");
@@ -331,23 +400,26 @@ export class TalkModeElectron implements TalkModePlugin {
     this.notifyListeners("speaking", { text, isSystemTts: false });
 
     try {
-      const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "xi-api-key": apiKey,
-        },
-        body: JSON.stringify({
-          text,
-          model_id: modelId,
-          output_format: "mp3_44100_128",
-          voice_settings: {
-            stability: options.directive?.stability ?? 0.5,
-            similarity_boost: options.directive?.similarity ?? 0.75,
-            speed: options.directive?.speed ?? 1.0,
+      const response = await fetch(
+        `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "xi-api-key": apiKey,
           },
-        }),
-      });
+          body: JSON.stringify({
+            text,
+            model_id: modelId,
+            output_format: "mp3_22050_32",
+            voice_settings: {
+              stability: options.directive?.stability ?? 0.5,
+              similarity_boost: options.directive?.similarity ?? 0.75,
+              speed: options.directive?.speed ?? 1.0,
+            },
+          }),
+        },
+      );
 
       if (!response.ok) {
         throw new Error(`ElevenLabs API error: ${response.status}`);
@@ -374,19 +446,24 @@ export class TalkModeElectron implements TalkModePlugin {
       this.audioContext.decodeAudioData(
         arrayBuffer,
         (buffer) => {
-          this.audioSource = this.audioContext!.createBufferSource();
-          this.audioSource.buffer = buffer;
-          this.audioSource.connect(this.audioContext!.destination);
-          this.audioSource.onended = () => {
-            this.stopAudio();
-            resolve();
-          };
-          this.audioSource.start(0);
+          const source = this.audioContext?.createBufferSource();
+          if (source && this.audioContext) {
+            this.audioSource = source;
+            source.buffer = buffer;
+            source.connect(this.audioContext.destination);
+            source.onended = () => {
+              this.stopAudio();
+              resolve();
+            };
+            source.start(0);
+          } else {
+            reject(new Error("Audio context invalid"));
+          }
         },
         (error) => {
           this.stopAudio();
           reject(error);
-        }
+        },
       );
     });
   }
@@ -404,9 +481,13 @@ export class TalkModeElectron implements TalkModePlugin {
   private async startAudioCapture(): Promise<void> {
     if (this.captureContext || !window.electron?.ipcRenderer) return;
 
-    this.captureStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    this.captureStream = await navigator.mediaDevices.getUserMedia({
+      audio: true,
+    });
     this.captureContext = new AudioContext();
-    const source = this.captureContext.createMediaStreamSource(this.captureStream);
+    const source = this.captureContext.createMediaStreamSource(
+      this.captureStream,
+    );
     const processor = this.captureContext.createScriptProcessor(4096, 1, 1);
     const gain = this.captureContext.createGain();
     gain.gain.value = 0;
@@ -418,7 +499,11 @@ export class TalkModeElectron implements TalkModePlugin {
 
     processor.onaudioprocess = (event: AudioProcessingEvent) => {
       const input = event.inputBuffer.getChannelData(0);
-      const downsampled = this.downsampleBuffer(input, inputSampleRate, this.captureSampleRate);
+      const downsampled = this.downsampleBuffer(
+        input,
+        inputSampleRate,
+        this.captureSampleRate,
+      );
       if (downsampled.length > 0) {
         window.electron?.ipcRenderer.send("talkmode:audioChunk", downsampled);
       }
@@ -443,12 +528,18 @@ export class TalkModeElectron implements TalkModePlugin {
       this.captureContext = null;
     }
     if (this.captureStream) {
-      this.captureStream.getTracks().forEach((track) => track.stop());
+      this.captureStream.getTracks().forEach((track) => {
+        track.stop();
+      });
       this.captureStream = null;
     }
   }
 
-  private downsampleBuffer(buffer: Float32Array, inputSampleRate: number, targetSampleRate: number): Float32Array {
+  private downsampleBuffer(
+    buffer: Float32Array,
+    inputSampleRate: number,
+    targetSampleRate: number,
+  ): Float32Array {
     if (targetSampleRate >= inputSampleRate) {
       return buffer;
     }
@@ -463,7 +554,11 @@ export class TalkModeElectron implements TalkModePlugin {
       const nextOffsetBuffer = Math.round((offsetResult + 1) * ratio);
       let acc = 0;
       let count = 0;
-      for (let i = offsetBuffer; i < nextOffsetBuffer && i < buffer.length; i++) {
+      for (
+        let i = offsetBuffer;
+        i < nextOffsetBuffer && i < buffer.length;
+        i++
+      ) {
         acc += buffer[i];
         count += 1;
       }
@@ -530,7 +625,7 @@ export class TalkModeElectron implements TalkModePlugin {
         });
       };
 
-      this.synthesis!.speak(utterance);
+      this.synthesis?.speak(utterance);
     });
   }
 
@@ -550,7 +645,10 @@ export class TalkModeElectron implements TalkModePlugin {
 
     if (!this.awaitingNativeAudio) {
       this.isSpeakingValue = false;
-      this.setState(event.completed ? "listening" : "idle", event.completed ? "Listening" : "Speech error");
+      this.setState(
+        event.completed ? "listening" : "idle",
+        event.completed ? "Listening" : "Speech error",
+      );
       this.notifyListeners("speakComplete", event);
       this.resolveNativeSpeak({
         completed: event.completed,
@@ -562,14 +660,19 @@ export class TalkModeElectron implements TalkModePlugin {
     }
   }
 
-  private async handleNativeAudioComplete(payload: { audioBase64: string }): Promise<void> {
+  private async handleNativeAudioComplete(payload: {
+    audioBase64: string;
+  }): Promise<void> {
     if (!payload.audioBase64) return;
 
     const event = this.pendingNativeSpeakComplete ?? { completed: true };
     try {
       await this.playBase64Audio(payload.audioBase64);
       this.isSpeakingValue = false;
-      this.setState(event.completed ? "listening" : "idle", event.completed ? "Listening" : "Speech error");
+      this.setState(
+        event.completed ? "listening" : "idle",
+        event.completed ? "Listening" : "Speech error",
+      );
       this.notifyListeners("speakComplete", event);
       this.resolveNativeSpeak({
         completed: event.completed,
@@ -578,7 +681,8 @@ export class TalkModeElectron implements TalkModePlugin {
         usedSystemTts: false,
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Native TTS playback failed";
+      const message =
+        error instanceof Error ? error.message : "Native TTS playback failed";
       this.isSpeakingValue = false;
       this.setState("idle", "Speech error");
       this.notifyListeners("error", {
@@ -629,27 +733,44 @@ export class TalkModeElectron implements TalkModePlugin {
   }
 
   async isSpeaking(): Promise<{ speaking: boolean }> {
-    return { speaking: this.isSpeakingValue || (this.synthesis?.speaking ?? false) };
+    return {
+      speaking: this.isSpeakingValue || (this.synthesis?.speaking ?? false),
+    };
   }
 
   async checkPermissions(): Promise<TalkModePermissionStatus> {
     let microphone: TalkModePermissionStatus["microphone"] = "prompt";
 
     try {
-      const result = await navigator.permissions.query({ name: "microphone" as PermissionName });
+      const result = await navigator.permissions.query({
+        name: "microphone" as PermissionName,
+      });
       microphone = result.state as TalkModePermissionStatus["microphone"];
     } catch {
       // Permissions API may not support microphone query
     }
 
-    const SpeechRecognitionAPI = (window as Window & { SpeechRecognition?: typeof SpeechRecognition; webkitSpeechRecognition?: typeof SpeechRecognition }).SpeechRecognition ||
-      (window as Window & { webkitSpeechRecognition?: typeof SpeechRecognition }).webkitSpeechRecognition;
+    const SpeechRecognitionAPI =
+      (
+        window as Window & {
+          SpeechRecognition?: typeof SpeechRecognition;
+          webkitSpeechRecognition?: typeof SpeechRecognition;
+        }
+      ).SpeechRecognition ||
+      (
+        window as Window & {
+          webkitSpeechRecognition?: typeof SpeechRecognition;
+        }
+      ).webkitSpeechRecognition;
 
-    let speechRecognition: TalkModePermissionStatus["speechRecognition"] = SpeechRecognitionAPI ? "prompt" : "not_supported";
+    let speechRecognition: TalkModePermissionStatus["speechRecognition"] =
+      SpeechRecognitionAPI ? "prompt" : "not_supported";
 
     if (window.electron?.ipcRenderer) {
       try {
-        const whisperStatus = await window.electron.ipcRenderer.invoke("talkmode:isWhisperAvailable") as {
+        const whisperStatus = (await window.electron.ipcRenderer.invoke(
+          "talkmode:isWhisperAvailable",
+        )) as {
           available: boolean;
         };
         if (whisperStatus.available) {
@@ -666,7 +787,9 @@ export class TalkModeElectron implements TalkModePlugin {
   async requestPermissions(): Promise<TalkModePermissionStatus> {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      stream.getTracks().forEach((track) => track.stop());
+      stream.getTracks().forEach((track) => {
+        track.stop();
+      });
     } catch {
       // Permission denied
     }
@@ -700,27 +823,27 @@ export class TalkModeElectron implements TalkModePlugin {
 
   async addListener(
     eventName: "stateChange",
-    listenerFunc: (event: TalkModeStateEvent) => void
+    listenerFunc: (event: TalkModeStateEvent) => void,
   ): Promise<PluginListenerHandle>;
   async addListener(
     eventName: "transcript",
-    listenerFunc: (event: TalkModeTranscriptEvent) => void
+    listenerFunc: (event: TalkModeTranscriptEvent) => void,
   ): Promise<PluginListenerHandle>;
   async addListener(
     eventName: "speaking",
-    listenerFunc: (event: TTSSpeakingEvent) => void
+    listenerFunc: (event: TTSSpeakingEvent) => void,
   ): Promise<PluginListenerHandle>;
   async addListener(
     eventName: "speakComplete",
-    listenerFunc: (event: TTSCompleteEvent) => void
+    listenerFunc: (event: TTSCompleteEvent) => void,
   ): Promise<PluginListenerHandle>;
   async addListener(
     eventName: "error",
-    listenerFunc: (event: TalkModeErrorEvent) => void
+    listenerFunc: (event: TalkModeErrorEvent) => void,
   ): Promise<PluginListenerHandle>;
   async addListener(
     eventName: string,
-    listenerFunc: EventCallback<TalkModeEvent>
+    listenerFunc: EventCallback<unknown>,
   ): Promise<PluginListenerHandle> {
     const entry: ListenerEntry = { eventName, callback: listenerFunc };
     this.listeners.push(entry);

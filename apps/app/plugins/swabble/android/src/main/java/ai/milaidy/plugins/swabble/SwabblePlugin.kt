@@ -1,4 +1,4 @@
-package ai.milaidy.plugins.swabble
+package ai.milady.plugins.swabble
 
 import android.Manifest
 import android.content.Context
@@ -89,7 +89,7 @@ class SwabblePlugin : Plugin() {
                 val triggers = if (triggersArray != null) {
                     (0 until triggersArray.length()).map { triggersArray.getString(it) }
                 } else {
-                    listOf("milaidy")
+                    listOf("milady")
                 }
 
                 return SwabbleConfig(

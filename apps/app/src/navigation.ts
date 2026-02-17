@@ -117,30 +117,50 @@ function normalizePath(p: string): string {
   if (!p) return "/";
   let normalized = p.trim();
   if (!normalized.startsWith("/")) normalized = `/${normalized}`;
-  if (normalized.length > 1 && normalized.endsWith("/")) normalized = normalized.slice(0, -1);
+  if (normalized.length > 1 && normalized.endsWith("/"))
+    normalized = normalized.slice(0, -1);
   return normalized;
 }
 
 export function titleForTab(tab: Tab): string {
   switch (tab) {
-    case "chat": return "Chat";
-    case "apps": return "Apps";
-    case "character": return "Character";
-    case "triggers": return "Triggers";
-    case "wallets": return "Wallets";
-    case "knowledge": return "Knowledge";
-    case "connectors": return "Social";
-    case "plugins": return "Plugins";
-    case "skills": return "Skills";
-    case "actions": return "Actions";
-    case "advanced": return "Advanced";
-    case "fine-tuning": return "Fine-Tuning";
-    case "trajectories": return "Trajectories";
-    case "voice": return "Voice";
-    case "runtime": return "Runtime";
-    case "database": return "Databases";
-    case "settings": return "Settings";
-    case "logs": return "Logs";
-    default: return "Milaidy";
+    case "chat":
+      return "Chat";
+    case "apps":
+      return "Apps";
+    case "character":
+      return "Character";
+    case "triggers":
+      return "Triggers";
+    case "wallets":
+      return "Wallets";
+    case "knowledge":
+      return "Knowledge";
+    case "connectors":
+      return "Social";
+    case "plugins":
+      return "Plugins";
+    case "skills":
+      return "Skills";
+    case "actions":
+      return "Actions";
+    case "advanced":
+      return "Advanced";
+    case "fine-tuning":
+      return "Fine-Tuning";
+    case "trajectories":
+      return "Trajectories";
+    case "voice":
+      return "Voice";
+    case "runtime":
+      return "Runtime";
+    case "database":
+      return "Databases";
+    case "settings":
+      return "Settings";
+    case "logs":
+      return "Logs";
+    default:
+      return "Milady";
   }
 }

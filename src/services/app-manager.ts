@@ -9,40 +9,52 @@
  * @module services/app-manager
  */
 
+import * as fs from "node:fs";
+import * as path from "node:path";
 import { logger } from "@elizaos/core";
 import type {
   AppLaunchResult,
   AppStopResult,
   AppViewerAuthMessage,
   InstalledAppInfo,
-} from "../contracts/apps.js";
-import {
-  installPlugin,
-  listInstalledPlugins,
-  type ProgressCallback,
-  uninstallPlugin,
-} from "./plugin-installer.js";
-import {
-  type RegistryAppInfo,
-  getAppInfo as registryGetAppInfo,
-  listApps as registryListApps,
-  searchApps as registrySearchApps,
-} from "./registry-client.js";
+} from "../contracts/apps";
+import type {
+  InstalledPluginInfo,
+  InstallProgressLike,
+  PluginManagerLike,
+  RegistryPluginInfo,
+  RegistrySearchResult,
+} from "./plugin-manager-types";
+
+const LOCAL_PLUGINS_DIR = "plugins";
 
 export type {
   AppLaunchResult,
   AppStopResult,
   AppViewerAuthMessage,
   InstalledAppInfo,
-} from "../contracts/apps.js";
+} from "../contracts/apps";
 
 const DEFAULT_VIEWER_SANDBOX = "allow-scripts allow-same-origin allow-popups";
 const HYPERSCAPE_APP_NAME = "@elizaos/app-hyperscape";
 const HYPERSCAPE_AUTH_MESSAGE_TYPE = "HYPERSCAPE_AUTH";
 const RS_2004SCAPE_APP_NAME = "@elizaos/app-2004scape";
 const RS_2004SCAPE_AUTH_MESSAGE_TYPE = "RS_2004SCAPE_AUTH";
+const SAFE_APP_URL_PROTOCOLS = new Set(["http:", "https:"]);
 
 type AppViewerConfig = NonNullable<AppLaunchResult["viewer"]>;
+
+interface RegistryAppPlugin extends RegistryPluginInfo {
+  viewer?: {
+    url: string;
+    embedParams?: Record<string, string>;
+    postMessageAuth?: boolean;
+    sandbox?: string;
+  };
+  launchType?: "connect" | "local";
+  launchUrl?: string;
+  displayName?: string;
+}
 
 interface ActiveAppSession {
   appName: string;
@@ -53,6 +65,46 @@ interface ActiveAppSession {
   startedAt: string;
 }
 
+function resolvePluginPackageName(appInfo: RegistryPluginInfo): string {
+  const npmPackage = appInfo.npm.package.trim();
+  return npmPackage && npmPackage.length > 0 ? npmPackage : appInfo.name;
+}
+
+function isAutoInstallable(appInfo: RegistryPluginInfo): boolean {
+  const supportsRuntime =
+    appInfo.supports.v0 || appInfo.supports.v1 || appInfo.supports.v2;
+  const hasVersion = Boolean(
+    appInfo.npm.v0Version || appInfo.npm.v1Version || appInfo.npm.v2Version,
+  );
+  return supportsRuntime && hasVersion;
+}
+
+/**
+ * Check if a plugin exists locally in the plugins/ directory.
+ * Local plugins don't need to be installed - they're already available.
+ */
+function isLocalPlugin(appInfo: RegistryPluginInfo): boolean {
+  const pluginsDir = path.resolve(process.cwd(), LOCAL_PLUGINS_DIR);
+  if (!fs.existsSync(pluginsDir)) {
+    return false;
+  }
+
+  // Check for directory names that match the app
+  // E.g., @elizaos/app-hyperscape -> app-hyperscape
+  const bareName = appInfo.name.replace(/^@[^/]+\//, "");
+  const possibleDirs = [bareName, appInfo.name.replace("/", "-")];
+
+  for (const dirName of possibleDirs) {
+    const pluginPath = path.join(pluginsDir, dirName);
+    const pluginJsonPath = path.join(pluginPath, "elizaos.plugin.json");
+    if (fs.existsSync(pluginJsonPath)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 function getTemplateFallbackValue(key: string): string | undefined {
   if (key === "RS_SDK_BOT_NAME") {
     const runtimeBotName = process.env.BOT_NAME?.trim();
@@ -60,6 +112,14 @@ function getTemplateFallbackValue(key: string): string | undefined {
       return runtimeBotName;
     }
     return "testbot";
+  }
+  // Hyperscape client URL defaults to localhost:3333
+  if (key === "HYPERSCAPE_CLIENT_URL") {
+    return "http://localhost:3333";
+  }
+  // Hyperscape server URL defaults to localhost:5555
+  if (key === "HYPERSCAPE_SERVER_URL") {
+    return "ws://localhost:5555/ws";
   }
   return undefined;
 }
@@ -91,6 +151,26 @@ function buildViewerUrl(
   const query = queryParams.toString();
   const hash = hashPartRaw ? `#${hashPartRaw}` : "";
   return `${pathPart}${query.length > 0 ? `?${query}` : ""}${hash}`;
+}
+
+function normalizeSafeAppUrl(url: string): string | null {
+  const trimmed = url.trim();
+  if (!trimmed) return null;
+
+  if (trimmed.startsWith("/")) {
+    // Disallow protocol-relative form (`//evil.test`) which escapes same-origin.
+    return trimmed.startsWith("//") ? null : trimmed;
+  }
+
+  try {
+    const parsed = new URL(trimmed);
+    if (!SAFE_APP_URL_PROTOCOLS.has(parsed.protocol)) {
+      return null;
+    }
+    return trimmed;
+  } catch {
+    return null;
+  }
 }
 
 function buildViewerAuthMessage(
@@ -139,11 +219,12 @@ function buildViewerAuthMessage(
 }
 
 function buildViewerConfig(
-  appInfo: RegistryAppInfo,
+  appInfo: RegistryAppPlugin,
   launchUrl: string | null,
 ): AppViewerConfig | null {
-  if (appInfo.viewer) {
-    const requestedPostMessageAuth = Boolean(appInfo.viewer.postMessageAuth);
+  const viewerInfo = appInfo.viewer;
+  if (viewerInfo) {
+    const requestedPostMessageAuth = Boolean(viewerInfo.postMessageAuth);
     const authMessage = buildViewerAuthMessage(
       appInfo.name,
       requestedPostMessageAuth,
@@ -160,11 +241,20 @@ function buildViewerConfig(
         );
       }
     }
+    const viewerUrl = normalizeSafeAppUrl(
+      buildViewerUrl(viewerInfo.url, viewerInfo.embedParams),
+    );
+    if (!viewerUrl) {
+      throw new Error(
+        `Refusing to launch app "${appInfo.name}": unsafe viewer URL`,
+      );
+    }
+
     return {
-      url: buildViewerUrl(appInfo.viewer.url, appInfo.viewer.embedParams),
-      embedParams: appInfo.viewer.embedParams,
+      url: viewerUrl,
+      embedParams: viewerInfo.embedParams,
       postMessageAuth,
-      sandbox: appInfo.viewer.sandbox ?? DEFAULT_VIEWER_SANDBOX,
+      sandbox: viewerInfo.sandbox ?? DEFAULT_VIEWER_SANDBOX,
       authMessage,
     };
   }
@@ -172,27 +262,147 @@ function buildViewerConfig(
     (appInfo.launchType === "connect" || appInfo.launchType === "local") &&
     launchUrl
   ) {
+    const viewerUrl = normalizeSafeAppUrl(launchUrl);
+    if (!viewerUrl) {
+      throw new Error(
+        `Refusing to launch app "${appInfo.name}": unsafe launch URL`,
+      );
+    }
     return {
-      url: launchUrl,
+      url: viewerUrl,
       sandbox: DEFAULT_VIEWER_SANDBOX,
     };
   }
   return null;
 }
 
+/**
+ * Auto-provision a hyperscape agent using wallet-based authentication.
+ * The agent's wallet address becomes its identity - no manual registration needed.
+ */
+async function autoProvisionHyperscapeAgent(): Promise<{
+  characterId: string;
+  authToken?: string;
+} | null> {
+  // Check if already configured
+  const existingCharId = process.env.HYPERSCAPE_CHARACTER_ID?.trim();
+  const existingToken = process.env.HYPERSCAPE_AUTH_TOKEN?.trim();
+  if (existingCharId && existingToken) {
+    logger.info(
+      `[app-manager] Hyperscape already configured with character: ${existingCharId}`,
+    );
+    return { characterId: existingCharId, authToken: existingToken };
+  }
+
+  // Get wallet address - try EVM first, then Solana
+  const walletAddress =
+    process.env.EVM_PUBLIC_KEY?.trim() || process.env.SOLANA_PUBLIC_KEY?.trim();
+
+  if (!walletAddress) {
+    logger.warn(
+      "[app-manager] No wallet address found for hyperscape auto-auth (need EVM_PUBLIC_KEY or SOLANA_PUBLIC_KEY)",
+    );
+    return null;
+  }
+
+  const walletType = walletAddress.startsWith("0x") ? "evm" : "solana";
+
+  // Get server URL for API calls
+  const serverUrl =
+    process.env.HYPERSCAPE_SERVER_URL?.trim() || "ws://localhost:5555/ws";
+  const apiBaseUrl = serverUrl
+    .replace(/^ws:/, "http:")
+    .replace(/^wss:/, "https:")
+    .replace(/\/ws$/, "");
+
+  try {
+    logger.info(
+      `[app-manager] Auto-provisioning hyperscape agent with wallet: ${walletAddress.slice(0, 10)}...`,
+    );
+
+    // Authenticate using wallet address
+    const response = await fetch(`${apiBaseUrl}/api/agents/wallet-auth`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        walletAddress,
+        walletType,
+        agentName: process.env.BOT_NAME || "Agent",
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => "Unknown error");
+      logger.warn(
+        `[app-manager] Hyperscape wallet auth failed: ${response.status} ${errorText}`,
+      );
+      return null;
+    }
+
+    const result = (await response.json()) as {
+      success: boolean;
+      authToken?: string;
+      characterId?: string;
+    };
+
+    if (!result.success || !result.authToken || !result.characterId) {
+      logger.warn("[app-manager] Hyperscape wallet auth returned failure");
+      return null;
+    }
+
+    // Set environment variables for the plugin and viewer
+    process.env.HYPERSCAPE_CHARACTER_ID = result.characterId;
+    process.env.HYPERSCAPE_AUTH_TOKEN = result.authToken;
+
+    logger.info(
+      `[app-manager] ✅ Auto-provisioned hyperscape agent: ${result.characterId}`,
+    );
+
+    return { characterId: result.characterId, authToken: result.authToken };
+  } catch (error) {
+    logger.warn(
+      `[app-manager] Failed to auto-provision hyperscape agent: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+    return null;
+  }
+}
+
 export class AppManager {
   private readonly activeSessions = new Map<string, ActiveAppSession>();
 
-  async listAvailable(): Promise<RegistryAppInfo[]> {
-    return registryListApps();
+  async listAvailable(
+    pluginManager: PluginManagerLike,
+  ): Promise<RegistryPluginInfo[]> {
+    const registry = await pluginManager.refreshRegistry();
+    // Filter to only include app packages (those with "/app-" in the name)
+    return Array.from(registry.values()).filter((plugin) => {
+      const name = plugin.name.toLowerCase();
+      const npmPackage = plugin.npm.package.toLowerCase();
+      return name.includes("/app-") || npmPackage.includes("/app-");
+    });
   }
 
-  async search(query: string, limit = 15): Promise<RegistryAppInfo[]> {
-    return registrySearchApps(query, limit);
+  async search(
+    pluginManager: PluginManagerLike,
+    query: string,
+    limit = 15,
+  ): Promise<RegistrySearchResult[]> {
+    const results = await pluginManager.searchRegistry(query, limit);
+    // Filter to only include app packages
+    return results.filter((result) => {
+      const name = result.name.toLowerCase();
+      const npmPackage = result.npmPackage.toLowerCase();
+      return name.includes("/app-") || npmPackage.includes("/app-");
+    });
   }
 
-  async getInfo(name: string): Promise<RegistryAppInfo | null> {
-    return registryGetAppInfo(name);
+  async getInfo(
+    pluginManager: PluginManagerLike,
+    name: string,
+  ): Promise<RegistryPluginInfo | null> {
+    return pluginManager.getRegistryPlugin(name);
   }
 
   /**
@@ -205,73 +415,113 @@ export class AppManager {
    * handle this by showing "connecting..." while the runtime restarts.
    */
   async launch(
+    pluginManager: PluginManagerLike,
     name: string,
-    onProgress?: ProgressCallback,
+    onProgress?: (progress: InstallProgressLike) => void,
   ): Promise<AppLaunchResult> {
-    const appInfo = await registryGetAppInfo(name);
+    const appInfo = (await pluginManager.getRegistryPlugin(
+      name,
+    )) as RegistryAppPlugin | null;
     if (!appInfo) {
       throw new Error(`App "${name}" not found in the registry.`);
     }
 
     // The app's plugin is what the agent needs to play the game.
     // It's the same npm package name as the app, or a separate plugin ref.
-    const pluginName = appInfo.name;
+    const pluginName = resolvePluginPackageName(appInfo);
+
+    // Check if this is a local plugin (already present in plugins/ directory)
+    const isLocal = isLocalPlugin(appInfo);
 
     // Check if the plugin is already installed
-    const installed = listInstalledPlugins();
+    const installed = await pluginManager.listInstalledPlugins();
     const alreadyInstalled = installed.some((p) => p.name === pluginName);
+    let pluginInstalled = alreadyInstalled || isLocal;
 
     let needsRestart = false;
 
-    if (!alreadyInstalled) {
-      logger.info(`[app-manager] Installing plugin for app: ${pluginName}`);
-      const result = await installPlugin(pluginName, onProgress);
-      if (!result.success) {
-        throw new Error(
-          `Failed to install plugin "${pluginName}": ${result.error}`,
+    if (isLocal) {
+      // Local plugins are already available, no installation needed
+      logger.info(
+        `[app-manager] Using local plugin for ${name}: ${pluginName}`,
+      );
+    } else if (!alreadyInstalled) {
+      if (isAutoInstallable(appInfo)) {
+        logger.info(`[app-manager] Installing plugin for app: ${pluginName}`);
+        const result = await pluginManager.installPlugin(
+          pluginName,
+          onProgress,
+        );
+        if (!result.success) {
+          throw new Error(
+            `Failed to install plugin "${pluginName}": ${result.error}`,
+          );
+        }
+        pluginInstalled = true;
+        needsRestart = result.requiresRestart;
+        logger.info(
+          `[app-manager] Plugin installed: ${pluginName} v${result.version}`,
+        );
+      } else {
+        logger.info(
+          `[app-manager] Skipping plugin install for ${name}: no installable runtime package/version in registry metadata.`,
         );
       }
-      needsRestart = result.requiresRestart;
-      logger.info(
-        `[app-manager] Plugin installed: ${pluginName} v${result.version}`,
-      );
     } else {
       logger.info(`[app-manager] Plugin already installed: ${pluginName}`);
     }
 
+    // Auto-provision hyperscape agent if needed
+    if (name === HYPERSCAPE_APP_NAME) {
+      await autoProvisionHyperscapeAgent();
+    }
+
     // Build viewer config from registry app metadata
-    const launchUrl = appInfo.launchUrl
+    const resolvedLaunchUrl = appInfo.launchUrl
       ? substituteTemplateVars(appInfo.launchUrl)
       : null;
+    const launchUrl = resolvedLaunchUrl
+      ? normalizeSafeAppUrl(resolvedLaunchUrl)
+      : null;
+    if (resolvedLaunchUrl && !launchUrl) {
+      throw new Error(
+        `Refusing to launch app "${appInfo.name}": unsafe launch URL`,
+      );
+    }
     const viewer = buildViewerConfig(appInfo, launchUrl);
     this.activeSessions.set(name, {
       appName: name,
       pluginName,
-      launchType: appInfo.launchType,
+      launchType: appInfo.launchType ?? "connect",
       launchUrl,
       viewerUrl: viewer?.url ?? null,
       startedAt: new Date().toISOString(),
     });
 
     return {
-      pluginInstalled: true,
+      pluginInstalled,
       needsRestart,
-      displayName: appInfo.displayName,
-      launchType: appInfo.launchType,
+      displayName: appInfo.displayName ?? appInfo.name,
+      launchType: appInfo.launchType ?? "connect",
       launchUrl,
       viewer,
     };
   }
 
-  async stop(name: string): Promise<AppStopResult> {
-    const appInfo = await registryGetAppInfo(name);
+  async stop(
+    pluginManager: PluginManagerLike,
+    name: string,
+  ): Promise<AppStopResult> {
+    const appInfo = (await pluginManager.getRegistryPlugin(
+      name,
+    )) as RegistryAppPlugin | null;
     if (!appInfo) {
       throw new Error(`App "${name}" not found in the registry.`);
     }
 
     const hadSession = this.activeSessions.delete(name);
-    const pluginName = appInfo.name;
-    const installed = listInstalledPlugins();
+    const pluginName = resolvePluginPackageName(appInfo);
+    const installed = await pluginManager.listInstalledPlugins();
     const isPluginInstalled = installed.some(
       (plugin) => plugin.name === pluginName,
     );
@@ -288,7 +538,7 @@ export class AppManager {
     }
 
     if (isPluginInstalled) {
-      const uninstallResult = await uninstallPlugin(pluginName);
+      const uninstallResult = await pluginManager.uninstallPlugin(pluginName);
       if (!uninstallResult.success) {
         throw new Error(
           `Failed to stop "${name}": ${uninstallResult.error ?? "plugin uninstall failed"}`,
@@ -319,19 +569,24 @@ export class AppManager {
   }
 
   /** List apps whose plugins are currently installed on the agent. */
-  listInstalled(): InstalledAppInfo[] {
-    const installed = listInstalledPlugins();
-    // For now, any installed plugin that has app metadata in the registry is an "installed app"
-    // This is a sync check against the local config, not a registry fetch
-    return installed.map((p) => ({
+  async listInstalled(
+    pluginManager: PluginManagerLike,
+  ): Promise<InstalledAppInfo[]> {
+    const installed = await pluginManager.listInstalledPlugins();
+    // Filter to only include app plugins
+    const appPlugins = installed.filter((p: InstalledPluginInfo) => {
+      const name = p.name.toLowerCase();
+      return name.includes("/app-");
+    });
+    return appPlugins.map((p: InstalledPluginInfo) => ({
       name: p.name,
       displayName: p.name
         .replace(/^@elizaos\/(app-|plugin-)/, "")
         .replace(/-/g, " ")
-        .replace(/\b\w/g, (c) => c.toUpperCase()),
+        .replace(/\b\w/g, (c: string) => c.toUpperCase()),
       pluginName: p.name,
-      version: p.version,
-      installedAt: p.installedAt,
+      version: p.version ?? "unknown",
+      installedAt: new Date().toISOString(), // Ejected plugins don't track install time yet
     }));
   }
 }

@@ -24,7 +24,7 @@ import {
   validatePrivateKey,
   validateSolanaPrivateKey,
   type WalletKeys,
-} from "./wallet.js";
+} from "./wallet";
 
 // ---------------------------------------------------------------------------
 // Known test vectors
@@ -499,7 +499,7 @@ describe("Wallet availability for plugins", () => {
   it("wallet secrets are included in the Character secrets list", async () => {
     // Verify that buildCharacterFromConfig includes wallet-related keys.
     // We import the function and check the output includes wallet env keys.
-    const { buildCharacterFromConfig } = await import("../runtime/eliza.js");
+    const { buildCharacterFromConfig } = await import("../runtime/eliza");
 
     process.env.EVM_PRIVATE_KEY = HARDHAT_PRIVATE_KEY;
     process.env.SOLANA_PRIVATE_KEY = "testSolanaKey123";

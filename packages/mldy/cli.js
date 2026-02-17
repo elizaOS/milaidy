@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
-// mldy — alias for the milaidy CLI.
-// Delegates to the milaidy package's CLI entry point so that
-// `npx mldy` behaves identically to `npx milaidy`.
+// mldy — alias for the milady CLI.
+// Delegates to the milady package's CLI entry point so that
+// `npx mldy` behaves identically to `npx milady`.
 
 import module from "node:module";
 
@@ -15,4 +15,4 @@ if (module.enableCompileCache && !process.env.NODE_DISABLE_COMPILE_CACHE) {
   }
 }
 
-await import("milaidy/cli-entry");
+await import("milady/cli-entry");

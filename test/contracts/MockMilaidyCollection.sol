@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 
 /**
- * @title MockMilaidyCollection
+ * @title MockMiladyCollection
  * @dev Mock ERC-8041 fixed-supply collection for testing.
  *
  * Implements the core interface expected by DropService:
@@ -15,7 +15,7 @@ import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
  * - Whitelist mint (Merkle proof)
  * - Supply tracking
  */
-contract MockMilaidyCollection is ERC721URIStorage, Ownable {
+contract MockMiladyCollection is ERC721URIStorage, Ownable {
     uint256 public constant MAX_SUPPLY = 2138;
     uint256 public constant SHINY_PRICE = 0.1 ether;
 
@@ -41,7 +41,7 @@ contract MockMilaidyCollection is ERC721URIStorage, Ownable {
         bool whitelistOpen
     );
 
-    constructor() ERC721("Milaidy Maker", "MILAIDYMAKER") {
+    constructor() ERC721("Milady Maker", "MILAIDYMAKER") {
         publicMintOpen = true;
         whitelistMintOpen = false;
     }
@@ -149,8 +149,8 @@ contract MockMilaidyCollection is ERC721URIStorage, Ownable {
 
         // Set a default token URI
         string memory uri = shiny
-            ? "ipfs://QmShinyMilaidyMetadata"
-            : "ipfs://QmMilaidyMetadata";
+            ? "ipfs://QmShinyMiladyMetadata"
+            : "ipfs://QmMiladyMetadata";
         _setTokenURI(tokenId, uri);
 
         emit AgentMinted(tokenId, mintNumber, to, shiny);

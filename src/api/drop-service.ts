@@ -1,5 +1,5 @@
 /**
- * MilaidyMaker drop/mint service.
+ * MiladyMaker drop/mint service.
  *
  * Handles the ERC-8041 fixed-supply collection minting:
  * - Public free mint (user pays gas)
@@ -10,10 +10,10 @@
 
 import { logger } from "@elizaos/core";
 import { ethers } from "ethers";
-import type { DropStatus, MintResult } from "../contracts/drop.js";
-import type { TxService } from "./tx-service.js";
+import type { DropStatus, MintResult } from "../contracts/drop";
+import type { TxService } from "./tx-service";
 
-export type { DropStatus, MintResult } from "../contracts/drop.js";
+export type { DropStatus, MintResult } from "../contracts/drop";
 
 // ── ABI ──────────────────────────────────────────────────────────────────
 
@@ -36,7 +36,7 @@ const COLLECTION_ABI = [
   "event CollectionUpdated(uint256 maxSupply, uint256 currentSupply, bool publicOpen, bool whitelistOpen)",
 ] as const;
 
-const DEFAULT_CAP_HASH = ethers.id("milaidy-agent");
+const DEFAULT_CAP_HASH = ethers.id("milady-agent");
 
 // ── Service ──────────────────────────────────────────────────────────────
 

@@ -1,14 +1,14 @@
 import fs from "node:fs";
 import path from "node:path";
 import JSON5 from "json5";
-import { collectConfigEnvVars } from "./env-vars.js";
-import { resolveConfigIncludes } from "./includes.js";
-import { resolveConfigPath } from "./paths.js";
-import type { MilaidyConfig } from "./types.js";
+import { collectConfigEnvVars } from "./env-vars";
+import { resolveConfigIncludes } from "./includes";
+import { resolveConfigPath, resolveUserPath } from "./paths";
+import type { MiladyConfig } from "./types";
 
-export * from "./types.js";
+export * from "./types";
 
-export function loadMilaidyConfig(): MilaidyConfig {
+export function loadMiladyConfig(): MiladyConfig {
   const configPath = resolveConfigPath();
 
   let raw: string;
@@ -16,13 +16,71 @@ export function loadMilaidyConfig(): MilaidyConfig {
     raw = fs.readFileSync(configPath, "utf-8");
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === "ENOENT") {
-      return { logging: { level: "error" } } as MilaidyConfig;
+      return { logging: { level: "error" } } as MiladyConfig;
     }
     throw err;
   }
 
   const parsed = JSON5.parse(raw) as Record<string, unknown>;
-  const resolved = resolveConfigIncludes(parsed, configPath) as MilaidyConfig;
+  const resolved = resolveConfigIncludes(parsed, configPath) as MiladyConfig;
+
+  // Load local skills config from ~/.eliza/skills.json (if present)
+  // This allows users to add local skill directories without modifying the main config.
+  const skillsJsonPath = resolveUserPath("~/.eliza/skills.json");
+
+  // Auto-create if missing so the user knows where to put skills
+  if (!fs.existsSync(skillsJsonPath)) {
+    try {
+      const skillsDir = path.dirname(skillsJsonPath);
+      if (!fs.existsSync(skillsDir)) {
+        fs.mkdirSync(skillsDir, { recursive: true });
+      }
+      fs.writeFileSync(
+        skillsJsonPath,
+        JSON.stringify({ extraDirs: [] }, null, 2),
+        "utf-8",
+      );
+    } catch (err) {
+      console.warn(
+        `[milady] Failed to auto-create ~/.eliza/skills.json: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
+  }
+
+  if (fs.existsSync(skillsJsonPath)) {
+    try {
+      const skillsRaw = fs.readFileSync(skillsJsonPath, "utf-8");
+      const skillsConfig = JSON5.parse(skillsRaw) as { extraDirs?: string[] };
+
+      if (
+        skillsConfig.extraDirs &&
+        Array.isArray(skillsConfig.extraDirs) &&
+        skillsConfig.extraDirs.length > 0
+      ) {
+        if (!resolved.skills) resolved.skills = {};
+        if (!resolved.skills.load) resolved.skills.load = {};
+        if (!resolved.skills.load.extraDirs)
+          resolved.skills.load.extraDirs = [];
+
+        const existing = new Set(resolved.skills.load.extraDirs);
+        for (const dir of skillsConfig.extraDirs) {
+          const loadedDir = resolveUserPath(dir);
+          if (!existing.has(loadedDir)) {
+            resolved.skills.load.extraDirs.push(loadedDir);
+            existing.add(loadedDir);
+          }
+        }
+      }
+    } catch (err) {
+      console.warn(
+        `[milady] Failed to load ~/.eliza/skills.json: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
+  }
 
   // Apply default log level so consumers don't need scattered fallbacks.
   if (!resolved.logging) {
@@ -41,7 +99,7 @@ export function loadMilaidyConfig(): MilaidyConfig {
   return resolved;
 }
 
-export function saveMilaidyConfig(config: MilaidyConfig): void {
+export function saveMiladyConfig(config: MiladyConfig): void {
   const configPath = resolveConfigPath();
   const dir = path.dirname(configPath);
 

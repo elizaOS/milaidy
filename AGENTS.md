@@ -2,7 +2,7 @@
 
 > **This is an agents-only codebase.** All PRs are reviewed and merged by agents. Humans contribute as QA testers. See [CONTRIBUTING.md](./CONTRIBUTING.md).
 
-- Monorepo: `packages/milaidy` within eliza-ok
+- Monorepo: `packages/milady` within eliza-ok
 - Runtime baseline: Node **22+** (keep Node + Bun paths working)
 
 ## Contribution Scope
@@ -38,7 +38,7 @@
 - Install deps: `bun install`
 - Type-check/build: `bun run build` (runs tsdown + UI build)
 - Lint/format: `bun run check`
-- Run CLI in dev: `bun run milaidy ...` or `bun run dev:cli`
+- Run CLI in dev: `bun run milady ...` or `bun run dev:cli`
 - Tests: `bun run test` (parallel unit + playwright), `bun run test:e2e`, `bun run test:live`
 - Coverage: `bun run test:coverage`
 
@@ -48,7 +48,7 @@
 - Formatting/linting via Biome; run `bun run check` before commits.
 - Add brief code comments for tricky or non-obvious logic.
 - Aim to keep files under ~500 LOC; split/refactor when it improves clarity or testability.
-- Naming: use **Milaidy** for product/app/docs headings; use `milaidy` for CLI command, package/binary, paths, and config keys.
+- Naming: use **Milady** for product/app/docs headings; use `milady` for CLI command, package/binary, paths, and config keys.
 
 ## Dependencies
 
@@ -64,7 +64,7 @@
 
 ## Commit & Pull Request Guidelines
 
-- Follow concise, action-oriented commit messages (e.g., `milaidy: add verbose flag to send`)
+- Follow concise, action-oriented commit messages (e.g., `milady: add verbose flag to send`)
 - Group related changes; avoid bundling unrelated refactors
 - PRs should summarize scope, note testing performed, and mention any user-facing changes
 
@@ -72,4 +72,4 @@
 
 - Never commit real secrets, phone numbers, or live configuration values
 - Use obviously fake placeholders in docs, tests, and examples
-- Configuration lives at `~/.milaidy/milaidy.json`; workspace at `~/.milaidy/workspace/`
+- Configuration lives at `~/.milady/milady.json`; workspace at `~/.milady/workspace/`

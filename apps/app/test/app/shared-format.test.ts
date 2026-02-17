@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { formatByteSize, formatDateTime, formatDurationMs, formatShortDate, formatTime } from "../../src/components/shared/format";
+import {
+  formatByteSize,
+  formatDateTime,
+  formatDurationMs,
+  formatShortDate,
+  formatTime,
+} from "../../src/components/shared/format";
 import { autoLabel } from "../../src/components/shared/labels";
 
 describe("shared format helpers", () => {
@@ -30,7 +36,9 @@ describe("shared format helpers", () => {
 describe("shared labels", () => {
   it("normalizes plugin env keys with prefix stripping", () => {
     expect(autoLabel("MY_PLUGIN_API_KEY", "my-plugin")).toBe("API Key");
-    expect(autoLabel("MYPLUGIN_SECRET_TOKEN", "my-plugin")).toBe("Secret Token");
+    expect(autoLabel("MYPLUGIN_SECRET_TOKEN", "my-plugin")).toBe(
+      "Secret Token",
+    );
     expect(autoLabel("PLAIN_KEY", "any-plugin")).toBe("Plain Key");
   });
 });

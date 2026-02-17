@@ -1,8 +1,8 @@
 {
-  "name": "@milaidy/capacitor-gateway",
+  "name": "@milady/capacitor-gateway",
   "version": "1.0.0",
-  "description": "Milaidy Gateway Plugin for Capacitor - WebSocket connection to Milaidy Gateway",
-"main": "./dist/plugin.cjs.js",
+  "description": "Milady Gateway Plugin for Capacitor - WebSocket connection to Milady Gateway",
+  "main": "./dist/plugin.cjs.js",
   "module": "./src/index.ts",
   "types": "./dist/plugin.d.ts",
   "exports": {
@@ -21,11 +21,11 @@
     "ios/Plugin.xcodeproj/",
     "*.podspec"
   ],
-  "author": "Milaidy",
+  "author": "Milady",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/milady-ai/milaidy"
+    "url": "https://github.com/milady-ai/milady"
   },
   "scripts": {
     "verify": "npm run verify:ios && npm run verify:android && npm run verify:web",
@@ -70,8 +70,11 @@
       "src": "android"
     }
   },
-  "milaidy": {
-    "platforms": ["browser", "node"],
+  "milady": {
+    "platforms": [
+      "browser",
+      "node"
+    ],
     "runtime": "both",
     "platformDetails": {
       "browser": "Full WebSocket connectivity, RPC request/response, event streaming. No Bonjour/mDNS discovery on web.",

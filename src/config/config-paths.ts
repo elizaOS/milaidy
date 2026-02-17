@@ -1,4 +1,4 @@
-import { isPlainObject } from "./object-utils.js";
+import { isPlainObject } from "./object-utils";
 
 type PathNode = Record<string, unknown>;
 

@@ -1,7 +1,7 @@
 /**
  * Plugin Bridge
  *
- * This module provides a unified interface to all Milaidy Capacitor plugins
+ * This module provides a unified interface to all Milady Capacitor plugins
  * with platform-specific fallbacks and capability detection.
  *
  * When a native plugin is unavailable, it provides graceful degradation
@@ -9,25 +9,24 @@
  */
 
 import { Capacitor } from "@capacitor/core";
-
-// Import all Milaidy plugins
-import { Gateway as GatewayPlugin } from "@milaidy/capacitor-gateway";
-import { Swabble as SwabblePlugin } from "@milaidy/capacitor-swabble";
-import { TalkMode as TalkModePlugin } from "@milaidy/capacitor-talkmode";
-import { Camera as CameraPlugin } from "@milaidy/capacitor-camera";
-import { Location as LocationPlugin } from "@milaidy/capacitor-location";
-import { ScreenCapture as ScreenCapturePlugin } from "@milaidy/capacitor-screencapture";
-import { Canvas as CanvasPlugin } from "@milaidy/capacitor-canvas";
-import { Desktop as DesktopPlugin } from "@milaidy/capacitor-desktop";
+import type { CameraPlugin as ICameraPlugin } from "@milady/capacitor-camera";
+import { Camera as CameraPlugin } from "@milady/capacitor-camera";
+import type { CanvasPlugin as ICanvasPlugin } from "@milady/capacitor-canvas";
+import { Canvas as CanvasPlugin } from "@milady/capacitor-canvas";
+import type { DesktopPlugin as IDesktopPlugin } from "@milady/capacitor-desktop";
+import { Desktop as DesktopPlugin } from "@milady/capacitor-desktop";
 // Import types
-import type { GatewayPlugin as IGatewayPlugin } from "@milaidy/capacitor-gateway";
-import type { SwabblePlugin as ISwabblePlugin } from "@milaidy/capacitor-swabble";
-import type { TalkModePlugin as ITalkModePlugin } from "@milaidy/capacitor-talkmode";
-import type { CameraPlugin as ICameraPlugin } from "@milaidy/capacitor-camera";
-import type { LocationPlugin as ILocationPlugin } from "@milaidy/capacitor-location";
-import type { ScreenCapturePlugin as IScreenCapturePlugin } from "@milaidy/capacitor-screencapture";
-import type { CanvasPlugin as ICanvasPlugin } from "@milaidy/capacitor-canvas";
-import type { DesktopPlugin as IDesktopPlugin } from "@milaidy/capacitor-desktop";
+import type { GatewayPlugin as IGatewayPlugin } from "@milady/capacitor-gateway";
+// Import all Milady plugins
+import { Gateway as GatewayPlugin } from "@milady/capacitor-gateway";
+import type { LocationPlugin as ILocationPlugin } from "@milady/capacitor-location";
+import { Location as LocationPlugin } from "@milady/capacitor-location";
+import type { ScreenCapturePlugin as IScreenCapturePlugin } from "@milady/capacitor-screencapture";
+import { ScreenCapture as ScreenCapturePlugin } from "@milady/capacitor-screencapture";
+import type { SwabblePlugin as ISwabblePlugin } from "@milady/capacitor-swabble";
+import { Swabble as SwabblePlugin } from "@milady/capacitor-swabble";
+import type { TalkModePlugin as ITalkModePlugin } from "@milady/capacitor-talkmode";
+import { TalkMode as TalkModePlugin } from "@milady/capacitor-talkmode";
 
 // Platform detection
 const platform = Capacitor.getPlatform();
@@ -106,7 +105,7 @@ export function getPluginCapabilities(): PluginCapabilities {
     },
     talkMode: {
       available: isNative || hasWebSpeechAPI(),
-      elevenlabs: isNative, // ElevenLabs streaming not available on web (CORS)
+      elevenlabs: true, // Web app can call ElevenLabs directly with user API key
       systemTts: isNative || hasWebSpeechSynthesis(),
     },
     camera: {
@@ -138,8 +137,9 @@ export function getPluginCapabilities(): PluginCapabilities {
 
 // Web API detection helpers
 function hasWebSpeechAPI(): boolean {
-  return typeof window !== "undefined" && (
-    "SpeechRecognition" in window || "webkitSpeechRecognition" in window
+  return (
+    typeof window !== "undefined" &&
+    ("SpeechRecognition" in window || "webkitSpeechRecognition" in window)
   );
 }
 
@@ -148,9 +148,11 @@ function hasWebSpeechSynthesis(): boolean {
 }
 
 function hasMediaDevices(): boolean {
-  return typeof navigator !== "undefined" && 
-    "mediaDevices" in navigator && 
-    "getUserMedia" in navigator.mediaDevices;
+  return (
+    typeof navigator !== "undefined" &&
+    "mediaDevices" in navigator &&
+    "getUserMedia" in navigator.mediaDevices
+  );
 }
 
 function hasGeolocation(): boolean {
@@ -158,9 +160,11 @@ function hasGeolocation(): boolean {
 }
 
 function hasDisplayMedia(): boolean {
-  return typeof navigator !== "undefined" && 
-    "mediaDevices" in navigator && 
-    "getDisplayMedia" in navigator.mediaDevices;
+  return (
+    typeof navigator !== "undefined" &&
+    "mediaDevices" in navigator &&
+    "getDisplayMedia" in navigator.mediaDevices
+  );
 }
 
 /**
@@ -180,7 +184,7 @@ interface WrappedPlugin<T> {
  */
 function wrapPlugin<T extends Record<string, unknown>>(
   plugin: T,
-  _name: string
+  _name: string,
 ): T {
   return new Proxy(plugin, {
     get(target, prop) {
@@ -188,7 +192,9 @@ function wrapPlugin<T extends Record<string, unknown>>(
       if (typeof value === "function") {
         return async (...args: unknown[]) => {
           try {
-            return await (value as (...args: unknown[]) => Promise<unknown>).apply(target, args);
+            return await (
+              value as (...args: unknown[]) => Promise<unknown>
+            ).apply(target, args);
           } catch (error) {
             console.error(`[Plugin Bridge] ${String(prop)} failed:`, error);
             throw error;
@@ -201,9 +207,9 @@ function wrapPlugin<T extends Record<string, unknown>>(
 }
 
 /**
- * The plugin bridge providing access to all Milaidy plugins
+ * The plugin bridge providing access to all Milady plugins
  */
-export interface MilaidyPlugins {
+export interface MiladyPlugins {
   /** Gateway connection plugin */
   gateway: WrappedPlugin<IGatewayPlugin>;
   /** Voice wake word plugin */
@@ -225,12 +231,12 @@ export interface MilaidyPlugins {
 }
 
 // Singleton instance
-let pluginsInstance: MilaidyPlugins | null = null;
+let pluginsInstance: MiladyPlugins | null = null;
 
 /**
  * Initialize and get the plugins interface
  */
-export function getPlugins(): MilaidyPlugins {
+export function getPlugins(): MiladyPlugins {
   if (pluginsInstance) {
     return pluginsInstance;
   }
@@ -264,7 +270,10 @@ export function getPlugins(): MilaidyPlugins {
       hasFallback: capabilities.location.available,
     },
     screenCapture: {
-      plugin: wrapPlugin(ScreenCapturePlugin as IScreenCapturePlugin, "ScreenCapture"),
+      plugin: wrapPlugin(
+        ScreenCapturePlugin as IScreenCapturePlugin,
+        "ScreenCapture",
+      ),
       isNative: isNative,
       hasFallback: capabilities.screenCapture.available,
     },
@@ -288,7 +297,7 @@ export function getPlugins(): MilaidyPlugins {
  * Check if a specific plugin feature is available
  */
 export function isFeatureAvailable(
-  feature: 
+  feature:
     | "gatewayDiscovery"
     | "voiceWake"
     | "talkMode"
@@ -297,10 +306,10 @@ export function isFeatureAvailable(
     | "location"
     | "backgroundLocation"
     | "screenCapture"
-    | "desktopTray"
+    | "desktopTray",
 ): boolean {
   const caps = getPluginCapabilities();
-  
+
   switch (feature) {
     case "gatewayDiscovery":
       return caps.gateway.discovery;

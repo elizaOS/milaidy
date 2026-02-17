@@ -1,15 +1,14 @@
 /**
  * Auth module — subscription-based OAuth for Claude Max and Codex Pro.
  *
- * Uses @mariozechner/pi-ai for OAuth flows (PKCE, token exchange, refresh).
- * Adds server-side credential storage and env var injection on top.
+ * OAuth flows are disabled.
+ * Credential storage and env var injection remain for future use.
  */
 
-export type { AnthropicFlow } from "./anthropic.js";
+export type { AnthropicFlow } from "./anthropic";
 // Anthropic (Claude Pro/Max)
-export { refreshAnthropicToken, startAnthropicLogin } from "./anthropic.js";
-// Claude Code setup token runtime support
-export { applyClaudeCodeStealth } from "./apply-stealth.js";
+export { refreshAnthropicToken, startAnthropicLogin } from "./anthropic";
+
 // Credential storage + management
 export {
   applySubscriptionCredentials,
@@ -19,14 +18,14 @@ export {
   hasValidCredentials,
   loadCredentials,
   saveCredentials,
-} from "./credentials.js";
-export type { CodexFlow } from "./openai-codex.js";
+} from "./credentials";
+export type { CodexFlow } from "./openai-codex";
 // OpenAI Codex (ChatGPT Plus/Pro)
-export { refreshCodexToken, startCodexLogin } from "./openai-codex.js";
+export { refreshCodexToken, startCodexLogin } from "./openai-codex";
 
 // Types
 export type {
   OAuthCredentials,
   StoredCredentials,
   SubscriptionProvider,
-} from "./types.js";
+} from "./types";

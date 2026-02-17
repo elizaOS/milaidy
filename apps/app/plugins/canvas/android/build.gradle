@@ -20,7 +20,7 @@ apply plugin: 'com.android.library'
 apply plugin: 'kotlin-android'
 
 android {
-    namespace "ai.milaidy.plugins.canvas"
+    namespace "ai.milady.plugins.canvas"
     compileSdk project.hasProperty('compileSdkVersion') ? rootProject.ext.compileSdkVersion : 34
 
     defaultConfig {

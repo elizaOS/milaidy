@@ -1,5 +1,5 @@
 blank_issues_enabled: false
 contact_links:
   - name: Feature Requests
-    url: https://github.com/milady-ai/milaidy/discussions
+    url: https://github.com/milady-ai/milady/discussions
     about: Feature requests should be discussed, not filed as issues. Aesthetic/UI change requests are out of scope.

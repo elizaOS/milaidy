@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 import {
   extractPlugin,
   resolveDiscordPluginImportSpecifier,
-} from "../test-support/test-helpers.js";
+} from "../test-support/test-helpers";
 
 const DISCORD_PLUGIN_IMPORT = resolveDiscordPluginImportSpecifier();
 const DISCORD_PLUGIN_AVAILABLE = DISCORD_PLUGIN_IMPORT !== null;

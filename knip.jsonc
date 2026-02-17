@@ -1,0 +1,66 @@
+{
+  "$schema": "https://unpkg.com/knip@next/schema.json",
+  "workspaces": {
+    ".": {
+      "entry": [
+        "src/index.ts",
+        "src/runtime/eliza.ts",
+        "src/entry.ts",
+        "milaidy.mjs",
+        "scripts/**/*.ts",
+        "scripts/**/*.mjs",
+        "scripts/**/*.js"
+      ],
+      "project": [
+        "src/**/*.ts",
+        "scripts/**/*.ts"
+      ],
+      "ignore": [
+        "dist/**",
+        "build/**",
+        "coverage/**",
+        "**/*.test.ts"
+      ]
+    },
+    "apps/app": {
+      "entry": [
+        "src/main.tsx",
+        "electron/main.ts",
+        "electron/preload.ts",
+        "vite.config.ts",
+        "vitest.config.ts",
+        "index.html",
+        "src/main.tsx",
+        "electron/main.ts",
+        "electron/preload.ts",
+        "vite.config.ts",
+        "vitest.config.ts",
+        "index.html",
+        "capacitor.config.ts"
+      ],
+      "project": [
+        "src/**/*.{ts,tsx}",
+        "electron/**/*.{ts,tsx}"
+      ],
+      "ignore": [
+        "dist/**",
+        "build/**",
+        "coverage/**",
+        "**/*.test.ts",
+        "public/**",
+        "playwright.electron.config.ts",
+        "playwright.electron.packaged.config.ts",
+        "cypress.config.ts",
+        "**/*.cy.ts",
+        "**/cypress/**",
+        "tsdown.config.ts"
+      ]
+    }
+  },
+  "ignore": [
+    "**/*.d.ts",
+    ".eslintrc.js",
+    "**/__tests__/**",
+    "**/__mocks__/**"
+  ]
+}

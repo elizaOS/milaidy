@@ -12,12 +12,7 @@ const ciWorkers = isWindows ? 2 : 3;
 export default defineConfig({
   resolve: {
     alias: {
-      "milaidy/plugin-sdk": path.join(
-        repoRoot,
-        "src",
-        "plugin-sdk",
-        "index.ts",
-      ),
+      "milady/plugin-sdk": path.join(repoRoot, "src", "plugin-sdk", "index.ts"),
       // @elizaos/skills has a broken package.json entry; the code handles the
       // missing module gracefully (try/catch), so redirect to an empty stub.
       "@elizaos/skills": path.join(
@@ -33,7 +28,11 @@ export default defineConfig({
     hookTimeout: isWindows ? 180_000 : 120_000,
     pool: "forks",
     maxWorkers: isCI ? ciWorkers : localWorkers,
-    include: ["src/**/*.test.ts", "test/format-error.test.ts"],
+    include: [
+      "src/**/*.test.ts",
+      "apps/**/*.test.tsx",
+      "test/format-error.test.ts",
+    ],
     setupFiles: ["test/setup.ts"],
     exclude: [
       "dist/**",
@@ -59,6 +58,11 @@ export default defineConfig({
         "src/cli/**",
         "src/hooks/**",
       ],
+    },
+    server: {
+      deps: {
+        inline: ["@elizaos/core"],
+      },
     },
   },
 });

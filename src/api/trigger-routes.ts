@@ -16,20 +16,20 @@ import {
   TRIGGER_TASK_TAGS,
   taskToTriggerSummary,
   triggersFeatureEnabled,
-} from "../triggers/runtime.js";
+} from "../triggers/runtime";
 import {
   buildTriggerConfig,
   buildTriggerMetadata,
   DISABLED_TRIGGER_INTERVAL_MS,
   normalizeTriggerDraft,
-} from "../triggers/scheduling.js";
+} from "../triggers/scheduling";
 import type {
   CreateTriggerRequest,
   TriggerSummary,
   TriggerTaskMetadata,
   UpdateTriggerRequest,
-} from "../triggers/types.js";
-import type { RouteHelpers, RouteRequestContext } from "./route-helpers.js";
+} from "../triggers/types";
+import type { RouteHelpers, RouteRequestContext } from "./route-helpers";
 
 export type TriggerRouteHelpers = RouteHelpers;
 

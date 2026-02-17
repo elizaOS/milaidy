@@ -17,19 +17,19 @@
 
 import type { PluginListenerHandle } from "@capacitor/core";
 import type {
+  AutoLaunchOptions,
   DesktopPlugin,
-  TrayMenuItem,
-  TrayOptions,
-  TrayClickEvent,
-  TrayMenuClickEvent,
   GlobalShortcut,
   GlobalShortcutEvent,
-  AutoLaunchOptions,
-  WindowOptions,
-  WindowBounds,
-  NotificationOptions,
   NotificationEvent,
+  NotificationOptions,
   PowerMonitorState,
+  TrayClickEvent,
+  TrayMenuClickEvent,
+  TrayMenuItem,
+  TrayOptions,
+  WindowBounds,
+  WindowOptions,
 } from "../../src/definitions";
 
 type DesktopEventPayloads = {
@@ -41,17 +41,17 @@ type DesktopEventPayloads = {
   notificationClick: NotificationEvent;
   notificationAction: NotificationEvent;
   notificationReply: NotificationEvent;
-  windowFocus: void;
-  windowBlur: void;
-  windowMaximize: void;
-  windowUnmaximize: void;
-  windowMinimize: void;
-  windowRestore: void;
-  windowClose: void;
-  powerSuspend: void;
-  powerResume: void;
-  powerOnAC: void;
-  powerOnBattery: void;
+  windowFocus: undefined;
+  windowBlur: undefined;
+  windowMaximize: undefined;
+  windowUnmaximize: undefined;
+  windowMinimize: undefined;
+  windowRestore: undefined;
+  windowClose: undefined;
+  powerSuspend: undefined;
+  powerResume: undefined;
+  powerOnAC: undefined;
+  powerOnBattery: undefined;
 };
 
 type DesktopEventName = keyof DesktopEventPayloads;
@@ -69,13 +69,22 @@ type DesktopPathName = Parameters<DesktopPlugin["getPath"]>[0]["name"];
 // Type definitions for Electron APIs accessed via window
 type IpcPrimitive = string | number | boolean | null | undefined;
 type IpcObject = { [key: string]: IpcValue };
-type IpcValue = IpcPrimitive | IpcObject | IpcValue[] | ArrayBuffer | Float32Array | Uint8Array;
+type IpcValue =
+  | IpcPrimitive
+  | IpcObject
+  | IpcValue[]
+  | ArrayBuffer
+  | Float32Array
+  | Uint8Array;
 
 interface ElectronAPI {
   ipcRenderer: {
     invoke(channel: string, ...args: IpcValue[]): Promise<IpcValue>;
     on(channel: string, listener: (...args: IpcValue[]) => void): void;
-    removeListener(channel: string, listener: (...args: IpcValue[]) => void): void;
+    removeListener(
+      channel: string,
+      listener: (...args: IpcValue[]) => void,
+    ): void;
   };
 }
 
@@ -92,7 +101,7 @@ declare global {
 function requireIPC(feature: string): never {
   throw new Error(
     `${feature} is not available: Electron IPC bridge not found. ` +
-      "The Desktop plugin requires the Electron main process with properly configured IPC handlers."
+      "The Desktop plugin requires the Electron main process with properly configured IPC handlers.",
   );
 }
 
@@ -102,7 +111,8 @@ function requireIPC(feature: string): never {
  */
 export class DesktopElectron implements DesktopPlugin {
   private listeners: ListenerEntry[] = [];
-  private ipcListeners: Map<DesktopEventName, (...args: IpcValue[]) => void> = new Map();
+  private ipcListeners: Map<DesktopEventName, (...args: IpcValue[]) => void> =
+    new Map();
 
   constructor() {
     this.setupIPCListeners();
@@ -180,9 +190,13 @@ export class DesktopElectron implements DesktopPlugin {
   }
 
   // Global Shortcuts
-  async registerShortcut(options: GlobalShortcut): Promise<{ success: boolean }> {
+  async registerShortcut(
+    options: GlobalShortcut,
+  ): Promise<{ success: boolean }> {
     const ipc = this.requireIPC("registerShortcut");
-    return (await ipc.invoke("desktop:registerShortcut", options)) as { success: boolean };
+    return (await ipc.invoke("desktop:registerShortcut", options)) as {
+      success: boolean;
+    };
   }
 
   async unregisterShortcut(options: { id: string }): Promise<void> {
@@ -195,9 +209,13 @@ export class DesktopElectron implements DesktopPlugin {
     await ipc.invoke("desktop:unregisterAllShortcuts");
   }
 
-  async isShortcutRegistered(options: { accelerator: string }): Promise<{ registered: boolean }> {
+  async isShortcutRegistered(options: {
+    accelerator: string;
+  }): Promise<{ registered: boolean }> {
     const ipc = this.requireIPC("isShortcutRegistered");
-    return (await ipc.invoke("desktop:isShortcutRegistered", options)) as { registered: boolean };
+    return (await ipc.invoke("desktop:isShortcutRegistered", options)) as {
+      registered: boolean;
+    };
   }
 
   // Auto Launch
@@ -206,9 +224,15 @@ export class DesktopElectron implements DesktopPlugin {
     await ipc.invoke("desktop:setAutoLaunch", options);
   }
 
-  async getAutoLaunchStatus(): Promise<{ enabled: boolean; openAsHidden: boolean }> {
+  async getAutoLaunchStatus(): Promise<{
+    enabled: boolean;
+    openAsHidden: boolean;
+  }> {
     const ipc = this.requireIPC("getAutoLaunchStatus");
-    return (await ipc.invoke("desktop:getAutoLaunchStatus")) as { enabled: boolean; openAsHidden: boolean };
+    return (await ipc.invoke("desktop:getAutoLaunchStatus")) as {
+      enabled: boolean;
+      openAsHidden: boolean;
+    };
   }
 
   // Window Management
@@ -264,25 +288,36 @@ export class DesktopElectron implements DesktopPlugin {
 
   async isWindowMaximized(): Promise<{ maximized: boolean }> {
     const ipc = this.requireIPC("isWindowMaximized");
-    return (await ipc.invoke("desktop:isWindowMaximized")) as { maximized: boolean };
+    return (await ipc.invoke("desktop:isWindowMaximized")) as {
+      maximized: boolean;
+    };
   }
 
   async isWindowMinimized(): Promise<{ minimized: boolean }> {
     const ipc = this.requireIPC("isWindowMinimized");
-    return (await ipc.invoke("desktop:isWindowMinimized")) as { minimized: boolean };
+    return (await ipc.invoke("desktop:isWindowMinimized")) as {
+      minimized: boolean;
+    };
   }
 
   async isWindowVisible(): Promise<{ visible: boolean }> {
     const ipc = this.requireIPC("isWindowVisible");
-    return (await ipc.invoke("desktop:isWindowVisible")) as { visible: boolean };
+    return (await ipc.invoke("desktop:isWindowVisible")) as {
+      visible: boolean;
+    };
   }
 
   async isWindowFocused(): Promise<{ focused: boolean }> {
     const ipc = this.requireIPC("isWindowFocused");
-    return (await ipc.invoke("desktop:isWindowFocused")) as { focused: boolean };
+    return (await ipc.invoke("desktop:isWindowFocused")) as {
+      focused: boolean;
+    };
   }
 
-  async setAlwaysOnTop(options: { flag: boolean; level?: AlwaysOnTopLevel }): Promise<void> {
+  async setAlwaysOnTop(options: {
+    flag: boolean;
+    level?: AlwaysOnTopLevel;
+  }): Promise<void> {
     const ipc = this.requireIPC("setAlwaysOnTop");
     await ipc.invoke("desktop:setAlwaysOnTop", options);
   }
@@ -298,9 +333,13 @@ export class DesktopElectron implements DesktopPlugin {
   }
 
   // Notifications
-  async showNotification(options: NotificationOptions): Promise<{ id: string }> {
+  async showNotification(
+    options: NotificationOptions,
+  ): Promise<{ id: string }> {
     const ipc = this.requireIPC("showNotification");
-    return (await ipc.invoke("desktop:showNotification", options)) as { id: string };
+    return (await ipc.invoke("desktop:showNotification", options)) as {
+      id: string;
+    };
   }
 
   async closeNotification(options: { id: string }): Promise<void> {
@@ -325,9 +364,21 @@ export class DesktopElectron implements DesktopPlugin {
     await ipc.invoke("desktop:relaunch");
   }
 
-  async getVersion(): Promise<{ version: string; name: string; electron: string; chrome: string; node: string }> {
+  async getVersion(): Promise<{
+    version: string;
+    name: string;
+    electron: string;
+    chrome: string;
+    node: string;
+  }> {
     const ipc = this.requireIPC("getVersion");
-    return (await ipc.invoke("desktop:getVersion")) as { version: string; name: string; electron: string; chrome: string; node: string };
+    return (await ipc.invoke("desktop:getVersion")) as {
+      version: string;
+      name: string;
+      electron: string;
+      chrome: string;
+      node: string;
+    };
   }
 
   async isPackaged(): Promise<{ packaged: boolean }> {
@@ -341,14 +392,29 @@ export class DesktopElectron implements DesktopPlugin {
   }
 
   // Clipboard
-  async writeToClipboard(options: { text?: string; html?: string; image?: string; rtf?: string }): Promise<void> {
+  async writeToClipboard(options: {
+    text?: string;
+    html?: string;
+    image?: string;
+    rtf?: string;
+  }): Promise<void> {
     const ipc = this.requireIPC("writeToClipboard");
     await ipc.invoke("desktop:writeToClipboard", options);
   }
 
-  async readFromClipboard(): Promise<{ text?: string; html?: string; rtf?: string; hasImage: boolean }> {
+  async readFromClipboard(): Promise<{
+    text?: string;
+    html?: string;
+    rtf?: string;
+    hasImage: boolean;
+  }> {
     const ipc = this.requireIPC("readFromClipboard");
-    return (await ipc.invoke("desktop:readFromClipboard")) as { text?: string; html?: string; rtf?: string; hasImage: boolean };
+    return (await ipc.invoke("desktop:readFromClipboard")) as {
+      text?: string;
+      html?: string;
+      rtf?: string;
+      hasImage: boolean;
+    };
   }
 
   async clearClipboard(): Promise<void> {
@@ -375,83 +441,83 @@ export class DesktopElectron implements DesktopPlugin {
   // Events
   async addListener(
     eventName: "trayClick",
-    listenerFunc: (event: TrayClickEvent) => void
+    listenerFunc: (event: TrayClickEvent) => void,
   ): Promise<PluginListenerHandle>;
   async addListener(
     eventName: "trayDoubleClick",
-    listenerFunc: (event: TrayClickEvent) => void
+    listenerFunc: (event: TrayClickEvent) => void,
   ): Promise<PluginListenerHandle>;
   async addListener(
     eventName: "trayRightClick",
-    listenerFunc: (event: TrayClickEvent) => void
+    listenerFunc: (event: TrayClickEvent) => void,
   ): Promise<PluginListenerHandle>;
   async addListener(
     eventName: "trayMenuClick",
-    listenerFunc: (event: TrayMenuClickEvent) => void
+    listenerFunc: (event: TrayMenuClickEvent) => void,
   ): Promise<PluginListenerHandle>;
   async addListener(
     eventName: "shortcutPressed",
-    listenerFunc: (event: GlobalShortcutEvent) => void
+    listenerFunc: (event: GlobalShortcutEvent) => void,
   ): Promise<PluginListenerHandle>;
   async addListener(
     eventName: "notificationClick",
-    listenerFunc: (event: NotificationEvent) => void
+    listenerFunc: (event: NotificationEvent) => void,
   ): Promise<PluginListenerHandle>;
   async addListener(
     eventName: "notificationAction",
-    listenerFunc: (event: NotificationEvent) => void
+    listenerFunc: (event: NotificationEvent) => void,
   ): Promise<PluginListenerHandle>;
   async addListener(
     eventName: "notificationReply",
-    listenerFunc: (event: NotificationEvent) => void
+    listenerFunc: (event: NotificationEvent) => void,
   ): Promise<PluginListenerHandle>;
   async addListener(
     eventName: "windowFocus",
-    listenerFunc: () => void
+    listenerFunc: () => void,
   ): Promise<PluginListenerHandle>;
   async addListener(
     eventName: "windowBlur",
-    listenerFunc: () => void
+    listenerFunc: () => void,
   ): Promise<PluginListenerHandle>;
   async addListener(
     eventName: "windowMaximize",
-    listenerFunc: () => void
+    listenerFunc: () => void,
   ): Promise<PluginListenerHandle>;
   async addListener(
     eventName: "windowUnmaximize",
-    listenerFunc: () => void
+    listenerFunc: () => void,
   ): Promise<PluginListenerHandle>;
   async addListener(
     eventName: "windowMinimize",
-    listenerFunc: () => void
+    listenerFunc: () => void,
   ): Promise<PluginListenerHandle>;
   async addListener(
     eventName: "windowRestore",
-    listenerFunc: () => void
+    listenerFunc: () => void,
   ): Promise<PluginListenerHandle>;
   async addListener(
     eventName: "windowClose",
-    listenerFunc: () => void
+    listenerFunc: () => void,
   ): Promise<PluginListenerHandle>;
   async addListener(
     eventName: "powerSuspend",
-    listenerFunc: () => void
+    listenerFunc: () => void,
   ): Promise<PluginListenerHandle>;
   async addListener(
     eventName: "powerResume",
-    listenerFunc: () => void
+    listenerFunc: () => void,
   ): Promise<PluginListenerHandle>;
   async addListener(
     eventName: "powerOnAC",
-    listenerFunc: () => void
+    listenerFunc: () => void,
   ): Promise<PluginListenerHandle>;
   async addListener(
     eventName: "powerOnBattery",
-    listenerFunc: () => void
+    listenerFunc: () => void,
   ): Promise<PluginListenerHandle>;
   async addListener(
     eventName: DesktopEventName,
-    listenerFunc: EventCallback<DesktopEventData>
+    listenerFunc: EventCallback<DesktopEventData>,
   ): Promise<PluginListenerHandle> {
     const entry: ListenerEntry = { eventName, callback: listenerFunc };
     this.listeners.push(entry);
@@ -472,11 +538,13 @@ export class DesktopElectron implements DesktopPlugin {
 
   private notifyListeners<T extends DesktopEventName>(
     eventName: T,
-    data?: DesktopEventPayloads[T]
+    data?: DesktopEventPayloads[T],
   ): void {
     for (const listener of this.listeners) {
       if (listener.eventName === eventName) {
-        (listener.callback as EventCallback<DesktopEventPayloads[T]>)(data as DesktopEventPayloads[T]);
+        (listener.callback as EventCallback<DesktopEventPayloads[T]>)(
+          data as DesktopEventPayloads[T],
+        );
       }
     }
   }

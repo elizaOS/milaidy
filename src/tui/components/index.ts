@@ -1,7 +1,10 @@
-export { AssistantMessageComponent } from "./assistant-message.js";
-export { ChatEditor } from "./chat-editor.js";
-export { FooterComponent } from "./footer.js";
-export { ModelSelectorComponent } from "./model-selector.js";
-export { StatusBar } from "./status-bar.js";
-export { ToolExecutionComponent } from "./tool-execution.js";
-export { UserMessageComponent } from "./user-message.js";
+export { AssistantMessageComponent } from "./assistant-message";
+export { ChatEditor } from "./chat-editor";
+export { FooterComponent } from "./footer";
+export {
+  ModelSelectorComponent,
+  type TuiModel,
+} from "./model-selector";
+export { StatusBar } from "./status-bar";
+export { ToolExecutionComponent } from "./tool-execution";
+export { UserMessageComponent } from "./user-message";

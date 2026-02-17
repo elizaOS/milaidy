@@ -5,17 +5,17 @@
 
 .DESCRIPTION
     Checks for Node.js >= 22.12.0, installs it if needed, then installs
-    milaidy globally via npm or bun.
+    milady globally via npm or bun.
 
     Run with:
-      irm https://milady-ai.github.io/milaidy/install.ps1 | iex
+      irm https://milady-ai.github.io/milady/install.ps1 | iex
 
     Or save and run:
-      Invoke-WebRequest -Uri https://milady-ai.github.io/milaidy/install.ps1 -OutFile install.ps1
+      Invoke-WebRequest -Uri https://milady-ai.github.io/milady/install.ps1 -OutFile install.ps1
       .\install.ps1
 
 .PARAMETER SkipSetup
-    Skip the post-install `milaidy setup` step.
+    Skip the post-install `milady setup` step.
 
 .PARAMETER UseBun
     Prefer bun over npm for installation.
@@ -27,7 +27,7 @@
     Skip all prompts (assume yes).
 
 .EXAMPLE
-    irm https://milady-ai.github.io/milaidy/install.ps1 | iex
+    irm https://milady-ai.github.io/milady/install.ps1 | iex
 #>
 
 [CmdletBinding()]
@@ -245,19 +245,19 @@ if (-not $pm) {
     exit 1
 }
 
-# ── Step 3: Install milaidy ─────────────────────────────────────────────────
+# ── Step 3: Install milady ─────────────────────────────────────────────────
 
-Write-Step "Installing milaidy"
+Write-Step "Installing milady"
 
-$pkg = if ($Version -ne "latest") { "milaidy@$Version" } else { "milaidy" }
+$pkg = if ($Version -ne "latest") { "milady@$Version" } else { "milady" }
 
 # Check if already installed
-if (Test-CommandExists "milaidy") {
-    $currentVer = (milaidy --version 2>$null | Select-Object -Last 1).Trim()
+if (Test-CommandExists "milady") {
+    $currentVer = (milady --version 2>$null | Select-Object -Last 1).Trim()
     if ($Version -eq "latest" -or $currentVer -eq $Version) {
-        Write-Ok "milaidy $currentVer already installed"
+        Write-Ok "milady $currentVer already installed"
     } else {
-        Write-Info "Upgrading milaidy $currentVer -> $Version"
+        Write-Info "Upgrading milady $currentVer -> $Version"
         if ($pm -eq "npm") { npm install -g $pkg }
         else               { bun install -g $pkg }
     }
@@ -269,11 +269,11 @@ if (Test-CommandExists "milaidy") {
     # Refresh PATH and verify
     $env:PATH = [System.Environment]::GetEnvironmentVariable("PATH", "User") + ";" + $env:PATH
 
-    if (Test-CommandExists "milaidy") {
-        $installedVer = (milaidy --version 2>$null | Select-Object -Last 1).Trim()
-        Write-Ok "milaidy $installedVer installed"
+    if (Test-CommandExists "milady") {
+        $installedVer = (milady --version 2>$null | Select-Object -Last 1).Trim()
+        Write-Ok "milady $installedVer installed"
     } else {
-        Write-Err "milaidy command not found after installation."
+        Write-Err "milady command not found after installation."
         Write-Err "The npm global bin directory may not be on your PATH."
         Write-Err "Try: npm config get prefix  (then add that path\bin to PATH)"
         exit 1
@@ -282,11 +282,11 @@ if (Test-CommandExists "milaidy") {
 
 # ── Step 4: Setup ───────────────────────────────────────────────────────────
 
-if ($SkipSetup -or $env:MILAIDY_SKIP_SETUP -eq "1") {
+if ($SkipSetup -or $env:MILADY_SKIP_SETUP -eq "1") {
     Write-Info "Skipping setup (-SkipSetup)"
 } else {
-    Write-Step "Initializing milaidy workspace"
-    milaidy setup
+    Write-Step "Initializing milady workspace"
+    milady setup
 }
 
 # ── Done ─────────────────────────────────────────────────────────────────────
@@ -297,10 +297,10 @@ Write-Host "  Installation complete!" -ForegroundColor Green
 Write-Host "  ======================================" -ForegroundColor Green
 Write-Host ""
 Write-Host "  Get started:"
-Write-Host "    milaidy start        " -ForegroundColor Cyan -NoNewline; Write-Host "Start the agent runtime"
-Write-Host "    milaidy setup        " -ForegroundColor Cyan -NoNewline; Write-Host "Re-run workspace setup"
-Write-Host "    milaidy configure    " -ForegroundColor Cyan -NoNewline; Write-Host "Configuration guidance"
-Write-Host "    milaidy --help       " -ForegroundColor Cyan -NoNewline; Write-Host "Show all commands"
+Write-Host "    milady start        " -ForegroundColor Cyan -NoNewline; Write-Host "Start the agent runtime"
+Write-Host "    milady setup        " -ForegroundColor Cyan -NoNewline; Write-Host "Re-run workspace setup"
+Write-Host "    milady configure    " -ForegroundColor Cyan -NoNewline; Write-Host "Configuration guidance"
+Write-Host "    milady --help       " -ForegroundColor Cyan -NoNewline; Write-Host "Show all commands"
 Write-Host ""
 Write-Host "  Docs: https://docs.milady.ai" -ForegroundColor Blue
 Write-Host ""

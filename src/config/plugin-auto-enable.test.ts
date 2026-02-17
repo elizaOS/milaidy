@@ -12,7 +12,7 @@ import {
   AUTH_PROVIDER_PLUGINS,
   applyPluginAutoEnable,
   CONNECTOR_PLUGINS,
-} from "./plugin-auto-enable.js";
+} from "./plugin-auto-enable";
 
 // ---------------------------------------------------------------------------
 // helpers
@@ -127,6 +127,37 @@ describe("applyPluginAutoEnable — connectors", () => {
     const { config } = applyPluginAutoEnable(params);
 
     expect(config.plugins?.allow).toContain("imessage");
+  });
+
+  it("enables signal when account is set", () => {
+    const params = makeParams({
+      config: {
+        connectors: {
+          signal: { account: "+15551234567" },
+        },
+      },
+    });
+    const { config } = applyPluginAutoEnable(params);
+
+    expect(config.plugins?.allow).toContain("signal");
+  });
+
+  it("enables signal when any enabled account entry is configured", () => {
+    const params = makeParams({
+      config: {
+        connectors: {
+          signal: {
+            accounts: {
+              primary: { enabled: true, cliPath: "/usr/local/bin/signal-cli" },
+              disabled: { enabled: false, account: "+15550000000" },
+            },
+          },
+        },
+      },
+    });
+    const { config } = applyPluginAutoEnable(params);
+
+    expect(config.plugins?.allow).toContain("signal");
   });
 
   it("supports legacy channels key for backward compat", () => {

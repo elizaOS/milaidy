@@ -2,7 +2,7 @@
 # ╔════════════════════════════════════════════════════════════════════════════╗
 # ║  milAIdy installer — macOS / Linux / WSL / Git Bash                      ║
 # ║                                                                          ║
-# ║  curl -fsSL https://milady-ai.github.io/milaidy/install.sh | bash               ║
+# ║  curl -fsSL https://milady-ai.github.io/milady/install.sh | bash               ║
 # ║                                                                          ║
 # ║  Or, with custom domain:                                                ║
 # ║    curl -fsSL https://get.milady.ai | bash                              ║
@@ -14,20 +14,20 @@
 #   1. Detects OS, architecture, and environment (WSL, Git Bash, etc.)
 #   2. Checks for Node.js >= 22.12.0 (offers to install if missing)
 #   3. Checks for a package manager (npm or bun)
-#   4. Installs milaidy globally
-#   5. Runs `milaidy setup` to initialize the workspace
+#   4. Installs milady globally
+#   5. Runs `milady setup` to initialize the workspace
 #
 # Environment variables:
-#   MILAIDY_SKIP_SETUP=1         Skip the post-install `milaidy setup` step
-#   MILAIDY_USE_BUN=1            Prefer bun over npm for installation
-#   MILAIDY_VERSION=<ver>        Install a specific version (default: latest)
-#   MILAIDY_LOCAL_TARBALL=<path> Install from a local .tgz (dev/testing)
-#   MILAIDY_NONINTERACTIVE=1     Skip all prompts (assume yes)
+#   MILADY_SKIP_SETUP=1         Skip the post-install `milady setup` step
+#   MILADY_USE_BUN=1            Prefer bun over npm for installation
+#   MILADY_VERSION=<ver>        Install a specific version (default: latest)
+#   MILADY_LOCAL_TARBALL=<path> Install from a local .tgz (dev/testing)
+#   MILADY_NONINTERACTIVE=1     Skip all prompts (assume yes)
 #
 # Desktop app install:
 #   curl -fsSL https://get.milady.ai | bash -s -- --desktop
 #
-#   This downloads the latest Milaidy.app from GitHub Releases and copies
+#   This downloads the latest Milady.app from GitHub Releases and copies
 #   it to /Applications (macOS only).
 
 set -euo pipefail
@@ -56,7 +56,7 @@ step()    { printf "\n${BOLD}${CYAN}> %s${RESET}\n" "$*"; }
 
 # Returns 0 (true) when we can prompt the user interactively.
 can_prompt() {
-  [[ "${MILAIDY_NONINTERACTIVE:-0}" != "1" ]] && [[ -t 0 ]]
+  [[ "${MILADY_NONINTERACTIVE:-0}" != "1" ]] && [[ -t 0 ]]
 }
 
 # Prompt with a default answer; returns 0 for yes, 1 for no.
@@ -475,7 +475,7 @@ install_node() {
 DETECTED_PM=""
 
 check_package_manager() {
-  local prefer_bun="${MILAIDY_USE_BUN:-0}"
+  local prefer_bun="${MILADY_USE_BUN:-0}"
 
   if [[ "$prefer_bun" == "1" ]] && command -v bun &>/dev/null; then
     local bun_version
@@ -515,29 +515,29 @@ check_package_manager() {
   exit 1
 }
 
-# ── Install milaidy ─────────────────────────────────────────────────────────
+# ── Install milady ─────────────────────────────────────────────────────────
 
-install_milaidy() {
+install_milady() {
   local pm="$1"
-  local version="${MILAIDY_VERSION:-latest}"
-  local pkg="milaidy"
-  local local_tarball="${MILAIDY_LOCAL_TARBALL:-}"
+  local version="${MILADY_VERSION:-latest}"
+  local pkg="milady"
+  local local_tarball="${MILADY_LOCAL_TARBALL:-}"
 
   if [[ "$version" != "latest" ]]; then
-    pkg="milaidy@${version}"
+    pkg="milady@${version}"
   fi
 
-  step "Installing milaidy"
+  step "Installing milady"
 
   # Check if already installed at desired version
-  if command -v milaidy &>/dev/null; then
+  if command -v milady &>/dev/null; then
     local current_version
-    current_version="$(milaidy --version 2>/dev/null | tail -1)"
+    current_version="$(milady --version 2>/dev/null | tail -1)"
     if [[ "$version" == "latest" || "$current_version" == "$version" ]]; then
-      success "milaidy ${current_version} already installed"
+      success "milady ${current_version} already installed"
       return 0
     fi
-    info "Upgrading milaidy ${current_version} -> ${version}"
+    info "Upgrading milady ${current_version} -> ${version}"
   fi
 
   # Local tarball install (for development/testing)
@@ -563,12 +563,12 @@ install_milaidy() {
   # Verify installation — rehash PATH on Windows shells
   hash -r 2>/dev/null || true
 
-  if command -v milaidy &>/dev/null; then
+  if command -v milady &>/dev/null; then
     local installed_version
-    installed_version="$(milaidy --version 2>/dev/null | tail -1)"
-    success "milaidy ${installed_version} installed"
+    installed_version="$(milady --version 2>/dev/null | tail -1)"
+    success "milady ${installed_version} installed"
   else
-    error "milaidy command not found after installation."
+    error "milady command not found after installation."
     error ""
     error "The global bin directory is probably not in your PATH."
     case "$DETECTED_OS" in
@@ -587,10 +587,10 @@ install_milaidy() {
 
 # ── Desktop app install (macOS) ──────────────────────────────────────────────
 
-GITHUB_REPO="milady-ai/milaidy"
+GITHUB_REPO="milady-ai/milady"
 
 install_desktop_app() {
-  step "Installing Milaidy desktop app"
+  step "Installing Milady desktop app"
 
   if [[ "$DETECTED_OS" != "macos" ]]; then
     error "Desktop app install via this script is only supported on macOS."
@@ -599,7 +599,7 @@ install_desktop_app() {
     exit 1
   fi
 
-  local version="${MILAIDY_VERSION:-latest}"
+  local version="${MILADY_VERSION:-latest}"
   local arch="$DETECTED_ARCH"
   local dmg_pattern
 
@@ -720,13 +720,13 @@ install_desktop_app() {
 # ── Post-install setup ───────────────────────────────────────────────────────
 
 run_setup() {
-  if [[ "${MILAIDY_SKIP_SETUP:-0}" == "1" ]]; then
-    info "Skipping setup (MILAIDY_SKIP_SETUP=1)"
+  if [[ "${MILADY_SKIP_SETUP:-0}" == "1" ]]; then
+    info "Skipping setup (MILADY_SKIP_SETUP=1)"
     return 0
   fi
 
-  step "Initializing milaidy workspace"
-  milaidy setup
+  step "Initializing milady workspace"
+  milady setup
 }
 
 # ── Main ─────────────────────────────────────────────────────────────────────
@@ -746,8 +746,8 @@ main() {
       --desktop) install_desktop=true ;;
       --help|-h)
         printf "Usage: install.sh [--desktop]\n\n"
-        printf "  ${CYAN}--desktop${RESET}   Download and install the Milaidy desktop app (macOS)\n"
-        printf "  ${DIM}(no flag)${RESET}   Install the milaidy CLI via npm/bun\n\n"
+        printf "  ${CYAN}--desktop${RESET}   Download and install the Milady desktop app (macOS)\n"
+        printf "  ${DIM}(no flag)${RESET}   Install the milady CLI via npm/bun\n\n"
         exit 0
         ;;
     esac
@@ -765,7 +765,7 @@ main() {
     printf "${BOLD}${GREEN}  Desktop app installed!${RESET}\n"
     printf "${BOLD}${GREEN}  ======================================${RESET}\n"
     printf "\n"
-    printf "  Open Milaidy from your Applications folder or Spotlight.\n\n"
+    printf "  Open Milady from your Applications folder or Spotlight.\n\n"
     exit 0
   fi
 
@@ -775,7 +775,7 @@ main() {
   if [[ "$DETECTED_OS" == "windows" && -z "$DETECTED_ENV" ]]; then
     error "This bash script requires Git Bash, MSYS2, WSL, or Cygwin on Windows."
     error "For native Windows, use PowerShell instead:"
-    error "  irm https://milady-ai.github.io/milaidy/install.ps1 | iex"
+    error "  irm https://milady-ai.github.io/milady/install.ps1 | iex"
     exit 1
   fi
 
@@ -801,8 +801,8 @@ main() {
   check_package_manager
   local pm="$DETECTED_PM"
 
-  # ── Step 3: Install milaidy ──────────────────────────────────────────────
-  install_milaidy "$pm"
+  # ── Step 3: Install milady ──────────────────────────────────────────────
+  install_milady "$pm"
 
   # ── Step 4: Setup ────────────────────────────────────────────────────────
   run_setup
@@ -814,10 +814,10 @@ main() {
   printf "${BOLD}${GREEN}  ======================================${RESET}\n"
   printf "\n"
   printf "  Get started:\n"
-  printf "    ${CYAN}milaidy start${RESET}        Start the agent runtime\n"
-  printf "    ${CYAN}milaidy setup${RESET}        Re-run workspace setup\n"
-  printf "    ${CYAN}milaidy configure${RESET}    Configuration guidance\n"
-  printf "    ${CYAN}milaidy --help${RESET}       Show all commands\n"
+  printf "    ${CYAN}milady start${RESET}        Start the agent runtime\n"
+  printf "    ${CYAN}milady setup${RESET}        Re-run workspace setup\n"
+  printf "    ${CYAN}milady configure${RESET}    Configuration guidance\n"
+  printf "    ${CYAN}milady --help${RESET}       Show all commands\n"
   printf "\n"
   printf "  Docs: ${BLUE}https://docs.milady.ai${RESET}\n"
   printf "\n"

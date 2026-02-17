@@ -12,21 +12,21 @@ PODS:
     - Capacitor
   - CapacitorStatusBar (8.0.0):
     - Capacitor
-  - MilaidyCapacitorAgent (1.0.0):
+  - MiladyCapacitorAgent (1.0.0):
     - Capacitor
-  - MilaidyCapacitorCamera (1.0.0):
+  - MiladyCapacitorCamera (1.0.0):
     - Capacitor
-  - MilaidyCapacitorCanvas (1.0.0):
+  - MiladyCapacitorCanvas (1.0.0):
     - Capacitor
-  - MilaidyCapacitorGateway (1.0.0):
+  - MiladyCapacitorGateway (1.0.0):
     - Capacitor
-  - MilaidyCapacitorLocation (1.0.0):
+  - MiladyCapacitorLocation (1.0.0):
     - Capacitor
-  - MilaidyCapacitorScreencapture (1.0.0):
+  - MiladyCapacitorScreencapture (1.0.0):
     - Capacitor
-  - MilaidyCapacitorSwabble (1.0.0):
+  - MiladyCapacitorSwabble (1.0.0):
     - Capacitor
-  - MilaidyCapacitorTalkmode (1.0.0):
+  - MiladyCapacitorTalkmode (1.0.0):
     - Capacitor
 
 DEPENDENCIES:
@@ -37,14 +37,14 @@ DEPENDENCIES:
   - "CapacitorKeyboard (from `../../node_modules/@capacitor/keyboard`)"
   - "CapacitorPreferences (from `../../node_modules/@capacitor/preferences`)"
   - "CapacitorStatusBar (from `../../node_modules/@capacitor/status-bar`)"
-  - MilaidyCapacitorAgent (from `../../plugins/agent`)
-  - MilaidyCapacitorCamera (from `../../plugins/camera`)
-  - MilaidyCapacitorCanvas (from `../../plugins/canvas`)
-  - MilaidyCapacitorGateway (from `../../plugins/gateway`)
-  - MilaidyCapacitorLocation (from `../../plugins/location`)
-  - MilaidyCapacitorScreencapture (from `../../plugins/screencapture`)
-  - MilaidyCapacitorSwabble (from `../../plugins/swabble`)
-  - MilaidyCapacitorTalkmode (from `../../plugins/talkmode`)
+  - MiladyCapacitorAgent (from `../../plugins/agent`)
+  - MiladyCapacitorCamera (from `../../plugins/camera`)
+  - MiladyCapacitorCanvas (from `../../plugins/canvas`)
+  - MiladyCapacitorGateway (from `../../plugins/gateway`)
+  - MiladyCapacitorLocation (from `../../plugins/location`)
+  - MiladyCapacitorScreencapture (from `../../plugins/screencapture`)
+  - MiladyCapacitorSwabble (from `../../plugins/swabble`)
+  - MiladyCapacitorTalkmode (from `../../plugins/talkmode`)
 
 EXTERNAL SOURCES:
   Capacitor:
@@ -61,21 +61,21 @@ EXTERNAL SOURCES:
     :path: "../../node_modules/@capacitor/preferences"
   CapacitorStatusBar:
     :path: "../../node_modules/@capacitor/status-bar"
-  MilaidyCapacitorAgent:
+  MiladyCapacitorAgent:
     :path: "../../plugins/agent"
-  MilaidyCapacitorCamera:
+  MiladyCapacitorCamera:
     :path: "../../plugins/camera"
-  MilaidyCapacitorCanvas:
+  MiladyCapacitorCanvas:
     :path: "../../plugins/canvas"
-  MilaidyCapacitorGateway:
+  MiladyCapacitorGateway:
     :path: "../../plugins/gateway"
-  MilaidyCapacitorLocation:
+  MiladyCapacitorLocation:
     :path: "../../plugins/location"
-  MilaidyCapacitorScreencapture:
+  MiladyCapacitorScreencapture:
     :path: "../../plugins/screencapture"
-  MilaidyCapacitorSwabble:
+  MiladyCapacitorSwabble:
     :path: "../../plugins/swabble"
-  MilaidyCapacitorTalkmode:
+  MiladyCapacitorTalkmode:
     :path: "../../plugins/talkmode"
 
 SPEC CHECKSUMS:
@@ -86,14 +86,14 @@ SPEC CHECKSUMS:
   CapacitorKeyboard: d7868c079a4d5277a3deca27a10a488fcbbb8b69
   CapacitorPreferences: 443fabe9670226200e595658a87ef0b1566716d4
   CapacitorStatusBar: 312e2e67928dfe9514c4a8916a1fd610552f5f35
-  MilaidyCapacitorAgent: e3ee4366987dab9475b39ddf5efc0677b078bc5c
-  MilaidyCapacitorCamera: 8e229fe3bf1ac181c39d91d7ce3f19f39508bec4
-  MilaidyCapacitorCanvas: f82b0c51c6a5747fad559bd02865115699ddc35c
-  MilaidyCapacitorGateway: 1d6d7693508c91ed2d650cf9e07ef26d3f7184c7
-  MilaidyCapacitorLocation: aecdcbe744a2b2d81bf8fb72fcd8269ce760f131
-  MilaidyCapacitorScreencapture: e521ed8daf52d57cad263bfeb0ccd9af46280464
-  MilaidyCapacitorSwabble: 0fc4ec22f9f404cd745c3ddfdda46938e89d5a32
-  MilaidyCapacitorTalkmode: 8428b459472d5319912afa91b832992b92ed2afe
+  MiladyCapacitorAgent: e3ee4366987dab9475b39ddf5efc0677b078bc5c
+  MiladyCapacitorCamera: 8e229fe3bf1ac181c39d91d7ce3f19f39508bec4
+  MiladyCapacitorCanvas: f82b0c51c6a5747fad559bd02865115699ddc35c
+  MiladyCapacitorGateway: 1d6d7693508c91ed2d650cf9e07ef26d3f7184c7
+  MiladyCapacitorLocation: aecdcbe744a2b2d81bf8fb72fcd8269ce760f131
+  MiladyCapacitorScreencapture: e521ed8daf52d57cad263bfeb0ccd9af46280464
+  MiladyCapacitorSwabble: 0fc4ec22f9f404cd745c3ddfdda46938e89d5a32
+  MiladyCapacitorTalkmode: 8428b459472d5319912afa91b832992b92ed2afe
 
 PODFILE CHECKSUM: e86a758223ad487d96c83fddc1a02c7786bf4652
 

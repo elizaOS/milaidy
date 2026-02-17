@@ -18,7 +18,13 @@ describe("header status", () => {
   beforeEach(() => {
     mockUseApp.mockReset();
     baseAppState = {
-      agentStatus: { state: "running", agentName: "Milaidy", model: undefined, startedAt: undefined, uptime: undefined },
+      agentStatus: {
+        state: "running",
+        agentName: "Milady",
+        model: undefined,
+        startedAt: undefined,
+        uptime: undefined,
+      },
       cloudEnabled: false,
       cloudConnected: false,
       cloudCredits: null,
@@ -43,7 +49,13 @@ describe("header status", () => {
   it("renders starting state with loading indicator", async () => {
     mockUseApp.mockReturnValue({
       ...baseAppState,
-      agentStatus: { state: "starting", agentName: "Milaidy", model: undefined, startedAt: undefined, uptime: undefined },
+      agentStatus: {
+        state: "starting",
+        agentName: "Milady",
+        model: undefined,
+        startedAt: undefined,
+        uptime: undefined,
+      },
     });
 
     let tree: TestRenderer.ReactTestRenderer;
@@ -51,7 +63,7 @@ describe("header status", () => {
       tree = TestRenderer.create(React.createElement(Header));
     });
 
-    const renderedText = tree!.root
+    const renderedText = tree?.root
       .findAllByType("span")
       .map((node) => node.children.join(""))
       .join("\n");
@@ -73,18 +85,19 @@ describe("header status", () => {
       tree = TestRenderer.create(React.createElement(Header));
     });
 
-    const restartButton = tree!.root.find(
-      (node) =>
-        node.type === "button" &&
-        Array.isArray(node.children) &&
-        node.children.join("") === "Restarting...",
+    const restartButton = tree?.root.find(
+      (node) => node.type === "button" && node.props.title === "Restart agent",
     );
     expect(restartButton.props.disabled).toBe(true);
 
-    const pauseResumeButton = tree!.root.find(
-      (node) =>
-        node.type === "button" &&
-        node.props.title === "Pause autonomy",
+    const renderedText = tree?.root
+      .findAllByType("span")
+      .map((node) => node.children.join(""))
+      .join("\n");
+    expect(renderedText).toContain("Restarting...");
+
+    const pauseResumeButton = tree?.root.find(
+      (node) => node.type === "button" && node.props.title === "Pause autonomy",
     );
     expect(pauseResumeButton.props.disabled).toBe(true);
   });

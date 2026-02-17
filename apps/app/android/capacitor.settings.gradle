@@ -17,26 +17,26 @@ project(':capacitor-preferences').projectDir = new File('../node_modules/@capaci
 include ':capacitor-status-bar'
 project(':capacitor-status-bar').projectDir = new File('../node_modules/@capacitor/status-bar/android')
 
-include ':milaidy-capacitor-camera'
-project(':milaidy-capacitor-camera').projectDir = new File('../plugins/camera/android')
+include ':milady-capacitor-camera'
+project(':milady-capacitor-camera').projectDir = new File('../plugins/camera/android')
 
-include ':milaidy-capacitor-canvas'
-project(':milaidy-capacitor-canvas').projectDir = new File('../plugins/canvas/android')
+include ':milady-capacitor-canvas'
+project(':milady-capacitor-canvas').projectDir = new File('../plugins/canvas/android')
 
-include ':milaidy-capacitor-gateway'
-project(':milaidy-capacitor-gateway').projectDir = new File('../plugins/gateway/android')
+include ':milady-capacitor-gateway'
+project(':milady-capacitor-gateway').projectDir = new File('../plugins/gateway/android')
 
-include ':milaidy-capacitor-location'
-project(':milaidy-capacitor-location').projectDir = new File('../plugins/location/android')
+include ':milady-capacitor-location'
+project(':milady-capacitor-location').projectDir = new File('../plugins/location/android')
 
-include ':milaidy-capacitor-screencapture'
-project(':milaidy-capacitor-screencapture').projectDir = new File('../plugins/screencapture/android')
+include ':milady-capacitor-screencapture'
+project(':milady-capacitor-screencapture').projectDir = new File('../plugins/screencapture/android')
 
-include ':milaidy-capacitor-swabble'
-project(':milaidy-capacitor-swabble').projectDir = new File('../plugins/swabble/android')
+include ':milady-capacitor-swabble'
+project(':milady-capacitor-swabble').projectDir = new File('../plugins/swabble/android')
 
-include ':milaidy-capacitor-agent'
-project(':milaidy-capacitor-agent').projectDir = new File('../plugins/agent/android')
+include ':milady-capacitor-agent'
+project(':milady-capacitor-agent').projectDir = new File('../plugins/agent/android')
 
-include ':milaidy-capacitor-talkmode'
-project(':milaidy-capacitor-talkmode').projectDir = new File('../plugins/talkmode/android')
+include ':milady-capacitor-talkmode'
+project(':milady-capacitor-talkmode').projectDir = new File('../plugins/talkmode/android')

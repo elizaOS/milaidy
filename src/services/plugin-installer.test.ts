@@ -1,5 +1,5 @@
 /**
- * Tests for the Milaidy plugin installer.
+ * Tests for the Milady plugin installer.
  *
  * Exercises install/uninstall flows, config persistence, error handling,
  * concurrent operations, and cross-platform path logic.
@@ -15,7 +15,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // ---------------------------------------------------------------------------
 
 async function loadInstaller() {
-  return await import("./plugin-installer.js");
+  return await import("./plugin-installer");
 }
 
 // ---------------------------------------------------------------------------
@@ -24,11 +24,11 @@ async function loadInstaller() {
 // executes real code against a real temp directory.
 // ---------------------------------------------------------------------------
 
-vi.mock("./registry-client.js", () => ({
+vi.mock("./registry-client", () => ({
   getPluginInfo: vi.fn(),
 }));
 
-vi.mock("../runtime/restart.js", () => ({
+vi.mock("../runtime/restart", () => ({
   requestRestart: vi.fn(),
 }));
 
@@ -87,14 +87,14 @@ async function writeLocalPluginSource(
         name: packageName,
         version,
         type: "module",
-        main: "index.js",
+        main: "index",
       },
       null,
       2,
     ),
   );
   await fs.writeFile(
-    path.join(packageDir, "index.js"),
+    path.join(packageDir, "index"),
     "export default { name: 'local-plugin' };",
   );
   return packageDir;
@@ -107,25 +107,25 @@ async function writeLocalPluginSource(
 beforeEach(async () => {
   vi.resetModules();
 
-  tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "milaidy-inst-test-"));
-  configDir = path.join(tmpDir, ".milaidy");
-  configPath = path.join(configDir, "milaidy.json");
+  tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "milady-inst-test-"));
+  configDir = path.join(tmpDir, ".milady");
+  configPath = path.join(configDir, "milady.json");
 
   await fs.mkdir(configDir, { recursive: true });
   writeConfig({});
 
   savedEnv = {
-    MILAIDY_STATE_DIR: process.env.MILAIDY_STATE_DIR,
-    MILAIDY_CONFIG_PATH: process.env.MILAIDY_CONFIG_PATH,
+    MILADY_STATE_DIR: process.env.MILADY_STATE_DIR,
+    MILADY_CONFIG_PATH: process.env.MILADY_CONFIG_PATH,
   };
-  process.env.MILAIDY_STATE_DIR = configDir;
-  process.env.MILAIDY_CONFIG_PATH = configPath;
+  process.env.MILADY_STATE_DIR = configDir;
+  process.env.MILADY_CONFIG_PATH = configPath;
 });
 
 afterEach(async () => {
   vi.restoreAllMocks();
-  process.env.MILAIDY_STATE_DIR = savedEnv.MILAIDY_STATE_DIR;
-  process.env.MILAIDY_CONFIG_PATH = savedEnv.MILAIDY_CONFIG_PATH;
+  process.env.MILADY_STATE_DIR = savedEnv.MILADY_STATE_DIR;
+  process.env.MILADY_CONFIG_PATH = savedEnv.MILADY_CONFIG_PATH;
   await fs.rm(tmpDir, { recursive: true, force: true });
 });
 
@@ -136,7 +136,7 @@ afterEach(async () => {
 describe("plugin-installer", () => {
   describe("installPlugin", () => {
     it("returns error when plugin is not found in registry", async () => {
-      const { getPluginInfo } = await import("./registry-client.js");
+      const { getPluginInfo } = await import("./registry-client");
       vi.mocked(getPluginInfo).mockResolvedValue(null);
 
       const { installPlugin } = await loadInstaller();
@@ -148,7 +148,7 @@ describe("plugin-installer", () => {
     });
 
     it("reports progress phases during install (real npm failure path)", async () => {
-      const { getPluginInfo } = await import("./registry-client.js");
+      const { getPluginInfo } = await import("./registry-client");
       // Use a package name that definitely doesn't exist on npm
       vi.mocked(getPluginInfo).mockResolvedValue(
         testPluginInfo({ name: "@elizaos/plugin-nonexistent-test-12345" }),
@@ -176,7 +176,7 @@ describe("plugin-installer", () => {
         "@elizaos/plugin-local-source",
         "1.2.3",
       );
-      const { getPluginInfo } = await import("./registry-client.js");
+      const { getPluginInfo } = await import("./registry-client");
       vi.mocked(getPluginInfo).mockResolvedValue(
         testPluginInfo({
           name: "@elizaos/plugin-local-source",
@@ -400,10 +400,10 @@ describe("plugin-installer", () => {
 
   describe("installAndRestart", () => {
     it("does NOT call requestRestart when install fails", async () => {
-      const { getPluginInfo } = await import("./registry-client.js");
+      const { getPluginInfo } = await import("./registry-client");
       vi.mocked(getPluginInfo).mockResolvedValue(testPluginInfo());
 
-      const { requestRestart } = await import("../runtime/restart.js");
+      const { requestRestart } = await import("../runtime/restart");
       const { installAndRestart } = await loadInstaller();
 
       // In test env npm/git installs fail (packages don't exist)
@@ -419,7 +419,7 @@ describe("plugin-installer", () => {
     it("sanitises package names for directory paths", async () => {
       // We test this indirectly through installPlugin — the targetDir
       // should be sanitised with no special characters
-      const { getPluginInfo } = await import("./registry-client.js");
+      const { getPluginInfo } = await import("./registry-client");
       vi.mocked(getPluginInfo).mockResolvedValue(
         testPluginInfo({ name: "@elizaos/plugin-foo-bar" }),
       );
@@ -437,7 +437,7 @@ describe("plugin-installer", () => {
 
   describe("serialisation", () => {
     it("serialises concurrent install calls", async () => {
-      const { getPluginInfo } = await import("./registry-client.js");
+      const { getPluginInfo } = await import("./registry-client");
       vi.mocked(getPluginInfo).mockResolvedValue(null); // Quick rejection
 
       const { installPlugin } = await loadInstaller();

@@ -9,7 +9,7 @@
 
 import * as crypto from "node:crypto";
 import * as http from "node:http";
-import { readRequestBody } from "../http-helpers.js";
+import { readRequestBody } from "../http-helpers";
 
 const PORT = Number(process.env.PORT ?? "2138");
 const BRIDGE_PORT = Number(process.env.BRIDGE_PORT ?? "18790");
@@ -305,7 +305,7 @@ const bridgeServer = http.createServer(async (req, res) => {
 
   // ── SSE streaming endpoint ──────────────────────────────────────────────
   // Streams agent response chunks as Server-Sent Events.  The Eliza Cloud
-  // proxy connects here and relays events to the Milaidy client.
+  // proxy connects here and relays events to the Milady client.
   if (req.method === "POST" && req.url === "/bridge/stream") {
     if (!agentRuntime) {
       res.writeHead(503, { "Content-Type": "application/json" });

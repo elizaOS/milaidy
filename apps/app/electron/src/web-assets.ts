@@ -92,7 +92,7 @@ export function buildMissingWebAssetsMessage(
     .map((candidate) => `- ${candidate}`)
     .join("\n");
   return (
-    "[Milaidy] Web assets were not found for Electron startup. " +
+    "[Milady] Web assets were not found for Electron startup. " +
     "Run `bun run build:electron` from `apps/app` to regenerate assets.\n" +
     `Attempted directories:\n${attempted}`
   );

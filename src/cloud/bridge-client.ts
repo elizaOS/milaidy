@@ -1,5 +1,5 @@
 /**
- * HTTP client for the Eliza Cloud Milaidy Sandbox API.
+ * HTTP client for the Eliza Cloud Milady Sandbox API.
  */
 
 export interface CloudAgent {
@@ -37,12 +37,21 @@ export interface BackupInfo {
   createdAt: string;
 }
 
-export type ChatMode = "simple" | "power";
+export type ChatChannelType =
+  | "DM"
+  | "GROUP"
+  | "VOICE_DM"
+  | "VOICE_GROUP"
+  | "API";
 
 interface ApiResponse<T> {
   success: boolean;
   data?: T;
   error?: string;
+}
+
+function isRedirectResponse(response: Response): boolean {
+  return response.status >= 300 && response.status < 400;
 }
 
 export class ElizaCloudClient {
@@ -57,7 +66,7 @@ export class ElizaCloudClient {
   async listAgents(): Promise<CloudAgent[]> {
     const res = await this.request<CloudAgent[]>(
       "GET",
-      "/api/v1/milaidy/agents",
+      "/api/v1/milady/agents",
     );
     return res.data ?? [];
   }
@@ -65,7 +74,7 @@ export class ElizaCloudClient {
   async createAgent(params: CloudAgentCreateParams): Promise<CloudAgent> {
     const res = await this.request<CloudAgent>(
       "POST",
-      "/api/v1/milaidy/agents",
+      "/api/v1/milady/agents",
       params,
     );
     if (!res.success || !res.data)
@@ -76,7 +85,7 @@ export class ElizaCloudClient {
   async getAgent(agentId: string): Promise<CloudAgent> {
     const res = await this.request<CloudAgent>(
       "GET",
-      `/api/v1/milaidy/agents/${agentId}`,
+      `/api/v1/milady/agents/${agentId}`,
     );
     if (!res.success || !res.data)
       throw new Error(res.error ?? "Agent not found");
@@ -86,7 +95,7 @@ export class ElizaCloudClient {
   async deleteAgent(agentId: string): Promise<void> {
     const res = await this.request<void>(
       "DELETE",
-      `/api/v1/milaidy/agents/${agentId}`,
+      `/api/v1/milady/agents/${agentId}`,
     );
     if (!res.success) throw new Error(res.error ?? "Failed to delete agent");
   }
@@ -94,7 +103,7 @@ export class ElizaCloudClient {
   async provision(agentId: string): Promise<ProvisionInfo> {
     const res = await this.request<ProvisionInfo>(
       "POST",
-      `/api/v1/milaidy/agents/${agentId}/provision`,
+      `/api/v1/milady/agents/${agentId}/provision`,
     );
     if (!res.success || !res.data)
       throw new Error(res.error ?? "Failed to provision sandbox");
@@ -105,9 +114,9 @@ export class ElizaCloudClient {
     agentId: string,
     text: string,
     roomId = "web-chat",
-    mode: ChatMode = "power",
+    channelType: ChatChannelType = "DM",
   ): Promise<string> {
-    const url = `${this.baseUrl}/api/v1/milaidy/agents/${agentId}/bridge`;
+    const url = `${this.baseUrl}/api/v1/milady/agents/${agentId}/bridge`;
     const response = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-Api-Key": this.apiKey },
@@ -115,10 +124,17 @@ export class ElizaCloudClient {
         jsonrpc: "2.0",
         id: crypto.randomUUID(),
         method: "message.send",
-        params: { text, roomId, mode },
+        params: { text, roomId, channelType },
       }),
+      redirect: "manual",
       signal: AbortSignal.timeout(60_000),
     });
+
+    if (isRedirectResponse(response)) {
+      throw new Error(
+        "Bridge request was redirected; redirects are not allowed",
+      );
+    }
 
     if (!response.ok) {
       const errorText = await response.text().catch(() => "");
@@ -140,9 +156,9 @@ export class ElizaCloudClient {
     agentId: string,
     text: string,
     roomId = "web-chat",
-    mode: ChatMode = "power",
+    channelType: ChatChannelType = "DM",
   ): AsyncGenerator<{ type: string; data: Record<string, unknown> }> {
-    const url = `${this.baseUrl}/api/v1/milaidy/agents/${agentId}/stream`;
+    const url = `${this.baseUrl}/api/v1/milady/agents/${agentId}/stream`;
     const response = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-Api-Key": this.apiKey },
@@ -150,9 +166,16 @@ export class ElizaCloudClient {
         jsonrpc: "2.0",
         id: crypto.randomUUID(),
         method: "message.send",
-        params: { text, roomId, mode },
+        params: { text, roomId, channelType },
       }),
+      redirect: "manual",
     });
+
+    if (isRedirectResponse(response)) {
+      throw new Error(
+        "Stream request was redirected; redirects are not allowed",
+      );
+    }
 
     if (!response.ok || !response.body) {
       throw new Error(`Stream request failed: HTTP ${response.status}`);
@@ -196,7 +219,7 @@ export class ElizaCloudClient {
   async snapshot(agentId: string): Promise<BackupInfo> {
     const res = await this.request<BackupInfo>(
       "POST",
-      `/api/v1/milaidy/agents/${agentId}/snapshot`,
+      `/api/v1/milady/agents/${agentId}/snapshot`,
     );
     if (!res.success || !res.data)
       throw new Error(res.error ?? "Snapshot failed");
@@ -206,7 +229,7 @@ export class ElizaCloudClient {
   async listBackups(agentId: string): Promise<BackupInfo[]> {
     const res = await this.request<BackupInfo[]>(
       "GET",
-      `/api/v1/milaidy/agents/${agentId}/backups`,
+      `/api/v1/milady/agents/${agentId}/backups`,
     );
     return res.data ?? [];
   }
@@ -214,14 +237,14 @@ export class ElizaCloudClient {
   async restore(agentId: string, backupId?: string): Promise<void> {
     const res = await this.request<void>(
       "POST",
-      `/api/v1/milaidy/agents/${agentId}/restore`,
+      `/api/v1/milady/agents/${agentId}/restore`,
       backupId ? { backupId } : {},
     );
     if (!res.success) throw new Error(res.error ?? "Restore failed");
   }
 
   async heartbeat(agentId: string): Promise<boolean> {
-    const url = `${this.baseUrl}/api/v1/milaidy/agents/${agentId}/bridge`;
+    const url = `${this.baseUrl}/api/v1/milady/agents/${agentId}/bridge`;
     try {
       const response = await fetch(url, {
         method: "POST",
@@ -230,8 +253,10 @@ export class ElizaCloudClient {
           "X-Api-Key": this.apiKey,
         },
         body: JSON.stringify({ jsonrpc: "2.0", method: "heartbeat" }),
+        redirect: "manual",
         signal: AbortSignal.timeout(10_000),
       });
+      if (isRedirectResponse(response)) return false;
       return response.ok;
     } catch {
       return false;
@@ -250,8 +275,16 @@ export class ElizaCloudClient {
       method,
       headers,
       body: body !== undefined ? JSON.stringify(body) : undefined,
+      redirect: "manual",
       signal: AbortSignal.timeout(30_000),
     });
+
+    if (isRedirectResponse(response)) {
+      return {
+        success: false,
+        error: "Cloud API request was redirected; redirects are not allowed",
+      };
+    }
 
     if (!response.ok) {
       const text = await response.text().catch(() => "");

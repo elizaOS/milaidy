@@ -16,14 +16,14 @@ def capacitor_pods
   pod 'CapacitorKeyboard', :path => '../../node_modules/@capacitor/keyboard'
   pod 'CapacitorPreferences', :path => '../../node_modules/@capacitor/preferences'
   pod 'CapacitorStatusBar', :path => '../../node_modules/@capacitor/status-bar'
-  pod 'MilaidyCapacitorCamera', :path => '../../plugins/camera'
-  pod 'MilaidyCapacitorCanvas', :path => '../../plugins/canvas'
-  pod 'MilaidyCapacitorGateway', :path => '../../plugins/gateway'
-  pod 'MilaidyCapacitorLocation', :path => '../../plugins/location'
-  pod 'MilaidyCapacitorScreencapture', :path => '../../plugins/screencapture'
-  pod 'MilaidyCapacitorSwabble', :path => '../../plugins/swabble'
-  pod 'MilaidyCapacitorAgent', :path => '../../plugins/agent'
-  pod 'MilaidyCapacitorTalkmode', :path => '../../plugins/talkmode'
+  pod 'MiladyCapacitorCamera', :path => '../../plugins/camera'
+  pod 'MiladyCapacitorCanvas', :path => '../../plugins/canvas'
+  pod 'MiladyCapacitorGateway', :path => '../../plugins/gateway'
+  pod 'MiladyCapacitorLocation', :path => '../../plugins/location'
+  pod 'MiladyCapacitorScreencapture', :path => '../../plugins/screencapture'
+  pod 'MiladyCapacitorSwabble', :path => '../../plugins/swabble'
+  pod 'MiladyCapacitorAgent', :path => '../../plugins/agent'
+  pod 'MiladyCapacitorTalkmode', :path => '../../plugins/talkmode'
 end
 
 target 'App' do

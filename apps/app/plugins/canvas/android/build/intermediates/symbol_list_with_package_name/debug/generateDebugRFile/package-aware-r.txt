@@ -1,1 +1,1 @@
-ai.milaidy.plugins.canvas
+ai.milady.plugins.canvas

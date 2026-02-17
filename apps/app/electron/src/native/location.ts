@@ -12,9 +12,9 @@
  * which can access native location services through Chromium.
  */
 
-import { ipcMain, BrowserWindow } from "electron";
+import https from "node:https";
 import type { IpcMainInvokeEvent } from "electron";
-import https from "https";
+import { type BrowserWindow, ipcMain } from "electron";
 import type { IpcValue } from "./ipc-types";
 
 // Types
@@ -70,7 +70,9 @@ export class LocationManager {
    * For higher accuracy on desktop, use the browser's Geolocation API
    * in the renderer process, which can access native location services.
    */
-  async getCurrentPosition(_options?: LocationOptions): Promise<LocationResult> {
+  async getCurrentPosition(
+    _options?: LocationOptions,
+  ): Promise<LocationResult> {
     const ipLocation = await this.getIPLocation();
     this.lastKnownLocation = ipLocation;
     return ipLocation;
@@ -95,50 +97,62 @@ export class LocationManager {
         }
 
         const url = new URL(services[index]);
-        const protocol = url.protocol === "https:" ? https : require("http");
+        const protocol =
+          url.protocol === "https:" ? https : require("node:http");
 
-        const req = protocol.get(url.href, (res: NodeJS.ReadableStream & { statusCode?: number }) => {
-          if (res.statusCode !== 200) {
-            tryService(index + 1);
-            return;
-          }
+        const req = protocol.get(
+          url.href,
+          (res: NodeJS.ReadableStream & { statusCode?: number }) => {
+            if (res.statusCode !== 200) {
+              tryService(index + 1);
+              return;
+            }
 
-          let data = "";
-          res.on("data", (chunk: Buffer) => {
-            data += chunk.toString();
-          });
+            let data = "";
+            res.on("data", (chunk: Buffer) => {
+              data += chunk.toString();
+            });
 
-          res.on("end", () => {
-            try {
-              const json = JSON.parse(data) as IPLocationResponse;
-              const lat = json.lat ?? json.latitude;
-              const lon = json.lon ?? json.longitude;
+            res.on("end", () => {
+              try {
+                const json = JSON.parse(data) as IPLocationResponse;
+                const lat = json.lat ?? json.latitude;
+                const lon = json.lon ?? json.longitude;
 
-              if (lat !== undefined && lon !== undefined) {
-                resolve({
-                  coords: {
-                    latitude: lat,
-                    longitude: lon,
-                    // IP-based geolocation typically has ~5km accuracy
-                    // This is an estimate; actual accuracy varies by ISP and location
-                    accuracy: 5000,
-                    timestamp: Date.now(),
-                  },
-                  cached: false,
-                });
-              } else {
-                console.warn(`[Location] Service ${services[index]} returned no coordinates, trying next`);
+                if (lat !== undefined && lon !== undefined) {
+                  resolve({
+                    coords: {
+                      latitude: lat,
+                      longitude: lon,
+                      // IP-based geolocation typically has ~5km accuracy
+                      // This is an estimate; actual accuracy varies by ISP and location
+                      accuracy: 5000,
+                      timestamp: Date.now(),
+                    },
+                    cached: false,
+                  });
+                } else {
+                  console.warn(
+                    `[Location] Service ${services[index]} returned no coordinates, trying next`,
+                  );
+                  tryService(index + 1);
+                }
+              } catch (parseError) {
+                console.warn(
+                  `[Location] Failed to parse response from ${services[index]}:`,
+                  parseError,
+                );
                 tryService(index + 1);
               }
-            } catch (parseError) {
-              console.warn(`[Location] Failed to parse response from ${services[index]}:`, parseError);
-              tryService(index + 1);
-            }
-          });
-        });
+            });
+          },
+        );
 
         req.on("error", (err) => {
-          console.warn(`[Location] Request to ${services[index]} failed:`, err.message);
+          console.warn(
+            `[Location] Request to ${services[index]} failed:`,
+            err.message,
+          );
           tryService(index + 1);
         });
 
@@ -155,7 +169,9 @@ export class LocationManager {
   /**
    * Watch position changes
    */
-  async watchPosition(options?: LocationOptions & { watchId?: string }): Promise<{ watchId: string }> {
+  async watchPosition(
+    options?: LocationOptions & { watchId?: string },
+  ): Promise<{ watchId: string }> {
     const watchId = options?.watchId ?? `watch_${++this.watchIdCounter}`;
 
     // Poll for location changes
@@ -166,7 +182,8 @@ export class LocationManager {
         const location = await this.getCurrentPosition(options);
         this.sendToRenderer("location:update", { watchId, location });
       } catch (error) {
-        const message = error instanceof Error ? error.message : "Location error";
+        const message =
+          error instanceof Error ? error.message : "Location error";
         console.error(`[Location] Watch ${watchId} error:`, message);
         this.sendToRenderer("location:error", { watchId, error: message });
       }
@@ -235,17 +252,29 @@ export function getLocationManager(): LocationManager {
 export function registerLocationIPC(): void {
   const manager = getLocationManager();
 
-  ipcMain.handle("location:getCurrentPosition", async (_e: IpcMainInvokeEvent, options?: LocationOptions) => {
-    return manager.getCurrentPosition(options);
-  });
+  ipcMain.handle(
+    "location:getCurrentPosition",
+    async (_e: IpcMainInvokeEvent, options?: LocationOptions) => {
+      return manager.getCurrentPosition(options);
+    },
+  );
 
-  ipcMain.handle("location:watchPosition", async (_e: IpcMainInvokeEvent, options?: LocationOptions & { watchId?: string }) => {
-    return manager.watchPosition(options);
-  });
+  ipcMain.handle(
+    "location:watchPosition",
+    async (
+      _e: IpcMainInvokeEvent,
+      options?: LocationOptions & { watchId?: string },
+    ) => {
+      return manager.watchPosition(options);
+    },
+  );
 
-  ipcMain.handle("location:clearWatch", async (_e: IpcMainInvokeEvent, options: { watchId: string }) => {
-    return manager.clearWatch(options.watchId);
-  });
+  ipcMain.handle(
+    "location:clearWatch",
+    async (_e: IpcMainInvokeEvent, options: { watchId: string }) => {
+      return manager.clearWatch(options.watchId);
+    },
+  );
 
   ipcMain.handle("location:getLastKnownLocation", () => {
     return { location: manager.getLastKnownLocation() };

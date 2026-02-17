@@ -1,16 +1,16 @@
 -- Merging decision tree log ---
 manifest
-ADDED from /Users/shawwalters/eliza-ok/packages/milaidy/apps/app/plugins/agent/android/src/main/AndroidManifest.xml:1:1-72
-INJECTED from /Users/shawwalters/eliza-ok/packages/milaidy/apps/app/plugins/agent/android/src/main/AndroidManifest.xml:1:1-72
+ADDED from /Users/shawwalters/eliza-ok/packages/milady/apps/app/plugins/agent/android/src/main/AndroidManifest.xml:1:1-72
+INJECTED from /Users/shawwalters/eliza-ok/packages/milady/apps/app/plugins/agent/android/src/main/AndroidManifest.xml:1:1-72
 	package
-		INJECTED from /Users/shawwalters/eliza-ok/packages/milaidy/apps/app/plugins/agent/android/src/main/AndroidManifest.xml
+		INJECTED from /Users/shawwalters/eliza-ok/packages/milady/apps/app/plugins/agent/android/src/main/AndroidManifest.xml
 	xmlns:android
-		ADDED from /Users/shawwalters/eliza-ok/packages/milaidy/apps/app/plugins/agent/android/src/main/AndroidManifest.xml:1:11-69
+		ADDED from /Users/shawwalters/eliza-ok/packages/milady/apps/app/plugins/agent/android/src/main/AndroidManifest.xml:1:11-69
 uses-sdk
-INJECTED from /Users/shawwalters/eliza-ok/packages/milaidy/apps/app/plugins/agent/android/src/main/AndroidManifest.xml reason: use-sdk injection requested
-INJECTED from /Users/shawwalters/eliza-ok/packages/milaidy/apps/app/plugins/agent/android/src/main/AndroidManifest.xml
-INJECTED from /Users/shawwalters/eliza-ok/packages/milaidy/apps/app/plugins/agent/android/src/main/AndroidManifest.xml
+INJECTED from /Users/shawwalters/eliza-ok/packages/milady/apps/app/plugins/agent/android/src/main/AndroidManifest.xml reason: use-sdk injection requested
+INJECTED from /Users/shawwalters/eliza-ok/packages/milady/apps/app/plugins/agent/android/src/main/AndroidManifest.xml
+INJECTED from /Users/shawwalters/eliza-ok/packages/milady/apps/app/plugins/agent/android/src/main/AndroidManifest.xml
 	android:targetSdkVersion
-		INJECTED from /Users/shawwalters/eliza-ok/packages/milaidy/apps/app/plugins/agent/android/src/main/AndroidManifest.xml
+		INJECTED from /Users/shawwalters/eliza-ok/packages/milady/apps/app/plugins/agent/android/src/main/AndroidManifest.xml
 	android:minSdkVersion
-		INJECTED from /Users/shawwalters/eliza-ok/packages/milaidy/apps/app/plugins/agent/android/src/main/AndroidManifest.xml
+		INJECTED from /Users/shawwalters/eliza-ok/packages/milady/apps/app/plugins/agent/android/src/main/AndroidManifest.xml

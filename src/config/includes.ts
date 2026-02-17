@@ -10,7 +10,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import JSON5 from "json5";
-import { isPlainObject } from "./object-utils.js";
+import { isPlainObject } from "./object-utils";
 
 export const INCLUDE_KEY = "$include";
 export const MAX_INCLUDE_DEPTH = 10;

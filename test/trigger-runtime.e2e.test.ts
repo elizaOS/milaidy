@@ -7,7 +7,7 @@ import {
   type UUID,
 } from "@elizaos/core";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { startApiServer } from "../src/api/server.js";
+import { startApiServer } from "../src/api/server";
 
 type JsonPrimitive = string | number | boolean | null;
 type JsonValue = JsonPrimitive | JsonObject | JsonArray;

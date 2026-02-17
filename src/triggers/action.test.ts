@@ -1,6 +1,6 @@
 import type { IAgentRuntime, Memory, UUID } from "@elizaos/core";
 import { beforeEach, describe, expect, test, vi } from "vitest";
-import { createTriggerTaskAction } from "./action.js";
+import { createTriggerTaskAction } from "./action";
 
 function makeMessage(text: string): Memory {
   return {
@@ -69,6 +69,11 @@ describe("createTriggerTaskAction", () => {
       getSetting: () => undefined,
     };
     runtime = runtimePartial as IAgentRuntime;
+  });
+
+  test("uses a trigger-specific action name", () => {
+    expect(createTriggerTaskAction.name).toBe("CREATE_TRIGGER_TASK");
+    expect(createTriggerTaskAction.similes ?? []).not.toContain("CREATE_TASK");
   });
 
   test("validates trigger language when autonomy is enabled", async () => {

@@ -138,11 +138,11 @@ describe("SandboxEngine container exec command dispatch", () => {
 
     await engine.execInContainer({
       containerId: "cid-7",
-      command: `python -c "\\\"\\\""`,
+      command: 'python -c "foo\\"bar"',
     });
 
     const [, args] = spawnMock.mock.calls.at(-1) ?? [];
-    expect(args).toEqual(["exec", "cid-7", "python", "-c", '""']);
+    expect(args).toEqual(["exec", "cid-7", "python", "-c", 'foo"bar']);
   });
 
   it("rejects shell metacharacters before spawn", async () => {

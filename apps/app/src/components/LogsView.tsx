@@ -3,7 +3,7 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
-import { useApp } from "../AppContext.js";
+import { useApp } from "../AppContext";
 import type { LogEntry } from "../api-client";
 import { formatTime } from "./shared/format";
 
@@ -71,7 +71,9 @@ export function LogsView() {
         entry.level ?? "",
         ...(entry.tags ?? []),
       ];
-      return haystack.some((part) => part.toLowerCase().includes(normalizedSearch));
+      return haystack.some((part) =>
+        part.toLowerCase().includes(normalizedSearch),
+      );
     });
   }, [logs, normalizedSearch]);
 
@@ -135,6 +137,7 @@ export function LogsView() {
 
         {hasActiveFilters && (
           <button
+            type="button"
             className="text-xs px-3 py-1.5 border border-border bg-card text-txt cursor-pointer hover:border-accent hover:text-accent"
             onClick={handleClearFilters}
           >
@@ -143,6 +146,7 @@ export function LogsView() {
         )}
 
         <button
+          type="button"
           className="text-xs px-3 py-1.5 border border-border bg-card text-txt cursor-pointer hover:border-accent hover:text-accent ml-auto"
           onClick={() => void loadLogs()}
         >
@@ -158,9 +162,9 @@ export function LogsView() {
             {hasActiveFilters ? " matching filters" : " yet"}.
           </div>
         ) : (
-          filteredLogs.map((entry: LogEntry, idx: number) => (
+          filteredLogs.map((entry: LogEntry) => (
             <div
-              key={idx}
+              key={`${entry.timestamp}-${entry.source}-${entry.level}-${entry.message}`}
               className="font-mono text-xs px-2 py-1 border-b border-border flex gap-2 items-baseline"
               data-testid="log-entry"
             >
@@ -189,11 +193,11 @@ export function LogsView() {
 
               {/* Tag badges */}
               <span className="inline-flex gap-0.5 shrink-0">
-                {(entry.tags ?? []).map((t: string, ti: number) => {
+                {(entry.tags ?? []).map((t: string) => {
                   const c = TAG_COLORS[t];
                   return (
                     <span
-                      key={ti}
+                      key={t}
                       className="inline-block text-[10px] px-1.5 py-px rounded-lg mr-0.5"
                       style={{
                         background: c ? c.bg : "var(--bg-muted)",

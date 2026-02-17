@@ -9,20 +9,20 @@ override_dh_auto_build:
 
 override_dh_auto_install:
 	# Install the built distribution
-	install -d debian/milaidy/usr/lib/milaidy
-	cp -r dist/ debian/milaidy/usr/lib/milaidy/
-	cp milaidy.mjs debian/milaidy/usr/lib/milaidy/
-	cp package.json debian/milaidy/usr/lib/milaidy/
-	cp -r node_modules/ debian/milaidy/usr/lib/milaidy/ 2>/dev/null || true
+	install -d debian/milady/usr/lib/milady
+	cp -r dist/ debian/milady/usr/lib/milady/
+	cp milady.mjs debian/milady/usr/lib/milady/
+	cp package.json debian/milady/usr/lib/milady/
+	cp -r node_modules/ debian/milady/usr/lib/milady/ 2>/dev/null || true
 
 	# Install the plugins manifest
-	install -m 644 plugins.json debian/milaidy/usr/lib/milaidy/
+	install -m 644 plugins.json debian/milady/usr/lib/milady/
 
 	# Create the CLI wrapper
-	install -d debian/milaidy/usr/bin
-	printf '#!/bin/sh\nexec /usr/bin/node /usr/lib/milaidy/milaidy.mjs "$$@"\n' \
-		> debian/milaidy/usr/bin/milaidy
-	chmod 755 debian/milaidy/usr/bin/milaidy
+	install -d debian/milady/usr/bin
+	printf '#!/bin/sh\nexec /usr/bin/node /usr/lib/milady/milady.mjs "$$@"\n' \
+		> debian/milady/usr/bin/milady
+	chmod 755 debian/milady/usr/bin/milady
 
 override_dh_auto_test:
 	# Skip tests during package build

@@ -1,1 +1,1 @@
-ai.milaidy.plugins.agent
+ai.milady.plugins.agent

@@ -1,7 +1,7 @@
 import type { AgentRuntime, Task, UUID } from "@elizaos/core";
 import { beforeEach, describe, expect, test, vi } from "vitest";
-import { createRouteInvoker } from "../test-support/route-test-helpers.js";
-import { handleTriggerRoutes } from "./trigger-routes.js";
+import { createRouteInvoker } from "../test-support/route-test-helpers";
+import { handleTriggerRoutes } from "./trigger-routes";
 
 describe("trigger routes", () => {
   let tasks: Task[];

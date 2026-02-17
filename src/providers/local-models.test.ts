@@ -11,7 +11,7 @@ import {
   LOCAL_MODEL_REGISTRY,
   LocalModelManager,
   type ModelType,
-} from "./local-models.js";
+} from "./local-models";
 
 // ============================================================================
 // UNIT TESTS
@@ -23,7 +23,7 @@ describe("LocalModelManager", () => {
 
   beforeEach(() => {
     // Use a unique temp directory for each test
-    testCacheDir = join(tmpdir(), `milaidy-test-${Date.now()}`);
+    testCacheDir = join(tmpdir(), `milady-test-${Date.now()}`);
     mkdirSync(testCacheDir, { recursive: true });
     manager = new LocalModelManager({ cacheDir: testCacheDir });
   });
@@ -211,7 +211,7 @@ describe.skip("LocalModelManager Integration (requires network)", () => {
   let testCacheDir: string;
 
   beforeEach(() => {
-    testCacheDir = join(tmpdir(), `milaidy-integration-${Date.now()}`);
+    testCacheDir = join(tmpdir(), `milady-integration-${Date.now()}`);
     mkdirSync(testCacheDir, { recursive: true });
     manager = new LocalModelManager({ cacheDir: testCacheDir });
   });
@@ -262,7 +262,7 @@ describe("LocalModelManager Error Handling", () => {
 
   beforeEach(() => {
     manager = new LocalModelManager({
-      cacheDir: join(tmpdir(), `milaidy-error-test-${Date.now()}`),
+      cacheDir: join(tmpdir(), `milady-error-test-${Date.now()}`),
     });
   });
 

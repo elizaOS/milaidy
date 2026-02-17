@@ -1,5 +1,5 @@
 import { logger } from "@elizaos/core";
-import { theme } from "../terminal/theme.js";
+import { theme } from "../terminal/theme";
 
 const TRUTHY_VALUES = new Set(["true", "1", "yes", "on"]);
 

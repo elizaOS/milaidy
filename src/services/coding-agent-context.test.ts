@@ -30,7 +30,7 @@ import {
   validateCodingIteration,
   validateConnectorConfig,
   validateHumanFeedback,
-} from "./coding-agent-context.js";
+} from "./coding-agent-context";
 
 // ---------------------------------------------------------------------------
 // helpers

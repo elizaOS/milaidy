@@ -11,7 +11,7 @@ import {
   type ComponentMeta,
   generateCatalogPrompt,
   getComponentNames,
-} from "./ui-catalog-prompt.js";
+} from "./ui-catalog-prompt";
 
 // ============================================================================
 // COMPONENT_CATALOG

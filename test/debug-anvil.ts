@@ -3,8 +3,8 @@
  */
 
 import { ethers } from "ethers";
-import { startAnvil } from "./anvil-helper.js";
-import { deployContracts } from "./contract-deployer.js";
+import { startAnvil } from "./anvil-helper";
+import { deployContracts } from "./contract-deployer";
 
 async function main() {
   console.log("Starting Anvil...");

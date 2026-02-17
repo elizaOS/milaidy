@@ -1,7 +1,7 @@
-# Milaidy Project Scope
+# Milady Project Scope
 
 ## Project Mission
-Milaidy is a personal AI assistant built on ElizaOS. It runs locally, respects privacy, and connects to messaging platforms. The goal is agent capability, not human aesthetics.
+Milady is a personal AI assistant built on ElizaOS. It runs locally, respects privacy, and connects to messaging platforms. The goal is agent capability, not human aesthetics.
 
 ## In Scope (always welcome)
 - Bug fixes (especially connector issues, crashes, regressions)

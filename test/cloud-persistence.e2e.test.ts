@@ -11,12 +11,12 @@
  * Pure-function tests — no live server needed.
  */
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { MilaidyConfig } from "../src/config/config.js";
+import type { MiladyConfig } from "../src/config/config";
 import {
   applyCloudConfigToEnv,
   buildCharacterFromConfig,
   collectPluginNames,
-} from "../src/runtime/eliza.js";
+} from "../src/runtime/eliza";
 
 // ---------------------------------------------------------------------------
 // Env snapshot helper
@@ -65,7 +65,7 @@ describe("applyCloudConfigToEnv — cloud credential persistence", () => {
   it("sets ELIZAOS_CLOUD_API_KEY from config", () => {
     const config = {
       cloud: { enabled: true, apiKey: "ck-test-123" },
-    } as MilaidyConfig;
+    } as MiladyConfig;
     applyCloudConfigToEnv(config);
     expect(process.env.ELIZAOS_CLOUD_API_KEY).toBe("ck-test-123");
     expect(process.env.ELIZAOS_CLOUD_ENABLED).toBe("true");
@@ -75,7 +75,7 @@ describe("applyCloudConfigToEnv — cloud credential persistence", () => {
     process.env.ELIZAOS_CLOUD_API_KEY = "stale-key-from-previous-startup";
     const config = {
       cloud: { enabled: true, apiKey: "fresh-key-after-login" },
-    } as MilaidyConfig;
+    } as MiladyConfig;
     applyCloudConfigToEnv(config);
     expect(process.env.ELIZAOS_CLOUD_API_KEY).toBe("fresh-key-after-login");
   });
@@ -83,7 +83,7 @@ describe("applyCloudConfigToEnv — cloud credential persistence", () => {
   it("sets default model names when cloud is enabled", () => {
     const config = {
       cloud: { enabled: true, apiKey: "ck-test" },
-    } as MilaidyConfig;
+    } as MiladyConfig;
     applyCloudConfigToEnv(config);
     expect(process.env.SMALL_MODEL).toBe("openai/gpt-5-mini");
     expect(process.env.LARGE_MODEL).toBe("anthropic/claude-sonnet-4.5");
@@ -93,26 +93,25 @@ describe("applyCloudConfigToEnv — cloud credential persistence", () => {
     const config = {
       cloud: { enabled: true, apiKey: "ck-test" },
       models: { small: "google/gemini-2.5-flash", large: "openai/gpt-5" },
-    } as MilaidyConfig;
+    } as MiladyConfig;
     applyCloudConfigToEnv(config);
     expect(process.env.SMALL_MODEL).toBe("google/gemini-2.5-flash");
     expect(process.env.LARGE_MODEL).toBe("openai/gpt-5");
   });
 
   it("does nothing when cloud config is absent", () => {
-    applyCloudConfigToEnv({} as MilaidyConfig);
+    applyCloudConfigToEnv({} as MiladyConfig);
     expect(process.env.ELIZAOS_CLOUD_API_KEY).toBeUndefined();
     expect(process.env.ELIZAOS_CLOUD_ENABLED).toBeUndefined();
   });
 
-  it("treats cloud as enabled when apiKey exists even if enabled=false", () => {
+  it("keeps cloud disabled when enabled flag is explicitly false", () => {
     const config = {
       cloud: { enabled: false, apiKey: "ck-test" },
-    } as MilaidyConfig;
+    } as MiladyConfig;
     applyCloudConfigToEnv(config);
-    // Having an API key means the user logged in — treat as enabled
     expect(process.env.ELIZAOS_CLOUD_API_KEY).toBe("ck-test");
-    expect(process.env.ELIZAOS_CLOUD_ENABLED).toBe("true");
+    expect(process.env.ELIZAOS_CLOUD_ENABLED).toBeUndefined();
   });
 });
 
@@ -129,20 +128,20 @@ describe("collectPluginNames — cloud plugin inclusion", () => {
   afterEach(() => snap.restore());
 
   it("includes cloud plugin when config.cloud.enabled is true", () => {
-    const config = { cloud: { enabled: true } } as MilaidyConfig;
+    const config = { cloud: { enabled: true } } as MiladyConfig;
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-elizacloud")).toBe(true);
   });
 
   it("includes cloud plugin when ELIZAOS_CLOUD_API_KEY env var is set", () => {
     process.env.ELIZAOS_CLOUD_API_KEY = "ck-test";
-    const names = collectPluginNames({} as MilaidyConfig);
+    const names = collectPluginNames({} as MiladyConfig);
     expect(names.has("@elizaos/plugin-elizacloud")).toBe(true);
   });
 
-  it("does NOT include cloud plugin when neither config nor env is set", () => {
-    const names = collectPluginNames({} as MilaidyConfig);
-    expect(names.has("@elizaos/plugin-elizacloud")).toBe(false);
+  it("includes cloud plugin as a core dependency even without cloud config", () => {
+    const names = collectPluginNames({} as MiladyConfig);
+    expect(names.has("@elizaos/plugin-elizacloud")).toBe(true);
   });
 });
 
@@ -160,7 +159,7 @@ describe("buildCharacterFromConfig — cloud secret propagation", () => {
 
   it("includes ELIZAOS_CLOUD_API_KEY in character.secrets", () => {
     process.env.ELIZAOS_CLOUD_API_KEY = "ck-secret-test";
-    const char = buildCharacterFromConfig({} as MilaidyConfig);
+    const char = buildCharacterFromConfig({} as MiladyConfig);
     expect(char.secrets).toBeDefined();
     expect((char.secrets as Record<string, string>).ELIZAOS_CLOUD_API_KEY).toBe(
       "ck-secret-test",
@@ -168,7 +167,7 @@ describe("buildCharacterFromConfig — cloud secret propagation", () => {
   });
 
   it("does NOT include empty/missing keys in secrets", () => {
-    const char = buildCharacterFromConfig({} as MilaidyConfig);
+    const char = buildCharacterFromConfig({} as MiladyConfig);
     expect(
       (char.secrets as Record<string, string> | undefined)
         ?.ELIZAOS_CLOUD_API_KEY,
@@ -191,9 +190,9 @@ describe("Cloud login persistence — simulated end-to-end", () => {
 
   it("full chain: config → env → character secrets → plugin detection", () => {
     // Step 1: Simulate cloud login saving to config
-    const config: MilaidyConfig = {
+    const config: MiladyConfig = {
       cloud: { enabled: true, apiKey: "ck-e2e-test-key" },
-    } as MilaidyConfig;
+    } as MiladyConfig;
 
     // Step 2: Apply config to env (as startEliza / hot-reload does)
     applyCloudConfigToEnv(config);
@@ -217,9 +216,9 @@ describe("Cloud login persistence — simulated end-to-end", () => {
     process.env.ELIZAOS_CLOUD_ENABLED = "";
 
     // Simulate user enabling cloud during session → config saved
-    const freshConfig: MilaidyConfig = {
+    const freshConfig: MiladyConfig = {
       cloud: { enabled: true, apiKey: "ck-fresh-key" },
-    } as MilaidyConfig;
+    } as MiladyConfig;
 
     // Hot-reload applies fresh config
     applyCloudConfigToEnv(freshConfig);
@@ -234,9 +233,9 @@ describe("Cloud login persistence — simulated end-to-end", () => {
   });
 
   it("model defaults are set when cloud is enabled without explicit model config", () => {
-    const config: MilaidyConfig = {
+    const config: MiladyConfig = {
       cloud: { enabled: true, apiKey: "ck-test" },
-    } as MilaidyConfig;
+    } as MiladyConfig;
 
     applyCloudConfigToEnv(config);
 
@@ -251,7 +250,7 @@ describe("Cloud login persistence — simulated end-to-end", () => {
         small: "anthropic/claude-sonnet-4",
         large: "anthropic/claude-opus-4.5",
       },
-    } as MilaidyConfig;
+    } as MiladyConfig;
 
     applyCloudConfigToEnv(config);
 

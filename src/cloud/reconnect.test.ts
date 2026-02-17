@@ -12,8 +12,8 @@
 
 import { describe, expect, it, vi } from "vitest";
 
-import type { ElizaCloudClient } from "./bridge-client.js";
-import { ConnectionMonitor } from "./reconnect.js";
+import type { ElizaCloudClient } from "./bridge-client";
+import { ConnectionMonitor } from "./reconnect";
 
 type MockCloudClient = ElizaCloudClient & {
   heartbeat: ReturnType<typeof vi.fn>;

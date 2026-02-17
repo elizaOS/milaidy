@@ -1,9 +1,9 @@
 import path from "node:path";
 
-const CLI_NAME = "milaidy";
+const CLI_NAME = "milady";
 
-/** Matches a milaidy command with optional package-runner prefix (pnpm, bun, npm, bunx, npx). */
-export const CLI_PREFIX_RE = /^(?:((?:pnpm|bun|npm|bunx|npx)\s+))?(milaidy)\b/;
+/** Matches a milady command with optional package-runner prefix (pnpm, bun, npm, bunx, npx). */
+export const CLI_PREFIX_RE = /^(?:((?:pnpm|bun|npm|bunx|npx)\s+))?(milady)\b/;
 
 export function resolveCliName(argv: string[] = process.argv): string {
   const argv1 = argv[1];

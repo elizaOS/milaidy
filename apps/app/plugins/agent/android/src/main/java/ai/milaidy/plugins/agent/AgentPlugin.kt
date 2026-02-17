@@ -1,4 +1,4 @@
-package ai.milaidy.plugins.agent
+package ai.milady.plugins.agent
 
 import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
@@ -6,7 +6,7 @@ import com.getcapacitor.PluginMethod
 import com.getcapacitor.annotation.CapacitorPlugin
 
 /**
- * Milaidy Agent Plugin — Android stub.
+ * Milady Agent Plugin — Android stub.
  *
  * On Android the agent runs on a server and the web implementation
  * handles all communication via HTTP. This native shell is required

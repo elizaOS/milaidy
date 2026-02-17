@@ -3,33 +3,33 @@ set -euo pipefail
 
 cd /repo
 
-export MILAIDY_STATE_DIR="/tmp/milaidy-test"
-export MILAIDY_CONFIG_PATH="${MILAIDY_STATE_DIR}/milaidy.json"
+export MILADY_STATE_DIR="/tmp/milady-test"
+export MILADY_CONFIG_PATH="${MILADY_STATE_DIR}/milady.json"
 
 echo "==> Build"
 bun run build
 
 echo "==> Seed state"
-mkdir -p "${MILAIDY_STATE_DIR}/credentials"
-mkdir -p "${MILAIDY_STATE_DIR}/agents/main/sessions"
-echo '{}' >"${MILAIDY_CONFIG_PATH}"
-echo 'creds' >"${MILAIDY_STATE_DIR}/credentials/marker.txt"
-echo 'session' >"${MILAIDY_STATE_DIR}/agents/main/sessions/sessions.json"
+mkdir -p "${MILADY_STATE_DIR}/credentials"
+mkdir -p "${MILADY_STATE_DIR}/agents/main/sessions"
+echo '{}' >"${MILADY_CONFIG_PATH}"
+echo 'creds' >"${MILADY_STATE_DIR}/credentials/marker.txt"
+echo 'session' >"${MILADY_STATE_DIR}/agents/main/sessions/sessions.json"
 
 echo "==> Reset (config+creds+sessions)"
-bun run milaidy reset --scope config+creds+sessions --yes --non-interactive
+bun run milady reset --scope config+creds+sessions --yes --non-interactive
 
-test ! -f "${MILAIDY_CONFIG_PATH}"
-test ! -d "${MILAIDY_STATE_DIR}/credentials"
-test ! -d "${MILAIDY_STATE_DIR}/agents/main/sessions"
+test ! -f "${MILADY_CONFIG_PATH}"
+test ! -d "${MILADY_STATE_DIR}/credentials"
+test ! -d "${MILADY_STATE_DIR}/agents/main/sessions"
 
 echo "==> Recreate minimal config"
-mkdir -p "${MILAIDY_STATE_DIR}/credentials"
-echo '{}' >"${MILAIDY_CONFIG_PATH}"
+mkdir -p "${MILADY_STATE_DIR}/credentials"
+echo '{}' >"${MILADY_CONFIG_PATH}"
 
 echo "==> Uninstall (state only)"
-bun run milaidy uninstall --state --yes --non-interactive
+bun run milady uninstall --state --yes --non-interactive
 
-test ! -d "${MILAIDY_STATE_DIR}"
+test ! -d "${MILADY_STATE_DIR}"
 
 echo "OK"

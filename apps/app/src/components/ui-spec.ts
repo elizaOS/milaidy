@@ -222,7 +222,13 @@ export interface UiRenderContext {
   /** Whether the renderer is in a loading/streaming state. */
   loading?: boolean;
   /** Custom validator functions. */
-  validators?: Record<string, (value: unknown, args?: Record<string, unknown>) => boolean | Promise<boolean>>;
+  validators?: Record<
+    string,
+    (
+      value: unknown,
+      args?: Record<string, unknown>,
+    ) => boolean | Promise<boolean>
+  >;
   /** Field validation errors keyed by statePath. */
   fieldErrors?: Record<string, string[]>;
   /** Trigger validation for a field. */

@@ -1,6 +1,6 @@
 import os from "node:os";
 import path from "node:path";
-import { isValidProfileName } from "./profile-utils.js";
+import { isValidProfileName } from "./profile-utils";
 
 export type CliProfileParseResult =
   | { ok: true; profile: string | null; argv: string[] }
@@ -92,7 +92,7 @@ function resolveProfileStateDir(
   homedir: () => string,
 ): string {
   const suffix = profile.toLowerCase() === "default" ? "" : `-${profile}`;
-  return path.join(homedir(), `.milaidy${suffix}`);
+  return path.join(homedir(), `.milady${suffix}`);
 }
 
 export function applyCliProfileEnv(params: {
@@ -108,19 +108,19 @@ export function applyCliProfileEnv(params: {
   }
 
   // Convenience only: fill defaults, never override explicit env values.
-  env.MILAIDY_PROFILE = profile;
+  env.MILADY_PROFILE = profile;
 
   const stateDir =
-    env.MILAIDY_STATE_DIR?.trim() || resolveProfileStateDir(profile, homedir);
-  if (!env.MILAIDY_STATE_DIR?.trim()) {
-    env.MILAIDY_STATE_DIR = stateDir;
+    env.MILADY_STATE_DIR?.trim() || resolveProfileStateDir(profile, homedir);
+  if (!env.MILADY_STATE_DIR?.trim()) {
+    env.MILADY_STATE_DIR = stateDir;
   }
 
-  if (!env.MILAIDY_CONFIG_PATH?.trim()) {
-    env.MILAIDY_CONFIG_PATH = path.join(stateDir, "milaidy.json");
+  if (!env.MILADY_CONFIG_PATH?.trim()) {
+    env.MILADY_CONFIG_PATH = path.join(stateDir, "milady.json");
   }
 
-  if (profile === "dev" && !env.MILAIDY_GATEWAY_PORT?.trim()) {
-    env.MILAIDY_GATEWAY_PORT = "19001";
+  if (profile === "dev" && !env.MILADY_GATEWAY_PORT?.trim()) {
+    env.MILADY_GATEWAY_PORT = "19001";
   }
 }

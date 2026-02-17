@@ -22,7 +22,7 @@ public class TalkModePlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "requestPermissions", returnType: CAPPluginReturnPromise),
     ]
 
-    private static let defaultModelId = "eleven_v3"
+    private static let defaultModelId = "eleven_flash_v2_5"
 
     // MARK: - State
 

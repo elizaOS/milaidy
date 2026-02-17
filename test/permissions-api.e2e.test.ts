@@ -14,7 +14,20 @@
  */
 import http from "node:http";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { startApiServer } from "../src/api/server.js";
+import { startApiServer } from "../src/api/server";
+
+function saveEnv(...keys: string[]): { restore: () => void } {
+  const prev = new Map<string, string | undefined>();
+  for (const key of keys) prev.set(key, process.env[key]);
+  return {
+    restore: () => {
+      for (const [key, value] of prev) {
+        if (value === undefined) delete process.env[key];
+        else process.env[key] = value;
+      }
+    },
+  };
+}
 
 // ---------------------------------------------------------------------------
 // HTTP helper
@@ -441,5 +454,67 @@ describe("Permissions API E2E", () => {
       );
       expect([400, 404]).toContain(status);
     });
+  });
+});
+
+describe("Permissions API auth access", () => {
+  const TEST_TOKEN = "permissions-auth-token";
+  let port: number;
+  let close: () => Promise<void>;
+  let envBackup: { restore: () => void };
+
+  beforeAll(async () => {
+    envBackup = saveEnv("MILADY_API_TOKEN");
+    process.env.MILADY_API_TOKEN = TEST_TOKEN;
+    const result = await startApiServer({ port: 0 });
+    port = result.port;
+    close = result.close;
+  });
+
+  afterAll(async () => {
+    await close();
+    envBackup.restore();
+  });
+
+  it("blocks unauthenticated access to permissions endpoints", async () => {
+    const { status: s1 } = await req(port, "GET", "/api/permissions");
+    const { status: s2 } = await req(port, "POST", "/api/permissions/refresh");
+    const { status: s3 } = await req(
+      port,
+      "POST",
+      "/api/permissions/microphone/request",
+    );
+    expect(s1).toBe(401);
+    expect(s2).toBe(401);
+    expect(s3).toBe(401);
+  });
+
+  it("allows authenticated access to permissions endpoints", async () => {
+    const auth = { headers: { Authorization: `Bearer ${TEST_TOKEN}` } };
+    const { status: s1 } = await req(
+      port,
+      "GET",
+      "/api/permissions",
+      undefined,
+      auth,
+    );
+    const { status: s2 } = await req(
+      port,
+      "POST",
+      "/api/permissions/refresh",
+      undefined,
+      auth,
+    );
+    const { status: s3, data } = await req(
+      port,
+      "POST",
+      "/api/permissions/microphone/request",
+      undefined,
+      auth,
+    );
+    expect(s1).toBe(200);
+    expect(s2).toBe(200);
+    expect(s3).toBe(200);
+    expect(data).toHaveProperty("action", "ipc:permissions:request:microphone");
   });
 });

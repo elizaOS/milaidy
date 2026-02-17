@@ -12,13 +12,13 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import type { MilaidyConfig } from "../config/config.js";
-import { tryOptionalDynamicImport } from "../test-support/test-helpers.js";
+import type { MiladyConfig } from "../config/config";
+import { tryOptionalDynamicImport } from "../test-support/test-helpers";
 import {
   CORE_PLUGINS,
   collectPluginNames,
   ensureBrowserServerLink,
-} from "./eliza.js";
+} from "./eliza";
 
 async function loadBrowserPluginModule(): Promise<Record<
   string,
@@ -69,7 +69,7 @@ describe("Browser plugin classification", () => {
   it("@elizaos/plugin-browser is added via features.browser config", () => {
     const config = {
       features: { browser: true },
-    } as unknown as MilaidyConfig;
+    } as unknown as MiladyConfig;
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-browser")).toBe(true);
   });
@@ -81,20 +81,20 @@ describe("Browser plugin classification", () => {
           browser: { enabled: true },
         },
       },
-    } as unknown as MilaidyConfig;
+    } as unknown as MiladyConfig;
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-browser")).toBe(true);
   });
 
   it("@elizaos/plugin-browser is NOT loaded with empty config", () => {
-    const names = collectPluginNames({} as MilaidyConfig);
+    const names = collectPluginNames({} as MiladyConfig);
     expect(names.has("@elizaos/plugin-browser")).toBe(false);
   });
 
   it("@elizaos/plugin-browser is NOT loaded when features.browser is false", () => {
     const config = {
       features: { browser: { enabled: false } },
-    } as unknown as MilaidyConfig;
+    } as unknown as MiladyConfig;
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-browser")).toBe(false);
   });

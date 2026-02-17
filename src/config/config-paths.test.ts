@@ -4,7 +4,7 @@ import {
   parseConfigPath,
   setConfigValueAtPath,
   unsetConfigValueAtPath,
-} from "./config-paths.js";
+} from "./config-paths";
 
 describe("config paths", () => {
   it("rejects empty and blocked paths", () => {

@@ -74,7 +74,7 @@ export interface GatewayConnectOptions {
   token?: string;
   /** Optional password for password-based auth */
   password?: string;
-  /** Client name identifier (defaults to 'milaidy-capacitor') */
+  /** Client name identifier (defaults to 'milady-capacitor') */
   clientName?: string;
   /** Client version string */
   clientVersion?: string;
@@ -179,7 +179,7 @@ export interface GatewayErrorEvent {
 /**
  * Gateway Plugin Interface
  *
- * Provides WebSocket connectivity to an Milaidy Gateway server.
+ * Provides WebSocket connectivity to an Milady Gateway server.
  * Handles authentication, reconnection, and RPC-style request/response
  * as well as event streaming. Also supports gateway discovery via
  * Bonjour/mDNS and wide-area DNS-SD.
@@ -194,7 +194,9 @@ export interface GatewayPlugin {
    * @param options - Discovery options
    * @returns Promise resolving to initial discovery result
    */
-  startDiscovery(options?: GatewayDiscoveryOptions): Promise<GatewayDiscoveryResult>;
+  startDiscovery(
+    options?: GatewayDiscoveryOptions,
+  ): Promise<GatewayDiscoveryResult>;
 
   /**
    * Stop gateway discovery
@@ -261,7 +263,7 @@ export interface GatewayPlugin {
    */
   addListener(
     eventName: "gatewayEvent",
-    listenerFunc: (event: GatewayEvent) => void
+    listenerFunc: (event: GatewayEvent) => void,
   ): Promise<PluginListenerHandle>;
 
   /**
@@ -273,7 +275,7 @@ export interface GatewayPlugin {
    */
   addListener(
     eventName: "stateChange",
-    listenerFunc: (event: GatewayStateEvent) => void
+    listenerFunc: (event: GatewayStateEvent) => void,
   ): Promise<PluginListenerHandle>;
 
   /**
@@ -285,7 +287,7 @@ export interface GatewayPlugin {
    */
   addListener(
     eventName: "error",
-    listenerFunc: (event: GatewayErrorEvent) => void
+    listenerFunc: (event: GatewayErrorEvent) => void,
   ): Promise<PluginListenerHandle>;
 
   /**
@@ -297,7 +299,7 @@ export interface GatewayPlugin {
    */
   addListener(
     eventName: "discovery",
-    listenerFunc: (event: GatewayDiscoveryEvent) => void
+    listenerFunc: (event: GatewayDiscoveryEvent) => void,
   ): Promise<PluginListenerHandle>;
 
   /**

@@ -1,1 +1,1 @@
-/Users/shawwalters/eliza-ok/packages/milaidy/apps/app/plugins/location/android/src/main/java/ai/milaidy/plugins/location/LocationPlugin.kt
+/Users/shawwalters/eliza-ok/packages/milady/apps/app/plugins/location/android/src/main/java/ai/milady/plugins/location/LocationPlugin.kt

@@ -1,6 +1,6 @@
 import type { AgentRuntime, UUID } from "@elizaos/core";
 import { describe, expect, it, vi } from "vitest";
-import { persistConversationRoomTitle } from "./server.js";
+import { persistConversationRoomTitle } from "./server";
 
 const conversation = {
   id: "conv-1",

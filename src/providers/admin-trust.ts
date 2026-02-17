@@ -15,9 +15,11 @@ function normalizeRole(role: string | undefined): string {
   return (role ?? "").toUpperCase();
 }
 
+export const adminTrustProvider: Provider = createAdminTrustProvider();
+
 export function createAdminTrustProvider(): Provider {
   return {
-    name: "milaidyAdminTrust",
+    name: "miladyAdminTrust",
     description:
       "Marks owner/admin chat identity as trusted for contact assertions (rolodex-oriented).",
     dynamic: true,

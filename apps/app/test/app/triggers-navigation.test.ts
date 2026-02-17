@@ -1,5 +1,10 @@
 import { describe, expect, test } from "vitest";
-import { TAB_GROUPS, pathForTab, tabFromPath, titleForTab } from "../../src/navigation";
+import {
+  pathForTab,
+  TAB_GROUPS,
+  tabFromPath,
+  titleForTab,
+} from "../../src/navigation";
 
 describe("navigation", () => {
   test("resolves path and title for advanced tabs and triggers", () => {

@@ -22,7 +22,7 @@ Core integration points (read-only dependence):
 ## Current control flow (baseline)
 
 1. Runtime emits events internally.
-2. Milaidy API websocket sends only status heartbeat messages.
+2. Milady API websocket sends only status heartbeat messages.
 3. Frontend consumes only `status`.
 
 Therefore: no structured event observability exists in UI.

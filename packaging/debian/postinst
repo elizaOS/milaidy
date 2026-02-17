@@ -4,10 +4,10 @@ set -e
 case "$1" in
     configure)
         echo ""
-        echo "  Milaidy installed! Get started:"
-        echo "    milaidy start       — Start the agent runtime"
-        echo "    milaidy setup       — Initialize workspace"
-        echo "    milaidy --help      — Show all commands"
+        echo "  Milady installed! Get started:"
+        echo "    milady start       — Start the agent runtime"
+        echo "    milady setup       — Initialize workspace"
+        echo "    milady --help      — Show all commands"
         echo ""
         ;;
 esac

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isSafeExecutableValue } from "./exec-safety.js";
+import { isSafeExecutableValue } from "./exec-safety";
 
 describe("isSafeExecutableValue", () => {
   describe("rejects null, undefined, empty, and whitespace-only", () => {

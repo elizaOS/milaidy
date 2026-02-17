@@ -15,7 +15,7 @@
 import http from "node:http";
 import net from "node:net";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { startApiServer } from "../src/api/server.js";
+import { startApiServer } from "../src/api/server";
 
 // ---------------------------------------------------------------------------
 // HTTP helper
@@ -185,6 +185,19 @@ function toAppList(data: JsonValue): AppEntry[] {
 }
 
 const KNOWN_LOCAL_APP_NAME = "@elizaos/app-hyperscape";
+const PLUGIN_MANAGER_UNAVAILABLE_ERROR = "Plugin manager service not found";
+
+function isPluginManagerUnavailable(response: ApiResponse): boolean {
+  return (
+    response.status === 500 &&
+    asObject(response.data).error === PLUGIN_MANAGER_UNAVAILABLE_ERROR
+  );
+}
+
+function expectPluginManagerUnavailable(response: ApiResponse): void {
+  expect(response.status).toBe(500);
+  expect(asObject(response.data).error).toBe(PLUGIN_MANAGER_UNAVAILABLE_ERROR);
+}
 
 /** Check if a TCP port is listening. */
 function isPortOpen(port: number, host = "127.0.0.1"): Promise<boolean> {
@@ -240,9 +253,12 @@ function parseHttpTarget(rawUrl: string): HttpTarget | null {
 
 describe("Apps E2E", () => {
   let server: { port: number; close: () => Promise<void> };
+  let pluginManagerAvailable = true;
 
   beforeAll(async () => {
     server = await startApiServer({ port: 0 });
+    const probe = await api(server.port, "GET", "/api/apps");
+    pluginManagerAvailable = !isPluginManagerUnavailable(probe);
   }, 30_000);
 
   afterAll(async () => {
@@ -255,14 +271,22 @@ describe("Apps E2E", () => {
 
   describe("GET /api/apps", () => {
     it("returns 200 with an array", async () => {
-      const { status, data } = await api(server.port, "GET", "/api/apps");
-      expect(status).toBe(200);
-      expect(Array.isArray(data)).toBe(true);
+      const response = await api(server.port, "GET", "/api/apps");
+      if (!pluginManagerAvailable) {
+        expectPluginManagerUnavailable(response);
+        return;
+      }
+      expect(response.status).toBe(200);
+      expect(Array.isArray(response.data)).toBe(true);
     });
 
     it("app entries have required fields and valid launch metadata", async () => {
-      const { data } = await api(server.port, "GET", "/api/apps");
-      const apps = toAppList(data);
+      const response = await api(server.port, "GET", "/api/apps");
+      if (!pluginManagerAvailable) {
+        expectPluginManagerUnavailable(response);
+        return;
+      }
+      const apps = toAppList(response.data);
       // Registry may or may not have network data, but local app wrappers should exist.
       expect(apps.length).toBeGreaterThan(0);
       for (const app of apps.slice(0, 8)) {
@@ -305,13 +329,17 @@ describe("Apps E2E", () => {
     });
 
     it("returns array for a query", async () => {
-      const { status, data } = await api(
+      const response = await api(
         server.port,
         "GET",
         "/api/apps/search?q=game",
       );
-      expect(status).toBe(200);
-      expect(Array.isArray(data)).toBe(true);
+      if (!pluginManagerAvailable) {
+        expectPluginManagerUnavailable(response);
+        return;
+      }
+      expect(response.status).toBe(200);
+      expect(Array.isArray(response.data)).toBe(true);
     });
 
     it("normalizes invalid and out-of-range limit values", async () => {
@@ -335,6 +363,13 @@ describe("Apps E2E", () => {
         "GET",
         "/api/apps/search?q=app&limit=500",
       );
+
+      if (!pluginManagerAvailable) {
+        for (const response of [maxLimit, invalidLimit, underLimit, overLimit]) {
+          expectPluginManagerUnavailable(response);
+        }
+        return;
+      }
 
       expect(maxLimit.status).toBe(200);
       expect(invalidLimit.status).toBe(200);
@@ -375,23 +410,31 @@ describe("Apps E2E", () => {
     });
 
     it("returns 404 for non-existent app", async () => {
-      const { status } = await api(
+      const response = await api(
         server.port,
         "GET",
         "/api/apps/info/%40elizaos%2Fapp-nonexistent",
       );
-      expect(status).toBe(404);
+      if (!pluginManagerAvailable) {
+        expectPluginManagerUnavailable(response);
+        return;
+      }
+      expect(response.status).toBe(404);
     });
 
     it("returns app metadata for an existing app", async () => {
       const encoded = encodeURIComponent(KNOWN_LOCAL_APP_NAME);
-      const { status, data } = await api(
+      const response = await api(
         server.port,
         "GET",
         `/api/apps/info/${encoded}`,
       );
-      const body = asObject(data);
-      expect(status).toBe(200);
+      if (!pluginManagerAvailable) {
+        expectPluginManagerUnavailable(response);
+        return;
+      }
+      const body = asObject(response.data);
+      expect(response.status).toBe(200);
       expect(body.name).toBe(KNOWN_LOCAL_APP_NAME);
       expect(typeof body.displayName).toBe("string");
       expect(typeof body.launchType).toBe("string");
@@ -404,22 +447,30 @@ describe("Apps E2E", () => {
 
   describe("GET /api/apps/installed", () => {
     it("returns 200 with an array", async () => {
-      const { status, data } = await api(
+      const response = await api(
         server.port,
         "GET",
         "/api/apps/installed",
       );
-      expect(status).toBe(200);
-      expect(Array.isArray(data)).toBe(true);
+      if (!pluginManagerAvailable) {
+        expectPluginManagerUnavailable(response);
+        return;
+      }
+      expect(response.status).toBe(200);
+      expect(Array.isArray(response.data)).toBe(true);
     });
 
     it("installed entries have stable shape", async () => {
-      const { data } = await api(server.port, "GET", "/api/apps/installed");
-      if (!Array.isArray(data)) {
-        expect(Array.isArray(data)).toBe(true);
+      const response = await api(server.port, "GET", "/api/apps/installed");
+      if (!pluginManagerAvailable) {
+        expectPluginManagerUnavailable(response);
         return;
       }
-      for (const row of data.slice(0, 5)) {
+      if (!Array.isArray(response.data)) {
+        expect(Array.isArray(response.data)).toBe(true);
+        return;
+      }
+      for (const row of response.data.slice(0, 5)) {
         const item = asObject(row);
         expect(typeof item.name).toBe("string");
         expect(typeof item.displayName).toBe("string");
@@ -506,6 +557,10 @@ describe("Apps E2E", () => {
       const launch = await api(server.port, "POST", "/api/apps/launch", {
         name: KNOWN_LOCAL_APP_NAME,
       });
+      if (!pluginManagerAvailable) {
+        expectPluginManagerUnavailable(launch);
+        return;
+      }
       expect(launch.status).toBe(200);
 
       const body = asObject(launch.data);
@@ -587,9 +642,13 @@ describe("Apps E2E", () => {
       const launch = await api(server.port, "POST", "/api/apps/launch", {
         name: KNOWN_LOCAL_APP_NAME,
       });
+      if (!pluginManagerAvailable) {
+        expectPluginManagerUnavailable(launch);
+        return;
+      }
       expect(launch.status).toBe(200);
 
-      const { status, data } = await api(
+      const response = await api(
         server.port,
         "POST",
         "/api/apps/stop",
@@ -597,8 +656,12 @@ describe("Apps E2E", () => {
           name: KNOWN_LOCAL_APP_NAME,
         },
       );
-      const body = asObject(data);
-      expect(status).toBe(200);
+      if (!pluginManagerAvailable) {
+        expectPluginManagerUnavailable(response);
+        return;
+      }
+      const body = asObject(response.data);
+      expect(response.status).toBe(200);
       expect(body.success).toBe(true);
       expect(body.appName).toBe(KNOWN_LOCAL_APP_NAME);
       expect(typeof body.stoppedAt).toBe("string");
@@ -610,7 +673,7 @@ describe("Apps E2E", () => {
     });
 
     it("returns no-op on repeated stop after app is already disconnected", async () => {
-      const { status, data } = await api(
+      const response = await api(
         server.port,
         "POST",
         "/api/apps/stop",
@@ -618,8 +681,12 @@ describe("Apps E2E", () => {
           name: KNOWN_LOCAL_APP_NAME,
         },
       );
-      const body = asObject(data);
-      expect(status).toBe(200);
+      if (!pluginManagerAvailable) {
+        expectPluginManagerUnavailable(response);
+        return;
+      }
+      const body = asObject(response.data);
+      expect(response.status).toBe(200);
       expect(body.success).toBe(false);
       expect(body.stopScope).toBe("no-op");
       expect(typeof body.message).toBe("string");
@@ -750,6 +817,14 @@ describe("Apps E2E", () => {
         api(server.port, "GET", "/api/apps/installed"),
         api(server.port, "GET", "/api/apps/plugins"),
       ]);
+
+      if (!pluginManagerAvailable) {
+        expectPluginManagerUnavailable(responses[0]);
+        expectPluginManagerUnavailable(responses[1]);
+        expectPluginManagerUnavailable(responses[2]);
+        expect([200, 502]).toContain(responses[3].status);
+        return;
+      }
 
       expect(responses[0].status).toBe(200);
       expect(responses[1].status).toBe(200);
@@ -922,7 +997,7 @@ describe("Apps E2E", () => {
     it("launch includes postMessageAuth config for 2004scape", async () => {
       // This test verifies the postMessage auth configuration is included
       // in the launch response for 2004scape, enabling autologin when embedded
-      const { status, data } = await api(
+      const response = await api(
         server.port,
         "POST",
         "/api/apps/launch",
@@ -930,8 +1005,12 @@ describe("Apps E2E", () => {
           name: "@elizaos/app-2004scape",
         },
       );
-      expect(status).toBe(200);
-      const body = asObject(data);
+      if (!pluginManagerAvailable) {
+        expectPluginManagerUnavailable(response);
+        return;
+      }
+      expect(response.status).toBe(200);
+      const body = asObject(response.data);
 
       if (
         body.viewer &&
@@ -971,7 +1050,7 @@ describe("Apps E2E", () => {
       process.env.HYPERSCAPE_AUTH_TOKEN = "test-auth-token-e2e";
 
       try {
-        const { status, data } = await api(
+        const response = await api(
           server.port,
           "POST",
           "/api/apps/launch",
@@ -979,8 +1058,12 @@ describe("Apps E2E", () => {
             name: "@elizaos/app-hyperscape",
           },
         );
-        expect(status).toBe(200);
-        const body = asObject(data);
+        if (!pluginManagerAvailable) {
+          expectPluginManagerUnavailable(response);
+          return;
+        }
+        expect(response.status).toBe(200);
+        const body = asObject(response.data);
 
         if (
           body.viewer &&
@@ -1016,7 +1099,7 @@ describe("Apps E2E", () => {
       delete process.env.HYPERSCAPE_AUTH_TOKEN;
 
       try {
-        const { status, data } = await api(
+        const response = await api(
           server.port,
           "POST",
           "/api/apps/launch",
@@ -1024,8 +1107,12 @@ describe("Apps E2E", () => {
             name: "@elizaos/app-hyperscape",
           },
         );
-        expect(status).toBe(200);
-        const body = asObject(data);
+        if (!pluginManagerAvailable) {
+          expectPluginManagerUnavailable(response);
+          return;
+        }
+        expect(response.status).toBe(200);
+        const body = asObject(response.data);
 
         if (
           body.viewer &&

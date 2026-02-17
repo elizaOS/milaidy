@@ -1,8 +1,8 @@
 import { Command } from "commander";
-import { CLI_VERSION } from "../version.js";
-import { registerProgramCommands } from "./command-registry.js";
-import { configureProgramHelp } from "./help.js";
-import { registerPreActionHooks } from "./preaction.js";
+import { CLI_VERSION } from "../version";
+import { registerProgramCommands } from "./command-registry";
+import { configureProgramHelp } from "./help";
+import { registerPreActionHooks } from "./preaction";
 
 export function buildProgram() {
   const program = new Command();

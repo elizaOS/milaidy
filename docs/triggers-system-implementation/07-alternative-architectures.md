@@ -12,7 +12,7 @@ Each option is scored against:
 
 1. implementation complexity
 2. correctness risk
-3. Milaidy integration effort
+3. Milady integration effort
 4. observability quality
 5. migration complexity
 6. long-term maintainability
@@ -200,7 +200,7 @@ The external reference systems suggest concrete patterns:
 ## Cons
 
 - highest conceptual and implementation complexity
-- may overfit current Milaidy needs
+- may overfit current Milady needs
 - difficult to ship safely in one cycle
 
 ## Best fit
@@ -211,7 +211,7 @@ The external reference systems suggest concrete patterns:
 
 ## 7) Comparative Scoring Matrix
 
-| Option | Complexity | Correctness Risk | Milaidy Integration | Observability | Migration Cost | Maintainability | Total |
+| Option | Complexity | Correctness Risk | Milady Integration | Observability | Migration Cost | Maintainability | Total |
 |---|---:|---:|---:|---:|---:|---:|---:|
 | A: minimal metadata adaptation | 4 | 3 | 5 | 3 | 5 | 4 | 24 |
 | B: TaskService dueAt extension | 3 | 2 | 4 | 3 | 3 | 4 | 19 |
@@ -273,7 +273,7 @@ Mitigation:
 - keep scheduling helpers isolated
 - define clear migration boundary toward TriggerService
 
-## Risk: Mixed capability paths in Milaidy cause action availability drift
+## Risk: Mixed capability paths in Milady cause action availability drift
 
 Mitigation:
 

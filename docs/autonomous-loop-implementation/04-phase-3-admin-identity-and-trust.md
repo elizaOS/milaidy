@@ -4,7 +4,7 @@ Goal: make "you are the admin/owner" explicit, durable, and role-aware across ch
 
 ## Current state and gap
 
-Current Milaidy behavior:
+Current Milady behavior:
 
 - sets `world.metadata.ownership.ownerId` for web/cli chat worlds
 - does not consistently populate `world.metadata.roles`

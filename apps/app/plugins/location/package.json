@@ -1,8 +1,8 @@
 {
-  "name": "@milaidy/capacitor-location",
+  "name": "@milady/capacitor-location",
   "version": "1.0.0",
   "private": true,
-  "description": "Location services plugin for Milaidy Capacitor app",
+  "description": "Location services plugin for Milady Capacitor app",
   "main": "./dist/plugin.cjs.js",
   "module": "./src/index.ts",
   "types": "./dist/plugin.d.ts",
@@ -39,8 +39,11 @@
   "peerDependencies": {
     "@capacitor/core": "^8.0.0"
   },
-  "milaidy": {
-    "platforms": ["browser", "node"],
+  "milady": {
+    "platforms": [
+      "browser",
+      "node"
+    ],
     "runtime": "both",
     "platformDetails": {
       "browser": "Full support via Geolocation API (current position, watch position, permissions)",

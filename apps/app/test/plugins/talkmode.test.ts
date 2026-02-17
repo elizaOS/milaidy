@@ -1,10 +1,10 @@
 /**
- * Tests for @milaidy/capacitor-talkmode — state machine, speak, config, permissions.
+ * Tests for @milady/capacitor-talkmode — state machine, speak, config, permissions.
  */
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { TalkModeWeb } from "../../plugins/talkmode/src/web";
 
-describe("@milaidy/capacitor-talkmode", () => {
+describe("@milady/capacitor-talkmode", () => {
   let tm: TalkModeWeb;
 
   beforeEach(() => {
@@ -16,7 +16,7 @@ describe("@milaidy/capacitor-talkmode", () => {
 
   it("starts idle, disabled, not speaking", async () => {
     expect((await tm.isEnabled()).enabled).toBe(false);
-    expect((await tm.getState())).toEqual({ state: "idle", statusText: "Off" });
+    expect(await tm.getState()).toEqual({ state: "idle", statusText: "Off" });
     expect((await tm.isSpeaking()).speaking).toBe(false);
   });
 
@@ -56,10 +56,18 @@ describe("@milaidy/capacitor-talkmode", () => {
   describe("speak", () => {
     it("returns synthesis-unavailable error", async () => {
       const r = await tm.speak({ text: "Hello" });
-      expect(r).toEqual({ completed: false, interrupted: false, usedSystemTts: false, error: "Speech synthesis not available" });
+      expect(r).toEqual({
+        completed: false,
+        interrupted: false,
+        usedSystemTts: false,
+        error: "Speech synthesis not available",
+      });
     });
 
-    it.each(["", "   "])("empty/whitespace text ('%s') also returns synthesis error", async (text) => {
+    it.each([
+      "",
+      "   ",
+    ])("empty/whitespace text ('%s') also returns synthesis error", async (text) => {
       expect((await tm.speak({ text })).completed).toBe(false);
     });
   });
@@ -75,7 +83,9 @@ describe("@milaidy/capacitor-talkmode", () => {
   describe("config", () => {
     it("updateConfig merges without error", async () => {
       await tm.updateConfig({ config: { silenceWindowMs: 500 } });
-      await tm.updateConfig({ config: { tts: { voiceId: "v1" }, stt: { engine: "web" } } });
+      await tm.updateConfig({
+        config: { tts: { voiceId: "v1" }, stt: { engine: "web" } },
+      });
     });
 
     it("updateConfig with empty config is safe", async () => {
@@ -87,21 +97,29 @@ describe("@milaidy/capacitor-talkmode", () => {
 
   describe("permissions", () => {
     it("checkPermissions reports not_supported without SpeechRecognition", async () => {
-      vi.spyOn(navigator.permissions, "query").mockResolvedValueOnce({ state: "granted" } as PermissionStatus);
+      vi.spyOn(navigator.permissions, "query").mockResolvedValueOnce({
+        state: "granted",
+      } as PermissionStatus);
       const r = await tm.checkPermissions();
       expect(r.microphone).toBe("granted");
       expect(r.speechRecognition).toBe("not_supported");
     });
 
     it("checkPermissions falls back to prompt on query failure", async () => {
-      vi.spyOn(navigator.permissions, "query").mockRejectedValueOnce(new Error("nope"));
+      vi.spyOn(navigator.permissions, "query").mockRejectedValueOnce(
+        new Error("nope"),
+      );
       expect((await tm.checkPermissions()).microphone).toBe("prompt");
     });
 
     it("requestPermissions calls getUserMedia for mic access", async () => {
       const stream = { getTracks: () => [{ stop: vi.fn() }] };
-      const spy = vi.spyOn(navigator.mediaDevices, "getUserMedia").mockResolvedValueOnce(stream as unknown as MediaStream);
-      vi.spyOn(navigator.permissions, "query").mockResolvedValue({ state: "granted" } as PermissionStatus);
+      const spy = vi
+        .spyOn(navigator.mediaDevices, "getUserMedia")
+        .mockResolvedValueOnce(stream as unknown as MediaStream);
+      vi.spyOn(navigator.permissions, "query").mockResolvedValue({
+        state: "granted",
+      } as PermissionStatus);
       await tm.requestPermissions();
       expect(spy).toHaveBeenCalledWith({ audio: true });
     });

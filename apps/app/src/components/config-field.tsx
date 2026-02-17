@@ -9,10 +9,10 @@
  *  - ConfigField wrapper component (label + renderer + help + errors)
  */
 
-import React, { useState, useRef, useCallback } from "react";
-import type { FieldRenderProps, FieldRenderer } from "./config-catalog";
-import { resolveDynamic } from "./config-catalog";
+import React, { useCallback, useRef, useState } from "react";
 import type { DynamicValue } from "../types";
+import type { FieldRenderer, FieldRenderProps } from "./config-catalog";
+import { resolveDynamic } from "./config-catalog";
 
 // ── Action binding helper ──────────────────────────────────────────────
 
@@ -20,10 +20,7 @@ import type { DynamicValue } from "../types";
  * Resolve DynamicValue params and fire the onAction callback.
  * No-ops when the binding or onAction is missing.
  */
-function fireAction(
-  props: FieldRenderProps,
-  eventName: string,
-): void {
+function fireAction(props: FieldRenderProps, eventName: string): void {
   const binding = props.hint.on?.[eventName];
   if (!binding || !props.onAction) return;
 
@@ -166,8 +163,10 @@ export function renderNumberField(props: FieldRenderProps) {
 }
 
 function NumberFieldInner({ fp: props }: { fp: FieldRenderProps }) {
-  const minVal = props.schema.minimum ?? (props.hint.min as number | undefined) ?? undefined;
-  const maxVal = props.schema.maximum ?? (props.hint.max as number | undefined) ?? undefined;
+  const minVal =
+    props.schema.minimum ?? (props.hint.min as number | undefined) ?? undefined;
+  const maxVal =
+    props.schema.maximum ?? (props.hint.max as number | undefined) ?? undefined;
   const stepVal = (props.hint.step as number | undefined) ?? 1;
   const unit = props.hint.unit as string | undefined;
   const placeholder =
@@ -183,7 +182,7 @@ function NumberFieldInner({ fp: props }: { fp: FieldRenderProps }) {
 
   const step = (direction: 1 | -1) => {
     const current = val === "" ? 0 : Number(val);
-    if (isNaN(current)) return;
+    if (Number.isNaN(current)) return;
     let next = current + direction * stepVal;
     if (minVal != null && next < minVal) next = minVal;
     if (maxVal != null && next > maxVal) next = maxVal;
@@ -298,7 +297,9 @@ function BooleanFieldInner({ fp: props }: { fp: FieldRenderProps }) {
           }`}
         />
       </div>
-      <span className={`text-xs transition-colors ${localVal ? "text-[var(--text)] font-medium" : "text-[var(--muted)]"}`}>
+      <span
+        className={`text-xs transition-colors ${localVal ? "text-[var(--text)] font-medium" : "text-[var(--muted)]"}`}
+      >
         {localVal ? "Enabled" : "Disabled"}
       </span>
     </button>
@@ -345,14 +346,20 @@ export function renderSelectField(props: FieldRenderProps) {
 
   const plainOptions: string[] =
     (props.schema.enum as string[]) ??
-    props.schema.oneOf?.map(
-      (o) => String(o.const ?? o.description ?? ""),
-    ) ??
+    props.schema.oneOf?.map((o) => String(o.const ?? o.description ?? "")) ??
     [];
 
   const allOptions = enhancedOptions
-    ? enhancedOptions.map((o) => ({ value: o.value, label: o.label, description: o.description }))
-    : plainOptions.map((o) => ({ value: o, label: o, description: undefined as string | undefined }));
+    ? enhancedOptions.map((o) => ({
+        value: o.value,
+        label: o.label,
+        description: o.description,
+      }))
+    : plainOptions.map((o) => ({
+        value: o,
+        label: o,
+        description: undefined as string | undefined,
+      }));
 
   const value = props.isSet ? String(props.value ?? "") : "";
   const effectiveValue = value || String(props.schema.default ?? "");
@@ -360,7 +367,14 @@ export function renderSelectField(props: FieldRenderProps) {
   const listId = `dl-${props.key}`;
 
   if (useSearch) {
-    return <SearchableSelectInner fp={props} options={allOptions} effectiveValue={effectiveValue} listId={listId} />;
+    return (
+      <SearchableSelectInner
+        fp={props}
+        options={allOptions}
+        effectiveValue={effectiveValue}
+        listId={listId}
+      />
+    );
   }
 
   return (
@@ -380,7 +394,8 @@ export function renderSelectField(props: FieldRenderProps) {
       {!props.required && <option value="">-- none --</option>}
       {allOptions.map((opt) => (
         <option key={opt.value} value={opt.value}>
-          {opt.label}{opt.description ? ` — ${opt.description}` : ""}
+          {opt.label}
+          {opt.description ? ` — ${opt.description}` : ""}
         </option>
       ))}
     </select>
@@ -398,7 +413,9 @@ function SearchableSelectInner({
   listId: string;
 }) {
   const matchingOpt = options.find((o) => o.value === effectiveValue);
-  const [inputVal, setInputVal] = useState(matchingOpt?.label ?? effectiveValue);
+  const [inputVal, setInputVal] = useState(
+    matchingOpt?.label ?? effectiveValue,
+  );
   const [open, setOpen] = useState(false);
   const [filter, setFilter] = useState("");
   const containerRef = useRef<HTMLDivElement>(null);
@@ -427,7 +444,10 @@ function SearchableSelectInner({
   React.useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(e.target as Node)
+      ) {
         setOpen(false);
         setFilter("");
       }
@@ -453,7 +473,9 @@ function SearchableSelectInner({
         <span className={inputVal ? "" : "text-[var(--muted)] opacity-60"}>
           {inputVal || "Select..."}
         </span>
-        <span className="text-[var(--muted)] text-[10px] shrink-0">{open ? "\u25B2" : "\u25BC"}</span>
+        <span className="text-[var(--muted)] text-[10px] shrink-0">
+          {open ? "\u25B2" : "\u25BC"}
+        </span>
       </button>
 
       {/* Dropdown panel */}
@@ -467,7 +489,6 @@ function SearchableSelectInner({
               type="text"
               value={filter}
               placeholder={`Search ${options.length} models...`}
-              autoFocus
               onChange={(e) => setFilter(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Escape") {
@@ -514,7 +535,9 @@ function SearchableSelectInner({
               >
                 {opt.label}
                 {opt.description && (
-                  <span className="text-[var(--muted)] ml-1.5 text-[11px]">{opt.description}</span>
+                  <span className="text-[var(--muted)] ml-1.5 text-[11px]">
+                    {opt.description}
+                  </span>
                 )}
               </button>
             ))}
@@ -659,7 +682,9 @@ function RadioFieldInner({ fp: props }: { fp: FieldRenderProps }) {
     description?: string;
     disabled?: boolean;
   }> =
-    ((props.hint as Record<string, unknown>).options as typeof options | undefined) ??
+    ((props.hint as Record<string, unknown>).options as
+      | typeof options
+      | undefined) ??
     ((props.schema.enum as string[]) ?? []).map((v) => ({
       value: String(v),
       label: String(v),
@@ -721,16 +746,16 @@ export function renderMultiselectField(props: FieldRenderProps) {
 
 function MultiselectFieldInner({ fp: props }: { fp: FieldRenderProps }) {
   const options: Array<{ value: string; label: string }> =
-    ((props.hint as Record<string, unknown>).options as typeof options | undefined) ??
+    ((props.hint as Record<string, unknown>).options as
+      | typeof options
+      | undefined) ??
     ((props.schema.items?.enum as string[]) ?? []).map((v) => ({
       value: String(v),
       label: String(v),
     }));
 
   const rawVal = props.isSet ? props.value : [];
-  const initialSet = new Set(
-    Array.isArray(rawVal) ? rawVal.map(String) : [],
-  );
+  const initialSet = new Set(Array.isArray(rawVal) ? rawVal.map(String) : []);
   const [selected, setSelected] = useState(initialSet);
 
   const toggle = (optValue: string) => {
@@ -1118,11 +1143,7 @@ function KeyValueFieldInner({ fp: props }: { fp: FieldRenderProps }) {
   };
 
   const BLOCKED_KEYS = ["__proto__", "constructor", "prototype"];
-  const updateRow = (
-    index: number,
-    field: "key" | "value",
-    val: string,
-  ) => {
+  const updateRow = (index: number, field: "key" | "value", val: string) => {
     if (field === "key" && BLOCKED_KEYS.includes(val)) return;
     const next = [...pairs];
     next[index] = { ...next[index], [field]: val };
@@ -1136,7 +1157,10 @@ function KeyValueFieldInner({ fp: props }: { fp: FieldRenderProps }) {
       data-field-type="keyvalue"
     >
       {pairs.map((pair, index) => (
-        <div key={index} className="flex items-center gap-1">
+        <div
+          key={`${pair.key}:${pair.value}`}
+          className="flex items-center gap-1"
+        >
           <input
             className={`${inputCls(!!props.errors?.length)} flex-1`}
             type="text"
@@ -1247,8 +1271,9 @@ export function renderFileField(props: FieldRenderProps) {
 
 /** Placeholder for plugin-provided custom React components. */
 export function renderCustomField(props: FieldRenderProps) {
-  const componentName =
-    (props.hint as Record<string, unknown>).component as string | undefined;
+  const componentName = (props.hint as Record<string, unknown>).component as
+    | string
+    | undefined;
 
   return (
     <div
@@ -1273,7 +1298,7 @@ function renderMarkdown(text: string): React.ReactNode {
   const blocks = text.split(/\n\n+/);
   const elements: React.ReactNode[] = [];
 
-  blocks.forEach((block, blockIdx) => {
+  blocks.forEach((block) => {
     const trimmed = block.trim();
     if (!trimmed) return;
 
@@ -1282,9 +1307,12 @@ function renderMarkdown(text: string): React.ReactNode {
       const lines = trimmed.split("\n");
       const code = lines.slice(1, -1).join("\n");
       elements.push(
-        <pre key={blockIdx} className="bg-[var(--bg-hover)] px-3 py-2 rounded-sm overflow-x-auto my-2">
+        <pre
+          key={`code:${code}`}
+          className="bg-[var(--bg-hover)] px-3 py-2 rounded-sm overflow-x-auto my-2"
+        >
           <code className="font-mono text-[12px]">{code}</code>
-        </pre>
+        </pre>,
       );
       return;
     }
@@ -1294,32 +1322,43 @@ function renderMarkdown(text: string): React.ReactNode {
     if (headingMatch) {
       const level = headingMatch[1].length;
       const content = processInline(headingMatch[2]);
-      const sizes = ["text-xl", "text-lg", "text-base", "text-sm", "text-sm", "text-xs"];
+      const sizes = [
+        "text-xl",
+        "text-lg",
+        "text-base",
+        "text-sm",
+        "text-sm",
+        "text-xs",
+      ];
       const cls = `${sizes[level - 1]} font-bold mb-1 mt-2`;
       elements.push(
-        React.createElement(`h${level}`, { key: blockIdx, className: cls }, content)
+        React.createElement(
+          `h${level}`,
+          { key: `heading:${headingMatch[2]}`, className: cls },
+          content,
+        ),
       );
       return;
     }
 
     // Unordered list
     if (/^[-*]\s/.test(trimmed)) {
-      const items = trimmed.split("\n").filter(l => /^[-*]\s/.test(l));
+      const items = trimmed.split("\n").filter((l) => /^[-*]\s/.test(l));
       elements.push(
-        <ul key={blockIdx} className="list-disc pl-4 my-2 space-y-1">
-          {items.map((item, i) => (
-            <li key={i}>{processInline(item.replace(/^[-*]\s/, ""))}</li>
+        <ul key={`list:${trimmed}`} className="list-disc pl-4 my-2 space-y-1">
+          {items.map((item) => (
+            <li key={item}>{processInline(item.replace(/^[-*]\s/, ""))}</li>
           ))}
-        </ul>
+        </ul>,
       );
       return;
     }
 
     // Regular paragraph
     elements.push(
-      <p key={blockIdx} className="my-2">
+      <p key={`paragraph:${trimmed}`} className="my-2">
         {processInline(trimmed)}
-      </p>
+      </p>,
     );
   });
 
@@ -1349,9 +1388,10 @@ function processInline(text: string): React.ReactNode {
           className="text-[var(--accent)] underline"
         >
           {linkMatch[1]}
-        </a>
+        </a>,
       );
-      remaining = remaining.substring(linkMatch.index! + linkMatch[0].length);
+      const linkIndex = linkMatch.index ?? 0;
+      remaining = remaining.substring(linkIndex + linkMatch[0].length);
       continue;
     }
 
@@ -1361,11 +1401,15 @@ function processInline(text: string): React.ReactNode {
       const before = remaining.substring(0, codeMatch.index);
       if (before) parts.push(processSimpleInline(before, key++));
       parts.push(
-        <code key={key++} className="bg-[var(--bg-hover)] px-1 py-0.5 rounded font-mono text-[12px]">
+        <code
+          key={key++}
+          className="bg-[var(--bg-hover)] px-1 py-0.5 rounded font-mono text-[12px]"
+        >
           {codeMatch[1]}
-        </code>
+        </code>,
       );
-      remaining = remaining.substring(codeMatch.index! + codeMatch[0].length);
+      const codeIndex = codeMatch.index ?? 0;
+      remaining = remaining.substring(codeIndex + codeMatch[0].length);
       continue;
     }
 
@@ -1375,7 +1419,8 @@ function processInline(text: string): React.ReactNode {
       const before = remaining.substring(0, boldMatch.index);
       if (before) parts.push(processSimpleInline(before, key++));
       parts.push(<strong key={key++}>{boldMatch[1]}</strong>);
-      remaining = remaining.substring(boldMatch.index! + boldMatch[0].length);
+      const boldIndex = boldMatch.index ?? 0;
+      remaining = remaining.substring(boldIndex + boldMatch[0].length);
       continue;
     }
 
@@ -1385,7 +1430,8 @@ function processInline(text: string): React.ReactNode {
       const before = remaining.substring(0, italicMatch.index);
       if (before) parts.push(processSimpleInline(before, key++));
       parts.push(<em key={key++}>{italicMatch[2]}</em>);
-      remaining = remaining.substring(italicMatch.index! + italicMatch[0].length);
+      const italicIndex = italicMatch.index ?? 0;
+      remaining = remaining.substring(italicIndex + italicMatch[0].length);
       continue;
     }
 
@@ -1414,7 +1460,9 @@ function MarkdownFieldInner(props: FieldRenderProps) {
         <button
           type="button"
           className={`text-[11px] px-2 py-0.5 border transition-colors ${
-            !preview ? "bg-[var(--accent)] text-[var(--accent-fg)] border-[var(--accent)]" : "bg-transparent text-[var(--muted)] border-[var(--border)] hover:text-[var(--txt)]"
+            !preview
+              ? "bg-[var(--accent)] text-[var(--accent-fg)] border-[var(--accent)]"
+              : "bg-transparent text-[var(--muted)] border-[var(--border)] hover:text-[var(--txt)]"
           }`}
           onClick={() => setPreview(false)}
         >
@@ -1423,7 +1471,9 @@ function MarkdownFieldInner(props: FieldRenderProps) {
         <button
           type="button"
           className={`text-[11px] px-2 py-0.5 border transition-colors ${
-            preview ? "bg-[var(--accent)] text-[var(--accent-fg)] border-[var(--accent)]" : "bg-transparent text-[var(--muted)] border-[var(--border)] hover:text-[var(--txt)]"
+            preview
+              ? "bg-[var(--accent)] text-[var(--accent-fg)] border-[var(--accent)]"
+              : "bg-transparent text-[var(--muted)] border-[var(--border)] hover:text-[var(--txt)]"
           }`}
           onClick={() => setPreview(true)}
         >
@@ -1436,7 +1486,13 @@ function MarkdownFieldInner(props: FieldRenderProps) {
           data-config-key={props.key}
           data-field-type="markdown"
         >
-          {value ? renderMarkdown(value) : <span className="text-[var(--muted)] italic">Nothing to preview</span>}
+          {value ? (
+            renderMarkdown(value)
+          ) : (
+            <span className="text-[var(--muted)] italic">
+              Nothing to preview
+            </span>
+          )}
         </div>
       ) : (
         <textarea
@@ -1446,7 +1502,10 @@ function MarkdownFieldInner(props: FieldRenderProps) {
           data-config-key={props.key}
           data-field-type="markdown"
           disabled={props.readonly}
-          onChange={(e) => { props.onChange(e.target.value); fireAction(props, "change"); }}
+          onChange={(e) => {
+            props.onChange(e.target.value);
+            fireAction(props, "change");
+          }}
           onBlur={() => fireAction(props, "blur")}
         />
       )}
@@ -1454,32 +1513,54 @@ function MarkdownFieldInner(props: FieldRenderProps) {
   );
 }
 /** Markdown textarea with Edit/Preview toggle. */
-export const renderMarkdownField: FieldRenderer = (props) => <MarkdownFieldInner {...props} />;
+export const renderMarkdownField: FieldRenderer = (props) => (
+  <MarkdownFieldInner {...props} />
+);
 
 // ── 21. Checkbox Group ───────────────────────────────────────────────────
 
 function CheckboxGroupInner(props: FieldRenderProps) {
   const selected = new Set(
-    Array.isArray(props.value) ? (props.value as string[]) :
-    typeof props.value === "string" && props.value ? props.value.split(",").map(s => s.trim()) : []
+    Array.isArray(props.value)
+      ? (props.value as string[])
+      : typeof props.value === "string" && props.value
+        ? props.value.split(",").map((s) => s.trim())
+        : [],
   );
-  const options: Array<{ value: string; label: string; description?: string; disabled?: boolean }> =
-    props.hint.options ?? (props.schema.enum as string[] | undefined)?.map((v) => ({ value: v, label: v })) ?? [];
+  const options: Array<{
+    value: string;
+    label: string;
+    description?: string;
+    disabled?: boolean;
+  }> =
+    props.hint.options ??
+    (props.schema.enum as string[] | undefined)?.map((v) => ({
+      value: v,
+      label: v,
+    })) ??
+    [];
 
   const toggle = (val: string) => {
     const next = new Set(selected);
-    if (next.has(val)) next.delete(val); else next.add(val);
+    if (next.has(val)) next.delete(val);
+    else next.add(val);
     props.onChange([...next]);
     fireAction(props, "change");
   };
 
   return (
-    <div className="flex flex-col gap-1.5" data-config-key={props.key} data-field-type="checkbox-group">
+    <div
+      className="flex flex-col gap-1.5"
+      data-config-key={props.key}
+      data-field-type="checkbox-group"
+    >
       {options.map((opt) => (
         <label
           key={opt.value}
           className={`flex items-start gap-2.5 px-3 py-2 border border-[var(--border)] bg-[var(--card)] cursor-pointer transition-colors hover:bg-[var(--bg-hover)] ${
-            selected.has(opt.value) ? "border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_5%,var(--card))]" : ""
+            selected.has(opt.value)
+              ? "border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_5%,var(--card))]"
+              : ""
           } ${opt.disabled ? "opacity-50 pointer-events-none" : ""}`}
         >
           <input
@@ -1492,19 +1573,25 @@ function CheckboxGroupInner(props: FieldRenderProps) {
           <div className="flex flex-col">
             <span className="text-[13px]">{opt.label}</span>
             {opt.description && (
-              <span className="text-[11px] text-[var(--muted)] mt-0.5">{opt.description}</span>
+              <span className="text-[11px] text-[var(--muted)] mt-0.5">
+                {opt.description}
+              </span>
             )}
           </div>
         </label>
       ))}
       {options.length === 0 && (
-        <span className="text-[11px] text-[var(--muted)] italic">No options defined</span>
+        <span className="text-[11px] text-[var(--muted)] italic">
+          No options defined
+        </span>
       )}
     </div>
   );
 }
 /** Vertical checkbox list with per-option descriptions and accent highlighting. */
-export const renderCheckboxGroupField: FieldRenderer = (props) => <CheckboxGroupInner {...props} />;
+export const renderCheckboxGroupField: FieldRenderer = (props) => (
+  <CheckboxGroupInner {...props} />
+);
 
 // ── 22. Group ────────────────────────────────────────────────────────────
 
@@ -1525,7 +1612,10 @@ export const renderGroupField: FieldRenderer = (props) => {
         defaultValue={value}
         placeholder={props.hint.placeholder ?? "Group configuration..."}
         disabled={props.readonly}
-        onChange={(e) => { props.onChange(e.target.value); fireAction(props, "change"); }}
+        onChange={(e) => {
+          props.onChange(e.target.value);
+          fireAction(props, "change");
+        }}
         onBlur={() => fireAction(props, "blur")}
       />
     </fieldset>
@@ -1536,18 +1626,25 @@ export const renderGroupField: FieldRenderer = (props) => {
 
 function TableFieldInner(props: FieldRenderProps) {
   const MAX_TABLE_ROWS = 50;
-  const columns: Array<{ key: string; label: string }> =
-    (props.hint as Record<string, unknown>).columns as Array<{ key: string; label: string }> ??
-    [{ key: "key", label: "Key" }, { key: "value", label: "Value" }];
+  const columns: Array<{ key: string; label: string }> = ((
+    props.hint as Record<string, unknown>
+  ).columns as Array<{ key: string; label: string }>) ?? [
+    { key: "key", label: "Key" },
+    { key: "value", label: "Value" },
+  ];
 
-  const rawRows = Array.isArray(props.value) ? (props.value as Record<string, string>[]) : [];
+  const rawRows = Array.isArray(props.value)
+    ? (props.value as Record<string, string>[])
+    : [];
   const [rows, setRows] = useState<Record<string, string>[]>(
-    rawRows.length > 0 ? rawRows : [Object.fromEntries(columns.map(c => [c.key, ""]))]
+    rawRows.length > 0
+      ? rawRows
+      : [Object.fromEntries(columns.map((c) => [c.key, ""]))],
   );
 
   const emit = (next: Record<string, string>[]) => {
     setRows(next);
-    props.onChange(next.filter(r => columns.some(c => r[c.key]?.trim())));
+    props.onChange(next.filter((r) => columns.some((c) => r[c.key]?.trim())));
     fireAction(props, "change");
   };
 
@@ -1560,7 +1657,7 @@ function TableFieldInner(props: FieldRenderProps) {
 
   const addRow = () => {
     if (rows.length >= MAX_TABLE_ROWS) return;
-    emit([...rows, Object.fromEntries(columns.map(c => [c.key, ""]))]);
+    emit([...rows, Object.fromEntries(columns.map((c) => [c.key, ""]))]);
   };
 
   const removeRow = (idx: number) => {
@@ -1569,13 +1666,20 @@ function TableFieldInner(props: FieldRenderProps) {
   };
 
   return (
-    <div className="flex flex-col gap-1.5" data-config-key={props.key} data-field-type="table">
+    <div
+      className="flex flex-col gap-1.5"
+      data-config-key={props.key}
+      data-field-type="table"
+    >
       <div className="border border-[var(--border)] overflow-x-auto">
         <table className="w-full text-[13px] border-collapse">
           <thead>
             <tr className="bg-[var(--surface)]">
-              {columns.map(col => (
-                <th key={col.key} className="text-left text-[11px] font-semibold text-[var(--muted)] px-3 py-1.5 border-b border-[var(--border)]">
+              {columns.map((col) => (
+                <th
+                  key={col.key}
+                  className="text-left text-[11px] font-semibold text-[var(--muted)] px-3 py-1.5 border-b border-[var(--border)]"
+                >
                   {col.label}
                 </th>
               ))}
@@ -1584,8 +1688,11 @@ function TableFieldInner(props: FieldRenderProps) {
           </thead>
           <tbody>
             {rows.map((row, ri) => (
-              <tr key={ri} className="border-b border-[var(--border)] last:border-b-0">
-                {columns.map(col => (
+              <tr
+                key={JSON.stringify(row)}
+                className="border-b border-[var(--border)] last:border-b-0"
+              >
+                {columns.map((col) => (
                   <td key={col.key} className="px-1 py-0.5">
                     <input
                       className="w-full px-2 py-1 bg-transparent text-[13px] border-none outline-none focus:bg-[var(--bg-hover)]"
@@ -1626,7 +1733,9 @@ function TableFieldInner(props: FieldRenderProps) {
   );
 }
 /** Tabular data editor with configurable columns. Max 50 rows. */
-export const renderTableField: FieldRenderer = (props) => <TableFieldInner {...props} />;
+export const renderTableField: FieldRenderer = (props) => (
+  <TableFieldInner {...props} />
+);
 
 // ── Default renderers map ───────────────────────────────────────────────
 
@@ -1678,11 +1787,18 @@ export function ConfigField({
   const hasError = errors.length > 0;
   const isRequiredEmpty = renderProps.required && !renderProps.isSet;
 
-  const renderFn = renderer ?? defaultRenderers[renderProps.fieldType] ?? defaultRenderers["text"];
+  const renderFn =
+    renderer ??
+    defaultRenderers[renderProps.fieldType] ??
+    defaultRenderers.text;
 
   return (
     <div
-      id={pluginId ? `field-${pluginId}-${renderProps.key}` : `field-${renderProps.key}`}
+      id={
+        pluginId
+          ? `field-${pluginId}-${renderProps.key}`
+          : `field-${renderProps.key}`
+      }
       className={`py-2.5 group/field ${
         renderProps.readonly ? "opacity-50 pointer-events-none" : ""
       } ${isRequiredEmpty ? "relative" : ""}`}
@@ -1697,7 +1813,10 @@ export function ConfigField({
         <div className="flex items-center gap-2 mb-1.5">
           <span
             className="font-semibold leading-tight truncate"
-            style={{ fontSize: "var(--plugin-label-size)", color: "var(--plugin-label)" }}
+            style={{
+              fontSize: "var(--plugin-label-size)",
+              color: "var(--plugin-label)",
+            }}
           >
             {label}
           </span>
@@ -1726,11 +1845,14 @@ export function ConfigField({
         {/* Errors */}
         {hasError && (
           <div className="mt-1.5 flex flex-col gap-0.5">
-            {errors.map((err, i) => (
+            {errors.map((err) => (
               <div
-                key={i}
+                key={err}
                 className="leading-snug flex items-start gap-1"
-                style={{ fontSize: "var(--plugin-error-size)", color: "var(--plugin-error)" }}
+                style={{
+                  fontSize: "var(--plugin-error-size)",
+                  color: "var(--plugin-error)",
+                }}
               >
                 <span className="shrink-0 mt-px">&times;</span>
                 <span>{err}</span>
@@ -1743,7 +1865,10 @@ export function ConfigField({
         {(renderProps.hint.help || renderProps.schema.description) && (
           <div
             className="mt-1 leading-relaxed line-clamp-2"
-            style={{ fontSize: "var(--plugin-help-size)", color: "var(--plugin-help)" }}
+            style={{
+              fontSize: "var(--plugin-help-size)",
+              color: "var(--plugin-help)",
+            }}
           >
             {renderProps.hint.help ?? renderProps.schema.description}
             {renderProps.schema.default != null && (

@@ -18,7 +18,7 @@
 import crypto from "node:crypto";
 import type { Action, HandlerOptions, Memory, UUID } from "@elizaos/core";
 import { logger } from "@elizaos/core";
-import { requestRestart } from "../runtime/restart.js";
+import { requestRestart } from "../runtime/restart";
 
 /** Small delay (ms) before restarting so the response has time to flush. */
 const SHUTDOWN_DELAY_MS = 1_500;
@@ -54,7 +54,7 @@ export const restartAction: Action = {
 
     const restartText = reason ? `Restarting… (${reason})` : "Restarting…";
 
-    logger.info(`[milaidy] ${restartText}`);
+    logger.info(`[milady] ${restartText}`);
 
     // Persist a "Restarting…" memory so it shows up in the message log.
     try {
@@ -65,7 +65,7 @@ export const restartAction: Action = {
         worldId: message.worldId,
         content: {
           text: restartText,
-          source: "milaidy",
+          source: "milady",
           type: "system",
         },
       };
@@ -73,7 +73,7 @@ export const restartAction: Action = {
     } catch (err) {
       // Non-fatal — the restart still proceeds even if the memory write fails.
       const msg = err instanceof Error ? err.message : String(err);
-      logger.warn(`[milaidy] Could not persist restart memory: ${msg}`);
+      logger.warn(`[milady] Could not persist restart memory: ${msg}`);
     }
 
     // Schedule the restart slightly after returning so the response can be

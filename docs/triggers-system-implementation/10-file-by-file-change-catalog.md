@@ -51,40 +51,40 @@ Legend:
 
 ---
 
-## 4) Milaidy Runtime Wiring Files
+## 4) Milady Runtime Wiring Files
 
 | File | M/C/N | Current Role | Planned Change | Control-Flow Impact | Test Impact |
 |---|---|---|---|---|---|
-| `milaidy/src/runtime/eliza.ts` | C | runtime boot + plugin composition | verify action/worker availability in actual loaded plugins; optionally add explicit trigger plugin/load flag | prevents silent action unavailability | startup action-list tests |
-| `milaidy/src/runtime/milaidy-plugin.ts` | C | custom Milaidy plugin | optional trigger plugin/action/provider registration if needed for explicit availability | deterministic Milaidy feature wiring | plugin wiring tests |
+| `milady/src/runtime/eliza.ts` | C | runtime boot + plugin composition | verify action/worker availability in actual loaded plugins; optionally add explicit trigger plugin/load flag | prevents silent action unavailability | startup action-list tests |
+| `milady/src/runtime/milady-plugin.ts` | C | custom Milady plugin | optional trigger plugin/action/provider registration if needed for explicit availability | deterministic Milady feature wiring | plugin wiring tests |
 
 ---
 
-## 5) Milaidy API Layer Files
+## 5) Milady API Layer Files
 
 | File | M/C/N | Current Role | Planned Change | Control-Flow Impact | Test Impact |
 |---|---|---|---|---|---|
-| `milaidy/src/api/server.ts` | M | imperative API router | add `/api/triggers` routes + validation + mapping + run-now + runs history + strict route order | complete trigger API surface | route + integration tests |
+| `milady/src/api/server.ts` | M | imperative API router | add `/api/triggers` routes + validation + mapping + run-now + runs history + strict route order | complete trigger API surface | route + integration tests |
 
 ---
 
-## 6) Milaidy Frontend API and State Files
+## 6) Milady Frontend API and State Files
 
 | File | M/C/N | Current Role | Planned Change | Control-Flow Impact | Test Impact |
 |---|---|---|---|---|---|
-| `milaidy/apps/app/src/api-client.ts` | M | typed HTTP/WS client | add trigger DTOs + CRUD/run/runs methods | frontend-backend trigger contract | api-client tests |
-| `milaidy/apps/app/src/AppContext.tsx` | M | global app state/actions | add trigger state, handlers, active-tab loading/polling | UI trigger workflow orchestration | context tests |
+| `milady/apps/app/src/api-client.ts` | M | typed HTTP/WS client | add trigger DTOs + CRUD/run/runs methods | frontend-backend trigger contract | api-client tests |
+| `milady/apps/app/src/AppContext.tsx` | M | global app state/actions | add trigger state, handlers, active-tab loading/polling | UI trigger workflow orchestration | context tests |
 
 ---
 
-## 7) Milaidy Frontend Navigation/View Files
+## 7) Milady Frontend Navigation/View Files
 
 | File | M/C/N | Current Role | Planned Change | Control-Flow Impact | Test Impact |
 |---|---|---|---|---|---|
-| `milaidy/apps/app/src/navigation.ts` | M | tab model and route map | add `triggers` tab/path/title/group | URL routing + tab identity | routing tests |
-| `milaidy/apps/app/src/components/Nav.tsx` | M | tab rendering filter | include `triggers` in valid tab set | tab visibility | UI smoke |
-| `milaidy/apps/app/src/App.tsx` | M | view router | import and route `TriggersView` | actual page rendering | view-router tests |
-| `milaidy/apps/app/src/components/TriggersView.tsx` | M + N | trigger UI page | implement list/form/actions/history UI | user trigger management flow | component tests |
+| `milady/apps/app/src/navigation.ts` | M | tab model and route map | add `triggers` tab/path/title/group | URL routing + tab identity | routing tests |
+| `milady/apps/app/src/components/Nav.tsx` | M | tab rendering filter | include `triggers` in valid tab set | tab visibility | UI smoke |
+| `milady/apps/app/src/App.tsx` | M | view router | import and route `TriggersView` | actual page rendering | view-router tests |
+| `milady/apps/app/src/components/TriggersView.tsx` | M + N | trigger UI page | implement list/form/actions/history UI | user trigger management flow | component tests |
 
 ---
 
@@ -97,9 +97,9 @@ File names may vary by local convention; suggested additions:
 | `eliza/packages/typescript/src/__tests__/trigger-scheduling.test.ts` | M + N | schedule normalization and cron/once/interval semantics |
 | `eliza/packages/typescript/src/__tests__/trigger-worker.test.ts` | M + N | worker execution, reschedule, failure handling |
 | `eliza/packages/typescript/src/__tests__/create-task-action.test.ts` | M + N | parse/validation/dedupe/quota behavior |
-| `milaidy/test/api-triggers.e2e.test.ts` | M + N | API route contract and ordering |
-| `milaidy/apps/app/test/triggers-view.test.tsx` | M + N | UI interactions and form validation |
-| `milaidy/apps/app/test/app-context-triggers.test.ts` | M + N | state orchestration and polling lifecycle |
+| `milady/test/api-triggers.e2e.test.ts` | M + N | API route contract and ordering |
+| `milady/apps/app/test/triggers-view.test.tsx` | M + N | UI interactions and form validation |
+| `milady/apps/app/test/app-context-triggers.test.ts` | M + N | state orchestration and polling lifecycle |
 
 ---
 
@@ -107,8 +107,8 @@ File names may vary by local convention; suggested additions:
 
 | File | M/C/N | Planned Change |
 |---|---|---|
-| `milaidy/src/config/config.ts` (or equivalent) | C | add trigger feature flags defaults |
-| `milaidy/docs/*` | M | operator runbooks and rollout notes |
+| `milady/src/config/config.ts` (or equivalent) | C | add trigger feature flags defaults |
+| `milady/docs/*` | M | operator runbooks and rollout notes |
 
 ---
 
@@ -129,8 +129,8 @@ File names may vary by local convention; suggested additions:
 
 Before implementation begins, verify at runtime:
 
-1. which actions are loaded in Milaidy
-2. which services are loaded in Milaidy
+1. which actions are loaded in Milady
+2. which services are loaded in Milady
 3. whether trigger worker registration appears in startup diagnostics
 
 If these checks are skipped, there is a high chance of implementing into the wrong capability path.
@@ -143,6 +143,6 @@ Done is not "files modified." Done requires:
 
 - all mandatory files updated,
 - all mandatory tests added and passing,
-- action/worker/routes confirmed in actual Milaidy runtime,
+- action/worker/routes confirmed in actual Milady runtime,
 - feature flags and rollback controls available.
 

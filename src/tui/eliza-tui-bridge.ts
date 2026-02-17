@@ -11,26 +11,35 @@ import {
   type UUID,
 } from "@elizaos/core";
 import { Loader, Spacer, Text } from "@elizaos/tui";
-import type { StreamEvent } from "../runtime/pi-ai-model-handler.js";
+
+/** Stream event shape (TUI disabled). */
+type StreamEvent = {
+  type: "token" | "thinking" | "done" | "error" | "usage";
+  text?: string;
+  usage?: { inputTokens: number; outputTokens: number; totalTokens: number };
+  error?: string;
+  reason?: string;
+};
+
 import {
   AssistantMessageComponent,
   ToolExecutionComponent,
   UserMessageComponent,
-} from "./components/index.js";
-import { milaidyMarkdownTheme, tuiTheme } from "./theme.js";
-import type { MilaidyTUI } from "./tui-app.js";
+} from "./components/index";
+import { miladyMarkdownTheme, tuiTheme } from "./theme";
+import type { MiladyTUI } from "./tui-app";
 
 // NOTE: Room + world IDs are derived from the agentId so that switching
 // characters (which changes agentId) does not reuse the same persisted
 // conversation history / metadata.
-const TUI_USER_ID = stringToUuid("milaidy-tui-user") as UUID;
+const TUI_USER_ID = stringToUuid("milady-tui-user") as UUID;
 
 export class ElizaTUIBridge {
   private isProcessing = false;
 
-  private showThinking = process.env.MILAIDY_TUI_SHOW_THINKING === "1";
+  private showThinking = process.env.MILADY_TUI_SHOW_THINKING === "1";
   private showStructuredResponse =
-    process.env.MILAIDY_TUI_SHOW_STRUCTURED_RESPONSE === "1";
+    process.env.MILADY_TUI_SHOW_STRUCTURED_RESPONSE === "1";
 
   private abortController: AbortController | null = null;
 
@@ -54,12 +63,12 @@ export class ElizaTUIBridge {
 
   constructor(
     private runtime: AgentRuntime,
-    private tui: MilaidyTUI,
+    private tui: MiladyTUI,
   ) {
     const agentScope = String(this.runtime.agentId);
-    this.worldId = stringToUuid(`milaidy-tui-world:${agentScope}`) as UUID;
-    this.roomId = stringToUuid(`milaidy-tui-room:${agentScope}`) as UUID;
-    this.channelId = `milaidy-tui:${agentScope}`;
+    this.worldId = stringToUuid(`milady-tui-world:${agentScope}`) as UUID;
+    this.roomId = stringToUuid(`milady-tui-room:${agentScope}`) as UUID;
+    this.channelId = `milady-tui:${agentScope}`;
   }
 
   getAbortSignal(): AbortSignal | undefined {
@@ -73,15 +82,15 @@ export class ElizaTUIBridge {
   async initialize(): Promise<void> {
     await this.runtime.ensureWorldExists({
       id: this.worldId,
-      name: "Milaidy TUI",
+      name: "Milady TUI",
       agentId: this.runtime.agentId,
     });
 
     await this.runtime.ensureRoomExists({
       id: this.roomId,
-      name: "Milaidy TUI",
+      name: "Milady TUI",
       type: ChannelType.DM,
-      source: "milaidy-tui",
+      source: "milady-tui",
       worldId: this.worldId,
       channelId: this.channelId,
       metadata: { ownership: { ownerId: TUI_USER_ID } },
@@ -91,10 +100,10 @@ export class ElizaTUIBridge {
       entityId: TUI_USER_ID,
       roomId: this.roomId,
       worldId: this.worldId,
-      worldName: "Milaidy TUI",
+      worldName: "Milady TUI",
       userName: "User",
       name: "User",
-      source: "milaidy-tui",
+      source: "milady-tui",
       type: ChannelType.DM,
       channelId: this.channelId,
       metadata: { ownership: { ownerId: TUI_USER_ID } },
@@ -223,7 +232,7 @@ export class ElizaTUIBridge {
         roomId: this.roomId,
         content: {
           text,
-          source: "milaidy-tui",
+          source: "milady-tui",
           channelType: ChannelType.DM,
         },
       });
@@ -345,7 +354,7 @@ export class ElizaTUIBridge {
 
     this.currentAssistant = new AssistantMessageComponent(
       this.showThinking,
-      milaidyMarkdownTheme,
+      miladyMarkdownTheme,
     );
     this.lastAssistantForTurn = this.currentAssistant;
     this.tui.addToChatContainer(this.currentAssistant);

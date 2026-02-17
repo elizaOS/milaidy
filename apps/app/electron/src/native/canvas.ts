@@ -6,8 +6,8 @@
  * BrowserWindow (not the main app window).
  */
 
-import { BrowserWindow, ipcMain, screen } from "electron";
 import type { IpcMainInvokeEvent, Rectangle } from "electron";
+import { BrowserWindow, ipcMain } from "electron";
 import type { IpcValue } from "./ipc-types";
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -82,10 +82,10 @@ export class CanvasManager {
   }
 
   /** Create a new canvas BrowserWindow and return its id. */
-  async createWindow(options?: CanvasWindowOptions): Promise<{ windowId: string }> {
+  async createWindow(
+    options?: CanvasWindowOptions,
+  ): Promise<{ windowId: string }> {
     const id = `canvas_${++this.counter}`;
-    const { width: screenW, height: screenH } = screen.getPrimaryDisplay().workAreaSize;
-
     const win = new BrowserWindow({
       width: options?.width ?? 1280,
       height: options?.height ?? 720,
@@ -148,19 +148,32 @@ export class CanvasManager {
   // ── JavaScript evaluation ───────────────────────────────────────────────
 
   /** Execute arbitrary JavaScript in the canvas page and return the result. */
-  async eval(options: { windowId: string; script: string }): Promise<{ result: unknown }> {
+  async eval(options: {
+    windowId: string;
+    script: string;
+  }): Promise<{ result: unknown }> {
     const win = this.getWindow(options.windowId);
-    const result = await win.webContents.executeJavaScript(options.script, true);
+    const result = await win.webContents.executeJavaScript(
+      options.script,
+      true,
+    );
     return { result };
   }
 
   // ── Snapshot ────────────────────────────────────────────────────────────
 
   /** Capture a screenshot of the canvas page. */
-  async snapshot(options: { windowId: string } & CanvasSnapshotOptions): Promise<CanvasSnapshotResult> {
+  async snapshot(
+    options: { windowId: string } & CanvasSnapshotOptions,
+  ): Promise<CanvasSnapshotResult> {
     const win = this.getWindow(options.windowId);
     const rect: Rectangle | undefined = options.rect
-      ? { x: options.rect.x, y: options.rect.y, width: options.rect.width, height: options.rect.height }
+      ? {
+          x: options.rect.x,
+          y: options.rect.y,
+          width: options.rect.width,
+          height: options.rect.height,
+        }
       : undefined;
 
     const image = await win.webContents.capturePage(rect);
@@ -180,11 +193,14 @@ export class CanvasManager {
   // ── A2UI ────────────────────────────────────────────────────────────────
 
   /** Inject an A2UI message payload into the canvas page. */
-  async a2uiPush(options: { windowId: string; payload: A2UIPayload }): Promise<void> {
+  async a2uiPush(options: {
+    windowId: string;
+    payload: A2UIPayload;
+  }): Promise<void> {
     const win = this.getWindow(options.windowId);
     const json = JSON.stringify(options.payload);
     await win.webContents.executeJavaScript(
-      `if (window.milaidyA2UI && typeof window.milaidyA2UI.push === 'function') { window.milaidyA2UI.push(${json}); }`,
+      `if (window.miladyA2UI && typeof window.miladyA2UI.push === 'function') { window.miladyA2UI.push(${json}); }`,
     );
   }
 
@@ -192,7 +208,7 @@ export class CanvasManager {
   async a2uiReset(options: { windowId: string }): Promise<void> {
     const win = this.getWindow(options.windowId);
     await win.webContents.executeJavaScript(
-      `if (window.milaidyA2UI && typeof window.milaidyA2UI.reset === 'function') { window.milaidyA2UI.reset(); }`,
+      `if (window.miladyA2UI && typeof window.miladyA2UI.reset === 'function') { window.miladyA2UI.reset(); }`,
     );
   }
 
@@ -206,7 +222,9 @@ export class CanvasManager {
     this.getWindow(options.windowId).hide();
   }
 
-  async resize(options: { windowId: string } & CanvasResizeOptions): Promise<void> {
+  async resize(
+    options: { windowId: string } & CanvasResizeOptions,
+  ): Promise<void> {
     const win = this.getWindow(options.windowId);
     win.setSize(options.width, options.height, options.animate);
   }
@@ -215,11 +233,16 @@ export class CanvasManager {
     this.getWindow(options.windowId).focus();
   }
 
-  async getBounds(options: { windowId: string }): Promise<{ bounds: { x: number; y: number; width: number; height: number } }> {
+  async getBounds(options: { windowId: string }): Promise<{
+    bounds: { x: number; y: number; width: number; height: number };
+  }> {
     return { bounds: this.getWindow(options.windowId).getBounds() };
   }
 
-  async setBounds(options: { windowId: string; bounds: { x: number; y: number; width: number; height: number } }): Promise<void> {
+  async setBounds(options: {
+    windowId: string;
+    bounds: { x: number; y: number; width: number; height: number };
+  }): Promise<void> {
     this.getWindow(options.windowId).setBounds(options.bounds);
   }
 
@@ -243,7 +266,7 @@ export class CanvasManager {
   // ── Cleanup ─────────────────────────────────────────────────────────────
 
   dispose(): void {
-    for (const [id, win] of this.windows) {
+    for (const [_id, win] of this.windows) {
       if (!win.isDestroyed()) win.close();
     }
     this.windows.clear();
@@ -271,27 +294,89 @@ export function registerCanvasIPC(): void {
   const m = getCanvasManager();
 
   // Lifecycle
-  ipcMain.handle("canvas:createWindow", async (_e: IpcMainInvokeEvent, opts?: CanvasWindowOptions) => m.createWindow(opts));
-  ipcMain.handle("canvas:destroyWindow", async (_e: IpcMainInvokeEvent, opts: { windowId: string }) => m.destroyWindow(opts));
+  ipcMain.handle(
+    "canvas:createWindow",
+    async (_e: IpcMainInvokeEvent, opts?: CanvasWindowOptions) =>
+      m.createWindow(opts),
+  );
+  ipcMain.handle(
+    "canvas:destroyWindow",
+    async (_e: IpcMainInvokeEvent, opts: { windowId: string }) =>
+      m.destroyWindow(opts),
+  );
 
   // Navigation / eval
-  ipcMain.handle("canvas:navigate", async (_e: IpcMainInvokeEvent, opts: { windowId: string; url: string }) => m.navigate(opts));
-  ipcMain.handle("canvas:eval", async (_e: IpcMainInvokeEvent, opts: { windowId: string; script: string }) => m.eval(opts));
+  ipcMain.handle(
+    "canvas:navigate",
+    async (_e: IpcMainInvokeEvent, opts: { windowId: string; url: string }) =>
+      m.navigate(opts),
+  );
+  ipcMain.handle(
+    "canvas:eval",
+    async (
+      _e: IpcMainInvokeEvent,
+      opts: { windowId: string; script: string },
+    ) => m.eval(opts),
+  );
 
   // Snapshot
-  ipcMain.handle("canvas:snapshot", async (_e: IpcMainInvokeEvent, opts: { windowId: string } & CanvasSnapshotOptions) => m.snapshot(opts));
+  ipcMain.handle(
+    "canvas:snapshot",
+    async (
+      _e: IpcMainInvokeEvent,
+      opts: { windowId: string } & CanvasSnapshotOptions,
+    ) => m.snapshot(opts),
+  );
 
   // A2UI
-  ipcMain.handle("canvas:a2uiPush", async (_e: IpcMainInvokeEvent, opts: { windowId: string; payload: A2UIPayload }) => m.a2uiPush(opts));
-  ipcMain.handle("canvas:a2uiReset", async (_e: IpcMainInvokeEvent, opts: { windowId: string }) => m.a2uiReset(opts));
+  ipcMain.handle(
+    "canvas:a2uiPush",
+    async (
+      _e: IpcMainInvokeEvent,
+      opts: { windowId: string; payload: A2UIPayload },
+    ) => m.a2uiPush(opts),
+  );
+  ipcMain.handle(
+    "canvas:a2uiReset",
+    async (_e: IpcMainInvokeEvent, opts: { windowId: string }) =>
+      m.a2uiReset(opts),
+  );
 
   // Visibility / geometry
-  ipcMain.handle("canvas:show", async (_e: IpcMainInvokeEvent, opts: { windowId: string }) => m.show(opts));
-  ipcMain.handle("canvas:hide", async (_e: IpcMainInvokeEvent, opts: { windowId: string }) => m.hide(opts));
-  ipcMain.handle("canvas:resize", async (_e: IpcMainInvokeEvent, opts: { windowId: string } & CanvasResizeOptions) => m.resize(opts));
-  ipcMain.handle("canvas:focus", async (_e: IpcMainInvokeEvent, opts: { windowId: string }) => m.focus(opts));
-  ipcMain.handle("canvas:getBounds", async (_e: IpcMainInvokeEvent, opts: { windowId: string }) => m.getBounds(opts));
-  ipcMain.handle("canvas:setBounds", async (_e: IpcMainInvokeEvent, opts: { windowId: string; bounds: { x: number; y: number; width: number; height: number } }) => m.setBounds(opts));
+  ipcMain.handle(
+    "canvas:show",
+    async (_e: IpcMainInvokeEvent, opts: { windowId: string }) => m.show(opts),
+  );
+  ipcMain.handle(
+    "canvas:hide",
+    async (_e: IpcMainInvokeEvent, opts: { windowId: string }) => m.hide(opts),
+  );
+  ipcMain.handle(
+    "canvas:resize",
+    async (
+      _e: IpcMainInvokeEvent,
+      opts: { windowId: string } & CanvasResizeOptions,
+    ) => m.resize(opts),
+  );
+  ipcMain.handle(
+    "canvas:focus",
+    async (_e: IpcMainInvokeEvent, opts: { windowId: string }) => m.focus(opts),
+  );
+  ipcMain.handle(
+    "canvas:getBounds",
+    async (_e: IpcMainInvokeEvent, opts: { windowId: string }) =>
+      m.getBounds(opts),
+  );
+  ipcMain.handle(
+    "canvas:setBounds",
+    async (
+      _e: IpcMainInvokeEvent,
+      opts: {
+        windowId: string;
+        bounds: { x: number; y: number; width: number; height: number };
+      },
+    ) => m.setBounds(opts),
+  );
 
   // Query
   ipcMain.handle("canvas:listWindows", async () => m.listWindows());

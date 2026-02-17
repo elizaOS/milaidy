@@ -2,7 +2,7 @@
 
 ## Why We Pin Specific Packages
 
-Milaidy uses ElizaOS as its AI agent runtime. During the 2.0.0 alpha release cycle, we've discovered version compatibility issues that require careful dependency management.
+Milady uses ElizaOS as its AI agent runtime. During the 2.0.0 alpha release cycle, we've discovered version compatibility issues that require careful dependency management.
 
 ## The Problem with `"next"` Tag
 
@@ -119,4 +119,4 @@ Until then, **pinning is safer and more predictable** for production deployments
 
 **Last Updated:** 2026-02-09  
 **Current Pinned Versions:** core@alpha.10, plugins@alpha.4  
-**Milaidy Version:** 2.0.0-alpha.8
+**Milady Version:** 2.0.0-alpha.8

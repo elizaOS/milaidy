@@ -15,7 +15,7 @@ RUN set -eux; \
     sudo \
   && rm -rf /var/lib/apt/lists/*
 
-COPY run.sh /usr/local/bin/milaidy-install-smoke
-RUN chmod +x /usr/local/bin/milaidy-install-smoke
+COPY run.sh /usr/local/bin/milady-install-smoke
+RUN chmod +x /usr/local/bin/milady-install-smoke
 
-ENTRYPOINT ["/usr/local/bin/milaidy-install-smoke"]
+ENTRYPOINT ["/usr/local/bin/milady-install-smoke"]

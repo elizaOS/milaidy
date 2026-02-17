@@ -1,11 +1,12 @@
 /**
- * Subscription auth types for milaidy.
- * OAuth credential types come from @mariozechner/pi-ai.
+ * Subscription auth types for milady.
  */
 
-import type { OAuthCredentials } from "@mariozechner/pi-ai";
-
-export type { OAuthCredentials };
+export interface OAuthCredentials {
+  access: string;
+  refresh: string;
+  expires: number;
+}
 
 export type SubscriptionProvider = "anthropic-subscription" | "openai-codex";
 

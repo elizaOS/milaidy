@@ -8,9 +8,9 @@
  *   - Error handling when database is unavailable
  */
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+import React from "react";
 import TestRenderer, { act } from "react-test-renderer";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // ── PCA utility functions (copied from component for unit testing) ─────
 
@@ -20,7 +20,11 @@ function dot(a: number[], b: Float64Array | number[]): number {
   return s;
 }
 
-function powerIteration(data: number[][], dims: number, iters = 30): Float64Array {
+function powerIteration(
+  data: number[][],
+  dims: number,
+  iters = 30,
+): Float64Array {
   const v = new Float64Array(dims);
   for (let d = 0; d < dims; d++) v[d] = Math.random() - 0.5;
   let len = 0;
@@ -43,7 +47,10 @@ function powerIteration(data: number[][], dims: number, iters = 30): Float64Arra
   return v;
 }
 
-function centerData(vectors: number[][]): { centered: number[][]; mean: Float64Array } {
+function centerData(vectors: number[][]): {
+  centered: number[][];
+  mean: Float64Array;
+} {
   const dims = vectors[0].length;
   const n = vectors.length;
   const mean = new Float64Array(dims);
@@ -79,7 +86,9 @@ function projectTo3D(vectors: number[][]): [number, number, number][] {
   const pc2 = powerIteration(deflated1, dims);
   const deflated2 = deflate(deflated1, pc2);
   const pc3 = powerIteration(deflated2, dims);
-  return centered.map((v) => [dot(v, pc1), dot(v, pc2), dot(v, pc3)] as [number, number, number]);
+  return centered.map(
+    (v) => [dot(v, pc1), dot(v, pc2), dot(v, pc3)] as [number, number, number],
+  );
 }
 
 // ── PCA Unit Tests ─────────────────────────────────────────────────────
@@ -140,7 +149,7 @@ describe("PCA Projection Functions", () => {
     // Simulate 384-dimensional embeddings (common size)
     const dims = 384;
     const vectors = Array.from({ length: 10 }, () =>
-      Array.from({ length: dims }, () => Math.random() - 0.5)
+      Array.from({ length: dims }, () => Math.random() - 0.5),
     );
     const result = projectTo2D(vectors);
     expect(result.length).toBe(10);
@@ -155,7 +164,7 @@ describe("PCA Projection Functions", () => {
     // Simulate 768-dimensional embeddings (common size)
     const dims = 768;
     const vectors = Array.from({ length: 10 }, () =>
-      Array.from({ length: dims }, () => Math.random() - 0.5)
+      Array.from({ length: dims }, () => Math.random() - 0.5),
     );
     const result = projectTo3D(vectors);
     expect(result.length).toBe(10);
@@ -194,13 +203,15 @@ describe("PCA Projection Functions", () => {
 
     // Calculate distance between centroids
     const interClusterDist = Math.sqrt(
-      (centroid1[0] - centroid2[0]) ** 2 + (centroid1[1] - centroid2[1]) ** 2
+      (centroid1[0] - centroid2[0]) ** 2 + (centroid1[1] - centroid2[1]) ** 2,
     );
 
     // Calculate average intra-cluster distance
-    const intraCluster1 = projected.slice(0, 3).map((p) =>
-      Math.sqrt((p[0] - centroid1[0]) ** 2 + (p[1] - centroid1[1]) ** 2)
-    );
+    const intraCluster1 = projected
+      .slice(0, 3)
+      .map((p) =>
+        Math.sqrt((p[0] - centroid1[0]) ** 2 + (p[1] - centroid1[1]) ** 2),
+      );
     const avgIntraCluster = intraCluster1.reduce((a, b) => a + b, 0) / 3;
 
     // Inter-cluster distance should be greater than intra-cluster
@@ -238,7 +249,7 @@ describe("PCA Projection Functions", () => {
     const interClusterDist = Math.sqrt(
       (centroid1[0] - centroid2[0]) ** 2 +
         (centroid1[1] - centroid2[1]) ** 2 +
-        (centroid1[2] - centroid2[2]) ** 2
+        (centroid1[2] - centroid2[2]) ** 2,
     );
 
     // Expect clusters to be separated
@@ -277,9 +288,7 @@ vi.mock("three", () => {
       return this;
     }
   };
-  const mockColor = class {
-    constructor(_color?: number) {}
-  };
+  const mockColor = class {};
   const mockMaterial = class {
     opacity = 1;
     transparent = false;
@@ -310,7 +319,12 @@ vi.mock("three", () => {
     domElement = {
       addEventListener: vi.fn(),
       removeEventListener: vi.fn(),
-      getBoundingClientRect: () => ({ left: 0, top: 0, width: 800, height: 600 }),
+      getBoundingClientRect: () => ({
+        left: 0,
+        top: 0,
+        width: 800,
+        height: 600,
+      }),
     };
     setSize() {}
     setPixelRatio() {}
@@ -339,9 +353,7 @@ vi.mock("three", () => {
     Vector3: mockVector3,
     Color: mockColor,
     Raycaster: mockRaycaster,
-    BufferAttribute: class {
-      constructor() {}
-    },
+    BufferAttribute: class {},
   };
 });
 
@@ -353,8 +365,8 @@ vi.mock("../../src/api-client", () => ({
   },
 }));
 
-import { VectorBrowserView } from "../../src/components/VectorBrowserView";
 import { client } from "../../src/api-client";
+import { VectorBrowserView } from "../../src/components/VectorBrowserView";
 
 // ── Component Tests ────────────────────────────────────────────────────
 
@@ -367,10 +379,10 @@ function nodeText(node: TestRenderer.ReactTestInstance): string {
 
 function findButtonByText(
   root: TestRenderer.ReactTestInstance,
-  label: string
+  label: string,
 ): TestRenderer.ReactTestInstance | null {
   const matches = root.findAll(
-    (node) => node.type === "button" && nodeText(node) === label
+    (node) => node.type === "button" && nodeText(node) === label,
   );
   return matches[0] ?? null;
 }
@@ -396,7 +408,9 @@ describe("VectorBrowserView Component", () => {
   });
 
   it("shows connection error when database is unavailable", async () => {
-    vi.mocked(client.getDatabaseTables).mockRejectedValue(new Error("Failed to fetch"));
+    vi.mocked(client.getDatabaseTables).mockRejectedValue(
+      new Error("Failed to fetch"),
+    );
 
     let tree: TestRenderer.ReactTestRenderer;
     await act(async () => {
@@ -404,11 +418,11 @@ describe("VectorBrowserView Component", () => {
     });
     await flush();
 
-    const root = tree!.root;
+    const root = tree?.root;
     const errorText = root.findAll(
       (node) =>
         typeof node.children[0] === "string" &&
-        node.children[0].includes("agent")
+        node.children[0].includes("agent"),
     );
     expect(errorText.length).toBeGreaterThan(0);
 
@@ -419,7 +433,9 @@ describe("VectorBrowserView Component", () => {
 
   it("renders view mode toggle buttons including 3D", async () => {
     vi.mocked(client.getDatabaseTables).mockResolvedValue({
-      tables: [{ name: "memories", schema: "public", rowCount: 10, columns: [] }],
+      tables: [
+        { name: "memories", schema: "public", rowCount: 10, columns: [] },
+      ],
     });
     vi.mocked(client.executeDatabaseQuery).mockResolvedValue({
       columns: ["id", "content"],
@@ -434,7 +450,7 @@ describe("VectorBrowserView Component", () => {
     });
     await flush();
 
-    const root = tree!.root;
+    const root = tree?.root;
 
     // Should have List, 2D, and 3D buttons
     const listButton = findButtonByText(root, "List");
@@ -448,7 +464,9 @@ describe("VectorBrowserView Component", () => {
 
   it("switches to 3D view mode when 3D button is clicked", async () => {
     vi.mocked(client.getDatabaseTables).mockResolvedValue({
-      tables: [{ name: "memories", schema: "public", rowCount: 10, columns: [] }],
+      tables: [
+        { name: "memories", schema: "public", rowCount: 10, columns: [] },
+      ],
     });
     vi.mocked(client.executeDatabaseQuery).mockResolvedValue({
       columns: ["id", "content", "embedding"],
@@ -467,13 +485,13 @@ describe("VectorBrowserView Component", () => {
     });
     await flush();
 
-    const root = tree!.root;
+    const root = tree?.root;
     const graph3DButton = findButtonByText(root, "3D");
     expect(graph3DButton).not.toBeNull();
 
     // Click the 3D button
     await act(async () => {
-      graph3DButton!.props.onClick();
+      graph3DButton?.props.onClick();
     });
     await flush();
 
@@ -484,7 +502,9 @@ describe("VectorBrowserView Component", () => {
 
   it("displays empty state when no memories found", async () => {
     vi.mocked(client.getDatabaseTables).mockResolvedValue({
-      tables: [{ name: "memories", schema: "public", rowCount: 0, columns: [] }],
+      tables: [
+        { name: "memories", schema: "public", rowCount: 0, columns: [] },
+      ],
     });
     vi.mocked(client.executeDatabaseQuery).mockResolvedValue({
       columns: [],
@@ -499,33 +519,52 @@ describe("VectorBrowserView Component", () => {
     });
     await flush();
 
-    const root = tree!.root;
+    const root = tree?.root;
     const noMemoriesText = root.findAll(
       (node) =>
         typeof node.children[0] === "string" &&
-        node.children[0].includes("No memories found")
+        node.children[0].includes("No memories found"),
     );
     expect(noMemoriesText.length).toBeGreaterThan(0);
   });
 
   it("renders memory list items when data is available", async () => {
     vi.mocked(client.getDatabaseTables).mockResolvedValue({
-      tables: [{ name: "memories", schema: "public", rowCount: 100, columns: [] }],
+      tables: [
+        { name: "memories", schema: "public", rowCount: 100, columns: [] },
+      ],
     });
-    vi.mocked(client.executeDatabaseQuery).mockImplementation(async (sql: string) => {
-      if (sql.includes("COUNT")) {
-        return { columns: ["cnt"], rows: [{ cnt: 2 }], rowCount: 1, durationMs: 1 };
-      }
-      return {
-        columns: ["id", "content", "type", "createdAt"],
-        rows: [
-          { id: "1", content: "first test memory", type: "message", createdAt: "2024-01-01" },
-          { id: "2", content: "second test memory", type: "message", createdAt: "2024-01-02" },
-        ],
-        rowCount: 2,
-        durationMs: 1,
-      };
-    });
+    vi.mocked(client.executeDatabaseQuery).mockImplementation(
+      async (sql: string) => {
+        if (sql.includes("COUNT")) {
+          return {
+            columns: ["cnt"],
+            rows: [{ cnt: 2 }],
+            rowCount: 1,
+            durationMs: 1,
+          };
+        }
+        return {
+          columns: ["id", "content", "type", "createdAt"],
+          rows: [
+            {
+              id: "1",
+              content: "first test memory",
+              type: "message",
+              createdAt: "2024-01-01",
+            },
+            {
+              id: "2",
+              content: "second test memory",
+              type: "message",
+              createdAt: "2024-01-02",
+            },
+          ],
+          rowCount: 2,
+          durationMs: 1,
+        };
+      },
+    );
 
     let tree: TestRenderer.ReactTestRenderer;
     await act(async () => {
@@ -533,14 +572,14 @@ describe("VectorBrowserView Component", () => {
     });
     await flush();
 
-    const root = tree!.root;
+    const root = tree?.root;
 
     // Should find memory content in the list
     const memoryItems = root.findAll(
       (node) =>
         typeof node.children[0] === "string" &&
         (node.children[0].includes("first test memory") ||
-         node.children[0].includes("second test memory"))
+          node.children[0].includes("second test memory")),
     );
     expect(memoryItems.length).toBeGreaterThan(0);
   });
@@ -603,6 +642,6 @@ describe("Vector Browser Integration", () => {
     const float32 = new Float32Array([0.1, 0.2, 0.3]);
     const result = parseEmbedding(float32);
     expect(result).toHaveLength(3);
-    expect(result![0]).toBeCloseTo(0.1, 5);
+    expect(result?.[0]).toBeCloseTo(0.1, 5);
   });
 });

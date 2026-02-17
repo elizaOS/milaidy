@@ -4,12 +4,12 @@
  */
 
 import { logger } from "@elizaos/core";
-import type { CloudConfig } from "../config/types.milaidy.js";
-import { BackupScheduler } from "./backup.js";
-import { ElizaCloudClient } from "./bridge-client.js";
-import { CloudRuntimeProxy } from "./cloud-proxy.js";
-import { ConnectionMonitor } from "./reconnect.js";
-import { validateCloudBaseUrl } from "./validate-url.js";
+import type { CloudConfig } from "../config/types.milady";
+import { BackupScheduler } from "./backup";
+import { ElizaCloudClient } from "./bridge-client";
+import { CloudRuntimeProxy } from "./cloud-proxy";
+import { ConnectionMonitor } from "./reconnect";
+import { validateCloudBaseUrl } from "./validate-url";
 
 export type CloudConnectionStatus =
   | "disconnected"

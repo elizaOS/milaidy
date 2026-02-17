@@ -1,4 +1,4 @@
-package ai.milaidy.plugins.location
+package ai.milady.plugins.location
 
 import android.Manifest
 import android.content.pm.PackageManager
@@ -18,13 +18,13 @@ import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * MilaidyLocation Capacitor Plugin
+ * MiladyLocation Capacitor Plugin
  *
  * Provides location services using Google Play Services FusedLocationProviderClient.
  * Supports one-shot position, continuous watching, maxAge caching, and background location.
  */
 @CapacitorPlugin(
-    name = "MilaidyLocation",
+    name = "MiladyLocation",
     permissions = [
         Permission(alias = "location", strings = [
             Manifest.permission.ACCESS_FINE_LOCATION,

@@ -9,14 +9,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   buildMockUpdateCheckResult,
   waitMs,
-} from "../test-support/test-helpers.js";
+} from "../test-support/test-helpers";
 
 // Mock dependencies before importing the module under test
-vi.mock("../config/config.js", () => ({
-  loadMilaidyConfig: vi.fn(() => ({})),
+vi.mock("../config/config", () => ({
+  loadMiladyConfig: vi.fn(() => ({})),
 }));
 
-vi.mock("./update-checker.js", () => ({
+vi.mock("./update-checker", () => ({
   checkForUpdate: vi.fn(),
   resolveChannel: vi.fn(() => "stable"),
 }));
@@ -32,7 +32,7 @@ function mockTerminalTheme() {
   };
 }
 
-vi.mock("../terminal/theme.js", mockTerminalTheme);
+vi.mock("../terminal/theme", mockTerminalTheme);
 
 // ============================================================================
 // Helpers
@@ -47,18 +47,18 @@ async function importFreshNotifier() {
   vi.resetModules();
 
   // Re-mock after reset
-  vi.doMock("../config/config.js", () => ({
-    loadMilaidyConfig: vi.fn(() => ({})),
+  vi.doMock("../config/config", () => ({
+    loadMiladyConfig: vi.fn(() => ({})),
   }));
-  vi.doMock("./update-checker.js", () => ({
+  vi.doMock("./update-checker", () => ({
     checkForUpdate: vi.fn(),
     resolveChannel: vi.fn(() => "stable"),
   }));
-  vi.doMock("../terminal/theme.js", mockTerminalTheme);
+  vi.doMock("../terminal/theme", mockTerminalTheme);
 
-  const mod = await import("./update-notifier.js");
-  const config = await import("../config/config.js");
-  const checker = await import("./update-checker.js");
+  const mod = await import("./update-notifier");
+  const config = await import("../config/config");
+  const checker = await import("./update-checker");
   return {
     scheduleUpdateNotification: mod.scheduleUpdateNotification,
     config,
@@ -128,7 +128,7 @@ describe("scheduleUpdateNotification", () => {
   it("does not check when checkOnStart is false", async () => {
     const { scheduleUpdateNotification, config, checker } =
       await importFreshNotifier();
-    vi.mocked(config.loadMilaidyConfig).mockReturnValue({
+    vi.mocked(config.loadMiladyConfig).mockReturnValue({
       update: { checkOnStart: false },
     });
 
@@ -166,7 +166,7 @@ describe("scheduleUpdateNotification", () => {
     expect(output).toContain("Update available");
     expect(output).toContain("2.0.0");
     expect(output).toContain("2.1.0");
-    expect(output).toContain("milaidy update");
+    expect(output).toContain("milady update");
   });
 
   it("does not write notice when no update is available", async () => {
@@ -251,7 +251,7 @@ describe("scheduleUpdateNotification", () => {
   it("ignores corrupt config and still checks for updates", async () => {
     const { scheduleUpdateNotification, config, checker } =
       await importFreshNotifier();
-    vi.mocked(config.loadMilaidyConfig).mockImplementation(() => {
+    vi.mocked(config.loadMiladyConfig).mockImplementation(() => {
       throw new Error("corrupt");
     });
     vi.mocked(checker.checkForUpdate).mockResolvedValue(

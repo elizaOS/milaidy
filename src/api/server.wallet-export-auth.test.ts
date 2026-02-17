@@ -1,7 +1,7 @@
 import type http from "node:http";
 import { afterEach, describe, expect, it } from "vitest";
-import { createMockHeadersRequest } from "./../test-support/test-helpers.js";
-import { resolveWalletExportRejection } from "./server.js";
+import { createMockHeadersRequest } from "./../test-support/test-helpers";
+import { resolveWalletExportRejection } from "./server";
 
 function req(
   headers: http.IncomingHttpHeaders = {},
@@ -13,18 +13,18 @@ function req(
 }
 
 describe("resolveWalletExportRejection", () => {
-  const prevExportToken = process.env.MILAIDY_WALLET_EXPORT_TOKEN;
+  const prevExportToken = process.env.MILADY_WALLET_EXPORT_TOKEN;
 
   afterEach(() => {
     if (prevExportToken === undefined) {
-      delete process.env.MILAIDY_WALLET_EXPORT_TOKEN;
+      delete process.env.MILADY_WALLET_EXPORT_TOKEN;
     } else {
-      process.env.MILAIDY_WALLET_EXPORT_TOKEN = prevExportToken;
+      process.env.MILADY_WALLET_EXPORT_TOKEN = prevExportToken;
     }
   });
 
   it("rejects when confirmation is missing", () => {
-    delete process.env.MILAIDY_WALLET_EXPORT_TOKEN;
+    delete process.env.MILADY_WALLET_EXPORT_TOKEN;
     const rejection = resolveWalletExportRejection(
       req() as http.IncomingMessage,
       {},
@@ -34,7 +34,7 @@ describe("resolveWalletExportRejection", () => {
   });
 
   it("rejects when export token feature is disabled", () => {
-    delete process.env.MILAIDY_WALLET_EXPORT_TOKEN;
+    delete process.env.MILADY_WALLET_EXPORT_TOKEN;
     const rejection = resolveWalletExportRejection(
       req() as http.IncomingMessage,
       { confirm: true },
@@ -42,12 +42,12 @@ describe("resolveWalletExportRejection", () => {
     expect(rejection).toEqual({
       status: 403,
       reason:
-        "Wallet export is disabled. Set MILAIDY_WALLET_EXPORT_TOKEN to enable secure exports.",
+        "Wallet export is disabled. Set MILADY_WALLET_EXPORT_TOKEN to enable secure exports.",
     });
   });
 
   it("rejects when export token is missing", () => {
-    process.env.MILAIDY_WALLET_EXPORT_TOKEN = "secret-token";
+    process.env.MILADY_WALLET_EXPORT_TOKEN = "secret-token";
     const rejection = resolveWalletExportRejection(
       req() as http.IncomingMessage,
       { confirm: true },
@@ -55,12 +55,12 @@ describe("resolveWalletExportRejection", () => {
     expect(rejection).toEqual({
       status: 401,
       reason:
-        "Missing export token. Provide X-Milaidy-Export-Token header or exportToken in request body.",
+        "Missing export token. Provide X-Milady-Export-Token header or exportToken in request body.",
     });
   });
 
   it("rejects when export token is invalid", () => {
-    process.env.MILAIDY_WALLET_EXPORT_TOKEN = "secret-token";
+    process.env.MILADY_WALLET_EXPORT_TOKEN = "secret-token";
     const rejection = resolveWalletExportRejection(
       req() as http.IncomingMessage,
       { confirm: true, exportToken: "wrong-token" },
@@ -69,7 +69,7 @@ describe("resolveWalletExportRejection", () => {
   });
 
   it("accepts a valid token from body", () => {
-    process.env.MILAIDY_WALLET_EXPORT_TOKEN = "secret-token";
+    process.env.MILADY_WALLET_EXPORT_TOKEN = "secret-token";
     const rejection = resolveWalletExportRejection(
       req() as http.IncomingMessage,
       { confirm: true, exportToken: "secret-token" },
@@ -78,9 +78,9 @@ describe("resolveWalletExportRejection", () => {
   });
 
   it("accepts a valid token from header", () => {
-    process.env.MILAIDY_WALLET_EXPORT_TOKEN = "secret-token";
+    process.env.MILADY_WALLET_EXPORT_TOKEN = "secret-token";
     const rejection = resolveWalletExportRejection(
-      req({ "x-milaidy-export-token": "secret-token" }) as http.IncomingMessage,
+      req({ "x-milady-export-token": "secret-token" }) as http.IncomingMessage,
       { confirm: true },
     );
     expect(rejection).toBeNull();

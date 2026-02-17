@@ -32,7 +32,11 @@ describe("Switch", () => {
     let tree!: TestRenderer.ReactTestRenderer;
     act(() => {
       tree = TestRenderer.create(
-        React.createElement(Switch, { checked: true, onChange, disabled: true }),
+        React.createElement(Switch, {
+          checked: true,
+          onChange,
+          disabled: true,
+        }),
       );
     });
 

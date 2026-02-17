@@ -1,20 +1,33 @@
-import { execFile, spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import {
+  type ChildProcessWithoutNullStreams,
+  execFile,
+  spawn,
+} from "node:child_process";
 import fs from "node:fs/promises";
 import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
-import { chromium, expect, test, type Browser, type Page } from "@playwright/test";
+import {
+  type Browser,
+  chromium,
+  expect,
+  type Page,
+  test,
+} from "@playwright/test";
 
-import { startMockApiServer, type MockApiServer } from "../electron-ui/mock-api";
+import {
+  type MockApiServer,
+  startMockApiServer,
+} from "../electron-ui/mock-api";
 
 const execFileAsync = promisify(execFile);
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "../../../..");
 const electronDistDir = path.join(repoRoot, "apps", "app", "electron", "dist");
-const appBundleName = "Milaidy.app";
-const appExecutableName = "Milaidy";
+const appBundleName = "Milady.app";
+const appExecutableName = "Milady";
 
 function isIgnorableConsoleError(message: string): boolean {
   const patterns = [
@@ -37,17 +50,11 @@ function isIgnorableRequestFailure(
   ) {
     return true;
   }
-  if (
-    failure.includes("ERR_FILE_NOT_FOUND") &&
-    requestUrl.startsWith("file:///vrms/")
-  ) {
-    return true;
-  }
   return false;
 }
 
 async function resolveDmgPath(): Promise<string> {
-  const explicit = process.env.MILAIDY_TEST_DMG_PATH?.trim();
+  const explicit = process.env.MILADY_TEST_DMG_PATH?.trim();
   if (explicit) {
     await fs.access(explicit);
     return fs.realpath(explicit);
@@ -59,7 +66,9 @@ async function resolveDmgPath(): Promise<string> {
     .map((entry) => path.join(electronDistDir, entry.name));
 
   if (dmgs.length === 0) {
-    throw new Error(`No DMG artifacts found in ${electronDistDir}. Build DMG first.`);
+    throw new Error(
+      `No DMG artifacts found in ${electronDistDir}. Build DMG first.`,
+    );
   }
 
   const stats = await Promise.all(
@@ -78,7 +87,9 @@ function extractMountPointFromDiskLine(line: string): string | null {
 
 async function findExistingMountPoint(dmgPath: string): Promise<string | null> {
   const { stdout } = await execFileAsync("hdiutil", ["info"]);
-  const blocks = stdout.split("================================================");
+  const blocks = stdout.split(
+    "================================================",
+  );
   for (const block of blocks) {
     if (!block.includes(`image-path      : ${dmgPath}`)) continue;
     const lines = block.split("\n").map((line) => line.trimEnd());
@@ -90,7 +101,9 @@ async function findExistingMountPoint(dmgPath: string): Promise<string | null> {
   return null;
 }
 
-async function attachOrReuseDmg(dmgPath: string): Promise<{ mountPoint: string; detachWhenDone: boolean }> {
+async function attachOrReuseDmg(
+  dmgPath: string,
+): Promise<{ mountPoint: string; detachWhenDone: boolean }> {
   const existing = await findExistingMountPoint(dmgPath);
   if (existing) {
     return { mountPoint: existing, detachWhenDone: false };
@@ -111,7 +124,9 @@ async function attachOrReuseDmg(dmgPath: string): Promise<{ mountPoint: string; 
     }
   }
 
-  throw new Error(`Unable to determine DMG mount point from hdiutil output:\n${output}`);
+  throw new Error(
+    `Unable to determine DMG mount point from hdiutil output:\n${output}`,
+  );
 }
 
 async function unmountDmg(mountPoint: string): Promise<void> {
@@ -131,7 +146,9 @@ async function getFreeTcpPort(): Promise<number> {
     server.listen(0, "127.0.0.1", () => {
       const address = server.address();
       if (!address || typeof address === "string") {
-        server.close(() => reject(new Error("Unable to resolve free TCP port.")));
+        server.close(() =>
+          reject(new Error("Unable to resolve free TCP port.")),
+        );
         return;
       }
       const { port } = address;
@@ -147,7 +164,9 @@ async function waitForCdp(debugPort: number, timeoutMs: number): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     try {
-      const response = await fetch(`http://127.0.0.1:${debugPort}/json/version`);
+      const response = await fetch(
+        `http://127.0.0.1:${debugPort}/json/version`,
+      );
       if (response.ok) return;
     } catch {
       // retry
@@ -157,7 +176,10 @@ async function waitForCdp(debugPort: number, timeoutMs: number): Promise<void> {
   throw new Error(`Timed out waiting for CDP endpoint at :${debugPort}`);
 }
 
-async function waitForAppPage(browser: Browser, timeoutMs: number): Promise<Page> {
+async function waitForAppPage(
+  browser: Browser,
+  timeoutMs: number,
+): Promise<Page> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     for (const context of browser.contexts()) {
@@ -189,7 +211,9 @@ function collectProcessLogs(child: ChildProcessWithoutNullStreams): {
   return { stdout, stderr };
 }
 
-async function killProcess(child: ChildProcessWithoutNullStreams): Promise<void> {
+async function killProcess(
+  child: ChildProcessWithoutNullStreams,
+): Promise<void> {
   if (child.exitCode !== null || child.killed) return;
   child.kill("SIGTERM");
   await new Promise<void>((resolve) => {
@@ -209,10 +233,10 @@ test("packaged DMG app starts and reaches chat/agent-ready state", async () => {
 
   const dmgPath = await resolveDmgPath();
   const userDataDir = await fs.mkdtemp(
-    path.join(os.tmpdir(), "milaidy-packaged-userdata-"),
+    path.join(os.tmpdir(), "milady-packaged-userdata-"),
   );
   const appInstallDir = await fs.mkdtemp(
-    path.join(os.tmpdir(), "milaidy-packaged-app-"),
+    path.join(os.tmpdir(), "milady-packaged-app-"),
   );
   const debugPort = await getFreeTcpPort();
 
@@ -260,11 +284,11 @@ test("packaged DMG app starts and reaches chat/agent-ready state", async () => {
       {
         env: {
           ...process.env,
-          MILAIDY_ELECTRON_SKIP_EMBEDDED_AGENT: "1",
-          MILAIDY_ELECTRON_TEST_API_BASE: api.baseUrl,
-          MILAIDY_ELECTRON_DISABLE_AUTO_UPDATER: "1",
-          MILAIDY_ELECTRON_DISABLE_DEVTOOLS: "1",
-          MILAIDY_ELECTRON_USER_DATA_DIR: userDataDir,
+          MILADY_ELECTRON_SKIP_EMBEDDED_AGENT: "1",
+          MILADY_ELECTRON_TEST_API_BASE: api.baseUrl,
+          MILADY_ELECTRON_DISABLE_AUTO_UPDATER: "1",
+          MILADY_ELECTRON_DISABLE_DEVTOOLS: "1",
+          MILADY_ELECTRON_USER_DATA_DIR: userDataDir,
         },
         stdio: ["ignore", "pipe", "pipe"],
       },
@@ -295,13 +319,15 @@ test("packaged DMG app starts and reaches chat/agent-ready state", async () => {
     await expect(page.getByPlaceholder("Type a message...")).toBeVisible({
       timeout: 120_000,
     });
-    await expect(page.getByRole("button", { name: "Chat", exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Chat", exact: true }),
+    ).toBeVisible();
     await expect(page.getByTestId("status-pill")).toContainText(
       /(running|paused)/i,
     );
-    expect(api.requests.some((request) => request.includes("/api/status"))).toBe(
-      true,
-    );
+    expect(
+      api.requests.some((request) => request.includes("/api/status")),
+    ).toBe(true);
 
     const stdoutText = processLogs?.stdout.join("") ?? "";
     const stderrText = processLogs?.stderr.join("") ?? "";

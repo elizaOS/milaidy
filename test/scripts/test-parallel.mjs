@@ -20,8 +20,7 @@ try {
   // @playwright/test not available — playwright tests will be skipped
 }
 const shouldRunPlaywright =
-  Boolean(playwrightCli) &&
-  (process.env.MILAIDY_RUN_PLAYWRIGHT === "1" || process.env.CI !== "true");
+  Boolean(playwrightCli) && process.env.MILADY_RUN_PLAYWRIGHT === "1";
 
 /**
  * Each entry describes a test suite to run in parallel.
@@ -70,10 +69,7 @@ const isMacOS =
 const isWindows =
   process.platform === "win32" || process.env.RUNNER_OS === "Windows";
 const isWindowsCi = isCI && isWindows;
-const shardOverride = Number.parseInt(
-  process.env.MILAIDY_TEST_SHARDS ?? "",
-  10,
-);
+const shardOverride = Number.parseInt(process.env.MILADY_TEST_SHARDS ?? "", 10);
 const shardCount = isWindowsCi
   ? Number.isFinite(shardOverride) && shardOverride > 1
     ? shardOverride
@@ -83,7 +79,7 @@ const windowsCiArgs = isWindowsCi
   ? ["--no-file-parallelism", "--dangerouslyIgnoreUnhandledErrors"]
   : [];
 const overrideWorkers = Number.parseInt(
-  process.env.MILAIDY_TEST_WORKERS ?? "",
+  process.env.MILADY_TEST_WORKERS ?? "",
   10,
 );
 const resolvedOverride =

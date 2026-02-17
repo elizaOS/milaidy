@@ -1,5 +1,9 @@
-import { useState, useEffect } from "react";
-import { client, type CustomActionDef, type CustomActionHandler } from "../api-client";
+import { useEffect, useState } from "react";
+import {
+  type CustomActionDef,
+  type CustomActionHandler,
+  client,
+} from "../api-client";
 
 interface CustomActionEditorProps {
   open: boolean;
@@ -9,6 +13,7 @@ interface CustomActionEditorProps {
 }
 
 type HandlerType = "http" | "shell" | "code";
+type HttpMethod = "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
 
 interface ParamDef {
   name: string;
@@ -21,15 +26,302 @@ interface HeaderRow {
   value: string;
 }
 
-export function CustomActionEditor({ open, action, onSave, onClose }: CustomActionEditorProps) {
+interface ParsedGeneration {
+  name: string;
+  description: string;
+  handlerType: HandlerType;
+  handler: CustomActionHandler;
+  parameters: ParamDef[];
+  similes: string[];
+  enabled: boolean;
+}
+
+const HTTP_METHODS = ["GET", "POST", "PUT", "DELETE", "PATCH"] as const;
+const METHODS_SET = new Set<string>(HTTP_METHODS);
+
+const HTTP_METHODS_LIST = HTTP_METHODS;
+
+function toNonEmptyString(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+function normalizeActionName(value: string): string {
+  return value
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9_]+/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
+function normalizeAlias(value: string): string {
+  return normalizeActionName(value);
+}
+
+function normalizeParamName(value: string): string {
+  return value
+    .trim()
+    .replace(/[^A-Za-z0-9_]+/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
+function normalizeMethod(value: unknown): HttpMethod {
+  const method = toNonEmptyString(value)?.toUpperCase();
+  return method && METHODS_SET.has(method) ? (method as HttpMethod) : "GET";
+}
+
+function parseHeaders(value: unknown): HeaderRow[] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return [];
+  }
+  return Object.entries(value).flatMap(([key, rawValue]) => {
+    const trimmedKey = normalizeParamName(key);
+    if (!trimmedKey) return [];
+    if (typeof rawValue !== "string") return [];
+    return [{ key: key.trim(), value: rawValue }];
+  });
+}
+
+function parseParameters(value: unknown): ParamDef[] {
+  if (!Array.isArray(value)) return [];
+
+  const seen = new Set<string>();
+
+  return value
+    .map((raw) => {
+      if (!raw || typeof raw !== "object") return null;
+
+      const candidate = raw as {
+        name?: unknown;
+        description?: unknown;
+        required?: unknown;
+      };
+
+      const rawName = toNonEmptyString(candidate.name);
+      if (!rawName) return null;
+
+      const name = normalizeParamName(rawName);
+      if (!name || seen.has(name.toLowerCase())) return null;
+      seen.add(name.toLowerCase());
+
+      return {
+        name,
+        description: toNonEmptyString(candidate.description) || name,
+        required: candidate.required === true,
+      } satisfies ParamDef;
+    })
+    .filter((param): param is ParamDef => param !== null);
+}
+
+function parseSimiles(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+
+  const seen = new Set<string>();
+
+  return value
+    .map((raw) => toNonEmptyString(raw) || "")
+    .map((simile) => normalizeAlias(simile))
+    .filter((simile) => simile.length > 0)
+    .filter((simile) => {
+      const key = simile.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+}
+
+function parseGeneratedAction(payload: unknown): {
+  ok: boolean;
+  action?: ParsedGeneration;
+  errors: string[];
+} {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return { ok: false, errors: ["Generation returned an invalid payload."] };
+  }
+
+  const raw = payload as Record<string, unknown>;
+
+  const name = normalizeActionName(raw.name?.toString() ?? "");
+  const description = toNonEmptyString(raw.description) ?? "";
+
+  if (!name) {
+    return {
+      ok: false,
+      errors: ["Generated action must include a name."],
+    };
+  }
+
+  const handlerSource = raw.handler;
+  if (
+    !handlerSource ||
+    typeof handlerSource !== "object" ||
+    Array.isArray(handlerSource)
+  ) {
+    return {
+      ok: false,
+      errors: ["Generated action must include a handler block."],
+    };
+  }
+
+  const hTypeRaw =
+    toNonEmptyString((raw as { handlerType?: unknown }).handlerType) ??
+    toNonEmptyString((handlerSource as { type?: unknown }).type);
+  const handlerType = hTypeRaw?.toLowerCase() as HandlerType | undefined;
+
+  if (
+    handlerType !== "http" &&
+    handlerType !== "shell" &&
+    handlerType !== "code"
+  ) {
+    return {
+      ok: false,
+      errors: ["Generated handler type must be http, shell, or code."],
+    };
+  }
+
+  const params = parseParameters(raw.parameters);
+
+  if (handlerType === "http") {
+    const rawHttp = handlerSource as {
+      method?: unknown;
+      url?: unknown;
+      headers?: unknown;
+      bodyTemplate?: unknown;
+      methodType?: unknown;
+      type?: unknown;
+    };
+
+    const url = toNonEmptyString(rawHttp.url);
+    if (!url) {
+      return {
+        ok: false,
+        errors: ["HTTP action requires a URL."],
+      };
+    }
+
+    const handler: CustomActionHandler = {
+      type: "http",
+      method: normalizeMethod(rawHttp.method ?? rawHttp.methodType),
+      url,
+      headers: parseHeaders(rawHttp.headers).length
+        ? parseHeaders(rawHttp.headers).reduce<Record<string, string>>(
+            (acc, item) => {
+              if (item.key) {
+                acc[item.key] = item.value;
+              }
+              return acc;
+            },
+            {},
+          )
+        : undefined,
+      bodyTemplate: toNonEmptyString(rawHttp.bodyTemplate),
+    };
+
+    return {
+      ok: true,
+      action: {
+        name,
+        description,
+        handlerType,
+        handler,
+        parameters: params,
+        similes: parseSimiles(raw.similes),
+        enabled: raw.enabled === true,
+      },
+      errors: [],
+    };
+  }
+
+  if (handlerType === "shell") {
+    const rawShell = handlerSource as {
+      command?: unknown;
+    };
+
+    const command = toNonEmptyString(rawShell.command);
+    if (!command) {
+      return {
+        ok: false,
+        errors: ["Shell action requires a command template."],
+      };
+    }
+
+    return {
+      ok: true,
+      action: {
+        name,
+        description,
+        handlerType,
+        handler: {
+          type: "shell",
+          command,
+        },
+        parameters: params,
+        similes: parseSimiles(raw.similes),
+        enabled: raw.enabled === true,
+      },
+      errors: [],
+    };
+  }
+
+  const rawCode = handlerSource as {
+    code?: unknown;
+    source?: unknown;
+  };
+  const code =
+    toNonEmptyString(rawCode.code) ?? toNonEmptyString(rawCode.source);
+
+  if (!code) {
+    return {
+      ok: false,
+      errors: ["Code action requires a JavaScript code block."],
+    };
+  }
+
+  return {
+    ok: true,
+    action: {
+      name,
+      description,
+      handlerType,
+      handler: {
+        type: "code",
+        code,
+      },
+      parameters: params,
+      similes: parseSimiles(raw.similes),
+      enabled: raw.enabled === true,
+    },
+    errors: [],
+  };
+}
+
+function parseSimilesInput(value: string): string[] {
+  return value
+    .split(",")
+    .map((raw) => normalizeAlias(raw))
+    .filter(Boolean);
+}
+
+export function CustomActionEditor({
+  open,
+  action,
+  onSave,
+  onClose,
+}: CustomActionEditorProps) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [similesInput, setSimilesInput] = useState("");
   const [handlerType, setHandlerType] = useState<HandlerType>("http");
 
   // HTTP handler fields
-  const [httpMethod, setHttpMethod] = useState<"GET" | "POST" | "PUT" | "DELETE" | "PATCH">("GET");
+  const [httpMethod, setHttpMethod] = useState<HttpMethod>("GET");
   const [httpUrl, setHttpUrl] = useState("");
-  const [httpHeaders, setHttpHeaders] = useState<HeaderRow[]>([{ key: "", value: "" }]);
+  const [httpHeaders, setHttpHeaders] = useState<HeaderRow[]>([
+    { key: "", value: "" },
+  ]);
   const [httpBody, setHttpBody] = useState("");
 
   // Shell handler fields
@@ -48,31 +340,47 @@ export function CustomActionEditor({ open, action, onSave, onClose }: CustomActi
   // Test section
   const [testExpanded, setTestExpanded] = useState(false);
   const [testParams, setTestParams] = useState<Record<string, string>>({});
-  const [testResult, setTestResult] = useState<{ output?: string; error?: string; duration?: number } | null>(null);
+  const [testResult, setTestResult] = useState<{
+    output?: string;
+    error?: string;
+    duration?: number;
+  } | null>(null);
   const [testing, setTesting] = useState(false);
+
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState("");
 
   // Populate form when action changes
   useEffect(() => {
     if (!open) return;
 
+    setFormError("");
+
     if (action) {
       setName(action.name);
       setDescription(action.description || "");
-      setParameters(action.parameters?.map(p => ({
-        name: p.name,
-        description: p.description || "",
-        required: p.required || false
-      })) || []);
+      setSimilesInput((action.similes ?? []).join(", "));
+      setParameters(
+        action.parameters?.map((p) => ({
+          name: p.name,
+          description: p.description || "",
+          required: p.required || false,
+        })) || [],
+      );
 
       const handler = action.handler;
       if (handler.type === "http") {
         setHandlerType("http");
-        setHttpMethod((handler.method as "GET" | "POST" | "PUT" | "DELETE" | "PATCH") || "GET");
+        setHttpMethod((handler.method as HttpMethod) || "GET");
         setHttpUrl(handler.url || "");
         const headers = handler.headers || {};
-        setHttpHeaders(Object.keys(headers).length > 0
-          ? Object.entries(headers).map(([k, v]) => ({ key: k, value: v }))
-          : [{ key: "", value: "" }]
+        setHttpHeaders(
+          Object.keys(headers).length > 0
+            ? Object.entries(headers).map(([key, value]) => ({
+                key,
+                value,
+              }))
+            : [{ key: "", value: "" }],
         );
         setHttpBody(handler.bodyTemplate || "");
       } else if (handler.type === "shell") {
@@ -86,6 +394,7 @@ export function CustomActionEditor({ open, action, onSave, onClose }: CustomActi
       // Reset for create mode
       setName("");
       setDescription("");
+      setSimilesInput("");
       setHandlerType("http");
       setHttpMethod("GET");
       setHttpUrl("");
@@ -101,71 +410,121 @@ export function CustomActionEditor({ open, action, onSave, onClose }: CustomActi
     }
   }, [open, action]);
 
-  const handleNameChange = (value: string) => {
-    const normalized = value.toUpperCase().replace(/\s+/g, "_");
-    setName(normalized);
+  const setNormalizedName = (value: string) => {
+    setName(normalizeActionName(value));
+    setFormError("");
+  };
+
+  const setDescriptionValue = (value: string) => {
+    setDescription(value);
+    setFormError("");
+  };
+
+  const applyGenerated = (parsed: ParsedGeneration) => {
+    setName(parsed.name);
+    setDescription(parsed.description);
+    setSimilesInput(parsed.similes.join(", "));
+
+    if (parsed.handlerType === "http") {
+      const handler = parsed.handler as CustomActionHandler & {
+        type: "http";
+        method: HttpMethod;
+      };
+      setHandlerType("http");
+      setHttpMethod(handler.method || "GET");
+      setHttpUrl(handler.url);
+      setHttpBody(handler.bodyTemplate || "");
+      setHttpHeaders(
+        handler.headers
+          ? Object.entries(handler.headers).map(([key, value]) => ({
+              key,
+              value,
+            }))
+          : [{ key: "", value: "" }],
+      );
+    } else if (parsed.handlerType === "shell") {
+      const handler = parsed.handler as CustomActionHandler & { type: "shell" };
+      setHandlerType("shell");
+      setShellCommand(handler.command);
+    } else {
+      const handler = parsed.handler as CustomActionHandler & { type: "code" };
+      setHandlerType("code");
+      setCode(handler.code);
+    }
+
+    setParameters(parsed.parameters);
+    setFormError("");
+    setAiPrompt("");
   };
 
   const handleGenerate = async () => {
     if (!aiPrompt.trim()) return;
     setGenerating(true);
+    setFormError("");
+
     try {
       const result = await client.generateCustomAction(aiPrompt.trim());
-      if (!result.ok || !result.generated) return;
-      const g = result.generated;
-
-      if (typeof g.name === "string") setName(g.name.toUpperCase().replace(/\s+/g, "_"));
-      if (typeof g.description === "string") setDescription(g.description);
-
-      const handler = (g.handler ?? g) as Record<string, unknown>;
-      const hType = (handler.type ?? g.handlerType) as string | undefined;
-
-      if (hType === "http") {
-        setHandlerType("http");
-        if (typeof handler.method === "string") setHttpMethod(handler.method as "GET" | "POST" | "PUT" | "DELETE" | "PATCH");
-        if (typeof handler.url === "string") setHttpUrl(handler.url);
-        if (handler.headers && typeof handler.headers === "object") {
-          setHttpHeaders(Object.entries(handler.headers as Record<string, string>).map(([k, v]) => ({ key: k, value: v })));
-        }
-        if (typeof handler.bodyTemplate === "string") setHttpBody(handler.bodyTemplate);
-      } else if (hType === "shell") {
-        setHandlerType("shell");
-        if (typeof handler.command === "string") setShellCommand(handler.command);
-      } else if (hType === "code") {
-        setHandlerType("code");
-        if (typeof handler.code === "string") setCode(handler.code);
+      if (!result.ok || !result.generated) {
+        setFormError("AI generation returned no action definition.");
+        return;
       }
 
-      if (Array.isArray(g.parameters)) {
-        setParameters(
-          (g.parameters as Array<{ name?: string; description?: string; required?: boolean }>)
-            .filter((p) => p.name)
-            .map((p) => ({
-              name: p.name ?? "",
-              description: p.description ?? "",
-              required: p.required ?? false,
-            }))
+      const parsed = parseGeneratedAction(result.generated);
+      if (!parsed.ok || !parsed.action) {
+        setFormError(
+          parsed.errors.length > 0
+            ? parsed.errors.join(" ")
+            : "AI generation was incomplete.",
         );
+        return;
       }
-    } catch (err: any) {
-      alert(`Generation failed: ${err.message || String(err)}`);
+
+      applyGenerated(parsed.action);
+    } catch (err: unknown) {
+      setFormError(
+        `Generation failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
     } finally {
       setGenerating(false);
     }
   };
 
   const addParameter = () => {
-    setParameters([...parameters, { name: "", description: "", required: false }]);
+    setParameters([
+      ...parameters,
+      { name: "", description: "", required: false },
+    ]);
   };
 
   const removeParameter = (index: number) => {
     setParameters(parameters.filter((_, i) => i !== index));
   };
 
-  const updateParameter = (index: number, field: keyof ParamDef, value: string | boolean) => {
-    setParameters(parameters.map((p, i) =>
-      i === index ? { ...p, [field]: value } : p
-    ));
+  const updateParameter = (
+    index: number,
+    field: keyof ParamDef,
+    value: string | boolean,
+  ) => {
+    setParameters((prevParameters) =>
+      prevParameters.map((parameter, i) => {
+        if (i !== index) {
+          return parameter;
+        }
+
+        if (field === "name") {
+          return {
+            ...parameter,
+            [field]: normalizeParamName(value as string),
+          };
+        }
+
+        return {
+          ...parameter,
+          [field]: value,
+        };
+      }),
+    );
+    setFormError("");
   };
 
   const addHeader = () => {
@@ -176,15 +535,147 @@ export function CustomActionEditor({ open, action, onSave, onClose }: CustomActi
     setHttpHeaders(httpHeaders.filter((_, i) => i !== index));
   };
 
-  const updateHeader = (index: number, field: "key" | "value", value: string) => {
-    setHttpHeaders(httpHeaders.map((h, i) =>
-      i === index ? { ...h, [field]: value } : h
-    ));
+  const updateHeader = (
+    index: number,
+    field: "key" | "value",
+    value: string,
+  ) => {
+    setHttpHeaders((prevHeaders) =>
+      prevHeaders.map((header, i) =>
+        i === index ? { ...header, [field]: value } : header,
+      ),
+    );
+    setFormError("");
+  };
+
+  const buildHeaders = (): Record<string, string> | undefined => {
+    const headers: Record<string, string> = {};
+
+    for (const header of httpHeaders) {
+      const key = header.key.trim();
+      if (key) {
+        headers[key] = header.value;
+      }
+    }
+
+    return Object.keys(headers).length > 0 ? headers : undefined;
+  };
+
+  const validateParameters = (items: ParamDef[]): string | null => {
+    const seen = new Set<string>();
+
+    for (const parameter of items) {
+      const normalized = normalizeParamName(parameter.name);
+      if (!normalized) {
+        return "Each parameter needs a non-empty name.";
+      }
+
+      if (seen.has(normalized.toLowerCase())) {
+        return `Duplicate parameter name: ${normalized}`;
+      }
+
+      seen.add(normalized.toLowerCase());
+      parameter.name = normalized;
+    }
+
+    return null;
+  };
+
+  const handleSave = async () => {
+    if (saving) return;
+    setSaving(true);
+    setFormError("");
+
+    try {
+      const actionName = normalizeActionName(name);
+      const actionDescription = description.trim();
+
+      if (!actionName) {
+        setFormError("Name is required.");
+        return;
+      }
+
+      if (!actionDescription) {
+        setFormError("Description is required.");
+        return;
+      }
+
+      const normalizedParameters = [...parameters];
+      const validationError = validateParameters(normalizedParameters);
+      if (validationError) {
+        setFormError(validationError);
+        return;
+      }
+
+      let handler: CustomActionHandler;
+
+      if (handlerType === "http") {
+        if (!httpUrl.trim()) {
+          setFormError("HTTP URL is required.");
+          return;
+        }
+
+        const headers = buildHeaders();
+
+        handler = {
+          type: "http",
+          method: normalizeMethod(httpMethod),
+          url: httpUrl,
+          headers,
+          bodyTemplate: httpBody || undefined,
+        };
+      } else if (handlerType === "shell") {
+        if (!shellCommand.trim()) {
+          setFormError("Shell command is required.");
+          return;
+        }
+
+        handler = {
+          type: "shell",
+          command: shellCommand,
+        };
+      } else {
+        if (!code.trim()) {
+          setFormError("Code is required.");
+          return;
+        }
+
+        handler = {
+          type: "code",
+          code,
+        };
+      }
+
+      const similes = parseSimilesInput(similesInput);
+
+      const actionDef = {
+        name: actionName,
+        description: actionDescription,
+        similes,
+        parameters: normalizedParameters,
+        handler,
+        enabled: action?.enabled ?? true,
+      };
+
+      const saved = action?.id
+        ? await client.updateCustomAction(action.id, actionDef)
+        : await client.createCustomAction(actionDef);
+
+      onSave(saved);
+      setAiPrompt("");
+      setFormError("");
+    } catch (err: unknown) {
+      setFormError(
+        `Failed to save: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleTest = async () => {
     if (!action?.id) {
-      setTestResult({ error: "Save the action first to test it" });
+      setTestResult({ error: "Save the action first to test it." });
       return;
     }
 
@@ -195,71 +686,18 @@ export function CustomActionEditor({ open, action, onSave, onClose }: CustomActi
     try {
       const result = await client.testCustomAction(action.id, testParams);
       const duration = Date.now() - startTime;
-      setTestResult({ output: JSON.stringify(result, null, 2), duration });
-    } catch (err: any) {
+      setTestResult({
+        output: JSON.stringify(result, null, 2),
+        duration,
+      });
+    } catch (err: unknown) {
       const duration = Date.now() - startTime;
-      setTestResult({ error: err.message || String(err), duration });
+      setTestResult({
+        error: err instanceof Error ? err.message : String(err),
+        duration,
+      });
     } finally {
       setTesting(false);
-    }
-  };
-
-  const handleSave = async () => {
-    if (!name.trim()) {
-      alert("Name is required");
-      return;
-    }
-
-    let handler: CustomActionHandler;
-
-    if (handlerType === "http") {
-      const headers: Record<string, string> = {};
-      httpHeaders.forEach(h => {
-        if (h.key.trim()) {
-          headers[h.key.trim()] = h.value;
-        }
-      });
-
-      handler = {
-        type: "http",
-        method: httpMethod,
-        url: httpUrl,
-        headers: Object.keys(headers).length > 0 ? headers : undefined,
-        bodyTemplate: httpBody || undefined
-      };
-    } else if (handlerType === "shell") {
-      handler = {
-        type: "shell",
-        command: shellCommand
-      };
-    } else {
-      handler = {
-        type: "code",
-        code
-      };
-    }
-
-    const actionDef = {
-      name: name.trim(),
-      description: description.trim(),
-      similes: [] as string[],
-      parameters: parameters.filter(p => p.name.trim()).map(p => ({
-        name: p.name.trim(),
-        description: p.description.trim(),
-        required: p.required
-      })),
-      handler,
-      enabled: action?.enabled ?? true,
-    };
-
-    try {
-      const saved = action?.id
-        ? await client.updateCustomAction(action.id, actionDef)
-        : await client.createCustomAction(actionDef);
-
-      onSave(saved);
-    } catch (err: any) {
-      alert(`Failed to save: ${err.message || String(err)}`);
     }
   };
 
@@ -274,6 +712,7 @@ export function CustomActionEditor({ open, action, onSave, onClose }: CustomActi
             {action ? "Edit Custom Action" : "New Custom Action"}
           </h2>
           <button
+            type="button"
             onClick={onClose}
             className="text-muted hover:text-txt text-xl leading-none cursor-pointer"
           >
@@ -283,20 +722,36 @@ export function CustomActionEditor({ open, action, onSave, onClose }: CustomActi
 
         {/* Body */}
         <div className="px-5 py-4 flex flex-col gap-4 max-h-[70vh] overflow-y-auto">
+          {formError && (
+            <div className="border border-danger/30 bg-danger/10 text-danger px-3 py-2 text-xs rounded">
+              {formError}
+            </div>
+          )}
+
           {/* AI Generate */}
           {!action && (
             <div className="flex flex-col gap-1 border border-accent/30 bg-accent/5 p-3">
-              <label className="text-xs text-accent font-medium">Describe what you want this action to do</label>
+              <span className="text-xs text-accent font-medium">
+                Describe what you want this action to do
+              </span>
               <div className="flex gap-2">
                 <input
                   type="text"
                   value={aiPrompt}
-                  onChange={(e) => setAiPrompt(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && !generating && handleGenerate()}
-                  placeholder="e.g. Check if a website is up and return the status code"
+                  onChange={(e) => {
+                    setAiPrompt(e.target.value);
+                    setFormError("");
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" && !generating) {
+                      void handleGenerate();
+                    }
+                  }}
+                  placeholder="e.g. Check if a website is up and return status"
                   className="flex-1 bg-surface border border-border px-2 py-1.5 text-sm text-txt placeholder:text-muted/50 outline-none focus:border-accent"
                 />
                 <button
+                  type="button"
                   onClick={handleGenerate}
                   disabled={generating || !aiPrompt.trim()}
                   className="px-3 py-1.5 text-xs border border-accent bg-accent text-white hover:opacity-90 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
@@ -304,17 +759,20 @@ export function CustomActionEditor({ open, action, onSave, onClose }: CustomActi
                   {generating ? "Generating..." : "Generate"}
                 </button>
               </div>
-              <span className="text-xs text-muted/70">The agent will generate the action config for you to review and edit</span>
+              <span className="text-xs text-muted/70">
+                The agent will generate the action config for you to review and
+                edit.
+              </span>
             </div>
           )}
 
           {/* Name */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs text-muted">Name</label>
+            <span className="text-xs text-muted">Name</span>
             <input
               type="text"
               value={name}
-              onChange={(e) => handleNameChange(e.target.value)}
+              onChange={(e) => setNormalizedName(e.target.value)}
               placeholder="MY_ACTION"
               className="flex-1 bg-surface border border-border px-2 py-1.5 text-sm text-txt placeholder:text-muted/50 outline-none focus:border-accent"
             />
@@ -322,31 +780,57 @@ export function CustomActionEditor({ open, action, onSave, onClose }: CustomActi
 
           {/* Description */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs text-muted">Description</label>
+            <span className="text-xs text-muted">Description</span>
             <textarea
               value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              onChange={(e) => setDescriptionValue(e.target.value)}
               placeholder="What does this action do?"
               rows={2}
               className="flex-1 bg-surface border border-border px-2 py-1.5 text-sm text-txt placeholder:text-muted/50 outline-none focus:border-accent resize-none"
             />
           </div>
 
+          {/* Similes */}
+          <div className="flex flex-col gap-1">
+            <span className="text-xs text-muted">Aliases (optional)</span>
+            <input
+              type="text"
+              value={similesInput}
+              onChange={(e) => {
+                setSimilesInput(e.target.value);
+                setFormError("");
+              }}
+              placeholder="SYNONYM_ONE, SYNONYM_TWO"
+              className="flex-1 bg-surface border border-border px-2 py-1.5 text-sm text-txt placeholder:text-muted/50 outline-none focus:border-accent"
+            />
+            <span className="text-xs text-muted/70">
+              Comma-separated alternatives the agent can match against.
+            </span>
+          </div>
+
           {/* Handler Type Tabs */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs text-muted">Handler Type</label>
+            <span className="text-xs text-muted">Handler Type</span>
             <div className="flex gap-2">
               {(["http", "shell", "code"] as const).map((type) => (
                 <button
+                  type="button"
                   key={type}
-                  onClick={() => setHandlerType(type)}
+                  onClick={() => {
+                    setHandlerType(type);
+                    setFormError("");
+                  }}
                   className={`px-3 py-1.5 text-xs border cursor-pointer ${
                     handlerType === type
                       ? "border-accent bg-accent text-white"
                       : "border-border text-muted hover:text-txt"
                   }`}
                 >
-                  {type === "http" ? "HTTP Request" : type === "shell" ? "Shell Command" : "JavaScript"}
+                  {type === "http"
+                    ? "HTTP Request"
+                    : type === "shell"
+                      ? "Shell Command"
+                      : "JavaScript"}
                 </button>
               ))}
             </div>
@@ -358,19 +842,22 @@ export function CustomActionEditor({ open, action, onSave, onClose }: CustomActi
               <div className="flex gap-2">
                 <select
                   value={httpMethod}
-                  onChange={(e) => setHttpMethod(e.target.value as "GET" | "POST" | "PUT" | "DELETE" | "PATCH")}
+                  onChange={(e) => setHttpMethod(e.target.value as HttpMethod)}
                   className="bg-surface border border-border px-2 py-1.5 text-sm text-txt outline-none focus:border-accent"
                 >
-                  <option value="GET">GET</option>
-                  <option value="POST">POST</option>
-                  <option value="PUT">PUT</option>
-                  <option value="DELETE">DELETE</option>
-                  <option value="PATCH">PATCH</option>
+                  {HTTP_METHODS_LIST.map((method) => (
+                    <option key={method} value={method}>
+                      {method}
+                    </option>
+                  ))}
                 </select>
                 <input
                   type="text"
                   value={httpUrl}
-                  onChange={(e) => setHttpUrl(e.target.value)}
+                  onChange={(e) => {
+                    setHttpUrl(e.target.value);
+                    setFormError("");
+                  }}
                   placeholder="https://api.example.com/{{param}}"
                   className="flex-1 bg-surface border border-border px-2 py-1.5 text-sm text-txt placeholder:text-muted/50 outline-none focus:border-accent"
                 />
@@ -378,8 +865,9 @@ export function CustomActionEditor({ open, action, onSave, onClose }: CustomActi
 
               <div className="flex flex-col gap-1">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs text-muted">Headers (optional)</label>
+                  <span className="text-xs text-muted">Headers (optional)</span>
                   <button
+                    type="button"
                     onClick={addHeader}
                     className="text-xs text-accent hover:opacity-80 cursor-pointer"
                   >
@@ -387,7 +875,10 @@ export function CustomActionEditor({ open, action, onSave, onClose }: CustomActi
                   </button>
                 </div>
                 {httpHeaders.map((header, i) => (
-                  <div key={i} className="flex gap-2">
+                  <div
+                    key={`${header.key}:${header.value}`}
+                    className="flex gap-2"
+                  >
                     <input
                       type="text"
                       value={header.key}
@@ -403,6 +894,7 @@ export function CustomActionEditor({ open, action, onSave, onClose }: CustomActi
                       className="flex-1 bg-surface border border-border px-2 py-1.5 text-sm text-txt placeholder:text-muted/50 outline-none focus:border-accent"
                     />
                     <button
+                      type="button"
                       onClick={() => removeHeader(i)}
                       className="px-2 text-muted hover:text-txt cursor-pointer"
                     >
@@ -413,10 +905,15 @@ export function CustomActionEditor({ open, action, onSave, onClose }: CustomActi
               </div>
 
               <div className="flex flex-col gap-1">
-                <label className="text-xs text-muted">Body Template (optional)</label>
+                <span className="text-xs text-muted">
+                  Body Template (optional)
+                </span>
                 <textarea
                   value={httpBody}
-                  onChange={(e) => setHttpBody(e.target.value)}
+                  onChange={(e) => {
+                    setHttpBody(e.target.value);
+                    setFormError("");
+                  }}
                   placeholder={'{"key": "{{param}}"}'}
                   rows={3}
                   className="bg-surface border border-border px-2 py-1.5 text-sm text-txt placeholder:text-muted/50 outline-none focus:border-accent resize-none font-mono"
@@ -427,24 +924,32 @@ export function CustomActionEditor({ open, action, onSave, onClose }: CustomActi
 
           {handlerType === "shell" && (
             <div className="flex flex-col gap-1">
-              <label className="text-xs text-muted">Command Template</label>
+              <span className="text-xs text-muted">Command Template</span>
               <textarea
                 value={shellCommand}
-                onChange={(e) => setShellCommand(e.target.value)}
+                onChange={(e) => {
+                  setShellCommand(e.target.value);
+                  setFormError("");
+                }}
                 placeholder="echo {{message}} > /tmp/output.txt"
                 rows={4}
                 className="bg-surface border border-border px-2 py-1.5 text-sm text-txt placeholder:text-muted/50 outline-none focus:border-accent resize-none font-mono"
               />
-              <span className="text-xs text-muted/70">Use {`{{paramName}}`} for parameter substitution</span>
+              <span className="text-xs text-muted/70">
+                Use {`{{paramName}}`} for parameter substitution
+              </span>
             </div>
           )}
 
           {handlerType === "code" && (
             <div className="flex flex-col gap-1">
-              <label className="text-xs text-muted">JavaScript Code</label>
+              <span className="text-xs text-muted">JavaScript Code</span>
               <textarea
                 value={code}
-                onChange={(e) => setCode(e.target.value)}
+                onChange={(e) => {
+                  setCode(e.target.value);
+                  setFormError("");
+                }}
                 placeholder="// Available: params.paramName, fetch()\nreturn { result: params.input };"
                 rows={6}
                 className="bg-surface border border-border px-2 py-1.5 text-sm text-txt placeholder:text-muted/50 outline-none focus:border-accent resize-none font-mono"
@@ -455,8 +960,9 @@ export function CustomActionEditor({ open, action, onSave, onClose }: CustomActi
           {/* Parameters */}
           <div className="flex flex-col gap-2 border-t border-border pt-3">
             <div className="flex items-center justify-between">
-              <label className="text-xs text-muted">Parameters</label>
+              <span className="text-xs text-muted">Parameters</span>
               <button
+                type="button"
                 onClick={addParameter}
                 className="text-xs text-accent hover:opacity-80 cursor-pointer"
               >
@@ -464,7 +970,10 @@ export function CustomActionEditor({ open, action, onSave, onClose }: CustomActi
               </button>
             </div>
             {parameters.map((param, i) => (
-              <div key={i} className="flex gap-2 items-start">
+              <div
+                key={`${param.name}-${i}`}
+                className="flex gap-2 items-start"
+              >
                 <input
                   type="text"
                   value={param.name}
@@ -475,20 +984,25 @@ export function CustomActionEditor({ open, action, onSave, onClose }: CustomActi
                 <input
                   type="text"
                   value={param.description}
-                  onChange={(e) => updateParameter(i, "description", e.target.value)}
+                  onChange={(e) =>
+                    updateParameter(i, "description", e.target.value)
+                  }
                   placeholder="Description"
                   className="flex-1 bg-surface border border-border px-2 py-1.5 text-sm text-txt placeholder:text-muted/50 outline-none focus:border-accent"
                 />
-                <label className="flex items-center gap-1 text-xs text-muted cursor-pointer">
+                <span className="flex items-center gap-1 text-xs text-muted cursor-pointer">
                   <input
                     type="checkbox"
                     checked={param.required}
-                    onChange={(e) => updateParameter(i, "required", e.target.checked)}
+                    onChange={(e) =>
+                      updateParameter(i, "required", e.target.checked)
+                    }
                     className="cursor-pointer"
                   />
                   Required
-                </label>
+                </span>
                 <button
+                  type="button"
                   onClick={() => removeParameter(i)}
                   className="px-2 text-muted hover:text-txt cursor-pointer"
                 >
@@ -501,7 +1015,8 @@ export function CustomActionEditor({ open, action, onSave, onClose }: CustomActi
           {/* Test Section */}
           <div className="flex flex-col gap-2 border-t border-border pt-3">
             <button
-              onClick={() => setTestExpanded(!testExpanded)}
+              type="button"
+              onClick={() => setTestExpanded((expanded) => !expanded)}
               className="flex items-center justify-between text-xs text-muted hover:text-txt cursor-pointer"
             >
               <span>Test Action</span>
@@ -509,28 +1024,41 @@ export function CustomActionEditor({ open, action, onSave, onClose }: CustomActi
             </button>
             {testExpanded && (
               <div className="flex flex-col gap-2 pl-2 border-l-2 border-border">
-                {parameters.filter(p => p.name.trim()).map((param) => (
-                  <div key={param.name} className="flex flex-col gap-1">
-                    <label className="text-xs text-muted">{param.name}</label>
-                    <input
-                      type="text"
-                      value={testParams[param.name] || ""}
-                      onChange={(e) => setTestParams({ ...testParams, [param.name]: e.target.value })}
-                      placeholder={param.description || "value"}
-                      className="bg-surface border border-border px-2 py-1.5 text-sm text-txt placeholder:text-muted/50 outline-none focus:border-accent"
-                    />
-                  </div>
-                ))}
+                {parameters
+                  .filter((p) => p.name.trim())
+                  .map((param) => (
+                    <div key={param.name} className="flex flex-col gap-1">
+                      <span className="text-xs text-muted">{param.name}</span>
+                      <input
+                        type="text"
+                        value={testParams[param.name] || ""}
+                        onChange={(e) =>
+                          setTestParams({
+                            ...testParams,
+                            [param.name]: e.target.value,
+                          })
+                        }
+                        placeholder={param.description || "value"}
+                        className="bg-surface border border-border px-2 py-1.5 text-sm text-txt placeholder:text-muted/50 outline-none focus:border-accent"
+                      />
+                    </div>
+                  ))}
                 {testResult && (
                   <div className="bg-surface border border-border p-2 text-xs font-mono">
                     {testResult.error && (
-                      <div className="text-red-400">Error: {testResult.error}</div>
+                      <div className="text-red-400">
+                        Error: {testResult.error}
+                      </div>
                     )}
                     {testResult.output && (
-                      <pre className="text-txt whitespace-pre-wrap">{testResult.output}</pre>
+                      <pre className="text-txt whitespace-pre-wrap">
+                        {testResult.output}
+                      </pre>
                     )}
                     {testResult.duration !== undefined && (
-                      <div className="text-muted mt-1">Duration: {testResult.duration}ms</div>
+                      <div className="text-muted mt-1">
+                        Duration: {testResult.duration}ms
+                      </div>
                     )}
                   </div>
                 )}
@@ -543,24 +1071,28 @@ export function CustomActionEditor({ open, action, onSave, onClose }: CustomActi
         <div className="flex justify-end gap-2 px-5 py-3 border-t border-border">
           {testExpanded && (
             <button
+              type="button"
               onClick={handleTest}
-              disabled={testing}
+              disabled={testing || !action?.id}
               className="px-3 py-1.5 text-xs border border-border text-muted hover:text-txt cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {testing ? "Testing..." : "Test"}
             </button>
           )}
           <button
+            type="button"
             onClick={onClose}
             className="px-3 py-1.5 text-xs border border-border text-muted hover:text-txt cursor-pointer"
           >
             Cancel
           </button>
           <button
-            onClick={handleSave}
-            className="px-3 py-1.5 text-xs border border-accent bg-accent text-white hover:opacity-90 cursor-pointer"
+            type="button"
+            onClick={() => void handleSave()}
+            disabled={saving}
+            className="px-3 py-1.5 text-xs border border-accent bg-accent text-white hover:opacity-90 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Save
+            {saving ? "Saving..." : "Save"}
           </button>
         </div>
       </div>

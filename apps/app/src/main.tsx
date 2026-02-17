@@ -1,5 +1,5 @@
 /**
- * Milaidy Capacitor App Entry Point
+ * Milady Capacitor App Entry Point
  *
  * This file initializes the Capacitor runtime, sets up platform-specific
  * features, and mounts the React application.
@@ -7,23 +7,20 @@
 
 import "./styles.css";
 
-import { StrictMode } from "react";
-import { createRoot } from "react-dom/client";
-import { Capacitor } from "@capacitor/core";
 import { App as CapacitorApp } from "@capacitor/app";
+import { Capacitor } from "@capacitor/core";
 import { Keyboard } from "@capacitor/keyboard";
 import { StatusBar, Style } from "@capacitor/status-bar";
-
+// Import the agent plugin
+import { Agent } from "@milady/capacitor-agent";
+import { Desktop } from "@milady/capacitor-desktop";
+import { StrictMode } from "react";
+import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import { AppProvider } from "./AppContext";
-
 // Import Capacitor bridge utilities
-import { initializeCapacitorBridge } from "./bridge/capacitor-bridge.js";
-import { initializeStorageBridge } from "./bridge/storage-bridge.js";
-
-// Import the agent plugin
-import { Agent } from "@milaidy/capacitor-agent";
-import { Desktop } from "@milaidy/capacitor-desktop";
+import { initializeCapacitorBridge } from "./bridge/capacitor-bridge";
+import { initializeStorageBridge } from "./bridge/storage-bridge";
 
 /**
  * Platform detection utilities
@@ -50,17 +47,17 @@ interface ShareTargetPayload {
 
 declare global {
   interface Window {
-    __MILAIDY_SHARE_QUEUE__?: ShareTargetPayload[];
+    __MILADY_SHARE_QUEUE__?: ShareTargetPayload[];
   }
 }
 
 function dispatchShareTarget(payload: ShareTargetPayload): void {
-  if (!window.__MILAIDY_SHARE_QUEUE__) {
-    window.__MILAIDY_SHARE_QUEUE__ = [];
+  if (!window.__MILADY_SHARE_QUEUE__) {
+    window.__MILADY_SHARE_QUEUE__ = [];
   }
-  window.__MILAIDY_SHARE_QUEUE__.push(payload);
+  window.__MILADY_SHARE_QUEUE__.push(payload);
   document.dispatchEvent(
-    new CustomEvent("milaidy:share-target", {
+    new CustomEvent("milady:share-target", {
       detail: payload,
     }),
   );
@@ -74,14 +71,20 @@ function dispatchShareTarget(payload: ShareTargetPayload): void {
 async function initializeAgent(): Promise<void> {
   try {
     const status = await Agent.getStatus();
-    console.log(`[Milaidy] Agent status: ${status.state}`, status.agentName ?? "");
+    console.log(
+      `[Milady] Agent status: ${status.state}`,
+      status.agentName ?? "",
+    );
 
     // Dispatch event so the UI knows the agent is available
     document.dispatchEvent(
-      new CustomEvent("milaidy:agent-ready", { detail: status }),
+      new CustomEvent("milady:agent-ready", { detail: status }),
     );
   } catch (err) {
-    console.warn("[Milaidy] Agent not available:", err instanceof Error ? err.message : err);
+    console.warn(
+      "[Milady] Agent not available:",
+      err instanceof Error ? err.message : err,
+    );
   }
 }
 
@@ -114,7 +117,6 @@ async function initializePlatform(): Promise<void> {
     // plugin status probe that can race backend boot and spam fetch errors.
     await initializeAgent();
   }
-
 }
 
 /**
@@ -145,7 +147,10 @@ async function initializeKeyboard(): Promise<void> {
 
   // Listen for keyboard events
   Keyboard.addListener("keyboardWillShow", (info) => {
-    document.body.style.setProperty("--keyboard-height", `${info.keyboardHeight}px`);
+    document.body.style.setProperty(
+      "--keyboard-height",
+      `${info.keyboardHeight}px`,
+    );
     document.body.classList.add("keyboard-open");
   });
 
@@ -163,10 +168,10 @@ function initializeAppLifecycle(): void {
   CapacitorApp.addListener("appStateChange", ({ isActive }) => {
     if (isActive) {
       // App came to foreground - refresh data if needed
-      document.dispatchEvent(new CustomEvent("milaidy:app-resume"));
+      document.dispatchEvent(new CustomEvent("milady:app-resume"));
     } else {
       // App went to background
-      document.dispatchEvent(new CustomEvent("milaidy:app-pause"));
+      document.dispatchEvent(new CustomEvent("milady:app-pause"));
     }
   });
 
@@ -191,7 +196,7 @@ function initializeAppLifecycle(): void {
 }
 
 /**
- * Handle deep links (milaidy:// URLs)
+ * Handle deep links (milady:// URLs)
  */
 function handleDeepLink(url: string): void {
   let parsed: URL;
@@ -202,7 +207,7 @@ function handleDeepLink(url: string): void {
   }
 
   // Handle different deep link paths
-  if (parsed.protocol === "milaidy:") {
+  if (parsed.protocol === "milady:") {
     const path = (parsed.pathname || parsed.host || "").replace(/^\/+/, "");
 
     switch (path) {
@@ -221,17 +226,23 @@ function handleDeepLink(url: string): void {
           // Security: only allow https/http URLs to prevent SSRF
           try {
             const validatedUrl = new URL(gatewayUrl);
-            if (validatedUrl.protocol !== "https:" && validatedUrl.protocol !== "http:") {
-              console.error("[Milaidy] Invalid gateway URL protocol:", validatedUrl.protocol);
+            if (
+              validatedUrl.protocol !== "https:" &&
+              validatedUrl.protocol !== "http:"
+            ) {
+              console.error(
+                "[Milady] Invalid gateway URL protocol:",
+                validatedUrl.protocol,
+              );
               break;
             }
             document.dispatchEvent(
-              new CustomEvent("milaidy:connect", {
+              new CustomEvent("milady:connect", {
                 detail: { gatewayUrl: validatedUrl.href },
               }),
             );
           } catch {
-            console.error("[Milaidy] Invalid gateway URL format");
+            console.error("[Milady] Invalid gateway URL format");
           }
         }
         break;
@@ -245,7 +256,10 @@ function handleDeepLink(url: string): void {
           .map((filePath) => filePath.trim())
           .filter((filePath) => filePath.length > 0)
           .map((filePath) => {
-            const slash = Math.max(filePath.lastIndexOf("/"), filePath.lastIndexOf("\\"));
+            const slash = Math.max(
+              filePath.lastIndexOf("/"),
+              filePath.lastIndexOf("\\"),
+            );
             const name = slash >= 0 ? filePath.slice(slash + 1) : filePath;
             return { name, path: filePath };
           });
@@ -260,7 +274,7 @@ function handleDeepLink(url: string): void {
         break;
       }
       default:
-        console.log(`[Milaidy] Unknown deep link path: ${path}`);
+        console.log(`[Milady] Unknown deep link path: ${path}`);
     }
   }
 }
@@ -295,10 +309,10 @@ async function initializeElectron(): Promise<void> {
 
     await Desktop.addListener("shortcutPressed", (event: { id: string }) => {
       if (event.id === "command-palette") {
-        document.dispatchEvent(new CustomEvent("milaidy:command-palette"));
+        document.dispatchEvent(new CustomEvent("milady:command-palette"));
       }
       if (event.id === "emote-picker") {
-        document.dispatchEvent(new CustomEvent("milaidy:emote-picker"));
+        document.dispatchEvent(new CustomEvent("milady:emote-picker"));
       }
     });
 
@@ -316,15 +330,17 @@ async function initializeElectron(): Promise<void> {
       ],
     });
 
-    await Desktop.addListener("trayMenuClick", (event: { itemId: string; checked?: boolean }) => {
-      document.dispatchEvent(
-        new CustomEvent("milaidy:tray-action", {
-          detail: event,
-        }),
-      );
-    });
-  } catch {
-  }
+    await Desktop.addListener(
+      "trayMenuClick",
+      (event: { itemId: string; checked?: boolean }) => {
+        document.dispatchEvent(
+          new CustomEvent("milady:tray-action", {
+            detail: event,
+          }),
+        );
+      },
+    );
+  } catch {}
 }
 
 /**
@@ -342,9 +358,15 @@ function setupPlatformStyles(): void {
 
   // Set safe area insets as CSS variables (fallback values)
   root.style.setProperty("--safe-area-top", "env(safe-area-inset-top, 0px)");
-  root.style.setProperty("--safe-area-bottom", "env(safe-area-inset-bottom, 0px)");
+  root.style.setProperty(
+    "--safe-area-bottom",
+    "env(safe-area-inset-bottom, 0px)",
+  );
   root.style.setProperty("--safe-area-left", "env(safe-area-inset-left, 0px)");
-  root.style.setProperty("--safe-area-right", "env(safe-area-inset-right, 0px)");
+  root.style.setProperty(
+    "--safe-area-right",
+    "env(safe-area-inset-right, 0px)",
+  );
 
   // Initialize keyboard height variable
   root.style.setProperty("--keyboard-height", "0px");

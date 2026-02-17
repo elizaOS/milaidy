@@ -127,7 +127,10 @@ export interface CameraPlugin {
   /**
    * Switch to a different camera
    */
-  switchCamera(options: { deviceId?: string; direction?: CameraDirection }): Promise<CameraPreviewResult>;
+  switchCamera(options: {
+    deviceId?: string;
+    direction?: CameraDirection;
+  }): Promise<CameraPreviewResult>;
 
   /**
    * Capture a photo from the current preview
@@ -189,7 +192,7 @@ export interface CameraPlugin {
    */
   addListener(
     eventName: "frame",
-    listenerFunc: (event: CameraFrameEvent) => void
+    listenerFunc: (event: CameraFrameEvent) => void,
   ): Promise<PluginListenerHandle>;
 
   /**
@@ -197,7 +200,7 @@ export interface CameraPlugin {
    */
   addListener(
     eventName: "error",
-    listenerFunc: (event: CameraErrorEvent) => void
+    listenerFunc: (event: CameraErrorEvent) => void,
   ): Promise<PluginListenerHandle>;
 
   /**
@@ -205,7 +208,7 @@ export interface CameraPlugin {
    */
   addListener(
     eventName: "recordingState",
-    listenerFunc: (event: VideoRecordingState) => void
+    listenerFunc: (event: VideoRecordingState) => void,
   ): Promise<PluginListenerHandle>;
 
   /**

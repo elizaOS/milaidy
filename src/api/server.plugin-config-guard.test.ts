@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolvePluginConfigMutationRejections } from "./server.js";
+import { resolvePluginConfigMutationRejections } from "./server";
 
 describe("resolvePluginConfigMutationRejections", () => {
   it("rejects unknown config keys", () => {
@@ -17,13 +17,13 @@ describe("resolvePluginConfigMutationRejections", () => {
 
   it("rejects blocked env keys even when declared by a plugin", () => {
     const rejections = resolvePluginConfigMutationRejections(
-      [{ key: "MILAIDY_API_TOKEN" }],
-      { MILAIDY_API_TOKEN: "secret" },
+      [{ key: "MILADY_API_TOKEN" }],
+      { MILADY_API_TOKEN: "secret" },
     );
     expect(rejections).toEqual([
       {
-        field: "MILAIDY_API_TOKEN",
-        message: "MILAIDY_API_TOKEN is blocked for security reasons",
+        field: "MILADY_API_TOKEN",
+        message: "MILADY_API_TOKEN is blocked for security reasons",
       },
     ]);
   });

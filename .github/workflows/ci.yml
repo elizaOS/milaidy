@@ -20,13 +20,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: oven-sh/setup-bun@v2
-
-      - uses: actions/setup-node@v4
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          bun-version: latest
 
-      - run: bun install --frozen-lockfile
+      - run: bun install
+
+      - name: Run repository postinstall patches
+        run: bun run postinstall
 
       - name: Biome lint
         run: bun run lint
@@ -40,13 +42,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: oven-sh/setup-bun@v2
-
-      - uses: actions/setup-node@v4
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          bun-version: latest
 
-      - run: bun install --frozen-lockfile
+      - run: bun install
+
+      - name: Run repository postinstall patches
+        run: bun run postinstall
 
       - name: Run type checker
         run: bun run typecheck
@@ -57,13 +61,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: oven-sh/setup-bun@v2
-
-      - uses: actions/setup-node@v4
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          bun-version: latest
 
-      - run: bun install --frozen-lockfile
+      - run: bun install
+
+      - name: Run repository postinstall patches
+        run: bun run postinstall
 
       - name: Run unit tests
         run: bunx vitest run --config vitest.unit.config.ts
@@ -74,13 +80,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: oven-sh/setup-bun@v2
-
-      - uses: actions/setup-node@v4
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          bun-version: latest
 
-      - run: bun install --frozen-lockfile
+      - run: bun install
+
+      - name: Run repository postinstall patches
+        run: bun run postinstall
 
       - name: Build project
         run: bun run build

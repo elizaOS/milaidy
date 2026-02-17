@@ -1,6 +1,6 @@
 import React from "react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import TestRenderer, { act } from "react-test-renderer";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type {
   TrainingDatasetRecord,
   TrainingJobRecord,
@@ -194,9 +194,7 @@ describe("FineTuningView", () => {
 
     appContext = {
       handleRestart: async () => undefined,
-      setActionNotice: vi.fn<
-        FineTuningContextStub["setActionNotice"]
-      >(),
+      setActionNotice: vi.fn<FineTuningContextStub["setActionNotice"]>(),
     };
     mockUseApp.mockReturnValue(appContext);
 
@@ -216,7 +214,9 @@ describe("FineTuningView", () => {
       datasets: [baseDataset()],
     });
     mockClientFns.listTrainingJobs.mockResolvedValue({ jobs: [baseJob()] });
-    mockClientFns.listTrainingModels.mockResolvedValue({ models: [baseModel()] });
+    mockClientFns.listTrainingModels.mockResolvedValue({
+      models: [baseModel()],
+    });
     mockClientFns.getTrainingTrajectory.mockResolvedValue({
       trajectory: {
         ...baseTrajectoryList().trajectories[0],
@@ -230,11 +230,11 @@ describe("FineTuningView", () => {
     mockClientFns.startTrainingJob.mockResolvedValue({ job: baseJob() });
     mockClientFns.cancelTrainingJob.mockResolvedValue({ job: baseJob() });
     mockClientFns.importTrainingModelToOllama.mockResolvedValue({
-      model: { ...baseModel(), ollamaModel: "milaidy-ft-model" },
+      model: { ...baseModel(), ollamaModel: "milady-ft-model" },
     });
     mockClientFns.activateTrainingModel.mockResolvedValue({
       modelId: "model-1",
-      providerModel: "ollama/milaidy-ft-model",
+      providerModel: "ollama/milady-ft-model",
       needsRestart: false,
     });
     mockClientFns.benchmarkTrainingModel.mockResolvedValue({
@@ -243,7 +243,7 @@ describe("FineTuningView", () => {
     });
     mockClientFns.sendChatRest.mockResolvedValue({
       text: "MODEL_OK",
-      agentName: "Milaidy",
+      agentName: "Milady",
     });
     mockClientFns.onWsEvent.mockImplementation(
       (_type: string, handler: (data: WsPayload) => void) => {
@@ -270,8 +270,10 @@ describe("FineTuningView", () => {
     expect(mockClientFns.listTrainingJobs).toHaveBeenCalled();
     expect(mockClientFns.listTrainingModels).toHaveBeenCalled();
     expect(
-      tree!.root.findAll(
-        (node) => typeof node.type === "string" && node.children.includes("Fine-Tuning"),
+      tree?.root.findAll(
+        (node) =>
+          typeof node.type === "string" &&
+          node.children.includes("Fine-Tuning"),
       ).length,
     ).toBeGreaterThan(0);
   });
@@ -283,7 +285,7 @@ describe("FineTuningView", () => {
     });
     await flush();
 
-    const root = tree!.root;
+    const root = tree?.root;
     const limitInput = findInputByPlaceholder(
       root,
       "Limit trajectories (e.g. 250)",
@@ -320,7 +322,7 @@ describe("FineTuningView", () => {
     await flush();
 
     await act(async () => {
-      await findButtonByText(tree!.root, "Start Training Job").props.onClick();
+      await findButtonByText(tree?.root, "Start Training Job").props.onClick();
     });
     expect(appContext.setActionNotice).toHaveBeenCalledWith(
       "boom",
@@ -337,7 +339,7 @@ describe("FineTuningView", () => {
     await flush();
 
     await act(async () => {
-      await findButtonByText(tree!.root, "Start Training Job").props.onClick();
+      await findButtonByText(tree?.root, "Start Training Job").props.onClick();
     });
     expect(mockClientFns.startTrainingJob).toHaveBeenCalled();
 
@@ -355,11 +357,13 @@ describe("FineTuningView", () => {
         },
       });
     });
-    const eventRows = tree!.root.findAll((node) =>
-      typeof node.type === "string" &&
-      node.children.some(
-        (child) => typeof child === "string" && child.includes("training step"),
-      ),
+    const eventRows = tree?.root.findAll(
+      (node) =>
+        typeof node.type === "string" &&
+        node.children.some(
+          (child) =>
+            typeof child === "string" && child.includes("training step"),
+        ),
     );
     expect(eventRows.length).toBeGreaterThan(0);
   });
@@ -372,7 +376,7 @@ describe("FineTuningView", () => {
     await flush();
 
     await act(async () => {
-      await findButtonByText(tree!.root, "Cancel").props.onClick();
+      await findButtonByText(tree?.root, "Cancel").props.onClick();
     });
 
     expect(mockClientFns.cancelTrainingJob).toHaveBeenCalledWith("job-1");
@@ -390,7 +394,7 @@ describe("FineTuningView", () => {
     });
     await flush();
 
-    const root = tree!.root;
+    const root = tree?.root;
 
     const ollamaNameInput = findInputByPlaceholder(
       root,
@@ -406,12 +410,12 @@ describe("FineTuningView", () => {
     );
 
     await act(async () => {
-      ollamaNameInput.props.onChange({ target: { value: "milaidy-ft-model" } });
+      ollamaNameInput.props.onChange({ target: { value: "milady-ft-model" } });
       baseModelInput.props.onChange({
         target: { value: "qwen2.5:7b-instruct" },
       });
       providerModelInput.props.onChange({
-        target: { value: "ollama/milaidy-ft-model" },
+        target: { value: "ollama/milady-ft-model" },
       });
     });
 
@@ -421,7 +425,7 @@ describe("FineTuningView", () => {
     expect(mockClientFns.importTrainingModelToOllama).toHaveBeenCalledWith(
       "model-1",
       {
-        modelName: "milaidy-ft-model",
+        modelName: "milady-ft-model",
         baseModel: "qwen2.5:7b-instruct",
         ollamaUrl: "http://localhost:11434",
       },
@@ -432,13 +436,15 @@ describe("FineTuningView", () => {
     });
     expect(mockClientFns.activateTrainingModel).toHaveBeenCalledWith(
       "model-1",
-      "ollama/milaidy-ft-model",
+      "ollama/milady-ft-model",
     );
 
     await act(async () => {
       await findButtonByText(root, "Benchmark").props.onClick();
     });
-    expect(mockClientFns.benchmarkTrainingModel).toHaveBeenCalledWith("model-1");
+    expect(mockClientFns.benchmarkTrainingModel).toHaveBeenCalledWith(
+      "model-1",
+    );
 
     await act(async () => {
       await findButtonByText(root, "Run Smoke Prompt").props.onClick();

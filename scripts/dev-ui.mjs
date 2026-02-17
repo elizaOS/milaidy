@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Development script that starts:
- * 1. The Milaidy dev server (runtime + API on port 31337) with restart support
+ * 1. The Milady dev server (runtime + API on port 31337) with restart support
  * 2. The Vite app dev server (port 2138, proxies /api and /ws to 31337)
  *
  * Automatically kills zombie processes on both ports before starting.
@@ -24,6 +24,12 @@ const API_PORT = 31337;
 const UI_PORT = 2138;
 const cwd = process.cwd();
 const uiOnly = process.argv.includes("--ui-only");
+const devLogLevel =
+  (process.env.MILADY_DEV_LOG_LEVEL ?? process.env.LOG_LEVEL ?? "info")
+    .trim()
+    .toLowerCase() || "info";
+const quietApiLogs = process.env.MILADY_DEV_QUIET_LOGS === "1";
+const verboseApiLogs = process.env.MILADY_DEV_VERBOSE_LOGS === "1";
 
 // ---------------------------------------------------------------------------
 // ANSI colors — raw escape sequences so we don't need chalk in this .mjs file.
@@ -118,7 +124,7 @@ function which(cmd) {
   return null;
 }
 
-const forceNodeRuntime = process.env.MILAIDY_FORCE_NODE === "1";
+const forceNodeRuntime = process.env.MILADY_FORCE_NODE === "1";
 const hasBun = !forceNodeRuntime && !!which("bun");
 
 if (!hasBun && !which("npx")) {
@@ -142,22 +148,22 @@ function coerceBoolean(value) {
   return null;
 }
 
-function resolveMilaidyConfigPath() {
-  const explicitConfigPath = process.env.MILAIDY_CONFIG_PATH?.trim();
+function resolveMiladyConfigPath() {
+  const explicitConfigPath = process.env.MILADY_CONFIG_PATH?.trim();
   if (explicitConfigPath) {
     return path.resolve(explicitConfigPath);
   }
 
-  const explicitStateDir = process.env.MILAIDY_STATE_DIR?.trim();
+  const explicitStateDir = process.env.MILADY_STATE_DIR?.trim();
   if (explicitStateDir) {
-    return path.join(path.resolve(explicitStateDir), "milaidy.json");
+    return path.join(path.resolve(explicitStateDir), "milady.json");
   }
 
-  return path.join(os.homedir(), ".milaidy", "milaidy.json");
+  return path.join(os.homedir(), ".milady", "milady.json");
 }
 
-function loadMilaidyConfigForDev() {
-  const configPath = resolveMilaidyConfigPath();
+function loadMiladyConfigForDev() {
+  const configPath = resolveMiladyConfigPath();
   if (!existsSync(configPath)) return null;
   try {
     const raw = readFileSync(configPath, "utf-8");
@@ -165,7 +171,7 @@ function loadMilaidyConfigForDev() {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.warn(
-      `${green("[milaidy]")} Failed to parse config at ${configPath}: ${msg}`,
+      `${green("[milady]")} Failed to parse config at ${configPath}: ${msg}`,
     );
     return null;
   }
@@ -193,16 +199,16 @@ function readPluginStealthFlag(entries, ids) {
 }
 
 function resolveStealthImportFlags() {
-  let openaiFlag = coerceBoolean(process.env.MILAIDY_ENABLE_OPENAI_STEALTH);
-  let claudeFlag = coerceBoolean(process.env.MILAIDY_ENABLE_CLAUDE_STEALTH);
+  let openaiFlag = coerceBoolean(process.env.MILADY_ENABLE_OPENAI_STEALTH);
+  let claudeFlag = coerceBoolean(process.env.MILADY_ENABLE_CLAUDE_STEALTH);
 
-  const globalFlag = coerceBoolean(process.env.MILAIDY_ENABLE_STEALTH_IMPORTS);
+  const globalFlag = coerceBoolean(process.env.MILADY_ENABLE_STEALTH_IMPORTS);
   if (globalFlag !== null) {
     openaiFlag = globalFlag;
     claudeFlag = globalFlag;
   }
 
-  const config = loadMilaidyConfigForDev();
+  const config = loadMiladyConfigForDev();
   if (config && typeof config === "object") {
     const feature = config.features?.stealthImports;
     if (typeof feature === "boolean") {
@@ -255,11 +261,13 @@ function resolveStealthImportFlags() {
 }
 
 // ---------------------------------------------------------------------------
-// Output filter — only forward error-level lines from the API server.
+// Output filters for API server logs.
 // ---------------------------------------------------------------------------
 
 const SUPPRESS_RE = /^\s*(Info|Warn|Debug|Trace)\s/;
 const SUPPRESS_UNSTRUCTURED_RE = /^\[dotenv[@\d]/;
+const STARTUP_RE =
+  /\[milady(?:-api)?\]|runtime bootstrap|runtime ready|runtime created|api server ready|plugin.*load|startup.*complete|\d+ms/i;
 
 function createErrorFilter(dest) {
   let buf = "";
@@ -273,6 +281,37 @@ function createErrorFilter(dest) {
         !SUPPRESS_RE.test(line) &&
         !SUPPRESS_UNSTRUCTURED_RE.test(line)
       ) {
+        dest.write(`${line}\n`);
+      }
+    }
+  };
+}
+
+function createStartupFilter(dest) {
+  let buf = "";
+  let lastLine = "";
+  let repeatCount = 0;
+  return (chunk) => {
+    buf += chunk.toString();
+    const lines = buf.split("\n");
+    buf = lines.pop();
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      if (SUPPRESS_UNSTRUCTURED_RE.test(trimmed)) continue;
+      if (/embedding dimensions mismatch/i.test(trimmed)) continue;
+
+      if (trimmed === lastLine) {
+        repeatCount += 1;
+        if (repeatCount > 2) continue;
+      } else {
+        lastLine = trimmed;
+        repeatCount = 0;
+      }
+
+      const isWarnOrError = /^\s*(Warn|Error)\s/.test(trimmed);
+      const isStartupLine = STARTUP_RE.test(trimmed);
+      if (isWarnOrError || isStartupLine) {
         dest.write(`${line}\n`);
       }
     }
@@ -370,7 +409,7 @@ function startVite() {
   const viteCmd = hasBun ? "bunx" : "npx";
   viteProcess = spawn(viteCmd, ["vite", "--port", String(UI_PORT)], {
     cwd: path.join(cwd, "apps/app"),
-    env: { ...process.env, MILAIDY_API_PORT: String(API_PORT) },
+    env: { ...process.env, MILADY_API_PORT: String(API_PORT) },
     stdio: ["inherit", "pipe", "pipe"],
   });
 
@@ -378,7 +417,7 @@ function startVite() {
     const text = data.toString();
     if (text.includes("ready")) {
       console.log(
-        `\n  ${green("[milaidy]")} ${orange(`http://localhost:${UI_PORT}/`)}\n`,
+        `\n  ${green("[milady]")} ${orange(`http://localhost:${UI_PORT}/`)}\n`,
       );
     }
   });
@@ -389,7 +428,7 @@ function startVite() {
 
   viteProcess.on("exit", (code) => {
     if (code !== 0) {
-      console.error(`${green("[milaidy]")} Vite exited with code ${code}`);
+      console.error(`${green("[milady]")} Vite exited with code ${code}`);
       if (apiProcess) apiProcess.kill();
       process.exit(code ?? 1);
     }
@@ -399,12 +438,23 @@ function startVite() {
 if (uiOnly) {
   startVite();
 } else {
-  console.log(`${orange("\nmilaidy dev mode")}\n`);
+  console.log(`${orange("\nmilady dev mode")}\n`);
   printBanner();
-  console.log(`  ${green("[milaidy]")} ${green("Starting dev server...")}\n`);
+  console.log(`  ${green("[milady]")} ${green("Starting dev server...")}\n`);
+  console.log(
+    `  ${green("[milady]")} ${dim(
+      `API log level=${devLogLevel}${
+        quietApiLogs
+          ? " (errors only)"
+          : verboseApiLogs
+            ? " (verbose)"
+            : " (startup + warnings/errors)"
+      }`,
+    )}`,
+  );
 
   // Security default: stealth shims are disabled unless explicitly enabled
-  // via env vars or plugin config in milaidy.json.
+  // via env vars or plugin config in milady.json.
   const stealth = resolveStealthImportFlags();
   const nodeStealthImports = [];
   if (stealth.openai) nodeStealthImports.push("./openai-codex-stealth.mjs");
@@ -415,7 +465,7 @@ if (uiOnly) {
   );
   if (resolvedStealthImports.length > 0) {
     console.log(
-      `  ${green("[milaidy]")} ${dim(`Stealth imports enabled: ${resolvedStealthImports.join(", ")}`)}`,
+      `  ${green("[milady]")} ${dim(`Stealth imports enabled: ${resolvedStealthImports.join(", ")}`)}`,
     );
   }
 
@@ -433,21 +483,31 @@ if (uiOnly) {
     cwd,
     env: {
       ...process.env,
-      MILAIDY_PORT: String(API_PORT),
-      MILAIDY_HEADLESS: "1",
-      LOG_LEVEL: "error",
+      MILADY_PORT: String(API_PORT),
+      MILADY_HEADLESS: "1",
+      LOG_LEVEL: devLogLevel,
     },
     stdio: ["inherit", "pipe", "pipe"],
   });
 
-  apiProcess.stderr.on("data", createErrorFilter(process.stderr));
-  apiProcess.stdout.on("data", () => {});
+  if (quietApiLogs) {
+    apiProcess.stderr.on("data", createErrorFilter(process.stderr));
+    apiProcess.stdout.on("data", () => {});
+  } else if (verboseApiLogs) {
+    apiProcess.stderr.on("data", (data) => {
+      process.stderr.write(data);
+    });
+    apiProcess.stdout.on("data", (data) => {
+      process.stdout.write(data);
+    });
+  } else {
+    apiProcess.stderr.on("data", createStartupFilter(process.stderr));
+    apiProcess.stdout.on("data", createStartupFilter(process.stdout));
+  }
 
   apiProcess.on("exit", (code) => {
     if (code !== 0) {
-      console.error(
-        `\n  ${green("[milaidy]")} Server exited with code ${code}`,
-      );
+      console.error(`\n  ${green("[milady]")} Server exited with code ${code}`);
       if (viteProcess) viteProcess.kill();
       process.exit(code ?? 1);
     }
@@ -457,7 +517,7 @@ if (uiOnly) {
   const dots = setInterval(() => {
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(0);
     process.stdout.write(
-      `\r  ${green("[milaidy]")} ${green(`Waiting for API server... ${dim(`${elapsed}s`)}`)}`,
+      `\r  ${green("[milady]")} ${green(`Waiting for API server... ${dim(`${elapsed}s`)}`)}`,
     );
   }, 1000);
 
@@ -466,13 +526,13 @@ if (uiOnly) {
       clearInterval(dots);
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
       console.log(
-        `\r  ${green("[milaidy]")} ${green(`API server ready`)} ${dim(`(${elapsed}s)`)}          `,
+        `\r  ${green("[milady]")} ${green(`API server ready`)} ${dim(`(${elapsed}s)`)}          `,
       );
       startVite();
     })
     .catch((err) => {
       clearInterval(dots);
-      console.error(`\n  ${green("[milaidy]")} ${err.message}`);
+      console.error(`\n  ${green("[milady]")} ${err.message}`);
       if (apiProcess) apiProcess.kill();
       process.exit(1);
     });

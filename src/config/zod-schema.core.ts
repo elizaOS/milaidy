@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { isSafeExecutableValue } from "../utils/exec-safety.js";
+import { isSafeExecutableValue } from "../utils/exec-safety";
 
 export const ModelApiSchema = z.union([
   z.literal("openai-completions"),

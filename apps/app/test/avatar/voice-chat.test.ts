@@ -4,7 +4,7 @@
  * Since useVoiceChat is a React hook and we run in Node (not jsdom),
  * we test the underlying browser APIs and integration patterns directly.
  */
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // ---------------------------------------------------------------------------
 // Mock SpeechRecognition for voice input tests
@@ -14,7 +14,18 @@ class MockSpeechRecognition {
   continuous = false;
   interimResults = false;
   lang = "";
-  onresult: ((event: { results: { length: number; [k: number]: { isFinal: boolean; 0: { transcript: string; confidence: number } } }; resultIndex: number }) => void) | null = null;
+  onresult:
+    | ((event: {
+        results: {
+          length: number;
+          [k: number]: {
+            isFinal: boolean;
+            0: { transcript: string; confidence: number };
+          };
+        };
+        resultIndex: number;
+      }) => void)
+    | null = null;
   onerror: ((event: { error: string }) => void) | null = null;
   onend: (() => void) | null = null;
   onstart: (() => void) | null = null;
@@ -32,7 +43,9 @@ class MockSpeechRecognition {
     this._running = false;
   }
 
-  get running() { return this._running; }
+  get running() {
+    return this._running;
+  }
 
   /** Simulate receiving a speech result */
   simulateResult(transcript: string, isFinal: boolean) {
@@ -197,7 +210,7 @@ describe("Voice Chat — Speech Synthesis", () => {
 
     expect(synth.speak).toHaveBeenCalledOnce();
     expect(synth.spoken).toHaveLength(1);
-    expect(synth.spoken[0]!.text).toBe("Hello agent");
+    expect(synth.spoken[0]?.text).toBe("Hello agent");
   });
 
   it("cancel stops current speech", () => {
@@ -240,7 +253,7 @@ describe("Voice Chat — Speech Synthesis", () => {
 
     expect(synth.cancel).toHaveBeenCalledOnce();
     expect(synth.spoken).toHaveLength(2);
-    expect(synth.spoken[1]!.text).toBe("Second");
+    expect(synth.spoken[1]?.text).toBe("Second");
   });
 });
 
@@ -248,7 +261,7 @@ describe("Voice Chat — Mouth Animation", () => {
   it("generates natural-looking mouth values from sine waves", () => {
     // This tests the animation formula from useVoiceChat
     const values: number[] = [];
-    const startTime = Date.now();
+    const _startTime = Date.now();
 
     for (let i = 0; i < 20; i++) {
       const elapsed = i * 0.05; // 50ms intervals
@@ -323,11 +336,19 @@ describe("Voice Chat — Integration patterns", () => {
       }
     };
 
-    checkAndSpeak({ id: "msg-1", role: "assistant", text: "Hello! How can I help?" });
+    checkAndSpeak({
+      id: "msg-1",
+      role: "assistant",
+      text: "Hello! How can I help?",
+    });
     expect(spokenTexts).toEqual(["Hello! How can I help?"]);
 
     // Same message should not be spoken again
-    checkAndSpeak({ id: "msg-1", role: "assistant", text: "Hello! How can I help?" });
+    checkAndSpeak({
+      id: "msg-1",
+      role: "assistant",
+      text: "Hello! How can I help?",
+    });
     expect(spokenTexts).toEqual(["Hello! How can I help?"]);
 
     // User messages should not be spoken

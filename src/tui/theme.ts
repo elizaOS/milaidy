@@ -1,7 +1,7 @@
 import type { EditorTheme, MarkdownTheme, SelectListTheme } from "@elizaos/tui";
 import chalk from "chalk";
 
-// Milaidy brand colors (TUI-specific).
+// Milady brand colors (TUI-specific).
 // NOTE: These are intentionally separate from the CLI palette.
 const ACCENT = "#E879F9";
 const ACCENT_DIM = "#A855F7";
@@ -13,7 +13,7 @@ const INFO = "#60A5FA";
 
 const hex = (value: string) => chalk.hex(value);
 
-export const milaidySelectListTheme: SelectListTheme = {
+export const miladySelectListTheme: SelectListTheme = {
   selectedPrefix: (text) => hex(ACCENT)(text),
   selectedText: (text) => chalk.bold(hex(ACCENT)(text)),
   description: (text) => hex(MUTED)(text),
@@ -21,12 +21,12 @@ export const milaidySelectListTheme: SelectListTheme = {
   noMatch: (text) => hex(MUTED)(text),
 };
 
-export const milaidyEditorTheme: EditorTheme = {
+export const miladyEditorTheme: EditorTheme = {
   borderColor: (text) => hex(ACCENT_DIM)(text),
-  selectList: milaidySelectListTheme,
+  selectList: miladySelectListTheme,
 };
 
-export const milaidyMarkdownTheme: MarkdownTheme = {
+export const miladyMarkdownTheme: MarkdownTheme = {
   heading: (text) => chalk.bold(hex(ACCENT)(text)),
   link: (text) => hex(INFO)(text),
   linkUrl: (text) => hex(MUTED)(text),
@@ -51,7 +51,7 @@ export const tuiTheme = {
   warning: (text: string) => hex(WARNING)(text),
   info: (text: string) => hex(INFO)(text),
 
-  markdown: milaidyMarkdownTheme,
-  editor: milaidyEditorTheme,
-  selectList: milaidySelectListTheme,
+  markdown: miladyMarkdownTheme,
+  editor: miladyEditorTheme,
+  selectList: miladySelectListTheme,
 } as const;

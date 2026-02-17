@@ -1,0 +1,115 @@
+
+[1m[46m RUN [49m[22m [36mv4.0.18 [39m[90m/Users/shawwalters/eliza-workspace/milady[39m
+
+ [31m❯[39m test/plugin-management.e2e.test.ts [2m([22m[2m7 tests[22m[2m | [22m[31m5 failed[39m[2m)[22m[32m 122[2mms[22m[39m
+       [32m✓[39m returns 400 for missing name[32m 13[2mms[22m[39m
+       [32m✓[39m returns 400 for invalid name format[32m 4[2mms[22m[39m
+[31m       [31m×[31m returns 500/422 for non-existent plugin (verifies service is called)[39m[32m 3[2mms[22m[39m
+[31m       [31m×[31m returns 422/500 for non-installed plugin[39m[32m 1[2mms[22m[39m
+[31m       [31m×[31m returns 422/500 for non-ejected plugin[39m[32m 1[2mms[22m[39m
+[31m       [31m×[31m returns 422/500 for non-ejected plugin[39m[32m 1[2mms[22m[39m
+[31m       [31m×[31m returns list[39m[32m 2[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 5 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m test/plugin-management.e2e.test.ts[2m > [22mPlugin Management E2E[2m > [22mPOST /api/plugins/install[2m > [22mreturns 500/422 for non-existent plugin (verifies service is called)
+[31m[1mAssertionError[22m: expected undefined to be false // Object.is equality[39m
+
+[32m- Expected:[39m 
+false
+
+[31m+ Received:[39m 
+undefined
+
+[36m [2m❯[22m test/plugin-management.e2e.test.ts:[2m89:29[22m[39m
+    [90m 87| [39m            [34mexpect[39m(status)[33m.[39m[34mtoBeGreaterThanOrEqual[39m([34m400[39m)[33m;[39m
+    [90m 88| [39m            [90m// We assume service attempts to install and fails[39m
+    [90m 89| [39m            [34mexpect[39m(data[33m.[39mok)[33m.[39m[34mtoBe[39m([35mfalse[39m)[33m;[39m
+    [90m   | [39m                            [31m^[39m
+    [90m 90| [39m        })[33m;[39m
+    [90m 91| [39m    })[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m test/plugin-management.e2e.test.ts[2m > [22mPlugin Management E2E[2m > [22mPOST /api/plugins/:id/eject[2m > [22mreturns 422/500 for non-installed plugin
+[31m[1mAssertionError[22m: expected undefined to be false // Object.is equality[39m
+
+[32m- Expected:[39m 
+false
+
+[31m+ Received:[39m 
+undefined
+
+[36m [2m❯[22m test/plugin-management.e2e.test.ts:[2m101:29[22m[39m
+    [90m 99| [39m            const { status, data } = await http$(server.port, "POST", …
+    [90m100| [39m            expect(status).not.toBe(404); // Should match route and fa…
+    [90m101| [39m            [34mexpect[39m(data[33m.[39mok)[33m.[39m[34mtoBe[39m([35mfalse[39m)[33m;[39m
+    [90m   | [39m                            [31m^[39m
+    [90m102| [39m        })[33m;[39m
+    [90m103| [39m    })[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m test/plugin-management.e2e.test.ts[2m > [22mPlugin Management E2E[2m > [22mPOST /api/plugins/:id/sync[2m > [22mreturns 422/500 for non-ejected plugin
+[31m[1mAssertionError[22m: expected undefined to be false // Object.is equality[39m
+
+[32m- Expected:[39m 
+false
+
+[31m+ Received:[39m 
+undefined
+
+[36m [2m❯[22m test/plugin-management.e2e.test.ts:[2m113:29[22m[39m
+    [90m111| [39m            const { status, data } = await http$(server.port, "POST", …
+    [90m112| [39m            [34mexpect[39m(status)[33m.[39mnot[33m.[39m[34mtoBe[39m([34m404[39m)[33m;[39m
+    [90m113| [39m            [34mexpect[39m(data[33m.[39mok)[33m.[39m[34mtoBe[39m([35mfalse[39m)[33m;[39m
+    [90m   | [39m                            [31m^[39m
+    [90m114| [39m        })[33m;[39m
+    [90m115| [39m    })[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/5]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m test/plugin-management.e2e.test.ts[2m > [22mPlugin Management E2E[2m > [22mPOST /api/plugins/:id/reinject[2m > [22mreturns 422/500 for non-ejected plugin
+[31m[1mAssertionError[22m: expected undefined to be false // Object.is equality[39m
+
+[32m- Expected:[39m 
+false
+
+[31m+ Received:[39m 
+undefined
+
+[36m [2m❯[22m test/plugin-management.e2e.test.ts:[2m125:29[22m[39m
+    [90m123| [39m            const { status, data } = await http$(server.port, "POST", …
+    [90m124| [39m            [34mexpect[39m(status)[33m.[39mnot[33m.[39m[34mtoBe[39m([34m404[39m)[33m;[39m
+    [90m125| [39m            [34mexpect[39m(data[33m.[39mok)[33m.[39m[34mtoBe[39m([35mfalse[39m)[33m;[39m
+    [90m   | [39m                            [31m^[39m
+    [90m126| [39m        })[33m;[39m
+    [90m127| [39m    })[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/5]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m test/plugin-management.e2e.test.ts[2m > [22mPlugin Management E2E[2m > [22mGET /api/plugins/ejected[2m > [22mreturns list
+[31m[1mAssertionError[22m: expected 500 to be 200 // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 200[39m
+[31m+ 500[39m
+
+[36m [2m❯[22m test/plugin-management.e2e.test.ts:[2m136:28[22m[39m
+    [90m134| [39m        [34mit[39m([32m"returns list"[39m[33m,[39m [35masync[39m () [33m=>[39m {
+    [90m135| [39m            const { status, data } = await http$(server.port, "GET", "…
+    [90m136| [39m            [34mexpect[39m(status)[33m.[39m[34mtoBe[39m([34m200[39m)[33m;[39m
+    [90m   | [39m                           [31m^[39m
+    [90m137| [39m            [34mexpect[39m([33mArray[39m[33m.[39m[34misArray[39m(data[33m.[39mplugins))[33m.[39m[34mtoBe[39m([35mtrue[39m)[33m;[39m
+    [90m138| [39m        })[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/5]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m5 failed[39m[22m[2m | [22m[1m[32m2 passed[39m[22m[90m (7)[39m
+[2m   Start at [22m 00:19:21
+[2m   Duration [22m 2.64s[2m (transform 1.96s, setup 32ms, import 2.41s, tests 122ms, environment 0ms)[22m
+

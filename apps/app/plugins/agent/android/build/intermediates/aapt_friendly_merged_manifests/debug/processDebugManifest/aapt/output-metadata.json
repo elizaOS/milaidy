@@ -4,7 +4,7 @@
     "type": "AAPT_FRIENDLY_MERGED_MANIFESTS",
     "kind": "Directory"
   },
-  "applicationId": "ai.milaidy.plugins.agent",
+  "applicationId": "ai.milady.plugins.agent",
   "variantName": "debug",
   "elements": [
     {

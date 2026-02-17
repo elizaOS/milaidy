@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { MilaidyClient } from "../../src/api-client";
+import { MiladyClient } from "../../src/api-client";
 
 class ControlledWebSocket {
   static readonly CONNECTING = 0;
@@ -40,7 +40,7 @@ class ControlledWebSocket {
   }
 }
 
-describe("MilaidyClient websocket queue", () => {
+describe("MiladyClient websocket queue", () => {
   const originalWebSocket = globalThis.WebSocket;
 
   beforeEach(() => {
@@ -62,7 +62,7 @@ describe("MilaidyClient websocket queue", () => {
   });
 
   it("queues outbound messages until websocket is open", () => {
-    const client = new MilaidyClient("http://localhost:3137");
+    const client = new MiladyClient("http://localhost:3137");
     client.sendWsMessage({ type: "ping" });
 
     expect(ControlledWebSocket.instances).toHaveLength(1);
@@ -75,9 +75,15 @@ describe("MilaidyClient websocket queue", () => {
   });
 
   it("keeps only the newest queued active-conversation update", () => {
-    const client = new MilaidyClient("http://localhost:3137");
-    client.sendWsMessage({ type: "active-conversation", conversationId: "conv-1" });
-    client.sendWsMessage({ type: "active-conversation", conversationId: "conv-2" });
+    const client = new MiladyClient("http://localhost:3137");
+    client.sendWsMessage({
+      type: "active-conversation",
+      conversationId: "conv-1",
+    });
+    client.sendWsMessage({
+      type: "active-conversation",
+      conversationId: "conv-2",
+    });
 
     expect(ControlledWebSocket.instances).toHaveLength(1);
     const ws = ControlledWebSocket.instances[0];
@@ -88,4 +94,3 @@ describe("MilaidyClient websocket queue", () => {
     ]);
   });
 });
-

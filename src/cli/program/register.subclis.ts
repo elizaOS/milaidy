@@ -1,10 +1,6 @@
 import type { Command } from "commander";
-import { isTruthyEnvValue } from "../../utils/globals.js";
-import {
-  buildParseArgv,
-  getPrimaryCommand,
-  hasHelpOrVersion,
-} from "../argv.js";
+import { isTruthyEnvValue } from "../../utils/globals";
+import { buildParseArgv, getPrimaryCommand, hasHelpOrVersion } from "../argv";
 
 function resolveActionArgs(command: Command | undefined): string[] {
   return command?.args ?? [];
@@ -21,7 +17,7 @@ const entries: SubCliEntry[] = [
     name: "plugins",
     description: "Plugin management (ElizaOS plugins)",
     register: async (program) => {
-      const mod = await import("../plugins-cli.js");
+      const mod = await import("../plugins-cli");
       mod.registerPluginsCli(program);
     },
   },
@@ -29,7 +25,7 @@ const entries: SubCliEntry[] = [
     name: "models",
     description: "Model configuration",
     register: async (program) => {
-      const mod = await import("./register.models.js");
+      const mod = await import("./register.models");
       mod.registerModelsCli(program);
     },
   },
@@ -89,7 +85,7 @@ export function registerSubCliCommands(
   argv: string[] = process.argv,
 ) {
   const eagerAll = isTruthyEnvValue(
-    process.env.MILAIDY_DISABLE_LAZY_SUBCOMMANDS,
+    process.env.MILADY_DISABLE_LAZY_SUBCOMMANDS,
   );
 
   if (eagerAll) {

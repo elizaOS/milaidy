@@ -18,7 +18,7 @@ import type {
   WalletGenerateResult,
   WalletImportResult,
   WalletKeys,
-} from "../contracts/wallet.js";
+} from "../contracts/wallet";
 
 export type {
   EvmChainBalance,
@@ -35,7 +35,7 @@ export type {
   WalletImportResult,
   WalletKeys,
   WalletNftsResponse,
-} from "../contracts/wallet.js";
+} from "../contracts/wallet";
 
 const FETCH_TIMEOUT_MS = 15_000;
 

@@ -13,91 +13,93 @@ vi.mock("../../src/AppContext", () => ({
   useApp: () => mockUseApp(),
 }));
 
-vi.mock("../../src/components/Header.js", () => ({
+vi.mock("../../src/components/Header", () => ({
   Header: () => React.createElement("header", null, "Header"),
 }));
 
-vi.mock("../../src/components/CommandPalette.js", () => ({
+vi.mock("../../src/components/CommandPalette", () => ({
   CommandPalette: () => React.createElement("div", null, "CommandPalette"),
 }));
 
-vi.mock("../../src/components/EmotePicker.js", () => ({
+vi.mock("../../src/components/EmotePicker", () => ({
   EmotePicker: () => React.createElement("div", null, "EmotePicker"),
 }));
 
-vi.mock("../../src/components/SaveCommandModal.js", () => ({
+vi.mock("../../src/components/SaveCommandModal", () => ({
   SaveCommandModal: () => React.createElement("div", null, "SaveCommandModal"),
 }));
 
-vi.mock("../../src/components/PairingView.js", () => ({
+vi.mock("../../src/components/PairingView", () => ({
   PairingView: () => React.createElement("div", null, "PairingView"),
 }));
 
-vi.mock("../../src/components/OnboardingWizard.js", () => ({
+vi.mock("../../src/components/OnboardingWizard", () => ({
   OnboardingWizard: () => React.createElement("div", null, "OnboardingWizard"),
 }));
 
-vi.mock("../../src/components/ChatView.js", () => ({
+vi.mock("../../src/components/ChatView", () => ({
   ChatView: () => React.createElement("section", null, "ChatView Ready"),
 }));
 
-vi.mock("../../src/components/ConversationsSidebar.js", () => ({
+vi.mock("../../src/components/ConversationsSidebar", () => ({
   ConversationsSidebar: () =>
     React.createElement("aside", null, "ConversationsSidebar"),
 }));
 
-vi.mock("../../src/components/AutonomousPanel.js", () => ({
+vi.mock("../../src/components/AutonomousPanel", () => ({
   AutonomousPanel: () => React.createElement("aside", null, "AutonomousPanel"),
 }));
 
-vi.mock("../../src/components/CustomActionsPanel.js", () => ({
+vi.mock("../../src/components/CustomActionsPanel", () => ({
   CustomActionsPanel: () =>
     React.createElement("aside", null, "CustomActionsPanel"),
 }));
 
-vi.mock("../../src/components/CustomActionEditor.js", () => ({
+vi.mock("../../src/components/CustomActionEditor", () => ({
   CustomActionEditor: () =>
     React.createElement("aside", null, "CustomActionEditor"),
 }));
 
-vi.mock("../../src/components/AppsPageView.js", () => ({
-  AppsPageView: () => React.createElement("section", null, "AppsPageView Ready"),
+vi.mock("../../src/components/AppsPageView", () => ({
+  AppsPageView: () =>
+    React.createElement("section", null, "AppsPageView Ready"),
 }));
 
-vi.mock("../../src/components/CharacterView.js", () => ({
+vi.mock("../../src/components/CharacterView", () => ({
   CharacterView: () =>
     React.createElement("section", null, "CharacterView Ready"),
 }));
 
-vi.mock("../../src/components/TriggersView.js", () => ({
-  TriggersView: () => React.createElement("section", null, "TriggersView Ready"),
+vi.mock("../../src/components/TriggersView", () => ({
+  TriggersView: () =>
+    React.createElement("section", null, "TriggersView Ready"),
 }));
 
-vi.mock("../../src/components/ConnectorsPageView.js", () => ({
+vi.mock("../../src/components/ConnectorsPageView", () => ({
   ConnectorsPageView: () =>
     React.createElement("section", null, "ConnectorsPageView Ready"),
 }));
 
-vi.mock("../../src/components/InventoryView.js", () => ({
+vi.mock("../../src/components/InventoryView", () => ({
   InventoryView: () =>
     React.createElement("section", null, "InventoryView Ready"),
 }));
 
-vi.mock("../../src/components/KnowledgeView.js", () => ({
+vi.mock("../../src/components/KnowledgeView", () => ({
   KnowledgeView: () =>
     React.createElement("section", null, "KnowledgeView Ready"),
 }));
 
-vi.mock("../../src/components/SettingsView.js", () => ({
-  SettingsView: () => React.createElement("section", null, "SettingsView Ready"),
+vi.mock("../../src/components/SettingsView", () => ({
+  SettingsView: () =>
+    React.createElement("section", null, "SettingsView Ready"),
 }));
 
-vi.mock("../../src/components/LoadingScreen.js", () => ({
-  LoadingScreen: () =>
-    React.createElement("div", null, "LoadingScreen"),
+vi.mock("../../src/components/LoadingScreen", () => ({
+  LoadingScreen: () => React.createElement("div", null, "LoadingScreen"),
 }));
 
-vi.mock("../../src/components/TerminalPanel.js", () => ({
+vi.mock("../../src/components/TerminalPanel", () => ({
   TerminalPanel: () => React.createElement("footer", null, "TerminalPanel"),
 }));
 
@@ -144,7 +146,7 @@ vi.mock("../../src/components/LogsPageView", () => ({
     React.createElement("section", null, "LogsPageView Ready"),
 }));
 
-vi.mock("../../src/hooks/useContextMenu.js", () => ({
+vi.mock("../../src/hooks/useContextMenu", () => ({
   useContextMenu: () => ({
     saveCommandModalOpen: false,
     saveCommandText: "",
@@ -205,6 +207,13 @@ function mainContent(tree: TestRenderer.ReactTestRenderer): string {
   return textOf(mains[0]);
 }
 
+function requireTree(
+  tree: TestRenderer.ReactTestRenderer | null,
+): TestRenderer.ReactTestRenderer {
+  if (!tree) throw new Error("failed to render App");
+  return tree;
+}
+
 async function clickAndRerender(
   tree: TestRenderer.ReactTestRenderer,
   label: string,
@@ -240,10 +249,11 @@ describe("pages navigation smoke (e2e)", () => {
     const errorSpy = vi.spyOn(console, "error");
     const warnSpy = vi.spyOn(console, "warn");
 
-    let tree: TestRenderer.ReactTestRenderer;
+    let tree: TestRenderer.ReactTestRenderer | null = null;
     await act(async () => {
       tree = TestRenderer.create(React.createElement(App));
     });
+    const renderedTree = requireTree(tree);
 
     const expectedByPrimaryTab: Record<Tab, string> = {
       chat: "ChatView Ready",
@@ -267,9 +277,9 @@ describe("pages navigation smoke (e2e)", () => {
     };
 
     for (const group of TAB_GROUPS) {
-      await clickAndRerender(tree!, group.label);
+      await clickAndRerender(renderedTree, group.label);
       const nextTab = group.tabs[0];
-      const content = mainContent(tree!);
+      const content = mainContent(renderedTree);
       expect(state.tab).toBe(nextTab);
       expect(content).toContain(expectedByPrimaryTab[nextTab]);
       expectValidContent(content);
@@ -295,12 +305,13 @@ describe("pages navigation smoke (e2e)", () => {
     const errorSpy = vi.spyOn(console, "error");
     const warnSpy = vi.spyOn(console, "warn");
 
-    let tree: TestRenderer.ReactTestRenderer;
+    let tree: TestRenderer.ReactTestRenderer | null = null;
     await act(async () => {
       tree = TestRenderer.create(React.createElement(App));
     });
+    const renderedTree = requireTree(tree);
 
-    await clickAndRerender(tree!, "Advanced");
+    await clickAndRerender(renderedTree, "Advanced");
     expect(state.tab).toBe("advanced");
 
     const subPages: Array<{ label: string; tab: Tab; token: string }> = [
@@ -324,8 +335,8 @@ describe("pages navigation smoke (e2e)", () => {
     ];
 
     for (const subPage of subPages) {
-      await clickAndRerender(tree!, subPage.label);
-      const content = mainContent(tree!);
+      await clickAndRerender(renderedTree, subPage.label);
+      const content = mainContent(renderedTree);
       expect(state.tab).toBe(subPage.tab);
       expect(content).toContain(subPage.token);
       expectValidContent(content);
@@ -372,17 +383,18 @@ describe("pages navigation smoke (e2e)", () => {
       { tab: "logs", token: "LogsPageView Ready" },
     ];
 
-    let tree: TestRenderer.ReactTestRenderer;
+    let tree: TestRenderer.ReactTestRenderer | null = null;
     await act(async () => {
       tree = TestRenderer.create(React.createElement(App));
     });
+    const renderedTree = requireTree(tree);
 
     for (const entry of expectedByTab) {
       state.tab = entry.tab;
       await act(async () => {
-        tree!.update(React.createElement(App));
+        renderedTree.update(React.createElement(App));
       });
-      const content = mainContent(tree!);
+      const content = mainContent(renderedTree);
       expect(content).toContain(entry.token);
       expectValidContent(content);
     }
@@ -419,12 +431,20 @@ describe("pages navigation smoke (e2e)", () => {
       },
       {
         name: "pairing",
-        patch: { onboardingLoading: false, onboardingComplete: true, authRequired: true },
+        patch: {
+          onboardingLoading: false,
+          onboardingComplete: true,
+          authRequired: true,
+        },
         token: "PairingView",
       },
       {
         name: "onboarding",
-        patch: { onboardingLoading: false, authRequired: false, onboardingComplete: false },
+        patch: {
+          onboardingLoading: false,
+          authRequired: false,
+          onboardingComplete: false,
+        },
         token: "OnboardingWizard",
       },
     ];
@@ -447,7 +467,7 @@ describe("pages navigation smoke (e2e)", () => {
       await act(async () => {
         tree = TestRenderer.create(React.createElement(App));
       });
-      const appText = textOf(tree!.root);
+      const appText = textOf(tree?.root);
       expect(appText).toContain(entry.token);
       expectValidContent(appText);
     }

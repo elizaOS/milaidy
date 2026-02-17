@@ -1,16 +1,25 @@
 import crypto from "node:crypto";
 import React, {
+  type ReactElement,
   useCallback,
   useEffect,
   useMemo,
   useState,
-  type ReactElement,
 } from "react";
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import TestRenderer, { act } from "react-test-renderer";
 import {
-  MilaidyClient,
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
+import {
   type CreateTriggerRequest,
+  MiladyClient,
   type TriggerHealthSnapshot,
   type TriggerRunRecord,
   type TriggerSummary,
@@ -35,7 +44,9 @@ interface TriggerViewContextShape {
   triggerHealth: TriggerHealthSnapshot | null;
   triggerError: string | null;
   loadTriggers: () => Promise<void>;
-  createTrigger: (request: CreateTriggerRequest) => Promise<TriggerSummary | null>;
+  createTrigger: (
+    request: CreateTriggerRequest,
+  ) => Promise<TriggerSummary | null>;
   updateTrigger: (
     id: string,
     request: UpdateTriggerRequest,
@@ -181,7 +192,7 @@ function sortTriggers(items: TriggerSummary[]): TriggerSummary[] {
   return [...items].sort((a, b) => a.displayName.localeCompare(b.displayName));
 }
 
-function TriggerUiHarness(props: { client: MilaidyClient }): ReactElement {
+function TriggerUiHarness(props: { client: MiladyClient }): ReactElement {
   const { client } = props;
   const [triggers, setTriggers] = useState<TriggerSummary[]>([]);
   const [triggersLoading, setTriggersLoading] = useState(false);
@@ -189,9 +200,8 @@ function TriggerUiHarness(props: { client: MilaidyClient }): ReactElement {
   const [triggerRunsById, setTriggerRunsById] = useState<
     Record<string, TriggerRunRecord[]>
   >({});
-  const [triggerHealth, setTriggerHealth] = useState<TriggerHealthSnapshot | null>(
-    null,
-  );
+  const [triggerHealth, setTriggerHealth] =
+    useState<TriggerHealthSnapshot | null>(null);
   const [triggerError, setTriggerError] = useState<string | null>(null);
 
   const loadTriggers = useCallback(async () => {
@@ -216,7 +226,9 @@ function TriggerUiHarness(props: { client: MilaidyClient }): ReactElement {
       setTriggerHealth(health);
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : "Failed to load trigger health";
+        error instanceof Error
+          ? error.message
+          : "Failed to load trigger health";
       setTriggerError(message);
       setTriggerHealth(null);
     }
@@ -233,7 +245,9 @@ function TriggerUiHarness(props: { client: MilaidyClient }): ReactElement {
         setTriggerError(null);
       } catch (error) {
         const message =
-          error instanceof Error ? error.message : "Failed to load trigger runs";
+          error instanceof Error
+            ? error.message
+            : "Failed to load trigger runs";
         setTriggerError(message);
       }
     },
@@ -427,7 +441,8 @@ function findTextareaByPlaceholder(
   placeholder: string,
 ): TestRenderer.ReactTestInstance {
   const matches = root.findAll(
-    (node) => node.type === "textarea" && node.props.placeholder === placeholder,
+    (node) =>
+      node.type === "textarea" && node.props.placeholder === placeholder,
   );
   if (!matches[0]) throw new Error(`Textarea "${placeholder}" not found`);
   return matches[0];
@@ -445,12 +460,15 @@ async function flush(): Promise<void> {
 describe("TriggersView UI E2E", () => {
   let server: { port: number; close: () => Promise<void> } | null = null;
   let runtimeHarness: TriggerRuntimeHarness;
-  let startApiServerFn: ((
-    options?: { port?: number; runtime?: object },
-  ) => Promise<{ port: number; close: () => Promise<void> }>) | null = null;
+  let startApiServerFn:
+    | ((options?: {
+        port?: number;
+        runtime?: object;
+      }) => Promise<{ port: number; close: () => Promise<void> }>)
+    | null = null;
 
   beforeAll(async () => {
-    const serverModule = await import("../../../../src/api/server.js");
+    const serverModule = await import("../../../../src/api/server");
     startApiServerFn = serverModule.startApiServer;
     if (!startApiServerFn) {
       throw new Error("Failed to load startApiServer");
@@ -472,7 +490,10 @@ describe("TriggersView UI E2E", () => {
   beforeEach(() => {
     mockUseApp.mockReset();
     runtimeHarness.injectAutonomousInstruction.mockClear();
-    vi.stubGlobal("confirm", vi.fn(() => true));
+    vi.stubGlobal(
+      "confirm",
+      vi.fn(() => true),
+    );
     Object.defineProperty(window, "scrollTo", {
       value: vi.fn(),
       writable: true,
@@ -488,16 +509,18 @@ describe("TriggersView UI E2E", () => {
       throw new Error("Server was not initialized");
     }
 
-    const client = new MilaidyClient(`http://127.0.0.1:${server.port}`);
+    const client = new MiladyClient(`http://127.0.0.1:${server.port}`);
     const triggerDisplayName = "Trigger UI E2E";
 
     let tree: TestRenderer.ReactTestRenderer;
     await act(async () => {
-      tree = TestRenderer.create(React.createElement(TriggerUiHarness, { client }));
+      tree = TestRenderer.create(
+        React.createElement(TriggerUiHarness, { client }),
+      );
     });
     await flush();
 
-    const root = tree!.root;
+    const root = tree?.root;
     const displayNameInput = findInputByPlaceholder(
       root,
       "e.g. Daily Digest, Heartbeat Check",
@@ -508,7 +531,9 @@ describe("TriggersView UI E2E", () => {
     );
 
     await act(async () => {
-      displayNameInput.props.onChange({ target: { value: triggerDisplayName } });
+      displayNameInput.props.onChange({
+        target: { value: triggerDisplayName },
+      });
       instructionsInput.props.onChange({
         target: { value: "Execute this UI E2E trigger task" },
       });

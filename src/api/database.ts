@@ -1,5 +1,5 @@
 /**
- * Database management API handlers for the Milaidy Control UI.
+ * Database management API handlers for the Milady Control UI.
  *
  * Provides endpoints for:
  * - Database provider configuration (PGLite vs Postgres)
@@ -18,17 +18,21 @@ import type http from "node:http";
 import net from "node:net";
 import { promisify } from "node:util";
 import { type AgentRuntime, logger } from "@elizaos/core";
-import { loadMilaidyConfig, saveMilaidyConfig } from "../config/config.js";
+import { loadMiladyConfig, saveMiladyConfig } from "../config/config";
 import type {
   DatabaseConfig,
   DatabaseProviderType,
   PostgresCredentials,
-} from "../config/types.milaidy.js";
+} from "../config/types.milady";
+import {
+  normalizeHostLike,
+  normalizeIpForPolicy,
+} from "../security/network-policy";
 import {
   readJsonBody as parseJsonBody,
   sendJson,
   sendJsonError,
-} from "./http-helpers.js";
+} from "./http-helpers";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -149,7 +153,7 @@ const dnsLookupAll = promisify(dns.lookup);
 const ALWAYS_BLOCKED_IP_PATTERNS: RegExp[] = [
   /^169\.254\./, // Link-local / cloud metadata (AWS, GCP, Azure)
   /^0\./, // "This" network
-  /^fe80:/i, // IPv6 link-local
+  /^fe[89ab][0-9a-f]:/i, // IPv6 link-local fe80::/10
 ];
 
 /**
@@ -175,46 +179,10 @@ const PRIVATE_IP_PATTERNS: RegExp[] = [
  */
 function isApiLoopbackOnly(): boolean {
   const bind =
-    (process.env.MILAIDY_API_BIND ?? "127.0.0.1").trim() || "127.0.0.1";
+    (process.env.MILADY_API_BIND ?? "127.0.0.1").trim() || "127.0.0.1";
   return (
     bind === "127.0.0.1" || bind === "::1" || bind.toLowerCase() === "localhost"
   );
-}
-
-function normalizeHostLike(value: string): string {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/^\[|\]$/g, "");
-}
-
-/**
- * Decode IPv6-mapped IPv4 hex notation (::ffff:7f00:1 → 127.0.0.1).
- * Returns null if not a valid hex-encoded IPv4.
- */
-function decodeIpv6MappedHex(mapped: string): string | null {
-  const match = /^([0-9a-f]{1,4}):([0-9a-f]{1,4})$/i.exec(mapped);
-  if (!match) return null;
-  const hi = Number.parseInt(match[1], 16);
-  const lo = Number.parseInt(match[2], 16);
-  if (!Number.isFinite(hi) || !Number.isFinite(lo)) return null;
-  const octets = [hi >> 8, hi & 0xff, lo >> 8, lo & 0xff];
-  return octets.join(".");
-}
-
-/**
- * Normalize an IP for policy checks.
- * Strips zone ID, handles IPv6-mapped IPv4 (both dotted and hex forms).
- */
-function normalizeIpForPolicy(ip: string): string {
-  const base = normalizeHostLike(ip).split("%")[0];
-  if (!base.startsWith("::ffff:")) return base;
-
-  const mapped = base.slice("::ffff:".length);
-  // Dotted form like ::ffff:127.0.0.1
-  if (net.isIP(mapped) === 4) return mapped;
-  // Hex form like ::ffff:7f00:1
-  return decodeIpv6MappedHex(mapped) ?? mapped;
 }
 
 /**
@@ -520,13 +488,13 @@ async function handleGetStatus(
 
 /**
  * GET /api/database/config
- * Returns the persisted database configuration from milaidy.json.
+ * Returns the persisted database configuration from milady.json.
  */
 function handleGetConfig(
   _req: http.IncomingMessage,
   res: http.ServerResponse,
 ): void {
-  const config = loadMilaidyConfig();
+  const config = loadMiladyConfig();
   const dbConfig: DatabaseConfig = config.database ?? { provider: "pglite" };
   // Mask the password in the response
   const sanitized = { ...dbConfig };
@@ -579,7 +547,7 @@ async function handlePutConfig(
   }
 
   // Load current config so validation can account for unchanged provider.
-  const config = loadMilaidyConfig();
+  const config = loadMiladyConfig();
   const existingDb = config.database ?? {};
   const effectiveProvider =
     body.provider ?? existingDb.provider ?? ("pglite" as DatabaseProviderType);
@@ -626,7 +594,7 @@ async function handlePutConfig(
   }
 
   config.database = merged;
-  saveMilaidyConfig(config);
+  saveMiladyConfig(config);
 
   logger.info(
     { src: "database-api", provider: merged.provider },
@@ -1081,22 +1049,33 @@ async function handleQuery(
       .replace(/--.*$/gm, "")
       .trim();
 
-    // Strip string literals so that keywords inside quoted strings are ignored.
-    // Handles single-quoted ('...'), dollar-quoted ($$...$$), and tagged
-    // dollar-quoted ($tag$...$tag$) strings, plus double-quoted identifiers.
-    const noStrings = stripped
+    // Strip string literals so that mutation keywords/functions inside quoted
+    // strings are ignored. Handles single-quoted ('...'), dollar-quoted
+    // ($$...$$), and tagged dollar-quoted ($tag$...$tag$) strings.
+    const noLiterals = stripped
       .replace(/\$([A-Za-z0-9_]*)\$[\s\S]*?\$\1\$/g, " ")
-      .replace(/'(?:[^']|'')*'/g, " ")
-      .replace(/"(?:[^"]|"")*"/g, " ");
+      .replace(/'(?:[^']|'')*'/g, " ");
+
+    // For keyword checks, also strip double-quoted identifiers to avoid
+    // matching words inside quoted table/column names.
+    const noStrings = noLiterals.replace(/"(?:[^"]|"")*"/g, " ");
 
     const mutationKeywords = [
       "INSERT",
       "UPDATE",
       "DELETE",
+      "INTO",
       "DROP",
       "ALTER",
       "TRUNCATE",
       "CREATE",
+      "COPY",
+      "MERGE",
+      "CALL",
+      "DO",
+      "REFRESH",
+      "REINDEX",
+      "VACUUM",
       "GRANT",
       "REVOKE",
     ];
@@ -1114,6 +1093,20 @@ async function handleQuery(
       );
       return;
     }
+
+    // Some SELECT functions still mutate server state (for example sequence
+    // advancement via nextval/setval). Reject those in read-only mode.
+    const mutatingFunctionPattern =
+      /(?:^|[^\w$])"?((?:nextval|setval))"?\s*\(/i;
+    const mutatingFunctionMatch = mutatingFunctionPattern.exec(noLiterals);
+    if (mutatingFunctionMatch) {
+      sendJsonError(
+        res,
+        `Query rejected: "${mutatingFunctionMatch[1].toUpperCase()}" is a mutating function. Set readOnly: false to execute mutations.`,
+      );
+      return;
+    }
+
     // Reject multi-statement queries (naive: any semicolon not at the very end)
     const trimmedForSemicolon = stripped.replace(/;\s*$/, "");
     if (trimmedForSemicolon.includes(";")) {

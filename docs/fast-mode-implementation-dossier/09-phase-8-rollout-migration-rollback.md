@@ -5,7 +5,7 @@
 Ship fast mode safely across multi-component architecture:
 
 - frontend client
-- Milaidy API server
+- Milady API server
 - cloud proxy and bridge
 - cloud runtime entrypoint
 - Eliza core runtime

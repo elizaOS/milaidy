@@ -4,7 +4,7 @@
     "type": "AAPT_FRIENDLY_MERGED_MANIFESTS",
     "kind": "Directory"
   },
-  "applicationId": "ai.milaidy.plugins.canvas",
+  "applicationId": "ai.milady.plugins.canvas",
   "variantName": "debug",
   "elements": [
     {

@@ -1,11 +1,10 @@
 /**
- * API client for the Milaidy backend.
+ * API client for the Milady backend.
  *
  * Thin fetch wrapper + WebSocket for real-time chat/events.
  * Replaces the gateway WebSocket protocol entirely.
  */
 
-import type { ConfigUiHint } from "./types";
 import type {
   AudioGenConfig,
   AudioGenProvider,
@@ -21,8 +20,10 @@ import type {
   VideoProvider,
   VisionConfig,
   VisionProvider,
-} from "../../../src/config/types.milaidy.js";
-import type { StylePreset } from "../../../src/contracts/onboarding.js";
+} from "../../../src/config/types.milady";
+import type { DropStatus, MintResult } from "../../../src/contracts/drop";
+import type { StylePreset } from "../../../src/contracts/onboarding";
+import type { VerificationResult } from "../../../src/contracts/verification";
 import type {
   EvmChainBalance,
   EvmNft,
@@ -33,16 +34,15 @@ import type {
   WalletBalancesResponse,
   WalletConfigStatus,
   WalletNftsResponse,
-} from "../../../src/contracts/wallet.js";
-import type { DropStatus, MintResult } from "../../../src/contracts/drop.js";
-import type { VerificationResult } from "../../../src/contracts/verification.js";
+} from "../../../src/contracts/wallet";
 import type {
   AllPermissionsState,
   PermissionState,
   PermissionStatus,
   SystemPermissionDefinition,
   SystemPermissionId,
-} from "../../../src/permissions/types.js";
+} from "../../../src/permissions/types";
+import type { ConfigUiHint } from "./types";
 
 export type {
   AudioGenConfig,
@@ -151,7 +151,14 @@ export interface QueryResult {
   durationMs: number;
 }
 
-export type AgentState = "not_started" | "starting" | "running" | "paused" | "stopped" | "restarting" | "error";
+export type AgentState =
+  | "not_started"
+  | "starting"
+  | "running"
+  | "paused"
+  | "stopped"
+  | "restarting"
+  | "error";
 
 export interface AgentStatus {
   state: AgentState;
@@ -346,10 +353,6 @@ export interface OnboardingOptions {
     small: ModelOption[];
     large: ModelOption[];
   };
-  /** Optional: model catalog from pi-ai (used when selecting provider "pi-ai"). */
-  piModels?: ModelOption[];
-  /** Default provider/model from pi settings.json, if available. */
-  piDefaultModel?: string;
   openrouterModels?: OpenRouterModelOption[];
   inventoryProviders: InventoryProviderOption[];
   sharedStyleRules: string;
@@ -361,7 +364,13 @@ export interface ConnectorConfig {
   botToken?: string;
   token?: string;
   apiKey?: string;
-  [key: string]: string | boolean | number | string[] | Record<string, unknown> | undefined;
+  [key: string]:
+    | string
+    | boolean
+    | number
+    | string[]
+    | Record<string, unknown>
+    | undefined;
 }
 
 export interface OnboardingData {
@@ -389,8 +398,6 @@ export interface OnboardingData {
   provider?: string;
   providerApiKey?: string;
   openrouterModel?: string;
-  /** Optional primary model spec (provider/model) for local providers (currently used by pi-ai). */
-  primaryModel?: string;
   subscriptionProvider?: string;
   // Messaging channel setup
   channels?: Record<string, unknown>;
@@ -554,7 +561,12 @@ export interface ConversationMessage {
   source?: string;
 }
 
-export type ConversationMode = "simple" | "power";
+export type ConversationChannelType =
+  | "DM"
+  | "GROUP"
+  | "VOICE_DM"
+  | "VOICE_GROUP"
+  | "API";
 
 export interface SkillInfo {
   id: string;
@@ -567,9 +579,26 @@ export interface SkillInfo {
 export interface SkillScanReportSummary {
   scannedAt: string;
   status: "clean" | "warning" | "critical" | "blocked";
-  summary: { scannedFiles: number; critical: number; warn: number; info: number };
-  findings: Array<{ ruleId: string; severity: string; file: string; line: number; message: string; evidence: string }>;
-  manifestFindings: Array<{ ruleId: string; severity: string; file: string; message: string }>;
+  summary: {
+    scannedFiles: number;
+    critical: number;
+    warn: number;
+    info: number;
+  };
+  findings: Array<{
+    ruleId: string;
+    severity: string;
+    file: string;
+    line: number;
+    message: string;
+    evidence: string;
+  }>;
+  manifestFindings: Array<{
+    ruleId: string;
+    severity: string;
+    file: string;
+    message: string;
+  }>;
   skillPath: string;
 }
 
@@ -634,7 +663,10 @@ export interface LogsFilter {
   since?: number;
 }
 
-export type StreamEventType = "agent_event" | "heartbeat_event" | "training_event";
+export type StreamEventType =
+  | "agent_event"
+  | "heartbeat_event"
+  | "training_event";
 
 export interface StreamEventEnvelope {
   type: StreamEventType;
@@ -844,7 +876,10 @@ export interface PluginInstallResult {
   error?: string;
 }
 
-export interface WalletExportResult { evm: { privateKey: string; address: string | null } | null; solana: { privateKey: string; address: string | null } | null }
+export interface WalletExportResult {
+  evm: { privateKey: string; address: string | null } | null;
+  solana: { privateKey: string; address: string | null } | null;
+}
 
 // Software Updates
 export interface UpdateStatus {
@@ -860,18 +895,41 @@ export interface UpdateStatus {
 }
 
 // Cloud
-export interface CloudStatus { connected: boolean; enabled?: boolean; hasApiKey?: boolean; userId?: string; organizationId?: string; topUpUrl?: string; reason?: string }
-export interface CloudCredits { connected: boolean; balance: number | null; low?: boolean; critical?: boolean; topUpUrl?: string }
-export interface CloudLoginResponse { ok: boolean; sessionId: string; browserUrl: string }
-export interface CloudLoginPollResponse { status: "pending" | "authenticated" | "expired" | "error"; keyPrefix?: string; error?: string }
+export interface CloudStatus {
+  connected: boolean;
+  enabled?: boolean;
+  hasApiKey?: boolean;
+  userId?: string;
+  organizationId?: string;
+  topUpUrl?: string;
+  reason?: string;
+}
+export interface CloudCredits {
+  connected: boolean;
+  balance: number | null;
+  low?: boolean;
+  critical?: boolean;
+  topUpUrl?: string;
+}
+export interface CloudLoginResponse {
+  ok: boolean;
+  sessionId: string;
+  browserUrl: string;
+}
+export interface CloudLoginPollResponse {
+  status: "pending" | "authenticated" | "expired" | "error";
+  keyPrefix?: string;
+  error?: string;
+}
 
 // Skills Marketplace
 export interface SkillMarketplaceResult {
   id: string;
+  slug?: string;
   name: string;
   description: string;
-  githubUrl: string;
-  repository: string;
+  githubUrl?: string;
+  repository?: string;
   path?: string;
   tags?: string[];
   score?: number;
@@ -942,7 +1000,11 @@ export interface McpMarketplaceResult {
 
 export interface McpRegistryServerDetail {
   packages?: Array<{
-    environmentVariables: Array<{ name: string; default?: string; isRequired?: boolean }>;
+    environmentVariables: Array<{
+      name: string;
+      default?: string;
+      isRequired?: boolean;
+    }>;
     packageArguments?: Array<{ default?: string }>;
   }>;
   remotes?: Array<{
@@ -995,7 +1057,9 @@ export interface CharacterData {
     chat?: string[];
     post?: string[];
   };
-  messageExamples?: Array<{ examples: Array<{ name: string; content: { text: string } }> }>;
+  messageExamples?: Array<{
+    examples: Array<{ name: string; content: { text: string } }>;
+  }>;
   postExamples?: string[];
 }
 
@@ -1008,7 +1072,12 @@ export interface RegistryPluginItem {
   topics: string[];
   latestVersion: string | null;
   supports: { v0: boolean; v1: boolean; v2: boolean };
-  npm: { package: string; v0Version: string | null; v1Version: string | null; v2Version: string | null };
+  npm: {
+    package: string;
+    v0Version: string | null;
+    v1Version: string | null;
+    v2Version: string | null;
+  };
 }
 
 // App types
@@ -1039,10 +1108,22 @@ export interface RegistryAppInfo {
   repository: string;
   latestVersion: string | null;
   supports: { v0: boolean; v1: boolean; v2: boolean };
-  npm: { package: string; v0Version: string | null; v1Version: string | null; v2Version: string | null };
+  npm: {
+    package: string;
+    v0Version: string | null;
+    v1Version: string | null;
+    v2Version: string | null;
+  };
   viewer?: AppViewerConfig;
 }
-export interface InstalledAppInfo { name: string; displayName: string; version: string; installPath: string; installedAt: string; isRunning: boolean }
+export interface InstalledAppInfo {
+  name: string;
+  displayName: string;
+  version: string;
+  installPath: string;
+  installedAt: string;
+  isRunning: boolean;
+}
 export interface AppLaunchResult {
   pluginInstalled: boolean;
   needsRestart: boolean;
@@ -1279,7 +1360,7 @@ export interface TrajectoryConfig {
   enabled: boolean;
 }
 
-export type TrajectoryExportFormat = "json" | "csv";
+export type TrajectoryExportFormat = "json" | "csv" | "zip";
 
 export interface TrajectoryExportOptions {
   format: TrajectoryExportFormat;
@@ -1355,6 +1436,7 @@ export interface KnowledgeUploadResult {
   filename?: string;
   contentType?: string;
   isYouTubeTranscript?: boolean;
+  warnings?: string[];
 }
 
 // WebSocket
@@ -1409,8 +1491,8 @@ export interface VerificationMessageResponse {
 
 declare global {
   interface Window {
-    __MILAIDY_API_BASE__?: string;
-    __MILAIDY_API_TOKEN__?: string;
+    __MILADY_API_BASE__?: string;
+    __MILADY_API_TOKEN__?: string;
   }
 }
 
@@ -1422,7 +1504,7 @@ const GENERIC_NO_RESPONSE_TEXT =
   "Sorry, I couldn't generate a response right now. Please try again.";
 const AGENT_TRANSFER_MIN_PASSWORD_LENGTH = 4;
 
-export class MilaidyClient {
+export class MiladyClient {
   private _baseUrl: string;
   private _explicitBase: boolean;
   private _token: string | null;
@@ -1451,26 +1533,27 @@ export class MilaidyClient {
     this._explicitBase = baseUrl != null;
     const stored =
       typeof window !== "undefined"
-        ? window.sessionStorage.getItem("milaidy_api_token")
+        ? window.sessionStorage.getItem("milady_api_token")
         : null;
     this._token = token?.trim() || stored || null;
     // Priority: explicit arg > Capacitor/Electron injected global > same origin (Vite proxy)
     const injectedBase =
-      typeof window !== "undefined" ? window.__MILAIDY_API_BASE__ : undefined;
+      typeof window !== "undefined" ? window.__MILADY_API_BASE__ : undefined;
     this._baseUrl =
       baseUrl ??
-      (injectedBase ?? MilaidyClient.resolveElectronLocalFallbackBase());
+      injectedBase ??
+      MiladyClient.resolveElectronLocalFallbackBase();
   }
 
   /**
    * Resolve the API base URL lazily.
-   * In Electron the main process injects window.__MILAIDY_API_BASE__ after the
+   * In Electron the main process injects window.__MILADY_API_BASE__ after the
    * page loads (once the agent runtime starts). Re-checking on every call
    * ensures we pick up the injected value even if it wasn't set at construction.
    */
   private get baseUrl(): string {
     if (!this._explicitBase && typeof window !== "undefined") {
-      const injected = window.__MILAIDY_API_BASE__;
+      const injected = window.__MILADY_API_BASE__;
       // In Electron the API base can be injected after initial render. Always
       // prefer the injected value when present so the client can switch away
       // from the localhost fallback once the main process publishes the real
@@ -1478,7 +1561,7 @@ export class MilaidyClient {
       if (injected && injected !== this._baseUrl) {
         this._baseUrl = injected;
       } else if (!this._baseUrl) {
-        this._baseUrl = MilaidyClient.resolveElectronLocalFallbackBase();
+        this._baseUrl = MiladyClient.resolveElectronLocalFallbackBase();
       }
     }
     return this._baseUrl;
@@ -1487,7 +1570,7 @@ export class MilaidyClient {
   private get apiToken(): string | null {
     if (this._token) return this._token;
     if (typeof window === "undefined") return null;
-    const injected = window.__MILAIDY_API_TOKEN__;
+    const injected = window.__MILADY_API_TOKEN__;
     if (typeof injected === "string" && injected.trim()) return injected.trim();
     return null;
   }
@@ -1500,9 +1583,9 @@ export class MilaidyClient {
     this._token = token?.trim() || null;
     if (typeof window !== "undefined") {
       if (this._token) {
-        window.sessionStorage.setItem("milaidy_api_token", this._token);
+        window.sessionStorage.setItem("milady_api_token", this._token);
       } else {
-        window.sessionStorage.removeItem("milaidy_api_token");
+        window.sessionStorage.removeItem("milady_api_token");
       }
     }
   }
@@ -1523,14 +1606,15 @@ export class MilaidyClient {
     if (!this.apiAvailable) {
       throw new Error("API not available (no HTTP origin)");
     }
-    const makeRequest = (token: string | null) => fetch(`${this.baseUrl}${path}`, {
-      ...init,
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        ...init?.headers,
-      },
-    });
+    const makeRequest = (token: string | null) =>
+      fetch(`${this.baseUrl}${path}`, {
+        ...init,
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...init?.headers,
+        },
+      });
 
     const token = this.apiToken;
     let res = await makeRequest(token);
@@ -1541,7 +1625,9 @@ export class MilaidyClient {
       }
     }
     if (!res.ok) {
-      const body = await res.json().catch(() => ({ error: res.statusText })) as Record<string, string>;
+      const body = (await res
+        .json()
+        .catch(() => ({ error: res.statusText }))) as Record<string, string>;
       const err = new Error(body.error ?? `HTTP ${res.status}`);
       (err as Error & { status?: number }).status = res.status;
       throw err;
@@ -1560,7 +1646,8 @@ export class MilaidyClient {
     maxStringLength?: number;
   }): Promise<RuntimeDebugSnapshot> {
     const params = new URLSearchParams();
-    if (typeof opts?.depth === "number") params.set("depth", String(opts.depth));
+    if (typeof opts?.depth === "number")
+      params.set("depth", String(opts.depth));
     if (typeof opts?.maxArrayLength === "number") {
       params.set("maxArrayLength", String(opts.maxArrayLength));
     }
@@ -1592,7 +1679,11 @@ export class MilaidyClient {
     return this.fetch("/api/onboarding/status");
   }
 
-  async getAuthStatus(): Promise<{ required: boolean; pairingEnabled: boolean; expiresAt: number | null }> {
+  async getAuthStatus(): Promise<{
+    required: boolean;
+    pairingEnabled: boolean;
+    expiresAt: number | null;
+  }> {
     try {
       return await this.fetch("/api/auth/status");
     } catch (err: unknown) {
@@ -1645,7 +1736,9 @@ export class MilaidyClient {
     });
   }
 
-  async submitAnthropicSetupToken(token: string): Promise<{ success: boolean }> {
+  async submitAnthropicSetupToken(
+    token: string,
+  ): Promise<{ success: boolean }> {
     return this.fetch("/api/subscription/anthropic/setup-token", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -1653,7 +1746,11 @@ export class MilaidyClient {
     });
   }
 
-  async startOpenAILogin(): Promise<{ authUrl: string; state: string; instructions: string }> {
+  async startOpenAILogin(): Promise<{
+    authUrl: string;
+    state: string;
+    instructions: string;
+  }> {
     return this.fetch("/api/subscription/openai/start", { method: "POST" });
   }
 
@@ -1679,27 +1776,38 @@ export class MilaidyClient {
   }
 
   async startAgent(): Promise<AgentStatus> {
-    const res = await this.fetch<{ status: AgentStatus }>("/api/agent/start", { method: "POST" });
+    const res = await this.fetch<{ status: AgentStatus }>("/api/agent/start", {
+      method: "POST",
+    });
     return res.status;
   }
 
   async stopAgent(): Promise<AgentStatus> {
-    const res = await this.fetch<{ status: AgentStatus }>("/api/agent/stop", { method: "POST" });
+    const res = await this.fetch<{ status: AgentStatus }>("/api/agent/stop", {
+      method: "POST",
+    });
     return res.status;
   }
 
   async pauseAgent(): Promise<AgentStatus> {
-    const res = await this.fetch<{ status: AgentStatus }>("/api/agent/pause", { method: "POST" });
+    const res = await this.fetch<{ status: AgentStatus }>("/api/agent/pause", {
+      method: "POST",
+    });
     return res.status;
   }
 
   async resumeAgent(): Promise<AgentStatus> {
-    const res = await this.fetch<{ status: AgentStatus }>("/api/agent/resume", { method: "POST" });
+    const res = await this.fetch<{ status: AgentStatus }>("/api/agent/resume", {
+      method: "POST",
+    });
     return res.status;
   }
 
   async restartAgent(): Promise<AgentStatus> {
-    const res = await this.fetch<{ status: AgentStatus }>("/api/agent/restart", { method: "POST" });
+    const res = await this.fetch<{ status: AgentStatus }>(
+      "/api/agent/restart",
+      { method: "POST" },
+    );
     return res.status;
   }
 
@@ -1742,7 +1850,9 @@ export class MilaidyClient {
     return this.fetch("/api/config/schema");
   }
 
-  async updateConfig(patch: Record<string, unknown>): Promise<Record<string, unknown>> {
+  async updateConfig(
+    patch: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
     return this.fetch("/api/config", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -1752,18 +1862,25 @@ export class MilaidyClient {
 
   // ── Connectors ──────────────────────────────────────────────────────
 
-  async getConnectors(): Promise<{ connectors: Record<string, ConnectorConfig> }> {
+  async getConnectors(): Promise<{
+    connectors: Record<string, ConnectorConfig>;
+  }> {
     return this.fetch("/api/connectors");
   }
 
-  async saveConnector(name: string, config: ConnectorConfig): Promise<{ connectors: Record<string, ConnectorConfig> }> {
+  async saveConnector(
+    name: string,
+    config: ConnectorConfig,
+  ): Promise<{ connectors: Record<string, ConnectorConfig> }> {
     return this.fetch("/api/connectors", {
       method: "POST",
       body: JSON.stringify({ name, config }),
     });
   }
 
-  async deleteConnector(name: string): Promise<{ connectors: Record<string, ConnectorConfig> }> {
+  async deleteConnector(
+    name: string,
+  ): Promise<{ connectors: Record<string, ConnectorConfig> }> {
     return this.fetch(`/api/connectors/${encodeURIComponent(name)}`, {
       method: "DELETE",
     });
@@ -1802,9 +1919,7 @@ export class MilaidyClient {
     });
   }
 
-  async runTriggerNow(
-    id: string,
-  ): Promise<{
+  async runTriggerNow(id: string): Promise<{
     ok: boolean;
     result: {
       status: TriggerLastStatus;
@@ -1836,7 +1951,8 @@ export class MilaidyClient {
     offset?: number;
   }): Promise<TrainingTrajectoryList> {
     const params = new URLSearchParams();
-    if (typeof opts?.limit === "number") params.set("limit", String(opts.limit));
+    if (typeof opts?.limit === "number")
+      params.set("limit", String(opts.limit));
     if (typeof opts?.offset === "number")
       params.set("offset", String(opts.offset));
     const qs = params.toString();
@@ -1883,9 +1999,12 @@ export class MilaidyClient {
   }
 
   async cancelTrainingJob(jobId: string): Promise<{ job: TrainingJobRecord }> {
-    return this.fetch(`/api/training/jobs/${encodeURIComponent(jobId)}/cancel`, {
-      method: "POST",
-    });
+    return this.fetch(
+      `/api/training/jobs/${encodeURIComponent(jobId)}/cancel`,
+      {
+        method: "POST",
+      },
+    );
   }
 
   async listTrainingModels(): Promise<{ models: TrainingModelRecord[] }> {
@@ -1917,10 +2036,13 @@ export class MilaidyClient {
     providerModel: string;
     needsRestart: boolean;
   }> {
-    return this.fetch(`/api/training/models/${encodeURIComponent(modelId)}/activate`, {
-      method: "POST",
-      body: JSON.stringify({ providerModel }),
-    });
+    return this.fetch(
+      `/api/training/models/${encodeURIComponent(modelId)}/activate`,
+      {
+        method: "POST",
+        body: JSON.stringify({ providerModel }),
+      },
+    );
   }
 
   async benchmarkTrainingModel(modelId: string): Promise<{
@@ -1939,7 +2061,10 @@ export class MilaidyClient {
     return this.fetch("/api/plugins");
   }
 
-  async fetchModels(provider: string, refresh = true): Promise<{ provider: string; models: unknown[] }> {
+  async fetchModels(
+    provider: string,
+    refresh = true,
+  ): Promise<{ provider: string; models: unknown[] }> {
     const params = new URLSearchParams({ provider });
     if (refresh) params.set("refresh", "true");
     return this.fetch(`/api/models?${params.toString()}`);
@@ -1949,14 +2074,20 @@ export class MilaidyClient {
     return this.fetch("/api/plugins/core");
   }
 
-  async toggleCorePlugin(npmName: string, enabled: boolean): Promise<{ ok: boolean; restarting?: boolean; message?: string }> {
+  async toggleCorePlugin(
+    npmName: string,
+    enabled: boolean,
+  ): Promise<{ ok: boolean; restarting?: boolean; message?: string }> {
     return this.fetch("/api/plugins/core/toggle", {
       method: "POST",
       body: JSON.stringify({ npmName, enabled }),
     });
   }
 
-  async updatePlugin(id: string, config: Record<string, unknown>): Promise<{ ok: boolean; restarting?: boolean }> {
+  async updatePlugin(
+    id: string,
+    config: Record<string, unknown>,
+  ): Promise<{ ok: boolean; restarting?: boolean }> {
     return this.fetch(`/api/plugins/${id}`, {
       method: "PUT",
       body: JSON.stringify(config),
@@ -1967,14 +2098,22 @@ export class MilaidyClient {
     return this.fetch("/api/secrets");
   }
 
-  async updateSecrets(secrets: Record<string, string>): Promise<{ ok: boolean; updated: string[] }> {
+  async updateSecrets(
+    secrets: Record<string, string>,
+  ): Promise<{ ok: boolean; updated: string[] }> {
     return this.fetch("/api/secrets", {
       method: "PUT",
       body: JSON.stringify({ secrets }),
     });
   }
 
-  async testPluginConnection(id: string): Promise<{ success: boolean; pluginId: string; message?: string; error?: string; durationMs: number }> {
+  async testPluginConnection(id: string): Promise<{
+    success: boolean;
+    pluginId: string;
+    message?: string;
+    error?: string;
+    durationMs: number;
+  }> {
     return this.fetch(`/api/plugins/${encodeURIComponent(id)}/test`, {
       method: "POST",
     });
@@ -2008,7 +2147,8 @@ export class MilaidyClient {
   }): Promise<AgentEventsResponse> {
     const params = new URLSearchParams();
     if (opts?.afterEventId) params.set("after", opts.afterEventId);
-    if (typeof opts?.limit === "number") params.set("limit", String(opts.limit));
+    if (typeof opts?.limit === "number")
+      params.set("limit", String(opts.limit));
     const qs = params.toString();
     return this.fetch(`/api/agent/events${qs ? `?${qs}` : ""}`);
   }
@@ -2019,7 +2159,11 @@ export class MilaidyClient {
 
   // Skill Catalog
 
-  async getSkillCatalog(opts?: { page?: number; perPage?: number; sort?: string }): Promise<{
+  async getSkillCatalog(opts?: {
+    page?: number;
+    perPage?: number;
+    sort?: string;
+  }): Promise<{
     total: number;
     page: number;
     perPage: number;
@@ -2034,12 +2178,17 @@ export class MilaidyClient {
     return this.fetch(`/api/skills/catalog${qs ? `?${qs}` : ""}`);
   }
 
-  async searchSkillCatalog(query: string, limit = 30): Promise<{
+  async searchSkillCatalog(
+    query: string,
+    limit = 30,
+  ): Promise<{
     query: string;
     count: number;
     results: CatalogSearchResult[];
   }> {
-    return this.fetch(`/api/skills/catalog/search?q=${encodeURIComponent(query)}&limit=${limit}`);
+    return this.fetch(
+      `/api/skills/catalog/search?q=${encodeURIComponent(query)}&limit=${limit}`,
+    );
   }
 
   async getSkillCatalogDetail(slug: string): Promise<{ skill: CatalogSkill }> {
@@ -2050,7 +2199,10 @@ export class MilaidyClient {
     return this.fetch("/api/skills/catalog/refresh", { method: "POST" });
   }
 
-  async installCatalogSkill(slug: string, version?: string): Promise<{
+  async installCatalogSkill(
+    slug: string,
+    version?: string,
+  ): Promise<{
     ok: boolean;
     slug: string;
     message: string;
@@ -2075,26 +2227,45 @@ export class MilaidyClient {
 
   // Registry / Plugin Store
 
-  async getRegistryPlugins(): Promise<{ count: number; plugins: RegistryPlugin[] }> {
+  async getRegistryPlugins(): Promise<{
+    count: number;
+    plugins: RegistryPlugin[];
+  }> {
     return this.fetch("/api/registry/plugins");
   }
 
-  async getRegistryPluginInfo(name: string): Promise<{ plugin: RegistryPlugin }> {
+  async getRegistryPluginInfo(
+    name: string,
+  ): Promise<{ plugin: RegistryPlugin }> {
     return this.fetch(`/api/registry/plugins/${encodeURIComponent(name)}`);
   }
 
-  async getInstalledPlugins(): Promise<{ count: number; plugins: InstalledPlugin[] }> {
+  async getInstalledPlugins(): Promise<{
+    count: number;
+    plugins: InstalledPlugin[];
+  }> {
     return this.fetch("/api/plugins/installed");
   }
 
-  async installRegistryPlugin(name: string, autoRestart = true): Promise<PluginInstallResult> {
+  async installRegistryPlugin(
+    name: string,
+    autoRestart = true,
+  ): Promise<PluginInstallResult> {
     return this.fetch("/api/plugins/install", {
       method: "POST",
       body: JSON.stringify({ name, autoRestart }),
     });
   }
 
-  async uninstallRegistryPlugin(name: string, autoRestart = true): Promise<{ ok: boolean; pluginName: string; message: string; error?: string }> {
+  async uninstallRegistryPlugin(
+    name: string,
+    autoRestart = true,
+  ): Promise<{
+    ok: boolean;
+    pluginName: string;
+    message: string;
+    error?: string;
+  }> {
     return this.fetch("/api/plugins/uninstall", {
       method: "POST",
       body: JSON.stringify({ name, autoRestart }),
@@ -2126,7 +2297,9 @@ export class MilaidyClient {
       body: JSON.stringify({ password, includeLogs }),
     });
     if (!res.ok) {
-      const body = await res.json().catch(() => ({ error: res.statusText })) as Record<string, string>;
+      const body = (await res
+        .json()
+        .catch(() => ({ error: res.statusText }))) as Record<string, string>;
       const err = new Error(body.error ?? `HTTP ${res.status}`);
       (err as Error & { status?: number }).status = res.status;
       throw err;
@@ -2168,7 +2341,9 @@ export class MilaidyClient {
       throw new Error("API not available (no HTTP origin)");
     }
     const passwordBytes = new TextEncoder().encode(password);
-    const envelope = new Uint8Array(4 + passwordBytes.length + fileBuffer.byteLength);
+    const envelope = new Uint8Array(
+      4 + passwordBytes.length + fileBuffer.byteLength,
+    );
     const view = new DataView(envelope.buffer);
     view.setUint32(0, passwordBytes.length, false);
     envelope.set(passwordBytes, 4);
@@ -2184,7 +2359,7 @@ export class MilaidyClient {
       body: envelope,
     });
 
-    const data = await res.json() as {
+    const data = (await res.json()) as {
       error?: string;
       success?: boolean;
       agentId?: string;
@@ -2204,7 +2379,10 @@ export class MilaidyClient {
 
   // Character
 
-  async getCharacter(): Promise<{ character: CharacterData; agentName: string }> {
+  async getCharacter(): Promise<{
+    character: CharacterData;
+    agentName: string;
+  }> {
     return this.fetch("/api/character");
   }
 
@@ -2214,7 +2392,13 @@ export class MilaidyClient {
 
   async generateCharacterField(
     field: string,
-    context: { name?: string; system?: string; bio?: string; style?: { all?: string[]; chat?: string[]; post?: string[] }; postExamples?: string[] },
+    context: {
+      name?: string;
+      system?: string;
+      bio?: string;
+      style?: { all?: string[]; chat?: string[]; post?: string[] };
+      postExamples?: string[];
+    },
     mode?: "append" | "replace",
   ): Promise<{ generated: string }> {
     return this.fetch("/api/character/generate", {
@@ -2223,7 +2407,9 @@ export class MilaidyClient {
     });
   }
 
-  async updateCharacter(character: CharacterData): Promise<{ ok: boolean; character: CharacterData; agentName: string }> {
+  async updateCharacter(
+    character: CharacterData,
+  ): Promise<{ ok: boolean; character: CharacterData; agentName: string }> {
     return this.fetch("/api/character", {
       method: "PUT",
       body: JSON.stringify(character),
@@ -2232,11 +2418,26 @@ export class MilaidyClient {
 
   // Wallet
 
-  async getWalletAddresses(): Promise<WalletAddresses> { return this.fetch("/api/wallet/addresses"); }
-  async getWalletBalances(): Promise<WalletBalancesResponse> { return this.fetch("/api/wallet/balances"); }
-  async getWalletNfts(): Promise<WalletNftsResponse> { return this.fetch("/api/wallet/nfts"); }
-  async getWalletConfig(): Promise<WalletConfigStatus> { return this.fetch("/api/wallet/config"); }
-  async updateWalletConfig(config: Record<string, string>): Promise<{ ok: boolean }> { return this.fetch("/api/wallet/config", { method: "PUT", body: JSON.stringify(config) }); }
+  async getWalletAddresses(): Promise<WalletAddresses> {
+    return this.fetch("/api/wallet/addresses");
+  }
+  async getWalletBalances(): Promise<WalletBalancesResponse> {
+    return this.fetch("/api/wallet/balances");
+  }
+  async getWalletNfts(): Promise<WalletNftsResponse> {
+    return this.fetch("/api/wallet/nfts");
+  }
+  async getWalletConfig(): Promise<WalletConfigStatus> {
+    return this.fetch("/api/wallet/config");
+  }
+  async updateWalletConfig(
+    config: Record<string, string>,
+  ): Promise<{ ok: boolean }> {
+    return this.fetch("/api/wallet/config", {
+      method: "PUT",
+      body: JSON.stringify(config),
+    });
+  }
   async exportWalletKeys(exportToken: string): Promise<WalletExportResult> {
     return this.fetch("/api/wallet/export", {
       method: "POST",
@@ -2248,31 +2449,68 @@ export class MilaidyClient {
   async getUpdateStatus(force = false): Promise<UpdateStatus> {
     return this.fetch(`/api/update/status${force ? "?force=true" : ""}`);
   }
-  async setUpdateChannel(channel: "stable" | "beta" | "nightly"): Promise<{ channel: string }> {
-    return this.fetch("/api/update/channel", { method: "PUT", body: JSON.stringify({ channel }) });
+  async setUpdateChannel(
+    channel: "stable" | "beta" | "nightly",
+  ): Promise<{ channel: string }> {
+    return this.fetch("/api/update/channel", {
+      method: "PUT",
+      body: JSON.stringify({ channel }),
+    });
   }
 
   // Cloud
-  async getCloudStatus(): Promise<CloudStatus> { return this.fetch("/api/cloud/status"); }
-  async getCloudCredits(): Promise<CloudCredits> { return this.fetch("/api/cloud/credits"); }
-  async cloudLogin(): Promise<CloudLoginResponse> { return this.fetch("/api/cloud/login", { method: "POST" }); }
-  async cloudLoginPoll(sessionId: string): Promise<CloudLoginPollResponse> { return this.fetch(`/api/cloud/login/status?sessionId=${encodeURIComponent(sessionId)}`); }
-  async cloudDisconnect(): Promise<{ ok: boolean }> { return this.fetch("/api/cloud/disconnect", { method: "POST" }); }
+  async getCloudStatus(): Promise<CloudStatus> {
+    return this.fetch("/api/cloud/status");
+  }
+  async getCloudCredits(): Promise<CloudCredits> {
+    return this.fetch("/api/cloud/credits");
+  }
+  async cloudLogin(): Promise<CloudLoginResponse> {
+    return this.fetch("/api/cloud/login", { method: "POST" });
+  }
+  async cloudLoginPoll(sessionId: string): Promise<CloudLoginPollResponse> {
+    return this.fetch(
+      `/api/cloud/login/status?sessionId=${encodeURIComponent(sessionId)}`,
+    );
+  }
+  async cloudDisconnect(): Promise<{ ok: boolean }> {
+    return this.fetch("/api/cloud/disconnect", { method: "POST" });
+  }
 
   // Apps & Registry
-  async listApps(): Promise<RegistryAppInfo[]> { return this.fetch("/api/apps"); }
-  async searchApps(query: string): Promise<RegistryAppInfo[]> { return this.fetch(`/api/apps/search?q=${encodeURIComponent(query)}`); }
-  async listInstalledApps(): Promise<InstalledAppInfo[]> { return this.fetch("/api/apps/installed"); }
-  async stopApp(name: string): Promise<AppStopResult> {
-    return this.fetch("/api/apps/stop", { method: "POST", body: JSON.stringify({ name }) });
+  async listApps(): Promise<RegistryAppInfo[]> {
+    return this.fetch("/api/apps");
   }
-  async getAppInfo(name: string): Promise<RegistryAppInfo> { return this.fetch(`/api/apps/info/${encodeURIComponent(name)}`); }
+  async searchApps(query: string): Promise<RegistryAppInfo[]> {
+    return this.fetch(`/api/apps/search?q=${encodeURIComponent(query)}`);
+  }
+  async listInstalledApps(): Promise<InstalledAppInfo[]> {
+    return this.fetch("/api/apps/installed");
+  }
+  async stopApp(name: string): Promise<AppStopResult> {
+    return this.fetch("/api/apps/stop", {
+      method: "POST",
+      body: JSON.stringify({ name }),
+    });
+  }
+  async getAppInfo(name: string): Promise<RegistryAppInfo> {
+    return this.fetch(`/api/apps/info/${encodeURIComponent(name)}`);
+  }
   /** Launch an app: installs its plugin (if needed), returns viewer config for iframe. */
   async launchApp(name: string): Promise<AppLaunchResult> {
-    return this.fetch("/api/apps/launch", { method: "POST", body: JSON.stringify({ name }) });
+    return this.fetch("/api/apps/launch", {
+      method: "POST",
+      body: JSON.stringify({ name }),
+    });
   }
-  async listRegistryPlugins(): Promise<RegistryPluginItem[]> { return this.fetch("/api/apps/plugins"); }
-  async searchRegistryPlugins(query: string): Promise<RegistryPluginItem[]> { return this.fetch(`/api/apps/plugins/search?q=${encodeURIComponent(query)}`); }
+  async listRegistryPlugins(): Promise<RegistryPluginItem[]> {
+    return this.fetch("/api/apps/plugins");
+  }
+  async searchRegistryPlugins(query: string): Promise<RegistryPluginItem[]> {
+    return this.fetch(
+      `/api/apps/plugins/search?q=${encodeURIComponent(query)}`,
+    );
+  }
   async listHyperscapeEmbeddedAgents(): Promise<HyperscapeEmbeddedAgentsResponse> {
     return this.fetch("/api/apps/hyperscape/embedded-agents");
   }
@@ -2337,8 +2575,16 @@ export class MilaidyClient {
 
   // Skills Marketplace
 
-  async searchSkillsMarketplace(query: string, installed: boolean, limit: number): Promise<{ results: SkillMarketplaceResult[] }> {
-    const params = new URLSearchParams({ q: query, installed: String(installed), limit: String(limit) });
+  async searchSkillsMarketplace(
+    query: string,
+    installed: boolean,
+    limit: number,
+  ): Promise<{ results: SkillMarketplaceResult[] }> {
+    const params = new URLSearchParams({
+      q: query,
+      installed: String(installed),
+      limit: String(limit),
+    });
     return this.fetch(`/api/skills/marketplace/search?${params}`);
   }
 
@@ -2346,12 +2592,18 @@ export class MilaidyClient {
     return this.fetch("/api/skills/marketplace/config");
   }
 
-  async updateSkillsMarketplaceConfig(apiKey: string): Promise<{ keySet: boolean }> {
-    return this.fetch("/api/skills/marketplace/config", { method: "PUT", body: JSON.stringify({ apiKey }) });
+  async updateSkillsMarketplaceConfig(
+    apiKey: string,
+  ): Promise<{ keySet: boolean }> {
+    return this.fetch("/api/skills/marketplace/config", {
+      method: "PUT",
+      body: JSON.stringify({ apiKey }),
+    });
   }
 
   async installMarketplaceSkill(data: {
-    githubUrl: string;
+    slug?: string;
+    githubUrl?: string;
     repository?: string;
     path?: string;
     name?: string;
@@ -2359,17 +2611,26 @@ export class MilaidyClient {
     source: string;
     autoRefresh?: boolean;
   }): Promise<void> {
-    await this.fetch("/api/skills/marketplace/install", { method: "POST", body: JSON.stringify(data) });
-  }
-
-  async uninstallMarketplaceSkill(skillId: string, autoRefresh: boolean): Promise<void> {
-    await this.fetch(`/api/skills/marketplace/${encodeURIComponent(skillId)}`, {
-      method: "DELETE",
-      body: JSON.stringify({ autoRefresh }),
+    await this.fetch("/api/skills/marketplace/install", {
+      method: "POST",
+      body: JSON.stringify(data),
     });
   }
 
-  async updateSkill(skillId: string, enabled: boolean): Promise<{ skill: SkillInfo }> {
+  async uninstallMarketplaceSkill(
+    skillId: string,
+    autoRefresh: boolean,
+  ): Promise<void> {
+    await this.fetch("/api/skills/marketplace/uninstall", {
+      method: "POST",
+      body: JSON.stringify({ id: skillId, autoRefresh }),
+    });
+  }
+
+  async updateSkill(
+    skillId: string,
+    enabled: boolean,
+  ): Promise<{ skill: SkillInfo }> {
     return this.fetch(`/api/skills/${encodeURIComponent(skillId)}`, {
       method: "PUT",
       body: JSON.stringify({ enabled }),
@@ -2378,27 +2639,44 @@ export class MilaidyClient {
 
   // ── Skill CRUD & Security ────────────────────────────────────────────────
 
-  async createSkill(name: string, description: string): Promise<{ ok: boolean; skill: SkillInfo; path: string }> {
-    return this.fetch("/api/skills/create", { method: "POST", body: JSON.stringify({ name, description }) });
+  async createSkill(
+    name: string,
+    description: string,
+  ): Promise<{ ok: boolean; skill: SkillInfo; path: string }> {
+    return this.fetch("/api/skills/create", {
+      method: "POST",
+      body: JSON.stringify({ name, description }),
+    });
   }
 
   async openSkill(id: string): Promise<{ ok: boolean; path: string }> {
-    return this.fetch(`/api/skills/${encodeURIComponent(id)}/open`, { method: "POST" });
+    return this.fetch(`/api/skills/${encodeURIComponent(id)}/open`, {
+      method: "POST",
+    });
   }
 
-  async getSkillSource(id: string): Promise<{ ok: boolean; skillId: string; content: string; path: string }> {
+  async getSkillSource(
+    id: string,
+  ): Promise<{ ok: boolean; skillId: string; content: string; path: string }> {
     return this.fetch(`/api/skills/${encodeURIComponent(id)}/source`);
   }
 
-  async saveSkillSource(id: string, content: string): Promise<{ ok: boolean; skillId: string; skill: SkillInfo }> {
+  async saveSkillSource(
+    id: string,
+    content: string,
+  ): Promise<{ ok: boolean; skillId: string; skill: SkillInfo }> {
     return this.fetch(`/api/skills/${encodeURIComponent(id)}/source`, {
       method: "PUT",
       body: JSON.stringify({ content }),
     });
   }
 
-  async deleteSkill(id: string): Promise<{ ok: boolean; skillId: string; source: string }> {
-    return this.fetch(`/api/skills/${encodeURIComponent(id)}`, { method: "DELETE" });
+  async deleteSkill(
+    id: string,
+  ): Promise<{ ok: boolean; skillId: string; source: string }> {
+    return this.fetch(`/api/skills/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+    });
   }
 
   async getSkillScanReport(id: string): Promise<{
@@ -2410,7 +2688,10 @@ export class MilaidyClient {
     return this.fetch(`/api/skills/${encodeURIComponent(id)}/scan`);
   }
 
-  async acknowledgeSkill(id: string, enable: boolean): Promise<{
+  async acknowledgeSkill(
+    id: string,
+    enable: boolean,
+  ): Promise<{
     ok: boolean;
     skillId: string;
     acknowledged: boolean;
@@ -2515,11 +2796,17 @@ export class MilaidyClient {
     });
   }
 
-  async setWorkbenchTodoCompleted(todoId: string, isCompleted: boolean): Promise<void> {
-    await this.fetch(`/api/workbench/todos/${encodeURIComponent(todoId)}/complete`, {
-      method: "POST",
-      body: JSON.stringify({ isCompleted }),
-    });
+  async setWorkbenchTodoCompleted(
+    todoId: string,
+    isCompleted: boolean,
+  ): Promise<void> {
+    await this.fetch(
+      `/api/workbench/todos/${encodeURIComponent(todoId)}/complete`,
+      {
+        method: "POST",
+        body: JSON.stringify({ isCompleted }),
+      },
+    );
   }
 
   async deleteWorkbenchTodo(todoId: string): Promise<{ ok: boolean }> {
@@ -2551,14 +2838,23 @@ export class MilaidyClient {
     return this.fetch(`/api/knowledge/documents${query ? `?${query}` : ""}`);
   }
 
-  async getKnowledgeDocument(documentId: string): Promise<{ document: KnowledgeDocumentDetail }> {
-    return this.fetch(`/api/knowledge/documents/${encodeURIComponent(documentId)}`);
+  async getKnowledgeDocument(
+    documentId: string,
+  ): Promise<{ document: KnowledgeDocumentDetail }> {
+    return this.fetch(
+      `/api/knowledge/documents/${encodeURIComponent(documentId)}`,
+    );
   }
 
-  async deleteKnowledgeDocument(documentId: string): Promise<{ ok: boolean; deletedFragments: number }> {
-    return this.fetch(`/api/knowledge/documents/${encodeURIComponent(documentId)}`, {
-      method: "DELETE",
-    });
+  async deleteKnowledgeDocument(
+    documentId: string,
+  ): Promise<{ ok: boolean; deletedFragments: number }> {
+    return this.fetch(
+      `/api/knowledge/documents/${encodeURIComponent(documentId)}`,
+      {
+        method: "DELETE",
+      },
+    );
   }
 
   async uploadKnowledgeDocument(data: {
@@ -2573,7 +2869,10 @@ export class MilaidyClient {
     });
   }
 
-  async uploadKnowledgeFromUrl(url: string, metadata?: Record<string, unknown>): Promise<KnowledgeUploadResult> {
+  async uploadKnowledgeFromUrl(
+    url: string,
+    metadata?: Record<string, unknown>,
+  ): Promise<KnowledgeUploadResult> {
     return this.fetch("/api/knowledge/documents/url", {
       method: "POST",
       body: JSON.stringify({ url, metadata }),
@@ -2585,13 +2884,19 @@ export class MilaidyClient {
     options?: { threshold?: number; limit?: number },
   ): Promise<KnowledgeSearchResponse> {
     const params = new URLSearchParams({ q: query });
-    if (options?.threshold !== undefined) params.set("threshold", String(options.threshold));
-    if (options?.limit !== undefined) params.set("limit", String(options.limit));
+    if (options?.threshold !== undefined)
+      params.set("threshold", String(options.threshold));
+    if (options?.limit !== undefined)
+      params.set("limit", String(options.limit));
     return this.fetch(`/api/knowledge/search?${params}`);
   }
 
-  async getKnowledgeFragments(documentId: string): Promise<KnowledgeFragmentsResponse> {
-    return this.fetch(`/api/knowledge/fragments/${encodeURIComponent(documentId)}`);
+  async getKnowledgeFragments(
+    documentId: string,
+  ): Promise<KnowledgeFragmentsResponse> {
+    return this.fetch(
+      `/api/knowledge/fragments/${encodeURIComponent(documentId)}`,
+    );
   }
 
   // MCP
@@ -2604,27 +2909,42 @@ export class MilaidyClient {
     return this.fetch("/api/mcp/status");
   }
 
-  async searchMcpMarketplace(query: string, limit: number): Promise<{ results: McpMarketplaceResult[] }> {
+  async searchMcpMarketplace(
+    query: string,
+    limit: number,
+  ): Promise<{ results: McpMarketplaceResult[] }> {
     const params = new URLSearchParams({ q: query, limit: String(limit) });
     return this.fetch(`/api/mcp/marketplace/search?${params}`);
   }
 
-  async getMcpServerDetails(name: string): Promise<{ server: McpRegistryServerDetail }> {
+  async getMcpServerDetails(
+    name: string,
+  ): Promise<{ server: McpRegistryServerDetail }> {
     return this.fetch(`/api/mcp/marketplace/${encodeURIComponent(name)}`);
   }
 
   async addMcpServer(name: string, config: McpServerConfig): Promise<void> {
-    await this.fetch("/api/mcp/servers", { method: "POST", body: JSON.stringify({ name, config }) });
+    await this.fetch("/api/mcp/servers", {
+      method: "POST",
+      body: JSON.stringify({ name, config }),
+    });
   }
 
   async removeMcpServer(name: string): Promise<void> {
-    await this.fetch(`/api/mcp/servers/${encodeURIComponent(name)}`, { method: "DELETE" });
+    await this.fetch(`/api/mcp/servers/${encodeURIComponent(name)}`, {
+      method: "DELETE",
+    });
   }
 
   // Share Ingest
 
-  async ingestShare(payload: ShareIngestPayload): Promise<{ item: ShareIngestItem }> {
-    return this.fetch("/api/ingest/share", { method: "POST", body: JSON.stringify(payload) });
+  async ingestShare(
+    payload: ShareIngestPayload,
+  ): Promise<{ item: ShareIngestItem }> {
+    return this.fetch("/api/ingest/share", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
   }
 
   async consumeShareIngest(): Promise<{ items: ShareIngestItem[] }> {
@@ -2660,7 +2980,10 @@ export class MilaidyClient {
 
     this.ws.onopen = () => {
       this.backoffMs = 500;
-      if (this.wsSendQueue.length > 0 && this.ws?.readyState === WebSocket.OPEN) {
+      if (
+        this.wsSendQueue.length > 0 &&
+        this.ws?.readyState === WebSocket.OPEN
+      ) {
         const pending = this.wsSendQueue;
         this.wsSendQueue = [];
         for (let i = 0; i < pending.length; i++) {
@@ -2680,7 +3003,10 @@ export class MilaidyClient {
 
     this.ws.onmessage = (event) => {
       try {
-        const data = JSON.parse(event.data as string) as Record<string, unknown>;
+        const data = JSON.parse(event.data as string) as Record<
+          string,
+          unknown
+        >;
         const type = data.type as string;
         const handlers = this.wsHandlers.get(type);
         if (handlers) {
@@ -2753,7 +3079,7 @@ export class MilaidyClient {
     if (!this.wsHandlers.has(type)) {
       this.wsHandlers.set(type, new Set());
     }
-    this.wsHandlers.get(type)!.add(handler);
+    this.wsHandlers.get(type)?.add(handler);
     return () => {
       this.wsHandlers.get(type)?.delete(handler);
     };
@@ -2771,7 +3097,7 @@ export class MilaidyClient {
     path: string,
     text: string,
     onToken: (token: string) => void,
-    mode: ConversationMode = "simple",
+    channelType: ConversationChannelType = "DM",
     signal?: AbortSignal,
   ): Promise<{ text: string; agentName: string }> {
     if (!this.apiAvailable) {
@@ -2786,14 +3112,14 @@ export class MilaidyClient {
         Accept: "text/event-stream",
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
-      body: JSON.stringify({ text, mode }),
+      body: JSON.stringify({ text, channelType }),
       signal,
     });
 
     if (!res.ok) {
-      const body = await res
+      const body = (await res
         .json()
-        .catch(() => ({ error: res.statusText })) as Record<string, string>;
+        .catch(() => ({ error: res.statusText }))) as Record<string, string>;
       const err = new Error(body.error ?? `HTTP ${res.status}`);
       (err as Error & { status?: number }).status = res.status;
       throw err;
@@ -2809,6 +3135,20 @@ export class MilaidyClient {
     let fullText = "";
     let doneText: string | null = null;
     let doneAgentName: string | null = null;
+
+    const findSseEventBreak = (
+      chunkBuffer: string,
+    ): { index: number; length: number } | null => {
+      const lfBreak = chunkBuffer.indexOf("\n\n");
+      const crlfBreak = chunkBuffer.indexOf("\r\n\r\n");
+
+      if (lfBreak === -1 && crlfBreak === -1) return null;
+      if (lfBreak === -1) return { index: crlfBreak, length: 4 };
+      if (crlfBreak === -1) return { index: lfBreak, length: 2 };
+      return lfBreak < crlfBreak
+        ? { index: lfBreak, length: 2 }
+        : { index: crlfBreak, length: 4 };
+    };
 
     const parseDataLine = (line: string): void => {
       const payload = line.startsWith("data:") ? line.slice(5).trim() : "";
@@ -2866,20 +3206,20 @@ export class MilaidyClient {
       if (done) break;
 
       buffer += decoder.decode(value, { stream: true });
-      let eventBreak = buffer.indexOf("\n\n");
-      while (eventBreak !== -1) {
-        const rawEvent = buffer.slice(0, eventBreak);
-        buffer = buffer.slice(eventBreak + 2);
-        for (const line of rawEvent.split("\n")) {
+      let eventBreak = findSseEventBreak(buffer);
+      while (eventBreak) {
+        const rawEvent = buffer.slice(0, eventBreak.index);
+        buffer = buffer.slice(eventBreak.index + eventBreak.length);
+        for (const line of rawEvent.split(/\r?\n/)) {
           if (!line.startsWith("data:")) continue;
           parseDataLine(line);
         }
-        eventBreak = buffer.indexOf("\n\n");
+        eventBreak = findSseEventBreak(buffer);
       }
     }
 
     if (buffer.trim()) {
-      for (const line of buffer.split("\n")) {
+      for (const line of buffer.split(/\r?\n/)) {
         if (line.startsWith("data:")) parseDataLine(line);
       }
     }
@@ -2887,7 +3227,7 @@ export class MilaidyClient {
     const resolvedText = this.normalizeAssistantText(doneText ?? fullText);
     return {
       text: resolvedText,
-      agentName: doneAgentName ?? "Milaidy",
+      agentName: doneAgentName ?? "Milady",
     };
   }
 
@@ -2897,13 +3237,13 @@ export class MilaidyClient {
    */
   async sendChatRest(
     text: string,
-    mode: ConversationMode = "simple",
+    channelType: ConversationChannelType = "DM",
   ): Promise<{ text: string; agentName: string }> {
     const response = await this.fetch<{ text: string; agentName: string }>(
       "/api/chat",
       {
         method: "POST",
-        body: JSON.stringify({ text, mode }),
+        body: JSON.stringify({ text, channelType }),
       },
     );
     return {
@@ -2915,14 +3255,14 @@ export class MilaidyClient {
   async sendChatStream(
     text: string,
     onToken: (token: string) => void,
-    mode: ConversationMode = "simple",
+    channelType: ConversationChannelType = "DM",
     signal?: AbortSignal,
   ): Promise<{ text: string; agentName: string }> {
     return this.streamChatEndpoint(
       "/api/chat/stream",
       text,
       onToken,
-      mode,
+      channelType,
       signal,
     );
   }
@@ -2933,21 +3273,25 @@ export class MilaidyClient {
     return this.fetch("/api/conversations");
   }
 
-  async createConversation(title?: string): Promise<{ conversation: Conversation }> {
+  async createConversation(
+    title?: string,
+  ): Promise<{ conversation: Conversation }> {
     return this.fetch("/api/conversations", {
       method: "POST",
       body: JSON.stringify({ title }),
     });
   }
 
-  async getConversationMessages(id: string): Promise<{ messages: ConversationMessage[] }> {
+  async getConversationMessages(
+    id: string,
+  ): Promise<{ messages: ConversationMessage[] }> {
     return this.fetch(`/api/conversations/${encodeURIComponent(id)}/messages`);
   }
 
   async sendConversationMessage(
     id: string,
     text: string,
-    mode: ConversationMode = "simple",
+    channelType: ConversationChannelType = "DM",
   ): Promise<{ text: string; agentName: string; blocks?: ContentBlock[] }> {
     const response = await this.fetch<{
       text: string;
@@ -2955,7 +3299,7 @@ export class MilaidyClient {
       blocks?: ContentBlock[];
     }>(`/api/conversations/${encodeURIComponent(id)}/messages`, {
       method: "POST",
-      body: JSON.stringify({ text, mode }),
+      body: JSON.stringify({ text, channelType }),
     });
     return {
       ...response,
@@ -2967,25 +3311,30 @@ export class MilaidyClient {
     id: string,
     text: string,
     onToken: (token: string) => void,
-    mode: ConversationMode = "simple",
+    channelType: ConversationChannelType = "DM",
     signal?: AbortSignal,
   ): Promise<{ text: string; agentName: string }> {
     return this.streamChatEndpoint(
       `/api/conversations/${encodeURIComponent(id)}/messages/stream`,
       text,
       onToken,
-      mode,
+      channelType,
       signal,
     );
   }
 
-  async requestGreeting(id: string): Promise<{ text: string; agentName: string; generated: boolean }> {
+  async requestGreeting(
+    id: string,
+  ): Promise<{ text: string; agentName: string; generated: boolean }> {
     return this.fetch(`/api/conversations/${encodeURIComponent(id)}/greeting`, {
       method: "POST",
     });
   }
 
-  async renameConversation(id: string, title: string): Promise<{ conversation: Conversation }> {
+  async renameConversation(
+    id: string,
+    title: string,
+  ): Promise<{ conversation: Conversation }> {
     return this.fetch(`/api/conversations/${encodeURIComponent(id)}`, {
       method: "PATCH",
       body: JSON.stringify({ title }),
@@ -3055,7 +3404,13 @@ export class MilaidyClient {
 
   async getDatabaseRows(
     table: string,
-    opts?: { offset?: number; limit?: number; sort?: string; order?: "asc" | "desc"; search?: string },
+    opts?: {
+      offset?: number;
+      limit?: number;
+      sort?: string;
+      order?: "asc" | "desc";
+      search?: string;
+    },
   ): Promise<TableRowsResponse> {
     const params = new URLSearchParams();
     if (opts?.offset != null) params.set("offset", String(opts.offset));
@@ -3064,17 +3419,22 @@ export class MilaidyClient {
     if (opts?.order) params.set("order", opts.order);
     if (opts?.search) params.set("search", opts.search);
     const qs = params.toString();
-    return this.fetch(`/api/database/tables/${encodeURIComponent(table)}/rows${qs ? `?${qs}` : ""}`);
+    return this.fetch(
+      `/api/database/tables/${encodeURIComponent(table)}/rows${qs ? `?${qs}` : ""}`,
+    );
   }
 
   async insertDatabaseRow(
     table: string,
     data: Record<string, unknown>,
   ): Promise<{ inserted: boolean; row: Record<string, unknown> | null }> {
-    return this.fetch(`/api/database/tables/${encodeURIComponent(table)}/rows`, {
-      method: "POST",
-      body: JSON.stringify({ data }),
-    });
+    return this.fetch(
+      `/api/database/tables/${encodeURIComponent(table)}/rows`,
+      {
+        method: "POST",
+        body: JSON.stringify({ data }),
+      },
+    );
   }
 
   async updateDatabaseRow(
@@ -3082,20 +3442,26 @@ export class MilaidyClient {
     where: Record<string, unknown>,
     data: Record<string, unknown>,
   ): Promise<{ updated: boolean; row: Record<string, unknown> }> {
-    return this.fetch(`/api/database/tables/${encodeURIComponent(table)}/rows`, {
-      method: "PUT",
-      body: JSON.stringify({ where, data }),
-    });
+    return this.fetch(
+      `/api/database/tables/${encodeURIComponent(table)}/rows`,
+      {
+        method: "PUT",
+        body: JSON.stringify({ where, data }),
+      },
+    );
   }
 
   async deleteDatabaseRow(
     table: string,
     where: Record<string, unknown>,
   ): Promise<{ deleted: boolean; row: Record<string, unknown> }> {
-    return this.fetch(`/api/database/tables/${encodeURIComponent(table)}/rows`, {
-      method: "DELETE",
-      body: JSON.stringify({ where }),
-    });
+    return this.fetch(
+      `/api/database/tables/${encodeURIComponent(table)}/rows`,
+      {
+        method: "DELETE",
+        body: JSON.stringify({ where }),
+      },
+    );
   }
 
   async executeDatabaseQuery(
@@ -3110,7 +3476,9 @@ export class MilaidyClient {
 
   // ── Trajectories ─────────────────────────────────────────────────────
 
-  async getTrajectories(options?: TrajectoryListOptions): Promise<TrajectoryListResult> {
+  async getTrajectories(
+    options?: TrajectoryListOptions,
+  ): Promise<TrajectoryListResult> {
     const params = new URLSearchParams();
     if (options?.limit) params.set("limit", String(options.limit));
     if (options?.offset) params.set("offset", String(options.offset));
@@ -3123,7 +3491,9 @@ export class MilaidyClient {
     return this.fetch(`/api/trajectories${query ? `?${query}` : ""}`);
   }
 
-  async getTrajectoryDetail(trajectoryId: string): Promise<TrajectoryDetailResult> {
+  async getTrajectoryDetail(
+    trajectoryId: string,
+  ): Promise<TrajectoryDetailResult> {
     return this.fetch(`/api/trajectories/${encodeURIComponent(trajectoryId)}`);
   }
 
@@ -3135,7 +3505,9 @@ export class MilaidyClient {
     return this.fetch("/api/trajectories/config");
   }
 
-  async updateTrajectoryConfig(config: Partial<TrajectoryConfig>): Promise<TrajectoryConfig> {
+  async updateTrajectoryConfig(
+    config: Partial<TrajectoryConfig>,
+  ): Promise<TrajectoryConfig> {
     return this.fetch("/api/trajectories/config", {
       method: "PUT",
       body: JSON.stringify(config),
@@ -3156,13 +3528,17 @@ export class MilaidyClient {
       body: JSON.stringify(options),
     });
     if (!res.ok) {
-      const body = await res.json().catch(() => ({ error: res.statusText })) as Record<string, string>;
+      const body = (await res
+        .json()
+        .catch(() => ({ error: res.statusText }))) as Record<string, string>;
       throw new Error(body.error ?? `HTTP ${res.status}`);
     }
     return res.blob();
   }
 
-  async deleteTrajectories(trajectoryIds: string[]): Promise<{ deleted: number }> {
+  async deleteTrajectories(
+    trajectoryIds: string[],
+  ): Promise<{ deleted: number }> {
     return this.fetch("/api/trajectories", {
       method: "DELETE",
       body: JSON.stringify({ trajectoryIds }),
@@ -3205,7 +3581,9 @@ export class MilaidyClient {
    * Open system settings for a specific permission.
    */
   async openPermissionSettings(id: SystemPermissionId): Promise<void> {
-    await this.fetch(`/api/permissions/${id}/open-settings`, { method: "POST" });
+    await this.fetch(`/api/permissions/${id}/open-settings`, {
+      method: "POST",
+    });
   }
 
   /**
@@ -3229,7 +3607,9 @@ export class MilaidyClient {
    * Get shell enabled status.
    */
   async isShellEnabled(): Promise<boolean> {
-    const result = await this.fetch<{ enabled: boolean }>("/api/permissions/shell");
+    const result = await this.fetch<{ enabled: boolean }>(
+      "/api/permissions/shell",
+    );
     return result.enabled;
   }
 
@@ -3262,7 +3642,9 @@ export class MilaidyClient {
     });
   }
 
-  async updateRegistryTokenURI(tokenURI: string): Promise<{ ok: boolean; txHash: string }> {
+  async updateRegistryTokenURI(
+    tokenURI: string,
+  ): Promise<{ ok: boolean; txHash: string }> {
     return this.fetch("/api/registry/update-uri", {
       method: "POST",
       body: JSON.stringify({ tokenURI }),
@@ -3336,7 +3718,9 @@ export class MilaidyClient {
   // ── Custom Actions ─────────────────────────────────────────────────────
 
   async listCustomActions(): Promise<CustomActionDef[]> {
-    const data = await this.fetch<{ actions: CustomActionDef[] }>("/api/custom-actions");
+    const data = await this.fetch<{ actions: CustomActionDef[] }>(
+      "/api/custom-actions",
+    );
     return data.actions;
   }
 
@@ -3370,11 +3754,16 @@ export class MilaidyClient {
   async testCustomAction(
     id: string,
     params: Record<string, string>,
-  ): Promise<{ ok: boolean; output: string; error?: string; durationMs: number }> {
-    return this.fetch(
-      `/api/custom-actions/${encodeURIComponent(id)}/test`,
-      { method: "POST", body: JSON.stringify({ params }) },
-    );
+  ): Promise<{
+    ok: boolean;
+    output: string;
+    error?: string;
+    durationMs: number;
+  }> {
+    return this.fetch(`/api/custom-actions/${encodeURIComponent(id)}/test`, {
+      method: "POST",
+      body: JSON.stringify({ params }),
+    });
   }
 
   async generateCustomAction(
@@ -3388,4 +3777,4 @@ export class MilaidyClient {
 }
 
 // Singleton
-export const client = new MilaidyClient();
+export const client = new MiladyClient();

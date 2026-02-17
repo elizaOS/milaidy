@@ -32,7 +32,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   extractPlugin,
   resolveDiscordPluginImportSpecifier,
-} from "../src/test-support/test-helpers.js";
+} from "../src/test-support/test-helpers";
 
 // ---------------------------------------------------------------------------
 // Environment Setup
@@ -44,7 +44,7 @@ dotenv.config({ path: path.resolve(packageRoot, ".env") });
 dotenv.config({ path: path.resolve(packageRoot, "..", "eliza", ".env") });
 
 const hasDiscordToken = Boolean(process.env.DISCORD_BOT_TOKEN);
-const liveTestsEnabled = process.env.MILAIDY_LIVE_TEST === "1";
+const liveTestsEnabled = process.env.MILADY_LIVE_TEST === "1";
 const runLiveTests = hasDiscordToken && liveTestsEnabled;
 const DISCORD_PLUGIN_IMPORT = resolveDiscordPluginImportSpecifier();
 const hasDiscordPlugin = DISCORD_PLUGIN_IMPORT !== null;
@@ -55,7 +55,7 @@ const describeIfLive =
 const describeIfPluginAvailable = hasDiscordPlugin ? describe : describe.skip;
 
 logger.info(
-  `[discord-connector] Live tests ${runLiveTests ? "ENABLED" : "DISABLED"} (DISCORD_BOT_TOKEN=${hasDiscordToken}, MILAIDY_LIVE_TEST=${liveTestsEnabled})`,
+  `[discord-connector] Live tests ${runLiveTests ? "ENABLED" : "DISABLED"} (DISCORD_BOT_TOKEN=${hasDiscordToken}, MILADY_LIVE_TEST=${liveTestsEnabled})`,
 );
 logger.info(
   `[discord-connector] Plugin import ${DISCORD_PLUGIN_IMPORT ?? "UNAVAILABLE"}`,
@@ -313,7 +313,7 @@ describeIfLive("Discord Connector - Error Handling", () => {
 describe("Discord Connector - Integration", () => {
   it("Discord connector is mapped in plugin auto-enable", async () => {
     const { CONNECTOR_PLUGINS } = await import(
-      "../src/config/plugin-auto-enable.js"
+      "../src/config/plugin-auto-enable"
     );
     expect(CONNECTOR_PLUGINS.discord).toBe("@elizaos/plugin-discord");
   });
@@ -339,7 +339,7 @@ describe("Discord Connector - Integration", () => {
 
   it("Discord is included in connector list", async () => {
     const { CONNECTOR_PLUGINS } = await import(
-      "../src/config/plugin-auto-enable.js"
+      "../src/config/plugin-auto-enable"
     );
     const connectors = Object.keys(CONNECTOR_PLUGINS);
     expect(connectors).toContain("discord");

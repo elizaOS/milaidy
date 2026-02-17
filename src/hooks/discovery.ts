@@ -1,5 +1,5 @@
 /**
- * Discover hooks from workspace, managed (~/.milaidy/hooks/), and bundled dirs.
+ * Discover hooks from workspace, managed (~/.milady/hooks/), and bundled dirs.
  * Later sources win on name conflicts.
  */
 
@@ -11,12 +11,12 @@ import type {
   Hook,
   HookEntry,
   HookSource,
-  MilaidyHookMetadata,
+  MiladyHookMetadata,
   ParsedHookFrontmatter,
-} from "./types.js";
+} from "./types";
 
 const HOOK_MD = "HOOK.md";
-const HANDLER_NAMES = ["handler.ts", "handler.js", "index.ts", "index.js"];
+const HANDLER_NAMES = ["handler.ts", "handler", "index.ts", "index"];
 
 function parseFrontmatter(content: string): ParsedHookFrontmatter | null {
   const fmMatch = content.match(/^---\s*\n([\s\S]*?)\n---/);
@@ -69,20 +69,20 @@ function parseFrontmatter(content: string): ParsedHookFrontmatter | null {
 
 function extractMetadata(
   frontmatter: ParsedHookFrontmatter,
-): MilaidyHookMetadata | undefined {
-  const milaidy = frontmatter.metadata?.milaidy;
-  if (!milaidy) return undefined;
+): MiladyHookMetadata | undefined {
+  const milady = frontmatter.metadata?.milady;
+  if (!milady) return undefined;
 
   return {
-    always: milaidy.always,
-    hookKey: milaidy.hookKey,
-    emoji: milaidy.emoji,
-    homepage: milaidy.homepage ?? frontmatter.homepage,
-    events: Array.isArray(milaidy.events) ? milaidy.events : [],
-    export: milaidy.export,
-    os: milaidy.os,
-    requires: milaidy.requires,
-    install: milaidy.install,
+    always: milady.always,
+    hookKey: milady.hookKey,
+    emoji: milady.emoji,
+    homepage: milady.homepage ?? frontmatter.homepage,
+    events: Array.isArray(milady.events) ? milady.events : [],
+    export: milady.export,
+    os: milady.os,
+    requires: milady.requires,
+    install: milady.install,
   };
 }
 
@@ -195,7 +195,7 @@ export async function discoverHooks(
   if (options.extraDirs) {
     for (const dir of options.extraDirs) {
       const resolved = resolve(dir.replace(/^~/, homedir()));
-      for (const entry of await scanHooksDir(resolved, "milaidy-managed")) {
+      for (const entry of await scanHooksDir(resolved, "milady-managed")) {
         seen.set(entry.hook.name, entry);
       }
     }
@@ -204,14 +204,14 @@ export async function discoverHooks(
   if (options.bundledDir) {
     for (const entry of await scanHooksDir(
       options.bundledDir,
-      "milaidy-bundled",
+      "milady-bundled",
     )) {
       seen.set(entry.hook.name, entry);
     }
   }
 
-  const managedDir = join(homedir(), ".milaidy", "hooks");
-  for (const entry of await scanHooksDir(managedDir, "milaidy-managed")) {
+  const managedDir = join(homedir(), ".milady", "hooks");
+  for (const entry of await scanHooksDir(managedDir, "milady-managed")) {
     seen.set(entry.hook.name, entry);
   }
 
@@ -220,7 +220,7 @@ export async function discoverHooks(
       options.workspacePath.replace(/^~/, homedir()),
       "hooks",
     );
-    for (const entry of await scanHooksDir(wsHooksDir, "milaidy-workspace")) {
+    for (const entry of await scanHooksDir(wsHooksDir, "milady-workspace")) {
       seen.set(entry.hook.name, entry);
     }
   }

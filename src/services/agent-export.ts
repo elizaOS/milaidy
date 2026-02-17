@@ -81,6 +81,11 @@ export interface AgentExportPayload {
   exportedAt: string;
   sourceAgentId: string;
   agent: Partial<Agent>;
+  /** Runtime character config (from buildCharacterFromConfig) — may contain
+   *  fields not persisted to the DB agent record (style, topics, adjectives,
+   *  messageExamples, postExamples, knowledge sources, etc.). On import, this
+   *  is merged with the agent record to reconstruct the full character. */
+  characterConfig?: Record<string, unknown>;
   entities: Entity[];
   memories: Memory[];
   components: Component[];
@@ -139,6 +144,7 @@ const PayloadSchema = z.object({
   exportedAt: z.string(),
   sourceAgentId: z.string(),
   agent: z.record(z.string(), z.unknown()),
+  characterConfig: z.record(z.string(), z.unknown()).optional(),
   entities: IdRecordArray,
   memories: IdRecordArray,
   components: IdRecordArray,
@@ -490,11 +496,28 @@ async function extractAgentData(
     logger.info(`[agent-export] Found ${logs.length} logs`);
   }
 
+  // 10. Runtime character config — captures fields from buildCharacterFromConfig
+  // that may not be persisted in the DB agent record (style, topics, adjectives,
+  // messageExamples, postExamples, knowledge sources, etc.)
+  let characterConfig: Record<string, unknown> | undefined;
+  if (runtime.character) {
+    // Clone and strip secrets/sensitive fields
+    const { secrets, ...safeChar } = runtime.character as Record<
+      string,
+      unknown
+    >;
+    characterConfig = safeChar;
+    logger.info(
+      `[agent-export] Captured runtime character config (${Object.keys(safeChar).length} fields)`,
+    );
+  }
+
   return {
     version: EXPORT_VERSION,
     exportedAt: new Date().toISOString(),
     sourceAgentId: agentId,
     agent,
+    characterConfig,
     entities,
     memories: allMemories,
     components: allComponents,
@@ -543,8 +566,16 @@ async function restoreAgentData(
     `[agent-import] Importing agent "${payload.agent.name}" as ${newAgentId}`,
   );
 
-  // 1. Create agent
-  const agentData = { ...payload.agent } as Partial<Agent>;
+  // 1. Create agent — merge characterConfig (if present) as a base so
+  //    style/topics/adjectives/messageExamples survive the round-trip even
+  //    if the DB agent record didn't persist them.
+  const charBase = payload.characterConfig
+    ? { ...payload.characterConfig }
+    : {};
+  // Remove secrets that may have leaked into characterConfig
+  delete charBase.secrets;
+
+  const agentData = { ...charBase, ...payload.agent } as Partial<Agent>;
   agentData.id = newAgentId;
   agentData.enabled = true;
   agentData.createdAt = Date.now();
@@ -554,7 +585,9 @@ async function restoreAgentData(
   if (!agentCreated) {
     throw new AgentExportError("Failed to create agent in database.");
   }
-  logger.info(`[agent-import] Created agent record`);
+  logger.info(
+    `[agent-import] Created agent record${payload.characterConfig ? " (merged with characterConfig)" : ""}`,
+  );
 
   // 2. Create worlds
   let worldsImported = 0;

@@ -1,26 +1,21 @@
 {
-  "appId": "com.miladyai.milaidy",
-  "productName": "Milaidy",
+  "appId": "com.miladyai.milady",
+  "productName": "Milady",
   "directories": {
     "buildResources": "resources"
   },
-  "files": [
-    "assets/**/*",
-    "build/**/*",
-    "capacitor.config.*",
-    "app/**/*"
-  ],
+  "files": ["assets/**/*", "build/**/*", "capacitor.config.*", "app/**/*"],
   "extraResources": [
     {
       "from": "../../../dist",
-      "to": "milaidy-dist",
+      "to": "milady-dist",
       "filter": ["**/*.js", "package.json"]
     }
   ],
   "publish": {
     "provider": "github",
     "owner": "milady-ai",
-    "repo": "milaidy"
+    "repo": "milady"
   },
   "nsis": {
     "allowElevation": true,
@@ -32,8 +27,8 @@
     "icon": "assets/appIcon.ico",
     "azureSignOptions": {
       "endpoint": "https://eus.codesigning.azure.net/",
-      "certificateProfileName": "milaidy-code-sign",
-      "codeSigningAccountName": "milaidy",
+      "certificateProfileName": "milady-code-sign",
+      "codeSigningAccountName": "milady",
       "publisherName": "Milady AI"
     }
   },
@@ -45,7 +40,9 @@
     "gatekeeperAssess": false,
     "entitlements": "entitlements.mac.plist",
     "entitlementsInherit": "entitlements.mac.plist",
-    "notarize": true
+    "notarize": {
+      "teamId": "25877RY2EH"
+    }
   },
   "dmg": {
     "format": "UDZO",
@@ -56,15 +53,21 @@
       "height": 400
     },
     "contents": [
-      { "x": 170, "y": 195, "type": "file" },
-      { "x": 490, "y": 195, "type": "link", "path": "/Applications" }
+      {
+        "x": 170,
+        "y": 195,
+        "type": "file"
+      },
+      {
+        "x": 490,
+        "y": 195,
+        "type": "link",
+        "path": "/Applications"
+      }
     ]
   },
   "linux": {
-    "target": [
-      "AppImage",
-      "deb"
-    ],
+    "target": ["AppImage", "deb"],
     "category": "Utility",
     "icon": "assets/appIcon.png"
   }

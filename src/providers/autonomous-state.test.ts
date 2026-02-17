@@ -4,7 +4,7 @@ import {
   __resetAutonomousStateTrackingForTests,
   createAutonomousStateProvider,
   ensureAutonomousStateTracking,
-} from "./autonomous-state.js";
+} from "./autonomous-state";
 
 type AgentEventPayloadLike = {
   runId: string;

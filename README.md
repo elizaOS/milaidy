@@ -1,8 +1,8 @@
-# Milaidy
+# Milady
 
 > *your schizo AI waifu that actually respects your privacy*
 
-**Milaidy** is a personal AI assistant that runs on YOUR machine. Not some glowie datacenter. Not the cloud. YOUR computer. Built on [elizaOS](https://github.com/elizaOS)
+**Milady** is a personal AI assistant that runs on YOUR machine. Not some glowie datacenter. Not the cloud. YOUR computer. Built on [elizaOS](https://github.com/elizaOS)
 
 manages your sessions, tools, and vibes through a Gateway control plane. Connects to Telegram, Discord, whatever normie platform you use. Has a cute WebChat UI too.
 
@@ -14,14 +14,14 @@ tl;dr: local AI gf that's actually fast and doesn't phone home
 
 ### Desktop App (recommended for normies)
 
-Grab from **[Releases](https://github.com/milady-ai/milaidy/releases/latest)**:
+Grab from **[Releases](https://github.com/milady-ai/milady/releases/latest)**:
 
 | Platform | File | |
 |----------|------|---|
-| macOS (Apple Silicon) | [`Milaidy-arm64.dmg`](https://github.com/milady-ai/milaidy/releases/latest) | for your overpriced rectangle |
-| macOS (Intel) | [`Milaidy-x64.dmg`](https://github.com/milady-ai/milaidy/releases/latest) | boomer mac |
-| Windows | [`Milaidy-Setup.exe`](https://github.com/milady-ai/milaidy/releases/latest) | for the gamer anons |
-| Linux | [`Milaidy.AppImage`](https://github.com/milady-ai/milaidy/releases/latest) / [`.deb`](https://github.com/milady-ai/milaidy/releases/latest) | I use arch btw |
+| macOS (Apple Silicon) | [`Milady-arm64.dmg`](https://github.com/milady-ai/milady/releases/latest) | for your overpriced rectangle |
+| macOS (Intel) | [`Milady-x64.dmg`](https://github.com/milady-ai/milady/releases/latest) | boomer mac |
+| Windows | [`Milady-Setup.exe`](https://github.com/milady-ai/milady/releases/latest) | for the gamer anons |
+| Linux | [`Milady.AppImage`](https://github.com/milady-ai/milady/releases/latest) / [`.deb`](https://github.com/milady-ai/milady/releases/latest) | I use arch btw |
 
 Signed and notarized. No Gatekeeper FUD. We're legit.
 
@@ -29,7 +29,7 @@ Signed and notarized. No Gatekeeper FUD. We're legit.
 
 ```bash
 cd ~/Downloads
-curl -fsSLO https://github.com/milady-ai/milaidy/releases/latest/download/SHA256SUMS.txt
+curl -fsSLO https://github.com/milady-ai/milady/releases/latest/download/SHA256SUMS.txt
 shasum -a 256 --check --ignore-missing SHA256SUMS.txt
 ```
 
@@ -40,13 +40,13 @@ shasum -a 256 --check --ignore-missing SHA256SUMS.txt
 ### One command. That's it.
 
 ```bash
-npx milaidy
+npx milady
 ```
 
 First run she walks you through setup:
 
 ```
-┌  milaidy
+┌  milady
 │
 ◇  What should I call your agent?
 │  mila
@@ -78,25 +78,25 @@ First run she walks you through setup:
 
 macOS / Linux / WSL:
 ```bash
-curl -fsSL https://milady-ai.github.io/milaidy/install.sh | bash
+curl -fsSL https://milady-ai.github.io/milady/install.sh | bash
 ```
 
 Windows:
 ```powershell
-irm https://milady-ai.github.io/milaidy/install.ps1 | iex
+irm https://milady-ai.github.io/milady/install.ps1 | iex
 ```
 
 Or just:
 ```bash
-npm install -g milaidy
+npm install -g milady
 ```
 
 ### Security: API token
 
-The API server binds to `127.0.0.1` (loopback) by default — only you can reach it. If you expose it to the network (e.g. `MILAIDY_API_BIND=0.0.0.0` for container/cloud deployments), **set a token**:
+The API server binds to `127.0.0.1` (loopback) by default — only you can reach it. If you expose it to the network (e.g. `MILADY_API_BIND=0.0.0.0` for container/cloud deployments), **set a token**:
 
 ```bash
-echo "MILAIDY_API_TOKEN=$(openssl rand -hex 32)" >> .env
+echo "MILADY_API_TOKEN=$(openssl rand -hex 32)" >> .env
 ```
 
 Without a token on a public bind, anyone who can reach the server gets full access to the dashboard, agent, and wallet endpoints.
@@ -106,61 +106,61 @@ Without a token on a public bind, anyone who can reach the server gets full acce
 ## Terminal Commands
 
 ```bash
-milaidy                    # start (default)
-milaidy start              # same thing
-milaidy start --headless   # no browser popup
-milaidy start --verbose    # debug mode for when things break
+milady                    # start (default)
+milady start              # same thing
+milady start --headless   # no browser popup
+milady start --verbose    # debug mode for when things break
 ```
 
 ### Setup & Config
 
 ```bash
-milaidy setup              # first-time setup / refresh workspace after update
-milaidy configure          # interactive config wizard
-milaidy config get <key>   # read a config value
-milaidy config set <k> <v> # set a config value
+milady setup              # first-time setup / refresh workspace after update
+milady configure          # interactive config wizard
+milady config get <key>   # read a config value
+milady config set <k> <v> # set a config value
 ```
 
 ### Dashboard & UI
 
 ```bash
-milaidy dashboard          # open web UI in browser
-milaidy dashboard --port 3000  # custom port
+milady dashboard          # open web UI in browser
+milady dashboard --port 3000  # custom port
 ```
 
 ### Models
 
 ```bash
-milaidy models             # list configured model providers
-milaidy models add         # add a new provider
-milaidy models test        # test if your API keys work
+milady models             # list configured model providers
+milady models add         # add a new provider
+milady models test        # test if your API keys work
 ```
 
 ### Plugins
 
 ```bash
-milaidy plugins list       # what's installed
-milaidy plugins add <name> # install a plugin
-milaidy plugins remove <name>
+milady plugins list       # what's installed
+milady plugins add <name> # install a plugin
+milady plugins remove <name>
 ```
 
 ### Misc
 
 ```bash
-milaidy --version          # version check
-milaidy --help             # help
-milaidy doctor             # diagnose issues
+milady --version          # version check
+milady --help             # help
+milady doctor             # diagnose issues
 ```
 
 ---
 
 ## TUI (Terminal UI)
 
-When running, milaidy shows a live terminal interface:
+When running, milady shows a live terminal interface:
 
 ```
 ╭─────────────────────────────────────────────────────────────╮
-│  milaidy v0.1.0                              ▲ running      │
+│  milady v0.1.0                              ▲ running      │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
 │  Agent: mila                                                │
@@ -198,10 +198,10 @@ When running, milaidy shows a live terminal interface:
 Don't want the TUI? Run headless:
 
 ```bash
-milaidy start --headless
+milady start --headless
 ```
 
-Logs go to `~/.milaidy/logs/`. Daemonize with your favorite process manager.
+Logs go to `~/.milady/logs/`. Daemonize with your favorite process manager.
 
 ---
 
@@ -225,19 +225,19 @@ Logs go to `~/.milaidy/logs/`. Daemonize with your favorite process manager.
 
 | Service | Default | Env Override |
 |---------|---------|--------------|
-| Gateway (API + WebSocket) | `18789` | `MILAIDY_GATEWAY_PORT` |
-| Dashboard (Web UI) | `2138` | `MILAIDY_PORT` |
+| Gateway (API + WebSocket) | `18789` | `MILADY_GATEWAY_PORT` |
+| Dashboard (Web UI) | `2138` | `MILADY_PORT` |
 
 ```bash
 # custom ports
-MILAIDY_GATEWAY_PORT=19000 MILAIDY_PORT=3000 milaidy start
+MILADY_GATEWAY_PORT=19000 MILADY_PORT=3000 milady start
 ```
 
 ---
 
 ## Config
 
-Lives at `~/.milaidy/milaidy.json`
+Lives at `~/.milady/milady.json`
 
 ```json5
 {
@@ -251,7 +251,7 @@ Lives at `~/.milaidy/milaidy.json`
 }
 ```
 
-Or use `~/.milaidy/.env` for secrets.
+Or use `~/.milady/.env` for secrets.
 
 ---
 
@@ -274,24 +274,23 @@ Or use `~/.milaidy/.env` for secrets.
 | | Version | Notes |
 |---|---------|-------|
 | **Node.js** | >= 22 | `node --version` to check |
-| **pnpm** | >= 10 | for building from source. `npm i -g pnpm` |
-| **bun** | latest | optional — `scripts/rt.sh` auto-falls back to npm |
+| **bun** | latest | for building and running. `curl -fsSL https://bun.sh/install \| bash` |
 
 ## Build from Source
 
 ```bash
-git clone https://github.com/milady-ai/milaidy.git
-cd milaidy
-pnpm install        # or: bun install
-pnpm build          # or: bun run build (rt.sh picks bun if available)
-pnpm run milaidy start
+git clone https://github.com/milady-ai/milady.git
+cd milady
+bun install
+bun run build
+bun run milady start
 ```
 
-> `scripts/rt.sh` prefers bun but falls back to npm automatically. You don't need bun installed. If you want to be explicit: `pnpm run build:node` uses only Node.
+> `scripts/rt.sh` prefers bun but falls back to npm automatically. If you want to be explicit: `bun run build:node` uses only Node.
 
 Dev mode with hot reload:
 ```bash
-bun run dev         # or: pnpm dev
+bun run dev
 ```
 
 ---

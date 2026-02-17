@@ -10,7 +10,8 @@ import type { EvmChainBalance } from "../api-client";
 
 function chainIcon(chain: string): { code: string; cls: string } {
   const c = chain.toLowerCase();
-  if (c === "ethereum" || c === "mainnet") return { code: "E", cls: "bg-chain-eth" };
+  if (c === "ethereum" || c === "mainnet")
+    return { code: "E", cls: "bg-chain-eth" };
   if (c === "base") return { code: "B", cls: "bg-chain-base" };
   if (c === "arbitrum") return { code: "A", cls: "bg-chain-arb" };
   if (c === "optimism") return { code: "O", cls: "bg-chain-op" };
@@ -51,7 +52,13 @@ interface NftItem {
 
 /* ── Copyable address (inline, for section headers) ──────────────────── */
 
-function CopyableAddress({ address, onCopy }: { address: string; onCopy: (text: string) => Promise<void> }) {
+function CopyableAddress({
+  address,
+  onCopy,
+}: {
+  address: string;
+  onCopy: (text: string) => Promise<void>;
+}) {
   const [copied, setCopied] = useState(false);
   const short = `${address.slice(0, 6)}...${address.slice(-4)}`;
 
@@ -63,10 +70,14 @@ function CopyableAddress({ address, onCopy }: { address: string; onCopy: (text: 
 
   return (
     <div className="ml-auto flex items-center gap-2">
-      <code className="font-mono text-xs text-muted truncate select-all" title={address}>
+      <code
+        className="font-mono text-xs text-muted truncate select-all"
+        title={address}
+      >
         {short}
       </code>
       <button
+        type="button"
         onClick={handleCopy}
         className="px-2 py-0.5 border border-border bg-bg text-[10px] font-mono cursor-pointer hover:border-accent hover:text-accent transition-colors shrink-0"
       >
@@ -101,7 +112,8 @@ export function InventoryView() {
   // If connected to Eliza Cloud, RPCs are managed — no local keys needed.
 
   const cfg = walletConfig;
-  const needsSetup = !cloudConnected && (!cfg || (!cfg.alchemyKeySet && !cfg.heliusKeySet));
+  const needsSetup =
+    !cloudConnected && (!cfg || (!cfg.alchemyKeySet && !cfg.heliusKeySet));
 
   // ── Flatten & sort token rows (skip errored chains) ────────────────
 
@@ -160,11 +172,19 @@ export function InventoryView() {
   const sortedRows = useMemo(() => {
     const sorted = [...tokenRows];
     if (inventorySort === "value") {
-      sorted.sort((a, b) => b.valueUsd - a.valueUsd || b.balanceRaw - a.balanceRaw);
+      sorted.sort(
+        (a, b) => b.valueUsd - a.valueUsd || b.balanceRaw - a.balanceRaw,
+      );
     } else if (inventorySort === "chain") {
-      sorted.sort((a, b) => a.chain.localeCompare(b.chain) || a.symbol.localeCompare(b.symbol));
+      sorted.sort(
+        (a, b) =>
+          a.chain.localeCompare(b.chain) || a.symbol.localeCompare(b.symbol),
+      );
     } else if (inventorySort === "symbol") {
-      sorted.sort((a, b) => a.symbol.localeCompare(b.symbol) || a.chain.localeCompare(b.chain));
+      sorted.sort(
+        (a, b) =>
+          a.symbol.localeCompare(b.symbol) || a.chain.localeCompare(b.chain),
+      );
     }
     return sorted;
   }, [tokenRows, inventorySort]);
@@ -172,7 +192,10 @@ export function InventoryView() {
   // ── Chain errors ─────────────────────────────────────────────────────
 
   const chainErrors = useMemo(
-    () => (walletBalances?.evm?.chains ?? []).filter((c: EvmChainBalance) => c.error),
+    () =>
+      (walletBalances?.evm?.chains ?? []).filter(
+        (c: EvmChainBalance) => c.error,
+      ),
     [walletBalances],
   );
 
@@ -230,10 +253,12 @@ export function InventoryView() {
       <div className="mt-6 border border-border bg-card p-6 text-center">
         <div className="text-sm font-bold mb-2">Wallet keys not configured</div>
         <p className="text-xs text-muted mb-4 leading-relaxed max-w-md mx-auto">
-          To view balances and NFTs you need RPC provider keys (Alchemy, Helius, etc.)
-          or an Eliza Cloud connection. Head to <strong>Settings</strong> to set them up.
+          To view balances and NFTs you need RPC provider keys (Alchemy, Helius,
+          etc.) or an Eliza Cloud connection. Head to <strong>Settings</strong>{" "}
+          to set them up.
         </p>
         <button
+          type="button"
           className="px-4 py-1.5 border border-accent bg-accent text-accent-fg cursor-pointer text-xs font-mono hover:bg-accent-hover hover:border-accent-hover"
           onClick={() => setTab("settings")}
         >
@@ -251,8 +276,11 @@ export function InventoryView() {
         {/* Toolbar: tabs + sort buttons + refresh — all in one row */}
         <div className="flex items-center gap-2 mt-3 flex-wrap">
           <button
+            type="button"
             className={`inline-block px-4 py-1 cursor-pointer border border-border bg-bg text-[13px] font-mono hover:border-accent hover:text-accent ${
-              inventoryView === "tokens" ? "border-accent text-accent font-bold" : ""
+              inventoryView === "tokens"
+                ? "border-accent text-accent font-bold"
+                : ""
             }`}
             onClick={() => {
               setState("inventoryView", "tokens");
@@ -262,8 +290,11 @@ export function InventoryView() {
             Tokens
           </button>
           <button
+            type="button"
             className={`inline-block px-4 py-1 cursor-pointer border border-border bg-bg text-[13px] font-mono hover:border-accent hover:text-accent ${
-              inventoryView === "nfts" ? "border-accent text-accent font-bold" : ""
+              inventoryView === "nfts"
+                ? "border-accent text-accent font-bold"
+                : ""
             }`}
             onClick={() => {
               setState("inventoryView", "nfts");
@@ -277,10 +308,14 @@ export function InventoryView() {
           <div className="ml-auto flex items-center gap-1.5">
             {inventoryView === "tokens" && (
               <>
-                <span className="text-[10px] text-muted uppercase" style={{ letterSpacing: "0.05em" }}>
+                <span
+                  className="text-[10px] text-muted uppercase"
+                  style={{ letterSpacing: "0.05em" }}
+                >
                   Sort:
                 </span>
                 <button
+                  type="button"
                   className={`px-2.5 py-0.5 border border-border bg-bg cursor-pointer text-[11px] font-mono hover:border-accent hover:text-accent ${
                     inventorySort === "value" ? "border-accent text-accent" : ""
                   }`}
@@ -289,6 +324,7 @@ export function InventoryView() {
                   Value
                 </button>
                 <button
+                  type="button"
                   className={`px-2.5 py-0.5 border border-border bg-bg cursor-pointer text-[11px] font-mono hover:border-accent hover:text-accent ${
                     inventorySort === "chain" ? "border-accent text-accent" : ""
                   }`}
@@ -297,8 +333,11 @@ export function InventoryView() {
                   Chain
                 </button>
                 <button
+                  type="button"
                   className={`px-2.5 py-0.5 border border-border bg-bg cursor-pointer text-[11px] font-mono hover:border-accent hover:text-accent ${
-                    inventorySort === "symbol" ? "border-accent text-accent" : ""
+                    inventorySort === "symbol"
+                      ? "border-accent text-accent"
+                      : ""
                   }`}
                   onClick={() => setState("inventorySort", "symbol")}
                 >
@@ -307,8 +346,11 @@ export function InventoryView() {
               </>
             )}
             <button
+              type="button"
               className="px-2.5 py-0.5 border border-accent bg-accent text-accent-fg cursor-pointer text-[11px] font-mono hover:bg-accent-hover hover:border-accent-hover"
-              onClick={() => (inventoryView === "tokens" ? loadBalances() : loadNfts())}
+              onClick={() =>
+                inventoryView === "tokens" ? loadBalances() : loadNfts()
+              }
             >
               Refresh
             </button>
@@ -324,11 +366,16 @@ export function InventoryView() {
 
   function renderTokensView() {
     if (walletLoading) {
-      return <div className="text-center py-10 text-muted italic mt-6">Loading balances...</div>;
+      return (
+        <div className="text-center py-10 text-muted italic mt-6">
+          Loading balances...
+        </div>
+      );
     }
 
     const evmAddr = walletAddresses?.evmAddress ?? walletConfig?.evmAddress;
-    const solAddr = walletAddresses?.solanaAddress ?? walletConfig?.solanaAddress;
+    const solAddr =
+      walletAddresses?.solanaAddress ?? walletConfig?.solanaAddress;
 
     if (!evmAddr && !solAddr) {
       return (
@@ -336,7 +383,10 @@ export function InventoryView() {
           No wallets connected. Configure wallets in{" "}
           <a
             href="/settings"
-            onClick={(e) => { e.preventDefault(); setTab("settings"); }}
+            onClick={(e) => {
+              e.preventDefault();
+              setTab("settings");
+            }}
             className="text-accent"
           >
             Settings
@@ -346,13 +396,33 @@ export function InventoryView() {
       );
     }
 
-    const evmRows = sortedRows.filter((r) => r.chain.toLowerCase() !== "solana");
-    const solanaRows = sortedRows.filter((r) => r.chain.toLowerCase() === "solana");
+    const evmRows = sortedRows.filter(
+      (r) => r.chain.toLowerCase() !== "solana",
+    );
+    const solanaRows = sortedRows.filter(
+      (r) => r.chain.toLowerCase() === "solana",
+    );
 
     return (
       <div className="mt-3 space-y-3">
-        {evmAddr && renderChainSection("Ethereum", "E", "bg-chain-eth", evmAddr, evmRows, true)}
-        {solAddr && renderChainSection("Solana", "S", "bg-chain-sol", solAddr, solanaRows, false)}
+        {evmAddr &&
+          renderChainSection(
+            "Ethereum",
+            "E",
+            "bg-chain-eth",
+            evmAddr,
+            evmRows,
+            true,
+          )}
+        {solAddr &&
+          renderChainSection(
+            "Solana",
+            "S",
+            "bg-chain-sol",
+            solAddr,
+            solanaRows,
+            false,
+          )}
 
         {/* Per-chain RPC errors */}
         {chainErrors.length > 0 && (
@@ -370,7 +440,12 @@ export function InventoryView() {
                   {c.error?.includes("not enabled") ? (
                     <>
                       Not enabled in Alchemy &mdash;{" "}
-                      <a href="https://dashboard.alchemy.com/" target="_blank" rel="noopener" className="text-accent">
+                      <a
+                        href="https://dashboard.alchemy.com/"
+                        target="_blank"
+                        rel="noopener"
+                        className="text-accent"
+                      >
                         enable it
                       </a>
                     </>
@@ -415,7 +490,9 @@ export function InventoryView() {
             No data yet. Click Refresh.
           </div>
         ) : rows.length === 0 ? (
-          <div className="px-4 py-6 text-center text-xs text-muted italic">No wallet assets</div>
+          <div className="px-4 py-6 text-center text-xs text-muted italic">
+            No wallet assets
+          </div>
         ) : (
           <table className="w-full border-collapse text-xs">
             <tbody>
@@ -427,7 +504,10 @@ export function InventoryView() {
                     className="border-b border-border last:border-b-0"
                   >
                     {showSubChain && (
-                      <td className="pl-4 pr-1 py-[7px] align-middle" style={{ width: 28 }}>
+                      <td
+                        className="pl-4 pr-1 py-[7px] align-middle"
+                        style={{ width: 28 }}
+                      >
                         <span
                           className={`inline-block w-4 h-4 rounded-full text-center leading-4 text-[9px] font-bold font-mono text-white ${subIcon?.cls ?? "bg-bg-muted"}`}
                           title={row.chain}
@@ -436,16 +516,20 @@ export function InventoryView() {
                         </span>
                       </td>
                     )}
-                    <td className={`${showSubChain ? "pl-1" : "pl-4"} pr-3 py-[7px] align-middle`}>
+                    <td
+                      className={`${showSubChain ? "pl-1" : "pl-4"} pr-3 py-[7px] align-middle`}
+                    >
                       <span className="font-bold font-mono">{row.symbol}</span>
                       <span className="text-muted overflow-hidden text-ellipsis whitespace-nowrap max-w-[160px] inline-block align-bottom ml-2">
                         {row.name}
                       </span>
-                      {showSubChain && row.chain.toLowerCase() !== "ethereum" && row.chain.toLowerCase() !== "mainnet" && (
-                        <span className="ml-1.5 px-1.5 py-0 border border-border text-[9px] text-muted font-mono align-middle">
-                          {row.chain}
-                        </span>
-                      )}
+                      {showSubChain &&
+                        row.chain.toLowerCase() !== "ethereum" &&
+                        row.chain.toLowerCase() !== "mainnet" && (
+                          <span className="ml-1.5 px-1.5 py-0 border border-border text-[9px] text-muted font-mono align-middle">
+                            {row.chain}
+                          </span>
+                        )}
                     </td>
                     <td className="px-3 py-[7px] align-middle font-mono text-right whitespace-nowrap">
                       {formatBalance(row.balance)}
@@ -469,11 +553,17 @@ export function InventoryView() {
 
   function renderNftsView() {
     if (walletNftsLoading) {
-      return <div className="text-center py-10 text-muted italic mt-6">Loading NFTs...</div>;
+      return (
+        <div className="text-center py-10 text-muted italic mt-6">
+          Loading NFTs...
+        </div>
+      );
     }
     if (!walletNfts) {
       return (
-        <div className="text-center py-10 text-muted italic mt-6">No NFT data yet. Click Refresh.</div>
+        <div className="text-center py-10 text-muted italic mt-6">
+          No NFT data yet. Click Refresh.
+        </div>
       );
     }
     if (allNfts.length === 0) {

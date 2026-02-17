@@ -8,7 +8,7 @@ async function freshResolveCommitHash(
   options: { cwd?: string; env?: NodeJS.ProcessEnv } = {},
 ): Promise<string | null> {
   vi.resetModules();
-  const mod = await import("./git-commit.js");
+  const mod = await import("./git-commit");
   return mod.resolveCommitHash(options);
 }
 
@@ -59,7 +59,7 @@ describe("resolveCommitHash", () => {
 
   describe("git HEAD resolution", () => {
     it("reads a detached HEAD (direct commit hash)", async () => {
-      const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "milaidy-git-"));
+      const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "milady-git-"));
       try {
         const gitDir = path.join(tmp, ".git");
         await fs.mkdir(gitDir, { recursive: true });
@@ -76,7 +76,7 @@ describe("resolveCommitHash", () => {
     });
 
     it("follows ref: symrefs to read the commit hash", async () => {
-      const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "milaidy-git-"));
+      const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "milady-git-"));
       try {
         const gitDir = path.join(tmp, ".git");
         const refsDir = path.join(gitDir, "refs", "heads");
@@ -95,7 +95,7 @@ describe("resolveCommitHash", () => {
     });
 
     it("follows gitdir file (worktrees)", async () => {
-      const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "milaidy-git-"));
+      const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "milady-git-"));
       try {
         const realGitDir = path.join(tmp, "real-git");
         await fs.mkdir(realGitDir, { recursive: true });
@@ -113,7 +113,7 @@ describe("resolveCommitHash", () => {
     });
 
     it("walks up directories to find .git", async () => {
-      const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "milaidy-git-"));
+      const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "milady-git-"));
       try {
         const gitDir = path.join(tmp, ".git");
         await fs.mkdir(gitDir, { recursive: true });
@@ -134,7 +134,7 @@ describe("resolveCommitHash", () => {
 
   describe("fallback", () => {
     it("returns null when no git info is available", async () => {
-      const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "milaidy-git-"));
+      const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "milady-git-"));
       try {
         const result = await freshResolveCommitHash({
           cwd: tmp,
@@ -147,7 +147,7 @@ describe("resolveCommitHash", () => {
     });
 
     it("returns null for empty HEAD file", async () => {
-      const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "milaidy-git-"));
+      const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "milady-git-"));
       try {
         const gitDir = path.join(tmp, ".git");
         await fs.mkdir(gitDir, { recursive: true });
@@ -168,7 +168,7 @@ describe("resolveCommitHash", () => {
   // (mocking node:module breaks vitest). Fallback ORDER is verified here instead.
   describe("fallback priority", () => {
     it("env var takes priority over git HEAD", async () => {
-      const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "milaidy-git-"));
+      const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "milady-git-"));
       try {
         const gitDir = path.join(tmp, ".git");
         await fs.mkdir(gitDir, { recursive: true });
@@ -198,7 +198,7 @@ describe("resolveCommitHash", () => {
   describe("caching", () => {
     it("returns the same cached value on repeated calls", async () => {
       vi.resetModules();
-      const mod = await import("./git-commit.js");
+      const mod = await import("./git-commit");
       const first = mod.resolveCommitHash({
         env: { GIT_COMMIT: "cached1" } as NodeJS.ProcessEnv,
       });

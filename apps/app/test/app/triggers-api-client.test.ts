@@ -1,16 +1,17 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { MilaidyClient } from "../../src/api-client";
+import { MiladyClient } from "../../src/api-client";
 
-describe("MilaidyClient trigger endpoints", () => {
+describe("MiladyClient trigger endpoints", () => {
   const originalFetch = globalThis.fetch;
   let fetchMock: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
-    fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
-      new Response(JSON.stringify({ ok: true, triggers: [], runs: [] }), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      }),
+    fetchMock = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit) =>
+        new Response(JSON.stringify({ ok: true, triggers: [], runs: [] }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
     );
     globalThis.fetch = fetchMock as typeof globalThis.fetch;
   });
@@ -20,7 +21,7 @@ describe("MilaidyClient trigger endpoints", () => {
   });
 
   test("calls trigger list endpoint", async () => {
-    const client = new MilaidyClient("http://localhost:2138", "token");
+    const client = new MiladyClient("http://localhost:2138", "token");
     await client.getTriggers();
 
     const firstCall = fetchMock.mock.calls[0];
@@ -29,7 +30,7 @@ describe("MilaidyClient trigger endpoints", () => {
   });
 
   test("calls trigger mutation endpoints with expected methods", async () => {
-    const client = new MilaidyClient("http://localhost:2138", "token");
+    const client = new MiladyClient("http://localhost:2138", "token");
 
     await client.createTrigger({
       displayName: "Heartbeat",

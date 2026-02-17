@@ -7,7 +7,7 @@
  * Required env vars (loaded from ../eliza/.env):
  *   OPENAI_API_KEY or ANTHROPIC_API_KEY — for embeddings and LLM
  *
- * Run: MILAIDY_LIVE_TEST=1 npx vitest run -c vitest.e2e.config.ts test/knowledge-live.e2e.test.ts
+ * Run: MILADY_LIVE_TEST=1 npx vitest run -c vitest.e2e.config.ts test/knowledge-live.e2e.test.ts
  */
 import http from "node:http";
 import path from "node:path";
@@ -26,7 +26,7 @@ const hasLLM =
   Boolean(process.env.OPENAI_API_KEY?.trim()) ||
   Boolean(process.env.ANTHROPIC_API_KEY?.trim()) ||
   Boolean(process.env.GROQ_API_KEY?.trim());
-const isLiveTest = process.env.MILAIDY_LIVE_TEST === "1";
+const isLiveTest = process.env.MILADY_LIVE_TEST === "1";
 const canRun = hasLLM && isLiveTest;
 
 // ---------------------------------------------------------------------------
@@ -85,7 +85,7 @@ describe.skipIf(!canRun)("Live: Knowledge management flow", () => {
   let uploadedDocumentId: string | null = null;
 
   beforeAll(async () => {
-    const { startApiServer } = await import("../src/api/server.js");
+    const { startApiServer } = await import("../src/api/server");
     const server = await startApiServer({ port: 0 });
     port = server.port;
     close = server.close;
@@ -112,7 +112,7 @@ describe.skipIf(!canRun)("Live: Knowledge management flow", () => {
     const testContent = `
 # Test Knowledge Document
 
-This is a test document for the Milaidy knowledge management system.
+This is a test document for the Milady knowledge management system.
 
 ## Section 1: Introduction
 
@@ -307,7 +307,7 @@ describe.skipIf(!canRun)("Live: URL import", () => {
   let close: () => Promise<void>;
 
   beforeAll(async () => {
-    const { startApiServer } = await import("../src/api/server.js");
+    const { startApiServer } = await import("../src/api/server");
     const server = await startApiServer({ port: 0 });
     port = server.port;
     close = server.close;
@@ -353,7 +353,7 @@ describe.skipIf(!canRun)("Live: Knowledge provider skip behavior", () => {
   let close: () => Promise<void>;
 
   beforeAll(async () => {
-    const { startApiServer } = await import("../src/api/server.js");
+    const { startApiServer } = await import("../src/api/server");
     const server = await startApiServer({ port: 0 });
     port = server.port;
     close = server.close;

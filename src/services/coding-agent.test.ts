@@ -13,12 +13,12 @@
  *   - Workspace provider coding agent enrichment
  */
 import { describe, expect, it } from "vitest";
-import type { WorkspaceBootstrapFile } from "../providers/workspace.js";
+import type { WorkspaceBootstrapFile } from "../providers/workspace";
 import {
   buildCodingAgentSummary,
   buildContext,
   truncate,
-} from "../providers/workspace-provider.js";
+} from "../providers/workspace-provider";
 import {
   addIteration,
   type CapturedError,
@@ -45,7 +45,7 @@ import {
   validateCodingIteration,
   validateConnectorConfig,
   validateHumanFeedback,
-} from "./coding-agent-context.js";
+} from "./coding-agent-context";
 
 // ---------------------------------------------------------------------------
 // Helpers

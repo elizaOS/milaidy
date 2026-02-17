@@ -7,7 +7,7 @@ import {
   detectBestEngine,
   type ISandboxEngine,
   type SandboxEngineType,
-} from "./sandbox-engine.js";
+} from "./sandbox-engine";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -109,8 +109,8 @@ export class SandboxManager {
 
   constructor(config: SandboxManagerConfig) {
     this.config = {
-      image: "milaidy-sandbox:bookworm-slim",
-      containerPrefix: "milaidy-sandbox",
+      image: "milady-sandbox:bookworm-slim",
+      containerPrefix: "milady-sandbox",
       workdir: "/workspace",
       network: "none",
       user: "1000:1000",
@@ -145,14 +145,14 @@ export class SandboxManager {
     user: string;
     wsRoot: string;
   } {
-    const image = this.config.image ?? "milaidy-sandbox:bookworm-slim";
-    const containerPrefix = this.config.containerPrefix ?? "milaidy-sandbox";
+    const image = this.config.image ?? "milady-sandbox:bookworm-slim";
+    const containerPrefix = this.config.containerPrefix ?? "milady-sandbox";
     const workdir = this.config.workdir ?? "/workspace";
     const network = this.config.network ?? "none";
     const user = this.config.user ?? "1000:1000";
     const wsRoot =
       this.config.workspaceRoot ??
-      join(process.env.HOME ?? "/tmp", ".milaidy", "sandbox-workspace");
+      join(process.env.HOME ?? "/tmp", ".milady", "sandbox-workspace");
     mkdirSync(wsRoot, { recursive: true });
     return { image, containerPrefix, workdir, network, user, wsRoot };
   }
@@ -416,7 +416,7 @@ export class SandboxManager {
     const cdpPort = this.config.browser?.cdpPort ?? 9222;
     const vncPort = this.config.browser?.vncPort ?? 5900;
     const image =
-      this.config.browser?.image ?? "milaidy-sandbox-browser:bookworm-slim";
+      this.config.browser?.image ?? "milady-sandbox-browser:bookworm-slim";
 
     return this.engine.runContainer({
       image,

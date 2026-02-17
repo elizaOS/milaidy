@@ -1,1 +1,1 @@
-export { buildProgram } from "./program/build-program.js";
+export { buildProgram } from "./program/build-program";

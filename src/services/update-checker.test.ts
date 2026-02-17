@@ -6,8 +6,8 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ReleaseChannel } from "../config/types.milaidy.js";
-import { CHANNEL_DIST_TAGS } from "./update-checker.js";
+import type { ReleaseChannel } from "../config/types.milady";
+import { CHANNEL_DIST_TAGS } from "./update-checker";
 
 // ---------------------------------------------------------------------------
 // We test the pure logic functions by importing them directly.
@@ -15,35 +15,35 @@ import { CHANNEL_DIST_TAGS } from "./update-checker.js";
 // ---------------------------------------------------------------------------
 
 // Mock config module before imports
-vi.mock("../config/config.js", () => ({
-  loadMilaidyConfig: vi.fn(() => ({})),
-  saveMilaidyConfig: vi.fn(),
+vi.mock("../config/config", () => ({
+  loadMiladyConfig: vi.fn(() => ({})),
+  saveMiladyConfig: vi.fn(),
 }));
 
 // Mock version module
-vi.mock("../runtime/version.js", () => ({
+vi.mock("../runtime/version", () => ({
   VERSION: "2.0.0-alpha.7",
 }));
 
-import { loadMilaidyConfig, saveMilaidyConfig } from "../config/config.js";
+import { loadMiladyConfig, saveMiladyConfig } from "../config/config";
 import {
   checkForUpdate,
   fetchAllChannelVersions,
   resolveChannel,
-} from "./update-checker.js";
+} from "./update-checker";
 
 // ============================================================================
 // 1. Channel resolution
 // ============================================================================
 
 describe("resolveChannel", () => {
-  const originalEnv = process.env.MILAIDY_UPDATE_CHANNEL;
+  const originalEnv = process.env.MILADY_UPDATE_CHANNEL;
 
   afterEach(() => {
     if (originalEnv === undefined) {
-      delete process.env.MILAIDY_UPDATE_CHANNEL;
+      delete process.env.MILADY_UPDATE_CHANNEL;
     } else {
-      process.env.MILAIDY_UPDATE_CHANNEL = originalEnv;
+      process.env.MILADY_UPDATE_CHANNEL = originalEnv;
     }
   });
 
@@ -57,33 +57,33 @@ describe("resolveChannel", () => {
     expect(resolveChannel({ channel: "stable" })).toBe("stable");
   });
 
-  it("respects MILAIDY_UPDATE_CHANNEL env var override", () => {
-    process.env.MILAIDY_UPDATE_CHANNEL = "nightly";
+  it("respects MILADY_UPDATE_CHANNEL env var override", () => {
+    process.env.MILADY_UPDATE_CHANNEL = "nightly";
     expect(resolveChannel({ channel: "stable" })).toBe("nightly");
   });
 
   it("ignores invalid env var values", () => {
-    process.env.MILAIDY_UPDATE_CHANNEL = "invalid";
+    process.env.MILADY_UPDATE_CHANNEL = "invalid";
     expect(resolveChannel({ channel: "beta" })).toBe("beta");
   });
 
   it("handles env var with extra whitespace", () => {
-    process.env.MILAIDY_UPDATE_CHANNEL = "  beta  ";
+    process.env.MILADY_UPDATE_CHANNEL = "  beta  ";
     expect(resolveChannel({ channel: "stable" })).toBe("beta");
   });
 
   it("handles env var case-insensitively", () => {
-    process.env.MILAIDY_UPDATE_CHANNEL = "NIGHTLY";
+    process.env.MILADY_UPDATE_CHANNEL = "NIGHTLY";
     expect(resolveChannel(undefined)).toBe("nightly");
   });
 
   it("falls back to config when env var is empty string", () => {
-    process.env.MILAIDY_UPDATE_CHANNEL = "";
+    process.env.MILADY_UPDATE_CHANNEL = "";
     expect(resolveChannel({ channel: "beta" })).toBe("beta");
   });
 
   it("falls back to config when env var is only whitespace", () => {
-    process.env.MILAIDY_UPDATE_CHANNEL = "   ";
+    process.env.MILADY_UPDATE_CHANNEL = "   ";
     expect(resolveChannel({ channel: "nightly" })).toBe("nightly");
   });
 });
@@ -123,8 +123,8 @@ describe("checkForUpdate", () => {
 
   beforeEach(() => {
     vi.stubGlobal("fetch", mockFetch);
-    vi.mocked(loadMilaidyConfig).mockReturnValue({});
-    vi.mocked(saveMilaidyConfig).mockImplementation(() => {});
+    vi.mocked(loadMiladyConfig).mockReturnValue({});
+    vi.mocked(saveMiladyConfig).mockImplementation(() => {});
     mockFetch.mockReset();
   });
 
@@ -192,7 +192,7 @@ describe("checkForUpdate", () => {
   });
 
   it("handles missing dist-tag", async () => {
-    vi.mocked(loadMilaidyConfig).mockReturnValue({
+    vi.mocked(loadMiladyConfig).mockReturnValue({
       update: { channel: "nightly" },
     });
 
@@ -212,7 +212,7 @@ describe("checkForUpdate", () => {
   });
 
   it("saves last-check metadata to config", async () => {
-    vi.mocked(saveMilaidyConfig).mockClear();
+    vi.mocked(saveMiladyConfig).mockClear();
 
     mockFetch.mockResolvedValueOnce({
       ok: true,
@@ -223,15 +223,15 @@ describe("checkForUpdate", () => {
 
     await checkForUpdate({ force: true });
 
-    expect(saveMilaidyConfig).toHaveBeenCalledOnce();
-    const savedConfig = vi.mocked(saveMilaidyConfig).mock.calls[0][0];
+    expect(saveMiladyConfig).toHaveBeenCalledOnce();
+    const savedConfig = vi.mocked(saveMiladyConfig).mock.calls[0][0];
     expect(savedConfig.update?.lastCheckAt).toBeDefined();
     expect(savedConfig.update?.lastCheckVersion).toBe("2.1.0");
   });
 
   it("returns cached result within check interval", async () => {
     const recentCheck = new Date().toISOString();
-    vi.mocked(loadMilaidyConfig).mockReturnValue({
+    vi.mocked(loadMiladyConfig).mockReturnValue({
       update: {
         lastCheckAt: recentCheck,
         lastCheckVersion: "2.1.0",
@@ -250,7 +250,7 @@ describe("checkForUpdate", () => {
 
   it("bypasses cache when force is true", async () => {
     const recentCheck = new Date().toISOString();
-    vi.mocked(loadMilaidyConfig).mockReturnValue({
+    vi.mocked(loadMiladyConfig).mockReturnValue({
       update: {
         lastCheckAt: recentCheck,
         lastCheckVersion: "2.1.0",
@@ -273,7 +273,7 @@ describe("checkForUpdate", () => {
   });
 
   it("uses beta channel when configured", async () => {
-    vi.mocked(loadMilaidyConfig).mockReturnValue({
+    vi.mocked(loadMiladyConfig).mockReturnValue({
       update: { channel: "beta" },
     });
 
@@ -297,7 +297,7 @@ describe("checkForUpdate", () => {
     const fiveHoursAgo = new Date(
       Date.now() - 5 * 60 * 60 * 1000,
     ).toISOString();
-    vi.mocked(loadMilaidyConfig).mockReturnValue({
+    vi.mocked(loadMiladyConfig).mockReturnValue({
       update: {
         lastCheckAt: fiveHoursAgo,
         lastCheckVersion: "2.0.0",
@@ -321,7 +321,7 @@ describe("checkForUpdate", () => {
 
   it("returns updateAvailable=false when cached with no lastCheckVersion", async () => {
     const recentCheck = new Date().toISOString();
-    vi.mocked(loadMilaidyConfig).mockReturnValue({
+    vi.mocked(loadMiladyConfig).mockReturnValue({
       update: {
         lastCheckAt: recentCheck,
         // lastCheckVersion is undefined
@@ -362,13 +362,13 @@ describe("checkForUpdate", () => {
 
     expect(mockFetch).toHaveBeenCalledOnce();
     const [url, options] = mockFetch.mock.calls[0];
-    expect(url).toBe("https://registry.npmjs.org/milaidy");
+    expect(url).toBe("https://registry.npmjs.org/milady");
     expect(options.headers.Accept).toBe("application/vnd.npm.install-v1+json");
     expect(options.signal).toBeInstanceOf(AbortSignal);
   });
 
-  it("writes warning to stderr when saveMilaidyConfig throws", async () => {
-    vi.mocked(saveMilaidyConfig).mockImplementation(() => {
+  it("writes warning to stderr when saveMiladyConfig throws", async () => {
+    vi.mocked(saveMiladyConfig).mockImplementation(() => {
       throw new Error("EACCES: permission denied");
     });
 
@@ -400,7 +400,7 @@ describe("checkForUpdate", () => {
   it("handles registry returning malformed JSON (no dist-tags key)", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
-      json: async () => ({ name: "milaidy", versions: {} }),
+      json: async () => ({ name: "milady", versions: {} }),
     });
 
     const result = await checkForUpdate({ force: true });
@@ -427,7 +427,7 @@ describe("checkForUpdate", () => {
   });
 
   it("detects nightly update on nightly channel", async () => {
-    vi.mocked(loadMilaidyConfig).mockReturnValue({
+    vi.mocked(loadMiladyConfig).mockReturnValue({
       update: { channel: "nightly" },
     });
 
@@ -467,7 +467,7 @@ describe("checkForUpdate", () => {
   });
 
   it("re-checks every time when checkIntervalSeconds is 0", async () => {
-    vi.mocked(loadMilaidyConfig).mockReturnValue({
+    vi.mocked(loadMiladyConfig).mockReturnValue({
       update: {
         lastCheckAt: new Date().toISOString(), // just checked
         lastCheckVersion: "2.0.0",
@@ -488,7 +488,7 @@ describe("checkForUpdate", () => {
   });
 
   it("re-checks when lastCheckAt is an invalid date string", async () => {
-    vi.mocked(loadMilaidyConfig).mockReturnValue({
+    vi.mocked(loadMiladyConfig).mockReturnValue({
       update: {
         lastCheckAt: "not-a-date",
         lastCheckVersion: "2.0.0",
@@ -509,7 +509,7 @@ describe("checkForUpdate", () => {
   });
 
   it("handles concurrent calls without double-fetching from cache", async () => {
-    vi.mocked(loadMilaidyConfig).mockReturnValue({});
+    vi.mocked(loadMiladyConfig).mockReturnValue({});
 
     let fetchCount = 0;
     mockFetch.mockImplementation(async () => {
@@ -631,7 +631,7 @@ describe("npm registry integration", () => {
     }
 
     // Fetch the abbreviated packument directly (same way update-checker does)
-    const res = await globalThis.fetch("https://registry.npmjs.org/milaidy", {
+    const res = await globalThis.fetch("https://registry.npmjs.org/milady", {
       headers: {
         Accept: "application/vnd.npm.install-v1+json",
       },
@@ -645,7 +645,7 @@ describe("npm registry integration", () => {
     };
 
     // Verify the response has the expected shape
-    expect(data.name).toBe("milaidy");
+    expect(data.name).toBe("milady");
     expect(data["dist-tags"]).toBeDefined();
     expect(typeof data["dist-tags"]).toBe("object");
 

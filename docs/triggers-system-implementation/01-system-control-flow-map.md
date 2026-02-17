@@ -6,15 +6,15 @@ It focuses on:
 
 - Eliza task scheduling and action execution internals
 - Autonomy runtime behavior
-- Milaidy runtime/plugin boot path
-- Milaidy API server request dispatch
-- Milaidy frontend routing and data loading
+- Milady runtime/plugin boot path
+- Milady API server request dispatch
+- Milady frontend routing and data loading
 
 ---
 
-## 1) Runtime Boot Path: Milaidy vs Core Assumptions
+## 1) Runtime Boot Path: Milady vs Core Assumptions
 
-## 1.1 Milaidy startup path (`milaidy/src/runtime/eliza.ts`)
+## 1.1 Milady startup path (`milady/src/runtime/eliza.ts`)
 
 Current high-level flow:
 
@@ -23,7 +23,7 @@ Current high-level flow:
    - `IGNORE_BOOTSTRAP=true`
 3. Resolve plugin list (core + optional + installed + drop-in).
 4. Build `AgentRuntime` with:
-   - `createMilaidyPlugin(...)`
+   - `createMiladyPlugin(...)`
    - resolved plugin instances
 5. Pre-register critical plugins (`plugin-sql`, `plugin-local-embedding`) to avoid startup race.
 6. Call `runtime.initialize()`.
@@ -32,7 +32,7 @@ Current high-level flow:
 
 ### Practical trigger implication
 
-The trigger plan cannot assume "core bootstrap plugin path only." Milaidy startup intentionally diverges from that path.
+The trigger plan cannot assume "core bootstrap plugin path only." Milady startup intentionally diverges from that path.
 
 ---
 
@@ -43,7 +43,7 @@ There are two overlapping capability structures in current code:
 - `bootstrap/*` capability stack
 - `basic-capabilities/*` + `advanced-capabilities/*` stack
 
-Both expose actions/providers/services patterns. Trigger implementation must choose a canonical insertion point and verify Milaidy runtime actually surfaces it.
+Both expose actions/providers/services patterns. Trigger implementation must choose a canonical insertion point and verify Milady runtime actually surfaces it.
 
 ---
 
@@ -165,14 +165,14 @@ Triggers that inject into autonomy must preserve:
 
 ## 4.2 Pause/Resume interactions
 
-Milaidy API pause/resume endpoints call autonomy service enable/disable methods.  
+Milady API pause/resume endpoints call autonomy service enable/disable methods.  
 A trigger design that "wakes autonomy" must avoid conflicting with user pause/resume intent.
 
 ---
 
-## 5) Milaidy API Server Control Flow
+## 5) Milady API Server Control Flow
 
-## 5.1 Request dispatch model (`milaidy/src/api/server.ts`)
+## 5.1 Request dispatch model (`milady/src/api/server.ts`)
 
 `handleRequest(...)` is a single ordered chain of `if (method/pathname)` blocks.
 
@@ -208,7 +208,7 @@ Trigger routes should follow the same contract.
 
 ---
 
-## 6) Milaidy Frontend Control Flow
+## 6) Milady Frontend Control Flow
 
 ## 6.1 Navigation and routing
 
@@ -272,7 +272,7 @@ Below is the required flow shape implied by current architecture.
 sequenceDiagram
   participant UI as TriggersView
   participant Ctx as AppContext
-  participant API as Milaidy API server.ts
+  participant API as Milady API server.ts
   participant RT as AgentRuntime
   participant TS as TaskService
   participant TW as Trigger Worker
@@ -298,7 +298,7 @@ sequenceDiagram
 These are the key coupling edges where trigger work can fail:
 
 1. **Capability registration edge**
-   - action implemented but not reachable in Milaidy runtime due capability path mismatch.
+   - action implemented but not reachable in Milady runtime due capability path mismatch.
 
 2. **Task scheduling edge**
    - trigger data model uses fields TaskService does not read.
@@ -328,7 +328,7 @@ These are the key coupling edges where trigger work can fail:
 
 Current architecture is capable of supporting triggers, but only if the implementation explicitly respects:
 
-- Milaidy's runtime boot/capability path,
+- Milady's runtime boot/capability path,
 - TaskService's actual due semantics,
 - action execution realities,
 - API route ordering,

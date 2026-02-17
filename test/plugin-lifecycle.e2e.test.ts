@@ -7,7 +7,7 @@
  */
 import http from "node:http";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { startApiServer } from "../src/api/server.js";
+import { startApiServer } from "../src/api/server";
 
 // ---------------------------------------------------------------------------
 // HTTP helper

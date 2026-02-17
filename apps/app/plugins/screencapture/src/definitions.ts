@@ -104,7 +104,7 @@ export interface ScreenCapturePlugin {
    */
   addListener(
     eventName: "recordingState",
-    listenerFunc: (event: ScreenRecordingState) => void
+    listenerFunc: (event: ScreenRecordingState) => void,
   ): Promise<PluginListenerHandle>;
 
   /**
@@ -112,7 +112,7 @@ export interface ScreenCapturePlugin {
    */
   addListener(
     eventName: "error",
-    listenerFunc: (event: ScreenCaptureErrorEvent) => void
+    listenerFunc: (event: ScreenCaptureErrorEvent) => void,
   ): Promise<PluginListenerHandle>;
 
   /**

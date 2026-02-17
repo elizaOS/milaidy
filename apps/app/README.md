@@ -1,18 +1,18 @@
 <p align="center">
-  <img src="../ui/public/pfp.jpg" alt="Milaidy" width="120" />
+  <img src="../ui/public/pfp.jpg" alt="Milady" width="120" />
 </p>
 
-<h1 align="center">Milaidy</h1>
+<h1 align="center">Milady</h1>
 
 <p align="center">
   <em>cute agents for the acceleration</em>
 </p>
 
 <p align="center">
-  <a href="https://github.com/milady-ai/milaidy/actions/workflows/release.yml"><img src="https://github.com/milady-ai/milaidy/actions/workflows/release.yml/badge.svg" alt="Build & Release" /></a>
-  <a href="https://github.com/milady-ai/milaidy/actions/workflows/test.yml"><img src="https://github.com/milady-ai/milaidy/actions/workflows/test.yml/badge.svg" alt="Tests" /></a>
-  <a href="https://www.npmjs.com/package/milaidy"><img src="https://img.shields.io/npm/v/milaidy" alt="npm version" /></a>
-  <a href="https://github.com/milady-ai/milaidy/blob/main/LICENSE"><img src="https://img.shields.io/github/license/milady-ai/milaidy" alt="License" /></a>
+  <a href="https://github.com/milady-ai/milady/actions/workflows/release.yml"><img src="https://github.com/milady-ai/milady/actions/workflows/release.yml/badge.svg" alt="Build & Release" /></a>
+  <a href="https://github.com/milady-ai/milady/actions/workflows/test.yml"><img src="https://github.com/milady-ai/milady/actions/workflows/test.yml/badge.svg" alt="Tests" /></a>
+  <a href="https://www.npmjs.com/package/milady"><img src="https://img.shields.io/npm/v/milady" alt="npm version" /></a>
+  <a href="https://github.com/milady-ai/milady/blob/main/LICENSE"><img src="https://img.shields.io/github/license/milady-ai/milady" alt="License" /></a>
 </p>
 
 <p align="center">
@@ -30,34 +30,34 @@ A personal AI assistant you run on your own devices, built on [ElizaOS](https://
 macOS / Linux / WSL:
 
 ```bash
-curl -fsSL https://milady-ai.github.io/milaidy/install.sh | bash
+curl -fsSL https://milady-ai.github.io/milady/install.sh | bash
 ```
 
 Windows (PowerShell):
 
 ```powershell
-irm https://milady-ai.github.io/milaidy/install.ps1 | iex
+irm https://milady-ai.github.io/milady/install.ps1 | iex
 ```
 
 ### npm / npx
 
 ```bash
-npm install -g milaidy
+npm install -g milady
 # or run without installing
-npx milaidy
+npx milady
 # or with bun
-bunx milaidy
+bunx milady
 ```
 
 Then run setup:
 
 ```bash
-milaidy setup
+milady setup
 ```
 
 ### Download the App
 
-Desktop and mobile builds are available on the [Releases](https://github.com/milady-ai/milaidy/releases) page:
+Desktop and mobile builds are available on the [Releases](https://github.com/milady-ai/milady/releases) page:
 
 | Platform | Format |
 |---|---|
@@ -71,8 +71,8 @@ Desktop and mobile builds are available on the [Releases](https://github.com/mil
 ## Quick Start
 
 ```bash
-milaidy onboard --install-daemon
-milaidy agent --message "hello" --thinking high
+milady onboard --install-daemon
+milady agent --message "hello" --thinking high
 ```
 
 ## Development
@@ -82,8 +82,8 @@ milaidy agent --message "hello" --thinking high
 ### Setup
 
 ```bash
-git clone https://github.com/milady-ai/milaidy.git
-cd milaidy
+git clone https://github.com/milady-ai/milady.git
+cd milady
 
 bun install
 bun run build

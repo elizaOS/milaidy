@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-IMAGE_NAME="${MILAIDY_CLEANUP_SMOKE_IMAGE:-milaidy-cleanup-smoke:local}"
+IMAGE_NAME="${MILADY_CLEANUP_SMOKE_IMAGE:-milady-cleanup-smoke:local}"
 
 echo "==> Build image: $IMAGE_NAME"
 docker build \

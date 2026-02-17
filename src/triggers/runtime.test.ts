@@ -8,8 +8,8 @@ import {
   registerTriggerTaskWorker,
   TRIGGER_TASK_NAME,
   triggersFeatureEnabled,
-} from "./runtime.js";
-import { buildTriggerConfig } from "./scheduling.js";
+} from "./runtime";
+import { buildTriggerConfig } from "./scheduling";
 
 function makeTask(
   taskId: UUID,
@@ -142,10 +142,10 @@ describe("trigger runtime", () => {
   });
 
   test("honors trigger feature flag settings", () => {
-    const previous = process.env.MILAIDY_TRIGGERS_ENABLED;
-    process.env.MILAIDY_TRIGGERS_ENABLED = "0";
+    const previous = process.env.MILADY_TRIGGERS_ENABLED;
+    process.env.MILADY_TRIGGERS_ENABLED = "0";
     expect(triggersFeatureEnabled(runtime)).toBe(false);
-    process.env.MILAIDY_TRIGGERS_ENABLED = previous;
+    process.env.MILADY_TRIGGERS_ENABLED = previous;
   });
 
   test("executes cron trigger, dispatches and persists next schedule", async () => {
@@ -176,7 +176,7 @@ describe("trigger runtime", () => {
     const runtimeWithLimit = {
       ...runtime,
       getSetting: (key: string) =>
-        key === "MILAIDY_TRIGGERS_MAX_ACTIVE" ? 12 : undefined,
+        key === "MILADY_TRIGGERS_MAX_ACTIVE" ? 12 : undefined,
     } as IAgentRuntime;
     expect(getTriggerLimit(runtimeWithLimit)).toBe(12);
   });

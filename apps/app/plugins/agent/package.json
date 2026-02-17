@@ -1,8 +1,8 @@
 {
-  "name": "@milaidy/capacitor-agent",
+  "name": "@milady/capacitor-agent",
   "version": "1.0.0",
-  "description": "Milaidy Agent Plugin for Capacitor — agent lifecycle management",
- "main": "./dist/plugin.cjs.js",
+  "description": "Milady Agent Plugin for Capacitor — agent lifecycle management",
+  "main": "./dist/plugin.cjs.js",
   "module": "./src/index.ts",
   "types": "./dist/plugin.d.ts",
   "exports": {
@@ -16,7 +16,7 @@
   "files": [
     "dist/"
   ],
-  "author": "Milaidy",
+  "author": "Milady",
   "license": "MIT",
   "scripts": {
     "build": "npm run clean && tsc && rollup -c rollup.config.mjs",

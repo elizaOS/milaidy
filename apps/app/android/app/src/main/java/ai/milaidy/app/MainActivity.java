@@ -1,4 +1,4 @@
-package ai.milaidy.app;
+package ai.milady.app;
 
 import android.Manifest;
 import android.content.pm.PackageManager;

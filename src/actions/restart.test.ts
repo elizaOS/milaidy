@@ -6,8 +6,8 @@
 
 import type { ActionResult, Memory } from "@elizaos/core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setRestartHandler } from "../runtime/restart.js";
-import { restartAction } from "./restart.js";
+import { setRestartHandler } from "../runtime/restart";
+import { restartAction } from "./restart";
 
 // --- Mock runtime & message ------------------------------------------------
 

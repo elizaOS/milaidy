@@ -170,7 +170,7 @@ It is intended as the implementation checklist for execution.
 
 ---
 
-## Milaidy Runtime Integration Files
+## Milady Runtime Integration Files
 
 ## `src/runtime/eliza.ts`
 
@@ -193,15 +193,15 @@ It is intended as the implementation checklist for execution.
 
 ---
 
-## `src/runtime/milaidy-plugin.ts`
+## `src/runtime/milady-plugin.ts`
 
 ### Current role
 
-- Milaidy-specific plugins, actions, providers, evaluators registration
+- Milady-specific plugins, actions, providers, evaluators registration
 
 ### Planned changes
 
-- tag/classify Milaidy actions/providers/evaluators for fast profile policy
+- tag/classify Milady actions/providers/evaluators for fast profile policy
 - optionally provide fast-profile defaults in plugin config
 
 ### Risks

@@ -1,4 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  parsePositiveFloat,
+  parsePositiveInteger,
+} from "../../../../src/utils/number-parsing";
 import { useApp } from "../AppContext";
 import {
   client,
@@ -12,10 +16,6 @@ import {
   type TrainingTrajectoryDetail,
   type TrainingTrajectoryList,
 } from "../api-client";
-import {
-  parsePositiveFloat,
-  parsePositiveInteger,
-} from "../../../../src/utils/number-parsing.js";
 import { formatTime } from "./shared/format";
 
 const TRAINING_EVENT_KINDS = new Set<TrainingStreamEvent["kind"]>([
@@ -118,7 +118,9 @@ export function FineTuningView() {
 
   const [importModelName, setImportModelName] = useState("");
   const [importBaseModel, setImportBaseModel] = useState("");
-  const [importOllamaUrl, setImportOllamaUrl] = useState("http://localhost:11434");
+  const [importOllamaUrl, setImportOllamaUrl] = useState(
+    "http://localhost:11434",
+  );
   const [activateProviderModel, setActivateProviderModel] = useState("");
   const [modelAction, setModelAction] = useState("");
   const [smokeResult, setSmokeResult] = useState<string | null>(null);
@@ -136,7 +138,9 @@ export function FineTuningView() {
     [models, selectedModelId],
   );
   const activeRunningJob = useMemo(
-    () => jobs.find((job) => job.status === "running" || job.status === "queued") ?? null,
+    () =>
+      jobs.find((job) => job.status === "running" || job.status === "queued") ??
+      null,
     [jobs],
   );
 
@@ -146,7 +150,10 @@ export function FineTuningView() {
   }, []);
 
   const loadTrajectories = useCallback(async () => {
-    const listed = await client.listTrainingTrajectories({ limit: 100, offset: 0 });
+    const listed = await client.listTrainingTrajectories({
+      limit: 100,
+      offset: 0,
+    });
     setTrajectoryList(listed);
   }, []);
 
@@ -192,7 +199,9 @@ export function FineTuningView() {
       ]);
     } catch (err) {
       setErrorMessage(
-        err instanceof Error ? err.message : "Failed to refresh fine-tuning state.",
+        err instanceof Error
+          ? err.message
+          : "Failed to refresh fine-tuning state.",
       );
     } finally {
       setPageLoading(false);
@@ -207,7 +216,9 @@ export function FineTuningView() {
         setSelectedTrajectory(result.trajectory);
       } catch (err) {
         const message =
-          err instanceof Error ? err.message : "Failed to load trajectory detail.";
+          err instanceof Error
+            ? err.message
+            : "Failed to load trajectory detail.";
         setActionNotice(message, "error", 4200);
       } finally {
         setTrajectoryLoading(false);
@@ -260,7 +271,11 @@ export function FineTuningView() {
       const result = await client.startTrainingJob(options);
       setSelectedJobId(result.job.id);
       await Promise.all([loadJobs(), loadStatus()]);
-      setActionNotice(`Started training job ${result.job.id}.`, "success", 3200);
+      setActionNotice(
+        `Started training job ${result.job.id}.`,
+        "success",
+        3200,
+      );
     } catch (err) {
       setActionNotice(
         err instanceof Error ? err.message : "Failed to start training job.",
@@ -307,11 +322,14 @@ export function FineTuningView() {
     const actionId = `import:${selectedModel.id}`;
     setModelAction(actionId);
     try {
-      const result = await client.importTrainingModelToOllama(selectedModel.id, {
-        modelName: importModelName.trim() || undefined,
-        baseModel: importBaseModel.trim() || undefined,
-        ollamaUrl: importOllamaUrl.trim() || undefined,
-      });
+      const result = await client.importTrainingModelToOllama(
+        selectedModel.id,
+        {
+          modelName: importModelName.trim() || undefined,
+          baseModel: importBaseModel.trim() || undefined,
+          ollamaUrl: importOllamaUrl.trim() || undefined,
+        },
+      );
       await loadModels();
       setActivateProviderModel(
         result.model.ollamaModel ? `ollama/${result.model.ollamaModel}` : "",
@@ -323,7 +341,9 @@ export function FineTuningView() {
       );
     } catch (err) {
       setActionNotice(
-        err instanceof Error ? err.message : "Failed to import model to Ollama.",
+        err instanceof Error
+          ? err.message
+          : "Failed to import model to Ollama.",
         "error",
         4200,
       );
@@ -441,7 +461,9 @@ export function FineTuningView() {
 
   useEffect(() => {
     const unbind = client.onWsEvent("training_event", (rawEnvelope) => {
-      const event = asTrainingEvent(rawEnvelope as Partial<StreamEventEnvelope>);
+      const event = asTrainingEvent(
+        rawEnvelope as Partial<StreamEventEnvelope>,
+      );
       if (!event) return;
       setTrainingEvents((prev) => {
         const merged = [event, ...prev];
@@ -462,7 +484,9 @@ export function FineTuningView() {
   }, [loadDatasets, loadJobs, loadModels, loadStatus]);
 
   if (pageLoading) {
-    return <div className="text-sm text-muted">Loading fine-tuning workspace...</div>;
+    return (
+      <div className="text-sm text-muted">Loading fine-tuning workspace...</div>
+    );
   }
 
   return (
@@ -472,10 +496,12 @@ export function FineTuningView() {
           <div>
             <h2 className="text-lg font-semibold">Fine-Tuning</h2>
             <p className="text-xs text-muted mt-1">
-              Build datasets from real trajectories, run training jobs, then import and activate models.
+              Build datasets from real trajectories, run training jobs, then
+              import and activate models.
             </p>
           </div>
           <button
+            type="button"
             className="px-3 py-1 text-xs border border-border hover:border-accent"
             onClick={() => {
               void refreshAll();
@@ -507,6 +533,7 @@ export function FineTuningView() {
         <div className="flex items-center justify-between gap-3 mb-3">
           <h3 className="text-sm font-bold">Trajectories</h3>
           <button
+            type="button"
             className="px-2 py-1 text-xs border border-border hover:border-accent"
             onClick={() => {
               void loadTrajectories();
@@ -537,13 +564,16 @@ export function FineTuningView() {
                   ) : (
                     trajectoryList.trajectories.map((trajectory) => (
                       <button
+                        type="button"
                         key={trajectory.trajectoryId}
                         className="w-full text-left px-2 py-2 border-b border-border hover:bg-bg-hover text-xs"
                         onClick={() => {
                           void loadTrajectoryDetail(trajectory.trajectoryId);
                         }}
                       >
-                        <div className="font-mono">{trajectory.trajectoryId}</div>
+                        <div className="font-mono">
+                          {trajectory.trajectoryId}
+                        </div>
                         <div className="text-muted mt-1">
                           Calls: {trajectory.llmCallCount} · Reward:{" "}
                           {trajectory.totalReward ?? "n/a"} ·{" "}
@@ -555,20 +585,30 @@ export function FineTuningView() {
                 </div>
               </div>
               <div className="border border-border p-2">
-                <div className="text-[11px] text-muted mb-2">Selected trajectory</div>
+                <div className="text-[11px] text-muted mb-2">
+                  Selected trajectory
+                </div>
                 {trajectoryLoading ? (
-                  <div className="text-xs text-muted">Loading trajectory detail...</div>
+                  <div className="text-xs text-muted">
+                    Loading trajectory detail...
+                  </div>
                 ) : !selectedTrajectory ? (
-                  <div className="text-xs text-muted">Choose a trajectory to inspect.</div>
+                  <div className="text-xs text-muted">
+                    Choose a trajectory to inspect.
+                  </div>
                 ) : (
                   <div className="space-y-2">
                     <div className="text-xs">
                       <span className="font-semibold">Trajectory:</span>{" "}
-                      <span className="font-mono">{selectedTrajectory.trajectoryId}</span>
+                      <span className="font-mono">
+                        {selectedTrajectory.trajectoryId}
+                      </span>
                     </div>
                     <div className="text-xs">
                       <span className="font-semibold">Agent:</span>{" "}
-                      <span className="font-mono">{selectedTrajectory.agentId}</span>
+                      <span className="font-mono">
+                        {selectedTrajectory.agentId}
+                      </span>
                     </div>
                     <div className="text-xs">
                       <span className="font-semibold">Reward:</span>{" "}
@@ -603,6 +643,7 @@ export function FineTuningView() {
             placeholder="Min LLM calls per trajectory"
           />
           <button
+            type="button"
             className="px-3 py-1 text-xs border border-border hover:border-accent disabled:opacity-50"
             disabled={datasetBuilding}
             onClick={() => {
@@ -612,6 +653,7 @@ export function FineTuningView() {
             {datasetBuilding ? "Building..." : "Build Dataset"}
           </button>
           <button
+            type="button"
             className="px-3 py-1 text-xs border border-border hover:border-accent"
             onClick={() => {
               void loadDatasets();
@@ -637,7 +679,8 @@ export function FineTuningView() {
                 />
                 <span className="font-mono">{dataset.id}</span>
                 <span className="text-muted">
-                  {dataset.sampleCount} samples · {dataset.trajectoryCount} trajectories
+                  {dataset.sampleCount} samples · {dataset.trajectoryCount}{" "}
+                  trajectories
                 </span>
               </label>
             ))
@@ -698,6 +741,7 @@ export function FineTuningView() {
         </div>
         <div className="flex gap-2 mb-3">
           <button
+            type="button"
             className="px-3 py-1 text-xs border border-border hover:border-accent disabled:opacity-50"
             disabled={startingJob || Boolean(activeRunningJob)}
             onClick={() => {
@@ -707,6 +751,7 @@ export function FineTuningView() {
             {startingJob ? "Starting..." : "Start Training Job"}
           </button>
           <button
+            type="button"
             className="px-3 py-1 text-xs border border-border hover:border-accent"
             onClick={() => {
               void loadJobs();
@@ -717,7 +762,8 @@ export function FineTuningView() {
           </button>
           {activeRunningJob && (
             <div className="text-xs text-warn flex items-center">
-              Active job: <span className="font-mono ml-1">{activeRunningJob.id}</span>
+              Active job:{" "}
+              <span className="font-mono ml-1">{activeRunningJob.id}</span>
             </div>
           )}
         </div>
@@ -735,6 +781,7 @@ export function FineTuningView() {
                 >
                   <div className="flex items-center justify-between gap-2">
                     <button
+                      type="button"
                       className="font-mono text-left hover:text-accent"
                       onClick={() => setSelectedJobId(job.id)}
                     >
@@ -742,13 +789,16 @@ export function FineTuningView() {
                     </button>
                     {(job.status === "running" || job.status === "queued") && (
                       <button
+                        type="button"
                         className="px-2 py-0.5 border border-border hover:border-danger text-[11px] disabled:opacity-50"
                         disabled={cancellingJobId === job.id}
                         onClick={() => {
                           void handleCancelJob(job.id);
                         }}
                       >
-                        {cancellingJobId === job.id ? "Cancelling..." : "Cancel"}
+                        {cancellingJobId === job.id
+                          ? "Cancelling..."
+                          : "Cancel"}
                       </button>
                     )}
                   </div>
@@ -763,12 +813,15 @@ export function FineTuningView() {
           <div className="border border-border p-2">
             <div className="text-[11px] text-muted mb-2">Selected job logs</div>
             {!selectedJob ? (
-              <div className="text-xs text-muted">Select a job to inspect logs.</div>
+              <div className="text-xs text-muted">
+                Select a job to inspect logs.
+              </div>
             ) : (
               <div className="space-y-2">
                 <div className="text-xs">
-                  <span className="font-semibold">Status:</span> {selectedJob.status} ·{" "}
-                  {formatProgress(selectedJob.progress)} · {selectedJob.phase}
+                  <span className="font-semibold">Status:</span>{" "}
+                  {selectedJob.status} · {formatProgress(selectedJob.progress)}{" "}
+                  · {selectedJob.phase}
                 </div>
                 <div className="text-xs">
                   <span className="font-semibold">Dataset:</span>{" "}
@@ -790,13 +843,18 @@ export function FineTuningView() {
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
           <div className="border border-border max-h-72 overflow-auto">
             {models.length === 0 ? (
-              <div className="p-3 text-xs text-muted">No trained models yet.</div>
+              <div className="p-3 text-xs text-muted">
+                No trained models yet.
+              </div>
             ) : (
               models.map((model) => (
                 <button
+                  type="button"
                   key={model.id}
                   className={`w-full text-left px-2 py-2 border-b border-border text-xs ${
-                    selectedModelId === model.id ? "bg-bg-hover" : "hover:bg-bg-hover"
+                    selectedModelId === model.id
+                      ? "bg-bg-hover"
+                      : "hover:bg-bg-hover"
                   }`}
                   onClick={() => setSelectedModelId(model.id)}
                 >
@@ -820,7 +878,9 @@ export function FineTuningView() {
           <div className="border border-border p-2">
             <div className="text-[11px] text-muted mb-2">Model actions</div>
             {!selectedModel ? (
-              <div className="text-xs text-muted">Select a model to import or activate.</div>
+              <div className="text-xs text-muted">
+                Select a model to import or activate.
+              </div>
             ) : (
               <div className="space-y-2">
                 <div className="text-xs">
@@ -829,7 +889,9 @@ export function FineTuningView() {
                 </div>
                 <div className="text-xs">
                   <span className="font-semibold">Adapter path:</span>{" "}
-                  <span className="font-mono">{selectedModel.adapterPath ?? "n/a"}</span>
+                  <span className="font-mono">
+                    {selectedModel.adapterPath ?? "n/a"}
+                  </span>
                 </div>
 
                 <input
@@ -851,6 +913,7 @@ export function FineTuningView() {
                   placeholder="Ollama URL"
                 />
                 <button
+                  type="button"
                   className="px-3 py-1 text-xs border border-border hover:border-accent disabled:opacity-50"
                   disabled={modelAction === `import:${selectedModel.id}`}
                   onClick={() => {
@@ -865,11 +928,14 @@ export function FineTuningView() {
                 <input
                   className="w-full px-2 py-1 border border-border bg-bg text-sm"
                   value={activateProviderModel}
-                  onChange={(event) => setActivateProviderModel(event.target.value)}
+                  onChange={(event) =>
+                    setActivateProviderModel(event.target.value)
+                  }
                   placeholder='Provider model (e.g. "ollama/my-model")'
                 />
                 <div className="flex gap-2">
                   <button
+                    type="button"
                     className="px-3 py-1 text-xs border border-border hover:border-accent disabled:opacity-50"
                     disabled={modelAction === `activate:${selectedModel.id}`}
                     onClick={() => {
@@ -881,6 +947,7 @@ export function FineTuningView() {
                       : "Activate Model"}
                   </button>
                   <button
+                    type="button"
                     className="px-3 py-1 text-xs border border-border hover:border-accent disabled:opacity-50"
                     disabled={modelAction === `benchmark:${selectedModel.id}`}
                     onClick={() => {
@@ -892,6 +959,7 @@ export function FineTuningView() {
                       : "Benchmark"}
                   </button>
                   <button
+                    type="button"
                     className="px-3 py-1 text-xs border border-border hover:border-accent disabled:opacity-50"
                     disabled={modelAction === `smoke:${selectedModel.id}`}
                     onClick={() => {
@@ -925,15 +993,23 @@ export function FineTuningView() {
             </div>
           ) : (
             trainingEvents.map((event, index) => (
-              <div key={`${event.ts}-${event.kind}-${index}`} className="px-2 py-1.5 border-b border-border text-xs">
+              <div
+                key={`${event.ts}-${event.kind}-${index}`}
+                className="px-2 py-1.5 border-b border-border text-xs"
+              >
                 <span className="font-mono text-muted mr-2">
                   {formatTime(event.ts, { fallback: "—" })}
                 </span>
                 <span className="font-semibold">{event.kind}</span>
                 {typeof event.progress === "number" && (
-                  <span className="text-muted"> · {formatProgress(event.progress)}</span>
+                  <span className="text-muted">
+                    {" "}
+                    · {formatProgress(event.progress)}
+                  </span>
                 )}
-                {event.phase && <span className="text-muted"> · {event.phase}</span>}
+                {event.phase && (
+                  <span className="text-muted"> · {event.phase}</span>
+                )}
                 <div className="text-muted mt-0.5">{event.message}</div>
               </div>
             ))

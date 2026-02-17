@@ -5,11 +5,11 @@
  * API key format validation, default-value handling, and edge cases.
  */
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createEnvSandbox } from "../test-support/test-helpers.js";
+import { createEnvSandbox } from "../test-support/test-helpers";
 import {
   type PluginParamInfo,
   validatePluginConfig,
-} from "./plugin-validation.js";
+} from "./plugin-validation";
 
 describe("validatePluginConfig", () => {
   const envKeysToClean = [
@@ -312,6 +312,78 @@ describe("validatePluginConfig", () => {
 
     expect(result.valid).toBe(false);
     expect(result.errors.some((e) => e.field === "UNDECLARED_KEY")).toBe(true);
+  });
+
+  it("reports exactly one error per undeclared config key", () => {
+    const result = validatePluginConfig(
+      "anthropic",
+      "ai-provider",
+      "ANTHROPIC_API_KEY",
+      ["ANTHROPIC_API_KEY", "ANTHROPIC_SMALL_MODEL"],
+      {
+        ANTHROPIC_API_KEY: "sk-ant-test-1234567890abcdef",
+        UNDECLARED_KEY: "oops",
+      },
+      [
+        {
+          key: "ANTHROPIC_API_KEY",
+          required: true,
+          sensitive: true,
+          type: "string",
+          description: "API key",
+        },
+        {
+          key: "ANTHROPIC_SMALL_MODEL",
+          required: false,
+          sensitive: false,
+          type: "string",
+          description: "Small model",
+          default: "claude-3-5-haiku-20241022",
+        },
+      ],
+    );
+
+    const undeclaredErrors = result.errors.filter(
+      (error) => error.field === "UNDECLARED_KEY",
+    );
+    expect(undeclaredErrors).toHaveLength(1);
+  });
+
+  it("rejects differently-cased config keys to avoid silent no-op updates", () => {
+    const result = validatePluginConfig(
+      "anthropic",
+      "ai-provider",
+      "ANTHROPIC_API_KEY",
+      ["ANTHROPIC_API_KEY", "ANTHROPIC_SMALL_MODEL"],
+      {
+        ANTHROPIC_API_KEY: "sk-ant-test-1234567890abcdef",
+        anthropic_small_model: "claude-3-5-sonnet-20241022",
+      },
+      [
+        {
+          key: "ANTHROPIC_API_KEY",
+          required: true,
+          sensitive: true,
+          type: "string",
+          description: "API key",
+        },
+        {
+          key: "ANTHROPIC_SMALL_MODEL",
+          required: false,
+          sensitive: false,
+          type: "string",
+          description: "Small model",
+          default: "claude-3-5-haiku-20241022",
+        },
+      ],
+    );
+
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContainEqual({
+      field: "anthropic_small_model",
+      message:
+        "anthropic_small_model does not match declared config key casing; use ANTHROPIC_SMALL_MODEL",
+    });
   });
 
   // ---------------------------------------------------------------------------

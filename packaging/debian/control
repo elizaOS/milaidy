@@ -1,20 +1,20 @@
-Source: milaidy
+Source: milady
 Section: misc
 Priority: optional
 Maintainer: milady-ai <dev@milady.ai>
 Build-Depends: debhelper-compat (= 13), nodejs (>= 22.12.0), npm
 Standards-Version: 4.6.2
 Homepage: https://milady.ai
-Vcs-Git: https://github.com/milady-ai/milaidy.git
-Vcs-Browser: https://github.com/milady-ai/milaidy
+Vcs-Git: https://github.com/milady-ai/milady.git
+Vcs-Browser: https://github.com/milady-ai/milady
 Rules-Requires-Root: no
 
-Package: milaidy
+Package: milady
 Architecture: all
 Depends: nodejs (>= 22.12.0), ${misc:Depends}
 Recommends: npm
 Description: Personal AI assistant built on ElizaOS
- Milaidy is a personal AI assistant you run on your own devices, built
+ Milady is a personal AI assistant you run on your own devices, built
  on ElizaOS. It provides zero-config onboarding, multi-provider AI
  support, a web dashboard, and a plugin system.
  .

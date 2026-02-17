@@ -59,7 +59,9 @@ export function CloudConnectionStatus({
         </>
       ) : (
         <>
-          <span className="text-xs text-[var(--muted)]">{disconnectedText}</span>
+          <span className="text-xs text-[var(--muted)]">
+            {disconnectedText}
+          </span>
           <span className="text-[10px] px-1.5 py-0.5 border border-yellow-600 text-yellow-600">
             Offline
           </span>

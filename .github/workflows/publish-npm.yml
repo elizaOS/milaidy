@@ -1,6 +1,6 @@
 name: Publish npm
 
-# Publishes milaidy to npm with the correct dist-tag based on the version.
+# Publishes milady to npm with the correct dist-tag based on the version.
 #
 # Channel mapping:
 #   - Stable releases (v2.0.0)           → dist-tag "latest"
@@ -110,7 +110,7 @@ jobs:
           echo "$PACK_OUTPUT"
 
           # Verify critical files are included in the package
-          for required in "milaidy.mjs" "dist/index.js" "package.json"; do
+          for required in "milady.mjs" "dist/index.js" "package.json"; do
             if ! echo "$PACK_OUTPUT" | grep -q "$required"; then
               echo "::error::Required file '$required' missing from package contents"
               exit 1
@@ -127,11 +127,11 @@ jobs:
       - name: Verify publish
         run: |
           sleep 5  # Give the registry a moment to propagate
-          PUBLISHED=$(npm view milaidy@${{ steps.meta.outputs.dist_tag }} version 2>/dev/null || echo "")
+          PUBLISHED=$(npm view milady@${{ steps.meta.outputs.dist_tag }} version 2>/dev/null || echo "")
           EXPECTED="${{ steps.meta.outputs.version }}"
 
           if [[ "$PUBLISHED" == "$EXPECTED" ]]; then
-            echo "Verified: milaidy@${{ steps.meta.outputs.dist_tag }} → $PUBLISHED"
+            echo "Verified: milady@${{ steps.meta.outputs.dist_tag }} → $PUBLISHED"
           else
             echo "::warning::Published version ($PUBLISHED) does not match expected ($EXPECTED). Registry may still be propagating."
           fi
@@ -142,11 +142,11 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
           echo "|-------|-------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Package | milaidy |" >> $GITHUB_STEP_SUMMARY
+          echo "| Package | milady |" >> $GITHUB_STEP_SUMMARY
           echo "| Version | \`${{ steps.meta.outputs.version }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| Dist-tag | \`${{ steps.meta.outputs.dist_tag }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Install" >> $GITHUB_STEP_SUMMARY
           echo '```bash' >> $GITHUB_STEP_SUMMARY
-          echo "npm install -g milaidy@${{ steps.meta.outputs.dist_tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "npm install -g milady@${{ steps.meta.outputs.dist_tag }}" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY

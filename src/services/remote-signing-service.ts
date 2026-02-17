@@ -3,13 +3,13 @@
  * sandboxed agents submit unsigned tx → policy check → sign → return.
  */
 
-import type { SandboxAuditLog } from "../security/audit-log.js";
+import type { SandboxAuditLog } from "../security/audit-log";
 import {
   type PolicyDecision,
   type SigningPolicy,
   SigningPolicyEvaluator,
   type SigningRequest,
-} from "./signing-policy.js";
+} from "./signing-policy";
 
 export interface SignerBackend {
   getAddress(): Promise<string>;

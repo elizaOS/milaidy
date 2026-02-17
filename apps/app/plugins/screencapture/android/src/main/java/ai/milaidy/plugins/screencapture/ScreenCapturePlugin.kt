@@ -1,4 +1,4 @@
-package ai.milaidy.plugins.screencapture
+package ai.milady.plugins.screencapture
 
 import android.Manifest
 import android.app.Activity

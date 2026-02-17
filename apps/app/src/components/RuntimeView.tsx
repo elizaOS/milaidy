@@ -39,7 +39,8 @@ function nodeSummary(value: unknown): string {
     const compact = value.length > 100 ? `${value.slice(0, 100)}...` : value;
     return JSON.stringify(compact);
   }
-  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (typeof value === "number" || typeof value === "boolean")
+    return String(value);
   if (Array.isArray(value)) return `Array(${value.length})`;
   if (typeof value === "object") {
     const record = value as Record<string, unknown>;
@@ -87,17 +88,16 @@ function nodeEntries(
     }));
   }
   if (!value || typeof value !== "object") return [];
-  return Object.entries(value as Record<string, unknown>).map(([key, entry]) => ({
-    key,
-    value: entry,
-    path: `${path}.${key}`,
-  }));
+  return Object.entries(value as Record<string, unknown>).map(
+    ([key, entry]) => ({
+      key,
+      value: entry,
+      path: `${path}.${key}`,
+    }),
+  );
 }
 
-function buildInitialExpanded(
-  rootPath: string,
-  value: unknown,
-): Set<string> {
+function buildInitialExpanded(rootPath: string, value: unknown): Set<string> {
   const expanded = new Set<string>([rootPath]);
   const firstLayer = nodeEntries(value, rootPath).slice(0, 24);
   for (const entry of firstLayer) expanded.add(entry.path);
@@ -197,9 +197,13 @@ function ServicesOrderCard(props: { entries: RuntimeServiceOrderItem[] }) {
           <div className="text-[var(--muted)]">none</div>
         ) : (
           entries.map((serviceGroup) => (
-            <div key={`${serviceGroup.serviceType}-${serviceGroup.index}`} className="mb-2">
+            <div
+              key={`${serviceGroup.serviceType}-${serviceGroup.index}`}
+              className="mb-2"
+            >
               <div className="text-[var(--txt)]">
-                [{serviceGroup.index}] {serviceGroup.serviceType} ({serviceGroup.count})
+                [{serviceGroup.index}] {serviceGroup.serviceType} (
+                {serviceGroup.count})
               </div>
               {serviceGroup.instances.map((instance) => (
                 <div
@@ -221,7 +225,8 @@ export function RuntimeView() {
   const [snapshot, setSnapshot] = useState<RuntimeDebugSnapshot | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [activeSection, setActiveSection] = useState<RuntimeSectionKey>("runtime");
+  const [activeSection, setActiveSection] =
+    useState<RuntimeSectionKey>("runtime");
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
 
   const [depth, setDepth] = useState(10);
@@ -242,7 +247,9 @@ export function RuntimeView() {
       });
       setSnapshot(next);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load runtime snapshot");
+      setError(
+        err instanceof Error ? err.message : "Failed to load runtime snapshot",
+      );
     } finally {
       setLoading(false);
     }
@@ -276,7 +283,9 @@ export function RuntimeView() {
             min={1}
             max={24}
             value={depth}
-            onChange={(e) => setDepth(Math.max(1, Math.min(24, Number(e.target.value) || 1)))}
+            onChange={(e) =>
+              setDepth(Math.max(1, Math.min(24, Number(e.target.value) || 1)))
+            }
             className="w-16 px-1.5 py-0.5 border border-[var(--border)] bg-[var(--bg)] text-[var(--txt)] rounded-sm"
           />
         </label>
@@ -287,7 +296,11 @@ export function RuntimeView() {
             min={1}
             max={5000}
             value={maxArrayLength}
-            onChange={(e) => setMaxArrayLength(Math.max(1, Math.min(5000, Number(e.target.value) || 1)))}
+            onChange={(e) =>
+              setMaxArrayLength(
+                Math.max(1, Math.min(5000, Number(e.target.value) || 1)),
+              )
+            }
             className="w-20 px-1.5 py-0.5 border border-[var(--border)] bg-[var(--bg)] text-[var(--txt)] rounded-sm"
           />
         </label>
@@ -298,7 +311,11 @@ export function RuntimeView() {
             min={1}
             max={5000}
             value={maxObjectEntries}
-            onChange={(e) => setMaxObjectEntries(Math.max(1, Math.min(5000, Number(e.target.value) || 1)))}
+            onChange={(e) =>
+              setMaxObjectEntries(
+                Math.max(1, Math.min(5000, Number(e.target.value) || 1)),
+              )
+            }
             className="w-20 px-1.5 py-0.5 border border-[var(--border)] bg-[var(--bg)] text-[var(--txt)] rounded-sm"
           />
         </label>
@@ -319,13 +336,17 @@ export function RuntimeView() {
         </button>
         <button
           type="button"
-          onClick={() => setExpandedPaths(buildInitialExpanded(rootPath, sectionData))}
+          onClick={() =>
+            setExpandedPaths(buildInitialExpanded(rootPath, sectionData))
+          }
           className="px-3 py-1.5 text-xs rounded border border-[var(--border)] bg-[var(--bg)] hover:bg-[var(--bg-hover)]"
         >
           Expand Top
         </button>
         <div className="text-[11px] text-[var(--muted)] ml-auto">
-          {snapshot ? `Last updated: ${formatDateTime(snapshot.generatedAt, { fallback: "n/a" })}` : "No snapshot loaded"}
+          {snapshot
+            ? `Last updated: ${formatDateTime(snapshot.generatedAt, { fallback: "n/a" })}`
+            : "No snapshot loaded"}
         </div>
       </div>
 
@@ -339,7 +360,9 @@ export function RuntimeView() {
           <div className="border border-[var(--border)] bg-[var(--card)] rounded-md p-3">
             <div className="text-xs font-semibold mb-2">Summary</div>
             <div className="text-[11px] font-mono leading-5">
-              <div>runtime: {snapshot.runtimeAvailable ? "available" : "offline"}</div>
+              <div>
+                runtime: {snapshot.runtimeAvailable ? "available" : "offline"}
+              </div>
               <div>agent: {snapshot.meta.agentName}</div>
               <div>state: {snapshot.meta.agentState}</div>
               <div>model: {snapshot.meta.model ?? "n/a"}</div>
@@ -378,7 +401,9 @@ export function RuntimeView() {
           <div className="text-xs text-danger p-3">{error}</div>
         ) : !snapshot ? (
           <div className="text-xs text-[var(--muted)] p-3">
-            {loading ? "Loading runtime snapshot..." : "No runtime snapshot available."}
+            {loading
+              ? "Loading runtime snapshot..."
+              : "No runtime snapshot available."}
           </div>
         ) : !snapshot.runtimeAvailable ? (
           <div className="text-xs text-[var(--muted)] p-3">

@@ -239,9 +239,9 @@
 <body>
 
 <div class="header">
-  <div class="header-logo">milaidy</div>
+  <div class="header-logo">milady</div>
   <nav>
-    <a href="https://github.com/milady-ai/milaidy">GitHub</a>
+    <a href="https://github.com/milady-ai/milady">GitHub</a>
     <a href="https://discord.gg/milady">Discord</a>
   </nav>
 </div>
@@ -251,28 +251,28 @@
   <!-- Hero -->
   <div class="box">
     <div class="box-body hero">
-      <img src="pfp.jpg" alt="Milaidy" class="hero-avatar">
+      <img src="pfp.jpg" alt="Milady" class="hero-avatar">
       <h1>milAIdy &mdash; An Autonomous Agent</h1>
       <p class="hero-tagline">
         The cutest autonomous agent.
       </p>
-      <a class="hero-cta" href="https://github.com/milady-ai/milaidy/releases/latest">Download macOS DMG</a>
+      <a class="hero-cta" href="https://github.com/milady-ai/milady/releases/latest">Download macOS DMG</a>
       <div class="hero-secondary">
-        <a href="https://github.com/milady-ai/milaidy/releases/latest">Windows</a> &middot;
-        <a href="https://github.com/milady-ai/milaidy/releases/latest">Linux</a> &middot;
-        <code>npx milaidy</code>
+        <a href="https://github.com/milady-ai/milady/releases/latest">Windows</a> &middot;
+        <a href="https://github.com/milady-ai/milady/releases/latest">Linux</a> &middot;
+        <code>npx milady</code>
       </div>
     </div>
   </div>
 
-  <!-- What is Milaidy? -->
+  <!-- What is Milady? -->
   <div class="box">
-    <div class="box-header">What is Milaidy?</div>
+    <div class="box-header">What is Milady?</div>
     <div class="box-body">
       <ul>
         <li><strong>Personal AI assistant</strong> that runs locally on your own devices</li>
         <li>Built on <a href="https://github.com/elizaos">ElizaOS</a> &mdash; the open-source agent framework</li>
-        <li><strong>Zero config</strong> &mdash; get an agent running in seconds with <code>npx milaidy</code></li>
+        <li><strong>Zero config</strong> &mdash; get an agent running in seconds with <code>npx milady</code></li>
         <li>Gateway manages sessions, tools, and events &mdash; connects to messaging platforms, companion apps, and WebChat UI</li>
         <li>Supports Anthropic, OpenAI, Google, Ollama, and more &mdash; pick any provider during onboarding</li>
         <li>First-class EVM and Solana wallet support</li>
@@ -285,11 +285,11 @@
     <div class="box-header">Quick Start</div>
     <div class="box-body">
       <p>Get an agent running in seconds. No config files needed.</p>
-      <pre><code>npx milaidy</code></pre>
-      <p>On first run, Milaidy walks you through:</p>
+      <pre><code>npx milady</code></pre>
+      <p>On first run, Milady walks you through:</p>
       <ol>
         <li><strong>Pick a name</strong> for your agent (or use a random one)</li>
-        <li><strong>Choose a personality</strong> style</li>
+        <li><strong>Choose a personality tone</strong></li>
         <li><strong>Connect a model</strong> provider (or skip to configure later)</li>
       </ol>
       <p>The agent starts immediately after onboarding. The web dashboard opens at <code>http://localhost:18789</code>.</p>
@@ -305,17 +305,17 @@
           <tr><th>Platform</th><th>Download</th></tr>
         </thead>
         <tbody>
-          <tr><td>macOS (Apple Silicon)</td><td><a href="https://github.com/milady-ai/milaidy/releases/latest">Milaidy-arm64.dmg</a></td></tr>
-          <tr><td>macOS (Intel)</td><td><a href="https://github.com/milady-ai/milaidy/releases/latest">Milaidy-x64.dmg</a></td></tr>
-          <tr><td>Windows</td><td><a href="https://github.com/milady-ai/milaidy/releases/latest">Milaidy-Setup.exe</a></td></tr>
-          <tr><td>Linux</td><td><a href="https://github.com/milady-ai/milaidy/releases/latest">Milaidy.AppImage</a> / <a href="https://github.com/milady-ai/milaidy/releases/latest">.deb</a></td></tr>
+          <tr><td>macOS (Apple Silicon)</td><td><a href="https://github.com/milady-ai/milady/releases/latest">Milady-arm64.dmg</a></td></tr>
+          <tr><td>macOS (Intel)</td><td><a href="https://github.com/milady-ai/milady/releases/latest">Milady-x64.dmg</a></td></tr>
+          <tr><td>Windows</td><td><a href="https://github.com/milady-ai/milady/releases/latest">Milady-Setup.exe</a></td></tr>
+          <tr><td>Linux</td><td><a href="https://github.com/milady-ai/milady/releases/latest">Milady.AppImage</a> / <a href="https://github.com/milady-ai/milady/releases/latest">.deb</a></td></tr>
         </tbody>
       </table>
       <p class="note">Signed and notarized &mdash; no Gatekeeper warnings on a fresh install.</p>
 
       <p style="margin-top: 1em; font-weight: 700; font-size: 13px;">Verify checksums</p>
       <pre><code>cd ~/Downloads
-curl -fsSLO https://github.com/milady-ai/milaidy/releases/latest/download/SHA256SUMS.txt
+curl -fsSLO https://github.com/milady-ai/milady/releases/latest/download/SHA256SUMS.txt
 shasum -a 256 --check --ignore-missing SHA256SUMS.txt</code></pre>
     </div>
   </div>
@@ -327,23 +327,23 @@ shasum -a 256 --check --ignore-missing SHA256SUMS.txt</code></pre>
       <p>Runtime: <strong>Node &gt;= 22</strong>. Works with npm or bun.</p>
 
       <p style="margin-top: 0.8em; font-weight: 700; font-size: 13px;">One-line install (macOS / Linux / WSL)</p>
-      <pre><code>curl -fsSL https://milady-ai.github.io/milaidy/install.sh | bash</code></pre>
+      <pre><code>curl -fsSL https://milady-ai.github.io/milady/install.sh | bash</code></pre>
 
       <p style="margin-top: 0.8em; font-weight: 700; font-size: 13px;">Windows (PowerShell)</p>
-      <pre><code>irm https://milady-ai.github.io/milaidy/install.ps1 | iex</code></pre>
+      <pre><code>irm https://milady-ai.github.io/milady/install.ps1 | iex</code></pre>
 
       <p style="margin-top: 0.8em; font-weight: 700; font-size: 13px;">Manual install</p>
-      <pre><code>npm install -g milaidy
-milaidy start</code></pre>
+      <pre><code>npm install -g milady
+milady start</code></pre>
     </div>
   </div>
 
 </div>
 
 <div class="footer">
-  &copy; 2025 Milaidy &middot;
-  <a href="https://github.com/milady-ai/milaidy">GitHub</a> &middot;
-  <a href="https://github.com/milady-ai/milaidy/blob/main/LICENSE">MIT License</a>
+  &copy; 2025 Milady &middot;
+  <a href="https://github.com/milady-ai/milady">GitHub</a> &middot;
+  <a href="https://github.com/milady-ai/milady/blob/main/LICENSE">MIT License</a>
 </div>
 
 <div class="coming-soon-overlay" id="comingSoonPopup" role="dialog" aria-modal="true" aria-labelledby="comingSoonTitle">
@@ -361,13 +361,13 @@ milaidy start</code></pre>
 </div>
 
 <script>
-  (function () {
+  (() => {
     var popup = document.getElementById("comingSoonPopup");
     var closeButton = document.getElementById("comingSoonClose");
     if (!popup || !closeButton) {
       return;
     }
-    closeButton.addEventListener("click", function () {
+    closeButton.addEventListener("click", () => {
       popup.style.display = "none";
     });
   })();

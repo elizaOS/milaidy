@@ -77,7 +77,7 @@ const findLatestMtime = (dirPath, shouldSkip) => {
 };
 
 const shouldBuild = () => {
-  if (env.MILAIDY_FORCE_BUILD === "1") {
+  if (env.MILADY_FORCE_BUILD === "1") {
     return true;
   }
   const stampMtime = statMtime(buildStampPath);
@@ -103,10 +103,10 @@ const shouldBuild = () => {
 };
 
 const logRunner = (message) => {
-  if (env.MILAIDY_RUNNER_LOG === "0") {
+  if (env.MILADY_RUNNER_LOG === "0") {
     return;
   }
-  process.stderr.write(`[milaidy] ${message}\n`);
+  process.stderr.write(`[milady] ${message}\n`);
 };
 
 /** Exit code used by the restart action to signal "restart requested". */
@@ -114,9 +114,9 @@ const RESTART_EXIT_CODE = 75;
 
 const runNode = () => {
   // Eliza MIGRATION: Use bun for faster startup and better TypeScript support
-  const runtime = process.env.MILAIDY_RUNTIME || "bun";
+  const runtime = process.env.MILADY_RUNTIME || "bun";
   const execPath = runtime === "bun" ? "bun" : process.execPath;
-  const nodeProcess = spawn(execPath, ["milaidy.mjs", ...args], {
+  const nodeProcess = spawn(execPath, ["milady.mjs", ...args], {
     cwd,
     env,
     stdio: "inherit",

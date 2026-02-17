@@ -1,12 +1,12 @@
 /**
  * Unit tests for the CharacterSchema Zod validation.
  *
- * Verifies that the character section of MilaidyConfig is properly
+ * Verifies that the character section of MiladyConfig is properly
  * validated: correct shapes pass, invalid shapes are rejected,
  * and edge cases are handled.
  */
 import { describe, expect, it } from "vitest";
-import { CharacterSchema } from "./zod-schema.js";
+import { CharacterSchema } from "./zod-schema";
 
 describe("CharacterSchema", () => {
   it("accepts undefined (character is optional)", () => {

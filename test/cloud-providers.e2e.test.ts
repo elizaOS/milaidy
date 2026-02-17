@@ -8,20 +8,20 @@
  *   4. Model call routing (correct plugin handles the call)
  *   5. Live model calls when API keys are available
  *
- * Live tests (requiring real API keys) are gated by MILAIDY_LIVE_TEST=1.
+ * Live tests (requiring real API keys) are gated by MILADY_LIVE_TEST=1.
  * Set OPENAI_API_KEY, ANTHROPIC_API_KEY, etc. in env to enable live tests.
  *
  * Run:
  *   pnpm test:e2e -- test/cloud-providers.e2e.test.ts
- *   MILAIDY_LIVE_TEST=1 OPENAI_API_KEY=sk-... pnpm test:e2e -- test/cloud-providers.e2e.test.ts
+ *   MILADY_LIVE_TEST=1 OPENAI_API_KEY=sk-... pnpm test:e2e -- test/cloud-providers.e2e.test.ts
  */
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { MilaidyConfig } from "../src/config/config.js";
+import type { MiladyConfig } from "../src/config/config";
 import {
   applyCloudConfigToEnv,
   buildCharacterFromConfig,
   collectPluginNames,
-} from "../src/runtime/eliza.js";
+} from "../src/runtime/eliza";
 
 // ---------------------------------------------------------------------------
 // Env snapshot helper
@@ -82,26 +82,26 @@ afterEach(() => snap.restore());
 describe("Provider plugin selection (auto-detect, no allowlist)", () => {
   it("loads OpenAI plugin when OPENAI_API_KEY is set", () => {
     process.env.OPENAI_API_KEY = "sk-test";
-    const names = collectPluginNames({} as MilaidyConfig);
+    const names = collectPluginNames({} as MiladyConfig);
     expect(names.has("@elizaos/plugin-openai")).toBe(true);
   });
 
   it("loads Anthropic plugin when ANTHROPIC_API_KEY is set", () => {
     process.env.ANTHROPIC_API_KEY = "sk-ant-test";
-    const names = collectPluginNames({} as MilaidyConfig);
+    const names = collectPluginNames({} as MiladyConfig);
     expect(names.has("@elizaos/plugin-anthropic")).toBe(true);
   });
 
   it("loads cloud plugin when config.cloud.enabled is true", () => {
-    const config = { cloud: { enabled: true } } as MilaidyConfig;
+    const config = { cloud: { enabled: true } } as MiladyConfig;
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-elizacloud")).toBe(true);
   });
 
-  it("loads cloud plugin when only apiKey exists (enabled=false)", () => {
+  it("keeps core cloud plugin loaded when cloud is explicitly disabled", () => {
     const config = {
       cloud: { enabled: false, apiKey: "ck-test" },
-    } as MilaidyConfig;
+    } as MiladyConfig;
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-elizacloud")).toBe(true);
   });
@@ -109,16 +109,16 @@ describe("Provider plugin selection (auto-detect, no allowlist)", () => {
   it("loads multiple providers when multiple keys are set", () => {
     process.env.OPENAI_API_KEY = "sk-test";
     process.env.ANTHROPIC_API_KEY = "sk-ant-test";
-    const names = collectPluginNames({} as MilaidyConfig);
+    const names = collectPluginNames({} as MiladyConfig);
     expect(names.has("@elizaos/plugin-openai")).toBe(true);
     expect(names.has("@elizaos/plugin-anthropic")).toBe(true);
   });
 
-  it("loads no AI provider when nothing is configured", () => {
-    const names = collectPluginNames({} as MilaidyConfig);
+  it("loads no direct AI provider when nothing is configured", () => {
+    const names = collectPluginNames({} as MiladyConfig);
     expect(names.has("@elizaos/plugin-openai")).toBe(false);
     expect(names.has("@elizaos/plugin-anthropic")).toBe(false);
-    expect(names.has("@elizaos/plugin-elizacloud")).toBe(false);
+    expect(names.has("@elizaos/plugin-elizacloud")).toBe(true);
   });
 });
 
@@ -130,11 +130,11 @@ describe("Provider plugin selection (explicit allowlist)", () => {
   const makeConfig = (
     allow: string[],
     cloud?: { enabled?: boolean; apiKey?: string },
-  ): MilaidyConfig =>
+  ): MiladyConfig =>
     ({
       plugins: { allow },
       ...(cloud ? { cloud } : {}),
-    }) as MilaidyConfig;
+    }) as MiladyConfig;
 
   it("respects allowlist and includes only listed plugins", () => {
     const config = makeConfig([
@@ -162,7 +162,7 @@ describe("Provider plugin selection (explicit allowlist)", () => {
     expect(names.has("@elizaos/plugin-elizacloud")).toBe(true);
   });
 
-  it("injects cloud plugin when only apiKey exists (enabled=false)", () => {
+  it("keeps core cloud plugin when cloud is explicitly disabled", () => {
     const config = makeConfig(["@elizaos/plugin-anthropic"], {
       enabled: false,
       apiKey: "ck-test",
@@ -201,7 +201,7 @@ describe("Provider plugin selection (explicit allowlist)", () => {
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-anthropic")).toBe(true);
     expect(names.has("@elizaos/plugin-openai")).toBe(true);
-    expect(names.has("@elizaos/plugin-elizacloud")).toBe(false);
+    expect(names.has("@elizaos/plugin-elizacloud")).toBe(true);
   });
 });
 
@@ -217,7 +217,7 @@ describe("Cloud config → env var propagation", () => {
         apiKey: "ck-test",
         baseUrl: "https://test.cloud",
       },
-    } as MilaidyConfig;
+    } as MiladyConfig;
     applyCloudConfigToEnv(config);
     expect(process.env.ELIZAOS_CLOUD_ENABLED).toBe("true");
     expect(process.env.ELIZAOS_CLOUD_API_KEY).toBe("ck-test");
@@ -229,25 +229,25 @@ describe("Cloud config → env var propagation", () => {
     process.env.ELIZAOS_CLOUD_ENABLED = "false";
     const config = {
       cloud: { enabled: true, apiKey: "fresh-key" },
-    } as MilaidyConfig;
+    } as MiladyConfig;
     applyCloudConfigToEnv(config);
     expect(process.env.ELIZAOS_CLOUD_API_KEY).toBe("fresh-key");
     expect(process.env.ELIZAOS_CLOUD_ENABLED).toBe("true");
   });
 
-  it("treats apiKey alone as cloud-enabled (enabled flag was reset)", () => {
+  it("keeps cloud disabled when enabled flag is explicitly false", () => {
     const config = {
       cloud: { enabled: false, apiKey: "ck-still-valid" },
-    } as MilaidyConfig;
+    } as MiladyConfig;
     applyCloudConfigToEnv(config);
-    expect(process.env.ELIZAOS_CLOUD_ENABLED).toBe("true");
+    expect(process.env.ELIZAOS_CLOUD_ENABLED).toBeUndefined();
     expect(process.env.ELIZAOS_CLOUD_API_KEY).toBe("ck-still-valid");
   });
 
   it("sets default model names when cloud is active", () => {
     const config = {
       cloud: { enabled: true, apiKey: "ck-x" },
-    } as MilaidyConfig;
+    } as MiladyConfig;
     applyCloudConfigToEnv(config);
     expect(process.env.SMALL_MODEL).toBe("openai/gpt-5-mini");
     expect(process.env.LARGE_MODEL).toBe("anthropic/claude-sonnet-4.5");
@@ -257,7 +257,7 @@ describe("Cloud config → env var propagation", () => {
     const config = {
       cloud: { enabled: true, apiKey: "ck-x" },
       models: { small: "google/gemini-2.5-flash", large: "openai/gpt-5" },
-    } as MilaidyConfig;
+    } as MiladyConfig;
     applyCloudConfigToEnv(config);
     expect(process.env.SMALL_MODEL).toBe("google/gemini-2.5-flash");
     expect(process.env.LARGE_MODEL).toBe("openai/gpt-5");
@@ -271,7 +271,7 @@ describe("Cloud config → env var propagation", () => {
 describe("Character secrets include provider keys", () => {
   it("includes ELIZAOS_CLOUD_API_KEY in character secrets", () => {
     process.env.ELIZAOS_CLOUD_API_KEY = "ck-secret";
-    const char = buildCharacterFromConfig({} as MilaidyConfig);
+    const char = buildCharacterFromConfig({} as MiladyConfig);
     expect((char.secrets as Record<string, string>).ELIZAOS_CLOUD_API_KEY).toBe(
       "ck-secret",
     );
@@ -279,7 +279,7 @@ describe("Character secrets include provider keys", () => {
 
   it("includes OPENAI_API_KEY in character secrets", () => {
     process.env.OPENAI_API_KEY = "sk-test-openai";
-    const char = buildCharacterFromConfig({} as MilaidyConfig);
+    const char = buildCharacterFromConfig({} as MiladyConfig);
     expect((char.secrets as Record<string, string>).OPENAI_API_KEY).toBe(
       "sk-test-openai",
     );
@@ -287,14 +287,14 @@ describe("Character secrets include provider keys", () => {
 
   it("includes ANTHROPIC_API_KEY in character secrets", () => {
     process.env.ANTHROPIC_API_KEY = "sk-ant-test";
-    const char = buildCharacterFromConfig({} as MilaidyConfig);
+    const char = buildCharacterFromConfig({} as MiladyConfig);
     expect((char.secrets as Record<string, string>).ANTHROPIC_API_KEY).toBe(
       "sk-ant-test",
     );
   });
 
   it("omits keys that are not set", () => {
-    const char = buildCharacterFromConfig({} as MilaidyConfig);
+    const char = buildCharacterFromConfig({} as MiladyConfig);
     const secrets = char.secrets as Record<string, string> | undefined;
     expect(secrets?.OPENAI_API_KEY).toBeUndefined();
     expect(secrets?.ANTHROPIC_API_KEY).toBeUndefined();
@@ -314,10 +314,10 @@ describe("Provider switching simulation", () => {
       plugins: {
         allow: ["@elizaos/plugin-anthropic", "@elizaos/plugin-browser"],
       },
-    } as MilaidyConfig;
+    } as MiladyConfig;
     const localPlugins = collectPluginNames(localConfig);
     expect(localPlugins.has("@elizaos/plugin-anthropic")).toBe(true);
-    expect(localPlugins.has("@elizaos/plugin-elizacloud")).toBe(false);
+    expect(localPlugins.has("@elizaos/plugin-elizacloud")).toBe(true);
 
     // User enables cloud
     const cloudConfig = {
@@ -325,7 +325,7 @@ describe("Provider switching simulation", () => {
         allow: ["@elizaos/plugin-anthropic", "@elizaos/plugin-browser"],
       },
       cloud: { enabled: true, apiKey: "ck-new-key" },
-    } as MilaidyConfig;
+    } as MiladyConfig;
     applyCloudConfigToEnv(cloudConfig);
     const cloudPlugins = collectPluginNames(cloudConfig);
 
@@ -334,14 +334,14 @@ describe("Provider switching simulation", () => {
     expect(cloudPlugins.has("@elizaos/plugin-browser")).toBe(true);
   });
 
-  it("switch cloud → local: cloud removed, Anthropic restored", () => {
+  it("switch cloud → local: Anthropic restored while cloud core remains", () => {
     // Start with cloud
     const cloudConfig = {
       plugins: {
         allow: ["@elizaos/plugin-anthropic", "@elizaos/plugin-browser"],
       },
       cloud: { enabled: true, apiKey: "ck-key" },
-    } as MilaidyConfig;
+    } as MiladyConfig;
     const cloudPlugins = collectPluginNames(cloudConfig);
     expect(cloudPlugins.has("@elizaos/plugin-elizacloud")).toBe(true);
     expect(cloudPlugins.has("@elizaos/plugin-anthropic")).toBe(false);
@@ -352,23 +352,23 @@ describe("Provider switching simulation", () => {
         allow: ["@elizaos/plugin-anthropic", "@elizaos/plugin-browser"],
       },
       cloud: { enabled: false },
-    } as MilaidyConfig;
+    } as MiladyConfig;
     const localPlugins = collectPluginNames(localConfig);
 
     expect(localPlugins.has("@elizaos/plugin-anthropic")).toBe(true);
-    expect(localPlugins.has("@elizaos/plugin-elizacloud")).toBe(false);
+    expect(localPlugins.has("@elizaos/plugin-elizacloud")).toBe(true);
     expect(localPlugins.has("@elizaos/plugin-browser")).toBe(true);
   });
 
-  it("full cycle: no config → cloud login → switch to OpenAI → back to cloud", () => {
+  it("full cycle: no config → cloud login → switch to OpenAI → back to cloud mode", () => {
     // Step 1: Fresh start, nothing configured
-    let config = {} as MilaidyConfig;
+    let config = {} as MiladyConfig;
     let plugins = collectPluginNames(config);
-    expect(plugins.has("@elizaos/plugin-elizacloud")).toBe(false);
+    expect(plugins.has("@elizaos/plugin-elizacloud")).toBe(true);
     expect(plugins.has("@elizaos/plugin-openai")).toBe(false);
 
     // Step 2: User logs in to cloud
-    config = { cloud: { enabled: true, apiKey: "ck-login" } } as MilaidyConfig;
+    config = { cloud: { enabled: true, apiKey: "ck-login" } } as MiladyConfig;
     applyCloudConfigToEnv(config);
     plugins = collectPluginNames(config);
     expect(plugins.has("@elizaos/plugin-elizacloud")).toBe(true);
@@ -378,13 +378,13 @@ describe("Provider switching simulation", () => {
     delete process.env.ELIZAOS_CLOUD_API_KEY;
     delete process.env.ELIZAOS_CLOUD_ENABLED;
     process.env.OPENAI_API_KEY = "sk-user-openai";
-    config = { cloud: { enabled: false } } as MilaidyConfig;
+    config = { cloud: { enabled: false } } as MiladyConfig;
     plugins = collectPluginNames(config);
     expect(plugins.has("@elizaos/plugin-openai")).toBe(true);
-    expect(plugins.has("@elizaos/plugin-elizacloud")).toBe(false);
+    expect(plugins.has("@elizaos/plugin-elizacloud")).toBe(true);
 
     // Step 4: User switches back to cloud
-    config = { cloud: { enabled: true, apiKey: "ck-login" } } as MilaidyConfig;
+    config = { cloud: { enabled: true, apiKey: "ck-login" } } as MiladyConfig;
     applyCloudConfigToEnv(config);
     plugins = collectPluginNames(config);
     expect(plugins.has("@elizaos/plugin-elizacloud")).toBe(true);
@@ -392,10 +392,10 @@ describe("Provider switching simulation", () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-// 6. Live model call tests (only run with MILAIDY_LIVE_TEST=1)
+// 6. Live model call tests (only run with MILADY_LIVE_TEST=1)
 // ═══════════════════════════════════════════════════════════════════════════
 
-const isLive = process.env.MILAIDY_LIVE_TEST === "1";
+const isLive = process.env.MILADY_LIVE_TEST === "1";
 
 describe.skipIf(!isLive)("Live model calls (requires real API keys)", () => {
   beforeEach(() => {
@@ -427,8 +427,8 @@ describe.skipIf(!isLive)("Live model calls (requires real API keys)", () => {
     const key = process.env.ELIZAOS_CLOUD_API_KEY;
     if (!key) {
       // Try loading from config
-      const { loadMilaidyConfig } = await import("../src/config/config.js");
-      const config = loadMilaidyConfig();
+      const { loadMiladyConfig } = await import("../src/config/config");
+      const config = loadMiladyConfig();
       if (!config.cloud?.apiKey)
         throw new Error("No Eliza Cloud API key found");
       process.env.ELIZAOS_CLOUD_API_KEY = config.cloud.apiKey;

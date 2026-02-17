@@ -7,12 +7,13 @@ import { logger } from "@elizaos/core";
 
 const execFileAsync = promisify(execFile);
 
-const SKILLSMP_BASE_URL = "https://skillsmp.com";
+const DEFAULT_SKILLS_MARKETPLACE_URL = "https://clawhub.ai";
+const LEGACY_SKILLSMP_HOST = "skillsmp.com";
 const VALID_NAME = /^[a-zA-Z0-9._-]+$/;
 const VALID_GIT_REF = /^[a-zA-Z0-9][\w./-]*$/;
 /** Timeout for git clone/sparse-checkout (shallow + sparse should be fast). */
 const GIT_TIMEOUT_MS = 15_000;
-/** Timeout for skillsmp.com API fetch calls. */
+/** Timeout for marketplace API fetch calls. */
 const FETCH_TIMEOUT_MS = 30_000;
 
 /**
@@ -167,14 +168,15 @@ async function runSkillSecurityScan(
 
 export interface SkillsMarketplaceSearchItem {
   id: string;
+  slug?: string;
   name: string;
   description: string;
-  repository: string;
-  githubUrl: string;
+  repository?: string;
+  githubUrl?: string;
   path: string | null;
   tags: string[];
   score: number | null;
-  source: "skillsmp";
+  source: "clawhub" | "skillsmp";
 }
 
 export interface InstalledMarketplaceSkill {
@@ -186,23 +188,24 @@ export interface InstalledMarketplaceSkill {
   path: string;
   installPath: string;
   installedAt: string;
-  source: "skillsmp" | "manual";
+  source: "clawhub" | "skillsmp" | "manual";
   /** Security scan status, set after installation scan */
   scanStatus?: "clean" | "warning" | "critical" | "blocked";
 }
 
 export interface InstallSkillInput {
+  slug?: string;
   githubUrl?: string;
   repository?: string;
   path?: string;
   name?: string;
   description?: string;
-  source?: "skillsmp" | "manual";
+  source?: "clawhub" | "skillsmp" | "manual";
 }
 
 function stateDirBase(): string {
-  const base = process.env.MILAIDY_STATE_DIR?.trim();
-  return base || path.join(os.homedir(), ".milaidy");
+  const base = process.env.MILADY_STATE_DIR?.trim();
+  return base || path.join(os.homedir(), ".milady");
 }
 
 function safeName(raw: string): string {
@@ -364,11 +367,19 @@ async function writeInstallRecords(
 }
 
 function normalizeTags(raw: unknown): string[] {
-  if (!Array.isArray(raw)) return [];
-  return raw
-    .map((t) => String(t ?? "").trim())
-    .filter((t) => t.length > 0)
-    .slice(0, 10);
+  if (Array.isArray(raw)) {
+    return raw
+      .map((t) => String(t ?? "").trim())
+      .filter((t) => t.length > 0)
+      .slice(0, 10);
+  }
+  if (raw && typeof raw === "object") {
+    return Object.keys(raw as Record<string, unknown>)
+      .map((t) => t.trim())
+      .filter((t) => t.length > 0)
+      .slice(0, 10);
+  }
+  return [];
 }
 
 function inferRepository(skill: Record<string, unknown>): string | null {
@@ -442,14 +453,23 @@ function inferPath(skill: Record<string, unknown>): string | null {
   return null;
 }
 
-function inferName(skill: Record<string, unknown>, repository: string): string {
-  const candidates = [skill.slug, skill.name, skill.id, skill.title];
+function inferName(skill: Record<string, unknown>, fallbackId: string): string {
+  const candidates = [
+    skill.displayName,
+    skill.slug,
+    skill.name,
+    skill.id,
+    skill.title,
+  ];
   for (const value of candidates) {
     if (typeof value !== "string") continue;
     const cleaned = value.trim();
     if (cleaned) return cleaned;
   }
-  return repository.split("/").pop() || repository;
+  if (fallbackId.includes("/")) {
+    return fallbackId.split("/").pop() || fallbackId;
+  }
+  return fallbackId;
 }
 
 function inferDescription(skill: Record<string, unknown>): string {
@@ -460,34 +480,61 @@ function inferDescription(skill: Record<string, unknown>): string {
   return "";
 }
 
+function resolveMarketplaceBaseUrl(): string {
+  const configured =
+    process.env.SKILLS_REGISTRY?.trim() ||
+    process.env.CLAWHUB_REGISTRY?.trim() ||
+    process.env.SKILLS_MARKETPLACE_URL?.trim();
+  return configured || DEFAULT_SKILLS_MARKETPLACE_URL;
+}
+
+function isLegacySkillsmp(baseUrl: string): boolean {
+  try {
+    const hostname = new URL(baseUrl).hostname.toLowerCase();
+    return (
+      hostname === LEGACY_SKILLSMP_HOST || hostname.endsWith(".skillsmp.com")
+    );
+  } catch {
+    return baseUrl.toLowerCase().includes(LEGACY_SKILLSMP_HOST);
+  }
+}
+
 export async function searchSkillsMarketplace(
   query: string,
   opts?: { limit?: number; aiSearch?: boolean },
 ): Promise<SkillsMarketplaceSearchItem[]> {
-  const apiKey = process.env.SKILLSMP_API_KEY?.trim();
-  if (!apiKey) {
-    throw new Error(
-      "SKILLSMP_API_KEY is not set. Add it to enable Skills marketplace search.",
-    );
-  }
-
-  const endpoint = opts?.aiSearch
-    ? "/api/v1/skills/ai-search"
-    : "/api/v1/skills/search";
-  const url = new URL(`${SKILLSMP_BASE_URL}${endpoint}`);
+  const baseUrl = resolveMarketplaceBaseUrl();
+  const legacySkillsmp = isLegacySkillsmp(baseUrl);
+  const endpoint = legacySkillsmp
+    ? opts?.aiSearch
+      ? "/api/v1/skills/ai-search"
+      : "/api/v1/skills/search"
+    : "/api/v1/search";
+  const url = new URL(`${baseUrl}${endpoint}`);
   if (query.trim()) url.searchParams.set("q", query.trim());
   url.searchParams.set(
     "limit",
     String(Math.max(1, Math.min(opts?.limit ?? 20, 50))),
   );
 
+  const headers: Record<string, string> = {
+    Accept: "application/json",
+  };
+
+  if (legacySkillsmp) {
+    const apiKey = process.env.SKILLSMP_API_KEY?.trim();
+    if (!apiKey) {
+      throw new Error(
+        "SKILLSMP_API_KEY is not set. Add it to enable Skills marketplace search.",
+      );
+    }
+    headers.Authorization = `Bearer ${apiKey}`;
+  }
+
   let resp: Response;
   try {
     resp = await fetch(url, {
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        Accept: "application/json",
-      },
+      headers,
       signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     });
   } catch (err) {
@@ -542,9 +589,11 @@ export async function searchSkillsMarketplace(
   for (const entry of list) {
     if (!entry || typeof entry !== "object" || Array.isArray(entry)) continue;
     const skill = entry as Record<string, unknown>;
+    const slug = typeof skill.slug === "string" ? skill.slug.trim() : "";
     const repository = inferRepository(skill);
-    if (!repository) continue;
-    const name = inferName(skill, repository);
+    if (!repository && !slug) continue;
+    const fallbackId = repository || slug;
+    const name = inferName(skill, fallbackId);
     const description = inferDescription(skill);
     const skillPath = inferPath(skill);
     const scoreValue = skill.score;
@@ -552,17 +601,24 @@ export async function searchSkillsMarketplace(
       typeof scoreValue === "number" && Number.isFinite(scoreValue)
         ? scoreValue
         : null;
+    const githubUrl =
+      typeof skill.githubUrl === "string" && skill.githubUrl.trim()
+        ? skill.githubUrl.trim()
+        : repository
+          ? `https://github.com/${repository}`
+          : undefined;
 
     out.push({
-      id: String(skill.id ?? skill.slug ?? name),
+      id: String(skill.id ?? slug ?? name),
+      slug: slug || undefined,
       name,
       description,
-      repository,
-      githubUrl: `https://github.com/${repository}`,
+      repository: repository || undefined,
+      githubUrl,
       path: skillPath,
       tags: normalizeTags(skill.tags ?? skill.topics),
       score,
-      source: "skillsmp",
+      source: legacySkillsmp ? "skillsmp" : "clawhub",
     });
   }
 

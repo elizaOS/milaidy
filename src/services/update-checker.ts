@@ -1,12 +1,12 @@
 /**
- * Queries the npm registry for new milaidy versions on the user's
+ * Queries the npm registry for new milady versions on the user's
  * configured release channel (stable/beta/nightly).
  */
 
-import { loadMilaidyConfig, saveMilaidyConfig } from "../config/config.js";
-import type { ReleaseChannel, UpdateConfig } from "../config/types.milaidy.js";
-import { VERSION } from "../runtime/version.js";
-import { compareSemver } from "./version-compat.js";
+import { loadMiladyConfig, saveMiladyConfig } from "../config/config";
+import type { ReleaseChannel, UpdateConfig } from "../config/types.milady";
+import { VERSION } from "../runtime/version";
+import { compareSemver } from "./version-compat";
 
 const CHECK_INTERVAL_SECONDS = 14_400; // 4 hours
 const REGISTRY_TIMEOUT_MS = 8_000;
@@ -35,7 +35,7 @@ async function fetchDistTags(): Promise<Record<string, string> | null> {
   const timer = setTimeout(() => controller.abort(), REGISTRY_TIMEOUT_MS);
 
   try {
-    const res = await fetch("https://registry.npmjs.org/milaidy", {
+    const res = await fetch("https://registry.npmjs.org/milady", {
       headers: { Accept: "application/vnd.npm.install-v1+json" },
       signal: controller.signal,
     });
@@ -58,7 +58,7 @@ function shouldSkipCheck(cfg: UpdateConfig | undefined): boolean {
 
 /** Resolve the effective release channel from config, env, or default. */
 export function resolveChannel(cfg: UpdateConfig | undefined): ReleaseChannel {
-  const env = process.env.MILAIDY_UPDATE_CHANNEL?.trim().toLowerCase();
+  const env = process.env.MILADY_UPDATE_CHANNEL?.trim().toLowerCase();
   if (env === "stable" || env === "beta" || env === "nightly") return env;
   return cfg?.channel ?? "stable";
 }
@@ -70,7 +70,7 @@ export function resolveChannel(cfg: UpdateConfig | undefined): ReleaseChannel {
 export async function checkForUpdate(options?: {
   force?: boolean;
 }): Promise<UpdateCheckResult> {
-  const config = loadMilaidyConfig();
+  const config = loadMiladyConfig();
   const updateCfg = config.update;
   const channel = resolveChannel(updateCfg);
   const distTag = CHANNEL_DIST_TAGS[channel];
@@ -121,7 +121,7 @@ export async function checkForUpdate(options?: {
   const updateAvailable = cmp !== null && cmp < 0;
 
   try {
-    saveMilaidyConfig({
+    saveMiladyConfig({
       ...config,
       update: {
         ...config.update,
@@ -134,7 +134,7 @@ export async function checkForUpdate(options?: {
     // registry gets queried on every startup — worth surfacing.
     const msg = err instanceof Error ? err.message : String(err);
     process.stderr.write(
-      `[milaidy] Warning: could not save update-check metadata: ${msg}\n`,
+      `[milady] Warning: could not save update-check metadata: ${msg}\n`,
     );
   }
 

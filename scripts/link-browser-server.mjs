@@ -24,14 +24,15 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const milaidyRoot = resolve(__dirname, "..");
-const workspaceRoot = resolve(milaidyRoot, "..");
+const miladyRoot = resolve(__dirname, "..");
+// plugins are inside milady, not one level up
+const workspaceRoot = miladyRoot;
 
 // ── Resolve plugin-browser package ───────────────────────────────────────────
 
 let pluginRoot;
 try {
-  const req = createRequire(join(milaidyRoot, "package.json"));
+  const req = createRequire(join(miladyRoot, "package.json"));
   const pkgJson = req.resolve("@elizaos/plugin-browser/package.json");
   pluginRoot = dirname(pkgJson);
 } catch {

@@ -1,4 +1,4 @@
-package ai.milaidy.app;
+package ai.milady.app;
 
 import android.app.Notification;
 import android.app.NotificationChannel;
@@ -28,8 +28,8 @@ public class GatewayConnectionService extends Service {
     private static final int NOTIFICATION_ID = 1;
 
     // Intent actions
-    private static final String ACTION_STOP = "ai.milaidy.app.action.STOP_GATEWAY";
-    private static final String ACTION_UPDATE_STATUS = "ai.milaidy.app.action.UPDATE_STATUS";
+    private static final String ACTION_STOP = "ai.milady.app.action.STOP_GATEWAY";
+    private static final String ACTION_UPDATE_STATUS = "ai.milady.app.action.UPDATE_STATUS";
 
     // Extras
     private static final String EXTRA_STATUS = "status";
@@ -48,7 +48,7 @@ public class GatewayConnectionService extends Service {
         super.onCreate();
         ensureNotificationChannel();
 
-        Notification notification = buildNotification("Milaidy Gateway", "Starting…");
+        Notification notification = buildNotification("Milady Gateway", "Starting…");
 
         // API 34+ requires explicit foreground service type when calling startForeground().
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
@@ -110,7 +110,7 @@ public class GatewayConnectionService extends Service {
             "Gateway Connection",
             NotificationManager.IMPORTANCE_LOW
         );
-        channel.setDescription("Shows Milaidy gateway connection status");
+        channel.setDescription("Shows Milady gateway connection status");
         channel.setShowBadge(false);
 
         NotificationManager mgr = getSystemService(NotificationManager.class);
@@ -155,15 +155,15 @@ public class GatewayConnectionService extends Service {
 
         switch (currentStatus) {
             case STATUS_CONNECTED:
-                title = "Milaidy Gateway · Connected";
+                title = "Milady Gateway · Connected";
                 text = "WebSocket connection active";
                 break;
             case STATUS_RECONNECTING:
-                title = "Milaidy Gateway · Reconnecting";
+                title = "Milady Gateway · Reconnecting";
                 text = "Attempting to restore connection…";
                 break;
             default:
-                title = "Milaidy Gateway";
+                title = "Milady Gateway";
                 text = "Disconnected";
                 break;
         }

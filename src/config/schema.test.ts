@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildConfigSchema } from "./schema.js";
+import { buildConfigSchema } from "./schema";
 
 describe("config schema", () => {
   it("exports schema + hints", () => {

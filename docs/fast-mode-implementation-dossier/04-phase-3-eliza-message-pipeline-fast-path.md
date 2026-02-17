@@ -161,7 +161,7 @@ This should be treated as configurable profile, not hardcoded forever.
 3. `types/generated/eliza/v1/message_service_pb.ts` (if proto source governs generated type flow)
    - add corresponding fields if gRPC/proto contract is used in these paths
 4. consumer call sites
-   - Milaidy server and cloud entrypoint pass mode/profile/options
+   - Milady server and cloud entrypoint pass mode/profile/options
 
 ---
 

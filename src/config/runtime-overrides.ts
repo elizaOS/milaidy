@@ -2,9 +2,9 @@ import {
   parseConfigPath,
   setConfigValueAtPath,
   unsetConfigValueAtPath,
-} from "./config-paths.js";
-import { isPlainObject } from "./object-utils.js";
-import type { MilaidyConfig } from "./types.js";
+} from "./config-paths";
+import { isPlainObject } from "./object-utils";
+import type { MiladyConfig } from "./types";
 
 type OverrideTree = Record<string, unknown>;
 
@@ -64,9 +64,9 @@ export function unsetConfigOverride(pathRaw: string): {
   return { ok: true, removed };
 }
 
-export function applyConfigOverrides(cfg: MilaidyConfig): MilaidyConfig {
+export function applyConfigOverrides(cfg: MiladyConfig): MiladyConfig {
   if (!overrides || Object.keys(overrides).length === 0) {
     return cfg;
   }
-  return mergeOverrides(cfg, overrides) as MilaidyConfig;
+  return mergeOverrides(cfg, overrides) as MiladyConfig;
 }

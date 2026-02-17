@@ -2,7 +2,7 @@
 
 ## Goal
 
-Build a comprehensive **Trajectories Viewer** in the Milaidy app that shows all LLM input/output pairs across conversations, autonomous runs, and actions. This enables developers to:
+Build a comprehensive **Trajectories Viewer** in the Milady app that shows all LLM input/output pairs across conversations, autonomous runs, and actions. This enables developers to:
 - Debug agent behavior by seeing exact prompts and responses
 - Understand token usage and model costs
 - Filter by source (connector, autonomous, etc.)
@@ -89,8 +89,8 @@ The babylon training packages have a comprehensive trajectory system:
 }
 ```
 
-#### 2. Milaidy TrainingService
-Location: `/Users/shawwalters/eliza-workspace/milaidy/src/services/training-service.ts`
+#### 2. Milady TrainingService
+Location: `/Users/shawwalters/eliza-workspace/milady/src/services/training-service.ts`
 
 Already has:
 - `listTrajectories()` - Query trajectories from DB
@@ -102,7 +102,7 @@ Already has:
 - `GET /api/training/trajectories/:id` - Get trajectory detail
 
 #### 3. App UI (Config Tab)
-Location: `/Users/shawwalters/eliza-workspace/milaidy/apps/app/`
+Location: `/Users/shawwalters/eliza-workspace/milady/apps/app/`
 
 Current tab structure:
 - "Config" tab at `/config` (user calls it "Admin")
@@ -115,7 +115,7 @@ Current tab structure:
 |-----|-------------|--------|
 | **Token counting** | No input/output token counts captured | Can't show costs or usage |
 | **Real-time logging** | Trajectory system designed for training, not real-time | Need to enable logging for all LLM calls |
-| **trajectories table** | May not exist in standard Milaidy setup | Need migration or alternative storage |
+| **trajectories table** | May not exist in standard Milady setup | Need migration or alternative storage |
 | **Connector tracking** | LLM calls don't track source connector | Can't filter by Telegram vs Discord vs chat |
 | **Autonomous flag** | Not captured in current LLM call format | Can't filter autonomous vs user-initiated |
 
@@ -127,7 +127,7 @@ Current tab structure:
 
 **~~Option A: Patch messageService.handleMessage~~** - ❌ WRONG APPROACH
 - Fragile, bypasses proper architecture
-- phetta-companion-plugin pattern is for message interception, not logging
+- @elizaos/plugin-phetta-companion pattern is for message interception, not logging
 
 **Option B: Use TrajectoryLoggerService from @elizaos/core** - ✅ CORRECT APPROACH
 - Built into ElizaOS runtime
@@ -498,7 +498,7 @@ Response:
         "timestamp": "2024-01-15T14:30:00Z",
         "model": "openai/gpt-4o",
         "modelProvider": "openai",
-        "systemPrompt": "You are Milaidy, an AI assistant...",
+        "systemPrompt": "You are Milady, an AI assistant...",
         "userPrompt": "Tell me about the weather",
         "response": "Based on current data...",
         "inputTokens": 234,
@@ -560,7 +560,7 @@ Response:
 - `apps/app/src/App.tsx` - Route to AdvancedPageView
 - `apps/app/src/AppContext.tsx` - Add advancedSubTab state
 - `apps/app/src/api-client.ts` - Add trajectory API methods
-- `src/runtime/milaidy-plugin.ts` - Hook LLM logging
+- `src/runtime/milady-plugin.ts` - Hook LLM logging
 - `src/api/server.ts` - Register LLM routes
 
 ---

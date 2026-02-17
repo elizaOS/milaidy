@@ -1,22 +1,22 @@
 /**
- * Cloud API routes for Milaidy — handles /api/cloud/* endpoints.
+ * Cloud API routes for Milady — handles /api/cloud/* endpoints.
  */
 
 import type http from "node:http";
 import type { AgentRuntime } from "@elizaos/core";
 import { logger } from "@elizaos/core";
-import type { CloudManager } from "../cloud/cloud-manager.js";
-import { validateCloudBaseUrl } from "../cloud/validate-url.js";
-import type { MilaidyConfig } from "../config/config.js";
-import { saveMilaidyConfig } from "../config/config.js";
+import type { CloudManager } from "../cloud/cloud-manager";
+import { validateCloudBaseUrl } from "../cloud/validate-url";
+import type { MiladyConfig } from "../config/config";
+import { saveMiladyConfig } from "../config/config";
 import {
   readJsonBody as parseJsonBody,
   sendJson,
   sendJsonError,
-} from "./http-helpers.js";
+} from "./http-helpers";
 
 export interface CloudRouteState {
-  config: MilaidyConfig;
+  config: MiladyConfig;
   cloudManager: CloudManager | null;
   /** The running agent runtime — needed to persist cloud credentials to the DB. */
   runtime: AgentRuntime | null;
@@ -48,6 +48,10 @@ async function readJsonBody<T = Record<string, unknown>>(
 const CLOUD_LOGIN_CREATE_TIMEOUT_MS = 10_000;
 const CLOUD_LOGIN_POLL_TIMEOUT_MS = 10_000;
 
+function isRedirectResponse(response: Response): boolean {
+  return response.status >= 300 && response.status < 400;
+}
+
 function isTimeoutError(error: unknown): boolean {
   if (!(error instanceof Error)) return false;
   if (error.name === "TimeoutError" || error.name === "AbortError") return true;
@@ -62,6 +66,7 @@ async function fetchWithTimeout(
 ): Promise<Response> {
   return fetch(input, {
     ...init,
+    redirect: "manual",
     signal: AbortSignal.timeout(timeoutMs),
   });
 }
@@ -103,6 +108,15 @@ export async function handleCloudRoute(
         return true;
       }
       sendJsonError(res, "Failed to reach Eliza Cloud", 502);
+      return true;
+    }
+
+    if (isRedirectResponse(createRes)) {
+      sendJsonError(
+        res,
+        "Eliza Cloud login request was redirected; redirects are not allowed",
+        502,
+      );
       return true;
     }
 
@@ -167,6 +181,19 @@ export async function handleCloudRoute(
       return true;
     }
 
+    if (isRedirectResponse(pollRes)) {
+      sendJson(
+        res,
+        {
+          status: "error",
+          error:
+            "Eliza Cloud status request was redirected; redirects are not allowed",
+        },
+        502,
+      );
+      return true;
+    }
+
     if (!pollRes.ok) {
       sendJson(
         res,
@@ -195,7 +222,7 @@ export async function handleCloudRoute(
       cloud.apiKey = data.apiKey;
       (state.config as Record<string, unknown>).cloud = cloud;
       try {
-        saveMilaidyConfig(state.config);
+        saveMiladyConfig(state.config);
         logger.info("[cloud-login] API key saved to config file");
       } catch (saveErr) {
         logger.error(
@@ -355,6 +382,45 @@ export async function handleCloudRoute(
   // POST /api/cloud/disconnect
   if (method === "POST" && pathname === "/api/cloud/disconnect") {
     if (state.cloudManager) await state.cloudManager.disconnect();
+    const cloud = (state.config.cloud ?? {}) as NonNullable<
+      typeof state.config.cloud
+    >;
+    cloud.enabled = false;
+    delete cloud.apiKey;
+    (state.config as Record<string, unknown>).cloud = cloud;
+
+    try {
+      saveMiladyConfig(state.config);
+    } catch (saveErr) {
+      logger.warn(
+        `[cloud-login] Failed to save cloud disconnect state: ${saveErr instanceof Error ? saveErr.message : saveErr}`,
+      );
+    }
+
+    delete process.env.ELIZAOS_CLOUD_API_KEY;
+    delete process.env.ELIZAOS_CLOUD_ENABLED;
+
+    if (state.runtime) {
+      try {
+        if (!state.runtime.character.secrets) {
+          state.runtime.character.secrets = {};
+        }
+        const secrets = state.runtime.character.secrets as Record<
+          string,
+          string | number | boolean
+        >;
+        delete secrets.ELIZAOS_CLOUD_API_KEY;
+        delete secrets.ELIZAOS_CLOUD_ENABLED;
+        await state.runtime.updateAgent(state.runtime.agentId, {
+          secrets: { ...secrets },
+        });
+      } catch (dbErr) {
+        logger.warn(
+          `[cloud-login] Failed to clear cloud secrets from agent DB: ${dbErr instanceof Error ? dbErr.message : dbErr}`,
+        );
+      }
+    }
+
     sendJson(res, { ok: true, status: "disconnected" });
     return true;
   }

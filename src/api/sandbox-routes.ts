@@ -5,14 +5,14 @@ import { readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { platform, tmpdir } from "node:os";
 import { join } from "node:path";
-import type { RemoteSigningService } from "../services/remote-signing-service.js";
-import type { SandboxManager } from "../services/sandbox-manager.js";
-import type { SigningRequest } from "../services/signing-policy.js";
+import type { RemoteSigningService } from "../services/remote-signing-service";
+import type { SandboxManager } from "../services/sandbox-manager";
+import type { SigningRequest } from "../services/signing-policy";
 import {
   readJsonBody as parseJsonBody,
   readRequestBody,
   sendJson as sendJsonResponse,
-} from "./http-helpers.js";
+} from "./http-helpers";
 
 interface SandboxRouteState {
   sandboxManager: SandboxManager | null;
@@ -419,7 +419,7 @@ export async function handleSandboxRoute(
     const body = await readJsonBody<unknown>(req, res);
     if (body === null) return true;
     const parsed = resolveSigningRequestPayload(body);
-    if (parsed.error) {
+    if ("error" in parsed) {
       sendJson(res, 400, { error: parsed.error });
       return true;
     }
@@ -511,10 +511,9 @@ function asObject(value: unknown): Record<string, unknown> | null {
   return value as Record<string, unknown>;
 }
 
-function resolveSigningRequestPayload(input: unknown): {
-  request?: SigningRequest;
-  error?: string;
-} {
+function resolveSigningRequestPayload(
+  input: unknown,
+): { request: SigningRequest } | { error: string } {
   const obj = asObject(input);
   if (!obj) {
     return { error: "Signing payload must be a JSON object" };

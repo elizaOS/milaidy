@@ -1,5 +1,5 @@
 /**
- * Loading screen — ASCII "milaidy" logo with per-character dither fade.
+ * Loading screen — ASCII "milady" logo with per-character dither fade.
  *
  * Each letter independently cycles through quantised opacity steps on its
  * own random schedule, producing a constantly shifting dither pattern that
@@ -51,7 +51,9 @@ interface LoadingScreenProps {
   phase?: StartupPhase;
 }
 
-export function LoadingScreen({ phase = "starting-backend" }: LoadingScreenProps) {
+export function LoadingScreen({
+  phase = "starting-backend",
+}: LoadingScreenProps) {
   /* Build the character grid once — each non-space character gets its
      own random timing so the dither pattern is never uniform. */
   const grid = useMemo<CharCell[][]>(
@@ -70,8 +72,7 @@ export function LoadingScreen({ phase = "starting-backend" }: LoadingScreenProps
   return (
     <div className="flex flex-col items-center justify-center h-screen bg-bg gap-8">
       <div
-        role="status"
-        aria-label="Loading"
+        aria-live="polite"
         style={{
           fontFamily: "var(--mono)",
           fontSize: "clamp(7px, 1.4vw, 14px)",
@@ -80,12 +81,15 @@ export function LoadingScreen({ phase = "starting-backend" }: LoadingScreenProps
           userSelect: "none",
         }}
       >
-        {grid.map((line, y) => (
-          <div key={y} style={{ whiteSpace: "pre" }}>
-            {line.map((c, x) =>
+        {grid.map((line) => (
+          <div
+            key={line.map((c) => c.char).join("")}
+            style={{ whiteSpace: "pre" }}
+          >
+            {line.map((c) =>
               c.isLetter ? (
                 <span
-                  key={x}
+                  key={`${c.char}-${c.delay.toFixed(3)}-${c.duration.toFixed(3)}`}
                   className="dither-char"
                   style={{
                     animationDelay: `${c.delay.toFixed(2)}s`,
@@ -95,7 +99,11 @@ export function LoadingScreen({ phase = "starting-backend" }: LoadingScreenProps
                   {c.char}
                 </span>
               ) : (
-                <span key={x}>{c.char}</span>
+                <span
+                  key={`${c.char}-${c.delay.toFixed(3)}-${c.duration.toFixed(3)}`}
+                >
+                  {c.char}
+                </span>
               ),
             )}
           </div>

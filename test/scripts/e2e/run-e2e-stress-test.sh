@@ -15,10 +15,10 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-IMAGE_NAME="milaidy-stress-e2e"
+IMAGE_NAME="milady-stress-e2e"
 
 echo "╔══════════════════════════════════════════════════╗"
-echo "║  Milaidy Stress Test E2E (Issue #6)             ║"
+echo "║  Milady Stress Test E2E (Issue #6)             ║"
 echo "╚══════════════════════════════════════════════════╝"
 
 echo "==> Building Docker image..."

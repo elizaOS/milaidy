@@ -84,13 +84,13 @@ Files:
 
 ## Phase 8: Rolodex trust contract
 
-Files (short-term Milaidy wrapper):
+Files (short-term Milady wrapper):
 
 - `src/api/server.ts` message/action handling points where claims are interpreted
 
 Files (long-term plugin-native):
 
-- rolodex plugin package source (outside current milaidy repo if external dependency)
+- rolodex plugin package source (outside current milady repo if external dependency)
 
 ## B. Alternatives Matrix by Phase
 
@@ -167,7 +167,7 @@ Decision rationale:
 
 ## Phase 8 alternatives
 
-1. Milaidy-side trust wrapper then plugin-native migration (**recommended**)
+1. Milady-side trust wrapper then plugin-native migration (**recommended**)
 2. plugin-only immediate change
 3. no privileged trust path
 
@@ -267,7 +267,7 @@ Severity scale:
 
 - severity: Medium
 - phase: 8
-- risk: plugin contract differs from Milaidy assumptions
+- risk: plugin contract differs from Milady assumptions
 - mitigation:
   - implement short-term wrapper
   - integration tests against actual plugin version

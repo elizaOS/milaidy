@@ -8,8 +8,12 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useApp } from "../AppContext";
+import type {
+  SkillInfo,
+  SkillMarketplaceResult,
+  SkillScanReportSummary,
+} from "../api-client";
 import { client } from "../api-client";
-import type { SkillInfo, SkillMarketplaceResult, SkillScanReportSummary } from "../api-client";
 import { ConfirmDeleteControl } from "./shared/confirm-delete-control";
 import { StatusBadge } from "./shared/ui-badges";
 import { Switch } from "./shared/ui-switch";
@@ -52,7 +56,8 @@ function SkillCard({
   onAcknowledge: (id: string) => void;
   onDismissReview: () => void;
 }) {
-  const isQuarantined = skill.scanStatus === "warning" || skill.scanStatus === "critical";
+  const isQuarantined =
+    skill.scanStatus === "warning" || skill.scanStatus === "critical";
   const isBlocked = skill.scanStatus === "blocked";
   const isReviewing = skillReviewId === skill.id;
 
@@ -65,54 +70,60 @@ function SkillCard({
       }`}
       data-skill-id={skill.id}
     >
-        {/* Main content area */}
-        <div className="p-4">
-          {/* Top row: badge + toggle */}
-          <div className="flex items-center justify-between mb-2.5">
-            <StatusBadge
-              label={
-                skill.scanStatus === "blocked" || skill.scanStatus === "critical"
-                  ? "Blocked"
-                  : skill.scanStatus === "warning"
-                    ? "Warning"
-                    : skill.enabled
-                      ? "Active"
-                      : "Inactive"
-              }
-              tone={
-                skill.scanStatus === "blocked" || skill.scanStatus === "critical" || skill.scanStatus === "warning"
-                  ? skill.scanStatus === "warning"
-                    ? "warning"
-                    : "danger"
+      {/* Main content area */}
+      <div className="p-4">
+        {/* Top row: badge + toggle */}
+        <div className="flex items-center justify-between mb-2.5">
+          <StatusBadge
+            label={
+              skill.scanStatus === "blocked" || skill.scanStatus === "critical"
+                ? "Blocked"
+                : skill.scanStatus === "warning"
+                  ? "Warning"
                   : skill.enabled
-                    ? "success"
-                    : "muted"
-              }
-              withDot
+                    ? "Active"
+                    : "Inactive"
+            }
+            tone={
+              skill.scanStatus === "blocked" ||
+              skill.scanStatus === "critical" ||
+              skill.scanStatus === "warning"
+                ? skill.scanStatus === "warning"
+                  ? "warning"
+                  : "danger"
+                : skill.enabled
+                  ? "success"
+                  : "muted"
+            }
+            withDot
+          />
+          {!isBlocked && !isQuarantined && (
+            <Switch
+              checked={skill.enabled}
+              disabled={skillToggleAction === skill.id}
+              onChange={(val) => onToggle(skill.id, val)}
+              size="compact"
+              trackOnClass="bg-[var(--accent)]"
+              trackOffClass="bg-[var(--border)]"
+              knobClass="bg-white shadow-sm"
             />
-            {!isBlocked && !isQuarantined && (
-              <Switch
-                checked={skill.enabled}
-                disabled={skillToggleAction === skill.id}
-                onChange={(val) => onToggle(skill.id, val)}
-                size="compact"
-                trackOnClass="bg-[var(--accent)]"
-                trackOffClass="bg-[var(--border)]"
-                knobClass="bg-white shadow-sm"
-              />
-            )}
-            {isQuarantined && !isReviewing && (
-              <button
-                className="px-2.5 py-1 text-[11px] font-medium bg-[#f39c12]/15 text-[#f39c12] border border-[#f39c12]/30 cursor-pointer hover:bg-[#f39c12]/25 transition-colors"
-                onClick={() => onReview(skill.id)}
-              >
-                Review Findings
-              </button>
-            )}
-          </div>
+          )}
+          {isQuarantined && !isReviewing && (
+            <button
+              type="button"
+              className="px-2.5 py-1 text-[11px] font-medium bg-[#f39c12]/15 text-[#f39c12] border border-[#f39c12]/30 cursor-pointer hover:bg-[#f39c12]/25 transition-colors"
+              onClick={() => onReview(skill.id)}
+            >
+              Review Findings
+            </button>
+          )}
+        </div>
 
         {/* Name + description */}
-        <div className="font-semibold text-sm text-[var(--txt)] mb-1 truncate" title={skill.name}>
+        <div
+          className="font-semibold text-sm text-[var(--txt)] mb-1 truncate"
+          title={skill.name}
+        >
           {skill.name}
         </div>
         <div className="text-[11px] text-[var(--muted)] line-clamp-2 min-h-[2em]">
@@ -122,7 +133,11 @@ function SkillCard({
 
       {/* Footer actions */}
       <div className="flex items-center gap-1.5 px-4 py-2.5 border-t border-[var(--border)] bg-[var(--bg)]">
-        <button className={btnGhost} onClick={() => onEdit(skill)}>
+        <button
+          type="button"
+          className={btnGhost}
+          onClick={() => onEdit(skill)}
+        >
           Edit
         </button>
         <ConfirmDeleteControl
@@ -134,7 +149,10 @@ function SkillCard({
           onConfirm={() => onDelete(skill.id, skill.name)}
         />
         <span className="flex-1" />
-        <span className="text-[10px] text-[var(--muted)] font-mono truncate max-w-[120px]" title={skill.id}>
+        <span
+          className="text-[10px] text-[var(--muted)] font-mono truncate max-w-[120px]"
+          title={skill.id}
+        >
           {skill.id.length > 16 ? `${skill.id.slice(0, 16)}...` : skill.id}
         </span>
       </div>
@@ -143,7 +161,9 @@ function SkillCard({
       {isReviewing && skillReviewReport ? (
         <div className="border-t border-[var(--border)] p-4 bg-[var(--bg)]">
           <div className="flex items-center gap-3 mb-3">
-            <span className="text-xs font-semibold text-[var(--txt)]">Scan Report</span>
+            <span className="text-xs font-semibold text-[var(--txt)]">
+              Scan Report
+            </span>
             <span className="text-[11px] text-[#e74c3c] font-mono">
               {skillReviewReport.summary.critical} critical
             </span>
@@ -153,35 +173,50 @@ function SkillCard({
           </div>
           {skillReviewReport.findings.length > 0 && (
             <div className="max-h-40 overflow-y-auto mb-3 border border-[var(--border)] bg-[var(--card)]">
-              {skillReviewReport.findings.map((f: SkillScanReportSummary["findings"][number], idx: number) => (
-                <div
-                  key={idx}
-                  className={`flex items-start gap-2 px-3 py-1.5 text-[11px] font-mono ${
-                    idx > 0 ? "border-t border-[var(--border)]" : ""
-                  }`}
-                >
-                  <span
-                    className={`shrink-0 px-1.5 py-px font-bold text-[10px] uppercase ${
-                      f.severity === "critical"
-                        ? "bg-[#e74c3c]/15 text-[#e74c3c]"
-                        : "bg-[#f39c12]/15 text-[#f39c12]"
+              {skillReviewReport.findings.map(
+                (
+                  f: SkillScanReportSummary["findings"][number],
+                  idx: number,
+                ) => (
+                  <div
+                    key={`${f.file}:${f.line}:${f.message}`}
+                    className={`flex items-start gap-2 px-3 py-1.5 text-[11px] font-mono ${
+                      idx > 0 ? "border-t border-[var(--border)]" : ""
                     }`}
                   >
-                    {f.severity}
-                  </span>
-                  <span className="text-[var(--txt)] flex-1 min-w-0">{f.message}</span>
-                  <span className="text-[var(--muted)] shrink-0">
-                    {f.file}:{f.line}
-                  </span>
-                </div>
-              ))}
+                    <span
+                      className={`shrink-0 px-1.5 py-px font-bold text-[10px] uppercase ${
+                        f.severity === "critical"
+                          ? "bg-[#e74c3c]/15 text-[#e74c3c]"
+                          : "bg-[#f39c12]/15 text-[#f39c12]"
+                      }`}
+                    >
+                      {f.severity}
+                    </span>
+                    <span className="text-[var(--txt)] flex-1 min-w-0">
+                      {f.message}
+                    </span>
+                    <span className="text-[var(--muted)] shrink-0">
+                      {f.file}:{f.line}
+                    </span>
+                  </div>
+                ),
+              )}
             </div>
           )}
           <div className="flex gap-2">
-            <button className={btnPrimary} onClick={() => onAcknowledge(skill.id)}>
+            <button
+              type="button"
+              className={btnPrimary}
+              onClick={() => onAcknowledge(skill.id)}
+            >
               Acknowledge &amp; Enable
             </button>
-            <button className={btnGhost} onClick={onDismissReview}>
+            <button
+              type="button"
+              className={btnGhost}
+              onClick={onDismissReview}
+            >
               Dismiss
             </button>
           </div>
@@ -212,6 +247,7 @@ function MarketplaceCard({
 }) {
   const isInstalling = skillsMarketplaceAction === `install:${item.id}`;
   const isUninstalling = skillsMarketplaceAction === `uninstall:${item.id}`;
+  const sourceLabel = item.repository || item.slug || item.id;
 
   return (
     <div className="flex items-start gap-4 p-4 border border-[var(--border)] bg-[var(--card)] hover:border-[var(--accent)]/50 transition-colors">
@@ -220,12 +256,14 @@ function MarketplaceCard({
         {item.name.charAt(0).toUpperCase()}
       </div>
       <div className="flex-1 min-w-0">
-        <div className="font-semibold text-sm text-[var(--txt)]">{item.name}</div>
+        <div className="font-semibold text-sm text-[var(--txt)]">
+          {item.name}
+        </div>
         <div className="text-[11px] text-[var(--muted)] mt-0.5 line-clamp-2">
           {item.description || "No description."}
         </div>
         <div className="flex items-center gap-2 mt-1.5 text-[10px] text-[var(--muted)]">
-          <span className="font-mono">{item.repository}</span>
+          <span className="font-mono">{sourceLabel}</span>
           {item.score != null && (
             <>
               <span className="text-[var(--border)]">/</span>
@@ -236,7 +274,10 @@ function MarketplaceCard({
             <>
               <span className="text-[var(--border)]">/</span>
               {item.tags.slice(0, 3).map((tag) => (
-                <span key={tag} className="px-1.5 py-px bg-[var(--accent)]/10 text-[var(--accent)]">
+                <span
+                  key={tag}
+                  className="px-1.5 py-px bg-[var(--accent)]/10 text-[var(--accent)]"
+                >
                   {tag}
                 </span>
               ))}
@@ -246,6 +287,7 @@ function MarketplaceCard({
       </div>
       {isInstalled ? (
         <button
+          type="button"
           className={btnDanger}
           onClick={() => onUninstall(item.id, item.name)}
           disabled={isUninstalling}
@@ -254,6 +296,7 @@ function MarketplaceCard({
         </button>
       ) : (
         <button
+          type="button"
           className={btnPrimary}
           onClick={() => onInstall(item)}
           disabled={isInstalling}
@@ -306,17 +349,28 @@ function InstallModal({
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
+      onKeyDown={(e) => {
+        if (e.key === "Escape" || e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onClose();
+        }
+      }}
+      role="dialog"
+      aria-modal="true"
     >
       <div className="w-full max-w-2xl max-h-[80vh] flex flex-col border border-[var(--border)] bg-[var(--bg)] overflow-hidden mx-4">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border)]">
           <div>
-            <div className="text-sm font-semibold text-[var(--txt)]">Install Skill</div>
+            <div className="text-sm font-semibold text-[var(--txt)]">
+              Install Skill
+            </div>
             <div className="text-[11px] text-[var(--muted)] mt-0.5">
               Add skills from the marketplace or a GitHub repository.
             </div>
           </div>
           <button
+            type="button"
             className="text-[var(--muted)] hover:text-[var(--txt)] bg-transparent border-0 cursor-pointer text-lg px-2 transition-colors"
             onClick={onClose}
           >
@@ -333,6 +387,7 @@ function InstallModal({
             ] as const
           ).map((t) => (
             <button
+              type="button"
               key={t.id}
               className={`flex-1 px-4 py-2.5 text-xs font-medium bg-transparent border-0 border-b-2 cursor-pointer transition-colors ${
                 tab === t.id
@@ -355,12 +410,15 @@ function InstallModal({
                   className={`${inputCls} flex-1 min-w-[200px]`}
                   placeholder="Search skills by keyword..."
                   value={skillsMarketplaceQuery}
-                  onChange={(e) => setState("skillsMarketplaceQuery", e.target.value)}
+                  onChange={(e) =>
+                    setState("skillsMarketplaceQuery", e.target.value)
+                  }
                   onKeyDown={(e) => {
                     if (e.key === "Enter") void searchSkillsMarketplace();
                   }}
                 />
                 <button
+                  type="button"
                   className={btnPrimary}
                   onClick={() => searchSkillsMarketplace()}
                   disabled={skillsMarketplaceLoading}
@@ -377,7 +435,9 @@ function InstallModal({
 
               {skillsMarketplaceResults.length === 0 ? (
                 <div className="text-center py-12">
-                  <div className="text-[var(--muted)] text-sm mb-1">No results</div>
+                  <div className="text-[var(--muted)] text-sm mb-1">
+                    No results
+                  </div>
                   <div className="text-[var(--muted)] text-[11px]">
                     Search above to discover skills from the marketplace.
                   </div>
@@ -385,7 +445,8 @@ function InstallModal({
               ) : (
                 <div className="flex flex-col gap-2">
                   <div className="text-[11px] text-[var(--muted)] mb-1">
-                    {skillsMarketplaceResults.length} result{skillsMarketplaceResults.length !== 1 ? "s" : ""}
+                    {skillsMarketplaceResults.length} result
+                    {skillsMarketplaceResults.length !== 1 ? "s" : ""}
                   </div>
                   {skillsMarketplaceResults.map((item) => (
                     <MarketplaceCard
@@ -404,21 +465,27 @@ function InstallModal({
 
           {tab === "url" && (
             <div>
-              <div className="text-xs text-[var(--txt)] mb-1 font-medium">GitHub Repository URL</div>
+              <div className="text-xs text-[var(--txt)] mb-1 font-medium">
+                GitHub Repository URL
+              </div>
               <div className="text-[11px] text-[var(--muted)] mb-3">
-                Paste a full GitHub URL or a /tree/... path to install a skill directly.
+                Paste a full GitHub URL or a /tree/... path to install a skill
+                directly.
               </div>
               <div className="flex gap-2 items-center">
                 <input
                   className={`${inputCls} flex-1`}
                   placeholder="https://github.com/owner/repo/tree/main/skills/my-skill"
                   value={skillsMarketplaceManualGithubUrl}
-                  onChange={(e) => setState("skillsMarketplaceManualGithubUrl", e.target.value)}
+                  onChange={(e) =>
+                    setState("skillsMarketplaceManualGithubUrl", e.target.value)
+                  }
                   onKeyDown={(e) => {
                     if (e.key === "Enter") void installSkillFromGithubUrl();
                   }}
                 />
                 <button
+                  type="button"
                   className={btnPrimary}
                   onClick={() => installSkillFromGithubUrl()}
                   disabled={
@@ -426,7 +493,9 @@ function InstallModal({
                     !skillsMarketplaceManualGithubUrl.trim()
                   }
                 >
-                  {skillsMarketplaceAction === "install:manual" ? "Installing..." : "Install"}
+                  {skillsMarketplaceAction === "install:manual"
+                    ? "Installing..."
+                    : "Install"}
                 </button>
               </div>
 
@@ -463,13 +532,15 @@ function CreateSkillForm({
   return (
     <div className="border border-[var(--accent)]/40 bg-[var(--card)] mb-4">
       <div className="px-4 py-3 border-b border-[var(--border)]">
-        <div className="text-xs font-semibold text-[var(--txt)]">Create New Skill</div>
+        <div className="text-xs font-semibold text-[var(--txt)]">
+          Create New Skill
+        </div>
       </div>
       <div className="p-4 flex flex-col gap-3">
         <div>
-          <label className="block text-[11px] text-[var(--muted)] mb-1 font-medium">
+          <span className="block text-[11px] text-[var(--muted)] mb-1 font-medium">
             Skill Name <span className="text-[#e74c3c]">*</span>
-          </label>
+          </span>
           <input
             className={`${inputCls} w-full`}
             placeholder="e.g. my-awesome-skill"
@@ -478,13 +549,12 @@ function CreateSkillForm({
             onKeyDown={(e) => {
               if (e.key === "Enter" && skillCreateName.trim()) onCreate();
             }}
-            autoFocus
           />
         </div>
         <div>
-          <label className="block text-[11px] text-[var(--muted)] mb-1 font-medium">
+          <span className="block text-[11px] text-[var(--muted)] mb-1 font-medium">
             Description
-          </label>
+          </span>
           <input
             className={`${inputCls} w-full`}
             placeholder="Brief description of what this skill does (optional)"
@@ -496,10 +566,11 @@ function CreateSkillForm({
           />
         </div>
         <div className="flex gap-2 justify-end pt-1">
-          <button className={btnGhost} onClick={onCancel}>
+          <button type="button" className={btnGhost} onClick={onCancel}>
             Cancel
           </button>
           <button
+            type="button"
             className={btnPrimary}
             onClick={onCreate}
             disabled={skillCreating || !skillCreateName.trim()}
@@ -540,7 +611,9 @@ function EditSkillModal({
       setContent(res.content);
       setOriginalContent(res.content);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load skill source");
+      setError(
+        err instanceof Error ? err.message : "Failed to load skill source",
+      );
     }
     setLoading(false);
   }, [skillId]);
@@ -579,7 +652,7 @@ function EditSkillModal({
       const start = target.selectionStart;
       const end = target.selectionEnd;
       const val = target.value;
-      setContent(val.substring(0, start) + "  " + val.substring(end));
+      setContent(`${val.substring(0, start)}  ${val.substring(end)}`);
       requestAnimationFrame(() => {
         target.selectionStart = target.selectionEnd = start + 2;
       });
@@ -592,17 +665,29 @@ function EditSkillModal({
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
+      onKeyDown={(e) => {
+        if (e.key === "Escape" || e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onClose();
+        }
+      }}
+      role="dialog"
+      aria-modal="true"
     >
       <div className="w-full max-w-4xl h-[85vh] flex flex-col border border-[var(--border)] bg-[var(--bg)] overflow-hidden mx-4">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-[var(--border)] shrink-0">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="font-semibold text-sm text-[var(--txt)] truncate">{skillName}</div>
+            <div className="font-semibold text-sm text-[var(--txt)] truncate">
+              {skillName}
+            </div>
             <span className="text-[10px] font-mono text-[var(--muted)] px-1.5 py-0.5 bg-[var(--card)] border border-[var(--border)]">
               SKILL.md
             </span>
             {hasChanges && (
-              <span className="text-[10px] text-[var(--accent)] font-medium">unsaved</span>
+              <span className="text-[10px] text-[var(--accent)] font-medium">
+                unsaved
+              </span>
             )}
           </div>
           <div className="flex items-center gap-2">
@@ -610,6 +695,7 @@ function EditSkillModal({
               {navigator.platform.includes("Mac") ? "⌘S" : "Ctrl+S"} to save
             </span>
             <button
+              type="button"
               className="text-[var(--muted)] hover:text-[var(--txt)] bg-transparent border-0 cursor-pointer text-lg px-2 transition-colors"
               onClick={onClose}
             >
@@ -627,7 +713,11 @@ function EditSkillModal({
           ) : error && !content ? (
             <div className="flex flex-col items-center justify-center h-full gap-3">
               <div className="text-[#e74c3c] text-sm">{error}</div>
-              <button className={btnGhost} onClick={() => loadSource()}>
+              <button
+                type="button"
+                className={btnGhost}
+                onClick={() => loadSource()}
+              >
                 Retry
               </button>
             </div>
@@ -651,10 +741,11 @@ function EditSkillModal({
             ) : null}
           </div>
           <div className="flex items-center gap-2">
-            <button className={btnGhost} onClick={onClose}>
+            <button type="button" className={btnGhost} onClick={onClose}>
               {hasChanges ? "Discard" : "Close"}
             </button>
             <button
+              type="button"
               className={`${btnPrimary} ${saveSuccess ? "!bg-[var(--ok,#16a34a)] !border-[var(--ok,#16a34a)]" : ""}`}
               onClick={() => handleSave()}
               disabled={saving || !hasChanges}
@@ -710,36 +801,47 @@ export function SkillsView() {
   }, [loadSkills]);
 
   // Group into: needs attention, active, inactive — with text filter
-  const { attention, active, inactive, activeCount, totalCount } = useMemo(() => {
-    const attention: SkillInfo[] = [];
-    const active: SkillInfo[] = [];
-    const inactive: SkillInfo[] = [];
-    let activeCount = 0;
+  const { attention, active, inactive, activeCount, totalCount } =
+    useMemo(() => {
+      const attention: SkillInfo[] = [];
+      const active: SkillInfo[] = [];
+      const inactive: SkillInfo[] = [];
+      let activeCount = 0;
 
-    const query = filterText.toLowerCase();
+      const query = filterText.toLowerCase();
 
-    for (const skill of skills) {
-      if (query && !skill.name.toLowerCase().includes(query) && !skill.description?.toLowerCase().includes(query)) {
-        continue;
+      for (const skill of skills) {
+        if (
+          query &&
+          !skill.name.toLowerCase().includes(query) &&
+          !skill.description?.toLowerCase().includes(query)
+        ) {
+          continue;
+        }
+
+        if (skill.enabled) activeCount++;
+
+        if (
+          skill.scanStatus === "warning" ||
+          skill.scanStatus === "critical" ||
+          skill.scanStatus === "blocked"
+        ) {
+          attention.push(skill);
+        } else if (skill.enabled) {
+          active.push(skill);
+        } else {
+          inactive.push(skill);
+        }
       }
 
-      if (skill.enabled) activeCount++;
-
-      if (
-        skill.scanStatus === "warning" ||
-        skill.scanStatus === "critical" ||
-        skill.scanStatus === "blocked"
-      ) {
-        attention.push(skill);
-      } else if (skill.enabled) {
-        active.push(skill);
-      } else {
-        inactive.push(skill);
-      }
-    }
-
-    return { attention, active, inactive, activeCount, totalCount: skills.length };
-  }, [skills, filterText]);
+      return {
+        attention,
+        active,
+        inactive,
+        activeCount,
+        totalCount: skills.length,
+      };
+    }, [skills, filterText]);
 
   const handleDismissReview = () => {
     setState("skillReviewId", "");
@@ -759,9 +861,14 @@ export function SkillsView() {
     if (items.length === 0) return null;
     return (
       <div className="mb-6">
-        <div className="text-xs uppercase tracking-wider font-semibold mb-2 flex items-center gap-2" style={accent ? { color: accent } : { color: "var(--muted)" }}>
+        <div
+          className="text-xs uppercase tracking-wider font-semibold mb-2 flex items-center gap-2"
+          style={accent ? { color: accent } : { color: "var(--muted)" }}
+        >
           {label}
-          <span className="text-[10px] font-mono opacity-60">({items.length})</span>
+          <span className="text-[10px] font-mono opacity-60">
+            ({items.length})
+          </span>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {items.map((skill) => (
@@ -789,7 +896,9 @@ export function SkillsView() {
     <div>
       {/* Stats bar */}
       <div className="flex items-center gap-4 mb-4 text-[11px] text-[var(--muted)]">
-        <span>{totalCount} skill{totalCount !== 1 ? "s" : ""}</span>
+        <span>
+          {totalCount} skill{totalCount !== 1 ? "s" : ""}
+        </span>
         <span>{activeCount} active</span>
         <span>{inactive.length} inactive</span>
         {attention.length > 0 && (
@@ -812,15 +921,21 @@ export function SkillsView() {
         <span className="flex-1" />
 
         <button
+          type="button"
           className={skillCreateFormOpen ? btnGhost : btnPrimary}
           onClick={() => setState("skillCreateFormOpen", !skillCreateFormOpen)}
         >
           {skillCreateFormOpen ? "Cancel" : "+ New Skill"}
         </button>
-        <button className={btnPrimary} onClick={() => setInstallModalOpen(true)}>
+        <button
+          type="button"
+          className={btnPrimary}
+          onClick={() => setInstallModalOpen(true)}
+        >
           Install
         </button>
         <button
+          type="button"
           className={btnGhost}
           onClick={() => refreshSkills()}
           title="Refresh skills list"
@@ -844,15 +959,25 @@ export function SkillsView() {
       {/* Skill grid — grouped by status */}
       {skills.length === 0 ? (
         <div className="text-center py-16">
-          <div className="text-[var(--muted)] text-sm mb-2">No skills installed</div>
+          <div className="text-[var(--muted)] text-sm mb-2">
+            No skills installed
+          </div>
           <div className="text-[var(--muted)] text-[11px] mb-4">
             Install skills from the marketplace or create a new one.
           </div>
           <div className="flex justify-center gap-2">
-            <button className={btnPrimary} onClick={() => setInstallModalOpen(true)}>
+            <button
+              type="button"
+              className={btnPrimary}
+              onClick={() => setInstallModalOpen(true)}
+            >
               Browse Marketplace
             </button>
-            <button className={btnGhost} onClick={() => setState("skillCreateFormOpen", true)}>
+            <button
+              type="button"
+              className={btnGhost}
+              onClick={() => setState("skillCreateFormOpen", true)}
+            >
               Create Skill
             </button>
           </div>

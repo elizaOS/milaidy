@@ -1,3 +1,3 @@
-import { resolveMilaidyVersion } from "../version-resolver.js";
+import { resolveMiladyVersion } from "../version-resolver";
 
-export const CLI_VERSION = resolveMilaidyVersion(import.meta.url);
+export const CLI_VERSION = resolveMiladyVersion(import.meta.url);

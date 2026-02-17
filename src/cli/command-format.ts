@@ -1,5 +1,5 @@
-import { CLI_PREFIX_RE, replaceCliName, resolveCliName } from "./cli-name.js";
-import { normalizeProfileName } from "./profile-utils.js";
+import { CLI_PREFIX_RE, replaceCliName, resolveCliName } from "./cli-name";
+import { normalizeProfileName } from "./profile-utils";
 
 const PROFILE_FLAG_RE = /(?:^|\s)--profile(?:\s|=|$)/;
 const DEV_FLAG_RE = /(?:^|\s)--dev(?:\s|$)/;
@@ -13,7 +13,7 @@ export function formatCliCommand(
 ): string {
   const cliName = resolveCliName();
   const normalizedCommand = replaceCliName(command, cliName);
-  const profile = normalizeProfileName(env.MILAIDY_PROFILE);
+  const profile = normalizeProfileName(env.MILADY_PROFILE);
   if (!profile) {
     return normalizedCommand;
   }

@@ -7,13 +7,12 @@ import { execSync, spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import type { ReleaseChannel } from "../config/types.milaidy.js";
-import { CHANNEL_DIST_TAGS } from "./update-checker.js";
+import type { ReleaseChannel } from "../config/types.milady";
+import { CHANNEL_DIST_TAGS } from "./update-checker";
 
 export type InstallMethod =
   | "npm-global"
   | "bun-global"
-  | "pnpm-global"
   | "homebrew"
   | "snap"
   | "apt"
@@ -59,28 +58,27 @@ function isLocalDev(): boolean {
 }
 
 export function detectInstallMethod(): InstallMethod {
-  const milaidyBin = whichSync("milaidy");
+  const miladyBin = whichSync("milady");
 
-  if (!milaidyBin) {
+  if (!miladyBin) {
     return isLocalDev() ? "local-dev" : "unknown";
   }
 
   let resolved: string;
   try {
-    resolved = fs.realpathSync(milaidyBin);
+    resolved = fs.realpathSync(miladyBin);
   } catch {
-    resolved = milaidyBin;
+    resolved = miladyBin;
   }
 
   if (resolved.includes("/Cellar/") || resolved.includes("/homebrew/"))
     return "homebrew";
   if (resolved.includes("/snap/")) return "snap";
-  if (resolved.includes("/flatpak/") || resolved.includes("ai.milady.Milaidy"))
+  if (resolved.includes("/flatpak/") || resolved.includes("ai.milady.Milady"))
     return "flatpak";
   if (resolved.startsWith("/usr/") && !resolved.includes("node_modules"))
     return "apt";
   if (resolved.includes("/.bun/")) return "bun-global";
-  if (resolved.includes("/pnpm/")) return "pnpm-global";
   if (resolved.includes("node_modules")) return "npm-global";
 
   return "unknown";
@@ -90,24 +88,22 @@ export function buildUpdateCommand(
   method: InstallMethod,
   channel: ReleaseChannel,
 ): { command: string; args: string[] } | null {
-  const spec = `milaidy@${CHANNEL_DIST_TAGS[channel]}`;
+  const spec = `milady@${CHANNEL_DIST_TAGS[channel]}`;
 
   switch (method) {
     case "npm-global":
       return { command: "npm", args: ["install", "-g", spec] };
     case "bun-global":
       return { command: "bun", args: ["install", "-g", spec] };
-    case "pnpm-global":
-      return { command: "pnpm", args: ["add", "-g", spec] };
     case "homebrew":
-      return { command: "brew", args: ["upgrade", "milaidy"] };
+      return { command: "brew", args: ["upgrade", "milady"] };
     case "snap": {
       // nightly → edge (snap doesn't have a "nightly" channel)
       const snapCh =
         channel === "nightly" ? "edge" : channel === "beta" ? "beta" : "stable";
       return {
         command: "sudo",
-        args: ["snap", "refresh", "milaidy", `--channel=${snapCh}`],
+        args: ["snap", "refresh", "milady", `--channel=${snapCh}`],
       };
     }
     case "apt":
@@ -115,11 +111,11 @@ export function buildUpdateCommand(
         command: "sh",
         args: [
           "-c",
-          "sudo apt-get update && sudo apt-get install --only-upgrade -y milaidy",
+          "sudo apt-get update && sudo apt-get install --only-upgrade -y milady",
         ],
       };
     case "flatpak":
-      return { command: "flatpak", args: ["update", "ai.milady.Milaidy"] };
+      return { command: "flatpak", args: ["update", "ai.milady.Milady"] };
     case "local-dev":
       return null;
     case "unknown":
@@ -156,13 +152,13 @@ function runCommand(
 
 function readPostUpdateVersion(): string | null {
   try {
-    const output = execSync("milaidy --version", {
+    const output = execSync("milady --version", {
       stdio: ["ignore", "pipe", "ignore"],
       timeout: 10_000,
     })
       .toString()
       .trim();
-    // Version output may include a prefix like "milaidy/2.0.0"
+    // Version output may include a prefix like "milady/2.0.0"
     const match = output.match(/(\d+\.\d+\.\d+(?:-[\w.]+)?)/);
     return match?.[1] ?? null;
   } catch {

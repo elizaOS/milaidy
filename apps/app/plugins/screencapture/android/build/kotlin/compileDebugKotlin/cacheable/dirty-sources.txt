@@ -1,1 +1,1 @@
-/Users/shawwalters/eliza-ok/packages/milaidy/apps/app/plugins/screencapture/android/src/main/java/ai/milaidy/plugins/screencapture/ScreenCapturePlugin.kt
+/Users/shawwalters/eliza-ok/packages/milady/apps/app/plugins/screencapture/android/src/main/java/ai/milady/plugins/screencapture/ScreenCapturePlugin.kt

@@ -1,6 +1,5 @@
 import type { AgentRuntime } from "@elizaos/core";
 import {
-  type AutocompleteItem,
   CombinedAutocompleteProvider,
   type Component,
   Container,
@@ -11,25 +10,20 @@ import {
   Text,
   TUI,
 } from "@elizaos/tui";
-import {
-  type Api,
-  getModels,
-  getProviders,
-  type Model,
-} from "@mariozechner/pi-ai";
+import type { TuiModel } from "./components/index";
 import {
   ChatEditor,
   FooterComponent,
   ModelSelectorComponent,
   StatusBar,
-} from "./components/index.js";
-import { tuiTheme } from "./theme.js";
+} from "./components/index";
+import { tuiTheme } from "./theme";
 
-export interface MilaidyTUIOptions {
+export interface MiladyTUIOptions {
   runtime: AgentRuntime;
 }
 
-export class MilaidyTUI {
+export class MiladyTUI {
   private terminal = new ProcessTerminal();
   private ui!: TUI;
 
@@ -50,13 +44,13 @@ export class MilaidyTUI {
 
   private modelSelectorHandlers:
     | {
-        getCurrentModel: () => Model<Api>;
-        onSelectModel: (model: Model<Api>) => void;
+        getCurrentModel: () => TuiModel;
+        onSelectModel: (model: TuiModel) => void;
         hasCredentials?: (provider: string) => boolean;
       }
     | undefined;
 
-  constructor(private options: MilaidyTUIOptions) {}
+  constructor(private options: MiladyTUIOptions) {}
 
   setOnSubmit(handler: (text: string) => Promise<void>): void {
     this.onSubmit = handler;
@@ -71,8 +65,8 @@ export class MilaidyTUI {
   }
 
   setModelSelectorHandlers(handlers: {
-    getCurrentModel: () => Model<Api>;
-    onSelectModel: (model: Model<Api>) => void;
+    getCurrentModel: () => TuiModel;
+    onSelectModel: (model: TuiModel) => void;
     hasCredentials?: (provider: string) => boolean;
   }): void {
     this.modelSelectorHandlers = handlers;
@@ -89,12 +83,12 @@ export class MilaidyTUI {
     this.ephemeralStatusContainer = new Container();
 
     this.statusBar.update({
-      agentName: this.options.runtime.character?.name ?? "milaidy",
+      agentName: this.options.runtime.character?.name ?? "milady",
     });
 
     // Welcome
     this.chatContainer.addChild(
-      new Text(tuiTheme.accent("Welcome to Milaidy"), 1, 0),
+      new Text(tuiTheme.accent("Welcome to Milady"), 1, 0),
     );
     this.chatContainer.addChild(new Spacer(1));
 
@@ -125,45 +119,14 @@ export class MilaidyTUI {
       this.showModelSelector();
     };
 
-    // Slash command autocomplete (pi-style "/...").
-    const getModelCompletions = (
-      argumentPrefix: string,
-    ): AutocompleteItem[] => {
-      const prefix = argumentPrefix.trim().toLowerCase();
-      const items: AutocompleteItem[] = [];
-
-      for (const provider of getProviders()) {
-        for (const model of getModels(provider)) {
-          const spec = `${model.provider}/${model.id}`;
-          if (!prefix || spec.toLowerCase().startsWith(prefix)) {
-            items.push({
-              value: spec,
-              label: spec,
-              description: model.api,
-            });
-          }
-
-          if (items.length >= 80) {
-            return items;
-          }
-        }
-      }
-
-      return items;
-    };
-
     const slashCommands: SlashCommand[] = [
       {
         name: "model",
         description: "Switch model (open selector or /model provider/id)",
-        getArgumentCompletions: (argumentPrefix) =>
-          getModelCompletions(argumentPrefix),
       },
       {
         name: "models",
         description: "Alias for /model",
-        getArgumentCompletions: (argumentPrefix) =>
-          getModelCompletions(argumentPrefix),
       },
       {
         name: "clear",
@@ -238,7 +201,7 @@ export class MilaidyTUI {
   clearChat(): void {
     this.chatContainer.clear();
     this.chatContainer.addChild(
-      new Text(tuiTheme.accent("Welcome to Milaidy"), 1, 0),
+      new Text(tuiTheme.accent("Welcome to Milady"), 1, 0),
     );
     this.chatContainer.addChild(new Spacer(1));
     this.ui.requestRender();

@@ -1,7 +1,7 @@
 /**
  * Capacitor Bridge
  *
- * This module provides a bridge between the Milaidy web UI and native
+ * This module provides a bridge between the Milady web UI and native
  * Capacitor plugins. It exposes a global API that the UI can use to
  * access native capabilities like camera, microphone, file system, etc.
  *
@@ -13,13 +13,13 @@ import { Capacitor } from "@capacitor/core";
 import { Haptics, ImpactStyle, NotificationType } from "@capacitor/haptics";
 
 // Import the plugin bridge
-import { 
-  getPlugins, 
-  getPluginCapabilities, 
+import {
+  getPluginCapabilities,
+  getPlugins,
   isFeatureAvailable,
-  type MilaidyPlugins,
-  type PluginCapabilities 
-} from "./plugin-bridge.js";
+  type MiladyPlugins,
+  type PluginCapabilities,
+} from "./plugin-bridge";
 
 // Platform detection
 const platform = Capacitor.getPlatform();
@@ -153,7 +153,7 @@ export const haptics = {
 };
 
 /**
- * Plugin registry for custom Milaidy plugins
+ * Plugin registry for custom Milady plugins
  *
  * Custom plugins (Gateway, Swabble, Canvas, etc.) will register themselves here
  * when they're loaded. This allows the UI to check for plugin availability
@@ -173,7 +173,9 @@ export function registerPlugin(name: string, plugin: PluginInstance): void {
 /**
  * Get a registered plugin
  */
-export function getPlugin<T extends PluginInstance>(name: string): T | undefined {
+export function getPlugin<T extends PluginInstance>(
+  name: string,
+): T | undefined {
   return pluginRegistry.get(name) as T | undefined;
 }
 
@@ -185,9 +187,9 @@ export function hasPlugin(name: string): boolean {
 }
 
 /**
- * The global Milaidy bridge object exposed to the UI
+ * The global Milady bridge object exposed to the UI
  */
-export interface MilaidyBridge {
+export interface MiladyBridge {
   /** Platform capabilities */
   capabilities: CapacitorCapabilities;
   /** Plugin-specific capabilities */
@@ -200,8 +202,8 @@ export interface MilaidyBridge {
   hasPlugin: typeof hasPlugin;
   /** Register a new plugin */
   registerPlugin: typeof registerPlugin;
-  /** Get all Milaidy plugins with fallback support */
-  plugins: MilaidyPlugins;
+  /** Get all Milady plugins with fallback support */
+  plugins: MiladyPlugins;
   /** Check if a specific feature is available */
   isFeatureAvailable: typeof isFeatureAvailable;
   /** Platform info */
@@ -219,7 +221,7 @@ export interface MilaidyBridge {
 /**
  * Create the global bridge object
  */
-function createBridge(): MilaidyBridge {
+function createBridge(): MiladyBridge {
   return {
     capabilities: getCapabilities(),
     pluginCapabilities: getPluginCapabilities(),
@@ -244,22 +246,24 @@ function createBridge(): MilaidyBridge {
 // Extend the Window interface to include our bridge
 declare global {
   interface Window {
-    Milaidy: MilaidyBridge;
+    Milady: MiladyBridge;
   }
 }
 
 /**
  * Initialize the Capacitor bridge
  *
- * This exposes the bridge object on window.Milaidy for use by the UI.
+ * This exposes the bridge object on window.Milady for use by the UI.
  */
 export function initializeCapacitorBridge(): void {
-  window.Milaidy = createBridge();
+  window.Milady = createBridge();
 
   // Dispatch an event to notify that the bridge is ready
-  document.dispatchEvent(new CustomEvent("milaidy:bridge-ready", {
-    detail: window.Milaidy,
-  }));
+  document.dispatchEvent(
+    new CustomEvent("milady:bridge-ready", {
+      detail: window.Milady,
+    }),
+  );
 }
 
 /**
@@ -267,14 +271,18 @@ export function initializeCapacitorBridge(): void {
  *
  * Returns immediately if already initialized, otherwise waits for the event.
  */
-export function waitForBridge(): Promise<MilaidyBridge> {
-  if (window.Milaidy) {
-    return Promise.resolve(window.Milaidy);
+export function waitForBridge(): Promise<MiladyBridge> {
+  if (window.Milady) {
+    return Promise.resolve(window.Milady);
   }
 
   return new Promise((resolve) => {
-    document.addEventListener("milaidy:bridge-ready", (event) => {
-      resolve((event as CustomEvent<MilaidyBridge>).detail);
-    }, { once: true });
+    document.addEventListener(
+      "milady:bridge-ready",
+      (event) => {
+        resolve((event as CustomEvent<MiladyBridge>).detail);
+      },
+      { once: true },
+    );
   });
 }

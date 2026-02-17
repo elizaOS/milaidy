@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="console-application">
+  <id>ai.milady.Milady</id>
+  <metadata_license>MIT</metadata_license>
+  <project_license>MIT</project_license>
+  <name>Milady</name>
+  <summary>Personal AI assistant built on ElizaOS</summary>
+  <description>
+    <p>
+      Milady is a personal AI assistant you run on your own devices, built on
+      ElizaOS. It provides zero-config onboarding, multi-provider AI support,
+      a web dashboard, and a plugin system for extensibility.
+    </p>
+    <p>Features:</p>
+    <ul>
+      <li>Interactive setup on first run</li>
+      <li>Support for Anthropic, OpenAI, Google Gemini, Ollama, and more</li>
+      <li>Web dashboard at http://localhost:18789</li>
+      <li>Plugin system for extensibility</li>
+      <li>Web3 wallet integration</li>
+    </ul>
+  </description>
+  <url type="homepage">https://milady.ai</url>
+  <url type="bugtracker">https://github.com/milady-ai/milady/issues</url>
+  <url type="vcs-browser">https://github.com/milady-ai/milady</url>
+  <provides>
+    <binary>milady</binary>
+  </provides>
+  <categories>
+    <category>Development</category>
+    <category>Utility</category>
+  </categories>
+  <releases>
+    <release version="2.0.0-alpha.7" date="2026-02-07">
+      <description>
+        <p>Initial Flatpak release of Milady.</p>
+      </description>
+    </release>
+  </releases>
+  <content_rating type="oars-1.1">
+    <content_attribute id="social-chat">moderate</content_attribute>
+  </content_rating>
+</component>

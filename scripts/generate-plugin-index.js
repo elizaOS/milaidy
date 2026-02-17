@@ -1,17 +1,17 @@
 #!/usr/bin/env node
 /**
  * Generate plugins.json — a static manifest of all available plugins
- * that ships with the milaidy package.
+ * that ships with the milady package.
  *
  * Scans every plugin-* directory under the monorepo's plugins/ folder,
- * reads each package.json, and writes plugins.json to the milaidy
+ * reads each package.json, and writes plugins.json to the milady
  * package root.
  *
- * Run from the milaidy package directory:
+ * Run from the milady package directory:
  *   node scripts/generate-plugin-index.js
  *
  * Or from the monorepo root:
- *   node packages/milaidy/scripts/generate-plugin-index.js
+ *   node packages/milady/scripts/generate-plugin-index.js
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -20,7 +20,7 @@ import { fileURLToPath } from "node:url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// This script lives at packages/milaidy/scripts/
+// This script lives at packages/milady/scripts/
 const packageRoot = path.resolve(__dirname, "..");
 const outputPath = path.join(packageRoot, "plugins.json");
 

@@ -39,7 +39,7 @@ const { mockClient } = vi.hoisted(() => ({
     getAgentEvents: vi.fn(async () => ({ events: [], latestEventId: null })),
     getStatus: vi.fn(async () => ({
       state: "running",
-      agentName: "Milaidy",
+      agentName: "Milady",
       model: undefined,
       startedAt: undefined,
       uptime: undefined,
@@ -55,7 +55,7 @@ const { mockClient } = vi.hoisted(() => ({
     updateWalletConfig: vi.fn(async () => ({ ok: true })),
     restartAgent: vi.fn(async () => ({
       state: "running",
-      agentName: "Milaidy",
+      agentName: "Milady",
       model: undefined,
       startedAt: undefined,
       uptime: undefined,
@@ -151,17 +151,23 @@ describe("wallet api key save locking", () => {
     mockClient.connectWs.mockImplementation(() => {});
     mockClient.disconnectWs.mockImplementation(() => {});
     mockClient.onWsEvent.mockReturnValue(() => {});
-    mockClient.getAgentEvents.mockResolvedValue({ events: [], latestEventId: null });
+    mockClient.getAgentEvents.mockResolvedValue({
+      events: [],
+      latestEventId: null,
+    });
     mockClient.getStatus.mockResolvedValue({
       state: "running",
-      agentName: "Milaidy",
+      agentName: "Milady",
       model: undefined,
       startedAt: undefined,
       uptime: undefined,
     });
     mockClient.getWalletAddresses.mockResolvedValue(null);
     mockClient.getConfig.mockResolvedValue({});
-    mockClient.getCloudStatus.mockResolvedValue({ enabled: false, connected: false });
+    mockClient.getCloudStatus.mockResolvedValue({
+      enabled: false,
+      connected: false,
+    });
     mockClient.getWorkbenchOverview.mockResolvedValue({
       tasks: [],
       triggers: [],
@@ -170,7 +176,7 @@ describe("wallet api key save locking", () => {
     mockClient.updateWalletConfig.mockResolvedValue({ ok: true });
     mockClient.restartAgent.mockResolvedValue({
       state: "running",
-      agentName: "Milaidy",
+      agentName: "Milady",
       model: undefined,
       startedAt: undefined,
       uptime: undefined,
@@ -211,8 +217,8 @@ describe("wallet api key save locking", () => {
     const config = { HELIUS_API_KEY: "k_123" };
 
     await act(async () => {
-      void api!.handleWalletApiKeySave(config);
-      void api!.handleWalletApiKeySave(config);
+      void api?.handleWalletApiKeySave(config);
+      void api?.handleWalletApiKeySave(config);
     });
 
     expect(mockClient.updateWalletConfig).toHaveBeenCalledTimes(1);
@@ -223,7 +229,7 @@ describe("wallet api key save locking", () => {
     });
 
     await act(async () => {
-      tree!.unmount();
+      tree?.unmount();
     });
   });
 
@@ -253,16 +259,16 @@ describe("wallet api key save locking", () => {
     const config = { HELIUS_API_KEY: "k_123" };
 
     await act(async () => {
-      await api!.handleWalletApiKeySave(config);
+      await api?.handleWalletApiKeySave(config);
     });
     await act(async () => {
-      await api!.handleWalletApiKeySave(config);
+      await api?.handleWalletApiKeySave(config);
     });
 
     expect(mockClient.updateWalletConfig).toHaveBeenCalledTimes(2);
 
     await act(async () => {
-      tree!.unmount();
+      tree?.unmount();
     });
   });
 });

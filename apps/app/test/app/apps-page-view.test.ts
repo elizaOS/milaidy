@@ -1,6 +1,6 @@
 import React from "react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import TestRenderer, { act } from "react-test-renderer";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 interface AppsPageContextStub {
   appsSubTab: "browse" | "games";
@@ -68,7 +68,7 @@ describe("AppsPageView", () => {
     });
     await flush();
 
-    const root = tree!.root;
+    const root = tree?.root;
     expect(root.findAll((node) => text(node) === "APPS_VIEW").length).toBe(1);
     expect(root.findAll((node) => text(node) === "GAME_VIEW").length).toBe(0);
     expect(root.findAll((node) => text(node) === "Browse").length).toBe(0);
@@ -89,7 +89,7 @@ describe("AppsPageView", () => {
     });
     await flush();
 
-    const root = tree!.root;
+    const root = tree?.root;
     expect(root.findAll((node) => text(node) === "GAME_VIEW").length).toBe(1);
     expect(root.findAll((node) => text(node) === "APPS_VIEW").length).toBe(0);
   });
@@ -107,7 +107,7 @@ describe("AppsPageView", () => {
     });
     await flush();
 
-    const root = tree!.root;
+    const root = tree?.root;
     expect(root.findAll((node) => text(node) === "APPS_VIEW").length).toBe(1);
     expect(ctx.setState).toHaveBeenCalledWith("appsSubTab", "browse");
   });

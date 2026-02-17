@@ -1,5 +1,5 @@
 /**
- * Registry Client for Milaidy.
+ * Registry Client for Milady.
  *
  * Provides a 3-tier cached registry (memory → file → network) that works
  * offline, in .app bundles, and in dev. Fetches from the next@registry branch.
@@ -246,7 +246,7 @@ function uniquePaths(paths: string[]): string[] {
 }
 
 function resolveWorkspaceRoots(): string[] {
-  const envRoot = process.env.MILAIDY_WORKSPACE_ROOT?.trim();
+  const envRoot = process.env.MILADY_WORKSPACE_ROOT?.trim();
   if (envRoot) return uniquePaths([envRoot]);
   const moduleDir = path.dirname(fileURLToPath(import.meta.url));
   const packageRoot = path.resolve(moduleDir, "..", "..");
@@ -316,8 +316,7 @@ function mergeAppMeta(
 
 function cacheFilePath(): string {
   const base =
-    process.env.MILAIDY_STATE_DIR?.trim() ||
-    path.join(os.homedir(), ".milaidy");
+    process.env.MILADY_STATE_DIR?.trim() || path.join(os.homedir(), ".milady");
   return path.join(base, "cache", "registry.json");
 }
 
@@ -509,10 +508,9 @@ async function discoverLocalWorkspaceApps(): Promise<
     }
   }
 
-  // 2. Scan user-installed plugins (~/.milaidy/plugins/installed/) for kind: "app"
+  // 2. Scan user-installed plugins (~/.milady/plugins/installed/) for kind: "app"
   const stateDir =
-    process.env.MILAIDY_STATE_DIR?.trim() ||
-    path.join(os.homedir(), ".milaidy");
+    process.env.MILADY_STATE_DIR?.trim() || path.join(os.homedir(), ".milady");
   const installedBase = path.join(stateDir, "plugins", "installed");
   try {
     const installedEntries = await fs.readdir(installedBase, {
@@ -949,15 +947,33 @@ function toAppInfo(p: RegistryPluginInfo): RegistryAppInfo {
   };
 }
 
+function toAppEntry(p: RegistryPluginInfo): RegistryPluginInfo | null {
+  if (p.kind === "app" || p.appMeta) {
+    return {
+      ...p,
+      kind: "app",
+      appMeta: p.appMeta,
+    };
+  }
+
+  const appMeta = resolveAppOverride(p.name, undefined);
+  if (!appMeta) return null;
+  return {
+    ...p,
+    kind: "app",
+    appMeta,
+  };
+}
+
 /** List all registered apps. */
 export async function listApps(): Promise<RegistryAppInfo[]> {
   const registry = await getRegistryPlugins();
   const apps: RegistryAppInfo[] = [];
 
   for (const p of registry.values()) {
-    if (p.kind === "app") {
-      apps.push(toAppInfo(p));
-    }
+    const appEntry = toAppEntry(p);
+    if (!appEntry) continue;
+    apps.push(toAppInfo(appEntry));
   }
 
   apps.sort((a, b) => b.stars - a.stars);
@@ -969,8 +985,10 @@ export async function getAppInfo(
   name: string,
 ): Promise<RegistryAppInfo | null> {
   const info = await getPluginInfo(name);
-  if (!info || info.kind !== "app") return null;
-  return toAppInfo(info);
+  if (!info) return null;
+  const appEntry = toAppEntry(info);
+  if (!appEntry) return null;
+  return toAppInfo(appEntry);
 }
 
 /** Search apps by query. */
@@ -979,7 +997,11 @@ export async function searchApps(
   limit = 15,
 ): Promise<RegistryAppInfo[]> {
   const registry = await getRegistryPlugins();
-  const appEntries = [...registry.values()].filter((p) => p.kind === "app");
+  const appEntries: RegistryPluginInfo[] = [];
+  for (const p of registry.values()) {
+    const appEntry = toAppEntry(p);
+    if (appEntry) appEntries.push(appEntry);
+  }
 
   const results = scoreEntries(
     appEntries,

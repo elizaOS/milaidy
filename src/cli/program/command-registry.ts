@@ -1,12 +1,12 @@
 import type { Command } from "commander";
-import { registerConfigCli } from "./register.config.js";
-import { registerConfigureCommand } from "./register.configure.js";
-import { registerDashboardCommand } from "./register.dashboard.js";
-import { registerSetupCommand } from "./register.setup.js";
-import { registerStartCommand } from "./register.start.js";
-import { registerSubCliCommands } from "./register.subclis.js";
-import { registerTuiCommand } from "./register.tui.js";
-import { registerUpdateCommand } from "./register.update.js";
+import { registerConfigCli } from "./register.config";
+import { registerConfigureCommand } from "./register.configure";
+import { registerDashboardCommand } from "./register.dashboard";
+import { registerSetupCommand } from "./register.setup";
+import { registerStartCommand } from "./register.start";
+import { registerSubCliCommands } from "./register.subclis";
+import { registerTuiCommand } from "./register.tui";
+import { registerUpdateCommand } from "./register.update";
 
 export function registerProgramCommands(
   program: Command,

@@ -57,7 +57,6 @@ jobs:
     name: Build ${{ matrix.platform.name }}
     needs: prepare
     runs-on: ${{ matrix.platform.runner }}
-    continue-on-error: ${{ matrix.platform.os == 'windows' }}
     defaults:
       run:
         shell: bash
@@ -132,7 +131,7 @@ jobs:
         run: |
           for d in gateway swabble camera screencapture canvas desktop location talkmode agent; do
             echo "[plugin:$d] building..."
-            (cd plugins/$d && npm run build)
+            (cd plugins/$d && bun run build)
           done
         working-directory: apps/app
         shell: bash
@@ -156,7 +155,7 @@ jobs:
         working-directory: apps/app
 
       - name: Install Electron dependencies
-        run: npm install --no-audit --no-fund
+        run: bun install --no-save
         working-directory: apps/app/electron
 
       - name: Build Electron app
@@ -234,7 +233,6 @@ jobs:
 
       - name: Preflight Azure Trusted Signing access
         id: trusted_signing_preflight
-        continue-on-error: true
         if: matrix.platform.os == 'windows'
         shell: pwsh
         run: |
@@ -297,21 +295,6 @@ jobs:
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID || '' }}
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET || '' }}
 
-      - name: Fallback to unsigned Windows build when Trusted Signing preflight fails
-        if: matrix.platform.os == 'windows' && steps.trusted_signing_preflight.outcome != 'success'
-        run: |
-          node -e "
-            const fs = require('fs');
-            const file = './electron-builder.ci.json';
-            const cfg = JSON.parse(fs.readFileSync(file, 'utf8'));
-            if (cfg.win && cfg.win.azureSignOptions) {
-              delete cfg.win.azureSignOptions;
-              fs.writeFileSync(file, JSON.stringify(cfg, null, 2));
-            }
-          "
-          echo "::warning::Trusted Signing preflight failed; continuing with unsigned Windows artifact."
-        working-directory: apps/app/electron
-
       - name: Package desktop app
         run: |
           # Unset empty signing env vars — electron-builder treats "" as an invalid file path
@@ -357,7 +340,7 @@ jobs:
           fi
 
           echo "Running packaged startup test against ${dmg_path}"
-          MILAIDY_TEST_DMG_PATH="${PWD}/${dmg_path}" bun run --cwd .. test:electron:packaged:e2e
+          MILADY_TEST_DMG_PATH="${PWD}/${dmg_path}" bun run --cwd .. test:electron:packaged:e2e
         working-directory: apps/app/electron
 
       - name: Verify macOS signature and notarization
@@ -366,7 +349,7 @@ jobs:
           set -euo pipefail
           shopt -s nullglob
 
-          apps=(dist/mac*/Milaidy.app)
+          apps=(dist/mac*/Milady.app)
           if [ "${#apps[@]}" -eq 0 ]; then
             echo "::error::No macOS .app bundles found under dist/mac*"
             exit 1
@@ -447,8 +430,8 @@ jobs:
       - name: Validate required macOS release artifacts
         run: |
           VERSION="${{ needs.prepare.outputs.version }}"
-          X64_DMG="release-files/Milaidy-${VERSION}.dmg"
-          ARM64_DMG="release-files/Milaidy-${VERSION}-arm64.dmg"
+          X64_DMG="release-files/Milady-${VERSION}.dmg"
+          ARM64_DMG="release-files/Milady-${VERSION}-arm64.dmg"
           if [ ! -f "${X64_DMG}" ]; then
             echo "::error::Missing required macOS x64 DMG: ${X64_DMG}"
             exit 1
@@ -483,7 +466,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.prepare.outputs.tag }}
-          name: Milaidy ${{ needs.prepare.outputs.tag }}
+          name: Milady ${{ needs.prepare.outputs.tag }}
           draft: ${{ inputs.draft || false }}
           prerelease: ${{ contains(needs.prepare.outputs.version, 'alpha') || contains(needs.prepare.outputs.version, 'beta') || contains(needs.prepare.outputs.version, 'rc') || contains(needs.prepare.outputs.version, 'nightly') }}
           generate_release_notes: true

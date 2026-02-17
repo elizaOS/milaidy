@@ -4,9 +4,9 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 COMPOSE_FILE="$ROOT_DIR/docker-compose.yml"
 EXTRA_COMPOSE_FILE="$ROOT_DIR/docker-compose.extra.yml"
-IMAGE_NAME="${MILAIDY_IMAGE:-milaidy:local}"
-EXTRA_MOUNTS="${MILAIDY_EXTRA_MOUNTS:-}"
-HOME_VOLUME_NAME="${MILAIDY_HOME_VOLUME:-}"
+IMAGE_NAME="${MILADY_IMAGE:-milady:local}"
+EXTRA_MOUNTS="${MILADY_EXTRA_MOUNTS:-}"
+HOME_VOLUME_NAME="${MILADY_HOME_VOLUME:-}"
 
 require_cmd() {
   if ! command -v "$1" >/dev/null 2>&1; then
@@ -21,34 +21,34 @@ if ! docker compose version >/dev/null 2>&1; then
   exit 1
 fi
 
-MILAIDY_CONFIG_DIR="${MILAIDY_CONFIG_DIR:-$HOME/.milaidy}"
-MILAIDY_WORKSPACE_DIR="${MILAIDY_WORKSPACE_DIR:-$HOME/.milaidy/workspace}"
+MILADY_CONFIG_DIR="${MILADY_CONFIG_DIR:-$HOME/.milady}"
+MILADY_WORKSPACE_DIR="${MILADY_WORKSPACE_DIR:-$HOME/.milady/workspace}"
 
-mkdir -p "$MILAIDY_CONFIG_DIR"
-mkdir -p "$MILAIDY_WORKSPACE_DIR"
+mkdir -p "$MILADY_CONFIG_DIR"
+mkdir -p "$MILADY_WORKSPACE_DIR"
 
-export MILAIDY_CONFIG_DIR
-export MILAIDY_WORKSPACE_DIR
-export MILAIDY_GATEWAY_PORT="${MILAIDY_GATEWAY_PORT:-18789}"
-export MILAIDY_BRIDGE_PORT="${MILAIDY_BRIDGE_PORT:-18790}"
-export MILAIDY_GATEWAY_BIND="${MILAIDY_GATEWAY_BIND:-lan}"
-export MILAIDY_IMAGE="$IMAGE_NAME"
-export MILAIDY_DOCKER_APT_PACKAGES="${MILAIDY_DOCKER_APT_PACKAGES:-}"
-export MILAIDY_EXTRA_MOUNTS="$EXTRA_MOUNTS"
-export MILAIDY_HOME_VOLUME="$HOME_VOLUME_NAME"
+export MILADY_CONFIG_DIR
+export MILADY_WORKSPACE_DIR
+export MILADY_GATEWAY_PORT="${MILADY_GATEWAY_PORT:-18789}"
+export MILADY_BRIDGE_PORT="${MILADY_BRIDGE_PORT:-18790}"
+export MILADY_GATEWAY_BIND="${MILADY_GATEWAY_BIND:-lan}"
+export MILADY_IMAGE="$IMAGE_NAME"
+export MILADY_DOCKER_APT_PACKAGES="${MILADY_DOCKER_APT_PACKAGES:-}"
+export MILADY_EXTRA_MOUNTS="$EXTRA_MOUNTS"
+export MILADY_HOME_VOLUME="$HOME_VOLUME_NAME"
 
-if [[ -z "${MILAIDY_GATEWAY_TOKEN:-}" ]]; then
+if [[ -z "${MILADY_GATEWAY_TOKEN:-}" ]]; then
   if command -v openssl >/dev/null 2>&1; then
-    MILAIDY_GATEWAY_TOKEN="$(openssl rand -hex 32)"
+    MILADY_GATEWAY_TOKEN="$(openssl rand -hex 32)"
   else
-    MILAIDY_GATEWAY_TOKEN="$(python3 - <<'PY'
+    MILADY_GATEWAY_TOKEN="$(python3 - <<'PY'
 import secrets
 print(secrets.token_hex(32))
 PY
 )"
   fi
 fi
-export MILAIDY_GATEWAY_TOKEN
+export MILADY_GATEWAY_TOKEN
 
 COMPOSE_FILES=("$COMPOSE_FILE")
 COMPOSE_ARGS=()
@@ -61,14 +61,14 @@ write_extra_compose() {
 
   cat >"$EXTRA_COMPOSE_FILE" <<'YAML'
 services:
-  milaidy-gateway:
+  milady-gateway:
     volumes:
 YAML
 
   if [[ -n "$home_volume" ]]; then
     printf '      - %s:/home/node\n' "$home_volume" >>"$EXTRA_COMPOSE_FILE"
-    printf '      - %s:/home/node/.milaidy\n' "$MILAIDY_CONFIG_DIR" >>"$EXTRA_COMPOSE_FILE"
-    printf '      - %s:/home/node/.milaidy/workspace\n' "$MILAIDY_WORKSPACE_DIR" >>"$EXTRA_COMPOSE_FILE"
+    printf '      - %s:/home/node/.milady\n' "$MILADY_CONFIG_DIR" >>"$EXTRA_COMPOSE_FILE"
+    printf '      - %s:/home/node/.milady/workspace\n' "$MILADY_WORKSPACE_DIR" >>"$EXTRA_COMPOSE_FILE"
   fi
 
   for mount in "${mounts[@]}"; do
@@ -76,14 +76,14 @@ YAML
   done
 
   cat >>"$EXTRA_COMPOSE_FILE" <<'YAML'
-  milaidy-cli:
+  milady-cli:
     volumes:
 YAML
 
   if [[ -n "$home_volume" ]]; then
     printf '      - %s:/home/node\n' "$home_volume" >>"$EXTRA_COMPOSE_FILE"
-    printf '      - %s:/home/node/.milaidy\n' "$MILAIDY_CONFIG_DIR" >>"$EXTRA_COMPOSE_FILE"
-    printf '      - %s:/home/node/.milaidy/workspace\n' "$MILAIDY_WORKSPACE_DIR" >>"$EXTRA_COMPOSE_FILE"
+    printf '      - %s:/home/node/.milady\n' "$MILADY_CONFIG_DIR" >>"$EXTRA_COMPOSE_FILE"
+    printf '      - %s:/home/node/.milady/workspace\n' "$MILADY_WORKSPACE_DIR" >>"$EXTRA_COMPOSE_FILE"
   fi
 
   for mount in "${mounts[@]}"; do
@@ -159,20 +159,20 @@ upsert_env() {
 }
 
 upsert_env "$ENV_FILE" \
-  MILAIDY_CONFIG_DIR \
-  MILAIDY_WORKSPACE_DIR \
-  MILAIDY_GATEWAY_PORT \
-  MILAIDY_BRIDGE_PORT \
-  MILAIDY_GATEWAY_BIND \
-  MILAIDY_GATEWAY_TOKEN \
-  MILAIDY_IMAGE \
-  MILAIDY_EXTRA_MOUNTS \
-  MILAIDY_HOME_VOLUME \
-  MILAIDY_DOCKER_APT_PACKAGES
+  MILADY_CONFIG_DIR \
+  MILADY_WORKSPACE_DIR \
+  MILADY_GATEWAY_PORT \
+  MILADY_BRIDGE_PORT \
+  MILADY_GATEWAY_BIND \
+  MILADY_GATEWAY_TOKEN \
+  MILADY_IMAGE \
+  MILADY_EXTRA_MOUNTS \
+  MILADY_HOME_VOLUME \
+  MILADY_DOCKER_APT_PACKAGES
 
 echo "==> Building Docker image: $IMAGE_NAME"
 docker build \
-  --build-arg "MILAIDY_DOCKER_APT_PACKAGES=${MILAIDY_DOCKER_APT_PACKAGES}" \
+  --build-arg "MILADY_DOCKER_APT_PACKAGES=${MILADY_DOCKER_APT_PACKAGES}" \
   -t "$IMAGE_NAME" \
   -f "$ROOT_DIR/Dockerfile" \
   "$ROOT_DIR"
@@ -182,33 +182,33 @@ echo "==> Onboarding (interactive)"
 echo "When prompted:"
 echo "  - Gateway bind: lan"
 echo "  - Gateway auth: token"
-echo "  - Gateway token: $MILAIDY_GATEWAY_TOKEN"
+echo "  - Gateway token: $MILADY_GATEWAY_TOKEN"
 echo "  - Tailscale exposure: Off"
 echo "  - Install Gateway daemon: No"
 echo ""
-docker compose "${COMPOSE_ARGS[@]}" run --rm milaidy-cli onboard --no-install-daemon
+docker compose "${COMPOSE_ARGS[@]}" run --rm milady-cli onboard --no-install-daemon
 
 echo ""
 echo "==> Provider setup (optional)"
 echo "WhatsApp (QR):"
-echo "  ${COMPOSE_HINT} run --rm milaidy-cli channels login"
+echo "  ${COMPOSE_HINT} run --rm milady-cli channels login"
 echo "Telegram (bot token):"
-echo "  ${COMPOSE_HINT} run --rm milaidy-cli channels add --channel telegram --token <token>"
+echo "  ${COMPOSE_HINT} run --rm milady-cli channels add --channel telegram --token <token>"
 echo "Discord (bot token):"
-echo "  ${COMPOSE_HINT} run --rm milaidy-cli channels add --channel discord --token <token>"
+echo "  ${COMPOSE_HINT} run --rm milady-cli channels add --channel discord --token <token>"
 echo "Docs: https://docs.milady.ai/channels"
 
 echo ""
 echo "==> Starting gateway"
-docker compose "${COMPOSE_ARGS[@]}" up -d milaidy-gateway
+docker compose "${COMPOSE_ARGS[@]}" up -d milady-gateway
 
 echo ""
 echo "Gateway running with host port mapping."
 echo "Access from tailnet devices via the host's tailnet IP."
-echo "Config: $MILAIDY_CONFIG_DIR"
-echo "Workspace: $MILAIDY_WORKSPACE_DIR"
-echo "Token: $MILAIDY_GATEWAY_TOKEN"
+echo "Config: $MILADY_CONFIG_DIR"
+echo "Workspace: $MILADY_WORKSPACE_DIR"
+echo "Token: $MILADY_GATEWAY_TOKEN"
 echo ""
 echo "Commands:"
-echo "  ${COMPOSE_HINT} logs -f milaidy-gateway"
-echo "  ${COMPOSE_HINT} exec milaidy-gateway node dist/index.js health --token \"$MILAIDY_GATEWAY_TOKEN\""
+echo "  ${COMPOSE_HINT} logs -f milady-gateway"
+echo "  ${COMPOSE_HINT} exec milady-gateway node dist/index.js health --token \"$MILADY_GATEWAY_TOKEN\""

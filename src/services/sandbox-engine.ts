@@ -500,7 +500,6 @@ export class AppleContainerEngine implements ISandboxEngine {
   readonly engineType: SandboxEngineType = "apple-container";
 
   isAvailable(): boolean {
-    if (platform() !== "darwin") return false;
     try {
       execFileSync("container", ["--version"], {
         stdio: "ignore",
@@ -512,7 +511,10 @@ export class AppleContainerEngine implements ISandboxEngine {
         return false;
       }
       try {
-        execFileSync("container", ["help"], { stdio: "ignore", timeout: 5000 });
+        execFileSync("container", ["help"], {
+          stdio: "ignore",
+          timeout: 5000,
+        });
         return true;
       } catch {
         return false;

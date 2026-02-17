@@ -1,4 +1,4 @@
-package ai.milaidy.plugins.camera
+package ai.milady.plugins.camera
 
 import android.Manifest
 import android.content.ContentValues
@@ -40,7 +40,7 @@ import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
 @CapacitorPlugin(
-    name = "MilaidyCamera",
+    name = "MiladyCamera",
     permissions = [
         Permission(alias = "camera", strings = [Manifest.permission.CAMERA]),
         Permission(alias = "microphone", strings = [Manifest.permission.RECORD_AUDIO]),
@@ -388,7 +388,7 @@ class CameraPlugin : Plugin() {
         imgCapture.flashMode = flashModeFromSetting(flashSetting)
 
         // Use file-based capture for EXIF support (matches classic CameraCaptureManager pattern).
-        val tempFile = File.createTempFile("milaidy-snap-", ".jpg", context.cacheDir)
+        val tempFile = File.createTempFile("milady-snap-", ".jpg", context.cacheDir)
         val outputOptions = ImageCapture.OutputFileOptions.Builder(tempFile).build()
 
         imgCapture.takePicture(

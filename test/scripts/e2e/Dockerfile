@@ -7,7 +7,7 @@ WORKDIR /app
 
 ENV NODE_OPTIONS="--disable-warning=ExperimentalWarning"
 
-COPY package.json tsconfig.json vitest.config.ts vitest.e2e.config.ts milaidy.mjs ./
+COPY package.json tsconfig.json vitest.config.ts vitest.e2e.config.ts milady.mjs ./
 COPY src ./src
 COPY test ./test
 COPY scripts ./scripts

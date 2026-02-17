@@ -6,7 +6,7 @@ import {
   NativeCommandsSettingSchema,
   QueueSchema,
   TtsConfigSchema,
-} from "./zod-schema.core.js";
+} from "./zod-schema.core";
 
 const SessionResetConfigSchema = z
   .object({

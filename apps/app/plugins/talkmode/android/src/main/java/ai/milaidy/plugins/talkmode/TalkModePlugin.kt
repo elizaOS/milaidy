@@ -1,4 +1,4 @@
-package ai.milaidy.plugins.talkmode
+package ai.milady.plugins.talkmode
 
 import android.Manifest
 import android.content.Intent
@@ -41,7 +41,7 @@ import kotlin.math.max
 class TalkModePlugin : Plugin() {
     companion object {
         private const val TAG = "TalkMode"
-        private const val DEFAULT_MODEL_ID = "eleven_v3"
+        private const val DEFAULT_MODEL_ID = "eleven_flash_v2_5"
         private const val DEFAULT_OUTPUT_FORMAT = "pcm_24000"
     }
 

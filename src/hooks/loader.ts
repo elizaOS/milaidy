@@ -10,11 +10,11 @@ import { homedir } from "node:os";
 import { resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 import { logger } from "@elizaos/core";
-import type { InternalHooksConfig } from "../config/types.hooks.js";
-import { type DiscoveryOptions, discoverHooks } from "./discovery.js";
-import { checkEligibility, resolveHookConfig } from "./eligibility.js";
-import { clearHooks, registerHook } from "./registry.js";
-import type { HookHandler } from "./types.js";
+import type { InternalHooksConfig } from "../config/types.hooks";
+import { type DiscoveryOptions, discoverHooks } from "./discovery";
+import { checkEligibility, resolveHookConfig } from "./eligibility";
+import { clearHooks, registerHook } from "./registry";
+import type { HookHandler } from "./types";
 
 // ---------- Path Safety ----------
 
@@ -23,7 +23,7 @@ function getSafeHookRoots(
   workspacePath?: string,
   bundledDir?: string,
 ): string[] {
-  const roots: string[] = [resolve(homedir(), ".milaidy", "hooks")];
+  const roots: string[] = [resolve(homedir(), ".milady", "hooks")];
   if (bundledDir) roots.push(resolve(bundledDir));
   if (workspacePath) {
     roots.push(resolve(workspacePath.replace(/^~/, homedir()), "hooks"));
@@ -80,8 +80,8 @@ async function loadHandlerModule(
 export interface LoadHooksOptions extends DiscoveryOptions {
   /** Internal hooks configuration. */
   internalConfig?: InternalHooksConfig;
-  /** Full Milaidy config for eligibility checks. */
-  milaidyConfig?: Record<string, unknown>;
+  /** Full Milady config for eligibility checks. */
+  miladyConfig?: Record<string, unknown>;
 }
 
 export interface LoadHooksResult {
@@ -105,7 +105,7 @@ export interface LoadHooksResult {
 export async function loadHooks(
   options: LoadHooksOptions = {},
 ): Promise<LoadHooksResult> {
-  const { internalConfig, milaidyConfig = {} } = options;
+  const { internalConfig, miladyConfig = {} } = options;
 
   // Check if hooks are enabled
   if (internalConfig?.enabled === false) {
@@ -122,17 +122,17 @@ export async function loadHooks(
   // Clear existing hooks (for reload)
   clearHooks();
 
-  // Validate config-supplied extraDirs: only allow paths under ~/.milaidy/
+  // Validate config-supplied extraDirs: only allow paths under ~/.milady/
   // to prevent config injection from scanning attacker-controlled directories.
   const safeExtraDirs = [...(options.extraDirs ?? [])];
-  const milaidyHome = resolve(homedir(), ".milaidy");
+  const miladyHome = resolve(homedir(), ".milady");
   for (const dir of internalConfig?.load?.extraDirs ?? []) {
     const resolved = resolve(dir.replace(/^~/, homedir()));
-    if (resolved.startsWith(milaidyHome + sep) || resolved === milaidyHome) {
+    if (resolved.startsWith(miladyHome + sep) || resolved === miladyHome) {
       safeExtraDirs.push(dir);
     } else {
       logger.warn(
-        `[hooks] Rejected config extraDir "${dir}": must be under ~/.milaidy/`,
+        `[hooks] Rejected config extraDir "${dir}": must be under ~/.milady/`,
       );
     }
   }
@@ -161,7 +161,7 @@ export async function loadHooks(
     const eligibility = checkEligibility(
       entry.metadata,
       hookConfig,
-      milaidyConfig,
+      miladyConfig,
     );
 
     if (!eligibility.eligible) {

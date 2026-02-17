@@ -1,5 +1,5 @@
 /**
- * Skill Catalog Client for Milaidy.
+ * Skill Catalog Client for Milady.
  *
  * Provides a cached skill catalog (memory → file) sourced from the
  * local skills/.cache/catalog.json. Supports search and browse.
@@ -70,9 +70,9 @@ const MEMORY_TTL_MS = 600_000; // 10 minutes
 
 /**
  * Find the catalog.json file. Checks:
- *   1. MILAIDY_SKILLS_CATALOG env override
+ *   1. MILADY_SKILLS_CATALOG env override
  *   2. skills/.cache/catalog.json relative to package root
- *   3. ~/.milaidy/skills/catalog.json
+ *   3. ~/.milady/skills/catalog.json
  */
 function findCatalogPaths(): string[] {
   const paths: string[] = [];
@@ -80,7 +80,7 @@ function findCatalogPaths(): string[] {
   // If the env var is set, use it exclusively — don't fall back to other
   // locations. This allows tests and deployments to control exactly which
   // catalog file is read.
-  const envPath = process.env.MILAIDY_SKILLS_CATALOG?.trim();
+  const envPath = process.env.MILADY_SKILLS_CATALOG?.trim();
   if (envPath) return [envPath];
 
   // Walk up from this file to find the package root (contains package.json)
@@ -95,7 +95,7 @@ function findCatalogPaths(): string[] {
   // Home directory fallback
   const home = process.env.HOME ?? process.env.USERPROFILE ?? "";
   if (home) {
-    paths.push(path.join(home, ".milaidy", "skills", "catalog.json"));
+    paths.push(path.join(home, ".milady", "skills", "catalog.json"));
   }
 
   return paths;

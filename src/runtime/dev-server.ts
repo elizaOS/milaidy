@@ -1,19 +1,25 @@
+// Timing: Track when the script starts
+const SCRIPT_START = Date.now();
+console.log(`[milady] Script starting...`);
+
 /**
  * Combined dev server — starts the ElizaOS runtime in headless mode and
  * wires it into the API server so the Control UI has a live agent to talk to.
  *
- * The MILAIDY_HEADLESS env var tells startEliza() to skip the interactive
+ * The MILADY_HEADLESS env var tells startEliza() to skip the interactive
  * CLI chat loop and return the AgentRuntime instance.
  *
- * Usage: bun src/runtime/dev-server.ts   (with MILAIDY_HEADLESS=1)
+ * Usage: bun src/runtime/dev-server.ts   (with MILADY_HEADLESS=1)
  *        (or via the dev script: bun run dev)
  */
 import process from "node:process";
 import type { AgentRuntime } from "@elizaos/core";
 import { logger } from "@elizaos/core";
-import { startApiServer } from "../api/server.js";
-import { startEliza } from "./eliza.js";
-import { setRestartHandler } from "./restart.js";
+import { startApiServer } from "../api/server";
+import { startEliza } from "./eliza";
+import { setRestartHandler } from "./restart";
+
+console.log(`[milady] Imports complete (${Date.now() - SCRIPT_START}ms)`);
 
 // Load .env files for parity with CLI mode (which loads via run-main.ts).
 try {
@@ -23,7 +29,9 @@ try {
   // dotenv not installed or .env not found — non-fatal.
 }
 
-const port = Number(process.env.MILAIDY_PORT) || 31337;
+console.log(`[milady] dotenv loaded (${Date.now() - SCRIPT_START}ms)`);
+
+const port = Number(process.env.MILADY_PORT) || 31337;
 
 /** The currently active runtime — swapped on restart. */
 let currentRuntime: AgentRuntime | null = null;
@@ -37,6 +45,79 @@ let isRestarting = false;
 /** Tracks whether the process is shutting down to prevent restart during exit. */
 let isShuttingDown = false;
 
+/** Runtime bootstrap loop state (initial startup + retries). */
+let runtimeBootAttempt = 0;
+let runtimeBootInProgress = false;
+let runtimeBootTimer: ReturnType<typeof setTimeout> | null = null;
+
+function formatError(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
+function nextRetryDelayMs(attempt: number): number {
+  // 1s, 2s, 4s, 8s, 16s, then cap at 30s.
+  const raw = 1000 * 2 ** Math.max(0, Math.min(attempt - 1, 5));
+  return Math.min(30_000, raw);
+}
+
+function clearRuntimeBootTimer(): void {
+  if (runtimeBootTimer) {
+    clearTimeout(runtimeBootTimer);
+    runtimeBootTimer = null;
+  }
+}
+
+function scheduleRuntimeBootstrap(delayMs: number, reason: string): void {
+  if (isShuttingDown) return;
+  clearRuntimeBootTimer();
+  runtimeBootTimer = setTimeout(
+    () => {
+      runtimeBootTimer = null;
+      void bootstrapRuntime(reason);
+    },
+    Math.max(0, delayMs),
+  );
+}
+
+async function bootstrapRuntime(reason: string): Promise<void> {
+  if (isShuttingDown || isRestarting || runtimeBootInProgress) return;
+  runtimeBootInProgress = true;
+  const bootstrapStart = Date.now();
+
+  try {
+    logger.info(`[milady] Runtime bootstrap starting (${reason})`);
+    const rt = await createRuntime();
+    logger.info(`[milady] Runtime created in ${Date.now() - bootstrapStart}ms`);
+    const agentName = rt.character.name ?? "Milady";
+
+    if (isShuttingDown) {
+      try {
+        await rt.stop();
+      } catch {
+        // Best effort during shutdown race.
+      }
+      return;
+    }
+
+    if (apiUpdateRuntime) {
+      apiUpdateRuntime(rt);
+    }
+    runtimeBootAttempt = 0;
+    logger.info(
+      `[milady] Runtime ready — agent: ${agentName} (total: ${Date.now() - bootstrapStart}ms)`,
+    );
+  } catch (err) {
+    runtimeBootAttempt += 1;
+    const delayMs = nextRetryDelayMs(runtimeBootAttempt);
+    logger.error(
+      `[milady] Runtime bootstrap failed (${formatError(err)}). Retrying in ${Math.round(delayMs / 1000)}s`,
+    );
+    scheduleRuntimeBootstrap(delayMs, "retry");
+  } finally {
+    runtimeBootInProgress = false;
+  }
+}
+
 /**
  * Create a fresh runtime via startEliza (headless).
  * If a runtime is already running, stop it first.
@@ -47,7 +128,7 @@ async function createRuntime(): Promise<AgentRuntime> {
       await currentRuntime.stop();
     } catch (err) {
       logger.warn(
-        `[milaidy] Error stopping old runtime: ${err instanceof Error ? err.message : err}`,
+        `[milady] Error stopping old runtime: ${err instanceof Error ? err.message : err}`,
       );
     }
     currentRuntime = null;
@@ -74,26 +155,34 @@ async function createRuntime(): Promise<AgentRuntime> {
  */
 async function handleRestart(reason?: string): Promise<void> {
   if (isShuttingDown) {
-    logger.warn("[milaidy] Restart skipped — process is shutting down");
+    logger.warn("[milady] Restart skipped — process is shutting down");
     return;
   }
 
   if (isRestarting) {
     logger.warn(
-      "[milaidy] Restart already in progress, skipping duplicate request",
+      "[milady] Restart already in progress, skipping duplicate request",
     );
     return;
   }
 
   isRestarting = true;
   try {
+    clearRuntimeBootTimer();
+    if (runtimeBootInProgress) {
+      logger.warn(
+        "[milady] Restart requested while runtime bootstrap is in progress; skipping duplicate restart",
+      );
+      return;
+    }
+
     logger.info(
-      `[milaidy] Restart requested${reason ? ` (${reason})` : ""} — bouncing runtime…`,
+      `[milady] Restart requested${reason ? ` (${reason})` : ""} — bouncing runtime…`,
     );
 
     const rt = await createRuntime();
-    const agentName = rt.character.name ?? "Milaidy";
-    logger.info(`[milaidy] Runtime restarted — agent: ${agentName}`);
+    const agentName = rt.character.name ?? "Milady";
+    logger.info(`[milady] Runtime restarted — agent: ${agentName}`);
 
     // Hot-swap the API server's runtime reference.
     if (apiUpdateRuntime) {
@@ -114,14 +203,15 @@ async function handleRestart(reason?: string): Promise<void> {
 async function shutdown(): Promise<void> {
   if (isShuttingDown) return;
   isShuttingDown = true;
+  clearRuntimeBootTimer();
 
-  logger.info("[milaidy] Dev server shutting down…");
+  logger.info("[milady] Dev server shutting down…");
   if (currentRuntime) {
     try {
       await currentRuntime.stop();
     } catch (err) {
       logger.warn(
-        `[milaidy] Error stopping runtime during shutdown: ${err instanceof Error ? err.message : err}`,
+        `[milady] Error stopping runtime during shutdown: ${err instanceof Error ? err.message : err}`,
       );
     }
     currentRuntime = null;
@@ -133,6 +223,8 @@ process.on("SIGINT", () => void shutdown());
 process.on("SIGTERM", () => void shutdown());
 
 async function main() {
+  const startupStart = Date.now();
+
   // Register the in-process restart handler so the RESTART_AGENT action
   // (and the POST /api/agent/restart endpoint) work without killing the
   // process.
@@ -140,34 +232,39 @@ async function main() {
 
   // 1. Start the API server first (no runtime yet) so the UI can connect
   //    immediately while the heavier agent runtime boots in the background.
+  const apiStart = Date.now();
   const { port: actualPort, updateRuntime } = await startApiServer({
     port,
+    initialAgentState: "starting",
     onRestart: async () => {
       await handleRestart("api");
       return currentRuntime;
     },
   });
   apiUpdateRuntime = updateRuntime;
-  logger.info(`[milaidy] API server ready on port ${actualPort}`);
+  const apiReady = Date.now();
+  // Use console.log for startup timing to bypass logger filtering
+  console.log(
+    `[milady] API server ready on port ${actualPort} (${apiReady - apiStart}ms)`,
+  );
 
-  // 2. Boot the ElizaOS agent runtime (plugin loading, migrations, etc.).
-  const runtime = await createRuntime();
-  const agentName = runtime.character.name ?? "Milaidy";
-  logger.info(`[milaidy] Runtime ready — agent: ${agentName}`);
+  // 2. Boot the ElizaOS agent runtime without blocking server readiness.
+  scheduleRuntimeBootstrap(0, "startup");
 
-  // 3. Wire the live runtime into the already-running API server.
-  updateRuntime(runtime);
+  console.log(
+    `[milady] Startup init complete in ${Date.now() - startupStart}ms, agent bootstrapping...`,
+  );
 }
 
 main().catch((err: unknown) => {
   const error = err instanceof Error ? err : new Error(String(err));
-  console.error("[milaidy] Fatal error:", error.stack ?? error.message);
+  console.error("[milady] Fatal error:", error.stack ?? error.message);
   if (error.cause) {
     const cause =
       error.cause instanceof Error
         ? error.cause
         : new Error(String(error.cause));
-    console.error("[milaidy] Caused by:", cause.stack ?? cause.message);
+    console.error("[milady] Caused by:", cause.stack ?? cause.message);
   }
   process.exit(1);
 });

@@ -1,4 +1,4 @@
-package ai.milaidy.plugins.canvas
+package ai.milady.plugins.canvas
 
 import android.graphics.*
 import android.os.Handler
@@ -26,7 +26,7 @@ import java.io.ByteArrayOutputStream
 import java.net.URL
 import kotlin.math.tan
 
-@CapacitorPlugin(name = "MilaidyCanvas")
+@CapacitorPlugin(name = "MiladyCanvas")
 class CanvasPlugin : Plugin() {
 
     private val canvases = mutableMapOf<String, ManagedCanvas>()
@@ -1611,7 +1611,7 @@ class CanvasPlugin : Plugin() {
         val js = """
             (function() {
               try {
-                var host = globalThis.milaidyA2UI;
+                var host = globalThis.miladyA2UI;
                 if (host && typeof host.applyMessages === 'function') {
                   host.applyMessages(JSON.parse($escapedJSON));
                   return 'ok';
@@ -1661,7 +1661,7 @@ class CanvasPlugin : Plugin() {
         val js = """
             (function() {
               try {
-                var host = globalThis.milaidyA2UI;
+                var host = globalThis.miladyA2UI;
                 if (host && typeof host.reset === 'function') {
                   host.reset();
                   return 'ok';
@@ -1731,7 +1731,7 @@ class CanvasPlugin : Plugin() {
                         val statusJS = """
                             (function() {
                               var detail = { id: ${jsStringLiteral(actionId)}, ok: true, error: '' };
-                              window.dispatchEvent(new CustomEvent('milaidy:a2ui-action-status', { detail: detail }));
+                              window.dispatchEvent(new CustomEvent('milady:a2ui-action-status', { detail: detail }));
                             })();
                         """.trimIndent()
                         wv.evaluateJavascript(statusJS, null)
@@ -1739,16 +1739,16 @@ class CanvasPlugin : Plugin() {
                 } catch (_: Exception) {
                 }
             }
-        }, "milaidyCanvasA2UIBridge")
+        }, "miladyCanvasA2UIBridge")
 
-        // Navigation delegate: intercept milaidy:// deep links, emit events.
+        // Navigation delegate: intercept milady:// deep links, emit events.
         wv.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(
                 view: WebView,
                 request: WebResourceRequest
             ): Boolean {
                 val url = request.url
-                if (url.scheme?.lowercase() == "milaidy") {
+                if (url.scheme?.lowercase() == "milady") {
                     pluginRef.notifyListeners("deepLink", JSObject().apply {
                         put("canvasId", canvasId)
                         put("url", url.toString())
@@ -1766,10 +1766,10 @@ class CanvasPlugin : Plugin() {
                     (function() {
                       if (!window.webkit) window.webkit = {};
                       if (!window.webkit.messageHandlers) window.webkit.messageHandlers = {};
-                      window.webkit.messageHandlers.milaidyCanvasA2UIAction = {
+                      window.webkit.messageHandlers.miladyCanvasA2UIAction = {
                         postMessage: function(msg) {
                           var json = typeof msg === 'string' ? msg : JSON.stringify(msg);
-                          milaidyCanvasA2UIBridge.postAction(json);
+                          miladyCanvasA2UIBridge.postAction(json);
                         }
                       };
                     })();

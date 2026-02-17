@@ -1,5 +1,5 @@
 /**
- * REST API server for the Milaidy Control UI.
+ * REST API server for the Milady Control UI.
  *
  * Exposes HTTP endpoints that the UI frontend expects, backed by the
  * ElizaOS AgentRuntime. Default port: 2138. In dev mode, the Vite UI
@@ -23,129 +23,129 @@ import {
   type Task,
   type UUID,
 } from "@elizaos/core";
-import * as piAi from "@mariozechner/pi-ai";
 import { type WebSocket, WebSocketServer } from "ws";
-import { CloudManager } from "../cloud/cloud-manager.js";
+import type { CloudManager } from "../cloud/cloud-manager";
+
 import {
   configFileExists,
-  loadMilaidyConfig,
-  type MilaidyConfig,
-  saveMilaidyConfig,
-} from "../config/config.js";
-import { resolveModelsCacheDir, resolveStateDir } from "../config/paths.js";
-import type {
-  ConnectorConfig,
-  CustomActionDef,
-} from "../config/types.milaidy.js";
-import { CharacterSchema } from "../config/zod-schema.js";
-import { EMOTE_BY_ID, EMOTE_CATALOG } from "../emotes/catalog.js";
-import { resolveDefaultAgentWorkspaceDir } from "../providers/workspace.js";
-import {
-  CORE_PLUGINS,
-  OPTIONAL_CORE_PLUGINS,
-} from "../runtime/core-plugins.js";
+  loadMiladyConfig,
+  type MiladyConfig,
+  saveMiladyConfig,
+} from "../config/config";
+import { resolveModelsCacheDir, resolveStateDir } from "../config/paths";
+import type { ConnectorConfig, CustomActionDef } from "../config/types.milady";
+import { EMOTE_BY_ID, EMOTE_CATALOG } from "../emotes/catalog";
+import { resolveDefaultAgentWorkspaceDir } from "../providers/workspace";
+import { CORE_PLUGINS, OPTIONAL_CORE_PLUGINS } from "../runtime/core-plugins";
 import {
   buildTestHandler,
   registerCustomActionLive,
-} from "../runtime/custom-actions.js";
-import { createPiCredentialProvider } from "../runtime/pi-credentials.js";
-import {
-  AgentExportError,
-  estimateExportSize,
-  exportAgent,
-  importAgent,
-} from "../services/agent-export.js";
-import { AppManager } from "../services/app-manager.js";
+} from "../runtime/custom-actions";
+
+import { AppManager } from "../services/app-manager";
+import { FallbackTrainingService } from "../services/fallback-training-service";
 import {
   getMcpServerDetails,
   searchMcpMarketplace,
-} from "../services/mcp-marketplace.js";
-import type { SandboxManager } from "../services/sandbox-manager.js";
+} from "../services/mcp-marketplace";
+import {
+  type CoreManagerLike,
+  type InstallProgressLike,
+  isCoreManagerLike,
+  isPluginManagerLike,
+  type PluginManagerLike,
+} from "../services/plugin-manager-types";
+import type { SandboxManager } from "../services/sandbox-manager";
 import {
   installMarketplaceSkill,
   listInstalledMarketplaceSkills,
   searchSkillsMarketplace,
   uninstallMarketplaceSkill,
-} from "../services/skill-marketplace.js";
-import { TrainingService } from "../services/training-service.js";
+} from "../services/skill-marketplace";
 import {
   listTriggerTasks,
   readTriggerConfig,
   taskToTriggerSummary,
-} from "../triggers/runtime.js";
-import { parseClampedInteger } from "../utils/number-parsing.js";
-import { type CloudRouteState, handleCloudRoute } from "./cloud-routes.js";
+} from "../triggers/runtime";
+import { parseClampedInteger } from "../utils/number-parsing";
+import { handleAgentAdminRoutes } from "./agent-admin-routes";
+import { handleAgentLifecycleRoutes } from "./agent-lifecycle-routes";
+import { handleAgentTransferRoutes } from "./agent-transfer-routes";
+import { handleAppsHyperscapeRoutes } from "./apps-hyperscape-routes";
+import { handleAppsRoutes } from "./apps-routes";
+import { handleAuthRoutes } from "./auth-routes";
+import { getAutonomyState, handleAutonomyRoutes } from "./autonomy-routes";
+import { handleCharacterRoutes } from "./character-routes";
+import { type CloudRouteState, handleCloudRoute } from "./cloud-routes";
+import { handleCloudStatusRoutes } from "./cloud-status-routes";
+
 import {
   extractAnthropicSystemAndLastUser,
+  extractCompatTextContent,
   extractOpenAiSystemAndLastUser,
   resolveCompatRoomKey,
-} from "./compat-utils.js";
-import { handleDatabaseRoute } from "./database.js";
-import { DropService } from "./drop-service.js";
+} from "./compat-utils";
+import { handleDatabaseRoute } from "./database";
+import { handleDiagnosticsRoutes } from "./diagnostics-routes";
+import { DropService } from "./drop-service";
 import {
   readJsonBody as parseJsonBody,
+  type ReadJsonBodyOptions,
   readRequestBody,
-  readRequestBodyBuffer,
   sendJson,
   sendJsonError,
-} from "./http-helpers.js";
-import { handleKnowledgeRoutes } from "./knowledge-routes.js";
+} from "./http-helpers";
+import { handleKnowledgeRoutes } from "./knowledge-routes";
+import { handleModelsRoutes } from "./models-routes";
+import { handlePermissionRoutes } from "./permissions-routes";
 import {
   type PluginParamInfo,
   validatePluginConfig,
-} from "./plugin-validation.js";
-import { RegistryService } from "./registry-service.js";
-import { handleSandboxRoute } from "./sandbox-routes.js";
-import { handleTrainingRoutes } from "./training-routes.js";
-import { handleTrajectoryRoute } from "./trajectory-routes.js";
-import { handleTriggerRoutes } from "./trigger-routes.js";
+} from "./plugin-validation";
+import { handleRegistryRoutes } from "./registry-routes";
+import { RegistryService } from "./registry-service";
+import { handleSandboxRoute } from "./sandbox-routes";
+import { handleSubscriptionRoutes } from "./subscription-routes";
+import { resolveTerminalRunLimits } from "./terminal-run-limits";
+import { handleTrainingRoutes } from "./training-routes";
+import type { TrainingServiceWithRuntime } from "./training-service-like";
+import { handleTrajectoryRoute } from "./trajectory-routes";
+import { handleTriggerRoutes } from "./trigger-routes";
 import {
   generateVerificationMessage,
   isAddressWhitelisted,
   markAddressVerified,
   verifyTweet,
-} from "./twitter-verify.js";
-import { TxService } from "./tx-service.js";
-import {
-  fetchEvmBalances,
-  fetchEvmNfts,
-  fetchSolanaBalances,
-  fetchSolanaNfts,
-  generateWalletForChain,
-  generateWalletKeys,
-  getWalletAddresses,
-  importWallet,
-  validatePrivateKey,
-  type WalletBalancesResponse,
-  type WalletChain,
-  type WalletConfigStatus,
-  type WalletNftsResponse,
-} from "./wallet.js";
+} from "./twitter-verify";
+import { TxService } from "./tx-service";
+import { generateWalletKeys, getWalletAddresses } from "./wallet";
+import { handleWalletRoutes } from "./wallet-routes";
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
-
-/** Subset of the core AutonomyService interface we use for lifecycle control. */
-interface AutonomyServiceLike {
-  enableAutonomy(): Promise<void>;
-  disableAutonomy(): Promise<void>;
-  isLoopRunning(): boolean;
-}
-
-/** Helper to retrieve the AutonomyService from a runtime (may be null). */
-function getAutonomySvc(
-  runtime: AgentRuntime | null,
-): AutonomyServiceLike | null {
-  if (!runtime) return null;
-  return runtime.getService("AUTONOMY") as AutonomyServiceLike | null;
-}
 
 function getAgentEventSvc(
   runtime: AgentRuntime | null,
 ): AgentEventServiceLike | null {
   if (!runtime) return null;
   return runtime.getService("AGENT_EVENT") as AgentEventServiceLike | null;
+}
+
+function requirePluginManager(runtime: AgentRuntime | null): PluginManagerLike {
+  const service = runtime?.getService("plugin_manager");
+  if (!isPluginManagerLike(service)) {
+    throw new Error("Plugin manager service not found");
+  }
+  return service;
+}
+
+function requireCoreManager(runtime: AgentRuntime | null): CoreManagerLike {
+  const service = runtime?.getService("core_manager");
+  if (!isCoreManagerLike(service)) {
+    throw new Error("Core manager service not found");
+  }
+  return service;
 }
 
 function isUuidLike(value: string): value is UUID {
@@ -185,11 +185,9 @@ interface ConversationMeta {
   updatedAt: string;
 }
 
-type ChatMode = "simple" | "power";
-
 interface ServerState {
   runtime: AgentRuntime | null;
-  config: MilaidyConfig;
+  config: MiladyConfig;
   agentState:
     | "not_started"
     | "starting"
@@ -219,7 +217,7 @@ interface ServerState {
   /** App manager for launching and managing ElizaOS apps. */
   appManager: AppManager;
   /** Fine-tuning/training orchestration service. */
-  trainingService: TrainingService | null;
+  trainingService: TrainingServiceLike | null;
   /** ERC-8004 registry service (null when not configured). */
   registryService: RegistryService | null;
   /** Drop/mint service (null when not configured). */
@@ -233,8 +231,8 @@ interface ServerState {
   /** Currently active conversation ID from the frontend (sent via WS). */
   activeConversationId: string | null;
   /** Transient OAuth flow state for subscription auth. */
-  _anthropicFlow?: import("../auth/anthropic.js").AnthropicFlow;
-  _codexFlow?: import("../auth/openai-codex.js").CodexFlow;
+  _anthropicFlow?: import("../auth/anthropic").AnthropicFlow;
+  _codexFlow?: import("../auth/openai-codex").CodexFlow;
   _codexFlowTimer?: ReturnType<typeof setTimeout>;
   /** System permission states (cached from Electron IPC). */
   permissionStates?: Record<
@@ -283,7 +281,7 @@ interface PluginEntry {
   configured: boolean;
   envKey: string | null;
   category: "ai-provider" | "connector" | "database" | "feature";
-  /** Where the plugin comes from: "bundled" (ships with Milaidy) or "store" (user-installed from registry). */
+  /** Where the plugin comes from: "bundled" (ships with Milady) or "store" (user-installed from registry). */
   source: "bundled" | "store";
   configKeys: string[];
   parameters: PluginParamDef[];
@@ -517,7 +515,7 @@ function _extractResponseBlocks(
 // Package root resolution (for reading bundled plugins.json)
 // ---------------------------------------------------------------------------
 
-function findOwnPackageRoot(startDir: string): string {
+export function findOwnPackageRoot(startDir: string): string {
   let dir = startDir;
   for (let i = 0; i < 10; i++) {
     const pkgPath = path.join(dir, "package.json");
@@ -527,7 +525,9 @@ function findOwnPackageRoot(startDir: string): string {
           string,
           unknown
         >;
-        if (pkg.name === "milaidy") return dir;
+        const pkgName =
+          typeof pkg.name === "string" ? pkg.name.toLowerCase() : "";
+        if (pkgName === "milady") return dir;
       } catch {
         /* keep searching */
       }
@@ -760,10 +760,54 @@ const BLOCKED_ENV_KEYS = new Set([
   "PATH",
   "HOME",
   "SHELL",
-  "MILAIDY_API_TOKEN",
-  "MILAIDY_WALLET_EXPORT_TOKEN",
+  "MILADY_API_TOKEN",
+  "MILADY_WALLET_EXPORT_TOKEN",
   "DATABASE_URL",
   "POSTGRES_URL",
+]);
+
+/**
+ * Top-level config keys accepted by `PUT /api/config`.
+ * Keep this in sync with MiladyConfig root fields and include both modern and
+ * legacy aliases (e.g. `connectors` + `channels`).
+ */
+export const CONFIG_WRITE_ALLOWED_TOP_KEYS = new Set([
+  "meta",
+  "auth",
+  "env",
+  "wizard",
+  "diagnostics",
+  "logging",
+  "update",
+  "browser",
+  "ui",
+  "skills",
+  "plugins",
+  "models",
+  "nodeHost",
+  "agents",
+  "tools",
+  "bindings",
+  "broadcast",
+  "audio",
+  "messages",
+  "commands",
+  "approvals",
+  "session",
+  "web",
+  "connectors",
+  "channels",
+  "cron",
+  "hooks",
+  "discovery",
+  "talk",
+  "gateway",
+  "memory",
+  "database",
+  "cloud",
+  "x402",
+  "mcp",
+  "features",
 ]);
 
 // ---------------------------------------------------------------------------
@@ -895,7 +939,7 @@ function aggregateSecrets(plugins: PluginEntry[]): SecretEntry[] {
  * Reads from config.plugins.installs and tries to enrich with package.json metadata.
  */
 function discoverInstalledPlugins(
-  config: MilaidyConfig,
+  config: MiladyConfig,
   bundledIds: Set<string>,
 ): PluginEntry[] {
   const installs = config.plugins?.installs;
@@ -1070,14 +1114,14 @@ function discoverPluginsFromManifest(): PluginEntry[] {
         .sort((a, b) => a.name.localeCompare(b.name));
     } catch (err) {
       logger.debug(
-        `[milaidy-api] Failed to read plugins.json: ${err instanceof Error ? err.message : err}`,
+        `[milady-api] Failed to read plugins.json: ${err instanceof Error ? err.message : err}`,
       );
     }
   }
 
   // Fallback: no manifest found
   logger.debug(
-    "[milaidy-api] plugins.json not found — run `npm run generate:plugins`",
+    "[milady-api] plugins.json not found — run `npm run generate:plugins`",
   );
   return [];
 }
@@ -1142,7 +1186,7 @@ function categorizePlugin(
 // ---------------------------------------------------------------------------
 
 /** Cache key for persisting skill enable/disable state in the agent database. */
-const SKILL_PREFS_CACHE_KEY = "milaidy:skill-preferences";
+const SKILL_PREFS_CACHE_KEY = "milady:skill-preferences";
 
 /** Shape stored in the cache: maps skill ID → enabled flag. */
 type SkillPreferencesMap = Record<string, boolean>;
@@ -1176,7 +1220,7 @@ async function saveSkillPreferences(
     await runtime.setCache(SKILL_PREFS_CACHE_KEY, prefs);
   } catch (err) {
     logger.debug(
-      `[milaidy-api] Failed to save skill preferences: ${err instanceof Error ? err.message : err}`,
+      `[milady-api] Failed to save skill preferences: ${err instanceof Error ? err.message : err}`,
     );
   }
 }
@@ -1185,7 +1229,7 @@ async function saveSkillPreferences(
 // Skill scan acknowledgments — tracks user review of security findings
 // ---------------------------------------------------------------------------
 
-const SKILL_ACK_CACHE_KEY = "milaidy:skill-scan-acknowledgments";
+const SKILL_ACK_CACHE_KEY = "milady:skill-scan-acknowledgments";
 
 type SkillAcknowledgmentMap = Record<
   string,
@@ -1213,7 +1257,7 @@ async function saveSkillAcknowledgments(
     await runtime.setCache(SKILL_ACK_CACHE_KEY, acks);
   } catch (err) {
     logger.debug(
-      `[milaidy-api] Failed to save skill acknowledgments: ${err instanceof Error ? err.message : err}`,
+      `[milady-api] Failed to save skill acknowledgments: ${err instanceof Error ? err.message : err}`,
     );
   }
 }
@@ -1302,7 +1346,7 @@ async function loadScanReportFromDisk(
  */
 function resolveSkillEnabled(
   id: string,
-  config: MilaidyConfig,
+  config: MiladyConfig,
   dbPrefs: SkillPreferencesMap,
 ): boolean {
   // Database preference takes priority (explicit user action)
@@ -1337,7 +1381,7 @@ function resolveSkillEnabled(
  */
 async function discoverSkills(
   workspaceDir: string,
-  config: MilaidyConfig,
+  config: MiladyConfig,
   runtime: AgentRuntime | null,
 ): Promise<SkillEntry[]> {
   // Load persisted preferences from the agent database
@@ -1406,7 +1450,7 @@ async function discoverSkills(
       }
     } catch {
       logger.debug(
-        "[milaidy-api] AgentSkillsService not available, falling back to filesystem scan",
+        "[milady-api] AgentSkillsService not available, falling back to filesystem scan",
       );
     }
   }
@@ -1425,7 +1469,7 @@ async function discoverSkills(
     }
   } catch {
     logger.debug(
-      "[milaidy-api] @elizaos/skills not available for skill discovery",
+      "[milady-api] @elizaos/skills not available for skill discovery",
     );
   }
 
@@ -1460,7 +1504,7 @@ function scanSkillsDir(
   dir: string,
   skills: SkillEntry[],
   seen: Set<string>,
-  config: MilaidyConfig,
+  config: MiladyConfig,
   dbPrefs: SkillPreferencesMap,
 ): void {
   if (!fs.existsSync(dir)) return;
@@ -1543,29 +1587,6 @@ function scanSkillsDir(
 
 /** Maximum request body size (1 MB) — prevents memory-based DoS. */
 const MAX_BODY_BYTES = 1_048_576;
-const MAX_IMPORT_BYTES = 512 * 1_048_576; // 512 MB for agent imports
-const AGENT_TRANSFER_MIN_PASSWORD_LENGTH = 4;
-const AGENT_TRANSFER_MAX_PASSWORD_LENGTH = 1024;
-
-/**
- * Read raw binary request body with a configurable size limit.
- * Used for agent import file uploads.
- */
-function readRawBody(
-  req: http.IncomingMessage,
-  maxBytes: number,
-): Promise<Buffer> {
-  return readRequestBodyBuffer(req, { maxBytes }).then(
-    (body: Buffer | null) => {
-      if (body === null) {
-        throw new Error(
-          `Request body exceeds maximum size (${maxBytes} bytes)`,
-        );
-      }
-      return body;
-    },
-  );
-}
 
 /**
  * Read and parse a JSON request body with size limits and error handling.
@@ -1574,9 +1595,11 @@ function readRawBody(
 async function readJsonBody<T = Record<string, unknown>>(
   req: http.IncomingMessage,
   res: http.ServerResponse,
+  options: ReadJsonBodyOptions = {},
 ): Promise<T | null> {
   return parseJsonBody(req, res, {
     maxBytes: MAX_BODY_BYTES,
+    ...options,
   });
 }
 
@@ -1584,6 +1607,8 @@ const readBody = (req: http.IncomingMessage): Promise<string> =>
   readRequestBody(req, { maxBytes: MAX_BODY_BYTES }).then(
     (value) => value ?? "",
   );
+
+let activeTerminalRunCount = 0;
 
 function json(res: http.ServerResponse, data: unknown, status = 200): void {
   sendJson(res, data, status);
@@ -1606,7 +1631,7 @@ const STATIC_MIME: Record<string, string> = {
   ".ico": "image/x-icon",
   ".jpeg": "image/jpeg",
   ".jpg": "image/jpeg",
-  ".js": "application/javascript; charset=utf-8",
+  "": "application/javascript; charset=utf-8",
   ".json": "application/json; charset=utf-8",
   ".map": "application/json",
   ".mjs": "application/javascript; charset=utf-8",
@@ -1643,7 +1668,7 @@ function resolveUiDir(): string | null {
       if (fs.statSync(indexPath).isFile()) {
         uiDir = candidate;
         uiIndexHtml = fs.readFileSync(indexPath);
-        logger.info(`[milaidy-api] Serving dashboard UI from ${candidate}`);
+        logger.info(`[milady-api] Serving dashboard UI from ${candidate}`);
         return uiDir;
       }
     } catch {
@@ -1652,9 +1677,7 @@ function resolveUiDir(): string | null {
   }
 
   uiDir = null;
-  logger.info(
-    "[milaidy-api] No built UI found — dashboard routes are disabled",
-  );
+  logger.info("[milady-api] No built UI found — dashboard routes are disabled");
   return null;
 }
 
@@ -1773,8 +1796,6 @@ const INSUFFICIENT_CREDITS_CHAT_REPLIES = [
 const GENERIC_NO_RESPONSE_CHAT_REPLY =
   "Sorry, I couldn't generate a response right now. Please try again.";
 
-const DEFAULT_CLOUD_API_BASE_URL = "https://www.elizacloud.ai/api/v1";
-
 function getErrorMessage(err: unknown, fallback = "generation failed"): string {
   if (err instanceof Error) return err.message;
   if (typeof err === "string") return err;
@@ -1834,49 +1855,6 @@ function normalizeChatResponseText(
   return resolveNoResponseFallback(logBuffer);
 }
 
-function resolveCloudApiBaseUrl(rawBaseUrl?: string): string {
-  const base = (rawBaseUrl ?? DEFAULT_CLOUD_API_BASE_URL)
-    .trim()
-    .replace(/\/+$/, "");
-  if (base.endsWith("/api/v1")) return base;
-  return `${base}/api/v1`;
-}
-
-async function fetchCloudCreditsByApiKey(
-  baseUrl: string,
-  apiKey: string,
-): Promise<number | null> {
-  const response = await fetch(`${baseUrl}/credits/balance`, {
-    headers: {
-      Accept: "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    signal: AbortSignal.timeout(10_000),
-  });
-
-  const creditResponse = (await response.json().catch(() => ({}))) as Record<
-    string,
-    unknown
-  >;
-
-  if (!response.ok) {
-    const message =
-      typeof creditResponse.error === "string" && creditResponse.error.trim()
-        ? creditResponse.error
-        : `HTTP ${response.status}`;
-    throw new Error(message);
-  }
-
-  const rawBalance =
-    typeof creditResponse.balance === "number"
-      ? creditResponse.balance
-      : typeof (creditResponse.data as Record<string, unknown>)?.balance ===
-          "number"
-        ? ((creditResponse.data as Record<string, unknown>).balance as number)
-        : undefined;
-  return typeof rawBalance === "number" ? rawBalance : null;
-}
-
 function initSse(res: http.ServerResponse): void {
   res.writeHead(200, {
     "Content-Type": "text/event-stream",
@@ -1918,28 +1896,164 @@ async function generateChatResponse(
   agentName: string,
   opts?: ChatGenerateOptions,
 ): Promise<ChatGenerationResult> {
+  type StreamSource = "unset" | "callback" | "onStreamChunk";
   let responseText = "";
+  let activeStreamSource: StreamSource = "unset";
+  const messageSource =
+    typeof message.content.source === "string" &&
+    message.content.source.trim().length > 0
+      ? message.content.source
+      : "api";
+  const emitChunk = (chunk: string): void => {
+    if (!chunk) return;
+    responseText += chunk;
+    opts?.onChunk?.(chunk);
+  };
+  const claimStreamSource = (
+    source: Exclude<StreamSource, "unset">,
+  ): boolean => {
+    if (activeStreamSource === "unset") {
+      activeStreamSource = source;
+      return true;
+    }
+    return activeStreamSource === source;
+  };
+  const computeDelta = (existing: string, incoming: string): string => {
+    if (!incoming) return "";
+    if (!existing) return incoming;
+    if (incoming === existing) return "";
+    if (incoming.startsWith(existing)) return incoming.slice(existing.length);
+    if (existing.startsWith(incoming)) return "";
+    if (existing.endsWith(incoming) || existing.includes(incoming)) return "";
 
-  const result = await runtime.messageService?.handleMessage(
-    runtime,
-    message,
-    async (content: Content) => {
-      if (opts?.isAborted?.()) {
-        throw new Error("client_disconnected");
+    const maxOverlap = Math.min(existing.length, incoming.length);
+    for (let overlap = maxOverlap; overlap > 0; overlap -= 1) {
+      if (existing.endsWith(incoming.slice(0, overlap))) {
+        return incoming.slice(overlap);
       }
+    }
+    return incoming;
+  };
+  const appendIncomingText = (incoming: string): void => {
+    const delta = computeDelta(responseText, incoming);
+    if (!delta) return;
+    emitChunk(delta);
+  };
 
-      if (content?.text) {
-        responseText += content.text;
-        opts?.onChunk?.(content.text);
+  // The core message service emits MESSAGE_SENT but not MESSAGE_RECEIVED.
+  // Emit inbound events here so trajectory/session hooks run for API chat.
+  try {
+    if (typeof runtime.emitEvent === "function") {
+      await runtime.emitEvent("MESSAGE_RECEIVED", {
+        message,
+        source: messageSource,
+      });
+    }
+  } catch (err) {
+    runtime.logger?.warn(
+      {
+        err,
+        src: "milady-api",
+        messageId: message.id,
+        roomId: message.roomId,
+      },
+      "Failed to emit MESSAGE_RECEIVED event",
+    );
+  }
+
+  // Fallback when MESSAGE_RECEIVED hooks are unavailable: start a trajectory
+  // directly so /api/chat still produces rows for the Trajectories view.
+
+  let result:
+    | Awaited<
+        ReturnType<NonNullable<AgentRuntime["messageService"]>["handleMessage"]>
+      >
+    | undefined;
+  let _handlerError: unknown = null;
+  try {
+    result = await runtime.messageService?.handleMessage(
+      runtime,
+      message,
+      async (content: Content) => {
+        if (opts?.isAborted?.()) {
+          throw new Error("client_disconnected");
+        }
+
+        const chunk = extractCompatTextContent(content);
+        if (!chunk) return [];
+        if (!claimStreamSource("callback")) return [];
+        appendIncomingText(chunk);
+        return [];
+      },
+      {
+        onStreamChunk: opts?.onChunk
+          ? async (chunk: string) => {
+              if (opts?.isAborted?.()) {
+                throw new Error("client_disconnected");
+              }
+              if (!chunk) return;
+              if (!claimStreamSource("onStreamChunk")) return;
+              appendIncomingText(chunk);
+            }
+          : undefined,
+      },
+    );
+
+    // Ensure MESSAGE_SENT hooks run for API chat flows. Some runtimes emit this
+    // internally, but API wrappers can bypass those hooks.
+    try {
+      const responseMessages = Array.isArray(result?.responseMessages)
+        ? (result.responseMessages as Array<{ id?: string; content?: Content }>)
+        : [];
+      if (
+        responseMessages.length > 0 &&
+        typeof runtime.emitEvent === "function"
+      ) {
+        for (const responseMessage of responseMessages) {
+          const memoryLike = {
+            id: responseMessage.id ?? crypto.randomUUID(),
+            roomId: message.roomId,
+            entityId: runtime.agentId,
+            content: responseMessage.content ?? { text: "" },
+            metadata: message.metadata,
+          } as unknown as ReturnType<typeof createMessageMemory>;
+          await runtime.emitEvent("MESSAGE_SENT", {
+            message: memoryLike,
+            source: messageSource,
+          });
+        }
       }
-      return [];
-    },
-  );
+    } catch (err) {
+      runtime.logger?.warn(
+        {
+          err,
+          src: "milady-api",
+          messageId: message.id,
+          roomId: message.roomId,
+        },
+        "Failed to emit MESSAGE_SENT event",
+      );
+    }
+  } catch (err) {
+    _handlerError = err;
+    throw err;
+  }
 
-  // Fallback: if callback wasn't used for text, stream + return final text.
-  if (!responseText && result?.responseContent?.text) {
-    responseText = result.responseContent.text;
-    opts?.onChunk?.(result.responseContent.text);
+  const resultText = extractCompatTextContent(result?.responseContent);
+
+  // Fallback: if callbacks weren't used for text, stream + return final text.
+  if (!responseText && resultText) {
+    emitChunk(resultText);
+  } else if (
+    resultText &&
+    resultText !== responseText &&
+    resultText.startsWith(responseText)
+  ) {
+    // Keep streaming monotonic when final text extends emitted chunks.
+    emitChunk(resultText.slice(responseText.length));
+  } else if (resultText && resultText !== responseText) {
+    // Canonical final response may differ from streamed chunks (normalization).
+    responseText = resultText;
   }
 
   const noResponseFallback = opts?.resolveNoResponseText?.();
@@ -1950,6 +2064,192 @@ async function generateChatResponse(
   return {
     text: finalText,
     agentName,
+  };
+}
+
+async function generateConversationTitle(
+  runtime: AgentRuntime,
+  userMessage: string,
+  agentName: string,
+): Promise<string | null> {
+  // Use small model for speed
+  const modelClass = ModelType.TEXT_SMALL;
+
+  const prompt = `Based on the user's first message in a new chat, generate a very short, concise title (max 4-5 words) for the conversation.
+The agent's name is "${agentName}". The title should reflect the topic or intent of the user.
+Ideally, the title should fit the persona/vibe of the agent if possible, but clarity is more important.
+Do not use quotes. Do not include "Title:" prefix.
+
+User message: "${userMessage}"
+
+Title:`;
+
+  try {
+    // Use maxTokens instead of max_tokens
+    const title = await runtime.useModel(modelClass, {
+      prompt,
+      maxTokens: 20,
+      temperature: 0.7,
+    });
+
+    if (!title) return null;
+
+    let cleanTitle = title.trim();
+    // Remove surrounding quotes if present
+    if (
+      (cleanTitle.startsWith('"') && cleanTitle.endsWith('"')) ||
+      (cleanTitle.startsWith("'") && cleanTitle.endsWith("'"))
+    ) {
+      cleanTitle = cleanTitle.slice(1, -1);
+    }
+
+    // Fallback if empty or too long
+    if (!cleanTitle || cleanTitle.length > 50) return null;
+
+    return cleanTitle;
+  } catch (err) {
+    logger.warn(
+      `[milady] Failed to generate conversation title: ${err instanceof Error ? err.message : String(err)}`,
+    );
+    return null;
+  }
+}
+
+function isDuplicateMemoryError(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  const msg = err.message.toLowerCase();
+  return (
+    msg.includes("duplicate") ||
+    msg.includes("already exists") ||
+    msg.includes("unique constraint")
+  );
+}
+
+async function persistConversationMemory(
+  runtime: AgentRuntime,
+  memory: ReturnType<typeof createMessageMemory>,
+): Promise<void> {
+  try {
+    await runtime.createMemory(memory, "messages");
+  } catch (err) {
+    if (isDuplicateMemoryError(err)) return;
+    throw err;
+  }
+}
+
+async function hasRecentAssistantMemory(
+  runtime: AgentRuntime,
+  roomId: UUID,
+  text: string,
+  sinceMs: number,
+): Promise<boolean> {
+  const trimmed = text.trim();
+  if (!trimmed) return false;
+
+  try {
+    const recent = await runtime.getMemories({
+      roomId,
+      tableName: "messages",
+      count: 12,
+    });
+
+    return recent.some((memory) => {
+      const contentText = (memory.content as { text?: string })?.text?.trim();
+      const createdAt = memory.createdAt ?? 0;
+      return (
+        memory.entityId === runtime.agentId &&
+        contentText === trimmed &&
+        createdAt >= sinceMs - 2000
+      );
+    });
+  } catch {
+    return false;
+  }
+}
+
+async function persistAssistantConversationMemory(
+  runtime: AgentRuntime,
+  roomId: UUID,
+  text: string,
+  channelType: ChannelType,
+  dedupeSinceMs?: number,
+): Promise<void> {
+  const trimmed = text.trim();
+  if (!trimmed) return;
+
+  if (typeof dedupeSinceMs === "number") {
+    const alreadyPersisted = await hasRecentAssistantMemory(
+      runtime,
+      roomId,
+      trimmed,
+      dedupeSinceMs,
+    );
+    if (alreadyPersisted) return;
+  }
+
+  await persistConversationMemory(
+    runtime,
+    createMessageMemory({
+      id: crypto.randomUUID() as UUID,
+      entityId: runtime.agentId,
+      roomId,
+      content: {
+        text: trimmed,
+        source: "client_chat",
+        channelType,
+      },
+    }),
+  );
+}
+
+const VALID_CHANNEL_TYPES = new Set<string>(Object.values(ChannelType));
+
+function parseRequestChannelType(
+  value: unknown,
+  fallback: ChannelType = ChannelType.DM,
+): ChannelType | null {
+  if (value === undefined || value === null) {
+    return fallback;
+  }
+  if (typeof value !== "string") {
+    return null;
+  }
+  const normalized = value.trim().toUpperCase();
+  if (!VALID_CHANNEL_TYPES.has(normalized)) {
+    return null;
+  }
+  return normalized as ChannelType;
+}
+
+async function readChatRequestPayload(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  helpers: {
+    readJsonBody: <T = Record<string, unknown>>(
+      req: http.IncomingMessage,
+      res: http.ServerResponse,
+      options?: ReadJsonBodyOptions,
+    ) => Promise<T | null>;
+    error: (res: http.ServerResponse, message: string, status?: number) => void;
+  },
+): Promise<{ prompt: string; channelType: ChannelType } | null> {
+  const body = await helpers.readJsonBody<{
+    text?: string;
+    channelType?: string;
+  }>(req, res);
+  if (!body) return null;
+  if (!body.text?.trim()) {
+    helpers.error(res, "text is required");
+    return null;
+  }
+  const channelType = parseRequestChannelType(body.channelType, ChannelType.DM);
+  if (!channelType) {
+    helpers.error(res, "channelType is invalid", 400);
+    return null;
+  }
+  return {
+    prompt: body.text.trim(),
+    channelType,
   };
 }
 
@@ -1967,7 +2267,7 @@ function parseBoundedLimit(rawLimit: string | null, fallback = 15): number {
 
 /**
  * Key patterns that indicate a value is sensitive and must be redacted.
- * Matches against the property key at any nesting depth.  Aligned with
+ * Matches against the property key at unknown nesting depth.  Aligned with
  * SENSITIVE_PATTERNS in src/config/schema.ts so every field the UI marks
  * as sensitive is also redacted in the API response.
  *
@@ -2013,7 +2313,7 @@ function cloneWithoutBlockedObjectKeys<T>(value: T): T {
 }
 
 /**
- * Replace any non-empty value with "[REDACTED]".  For arrays, each string
+ * Replace unknown non-empty value with "[REDACTED]".  For arrays, each string
  * element is individually redacted; for objects, all string leaves are
  * redacted.  Non-string primitives (booleans, numbers) are replaced with
  * the string "[REDACTED]" to avoid leaking e.g. numeric PINs.
@@ -2069,13 +2369,19 @@ function redactConfigSecrets(
   return redactDeep(config) as Record<string, unknown>;
 }
 
+function isRedactedSecretValue(value: unknown): boolean {
+  return (
+    typeof value === "string" && value.trim().toUpperCase() === "[REDACTED]"
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Skill-ID path-traversal guard
 // ---------------------------------------------------------------------------
 
 /**
  * Validate that a user-supplied skill ID is safe to use in filesystem paths.
- * Rejects IDs containing path separators, ".." sequences, or any characters
+ * Rejects IDs containing path separators, ".." sequences, or unknown characters
  * outside the safe set used by the marketplace (`safeName()` in
  * skill-marketplace.ts).  Returns `null` and sends a 400 response if the
  * ID is invalid.
@@ -2104,9 +2410,9 @@ function validateSkillId(
 // ---------------------------------------------------------------------------
 
 // Use shared presets for full parity between CLI and GUI onboarding.
-import { STYLE_PRESETS } from "../onboarding-presets.js";
+import { STYLE_PRESETS } from "../onboarding-presets";
 
-import { pickRandomNames } from "../runtime/onboarding-names.js";
+import { pickRandomNames } from "../runtime/onboarding-names";
 
 function getProviderOptions(): Array<{
   id: string;
@@ -2141,15 +2447,6 @@ function getProviderOptions(): Array<{
       pluginName: "@elizaos/plugin-openai",
       keyPrefix: null,
       description: "Use your $20-200/mo ChatGPT subscription via OAuth.",
-    },
-    {
-      id: "pi-ai",
-      name: "Pi Credentials (pi-ai)",
-      envKey: null,
-      pluginName: "@mariozechner/pi-ai",
-      keyPrefix: null,
-      description:
-        "Use pi auth (~/.pi/agent/auth.json) for API keys / OAuth (no Milaidy API key required).",
     },
     {
       id: "anthropic",
@@ -2518,7 +2815,7 @@ function writeProviderCache(cache: ProviderCache): void {
 
 // ── Provider fetchers ────────────────────────────────────────────────────
 
-/** Fetch models from any provider's /v1/models endpoint (standard REST). */
+/** Fetch models from unknown provider's /v1/models endpoint (standard REST). */
 async function fetchModelsREST(
   providerId: string,
   apiKey: string,
@@ -2615,8 +2912,11 @@ async function fetchGoogleModels(apiKey: string): Promise<CachedModel[]> {
 
 async function fetchOllamaModels(baseUrl: string): Promise<CachedModel[]> {
   try {
-    const url = baseUrl.replace(/\/+$/, "");
-    const res = await fetch(`${url}/api/tags`);
+    let urlStr = baseUrl.replace(/\/+$/, "");
+    if (!urlStr.startsWith("http://") && !urlStr.startsWith("https://")) {
+      urlStr = `http://${urlStr}`;
+    }
+    const res = await fetch(`${urlStr}/api/tags`);
     if (!res.ok) return [];
     const data = (await res.json()) as { models?: Array<{ name: string }> };
     return (data.models ?? []).map((m) => ({
@@ -2722,7 +3022,7 @@ async function fetchProviderModels(
     case "google-genai":
       return fetchGoogleModels(apiKey);
     case "ollama":
-      return fetchOllamaModels(apiKey);
+      return fetchOllamaModels(baseUrl || "http://localhost:11434");
     case "openrouter":
       return fetchOpenRouterModels(apiKey);
     case "openai":
@@ -2812,45 +3112,6 @@ async function getOrFetchAllProviders(
   return result;
 }
 
-function getPiModelOptions(): Array<{
-  id: string;
-  name: string;
-  provider: string;
-  description: string;
-}> {
-  const options: Array<{
-    id: string;
-    name: string;
-    provider: string;
-    description: string;
-  }> = [];
-
-  try {
-    for (const providerId of piAi.getProviders()) {
-      for (const model of piAi.getModels(providerId)) {
-        const id = `${model.provider}/${model.id}`;
-        options.push({
-          id,
-          name: model.id,
-          provider: model.provider,
-          description: model.api,
-        });
-
-        // Safety cap in case a provider returns an unexpectedly huge list.
-        if (options.length >= 2000) {
-          return options;
-        }
-      }
-    }
-  } catch (err) {
-    logger.warn(
-      `[milaidy-api] Failed to enumerate pi-ai models: ${String(err)}`,
-    );
-  }
-
-  return options;
-}
-
 function getInventoryProviderOptions(): Array<{
   id: string;
   name: string;
@@ -2923,12 +3184,92 @@ function getInventoryProviderOptions(): Array<{
   ];
 }
 
+function ensureWalletKeysInEnvAndConfig(config: MiladyConfig): boolean {
+  const missingEvm =
+    typeof process.env.EVM_PRIVATE_KEY !== "string" ||
+    !process.env.EVM_PRIVATE_KEY.trim();
+  const missingSolana =
+    typeof process.env.SOLANA_PRIVATE_KEY !== "string" ||
+    !process.env.SOLANA_PRIVATE_KEY.trim();
+
+  if (!missingEvm && !missingSolana) {
+    return false;
+  }
+
+  try {
+    const walletKeys = generateWalletKeys();
+    if (
+      !config.env ||
+      typeof config.env !== "object" ||
+      Array.isArray(config.env)
+    ) {
+      config.env = {};
+    }
+    const envConfig = config.env as Record<string, string>;
+
+    if (missingEvm) {
+      envConfig.EVM_PRIVATE_KEY = walletKeys.evmPrivateKey;
+      process.env.EVM_PRIVATE_KEY = walletKeys.evmPrivateKey;
+      logger.info(
+        `[milady-api] Generated EVM wallet: ${walletKeys.evmAddress}`,
+      );
+    }
+
+    if (missingSolana) {
+      envConfig.SOLANA_PRIVATE_KEY = walletKeys.solanaPrivateKey;
+      process.env.SOLANA_PRIVATE_KEY = walletKeys.solanaPrivateKey;
+      logger.info(
+        `[milady-api] Generated Solana wallet: ${walletKeys.solanaAddress}`,
+      );
+    }
+
+    return true;
+  } catch (err) {
+    logger.warn(
+      `[milady-api] Failed to generate wallet keys: ${err instanceof Error ? err.message : String(err)}`,
+    );
+    return false;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Route handler
 // ---------------------------------------------------------------------------
 
 interface RequestContext {
   onRestart: (() => Promise<AgentRuntime | null>) | null;
+}
+
+type TrainingServiceLike = TrainingServiceWithRuntime;
+
+type TrainingServiceCtor = new (options: {
+  getRuntime: () => AgentRuntime | null;
+  getConfig: () => MiladyConfig;
+  setConfig: (nextConfig: MiladyConfig) => void;
+}) => TrainingServiceLike;
+
+async function resolveTrainingServiceCtor(): Promise<TrainingServiceCtor | null> {
+  const candidates = [
+    "../services/training-service",
+    "@elizaos/plugin-training",
+  ] as const;
+
+  for (const specifier of candidates) {
+    try {
+      const loaded = (await import(/* @vite-ignore */ specifier)) as Record<
+        string,
+        unknown
+      >;
+      const ctor = loaded.TrainingService;
+      if (typeof ctor === "function") {
+        return ctor as TrainingServiceCtor;
+      }
+    } catch {
+      // Keep trying fallbacks.
+    }
+  }
+
+  return null;
 }
 
 const LOCAL_ORIGIN_RE = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i;
@@ -2941,7 +3282,7 @@ function resolveCorsOrigin(origin?: string): string | null {
   if (!trimmed) return null;
 
   // Explicit allowlist via env (comma-separated)
-  const extra = process.env.MILAIDY_ALLOWED_ORIGINS;
+  const extra = process.env.MILADY_ALLOWED_ORIGINS;
   if (extra) {
     const allow = extra
       .split(",")
@@ -2952,7 +3293,7 @@ function resolveCorsOrigin(origin?: string): string | null {
 
   if (LOCAL_ORIGIN_RE.test(trimmed)) return trimmed;
   if (APP_ORIGIN_RE.test(trimmed)) return trimmed;
-  if (trimmed === "null" && process.env.MILAIDY_ALLOW_NULL_ORIGIN === "1")
+  if (trimmed === "null" && process.env.MILADY_ALLOW_NULL_ORIGIN === "1")
     return "null";
   return null;
 }
@@ -2976,7 +3317,7 @@ function applyCors(
     );
     res.setHeader(
       "Access-Control-Allow-Headers",
-      "Content-Type, Authorization, X-Milaidy-Token, X-Api-Key, X-Milaidy-Export-Token",
+      "Content-Type, Authorization, X-Milady-Token, X-Api-Key, X-Milady-Export-Token",
     );
   }
 
@@ -2995,8 +3336,8 @@ const pairingAttempts = new Map<string, { count: number; resetAt: number }>();
 
 function pairingEnabled(): boolean {
   return (
-    Boolean(process.env.MILAIDY_API_TOKEN?.trim()) &&
-    process.env.MILAIDY_PAIRING_DISABLED !== "1"
+    Boolean(process.env.MILADY_API_TOKEN?.trim()) &&
+    process.env.MILADY_PAIRING_DISABLED !== "1"
   );
 }
 
@@ -3020,7 +3361,7 @@ function ensurePairingCode(): string | null {
     pairingCode = generatePairingCode();
     pairingExpiresAt = now + PAIRING_TTL_MS;
     logger.warn(
-      `[milaidy-api] Pairing code: ${pairingCode} (valid for 10 minutes)`,
+      `[milady-api] Pairing code: ${pairingCode} (valid for 10 minutes)`,
     );
   }
   return pairingCode;
@@ -3050,8 +3391,8 @@ function extractAuthToken(req: http.IncomingMessage): string | null {
   }
 
   const header =
-    (typeof req.headers["x-milaidy-token"] === "string" &&
-      req.headers["x-milaidy-token"]) ||
+    (typeof req.headers["x-milady-token"] === "string" &&
+      req.headers["x-milady-token"]) ||
     (typeof req.headers["x-api-key"] === "string" && req.headers["x-api-key"]);
   if (typeof header === "string" && header.trim()) return header.trim();
 
@@ -3082,24 +3423,25 @@ function isLoopbackBindHost(host: string): boolean {
   return false;
 }
 
-function ensureApiTokenForBindHost(host: string): void {
-  const token = process.env.MILAIDY_API_TOKEN?.trim();
+export function ensureApiTokenForBindHost(host: string): void {
+  const token = process.env.MILADY_API_TOKEN?.trim();
   if (token) return;
   if (isLoopbackBindHost(host)) return;
 
   const generated = crypto.randomBytes(32).toString("hex");
-  process.env.MILAIDY_API_TOKEN = generated;
+  process.env.MILADY_API_TOKEN = generated;
 
   logger.warn(
-    `[milaidy-api] MILAIDY_API_BIND=${host} is non-loopback and MILAIDY_API_TOKEN is unset.`,
+    `[milady-api] MILADY_API_BIND=${host} is non-loopback and MILADY_API_TOKEN is unset.`,
   );
+  const tokenFingerprint = `${generated.slice(0, 4)}...${generated.slice(-4)}`;
   logger.warn(
-    `[milaidy-api] Generated temporary MILAIDY_API_TOKEN=${generated}. Set MILAIDY_API_TOKEN explicitly to override.`,
+    `[milady-api] Generated temporary MILADY_API_TOKEN (${tokenFingerprint}) for this process. Set MILADY_API_TOKEN explicitly to override.`,
   );
 }
 
 function isAuthorized(req: http.IncomingMessage): boolean {
-  const expected = process.env.MILAIDY_API_TOKEN?.trim();
+  const expected = process.env.MILADY_API_TOKEN?.trim();
   if (!expected) return true;
   const provided = extractAuthToken(req);
   if (!provided) return false;
@@ -3164,18 +3506,18 @@ export function resolveWalletExportRejection(
     };
   }
 
-  const expected = process.env.MILAIDY_WALLET_EXPORT_TOKEN?.trim();
+  const expected = process.env.MILADY_WALLET_EXPORT_TOKEN?.trim();
   if (!expected) {
     return {
       status: 403,
       reason:
-        "Wallet export is disabled. Set MILAIDY_WALLET_EXPORT_TOKEN to enable secure exports.",
+        "Wallet export is disabled. Set MILADY_WALLET_EXPORT_TOKEN to enable secure exports.",
     };
   }
 
   const headerToken =
-    typeof req.headers["x-milaidy-export-token"] === "string"
-      ? req.headers["x-milaidy-export-token"].trim()
+    typeof req.headers["x-milady-export-token"] === "string"
+      ? req.headers["x-milady-export-token"].trim()
       : "";
   const bodyToken =
     typeof body.exportToken === "string" ? body.exportToken.trim() : "";
@@ -3185,7 +3527,7 @@ export function resolveWalletExportRejection(
     return {
       status: 401,
       reason:
-        "Missing export token. Provide X-Milaidy-Export-Token header or exportToken in request body.",
+        "Missing export token. Provide X-Milady-Export-Token header or exportToken in request body.",
     };
   }
 
@@ -3197,6 +3539,9 @@ export function resolveWalletExportRejection(
 }
 
 function extractWsQueryToken(url: URL): string | null {
+  const allowQueryToken = process.env.MILADY_ALLOW_WS_QUERY_TOKEN === "1";
+  if (!allowQueryToken) return null;
+
   const token =
     url.searchParams.get("token") ??
     url.searchParams.get("apiKey") ??
@@ -3208,7 +3553,7 @@ function isWebSocketAuthorized(
   request: http.IncomingMessage,
   url: URL,
 ): boolean {
-  const expected = process.env.MILAIDY_API_TOKEN?.trim();
+  const expected = process.env.MILADY_API_TOKEN?.trim();
   if (!expected) return true;
 
   const headerToken = extractAuthToken(request);
@@ -3246,7 +3591,7 @@ export function resolveWebSocketUpgradeRejection(
   return null;
 }
 
-const RESET_STATE_ALLOWED_SEGMENTS = new Set([".milaidy", "milaidy"]);
+const RESET_STATE_ALLOWED_SEGMENTS = new Set([".milady", "milady"]);
 
 function hasAllowedResetSegment(resolvedState: string): boolean {
   return resolvedState
@@ -3859,28 +4204,20 @@ function serializeForRuntimeDebug(
 // ── Autonomy → User message routing ──────────────────────────────────
 
 /**
- * Route non-conversation output to the user's active conversation.
+ * Route non-conversation text output to the user's active conversation.
  * Stores the message as a Memory in the conversation room and broadcasts
  * a `proactive-message` WS event to the frontend.
- *
- * @param source - Channel label shown in the UI (e.g. "autonomy", "telegram").
  */
-async function routeAutonomyToUser(
+async function routeAutonomyTextToUser(
   state: ServerState,
-  responseMessages: import("@elizaos/core").Memory[],
+  responseText: string,
   source = "autonomy",
 ): Promise<void> {
   const runtime = state.runtime;
   if (!runtime) return;
 
-  // Collect response text from all response messages
-  const texts: string[] = [];
-  for (const mem of responseMessages) {
-    const text = mem.content?.text?.trim();
-    if (text) texts.push(text);
-  }
-  if (texts.length === 0) return;
-  const responseText = texts.join("\n\n");
+  const normalizedText = responseText.trim();
+  if (!normalizedText) return;
 
   // Find target conversation (active, or most recent)
   let conv: ConversationMeta | undefined;
@@ -3903,7 +4240,7 @@ async function routeAutonomyToUser(
     entityId: runtime.agentId,
     roomId: conv.roomId,
     content: {
-      text: responseText,
+      text: normalizedText,
       source,
     },
   });
@@ -3917,7 +4254,7 @@ async function routeAutonomyToUser(
     message: {
       id: agentMessage.id ?? `auto-${Date.now()}`,
       role: "assistant",
-      text: responseText,
+      text: normalizedText,
       timestamp: Date.now(),
       source,
     },
@@ -3925,59 +4262,43 @@ async function routeAutonomyToUser(
 }
 
 /**
- * Monkey-patch `runtime.messageService.handleMessage` to intercept
- * autonomy output and route it to the user's active conversation.
- * Follows the same pattern as phetta-companion-plugin.ts:222-280.
+ * Route non-conversation agent events into the active user chat.
+ * This avoids monkey-patching the message service and relies on explicit
+ * event stream plumbing from AGENT_EVENT.
  */
-function patchMessageServiceForAutonomy(state: ServerState): void {
-  const runtime = state.runtime;
-  if (!runtime?.messageService) return;
+async function maybeRouteAutonomyEventToConversation(
+  state: ServerState,
+  event: AgentEventPayloadLike,
+): Promise<void> {
+  if (event.stream !== "assistant") return;
 
-  const svc = runtime.messageService as unknown as {
-    handleMessage: (
-      rt: import("@elizaos/core").IAgentRuntime,
-      message: import("@elizaos/core").Memory,
-      callback?: (
-        content: Content,
-      ) => Promise<import("@elizaos/core").Memory[]>,
-      options?: import("@elizaos/core").MessageProcessingOptions,
-    ) => Promise<import("@elizaos/core").MessageProcessingResult>;
-    __milaidyAutonomyPatched?: boolean;
-  };
+  const payload =
+    event.data && typeof event.data === "object"
+      ? (event.data as Record<string, unknown>)
+      : null;
+  const text = typeof payload?.text === "string" ? payload.text.trim() : "";
+  if (!text) return;
 
-  if (svc.__milaidyAutonomyPatched) return;
-  svc.__milaidyAutonomyPatched = true;
+  const source =
+    typeof payload?.source === "string" && payload.source.trim().length > 0
+      ? payload.source
+      : "autonomy";
 
-  const orig = svc.handleMessage.bind(svc);
+  // Regular user conversation turns should never be re-routed as proactive.
+  // Some AGENT_EVENT payloads may omit roomId metadata, so rely on source too.
+  if (source === "client_chat") return;
 
-  svc.handleMessage = async (
-    rt: import("@elizaos/core").IAgentRuntime,
-    message: import("@elizaos/core").Memory,
-    callback?: (content: Content) => Promise<import("@elizaos/core").Memory[]>,
-    options?: import("@elizaos/core").MessageProcessingOptions,
-  ): Promise<import("@elizaos/core").MessageProcessingResult> => {
-    const result = await orig(rt, message, callback, options);
+  // Keep regular conversation messages in their own room only.
+  if (
+    event.roomId &&
+    Array.from(state.conversations.values()).some(
+      (c) => c.roomId === event.roomId,
+    )
+  ) {
+    return;
+  }
 
-    // Detect non-conversation messages (autonomy, background tasks, etc.)
-    const isFromConversation = Array.from(state.conversations.values()).some(
-      (c) => c.roomId === message.roomId,
-    );
-
-    if (!isFromConversation && result?.responseMessages?.length > 0) {
-      // Forward to user's active conversation (fire-and-forget)
-      const rawSource = message.content?.source;
-      const source = typeof rawSource === "string" ? rawSource : "autonomy";
-      void routeAutonomyToUser(state, result.responseMessages, source).catch(
-        (err) => {
-          logger.warn(
-            `[autonomy-route] Failed to route proactive output: ${err instanceof Error ? err.message : String(err)}`,
-          );
-        },
-      );
-    }
-
-    return result;
-  };
+  await routeAutonomyTextToUser(state, text, source);
 }
 
 async function handleRequest(
@@ -4002,20 +4323,20 @@ async function handleRequest(
   const scheduleRuntimeRestart = (reason: string, delayMs = 300): void => {
     const restart = () => {
       if (ctx?.onRestart) {
-        logger.info(`[milaidy-api] Triggering runtime restart (${reason})...`);
+        logger.info(`[milady-api] Triggering runtime restart (${reason})...`);
         Promise.resolve(ctx.onRestart())
           .then((newRuntime) => {
             if (!newRuntime) {
-              logger.warn("[milaidy-api] Runtime restart returned null");
+              logger.warn("[milady-api] Runtime restart returned null");
               return;
             }
             state.runtime = newRuntime;
             state.chatConnectionReady = null;
             state.chatConnectionPromise = null;
             state.agentState = "running";
-            state.agentName = newRuntime.character.name ?? "Milaidy";
+            state.agentName = newRuntime.character.name ?? "Milady";
             state.startedAt = Date.now();
-            logger.info("[milaidy-api] Runtime restarted successfully");
+            logger.info("[milady-api] Runtime restarted successfully");
             // Notify WebSocket clients so the UI can refresh
             state.broadcastWs?.({
               type: "status",
@@ -4027,19 +4348,17 @@ async function handleRequest(
           })
           .catch((err) => {
             logger.error(
-              `[milaidy-api] Runtime restart failed: ${err instanceof Error ? err.message : err}`,
+              `[milady-api] Runtime restart failed: ${err instanceof Error ? err.message : err}`,
             );
           });
         return;
       }
 
       logger.info(
-        `[milaidy-api] No in-process restart handler; exiting for external restart (${reason})`,
+        `[milady-api] No in-process restart handler; exiting for external restart (${reason})`,
       );
       if (process.env.VITEST || process.env.NODE_ENV === "test") {
-        logger.info(
-          "[milaidy-api] Skipping process.exit during test execution",
-        );
+        logger.info("[milady-api] Skipping process.exit during test execution");
         return;
       }
       process.exit(API_RESTART_EXIT_CODE);
@@ -4173,300 +4492,58 @@ async function handleRequest(
     return;
   }
 
-  // ── GET /api/auth/status ───────────────────────────────────────────────
-  if (method === "GET" && pathname === "/api/auth/status") {
-    const required = Boolean(process.env.MILAIDY_API_TOKEN?.trim());
-    const enabled = pairingEnabled();
-    if (enabled) ensurePairingCode();
-    json(res, {
-      required,
-      pairingEnabled: enabled,
-      expiresAt: enabled ? pairingExpiresAt : null,
-    });
-    return;
-  }
-
-  // ── POST /api/auth/pair ────────────────────────────────────────────────
-  if (method === "POST" && pathname === "/api/auth/pair") {
-    const body = await readJsonBody<{ code?: string }>(req, res);
-    if (!body) return;
-
-    const token = process.env.MILAIDY_API_TOKEN?.trim();
-    if (!token) {
-      error(res, "Pairing not enabled", 400);
-      return;
-    }
-    if (!pairingEnabled()) {
-      error(res, "Pairing disabled", 403);
-      return;
-    }
-    if (!rateLimitPairing(req.socket.remoteAddress ?? null)) {
-      error(res, "Too many attempts. Try again later.", 429);
-      return;
-    }
-
-    const provided = normalizePairingCode(body.code ?? "");
-    const current = ensurePairingCode();
-    if (!current || Date.now() > pairingExpiresAt) {
-      ensurePairingCode();
-      error(
-        res,
-        "Pairing code expired. Check server logs for a new code.",
-        410,
-      );
-      return;
-    }
-
-    const expected = normalizePairingCode(current);
-    const a = Buffer.from(expected, "utf8");
-    const b = Buffer.from(provided, "utf8");
-    if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
-      error(res, "Invalid pairing code", 403);
-      return;
-    }
-
-    pairingCode = null;
-    pairingExpiresAt = 0;
-    json(res, { token });
-    return;
-  }
-
-  // ── GET /api/subscription/status ──────────────────────────────────────
-  // Returns the status of subscription-based auth providers
-  if (method === "GET" && pathname === "/api/subscription/status") {
-    try {
-      const { getSubscriptionStatus } = await import("../auth/index.js");
-      json(res, { providers: getSubscriptionStatus() });
-    } catch (err) {
-      error(res, `Failed to get subscription status: ${err}`, 500);
-    }
-    return;
-  }
-
-  // ── POST /api/subscription/anthropic/start ──────────────────────────────
-  // Start Anthropic OAuth flow — returns URL for user to visit
-  if (method === "POST" && pathname === "/api/subscription/anthropic/start") {
-    try {
-      const { startAnthropicLogin } = await import("../auth/index.js");
-      const flow = await startAnthropicLogin();
-      // Store flow in server state for the exchange step
-      state._anthropicFlow = flow;
-      json(res, { authUrl: flow.authUrl });
-    } catch (err) {
-      error(res, `Failed to start Anthropic login: ${err}`, 500);
-    }
-    return;
-  }
-
-  // ── POST /api/subscription/anthropic/exchange ───────────────────────────
-  // Exchange Anthropic auth code for tokens
   if (
-    method === "POST" &&
-    pathname === "/api/subscription/anthropic/exchange"
+    await handleAuthRoutes({
+      req,
+      res,
+      method,
+      pathname,
+      readJsonBody,
+      json,
+      error,
+      pairingEnabled,
+      ensurePairingCode,
+      normalizePairingCode,
+      rateLimitPairing,
+      getPairingExpiresAt: () => pairingExpiresAt,
+      clearPairing: () => {
+        pairingCode = null;
+        pairingExpiresAt = 0;
+      },
+    })
   ) {
-    const body = await readJsonBody<{ code: string }>(req, res);
-    if (!body) return;
-    if (!body.code) {
-      error(res, "Missing code", 400);
-      return;
-    }
-    try {
-      const { saveCredentials, applySubscriptionCredentials } = await import(
-        "../auth/index.js"
-      );
-      const flow = state._anthropicFlow;
-      if (!flow) {
-        error(res, "No active flow — call /start first", 400);
-        return;
-      }
-      // Submit the code and wait for credentials
-      flow.submitCode(body.code);
-      const credentials = await flow.credentials;
-      saveCredentials("anthropic-subscription", credentials);
-      await applySubscriptionCredentials();
-      delete state._anthropicFlow;
-      json(res, { success: true, expiresAt: credentials.expires });
-    } catch (err) {
-      error(res, `Anthropic exchange failed: ${err}`, 500);
-    }
     return;
   }
 
-  // ── POST /api/subscription/anthropic/setup-token ────────────────────────
-  // Accept an Anthropic setup-token (sk-ant-oat01-...) directly
   if (
-    method === "POST" &&
-    pathname === "/api/subscription/anthropic/setup-token"
+    await handleSubscriptionRoutes({
+      req,
+      res,
+      method,
+      pathname,
+      state,
+      readJsonBody,
+      json,
+      error,
+      saveConfig: saveMiladyConfig,
+    })
   ) {
-    const body = await readJsonBody<{ token: string }>(req, res);
-    if (!body) return;
-    if (!body.token || !body.token.startsWith("sk-ant-")) {
-      error(res, "Invalid token format — expected sk-ant-oat01-...", 400);
-      return;
-    }
-    try {
-      // Setup tokens are direct API keys — set in env immediately
-      process.env.ANTHROPIC_API_KEY = body.token.trim();
-      // Also save to config so it persists across restarts
-      if (!state.config.env) state.config.env = {};
-      (state.config.env as Record<string, string>).ANTHROPIC_API_KEY =
-        body.token.trim();
-      saveMilaidyConfig(state.config);
-      json(res, { success: true });
-    } catch (err) {
-      error(res, `Failed to save setup token: ${err}`, 500);
-    }
-    return;
-  }
-
-  // ── POST /api/subscription/openai/start ─────────────────────────────────
-  // Start OpenAI Codex OAuth flow — returns URL and starts callback server
-  if (method === "POST" && pathname === "/api/subscription/openai/start") {
-    try {
-      const { startCodexLogin } = await import("../auth/index.js");
-      // Clean up any stale flow from a previous attempt
-      if (state._codexFlow) {
-        try {
-          state._codexFlow.close();
-        } catch (err) {
-          logger.debug(
-            `[api] OAuth flow cleanup failed: ${err instanceof Error ? err.message : err}`,
-          );
-        }
-      }
-      clearTimeout(state._codexFlowTimer);
-
-      const flow = await startCodexLogin();
-      // Store flow state + auto-cleanup after 10 minutes
-      state._codexFlow = flow;
-      state._codexFlowTimer = setTimeout(
-        () => {
-          try {
-            flow.close();
-          } catch (err) {
-            logger.debug(
-              `[api] OAuth flow cleanup failed: ${err instanceof Error ? err.message : err}`,
-            );
-          }
-          delete state._codexFlow;
-          delete state._codexFlowTimer;
-        },
-        10 * 60 * 1000,
-      );
-      json(res, {
-        authUrl: flow.authUrl,
-        state: flow.state,
-        instructions:
-          "Open the URL in your browser. After login, if auto-redirect doesn't work, paste the full redirect URL.",
-      });
-    } catch (err) {
-      error(res, `Failed to start OpenAI login: ${err}`, 500);
-    }
-    return;
-  }
-
-  // ── POST /api/subscription/openai/exchange ──────────────────────────────
-  // Exchange OpenAI auth code or wait for callback
-  if (method === "POST" && pathname === "/api/subscription/openai/exchange") {
-    const body = await readJsonBody<{
-      code?: string;
-      waitForCallback?: boolean;
-    }>(req, res);
-    if (!body) return;
-    let flow: import("../auth/index.js").CodexFlow | undefined;
-    try {
-      const { saveCredentials, applySubscriptionCredentials } = await import(
-        "../auth/index.js"
-      );
-      flow = state._codexFlow;
-
-      if (!flow) {
-        error(res, "No active flow — call /start first", 400);
-        return;
-      }
-
-      if (body.code) {
-        // Manual code/URL paste — submit to flow
-        flow.submitCode(body.code);
-      } else if (!body.waitForCallback) {
-        error(res, "Provide either code or set waitForCallback: true", 400);
-        return;
-      }
-
-      // Wait for credentials (either from callback server or manual submission)
-      let credentials: import("../auth/index.js").OAuthCredentials;
-      try {
-        credentials = await flow.credentials;
-      } catch (err) {
-        try {
-          flow.close();
-        } catch (closeErr) {
-          logger.debug(
-            `[api] OAuth flow cleanup failed: ${closeErr instanceof Error ? closeErr.message : closeErr}`,
-          );
-        }
-        delete state._codexFlow;
-        clearTimeout(state._codexFlowTimer);
-        delete state._codexFlowTimer;
-        error(res, `OpenAI exchange failed: ${err}`, 500);
-        return;
-      }
-      saveCredentials("openai-codex", credentials);
-      await applySubscriptionCredentials();
-      flow.close();
-      delete state._codexFlow;
-      clearTimeout(state._codexFlowTimer);
-      delete state._codexFlowTimer;
-      json(res, {
-        success: true,
-        expiresAt: credentials.expires,
-        accountId: credentials.accountId,
-      });
-    } catch (err) {
-      error(res, `OpenAI exchange failed: ${err}`, 500);
-    }
-    return;
-  }
-
-  // ── DELETE /api/subscription/:provider ───────────────────────────────────
-  // Remove subscription credentials
-  if (method === "DELETE" && pathname.startsWith("/api/subscription/")) {
-    const provider = pathname.split("/").pop();
-    if (provider === "anthropic-subscription" || provider === "openai-codex") {
-      try {
-        const { deleteCredentials } = await import("../auth/index.js");
-        deleteCredentials(provider);
-        json(res, { success: true });
-      } catch (err) {
-        error(res, `Failed to delete credentials: ${err}`, 500);
-      }
-    } else {
-      error(res, `Unknown provider: ${provider}`, 400);
-    }
     return;
   }
 
   // ── GET /api/status ─────────────────────────────────────────────────────
   if (method === "GET" && pathname === "/api/status") {
     const uptime = state.startedAt ? Date.now() - state.startedAt : undefined;
-
-    // Cloud mode: report cloud connection status alongside local state
-    const cloudProxy = state.cloudManager?.getProxy();
-    const runMode = cloudProxy ? "cloud" : "local";
-    const cloudStatus = state.cloudManager
-      ? {
-          connectionStatus: state.cloudManager.getStatus(),
-          activeAgentId: state.cloudManager.getActiveAgentId(),
-        }
-      : undefined;
+    const cloudStatus = {
+      connectionStatus: "disconnected",
+      activeAgentId: null,
+    };
 
     json(res, {
-      state: cloudProxy ? "running" : state.agentState,
-      agentName: cloudProxy ? cloudProxy.agentName : state.agentName,
-      model: cloudProxy ? "cloud" : state.model,
+      state: state.agentState,
+      agentName: state.agentName,
+      model: state.model,
       uptime,
-      startedAt: state.startedAt,
-      runMode,
       cloud: cloudStatus,
     });
     return;
@@ -4620,17 +4697,12 @@ async function handleRequest(
 
   // ── GET /api/onboarding/options ─────────────────────────────────────────
   if (method === "GET" && pathname === "/api/onboarding/options") {
-    const piCreds = await createPiCredentialProvider();
-    const piDefaultModel = (await piCreds.getDefaultModelSpec()) ?? undefined;
-
     json(res, {
       names: pickRandomNames(5),
       styles: STYLE_PRESETS,
       providers: getProviderOptions(),
       cloudProviders: getCloudProviderOptions(),
       models: getModelOptions(),
-      piModels: getPiModelOptions(),
-      piDefaultModel,
       inventoryProviders: getInventoryProviderOptions(),
       sharedStyleRules: "Keep responses brief. Be helpful and concise.",
     });
@@ -4721,7 +4793,7 @@ async function handleRequest(
           unknown
         >
       ).mode = sandboxMode;
-      logger.info(`[milaidy-api] Sandbox mode set to: ${sandboxMode}`);
+      logger.info(`[milady-api] Sandbox mode set to: ${sandboxMode}`);
     }
 
     if (runMode === "cloud") {
@@ -4729,7 +4801,7 @@ async function handleRequest(
         config.cloud.provider = body.cloudProvider as string;
       }
       // Always ensure model defaults when cloud is selected so the cloud
-      // plugin has valid models to call even if the user didn't pick any.
+      // plugin has valid models to call even if the user didn't pick unknown.
       if (!config.models) config.models = {};
       config.models.small =
         (body.smallModel as string) ||
@@ -4742,43 +4814,12 @@ async function handleRequest(
     }
 
     // ── Local LLM provider ────────────────────────────────────────────────
-    // Also supports pi-ai (reads credentials from ~/.pi/agent/auth.json).
     {
-      // Ensure we don't keep stale pi-ai mode when the user switches providers.
       if (!config.env) config.env = {};
       const envCfg = config.env as Record<string, unknown>;
       const vars = (envCfg.vars ?? {}) as Record<string, string>;
 
       const providerId = typeof body.provider === "string" ? body.provider : "";
-      const wantsPiAi = runMode === "local" && providerId === "pi-ai";
-
-      if (wantsPiAi) {
-        vars.MILAIDY_USE_PI_AI = "1";
-        process.env.MILAIDY_USE_PI_AI = "1";
-
-        // Optional: persist chosen primary model spec for pi-ai.
-        // When omitted, the backend falls back to pi's default model from settings.json.
-        if (!config.agents) config.agents = {};
-        if (!config.agents.defaults) config.agents.defaults = {};
-        if (!config.agents.defaults.model) config.agents.defaults.model = {};
-
-        const primaryModel =
-          typeof body.primaryModel === "string" ? body.primaryModel.trim() : "";
-        if (primaryModel) {
-          config.agents.defaults.model.primary = primaryModel;
-        } else {
-          delete config.agents.defaults.model.primary;
-          if (
-            !config.agents.defaults.model.fallbacks ||
-            config.agents.defaults.model.fallbacks.length === 0
-          ) {
-            delete config.agents.defaults.model;
-          }
-        }
-      } else {
-        delete vars.MILAIDY_USE_PI_AI;
-        delete process.env.MILAIDY_USE_PI_AI;
-      }
 
       // Persist vars back onto config.env
       (envCfg as Record<string, unknown>).vars = vars;
@@ -4810,7 +4851,7 @@ async function handleRequest(
       (config.agents.defaults as Record<string, unknown>).subscriptionProvider =
         body.provider;
       logger.info(
-        `[milaidy-api] Subscription provider selected: ${body.provider} — complete OAuth via /api/subscription/ endpoints`,
+        `[milady-api] Subscription provider selected: ${body.provider} — complete OAuth via /api/subscription/ endpoints`,
       );
     }
 
@@ -4828,7 +4869,7 @@ async function handleRequest(
       typeof body.discordToken === "string" &&
       body.discordToken.trim()
     ) {
-      config.connectors.discord = { botToken: body.discordToken.trim() };
+      config.connectors.discord = { token: body.discordToken.trim() };
     }
     if (
       body.whatsappSessionPath &&
@@ -4914,141 +4955,37 @@ async function handleRequest(
       }
     }
 
-    // ── Generate wallet keys if not already present ───────────────────────
-    if (!process.env.EVM_PRIVATE_KEY || !process.env.SOLANA_PRIVATE_KEY) {
-      try {
-        const walletKeys = generateWalletKeys();
-
-        if (!process.env.EVM_PRIVATE_KEY) {
-          if (!config.env) config.env = {};
-          (config.env as Record<string, string>).EVM_PRIVATE_KEY =
-            walletKeys.evmPrivateKey;
-          process.env.EVM_PRIVATE_KEY = walletKeys.evmPrivateKey;
-          logger.info(
-            `[milaidy-api] Generated EVM wallet: ${walletKeys.evmAddress}`,
-          );
-        }
-
-        if (!process.env.SOLANA_PRIVATE_KEY) {
-          if (!config.env) config.env = {};
-          (config.env as Record<string, string>).SOLANA_PRIVATE_KEY =
-            walletKeys.solanaPrivateKey;
-          process.env.SOLANA_PRIVATE_KEY = walletKeys.solanaPrivateKey;
-          logger.info(
-            `[milaidy-api] Generated Solana wallet: ${walletKeys.solanaAddress}`,
-          );
-        }
-      } catch (err) {
-        logger.warn(`[milaidy-api] Failed to generate wallet keys: ${err}`);
-      }
-    }
+    // ── Ensure wallet keys exist so inventory can resolve addresses ───────
+    ensureWalletKeysInEnvAndConfig(config);
 
     state.config = config;
     state.agentName = (body.name as string) ?? state.agentName;
     try {
-      saveMilaidyConfig(config);
+      saveMiladyConfig(config);
     } catch (err) {
       logger.error(
-        `[milaidy-api] Failed to save config after onboarding: ${err}`,
+        `[milady-api] Failed to save config after onboarding: ${err}`,
       );
       error(res, "Failed to save configuration", 500);
       return;
     }
     logger.info(
-      `[milaidy-api] Onboarding complete for agent "${body.name}" (mode: ${(body.runMode as string) || "local"})`,
+      `[milady-api] Onboarding complete for agent "${body.name}" (mode: ${(body.runMode as string) || "local"})`,
     );
     json(res, { ok: true });
     return;
   }
 
-  // ── POST /api/agent/start ───────────────────────────────────────────────
-  if (method === "POST" && pathname === "/api/agent/start") {
-    state.agentState = "running";
-    state.startedAt = Date.now();
-    const detectedModel = state.runtime
-      ? (state.runtime.plugins.find(
-          (p) =>
-            p.name.includes("anthropic") ||
-            p.name.includes("openai") ||
-            p.name.includes("groq"),
-        )?.name ?? "unknown")
-      : "unknown";
-    state.model = detectedModel;
-
-    // Enable the autonomy task — the core TaskService will pick it up
-    // and fire the first tick immediately (updatedAt starts at 0).
-    const svc = getAutonomySvc(state.runtime);
-    if (svc) await svc.enableAutonomy();
-
-    // Patch messageService for autonomy routing (may be first time if runtime
-    // was provided before the API server's patch ran, or after a restart).
-    patchMessageServiceForAutonomy(state);
-
-    json(res, {
-      ok: true,
-      status: {
-        state: state.agentState,
-        agentName: state.agentName,
-        model: state.model,
-        uptime: 0,
-        startedAt: state.startedAt,
-      },
-    });
-    return;
-  }
-
-  // ── POST /api/agent/stop ────────────────────────────────────────────────
-  if (method === "POST" && pathname === "/api/agent/stop") {
-    const svc = getAutonomySvc(state.runtime);
-    if (svc) await svc.disableAutonomy();
-
-    state.agentState = "stopped";
-    state.startedAt = undefined;
-    state.model = undefined;
-    json(res, {
-      ok: true,
-      status: { state: state.agentState, agentName: state.agentName },
-    });
-    return;
-  }
-
-  // ── POST /api/agent/pause ───────────────────────────────────────────────
-  if (method === "POST" && pathname === "/api/agent/pause") {
-    const svc = getAutonomySvc(state.runtime);
-    if (svc) await svc.disableAutonomy();
-
-    state.agentState = "paused";
-    json(res, {
-      ok: true,
-      status: {
-        state: state.agentState,
-        agentName: state.agentName,
-        model: state.model,
-        uptime: state.startedAt ? Date.now() - state.startedAt : undefined,
-        startedAt: state.startedAt,
-      },
-    });
-    return;
-  }
-
-  // ── POST /api/agent/resume ──────────────────────────────────────────────
-  if (method === "POST" && pathname === "/api/agent/resume") {
-    // Re-enable the autonomy task — first tick fires immediately
-    // because the new task is created with updatedAt: 0.
-    const svc = getAutonomySvc(state.runtime);
-    if (svc) await svc.enableAutonomy();
-
-    state.agentState = "running";
-    json(res, {
-      ok: true,
-      status: {
-        state: state.agentState,
-        agentName: state.agentName,
-        model: state.model,
-        uptime: state.startedAt ? Date.now() - state.startedAt : undefined,
-        startedAt: state.startedAt,
-      },
-    });
+  if (
+    await handleAgentLifecycleRoutes({
+      req,
+      res,
+      method,
+      pathname,
+      state,
+      json,
+    })
+  ) {
     return;
   }
 
@@ -5101,564 +5038,121 @@ async function handleRequest(
     if (knowledgeHandled) return;
   }
 
-  // ── POST /api/agent/restart ────────────────────────────────────────────
-  if (method === "POST" && pathname === "/api/agent/restart") {
-    if (!ctx?.onRestart) {
-      error(
-        res,
-        "Restart is not supported in this mode (no restart handler registered)",
-        501,
-      );
-      return;
-    }
-
-    // Reject if already mid-restart to prevent overlapping restarts.
-    if (state.agentState === "restarting") {
-      error(res, "A restart is already in progress", 409);
-      return;
-    }
-
-    const previousState = state.agentState;
-    state.agentState = "restarting";
-    try {
-      const newRuntime = await ctx.onRestart();
-      if (newRuntime) {
-        state.runtime = newRuntime;
-        state.chatConnectionReady = null;
-        state.chatConnectionPromise = null;
-        state.agentState = "running";
-        state.agentName = newRuntime.character.name ?? "Milaidy";
-        state.startedAt = Date.now();
-        patchMessageServiceForAutonomy(state);
-        json(res, {
-          ok: true,
-          status: {
-            state: state.agentState,
-            agentName: state.agentName,
-            startedAt: state.startedAt,
-          },
-        });
-      } else {
-        // Restore previous state instead of permanently stuck in "error"
-        state.agentState = previousState;
-        error(
-          res,
-          "Restart handler returned null — runtime failed to re-initialize",
-          500,
-        );
-      }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      // Restore previous state so the UI can retry
-      state.agentState = previousState;
-      error(res, `Restart failed: ${msg}`, 500);
-    }
-    return;
-  }
-
-  // ── POST /api/agent/reset ──────────────────────────────────────────────
-  // Wipe config, workspace (memory), and return to onboarding.
-  if (method === "POST" && pathname === "/api/agent/reset") {
-    try {
-      // 1. Stop the runtime if it's running
-      if (state.runtime) {
-        try {
-          await state.runtime.stop();
-        } catch (stopErr) {
-          const msg =
-            stopErr instanceof Error ? stopErr.message : String(stopErr);
-          logger.warn(
-            `[milaidy-api] Error stopping runtime during reset: ${msg}`,
-          );
-        }
-        state.runtime = null;
-      }
-
-      // 2. Delete the state directory (~/.milaidy/) which contains
-      //    config, workspace, memory, oauth tokens, etc.
-      const stateDir = resolveStateDir();
-
-      // Safety: validate the resolved path before recursive deletion.
-      // MILAIDY_STATE_DIR can be overridden via env/config — if set to
-      // "/" or another sensitive path, rmSync would wipe the filesystem.
-      const resolvedState = path.resolve(stateDir);
-      const home = os.homedir();
-      const isSafe = isSafeResetStateDir(resolvedState, home);
-      if (!isSafe) {
-        logger.warn(
-          `[milaidy-api] Refusing to delete unsafe state dir: "${resolvedState}"`,
-        );
-        error(
-          res,
-          `Reset aborted: state directory "${resolvedState}" does not appear safe to delete`,
-          400,
-        );
-        return;
-      }
-
-      if (fs.existsSync(resolvedState)) {
+  if (
+    await handleAgentAdminRoutes({
+      req,
+      res,
+      method,
+      pathname,
+      state,
+      onRestart: ctx?.onRestart ?? undefined,
+      json,
+      error,
+      resolveStateDir,
+      resolvePath: path.resolve,
+      getHomeDir: os.homedir,
+      isSafeResetStateDir,
+      stateDirExists: fs.existsSync,
+      removeStateDir: (resolvedState) => {
         fs.rmSync(resolvedState, { recursive: true, force: true });
-      }
-
-      // 3. Reset server state
-      state.agentState = "stopped";
-      state.agentName = "Milaidy";
-      state.model = undefined;
-      state.startedAt = undefined;
-      state.config = {} as MilaidyConfig;
-      state.chatRoomId = null;
-      state.chatUserId = null;
-      state.chatConnectionReady = null;
-      state.chatConnectionPromise = null;
-
-      json(res, { ok: true });
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      error(res, `Reset failed: ${msg}`, 500);
-    }
+      },
+      logWarn: (message) => logger.warn(message),
+    })
+  ) {
     return;
   }
 
-  // ── POST /api/agent/export ─────────────────────────────────────────────
-  // Export the entire agent as a password-encrypted binary file.
-  if (method === "POST" && pathname === "/api/agent/export") {
-    if (!state.runtime) {
-      error(res, "Agent is not running — start it before exporting.", 503);
-      return;
-    }
-
-    const body = await readJsonBody<{
-      password?: string;
-      includeLogs?: boolean;
-    }>(req, res);
-    if (!body) return;
-
-    if (!body.password || typeof body.password !== "string") {
-      error(
-        res,
-        `A password of at least ${AGENT_TRANSFER_MIN_PASSWORD_LENGTH} characters is required.`,
-        400,
-      );
-      return;
-    }
-
-    if (body.password.length < AGENT_TRANSFER_MIN_PASSWORD_LENGTH) {
-      error(
-        res,
-        `A password of at least ${AGENT_TRANSFER_MIN_PASSWORD_LENGTH} characters is required.`,
-        400,
-      );
-      return;
-    }
-
-    try {
-      const fileBuffer = await exportAgent(state.runtime, body.password, {
-        includeLogs: body.includeLogs === true,
-      });
-
-      const agentName = (state.runtime.character.name ?? "agent")
-        .replace(/[^a-zA-Z0-9_-]/g, "_")
-        .toLowerCase();
-      const timestamp = new Date()
-        .toISOString()
-        .replace(/[:.]/g, "-")
-        .slice(0, 19);
-      const filename = `${agentName}-${timestamp}.eliza-agent`;
-
-      res.statusCode = 200;
-      res.setHeader("Content-Type", "application/octet-stream");
-      res.setHeader(
-        "Content-Disposition",
-        `attachment; filename="${filename}"`,
-      );
-      res.setHeader("Content-Length", fileBuffer.length);
-      res.end(fileBuffer);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      if (err instanceof AgentExportError) {
-        error(res, msg, 400);
-      } else {
-        error(res, `Export failed: ${msg}`, 500);
-      }
-    }
+  if (
+    await handleAgentTransferRoutes({
+      req,
+      res,
+      method,
+      pathname,
+      state,
+      readJsonBody,
+      json,
+      error,
+    })
+  ) {
     return;
   }
 
-  // ── GET /api/agent/export/estimate ─────────────────────────────────────────
-  // Get an estimate of the export size before downloading.
-  if (method === "GET" && pathname === "/api/agent/export/estimate") {
-    if (!state.runtime) {
-      error(res, "Agent is not running.", 503);
-      return;
-    }
-
-    try {
-      const estimate = await estimateExportSize(state.runtime);
-      json(res, estimate);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      error(res, `Estimate failed: ${msg}`, 500);
-    }
+  if (
+    await handleAutonomyRoutes({
+      req,
+      res,
+      method,
+      pathname,
+      runtime: state.runtime,
+      readJsonBody,
+      json,
+    })
+  ) {
     return;
   }
 
-  // ── POST /api/agent/import ─────────────────────────────────────────────
-  // Import an agent from a password-encrypted .eliza-agent file.
-  if (method === "POST" && pathname === "/api/agent/import") {
-    if (!state.runtime) {
-      error(res, "Agent is not running — start it before importing.", 503);
-      return;
-    }
-
-    let rawBody: Buffer;
-    try {
-      rawBody = await readRawBody(req, MAX_IMPORT_BYTES);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      error(res, msg, 413);
-      return;
-    }
-
-    if (rawBody.length < 5) {
-      error(
-        res,
-        "Request body is too small — expected password + file data.",
-        400,
-      );
-      return;
-    }
-
-    // Parse binary envelope: [4 bytes password length][password][file data]
-    const passwordLength = rawBody.readUInt32BE(0);
-    if (passwordLength < AGENT_TRANSFER_MIN_PASSWORD_LENGTH) {
-      error(
-        res,
-        `Password must be at least ${AGENT_TRANSFER_MIN_PASSWORD_LENGTH} characters.`,
-        400,
-      );
-      return;
-    }
-    if (passwordLength > AGENT_TRANSFER_MAX_PASSWORD_LENGTH) {
-      error(
-        res,
-        `Password is too long (max ${AGENT_TRANSFER_MAX_PASSWORD_LENGTH} bytes).`,
-        400,
-      );
-      return;
-    }
-    if (rawBody.length < 4 + passwordLength + 1) {
-      error(
-        res,
-        "Request body is incomplete — missing file data after password.",
-        400,
-      );
-      return;
-    }
-
-    const password = rawBody.subarray(4, 4 + passwordLength).toString("utf-8");
-    const fileBuffer = rawBody.subarray(4 + passwordLength);
-
-    try {
-      const result = await importAgent(
-        state.runtime,
-        fileBuffer as Buffer,
-        password,
-      );
-      json(res, result);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      if (err instanceof AgentExportError) {
-        error(res, msg, 400);
-      } else {
-        error(res, `Import failed: ${msg}`, 500);
-      }
-    }
+  if (
+    await handleCharacterRoutes({
+      req,
+      res,
+      method,
+      pathname,
+      state,
+      readJsonBody,
+      json,
+      error,
+      pickRandomNames,
+    })
+  ) {
     return;
   }
 
-  // ── POST /api/agent/autonomy ────────────────────────────────────────────
-  // Autonomy is always enabled; kept for backward compat.
-  if (method === "POST" && pathname === "/api/agent/autonomy") {
-    json(res, { ok: true, autonomy: true });
+  if (
+    await handleModelsRoutes({
+      req,
+      res,
+      method,
+      pathname,
+      url,
+      json,
+      providerCachePath,
+      getOrFetchProvider,
+      getOrFetchAllProviders,
+      resolveModelsCacheDir,
+      pathExists: fs.existsSync,
+      readDir: fs.readdirSync,
+      unlinkFile: fs.unlinkSync,
+      joinPath: path.join,
+    })
+  ) {
     return;
   }
 
-  // ── GET /api/agent/autonomy ─────────────────────────────────────────────
-  // Autonomy is always enabled.
-  if (method === "GET" && pathname === "/api/agent/autonomy") {
-    json(res, { enabled: true });
-    return;
-  }
-
-  // ── GET /api/character ──────────────────────────────────────────────────
-  if (method === "GET" && pathname === "/api/character") {
-    // Character data lives in the runtime / database, not the config file.
-    const rt = state.runtime;
-    const merged: Record<string, unknown> = {};
-    if (rt) {
-      const c = rt.character;
-      if (c.name) merged.name = c.name;
-      if (c.bio) merged.bio = c.bio;
-      if (c.system) merged.system = c.system;
-      if (c.adjectives) merged.adjectives = c.adjectives;
-      if (c.topics) merged.topics = c.topics;
-      if (c.style) merged.style = c.style;
-      if (c.postExamples) merged.postExamples = c.postExamples;
-    }
-
-    json(res, { character: merged, agentName: state.agentName });
-    return;
-  }
-
-  // ── PUT /api/character ──────────────────────────────────────────────────
-  if (method === "PUT" && pathname === "/api/character") {
-    const body = await readJsonBody(req, res);
-    if (!body) return;
-
-    const result = CharacterSchema.safeParse(body);
-    if (!result.success) {
-      const issues = result.error.issues.map((issue) => ({
-        path: issue.path.join("."),
-        message: issue.message,
-      }));
-      json(res, { ok: false, validationErrors: issues }, 422);
-      return;
-    }
-
-    // Character data lives in the runtime (backed by DB), not the config file.
-    if (state.runtime) {
-      const c = state.runtime.character;
-      if (body.name != null) c.name = body.name as string;
-      if (body.bio != null)
-        c.bio = Array.isArray(body.bio)
-          ? (body.bio as string[])
-          : [String(body.bio)];
-      if (body.system != null) c.system = body.system as string;
-      if (body.adjectives != null) c.adjectives = body.adjectives as string[];
-      if (body.topics != null) c.topics = body.topics as string[];
-      if (body.style != null)
-        c.style = body.style as NonNullable<typeof c.style>;
-      if (body.postExamples != null)
-        c.postExamples = body.postExamples as string[];
-    }
-    if (body.name) {
-      state.agentName = body.name as string;
-    }
-    json(res, { ok: true, character: body, agentName: state.agentName });
-    return;
-  }
-
-  // ── GET /api/character/random-name ────────────────────────────────────
-  if (method === "GET" && pathname === "/api/character/random-name") {
-    const names = pickRandomNames(1);
-    json(res, { name: names[0] ?? "Reimu" });
-    return;
-  }
-
-  // ── POST /api/character/generate ────────────────────────────────────
-  if (method === "POST" && pathname === "/api/character/generate") {
-    const body = await readJsonBody<{
-      field: string;
-      context: {
-        name?: string;
-        system?: string;
-        bio?: string;
-        style?: { all?: string[]; chat?: string[]; post?: string[] };
-        postExamples?: string[];
-      };
-      mode?: "append" | "replace";
-    }>(req, res);
-    if (!body) return;
-
-    const { field, context: ctx, mode } = body;
-    if (!field || !ctx) {
-      error(res, "field and context are required", 400);
-      return;
-    }
-
-    const rt = state.runtime;
-    if (!rt) {
-      error(res, "Agent runtime not available. Start the agent first.", 503);
-      return;
-    }
-
-    const charSummary = [
-      ctx.name ? `Name: ${ctx.name}` : "",
-      ctx.system ? `System prompt: ${ctx.system}` : "",
-      ctx.bio ? `Bio: ${ctx.bio}` : "",
-      ctx.style?.all?.length ? `Style rules: ${ctx.style.all.join("; ")}` : "",
-    ]
-      .filter(Boolean)
-      .join("\n");
-
-    let prompt = "";
-
-    if (field === "bio") {
-      prompt = `Given this character:\n${charSummary}\n\nWrite a concise, compelling bio for this character (3-4 short paragraphs, one per line). Just output the bio lines, nothing else. Match the character's voice and personality.`;
-    } else if (field === "style") {
-      const existing =
-        mode === "append" && ctx.style?.all?.length
-          ? `\nExisting style rules (add to these, don't repeat):\n${ctx.style.all.join("\n")}`
-          : "";
-      prompt = `Given this character:\n${charSummary}${existing}\n\nGenerate 4-6 communication style rules for this character. Output a JSON object with keys "all", "chat", "post", each containing an array of short rule strings. Just output the JSON, nothing else.`;
-    } else if (field === "chatExamples") {
-      prompt = `Given this character:\n${charSummary}\n\nGenerate 3 example chat conversations showing how this character responds. Output a JSON array where each element is an array of message objects like [{"user":"{{user1}}","content":{"text":"..."}},{"user":"{{agentName}}","content":{"text":"..."}}]. Just output the JSON array, nothing else.`;
-    } else if (field === "postExamples") {
-      const existing =
-        mode === "append" && ctx.postExamples?.length
-          ? `\nExisting posts (add new ones, don't repeat):\n${ctx.postExamples.join("\n")}`
-          : "";
-      prompt = `Given this character:\n${charSummary}${existing}\n\nGenerate 3-5 example social media posts this character would write. Output a JSON array of strings. Just output the JSON array, nothing else.`;
-    } else {
-      error(res, `Unknown field: ${field}`, 400);
-      return;
-    }
-
-    try {
-      const { ModelType } = await import("@elizaos/core");
-      const result = await rt.useModel(ModelType.TEXT_SMALL, {
-        prompt,
-        temperature: 0.8,
-        maxTokens: 1500,
-      });
-      json(res, { generated: String(result) });
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "generation failed";
-      logger.error(`[character-generate] ${msg}`);
-      error(res, msg, 500);
-    }
-    return;
-  }
-
-  // ── GET /api/character/schema ───────────────────────────────────────────
-  if (method === "GET" && pathname === "/api/character/schema") {
-    json(res, {
-      fields: [
-        {
-          key: "name",
-          type: "string",
-          label: "Name",
-          description: "Agent display name",
-          maxLength: 100,
-        },
-        {
-          key: "username",
-          type: "string",
-          label: "Username",
-          description: "Agent username for platforms",
-          maxLength: 50,
-        },
-        {
-          key: "bio",
-          type: "string | string[]",
-          label: "Bio",
-          description: "Biography — single string or array of points",
-        },
-        {
-          key: "system",
-          type: "string",
-          label: "System Prompt",
-          description: "System prompt defining core behavior",
-          maxLength: 10000,
-        },
-        {
-          key: "adjectives",
-          type: "string[]",
-          label: "Adjectives",
-          description: "Personality adjectives (e.g. curious, witty)",
-        },
-        {
-          key: "topics",
-          type: "string[]",
-          label: "Topics",
-          description: "Topics the agent is knowledgeable about",
-        },
-        {
-          key: "style",
-          type: "object",
-          label: "Style",
-          description: "Communication style guides",
-          children: [
-            {
-              key: "all",
-              type: "string[]",
-              label: "All",
-              description: "Style guidelines for all responses",
-            },
-            {
-              key: "chat",
-              type: "string[]",
-              label: "Chat",
-              description: "Style guidelines for chat responses",
-            },
-            {
-              key: "post",
-              type: "string[]",
-              label: "Post",
-              description: "Style guidelines for social media posts",
-            },
-          ],
-        },
-        {
-          key: "messageExamples",
-          type: "array",
-          label: "Message Examples",
-          description: "Example conversations demonstrating the agent's voice",
-        },
-        {
-          key: "postExamples",
-          type: "string[]",
-          label: "Post Examples",
-          description: "Example social media posts",
-        },
-      ],
-    });
-    return;
-  }
-
-  // ── GET /api/models ─────────────────────────────────────────────────────
-  // Optional ?provider=openai to fetch a single provider, or all if omitted.
-  // ?refresh=true busts the cache for the requested provider(s).
-  if (method === "GET" && pathname === "/api/models") {
-    const force = url.searchParams.get("refresh") === "true";
-    const specificProvider = url.searchParams.get("provider");
-
-    if (specificProvider) {
-      if (force) {
-        try {
-          fs.unlinkSync(providerCachePath(specificProvider));
-        } catch {
-          /* ok */
-        }
-      }
-      const models = await getOrFetchProvider(specificProvider, force);
-      json(res, { provider: specificProvider, models });
-    } else {
-      if (force) {
-        // Bust all cache files
-        try {
-          const dir = resolveModelsCacheDir();
-          if (fs.existsSync(dir)) {
-            for (const f of fs.readdirSync(dir)) {
-              if (f.endsWith(".json")) fs.unlinkSync(path.join(dir, f));
-            }
-          }
-        } catch {
-          /* ok */
-        }
-      }
-      const all = await getOrFetchAllProviders(force);
-      json(res, { providers: all });
-    }
+  if (
+    await handleRegistryRoutes({
+      req,
+      res,
+      method,
+      pathname,
+      url,
+      json,
+      error,
+      getPluginManager: () => requirePluginManager(state.runtime),
+      getLoadedPluginNames: () =>
+        state.runtime?.plugins.map((plugin) => plugin.name) ?? [],
+      getBundledPluginIds: () =>
+        new Set(state.plugins.map((plugin) => plugin.id)),
+    })
+  ) {
     return;
   }
 
   // ── GET /api/plugins ────────────────────────────────────────────────────
   if (method === "GET" && pathname === "/api/plugins") {
     // Re-read config from disk so we pick up plugins installed since server start.
-    let freshConfig: MilaidyConfig;
+    let freshConfig: MiladyConfig;
     try {
-      freshConfig = loadMilaidyConfig();
+      freshConfig = loadMiladyConfig();
     } catch {
       freshConfig = state.config;
     }
@@ -5864,10 +5358,10 @@ async function handleRequest(
       // Save config even when only config values changed (no enable toggle)
       if (body.enabled === undefined) {
         try {
-          saveMilaidyConfig(state.config);
+          saveMiladyConfig(state.config);
         } catch (err) {
           logger.warn(
-            `[milaidy-api] Failed to save config: ${err instanceof Error ? err.message : err}`,
+            `[milady-api] Failed to save config: ${err instanceof Error ? err.message : err}`,
           );
         }
       }
@@ -5908,7 +5402,7 @@ async function handleRequest(
         .entries as Record<string, Record<string, unknown>>;
       entries[pluginId] = { enabled: body.enabled };
       logger.info(
-        `[milaidy-api] ${body.enabled ? "Enabled" : "Disabled"} plugin: ${packageName}`,
+        `[milady-api] ${body.enabled ? "Enabled" : "Disabled"} plugin: ${packageName}`,
       );
 
       // Persist capability toggle state in config.features so the runtime
@@ -5928,10 +5422,10 @@ async function handleRequest(
 
       // Save updated config
       try {
-        saveMilaidyConfig(state.config);
+        saveMiladyConfig(state.config);
       } catch (err) {
         logger.warn(
-          `[milaidy-api] Failed to save config: ${err instanceof Error ? err.message : err}`,
+          `[milady-api] Failed to save config: ${err instanceof Error ? err.message : err}`,
         );
       }
 
@@ -6012,126 +5506,6 @@ async function handleRequest(
     }
 
     json(res, { ok: true, updated });
-    return;
-  }
-
-  // ── GET /api/registry/plugins ──────────────────────────────────────────
-  if (method === "GET" && pathname === "/api/registry/plugins") {
-    const { getRegistryPlugins } = await import(
-      "../services/registry-client.js"
-    );
-    const { listInstalledPlugins: listInstalled } = await import(
-      "../services/plugin-installer.js"
-    );
-    try {
-      const registry = await getRegistryPlugins();
-      const installed = await listInstalled();
-      const installedNames = new Set(installed.map((p) => p.name));
-
-      // Also check which plugins are loaded in the runtime
-      const loadedNames = state.runtime
-        ? new Set(state.runtime.plugins.map((p) => p.name))
-        : new Set<string>();
-
-      // Cross-reference with bundled manifest so the Store can hide them
-      const bundledIds = new Set(state.plugins.map((p) => p.id));
-
-      const plugins = Array.from(registry.values()).map((p) => {
-        const shortId = p.name
-          .replace(/^@[^/]+\/plugin-/, "")
-          .replace(/^@[^/]+\//, "")
-          .replace(/^plugin-/, "");
-        return {
-          ...p,
-          installed: installedNames.has(p.name),
-          installedVersion:
-            installed.find((i) => i.name === p.name)?.version ?? null,
-          loaded:
-            loadedNames.has(p.name) ||
-            loadedNames.has(p.name.replace("@elizaos/", "")),
-          bundled: bundledIds.has(shortId),
-        };
-      });
-      json(res, { count: plugins.length, plugins });
-    } catch (err) {
-      error(
-        res,
-        `Failed to fetch registry: ${err instanceof Error ? err.message : String(err)}`,
-        502,
-      );
-    }
-    return;
-  }
-
-  // ── GET /api/registry/plugins/:name ─────────────────────────────────────
-  if (
-    method === "GET" &&
-    pathname.startsWith("/api/registry/plugins/") &&
-    pathname.length > "/api/registry/plugins/".length
-  ) {
-    const name = decodeURIComponent(
-      pathname.slice("/api/registry/plugins/".length),
-    );
-    const { getPluginInfo } = await import("../services/registry-client.js");
-
-    try {
-      const info = await getPluginInfo(name);
-      if (!info) {
-        error(res, `Plugin "${name}" not found in registry`, 404);
-        return;
-      }
-      json(res, { plugin: info });
-    } catch (err) {
-      error(
-        res,
-        `Failed to look up plugin: ${err instanceof Error ? err.message : String(err)}`,
-        502,
-      );
-    }
-    return;
-  }
-
-  // ── GET /api/registry/search?q=... ──────────────────────────────────────
-  if (method === "GET" && pathname === "/api/registry/search") {
-    const query = url.searchParams.get("q") || "";
-    if (!query.trim()) {
-      error(res, "Query parameter 'q' is required", 400);
-      return;
-    }
-
-    const { searchPlugins } = await import("../services/registry-client.js");
-
-    try {
-      const limitParam = url.searchParams.get("limit");
-      const limit = limitParam
-        ? parseClampedInteger(limitParam, { min: 1, max: 50, fallback: 15 })
-        : 15;
-      const results = await searchPlugins(query, limit);
-      json(res, { query, count: results.length, results });
-    } catch (err) {
-      error(
-        res,
-        `Search failed: ${err instanceof Error ? err.message : String(err)}`,
-        502,
-      );
-    }
-    return;
-  }
-
-  // ── POST /api/registry/refresh ──────────────────────────────────────────
-  if (method === "POST" && pathname === "/api/registry/refresh") {
-    const { refreshRegistry } = await import("../services/registry-client.js");
-
-    try {
-      const registry = await refreshRegistry();
-      json(res, { ok: true, count: registry.size });
-    } catch (err) {
-      error(
-        res,
-        `Refresh failed: ${err instanceof Error ? err.message : String(err)}`,
-        502,
-      );
-    }
     return;
   }
 
@@ -6241,18 +5615,20 @@ async function handleRequest(
       return;
     }
 
-    const { installPlugin } = await import("../services/plugin-installer.js");
-
     try {
-      const result = await installPlugin(pluginName, (progress) => {
-        logger.info(`[install] ${progress.phase}: ${progress.message}`);
-        state.broadcastWs?.({
-          type: "install-progress",
-          pluginName: progress.pluginName,
-          phase: progress.phase,
-          message: progress.message,
-        });
-      });
+      const pluginManager = requirePluginManager(state.runtime);
+      const result = await pluginManager.installPlugin(
+        pluginName,
+        (progress: InstallProgressLike) => {
+          logger.info(`[install] ${progress.phase}: ${progress.message}`);
+          state.broadcastWs?.({
+            type: "install-progress",
+            pluginName: progress.pluginName,
+            phase: progress.phase,
+            message: progress.message,
+          });
+        },
+      );
 
       if (!result.success) {
         json(res, { ok: false, error: result.error }, 422);
@@ -6300,10 +5676,9 @@ async function handleRequest(
       return;
     }
 
-    const { uninstallPlugin } = await import("../services/plugin-installer.js");
-
     try {
-      const result = await uninstallPlugin(pluginName);
+      const pluginManager = requirePluginManager(state.runtime);
+      const result = await pluginManager.uninstallPlugin(pluginName);
 
       if (!result.success) {
         json(res, { ok: false, error: result.error }, 422);
@@ -6332,20 +5707,165 @@ async function handleRequest(
     return;
   }
 
+  // ── POST /api/plugins/:id/eject ─────────────────────────────────────────
+  if (method === "POST" && pathname.match(/^\/api\/plugins\/[^/]+\/eject$/)) {
+    const pluginName = decodeURIComponent(
+      pathname.slice("/api/plugins/".length, pathname.length - "/eject".length),
+    );
+    try {
+      const pluginManager = requirePluginManager(state.runtime);
+      // Ensure the method exists on the service (it should)
+      if (typeof pluginManager.ejectPlugin !== "function") {
+        throw new Error("Plugin manager does not support ejecting plugins");
+      }
+      const result = await pluginManager.ejectPlugin(pluginName);
+      if (!result.success) {
+        json(res, { ok: false, error: result.error }, 422);
+        return;
+      }
+      if (result.requiresRestart) {
+        scheduleRuntimeRestart(`Plugin ${pluginName} ejected`, 500);
+      }
+      json(res, {
+        ok: true,
+        pluginName: result.pluginName,
+        requiresRestart: result.requiresRestart,
+        message: `${pluginName} ejected to local source.`,
+      });
+    } catch (err) {
+      error(
+        res,
+        `Eject failed: ${err instanceof Error ? err.message : String(err)}`,
+        500,
+      );
+    }
+    return;
+  }
+
+  // ── POST /api/plugins/:id/sync ──────────────────────────────────────────
+  if (method === "POST" && pathname.match(/^\/api\/plugins\/[^/]+\/sync$/)) {
+    const pluginName = decodeURIComponent(
+      pathname.slice("/api/plugins/".length, pathname.length - "/sync".length),
+    );
+    try {
+      const pluginManager = requirePluginManager(state.runtime);
+      if (typeof pluginManager.syncPlugin !== "function") {
+        throw new Error("Plugin manager does not support syncing plugins");
+      }
+      const result = await pluginManager.syncPlugin(pluginName);
+      if (!result.success) {
+        json(res, { ok: false, error: result.error }, 422);
+        return;
+      }
+      if (result.requiresRestart) {
+        scheduleRuntimeRestart(`Plugin ${pluginName} synced`, 500);
+      }
+      json(res, {
+        ok: true,
+        pluginName: result.pluginName,
+        requiresRestart: result.requiresRestart,
+        message: `${pluginName} synced with upstream.`,
+      });
+    } catch (err) {
+      error(
+        res,
+        `Sync failed: ${err instanceof Error ? err.message : String(err)}`,
+        500,
+      );
+    }
+    return;
+  }
+
+  // ── POST /api/plugins/:id/reinject ──────────────────────────────────────
+  if (
+    method === "POST" &&
+    pathname.match(/^\/api\/plugins\/[^/]+\/reinject$/)
+  ) {
+    const pluginName = decodeURIComponent(
+      pathname.slice(
+        "/api/plugins/".length,
+        pathname.length - "/reinject".length,
+      ),
+    );
+    try {
+      const pluginManager = requirePluginManager(state.runtime);
+      if (typeof pluginManager.reinjectPlugin !== "function") {
+        throw new Error("Plugin manager does not support reinjecting plugins");
+      }
+      const result = await pluginManager.reinjectPlugin(pluginName);
+      if (!result.success) {
+        json(res, { ok: false, error: result.error }, 422);
+        return;
+      }
+      if (result.requiresRestart) {
+        scheduleRuntimeRestart(`Plugin ${pluginName} reinjected`, 500);
+      }
+      json(res, {
+        ok: true,
+        pluginName: result.pluginName,
+        requiresRestart: result.requiresRestart,
+        message: `${pluginName} restored to registry version.`,
+      });
+    } catch (err) {
+      error(
+        res,
+        `Reinject failed: ${err instanceof Error ? err.message : String(err)}`,
+        500,
+      );
+    }
+    return;
+  }
+
   // ── GET /api/plugins/installed ──────────────────────────────────────────
   // List plugins that were installed from the registry at runtime.
   if (method === "GET" && pathname === "/api/plugins/installed") {
-    const { listInstalledPlugins } = await import(
-      "../services/plugin-installer.js"
-    );
-
     try {
-      const installed = await listInstalledPlugins();
+      const pluginManager = requirePluginManager(state.runtime);
+      const installed = await pluginManager.listInstalledPlugins();
       json(res, { count: installed.length, plugins: installed });
     } catch (err) {
       error(
         res,
         `Failed to list installed plugins: ${err instanceof Error ? err.message : String(err)}`,
+        500,
+      );
+    }
+    return;
+  }
+
+  // ── GET /api/plugins/ejected ────────────────────────────────────────────
+  // List plugins ejected to local source checkouts with upstream metadata.
+  if (method === "GET" && pathname === "/api/plugins/ejected") {
+    try {
+      const pluginManager = requirePluginManager(state.runtime);
+      if (typeof pluginManager.listEjectedPlugins !== "function") {
+        throw new Error(
+          "Plugin manager does not support listing ejected plugins",
+        );
+      }
+      const plugins = await pluginManager.listEjectedPlugins();
+      json(res, { count: plugins.length, plugins });
+    } catch (err) {
+      error(
+        res,
+        `Failed to list ejected plugins: ${err instanceof Error ? err.message : String(err)}`,
+        500,
+      );
+    }
+    return;
+  }
+
+  // ── GET /api/core/status ────────────────────────────────────────────────
+  // Returns whether @elizaos/core is ejected or resolved from npm.
+  if (method === "GET" && pathname === "/api/core/status") {
+    try {
+      const coreManager = requireCoreManager(state.runtime);
+      const status = await coreManager.getCoreStatus();
+      json(res, status);
+    } catch (err) {
+      error(
+        res,
+        `Failed to get core status: ${err instanceof Error ? err.message : String(err)}`,
         500,
       );
     }
@@ -6447,7 +5967,7 @@ async function handleRequest(
     }
 
     try {
-      saveMilaidyConfig(state.config);
+      saveMiladyConfig(state.config);
     } catch (err) {
       logger.warn(
         `[api] Config save failed: ${err instanceof Error ? err.message : err}`,
@@ -6473,7 +5993,7 @@ async function handleRequest(
   if (method === "GET" && pathname === "/api/skills/catalog") {
     try {
       const { getCatalogSkills } = await import(
-        "../services/skill-catalog-client.js"
+        "../services/skill-catalog-client"
       );
       const all = await getCatalogSkills();
       const page = Math.max(1, Number(url.searchParams.get("page")) || 1);
@@ -6556,7 +6076,7 @@ async function handleRequest(
     }
     try {
       const { searchCatalogSkills } = await import(
-        "../services/skill-catalog-client.js"
+        "../services/skill-catalog-client"
       );
       const limit = Math.min(
         100,
@@ -6583,7 +6103,7 @@ async function handleRequest(
     if (slug && slug !== "search") {
       try {
         const { getCatalogSkill } = await import(
-          "../services/skill-catalog-client.js"
+          "../services/skill-catalog-client"
         );
         const skill = await getCatalogSkill(slug);
         if (!skill) {
@@ -6606,7 +6126,7 @@ async function handleRequest(
   if (method === "POST" && pathname === "/api/skills/catalog/refresh") {
     try {
       const { refreshCatalog } = await import(
-        "../services/skill-catalog-client.js"
+        "../services/skill-catalog-client"
       );
       const skills = await refreshCatalog();
       json(res, { ok: true, count: skills.length });
@@ -7031,9 +6551,7 @@ async function handleRequest(
           : "xdg-open";
     execFile(opener, [skillPath], (err) => {
       if (err)
-        logger.warn(
-          `[milaidy-api] Failed to open skill folder: ${err.message}`,
-        );
+        logger.warn(`[milady-api] Failed to open skill folder: ${err.message}`);
     });
     json(res, { ok: true, path: skillPath });
     return;
@@ -7198,7 +6716,7 @@ async function handleRequest(
 
     try {
       fs.writeFileSync(skillMdPath, parsed.content, "utf-8");
-      // Re-discover skills to pick up any name/description changes
+      // Re-discover skills to pick up unknown name/description changes
       state.skills = await discoverSkills(
         workspaceDir,
         state.config,
@@ -7243,7 +6761,7 @@ async function handleRequest(
     } else if (fs.existsSync(path.join(mpDir, "SKILL.md"))) {
       try {
         const { uninstallMarketplaceSkill } = await import(
-          "../services/skill-marketplace.js"
+          "../services/skill-marketplace"
         );
         await uninstallMarketplaceSkill(workspaceDir, skillId);
         deleted = true;
@@ -7340,16 +6858,22 @@ async function handleRequest(
   // ── POST /api/skills/marketplace/install ──────────────────────────────
   if (method === "POST" && pathname === "/api/skills/marketplace/install") {
     const body = await readJsonBody<{
+      slug?: string;
       githubUrl?: string;
       repository?: string;
       path?: string;
       name?: string;
       description?: string;
+      source?: "clawhub" | "skillsmp" | "manual";
     }>(req, res);
     if (!body) return;
 
-    if (!body.githubUrl?.trim() && !body.repository?.trim()) {
-      error(res, "Install requires a githubUrl or repository", 400);
+    const slug = body.slug?.trim() || "";
+    const githubUrl = body.githubUrl?.trim() || "";
+    const repository = body.repository?.trim() || "";
+
+    if (!slug && !githubUrl && !repository) {
+      error(res, "Install requires a slug, githubUrl, or repository", 400);
       return;
     }
 
@@ -7357,15 +6881,91 @@ async function handleRequest(
       const workspaceDir =
         state.config.agents?.defaults?.workspace ??
         resolveDefaultAgentWorkspaceDir();
-      const result = await installMarketplaceSkill(workspaceDir, {
-        githubUrl: body.githubUrl,
-        repository: body.repository,
-        path: body.path,
-        name: body.name,
-        description: body.description,
-        source: "skillsmp",
-      });
-      json(res, { ok: true, skill: result });
+
+      // ClawHub-native install path (slug-based via AgentSkillsService).
+      if (slug && !githubUrl && !repository) {
+        if (!state.runtime) {
+          error(
+            res,
+            "Agent runtime not available — start the agent first",
+            503,
+          );
+          return;
+        }
+
+        const service = state.runtime.getService("AGENT_SKILLS_SERVICE") as
+          | {
+              install?: (
+                skillSlug: string,
+                opts?: { version?: string; force?: boolean },
+              ) => Promise<boolean>;
+              isInstalled?: (skillSlug: string) => Promise<boolean>;
+            }
+          | undefined;
+
+        if (!service || typeof service.install !== "function") {
+          error(
+            res,
+            "AgentSkillsService not available — ensure @elizaos/plugin-agent-skills is loaded",
+            501,
+          );
+          return;
+        }
+
+        const alreadyInstalled =
+          typeof service.isInstalled === "function"
+            ? await service.isInstalled(slug)
+            : false;
+
+        if (alreadyInstalled) {
+          json(res, {
+            ok: true,
+            skill: {
+              id: slug,
+              name: body.name?.trim() || slug,
+              source: "clawhub",
+              installedAt: new Date().toISOString(),
+            },
+            alreadyInstalled: true,
+          });
+          return;
+        }
+
+        const success = await service.install(slug);
+        if (!success) {
+          error(res, `Failed to install skill "${slug}"`, 500);
+          return;
+        }
+
+        state.skills = await discoverSkills(
+          workspaceDir,
+          state.config,
+          state.runtime,
+        );
+
+        json(res, {
+          ok: true,
+          skill: {
+            id: slug,
+            name: body.name?.trim() || slug,
+            source: "clawhub",
+            installedAt: new Date().toISOString(),
+          },
+        });
+      } else {
+        const result = await installMarketplaceSkill(workspaceDir, {
+          githubUrl: body.githubUrl,
+          repository: body.repository,
+          path: body.path,
+          name: body.name,
+          description: body.description,
+          source:
+            body.source === "manual" || body.source === "skillsmp"
+              ? body.source
+              : "clawhub",
+        });
+        json(res, { ok: true, skill: result });
+      }
     } catch (err) {
       error(
         res,
@@ -7423,7 +7023,7 @@ async function handleRequest(
     process.env.SKILLSMP_API_KEY = apiKey;
     if (!state.config.env) state.config.env = {};
     (state.config.env as Record<string, string>).SKILLSMP_API_KEY = apiKey;
-    saveMilaidyConfig(state.config);
+    saveMiladyConfig(state.config);
     json(res, { ok: true, keySet: true });
     return;
   }
@@ -7490,368 +7090,39 @@ async function handleRequest(
     return;
   }
 
-  // ── GET /api/logs ───────────────────────────────────────────────────────
-  if (method === "GET" && pathname === "/api/logs") {
-    let entries = state.logBuffer;
-
-    const sourceFilter = url.searchParams.get("source");
-    if (sourceFilter)
-      entries = entries.filter((e) => e.source === sourceFilter);
-
-    const levelFilter = url.searchParams.get("level");
-    if (levelFilter) entries = entries.filter((e) => e.level === levelFilter);
-
-    // Filter by tag — entries must contain the requested tag
-    const tagFilter = url.searchParams.get("tag");
-    if (tagFilter) entries = entries.filter((e) => e.tags.includes(tagFilter));
-
-    const sinceFilter = url.searchParams.get("since");
-    if (sinceFilter) {
-      const sinceTs = Number(sinceFilter);
-      if (!Number.isNaN(sinceTs))
-        entries = entries.filter((e) => e.timestamp >= sinceTs);
-    }
-
-    const sources = [...new Set(state.logBuffer.map((e) => e.source))].sort();
-    const tags = [...new Set(state.logBuffer.flatMap((e) => e.tags))].sort();
-    json(res, { entries: entries.slice(-200), sources, tags });
-    return;
-  }
-
-  // ── GET /api/agent/events?after=evt-123&limit=200 ───────────────────────
-  if (method === "GET" && pathname === "/api/agent/events") {
-    const limit = parseClampedInteger(url.searchParams.get("limit"), {
-      min: 1,
-      max: 1000,
-      fallback: 200,
-    });
-    const afterEventId = url.searchParams.get("after");
-    const autonomyEvents = state.eventBuffer.filter(
-      (event) =>
-        event.type === "agent_event" || event.type === "heartbeat_event",
-    );
-    let startIndex = 0;
-    if (afterEventId) {
-      const idx = autonomyEvents.findIndex(
-        (event) => event.eventId === afterEventId,
-      );
-      if (idx >= 0) startIndex = idx + 1;
-    }
-    const events = autonomyEvents.slice(startIndex, startIndex + limit);
-    const latestEventId =
-      events.length > 0 ? events[events.length - 1].eventId : null;
-    json(res, {
-      events,
-      latestEventId,
-      totalBuffered: autonomyEvents.length,
-      replayed: true,
-    });
-    return;
-  }
-
-  // ── GET /api/extension/status ─────────────────────────────────────────
-  // Check if the Chrome extension relay server is reachable.
-  if (method === "GET" && pathname === "/api/extension/status") {
-    const relayPort = 18792;
-    let relayReachable = false;
-    try {
-      const resp = await fetch(`http://127.0.0.1:${relayPort}/`, {
-        method: "HEAD",
-        signal: AbortSignal.timeout(2000),
-      });
-      relayReachable = resp.ok || resp.status < 500;
-    } catch {
-      relayReachable = false;
-    }
-
-    // Resolve the extension source path (always available in the repo)
-    let extensionPath: string | null = null;
-    try {
-      const serverDir = path.dirname(fileURLToPath(import.meta.url));
-      extensionPath = path.resolve(
-        serverDir,
-        "..",
-        "..",
-        "apps",
-        "chrome-extension",
-      );
-      if (!fs.existsSync(extensionPath)) extensionPath = null;
-    } catch {
-      // ignore
-    }
-
-    json(res, { relayReachable, relayPort, extensionPath });
+  if (
+    await handleDiagnosticsRoutes({
+      req,
+      res,
+      method,
+      pathname,
+      url,
+      logBuffer: state.logBuffer,
+      eventBuffer: state.eventBuffer,
+      json,
+    })
+  ) {
     return;
   }
 
   // ═══════════════════════════════════════════════════════════════════════
   // Wallet / Inventory routes
   // ═══════════════════════════════════════════════════════════════════════
-
-  // ── GET /api/wallet/addresses ──────────────────────────────────────────
-  if (method === "GET" && pathname === "/api/wallet/addresses") {
-    const addrs = getWalletAddresses();
-    json(res, addrs);
-    return;
-  }
-
-  // ── GET /api/wallet/balances ───────────────────────────────────────────
-  if (method === "GET" && pathname === "/api/wallet/balances") {
-    const addrs = getWalletAddresses();
-    const alchemyKey = process.env.ALCHEMY_API_KEY;
-    const heliusKey = process.env.HELIUS_API_KEY;
-
-    const result: WalletBalancesResponse = { evm: null, solana: null };
-
-    if (addrs.evmAddress && alchemyKey) {
-      try {
-        const chains = await fetchEvmBalances(addrs.evmAddress, alchemyKey);
-        result.evm = { address: addrs.evmAddress, chains };
-      } catch (err) {
-        logger.warn(`[wallet] EVM balance fetch failed: ${err}`);
-      }
-    }
-
-    if (addrs.solanaAddress && heliusKey) {
-      try {
-        const solData = await fetchSolanaBalances(
-          addrs.solanaAddress,
-          heliusKey,
-        );
-        result.solana = { address: addrs.solanaAddress, ...solData };
-      } catch (err) {
-        logger.warn(`[wallet] Solana balance fetch failed: ${err}`);
-      }
-    }
-
-    json(res, result);
-    return;
-  }
-
-  // ── GET /api/wallet/nfts ───────────────────────────────────────────────
-  if (method === "GET" && pathname === "/api/wallet/nfts") {
-    const addrs = getWalletAddresses();
-    const alchemyKey = process.env.ALCHEMY_API_KEY;
-    const heliusKey = process.env.HELIUS_API_KEY;
-
-    const result: WalletNftsResponse = { evm: [], solana: null };
-
-    if (addrs.evmAddress && alchemyKey) {
-      try {
-        result.evm = await fetchEvmNfts(addrs.evmAddress, alchemyKey);
-      } catch (err) {
-        logger.warn(`[wallet] EVM NFT fetch failed: ${err}`);
-      }
-    }
-
-    if (addrs.solanaAddress && heliusKey) {
-      try {
-        const nfts = await fetchSolanaNfts(addrs.solanaAddress, heliusKey);
-        result.solana = { nfts };
-      } catch (err) {
-        logger.warn(`[wallet] Solana NFT fetch failed: ${err}`);
-      }
-    }
-
-    json(res, result);
-    return;
-  }
-
-  // ── POST /api/wallet/import ──────────────────────────────────────────
-  // Import a wallet by providing a private key + chain.
-  if (method === "POST" && pathname === "/api/wallet/import") {
-    const body = await readJsonBody<{ chain?: string; privateKey?: string }>(
+  if (
+    await handleWalletRoutes({
       req,
       res,
-    );
-    if (!body) return;
-
-    if (!body.privateKey?.trim()) {
-      error(res, "privateKey is required");
-      return;
-    }
-
-    // Auto-detect chain if not specified
-    let chain: WalletChain;
-    if (body.chain === "evm" || body.chain === "solana") {
-      chain = body.chain;
-    } else if (body.chain) {
-      error(
-        res,
-        `Unsupported chain: ${body.chain}. Must be "evm" or "solana".`,
-      );
-      return;
-    } else {
-      // Auto-detect from key format
-      const detection = validatePrivateKey(body.privateKey.trim());
-      chain = detection.chain;
-    }
-
-    const result = importWallet(chain, body.privateKey.trim());
-
-    if (!result.success) {
-      error(res, result.error ?? "Import failed", 422);
-      return;
-    }
-
-    // Persist to config.env so it survives restarts
-    if (!state.config.env) state.config.env = {};
-    const envKey = chain === "evm" ? "EVM_PRIVATE_KEY" : "SOLANA_PRIVATE_KEY";
-    (state.config.env as Record<string, string>)[envKey] =
-      process.env[envKey] ?? "";
-
-    try {
-      saveMilaidyConfig(state.config);
-    } catch (err) {
-      logger.warn(
-        `[api] Config save failed: ${err instanceof Error ? err.message : err}`,
-      );
-    }
-
-    json(res, {
-      ok: true,
-      chain,
-      address: result.address,
-    });
-    return;
-  }
-
-  // ── POST /api/wallet/generate ──────────────────────────────────────────
-  // Generate a new wallet for a specific chain (or both).
-  if (method === "POST" && pathname === "/api/wallet/generate") {
-    const body = await readJsonBody<{ chain?: string }>(req, res);
-    if (!body) return;
-
-    const chain = body.chain as string | undefined;
-    const validChains: Array<WalletChain | "both"> = ["evm", "solana", "both"];
-
-    if (chain && !validChains.includes(chain as WalletChain | "both")) {
-      error(
-        res,
-        `Unsupported chain: ${chain}. Must be "evm", "solana", or "both".`,
-      );
-      return;
-    }
-
-    const targetChain = (chain ?? "both") as WalletChain | "both";
-
-    if (!state.config.env) state.config.env = {};
-
-    const generated: Array<{ chain: WalletChain; address: string }> = [];
-
-    if (targetChain === "both" || targetChain === "evm") {
-      const result = generateWalletForChain("evm");
-      process.env.EVM_PRIVATE_KEY = result.privateKey;
-      (state.config.env as Record<string, string>).EVM_PRIVATE_KEY =
-        result.privateKey;
-      generated.push({ chain: "evm", address: result.address });
-      logger.info(`[milaidy-api] Generated EVM wallet: ${result.address}`);
-    }
-
-    if (targetChain === "both" || targetChain === "solana") {
-      const result = generateWalletForChain("solana");
-      process.env.SOLANA_PRIVATE_KEY = result.privateKey;
-      (state.config.env as Record<string, string>).SOLANA_PRIVATE_KEY =
-        result.privateKey;
-      generated.push({ chain: "solana", address: result.address });
-      logger.info(`[milaidy-api] Generated Solana wallet: ${result.address}`);
-    }
-
-    try {
-      saveMilaidyConfig(state.config);
-    } catch (err) {
-      logger.warn(
-        `[api] Config save failed: ${err instanceof Error ? err.message : err}`,
-      );
-    }
-
-    json(res, { ok: true, wallets: generated });
-    return;
-  }
-
-  // ── GET /api/wallet/config ─────────────────────────────────────────────
-  if (method === "GET" && pathname === "/api/wallet/config") {
-    const addrs = getWalletAddresses();
-    const configStatus: WalletConfigStatus = {
-      alchemyKeySet: Boolean(process.env.ALCHEMY_API_KEY),
-      infuraKeySet: Boolean(process.env.INFURA_API_KEY),
-      ankrKeySet: Boolean(process.env.ANKR_API_KEY),
-      heliusKeySet: Boolean(process.env.HELIUS_API_KEY),
-      birdeyeKeySet: Boolean(process.env.BIRDEYE_API_KEY),
-      evmChains: ["Ethereum", "Base", "Arbitrum", "Optimism", "Polygon"],
-      evmAddress: addrs.evmAddress,
-      solanaAddress: addrs.solanaAddress,
-    };
-    json(res, configStatus);
-    return;
-  }
-
-  // ── PUT /api/wallet/config ─────────────────────────────────────────────
-  if (method === "PUT" && pathname === "/api/wallet/config") {
-    const body = await readJsonBody<Record<string, string>>(req, res);
-    if (!body) return;
-    const allowedKeys = [
-      "ALCHEMY_API_KEY",
-      "INFURA_API_KEY",
-      "ANKR_API_KEY",
-      "HELIUS_API_KEY",
-      "BIRDEYE_API_KEY",
-    ];
-
-    if (!state.config.env) state.config.env = {};
-
-    for (const key of allowedKeys) {
-      const value = body[key];
-      if (typeof value === "string" && value.trim()) {
-        process.env[key] = value.trim();
-        (state.config.env as Record<string, string>)[key] = value.trim();
-      }
-    }
-
-    // If Helius key is set, also update SOLANA_RPC_URL for the plugin
-    const heliusValue = body.HELIUS_API_KEY;
-    if (typeof heliusValue === "string" && heliusValue.trim()) {
-      const rpcUrl = `https://mainnet.helius-rpc.com/?api-key=${heliusValue.trim()}`;
-      process.env.SOLANA_RPC_URL = rpcUrl;
-      (state.config.env as Record<string, string>).SOLANA_RPC_URL = rpcUrl;
-    }
-
-    try {
-      saveMilaidyConfig(state.config);
-    } catch (err) {
-      logger.warn(
-        `[api] Config save failed: ${err instanceof Error ? err.message : err}`,
-      );
-    }
-
-    json(res, { ok: true });
-    return;
-  }
-
-  // ── POST /api/wallet/export ────────────────────────────────────────────
-  // SECURITY: Requires explicit confirmation + a dedicated export token.
-  if (method === "POST" && pathname === "/api/wallet/export") {
-    const body = await readJsonBody<WalletExportRequestBody>(req, res);
-    if (!body) return;
-
-    const rejection = resolveWalletExportRejection(req, body);
-    if (rejection) {
-      error(res, rejection.reason, rejection.status);
-      return;
-    }
-
-    const evmKey = process.env.EVM_PRIVATE_KEY ?? null;
-    const solKey = process.env.SOLANA_PRIVATE_KEY ?? null;
-    const addrs = getWalletAddresses();
-
-    logger.warn("[wallet] Private keys exported via API");
-
-    json(res, {
-      evm: evmKey ? { privateKey: evmKey, address: addrs.evmAddress } : null,
-      solana: solKey
-        ? { privateKey: solKey, address: addrs.solanaAddress }
-        : null,
-    });
+      method,
+      pathname,
+      config: state.config,
+      saveConfig: saveMiladyConfig,
+      ensureWalletKeysInEnvAndConfig,
+      resolveWalletExportRejection,
+      readJsonBody,
+      json,
+      error,
+    })
+  ) {
     return;
   }
 
@@ -7896,7 +7167,7 @@ async function handleRequest(
     }>(req, res);
     if (!body) return;
 
-    const agentName = body.name || state.agentName || "Milaidy Agent";
+    const agentName = body.name || state.agentName || "Milady Agent";
     const endpoint = body.endpoint || "";
     const tokenURI = body.tokenURI || "";
 
@@ -7937,7 +7208,7 @@ async function handleRequest(
     }>(req, res);
     if (!body) return;
 
-    const agentName = body.name || state.agentName || "Milaidy Agent";
+    const agentName = body.name || state.agentName || "Milady Agent";
     const endpoint = body.endpoint || "";
     const tokenURI = body.tokenURI || "";
 
@@ -7999,7 +7270,7 @@ async function handleRequest(
     }>(req, res);
     if (!body) return;
 
-    const agentName = body.name || state.agentName || "Milaidy Agent";
+    const agentName = body.name || state.agentName || "Milady Agent";
     const endpoint = body.endpoint || "";
 
     const result = body.shiny
@@ -8024,7 +7295,7 @@ async function handleRequest(
       return;
     }
 
-    const agentName = body.name || state.agentName || "Milaidy Agent";
+    const agentName = body.name || state.agentName || "Milady Agent";
     const endpoint = body.endpoint || "";
     const result = await dropService.mintWithWhitelist(
       agentName,
@@ -8063,7 +7334,7 @@ async function handleRequest(
       error(res, "EVM wallet not configured. Complete onboarding first.");
       return;
     }
-    const agentName = state.agentName || "Milaidy Agent";
+    const agentName = state.agentName || "Milady Agent";
     const message = generateVerificationMessage(agentName, walletAddress);
     json(res, { message, walletAddress });
     return;
@@ -8093,14 +7364,14 @@ async function handleRequest(
 
   // ── GET /api/update/status ───────────────────────────────────────────────
   if (method === "GET" && pathname === "/api/update/status") {
-    const { VERSION } = await import("../runtime/version.js");
+    const { VERSION } = await import("../runtime/version");
     const {
       resolveChannel,
       checkForUpdate,
       fetchAllChannelVersions,
       CHANNEL_DIST_TAGS,
-    } = await import("../services/update-checker.js");
-    const { detectInstallMethod } = await import("../services/self-updater.js");
+    } = await import("../services/update-checker");
+    const { detectInstallMethod } = await import("../services/self-updater");
     const channel = resolveChannel(state.config.update);
 
     const [check, versions] = await Promise.all([
@@ -8141,7 +7412,7 @@ async function handleRequest(
       lastCheckAt: undefined,
       lastCheckVersion: undefined,
     };
-    saveMilaidyConfig(state.config);
+    saveMiladyConfig(state.config);
     json(res, { channel: ch });
     return;
   }
@@ -8182,7 +7453,7 @@ async function handleRequest(
     if (!state.config.connectors) state.config.connectors = {};
     state.config.connectors[connectorName] = config as ConnectorConfig;
     try {
-      saveMilaidyConfig(state.config);
+      saveMiladyConfig(state.config);
     } catch {
       /* test envs */
     }
@@ -8212,7 +7483,7 @@ async function handleRequest(
       delete state.config.channels[name];
     }
     try {
-      saveMilaidyConfig(state.config);
+      saveMiladyConfig(state.config);
     } catch {
       /* test envs */
     }
@@ -8231,9 +7502,169 @@ async function handleRequest(
     return;
   }
 
+  // ── POST /api/tts/elevenlabs ─────────────────────────────────────────────
+  if (method === "POST" && pathname === "/api/tts/elevenlabs") {
+    const body = await readJsonBody<{
+      text?: string;
+      voiceId?: string;
+      modelId?: string;
+      outputFormat?: string;
+      apiKey?: string;
+      apply_text_normalization?: "auto" | "on" | "off";
+      voice_settings?: {
+        stability?: number;
+        similarity_boost?: number;
+        speed?: number;
+      };
+    }>(req, res);
+    if (!body) return;
+
+    const text = typeof body.text === "string" ? body.text.trim() : "";
+    if (!text) {
+      error(res, "Missing text", 400);
+      return;
+    }
+
+    const messages =
+      state.config && typeof state.config === "object"
+        ? ((state.config as Record<string, unknown>).messages as
+            | Record<string, unknown>
+            | undefined)
+        : undefined;
+    const tts =
+      messages && typeof messages === "object"
+        ? ((messages.tts as Record<string, unknown>) ?? undefined)
+        : undefined;
+    const eleven =
+      tts && typeof tts === "object"
+        ? ((tts.elevenlabs as Record<string, unknown>) ?? undefined)
+        : undefined;
+
+    const requestedApiKey =
+      typeof body.apiKey === "string" ? body.apiKey.trim() : "";
+    const configuredApiKey =
+      typeof eleven?.apiKey === "string" ? eleven.apiKey.trim() : "";
+    const envApiKey =
+      typeof process.env.ELEVENLABS_API_KEY === "string"
+        ? process.env.ELEVENLABS_API_KEY.trim()
+        : "";
+
+    const resolvedApiKey =
+      requestedApiKey && !isRedactedSecretValue(requestedApiKey)
+        ? requestedApiKey
+        : configuredApiKey && !isRedactedSecretValue(configuredApiKey)
+          ? configuredApiKey
+          : envApiKey && !isRedactedSecretValue(envApiKey)
+            ? envApiKey
+            : "";
+
+    if (!resolvedApiKey) {
+      error(
+        res,
+        "ElevenLabs API key is not available. Set ELEVENLABS_API_KEY in Secrets.",
+        400,
+      );
+      return;
+    }
+
+    const voiceId =
+      (typeof body.voiceId === "string" && body.voiceId.trim()) ||
+      (typeof eleven?.voiceId === "string" && eleven.voiceId.trim()) ||
+      "EXAVITQu4vr4xnSDxMaL";
+    const modelId =
+      (typeof body.modelId === "string" && body.modelId.trim()) ||
+      (typeof eleven?.modelId === "string" && eleven.modelId.trim()) ||
+      "eleven_flash_v2_5";
+    const outputFormat =
+      (typeof body.outputFormat === "string" && body.outputFormat.trim()) ||
+      "mp3_22050_32";
+
+    const requestedVoiceSettings =
+      body.voice_settings &&
+      typeof body.voice_settings === "object" &&
+      !Array.isArray(body.voice_settings)
+        ? body.voice_settings
+        : undefined;
+
+    const voiceSettings: Record<string, number> = {};
+    const stability = requestedVoiceSettings?.stability;
+    if (typeof stability === "number" && stability >= 0 && stability <= 1) {
+      voiceSettings.stability = stability;
+    }
+    const similarityBoost = requestedVoiceSettings?.similarity_boost;
+    if (
+      typeof similarityBoost === "number" &&
+      similarityBoost >= 0 &&
+      similarityBoost <= 1
+    ) {
+      voiceSettings.similarity_boost = similarityBoost;
+    }
+    const speed = requestedVoiceSettings?.speed;
+    if (typeof speed === "number" && speed >= 0.5 && speed <= 2) {
+      voiceSettings.speed = speed;
+    }
+
+    const payload: Record<string, unknown> = {
+      text,
+      model_id: modelId,
+      apply_text_normalization:
+        body.apply_text_normalization === "on" ||
+        body.apply_text_normalization === "off"
+          ? body.apply_text_normalization
+          : "auto",
+    };
+    if (Object.keys(voiceSettings).length > 0) {
+      payload.voice_settings = voiceSettings;
+    }
+
+    try {
+      const upstreamUrl = new URL(
+        `https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voiceId)}/stream`,
+      );
+      upstreamUrl.searchParams.set("output_format", outputFormat);
+
+      const upstream = await fetch(upstreamUrl.toString(), {
+        method: "POST",
+        headers: {
+          "xi-api-key": resolvedApiKey,
+          "Content-Type": "application/json",
+          Accept: "audio/mpeg",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!upstream.ok) {
+        const upstreamBody = await upstream.text().catch(() => "");
+        error(
+          res,
+          `ElevenLabs request failed (${upstream.status}): ${upstreamBody.slice(0, 240)}`,
+          upstream.status === 429 ? 429 : 502,
+        );
+        return;
+      }
+
+      const audio = Buffer.from(await upstream.arrayBuffer());
+      const contentType = upstream.headers.get("content-type") || "audio/mpeg";
+      res.writeHead(200, {
+        "Content-Type": contentType,
+        "Content-Length": String(audio.byteLength),
+        "Cache-Control": "no-store",
+      });
+      res.end(audio);
+      return;
+    } catch (err) {
+      error(
+        res,
+        `ElevenLabs proxy error: ${err instanceof Error ? err.message : String(err)}`,
+        502,
+      );
+      return;
+    }
+  }
+
   // ── GET /api/config/schema ───────────────────────────────────────────────
   if (method === "GET" && pathname === "/api/config/schema") {
-    const { buildConfigSchema } = await import("../config/schema.js");
+    const { buildConfigSchema } = await import("../config/schema");
     const result = buildConfigSchema();
     json(res, result);
     return;
@@ -8251,46 +7682,6 @@ async function handleRequest(
     if (!body) return;
 
     // --- Security: validate and safely merge config updates ----------------
-
-    // Only accept known top-level keys from MilaidyConfig.
-    // Unknown or dangerous keys are silently dropped.
-    const ALLOWED_TOP_KEYS = new Set([
-      "meta",
-      "auth",
-      "env",
-      "wizard",
-      "diagnostics",
-      "logging",
-      "update",
-      "browser",
-      "ui",
-      "skills",
-      "plugins",
-      "models",
-      "nodeHost",
-      "agents",
-      "tools",
-      "bindings",
-      "broadcast",
-      "audio",
-      "messages",
-      "commands",
-      "approvals",
-      "session",
-      "web",
-      "channels",
-      "cron",
-      "hooks",
-      "discovery",
-      "talk",
-      "gateway",
-      "memory",
-      "database",
-      "cloud",
-      "x402",
-      "mcp",
-      "features",
-    ]);
 
     // Keys that could enable prototype pollution.
     /**
@@ -8328,7 +7719,7 @@ async function handleRequest(
     // Filter to allowed top-level keys, then deep-merge.
     const filtered: Record<string, unknown> = {};
     for (const key of Object.keys(body)) {
-      if (ALLOWED_TOP_KEYS.has(key) && !isBlockedObjectKey(key)) {
+      if (CONFIG_WRITE_ALLOWED_TOP_KEYS.has(key) && !isBlockedObjectKey(key)) {
         filtered[key] = body[key];
       }
     }
@@ -8345,23 +7736,23 @@ async function handleRequest(
       // merge, even though BLOCKED_ENV_KEYS also blocks them during process.env
       // sync below. Keeping both guards prevents accidental persistence if one
       // path changes in future refactors.
-      delete envPatch.MILAIDY_API_TOKEN;
-      delete envPatch.MILAIDY_WALLET_EXPORT_TOKEN;
+      delete envPatch.MILADY_API_TOKEN;
+      delete envPatch.MILADY_WALLET_EXPORT_TOKEN;
       if (
         envPatch.vars &&
         typeof envPatch.vars === "object" &&
         !Array.isArray(envPatch.vars)
       ) {
-        delete (envPatch.vars as Record<string, unknown>).MILAIDY_API_TOKEN;
+        delete (envPatch.vars as Record<string, unknown>).MILADY_API_TOKEN;
         delete (envPatch.vars as Record<string, unknown>)
-          .MILAIDY_WALLET_EXPORT_TOKEN;
+          .MILADY_WALLET_EXPORT_TOKEN;
       }
     }
 
     safeMerge(state.config as Record<string, unknown>, filtered);
 
     // If the client updated env vars, synchronise them into process.env so
-    // subsequent hot-restarts see the latest values (loadMilaidyConfig()
+    // subsequent hot-restarts see the latest values (loadMiladyConfig()
     // only fills missing env vars and does not override existing ones).
     if (
       filtered.env &&
@@ -8411,7 +7802,7 @@ async function handleRequest(
     }
 
     try {
-      saveMilaidyConfig(state.config);
+      saveMiladyConfig(state.config);
     } catch (err) {
       logger.warn(
         `[api] Config save failed: ${err instanceof Error ? err.message : err}`,
@@ -8421,171 +7812,20 @@ async function handleRequest(
     return;
   }
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // Permission routes (/api/permissions/*)
-  // System permissions for computer use, microphone, camera, etc.
-  // ═══════════════════════════════════════════════════════════════════════
-
-  // ── GET /api/permissions ───────────────────────────────────────────────
-  // Returns all system permission states
-  if (method === "GET" && pathname === "/api/permissions") {
-    const permStates = state.permissionStates ?? {};
-    json(res, {
-      permissions: permStates,
-      platform: process.platform,
-      shellEnabled: state.shellEnabled ?? true,
-    });
-    return;
-  }
-
-  // ── GET /api/permissions/shell ─────────────────────────────────────────
-  // Return shell toggle status in a stable shape for UI clients.
-  if (method === "GET" && pathname === "/api/permissions/shell") {
-    const enabled = state.shellEnabled ?? true;
-    if (!state.permissionStates) {
-      state.permissionStates = {};
-    }
-    const shellState = state.permissionStates.shell;
-    const permission = {
-      id: "shell",
-      status: enabled ? "granted" : "denied",
-      lastChecked: shellState?.lastChecked ?? Date.now(),
-      canRequest: false,
-    };
-    state.permissionStates.shell = permission;
-
-    // Keep the legacy top-level permission fields for compatibility with
-    // callers that previously treated /api/permissions/shell as a generic
-    // /api/permissions/:id response.
-    json(res, {
-      enabled,
-      ...permission,
-      permission,
-    });
-    return;
-  }
-
-  // ── GET /api/permissions/:id ───────────────────────────────────────────
-  // Returns a single permission state
-  if (method === "GET" && pathname.startsWith("/api/permissions/")) {
-    const permId = pathname.slice("/api/permissions/".length);
-    if (!permId || permId.includes("/")) {
-      error(res, "Invalid permission ID", 400);
-      return;
-    }
-    const permStates = state.permissionStates ?? {};
-    const permState = permStates[permId];
-    if (!permState) {
-      json(res, {
-        id: permId,
-        status: "not-applicable",
-        lastChecked: Date.now(),
-        canRequest: false,
-      });
-      return;
-    }
-    json(res, permState);
-    return;
-  }
-
-  // ── POST /api/permissions/refresh ──────────────────────────────────────
-  // Force refresh all permission states (clears cache)
-  if (method === "POST" && pathname === "/api/permissions/refresh") {
-    // Signal to the client that they should refresh permissions via IPC
-    // The actual permission checking happens in the Electron main process
-    json(res, {
-      message: "Permission refresh requested",
-      action: "ipc:permissions:refresh",
-    });
-    return;
-  }
-
-  // ── POST /api/permissions/:id/request ──────────────────────────────────
-  // Request a specific permission (triggers system prompt or opens settings)
   if (
-    method === "POST" &&
-    pathname.match(/^\/api\/permissions\/[^/]+\/request$/)
+    await handlePermissionRoutes({
+      req,
+      res,
+      method,
+      pathname,
+      state,
+      readJsonBody,
+      json,
+      error,
+      saveConfig: saveMiladyConfig,
+      scheduleRuntimeRestart,
+    })
   ) {
-    const permId = pathname.split("/")[3];
-    json(res, {
-      message: `Permission request for ${permId}`,
-      action: `ipc:permissions:request:${permId}`,
-    });
-    return;
-  }
-
-  // ── POST /api/permissions/:id/open-settings ────────────────────────────
-  // Open system settings for a specific permission
-  if (
-    method === "POST" &&
-    pathname.match(/^\/api\/permissions\/[^/]+\/open-settings$/)
-  ) {
-    const permId = pathname.split("/")[3];
-    json(res, {
-      message: `Opening settings for ${permId}`,
-      action: `ipc:permissions:openSettings:${permId}`,
-    });
-    return;
-  }
-
-  // ── PUT /api/permissions/shell ─────────────────────────────────────────
-  // Toggle shell access enabled/disabled
-  if (method === "PUT" && pathname === "/api/permissions/shell") {
-    const body = await readJsonBody(req, res);
-    if (!body) return;
-    const enabled = body.enabled === true;
-    state.shellEnabled = enabled;
-
-    // Update permission state
-    if (!state.permissionStates) {
-      state.permissionStates = {};
-    }
-    state.permissionStates.shell = {
-      id: "shell",
-      status: enabled ? "granted" : "denied",
-      lastChecked: Date.now(),
-      canRequest: false,
-    };
-
-    // Save to config
-    if (!state.config.features) {
-      state.config.features = {};
-    }
-    state.config.features.shellEnabled = enabled;
-    saveMilaidyConfig(state.config);
-
-    // If a runtime is active, restart so plugin loading honors the new
-    // shellEnabled flag and shell tools are loaded/unloaded consistently.
-    if (state.runtime && ctx?.onRestart) {
-      scheduleRuntimeRestart(
-        `Shell access ${enabled ? "enabled" : "disabled"}`,
-      );
-    }
-
-    json(res, {
-      shellEnabled: enabled,
-      permission: state.permissionStates.shell,
-    });
-    return;
-  }
-
-  // ── PUT /api/permissions/state ─────────────────────────────────────────
-  // Update permission states from Electron (called by renderer after IPC)
-  if (method === "PUT" && pathname === "/api/permissions/state") {
-    const body = await readJsonBody(req, res);
-    if (!body) return;
-    if (body.permissions && typeof body.permissions === "object") {
-      state.permissionStates = body.permissions as Record<
-        string,
-        {
-          id: string;
-          status: string;
-          lastChecked: number;
-          canRequest: boolean;
-        }
-      >;
-    }
-    json(res, { updated: true, permissions: state.permissionStates });
     return;
   }
 
@@ -8629,7 +7869,7 @@ async function handleRequest(
         : (stringToUuid(`${state.agentName}-admin-entity`) as UUID);
     if (configured && !isUuidLike(configured)) {
       logger.warn(
-        `[milaidy-api] Invalid agents.defaults.adminEntityId "${configured}", using deterministic fallback`,
+        `[milady-api] Invalid agents.defaults.adminEntityId "${configured}", using deterministic fallback`,
       );
     }
     state.adminEntityId = nextAdminEntityId;
@@ -8680,7 +7920,7 @@ async function handleRequest(
   ): Promise<void> => {
     if (!state.runtime) return;
     const runtime = state.runtime;
-    const agentName = runtime.character.name ?? "Milaidy";
+    const agentName = runtime.character.name ?? "Milady";
     const userId = ensureAdminEntityId();
     const worldId = stringToUuid(`${agentName}-web-chat-world`);
     const messageServerId = stringToUuid(`${agentName}-web-server`) as UUID;
@@ -8801,7 +8041,7 @@ async function handleRequest(
   if (method === "GET" && pathname === "/v1/models") {
     const created = Math.floor(Date.now() / 1000);
     const ids = new Set<string>();
-    ids.add("milaidy");
+    ids.add("milady");
     if (state.agentName?.trim()) ids.add(state.agentName.trim());
     if (state.runtime?.character.name?.trim())
       ids.add(state.runtime.character.name.trim());
@@ -8812,7 +8052,7 @@ async function handleRequest(
         id,
         object: "model",
         created,
-        owned_by: "milaidy",
+        owned_by: "milady",
       })),
     });
     return;
@@ -8838,7 +8078,7 @@ async function handleRequest(
       );
       return;
     }
-    json(res, { id, object: "model", created, owned_by: "milaidy" });
+    json(res, { id, object: "model", created, owned_by: "milady" });
     return;
   }
 
@@ -8886,16 +8126,13 @@ async function handleRequest(
         ? safeBody.model.trim()
         : null;
 
-    const mode: ChatMode = "power";
     const prompt = extracted.system
       ? `${extracted.system}\n\n${extracted.user}`.trim()
       : extracted.user;
 
-    const proxy = state.cloudManager?.getProxy();
     const created = Math.floor(Date.now() / 1000);
     const id = `chatcmpl-${crypto.randomUUID()}`;
-    const model =
-      requestedModel ?? proxy?.agentName ?? state.agentName ?? "milaidy";
+    const model = requestedModel ?? state.agentName ?? "milady";
 
     if (wantsStream) {
       initSse(res);
@@ -8927,7 +8164,7 @@ async function handleRequest(
       };
 
       try {
-        if (!proxy && !state.runtime) {
+        if (!state.runtime) {
           writeSseData(
             res,
             JSON.stringify({
@@ -8945,20 +8182,10 @@ async function handleRequest(
 
         let fullText = "";
 
-        if (proxy) {
-          for await (const chunk of proxy.handleChatMessageStream(
-            prompt,
-            "openai-compat",
-            mode,
-          )) {
-            if (aborted) throw new Error("client_disconnected");
-            fullText += chunk;
-            if (chunk) sendChunk({ content: chunk }, null);
-          }
-        } else {
+        {
           const runtime = state.runtime;
           if (!runtime) throw new Error("Agent is not running");
-          const agentName = runtime.character.name ?? "Milaidy";
+          const agentName = runtime.character.name ?? "Milady";
           const { userId, roomId } = await ensureCompatChatConnection(
             runtime,
             agentName,
@@ -8972,10 +8199,8 @@ async function handleRequest(
             roomId,
             content: {
               text: prompt,
-              mode,
-              simple: false,
               source: "compat_openai",
-              channelType: ChannelType.DM,
+              channelType: ChannelType.API,
             },
           });
 
@@ -9024,13 +8249,7 @@ async function handleRequest(
     try {
       let responseText: string;
 
-      if (proxy) {
-        responseText = await proxy.handleChatMessage(
-          prompt,
-          "openai-compat",
-          mode,
-        );
-      } else {
+      {
         if (!state.runtime) {
           json(
             res,
@@ -9045,7 +8264,7 @@ async function handleRequest(
           return;
         }
         const runtime = state.runtime;
-        const agentName = runtime.character.name ?? "Milaidy";
+        const agentName = runtime.character.name ?? "Milady";
         const { userId, roomId } = await ensureCompatChatConnection(
           runtime,
           agentName,
@@ -9058,10 +8277,8 @@ async function handleRequest(
           roomId,
           content: {
             text: prompt,
-            mode,
-            simple: false,
             source: "compat_openai",
-            channelType: ChannelType.DM,
+            channelType: ChannelType.API,
           },
         });
         const result = await generateChatResponse(
@@ -9150,15 +8367,12 @@ async function handleRequest(
         ? safeBody.model.trim()
         : null;
 
-    const mode: ChatMode = "power";
     const prompt = extracted.system
       ? `${extracted.system}\n\n${extracted.user}`.trim()
       : extracted.user;
 
-    const proxy = state.cloudManager?.getProxy();
     const id = `msg_${crypto.randomUUID().replace(/-/g, "")}`;
-    const model =
-      requestedModel ?? proxy?.agentName ?? state.agentName ?? "milaidy";
+    const model = requestedModel ?? state.agentName ?? "milady";
 
     if (wantsStream) {
       initSse(res);
@@ -9168,7 +8382,7 @@ async function handleRequest(
       });
 
       try {
-        if (!proxy && !state.runtime) {
+        if (!state.runtime) {
           writeSseJson(
             res,
             {
@@ -9226,19 +8440,10 @@ async function handleRequest(
           );
         };
 
-        if (proxy) {
-          for await (const chunk of proxy.handleChatMessageStream(
-            prompt,
-            "anthropic-compat",
-            mode,
-          )) {
-            if (aborted) throw new Error("client_disconnected");
-            onDelta(chunk);
-          }
-        } else {
+        {
           const runtime = state.runtime;
           if (!runtime) throw new Error("Agent is not running");
-          const agentName = runtime.character.name ?? "Milaidy";
+          const agentName = runtime.character.name ?? "Milady";
           const { userId, roomId } = await ensureCompatChatConnection(
             runtime,
             agentName,
@@ -9252,10 +8457,8 @@ async function handleRequest(
             roomId,
             content: {
               text: prompt,
-              mode,
-              simple: false,
               source: "compat_anthropic",
-              channelType: ChannelType.DM,
+              channelType: ChannelType.API,
             },
           });
 
@@ -9311,13 +8514,7 @@ async function handleRequest(
     try {
       let responseText: string;
 
-      if (proxy) {
-        responseText = await proxy.handleChatMessage(
-          prompt,
-          "anthropic-compat",
-          mode,
-        );
-      } else {
+      {
         if (!state.runtime) {
           json(
             res,
@@ -9332,7 +8529,7 @@ async function handleRequest(
           return;
         }
         const runtime = state.runtime;
-        const agentName = runtime.character.name ?? "Milaidy";
+        const agentName = runtime.character.name ?? "Milady";
         const { userId, roomId } = await ensureCompatChatConnection(
           runtime,
           agentName,
@@ -9345,10 +8542,8 @@ async function handleRequest(
           roomId,
           content: {
             text: prompt,
-            mode,
-            simple: false,
             source: "compat_anthropic",
-            channelType: ChannelType.DM,
+            channelType: ChannelType.API,
           },
         });
         const result = await generateChatResponse(
@@ -9431,19 +8626,20 @@ async function handleRequest(
       error(res, "Conversation not found", 404);
       return;
     }
-    if (!state.runtime || state.agentState !== "running") {
+    if (!state.runtime) {
       json(res, { messages: [] });
       return;
     }
+    const runtime = state.runtime;
     try {
-      const memories = await state.runtime.getMemories({
+      const memories = await runtime.getMemories({
         roomId: conv.roomId,
         tableName: "messages",
         count: 200,
       });
       // Sort by createdAt ascending
       memories.sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0));
-      const agentId = state.runtime.agentId;
+      const agentId = runtime.agentId;
       const messages = memories.map((m) => {
         const contentSource = (m.content as Record<string, unknown>)?.source;
         return {
@@ -9479,69 +8675,52 @@ async function handleRequest(
       return;
     }
 
-    const body = await readJsonBody<{ text?: string; mode?: string }>(req, res);
-    if (!body) return;
-    if (!body.text?.trim()) {
-      error(res, "text is required");
-      return;
-    }
-    if (body.mode && body.mode !== "simple" && body.mode !== "power") {
-      error(res, "mode must be 'simple' or 'power'", 400);
-      return;
-    }
-    const mode: ChatMode = body.mode === "simple" ? "simple" : "power";
-    const prompt = body.text.trim();
+    const chatPayload = await readChatRequestPayload(req, res, {
+      readJsonBody,
+      error,
+    });
+    if (!chatPayload) return;
+    const { prompt, channelType } = chatPayload;
 
-    // Cloud proxy path
-    const proxy = state.cloudManager?.getProxy();
-    if (proxy) {
-      initSse(res);
-      let fullText = "";
-      try {
-        for await (const chunk of proxy.handleChatMessageStream(
-          prompt,
-          conv.roomId,
-          mode,
-        )) {
-          fullText += chunk;
-          writeSse(res, { type: "token", text: chunk });
-        }
-
-        const resolvedText = normalizeChatResponseText(
-          fullText,
-          state.logBuffer,
-        );
-        conv.updatedAt = new Date().toISOString();
-        writeSse(res, {
-          type: "done",
-          fullText: resolvedText,
-          agentName: proxy.agentName,
-        });
-      } catch (err) {
-        const creditReply = getInsufficientCreditsReplyFromError(err);
-        if (creditReply) {
-          conv.updatedAt = new Date().toISOString();
-          writeSse(res, {
-            type: "done",
-            fullText: creditReply,
-            agentName: proxy.agentName,
-          });
-        } else {
-          writeSse(res, {
-            type: "error",
-            message: getErrorMessage(err),
-          });
-        }
-      } finally {
-        res.end();
-      }
-      return;
-    }
-
-    if (!state.runtime) {
+    const runtime = state.runtime;
+    if (!runtime) {
       error(res, "Agent is not running", 503);
       return;
     }
+
+    const userId = ensureAdminEntityId();
+    const turnStartedAt = Date.now();
+
+    try {
+      await ensureConversationRoom(conv);
+    } catch (err) {
+      error(
+        res,
+        `Failed to initialize conversation room: ${getErrorMessage(err)}`,
+        500,
+      );
+      return;
+    }
+
+    const userMessage = createMessageMemory({
+      id: crypto.randomUUID() as UUID,
+      entityId: userId,
+      roomId: conv.roomId,
+      content: {
+        text: prompt,
+        source: "client_chat",
+        channelType,
+      },
+    });
+
+    try {
+      await persistConversationMemory(runtime, userMessage);
+    } catch (err) {
+      error(res, `Failed to store user message: ${getErrorMessage(err)}`, 500);
+      return;
+    }
+
+    // ── Local runtime path (existing code below) ───────────────────────
 
     initSse(res);
     let aborted = false;
@@ -9550,26 +8729,9 @@ async function handleRequest(
     });
 
     try {
-      const runtime = state.runtime;
-      const userId = ensureAdminEntityId();
-      await ensureConversationRoom(conv);
-
-      const message = createMessageMemory({
-        id: crypto.randomUUID() as UUID,
-        entityId: userId,
-        roomId: conv.roomId,
-        content: {
-          text: prompt,
-          mode,
-          simple: mode === "simple",
-          source: "client_chat",
-          channelType: ChannelType.DM,
-        },
-      });
-
       const result = await generateChatResponse(
         runtime,
-        message,
+        userMessage,
         state.agentName,
         {
           isAborted: () => aborted,
@@ -9582,23 +8744,61 @@ async function handleRequest(
       );
 
       if (!aborted) {
+        await persistAssistantConversationMemory(
+          runtime,
+          conv.roomId,
+          result.text,
+          channelType,
+          turnStartedAt,
+        );
         conv.updatedAt = new Date().toISOString();
         writeSse(res, {
           type: "done",
           fullText: result.text,
           agentName: result.agentName,
         });
+
+        // Background chat renaming
+        if (conv.title === "New Chat") {
+          // Fire and forget (don't await) to not block the response stream close
+          generateConversationTitle(runtime, prompt, state.agentName).then(
+            (newTitle) => {
+              if (newTitle && state.broadcastWs) {
+                conv.title = newTitle;
+                // Broadcast full conversations list update for simplicity
+                // (or ideally a specific event, but the frontend listens for reloads)
+                state.broadcastWs({
+                  type: "conversation-updated",
+                  conversation: conv,
+                });
+              }
+            },
+          );
+        }
       }
     } catch (err) {
       if (!aborted) {
         const creditReply = getInsufficientCreditsReplyFromError(err);
         if (creditReply) {
-          conv.updatedAt = new Date().toISOString();
-          writeSse(res, {
-            type: "done",
-            fullText: creditReply,
-            agentName: state.agentName,
-          });
+          try {
+            await persistAssistantConversationMemory(
+              runtime,
+              conv.roomId,
+              creditReply,
+              channelType,
+            );
+            conv.updatedAt = new Date().toISOString();
+            writeSse(res, {
+              type: "done",
+              fullText: creditReply,
+              agentName: state.agentName,
+            });
+          } catch (persistErr) {
+            writeSse(res, {
+              type: "error",
+              message: getErrorMessage(persistErr),
+            });
+          }
         } else {
           writeSse(res, {
             type: "error",
@@ -9623,70 +8823,53 @@ async function handleRequest(
       error(res, "Conversation not found", 404);
       return;
     }
-    const body = await readJsonBody<{ text?: string; mode?: string }>(req, res);
-    if (!body) return;
-    if (!body.text?.trim()) {
-      error(res, "text is required");
-      return;
-    }
-    if (body.mode && body.mode !== "simple" && body.mode !== "power") {
-      error(res, "mode must be 'simple' or 'power'", 400);
-      return;
-    }
-    const mode: ChatMode = body.mode === "simple" ? "simple" : "power";
-    if (!state.runtime) {
+    const chatPayload = await readChatRequestPayload(req, res, {
+      readJsonBody,
+      error,
+    });
+    if (!chatPayload) return;
+    const { prompt, channelType } = chatPayload;
+    const runtime = state.runtime;
+    if (!runtime) {
       error(res, "Agent is not running", 503);
       return;
     }
+    const userId = ensureAdminEntityId();
+    const turnStartedAt = Date.now();
 
-    // Cloud proxy path
-    const proxy = state.cloudManager?.getProxy();
-    if (proxy) {
-      try {
-        const responseText = await proxy.handleChatMessage(
-          body.text.trim(),
-          conv.roomId,
-          mode,
-        );
-        const resolvedText = normalizeChatResponseText(
-          responseText,
-          state.logBuffer,
-        );
-        conv.updatedAt = new Date().toISOString();
-        json(res, { text: resolvedText, agentName: proxy.agentName });
-      } catch (err) {
-        const creditReply = getInsufficientCreditsReplyFromError(err);
-        if (creditReply) {
-          conv.updatedAt = new Date().toISOString();
-          json(res, { text: creditReply, agentName: proxy.agentName });
-        } else {
-          error(res, getErrorMessage(err), 500);
-        }
-      }
+    try {
+      await ensureConversationRoom(conv);
+    } catch (err) {
+      error(
+        res,
+        `Failed to initialize conversation room: ${getErrorMessage(err)}`,
+        500,
+      );
+      return;
+    }
+
+    const userMessage = createMessageMemory({
+      id: crypto.randomUUID() as UUID,
+      entityId: userId,
+      roomId: conv.roomId,
+      content: {
+        text: prompt,
+        source: "client_chat",
+        channelType,
+      },
+    });
+
+    try {
+      await persistConversationMemory(runtime, userMessage);
+    } catch (err) {
+      error(res, `Failed to store user message: ${getErrorMessage(err)}`, 500);
       return;
     }
 
     try {
-      const runtime = state.runtime;
-      const userId = ensureAdminEntityId();
-      await ensureConversationRoom(conv);
-
-      const message = createMessageMemory({
-        id: crypto.randomUUID() as UUID,
-        entityId: userId,
-        roomId: conv.roomId,
-        content: {
-          text: body.text.trim(),
-          mode,
-          simple: mode === "simple",
-          source: "client_chat",
-          channelType: ChannelType.DM,
-        },
-      });
-
       const result = await generateChatResponse(
         runtime,
-        message,
+        userMessage,
         state.agentName,
         {
           resolveNoResponseText: () =>
@@ -9694,19 +8877,39 @@ async function handleRequest(
         },
       );
 
+      await persistAssistantConversationMemory(
+        runtime,
+        conv.roomId,
+        result.text,
+        channelType,
+        turnStartedAt,
+      );
       conv.updatedAt = new Date().toISOString();
       json(res, {
         text: result.text,
         agentName: result.agentName,
       });
     } catch (err) {
+      logger.warn(
+        `[conversations] POST /messages failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
       const creditReply = getInsufficientCreditsReplyFromError(err);
       if (creditReply) {
-        conv.updatedAt = new Date().toISOString();
-        json(res, {
-          text: creditReply,
-          agentName: state.agentName,
-        });
+        try {
+          await persistAssistantConversationMemory(
+            runtime,
+            conv.roomId,
+            creditReply,
+            channelType,
+          );
+          conv.updatedAt = new Date().toISOString();
+          json(res, {
+            text: creditReply,
+            agentName: state.agentName,
+          });
+        } catch (persistErr) {
+          error(res, getErrorMessage(persistErr), 500);
+        }
       } else {
         error(res, getErrorMessage(err), 500);
       }
@@ -9730,21 +8933,41 @@ async function handleRequest(
     }
 
     const runtime = state.runtime;
-    const charName = runtime?.character.name ?? state.agentName ?? "Milaidy";
-    const FALLBACK_MSG = `Hey! I'm ${charName}. What's on your mind?`;
+    if (!runtime) {
+      error(res, "Agent is not running", 503);
+      return;
+    }
+    const charName = runtime.character.name ?? state.agentName ?? "Milady";
 
     // Collect post examples from the character
-    const postExamples = runtime?.character.postExamples ?? [];
+    const postExamples = runtime.character.postExamples ?? [];
     const greeting =
-      postExamples.length > 0
-        ? postExamples[Math.floor(Math.random() * postExamples.length)]
-        : FALLBACK_MSG;
+      postExamples[Math.floor(Math.random() * postExamples.length)];
 
-    // Store the greeting as an agent message so it persists on refresh
-    if (runtime && state.agentState === "running") {
-      try {
-        await ensureConversationRoom(conv);
-        const agentMemory = createMessageMemory({
+    if (!greeting?.trim()) {
+      json(res, {
+        text: "",
+        agentName: charName,
+        generated: false,
+      });
+      return;
+    }
+
+    try {
+      await ensureConversationRoom(conv);
+    } catch (err) {
+      error(
+        res,
+        `Failed to initialize conversation room: ${getErrorMessage(err)}`,
+        500,
+      );
+      return;
+    }
+
+    try {
+      await persistConversationMemory(
+        runtime,
+        createMessageMemory({
           id: crypto.randomUUID() as UUID,
           entityId: runtime.agentId,
           roomId: conv.roomId,
@@ -9753,13 +8976,15 @@ async function handleRequest(
             source: "agent_greeting",
             channelType: ChannelType.DM,
           },
-        });
-        await runtime.createMemory(agentMemory, "messages");
-      } catch (memErr) {
-        logger.debug(
-          `[greeting] Failed to store greeting memory: ${memErr instanceof Error ? memErr.message : String(memErr)}`,
-        );
-      }
+        }),
+      );
+    } catch (err) {
+      error(
+        res,
+        `Failed to store greeting message: ${getErrorMessage(err)}`,
+        500,
+      );
+      return;
     }
 
     conv.updatedAt = new Date().toISOString();
@@ -9808,62 +9033,14 @@ async function handleRequest(
 
   // ── POST /api/chat/stream ────────────────────────────────────────────
   if (method === "POST" && pathname === "/api/chat/stream") {
-    const body = await readJsonBody<{ text?: string; mode?: string }>(req, res);
-    if (!body) return;
-    if (!body.text?.trim()) {
-      error(res, "text is required");
-      return;
-    }
-    if (body.mode && body.mode !== "simple" && body.mode !== "power") {
-      error(res, "mode must be 'simple' or 'power'", 400);
-      return;
-    }
-    const mode: ChatMode = body.mode === "simple" ? "simple" : "power";
-    const prompt = body.text.trim();
+    const chatPayload = await readChatRequestPayload(req, res, {
+      readJsonBody,
+      error,
+    });
+    if (!chatPayload) return;
+    const { prompt, channelType } = chatPayload;
 
     // Cloud proxy path
-    const proxy = state.cloudManager?.getProxy();
-    if (proxy) {
-      initSse(res);
-      let fullText = "";
-      try {
-        for await (const chunk of proxy.handleChatMessageStream(
-          prompt,
-          "web-chat",
-          mode,
-        )) {
-          fullText += chunk;
-          writeSse(res, { type: "token", text: chunk });
-        }
-
-        const resolvedText = normalizeChatResponseText(
-          fullText,
-          state.logBuffer,
-        );
-        writeSse(res, {
-          type: "done",
-          fullText: resolvedText,
-          agentName: proxy.agentName,
-        });
-      } catch (err) {
-        const creditReply = getInsufficientCreditsReplyFromError(err);
-        if (creditReply) {
-          writeSse(res, {
-            type: "done",
-            fullText: creditReply,
-            agentName: proxy.agentName,
-          });
-        } else {
-          writeSse(res, {
-            type: "error",
-            message: getErrorMessage(err),
-          });
-        }
-      } finally {
-        res.end();
-      }
-      return;
-    }
 
     if (!state.runtime) {
       error(res, "Agent is not running", 503);
@@ -9878,7 +9055,7 @@ async function handleRequest(
 
     try {
       const runtime = state.runtime;
-      const agentName = runtime.character.name ?? "Milaidy";
+      const agentName = runtime.character.name ?? "Milady";
       await ensureLegacyChatConnection(runtime, agentName);
       const chatUserId = state.chatUserId;
       const chatRoomId = state.chatRoomId;
@@ -9892,10 +9069,8 @@ async function handleRequest(
         roomId: chatRoomId,
         content: {
           text: prompt,
-          mode,
-          simple: mode === "simple",
           source: "client_chat",
-          channelType: ChannelType.DM,
+          channelType,
         },
       });
 
@@ -9951,102 +9126,12 @@ async function handleRequest(
   // remote sandbox instead of the local runtime.  Supports SSE streaming
   // when the client sends Accept: text/event-stream.
   if (method === "POST" && pathname === "/api/chat") {
-    // ── Cloud proxy path ───────────────────────────────────────────────
-    const proxy = state.cloudManager?.getProxy();
-    if (proxy) {
-      const body = await readJsonBody<{ text?: string; mode?: string }>(
-        req,
-        res,
-      );
-      if (!body) return;
-      if (!body.text?.trim()) {
-        error(res, "text is required");
-        return;
-      }
-      if (body.mode && body.mode !== "simple" && body.mode !== "power") {
-        error(res, "mode must be 'simple' or 'power'", 400);
-        return;
-      }
-      const mode: ChatMode = body.mode === "simple" ? "simple" : "power";
-
-      const wantsStream = (req.headers.accept ?? "").includes(
-        "text/event-stream",
-      );
-
-      if (wantsStream) {
-        initSse(res);
-        let fullText = "";
-
-        try {
-          for await (const chunk of proxy.handleChatMessageStream(
-            body.text.trim(),
-            "web-chat",
-            mode,
-          )) {
-            fullText += chunk;
-            writeSse(res, { type: "token", text: chunk });
-          }
-          const resolvedText = normalizeChatResponseText(
-            fullText,
-            state.logBuffer,
-          );
-          writeSse(res, {
-            type: "done",
-            fullText: resolvedText,
-            agentName: proxy.agentName,
-          });
-        } catch (err) {
-          const creditReply = getInsufficientCreditsReplyFromError(err);
-          if (creditReply) {
-            writeSse(res, {
-              type: "done",
-              fullText: creditReply,
-              agentName: proxy.agentName,
-            });
-          } else {
-            writeSse(res, {
-              type: "error",
-              message: getErrorMessage(err),
-            });
-          }
-        }
-        res.end();
-      } else {
-        try {
-          const responseText = await proxy.handleChatMessage(
-            body.text.trim(),
-            "web-chat",
-            mode,
-          );
-          const resolvedText = normalizeChatResponseText(
-            responseText,
-            state.logBuffer,
-          );
-          json(res, { text: resolvedText, agentName: proxy.agentName });
-        } catch (err) {
-          const creditReply = getInsufficientCreditsReplyFromError(err);
-          if (creditReply) {
-            json(res, { text: creditReply, agentName: proxy.agentName });
-          } else {
-            error(res, getErrorMessage(err), 500);
-          }
-        }
-      }
-      return;
-    }
-
-    // ── Local runtime path (existing code below) ───────────────────────
-    const body = await readJsonBody<{ text?: string; mode?: string }>(req, res);
-    if (!body) return;
-    if (!body.text?.trim()) {
-      error(res, "text is required");
-      return;
-    }
-    if (body.mode && body.mode !== "simple" && body.mode !== "power") {
-      error(res, "mode must be 'simple' or 'power'", 400);
-      return;
-    }
-    const mode: ChatMode = body.mode === "simple" ? "simple" : "power";
+    const chatPayload = await readChatRequestPayload(req, res, {
+      readJsonBody,
+      error,
+    });
+    if (!chatPayload) return;
+    const { prompt, channelType } = chatPayload;
 
     if (!state.runtime) {
       error(res, "Agent is not running", 503);
@@ -10055,7 +9140,7 @@ async function handleRequest(
 
     try {
       const runtime = state.runtime;
-      const agentName = runtime.character.name ?? "Milaidy";
+      const agentName = runtime.character.name ?? "Milady";
       await ensureLegacyChatConnection(runtime, agentName);
       const chatUserId = state.chatUserId;
       const chatRoomId = state.chatRoomId;
@@ -10068,11 +9153,9 @@ async function handleRequest(
         entityId: chatUserId,
         roomId: chatRoomId,
         content: {
-          text: body.text.trim(),
-          mode,
-          simple: mode === "simple",
+          text: prompt,
           source: "client_chat",
-          channelType: ChannelType.DM,
+          channelType,
         },
       });
 
@@ -10117,362 +9200,64 @@ async function handleRequest(
 
   // ── Trajectory management API ──────────────────────────────────────────
   if (pathname.startsWith("/api/trajectories")) {
-    const handled = await handleTrajectoryRoute(
+    if (state.runtime) {
+      const handled = await handleTrajectoryRoute(
+        req,
+        res,
+        state.runtime,
+        pathname,
+        method,
+      );
+      if (handled) return;
+    }
+  }
+
+  if (
+    await handleCloudStatusRoutes({
       req,
       res,
-      state.runtime,
+      method,
       pathname,
-    );
-    if (handled) return;
-  }
-
-  // ── GET /api/cloud/status ─────────────────────────────────────────────
-  if (method === "GET" && pathname === "/api/cloud/status") {
-    const cloudEnabled = Boolean(state.config.cloud?.enabled);
-    const hasApiKey = Boolean(state.config.cloud?.apiKey);
-    const rt = state.runtime;
-    if (!rt) {
-      json(res, {
-        connected: false,
-        enabled: cloudEnabled,
-        hasApiKey,
-        reason: "runtime_not_started",
-      });
-      return;
-    }
-    const cloudAuth = rt.getService("CLOUD_AUTH") as {
-      isAuthenticated: () => boolean;
-      getUserId: () => string | undefined;
-      getOrganizationId: () => string | undefined;
-    } | null;
-    if (cloudAuth?.isAuthenticated()) {
-      json(res, {
-        connected: true,
-        enabled: cloudEnabled,
-        hasApiKey,
-        userId: cloudAuth.getUserId(),
-        organizationId: cloudAuth.getOrganizationId(),
-        topUpUrl: "https://www.elizacloud.ai/dashboard/billing",
-      });
-      return;
-    }
-    json(res, {
-      connected: false,
-      enabled: cloudEnabled,
-      hasApiKey,
-      reason: hasApiKey
-        ? "api_key_present_not_authenticated"
-        : "not_authenticated",
-    });
-    return;
-  }
-
-  // ── GET /api/cloud/credits ──────────────────────────────────────────────
-  if (method === "GET" && pathname === "/api/cloud/credits") {
-    const rt = state.runtime;
-    const cloudAuth = rt
-      ? (rt.getService("CLOUD_AUTH") as {
-          isAuthenticated: () => boolean;
-          getClient: () => { get: <T>(path: string) => Promise<T> };
-        } | null)
-      : null;
-    const configApiKey = state.config.cloud?.apiKey?.trim();
-
-    if (!cloudAuth || !cloudAuth.isAuthenticated()) {
-      if (!configApiKey) {
-        json(res, { balance: null, connected: false });
-        return;
-      }
-
-      try {
-        const balance = await fetchCloudCreditsByApiKey(
-          resolveCloudApiBaseUrl(state.config.cloud?.baseUrl),
-          configApiKey,
-        );
-        if (typeof balance !== "number") {
-          json(res, {
-            balance: null,
-            connected: true,
-            error: "unexpected response",
-          });
-          return;
-        }
-        const low = balance < 2.0;
-        const critical = balance < 0.5;
-        json(res, {
-          connected: true,
-          balance,
-          low,
-          critical,
-          topUpUrl: "https://www.elizacloud.ai/dashboard/billing",
-        });
-      } catch (err) {
-        const msg =
-          err instanceof Error ? err.message : "cloud API unreachable";
-        logger.debug(
-          `[cloud/credits] Failed to fetch balance via API key: ${msg}`,
-        );
-        json(res, { balance: null, connected: true, error: msg });
-      }
-      return;
-    }
-
-    const authenticatedCloudAuth = cloudAuth as {
-      isAuthenticated: () => boolean;
-      getClient: () => { get: <T>(path: string) => Promise<T> };
-    };
-
-    let balance: number;
-    const client = authenticatedCloudAuth.getClient();
-    try {
-      // The cloud API returns either { balance: number } (direct)
-      // or { success: true, data: { balance: number } } (wrapped).
-      // Handle both formats gracefully.
-      const creditResponse =
-        await client.get<Record<string, unknown>>("/credits/balance");
-      const rawBalance =
-        typeof creditResponse?.balance === "number"
-          ? creditResponse.balance
-          : typeof (creditResponse?.data as Record<string, unknown>)
-                ?.balance === "number"
-            ? ((creditResponse.data as Record<string, unknown>)
-                .balance as number)
-            : undefined;
-      if (typeof rawBalance !== "number") {
-        logger.debug(
-          `[cloud/credits] Unexpected response shape: ${JSON.stringify(creditResponse)}`,
-        );
-        json(res, {
-          balance: null,
-          connected: true,
-          error: "unexpected response",
-        });
-        return;
-      }
-      balance = rawBalance;
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "cloud API unreachable";
-      logger.debug(`[cloud/credits] Failed to fetch balance: ${msg}`);
-      json(res, { balance: null, connected: true, error: msg });
-      return;
-    }
-    const low = balance < 2.0;
-    const critical = balance < 0.5;
-    json(res, {
-      connected: true,
-      balance,
-      low,
-      critical,
-      topUpUrl: "https://www.elizacloud.ai/dashboard/billing",
-    });
+      config: state.config,
+      runtime: state.runtime,
+      json,
+    })
+  ) {
     return;
   }
 
   // ── App routes (/api/apps/*) ──────────────────────────────────────────
-  if (method === "GET" && pathname === "/api/apps") {
-    const apps = await state.appManager.listAvailable();
-    json(res, apps);
-    return;
-  }
-
-  if (method === "GET" && pathname === "/api/apps/search") {
-    const query = url.searchParams.get("q") ?? "";
-    if (!query.trim()) {
-      json(res, []);
-      return;
-    }
-    const limit = parseBoundedLimit(url.searchParams.get("limit"));
-    const results = await state.appManager.search(query, limit);
-    json(res, results);
-    return;
-  }
-
-  if (method === "GET" && pathname === "/api/apps/installed") {
-    json(res, state.appManager.listInstalled());
-    return;
-  }
-
-  // Launch an app: install its plugin (if needed), return viewer config
-  if (method === "POST" && pathname === "/api/apps/launch") {
-    const body = await readJsonBody<{ name?: string }>(req, res);
-    if (!body) return;
-    if (!body.name?.trim()) {
-      error(res, "name is required");
-      return;
-    }
-    const result = await state.appManager.launch(body.name.trim());
-    json(res, result);
-    return;
-  }
-
-  // Stop an app: disconnects session and uninstalls plugin when installed
-  if (method === "POST" && pathname === "/api/apps/stop") {
-    const body = await readJsonBody<{ name?: string }>(req, res);
-    if (!body) return;
-    if (!body.name?.trim()) {
-      error(res, "name is required");
-      return;
-    }
-    const appName = body.name.trim();
-    const result = await state.appManager.stop(appName);
-    json(res, result);
-    return;
-  }
-
-  if (method === "GET" && pathname.startsWith("/api/apps/info/")) {
-    const appName = decodeURIComponent(
-      pathname.slice("/api/apps/info/".length),
-    );
-    if (!appName) {
-      error(res, "app name is required");
-      return;
-    }
-    const info = await state.appManager.getInfo(appName);
-    if (!info) {
-      error(res, `App "${appName}" not found in registry`, 404);
-      return;
-    }
-    json(res, info);
-    return;
-  }
-
-  // ── GET /api/apps/plugins — non-app plugins from registry ───────────
-  if (method === "GET" && pathname === "/api/apps/plugins") {
-    const { listNonAppPlugins } = await import(
-      "../services/registry-client.js"
-    );
-    try {
-      const plugins = await listNonAppPlugins();
-      json(res, plugins);
-    } catch (err) {
-      error(
-        res,
-        `Failed to list plugins: ${err instanceof Error ? err.message : String(err)}`,
-        502,
-      );
-    }
-    return;
-  }
-
-  // ── GET /api/apps/plugins/search?q=... — search non-app plugins ─────
-  if (method === "GET" && pathname === "/api/apps/plugins/search") {
-    const query = url.searchParams.get("q") ?? "";
-    if (!query.trim()) {
-      json(res, []);
-      return;
-    }
-    const { searchNonAppPlugins } = await import(
-      "../services/registry-client.js"
-    );
-    try {
-      const limit = parseBoundedLimit(url.searchParams.get("limit"));
-      const results = await searchNonAppPlugins(query, limit);
-      json(res, results);
-    } catch (err) {
-      error(
-        res,
-        `Plugin search failed: ${err instanceof Error ? err.message : String(err)}`,
-        502,
-      );
-    }
-    return;
-  }
-
-  // ── POST /api/apps/refresh — refresh the registry cache ─────────────
-  if (method === "POST" && pathname === "/api/apps/refresh") {
-    const { refreshRegistry } = await import("../services/registry-client.js");
-    try {
-      const registry = await refreshRegistry();
-      json(res, { ok: true, count: registry.size });
-    } catch (err) {
-      error(
-        res,
-        `Refresh failed: ${err instanceof Error ? err.message : String(err)}`,
-        502,
-      );
-    }
+  if (
+    await handleAppsRoutes({
+      req,
+      res,
+      method,
+      pathname,
+      url,
+      appManager: state.appManager,
+      getPluginManager: () => requirePluginManager(state.runtime),
+      parseBoundedLimit,
+      readJsonBody,
+      json,
+      error,
+    })
+  ) {
     return;
   }
 
   // ── Hyperscape control proxy routes ──────────────────────────────────
-  if (method === "GET" && pathname === "/api/apps/hyperscape/embedded-agents") {
-    await relayHyperscapeApi("GET", "/api/embedded-agents");
-    return;
-  }
-
   if (
-    method === "POST" &&
-    pathname === "/api/apps/hyperscape/embedded-agents"
+    await handleAppsHyperscapeRoutes({
+      req,
+      res,
+      method,
+      pathname,
+      relayHyperscapeApi,
+      readJsonBody,
+      error,
+    })
   ) {
-    await relayHyperscapeApi("POST", "/api/embedded-agents");
     return;
-  }
-
-  if (method === "POST") {
-    const embeddedActionMatch = pathname.match(
-      /^\/api\/apps\/hyperscape\/embedded-agents\/([^/]+)\/(start|stop|pause|resume|command)$/,
-    );
-    if (embeddedActionMatch) {
-      const characterId = decodeURIComponent(embeddedActionMatch[1]);
-      const action = embeddedActionMatch[2];
-      await relayHyperscapeApi(
-        "POST",
-        `/api/embedded-agents/${encodeURIComponent(characterId)}/${action}`,
-      );
-      return;
-    }
-
-    const messageMatch = pathname.match(
-      /^\/api\/apps\/hyperscape\/agents\/([^/]+)\/message$/,
-    );
-    if (messageMatch) {
-      const agentId = decodeURIComponent(messageMatch[1]);
-      const body = await readJsonBody<{ content?: string }>(req, res);
-      if (!body) return;
-      const content = body.content?.trim();
-      if (!content) {
-        error(res, "content is required");
-        return;
-      }
-      await relayHyperscapeApi(
-        "POST",
-        `/api/embedded-agents/${encodeURIComponent(agentId)}/command`,
-        {
-          rawBodyOverride: JSON.stringify({
-            command: "chat",
-            data: { message: content },
-          }),
-          contentTypeOverride: "application/json",
-        },
-      );
-      return;
-    }
-  }
-
-  if (method === "GET") {
-    const goalMatch = pathname.match(
-      /^\/api\/apps\/hyperscape\/agents\/([^/]+)\/goal$/,
-    );
-    if (goalMatch) {
-      const agentId = decodeURIComponent(goalMatch[1]);
-      await relayHyperscapeApi(
-        "GET",
-        `/api/agents/${encodeURIComponent(agentId)}/goal`,
-      );
-      return;
-    }
-
-    const quickActionsMatch = pathname.match(
-      /^\/api\/apps\/hyperscape\/agents\/([^/]+)\/quick-actions$/,
-    );
-    if (quickActionsMatch) {
-      const agentId = decodeURIComponent(quickActionsMatch[1]);
-      await relayHyperscapeApi(
-        "GET",
-        `/api/agents/${encodeURIComponent(agentId)}/quick-actions`,
-      );
-      return;
-    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -10503,10 +9288,10 @@ async function handleRequest(
             event.stream === "provider" ||
             event.stream === "evaluator"),
       );
-    const autonomySvc = getAutonomySvc(state.runtime);
+    const autonomyState = getAutonomyState(state.runtime);
     const autonomy = {
-      enabled: true,
-      thinking: autonomySvc?.isLoopRunning() ?? false,
+      enabled: autonomyState.enabled,
+      thinking: autonomyState.thinking,
       lastEventAt: latestAutonomyEvent?.ts ?? null,
     };
     let tasksAvailable = false;
@@ -11281,7 +10066,7 @@ async function handleRequest(
     >[string];
 
     try {
-      saveMilaidyConfig(state.config);
+      saveMiladyConfig(state.config);
     } catch (err) {
       logger.warn(
         `[api] Config save failed: ${err instanceof Error ? err.message : err}`,
@@ -11312,7 +10097,7 @@ async function handleRequest(
     if (state.config.mcp?.servers?.[serverName]) {
       delete state.config.mcp.servers[serverName];
       try {
-        saveMilaidyConfig(state.config);
+        saveMiladyConfig(state.config);
       } catch (err) {
         logger.warn(
           `[api] Config save failed: ${err instanceof Error ? err.message : err}`,
@@ -11348,7 +10133,7 @@ async function handleRequest(
     }
 
     try {
-      saveMilaidyConfig(state.config);
+      saveMiladyConfig(state.config);
     } catch (err) {
       logger.warn(
         `[api] Config save failed: ${err instanceof Error ? err.message : err}`,
@@ -11454,18 +10239,29 @@ async function handleRequest(
       return;
     }
 
+    const { maxConcurrent, maxDurationMs } = resolveTerminalRunLimits();
+    if (activeTerminalRunCount >= maxConcurrent) {
+      error(
+        res,
+        `Too many active terminal runs (${maxConcurrent}). Wait for a command to finish.`,
+        429,
+      );
+      return;
+    }
+
     // Respond immediately — output streams via WebSocket
     json(res, { ok: true });
 
     // Spawn in background and broadcast output
     const { spawn } = await import("node:child_process");
-    const runId = `run-${Date.now()}`;
+    const runId = `run-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
     state.broadcastWs?.({
       type: "terminal-output",
       runId,
       event: "start",
       command,
+      maxDurationMs,
     });
 
     const proc = spawn(command, {
@@ -11473,6 +10269,30 @@ async function handleRequest(
       cwd: process.cwd(),
       env: { ...process.env, FORCE_COLOR: "0" },
     });
+
+    activeTerminalRunCount += 1;
+    let finalized = false;
+    const finalize = () => {
+      if (finalized) return;
+      finalized = true;
+      activeTerminalRunCount = Math.max(0, activeTerminalRunCount - 1);
+      clearTimeout(timeoutHandle);
+    };
+
+    const timeoutHandle = setTimeout(() => {
+      if (proc.killed) return;
+      proc.kill("SIGTERM");
+      state.broadcastWs?.({
+        type: "terminal-output",
+        runId,
+        event: "timeout",
+        maxDurationMs,
+      });
+
+      setTimeout(() => {
+        if (!proc.killed) proc.kill("SIGKILL");
+      }, 3000);
+    }, maxDurationMs);
 
     proc.stdout?.on("data", (chunk: Buffer) => {
       state.broadcastWs?.({
@@ -11493,6 +10313,7 @@ async function handleRequest(
     });
 
     proc.on("close", (code: number | null) => {
+      finalize();
       state.broadcastWs?.({
         type: "terminal-output",
         runId,
@@ -11502,6 +10323,7 @@ async function handleRequest(
     });
 
     proc.on("error", (err: Error) => {
+      finalize();
       state.broadcastWs?.({
         type: "terminal-output",
         runId,
@@ -11516,7 +10338,7 @@ async function handleRequest(
   // ── Custom Actions CRUD ──────────────────────────────────────────────
 
   if (method === "GET" && pathname === "/api/custom-actions") {
-    const config = loadMilaidyConfig();
+    const config = loadMiladyConfig();
     json(res, { actions: config.customActions ?? [] });
     return;
   }
@@ -11589,10 +10411,10 @@ async function handleRequest(
       updatedAt: now,
     };
 
-    const config = loadMilaidyConfig();
+    const config = loadMiladyConfig();
     if (!config.customActions) config.customActions = [];
     config.customActions.push(actionDef);
-    saveMilaidyConfig(config);
+    saveMiladyConfig(config);
 
     // Hot-register into the running agent so it's available immediately
     if (actionDef.enabled) {
@@ -11627,6 +10449,7 @@ async function handleRequest(
         "",
         "- name: string (UPPER_SNAKE_CASE action name)",
         "- description: string (clear description of what the action does)",
+        "- similes: optional string[] of alternative action names and phrases",
         '- handlerType: "http" | "shell" | "code"',
         "- handler: object with type-specific fields:",
         '  For http: { type: "http", method: "GET"|"POST"|etc, url: string, headers?: object, bodyTemplate?: string }',
@@ -11642,7 +10465,6 @@ async function handleRequest(
 
       const llmResponse = await runtime.useModel(ModelType.TEXT_SMALL, {
         prompt: `${systemPrompt}\n\nUser request: ${prompt}`,
-        stopSequences: [],
       });
 
       // Parse the JSON from the LLM response
@@ -11679,7 +10501,7 @@ async function handleRequest(
     );
     if (!body) return;
 
-    const config = loadMilaidyConfig();
+    const config = loadMiladyConfig();
     const def = (config.customActions ?? []).find((a) => a.id === actionId);
     if (!def) {
       error(res, "Action not found", 404);
@@ -11712,7 +10534,7 @@ async function handleRequest(
     const body = await readJsonBody<Record<string, unknown>>(req, res);
     if (!body) return;
 
-    const config = loadMilaidyConfig();
+    const config = loadMiladyConfig();
     const actions = config.customActions ?? [];
     const idx = actions.findIndex((a) => a.id === actionId);
     if (idx === -1) {
@@ -11758,7 +10580,7 @@ async function handleRequest(
 
     actions[idx] = updated;
     config.customActions = actions;
-    saveMilaidyConfig(config);
+    saveMiladyConfig(config);
 
     json(res, { ok: true, action: updated });
     return;
@@ -11767,7 +10589,7 @@ async function handleRequest(
   if (method === "DELETE" && customActionMatch) {
     const actionId = decodeURIComponent(customActionMatch[1]);
 
-    const config = loadMilaidyConfig();
+    const config = loadMiladyConfig();
     const actions = config.customActions ?? [];
     const idx = actions.findIndex((a) => a.id === actionId);
     if (idx === -1) {
@@ -11777,7 +10599,7 @@ async function handleRequest(
 
     actions.splice(idx, 1);
     config.customActions = actions;
-    saveMilaidyConfig(config);
+    saveMiladyConfig(config);
 
     json(res, { ok: true });
     return;
@@ -11799,8 +10621,8 @@ async function handleRequest(
 // the entire server dependency graph into lightweight consumers (e.g. the
 // headless `startEliza()` path).
 // ---------------------------------------------------------------------------
-import { captureEarlyLogs, flushEarlyLogs } from "./early-logs";
-export { captureEarlyLogs };
+import { type captureEarlyLogs, flushEarlyLogs } from "./early-logs";
+export type { captureEarlyLogs };
 
 // ---------------------------------------------------------------------------
 // Server start
@@ -11822,20 +10644,25 @@ export async function startApiServer(opts?: {
   close: () => Promise<void>;
   updateRuntime: (rt: AgentRuntime) => void;
 }> {
+  const apiStartTime = Date.now();
+  console.log(`[milady-api] startApiServer called`);
+
   const port = opts?.port ?? 2138;
   const host =
-    (process.env.MILAIDY_API_BIND ?? "127.0.0.1").trim() || "127.0.0.1";
+    (process.env.MILADY_API_BIND ?? "127.0.0.1").trim() || "127.0.0.1";
   ensureApiTokenForBindHost(host);
+  console.log(`[milady-api] Token check done (${Date.now() - apiStartTime}ms)`);
 
-  let config: MilaidyConfig;
+  let config: MiladyConfig;
   try {
-    config = loadMilaidyConfig();
+    config = loadMiladyConfig();
   } catch (err) {
     logger.warn(
-      `[milaidy-api] Failed to load config, starting with defaults: ${err instanceof Error ? err.message : err}`,
+      `[milady-api] Failed to load config, starting with defaults: ${err instanceof Error ? err.message : err}`,
     );
-    config = {} as MilaidyConfig;
+    config = {} as MiladyConfig;
   }
+  console.log(`[milady-api] Config loaded (${Date.now() - apiStartTime}ms)`);
 
   // Wallet/inventory routes read from process.env at request-time.
   // Hydrate persisted config.env values so addresses remain visible after restarts.
@@ -11857,7 +10684,22 @@ export async function startApiServer(opts?: {
     }
   }
 
+  // Self-heal older configs where wallet keys were never provisioned
+  // (e.g. RPC/cloud configured outside onboarding).
+  if (ensureWalletKeysInEnvAndConfig(config)) {
+    try {
+      saveMiladyConfig(config);
+    } catch (err) {
+      logger.warn(
+        `[milady-api] Failed to persist generated wallet keys: ${err instanceof Error ? err.message : err}`,
+      );
+    }
+  }
+
   const plugins = discoverPluginsFromManifest();
+  console.log(
+    `[milady-api] Plugins discovered (${Date.now() - apiStartTime}ms)`,
+  );
   const workspaceDir =
     config.agents?.defaults?.workspace ?? resolveDefaultAgentWorkspaceDir();
 
@@ -11866,10 +10708,10 @@ export async function startApiServer(opts?: {
     ? "running"
     : (opts?.initialAgentState ?? "not_started");
   const agentName = hasRuntime
-    ? (opts.runtime?.character.name ?? "Milaidy")
+    ? (opts.runtime?.character.name ?? "Milady")
     : (config.agents?.list?.[0]?.name ??
       config.ui?.assistant?.name ??
-      "Milaidy");
+      "Milady");
 
   const state: ServerState = {
     runtime: opts?.runtime ?? null,
@@ -11905,23 +10747,31 @@ export async function startApiServer(opts?: {
     shellEnabled: config.features?.shellEnabled !== false,
   };
 
-  const trainingService = new TrainingService({
+  const trainingServiceCtor = await resolveTrainingServiceCtor();
+  const trainingServiceOptions = {
     getRuntime: () => state.runtime,
     getConfig: () => state.config,
-    setConfig: (nextConfig: MilaidyConfig) => {
+    setConfig: (nextConfig: MiladyConfig) => {
       state.config = nextConfig;
-      saveMilaidyConfig(nextConfig);
+      saveMiladyConfig(nextConfig);
     },
-  });
+  };
+  if (trainingServiceCtor) {
+    state.trainingService = new trainingServiceCtor(trainingServiceOptions);
+  } else {
+    logger.warn(
+      "[milady-api] Training service package unavailable; using fallback in-memory implementation",
+    );
+    state.trainingService = new FallbackTrainingService(trainingServiceOptions);
+  }
   // Register immediately so /api/training routes are available without a startup race.
-  state.trainingService = trainingService;
   const configuredAdminEntityId = config.agents?.defaults?.adminEntityId;
   if (configuredAdminEntityId && isUuidLike(configuredAdminEntityId)) {
     state.adminEntityId = configuredAdminEntityId;
     state.chatUserId = state.adminEntityId;
   } else if (configuredAdminEntityId) {
     logger.warn(
-      `[milaidy-api] Ignoring invalid agents.defaults.adminEntityId "${configuredAdminEntityId}"`,
+      `[milady-api] Ignoring invalid agents.defaults.adminEntityId "${configuredAdminEntityId}"`,
     );
   }
 
@@ -11994,7 +10844,7 @@ export async function startApiServer(opts?: {
   // eliza.ts, services, plugins, etc.) AND the runtime instance logger.
   // A marker prevents double-patching on hot-restart and avoids stacking
   // wrapper functions that would leak memory.
-  const PATCHED_MARKER = "__milaidyLogPatched";
+  const PATCHED_MARKER = "__miladyLogPatched";
   const LEVELS = ["debug", "info", "warn", "error"] as const;
 
   /**
@@ -12030,7 +10880,7 @@ export async function startApiServer(opts?: {
           }
           msg = typeof args[1] === "string" ? args[1] : JSON.stringify(obj);
         }
-        // Auto-extract source from [bracket] prefixes (e.g. "[milaidy] ...")
+        // Auto-extract source from [bracket] prefixes (e.g. "[milady] ...")
         const bracketMatch = /^\[([^\]]+)\]\s*/.exec(msg);
         if (bracketMatch && source === defaultSource) {
           source = bracketMatch[1];
@@ -12089,6 +10939,9 @@ export async function startApiServer(opts?: {
   // Store the restart callback on the state so the route handler can access it.
   const onRestart = opts?.onRestart ?? null;
 
+  console.log(
+    `[milady-api] Creating http server (${Date.now() - apiStartTime}ms)`,
+  );
   const server = http.createServer(async (req, res) => {
     try {
       await handleRequest(req, res, state, { onRestart });
@@ -12098,6 +10951,7 @@ export async function startApiServer(opts?: {
       error(res, msg, 500);
     }
   });
+  console.log(`[milady-api] Server created (${Date.now() - apiStartTime}ms)`);
 
   const broadcastWs = (payload: object): void => {
     const message = JSON.stringify(payload);
@@ -12107,7 +10961,7 @@ export async function startApiServer(opts?: {
           client.send(message);
         } catch (err) {
           logger.error(
-            `[milaidy-api] WebSocket broadcast error: ${err instanceof Error ? err.message : err}`,
+            `[milady-api] WebSocket broadcast error: ${err instanceof Error ? err.message : err}`,
           );
         }
       }
@@ -12152,6 +11006,12 @@ export async function startApiServer(opts?: {
         roomId: event.roomId,
         payload: event.data,
       });
+
+      void maybeRouteAutonomyEventToConversation(state, event).catch((err) => {
+        logger.warn(
+          `[autonomy-route] Failed to route proactive event: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      });
     });
 
     const unsubHeartbeat = svc.subscribeHeartbeat((event) => {
@@ -12174,11 +11034,13 @@ export async function startApiServer(opts?: {
       detachTrainingStream = null;
     }
     if (!state.trainingService) return;
-    detachTrainingStream = state.trainingService.subscribe((event) => {
+    detachTrainingStream = state.trainingService.subscribe((event: unknown) => {
+      const payload =
+        typeof event === "object" && event !== null ? event : { value: event };
       pushEvent({
         type: "training_event",
         ts: Date.now(),
-        payload: event,
+        payload,
       });
     });
   };
@@ -12202,12 +11064,14 @@ export async function startApiServer(opts?: {
         );
       } catch (err) {
         logger.warn(
-          `[milaidy-api] Skill discovery failed during startup: ${err instanceof Error ? err.message : String(err)}`,
+          `[milady-api] Skill discovery failed during startup: ${err instanceof Error ? err.message : String(err)}`,
         );
       }
     })();
 
     void (async () => {
+      const trainingService = state.trainingService;
+      if (!trainingService) return;
       try {
         await trainingService.initialize();
         bindTrainingStream();
@@ -12217,37 +11081,7 @@ export async function startApiServer(opts?: {
         ]);
       } catch (err) {
         logger.error(
-          `[milaidy-api] Training service init failed: ${err instanceof Error ? err.message : String(err)}`,
-        );
-      }
-    })();
-
-    void (async () => {
-      if (!state.config.cloud?.enabled || !state.config.cloud.apiKey) return;
-      const mgr = new CloudManager(state.config.cloud, {
-        onStatusChange: (s) => {
-          addLog("info", `Cloud connection status: ${s}`, "cloud", [
-            "server",
-            "cloud",
-          ]);
-        },
-      });
-
-      try {
-        await mgr.init();
-        state.cloudManager = mgr;
-        addLog(
-          "info",
-          "Cloud manager initialised (Eliza Cloud enabled)",
-          "cloud",
-          ["server", "cloud"],
-        );
-      } catch (err) {
-        addLog(
-          "warn",
-          `Cloud manager init failed: ${err instanceof Error ? err.message : String(err)}`,
-          "cloud",
-          ["server", "cloud"],
+          `[milady-api] Training service init failed: ${err instanceof Error ? err.message : String(err)}`,
         );
       }
     })();
@@ -12325,7 +11159,7 @@ export async function startApiServer(opts?: {
       });
     } catch (err) {
       logger.error(
-        `[milaidy-api] WebSocket upgrade error: ${err instanceof Error ? err.message : err}`,
+        `[milady-api] WebSocket upgrade error: ${err instanceof Error ? err.message : err}`,
       );
       rejectWebSocketUpgrade(socket, 404, "Not found");
     }
@@ -12356,7 +11190,7 @@ export async function startApiServer(opts?: {
       }
     } catch (err) {
       logger.error(
-        `[milaidy-api] WebSocket send error: ${err instanceof Error ? err.message : err}`,
+        `[milady-api] WebSocket send error: ${err instanceof Error ? err.message : err}`,
       );
     }
 
@@ -12371,7 +11205,7 @@ export async function startApiServer(opts?: {
         }
       } catch (err) {
         logger.error(
-          `[milaidy-api] WebSocket message error: ${err instanceof Error ? err.message : err}`,
+          `[milady-api] WebSocket message error: ${err instanceof Error ? err.message : err}`,
         );
       }
     });
@@ -12386,7 +11220,7 @@ export async function startApiServer(opts?: {
 
     ws.on("error", (err) => {
       logger.error(
-        `[milaidy-api] WebSocket error: ${err instanceof Error ? err.message : err}`,
+        `[milady-api] WebSocket error: ${err instanceof Error ? err.message : err}`,
       );
       wsClients.delete(ws);
     });
@@ -12415,26 +11249,7 @@ export async function startApiServer(opts?: {
           client.send(message);
         } catch (err) {
           logger.error(
-            `[milaidy-api] WebSocket broadcast error: ${err instanceof Error ? err.message : err}`,
-          );
-        }
-      }
-    }
-  };
-
-  // Make broadcastStatus accessible to route handlers via state
-  state.broadcastStatus = broadcastStatus;
-
-  // Generic broadcast — sends an arbitrary JSON payload to all WS clients.
-  state.broadcastWs = (data: Record<string, unknown>) => {
-    const message = JSON.stringify(data);
-    for (const client of wsClients) {
-      if (client.readyState === 1) {
-        try {
-          client.send(message);
-        } catch (err) {
-          logger.error(
-            `[milaidy-api] WebSocket broadcast error: ${err instanceof Error ? err.message : err}`,
+            `[milady-api] WebSocket broadcast error: ${err instanceof Error ? err.message : err}`,
           );
         }
       }
@@ -12453,7 +11268,7 @@ export async function startApiServer(opts?: {
     rt: AgentRuntime,
   ): Promise<void> => {
     try {
-      const agentName = rt.character.name ?? "Milaidy";
+      const agentName = rt.character.name ?? "Milady";
       const worldId = stringToUuid(`${agentName}-web-chat-world`);
       const rooms = await rt.getRoomsByWorld(worldId);
       if (!rooms?.length) return;
@@ -12503,7 +11318,7 @@ export async function startApiServer(opts?: {
       }
     } catch (err) {
       logger.warn(
-        `[milaidy-api] Failed to restore conversations from DB: ${err instanceof Error ? err.message : err}`,
+        `[milady-api] Failed to restore conversations from DB: ${err instanceof Error ? err.message : err}`,
       );
     }
   };
@@ -12521,7 +11336,7 @@ export async function startApiServer(opts?: {
     bindRuntimeStreams(rt);
     // AppManager doesn't need a runtime reference
     state.agentState = "running";
-    state.agentName = rt.character.name ?? "Milaidy";
+    state.agentName = rt.character.name ?? "Milady";
     state.startedAt = Date.now();
     addLog("info", `Runtime restarted — agent: ${state.agentName}`, "system", [
       "system",
@@ -12533,15 +11348,16 @@ export async function startApiServer(opts?: {
 
     // Broadcast status update immediately after restart
     broadcastStatus();
-    // Re-patch the new runtime's messageService for autonomy routing
-    patchMessageServiceForAutonomy(state);
   };
 
-  // Patch the initial runtime (if provided) for autonomy routing
-  patchMessageServiceForAutonomy(state);
-
+  console.log(
+    `[milady-api] Calling server.listen (${Date.now() - apiStartTime}ms)`,
+  );
   return new Promise((resolve) => {
     server.listen(port, host, () => {
+      console.log(
+        `[milady-api] server.listen callback fired (${Date.now() - apiStartTime}ms)`,
+      );
       const addr = server.address();
       const actualPort = typeof addr === "object" && addr ? addr.port : port;
       const displayHost =
@@ -12553,7 +11369,7 @@ export async function startApiServer(opts?: {
         ["server", "system"],
       );
       logger.info(
-        `[milaidy-api] Listening on http://${displayHost}:${actualPort}`,
+        `[milady-api] Listening on http://${displayHost}:${actualPort}`,
       );
       startDeferredStartupWork();
       resolve({

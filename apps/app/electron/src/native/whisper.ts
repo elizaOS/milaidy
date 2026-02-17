@@ -11,9 +11,9 @@
  * - Multilingual support
  */
 
-import { EventEmitter } from "events";
-import path from "path";
-import fs from "fs";
+import { EventEmitter } from "node:events";
+import fs from "node:fs";
+import path from "node:path";
 import { app } from "electron";
 
 // Types for whisper.cpp integration
@@ -65,12 +65,21 @@ interface WhisperTranscribeOptions {
 }
 
 interface WhisperBindings {
-  init(modelPath: string, options?: WhisperInitOptions): Promise<WhisperContext>;
+  init(
+    modelPath: string,
+    options?: WhisperInitOptions,
+  ): Promise<WhisperContext>;
 }
 
 interface WhisperContext {
-  transcribe(audioPath: string, options?: WhisperTranscribeOptions): Promise<WhisperNativeResult>;
-  transcribeBuffer(buffer: Float32Array, options?: WhisperTranscribeOptions): Promise<WhisperNativeResult>;
+  transcribe(
+    audioPath: string,
+    options?: WhisperTranscribeOptions,
+  ): Promise<WhisperNativeResult>;
+  transcribeBuffer(
+    buffer: Float32Array,
+    options?: WhisperTranscribeOptions,
+  ): Promise<WhisperNativeResult>;
   free(): void;
 }
 
@@ -117,13 +126,18 @@ async function loadWhisperModule(): Promise<WhisperBindings | null> {
     } catch (err) {
       // Expected for packages that aren't installed - only log at debug level
       const message = err instanceof Error ? err.message : String(err);
-      if (!message.includes("Cannot find module") && !message.includes("MODULE_NOT_FOUND")) {
+      if (
+        !message.includes("Cannot find module") &&
+        !message.includes("MODULE_NOT_FOUND")
+      ) {
         console.warn(`[Whisper] Failed to load ${pkg}:`, message);
       }
     }
   }
 
-  console.warn("[Whisper] No whisper.cpp bindings found. Install whisper-node for offline STT.");
+  console.warn(
+    "[Whisper] No whisper.cpp bindings found. Install whisper-node for offline STT.",
+  );
   return null;
 }
 
@@ -178,7 +192,8 @@ export class WhisperSTT extends EventEmitter {
       this.emit("initialized");
       return true;
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to initialize Whisper";
+      const message =
+        error instanceof Error ? error.message : "Failed to initialize Whisper";
       this.emit("error", { message });
       return false;
     }
@@ -245,7 +260,7 @@ export class WhisperSTT extends EventEmitter {
     this.emit("processing", { path: audioPath });
 
     try {
-      const result = await this.context!.transcribe(audioPath, {
+      const result = await this.context?.transcribe(audioPath, {
         token_timestamps: true,
         word_timestamps: true,
       });
@@ -254,7 +269,8 @@ export class WhisperSTT extends EventEmitter {
       this.emit("result", whisperResult);
       return whisperResult;
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Transcription failed";
+      const message =
+        error instanceof Error ? error.message : "Transcription failed";
       this.emit("error", { message });
       return null;
     } finally {
@@ -265,7 +281,9 @@ export class WhisperSTT extends EventEmitter {
   /**
    * Transcribe audio from a Float32Array buffer (16kHz mono PCM)
    */
-  async transcribeBuffer(audioBuffer: Float32Array): Promise<WhisperResult | null> {
+  async transcribeBuffer(
+    audioBuffer: Float32Array,
+  ): Promise<WhisperResult | null> {
     if (!this.context) {
       const initialized = await this.initialize();
       if (!initialized) return null;
@@ -279,7 +297,7 @@ export class WhisperSTT extends EventEmitter {
     this.emit("processing", { bufferLength: audioBuffer.length });
 
     try {
-      const result = await this.context!.transcribeBuffer(audioBuffer, {
+      const result = await this.context?.transcribeBuffer(audioBuffer, {
         token_timestamps: true,
         word_timestamps: true,
       });
@@ -288,7 +306,8 @@ export class WhisperSTT extends EventEmitter {
       this.emit("result", whisperResult);
       return whisperResult;
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Transcription failed";
+      const message =
+        error instanceof Error ? error.message : "Transcription failed";
       this.emit("error", { message });
       return null;
     } finally {
@@ -312,7 +331,8 @@ export class WhisperSTT extends EventEmitter {
       })),
     }));
 
-    const duration = segments.length > 0 ? segments[segments.length - 1].end : 0;
+    const duration =
+      segments.length > 0 ? segments[segments.length - 1].end : 0;
 
     return {
       text: native.text.trim(),
@@ -378,7 +398,9 @@ export class WhisperStreamTranscriber extends EventEmitter {
     this.silenceThreshold = config?.silenceThreshold ?? 0.01;
     this.silenceDuration = config?.silenceDuration ?? 0.5;
 
-    this.audioBuffer = new Float32Array(this.sampleRate * this.maxChunkDuration);
+    this.audioBuffer = new Float32Array(
+      this.sampleRate * this.maxChunkDuration,
+    );
   }
 
   /**
@@ -418,7 +440,12 @@ export class WhisperStreamTranscriber extends EventEmitter {
     if (this.bufferPosition > this.sampleRate * this.minChunkDuration) {
       this.processCurrentBuffer().catch((err) => {
         console.error("[Whisper] Error processing final buffer on stop:", err);
-        this.emit("error", { message: err instanceof Error ? err.message : "Final buffer processing failed" });
+        this.emit("error", {
+          message:
+            err instanceof Error
+              ? err.message
+              : "Final buffer processing failed",
+        });
       });
     }
 
@@ -451,7 +478,10 @@ export class WhisperStreamTranscriber extends EventEmitter {
     if (this.bufferPosition >= this.audioBuffer.length) {
       this.processCurrentBuffer().catch((err) => {
         console.error("[Whisper] Error processing full buffer:", err);
-        this.emit("error", { message: err instanceof Error ? err.message : "Buffer processing failed" });
+        this.emit("error", {
+          message:
+            err instanceof Error ? err.message : "Buffer processing failed",
+        });
       });
     }
   }
@@ -466,10 +496,21 @@ export class WhisperStreamTranscriber extends EventEmitter {
     const bufferDuration = this.bufferPosition / this.sampleRate;
 
     // Process if we have enough audio and detected silence
-    if (bufferDuration >= this.minChunkDuration && timeSinceActive >= this.silenceDuration) {
+    if (
+      bufferDuration >= this.minChunkDuration &&
+      timeSinceActive >= this.silenceDuration
+    ) {
       this.processCurrentBuffer().catch((err) => {
-        console.error("[Whisper] Error processing buffer on silence detection:", err);
-        this.emit("error", { message: err instanceof Error ? err.message : "Silence-triggered processing failed" });
+        console.error(
+          "[Whisper] Error processing buffer on silence detection:",
+          err,
+        );
+        this.emit("error", {
+          message:
+            err instanceof Error
+              ? err.message
+              : "Silence-triggered processing failed",
+        });
       });
     }
   }
@@ -484,7 +525,7 @@ export class WhisperStreamTranscriber extends EventEmitter {
     this.bufferPosition = 0;
 
     const result = await this.whisper.transcribeBuffer(chunk);
-    if (result && result.text.trim()) {
+    if (result?.text.trim()) {
       this.emit("transcript", result);
     }
   }

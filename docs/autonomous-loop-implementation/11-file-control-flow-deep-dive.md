@@ -6,7 +6,7 @@ This appendix details function-level control flow for key files involved in the 
 
 ## Primary responsibilities
 
-1. HTTP route multiplexer for Milaidy control APIs
+1. HTTP route multiplexer for Milady control APIs
 2. runtime lifecycle endpoint handling
 3. conversation orchestration
 4. log buffering/filtering
@@ -215,7 +215,7 @@ Implication:
 3. per-run sequence generation
 4. listener fan-out
 
-For Milaidy:
+For Milady:
 
 - the simplest robust integration is server-side subscription + websocket rebroadcast.
 
@@ -240,7 +240,7 @@ For this initiative:
 
 For this initiative:
 
-- Milaidy must populate ownership and roles consistently to enable reliable admin trust behavior.
+- Milady must populate ownership and roles consistently to enable reliable admin trust behavior.
 
 ## Cross-file coupling hotspots
 

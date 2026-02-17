@@ -1,12 +1,12 @@
-import type { MilaidyConfig } from "./types.js";
+import type { MiladyConfig } from "./types";
 
 export interface ApplyPluginAutoEnableResult {
-  config: MilaidyConfig;
+  config: MiladyConfig;
   changes: string[];
 }
 
 export interface ApplyPluginAutoEnableParams {
-  config: Partial<MilaidyConfig>;
+  config: Partial<MiladyConfig>;
   env: NodeJS.ProcessEnv;
 }
 
@@ -94,6 +94,7 @@ const FEATURE_PLUGINS: Record<string, string> = {
   fal: "@elizaos/plugin-fal",
   suno: "@elizaos/plugin-suno",
   vision: "@elizaos/plugin-vision",
+  computeruse: "@elizaos/plugin-computeruse",
 };
 
 function isConnectorConfigured(
@@ -110,11 +111,43 @@ function isConnectorConfigured(
   if (config.botToken || config.token || config.apiKey) {
     return true;
   }
+
+  const hasEnabledSignalAccount =
+    connectorName === "signal" &&
+    typeof config.accounts === "object" &&
+    config.accounts !== null &&
+    Object.values(config.accounts as Record<string, unknown>).some(
+      (account) => {
+        if (!account || typeof account !== "object") return false;
+        const accountConfig = account as Record<string, unknown>;
+        if (accountConfig.enabled === false) return false;
+        return Boolean(
+          accountConfig.account ||
+            accountConfig.httpUrl ||
+            accountConfig.httpHost ||
+            accountConfig.httpPort ||
+            accountConfig.cliPath,
+        );
+      },
+    );
+
+  if (hasEnabledSignalAccount) {
+    return true;
+  }
+
   switch (connectorName) {
     case "bluebubbles":
       return Boolean(config.serverUrl && config.password);
     case "imessage":
       return Boolean(config.cliPath);
+    case "signal":
+      return Boolean(
+        config.account ||
+          config.httpUrl ||
+          config.httpHost ||
+          config.httpPort ||
+          config.cliPath,
+      );
     case "whatsapp":
       // authState/sessionPath: legacy field names
       // authDir: Baileys multi-file auth state directory (WhatsAppAccountSchema)
@@ -150,7 +183,7 @@ export function applyPluginAutoEnable(
 ): ApplyPluginAutoEnableResult {
   const { config, env } = params;
   const changes: string[] = [];
-  const updatedConfig = structuredClone(config) as MilaidyConfig;
+  const updatedConfig = structuredClone(config) as MiladyConfig;
 
   if (updatedConfig.plugins?.enabled === false) {
     return { config: updatedConfig, changes };

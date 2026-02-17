@@ -1,6 +1,6 @@
-# Phase 3: Milaidy API Layer (`/api/triggers`)
+# Phase 3: Milady API Layer (`/api/triggers`)
 
-Phase 3 adds a first-class Trigger API to `milaidy/src/api/server.ts`.
+Phase 3 adds a first-class Trigger API to `milady/src/api/server.ts`.
 
 This phase translates between:
 

@@ -12,23 +12,23 @@
  * - Shell operations
  */
 
+import fs from "node:fs";
+import path from "node:path";
+import type { IpcMainInvokeEvent } from "electron";
 import {
   app,
-  BrowserWindow,
-  Tray,
-  Menu,
-  globalShortcut,
-  Notification,
-  powerMonitor,
+  type BrowserWindow,
   clipboard,
-  shell,
-  nativeImage,
+  globalShortcut,
   ipcMain,
-  MenuItemConstructorOptions,
+  Menu,
+  type MenuItemConstructorOptions,
+  Notification,
+  nativeImage,
+  powerMonitor,
+  shell,
+  Tray,
 } from "electron";
-import type { IpcMainInvokeEvent } from "electron";
-import path from "path";
-import fs from "fs";
 import type { IpcValue } from "./ipc-types";
 
 // Types
@@ -225,7 +225,9 @@ export class DesktopManager {
     this.tray.setContextMenu(menu);
   }
 
-  private buildMenuTemplate(items: TrayMenuItem[]): MenuItemConstructorOptions[] {
+  private buildMenuTemplate(
+    items: TrayMenuItem[],
+  ): MenuItemConstructorOptions[] {
     return items.map((item): MenuItemConstructorOptions => {
       const menuItem: MenuItemConstructorOptions = {
         id: item.id,
@@ -246,7 +248,9 @@ export class DesktopManager {
       if (item.icon) {
         const iconPath = this.resolveIconPath(item.icon);
         if (fs.existsSync(iconPath)) {
-          menuItem.icon = nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 });
+          menuItem.icon = nativeImage
+            .createFromPath(iconPath)
+            .resize({ width: 16, height: 16 });
         }
       }
 
@@ -306,9 +310,11 @@ export class DesktopManager {
 
   // MARK: - Global Shortcuts
 
-  async registerShortcut(options: GlobalShortcut): Promise<{ success: boolean }> {
+  async registerShortcut(
+    options: GlobalShortcut,
+  ): Promise<{ success: boolean }> {
     if (this.shortcuts.has(options.id)) {
-      globalShortcut.unregister(this.shortcuts.get(options.id)!.accelerator);
+      globalShortcut.unregister(this.shortcuts.get(options.id)?.accelerator);
     }
 
     const success = globalShortcut.register(options.accelerator, () => {
@@ -338,20 +344,28 @@ export class DesktopManager {
     this.shortcuts.clear();
   }
 
-  async isShortcutRegistered(options: { accelerator: string }): Promise<{ registered: boolean }> {
+  async isShortcutRegistered(options: {
+    accelerator: string;
+  }): Promise<{ registered: boolean }> {
     return { registered: globalShortcut.isRegistered(options.accelerator) };
   }
 
   // MARK: - Auto Launch
 
-  async setAutoLaunch(options: { enabled: boolean; openAsHidden?: boolean }): Promise<void> {
+  async setAutoLaunch(options: {
+    enabled: boolean;
+    openAsHidden?: boolean;
+  }): Promise<void> {
     app.setLoginItemSettings({
       openAtLogin: options.enabled,
       openAsHidden: options.openAsHidden,
     });
   }
 
-  async getAutoLaunchStatus(): Promise<{ enabled: boolean; openAsHidden: boolean }> {
+  async getAutoLaunchStatus(): Promise<{
+    enabled: boolean;
+    openAsHidden: boolean;
+  }> {
     const settings = app.getLoginItemSettings();
     return {
       enabled: settings.openAtLogin,
@@ -366,7 +380,10 @@ export class DesktopManager {
 
     if (options.width !== undefined || options.height !== undefined) {
       const bounds = win.getBounds();
-      win.setSize(options.width ?? bounds.width, options.height ?? bounds.height);
+      win.setSize(
+        options.width ?? bounds.width,
+        options.height ?? bounds.height,
+      );
     }
 
     if (options.x !== undefined || options.y !== undefined) {
@@ -384,19 +401,27 @@ export class DesktopManager {
 
     if (options.resizable !== undefined) win.setResizable(options.resizable);
     if (options.movable !== undefined) win.setMovable(options.movable);
-    if (options.minimizable !== undefined) win.setMinimizable(options.minimizable);
-    if (options.maximizable !== undefined) win.setMaximizable(options.maximizable);
+    if (options.minimizable !== undefined)
+      win.setMinimizable(options.minimizable);
+    if (options.maximizable !== undefined)
+      win.setMaximizable(options.maximizable);
     if (options.closable !== undefined) win.setClosable(options.closable);
     if (options.focusable !== undefined) win.setFocusable(options.focusable);
-    if (options.alwaysOnTop !== undefined) win.setAlwaysOnTop(options.alwaysOnTop);
+    if (options.alwaysOnTop !== undefined)
+      win.setAlwaysOnTop(options.alwaysOnTop);
     if (options.fullscreen !== undefined) win.setFullScreen(options.fullscreen);
-    if (options.fullscreenable !== undefined) win.setFullScreenable(options.fullscreenable);
-    if (options.skipTaskbar !== undefined) win.setSkipTaskbar(options.skipTaskbar);
+    if (options.fullscreenable !== undefined)
+      win.setFullScreenable(options.fullscreenable);
+    if (options.skipTaskbar !== undefined)
+      win.setSkipTaskbar(options.skipTaskbar);
     if (options.opacity !== undefined) win.setOpacity(options.opacity);
     if (options.title !== undefined) win.setTitle(options.title);
-    if (options.backgroundColor !== undefined) win.setBackgroundColor(options.backgroundColor);
+    if (options.backgroundColor !== undefined)
+      win.setBackgroundColor(options.backgroundColor);
     if (options.vibrancy !== undefined && process.platform === "darwin") {
-      win.setVibrancy(options.vibrancy as Parameters<typeof win.setVibrancy>[0]);
+      win.setVibrancy(
+        options.vibrancy as Parameters<typeof win.setVibrancy>[0],
+      );
     }
   }
 
@@ -455,7 +480,7 @@ export class DesktopManager {
   async setAlwaysOnTop(options: SetAlwaysOnTopOptions): Promise<void> {
     this.getWindow().setAlwaysOnTop(
       options.flag,
-      options.level as Parameters<BrowserWindow["setAlwaysOnTop"]>[1]
+      options.level as Parameters<BrowserWindow["setAlwaysOnTop"]>[1],
     );
   }
 
@@ -470,18 +495,32 @@ export class DesktopManager {
   private setupWindowEvents(): void {
     if (!this.mainWindow) return;
 
-    this.mainWindow.on("focus", () => this.sendToRenderer("desktop:windowFocus"));
+    this.mainWindow.on("focus", () =>
+      this.sendToRenderer("desktop:windowFocus"),
+    );
     this.mainWindow.on("blur", () => this.sendToRenderer("desktop:windowBlur"));
-    this.mainWindow.on("maximize", () => this.sendToRenderer("desktop:windowMaximize"));
-    this.mainWindow.on("unmaximize", () => this.sendToRenderer("desktop:windowUnmaximize"));
-    this.mainWindow.on("minimize", () => this.sendToRenderer("desktop:windowMinimize"));
-    this.mainWindow.on("restore", () => this.sendToRenderer("desktop:windowRestore"));
-    this.mainWindow.on("close", () => this.sendToRenderer("desktop:windowClose"));
+    this.mainWindow.on("maximize", () =>
+      this.sendToRenderer("desktop:windowMaximize"),
+    );
+    this.mainWindow.on("unmaximize", () =>
+      this.sendToRenderer("desktop:windowUnmaximize"),
+    );
+    this.mainWindow.on("minimize", () =>
+      this.sendToRenderer("desktop:windowMinimize"),
+    );
+    this.mainWindow.on("restore", () =>
+      this.sendToRenderer("desktop:windowRestore"),
+    );
+    this.mainWindow.on("close", () =>
+      this.sendToRenderer("desktop:windowClose"),
+    );
   }
 
   // MARK: - Notifications
 
-  async showNotification(options: NotificationOptions): Promise<{ id: string }> {
+  async showNotification(
+    options: NotificationOptions,
+  ): Promise<{ id: string }> {
     const id = `notification_${++this.notificationCounter}`;
 
     const notification = new Notification({
@@ -540,7 +579,11 @@ export class DesktopManager {
     idleTime: number;
   }> {
     const idleTime = powerMonitor.getSystemIdleTime();
-    const idleState = powerMonitor.getSystemIdleState(60) as "active" | "idle" | "locked" | "unknown";
+    const idleState = powerMonitor.getSystemIdleState(60) as
+      | "active"
+      | "idle"
+      | "locked"
+      | "unknown";
 
     // Note: Battery info not available on all platforms
     let onBattery = false;
@@ -558,10 +601,14 @@ export class DesktopManager {
   }
 
   private setupPowerMonitorEvents(): void {
-    powerMonitor.on("suspend", () => this.sendToRenderer("desktop:powerSuspend"));
+    powerMonitor.on("suspend", () =>
+      this.sendToRenderer("desktop:powerSuspend"),
+    );
     powerMonitor.on("resume", () => this.sendToRenderer("desktop:powerResume"));
     powerMonitor.on("on-ac", () => this.sendToRenderer("desktop:powerOnAC"));
-    powerMonitor.on("on-battery", () => this.sendToRenderer("desktop:powerOnBattery"));
+    powerMonitor.on("on-battery", () =>
+      this.sendToRenderer("desktop:powerOnBattery"),
+    );
   }
 
   // MARK: - App
@@ -596,7 +643,9 @@ export class DesktopManager {
   }
 
   async getPath(options: { name: string }): Promise<{ path: string }> {
-    return { path: app.getPath(options.name as Parameters<typeof app.getPath>[0]) };
+    return {
+      path: app.getPath(options.name as Parameters<typeof app.getPath>[0]),
+    };
   }
 
   // MARK: - Clipboard
@@ -704,25 +753,67 @@ export function registerDesktopIPC(): void {
   const manager = getDesktopManager();
 
   // Tray
-  ipcMain.handle("desktop:createTray", (_e: IpcMainInvokeEvent, options: TrayOptions) => manager.createTray(options));
-  ipcMain.handle("desktop:updateTray", (_e: IpcMainInvokeEvent, options: Partial<TrayOptions>) => manager.updateTray(options));
+  ipcMain.handle(
+    "desktop:createTray",
+    (_e: IpcMainInvokeEvent, options: TrayOptions) =>
+      manager.createTray(options),
+  );
+  ipcMain.handle(
+    "desktop:updateTray",
+    (_e: IpcMainInvokeEvent, options: Partial<TrayOptions>) =>
+      manager.updateTray(options),
+  );
   ipcMain.handle("desktop:destroyTray", () => manager.destroyTray());
-  ipcMain.handle("desktop:setTrayMenu", (_e: IpcMainInvokeEvent, options: { menu: TrayMenuItem[] }) => manager.setTrayMenu(options));
+  ipcMain.handle(
+    "desktop:setTrayMenu",
+    (_e: IpcMainInvokeEvent, options: { menu: TrayMenuItem[] }) =>
+      manager.setTrayMenu(options),
+  );
 
   // Shortcuts
-  ipcMain.handle("desktop:registerShortcut", (_e: IpcMainInvokeEvent, options: GlobalShortcut) => manager.registerShortcut(options));
-  ipcMain.handle("desktop:unregisterShortcut", (_e: IpcMainInvokeEvent, options: { id: string }) => manager.unregisterShortcut(options));
-  ipcMain.handle("desktop:unregisterAllShortcuts", () => manager.unregisterAllShortcuts());
-  ipcMain.handle("desktop:isShortcutRegistered", (_e: IpcMainInvokeEvent, options: { accelerator: string }) => manager.isShortcutRegistered(options));
+  ipcMain.handle(
+    "desktop:registerShortcut",
+    (_e: IpcMainInvokeEvent, options: GlobalShortcut) =>
+      manager.registerShortcut(options),
+  );
+  ipcMain.handle(
+    "desktop:unregisterShortcut",
+    (_e: IpcMainInvokeEvent, options: { id: string }) =>
+      manager.unregisterShortcut(options),
+  );
+  ipcMain.handle("desktop:unregisterAllShortcuts", () =>
+    manager.unregisterAllShortcuts(),
+  );
+  ipcMain.handle(
+    "desktop:isShortcutRegistered",
+    (_e: IpcMainInvokeEvent, options: { accelerator: string }) =>
+      manager.isShortcutRegistered(options),
+  );
 
   // Auto Launch
-  ipcMain.handle("desktop:setAutoLaunch", (_e: IpcMainInvokeEvent, options: { enabled: boolean; openAsHidden?: boolean }) => manager.setAutoLaunch(options));
-  ipcMain.handle("desktop:getAutoLaunchStatus", () => manager.getAutoLaunchStatus());
+  ipcMain.handle(
+    "desktop:setAutoLaunch",
+    (
+      _e: IpcMainInvokeEvent,
+      options: { enabled: boolean; openAsHidden?: boolean },
+    ) => manager.setAutoLaunch(options),
+  );
+  ipcMain.handle("desktop:getAutoLaunchStatus", () =>
+    manager.getAutoLaunchStatus(),
+  );
 
   // Window
-  ipcMain.handle("desktop:setWindowOptions", (_e: IpcMainInvokeEvent, options: WindowOptions) => manager.setWindowOptions(options));
+  ipcMain.handle(
+    "desktop:setWindowOptions",
+    (_e: IpcMainInvokeEvent, options: WindowOptions) =>
+      manager.setWindowOptions(options),
+  );
   ipcMain.handle("desktop:getWindowBounds", () => manager.getWindowBounds());
-  ipcMain.handle("desktop:setWindowBounds", (_e: IpcMainInvokeEvent, options: WindowBounds) => manager.setWindowBounds(options));
+  ipcMain.handle(
+    "desktop:setWindowBounds",
+    (_e: IpcMainInvokeEvent, options: WindowBounds) =>
+      manager.setWindowBounds(options),
+  );
   ipcMain.handle("desktop:minimizeWindow", () => manager.minimizeWindow());
   ipcMain.handle("desktop:maximizeWindow", () => manager.maximizeWindow());
   ipcMain.handle("desktop:unmaximizeWindow", () => manager.unmaximizeWindow());
@@ -730,17 +821,41 @@ export function registerDesktopIPC(): void {
   ipcMain.handle("desktop:showWindow", () => manager.showWindow());
   ipcMain.handle("desktop:hideWindow", () => manager.hideWindow());
   ipcMain.handle("desktop:focusWindow", () => manager.focusWindow());
-  ipcMain.handle("desktop:isWindowMaximized", () => manager.isWindowMaximized());
-  ipcMain.handle("desktop:isWindowMinimized", () => manager.isWindowMinimized());
+  ipcMain.handle("desktop:isWindowMaximized", () =>
+    manager.isWindowMaximized(),
+  );
+  ipcMain.handle("desktop:isWindowMinimized", () =>
+    manager.isWindowMinimized(),
+  );
   ipcMain.handle("desktop:isWindowVisible", () => manager.isWindowVisible());
   ipcMain.handle("desktop:isWindowFocused", () => manager.isWindowFocused());
-  ipcMain.handle("desktop:setAlwaysOnTop", (_e: IpcMainInvokeEvent, options: SetAlwaysOnTopOptions) => manager.setAlwaysOnTop(options));
-  ipcMain.handle("desktop:setFullscreen", (_e: IpcMainInvokeEvent, options: SetFullscreenOptions) => manager.setFullscreen(options));
-  ipcMain.handle("desktop:setOpacity", (_e: IpcMainInvokeEvent, options: SetOpacityOptions) => manager.setOpacity(options));
+  ipcMain.handle(
+    "desktop:setAlwaysOnTop",
+    (_e: IpcMainInvokeEvent, options: SetAlwaysOnTopOptions) =>
+      manager.setAlwaysOnTop(options),
+  );
+  ipcMain.handle(
+    "desktop:setFullscreen",
+    (_e: IpcMainInvokeEvent, options: SetFullscreenOptions) =>
+      manager.setFullscreen(options),
+  );
+  ipcMain.handle(
+    "desktop:setOpacity",
+    (_e: IpcMainInvokeEvent, options: SetOpacityOptions) =>
+      manager.setOpacity(options),
+  );
 
   // Notifications
-  ipcMain.handle("desktop:showNotification", (_e: IpcMainInvokeEvent, options: NotificationOptions) => manager.showNotification(options));
-  ipcMain.handle("desktop:closeNotification", (_e: IpcMainInvokeEvent, options: { id: string }) => manager.closeNotification(options));
+  ipcMain.handle(
+    "desktop:showNotification",
+    (_e: IpcMainInvokeEvent, options: NotificationOptions) =>
+      manager.showNotification(options),
+  );
+  ipcMain.handle(
+    "desktop:closeNotification",
+    (_e: IpcMainInvokeEvent, options: { id: string }) =>
+      manager.closeNotification(options),
+  );
 
   // Power
   ipcMain.handle("desktop:getPowerState", () => manager.getPowerState());
@@ -750,15 +865,33 @@ export function registerDesktopIPC(): void {
   ipcMain.handle("desktop:relaunch", () => manager.relaunch());
   ipcMain.handle("desktop:getVersion", () => manager.getVersion());
   ipcMain.handle("desktop:isPackaged", () => manager.isPackaged());
-  ipcMain.handle("desktop:getPath", (_e: IpcMainInvokeEvent, options: { name: string }) => manager.getPath(options));
+  ipcMain.handle(
+    "desktop:getPath",
+    (_e: IpcMainInvokeEvent, options: { name: string }) =>
+      manager.getPath(options),
+  );
 
   // Clipboard
-  ipcMain.handle("desktop:writeToClipboard", (_e: IpcMainInvokeEvent, options: ClipboardWriteOptions) => manager.writeToClipboard(options));
-  ipcMain.handle("desktop:readFromClipboard", () => manager.readFromClipboard());
+  ipcMain.handle(
+    "desktop:writeToClipboard",
+    (_e: IpcMainInvokeEvent, options: ClipboardWriteOptions) =>
+      manager.writeToClipboard(options),
+  );
+  ipcMain.handle("desktop:readFromClipboard", () =>
+    manager.readFromClipboard(),
+  );
   ipcMain.handle("desktop:clearClipboard", () => manager.clearClipboard());
 
   // Shell
-  ipcMain.handle("desktop:openExternal", (_e: IpcMainInvokeEvent, options: OpenExternalOptions) => manager.openExternal(options));
-  ipcMain.handle("desktop:showItemInFolder", (_e: IpcMainInvokeEvent, options: ShowItemInFolderOptions) => manager.showItemInFolder(options));
+  ipcMain.handle(
+    "desktop:openExternal",
+    (_e: IpcMainInvokeEvent, options: OpenExternalOptions) =>
+      manager.openExternal(options),
+  );
+  ipcMain.handle(
+    "desktop:showItemInFolder",
+    (_e: IpcMainInvokeEvent, options: ShowItemInFolderOptions) =>
+      manager.showItemInFolder(options),
+  );
   ipcMain.handle("desktop:beep", () => manager.beep());
 }

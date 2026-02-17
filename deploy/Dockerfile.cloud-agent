@@ -4,7 +4,7 @@
 # Pre-built image for deploying ElizaOS agents to ElizaCloud (AWS ECS).
 # Runs an ElizaOS agent runtime with the ElizaCloud plugin for inference,
 # exposes a health endpoint on $PORT (default 2138), and a bridge HTTP
-# server on $BRIDGE_PORT (default 18790) for communication with milaidy.
+# server on $BRIDGE_PORT (default 18790) for communication with milady.
 #
 # Configuration is injected via environment variables:
 #   ELIZAOS_CLOUD_API_KEY — for cloud inference

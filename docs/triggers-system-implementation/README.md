@@ -3,8 +3,8 @@
 This folder is an expanded implementation dossier for adding a full trigger system across:
 
 - `@elizaos/core` / `@elizaos/typescript`
-- Milaidy backend (`milaidy/src/api/server.ts`)
-- Milaidy frontend (`milaidy/apps/app/src/*`)
+- Milady backend (`milady/src/api/server.ts`)
+- Milady frontend (`milady/apps/app/src/*`)
 
 The intent is to be implementation-safe, failure-aware, and explicit about tradeoffs.
 
@@ -12,10 +12,10 @@ The intent is to be implementation-safe, failure-aware, and explicit about trade
 
 The first report was directionally good but too coarse for safe execution. It did not fully account for:
 
-- Milaidy runtime boot differences (`IGNORE_BOOTSTRAP=true`)
+- Milady runtime boot differences (`IGNORE_BOOTSTRAP=true`)
 - dual capability stacks in Eliza (`bootstrap/*` and `basic-capabilities/* + advanced-capabilities/*`)
 - action-filter and action-execution edge behavior
-- route ordering and synchronization pitfalls in Milaidy's manual API router
+- route ordering and synchronization pitfalls in Milady's manual API router
 - run-time race, overlap, and observability constraints in the Task engine
 
 This dossier corrects those gaps.
@@ -27,7 +27,7 @@ This dossier corrects those gaps.
    - Explicit shortcomings, incorrect assumptions, and corrections
 
 2. `01-system-control-flow-map.md`
-   - Current-state control-flow map across Eliza core + Milaidy runtime/API/UI
+   - Current-state control-flow map across Eliza core + Milady runtime/API/UI
    - Startup, message loop, task loop, action loop, and UI data flow
 
 3. `02-phase-1-eliza-core-trigger-runtime.md`
@@ -38,11 +38,11 @@ This dossier corrects those gaps.
    - `CREATE_TASK` / `CREATE_TRIGGER` action design and capability registration strategy
    - Bootstrap-vs-basic/advanced capability path risk analysis
 
-5. `04-phase-3-milaidy-api-layer.md`
+5. `04-phase-3-milady-api-layer.md`
    - Trigger API contract + route implementation details
    - Validation, route ordering, error semantics, and runtime coupling
 
-6. `05-phase-4-milaidy-frontend-layer.md`
+6. `05-phase-4-milady-frontend-layer.md`
    - Triggers page architecture, state model, navigation integration
    - API client, AppContext, polling/websocket strategy, UX failure modes
 
@@ -83,17 +83,17 @@ This dossier is grounded in direct inspection of:
   - `eliza/packages/typescript/src/advanced-capabilities/*`
   - `eliza/packages/typescript/src/bootstrap/*`
 
-- Milaidy runtime and server
-  - `milaidy/src/runtime/eliza.ts`
-  - `milaidy/src/runtime/milaidy-plugin.ts`
-  - `milaidy/src/api/server.ts`
+- Milady runtime and server
+  - `milady/src/runtime/eliza.ts`
+  - `milady/src/runtime/milady-plugin.ts`
+  - `milady/src/api/server.ts`
 
-- Milaidy frontend
-  - `milaidy/apps/app/src/api-client.ts`
-  - `milaidy/apps/app/src/AppContext.tsx`
-  - `milaidy/apps/app/src/App.tsx`
-  - `milaidy/apps/app/src/navigation.ts`
-  - `milaidy/apps/app/src/components/Nav.tsx`
+- Milady frontend
+  - `milady/apps/app/src/api-client.ts`
+  - `milady/apps/app/src/AppContext.tsx`
+  - `milady/apps/app/src/App.tsx`
+  - `milady/apps/app/src/navigation.ts`
+  - `milady/apps/app/src/components/Nav.tsx`
 
 - Reference systems
   - `openclaw/*`

@@ -39,7 +39,7 @@ const { mockClient } = vi.hoisted(() => ({
     getAgentEvents: vi.fn(async () => ({ events: [], latestEventId: null })),
     getStatus: vi.fn(async () => ({
       state: "running",
-      agentName: "Milaidy",
+      agentName: "Milady",
       model: undefined,
       startedAt: undefined,
       uptime: undefined,
@@ -58,7 +58,11 @@ const { mockClient } = vi.hoisted(() => ({
       sessionId: "",
     })),
     cloudLoginPoll: vi.fn(async () => ({ status: "pending" as const })),
-    getCloudCredits: vi.fn(async () => ({ balance: 0, low: false, critical: false })),
+    getCloudCredits: vi.fn(async () => ({
+      balance: 0,
+      low: false,
+      critical: false,
+    })),
   },
 }));
 
@@ -150,17 +154,23 @@ describe("cloud login locking", () => {
     mockClient.connectWs.mockImplementation(() => {});
     mockClient.disconnectWs.mockImplementation(() => {});
     mockClient.onWsEvent.mockReturnValue(() => {});
-    mockClient.getAgentEvents.mockResolvedValue({ events: [], latestEventId: null });
+    mockClient.getAgentEvents.mockResolvedValue({
+      events: [],
+      latestEventId: null,
+    });
     mockClient.getStatus.mockResolvedValue({
       state: "running",
-      agentName: "Milaidy",
+      agentName: "Milady",
       model: undefined,
       startedAt: undefined,
       uptime: undefined,
     });
     mockClient.getWalletAddresses.mockResolvedValue(null);
     mockClient.getConfig.mockResolvedValue({});
-    mockClient.getCloudStatus.mockResolvedValue({ enabled: false, connected: false });
+    mockClient.getCloudStatus.mockResolvedValue({
+      enabled: false,
+      connected: false,
+    });
     mockClient.getWorkbenchOverview.mockResolvedValue({
       tasks: [],
       triggers: [],
@@ -172,11 +182,19 @@ describe("cloud login locking", () => {
       sessionId: "",
     });
     mockClient.cloudLoginPoll.mockResolvedValue({ status: "pending" });
-    mockClient.getCloudCredits.mockResolvedValue({ balance: 0, low: false, critical: false });
+    mockClient.getCloudCredits.mockResolvedValue({
+      balance: 0,
+      low: false,
+      critical: false,
+    });
   });
 
   it("allows only one same-tick cloud login start", async () => {
-    const deferred = createDeferred<{ ok: boolean; browserUrl: string; sessionId: string }>();
+    const deferred = createDeferred<{
+      ok: boolean;
+      browserUrl: string;
+      sessionId: string;
+    }>();
     mockClient.cloudLogin.mockReturnValue(deferred.promise);
 
     let api: ProbeApi | null = null;
@@ -198,8 +216,8 @@ describe("cloud login locking", () => {
     expect(api).not.toBeNull();
 
     await act(async () => {
-      void api!.handleCloudLogin();
-      void api!.handleCloudLogin();
+      void api?.handleCloudLogin();
+      void api?.handleCloudLogin();
     });
 
     expect(mockClient.cloudLogin).toHaveBeenCalledTimes(1);
@@ -210,7 +228,7 @@ describe("cloud login locking", () => {
     });
 
     await act(async () => {
-      tree!.unmount();
+      tree?.unmount();
     });
   });
 
@@ -238,21 +256,25 @@ describe("cloud login locking", () => {
     expect(api).not.toBeNull();
 
     await act(async () => {
-      await api!.handleCloudLogin();
+      await api?.handleCloudLogin();
     });
     await act(async () => {
-      await api!.handleCloudLogin();
+      await api?.handleCloudLogin();
     });
 
     expect(mockClient.cloudLogin).toHaveBeenCalledTimes(2);
 
     await act(async () => {
-      tree!.unmount();
+      tree?.unmount();
     });
   });
 
   it("releases lock when onboarding backs out of cloud login step", async () => {
-    const firstAttempt = createDeferred<{ ok: boolean; browserUrl: string; sessionId: string }>();
+    const firstAttempt = createDeferred<{
+      ok: boolean;
+      browserUrl: string;
+      sessionId: string;
+    }>();
     mockClient.cloudLogin
       .mockReturnValueOnce(firstAttempt.promise)
       .mockResolvedValueOnce({ ok: false, browserUrl: "", sessionId: "" });
@@ -276,25 +298,25 @@ describe("cloud login locking", () => {
     expect(api).not.toBeNull();
 
     await act(async () => {
-      api!.setState("onboardingRunMode", "cloud");
+      api?.setState("onboardingRunMode", "cloud");
     });
     for (let i = 0; i < 8; i += 1) {
       await act(async () => {
-        await api!.handleOnboardingNext();
+        await api?.handleOnboardingNext();
       });
     }
 
     await act(async () => {
-      void api!.handleCloudLogin();
+      void api?.handleCloudLogin();
     });
     expect(mockClient.cloudLogin).toHaveBeenCalledTimes(1);
 
     await act(async () => {
-      api!.handleOnboardingBack();
+      api?.handleOnboardingBack();
     });
 
     await act(async () => {
-      await api!.handleCloudLogin();
+      await api?.handleCloudLogin();
     });
     expect(mockClient.cloudLogin).toHaveBeenCalledTimes(2);
 
@@ -304,7 +326,7 @@ describe("cloud login locking", () => {
     });
 
     await act(async () => {
-      tree!.unmount();
+      tree?.unmount();
     });
   });
 });

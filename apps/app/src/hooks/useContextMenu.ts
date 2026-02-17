@@ -3,10 +3,10 @@
  * and dispatches actions into the app state.
  */
 
-import { useEffect, useState, useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useApp } from "../AppContext";
 
-const COMMANDS_STORAGE_KEY = "milaidy:custom-commands";
+const COMMANDS_STORAGE_KEY = "milady:custom-commands";
 
 export interface CustomCommand {
   name: string;
@@ -44,15 +44,23 @@ export function useContextMenu(): ContextMenuState {
 
   const [saveCommandModalOpen, setSaveCommandModalOpen] = useState(false);
   const [saveCommandText, setSaveCommandText] = useState("");
-  const [customCommands, setCustomCommands] = useState<CustomCommand[]>(loadCustomCommands);
+  const [customCommands, setCustomCommands] =
+    useState<CustomCommand[]>(loadCustomCommands);
 
   useEffect(() => {
-    const electron = (window as { electron?: {
-      ipcRenderer: {
-        on: (channel: string, listener: (...args: unknown[]) => void) => void;
-        removeAllListeners: (channel: string) => void;
-      };
-    } }).electron;
+    const electron = (
+      window as {
+        electron?: {
+          ipcRenderer: {
+            on: (
+              channel: string,
+              listener: (...args: unknown[]) => void,
+            ) => void;
+            removeAllListeners: (channel: string) => void;
+          };
+        };
+      }
+    ).electron;
     if (!electron) return;
 
     const { ipcRenderer } = electron;
@@ -98,21 +106,28 @@ export function useContextMenu(): ContextMenuState {
       ipcRenderer.removeAllListeners("contextMenu:createSkill");
       ipcRenderer.removeAllListeners("contextMenu:quoteInChat");
     };
-  }, [setState, chatInput, handleChatSend, setActionNotice]);
+  }, [setState, chatInput, handleChatSend]);
 
   const closeSaveCommandModal = useCallback(() => {
     setSaveCommandModalOpen(false);
     setSaveCommandText("");
   }, []);
 
-  const confirmSaveCommand = useCallback((name: string) => {
-    const cmd: CustomCommand = { name, text: saveCommandText, createdAt: Date.now() };
-    saveCustomCommand(cmd);
-    setCustomCommands(loadCustomCommands());
-    setSaveCommandModalOpen(false);
-    setSaveCommandText("");
-    setActionNotice(`Saved /${name} command`, "success");
-  }, [saveCommandText, setActionNotice]);
+  const confirmSaveCommand = useCallback(
+    (name: string) => {
+      const cmd: CustomCommand = {
+        name,
+        text: saveCommandText,
+        createdAt: Date.now(),
+      };
+      saveCustomCommand(cmd);
+      setCustomCommands(loadCustomCommands());
+      setSaveCommandModalOpen(false);
+      setSaveCommandText("");
+      setActionNotice(`Saved /${name} command`, "success");
+    },
+    [saveCommandText, setActionNotice],
+  );
 
   return {
     saveCommandModalOpen,

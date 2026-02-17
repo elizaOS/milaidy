@@ -16,7 +16,6 @@ const PROVIDER_LOGO_MAP_DARK: Record<string, string> = {
   grok: "/logos/grok-icon-white.png",
   openrouter: "/logos/openrouter-icon-white.png",
   elizacloud: "/logos/elizaos-icon.png",
-  "pi-ai": "/logos/elizaos-icon.png",
   deepseek: "/logos/deepseek-icon.png",
   mistral: "/logos/mistral-icon.png",
   together: "/logos/together-ai-icon.png",
@@ -38,7 +37,6 @@ const PROVIDER_LOGO_MAP_LIGHT: Record<string, string> = {
   grok: "/logos/grok-icon.png",
   openrouter: "/logos/openrouter-icon.png",
   elizacloud: "/logos/elizaos-icon.png",
-  "pi-ai": "/logos/elizaos-icon.png",
   deepseek: "/logos/deepseek-icon.png",
   mistral: "/logos/mistral-icon.png",
   together: "/logos/together-ai-icon.png",
@@ -53,7 +51,10 @@ const PROVIDER_LOGO_MAP_LIGHT: Record<string, string> = {
  * @param isDarkMode - Whether dark mode is active (default: true)
  * @returns The logo image path or a fallback SVG data URI
  */
-export function getProviderLogo(providerId: string, isDarkMode: boolean = true): string {
+export function getProviderLogo(
+  providerId: string,
+  isDarkMode: boolean = true,
+): string {
   const logoMap = isDarkMode ? PROVIDER_LOGO_MAP_DARK : PROVIDER_LOGO_MAP_LIGHT;
   const logo = logoMap[providerId.toLowerCase()];
   if (logo) {
@@ -70,7 +71,7 @@ export function getProviderLogo(providerId: string, isDarkMode: boolean = true):
  */
 function generateFallbackLogo(providerId: string): string {
   const initials = providerId.slice(0, 2).toUpperCase();
-  const colors = ['3b82f6', 'ef4444', '10b981', 'f59e0b', '8b5cf6', 'ec4899'];
+  const colors = ["3b82f6", "ef4444", "10b981", "f59e0b", "8b5cf6", "ec4899"];
   const colorIndex = providerId.charCodeAt(0) % colors.length;
   const bgColor = colors[colorIndex];
 

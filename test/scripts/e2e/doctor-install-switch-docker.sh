@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-IMAGE_NAME="milaidy-doctor-install-switch-e2e"
+IMAGE_NAME="milady-doctor-install-switch-e2e"
 
 echo "Building Docker image..."
 docker build -t "$IMAGE_NAME" -f "$ROOT_DIR/scripts/e2e/Dockerfile" "$ROOT_DIR"
@@ -17,10 +17,10 @@ docker run --rm -t "$IMAGE_NAME" bash -lc '
   export npm_config_audit=false
 
   # Stub systemd/loginctl so doctor + daemon flows work in Docker.
-  export PATH="/tmp/milaidy-bin:$PATH"
-  mkdir -p /tmp/milaidy-bin
+  export PATH="/tmp/milady-bin:$PATH"
+  mkdir -p /tmp/milady-bin
 
-  cat > /tmp/milaidy-bin/systemctl <<"SYSTEMCTL"
+  cat > /tmp/milady-bin/systemctl <<"SYSTEMCTL"
 #!/usr/bin/env bash
 set -euo pipefail
 
@@ -54,9 +54,9 @@ case "$cmd" in
     ;;
 esac
 SYSTEMCTL
-  chmod +x /tmp/milaidy-bin/systemctl
+  chmod +x /tmp/milady-bin/systemctl
 
-  cat > /tmp/milaidy-bin/loginctl <<"LOGINCTL"
+  cat > /tmp/milady-bin/loginctl <<"LOGINCTL"
 #!/usr/bin/env bash
 set -euo pipefail
 
@@ -69,7 +69,7 @@ if [[ "$*" == *"enable-linger"* ]]; then
 fi
 exit 0
 LOGINCTL
-  chmod +x /tmp/milaidy-bin/loginctl
+  chmod +x /tmp/milady-bin/loginctl
 
   # Install the npm-global variant from the local /app source.
   # `npm pack` can emit script output; keep only the tarball name.
@@ -80,10 +80,10 @@ LOGINCTL
   fi
   npm install -g --prefix /tmp/npm-prefix "/app/$pkg_tgz"
 
-  npm_bin="/tmp/npm-prefix/bin/milaidy"
-  npm_entry="/tmp/npm-prefix/lib/node_modules/milaidy/dist/index.js"
+  npm_bin="/tmp/npm-prefix/bin/milady"
+  npm_entry="/tmp/npm-prefix/lib/node_modules/milady/dist/index.js"
   git_entry="/app/dist/index.js"
-  git_cli="/app/milaidy.mjs"
+  git_cli="/app/milady.mjs"
 
   assert_entrypoint() {
     local unit_path="$1"
@@ -114,13 +114,13 @@ LOGINCTL
     local doctor_expected="$5"
 
     echo "== Flow: $name =="
-    home_dir=$(mktemp -d "/tmp/milaidy-switch-${name}.XXXXXX")
+    home_dir=$(mktemp -d "/tmp/milady-switch-${name}.XXXXXX")
     export HOME="$home_dir"
     export USER="testuser"
 
     eval "$install_cmd"
 
-    unit_path="$HOME/.config/systemd/user/milaidy-gateway.service"
+    unit_path="$HOME/.config/systemd/user/milady-gateway.service"
     if [ ! -f "$unit_path" ]; then
       echo "Missing unit file: $unit_path"
       exit 1

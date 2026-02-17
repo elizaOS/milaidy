@@ -1,1 +1,1 @@
-/Users/shawwalters/eliza-ok/packages/milaidy/apps/app/plugins/talkmode/android/src/main/java/ai/milaidy/plugins/talkmode/TalkModePlugin.kt
+/Users/shawwalters/eliza-ok/packages/milady/apps/app/plugins/talkmode/android/src/main/java/ai/milady/plugins/talkmode/TalkModePlugin.kt

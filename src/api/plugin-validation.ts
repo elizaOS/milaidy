@@ -89,31 +89,28 @@ export function validatePluginConfig(
 ): PluginValidationResult {
   const errors: Array<{ field: string; message: string }> = [];
   const warnings: Array<{ field: string; message: string }> = [];
-  const normalizedConfigKeys = new Set(
-    configKeys.map((key) => key.trim().toUpperCase()),
+  const allowedConfigKeys = new Set(configKeys);
+  const canonicalKeyByNormalized = new Map<string, string>(
+    configKeys.map((key) => [key.trim().toUpperCase(), key]),
   );
 
   if (providedConfig) {
     for (const key of Object.keys(providedConfig)) {
-      if (!normalizedConfigKeys.has(key.trim().toUpperCase())) {
-        errors.push({
-          field: key,
-          message: `${key} is not a declared config key for this plugin`,
-        });
-      }
-    }
-  }
+      if (allowedConfigKeys.has(key)) continue;
 
-  // Reject any submitted keys that are not declared for this plugin.
-  if (providedConfig) {
-    const allowedConfigKeys = new Set(configKeys);
-    for (const key of Object.keys(providedConfig)) {
-      if (!allowedConfigKeys.has(key)) {
+      const canonical = canonicalKeyByNormalized.get(key.trim().toUpperCase());
+      if (canonical) {
         errors.push({
           field: key,
-          message: `${key} is not a declared config key for this plugin`,
+          message: `${key} does not match declared config key casing; use ${canonical}`,
         });
+        continue;
       }
+
+      errors.push({
+        field: key,
+        message: `${key} is not a declared config key for this plugin`,
+      });
     }
   }
 
@@ -318,41 +315,41 @@ export function debugLogResolvedContext(
   context: Record<string, unknown>,
   log: (msg: string) => void = console.debug,
 ): void {
-  log("[milaidy:debug] ══════ Resolved Plugin/Provider Context ══════");
-  log(`[milaidy:debug] Plugins loaded (${plugins.length}):`);
+  log("[milady:debug] ══════ Resolved Plugin/Provider Context ══════");
+  log(`[milady:debug] Plugins loaded (${plugins.length}):`);
   for (const name of plugins) {
-    log(`[milaidy:debug]   • ${name}`);
+    log(`[milady:debug]   • ${name}`);
   }
-  log(`[milaidy:debug] Providers loaded (${providers.length}):`);
+  log(`[milady:debug] Providers loaded (${providers.length}):`);
   for (const name of providers) {
-    log(`[milaidy:debug]   • ${name}`);
+    log(`[milady:debug]   • ${name}`);
   }
 
   const validation = validateRuntimeContext(context);
   if (validation.valid && validation.serializable) {
     log(
-      "[milaidy:debug] Context validation: ✓ PASS (all fields valid, serializable)",
+      "[milady:debug] Context validation: ✓ PASS (all fields valid, serializable)",
     );
   } else {
-    log("[milaidy:debug] Context validation: ✗ ISSUES DETECTED");
+    log("[milady:debug] Context validation: ✗ ISSUES DETECTED");
     if (validation.nullFields.length > 0) {
-      log(`[milaidy:debug]   null fields: ${validation.nullFields.join(", ")}`);
+      log(`[milady:debug]   null fields: ${validation.nullFields.join(", ")}`);
     }
     if (validation.undefinedFields.length > 0) {
       log(
-        `[milaidy:debug]   undefined fields: ${validation.undefinedFields.join(", ")}`,
+        `[milady:debug]   undefined fields: ${validation.undefinedFields.join(", ")}`,
       );
     }
     if (validation.emptyFields.length > 0) {
       log(
-        `[milaidy:debug]   empty fields: ${validation.emptyFields.join(", ")}`,
+        `[milady:debug]   empty fields: ${validation.emptyFields.join(", ")}`,
       );
     }
     if (validation.nonSerializableFields.length > 0) {
       log(
-        `[milaidy:debug]   non-serializable fields: ${validation.nonSerializableFields.join(", ")}`,
+        `[milady:debug]   non-serializable fields: ${validation.nonSerializableFields.join(", ")}`,
       );
     }
   }
-  log("[milaidy:debug] ══════════════════════════════════════════════");
+  log("[milady:debug] ══════════════════════════════════════════════");
 }

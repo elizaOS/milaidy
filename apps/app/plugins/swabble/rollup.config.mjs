@@ -1,5 +1,5 @@
-import nodeResolve from "@rollup/plugin-node-resolve";
 import fs from "node:fs";
+import nodeResolve from "@rollup/plugin-node-resolve";
 
 const external = ["@capacitor/core"];
 const input = fs.existsSync("dist/esm/index.js")

@@ -5,8 +5,8 @@
 import { existsSync } from "node:fs";
 import { platform } from "node:os";
 import { delimiter } from "node:path";
-import type { HookConfig, InternalHooksConfig } from "../config/types.hooks.js";
-import type { MilaidyHookMetadata } from "./types.js";
+import type { HookConfig, InternalHooksConfig } from "../config/types.hooks";
+import type { MiladyHookMetadata } from "./types";
 
 function binaryExists(name: string): boolean {
   const pathDirs = (process.env.PATH ?? "").split(delimiter);
@@ -55,9 +55,9 @@ export interface EligibilityResult {
 }
 
 export function checkEligibility(
-  metadata: MilaidyHookMetadata | undefined,
+  metadata: MiladyHookMetadata | undefined,
   hookConfig: HookConfig | undefined,
-  milaidyConfig: Record<string, unknown> = {},
+  miladyConfig: Record<string, unknown> = {},
 ): EligibilityResult {
   const missing: string[] = [];
 
@@ -108,7 +108,7 @@ export function checkEligibility(
 
   if (metadata.requires?.config) {
     for (const configPath of metadata.requires.config) {
-      if (!isConfigPathTruthy(milaidyConfig, configPath)) {
+      if (!isConfigPathTruthy(miladyConfig, configPath)) {
         missing.push(`Config missing: ${configPath}`);
       }
     }

@@ -7,12 +7,7 @@ const repoRoot = path.dirname(fileURLToPath(import.meta.url));
 export default defineConfig({
   resolve: {
     alias: {
-      "milaidy/plugin-sdk": path.join(
-        repoRoot,
-        "src",
-        "plugin-sdk",
-        "index.ts",
-      ),
+      "milady/plugin-sdk": path.join(repoRoot, "src", "plugin-sdk", "index.ts"),
       "@elizaos/skills": path.join(
         repoRoot,
         "test",

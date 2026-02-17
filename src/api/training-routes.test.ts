@@ -1,19 +1,19 @@
 import type { AgentRuntime } from "@elizaos/core";
 import { beforeEach, describe, expect, test, vi } from "vitest";
-import type { MilaidyConfig } from "../config/types.js";
-import { TrainingService } from "../services/training-service.js";
-import { createRouteInvoker } from "../test-support/route-test-helpers.js";
-import { handleTrainingRoutes } from "./training-routes.js";
+import type { MiladyConfig } from "../config/types";
+import { FallbackTrainingService } from "../services/fallback-training-service";
+import { createRouteInvoker } from "../test-support/route-test-helpers";
+import { handleTrainingRoutes } from "./training-routes";
 
 describe("training routes", () => {
   let runtime: AgentRuntime | null;
-  let trainingService: TrainingService;
+  let trainingService: FallbackTrainingService;
 
   beforeEach(() => {
-    runtime = { character: { name: "Milaidy" } } as AgentRuntime;
+    runtime = { character: { name: "Milady" } } as AgentRuntime;
 
-    const config = {} as MilaidyConfig;
-    trainingService = new TrainingService({
+    const config = {} as MiladyConfig;
+    trainingService = new FallbackTrainingService({
       getRuntime: () => runtime,
       getConfig: () => config,
       setConfig: () => undefined,
@@ -106,13 +106,13 @@ describe("training routes", () => {
       adapterPath: "/tmp/out/adapter",
       sourceModel: "qwen",
       backend: "cpu",
-      ollamaModel: "milaidy-ft-model",
+      ollamaModel: "milady-ft-model",
       active: false,
       benchmark: { status: "not_run", lastRunAt: null, output: null },
     });
     vi.spyOn(trainingService, "activateModel").mockResolvedValue({
       modelId: "model-1",
-      providerModel: "ollama/milaidy-ft-model",
+      providerModel: "ollama/milady-ft-model",
       needsRestart: true,
     });
     vi.spyOn(trainingService, "benchmarkModel").mockResolvedValue({
@@ -255,12 +255,12 @@ describe("training routes", () => {
     const result = await invoke({
       method: "POST",
       pathname: "/api/training/models/model-1/activate",
-      body: { providerModel: "ollama/milaidy-ft-model" },
+      body: { providerModel: "ollama/milady-ft-model" },
     });
     expect(result.status).toBe(200);
     expect(trainingService.activateModel).toHaveBeenCalledWith(
       "model-1",
-      "ollama/milaidy-ft-model",
+      "ollama/milady-ft-model",
     );
   });
 
@@ -269,7 +269,7 @@ describe("training routes", () => {
       method: "POST",
       pathname: "/api/training/models/model-1/import-ollama",
       body: {
-        modelName: "milaidy-ft-model",
+        modelName: "milady-ft-model",
         baseModel: "qwen2.5:7b-instruct",
         ollamaUrl: "http://localhost:11434",
       },
@@ -278,10 +278,78 @@ describe("training routes", () => {
     expect(trainingService.importModelToOllama).toHaveBeenCalledWith(
       "model-1",
       {
-        modelName: "milaidy-ft-model",
+        modelName: "milady-ft-model",
         baseModel: "qwen2.5:7b-instruct",
         ollamaUrl: "http://localhost:11434",
       },
+    );
+  });
+
+  test("rejects non-loopback ollamaUrl to prevent SSRF", async () => {
+    const result = await invoke({
+      method: "POST",
+      pathname: "/api/training/models/model-1/import-ollama",
+      body: {
+        modelName: "milaidy-ft-model",
+        baseModel: "qwen2.5:7b-instruct",
+        ollamaUrl: "http://169.254.169.254:11434",
+      },
+    });
+
+    expect(result.status).toBe(400);
+    expect(result.payload).toMatchObject({
+      error: expect.stringContaining("loopback host"),
+    });
+    expect(trainingService.importModelToOllama).not.toHaveBeenCalled();
+  });
+
+  test("rejects hostnames that only prefix-match loopback", async () => {
+    const result = await invoke({
+      method: "POST",
+      pathname: "/api/training/models/model-1/import-ollama",
+      body: {
+        ollamaUrl: "http://127.0.0.1.evil.com:11434",
+      },
+    });
+
+    expect(result.status).toBe(400);
+    expect(result.payload).toMatchObject({
+      error: expect.stringContaining("loopback host"),
+    });
+    expect(trainingService.importModelToOllama).not.toHaveBeenCalled();
+  });
+
+  test("rejects unsupported ollamaUrl protocols", async () => {
+    const result = await invoke({
+      method: "POST",
+      pathname: "/api/training/models/model-1/import-ollama",
+      body: {
+        ollamaUrl: "file:///etc/passwd",
+      },
+    });
+
+    expect(result.status).toBe(400);
+    expect(result.payload).toMatchObject({
+      error: "ollamaUrl must use http:// or https://",
+    });
+    expect(trainingService.importModelToOllama).not.toHaveBeenCalled();
+  });
+
+  test("accepts bracketed IPv6 loopback ollamaUrl", async () => {
+    const result = await invoke({
+      method: "POST",
+      pathname: "/api/training/models/model-1/import-ollama",
+      body: {
+        ollamaUrl: "http://[::1]:11434",
+      },
+    });
+
+    expect(result.status).toBe(200);
+    expect(trainingService.importModelToOllama).toHaveBeenCalledWith(
+      "model-1",
+      expect.objectContaining({
+        ollamaUrl: "http://[::1]:11434",
+      }),
     );
   });
 

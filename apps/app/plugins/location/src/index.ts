@@ -4,7 +4,7 @@ import type { LocationPlugin } from "./definitions";
 
 const loadWeb = () => import("./web").then((m) => new m.LocationWeb());
 
-export const Location = registerPlugin<LocationPlugin>("MilaidyLocation", {
+export const Location = registerPlugin<LocationPlugin>("MiladyLocation", {
   web: loadWeb,
   electron: loadWeb,
 });

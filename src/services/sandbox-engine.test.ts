@@ -7,6 +7,11 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("node:os", () => ({
+  platform: () => "darwin",
+  arch: () => "arm64",
+}));
+
 // Mock command execution primitives before module import
 vi.mock("node:child_process", () => ({
   execFileSync: vi.fn(),
@@ -14,7 +19,7 @@ vi.mock("node:child_process", () => ({
 }));
 
 import { execFileSync } from "node:child_process";
-import { AppleContainerEngine, DockerEngine } from "./sandbox-engine.js";
+import { AppleContainerEngine, DockerEngine } from "./sandbox-engine";
 
 function mockError(
   message: string,

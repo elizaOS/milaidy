@@ -22,7 +22,7 @@ import type {
   World,
 } from "@elizaos/core";
 import { beforeEach, describe, expect, it } from "vitest";
-import { AgentExportError, exportAgent, importAgent } from "./agent-export.js";
+import { AgentExportError, exportAgent, importAgent } from "./agent-export";
 
 // ---------------------------------------------------------------------------
 // Mock data factories
@@ -1395,7 +1395,7 @@ describe("agent-export", () => {
 
   describe("estimateExportSize", () => {
     it("returns counts matching the actual data", async () => {
-      const { estimateExportSize } = await import("./agent-export.js");
+      const { estimateExportSize } = await import("./agent-export");
 
       populateDb(sourceDb);
 
@@ -1409,7 +1409,7 @@ describe("agent-export", () => {
     });
 
     it("returns zero counts for an empty agent", async () => {
-      const { estimateExportSize } = await import("./agent-export.js");
+      const { estimateExportSize } = await import("./agent-export");
       sourceDb.agents.set(AGENT_ID, makeAgent());
 
       const estimate = await estimateExportSize(sourceRuntime);

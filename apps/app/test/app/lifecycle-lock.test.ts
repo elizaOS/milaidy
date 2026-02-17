@@ -39,7 +39,7 @@ const { mockClient } = vi.hoisted(() => ({
     getAgentEvents: vi.fn(async () => ({ events: [], latestEventId: null })),
     getStatus: vi.fn(async () => ({
       state: "running",
-      agentName: "Milaidy",
+      agentName: "Milady",
       model: undefined,
       startedAt: undefined,
       uptime: undefined,
@@ -54,7 +54,7 @@ const { mockClient } = vi.hoisted(() => ({
     })),
     startAgent: vi.fn(async () => ({
       state: "running",
-      agentName: "Milaidy",
+      agentName: "Milady",
       model: undefined,
       startedAt: undefined,
       uptime: undefined,
@@ -77,7 +77,9 @@ function createDeferred<T>() {
   return { promise, resolve };
 }
 
-function Probe(props: { onReady: (api: { handleStart: () => Promise<void> }) => void }) {
+function Probe(props: {
+  onReady: (api: { handleStart: () => Promise<void> }) => void;
+}) {
   const { onReady } = props;
   const app = useApp();
   useEffect(() => {
@@ -134,17 +136,23 @@ describe("lifecycle action locking", () => {
     mockClient.connectWs.mockImplementation(() => {});
     mockClient.disconnectWs.mockImplementation(() => {});
     mockClient.onWsEvent.mockReturnValue(() => {});
-    mockClient.getAgentEvents.mockResolvedValue({ events: [], latestEventId: null });
+    mockClient.getAgentEvents.mockResolvedValue({
+      events: [],
+      latestEventId: null,
+    });
     mockClient.getStatus.mockResolvedValue({
       state: "running",
-      agentName: "Milaidy",
+      agentName: "Milady",
       model: undefined,
       startedAt: undefined,
       uptime: undefined,
     });
     mockClient.getWalletAddresses.mockResolvedValue(null);
     mockClient.getConfig.mockResolvedValue({});
-    mockClient.getCloudStatus.mockResolvedValue({ enabled: false, connected: false });
+    mockClient.getCloudStatus.mockResolvedValue({
+      enabled: false,
+      connected: false,
+    });
     mockClient.getWorkbenchOverview.mockResolvedValue({
       tasks: [],
       triggers: [],
@@ -152,7 +160,7 @@ describe("lifecycle action locking", () => {
     });
     mockClient.startAgent.mockResolvedValue({
       state: "running",
-      agentName: "Milaidy",
+      agentName: "Milady",
       model: undefined,
       startedAt: undefined,
       uptime: undefined,
@@ -188,8 +196,8 @@ describe("lifecycle action locking", () => {
     expect(api).not.toBeNull();
 
     await act(async () => {
-      void api!.handleStart();
-      void api!.handleStart();
+      void api?.handleStart();
+      void api?.handleStart();
     });
 
     expect(mockClient.startAgent).toHaveBeenCalledTimes(1);
@@ -197,7 +205,7 @@ describe("lifecycle action locking", () => {
     await act(async () => {
       deferred.resolve({
         state: "running",
-        agentName: "Milaidy",
+        agentName: "Milady",
         model: undefined,
         startedAt: undefined,
         uptime: undefined,
@@ -206,7 +214,7 @@ describe("lifecycle action locking", () => {
     });
 
     await act(async () => {
-      tree!.unmount();
+      tree?.unmount();
     });
   });
 
@@ -215,7 +223,7 @@ describe("lifecycle action locking", () => {
       .mockRejectedValueOnce(new Error("boom"))
       .mockResolvedValueOnce({
         state: "running",
-        agentName: "Milaidy",
+        agentName: "Milady",
         model: undefined,
         startedAt: undefined,
         uptime: undefined,
@@ -240,16 +248,16 @@ describe("lifecycle action locking", () => {
     expect(api).not.toBeNull();
 
     await act(async () => {
-      await api!.handleStart();
+      await api?.handleStart();
     });
     await act(async () => {
-      await api!.handleStart();
+      await api?.handleStart();
     });
 
     expect(mockClient.startAgent).toHaveBeenCalledTimes(2);
 
     await act(async () => {
-      tree!.unmount();
+      tree?.unmount();
     });
   });
 });

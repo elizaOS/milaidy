@@ -1,6 +1,6 @@
-# Phase 4: Milaidy Frontend Layer (Triggers Page + State + Client)
+# Phase 4: Milady Frontend Layer (Triggers Page + State + Client)
 
-Phase 4 adds a dedicated Triggers UX to Milaidy and connects it to trigger APIs.
+Phase 4 adds a dedicated Triggers UX to Milady and connects it to trigger APIs.
 
 Scope:
 
@@ -215,7 +215,7 @@ Pattern:
 sequenceDiagram
   participant V as TriggersView
   participant C as AppContext
-  participant API as MilaidyClient
+  participant API as MiladyClient
   participant S as server.ts
 
   V->>C: createTrigger(draft)

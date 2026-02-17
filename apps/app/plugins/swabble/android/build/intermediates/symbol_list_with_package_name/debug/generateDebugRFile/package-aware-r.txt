@@ -1,1 +1,1 @@
-ai.milaidy.plugins.swabble
+ai.milady.plugins.swabble

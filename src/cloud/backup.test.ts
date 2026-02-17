@@ -10,8 +10,8 @@
  */
 
 import { describe, expect, it, vi } from "vitest";
-import { BackupScheduler } from "./backup.js";
-import type { ElizaCloudClient } from "./bridge-client.js";
+import { BackupScheduler } from "./backup";
+import type { ElizaCloudClient } from "./bridge-client";
 
 function createMockClient(): ElizaCloudClient & {
   snapshot: ReturnType<typeof vi.fn>;

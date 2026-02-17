@@ -6,74 +6,89 @@
 
 import {
   createContext,
-  useContext,
-  useState,
+  type ReactNode,
   useCallback,
+  useContext,
   useEffect,
   useRef,
-  type ReactNode,
+  useState,
 } from "react";
 import {
-  client,
   type AgentStatus,
-  type CharacterData,
-  type PluginInfo,
-  type SkillInfo,
-  type LogEntry,
-  type OnboardingOptions,
-  type ExtensionStatus,
-  type RegistryPlugin,
+  type AppViewerAuthMessage,
   type CatalogSkill,
-  type WalletAddresses,
-  type WalletBalancesResponse,
-  type WalletNftsResponse,
-  type WalletConfigStatus,
-  type WalletExportResult,
-  type SkillMarketplaceResult,
-  type WorkbenchOverview,
-  type McpServerConfig,
+  type CharacterData,
+  type Conversation,
+  type ConversationChannelType,
+  type ConversationMessage,
+  type CreateTriggerRequest,
+  client,
+  type DropStatus,
+  type ExtensionStatus,
+  type LogEntry,
   type McpMarketplaceResult,
   type McpRegistryServerDetail,
+  type McpServerConfig,
   type McpServerStatus,
-  type UpdateStatus,
+  type MintResult,
+  type OnboardingOptions,
+  type PluginInfo,
+  type RegistryPlugin,
+  type RegistryStatus,
   type ReleaseChannel,
-  type Conversation,
-  type ConversationMessage,
-  type ConversationMode,
-  type CreateTriggerRequest,
-  type StylePreset,
+  type SkillInfo,
+  type SkillMarketplaceResult,
+  type SkillScanReportSummary,
   type StreamEventEnvelope,
+  type StylePreset,
+  type SystemPermissionId,
   type TriggerHealthSnapshot,
   type TriggerRunRecord,
   type TriggerSummary,
+  type UpdateStatus,
   type UpdateTriggerRequest,
-  type AppViewerAuthMessage,
-  type RegistryStatus,
-  type DropStatus,
-  type MintResult,
+  type WalletAddresses,
+  type WalletBalancesResponse,
+  type WalletConfigStatus,
+  type WalletExportResult,
+  type WalletNftsResponse,
   type WhitelistStatus,
+  type WorkbenchOverview,
 } from "./api-client";
-import { tabFromPath, pathForTab, type Tab } from "./navigation";
-import { SkillScanReportSummary } from "./api-client";
+import { resolveAppAssetUrl } from "./asset-url";
+import { pathForTab, type Tab, tabFromPath } from "./navigation";
+import { getMissingOnboardingPermissions } from "./onboarding-permissions";
 
 // ── VRM helpers ─────────────────────────────────────────────────────────
 
 /** Number of built-in milady VRM avatars shipped with the app. */
 export const VRM_COUNT = 8;
 
+function normalizeAvatarIndex(index: number): number {
+  if (!Number.isFinite(index)) return 1;
+  const n = Math.trunc(index);
+  if (n === 0) return 0;
+  if (n < 1 || n > VRM_COUNT) return 1;
+  return n;
+}
+
 /** Resolve a built-in VRM index (1–8) to its public asset URL. */
 export function getVrmUrl(index: number): string {
-  return `/vrms/${index}.vrm`;
+  const normalized = normalizeAvatarIndex(index);
+  const safeIndex = normalized > 0 ? normalized : 1;
+  return resolveAppAssetUrl(`vrms/${safeIndex}.vrm`);
 }
 
 /** Resolve a built-in VRM index (1–8) to its preview thumbnail URL. */
 export function getVrmPreviewUrl(index: number): string {
-  return `/vrms/previews/milady-${index}.png`;
+  const normalized = normalizeAvatarIndex(index);
+  const safeIndex = normalized > 0 ? normalized : 1;
+  return resolveAppAssetUrl(`vrms/previews/milady-${safeIndex}.png`);
 }
 
 // ── Theme ──────────────────────────────────────────────────────────────
 
-const THEME_STORAGE_KEY = "milaidy:theme";
+const THEME_STORAGE_KEY = "milady:theme";
 
 export type ThemeName =
   | "milady"
@@ -88,13 +103,13 @@ export const THEMES: ReadonlyArray<{
   label: string;
   hint: string;
 }> = [
-  { id: "milady", label: "milady", hint: "clean black & white" },
-  { id: "qt314", label: "qt3.14", hint: "soft pastels" },
-  { id: "web2000", label: "web2000", hint: "green hacker vibes" },
-  { id: "programmer", label: "programmer", hint: "vscode dark" },
-  { id: "haxor", label: "haxor", hint: "terminal green" },
-  { id: "psycho", label: "psycho", hint: "pure chaos" },
-];
+    { id: "milady", label: "milady", hint: "clean black & white" },
+    { id: "qt314", label: "qt3.14", hint: "soft pastels" },
+    { id: "web2000", label: "web2000", hint: "green hacker vibes" },
+    { id: "programmer", label: "programmer", hint: "vscode dark" },
+    { id: "haxor", label: "haxor", hint: "terminal green" },
+    { id: "psycho", label: "psycho", hint: "pure chaos" },
+  ];
 
 const VALID_THEMES = new Set<string>(THEMES.map((t) => t.id));
 const AGENT_TRANSFER_MIN_PASSWORD_LENGTH = 4;
@@ -119,23 +134,65 @@ function applyTheme(name: ThemeName) {
 }
 
 /* ── Avatar persistence ───────────────────────────────────────────────── */
-const AVATAR_INDEX_KEY = "milaidy_avatar_index";
+const AVATAR_INDEX_KEY = "milady_avatar_index";
 
 function loadAvatarIndex(): number {
   try {
     const stored = localStorage.getItem(AVATAR_INDEX_KEY);
     if (stored) {
       const n = parseInt(stored, 10);
-      if (!Number.isNaN(n) && n >= 0) return n;
+      return normalizeAvatarIndex(n);
     }
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
   return 1;
 }
 
 function saveAvatarIndex(index: number) {
   try {
-    localStorage.setItem(AVATAR_INDEX_KEY, String(index));
-  } catch { /* ignore */ }
+    localStorage.setItem(AVATAR_INDEX_KEY, String(normalizeAvatarIndex(index)));
+  } catch {
+    /* ignore */
+  }
+}
+
+/* ── Chat UI persistence ──────────────────────────────────────────────── */
+const CHAT_AVATAR_VISIBLE_KEY = "milady:chat:avatarVisible";
+const CHAT_VOICE_MUTED_KEY = "milady:chat:voiceMuted";
+
+function loadChatAvatarVisible(): boolean {
+  try {
+    const stored = localStorage.getItem(CHAT_AVATAR_VISIBLE_KEY);
+    return stored === null ? true : stored === "true";
+  } catch {
+    return true;
+  }
+}
+
+function loadChatVoiceMuted(): boolean {
+  try {
+    const stored = localStorage.getItem(CHAT_VOICE_MUTED_KEY);
+    return stored === null ? true : stored === "true";
+  } catch {
+    return true;
+  }
+}
+
+function saveChatAvatarVisible(value: boolean): void {
+  try {
+    localStorage.setItem(CHAT_AVATAR_VISIBLE_KEY, String(value));
+  } catch {
+    /* ignore */
+  }
+}
+
+function saveChatVoiceMuted(value: boolean): void {
+  try {
+    localStorage.setItem(CHAT_VOICE_MUTED_KEY, String(value));
+  } catch {
+    /* ignore */
+  }
 }
 
 // ── Onboarding step type ───────────────────────────────────────────────
@@ -146,6 +203,7 @@ export type OnboardingStep =
   | "avatar"
   | "style"
   | "theme"
+  | "mint"
   | "runMode"
   | "dockerSetup"
   | "cloudProvider"
@@ -155,6 +213,18 @@ export type OnboardingStep =
   | "inventorySetup"
   | "connectors"
   | "permissions";
+
+interface OnboardingNextOptions {
+  allowPermissionBypass?: boolean;
+}
+
+const ONBOARDING_PERMISSION_LABELS: Record<SystemPermissionId, string> = {
+  accessibility: "Accessibility",
+  "screen-recording": "Screen Recording",
+  microphone: "Microphone",
+  camera: "Camera",
+  shell: "Shell Access",
+};
 
 // ── Action notice ──────────────────────────────────────────────────────
 
@@ -234,15 +304,21 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
-function parseAgentStatusEvent(data: Record<string, unknown>): AgentStatus | null {
+function parseAgentStatusEvent(
+  data: Record<string, unknown>,
+): AgentStatus | null {
   const state = data.state;
   const agentName = data.agentName;
-  if (typeof state !== "string" || !AGENT_STATES.has(state as AgentStatus["state"])) {
+  if (
+    typeof state !== "string" ||
+    !AGENT_STATES.has(state as AgentStatus["state"])
+  ) {
     return null;
   }
   if (typeof agentName !== "string") return null;
   const model = typeof data.model === "string" ? data.model : undefined;
-  const startedAt = typeof data.startedAt === "number" ? data.startedAt : undefined;
+  const startedAt =
+    typeof data.startedAt === "number" ? data.startedAt : undefined;
   const uptime = typeof data.uptime === "number" ? data.uptime : undefined;
   return {
     state: state as AgentStatus["state"],
@@ -281,7 +357,8 @@ function parseStreamEventEnvelopeEvent(
   if (typeof data.runId === "string") envelope.runId = data.runId;
   if (typeof data.seq === "number") envelope.seq = data.seq;
   if (typeof data.stream === "string") envelope.stream = data.stream;
-  if (typeof data.sessionKey === "string") envelope.sessionKey = data.sessionKey;
+  if (typeof data.sessionKey === "string")
+    envelope.sessionKey = data.sessionKey;
   if (typeof data.agentId === "string") envelope.agentId = data.agentId;
   if (typeof data.roomId === "string") envelope.roomId = data.roomId;
   return envelope;
@@ -321,6 +398,40 @@ function parseProactiveMessageEvent(
   return { conversationId, message };
 }
 
+function computeStreamingDelta(existing: string, incoming: string): string {
+  if (!incoming) return "";
+  if (!existing) return incoming;
+  if (incoming === existing) return "";
+  if (incoming.startsWith(existing)) return incoming.slice(existing.length);
+  if (existing.startsWith(incoming)) return "";
+  if (existing.endsWith(incoming) || existing.includes(incoming)) return "";
+
+  const maxOverlap = Math.min(existing.length, incoming.length);
+  for (let overlap = maxOverlap; overlap > 0; overlap -= 1) {
+    if (existing.endsWith(incoming.slice(0, overlap))) {
+      return incoming.slice(overlap);
+    }
+  }
+  return incoming;
+}
+
+function normalizeStreamComparisonText(text: string): string {
+  return text.replace(/\s+/g, " ").trim();
+}
+
+function shouldApplyFinalStreamText(
+  streamed: string,
+  finalText: string,
+): boolean {
+  if (!finalText.trim()) return false;
+  if (!streamed) return true;
+  if (streamed === finalText) return false;
+  return (
+    normalizeStreamComparisonText(streamed) !==
+    normalizeStreamComparisonText(finalText)
+  );
+}
+
 type LoadConversationMessagesResult =
   | { ok: true }
   | { ok: false; status?: number; message: string };
@@ -354,6 +465,9 @@ export interface AppState {
   chatInput: string;
   chatSending: boolean;
   chatFirstTokenReceived: boolean;
+  chatAvatarVisible: boolean;
+  chatAgentVoiceMuted: boolean;
+  chatAvatarSpeaking: boolean;
   conversations: Conversation[];
   activeConversationId: string | null;
   conversationMessages: ConversationMessage[];
@@ -600,7 +714,7 @@ export interface AppActions {
   handleReset: () => Promise<void>;
 
   // Chat
-  handleChatSend: (mode?: ConversationMode) => Promise<void>;
+  handleChatSend: (channelType?: ConversationChannelType) => Promise<void>;
   handleChatStop: () => void;
   handleChatClear: () => Promise<void>;
   handleNewConversation: () => Promise<void>;
@@ -610,8 +724,13 @@ export interface AppActions {
 
   // Triggers
   loadTriggers: () => Promise<void>;
-  createTrigger: (request: CreateTriggerRequest) => Promise<TriggerSummary | null>;
-  updateTrigger: (id: string, request: UpdateTriggerRequest) => Promise<TriggerSummary | null>;
+  createTrigger: (
+    request: CreateTriggerRequest,
+  ) => Promise<TriggerSummary | null>;
+  updateTrigger: (
+    id: string,
+    request: UpdateTriggerRequest,
+  ) => Promise<TriggerSummary | null>;
   deleteTrigger: (id: string) => Promise<boolean>;
   runTriggerNow: (id: string) => Promise<boolean>;
   loadTriggerRuns: (id: string) => Promise<void>;
@@ -623,7 +742,10 @@ export interface AppActions {
   // Plugins
   loadPlugins: () => Promise<void>;
   handlePluginToggle: (pluginId: string, enabled: boolean) => Promise<void>;
-  handlePluginConfigSave: (pluginId: string, config: Record<string, string>) => Promise<void>;
+  handlePluginConfigSave: (
+    pluginId: string,
+    config: Record<string, string>,
+  ) => Promise<void>;
 
   // Skills
   loadSkills: () => Promise<void>;
@@ -664,12 +786,18 @@ export interface AppActions {
     field: K,
     value: CharacterData[K],
   ) => void;
-  handleCharacterArrayInput: (field: "adjectives" | "topics" | "postExamples", value: string) => void;
-  handleCharacterStyleInput: (subfield: "all" | "chat" | "post", value: string) => void;
+  handleCharacterArrayInput: (
+    field: "adjectives" | "topics" | "postExamples",
+    value: string,
+  ) => void;
+  handleCharacterStyleInput: (
+    subfield: "all" | "chat" | "post",
+    value: string,
+  ) => void;
   handleCharacterMessageExamplesInput: (value: string) => void;
 
   // Onboarding
-  handleOnboardingNext: () => Promise<void>;
+  handleOnboardingNext: (options?: OnboardingNextOptions) => Promise<void>;
   handleOnboardingBack: () => void;
 
   // Cloud
@@ -683,10 +811,6 @@ export interface AppActions {
   // Extension
   checkExtensionStatus: () => Promise<void>;
 
-  // Command palette
-  openCommandPalette: () => void;
-  closeCommandPalette: () => void;
-
   // Emote picker
   openEmotePicker: () => void;
   closeEmotePicker: () => void;
@@ -699,7 +823,11 @@ export interface AppActions {
   handleAgentImport: () => Promise<void>;
 
   // Action notice
-  setActionNotice: (text: string, tone?: "info" | "success" | "error", ttlMs?: number) => void;
+  setActionNotice: (
+    text: string,
+    tone?: "info" | "success" | "error",
+    ttlMs?: number,
+  ) => void;
 
   // Generic state setter
   setState: <K extends keyof AppState>(key: K, value: AppState[K]) => void;
@@ -731,9 +859,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [startupPhase, setStartupPhase] =
     useState<StartupPhase>("starting-backend");
   const [authRequired, setAuthRequired] = useState(false);
-  const [actionNotice, setActionNoticeState] = useState<ActionNotice | null>(null);
+  const [actionNotice, setActionNoticeState] = useState<ActionNotice | null>(
+    null,
+  );
   const [lifecycleBusy, setLifecycleBusy] = useState(false);
-  const [lifecycleAction, setLifecycleAction] = useState<LifecycleAction | null>(null);
+  const [lifecycleAction, setLifecycleAction] =
+    useState<LifecycleAction | null>(null);
 
   // --- Pairing ---
   const [pairingEnabled, setPairingEnabled] = useState(false);
@@ -746,31 +877,73 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [chatInput, setChatInput] = useState("");
   const [chatSending, setChatSending] = useState(false);
   const [chatFirstTokenReceived, setChatFirstTokenReceived] = useState(false);
+  const [chatAvatarVisible, setChatAvatarVisible] = useState(
+    loadChatAvatarVisible,
+  );
+  const [chatAgentVoiceMuted, setChatAgentVoiceMuted] =
+    useState(loadChatVoiceMuted);
+  const [chatAvatarSpeaking, setChatAvatarSpeaking] = useState(false);
   const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
-  const [conversationMessages, setConversationMessages] = useState<ConversationMessage[]>([]);
-  const [autonomousEvents, setAutonomousEvents] = useState<StreamEventEnvelope[]>([]);
-  const [autonomousLatestEventId, setAutonomousLatestEventId] = useState<string | null>(null);
-  const [unreadConversations, setUnreadConversations] = useState<Set<string>>(new Set());
+  const [activeConversationId, setActiveConversationId] = useState<
+    string | null
+  >(null);
+  const [conversationMessages, setConversationMessages] = useState<
+    ConversationMessage[]
+  >([]);
+  const [autonomousEvents, setAutonomousEvents] = useState<
+    StreamEventEnvelope[]
+  >([]);
+  const [autonomousLatestEventId, setAutonomousLatestEventId] = useState<
+    string | null
+  >(null);
+  const [unreadConversations, setUnreadConversations] = useState<Set<string>>(
+    new Set(),
+  );
   const activeConversationIdRef = useRef<string | null>(null);
+  const conversationsRef = useRef<Conversation[]>([]);
+
+  useEffect(() => {
+    conversationsRef.current = conversations;
+  }, [conversations]);
+
+  useEffect(() => {
+    saveChatAvatarVisible(chatAvatarVisible);
+  }, [chatAvatarVisible]);
+
+  useEffect(() => {
+    saveChatVoiceMuted(chatAgentVoiceMuted);
+  }, [chatAgentVoiceMuted]);
 
   // --- Triggers ---
   const [triggers, setTriggers] = useState<TriggerSummary[]>([]);
   const [triggersLoading, setTriggersLoading] = useState(false);
   const [triggersSaving, setTriggersSaving] = useState(false);
-  const [triggerRunsById, setTriggerRunsById] = useState<Record<string, TriggerRunRecord[]>>({});
-  const [triggerHealth, setTriggerHealth] = useState<TriggerHealthSnapshot | null>(null);
+  const [triggerRunsById, setTriggerRunsById] = useState<
+    Record<string, TriggerRunRecord[]>
+  >({});
+  const [triggerHealth, setTriggerHealth] =
+    useState<TriggerHealthSnapshot | null>(null);
   const [triggerError, setTriggerError] = useState<string | null>(null);
 
   // --- Plugins ---
   const [plugins, setPlugins] = useState<PluginInfo[]>([]);
-  const [pluginFilter, setPluginFilter] = useState<"all" | "ai-provider" | "connector" | "feature">("all");
-  const [pluginStatusFilter, setPluginStatusFilter] = useState<"all" | "enabled" | "disabled">("all");
+  const [pluginFilter, setPluginFilter] = useState<
+    "all" | "ai-provider" | "connector" | "feature"
+  >("all");
+  const [pluginStatusFilter, setPluginStatusFilter] = useState<
+    "all" | "enabled" | "disabled"
+  >("all");
   const [pluginSearch, setPluginSearch] = useState("");
-  const [pluginSettingsOpen, setPluginSettingsOpen] = useState<Set<string>>(new Set());
-  const [pluginAdvancedOpen, setPluginAdvancedOpen] = useState<Set<string>>(new Set());
+  const [pluginSettingsOpen, setPluginSettingsOpen] = useState<Set<string>>(
+    new Set(),
+  );
+  const [pluginAdvancedOpen, setPluginAdvancedOpen] = useState<Set<string>>(
+    new Set(),
+  );
   const [pluginSaving, setPluginSaving] = useState<Set<string>>(new Set());
-  const [pluginSaveSuccess, setPluginSaveSuccess] = useState<Set<string>>(new Set());
+  const [pluginSaveSuccess, setPluginSaveSuccess] = useState<Set<string>>(
+    new Set(),
+  );
 
   // --- Skills ---
   const [skills, setSkills] = useState<SkillInfo[]>([]);
@@ -779,16 +952,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [skillCreateName, setSkillCreateName] = useState("");
   const [skillCreateDescription, setSkillCreateDescription] = useState("");
   const [skillCreating, setSkillCreating] = useState(false);
-  const [skillReviewReport, setSkillReviewReport] = useState<SkillScanReportSummary | null>(null);
+  const [skillReviewReport, setSkillReviewReport] =
+    useState<SkillScanReportSummary | null>(null);
   const [skillReviewId, setSkillReviewId] = useState("");
   const [skillReviewLoading, setSkillReviewLoading] = useState(false);
   const [skillToggleAction, setSkillToggleAction] = useState("");
   const [skillsMarketplaceQuery, setSkillsMarketplaceQuery] = useState("");
-  const [skillsMarketplaceResults, setSkillsMarketplaceResults] = useState<SkillMarketplaceResult[]>([]);
+  const [skillsMarketplaceResults, setSkillsMarketplaceResults] = useState<
+    SkillMarketplaceResult[]
+  >([]);
   const [skillsMarketplaceError, setSkillsMarketplaceError] = useState("");
-  const [skillsMarketplaceLoading, setSkillsMarketplaceLoading] = useState(false);
+  const [skillsMarketplaceLoading, setSkillsMarketplaceLoading] =
+    useState(false);
   const [skillsMarketplaceAction, setSkillsMarketplaceAction] = useState("");
-  const [skillsMarketplaceManualGithubUrl, setSkillsMarketplaceManualGithubUrl] = useState("");
+  const [
+    skillsMarketplaceManualGithubUrl,
+    setSkillsMarketplaceManualGithubUrl,
+  ] = useState("");
 
   // --- Logs ---
   const [logs, setLogs] = useState<LogEntry[]>([]);
@@ -799,21 +979,32 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [logSourceFilter, setLogSourceFilter] = useState("");
 
   // --- Wallet / Inventory ---
-  const [walletAddresses, setWalletAddresses] = useState<WalletAddresses | null>(null);
-  const [walletConfig, setWalletConfig] = useState<WalletConfigStatus | null>(null);
-  const [walletBalances, setWalletBalances] = useState<WalletBalancesResponse | null>(null);
+  const [walletAddresses, setWalletAddresses] =
+    useState<WalletAddresses | null>(null);
+  const [walletConfig, setWalletConfig] = useState<WalletConfigStatus | null>(
+    null,
+  );
+  const [walletBalances, setWalletBalances] =
+    useState<WalletBalancesResponse | null>(null);
   const [walletNfts, setWalletNfts] = useState<WalletNftsResponse | null>(null);
   const [walletLoading, setWalletLoading] = useState(false);
   const [walletNftsLoading, setWalletNftsLoading] = useState(false);
-  const [inventoryView, setInventoryView] = useState<"tokens" | "nfts">("tokens");
-  const [walletExportData, setWalletExportData] = useState<WalletExportResult | null>(null);
+  const [inventoryView, setInventoryView] = useState<"tokens" | "nfts">(
+    "tokens",
+  );
+  const [walletExportData, setWalletExportData] =
+    useState<WalletExportResult | null>(null);
   const [walletExportVisible, setWalletExportVisible] = useState(false);
   const [walletApiKeySaving, setWalletApiKeySaving] = useState(false);
-  const [inventorySort, setInventorySort] = useState<"chain" | "symbol" | "value">("value");
+  const [inventorySort, setInventorySort] = useState<
+    "chain" | "symbol" | "value"
+  >("value");
   const [walletError, setWalletError] = useState<string | null>(null);
 
   // --- ERC-8004 Registry ---
-  const [registryStatus, setRegistryStatus] = useState<RegistryStatus | null>(null);
+  const [registryStatus, setRegistryStatus] = useState<RegistryStatus | null>(
+    null,
+  );
   const [registryLoading, setRegistryLoading] = useState(false);
   const [registryRegistering, setRegistryRegistering] = useState(false);
   const [registryError, setRegistryError] = useState<string | null>(null);
@@ -827,26 +1018,34 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [mintShiny, setMintShiny] = useState(false);
 
   // --- Whitelist ---
-  const [whitelistStatus, setWhitelistStatus] = useState<WhitelistStatus | null>(null);
+  const [whitelistStatus, setWhitelistStatus] =
+    useState<WhitelistStatus | null>(null);
   const [whitelistLoading, setWhitelistLoading] = useState(false);
   const [twitterVerifyMessage] = useState<string | null>(null);
   const [twitterVerifyUrl] = useState("");
   const [twitterVerifying] = useState(false);
 
   // --- Character ---
-  const [characterData, setCharacterData] = useState<CharacterData | null>(null);
+  const [characterData, setCharacterData] = useState<CharacterData | null>(
+    null,
+  );
   const [characterLoading, setCharacterLoading] = useState(false);
   const [characterSaving, setCharacterSaving] = useState(false);
-  const [characterSaveSuccess, setCharacterSaveSuccess] = useState<string | null>(null);
-  const [characterSaveError, setCharacterSaveError] = useState<string | null>(null);
+  const [characterSaveSuccess, setCharacterSaveSuccess] = useState<
+    string | null
+  >(null);
+  const [characterSaveError, setCharacterSaveError] = useState<string | null>(
+    null,
+  );
   const [characterDraft, setCharacterDraft] = useState<CharacterData>({});
   const [selectedVrmIndex, setSelectedVrmIndexRaw] = useState(loadAvatarIndex);
   const [customVrmUrl, setCustomVrmUrl] = useState("");
 
   // Wrap setter to also persist to localStorage
   const setSelectedVrmIndex = useCallback((v: number) => {
-    setSelectedVrmIndexRaw(v);
-    saveAvatarIndex(v);
+    const normalized = normalizeAvatarIndex(v);
+    setSelectedVrmIndexRaw(normalized);
+    saveAvatarIndex(normalized);
   }, []);
 
   // --- Cloud ---
@@ -855,7 +1054,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [cloudCredits, setCloudCredits] = useState<number | null>(null);
   const [cloudCreditsLow, setCloudCreditsLow] = useState(false);
   const [cloudCreditsCritical, setCloudCreditsCritical] = useState(false);
-  const [cloudTopUpUrl, setCloudTopUpUrl] = useState("https://www.elizacloud.ai/dashboard/billing");
+  const [cloudTopUpUrl, setCloudTopUpUrl] = useState(
+    "https://www.elizacloud.ai/dashboard/settings?tab=billing",
+  );
   const [cloudUserId, setCloudUserId] = useState<string | null>(null);
   const [cloudLoginBusy, setCloudLoginBusy] = useState(false);
   const [cloudLoginError, setCloudLoginError] = useState<string | null>(null);
@@ -867,38 +1068,56 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [updateChannelSaving, setUpdateChannelSaving] = useState(false);
 
   // --- Extension ---
-  const [extensionStatus, setExtensionStatus] = useState<ExtensionStatus | null>(null);
+  const [extensionStatus, setExtensionStatus] =
+    useState<ExtensionStatus | null>(null);
   const [extensionChecking, setExtensionChecking] = useState(false);
 
   // --- Store ---
   const [storePlugins, setStorePlugins] = useState<RegistryPlugin[]>([]);
   const [storeSearch, setStoreSearch] = useState("");
-  const [storeFilter, setStoreFilter] = useState<"all" | "installed" | "ai-provider" | "connector" | "feature">("all");
+  const [storeFilter, setStoreFilter] = useState<
+    "all" | "installed" | "ai-provider" | "connector" | "feature"
+  >("all");
   const [storeLoading, setStoreLoading] = useState(false);
-  const [storeInstalling, setStoreInstalling] = useState<Set<string>>(new Set());
-  const [storeUninstalling, setStoreUninstalling] = useState<Set<string>>(new Set());
+  const [storeInstalling, setStoreInstalling] = useState<Set<string>>(
+    new Set(),
+  );
+  const [storeUninstalling, setStoreUninstalling] = useState<Set<string>>(
+    new Set(),
+  );
   const [storeError, setStoreError] = useState<string | null>(null);
-  const [storeDetailPlugin, setStoreDetailPlugin] = useState<RegistryPlugin | null>(null);
-  const [storeSubTab, setStoreSubTab] = useState<"plugins" | "skills">("plugins");
+  const [storeDetailPlugin, setStoreDetailPlugin] =
+    useState<RegistryPlugin | null>(null);
+  const [storeSubTab, setStoreSubTab] = useState<"plugins" | "skills">(
+    "plugins",
+  );
 
   // --- Catalog ---
   const [catalogSkills, setCatalogSkills] = useState<CatalogSkill[]>([]);
   const [catalogTotal, setCatalogTotal] = useState(0);
   const [catalogPage, setCatalogPage] = useState(1);
   const [catalogTotalPages, setCatalogTotalPages] = useState(1);
-  const [catalogSort, setCatalogSort] = useState<"downloads" | "stars" | "updated" | "name">("downloads");
+  const [catalogSort, setCatalogSort] = useState<
+    "downloads" | "stars" | "updated" | "name"
+  >("downloads");
   const [catalogSearch, setCatalogSearch] = useState("");
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [catalogError, setCatalogError] = useState<string | null>(null);
-  const [catalogDetailSkill, setCatalogDetailSkill] = useState<CatalogSkill | null>(null);
-  const [catalogInstalling, setCatalogInstalling] = useState<Set<string>>(new Set());
-  const [catalogUninstalling, setCatalogUninstalling] = useState<Set<string>>(new Set());
+  const [catalogDetailSkill, setCatalogDetailSkill] =
+    useState<CatalogSkill | null>(null);
+  const [catalogInstalling, setCatalogInstalling] = useState<Set<string>>(
+    new Set(),
+  );
+  const [catalogUninstalling, setCatalogUninstalling] = useState<Set<string>>(
+    new Set(),
+  );
 
   // --- Workbench ---
   const [workbenchLoading, setWorkbenchLoading] = useState(false);
   const [workbench, setWorkbench] = useState<WorkbenchOverview | null>(null);
   const [workbenchTasksAvailable, setWorkbenchTasksAvailable] = useState(false);
-  const [workbenchTriggersAvailable, setWorkbenchTriggersAvailable] = useState(false);
+  const [workbenchTriggersAvailable, setWorkbenchTriggersAvailable] =
+    useState(false);
   const [workbenchTodosAvailable, setWorkbenchTodosAvailable] = useState(false);
 
   // --- Agent export/import ---
@@ -914,36 +1133,58 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [importSuccess, setImportSuccess] = useState<string | null>(null);
 
   // --- Onboarding ---
-  const [onboardingStep, setOnboardingStep] = useState<OnboardingStep>("welcome");
-  const [onboardingOptions, setOnboardingOptions] = useState<OnboardingOptions | null>(null);
+  const [onboardingStep, setOnboardingStep] =
+    useState<OnboardingStep>("welcome");
+  const [onboardingOptions, setOnboardingOptions] =
+    useState<OnboardingOptions | null>(null);
   const [onboardingName, setOnboardingName] = useState("");
   const [onboardingStyle, setOnboardingStyle] = useState("");
   const [onboardingTheme, setOnboardingTheme] = useState<ThemeName>(loadTheme);
-  const [onboardingRunMode, setOnboardingRunMode] = useState<"local-rawdog" | "local-sandbox" | "cloud" | "">("");
+  const [onboardingRunMode, setOnboardingRunMode] = useState<
+    "local-rawdog" | "local-sandbox" | "cloud" | ""
+  >("");
   const [onboardingCloudProvider, setOnboardingCloudProvider] = useState("");
-  const [onboardingSmallModel, setOnboardingSmallModel] = useState("moonshotai/kimi-k2-turbo");
-  const [onboardingLargeModel, setOnboardingLargeModel] = useState("moonshotai/kimi-k2-0905");
+  const [onboardingSmallModel, setOnboardingSmallModel] = useState(
+    "moonshotai/kimi-k2-turbo",
+  );
+  const [onboardingLargeModel, setOnboardingLargeModel] = useState(
+    "moonshotai/kimi-k2-0905",
+  );
   const [onboardingProvider, setOnboardingProvider] = useState("");
   const [onboardingApiKey, setOnboardingApiKey] = useState("");
-  const [onboardingOpenRouterModel, setOnboardingOpenRouterModel] = useState("");
+  const [onboardingOpenRouterModel, setOnboardingOpenRouterModel] =
+    useState("");
   const [onboardingPrimaryModel, setOnboardingPrimaryModel] = useState("");
   const [onboardingTelegramToken, setOnboardingTelegramToken] = useState("");
   const [onboardingDiscordToken, setOnboardingDiscordToken] = useState("");
-  const [onboardingWhatsAppSessionPath, setOnboardingWhatsAppSessionPath] = useState("");
-  const [onboardingTwilioAccountSid, setOnboardingTwilioAccountSid] = useState("");
-  const [onboardingTwilioAuthToken, setOnboardingTwilioAuthToken] = useState("");
-  const [onboardingTwilioPhoneNumber, setOnboardingTwilioPhoneNumber] = useState("");
+  const [onboardingWhatsAppSessionPath, setOnboardingWhatsAppSessionPath] =
+    useState("");
+  const [onboardingTwilioAccountSid, setOnboardingTwilioAccountSid] =
+    useState("");
+  const [onboardingTwilioAuthToken, setOnboardingTwilioAuthToken] =
+    useState("");
+  const [onboardingTwilioPhoneNumber, setOnboardingTwilioPhoneNumber] =
+    useState("");
   const [onboardingBlooioApiKey, setOnboardingBlooioApiKey] = useState("");
-  const [onboardingBlooioPhoneNumber, setOnboardingBlooioPhoneNumber] = useState("");
-  const [onboardingSubscriptionTab, setOnboardingSubscriptionTab] = useState<"token" | "oauth">("token");
-  const [onboardingSelectedChains, setOnboardingSelectedChains] = useState<Set<string>>(new Set(["evm", "solana"]));
-  const [onboardingRpcSelections, setOnboardingRpcSelections] = useState<Record<string, string>>({});
-  const [onboardingRpcKeys, setOnboardingRpcKeys] = useState<Record<string, string>>({});
+  const [onboardingBlooioPhoneNumber, setOnboardingBlooioPhoneNumber] =
+    useState("");
+  const [onboardingSubscriptionTab, setOnboardingSubscriptionTab] = useState<
+    "token" | "oauth"
+  >("token");
+  const [onboardingSelectedChains, setOnboardingSelectedChains] = useState<
+    Set<string>
+  >(new Set(["evm", "solana"]));
+  const [onboardingRpcSelections, setOnboardingRpcSelections] = useState<
+    Record<string, string>
+  >({});
+  const [onboardingRpcKeys, setOnboardingRpcKeys] = useState<
+    Record<string, string>
+  >({});
   const [onboardingAvatar, setOnboardingAvatar] = useState(1);
   const [onboardingRestarting, setOnboardingRestarting] = useState(false);
 
   // --- Command palette ---
-  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [commandPaletteOpen, _setCommandPaletteOpen] = useState(false);
   const [commandQuery, setCommandQuery] = useState("");
   const [commandActiveIndex, setCommandActiveIndex] = useState(0);
 
@@ -951,16 +1192,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [emotePickerOpen, setEmotePickerOpen] = useState(false);
 
   // --- MCP ---
-  const [mcpConfiguredServers, setMcpConfiguredServers] = useState<Record<string, McpServerConfig>>({});
-  const [mcpServerStatuses, setMcpServerStatuses] = useState<McpServerStatus[]>([]);
+  const [mcpConfiguredServers, setMcpConfiguredServers] = useState<
+    Record<string, McpServerConfig>
+  >({});
+  const [mcpServerStatuses, setMcpServerStatuses] = useState<McpServerStatus[]>(
+    [],
+  );
   const [mcpMarketplaceQuery, setMcpMarketplaceQuery] = useState("");
-  const [mcpMarketplaceResults, setMcpMarketplaceResults] = useState<McpMarketplaceResult[]>([]);
+  const [mcpMarketplaceResults, setMcpMarketplaceResults] = useState<
+    McpMarketplaceResult[]
+  >([]);
   const [mcpMarketplaceLoading, setMcpMarketplaceLoading] = useState(false);
   const [mcpAction, setMcpAction] = useState("");
-  const [mcpAddingServer, setMcpAddingServer] = useState<McpRegistryServerDetail | null>(null);
-  const [mcpAddingResult, setMcpAddingResult] = useState<McpMarketplaceResult | null>(null);
+  const [mcpAddingServer, setMcpAddingServer] =
+    useState<McpRegistryServerDetail | null>(null);
+  const [mcpAddingResult, setMcpAddingResult] =
+    useState<McpMarketplaceResult | null>(null);
   const [mcpEnvInputs, setMcpEnvInputs] = useState<Record<string, string>>({});
-  const [mcpHeaderInputs, setMcpHeaderInputs] = useState<Record<string, string>>({});
+  const [mcpHeaderInputs, setMcpHeaderInputs] = useState<
+    Record<string, string>
+  >({});
 
   // --- Share ingest ---
   const [droppedFiles, setDroppedFiles] = useState<string[]>([]);
@@ -970,15 +1221,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [activeGameApp, setActiveGameApp] = useState("");
   const [activeGameDisplayName, setActiveGameDisplayName] = useState("");
   const [activeGameViewerUrl, setActiveGameViewerUrl] = useState("");
-  const [activeGameSandbox, setActiveGameSandbox] = useState("allow-scripts allow-same-origin allow-popups");
-  const [activeGamePostMessageAuth, setActiveGamePostMessageAuth] = useState(false);
-  const [activeGamePostMessagePayload, setActiveGamePostMessagePayload] = useState<GamePostMessageAuthPayload | null>(null);
+  const [activeGameSandbox, setActiveGameSandbox] = useState(
+    "allow-scripts allow-same-origin allow-popups",
+  );
+  const [activeGamePostMessageAuth, setActiveGamePostMessageAuth] =
+    useState(false);
+  const [activeGamePostMessagePayload, setActiveGamePostMessagePayload] =
+    useState<GamePostMessageAuthPayload | null>(null);
 
   // --- Admin ---
   const [appsSubTab, setAppsSubTab] = useState<"browse" | "games">("browse");
-  const [agentSubTab, setAgentSubTab] = useState<"character" | "inventory" | "knowledge">("character");
-  const [pluginsSubTab, setPluginsSubTab] = useState<"features" | "connectors" | "plugins">("features");
-  const [databaseSubTab, setDatabaseSubTab] = useState<"tables" | "media" | "vectors">("tables");
+  const [agentSubTab, setAgentSubTab] = useState<
+    "character" | "inventory" | "knowledge"
+  >("character");
+  const [pluginsSubTab, setPluginsSubTab] = useState<
+    "features" | "connectors" | "plugins"
+  >("features");
+  const [databaseSubTab, setDatabaseSubTab] = useState<
+    "tables" | "media" | "vectors"
+  >("tables");
 
   // --- Config ---
   const [configRaw, setConfigRaw] = useState<Record<string, unknown>>({});
@@ -1015,7 +1276,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // ── Action notice ──────────────────────────────────────────────────
 
   const setActionNotice = useCallback(
-    (text: string, tone: "info" | "success" | "error" = "info", ttlMs = 2800) => {
+    (
+      text: string,
+      tone: "info" | "success" | "error" = "info",
+      ttlMs = 2800,
+    ) => {
       setActionNoticeState({ tone, text });
       if (actionNoticeTimer.current != null) {
         window.clearTimeout(actionNoticeTimer.current);
@@ -1066,14 +1331,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [activeGameViewerUrl],
   );
 
-  const sortTriggersByNextRun = useCallback((items: TriggerSummary[]): TriggerSummary[] => {
-    return [...items].sort((a: TriggerSummary, b: TriggerSummary) => {
-      const aNext = a.nextRunAtMs ?? Number.MAX_SAFE_INTEGER;
-      const bNext = b.nextRunAtMs ?? Number.MAX_SAFE_INTEGER;
-      if (aNext !== bNext) return aNext - bNext;
-      return a.displayName.localeCompare(b.displayName);
-    });
-  }, []);
+  const sortTriggersByNextRun = useCallback(
+    (items: TriggerSummary[]): TriggerSummary[] => {
+      return [...items].sort((a: TriggerSummary, b: TriggerSummary) => {
+        const aNext = a.nextRunAtMs ?? Number.MAX_SAFE_INTEGER;
+        const bNext = b.nextRunAtMs ?? Number.MAX_SAFE_INTEGER;
+        if (aNext !== bNext) return aNext - bNext;
+        return a.displayName.localeCompare(b.displayName);
+      });
+    },
+    [],
+  );
 
   // ── Data loading ───────────────────────────────────────────────────
 
@@ -1142,7 +1410,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setTriggers(sortTriggersByNextRun(data.triggers));
       setTriggerError(null);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to load triggers";
+      const message =
+        err instanceof Error ? err.message : "Failed to load triggers";
       setTriggerError(message);
       setTriggers([]);
     } finally {
@@ -1159,7 +1428,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }));
       setTriggerError(null);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to load trigger runs";
+      const message =
+        err instanceof Error ? err.message : "Failed to load trigger runs";
       setTriggerError(message);
     }
   }, []);
@@ -1171,7 +1441,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const response = await client.createTrigger(request);
         const created = response.trigger;
         setTriggers((prev: TriggerSummary[]) => {
-          const merged = prev.filter((item: TriggerSummary) => item.id !== created.id);
+          const merged = prev.filter(
+            (item: TriggerSummary) => item.id !== created.id,
+          );
           merged.push(created);
           return sortTriggersByNextRun(merged);
         });
@@ -1179,7 +1451,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         void loadTriggerHealth();
         return created;
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Failed to create trigger";
+        const message =
+          err instanceof Error ? err.message : "Failed to create trigger";
         setTriggerError(message);
         return null;
       } finally {
@@ -1208,7 +1481,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         void loadTriggerHealth();
         return updated;
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Failed to update trigger";
+        const message =
+          err instanceof Error ? err.message : "Failed to update trigger";
         setTriggerError(message);
         return null;
       } finally {
@@ -1218,62 +1492,72 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [loadTriggerHealth, sortTriggersByNextRun],
   );
 
-  const deleteTrigger = useCallback(async (id: string): Promise<boolean> => {
-    setTriggersSaving(true);
-    try {
-      await client.deleteTrigger(id);
-      setTriggers((prev: TriggerSummary[]) =>
-        prev.filter((item: TriggerSummary) => item.id !== id),
-      );
-      setTriggerRunsById((prev: Record<string, TriggerRunRecord[]>) => {
-        const next: Record<string, TriggerRunRecord[]> = {};
-        for (const [key, runs] of Object.entries(prev)) {
-          if (key !== id) next[key] = runs;
-        }
-        return next;
-      });
-      setTriggerError(null);
-      void loadTriggerHealth();
-      return true;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to delete trigger";
-      setTriggerError(message);
-      return false;
-    } finally {
-      setTriggersSaving(false);
-    }
-  }, [loadTriggerHealth]);
-
-  const runTriggerNow = useCallback(async (id: string): Promise<boolean> => {
-    setTriggersSaving(true);
-    try {
-      const response = await client.runTriggerNow(id);
-      if (response.trigger) {
-        const trigger = response.trigger;
-        setTriggers((prev: TriggerSummary[]) => {
-          const idx = prev.findIndex((item: TriggerSummary) => item.id === id);
-          if (idx === -1) {
-            return sortTriggersByNextRun([...prev, trigger]);
+  const deleteTrigger = useCallback(
+    async (id: string): Promise<boolean> => {
+      setTriggersSaving(true);
+      try {
+        await client.deleteTrigger(id);
+        setTriggers((prev: TriggerSummary[]) =>
+          prev.filter((item: TriggerSummary) => item.id !== id),
+        );
+        setTriggerRunsById((prev: Record<string, TriggerRunRecord[]>) => {
+          const next: Record<string, TriggerRunRecord[]> = {};
+          for (const [key, runs] of Object.entries(prev)) {
+            if (key !== id) next[key] = runs;
           }
-          const updated = [...prev];
-          updated[idx] = trigger;
-          return sortTriggersByNextRun(updated);
+          return next;
         });
-      } else {
-        await loadTriggers();
+        setTriggerError(null);
+        void loadTriggerHealth();
+        return true;
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Failed to delete trigger";
+        setTriggerError(message);
+        return false;
+      } finally {
+        setTriggersSaving(false);
       }
-      await loadTriggerRuns(id);
-      void loadTriggerHealth();
-      setTriggerError(null);
-      return response.ok;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to run trigger";
-      setTriggerError(message);
-      return false;
-    } finally {
-      setTriggersSaving(false);
-    }
-  }, [loadTriggerHealth, loadTriggerRuns, loadTriggers, sortTriggersByNextRun]);
+    },
+    [loadTriggerHealth],
+  );
+
+  const runTriggerNow = useCallback(
+    async (id: string): Promise<boolean> => {
+      setTriggersSaving(true);
+      try {
+        const response = await client.runTriggerNow(id);
+        if (response.trigger) {
+          const trigger = response.trigger;
+          setTriggers((prev: TriggerSummary[]) => {
+            const idx = prev.findIndex(
+              (item: TriggerSummary) => item.id === id,
+            );
+            if (idx === -1) {
+              return sortTriggersByNextRun([...prev, trigger]);
+            }
+            const updated = [...prev];
+            updated[idx] = trigger;
+            return sortTriggersByNextRun(updated);
+          });
+        } else {
+          await loadTriggers();
+        }
+        await loadTriggerRuns(id);
+        void loadTriggerHealth();
+        setTriggerError(null);
+        return response.ok;
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Failed to run trigger";
+        setTriggerError(message);
+        return false;
+      } finally {
+        setTriggersSaving(false);
+      }
+    },
+    [loadTriggerHealth, loadTriggerRuns, loadTriggers, sortTriggersByNextRun],
+  );
 
   const appendAutonomousEvent = useCallback((event: StreamEventEnvelope) => {
     setAutonomousEvents((prev) => {
@@ -1289,7 +1573,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setAutonomousLatestEventId(event.eventId);
   }, []);
 
-  const loadConversations = useCallback(async (): Promise<Conversation[] | null> => {
+  const loadConversations = useCallback(async (): Promise<
+    Conversation[] | null
+  > => {
     try {
       const { conversations: c } = await client.listConversations();
       setConversations(c);
@@ -1299,36 +1585,41 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const loadConversationMessages = useCallback(async (convId: string): Promise<LoadConversationMessagesResult> => {
-    try {
-      const { messages } = await client.getConversationMessages(convId);
-      setConversationMessages(messages);
-      return { ok: true };
-    } catch (err) {
-      const status = (err as { status?: number }).status;
-      if (status === 404) {
-        const refreshed = await client.listConversations().catch(() => null);
-        if (refreshed) {
-          setConversations(refreshed.conversations);
-          if (activeConversationIdRef.current === convId) {
-            const fallbackId = refreshed.conversations[0]?.id ?? null;
-            setActiveConversationId(fallbackId);
-            activeConversationIdRef.current = fallbackId;
+  const loadConversationMessages = useCallback(
+    async (convId: string): Promise<LoadConversationMessagesResult> => {
+      try {
+        const { messages } = await client.getConversationMessages(convId);
+        setConversationMessages(messages);
+        return { ok: true };
+      } catch (err) {
+        const status = (err as { status?: number }).status;
+        if (status === 404) {
+          const refreshed = await client.listConversations().catch(() => null);
+          if (refreshed) {
+            setConversations(refreshed.conversations);
+            if (activeConversationIdRef.current === convId) {
+              const fallbackId = refreshed.conversations[0]?.id ?? null;
+              setActiveConversationId(fallbackId);
+              activeConversationIdRef.current = fallbackId;
+            }
+          } else if (activeConversationIdRef.current === convId) {
+            setActiveConversationId(null);
+            activeConversationIdRef.current = null;
           }
-        } else if (activeConversationIdRef.current === convId) {
-          setActiveConversationId(null);
-          activeConversationIdRef.current = null;
         }
+        setConversationMessages([]);
+        return {
+          ok: false,
+          status,
+          message:
+            err instanceof Error
+              ? err.message
+              : "Failed to load conversation messages",
+        };
       }
-      setConversationMessages([]);
-      return {
-        ok: false,
-        status,
-        message:
-          err instanceof Error ? err.message : "Failed to load conversation messages",
-      };
-    }
-  }, []);
+    },
+    [],
+  );
 
   const loadWalletConfig = useCallback(async () => {
     try {
@@ -1340,7 +1631,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       });
       setWalletError(null);
     } catch (err) {
-      setWalletError(`Failed to load wallet config: ${err instanceof Error ? err.message : "network error"}`);
+      setWalletError(
+        `Failed to load wallet config: ${err instanceof Error ? err.message : "network error"}`,
+      );
     }
   }, []);
 
@@ -1351,7 +1644,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const b = await client.getWalletBalances();
       setWalletBalances(b);
     } catch (err) {
-      setWalletError(`Failed to fetch balances: ${err instanceof Error ? err.message : "network error"}`);
+      setWalletError(
+        `Failed to fetch balances: ${err instanceof Error ? err.message : "network error"}`,
+      );
     }
     setWalletLoading(false);
   }, []);
@@ -1363,7 +1658,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const n = await client.getWalletNfts();
       setWalletNfts(n);
     } catch (err) {
-      setWalletError(`Failed to fetch NFTs: ${err instanceof Error ? err.message : "network error"}`);
+      setWalletError(
+        `Failed to fetch NFTs: ${err instanceof Error ? err.message : "network error"}`,
+      );
     }
     setWalletNftsLoading(false);
   }, []);
@@ -1382,7 +1679,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setCharacterDraft({
         name: character.name ?? "",
         username: character.username ?? "",
-        bio: Array.isArray(character.bio) ? character.bio.join("\n") : (character.bio ?? ""),
+        bio: Array.isArray(character.bio)
+          ? character.bio.join("\n")
+          : (character.bio ?? ""),
         system: character.system ?? "",
         adjectives: character.adjectives ?? [],
         topics: character.topics ?? [],
@@ -1435,7 +1734,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const ext = await client.getExtensionStatus();
       setExtensionStatus(ext);
     } catch {
-      setExtensionStatus({ relayReachable: false, relayPort: 18792, extensionPath: null });
+      setExtensionStatus({
+        relayReachable: false,
+        relayPort: 18792,
+        extensionPath: null,
+      });
     }
     setExtensionChecking(false);
   }, []);
@@ -1449,10 +1752,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setCloudCreditsCritical(false);
       return;
     }
-    setCloudEnabled(cloudStatus.enabled ?? false);
-    // "Connected" should reflect authenticated cloud availability, not just
-    // whether an API key is present in config.
-    const isConnected = Boolean(cloudStatus.connected);
+    // A cached cloud API key represents a completed login and should be shared
+    // across all views, even before runtime CLOUD_AUTH fully initializes.
+    const isConnected = Boolean(cloudStatus.connected || cloudStatus.hasApiKey);
+    setCloudEnabled(Boolean(cloudStatus.enabled ?? false));
     setCloudConnected(Boolean(isConnected));
     setCloudUserId(cloudStatus.userId ?? null);
     if (cloudStatus.topUpUrl) setCloudTopUpUrl(cloudStatus.topUpUrl);
@@ -1478,23 +1781,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // ── Lifecycle actions ──────────────────────────────────────────────
 
-  const beginLifecycleAction = useCallback((action: LifecycleAction): boolean => {
-    if (lifecycleBusyRef.current) {
-      const activeAction =
-        lifecycleActionRef.current ?? lifecycleAction ?? action;
-      setActionNotice(
-        `Agent action already in progress (${LIFECYCLE_MESSAGES[activeAction].inProgress}). Please wait.`,
-        "info",
-        2800,
-      );
-      return false;
-    }
-    lifecycleBusyRef.current = true;
-    lifecycleActionRef.current = action;
-    setLifecycleBusy(true);
-    setLifecycleAction(action);
-    return true;
-  }, [lifecycleAction, setActionNotice]);
+  const beginLifecycleAction = useCallback(
+    (action: LifecycleAction): boolean => {
+      if (lifecycleBusyRef.current) {
+        const activeAction =
+          lifecycleActionRef.current ?? lifecycleAction ?? action;
+        setActionNotice(
+          `Agent action already in progress (${LIFECYCLE_MESSAGES[activeAction].inProgress}). Please wait.`,
+          "info",
+          2800,
+        );
+        return false;
+      }
+      lifecycleBusyRef.current = true;
+      lifecycleActionRef.current = action;
+      setLifecycleBusy(true);
+      setLifecycleAction(action);
+      return true;
+    },
+    [lifecycleAction, setActionNotice],
+  );
 
   const finishLifecycleAction = useCallback(() => {
     lifecycleBusyRef.current = false;
@@ -1512,8 +1818,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setActionNotice(LIFECYCLE_MESSAGES.start.success, "success", 2400);
     } catch (err) {
       setActionNotice(
-        `Failed to ${LIFECYCLE_MESSAGES.start.verb} agent: ${
-          err instanceof Error ? err.message : "unknown error"
+        `Failed to ${LIFECYCLE_MESSAGES.start.verb} agent: ${err instanceof Error ? err.message : "unknown error"
         }`,
         "error",
         4200,
@@ -1532,8 +1837,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setActionNotice(LIFECYCLE_MESSAGES.stop.success, "success", 2400);
     } catch (err) {
       setActionNotice(
-        `Failed to ${LIFECYCLE_MESSAGES.stop.verb} agent: ${
-          err instanceof Error ? err.message : "unknown error"
+        `Failed to ${LIFECYCLE_MESSAGES.stop.verb} agent: ${err instanceof Error ? err.message : "unknown error"
         }`,
         "error",
         4200,
@@ -1563,8 +1867,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setActionNotice(LIFECYCLE_MESSAGES[action].success, "success", 2400);
     } catch (err) {
       setActionNotice(
-        `Failed to ${LIFECYCLE_MESSAGES[action].verb} agent: ${
-          err instanceof Error ? err.message : "unknown error"
+        `Failed to ${LIFECYCLE_MESSAGES[action].verb} agent: ${err instanceof Error ? err.message : "unknown error"
         }`,
         "error",
         4200,
@@ -1572,14 +1875,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
     } finally {
       finishLifecycleAction();
     }
-  }, [agentStatus, beginLifecycleAction, finishLifecycleAction, setActionNotice]);
+  }, [
+    agentStatus,
+    beginLifecycleAction,
+    finishLifecycleAction,
+    setActionNotice,
+  ]);
 
   const handleRestart = useCallback(async () => {
     if (!beginLifecycleAction("restart")) return;
     setActionNotice(LIFECYCLE_MESSAGES.restart.progress, "info", 3200);
     try {
       setAgentStatus({
-        ...(agentStatus ?? { agentName: "Milaidy", model: undefined, uptime: undefined, startedAt: undefined }),
+        ...(agentStatus ?? {
+          agentName: "Milady",
+          model: undefined,
+          uptime: undefined,
+          startedAt: undefined,
+        }),
         state: "restarting",
       });
       // Server restart clears in-memory conversations — reset client state
@@ -1591,8 +1904,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setActionNotice(LIFECYCLE_MESSAGES.restart.success, "success", 2400);
     } catch (err) {
       setActionNotice(
-        `Failed to ${LIFECYCLE_MESSAGES.restart.verb} agent: ${
-          err instanceof Error ? err.message : "unknown error"
+        `Failed to ${LIFECYCLE_MESSAGES.restart.verb} agent: ${err instanceof Error ? err.message : "unknown error"
         }`,
         "error",
         4200,
@@ -1607,7 +1919,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     } finally {
       finishLifecycleAction();
     }
-  }, [agentStatus, beginLifecycleAction, finishLifecycleAction, setActionNotice]);
+  }, [
+    agentStatus,
+    beginLifecycleAction,
+    finishLifecycleAction,
+    setActionNotice,
+  ]);
 
   const handleReset = useCallback(async () => {
     if (lifecycleBusyRef.current) {
@@ -1622,8 +1939,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
     const confirmed = window.confirm(
       "This will completely reset the agent — wiping all config, memory, and data.\n\n" +
-        "You will be taken back to the onboarding wizard.\n\n" +
-        "Are you sure?",
+      "You will be taken back to the onboarding wizard.\n\n" +
+      "Are you sure?",
     );
     if (!confirmed) return;
     if (!beginLifecycleAction("reset")) return;
@@ -1649,8 +1966,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setActionNotice(LIFECYCLE_MESSAGES.reset.success, "success", 3200);
     } catch (err) {
       setActionNotice(
-        `Failed to ${LIFECYCLE_MESSAGES.reset.verb} agent: ${
-          err instanceof Error ? err.message : "unknown error"
+        `Failed to ${LIFECYCLE_MESSAGES.reset.verb} agent: ${err instanceof Error ? err.message : "unknown error"
         }`,
         "error",
         4200,
@@ -1659,7 +1975,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     } finally {
       finishLifecycleAction();
     }
-  }, [lifecycleAction, beginLifecycleAction, finishLifecycleAction, setActionNotice]);
+  }, [
+    lifecycleAction,
+    beginLifecycleAction,
+    finishLifecycleAction,
+    setActionNotice,
+  ]);
 
   // ── Chat ───────────────────────────────────────────────────────────
 
@@ -1671,7 +1992,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (data.text) {
         setConversationMessages((prev: ConversationMessage[]) => [
           ...prev,
-          { id: `greeting-${Date.now()}`, role: "assistant", text: data.text, timestamp: Date.now() },
+          {
+            id: `greeting-${Date.now()}`,
+            role: "assistant",
+            text: data.text,
+            timestamp: Date.now(),
+          },
         ]);
       }
     } catch {
@@ -1691,129 +2017,167 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // Agent sends the first message
       greetingFiredRef.current = true;
       void fetchGreeting(conversation.id);
-      client.sendWsMessage({ type: "active-conversation", conversationId: conversation.id });
+      client.sendWsMessage({
+        type: "active-conversation",
+        conversationId: conversation.id,
+      });
     } catch {
       /* ignore */
     }
   }, [fetchGreeting]);
 
-  const handleChatSend = useCallback(async (mode: ConversationMode = "simple") => {
-    const text = chatInput.trim();
-    if (!text) return;
-    if (chatSendBusyRef.current || chatSending) return;
-    chatSendBusyRef.current = true;
-
-    try {
-      let convId: string = activeConversationId ?? "";
-      if (!convId) {
-        try {
-          const { conversation } = await client.createConversation();
-          setConversations((prev) => [conversation, ...prev]);
-          setActiveConversationId(conversation.id);
-          activeConversationIdRef.current = conversation.id;
-          convId = conversation.id;
-        } catch {
-          return;
-        }
-      }
-
-      // Keep server-side active conversation in sync for proactive routing.
-      client.sendWsMessage({ type: "active-conversation", conversationId: convId });
-
-      const now = Date.now();
-      const userMsgId = `temp-${now}`;
-      const assistantMsgId = `temp-resp-${now}`;
-
-      setConversationMessages((prev: ConversationMessage[]) => [
-        ...prev,
-        { id: userMsgId, role: "user", text, timestamp: now },
-        { id: assistantMsgId, role: "assistant", text: "", timestamp: now },
-      ]);
-      setChatInput("");
-      setChatSending(true);
-      setChatFirstTokenReceived(false);
-
-      const controller = new AbortController();
-      chatAbortRef.current = controller;
+  const handleChatSend = useCallback(
+    async (channelType: ConversationChannelType = "DM") => {
+      const text = chatInput.trim();
+      if (!text) return;
+      if (chatSendBusyRef.current || chatSending) return;
+      chatSendBusyRef.current = true;
 
       try {
-        const data = await client.sendConversationMessageStream(
-          convId,
-          text,
-          (token) => {
-            setChatFirstTokenReceived(true);
-            setConversationMessages((prev) =>
-              prev.map((message) =>
-                message.id === assistantMsgId
-                  ? { ...message, text: `${message.text}${token}` }
-                  : message,
-              ),
-            );
-          },
-          mode,
-          controller.signal,
-        );
-
-        setConversationMessages((prev) =>
-          prev.map((message) =>
-            message.id === assistantMsgId
-              ? { ...message, text: data.text }
-              : message,
-          ),
-        );
-        await loadConversations();
-      } catch (err) {
-        const abortError = err as Error;
-        if (abortError.name === "AbortError") {
-          setConversationMessages((prev) =>
-            prev.filter((message) => !(message.id === assistantMsgId && !message.text.trim())),
-          );
-          return;
-        }
-
-        // If the conversation was lost (server restart), create a fresh one and retry once.
-        const status = (err as { status?: number }).status;
-        if (status === 404) {
+        let convId: string = activeConversationId ?? "";
+        if (!convId) {
           try {
             const { conversation } = await client.createConversation();
             setConversations((prev) => [conversation, ...prev]);
             setActiveConversationId(conversation.id);
             activeConversationIdRef.current = conversation.id;
-            client.sendWsMessage({ type: "active-conversation", conversationId: conversation.id });
-
-            const retryData = await client.sendConversationMessage(
-              conversation.id,
-              text,
-              mode,
-            );
-            setConversationMessages([
-              { id: `temp-${Date.now()}`, role: "user", text, timestamp: Date.now() },
-              {
-                id: `temp-resp-${Date.now()}`,
-                role: "assistant",
-                text: retryData.text,
-                timestamp: Date.now(),
-              },
-            ]);
+            convId = conversation.id;
           } catch {
-            setConversationMessages((prev) =>
-              prev.filter((message) => !(message.id === assistantMsgId && !message.text.trim())),
-            );
+            return;
           }
-        } else {
-          await loadConversationMessages(convId);
+        }
+
+        // Keep server-side active conversation in sync for proactive routing.
+        client.sendWsMessage({
+          type: "active-conversation",
+          conversationId: convId,
+        });
+
+        const now = Date.now();
+        const userMsgId = `temp-${now}`;
+        const assistantMsgId = `temp-resp-${now}`;
+
+        setConversationMessages((prev: ConversationMessage[]) => [
+          ...prev,
+          { id: userMsgId, role: "user", text, timestamp: now },
+          { id: assistantMsgId, role: "assistant", text: "", timestamp: now },
+        ]);
+        setChatInput("");
+        setChatSending(true);
+        setChatFirstTokenReceived(false);
+
+        const controller = new AbortController();
+        chatAbortRef.current = controller;
+        let streamedAssistantText = "";
+
+        try {
+          const data = await client.sendConversationMessageStream(
+            convId,
+            text,
+            (token) => {
+              const delta = computeStreamingDelta(streamedAssistantText, token);
+              if (!delta) return;
+              streamedAssistantText += delta;
+              setChatFirstTokenReceived(true);
+              setConversationMessages((prev) =>
+                prev.map((message) =>
+                  message.id === assistantMsgId
+                    ? { ...message, text: `${message.text}${delta}` }
+                    : message,
+                ),
+              );
+            },
+            channelType,
+            controller.signal,
+          );
+
+          if (shouldApplyFinalStreamText(streamedAssistantText, data.text)) {
+            setConversationMessages((prev) => {
+              let changed = false;
+              const next = prev.map((message) => {
+                if (message.id !== assistantMsgId) return message;
+                if (message.text === data.text) return message;
+                changed = true;
+                return { ...message, text: data.text };
+              });
+              return changed ? next : prev;
+            });
+          }
+          await loadConversations();
+        } catch (err) {
+          const abortError = err as Error;
+          if (abortError.name === "AbortError") {
+            setConversationMessages((prev) =>
+              prev.filter(
+                (message) =>
+                  !(message.id === assistantMsgId && !message.text.trim()),
+              ),
+            );
+            return;
+          }
+
+          // If the conversation was lost (server restart), create a fresh one and retry once.
+          const status = (err as { status?: number }).status;
+          if (status === 404) {
+            try {
+              const { conversation } = await client.createConversation();
+              setConversations((prev) => [conversation, ...prev]);
+              setActiveConversationId(conversation.id);
+              activeConversationIdRef.current = conversation.id;
+              client.sendWsMessage({
+                type: "active-conversation",
+                conversationId: conversation.id,
+              });
+
+              const retryData = await client.sendConversationMessage(
+                conversation.id,
+                text,
+                channelType,
+              );
+              setConversationMessages([
+                {
+                  id: `temp-${Date.now()}`,
+                  role: "user",
+                  text,
+                  timestamp: Date.now(),
+                },
+                {
+                  id: `temp-resp-${Date.now()}`,
+                  role: "assistant",
+                  text: retryData.text,
+                  timestamp: Date.now(),
+                },
+              ]);
+            } catch {
+              setConversationMessages((prev) =>
+                prev.filter(
+                  (message) =>
+                    !(message.id === assistantMsgId && !message.text.trim()),
+                ),
+              );
+            }
+          } else {
+            await loadConversationMessages(convId);
+          }
+        } finally {
+          if (chatAbortRef.current === controller) {
+            chatAbortRef.current = null;
+          }
+          setChatSending(false);
+          setChatFirstTokenReceived(false);
         }
       } finally {
-        if (chatAbortRef.current === controller) {
-          chatAbortRef.current = null;
-        }
-        setChatSending(false);
-        setChatFirstTokenReceived(false);
+        chatSendBusyRef.current = false;
       }
-    } finally {
-      chatSendBusyRef.current = false;
-    }
-  }, [chatInput, chatSending, activeConversationId, loadConversationMessages, loadConversations]);
+    },
+    [
+      chatInput,
+      chatSending,
+      activeConversationId,
+      loadConversationMessages,
+      loadConversations,
+    ],
+  );
 
   const handleChatStop = useCallback(() => {
     chatSendBusyRef.current = false;
@@ -1933,7 +2297,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
         4200,
       );
     },
-    [activeConversationId, loadConversationMessages, loadConversations, setActionNotice],
+    [
+      activeConversationId,
+      loadConversationMessages,
+      loadConversations,
+      setActionNotice,
+    ],
   );
 
   const handleDeleteConversation = useCallback(
@@ -1941,7 +2310,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const deletingActive = activeConversationId === id;
       try {
         await client.deleteConversation(id);
-        setConversations((prev) => prev.filter((conversation) => conversation.id !== id));
+        setConversations((prev) =>
+          prev.filter((conversation) => conversation.id !== id),
+        );
         setUnreadConversations((prev) => {
           const next = new Set(prev);
           next.delete(id);
@@ -1975,7 +2346,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       } catch (err) {
         const status = (err as { status?: number }).status;
         if (status === 404) {
-          setConversations((prev) => prev.filter((conversation) => conversation.id !== id));
+          setConversations((prev) =>
+            prev.filter((conversation) => conversation.id !== id),
+          );
           setUnreadConversations((prev) => {
             const next = new Set(prev);
             next.delete(id);
@@ -2001,7 +2374,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
         );
       }
     },
-    [activeConversationId, loadConversationMessages, loadConversations, setActionNotice],
+    [
+      activeConversationId,
+      loadConversationMessages,
+      loadConversations,
+      setActionNotice,
+    ],
   );
 
   const handleRenameConversation = useCallback(
@@ -2057,8 +2435,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       window.location.reload();
     } catch (err) {
       const status = (err as { status?: number }).status;
-      if (status === 410) setPairingError("Pairing code expired. Check logs for a new code.");
-      else if (status === 429) setPairingError("Too many attempts. Try again later.");
+      if (status === 410)
+        setPairingError("Pairing code expired. Check logs for a new code.");
+      else if (status === 429)
+        setPairingError("Too many attempts. Try again later.");
       else setPairingError("Pairing failed. Check the code and try again.");
     } finally {
       pairingBusyRef.current = false;
@@ -2072,7 +2452,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     async (pluginId: string, enabled: boolean) => {
       const plugin = plugins.find((p: PluginInfo) => p.id === pluginId);
       const pluginName = plugin?.name ?? pluginId;
-      if (enabled && plugin?.validationErrors && plugin.validationErrors.length > 0) {
+      if (
+        enabled &&
+        plugin?.validationErrors &&
+        plugin.validationErrors.length > 0
+      ) {
         setPluginSettingsOpen((prev) => new Set([...prev, pluginId]));
         setActionNotice(
           `${pluginName} has required settings. Configure them after enabling.`,
@@ -2100,8 +2484,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           /* ignore */
         });
         setActionNotice(
-          `Failed to ${enabled ? "enable" : "disable"} ${pluginName}: ${
-            err instanceof Error ? err.message : "unknown error"
+          `Failed to ${enabled ? "enable" : "disable"} ${pluginName}: ${err instanceof Error ? err.message : "unknown error"
           }`,
           "error",
           4200,
@@ -2119,8 +2502,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         await client.updatePlugin(pluginId, { config });
 
         // Check if this is an AI provider plugin
-        const plugin = plugins.find(p => p.id === pluginId);
-        const isAiProvider = plugin?.category === 'ai-provider';
+        const plugin = plugins.find((p) => p.id === pluginId);
+        const isAiProvider = plugin?.category === "ai-provider";
 
         // Restart agent if AI provider (API keys need restart to take effect)
         if (isAiProvider) {
@@ -2172,9 +2555,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       try {
         const { skill } = await client.updateSkill(skillId, enabled);
         setSkills((prev) =>
-          prev.map((s) => (s.id === skillId ? { ...s, enabled: skill.enabled } : s)),
+          prev.map((s) =>
+            s.id === skillId ? { ...s, enabled: skill.enabled } : s,
+          ),
         );
-        setActionNotice(`${skill.name} ${skill.enabled ? "enabled" : "disabled"}.`, "success");
+        setActionNotice(
+          `${skill.name} ${skill.enabled ? "enabled" : "disabled"}.`,
+          "success",
+        );
       } catch (err) {
         setActionNotice(
           `Failed to update skill: ${err instanceof Error ? err.message : "unknown error"}`,
@@ -2193,15 +2581,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (!name) return;
     setSkillCreating(true);
     try {
-      const result = await client.createSkill(name, skillCreateDescription.trim() || "");
+      const result = await client.createSkill(
+        name,
+        skillCreateDescription.trim() || "",
+      );
       setSkillCreateName("");
       setSkillCreateDescription("");
       setSkillCreateFormOpen(false);
       setActionNotice(`Skill "${name}" created.`, "success");
       await refreshSkills();
-      if (result.path) await client.openSkill(result.skill?.id ?? name).catch(() => undefined);
+      if (result.path)
+        await client.openSkill(result.skill?.id ?? name).catch(() => undefined);
     } catch (err) {
-      setActionNotice(`Failed to create skill: ${err instanceof Error ? err.message : "error"}`, "error", 4200);
+      setActionNotice(
+        `Failed to create skill: ${err instanceof Error ? err.message : "error"}`,
+        "error",
+        4200,
+      );
     } finally {
       setSkillCreating(false);
     }
@@ -2213,7 +2609,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         await client.openSkill(skillId);
         setActionNotice("Opening skill folder...", "success", 2000);
       } catch (err) {
-        setActionNotice(`Failed to open: ${err instanceof Error ? err.message : "error"}`, "error", 4200);
+        setActionNotice(
+          `Failed to open: ${err instanceof Error ? err.message : "error"}`,
+          "error",
+          4200,
+        );
       }
     },
     [setActionNotice],
@@ -2221,13 +2621,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const handleDeleteSkill = useCallback(
     async (skillId: string, skillName: string) => {
-      if (!confirm(`Delete skill "${skillName}"? This cannot be undone.`)) return;
+      if (!confirm(`Delete skill "${skillName}"? This cannot be undone.`))
+        return;
       try {
         await client.deleteSkill(skillId);
         setActionNotice(`Skill "${skillName}" deleted.`, "success");
         await refreshSkills();
       } catch (err) {
-        setActionNotice(`Failed to delete: ${err instanceof Error ? err.message : "error"}`, "error", 4200);
+        setActionNotice(
+          `Failed to delete: ${err instanceof Error ? err.message : "error"}`,
+          "error",
+          4200,
+        );
       }
     },
     [refreshSkills, setActionNotice],
@@ -2251,12 +2656,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
     async (skillId: string) => {
       try {
         await client.acknowledgeSkill(skillId, true);
-        setActionNotice(`Skill "${skillId}" acknowledged and enabled.`, "success");
+        setActionNotice(
+          `Skill "${skillId}" acknowledged and enabled.`,
+          "success",
+        );
         setSkillReviewReport(null);
         setSkillReviewId("");
         await refreshSkills();
       } catch (err) {
-        setActionNotice(`Failed: ${err instanceof Error ? err.message : "error"}`, "error", 4200);
+        setActionNotice(
+          `Failed: ${err instanceof Error ? err.message : "error"}`,
+          "error",
+          4200,
+        );
       }
     },
     [refreshSkills, setActionNotice],
@@ -2272,11 +2684,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setSkillsMarketplaceLoading(true);
     setSkillsMarketplaceError("");
     try {
-      const { results } = await client.searchSkillsMarketplace(query, false, 20);
+      const { results } = await client.searchSkillsMarketplace(
+        query,
+        false,
+        20,
+      );
       setSkillsMarketplaceResults(results);
     } catch (err) {
       setSkillsMarketplaceResults([]);
-      setSkillsMarketplaceError(err instanceof Error ? err.message : "unknown error");
+      setSkillsMarketplaceError(
+        err instanceof Error ? err.message : "unknown error",
+      );
     } finally {
       setSkillsMarketplaceLoading(false);
     }
@@ -2287,18 +2705,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setSkillsMarketplaceAction(`install:${item.id}`);
       try {
         await client.installMarketplaceSkill({
+          slug: item.slug ?? item.id,
           githubUrl: item.githubUrl,
           repository: item.repository,
           path: item.path ?? undefined,
           name: item.name,
           description: item.description,
-          source: "skillsmp",
+          source: item.source ?? "clawhub",
           autoRefresh: true,
         });
         await refreshSkills();
         setActionNotice(`Installed skill: ${item.name}`, "success");
       } catch (err) {
-        setActionNotice(`Skill install failed: ${err instanceof Error ? err.message : "unknown error"}`, "error", 4200);
+        setActionNotice(
+          `Skill install failed: ${err instanceof Error ? err.message : "unknown error"}`,
+          "error",
+          4200,
+        );
       } finally {
         setSkillsMarketplaceAction("");
       }
@@ -2339,7 +2762,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       await refreshSkills();
       setActionNotice("Skill installed from GitHub URL.", "success");
     } catch (err) {
-      setActionNotice(`GitHub install failed: ${err instanceof Error ? err.message : "unknown error"}`, "error", 4200);
+      setActionNotice(
+        `GitHub install failed: ${err instanceof Error ? err.message : "unknown error"}`,
+        "error",
+        4200,
+      );
     } finally {
       setSkillsMarketplaceAction("");
     }
@@ -2349,11 +2776,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
     async (skillId: string, name: string) => {
       setSkillsMarketplaceAction(`uninstall:${skillId}`);
       try {
-        await client.uninstallMarketplaceSkill(skillId, true);
+        await client.deleteSkill(skillId);
         await refreshSkills();
         setActionNotice(`Uninstalled skill: ${name}`, "success");
       } catch (err) {
-        setActionNotice(`Skill uninstall failed: ${err instanceof Error ? err.message : "unknown error"}`, "error", 4200);
+        setActionNotice(
+          `Skill uninstall failed: ${err instanceof Error ? err.message : "unknown error"}`,
+          "error",
+          4200,
+        );
       } finally {
         setSkillsMarketplaceAction("");
       }
@@ -2375,9 +2806,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
         await client.restartAgent();
         await loadWalletConfig();
         await loadBalances();
-        setActionNotice("Wallet API keys saved and agent restarted.", "success");
+        setActionNotice(
+          "Wallet API keys saved and agent restarted.",
+          "success",
+        );
       } catch (err) {
-        setWalletError(`Failed to save API keys: ${err instanceof Error ? err.message : "network error"}`);
+        setWalletError(
+          `Failed to save API keys: ${err instanceof Error ? err.message : "network error"}`,
+        );
       } finally {
         walletApiKeySavingRef.current = false;
         setWalletApiKeySaving(false);
@@ -2397,7 +2833,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     );
     if (!confirmed) return;
     const exportToken = window.prompt(
-      "Enter your wallet export token (MILAIDY_WALLET_EXPORT_TOKEN):",
+      "Enter your wallet export token (MILADY_WALLET_EXPORT_TOKEN):",
       "",
     );
     if (exportToken === null) return;
@@ -2414,7 +2850,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setWalletExportData(null);
       }, 60_000);
     } catch (err) {
-      setWalletError(`Failed to export keys: ${err instanceof Error ? err.message : "network error"}`);
+      setWalletError(
+        `Failed to export keys: ${err instanceof Error ? err.message : "network error"}`,
+      );
     }
   }, [walletExportVisible]);
 
@@ -2427,7 +2865,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const status = await client.getRegistryStatus();
       setRegistryStatus(status);
     } catch (err) {
-      setRegistryError(err instanceof Error ? err.message : "Failed to load registry status");
+      setRegistryError(
+        err instanceof Error ? err.message : "Failed to load registry status",
+      );
     } finally {
       setRegistryLoading(false);
     }
@@ -2442,7 +2882,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       });
       await loadRegistryStatus();
     } catch (err) {
-      setRegistryError(err instanceof Error ? err.message : "Registration failed");
+      setRegistryError(
+        err instanceof Error ? err.message : "Registration failed",
+      );
     } finally {
       setRegistryRegistering(false);
     }
@@ -2475,26 +2917,34 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const mintFromDrop = useCallback(async (shiny: boolean) => {
-    setMintInProgress(true);
-    setMintShiny(shiny);
-    setMintError(null);
-    setMintResult(null);
-    try {
-      const result = await client.mintAgent({
-        name: characterDraft?.name || agentStatus?.agentName,
-        shiny,
-      });
-      setMintResult(result);
-      await loadRegistryStatus();
-      await loadDropStatus();
-    } catch (err) {
-      setMintError(err instanceof Error ? err.message : "Mint failed");
-    } finally {
-      setMintInProgress(false);
-      setMintShiny(false);
-    }
-  }, [characterDraft?.name, agentStatus?.agentName, loadRegistryStatus, loadDropStatus]);
+  const mintFromDrop = useCallback(
+    async (shiny: boolean) => {
+      setMintInProgress(true);
+      setMintShiny(shiny);
+      setMintError(null);
+      setMintResult(null);
+      try {
+        const result = await client.mintAgent({
+          name: characterDraft?.name || agentStatus?.agentName,
+          shiny,
+        });
+        setMintResult(result);
+        await loadRegistryStatus();
+        await loadDropStatus();
+      } catch (err) {
+        setMintError(err instanceof Error ? err.message : "Mint failed");
+      } finally {
+        setMintInProgress(false);
+        setMintShiny(false);
+      }
+    },
+    [
+      characterDraft?.name,
+      agentStatus?.agentName,
+      loadRegistryStatus,
+      loadDropStatus,
+    ],
+  );
 
   const loadWhitelistStatus = useCallback(async () => {
     setWhitelistLoading(true);
@@ -2517,13 +2967,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try {
       const draft = { ...characterDraft };
       if (typeof draft.bio === "string") {
-        const lines = draft.bio.split("\n").map((l: string) => l.trim()).filter((l: string) => l.length > 0);
+        const lines = draft.bio
+          .split("\n")
+          .map((l: string) => l.trim())
+          .filter((l: string) => l.length > 0);
         draft.bio = lines.length > 0 ? lines : undefined;
       }
-      if (Array.isArray(draft.adjectives) && draft.adjectives.length === 0) delete draft.adjectives;
-      if (Array.isArray(draft.topics) && draft.topics.length === 0) delete draft.topics;
-      if (Array.isArray(draft.postExamples) && draft.postExamples.length === 0) delete draft.postExamples;
-      if (Array.isArray(draft.messageExamples) && draft.messageExamples.length === 0) delete draft.messageExamples;
+      if (Array.isArray(draft.adjectives) && draft.adjectives.length === 0)
+        delete draft.adjectives;
+      if (Array.isArray(draft.topics) && draft.topics.length === 0)
+        delete draft.topics;
+      if (Array.isArray(draft.postExamples) && draft.postExamples.length === 0)
+        delete draft.postExamples;
+      if (
+        Array.isArray(draft.messageExamples) &&
+        draft.messageExamples.length === 0
+      )
+        delete draft.messageExamples;
       if (draft.style) {
         const s = draft.style;
         if (s.all && s.all.length === 0) delete s.all;
@@ -2538,15 +2998,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const { agentName } = await client.updateCharacter(draft);
       // Also persist avatar selection to config
       try {
-        await client.updateConfig({ settings: { avatarIndex: selectedVrmIndex } });
-      } catch { /* non-fatal */ }
+        await client.updateConfig({
+          settings: { avatarIndex: selectedVrmIndex },
+        });
+      } catch {
+        /* non-fatal */
+      }
       setCharacterSaveSuccess("Character saved successfully.");
       if (agentName && agentStatus) {
         setAgentStatus({ ...agentStatus, agentName });
       }
       await loadCharacter();
     } catch (err) {
-      setCharacterSaveError(`Failed to save: ${err instanceof Error ? err.message : "unknown error"}`);
+      setCharacterSaveError(
+        `Failed to save: ${err instanceof Error ? err.message : "unknown error"}`,
+      );
     }
     setCharacterSaving(false);
   }, [characterDraft, agentStatus, loadCharacter, selectedVrmIndex]);
@@ -2560,7 +3026,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const handleCharacterArrayInput = useCallback(
     (field: "adjectives" | "topics" | "postExamples", value: string) => {
-      const items = value.split("\n").map((s: string) => s.trim()).filter((s: string) => s.length > 0);
+      const items = value
+        .split("\n")
+        .map((s: string) => s.trim())
+        .filter((s: string) => s.length > 0);
       setCharacterDraft((prev: CharacterData) => ({ ...prev, [field]: items }));
     },
     [],
@@ -2568,7 +3037,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const handleCharacterStyleInput = useCallback(
     (subfield: "all" | "chat" | "post", value: string) => {
-      const items = value.split("\n").map((s: string) => s.trim()).filter((s: string) => s.length > 0);
+      const items = value
+        .split("\n")
+        .map((s: string) => s.trim())
+        .filter((s: string) => s.length > 0);
       setCharacterDraft((prev: CharacterData) => ({
         ...prev,
         style: { ...(prev.style ?? {}), [subfield]: items },
@@ -2577,97 +3049,271 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [],
   );
 
-  const handleCharacterMessageExamplesInput = useCallback(
-    (value: string) => {
-      if (!value.trim()) {
-        setCharacterDraft((prev: CharacterData) => ({ ...prev, messageExamples: [] }));
-        return;
-      }
-      const blocks = value.split(/\n\s*\n/).filter((b) => b.trim().length > 0);
-      const parsed = blocks.map((block) => {
-        const lines = block.split("\n").filter((l) => l.trim().length > 0);
-        const examples = lines.map((line) => {
-          const colonIdx = line.indexOf(":");
-          if (colonIdx > 0) {
-            return {
-              name: line.slice(0, colonIdx).trim(),
-              content: { text: line.slice(colonIdx + 1).trim() },
-            };
-          }
-          return { name: "User", content: { text: line.trim() } };
-        });
-        return { examples };
+  const handleCharacterMessageExamplesInput = useCallback((value: string) => {
+    if (!value.trim()) {
+      setCharacterDraft((prev: CharacterData) => ({
+        ...prev,
+        messageExamples: [],
+      }));
+      return;
+    }
+    const blocks = value.split(/\n\s*\n/).filter((b) => b.trim().length > 0);
+    const parsed = blocks.map((block) => {
+      const lines = block.split("\n").filter((l) => l.trim().length > 0);
+      const examples = lines.map((line) => {
+        const colonIdx = line.indexOf(":");
+        if (colonIdx > 0) {
+          return {
+            name: line.slice(0, colonIdx).trim(),
+            content: { text: line.slice(colonIdx + 1).trim() },
+          };
+        }
+        return { name: "User", content: { text: line.trim() } };
       });
-      setCharacterDraft((prev: CharacterData) => ({ ...prev, messageExamples: parsed }));
-    },
-    [],
-  );
+      return { examples };
+    });
+    setCharacterDraft((prev: CharacterData) => ({
+      ...prev,
+      messageExamples: parsed,
+    }));
+  }, []);
 
   // ── Onboarding ─────────────────────────────────────────────────────
 
-  const handleOnboardingNext = useCallback(async () => {
-    const opts = onboardingOptions;
-    switch (onboardingStep) {
-      case "welcome":
-        setOnboardingStep("name");
-        break;
-      case "name":
-        setOnboardingStep("avatar");
-        break;
-      case "avatar":
-        setOnboardingStep("style");
-        break;
-      case "style":
-        setOnboardingStep("theme");
-        break;
-      case "theme": {
-        setTheme(onboardingTheme);
-        setOnboardingStep("runMode");
-        break;
+
+
+  const handleOnboardingFinish = useCallback(async () => {
+    if (onboardingFinishBusyRef.current || onboardingRestarting) return;
+    if (!onboardingOptions) return;
+    if (onboardingFinishSavingRef.current || onboardingRestarting) return;
+    const style = onboardingOptions.styles.find(
+      (s: StylePreset) => s.catchphrase === onboardingStyle,
+    );
+    const systemPrompt = style?.system
+      ? style.system.replace(/\{\{name\}\}/g, onboardingName)
+      : `You are ${onboardingName}, an autonomous AI agent powered by ElizaOS. ${onboardingOptions.sharedStyleRules}`;
+
+    const isLocalMode =
+      onboardingRunMode === "local-rawdog" ||
+      onboardingRunMode === "local-sandbox";
+    const inventoryProviders: Array<{
+      chain: string;
+      rpcProvider: string;
+      rpcApiKey?: string;
+    }> = [];
+    if (isLocalMode) {
+      for (const chain of onboardingSelectedChains) {
+        const rpcProvider = onboardingRpcSelections[chain] || "elizacloud";
+        const rpcApiKey =
+          onboardingRpcKeys[`${chain}:${rpcProvider}`] || undefined;
+        inventoryProviders.push({ chain, rpcProvider, rpcApiKey });
       }
-      case "runMode":
-        if (onboardingRunMode === "cloud") {
-          if (opts && opts.cloudProviders.length === 1) {
-            setOnboardingCloudProvider(opts.cloudProviders[0].id);
-          }
-          setOnboardingStep("cloudProvider");
-        } else if (onboardingRunMode === "local-sandbox") {
-          setOnboardingStep("dockerSetup");
-        } else {
-          // local-rawdog: skip docker, go straight to LLM provider
-          setOnboardingStep("llmProvider");
-        }
-        break;
-      case "dockerSetup":
-        setOnboardingStep("llmProvider");
-        break;
-      case "cloudProvider":
-        setOnboardingStep("modelSelection");
-        break;
-      case "modelSelection":
-        if (cloudConnected) {
-          setOnboardingStep("connectors");
-        } else {
-          setOnboardingStep("cloudLogin");
-        }
-        break;
-      case "cloudLogin":
-        setOnboardingStep("connectors");
-        break;
-      case "llmProvider":
-        setOnboardingStep("inventorySetup");
-        break;
-      case "inventorySetup":
-        setOnboardingStep("connectors");
-        break;
-      case "connectors":
-        setOnboardingStep("permissions");
-        break;
-      case "permissions":
-        await handleOnboardingFinish();
-        break;
     }
-  }, [onboardingStep, onboardingOptions, onboardingRunMode, onboardingTheme, setTheme, cloudConnected]);
+
+    // Map the 3-mode selection to the API's runMode field
+    // "local-rawdog" and "local-sandbox" both map to "local" for backward compat
+    // Sandbox mode is additionally stored as a separate flag
+    const apiRunMode = onboardingRunMode === "cloud" ? "cloud" : "local";
+
+    onboardingFinishBusyRef.current = true;
+    setOnboardingRestarting(true);
+    onboardingFinishSavingRef.current = true;
+
+    try {
+      await client.submitOnboarding({
+        name: onboardingName,
+        theme: onboardingTheme,
+        runMode: apiRunMode as "local" | "cloud",
+        sandboxMode:
+          onboardingRunMode === "local-sandbox"
+            ? "standard"
+            : onboardingRunMode === "cloud"
+              ? "light"
+              : "off",
+        bio: style?.bio ?? ["An autonomous AI agent."],
+        systemPrompt,
+        style: style?.style,
+        adjectives: style?.adjectives,
+        topics: style?.topics,
+        postExamples: style?.postExamples,
+        messageExamples: style?.messageExamples,
+        cloudProvider:
+          onboardingRunMode === "cloud" ? onboardingCloudProvider : undefined,
+        smallModel:
+          onboardingRunMode === "cloud" ? onboardingSmallModel : undefined,
+        largeModel:
+          onboardingRunMode === "cloud" ? onboardingLargeModel : undefined,
+        provider: isLocalMode ? onboardingProvider || undefined : undefined,
+        providerApiKey: isLocalMode ? onboardingApiKey || undefined : undefined,
+        inventoryProviders:
+          inventoryProviders.length > 0 ? inventoryProviders : undefined,
+        // Connectors
+        telegramToken: onboardingTelegramToken.trim() || undefined,
+        discordToken: onboardingDiscordToken.trim() || undefined,
+        whatsappSessionPath: onboardingWhatsAppSessionPath.trim() || undefined,
+        twilioAccountSid: onboardingTwilioAccountSid.trim() || undefined,
+        twilioAuthToken: onboardingTwilioAuthToken.trim() || undefined,
+        twilioPhoneNumber: onboardingTwilioPhoneNumber.trim() || undefined,
+        blooioApiKey: onboardingBlooioApiKey.trim() || undefined,
+        blooioPhoneNumber: onboardingBlooioPhoneNumber.trim() || undefined,
+      });
+      setOnboardingComplete(true);
+      setTab("chat");
+      try {
+        setAgentStatus(await client.restartAgent());
+      } catch {
+        /* ignore */
+      }
+    } catch (err) {
+      window.alert(
+        `Setup failed: ${err instanceof Error ? err.message : "network error"}. Please try again.`,
+      );
+    } finally {
+      onboardingFinishSavingRef.current = false;
+      onboardingFinishBusyRef.current = false;
+      setOnboardingRestarting(false);
+    }
+  }, [
+    onboardingRestarting,
+    onboardingOptions,
+    onboardingStyle,
+    onboardingName,
+    onboardingTheme,
+    onboardingRunMode,
+    onboardingCloudProvider,
+    onboardingSmallModel,
+    onboardingLargeModel,
+    onboardingProvider,
+    onboardingApiKey,
+    onboardingSelectedChains,
+    onboardingRpcSelections,
+    onboardingRpcKeys,
+    onboardingTelegramToken,
+    onboardingDiscordToken,
+    onboardingWhatsAppSessionPath,
+    onboardingTwilioAccountSid,
+    onboardingTwilioAuthToken,
+    onboardingTwilioPhoneNumber,
+    onboardingBlooioApiKey,
+    onboardingBlooioPhoneNumber,
+    setTab,
+  ]);
+
+  const handleOnboardingNext = useCallback(
+    async (options?: OnboardingNextOptions) => {
+      const opts = onboardingOptions;
+      switch (onboardingStep) {
+        case "welcome":
+          setOnboardingStep("name");
+          break;
+        case "name":
+          setOnboardingStep("avatar");
+          break;
+        case "avatar":
+          setOnboardingStep("style");
+          break;
+        case "style":
+          setOnboardingStep("theme");
+          break;
+        case "theme": {
+          setTheme(onboardingTheme);
+          // If drop is enabled and user hasn't minted, go to mint step
+          if (
+            dropStatus?.dropEnabled &&
+            !dropStatus.userHasMinted &&
+            !dropStatus.mintedOut
+          ) {
+            setOnboardingStep("mint");
+          } else {
+            setOnboardingStep("runMode");
+          }
+          break;
+        }
+        case "mint":
+          setOnboardingStep("runMode");
+          break;
+        case "runMode":
+          if (onboardingRunMode === "cloud") {
+            if (opts && opts.cloudProviders.length === 1) {
+              setOnboardingCloudProvider(opts.cloudProviders[0].id);
+            }
+            setOnboardingStep("cloudProvider");
+          } else if (onboardingRunMode === "local-sandbox") {
+            setOnboardingStep("dockerSetup");
+          } else {
+            // local-rawdog: skip docker, go straight to LLM provider
+            setOnboardingStep("llmProvider");
+          }
+          break;
+        case "dockerSetup":
+          setOnboardingStep("llmProvider");
+          break;
+        case "cloudProvider":
+          setOnboardingStep("modelSelection");
+          break;
+        case "modelSelection":
+          if (cloudConnected) {
+            setOnboardingStep("connectors");
+          } else {
+            setOnboardingStep("cloudLogin");
+          }
+          break;
+        case "cloudLogin":
+          setOnboardingStep("connectors");
+          break;
+        case "llmProvider":
+          setOnboardingStep("inventorySetup");
+          break;
+        case "inventorySetup":
+          setOnboardingStep("connectors");
+          break;
+        case "connectors":
+          setOnboardingStep("permissions");
+          break;
+        case "permissions": {
+          if (options?.allowPermissionBypass) {
+            await handleOnboardingFinish();
+            break;
+          }
+          try {
+            const permissions = await client.getPermissions();
+            const missingPermissions =
+              getMissingOnboardingPermissions(permissions);
+            if (missingPermissions.length > 0) {
+              const missingLabels = missingPermissions
+                .map((id) => ONBOARDING_PERMISSION_LABELS[id] ?? id)
+                .join(", ");
+              setActionNotice(
+                `Missing required permissions: ${missingLabels}. Grant them or use "Skip for Now".`,
+                "error",
+                5200,
+              );
+              return;
+            }
+          } catch (err) {
+            setActionNotice(
+              `Could not verify permissions (${err instanceof Error ? err.message : "unknown error"}). Use "Skip for Now" to continue.`,
+              "error",
+              5200,
+            );
+            return;
+          }
+          await handleOnboardingFinish();
+          break;
+        }
+      }
+    },
+    [
+      onboardingStep,
+      onboardingOptions,
+      onboardingRunMode,
+      onboardingTheme,
+      setTheme,
+      cloudConnected,
+      setActionNotice,
+      handleOnboardingFinish,
+    ],
+  );
 
   const handleOnboardingBack = useCallback(() => {
     switch (onboardingStep) {
@@ -2683,8 +3329,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
       case "theme":
         setOnboardingStep("style");
         break;
-      case "runMode":
+      case "mint":
         setOnboardingStep("theme");
+        break;
+      case "runMode":
+        if (
+          dropStatus?.dropEnabled &&
+          !dropStatus.userHasMinted &&
+          !dropStatus.mintedOut
+        ) {
+          setOnboardingStep("mint");
+        } else {
+          setOnboardingStep("theme");
+        }
         break;
       case "cloudProvider":
         setOnboardingStep("runMode");
@@ -2727,91 +3384,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setOnboardingStep("connectors");
         break;
     }
-  }, [onboardingStep, onboardingOptions, onboardingRunMode]);
-
-  const handleOnboardingFinish = useCallback(async () => {
-    if (onboardingFinishBusyRef.current || onboardingRestarting) return;
-    if (!onboardingOptions) return;
-    if (onboardingFinishSavingRef.current || onboardingRestarting) return;
-    const style = onboardingOptions.styles.find((s: StylePreset) => s.catchphrase === onboardingStyle);
-    const systemPrompt = style?.system
-      ? style.system.replace(/\{\{name\}\}/g, onboardingName)
-      : `You are ${onboardingName}, an autonomous AI agent powered by ElizaOS. ${onboardingOptions.sharedStyleRules}`;
-
-    const isLocalMode = onboardingRunMode === "local-rawdog" || onboardingRunMode === "local-sandbox";
-    const inventoryProviders: Array<{ chain: string; rpcProvider: string; rpcApiKey?: string }> = [];
-    if (isLocalMode) {
-      for (const chain of onboardingSelectedChains) {
-        const rpcProvider = onboardingRpcSelections[chain] || "elizacloud";
-        const rpcApiKey = onboardingRpcKeys[`${chain}:${rpcProvider}`] || undefined;
-        inventoryProviders.push({ chain, rpcProvider, rpcApiKey });
-      }
-    }
-
-    // Map the 3-mode selection to the API's runMode field
-    // "local-rawdog" and "local-sandbox" both map to "local" for backward compat
-    // Sandbox mode is additionally stored as a separate flag
-    const apiRunMode = onboardingRunMode === "cloud" ? "cloud" : "local";
-
-    onboardingFinishBusyRef.current = true;
-    setOnboardingRestarting(true);
-    onboardingFinishSavingRef.current = true;
-
-    try {
-      await client.submitOnboarding({
-        name: onboardingName,
-        theme: onboardingTheme,
-        runMode: apiRunMode as "local" | "cloud",
-        sandboxMode: onboardingRunMode === "local-sandbox" ? "standard" : onboardingRunMode === "cloud" ? "light" : "off",
-        bio: style?.bio ?? ["An autonomous AI agent."],
-        systemPrompt,
-        style: style?.style,
-        adjectives: style?.adjectives,
-        topics: style?.topics,
-        postExamples: style?.postExamples,
-        messageExamples: style?.messageExamples,
-        cloudProvider: onboardingRunMode === "cloud" ? onboardingCloudProvider : undefined,
-        smallModel: onboardingRunMode === "cloud" ? onboardingSmallModel : undefined,
-        largeModel: onboardingRunMode === "cloud" ? onboardingLargeModel : undefined,
-        provider: isLocalMode ? onboardingProvider || undefined : undefined,
-        providerApiKey: isLocalMode ? onboardingApiKey || undefined : undefined,
-        inventoryProviders: inventoryProviders.length > 0 ? inventoryProviders : undefined,
-        // Connectors
-        telegramToken: onboardingTelegramToken.trim() || undefined,
-        discordToken: onboardingDiscordToken.trim() || undefined,
-        whatsappSessionPath: onboardingWhatsAppSessionPath.trim() || undefined,
-        twilioAccountSid: onboardingTwilioAccountSid.trim() || undefined,
-        twilioAuthToken: onboardingTwilioAuthToken.trim() || undefined,
-        twilioPhoneNumber: onboardingTwilioPhoneNumber.trim() || undefined,
-        blooioApiKey: onboardingBlooioApiKey.trim() || undefined,
-        blooioPhoneNumber: onboardingBlooioPhoneNumber.trim() || undefined,
-      });
-      setOnboardingComplete(true);
-      setTab("chat");
-      try {
-        setAgentStatus(await client.restartAgent());
-      } catch {
-        /* ignore */
-      }
-    } catch (err) {
-      window.alert(`Setup failed: ${err instanceof Error ? err.message : "network error"}. Please try again.`);
-    } finally {
-      onboardingFinishSavingRef.current = false;
-      onboardingFinishBusyRef.current = false;
-      setOnboardingRestarting(false);
-    }
-  }, [
-    onboardingRestarting,
-    onboardingOptions, onboardingStyle, onboardingName, onboardingTheme,
-    onboardingRunMode, onboardingCloudProvider, onboardingSmallModel,
-    onboardingLargeModel, onboardingProvider, onboardingApiKey,
-    onboardingPrimaryModel,
-    onboardingSelectedChains, onboardingRpcSelections, onboardingRpcKeys,
-    onboardingTelegramToken, onboardingDiscordToken, onboardingWhatsAppSessionPath,
-    onboardingTwilioAccountSid, onboardingTwilioAuthToken, onboardingTwilioPhoneNumber,
-    onboardingBlooioApiKey, onboardingBlooioPhoneNumber,
-    setTab,
-  ]);
+  }, [onboardingStep, onboardingRunMode]);
 
   // ── Cloud ──────────────────────────────────────────────────────────
 
@@ -2829,7 +3402,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       cloudLoginPollTimer.current = window.setInterval(async () => {
         attempts++;
         if (attempts > 120) {
-          if (cloudLoginPollTimer.current) clearInterval(cloudLoginPollTimer.current);
+          if (cloudLoginPollTimer.current)
+            clearInterval(cloudLoginPollTimer.current);
           setCloudLoginError("Login timed out. Please try again.");
           cloudLoginBusyRef.current = false;
           setCloudLoginBusy(false);
@@ -2838,21 +3412,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
         try {
           const poll = await client.cloudLoginPoll(resp.sessionId);
           if (poll.status === "authenticated") {
-            if (cloudLoginPollTimer.current) clearInterval(cloudLoginPollTimer.current);
+            if (cloudLoginPollTimer.current)
+              clearInterval(cloudLoginPollTimer.current);
             cloudLoginBusyRef.current = false;
             setCloudLoginBusy(false);
             // Immediately reflect the login in the UI — don't wait for the
             // background poll which may race with the config save.
             setCloudConnected(true);
             setCloudEnabled(true);
-            setActionNotice("Logged in to Eliza Cloud successfully.", "success", 6000);
+            setActionNotice(
+              "Logged in to Eliza Cloud successfully.",
+              "success",
+              6000,
+            );
             void loadWalletConfig();
             // Delay the credit fetch slightly so the backend has time to
             // persist the API key before we query cloud status / credits.
             setTimeout(() => void pollCloudCredits(), 2000);
           } else if (poll.status === "expired" || poll.status === "error") {
-            if (cloudLoginPollTimer.current) clearInterval(cloudLoginPollTimer.current);
-            setCloudLoginError(poll.error ?? "Session expired. Please try again.");
+            if (cloudLoginPollTimer.current)
+              clearInterval(cloudLoginPollTimer.current);
+            setCloudLoginError(
+              poll.error ?? "Session expired. Please try again.",
+            );
             cloudLoginBusyRef.current = false;
             setCloudLoginBusy(false);
           }
@@ -2868,17 +3450,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [cloudLoginBusy, setActionNotice, pollCloudCredits, loadWalletConfig]);
 
   const handleCloudDisconnect = useCallback(async () => {
-    if (!confirm("Disconnect from Eliza Cloud? The agent will need a local AI provider to continue working."))
+    if (
+      !confirm(
+        "Disconnect from Eliza Cloud? The agent will need a local AI provider to continue working.",
+      )
+    )
       return;
     setCloudDisconnecting(true);
     try {
       await client.cloudDisconnect();
+      setCloudEnabled(false);
       setCloudConnected(false);
       setCloudCredits(null);
       setCloudUserId(null);
       setActionNotice("Disconnected from Eliza Cloud.", "success");
     } catch (err) {
-      setActionNotice(`Disconnect failed: ${err instanceof Error ? err.message : "error"}`, "error");
+      setActionNotice(
+        `Disconnect failed: ${err instanceof Error ? err.message : "error"}`,
+        "error",
+      );
     } finally {
       setCloudDisconnecting(false);
     }
@@ -2939,7 +3529,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      setExportSuccess(`Exported successfully (${(blob.size / 1024).toFixed(0)} KB)`);
+      setExportSuccess(
+        `Exported successfully (${(blob.size / 1024).toFixed(0)} KB)`,
+      );
       setExportPassword("");
     } catch (err) {
       setExportError(err instanceof Error ? err.message : "Export failed");
@@ -2983,7 +3575,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       ]
         .filter(Boolean)
         .join(", ");
-      setImportSuccess(`Imported "${result.agentName}" successfully: ${summary || "no data"}. Restart the agent to activate.`);
+      setImportSuccess(
+        `Imported "${result.agentName}" successfully: ${summary || "no data"}. Restart the agent to activate.`,
+      );
       setImportPassword("");
       setImportFile(null);
     } catch (err) {
@@ -2993,18 +3587,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setImportBusy(false);
     }
   }, [importBusy, importFile, importPassword]);
-
-  // ── Command palette ────────────────────────────────────────────────
-
-  const openCommandPalette = useCallback(() => {
-    setCommandQuery("");
-    setCommandActiveIndex(0);
-    setCommandPaletteOpen(true);
-  }, []);
-
-  const closeCommandPalette = useCallback(() => {
-    setCommandPaletteOpen(false);
-  }, []);
 
   // ── Emote picker ────────────────────────────────────────────────────
 
@@ -3018,115 +3600,124 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // ── Generic state setter ───────────────────────────────────────────
 
-  const setState = useCallback(<K extends keyof AppState>(key: K, value: AppState[K]) => {
-    const setterMap: Partial<{ [S in keyof AppState]: (v: AppState[S]) => void }> = {
-      tab: setTabRaw,
-      chatInput: setChatInput,
-      pairingCodeInput: setPairingCodeInput,
-      pluginFilter: setPluginFilter,
-      pluginStatusFilter: setPluginStatusFilter,
-      pluginSearch: setPluginSearch,
-      pluginSettingsOpen: setPluginSettingsOpen,
-      pluginAdvancedOpen: setPluginAdvancedOpen,
-      skillsSubTab: setSkillsSubTab,
-      skillCreateFormOpen: setSkillCreateFormOpen,
-      skillCreateName: setSkillCreateName,
-      skillCreateDescription: setSkillCreateDescription,
-      skillsMarketplaceQuery: setSkillsMarketplaceQuery,
-      skillsMarketplaceManualGithubUrl: setSkillsMarketplaceManualGithubUrl,
-      logTagFilter: setLogTagFilter,
-      logLevelFilter: setLogLevelFilter,
-      logSourceFilter: setLogSourceFilter,
-      inventoryView: setInventoryView,
-      inventorySort: setInventorySort,
-      exportPassword: setExportPassword,
-      exportIncludeLogs: setExportIncludeLogs,
-      exportError: setExportError,
-      exportSuccess: setExportSuccess,
-      importPassword: setImportPassword,
-      importFile: setImportFile,
-      importError: setImportError,
-      importSuccess: setImportSuccess,
-      onboardingName: setOnboardingName,
-      onboardingStyle: setOnboardingStyle,
-      onboardingTheme: setOnboardingTheme,
-      onboardingRunMode: setOnboardingRunMode,
-      onboardingCloudProvider: setOnboardingCloudProvider,
-      onboardingSmallModel: setOnboardingSmallModel,
-      onboardingLargeModel: setOnboardingLargeModel,
-      onboardingProvider: setOnboardingProvider,
-      onboardingApiKey: setOnboardingApiKey,
-      onboardingSelectedChains: setOnboardingSelectedChains,
-      onboardingRpcSelections: setOnboardingRpcSelections,
-      onboardingOpenRouterModel: setOnboardingOpenRouterModel,
-      onboardingPrimaryModel: setOnboardingPrimaryModel,
-      onboardingTelegramToken: setOnboardingTelegramToken,
-      onboardingDiscordToken: setOnboardingDiscordToken,
-      onboardingWhatsAppSessionPath: setOnboardingWhatsAppSessionPath,
-      onboardingTwilioAccountSid: setOnboardingTwilioAccountSid,
-      onboardingTwilioAuthToken: setOnboardingTwilioAuthToken,
-      onboardingTwilioPhoneNumber: setOnboardingTwilioPhoneNumber,
-      onboardingBlooioApiKey: setOnboardingBlooioApiKey,
-      onboardingBlooioPhoneNumber: setOnboardingBlooioPhoneNumber,
-      onboardingSubscriptionTab: setOnboardingSubscriptionTab,
-      onboardingRpcKeys: setOnboardingRpcKeys,
-      onboardingAvatar: setOnboardingAvatar,
-      onboardingRestarting: setOnboardingRestarting,
-      selectedVrmIndex: setSelectedVrmIndex,
-      customVrmUrl: setCustomVrmUrl,
-      commandQuery: setCommandQuery,
-      commandActiveIndex: setCommandActiveIndex,
-      emotePickerOpen: setEmotePickerOpen,
-      storeSearch: setStoreSearch,
-      storeFilter: setStoreFilter,
-      storeSubTab: setStoreSubTab,
-      catalogSearch: setCatalogSearch,
-      catalogSort: setCatalogSort,
-      catalogPage: setCatalogPage,
-      skillReviewId: setSkillReviewId,
-      skillReviewReport: setSkillReviewReport,
-      activeGameApp: setActiveGameApp,
-      activeGameDisplayName: setActiveGameDisplayName,
-      activeGameViewerUrl: setActiveGameViewerUrl,
-      activeGameSandbox: setActiveGameSandbox,
-      activeGamePostMessageAuth: setActiveGamePostMessageAuth,
-      activeGamePostMessagePayload: setActiveGamePostMessagePayload,
-      storePlugins: setStorePlugins,
-      storeLoading: setStoreLoading,
-      storeInstalling: setStoreInstalling,
-      storeUninstalling: setStoreUninstalling,
-      storeError: setStoreError,
-      storeDetailPlugin: setStoreDetailPlugin,
-      catalogSkills: setCatalogSkills,
-      catalogTotal: setCatalogTotal,
-      catalogTotalPages: setCatalogTotalPages,
-      catalogLoading: setCatalogLoading,
-      catalogError: setCatalogError,
-      catalogDetailSkill: setCatalogDetailSkill,
-      catalogInstalling: setCatalogInstalling,
-      catalogUninstalling: setCatalogUninstalling,
-      mcpConfiguredServers: setMcpConfiguredServers,
-      mcpServerStatuses: setMcpServerStatuses,
-      mcpMarketplaceQuery: setMcpMarketplaceQuery,
-      mcpMarketplaceResults: setMcpMarketplaceResults,
-      mcpMarketplaceLoading: setMcpMarketplaceLoading,
-      mcpAction: setMcpAction,
-      mcpAddingServer: setMcpAddingServer,
-      mcpAddingResult: setMcpAddingResult,
-      mcpEnvInputs: setMcpEnvInputs,
-      mcpHeaderInputs: setMcpHeaderInputs,
-      droppedFiles: setDroppedFiles,
-      shareIngestNotice: setShareIngestNotice,
-      appsSubTab: setAppsSubTab,
-      agentSubTab: setAgentSubTab,
-      pluginsSubTab: setPluginsSubTab,
-      databaseSubTab: setDatabaseSubTab,
-      configRaw: setConfigRaw,
-      configText: setConfigText,
-    };
-    const setter = setterMap[key];
-    if (setter) setter(value);
-  }, []);
+  const setState = useCallback(
+    <K extends keyof AppState>(key: K, value: AppState[K]) => {
+      const setterMap: Partial<{
+        [S in keyof AppState]: (v: AppState[S]) => void;
+      }> = {
+        tab: setTabRaw,
+        chatInput: setChatInput,
+        chatAvatarVisible: setChatAvatarVisible,
+        chatAgentVoiceMuted: setChatAgentVoiceMuted,
+        chatAvatarSpeaking: setChatAvatarSpeaking,
+        pairingCodeInput: setPairingCodeInput,
+        pluginFilter: setPluginFilter,
+        pluginStatusFilter: setPluginStatusFilter,
+        pluginSearch: setPluginSearch,
+        pluginSettingsOpen: setPluginSettingsOpen,
+        pluginAdvancedOpen: setPluginAdvancedOpen,
+        skillsSubTab: setSkillsSubTab,
+        skillCreateFormOpen: setSkillCreateFormOpen,
+        skillCreateName: setSkillCreateName,
+        skillCreateDescription: setSkillCreateDescription,
+        skillsMarketplaceQuery: setSkillsMarketplaceQuery,
+        skillsMarketplaceManualGithubUrl: setSkillsMarketplaceManualGithubUrl,
+        logTagFilter: setLogTagFilter,
+        logLevelFilter: setLogLevelFilter,
+        logSourceFilter: setLogSourceFilter,
+        inventoryView: setInventoryView,
+        inventorySort: setInventorySort,
+        exportPassword: setExportPassword,
+        exportIncludeLogs: setExportIncludeLogs,
+        exportError: setExportError,
+        exportSuccess: setExportSuccess,
+        importPassword: setImportPassword,
+        importFile: setImportFile,
+        importError: setImportError,
+        importSuccess: setImportSuccess,
+        onboardingName: setOnboardingName,
+        onboardingStyle: setOnboardingStyle,
+        onboardingTheme: setOnboardingTheme,
+        onboardingRunMode: setOnboardingRunMode,
+        onboardingCloudProvider: setOnboardingCloudProvider,
+        onboardingSmallModel: setOnboardingSmallModel,
+        onboardingLargeModel: setOnboardingLargeModel,
+        onboardingProvider: setOnboardingProvider,
+        onboardingApiKey: setOnboardingApiKey,
+        onboardingSelectedChains: setOnboardingSelectedChains,
+        onboardingRpcSelections: setOnboardingRpcSelections,
+        onboardingOpenRouterModel: setOnboardingOpenRouterModel,
+        onboardingPrimaryModel: setOnboardingPrimaryModel,
+        onboardingTelegramToken: setOnboardingTelegramToken,
+        onboardingDiscordToken: setOnboardingDiscordToken,
+        onboardingWhatsAppSessionPath: setOnboardingWhatsAppSessionPath,
+        onboardingTwilioAccountSid: setOnboardingTwilioAccountSid,
+        onboardingTwilioAuthToken: setOnboardingTwilioAuthToken,
+        onboardingTwilioPhoneNumber: setOnboardingTwilioPhoneNumber,
+        onboardingBlooioApiKey: setOnboardingBlooioApiKey,
+        onboardingBlooioPhoneNumber: setOnboardingBlooioPhoneNumber,
+        onboardingSubscriptionTab: setOnboardingSubscriptionTab,
+        onboardingRpcKeys: setOnboardingRpcKeys,
+        onboardingAvatar: setOnboardingAvatar,
+        onboardingRestarting: setOnboardingRestarting,
+        cloudEnabled: setCloudEnabled,
+        selectedVrmIndex: setSelectedVrmIndex,
+        customVrmUrl: setCustomVrmUrl,
+        commandQuery: setCommandQuery,
+        commandActiveIndex: setCommandActiveIndex,
+        emotePickerOpen: setEmotePickerOpen,
+        storeSearch: setStoreSearch,
+        storeFilter: setStoreFilter,
+        storeSubTab: setStoreSubTab,
+        catalogSearch: setCatalogSearch,
+        catalogSort: setCatalogSort,
+        catalogPage: setCatalogPage,
+        skillReviewId: setSkillReviewId,
+        skillReviewReport: setSkillReviewReport,
+        activeGameApp: setActiveGameApp,
+        activeGameDisplayName: setActiveGameDisplayName,
+        activeGameViewerUrl: setActiveGameViewerUrl,
+        activeGameSandbox: setActiveGameSandbox,
+        activeGamePostMessageAuth: setActiveGamePostMessageAuth,
+        activeGamePostMessagePayload: setActiveGamePostMessagePayload,
+        storePlugins: setStorePlugins,
+        storeLoading: setStoreLoading,
+        storeInstalling: setStoreInstalling,
+        storeUninstalling: setStoreUninstalling,
+        storeError: setStoreError,
+        storeDetailPlugin: setStoreDetailPlugin,
+        catalogSkills: setCatalogSkills,
+        catalogTotal: setCatalogTotal,
+        catalogTotalPages: setCatalogTotalPages,
+        catalogLoading: setCatalogLoading,
+        catalogError: setCatalogError,
+        catalogDetailSkill: setCatalogDetailSkill,
+        catalogInstalling: setCatalogInstalling,
+        catalogUninstalling: setCatalogUninstalling,
+        mcpConfiguredServers: setMcpConfiguredServers,
+        mcpServerStatuses: setMcpServerStatuses,
+        mcpMarketplaceQuery: setMcpMarketplaceQuery,
+        mcpMarketplaceResults: setMcpMarketplaceResults,
+        mcpMarketplaceLoading: setMcpMarketplaceLoading,
+        mcpAction: setMcpAction,
+        mcpAddingServer: setMcpAddingServer,
+        mcpAddingResult: setMcpAddingResult,
+        mcpEnvInputs: setMcpEnvInputs,
+        mcpHeaderInputs: setMcpHeaderInputs,
+        droppedFiles: setDroppedFiles,
+        shareIngestNotice: setShareIngestNotice,
+        appsSubTab: setAppsSubTab,
+        agentSubTab: setAgentSubTab,
+        pluginsSubTab: setPluginsSubTab,
+        databaseSubTab: setDatabaseSubTab,
+        configRaw: setConfigRaw,
+        configText: setConfigText,
+      };
+      const setter = setterMap[key];
+      if (setter) setter(value);
+    },
+    [setSelectedVrmIndex],
+  );
 
   // ── Initialization ─────────────────────────────────────────────────
 
@@ -3164,7 +3755,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
           break;
         } catch {
           backendAttempts += 1;
-          const delay = Math.min(BASE_DELAY_MS * 2 ** Math.min(backendAttempts, 2), MAX_DELAY_MS);
+          const delay = Math.min(
+            BASE_DELAY_MS * 2 ** Math.min(backendAttempts, 2),
+            MAX_DELAY_MS,
+          );
           await sleep(delay);
         }
       }
@@ -3199,7 +3793,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
       // Existing installs: keep loading until the runtime reports ready.
       let agentReady = false;
-      let agentAttempts = 0;
+      let _agentAttempts = 0;
       while (!cancelled) {
         try {
           let status = await client.getStatus();
@@ -3226,7 +3820,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         } catch {
           setConnected(false);
         }
-        agentAttempts += 1;
+        _agentAttempts += 1;
         await sleep(500);
       }
       if (cancelled) return;
@@ -3234,7 +3828,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (!agentReady) {
         if (import.meta.env.DEV) {
           console.debug(
-            "[milaidy] Agent did not reach running/paused state during startup.",
+            "[milady] Agent did not reach running/paused state during startup.",
           );
         }
       }
@@ -3250,9 +3844,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
           const latest = c[0];
           setActiveConversationId(latest.id);
           activeConversationIdRef.current = latest.id;
-          client.sendWsMessage({ type: "active-conversation", conversationId: latest.id });
+          client.sendWsMessage({
+            type: "active-conversation",
+            conversationId: latest.id,
+          });
           try {
-            const { messages } = await client.getConversationMessages(latest.id);
+            const { messages } = await client.getConversationMessages(
+              latest.id,
+            );
             setConversationMessages(messages);
             // If the latest conversation has no messages, queue a greeting
             if (messages.length === 0) {
@@ -3268,7 +3867,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
             setConversations([conversation]);
             setActiveConversationId(conversation.id);
             activeConversationIdRef.current = conversation.id;
-            client.sendWsMessage({ type: "active-conversation", conversationId: conversation.id });
+            client.sendWsMessage({
+              type: "active-conversation",
+              conversationId: conversation.id,
+            });
             setConversationMessages([]);
             greetConvId = conversation.id;
           } catch {
@@ -3293,41 +3895,59 @@ export function AppProvider({ children }: { children: ReactNode }) {
               if (data.text) {
                 setConversationMessages((prev: ConversationMessage[]) => [
                   ...prev,
-                  { id: `greeting-${Date.now()}`, role: "assistant", text: data.text, timestamp: Date.now() },
+                  {
+                    id: `greeting-${Date.now()}`,
+                    role: "assistant",
+                    text: data.text,
+                    timestamp: Date.now(),
+                  },
                 ]);
               }
-            } catch { /* ignore */ }
+            } catch {
+              /* ignore */
+            }
             setChatSending(false);
           }
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
       }
 
       void loadWorkbench();
 
       // Connect WebSocket
       client.connectWs();
-      unbindStatus = client.onWsEvent("status", (data: Record<string, unknown>) => {
-        const nextStatus = parseAgentStatusEvent(data);
-        if (nextStatus) {
-          setAgentStatus(nextStatus);
-          // Auto-refresh plugins when agent reports a restart
-          if (data.restarted) {
-            void loadPlugins();
+      unbindStatus = client.onWsEvent(
+        "status",
+        (data: Record<string, unknown>) => {
+          const nextStatus = parseAgentStatusEvent(data);
+          if (nextStatus) {
+            setAgentStatus(nextStatus);
+            // Auto-refresh plugins when agent reports a restart
+            if (data.restarted) {
+              void loadPlugins();
+            }
           }
-        }
-      });
-      unbindAgentEvents = client.onWsEvent("agent_event", (data: Record<string, unknown>) => {
-        const event = parseStreamEventEnvelopeEvent(data);
-        if (event) {
-          appendAutonomousEvent(event);
-        }
-      });
-      unbindHeartbeatEvents = client.onWsEvent("heartbeat_event", (data: Record<string, unknown>) => {
-        const event = parseStreamEventEnvelopeEvent(data);
-        if (event) {
-          appendAutonomousEvent(event);
-        }
-      });
+        },
+      );
+      unbindAgentEvents = client.onWsEvent(
+        "agent_event",
+        (data: Record<string, unknown>) => {
+          const event = parseStreamEventEnvelopeEvent(data);
+          if (event) {
+            appendAutonomousEvent(event);
+          }
+        },
+      );
+      unbindHeartbeatEvents = client.onWsEvent(
+        "heartbeat_event",
+        (data: Record<string, unknown>) => {
+          const event = parseStreamEventEnvelopeEvent(data);
+          if (event) {
+            appendAutonomousEvent(event);
+          }
+        },
+      );
 
       try {
         const replay = await client.getAgentEvents({ limit: 300 });
@@ -3336,40 +3956,61 @@ export function AppProvider({ children }: { children: ReactNode }) {
           setAutonomousLatestEventId(replay.latestEventId);
         }
       } catch (err) {
-        console.warn("[milaidy] Failed to fetch autonomous event replay", err);
+        console.warn("[milady] Failed to fetch autonomous event replay", err);
       }
 
       // Handle proactive messages from autonomy
-      unbindProactiveMessages = client.onWsEvent("proactive-message", (data: Record<string, unknown>) => {
-        const parsed = parseProactiveMessageEvent(data);
-        if (!parsed) return;
-        const { conversationId: convId, message: msg } = parsed;
+      unbindProactiveMessages = client.onWsEvent(
+        "proactive-message",
+        (data: Record<string, unknown>) => {
+          const parsed = parseProactiveMessageEvent(data);
+          if (!parsed) return;
+          const { conversationId: convId, message: msg } = parsed;
 
-        if (convId === activeConversationIdRef.current) {
-          // Active conversation — append in real-time (deduplicate by id)
-          setConversationMessages((prev) => {
-            if (prev.some((m) => m.id === msg.id)) return prev;
-            return [...prev, msg];
+          if (convId === activeConversationIdRef.current) {
+            // Active conversation — append in real-time (deduplicate by id)
+            setConversationMessages((prev) => {
+              if (prev.some((m) => m.id === msg.id)) return prev;
+              return [...prev, msg];
+            });
+          } else {
+            // Non-active — mark unread
+            setUnreadConversations((prev) => new Set([...prev, convId]));
+          }
+
+          // Bump conversation to top of list
+          setConversations((prev) => {
+            const updated = prev.map((c) =>
+              c.id === convId
+                ? { ...c, updatedAt: new Date().toISOString() }
+                : c,
+            );
+            return updated.sort(
+              (a, b) =>
+                new Date(b.updatedAt).getTime() -
+                new Date(a.updatedAt).getTime(),
+            );
           });
-        } else {
-          // Non-active — mark unread
-          setUnreadConversations((prev) => new Set([...prev, convId]));
-        }
+        },
+      );
 
-        // Bump conversation to top of list
-        setConversations((prev) => {
-          const updated = prev.map((c) =>
-            c.id === convId
-              ? { ...c, updatedAt: new Date().toISOString() }
-              : c,
-          );
-          return updated.sort(
-            (a, b) =>
-              new Date(b.updatedAt).getTime() -
-              new Date(a.updatedAt).getTime(),
-          );
-        });
-      });
+      // Handle conversation updates (e.g. title changes)
+      client.onWsEvent(
+        "conversation-updated",
+        (data: Record<string, unknown>) => {
+          const conv = data.conversation as Conversation;
+          if (conv?.id) {
+            setConversations((prev) => {
+              const updated = prev.map((c) => (c.id === conv.id ? conv : c));
+              return updated.sort(
+                (a, b) =>
+                  new Date(b.updatedAt).getTime() -
+                  new Date(a.updatedAt).getTime(),
+              );
+            });
+          }
+        },
+      );
 
       // Load wallet addresses for header
       try {
@@ -3383,10 +4024,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const cfg = await client.getConfig();
         const settings = cfg.settings as Record<string, unknown> | undefined;
         if (settings?.avatarIndex != null) {
-          const idx = Number(settings.avatarIndex);
-          if (!Number.isNaN(idx) && idx >= 0) {
-            setSelectedVrmIndex(idx);
-          }
+          setSelectedVrmIndex(Number(settings.avatarIndex));
         }
       } catch {
         /* ignore — localStorage fallback already loaded */
@@ -3394,7 +4032,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
       // Cloud polling
       pollCloudCredits();
-      cloudPollInterval.current = window.setInterval(() => pollCloudCredits(), 60_000);
+      cloudPollInterval.current = window.setInterval(
+        () => pollCloudCredits(),
+        60_000,
+      );
 
       // Load tab from URL
       const urlTab = tabFromPath(window.location.pathname);
@@ -3435,7 +4076,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       cancelled = true;
       window.removeEventListener("popstate", handlePopState);
       if (cloudPollInterval.current) clearInterval(cloudPollInterval.current);
-      if (cloudLoginPollTimer.current) clearInterval(cloudLoginPollTimer.current);
+      if (cloudLoginPollTimer.current)
+        clearInterval(cloudLoginPollTimer.current);
       unbindStatus?.();
       unbindAgentEvents?.();
       unbindHeartbeatEvents?.();
@@ -3443,7 +4085,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
       client.disconnectWs();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [appendAutonomousEvent]);
+  }, [
+    appendAutonomousEvent,
+    checkExtensionStatus,
+    currentTheme,
+    loadCharacter,
+    loadInventory,
+    loadPlugins,
+    loadSkills,
+    loadUpdateStatus,
+    loadWalletConfig,
+    loadWorkbench, // Cloud polling
+    pollCloudCredits,
+    setSelectedVrmIndex,
+  ]);
 
   // When agent transitions to "running", send a greeting if conversation is empty
   useEffect(() => {
@@ -3457,94 +4112,302 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // Agent just started — greet if conversation is empty.
       // The greetingFiredRef guard prevents double-greeting when both the
       // init mount effect and this state-transition effect race to fire.
-      if (activeConversationId && conversationMessages.length === 0 && !chatSending && !greetingFiredRef.current) {
+      if (
+        activeConversationId &&
+        conversationMessages.length === 0 &&
+        !chatSending &&
+        !greetingFiredRef.current
+      ) {
         greetingFiredRef.current = true;
         void fetchGreeting(activeConversationId);
       }
     }
-  }, [agentStatus?.state, loadWorkbench, activeConversationId, conversationMessages.length, chatSending, fetchGreeting]);
+  }, [
+    agentStatus?.state,
+    loadWorkbench,
+    activeConversationId,
+    conversationMessages.length,
+    chatSending,
+    fetchGreeting,
+  ]);
 
   // ── Context value ──────────────────────────────────────────────────
 
   const value: AppContextValue = {
     // State
-    tab, currentTheme, connected, agentStatus, onboardingComplete, onboardingLoading,
-    startupPhase, authRequired, actionNotice, lifecycleBusy, lifecycleAction,
-    pairingEnabled, pairingExpiresAt, pairingCodeInput, pairingError, pairingBusy,
-    chatInput, chatSending, chatFirstTokenReceived, conversations, activeConversationId, conversationMessages,
-    autonomousEvents, autonomousLatestEventId, unreadConversations,
-    triggers, triggersLoading, triggersSaving, triggerRunsById, triggerHealth, triggerError,
-    plugins, pluginFilter, pluginStatusFilter, pluginSearch, pluginSettingsOpen,
-    pluginAdvancedOpen, pluginSaving, pluginSaveSuccess,
-    skills, skillsSubTab, skillCreateFormOpen, skillCreateName, skillCreateDescription,
-    skillCreating, skillReviewReport, skillReviewId, skillReviewLoading, skillToggleAction,
-    skillsMarketplaceQuery, skillsMarketplaceResults, skillsMarketplaceError,
-    skillsMarketplaceLoading, skillsMarketplaceAction, skillsMarketplaceManualGithubUrl,
-    logs, logSources, logTags, logTagFilter, logLevelFilter, logSourceFilter,
-    walletAddresses, walletConfig, walletBalances, walletNfts, walletLoading,
-    walletNftsLoading, inventoryView, walletExportData, walletExportVisible,
-    walletApiKeySaving, inventorySort, walletError,
-    registryStatus, registryLoading, registryRegistering, registryError,
-    dropStatus, dropLoading, mintInProgress, mintResult, mintError, mintShiny,
-    whitelistStatus, whitelistLoading, twitterVerifyMessage, twitterVerifyUrl, twitterVerifying,
-    characterData, characterLoading, characterSaving, characterSaveSuccess,
-    characterSaveError, characterDraft, selectedVrmIndex, customVrmUrl,
-    cloudEnabled, cloudConnected, cloudCredits, cloudCreditsLow, cloudCreditsCritical,
-    cloudTopUpUrl, cloudUserId, cloudLoginBusy, cloudLoginError, cloudDisconnecting,
-    updateStatus, updateLoading, updateChannelSaving,
-    extensionStatus, extensionChecking,
-    storePlugins, storeSearch, storeFilter, storeLoading, storeInstalling,
-    storeUninstalling, storeError, storeDetailPlugin, storeSubTab,
-    catalogSkills, catalogTotal, catalogPage, catalogTotalPages, catalogSort,
-    catalogSearch, catalogLoading, catalogError, catalogDetailSkill,
-    catalogInstalling, catalogUninstalling,
-    workbenchLoading, workbench, workbenchTasksAvailable, workbenchTriggersAvailable, workbenchTodosAvailable,
-    exportBusy, exportPassword, exportIncludeLogs, exportError, exportSuccess,
-    importBusy, importPassword, importFile, importError, importSuccess,
-    onboardingStep, onboardingOptions, onboardingName, onboardingStyle, onboardingTheme,
-    onboardingRunMode, onboardingCloudProvider, onboardingSmallModel, onboardingLargeModel,
-    onboardingProvider, onboardingApiKey, onboardingOpenRouterModel, onboardingPrimaryModel,
-    onboardingTelegramToken, onboardingDiscordToken, onboardingWhatsAppSessionPath,
-    onboardingTwilioAccountSid, onboardingTwilioAuthToken, onboardingTwilioPhoneNumber,
-    onboardingBlooioApiKey, onboardingBlooioPhoneNumber, onboardingSubscriptionTab,
-    onboardingSelectedChains, onboardingRpcSelections, onboardingRpcKeys,
-    onboardingAvatar, onboardingRestarting,
-    commandPaletteOpen, commandQuery, commandActiveIndex, emotePickerOpen,
-    mcpConfiguredServers, mcpServerStatuses, mcpMarketplaceQuery, mcpMarketplaceResults,
-    mcpMarketplaceLoading, mcpAction, mcpAddingServer, mcpAddingResult,
-    mcpEnvInputs, mcpHeaderInputs,
-    droppedFiles, shareIngestNotice,
-    activeGameApp, activeGameDisplayName, activeGameViewerUrl, activeGameSandbox,
+    tab,
+    currentTheme,
+    connected,
+    agentStatus,
+    onboardingComplete,
+    onboardingLoading,
+    startupPhase,
+    authRequired,
+    actionNotice,
+    lifecycleBusy,
+    lifecycleAction,
+    pairingEnabled,
+    pairingExpiresAt,
+    pairingCodeInput,
+    pairingError,
+    pairingBusy,
+    chatInput,
+    chatSending,
+    chatFirstTokenReceived,
+    chatAvatarVisible,
+    chatAgentVoiceMuted,
+    chatAvatarSpeaking,
+    conversations,
+    activeConversationId,
+    conversationMessages,
+    autonomousEvents,
+    autonomousLatestEventId,
+    unreadConversations,
+    triggers,
+    triggersLoading,
+    triggersSaving,
+    triggerRunsById,
+    triggerHealth,
+    triggerError,
+    plugins,
+    pluginFilter,
+    pluginStatusFilter,
+    pluginSearch,
+    pluginSettingsOpen,
+    pluginAdvancedOpen,
+    pluginSaving,
+    pluginSaveSuccess,
+    skills,
+    skillsSubTab,
+    skillCreateFormOpen,
+    skillCreateName,
+    skillCreateDescription,
+    skillCreating,
+    skillReviewReport,
+    skillReviewId,
+    skillReviewLoading,
+    skillToggleAction,
+    skillsMarketplaceQuery,
+    skillsMarketplaceResults,
+    skillsMarketplaceError,
+    skillsMarketplaceLoading,
+    skillsMarketplaceAction,
+    skillsMarketplaceManualGithubUrl,
+    logs,
+    logSources,
+    logTags,
+    logTagFilter,
+    logLevelFilter,
+    logSourceFilter,
+    walletAddresses,
+    walletConfig,
+    walletBalances,
+    walletNfts,
+    walletLoading,
+    walletNftsLoading,
+    inventoryView,
+    walletExportData,
+    walletExportVisible,
+    walletApiKeySaving,
+    inventorySort,
+    walletError,
+    registryStatus,
+    registryLoading,
+    registryRegistering,
+    registryError,
+    dropStatus,
+    dropLoading,
+    mintInProgress,
+    mintResult,
+    mintError,
+    mintShiny,
+    whitelistStatus,
+    whitelistLoading,
+    twitterVerifyMessage,
+    twitterVerifyUrl,
+    twitterVerifying,
+    characterData,
+    characterLoading,
+    characterSaving,
+    characterSaveSuccess,
+    characterSaveError,
+    characterDraft,
+    selectedVrmIndex,
+    customVrmUrl,
+    cloudEnabled,
+    cloudConnected,
+    cloudCredits,
+    cloudCreditsLow,
+    cloudCreditsCritical,
+    cloudTopUpUrl,
+    cloudUserId,
+    cloudLoginBusy,
+    cloudLoginError,
+    cloudDisconnecting,
+    updateStatus,
+    updateLoading,
+    updateChannelSaving,
+    extensionStatus,
+    extensionChecking,
+    storePlugins,
+    storeSearch,
+    storeFilter,
+    storeLoading,
+    storeInstalling,
+    storeUninstalling,
+    storeError,
+    storeDetailPlugin,
+    storeSubTab,
+    catalogSkills,
+    catalogTotal,
+    catalogPage,
+    catalogTotalPages,
+    catalogSort,
+    catalogSearch,
+    catalogLoading,
+    catalogError,
+    catalogDetailSkill,
+    catalogInstalling,
+    catalogUninstalling,
+    workbenchLoading,
+    workbench,
+    workbenchTasksAvailable,
+    workbenchTriggersAvailable,
+    workbenchTodosAvailable,
+    exportBusy,
+    exportPassword,
+    exportIncludeLogs,
+    exportError,
+    exportSuccess,
+    importBusy,
+    importPassword,
+    importFile,
+    importError,
+    importSuccess,
+    onboardingStep,
+    onboardingOptions,
+    onboardingName,
+    onboardingStyle,
+    onboardingTheme,
+    onboardingRunMode,
+    onboardingCloudProvider,
+    onboardingSmallModel,
+    onboardingLargeModel,
+    onboardingProvider,
+    onboardingApiKey,
+    onboardingOpenRouterModel,
+    onboardingPrimaryModel,
+    onboardingTelegramToken,
+    onboardingDiscordToken,
+    onboardingWhatsAppSessionPath,
+    onboardingTwilioAccountSid,
+    onboardingTwilioAuthToken,
+    onboardingTwilioPhoneNumber,
+    onboardingBlooioApiKey,
+    onboardingBlooioPhoneNumber,
+    onboardingSubscriptionTab,
+    onboardingSelectedChains,
+    onboardingRpcSelections,
+    onboardingRpcKeys,
+    onboardingAvatar,
+    onboardingRestarting,
+    commandPaletteOpen,
+    commandQuery,
+    commandActiveIndex,
+    emotePickerOpen,
+    mcpConfiguredServers,
+    mcpServerStatuses,
+    mcpMarketplaceQuery,
+    mcpMarketplaceResults,
+    mcpMarketplaceLoading,
+    mcpAction,
+    mcpAddingServer,
+    mcpAddingResult,
+    mcpEnvInputs,
+    mcpHeaderInputs,
+    droppedFiles,
+    shareIngestNotice,
+    activeGameApp,
+    activeGameDisplayName,
+    activeGameViewerUrl,
+    activeGameSandbox,
     activeGamePostMessageAuth,
-    appsSubTab, agentSubTab, pluginsSubTab, databaseSubTab,
-    configRaw, configText,
+    appsSubTab,
+    agentSubTab,
+    pluginsSubTab,
+    databaseSubTab,
+    configRaw,
+    configText,
     activeGamePostMessagePayload,
 
     // Actions
-    setTab, setTheme,
-    handleStart, handleStop, handlePauseResume, handleRestart, handleReset,
-    handleChatSend, handleChatStop, handleChatClear, handleNewConversation,
-    handleSelectConversation, handleDeleteConversation, handleRenameConversation,
-    loadTriggers, createTrigger, updateTrigger, deleteTrigger, runTriggerNow,
-    loadTriggerRuns, loadTriggerHealth,
+    setTab,
+    setTheme,
+    handleStart,
+    handleStop,
+    handlePauseResume,
+    handleRestart,
+    handleReset,
+    handleChatSend,
+    handleChatStop,
+    handleChatClear,
+    handleNewConversation,
+    handleSelectConversation,
+    handleDeleteConversation,
+    handleRenameConversation,
+    loadTriggers,
+    createTrigger,
+    updateTrigger,
+    deleteTrigger,
+    runTriggerNow,
+    loadTriggerRuns,
+    loadTriggerHealth,
     handlePairingSubmit,
-    loadPlugins, handlePluginToggle, handlePluginConfigSave,
-    loadSkills, refreshSkills, handleSkillToggle, handleCreateSkill,
-    handleOpenSkill, handleDeleteSkill, handleReviewSkill, handleAcknowledgeSkill,
-    searchSkillsMarketplace, installSkillFromMarketplace, uninstallMarketplaceSkill, installSkillFromGithubUrl,
+    loadPlugins,
+    handlePluginToggle,
+    handlePluginConfigSave,
+    loadSkills,
+    refreshSkills,
+    handleSkillToggle,
+    handleCreateSkill,
+    handleOpenSkill,
+    handleDeleteSkill,
+    handleReviewSkill,
+    handleAcknowledgeSkill,
+    searchSkillsMarketplace,
+    installSkillFromMarketplace,
+    uninstallMarketplaceSkill,
+    installSkillFromGithubUrl,
     loadLogs,
-    loadInventory, loadBalances, loadNfts, handleWalletApiKeySave, handleExportKeys,
-    loadRegistryStatus, registerOnChain, syncRegistryProfile, loadDropStatus, mintFromDrop, loadWhitelistStatus,
-    loadCharacter, handleSaveCharacter, handleCharacterFieldInput,
-    handleCharacterArrayInput, handleCharacterStyleInput, handleCharacterMessageExamplesInput,
-    handleOnboardingNext, handleOnboardingBack,
-    handleCloudLogin, handleCloudDisconnect,
-    loadUpdateStatus, handleChannelChange,
+    loadInventory,
+    loadBalances,
+    loadNfts,
+    handleWalletApiKeySave,
+    handleExportKeys,
+    loadRegistryStatus,
+    registerOnChain,
+    syncRegistryProfile,
+    loadDropStatus,
+    mintFromDrop,
+    loadWhitelistStatus,
+    loadCharacter,
+    handleSaveCharacter,
+    handleCharacterFieldInput,
+    handleCharacterArrayInput,
+    handleCharacterStyleInput,
+    handleCharacterMessageExamplesInput,
+    handleOnboardingNext,
+    handleOnboardingBack,
+    handleCloudLogin,
+    handleCloudDisconnect,
+    loadUpdateStatus,
+    handleChannelChange,
     checkExtensionStatus,
-    openCommandPalette, closeCommandPalette,
-    openEmotePicker, closeEmotePicker,
+    openEmotePicker,
+    closeEmotePicker,
     loadWorkbench,
-    handleAgentExport, handleAgentImport,
+    handleAgentExport,
+    handleAgentImport,
     setActionNotice,
     setState,
     copyToClipboard,

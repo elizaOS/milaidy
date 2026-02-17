@@ -1,6 +1,6 @@
 # Windows Code Signing (Azure Trusted Signing)
 
-This guide sets up Azure Trusted Signing for Milaidy Windows releases and fixes CI `403 Forbidden` errors.
+This guide sets up Azure Trusted Signing for Milady Windows releases and fixes CI `403 Forbidden` errors.
 
 ## Start Here (Login Links)
 
@@ -13,13 +13,13 @@ This guide sets up Azure Trusted Signing for Milaidy Windows releases and fixes 
 
 Windows build/sign config lives in:
 
-- `/Users/shawwalters/eliza-workspace/milaidy/apps/app/electron/electron-builder.config.json`
+- `/Users/shawwalters/eliza-workspace/milady/apps/app/electron/electron-builder.config.json`
 
 Current values:
 
 - `endpoint`: `https://eus.codesigning.azure.net/`
-- `codeSigningAccountName`: `milaidy`
-- `certificateProfileName`: `milaidy-code-sign`
+- `codeSigningAccountName`: `milady`
+- `certificateProfileName`: `milady-code-sign`
 - `publisherName`: `Milady AI`
 
 CI expects these GitHub secrets:
@@ -31,8 +31,8 @@ CI expects these GitHub secrets:
 ## 1. Azure Resource Setup
 
 1. Log into Azure Portal: [https://portal.azure.com/](https://portal.azure.com/)
-2. Create or open your Code Signing account (`milaidy`) in the correct subscription/resource group.
-3. Create or open certificate profile (`milaidy-code-sign`).
+2. Create or open your Code Signing account (`milady`) in the correct subscription/resource group.
+3. Create or open certificate profile (`milady-code-sign`).
 4. Confirm identity validation is complete/approved for the signer identity.
 5. Ensure endpoint region matches your account/profile region (for this repo: `eus` endpoint).
 
@@ -54,7 +54,7 @@ Expected result: `Registered`
 If you already have one, skip creation and reuse its IDs.
 
 ```bash
-az ad app create --display-name "milaidy-github-signing"
+az ad app create --display-name "milady-github-signing"
 az ad sp create --id "<APP_CLIENT_ID>"
 az ad app credential reset --id "<APP_CLIENT_ID>" --display-name "github-actions"
 ```
@@ -78,7 +78,7 @@ echo "$SP_OBJECT_ID"
 Set scope to your certificate profile:
 
 ```bash
-SCOPE="/subscriptions/<SUBSCRIPTION_ID>/resourceGroups/<RESOURCE_GROUP>/providers/Microsoft.CodeSigning/codeSigningAccounts/milaidy/certificateProfiles/milaidy-code-sign"
+SCOPE="/subscriptions/<SUBSCRIPTION_ID>/resourceGroups/<RESOURCE_GROUP>/providers/Microsoft.CodeSigning/codeSigningAccounts/milady/certificateProfiles/milady-code-sign"
 ```
 
 Assign signer role:
@@ -99,7 +99,7 @@ If your tenant still uses old naming, use:
 
 Repo settings:
 
-- [https://github.com/milady-ai/milaidy/settings/secrets/actions](https://github.com/milady-ai/milaidy/settings/secrets/actions)
+- [https://github.com/milady-ai/milady/settings/secrets/actions](https://github.com/milady-ai/milady/settings/secrets/actions)
 
 Set:
 
@@ -110,7 +110,7 @@ Set:
 Verify from CLI:
 
 ```bash
-gh secret list --repo milady-ai/milaidy
+gh secret list --repo milady-ai/milady
 ```
 
 ## 6. CI Preflight in This Repo
@@ -122,7 +122,7 @@ Release workflow now includes:
 
 Workflow file:
 
-- `/Users/shawwalters/eliza-workspace/milaidy/.github/workflows/release.yml`
+- `/Users/shawwalters/eliza-workspace/milady/.github/workflows/release.yml`
 
 If preflight fails, CI stops early with clear error hints before expensive packaging.
 
@@ -158,8 +158,8 @@ Import-Module TrustedSigning
 Copy-Item "$env:WINDIR\System32\notepad.exe" "$env:TEMP\trusted-signing-probe.exe" -Force
 Invoke-TrustedSigning `
   -Endpoint "https://eus.codesigning.azure.net/" `
-  -CertificateProfileName "milaidy-code-sign" `
-  -CodeSigningAccountName "milaidy" `
+  -CertificateProfileName "milady-code-sign" `
+  -CodeSigningAccountName "milady" `
   -TimestampRfc3161 "http://timestamp.acs.microsoft.com" `
   -TimestampDigest "SHA256" `
   -FileDigest "SHA256" `

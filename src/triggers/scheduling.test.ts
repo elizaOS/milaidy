@@ -11,7 +11,7 @@ import {
   normalizeTriggerIntervalMs,
   parseCronExpression,
   resolveTriggerTiming,
-} from "./scheduling.js";
+} from "./scheduling";
 
 describe("trigger scheduling helpers", () => {
   test("normalizes interval bounds", () => {

@@ -5,7 +5,7 @@
 
 import crypto from "node:crypto";
 import { logger } from "@elizaos/core";
-import { validateCloudBaseUrl } from "./validate-url.js";
+import { validateCloudBaseUrl } from "./validate-url";
 
 export interface CloudLoginResult {
   apiKey: string;
@@ -24,6 +24,10 @@ export interface CloudLoginOptions {
 
 const DEFAULT_CLOUD_REQUEST_TIMEOUT_MS = 10_000;
 
+function isRedirectResponse(response: Response): boolean {
+  return response.status >= 300 && response.status < 400;
+}
+
 function isTimeoutError(err: unknown): boolean {
   if (!(err instanceof Error)) return false;
   if (err.name === "TimeoutError" || err.name === "AbortError") return true;
@@ -38,6 +42,7 @@ async function fetchWithTimeout(
 ): Promise<Response> {
   return fetch(input, {
     ...init,
+    redirect: "manual",
     signal: AbortSignal.timeout(timeoutMs),
   });
 }
@@ -84,6 +89,11 @@ export async function cloudLogin(
   }
 
   if (!createResponse.ok) {
+    if (isRedirectResponse(createResponse)) {
+      throw new Error(
+        "Cloud login request was redirected; redirects are not allowed.",
+      );
+    }
     const errorText = await createResponse.text();
     throw new Error(
       `Failed to create auth session (HTTP ${createResponse.status}): ${errorText}`,
@@ -125,6 +135,11 @@ export async function cloudLogin(
     }
 
     if (!pollResponse.ok) {
+      if (isRedirectResponse(pollResponse)) {
+        throw new Error(
+          "Cloud login polling request was redirected; redirects are not allowed.",
+        );
+      }
       if (pollResponse.status === 404) {
         throw new Error("Auth session expired or not found. Please try again.");
       }

@@ -1,1 +1,1 @@
-ai.milaidy.plugins.camera
+ai.milady.plugins.camera

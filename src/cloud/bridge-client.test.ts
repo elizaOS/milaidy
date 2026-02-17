@@ -11,7 +11,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ElizaCloudClient } from "./bridge-client.js";
+import { ElizaCloudClient } from "./bridge-client";
 
 // ---------------------------------------------------------------------------
 // fetch mock
@@ -88,12 +88,11 @@ describe("Agent CRUD", () => {
 
     // Verify correct URL and auth header
     const [url, opts] = fetchMock.mock.calls[0];
-    expect(String(url)).toBe(
-      "https://test.elizacloud.ai/api/v1/milaidy/agents",
-    );
+    expect(String(url)).toBe("https://test.elizacloud.ai/api/v1/milady/agents");
     expect((opts?.headers as Record<string, string>)["X-Api-Key"]).toBe(
       "eliza_testkey",
     );
+    expect(opts?.redirect).toBe("manual");
   });
 
   it("listAgents returns empty array on empty response", async () => {
@@ -183,7 +182,7 @@ describe("sendMessage", () => {
     expect(body.method).toBe("message.send");
     expect(body.params.text).toBe("Hi");
     expect(body.params.roomId).toBe("room1");
-    expect(body.params.mode).toBe("power");
+    expect(body.params.channelType).toBe("DM");
   });
 
   it("uses default roomId when not specified", async () => {
@@ -198,7 +197,7 @@ describe("sendMessage", () => {
     const lastCall = fetchMock.mock.calls[fetchMock.mock.calls.length - 1];
     const body = JSON.parse(lastCall[1]?.body as string);
     expect(body.params.roomId).toBe("web-chat");
-    expect(body.params.mode).toBe("power");
+    expect(body.params.channelType).toBe("DM");
   });
 
   it("returns '(no response)' when result has no text", async () => {
@@ -231,6 +230,18 @@ describe("sendMessage", () => {
       new Response("Service Unavailable", { status: 503 }),
     );
     await expect(client.sendMessage("a1", "Hi")).rejects.toThrow("HTTP 503");
+  });
+
+  it("rejects redirect responses", async () => {
+    fetchMock.mockResolvedValue(
+      new Response("", {
+        status: 302,
+        headers: { location: "https://evil.example" },
+      }),
+    );
+    await expect(client.sendMessage("a1", "Hi")).rejects.toThrow("redirected");
+    const lastCall = fetchMock.mock.calls[fetchMock.mock.calls.length - 1];
+    expect(lastCall[1]?.redirect).toBe("manual");
   });
 });
 
@@ -301,6 +312,21 @@ describe("sendMessageStream", () => {
     const gen = client.sendMessageStream("a1", "Hello");
     await expect(gen.next()).rejects.toThrow("Stream request failed: HTTP 502");
   });
+
+  it("rejects redirect responses", async () => {
+    fetchMock.mockResolvedValue(
+      new Response("", {
+        status: 307,
+        headers: { location: "https://evil.example" },
+      }),
+    );
+
+    const gen = client.sendMessageStream("a1", "Hello");
+    await expect(gen.next()).rejects.toThrow("redirected");
+
+    const lastCall = fetchMock.mock.calls[fetchMock.mock.calls.length - 1];
+    expect(lastCall[1]?.redirect).toBe("manual");
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -335,6 +361,21 @@ describe("heartbeat", () => {
     // heartbeat catches fetch errors and returns false
     const alive = await client.heartbeat("a1");
     expect(alive).toBe(false);
+  });
+
+  it("returns false on redirect responses", async () => {
+    fetchMock.mockResolvedValue(
+      new Response("", {
+        status: 302,
+        headers: { location: "https://evil.example" },
+      }),
+    );
+
+    const alive = await client.heartbeat("a1");
+    expect(alive).toBe(false);
+
+    const lastCall = fetchMock.mock.calls[fetchMock.mock.calls.length - 1];
+    expect(lastCall[1]?.redirect).toBe("manual");
   });
 });
 
