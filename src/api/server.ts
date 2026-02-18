@@ -14,7 +14,6 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   type AgentRuntime,
-  type Attachment,
   ChannelType,
   type Content,
   ContentType,
@@ -2237,10 +2236,13 @@ interface ChatImageAttachment {
   name: string;
 }
 
+type ContentAttachment = NonNullable<Content["attachments"]>[number];
+
 const MAX_CHAT_IMAGES = 4;
 
 /** Maximum base64 data length for a single image (~3.75 MB binary). */
 const MAX_IMAGE_DATA_BYTES = 5 * 1_048_576;
+const MAX_IMAGE_NAME_CHARS = 255;
 
 const ALLOWED_IMAGE_MIME_TYPES = new Set([
   "image/jpeg",
@@ -2248,6 +2250,19 @@ const ALLOWED_IMAGE_MIME_TYPES = new Set([
   "image/gif",
   "image/webp",
 ]);
+
+function isValidBase64Data(value: string): boolean {
+  if (!/^[A-Za-z0-9+/]+={0,2}$/.test(value)) return false;
+  try {
+    const decoded = Buffer.from(value, "base64");
+    if (decoded.length === 0) return false;
+    const normalizedInput = value.replace(/=+$/, "");
+    const normalizedDecoded = decoded.toString("base64").replace(/=+$/, "");
+    return normalizedInput === normalizedDecoded;
+  } catch {
+    return false;
+  }
+}
 
 /** Returns an error message string, or null if valid. Exported for unit tests. */
 export function validateChatImages(images: unknown): string | null {
@@ -2263,14 +2278,27 @@ export function validateChatImages(images: unknown): string | null {
       return "Image data must be raw base64, not a data URL";
     if (data.length > MAX_IMAGE_DATA_BYTES)
       return `Image too large (max ${MAX_IMAGE_DATA_BYTES / 1_048_576} MB per image)`;
+    if (!isValidBase64Data(data)) return "Image data must be valid base64";
     if (typeof mimeType !== "string" || !mimeType)
       return "Each image must have a mimeType string";
     if (!ALLOWED_IMAGE_MIME_TYPES.has(mimeType.toLowerCase()))
       return `Unsupported image type: ${mimeType}`;
     if (typeof name !== "string" || !name)
       return "Each image must have a name string";
+    if (name.length > MAX_IMAGE_NAME_CHARS)
+      return `Image name too long (max ${MAX_IMAGE_NAME_CHARS} characters)`;
   }
   return null;
+}
+
+/** Normalizes image MIME types to lowercase for downstream consumers. */
+export function normalizeChatImages(
+  images: ChatImageAttachment[] | undefined,
+): ChatImageAttachment[] | undefined {
+  return images?.map((img) => ({
+    ...img,
+    mimeType: img.mimeType.toLowerCase(),
+  }));
 }
 
 /**
@@ -2278,7 +2306,7 @@ export function validateChatImages(images: unknown): string | null {
  * action handlers (e.g. POST_TWEET) while the message is in-memory. The
  * extra fields are intentionally stripped before the message is persisted.
  */
-export interface ChatAttachmentWithData extends Attachment {
+export interface ChatAttachmentWithData extends ContentAttachment {
   /** Raw base64 image data — never written to the database. */
   _data: string;
   /** MIME type corresponding to `_data`. */
@@ -2289,13 +2317,16 @@ export interface ChatAttachmentWithData extends Attachment {
  * Builds in-memory and compact (DB-persisted) attachment arrays from
  * validated images. Exported so it can be unit-tested independently.
  */
-export function buildChatAttachments(images: ChatImageAttachment[] | undefined): {
+export function buildChatAttachments(
+  images: ChatImageAttachment[] | undefined,
+): {
   /** In-memory attachments that include `_data`/`_mimeType` for action handlers. */
   attachments: ChatAttachmentWithData[] | undefined;
   /** Persistence-safe attachments with `_data`/`_mimeType` stripped. */
-  compactAttachments: Attachment[] | undefined;
+  compactAttachments: ContentAttachment[] | undefined;
 } {
-  if (!images?.length) return { attachments: undefined, compactAttachments: undefined };
+  if (!images?.length)
+    return { attachments: undefined, compactAttachments: undefined };
   // Compact placeholder URL (no base64) keeps the LLM context lean. The raw
   // image bytes are stashed in `_data`/`_mimeType` for action handlers (e.g.
   // POST_TWEET) that need to upload them.
@@ -2311,7 +2342,7 @@ export function buildChatAttachments(images: ChatImageAttachment[] | undefined):
     _mimeType: img.mimeType,
   }));
   // DB-persisted version omits _data/_mimeType so raw bytes aren't stored.
-  const compactAttachments: Attachment[] = attachments.map(
+  const compactAttachments: ContentAttachment[] = attachments.map(
     ({ _data: _d, _mimeType: _m, ...rest }) => rest,
   );
   return { attachments, compactAttachments };
@@ -2324,7 +2355,7 @@ type MessageMemory = ReturnType<typeof createMessageMemory>;
  * and the persistence-safe counterpart (image data stripped). Extracted to
  * avoid duplicating this logic across the stream and non-stream chat endpoints.
  */
-function buildUserMessages(params: {
+export function buildUserMessages(params: {
   images: ChatImageAttachment[] | undefined;
   prompt: string;
   userId: UUID;
@@ -2343,7 +2374,9 @@ function buildUserMessages(params: {
       text: prompt,
       source: "client_chat",
       channelType,
-      ...(attachments?.length ? { attachments: attachments as Attachment[] } : {}),
+      ...(attachments?.length
+        ? { attachments: attachments as ContentAttachment[] }
+        : {}),
     },
   });
   // Persisted message: compact placeholder URL, no raw bytes in DB.
@@ -2377,7 +2410,11 @@ async function readChatRequestPayload(
   /** Body size limit. Image-capable endpoints pass CHAT_MAX_BODY_BYTES (20 MB);
    *  legacy/cloud-proxy endpoints that don't process images pass MAX_BODY_BYTES (1 MB). */
   maxBytes = CHAT_MAX_BODY_BYTES,
-): Promise<{ prompt: string; channelType: ChannelType; images?: ChatImageAttachment[] } | null> {
+): Promise<{
+  prompt: string;
+  channelType: ChannelType;
+  images?: ChatImageAttachment[];
+} | null> {
   const body = await helpers.readJsonBody<{
     text?: string;
     channelType?: string;
@@ -2401,12 +2438,11 @@ async function readChatRequestPayload(
   // Normalize mimeType to lowercase so downstream consumers (Twitter
   // uploadMedia, content-type headers) never encounter mixed-case variants
   // that slipped past the allowlist check.
-  const images = Array.isArray(body.images)
-    ? (body.images as ChatImageAttachment[]).map((img) => ({
-        ...img,
-        mimeType: img.mimeType.toLowerCase(),
-      }))
-    : undefined;
+  const images = normalizeChatImages(
+    Array.isArray(body.images)
+      ? (body.images as ChatImageAttachment[])
+      : undefined,
+  );
   return {
     prompt: body.text.trim(),
     channelType,

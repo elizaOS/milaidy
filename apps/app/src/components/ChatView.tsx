@@ -33,6 +33,7 @@ function isMobileViewport(): boolean {
 
 const CHAT_INPUT_MIN_HEIGHT_PX = 38;
 const CHAT_INPUT_MAX_HEIGHT_PX = 200;
+const MAX_CHAT_IMAGES = 4;
 
 export function ChatView() {
   const {
@@ -298,7 +299,11 @@ export function ChatView() {
       );
 
       void Promise.all(readers).then((attachments) => {
-        setChatPendingImages((prev) => [...prev, ...attachments]);
+        setChatPendingImages((prev) => {
+          const remainingSlots = Math.max(0, MAX_CHAT_IMAGES - prev.length);
+          if (remainingSlots === 0) return prev;
+          return [...prev, ...attachments.slice(0, remainingSlots)];
+        });
       });
     },
     [setChatPendingImages],
