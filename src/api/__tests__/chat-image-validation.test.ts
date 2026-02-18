@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { validateChatImages } from "../server";
+import { buildChatAttachments, validateChatImages } from "../server";
 
 describe("validateChatImages", () => {
   describe("absence / empty", () => {
@@ -161,5 +161,64 @@ describe("validateChatImages", () => {
         validateChatImages([{ data: "abc", mimeType: "image/png", name: 42 }]),
       ).toMatch(/name/);
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// buildChatAttachments
+// ---------------------------------------------------------------------------
+
+describe("buildChatAttachments", () => {
+  const img = { data: "abc123", mimeType: "image/png", name: "photo.png" };
+
+  it("returns undefined for both when images is undefined", () => {
+    const { attachments, compactAttachments } = buildChatAttachments(undefined);
+    expect(attachments).toBeUndefined();
+    expect(compactAttachments).toBeUndefined();
+  });
+
+  it("returns undefined for both when images is empty", () => {
+    const { attachments, compactAttachments } = buildChatAttachments([]);
+    expect(attachments).toBeUndefined();
+    expect(compactAttachments).toBeUndefined();
+  });
+
+  it("builds in-memory attachments with the correct shape", () => {
+    const { attachments } = buildChatAttachments([img]);
+    expect(attachments).toHaveLength(1);
+    expect(attachments![0]).toMatchObject({
+      id: "img-0",
+      url: "attachment:img-0",
+      title: "photo.png",
+      source: "client_chat",
+      _data: "abc123",
+      _mimeType: "image/png",
+    });
+  });
+
+  it("strips _data and _mimeType from compactAttachments", () => {
+    const { compactAttachments } = buildChatAttachments([img]);
+    expect(compactAttachments).toHaveLength(1);
+    expect(compactAttachments![0]).not.toHaveProperty("_data");
+    expect(compactAttachments![0]).not.toHaveProperty("_mimeType");
+    expect(compactAttachments![0]).toMatchObject({
+      id: "img-0",
+      url: "attachment:img-0",
+      title: "photo.png",
+    });
+  });
+
+  it("assigns sequential ids for multiple images", () => {
+    const { attachments } = buildChatAttachments([img, img]);
+    expect(attachments![0].id).toBe("img-0");
+    expect(attachments![1].id).toBe("img-1");
+    expect(attachments![0].url).toBe("attachment:img-0");
+    expect(attachments![1].url).toBe("attachment:img-1");
+  });
+
+  it("produces matching lengths for attachments and compactAttachments", () => {
+    const { attachments, compactAttachments } = buildChatAttachments([img, img, img]);
+    expect(attachments).toHaveLength(3);
+    expect(compactAttachments).toHaveLength(3);
   });
 });

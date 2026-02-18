@@ -325,9 +325,9 @@ export function ChatView() {
 
   const removeImage = useCallback(
     (index: number) => {
-      setChatPendingImages(chatPendingImages.filter((_, i) => i !== index));
+      setChatPendingImages((prev) => prev.filter((_, i) => i !== index));
     },
-    [chatPendingImages, setChatPendingImages],
+    [setChatPendingImages],
   );
 
   return (
