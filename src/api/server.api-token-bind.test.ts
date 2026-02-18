@@ -11,9 +11,15 @@ describe("ensureApiTokenForBindHost", () => {
     vi.restoreAllMocks();
   });
 
-  it("does not generate a token on loopback bind hosts", () => {
+  it.each([
+    "127.0.0.1",
+    "localhost:2138",
+    "[::1]:2138",
+    "http://localhost:2138",
+    "0:0:0:0:0:0:0:1",
+  ])("does not generate a token on loopback bind hosts (%s)", (host) => {
     delete process.env.MILADY_API_TOKEN;
-    ensureApiTokenForBindHost("127.0.0.1");
+    ensureApiTokenForBindHost(host);
     expect(process.env.MILADY_API_TOKEN).toBeUndefined();
   });
 
@@ -27,7 +33,7 @@ describe("ensureApiTokenForBindHost", () => {
     delete process.env.MILADY_API_TOKEN;
     const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => {});
 
-    ensureApiTokenForBindHost("0.0.0.0");
+    ensureApiTokenForBindHost("0.0.0.0:2138");
 
     const generated = process.env.MILADY_API_TOKEN ?? "";
     expect(generated).toMatch(/^[a-f0-9]{64}$/);

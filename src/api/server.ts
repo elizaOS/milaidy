@@ -3407,14 +3407,38 @@ function tokenMatches(expected: string, provided: string): boolean {
 }
 
 function isLoopbackBindHost(host: string): boolean {
-  const normalized = host
-    .trim()
-    .toLowerCase()
-    .replace(/^\[|\]$/g, "");
+  let normalized = host.trim().toLowerCase();
+
+  if (!normalized) return true;
+
+  // Allow users to provide full URLs by mistake (e.g. http://localhost:2138)
+  if (normalized.startsWith("http://") || normalized.startsWith("https://")) {
+    try {
+      const parsed = new URL(normalized);
+      normalized = parsed.hostname.toLowerCase();
+    } catch {
+      // Fall through and parse as raw host value.
+    }
+  }
+
+  // [::1]:2138 -> ::1
+  const bracketedIpv6 = /^\[([^\]]+)\](?::\d+)?$/.exec(normalized);
+  if (bracketedIpv6?.[1]) {
+    normalized = bracketedIpv6[1];
+  } else {
+    // localhost:2138 -> localhost, 127.0.0.1:2138 -> 127.0.0.1
+    const singleColonHostPort = /^([^:]+):(\d+)$/.exec(normalized);
+    if (singleColonHostPort?.[1]) {
+      normalized = singleColonHostPort[1];
+    }
+  }
+
+  normalized = normalized.replace(/^\[|\]$/g, "");
   if (!normalized) return true;
   if (
     normalized === "localhost" ||
     normalized === "::1" ||
+    normalized === "0:0:0:0:0:0:0:1" ||
     normalized === "::ffff:127.0.0.1"
   ) {
     return true;
