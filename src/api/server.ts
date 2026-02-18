@@ -4322,7 +4322,14 @@ async function handleRequest(
   const registryService = state.registryService;
   const dropService = state.dropService;
 
-  const scheduleRuntimeRestart = (reason: string, _delayMs?: number): void => {
+  const scheduleRuntimeRestart = (reason: string): void => {
+    if (state.pendingRestartReasons.length >= 50) {
+      // Prevent unbounded growth — keep only first entry + latest
+      state.pendingRestartReasons.splice(
+        1,
+        state.pendingRestartReasons.length - 1,
+      );
+    }
     if (!state.pendingRestartReasons.includes(reason)) {
       state.pendingRestartReasons.push(reason);
     }
@@ -5395,7 +5402,7 @@ async function handleRequest(
         );
       }
 
-      scheduleRuntimeRestart(`Plugin toggle: ${pluginId}`, 300);
+      scheduleRuntimeRestart(`Plugin toggle: ${pluginId}`);
     }
 
     json(res, { ok: true, plugin });
@@ -5603,7 +5610,7 @@ async function handleRequest(
 
       // If autoRestart is not explicitly false, restart the agent
       if (body.autoRestart !== false && result.requiresRestart) {
-        scheduleRuntimeRestart(`Plugin ${result.pluginName} installed`, 500);
+        scheduleRuntimeRestart(`Plugin ${result.pluginName} installed`);
       }
 
       json(res, {
@@ -5652,7 +5659,7 @@ async function handleRequest(
       }
 
       if (body.autoRestart !== false && result.requiresRestart) {
-        scheduleRuntimeRestart(`Plugin ${pluginName} uninstalled`, 500);
+        scheduleRuntimeRestart(`Plugin ${pluginName} uninstalled`);
       }
 
       json(res, {
@@ -5690,7 +5697,7 @@ async function handleRequest(
         return;
       }
       if (result.requiresRestart) {
-        scheduleRuntimeRestart(`Plugin ${pluginName} ejected`, 500);
+        scheduleRuntimeRestart(`Plugin ${pluginName} ejected`);
       }
       json(res, {
         ok: true,
@@ -5724,7 +5731,7 @@ async function handleRequest(
         return;
       }
       if (result.requiresRestart) {
-        scheduleRuntimeRestart(`Plugin ${pluginName} synced`, 500);
+        scheduleRuntimeRestart(`Plugin ${pluginName} synced`);
       }
       json(res, {
         ok: true,
@@ -5764,7 +5771,7 @@ async function handleRequest(
         return;
       }
       if (result.requiresRestart) {
-        scheduleRuntimeRestart(`Plugin ${pluginName} reinjected`, 500);
+        scheduleRuntimeRestart(`Plugin ${pluginName} reinjected`);
       }
       json(res, {
         ok: true,
@@ -5943,7 +5950,6 @@ async function handleRequest(
     // Auto-restart so the change takes effect
     scheduleRuntimeRestart(
       `Plugin ${shortId} ${body.enabled ? "enabled" : "disabled"}`,
-      300,
     );
 
     json(res, {

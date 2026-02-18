@@ -152,4 +152,39 @@ describe("RestartBanner", () => {
     // Should still render with fallback text
     expect(text).toContain("Restart required to apply changes");
   });
+
+  it("dismiss-then-re-show: hidden when dismissed, re-appears with new reasons", () => {
+    // Step 1: Banner is dismissed after user clicks "Later"
+    mockUseApp.mockReturnValue(
+      makeContext({
+        pendingRestart: true,
+        pendingRestartReasons: ["Plugin toggled"],
+        restartBannerDismissed: true,
+      }),
+    );
+
+    const dismissedMarkup = renderToStaticMarkup(
+      React.createElement(RestartBanner),
+    );
+    expect(dismissedMarkup).toBe("");
+
+    // Step 2: A new config change arrives — restartBannerDismissed is reset
+    // to false by the WS handler (simulating AppContext behavior)
+    mockUseApp.mockReturnValue(
+      makeContext({
+        pendingRestart: true,
+        pendingRestartReasons: ["Plugin toggled", "Configuration updated"],
+        restartBannerDismissed: false,
+      }),
+    );
+
+    const reshownMarkup = renderToStaticMarkup(
+      React.createElement(RestartBanner),
+    );
+    const text = readAllText(reshownMarkup);
+
+    expect(reshownMarkup).not.toBe("");
+    expect(text).toContain("2 changes pending");
+    expect(text).toContain("restart to apply");
+  });
 });
