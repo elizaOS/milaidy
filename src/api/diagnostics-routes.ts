@@ -28,11 +28,6 @@ interface StreamEventEnvelopeLike {
 }
 
 type DiagnosticsSseInit = (res: http.ServerResponse) => void;
-type DiagnosticsSseWriteData = (
-  res: http.ServerResponse,
-  data: string,
-  event?: string,
-) => void;
 type DiagnosticsSseWriteJson = (
   res: http.ServerResponse,
   payload: object,
@@ -49,7 +44,6 @@ export interface DiagnosticsRouteContext
   checkRelayReachable?: (relayPort: number) => Promise<boolean>;
   resolveExtensionPath?: () => string | null;
   initSse?: DiagnosticsSseInit;
-  writeSseData?: DiagnosticsSseWriteData;
   writeSseJson?: DiagnosticsSseWriteJson;
 }
 

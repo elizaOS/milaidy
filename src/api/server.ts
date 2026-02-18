@@ -7101,7 +7101,6 @@ async function handleRequest(
       logBuffer: state.logBuffer,
       eventBuffer: state.eventBuffer,
       initSse,
-      writeSseData,
       writeSseJson,
       json,
     })

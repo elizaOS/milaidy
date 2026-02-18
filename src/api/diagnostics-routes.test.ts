@@ -29,7 +29,6 @@ async function invoke(args: {
   resolveExtensionPath?: () => string | null;
   requestHeaders?: Record<string, string>;
   initSse?: (res: unknown) => void;
-  writeSseData?: (res: unknown, data: string, event?: string) => void;
   writeSseJson?: (res: unknown, payload: object, event?: string) => void;
 }): Promise<InvokeResult> {
   let status = 200;
@@ -58,7 +57,6 @@ async function invoke(args: {
     checkRelayReachable: args.checkRelayReachable,
     resolveExtensionPath: args.resolveExtensionPath,
     initSse: args.initSse as never,
-    writeSseData: args.writeSseData as never,
     writeSseJson: args.writeSseJson as never,
     json: (_res, data, code = 200) => {
       status = code;

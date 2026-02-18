@@ -52,17 +52,19 @@ export interface AuditFeedQuery {
 
 export type AuditFeedSubscriber = (entry: AuditEntry) => void;
 
-function trimEntries(entries: AuditEntry[], maxEntries: number): AuditEntry[] {
-  if (entries.length <= maxEntries) return entries;
-  return entries.slice(-Math.floor(maxEntries / 2));
+function trimEntries(entries: AuditEntry[], maxEntries: number): void {
+  if (entries.length <= maxEntries) return;
+  const keep = Math.floor(maxEntries / 2);
+  if (keep <= 0) {
+    entries.length = 0;
+    return;
+  }
+  entries.splice(0, entries.length - keep);
 }
 
 function publishToProcessFeed(entry: AuditEntry): void {
   processFeedEntries.push(entry);
-  const trimmed = trimEntries(processFeedEntries, PROCESS_FEED_MAX_ENTRIES);
-  if (trimmed !== processFeedEntries) {
-    processFeedEntries.splice(0, processFeedEntries.length, ...trimmed);
-  }
+  trimEntries(processFeedEntries, PROCESS_FEED_MAX_ENTRIES);
   for (const subscriber of processFeedSubscribers) {
     try {
       subscriber(entry);
@@ -119,7 +121,7 @@ export function subscribeAuditFeed(
   };
 }
 
-/** Test-only helper to isolate process-wide audit state between specs. */
+/** @internal Test-only helper to isolate process-wide audit state between specs. */
 export function __resetAuditFeedForTests(): void {
   processFeedEntries.length = 0;
   processFeedSubscribers.clear();
@@ -142,7 +144,7 @@ export class SandboxAuditLog {
     this.entries.push(full);
     publishToProcessFeed(full);
 
-    this.entries = trimEntries(this.entries, this.maxEntries);
+    trimEntries(this.entries, this.maxEntries);
 
     if (this.consoleEnabled) {
       const line = `[AUDIT:${full.severity.toUpperCase()}] ${full.type}: ${full.summary}`;
