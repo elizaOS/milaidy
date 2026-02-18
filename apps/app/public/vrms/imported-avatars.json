@@ -22,5 +22,13 @@
   { "index": 21, "file": "milady-21.vrm", "preview": "milady-21.png", "label": "miru" },
   { "index": 22, "file": "milady-22.vrm", "preview": "milady-22.png", "label": "miu miu" },
   { "index": 23, "file": "milady-23.vrm", "preview": "milady-23.png", "label": "sikirei" },
-  { "index": 24, "file": "milady-24.vrm", "preview": "milady-24.png", "label": "wolf" }
+  { "index": 24, "file": "milady-24.vrm", "preview": "milady-24.png", "label": "wolf" },
+  { "index": 25, "file": "milady-official-1.vrm", "preview": "milady-official-1.png", "label": "Official 1" },
+  { "index": 26, "file": "milady-official-2.vrm", "preview": "milady-official-2.png", "label": "Official 2" },
+  { "index": 27, "file": "milady-official-3.vrm", "preview": "milady-official-3.png", "label": "Official 3" },
+  { "index": 28, "file": "milady-official-4.vrm", "preview": "milady-official-4.png", "label": "Official 4" },
+  { "index": 29, "file": "milady-official-5.vrm", "preview": "milady-official-5.png", "label": "Official 5" },
+  { "index": 30, "file": "milady-official-6.vrm", "preview": "milady-official-6.png", "label": "Official 6" },
+  { "index": 31, "file": "milady-official-7.vrm", "preview": "milady-official-7.png", "label": "Official 7" },
+  { "index": 32, "file": "milady-official-8.vrm", "preview": "milady-official-8.png", "label": "Official 8" }
 ]
