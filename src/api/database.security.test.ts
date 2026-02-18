@@ -173,4 +173,65 @@ describe("database API security hardening", () => {
     expect(parsed.searchParams.get("host")).toBe("8.8.8.8");
     expect(parsed.searchParams.get("hostaddr")).toBe("8.8.8.8");
   });
+
+  it.each([
+    "localhost:2138",
+    "[::1]:2138",
+    "http://localhost:2138",
+    "127.0.0.1:2138",
+  ])("allows private postgres hosts when MILADY_API_BIND is loopback with host+port (%s)", async (bindHost) => {
+    process.env.MILADY_API_BIND = bindHost;
+    const req = createMockJsonRequest(
+      {
+        provider: "postgres",
+        postgres: { host: "10.20.30.40" },
+      },
+      { method: "PUT", url: "/api/database/config" },
+    );
+    const { res, getStatus, getJson } = createMockHttpResponse();
+
+    const handled = await handleDatabaseRoute(
+      req,
+      res,
+      null,
+      "/api/database/config",
+    );
+
+    expect(handled).toBe(true);
+    expect(getStatus()).toBe(200);
+    expect(getJson()).toMatchObject({ saved: true });
+    expect(saveMiladyConfigMock).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    "127.evil.com",
+    "127.0.0.1.evil.com:2138",
+    "127.evil.com:2138",
+    "http://127.0.0.1.evil.com:2138",
+    "http://127.0.0.1@evil.com:2138",
+  ])("does not treat hostname spoof values as loopback binds (%s)", async (bindHost) => {
+    process.env.MILADY_API_BIND = bindHost;
+    const req = createMockJsonRequest(
+      {
+        provider: "postgres",
+        postgres: { host: "10.20.30.40" },
+      },
+      { method: "PUT", url: "/api/database/config" },
+    );
+    const { res, getStatus, getJson } = createMockHttpResponse();
+
+    const handled = await handleDatabaseRoute(
+      req,
+      res,
+      null,
+      "/api/database/config",
+    );
+
+    expect(handled).toBe(true);
+    expect(getStatus()).toBe(400);
+    expect(String((getJson() as { error?: string }).error ?? "")).toContain(
+      'Connection to "10.20.30.40" is blocked',
+    );
+    expect(saveMiladyConfigMock).not.toHaveBeenCalled();
+  });
 });

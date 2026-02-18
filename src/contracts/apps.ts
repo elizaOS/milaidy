@@ -5,6 +5,7 @@
 export interface AppViewerAuthMessage {
   type: string;
   authToken?: string;
+  characterId?: string;
   sessionToken?: string;
   agentId?: string;
 }

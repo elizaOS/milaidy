@@ -244,10 +244,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
+      - name: Setup Node.js (system-wide for dpkg)
+        run: |
+          # Install Node.js 22 via NodeSource so dpkg-checkbuilddeps can find it
+          curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+          sudo apt-get install -y nodejs
+          node --version
+          npm --version
 
       - name: Prepare debian packaging
         run: |

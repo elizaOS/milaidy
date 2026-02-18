@@ -540,23 +540,25 @@ export class ElectronCapacitorApp {
 // Set a CSP up for our application based on the custom scheme.
 // Allows connections to the embedded API server on localhost and WebSocket.
 // frame-src allows embedding game clients from localhost and known game domains.
-// Note: Embedded apps (like Hyperscape) may need WebAssembly, eval, and external fonts,
+// Note: Embedded apps (like Hyperscape) may need WebAssembly, eval, external scripts/fonts,
 // so the policy is intentionally permissive to support third-party game clients.
 export function setupContentSecurityPolicy(customScheme: string): void {
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     const base = [
-      `default-src 'self' ${customScheme}://* https://*`,
-      // 'unsafe-eval' and 'wasm-unsafe-eval' needed for WebAssembly in embedded apps (yoga-layout, meshopt, etc.)
-      `script-src 'self' ${customScheme}://* 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval'${electronIsDev ? " devtools://*" : ""}`,
-      // Allow Google Fonts and other external stylesheets
-      `style-src 'self' ${customScheme}://* 'unsafe-inline' https://fonts.googleapis.com`,
-      // data: URLs needed for WebAssembly loading (yoga-layout loads WASM from data: URLs)
+      `default-src 'self' ${customScheme}://* https://* http://localhost:* http://127.0.0.1:*`,
+      // Allow scripts from localhost game servers, plus eval/wasm for WebAssembly
+      `script-src 'self' ${customScheme}://* 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' http://localhost:* http://127.0.0.1:* https://*${electronIsDev ? " devtools://*" : ""}`,
+      // Allow stylesheets from external sources
+      `style-src 'self' ${customScheme}://* 'unsafe-inline' https://fonts.googleapis.com https://*`,
+      // data: URLs needed for WebAssembly loading
       `connect-src 'self' ${customScheme}://* blob: data: http://localhost:* ws://localhost:* wss://localhost:* http://127.0.0.1:* ws://127.0.0.1:* wss://127.0.0.1:* https://* wss://*`,
-      `img-src 'self' ${customScheme}://* data: blob: https://*`,
-      `media-src 'self' ${customScheme}://* blob: https://*`,
-      // Allow Google Fonts font files
-      `font-src 'self' ${customScheme}://* data: https://fonts.gstatic.com`,
-      `frame-src 'self' http://localhost:* https://*`,
+      `img-src 'self' ${customScheme}://* data: blob: http://localhost:* http://127.0.0.1:* https://*`,
+      `media-src 'self' ${customScheme}://* blob: http://localhost:* http://127.0.0.1:* https://*`,
+      // Allow fonts from external sources
+      `font-src 'self' ${customScheme}://* data: https://fonts.gstatic.com https://*`,
+      `frame-src 'self' http://localhost:* http://127.0.0.1:* https://*`,
+      // Allow web workers
+      `worker-src 'self' blob:`,
     ].join("; ");
 
     callback({

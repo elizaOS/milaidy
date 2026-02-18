@@ -238,7 +238,9 @@ jobs:
             const owner = context.repo.owner;
             const repo = context.repo.repo;
             const prNumber = context.payload.pull_request.number;
-            const runMarker = `<!-- agent-review-run:${context.runId}:${context.runNumber || '1'}:${context.payload.pull_request.head.sha} -->`;
+            const runId = process.env.GITHUB_RUN_ID || context.runId;
+            const runAttempt = process.env.GITHUB_RUN_ATTEMPT || '1';
+            const runMarker = `<!-- agent-review-run:${runId}:${runAttempt}:${context.payload.pull_request.head.sha} -->`;
 
             // Check if comment already exists
             const comments = await github.paginate(github.rest.issues.listComments, {
@@ -310,20 +312,31 @@ jobs:
             const issue_number = context.payload.pull_request.number;
             const runMarker = (process.env.AGENT_REVIEW_MARKER || '').trim();
 
-            // Match Decision in any format: **Decision:**, ### N. Decision:, 6. **Decision:**, etc.
-            const decisionPattern = /(?:^|\n)\s*(?:#{1,4}\s+)?(?:\d+\.\s*)?(?:\*{0,2})Decision:(?:\*{0,2})\s*(APPROVE|REQUEST CHANGES|CLOSE)\b/i;
-            const structuredPattern = /(?:#{1,4}\s+)?(?:\d+\.\s*)?(?:\*{0,2})(?:Classification|Scope verdict|Code quality)(?:\*{0,2}):?/i;
+            const inlineDecisionPattern = /(?:^|\n)\s*(?:#{1,4}\s+)?(?:\d+\.\s*)?(?:\*{0,2})Decision(?:\*{0,2})?\s*:\s*(?:\*{0,2})(APPROVE|REQUEST CHANGES|CLOSE)\b/i;
+            const multilineDecisionPattern = /(?:^|\n)\s*(?:#{1,4}\s+)?(?:\d+\.\s*)?(?:\*{0,2})Decision(?:\*{0,2})?\s*:?\s*\n+\s*(?:\*{0,2})(APPROVE|REQUEST CHANGES|CLOSE)\b/i;
+            const standaloneVerdictPattern = /(?:^|\n)\s*(?:\*{0,2})\s*(APPROVE|REQUEST CHANGES|CLOSE)\s*(?:\*{0,2})\b/i;
             const maxAttempts = 5; // Increased for fallback comment posting
             const pollIntervalMs = 3_000;
 
             const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+            const extractDecision = (body) => {
+              if (!body) return '';
+              const inline = body.match(inlineDecisionPattern);
+              if (inline?.[1]) return inline[1].toUpperCase();
+              const multiline = body.match(multilineDecisionPattern);
+              if (multiline?.[1]) return multiline[1].toUpperCase();
+              const prefix = body.slice(0, 1500);
+              const standalone = prefix.match(standaloneVerdictPattern);
+              if (standalone?.[1]) return standalone[1].toUpperCase();
+              return '';
+            };
+
             const findLatest = (items) => {
               const filtered = items.filter((c) => {
                 if (!c?.body) return false;
                 if (!runMarker || !c.body.includes(runMarker)) return false;
-                if (!decisionPattern.test(c.body)) return false;
-                return structuredPattern.test(c.body);
+                return Boolean(extractDecision(c.body));
               });
               return filtered.sort((a, b) =>
                 new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
@@ -373,8 +386,7 @@ jobs:
             let decisionCommentUrl = '';
 
             if (latest) {
-              const match = latest.body.match(decisionPattern);
-              const normalized = (match?.[1] || '').toUpperCase();
+              const normalized = extractDecision(latest.body);
               decision = normalized || decision;
               decisionCommentUrl = latest.html_url || '';
 
@@ -651,16 +663,40 @@ jobs:
           esac
 
           PR_NUM="${{ github.event.pull_request.number }}"
-          echo "Waiting for required checks to pass for PR #${PR_NUM}"
-          if ! timeout 15m gh pr checks "$PR_NUM" \
-            --required \
-            --repo "$GH_REPO" \
-            --watch \
-            --interval 10 \
-            --fail-fast; then
-            echo "Required PR checks failed or are not passing. Aborting merge."
-            exit 1
-          fi
+          echo "Waiting for PR checks to finish for PR #${PR_NUM} (excluding this job)"
+
+          deadline="$((SECONDS + 900))" # 15 minutes
+          while true; do
+            checks_json="$(gh pr checks "$PR_NUM" --repo "$GH_REPO" --json name,bucket,state 2>/dev/null || true)"
+
+            if [ -z "$checks_json" ]; then
+              echo "Failed to fetch PR checks; retrying..."
+              sleep 10
+              continue
+            fi
+
+            failing="$(printf "%s" "$checks_json" | jq '[.[] | select(.name != "Auto-merge approved PRs") | select(.bucket == "fail" or .bucket == "cancel")] | length')"
+            pending="$(printf "%s" "$checks_json" | jq '[.[] | select(.name != "Auto-merge approved PRs") | select(.bucket == "pending")] | length')"
+
+            if [ "$failing" -gt 0 ]; then
+              echo "One or more PR checks are failing; aborting merge."
+              gh pr checks "$PR_NUM" --repo "$GH_REPO" || true
+              exit 1
+            fi
+
+            if [ "$pending" -eq 0 ]; then
+              echo "All PR checks finished."
+              break
+            fi
+
+            if [ "$SECONDS" -ge "$deadline" ]; then
+              echo "Timed out waiting for PR checks to finish; aborting merge."
+              gh pr checks "$PR_NUM" --repo "$GH_REPO" || true
+              exit 1
+            fi
+
+            sleep 10
+          done
 
           echo "Merging PR #${PR_NUM} using '$method' method"
 

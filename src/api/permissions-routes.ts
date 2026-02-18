@@ -19,7 +19,7 @@ export interface PermissionRouteState {
 export interface PermissionRouteContext extends RouteRequestContext {
   state: PermissionRouteState;
   saveConfig: (config: MiladyConfig) => void;
-  scheduleRuntimeRestart: (reason: string, delayMs?: number) => void;
+  scheduleRuntimeRestart: (reason: string) => void;
 }
 
 export async function handlePermissionRoutes(

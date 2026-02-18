@@ -246,6 +246,8 @@ interface ServerState {
   >;
   /** Whether shell access is enabled (can be toggled in UI). */
   shellEnabled?: boolean;
+  /** Reasons a restart is pending. Empty array = no restart needed. */
+  pendingRestartReasons: string[];
 }
 
 interface ShareIngestItem {
@@ -3272,7 +3274,8 @@ async function resolveTrainingServiceCtor(): Promise<TrainingServiceCtor | null>
   return null;
 }
 
-const LOCAL_ORIGIN_RE = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i;
+const LOCAL_ORIGIN_RE =
+  /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\]|\[0:0:0:0:0:0:0:1\])(:\d+)?$/i;
 const APP_ORIGIN_RE =
   /^(capacitor|capacitor-electron|app):\/\/(localhost|-)?$/i;
 
@@ -3328,7 +3331,6 @@ const PAIRING_TTL_MS = 10 * 60 * 1000;
 const PAIRING_WINDOW_MS = 10 * 60 * 1000;
 const PAIRING_MAX_ATTEMPTS = 5;
 const PAIRING_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-const API_RESTART_EXIT_CODE = 75;
 
 let pairingCode: string | null = null;
 let pairingExpiresAt = 0;
@@ -4320,55 +4322,24 @@ async function handleRequest(
   const registryService = state.registryService;
   const dropService = state.dropService;
 
-  const scheduleRuntimeRestart = (reason: string, delayMs = 300): void => {
-    const restart = () => {
-      if (ctx?.onRestart) {
-        logger.info(`[milady-api] Triggering runtime restart (${reason})...`);
-        Promise.resolve(ctx.onRestart())
-          .then((newRuntime) => {
-            if (!newRuntime) {
-              logger.warn("[milady-api] Runtime restart returned null");
-              return;
-            }
-            state.runtime = newRuntime;
-            state.chatConnectionReady = null;
-            state.chatConnectionPromise = null;
-            state.agentState = "running";
-            state.agentName = newRuntime.character.name ?? "Milady";
-            state.startedAt = Date.now();
-            logger.info("[milady-api] Runtime restarted successfully");
-            // Notify WebSocket clients so the UI can refresh
-            state.broadcastWs?.({
-              type: "status",
-              state: state.agentState,
-              agentName: state.agentName,
-              startedAt: state.startedAt,
-              restarted: true,
-            });
-          })
-          .catch((err) => {
-            logger.error(
-              `[milady-api] Runtime restart failed: ${err instanceof Error ? err.message : err}`,
-            );
-          });
-        return;
-      }
-
-      logger.info(
-        `[milady-api] No in-process restart handler; exiting for external restart (${reason})`,
+  const scheduleRuntimeRestart = (reason: string): void => {
+    if (state.pendingRestartReasons.length >= 50) {
+      // Prevent unbounded growth — keep only first entry + latest
+      state.pendingRestartReasons.splice(
+        1,
+        state.pendingRestartReasons.length - 1,
       );
-      if (process.env.VITEST || process.env.NODE_ENV === "test") {
-        logger.info("[milady-api] Skipping process.exit during test execution");
-        return;
-      }
-      process.exit(API_RESTART_EXIT_CODE);
-    };
-
-    if (delayMs <= 0) {
-      restart();
-      return;
     }
-    setTimeout(restart, delayMs);
+    if (!state.pendingRestartReasons.includes(reason)) {
+      state.pendingRestartReasons.push(reason);
+    }
+    logger.info(
+      `[milady-api] Restart required: ${reason} (${state.pendingRestartReasons.length} pending)`,
+    );
+    state.broadcastWs?.({
+      type: "restart-required",
+      reasons: [...state.pendingRestartReasons],
+    });
   };
 
   const resolveHyperscapeApiBaseUrl = async (): Promise<string> => {
@@ -4545,6 +4516,8 @@ async function handleRequest(
       model: state.model,
       uptime,
       cloud: cloudStatus,
+      pendingRestart: state.pendingRestartReasons.length > 0,
+      pendingRestartReasons: state.pendingRestartReasons,
     });
     return;
   }
@@ -4853,6 +4826,24 @@ async function handleRequest(
       logger.info(
         `[milady-api] Subscription provider selected: ${body.provider} — complete OAuth via /api/subscription/ endpoints`,
       );
+
+      // Handle Anthropic setup token (sk-ant-oat01-...) provided during
+      // onboarding. The API-key gate above skips subscription providers
+      // because their envKey is null. Mirrors POST /api/subscription/
+      // anthropic/setup-token in subscription-routes.ts.
+      if (
+        body.provider === "anthropic-subscription" &&
+        typeof body.providerApiKey === "string" &&
+        body.providerApiKey.trim().startsWith("sk-ant-")
+      ) {
+        const token = body.providerApiKey.trim();
+        if (!config.env) config.env = {};
+        (config.env as Record<string, string>).ANTHROPIC_API_KEY = token;
+        process.env.ANTHROPIC_API_KEY = token;
+        logger.info(
+          "[milady-api] Anthropic setup token saved during onboarding",
+        );
+      }
     }
 
     // ── Connectors (Telegram, Discord, WhatsApp, Twilio, Blooio) ────────
@@ -5429,7 +5420,7 @@ async function handleRequest(
         );
       }
 
-      scheduleRuntimeRestart(`Plugin toggle: ${pluginId}`, 300);
+      scheduleRuntimeRestart(`Plugin toggle: ${pluginId}`);
     }
 
     json(res, { ok: true, plugin });
@@ -5637,7 +5628,7 @@ async function handleRequest(
 
       // If autoRestart is not explicitly false, restart the agent
       if (body.autoRestart !== false && result.requiresRestart) {
-        scheduleRuntimeRestart(`Plugin ${result.pluginName} installed`, 500);
+        scheduleRuntimeRestart(`Plugin ${result.pluginName} installed`);
       }
 
       json(res, {
@@ -5686,7 +5677,7 @@ async function handleRequest(
       }
 
       if (body.autoRestart !== false && result.requiresRestart) {
-        scheduleRuntimeRestart(`Plugin ${pluginName} uninstalled`, 500);
+        scheduleRuntimeRestart(`Plugin ${pluginName} uninstalled`);
       }
 
       json(res, {
@@ -5724,7 +5715,7 @@ async function handleRequest(
         return;
       }
       if (result.requiresRestart) {
-        scheduleRuntimeRestart(`Plugin ${pluginName} ejected`, 500);
+        scheduleRuntimeRestart(`Plugin ${pluginName} ejected`);
       }
       json(res, {
         ok: true,
@@ -5758,7 +5749,7 @@ async function handleRequest(
         return;
       }
       if (result.requiresRestart) {
-        scheduleRuntimeRestart(`Plugin ${pluginName} synced`, 500);
+        scheduleRuntimeRestart(`Plugin ${pluginName} synced`);
       }
       json(res, {
         ok: true,
@@ -5798,7 +5789,7 @@ async function handleRequest(
         return;
       }
       if (result.requiresRestart) {
-        scheduleRuntimeRestart(`Plugin ${pluginName} reinjected`, 500);
+        scheduleRuntimeRestart(`Plugin ${pluginName} reinjected`);
       }
       json(res, {
         ok: true,
@@ -5977,7 +5968,6 @@ async function handleRequest(
     // Auto-restart so the change takes effect
     scheduleRuntimeRestart(
       `Plugin ${shortId} ${body.enabled ? "enabled" : "disabled"}`,
-      300,
     );
 
     json(res, {
@@ -7099,6 +7089,8 @@ async function handleRequest(
       url,
       logBuffer: state.logBuffer,
       eventBuffer: state.eventBuffer,
+      initSse,
+      writeSseJson,
       json,
     })
   ) {
@@ -7118,6 +7110,7 @@ async function handleRequest(
       saveConfig: saveMiladyConfig,
       ensureWalletKeysInEnvAndConfig,
       resolveWalletExportRejection,
+      scheduleRuntimeRestart,
       readJsonBody,
       json,
       error,
@@ -9240,6 +9233,7 @@ async function handleRequest(
       readJsonBody,
       json,
       error,
+      runtime: state.runtime,
     })
   ) {
     return;
@@ -10760,6 +10754,7 @@ export async function startApiServer(opts?: {
     activeConversationId: null,
     permissionStates: {},
     shellEnabled: config.features?.shellEnabled !== false,
+    pendingRestartReasons: [],
   };
 
   const trainingServiceCtor = await resolveTrainingServiceCtor();
@@ -11249,6 +11244,8 @@ export async function startApiServer(opts?: {
       agentName: state.agentName,
       model: state.model,
       startedAt: state.startedAt,
+      pendingRestart: state.pendingRestartReasons.length > 0,
+      pendingRestartReasons: state.pendingRestartReasons,
     });
   };
 
@@ -11368,7 +11365,19 @@ export async function startApiServer(opts?: {
   console.log(
     `[milady-api] Calling server.listen (${Date.now() - apiStartTime}ms)`,
   );
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
+    server.on("error", (err: NodeJS.ErrnoException) => {
+      if (err.code === "EADDRINUSE") {
+        console.error(
+          `[milady-api] Port ${port} is already in use. Another process may be running.`,
+        );
+      } else {
+        console.error(
+          `[milady-api] Server error: ${err.message} (code: ${err.code})`,
+        );
+      }
+      reject(err);
+    });
     server.listen(port, host, () => {
       console.log(
         `[milady-api] server.listen callback fired (${Date.now() - apiStartTime}ms)`,

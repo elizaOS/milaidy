@@ -11,6 +11,7 @@ import { CharacterView } from "./components/CharacterView";
 import { ChatView } from "./components/ChatView";
 import { CommandPalette } from "./components/CommandPalette";
 import { ConnectorsPageView } from "./components/ConnectorsPageView";
+import { RestartBanner } from "./components/RestartBanner";
 import { ConversationsSidebar } from "./components/ConversationsSidebar";
 import { CustomActionEditor } from "./components/CustomActionEditor";
 import { CustomActionsPanel } from "./components/CustomActionsPanel";
@@ -54,6 +55,7 @@ function ViewRouter() {
     case "runtime":
     case "database":
     case "logs":
+    case "security":
       return <AdvancedPageView />;
     case "voice":
     case "settings":
@@ -100,7 +102,8 @@ export function App() {
     tab === "trajectories" ||
     tab === "runtime" ||
     tab === "database" ||
-    tab === "logs";
+    tab === "logs" ||
+    tab === "security";
   const unreadCount = unreadConversations?.size ?? 0;
   const statusIndicatorClass =
     agentStatus?.state === "running"
@@ -314,6 +317,7 @@ export function App() {
           setEditingAction(null);
         }}
       />
+      <RestartBanner />
       {actionNotice && (
         <div
           className={`fixed bottom-6 left-1/2 -translate-x-1/2 px-5 py-2 rounded-lg text-[13px] font-medium z-[10000] text-white ${

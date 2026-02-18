@@ -163,6 +163,7 @@ async function invoke(args: {
       status = code;
       payload = { error: message };
     },
+    runtime: null,
   });
 
   return {
@@ -266,6 +267,7 @@ describe("apps routes", () => {
       expect.anything(),
       APP_PLUGIN.name,
       expect.any(Function),
+      null,
     );
   });
 
