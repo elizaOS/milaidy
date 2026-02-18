@@ -255,7 +255,6 @@ export function SettingsView() {
         },
       });
       setState("cloudEnabled", true);
-      await client.restartAgent();
     } catch {
       /* non-fatal */
     }
@@ -630,7 +629,6 @@ export function SettingsView() {
                                       () => setModelSaveSuccess(false),
                                       2000,
                                     );
-                                    await client.restartAgent();
                                   } catch {
                                     /* ignore */
                                   }
@@ -644,7 +642,7 @@ export function SettingsView() {
                       <div className="flex items-center justify-end gap-2 mt-3">
                         {modelSaving && (
                           <span className="text-[11px] text-[var(--muted)]">
-                            Saving &amp; restarting...
+                            Saving...
                           </span>
                         )}
                         {modelSaveSuccess && (

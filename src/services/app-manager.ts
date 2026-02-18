@@ -11,8 +11,9 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import type { IAgentRuntime } from "@elizaos/core";
 import { logger } from "@elizaos/core";
-import { getWalletAddresses } from "../api/wallet";
+import { deriveEvmAddress, deriveSolanaAddress } from "../api/wallet";
 import type {
   AppLaunchResult,
   AppStopResult,
@@ -183,13 +184,17 @@ function buildViewerAuthMessage(
   // Hyperscape auth
   if (appName === HYPERSCAPE_APP_NAME) {
     const authToken = process.env.HYPERSCAPE_AUTH_TOKEN?.trim();
-    if (!authToken) return undefined;
+    const characterId = process.env.HYPERSCAPE_CHARACTER_ID?.trim();
+
+    // Need at least authToken OR characterId for spectator mode
+    if (!authToken && !characterId) return undefined;
 
     const sessionToken = process.env.HYPERSCAPE_SESSION_TOKEN?.trim();
     const agentId = process.env.HYPERSCAPE_EMBED_AGENT_ID?.trim();
     return {
       type: HYPERSCAPE_AUTH_MESSAGE_TYPE,
-      authToken,
+      authToken: authToken || undefined,
+      characterId: characterId || undefined,
       sessionToken:
         sessionToken && sessionToken.length > 0 ? sessionToken : undefined,
       agentId: agentId && agentId.length > 0 ? agentId : undefined,
@@ -278,16 +283,65 @@ function buildViewerConfig(
 }
 
 /**
+ * Get wallet addresses from agent runtime settings (character secrets).
+ * Falls back to process.env if runtime is not available.
+ */
+function getWalletAddressesFromRuntime(
+  runtime: IAgentRuntime | null | undefined,
+): { evmAddress: string | null; solanaAddress: string | null } {
+  let evmAddress: string | null = null;
+  let solanaAddress: string | null = null;
+
+  // Try runtime settings first (character secrets), fall back to process.env
+  const evmKey =
+    (runtime?.getSetting?.("EVM_PRIVATE_KEY") as string | undefined)?.trim() ||
+    process.env.EVM_PRIVATE_KEY?.trim();
+
+  if (evmKey) {
+    try {
+      evmAddress = deriveEvmAddress(evmKey);
+    } catch (e) {
+      logger.warn(`[app-manager] Bad EVM key: ${e}`);
+    }
+  }
+
+  const solKey =
+    (
+      runtime?.getSetting?.("SOLANA_PRIVATE_KEY") as string | undefined
+    )?.trim() || process.env.SOLANA_PRIVATE_KEY?.trim();
+
+  if (solKey) {
+    try {
+      solanaAddress = deriveSolanaAddress(solKey);
+    } catch (e) {
+      logger.warn(`[app-manager] Bad SOL key: ${e}`);
+    }
+  }
+
+  return { evmAddress, solanaAddress };
+}
+
+/**
  * Auto-provision a hyperscape agent using wallet-based authentication.
  * The agent's wallet address becomes its identity - no manual registration needed.
+ * Uses agent.character.settings.secrets for wallet credentials.
  */
-async function autoProvisionHyperscapeAgent(): Promise<{
+async function autoProvisionHyperscapeAgent(
+  runtime: IAgentRuntime | null | undefined,
+): Promise<{
   characterId: string;
   authToken?: string;
 } | null> {
-  // Check if already configured
-  const existingCharId = process.env.HYPERSCAPE_CHARACTER_ID?.trim();
-  const existingToken = process.env.HYPERSCAPE_AUTH_TOKEN?.trim();
+  // Check if already configured (from runtime settings or env)
+  const existingCharId =
+    (
+      runtime?.getSetting?.("HYPERSCAPE_CHARACTER_ID") as string | undefined
+    )?.trim() || process.env.HYPERSCAPE_CHARACTER_ID?.trim();
+  const existingToken =
+    (
+      runtime?.getSetting?.("HYPERSCAPE_AUTH_TOKEN") as string | undefined
+    )?.trim() || process.env.HYPERSCAPE_AUTH_TOKEN?.trim();
+
   if (existingCharId && existingToken) {
     logger.info(
       `[app-manager] Hyperscape already configured with character: ${existingCharId}`,
@@ -295,27 +349,38 @@ async function autoProvisionHyperscapeAgent(): Promise<{
     return { characterId: existingCharId, authToken: existingToken };
   }
 
-  // Derive wallet addresses from private keys
-  const walletAddresses = getWalletAddresses();
+  // Derive wallet addresses from runtime settings (character secrets)
+  const walletAddresses = getWalletAddressesFromRuntime(runtime);
   const walletAddress =
     walletAddresses.evmAddress || walletAddresses.solanaAddress;
 
   if (!walletAddress) {
     logger.warn(
-      "[app-manager] No wallet address found for hyperscape auto-auth (need EVM_PRIVATE_KEY or SOLANA_PRIVATE_KEY)",
+      "[app-manager] No wallet address found for hyperscape auto-auth (need EVM_PRIVATE_KEY or SOLANA_PRIVATE_KEY in character secrets)",
     );
     return null;
   }
 
   const walletType = walletAddresses.evmAddress ? "evm" : "solana";
 
-  // Get server URL for API calls
+  // Get server URL for API calls (from runtime settings or env)
   const serverUrl =
-    process.env.HYPERSCAPE_SERVER_URL?.trim() || "ws://localhost:5555/ws";
+    (
+      runtime?.getSetting?.("HYPERSCAPE_SERVER_URL") as string | undefined
+    )?.trim() ||
+    process.env.HYPERSCAPE_SERVER_URL?.trim() ||
+    "ws://localhost:5555/ws";
   const apiBaseUrl = serverUrl
     .replace(/^ws:/, "http:")
     .replace(/^wss:/, "https:")
     .replace(/\/ws$/, "");
+
+  // Get agent name from runtime or env
+  const agentName =
+    runtime?.character?.name ||
+    (runtime?.getSetting?.("BOT_NAME") as string | undefined)?.trim() ||
+    process.env.BOT_NAME ||
+    "Agent";
 
   try {
     logger.info(
@@ -329,7 +394,7 @@ async function autoProvisionHyperscapeAgent(): Promise<{
       body: JSON.stringify({
         walletAddress,
         walletType,
-        agentName: process.env.BOT_NAME || "Agent",
+        agentName,
       }),
     });
 
@@ -353,11 +418,12 @@ async function autoProvisionHyperscapeAgent(): Promise<{
     }
 
     // Set environment variables for the plugin and viewer
+    // (These are still needed for other parts of the system that read from env)
     process.env.HYPERSCAPE_CHARACTER_ID = result.characterId;
     process.env.HYPERSCAPE_AUTH_TOKEN = result.authToken;
 
     logger.info(
-      `[app-manager] ✅ Auto-provisioned hyperscape agent: ${result.characterId}`,
+      `[app-manager] Auto-provisioned hyperscape agent: ${result.characterId}`,
     );
 
     return { characterId: result.characterId, authToken: result.authToken };
@@ -420,6 +486,7 @@ export class AppManager {
     pluginManager: PluginManagerLike,
     name: string,
     onProgress?: (progress: InstallProgressLike) => void,
+    runtime?: IAgentRuntime | null,
   ): Promise<AppLaunchResult> {
     const appInfo = (await pluginManager.getRegistryPlugin(
       name,
@@ -475,7 +542,7 @@ export class AppManager {
 
     // Auto-provision hyperscape agent if needed
     if (name === HYPERSCAPE_APP_NAME) {
-      await autoProvisionHyperscapeAgent();
+      await autoProvisionHyperscapeAgent(runtime);
     }
 
     // Build viewer config from registry app metadata

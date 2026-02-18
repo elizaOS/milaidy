@@ -44,8 +44,6 @@ export function ChatView() {
     setState,
     droppedFiles,
     shareIngestNotice,
-    chatMode,
-    chatAvatarVisible: avatarVisible,
     chatAgentVoiceMuted: agentVoiceMuted,
     selectedVrmIndex,
   } = useApp();
@@ -401,67 +399,6 @@ export function ChatView() {
         </div>
       )}
 
-      {/* Custom Actions / Avatar / Voice controls */}
-      <div className="flex gap-1.5 relative" style={{ zIndex: 1 }}>
-          {/* Custom Actions panel toggle */}
-          <button
-            className="h-7 px-2 flex items-center gap-1 border rounded cursor-pointer transition-all bg-card border-border text-muted hover:border-accent hover:text-accent"
-            onClick={() => window.dispatchEvent(new Event("toggle-custom-actions-panel"))}
-            title="Custom Actions"
-            aria-label="Open custom actions panel"
-          >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-            </svg>
-            <span className="text-[10px] font-medium">Actions</span>
-          </button>
-
-          {/* Show / hide avatar */}
-          <button
-            className={`w-7 h-7 flex items-center justify-center border rounded cursor-pointer transition-all bg-card ${
-              avatarVisible
-                ? "border-accent text-accent"
-                : "border-border text-muted hover:border-accent hover:text-accent"
-            }`}
-            onClick={() => setState("chatAvatarVisible", !avatarVisible)}
-            title={avatarVisible ? "Hide avatar" : "Show avatar"}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-              <circle cx="12" cy="7" r="4" />
-              {!avatarVisible && <line x1="3" y1="3" x2="21" y2="21" />}
-            </svg>
-          </button>
-
-          {/* Mute / unmute agent voice */}
-          <button
-            className={`w-7 h-7 flex items-center justify-center border rounded cursor-pointer transition-all bg-card ${
-              agentVoiceMuted
-                ? "border-border text-muted hover:border-accent hover:text-accent"
-                : "border-accent text-accent"
-            }`}
-            onClick={() => {
-              const muting = !agentVoiceMuted;
-              setState("chatAgentVoiceMuted", muting);
-              if (muting) voice.stopSpeaking();
-            }}
-            title={agentVoiceMuted ? "Unmute agent voice" : "Mute agent voice"}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-              {agentVoiceMuted ? (
-                <line x1="23" y1="9" x2="17" y2="15" />
-              ) : (
-                <>
-                  <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
-                  <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
-                </>
-              )}
-              {agentVoiceMuted && <line x1="17" y1="9" x2="23" y2="15" />}
-            </svg>
-          </button>
-        </div>
-
       {/* ── Input row: mic + textarea + send ───────────────────────── */}
       <div
         className="flex gap-1.5 sm:gap-2 items-end border-t border-border pt-3 pb-3 sm:pb-4 relative"
@@ -471,11 +408,10 @@ export function ChatView() {
         {voice.supported && (
           <button
             type="button"
-            className={`h-[38px] w-[38px] flex-shrink-0 flex items-center justify-center border rounded cursor-pointer transition-all self-end ${
-              voice.isListening
-                ? "bg-accent border-accent text-accent-fg shadow-[0_0_10px_rgba(124,58,237,0.4)] animate-pulse"
-                : "border-border bg-card text-muted hover:border-accent hover:text-accent"
-            }`}
+            className={`h-[38px] w-[38px] flex-shrink-0 flex items-center justify-center border rounded cursor-pointer transition-all self-end ${voice.isListening
+              ? "bg-accent border-accent text-accent-fg shadow-[0_0_10px_rgba(124,58,237,0.4)] animate-pulse"
+              : "border-border bg-card text-muted hover:border-accent hover:text-accent"
+              }`}
             onClick={voice.toggleListening}
             title={voice.isListening ? "Stop listening" : "Voice input"}
           >

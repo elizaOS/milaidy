@@ -10,13 +10,14 @@
     <meta name="color-scheme" content="dark light" />
     <meta http-equiv="Content-Security-Policy"
       content="default-src 'self' capacitor-electron://* https://* http://localhost:* http://127.0.0.1:*;
-               script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval';
-               style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+               script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' http://localhost:* http://127.0.0.1:* https://*;
+               style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://*;
                connect-src 'self' blob: data: http://localhost:* ws://localhost:* wss://localhost:* http://127.0.0.1:* ws://127.0.0.1:* wss://127.0.0.1:* https://* wss://*;
-               img-src 'self' data: blob: https://*;
-               media-src 'self' blob: https://*;
-               font-src 'self' data: https://fonts.gstatic.com;
-               frame-src 'self' http://localhost:* http://127.0.0.1:* https://*;" />
+               img-src 'self' data: blob: http://localhost:* http://127.0.0.1:* https://*;
+               media-src 'self' blob: http://localhost:* http://127.0.0.1:* https://*;
+               font-src 'self' data: https://fonts.gstatic.com https://*;
+               frame-src 'self' http://localhost:* http://127.0.0.1:* https://*;
+               worker-src 'self' blob:;" />
     <title>Milady</title>
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />

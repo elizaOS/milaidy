@@ -20,7 +20,8 @@ export type Tab =
   | "runtime"
   | "database"
   | "settings"
-  | "logs";
+  | "logs"
+  | "security";
 
 export const TAB_GROUPS = [
   { label: "Chat", tabs: ["chat"] as Tab[] },
@@ -43,6 +44,7 @@ export const TAB_GROUPS = [
       "runtime",
       "database",
       "logs",
+      "security",
     ] as Tab[],
   },
 ] as const;
@@ -66,6 +68,7 @@ const TAB_PATHS: Record<Tab, string> = {
   database: "/database",
   settings: "/settings",
   logs: "/logs",
+  security: "/security",
 };
 
 /** Legacy path redirects — old paths that now map to new tabs. */
@@ -160,6 +163,8 @@ export function titleForTab(tab: Tab): string {
       return "Settings";
     case "logs":
       return "Logs";
+    case "security":
+      return "Security";
     default:
       return "Milady";
   }

@@ -166,6 +166,8 @@ export interface AgentStatus {
   model: string | undefined;
   uptime: number | undefined;
   startedAt: number | undefined;
+  pendingRestart?: boolean;
+  pendingRestartReasons?: string[];
 }
 
 export interface RuntimeOrderItem {
@@ -662,6 +664,54 @@ export interface LogsFilter {
   tag?: string;
   since?: number;
 }
+
+export type SecurityAuditSeverity = "info" | "warn" | "error" | "critical";
+export type SecurityAuditEventType =
+  | "sandbox_mode_transition"
+  | "secret_token_replacement_outbound"
+  | "secret_sanitization_inbound"
+  | "privileged_capability_invocation"
+  | "policy_decision"
+  | "signing_request_submitted"
+  | "signing_request_rejected"
+  | "signing_request_approved"
+  | "plugin_fallback_attempt"
+  | "security_kill_switch"
+  | "sandbox_lifecycle"
+  | "fetch_proxy_error";
+
+export interface SecurityAuditEntry {
+  timestamp: string;
+  type: SecurityAuditEventType;
+  summary: string;
+  metadata?: Record<string, string | number | boolean | null>;
+  severity: SecurityAuditSeverity;
+  traceId?: string;
+}
+
+export interface SecurityAuditFilter {
+  type?: SecurityAuditEventType;
+  severity?: SecurityAuditSeverity;
+  since?: number | string | Date;
+  limit?: number;
+}
+
+export interface SecurityAuditResponse {
+  entries: SecurityAuditEntry[];
+  totalBuffered: number;
+  replayed: true;
+}
+
+export type SecurityAuditStreamEvent =
+  | {
+      type: "snapshot";
+      entries: SecurityAuditEntry[];
+      totalBuffered: number;
+    }
+  | {
+      type: "entry";
+      entry: SecurityAuditEntry;
+    };
 
 export type StreamEventType =
   | "agent_event"
@@ -2139,6 +2189,122 @@ export class MiladyClient {
     if (filter?.since) params.set("since", String(filter.since));
     const qs = params.toString();
     return this.fetch(`/api/logs${qs ? `?${qs}` : ""}`);
+  }
+
+  private buildSecurityAuditParams(
+    filter?: SecurityAuditFilter,
+    includeStream = false,
+  ): URLSearchParams {
+    const params = new URLSearchParams();
+    if (filter?.type) params.set("type", filter.type);
+    if (filter?.severity) params.set("severity", filter.severity);
+    if (filter?.since !== undefined) {
+      const sinceValue =
+        filter.since instanceof Date
+          ? filter.since.toISOString()
+          : String(filter.since);
+      params.set("since", sinceValue);
+    }
+    if (filter?.limit !== undefined) params.set("limit", String(filter.limit));
+    if (includeStream) params.set("stream", "1");
+    return params;
+  }
+
+  async getSecurityAudit(
+    filter?: SecurityAuditFilter,
+  ): Promise<SecurityAuditResponse> {
+    const qs = this.buildSecurityAuditParams(filter).toString();
+    return this.fetch(`/api/security/audit${qs ? `?${qs}` : ""}`);
+  }
+
+  async streamSecurityAudit(
+    onEvent: (event: SecurityAuditStreamEvent) => void,
+    filter?: SecurityAuditFilter,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    if (!this.apiAvailable) {
+      throw new Error("API not available (no HTTP origin)");
+    }
+
+    const token = this.apiToken;
+    const qs = this.buildSecurityAuditParams(filter, true).toString();
+    const res = await fetch(
+      `${this.baseUrl}/api/security/audit${qs ? `?${qs}` : ""}`,
+      {
+        method: "GET",
+        headers: {
+          Accept: "text/event-stream",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        signal,
+      },
+    );
+
+    if (!res.ok) {
+      const body = (await res
+        .json()
+        .catch(() => ({ error: res.statusText }))) as Record<string, string>;
+      const err = new Error(body.error ?? `HTTP ${res.status}`);
+      (err as Error & { status?: number }).status = res.status;
+      throw err;
+    }
+
+    if (!res.body) {
+      throw new Error("Streaming not supported by this browser");
+    }
+
+    const parsePayload = (payload: string) => {
+      if (!payload) return;
+      try {
+        const parsed = JSON.parse(payload) as SecurityAuditStreamEvent;
+        if (parsed.type === "snapshot" || parsed.type === "entry") {
+          onEvent(parsed);
+        }
+      } catch {
+        // Ignore malformed payloads to keep stream consumption resilient.
+      }
+    };
+
+    const decoder = new TextDecoder();
+    const reader = res.body.getReader();
+    let buffer = "";
+
+    const findSseEventBreak = (
+      chunkBuffer: string,
+    ): { index: number; length: number } | null => {
+      const lfBreak = chunkBuffer.indexOf("\n\n");
+      const crlfBreak = chunkBuffer.indexOf("\r\n\r\n");
+      if (lfBreak === -1 && crlfBreak === -1) return null;
+      if (lfBreak === -1) return { index: crlfBreak, length: 4 };
+      if (crlfBreak === -1) return { index: lfBreak, length: 2 };
+      return lfBreak < crlfBreak
+        ? { index: lfBreak, length: 2 }
+        : { index: crlfBreak, length: 4 };
+    };
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      let eventBreak = findSseEventBreak(buffer);
+      while (eventBreak) {
+        const rawEvent = buffer.slice(0, eventBreak.index);
+        buffer = buffer.slice(eventBreak.index + eventBreak.length);
+        for (const line of rawEvent.split(/\r?\n/)) {
+          if (!line.startsWith("data:")) continue;
+          parsePayload(line.slice(5).trim());
+        }
+        eventBreak = findSseEventBreak(buffer);
+      }
+    }
+
+    if (buffer.trim()) {
+      for (const line of buffer.split(/\r?\n/)) {
+        if (!line.startsWith("data:")) continue;
+        parsePayload(line.slice(5).trim());
+      }
+    }
   }
 
   async getAgentEvents(opts?: {

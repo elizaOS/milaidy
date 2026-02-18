@@ -1,10 +1,16 @@
+import { EventEmitter } from "node:events";
 import { describe, expect, test, vi } from "vitest";
+import {
+  __resetAuditFeedForTests,
+  SandboxAuditLog,
+} from "../security/audit-log";
 import { handleDiagnosticsRoutes } from "./diagnostics-routes";
 
 type InvokeResult = {
   handled: boolean;
   status: number;
   payload: unknown;
+  req: EventEmitter;
 };
 
 async function invoke(args: {
@@ -21,13 +27,27 @@ async function invoke(args: {
   relayPort?: number;
   checkRelayReachable?: (relayPort: number) => Promise<boolean>;
   resolveExtensionPath?: () => string | null;
+  requestHeaders?: Record<string, string>;
+  initSse?: (res: unknown) => void;
+  writeSseJson?: (res: unknown, payload: object, event?: string) => void;
 }): Promise<InvokeResult> {
   let status = 200;
   let payload: unknown = null;
+  const req = new EventEmitter();
+  const res = new EventEmitter() as EventEmitter & {
+    writableEnded?: boolean;
+    end?: () => void;
+  };
+  (req as EventEmitter & { headers?: Record<string, string> }).headers =
+    args.requestHeaders ?? {};
+  res.writableEnded = false;
+  res.end = () => {
+    res.writableEnded = true;
+  };
 
   const handled = await handleDiagnosticsRoutes({
-    req: {} as never,
-    res: {} as never,
+    req: req as never,
+    res: res as never,
     method: args.method,
     pathname: args.pathname,
     url: new URL(args.url ?? args.pathname, "http://localhost:2138"),
@@ -36,16 +56,180 @@ async function invoke(args: {
     relayPort: args.relayPort,
     checkRelayReachable: args.checkRelayReachable,
     resolveExtensionPath: args.resolveExtensionPath,
+    initSse: args.initSse as never,
+    writeSseJson: args.writeSseJson as never,
     json: (_res, data, code = 200) => {
       status = code;
       payload = data;
     },
   });
 
-  return { handled, status, payload };
+  return { handled, status, payload, req };
 }
 
 describe("diagnostics routes", () => {
+  test("returns security audit entries with filters", async () => {
+    __resetAuditFeedForTests();
+    const auditLog = new SandboxAuditLog({ console: false });
+    const firstTs = Date.now() - 10_000;
+    const secondTs = Date.now();
+
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(firstTs));
+    auditLog.record({
+      type: "policy_decision",
+      summary: "allow",
+      severity: "info",
+    });
+    vi.setSystemTime(new Date(secondTs));
+    auditLog.record({
+      type: "policy_decision",
+      summary: "deny",
+      severity: "warn",
+    });
+    vi.useRealTimers();
+
+    const result = await invoke({
+      method: "GET",
+      pathname: "/api/security/audit",
+      url: `/api/security/audit?type=policy_decision&severity=warn&since=${firstTs}&limit=1`,
+    });
+
+    expect(result.handled).toBe(true);
+    expect(result.status).toBe(200);
+    expect(result.payload).toEqual({
+      entries: [
+        expect.objectContaining({
+          type: "policy_decision",
+          severity: "warn",
+          summary: "deny",
+        }),
+      ],
+      totalBuffered: 2,
+      replayed: true,
+    });
+  });
+
+  test("returns 400 for invalid security audit filters", async () => {
+    __resetAuditFeedForTests();
+
+    const badType = await invoke({
+      method: "GET",
+      pathname: "/api/security/audit",
+      url: "/api/security/audit?type=not-a-type",
+    });
+    expect(badType.status).toBe(400);
+    expect(badType.payload).toEqual(
+      expect.objectContaining({
+        error: expect.stringContaining('Invalid "type"'),
+      }),
+    );
+
+    const badSeverity = await invoke({
+      method: "GET",
+      pathname: "/api/security/audit",
+      url: "/api/security/audit?severity=bad",
+    });
+    expect(badSeverity.status).toBe(400);
+    expect(badSeverity.payload).toEqual(
+      expect.objectContaining({
+        error: expect.stringContaining('Invalid "severity"'),
+      }),
+    );
+
+    const badSince = await invoke({
+      method: "GET",
+      pathname: "/api/security/audit",
+      url: "/api/security/audit?since=not-a-date",
+    });
+    expect(badSince.status).toBe(400);
+    expect(badSince.payload).toEqual(
+      expect.objectContaining({
+        error: expect.stringContaining('Invalid "since"'),
+      }),
+    );
+  });
+
+  test("streams security audit snapshot and matching updates", async () => {
+    __resetAuditFeedForTests();
+    const auditLog = new SandboxAuditLog({ console: false });
+    const sseWrites: object[] = [];
+    const writeSseJson = vi.fn((_res: unknown, payload: object) => {
+      sseWrites.push(payload);
+    });
+
+    auditLog.record({
+      type: "policy_decision",
+      summary: "deny before stream",
+      severity: "warn",
+    });
+    auditLog.record({
+      type: "policy_decision",
+      summary: "allow before stream",
+      severity: "info",
+    });
+
+    const result = await invoke({
+      method: "GET",
+      pathname: "/api/security/audit",
+      url: "/api/security/audit?stream=1&severity=warn",
+      initSse: vi.fn(),
+      writeSseJson,
+    });
+
+    expect(result.handled).toBe(true);
+    expect(sseWrites[0]).toEqual(
+      expect.objectContaining({
+        type: "snapshot",
+        entries: [
+          expect.objectContaining({
+            summary: "deny before stream",
+            severity: "warn",
+          }),
+        ],
+      }),
+    );
+
+    auditLog.record({
+      type: "policy_decision",
+      summary: "deny during stream",
+      severity: "warn",
+    });
+    auditLog.record({
+      type: "policy_decision",
+      summary: "allow during stream",
+      severity: "info",
+    });
+
+    expect(sseWrites).toContainEqual(
+      expect.objectContaining({
+        type: "entry",
+        entry: expect.objectContaining({
+          summary: "deny during stream",
+          severity: "warn",
+        }),
+      }),
+    );
+    expect(sseWrites).not.toContainEqual(
+      expect.objectContaining({
+        type: "entry",
+        entry: expect.objectContaining({
+          summary: "allow during stream",
+        }),
+      }),
+    );
+
+    result.req.emit("close");
+
+    const writesBeforeClose = sseWrites.length;
+    auditLog.record({
+      type: "policy_decision",
+      summary: "deny after close",
+      severity: "warn",
+    });
+    expect(sseWrites).toHaveLength(writesBeforeClose);
+  });
+
   test("returns false for unrelated routes", async () => {
     const result = await invoke({ method: "GET", pathname: "/api/status" });
 

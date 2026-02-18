@@ -22,6 +22,7 @@ export interface AgentAdminRouteState {
   chatUserId: UUID | null;
   chatConnectionReady: { userId: UUID; roomId: UUID; worldId: UUID } | null;
   chatConnectionPromise: Promise<void> | null;
+  pendingRestartReasons: string[];
 }
 
 export interface AgentAdminRouteContext
@@ -86,8 +87,10 @@ export async function handleAgentAdminRoutes(
         state.agentState = "running";
         state.agentName = newRuntime.character.name ?? "Milady";
         state.startedAt = Date.now();
+        state.pendingRestartReasons = [];
         json(res, {
           ok: true,
+          pendingRestart: false,
           status: {
             state: state.agentState,
             agentName: state.agentName,
@@ -166,6 +169,7 @@ export async function handleAgentAdminRoutes(
       state.chatUserId = null;
       state.chatConnectionReady = null;
       state.chatConnectionPromise = null;
+      state.pendingRestartReasons = [];
 
       json(res, { ok: true });
     } catch (err) {

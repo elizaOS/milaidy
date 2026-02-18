@@ -1,3 +1,4 @@
+import type { IAgentRuntime } from "@elizaos/core";
 import type { AppManager } from "../services/app-manager";
 import type {
   InstallProgressLike,
@@ -7,10 +8,19 @@ import type {
 } from "../services/plugin-manager-types";
 import type { RouteHelpers, RouteRequestMeta } from "./route-helpers";
 
-type AppManagerLike = Pick<
-  AppManager,
-  "listAvailable" | "search" | "listInstalled" | "launch" | "stop" | "getInfo"
->;
+type AppManagerLike = {
+  listAvailable: AppManager["listAvailable"];
+  search: AppManager["search"];
+  listInstalled: AppManager["listInstalled"];
+  launch: (
+    pluginManager: PluginManagerLike,
+    name: string,
+    onProgress?: (progress: InstallProgressLike) => void,
+    runtime?: IAgentRuntime | null,
+  ) => ReturnType<AppManager["launch"]>;
+  stop: AppManager["stop"];
+  getInfo: AppManager["getInfo"];
+};
 
 export interface AppsRouteContext
   extends RouteRequestMeta,
@@ -19,6 +29,7 @@ export interface AppsRouteContext
   appManager: AppManagerLike;
   getPluginManager: () => PluginManagerLike;
   parseBoundedLimit: (rawLimit: string | null, fallback?: number) => number;
+  runtime: IAgentRuntime | null;
 }
 
 function isNonAppRegistryPlugin(plugin: RegistryPluginInfo): boolean {
@@ -48,6 +59,7 @@ export async function handleAppsRoutes(
     readJsonBody,
     json,
     error,
+    runtime,
   } = ctx;
 
   if (method === "GET" && pathname === "/api/apps") {
@@ -90,6 +102,7 @@ export async function handleAppsRoutes(
       pluginManager,
       body.name.trim(),
       (_progress: InstallProgressLike) => {},
+      runtime,
     );
     json(res, result);
     return true;

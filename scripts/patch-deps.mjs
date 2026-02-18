@@ -6,7 +6,7 @@
  *    insert errors on repeated ensureWorldExists() calls.
  * 2) Guards ensureEmbeddingDimension() so unsupported dimensions don't set the
  *    embedding column to undefined (which crashes drizzle query planning).
- * 3) Skips pgcrypto extension for PGlite (doesn't support extensions).
+ * 3) Removes pgcrypto from extension list (not used, causes PGlite warnings).
  *
  * Remove these once plugin-sql publishes fixes for both paths.
  */
@@ -18,49 +18,95 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, "..");
 
 /**
- * Find plugin-sql dist file - handles both npm and bun cache structures.
+ * Find ALL plugin-sql dist files - handles both npm and bun cache structures.
+ * Returns array of all found paths including BOTH node and browser builds
+ * (bun can have multiple copies with different hashes and might use either).
+ * Also searches the eliza submodule's node_modules.
  */
-function findPluginSqlDist() {
-  // Standard npm location
-  const npmTarget = resolve(
-    root,
-    "node_modules/@elizaos/plugin-sql/dist/node/index.node.js",
-  );
-  if (existsSync(npmTarget)) return npmTarget;
+function findAllPluginSqlDists() {
+  const targets = [];
+  const distPaths = [
+    "dist/node/index.node.js",
+    "dist/browser/index.browser.js",
+  ];
 
-  // Bun cache location (node_modules/.bun/@elizaos+plugin-sql@*/...)
-  const bunCacheDir = resolve(root, "node_modules/.bun");
-  if (existsSync(bunCacheDir)) {
-    try {
-      const entries = readdirSync(bunCacheDir);
-      for (const entry of entries) {
-        if (entry.startsWith("@elizaos+plugin-sql@")) {
-          const bunTarget = resolve(
-            bunCacheDir,
-            entry,
-            "node_modules/@elizaos/plugin-sql/dist/node/index.node.js",
-          );
-          if (existsSync(bunTarget)) return bunTarget;
-        }
+  // Search roots: main project, eliza submodule, plugin submodules, and global node_modules
+  const searchRoots = [root];
+  const elizaRoot = resolve(root, "eliza");
+  if (existsSync(resolve(elizaRoot, "node_modules"))) {
+    searchRoots.push(elizaRoot);
+  }
+
+  // Also check global node_modules in home directory (bun may resolve from there)
+  const homeNodeModules = resolve(process.env.HOME || "", "node_modules");
+  if (existsSync(homeNodeModules)) {
+    searchRoots.push(resolve(homeNodeModules, ".."));
+  }
+
+  // Also check for plugin-sql as a local plugin submodule
+  const pluginSqlRoot = resolve(root, "plugins/plugin-sql/typescript");
+  if (existsSync(pluginSqlRoot)) {
+    for (const distPath of distPaths) {
+      const pluginTarget = resolve(pluginSqlRoot, distPath);
+      if (existsSync(pluginTarget) && !targets.includes(pluginTarget)) {
+        targets.push(pluginTarget);
       }
-    } catch {
-      // Ignore errors reading bun cache
     }
   }
 
-  return null;
+  for (const searchRoot of searchRoots) {
+    // Standard npm location
+    for (const distPath of distPaths) {
+      const npmTarget = resolve(
+        searchRoot,
+        `node_modules/@elizaos/plugin-sql/${distPath}`,
+      );
+      if (existsSync(npmTarget) && !targets.includes(npmTarget)) {
+        targets.push(npmTarget);
+      }
+    }
+
+    // Bun cache location (node_modules/.bun/@elizaos+plugin-sql@*/...)
+    // Bun can have multiple copies with different content hashes
+    const bunCacheDir = resolve(searchRoot, "node_modules/.bun");
+    if (existsSync(bunCacheDir)) {
+      try {
+        const entries = readdirSync(bunCacheDir);
+        for (const entry of entries) {
+          if (entry.startsWith("@elizaos+plugin-sql@")) {
+            for (const distPath of distPaths) {
+              const bunTarget = resolve(
+                bunCacheDir,
+                entry,
+                `node_modules/@elizaos/plugin-sql/${distPath}`,
+              );
+              if (existsSync(bunTarget) && !targets.includes(bunTarget)) {
+                targets.push(bunTarget);
+              }
+            }
+          }
+        }
+      } catch {
+        // Ignore errors reading bun cache
+      }
+    }
+  }
+
+  return targets;
 }
 
-const target = findPluginSqlDist();
+const targets = findAllPluginSqlDists();
 
-if (!target) {
+if (targets.length === 0) {
   console.log("[patch-deps] plugin-sql dist not found, skipping patch.");
   process.exit(0);
 }
 
-let src = readFileSync(target, "utf8");
-let patched = 0;
+console.log(
+  `[patch-deps] Found ${targets.length} plugin-sql dist file(s) to patch.`,
+);
 
+// Patch definitions
 const createWorldBuggy = `await this.db.insert(worldTable).values({
         ...world,
         id: newWorldId,
@@ -72,18 +118,6 @@ const createWorldFixed = `await this.db.insert(worldTable).values({
         id: newWorldId,
         name: world.name || ""
       }).onConflictDoNothing();`;
-
-if (src.includes(createWorldFixed)) {
-  console.log("[patch-deps] createWorld conflict patch already present.");
-} else if (src.includes(createWorldBuggy)) {
-  src = src.replace(createWorldBuggy, createWorldFixed);
-  patched += 1;
-  console.log("[patch-deps] Applied createWorld onConflictDoNothing() patch.");
-} else {
-  console.log(
-    "[patch-deps] createWorld() signature changed — world patch may no longer be needed.",
-  );
-}
 
 const embeddingBuggy = `this.embeddingDimension = DIMENSION_MAP[dimension];`;
 const embeddingFixed = `const resolvedDimension = DIMENSION_MAP[dimension];
@@ -102,43 +136,106 @@ const embeddingFixed = `const resolvedDimension = DIMENSION_MAP[dimension];
 				}
 				this.embeddingDimension = resolvedDimension;`;
 
-if (src.includes(embeddingFixed)) {
-  console.log(
-    "[patch-deps] ensureEmbeddingDimension guard patch already present.",
-  );
-} else if (src.includes(embeddingBuggy)) {
-  src = src.replace(embeddingBuggy, embeddingFixed);
-  patched += 1;
-  console.log("[patch-deps] Applied ensureEmbeddingDimension guard patch.");
-} else {
-  console.log(
-    "[patch-deps] ensureEmbeddingDimension signature changed — embedding patch may no longer be needed.",
-  );
-}
+// Patch: Remove pgcrypto from extension list entirely
+// pgcrypto is not used in the codebase and PGlite doesn't support it
+// We check for multiple patterns since we may have already partially patched
+const extensionsPatterns = [
+  // Original unpatched code (newer format)
+  `const extensions = isRealPostgres ? ["vector", "fuzzystrmatch", "pgcrypto"] : ["vector", "fuzzystrmatch"];`,
+  // Previously patched with isPglite check
+  `const isPglite = !!process.env.PGLITE_DATA_DIR;
+      const extensions = isRealPostgres && !isPglite ? ["vector", "fuzzystrmatch", "pgcrypto"] : ["vector", "fuzzystrmatch"];`,
+];
+// Fixed: just never include pgcrypto - it's not used and causes PGlite warnings
+const extensionsNoPgcrypto = `const extensions = ["vector", "fuzzystrmatch"];`;
 
-// Patch: Skip pgcrypto extension for PGlite (doesn't support it)
-// Change the extension list to exclude pgcrypto when PGLITE_DATA_DIR is set
-const extensionsBuggy = `const extensions = isRealPostgres ? ["vector", "fuzzystrmatch", "pgcrypto"] : ["vector", "fuzzystrmatch"];`;
-const extensionsFixed = `const isPglite = !!process.env.PGLITE_DATA_DIR;
-      const extensions = isRealPostgres && !isPglite ? ["vector", "fuzzystrmatch", "pgcrypto"] : ["vector", "fuzzystrmatch"];`;
+// Older format: extensions passed directly to installRequiredExtensions
+const extensionsInlinePatterns = [
+  // Hardcoded array with pgcrypto
+  `await this.extensionManager.installRequiredExtensions([
+        "vector",
+        "fuzzystrmatch",
+        "pgcrypto"
+      ]);`,
+  // Single-line variant
+  `await this.extensionManager.installRequiredExtensions(["vector", "fuzzystrmatch", "pgcrypto"]);`,
+];
+const extensionsInlineFixed = `await this.extensionManager.installRequiredExtensions([
+        "vector",
+        "fuzzystrmatch"
+      ]);`;
 
-if (src.includes(extensionsFixed)) {
-  console.log("[patch-deps] PGlite extension patch already present.");
-} else if (src.includes(extensionsBuggy)) {
-  src = src.replace(extensionsBuggy, extensionsFixed);
-  patched += 1;
-  console.log("[patch-deps] Applied PGlite extension exclusion patch.");
-} else {
-  console.log(
-    "[patch-deps] Extension installation code changed — PGlite patch may no longer be needed.",
-  );
-}
+// Apply patches to each found plugin-sql dist file
+for (const target of targets) {
+  console.log(`[patch-deps] Patching: ${target}`);
+  let src = readFileSync(target, "utf8");
+  let patched = 0;
 
-if (patched > 0) {
-  writeFileSync(target, src, "utf8");
-  console.log(`[patch-deps] Wrote ${patched} plugin-sql patch(es).`);
-} else {
-  console.log("[patch-deps] No plugin-sql patches needed.");
+  if (src.includes(createWorldFixed)) {
+    console.log("  - createWorld conflict patch already present.");
+  } else if (src.includes(createWorldBuggy)) {
+    src = src.replace(createWorldBuggy, createWorldFixed);
+    patched += 1;
+    console.log("  - Applied createWorld onConflictDoNothing() patch.");
+  } else {
+    console.log(
+      "  - createWorld() signature changed — world patch may no longer be needed.",
+    );
+  }
+
+  if (src.includes(embeddingFixed)) {
+    console.log("  - ensureEmbeddingDimension guard patch already present.");
+  } else if (src.includes(embeddingBuggy)) {
+    src = src.replace(embeddingBuggy, embeddingFixed);
+    patched += 1;
+    console.log("  - Applied ensureEmbeddingDimension guard patch.");
+  } else {
+    console.log(
+      "  - ensureEmbeddingDimension signature changed — embedding patch may no longer be needed.",
+    );
+  }
+
+  // Check for pgcrypto removal (const extensions = ... pattern)
+  if (src.includes(extensionsNoPgcrypto)) {
+    console.log("  - pgcrypto removal patch already present.");
+  } else {
+    let pgcryptoPatched = false;
+    for (const pattern of extensionsPatterns) {
+      if (src.includes(pattern)) {
+        src = src.replace(pattern, extensionsNoPgcrypto);
+        patched += 1;
+        pgcryptoPatched = true;
+        console.log("  - Removed pgcrypto from extensions list.");
+        break;
+      }
+    }
+    if (!pgcryptoPatched) {
+      // Check for inline pattern (older code format)
+      for (const pattern of extensionsInlinePatterns) {
+        if (src.includes(pattern)) {
+          src = src.replace(pattern, extensionsInlineFixed);
+          patched += 1;
+          pgcryptoPatched = true;
+          console.log("  - Removed pgcrypto from inline extensions call.");
+          break;
+        }
+      }
+    }
+    if (!pgcryptoPatched && !src.includes(extensionsInlineFixed)) {
+      console.log(
+        "  - Extension installation code changed — pgcrypto patch may no longer be needed.",
+      );
+    } else if (!pgcryptoPatched && src.includes(extensionsInlineFixed)) {
+      console.log("  - pgcrypto inline removal patch already present.");
+    }
+  }
+
+  if (patched > 0) {
+    writeFileSync(target, src, "utf8");
+    console.log(`  - Wrote ${patched} patch(es) to this file.`);
+  } else {
+    console.log("  - No patches needed for this file.");
+  }
 }
 
 /**

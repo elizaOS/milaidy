@@ -1,10 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { SandboxAuditLog } from "../audit-log";
+import {
+  __resetAuditFeedForTests,
+  queryAuditFeed,
+  SandboxAuditLog,
+  subscribeAuditFeed,
+} from "../audit-log";
 
 describe("SandboxAuditLog", () => {
   let log: SandboxAuditLog;
 
   beforeEach(() => {
+    __resetAuditFeedForTests();
     log = new SandboxAuditLog({ console: false }); // Silence console output in tests
   });
 
@@ -132,6 +138,84 @@ describe("SandboxAuditLog", () => {
       expect(log.size).toBe(2);
       log.clear();
       expect(log.size).toBe(0);
+    });
+  });
+
+  describe("process-wide feed", () => {
+    it("is visible across log instances", () => {
+      const secondLog = new SandboxAuditLog({ console: false });
+
+      log.record({
+        type: "sandbox_lifecycle",
+        summary: "first",
+        severity: "info",
+      });
+      secondLog.record({
+        type: "policy_decision",
+        summary: "second",
+        severity: "warn",
+      });
+
+      const entries = queryAuditFeed();
+      expect(entries).toHaveLength(2);
+      expect(entries[0].summary).toBe("first");
+      expect(entries[1].summary).toBe("second");
+    });
+
+    it("supports filtered global feed queries", () => {
+      log.record({
+        type: "policy_decision",
+        summary: "allow",
+        severity: "info",
+      });
+      log.record({
+        type: "policy_decision",
+        summary: "deny",
+        severity: "warn",
+      });
+      log.record({
+        type: "sandbox_lifecycle",
+        summary: "boot",
+        severity: "info",
+      });
+
+      expect(queryAuditFeed({ severity: "warn" })).toHaveLength(1);
+      expect(queryAuditFeed({ type: "policy_decision" })).toHaveLength(2);
+      expect(
+        queryAuditFeed({ type: "policy_decision", limit: 1 })[0].summary,
+      ).toBe("deny");
+    });
+
+    it("publishes to global feed subscribers", () => {
+      const subscriber = vi.fn();
+      const unsubscribe = subscribeAuditFeed(subscriber);
+
+      log.record({
+        type: "sandbox_lifecycle",
+        summary: "subscribed",
+        severity: "info",
+      });
+      unsubscribe();
+      log.record({
+        type: "sandbox_lifecycle",
+        summary: "after-unsubscribe",
+        severity: "info",
+      });
+
+      expect(subscriber).toHaveBeenCalledTimes(1);
+      expect(subscriber.mock.calls[0][0].summary).toBe("subscribed");
+    });
+
+    it("reset helper clears global state for isolated tests", () => {
+      log.record({
+        type: "sandbox_lifecycle",
+        summary: "before reset",
+        severity: "info",
+      });
+      expect(queryAuditFeed()).toHaveLength(1);
+
+      __resetAuditFeedForTests();
+      expect(queryAuditFeed()).toHaveLength(0);
     });
   });
 });
