@@ -345,6 +345,7 @@ describe("Token auth gate (MILADY_API_TOKEN set)", () => {
       ["GET", "/api/wallet/addresses"],
       ["GET", "/api/wallet/config"],
       ["GET", "/api/onboarding/status"],
+      ["POST", "/api/terminal/run"],
     ];
 
     for (const [method, path] of endpoints) {
@@ -369,6 +370,19 @@ describe("Token auth gate (MILADY_API_TOKEN set)", () => {
       const { status } = await req(port, method, path, undefined, auth);
       expect(status).toBe(200);
     }
+  });
+
+  it("terminal run auth gate accepts valid token", async () => {
+    const auth = { headers: { Authorization: `Bearer ${TEST_TOKEN}` } };
+    const { status } = await req(
+      port,
+      "POST",
+      "/api/terminal/run",
+      { command: "echo auth-gate" },
+      auth,
+    );
+    // shell policy may still deny execution, but auth gate must pass
+    expect(status).not.toBe(401);
   });
 });
 
