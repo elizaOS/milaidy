@@ -1,4 +1,4 @@
-import { lookup as dnsLookup } from "node:dns/promises";
+import * as dns from "node:dns/promises";
 import type { AgentRuntime, Memory, UUID } from "@elizaos/core";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { createRouteInvoker } from "../test-support/route-test-helpers.js";
@@ -116,6 +116,159 @@ describe("knowledge routes", () => {
         offset: undefined,
       }),
     );
+  });
+
+  test("enriches documents list with fragment counts and metadata defaults", async () => {
+    const firstDocumentId = uuid(2001);
+    const secondDocumentId = uuid(2002);
+    const thirdDocumentId = uuid(2003);
+    getMemoriesMock.mockImplementation(async ({ tableName }) => {
+      if (tableName === "documents") {
+        return [
+          buildMemory({
+            id: firstDocumentId,
+            metadata: {
+              filename: "project-notes.md",
+              fileType: "text/markdown",
+              fileSize: "2048",
+            },
+            createdAt: 111,
+          }),
+          buildMemory({
+            id: secondDocumentId,
+            metadata: {
+              title: "missing-metadata",
+              source: "url",
+            },
+            createdAt: undefined,
+          }),
+          buildMemory({
+            id: thirdDocumentId,
+            metadata: {
+              filename: "no-fragments.pdf",
+            },
+            createdAt: 333,
+            content: { text: "third-doc" },
+          }),
+        ];
+      }
+      return [
+        buildMemory({
+          id: uuid(2010),
+          metadata: { documentId: firstDocumentId },
+        }),
+        buildMemory({
+          id: uuid(2011),
+          metadata: { documentId: firstDocumentId },
+        }),
+        buildMemory({
+          id: uuid(2012),
+          metadata: { documentId: secondDocumentId },
+        }),
+        buildMemory({
+          id: undefined,
+          metadata: { documentId: thirdDocumentId },
+        }),
+      ];
+    });
+
+    const result = await invoke({
+      method: "GET",
+      pathname: "/api/knowledge/documents",
+      url: "/api/knowledge/documents?limit=10&offset=1",
+    });
+
+    expect(result.status).toBe(200);
+    expect(
+      (
+        result.payload as {
+          documents: Array<{ id: string; fragmentCount: number }>;
+        }
+      ).documents.map((doc) => doc.fragmentCount),
+    ).toEqual([2, 1, 1]);
+    expect(
+      (
+        result.payload as {
+          documents: Array<{
+            id: string;
+            createdAt: number;
+            fileSize: number;
+            contentType: string;
+            filename: string;
+          }>;
+        }
+      ).documents,
+    ).toMatchObject([
+      {
+        id: firstDocumentId,
+        filename: "project-notes.md",
+        contentType: "text/markdown",
+        fileSize: 2048,
+        createdAt: 111,
+      },
+      {
+        id: secondDocumentId,
+        filename: "missing-metadata",
+        contentType: "unknown",
+        fileSize: 0,
+        createdAt: 0,
+      },
+      {
+        id: thirdDocumentId,
+        filename: "no-fragments.pdf",
+        contentType: "unknown",
+        fileSize: 0,
+        createdAt: 333,
+      },
+    ]);
+  });
+
+  test("returns document detail with single fragmentCount and defaulted metadata", async () => {
+    const documentId = uuid(2100);
+    getMemoriesMock.mockImplementation(async ({ tableName }) => {
+      if (tableName === "documents") {
+        return [
+          buildMemory({
+            id: documentId,
+            metadata: {
+              title: "detail.md",
+              fileType: "text/markdown",
+            },
+            createdAt: undefined,
+            content: { text: "document body" },
+          }),
+        ];
+      }
+      return [
+        buildMemory({ id: uuid(2101), metadata: { documentId } }),
+        buildMemory({ id: uuid(2102), metadata: { documentId } }),
+      ];
+    });
+
+    const result = await invoke({
+      method: "GET",
+      pathname: `/api/knowledge/documents/${documentId}`,
+    });
+
+    expect(result.status).toBe(200);
+    expect(
+      (result.payload as { document: Record<string, unknown> }).document,
+    ).toEqual({
+      id: documentId,
+      filename: "detail.md",
+      contentType: "text/markdown",
+      fileSize: 0,
+      createdAt: 0,
+      fragmentCount: 2,
+      source: "upload",
+      url: undefined,
+      content: { text: "document body" },
+    });
+    expect(
+      Object.keys(
+        (result.payload as { document: Record<string, unknown> }).document,
+      ).filter((key) => key === "fragmentCount"),
+    ).toHaveLength(1);
   });
 
   test("filters fragments without id/createdAt and paginates batches", async () => {
@@ -279,7 +432,7 @@ describe("knowledge routes", () => {
   });
 
   test("blocks URL import when DNS resolves to link-local/metadata IP", async () => {
-    vi.mocked(dnsLookup).mockResolvedValue([
+    vi.spyOn(dns, "lookup").mockResolvedValue([
       { address: "169.254.169.254", family: 4 },
     ]);
     const fetchSpy = vi.spyOn(globalThis, "fetch");
@@ -297,7 +450,7 @@ describe("knowledge routes", () => {
   });
 
   test("allows URL import for public hosts", async () => {
-    vi.mocked(dnsLookup).mockResolvedValue([
+    vi.spyOn(dns, "lookup").mockResolvedValue([
       { address: "93.184.216.34", family: 4 },
     ]);
     vi.spyOn(globalThis, "fetch").mockResolvedValue({
@@ -325,7 +478,7 @@ describe("knowledge routes", () => {
   });
 
   test("blocks URL import when fetch responds with redirect", async () => {
-    vi.mocked(dnsLookup).mockResolvedValue([
+    vi.spyOn(dns, "lookup").mockResolvedValue([
       { address: "93.184.216.34", family: 4 },
     ]);
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({

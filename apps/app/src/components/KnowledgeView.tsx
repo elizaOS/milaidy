@@ -66,8 +66,8 @@ function StatsCard({
               ?
             </span>
             <span className="pointer-events-none absolute left-0 top-full mt-1.5 w-52 px-2.5 py-1.5 rounded bg-[var(--bg-elevated)] text-[var(--text-strong)] text-[11px] normal-case tracking-normal leading-snug opacity-0 group-hover:opacity-100 transition-opacity border border-[var(--border-strong)] shadow-md">
-              Documents are split into smaller text chunks called fragments,
-              tasty snacks for agents, yumm
+              Documents are split into smaller text chunks called fragments for
+              efficient search and context retrieval.
             </span>
           </span>
         </div>
@@ -528,13 +528,16 @@ export function KnowledgeView() {
 
   const loadData = useCallback(async () => {
     setLoading(true);
-    const [statsRes, docsRes] = await Promise.all([
-      client.getKnowledgeStats(),
-      client.listKnowledgeDocuments({ limit: 100 }),
-    ]);
-    setStats(statsRes);
-    setDocuments(docsRes.documents);
-    setLoading(false);
+    try {
+      const [statsRes, docsRes] = await Promise.all([
+        client.getKnowledgeStats(),
+        client.listKnowledgeDocuments({ limit: 100 }),
+      ]);
+      setStats(statsRes);
+      setDocuments(docsRes.documents);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -685,31 +688,45 @@ export function KnowledgeView() {
 
   const handleSearch = useCallback(async (query: string) => {
     setSearching(true);
-    const result = await client.searchKnowledge(query, {
-      threshold: 0.3,
-      limit: 20,
-    });
-    setSearchResults(result.results);
-    setSearching(false);
+    try {
+      const result = await client.searchKnowledge(query, {
+        threshold: 0.3,
+        limit: 20,
+      });
+      setSearchResults(result.results);
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Unknown search error";
+      setActionNotice(`Search failed: ${message}`, "error", 4000);
+      setSearchResults([]);
+    } finally {
+      setSearching(false);
+    }
   }, []);
 
   const handleDelete = useCallback(
     async (documentId: string) => {
       setDeleting(documentId);
 
-      const result = await client.deleteKnowledgeDocument(documentId);
+      try {
+        const result = await client.deleteKnowledgeDocument(documentId);
 
-      setDeleting(null);
-
-      if (result.ok) {
-        setActionNotice(
-          `Deleted document (${result.deletedFragments} fragments removed)`,
-          "success",
-          3000,
-        );
-        loadData();
-      } else {
-        setActionNotice("Failed to delete document", "error", 4000);
+        if (result.ok) {
+          setActionNotice(
+            `Deleted document (${result.deletedFragments} fragments removed)`,
+            "success",
+            3000,
+          );
+          await loadData();
+        } else {
+          setActionNotice("Failed to delete document", "error", 4000);
+        }
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Unknown delete error";
+        setActionNotice(`Failed to delete document: ${message}`, "error", 5000);
+      } finally {
+        setDeleting(null);
       }
     },
     [loadData, setActionNotice],

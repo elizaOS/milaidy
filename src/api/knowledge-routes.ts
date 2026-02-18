@@ -66,6 +66,17 @@ const BLOCKED_HOST_LITERALS = new Set([
   "metadata.google.internal",
 ]);
 
+function toSafeNumber(value: unknown, fallback: number): number {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return fallback;
+}
+
 function hasUuidId(memory: Memory): memory is Memory & { id: UUID } {
   return typeof memory.id === "string" && memory.id.length > 0;
 }
@@ -109,6 +120,53 @@ async function countKnowledgeFragmentsForDocument(
   }
 
   return fragmentCount;
+}
+
+async function mapKnowledgeFragmentsByDocumentId(
+  knowledgeService: KnowledgeServiceLike,
+  roomId: UUID,
+  documentIds: readonly UUID[],
+): Promise<Map<UUID, number>> {
+  const fragmentCounts = new Map<UUID, number>();
+  const trackedDocumentIds = new Set(documentIds);
+  for (const documentId of trackedDocumentIds) {
+    fragmentCounts.set(documentId, 0);
+  }
+
+  if (trackedDocumentIds.size === 0) return fragmentCounts;
+
+  let offset = 0;
+  while (true) {
+    const knowledgeBatch = await knowledgeService.getMemories({
+      tableName: "knowledge",
+      roomId,
+      count: FRAGMENT_COUNT_BATCH_SIZE,
+      offset,
+    });
+
+    if (knowledgeBatch.length === 0) {
+      break;
+    }
+
+    for (const memory of knowledgeBatch) {
+      const metadata = memory.metadata as Record<string, unknown> | undefined;
+      const documentId = metadata?.documentId;
+      if (
+        typeof documentId === "string" &&
+        trackedDocumentIds.has(documentId as UUID)
+      ) {
+        const currentCount = fragmentCounts.get(documentId as UUID) ?? 0;
+        fragmentCounts.set(documentId as UUID, currentCount + 1);
+      }
+    }
+
+    if (knowledgeBatch.length < FRAGMENT_COUNT_BATCH_SIZE) {
+      break;
+    }
+    offset += FRAGMENT_COUNT_BATCH_SIZE;
+  }
+
+  return fragmentCounts;
 }
 
 async function listKnowledgeFragmentsForDocument(
@@ -460,16 +518,27 @@ export async function handleKnowledgeRoutes(
       offset: offset > 0 ? offset : undefined,
     });
 
+    const documentIds = documents.filter(hasUuidId).map((doc) => doc.id);
+    const fragmentCounts = await mapKnowledgeFragmentsByDocumentId(
+      knowledgeService,
+      agentId,
+      documentIds,
+    );
+
     // Clean up documents for response (remove embeddings, format metadata)
     const cleanedDocuments = documents.map((doc) => {
       const metadata = doc.metadata as Record<string, unknown> | undefined;
+      const documentId = hasUuidId(doc) ? doc.id : null;
       return {
         id: doc.id,
         filename: metadata?.filename || metadata?.title || "Untitled",
         contentType: metadata?.fileType || metadata?.contentType || "unknown",
-        fileSize: metadata?.fileSize || 0,
-        createdAt: doc.createdAt,
-        fragmentCount: 0, // Will be populated below if needed
+        fileSize: toSafeNumber(metadata?.fileSize, 0),
+        createdAt: toSafeNumber(doc.createdAt, 0),
+        fragmentCount:
+          documentId !== null && fragmentCounts.has(documentId)
+            ? (fragmentCounts.get(documentId) ?? 0)
+            : 0,
         source: metadata?.source || "upload",
         url: metadata?.url,
       };
@@ -515,8 +584,8 @@ export async function handleKnowledgeRoutes(
         id: document.id,
         filename: metadata?.filename || metadata?.title || "Untitled",
         contentType: metadata?.fileType || metadata?.contentType || "unknown",
-        fileSize: metadata?.fileSize || 0,
-        createdAt: document.createdAt,
+        fileSize: toSafeNumber(metadata?.fileSize, 0),
+        createdAt: toSafeNumber(document.createdAt, 0),
         fragmentCount,
         source: metadata?.source || "upload",
         url: metadata?.url,
