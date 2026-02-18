@@ -85,37 +85,6 @@ describe("Shell plugin classification", () => {
 });
 
 // ---------------------------------------------------------------------------
-// ElizaCloud plugin removal — explicitly disabled via cloud.enabled: false
-// ---------------------------------------------------------------------------
-
-describe("ElizaCloud plugin removal when cloud is explicitly disabled", () => {
-  it("removes @elizaos/plugin-elizacloud when cloud.enabled is false", () => {
-    const config = { cloud: { enabled: false } } as unknown as MiladyConfig;
-    const names = collectPluginNames(config);
-    expect(names.has("@elizaos/plugin-elizacloud")).toBe(false);
-  });
-
-  it("keeps @elizaos/plugin-elizacloud when cloud.enabled is true with an apiKey", () => {
-    const config = {
-      cloud: { enabled: true, apiKey: "test-key" },
-    } as unknown as MiladyConfig;
-    const names = collectPluginNames(config);
-    expect(names.has("@elizaos/plugin-elizacloud")).toBe(true);
-  });
-
-  it("keeps @elizaos/plugin-elizacloud when cloud config is absent (default on)", () => {
-    const names = collectPluginNames({} as MiladyConfig);
-    expect(names.has("@elizaos/plugin-elizacloud")).toBe(true);
-  });
-
-  it("keeps @elizaos/plugin-elizacloud when cloud.enabled is undefined but apiKey is present", () => {
-    const config = { cloud: { apiKey: "test-key" } } as unknown as MiladyConfig;
-    const names = collectPluginNames(config);
-    expect(names.has("@elizaos/plugin-elizacloud")).toBe(true);
-  });
-});
-
-// ---------------------------------------------------------------------------
 // Plugin module import — export shape
 // ---------------------------------------------------------------------------
 

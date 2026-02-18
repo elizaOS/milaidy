@@ -612,10 +612,6 @@ export function collectPluginNames(config: MiladyConfig): Set<string> {
     for (const p of directProviders) {
       pluginsToLoad.delete(p);
     }
-  } else if (cloudExplicitlyDisabled) {
-    // Cloud was explicitly disabled — remove elizacloud even though it's
-    // in CORE_PLUGINS, so it cannot intercept model calls.
-    pluginsToLoad.delete("@elizaos/plugin-elizacloud");
   }
 
   // Optional feature plugins from config.plugins.entries
