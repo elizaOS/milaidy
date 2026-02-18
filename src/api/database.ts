@@ -25,6 +25,7 @@ import type {
   PostgresCredentials,
 } from "../config/types.milady";
 import {
+  isLoopbackHost,
   normalizeHostLike,
   normalizeIpForPolicy,
 } from "../security/network-policy";
@@ -204,16 +205,10 @@ function isApiLoopbackOnly(): boolean {
   }
 
   bind = bind.replace(/^\[|\]$/g, "");
-  if (
-    bind === "localhost" ||
-    bind === "::1" ||
-    bind === "0:0:0:0:0:0:0:1" ||
-    bind === "::ffff:127.0.0.1"
-  ) {
-    return true;
-  }
 
-  return bind.startsWith("127.");
+  // Reuse the strict loopback classifier to avoid hostname prefix bypasses
+  // such as "127.evil.com" that are not literal 127.0.0.0/8 IPs.
+  return isLoopbackHost(bind);
 }
 
 /**
