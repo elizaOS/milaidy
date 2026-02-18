@@ -4936,17 +4936,14 @@ async function handleRequest(
 
       saveMiladyConfig(config);
 
-      // Trigger agent restart so the new provider takes effect
+      // Schedule runtime restart so the new provider takes effect.
+      scheduleRuntimeRestart(`provider switch to ${provider}`);
+      // Keep the lock briefly in restart-capable environments to prevent
+      // double-submits from racing with restart-required propagation.
       if (ctx?.onRestart) {
-        try {
-          scheduleRuntimeRestart(`provider switch to ${provider}`);
-          // Clear switch lock after a reasonable timeout for restart
-          setTimeout(() => {
-            providerSwitchInProgress = false;
-          }, 30_000);
-        } catch {
+        setTimeout(() => {
           providerSwitchInProgress = false;
-        }
+        }, 250);
       } else {
         providerSwitchInProgress = false;
       }
@@ -4954,7 +4951,7 @@ async function handleRequest(
       json(res, {
         success: true,
         provider,
-        restarting: Boolean(ctx?.onRestart),
+        restarting: true,
       });
     } catch (err) {
       providerSwitchInProgress = false;
