@@ -8,7 +8,7 @@
 
 import http from "node:http";
 import type { AgentRuntime } from "@elizaos/core";
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { WebSocket } from "ws";
 import { startApiServer } from "../src/api/server";
 
@@ -85,9 +85,7 @@ function waitForWsMessage(
 
     const onMessage = (raw: WebSocket.RawData) => {
       try {
-        const text = Buffer.isBuffer(raw)
-          ? raw.toString("utf-8")
-          : String(raw);
+        const text = Buffer.isBuffer(raw) ? raw.toString("utf-8") : String(raw);
         const message = JSON.parse(text) as Record<string, unknown>;
         if (predicate(message)) {
           cleanup();
@@ -248,7 +246,9 @@ describe("Deferred restart E2E", () => {
 
       const { data } = await req(port, "GET", "/api/status");
       expect(data.pendingRestart).toBe(true);
-      expect((data.pendingRestartReasons as string[]).length).toBeGreaterThan(0);
+      expect((data.pendingRestartReasons as string[]).length).toBeGreaterThan(
+        0,
+      );
     });
   });
 });
