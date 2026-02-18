@@ -16,6 +16,14 @@ describe("network-policy", () => {
     expect(normalizeIpForPolicy("::ffff:7f00:1")).toBe("127.0.0.1");
     expect(normalizeIpForPolicy("::ffff:192.168.1.5")).toBe("192.168.1.5");
     expect(normalizeIpForPolicy("::ffff:192.168.1.5%lo0")).toBe("192.168.1.5");
+    expect(normalizeIpForPolicy("0:0:0:0:0:ffff:7f00:1")).toBe("127.0.0.1");
+    expect(normalizeIpForPolicy("0:0:0:0:0:ffff:a9fe:a9fe")).toBe(
+      "169.254.169.254",
+    );
+    expect(normalizeIpForPolicy("0:0:0:0:0:ffff:c0a8:101")).toBe("192.168.1.1");
+    expect(normalizeIpForPolicy("0:0:0:0:0:ffff:c0a8")).toBe("0.0.192.168");
+    expect(normalizeIpForPolicy("0:0:0:0:0:0:0:1")).toBe("::1");
+    expect(normalizeIpForPolicy("0:0:0:0:0:0:0:0")).toBe("::");
   });
 
   it("detects blocked private/link-local targets", () => {
@@ -32,6 +40,14 @@ describe("network-policy", () => {
     expect(isBlockedPrivateOrLinkLocalIp("fd12::1")).toBe(true);
     expect(isBlockedPrivateOrLinkLocalIp("::")).toBe(true);
     expect(isBlockedPrivateOrLinkLocalIp("::1")).toBe(true);
+    expect(isBlockedPrivateOrLinkLocalIp("0:0:0:0:0:ffff:7f00:1")).toBe(true);
+    expect(isBlockedPrivateOrLinkLocalIp("0:0:0:0:0:ffff:a9fe:a9fe")).toBe(
+      true,
+    );
+    expect(isBlockedPrivateOrLinkLocalIp("0:0:0:0:0:ffff:c0a8:101")).toBe(true);
+    expect(isBlockedPrivateOrLinkLocalIp("0:0:0:0:0:ffff:c0a8")).toBe(true);
+    expect(isBlockedPrivateOrLinkLocalIp("0:0:0:0:0:0:0:1")).toBe(true);
+    expect(isBlockedPrivateOrLinkLocalIp("0:0:0:0:0:0:0:0")).toBe(true);
     expect(isBlockedPrivateOrLinkLocalIp("93.184.216.34")).toBe(false);
   });
 
@@ -40,8 +56,11 @@ describe("network-policy", () => {
     expect(isLoopbackHost("127.0.0.1")).toBe(true);
     expect(isLoopbackHost("127.99.88.77")).toBe(true);
     expect(isLoopbackHost("::1")).toBe(true);
+    expect(isLoopbackHost("0:0:0:0:0:0:0:1")).toBe(true);
     expect(isLoopbackHost("::ffff:7f00:1")).toBe(true);
+    expect(isLoopbackHost("0:0:0:0:0:ffff:7f00:1")).toBe(true);
     expect(isLoopbackHost("[::1]")).toBe(true);
+    expect(isLoopbackHost("[0:0:0:0:0:0:0:1]")).toBe(true);
 
     expect(isLoopbackHost("127.0.0.1.evil.com")).toBe(false);
     expect(isLoopbackHost("169.254.169.254")).toBe(false);

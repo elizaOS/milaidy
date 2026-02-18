@@ -24,22 +24,47 @@ export function normalizeHostLike(value: string): string {
 }
 
 export function decodeIpv6MappedHex(mapped: string): string | null {
-  const match = /^([0-9a-f]{1,4}):([0-9a-f]{1,4})$/i.exec(mapped);
-  if (!match) return null;
-  const hi = Number.parseInt(match[1], 16);
-  const lo = Number.parseInt(match[2], 16);
-  if (!Number.isFinite(hi) || !Number.isFinite(lo)) return null;
+  const parts = mapped.split(":");
+  if (parts.length < 1 || parts.length > 2) return null;
+
+  const parsed = parts.map((part) => {
+    if (!/^[0-9a-f]{1,4}$/i.test(part)) return Number.NaN;
+    return Number.parseInt(part, 16);
+  });
+  if (parsed.some((value) => !Number.isFinite(value))) return null;
+
+  const [hi, lo] = parsed.length === 1 ? [0, parsed[0]] : parsed;
   const octets = [hi >> 8, hi & 0xff, lo >> 8, lo & 0xff];
   return octets.join(".");
 }
 
+function canonicalizeIpv6(ip: string): string | null {
+  try {
+    return new URL(`http://[${ip}]/`).hostname.replace(/^\[|\]$/g, "");
+  } catch {
+    return null;
+  }
+}
+
 export function normalizeIpForPolicy(ip: string): string {
   const base = normalizeHostLike(ip).split("%")[0];
-  if (!base.startsWith("::ffff:")) return base;
+  if (!base) return base;
 
-  const mapped = base.slice("::ffff:".length);
+  let normalized = base;
+  if (net.isIP(normalized) === 6) {
+    normalized = canonicalizeIpv6(normalized) ?? normalized;
+  }
+
+  let mapped: string | null = null;
+  if (normalized.startsWith("::ffff:")) {
+    mapped = normalized.slice("::ffff:".length);
+  } else if (normalized.startsWith("0:0:0:0:0:ffff:")) {
+    mapped = normalized.slice("0:0:0:0:0:ffff:".length);
+  }
+  if (!mapped) return normalized;
+
   if (net.isIP(mapped) === 4) return mapped;
-  return decodeIpv6MappedHex(mapped) ?? mapped;
+  return decodeIpv6MappedHex(mapped) ?? normalized;
 }
 
 export function isBlockedPrivateOrLinkLocalIp(ip: string): boolean {
