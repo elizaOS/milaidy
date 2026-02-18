@@ -133,3 +133,14 @@ const KNOWN_IPC_CHANNEL_SET = new Set<string>(KNOWN_IPC_CHANNELS);
 export function isKnownIpcChannel(channel: string): channel is KnownIpcChannel {
   return KNOWN_IPC_CHANNEL_SET.has(channel);
 }
+
+export function isRuntimeBridgeIpcChannel(
+  channel: string,
+): channel is RuntimeBridgeIpcChannel {
+  // Runtime bridge channels are dynamically generated and always contain a dash.
+  return channel.includes("-");
+}
+
+export function isValidIpcChannel(channel: string): channel is IpcChannel {
+  return isKnownIpcChannel(channel) || isRuntimeBridgeIpcChannel(channel);
+}

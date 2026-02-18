@@ -1661,8 +1661,3 @@ export function UiRenderer({
     </UiContext.Provider>
   );
 }
-
-/** Get the full list of supported component types. */
-export function getSupportedComponents(): string[] {
-  return Object.keys(COMPONENTS);
-}

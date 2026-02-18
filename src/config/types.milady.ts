@@ -704,20 +704,3 @@ export type MiladyConfig = {
   /** User-defined custom actions for the agent. */
   customActions?: CustomActionDef[];
 };
-
-export type ConfigValidationIssue = {
-  path: string;
-  message: string;
-};
-
-export type ConfigFileSnapshot = {
-  path: string;
-  exists: boolean;
-  raw: string | null;
-  parsed: unknown;
-  valid: boolean;
-  config: MiladyConfig;
-  hash?: string;
-  issues: ConfigValidationIssue[];
-  warnings: ConfigValidationIssue[];
-};

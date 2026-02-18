@@ -9,9 +9,7 @@ import {
   parseClampedFloat,
   parsePositiveInteger,
 } from "../utils/number-parsing.js";
-import type { RouteHelpers, RouteRequestContext } from "./route-helpers.js";
-
-export type KnowledgeRouteHelpers = RouteHelpers;
+import type { RouteRequestContext } from "./route-helpers.js";
 
 export interface KnowledgeRouteContext extends RouteRequestContext {
   url: URL;

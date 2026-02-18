@@ -502,12 +502,6 @@ export interface CorePluginsResponse {
   optional: CorePluginEntry[];
 }
 
-export interface ChatMessage {
-  role: "user" | "assistant";
-  text: string;
-  timestamp: number;
-}
-
 // Conversations
 export interface Conversation {
   id: string;

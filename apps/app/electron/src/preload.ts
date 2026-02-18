@@ -6,7 +6,7 @@
  */
 
 import { contextBridge, desktopCapturer, ipcRenderer } from "electron";
-import type { IpcChannel } from "./native/ipc-channels";
+import { isValidIpcChannel, type IpcChannel } from "./native/ipc-channels";
 import type { IpcValue } from "./native/ipc-types";
 
 // Load Capacitor runtime
@@ -49,19 +49,31 @@ function clearWrappedListener(
   channelRegistry.delete(listener);
 }
 
+function assertValidIpcChannel(channel: string): asserts channel is IpcChannel {
+  if (!isValidIpcChannel(channel)) {
+    throw new Error(`Invalid IPC channel: ${channel}`);
+  }
+}
+
 /**
  * IPC Renderer wrapper with type safety
  */
 const electronAPI = {
   ipcRenderer: {
-    invoke: (channel: IpcChannel, ...args: IpcValue[]) =>
-      ipcRenderer.invoke(channel, ...args) as Promise<IpcValue>,
-    send: (channel: IpcChannel, ...args: IpcValue[]) =>
-      ipcRenderer.send(channel, ...args),
+    invoke: (channel: IpcChannel, ...args: IpcValue[]) => {
+      assertValidIpcChannel(channel);
+      return ipcRenderer.invoke(channel, ...args) as Promise<IpcValue>;
+    },
+    send: (channel: IpcChannel, ...args: IpcValue[]) => {
+      assertValidIpcChannel(channel);
+      return ipcRenderer.send(channel, ...args);
+    },
     on: (channel: IpcChannel, listener: IpcListener) => {
+      assertValidIpcChannel(channel);
       ipcRenderer.on(channel, getWrappedListener(channel, listener));
     },
     once: (channel: IpcChannel, listener: IpcListener) => {
+      assertValidIpcChannel(channel);
       const wrapped: ElectronIpcListener = (_event, ...args) => {
         clearWrappedListener(channel, listener);
         listener(...(args as IpcValue[]));
@@ -75,12 +87,14 @@ const electronAPI = {
       ipcRenderer.once(channel, wrapped);
     },
     removeListener: (channel: IpcChannel, listener: IpcListener) => {
+      assertValidIpcChannel(channel);
       const wrapped = ipcListenerRegistry.get(channel)?.get(listener);
       if (!wrapped) return;
       ipcRenderer.removeListener(channel, wrapped);
       clearWrappedListener(channel, listener);
     },
     removeAllListeners: (channel: IpcChannel) => {
+      assertValidIpcChannel(channel);
       ipcRenderer.removeAllListeners(channel);
       ipcListenerRegistry.delete(channel);
     },

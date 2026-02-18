@@ -1,10 +1,8 @@
 import type { AgentRuntime } from "@elizaos/core";
 import { isLoopbackHost } from "../security/network-policy";
 import { parsePositiveInteger } from "../utils/number-parsing";
-import type { RouteHelpers, RouteRequestContext } from "./route-helpers";
+import type { RouteRequestContext } from "./route-helpers";
 import type { TrainingServiceLike } from "./training-service-like";
-
-export type TrainingRouteHelpers = RouteHelpers;
 
 export interface TrainingRouteContext extends RouteRequestContext {
   runtime: AgentRuntime | null;
