@@ -166,6 +166,8 @@ export interface AgentStatus {
   model: string | undefined;
   uptime: number | undefined;
   startedAt: number | undefined;
+  pendingRestart?: boolean;
+  pendingRestartReasons?: string[];
 }
 
 export interface RuntimeOrderItem {
