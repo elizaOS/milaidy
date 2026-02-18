@@ -41,12 +41,8 @@ describe("Anthropic setup token during onboarding", () => {
 
     expect(result.saved).toBe(true);
     expect(result.token).toBe("sk-ant-oat01-test-token-12345");
-    expect(process.env.ANTHROPIC_API_KEY).toBe(
-      "sk-ant-oat01-test-token-12345",
-    );
-    expect(config.env?.ANTHROPIC_API_KEY).toBe(
-      "sk-ant-oat01-test-token-12345",
-    );
+    expect(process.env.ANTHROPIC_API_KEY).toBe("sk-ant-oat01-test-token-12345");
+    expect(config.env?.ANTHROPIC_API_KEY).toBe("sk-ant-oat01-test-token-12345");
   });
 
   it("trims whitespace from token", () => {

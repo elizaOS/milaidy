@@ -97,6 +97,7 @@ import {
 } from "./http-helpers";
 import { handleKnowledgeRoutes } from "./knowledge-routes";
 import { handleModelsRoutes } from "./models-routes";
+import { applySubscriptionSetupToken } from "./onboarding-setup-token";
 import { handlePermissionRoutes } from "./permissions-routes";
 import {
   type PluginParamInfo,
@@ -106,7 +107,6 @@ import { handleRegistryRoutes } from "./registry-routes";
 import { RegistryService } from "./registry-service";
 import { handleSandboxRoute } from "./sandbox-routes";
 import { handleSubscriptionRoutes } from "./subscription-routes";
-import { applySubscriptionSetupToken } from "./onboarding-setup-token";
 import { resolveTerminalRunLimits } from "./terminal-run-limits";
 import { handleTrainingRoutes } from "./training-routes";
 import type { TrainingServiceWithRuntime } from "./training-service-like";
