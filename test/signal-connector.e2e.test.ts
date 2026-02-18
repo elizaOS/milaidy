@@ -12,14 +12,16 @@
  * - SIGNAL_ACCOUNT_NUMBER: Signal account phone number (E.164 format, e.g., +1234567890)
  * - SIGNAL_HTTP_URL: Signal CLI REST API URL (e.g., http://localhost:8080)
  * - SIGNAL_CLI_PATH: Path to signal-cli binary (alternative to HTTP API)
- * - MILAIDY_LIVE_TEST=1: Enable live tests
+ * - MILADY_LIVE_TEST=1: Enable live tests (MILAIDY_LIVE_TEST also supported)
  *
  * @see https://github.com/milady-ai/milaidy/issues/148
  */
 
 import { describe, expect, it } from "vitest";
 
-const LIVE_TEST = process.env.MILAIDY_LIVE_TEST === "1";
+const LIVE_TEST =
+  process.env.MILADY_LIVE_TEST === "1" ||
+  process.env.MILAIDY_LIVE_TEST === "1";
 const SIGNAL_ACCOUNT_NUMBER = process.env.SIGNAL_ACCOUNT_NUMBER;
 const SIGNAL_HTTP_URL = process.env.SIGNAL_HTTP_URL;
 const SIGNAL_CLI_PATH = process.env.SIGNAL_CLI_PATH;
