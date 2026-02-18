@@ -11,11 +11,46 @@ import { parseClampedInteger } from "../utils/number-parsing";
  * Normalize a user-provided plugin name to its fully-qualified form.
  * Accepts `@scope/plugin-x`, `plugin-x`, or shorthand `x` (→ `@elizaos/plugin-x`).
  */
-function normalizePluginName(name: string): string {
+export function normalizePluginName(name: string): string {
+  // Already fully qualified (starts with @) or plugin- prefix
   if (name.startsWith("@") || name.startsWith("plugin-")) {
     return name;
   }
+  // Shorthand: add @elizaos/plugin- prefix
   return `@elizaos/plugin-${name}`;
+}
+
+/**
+ * Parse plugin name and optional version from user input.
+ * Examples:
+ *   - "twitter" → { name: "@elizaos/plugin-twitter", version: undefined }
+ *   - "twitter@1.2.3" → { name: "@elizaos/plugin-twitter", version: "1.2.3" }
+ *   - "@custom/plugin-x@2.0.0" → { name: "@custom/plugin-x", version: "2.0.0" }
+ */
+export function parsePluginSpec(input: string): {
+  name: string;
+  version?: string;
+} {
+  const trimmed = input.trim();
+  let namePart = trimmed;
+  let versionPart: string | undefined;
+
+  if (trimmed.startsWith("@")) {
+    const secondAt = trimmed.indexOf("@", 1);
+    if (secondAt !== -1) {
+      namePart = trimmed.slice(0, secondAt);
+      versionPart = trimmed.slice(secondAt + 1);
+    }
+  } else {
+    const atIndex = trimmed.indexOf("@");
+    if (atIndex !== -1) {
+      namePart = trimmed.slice(0, atIndex);
+      versionPart = trimmed.slice(atIndex + 1);
+    }
+  }
+
+  const version = versionPart?.trim() || undefined;
+  return { name: normalizePluginName(namePart), version };
 }
 
 /**
@@ -299,22 +334,27 @@ export function registerPluginsCli(program: Command): void {
   // ── install ──────────────────────────────────────────────────────────
   pluginsCommand
     .command("install <name>")
-    .description("Install a plugin from the registry")
+    .description(
+      "Install a plugin from the registry. Optionally pin to a specific version or dist-tag (e.g., twitter@1.2.3, twitter@next)",
+    )
     .option("--no-restart", "Install without restarting the agent")
     .action(async (name: string, opts: { restart: boolean }) => {
-      const pluginManager = await getPluginManager();
+      const { name: normalizedName, version } = parsePluginSpec(name);
 
-      const normalizedName = normalizePluginName(name);
-
-      console.log(`\nInstalling ${chalk.cyan(normalizedName)}...\n`);
+      const displayName = version
+        ? `${normalizedName}@${version}`
+        : normalizedName;
+      console.log(`\nInstalling ${chalk.cyan(displayName)}...\n`);
 
       const progressHandler = (progress: InstallProgressLike) => {
         console.log(`  [${progress.phase}] ${progress.message}`);
       };
 
-      const result = await pluginManager.installPlugin(
+      const { installPlugin } = await import("../services/plugin-installer");
+      const result = await installPlugin(
         normalizedName,
         progressHandler,
+        version,
       );
 
       if (result.success) {
@@ -328,6 +368,10 @@ export function registerPluginsCli(program: Command): void {
         } else if (result.requiresRestart) {
           console.log(
             chalk.dim("Agent is restarting to load the new plugin..."),
+          );
+          const { requestRestart } = await import("../runtime/restart");
+          await Promise.resolve(
+            requestRestart(`Plugin ${result.pluginName} installed`),
           );
         }
       } else {
