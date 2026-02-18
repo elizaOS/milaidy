@@ -9,6 +9,7 @@
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { logger } from "@elizaos/core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { findPluginExport } from "../cli/plugins-cli";
 import type { MiladyConfig } from "../config/config";
@@ -16,6 +17,7 @@ import {
   applyCloudConfigToEnv,
   applyConnectorSecretsToEnv,
   applyDatabaseConfigToEnv,
+  autoResolveDiscordAppId,
   buildCharacterFromConfig,
   CORE_PLUGINS,
   CUSTOM_PLUGINS_DIRNAME,
@@ -568,6 +570,121 @@ describe("applyConnectorSecretsToEnv", () => {
     } as MiladyConfig;
     applyConnectorSecretsToEnv(config);
     expect(process.env.TELEGRAM_BOT_TOKEN).toBe("legacy-tg-tok");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// autoResolveDiscordAppId
+// ---------------------------------------------------------------------------
+
+describe("autoResolveDiscordAppId", () => {
+  const envKeys = [
+    "DISCORD_APPLICATION_ID",
+    "DISCORD_API_TOKEN",
+    "DISCORD_BOT_TOKEN",
+  ];
+  const snap = envSnapshot(envKeys);
+
+  beforeEach(() => {
+    snap.save();
+    for (const k of envKeys) delete process.env[k];
+  });
+
+  afterEach(() => {
+    snap.restore();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it("no-ops when DISCORD_APPLICATION_ID is already set", async () => {
+    process.env.DISCORD_APPLICATION_ID = "app-existing";
+    process.env.DISCORD_API_TOKEN = "tok";
+
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
+
+    await autoResolveDiscordAppId();
+
+    expect(process.env.DISCORD_APPLICATION_ID).toBe("app-existing");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("no-ops when no Discord token exists", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
+
+    await autoResolveDiscordAppId();
+
+    expect(process.env.DISCORD_APPLICATION_ID).toBeUndefined();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("resolves app id from Discord API when token is present", async () => {
+    process.env.DISCORD_API_TOKEN = "tok";
+    const infoSpy = vi.spyOn(logger, "info").mockImplementation(() => {});
+    const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => {});
+
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({ id: "app-123" }),
+    }));
+    vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
+
+    await autoResolveDiscordAppId();
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://discord.com/api/v10/oauth2/applications/@me",
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: "Bot tok",
+        }),
+      }),
+    );
+    expect(process.env.DISCORD_APPLICATION_ID).toBe("app-123");
+    expect(infoSpy).toHaveBeenCalledWith(
+      "[milady] Auto-resolved Discord Application ID: app-123",
+    );
+    expect(warnSpy).not.toHaveBeenCalled();
+  });
+
+  it("logs a warning when Discord API responds with an error", async () => {
+    process.env.DISCORD_API_TOKEN = "tok";
+    const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => {});
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        ok: false,
+        status: 401,
+      })) as unknown as typeof fetch,
+    );
+
+    await autoResolveDiscordAppId();
+
+    expect(process.env.DISCORD_APPLICATION_ID).toBeUndefined();
+    expect(warnSpy).toHaveBeenCalledWith(
+      "[milady] Failed to auto-resolve Discord Application ID: 401",
+    );
+  });
+
+  it("logs a warning when the Discord API request throws", async () => {
+    process.env.DISCORD_API_TOKEN = "tok";
+    const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => {});
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new Error("network down");
+      }) as unknown as typeof fetch,
+    );
+
+    await autoResolveDiscordAppId();
+
+    expect(process.env.DISCORD_APPLICATION_ID).toBeUndefined();
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("Could not auto-resolve Discord Application ID"),
+    );
   });
 });
 

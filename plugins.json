@@ -1896,8 +1896,8 @@
         },
         "DISCORD_APPLICATION_ID": {
           "type": "string",
-          "description": "Discord application ID for the bot",
-          "required": true,
+          "description": "Discord application ID for the bot (auto-resolved from bot token if omitted)",
+          "required": false,
           "sensitive": false
         },
         "CHANNEL_IDS": {

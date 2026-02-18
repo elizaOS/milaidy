@@ -351,6 +351,7 @@ const CHANNEL_ENV_MAP: Readonly<
   discord: {
     token: "DISCORD_API_TOKEN",
     botToken: "DISCORD_API_TOKEN",
+    applicationId: "DISCORD_APPLICATION_ID",
   },
   telegram: {
     botToken: "TELEGRAM_BOT_TOKEN",
@@ -1374,6 +1375,43 @@ export function applyConnectorSecretsToEnv(config: MiladyConfig): void {
         process.env[envKey] = value;
       }
     }
+  }
+}
+
+/**
+ * Auto-resolve Discord Application ID from the bot token via Discord API.
+ * Called during async runtime init so that users only need a bot token.
+ */
+/** @internal Exported for testing. */
+export async function autoResolveDiscordAppId(): Promise<void> {
+  if (process.env.DISCORD_APPLICATION_ID) return;
+
+  const discordToken =
+    process.env.DISCORD_API_TOKEN || process.env.DISCORD_BOT_TOKEN;
+  if (!discordToken) return;
+
+  try {
+    const res = await fetch(
+      "https://discord.com/api/v10/oauth2/applications/@me",
+      { headers: { Authorization: `Bot ${discordToken}` } },
+    );
+
+    if (!res.ok) {
+      logger.warn(
+        `[milady] Failed to auto-resolve Discord Application ID: ${res.status}`,
+      );
+      return;
+    }
+
+    const app = (await res.json()) as { id?: string };
+    if (!app.id) return;
+
+    process.env.DISCORD_APPLICATION_ID = app.id;
+    logger.info(`[milady] Auto-resolved Discord Application ID: ${app.id}`);
+  } catch (err) {
+    logger.warn(
+      `[milady] Could not auto-resolve Discord Application ID: ${err}`,
+    );
   }
 }
 
@@ -2424,6 +2462,7 @@ export async function startEliza(
 
   // 2. Push channel secrets into process.env for plugin discovery
   applyConnectorSecretsToEnv(config);
+  await autoResolveDiscordAppId();
 
   // 2b. Propagate cloud config into process.env for ElizaCloud plugin
   applyCloudConfigToEnv(config);
@@ -3005,6 +3044,7 @@ export async function startEliza(
           // because the config may have changed (e.g. cloud enabled during
           // onboarding).
           applyConnectorSecretsToEnv(freshConfig);
+          await autoResolveDiscordAppId();
           applyCloudConfigToEnv(freshConfig);
           applyX402ConfigToEnv(freshConfig);
           applyDatabaseConfigToEnv(freshConfig);
