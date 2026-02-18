@@ -28,7 +28,10 @@ import {
   stringToUuid,
   type UUID,
 } from "@elizaos/core";
-import { configureAgentOrchestratorPlugin } from "@elizaos/plugin-agent-orchestrator";
+import {
+  configureAgentOrchestratorPlugin,
+  createSubAgentProvider,
+} from "@elizaos/plugin-agent-orchestrator";
 import {
   debugLogResolvedContext,
   validateRuntimeContext,
@@ -1208,6 +1211,10 @@ export function buildCharacterFromConfig(config: MilaidyConfig): Character {
       // actions.  At this scale, sending all validated actions to the LLM is
       // fine — our custom messageHandlerTemplate provides routing guidance.
       ACTION_FILTER_THRESHOLD: "100",
+      // Use temperature 0 for action selection to eliminate non-determinism.
+      // The messageHandler (which picks the action) uses the TEXT_LARGE model.
+      // Response text quality is unaffected — handlers generate their own output.
+      TEXT_LARGE_TEMPERATURE: "0",
     },
   });
 }
@@ -1972,29 +1979,55 @@ export async function startEliza(
 
   // 7b. Configure plugin-agent-orchestrator before runtime init.
   // The plugin is in CORE_PLUGINS but its service throws unless configured.
-  // Uses a no-op provider: tasks are tracked in DB but not auto-executed.
-  // TODO(prod-blocker): Replace with a real provider when task execution is needed.
+  //
+  // We register a lazy provider that captures the runtime ref after init.
+  // executeTask is only called at task execution time, long after runtime exists.
+  // The provider uses the "eliza" sub-agent type by default (tool-calling loop
+  // using the runtime's LLM — no external SDK dependencies). Can be overridden
+  // via ELIZA_CODE_ACTIVE_SUB_AGENT env var (e.g. "claude-code", "codex").
+  let runtimeRef: AgentRuntime | null = null;
+  let cachedProvider: ReturnType<typeof createSubAgentProvider> | null = null;
+
+  const lazyElizaProvider = {
+    id: "eliza",
+    label: "Eliza (native tool-calling)",
+    description:
+      "Executes tasks using the runtime LLM with file/shell tools. " +
+      "No external SDK dependencies.",
+    executeTask: async (
+      task: import("@elizaos/plugin-agent-orchestrator").OrchestratedTask,
+      ctx: import("@elizaos/plugin-agent-orchestrator").ProviderTaskExecutionContext,
+    ): Promise<import("@elizaos/plugin-agent-orchestrator").TaskResult> => {
+      if (!runtimeRef) {
+        logger.error(
+          "[milaidy] executeTask called before runtime was initialized",
+        );
+        return {
+          success: false,
+          summary: "Runtime not initialized yet",
+          filesCreated: [],
+          filesModified: [],
+          error: "Runtime not available",
+        };
+      }
+      if (!cachedProvider) {
+        cachedProvider = createSubAgentProvider(
+          runtimeRef,
+          "eliza",
+          "eliza",
+          "Eliza (native tool-calling)",
+        );
+      }
+      return cachedProvider.executeTask(task, ctx);
+    },
+  };
+
   configureAgentOrchestratorPlugin({
-    providers: [
-      {
-        id: "default",
-        label: "Milaidy (no-op)",
-        description:
-          "Tasks are tracked but not auto-executed. " +
-          "Replace with a real provider (claude-code, codex, etc.) for task delegation.",
-        executeTask: async (_task, ctx) => {
-          await ctx.appendOutput("Task tracked. No execution backend configured.");
-          await ctx.updateProgress(100);
-          return {
-            success: true,
-            summary: "Task tracked (no execution backend)",
-            filesCreated: [],
-            filesModified: [],
-          };
-        },
-      },
-    ],
-    defaultProviderId: "default",
+    providers: [lazyElizaProvider],
+    defaultProviderId: "eliza",
+    // NOTE: workingDirectory is the CWD for sub-agent tools but does NOT form
+    // a security sandbox. Upstream tools use path.resolve() without containment
+    // checks. Shell access is also effectively unrestricted.
     getWorkingDirectory: () => workspaceDir ?? process.cwd(),
   });
 
@@ -2033,6 +2066,7 @@ export async function startEliza(
         : {}),
     },
   });
+  runtimeRef = runtime;
 
   // 7b. Pre-register plugin-sql so the adapter is ready before other plugins init.
   //     This is OPTIONAL — without it, some features (memory, todos) won't work.
@@ -2271,6 +2305,8 @@ export async function startEliza(
 
           await newRuntime.initialize();
           runtime = newRuntime;
+          runtimeRef = newRuntime;
+          cachedProvider = null; // force re-creation with new runtime
           logger.info("[milaidy] Hot-reload: Runtime restarted successfully");
           return newRuntime;
         } catch (err) {

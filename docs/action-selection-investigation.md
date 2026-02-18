@@ -56,18 +56,21 @@ Default ElizaOS template has 4 REPLY examples vs 0 for most actions. Strong impl
 
 **Fix:** Benchmark creates a fresh conversation per run via `POST /api/conversations`, cleans up after.
 
-### 4. Ghost Actions — validate() rejects (IDENTIFIED, NOT YET FIXED)
+### 4. Ghost Actions — validate() rejects (FIXED in commit 9f9681b)
 
-plugin-code actions (READ_FILE, WRITE_FILE, EDIT_FILE, GIT, SEARCH_FILES) all check `runtime.getService("coder")`. The CoderService requires `CODER_ENABLED=true` env var AND the plugin must be explicitly loaded. Currently:
-- plugin-code is in `OPTIONAL_CORE_PLUGINS` (not `CORE_PLUGINS`)
-- `CODER_ENABLED` defaults to `false`
-- Result: these actions never validate, LLM never sees them
+plugin-code actions (READ_FILE, WRITE_FILE, EDIT_FILE, GIT, SEARCH_FILES, LIST_FILES) all check `runtime.getService("coder")`. The CoderService requires the plugin to be loaded.
 
-plugin-knowledge (SEARCH_KNOWLEDGE) has similar issue — service not registered.
+**Root cause:** `plugins.allow` in config causes `collectPluginNames()` to return early (line 282-304 in eliza.ts), bypassing the `OPTIONAL_PLUGIN_MAP` feature flags entirely.
 
-**Evidence:** #37 "show me the git diff" → LLM routed to EXECUTE_COMMAND because GIT wasn't in candidate set. #32 "write to output.txt" → MANAGE_PROCESS because WRITE_FILE unavailable.
+**Fix:** Added `code` and `knowledge` to both `OPTIONAL_PLUGIN_MAP` (for feature-flag gating) and `plugins.allow` in user config. All 6 coder actions now register and validate.
 
-**Fix identified:** Move plugin-code and plugin-knowledge to CORE_PLUGINS, set CODER_ENABLED=true default.
+**Still broken:** SEARCH_KNOWLEDGE — `extractPlugin()` upstream bug picks `documentsProvider` instead of `knowledgePlugin` from plugin-knowledge exports.
+
+### 5. BM25 Re-activation + Stale Index (FIXED in commit ca35ddd)
+
+With 52 actions (up from 44 after adding coder actions), the BM25 threshold of 50 was no longer bypassing the filter. Additionally, `enrichActionDescriptions()` ran AFTER `buildIndex()`, so the BM25 index used stale (un-enriched) descriptions.
+
+**Fix:** Raised threshold to 100. Added `actionFilter.buildIndex(runtime)` call after enrichments. Rewrote all 16 enrichments as semantic descriptions.
 
 ## Enrichment Pipeline (src/runtime/milaidy-plugin.ts)
 
@@ -215,29 +218,166 @@ Key details:
 
 ## Concrete Next Steps (Priority Order)
 
-### 1. Fix Ghost Actions (6 tests, biggest win)
+### ~~1. Fix Ghost Actions~~ DONE (commit 9f9681b)
 
-In `src/runtime/eliza.ts`:
-- Move `@elizaos/plugin-code` from OPTIONAL_CORE_PLUGINS to CORE_PLUGINS
-- Move `@elizaos/plugin-knowledge` from OPTIONAL_CORE_PLUGINS to CORE_PLUGINS
-- Set `CODER_ENABLED=true` as default (or in character settings)
+Added `code` and `knowledge` to `OPTIONAL_PLUGIN_MAP` and `plugins.allow`. 6/6 coder actions register. SEARCH_KNOWLEDGE still broken (upstream `extractPlugin()` bug).
 
-### 2. Enrich More Action Descriptions (3 regression tests)
+### ~~2. Enrich Action Descriptions~~ DONE (commit ca35ddd)
 
-In `src/runtime/milaidy-plugin.ts`:
-- Add GET_SKILL_DETAILS, TOGGLE_SKILL, UNINSTALL_SKILL enrichments
-- Add task action enrichments (LIST_TASKS, SWITCH_TASK, etc.)
-- Add LIST_MESSAGING_CHANNELS negative signal
+Raised threshold 50→100, added index rebuild after enrichments, rewrote 16 enrichments as semantic descriptions.
 
-### 3. Fix Benchmark Expectations
+### 3. Make Action Selection Deterministic
+
+See "Exploration Findings" section above. Three approaches identified, not yet implemented:
+1. Temperature = 0 (highest impact, one line)
+2. Action count reduction 52→37 (remove noise)
+3. Template disambiguation rules
+
+### 4. Fix Benchmark Expectations
 
 In `scripts/test-action-selection.ts`:
 - #65: Accept IGNORE alongside NONE/REPLY (already identified as equivalent)
 - #60: Accept LIST_MESSAGING_CHANNELS or update test expectation
 
-### 4. Run Benchmark After Fixes
+### 5. Fix SEARCH_KNOWLEDGE (upstream bug)
 
-Expected improvement: 6 ghost action tests should pass → ~80%+ raw accuracy, ~92%+ adjusted.
+`extractPlugin()` in ElizaOS picks `documentsProvider` instead of `knowledgePlugin` from plugin-knowledge's exports. Needs upstream fix or local patch.
+
+## Session 2 Progress (2026-02-17)
+
+### What Was Done
+
+1. **Group filtering** — Added `--group=X,Y` to benchmark. 12 categories: conversational, search, task, shell, coder, knowledge, skill, plugin, subagent, messaging, edge, system.
+2. **File output** — Benchmark now saves `results.json` + `results.txt` to `tmp/benchmarks/<timestamp>/`.
+3. **Ghost Actions fixed** — Added `code` and `knowledge` to `OPTIONAL_PLUGIN_MAP` in eliza.ts, added to `plugins.allow` in `~/.milaidy/milaidy.json`. Coder actions now register (6/6: READ_FILE, WRITE_FILE, EDIT_FILE, GIT, SEARCH_FILES, LIST_FILES).
+4. **SEARCH_KNOWLEDGE still broken** — `extractPlugin()` upstream bug picks `documentsProvider` (a provider export) instead of `knowledgePlugin`. Not fixed.
+5. **Codex review** — Found BM25 filter was active again (52 actions > threshold 50), enrichments not indexed (run after `buildIndex()`).
+6. **Filter threshold raised** — From 50 → 100.
+7. **Index rebuild after enrichments** — Added `actionFilter.buildIndex(runtime)` call after `enrichActionDescriptions()` in eliza.ts.
+8. **Semantic enrichments** — Rewrote all 16 enrichments as semantic "when to use" descriptions instead of keyword-stuffed text.
+
+### Commits
+
+- `9f9681b` — benchmark: add group filtering, file output, fix ghost actions via plugin-code loading
+- `ca35ddd` — fix action selection: raise filter threshold, rebuild index after enrichments, add semantic descriptions
+
+### Latest Benchmark (post-session-2)
+
+Coder group: 5/7 pass (READ_FILE, WRITE_FILE, SEARCH_FILES, LIST_FILES, GIT-commit). EDIT_FILE and GIT-diff fail (LLM routing).
+Skill group: 4/9 pass. Remaining are LLM routing non-determinism.
+
+Overall: ~9/16 on coder+skill subset.
+
+### Progression Update
+
+| Date | Tests | Raw Accuracy | Notes |
+|------|-------|-------------|-------|
+| Session 2 start | 68 | 73.5% | Baseline from session 1 |
+| +Ghost action fixes | 68 | ~78% | 6 coder actions now register |
+| +Threshold 100, index rebuild, semantic enrichments | coder+skill subset | 9/16 (56%) | GIT commit passes, others remain non-deterministic |
+
+## Exploration Findings (NOT YET IMPLEMENTED)
+
+### Approach 1: Temperature = 0 for Deterministic Action Selection
+
+**Finding:** Temperature is configurable via ElizaOS character settings.
+
+The messageHandler uses the "large" model category. Temperature is set via:
+```typescript
+// In character settings:
+settings: {
+  TEXT_LARGE_TEMPERATURE: "0",  // Affects messageHandler (action selection)
+  // OR
+  DEFAULT_TEMPERATURE: "0",     // Affects all model calls
+}
+```
+
+**How it works:**
+- `src/runtime/eliza.ts` passes character settings to runtime
+- Runtime's `useModel()` reads `TEXT_LARGE_TEMPERATURE` for the large model category
+- If not set, falls back to `DEFAULT_TEMPERATURE`, then model provider's default (~0.7-1.0)
+- Setting to "0" makes action selection deterministic (same input → same output)
+
+**Impact:** High. Removes non-determinism from the 7 remaining LLM routing failures. Benchmark becomes reproducible. Does NOT affect response text quality since action selection and text generation are separate calls (shouldRespond + messageHandler for action, then handler generates text).
+
+**Risk:** Low. Only affects action selection determinism. May make the agent slightly more "rigid" in borderline cases, but that's the desired behavior for action routing.
+
+**Implementation:** One line in `src/runtime/eliza.ts` character settings block (~line 1210).
+
+### Approach 2: Action Count Reduction (52 → ~37 actions)
+
+**Finding:** Audit identified 15 removal candidates in 2 phases.
+
+#### Phase 1: Safe Removals (10 actions)
+
+| Action | Plugin | Reason |
+|--------|--------|--------|
+| COMPUTERUSE_SCREENSHOT | plugin-computeruse | Specialized, rarely used in chat |
+| COMPUTERUSE_LEFT_CLICK | plugin-computeruse | Same |
+| COMPUTERUSE_TYPE | plugin-computeruse | Same |
+| COMPUTERUSE_SCROLL | plugin-computeruse | Same |
+| COMPUTERUSE_MOVE_MOUSE | plugin-computeruse | Same |
+| PUBLISH_PLUGIN | plugin-plugin-manager | Stub — always errors with "not implemented" |
+| EXECUTE_SHELL | plugin-shell | Redundant with EXECUTE_COMMAND |
+| INSTALL_PLUGIN_FROM_REGISTRY | plugin-plugin-manager | Redundant with INSTALL_SKILL |
+| SEARCH_PLUGINS | plugin-plugin-manager | Redundant with SEARCH_SKILLS |
+| CLONE_PLUGIN | plugin-plugin-manager | Dev-only, never used in chat context |
+
+#### Phase 2: Aggressive Removals (5 more actions)
+
+| Action | Plugin | Reason |
+|--------|--------|--------|
+| LOAD_PLUGIN | plugin-plugin-manager | Dev-only, load by path |
+| UNLOAD_PLUGIN | plugin-plugin-manager | Dev-only, dangerous |
+| SEARCH_TASKS | plugin-todo | Redundant with LIST_TASKS |
+| SEND_TO_SESSION_MESSAGE | plugin-acp | Internal agent-to-agent, not user-facing |
+| LIST_MESSAGING_CHANNELS | plugin-commands | Confuses LLM when user says "room" or "channel" |
+
+**Implementation options:**
+1. **Plugin disable** — Don't load plugin-computeruse, plugin-shell. Remove via `plugins.deny` in config.
+2. **Action blocklist** — Filter specific actions after plugin load (keeps plugins for other features).
+3. **Feature flags** — Add granular `features.computeruse`, `features.shell` toggles.
+
+**Impact:** Reducing from 52 to ~37 actions means BM25 filter (threshold 100) stays firmly bypassed. LLM sees fewer candidates, reducing confusion. The 5 COMPUTERUSE_* actions are especially harmful — they're never used in text chat but add noise.
+
+**Risk:** Medium for Phase 2. SEARCH_TASKS vs LIST_TASKS overlap may be intentional. SEND_TO_SESSION_MESSAGE needed for multi-agent. LIST_MESSAGING_CHANNELS needed for slash commands.
+
+### Approach 3: Template Improvements
+
+**Finding:** The current `MILAIDY_MESSAGE_HANDLER_TEMPLATE` uses general routing principles. Specific improvements identified:
+
+1. **Explicit disambiguation rules** — Add rules for confusing pairs:
+   - "If user mentions a file path → prefer file operations (READ_FILE, WRITE_FILE, EDIT_FILE) over EXECUTE_COMMAND"
+   - "If user mentions git operations → prefer GIT over EXECUTE_COMMAND"
+   - "If user says 'search for skills/plugins' → SEARCH_SKILLS, not SEARCH_PLUGINS or SEARCH_FILES"
+
+2. **Negative examples** — "Do NOT use EXECUTE_COMMAND when a more specific action exists for the task"
+
+3. **Action category hints** — Group actions in the template so LLM sees structure:
+   ```
+   File operations: READ_FILE, WRITE_FILE, EDIT_FILE, SEARCH_FILES, LIST_FILES
+   Git operations: GIT
+   Shell: EXECUTE_COMMAND (only when no specific action fits)
+   ```
+
+**Impact:** Medium. Template changes affect all action selection. Hard to test without benchmark.
+
+**Risk:** Medium. Template changes can have surprising effects on unrelated tests. Need full benchmark run after each change.
+
+### Recommended Implementation Order
+
+1. **Temperature = 0** — Highest impact, lowest risk, one line change. Do this first, run benchmark, establish deterministic baseline.
+2. **Action count reduction (Phase 1)** — Remove 10 obvious noise actions. Run benchmark, measure improvement.
+3. **Template disambiguation** — Add explicit rules for remaining confusing pairs. Run benchmark per change.
+4. **Action count reduction (Phase 2)** — Only if needed after steps 1-3.
+
+### Expected Outcome
+
+With all 3 approaches:
+- Benchmark should be reproducible (temperature=0)
+- LLM sees ~37 well-described actions instead of 52 noisy ones
+- Template guides disambiguation for edge cases
+- Target: 90%+ raw accuracy on full 68-test suite
 
 ## Cost Analysis
 
