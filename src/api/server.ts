@@ -9240,6 +9240,7 @@ async function handleRequest(
       readJsonBody,
       json,
       error,
+      runtime: state.runtime,
     })
   ) {
     return;
@@ -11353,7 +11354,19 @@ export async function startApiServer(opts?: {
   console.log(
     `[milady-api] Calling server.listen (${Date.now() - apiStartTime}ms)`,
   );
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
+    server.on("error", (err: NodeJS.ErrnoException) => {
+      if (err.code === "EADDRINUSE") {
+        console.error(
+          `[milady-api] Port ${port} is already in use. Another process may be running.`,
+        );
+      } else {
+        console.error(
+          `[milady-api] Server error: ${err.message} (code: ${err.code})`,
+        );
+      }
+      reject(err);
+    });
     server.listen(port, host, () => {
       console.log(
         `[milady-api] server.listen callback fired (${Date.now() - apiStartTime}ms)`,
