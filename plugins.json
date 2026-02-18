@@ -8733,10 +8733,11 @@
       "dirName": "plugin-whatsapp",
       "name": "Whatsapp",
       "npmName": "@elizaos/plugin-whatsapp",
-      "description": "WhatsApp Cloud API plugin for ElizaOS",
+      "description": "WhatsApp plugin for ElizaOS — supports Baileys (QR code) and Cloud API",
       "category": "connector",
       "envKey": "WHATSAPP_ACCESS_TOKEN",
       "configKeys": [
+        "WHATSAPP_AUTH_DIR",
         "WHATSAPP_ACCESS_TOKEN",
         "WHATSAPP_PHONE_NUMBER_ID",
         "WHATSAPP_WEBHOOK_VERIFY_TOKEN",
@@ -8745,12 +8746,18 @@
         "WHATSAPP_DM_POLICY",
         "WHATSAPP_GROUP_POLICY"
       ],
-      "version": "2.0.0-alpha.4",
+      "version": "2.0.0-alpha.6",
       "pluginParameters": {
+        "WHATSAPP_AUTH_DIR": {
+          "type": "string",
+          "description": "Path to Baileys auth directory (QR code mode). Set this OR WHATSAPP_ACCESS_TOKEN.",
+          "required": false,
+          "sensitive": false
+        },
         "WHATSAPP_ACCESS_TOKEN": {
           "type": "string",
-          "description": "Access token for Whatsapp",
-          "required": true,
+          "description": "Access token for WhatsApp Cloud API. Set this OR WHATSAPP_AUTH_DIR.",
+          "required": false,
           "sensitive": true
         },
         "WHATSAPP_PHONE_NUMBER_ID": {
@@ -8825,6 +8832,11 @@
           "label": "Group Policy",
           "group": "Policies",
           "width": "half"
+        },
+        "WHATSAPP_AUTH_DIR": {
+          "label": "Auth Directory (Baileys)",
+          "group": "Baileys (QR code)",
+          "width": "full"
         }
       }
     },

@@ -60,6 +60,8 @@ knowledge/
 scripts/knowledge-loop.mjs
 test/contracts/
 apps/app/test-results/
+# WhatsApp session files (Baileys auth state)
+/auth/
 :memory:/
 benchmarks/
 plugins/
