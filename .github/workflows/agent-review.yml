@@ -238,7 +238,9 @@ jobs:
             const owner = context.repo.owner;
             const repo = context.repo.repo;
             const prNumber = context.payload.pull_request.number;
-            const runMarker = `<!-- agent-review-run:${context.runId}:${context.runNumber || '1'}:${context.payload.pull_request.head.sha} -->`;
+            const runId = process.env.GITHUB_RUN_ID || context.runId;
+            const runAttempt = process.env.GITHUB_RUN_ATTEMPT || '1';
+            const runMarker = `<!-- agent-review-run:${runId}:${runAttempt}:${context.payload.pull_request.head.sha} -->`;
 
             // Check if comment already exists
             const comments = await github.paginate(github.rest.issues.listComments, {
@@ -310,20 +312,27 @@ jobs:
             const issue_number = context.payload.pull_request.number;
             const runMarker = (process.env.AGENT_REVIEW_MARKER || '').trim();
 
-            // Match Decision in any format: **Decision:**, ### N. Decision:, 6. **Decision:**, etc.
-            const decisionPattern = /(?:^|\n)\s*(?:#{1,4}\s+)?(?:\d+\.\s*)?(?:\*{0,2})Decision:(?:\*{0,2})\s*(APPROVE|REQUEST CHANGES|CLOSE)\b/i;
-            const structuredPattern = /(?:#{1,4}\s+)?(?:\d+\.\s*)?(?:\*{0,2})(?:Classification|Scope verdict|Code quality)(?:\*{0,2}):?/i;
+            const inlineDecisionPattern = /(?:^|\n)\s*(?:#{1,4}\s+)?(?:\d+\.\s*)?(?:\*{0,2})Decision(?:\*{0,2})?\s*:\s*(?:\*{0,2})(APPROVE|REQUEST CHANGES|CLOSE)\b/i;
+            const multilineDecisionPattern = /(?:^|\n)\s*(?:#{1,4}\s+)?(?:\d+\.\s*)?(?:\*{0,2})Decision(?:\*{0,2})?\s*:?\s*\n+\s*(?:\*{0,2})(APPROVE|REQUEST CHANGES|CLOSE)\b/i;
             const maxAttempts = 5; // Increased for fallback comment posting
             const pollIntervalMs = 3_000;
 
             const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+            const extractDecision = (body) => {
+              if (!body) return '';
+              const inline = body.match(inlineDecisionPattern);
+              if (inline?.[1]) return inline[1].toUpperCase();
+              const multiline = body.match(multilineDecisionPattern);
+              if (multiline?.[1]) return multiline[1].toUpperCase();
+              return '';
+            };
+
             const findLatest = (items) => {
               const filtered = items.filter((c) => {
                 if (!c?.body) return false;
                 if (!runMarker || !c.body.includes(runMarker)) return false;
-                if (!decisionPattern.test(c.body)) return false;
-                return structuredPattern.test(c.body);
+                return Boolean(extractDecision(c.body));
               });
               return filtered.sort((a, b) =>
                 new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
@@ -373,8 +382,7 @@ jobs:
             let decisionCommentUrl = '';
 
             if (latest) {
-              const match = latest.body.match(decisionPattern);
-              const normalized = (match?.[1] || '').toUpperCase();
+              const normalized = extractDecision(latest.body);
               decision = normalized || decision;
               decisionCommentUrl = latest.html_url || '';
 
