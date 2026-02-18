@@ -3,26 +3,37 @@
  * Never log real secret values — only token IDs and metadata.
  */
 
-export type AuditEventType =
-  | "sandbox_mode_transition"
-  | "secret_token_replacement_outbound"
-  | "secret_sanitization_inbound"
-  | "privileged_capability_invocation"
-  | "policy_decision"
-  | "signing_request_submitted"
-  | "signing_request_rejected"
-  | "signing_request_approved"
-  | "plugin_fallback_attempt"
-  | "security_kill_switch"
-  | "sandbox_lifecycle"
-  | "fetch_proxy_error";
+export const AUDIT_EVENT_TYPES = [
+  "sandbox_mode_transition",
+  "secret_token_replacement_outbound",
+  "secret_sanitization_inbound",
+  "privileged_capability_invocation",
+  "policy_decision",
+  "signing_request_submitted",
+  "signing_request_rejected",
+  "signing_request_approved",
+  "plugin_fallback_attempt",
+  "security_kill_switch",
+  "sandbox_lifecycle",
+  "fetch_proxy_error",
+] as const;
+
+export type AuditEventType = (typeof AUDIT_EVENT_TYPES)[number];
+export const AUDIT_SEVERITIES = ["info", "warn", "error", "critical"] as const;
+export type AuditSeverity = (typeof AUDIT_SEVERITIES)[number];
+
+const DEFAULT_MAX_ENTRIES = 5000;
+const PROCESS_FEED_MAX_ENTRIES = DEFAULT_MAX_ENTRIES;
+
+const processFeedEntries: AuditEntry[] = [];
+const processFeedSubscribers = new Set<AuditFeedSubscriber>();
 
 export interface AuditEntry {
   timestamp: string;
   type: AuditEventType;
   summary: string;
   metadata?: Record<string, string | number | boolean | null>;
-  severity: "info" | "warn" | "error" | "critical";
+  severity: AuditSeverity;
   traceId?: string;
 }
 
@@ -30,6 +41,88 @@ export interface AuditLogConfig {
   console?: boolean;
   maxEntries?: number;
   sink?: (entry: AuditEntry) => void;
+}
+
+export interface AuditFeedQuery {
+  type?: AuditEventType;
+  severity?: AuditSeverity;
+  sinceMs?: number;
+  limit?: number;
+}
+
+export type AuditFeedSubscriber = (entry: AuditEntry) => void;
+
+function trimEntries(entries: AuditEntry[], maxEntries: number): AuditEntry[] {
+  if (entries.length <= maxEntries) return entries;
+  return entries.slice(-Math.floor(maxEntries / 2));
+}
+
+function publishToProcessFeed(entry: AuditEntry): void {
+  processFeedEntries.push(entry);
+  const trimmed = trimEntries(processFeedEntries, PROCESS_FEED_MAX_ENTRIES);
+  if (trimmed !== processFeedEntries) {
+    processFeedEntries.splice(0, processFeedEntries.length, ...trimmed);
+  }
+  for (const subscriber of processFeedSubscribers) {
+    try {
+      subscriber(entry);
+    } catch {
+      // Ignore subscriber failures so audit recording is never blocked.
+    }
+  }
+}
+
+function toSinceTimestamp(sinceMs: number | undefined): number | undefined {
+  if (sinceMs === undefined) return undefined;
+  if (!Number.isFinite(sinceMs)) return undefined;
+  return Math.trunc(sinceMs);
+}
+
+function toBoundedLimit(limit: number | undefined): number | undefined {
+  if (limit === undefined) return undefined;
+  if (!Number.isFinite(limit)) return undefined;
+  return Math.max(1, Math.trunc(limit));
+}
+
+export function queryAuditFeed(query: AuditFeedQuery = {}): AuditEntry[] {
+  const sinceTimestamp = toSinceTimestamp(query.sinceMs);
+  const boundedLimit = toBoundedLimit(query.limit);
+  let entries = processFeedEntries;
+
+  if (query.type) {
+    entries = entries.filter((entry) => entry.type === query.type);
+  }
+  if (query.severity) {
+    entries = entries.filter((entry) => entry.severity === query.severity);
+  }
+  if (sinceTimestamp !== undefined) {
+    entries = entries.filter(
+      (entry) => Date.parse(entry.timestamp) >= sinceTimestamp,
+    );
+  }
+  if (boundedLimit !== undefined) {
+    return entries.slice(-boundedLimit);
+  }
+  return [...entries];
+}
+
+export function getAuditFeedSize(): number {
+  return processFeedEntries.length;
+}
+
+export function subscribeAuditFeed(
+  subscriber: AuditFeedSubscriber,
+): () => void {
+  processFeedSubscribers.add(subscriber);
+  return () => {
+    processFeedSubscribers.delete(subscriber);
+  };
+}
+
+/** Test-only helper to isolate process-wide audit state between specs. */
+export function __resetAuditFeedForTests(): void {
+  processFeedEntries.length = 0;
+  processFeedSubscribers.clear();
 }
 
 export class SandboxAuditLog {
@@ -40,17 +133,16 @@ export class SandboxAuditLog {
 
   constructor(config: AuditLogConfig = {}) {
     this.consoleEnabled = config.console ?? true;
-    this.maxEntries = config.maxEntries ?? 5000;
+    this.maxEntries = config.maxEntries ?? DEFAULT_MAX_ENTRIES;
     this.sink = config.sink;
   }
 
   record(entry: Omit<AuditEntry, "timestamp">): void {
     const full: AuditEntry = { ...entry, timestamp: new Date().toISOString() };
     this.entries.push(full);
+    publishToProcessFeed(full);
 
-    if (this.entries.length > this.maxEntries) {
-      this.entries = this.entries.slice(-Math.floor(this.maxEntries / 2));
-    }
+    this.entries = trimEntries(this.entries, this.maxEntries);
 
     if (this.consoleEnabled) {
       const line = `[AUDIT:${full.severity.toUpperCase()}] ${full.type}: ${full.summary}`;

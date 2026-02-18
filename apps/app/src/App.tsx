@@ -54,6 +54,7 @@ function ViewRouter() {
     case "runtime":
     case "database":
     case "logs":
+    case "security":
       return <AdvancedPageView />;
     case "voice":
     case "settings":
@@ -100,7 +101,8 @@ export function App() {
     tab === "trajectories" ||
     tab === "runtime" ||
     tab === "database" ||
-    tab === "logs";
+    tab === "logs" ||
+    tab === "security";
   const unreadCount = unreadConversations?.size ?? 0;
   const statusIndicatorClass =
     agentStatus?.state === "running"

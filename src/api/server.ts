@@ -7100,6 +7100,9 @@ async function handleRequest(
       url,
       logBuffer: state.logBuffer,
       eventBuffer: state.eventBuffer,
+      initSse,
+      writeSseData,
+      writeSseJson,
       json,
     })
   ) {

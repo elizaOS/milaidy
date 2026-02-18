@@ -111,6 +111,11 @@ export function CommandPalette() {
         action: () => setTab("settings"),
       },
       { id: "nav-logs", label: "Open Logs", action: () => setTab("logs") },
+      {
+        id: "nav-security",
+        label: "Open Security",
+        action: () => setTab("security"),
+      },
     );
 
     if (currentGameViewerUrl.trim()) {

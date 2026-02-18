@@ -21,6 +21,7 @@ import { FineTuningView } from "./FineTuningView";
 import { LogsPageView } from "./LogsPageView";
 import { PluginsPageView } from "./PluginsPageView";
 import { RuntimeView } from "./RuntimeView";
+import { SecurityAuditPageView } from "./SecurityAuditPageView";
 import { SkillsView } from "./SkillsView";
 import { TrajectoriesView } from "./TrajectoriesView";
 import { TrajectoryDetailView } from "./TrajectoryDetailView";
@@ -35,7 +36,8 @@ type SubTab =
   | "trajectories"
   | "runtime"
   | "database"
-  | "logs";
+  | "logs"
+  | "security";
 
 const SUB_TABS: Array<{ id: SubTab; label: string; description: string }> = [
   { id: "plugins", label: "Plugins", description: "Features and connectors" },
@@ -67,6 +69,11 @@ const SUB_TABS: Array<{ id: SubTab; label: string; description: string }> = [
     description: "Tables, media, and vector browser",
   },
   { id: "logs", label: "Logs", description: "Runtime and service logs" },
+  {
+    id: "security",
+    label: "Security",
+    description: "Sandbox and policy audit feed",
+  },
 ];
 
 function mapTabToSubTab(tab: Tab): SubTab {
@@ -89,6 +96,8 @@ function mapTabToSubTab(tab: Tab): SubTab {
       return "database";
     case "logs":
       return "logs";
+    case "security":
+      return "security";
     default:
       return "plugins";
   }
@@ -132,6 +141,9 @@ export function AdvancedPageView() {
       case "logs":
         setTab("logs");
         break;
+      case "security":
+        setTab("security");
+        break;
       default:
         setTab("plugins");
     }
@@ -167,6 +179,8 @@ export function AdvancedPageView() {
         return <DatabasePageView />;
       case "logs":
         return <LogsPageView />;
+      case "security":
+        return <SecurityAuditPageView />;
       default:
         return <PluginsPageView />;
     }
