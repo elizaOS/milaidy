@@ -2374,12 +2374,15 @@ async function readChatRequestPayload(
     ) => Promise<T | null>;
     error: (res: http.ServerResponse, message: string, status?: number) => void;
   },
+  /** Body size limit. Image-capable endpoints pass CHAT_MAX_BODY_BYTES (20 MB);
+   *  legacy/cloud-proxy endpoints that don't process images pass MAX_BODY_BYTES (1 MB). */
+  maxBytes = CHAT_MAX_BODY_BYTES,
 ): Promise<{ prompt: string; channelType: ChannelType; images?: ChatImageAttachment[] } | null> {
   const body = await helpers.readJsonBody<{
     text?: string;
     channelType?: string;
     images?: ChatImageAttachment[];
-  }>(req, res, { maxBytes: CHAT_MAX_BODY_BYTES });
+  }>(req, res, { maxBytes });
   if (!body) return null;
   if (!body.text?.trim()) {
     helpers.error(res, "text is required");
@@ -2395,7 +2398,15 @@ async function readChatRequestPayload(
     helpers.error(res, imageValidationError, 400);
     return null;
   }
-  const images = Array.isArray(body.images) ? (body.images as ChatImageAttachment[]) : undefined;
+  // Normalize mimeType to lowercase so downstream consumers (Twitter
+  // uploadMedia, content-type headers) never encounter mixed-case variants
+  // that slipped past the allowlist check.
+  const images = Array.isArray(body.images)
+    ? (body.images as ChatImageAttachment[]).map((img) => ({
+        ...img,
+        mimeType: img.mimeType.toLowerCase(),
+      }))
+    : undefined;
   return {
     prompt: body.text.trim(),
     channelType,
@@ -9177,10 +9188,14 @@ async function handleRequest(
 
   // ── POST /api/chat/stream ────────────────────────────────────────────
   if (method === "POST" && pathname === "/api/chat/stream") {
-    const chatPayload = await readChatRequestPayload(req, res, {
-      readJsonBody,
-      error,
-    });
+    // Legacy cloud-proxy path — forwards messages to a remote sandbox and
+    // does not process image attachments. Retain the standard 1 MB body limit.
+    const chatPayload = await readChatRequestPayload(
+      req,
+      res,
+      { readJsonBody, error },
+      MAX_BODY_BYTES,
+    );
     if (!chatPayload) return;
     const { prompt, channelType } = chatPayload;
 
@@ -9270,10 +9285,14 @@ async function handleRequest(
   // remote sandbox instead of the local runtime.  Supports SSE streaming
   // when the client sends Accept: text/event-stream.
   if (method === "POST" && pathname === "/api/chat") {
-    const chatPayload = await readChatRequestPayload(req, res, {
-      readJsonBody,
-      error,
-    });
+    // Legacy cloud-proxy path — forwards messages to a remote sandbox and
+    // does not process image attachments. Retain the standard 1 MB body limit.
+    const chatPayload = await readChatRequestPayload(
+      req,
+      res,
+      { readJsonBody, error },
+      MAX_BODY_BYTES,
+    );
     if (!chatPayload) return;
     const { prompt, channelType } = chatPayload;
 
