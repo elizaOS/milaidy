@@ -217,7 +217,10 @@ describe("plugin-eject", () => {
       expect(result.success).toBe(true);
       expect(result.pluginName).toBe("@elizaos/plugin-test");
       expect(result.upstreamCommit).toBe("abc123");
-      await expect(fs.access(result.ejectedPath)).resolves.toBeUndefined();
+      // Bun's node:fs/promises `access()` resolves to `null` (Node resolves to `undefined`).
+      // Use `stat()` instead to assert the directory exists across runtimes.
+      const st = await fs.stat(result.ejectedPath);
+      expect(st.isDirectory()).toBe(true);
 
       const upstreamRaw = await fs.readFile(
         path.join(result.ejectedPath, ".upstream.json"),

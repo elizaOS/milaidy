@@ -204,7 +204,10 @@ describe("core-eject", () => {
 
       expect(result.success).toBe(true);
       expect(result.upstreamCommit).toBe("head123");
-      await expect(fs.access(result.ejectedPath)).resolves.toBeUndefined();
+      // Bun's node:fs/promises `access()` resolves to `null` (Node resolves to `undefined`).
+      // Use `stat()` instead to assert the directory exists across runtimes.
+      const st = await fs.stat(result.ejectedPath);
+      expect(st.isDirectory()).toBe(true);
 
       const upstreamRaw = await fs.readFile(
         path.join(mockedStateDir, "core", ".upstream.json"),
