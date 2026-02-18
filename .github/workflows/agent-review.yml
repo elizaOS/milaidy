@@ -651,16 +651,40 @@ jobs:
           esac
 
           PR_NUM="${{ github.event.pull_request.number }}"
-          echo "Waiting for required checks to pass for PR #${PR_NUM}"
-          if ! timeout 15m gh pr checks "$PR_NUM" \
-            --required \
-            --repo "$GH_REPO" \
-            --watch \
-            --interval 10 \
-            --fail-fast; then
-            echo "Required PR checks failed or are not passing. Aborting merge."
-            exit 1
-          fi
+          echo "Waiting for PR checks to finish for PR #${PR_NUM} (excluding this job)"
+
+          deadline="$((SECONDS + 900))" # 15 minutes
+          while true; do
+            checks_json="$(gh pr checks "$PR_NUM" --repo "$GH_REPO" --json name,bucket,state 2>/dev/null || true)"
+
+            if [ -z "$checks_json" ]; then
+              echo "Failed to fetch PR checks; retrying..."
+              sleep 10
+              continue
+            fi
+
+            failing="$(printf "%s" "$checks_json" | jq '[.[] | select(.name != "Auto-merge approved PRs") | select(.bucket == "fail" or .bucket == "cancel")] | length')"
+            pending="$(printf "%s" "$checks_json" | jq '[.[] | select(.name != "Auto-merge approved PRs") | select(.bucket == "pending")] | length')"
+
+            if [ "$failing" -gt 0 ]; then
+              echo "One or more PR checks are failing; aborting merge."
+              gh pr checks "$PR_NUM" --repo "$GH_REPO" || true
+              exit 1
+            fi
+
+            if [ "$pending" -eq 0 ]; then
+              echo "All PR checks finished."
+              break
+            fi
+
+            if [ "$SECONDS" -ge "$deadline" ]; then
+              echo "Timed out waiting for PR checks to finish; aborting merge."
+              gh pr checks "$PR_NUM" --repo "$GH_REPO" || true
+              exit 1
+            fi
+
+            sleep 10
+          done
 
           echo "Merging PR #${PR_NUM} using '$method' method"
 
