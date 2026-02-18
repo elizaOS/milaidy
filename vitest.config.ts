@@ -61,7 +61,8 @@ export default defineConfig({
     },
     server: {
       deps: {
-        inline: ["@elizaos/core"],
+        // Inline core + zod so Vite SSR interop is stable under Bun/Vitest.
+        inline: ["@elizaos/core", "zod"],
       },
     },
   },

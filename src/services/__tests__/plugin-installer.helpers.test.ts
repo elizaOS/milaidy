@@ -7,6 +7,16 @@ vi.mock("node:child_process", () => ({
   execFile: execFileMock,
 }));
 
+// `../plugin-installer` imports `@elizaos/core` for logging; mock it to keep these
+// validator/helper tests hermetic and avoid pulling in the full core runtime.
+vi.mock("@elizaos/core", () => ({
+  logger: {
+    warn: vi.fn(),
+    info: vi.fn(),
+    error: vi.fn(),
+  },
+}));
+
 function setupExecFileHandler(
   responses: Array<{ stdout: string; branch?: string; list?: boolean }> = [],
 ) {
