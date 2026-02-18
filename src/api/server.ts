@@ -14,6 +14,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   type AgentRuntime,
+  type Attachment,
   ChannelType,
   type Content,
   ContentType,
@@ -2272,34 +2273,33 @@ export function validateChatImages(images: unknown): string | null {
   return null;
 }
 
-/** Builds in-memory and compact (DB-persisted) attachment arrays from validated images. */
-function buildChatAttachments(images: ChatImageAttachment[] | undefined): {
-  attachments: Array<{
-    id: string;
-    url: string;
-    title: string;
-    source: string;
-    description: string;
-    text: string;
-    contentType: ContentType;
-    _data: string;
-    _mimeType: string;
-  }> | undefined;
-  compactAttachments: Array<{
-    id: string;
-    url: string;
-    title: string;
-    source: string;
-    description: string;
-    text: string;
-    contentType: ContentType;
-  }> | undefined;
+/**
+ * Extension of the core Attachment shape that carries raw image bytes for
+ * action handlers (e.g. POST_TWEET) while the message is in-memory. The
+ * extra fields are intentionally stripped before the message is persisted.
+ */
+export interface ChatAttachmentWithData extends Attachment {
+  /** Raw base64 image data — never written to the database. */
+  _data: string;
+  /** MIME type corresponding to `_data`. */
+  _mimeType: string;
+}
+
+/**
+ * Builds in-memory and compact (DB-persisted) attachment arrays from
+ * validated images. Exported so it can be unit-tested independently.
+ */
+export function buildChatAttachments(images: ChatImageAttachment[] | undefined): {
+  /** In-memory attachments that include `_data`/`_mimeType` for action handlers. */
+  attachments: ChatAttachmentWithData[] | undefined;
+  /** Persistence-safe attachments with `_data`/`_mimeType` stripped. */
+  compactAttachments: Attachment[] | undefined;
 } {
   if (!images?.length) return { attachments: undefined, compactAttachments: undefined };
   // Compact placeholder URL (no base64) keeps the LLM context lean. The raw
   // image bytes are stashed in `_data`/`_mimeType` for action handlers (e.g.
   // POST_TWEET) that need to upload them.
-  const attachments = images.map((img, i) => ({
+  const attachments: ChatAttachmentWithData[] = images.map((img, i) => ({
     id: `img-${i}`,
     url: `attachment:img-${i}`,
     title: img.name,
@@ -2311,8 +2311,56 @@ function buildChatAttachments(images: ChatImageAttachment[] | undefined): {
     _mimeType: img.mimeType,
   }));
   // DB-persisted version omits _data/_mimeType so raw bytes aren't stored.
-  const compactAttachments = attachments.map(({ _data: _d, _mimeType: _m, ...rest }) => rest);
+  const compactAttachments: Attachment[] = attachments.map(
+    ({ _data: _d, _mimeType: _m, ...rest }) => rest,
+  );
   return { attachments, compactAttachments };
+}
+
+type MessageMemory = ReturnType<typeof createMessageMemory>;
+
+/**
+ * Constructs the in-memory user message (with image data for action handlers)
+ * and the persistence-safe counterpart (image data stripped). Extracted to
+ * avoid duplicating this logic across the stream and non-stream chat endpoints.
+ */
+function buildUserMessages(params: {
+  images: ChatImageAttachment[] | undefined;
+  prompt: string;
+  userId: UUID;
+  roomId: UUID;
+  channelType: ChannelType;
+}): { userMessage: MessageMemory; messageToStore: MessageMemory } {
+  const { images, prompt, userId, roomId, channelType } = params;
+  const { attachments, compactAttachments } = buildChatAttachments(images);
+  const id = crypto.randomUUID() as UUID;
+  // In-memory message carries _data/_mimeType so action handlers can upload.
+  const userMessage = createMessageMemory({
+    id,
+    entityId: userId,
+    roomId,
+    content: {
+      text: prompt,
+      source: "client_chat",
+      channelType,
+      ...(attachments?.length ? { attachments: attachments as Attachment[] } : {}),
+    },
+  });
+  // Persisted message: compact placeholder URL, no raw bytes in DB.
+  const messageToStore = compactAttachments?.length
+    ? createMessageMemory({
+        id,
+        entityId: userId,
+        roomId,
+        content: {
+          text: prompt,
+          source: "client_chat",
+          channelType,
+          attachments: compactAttachments,
+        },
+      })
+    : userMessage;
+  return { userMessage, messageToStore };
 }
 
 async function readChatRequestPayload(
@@ -8804,38 +8852,13 @@ async function handleRequest(
       return;
     }
 
-    const { attachments, compactAttachments } = buildChatAttachments(images);
-
-    const msgId = crypto.randomUUID() as UUID;
-
-    // In-memory message: compact URL + _data so action handlers can upload.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const userMessage = createMessageMemory({
-      id: msgId,
-      entityId: userId,
+    const { userMessage, messageToStore } = buildUserMessages({
+      images,
+      prompt,
+      userId,
       roomId: conv.roomId,
-      content: {
-        text: prompt,
-        source: "client_chat",
-        channelType,
-        ...(attachments?.length ? { attachments: attachments as any } : {}),
-      },
+      channelType,
     });
-
-    // Persisted message: compact URL, no raw bytes.
-    const messageToStore = compactAttachments?.length
-      ? createMessageMemory({
-          id: msgId,
-          entityId: userId,
-          roomId: conv.roomId,
-          content: {
-            text: prompt,
-            source: "client_chat",
-            channelType,
-            attachments: compactAttachments,
-          },
-        })
-      : userMessage;
 
     try {
       await persistConversationMemory(runtime, messageToStore);
@@ -8972,40 +8995,16 @@ async function handleRequest(
       return;
     }
 
-    const { attachments: msgAttachments, compactAttachments: compactMsgAttachments } =
-      buildChatAttachments(images);
-
-    const msgId2 = crypto.randomUUID() as UUID;
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const userMessage = createMessageMemory({
-      id: msgId2,
-      entityId: userId,
+    const { userMessage, messageToStore } = buildUserMessages({
+      images,
+      prompt,
+      userId,
       roomId: conv.roomId,
-      content: {
-        text: prompt,
-        source: "client_chat",
-        channelType,
-        ...(msgAttachments?.length ? { attachments: msgAttachments as any } : {}),
-      },
+      channelType,
     });
 
-    const msgToStore2 = compactMsgAttachments?.length
-      ? createMessageMemory({
-          id: msgId2,
-          entityId: userId,
-          roomId: conv.roomId,
-          content: {
-            text: prompt,
-            source: "client_chat",
-            channelType,
-            attachments: compactMsgAttachments,
-          },
-        })
-      : userMessage;
-
     try {
-      await persistConversationMemory(runtime, msgToStore2);
+      await persistConversationMemory(runtime, messageToStore);
     } catch (err) {
       error(res, `Failed to store user message: ${getErrorMessage(err)}`, 500);
       return;
