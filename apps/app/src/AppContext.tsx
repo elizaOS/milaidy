@@ -1326,7 +1326,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setAppsSubTab(activeGameViewerUrl.trim() ? "games" : "browse");
       }
       const path = pathForTab(newTab);
-      window.history.pushState(null, "", path);
+      // In Electron packaged builds (file:// URLs), use hash routing to avoid
+      // "Not allowed to load local resource: file:///..." errors.
+      if (window.location.protocol === "file:") {
+        window.location.hash = path;
+      } else {
+        window.history.pushState(null, "", path);
+      }
     },
     [activeGameViewerUrl],
   );
@@ -4037,8 +4043,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
         60_000,
       );
 
-      // Load tab from URL
-      const urlTab = tabFromPath(window.location.pathname);
+      // Load tab from URL — use hash in file:// mode (Electron packaged builds)
+      const navPath =
+        window.location.protocol === "file:"
+          ? window.location.hash.replace(/^#/, "") || "/"
+          : window.location.pathname;
+      const urlTab = tabFromPath(navPath);
       if (urlTab) {
         setTabRaw(urlTab);
         if (urlTab === "plugins" || urlTab === "connectors") {
@@ -4065,16 +4075,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     void initApp();
 
-    // Popstate listener
-    const handlePopState = () => {
-      const t = tabFromPath(window.location.pathname);
+    // Navigation listener — use hashchange in file:// mode (Electron packaged builds)
+    const isFileProtocol = window.location.protocol === "file:";
+    const handleNavChange = () => {
+      const navPath = isFileProtocol
+        ? window.location.hash.replace(/^#/, "") || "/"
+        : window.location.pathname;
+      const t = tabFromPath(navPath);
       if (t) setTabRaw(t);
     };
-    window.addEventListener("popstate", handlePopState);
+    const navEvent = isFileProtocol ? "hashchange" : "popstate";
+    window.addEventListener(navEvent, handleNavChange);
 
     return () => {
       cancelled = true;
-      window.removeEventListener("popstate", handlePopState);
+      window.removeEventListener(navEvent, handleNavChange);
       if (cloudPollInterval.current) clearInterval(cloudPollInterval.current);
       if (cloudLoginPollTimer.current)
         clearInterval(cloudLoginPollTimer.current);
