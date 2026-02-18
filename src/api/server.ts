@@ -2407,6 +2407,248 @@ function validateSkillId(
   return skillId;
 }
 
+const ALLOWED_MCP_CONFIG_TYPES = new Set([
+  "stdio",
+  "http",
+  "streamable-http",
+  "sse",
+]);
+
+const ALLOWED_MCP_COMMANDS = new Set([
+  "npx",
+  "node",
+  "bun",
+  "bunx",
+  "deno",
+  "python",
+  "python3",
+  "uvx",
+  "uv",
+  "docker",
+  "podman",
+]);
+
+const BLOCKED_MCP_ENV_KEYS = new Set([
+  "LD_PRELOAD",
+  "LD_LIBRARY_PATH",
+  "DYLD_INSERT_LIBRARIES",
+  "DYLD_LIBRARY_PATH",
+  "NODE_OPTIONS",
+  "NODE_EXTRA_CA_CERTS",
+  "ELECTRON_RUN_AS_NODE",
+  "PATH",
+  "HOME",
+  "SHELL",
+]);
+
+const INTERPRETER_MCP_COMMANDS = new Set([
+  "node",
+  "bun",
+  "deno",
+  "python",
+  "python3",
+  "uv",
+]);
+
+const PACKAGE_RUNNER_MCP_COMMANDS = new Set(["npx", "bunx", "uvx"]);
+const CONTAINER_MCP_COMMANDS = new Set(["docker", "podman"]);
+
+const BLOCKED_INTERPRETER_FLAGS = new Set([
+  "-e",
+  "--eval",
+  "-p",
+  "--print",
+  "-c",
+  "-m",
+]);
+
+const BLOCKED_PACKAGE_RUNNER_FLAGS = new Set(["-c", "--call", "-e", "--eval"]);
+const BLOCKED_CONTAINER_FLAGS = new Set([
+  "--privileged",
+  "-v",
+  "--volume",
+  "--mount",
+  "--cap-add",
+  "--security-opt",
+  "--pid",
+  "--network",
+]);
+const BLOCKED_DENO_SUBCOMMANDS = new Set(["eval"]);
+
+function normalizeMcpCommand(command: string): string {
+  const baseName = command.replace(/\\/g, "/").split("/").pop() ?? "";
+  return baseName.replace(/\.(exe|cmd|bat)$/i, "").toLowerCase();
+}
+
+function hasBlockedFlag(
+  args: string[],
+  blockedFlags: ReadonlySet<string>,
+): string | null {
+  for (const arg of args) {
+    const trimmed = arg.trim();
+    for (const flag of blockedFlags) {
+      if (trimmed === flag || trimmed.startsWith(`${flag}=`)) {
+        return flag;
+      }
+      // Block attached short-option forms like -cpayload or -epayload.
+      if (
+        /^-[A-Za-z]$/.test(flag) &&
+        trimmed.startsWith(flag) &&
+        trimmed.length > flag.length
+      ) {
+        return flag;
+      }
+    }
+  }
+  return null;
+}
+
+function firstPositionalArg(args: string[]): string | null {
+  for (const arg of args) {
+    const trimmed = arg.trim();
+    if (!trimmed || trimmed === "--" || trimmed.startsWith("-")) continue;
+    return trimmed.toLowerCase();
+  }
+  return null;
+}
+
+export function validateMcpServerConfig(
+  config: Record<string, unknown>,
+): string | null {
+  const configType = config.type;
+  if (
+    typeof configType !== "string" ||
+    !ALLOWED_MCP_CONFIG_TYPES.has(configType)
+  ) {
+    return `Invalid config type. Must be one of: ${[...ALLOWED_MCP_CONFIG_TYPES].join(", ")}`;
+  }
+
+  if (configType === "stdio") {
+    const command =
+      typeof config.command === "string" ? config.command.trim() : "";
+    if (!command) {
+      return "Command is required for stdio servers";
+    }
+    if (!/^[A-Za-z0-9._-]+$/.test(command)) {
+      return "Command must be a bare executable name without path separators";
+    }
+
+    const normalizedCommand = normalizeMcpCommand(command);
+    if (!ALLOWED_MCP_COMMANDS.has(normalizedCommand)) {
+      return (
+        `Command "${command}" is not allowed. ` +
+        `Allowed commands: ${[...ALLOWED_MCP_COMMANDS].join(", ")}`
+      );
+    }
+
+    if (config.args !== undefined) {
+      if (!Array.isArray(config.args)) {
+        return "args must be an array of strings";
+      }
+      for (const arg of config.args) {
+        if (typeof arg !== "string") {
+          return "Each arg must be a string";
+        }
+      }
+      const args = config.args as string[];
+      if (INTERPRETER_MCP_COMMANDS.has(normalizedCommand)) {
+        const blocked = hasBlockedFlag(args, BLOCKED_INTERPRETER_FLAGS);
+        if (blocked) {
+          return `Flag "${blocked}" is not allowed for ${normalizedCommand} MCP servers`;
+        }
+      }
+      if (PACKAGE_RUNNER_MCP_COMMANDS.has(normalizedCommand)) {
+        const blocked = hasBlockedFlag(args, BLOCKED_PACKAGE_RUNNER_FLAGS);
+        if (blocked) {
+          return `Flag "${blocked}" is not allowed for ${normalizedCommand} MCP servers`;
+        }
+      }
+      if (CONTAINER_MCP_COMMANDS.has(normalizedCommand)) {
+        const blocked = hasBlockedFlag(args, BLOCKED_CONTAINER_FLAGS);
+        if (blocked) {
+          return `Flag "${blocked}" is not allowed for ${normalizedCommand} MCP servers`;
+        }
+      }
+      if (normalizedCommand === "deno") {
+        const subcommand = firstPositionalArg(args);
+        if (subcommand && BLOCKED_DENO_SUBCOMMANDS.has(subcommand)) {
+          return `Subcommand "${subcommand}" is not allowed for deno MCP servers`;
+        }
+      }
+    }
+  } else {
+    const url = typeof config.url === "string" ? config.url.trim() : "";
+    if (!url) {
+      return "URL is required for remote servers";
+    }
+  }
+
+  if (config.env !== undefined) {
+    if (
+      typeof config.env !== "object" ||
+      config.env === null ||
+      Array.isArray(config.env)
+    ) {
+      return "env must be a plain object of string key-value pairs";
+    }
+
+    for (const [key, value] of Object.entries(config.env)) {
+      if (isBlockedObjectKey(key)) {
+        return `env key "${key}" is blocked for security reasons`;
+      }
+      if (typeof value !== "string") {
+        return `env.${key} must be a string`;
+      }
+      if (BLOCKED_MCP_ENV_KEYS.has(key.toUpperCase())) {
+        return `env variable "${key}" is not allowed for security reasons`;
+      }
+    }
+  }
+
+  if (config.cwd !== undefined && typeof config.cwd !== "string") {
+    return "cwd must be a string";
+  }
+
+  if (config.timeoutInMillis !== undefined) {
+    if (
+      typeof config.timeoutInMillis !== "number" ||
+      !Number.isFinite(config.timeoutInMillis) ||
+      config.timeoutInMillis < 0
+    ) {
+      return "timeoutInMillis must be a non-negative number";
+    }
+  }
+
+  return null;
+}
+
+export function resolveMcpServersRejection(
+  servers: Record<string, unknown>,
+): string | null {
+  for (const [serverName, serverConfig] of Object.entries(servers)) {
+    if (isBlockedObjectKey(serverName)) {
+      return `Invalid server name: "${serverName}"`;
+    }
+    if (
+      !serverConfig ||
+      typeof serverConfig !== "object" ||
+      Array.isArray(serverConfig)
+    ) {
+      return `Server "${serverName}" config must be a JSON object`;
+    }
+    if (hasBlockedObjectKeyDeep(serverConfig)) {
+      return `Server "${serverName}" contains blocked object keys`;
+    }
+    const configError = validateMcpServerConfig(
+      serverConfig as Record<string, unknown>,
+    );
+    if (configError) {
+      return `Server "${serverName}": ${configError}`;
+    }
+  }
+  return null;
+}
+
 // ---------------------------------------------------------------------------
 // Onboarding helpers
 // ---------------------------------------------------------------------------
@@ -7766,6 +8008,31 @@ async function handleRequest(
       }
     }
 
+    if (
+      filtered.mcp &&
+      typeof filtered.mcp === "object" &&
+      !Array.isArray(filtered.mcp)
+    ) {
+      const mcpPatch = filtered.mcp as Record<string, unknown>;
+      if (mcpPatch.servers !== undefined) {
+        if (
+          !mcpPatch.servers ||
+          typeof mcpPatch.servers !== "object" ||
+          Array.isArray(mcpPatch.servers)
+        ) {
+          error(res, "mcp.servers must be a JSON object", 400);
+          return;
+        }
+        const mcpRejection = resolveMcpServersRejection(
+          mcpPatch.servers as Record<string, unknown>,
+        );
+        if (mcpRejection) {
+          error(res, mcpRejection, 400);
+          return;
+        }
+      }
+    }
+
     safeMerge(state.config as Record<string, unknown>, filtered);
 
     // If the client updated env vars, synchronise them into process.env so
@@ -10037,42 +10304,14 @@ async function handleRequest(
     }
 
     const config = body.config as Record<string, unknown> | undefined;
-    if (!config || typeof config !== "object") {
+    if (!config || typeof config !== "object" || Array.isArray(config)) {
       error(res, "Server config object is required", 400);
       return;
     }
-    if (hasBlockedObjectKeyDeep(config)) {
-      error(
-        res,
-        'Invalid server config: "__proto__", "constructor", and "prototype" are not allowed',
-        400,
-      );
-      return;
-    }
 
-    const configType = config.type as string | undefined;
-    const validTypes = ["stdio", "http", "streamable-http", "sse"];
-    if (!configType || !validTypes.includes(configType)) {
-      error(
-        res,
-        `Invalid config type. Must be one of: ${validTypes.join(", ")}`,
-        400,
-      );
-      return;
-    }
-
-    if (configType === "stdio" && !config.command) {
-      error(res, "Command is required for stdio servers", 400);
-      return;
-    }
-
-    if (
-      (configType === "http" ||
-        configType === "streamable-http" ||
-        configType === "sse") &&
-      !config.url
-    ) {
-      error(res, "URL is required for remote servers", 400);
+    const mcpRejection = resolveMcpServersRejection({ [serverName]: config });
+    if (mcpRejection) {
+      error(res, mcpRejection, 400);
       return;
     }
 
@@ -10135,13 +10374,20 @@ async function handleRequest(
     if (!body) return;
 
     if (!state.config.mcp) state.config.mcp = {};
-    if (body.servers && typeof body.servers === "object") {
-      if (hasBlockedObjectKeyDeep(body.servers)) {
-        error(
-          res,
-          'Invalid servers config: "__proto__", "constructor", and "prototype" are not allowed',
-          400,
-        );
+    if (body.servers !== undefined) {
+      if (
+        !body.servers ||
+        typeof body.servers !== "object" ||
+        Array.isArray(body.servers)
+      ) {
+        error(res, "servers must be a JSON object", 400);
+        return;
+      }
+      const mcpRejection = resolveMcpServersRejection(
+        body.servers as Record<string, unknown>,
+      );
+      if (mcpRejection) {
+        error(res, mcpRejection, 400);
         return;
       }
       const sanitized = cloneWithoutBlockedObjectKeys(body.servers);
