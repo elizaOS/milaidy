@@ -92,6 +92,20 @@ describe("validateChatImages", () => {
       ).toMatch(/raw base64/);
     });
 
+    it("rejects data exceeding 5 MB", () => {
+      const oversized = "a".repeat(5 * 1_048_576 + 1);
+      expect(
+        validateChatImages([{ data: oversized, mimeType: "image/png", name: "x.png" }]),
+      ).toMatch(/too large/i);
+    });
+
+    it("accepts data exactly at the 5 MB limit", () => {
+      const atLimit = "a".repeat(5 * 1_048_576);
+      expect(
+        validateChatImages([{ data: atLimit, mimeType: "image/png", name: "x.png" }]),
+      ).toBeNull();
+    });
+
     it("rejects non-string data", () => {
       expect(
         validateChatImages([{ data: 123, mimeType: "image/png", name: "x.png" }]),
