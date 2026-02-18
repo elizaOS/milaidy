@@ -272,6 +272,12 @@ describe("collectPluginNames", () => {
     expect(names.has("@elizaos/plugin-elizacloud")).toBe(true);
   });
 
+  it("removes ElizaCloud plugin when cloud is explicitly disabled", () => {
+    const config = { cloud: { enabled: false } } as MiladyConfig;
+    const names = collectPluginNames(config);
+    expect(names.has("@elizaos/plugin-elizacloud")).toBe(false);
+  });
+
   it("adds ElizaCloud plugin when env key is present", () => {
     process.env.ELIZAOS_CLOUD_API_KEY = "ck-test";
     const names = collectPluginNames({} as MiladyConfig);
