@@ -817,6 +817,15 @@
   animation: companion-reveal 300ms ease;
 }
 
+@keyframes kpi-flash {
+  0% { background: var(--cg-accent); }
+  100% { background: var(--cg-card); }
+}
+
+.companion-game__kpi-card.is-changed {
+  animation: kpi-flash 1.2s ease-out;
+}
+
 .companion-game__kpi-label {
   font-size: 15px;
   color: #505467;

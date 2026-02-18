@@ -50,6 +50,7 @@ export class VrmEngine {
   private onUpdate: UpdateCallback | null = null;
   private initialized = false;
   private loadingAborted = false;
+  private vrmLoadRequestId = 0;
 
   private mouthValue = 0;
   private mouthSmoothed = 0;
@@ -396,6 +397,7 @@ export class VrmEngine {
     if (!this.scene) throw new Error("VrmEngine not initialized");
     if (!this.camera) throw new Error("VrmEngine not initialized");
     if (this.loadingAborted) return;
+    const requestId = ++this.vrmLoadRequestId;
 
     if (this.vrm) {
       this.scene.remove(this.vrm.scene);
@@ -426,7 +428,13 @@ export class VrmEngine {
       console.warn = originalWarn;
     }
 
-    if (this.loadingAborted || !this.scene) return;
+    if (this.loadingAborted || !this.scene || requestId !== this.vrmLoadRequestId) {
+      const staleVrm = gltf.userData.vrm as VRM | undefined;
+      if (staleVrm) {
+        VRMUtils.deepDispose(staleVrm.scene);
+      }
+      return;
+    }
 
     const vrm = gltf.userData.vrm as VRM | undefined;
     if (!vrm) {
@@ -446,14 +454,22 @@ export class VrmEngine {
       // rotateVRM0 is optional across three-vrm versions.
     }
 
-    if (this.forceFaceCameraFlip) {
+    const isOfficialMilady = /\/vrms\/milady-official-\d+\.vrm(?:\?|$)/i.test(url);
+    if (isOfficialMilady) {
+      // Official avatars need one extra 180-degree turn versus current runtime alignment.
+      vrm.scene.rotateY(Math.PI * 2);
+      vrm.scene.updateMatrixWorld(true);
+    } else if (this.forceFaceCameraFlip) {
       vrm.scene.rotateY(Math.PI);
       vrm.scene.updateMatrixWorld(true);
     } else {
       this.ensureFacingCamera(vrm);
     }
 
-    if (this.loadingAborted || !this.scene) return;
+    if (this.loadingAborted || !this.scene || requestId !== this.vrmLoadRequestId) {
+      VRMUtils.deepDispose(vrm.scene);
+      return;
+    }
 
     vrm.scene.visible = false;
     vrm.scene.traverse((obj) => {
@@ -496,9 +512,9 @@ export class VrmEngine {
       this.updateFootShadow();
     }
 
-    const manualCameraActive =
-      this.interactionEnabled &&
-      (this.userInteracting || this.nowMs() < this.userControlResumeAtMs);
+    // When interaction is enabled, keep OrbitControls in full control so
+    // drag-rotate remains truly 360 and does not get partially overridden.
+    const manualCameraActive = this.interactionEnabled;
 
     if (
       !manualCameraActive &&
@@ -572,6 +588,7 @@ export class VrmEngine {
     camera.near = 0.1;
     camera.far = 20.0;
     this.applyCameraProfileToCamera(camera, controls);
+    this.adjustCompanionCameraForAvatarBounds(vrm, camera, controls);
     camera.updateProjectionMatrix();
     this.baseCameraPosition.copy(camera.position);
 
@@ -579,6 +596,59 @@ export class VrmEngine {
       controls.target.copy(this.lookAtTarget);
       this.applyInteractionMode(controls);
       controls.update();
+    }
+  }
+
+  private adjustCompanionCameraForAvatarBounds(
+    vrm: VRM,
+    camera: THREE.PerspectiveCamera,
+    controls: OrbitControls | null,
+  ): void {
+    if (this.cameraProfile !== "companion") return;
+
+    const bounds = new THREE.Box3().setFromObject(vrm.scene);
+    if (bounds.isEmpty()) return;
+
+    const size = new THREE.Vector3();
+    const center = new THREE.Vector3();
+    bounds.getSize(size);
+    bounds.getCenter(center);
+
+    if (
+      !Number.isFinite(size.x) ||
+      !Number.isFinite(size.y) ||
+      !Number.isFinite(size.z)
+    ) {
+      return;
+    }
+
+    // Keep full-body framing for tall avatars by adapting camera distance.
+    const verticalPadding = 1.2;
+    const horizontalPadding = 1.16;
+    const halfHeight = Math.max((size.y * verticalPadding) / 2, 0.65);
+    const halfWidth = Math.max((size.x * horizontalPadding) / 2, 0.45);
+
+    const verticalFov = THREE.MathUtils.degToRad(camera.fov);
+    const horizontalFov =
+      2 * Math.atan(Math.max(1e-4, Math.tan(verticalFov / 2) * camera.aspect));
+
+    const distanceByHeight = halfHeight / Math.max(1e-4, Math.tan(verticalFov / 2));
+    const distanceByWidth = halfWidth / Math.max(1e-4, Math.tan(horizontalFov / 2));
+    const fitDistance = Math.max(distanceByHeight, distanceByWidth, 4.62);
+    const distance = Math.min(fitDistance, 7.4);
+
+    const lookAtLift = Math.min(size.y * 0.03, 0.12);
+    const cameraLift = Math.min(size.y * 0.08, 0.26);
+    this.lookAtTarget.set(center.x, center.y + lookAtLift, center.z);
+    camera.position.set(
+      center.x,
+      this.lookAtTarget.y + cameraLift,
+      center.z + distance,
+    );
+
+    if (controls) {
+      controls.minDistance = Math.max(2.8, distance * 0.72);
+      controls.maxDistance = Math.max(7.2, distance * 1.75);
     }
   }
 
@@ -868,7 +938,7 @@ export class VrmEngine {
 
       const eyeRight = right.sub(left);
       if (eyeRight.lengthSq() > 1e-6) {
-        // Up × Right gives an approximate face-forward vector for this rig setup.
+        // Up × Right best matches this VRM rig orientation in our current scene setup.
         forward.copy(new THREE.Vector3(0, 1, 0)).cross(eyeRight).normalize();
       }
     }
@@ -909,7 +979,7 @@ export class VrmEngine {
       controls.enableRotate = true;
       controls.enableZoom = true;
       controls.screenSpacePanning = false;
-      controls.rotateSpeed = 0.68;
+      controls.rotateSpeed = 1.15;
       controls.zoomSpeed = 0.85;
       return;
     }
@@ -934,17 +1004,21 @@ export class VrmEngine {
         controls.maxDistance = 7.0;
         controls.minPolarAngle = Math.PI * 0.16;
         controls.maxPolarAngle = Math.PI * 0.86;
+        controls.minAzimuthAngle = -Infinity;
+        controls.maxAzimuthAngle = Infinity;
       }
       return;
     }
 
-    camera.position.set(0, 1.2, 5.0);
-    camera.fov = 30;
+    camera.position.set(0, 1.12, 5.8);
+    camera.fov = 34;
     if (controls) {
-      controls.minDistance = 2.4;
-      controls.maxDistance = 9.0;
-      controls.minPolarAngle = Math.PI * 0.1;
-      controls.maxPolarAngle = Math.PI * 0.9;
+      controls.minDistance = 2.6;
+      controls.maxDistance = 10.2;
+      controls.minPolarAngle = Math.PI * 0.06;
+      controls.maxPolarAngle = Math.PI * 0.94;
+      controls.minAzimuthAngle = -Infinity;
+      controls.maxAzimuthAngle = Infinity;
     }
   }
 }

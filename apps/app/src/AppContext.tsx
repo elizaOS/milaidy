@@ -66,7 +66,9 @@ import { getMissingOnboardingPermissions } from "./onboarding-permissions";
 // ── VRM helpers ─────────────────────────────────────────────────────────
 
 /** Number of bundled VRM avatars shipped with the app. */
-export const VRM_COUNT = 24;
+const BASE_VRM_COUNT = 24;
+const OFFICIAL_VRM_COUNT = 8;
+export const VRM_COUNT = BASE_VRM_COUNT + OFFICIAL_VRM_COUNT;
 
 function normalizeAvatarIndex(index: number): number {
   if (!Number.isFinite(index)) return 1;
@@ -80,14 +82,39 @@ function normalizeAvatarIndex(index: number): number {
 export function getVrmUrl(index: number): string {
   const normalized = normalizeAvatarIndex(index);
   const safeIndex = normalized > 0 ? normalized : 1;
-  return resolveAppAssetUrl(`vrms/milady-${safeIndex}.vrm`);
+  if (safeIndex <= BASE_VRM_COUNT) {
+    return resolveAppAssetUrl(`vrms/milady-${safeIndex}.vrm`);
+  }
+  const officialIndex = safeIndex - BASE_VRM_COUNT;
+  return resolveAppAssetUrl(`vrms/milady-official-${officialIndex}.vrm`);
 }
 
 /** Resolve a bundled VRM index (1–N) to its preview thumbnail URL. */
 export function getVrmPreviewUrl(index: number): string {
   const normalized = normalizeAvatarIndex(index);
   const safeIndex = normalized > 0 ? normalized : 1;
-  return resolveAppAssetUrl(`vrms/previews/milady-${safeIndex}.png`);
+  if (safeIndex <= BASE_VRM_COUNT) {
+    return resolveAppAssetUrl(`vrms/previews/milady-${safeIndex}.png`);
+  }
+  const officialIndex = safeIndex - BASE_VRM_COUNT;
+  return resolveAppAssetUrl(`vrms/previews/milady-official-${officialIndex}.png`);
+}
+
+/** Human-readable roster title for bundled avatars. */
+export function getVrmTitle(index: number): string {
+  const normalized = normalizeAvatarIndex(index);
+  const safeIndex = normalized > 0 ? normalized : 1;
+  if (safeIndex <= BASE_VRM_COUNT) {
+    return `MILADY-${String(safeIndex).padStart(2, "0")}`;
+  }
+  const officialIndex = safeIndex - BASE_VRM_COUNT;
+  return `OFFICIAL-${String(officialIndex).padStart(2, "0")}`;
+}
+
+/** Whether a bundled index points to the official Milady avatar set. */
+export function isOfficialVrmIndex(index: number): boolean {
+  const normalized = normalizeAvatarIndex(index);
+  return normalized > BASE_VRM_COUNT;
 }
 
 // ── Theme ──────────────────────────────────────────────────────────────
@@ -107,7 +134,7 @@ export const THEMES: ReadonlyArray<{
   label: string;
   hint: string;
 }> = [
-    { id: "milady", label: "milady", hint: "light binance yellow" },
+    { id: "milady", label: "milady bsc", hint: "light binance yellow" },
     { id: "qt314", label: "qt3.14", hint: "soft pastels" },
     { id: "web2000", label: "web2000", hint: "green hacker vibes" },
     { id: "programmer", label: "programmer", hint: "vscode dark" },
@@ -221,6 +248,7 @@ export type OnboardingStep =
   | "avatar"
   | "style"
   | "theme"
+  | "setupMode"
   | "runMode"
   | "dockerSetup"
   | "cloudProvider"
@@ -666,6 +694,7 @@ export interface AppState {
   onboardingRpcKeys: Record<string, string>;
   onboardingAvatar: number;
   onboardingRestarting: boolean;
+  onboardingSetupMode: "quick" | "advanced" | "";
 
   // Command palette
   commandPaletteOpen: boolean;
@@ -1098,6 +1127,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [onboardingRpcKeys, setOnboardingRpcKeys] = useState<Record<string, string>>({});
   const [onboardingAvatar, setOnboardingAvatar] = useState(1);
   const [onboardingRestarting, setOnboardingRestarting] = useState(false);
+  const [onboardingSetupMode, setOnboardingSetupMode] = useState<"quick" | "advanced" | "">("");
 
   // --- Command palette ---
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
@@ -2879,9 +2909,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
         break;
       case "theme": {
         setTheme(onboardingTheme);
-        setOnboardingStep("runMode");
+        setOnboardingStep("setupMode");
         break;
       }
+      case "setupMode":
+        if (onboardingSetupMode === "quick") {
+          setOnboardingRunMode("cloud");
+          setOnboardingStep("llmProvider");
+        } else {
+          setOnboardingStep("runMode");
+        }
+        break;
       case "runMode":
         if (onboardingRunMode === "cloud") {
           if (opts && opts.cloudProviders.length === 1) {
@@ -2916,7 +2954,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
         break;
       case "llmProvider":
-        setOnboardingStep("inventorySetup");
+        if (onboardingSetupMode === "quick") {
+          setOnboardingStep("permissions");
+        } else {
+          setOnboardingStep("inventorySetup");
+        }
         break;
       case "inventorySetup":
         setOnboardingStep("connectors");
@@ -2955,7 +2997,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         break;
       }
     }
-  }, [onboardingStep, onboardingOptions, onboardingRunMode, onboardingTheme, setTheme, cloudConnected, publicAppMode, setActionNotice]);
+  }, [onboardingStep, onboardingOptions, onboardingRunMode, onboardingSetupMode, onboardingTheme, setTheme, cloudConnected, publicAppMode, setActionNotice]);
 
   const handleOnboardingBack = useCallback(() => {
     switch (onboardingStep) {
@@ -2971,8 +3013,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       case "theme":
         setOnboardingStep("style");
         break;
-      case "runMode":
+      case "setupMode":
         setOnboardingStep("theme");
+        break;
+      case "runMode":
+        setOnboardingStep("setupMode");
         break;
       case "cloudProvider":
         setOnboardingStep("runMode");
@@ -2994,7 +3039,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setOnboardingStep("runMode");
         break;
       case "llmProvider":
-        if (onboardingRunMode === "local-sandbox") {
+        if (onboardingSetupMode === "quick") {
+          setOnboardingStep("setupMode");
+        } else if (onboardingRunMode === "local-sandbox") {
           setOnboardingStep("dockerSetup");
         } else {
           setOnboardingStep("runMode");
@@ -3012,10 +3059,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
         break;
       case "permissions":
-        setOnboardingStep("connectors");
+        if (onboardingSetupMode === "quick") {
+          setOnboardingStep("llmProvider");
+        } else {
+          setOnboardingStep("connectors");
+        }
         break;
     }
-  }, [onboardingStep, onboardingOptions, onboardingRunMode, publicAppMode]);
+  }, [onboardingStep, onboardingOptions, onboardingRunMode, onboardingSetupMode, publicAppMode]);
 
   const handleOnboardingFinish = useCallback(async () => {
     if (onboardingFinishBusyRef.current || onboardingRestarting) return;
@@ -3372,6 +3423,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       onboardingRpcKeys: setOnboardingRpcKeys,
       onboardingAvatar: setOnboardingAvatar,
       onboardingRestarting: setOnboardingRestarting,
+      onboardingSetupMode: setOnboardingSetupMode,
       selectedVrmIndex: setSelectedVrmIndex,
       customVrmUrl: setCustomVrmUrl,
       commandQuery: setCommandQuery,
@@ -3831,7 +3883,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     onboardingTwilioAccountSid, onboardingTwilioAuthToken, onboardingTwilioPhoneNumber,
     onboardingBlooioApiKey, onboardingBlooioPhoneNumber, onboardingSubscriptionTab,
     onboardingSelectedChains, onboardingRpcSelections, onboardingRpcKeys,
-    onboardingAvatar, onboardingRestarting,
+    onboardingAvatar, onboardingRestarting, onboardingSetupMode,
     commandPaletteOpen, commandQuery, commandActiveIndex, emotePickerOpen,
     mcpConfiguredServers, mcpServerStatuses, mcpMarketplaceQuery, mcpMarketplaceResults,
     mcpMarketplaceLoading, mcpAction, mcpAddingServer, mcpAddingResult,

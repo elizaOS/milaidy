@@ -153,8 +153,9 @@ export function ChatAvatar({ mouthOpen = 0, isSpeaking = false }: ChatAvatarProp
             style={{
               opacity: vrmLoaded ? 1 : 0,
               transition: "opacity 0.45s ease",
-              transform: "scale(1.22) translateY(-8%)",
-              transformOrigin: "50% 28%",
+              // Keep a stable full-body framing in the narrow chat sidebar.
+              transform: "scale(1.02) translateY(1%)",
+              transformOrigin: "50% 42%",
             }}
           >
             <VrmViewer
@@ -162,6 +163,7 @@ export function ChatAvatar({ mouthOpen = 0, isSpeaking = false }: ChatAvatarProp
               mouthOpen={mouthOpen}
               isSpeaking={isSpeaking}
               interactive
+              interactiveMode="orbitZoom"
               onEngineReady={handleEngineReady}
               onEngineState={handleEngineState}
             />

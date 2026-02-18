@@ -63,6 +63,48 @@ function Modal({
 
 /* ── Auto-detection helpers ────────────────────────────────────────── */
 
+/* ── Section anchors for sticky nav ──────────────────────────────────── */
+
+const SETTINGS_SECTIONS = [
+  { id: "settings-appearance", label: "Appearance" },
+  { id: "settings-ai-model", label: "AI Model" },
+  { id: "settings-wallet", label: "Wallet / RPC" },
+  { id: "settings-media", label: "Media" },
+  { id: "settings-speech", label: "Speech" },
+  { id: "settings-permissions", label: "Permissions" },
+  { id: "settings-updates", label: "Updates" },
+  { id: "settings-extension", label: "Extension" },
+  { id: "settings-export", label: "Export / Import" },
+  { id: "settings-danger", label: "Danger Zone" },
+] as const;
+
+function SettingsNav({ activeId }: { activeId: string }) {
+  return (
+    <nav className="hidden md:block sticky top-6 w-[160px] shrink-0 self-start">
+      <ul className="space-y-0.5">
+        {SETTINGS_SECTIONS.map((s) => (
+          <li key={s.id}>
+            <a
+              href={`#${s.id}`}
+              className={`block px-2.5 py-1.5 text-xs rounded transition-colors ${
+                activeId === s.id
+                  ? "bg-[var(--accent-subtle)] text-[var(--accent)] font-semibold"
+                  : "text-[var(--muted)] hover:text-[var(--text)] hover:bg-[var(--bg-hover)]"
+              }`}
+              onClick={(e) => {
+                e.preventDefault();
+                document.getElementById(s.id)?.scrollIntoView({ behavior: "smooth" });
+              }}
+            >
+              {s.label}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </nav>
+  );
+}
+
 /* ── SettingsView ─────────────────────────────────────────────────────── */
 
 export function SettingsView() {
@@ -183,6 +225,27 @@ export function SettingsView() {
       } catch { /* ignore */ }
     })();
   }, [loadPlugins, loadUpdateStatus, checkExtensionStatus]);
+
+  /* ── Sticky nav: track which section is visible ─────────────────── */
+  const [activeSection, setActiveSection] = useState(SETTINGS_SECTIONS[0].id);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            setActiveSection(entry.target.id);
+          }
+        }
+      },
+      { rootMargin: "-20% 0px -70% 0px" },
+    );
+    for (const section of SETTINGS_SECTIONS) {
+      const el = document.getElementById(section.id);
+      if (el) observer.observe(el);
+    }
+    return () => observer.disconnect();
+  }, []);
 
   /* ── Derived ──────────────────────────────────────────────────────── */
 
@@ -438,14 +501,16 @@ export function SettingsView() {
 
 
   return (
-    <div>
+    <div className="flex gap-6">
+      <SettingsNav activeId={activeSection} />
+      <div className="min-w-0 flex-1">
       <h2 className="text-lg font-bold mb-1">Settings</h2>
       <p className="text-[13px] text-[var(--muted)] mb-5">Appearance, AI provider, updates, and app preferences.</p>
 
       {/* ═══════════════════════════════════════════════════════════════
           1. APPEARANCE
           ═══════════════════════════════════════════════════════════════ */}
-      <div className="p-4 border border-[var(--border)] bg-[var(--card)]">
+      <div id="settings-appearance" className="p-4 border border-[var(--border)] bg-[var(--card)]">
         <div className="font-bold text-sm mb-2">Appearance</div>
         <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
           {THEMES.map((t) => (
@@ -468,7 +533,7 @@ export function SettingsView() {
       {/* ═══════════════════════════════════════════════════════════════
           2. AI MODEL
           ═══════════════════════════════════════════════════════════════ */}
-      <div className="mt-6 p-4 border border-[var(--border)] bg-[var(--card)]">
+      <div id="settings-ai-model" className="mt-6 p-4 border border-[var(--border)] bg-[var(--card)]">
         <div className="font-bold text-sm mb-4">AI Model</div>
 
         {(() => {
@@ -883,14 +948,14 @@ export function SettingsView() {
       {/* ═══════════════════════════════════════════════════════════════
           3. WALLET / RPC / SECRETS
           ═══════════════════════════════════════════════════════════════ */}
-      <div className="mt-6">
+      <div id="settings-wallet" className="mt-6">
         <ConfigPageView embedded />
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════
           4. MEDIA GENERATION
           ═══════════════════════════════════════════════════════════════ */}
-      <div className="mt-6 p-4 border border-[var(--border)] bg-[var(--card)]">
+      <div id="settings-media" className="mt-6 p-4 border border-[var(--border)] bg-[var(--card)]">
         <div className="font-bold text-sm mb-4">Media Generation</div>
         <MediaSettingsSection />
       </div>
@@ -898,7 +963,7 @@ export function SettingsView() {
       {/* ═══════════════════════════════════════════════════════════════
           5. SPEECH (TTS / STT)
           ═══════════════════════════════════════════════════════════════ */}
-      <div className="mt-6 p-4 border border-[var(--border)] bg-[var(--card)]">
+      <div id="settings-speech" className="mt-6 p-4 border border-[var(--border)] bg-[var(--card)]">
         <div className="font-bold text-sm mb-4">Speech (TTS / STT)</div>
         <VoiceConfigView />
       </div>
@@ -906,15 +971,16 @@ export function SettingsView() {
       {/* ═══════════════════════════════════════════════════════════════
           6. PERMISSIONS & CAPABILITIES
           ═══════════════════════════════════════════════════════════════ */}
-      <div className="mt-6 p-4 border border-[var(--border)] bg-[var(--card)]">
-        <div className="font-bold text-sm mb-4">Permissions & Capabilities</div>
+      <div id="settings-permissions" className="mt-6 p-4 border border-[var(--border)] bg-[var(--card)]">
+        <div className="font-bold text-sm mb-1">Permissions & Capabilities</div>
+        <div className="text-[11px] text-[var(--muted)] mb-4">Desktop mode only — system permissions require the native Milady Desktop app.</div>
         <PermissionsSection />
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════
           7. UPDATES
           ═══════════════════════════════════════════════════════════════ */}
-      <div className="mt-6 p-4 border border-[var(--border)] bg-[var(--card)]">
+      <div id="settings-updates" className="mt-6 p-4 border border-[var(--border)] bg-[var(--card)]">
         <div className="flex justify-between items-center mb-3">
           <div>
             <div className="font-bold text-sm">Software Updates</div>
@@ -1003,9 +1069,12 @@ export function SettingsView() {
       {/* ═══════════════════════════════════════════════════════════════
           4. CHROME EXTENSION
           ═══════════════════════════════════════════════════════════════ */}
-      <div className="mt-6 p-4 border border-[var(--border)] bg-[var(--card)]">
+      <div id="settings-extension" className="mt-6 p-4 border border-[var(--border)] bg-[var(--card)]">
         <div className="flex justify-between items-center mb-3">
-          <div className="font-bold text-sm">Chrome Extension</div>
+          <div>
+            <div className="font-bold text-sm">Chrome Extension</div>
+            <div className="text-[11px] text-[var(--muted)] mt-0.5">Desktop mode only — relay connects via localhost.</div>
+          </div>
           <button
             className="btn whitespace-nowrap !mt-0 text-xs py-1.5 px-3.5"
             onClick={() => void checkExtensionStatus()}
@@ -1090,7 +1159,7 @@ export function SettingsView() {
       {/* ═══════════════════════════════════════════════════════════════
           11. EXPORT / IMPORT
           ═══════════════════════════════════════════════════════════════ */}
-      <div className="mt-6 p-4 border border-[var(--border)] bg-[var(--card)]">
+      <div id="settings-export" className="mt-6 p-4 border border-[var(--border)] bg-[var(--card)]">
         <div className="flex justify-between items-center">
           <div className="font-bold text-sm">Agent Export / Import</div>
           <div className="flex items-center gap-2">
@@ -1113,7 +1182,7 @@ export function SettingsView() {
       {/* ═══════════════════════════════════════════════════════════════
           12. DANGER ZONE
           ═══════════════════════════════════════════════════════════════ */}
-      <div className="mt-8 pt-6 border-t border-[var(--border)]">
+      <div id="settings-danger" className="mt-8 pt-6 border-t border-[var(--border)]">
         <h3 className="text-lg font-bold text-[var(--danger,#e74c3c)]">Danger Zone</h3>
         <p className="text-[13px] text-[var(--muted)] mb-5">
           Irreversible actions. Proceed with caution.
@@ -1319,6 +1388,7 @@ export function SettingsView() {
           </div>
         </div>
       </Modal>
+      </div>
     </div>
   );
 }

@@ -159,7 +159,7 @@ describe("CompanionView", () => {
 
     const content = text(tree!.root);
     expect(content).toContain("Companion Console");
-    expect(content).toContain("Cyber Companion");
+    expect(content).toContain("Agent Companion");
     expect(content).toContain("Character Roster");
     expect(content).toContain("Mood");
     expect(content).toContain("Hunger");

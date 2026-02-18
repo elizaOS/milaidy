@@ -126,6 +126,7 @@ export function OnboardingWizard() {
     onboardingAvatar,
     customVrmUrl,
     onboardingRestarting,
+    onboardingSetupMode,
     cloudConnected,
     cloudLoginBusy,
     cloudLoginError,
@@ -136,6 +137,7 @@ export function OnboardingWizard() {
     handleCloudLogin,
   } = useApp();
 
+  const [showAllProviders, setShowAllProviders] = useState(false);
   const [openaiOAuthStarted, setOpenaiOAuthStarted] = useState(false);
   const [openaiCallbackUrl, setOpenaiCallbackUrl] = useState("");
   const [openaiConnected, setOpenaiConnected] = useState(false);
@@ -446,6 +448,48 @@ export function OnboardingWizard() {
                   <div className="font-bold text-sm">{theme.label}</div>
                 </button>
               ))}
+            </div>
+          </div>
+        );
+
+      case "setupMode":
+        return (
+          <div className="max-w-[480px] mx-auto mt-10 text-center font-body">
+            <OnboardingVrmAvatar
+              vrmPath={avatarVrmPath}
+              fallbackPreviewUrl={avatarFallbackPreviewUrl}
+            />
+            <div className="onboarding-speech bg-card border border-border rounded-xl px-5 py-4 mx-auto mb-6 max-w-[420px] relative text-[15px] text-txt leading-relaxed">
+              <h2 className="text-[28px] font-normal mb-1 text-txt-strong">how much setup?</h2>
+              <p className="text-muted text-sm">Choose your path — you can always change settings later.</p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-[420px] mx-auto">
+              <button
+                className={`p-5 border-[1.5px] rounded-lg cursor-pointer transition-all text-left ${
+                  onboardingSetupMode === "quick"
+                    ? "border-accent bg-accent text-accent-fg shadow-md"
+                    : "border-border bg-card hover:border-border-hover hover:bg-bg-hover"
+                }`}
+                onClick={() => setState("onboardingSetupMode", "quick")}
+              >
+                <div className="font-semibold text-sm mb-1">Quick Setup</div>
+                <div className={`text-xs ${onboardingSetupMode === "quick" ? "opacity-80" : "text-muted"}`}>
+                  Recommended — pick your AI provider and go.
+                </div>
+              </button>
+              <button
+                className={`p-5 border-[1.5px] rounded-lg cursor-pointer transition-all text-left ${
+                  onboardingSetupMode === "advanced"
+                    ? "border-accent bg-accent text-accent-fg shadow-md"
+                    : "border-border bg-card hover:border-border-hover hover:bg-bg-hover"
+                }`}
+                onClick={() => setState("onboardingSetupMode", "advanced")}
+              >
+                <div className="font-semibold text-sm mb-1">Full Setup</div>
+                <div className={`text-xs ${onboardingSetupMode === "advanced" ? "opacity-80" : "text-muted"}`}>
+                  Configure run mode, wallets, connectors, and more.
+                </div>
+              </button>
             </div>
           </div>
         );
@@ -800,8 +844,16 @@ export function OnboardingWizard() {
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
                     {cloudProviders.map((p: ProviderOption) => renderProviderCard(p))}
                     {subscriptionProviders.map((p: ProviderOption) => renderProviderCard(p))}
-                    {apiProviders.map((p: ProviderOption) => renderProviderCard(p))}
+                    {showAllProviders && apiProviders.map((p: ProviderOption) => renderProviderCard(p))}
                   </div>
+                  {!showAllProviders && apiProviders.length > 0 && (
+                    <button
+                      className="mt-2 text-xs text-accent bg-transparent border border-accent/30 px-3 py-1.5 rounded-full cursor-pointer hover:bg-accent/10"
+                      onClick={() => setShowAllProviders(true)}
+                    >
+                      More providers ({apiProviders.length})...
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -1398,6 +1450,8 @@ export function OnboardingWizard() {
         return onboardingStyle.length > 0;
       case "theme":
         return true;
+      case "setupMode":
+        return onboardingSetupMode !== "";
       case "runMode":
         return onboardingRunMode !== "";
       case "dockerSetup":

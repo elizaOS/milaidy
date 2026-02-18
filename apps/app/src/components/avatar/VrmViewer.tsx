@@ -19,6 +19,8 @@ export type VrmViewerProps = {
   isSpeaking?: boolean;
   /** Enable drag-rotate + wheel/pinch zoom camera controls */
   interactive?: boolean;
+  /** Force rotate model to face camera (used by specific avatar packs) */
+  forceFaceCameraFlip?: boolean;
   /** Camera profile preset (chat default, companion for hero-stage framing) */
   cameraProfile?: CameraProfile;
   /** Interaction behavior for camera controls */
@@ -33,6 +35,7 @@ export function VrmViewer(props: VrmViewerProps) {
   const mouthOpenRef = useRef<number>(props.mouthOpen);
   const isSpeakingRef = useRef<boolean>(props.isSpeaking ?? false);
   const interactiveRef = useRef<boolean>(props.interactive ?? false);
+  const forceFaceCameraFlipRef = useRef<boolean>(props.forceFaceCameraFlip ?? false);
   const cameraProfileRef = useRef<CameraProfile>(props.cameraProfile ?? "chat");
   const interactionModeRef = useRef<InteractionMode>(props.interactiveMode ?? "free");
   const lastStateEmitMsRef = useRef<number>(0);
@@ -42,6 +45,7 @@ export function VrmViewer(props: VrmViewerProps) {
   mouthOpenRef.current = props.mouthOpen;
   isSpeakingRef.current = props.isSpeaking ?? false;
   interactiveRef.current = props.interactive ?? false;
+  forceFaceCameraFlipRef.current = props.forceFaceCameraFlip ?? false;
   cameraProfileRef.current = props.cameraProfile ?? "chat";
   interactionModeRef.current = props.interactiveMode ?? "free";
 
@@ -59,11 +63,9 @@ export function VrmViewer(props: VrmViewerProps) {
     }
 
     engine.setup(canvas, () => {
-      engine.setCameraProfile(cameraProfileRef.current);
-      engine.setInteractionMode(interactionModeRef.current);
+      // Frame loop: only update transient animation state here.
       engine.setMouthOpen(mouthOpenRef.current);
       engine.setSpeaking(isSpeakingRef.current);
-      engine.setInteractionEnabled(interactiveRef.current);
       if (props.onEngineState && mountedRef.current) {
         const now = performance.now();
         if (now - lastStateEmitMsRef.current >= 250) {
@@ -72,6 +74,12 @@ export function VrmViewer(props: VrmViewerProps) {
         }
       }
     });
+
+    // One-time initial camera/control setup (subsequent changes handled by effects).
+    engine.setCameraProfile(cameraProfileRef.current);
+    engine.setInteractionMode(interactionModeRef.current);
+    engine.setInteractionEnabled(interactiveRef.current);
+    engine.setForceFaceCameraFlip(forceFaceCameraFlipRef.current);
 
     props.onEngineReady?.(engine);
 
@@ -105,6 +113,12 @@ export function VrmViewer(props: VrmViewerProps) {
     if (!engine) return;
     engine.setInteractionEnabled(props.interactive ?? false);
   }, [props.interactive]);
+
+  useEffect(() => {
+    const engine = engineRef.current;
+    if (!engine) return;
+    engine.setForceFaceCameraFlip(props.forceFaceCameraFlip ?? false);
+  }, [props.forceFaceCameraFlip]);
 
   useEffect(() => {
     const engine = engineRef.current;

@@ -440,7 +440,7 @@ export function PermissionsSection() {
     <div className="space-y-6">
       {/* System Permissions */}
       <div>
-        <div className="flex justify-between items-center mb-3">
+        <div className="flex justify-between items-center mb-1">
           <div className="font-bold text-sm">System Permissions</div>
           <button
             type="button"
@@ -451,6 +451,7 @@ export function PermissionsSection() {
             {refreshing ? "Refreshing..." : "Refresh"}
           </button>
         </div>
+        <div className="text-[11px] text-[var(--muted)] mb-3">Desktop mode only — "Settings" buttons open macOS System Preferences via the native app.</div>
         <div className="border border-[var(--border)] bg-[var(--card)]">
           {applicablePermissions.map((def) => {
             const state = permissions[def.id];

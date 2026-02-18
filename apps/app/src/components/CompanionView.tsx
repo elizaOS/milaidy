@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { getVrmPreviewUrl, getVrmUrl, useApp, VRM_COUNT } from "../AppContext.js";
+import {
+  getVrmPreviewUrl,
+  getVrmTitle,
+  getVrmUrl,
+  useApp,
+  VRM_COUNT,
+} from "../AppContext.js";
 import type { CompanionAction, CompanionPolicyLevel } from "../api-client.js";
 import { VrmViewer } from "./avatar/VrmViewer";
 import type { VrmEngine, VrmEngineState } from "./avatar/VrmEngine";
@@ -116,6 +122,9 @@ export function CompanionView() {
   const actionAnimatingRef = useRef(false);
   const scheduleNextAccentRef = useRef<() => void>(() => {});
   const prevSnapshotVersionRef = useRef<number | null>(null);
+  const prevStatsRef = useRef<Record<string, number>>({});
+
+  const [changedStats, setChangedStats] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!companionSnapshot && !companionLoading) {
@@ -149,6 +158,29 @@ export function CompanionView() {
     setQuietStart(autopost.quietHoursStart);
     setQuietEnd(autopost.quietHoursEnd);
     setPolicyLevel(autopost.policyLevel);
+  }, [companionSnapshot]);
+
+  useEffect(() => {
+    if (!companionSnapshot) return;
+    const stats = companionSnapshot.state.stats;
+    const prev = prevStatsRef.current;
+    const changed = new Set<string>();
+    for (const [key, value] of Object.entries(stats)) {
+      if (typeof value === "number" && prev[key] !== undefined && prev[key] !== value) {
+        changed.add(key);
+      }
+    }
+    if (changed.size > 0) {
+      setChangedStats(changed);
+      const timer = setTimeout(() => setChangedStats(new Set()), 1200);
+      prevStatsRef.current = Object.fromEntries(
+        Object.entries(stats).filter(([, v]) => typeof v === "number")
+      ) as Record<string, number>;
+      return () => clearTimeout(timer);
+    }
+    prevStatsRef.current = Object.fromEntries(
+      Object.entries(stats).filter(([, v]) => typeof v === "number")
+    ) as Record<string, number>;
   }, [companionSnapshot]);
 
   const cooldowns = useMemo(() => {
@@ -185,7 +217,7 @@ export function CompanionView() {
         return {
           index,
           previewUrl: getVrmPreviewUrl(index),
-          title: `milady-${String(index).padStart(2, "0")}`,
+          title: getVrmTitle(index),
         };
       }),
     [],
@@ -592,7 +624,7 @@ export function CompanionView() {
           <section className="companion-game__stage" data-testid="companion-stage">
             <div className="companion-game__stage-head">
               <div>
-                <div className="companion-game__headline">Cyber Companion</div>
+                <div className="companion-game__headline">Agent Companion</div>
                 <p className="companion-game__subline">
                   Level {state.level} | XP {state.xp}/{companionSnapshot.nextLevelXp} | Streak {state.streakDays}d
                 </p>
@@ -688,7 +720,7 @@ export function CompanionView() {
               note = `chat ${companionSnapshot.today.chatCount}/${companionSnapshot.today.chatCap}`;
             }
             return (
-              <article key={`kpi-${item.id}`} className="companion-game__kpi-card">
+              <article key={`kpi-${item.id}`} className={`companion-game__kpi-card${changedStats.has(item.id) ? " is-changed" : ""}`}>
                 <div className="companion-game__kpi-label">{item.label}</div>
                 <div className="companion-game__kpi-value">{value}</div>
                 <div className="companion-game__kpi-note">{note}</div>
@@ -697,11 +729,6 @@ export function CompanionView() {
           })}
         </section>
 
-        <div className="companion-game__footer-meta">
-          <span>Timezone: {companionSnapshot.today.timezone}</span>
-          <span>Day bucket: {companionSnapshot.today.dayKey}</span>
-          <span>Manual share: {companionSnapshot.today.manualShareCount}/{companionSnapshot.today.manualShareCap}</span>
-        </div>
       </div>
 
       <div
@@ -746,11 +773,6 @@ export function CompanionView() {
             </div>
           )}
 
-          <div className="companion-game__panel-metrics">
-            <div>Autopost today: {companionSnapshot.today.autoPostCount}/{companionSnapshot.today.autoPostCap}</div>
-            <div>Chat scored: {companionSnapshot.today.chatCount}/{companionSnapshot.today.chatCap}</div>
-            <div>External scored: {companionSnapshot.today.externalCount}/{companionSnapshot.today.externalCap}</div>
-          </div>
         </section>
 
         <section className="companion-game__drawer-section">
