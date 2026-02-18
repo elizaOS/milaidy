@@ -314,6 +314,7 @@ jobs:
 
             const inlineDecisionPattern = /(?:^|\n)\s*(?:#{1,4}\s+)?(?:\d+\.\s*)?(?:\*{0,2})Decision(?:\*{0,2})?\s*:\s*(?:\*{0,2})(APPROVE|REQUEST CHANGES|CLOSE)\b/i;
             const multilineDecisionPattern = /(?:^|\n)\s*(?:#{1,4}\s+)?(?:\d+\.\s*)?(?:\*{0,2})Decision(?:\*{0,2})?\s*:?\s*\n+\s*(?:\*{0,2})(APPROVE|REQUEST CHANGES|CLOSE)\b/i;
+            const standaloneVerdictPattern = /(?:^|\n)\s*(?:\*{0,2})\s*(APPROVE|REQUEST CHANGES|CLOSE)\s*(?:\*{0,2})\b/i;
             const maxAttempts = 5; // Increased for fallback comment posting
             const pollIntervalMs = 3_000;
 
@@ -325,6 +326,9 @@ jobs:
               if (inline?.[1]) return inline[1].toUpperCase();
               const multiline = body.match(multilineDecisionPattern);
               if (multiline?.[1]) return multiline[1].toUpperCase();
+              const prefix = body.slice(0, 1500);
+              const standalone = prefix.match(standaloneVerdictPattern);
+              if (standalone?.[1]) return standalone[1].toUpperCase();
               return '';
             };
 
