@@ -7775,7 +7775,6 @@ async function handleRequest(
 
     try {
       saveMiladyConfig(state.config);
-      scheduleRuntimeRestart("Configuration updated");
     } catch (err) {
       logger.warn(
         `[api] Config save failed: ${err instanceof Error ? err.message : err}`,

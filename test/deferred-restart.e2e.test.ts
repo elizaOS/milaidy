@@ -61,6 +61,17 @@ function req(
 }
 
 // ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/** Safely narrow an unknown value to a string array, filtering non-strings. */
+function toStringArray(val: unknown): string[] {
+  return Array.isArray(val)
+    ? val.filter((el): el is string => typeof el === "string")
+    : [];
+}
+
+// ---------------------------------------------------------------------------
 // WebSocket helpers
 // ---------------------------------------------------------------------------
 
@@ -141,30 +152,31 @@ describe("Deferred restart E2E", () => {
     });
   });
 
-  // -- Config change triggers pending restart --
+  // -- Wallet config change triggers pending restart --
 
-  describe("PUT /api/config marks restart as pending", () => {
-    it("adds pendingRestart after config update", async () => {
-      // Make a config change (env var update)
-      await req(port, "PUT", "/api/config", {
-        env: { vars: { TEST_DEFERRED_KEY: "value1" } },
+  describe("PUT /api/wallet/config marks restart as pending", () => {
+    it("adds pendingRestart after wallet config update", async () => {
+      await req(port, "PUT", "/api/wallet/config", {
+        ALCHEMY_API_KEY: "test-key-1",
       });
 
       const { data } = await req(port, "GET", "/api/status");
       expect(data.pendingRestart).toBe(true);
-      expect(data.pendingRestartReasons).toContain("Configuration updated");
+      expect(data.pendingRestartReasons).toContain(
+        "Wallet configuration updated",
+      );
     });
 
     it("does not duplicate the same reason on repeated config saves", async () => {
-      await req(port, "PUT", "/api/config", {
-        env: { vars: { TEST_DEFERRED_KEY: "value2" } },
+      await req(port, "PUT", "/api/wallet/config", {
+        ALCHEMY_API_KEY: "test-key-2",
       });
 
       const { data } = await req(port, "GET", "/api/status");
       expect(data.pendingRestart).toBe(true);
-      const reasons = data.pendingRestartReasons as string[];
+      const reasons = toStringArray(data.pendingRestartReasons);
       const configReasonCount = reasons.filter(
-        (r) => r === "Configuration updated",
+        (r) => r === "Wallet configuration updated",
       ).length;
       expect(configReasonCount).toBe(1);
     });
@@ -173,7 +185,7 @@ describe("Deferred restart E2E", () => {
   // -- WebSocket broadcasts restart-required --
 
   describe("WebSocket restart-required event", () => {
-    it("broadcasts restart-required when config is saved", async () => {
+    it("broadcasts restart-required when wallet config is saved", async () => {
       const ws = await connectWs(port);
 
       try {
@@ -183,15 +195,15 @@ describe("Deferred restart E2E", () => {
           (msg) => msg.type === "restart-required",
         );
 
-        // Make another config update
-        await req(port, "PUT", "/api/config", {
-          env: { vars: { ANOTHER_KEY: "test" } },
+        // Make a wallet config update
+        await req(port, "PUT", "/api/wallet/config", {
+          ALCHEMY_API_KEY: "test-key-ws",
         });
 
         const msg = await messagePromise;
         expect(msg.type).toBe("restart-required");
         expect(Array.isArray(msg.reasons)).toBe(true);
-        expect((msg.reasons as string[]).length).toBeGreaterThan(0);
+        expect(toStringArray(msg.reasons).length).toBeGreaterThan(0);
       } finally {
         ws.close();
       }
@@ -240,13 +252,13 @@ describe("Deferred restart E2E", () => {
 
     it("still accumulates pending reasons even without onRestart handler", async () => {
       // scheduleRuntimeRestart works independently of the onRestart handler
-      await req(port, "PUT", "/api/config", {
-        env: { vars: { NO_HANDLER_KEY: "test" } },
+      await req(port, "PUT", "/api/wallet/config", {
+        ALCHEMY_API_KEY: "test-key-no-handler",
       });
 
       const { data } = await req(port, "GET", "/api/status");
       expect(data.pendingRestart).toBe(true);
-      expect((data.pendingRestartReasons as string[]).length).toBeGreaterThan(
+      expect(toStringArray(data.pendingRestartReasons).length).toBeGreaterThan(
         0,
       );
     });
@@ -288,15 +300,15 @@ describe("Deferred restart E2E (with restart handler)", () => {
   });
 
   it("accumulates reasons, then restart clears them", async () => {
-    // 1. Trigger a pending restart via config change
-    await req(port, "PUT", "/api/config", {
-      env: { vars: { KEY_A: "a" } },
+    // 1. Trigger a pending restart via wallet config change
+    await req(port, "PUT", "/api/wallet/config", {
+      ALCHEMY_API_KEY: "test-key-accumulate",
     });
 
     // 2. Verify pending reasons are present
     let { data } = await req(port, "GET", "/api/status");
     expect(data.pendingRestart).toBe(true);
-    expect((data.pendingRestartReasons as string[]).length).toBeGreaterThan(0);
+    expect(toStringArray(data.pendingRestartReasons).length).toBeGreaterThan(0);
 
     // 3. Perform explicit restart
     const restartResult = await req(port, "POST", "/api/agent/restart");
@@ -309,15 +321,15 @@ describe("Deferred restart E2E (with restart handler)", () => {
     expect(data.pendingRestartReasons).toEqual([]);
   });
 
-  it("config changes do not trigger onRestart", async () => {
+  it("wallet config changes do not trigger onRestart", async () => {
     const before = restartCallCount;
 
-    // Multiple config changes
-    await req(port, "PUT", "/api/config", {
-      env: { vars: { KEY_B: "b" } },
+    // Multiple wallet config changes
+    await req(port, "PUT", "/api/wallet/config", {
+      ALCHEMY_API_KEY: "test-key-b",
     });
-    await req(port, "PUT", "/api/config", {
-      env: { vars: { KEY_C: "c" } },
+    await req(port, "PUT", "/api/wallet/config", {
+      ALCHEMY_API_KEY: "test-key-c",
     });
 
     // onRestart should NOT have been called
@@ -341,14 +353,14 @@ describe("Deferred restart E2E (with restart handler)", () => {
         (msg) => msg.type === "restart-required",
       );
 
-      // Trigger config change
-      await req(port, "PUT", "/api/config", {
-        env: { vars: { KEY_D: "d" } },
+      // Trigger wallet config change
+      await req(port, "PUT", "/api/wallet/config", {
+        ALCHEMY_API_KEY: "test-key-d",
       });
 
       const msg = await messagePromise;
-      const reasons = msg.reasons as string[];
-      expect(reasons).toContain("Configuration updated");
+      const reasons = toStringArray(msg.reasons);
+      expect(reasons).toContain("Wallet configuration updated");
     } finally {
       ws.close();
     }

@@ -3956,7 +3956,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
             setPendingRestart(data.pendingRestart);
           }
           if (Array.isArray(data.pendingRestartReasons)) {
-            setPendingRestartReasons(data.pendingRestartReasons as string[]);
+            setPendingRestartReasons(
+              data.pendingRestartReasons.filter(
+                (el): el is string => typeof el === "string",
+              ),
+            );
           }
         },
       );
@@ -3964,7 +3968,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         "restart-required",
         (data: Record<string, unknown>) => {
           if (Array.isArray(data.reasons)) {
-            setPendingRestartReasons(data.reasons as string[]);
+            setPendingRestartReasons(
+              data.reasons.filter(
+                (el): el is string => typeof el === "string",
+              ),
+            );
             setPendingRestart(true);
             setRestartBannerDismissed(false);
           }
