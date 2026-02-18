@@ -4853,6 +4853,23 @@ async function handleRequest(
       logger.info(
         `[milady-api] Subscription provider selected: ${body.provider} — complete OAuth via /api/subscription/ endpoints`,
       );
+
+      // Handle Anthropic setup token (sk-ant-oat01-...) provided during
+      // onboarding. The API-key gate above skips subscription providers
+      // because their envKey is null, so we handle it explicitly here.
+      if (
+        body.provider === "anthropic-subscription" &&
+        typeof body.providerApiKey === "string" &&
+        body.providerApiKey.trim().startsWith("sk-ant-")
+      ) {
+        const token = body.providerApiKey.trim();
+        process.env.ANTHROPIC_API_KEY = token;
+        if (!config.env) config.env = {};
+        (config.env as Record<string, string>).ANTHROPIC_API_KEY = token;
+        logger.info(
+          "[milady-api] Anthropic setup token saved during onboarding",
+        );
+      }
     }
 
     // ── Connectors (Telegram, Discord, WhatsApp, Twilio, Blooio) ────────
