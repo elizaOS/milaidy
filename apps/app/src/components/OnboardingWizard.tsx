@@ -1551,16 +1551,15 @@ export function OnboardingWizard() {
                   )}
                 </div>
                 <p className="text-xs text-muted mb-3 mt-1">
-                  Create a bot at the{" "}
+                  Only a bot token is needed.{" "}
                   <a
                     href="https://discord.com/developers/applications"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-accent underline"
+                    className="text-accent hover:underline"
                   >
-                    Discord Developer Portal
-                  </a>{" "}
-                  and copy the bot token
+                    Create a bot →
+                  </a>
                 </p>
                 <input
                   type="password"
