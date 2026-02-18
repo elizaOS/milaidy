@@ -106,6 +106,7 @@ import { handleRegistryRoutes } from "./registry-routes";
 import { RegistryService } from "./registry-service";
 import { handleSandboxRoute } from "./sandbox-routes";
 import { handleSubscriptionRoutes } from "./subscription-routes";
+import { applySubscriptionSetupToken } from "./onboarding-setup-token";
 import { resolveTerminalRunLimits } from "./terminal-run-limits";
 import { handleTrainingRoutes } from "./training-routes";
 import type { TrainingServiceWithRuntime } from "./training-service-like";
@@ -2446,7 +2447,7 @@ function getProviderOptions(): Array<{
       envKey: null,
       pluginName: "@elizaos/plugin-openai",
       keyPrefix: null,
-      description: "Use your $20-200/mo ChatGPT subscription via OAuth.",
+      description: "Coming soon — use OpenAI API Key instead.",
     },
     {
       id: "anthropic",
@@ -4835,6 +4836,30 @@ async function handleRequest(
           process.env[providerOpt.envKey] = body.providerApiKey as string;
         }
       }
+
+      // Persist model selections for local providers so the plugin picks
+      // up the user's chosen models instead of its hardcoded defaults.
+      // Each provider reads {PREFIX}_SMALL_MODEL / {PREFIX}_LARGE_MODEL
+      // with SMALL_MODEL / LARGE_MODEL as fallbacks.
+      if (runMode === "local" && providerId) {
+        const prefix = providerId.toUpperCase().replace(/-/g, "_");
+        const envRef = config.env as Record<string, string>;
+
+        if (typeof body.smallModel === "string" && body.smallModel.trim()) {
+          const sm = body.smallModel.trim();
+          envRef[`${prefix}_SMALL_MODEL`] = sm;
+          envRef.SMALL_MODEL = sm;
+          process.env[`${prefix}_SMALL_MODEL`] = sm;
+          process.env.SMALL_MODEL = sm;
+        }
+        if (typeof body.largeModel === "string" && body.largeModel.trim()) {
+          const lg = body.largeModel.trim();
+          envRef[`${prefix}_LARGE_MODEL`] = lg;
+          envRef.LARGE_MODEL = lg;
+          process.env[`${prefix}_LARGE_MODEL`] = lg;
+          process.env.LARGE_MODEL = lg;
+        }
+      }
     }
 
     // ── Subscription providers (no API key needed — uses OAuth) ──────────
@@ -4854,18 +4879,11 @@ async function handleRequest(
         `[milady-api] Subscription provider selected: ${body.provider} — complete OAuth via /api/subscription/ endpoints`,
       );
 
-      // Handle Anthropic setup token (sk-ant-oat01-...) provided during
-      // onboarding. The API-key gate above skips subscription providers
-      // because their envKey is null, so we handle it explicitly here.
-      if (
-        body.provider === "anthropic-subscription" &&
-        typeof body.providerApiKey === "string" &&
-        body.providerApiKey.trim().startsWith("sk-ant-")
-      ) {
-        const token = body.providerApiKey.trim();
-        process.env.ANTHROPIC_API_KEY = token;
-        if (!config.env) config.env = {};
-        (config.env as Record<string, string>).ANTHROPIC_API_KEY = token;
+      const setupResult = applySubscriptionSetupToken(
+        body,
+        config as { env?: Record<string, string> },
+      );
+      if (setupResult.saved) {
         logger.info(
           "[milady-api] Anthropic setup token saved during onboarding",
         );

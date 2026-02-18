@@ -6,43 +6,12 @@
  * because getProviderOptions() returns envKey: null for subscription providers,
  * and the API-key gate `if (providerOpt?.envKey)` would skip them.
  *
- * Fix: The subscription-provider block now explicitly checks for a setup token
- * and saves it to process.env.ANTHROPIC_API_KEY + config.
- *
- * These tests validate the fix logic in isolation since the onboarding handler
- * is embedded in the monolithic handleRequest function.
+ * Fix: applySubscriptionSetupToken() (src/api/onboarding-setup-token.ts)
+ * explicitly checks for a setup token and saves it to process.env + config.
  */
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-
-/**
- * Mirrors the exact logic from the fixed onboarding handler in server.ts.
- * This function captures the conditional that was missing before the fix.
- */
-function applySubscriptionSetupToken(
-  body: { provider?: string; providerApiKey?: unknown },
-  config: { env?: Record<string, string> },
-): { saved: boolean; envKey?: string; token?: string } {
-  // The API-key gate (server.ts ~line 4828):
-  // getProviderOptions() has envKey: null for subscription providers,
-  // so this gate fails silently:
-  //
-  //   if (providerOpt?.envKey) { ... }
-  //
-  // The fix adds this explicit handling inside the subscription block:
-  if (
-    body.provider === "anthropic-subscription" &&
-    typeof body.providerApiKey === "string" &&
-    body.providerApiKey.trim().startsWith("sk-ant-")
-  ) {
-    const token = body.providerApiKey.trim();
-    process.env.ANTHROPIC_API_KEY = token;
-    if (!config.env) config.env = {};
-    config.env.ANTHROPIC_API_KEY = token;
-    return { saved: true, envKey: "ANTHROPIC_API_KEY", token };
-  }
-  return { saved: false };
-}
+import { applySubscriptionSetupToken } from "./onboarding-setup-token";
 
 describe("Anthropic setup token during onboarding", () => {
   let originalEnv: string | undefined;
@@ -110,7 +79,7 @@ describe("Anthropic setup token during onboarding", () => {
     expect(config.env).toBeUndefined();
   });
 
-  it("does nothing for openai-subscription (no setup token path)", () => {
+  it("does nothing for openai-subscription", () => {
     const config: { env?: Record<string, string> } = {};
     const result = applySubscriptionSetupToken(
       {
