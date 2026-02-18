@@ -260,7 +260,7 @@
       <div class="hero-secondary">
         <a href="https://github.com/milady-ai/milady/releases/latest">Windows</a> &middot;
         <a href="https://github.com/milady-ai/milady/releases/latest">Linux</a> &middot;
-        <code>npx milady</code>
+        <code>milady setup</code>
       </div>
     </div>
   </div>
@@ -272,7 +272,7 @@
       <ul>
         <li><strong>Personal AI assistant</strong> that runs locally on your own devices</li>
         <li>Built on <a href="https://github.com/elizaos">ElizaOS</a> &mdash; the open-source agent framework</li>
-        <li><strong>Zero config</strong> &mdash; get an agent running in seconds with <code>npx milady</code></li>
+        <li><strong>Zero config</strong> &mdash; initialize a fresh environment with <code>milady setup</code></li>
         <li>Gateway manages sessions, tools, and events &mdash; connects to messaging platforms, companion apps, and WebChat UI</li>
         <li>Supports Anthropic, OpenAI, Google, Ollama, and more &mdash; pick any provider during onboarding</li>
         <li>First-class EVM and Solana wallet support</li>
@@ -284,8 +284,10 @@
   <div class="box">
     <div class="box-header">Quick Start</div>
     <div class="box-body">
-      <p>Get an agent running in seconds. No config files needed.</p>
-      <pre><code>npx milady</code></pre>
+      <p>Set up a fresh environment and launch your agent.</p>
+      <pre><code>curl -fsSL https://milady-ai.github.io/milady/install.sh | bash
+milady setup
+milady</code></pre>
       <p>On first run, Milady walks you through:</p>
       <ol>
         <li><strong>Pick a name</strong> for your agent (or use a random one)</li>

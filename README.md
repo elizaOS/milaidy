@@ -37,13 +37,20 @@ shasum -a 256 --check --ignore-missing SHA256SUMS.txt
 
 ## Getting Started
 
-### One command. That's it.
+### New Environment Setup (recommended)
 
 ```bash
-npx milady
+curl -fsSL https://milady-ai.github.io/milady/install.sh | bash
+milady setup
 ```
 
-First run she walks you through setup:
+Then start Milady:
+
+```bash
+milady
+```
+
+First run walks you through onboarding:
 
 ```
 ┌  milady
@@ -74,21 +81,17 @@ First run she walks you through setup:
    she's alive. go say hi.
 ```
 
-### Install globally (optional)
-
-macOS / Linux / WSL:
-```bash
-curl -fsSL https://milady-ai.github.io/milady/install.sh | bash
-```
+### Alternative install paths
 
 Windows:
 ```powershell
 irm https://milady-ai.github.io/milady/install.ps1 | iex
 ```
 
-Or just:
+NPM global:
 ```bash
 npm install -g milady
+milady setup
 ```
 
 ### Security: API token
