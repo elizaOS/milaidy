@@ -59,6 +59,7 @@ export interface WalletRouteContext
     req: http.IncomingMessage,
     body: WalletExportRequestBody,
   ) => WalletExportRejectionLike | null;
+  scheduleRuntimeRestart?: (reason: string) => void;
   deps?: WalletRouteDependencies;
 }
 
@@ -317,6 +318,7 @@ export async function handleWalletRoutes(
       );
     }
 
+    ctx.scheduleRuntimeRestart?.("Wallet configuration updated");
     json(res, { ok: true });
     return true;
   }

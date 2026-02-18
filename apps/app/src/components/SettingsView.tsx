@@ -255,7 +255,6 @@ export function SettingsView() {
         },
       });
       setState("cloudEnabled", true);
-      await client.restartAgent();
     } catch {
       /* non-fatal */
     }
@@ -630,7 +629,6 @@ export function SettingsView() {
                                       () => setModelSaveSuccess(false),
                                       2000,
                                     );
-                                    await client.restartAgent();
                                   } catch {
                                     /* ignore */
                                   }

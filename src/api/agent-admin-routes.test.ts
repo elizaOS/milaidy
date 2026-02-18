@@ -41,6 +41,7 @@ describe("agent admin routes", () => {
         worldId: "world-id" as UUID,
       },
       chatConnectionPromise: Promise.resolve(),
+      pendingRestartReasons: [],
     };
 
     onRestart = undefined;
@@ -133,6 +134,40 @@ describe("agent admin routes", () => {
       ok: true,
       status: { state: "running", agentName: "Sakuya" },
     });
+  });
+
+  test("restart clears pendingRestartReasons and returns pendingRestart: false", async () => {
+    state.pendingRestartReasons = [
+      "Plugin toggled",
+      "Configuration updated",
+    ];
+    onRestart = vi.fn(async () => createRuntime("Sakuya"));
+
+    const result = await invoke({
+      method: "POST",
+      pathname: "/api/agent/restart",
+    });
+
+    expect(result.status).toBe(200);
+    expect(state.pendingRestartReasons).toEqual([]);
+    expect(result.payload).toMatchObject({
+      ok: true,
+      pendingRestart: false,
+      status: { state: "running", agentName: "Sakuya" },
+    });
+  });
+
+  test("failed restart does not clear pendingRestartReasons", async () => {
+    state.pendingRestartReasons = ["Plugin toggled"];
+    onRestart = vi.fn(async () => null);
+
+    const result = await invoke({
+      method: "POST",
+      pathname: "/api/agent/restart",
+    });
+
+    expect(result.status).toBe(500);
+    expect(state.pendingRestartReasons).toEqual(["Plugin toggled"]);
   });
 
   test("restores previous state if restart handler returns null", async () => {

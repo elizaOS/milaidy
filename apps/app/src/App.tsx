@@ -24,6 +24,7 @@ import { OnboardingWizard } from "./components/OnboardingWizard";
 import { PairingView } from "./components/PairingView";
 import { SaveCommandModal } from "./components/SaveCommandModal";
 import { SettingsView } from "./components/SettingsView";
+import { RestartBanner } from "./components/RestartBanner";
 import { TerminalPanel } from "./components/TerminalPanel";
 import { useContextMenu } from "./hooks/useContextMenu";
 
@@ -314,6 +315,7 @@ export function App() {
           setEditingAction(null);
         }}
       />
+      <RestartBanner />
       {actionNotice && (
         <div
           className={`fixed bottom-6 left-1/2 -translate-x-1/2 px-5 py-2 rounded-lg text-[13px] font-medium z-[10000] text-white ${

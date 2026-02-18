@@ -39,6 +39,7 @@ type InvokeResult = {
   config: MiladyConfig;
   saveConfig: ReturnType<typeof vi.fn>;
   ensureWalletKeysInEnvAndConfig: ReturnType<typeof vi.fn>;
+  scheduleRuntimeRestart: ReturnType<typeof vi.fn>;
 };
 
 function createDeps(): WalletRouteDependencies {
@@ -93,6 +94,7 @@ async function invoke(args: {
   const deps = args.deps ?? createDeps();
   const saveConfig = vi.fn();
   const ensureWalletKeysInEnvAndConfig = vi.fn();
+  const scheduleRuntimeRestart = vi.fn();
 
   const handled = await handleWalletRoutes({
     req: {} as never,
@@ -102,6 +104,7 @@ async function invoke(args: {
     config,
     saveConfig,
     ensureWalletKeysInEnvAndConfig,
+    scheduleRuntimeRestart,
     resolveWalletExportRejection:
       args.resolveWalletExportRejection ?? (() => null),
     deps,
@@ -123,6 +126,7 @@ async function invoke(args: {
     config,
     saveConfig,
     ensureWalletKeysInEnvAndConfig,
+    scheduleRuntimeRestart,
   };
 }
 
@@ -274,6 +278,31 @@ describe("wallet routes", () => {
     );
     expect(result.saveConfig).toHaveBeenCalledWith(result.config);
     expect(result.payload).toEqual({ ok: true });
+  });
+
+  test("wallet config update calls scheduleRuntimeRestart", async () => {
+    const result = await invoke({
+      method: "PUT",
+      pathname: "/api/wallet/config",
+      body: { ALCHEMY_API_KEY: "test-key" },
+      config: { env: {} } as MiladyConfig,
+    });
+
+    expect(result.handled).toBe(true);
+    expect(result.scheduleRuntimeRestart).toHaveBeenCalledTimes(1);
+    expect(result.scheduleRuntimeRestart).toHaveBeenCalledWith(
+      "Wallet configuration updated",
+    );
+  });
+
+  test("non-config wallet routes do not call scheduleRuntimeRestart", async () => {
+    const result = await invoke({
+      method: "GET",
+      pathname: "/api/wallet/addresses",
+    });
+
+    expect(result.handled).toBe(true);
+    expect(result.scheduleRuntimeRestart).not.toHaveBeenCalled();
   });
 
   test("blocks wallet export when rejection is returned", async () => {
