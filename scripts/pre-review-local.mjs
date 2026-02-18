@@ -115,9 +115,28 @@ function scanAddedLinesForDiffIssues(baseRef) {
   if (!ok(d1.code) || !ok(d2.code))
     return { issues: ["Failed to compute git diff."], notes: [] };
 
-  const added = `${d1.stdout}\n${d2.stdout}`
-    .split("\n")
-    .filter((l) => l.startsWith("+") && !l.startsWith("+++"));
+  // Parse unified diff and keep track of which file we're currently in.
+  // This allows us to avoid self-referential false positives (the scanner
+  // contains the patterns it searches for).
+  const rawLines = `${d1.stdout}\n${d2.stdout}`.split("\n");
+  let currentFile = null;
+  const addedByFile = new Map();
+  for (const line of rawLines) {
+    if (line.startsWith("+++ b/")) {
+      currentFile = line.slice("+++ b/".length).trim();
+      continue;
+    }
+    if (!currentFile) continue;
+    if (!line.startsWith("+") || line.startsWith("+++")) continue;
+    const arr = addedByFile.get(currentFile) ?? [];
+    arr.push(line);
+    addedByFile.set(currentFile, arr);
+  }
+
+  const ignoreFilesForHeuristics = new Set(["scripts/pre-review-local.mjs"]);
+  const added = [...addedByFile.entries()]
+    .filter(([file]) => !ignoreFilesForHeuristics.has(file))
+    .flatMap(([, lines]) => lines);
 
   const issues = [];
   const notes = [];
