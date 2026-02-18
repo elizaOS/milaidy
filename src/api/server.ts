@@ -4939,7 +4939,7 @@ async function handleRequest(
       // Trigger agent restart so the new provider takes effect
       if (ctx?.onRestart) {
         try {
-          scheduleRuntimeRestart(`provider switch to ${provider}`, 300);
+          scheduleRuntimeRestart(`provider switch to ${provider}`);
           // Clear switch lock after a reasonable timeout for restart
           setTimeout(() => {
             providerSwitchInProgress = false;
