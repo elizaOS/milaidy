@@ -2247,7 +2247,7 @@ const MAX_IMAGE_DATA_BYTES = 5 * 1_048_576;
 /** Maximum length of an image filename. */
 const MAX_IMAGE_NAME_LENGTH = 255;
 
-/** Matches a valid base64 string (standard or URL-safe alphabet, optional = padding). */
+/** Matches a valid standard-alphabet base64 string (RFC 4648 §4, `+/`, optional `=` padding). */
 const BASE64_RE = /^[A-Za-z0-9+/]*={0,2}$/;
 
 const ALLOWED_IMAGE_MIME_TYPES = new Set([
@@ -2289,6 +2289,11 @@ export function validateChatImages(images: unknown): string | null {
  * Extension of the core Attachment shape that carries raw image bytes for
  * action handlers (e.g. POST_TWEET) while the message is in-memory. The
  * extra fields are intentionally stripped before the message is persisted.
+ *
+ * Note: `_data`/`_mimeType` survive only because ElizaOS passes the
+ * `userMessage` object reference directly to action handlers without
+ * deep-cloning or serializing it. If that ever changes, action handlers
+ * that read these fields will silently receive `undefined`.
  */
 export interface ChatAttachmentWithData extends Attachment {
   /** Raw base64 image data — never written to the database. */
