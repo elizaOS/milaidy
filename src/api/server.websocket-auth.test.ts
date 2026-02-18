@@ -89,4 +89,16 @@ describe("resolveWebSocketUpgradeRejection", () => {
     );
     expect(rejection).toBeNull();
   });
+
+  it.each([
+    "http://[::1]:5173",
+    "http://[0:0:0:0:0:0:0:1]:5173",
+  ])("accepts IPv6 local origin when token auth is disabled (%s)", (origin) => {
+    delete process.env.MILADY_API_TOKEN;
+    const rejection = resolveWebSocketUpgradeRejection(
+      req({ origin }) as http.IncomingMessage,
+      new URL("ws://localhost/ws"),
+    );
+    expect(rejection).toBeNull();
+  });
 });
