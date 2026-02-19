@@ -22,6 +22,11 @@ const mockRequestPermission = vi.fn();
 const mockOpenPermissionSettings = vi.fn();
 const mockRefreshPermissions = vi.fn();
 const mockSetShellEnabled = vi.fn();
+const mockGetAgentAutomationMode = vi.fn();
+const mockSetAgentAutomationMode = vi.fn();
+const mockGetTradePermissionMode = vi.fn();
+const mockSetTradePermissionMode = vi.fn();
+const mockApplyProductionWalletDefaults = vi.fn();
 
 vi.mock("../../src/api-client", () => ({
   client: {
@@ -31,6 +36,11 @@ vi.mock("../../src/api-client", () => ({
     openPermissionSettings: mockOpenPermissionSettings,
     refreshPermissions: mockRefreshPermissions,
     setShellEnabled: mockSetShellEnabled,
+    getAgentAutomationMode: mockGetAgentAutomationMode,
+    setAgentAutomationMode: mockSetAgentAutomationMode,
+    getTradePermissionMode: mockGetTradePermissionMode,
+    setTradePermissionMode: mockSetTradePermissionMode,
+    applyProductionWalletDefaults: mockApplyProductionWalletDefaults,
   },
 }));
 
@@ -105,6 +115,30 @@ describe("PermissionsSection", () => {
       lastChecked: Date.now(),
       canRequest: false,
     }));
+    mockGetAgentAutomationMode.mockResolvedValue({
+      mode: "full",
+      options: ["connectors-only", "full"],
+    });
+    mockSetAgentAutomationMode.mockResolvedValue({
+      mode: "full",
+      options: ["connectors-only", "full"],
+    });
+    mockGetTradePermissionMode.mockResolvedValue({
+      mode: "user-sign-only",
+      options: ["user-sign-only", "manual-local-key", "agent-auto"],
+    });
+    mockSetTradePermissionMode.mockResolvedValue({
+      mode: "user-sign-only",
+      options: ["user-sign-only", "manual-local-key", "agent-auto"],
+    });
+    mockApplyProductionWalletDefaults.mockResolvedValue({
+      ok: true,
+      profile: "pure-privy-safe",
+      walletMode: "privy",
+      tradePermissionMode: "user-sign-only",
+      bscExecutionEnabled: false,
+      clearedSecrets: ["EVM_PRIVATE_KEY", "SOLANA_PRIVATE_KEY"],
+    });
 
     mockUseApp.mockReturnValue({
       plugins: mockPlugins,

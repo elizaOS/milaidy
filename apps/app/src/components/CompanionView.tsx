@@ -377,6 +377,45 @@ export function CompanionView() {
     return () => clearTimeout(t);
   }, [lastTriggeredAction]);
 
+  // --- Proactive trigger animations ---
+  const PROACTIVE_ANIMATION_MAP: Record<string, string[]> = {
+    hunger_critical:  ["shoulder-rubbing", "bored"],
+    hunger_low:       ["yawn", "shoulder-rubbing"],
+    energy_critical:  ["yawn", "relieved-sigh"],
+    mood_burnout:     ["crying", "relieved-sigh"],
+    mood_excited:     ["cheering", "happy", "joyful-jump"],
+    streak_milestone: ["clapping", "cheering", "blow-a-kiss"],
+    level_up:         ["cheering", "joyful-jump", "hip-hop-dancing"],
+  };
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const triggerId = (e as CustomEvent<{ triggerId: string }>).detail?.triggerId;
+      if (!triggerId) return;
+      const pool = PROACTIVE_ANIMATION_MAP[triggerId];
+      if (!pool) return;
+      const anim = pickRandomAnimationDef(pool);
+      if (!anim) return;
+
+      const engine = vrmEngineRef.current;
+      if (!engine) return;
+
+      actionAnimatingRef.current = true;
+      if (idleCycleTimerRef.current) {
+        clearTimeout(idleCycleTimerRef.current);
+        idleCycleTimerRef.current = null;
+      }
+      void engine.playEmote(anim.url, anim.durationSec, false);
+      setTimeout(() => {
+        actionAnimatingRef.current = false;
+        scheduleNextAccentRef.current();
+      }, (anim.durationSec + 0.5) * 1000);
+    };
+
+    window.addEventListener("milady:proactive-trigger", handler);
+    return () => window.removeEventListener("milady:proactive-trigger", handler);
+  }, []);
+
   const handleApplySettings = async () => {
     const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
     await updateCompanionSettings({
@@ -526,6 +565,31 @@ export function CompanionView() {
   const reasons = companionSnapshot.thresholds.reasons;
   const reasonsSummary = reasons.length > 0 ? reasons.slice(0, 2).join(" | ") : "All thresholds healthy.";
 
+  const MOOD_TIER_LABELS: Record<string, string> = {
+    excited: "Thriving",
+    calm:    "Content",
+    neutral: "Okay",
+    low:     "Tired",
+    burnout: "Exhausted",
+  };
+
+  const PENALTY_REASON_LABELS: Record<string, string> = {
+    hunger_too_low: "Hungry",
+    energy_too_low: "Needs rest",
+    mood_too_low:   "Feeling low",
+    social_too_low: "Lonely",
+  };
+
+  const penaltyHint = reasons
+    .map((r) => PENALTY_REASON_LABELS[r])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join(" · ") || "Needs care";
+
+  const daysTogether = companionSnapshot.state.firstMetAt
+    ? Math.floor((Date.now() - (companionSnapshot.state.firstMetAt as number)) / (24 * 60 * 60 * 1000))
+    : 0;
+
   const manualShareCapReached =
     companionSnapshot.today.manualShareCount >= companionSnapshot.today.manualShareCap;
 
@@ -639,7 +703,7 @@ export function CompanionView() {
 
             {softPenalty && (
               <div className="companion-game__warning-chip">
-                Soft penalty active
+                {penaltyHint}
               </div>
             )}
           </aside>
@@ -649,10 +713,14 @@ export function CompanionView() {
               <div>
                 <div className="companion-game__headline">Agent Companion</div>
                 <p className="companion-game__subline">
-                  Level {state.level} | XP {state.xp}/{companionSnapshot.nextLevelXp} | Streak {state.streakDays}d
+                  <span className="text-accent">{companionSnapshot.evolutionStage.label}</span>
+                  {" · "}
+                  <span className="companion-game__days-together">Day {daysTogether}</span>
+                  {" · "}
+                  Streak {state.streakDays}d
                 </p>
               </div>
-              <div className="companion-game__tier-chip">{companionSnapshot.moodTier}</div>
+              <div className="companion-game__tier-chip">{MOOD_TIER_LABELS[companionSnapshot.moodTier] ?? companionSnapshot.moodTier}</div>
             </div>
 
             <div className="companion-game__vrm-shell">
@@ -736,7 +804,7 @@ export function CompanionView() {
           {statItems.map((item) => {
             const value = Math.round(item.value);
             let note = "core status";
-            if (item.id === "mood") note = companionSnapshot.moodTier;
+            if (item.id === "mood") note = MOOD_TIER_LABELS[companionSnapshot.moodTier] ?? companionSnapshot.moodTier;
             if (item.id === "hunger") note = `feed ${formatDuration(cooldowns.feed)}`;
             if (item.id === "energy") note = `rest ${formatDuration(cooldowns.rest)}`;
             if (item.id === "social") {

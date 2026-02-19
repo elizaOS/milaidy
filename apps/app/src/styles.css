@@ -464,6 +464,8 @@
   color: var(--cg-muted);
 }
 
+.companion-game__days-together { opacity: 0.7; font-style: italic; }
+
 .companion-game__tier-chip {
   border-radius: 999px;
   background: #12131a;
@@ -1129,6 +1131,316 @@
 .wt__quote-link:hover {
   color: var(--text);
   border-bottom-color: color-mix(in srgb, var(--text) 70%, transparent);
+}
+
+.wt__quote-usersign {
+  margin-top: 10px;
+  border: 1px dashed color-mix(in srgb, var(--border) 80%, transparent);
+  background: color-mix(in srgb, var(--bg) 92%, transparent);
+  padding: 8px;
+}
+
+.wt__usersign-steps {
+  margin-top: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.wt__usersign-step {
+  font-size: 11px;
+  color: var(--muted);
+  font-family: var(--mono);
+}
+
+/* ── Network badge ───────────────────────────────────────────────── */
+
+.wt__network-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 6px;
+  font-size: 9px;
+  font-family: var(--mono);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border: 1px solid color-mix(in srgb, #f0b90b 50%, var(--border) 50%);
+  color: #f0b90b;
+  border-radius: 3px;
+  background: color-mix(in srgb, #f0b90b 8%, transparent 92%);
+}
+
+.wt__network-badge::before {
+  content: "";
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #f0b90b;
+  flex-shrink: 0;
+}
+
+/* ── Receive button ──────────────────────────────────────────────── */
+
+.wt__receive-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--muted);
+  padding: 4px 12px;
+  font-size: 11px;
+  font-family: var(--mono);
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 3px;
+  transition: all 0.15s;
+  letter-spacing: 0.03em;
+}
+
+.wt__receive-btn:hover {
+  border-color: color-mix(in srgb, #f0b90b 60%, var(--border) 40%);
+  color: #f0b90b;
+  background: color-mix(in srgb, #f0b90b 6%, var(--bg) 94%);
+}
+
+/* ── Token logo (image + letter fallback) ────────────────────────── */
+
+.wt__token-logo {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  object-fit: cover;
+  font-weight: 700;
+  font-family: var(--mono);
+  color: white;
+}
+
+.wt__token-logo.is-letter {
+  /* background comes from chain class */
+}
+
+/* ── Native token row special styling ────────────────────────────── */
+
+.wt__row--native {
+  background: color-mix(in srgb, #f0b90b 4%, transparent 96%);
+}
+
+.wt__row--native:hover {
+  background: color-mix(in srgb, #f0b90b 8%, var(--bg) 92%) !important;
+}
+
+/* ── Native badge label ──────────────────────────────────────────── */
+
+.wt__native-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0px 5px;
+  font-size: 9px;
+  font-family: var(--mono);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border: 1px solid color-mix(in srgb, #f0b90b 40%, var(--border) 60%);
+  color: color-mix(in srgb, #f0b90b 80%, var(--muted) 20%);
+  border-radius: 3px;
+}
+
+/* ── BNB sub-label in portfolio ──────────────────────────────────── */
+
+.wt__bnb-sub {
+  font-size: 11px;
+  font-family: var(--mono);
+  color: var(--muted);
+  margin-top: 3px;
+}
+
+/* ── Inline BSC error ────────────────────────────────────────────── */
+
+.wt__error-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  background: color-mix(in srgb, var(--danger, #e74c3c) 8%, var(--bg) 92%);
+  border: 1px solid color-mix(in srgb, var(--danger, #e74c3c) 30%, var(--border) 70%);
+  border-radius: 3px;
+}
+
+.wt__error-inline-text {
+  flex: 1;
+  font-size: 11px;
+  font-family: var(--mono);
+  color: var(--danger, #e74c3c);
+  word-break: break-all;
+}
+
+.wt__error-retry {
+  border: 1px solid color-mix(in srgb, var(--danger, #e74c3c) 40%, var(--border) 60%);
+  background: transparent;
+  color: var(--danger, #e74c3c);
+  padding: 2px 8px;
+  font-size: 10px;
+  font-family: var(--mono);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+
+.wt__error-retry:hover {
+  background: color-mix(in srgb, var(--danger, #e74c3c) 12%, var(--bg) 88%);
+}
+
+/* ── Contract input with validation border ───────────────────────── */
+
+.wt__quick-input.is-valid {
+  border-color: color-mix(in srgb, var(--ok) 70%, var(--border) 30%);
+}
+
+.wt__quick-input.is-invalid {
+  border-color: color-mix(in srgb, var(--warn) 70%, var(--border) 30%);
+}
+
+/* ── Input wrapper + recents dropdown ────────────────────────────── */
+
+.wt__input-wrap {
+  flex: 1;
+  min-width: 180px;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.wt__input-wrap .wt__quick-input {
+  flex: 1;
+  min-width: 0;
+  padding-right: 28px;
+}
+
+.wt__recents-toggle {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 2px 4px;
+  line-height: 1;
+  transition: color 0.15s;
+}
+
+.wt__recents-toggle:hover {
+  color: var(--text);
+}
+
+.wt__recents {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0;
+  right: 0;
+  z-index: 40;
+  border: 1px solid var(--border);
+  background: var(--card);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+.wt__recents-item {
+  display: block;
+  width: 100%;
+  padding: 6px 10px;
+  text-align: left;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.wt__recents-item:hover {
+  background: var(--bg-hover, var(--bg));
+}
+
+.wt__recents-addr {
+  font-size: 11px;
+  font-family: var(--mono);
+  color: var(--muted);
+}
+
+.wt__recents-item:hover .wt__recents-addr {
+  color: var(--text);
+}
+
+/* ── Slippage selector ───────────────────────────────────────────── */
+
+.wt__slip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 7px;
+  flex-wrap: wrap;
+}
+
+.wt__slip-label {
+  font-size: 10px;
+  color: var(--muted);
+  font-family: var(--mono);
+}
+
+.wt__slip-btn {
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--muted);
+  padding: 2px 7px;
+  font-size: 10px;
+  font-family: var(--mono);
+  cursor: pointer;
+  border-radius: 3px;
+  transition: all 0.15s;
+}
+
+.wt__slip-btn.is-active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.wt__slip-btn:hover:not(.is-active) {
+  border-color: var(--muted);
+  color: var(--text);
+}
+
+.wt__slip-input {
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  padding: 2px 6px;
+  font-size: 10px;
+  font-family: var(--mono);
+  width: 68px;
+  border-radius: 3px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.wt__slip-input::placeholder {
+  color: var(--muted);
+}
+
+.wt__slip-input:focus {
+  border-color: var(--accent);
+}
+
+.wt__slip-input.is-active {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .companion-game__roster-list::before {

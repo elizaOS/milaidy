@@ -84,12 +84,20 @@ export interface WalletConfigStatus {
   nodeRealBscRpcSet?: boolean;
   quickNodeBscRpcSet?: boolean;
   managedBscRpcReady?: boolean;
+  tradePermissionMode?: TradePermissionMode;
+  tradeUserCanLocalExecute?: boolean;
+  tradeAgentCanLocalExecute?: boolean;
   heliusKeySet: boolean;
   birdeyeKeySet: boolean;
   evmChains: string[];
   evmAddress: string | null;
   solanaAddress: string | null;
 }
+
+export type TradePermissionMode =
+  | "user-sign-only"
+  | "manual-local-key"
+  | "agent-auto";
 
 export type BscTradeSide = "buy" | "sell";
 
@@ -163,6 +171,17 @@ export interface BscUnsignedTradeTx {
   explorerUrl: string;
 }
 
+export interface BscUnsignedApprovalTx {
+  chainId: number;
+  from: string | null;
+  to: string;
+  data: string;
+  valueWei: string;
+  explorerUrl: string;
+  spender: string;
+  amountWei: string;
+}
+
 export interface BscTradeExecutionResult {
   hash: string;
   nonce: number;
@@ -171,6 +190,7 @@ export interface BscTradeExecutionResult {
   explorerUrl: string;
   blockNumber: number | null;
   status: "success" | "pending";
+  approvalHash?: string;
 }
 
 export interface BscTradeExecuteResponse {
@@ -181,6 +201,8 @@ export interface BscTradeExecuteResponse {
   executed: boolean;
   requiresUserSignature: boolean;
   unsignedTx: BscUnsignedTradeTx;
+  unsignedApprovalTx?: BscUnsignedApprovalTx;
+  requiresApproval?: boolean;
   execution?: BscTradeExecutionResult;
 }
 

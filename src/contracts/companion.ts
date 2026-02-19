@@ -75,6 +75,12 @@ export interface CompanionActivityEvent {
   metadata?: Record<string, unknown>;
 }
 
+export interface EvolutionStage {
+  id: "baby" | "child" | "teen" | "adult";
+  label: string;
+  description: string;
+}
+
 export interface CompanionState {
   version: number;
   stats: CompanionStats;
@@ -82,10 +88,13 @@ export interface CompanionState {
   level: number;
   streakDays: number;
   lastAppliedAtMs: number;
+  firstMetAt?: number;    // ms timestamp, set once on first creation, never overwritten
+  lastSeenAtMs?: number;  // ms timestamp, updated each time user chats
   cooldowns: CompanionCooldowns;
   daily: CompanionDailyStats;
   autopost: CompanionAutopostState;
   activity: CompanionActivityEvent[];
+  proactiveThrottle: Record<string, number>;
 }
 
 export interface CompanionThresholds {
@@ -113,6 +122,7 @@ export interface CompanionStateSnapshot {
   nextLevelXp: number;
   thresholds: CompanionThresholds;
   today: CompanionTodaySummary;
+  evolutionStage: EvolutionStage;
 }
 
 export interface CompanionStateResponse {

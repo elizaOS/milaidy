@@ -9,6 +9,7 @@
 import { logger } from "@elizaos/core";
 import { ethers } from "ethers";
 import type {
+  BscUnsignedApprovalTx,
   BscUnsignedTradeTx,
   BscTradePreflightResponse,
   BscTradeQuoteRequest,
@@ -33,11 +34,14 @@ const ROUTER_IFACE = new ethers.Interface([
   "function WETH() view returns (address)",
   "function getAmountsOut(uint256 amountIn, address[] calldata path) view returns (uint256[] memory amounts)",
   "function swapExactETHForTokensSupportingFeeOnTransferTokens(uint amountOutMin, address[] path, address to, uint deadline)",
+  "function swapExactTokensForETHSupportingFeeOnTransferTokens(uint amountIn, uint amountOutMin, address[] path, address to, uint deadline)",
 ]);
 
 const ERC20_IFACE = new ethers.Interface([
   "function symbol() view returns (string)",
   "function decimals() view returns (uint8)",
+  "function balanceOf(address owner) view returns (uint256)",
+  "function approve(address spender, uint256 amount) returns (bool)",
 ]);
 
 export interface BscTradeRpcConfig {
@@ -280,6 +284,21 @@ async function readTokenSymbol(
   return `TKN-${tokenAddress.slice(2, 6).toUpperCase()}`;
 }
 
+async function readTokenBalanceWei(
+  rpcUrls: string[],
+  tokenAddress: string,
+  walletAddress: string,
+): Promise<bigint> {
+  const encoded = ERC20_IFACE.encodeFunctionData("balanceOf", [walletAddress]);
+  const call = await ethCall(rpcUrls, tokenAddress, encoded);
+  const decoded = ERC20_IFACE.decodeFunctionResult("balanceOf", call.result);
+  const balance = decoded[0];
+  if (typeof balance !== "bigint") {
+    throw new Error("Token balance response is invalid.");
+  }
+  return balance;
+}
+
 export async function buildBscTradePreflight(
   input: BuildBscTradePreflightInput,
 ): Promise<BscTradePreflightResponse> {
@@ -453,6 +472,20 @@ export async function buildBscTradeQuote(
       ? ethers.parseEther(amountInput)
       : ethers.parseUnits(amountInput, tokenDecimals);
 
+  if (side === "sell") {
+    if (!preflight.walletAddress) {
+      throw new Error("Wallet not ready for sell quote.");
+    }
+    const tokenBalanceWei = await readTokenBalanceWei(
+      rpcUrls,
+      tokenAddress,
+      preflight.walletAddress,
+    );
+    if (amountInWei > tokenBalanceWei) {
+      throw new Error("Insufficient token balance for sell amount.");
+    }
+  }
+
   if (side === "buy" && preflight.bnbBalance) {
     const walletBalanceWei = ethers.parseEther(preflight.bnbBalance);
     const gasReserveWei = ethers.parseEther(MIN_GAS_BNB);
@@ -551,5 +584,80 @@ export function buildBscBuyUnsignedTx(
     valueWei: quote.quoteIn.amountWei,
     deadline,
     explorerUrl: "https://bscscan.com",
+  };
+}
+
+export function buildBscSellUnsignedTx(
+  quote: BscTradeQuoteResponse,
+  recipientAddress: string | null,
+  deadlineSeconds?: number,
+): BscUnsignedTradeTx {
+  if (quote.side !== "sell") {
+    throw new Error("Only sell execution is supported for this payload.");
+  }
+  const normalizedRecipient = normalizeAddress(recipientAddress);
+  if (!normalizedRecipient) {
+    throw new Error("Recipient wallet address is required.");
+  }
+  const now = Math.floor(Date.now() / 1000);
+  const deadline = now + clampDeadlineSeconds(deadlineSeconds);
+  const data = ROUTER_IFACE.encodeFunctionData(
+    "swapExactTokensForETHSupportingFeeOnTransferTokens",
+    [
+      BigInt(quote.quoteIn.amountWei),
+      BigInt(quote.minReceive.amountWei),
+      quote.route,
+      normalizedRecipient,
+      deadline,
+    ],
+  );
+
+  return {
+    chainId: BSC_CHAIN_ID,
+    from: normalizedRecipient,
+    to: quote.routerAddress,
+    data,
+    valueWei: "0",
+    deadline,
+    explorerUrl: "https://bscscan.com",
+  };
+}
+
+export function buildBscApproveUnsignedTx(
+  tokenAddress: string,
+  ownerAddress: string | null,
+  spenderAddress: string,
+  amountWei: string,
+): BscUnsignedApprovalTx {
+  const normalizedToken = normalizeAddress(tokenAddress);
+  if (!normalizedToken) {
+    throw new Error("Token address is invalid for approval payload.");
+  }
+  const normalizedOwner = normalizeAddress(ownerAddress);
+  if (!normalizedOwner) {
+    throw new Error("Owner wallet address is required for approval payload.");
+  }
+  const normalizedSpender = normalizeAddress(spenderAddress);
+  if (!normalizedSpender) {
+    throw new Error("Spender address is invalid for approval payload.");
+  }
+  const amount = BigInt(amountWei);
+  if (amount <= 0n) {
+    throw new Error("Approval amount must be greater than zero.");
+  }
+  const data = ERC20_IFACE.encodeFunctionData("approve", [
+    normalizedSpender,
+    amount,
+  ]);
+
+  return {
+    chainId: BSC_CHAIN_ID,
+    from: normalizedOwner,
+    to: normalizedToken,
+    data,
+    valueWei: "0",
+    explorerUrl: "https://bscscan.com",
+    spender: normalizedSpender,
+    amountWei: amount.toString(),
   };
 }
