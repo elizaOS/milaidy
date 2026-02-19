@@ -1687,16 +1687,25 @@ const STATIC_MIME: Record<string, string> = {
 };
 
 const LFS_POINTER_PREFIX = "version https://git-lfs.github.com/spec/v1";
-const DEFAULT_LFS_REPO_URL = "https://github.com/cayden970207/milady.git";
+const DEFAULT_LFS_REPO_URL = "https://github.com/miladybsc/milady.git";
 const DEFAULT_LFS_MEDIA_REF = "main";
 
 function resolveMediaRepoPath(repoUrlRaw: string | undefined): string {
   const source = (repoUrlRaw ?? "").trim() || DEFAULT_LFS_REPO_URL;
-  const match = source.match(
-    /^https:\/\/github\.com\/([^/]+\/[^/.]+)(?:\.git)?$/i,
+  const httpsMatch = source.match(
+    /^https:\/\/(?:[^@/]+@)?github\.com\/([^/]+\/[^/.]+)(?:\.git)?$/i,
   );
-  if (match?.[1]) return match[1];
-  return "cayden970207/milady";
+  if (httpsMatch?.[1]) return httpsMatch[1];
+
+  const sshMatch = source.match(/^git@github\.com:([^/]+\/[^/.]+)(?:\.git)?$/i);
+  if (sshMatch?.[1]) return sshMatch[1];
+
+  const sshUrlMatch = source.match(
+    /^ssh:\/\/git@github\.com\/([^/]+\/[^/.]+)(?:\.git)?$/i,
+  );
+  if (sshUrlMatch?.[1]) return sshUrlMatch[1];
+
+  return "miladybsc/milady";
 }
 
 function resolveMediaRef(): string {
