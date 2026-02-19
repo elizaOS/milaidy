@@ -1,19 +1,19 @@
 ---
 title: Web Dashboard
 sidebarTitle: Dashboard
-description: Navigate the Milady web dashboard to configure your agent, chat, manage knowledge, and access advanced settings.
+description: Navigate the Milaidy web dashboard to configure your agent, chat, manage knowledge, and access advanced settings.
 ---
 
 # Web Dashboard
 
-The Milady web dashboard is the primary interface for interacting with your agent. It provides a full-featured control panel for chatting, configuring your agent's character, managing plugins, and monitoring runtime behavior.
+The Milaidy web dashboard is the primary interface for interacting with your agent. It provides a full-featured control panel for chatting, configuring your agent's character, managing plugins, and monitoring runtime behavior.
 
 ## Accessing the Dashboard
 
-The dashboard runs as a web application served by the Milady agent runtime.
+The dashboard runs as a web application served by the Milaidy agent runtime.
 
 - **Default URL:** `http://localhost:2138`
-- **CLI shortcut:** Run `milady dashboard` to open the dashboard in your default browser.
+- **CLI shortcut:** Run `milaidy dashboard` to open the dashboard in your default browser.
 - **Desktop app:** The Electron desktop app embeds the dashboard directly (no browser required).
 
 On first launch you will see the **Onboarding Wizard**, which walks you through initial agent setup. If authentication is required you will see the **Pairing View** before reaching the main dashboard.

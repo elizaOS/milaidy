@@ -6,7 +6,7 @@ description: "Built-in EVM and Solana wallet with key generation, balance fetchi
 
 # Wallet & Crypto
 
-Milady includes a built-in crypto wallet supporting both EVM-compatible chains and Solana. The wallet uses Node.js crypto primitives (no heavy dependencies like viem or @solana/web3.js) and fetches on-chain data via Alchemy (EVM) and Helius (Solana) REST APIs.
+Milaidy includes a built-in crypto wallet supporting both EVM-compatible chains and Solana. The wallet uses Node.js crypto primitives (no heavy dependencies like viem or @solana/web3.js) and fetches on-chain data via Alchemy (EVM) and Helius (Solana) REST APIs.
 
 ## Table of Contents
 
@@ -51,7 +51,7 @@ You can also generate for a single chain with `generateWalletForChain("evm" | "s
 
 ## Supported EVM Chains
 
-Milady supports five EVM chains out of the box, all fetched via Alchemy:
+Milaidy supports five EVM chains out of the box, all fetched via Alchemy:
 
 | Chain | Chain ID | Native Symbol | Alchemy Subdomain |
 |-------|----------|---------------|-------------------|
@@ -108,7 +108,7 @@ The `POST /api/wallet/import` endpoint accepts a `chain` ("evm" or "solana") and
 - Keys starting with `0x` or 64-character hex strings are treated as EVM.
 - All other keys are treated as Solana (Base58-decoded, validated as 32 or 64 bytes).
 
-On successful import, the key is stored in `process.env` and persisted to the agent's `milady.json` config file.
+On successful import, the key is stored in `process.env` and persisted to the agent's `milaidy.json` config file.
 
 ### Export
 
@@ -162,7 +162,7 @@ The evaluator maintains a request log for rate limiting and a processed-request-
 
 ## Smart Contract Interactions
 
-Milady defines several smart contract interaction interfaces in `src/contracts/`:
+Milaidy defines several smart contract interaction interfaces in `src/contracts/`:
 
 ### Apps Registry (`src/contracts/apps.ts`)
 

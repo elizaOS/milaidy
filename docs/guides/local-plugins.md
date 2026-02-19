@@ -154,7 +154,7 @@ Explicitly specify plugin paths in your config:
 Override config paths via environment:
 
 ```bash
-MILADY_CONFIG_DIR=/path/to/config milaidy start
+MILAIDY_CONFIG_DIR=/path/to/config milaidy start
 ```
 
 ---
@@ -181,7 +181,7 @@ cat > package.json << 'EOF'
 EOF
 
 # Install dependencies
-pnpm install
+bun install
 ```
 
 ### Step 2: Write Your Plugin
@@ -228,10 +228,10 @@ export default plugin;
 
 ```bash
 # From project root
-pnpm dev
+bun run dev
 
 # Or directly
-pnpm milaidy start
+bun run milaidy start
 ```
 
 ### Step 4: Test Your Plugin
@@ -252,7 +252,7 @@ Agent: Action executed!
 In dev mode, source changes trigger rebuilds:
 
 ```bash
-pnpm dev
+bun run dev
 ```
 
 However, plugins may require an agent restart to reload:
@@ -268,7 +268,7 @@ If changes aren't picked up:
 
 ```bash
 # Ctrl+C to stop
-pnpm dev  # Restart
+bun run dev  # Restart
 ```
 
 ### Watch Mode for Plugin Development
@@ -278,11 +278,11 @@ For faster iteration, use a separate watch process:
 ```bash
 # Terminal 1: Watch plugin
 cd plugins/my-plugin
-pnpm tsc --watch
+bun run tsc --watch
 
 # Terminal 2: Run agent
 cd ../..
-pnpm dev
+bun run dev
 ```
 
 ---
@@ -325,7 +325,7 @@ const plugin: Plugin = {
 
 ```bash
 # Environment variable
-LOG_LEVEL=debug pnpm dev
+LOG_LEVEL=debug bun run dev
 
 # Or in config
 {
@@ -348,7 +348,7 @@ With VS Code:
       "type": "node",
       "request": "launch",
       "name": "Debug Milaidy",
-      "runtimeExecutable": "pnpm",
+      "runtimeExecutable": "bun",
       "runtimeArgs": ["milaidy", "start"],
       "cwd": "${workspaceFolder}",
       "console": "integratedTerminal",
@@ -363,7 +363,7 @@ With VS Code:
 **Plugin not loading:**
 ```bash
 # Check plugin discovery
-pnpm milaidy plugins list
+milaidy plugins list
 
 # Verify export
 node -e "import('./plugins/my-plugin/src/index.ts').then(m => console.log(m.default))"
@@ -373,13 +373,13 @@ node -e "import('./plugins/my-plugin/src/index.ts').then(m => console.log(m.defa
 ```bash
 # Check types
 cd plugins/my-plugin
-pnpm tsc --noEmit
+bun run tsc --noEmit
 ```
 
 **Runtime errors:**
 ```bash
 # Run with full error traces
-NODE_OPTIONS="--enable-source-maps" pnpm dev
+NODE_OPTIONS="--enable-source-maps" bun run dev
 ```
 
 ---

@@ -1,12 +1,12 @@
 ---
 title: Agent Export & Import
 sidebarTitle: Agent Export & Import
-description: Export and import Milady agents as encrypted portable archives for migration between machines.
+description: Export and import Milaidy agents as encrypted portable archives for migration between machines.
 ---
 
 # Agent Export & Import
 
-Milady provides an encrypted export/import system for migrating agents between machines. The entire agent state — character configuration, memories, knowledge, relationships, and more — is captured in a single password-protected binary file.
+Milaidy provides an encrypted export/import system for migrating agents between machines. The entire agent state — character configuration, memories, knowledge, relationships, and more — is captured in a single password-protected binary file.
 
 ## Export
 

@@ -6,7 +6,7 @@ description: "Remote agent hosting and provisioning via Eliza Cloud with backup 
 
 # Eliza Cloud Integration
 
-Eliza Cloud provides remote agent hosting and provisioning. The Milady cloud integration allows you to deploy agents to Eliza Cloud, manage their lifecycle, route chat through remote sandboxes, and maintain persistent backups.
+Eliza Cloud provides remote agent hosting and provisioning. The Milaidy cloud integration allows you to deploy agents to Eliza Cloud, manage their lifecycle, route chat through remote sandboxes, and maintain persistent backups.
 
 ## Table of Contents
 
@@ -26,7 +26,7 @@ Eliza Cloud provides remote agent hosting and provisioning. The Milady cloud int
 The Eliza Cloud integration consists of several components:
 
 - **CloudManager** -- top-level orchestrator that manages the client, proxy, backup scheduler, and connection monitor
-- **ElizaCloudClient** -- HTTP client for the Eliza Cloud Milady Sandbox API
+- **ElizaCloudClient** -- HTTP client for the Eliza Cloud Milaidy Sandbox API
 - **CloudRuntimeProxy** -- routes chat and runtime operations through the remote sandbox
 - **BackupScheduler** -- periodic state snapshots to the cloud
 - **ConnectionMonitor** -- heartbeat monitoring with exponential backoff reconnection
@@ -118,7 +118,7 @@ interface CloudLoginResult {
 
 The dashboard also provides a login flow via `POST /api/cloud/login` which returns a `sessionId` and `browserUrl`. The frontend then polls `GET /api/cloud/login/status?sessionId=...` until authentication completes. On success, the API key is:
 
-1. Saved to the `milady.json` config file
+1. Saved to the `milaidy.json` config file
 2. Set in `process.env.ELIZAOS_CLOUD_API_KEY`
 3. Persisted to the agent's database record (survives config-file resets)
 4. Used to initialize the cloud manager

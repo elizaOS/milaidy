@@ -6,7 +6,7 @@ description: "Supported AI model providers and how to configure them."
 
 # Model Providers
 
-Milady supports multiple AI model providers out of the box. Set the corresponding environment variable in `~/.milady/.env` or via `milady configure`.
+Milaidy supports multiple AI model providers out of the box. Set the corresponding environment variable in `~/.milaidy/.env` or via `milaidy configure`.
 
 | Provider | Env Variable | Notes |
 |----------|--------------|-------|
@@ -21,14 +21,14 @@ Milady supports multiple AI model providers out of the box. Set the correspondin
 ## Managing Providers
 
 ```bash
-milady models             # list configured model providers
-milady models add         # add a new provider interactively
-milady models test        # test if your API keys work
+milaidy models             # list configured model providers
+milaidy models add         # add a new provider interactively
+milaidy models test        # test if your API keys work
 ```
 
 ## Switching Models
 
-Change the default model in your config file (`~/.milady/milady.json`):
+Change the default model in your config file (`~/.milaidy/milaidy.json`):
 
 ```json5
 {

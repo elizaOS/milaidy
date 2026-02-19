@@ -6,7 +6,7 @@ description: Schedule tasks that wake the agent on intervals, at specific times,
 
 # Triggers & Scheduled Tasks
 
-Triggers are scheduled tasks that wake the Milady agent at defined times or intervals. They allow the agent to perform recurring work, one-time future tasks, or cron-scheduled operations without manual intervention.
+Triggers are scheduled tasks that wake the Milaidy agent at defined times or intervals. They allow the agent to perform recurring work, one-time future tasks, or cron-scheduled operations without manual intervention.
 
 ## Trigger Types
 
@@ -67,7 +67,7 @@ The full trigger configuration (stored in task metadata):
 
 ## API Endpoints
 
-All trigger endpoints are under `/api/triggers`. Triggers must be enabled via the `MILADY_TRIGGERS_ENABLED` setting (defaults to `true`).
+All trigger endpoints are under `/api/triggers`. Triggers must be enabled via the `MILAIDY_TRIGGERS_ENABLED` setting (defaults to `true`).
 
 ### List Triggers
 
@@ -221,8 +221,8 @@ In-memory metrics (total executions, failures, skipped) are also tracked per age
 
 ## Trigger Limits and Quotas
 
-- **Active trigger limit** -- configurable via `MILADY_TRIGGERS_MAX_ACTIVE` (setting or environment variable). Default: 100 active triggers per creator.
-- **Feature toggle** -- triggers can be disabled entirely via `MILADY_TRIGGERS_ENABLED=false` (setting or environment variable).
+- **Active trigger limit** -- configurable via `MILAIDY_TRIGGERS_MAX_ACTIVE` (setting or environment variable). Default: 100 active triggers per creator.
+- **Feature toggle** -- triggers can be disabled entirely via `MILAIDY_TRIGGERS_ENABLED=false` (setting or environment variable).
 - **Duplicate detection** -- triggers with identical instructions, type, interval, and wake mode are detected via a dedupe key hash and rejected.
 - **Max runs** -- set `maxRuns` to automatically delete a trigger after a fixed number of executions.
 - **Once triggers** -- automatically deleted after their single execution.

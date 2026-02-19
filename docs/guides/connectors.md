@@ -47,7 +47,7 @@ Connectors are platform bridges that allow your agent to communicate across mess
 
 ## General Configuration
 
-Connectors are configured in the `channels` section of `milady.json`. Common fields shared across most connectors:
+Connectors are configured in the `channels` section of `milaidy.json`. Common fields shared across most connectors:
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -455,7 +455,7 @@ See the [WhatsApp Integration Guide](/guides/whatsapp) for detailed setup instru
 The typical connector lifecycle follows this pattern:
 
 1. **Install plugin** -- Connector plugins are installed as `@elizaos/plugin-{platform}` packages
-2. **Configure** -- Add the platform configuration to the `channels` section of `milady.json`
+2. **Configure** -- Add the platform configuration to the `channels` section of `milaidy.json`
 3. **Enable** -- Set `enabled: true` in the connector config
 4. **Authenticate** -- Provide credentials (tokens, keys) or complete auth flow (QR code scan)
 5. **Run** -- The runtime starts the connector, establishes connections, and begins message handling

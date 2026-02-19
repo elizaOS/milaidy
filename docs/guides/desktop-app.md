@@ -1,18 +1,18 @@
 ---
 title: Desktop App (Electron)
 sidebarTitle: Desktop App
-description: Install and use the Milady desktop application on macOS, Windows, and Linux with embedded agent runtime and native features.
+description: Install and use the Milaidy desktop application on macOS, Windows, and Linux with embedded agent runtime and native features.
 ---
 
 # Desktop App (Electron)
 
-The Milady desktop app wraps the web dashboard in a native Electron shell, adding system-level features like tray icons, global keyboard shortcuts, native notifications, and an embedded agent runtime that requires no separate server.
+The Milaidy desktop app wraps the web dashboard in a native Electron shell, adding system-level features like tray icons, global keyboard shortcuts, native notifications, and an embedded agent runtime that requires no separate server.
 
 ## Download and Install
 
 ### macOS
 
-Download the `.dmg` file from the [GitHub releases page](https://github.com/milady-ai/milady/releases). Open the DMG and drag Milady to your Applications folder.
+Download the `.dmg` file from the [GitHub releases page](https://github.com/milady-ai/milady/releases). Open the DMG and drag Milaidy to your Applications folder.
 
 - **Build targets:** DMG and ZIP.
 - **Category:** Productivity (`public.app-category.productivity`).
@@ -24,7 +24,7 @@ Download the `.exe` installer (NSIS) from the releases page.
 
 - **Build target:** NSIS installer.
 - **Options:** Choose installation directory, run elevated if needed.
-- **Code signed** via Azure Code Signing (`milady-code-sign` certificate profile).
+- **Code signed** via Azure Code Signing (`milaidy-code-sign` certificate profile).
 
 ### Linux
 
@@ -35,15 +35,15 @@ Download the `.AppImage` or `.deb` package from the releases page.
 
 ## Embedded Agent Runtime
 
-The desktop app embeds the full Milady agent runtime directly in the Electron main process. No separate server or CLI is needed.
+The desktop app embeds the full Milaidy agent runtime directly in the Electron main process. No separate server or CLI is needed.
 
 On startup, the agent module:
 
-1. Dynamically imports the headless `startEliza` function from the bundled Milady distribution.
+1. Dynamically imports the headless `startEliza` function from the bundled Milaidy distribution.
 2. Starts the API server on an available port.
 3. Sends the port number to the renderer process so the UI's API client can connect.
 
-The renderer never needs to distinguish between an embedded or remote API server — it connects to `http://localhost:{port}` using the injected `window.__MILADY_API_BASE__` value.
+The renderer never needs to distinguish between an embedded or remote API server — it connects to `http://localhost:{port}` using the injected `window.__MILAIDY_API_BASE__` value.
 
 ### Agent Status States
 
@@ -62,10 +62,10 @@ The embedded agent reports its state to the UI:
 For testing or connecting to a remote agent, set the environment variable:
 
 ```
-MILADY_ELECTRON_TEST_API_BASE=http://your-host:port
+MILAIDY_ELECTRON_TEST_API_BASE=http://your-host:port
 ```
 
-This skips the embedded agent and connects to the specified API server instead. Setting `MILADY_ELECTRON_SKIP_EMBEDDED_AGENT=1` also disables the embedded runtime.
+This skips the embedded agent and connects to the specified API server instead. Setting `MILAIDY_ELECTRON_SKIP_EMBEDDED_AGENT=1` also disables the embedded runtime.
 
 ## Native Modules
 
@@ -86,7 +86,7 @@ Core native desktop features:
 
 ### Gateway Discovery
 
-Network discovery for finding and connecting to Milady gateway servers on the local network.
+Network discovery for finding and connecting to Milaidy gateway servers on the local network.
 
 ### Talk Mode
 
@@ -133,14 +133,14 @@ These shortcuts work system-wide when the app is running.
 
 ## Deep Linking
 
-The desktop app supports the `milady://` custom URL protocol for deep linking.
+The desktop app supports the `milaidy://` custom URL protocol for deep linking.
 
 ### Share Target
 
-The `milady://share` URL scheme allows external applications to share content with your agent:
+The `milaidy://share` URL scheme allows external applications to share content with your agent:
 
 ```
-milady://share?title=Hello&text=Check+this+out&url=https://example.com
+milaidy://share?title=Hello&text=Check+this+out&url=https://example.com
 ```
 
 Parameters:
@@ -161,4 +161,4 @@ In development mode:
 
 - A **file watcher** (chokidar) monitors the web asset directory and auto-reloads the app when files change (1.5 second debounce).
 - Content Security Policy is adjusted for development.
-- The `MILADY_ELECTRON_USER_DATA_DIR` environment variable can override the user data directory for automated E2E testing.
+- The `MILAIDY_ELECTRON_USER_DATA_DIR` environment variable can override the user data directory for automated E2E testing.

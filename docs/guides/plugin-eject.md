@@ -26,7 +26,7 @@ The eject system lets you clone an upstream plugin's source code locally, modify
 
 ## What Eject Does
 
-Ejecting a plugin clones its upstream Git repository into a local directory (`~/.milady/plugins/ejected/`), creates tracking metadata (`.upstream.json`), and configures the runtime to load the local copy instead of the npm-installed version.
+Ejecting a plugin clones its upstream Git repository into a local directory (`~/.milaidy/plugins/ejected/`), creates tracking metadata (`.upstream.json`), and configures the runtime to load the local copy instead of the npm-installed version.
 
 This is useful when you need to:
 
@@ -57,9 +57,9 @@ eject the telegram plugin so I can edit its source
 Or manually:
 ```bash
 git clone --branch 1.x https://github.com/elizaos-plugins/plugin-telegram.git \
-  ~/.milady/plugins/ejected/plugin-telegram
+  ~/.milaidy/plugins/ejected/plugin-telegram
 
-cd ~/.milady/plugins/ejected/plugin-telegram
+cd ~/.milaidy/plugins/ejected/plugin-telegram
 npm install
 npm run build
 ```
@@ -69,7 +69,7 @@ npm run build
 Make your changes in the ejected plugin's `src/` directory:
 
 ```bash
-cd ~/.milady/plugins/ejected/plugin-telegram/src/
+cd ~/.milaidy/plugins/ejected/plugin-telegram/src/
 # Edit files...
 ```
 
@@ -78,13 +78,13 @@ cd ~/.milady/plugins/ejected/plugin-telegram/src/
 After editing, rebuild the plugin:
 
 ```bash
-cd ~/.milady/plugins/ejected/plugin-telegram
+cd ~/.milaidy/plugins/ejected/plugin-telegram
 npm run build
 ```
 
 ### 4. Test
 
-Restart Milady. The runtime auto-discovers ejected plugins and loads them instead of the npm versions:
+Restart Milaidy. The runtime auto-discovers ejected plugins and loads them instead of the npm versions:
 
 ```bash
 npm start
@@ -103,7 +103,7 @@ sync the ejected telegram plugin
 
 Or manually:
 ```bash
-cd ~/.milady/plugins/ejected/plugin-telegram
+cd ~/.milaidy/plugins/ejected/plugin-telegram
 git fetch origin
 git pull --rebase origin 1.x
 npm run build
@@ -120,8 +120,8 @@ reinject the telegram plugin
 
 Or manually:
 ```bash
-rm -rf ~/.milady/plugins/ejected/plugin-telegram
-# Restart Milady — it loads the npm version again
+rm -rf ~/.milaidy/plugins/ejected/plugin-telegram
+# Restart Milaidy — it loads the npm version again
 ```
 
 ---
@@ -135,7 +135,7 @@ In addition to plugins, you can eject `@elizaos/core` itself for deep customizat
 - **Git URL**: `https://github.com/elizaos/eliza.git`
 - **Default branch**: `develop`
 - **Core package path**: `packages/core` within the monorepo
-- **Local directory**: `~/.milady/core/eliza/`
+- **Local directory**: `~/.milaidy/core/eliza/`
 
 ### Core Status
 
@@ -185,7 +185,7 @@ The agent has built-in actions for managing ejected plugins and core:
 ## Directory Structure
 
 ```
-~/.milady/
+~/.milaidy/
 ├── plugins/
 │   ├── installed/           # npm-installed plugins (managed by plugin-installer)
 │   ├── custom/              # Hand-written drop-in plugins
@@ -211,9 +211,9 @@ The agent has built-in actions for managing ejected plugins and core:
 
 When the runtime resolves plugins, ejected versions always take precedence:
 
-1. **Ejected** (`~/.milady/plugins/ejected/`) -- highest priority
+1. **Ejected** (`~/.milaidy/plugins/ejected/`) -- highest priority
 2. **Official npm** (`node_modules/@elizaos/plugin-*`) -- with install record repair
-3. **User-installed** (`~/.milady/plugins/installed/`)
+3. **User-installed** (`~/.milaidy/plugins/installed/`)
 4. **Local @milaidy** (`src/plugins/`)
 5. **npm fallback** (`import(name)`)
 
@@ -277,7 +277,7 @@ interface SyncResult {
 ### Manual Sync
 
 ```bash
-cd ~/.milady/plugins/ejected/plugin-telegram
+cd ~/.milaidy/plugins/ejected/plugin-telegram
 
 # Check what changed upstream
 git fetch origin
@@ -302,7 +302,7 @@ If merge conflicts occur, resolve them manually, then `git add` the resolved fil
 The ejected plugin is a real Git repository. You can push changes upstream:
 
 ```bash
-cd ~/.milady/plugins/ejected/plugin-telegram
+cd ~/.milaidy/plugins/ejected/plugin-telegram
 
 # Add your fork as a remote
 git remote add fork git@github.com:YOUR_USER/plugin-telegram.git

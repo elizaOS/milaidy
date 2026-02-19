@@ -6,7 +6,7 @@ description: Extend the agent with event-driven handlers that respond to command
 
 # Event Hooks
 
-Hooks are event-driven handlers that extend the Milady agent by responding to system events. They are loaded from disk at startup, checked for eligibility, and registered into an event dispatch system. Hooks allow you to run custom logic when commands are issued, sessions change, the agent starts up, or gateway events occur.
+Hooks are event-driven handlers that extend the Milaidy agent by responding to system events. They are loaded from disk at startup, checked for eligibility, and registered into an event dispatch system. Hooks allow you to run custom logic when commands are issued, sessions change, the agent starts up, or gateway events occur.
 
 ## Hook Event Types
 
@@ -39,7 +39,7 @@ name: my-hook
 description: Does something useful on session start
 homepage: https://example.com/docs
 metadata:
-  milady:
+  milaidy:
     always: false
     hookKey: my-hook
     emoji: "🔧"
@@ -69,7 +69,7 @@ metadata:
 ---
 ```
 
-### Milady Metadata Fields
+### Milaidy Metadata Fields
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -83,16 +83,16 @@ metadata:
 | `requires.bins` | `string[]` | All listed binaries must exist on `$PATH` |
 | `requires.anyBins` | `string[]` | At least one listed binary must exist on `$PATH` |
 | `requires.env` | `string[]` | Required environment variables (checked in both process env and hook config env) |
-| `requires.config` | `string[]` | Required config paths that must be truthy in the Milady config |
+| `requires.config` | `string[]` | Required config paths that must be truthy in the Milaidy config |
 | `install` | `HookInstallSpec[]` | Installation methods for the macOS Skills UI |
 
 ## Hook Discovery
 
 Hooks are discovered from multiple directory sources with a defined precedence order (later sources override earlier ones on name conflicts):
 
-1. **Extra directories** (lowest precedence) -- additional directories specified in config `hooks.load.extraDirs` (must be under `~/.milady/`)
-2. **Bundled directory** -- hooks shipped with Milady
-3. **Managed directory** -- `~/.milady/hooks/` for user-installed hooks
+1. **Extra directories** (lowest precedence) -- additional directories specified in config `hooks.load.extraDirs` (must be under `~/.milaidy/`)
+2. **Bundled directory** -- hooks shipped with Milaidy
+3. **Managed directory** -- `~/.milaidy/hooks/` for user-installed hooks
 4. **Workspace directory** (highest precedence) -- `<workspace>/hooks/` for project-specific hooks
 
 Within each directory, the discovery system:
@@ -118,7 +118,7 @@ At least one binary from the list must be found on `$PATH`.
 Each listed environment variable must be present in either `process.env` or in the hook's config entry `env` field.
 
 ### Config Path Check (`requires.config`)
-Each dot-separated config path must resolve to a truthy value in the Milady config object.
+Each dot-separated config path must resolve to a truthy value in the Milaidy config object.
 
 ### The `always` Flag
 When `always: true`, the hook skips binary, environment, and config checks. Only the OS check still applies.
@@ -165,7 +165,7 @@ await triggerHook(event);
 
 ### 1. Create the Hook Directory
 
-Create a new directory under `~/.milady/hooks/my-hook/` with two files:
+Create a new directory under `~/.milaidy/hooks/my-hook/` with two files:
 
 **HOOK.md**
 ```yaml
@@ -173,7 +173,7 @@ Create a new directory under `~/.milady/hooks/my-hook/` with two files:
 name: my-hook
 description: Logs a greeting when a new session starts
 metadata:
-  milady:
+  milaidy:
     events:
       - session:new
     requires:
@@ -187,7 +187,7 @@ This hook logs a greeting when a new chat session begins.
 
 **handler.ts**
 ```typescript
-import type { HookEvent } from "milady/hooks/types";
+import type { HookEvent } from "milaidy/hooks/types";
 
 export default async function handler(event: HookEvent): Promise<void> {
   console.log(`New session started: ${event.sessionKey}`);
@@ -218,7 +218,7 @@ The loader returns a summary: total discovered, eligible, registered, skipped (w
 ### 4. Path Safety
 
 Hook handler modules can only be loaded from allowed directories:
-- `~/.milady/hooks/`
+- `~/.milaidy/hooks/`
 - The bundled hooks directory
 - `<workspace>/hooks/`
 

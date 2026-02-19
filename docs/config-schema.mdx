@@ -1,12 +1,12 @@
 ---
 title: Configuration Schema Reference
 sidebarTitle: Config Schema
-description: Complete reference for the milady.json configuration file, organized by section with all fields documented.
+description: Complete reference for the milaidy.json configuration file, organized by section with all fields documented.
 ---
 
 # Configuration Schema Reference
 
-Milady is configured through a `milady.json` file stored in the state directory (default: `~/.milady/milady.json`). All sections are optional; Milady uses sensible defaults when fields are omitted.
+Milaidy is configured through a `milaidy.json` file stored in the state directory (default: `~/.milaidy/milaidy.json`). All sections are optional; Milaidy uses sensible defaults when fields are omitted.
 
 The configuration is validated against Zod schemas at load time. Invalid fields produce warnings but do not block startup.
 
@@ -52,7 +52,7 @@ Metadata about the config file itself.
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `lastTouchedVersion` | `string` | Last Milady version that wrote this config |
+| `lastTouchedVersion` | `string` | Last Milaidy version that wrote this config |
 | `lastTouchedAt` | `string` | ISO timestamp when config was last written |
 
 ---
@@ -158,7 +158,7 @@ Gateway server configuration.
 | Field | Type | Description |
 |-------|------|-------------|
 | `enabled` | `boolean` | Serve the Control UI |
-| `basePath` | `string` | Base path prefix (e.g., `/milady`) |
+| `basePath` | `string` | Base path prefix (e.g., `/milaidy`) |
 | `allowedOrigins` | `string[]` | Allowed browser origins |
 | `dangerouslyDisableDeviceAuth` | `boolean` | Disable device identity checks |
 
@@ -321,7 +321,7 @@ Media understanding tools (image, audio, video) with model fallback chains and s
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `provider` | `"pglite" \| "postgres"` | `"pglite"` | Active database provider |
-| `pglite.dataDir` | `string` | `~/.milady/workspace/.eliza/.elizadb` | PGLite data directory |
+| `pglite.dataDir` | `string` | `~/.milaidy/workspace/.eliza/.elizadb` | PGLite data directory |
 | `postgres.connectionString` | `string` | - | Full PostgreSQL connection string |
 | `postgres.host` | `string` | `localhost` | PostgreSQL host |
 | `postgres.port` | `number` | `5432` | PostgreSQL port |
@@ -491,7 +491,7 @@ UI appearance configuration.
 | Field | Type | Description |
 |-------|------|-------------|
 | `seamColor` | `string` | Accent color (hex) |
-| `theme` | `string` | UI theme: `milady`, `qt314`, `web2000`, `programmer`, `haxor`, `psycho` |
+| `theme` | `string` | UI theme: `milaidy`, `qt314`, `web2000`, `programmer`, `haxor`, `psycho` |
 | `assistant.name` | `string` | Assistant display name |
 | `assistant.avatar` | `string` | Avatar emoji, text, or image URL |
 

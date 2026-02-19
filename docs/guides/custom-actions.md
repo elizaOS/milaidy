@@ -6,11 +6,11 @@ description: Define user-created agent capabilities with HTTP, shell, and code h
 
 # Custom Actions
 
-Custom actions are user-defined capabilities that extend what the Milady agent can do at runtime. They allow you to wire up external APIs, run shell commands, or execute inline JavaScript -- all surfaced as first-class actions the agent can invoke during conversations.
+Custom actions are user-defined capabilities that extend what the Milaidy agent can do at runtime. They allow you to wire up external APIs, run shell commands, or execute inline JavaScript -- all surfaced as first-class actions the agent can invoke during conversations.
 
 ## Overview
 
-Custom actions are defined in the `customActions` array in your `milady.json` configuration file. At startup, the runtime loads all enabled custom action definitions, converts them into ElizaOS `Action` objects, and registers them with the agent. The agent can then invoke these actions based on conversation context, just like any built-in action.
+Custom actions are defined in the `customActions` array in your `milaidy.json` configuration file. At startup, the runtime loads all enabled custom action definitions, converts them into ElizaOS `Action` objects, and registers them with the agent. The agent can then invoke these actions based on conversation context, just like any built-in action.
 
 ## Handler Types
 
@@ -92,9 +92,9 @@ Each parameter in the `parameters` array has:
 - `description` -- description shown to the agent
 - `required` -- if `true`, the action fails when this parameter is missing
 
-## Defining Custom Actions in milady.json
+## Defining Custom Actions in milaidy.json
 
-Add custom actions to the `customActions` array in your `milady.json`:
+Add custom actions to the `customActions` array in your `milaidy.json`:
 
 ```json
 {
@@ -128,7 +128,7 @@ Add custom actions to the `customActions` array in your `milady.json`:
 
 ### Startup Loading
 
-At plugin initialization, `loadCustomActions()` reads the `milady.json` config, filters to only `enabled` definitions, and converts each into an ElizaOS `Action` object via `defToAction()`. These are then registered with the runtime.
+At plugin initialization, `loadCustomActions()` reads the `milaidy.json` config, filters to only `enabled` definitions, and converts each into an ElizaOS `Action` object via `defToAction()`. These are then registered with the runtime.
 
 The conversion process:
 1. Reads `customActions` from the loaded config
@@ -154,7 +154,7 @@ The `buildTestHandler(def)` function creates a temporary handler for testing a c
 
 ## Built-in Actions Reference
 
-Milady ships with the following built-in actions in `src/actions/`:
+Milaidy ships with the following built-in actions in `src/actions/`:
 
 | Action | Description |
 |--------|-------------|

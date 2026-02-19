@@ -1,12 +1,12 @@
 ---
 title: System Architecture
 sidebarTitle: Architecture
-description: High-level overview of the Milady AI system architecture, layers, plugin system, and cross-platform delivery.
+description: High-level overview of the Milaidy AI system architecture, layers, plugin system, and cross-platform delivery.
 ---
 
 # System Architecture
 
-Milady is a cross-platform AI agent runtime built on top of [ElizaOS](https://elizaos.ai). It delivers the same backend across CLI, web, desktop (Electron), and mobile (Capacitor) surfaces through a layered architecture.
+Milaidy is a cross-platform AI agent runtime built on top of [ElizaOS](https://elizaos.ai). It delivers the same backend across CLI, web, desktop (Electron), and mobile (Capacitor) surfaces through a layered architecture.
 
 ## High-Level Diagram
 
@@ -30,7 +30,7 @@ Milady is a cross-platform AI agent runtime built on top of [ElizaOS](https://el
 +---------------------------------------------------------------+
 |                    Runtime Layer (ElizaOS)                     |
 |  AgentRuntime + Plugin system                                 |
-|  13 core plugins + optional plugins + Milady plugin           |
+|  13 core plugins + optional plugins + Milaidy plugin           |
 |  Providers, Actions, Services                                 |
 +----------------------------+----------------------------------+
                              |
@@ -47,9 +47,9 @@ Milady is a cross-platform AI agent runtime built on top of [ElizaOS](https://el
 
 ### 1. CLI Layer
 
-The CLI entry point (`src/entry.ts`) is the bootstrap for all Milady operations.
+The CLI entry point (`src/entry.ts`) is the bootstrap for all Milaidy operations.
 
-- Sets process title to `milady`
+- Sets process title to `milaidy`
 - Normalizes color and log level from flags (`--no-color`, `--debug`, `--verbose`)
 - Parses CLI profiles via `parseCliProfileArgs`
 - Delegates to `runCli()` in `src/cli/run-main.ts`
@@ -58,18 +58,18 @@ The CLI entry point (`src/entry.ts`) is the bootstrap for all Milady operations.
 
 ```typescript
 // src/entry.ts — simplified bootstrap
-process.title = "milady";
+process.title = "milaidy";
 import("./cli/run-main")
   .then(({ runCli }) => runCli(process.argv))
 ```
 
 ### 2. Runtime Layer (ElizaOS)
 
-The runtime (`src/runtime/eliza.ts`) starts an `AgentRuntime` from `@elizaos/core` with Milady's plugin configuration.
+The runtime (`src/runtime/eliza.ts`) starts an `AgentRuntime` from `@elizaos/core` with Milaidy's plugin configuration.
 
 Key responsibilities:
 - Loads and resolves core + optional + user-installed plugins
-- Creates the Milady plugin (workspace context, session keys, lifecycle actions)
+- Creates the Milaidy plugin (workspace context, session keys, lifecycle actions)
 - Configures local embedding models (GPU layers, idle timeout, model selection)
 - Manages agent workspace and sandbox environments
 - Hooks system for event-driven automation
@@ -82,7 +82,7 @@ The API server (`src/api/server.ts`) is a Node.js HTTP server on port **2138** (
 - WebSocket server at `/ws` for real-time events (status, agent events, heartbeat, proactive messages)
 - SSE endpoint for log streaming
 - Static file serving for the frontend UI bundle
-- Token-based authentication when `MILADY_API_TOKEN` is set
+- Token-based authentication when `MILAIDY_API_TOKEN` is set
 
 ### 4. Frontend Layer
 
@@ -121,7 +121,7 @@ The same backend serves all platforms:
 
 | Platform | Delivery | Notes |
 |----------|----------|-------|
-| CLI | `milady start` | Direct Node.js process |
+| CLI | `milaidy start` | Direct Node.js process |
 | Web | Browser at `http://localhost:2138` | Vite dev proxy in development |
 | Desktop | Electron wrapper | Bundles the API server + UI |
 | iOS | Capacitor | Connects to local/remote API |
@@ -131,7 +131,7 @@ The frontend API client (`apps/app/src/api-client.ts`) is a thin fetch wrapper p
 
 ## ElizaOS Plugin Architecture
 
-Milady assembles its capabilities through ElizaOS's plugin system. Plugins are loaded in two tiers.
+Milaidy assembles its capabilities through ElizaOS's plugin system. Plugins are loaded in two tiers.
 
 ### Core Plugins (Always Loaded)
 
@@ -165,9 +165,9 @@ Can be enabled from the admin panel:
 Additional optional plugins like `plugin-mcp`, `plugin-computeruse`, `plugin-cli`, `plugin-edge-tts`, and others are commented out in the source but available for future activation.
 </Info>
 
-### Milady Plugin
+### Milaidy Plugin
 
-The `milady` plugin (`src/runtime/milady-plugin.ts`) provides:
+The `milaidy` plugin (`src/runtime/milaidy-plugin.ts`) provides:
 
 - **Providers**: Workspace context, channel profiles, admin trust, autonomous state, session keys, UI catalog, emotes, custom actions
 - **Actions**: Restart, send message, trigger tasks, emote playback, user-defined custom actions
@@ -197,7 +197,7 @@ The API server exposes a WebSocket endpoint at `/ws` on port 2138 for:
 
 ## Config System
 
-Milady uses a Zod-validated JSON configuration file (`milady.json`) stored in the state directory (`~/.milady/`).
+Milaidy uses a Zod-validated JSON configuration file (`milaidy.json`) stored in the state directory (`~/.milaidy/`).
 
 <Tabs>
   <Tab title="Structure">
@@ -216,7 +216,7 @@ Milady uses a Zod-validated JSON configuration file (`milady.json`) stored in th
     - `update` -- Release channel, check intervals
   </Tab>
   <Tab title="Validation">
-    All config sections are validated against Zod schemas at load time. Invalid fields produce warnings but do not prevent startup. The config file includes metadata tracking the last Milady version that wrote it and when.
+    All config sections are validated against Zod schemas at load time. Invalid fields produce warnings but do not prevent startup. The config file includes metadata tracking the last Milaidy version that wrote it and when.
   </Tab>
 </Tabs>
 

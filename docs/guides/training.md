@@ -6,7 +6,7 @@ description: "Trajectory collection, dataset curation, fine-tuning workflows, an
 
 # Training & Fine-Tuning
 
-Milady captures all LLM interactions as trajectories, which can be curated into training datasets and used to fine-tune local models. The training pipeline supports dataset building, training job management, model import to Ollama, and model activation.
+Milaidy captures all LLM interactions as trajectories, which can be curated into training datasets and used to fine-tune local models. The training pipeline supports dataset building, training job management, model import to Ollama, and model activation.
 
 ## Table of Contents
 
@@ -226,7 +226,7 @@ The `ollamaUrl` must target a loopback host (localhost, 127.0.0.1, or ::1) for s
 
 ## Dashboard Integration
 
-The Milady dashboard provides two dedicated tabs for training:
+The Milaidy dashboard provides two dedicated tabs for training:
 
 ### Fine-Tuning Tab (`FineTuningView`)
 

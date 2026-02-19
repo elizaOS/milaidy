@@ -8,7 +8,7 @@ description: "Config file, ports, environment variables, and model provider setu
 
 ## Config File
 
-Lives at `~/.milady/milady.json`
+Lives at `~/.milaidy/milaidy.json`
 
 ```json5
 {
@@ -22,23 +22,23 @@ Lives at `~/.milady/milady.json`
 }
 ```
 
-Or use `~/.milady/.env` for secrets.
+Or use `~/.milaidy/.env` for secrets.
 
 ## Ports
 
 | Service | Default | Env Override |
 |---------|---------|--------------|
-| Gateway (API + WebSocket) | `18789` | `MILADY_GATEWAY_PORT` |
-| Dashboard (Web UI) | `2138` | `MILADY_PORT` |
+| Gateway (API + WebSocket) | `18789` | `MILAIDY_GATEWAY_PORT` |
+| Dashboard (Web UI) | `2138` | `MILAIDY_PORT` |
 
 ```bash
 # custom ports
-MILADY_GATEWAY_PORT=19000 MILADY_PORT=3000 milady start
+MILAIDY_GATEWAY_PORT=19000 MILAIDY_PORT=3000 milaidy start
 ```
 
 ## Model Providers
 
-Milady supports multiple AI model providers. Set the corresponding environment variable to enable each one.
+Milaidy supports multiple AI model providers. Set the corresponding environment variable to enable each one.
 
 | Provider | Env Variable | Notes |
 |----------|--------------|-------|
@@ -57,7 +57,7 @@ See the [Model Providers](/model-providers) page for full details.
 Use the CLI to manage configuration:
 
 ```bash
-milady configure          # interactive config wizard
-milady config get <key>   # read a config value
-milady config set <k> <v> # set a config value
+milaidy configure          # interactive config wizard
+milaidy config get <key>   # read a config value
+milaidy config set <k> <v> # set a config value
 ```

@@ -1,28 +1,28 @@
 ---
 title: Themes & Avatars
 sidebarTitle: Themes & Avatars
-description: Customize the Milady dashboard appearance with 6 built-in themes and 8 VRM 3D avatars with 27 emotes.
+description: Customize the Milaidy dashboard appearance with 6 built-in themes and 8 VRM 3D avatars with 27 emotes.
 ---
 
 # Themes & Avatars
 
-Milady ships with 6 visual themes and 8 built-in 3D VRM avatars. Themes control the entire dashboard look and feel — colors, typography, border radii, shadows, and animations. Avatars provide a live 3D character in the chat view.
+Milaidy ships with 6 visual themes and 8 built-in 3D VRM avatars. Themes control the entire dashboard look and feel — colors, typography, border radii, shadows, and animations. Avatars provide a live 3D character in the chat view.
 
 ## Themes
 
 ### How to Switch Themes
 
-Navigate to **Settings** and look for the **Appearance** section at the top. The theme picker displays all available themes. Your selection is saved to `localStorage` under the key `milady:theme` and persists across sessions.
+Navigate to **Settings** and look for the **Appearance** section at the top. The theme picker displays all available themes. Your selection is saved to `localStorage` under the key `milaidy:theme` and persists across sessions.
 
 ### Available Themes
 
-#### milady (default)
+#### milaidy (default)
 
 The signature theme inspired by miladymaker.net. A light-mode aesthetic with sage greens, warm cream tones, and a Y2K retro-web feel.
 
 - **Color scheme:** Light
 - **Background:** White base with a green-to-white gradient (`#b6d4a8` to `#ffffff`)
-- **Accent:** Signature milady green (`#4a7c59`)
+- **Accent:** Signature milaidy green (`#4a7c59`)
 - **Text:** Forest green (`#2d4a3e`)
 - **Header bar:** Rich forest green (`#3d5c42`)
 - **Borders:** Bold forest green, not pastel (`#5b8350`)
@@ -113,14 +113,14 @@ Every theme defines a consistent set of CSS custom properties, including:
 
 ### What Are VRM Avatars?
 
-[VRM](https://vrm.dev/) is an open standard for 3D humanoid avatars. Milady uses VRM models to render a live 3D character in the chat view that reacts to conversation with animations and emotes.
+[VRM](https://vrm.dev/) is an open standard for 3D humanoid avatars. Milaidy uses VRM models to render a live 3D character in the chat view that reacts to conversation with animations and emotes.
 
 ### Built-in Avatars
 
-Milady ships with **8 built-in VRM avatars** (indexed 1 through 8). Each avatar has:
+Milaidy ships with **8 built-in VRM avatars** (indexed 1 through 8). Each avatar has:
 
 - A `.vrm` model file located at `vrms/{index}.vrm`.
-- A preview thumbnail at `vrms/previews/milady-{index}.png`.
+- A preview thumbnail at `vrms/previews/milaidy-{index}.png`.
 
 Select an avatar index of 0 to disable the 3D avatar entirely.
 

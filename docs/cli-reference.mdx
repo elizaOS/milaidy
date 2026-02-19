@@ -1,69 +1,69 @@
 ---
 title: "CLI Reference"
 sidebarTitle: "CLI Reference"
-description: "All Milady terminal commands, TUI hotkeys, and headless mode."
+description: "All Milaidy terminal commands, TUI hotkeys, and headless mode."
 ---
 
 # CLI Reference
 
-## Starting Milady
+## Starting Milaidy
 
 ```bash
-milady                    # start (default)
-milady start              # same thing
-milady start --headless   # no browser popup
-milady start --verbose    # debug mode for when things break
+milaidy                    # start (default)
+milaidy start              # same thing
+milaidy start --headless   # no browser popup
+milaidy start --verbose    # debug mode for when things break
 ```
 
 ## Setup & Config
 
 ```bash
-milady setup              # first-time setup / refresh workspace after update
-milady configure          # interactive config wizard
-milady config get <key>   # read a config value
-milady config set <k> <v> # set a config value
+milaidy setup              # first-time setup / refresh workspace after update
+milaidy configure          # interactive config wizard
+milaidy config get <key>   # read a config value
+milaidy config set <k> <v> # set a config value
 ```
 
 ## Dashboard & UI
 
 ```bash
-milady dashboard          # open web UI in browser
-milady dashboard --port 3000  # custom port
+milaidy dashboard          # open web UI in browser
+milaidy dashboard --port 3000  # custom port
 ```
 
 ## Models
 
 ```bash
-milady models             # list configured model providers
-milady models add         # add a new provider
-milady models test        # test if your API keys work
+milaidy models             # list configured model providers
+milaidy models add         # add a new provider
+milaidy models test        # test if your API keys work
 ```
 
 ## Plugins
 
 ```bash
-milady plugins list       # what's installed
-milady plugins add <name> # install a plugin
-milady plugins remove <name>
+milaidy plugins list       # what's installed
+milaidy plugins add <name> # install a plugin
+milaidy plugins remove <name>
 ```
 
 ## Misc
 
 ```bash
-milady --version          # version check
-milady --help             # help
-milady doctor             # diagnose issues
+milaidy --version          # version check
+milaidy --help             # help
+milaidy doctor             # diagnose issues
 ```
 
 ---
 
 ## TUI (Terminal UI)
 
-When running, Milady shows a live terminal interface:
+When running, Milaidy shows a live terminal interface:
 
 ```
 ╭─────────────────────────────────────────────────────────────╮
-│  milady v0.1.0                              ▲ running      │
+│  milaidy v0.1.0                              ▲ running      │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
 │  Agent: mila                                                │
@@ -101,7 +101,7 @@ When running, Milady shows a live terminal interface:
 Don't want the TUI? Run headless:
 
 ```bash
-milady start --headless
+milaidy start --headless
 ```
 
-Logs go to `~/.milady/logs/`. Daemonize with your favorite process manager.
+Logs go to `~/.milaidy/logs/`. Daemonize with your favorite process manager.

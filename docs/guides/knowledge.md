@@ -6,7 +6,7 @@ description: Upload documents, URLs, and YouTube transcripts to build a searchab
 
 # Knowledge Base (RAG)
 
-The knowledge system provides Retrieval Augmented Generation (RAG) for the Milady agent. You can upload documents, URLs, and YouTube videos to build a searchable knowledge base. When the agent responds to questions, it retrieves relevant fragments from this knowledge base to ground its answers in your specific content.
+The knowledge system provides Retrieval Augmented Generation (RAG) for the Milaidy agent. You can upload documents, URLs, and YouTube videos to build a searchable knowledge base. When the agent responds to questions, it retrieves relevant fragments from this knowledge base to ground its answers in your specific content.
 
 ## How It Works
 

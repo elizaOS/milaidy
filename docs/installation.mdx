@@ -1,7 +1,7 @@
 ---
 title: "Installation"
 sidebarTitle: "Installation"
-description: "Download the desktop app or install Milady via CLI on macOS, Windows, or Linux."
+description: "Download the desktop app or install Milaidy via CLI on macOS, Windows, or Linux."
 ---
 
 # Installation
@@ -12,10 +12,10 @@ Grab from **[Releases](https://github.com/milady-ai/milady/releases/latest)**:
 
 | Platform | File | |
 |----------|------|---|
-| macOS (Apple Silicon) | [`Milady-arm64.dmg`](https://github.com/milady-ai/milady/releases/latest) | for your overpriced rectangle |
-| macOS (Intel) | [`Milady-x64.dmg`](https://github.com/milady-ai/milady/releases/latest) | boomer mac |
-| Windows | [`Milady-Setup.exe`](https://github.com/milady-ai/milady/releases/latest) | for the gamer anons |
-| Linux | [`Milady.AppImage`](https://github.com/milady-ai/milady/releases/latest) / [`.deb`](https://github.com/milady-ai/milady/releases/latest) | I use arch btw |
+| macOS (Apple Silicon) | [`Milaidy-arm64.dmg`](https://github.com/milady-ai/milady/releases/latest) | for your overpriced rectangle |
+| macOS (Intel) | [`Milaidy-x64.dmg`](https://github.com/milady-ai/milady/releases/latest) | boomer mac |
+| Windows | [`Milaidy-Setup.exe`](https://github.com/milady-ai/milady/releases/latest) | for the gamer anons |
+| Linux | [`Milaidy.AppImage`](https://github.com/milady-ai/milady/releases/latest) / [`.deb`](https://github.com/milady-ai/milady/releases/latest) | I use arch btw |
 
 Signed and notarized. No Gatekeeper FUD. We're legit.
 
@@ -33,7 +33,7 @@ shasum -a 256 --check --ignore-missing SHA256SUMS.txt
   <Tab title="macOS / Linux">
     ```bash
     curl -fsSL https://milady-ai.github.io/milady/install.sh | bash
-    milady setup
+    milaidy setup
     ```
   </Tab>
   <Tab title="Windows">
@@ -44,7 +44,7 @@ shasum -a 256 --check --ignore-missing SHA256SUMS.txt
   <Tab title="npm">
     ```bash
     npm install -g milaidy
-    milady setup
+    milaidy setup
     ```
   </Tab>
 </Tabs>
@@ -63,7 +63,7 @@ git clone https://github.com/milady-ai/milady.git
 cd milady
 bun install
 bun run build
-bun run milady start
+bun run milaidy start
 ```
 
 > `scripts/rt.sh` prefers bun but falls back to npm automatically. If you want to be explicit: `bun run build:node` uses only Node.
@@ -76,10 +76,10 @@ bun run dev
 
 ## Security: API Token
 
-The API server binds to `127.0.0.1` (loopback) by default — only you can reach it. If you expose it to the network (e.g. `MILADY_API_BIND=0.0.0.0` for container/cloud deployments), **set a token**:
+The API server binds to `127.0.0.1` (loopback) by default — only you can reach it. If you expose it to the network (e.g. `MILAIDY_API_BIND=0.0.0.0` for container/cloud deployments), **set a token**:
 
 ```bash
-echo "MILADY_API_TOKEN=$(openssl rand -hex 32)" >> .env
+echo "MILAIDY_API_TOKEN=$(openssl rand -hex 32)" >> .env
 ```
 
 <Warning>

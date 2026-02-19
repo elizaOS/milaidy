@@ -86,8 +86,8 @@ Most plugins are npm packages:
 # Install the Telegram connector
 npm install @elizaos/plugin-telegram
 
-# Or with pnpm
-pnpm add @elizaos/plugin-telegram
+# Or with bun
+bun add @elizaos/plugin-telegram
 ```
 
 ### Configure in milaidy.json
@@ -402,7 +402,7 @@ If you're maintaining a fork or custom registry:
 
 ```bash
 # Generate plugins.json from installed plugins
-pnpm generate:plugins
+bun run generate:plugins
 ```
 
 This scans `node_modules/@elizaos/plugin-*` and generates an updated index.
@@ -421,7 +421,7 @@ milaidy plugins list --category model
 milaidy plugins info openai
 
 # Install and configure
-pnpm add @elizaos/plugin-openai
+bun add @elizaos/plugin-openai
 echo "OPENAI_API_KEY=sk-..." >> .env
 ```
 
@@ -449,7 +449,7 @@ SLACK_BOT_TOKEN=...
 
 ```bash
 # Install community plugin
-pnpm add elizaos-plugin-custom-feature
+bun add elizaos-plugin-custom-feature
 
 # Add to config
 # milaidy.json

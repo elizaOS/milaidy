@@ -6,7 +6,7 @@ description: Configure and monitor the agent's autonomous reasoning loop, where 
 
 # Autonomous Mode
 
-Autonomous mode allows the Milady agent to reason and act independently between user conversations. When enabled, the agent runs a continuous loop -- observing its environment, making decisions, and executing actions without waiting for explicit user input. This is useful for background monitoring, scheduled workflows, and proactive behavior.
+Autonomous mode allows the Milaidy agent to reason and act independently between user conversations. When enabled, the agent runs a continuous loop -- observing its environment, making decisions, and executing actions without waiting for explicit user input. This is useful for background monitoring, scheduled workflows, and proactive behavior.
 
 ## Enabling and Disabling
 
@@ -56,7 +56,7 @@ The Autonomous Panel in the dashboard UI provides a visual toggle for enabling a
 
 ## Autonomous State Provider
 
-The `miladyAutonomousState` provider bridges context between autonomous loop iterations. It is a dynamic ElizaOS provider (position 10) that injects a snapshot of recent autonomous activity into the agent's context on every reasoning cycle.
+The `milaidyAutonomousState` provider bridges context between autonomous loop iterations. It is a dynamic ElizaOS provider (position 10) that injects a snapshot of recent autonomous activity into the agent's context on every reasoning cycle.
 
 ### How It Works
 

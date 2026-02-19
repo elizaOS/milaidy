@@ -1,12 +1,12 @@
 ---
 title: WebSocket Real-Time Events
 sidebarTitle: WebSocket Events
-description: Reference for the Milady WebSocket protocol, connection details, event types, and payloads.
+description: Reference for the Milaidy WebSocket protocol, connection details, event types, and payloads.
 ---
 
 # WebSocket Real-Time Events
 
-Milady uses WebSocket connections to deliver real-time updates from the agent runtime to connected clients (the frontend UI, Electron, or any custom integration).
+Milaidy uses WebSocket connections to deliver real-time updates from the agent runtime to connected clients (the frontend UI, Electron, or any custom integration).
 
 ## Connection
 
@@ -26,7 +26,7 @@ The WebSocket endpoint is available at `/ws` on the API server (port 2138) or th
 
 ### Authentication
 
-When `MILADY_API_TOKEN` is configured, the WebSocket upgrade request must include the token. The server calls `resolveWebSocketUpgradeRejection()` to validate credentials before accepting the connection. Unauthenticated upgrade requests receive an HTTP 401 or 403 rejection.
+When `MILAIDY_API_TOKEN` is configured, the WebSocket upgrade request must include the token. The server calls `resolveWebSocketUpgradeRejection()` to validate credentials before accepting the connection. Unauthenticated upgrade requests receive an HTTP 401 or 403 rejection.
 
 <Warning>
 If token auth is enabled and the WebSocket upgrade request lacks valid credentials, the connection will be rejected with a standard HTTP error before the WebSocket handshake completes.
@@ -45,7 +45,7 @@ When a WebSocket client connects, the server immediately sends:
 {
   "type": "status",
   "state": "running",
-  "agentName": "Milady",
+  "agentName": "Milaidy",
   "model": "@elizaos/plugin-anthropic",
   "startedAt": 1708000000000
 }
@@ -100,7 +100,7 @@ Broadcast every 5 seconds and on state changes.
 {
   "type": "status",
   "state": "running",
-  "agentName": "Milady",
+  "agentName": "Milaidy",
   "model": "@elizaos/plugin-anthropic",
   "startedAt": 1708000000000,
   "pendingRestart": false,

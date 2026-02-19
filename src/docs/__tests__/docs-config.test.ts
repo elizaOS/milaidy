@@ -14,7 +14,7 @@ describe("docs/docs.json", () => {
   });
 
   it("has required top-level keys", () => {
-    expect(config.name).toBe("Milady");
+    expect(config.name).toBe("Milaidy");
     expect(config.theme).toBe("mint");
     expect(config.colors).toBeDefined();
     expect(config.colors.primary).toBe("#4a7c59");

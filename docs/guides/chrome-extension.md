@@ -1,16 +1,16 @@
 ---
 title: Chrome Extension
 sidebarTitle: Chrome Extension
-description: Use the Milady Browser Relay Chrome extension to let your agent control browser tabs via the Chrome DevTools Protocol.
+description: Use the Milaidy Browser Relay Chrome extension to let your agent control browser tabs via the Chrome DevTools Protocol.
 ---
 
 # Chrome Extension
 
-The **Milady Browser Relay** is a Chrome extension that bridges your browser tabs to the Milady agent runtime using the Chrome DevTools Protocol (CDP). This allows your agent to inspect, navigate, and interact with web pages in real time.
+The **Milaidy Browser Relay** is a Chrome extension that bridges your browser tabs to the Milaidy agent runtime using the Chrome DevTools Protocol (CDP). This allows your agent to inspect, navigate, and interact with web pages in real time.
 
 ## What It Does
 
-The extension attaches Chrome's built-in debugger to browser tabs and relays CDP commands between the Milady agent and the browser over a WebSocket connection. This gives the agent the ability to:
+The extension attaches Chrome's built-in debugger to browser tabs and relays CDP commands between the Milaidy agent and the browser over a WebSocket connection. This gives the agent the ability to:
 
 - Read page content and DOM structure.
 - Execute JavaScript in the page context.
@@ -22,12 +22,12 @@ The extension attaches Chrome's built-in debugger to browser tabs and relays CDP
 
 The extension is not published to the Chrome Web Store. Install it from source:
 
-1. Clone the Milady repository.
+1. Clone the Milaidy repository.
 2. Navigate to `apps/chrome-extension/`.
 3. Open Chrome and go to `chrome://extensions/`.
 4. Enable **Developer mode** (toggle in the top-right corner).
 5. Click **Load unpacked** and select the `apps/chrome-extension/` directory.
-6. The Milady Browser Relay icon appears in your toolbar.
+6. The Milaidy Browser Relay icon appears in your toolbar.
 
 On first install, the extension automatically opens its options page with setup instructions.
 
@@ -36,7 +36,7 @@ On first install, the extension automatically opens its options page with setup 
 The relay architecture involves three components:
 
 ```
-Browser Tab  <-->  Chrome Extension  <-->  Milady Agent
+Browser Tab  <-->  Chrome Extension  <-->  Milaidy Agent
  (CDP)              (WebSocket)           (Relay Server)
 ```
 
@@ -75,7 +75,7 @@ To change the port:
 
 The options page also shows the current relay URL (`http://127.0.0.1:{port}/`) and tests whether the relay server is reachable.
 
-Only change the port if your Milady profile uses a different `cdpUrl` port.
+Only change the port if your Milaidy profile uses a different `cdpUrl` port.
 
 ### Permissions
 
@@ -105,11 +105,11 @@ The extension icon displays a badge indicating the connection state for each tab
 
 The toolbar icon tooltip also updates to reflect the current state:
 
-- `"Milady Browser Relay (click to attach/detach)"` — idle state.
-- `"Milady Browser Relay: connecting to local relay..."` — connecting.
-- `"Milady Browser Relay: attached (click to detach)"` — attached and active.
-- `"Milady Browser Relay: disconnected (click to re-attach)"` — relay disconnected.
-- `"Milady Browser Relay: relay not running (open options for setup)"` — relay server unreachable.
+- `"Milaidy Browser Relay (click to attach/detach)"` — idle state.
+- `"Milaidy Browser Relay: connecting to local relay..."` — connecting.
+- `"Milaidy Browser Relay: attached (click to detach)"` — attached and active.
+- `"Milaidy Browser Relay: disconnected (click to re-attach)"` — relay disconnected.
+- `"Milaidy Browser Relay: relay not running (open options for setup)"` — relay server unreachable.
 
 ## Security Considerations
 
