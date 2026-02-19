@@ -563,7 +563,9 @@ export function ChatView() {
                 : "border-border bg-card text-muted hover:border-accent hover:text-accent"
             }`}
             onClick={voice.toggleListening}
-            aria-label={voice.isListening ? "Stop voice input" : "Start voice input"}
+            aria-label={
+              voice.isListening ? "Stop voice input" : "Start voice input"
+            }
             aria-pressed={voice.isListening}
             title={voice.isListening ? "Stop listening" : "Voice input"}
           >
