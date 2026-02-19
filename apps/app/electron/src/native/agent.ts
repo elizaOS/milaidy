@@ -14,6 +14,7 @@
  */
 
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { app, type BrowserWindow, ipcMain } from "electron";
 import type { IpcValue } from "./ipc-types";
 
@@ -86,7 +87,7 @@ export class AgentManager {
       //    (or MILADY_PORT if set)
       const apiPort = Number(process.env.MILADY_PORT) || 2138;
       const serverModule = await dynamicImport(
-        path.join(miladyDist, "server.js"),
+        pathToFileURL(path.join(miladyDist, "server.js")).href,
       ).catch((err: unknown) => {
         console.warn(
           "[Agent] Could not load server.js:",
@@ -197,7 +198,7 @@ export class AgentManager {
 
       // 2. Resolve runtime bootstrap entry (may be slow on cold boot).
       const elizaModule = await dynamicImport(
-        path.join(miladyDist, "eliza.js"),
+        pathToFileURL(path.join(miladyDist, "eliza.js")).href,
       );
       const resolvedStartEliza = (elizaModule.startEliza ??
         (elizaModule.default as Record<string, unknown>)?.startEliza) as
