@@ -53,13 +53,14 @@ describe("collectConfigEnvVars", () => {
     expect(result).toEqual({ INNER: "from-vars", REAL: "kept" });
   });
 
-  it("skips non-string values from top-level", () => {
+  it("returns only the string values from top-level", () => {
     const result = collectConfigEnvVars(
       cfg({
         VALID: "kept",
+        ALSO_VALID: "also-kept",
       }),
     );
-    expect(result).toEqual({ VALID: "kept" });
+    expect(result).toEqual({ VALID: "kept", ALSO_VALID: "also-kept" });
   });
 
   it("skips empty and whitespace-only strings from top-level", () => {
