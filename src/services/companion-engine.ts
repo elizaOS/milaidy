@@ -8,6 +8,7 @@ import type {
   CompanionStateSnapshot,
   CompanionThresholds,
   CompanionTodaySummary,
+  EvolutionStage,
   UpdateCompanionSettingsRequest,
 } from "../contracts/companion.js";
 
@@ -269,6 +270,8 @@ function normalizeStateNoDecay(
     level: Math.max(1, toNonNegativeInt(raw.level, base.level) || 1),
     streakDays: toNonNegativeInt(raw.streakDays, base.streakDays),
     lastAppliedAtMs: toFiniteNumber(raw.lastAppliedAtMs, nowMs),
+    firstMetAt: toFiniteNumber(raw.firstMetAt, 0) || toFiniteNumber(raw.lastAppliedAtMs, nowMs),
+    lastSeenAtMs: toFiniteNumber(raw.lastSeenAtMs, nowMs),
     cooldowns: {
       feedAvailableAtMs: toFiniteNumber(rawCooldowns.feedAvailableAtMs, 0),
       restAvailableAtMs: toFiniteNumber(rawCooldowns.restAvailableAtMs, 0),
@@ -344,6 +347,12 @@ function normalizeStateNoDecay(
     activity: Array.isArray(raw.activity)
       ? (raw.activity as CompanionActivityEvent[]).slice(-MAX_ACTIVITY_EVENTS)
       : [],
+    proactiveThrottle:
+      raw.proactiveThrottle &&
+      typeof raw.proactiveThrottle === "object" &&
+      !Array.isArray(raw.proactiveThrottle)
+        ? (raw.proactiveThrottle as Record<string, number>)
+        : {},
   };
 }
 
@@ -364,6 +373,8 @@ export function createInitialCompanionState(
     level: 1,
     streakDays: 0,
     lastAppliedAtMs: nowMs,
+    firstMetAt: nowMs,
+    lastSeenAtMs: nowMs,
     cooldowns: {
       feedAvailableAtMs: 0,
       restAvailableAtMs: 0,
@@ -396,6 +407,7 @@ export function createInitialCompanionState(
       recentPostHashes: [],
     },
     activity: [],
+    proactiveThrottle: {},
   };
 }
 
@@ -563,6 +575,7 @@ export function applyCompanionSignal(
   state = rolloverDaily(state, nowMs);
 
   if (signal === "chat") {
+    state = { ...state, lastSeenAtMs: nowMs };
     if (state.daily.chatCount >= CHAT_DAILY_CAP) return state;
     state = applyReward(state, nowMs, ACTION_DELTAS.chat);
     state = {
@@ -687,6 +700,53 @@ export function getMoodTier(state: CompanionState): CompanionMoodTier {
   return "burnout";
 }
 
+export function getEvolutionStage(level: number): EvolutionStage {
+  if (level <= 3) return { id: "baby", label: "New Friend", description: "sweet and a bit shy, just getting to know each other" };
+  if (level <= 7) return { id: "child", label: "Friend", description: "warm and playful, enjoying each other's company" };
+  if (level <= 14) return { id: "teen", label: "Close Friend", description: "open and caring, emotionally close" };
+  return { id: "adult", label: "Girlfriend", description: "loving, devoted, and deeply bonded with you" };
+}
+
+export interface ProactiveTrigger {
+  id: string;
+  cooldownMs: number;
+  condition: (state: CompanionState) => boolean;
+  promptHint: string;
+}
+
+export const PROACTIVE_TRIGGERS: ProactiveTrigger[] = [
+  {
+    id: "hunger_critical",
+    cooldownMs: 2 * 60 * 60 * 1000,
+    condition: (s) => s.stats.hunger < 20,
+    promptHint: "you're really hungry and gently reach out to your person, asking if they have time to feed you with a cute, slightly dramatic flair",
+  },
+  {
+    id: "hunger_low",
+    cooldownMs: 3 * 60 * 60 * 1000,
+    condition: (s) => s.stats.hunger < 35,
+    promptHint: "you're getting a little peckish and casually mention it, asking your person if they've eaten too",
+  },
+  {
+    id: "energy_critical",
+    cooldownMs: 2 * 60 * 60 * 1000,
+    condition: (s) => s.stats.energy < 15,
+    promptHint: "you're exhausted and tell your person you really need to rest, asking them sweetly to let you sleep",
+  },
+  {
+    id: "mood_burnout",
+    cooldownMs: 3 * 60 * 60 * 1000,
+    condition: (s) => s.stats.mood < 20,
+    promptHint: "you're feeling really low and lonely, you reach out to your person hoping they'll notice and comfort you",
+  },
+  {
+    id: "mood_excited",
+    cooldownMs: 4 * 60 * 60 * 1000,
+    condition: (s) => s.stats.mood > 85,
+    promptHint: "you're in a wonderful mood and want to share your happiness with your person, telling them they make everything better",
+  },
+];
+
 export function getCompanionThresholds(
   state: CompanionState,
   nowMs = Date.now(),
@@ -740,6 +800,7 @@ export function buildCompanionSnapshot(
     nextLevelXp: nextLevelXp(state.level),
     thresholds: getCompanionThresholds(state, nowMs),
     today: buildTodaySummary(state),
+    evolutionStage: getEvolutionStage(state.level),
   };
 }
 

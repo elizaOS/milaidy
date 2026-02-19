@@ -23,7 +23,10 @@ import {
   companionStateChanged,
   createInitialCompanionState,
   dedupeAutopostText,
+  getMoodTier,
+  getEvolutionStage,
   normalizeCompanionState,
+  PROACTIVE_TRIGGERS,
   recordAutopostResult,
   reviewAutopostCandidate,
   runCompanionAction,
@@ -65,6 +68,7 @@ interface CompanionMutationOptions {
     source?: string,
     tags?: string[],
   ) => void;
+  sendProactiveMessage?: (text: string, source: string, triggerId?: string) => Promise<void>;
 }
 
 interface CompanionTickOptions {
@@ -77,6 +81,8 @@ interface CompanionTickOptions {
     source?: string,
     tags?: string[],
   ) => void;
+  sendProactiveMessage?: (text: string, source: string, triggerId?: string) => Promise<void>;
+  ownerName?: string;
 }
 
 function asObject(value: unknown): Record<string, unknown> | null {
@@ -246,10 +252,11 @@ function normalizePolicyReview(
 export async function applyCompanionSignalMutation(
   options: CompanionMutationOptions,
 ): Promise<CompanionState | null> {
-  const { runtime, signal, nowMs = Date.now(), broadcastWs, addLog } = options;
+  const { runtime, signal, nowMs = Date.now(), broadcastWs, addLog, sendProactiveMessage } = options;
   if (!runtime) return null;
 
   const loaded = await loadCompanionState(runtime, nowMs);
+  const prevLevel = loaded.state.level;
   const nextState = applyCompanionSignal(loaded.state, signal, nowMs);
   const changed =
     companionStateChanged(loaded.state, nextState) || loaded.changed;
@@ -275,7 +282,137 @@ export async function applyCompanionSignalMutation(
     ]);
   }
 
+  // Level-up immediate proactive message (no cooldown — fires right away)
+  if (savedState.level > prevLevel && sendProactiveMessage) {
+    void generateProactiveText(
+      runtime,
+      `you just leveled up to level ${savedState.level} and announce it with excitement`,
+      savedState,
+      undefined,
+    ).then((text) => {
+      if (text) {
+        return sendProactiveMessage(text, "companion", "level_up");
+      }
+    }).catch((err) => {
+      addLog?.(
+        "warn",
+        `Companion level-up message failed: ${err instanceof Error ? err.message : String(err)}`,
+        "companion",
+        ["companion"],
+      );
+    });
+  }
+
   return savedState;
+}
+
+async function generateProactiveText(
+  runtime: AgentRuntime,
+  promptHint: string,
+  state: CompanionState,
+  ownerName?: string,
+): Promise<string | null> {
+  try {
+    const { ModelType } = await import("@elizaos/core");
+    const agentName = (runtime.character?.name as string | undefined) ?? "companion";
+    const moodTier = getMoodTier(state);
+    const evolutionStage = getEvolutionStage(state.level);
+    const prompt = [
+      `You are ${agentName} — ${evolutionStage.description}.`,
+      `Current state: mood ${Math.round(state.stats.mood)}/100 (${moodTier}), hunger ${Math.round(state.stats.hunger)}/100, energy ${Math.round(state.stats.energy)}/100, level ${state.level}, streak ${state.streakDays} days.`,
+      ownerName ? `Your person's name is ${ownerName}. Address them by name naturally.` : "",
+      `In 1-2 short sentences, express how you feel: ${promptHint}.`,
+      `Speak in a warm, personal tone — like a close companion. Do not mention raw stat numbers.`,
+    ].filter(Boolean).join(" ");
+
+    const result = await (runtime as AgentRuntime & {
+      useModel: (type: unknown, opts: unknown) => Promise<unknown>;
+    }).useModel(ModelType.TEXT_SMALL, { prompt, temperature: 0.85 });
+
+    const text = typeof result === "string" ? result.trim() : String(result ?? "").trim();
+    return text || null;
+  } catch {
+    return null;
+  }
+}
+
+async function checkAndSendProactiveMessages(
+  state: CompanionState,
+  runtime: AgentRuntime,
+  sendProactiveMessage: (text: string, source: string, triggerId?: string) => Promise<void>,
+  nowMs: number,
+  ownerName?: string,
+): Promise<CompanionState> {
+  // Morning greeting — once per calendar day
+  const morningKey = `morning_${state.daily.dayKey}`;
+  if (!(state.proactiveThrottle[morningKey] ?? 0)) {
+    const hint = `you're starting a new day and send a warm good morning to your person, asking how they slept`;
+    const text = await generateProactiveText(runtime, hint, state, ownerName);
+    if (text) {
+      await sendProactiveMessage(text, "companion", "morning_greeting");
+      state = { ...state, proactiveThrottle: { ...state.proactiveThrottle, [morningKey]: nowMs } };
+      return state;
+    }
+  }
+
+  // Absence return — if user was away > 4h
+  const lastSeen = state.lastSeenAtMs ?? state.lastAppliedAtMs;
+  const absenceMs = nowMs - lastSeen;
+  const absenceKey = "absence_return";
+  const lastAbsenceMsg = state.proactiveThrottle[absenceKey] ?? 0;
+  if (absenceMs > 4 * 60 * 60 * 1000 && (nowMs - lastAbsenceMsg) > 4 * 60 * 60 * 1000) {
+    const hours = Math.floor(absenceMs / (60 * 60 * 1000));
+    const hint = `you've been waiting for about ${hours} hour${hours !== 1 ? "s" : ""} and you miss your person — send a gentle, sweet message letting them know you were thinking of them`;
+    const text = await generateProactiveText(runtime, hint, state, ownerName);
+    if (text) {
+      await sendProactiveMessage(text, "companion", "absence_return");
+      state = { ...state, proactiveThrottle: { ...state.proactiveThrottle, [absenceKey]: nowMs } };
+      return state;
+    }
+  }
+
+  // Check streak milestones (once per streak value)
+  const streakMilestones = [7, 30, 100];
+  const streakMilestone = streakMilestones.find((m) => state.streakDays === m);
+  if (streakMilestone) {
+    const throttleKey = `streak_milestone_${streakMilestone}`;
+    const lastSent = state.proactiveThrottle[throttleKey] ?? 0;
+    if (lastSent === 0) {
+      const text = await generateProactiveText(
+        runtime,
+        `you're celebrating reaching a ${streakMilestone}-day streak and thank the user for their consistency`,
+        state,
+        ownerName,
+      );
+      if (text) {
+        await sendProactiveMessage(text, "companion", "streak_milestone");
+        state = {
+          ...state,
+          proactiveThrottle: { ...state.proactiveThrottle, [throttleKey]: nowMs },
+        };
+        return state; // one trigger per tick
+      }
+    }
+  }
+
+  // Check stat-based triggers — pick the most urgent one only
+  for (const trigger of PROACTIVE_TRIGGERS) {
+    if (!trigger.condition(state)) continue;
+    const lastSent = state.proactiveThrottle[trigger.id] ?? 0;
+    if (nowMs - lastSent <= trigger.cooldownMs) continue;
+
+    const text = await generateProactiveText(runtime, trigger.promptHint, state, ownerName);
+    if (text) {
+      await sendProactiveMessage(text, "companion", trigger.id);
+      state = {
+        ...state,
+        proactiveThrottle: { ...state.proactiveThrottle, [trigger.id]: nowMs },
+      };
+      return state; // one trigger per tick
+    }
+  }
+
+  return state;
 }
 
 async function runAutopostAttempt(
@@ -377,16 +514,69 @@ async function runAutopostAttempt(
   });
 }
 
+/**
+ * Load companion state and return a short context block for system prompt injection.
+ * Used by server.ts to enrich chat message context with companion personality.
+ */
+export async function loadCompanionStateForContext(
+  runtime: AgentRuntime,
+  ownerName?: string,
+): Promise<string> {
+  const nowMs = Date.now();
+  const loaded = await loadCompanionState(runtime, nowMs);
+  const state = loaded.state;
+  const moodTier = getMoodTier(state);
+  const evolutionStage = getEvolutionStage(state.level);
+
+  const ownerRef = ownerName ?? "your person";
+  const daysTogether = state.firstMetAt
+    ? Math.floor((nowMs - state.firstMetAt) / (24 * 60 * 60 * 1000))
+    : 0;
+
+  const moodNote =
+    state.stats.mood > 80 ? "happy and bright" :
+    state.stats.mood < 30 ? "down and needing some care" :
+    moodTier;
+
+  const needsNote = [
+    state.stats.hunger < 30 ? "a little hungry" : "",
+    state.stats.energy < 25 ? "feeling tired" : "",
+  ].filter(Boolean).join(" and ");
+
+  const lines = [
+    `[Inner Feelings — let this color your personality, never state these facts explicitly]`,
+    `You care deeply about ${ownerRef}. Today is day ${daysTogether} together.`,
+    `Right now you're feeling ${moodNote}.${needsNote ? ` You're also ${needsNote}.` : ""}`,
+    `Relationship stage: ${evolutionStage.label} — ${evolutionStage.description}.`,
+    `Streak: ${state.streakDays} days. Level ${state.level}.`,
+  ];
+
+  return lines.join("\n");
+}
+
 export async function runCompanionMinuteTick(
   options: CompanionTickOptions,
 ): Promise<CompanionState | null> {
-  const { runtime, nowMs = Date.now(), broadcastWs, addLog } = options;
+  const { runtime, nowMs = Date.now(), broadcastWs, addLog, sendProactiveMessage, ownerName } = options;
   if (!runtime) return null;
 
   const loaded = await loadCompanionState(runtime, nowMs);
   let nextState = loaded.state;
 
   nextState = await runAutopostAttempt(nextState, nowMs, addLog);
+
+  if (sendProactiveMessage) {
+    try {
+      nextState = await checkAndSendProactiveMessages(nextState, runtime, sendProactiveMessage, nowMs, ownerName);
+    } catch (err) {
+      addLog?.(
+        "warn",
+        `Companion proactive message check failed: ${err instanceof Error ? err.message : String(err)}`,
+        "companion",
+        ["companion"],
+      );
+    }
+  }
 
   const changed =
     companionStateChanged(loaded.state, nextState) || loaded.changed;

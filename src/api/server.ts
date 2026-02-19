@@ -281,6 +281,8 @@ interface ServerState {
   shellEnabled?: boolean;
   /** Agent automation permission mode for self-directed config changes. */
   agentAutomationMode?: AgentAutomationMode;
+  /** Wallet trade execution permission mode (user-sign/manual/agent-auto). */
+  tradePermissionMode?: TradePermissionMode;
 }
 
 interface ShareIngestItem {
@@ -4024,8 +4026,24 @@ interface RequestContext {
 }
 
 type AgentAutomationMode = "connectors-only" | "full";
+export type TradePermissionMode =
+  | "user-sign-only"
+  | "manual-local-key"
+  | "agent-auto";
+type ProductionWalletProfile = "pure-privy-safe";
 
 const AGENT_AUTOMATION_HEADER = "x-milady-agent-action";
+const TRADE_PERMISSION_MODES = new Set<TradePermissionMode>([
+  "user-sign-only",
+  "manual-local-key",
+  "agent-auto",
+]);
+const PRODUCTION_WALLET_ENV_SET = {
+  MILADY_WALLET_MODE: "privy",
+  MILADY_TRADE_PERMISSION_MODE: "user-sign-only",
+  MILADY_BSC_EXECUTION_ENABLED: "false",
+} as const;
+const PRODUCTION_WALLET_ENV_CLEAR = ["EVM_PRIVATE_KEY", "SOLANA_PRIVATE_KEY"] as const;
 const AGENT_AUTOMATION_MODES = new Set<AgentAutomationMode>([
   "connectors-only",
   "full",
@@ -4277,6 +4295,93 @@ function resolveAgentAutomationModeFromConfig(
   return parseAgentAutomationMode(agentAutomation?.mode) ?? "full";
 }
 
+function parseTradePermissionMode(value: unknown): TradePermissionMode | null {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().toLowerCase();
+  if (!TRADE_PERMISSION_MODES.has(normalized as TradePermissionMode)) {
+    return null;
+  }
+  return normalized as TradePermissionMode;
+}
+
+export function resolveTradePermissionMode(
+  config?: MiladyConfig,
+): TradePermissionMode {
+  const configMode =
+    config?.env && typeof config.env === "object" && !Array.isArray(config.env)
+      ? (config.env as Record<string, string>).MILADY_TRADE_PERMISSION_MODE
+      : undefined;
+  const envMode = process.env.MILADY_TRADE_PERMISSION_MODE ?? configMode;
+  const parsedEnvMode = parseTradePermissionMode(envMode);
+  if (parsedEnvMode) return parsedEnvMode;
+
+  const features =
+    config?.features && typeof config.features === "object"
+      ? (config.features as Record<string, unknown>)
+      : null;
+  const tradeExecution =
+    features?.tradeExecution &&
+    typeof features.tradeExecution === "object" &&
+    !Array.isArray(features.tradeExecution)
+      ? (features.tradeExecution as Record<string, unknown>)
+      : null;
+  return parseTradePermissionMode(tradeExecution?.mode) ?? "user-sign-only";
+}
+
+export function canUseLocalTradeExecution(
+  mode: TradePermissionMode,
+  isAgentRequest: boolean,
+): boolean {
+  if (mode === "user-sign-only") return false;
+  if (!isAgentRequest) return true;
+  return mode === "agent-auto";
+}
+
+export interface ApplyProductionWalletDefaultsResult {
+  profile: ProductionWalletProfile;
+  walletMode: "privy";
+  tradePermissionMode: "user-sign-only";
+  bscExecutionEnabled: false;
+  clearedSecrets: string[];
+}
+
+export function applyProductionWalletDefaults(
+  config: MiladyConfig,
+  env: NodeJS.ProcessEnv = process.env,
+): ApplyProductionWalletDefaultsResult {
+  if (!config.env || typeof config.env !== "object" || Array.isArray(config.env)) {
+    config.env = {};
+  }
+  const envConfig = config.env as Record<string, unknown>;
+  for (const [key, value] of Object.entries(PRODUCTION_WALLET_ENV_SET)) {
+    env[key] = value;
+    envConfig[key] = value;
+  }
+
+  const vars =
+    envConfig.vars && typeof envConfig.vars === "object" && !Array.isArray(envConfig.vars)
+      ? (envConfig.vars as Record<string, unknown>)
+      : null;
+
+  const clearedSecrets: string[] = [];
+  for (const key of PRODUCTION_WALLET_ENV_CLEAR) {
+    if (typeof env[key] === "string" && env[key]?.trim()) {
+      clearedSecrets.push(key);
+    }
+    delete env[key];
+    delete envConfig[key];
+    if (vars) delete vars[key];
+  }
+
+  return {
+    profile: "pure-privy-safe",
+    walletMode: "privy",
+    tradePermissionMode: "user-sign-only",
+    bscExecutionEnabled: false,
+    clearedSecrets,
+  };
+}
+
 function isAgentAutomationRequest(req: http.IncomingMessage): boolean {
   const raw = req.headers[AGENT_AUTOMATION_HEADER];
   if (typeof raw !== "string") return false;
@@ -4351,6 +4456,38 @@ function persistAgentAutomationMode(
     enabled: true,
     mode,
   };
+}
+
+function persistTradePermissionMode(
+  state: ServerState,
+  mode: TradePermissionMode,
+): void {
+  state.tradePermissionMode = mode;
+  process.env.MILADY_TRADE_PERMISSION_MODE = mode;
+
+  if (!state.config.features) {
+    state.config.features = {};
+  }
+  const features = state.config.features as Record<
+    string,
+    boolean | { enabled?: boolean; [k: string]: unknown }
+  >;
+  const current = features.tradeExecution;
+  const currentObject =
+    current && typeof current === "object" && !Array.isArray(current)
+      ? (current as Record<string, unknown>)
+      : {};
+  features.tradeExecution = {
+    ...currentObject,
+    enabled: true,
+    mode,
+  };
+
+  if (!state.config.env || typeof state.config.env !== "object") {
+    state.config.env = {};
+  }
+  (state.config.env as Record<string, string>).MILADY_TRADE_PERMISSION_MODE =
+    mode;
 }
 
 export interface PluginConfigMutationRejection {
@@ -5185,9 +5322,9 @@ async function routeTextToUser(
 /**
  * Load companion state and build a short context block for system prompt injection.
  */
-async function getCompanionContextForChat(runtime: AgentRuntime): Promise<string> {
+async function getCompanionContextForChat(runtime: AgentRuntime, ownerName?: string): Promise<string> {
   try {
-    return await loadCompanionStateForContext(runtime);
+    return await loadCompanionStateForContext(runtime, ownerName);
   } catch {
     return "";
   }
@@ -6044,6 +6181,12 @@ async function handleRequest(
         | "programmer"
         | "haxor"
         | "psycho";
+    }
+
+    // ── Owner name (what the agent calls the user) ─────────────────────────
+    if (body.ownerName && typeof body.ownerName === "string" && body.ownerName.trim()) {
+      if (!config.ui) config.ui = {};
+      config.ui.ownerName = body.ownerName.trim();
     }
 
     // ── Run mode & cloud configuration ────────────────────────────────────
@@ -9223,6 +9366,16 @@ async function handleRequest(
       nodeRealBscRpcUrl: process.env.NODEREAL_BSC_RPC_URL,
       quickNodeBscRpcUrl: process.env.QUICKNODE_BSC_RPC_URL,
     };
+    const tradePermissionMode = state.tradePermissionMode ?? "user-sign-only";
+    const agentRequest = isAgentAutomationRequest(req);
+    if (agentRequest && !canUseLocalTradeExecution(tradePermissionMode, true)) {
+      error(
+        res,
+        `Blocked by trade permission mode "${tradePermissionMode}". Agent local trade execution is disabled.`,
+        403,
+      );
+      return;
+    }
 
     try {
       const quote = await buildBscTradeQuote({
@@ -9243,7 +9396,12 @@ async function handleRequest(
         process.env.MILADY_BSC_EXECUTION_ENABLED ?? "",
       );
       const localPrivateKey = process.env.EVM_PRIVATE_KEY?.trim() ?? "";
+      const localExecutionAllowedByMode = canUseLocalTradeExecution(
+        tradePermissionMode,
+        agentRequest,
+      );
       const useLocalExecution =
+        localExecutionAllowedByMode &&
         executionEnabled &&
         !isPurePrivyWalletMode(state.config) &&
         localPrivateKey.length > 0;
@@ -9668,6 +9826,7 @@ async function handleRequest(
     ]);
     const nodeRealBscRpcSet = Boolean(process.env.NODEREAL_BSC_RPC_URL);
     const quickNodeBscRpcSet = Boolean(process.env.QUICKNODE_BSC_RPC_URL);
+    const tradePermissionMode = state.tradePermissionMode ?? "user-sign-only";
     const configStatus: WalletConfigStatus = {
       alchemyKeySet: Boolean(process.env.ALCHEMY_API_KEY),
       infuraKeySet: Boolean(process.env.INFURA_API_KEY),
@@ -9675,6 +9834,15 @@ async function handleRequest(
       nodeRealBscRpcSet,
       quickNodeBscRpcSet,
       managedBscRpcReady: nodeRealBscRpcSet || quickNodeBscRpcSet,
+      tradePermissionMode,
+      tradeUserCanLocalExecute: canUseLocalTradeExecution(
+        tradePermissionMode,
+        false,
+      ),
+      tradeAgentCanLocalExecute: canUseLocalTradeExecution(
+        tradePermissionMode,
+        true,
+      ),
       heliusKeySet: Boolean(process.env.HELIUS_API_KEY),
       birdeyeKeySet: Boolean(process.env.BIRDEYE_API_KEY),
       evmChains: ["Ethereum", "Base", "Arbitrum", "Optimism", "Polygon", "BSC"],
@@ -9730,6 +9898,46 @@ async function handleRequest(
     }
 
     json(res, { ok: true });
+    return;
+  }
+
+  // ── POST /api/wallet/production-defaults ──────────────────────────────
+  // One-click hardening preset for production wallet safety.
+  if (method === "POST" && pathname === "/api/wallet/production-defaults") {
+    const modeRejection = rejectAgentMutation(req, state, { kind: "config" });
+    if (modeRejection) {
+      error(res, modeRejection, 403);
+      return;
+    }
+
+    const body = await readJsonBody<{ confirm?: unknown }>(req, res);
+    if (!body) return;
+    if (body.confirm !== true) {
+      error(res, "confirm=true is required.");
+      return;
+    }
+
+    if (!isPrivyWalletProvisioningEnabled()) {
+      error(
+        res,
+        "Privy credentials are required before applying production defaults (PRIVY_APP_ID / PRIVY_APP_SECRET).",
+        503,
+      );
+      return;
+    }
+
+    const applied = applyProductionWalletDefaults(state.config, process.env);
+    persistTradePermissionMode(state, "user-sign-only");
+
+    try {
+      saveMiladyConfig(state.config);
+    } catch (err) {
+      logger.warn(
+        `[api] Config save failed: ${err instanceof Error ? err.message : err}`,
+      );
+    }
+
+    json(res, { ok: true, ...applied });
     return;
   }
 
@@ -10341,6 +10549,7 @@ async function handleRequest(
       platform: process.platform,
       shellEnabled: state.shellEnabled ?? true,
       agentAutomationMode: state.agentAutomationMode ?? "full",
+      tradePermissionMode: state.tradePermissionMode ?? "user-sign-only",
     });
     return;
   }
@@ -10400,6 +10609,50 @@ async function handleRequest(
     json(res, {
       mode: parsed,
       options: ["connectors-only", "full"] as AgentAutomationMode[],
+    });
+    return;
+  }
+
+  // ── GET /api/permissions/trade-mode ───────────────────────────────────
+  // Return wallet trade execution permission mode.
+  if (method === "GET" && pathname === "/api/permissions/trade-mode") {
+    const mode = state.tradePermissionMode ?? "user-sign-only";
+    json(res, {
+      mode,
+      options: [
+        "user-sign-only",
+        "manual-local-key",
+        "agent-auto",
+      ] as TradePermissionMode[],
+    });
+    return;
+  }
+
+  // ── PUT /api/permissions/trade-mode ───────────────────────────────────
+  // Update wallet trade execution permission mode.
+  if (method === "PUT" && pathname === "/api/permissions/trade-mode") {
+    const body = await readJsonBody<{ mode?: unknown }>(req, res);
+    if (!body) return;
+    const parsed = parseTradePermissionMode(body.mode);
+    if (!parsed) {
+      error(
+        res,
+        'Invalid mode. Expected "user-sign-only", "manual-local-key", or "agent-auto".',
+        400,
+      );
+      return;
+    }
+
+    persistTradePermissionMode(state, parsed);
+    saveMiladyConfig(state.config);
+
+    json(res, {
+      mode: parsed,
+      options: [
+        "user-sign-only",
+        "manual-local-key",
+        "agent-auto",
+      ] as TradePermissionMode[],
     });
     return;
   }
@@ -10627,7 +10880,7 @@ async function handleRequest(
       entityId: userId,
       roomId: conv.roomId,
       worldId,
-      userName: "User",
+      userName: state.config.ui?.ownerName ?? "User",
       source: "client_chat",
       channelId: `web-conv-${conv.id}`,
       type: ChannelType.DM,
@@ -10681,7 +10934,7 @@ async function handleRequest(
             entityId: target.userId,
             roomId: target.roomId,
             worldId: target.worldId,
-            userName: "User",
+            userName: state.config.ui?.ownerName ?? "User",
             source: "client_chat",
             channelId: `${agentName}-web-chat`,
             type: ChannelType.DM,
@@ -10720,7 +10973,7 @@ async function handleRequest(
       entityId: userId,
       roomId,
       worldId,
-      userName: "User",
+      userName: state.config.ui?.ownerName ?? "User",
       source: "client_chat",
       channelId: `${channelIdPrefix}-${roomKey}`,
       type: ChannelType.DM,
@@ -11447,7 +11700,7 @@ async function handleRequest(
       aborted = true;
     });
 
-    const companionCtxStream = await getCompanionContextForChat(runtime);
+    const companionCtxStream = await getCompanionContextForChat(runtime, state.config.ui?.ownerName);
     const messageForGenerationStream = companionCtxStream
       ? {
           ...userMessage,
@@ -11588,7 +11841,7 @@ async function handleRequest(
 
     applyCompanionSignalToState(state, runtime, "chat");
 
-    const companionCtx = await getCompanionContextForChat(runtime);
+    const companionCtx = await getCompanionContextForChat(runtime, state.config.ui?.ownerName);
     const messageForGeneration = companionCtx
       ? {
           ...userMessage,
@@ -11817,7 +12070,7 @@ async function handleRequest(
 
       applyCompanionSignalToState(state, runtime, "chat");
 
-      const companionCtxLegacyStream = await getCompanionContextForChat(runtime);
+      const companionCtxLegacyStream = await getCompanionContextForChat(runtime, state.config.ui?.ownerName);
       const messageWithCtxLegacyStream = companionCtxLegacyStream
         ? {
             ...message,
@@ -11923,7 +12176,7 @@ async function handleRequest(
 
       applyCompanionSignalToState(state, runtime, "chat");
 
-      const companionCtxLegacy = await getCompanionContextForChat(runtime);
+      const companionCtxLegacy = await getCompanionContextForChat(runtime, state.config.ui?.ownerName);
       const messageWithCtxLegacy = companionCtxLegacy
         ? {
             ...message,
@@ -13822,6 +14075,8 @@ export async function startApiServer(opts?: {
   const persistedEnv = config.env as Record<string, string> | undefined;
   const envKeysToHydrate = [
     "MILADY_WALLET_MODE",
+    "MILADY_TRADE_PERMISSION_MODE",
+    "MILADY_BSC_EXECUTION_ENABLED",
     "PRIVY_APP_ID",
     "PRIVY_APP_SECRET",
     "PRIVY_API_BASE_URL",
@@ -13906,6 +14161,7 @@ export async function startApiServer(opts?: {
     permissionStates: {},
     shellEnabled: config.features?.shellEnabled !== false,
     agentAutomationMode: resolveAgentAutomationModeFromConfig(config),
+    tradePermissionMode: resolveTradePermissionMode(config),
   };
 
   const trainingService = new TrainingService({
@@ -14424,6 +14680,7 @@ export async function startApiServer(opts?: {
       broadcastWs: state.broadcastWs,
       addLog,
       sendProactiveMessage: (text, source, triggerId) => routeTextToUser(state, text, source, triggerId),
+      ownerName: state.config.ui?.ownerName,
     }).catch((err) => {
       addLog(
         "warn",
