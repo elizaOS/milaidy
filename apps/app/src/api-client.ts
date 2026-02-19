@@ -34,6 +34,11 @@ import type {
   UpdateCompanionSettingsResponse,
 } from "../../../src/contracts/companion.js";
 import type {
+  BscTradeExecuteRequest,
+  BscTradeExecuteResponse,
+  BscTradePreflightResponse,
+  BscTradeQuoteRequest,
+  BscTradeQuoteResponse,
   EvmChainBalance,
   EvmNft,
   EvmTokenBalance,
@@ -80,6 +85,11 @@ export type {
   UpdateCompanionSettingsRequest,
 };
 export type {
+  BscTradeExecuteRequest,
+  BscTradeExecuteResponse,
+  BscTradePreflightResponse,
+  BscTradeQuoteRequest,
+  BscTradeQuoteResponse,
   EvmChainBalance,
   EvmNft,
   EvmTokenBalance,
@@ -2261,6 +2271,24 @@ export class MiladyClient {
   async getWalletAddresses(): Promise<WalletAddresses> { return this.fetch("/api/wallet/addresses"); }
   async getWalletBalances(): Promise<WalletBalancesResponse> { return this.fetch("/api/wallet/balances"); }
   async getWalletNfts(): Promise<WalletNftsResponse> { return this.fetch("/api/wallet/nfts"); }
+  async getBscTradePreflight(tokenAddress?: string): Promise<BscTradePreflightResponse> {
+    return this.fetch("/api/wallet/trade/preflight", {
+      method: "POST",
+      body: JSON.stringify(tokenAddress?.trim() ? { tokenAddress: tokenAddress.trim() } : {}),
+    });
+  }
+  async getBscTradeQuote(request: BscTradeQuoteRequest): Promise<BscTradeQuoteResponse> {
+    return this.fetch("/api/wallet/trade/quote", {
+      method: "POST",
+      body: JSON.stringify(request),
+    });
+  }
+  async executeBscTrade(request: BscTradeExecuteRequest): Promise<BscTradeExecuteResponse> {
+    return this.fetch("/api/wallet/trade/execute", {
+      method: "POST",
+      body: JSON.stringify(request),
+    });
+  }
   async getWalletConfig(): Promise<WalletConfigStatus> { return this.fetch("/api/wallet/config"); }
   async updateWalletConfig(config: Record<string, string>): Promise<{ ok: boolean }> { return this.fetch("/api/wallet/config", { method: "PUT", body: JSON.stringify(config) }); }
   async generateWallets(chain: "evm" | "solana" | "both" = "both"): Promise<{ ok: boolean; wallets: Array<{ chain: "evm" | "solana"; address: string }> }> {

@@ -81,11 +81,107 @@ export interface WalletConfigStatus {
   alchemyKeySet: boolean;
   infuraKeySet: boolean;
   ankrKeySet: boolean;
+  nodeRealBscRpcSet?: boolean;
+  quickNodeBscRpcSet?: boolean;
+  managedBscRpcReady?: boolean;
   heliusKeySet: boolean;
   birdeyeKeySet: boolean;
   evmChains: string[];
   evmAddress: string | null;
   solanaAddress: string | null;
+}
+
+export type BscTradeSide = "buy" | "sell";
+
+export interface BscTradePreflightRequest {
+  tokenAddress?: string;
+}
+
+export interface BscTradeReadinessChecks {
+  walletReady: boolean;
+  rpcReady: boolean;
+  chainReady: boolean;
+  gasReady: boolean;
+  tokenAddressValid: boolean;
+}
+
+export interface BscTradePreflightResponse {
+  ok: boolean;
+  walletAddress: string | null;
+  rpcUrlHost: string | null;
+  chainId: number | null;
+  bnbBalance: string | null;
+  minGasBnb: string;
+  checks: BscTradeReadinessChecks;
+  reasons: string[];
+}
+
+export interface BscTradeQuoteRequest {
+  side: BscTradeSide;
+  tokenAddress: string;
+  amount: string;
+  slippageBps?: number;
+}
+
+export interface BscTradeQuoteLeg {
+  symbol: string;
+  amount: string;
+  amountWei: string;
+}
+
+export interface BscTradeQuoteResponse {
+  ok: boolean;
+  side: BscTradeSide;
+  routerAddress: string;
+  wrappedNativeAddress: string;
+  tokenAddress: string;
+  slippageBps: number;
+  route: string[];
+  quoteIn: BscTradeQuoteLeg;
+  quoteOut: BscTradeQuoteLeg;
+  minReceive: BscTradeQuoteLeg;
+  price: string;
+  preflight: BscTradePreflightResponse;
+}
+
+export interface BscTradeExecuteRequest {
+  side: BscTradeSide;
+  tokenAddress: string;
+  amount: string;
+  slippageBps?: number;
+  confirm?: boolean;
+  deadlineSeconds?: number;
+}
+
+export interface BscUnsignedTradeTx {
+  chainId: number;
+  from: string | null;
+  to: string;
+  data: string;
+  valueWei: string;
+  deadline: number;
+  explorerUrl: string;
+}
+
+export interface BscTradeExecutionResult {
+  hash: string;
+  nonce: number;
+  gasLimit: string;
+  valueWei: string;
+  explorerUrl: string;
+  blockNumber: number | null;
+  status: "success" | "pending";
+}
+
+export interface BscTradeExecuteResponse {
+  ok: boolean;
+  side: BscTradeSide;
+  mode: "local-key" | "user-sign";
+  quote: BscTradeQuoteResponse;
+  executed: boolean;
+  requiresUserSignature: boolean;
+  unsignedTx: BscUnsignedTradeTx;
+  execution?: BscTradeExecutionResult;
 }
 
 export type WalletChain = "evm" | "solana";
