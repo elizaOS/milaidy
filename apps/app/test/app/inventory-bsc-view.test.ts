@@ -91,21 +91,33 @@ function createPreflight(ok = true) {
   };
 }
 
-function createQuote() {
+function createQuote(side: "buy" | "sell" = "buy") {
+  const isBuy = side === "buy";
   return {
     ok: true,
-    side: "buy" as const,
+    side,
     routerAddress: "0x10ED43C718714eb63d5aA57B78B54704E256024E",
     wrappedNativeAddress: "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
     tokenAddress: "0x0e09fabb73bd3ade0a17ecc321fd13a19e81ce82",
     slippageBps: 500,
-    route: [
-      "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
-      "0x0e09fabb73bd3ade0a17ecc321fd13a19e81ce82",
-    ],
-    quoteIn: { symbol: "BNB", amount: "0.1", amountWei: "100000000000000000" },
-    quoteOut: { symbol: "CAKE", amount: "2.5", amountWei: "2500000000000000000" },
-    minReceive: { symbol: "CAKE", amount: "2.375", amountWei: "2375000000000000000" },
+    route: isBuy
+      ? [
+          "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
+          "0x0e09fabb73bd3ade0a17ecc321fd13a19e81ce82",
+        ]
+      : [
+          "0x0e09fabb73bd3ade0a17ecc321fd13a19e81ce82",
+          "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
+        ],
+    quoteIn: isBuy
+      ? { symbol: "BNB", amount: "0.1", amountWei: "100000000000000000" }
+      : { symbol: "CAKE", amount: "1.0", amountWei: "1000000000000000000" },
+    quoteOut: isBuy
+      ? { symbol: "CAKE", amount: "2.5", amountWei: "2500000000000000000" }
+      : { symbol: "BNB", amount: "0.03", amountWei: "30000000000000000" },
+    minReceive: isBuy
+      ? { symbol: "CAKE", amount: "2.375", amountWei: "2375000000000000000" }
+      : { symbol: "BNB", amount: "0.0285", amountWei: "28500000000000000" },
     price: "25.0000",
     preflight: createPreflight(true),
   };
@@ -173,7 +185,7 @@ function createContext(
     loadBalances: vi.fn(async () => {}),
     loadNfts: vi.fn(async () => {}),
     getBscTradePreflight: vi.fn(async () => createPreflight(true)),
-    getBscTradeQuote: vi.fn(async () => createQuote()),
+    getBscTradeQuote: vi.fn(async (request?: { side?: "buy" | "sell" }) => createQuote(request?.side ?? "buy")),
     executeBscTrade: vi.fn(async () => createExecuteResult(true)),
     setTab: vi.fn(),
     setActionNotice: vi.fn(),
@@ -360,8 +372,12 @@ describe("InventoryView BSC-first", () => {
     const quickBuy = tree!.root.findAll(
       (node) => node.type === "button" && node.props["data-testid"] === "wallet-quick-buy",
     )[0];
+    const quickSell = tree!.root.findAll(
+      (node) => node.type === "button" && node.props["data-testid"] === "wallet-quick-sell",
+    )[0];
     expect(amountPreset).toBeDefined();
     expect(quickBuy).toBeDefined();
+    expect(quickSell).toBeDefined();
 
     await act(async () => {
       amountPreset.props.onClick();
@@ -372,6 +388,14 @@ describe("InventoryView BSC-first", () => {
     expect(ctx.getBscTradeQuote).toHaveBeenCalled();
     const content = text(tree!.root);
     expect(content).toContain("Latest Quote");
+
+    await act(async () => {
+      quickSell.props.onClick();
+      await flushAsync();
+    });
+    expect(ctx.getBscTradeQuote).toHaveBeenCalledWith(
+      expect.objectContaining({ side: "sell" }),
+    );
   });
 
   it("executes latest quote via execute action", async () => {

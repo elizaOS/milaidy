@@ -124,6 +124,7 @@ import {
 } from "./twitter-verify.js";
 import {
   buildBscBuyUnsignedTx,
+  buildBscSellUnsignedTx,
   buildBscTradePreflight,
   buildBscTradeQuote,
   resolvePrimaryBscRpcUrl,
@@ -9203,10 +9204,6 @@ async function handleRequest(
       error(res, 'Invalid side. Use "buy" or "sell".');
       return;
     }
-    if (body.side !== "buy") {
-      error(res, "Sell execution lands in the next phase. Buy is enabled first.");
-      return;
-    }
     if (!body.confirm) {
       error(res, "confirm=true is required for execution.");
       return;
@@ -9237,11 +9234,9 @@ async function handleRequest(
           slippageBps: body.slippageBps,
         },
       });
-      const unsignedTx = buildBscBuyUnsignedTx(
-        quote,
-        addrs.evmAddress,
-        body.deadlineSeconds,
-      );
+      const unsignedTx = body.side === "buy"
+        ? buildBscBuyUnsignedTx(quote, addrs.evmAddress, body.deadlineSeconds)
+        : buildBscSellUnsignedTx(quote, addrs.evmAddress, body.deadlineSeconds);
 
       const executionEnabled = /^(1|true|yes|on)$/i.test(
         process.env.MILADY_BSC_EXECUTION_ENABLED ?? "",
@@ -9265,24 +9260,27 @@ async function handleRequest(
         return;
       }
 
-      const maxBuyBnbEnv = Number.parseFloat(
-        process.env.MILADY_BSC_MAX_BUY_BNB ?? "0.2",
-      );
-      const maxBuyBnb = Number.isFinite(maxBuyBnbEnv) && maxBuyBnbEnv > 0
-        ? maxBuyBnbEnv
-        : 0.2;
-      const buyAmountBnb = Number.parseFloat(body.amount);
-      if (!Number.isFinite(buyAmountBnb) || buyAmountBnb <= 0) {
+      const tradeAmount = Number.parseFloat(body.amount);
+      if (!Number.isFinite(tradeAmount) || tradeAmount <= 0) {
         error(res, "amount must be a positive number.");
         return;
       }
-      if (buyAmountBnb > maxBuyBnb) {
-        error(
-          res,
-          `Buy amount exceeds safety cap (${maxBuyBnb} BNB). Adjust MILADY_BSC_MAX_BUY_BNB if needed.`,
-          422,
+
+      if (body.side === "buy") {
+        const maxBuyBnbEnv = Number.parseFloat(
+          process.env.MILADY_BSC_MAX_BUY_BNB ?? "0.2",
         );
-        return;
+        const maxBuyBnb = Number.isFinite(maxBuyBnbEnv) && maxBuyBnbEnv > 0
+          ? maxBuyBnbEnv
+          : 0.2;
+        if (tradeAmount > maxBuyBnb) {
+          error(
+            res,
+            `Buy amount exceeds safety cap (${maxBuyBnb} BNB). Adjust MILADY_BSC_MAX_BUY_BNB if needed.`,
+            422,
+          );
+          return;
+        }
       }
 
       const rpcUrl = resolvePrimaryBscRpcUrl(rpcConfig);
@@ -9307,6 +9305,28 @@ async function handleRequest(
           409,
         );
         return;
+      }
+
+      let approvalHash: string | null = null;
+      if (body.side === "sell") {
+        const erc20 = new ethers.Contract(
+          quote.tokenAddress,
+          [
+            "function allowance(address owner, address spender) view returns (uint256)",
+            "function approve(address spender, uint256 amount) returns (bool)",
+          ],
+          signer,
+        );
+        const requiredAmount = BigInt(quote.quoteIn.amountWei);
+        const allowance = await erc20.allowance(signer.address, quote.routerAddress);
+        if (allowance < requiredAmount) {
+          const approvalTx = await erc20.approve(
+            quote.routerAddress,
+            requiredAmount,
+          );
+          approvalHash = approvalTx.hash;
+          await provider.waitForTransaction(approvalTx.hash, 1, 120_000);
+        }
       }
 
       const txRequest: ethers.TransactionRequest = {
@@ -9349,6 +9369,7 @@ async function handleRequest(
           explorerUrl: `https://bscscan.com/tx/${tx.hash}`,
           blockNumber: receipt?.blockNumber ?? null,
           status: receipt?.status === 1 ? "success" : "pending",
+          approvalHash: approvalHash ?? undefined,
         },
       });
     } catch (err) {

@@ -171,6 +171,7 @@ export interface BscTradeExecutionResult {
   explorerUrl: string;
   blockNumber: number | null;
   status: "success" | "pending";
+  approvalHash?: string;
 }
 
 export interface BscTradeExecuteResponse {

@@ -289,16 +289,20 @@ export function InventoryView() {
     return result;
   };
 
-  const runBuyQuote = async (tokenAddress: string, amountBnb: string) => {
+  const runTradeQuote = async (
+    side: "buy" | "sell",
+    tokenAddress: string,
+    amount: string,
+  ) => {
     setTradeBusy(true);
     try {
       const preflight = await runTradePreflight(tokenAddress);
       if (!preflight.ok) return;
 
       const quote = await getBscTradeQuote({
-        side: "buy",
+        side,
         tokenAddress,
-        amount: amountBnb,
+        amount,
         slippageBps: 500,
       });
       setLatestQuote(quote);
@@ -337,7 +341,7 @@ export function InventoryView() {
       }
       return;
     }
-    await runBuyQuote(row.contractAddress, quickBnbAmount);
+    await runTradeQuote("buy", row.contractAddress, quickBnbAmount);
   };
 
   const handleQuickTrade = async (mode: "buy" | "sell") => {
@@ -350,11 +354,7 @@ export function InventoryView() {
       setActionNotice("Token contract must be a valid 0x address.", "error", 2600);
       return;
     }
-    if (mode === "sell") {
-      setActionNotice("Sell quote lands in the next phase. Buy flow is live first.", "info", 3200);
-      return;
-    }
-    await runBuyQuote(token, quickBnbAmount);
+    await runTradeQuote(mode, token, quickBnbAmount);
   };
 
   const handleExecuteLatestQuote = async () => {
@@ -362,23 +362,21 @@ export function InventoryView() {
       setActionNotice("Create a quote first.", "info", 2200);
       return;
     }
-    if (latestQuote.side !== "buy") {
-      setActionNotice("Only buy execution is enabled in V1.", "info", 2800);
-      return;
-    }
+    const sideLabel = latestQuote.side.toUpperCase();
+    const sideAction = latestQuote.side === "buy" ? "Spend" : "Sell";
     const confirmFn =
       typeof window !== "undefined" && typeof window.confirm === "function"
         ? window.confirm.bind(window)
         : () => true;
     const confirmed = confirmFn(
-      `Execute BUY now?\n\nSpend: ${latestQuote.quoteIn.amount} ${latestQuote.quoteIn.symbol}\nExpected: ${latestQuote.quoteOut.amount} ${latestQuote.quoteOut.symbol}\nMin receive: ${latestQuote.minReceive.amount} ${latestQuote.minReceive.symbol}`,
+      `Execute ${sideLabel} now?\n\n${sideAction}: ${latestQuote.quoteIn.amount} ${latestQuote.quoteIn.symbol}\nExpected: ${latestQuote.quoteOut.amount} ${latestQuote.quoteOut.symbol}\nMin receive: ${latestQuote.minReceive.amount} ${latestQuote.minReceive.symbol}`,
     );
     if (!confirmed) return;
 
     setExecuteBusy(true);
     try {
       const result = await executeBscTrade({
-        side: "buy",
+        side: latestQuote.side,
         tokenAddress: latestQuote.tokenAddress,
         amount: latestQuote.quoteIn.amount,
         slippageBps: latestQuote.slippageBps,
@@ -525,7 +523,7 @@ export function InventoryView() {
                   {amount}
                 </button>
               ))}
-              <span className="text-[10px] text-muted self-center font-mono">BNB</span>
+              <span className="text-[10px] text-muted self-center font-mono">size</span>
             </div>
             <div className="wt__quick-actions">
               <button
@@ -588,7 +586,9 @@ export function InventoryView() {
                 onClick={() => void handleExecuteLatestQuote()}
                 disabled={executeBusy}
               >
-                {executeBusy ? "EXECUTING..." : "EXECUTE BUY"}
+                {executeBusy
+                  ? "EXECUTING..."
+                  : `EXECUTE ${latestQuote.side.toUpperCase()}`}
               </button>
               {latestTxHash && (
                 <a
