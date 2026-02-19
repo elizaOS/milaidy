@@ -1566,6 +1566,7 @@ export class MiladyClient {
   private _baseUrl: string;
   private _explicitBase: boolean;
   private _token: string | null;
+  private readonly clientId: string;
   private ws: WebSocket | null = null;
   private wsHandlers = new Map<string, Set<WsEventHandler>>();
   private wsSendQueue: string[] = [];
@@ -1587,8 +1588,17 @@ export class MiladyClient {
     return "";
   }
 
+  private static generateClientId(): string {
+    const random =
+      typeof globalThis.crypto?.randomUUID === "function"
+        ? globalThis.crypto.randomUUID()
+        : `${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`;
+    return `ui-${random.replace(/[^a-zA-Z0-9._-]/g, "")}`;
+  }
+
   constructor(baseUrl?: string, token?: string) {
     this._explicitBase = baseUrl != null;
+    this.clientId = MiladyClient.generateClientId();
     const stored =
       typeof window !== "undefined"
         ? window.sessionStorage.getItem("milady_api_token")
@@ -1669,6 +1679,7 @@ export class MiladyClient {
         ...init,
         headers: {
           "Content-Type": "application/json",
+          "X-Milady-Client-Id": this.clientId,
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
           ...init?.headers,
         },
@@ -3173,10 +3184,10 @@ export class MiladyClient {
 
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     let url = `${protocol}//${host}/ws`;
+    const params = new URLSearchParams({ clientId: this.clientId });
     const token = this.apiToken;
-    if (token) {
-      url += `?token=${encodeURIComponent(token)}`;
-    }
+    if (token) params.set("token", token);
+    url += `?${params.toString()}`;
 
     this.ws = new WebSocket(url);
 

@@ -26,6 +26,23 @@ function makeHttpAction(url: string): CustomActionDef {
   };
 }
 
+function makeShellAction(command: string): CustomActionDef {
+  return {
+    id: "test-shell-action",
+    name: "TEST_SHELL_ACTION",
+    description: "test shell",
+    similes: [],
+    parameters: [],
+    handler: {
+      type: "shell",
+      command,
+    },
+    enabled: true,
+    createdAt: new Date(0).toISOString(),
+    updatedAt: new Date(0).toISOString(),
+  };
+}
+
 describe("custom action SSRF guard", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -134,6 +151,26 @@ describe("custom action SSRF guard", () => {
     expect(fetchSpy).toHaveBeenCalledWith(
       "https://example.com/redirect",
       expect.objectContaining({ redirect: "manual" }),
+    );
+  });
+
+  it("includes a scoped clientId for shell terminal runs", async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue({ ok: true, text: async () => "ok" } as Response);
+    const handler = buildTestHandler(makeShellAction("echo hello"));
+
+    const result = await handler({});
+    expect(result.ok).toBe(true);
+    expect(fetchSpy).toHaveBeenCalledWith(
+      "http://localhost:2138/api/terminal/run",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          command: "echo hello",
+          clientId: "runtime-shell-action",
+        }),
+      }),
     );
   });
 });

@@ -46,7 +46,13 @@ describe("terminalAction", () => {
     expect(result.text).toBe("");
     expect(vi.mocked(fetch)).toHaveBeenCalledWith(
       "http://localhost:2138/api/terminal/run",
-      expect.objectContaining({ method: "POST" }),
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          command: "ls -la",
+          clientId: "runtime-terminal-action",
+        }),
+      }),
     );
   });
 
