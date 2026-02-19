@@ -65,3 +65,4 @@ apps/app/test-results/
 :memory:/
 benchmarks/
 plugins/
+!docs/plugins/

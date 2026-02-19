@@ -35,46 +35,50 @@
               "index",
               "installation",
               "quickstart",
-              "configuration",
+              "what-you-can-build",
               "architecture"
             ]
           },
           {
-            "group": "Platform",
+            "group": "Agent",
             "pages": [
-              "guides/dashboard",
-              "guides/desktop-app",
-              "guides/mobile-app",
-              "guides/chrome-extension",
-              "guides/themes"
+              "agents/character-interface",
+              "agents/personality-and-behavior",
+              "agents/memory-and-state",
+              "agents/runtime-and-lifecycle"
             ]
           },
           {
-            "group": "Agent Capabilities",
+            "group": "Configuration",
+            "pages": [
+              "configuration",
+              "config-schema",
+              "model-providers"
+            ]
+          },
+          {
+            "group": "Guides",
             "pages": [
               "guides/autonomous-mode",
               "guides/custom-actions",
               "guides/triggers",
               "guides/hooks",
               "guides/knowledge",
-              "guides/media-generation"
+              "guides/media-generation",
+              "guides/training",
+              "guides/agent-export",
+              "guides/themes"
             ]
           },
           {
             "group": "Connectors",
             "pages": [
               "guides/connectors",
-              "guides/whatsapp"
-            ]
-          },
-          {
-            "group": "Plugins & Skills",
-            "pages": [
-              "guides/plugin-development",
-              "guides/local-plugins",
-              "guides/plugin-eject",
-              "guides/skills",
-              "guides/registry"
+              "guides/whatsapp",
+              "connectors/discord",
+              "connectors/telegram",
+              "connectors/twitter",
+              "connectors/slack"
             ]
           },
           {
@@ -83,8 +87,6 @@
               "guides/wallet",
               "guides/sandbox",
               "guides/cloud",
-              "guides/training",
-              "guides/agent-export",
               "deployment",
               "self-updates"
             ]
@@ -98,22 +100,204 @@
         ]
       },
       {
-        "tab": "API Reference",
+        "tab": "Apps",
         "groups": [
           {
-            "group": "API Reference",
+            "group": "Overview",
             "pages": [
-              "api-reference",
-              "websocket-events",
-              "config-schema"
+              "apps/overview"
             ]
           },
           {
-            "group": "CLI",
+            "group": "Desktop App",
             "pages": [
-              "cli-reference",
-              "chat-commands",
-              "model-providers"
+              "apps/desktop",
+              "apps/desktop/native-modules",
+              "apps/desktop/deep-linking"
+            ]
+          },
+          {
+            "group": "Mobile App",
+            "pages": [
+              "apps/mobile",
+              "apps/mobile/capacitor-plugins",
+              "apps/mobile/build-guide"
+            ]
+          },
+          {
+            "group": "Chrome Extension",
+            "pages": [
+              "apps/chrome-extension"
+            ]
+          },
+          {
+            "group": "Dashboard",
+            "pages": [
+              "apps/dashboard",
+              "apps/dashboard/settings"
+            ]
+          },
+          {
+            "group": "TUI",
+            "pages": [
+              "apps/tui"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Plugins",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": [
+              "plugins/overview",
+              "plugins/architecture",
+              "plugins/registry"
+            ]
+          },
+          {
+            "group": "Development",
+            "pages": [
+              "plugins/create-a-plugin",
+              "plugins/development",
+              "plugins/local-plugins",
+              "plugins/plugin-eject",
+              "plugins/patterns",
+              "plugins/schemas",
+              "plugins/publish"
+            ]
+          },
+          {
+            "group": "Skills",
+            "pages": [
+              "plugins/skills"
+            ]
+          },
+          {
+            "group": "Core Plugins",
+            "pages": [
+              "plugin-registry/bootstrap",
+              "plugin-registry/knowledge",
+              "plugin-registry/sql",
+              "plugin-registry/secrets-manager"
+            ]
+          },
+          {
+            "group": "Model Providers",
+            "pages": [
+              "plugin-registry/llm/openai",
+              "plugin-registry/llm/anthropic",
+              "plugin-registry/llm/google-genai",
+              "plugin-registry/llm/groq",
+              "plugin-registry/llm/ollama",
+              "plugin-registry/llm/openrouter",
+              "plugin-registry/llm/deepseek"
+            ]
+          },
+          {
+            "group": "Platform Connectors",
+            "pages": [
+              "plugin-registry/platform/discord",
+              "plugin-registry/platform/telegram",
+              "plugin-registry/platform/twitter",
+              "plugin-registry/platform/slack",
+              "plugin-registry/platform/whatsapp",
+              "plugin-registry/platform/farcaster"
+            ]
+          },
+          {
+            "group": "DeFi & Blockchain",
+            "pages": [
+              "plugin-registry/defi/evm",
+              "plugin-registry/defi/solana"
+            ]
+          },
+          {
+            "group": "Feature Plugins",
+            "pages": [
+              "plugin-registry/browser",
+              "plugin-registry/image-generation",
+              "plugin-registry/tts",
+              "plugin-registry/computeruse",
+              "plugin-registry/cron"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "REST API",
+            "pages": [
+              "api-reference",
+              "rest/agents",
+              "rest/auth",
+              "rest/character",
+              "rest/knowledge",
+              "rest/wallet",
+              "rest/models",
+              "rest/autonomy",
+              "rest/triggers",
+              "rest/training",
+              "rest/sandbox",
+              "rest/cloud",
+              "rest/apps",
+              "rest/plugins",
+              "rest/permissions",
+              "rest/diagnostics",
+              "rest/subscriptions"
+            ]
+          },
+          {
+            "group": "WebSocket",
+            "pages": [
+              "websocket-events"
+            ]
+          },
+          {
+            "group": "Runtime Reference",
+            "pages": [
+              "runtime/core",
+              "runtime/events",
+              "runtime/memory",
+              "runtime/providers",
+              "runtime/services",
+              "runtime/models",
+              "runtime/types"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "CLI Reference",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": [
+              "cli/overview"
+            ]
+          },
+          {
+            "group": "Commands",
+            "pages": [
+              "cli/start",
+              "cli/tui",
+              "cli/setup",
+              "cli/configure",
+              "cli/config",
+              "cli/dashboard",
+              "cli/models",
+              "cli/plugins",
+              "cli/update",
+              "cli/doctor"
+            ]
+          },
+          {
+            "group": "Environment",
+            "pages": [
+              "cli/environment"
             ]
           }
         ]
