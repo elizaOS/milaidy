@@ -1,0 +1,391 @@
+---
+title: Deployment Guide
+sidebarTitle: Deployment
+description: Deploy Milady using Docker, Docker Compose, or cloud containers. Covers environment variables, port configuration, volumes, and security hardening.
+---
+
+# Deployment Guide
+
+Milady supports multiple deployment strategies: standalone Docker containers, Docker Compose orchestration, and cloud-managed containers for ElizaCloud (AWS ECS).
+
+## Quick Start with Docker Compose
+
+The fastest way to deploy Milady is using the included setup script, which builds the image, generates authentication tokens, runs interactive onboarding, and starts the gateway.
+
+```bash
+cd deploy
+./docker-setup.sh
+```
+
+The setup script performs the following steps:
+
+1. Builds the Docker image (`milady:local` by default)
+2. Generates a random gateway token (via `openssl rand -hex 32`)
+3. Writes environment variables to `deploy/.env`
+4. Runs interactive onboarding (`milady-cli onboard --no-install-daemon`)
+5. Starts the gateway service in detached mode
+
+<Warning>
+The setup script requires Docker and Docker Compose to be installed. It will exit with an error if either is missing.
+</Warning>
+
+## Docker Image
+
+### Base Dockerfile
+
+The primary Dockerfile (`deploy/Dockerfile`) builds a production image from source:
+
+```dockerfile
+FROM node:22-bookworm
+
+# Install Bun (primary package manager and build tool)
+RUN curl -fsSL https://bun.sh/install | bash
+ENV PATH="/root/.bun/bin:${PATH}"
+
+WORKDIR /app
+
+# Copy dependency manifests first for better layer caching
+COPY package.json bun.lock* .npmrc ./
+COPY apps/app/package.json ./apps/app/package.json
+COPY scripts ./scripts
+
+# Install dependencies using the committed lockfile only
+RUN bun install --frozen-lockfile
+
+# Copy source and build (includes apps/app/dist UI bundle)
+COPY . .
+RUN bun run build
+
+ENV NODE_ENV=production
+
+# Security hardening: Run as non-root user
+RUN chown -R node:node /app
+USER node
+
+# Bind to 0.0.0.0 in containers so the service is reachable
+ENV MILADY_API_BIND="0.0.0.0"
+
+# Start the API server + dashboard UI on port 2138
+CMD ["node", "milady.mjs", "start"]
+```
+
+Key characteristics:
+
+- **Base**: Node.js 22 on Debian Bookworm
+- **Build tool**: Bun (installed at build time)
+- **Layer caching**: Dependency manifests copied before source for efficient rebuilds
+- **Security**: Runs as the non-root `node` user
+- **Network**: Binds to `0.0.0.0` by default (required for container networking)
+- **Custom packages**: Supports `MILADY_DOCKER_APT_PACKAGES` build arg for additional system packages
+
+#### Custom System Packages
+
+Pass additional Debian packages at build time:
+
+```bash
+docker build \
+  --build-arg MILADY_DOCKER_APT_PACKAGES="ffmpeg imagemagick" \
+  -t milady:local \
+  -f deploy/Dockerfile \
+  deploy/
+```
+
+## Docker Compose
+
+### Services
+
+The `docker-compose.yml` defines two services:
+
+<Tabs>
+  <Tab title="milady-gateway">
+    The primary long-running service. Runs the gateway on port 18789 with WebSocket multiplexing, TLS support, and authentication.
+
+    ```yaml
+    services:
+      milady-gateway:
+        image: ${MILADY_IMAGE:-milady:local}
+        environment:
+          HOME: /home/node
+          TERM: xterm-256color
+          MILADY_GATEWAY_TOKEN: ${MILADY_GATEWAY_TOKEN}
+          MILADY_ALLOWED_ORIGINS: ${MILADY_ALLOWED_ORIGINS}
+        volumes:
+          - ${MILADY_CONFIG_DIR}:/home/node/.milady
+          - ${MILADY_WORKSPACE_DIR}:/home/node/.milady/workspace
+        ports:
+          - "${MILADY_GATEWAY_PORT:-18789}:18789"
+          - "${MILADY_BRIDGE_PORT:-18790}:18790"
+        init: true
+        restart: unless-stopped
+        command:
+          [
+            "node", "dist/index.js", "gateway",
+            "--bind", "${MILADY_GATEWAY_BIND:-lan}",
+            "--port", "18789",
+          ]
+    ```
+  </Tab>
+  <Tab title="milady-cli">
+    An interactive CLI container for running one-off commands (onboarding, channel setup, health checks).
+
+    ```yaml
+    services:
+      milady-cli:
+        image: ${MILADY_IMAGE:-milady:local}
+        environment:
+          HOME: /home/node
+          TERM: xterm-256color
+          MILADY_GATEWAY_TOKEN: ${MILADY_GATEWAY_TOKEN}
+          BROWSER: echo
+        volumes:
+          - ${MILADY_CONFIG_DIR}:/home/node/.milady
+          - ${MILADY_WORKSPACE_DIR}:/home/node/.milady/workspace
+        stdin_open: true
+        tty: true
+        init: true
+        entrypoint: ["node", "dist/index.js"]
+    ```
+  </Tab>
+</Tabs>
+
+### Volumes
+
+Both services share two persistent volumes:
+
+| Volume Mount | Container Path | Purpose |
+|-------------|---------------|---------|
+| `MILADY_CONFIG_DIR` | `/home/node/.milady` | Configuration files (`milady.json`), database, secrets |
+| `MILADY_WORKSPACE_DIR` | `/home/node/.milady/workspace` | Agent workspace files, uploaded knowledge, generated content |
+
+<Tip>
+The setup script defaults `MILADY_CONFIG_DIR` to `$HOME/.milady` and `MILADY_WORKSPACE_DIR` to `$HOME/.milady/workspace` on the host machine.
+</Tip>
+
+### Extra Mounts and Home Volume
+
+The setup script supports additional mount points and a dedicated home volume:
+
+```bash
+# Mount additional directories
+MILADY_EXTRA_MOUNTS="/data/models:/app/models,/data/cache:/app/cache" ./docker-setup.sh
+
+# Use a named Docker volume for the node home directory
+MILADY_HOME_VOLUME="milady-home" ./docker-setup.sh
+```
+
+When extra mounts or a home volume are specified, the setup script generates a `docker-compose.extra.yml` file that is merged with the base compose file.
+
+## Ports
+
+| Port | Service | Default | Environment Variable |
+|------|---------|---------|---------------------|
+| 2138 | API Server + Dashboard UI | Always exposed inside container | `PORT` |
+| 18789 | Gateway (WebSocket + HTTP) | Host-mapped | `MILADY_GATEWAY_PORT` |
+| 18790 | Bridge (inter-service communication) | Host-mapped | `MILADY_BRIDGE_PORT` |
+
+## Environment Variables
+
+### Required
+
+| Variable | Description |
+|----------|-------------|
+| `MILADY_GATEWAY_TOKEN` | Authentication token for the gateway. Auto-generated by the setup script if not set. |
+
+### Optional
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `MILADY_IMAGE` | `milady:local` | Docker image name/tag to use |
+| `MILADY_CONFIG_DIR` | `$HOME/.milady` | Host path for configuration storage |
+| `MILADY_WORKSPACE_DIR` | `$HOME/.milady/workspace` | Host path for workspace storage |
+| `MILADY_GATEWAY_PORT` | `18789` | Host port for the gateway |
+| `MILADY_BRIDGE_PORT` | `18790` | Host port for the bridge |
+| `MILADY_GATEWAY_BIND` | `lan` | Gateway bind mode (`lan`, `localhost`, `0.0.0.0`) |
+| `MILADY_API_BIND` | `0.0.0.0` | API server bind address |
+| `MILADY_API_TOKEN` | (none) | Token-based auth for the API server. Set in production. |
+| `MILADY_ALLOWED_ORIGINS` | (none) | CORS allowed origins for the API server |
+| `MILADY_DOCKER_APT_PACKAGES` | (none) | Additional apt packages to install at build time |
+| `MILADY_EXTRA_MOUNTS` | (none) | Comma-separated extra volume mounts |
+| `MILADY_HOME_VOLUME` | (none) | Named Docker volume for `/home/node` |
+
+### AI Provider Keys
+
+Pass your AI provider API keys as environment variables:
+
+```bash
+CLAUDE_AI_SESSION_KEY=your-key
+CLAUDE_WEB_SESSION_KEY=your-key
+CLAUDE_WEB_COOKIE=your-cookie
+OPENAI_API_KEY=sk-...
+ANTHROPIC_API_KEY=sk-ant-...
+```
+
+<Info>
+The docker-compose.yml passes `CLAUDE_AI_SESSION_KEY`, `CLAUDE_WEB_SESSION_KEY`, and `CLAUDE_WEB_COOKIE` through to both services. Add additional provider keys by extending the `environment` section.
+</Info>
+
+## Cloud Agent Deployment
+
+### ElizaCloud (AWS ECS)
+
+The `Dockerfile.cloud-agent` builds a slim container for deploying agents to ElizaCloud:
+
+```dockerfile
+FROM node:22-bookworm-slim
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      curl ca-certificates && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY deploy/cloud-agent-entrypoint.ts ./entrypoint.ts
+RUN npm install -g tsx@4
+
+ENV NODE_ENV=production
+ENV PORT=2138
+ENV BRIDGE_PORT=18790
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD curl -f http://localhost:${PORT}/health || exit 1
+
+EXPOSE ${PORT}
+EXPOSE ${BRIDGE_PORT}
+
+RUN useradd -m agent
+USER agent
+
+CMD ["tsx", "entrypoint.ts"]
+```
+
+Key differences from the base Dockerfile:
+
+| Aspect | Base | Cloud Agent |
+|--------|------|-------------|
+| Base image | `node:22-bookworm` (full) | `node:22-bookworm-slim` |
+| Build step | Full source build with Bun | Single entrypoint file, run with `tsx` |
+| Health check | None | `curl` to `/health` every 30s |
+| User | `node` (existing) | `agent` (custom created) |
+| Ports | 2138 | 2138 + 18790 |
+
+#### Cloud Agent Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `ELIZAOS_CLOUD_API_KEY` | ElizaCloud inference API key |
+| `OPENAI_API_KEY` | OpenAI API key (BYOK mode) |
+| `ANTHROPIC_API_KEY` | Anthropic API key (BYOK mode) |
+| `SMALL_MODEL` | Model selection for small/fast tasks |
+| `LARGE_MODEL` | Model selection for large/complex tasks |
+| `PORT` | Health endpoint port (default: 2138) |
+| `BRIDGE_PORT` | Bridge HTTP port (default: 18790) |
+
+#### Build and Run
+
+```bash
+# Build the cloud agent image
+docker build -f deploy/Dockerfile.cloud-agent -t elizaos/agent:latest .
+
+# Run with ElizaCloud inference
+docker run -p 2138:2138 -p 18790:18790 \
+  -e ELIZAOS_CLOUD_API_KEY=eliza_xxx \
+  elizaos/agent:latest
+
+# Run with BYOK (Bring Your Own Key)
+docker run -p 2138:2138 -p 18790:18790 \
+  -e OPENAI_API_KEY=sk-xxx \
+  -e LARGE_MODEL=gpt-4o \
+  elizaos/agent:latest
+```
+
+## Sandbox Container
+
+The `Dockerfile.sandbox` builds a lightweight execution environment for agent shell commands and code execution:
+
+```dockerfile
+FROM debian:bookworm-slim
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends \
+    bash ca-certificates curl git jq python3 ripgrep \
+  && rm -rf /var/lib/apt/lists/*
+
+CMD ["sleep", "infinity"]
+```
+
+This container provides:
+
+- **bash** -- Shell execution environment
+- **git** -- Version control operations
+- **python3** -- Python script execution
+- **curl** + **jq** -- HTTP requests and JSON processing
+- **ripgrep** -- Fast code search
+
+The sandbox runs as a sidecar and sleeps indefinitely, ready to accept commands from the agent runtime.
+
+## Common Operations
+
+### Viewing Logs
+
+```bash
+docker compose -f deploy/docker-compose.yml logs -f milady-gateway
+```
+
+### Health Check
+
+```bash
+docker compose -f deploy/docker-compose.yml exec milady-gateway \
+  node dist/index.js health --token "$MILADY_GATEWAY_TOKEN"
+```
+
+### Adding Messaging Channels
+
+<CodeGroup>
+```bash WhatsApp (QR)
+docker compose -f deploy/docker-compose.yml run --rm milady-cli channels login
+```
+
+```bash Telegram
+docker compose -f deploy/docker-compose.yml run --rm milady-cli \
+  channels add --channel telegram --token <bot-token>
+```
+
+```bash Discord
+docker compose -f deploy/docker-compose.yml run --rm milady-cli \
+  channels add --channel discord --token <bot-token>
+```
+</CodeGroup>
+
+### Stopping and Restarting
+
+```bash
+# Stop the gateway
+docker compose -f deploy/docker-compose.yml down
+
+# Restart the gateway
+docker compose -f deploy/docker-compose.yml up -d milady-gateway
+```
+
+## Security Hardening
+
+<CardGroup cols={2}>
+  <Card title="Non-Root Execution" icon="shield">
+    Both Dockerfiles run as non-root users (`node` or `agent`). Never override this with `--user root` in production.
+  </Card>
+  <Card title="API Token Auth" icon="key">
+    Set `MILADY_API_TOKEN` in production to require authentication for all API and WebSocket connections.
+  </Card>
+  <Card title="Gateway Token" icon="lock">
+    The gateway token is auto-generated with 256 bits of entropy. Store it securely and rotate periodically.
+  </Card>
+  <Card title="Network Binding" icon="network-wired">
+    Use `MILADY_GATEWAY_BIND=localhost` to restrict gateway access to the host machine only. Use `lan` for local network access.
+  </Card>
+</CardGroup>
+
+<Warning>
+Never expose the gateway to the public internet without setting `MILADY_GATEWAY_TOKEN` and configuring TLS. See the [Configuration Schema](/config-schema) for TLS settings under the `gateway` section.
+</Warning>

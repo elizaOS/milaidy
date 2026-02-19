@@ -1,0 +1,280 @@
+---
+title: WebSocket Real-Time Events
+sidebarTitle: WebSocket Events
+description: Reference for the Milady WebSocket protocol, connection details, event types, and payloads.
+---
+
+# WebSocket Real-Time Events
+
+Milady uses WebSocket connections to deliver real-time updates from the agent runtime to connected clients (the frontend UI, Electron, or any custom integration).
+
+## Connection
+
+### API Server WebSocket
+
+<CodeGroup>
+```text Default
+ws://localhost:2138/ws
+```
+
+```text Gateway
+ws://localhost:18789/ws
+```
+</CodeGroup>
+
+The WebSocket endpoint is available at `/ws` on the API server (port 2138) or through the Gateway (port 18789 by default).
+
+### Authentication
+
+When `MILADY_API_TOKEN` is configured, the WebSocket upgrade request must include the token. The server calls `resolveWebSocketUpgradeRejection()` to validate credentials before accepting the connection. Unauthenticated upgrade requests receive an HTTP 401 or 403 rejection.
+
+<Warning>
+If token auth is enabled and the WebSocket upgrade request lacks valid credentials, the connection will be rejected with a standard HTTP error before the WebSocket handshake completes.
+</Warning>
+
+## Connection Lifecycle
+
+### On Connect
+
+When a WebSocket client connects, the server immediately sends:
+
+1. A `status` event with the current agent state
+2. A replay of the last 120 buffered stream events (agent events + heartbeat events)
+
+```json
+{
+  "type": "status",
+  "state": "running",
+  "agentName": "Milady",
+  "model": "@elizaos/plugin-anthropic",
+  "startedAt": 1708000000000
+}
+```
+
+### Periodic Broadcasts
+
+The server broadcasts a `status` event to all connected clients every **5 seconds**.
+
+### Keepalive
+
+Clients can send a `ping` message; the server responds with a `pong`:
+
+<Tabs>
+  <Tab title="Client sends">
+    ```json
+    { "type": "ping" }
+    ```
+  </Tab>
+  <Tab title="Server responds">
+    ```json
+    { "type": "pong" }
+    ```
+  </Tab>
+</Tabs>
+
+## Client-to-Server Messages
+
+| Message Type | Payload | Description |
+|-------------|---------|-------------|
+| `ping` | `{}` | Keepalive ping; server responds with `pong` |
+| `active-conversation` | `{ conversationId: string }` | Inform the server which conversation is currently active in the UI |
+
+### Active Conversation Tracking
+
+```json
+{
+  "type": "active-conversation",
+  "conversationId": "conv-abc-123"
+}
+```
+
+The server uses this to decide whether to deliver proactive messages inline (active conversation) or mark them as unread (non-active conversation).
+
+## Server-to-Client Events
+
+### `status`
+
+Broadcast every 5 seconds and on state changes.
+
+```json
+{
+  "type": "status",
+  "state": "running",
+  "agentName": "Milady",
+  "model": "@elizaos/plugin-anthropic",
+  "startedAt": 1708000000000,
+  "pendingRestart": false,
+  "pendingRestartReasons": []
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `state` | `string` | One of: `not_started`, `starting`, `running`, `paused`, `stopped`, `restarting`, `error` |
+| `agentName` | `string` | Current agent display name |
+| `model` | `string \| undefined` | Detected AI model provider plugin name |
+| `startedAt` | `number \| undefined` | Epoch timestamp when the agent was started |
+| `pendingRestart` | `boolean` | Whether a restart is pending |
+| `pendingRestartReasons` | `string[]` | Human-readable reasons why a restart is needed |
+
+<Note>
+When `status.restarted` is `true`, the frontend auto-refreshes the plugin list.
+</Note>
+
+### `restart-required`
+
+Sent when the server detects that a configuration change requires a restart.
+
+```json
+{
+  "type": "restart-required",
+  "reasons": ["Shell access enabled", "Plugin configuration changed"]
+}
+```
+
+### `agent_event`
+
+Envelope for agent autonomy loop events streamed from the `AGENT_EVENT` service.
+
+```json
+{
+  "type": "agent_event",
+  "version": 1,
+  "eventId": "evt-abc-123",
+  "ts": 1708000000000,
+  "runId": "run-xyz",
+  "seq": 42,
+  "stream": "autonomy",
+  "sessionKey": "session-key",
+  "agentId": "agent-uuid",
+  "roomId": "room-uuid",
+  "payload": {
+    "runId": "run-xyz",
+    "seq": 42,
+    "stream": "autonomy",
+    "ts": 1708000000000,
+    "data": {}
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `version` | `1` | Envelope format version |
+| `eventId` | `string` | Unique event identifier |
+| `ts` | `number` | Epoch timestamp |
+| `runId` | `string` | Autonomy run identifier |
+| `seq` | `number` | Sequence number within the run |
+| `stream` | `string` | Event stream name (e.g., `"autonomy"`) |
+| `payload` | `object` | Inner event data from the agent runtime |
+
+### `heartbeat_event`
+
+Envelope for agent heartbeat events (activity indicators).
+
+```json
+{
+  "type": "heartbeat_event",
+  "version": 1,
+  "eventId": "evt-hb-456",
+  "ts": 1708000000000,
+  "payload": {
+    "ts": 1708000000000,
+    "status": "thinking",
+    "to": "discord",
+    "preview": "Composing reply...",
+    "durationMs": 1500,
+    "hasMedia": false,
+    "channel": "discord",
+    "indicatorType": "typing"
+  }
+}
+```
+
+| Payload Field | Type | Description |
+|--------------|------|-------------|
+| `status` | `string` | Heartbeat status (e.g., `"thinking"`, `"replying"`) |
+| `to` | `string` | Target channel/destination |
+| `preview` | `string` | Short preview of what the agent is doing |
+| `durationMs` | `number` | Duration of the current operation |
+| `hasMedia` | `boolean` | Whether the operation involves media |
+| `channel` | `string` | Channel identifier |
+| `silent` | `boolean` | Whether this is a silent heartbeat |
+| `indicatorType` | `string` | UI indicator type (e.g., `"typing"`) |
+
+### `training_event`
+
+Envelope for fine-tuning/training progress events.
+
+```json
+{
+  "type": "training_event",
+  "version": 1,
+  "eventId": "evt-train-789",
+  "ts": 1708000000000,
+  "payload": {}
+}
+```
+
+### `proactive-message`
+
+Sent when the agent autonomously generates a message in a conversation.
+
+```json
+{
+  "type": "proactive-message",
+  "conversationId": "conv-abc-123",
+  "message": {
+    "id": "msg-uuid",
+    "role": "assistant",
+    "text": "I noticed something interesting...",
+    "createdAt": "2024-02-15T10:30:00.000Z"
+  }
+}
+```
+
+The frontend handles this by:
+- Appending the message in real-time if the conversation is active
+- Marking the conversation as unread if it is not active
+- Bumping the conversation to the top of the sidebar
+
+### `conversation-updated`
+
+Sent when conversation metadata changes (e.g., title auto-generated from first message).
+
+```json
+{
+  "type": "conversation-updated",
+  "conversation": {
+    "id": "conv-abc-123",
+    "title": "Discussion about AI agents",
+    "roomId": "room-uuid",
+    "createdAt": "2024-02-15T10:00:00.000Z",
+    "updatedAt": "2024-02-15T10:30:00.000Z"
+  }
+}
+```
+
+## Reconnection Behavior
+
+The frontend API client (`apps/app/src/api-client.ts`) handles reconnection automatically via its `connectWs()` method. The reconnection strategy is configured through the `web.reconnect` config section:
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `initialMs` | varies | Initial delay before first reconnection attempt |
+| `maxMs` | varies | Maximum delay between reconnection attempts |
+| `factor` | varies | Exponential backoff multiplier |
+| `jitter` | varies | Randomization factor to prevent thundering herd |
+| `maxAttempts` | `0` (unlimited) | Maximum number of reconnection attempts |
+
+<Tip>
+On reconnect, the server replays the last 120 buffered events, so clients can catch up on missed events without a full page refresh.
+</Tip>
+
+## Event Buffer
+
+The server maintains an in-memory event buffer for stream events. Key characteristics:
+
+- `agent_event` and `heartbeat_event` types are buffered
+- Last 120 events are replayed to newly connected clients
+- The `GET /api/agent/events` REST endpoint provides paginated access to the buffer with `after` and `limit` parameters

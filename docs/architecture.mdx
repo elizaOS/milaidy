@@ -1,0 +1,225 @@
+---
+title: System Architecture
+sidebarTitle: Architecture
+description: High-level overview of the Milady AI system architecture, layers, plugin system, and cross-platform delivery.
+---
+
+# System Architecture
+
+Milady is a cross-platform AI agent runtime built on top of [ElizaOS](https://elizaos.ai). It delivers the same backend across CLI, web, desktop (Electron), and mobile (Capacitor) surfaces through a layered architecture.
+
+## High-Level Diagram
+
+```
++---------------------------------------------------------------+
+|                        Frontend Layer                          |
+|  React SPA (Vite) + Capacitor (iOS/Android) + Electron (Desktop)|
+|  Tabs: Chat, Character, Knowledge, Connectors, Apps,          |
+|         Wallets, Advanced (Plugins, Skills, Triggers, DB, ...) |
++----------------------------+----------------------------------+
+                             | HTTP + WebSocket
+                             v
++---------------------------------------------------------------+
+|                     API Server Layer                           |
+|  Node.js HTTP server (port 2138)                              |
+|  REST endpoints (/api/*) + WebSocket (/ws)                    |
+|  SSE log streaming, static UI assets                          |
++----------------------------+----------------------------------+
+                             |
+                             v
++---------------------------------------------------------------+
+|                    Runtime Layer (ElizaOS)                     |
+|  AgentRuntime + Plugin system                                 |
+|  13 core plugins + optional plugins + Milady plugin           |
+|  Providers, Actions, Services                                 |
++----------------------------+----------------------------------+
+                             |
+                             v
++---------------------------------------------------------------+
+|                       CLI Layer                                |
+|  Commander-based CLI (entry.ts -> run-main.ts)                |
+|  Commands: start, update, status, channel, ...                |
+|  Profile system, dotenv loading, log-level control            |
++---------------------------------------------------------------+
+```
+
+## Layer Details
+
+### 1. CLI Layer
+
+The CLI entry point (`src/entry.ts`) is the bootstrap for all Milady operations.
+
+- Sets process title to `milady`
+- Normalizes color and log level from flags (`--no-color`, `--debug`, `--verbose`)
+- Parses CLI profiles via `parseCliProfileArgs`
+- Delegates to `runCli()` in `src/cli/run-main.ts`
+
+`run-main.ts` loads dotenv, normalizes API key environment variables (e.g., `Z_AI_API_KEY` to `ZAI_API_KEY`), builds the Commander program, and dispatches to subcommands.
+
+```typescript
+// src/entry.ts — simplified bootstrap
+process.title = "milady";
+import("./cli/run-main")
+  .then(({ runCli }) => runCli(process.argv))
+```
+
+### 2. Runtime Layer (ElizaOS)
+
+The runtime (`src/runtime/eliza.ts`) starts an `AgentRuntime` from `@elizaos/core` with Milady's plugin configuration.
+
+Key responsibilities:
+- Loads and resolves core + optional + user-installed plugins
+- Creates the Milady plugin (workspace context, session keys, lifecycle actions)
+- Configures local embedding models (GPU layers, idle timeout, model selection)
+- Manages agent workspace and sandbox environments
+- Hooks system for event-driven automation
+
+### 3. API Server Layer
+
+The API server (`src/api/server.ts`) is a Node.js HTTP server on port **2138** (default).
+
+- REST endpoints for all management operations (agent lifecycle, config, plugins, knowledge, etc.)
+- WebSocket server at `/ws` for real-time events (status, agent events, heartbeat, proactive messages)
+- SSE endpoint for log streaming
+- Static file serving for the frontend UI bundle
+- Token-based authentication when `MILADY_API_TOKEN` is set
+
+### 4. Frontend Layer
+
+The frontend (`apps/app/src/App.tsx`) is a React SPA built with Vite.
+
+<CardGroup cols={2}>
+  <Card title="Chat View" icon="comments">
+    Real-time conversation with the agent, conversation sidebar, autonomous panel
+  </Card>
+  <Card title="Character View" icon="user">
+    Edit agent name, bio, system prompt, style, and examples with AI-assisted generation
+  </Card>
+  <Card title="Knowledge View" icon="book">
+    Upload documents, search knowledge base, manage RAG fragments
+  </Card>
+  <Card title="Connectors View" icon="plug">
+    Configure Discord, Telegram, Slack, and other messaging connectors
+  </Card>
+  <Card title="Apps View" icon="grid">
+    Browse, install, and manage ElizaOS apps from the marketplace
+  </Card>
+  <Card title="Inventory View" icon="wallet">
+    View wallet addresses, balances, NFTs across EVM and Solana chains
+  </Card>
+  <Card title="Advanced View" icon="gear">
+    Plugins, Skills, Actions, Triggers, Fine-tuning, Trajectories, Runtime, Database, Logs, Security
+  </Card>
+  <Card title="Settings View" icon="sliders">
+    Voice, theme, and general settings
+  </Card>
+</CardGroup>
+
+## Cross-Platform Delivery
+
+The same backend serves all platforms:
+
+| Platform | Delivery | Notes |
+|----------|----------|-------|
+| CLI | `milady start` | Direct Node.js process |
+| Web | Browser at `http://localhost:2138` | Vite dev proxy in development |
+| Desktop | Electron wrapper | Bundles the API server + UI |
+| iOS | Capacitor | Connects to local/remote API |
+| Android | Capacitor | Connects to local/remote API |
+
+The frontend API client (`apps/app/src/api-client.ts`) is a thin fetch wrapper plus WebSocket for real-time chat and events.
+
+## ElizaOS Plugin Architecture
+
+Milady assembles its capabilities through ElizaOS's plugin system. Plugins are loaded in two tiers.
+
+### Core Plugins (Always Loaded)
+
+These 13 plugins are loaded on every startup:
+
+| Plugin | Purpose |
+|--------|---------|
+| `@elizaos/plugin-sql` | Database adapter (required) |
+| `@elizaos/plugin-local-embedding` | Local embeddings for memory |
+| `@elizaos/plugin-secrets-manager` | Secrets management (loaded early) |
+| `@elizaos/plugin-form` | Form handling |
+| `@elizaos/plugin-knowledge` | RAG knowledge management |
+| `@elizaos/plugin-rolodex` | Contact graph and social memory |
+| `@elizaos/plugin-trajectory-logger` | Trajectory logging for debugging and RL training |
+| `@elizaos/plugin-agent-orchestrator` | Multi-agent orchestration |
+| `@elizaos/plugin-cron` | Scheduled jobs and automation |
+| `@elizaos/plugin-shell` | Shell command execution |
+| `@elizaos/plugin-plugin-manager` | Dynamic plugin management |
+| `@elizaos/plugin-agent-skills` | Skill execution and marketplace runtime |
+| `@elizaos/plugin-pdf` | PDF processing |
+
+### Optional Core Plugins
+
+Can be enabled from the admin panel:
+
+| Plugin | Purpose |
+|--------|---------|
+| `@elizaos/plugin-code` | Code writing and file operations |
+
+<Info>
+Additional optional plugins like `plugin-mcp`, `plugin-computeruse`, `plugin-cli`, `plugin-edge-tts`, and others are commented out in the source but available for future activation.
+</Info>
+
+### Milady Plugin
+
+The `milady` plugin (`src/runtime/milady-plugin.ts`) provides:
+
+- **Providers**: Workspace context, channel profiles, admin trust, autonomous state, session keys, UI catalog, emotes, custom actions
+- **Actions**: Restart, send message, trigger tasks, emote playback, user-defined custom actions
+- **Init hooks**: Trigger task worker registration, autonomous state tracking, custom action runtime binding
+
+## Gateway and WebSocket Communication
+
+### Gateway
+
+The Gateway runs on port **18789** (default) and provides:
+- Multiplexed WebSocket + HTTP on a single port
+- TLS support (auto-generated or custom certificates)
+- Authentication (token or password mode)
+- mDNS/Bonjour discovery
+- Tailscale integration (serve/funnel modes)
+- OpenAI-compatible HTTP endpoints (`/v1/chat/completions`, `/v1/responses`)
+
+### WebSocket Real-Time Communication
+
+The API server exposes a WebSocket endpoint at `/ws` on port 2138 for:
+- Agent status broadcasts (every 5 seconds)
+- Agent event streaming (autonomy loop, heartbeat)
+- Proactive message delivery
+- Conversation updates
+- Ping/pong keepalive
+- Active conversation tracking
+
+## Config System
+
+Milady uses a Zod-validated JSON configuration file (`milady.json`) stored in the state directory (`~/.milady/`).
+
+<Tabs>
+  <Tab title="Structure">
+    The config is organized into typed sections:
+    - `agent` / `agents` -- Agent identity, model, personality
+    - `env` -- Environment variable overrides
+    - `gateway` -- Gateway ports, bind mode, TLS, auth
+    - `plugins` -- Plugin allow/deny lists, install records
+    - `connectors` -- Messaging connectors (Discord, Telegram, etc.)
+    - `tools` -- Tool profiles, exec config, media understanding
+    - `hooks` -- Webhook mappings, Gmail integration
+    - `messages` -- TTS, queue, broadcast, response prefix
+    - `database` -- Provider selection (PGLite/Postgres), connection config
+    - `cloud` -- ElizaCloud integration settings
+    - `models` -- Custom model providers, Bedrock discovery
+    - `update` -- Release channel, check intervals
+  </Tab>
+  <Tab title="Validation">
+    All config sections are validated against Zod schemas at load time. Invalid fields produce warnings but do not prevent startup. The config file includes metadata tracking the last Milady version that wrote it and when.
+  </Tab>
+</Tabs>
+
+<Tip>
+See the [Configuration Schema Reference](/config-schema) for a complete field-by-field breakdown of every config section.
+</Tip>

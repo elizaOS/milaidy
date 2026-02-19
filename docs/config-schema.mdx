@@ -1,0 +1,556 @@
+---
+title: Configuration Schema Reference
+sidebarTitle: Config Schema
+description: Complete reference for the milady.json configuration file, organized by section with all fields documented.
+---
+
+# Configuration Schema Reference
+
+Milady is configured through a `milady.json` file stored in the state directory (default: `~/.milady/milady.json`). All sections are optional; Milady uses sensible defaults when fields are omitted.
+
+The configuration is validated against Zod schemas at load time. Invalid fields produce warnings but do not block startup.
+
+## Top-Level Structure
+
+```json
+{
+  "meta": {},
+  "auth": {},
+  "env": {},
+  "agents": {},
+  "gateway": {},
+  "hooks": {},
+  "messages": {},
+  "tools": {},
+  "database": {},
+  "plugins": {},
+  "connectors": {},
+  "models": {},
+  "cloud": {},
+  "update": {},
+  "media": {},
+  "embedding": {},
+  "memory": {},
+  "skills": {},
+  "browser": {},
+  "cron": {},
+  "ui": {},
+  "discovery": {},
+  "talk": {},
+  "mcp": {},
+  "registry": {},
+  "features": {},
+  "customActions": []
+}
+```
+
+---
+
+## `meta`
+
+Metadata about the config file itself.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `lastTouchedVersion` | `string` | Last Milady version that wrote this config |
+| `lastTouchedAt` | `string` | ISO timestamp when config was last written |
+
+---
+
+## `auth`
+
+Authentication profiles and provider ordering for multi-account setups.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `profiles` | `Record<string, AuthProfileConfig>` | Named auth profiles. Each has `provider`, `mode` (`api_key`, `oauth`, `token`), and optional `email` |
+| `order` | `Record<string, string[]>` | Provider ordering for profile selection |
+| `cooldowns.billingBackoffHours` | `number` | Default billing backoff (hours). Default: `5` |
+| `cooldowns.billingBackoffHoursByProvider` | `Record<string, number>` | Per-provider billing backoff |
+| `cooldowns.billingMaxHours` | `number` | Billing backoff cap. Default: `24` |
+| `cooldowns.failureWindowHours` | `number` | Failure window for backoff counter reset. Default: `24` |
+
+---
+
+## `env`
+
+Environment variable injection and shell env import.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `shellEnv.enabled` | `boolean` | Import missing secrets from login shell |
+| `shellEnv.timeoutMs` | `number` | Timeout for login shell exec. Default: `15000` |
+| `vars` | `Record<string, string>` | Inline env vars applied when not already present |
+| `[key]` | `string` | Sugar: string values directly under `env` |
+
+<Info>
+String values placed directly under the `env` key are treated as environment variable overrides. For example, `"env": { "OPENAI_API_KEY": "sk-..." }` sets the key when not already present in the process environment.
+</Info>
+
+---
+
+## `agents`
+
+Multi-agent configuration.
+
+### `agents.defaults`
+
+Default settings applied to all agents unless overridden per-agent.
+
+### `agents.list[]`
+
+Array of individual agent configurations:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | `string` | Unique agent identifier |
+| `default` | `boolean` | Whether this is the default agent |
+| `name` | `string` | Agent display name |
+| `workspace` | `string` | Agent workspace directory |
+| `model` | `string \| { primary, fallbacks }` | Model selection |
+| `skills` | `string[]` | Allowlist of skills (omit = all, empty = none) |
+| `bio` | `string[]` | Agent bio lines |
+| `system` | `string` | System prompt |
+| `style` | `{ all?, chat?, post? }` | Communication style rules (arrays of strings) |
+| `adjectives` | `string[]` | Personality adjectives |
+| `topics` | `string[]` | Topics the agent engages with |
+| `postExamples` | `string[]` | Example social media posts |
+| `messageExamples` | `array` | Example conversations |
+| `sandbox` | `object` | Sandbox isolation settings |
+| `tools` | `AgentToolsConfig` | Per-agent tool policy |
+| `cloud` | `object` | Cloud deployment metadata |
+
+---
+
+## `gateway`
+
+Gateway server configuration.
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `port` | `number` | `18789` | Gateway WS + HTTP port |
+| `mode` | `"local" \| "remote"` | - | Gateway operation mode |
+| `bind` | `GatewayBindMode` | `"loopback"` | Bind address policy: `auto`, `lan`, `loopback`, `tailnet`, `custom` |
+| `customBindHost` | `string` | - | Custom IP for `bind="custom"` |
+| `trustedProxies` | `string[]` | - | IPs of trusted reverse proxies |
+
+### `gateway.tls`
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `enabled` | `boolean` | - | Enable TLS |
+| `autoGenerate` | `boolean` | `true` | Auto-generate self-signed cert |
+| `certPath` | `string` | - | PEM certificate path |
+| `keyPath` | `string` | - | PEM private key path |
+| `caPath` | `string` | - | CA bundle path (mTLS) |
+
+### `gateway.auth`
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `mode` | `"token" \| "password"` | `"token"` | Auth mode |
+| `token` | `string` | - | Shared token |
+| `password` | `string` | - | Shared password |
+| `allowTailscale` | `boolean` | - | Allow Tailscale identity headers |
+
+### `gateway.controlUi`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `enabled` | `boolean` | Serve the Control UI |
+| `basePath` | `string` | Base path prefix (e.g., `/milady`) |
+| `allowedOrigins` | `string[]` | Allowed browser origins |
+| `dangerouslyDisableDeviceAuth` | `boolean` | Disable device identity checks |
+
+### `gateway.http.endpoints`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `chatCompletions.enabled` | `boolean` | Serve `POST /v1/chat/completions` |
+| `responses.enabled` | `boolean` | Serve `POST /v1/responses` (OpenResponses) |
+| `responses.maxBodyBytes` | `number` | Max request body size (default: 20MB) |
+
+### `gateway.tailscale`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `mode` | `"off" \| "serve" \| "funnel"` | Tailscale exposure mode |
+| `resetOnExit` | `boolean` | Reset serve/funnel on shutdown |
+
+### `gateway.reload`
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `mode` | `"off" \| "restart" \| "hot" \| "hybrid"` | `"hybrid"` | Reload strategy for config changes |
+| `debounceMs` | `number` | `300` | Debounce window for config reloads |
+
+---
+
+## `hooks`
+
+Event-driven hook system configuration.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `enabled` | `boolean` | Enable the hooks system |
+| `path` | `string` | Webhook endpoint path |
+| `token` | `string` | Webhook auth token |
+| `maxBodyBytes` | `number` | Max webhook body size |
+| `presets` | `string[]` | Hook presets to load |
+| `transformsDir` | `string` | Directory for hook transform modules |
+| `mappings` | `HookMappingConfig[]` | Array of hook mapping rules |
+
+### Hook Mapping Config
+
+Each mapping in `hooks.mappings[]`:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `match.path` | `string` | URL path pattern to match |
+| `match.source` | `string` | Source filter |
+| `action` | `"wake" \| "agent"` | Hook action type |
+| `wakeMode` | `"now" \| "next-heartbeat"` | When to wake the agent |
+| `channel` | `string` | Target channel (e.g., `"telegram"`, `"discord"`, `"last"`) |
+| `messageTemplate` | `string` | Template for the message content |
+| `model` | `string` | Override model for this hook |
+| `timeoutSeconds` | `number` | Hook processing timeout |
+
+### `hooks.gmail`
+
+Gmail webhook integration:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `account` | `string` | Gmail account |
+| `label` | `string` | Gmail label to watch |
+| `topic` | `string` | Pub/Sub topic |
+| `includeBody` | `boolean` | Include email body |
+| `model` | `string` | Model override for processing |
+
+### `hooks.internal`
+
+Internal agent event hooks:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `enabled` | `boolean` | Enable internal hooks |
+| `handlers[]` | `array` | Legacy handler list: `{ event, module, export }` |
+| `entries` | `Record<string, HookConfig>` | Per-hook config overrides |
+| `load.extraDirs` | `string[]` | Additional hook directories |
+| `installs` | `Record<string, HookInstallRecord>` | Installed hook packs |
+
+---
+
+## `messages`
+
+Message processing configuration.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `responsePrefix` | `string` | Prefix for all outbound replies. Use `"auto"` for agent name prefix. Supports `{model}`, `{provider}`, `{thinkingLevel}` templates |
+| `ackReaction` | `string` | Emoji reaction for acknowledging inbound messages |
+| `ackReactionScope` | `string` | When to react: `"group-mentions"`, `"group-all"`, `"direct"`, `"all"` |
+| `removeAckAfterReply` | `boolean` | Remove ack reaction after reply |
+
+### `messages.queue`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `mode` | `QueueMode` | Queue mode: `steer`, `followup`, `collect`, `queue`, `interrupt`, etc. |
+| `byChannel` | `Record<string, QueueMode>` | Per-channel queue mode overrides |
+| `debounceMs` | `number` | Debounce delay for rapid messages |
+| `cap` | `number` | Max queue size |
+| `drop` | `"old" \| "new" \| "summarize"` | Drop policy when cap is reached |
+
+### `messages.tts`
+
+Text-to-speech configuration:
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `auto` | `"off" \| "always" \| "inbound" \| "tagged"` | - | Auto-TTS mode |
+| `provider` | `"elevenlabs" \| "openai" \| "edge"` | - | Primary TTS provider |
+| `elevenlabs` | `object` | - | ElevenLabs config: `apiKey`, `voiceId`, `modelId`, `voiceSettings` |
+| `openai` | `object` | - | OpenAI TTS config: `apiKey`, `model`, `voice` |
+| `edge` | `object` | - | Microsoft Edge TTS config: `voice`, `lang`, `rate` |
+| `maxTextLength` | `number` | - | Hard cap for text sent to TTS |
+
+---
+
+## `tools`
+
+Agent tool configuration.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `profile` | `string` | Base tool profile |
+| `allow` | `string[]` | Tool allowlist |
+| `alsoAllow` | `string[]` | Additional allowlist entries merged with profile |
+| `deny` | `string[]` | Tool denylist |
+| `byProvider` | `Record<string, ToolPolicyConfig>` | Per-provider tool policy |
+
+### `tools.exec`
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `host` | `"sandbox" \| "gateway" \| "node"` | `"sandbox"` | Exec host routing |
+| `security` | `"deny" \| "allowlist" \| "full"` | `"deny"` | Exec security mode |
+| `ask` | `"off" \| "on-miss" \| "always"` | `"on-miss"` | Approval prompting |
+| `backgroundMs` | `number` | - | Auto-background delay |
+| `timeoutSec` | `number` | - | Auto-kill timeout |
+
+### `tools.web`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `search.enabled` | `boolean` | Enable web search tool |
+| `search.provider` | `"brave" \| "perplexity"` | Search provider |
+| `search.maxResults` | `number` | Default results count |
+| `fetch.enabled` | `boolean` | Enable web fetch tool |
+| `fetch.maxChars` | `number` | Max characters from fetched content |
+| `fetch.readability` | `boolean` | Use Readability extraction |
+
+### `tools.media`
+
+Media understanding tools (image, audio, video) with model fallback chains and scope gating.
+
+---
+
+## `database`
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `provider` | `"pglite" \| "postgres"` | `"pglite"` | Active database provider |
+| `pglite.dataDir` | `string` | `~/.milady/workspace/.eliza/.elizadb` | PGLite data directory |
+| `postgres.connectionString` | `string` | - | Full PostgreSQL connection string |
+| `postgres.host` | `string` | `localhost` | PostgreSQL host |
+| `postgres.port` | `number` | `5432` | PostgreSQL port |
+| `postgres.database` | `string` | - | Database name |
+| `postgres.user` | `string` | - | Database user |
+| `postgres.password` | `string` | - | Database password |
+| `postgres.ssl` | `boolean` | `false` | Enable SSL |
+
+---
+
+## `plugins`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `enabled` | `boolean` | Enable/disable plugin loading |
+| `allow` | `string[]` | Plugin allowlist (plugin IDs) |
+| `deny` | `string[]` | Plugin denylist (plugin IDs) |
+| `load.paths` | `string[]` | Additional plugin paths to load |
+| `slots.memory` | `string` | Select which plugin owns the memory slot |
+| `entries` | `Record<string, { enabled?, config? }>` | Per-plugin config overrides |
+| `installs` | `Record<string, PluginInstallRecord>` | Installed plugin records with source, version, paths |
+
+### Plugin Install Record
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `source` | `"npm" \| "archive" \| "path"` | Installation source |
+| `spec` | `string` | npm spec or archive URL |
+| `installPath` | `string` | Local install path |
+| `version` | `string` | Installed version |
+| `installedAt` | `string` | ISO timestamp of installation |
+
+---
+
+## `connectors`
+
+Messaging connector configuration. Each key is a connector ID (e.g., `telegram`, `discord`, `slack`).
+
+```json
+{
+  "connectors": {
+    "telegram": {
+      "enabled": true,
+      "botToken": "123456:ABC..."
+    },
+    "discord": {
+      "enabled": true,
+      "token": "Bot ..."
+    }
+  }
+}
+```
+
+Common fields per connector:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `enabled` | `boolean` | Enable/disable without removing config |
+| `botToken` / `token` / `apiKey` | `string` | Authentication credential |
+| `dmPolicy` | `"open" \| "pairing" \| "closed"` | DM access control |
+
+---
+
+## `models`
+
+Custom model provider configuration.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `mode` | `"merge" \| "replace"` | How custom providers interact with defaults |
+| `small` | `string` | Selected small model ID for fast tasks |
+| `large` | `string` | Selected large model ID for complex reasoning |
+| `providers` | `Record<string, ModelProviderConfig>` | Named model providers with `baseUrl`, `apiKey`, `models[]` |
+| `bedrockDiscovery` | `object` | AWS Bedrock auto-discovery settings |
+
+### Model Provider Config
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `baseUrl` | `string` | Provider API base URL |
+| `apiKey` | `string` | API key |
+| `auth` | `"api-key" \| "aws-sdk" \| "oauth" \| "token"` | Auth mode |
+| `api` | `string` | API format: `openai-completions`, `anthropic-messages`, etc. |
+| `models[]` | `array` | Model definitions with `id`, `name`, `reasoning`, `cost`, `contextWindow`, etc. |
+
+---
+
+## `cloud`
+
+ElizaCloud integration.
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `enabled` | `boolean` | `false` | Enable ElizaCloud |
+| `provider` | `string` | - | Cloud provider ID |
+| `baseUrl` | `string` | `https://www.elizacloud.ai/api/v1` | API base URL |
+| `apiKey` | `string` | - | Cached API key |
+| `inferenceMode` | `"cloud" \| "byok" \| "local"` | - | Inference routing mode |
+| `autoProvision` | `boolean` | `false` | Auto-deploy agents on creation |
+| `bridge.reconnectIntervalMs` | `number` | `3000` | Bridge reconnection interval |
+| `bridge.maxReconnectAttempts` | `number` | `20` | Max reconnection attempts |
+| `backup.autoBackupIntervalMs` | `number` | `3600000` | Auto-backup interval (1 hour) |
+| `backup.maxSnapshots` | `number` | `10` | Max retained snapshots |
+
+---
+
+## `update`
+
+Self-update configuration.
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `channel` | `"stable" \| "beta" \| "nightly"` | `"stable"` | Release channel |
+| `checkOnStart` | `boolean` | `true` | Check for updates on startup |
+| `checkIntervalSeconds` | `number` | `14400` (4h) | Seconds between automatic checks |
+| `lastCheckAt` | `string` | - | ISO timestamp of last check |
+| `lastCheckVersion` | `string` | - | Version found at last check |
+
+---
+
+## `embedding`
+
+Local embedding model configuration.
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `model` | `string` | - | GGUF model filename |
+| `modelRepo` | `string` | - | Hugging Face repo for model resolution |
+| `dimensions` | `number` | `768` | Embedding vector dimension |
+| `contextSize` | `number` | - | Embedding context window |
+| `gpuLayers` | `number \| "auto" \| "max"` | - | GPU layers for model loading |
+| `idleTimeoutMinutes` | `number` | `30` | Minutes before unloading idle model (0 = never) |
+
+---
+
+## `memory`
+
+Memory backend configuration.
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `backend` | `"builtin" \| "qmd"` | `"builtin"` | Memory backend |
+| `citations` | `"auto" \| "on" \| "off"` | - | Citation mode |
+| `qmd` | `object` | - | QMD memory configuration with index paths, sessions, update intervals |
+
+---
+
+## `skills`
+
+Skill management configuration.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `allowBundled` | `string[]` | Bundled skill allowlist |
+| `denyBundled` | `string[]` | Bundled skill denylist (takes priority) |
+| `load.extraDirs` | `string[]` | Additional skill directories |
+| `load.watch` | `boolean` | Watch for skill changes |
+| `install.nodeManager` | `"npm" \| "yarn" \| "bun"` | Package manager for skill installation |
+| `entries` | `Record<string, SkillConfig>` | Per-skill config: `enabled`, `apiKey`, `env`, `config` |
+
+---
+
+## `ui`
+
+UI appearance configuration.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `seamColor` | `string` | Accent color (hex) |
+| `theme` | `string` | UI theme: `milady`, `qt314`, `web2000`, `programmer`, `haxor`, `psycho` |
+| `assistant.name` | `string` | Assistant display name |
+| `assistant.avatar` | `string` | Avatar emoji, text, or image URL |
+
+---
+
+## `mcp`
+
+MCP (Model Context Protocol) server configuration.
+
+```json
+{
+  "mcp": {
+    "servers": {
+      "my-server": {
+        "type": "stdio",
+        "command": "npx",
+        "args": ["-y", "@some/mcp-server"],
+        "env": { "API_KEY": "..." }
+      }
+    }
+  }
+}
+```
+
+---
+
+## `cron`
+
+Scheduled job configuration.
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `enabled` | `boolean` | - | Enable cron jobs |
+| `store` | `string` | - | Cron state persistence path |
+| `maxConcurrentRuns` | `number` | - | Max concurrent cron runs |
+
+---
+
+## `discovery`
+
+Network discovery configuration.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `wideArea.enabled` | `boolean` | Enable wide-area DNS-SD discovery |
+| `wideArea.domain` | `string` | Unicast DNS-SD domain |
+| `mdns.mode` | `"off" \| "minimal" \| "full"` | mDNS broadcast mode (default: `minimal`) |
+
+---
+
+## `features`
+
+Feature flags for plugin auto-enable and feature toggles.
+
+```json
+{
+  "features": {
+    "shellEnabled": true,
+    "someFeature": { "enabled": true, "option": "value" }
+  }
+}
+```

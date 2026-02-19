@@ -74,6 +74,12 @@ describe("docs page frontmatter", () => {
     "cli-reference",
     "chat-commands",
     "model-providers",
+    "architecture",
+    "api-reference",
+    "websocket-events",
+    "config-schema",
+    "deployment",
+    "self-updates",
   ];
 
   const guidePages = [
@@ -82,6 +88,25 @@ describe("docs page frontmatter", () => {
     "guides/skills",
     "guides/registry",
     "guides/local-plugins",
+    "guides/dashboard",
+    "guides/desktop-app",
+    "guides/mobile-app",
+    "guides/chrome-extension",
+    "guides/themes",
+    "guides/agent-export",
+    "guides/autonomous-mode",
+    "guides/custom-actions",
+    "guides/triggers",
+    "guides/hooks",
+    "guides/knowledge",
+    "guides/media-generation",
+    "guides/wallet",
+    "guides/sandbox",
+    "guides/cloud",
+    "guides/training",
+    "guides/connectors",
+    "guides/whatsapp",
+    "guides/plugin-eject",
   ];
 
   for (const page of [...mdxPages, ...guidePages]) {

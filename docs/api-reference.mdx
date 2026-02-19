@@ -1,0 +1,397 @@
+---
+title: REST API Reference
+sidebarTitle: API Reference
+description: Complete reference for all Milady REST API endpoints, organized by resource group.
+---
+
+# REST API Reference
+
+The Milady API server runs on port **2138** by default. All endpoints are prefixed with `/api/` unless otherwise noted. Authentication is required when `MILADY_API_TOKEN` is set.
+
+<Warning>
+When `MILADY_API_TOKEN` is configured, include the token as a `Bearer` token in the `Authorization` header, or use the pairing flow to obtain it.
+</Warning>
+
+## Agent Status
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/status` | Get current agent status, name, model, uptime, autonomy state, and pending restart info |
+
+## Agent Lifecycle
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/agent/start` | Start the agent, enable autonomy |
+| `POST` | `/api/agent/stop` | Stop the agent, disable autonomy |
+| `POST` | `/api/agent/pause` | Pause the agent (keep uptime, disable autonomy) |
+| `POST` | `/api/agent/resume` | Resume a paused agent, re-enable autonomy |
+
+## Agent Admin
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/agent/restart` | Restart the agent runtime |
+| `POST` | `/api/agent/reset` | Wipe config, workspace, memory and return to onboarding |
+
+## Agent Transfer (Export/Import)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/agent/export` | Export agent as a password-encrypted `.eliza-agent` binary file |
+| `GET` | `/api/agent/export/estimate` | Estimate export file size before downloading |
+| `POST` | `/api/agent/import` | Import agent from a password-encrypted `.eliza-agent` file |
+
+## Auth
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/auth/status` | Check if auth is required, pairing enabled, and expiration |
+| `POST` | `/api/auth/pair` | Submit a pairing code to receive the API token |
+
+## Autonomy
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/agent/autonomy` | Get autonomy state (enabled, thinking) |
+| `POST` | `/api/agent/autonomy` | Enable or disable autonomy (`{ enabled: boolean }`) |
+
+## Agent Events
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/agent/events` | Get buffered agent events. Params: `after` (event ID), `limit` (1-1000, default 200) |
+
+## Character
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/character` | Get current character data (name, bio, system, style, etc.) |
+| `PUT` | `/api/character` | Update character fields (validated against CharacterSchema) |
+| `GET` | `/api/character/random-name` | Generate a random agent name |
+| `POST` | `/api/character/generate` | AI-assisted generation of bio, style, chatExamples, or postExamples |
+| `GET` | `/api/character/schema` | Get the character field schema for UI rendering |
+
+## Chat & Conversations
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/chat` | Send a message and get a response |
+| `POST` | `/api/chat/stream` | Send a message and stream the response (SSE) |
+| `GET` | `/api/conversations` | List all conversations |
+| `POST` | `/api/conversations` | Create a new conversation |
+
+<Info>
+Conversations are scoped to the web-chat interface. Each conversation maps to an ElizaOS room with a deterministic world ID.
+</Info>
+
+## Cloud
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/cloud/login` | Start Eliza Cloud login flow (returns browser URL) |
+| `GET` | `/api/cloud/login/status` | Poll login session status. Param: `sessionId` |
+| `GET` | `/api/cloud/status` | Get cloud connection status, auth state, and billing URL |
+| `GET` | `/api/cloud/credits` | Get cloud credit balance |
+| `POST` | `/api/cloud/disconnect` | Disconnect from Eliza Cloud and clear credentials |
+| `GET` | `/api/cloud/agents` | List cloud agents |
+| `POST` | `/api/cloud/agents` | Create a new cloud agent |
+| `POST` | `/api/cloud/agents/:id/provision` | Provision a cloud agent |
+| `POST` | `/api/cloud/agents/:id/shutdown` | Shutdown and delete a cloud agent |
+| `POST` | `/api/cloud/agents/:id/connect` | Connect to an existing cloud agent |
+
+## Config
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/config` | Get the current milady.json configuration |
+| `PUT` | `/api/config` | Update configuration fields |
+| `GET` | `/api/config/schema` | Get the configuration schema for UI rendering |
+
+## Connectors
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/connectors` | List all configured messaging connectors |
+| `POST` | `/api/connectors` | Add or update a connector configuration |
+
+## Custom Actions
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/custom-actions` | List all user-defined custom actions |
+| `POST` | `/api/custom-actions` | Create or update a custom action |
+| `POST` | `/api/custom-actions/generate` | AI-assisted custom action generation |
+
+## Database
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/database/status` | Get database status (provider, connection, table count) |
+| `GET` | `/api/database/tables` | List all database tables with column info |
+| `GET` | `/api/database/tables/:name` | Get detailed info for a specific table |
+| `GET` | `/api/database/tables/:name/rows` | Query rows from a table with pagination |
+| `POST` | `/api/database/query` | Execute a raw SQL query (read-only) |
+| `PUT` | `/api/database/config` | Update database provider configuration |
+| `POST` | `/api/database/test-connection` | Test a PostgreSQL connection |
+
+## Diagnostics & Logs
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/logs` | Get log entries. Filters: `source`, `level`, `tag`, `since` |
+| `GET` | `/api/extension/status` | Check browser extension relay and path status |
+
+## Security Audit
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/security/audit` | Query audit log. Filters: `type`, `severity`, `since`, `limit`. Supports SSE streaming with `stream=1` |
+
+## Emotes
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/emotes` | Get the full emote catalog for 3D avatar animations |
+
+## Knowledge
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/knowledge/stats` | Get document and fragment counts |
+| `GET` | `/api/knowledge/documents` | List knowledge documents. Params: `limit`, `offset` |
+| `GET` | `/api/knowledge/documents/:id` | Get a specific document with content |
+| `POST` | `/api/knowledge/documents` | Upload a document (base64 content or text) |
+| `POST` | `/api/knowledge/documents/url` | Upload from URL (supports YouTube auto-transcription) |
+| `DELETE` | `/api/knowledge/documents/:id` | Delete a document and all its fragments |
+| `GET` | `/api/knowledge/search` | Semantic search. Params: `q` (required), `threshold`, `limit` |
+| `GET` | `/api/knowledge/fragments/:documentId` | List all fragments for a document |
+
+## MCP (Model Context Protocol)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/mcp/marketplace/search` | Search the MCP marketplace |
+| `GET` | `/api/mcp/config` | Get MCP server configuration |
+| `POST` | `/api/mcp/config/server` | Add or update an MCP server config |
+| `PUT` | `/api/mcp/config` | Bulk update MCP configuration |
+| `GET` | `/api/mcp/status` | Get MCP connection status |
+
+## Models
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/models` | List available models. Params: `provider` (optional), `refresh` (bust cache) |
+
+## Onboarding
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/onboarding/status` | Check if onboarding is complete |
+| `GET` | `/api/onboarding/options` | Get available onboarding options (providers, styles) |
+| `POST` | `/api/onboarding` | Complete the onboarding wizard |
+
+## Permissions
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/permissions` | Get all system permission states |
+| `GET` | `/api/permissions/:id` | Get a single permission state |
+| `GET` | `/api/permissions/shell` | Get shell access toggle status |
+| `PUT` | `/api/permissions/shell` | Toggle shell access on/off |
+| `PUT` | `/api/permissions/state` | Update permission states from Electron IPC |
+| `POST` | `/api/permissions/refresh` | Force refresh all permission states |
+| `POST` | `/api/permissions/:id/request` | Request a specific system permission |
+| `POST` | `/api/permissions/:id/open-settings` | Open system settings for a permission |
+
+## Plugins
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/plugins` | List all plugins with status, config, and validation info |
+| `PUT` | `/api/plugins/:id` | Update plugin configuration (enable/disable, set params) |
+| `POST` | `/api/plugins/:id/test` | Test a plugin's configuration |
+| `POST` | `/api/plugins/install` | Install a plugin from the registry |
+| `POST` | `/api/plugins/uninstall` | Uninstall a user-installed plugin |
+| `POST` | `/api/plugins/:id/eject` | Eject a bundled plugin to user-managed |
+| `POST` | `/api/plugins/:id/sync` | Sync an ejected plugin with its upstream |
+| `POST` | `/api/plugins/:id/reinject` | Reinject a previously ejected plugin |
+| `GET` | `/api/plugins/installed` | List user-installed plugins |
+| `GET` | `/api/plugins/ejected` | List ejected plugins |
+| `GET` | `/api/plugins/core` | List core plugin status |
+| `POST` | `/api/plugins/core/toggle` | Toggle a core plugin on/off |
+
+## Registry
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/registry/plugins` | List all plugins from the ElizaOS registry |
+| `GET` | `/api/registry/plugins/:name` | Get details for a specific registry plugin |
+| `GET` | `/api/registry/search` | Search the registry. Params: `q` (required), `limit` |
+| `POST` | `/api/registry/refresh` | Force refresh the registry cache |
+
+## Skills
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/skills` | List all loaded skills |
+| `POST` | `/api/skills/refresh` | Refresh the skills snapshot |
+| `GET` | `/api/skills/:id/scan` | Get security scan report for a skill |
+| `POST` | `/api/skills/:id/acknowledge` | Acknowledge a skill security scan |
+| `POST` | `/api/skills/create` | Create a new skill |
+| `POST` | `/api/skills/:id/open` | Open a skill directory |
+| `GET` | `/api/skills/:id/source` | Get skill source code |
+
+### Skills Catalog (Marketplace)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/skills/catalog` | Browse the skills marketplace |
+| `GET` | `/api/skills/catalog/search` | Search marketplace skills |
+| `GET` | `/api/skills/catalog/:slug` | Get details for a marketplace skill |
+| `POST` | `/api/skills/catalog/refresh` | Refresh marketplace catalog |
+| `POST` | `/api/skills/catalog/install` | Install a marketplace skill |
+| `POST` | `/api/skills/catalog/uninstall` | Uninstall a marketplace skill |
+
+## Apps
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/apps` | List available and installed apps |
+| `GET` | `/api/apps/search` | Search for apps |
+| `POST` | `/api/apps/launch` | Launch an app |
+| `POST` | `/api/apps/stop` | Stop a running app |
+| `GET` | `/api/apps/:name/info` | Get app details |
+
+## Sandbox
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/sandbox/platform` | Get platform info (Docker/container availability) |
+| `GET` | `/api/sandbox/status` | Get sandbox manager status |
+| `GET` | `/api/sandbox/events` | Get sandbox event log (last 100) |
+| `GET` | `/api/sandbox/capabilities` | Detect available sandbox capabilities |
+| `POST` | `/api/sandbox/start` | Start the sandbox container |
+| `POST` | `/api/sandbox/stop` | Stop the sandbox container |
+| `POST` | `/api/sandbox/recover` | Recover a failed sandbox |
+| `POST` | `/api/sandbox/docker/start` | Attempt to start Docker Desktop |
+| `POST` | `/api/sandbox/exec` | Execute a command in the sandbox |
+| `GET` | `/api/sandbox/browser` | Get browser CDP/WS endpoints |
+
+### Sandbox Screen
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/sandbox/screen/screenshot` | Capture a screenshot (returns PNG) |
+| `POST` | `/api/sandbox/screen/screenshot` | Capture a screenshot (returns base64 JSON) |
+| `GET` | `/api/sandbox/screen/windows` | List visible windows |
+
+### Sandbox Audio
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/sandbox/audio/record` | Record audio (returns base64 WAV) |
+| `POST` | `/api/sandbox/audio/play` | Play audio from base64 data |
+
+### Sandbox Computer Use
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/sandbox/computer/click` | Perform a mouse click at (x, y) |
+| `POST` | `/api/sandbox/computer/type` | Type text via keyboard |
+| `POST` | `/api/sandbox/computer/keypress` | Send a key press |
+
+### Sandbox Signing
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/sandbox/sign` | Submit a signing request |
+| `POST` | `/api/sandbox/sign/approve` | Approve a pending signing request |
+| `POST` | `/api/sandbox/sign/reject` | Reject a pending signing request |
+| `GET` | `/api/sandbox/sign/pending` | List pending signing approvals |
+| `GET` | `/api/sandbox/sign/address` | Get the signer address |
+
+## Subscription (OAuth Flows)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/subscription/status` | Get status of subscription auth providers |
+| `POST` | `/api/subscription/anthropic/start` | Start Anthropic OAuth flow (returns auth URL) |
+| `POST` | `/api/subscription/anthropic/exchange` | Exchange Anthropic auth code for tokens |
+| `POST` | `/api/subscription/codex/start` | Start OpenAI Codex OAuth flow |
+| `POST` | `/api/subscription/codex/exchange` | Exchange Codex auth code for tokens |
+
+## Training & Fine-Tuning
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/training/status` | Get training service status |
+| `GET` | `/api/training/trajectories` | List trajectories. Params: `limit`, `offset` |
+| `GET` | `/api/training/trajectories/:id` | Get trajectory detail |
+| `GET` | `/api/training/datasets` | List training datasets |
+| `POST` | `/api/training/datasets/build` | Build a new dataset from trajectories |
+| `GET` | `/api/training/jobs` | List training jobs |
+| `POST` | `/api/training/jobs` | Start a new training job |
+| `GET` | `/api/training/jobs/:id` | Get training job status |
+| `POST` | `/api/training/jobs/:id/cancel` | Cancel a running training job |
+| `GET` | `/api/training/models` | List fine-tuned models |
+| `POST` | `/api/training/models/:id/import-ollama` | Import a model to Ollama |
+| `POST` | `/api/training/models/:id/activate` | Activate a fine-tuned model |
+| `POST` | `/api/training/models/:id/benchmark` | Benchmark a fine-tuned model |
+
+## Trajectories
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/trajectories` | List and search trajectories with filters |
+| `GET` | `/api/trajectories/:id` | Get trajectory details with LLM calls |
+| `GET` | `/api/trajectories/stats` | Get trajectory statistics |
+| `POST` | `/api/trajectories/:id/export` | Export trajectory (JSON, CSV, or ZIP) |
+| `DELETE` | `/api/trajectories/:id` | Delete a trajectory |
+| `POST` | `/api/trajectories/settings` | Enable/disable trajectory logging |
+
+## Triggers
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/triggers` | List all triggers |
+| `POST` | `/api/triggers` | Create a new trigger |
+| `GET` | `/api/triggers/:id` | Get a trigger by ID |
+| `PUT` | `/api/triggers/:id` | Update a trigger |
+| `DELETE` | `/api/triggers/:id` | Delete a trigger |
+| `POST` | `/api/triggers/:id/execute` | Manually execute a trigger |
+| `GET` | `/api/triggers/:id/runs` | Get run history for a trigger |
+| `GET` | `/api/triggers/health` | Get trigger system health snapshot |
+
+## Wallet
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/wallet/addresses` | Get EVM and Solana wallet addresses |
+| `GET` | `/api/wallet/balances` | Get token balances across all chains |
+| `GET` | `/api/wallet/nfts` | Get NFTs across EVM and Solana |
+| `GET` | `/api/wallet/config` | Get wallet API key configuration status |
+| `PUT` | `/api/wallet/config` | Update wallet API keys (Alchemy, Helius, etc.) |
+| `POST` | `/api/wallet/import` | Import a private key for EVM or Solana |
+| `POST` | `/api/wallet/generate` | Generate new wallet(s) for EVM, Solana, or both |
+| `POST` | `/api/wallet/export` | Export private keys (requires confirmation) |
+
+## Drop / Mint
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/drop/status` | Get drop/mint service status |
+| `POST` | `/api/drop/mint` | Mint an NFT |
+| `POST` | `/api/drop/mint-whitelist` | Mint with whitelist verification |
+
+## Verification
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/verify/twitter` | Verify a Twitter/X account via tweet |
+
+## Share Ingest
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/share/ingest` | Ingest shared content from external sources |

@@ -35,41 +35,85 @@
               "index",
               "installation",
               "quickstart",
-              "configuration"
+              "configuration",
+              "architecture"
             ]
           },
           {
-            "group": "Development",
+            "group": "Platform",
+            "pages": [
+              "guides/dashboard",
+              "guides/desktop-app",
+              "guides/mobile-app",
+              "guides/chrome-extension",
+              "guides/themes"
+            ]
+          },
+          {
+            "group": "Agent Capabilities",
+            "pages": [
+              "guides/autonomous-mode",
+              "guides/custom-actions",
+              "guides/triggers",
+              "guides/hooks",
+              "guides/knowledge",
+              "guides/media-generation"
+            ]
+          },
+          {
+            "group": "Connectors",
+            "pages": [
+              "guides/connectors",
+              "guides/whatsapp"
+            ]
+          },
+          {
+            "group": "Plugins & Skills",
             "pages": [
               "guides/plugin-development",
               "guides/local-plugins",
-              "guides/skills"
+              "guides/plugin-eject",
+              "guides/skills",
+              "guides/registry"
             ]
           },
           {
-            "group": "Ecosystem",
+            "group": "Infrastructure",
             "pages": [
-              "guides/registry",
+              "guides/wallet",
+              "guides/sandbox",
+              "guides/cloud",
+              "guides/training",
+              "guides/agent-export",
+              "deployment",
+              "self-updates"
+            ]
+          },
+          {
+            "group": "Contributing",
+            "pages": [
               "guides/contributing"
-            ]
-          },
-          {
-            "group": "Reference",
-            "pages": [
-              "cli-reference",
-              "chat-commands",
-              "model-providers"
             ]
           }
         ]
       },
       {
-        "tab": "CLI Reference",
+        "tab": "API Reference",
         "groups": [
           {
-            "group": "CLI Reference",
+            "group": "API Reference",
             "pages": [
-              "cli-reference"
+              "api-reference",
+              "websocket-events",
+              "config-schema"
+            ]
+          },
+          {
+            "group": "CLI",
+            "pages": [
+              "cli-reference",
+              "chat-commands",
+              "model-providers"
             ]
           }
         ]

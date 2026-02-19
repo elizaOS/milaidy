@@ -1,0 +1,244 @@
+---
+title: Self-Updates & Versioning
+sidebarTitle: Self-Updates
+description: How Milady checks for updates, manages release channels, detects installation methods, and performs self-upgrades.
+---
+
+# Self-Updates & Versioning
+
+Milady includes a built-in update system that checks the npm registry for new versions, notifies users of available updates, and can perform in-place upgrades across multiple installation methods.
+
+## Release Channels
+
+Milady supports three release channels, each mapped to an npm dist-tag:
+
+| Channel | npm Dist-Tag | Description |
+|---------|-------------|-------------|
+| `stable` | `latest` | Production-ready releases. Recommended for most users. |
+| `beta` | `beta` | Release candidates. May contain minor issues. |
+| `nightly` | `nightly` | Latest development builds. May be unstable. |
+
+<Note>
+The default channel is `stable`. The channel can be overridden by the `MILADY_UPDATE_CHANNEL` environment variable or the `update.channel` field in `milady.json`.
+</Note>
+
+### Channel Resolution Order
+
+The effective release channel is resolved in this priority order:
+
+1. `MILADY_UPDATE_CHANNEL` environment variable (if set to `stable`, `beta`, or `nightly`)
+2. `update.channel` field in `milady.json` configuration
+3. Default: `stable`
+
+## Update Checking
+
+### Automatic Background Check
+
+On every CLI startup, Milady schedules a fire-and-forget background update check. If a newer version is available, a one-line notice is printed to stderr:
+
+```
+Update available: 1.2.0 -> 1.3.0
+Run milady update to install
+```
+
+The background check is skipped when:
+
+- `update.checkOnStart` is set to `false` in the config
+- Running in CI (`process.env.CI` is set)
+- stderr is not a TTY (non-interactive environments)
+- The check interval has not elapsed since the last check
+
+### Check Interval
+
+The update checker respects a configurable interval to avoid excessive registry requests:
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `update.checkIntervalSeconds` | `14400` (4 hours) | Minimum time between registry checks |
+| `update.lastCheckAt` | (auto) | ISO timestamp of the last successful check |
+| `update.lastCheckVersion` | (auto) | Version found during the last check |
+
+When the interval has not elapsed, the checker returns a cached result based on `lastCheckVersion` without contacting the registry.
+
+### Registry Communication
+
+The update checker fetches dist-tags from the npm registry:
+
+```
+GET https://registry.npmjs.org/milady
+Accept: application/vnd.npm.install-v1+json
+```
+
+- Timeout: 8 seconds
+- On network failure: Returns `updateAvailable: false` with an error message
+- On missing dist-tag: Returns an error indicating the channel has no published releases
+
+## CLI Commands
+
+### `milady update`
+
+Check for and install updates on the current channel:
+
+```bash
+milady update
+```
+
+<Tabs>
+  <Tab title="Options">
+    | Flag | Description |
+    |------|-------------|
+    | `-c, --channel <channel>` | Switch release channel before updating (`stable`, `beta`, `nightly`) |
+    | `--check` | Check for updates without installing |
+    | `--force` | Bypass the interval cache and force a live registry check |
+  </Tab>
+  <Tab title="Examples">
+    ```bash
+    # Check and install updates on current channel
+    milady update
+
+    # Check only, don't install
+    milady update --check
+
+    # Switch to beta channel and update
+    milady update --channel beta
+
+    # Force a fresh registry check
+    milady update --force
+    ```
+  </Tab>
+</Tabs>
+
+### `milady update status`
+
+Display the current version, install method, active channel, and available versions across all channels:
+
+```bash
+milady update status
+```
+
+Example output:
+
+```
+Version Status
+
+  Installed:  1.2.0
+  Channel:    stable
+  Install:    npm-global
+
+Available Versions
+
+  stable                 1.3.0 <-- current
+  beta                   1.4.0-beta.2
+  nightly                1.4.0-nightly.20260218
+```
+
+### `milady update channel [name]`
+
+View or change the release channel:
+
+<CodeGroup>
+```bash View current channel
+milady update channel
+```
+
+```bash Switch to beta
+milady update channel beta
+```
+
+```bash Switch to nightly
+milady update channel nightly
+```
+
+```bash Switch back to stable
+milady update channel stable
+```
+</CodeGroup>
+
+When switching channels, the cached `lastCheckAt` and `lastCheckVersion` are cleared to force a fresh check on the next update.
+
+## Installation Method Detection
+
+Milady automatically detects how it was installed to determine the correct update command. Detection works by resolving the `milady` binary path and checking for characteristic path segments.
+
+| Install Method | Detection Heuristic | Update Command |
+|---------------|--------------------|--------------------|
+| `npm-global` | Binary path contains `node_modules` | `npm install -g milady@<dist-tag>` |
+| `bun-global` | Binary path contains `/.bun/` | `bun install -g milady@<dist-tag>` |
+| `homebrew` | Binary path contains `/Cellar/` or `/homebrew/` | `brew upgrade milady` |
+| `snap` | Binary path contains `/snap/` | `sudo snap refresh milady --channel=<channel>` |
+| `apt` | Binary path starts with `/usr/` (no `node_modules`) | `sudo apt-get update && sudo apt-get install --only-upgrade -y milady` |
+| `flatpak` | Binary path contains `/flatpak/` or `ai.milady.Milady` | `flatpak update ai.milady.Milady` |
+| `local-dev` | `devDependencies` found in root `package.json` | Not supported -- use `git pull` |
+| `unknown` | Fallback when no heuristic matches | `npm install -g milady@<dist-tag>` (fallback) |
+
+<Info>
+For Snap installations, the channel mapping differs slightly: `nightly` maps to the Snap `edge` channel, since Snap does not have a `nightly` channel concept.
+</Info>
+
+### Snap Channel Mapping
+
+| Milady Channel | Snap Channel |
+|---------------|-------------|
+| `stable` | `stable` |
+| `beta` | `beta` |
+| `nightly` | `edge` |
+
+## Update Process
+
+When `milady update` runs (without `--check`), the following steps occur:
+
+```
+1. Resolve effective channel (env -> config -> default)
+2. Check npm registry for latest version on channel
+3. Compare with current version using semver
+4. If update available:
+   a. Detect installation method
+   b. Build appropriate update command
+   c. Execute update command (inherits stdin, pipes stderr)
+   d. Verify new version via `milady --version`
+   e. Report success/failure
+5. Save check metadata to config
+```
+
+### Post-Update Verification
+
+After the update command completes successfully, Milady runs `milady --version` to verify the new version was installed correctly. The output is parsed with a regex that extracts semver strings (including pre-release tags like `1.4.0-beta.2`).
+
+<Warning>
+After a successful update, you must restart the running Milady process for the new version to take effect. The update command modifies the installed binary but does not restart the currently running instance.
+</Warning>
+
+## Configuration Reference
+
+All update-related settings are stored in the `update` section of `milady.json`:
+
+```json
+{
+  "update": {
+    "channel": "stable",
+    "checkOnStart": true,
+    "checkIntervalSeconds": 14400,
+    "lastCheckAt": "2026-02-19T10:30:00.000Z",
+    "lastCheckVersion": "1.3.0"
+  }
+}
+```
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `channel` | `"stable" \| "beta" \| "nightly"` | `"stable"` | Active release channel |
+| `checkOnStart` | `boolean` | `true` | Whether to check for updates on CLI startup |
+| `checkIntervalSeconds` | `number` | `14400` | Minimum seconds between registry checks |
+| `lastCheckAt` | `string` | (auto) | ISO 8601 timestamp of last check |
+| `lastCheckVersion` | `string` | (auto) | Version found during last check |
+
+<Tip>
+Set `checkOnStart: false` and `MILADY_UPDATE_CHANNEL` to disable all automatic update checking, useful for locked-down production deployments.
+</Tip>
+
+## Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `MILADY_UPDATE_CHANNEL` | Override the release channel (`stable`, `beta`, `nightly`). Takes priority over config. |
+| `CI` | When set, suppresses the background update notification on startup. |
