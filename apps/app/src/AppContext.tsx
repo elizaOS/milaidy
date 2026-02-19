@@ -3026,10 +3026,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (!draft.username) delete draft.username;
       if (!draft.system) delete draft.system;
       const { agentName } = await client.updateCharacter(draft);
-      // Also persist avatar selection to config
+      // Also persist avatar selection to config (under "ui" which is allowlisted)
       try {
         await client.updateConfig({
-          settings: { avatarIndex: selectedVrmIndex },
+          ui: { avatarIndex: selectedVrmIndex },
         });
       } catch {
         /* non-fatal */
@@ -4082,15 +4082,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
         /* ignore */
       }
 
-      // Restore avatar selection from config (server-persisted)
+      // Restore avatar selection from config (server-persisted under "ui")
+      let resolvedIndex = loadAvatarIndex();
       try {
         const cfg = await client.getConfig();
-        const settings = cfg.settings as Record<string, unknown> | undefined;
-        if (settings?.avatarIndex != null) {
-          setSelectedVrmIndex(Number(settings.avatarIndex));
+        const ui = cfg.ui as Record<string, unknown> | undefined;
+        if (ui?.avatarIndex != null) {
+          resolvedIndex = Number(ui.avatarIndex);
+          setSelectedVrmIndex(resolvedIndex);
         }
       } catch {
         /* ignore — localStorage fallback already loaded */
+      }
+      // If custom avatar selected, verify the file still exists on the server
+      if (resolvedIndex === 0) {
+        const hasVrm = await client.hasCustomVrm().catch(() => false);
+        if (hasVrm) {
+          setCustomVrmUrl(`/api/avatar/vrm?t=${Date.now()}`);
+        } else {
+          setSelectedVrmIndex(1);
+        }
       }
 
       // Cloud polling

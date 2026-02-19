@@ -94,6 +94,7 @@ import {
   readJsonBody as parseJsonBody,
   type ReadJsonBodyOptions,
   readRequestBody,
+  readRequestBodyBuffer,
   sendJson,
   sendJsonError,
 } from "./http-helpers";
@@ -8339,6 +8340,55 @@ async function handleRequest(
       );
       return;
     }
+  }
+
+  // ── POST /api/avatar/vrm ─────────────────────────────────────────────────
+  // Upload a custom VRM avatar file. Saved to ~/.milady/avatars/custom.vrm.
+  if (method === "POST" && pathname === "/api/avatar/vrm") {
+    const MAX_VRM_BYTES = 50 * 1024 * 1024; // 50 MB
+    const rawBody = await readRequestBodyBuffer(req, {
+      maxBytes: MAX_VRM_BYTES,
+      returnNullOnTooLarge: true,
+    });
+    if (!rawBody || rawBody.length === 0) {
+      error(res, "Request body is empty or exceeds 50 MB", 400);
+      return;
+    }
+    const avatarDir = path.join(resolveStateDir(), "avatars");
+    fs.mkdirSync(avatarDir, { recursive: true });
+    const vrmPath = path.join(avatarDir, "custom.vrm");
+    fs.writeFileSync(vrmPath, rawBody);
+    json(res, { ok: true, size: rawBody.length });
+    return;
+  }
+
+  // ── GET /api/avatar/vrm ──────────────────────────────────────────────────
+  // Serve the user's custom VRM avatar file if it exists.
+  if ((method === "GET" || method === "HEAD") && pathname === "/api/avatar/vrm") {
+    const vrmPath = path.join(resolveStateDir(), "avatars", "custom.vrm");
+    try {
+      const stat = fs.statSync(vrmPath);
+      if (!stat.isFile()) {
+        error(res, "No custom avatar found", 404);
+        return;
+      }
+      const headers: Record<string, string | number> = {
+        "Content-Type": "model/gltf-binary",
+        "Content-Length": stat.size,
+        "Cache-Control": "no-cache",
+      };
+      if (method === "HEAD") {
+        res.writeHead(200, headers);
+        res.end();
+        return;
+      }
+      const body = fs.readFileSync(vrmPath);
+      res.writeHead(200, headers);
+      res.end(body);
+    } catch {
+      error(res, "No custom avatar found", 404);
+    }
+    return;
   }
 
   // ── GET /api/config/schema ───────────────────────────────────────────────

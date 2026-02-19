@@ -117,6 +117,18 @@ describe("Avatar Selection State", () => {
       expect(vrmPath).toBe("blob:http://localhost/abc-123");
     });
 
+    it("resolves persisted custom VRM (index 0) to server URL", () => {
+      const selectedVrmIndex = 0;
+      const customVrmUrl = "/api/avatar/vrm?t=1234567890";
+
+      const vrmPath =
+        selectedVrmIndex === 0 && customVrmUrl
+          ? customVrmUrl
+          : getVrmUrl(selectedVrmIndex || 1);
+
+      expect(vrmPath).toBe("/api/avatar/vrm?t=1234567890");
+    });
+
     it("falls back to index 1 when custom is selected but no URL provided", () => {
       const selectedVrmIndex = 0;
       const customVrmUrl: string | null = null;
