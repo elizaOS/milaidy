@@ -495,8 +495,8 @@ export async function startBenchmarkServer() {
     process.env.MILAIDY_BENCH_MOCK === "true"
   ) {
     try {
-      const { mockPlugin } = await import("./mock-plugin.ts");
-      plugins.push(toPlugin(mockPlugin, "./mock-plugin.ts"));
+      const { mockPlugin } = await import("./mock-plugin");
+      plugins.push(toPlugin(mockPlugin, "./mock-plugin"));
       elizaLogger.info("[bench] Loaded mock benchmark plugin");
     } catch (error: unknown) {
       elizaLogger.error(
