@@ -952,6 +952,15 @@
   background: color-mix(in srgb, var(--ok) 14%, var(--bg) 86%);
 }
 
+.wt__btn.is-track {
+  border-color: color-mix(in srgb, var(--accent) 60%, var(--border) 40%);
+  color: var(--accent);
+}
+
+.wt__btn.is-track:hover {
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg) 88%);
+}
+
 .wt__btn.is-sell {
   border-color: color-mix(in srgb, var(--warn) 60%, var(--border) 40%);
   color: var(--warn);
@@ -1056,6 +1065,11 @@
 .wt__row-btn.is-quote:hover {
   border-color: var(--ok);
   color: var(--ok);
+}
+
+.wt__row-btn.is-remove:hover {
+  border-color: var(--warn);
+  color: var(--warn);
 }
 
 .wt__row-btn:disabled {

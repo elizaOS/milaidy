@@ -11,6 +11,8 @@ const BSC_GAS_READY_THRESHOLD = 0.005;
 const HEX_ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
 const RECENTS_KEY = "wt_recent_contracts";
 const MAX_RECENTS = 5;
+const TRACKED_BSC_TOKENS_KEY = "wt_tracked_bsc_tokens";
+const MAX_TRACKED_BSC_TOKENS = 30;
 
 /* ── Chain icon helper ─────────────────────────────────────────────── */
 
@@ -72,6 +74,70 @@ function saveRecent(addr: string, prev: string[]): string[] {
   return next;
 }
 
+interface TrackedBscToken {
+  contractAddress: string;
+  symbol: string;
+  name: string;
+}
+
+function toNormalizedAddress(addr: string): string {
+  return addr.trim().toLowerCase();
+}
+
+function loadTrackedBscTokens(): TrackedBscToken[] {
+  try {
+    const raw = localStorage.getItem(TRACKED_BSC_TOKENS_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter(
+        (item): item is TrackedBscToken =>
+          Boolean(item) &&
+          typeof item === "object" &&
+          typeof item.contractAddress === "string" &&
+          typeof item.symbol === "string" &&
+          typeof item.name === "string" &&
+          HEX_ADDRESS_RE.test(item.contractAddress),
+      )
+      .slice(0, MAX_TRACKED_BSC_TOKENS);
+  } catch {
+    return [];
+  }
+}
+
+function saveTrackedBscTokens(next: TrackedBscToken[]): void {
+  try {
+    localStorage.setItem(TRACKED_BSC_TOKENS_KEY, JSON.stringify(next));
+  } catch {
+    /* ignore */
+  }
+}
+
+function upsertTrackedBscToken(
+  token: TrackedBscToken,
+  prev: TrackedBscToken[],
+): TrackedBscToken[] {
+  const normalized = toNormalizedAddress(token.contractAddress);
+  const rest = prev.filter(
+    (item) => toNormalizedAddress(item.contractAddress) !== normalized,
+  );
+  const next = [{ ...token, contractAddress: token.contractAddress.trim() }, ...rest].slice(
+    0,
+    MAX_TRACKED_BSC_TOKENS,
+  );
+  saveTrackedBscTokens(next);
+  return next;
+}
+
+function removeTrackedBscToken(contractAddress: string, prev: TrackedBscToken[]): TrackedBscToken[] {
+  const normalized = toNormalizedAddress(contractAddress);
+  const next = prev.filter(
+    (item) => toNormalizedAddress(item.contractAddress) !== normalized,
+  );
+  saveTrackedBscTokens(next);
+  return next;
+}
+
 /* ── Row types ─────────────────────────────────────────────────────── */
 
 interface TokenRow {
@@ -83,6 +149,7 @@ interface TokenRow {
   valueUsd: number;
   balanceRaw: number;
   isNative: boolean;
+  isTracked?: boolean;
 }
 
 interface NftItem {
@@ -248,6 +315,9 @@ export function InventoryView() {
   const [latestTxHash, setLatestTxHash] = useState<string | null>(null);
   const [userSignPlan, setUserSignPlan] = useState<UserSignPlanState | null>(null);
   const [recentContracts, setRecentContracts] = useState<string[]>(loadRecents);
+  const [trackedBscTokens, setTrackedBscTokens] = useState<TrackedBscToken[]>(
+    loadTrackedBscTokens,
+  );
   const [showRecents, setShowRecents] = useState(false);
   const recentsRef = useRef<HTMLDivElement>(null);
 
@@ -322,6 +392,7 @@ export function InventoryView() {
             valueUsd: Number.parseFloat(t.valueUsd) || 0,
             balanceRaw: Number.parseFloat(t.balance) || 0,
             isNative: false,
+            isTracked: false,
           });
         }
       }
@@ -377,8 +448,29 @@ export function InventoryView() {
       }
     }
 
+    const knownBscContracts = new Set(
+      rows
+        .filter((row) => isBscChainName(row.chain) && row.contractAddress)
+        .map((row) => toNormalizedAddress(row.contractAddress!)),
+    );
+    for (const tracked of trackedBscTokens) {
+      const normalized = toNormalizedAddress(tracked.contractAddress);
+      if (knownBscContracts.has(normalized)) continue;
+      rows.push({
+        chain: "BSC",
+        symbol: tracked.symbol,
+        name: tracked.name,
+        contractAddress: tracked.contractAddress,
+        balance: "0",
+        valueUsd: 0,
+        balanceRaw: 0,
+        isNative: false,
+        isTracked: true,
+      });
+    }
+
     return rows;
-  }, [walletBalances, walletAddresses, walletConfig]);
+  }, [walletBalances, walletAddresses, walletConfig, trackedBscTokens]);
 
   const sortedRows = useMemo(() => {
     const sorted = [...tokenRows];
@@ -537,6 +629,63 @@ export function InventoryView() {
       return;
     }
     await runTradeQuote(mode, token, quickBnbAmount);
+  };
+
+  const handleTrackToken = () => {
+    const tokenAddress = quickTokenInput.trim();
+    if (!tokenAddress) {
+      setActionNotice("Paste a token contract first.", "error", 2400);
+      return;
+    }
+    if (!HEX_ADDRESS_RE.test(tokenAddress)) {
+      setActionNotice("Token contract must be a valid 0x address.", "error", 2600);
+      return;
+    }
+
+    const normalized = toNormalizedAddress(tokenAddress);
+    const matchedRow = tokenRows.find(
+      (row) =>
+        Boolean(row.contractAddress) &&
+        toNormalizedAddress(row.contractAddress!) === normalized,
+    );
+    const matchedQuote =
+      latestQuote && toNormalizedAddress(latestQuote.tokenAddress) === normalized
+        ? latestQuote
+        : null;
+    const symbol =
+      matchedRow?.symbol ??
+      (matchedQuote
+        ? matchedQuote.side === "buy"
+          ? matchedQuote.quoteOut.symbol
+          : matchedQuote.quoteIn.symbol
+        : `TKN-${tokenAddress.slice(2, 6).toUpperCase()}`);
+    const name = matchedRow?.name ?? `${symbol} token`;
+    const alreadyTracked = trackedBscTokens.some(
+      (item) => toNormalizedAddress(item.contractAddress) === normalized,
+    );
+
+    setTrackedBscTokens((prev) =>
+      upsertTrackedBscToken(
+        {
+          contractAddress: tokenAddress,
+          symbol,
+          name,
+        },
+        prev,
+      ),
+    );
+    setActionNotice(
+      alreadyTracked
+        ? "Token contract updated in manual list."
+        : "Token contract added to manual list.",
+      "success",
+      2600,
+    );
+  };
+
+  const handleUntrackToken = (contractAddress: string) => {
+    setTrackedBscTokens((prev) => removeTrackedBscToken(contractAddress, prev));
+    setActionNotice("Removed from manual token list.", "info", 2200);
   };
 
   const handleExecuteLatestQuote = async () => {
@@ -805,6 +954,14 @@ export function InventoryView() {
               <span className="text-[10px] text-muted self-center font-mono">BNB</span>
             </div>
             <div className="wt__quick-actions">
+              <button
+                data-testid="wallet-quick-add-token"
+                className="wt__btn is-track"
+                onClick={handleTrackToken}
+                disabled={tradeBusy}
+              >
+                ADD
+              </button>
               <button
                 data-testid="wallet-quick-buy"
                 className="wt__btn is-buy"
@@ -1092,7 +1249,10 @@ export function InventoryView() {
                         {row.isNative ? (
                           <span className="wt__native-badge">native gas</span>
                         ) : (
-                          <span className="truncate max-w-[160px] inline-block">{row.name}</span>
+                          <span className="inline-flex items-center gap-1">
+                            <span className="truncate max-w-[160px] inline-block">{row.name}</span>
+                            {row.isTracked && <span className="wt__native-badge">manual</span>}
+                          </span>
                         )}
                       </div>
                     </div>
@@ -1137,6 +1297,17 @@ export function InventoryView() {
                       >
                         quote
                       </button>
+                      {row.isTracked && row.contractAddress && (
+                        <button
+                          data-testid="wallet-token-untrack"
+                          className="wt__row-btn is-remove"
+                          title="Remove from manual token list"
+                          onClick={() => handleUntrackToken(row.contractAddress!)}
+                          disabled={tradeBusy}
+                        >
+                          remove
+                        </button>
+                      )}
                     </div>
                   )}
                 </td>

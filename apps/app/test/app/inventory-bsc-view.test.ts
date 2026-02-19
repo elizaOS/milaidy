@@ -1,6 +1,6 @@
 import React from "react";
 import TestRenderer, { act } from "react-test-renderer";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { mockUseApp } = vi.hoisted(() => ({
   mockUseApp: vi.fn(),
@@ -236,6 +236,14 @@ async function flushAsync() {
   await Promise.resolve();
 }
 
+beforeEach(() => {
+  try {
+    localStorage.removeItem("wt_tracked_bsc_tokens");
+  } catch {
+    // ignore in non-browser test runtime
+  }
+});
+
 describe("InventoryView BSC-first", () => {
   it("defaults to BSC-focused token list", async () => {
     const ctx = createContext();
@@ -418,6 +426,55 @@ describe("InventoryView BSC-first", () => {
     expect(ctx.getBscTradeQuote).toHaveBeenCalledWith(
       expect.objectContaining({ side: "sell" }),
     );
+  });
+
+  it("supports manually adding a token contract to wallet rows", async () => {
+    const ctx = createContext({
+      walletBalances: createWalletBalances("0.006", null),
+    });
+    mockUseApp.mockImplementation(() => ctx);
+
+    let tree: TestRenderer.ReactTestRenderer;
+    await act(async () => {
+      tree = TestRenderer.create(React.createElement(InventoryView));
+    });
+
+    const tokenInput = tree!.root.findAll(
+      (node) => node.type === "input" && node.props["data-testid"] === "wallet-quick-token-input",
+    )[0];
+    const addButton = tree!.root.findAll(
+      (node) => node.type === "button" && node.props["data-testid"] === "wallet-quick-add-token",
+    )[0];
+    expect(addButton).toBeDefined();
+
+    await act(async () => {
+      tokenInput.props.onChange({ target: { value: "0x1111111111111111111111111111111111111112" } });
+      await flushAsync();
+    });
+
+    await act(async () => {
+      addButton.props.onClick();
+      await flushAsync();
+    });
+
+    expect(ctx.setActionNotice).toHaveBeenCalledWith(
+      "Token contract added to manual list.",
+      "success",
+      2600,
+    );
+    expect(text(tree!.root)).toContain("TKN-1111");
+
+    const untrackButton = tree!.root.findAll(
+      (node) => node.type === "button" && node.props["data-testid"] === "wallet-token-untrack",
+    )[0];
+    expect(untrackButton).toBeDefined();
+
+    await act(async () => {
+      untrackButton.props.onClick();
+      await flushAsync();
+    });
+
+    expect(text(tree!.root)).not.toContain("TKN-1111");
   });
 
   it("executes latest quote via execute action", async () => {
