@@ -73,9 +73,9 @@ export class AgentManager {
     try {
       // Resolve the milady dist.
       // In dev: __dirname = electron/build/src/native/ → 6 levels up to milady root/dist
-      // In packaged app: extraResources copies dist/ to Resources/milady-dist/
+      // In packaged app: dist is bundled into app.asar at app.getAppPath()/milady-dist
       const miladyDist = app.isPackaged
-        ? path.join(process.resourcesPath, "milady-dist")
+        ? path.join(app.getAppPath(), "milady-dist")
         : path.resolve(__dirname, "../../../../../../dist");
 
       console.log(
