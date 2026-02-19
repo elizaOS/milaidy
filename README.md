@@ -1,12 +1,30 @@
-# Milady
+# Milady BSC
 
-> *your schizo AI waifu that actually respects your privacy*
+> *your schizo AI waifu that actually respects your privacy — now natively on BSC*
 
-**Milady** is a personal AI assistant that runs on YOUR machine. Not some glowie datacenter. Not the cloud. YOUR computer. Built on [elizaOS](https://github.com/elizaOS)
+**Milady BSC** is a fork of [milady-ai/milaidy](https://github.com/milady-ai/milaidy) updated for Binance Smart Chain (BSC). It runs on YOUR machine. Not some glowie datacenter. Not the cloud. YOUR computer. Built on [elizaOS](https://github.com/elizaOS)
 
 manages your sessions, tools, and vibes through a Gateway control plane. Connects to Telegram, Discord, whatever normie platform you use. Has a cute WebChat UI too.
 
-tl;dr: local AI gf that's actually fast and doesn't phone home
+tl;dr: local AI gf that's actually fast, doesn't phone home, and runs natively on BSC
+
+---
+
+## About This Fork
+
+This is **[miladybsc/milady](https://github.com/miladybsc/milady)** — a BSC-native fork of the upstream [milady-ai/milaidy](https://github.com/milady-ai/milaidy) project.
+
+Key differences from upstream:
+
+- **BSC-native** — wallet and chain integrations default to Binance Smart Chain
+- **Expanded VRM model set** — ships with the full official Milady VRM set (models 1–8) bundled, with automatic LFS-pointer fallback for Railway/cloud deployments
+- **UX improvements** — streamlined onboarding with Quick/Full setup paths, companion stat tooltips, settings section navigation, and more
+
+To sync with upstream changes:
+```bash
+git fetch upstream
+git merge upstream/main
+```
 
 ---
 
@@ -314,7 +332,7 @@ Or use `~/.milady/.env` for secrets.
 ## Build from Source
 
 ```bash
-git clone https://github.com/milady-ai/milady.git
+git clone https://github.com/miladybsc/milady.git
 cd milady
 pnpm install        # or: bun install
 pnpm build          # or: bun run build (rt.sh picks bun if available)
