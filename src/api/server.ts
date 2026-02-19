@@ -123,6 +123,7 @@ import {
   verifyTweet,
 } from "./twitter-verify.js";
 import {
+  buildBscApproveUnsignedTx,
   buildBscBuyUnsignedTx,
   buildBscSellUnsignedTx,
   buildBscTradePreflight,
@@ -9248,6 +9249,54 @@ async function handleRequest(
         localPrivateKey.length > 0;
 
       if (!useLocalExecution) {
+        let unsignedApprovalTx;
+        let requiresApproval = false;
+        if (body.side === "sell" && addrs.evmAddress) {
+          const rpcUrl = resolvePrimaryBscRpcUrl(rpcConfig);
+          if (rpcUrl) {
+            try {
+              const provider = new ethers.JsonRpcProvider(rpcUrl);
+              const allowanceIface = new ethers.Interface([
+                "function allowance(address owner, address spender) view returns (uint256)",
+              ]);
+              const data = allowanceIface.encodeFunctionData("allowance", [
+                addrs.evmAddress,
+                quote.routerAddress,
+              ]);
+              const raw = await provider.call({
+                to: quote.tokenAddress,
+                data,
+              });
+              const decoded = allowanceIface.decodeFunctionResult(
+                "allowance",
+                raw,
+              );
+              const allowance = decoded[0];
+              if (
+                typeof allowance === "bigint" &&
+                allowance < BigInt(quote.quoteIn.amountWei)
+              ) {
+                requiresApproval = true;
+                unsignedApprovalTx = buildBscApproveUnsignedTx(
+                  quote.tokenAddress,
+                  addrs.evmAddress,
+                  quote.routerAddress,
+                  quote.quoteIn.amountWei,
+                );
+              }
+            } catch {
+              // If allowance lookup fails, default to approval-required for safety.
+              requiresApproval = true;
+              unsignedApprovalTx = buildBscApproveUnsignedTx(
+                quote.tokenAddress,
+                addrs.evmAddress,
+                quote.routerAddress,
+                quote.quoteIn.amountWei,
+              );
+            }
+          }
+        }
+
         json(res, {
           ok: true,
           side: body.side,
@@ -9256,6 +9305,8 @@ async function handleRequest(
           executed: false,
           requiresUserSignature: true,
           unsignedTx,
+          unsignedApprovalTx,
+          requiresApproval,
         });
         return;
       }
