@@ -26,6 +26,11 @@ import {
   type CatalogSkill,
   type WalletAddresses,
   type WalletBalancesResponse,
+  type BscTradeExecuteRequest,
+  type BscTradeExecuteResponse,
+  type BscTradePreflightResponse,
+  type BscTradeQuoteRequest,
+  type BscTradeQuoteResponse,
   type WalletNftsResponse,
   type WalletConfigStatus,
   type WalletExportResult,
@@ -569,6 +574,9 @@ export interface AppState {
   walletExportVisible: boolean;
   walletApiKeySaving: boolean;
   inventorySort: "chain" | "symbol" | "value";
+  inventoryChainFocus: "bsc" | "all";
+  inventoryCollapseOtherEvm: boolean;
+  inventoryCollapseSolana: boolean;
   walletError: string | null;
 
   // ERC-8004 Registry
@@ -804,6 +812,9 @@ export interface AppActions {
   loadInventory: () => Promise<void>;
   loadBalances: () => Promise<void>;
   loadNfts: () => Promise<void>;
+  executeBscTrade: (request: BscTradeExecuteRequest) => Promise<BscTradeExecuteResponse>;
+  getBscTradePreflight: (tokenAddress?: string) => Promise<BscTradePreflightResponse>;
+  getBscTradeQuote: (request: BscTradeQuoteRequest) => Promise<BscTradeQuoteResponse>;
   handleWalletApiKeySave: (config: Record<string, string>) => Promise<void>;
   handleExportKeys: () => Promise<void>;
 
@@ -995,6 +1006,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [walletExportVisible, setWalletExportVisible] = useState(false);
   const [walletApiKeySaving, setWalletApiKeySaving] = useState(false);
   const [inventorySort, setInventorySort] = useState<"chain" | "symbol" | "value">("value");
+  const [inventoryChainFocus, setInventoryChainFocus] = useState<"bsc" | "all">("bsc");
+  const [inventoryCollapseOtherEvm, setInventoryCollapseOtherEvm] = useState(true);
+  const [inventoryCollapseSolana, setInventoryCollapseSolana] = useState(true);
   const [walletError, setWalletError] = useState<string | null>(null);
 
   // --- ERC-8004 Registry ---
@@ -1244,6 +1258,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const setTab = useCallback(
     (newTab: Tab) => {
       setTabRaw(newTab);
+      if (newTab === "wallets") {
+        setInventoryChainFocus("bsc");
+      }
       if (newTab === "apps") {
         setAppsSubTab(activeGameViewerUrl.trim() ? "games" : "browse");
       }
@@ -1577,6 +1594,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
     setWalletNftsLoading(false);
   }, []);
+
+  const getBscTradePreflight = useCallback(
+    async (tokenAddress?: string): Promise<BscTradePreflightResponse> =>
+      client.getBscTradePreflight(tokenAddress),
+    [],
+  );
+
+  const getBscTradeQuote = useCallback(
+    async (request: BscTradeQuoteRequest): Promise<BscTradeQuoteResponse> =>
+      client.getBscTradeQuote(request),
+    [],
+  );
+
+  const executeBscTrade = useCallback(
+    async (request: BscTradeExecuteRequest): Promise<BscTradeExecuteResponse> =>
+      client.executeBscTrade(request),
+    [],
+  );
 
   const loadInventory = useCallback(async () => {
     await ensureManagedWallets();
@@ -3390,6 +3425,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       logSourceFilter: setLogSourceFilter,
       inventoryView: setInventoryView,
       inventorySort: setInventorySort,
+      inventoryChainFocus: setInventoryChainFocus,
+      inventoryCollapseOtherEvm: setInventoryCollapseOtherEvm,
+      inventoryCollapseSolana: setInventoryCollapseSolana,
       exportPassword: setExportPassword,
       exportIncludeLogs: setExportIncludeLogs,
       exportError: setExportError,
@@ -3707,6 +3745,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (!parsed) return;
         const { conversationId: convId, message: msg } = parsed;
 
+        // Fire animation trigger if this message has a companion trigger ID
+        const triggerId = typeof data.triggerId === "string" ? data.triggerId : null;
+        if (triggerId) {
+          window.dispatchEvent(new CustomEvent("milady:proactive-trigger", { detail: { triggerId } }));
+        }
+
         if (convId === activeConversationIdRef.current) {
           // Active conversation — append in real-time (deduplicate by id)
           setConversationMessages((prev) => {
@@ -3858,7 +3902,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     logs, logSources, logTags, logTagFilter, logLevelFilter, logSourceFilter,
     walletAddresses, walletConfig, walletBalances, walletNfts, walletLoading,
     walletNftsLoading, inventoryView, walletExportData, walletExportVisible,
-    walletApiKeySaving, inventorySort, walletError,
+    walletApiKeySaving, inventorySort, inventoryChainFocus, inventoryCollapseOtherEvm,
+    inventoryCollapseSolana, walletError,
     registryStatus, registryLoading, registryRegistering, registryError,
     dropStatus, dropLoading, mintInProgress, mintResult, mintError, mintShiny,
     whitelistStatus, whitelistLoading, twitterVerifyMessage, twitterVerifyUrl, twitterVerifying,
@@ -3909,7 +3954,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     handleOpenSkill, handleDeleteSkill, handleReviewSkill, handleAcknowledgeSkill,
     searchSkillsMarketplace, installSkillFromMarketplace, uninstallMarketplaceSkill, installSkillFromGithubUrl,
     loadLogs,
-    loadInventory, loadBalances, loadNfts, handleWalletApiKeySave, handleExportKeys,
+    loadInventory, loadBalances, loadNfts, executeBscTrade, getBscTradePreflight, getBscTradeQuote, handleWalletApiKeySave, handleExportKeys,
     loadRegistryStatus, registerOnChain, syncRegistryProfile, loadDropStatus, mintFromDrop, loadWhitelistStatus,
     loadCharacter, handleSaveCharacter, handleCharacterFieldInput,
     handleCharacterArrayInput, handleCharacterStyleInput, handleCharacterMessageExamplesInput,

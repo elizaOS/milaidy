@@ -299,6 +299,59 @@ describe("EVM provider fetch routing", () => {
     expect(bsc).toBeUndefined();
   });
 
+  it("fetches BSC native balance via managed RPC when ANKR key is missing", async () => {
+    const fetchMock = vi.fn(async () => {
+      return new Response(
+        JSON.stringify({
+          jsonrpc: "2.0",
+          id: 1,
+          result: "0x6f05b59d3b20000",
+        }),
+      );
+    });
+    globalThis.fetch = fetchMock as typeof fetch;
+
+    const balances = await fetchEvmBalances("0x1234", {
+      nodeRealBscRpcUrl: "https://nodereal.example",
+      quickNodeBscRpcUrl: "https://quicknode.example",
+    });
+    const bsc = balances.find((chain) => chain.chain === "BSC");
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("https://nodereal.example");
+    expect(bsc).toBeTruthy();
+    expect(bsc?.error).toBeNull();
+    expect(bsc?.nativeBalance).toBe("0.5");
+    expect(bsc?.nativeSymbol).toBe("BNB");
+  });
+
+  it("falls back to QuickNode when primary managed RPC fails", async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === "https://nodereal.example") {
+        throw new Error("primary down");
+      }
+      return new Response(
+        JSON.stringify({
+          jsonrpc: "2.0",
+          id: 1,
+          result: "0xde0b6b3a7640000",
+        }),
+      );
+    });
+    globalThis.fetch = fetchMock as typeof fetch;
+
+    const balances = await fetchEvmBalances("0x1234", {
+      nodeRealBscRpcUrl: "https://nodereal.example",
+      quickNodeBscRpcUrl: "https://quicknode.example",
+    });
+    const bsc = balances.find((chain) => chain.chain === "BSC");
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[1]?.[0]).toBe("https://quicknode.example");
+    expect(bsc?.error).toBeNull();
+    expect(bsc?.nativeBalance).toBe("1");
+  });
+
   it("fetches BSC NFTs via Ankr", async () => {
     const fetchMock = vi.fn(async () => {
       return new Response(

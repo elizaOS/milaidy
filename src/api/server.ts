@@ -23,6 +23,7 @@ import {
   type Task,
   type UUID,
 } from "@elizaos/core";
+import { ethers } from "ethers";
 import * as piAi from "@mariozechner/pi-ai";
 import { type WebSocket, WebSocketServer } from "ws";
 import type { CloudManager } from "../cloud/cloud-manager.js";
@@ -88,6 +89,7 @@ import { type CloudRouteState, handleCloudRoute } from "./cloud-routes.js";
 import {
   applyCompanionSignalMutation,
   handleCompanionRoutes,
+  loadCompanionStateForContext,
   runCompanionMinuteTick,
 } from "./companion-routes.js";
 import {
@@ -120,6 +122,12 @@ import {
   markAddressVerified,
   verifyTweet,
 } from "./twitter-verify.js";
+import {
+  buildBscBuyUnsignedTx,
+  buildBscTradePreflight,
+  buildBscTradeQuote,
+  resolvePrimaryBscRpcUrl,
+} from "./bsc-trade.js";
 import { TxService } from "./tx-service.js";
 import {
   fetchEvmBalances,
@@ -133,6 +141,9 @@ import {
   MANAGED_EVM_ADDRESS_ENV_KEY,
   MANAGED_SOLANA_ADDRESS_ENV_KEY,
   validatePrivateKey,
+  type BscTradePreflightRequest,
+  type BscTradeExecuteRequest,
+  type BscTradeQuoteRequest,
   type WalletAddresses,
   type WalletBalancesResponse,
   type WalletChain,
@@ -3702,6 +3713,20 @@ function getInventoryProviderOptions(): Array<{
       description: "Ethereum, Base, Arbitrum, Optimism, Polygon, BSC.",
       rpcProviders: [
         {
+          id: "nodereal",
+          name: "NodeReal",
+          description: "Managed by Milady (primary BSC RPC).",
+          envKey: null,
+          requiresKey: false,
+        },
+        {
+          id: "quicknode",
+          name: "QuickNode",
+          description: "Managed by Milady (BSC failover RPC).",
+          envKey: null,
+          requiresKey: false,
+        },
+        {
           id: "elizacloud",
           name: "Eliza Cloud",
           description: "Managed RPC. No setup needed.",
@@ -5098,11 +5123,72 @@ function applyCompanionSignalToState(
     runtime,
     signal,
     broadcastWs: state.broadcastWs,
+    sendProactiveMessage: (text, source, triggerId) => routeTextToUser(state, text, source, triggerId),
   }).catch((err) => {
     logger.warn(
       `[companion] Failed to apply ${signal} signal: ${err instanceof Error ? err.message : String(err)}`,
     );
   });
+}
+
+/**
+ * Route a single text message proactively to the user's active conversation.
+ */
+async function routeTextToUser(
+  state: ServerState,
+  text: string,
+  source = "companion",
+  triggerId?: string,
+): Promise<void> {
+  const runtime = state.runtime;
+  if (!runtime || !text.trim()) return;
+
+  // Find target conversation (active, or most recent)
+  let conv: ConversationMeta | undefined;
+  if (state.activeConversationId) {
+    conv = state.conversations.get(state.activeConversationId);
+  }
+  if (!conv) {
+    const sorted = Array.from(state.conversations.values()).sort(
+      (a, b) =>
+        new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+    );
+    conv = sorted[0];
+  }
+  if (!conv) return;
+
+  const agentMessage = createMessageMemory({
+    id: crypto.randomUUID() as UUID,
+    entityId: runtime.agentId,
+    roomId: conv.roomId,
+    content: { text: text.trim(), source },
+  });
+  await runtime.createMemory(agentMessage, "messages");
+  conv.updatedAt = new Date().toISOString();
+
+  state.broadcastWs?.({
+    type: "proactive-message",
+    conversationId: conv.id,
+    ...(triggerId ? { triggerId } : {}),
+    message: {
+      id: agentMessage.id ?? `auto-${Date.now()}`,
+      role: "assistant",
+      text: text.trim(),
+      timestamp: Date.now(),
+      source,
+    },
+  });
+}
+
+/**
+ * Load companion state and build a short context block for system prompt injection.
+ */
+async function getCompanionContextForChat(runtime: AgentRuntime): Promise<string> {
+  try {
+    return await loadCompanionStateForContext(runtime);
+  } catch {
+    return "";
+  }
 }
 
 /**
@@ -8960,15 +9046,22 @@ async function handleRequest(
     ]);
     const alchemyKey = process.env.ALCHEMY_API_KEY;
     const ankrKey = process.env.ANKR_API_KEY;
+    const nodeRealBscRpcUrl = process.env.NODEREAL_BSC_RPC_URL;
+    const quickNodeBscRpcUrl = process.env.QUICKNODE_BSC_RPC_URL;
     const heliusKey = process.env.HELIUS_API_KEY;
 
     const result: WalletBalancesResponse = { evm: null, solana: null };
 
-    if (addrs.evmAddress && (alchemyKey || ankrKey)) {
+    if (
+      addrs.evmAddress &&
+      (alchemyKey || ankrKey || nodeRealBscRpcUrl || quickNodeBscRpcUrl)
+    ) {
       try {
         const chains = await fetchEvmBalances(addrs.evmAddress, {
           alchemyKey,
           ankrKey,
+          nodeRealBscRpcUrl,
+          quickNodeBscRpcUrl,
         });
         result.evm = { address: addrs.evmAddress, chains };
       } catch (err) {
@@ -9000,15 +9093,22 @@ async function handleRequest(
     ]);
     const alchemyKey = process.env.ALCHEMY_API_KEY;
     const ankrKey = process.env.ANKR_API_KEY;
+    const nodeRealBscRpcUrl = process.env.NODEREAL_BSC_RPC_URL;
+    const quickNodeBscRpcUrl = process.env.QUICKNODE_BSC_RPC_URL;
     const heliusKey = process.env.HELIUS_API_KEY;
 
     const result: WalletNftsResponse = { evm: [], solana: null };
 
-    if (addrs.evmAddress && (alchemyKey || ankrKey)) {
+    if (
+      addrs.evmAddress &&
+      (alchemyKey || ankrKey || nodeRealBscRpcUrl || quickNodeBscRpcUrl)
+    ) {
       try {
         result.evm = await fetchEvmNfts(addrs.evmAddress, {
           alchemyKey,
           ankrKey,
+          nodeRealBscRpcUrl,
+          quickNodeBscRpcUrl,
         });
       } catch (err) {
         logger.warn(`[wallet] EVM NFT fetch failed: ${err}`);
@@ -9025,6 +9125,239 @@ async function handleRequest(
     }
 
     json(res, result);
+    return;
+  }
+
+  // ── POST /api/wallet/trade/preflight ─────────────────────────────────
+  // Trade safety checks before building a quote or attempting execution.
+  if (method === "POST" && pathname === "/api/wallet/trade/preflight") {
+    const body = await readJsonBody<BscTradePreflightRequest>(req, res);
+    if (!body) return;
+
+    const addrs = await resolveWalletAddressesForRequest(state, ["evm"]);
+
+    try {
+      const preflight = await buildBscTradePreflight({
+        walletAddress: addrs.evmAddress,
+        tokenAddress: body.tokenAddress,
+        nodeRealBscRpcUrl: process.env.NODEREAL_BSC_RPC_URL,
+        quickNodeBscRpcUrl: process.env.QUICKNODE_BSC_RPC_URL,
+      });
+      json(res, preflight);
+    } catch (err) {
+      error(
+        res,
+        `Trade preflight failed: ${err instanceof Error ? err.message : String(err)}`,
+        502,
+      );
+    }
+    return;
+  }
+
+  // ── POST /api/wallet/trade/quote ─────────────────────────────────────
+  // Build a buy/sell quote (no signing, no execution).
+  if (method === "POST" && pathname === "/api/wallet/trade/quote") {
+    const body = await readJsonBody<BscTradeQuoteRequest>(req, res);
+    if (!body) return;
+
+    if (body.side !== "buy" && body.side !== "sell") {
+      error(res, 'Invalid side. Use "buy" or "sell".');
+      return;
+    }
+    if (typeof body.tokenAddress !== "string" || !body.tokenAddress.trim()) {
+      error(res, "tokenAddress is required.");
+      return;
+    }
+    if (typeof body.amount !== "string" || !body.amount.trim()) {
+      error(res, "amount is required.");
+      return;
+    }
+
+    const addrs = await resolveWalletAddressesForRequest(state, ["evm"]);
+
+    try {
+      const quote = await buildBscTradeQuote({
+        walletAddress: addrs.evmAddress,
+        nodeRealBscRpcUrl: process.env.NODEREAL_BSC_RPC_URL,
+        quickNodeBscRpcUrl: process.env.QUICKNODE_BSC_RPC_URL,
+        request: body,
+      });
+      json(res, quote);
+    } catch (err) {
+      error(
+        res,
+        `Trade quote failed: ${err instanceof Error ? err.message : String(err)}`,
+        422,
+      );
+    }
+    return;
+  }
+
+  // ── POST /api/wallet/trade/execute ───────────────────────────────────
+  // Execute BSC buy trade (server-sign only when explicitly enabled).
+  if (method === "POST" && pathname === "/api/wallet/trade/execute") {
+    const body = await readJsonBody<BscTradeExecuteRequest>(req, res);
+    if (!body) return;
+
+    if (body.side !== "buy" && body.side !== "sell") {
+      error(res, 'Invalid side. Use "buy" or "sell".');
+      return;
+    }
+    if (body.side !== "buy") {
+      error(res, "Sell execution lands in the next phase. Buy is enabled first.");
+      return;
+    }
+    if (!body.confirm) {
+      error(res, "confirm=true is required for execution.");
+      return;
+    }
+    if (typeof body.tokenAddress !== "string" || !body.tokenAddress.trim()) {
+      error(res, "tokenAddress is required.");
+      return;
+    }
+    if (typeof body.amount !== "string" || !body.amount.trim()) {
+      error(res, "amount is required.");
+      return;
+    }
+
+    const addrs = await resolveWalletAddressesForRequest(state, ["evm"]);
+    const rpcConfig = {
+      nodeRealBscRpcUrl: process.env.NODEREAL_BSC_RPC_URL,
+      quickNodeBscRpcUrl: process.env.QUICKNODE_BSC_RPC_URL,
+    };
+
+    try {
+      const quote = await buildBscTradeQuote({
+        walletAddress: addrs.evmAddress,
+        ...rpcConfig,
+        request: {
+          side: body.side,
+          tokenAddress: body.tokenAddress,
+          amount: body.amount,
+          slippageBps: body.slippageBps,
+        },
+      });
+      const unsignedTx = buildBscBuyUnsignedTx(
+        quote,
+        addrs.evmAddress,
+        body.deadlineSeconds,
+      );
+
+      const executionEnabled = /^(1|true|yes|on)$/i.test(
+        process.env.MILADY_BSC_EXECUTION_ENABLED ?? "",
+      );
+      const localPrivateKey = process.env.EVM_PRIVATE_KEY?.trim() ?? "";
+      const useLocalExecution =
+        executionEnabled &&
+        !isPurePrivyWalletMode(state.config) &&
+        localPrivateKey.length > 0;
+
+      if (!useLocalExecution) {
+        json(res, {
+          ok: true,
+          side: body.side,
+          mode: "user-sign",
+          quote,
+          executed: false,
+          requiresUserSignature: true,
+          unsignedTx,
+        });
+        return;
+      }
+
+      const maxBuyBnbEnv = Number.parseFloat(
+        process.env.MILADY_BSC_MAX_BUY_BNB ?? "0.2",
+      );
+      const maxBuyBnb = Number.isFinite(maxBuyBnbEnv) && maxBuyBnbEnv > 0
+        ? maxBuyBnbEnv
+        : 0.2;
+      const buyAmountBnb = Number.parseFloat(body.amount);
+      if (!Number.isFinite(buyAmountBnb) || buyAmountBnb <= 0) {
+        error(res, "amount must be a positive number.");
+        return;
+      }
+      if (buyAmountBnb > maxBuyBnb) {
+        error(
+          res,
+          `Buy amount exceeds safety cap (${maxBuyBnb} BNB). Adjust MILADY_BSC_MAX_BUY_BNB if needed.`,
+          422,
+        );
+        return;
+      }
+
+      const rpcUrl = resolvePrimaryBscRpcUrl(rpcConfig);
+      if (!rpcUrl) {
+        error(res, "No managed BSC RPC available for execution.", 503);
+        return;
+      }
+
+      const normalizedPk = localPrivateKey.startsWith("0x")
+        ? localPrivateKey
+        : `0x${localPrivateKey}`;
+      const provider = new ethers.JsonRpcProvider(rpcUrl);
+      const signer = new ethers.Wallet(normalizedPk, provider);
+
+      if (
+        addrs.evmAddress &&
+        signer.address.toLowerCase() !== addrs.evmAddress.toLowerCase()
+      ) {
+        error(
+          res,
+          "Local signer does not match active wallet address. Execution halted.",
+          409,
+        );
+        return;
+      }
+
+      const txRequest: ethers.TransactionRequest = {
+        chainId: unsignedTx.chainId,
+        to: unsignedTx.to,
+        data: unsignedTx.data,
+        value: BigInt(unsignedTx.valueWei),
+      };
+
+      const feeData = await provider.getFeeData();
+      if (feeData.maxFeePerGas && feeData.maxPriorityFeePerGas) {
+        txRequest.maxFeePerGas = feeData.maxFeePerGas;
+        txRequest.maxPriorityFeePerGas = feeData.maxPriorityFeePerGas;
+      } else if (feeData.gasPrice) {
+        txRequest.gasPrice = feeData.gasPrice;
+      }
+
+      const gasEstimate = await provider.estimateGas({
+        ...txRequest,
+        from: signer.address,
+      });
+      txRequest.gasLimit = (gasEstimate * 12n) / 10n;
+
+      const tx = await signer.sendTransaction(txRequest);
+      const receipt = await provider.waitForTransaction(tx.hash, 1, 120_000);
+
+      json(res, {
+        ok: true,
+        side: body.side,
+        mode: "local-key",
+        quote,
+        executed: true,
+        requiresUserSignature: false,
+        unsignedTx,
+        execution: {
+          hash: tx.hash,
+          nonce: tx.nonce,
+          gasLimit: (txRequest.gasLimit ?? gasEstimate).toString(),
+          valueWei: unsignedTx.valueWei,
+          explorerUrl: `https://bscscan.com/tx/${tx.hash}`,
+          blockNumber: receipt?.blockNumber ?? null,
+          status: receipt?.status === 1 ? "success" : "pending",
+        },
+      });
+    } catch (err) {
+      error(
+        res,
+        `Trade execution failed: ${err instanceof Error ? err.message : String(err)}`,
+        422,
+      );
+    }
     return;
   }
 
@@ -9259,10 +9592,15 @@ async function handleRequest(
       "evm",
       "solana",
     ]);
+    const nodeRealBscRpcSet = Boolean(process.env.NODEREAL_BSC_RPC_URL);
+    const quickNodeBscRpcSet = Boolean(process.env.QUICKNODE_BSC_RPC_URL);
     const configStatus: WalletConfigStatus = {
       alchemyKeySet: Boolean(process.env.ALCHEMY_API_KEY),
       infuraKeySet: Boolean(process.env.INFURA_API_KEY),
       ankrKeySet: Boolean(process.env.ANKR_API_KEY),
+      nodeRealBscRpcSet,
+      quickNodeBscRpcSet,
+      managedBscRpcReady: nodeRealBscRpcSet || quickNodeBscRpcSet,
       heliusKeySet: Boolean(process.env.HELIUS_API_KEY),
       birdeyeKeySet: Boolean(process.env.BIRDEYE_API_KEY),
       evmChains: ["Ethereum", "Base", "Arbitrum", "Optimism", "Polygon", "BSC"],
@@ -9281,6 +9619,8 @@ async function handleRequest(
       "ALCHEMY_API_KEY",
       "INFURA_API_KEY",
       "ANKR_API_KEY",
+      "NODEREAL_BSC_RPC_URL",
+      "QUICKNODE_BSC_RPC_URL",
       "HELIUS_API_KEY",
       "BIRDEYE_API_KEY",
     ];
@@ -11033,10 +11373,21 @@ async function handleRequest(
       aborted = true;
     });
 
+    const companionCtxStream = await getCompanionContextForChat(runtime);
+    const messageForGenerationStream = companionCtxStream
+      ? {
+          ...userMessage,
+          content: {
+            ...userMessage.content,
+            text: `${companionCtxStream}\n\n${userMessage.content.text}`,
+          },
+        }
+      : userMessage;
+
     try {
       const result = await generateChatResponse(
         runtime,
-        userMessage,
+        messageForGenerationStream,
         state.agentName,
         {
           isAborted: () => aborted,
@@ -11163,10 +11514,21 @@ async function handleRequest(
 
     applyCompanionSignalToState(state, runtime, "chat");
 
+    const companionCtx = await getCompanionContextForChat(runtime);
+    const messageForGeneration = companionCtx
+      ? {
+          ...userMessage,
+          content: {
+            ...userMessage.content,
+            text: `${companionCtx}\n\n${userMessage.content.text}`,
+          },
+        }
+      : userMessage;
+
     try {
       const result = await generateChatResponse(
         runtime,
-        userMessage,
+        messageForGeneration,
         state.agentName,
         {
           resolveNoResponseText: () =>
@@ -11381,9 +11743,20 @@ async function handleRequest(
 
       applyCompanionSignalToState(state, runtime, "chat");
 
+      const companionCtxLegacyStream = await getCompanionContextForChat(runtime);
+      const messageWithCtxLegacyStream = companionCtxLegacyStream
+        ? {
+            ...message,
+            content: {
+              ...message.content,
+              text: `${companionCtxLegacyStream}\n\n${message.content.text}`,
+            },
+          }
+        : message;
+
       const result = await generateChatResponse(
         runtime,
-        message,
+        messageWithCtxLegacyStream,
         state.agentName,
         {
           isAborted: () => aborted,
@@ -11476,9 +11849,20 @@ async function handleRequest(
 
       applyCompanionSignalToState(state, runtime, "chat");
 
+      const companionCtxLegacy = await getCompanionContextForChat(runtime);
+      const messageWithCtxLegacy = companionCtxLegacy
+        ? {
+            ...message,
+            content: {
+              ...message.content,
+              text: `${companionCtxLegacy}\n\n${message.content.text}`,
+            },
+          }
+        : message;
+
       const result = await generateChatResponse(
         runtime,
-        message,
+        messageWithCtxLegacy,
         state.agentName,
         {
           resolveNoResponseText: () =>
@@ -13376,6 +13760,8 @@ export async function startApiServer(opts?: {
     "ALCHEMY_API_KEY",
     "INFURA_API_KEY",
     "ANKR_API_KEY",
+    "NODEREAL_BSC_RPC_URL",
+    "QUICKNODE_BSC_RPC_URL",
     "HELIUS_API_KEY",
     "BIRDEYE_API_KEY",
     "SOLANA_RPC_URL",
@@ -13963,6 +14349,7 @@ export async function startApiServer(opts?: {
       runtime: state.runtime,
       broadcastWs: state.broadcastWs,
       addLog,
+      sendProactiveMessage: (text, source, triggerId) => routeTextToUser(state, text, source, triggerId),
     }).catch((err) => {
       addLog(
         "warn",
