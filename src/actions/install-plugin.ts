@@ -55,7 +55,10 @@ export const installPluginAction: Action = {
         `http://localhost:${API_PORT}/api/plugins/install`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            "X-Milady-Agent-Action": "1",
+          },
           body: JSON.stringify({ name: npmName, autoRestart: true }),
         },
       );

@@ -27,6 +27,7 @@ import {
   getSessionProviders,
   resolveDefaultSessionStorePath,
 } from "@elizaos/core";
+import { configurePluginAction } from "../actions/configure-plugin.js";
 import { emoteAction } from "../actions/emote.js";
 import { installPluginAction } from "../actions/install-plugin.js";
 import { logLevelAction } from "../actions/log-level.js";
@@ -391,6 +392,8 @@ export function createMiladyPlugin(config?: MiladyPluginConfig): Plugin {
           "You can use [CONFIG:pluginId] for ANY plugin in the list — both [active] and [available] ones.",
           'Example: "Let me pull up the configuration for the knowledge plugin. [CONFIG:knowledge]"',
           "The marker will be replaced with an interactive config form in the UI.",
+          "Default behavior: when the user explicitly asks you to apply plugin settings, prefer calling CONFIGURE_PLUGIN directly.",
+          "Use [CONFIG:pluginId] when values are missing, ambiguous, or the user wants to review before applying.",
           "",
           "### Rich interactive UI",
           "When showing dashboards, analytics, status overviews, or interactive UI, output UiSpec JSON in fenced ```json blocks.",
@@ -570,6 +573,7 @@ export function createMiladyPlugin(config?: MiladyPluginConfig): Plugin {
       createTriggerTaskAction,
       emoteAction,
       terminalAction,
+      configurePluginAction,
       installPluginAction,
       logLevelAction,
       ...mediaActions,

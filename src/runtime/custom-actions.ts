@@ -265,7 +265,10 @@ function buildHandler(
           `http://localhost:${API_PORT}/api/terminal/run`,
           {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              "X-Milady-Agent-Action": "1",
+            },
             body: JSON.stringify({ command }),
           },
         );

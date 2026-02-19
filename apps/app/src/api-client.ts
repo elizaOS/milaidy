@@ -100,6 +100,13 @@ export type {
   SystemPermissionDefinition as PermissionDefinition,
 };
 
+export type AgentAutomationMode = "connectors-only" | "full";
+
+export interface AgentAutomationModeResponse {
+  mode: AgentAutomationMode;
+  options: AgentAutomationMode[];
+}
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -3374,6 +3381,25 @@ export class MiladyClient {
   async isShellEnabled(): Promise<boolean> {
     const result = await this.fetch<{ enabled: boolean }>("/api/permissions/shell");
     return result.enabled;
+  }
+
+  /**
+   * Get agent automation permission mode.
+   */
+  async getAgentAutomationMode(): Promise<AgentAutomationModeResponse> {
+    return this.fetch("/api/permissions/automation-mode");
+  }
+
+  /**
+   * Set agent automation permission mode.
+   */
+  async setAgentAutomationMode(
+    mode: AgentAutomationMode,
+  ): Promise<AgentAutomationModeResponse> {
+    return this.fetch("/api/permissions/automation-mode", {
+      method: "PUT",
+      body: JSON.stringify({ mode }),
+    });
   }
 
   disconnectWs(): void {

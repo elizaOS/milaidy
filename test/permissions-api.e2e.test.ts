@@ -113,6 +113,7 @@ describe("Permissions API E2E", () => {
       expect(data).toHaveProperty("permissions");
       expect(data).toHaveProperty("platform");
       expect(data).toHaveProperty("shellEnabled");
+      expect(data).toHaveProperty("agentAutomationMode", "full");
       expect(typeof data.platform).toBe("string");
       expect(typeof data.shellEnabled).toBe("boolean");
     });
@@ -120,6 +121,64 @@ describe("Permissions API E2E", () => {
     it("returns permissions as an object", async () => {
       const { data } = await req(port, "GET", "/api/permissions");
       expect(typeof data.permissions).toBe("object");
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // GET/PUT /api/permissions/automation-mode
+  // ─────────────────────────────────────────────────────────────────────────
+
+  describe("GET/PUT /api/permissions/automation-mode", () => {
+    it("returns default automation mode", async () => {
+      const { status, data } = await req(
+        port,
+        "GET",
+        "/api/permissions/automation-mode",
+      );
+      expect(status).toBe(200);
+      expect(data).toHaveProperty("mode", "full");
+      expect(data).toHaveProperty("options");
+      expect(Array.isArray(data.options)).toBe(true);
+      expect(data.options).toEqual(["connectors-only", "full"]);
+    });
+
+    it("updates automation mode to connectors-only and back to full", async () => {
+      const { status: setStatus, data: setData } = await req(
+        port,
+        "PUT",
+        "/api/permissions/automation-mode",
+        { mode: "connectors-only" },
+      );
+      expect(setStatus).toBe(200);
+      expect(setData).toHaveProperty("mode", "connectors-only");
+
+      const { status: readStatus, data: readData } = await req(
+        port,
+        "GET",
+        "/api/permissions/automation-mode",
+      );
+      expect(readStatus).toBe(200);
+      expect(readData).toHaveProperty("mode", "connectors-only");
+
+      const { status: resetStatus, data: resetData } = await req(
+        port,
+        "PUT",
+        "/api/permissions/automation-mode",
+        { mode: "full" },
+      );
+      expect(resetStatus).toBe(200);
+      expect(resetData).toHaveProperty("mode", "full");
+    });
+
+    it("rejects invalid automation mode", async () => {
+      const { status, data } = await req(
+        port,
+        "PUT",
+        "/api/permissions/automation-mode",
+        { mode: "invalid-mode" },
+      );
+      expect(status).toBe(400);
+      expect(data).toHaveProperty("error");
     });
   });
 
@@ -368,6 +427,109 @@ describe("Permissions API E2E", () => {
       expect(status).toBe(403);
       expect(data).toHaveProperty("error", "Shell access is disabled");
       await req(port, "PUT", "/api/permissions/shell", { enabled: true });
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Agent automation mode enforcement
+  // ─────────────────────────────────────────────────────────────────────────
+
+  describe("Agent automation mode enforcement", () => {
+    it("blocks agent terminal execution in connectors-only mode", async () => {
+      await req(port, "PUT", "/api/permissions/shell", { enabled: true });
+      await req(port, "PUT", "/api/permissions/automation-mode", {
+        mode: "connectors-only",
+      });
+
+      const { status, data } = await req(
+        port,
+        "POST",
+        "/api/terminal/run",
+        { command: "echo hello" },
+        { headers: { "X-Milady-Agent-Action": "1" } },
+      );
+      expect(status).toBe(403);
+      expect(data).toHaveProperty("error");
+
+      await req(port, "PUT", "/api/permissions/automation-mode", {
+        mode: "full",
+      });
+    });
+
+    it("allows agent connector mutations in connectors-only mode", async () => {
+      const connectorName = `agent-test-${Date.now()}`;
+      await req(port, "PUT", "/api/permissions/automation-mode", {
+        mode: "connectors-only",
+      });
+
+      const { status } = await req(
+        port,
+        "POST",
+        "/api/connectors",
+        {
+          name: connectorName,
+          config: { enabled: true, token: "fake-token" },
+        },
+        { headers: { "X-Milady-Agent-Action": "1" } },
+      );
+      expect(status).toBe(200);
+
+      const { status: removeStatus } = await req(
+        port,
+        "DELETE",
+        `/api/connectors/${encodeURIComponent(connectorName)}`,
+        undefined,
+        { headers: { "X-Milady-Agent-Action": "1" } },
+      );
+      expect(removeStatus).toBe(200);
+
+      await req(port, "PUT", "/api/permissions/automation-mode", {
+        mode: "full",
+      });
+    });
+
+    it("blocks agent plugin install in connectors-only mode", async () => {
+      await req(port, "PUT", "/api/permissions/automation-mode", {
+        mode: "connectors-only",
+      });
+
+      const { status, data } = await req(
+        port,
+        "POST",
+        "/api/plugins/install",
+        { name: "@elizaos/plugin-fake-plugin-for-mode-test" },
+        { headers: { "X-Milady-Agent-Action": "1" } },
+      );
+      expect(status).toBe(403);
+      expect(data).toHaveProperty("error");
+
+      await req(port, "PUT", "/api/permissions/automation-mode", {
+        mode: "full",
+      });
+    });
+
+    it("blocks non-connector config writes for agent in connectors-only mode", async () => {
+      await req(port, "PUT", "/api/permissions/automation-mode", {
+        mode: "connectors-only",
+      });
+
+      const { status, data } = await req(
+        port,
+        "PUT",
+        "/api/config",
+        {
+          features: {
+            shellEnabled: false,
+          },
+        },
+        { headers: { "X-Milady-Agent-Action": "1" } },
+      );
+      expect(status).toBe(403);
+      expect(data).toHaveProperty("error");
+
+      await req(port, "PUT", "/api/permissions/automation-mode", {
+        mode: "full",
+      });
     });
   });
 

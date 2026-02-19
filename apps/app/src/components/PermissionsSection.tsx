@@ -13,6 +13,7 @@ import { useState, useEffect, useCallback, type Dispatch, type SetStateAction } 
 import { useApp } from "../AppContext";
 import {
   client,
+  type AgentAutomationMode,
   type AllPermissionsState,
   type PermissionState,
   type SystemPermissionId,
@@ -347,6 +348,8 @@ export function PermissionsSection() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [shellEnabled, setShellEnabled] = useState(true);
+  const [automationMode, setAutomationMode] = useState<AgentAutomationMode>("full");
+  const [automationSaving, setAutomationSaving] = useState(false);
   const { handleRequest, handleOpenSettings } = usePermissionActions(
     setPermissions,
     setActionNotice,
@@ -357,12 +360,14 @@ export function PermissionsSection() {
     void (async () => {
       setLoading(true);
       try {
-        const [perms, isShell] = await Promise.all([
+        const [perms, isShell, automation] = await Promise.all([
           client.getPermissions(),
           client.isShellEnabled(),
+          client.getAgentAutomationMode(),
         ]);
         setPermissions(perms);
         setShellEnabled(isShell);
+        setAutomationMode(automation.mode);
         // Detect platform from permissions (accessibility only on darwin)
         if (perms.accessibility?.status !== "not-applicable") {
           setPlatform("darwin");
@@ -400,6 +405,31 @@ export function PermissionsSection() {
       console.error("Failed to toggle shell:", err);
     }
   }, []);
+
+  const handleAutomationModeChange = useCallback(async (mode: AgentAutomationMode) => {
+    if (automationSaving || mode === automationMode) return;
+    setAutomationSaving(true);
+    try {
+      const result = await client.setAgentAutomationMode(mode);
+      setAutomationMode(result.mode);
+      setActionNotice?.(
+        result.mode === "full"
+          ? "Agent automation mode set to Full."
+          : "Agent automation mode set to Connectors only.",
+        "success",
+        2200,
+      );
+    } catch (err) {
+      console.error("Failed to update automation mode:", err);
+      setActionNotice?.(
+        err instanceof Error ? err.message : "Failed to update automation mode.",
+        "error",
+        4200,
+      );
+    } finally {
+      setAutomationSaving(false);
+    }
+  }, [automationMode, automationSaving, setActionNotice]);
 
   /** Check if all required permissions for a capability are granted. */
   const arePermissionsGranted = useCallback(
@@ -481,6 +511,56 @@ export function PermissionsSection() {
               Grant permissions to enable features like voice input and computer control.
             </>
           )}
+        </div>
+      </div>
+
+      {/* Agent automation permissions */}
+      <div>
+        <div className="font-bold text-sm mb-3">Agent Automation Mode</div>
+        <div className="border border-[var(--border)] bg-[var(--card)] p-3 space-y-2">
+          <div className="text-[11px] text-[var(--muted)]">
+            Choose what the agent can change by itself.
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <button
+              type="button"
+              className={`text-left p-2.5 border rounded ${
+                automationMode === "connectors-only"
+                  ? "border-[var(--accent)] bg-[var(--accent)]/10"
+                  : "border-[var(--border)] bg-[var(--bg)]"
+              }`}
+              disabled={automationSaving}
+              onClick={() => {
+                void handleAutomationModeChange("connectors-only");
+              }}
+            >
+              <div className="text-[12px] font-semibold">Semi-automation</div>
+              <div className="text-[11px] text-[var(--muted)] mt-0.5">
+                Agent can modify connectors only.
+              </div>
+            </button>
+            <button
+              type="button"
+              className={`text-left p-2.5 border rounded ${
+                automationMode === "full"
+                  ? "border-[var(--accent)] bg-[var(--accent)]/10"
+                  : "border-[var(--border)] bg-[var(--bg)]"
+              }`}
+              disabled={automationSaving}
+              onClick={() => {
+                void handleAutomationModeChange("full");
+              }}
+            >
+              <div className="text-[12px] font-semibold">Full automation</div>
+              <div className="text-[11px] text-[var(--muted)] mt-0.5">
+                Agent can configure all plugins.
+              </div>
+            </button>
+          </div>
+          <div className="text-[11px] text-[var(--muted)]">
+            Current: <strong>{automationMode === "full" ? "Full" : "Connectors only"}</strong>
+            {automationSaving ? " (saving...)" : ""}
+          </div>
         </div>
       </div>
 

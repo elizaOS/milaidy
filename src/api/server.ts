@@ -266,6 +266,8 @@ interface ServerState {
   >;
   /** Whether shell access is enabled (can be toggled in UI). */
   shellEnabled?: boolean;
+  /** Agent automation permission mode for self-directed config changes. */
+  agentAutomationMode?: AgentAutomationMode;
 }
 
 interface ShareIngestItem {
@@ -1690,7 +1692,9 @@ const DEFAULT_LFS_MEDIA_REF = "main";
 
 function resolveMediaRepoPath(repoUrlRaw: string | undefined): string {
   const source = (repoUrlRaw ?? "").trim() || DEFAULT_LFS_REPO_URL;
-  const match = source.match(/^https:\/\/github\.com\/([^/]+\/[^/.]+)(?:\.git)?$/i);
+  const match = source.match(
+    /^https:\/\/github\.com\/([^/]+\/[^/.]+)(?:\.git)?$/i,
+  );
   if (match?.[1]) return match[1];
   return "cayden970207/milady";
 }
@@ -1740,9 +1744,7 @@ function resolveUiDir(): string | null {
   }
 
   uiDir = null;
-  logger.info(
-    "[milady-api] No built UI found — dashboard routes are disabled",
-  );
+  logger.info("[milady-api] No built UI found — dashboard routes are disabled");
   return null;
 }
 
@@ -3985,6 +3987,14 @@ interface RequestContext {
   onRestart: (() => Promise<AgentRuntime | null>) | null;
 }
 
+type AgentAutomationMode = "connectors-only" | "full";
+
+const AGENT_AUTOMATION_HEADER = "x-milady-agent-action";
+const AGENT_AUTOMATION_MODES = new Set<AgentAutomationMode>([
+  "connectors-only",
+  "full",
+]);
+
 const LOCAL_ORIGIN_RE = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i;
 const APP_ORIGIN_RE =
   /^(capacitor|capacitor-electron|app):\/\/(localhost|-)?$/i;
@@ -4204,6 +4214,107 @@ function isAuthorized(req: http.IncomingMessage): boolean {
   const provided = extractAuthToken(req);
   if (!provided) return false;
   return tokenMatches(expected, provided);
+}
+
+function parseAgentAutomationMode(value: unknown): AgentAutomationMode | null {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().toLowerCase();
+  if (!AGENT_AUTOMATION_MODES.has(normalized as AgentAutomationMode)) {
+    return null;
+  }
+  return normalized as AgentAutomationMode;
+}
+
+function resolveAgentAutomationModeFromConfig(
+  config: MiladyConfig,
+): AgentAutomationMode {
+  const features =
+    config.features && typeof config.features === "object"
+      ? (config.features as Record<string, unknown>)
+      : null;
+  const agentAutomation =
+    features?.agentAutomation &&
+    typeof features.agentAutomation === "object" &&
+    !Array.isArray(features.agentAutomation)
+      ? (features.agentAutomation as Record<string, unknown>)
+      : null;
+  return parseAgentAutomationMode(agentAutomation?.mode) ?? "full";
+}
+
+function isAgentAutomationRequest(req: http.IncomingMessage): boolean {
+  const raw = req.headers[AGENT_AUTOMATION_HEADER];
+  if (typeof raw !== "string") return false;
+  return /^(1|true|yes|agent)$/i.test(raw.trim());
+}
+
+function toPluginShortId(pluginNameOrId: string): string {
+  return pluginNameOrId
+    .trim()
+    .replace(/^@[^/]+\/plugin-/, "")
+    .replace(/^@[^/]+\//, "")
+    .replace(/^plugin-/, "");
+}
+
+function resolvePluginCategoryForMutation(
+  state: ServerState,
+  pluginNameOrId: string,
+): PluginEntry["category"] {
+  const shortId = toPluginShortId(pluginNameOrId);
+  const known = state.plugins.find((entry) => entry.id === shortId);
+  if (known) return known.category;
+  return categorizePlugin(shortId);
+}
+
+function rejectAgentMutation(
+  req: http.IncomingMessage,
+  state: ServerState,
+  target:
+    | { kind: "connectors" }
+    | { kind: "plugins"; pluginNameOrId: string }
+    | { kind: "config" },
+): string | null {
+  if (!isAgentAutomationRequest(req)) return null;
+  const mode = state.agentAutomationMode ?? "full";
+  if (mode === "full") return null;
+
+  if (target.kind === "connectors") return null;
+
+  if (target.kind === "plugins") {
+    const category = resolvePluginCategoryForMutation(
+      state,
+      target.pluginNameOrId,
+    );
+    if (category === "connector") return null;
+    return `Blocked by automation mode "${mode}". Agent may only modify connectors in this mode.`;
+  }
+
+  return `Blocked by automation mode "${mode}". Agent may only modify connectors in this mode.`;
+}
+
+function persistAgentAutomationMode(
+  state: ServerState,
+  mode: AgentAutomationMode,
+): void {
+  state.agentAutomationMode = mode;
+  if (!state.config.features) {
+    state.config.features = {};
+  }
+
+  const features = state.config.features as Record<
+    string,
+    boolean | { enabled?: boolean; [k: string]: unknown }
+  >;
+  const current = features.agentAutomation;
+  const currentObject =
+    current && typeof current === "object" && !Array.isArray(current)
+      ? (current as Record<string, unknown>)
+      : {};
+
+  features.agentAutomation = {
+    ...currentObject,
+    enabled: true,
+    mode,
+  };
 }
 
 export interface PluginConfigMutationRejection {
@@ -5174,9 +5285,7 @@ async function handleRequest(
         `[milady-api] No in-process restart handler; exiting for external restart (${reason})`,
       );
       if (process.env.VITEST || process.env.NODE_ENV === "test") {
-        logger.info(
-          "[milady-api] Skipping process.exit during test execution",
-        );
+        logger.info("[milady-api] Skipping process.exit during test execution");
         return;
       }
       process.exit(API_RESTART_EXIT_CODE);
@@ -6338,6 +6447,7 @@ async function handleRequest(
       state.chatUserId = null;
       state.chatConnectionReady = null;
       state.chatConnectionPromise = null;
+      state.agentAutomationMode = "full";
 
       json(res, { ok: true });
     } catch (err) {
@@ -6908,6 +7018,15 @@ async function handleRequest(
   // ── PUT /api/plugins/:id ────────────────────────────────────────────────
   if (method === "PUT" && pathname.startsWith("/api/plugins/")) {
     const pluginId = pathname.slice("/api/plugins/".length);
+    const modeRejection = rejectAgentMutation(req, state, {
+      kind: "plugins",
+      pluginNameOrId: pluginId,
+    });
+    if (modeRejection) {
+      error(res, modeRejection, 403);
+      return;
+    }
+
     const body = await readJsonBody<{
       enabled?: boolean;
       config?: Record<string, string>;
@@ -7357,6 +7476,15 @@ async function handleRequest(
     if (!body) return;
     const pluginName = body.name?.trim();
 
+    const modeRejection = rejectAgentMutation(req, state, {
+      kind: "plugins",
+      pluginNameOrId: pluginName ?? "",
+    });
+    if (modeRejection) {
+      error(res, modeRejection, 403);
+      return;
+    }
+
     if (!pluginName) {
       error(res, "Request body must include 'name' (plugin package name)", 400);
       return;
@@ -7422,6 +7550,15 @@ async function handleRequest(
     );
     if (!body) return;
     const pluginName = body.name?.trim();
+
+    const modeRejection = rejectAgentMutation(req, state, {
+      kind: "plugins",
+      pluginNameOrId: pluginName ?? "",
+    });
+    if (modeRejection) {
+      error(res, modeRejection, 403);
+      return;
+    }
 
     if (!pluginName) {
       error(res, "Request body must include 'name' (plugin package name)", 400);
@@ -8159,9 +8296,7 @@ async function handleRequest(
           : "xdg-open";
     execFile(opener, [skillPath], (err) => {
       if (err)
-        logger.warn(
-          `[milady-api] Failed to open skill folder: ${err.message}`,
-        );
+        logger.warn(`[milady-api] Failed to open skill folder: ${err.message}`);
     });
     json(res, { ok: true, path: skillPath });
     return;
@@ -9513,6 +9648,14 @@ async function handleRequest(
 
   // ── POST /api/connectors ─────────────────────────────────────────────────
   if (method === "POST" && pathname === "/api/connectors") {
+    const modeRejection = rejectAgentMutation(req, state, {
+      kind: "connectors",
+    });
+    if (modeRejection) {
+      error(res, modeRejection, 403);
+      return;
+    }
+
     const body = await readJsonBody(req, res);
     if (!body) return;
     const name = body.name;
@@ -9552,6 +9695,14 @@ async function handleRequest(
 
   // ── DELETE /api/connectors/:name ─────────────────────────────────────────
   if (method === "DELETE" && pathname.startsWith("/api/connectors/")) {
+    const modeRejection = rejectAgentMutation(req, state, {
+      kind: "connectors",
+    });
+    if (modeRejection) {
+      error(res, modeRejection, 403);
+      return;
+    }
+
     const name = decodeURIComponent(pathname.slice("/api/connectors/".length));
     if (!name || isBlockedObjectKey(name)) {
       error(res, "Missing or invalid connector name", 400);
@@ -9649,6 +9800,19 @@ async function handleRequest(
       }
     }
 
+    const modeRejection = rejectAgentMutation(req, state, { kind: "config" });
+    if (modeRejection) {
+      const allowedTopKeys = new Set(["connectors", "channels"]);
+      const requestedKeys = Object.keys(filtered);
+      const hasNonConnectorKey = requestedKeys.some(
+        (key) => !allowedTopKeys.has(key),
+      );
+      if (hasNonConnectorKey) {
+        error(res, modeRejection, 403);
+        return;
+      }
+    }
+
     // Security: keep auth/step-up secrets out of API-driven config writes so
     // secret rotation remains an out-of-band operation.
     if (
@@ -9675,6 +9839,9 @@ async function handleRequest(
     }
 
     safeMerge(state.config as Record<string, unknown>, filtered);
+    state.agentAutomationMode = resolveAgentAutomationModeFromConfig(
+      state.config,
+    );
 
     // If the client updated env vars, synchronise them into process.env so
     // subsequent hot-restarts see the latest values (loadMiladyConfig()
@@ -9750,6 +9917,7 @@ async function handleRequest(
       permissions: permStates,
       platform: process.platform,
       shellEnabled: state.shellEnabled ?? true,
+      agentAutomationMode: state.agentAutomationMode ?? "full",
     });
     return;
   }
@@ -9777,6 +9945,38 @@ async function handleRequest(
       enabled,
       ...permission,
       permission,
+    });
+    return;
+  }
+
+  // ── GET /api/permissions/automation-mode ──────────────────────────────
+  // Return agent automation permission mode for self-directed config actions.
+  if (method === "GET" && pathname === "/api/permissions/automation-mode") {
+    const mode = state.agentAutomationMode ?? "full";
+    json(res, {
+      mode,
+      options: ["connectors-only", "full"] as AgentAutomationMode[],
+    });
+    return;
+  }
+
+  // ── PUT /api/permissions/automation-mode ──────────────────────────────
+  // Update agent automation permission mode.
+  if (method === "PUT" && pathname === "/api/permissions/automation-mode") {
+    const body = await readJsonBody<{ mode?: unknown }>(req, res);
+    if (!body) return;
+    const parsed = parseAgentAutomationMode(body.mode);
+    if (!parsed) {
+      error(res, 'Invalid mode. Expected "connectors-only" or "full".', 400);
+      return;
+    }
+
+    persistAgentAutomationMode(state, parsed);
+    saveMiladyConfig(state.config);
+
+    json(res, {
+      mode: parsed,
+      options: ["connectors-only", "full"] as AgentAutomationMode[],
     });
     return;
   }
@@ -12638,6 +12838,18 @@ async function handleRequest(
   // ── POST /api/terminal/run ──────────────────────────────────────────────
   // Execute a shell command server-side and stream output via WebSocket.
   if (method === "POST" && pathname === "/api/terminal/run") {
+    if (
+      isAgentAutomationRequest(req) &&
+      (state.agentAutomationMode ?? "full") === "connectors-only"
+    ) {
+      error(
+        res,
+        'Blocked by automation mode "connectors-only". Shell automation is disabled for agent-originated requests.',
+        403,
+      );
+      return;
+    }
+
     if (state.shellEnabled === false) {
       error(res, "Shell access is disabled", 403);
       return;
@@ -13006,10 +13218,7 @@ async function handleRequest(
 
       const relativePath = decodedPath.replace(/^\/+/, "");
       const localPath = path.resolve(root, relativePath);
-      if (
-        localPath !== root &&
-        !localPath.startsWith(`${root}${path.sep}`)
-      ) {
+      if (localPath !== root && !localPath.startsWith(`${root}${path.sep}`)) {
         error(res, "Forbidden", 403);
         return;
       }
@@ -13060,11 +13269,7 @@ async function handleRequest(
         }
         const upstreamBody = Buffer.from(await upstream.arrayBuffer());
         if (!upstreamBody.length || isLikelyLfsPointer(upstreamBody)) {
-          error(
-            res,
-            "VRM upstream returned an unresolved LFS pointer.",
-            502,
-          );
+          error(res, "VRM upstream returned an unresolved LFS pointer.", 502);
           return;
         }
 
@@ -13231,6 +13436,7 @@ export async function startApiServer(opts?: {
     activeConversationId: null,
     permissionStates: {},
     shellEnabled: config.features?.shellEnabled !== false,
+    agentAutomationMode: resolveAgentAutomationModeFromConfig(config),
   };
 
   const trainingService = new TrainingService({
