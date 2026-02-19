@@ -12,6 +12,7 @@ import {
   type KeyboardEvent,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -163,18 +164,24 @@ export function ChatView() {
 
   const agentName = agentStatus?.agentName ?? "Agent";
   const msgs = conversationMessages;
-  const visibleMsgs = msgs.filter(
-    (msg) =>
-      !(
-        chatSending &&
-        !chatFirstTokenReceived &&
-        msg.role === "assistant" &&
-        !msg.text.trim()
+  const visibleMsgs = useMemo(
+    () =>
+      msgs.filter(
+        (msg) =>
+          !(
+            chatSending &&
+            !chatFirstTokenReceived &&
+            msg.role === "assistant" &&
+            !msg.text.trim()
+          ),
       ),
+    [chatFirstTokenReceived, chatSending, msgs],
   );
   const agentAvatarSrc =
     selectedVrmIndex > 0 ? getVrmPreviewUrl(selectedVrmIndex) : null;
   const agentInitial = agentName.trim().charAt(0).toUpperCase() || "A";
+  const lastVisibleMessageText =
+    visibleMsgs[visibleMsgs.length - 1]?.text ?? "";
 
   useEffect(() => {
     if (agentVoiceMuted) return;
@@ -239,10 +246,13 @@ export function ChatView() {
 
   // Smooth auto-scroll while streaming and on new messages.
   useEffect(() => {
+    if (!chatSending && visibleMsgs.length === 0 && !lastVisibleMessageText) {
+      return;
+    }
     const el = messagesRef.current;
     if (!el) return;
     el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
-  }, []);
+  }, [chatSending, lastVisibleMessageText, visibleMsgs.length]);
 
   // Auto-resize textarea
   useEffect(() => {

@@ -265,6 +265,67 @@ describe("ChatView", () => {
     expect(String(scroller.props.className)).toContain("pr-3");
     expect(scroller.props.style?.scrollbarGutter).toBe("stable both-edges");
   });
+
+  it("auto-scrolls again when conversation messages update", async () => {
+    const scrollTo = vi.fn();
+    const scrollerMock = { scrollHeight: 240, scrollTo };
+    const textareaMock = {
+      style: { height: "", overflowY: "" },
+      scrollHeight: 38,
+      focus: vi.fn(),
+    };
+    const fileInputMock = { click: vi.fn() };
+
+    let currentContext = createContext({
+      conversationMessages: [
+        { id: "u1", role: "user", text: "hello", timestamp: 1 },
+      ],
+    });
+    mockUseApp.mockImplementation(() => currentContext);
+
+    let tree: TestRenderer.ReactTestRenderer;
+    await act(async () => {
+      tree = TestRenderer.create(React.createElement(ChatView), {
+        createNodeMock: (element) => {
+          const node = element as {
+            type: unknown;
+            props: Record<string, unknown>;
+          };
+          if (
+            node.type === "div" &&
+            node.props["data-testid"] === "chat-messages-scroll"
+          ) {
+            return scrollerMock;
+          }
+          if (node.type === "textarea") {
+            return textareaMock;
+          }
+          if (node.type === "input" && node.props.type === "file") {
+            return fileInputMock;
+          }
+          return {};
+        },
+      });
+    });
+    await flush();
+
+    const callsAfterMount = scrollTo.mock.calls.length;
+    expect(callsAfterMount).toBeGreaterThan(0);
+
+    currentContext = createContext({
+      conversationMessages: [
+        { id: "u1", role: "user", text: "hello", timestamp: 1 },
+        { id: "a1", role: "assistant", text: "Hi there!", timestamp: 2 },
+      ],
+    });
+
+    await act(async () => {
+      tree.update(React.createElement(ChatView));
+    });
+    await flush();
+
+    expect(scrollTo.mock.calls.length).toBeGreaterThan(callsAfterMount);
+  });
 });
 
 // ---------------------------------------------------------------------------
