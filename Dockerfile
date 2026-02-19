@@ -53,11 +53,11 @@ RUN set -e; \
           git -c filter.lfs.smudge= -c filter.lfs.process= -c filter.lfs.required=false fetch --depth 1 origin "$COMMIT" && GIT_LFS_SKIP_SMUDGE=1 git checkout "$COMMIT"; \
         fi; \
         git lfs install --local; \
-        git lfs fetch origin "$REF" --include='apps/app/public/vrms/**' --exclude='*'; \
-        git lfs fetch origin "$REF" --include='apps/app/public/animations/mixamo/**' --exclude='*' || true; \
-        git lfs fetch origin "$REF" --include='apps/app/public/animations/idle.glb' --exclude='*' || true; \
-        git lfs fetch origin "$REF" --include='apps/app/public/animations/Idle.fbx' --exclude='*' || true; \
-        git lfs fetch origin "$REF" --include='apps/app/public/animations/BreathingIdle.fbx' --exclude='*' || true; \
+        git lfs fetch origin "$REF" --include='apps/app/public/vrms'; \
+        git lfs fetch origin "$REF" --include='apps/app/public/animations/mixamo' || true; \
+        git lfs fetch origin "$REF" --include='apps/app/public/animations/idle.glb' || true; \
+        git lfs fetch origin "$REF" --include='apps/app/public/animations/Idle.fbx' || true; \
+        git lfs fetch origin "$REF" --include='apps/app/public/animations/BreathingIdle.fbx' || true; \
         git lfs checkout apps/app/public/vrms; \
         git lfs checkout apps/app/public/animations/mixamo || true; \
         git lfs checkout apps/app/public/animations/idle.glb || true; \
