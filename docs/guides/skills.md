@@ -4,84 +4,49 @@ sidebarTitle: "Skills"
 description: "Markdown-based extensions that teach the agent how to perform specific tasks."
 ---
 
-# Skills Documentation
+# Skills
 
-Skills are markdown-based extensions that teach the agent how to perform specific tasks. Unlike plugins (which are TypeScript code), skills are primarily documentation that gets injected into the agent's context.
-
-## Table of Contents
-
-1. [What Are Skills?](#what-are-skills)
-2. [Skill Structure](#skill-structure)
-3. [Writing a Skill](#writing-a-skill)
-4. [Skill Frontmatter](#skill-frontmatter)
-5. [Adding Skills to Your Agent](#adding-skills-to-your-agent)
-6. [Skill Loading Behavior](#skill-loading-behavior)
-7. [Best Practices](#best-practices)
+Skills are markdown-based extensions that teach the Milaidy agent how to perform specific tasks. Each skill is a folder containing a `SKILL.md` file with YAML frontmatter and instructional content that gets injected into the agent's context at runtime.
 
 ---
 
 ## What Are Skills?
 
-Skills are **modular, self-contained packages** that extend an agent's capabilities through:
+A skill is a self-contained unit of knowledge packaged as a directory. At minimum it contains a `SKILL.md` file. The agent reads the skill's instructions and follows them when performing relevant tasks.
 
-- **Instructions** — Markdown documentation the agent follows
-- **Scripts** — Optional executable code for complex operations
-- **References** — Additional documentation loaded into context
-- **Assets** — Templates, images, or other files for output
+Skills can include:
+
+- **Instructions** -- the markdown body of `SKILL.md`, telling the agent what to do
+- **Scripts** -- optional shell or Node scripts for setup or automation
+- **References** -- additional markdown files loaded into context
+- **Assets** -- templates, config files, or other supporting material
 
 ### Skills vs Plugins
 
 | Aspect | Skills | Plugins |
 |--------|--------|---------|
-| Format | Markdown (SKILL.md) | TypeScript code |
-| Complexity | Low — documentation-focused | High — full programmatic control |
-| Runtime | Injected into prompts | Runs as code |
-| Use case | Task instructions, tool usage | Actions, services, API routes |
-| Installation | Drop folder in skills/ | npm install or build |
+| Format | Markdown (`SKILL.md`) | TypeScript code |
+| Complexity | Low -- documentation-focused | High -- full programmatic control |
+| Runtime | Injected into agent prompts | Runs as executable code |
+| Use case | Task instructions, workflows | Actions, services, API integrations |
+| Installation | Drop a folder or install from marketplace | `milaidy plugin install` |
 
-**When to use Skills:**
-- Teaching the agent to use CLI tools
-- Documenting workflows and procedures
-- Providing reference information
-- Simple task automation via instructions
-
-**When to use Plugins:**
-- Custom actions with complex logic
-- Background services
-- API integrations
-- Database operations
+Use skills when you want to teach the agent a procedure. Use plugins when you need executable logic, background services, or API routes.
 
 ---
 
-## Skill Structure
+## SKILL.md Format
 
-A skill is a folder containing at minimum a `SKILL.md` file:
+Every skill directory must contain a `SKILL.md` file. This file has two parts: YAML frontmatter and markdown instructions.
 
-```
-my-skill/
-├── SKILL.md              # Required — frontmatter + instructions
-├── scripts/              # Optional — executable scripts
-│   └── fetch-data.sh
-├── references/           # Optional — additional docs to load
-│   └── api-reference.md
-└── assets/               # Optional — templates, images, etc.
-    └── template.txt
-```
-
-### SKILL.md
-
-The main skill file contains:
-
-1. **Frontmatter** — YAML metadata at the top
-2. **Instructions** — Markdown content teaching the agent
+### Example
 
 ```markdown
 ---
 name: github
 description: "Interact with GitHub using the `gh` CLI"
-metadata:
-  requires:
-    bins: ["gh"]
+required-bins:
+  - gh
 ---
 
 # GitHub Skill
@@ -90,30 +55,432 @@ Use the `gh` CLI to interact with GitHub repositories.
 
 ## Pull Requests
 
-Check CI status on a PR:
-
 ```bash
+gh pr list --repo owner/repo
 gh pr checks 55 --repo owner/repo
 ```
 
 ## Issues
-
-List open issues:
 
 ```bash
 gh issue list --repo owner/repo --state open
 ```
 ```
 
+### Frontmatter Fields
+
+The YAML frontmatter between `---` delimiters is parsed to extract skill metadata. The parser reads simple `key: value` lines from the frontmatter block.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | Yes | Skill identifier. Should match the folder name. |
+| `description` | string | Yes | What the skill does. Shown to the agent and in the UI. |
+| `required-os` | string[] | No | Restrict to specific platforms: `macos`, `linux`, `windows`. |
+| `required-bins` | string[] | No | CLI tools that must exist in `PATH` for the skill to load. |
+| `required-env` | string[] | No | Environment variables that must be set. |
+| `user-invocable` | boolean | No | Whether users can invoke the skill directly. Default: `true`. |
+| `disable-model-invocation` | boolean | No | If `true`, the skill content is not injected into prompts. |
+| `primary-env` | string | No | Primary runtime environment: `node`, `python`, `shell`. |
+| `command-dispatch` | string | No | How commands are dispatched (e.g., `shell`). |
+| `command-tool` | string | No | Tool used for command execution (e.g., `bash`). |
+| `metadata` | object | No | Arbitrary additional data (JSON object). |
+
+**Parsing behavior:** The frontmatter parser extracts `name` and `description` from simple `key: value` lines. If the frontmatter is missing or malformed, Milaidy falls back to reading the first markdown heading as the skill name and the first non-heading paragraph as the description.
+
 ---
 
-## Writing a Skill
+## Skill Locations
 
-### Step 1: Create the Skill Folder
+Milaidy discovers skills from multiple directories. Skills found in later (higher-precedence) directories override earlier ones with the same name.
+
+### 1. Bundled Skills (lowest precedence)
+
+Shipped with the `@elizaos/plugin-agent-skills` package. These are automatically available when the plugin is loaded. The bundled skills directory is resolved at startup via `getSkillsDir()` and passed to the runtime as `BUNDLED_SKILLS_DIRS`.
+
+### 2. Extra Directories
+
+Additional directories configured in `~/.milaidy/config.json`:
+
+```json
+{
+  "skills": {
+    "load": {
+      "extraDirs": [
+        "/path/to/shared-team-skills",
+        "/path/to/another-skills-dir"
+      ]
+    }
+  }
+}
+```
+
+### 3. Managed Skills
+
+Global user-level skills stored at:
+
+```
+~/.milaidy/skills/
+├── my-custom-skill/
+│   └── SKILL.md
+└── team-shared-skill/
+    └── SKILL.md
+```
+
+The catalog file is also stored here at `~/.milaidy/skills/catalog.json`.
+
+### 4. Workspace Skills (highest precedence)
+
+Project-local skills in the agent's workspace directory:
+
+```
+~/.milaidy/workspace/skills/
+├── project-specific-skill/
+│   └── SKILL.md
+└── override-bundled-skill/
+    └── SKILL.md
+```
+
+### 5. Marketplace Skills
+
+Skills installed from the marketplace are placed under:
+
+```
+~/.milaidy/workspace/skills/.marketplace/
+├── content-marketer/
+│   ├── SKILL.md
+│   └── .scan-results.json
+└── seo-optimizer/
+    ├── SKILL.md
+    └── .scan-results.json
+```
+
+Install records are tracked in `~/.milaidy/workspace/skills/.cache/marketplace-installs.json`.
+
+---
+
+## Skill Loading Priority
+
+When two skills share the same name, the higher-precedence source wins. The full resolution order (lowest to highest):
+
+1. **Bundled skills** -- from `@elizaos/plugin-agent-skills`
+2. **Extra directories** -- from `skills.load.extraDirs` config
+3. **Managed skills** -- from `~/.milaidy/skills/`
+4. **Workspace skills** -- from `{workspace}/skills/`
+5. **Marketplace skills** -- from `{workspace}/skills/.marketplace/`
+
+### Enable/Disable Priority
+
+Whether a skill is active is determined by this cascade (highest priority first):
+
+1. **Database preferences** -- per-agent toggle set via the API (`PUT /api/skills/:id`)
+2. **`skills.denyBundled`** -- config deny list, always blocks
+3. **`skills.entries[id].enabled`** -- per-skill config flag
+4. **`skills.allowBundled`** -- config allow list (whitelist mode: only listed skills load)
+5. **Default** -- enabled
+
+Configuration example in `~/.milaidy/config.json`:
+
+```json
+{
+  "skills": {
+    "allowBundled": ["github", "weather", "coding-agent"],
+    "denyBundled": ["deprecated-skill"],
+    "entries": {
+      "github": { "enabled": true },
+      "noisy-skill": { "enabled": false }
+    }
+  }
+}
+```
+
+---
+
+## Skill Marketplace
+
+The skill marketplace allows you to search for, install, and manage community-published skills. The default marketplace is [ClawHub](https://clawhub.ai).
+
+### Marketplace Configuration
+
+The marketplace URL is resolved from environment variables in this order:
+
+1. `SKILLS_REGISTRY`
+2. `CLAWHUB_REGISTRY`
+3. `SKILLS_MARKETPLACE_URL`
+4. Default: `https://clawhub.ai`
+
+If no registry is configured, Milaidy automatically sets `SKILLS_REGISTRY=https://clawhub.ai` at startup.
+
+For the legacy SkillsMP marketplace, set the `SKILLSMP_API_KEY` environment variable:
+
+```bash
+export MILAIDY_SKILLSMP_API_KEY="your-api-key"
+```
+
+### Searching the Marketplace
+
+**Via the API:**
+
+```
+GET /api/skills/marketplace/search?q=content+marketing&limit=20
+```
+
+The search endpoint queries the configured marketplace registry and returns results with name, description, repository URL, tags, and relevance score.
+
+**Response shape:**
+
+```json
+{
+  "ok": true,
+  "results": [
+    {
+      "id": "content-marketer",
+      "slug": "content-marketer",
+      "name": "Content Marketer",
+      "description": "Generate blog posts and social media content",
+      "repository": "owner/repo",
+      "githubUrl": "https://github.com/owner/repo",
+      "path": "skills/content-marketer",
+      "tags": ["marketing", "content"],
+      "score": 0.95,
+      "source": "clawhub"
+    }
+  ]
+}
+```
+
+### Installing from the Marketplace
+
+There are two installation paths:
+
+**1. By slug (ClawHub catalog install):**
+
+```
+POST /api/skills/marketplace/install
+Content-Type: application/json
+
+{ "slug": "content-marketer" }
+```
+
+This uses the `AgentSkillsService.install()` method, which resolves the skill from the catalog and installs it into the managed skills directory.
+
+**2. By GitHub URL or repository (git-based install):**
+
+```
+POST /api/skills/marketplace/install
+Content-Type: application/json
+
+{
+  "githubUrl": "https://github.com/owner/repo/tree/main/skills/my-skill",
+  "name": "my-skill",
+  "source": "clawhub"
+}
+```
+
+Or by repository and path:
+
+```
+POST /api/skills/marketplace/install
+Content-Type: application/json
+
+{
+  "repository": "owner/repo",
+  "path": "skills/my-skill"
+}
+```
+
+The git-based installer performs a **shallow sparse checkout** of only the skill directory (not the entire repository), copies it to `{workspace}/skills/.marketplace/{id}/`, validates that `SKILL.md` exists, and runs a security scan.
+
+**Skill path auto-detection:** If no path is provided, the installer probes the repository for:
+1. A `SKILL.md` at the repository root
+2. Subdirectories under `skills/` that contain `SKILL.md`
+
+### Listing Installed Marketplace Skills
+
+```
+GET /api/skills/marketplace/installed
+```
+
+Returns all skills installed via the marketplace, sorted by install date (newest first). Each entry includes the skill ID, source repository, install path, install timestamp, and security scan status.
+
+### Uninstalling Marketplace Skills
+
+```
+POST /api/skills/marketplace/uninstall
+Content-Type: application/json
+
+{ "id": "content-marketer" }
+```
+
+The uninstaller verifies the skill's install path is within the expected `.marketplace` directory before removing it, preventing path traversal attacks. The install record is also removed from `marketplace-installs.json`.
+
+---
+
+## Security Scanning
+
+Every skill installed from the marketplace is automatically scanned before it becomes available. The scan checks for structural attacks at the install boundary.
+
+### What Is Scanned
+
+| Check | Severity | Description |
+|-------|----------|-------------|
+| Binary files | `critical` | Detects executable files (`.exe`, `.dll`, `.so`, `.dylib`, `.wasm`, `.bin`, `.com`, `.bat`, `.cmd`) |
+| Symlink escapes | `critical` | Detects symbolic links pointing outside the skill directory |
+| Missing `SKILL.md` | `critical` | Validates the skill package has the required entry file |
+
+### Scan Statuses
+
+| Status | Meaning |
+|--------|---------|
+| `clean` | No issues found |
+| `warning` | Non-critical warnings detected |
+| `critical` | Critical findings but not blocking |
+| `blocked` | Skill is rejected and removed from disk |
+
+### Blocking Behavior
+
+If a scan returns `blocked` status (binary files, symlink escapes, or missing `SKILL.md`), the skill directory is **automatically deleted** and the install fails with an error:
+
+```
+Skill "bad-skill" blocked by security scan: Binary executable file detected (.exe); Symbolic link points outside skill directory
+```
+
+### Scan Reports
+
+Scan results are persisted as `.scan-results.json` inside the skill directory:
+
+```json
+{
+  "scannedAt": "2026-02-19T12:00:00.000Z",
+  "status": "clean",
+  "summary": {
+    "scannedFiles": 5,
+    "critical": 0,
+    "warn": 0,
+    "info": 0
+  },
+  "findings": [],
+  "manifestFindings": [],
+  "skillPath": "/Users/you/.milaidy/workspace/skills/.marketplace/my-skill"
+}
+```
+
+You can retrieve a skill's scan report via the API:
+
+```
+GET /api/skills/:id/scan
+```
+
+The full content-level scan (code and markdown pattern analysis) is performed by the `AgentSkillsService` when it loads the skill. The marketplace scanner handles structural checks at install time.
+
+---
+
+## Skill Catalog
+
+The skill catalog provides a local, cached index of all available skills from the registry. It enables fast browsing and searching without hitting the network on every request.
+
+### How the Catalog Works
+
+1. **File-based cache:** The catalog is stored as `catalog.json` and loaded from disk
+2. **Memory cache:** Once loaded, skills are cached in memory for 10 minutes (`MEMORY_TTL_MS = 600_000`)
+3. **Lazy loading:** The catalog is read on first access, not at startup
+
+### Catalog File Locations
+
+The catalog client checks these paths in order:
+
+1. `MILAIDY_SKILLS_CATALOG` environment variable (if set, used exclusively)
+2. `skills/.cache/catalog.json` relative to the package root (walks up to 5 parent directories)
+3. `~/.milaidy/skills/catalog.json` (home directory fallback)
+
+### Catalog Entry Shape
+
+Each catalog skill contains:
+
+```typescript
+{
+  slug: string;           // Unique identifier
+  displayName: string;    // Human-readable name
+  summary: string | null; // Short description
+  tags: Record<string, string>;
+  stats: {
+    comments: number;
+    downloads: number;
+    installsAllTime: number;
+    installsCurrent: number;
+    stars: number;
+    versions: number;
+  };
+  createdAt: number;      // Unix timestamp
+  updatedAt: number;
+  latestVersion: {
+    version: string;
+    createdAt: number;
+    changelog: string;
+  } | null;
+}
+```
+
+### Catalog API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/skills/catalog` | GET | Browse the full catalog (paginated) |
+| `/api/skills/catalog/search?q=query` | GET | Search skills by name, summary, tags |
+| `/api/skills/catalog/:slug` | GET | Get a single skill by slug |
+| `/api/skills/catalog/refresh` | POST | Force-refresh the catalog from disk |
+| `/api/skills/catalog/install` | POST | Install a catalog skill by slug |
+| `/api/skills/catalog/uninstall` | POST | Uninstall a catalog skill by slug |
+
+### Catalog Search Scoring
+
+Local search uses fuzzy matching across multiple fields with weighted scoring:
+
+| Match Type | Score |
+|------------|-------|
+| Exact slug or name match | +100 |
+| Slug contains query | +50 |
+| Name contains query | +45 |
+| Summary contains query | +30 |
+| Tag contains query | +20 |
+| Per-term slug match | +15 |
+| Per-term name match | +12 |
+| Per-term summary match | +8 |
+| Popularity boost (downloads > 50) | +3 |
+| Popularity boost (downloads > 200) | +3 |
+| Stars boost (stars > 0) | +2 |
+| Active installs boost | +2 |
+
+Results are sorted by score, then by download count for ties.
+
+---
+
+## Creating Custom Skills
+
+### Directory Structure
+
+```
+my-skill/
+├── SKILL.md              # Required -- frontmatter + instructions
+├── scripts/              # Optional -- executable scripts
+│   └── setup.sh
+├── references/           # Optional -- additional docs to load
+│   └── api-reference.md
+└── assets/               # Optional -- templates, config files
+    └── template.json
+```
+
+### Step 1: Create the Skill Directory
+
+For a workspace-local skill:
 
 ```bash
 mkdir -p ~/.milaidy/workspace/skills/my-tool
-cd ~/.milaidy/workspace/skills/my-tool
+```
+
+For a globally available skill:
+
+```bash
+mkdir -p ~/.milaidy/skills/my-tool
 ```
 
 ### Step 2: Write SKILL.md
@@ -131,12 +498,6 @@ required-env:
 # My Tool Skill
 
 This skill teaches you how to use the `my-tool` CLI.
-
-## Installation
-
-```bash
-npm install -g my-tool
-```
 
 ## Authentication
 
@@ -160,31 +521,6 @@ my-tool list --format json
 my-tool create --name "New Item" --type standard
 ```
 
-### Delete Item
-
-```bash
-my-tool delete <item-id> --force
-```
-
-## Common Workflows
-
-### Batch Processing
-
-1. Export items to file:
-   ```bash
-   my-tool export --output items.json
-   ```
-
-2. Process with jq:
-   ```bash
-   cat items.json | jq '.items[] | select(.status == "active")'
-   ```
-
-3. Import processed items:
-   ```bash
-   my-tool import --input processed.json
-   ```
-
 ## Error Handling
 
 - **401 Unauthorized**: Check MY_TOOL_API_KEY is set correctly
@@ -194,11 +530,9 @@ my-tool delete <item-id> --force
 
 ### Step 3: Add Scripts (Optional)
 
-If your skill needs executable logic:
-
 ```bash
-# scripts/setup.sh
 #!/bin/bash
+# scripts/setup.sh
 set -e
 
 echo "Checking my-tool installation..."
@@ -210,238 +544,32 @@ fi
 echo "my-tool is ready!"
 ```
 
-### Step 4: Add References (Optional)
+### Step 4: Verify the Skill Loads
 
-For additional documentation that should be loaded:
-
-```markdown
-<!-- references/api-spec.md -->
-# API Reference
-
-## Endpoints
-
-### GET /items
-Returns a list of all items.
-
-Response:
-```json
-{
-  "items": [
-    {"id": "123", "name": "Item 1", "status": "active"}
-  ]
-}
-```
-```
-
----
-
-## Skill Frontmatter
-
-The YAML frontmatter at the top of SKILL.md configures skill behavior:
-
-```yaml
----
-# Required
-name: skill-name
-description: "Human-readable description"
-
-# Optional — requirements
-required-os:          # Limit to specific OSes
-  - macos
-  - linux
-required-bins:        # Required CLI tools
-  - gh
-  - jq
-required-env:         # Required environment variables
-  - GITHUB_TOKEN
-
-# Optional — behavior
-disable-model-invocation: false  # If true, skill won't be in prompts
-user-invocable: true             # Can users invoke via commands?
-primary-env: node                # Primary runtime environment
-
-# Optional — command dispatch
-command-dispatch: shell          # How commands are executed
-command-tool: bash               # Tool for command execution
-
-# Optional — arbitrary metadata
-metadata:
-  emoji: "🔧"
-  category: "devtools"
-  install:
-    - kind: brew
-      formula: my-tool
----
-```
-
-### Frontmatter Fields
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `name` | string | Skill identifier (should match folder name) |
-| `description` | string | What the skill does (shown to LLM) |
-| `disable-model-invocation` | boolean | Exclude from LLM prompts (command-only) |
-| `required-os` | string[] | Limit to OSes: `macos`, `linux`, `windows` |
-| `required-bins` | string[] | CLI tools that must be in PATH |
-| `required-env` | string[] | Environment variables that must be set |
-| `primary-env` | string | Runtime: `node`, `python`, `shell` |
-| `user-invocable` | boolean | Allow direct user invocation |
-| `command-dispatch` | string | How to dispatch commands |
-| `command-tool` | string | Tool for command execution |
-| `metadata` | object | Arbitrary additional data |
-
----
-
-## Adding Skills to Your Agent
-
-### 1. Workspace Skills (Project-Local)
-
-Place skills in your project's workspace:
+Refresh the skills list to confirm your skill is discovered:
 
 ```
-~/.milaidy/workspace/
-└── skills/
-    ├── my-skill/
-    │   └── SKILL.md
-    └── another-skill/
-        └── SKILL.md
+POST /api/skills/refresh
 ```
 
-### 2. Managed Skills (Global)
-
-Place skills in the global skills directory:
+Or restart the agent and check:
 
 ```
-~/.milaidy/skills/
-├── my-skill/
-│   └── SKILL.md
-└── shared-skill/
-    └── SKILL.md
+GET /api/skills
 ```
 
-### 3. Bundled Skills
-
-Milaidy ships with built-in skills in the `@elizaos/skills` package. These are automatically available:
-
-- `github` — GitHub CLI integration
-- `weather` — Weather lookups
-- `tmux` — Terminal multiplexer control
-- `coding-agent` — Run coding assistants
-- And many more...
-
-List bundled skills:
-```bash
-ls node_modules/@elizaos/skills/skills/
-```
-
-### 4. Explicit Skill Paths
-
-Configure specific skill paths in your agent config:
-
-```json
-{
-  "skills": {
-    "paths": [
-      "./custom-skills/special-skill",
-      "~/shared-skills/team-skill"
-    ],
-    "includeDefaults": true
-  }
-}
-```
-
----
-
-## Skill Loading Behavior
-
-### Load Order
-
-Skills are loaded from multiple sources in this order (later sources can override earlier ones):
-
-1. **Bundled skills** — From `@elizaos/skills` package
-2. **Managed skills** — From `~/.milaidy/skills/` or `~/.elizaos/skills/`
-3. **Workspace skills** — From `./skills/` in the project
-4. **Explicit paths** — From config `skills.paths`
-
-### Collision Handling
-
-If two skills have the same name, the later one wins. A diagnostic warning is logged:
-
-```
-[skills] Collision: skill "github" from workspace overrides bundled version
-```
-
-### Loading Options
-
-```typescript
-import { loadSkills } from "@elizaos/skills";
-
-const { skills, diagnostics } = loadSkills({
-  // Working directory for workspace skills
-  cwd: process.cwd(),
-
-  // Agent config directory for global skills
-  agentDir: "~/.milaidy",
-
-  // Explicit paths to load
-  skillPaths: ["./extra-skills/my-skill"],
-
-  // Include default skill directories (default: true)
-  includeDefaults: true,
-
-  // Override bundled skills path
-  bundledSkillsDir: "./custom-bundled",
-
-  // Override managed skills path
-  managedSkillsDir: "~/.my-agent/skills",
-});
-
-// Check for issues
-for (const diag of diagnostics) {
-  if (diag.type === "error") {
-    console.error(`Skill error: ${diag.message}`);
-  } else if (diag.type === "collision") {
-    console.warn(`Skill collision: ${diag.message}`);
-  }
-}
-```
-
-### Skill Formatting for Prompts
-
-Skills are formatted and injected into the agent's system prompt:
-
-```typescript
-import { formatSkillsForPrompt, loadSkills } from "@elizaos/skills";
-
-const { skills } = loadSkills();
-
-// Generate prompt section
-const skillPrompt = formatSkillsForPrompt(skills);
-// Returns formatted markdown listing available skills
-
-// Or get a summary
-const summary = formatSkillsList(skills);
-// Returns: "github, weather, tmux, ..."
-```
+Your skill should appear in the response with the name and description from your frontmatter.
 
 ---
 
 ## Best Practices
 
-### 1. Keep Instructions Concise
+### Keep Instructions Concise
 
-The skill content is injected into the agent's context window. Be thorough but not verbose:
+Skill content is injected into the agent's context window. Be thorough but not verbose:
 
 ```markdown
-<!-- ❌ Too verbose -->
-## Listing Files
-
-To list files in a directory, you can use the `ls` command. The `ls` command
-is a standard Unix utility that lists directory contents. It has many options
-including -l for long format, -a for showing hidden files, -h for human-readable
-sizes, and many more. Here's how you would use it...
-
-<!-- ✅ Concise and actionable -->
+<!-- Concise and actionable -->
 ## Listing Files
 
 ```bash
@@ -450,43 +578,20 @@ ls -lh *.txt     # Text files with human-readable sizes
 ```
 ```
 
-### 2. Provide Runnable Examples
+### Provide Runnable Examples
 
 Show actual commands, not just descriptions:
 
 ```markdown
-<!-- ❌ Descriptive but not actionable -->
-Use the search command to find issues.
-
-<!-- ✅ Runnable example -->
+<!-- Good: runnable example -->
 ```bash
 gh issue list --repo owner/repo --search "bug" --state open
 ```
 ```
 
-### 3. Handle Errors
+### Declare Requirements in Frontmatter
 
-Document common errors and solutions:
-
-```markdown
-## Troubleshooting
-
-### "Permission denied"
-```bash
-chmod +x script.sh  # Make script executable
-```
-
-### "Command not found"
-Install the required tool:
-```bash
-brew install my-tool  # macOS
-apt install my-tool   # Linux
-```
-```
-
-### 4. Use Frontmatter for Requirements
-
-Don't assume tools are installed — declare requirements:
+Do not assume tools are installed. Use `required-bins` and `required-env` so the agent knows what is needed:
 
 ```yaml
 ---
@@ -501,134 +606,69 @@ required-os:
 ---
 ```
 
-### 5. Organize Complex Skills
+### Handle Errors
 
-For skills with multiple concerns:
-
-```
-complex-skill/
-├── SKILL.md           # Main instructions
-├── references/
-│   ├── api.md         # API documentation
-│   ├── examples.md    # Extended examples
-│   └── faq.md         # Frequently asked questions
-├── scripts/
-│   ├── setup.sh       # Installation script
-│   └── validate.sh    # Validation script
-└── assets/
-    └── config.template.json
-```
-
-### 6. Test Your Skills
-
-Try your skill instructions manually first:
-
-1. Read the SKILL.md yourself
-2. Follow the instructions exactly
-3. Fix any ambiguities or missing steps
-4. Have someone else try it
-
----
-
-## Example Skills
-
-### Weather Skill
+Document common errors and their solutions so the agent can self-diagnose:
 
 ```markdown
----
-name: weather
-description: "Get current weather and forecasts"
----
+## Troubleshooting
 
-# Weather Skill
-
-Get weather information using wttr.in (no API key required).
-
-## Current Weather
-
+### "Permission denied"
 ```bash
-curl -s "wttr.in/London?format=3"
-# Output: London: ⛅️ +15°C
+chmod +x script.sh
 ```
 
-## Detailed Forecast
-
+### "Command not found"
 ```bash
-curl -s "wttr.in/London"
-```
-
-## JSON Format (for parsing)
-
-```bash
-curl -s "wttr.in/London?format=j1" | jq '.current_condition[0]'
-```
-
-## Location Formats
-
-- City name: `wttr.in/Paris`
-- Airport code: `wttr.in/JFK`
-- Coordinates: `wttr.in/40.7,-74.0`
-- IP-based: `wttr.in` (auto-detect)
-```
-
-### GitHub Skill
-
-```markdown
----
-name: github
-description: "Interact with GitHub using the `gh` CLI"
-required-bins:
-  - gh
----
-
-# GitHub Skill
-
-Use the `gh` CLI for GitHub operations.
-
-## Authentication
-
-```bash
-gh auth login
-gh auth status
-```
-
-## Issues
-
-```bash
-gh issue list --repo owner/repo
-gh issue view 123 --repo owner/repo
-gh issue create --title "Bug" --body "Description"
-```
-
-## Pull Requests
-
-```bash
-gh pr list --repo owner/repo
-gh pr view 55 --repo owner/repo
-gh pr checks 55 --repo owner/repo
-gh pr merge 55 --repo owner/repo --squash
-```
-
-## Actions/CI
-
-```bash
-gh run list --repo owner/repo --limit 10
-gh run view <run-id> --repo owner/repo
-gh run view <run-id> --log-failed
-```
-
-## API Access
-
-```bash
-gh api repos/owner/repo/issues --jq '.[].title'
-gh api graphql -f query='{ viewer { login } }'
+brew install my-tool  # macOS
+apt install my-tool   # Linux
 ```
 ```
+
+### Test Your Skills
+
+1. Read your `SKILL.md` and follow the instructions manually
+2. Verify all commands work as written
+3. Check that the frontmatter parses correctly (restart the agent, then `GET /api/skills`)
+4. If the skill has requirements, test on a clean environment
 
 ---
 
-## Next Steps
+## API Reference Summary
 
-- [Plugin Development Guide](./plugin-development.md) — For more complex extensions
-- [Contributing Guide](./contributing.md) — Contributing skills to Milaidy
-- Browse bundled skills: `ls node_modules/@elizaos/skills/skills/`
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/skills` | GET | List all discovered skills with enabled state |
+| `/api/skills/refresh` | POST | Re-scan skill directories and refresh the list |
+| `/api/skills/:id` | PUT | Enable or disable a skill (persisted per-agent) |
+| `/api/skills/:id/scan` | GET | Get the security scan report for a skill |
+| `/api/skills/catalog` | GET | Browse the full skill catalog |
+| `/api/skills/catalog/search` | GET | Search the catalog |
+| `/api/skills/catalog/:slug` | GET | Get a catalog skill by slug |
+| `/api/skills/catalog/refresh` | POST | Force-refresh the catalog cache |
+| `/api/skills/catalog/install` | POST | Install a skill from the catalog |
+| `/api/skills/catalog/uninstall` | POST | Uninstall a catalog skill |
+| `/api/skills/marketplace/search` | GET | Search the remote marketplace |
+| `/api/skills/marketplace/installed` | GET | List marketplace-installed skills |
+| `/api/skills/marketplace/install` | POST | Install from marketplace (git or slug) |
+| `/api/skills/marketplace/uninstall` | POST | Uninstall a marketplace skill |
+| `/api/skills/marketplace/config` | GET | Check marketplace API key status |
+| `/api/skills/marketplace/config` | PUT | Set the marketplace API key |
+
+---
+
+## Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `MILAIDY_SKILLS_CATALOG` | Override the catalog file path |
+| `SKILLS_REGISTRY` | Marketplace registry URL (default: `https://clawhub.ai`) |
+| `CLAWHUB_REGISTRY` | Alternative to `SKILLS_REGISTRY` |
+| `SKILLS_MARKETPLACE_URL` | Alternative to `SKILLS_REGISTRY` |
+| `SKILLSMP_API_KEY` | API key for the legacy SkillsMP marketplace |
+| `MILAIDY_STATE_DIR` | Override the base state directory (default: `~/.milaidy`) |
+| `BUNDLED_SKILLS_DIRS` | Set by runtime -- path to bundled skills |
+| `WORKSPACE_SKILLS_DIR` | Set by runtime -- path to workspace skills |
+| `EXTRA_SKILLS_DIRS` | Set by runtime -- comma-separated extra skill directories |
+| `SKILLS_ALLOWLIST` | Set by runtime -- comma-separated allowed skill IDs |
+| `SKILLS_DENYLIST` | Set by runtime -- comma-separated denied skill IDs |

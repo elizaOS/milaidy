@@ -6,328 +6,488 @@ description: "Develop plugins locally without publishing to npm."
 
 # Local Plugin Development Guide
 
-This guide covers developing plugins locally without publishing to npm — ideal for custom integrations, private plugins, or rapid prototyping.
+This guide covers developing plugins locally without publishing to npm -- custom integrations, private plugins, rapid prototyping, and ejecting upstream plugins for modification.
 
 ## Table of Contents
 
-1. [Local Plugin Locations](#local-plugin-locations)
-2. [Workspace Discovery](#workspace-discovery)
-3. [Configuration-Based Loading](#configuration-based-loading)
-4. [Development Workflow](#development-workflow)
-5. [Hot Reloading](#hot-reloading)
-6. [Debugging](#debugging)
-7. [Migrating to npm](#migrating-to-npm)
+1. [Plugin Locations](#plugin-locations)
+2. [Plugin Loading Priority](#plugin-loading-priority)
+3. [Creating a Local Plugin](#creating-a-local-plugin)
+4. [Configuration](#configuration)
+5. [Plugin Installer](#plugin-installer)
+6. [Ejecting Upstream Plugins](#ejecting-upstream-plugins)
+7. [Development Workflow](#development-workflow)
+8. [Debugging](#debugging)
+9. [Environment Variables](#environment-variables)
+10. [Migrating to npm](#migrating-to-npm)
 
 ---
 
-## Local Plugin Locations
+## Plugin Locations
 
-Milaidy discovers plugins from multiple locations:
+Milaidy discovers plugins from three locations under the state directory (`~/.milaidy/` by default):
 
-### 1. Workspace Directories
+### 1. Ejected Plugins
 
-Plugins placed in these directories are auto-discovered:
-
-```
-./plugins/           # Project-local plugins
-./extensions/        # Alternative naming
-./.milaidy/plugins/  # Hidden project plugins
-```
-
-### 2. Global Directory
-
-User-wide plugins available to all projects:
+Upstream plugins cloned locally for modification:
 
 ```
-~/.milaidy/plugins/  # Global plugins
+~/.milaidy/plugins/ejected/<plugin-name>/
 ```
 
-### 3. Explicit Paths
+These are created by the eject system (see [Ejecting Upstream Plugins](#ejecting-upstream-plugins)). Each subdirectory is a full git repo with editable source.
 
-Plugins specified directly in configuration (see below).
+### 2. Installed Plugins
 
----
-
-## Workspace Discovery
-
-### Basic Structure
-
-Place your plugin in the `plugins/` directory:
+Plugins installed at runtime via the plugin manager or CLI:
 
 ```
-my-project/
-├── plugins/
-│   └── my-plugin/
-│       ├── package.json
-│       ├── src/
-│       │   └── index.ts
-│       └── dist/
-│           └── index.js
-├── milaidy.json
-└── package.json
+~/.milaidy/plugins/installed/<sanitised-name>/
 ```
 
-### Plugin Requirements
+Each plugin gets an isolated directory with its own `package.json` and `node_modules/`. The installer creates a minimal `{ "private": true, "dependencies": {} }` package.json, then runs `bun add <package>` (or `npm install` as fallback) inside that directory.
 
-For auto-discovery, your plugin must have:
+### 3. Custom (Drop-in) Plugins
 
-1. **package.json** with valid structure
-2. **Main entry point** (built or source)
-3. **Default export** that is a valid Plugin
+Hand-written plugins placed directly in the custom directory:
+
+```
+~/.milaidy/plugins/custom/<your-plugin>/
+```
+
+Any subdirectory here with a `package.json` is auto-discovered at startup. This is the simplest way to add a local plugin -- just drop it in and restart.
+
+### 4. Extra Load Paths
+
+Additional directories can be specified in `milaidy.json`:
 
 ```json
-// plugins/my-plugin/package.json
 {
-  "name": "my-local-plugin",
-  "version": "1.0.0",
-  "type": "module",
-  "main": "dist/index.js",
-  "scripts": {
-    "build": "tsc"
+  "plugins": {
+    "load": {
+      "paths": [
+        "~/shared-plugins",
+        "/opt/team-plugins"
+      ]
+    }
   }
 }
 ```
 
-### TypeScript Plugins
+Each directory is scanned the same way as `plugins/custom/` -- subdirectories with a `package.json` are treated as plugins.
 
-For TypeScript plugins, you can either:
+### Full Directory Layout
 
-**Option A: Pre-build**
-```bash
-cd plugins/my-plugin
-npm run build
 ```
-
-**Option B: Use tsx (development)**
-```json
-{
-  "main": "src/index.ts"
-}
-```
-
-Then run Milaidy with tsx support (already built-in for dev mode).
-
----
-
-## Configuration-Based Loading
-
-### milaidy.json Configuration
-
-Explicitly specify plugin paths in your config:
-
-```json
-{
-  "plugins": [
-    "./plugins/my-plugin",
-    "~/shared/team-plugin",
-    "/absolute/path/to/plugin"
-  ]
-}
-```
-
-### Path Resolution
-
-- **Relative paths** (`./`, `../`) — Resolved from config file location
-- **Tilde paths** (`~/`) — Expanded to home directory
-- **Absolute paths** (`/`) — Used as-is
-
-### Plugin Names vs Paths
-
-```json
-{
-  "plugins": [
-    // npm packages (by name)
-    "@elizaos/plugin-telegram",
-
-    // Local paths
-    "./plugins/custom",
-
-    // Mix both
-    "@elizaos/plugin-discord",
-    "./plugins/my-discord-extension"
-  ]
-}
-```
-
-### Environment Variable
-
-Override config paths via environment:
-
-```bash
-MILAIDY_CONFIG_DIR=/path/to/config milaidy start
+~/.milaidy/
+├── milaidy.json              # Main config file
+└── plugins/
+    ├── ejected/              # Git-cloned upstream plugins for editing
+    │   └── plugin-telegram/
+    │       ├── .upstream.json
+    │       ├── package.json
+    │       ├── src/
+    │       └── dist/
+    ├── installed/            # Runtime-installed plugins (managed by plugin-installer)
+    │   └── _elizaos_plugin-twitter/
+    │       ├── package.json
+    │       └── node_modules/
+    └── custom/               # Hand-written drop-in plugins
+        └── my-plugin/
+            ├── package.json
+            ├── src/
+            └── dist/
 ```
 
 ---
 
-## Development Workflow
+## Plugin Loading Priority
 
-### Step 1: Create Plugin Structure
+When multiple sources provide the same plugin name, Milaidy uses this precedence (highest first):
+
+| Priority | Source | Path | Use case |
+|----------|--------|------|----------|
+| 1 | **Ejected** | `~/.milaidy/plugins/ejected/` | Modifying upstream plugin source |
+| 2 | **Workspace override** | Internal dev mechanism | Milaidy contributors only |
+| 3 | **Official npm** (with install record) | `node_modules/@elizaos/plugin-*` | Standard `@elizaos/*` plugins prefer bundled copies |
+| 4 | **User-installed** (with install record) | `~/.milaidy/plugins/installed/` | Third-party plugins installed at runtime |
+| 5 | **Local @milady** | `src/plugins/` (compiled dist) | Built-in Milaidy plugins |
+| 6 | **npm fallback** | `import(name)` | Last resort dynamic import |
+
+Custom/drop-in plugins are merged into the install records before resolution, so they participate in priorities 3-4 depending on their package name.
+
+The deny list (`plugins.deny` in `milaidy.json`) takes absolute precedence -- denied plugins are never loaded regardless of source.
+
+---
+
+## Creating a Local Plugin
+
+### Step 1: Create the Directory
 
 ```bash
-mkdir -p plugins/my-plugin/src
-cd plugins/my-plugin
+mkdir -p ~/.milaidy/plugins/custom/my-plugin/src
+cd ~/.milaidy/plugins/custom/my-plugin
+```
 
-# Initialize package
+### Step 2: Initialize package.json
+
+```bash
 cat > package.json << 'EOF'
 {
   "name": "my-plugin",
   "version": "1.0.0",
   "type": "module",
-  "main": "src/index.ts",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
   "dependencies": {
     "@elizaos/core": "^2.0.0"
   }
 }
 EOF
-
-# Install dependencies
-bun install
 ```
 
-### Step 2: Write Your Plugin
+### Step 3: Add tsconfig.json
+
+```bash
+cat > tsconfig.json << 'EOF'
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true
+  },
+  "include": ["src"],
+  "exclude": ["node_modules", "dist"]
+}
+EOF
+```
+
+### Step 4: Write the Plugin
 
 ```typescript
-// plugins/my-plugin/src/index.ts
+// src/index.ts
 import type { Plugin, Action, Provider } from "@elizaos/core";
 
-const myAction: Action = {
-  name: "MY_ACTION",
-  description: "Does something cool",
+const greetAction: Action = {
+  name: "GREET_USER",
+  similes: ["SAY_HELLO", "WELCOME"],
+  description: "Greets the user by name",
   validate: async () => true,
-  handler: async (runtime, message) => {
+  handler: async (runtime, message, state, options) => {
+    const name = options?.parameters?.name ?? "friend";
     return {
       success: true,
-      text: "Action executed!",
+      text: `Hello, ${name}! Welcome to Milaidy.`,
     };
   },
+  parameters: [
+    {
+      name: "name",
+      description: "Name of the person to greet",
+      required: false,
+      schema: { type: "string", default: "friend" },
+    },
+  ],
 };
 
-const myProvider: Provider = {
-  name: "myContext",
+const statusProvider: Provider = {
+  name: "myPluginStatus",
   get: async (runtime, message, state) => {
     return {
-      text: "Custom context from my plugin",
+      text: "My plugin is active and running.",
     };
   },
 };
 
 const plugin: Plugin = {
   name: "my-plugin",
-  description: "My local development plugin",
-  actions: [myAction],
-  providers: [myProvider],
+  description: "A local development plugin",
+  actions: [greetAction],
+  providers: [statusProvider],
   init: async (config, runtime) => {
-    runtime.logger?.info("[my-plugin] Initialized!");
+    runtime.logger?.info("[my-plugin] Initialized successfully");
   },
 };
 
 export default plugin;
 ```
 
-### Step 3: Run in Development Mode
+### Step 5: Install Dependencies and Build
 
 ```bash
-# From project root
-bun run dev
-
-# Or directly
-bun run milaidy start
+cd ~/.milaidy/plugins/custom/my-plugin
+bun install
+bun run build
 ```
 
-### Step 4: Test Your Plugin
+### Step 6: Restart Milaidy
 
-Chat with the agent and trigger your action:
+```bash
+# If running in terminal
+milaidy start
+
+# Or restart via the agent chat
+# Type: /restart
+```
+
+On startup, you should see in the logs:
 
 ```
-You: Do my action
-Agent: Action executed!
+[milady] Discovered 1 custom plugin(s): my-plugin
 ```
 
 ---
 
-## Hot Reloading
+## Configuration
 
-### Using Development Mode
+### Allow and Deny Lists
 
-In dev mode, source changes trigger rebuilds:
+Control which plugins load via `milaidy.json`:
+
+```json
+{
+  "plugins": {
+    "allow": ["my-plugin", "telegram", "@elizaos/plugin-discord"],
+    "deny": ["@elizaos/plugin-shell"]
+  }
+}
+```
+
+When `allow` is set, only listed plugins load (plus core plugins). The `deny` list always wins -- a denied plugin is never loaded even if it appears in `allow`.
+
+Plugin names can be specified as:
+- Full package name: `@elizaos/plugin-telegram`
+- Short id: `telegram` (resolves to `@elizaos/plugin-telegram`)
+- Custom name: `my-plugin` (matches the `name` field in your plugin's `package.json`)
+
+### Per-Plugin Settings
+
+Configure individual plugins under `plugins.entries`:
+
+```json
+{
+  "plugins": {
+    "entries": {
+      "my-plugin": {
+        "enabled": true,
+        "config": {
+          "apiEndpoint": "https://api.example.com",
+          "maxRetries": 3
+        }
+      },
+      "telegram": {
+        "enabled": false
+      }
+    }
+  }
+}
+```
+
+Setting `enabled: false` on an entry prevents that plugin from loading, even if auto-enable logic would otherwise activate it.
+
+### Auto-Enable System
+
+Milaidy automatically enables plugins based on your configuration:
+
+- **Connector plugins**: If a connector (telegram, discord, slack, etc.) has credentials configured under `connectors`, its plugin is auto-enabled.
+- **Provider plugins**: If an API key env var is set (e.g., `ANTHROPIC_API_KEY`), the corresponding provider plugin is auto-enabled.
+- **Feature plugins**: If a feature flag is enabled under `features`, its plugin is auto-enabled.
+
+This happens at startup via `applyPluginAutoEnable()` and does not modify your config file -- it only affects the in-memory plugin set for that session.
+
+---
+
+## Plugin Installer
+
+The plugin installer (`plugin-installer.ts`) handles runtime installation of plugins from the registry.
+
+### How It Works
+
+1. **Resolves** the plugin name against the plugin registry
+2. **Installs** via `bun add` (preferred) or `npm install` (fallback) into an isolated directory at `~/.milaidy/plugins/installed/<sanitised-name>/`
+3. **Falls back** to `git clone` if the npm install fails
+4. **Validates** that the installed plugin has a resolvable entry point
+5. **Records** the installation in `milaidy.json` under `plugins.installs`
+6. **Triggers** an agent restart to load the new plugin
+
+### Package Name Sanitisation
+
+The installer sanitises package names for directory names by replacing non-alphanumeric characters (except `.`, `-`, `_`) with underscores. For example, `@elizaos/plugin-twitter` becomes `_elizaos_plugin-twitter`.
+
+### Install Record
+
+Each installed plugin is tracked in `milaidy.json`:
+
+```json
+{
+  "plugins": {
+    "installs": {
+      "@elizaos/plugin-twitter": {
+        "source": "npm",
+        "spec": "@elizaos/plugin-twitter@1.0.0",
+        "installPath": "/Users/you/.milaidy/plugins/installed/_elizaos_plugin-twitter",
+        "version": "1.0.0",
+        "installedAt": "2026-02-19T12:00:00.000Z"
+      }
+    }
+  }
+}
+```
+
+### Serialisation
+
+The installer uses a serialisation lock to prevent concurrent installs from corrupting the config. Multiple install requests are queued and executed sequentially.
+
+### Uninstalling
+
+Uninstallation removes the plugin directory from disk and deletes its record from `milaidy.json`. Core/built-in plugins cannot be uninstalled. The uninstaller refuses to delete directories outside `~/.milaidy/plugins/installed/` as a safety measure.
+
+---
+
+## Ejecting Upstream Plugins
+
+The eject system lets you clone an upstream plugin's source, modify it, and have Milaidy load your local copy instead of the npm package.
+
+### Eject via Agent Chat
+
+```
+eject the telegram plugin so I can edit its source
+```
+
+### Eject Manually
 
 ```bash
-bun run dev
+git clone --branch 1.x --depth 1 \
+  https://github.com/elizaos-plugins/plugin-telegram.git \
+  ~/.milaidy/plugins/ejected/plugin-telegram
+
+cd ~/.milaidy/plugins/ejected/plugin-telegram
+bun install
+bun run build
 ```
 
-However, plugins may require an agent restart to reload:
+### Upstream Tracking
 
+Each ejected plugin has a `.upstream.json` at its root:
+
+```json
+{
+  "$schema": "milaidy-upstream-v1",
+  "source": "github:elizaos-plugins/plugin-telegram",
+  "gitUrl": "https://github.com/elizaos-plugins/plugin-telegram.git",
+  "branch": "1.x",
+  "commitHash": "093613e...",
+  "ejectedAt": "2026-02-19T08:00:00Z",
+  "npmPackage": "@elizaos/plugin-telegram",
+  "npmVersion": "1.6.4",
+  "lastSyncAt": null,
+  "localCommits": 0
+}
 ```
-You: /restart
-Agent: Restarting...
-```
 
-### Manual Restart
-
-If changes aren't picked up:
+### Syncing with Upstream
 
 ```bash
-# Ctrl+C to stop
-bun run dev  # Restart
+cd ~/.milaidy/plugins/ejected/plugin-telegram
+git fetch origin
+git pull --rebase origin 1.x
+bun run build
 ```
 
-### Watch Mode for Plugin Development
+Or via agent chat: `sync the ejected telegram plugin`
 
-For faster iteration, use a separate watch process:
+### Reverting (Reinject)
+
+Remove the ejected directory to fall back to the npm version:
 
 ```bash
-# Terminal 1: Watch plugin
-cd plugins/my-plugin
-bun run tsc --watch
-
-# Terminal 2: Run agent
-cd ../..
-bun run dev
+rm -rf ~/.milaidy/plugins/ejected/plugin-telegram
+# Restart milaidy -- it will load the npm version again
 ```
+
+Or via agent chat: `reinject the telegram plugin`
+
+---
+
+## Development Workflow
+
+### Edit-Build-Restart Cycle
+
+The standard development loop for local plugins:
+
+```bash
+# Terminal 1: Watch and rebuild on changes
+cd ~/.milaidy/plugins/custom/my-plugin
+bun run dev  # runs tsc --watch
+
+# Terminal 2: Run milaidy
+milaidy start
+```
+
+After making changes, the TypeScript watcher rebuilds `dist/` automatically. You still need to restart the agent to pick up the new build:
+
+- Type `/restart` in the agent chat, or
+- Press Ctrl+C and run `milaidy start` again
+
+### Testing Your Plugin
+
+Chat with the agent and trigger your action:
+
+```
+You: Greet me as Alice
+Agent: Hello, Alice! Welcome to Milaidy.
+```
+
+Check the logs for your plugin's initialization message and any debug output.
+
+### Quick Iteration Without tsc --watch
+
+If you prefer manual builds:
+
+```bash
+cd ~/.milaidy/plugins/custom/my-plugin
+bun run build && milaidy start
+```
+
+### Using Source Directly (Development Only)
+
+For rapid prototyping, you can point `main` at the TypeScript source:
+
+```json
+{
+  "main": "src/index.ts"
+}
+```
+
+Milaidy's runtime can import TypeScript files directly in dev mode. Switch to `dist/index.js` before distributing.
 
 ---
 
 ## Debugging
 
-### Logging
+### Log Levels
 
-Use the runtime logger for debug output:
-
-```typescript
-const plugin: Plugin = {
-  name: "my-plugin",
-  description: "Debugging example",
-
-  init: async (config, runtime) => {
-    runtime.logger?.debug("[my-plugin] Debug info", { config });
-    runtime.logger?.info("[my-plugin] Initialized");
-    runtime.logger?.warn("[my-plugin] Warning message");
-    runtime.logger?.error("[my-plugin] Error occurred", { error: "details" });
-  },
-
-  actions: [{
-    name: "DEBUG_ACTION",
-    description: "Test debugging",
-    validate: async () => true,
-    handler: async (runtime, message) => {
-      runtime.logger?.info("[my-plugin] Action handler called", {
-        messageId: message.id,
-        content: message.content,
-      });
-
-      return { success: true, text: "Check logs!" };
-    },
-  }],
-};
-```
-
-### Enable Verbose Logging
+Milaidy reads the log level from `LOG_LEVEL` env var or `logging.level` in config. If `LOG_LEVEL` is set in the environment, it takes precedence over the config value.
 
 ```bash
-# Environment variable
-LOG_LEVEL=debug bun run dev
+# Verbose logging via environment variable
+LOG_LEVEL=debug milaidy start
+```
 
-# Or in config
+Or set it in `milaidy.json`:
+
+```json
 {
   "logging": {
     "level": "debug"
@@ -335,12 +495,36 @@ LOG_LEVEL=debug bun run dev
 }
 ```
 
-### Breakpoint Debugging
+Available levels: `debug`, `info`, `warn`, `error` (default).
 
-With VS Code:
+### Plugin Logging
+
+Use the runtime logger inside your plugin:
+
+```typescript
+init: async (config, runtime) => {
+  runtime.logger?.debug("[my-plugin] Detailed debug info", { config });
+  runtime.logger?.info("[my-plugin] Plugin initialized");
+  runtime.logger?.warn("[my-plugin] Something looks off");
+  runtime.logger?.error("[my-plugin] Something failed", { error: "details" });
+},
+```
+
+### Source Maps
+
+Enable source maps for readable stack traces pointing to your TypeScript source:
+
+```bash
+NODE_OPTIONS="--enable-source-maps" milaidy start
+```
+
+Make sure `"sourceMap": true` is set in your `tsconfig.json` (included in the template above).
+
+### VS Code Debugging
+
+Create `.vscode/launch.json` in your project:
 
 ```json
-// .vscode/launch.json
 {
   "version": "0.2.0",
   "configurations": [
@@ -349,8 +533,11 @@ With VS Code:
       "request": "launch",
       "name": "Debug Milaidy",
       "runtimeExecutable": "bun",
-      "runtimeArgs": ["milaidy", "start"],
+      "runtimeArgs": ["run", "milaidy", "start"],
       "cwd": "${workspaceFolder}",
+      "env": {
+        "LOG_LEVEL": "debug"
+      },
       "console": "integratedTerminal",
       "skipFiles": ["<node_internals>/**"]
     }
@@ -358,29 +545,50 @@ With VS Code:
 }
 ```
 
+Set breakpoints in your plugin's TypeScript files and launch with F5.
+
 ### Common Issues
 
-**Plugin not loading:**
-```bash
-# Check plugin discovery
-milaidy plugins list
+**Plugin not discovered at startup:**
+- Verify the plugin directory is directly under `~/.milaidy/plugins/custom/` (not nested deeper)
+- Confirm `package.json` exists and has a `name` field
+- Check that `main` in `package.json` points to an existing file
+- Look for `[milady] Discovered N custom plugin(s)` in the startup logs
 
-# Verify export
-node -e "import('./plugins/my-plugin/src/index.ts').then(m => console.log(m.default))"
+**Plugin discovered but fails to load:**
+- Run `bun run build` -- the `dist/` directory may be missing
+- Verify the default export is a valid Plugin object with `name` and `description`
+- Check for import errors in the logs: `LOG_LEVEL=debug milaidy start`
+
+**Plugin denied or filtered out:**
+- Check `plugins.deny` in `milaidy.json` -- your plugin name may be listed
+- If `plugins.allow` is set, your plugin must be in the allowlist
+- Check `plugins.entries.<name>.enabled` is not set to `false`
+
+**TypeScript compilation errors:**
+```bash
+cd ~/.milaidy/plugins/custom/my-plugin
+bun run tsc --noEmit  # Type-check without emitting
 ```
 
-**TypeScript errors:**
-```bash
-# Check types
-cd plugins/my-plugin
-bun run tsc --noEmit
-```
+---
 
-**Runtime errors:**
-```bash
-# Run with full error traces
-NODE_OPTIONS="--enable-source-maps" bun run dev
-```
+## Environment Variables
+
+These environment variables affect plugin paths and behavior. They are defined in `src/config/paths.ts`.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `MILADY_STATE_DIR` | `~/.milaidy` | Override the state directory. Changes where plugins, config, and credentials are stored. |
+| `MILADY_CONFIG_PATH` | `~/.milaidy/milaidy.json` | Override the config file path directly. |
+| `MILADY_OAUTH_DIR` | `~/.milaidy/credentials` | Override the OAuth credentials directory. |
+| `LOG_LEVEL` | `error` | Set log verbosity: `debug`, `info`, `warn`, `error`. |
+| `MILADY_DISABLE_WORKSPACE_PLUGIN_OVERRIDES` | unset | Set to `1` to disable workspace plugin overrides (dev-only mechanism). |
+
+When `MILADY_STATE_DIR` is set, all derived paths change accordingly:
+- Plugins: `$MILADY_STATE_DIR/plugins/installed/`, `$MILADY_STATE_DIR/plugins/custom/`, `$MILADY_STATE_DIR/plugins/ejected/`
+- Config: `$MILADY_STATE_DIR/milaidy.json` (unless `MILADY_CONFIG_PATH` is also set)
+- Models cache: `$MILADY_STATE_DIR/models/`
 
 ---
 
@@ -388,7 +596,7 @@ NODE_OPTIONS="--enable-source-maps" bun run dev
 
 When your plugin is ready for distribution:
 
-### Step 1: Update package.json
+### 1. Update package.json
 
 ```json
 {
@@ -400,7 +608,7 @@ When your plugin is ready for distribution:
   "files": ["dist"],
   "scripts": {
     "build": "tsc",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "bun run build"
   },
   "peerDependencies": {
     "@elizaos/core": "^2.0.0"
@@ -408,145 +616,33 @@ When your plugin is ready for distribution:
 }
 ```
 
-### Step 2: Add tsconfig.json
-
-```json
-{
-  "compilerOptions": {
-    "target": "ES2022",
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    "declaration": true,
-    "outDir": "./dist",
-    "rootDir": "./src",
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true
-  },
-  "include": ["src"],
-  "exclude": ["node_modules", "dist"]
-}
-```
-
-### Step 3: Build and Publish
+### 2. Build and Publish
 
 ```bash
-# Build
-npm run build
-
-# Test the build
-npm pack
-tar -tzf *.tgz
-
-# Publish
+cd ~/.milaidy/plugins/custom/my-plugin
+bun run build
+npm pack              # Preview what gets published
 npm publish --access public
 ```
 
-### Step 4: Use in Projects
+### 3. Install via Milaidy
+
+Once published, install through the agent chat or directly in config:
 
 ```json
 {
-  "plugins": ["@yourorg/plugin-my-feature"]
-}
-```
-
----
-
-## Examples
-
-### Example: API Integration Plugin
-
-```
-plugins/api-tracker/
-├── package.json
-├── src/
-│   ├── index.ts
-│   ├── client.ts
-│   └── actions.ts
-└── tsconfig.json
-```
-
-```typescript
-// src/client.ts
-export class ApiClient {
-  constructor(private apiKey: string) {}
-
-  async fetch(endpoint: string) {
-    const res = await fetch(`https://api.example.com/${endpoint}`, {
-      headers: { Authorization: `Bearer ${this.apiKey}` },
-    });
-    return res.json();
+  "plugins": {
+    "allow": ["@yourorg/plugin-my-feature"]
   }
 }
 ```
 
-```typescript
-// src/actions.ts
-import type { Action } from "@elizaos/core";
-import { ApiClient } from "./client.js";
-
-export const fetchDataAction: Action = {
-  name: "FETCH_DATA",
-  description: "Fetch data from the external API",
-  validate: async (runtime) => {
-    return !!runtime.getSetting("MY_API_KEY");
-  },
-  handler: async (runtime, message, state, options) => {
-    const apiKey = runtime.getSetting("MY_API_KEY");
-    const client = new ApiClient(apiKey);
-
-    const endpoint = options?.parameters?.endpoint as string ?? "data";
-    const data = await client.fetch(endpoint);
-
-    return {
-      success: true,
-      text: `Fetched ${data.items?.length ?? 0} items`,
-      data,
-    };
-  },
-  parameters: [{
-    name: "endpoint",
-    description: "API endpoint to fetch",
-    required: false,
-    schema: { type: "string", default: "data" },
-  }],
-};
-```
-
-```typescript
-// src/index.ts
-import type { Plugin } from "@elizaos/core";
-import { fetchDataAction } from "./actions.js";
-
-const plugin: Plugin = {
-  name: "api-tracker",
-  description: "Integrates with external API",
-  actions: [fetchDataAction],
-  config: {
-    requiredSettings: ["MY_API_KEY"],
-  },
-};
-
-export default plugin;
-```
-
----
-
-## Best Practices
-
-1. **Start simple** — Begin with minimal functionality, iterate
-2. **Use TypeScript** — Catch errors early with type checking
-3. **Log extensively** — Use runtime.logger during development
-4. **Test actions manually** — Chat with the agent to verify behavior
-5. **Handle errors gracefully** — Return meaningful error messages
-6. **Document configuration** — List required settings and env vars
-7. **Keep plugins focused** — One plugin per concern
-8. **Version your plugins** — Even for local development
+Remove the local copy from `~/.milaidy/plugins/custom/` to avoid loading both versions.
 
 ---
 
 ## Next Steps
 
-- [Plugin Development Guide](./plugin-development.md) — Full plugin reference
-- [Skills Documentation](./skills.md) — Lighter-weight extensions
-- [Contributing Guide](./contributing.md) — Contributing upstream
+- [Plugin Development Guide](./plugin-development.md) -- Full plugin API reference
+- [Skills Documentation](./skills.md) -- Lighter-weight extensions
+- [Contributing Guide](./contributing.md) -- Contributing plugins upstream
