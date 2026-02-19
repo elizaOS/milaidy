@@ -4,77 +4,305 @@ sidebarTitle: "Quick Start"
 description: "Get Milaidy up and running in under a minute."
 ---
 
-## Install and Setup
+This guide walks through what happens the first time you launch Milaidy, from installation to your first conversation.
 
-```bash
-curl -fsSL https://milady-ai.github.io/milady/install.sh | bash
-milaidy setup
-```
+## Install
 
-Then start Milaidy:
+If you haven't installed yet, the fastest path:
+
+<Tabs>
+  <Tab title="Desktop App">
+    Download from [GitHub Releases](https://github.com/milady-ai/milady/releases/latest) and open the `.dmg` (macOS), `.exe` (Windows), or `.AppImage` (Linux).
+  </Tab>
+  <Tab title="CLI (macOS / Linux)">
+    ```bash
+    curl -fsSL https://milady-ai.github.io/milady/install.sh | bash
+    milaidy setup
+    ```
+  </Tab>
+  <Tab title="CLI (Windows)">
+    ```powershell
+    irm https://milady-ai.github.io/milady/install.ps1 | iex
+    ```
+  </Tab>
+  <Tab title="npm">
+    ```bash
+    npm install -g milaidy
+    milaidy setup
+    ```
+  </Tab>
+</Tabs>
+
+Then start:
 
 ```bash
 milaidy
 ```
 
-## First Run
+## What Happens on First Run
 
-First run walks you through onboarding:
+When Milaidy detects no existing agent configuration (no `name` field in `~/.milady/milady.json`), it launches an interactive onboarding wizard. The wizard runs in your terminal via [@clack/prompts](https://github.com/bombshell-dev/clack) and walks through five steps: naming your agent, choosing a personality, selecting a model provider, setting up wallets, and saving everything to config.
+
+<Info>
+The onboarding wizard only runs when stdin is a TTY (interactive terminal). In headless or piped environments, Milaidy skips onboarding and expects a pre-configured `milady.json`.
+</Info>
+
+## The Onboarding Flow
+
+<Steps>
+  <Step title="Welcome">
+    Milaidy greets you with a welcome banner:
+
+    ```
+    ┌  WELCOME TO MILADY!
+    ```
+  </Step>
+
+  <Step title="Name your agent">
+    The wizard presents 4 randomly selected names from a pool of 64 options (Japanese-inspired names like Reimu, Sakuya, Yukari, Marisa, Koishi, Remilia, etc.) plus a "Custom..." option to type your own:
+
+    ```
+    ◇  ♡♡milady♡♡: Hey there, I'm.... err, what was my name again?
+    │  ● Sakuya
+    │  ○ Reimu
+    │  ○ Koishi
+    │  ○ Marisa
+    │  ○ Custom...
+    ```
+
+    Pick a name or enter your own. The agent confirms: *"Oh that's right, I'm Sakuya!"*
+  </Step>
+
+  <Step title="Choose a personality">
+    Select from 7 style presets that define how your agent communicates. Each preset sets the agent's bio, system prompt, writing style, adjectives, topics, and example messages:
+
+    | Catchphrase | Hint | Description |
+    |-------------|------|-------------|
+    | `uwu~` | soft & sweet | Warm, gentle, kaomoji and tildes. Cozy lo-fi energy. |
+    | `hell yeah` | bold & fearless | Direct, confident, ships fast. Three espressos. |
+    | `lol k` | terminally online | Internet-native shorthand. Ironic, deadpan, meme-literate. |
+    | `Noted.` | composed & precise | Measured, articulate, every word chosen carefully. |
+    | `hehe~` | playful trickster | Mischievous, witty, sneaks wisdom inside humor. |
+    | `...` | quiet intensity | Terse fragments. Ellipses for weight. Less is more. |
+    | `lmao kms` | unhinged & dark | Abrasive humor, aggressive helpfulness. Roast then answer. |
+
+    ```
+    ◇  Sakuya: Now... how do I like to talk again?
+    │  ● uwu~       (soft & sweet)
+    │  ○ hell yeah   (bold & fearless)
+    │  ○ lol k       (terminally online)
+    │  ○ Noted.      (composed & precise)
+    │  ○ hehe~       (playful trickster)
+    │  ○ ...         (quiet intensity)
+    │  ○ lmao kms    (unhinged & dark)
+    ```
+
+    The chosen preset is combined with randomly sampled lines from shared bio and system prompt pools (milady/netart/internet culture aesthetic) to create a unique character every time.
+  </Step>
+
+  <Step title="Select a model provider">
+    If no API key is already detected in your environment, the wizard asks you to pick a provider:
+
+    ```
+    ◇  Sakuya: One more thing — which AI provider should I use?
+    │  ● Anthropic (Claude)
+    │  ○ OpenAI (GPT)
+    │  ○ OpenRouter
+    │  ○ Vercel AI Gateway
+    │  ○ Google Gemini
+    │  ○ xAI (Grok)
+    │  ○ Groq
+    │  ○ DeepSeek
+    │  ○ Mistral
+    │  ○ Together AI
+    │  ○ Ollama (local, free)
+    │  ○ Skip for now
+    ```
+
+    After selecting a provider, you paste your API key (masked input). For Ollama, you confirm or change the base URL (default: `http://localhost:11434`).
+
+    <Info>
+    If Milaidy detects an existing API key in your environment (e.g., `ANTHROPIC_API_KEY` is already set), it skips this step and uses the detected provider automatically.
+    </Info>
+  </Step>
+
+  <Step title="Set up crypto wallets (optional)">
+    The wizard offers to set up EVM and Solana wallets for on-chain interactions:
+
+    ```
+    ◇  Sakuya: Do you want me to set up crypto wallets? (for trading, NFTs, DeFi)
+    │  ● Generate new wallets
+    │  ○ Import existing wallets
+    │  ○ Skip for now
+    ```
+
+    - **Generate new wallets** creates fresh EVM and Solana keypairs and prints the public addresses.
+    - **Import existing wallets** lets you paste private keys (EVM hex or Solana base58).
+    - **Skip for now** defers wallet setup. You can add wallets later through config.
+
+    Private keys are stored in the `env` section of `~/.milady/milady.json`.
+  </Step>
+
+  <Step title="Configuration saved">
+    The wizard writes everything to `~/.milady/milady.json`:
+    - Agent name and personality (bio, system prompt, style rules, adjectives, topics, examples)
+    - Provider API key in the `env` section
+    - Wallet keys (if generated/imported)
+    - Skills registry (defaults to `https://clawhub.ai`)
+
+    ```
+    ◇  Sakuya: uwu~ Alright, that's me.
+    └  Let's get started!
+    ```
+
+    The agent starts, the gateway binds, and services come online.
+  </Step>
+</Steps>
+
+## After Onboarding
+
+Once onboarding completes, Milaidy starts the following services:
+
+| Service | URL | Description |
+|---------|-----|-------------|
+| Web Dashboard | `http://localhost:2138` | Chat UI, session management, agent configuration |
+| Gateway | `ws://localhost:18789` | WebSocket + HTTP API for all clients and connectors |
+
+The desktop app opens the dashboard automatically. The CLI version prints the URLs and enters the interactive chat loop or TUI.
+
+## Your First Conversation
+
+With the agent running, open `http://localhost:2138` in your browser or type directly in the terminal. Try a few things:
 
 ```
-┌  WELCOME TO MILAIDY!
-│
-◇  ♡♡milaidy♡♡: Hey there, I'm.... err, what was my name again?
-│  ● mila
-│  ○ (random name)
-│  ○ (random name)
-│  ○ (random name)
-│  ○ Custom...
-│
-◇  mila: Now... how do I like to talk again?
-│  ● uwu~       (soft & sweet)
-│  ○ hell yeah   (bold & fearless)
-│  ○ lol k       (terminally online)
-│  ○ Noted.      (composed & precise)
-│  ○ hehe~       (playful trickster)
-│  ○ ...         (quiet intensity)
-│  ○ lmao kms    (unhinged & dark)
-│
-◇  mila: One more thing — which AI provider should I use?
-│  ● Anthropic (Claude)
-│  ○ OpenAI (GPT)
-│  ○ OpenRouter
-│  ○ Vercel AI Gateway
-│  ○ Google Gemini
-│  ○ xAI (Grok)
-│  ○ Groq
-│  ○ DeepSeek
-│  ○ Mistral
-│  ○ Together AI
-│  ○ Ollama (local, free)
-│  ○ Skip for now
-│
-◇  API key?
-│  sk-ant-•••••••••••••••••
-│
-└  Let's get started!
+you: hey, what can you do?
+you: help me write a python script that reads a CSV
+you: /status
+you: /think high
+you: explain how transformers work
 ```
 
-The dashboard will be available at `http://localhost:2138` and the gateway at `ws://localhost:18789`.
+### Useful Chat Commands
 
-## What's Next?
+| Command | What It Does |
+|---------|-------------|
+| `/status` | Show session status, token count, and cost |
+| `/new` or `/reset` | Clear memory, start a fresh session |
+| `/compact` | Compress context (the agent summarizes the conversation) |
+| `/think <level>` | Set reasoning depth: `off`, `minimal`, `low`, `medium`, `high`, `max` |
+| `/model <id>` | Switch model mid-session (e.g., `/model openai/gpt-4o`) |
+| `/verbose on\|off` | Toggle verbose responses |
+| `/usage off\|tokens\|full` | Control per-message token display |
+| `/help` | List all available commands |
+
+## Common First-Run Scenarios
+
+<Tabs>
+  <Tab title="Desktop App">
+    The desktop app packages everything -- no terminal needed.
+
+    1. Download and install from [Releases](https://github.com/milady-ai/milady/releases/latest).
+    2. Launch the app. The onboarding wizard runs inside the built-in web UI.
+    3. The dashboard opens automatically. Start chatting.
+
+    The desktop app includes auto-updates, system tray integration, and native window management.
+  </Tab>
+
+  <Tab title="Headless Server">
+    For running on a VPS or in a Docker container without a display:
+
+    ```bash
+    # Install
+    curl -fsSL https://milady-ai.github.io/milady/install.sh | bash
+
+    # Pre-configure (skip interactive onboarding)
+    mkdir -p ~/.milady
+    cat > ~/.milady/milady.json << 'EOF'
+    {
+      "agents": {
+        "list": [
+          {
+            "id": "main",
+            "name": "mila",
+            "default": true
+          }
+        ]
+      },
+      "env": {
+        "ANTHROPIC_API_KEY": "sk-ant-your-key-here"
+      }
+    }
+    EOF
+
+    # Start headless
+    milaidy start --headless
+    ```
+
+    <Warning>
+    When binding to `0.0.0.0` for network access, always set `MILADY_API_TOKEN` for authentication. See the [Installation](/installation#security-api-token) page.
+    </Warning>
+  </Tab>
+
+  <Tab title="TUI (Terminal Interface)">
+    The TUI provides a rich terminal interface with live activity feed, hotkeys, and token tracking:
+
+    ```bash
+    milaidy tui
+    ```
+
+    Or during development:
+
+    ```bash
+    bun run tui
+    ```
+
+    The TUI expects an existing `~/.milady/milady.json` config file. Run `milaidy` first to go through onboarding, then switch to TUI mode.
+
+    **TUI Hotkeys:**
+
+    | Key | Action |
+    |-----|--------|
+    | `q` | Quit gracefully |
+    | `r` | Restart gateway |
+    | `d` | Open dashboard in browser |
+    | `l` | Toggle log view |
+    | `c` | Compact/clear activity |
+    | `?` | Show help |
+    | Arrow keys | Scroll activity |
+  </Tab>
+
+  <Tab title="Existing ElizaOS Users">
+    Milaidy is built on ElizaOS, so the plugin system, action/provider/evaluator patterns, and character format are all compatible. Key differences:
+
+    - **Config location**: `~/.milady/milady.json` instead of an inline character file.
+    - **Gateway**: Milaidy adds a multiplexed WebSocket + HTTP gateway on port 18789.
+    - **Onboarding**: The first-run wizard generates a character from style presets and random pool sampling.
+    - **Plugin manager**: Install plugins via `milaidy plugins add <name>` -- they are tracked in config and auto-loaded.
+    - **Skills**: Markdown-based extensions via ClawHub registry, separate from the plugin system.
+
+    Existing ElizaOS plugins are fully compatible. Add them to your config or install via the plugin manager.
+  </Tab>
+</Tabs>
+
+## Next Steps
 
 <CardGroup cols={2}>
   <Card title="Configuration" icon="gear" href="/configuration">
-    Customize ports, config file, and model providers
+    Customize your agent's model, personality, ports, and plugin list
   </Card>
-  <Card title="CLI Reference" icon="terminal" href="/cli-reference">
-    All available terminal commands
+  <Card title="Autonomous Mode" icon="robot" href="/guides/autonomous-mode">
+    Set up triggers and let your agent work independently
   </Card>
-  <Card title="Chat Commands" icon="message" href="/chat-commands">
-    In-session commands for controlling your agent
+  <Card title="Plugins & Skills" icon="puzzle-piece" href="/guides/plugin-development">
+    Extend capabilities with plugins or install skills from ClawHub
   </Card>
-  <Card title="Plugin Development" icon="puzzle-piece" href="/guides/plugin-development">
-    Extend Milaidy with custom plugins
+  <Card title="Connectors" icon="plug" href="/guides/connectors">
+    Connect to Telegram, Discord, WhatsApp, and more
+  </Card>
+  <Card title="Dashboard Guide" icon="browser" href="/guides/dashboard">
+    Learn the web UI features and session management
+  </Card>
+  <Card title="Model Providers" icon="microchip" href="/model-providers">
+    Detailed setup for each of the 11 supported providers
   </Card>
 </CardGroup>

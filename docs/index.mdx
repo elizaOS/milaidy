@@ -4,11 +4,9 @@ sidebarTitle: "Introduction"
 description: "Your personal AI assistant that runs on YOUR machine. Local-first, multi-provider, extensible."
 ---
 
-> *your schizo AI waifu that actually respects your privacy*
+**Milaidy** is a local-first AI assistant built on [ElizaOS](https://github.com/elizaOS). It runs entirely on your machine -- not in a datacenter, not in the cloud. It manages your sessions, tools, and agent personality through a Gateway control plane, connects to Telegram, Discord, and other platforms, and ships with a web dashboard for real-time interaction.
 
-**Milaidy** is a personal AI assistant that runs on YOUR machine. Not some glowie datacenter. Not the cloud. YOUR computer. Built on [elizaOS](https://github.com/elizaOS), it manages your sessions, tools, and vibes through a Gateway control plane. Connects to Telegram, Discord, whatever normie platform you use. Has a cute WebChat UI too.
-
-tl;dr: local AI gf that's actually fast and doesn't phone home
+It supports 11 model providers out of the box (including fully local inference via Ollama), has a growing plugin ecosystem powered by ElizaOS, a skills marketplace via [ClawHub](https://clawhub.ai), and runs on every major platform: desktop, mobile, web, CLI, and Chrome extension.
 
 <CardGroup cols={2}>
   <Card title="Installation" icon="download" href="/installation">
@@ -17,19 +15,117 @@ tl;dr: local AI gf that's actually fast and doesn't phone home
   <Card title="Quick Start" icon="rocket" href="/quickstart">
     Get up and running in under a minute
   </Card>
-  <Card title="Plugin Development" icon="puzzle-piece" href="/guides/plugin-development">
-    Extend Milaidy with custom plugins
+  <Card title="Configuration" icon="gear" href="/configuration">
+    Customize providers, ports, and agent personality
   </Card>
   <Card title="CLI Reference" icon="terminal" href="/cli-reference">
     All terminal commands and options
   </Card>
+  <Card title="Plugin Development" icon="puzzle-piece" href="/guides/plugin-development">
+    Extend Milaidy with custom plugins
+  </Card>
+  <Card title="Architecture" icon="sitemap" href="/architecture">
+    How the runtime, gateway, and plugins fit together
+  </Card>
 </CardGroup>
 
-## Highlights
+## Why Milaidy
 
-- **Local-first** — runs entirely on your machine, no data leaves unless you want it to
-- **Multi-provider** — Anthropic, OpenAI, OpenRouter, Google Gemini, xAI, Groq, DeepSeek, Mistral, Together AI, Ollama, Vercel AI Gateway
-- **Plugins** — extend with custom functionality via the elizaOS plugin system
-- **Skills** — markdown-based extensions that teach the agent new capabilities
-- **Wallet** — built-in crypto wallet for on-chain interactions
-- **Cross-platform** — macOS, Windows, Linux — desktop app or CLI
+### Local-First Privacy
+
+Milaidy runs on your hardware. Your conversations, memory, and wallet keys stay in `~/.milady/` on your local filesystem. Nothing leaves your machine unless you explicitly connect an external service. Even embedding generation can run locally via the `plugin-local-embedding` package.
+
+### Multi-Model, Multi-Provider
+
+Connect to any of 11 supported AI providers -- or run fully offline with Ollama:
+
+| Provider | What You Get |
+|----------|-------------|
+| **Anthropic** | Claude (recommended) |
+| **OpenAI** | GPT-4o, o1, and friends |
+| **OpenRouter** | 100+ models through one API |
+| **Google Gemini** | Gemini Pro and Ultra |
+| **xAI** | Grok |
+| **Groq** | Ultra-fast inference |
+| **DeepSeek** | Reasoning models |
+| **Mistral** | Open-weight European models |
+| **Together AI** | Open-source model hosting |
+| **Vercel AI Gateway** | Unified gateway access |
+| **Ollama** | Fully local, free, no API key |
+
+Switch providers mid-conversation with `/model <id>`. No lock-in.
+
+### Plugin Ecosystem
+
+Milaidy ships with 25+ first-party ElizaOS plugins covering knowledge management, browser automation, computer use, Discord, Telegram, TTS (Edge TTS and ElevenLabs), PDF processing, shell access, cron scheduling, trust scoring, and more. Third-party plugins install with a single command through the plugin manager.
+
+### Skills Marketplace
+
+Skills are markdown-based extensions that teach your agent new capabilities without writing code. Browse and install skills from [ClawHub](https://clawhub.ai), the default skills registry, or point to your own registry.
+
+### Autonomous Mode
+
+Milaidy can operate autonomously -- executing scheduled tasks, running multi-step workflows, and maintaining its own loop of thoughts and actions. Configure triggers (interval, cron, or one-shot) and let the agent work on your behalf.
+
+### Built-In Crypto Wallet
+
+The onboarding flow can generate or import EVM and Solana wallets. Keys are stored locally in your config and available to plugins at runtime for on-chain interactions, trading, and DeFi.
+
+## Platform Support
+
+Milaidy is a single codebase that targets every surface you need:
+
+<CardGroup cols={3}>
+  <Card title="Desktop" icon="desktop">
+    Electron app for macOS, Windows, and Linux. Native system tray, auto-updates, and offline support.
+  </Card>
+  <Card title="Mobile" icon="mobile">
+    Capacitor builds for Android and iOS. Same web dashboard, native container.
+  </Card>
+  <Card title="Web Dashboard" icon="browser">
+    Real-time chat UI at `localhost:2138`. Manage sessions, view activity, configure your agent.
+  </Card>
+  <Card title="CLI / TUI" icon="terminal">
+    Full-featured terminal interface with hotkeys, live activity feed, and token tracking.
+  </Card>
+  <Card title="Chrome Extension" icon="chrome">
+    Browser integration for web-context actions and quick access.
+  </Card>
+  <Card title="Headless" icon="server">
+    Server mode for deployment. No UI, just the gateway and API.
+  </Card>
+</CardGroup>
+
+## Architecture at a Glance
+
+Milaidy is structured as a layered system:
+
+```
+ User Interfaces (Desktop / Mobile / Web / CLI / TUI)
+                         |
+                    API Server (HTTP + WebSocket on :2138)
+                         |
+                   Gateway (:18789)
+                         |
+                  ElizaOS Runtime
+                    |         |
+            Milaidy Plugin    Other Plugins
+            (personality,     (knowledge, browser,
+             wallet, skills,   TTS, Discord, Telegram,
+             autonomous state) shell, cron, ...)
+                    |
+              Connector Layer
+         (Telegram, Discord, WebChat, ...)
+```
+
+- **ElizaOS Runtime** -- the core agent framework that handles memory, message processing, action dispatch, and provider abstraction.
+- **Milaidy Plugin** -- a first-party ElizaOS plugin that provides workspace context, session keys, personality presets, autonomous state, and wallet integration.
+- **Gateway** -- a WebSocket + HTTP multiplexed server that bridges the runtime to all connected clients and connectors.
+- **Plugin System** -- standard ElizaOS plugins that add capabilities (knowledge, browser, TTS, etc.).
+- **Connector Layer** -- platform-specific adapters for Telegram, Discord, and the web chat UI.
+
+All configuration lives in `~/.milady/milady.json`. Secrets can go in `~/.milady/.env`.
+
+<Info>
+Milaidy is currently in alpha (`v2.0.0-alpha`). APIs and configuration may change between releases. Check the [GitHub releases](https://github.com/milady-ai/milady/releases) for the latest version.
+</Info>
