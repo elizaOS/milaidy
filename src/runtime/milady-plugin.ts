@@ -11,6 +11,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type {
+  Action,
   IAgentRuntime,
   Memory,
   MessagePayload,
@@ -34,6 +35,8 @@ import { logLevelAction } from "../actions/log-level.js";
 import { mediaActions } from "../actions/media.js";
 import { restartAction } from "../actions/restart.js";
 import { terminalAction } from "../actions/terminal.js";
+import { loadMiladyConfig } from "../config/config.js";
+import type { CustomActionDef } from "../config/types.milady.js";
 import { EMOTE_CATALOG } from "../emotes/catalog.js";
 import { createAdminTrustProvider } from "../providers/admin-trust.js";
 import {
@@ -47,10 +50,76 @@ import {
 import { createSimpleModeProvider } from "../providers/simple-mode.js";
 import { DEFAULT_AGENT_WORKSPACE_DIR } from "../providers/workspace.js";
 import { createWorkspaceProvider } from "../providers/workspace-provider.js";
-import {
-  loadCustomActions,
-  setCustomActionsRuntime,
-} from "./custom-actions.js";
+
+function loadEnabledCustomActionDefs(): CustomActionDef[] {
+  const defs = loadMiladyConfig().customActions ?? [];
+  return defs.filter((def) => def.enabled);
+}
+
+function listCustomActionParamNames(def: CustomActionDef): string {
+  const names = def.parameters.map((p) =>
+    `${p.name}${p.required ? " (required)" : ""}`,
+  );
+  return names.length > 0 ? names.join(", ") : "none";
+}
+
+type CustomActionsRuntimeModule = {
+  registerCustomActionLive?: (def: CustomActionDef) => Action | null;
+  setCustomActionsRuntime?: (runtime: IAgentRuntime) => void;
+};
+
+let customActionsRuntimeModulePromise:
+  | Promise<CustomActionsRuntimeModule | null>
+  | null = null;
+let customActionsImportWarned = false;
+let customActionsRegisterWarned = false;
+
+async function resolveCustomActionsRuntimeModule(): Promise<CustomActionsRuntimeModule | null> {
+  if (!customActionsRuntimeModulePromise) {
+    customActionsRuntimeModulePromise = import("./custom-actions.js")
+      .then((mod) => mod as CustomActionsRuntimeModule)
+      .catch((err) => {
+        if (!customActionsImportWarned) {
+          customActionsImportWarned = true;
+          console.warn(
+            `[Milady] Failed to import custom-actions runtime module: ${
+              err instanceof Error ? err.message : String(err)
+            }`,
+          );
+        }
+        return null;
+      });
+  }
+  return customActionsRuntimeModulePromise;
+}
+
+async function registerEnabledCustomActions(runtime: IAgentRuntime): Promise<void> {
+  const runtimeModule = await resolveCustomActionsRuntimeModule();
+  if (!runtimeModule) return;
+
+  if (typeof runtimeModule.setCustomActionsRuntime === "function") {
+    runtimeModule.setCustomActionsRuntime(runtime);
+  }
+  if (typeof runtimeModule.registerCustomActionLive !== "function") {
+    if (!customActionsRegisterWarned) {
+      customActionsRegisterWarned = true;
+      console.warn(
+        "[Milady] custom-actions runtime is missing registerCustomActionLive export; skipping custom action registration.",
+      );
+    }
+    return;
+  }
+
+  const defs = loadEnabledCustomActionDefs();
+  let registeredCount = 0;
+  for (const def of defs) {
+    const registered = runtimeModule.registerCustomActionLive(def);
+    if (registered) registeredCount++;
+  }
+  if (registeredCount > 0) {
+    console.log(`[Milady] Registered ${registeredCount} custom action(s).`);
+  }
+}
 
 // TrajectoryLoggerService is provided by @elizaos/plugin-trajectory-logger
 // We just need a type interface to call startTrajectory/endTrajectory
@@ -446,8 +515,8 @@ export function createMiladyPlugin(config?: MiladyPluginConfig): Plugin {
     description: "User-defined custom actions",
 
     async get(): Promise<ProviderResult> {
-      const customActions = loadCustomActions();
-      if (customActions.length === 0) {
+      const customActionDefs = loadEnabledCustomActionDefs();
+      if (customActionDefs.length === 0) {
         return {
           text: [
             "## Custom Actions",
@@ -458,15 +527,9 @@ export function createMiladyPlugin(config?: MiladyPluginConfig): Plugin {
         };
       }
 
-      const lines = customActions.map((a) => {
-        const params =
-          a.parameters
-            ?.map(
-              (p) =>
-                `${p.name}${(p as { required?: boolean }).required ? " (required)" : ""}`,
-            )
-            .join(", ") || "none";
-        return `- **${a.name}**: ${a.description} [params: ${params}]`;
+      const lines = customActionDefs.map((def) => {
+        const params = listCustomActionParamNames(def);
+        return `- **${def.name}**: ${def.description} [params: ${params}]`;
       });
 
       return {
@@ -555,7 +618,7 @@ export function createMiladyPlugin(config?: MiladyPluginConfig): Plugin {
     init: async (_pluginConfig, runtime) => {
       registerTriggerTaskWorker(runtime);
       ensureAutonomousStateTracking(runtime);
-      setCustomActionsRuntime(runtime);
+      await registerEnabledCustomActions(runtime);
     },
 
     providers: [
@@ -577,7 +640,6 @@ export function createMiladyPlugin(config?: MiladyPluginConfig): Plugin {
       installPluginAction,
       logLevelAction,
       ...mediaActions,
-      ...loadCustomActions(),
     ],
 
     // TrajectoryLoggerService is provided by @elizaos/plugin-trajectory-logger (in CORE_PLUGINS)
