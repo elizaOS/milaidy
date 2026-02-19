@@ -195,7 +195,8 @@ refactor: extract session key logic to provider
 chore: update @elizaos/core to latest
 ```
 
-Other accepted styles follow the `milaidy: <description>` pattern seen in the repo history (e.g., `milaidy: fix telegram reconnect on rate limit`).
+Other accepted styles follow the `milaidy: description` pattern seen in the repo history (e.g., `milaidy: fix telegram reconnect on rate limit`).
+
 
 ### The Agent Review Bot
 
@@ -278,7 +279,7 @@ const BATCH_DELAY_MS = 100;
 
 ### Error Handling
 
-```typescript
+```text
 // Specific error messages with context
 throw new Error(`Failed to load plugin "${name}": ${err.message}`);
 

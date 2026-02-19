@@ -109,7 +109,7 @@ Before a hook is loaded, it must pass eligibility checks based on its `requires`
 If `os` is specified, the current platform must be in the list. This check always runs, even when `always: true`.
 
 ### Binary Check (`requires.bins`)
-Every binary listed must be found on `$PATH`. If any are missing, the hook is marked ineligible with a "Binary missing: <name>" message.
+Every binary listed must be found on `$PATH`. If any are missing, the hook is marked ineligible with a "Binary missing: \<name\>" message.
 
 ### Any-Binary Check (`requires.anyBins`)
 At least one binary from the list must be found on `$PATH`.
