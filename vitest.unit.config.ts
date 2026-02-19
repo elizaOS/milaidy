@@ -19,6 +19,14 @@ export default defineConfig({
       "apps/app/test/app/chat-stream-api-client.test.ts",
       "apps/app/test/avatar/voice-chat-streaming-text.test.ts",
     ],
-    exclude: baseTest.exclude ?? [],
+    exclude: [
+      ...(baseTest.exclude ?? []),
+      // These app UI tests require React/browser deps that are not guaranteed
+      // in the root unit-test environment. They run in app-specific pipelines.
+      "apps/app/src/components/Header.test.tsx",
+      "apps/app/test/app/autonomous-panel.test.ts",
+      "apps/app/test/app/chat-view.test.tsx",
+      "apps/app/test/avatar/voice-chat-streaming-text.test.ts",
+    ],
   },
 });

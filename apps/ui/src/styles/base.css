@@ -1,0 +1,168 @@
+/* Milaidy — warm editorial light theme */
+
+:root {
+  /* Background */
+  --bg: #f6eee4;
+  --bg-accent: #fff4e5;
+  --bg-elevated: #fffdf8;
+  --bg-hover: #f9f0e6;
+  --bg-muted: #f1e7dc;
+
+  /* Card / Surface */
+  --card: #fffaf3;
+  --card-foreground: #2b1f15;
+  --surface: #f4e9de;
+
+  /* Text */
+  --text: #2f241d;
+  --text-strong: #1d140d;
+  --chat-text: #2f241d;
+  --muted: #6f5d4d;
+  --muted-strong: #544437;
+
+  /* Border */
+  --border: #b69778;
+  --border-soft: #dbc6b0;
+  --border-strong: #8f6f4d;
+  --border-hover: #9d7b57;
+  --input: #b69778;
+  --ring: #f57a3b;
+
+  /* Accent */
+  --accent: #f57a3b;
+  --accent-hover: #e4662c;
+  --accent-muted: #b95a2a;
+  --accent-subtle: rgba(245, 122, 59, 0.13);
+  --accent-foreground: #fff8ef;
+  --primary: #f57a3b;
+  --primary-foreground: #fff8ef;
+
+  /* Semantic */
+  --ok: #207d52;
+  --ok-muted: rgba(32, 125, 82, 0.72);
+  --ok-subtle: rgba(32, 125, 82, 0.1);
+  --destructive: #8c2f21;
+  --destructive-foreground: #fff8ef;
+  --warn: #9c6400;
+  --warn-muted: rgba(156, 100, 0, 0.7);
+  --warn-subtle: rgba(156, 100, 0, 0.12);
+  --danger: #8c2f21;
+  --info: #365f8f;
+
+  /* Focus */
+  --focus: rgba(245, 122, 59, 0.25);
+  --focus-ring: 0 0 0 2px var(--accent);
+
+  /* Typography */
+  --mono: "Courier New", Courier, monospace;
+  --font-body: "Avenir Next", "Gill Sans", "Trebuchet MS", sans-serif;
+  --font-display: "Iowan Old Style", "Baskerville", "Palatino Linotype", serif;
+
+  --shadow-sm: 0 4px 10px rgba(74, 51, 30, 0.08);
+  --shadow-md: 0 12px 24px rgba(74, 51, 30, 0.12);
+  --shadow-lg: 0 24px 44px rgba(74, 51, 30, 0.16);
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+  --radius-full: 9999px;
+  --radius: 10px;
+
+  /* Transitions — snappy, no springs */
+  --duration-fast: 100ms;
+  --duration-normal: 150ms;
+  --duration-slow: 250ms;
+
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font: 400 14px/1.65 var(--font-body);
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+milaidy-app {
+  display: block;
+  position: relative;
+  min-height: 100vh;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+a:hover {
+  color: var(--accent-hover);
+  text-decoration: underline;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+::selection {
+  background: var(--accent-subtle);
+  color: var(--text-strong);
+}
+
+/* Scrollbar — minimal */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c5ab8f;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a78968;
+}
+
+/* Focus visible */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* Simple animations */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Utility: visually hidden */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}

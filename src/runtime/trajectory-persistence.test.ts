@@ -2,6 +2,12 @@ import type { IAgentRuntime } from "@elizaos/core";
 import { describe, expect, it, vi } from "vitest";
 import { installDatabaseTrajectoryLogger } from "./trajectory-persistence";
 
+vi.mock("drizzle-orm", () => ({
+  sql: {
+    raw: (query: string) => ({ queryChunks: [{ sql: query }] }),
+  },
+}));
+
 async function waitForCallCount(
   fn: ReturnType<typeof vi.fn>,
   minCalls: number,

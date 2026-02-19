@@ -1,5 +1,5 @@
 /**
- * REST API server for the Milady Control UI.
+ * REST API server for the Milaidy Control UI.
  *
  * Exposes HTTP endpoints that the UI frontend expects, backed by the
  * ElizaOS AgentRuntime. Default port: 2138. In dev mode, the Vite UI
@@ -9,188 +9,122 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import http from "node:http";
-import os from "node:os";
+import net from "node:net";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import {
   type AgentRuntime,
   ChannelType,
   type Content,
+  ModelType,
   createMessageMemory,
   logger,
-  ModelType,
   stringToUuid,
-  type Task,
   type UUID,
 } from "@elizaos/core";
-import { type WebSocket, WebSocketServer } from "ws";
-import type { CloudManager } from "../cloud/cloud-manager";
-
 import {
   configFileExists,
-  loadMiladyConfig,
-  type MiladyConfig,
-  saveMiladyConfig,
-} from "../config/config";
-import { resolveModelsCacheDir, resolveStateDir } from "../config/paths";
-import type { ConnectorConfig, CustomActionDef } from "../config/types.milady";
-import { EMOTE_BY_ID, EMOTE_CATALOG } from "../emotes/catalog";
-import { resolveDefaultAgentWorkspaceDir } from "../providers/workspace";
-import { CORE_PLUGINS, OPTIONAL_CORE_PLUGINS } from "../runtime/core-plugins";
-import {
-  buildTestHandler,
-  registerCustomActionLive,
-} from "../runtime/custom-actions";
-
-import { AppManager } from "../services/app-manager";
-import { FallbackTrainingService } from "../services/fallback-training-service";
-import {
-  getMcpServerDetails,
-  searchMcpMarketplace,
-} from "../services/mcp-marketplace";
-import {
-  type CoreManagerLike,
-  type InstallProgressLike,
-  isCoreManagerLike,
-  isPluginManagerLike,
-  type PluginManagerLike,
-} from "../services/plugin-manager-types";
-import type { SandboxManager } from "../services/sandbox-manager";
-import {
-  installMarketplaceSkill,
-  listInstalledMarketplaceSkills,
-  searchSkillsMarketplace,
-  uninstallMarketplaceSkill,
-} from "../services/skill-marketplace";
-import {
-  listTriggerTasks,
-  readTriggerConfig,
-  taskToTriggerSummary,
-} from "../triggers/runtime";
-import { parseClampedInteger } from "../utils/number-parsing";
-import { handleAgentAdminRoutes } from "./agent-admin-routes";
-import { handleAgentLifecycleRoutes } from "./agent-lifecycle-routes";
-import { handleAgentTransferRoutes } from "./agent-transfer-routes";
-import { handleAppsHyperscapeRoutes } from "./apps-hyperscape-routes";
-import { handleAppsRoutes } from "./apps-routes";
-import { handleAuthRoutes } from "./auth-routes";
-import { getAutonomyState, handleAutonomyRoutes } from "./autonomy-routes";
-import { handleCharacterRoutes } from "./character-routes";
-import { type CloudRouteState, handleCloudRoute } from "./cloud-routes";
-import { handleCloudStatusRoutes } from "./cloud-status-routes";
-
-import {
-  extractAnthropicSystemAndLastUser,
-  extractCompatTextContent,
-  extractOpenAiSystemAndLastUser,
-  resolveCompatRoomKey,
-} from "./compat-utils";
-import { handleDatabaseRoute } from "./database";
-import { handleDiagnosticsRoutes } from "./diagnostics-routes";
-import { DropService } from "./drop-service";
-import {
-  readJsonBody as parseJsonBody,
-  type ReadJsonBodyOptions,
-  readRequestBody,
-  sendJson,
-  sendJsonError,
-} from "./http-helpers";
-import { handleKnowledgeRoutes } from "./knowledge-routes";
-import { handleModelsRoutes } from "./models-routes";
-import { handlePermissionRoutes } from "./permissions-routes";
+  loadMilaidyConfig,
+  type MilaidyConfig,
+  saveMilaidyConfig,
+} from "../config/config.js";
+import { resolveStateDir } from "../config/paths.js";
+import { CharacterSchema } from "../config/zod-schema.js";
+import { resolveDefaultAgentWorkspaceDir } from "../providers/workspace.js";
 import {
   type PluginParamInfo,
   validatePluginConfig,
-} from "./plugin-validation";
-import { handleRegistryRoutes } from "./registry-routes";
-import { RegistryService } from "./registry-service";
-import { handleSandboxRoute } from "./sandbox-routes";
-import { handleSubscriptionRoutes } from "./subscription-routes";
-import { resolveTerminalRunLimits } from "./terminal-run-limits";
-import { handleTrainingRoutes } from "./training-routes";
-import type { TrainingServiceWithRuntime } from "./training-service-like";
-import { handleTrajectoryRoute } from "./trajectory-routes";
-import { handleTriggerRoutes } from "./trigger-routes";
+} from "./plugin-validation.js";
 import {
-  generateVerificationMessage,
-  isAddressWhitelisted,
-  markAddressVerified,
-  verifyTweet,
-} from "./twitter-verify";
-import { TxService } from "./tx-service";
-import { generateWalletKeys, getWalletAddresses } from "./wallet";
-import { handleWalletRoutes } from "./wallet-routes";
+  fetchEvmBalances,
+  fetchEvmBalancesPublic,
+  fetchEvmNfts,
+  fetchSolanaBalancePublic,
+  fetchSolanaBalances,
+  fetchSolanaNfts,
+  generateWalletForChain,
+  generateWalletKeys,
+  importWallet,
+  validatePrivateKey,
+  type WalletBalancesResponse,
+  type WalletChain,
+  type WalletConfigStatus,
+  type WalletNftsResponse,
+} from "./wallet.js";
+import { createRateLimiter } from "../multiuser/rate-limiter.js";
+import { createElizaExecutionBackend } from "../multiuser/eliza-executor.js";
+import { MultiUserError, MultiUserService } from "../multiuser/service.js";
+import { parseSecretKeyringFromEnv } from "../multiuser/security.js";
+import {
+  classifyCoreIntents,
+  isLowContextInput,
+  normalizeComponentName,
+  resolveComponentTarget,
+} from "./intent-engine.js";
+import {
+  buildCapabilityGraph,
+  composeResponseV2,
+  interpretIntentV2,
+} from "./intent-engine-v2.js";
+import { orchestrateUniversalReply } from "./response-orchestrator.js";
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
-function getAgentEventSvc(
+/** Subset of the core AutonomyService interface we use for lifecycle control. */
+interface AutonomyServiceLike {
+  enableAutonomy(): Promise<void>;
+  disableAutonomy(): Promise<void>;
+  isLoopRunning(): boolean;
+}
+
+/** Helper to retrieve the AutonomyService from a runtime (may be null). */
+function getAutonomySvc(
   runtime: AgentRuntime | null,
-): AgentEventServiceLike | null {
+): AutonomyServiceLike | null {
   if (!runtime) return null;
-  return runtime.getService("AGENT_EVENT") as AgentEventServiceLike | null;
+  return runtime.getService("AUTONOMY") as AutonomyServiceLike | null;
 }
 
-function requirePluginManager(runtime: AgentRuntime | null): PluginManagerLike {
-  const service = runtime?.getService("plugin_manager");
-  if (!isPluginManagerLike(service)) {
-    throw new Error("Plugin manager service not found");
-  }
-  return service;
-}
-
-function requireCoreManager(runtime: AgentRuntime | null): CoreManagerLike {
-  const service = runtime?.getService("core_manager");
-  if (!isCoreManagerLike(service)) {
-    throw new Error("Core manager service not found");
-  }
-  return service;
-}
-
-function isUuidLike(value: string): value is UUID {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-    value,
+function detectRuntimeModel(runtime: AgentRuntime | null): string | undefined {
+  if (!runtime) return undefined;
+  const providerOrder = [
+    "openai",
+    "anthropic",
+    "openrouter",
+    "google",
+    "gemini",
+    "xai",
+    "grok",
+    "groq",
+    "deepseek",
+    "mistral",
+    "together",
+    "ollama",
+    "elizacloud",
+  ] as const;
+  const names = runtime.plugins.map((p) => p.name.toLowerCase());
+  const matched = providerOrder.find((needle) =>
+    names.some((name) => name.includes(needle)),
   );
+  return matched ?? undefined;
 }
 
-const OG_FILENAME = ".og";
-
-function readOGCodeFromState(): string | null {
-  const filePath = path.join(resolveStateDir(), OG_FILENAME);
-  if (!fs.existsSync(filePath)) return null;
-  return fs.readFileSync(filePath, "utf-8").trim();
-}
-
-function initializeOGCodeInState(): void {
-  const dir = resolveStateDir();
-  const filePath = path.join(dir, OG_FILENAME);
-  if (fs.existsSync(filePath)) return;
-
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
-  }
-  fs.writeFileSync(filePath, crypto.randomUUID(), {
-    encoding: "utf-8",
-    mode: 0o600,
-  });
-}
-
-/** Metadata for a web-chat conversation. */
-interface ConversationMeta {
-  id: string;
-  title: string;
-  roomId: UUID;
-  createdAt: string;
-  updatedAt: string;
+function hasConfiguredAiProvider(state: ServerState): boolean {
+  return state.plugins.some(
+    (plugin) =>
+      plugin.category === "ai-provider" &&
+      plugin.enabled &&
+      plugin.configured &&
+      plugin.validationErrors.length === 0,
+  );
 }
 
 interface ServerState {
   runtime: AgentRuntime | null;
-  config: MiladyConfig;
+  config: MilaidyConfig;
   agentState:
     | "not_started"
-    | "starting"
     | "running"
     | "paused"
     | "stopped"
@@ -202,60 +136,12 @@ interface ServerState {
   plugins: PluginEntry[];
   skills: SkillEntry[];
   logBuffer: LogEntry[];
-  eventBuffer: StreamEventEnvelope[];
-  nextEventId: number;
   chatRoomId: UUID | null;
   chatUserId: UUID | null;
-  chatConnectionReady: { userId: UUID; roomId: UUID; worldId: UUID } | null;
-  chatConnectionPromise: Promise<void> | null;
-  adminEntityId: UUID | null;
-  /** Conversation metadata by conversation id. */
-  conversations: Map<string, ConversationMeta>;
-  /** Cloud manager for Eliza Cloud integration (null when cloud is disabled). */
-  cloudManager: CloudManager | null;
-  sandboxManager: SandboxManager | null;
-  /** App manager for launching and managing ElizaOS apps. */
-  appManager: AppManager;
-  /** Fine-tuning/training orchestration service. */
-  trainingService: TrainingServiceLike | null;
-  /** ERC-8004 registry service (null when not configured). */
-  registryService: RegistryService | null;
-  /** Drop/mint service (null when not configured). */
-  dropService: DropService | null;
-  /** In-memory queue for share ingest items. */
-  shareIngestQueue: ShareIngestItem[];
-  /** Broadcast current agent status to all WebSocket clients. Set by startApiServer. */
-  broadcastStatus: (() => void) | null;
-  /** Broadcast an arbitrary JSON message to all WebSocket clients. Set by startApiServer. */
-  broadcastWs: ((data: Record<string, unknown>) => void) | null;
-  /** Currently active conversation ID from the frontend (sent via WS). */
-  activeConversationId: string | null;
-  /** Transient OAuth flow state for subscription auth. */
-  _anthropicFlow?: import("../auth/anthropic").AnthropicFlow;
-  _codexFlow?: import("../auth/openai-codex").CodexFlow;
-  _codexFlowTimer?: ReturnType<typeof setTimeout>;
-  /** System permission states (cached from Electron IPC). */
-  permissionStates?: Record<
-    string,
-    {
-      id: string;
-      status: string;
-      lastChecked: number;
-      canRequest: boolean;
-    }
-  >;
-  /** Whether shell access is enabled (can be toggled in UI). */
-  shellEnabled?: boolean;
-}
-
-interface ShareIngestItem {
-  id: string;
-  source: string;
-  title?: string;
-  url?: string;
-  text?: string;
-  suggestedPrompt: string;
-  receivedAt: number;
+  chatTurnCount: number;
+  chatRollingSummary: string | null;
+  chatRecentTurns: Array<{ user: string; assistant: string }>;
+  inFlightChatRequests: number;
 }
 
 interface PluginParamDef {
@@ -265,8 +151,6 @@ interface PluginParamDef {
   required: boolean;
   sensitive: boolean;
   default?: string;
-  /** Predefined options for dropdown selection (e.g. model names). */
-  options?: string[];
   /** Current value from process.env (masked if sensitive). */
   currentValue: string | null;
   /** Whether a value is currently set in the environment. */
@@ -281,21 +165,10 @@ interface PluginEntry {
   configured: boolean;
   envKey: string | null;
   category: "ai-provider" | "connector" | "database" | "feature";
-  /** Where the plugin comes from: "bundled" (ships with Milady) or "store" (user-installed from registry). */
-  source: "bundled" | "store";
   configKeys: string[];
   parameters: PluginParamDef[];
   validationErrors: Array<{ field: string; message: string }>;
   validationWarnings: Array<{ field: string; message: string }>;
-  npmName?: string;
-  version?: string;
-  pluginDeps?: string[];
-  /** Whether this plugin is currently active in the runtime. */
-  isActive?: boolean;
-  /** Error message when plugin is enabled/installed but failed to load. */
-  loadError?: string;
-  /** Server-provided UI hints for plugin configuration fields. */
-  configUiHints?: Record<string, Record<string, unknown>>;
 }
 
 interface SkillEntry {
@@ -303,8 +176,6 @@ interface SkillEntry {
   name: string;
   description: string;
   enabled: boolean;
-  /** Set automatically when a scan report exists for this skill. */
-  scanStatus?: "clean" | "warning" | "critical" | "blocked" | null;
 }
 
 interface LogEntry {
@@ -312,203 +183,79 @@ interface LogEntry {
   level: string;
   message: string;
   source: string;
-  tags: string[];
 }
 
-interface AgentEventPayloadLike {
-  runId: string;
-  seq: number;
-  stream: string;
-  ts: number;
-  data: object;
-  sessionKey?: string;
-  agentId?: string;
-  roomId?: UUID;
+type HandleRegistry = Record<string, string>;
+type HandleLockRegistry = Record<string, number>;
+const HANDLE_CHANGE_LOCK_MS = 48 * 60 * 60 * 1000;
+
+interface PolymarketPositionSummary {
+  market: string;
+  outcome: string;
+  sizeUsd: number;
+  currentValueUsd: number;
+  pnlUsd: number;
+  updatedAt: string | null;
 }
 
-interface HeartbeatEventPayloadLike {
-  ts: number;
-  status: string;
-  to?: string;
-  preview?: string;
-  durationMs?: number;
-  hasMedia?: boolean;
-  reason?: string;
-  channel?: string;
-  silent?: boolean;
-  indicatorType?: string;
+interface PolymarketPortfolioResponse {
+  wallet: string | null;
+  connected: boolean;
+  availableBalanceUsd: number | null;
+  openExposureUsd: number | null;
+  unsettledPnlUsd: number | null;
+  openPositionsCount: number;
+  positions: PolymarketPositionSummary[];
 }
 
-interface AgentEventServiceLike {
-  subscribe: (listener: (event: AgentEventPayloadLike) => void) => () => void;
-  subscribeHeartbeat: (
-    listener: (event: HeartbeatEventPayloadLike) => void,
-  ) => () => void;
-}
-
-type StreamEventType = "agent_event" | "heartbeat_event" | "training_event";
-
-interface StreamEventEnvelope {
-  type: StreamEventType;
-  version: 1;
-  eventId: string;
-  ts: number;
-  runId?: string;
-  seq?: number;
-  stream?: string;
-  sessionKey?: string;
-  agentId?: string;
-  roomId?: UUID;
-  payload: object;
-}
-
-// ---------------------------------------------------------------------------
-// Response block extraction — parse agent text for structured UI blocks
-// ---------------------------------------------------------------------------
-
-/** Content block types returned in the /api/chat and /api/conversations/:id/messages responses. */
-type ResponseBlock =
-  | { type: "text"; text: string }
-  | { type: "ui-spec"; spec: Record<string, unknown>; raw: string }
-  | {
-      type: "config-form";
-      pluginId: string;
-      pluginName?: string;
-      schema: Record<string, unknown>;
-      hints?: Record<string, unknown>;
-      values?: Record<string, unknown>;
-    };
-
-/** Regex matching fenced JSON code blocks: ```json ... ``` or ``` ... ``` */
-const FENCED_JSON_RE_SERVER = /```(?:json)?\s*\n([\s\S]*?)```/g;
-
-/** CONFIG marker pattern: [CONFIG:pluginId] */
-const CONFIG_MARKER_RE = /\[CONFIG:([^\]]+)\]/g;
-
-function tryParseJsonServer(raw: string): unknown {
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return null;
-  }
-}
-
-function isUiSpecObject(
-  obj: unknown,
-): obj is { root: string; elements: Record<string, unknown> } {
-  if (obj === null || typeof obj !== "object" || Array.isArray(obj))
-    return false;
-  const c = obj as Record<string, unknown>;
-  return (
-    typeof c.root === "string" &&
-    c.elements !== null &&
-    typeof c.elements === "object" &&
-    !Array.isArray(c.elements)
-  );
-}
-
-/**
- * Scan agent response text for:
- * 1. Fenced UiSpec JSON blocks → extract as { type: "ui-spec", spec, raw }
- * 2. [CONFIG:pluginId] markers → generate { type: "config-form", ... } from plugin list
- * 3. Remaining text → { type: "text", text }
- *
- * Returns { cleanText, blocks } where cleanText has UI blocks/markers removed.
- */
-function _extractResponseBlocks(
-  responseText: string,
-  plugins: PluginEntry[],
-): { cleanText: string; blocks: ResponseBlock[] } {
-  const blocks: ResponseBlock[] = [];
-  let text = responseText;
-
-  // Pass 1: extract fenced UiSpec JSON blocks
-  FENCED_JSON_RE_SERVER.lastIndex = 0;
-  const uiSpecRanges: Array<{
-    start: number;
-    end: number;
-    block: ResponseBlock;
-  }> = [];
-  let match: RegExpExecArray | null = FENCED_JSON_RE_SERVER.exec(text);
-
-  while (match !== null) {
-    const jsonContent = match[1].trim();
-    const parsed = tryParseJsonServer(jsonContent);
-    if (parsed !== null && isUiSpecObject(parsed)) {
-      uiSpecRanges.push({
-        start: match.index,
-        end: match.index + match[0].length,
-        block: {
-          type: "ui-spec",
-          spec: parsed as Record<string, unknown>,
-          raw: jsonContent,
-        },
-      });
-    }
-    match = FENCED_JSON_RE_SERVER.exec(text);
-  }
-
-  // Remove UiSpec blocks from text (reverse order to preserve indices)
-  if (uiSpecRanges.length > 0) {
-    for (let i = uiSpecRanges.length - 1; i >= 0; i--) {
-      const r = uiSpecRanges[i];
-      blocks.unshift(r.block);
-      text = text.slice(0, r.start) + text.slice(r.end);
-    }
-  }
-
-  // Pass 2: extract [CONFIG:pluginId] markers
-  CONFIG_MARKER_RE.lastIndex = 0;
-  const configMarkers: Array<{ start: number; end: number; pluginId: string }> =
-    [];
-  match = CONFIG_MARKER_RE.exec(text);
-  while (match !== null) {
-    configMarkers.push({
-      start: match.index,
-      end: match.index + match[0].length,
-      pluginId: match[1].trim(),
-    });
-    match = CONFIG_MARKER_RE.exec(text);
-  }
-
-  if (configMarkers.length > 0) {
-    for (let i = configMarkers.length - 1; i >= 0; i--) {
-      const m = configMarkers[i];
-      const plugin = plugins.find((p) => p.id === m.pluginId);
-      if (plugin) {
-        const schema: Record<string, unknown> = {};
-        const values: Record<string, unknown> = {};
-        for (const param of plugin.parameters) {
-          schema[param.key] = {
-            type: param.type,
-            description: param.description,
-            required: param.required,
-          };
-          if (param.currentValue !== null)
-            values[param.key] = param.currentValue;
-        }
-        blocks.push({
-          type: "config-form",
-          pluginId: m.pluginId,
-          pluginName: plugin.name,
-          schema,
-          hints: plugin.configUiHints ?? {},
-          values,
-        });
+async function checkTcpReachable(
+  host: string,
+  port: number,
+  timeoutMs: number,
+): Promise<boolean> {
+  return await new Promise((resolve) => {
+    const socket = net.createConnection({ host, port });
+    const onDone = (ok: boolean) => {
+      socket.removeAllListeners();
+      try {
+        socket.destroy();
+      } catch {
+        // ignore
       }
-      text = text.slice(0, m.start) + text.slice(m.end);
+      resolve(ok);
+    };
+    socket.setTimeout(timeoutMs);
+    socket.once("connect", () => onDone(true));
+    socket.once("timeout", () => onDone(false));
+    socket.once("error", () => onDone(false));
+  });
+}
+
+async function isOllamaReachable(
+  endpoint: string,
+  timeoutMs = 250,
+): Promise<boolean> {
+  // Default Ollama endpoint expected by plugin-ollama
+  const raw = endpoint.trim() || "http://localhost:11434";
+  let url: URL;
+  try {
+    // Some configs include /api suffix; URL parsing still works.
+    url = new URL(raw);
+  } catch {
+    try {
+      url = new URL(`http://${raw}`);
+    } catch {
+      return false;
     }
   }
-
-  // Build clean text (trim whitespace from block removal)
-  const cleanText = text.replace(/\n{3,}/g, "\n\n").trim();
-
-  // If there's remaining text content, prepend it as a text block
-  if (cleanText) {
-    blocks.unshift({ type: "text", text: cleanText });
-  }
-
-  return { cleanText, blocks };
+  const host = url.hostname || "localhost";
+  const port = url.port
+    ? Number.parseInt(url.port, 10)
+    : url.protocol === "https:"
+      ? 443
+      : 80;
+  if (!Number.isFinite(port) || port <= 0) return false;
+  return await checkTcpReachable(host, port, timeoutMs);
 }
 
 // ---------------------------------------------------------------------------
@@ -525,9 +272,8 @@ export function findOwnPackageRoot(startDir: string): string {
           string,
           unknown
         >;
-        const pkgName =
-          typeof pkg.name === "string" ? pkg.name.toLowerCase() : "";
-        if (pkgName === "milady") return dir;
+        const pkgName = String(pkg.name ?? "").toLowerCase();
+        if (pkgName === "milaidy" || pkgName === "milady") return dir;
       } catch {
         /* keep searching */
       }
@@ -537,6 +283,189 @@ export function findOwnPackageRoot(startDir: string): string {
     dir = parent;
   }
   return startDir;
+}
+
+export const CONFIG_WRITE_ALLOWED_TOP_KEYS = new Set<string>([
+  "agent",
+  "plugins",
+  "wallet",
+  "security",
+  "cloud",
+  "connectors",
+  // Backward compatibility for legacy config shape.
+  "channels",
+]);
+
+const PLUGIN_CONFIG_BLOCKED_KEYS = new Set<string>([
+  "MILADY_API_TOKEN",
+  "MILADY_WALLET_EXPORT_TOKEN",
+  "MILADY_ADMIN_TOKEN",
+]);
+
+export function resolvePluginConfigMutationRejections(
+  declared: Array<{ key: string }>,
+  changes: Record<string, unknown>,
+): Array<{ field: string; message: string }> {
+  const declaredSet = new Set(
+    declared
+      .map((entry) => String(entry.key ?? "").trim())
+      .filter((key) => key.length > 0),
+  );
+  const rejections: Array<{ field: string; message: string }> = [];
+  for (const key of Object.keys(changes)) {
+    if (!declaredSet.has(key)) {
+      rejections.push({
+        field: key,
+        message: `${key} is not a declared config key for this plugin`,
+      });
+      continue;
+    }
+    if (PLUGIN_CONFIG_BLOCKED_KEYS.has(key)) {
+      rejections.push({
+        field: key,
+        message: `${key} is blocked for security reasons`,
+      });
+    }
+  }
+  return rejections;
+}
+
+function isLoopbackBindHost(host: string): boolean {
+  const trimmed = host.trim().toLowerCase();
+  return (
+    trimmed === "" ||
+    trimmed === "127.0.0.1" ||
+    trimmed === "localhost" ||
+    trimmed === "::1"
+  );
+}
+
+export function ensureApiTokenForBindHost(host: string): void {
+  if (process.env.MILADY_API_TOKEN) return;
+  if (isLoopbackBindHost(host)) return;
+  process.env.MILADY_API_TOKEN = crypto.randomBytes(32).toString("hex");
+  logger.warn(
+    "[milaidy-api] MILADY_API_TOKEN was auto-generated for non-loopback bind host",
+  );
+}
+
+function isAllowedWsOrigin(origin: string | undefined): boolean {
+  if (!origin) return true;
+  const value = origin.trim().toLowerCase();
+  return (
+    value.startsWith("http://localhost") ||
+    value.startsWith("https://localhost") ||
+    value.startsWith("http://127.0.0.1") ||
+    value.startsWith("https://127.0.0.1")
+  );
+}
+
+type UpgradeRejection = { status: number; reason: string } | null;
+
+export function resolveWebSocketUpgradeRejection(
+  req: http.IncomingMessage,
+  requestUrl: URL,
+): UpgradeRejection {
+  if (requestUrl.pathname !== "/ws") {
+    return { status: 404, reason: "Not found" };
+  }
+  const origin =
+    typeof req.headers.origin === "string" ? req.headers.origin : undefined;
+  if (!isAllowedWsOrigin(origin)) {
+    return { status: 403, reason: "Origin not allowed" };
+  }
+
+  const expected = process.env.MILADY_API_TOKEN;
+  if (!expected || expected.length === 0) return null;
+
+  const authHeader = req.headers.authorization;
+  const bearer =
+    typeof authHeader === "string" && authHeader.startsWith("Bearer ")
+      ? authHeader.slice("Bearer ".length).trim()
+      : "";
+  if (bearer === expected) return null;
+
+  const allowQueryToken = process.env.MILADY_ALLOW_WS_QUERY_TOKEN === "1";
+  const queryToken = requestUrl.searchParams.get("token")?.trim() ?? "";
+  if (allowQueryToken && queryToken === expected) return null;
+
+  return { status: 401, reason: "Unauthorized" };
+}
+
+export async function persistConversationRoomTitle(
+  runtime:
+    | Pick<AgentRuntime, "getRoom" | "adapter">
+    | null,
+  conversation: { roomId: UUID; title: string },
+): Promise<boolean> {
+  if (!runtime) return false;
+  const room = await runtime.getRoom(conversation.roomId);
+  if (!room) return false;
+  if (room.name === conversation.title) return false;
+  const adapter = runtime.adapter as
+    | { updateRoom?: (room: { id: UUID; name: string }) => Promise<void> }
+    | undefined;
+  if (!adapter || typeof adapter.updateRoom !== "function") return false;
+  await adapter.updateRoom({ id: conversation.roomId, name: conversation.title });
+  return true;
+}
+
+export function isSafeResetStateDir(
+  targetDir: string,
+  homeDir: string,
+): boolean {
+  const resolvedTarget = path.resolve(targetDir);
+  const resolvedHome = path.resolve(homeDir);
+  if (resolvedTarget === path.parse(resolvedTarget).root) return false;
+  if (resolvedTarget === resolvedHome) return false;
+  if (
+    resolvedTarget !== resolvedHome &&
+    !resolvedTarget.startsWith(`${resolvedHome}${path.sep}`)
+  ) {
+    return false;
+  }
+  const segments = resolvedTarget.split(path.sep).filter(Boolean);
+  return segments.includes(".milady") || segments.includes("milaidy");
+}
+
+export function resolveWalletExportRejection(
+  req: Pick<http.IncomingMessage, "headers">,
+  body: Record<string, unknown>,
+): { status: number; reason: string } | null {
+  if (body.confirm !== true) {
+    return {
+      status: 403,
+      reason: "Wallet export requires explicit confirm=true.",
+    };
+  }
+
+  const expected = process.env.MILADY_WALLET_EXPORT_TOKEN;
+  if (!expected) {
+    return {
+      status: 403,
+      reason:
+        "Wallet export is disabled. Set MILADY_WALLET_EXPORT_TOKEN to enable secure exports.",
+    };
+  }
+
+  const headerToken =
+    typeof req.headers["x-milady-export-token"] === "string"
+      ? req.headers["x-milady-export-token"]
+      : undefined;
+  const bodyToken =
+    typeof body.exportToken === "string" ? body.exportToken : undefined;
+  const supplied = (headerToken ?? bodyToken ?? "").trim();
+  if (!supplied) {
+    return {
+      status: 401,
+      reason:
+        "Missing export token. Provide X-Milady-Export-Token header or exportToken in request body.",
+    };
+  }
+  if (supplied !== expected) {
+    return { status: 401, reason: "Invalid export token." };
+  }
+  return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -553,9 +482,6 @@ interface PluginIndexEntry {
   envKey: string | null;
   configKeys: string[];
   pluginParameters?: Record<string, Record<string, unknown>>;
-  version?: string;
-  pluginDeps?: string[];
-  configUiHints?: Record<string, Record<string, unknown>>;
 }
 
 interface PluginIndex {
@@ -570,12 +496,117 @@ function maskValue(value: string): string {
   return `${value.slice(0, 4)}...${value.slice(-4)}`;
 }
 
+function normalizeHandle(input: string): string {
+  const base = input
+    .trim()
+    .replace(/^@+/, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9_]/g, "");
+  if (!base) return "";
+  return `@${base}`;
+}
+
+function handleRegistryPath(): string {
+  return path.join(resolveStateDir(), "handle-registry.json");
+}
+
+function handleLockRegistryPath(): string {
+  return path.join(resolveStateDir(), "handle-locks.json");
+}
+
+function readHandleRegistry(): HandleRegistry {
+  try {
+    const file = handleRegistryPath();
+    if (!fs.existsSync(file)) return {};
+    const raw = fs.readFileSync(file, "utf8");
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== "object") return {};
+    const out: HandleRegistry = {};
+    for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
+      if (typeof v !== "string") continue;
+      const handle = normalizeHandle(k);
+      if (!handle) continue;
+      const ownerId = v.trim();
+      if (!ownerId) continue;
+      out[handle] = ownerId;
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+function writeHandleRegistry(registry: HandleRegistry): void {
+  const file = handleRegistryPath();
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, JSON.stringify(registry, null, 2), {
+    encoding: "utf8",
+    mode: 0o600,
+  });
+}
+
+function readHandleLockRegistry(): HandleLockRegistry {
+  try {
+    const file = handleLockRegistryPath();
+    if (!fs.existsSync(file)) return {};
+    const raw = fs.readFileSync(file, "utf8");
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== "object") return {};
+    const out: HandleLockRegistry = {};
+    for (const [ownerId, lockUntilRaw] of Object.entries(
+      parsed as Record<string, unknown>,
+    )) {
+      if (typeof ownerId !== "string" || !ownerId.trim()) continue;
+      const lockUntil =
+        typeof lockUntilRaw === "number"
+          ? lockUntilRaw
+          : Number.parseInt(String(lockUntilRaw), 10);
+      if (!Number.isFinite(lockUntil) || lockUntil <= 0) continue;
+      out[ownerId] = lockUntil;
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+function writeHandleLockRegistry(registry: HandleLockRegistry): void {
+  const file = handleLockRegistryPath();
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, JSON.stringify(registry, null, 2), {
+    encoding: "utf8",
+    mode: 0o600,
+  });
+}
+
+function findOwnedHandle(claims: HandleRegistry, ownerId: string): string {
+  for (const [handle, claimedOwner] of Object.entries(claims)) {
+    if (claimedOwner === ownerId) return handle;
+  }
+  return "";
+}
+
+function applyPluginEntryConfigToEnv(config?: MilaidyConfig): void {
+  const entries = config?.plugins?.entries;
+  if (!entries) return;
+  for (const entry of Object.values(entries)) {
+    if (!entry?.config) continue;
+    for (const [key, value] of Object.entries(entry.config)) {
+      if (typeof value === "string" && value.trim()) {
+        // Respect plugin-manager/UI config as the source of truth for
+        // runtime credentials instead of stale inherited shell env values.
+        process.env[key] = value;
+      }
+    }
+  }
+}
+
 function buildParamDefs(
   pluginParams: Record<string, Record<string, unknown>>,
 ): PluginParamDef[] {
   return Object.entries(pluginParams).map(([key, def]) => {
     const envValue = process.env[key];
-    const isSet = Boolean(envValue?.trim());
+    const isSet = Boolean(envValue && envValue.trim());
     const sensitive = Boolean(def.sensitive);
     return {
       key,
@@ -584,466 +615,23 @@ function buildParamDefs(
       required: Boolean(def.required),
       sensitive,
       default: def.default as string | undefined,
-      options: Array.isArray(def.options)
-        ? (def.options as string[])
-        : undefined,
       currentValue: isSet
         ? sensitive
-          ? maskValue(envValue ?? "")
-          : (envValue ?? "")
+          ? maskValue(envValue!)
+          : envValue!
         : null,
       isSet,
     };
   });
-}
-
-/**
- * Infer parameter definitions from bare config key names when explicit
- * pluginParameters metadata is not provided.  Uses naming conventions to
- * determine type, sensitivity, requirement level, and a human-readable
- * description.
- */
-function _inferParamDefs(configKeys: string[]): PluginParamDef[] {
-  return configKeys.map((key) => {
-    const upper = key.toUpperCase();
-
-    // Detect sensitive keys
-    const sensitive =
-      upper.includes("_API_KEY") ||
-      upper.includes("_SECRET") ||
-      upper.includes("_TOKEN") ||
-      upper.includes("_PASSWORD") ||
-      upper.includes("_PRIVATE_KEY") ||
-      upper.includes("_SIGNING_") ||
-      upper.includes("ENCRYPTION_");
-
-    // Detect booleans
-    const isBoolean =
-      upper.includes("ENABLED") ||
-      upper.includes("_ENABLE_") ||
-      upper.startsWith("ENABLE_") ||
-      upper.includes("DRY_RUN") ||
-      upper.includes("_DEBUG") ||
-      upper.includes("_VERBOSE") ||
-      upper.includes("AUTO_") ||
-      upper.includes("FORCE_") ||
-      upper.includes("DISABLE_") ||
-      upper.includes("SHOULD_") ||
-      upper.endsWith("_SSL");
-
-    // Detect numbers
-    const isNumber =
-      upper.endsWith("_PORT") ||
-      upper.endsWith("_INTERVAL") ||
-      upper.endsWith("_TIMEOUT") ||
-      upper.endsWith("_MS") ||
-      upper.endsWith("_MINUTES") ||
-      upper.endsWith("_SECONDS") ||
-      upper.endsWith("_LIMIT") ||
-      upper.endsWith("_MAX") ||
-      upper.endsWith("_MIN") ||
-      upper.includes("_MAX_") ||
-      upper.includes("_MIN_") ||
-      upper.endsWith("_COUNT") ||
-      upper.endsWith("_SIZE") ||
-      upper.endsWith("_STEPS");
-
-    const type = isBoolean ? "boolean" : isNumber ? "number" : "string";
-
-    // Primary keys are required (API keys, tokens, bot tokens, account IDs)
-    const required =
-      sensitive &&
-      (upper.endsWith("_API_KEY") ||
-        upper.endsWith("_BOT_TOKEN") ||
-        upper.endsWith("_TOKEN") ||
-        upper.endsWith("_PRIVATE_KEY"));
-
-    // Generate a human-readable description from the key name
-    const description = inferDescription(key);
-
-    const envValue = process.env[key];
-    const isSet = Boolean(envValue?.trim());
-
-    return {
-      key,
-      type,
-      description,
-      required,
-      sensitive,
-      default: undefined,
-      options: undefined,
-      currentValue: isSet
-        ? sensitive
-          ? maskValue(envValue ?? "")
-          : (envValue ?? "")
-        : null,
-      isSet,
-    };
-  });
-}
-
-/** Derive a human-readable description from an environment variable key. */
-function inferDescription(key: string): string {
-  const upper = key.toUpperCase();
-
-  // Special well-known suffixes
-  if (upper.endsWith("_API_KEY"))
-    return `API key for ${prefixLabel(key, "_API_KEY")}`;
-  if (upper.endsWith("_BOT_TOKEN"))
-    return `Bot token for ${prefixLabel(key, "_BOT_TOKEN")}`;
-  if (upper.endsWith("_TOKEN"))
-    return `Authentication token for ${prefixLabel(key, "_TOKEN")}`;
-  if (upper.endsWith("_SECRET"))
-    return `Secret for ${prefixLabel(key, "_SECRET")}`;
-  if (upper.endsWith("_PRIVATE_KEY"))
-    return `Private key for ${prefixLabel(key, "_PRIVATE_KEY")}`;
-  if (upper.endsWith("_PASSWORD"))
-    return `Password for ${prefixLabel(key, "_PASSWORD")}`;
-  if (upper.endsWith("_RPC_URL"))
-    return `RPC endpoint URL for ${prefixLabel(key, "_RPC_URL")}`;
-  if (upper.endsWith("_BASE_URL"))
-    return `Base URL for ${prefixLabel(key, "_BASE_URL")}`;
-  if (upper.endsWith("_URL")) return `URL for ${prefixLabel(key, "_URL")}`;
-  if (upper.endsWith("_ENDPOINT"))
-    return `Endpoint for ${prefixLabel(key, "_ENDPOINT")}`;
-  if (upper.endsWith("_HOST"))
-    return `Host address for ${prefixLabel(key, "_HOST")}`;
-  if (upper.endsWith("_PORT"))
-    return `Port number for ${prefixLabel(key, "_PORT")}`;
-  if (upper.endsWith("_MODEL") || upper.includes("_MODEL_"))
-    return `Model identifier for ${prefixLabel(key, "_MODEL")}`;
-  if (upper.endsWith("_VOICE") || upper.includes("_VOICE_"))
-    return `Voice setting for ${prefixLabel(key, "_VOICE")}`;
-  if (upper.endsWith("_DIR") || upper.endsWith("_PATH"))
-    return `Directory path for ${prefixLabel(key, "_DIR").replace(/_PATH$/i, "")}`;
-  if (upper.endsWith("_ENABLED") || upper.startsWith("ENABLE_"))
-    return `Enable/disable ${prefixLabel(key, "_ENABLED").replace(/^ENABLE_/i, "")}`;
-  if (upper.includes("DRY_RUN")) return `Dry-run mode (no real actions)`;
-  if (upper.endsWith("_INTERVAL") || upper.endsWith("_INTERVAL_MINUTES"))
-    return `Check interval for ${prefixLabel(key, "_INTERVAL")}`;
-  if (upper.endsWith("_TIMEOUT") || upper.endsWith("_TIMEOUT_MS"))
-    return `Timeout setting for ${prefixLabel(key, "_TIMEOUT")}`;
-
-  // Generic: convert KEY_NAME to "Key name"
-  return key
-    .split("_")
-    .map((w, i) =>
-      i === 0
-        ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()
-        : w.toLowerCase(),
-    )
-    .join(" ");
-}
-
-/** Extract the plugin/service prefix label from a key by removing a known suffix. */
-function prefixLabel(key: string, suffix: string): string {
-  const raw = key.replace(new RegExp(`${suffix}$`, "i"), "").replace(/_+$/, "");
-  if (!raw) return key;
-  return raw
-    .split("_")
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-    .join(" ");
-}
-
-// ---------------------------------------------------------------------------
-// Blocked env keys — dangerous system vars that must never be written via API
-// ---------------------------------------------------------------------------
-
-const BLOCKED_ENV_KEYS = new Set([
-  "LD_PRELOAD",
-  "LD_LIBRARY_PATH",
-  "DYLD_INSERT_LIBRARIES",
-  "DYLD_LIBRARY_PATH",
-  "NODE_OPTIONS",
-  "NODE_EXTRA_CA_CERTS",
-  "ELECTRON_RUN_AS_NODE",
-  "PATH",
-  "HOME",
-  "SHELL",
-  "MILADY_API_TOKEN",
-  "MILADY_WALLET_EXPORT_TOKEN",
-  "DATABASE_URL",
-  "POSTGRES_URL",
-]);
-
-/**
- * Top-level config keys accepted by `PUT /api/config`.
- * Keep this in sync with MiladyConfig root fields and include both modern and
- * legacy aliases (e.g. `connectors` + `channels`).
- */
-export const CONFIG_WRITE_ALLOWED_TOP_KEYS = new Set([
-  "meta",
-  "auth",
-  "env",
-  "wizard",
-  "diagnostics",
-  "logging",
-  "update",
-  "browser",
-  "ui",
-  "skills",
-  "plugins",
-  "models",
-  "nodeHost",
-  "agents",
-  "tools",
-  "bindings",
-  "broadcast",
-  "audio",
-  "messages",
-  "commands",
-  "approvals",
-  "session",
-  "web",
-  "connectors",
-  "channels",
-  "cron",
-  "hooks",
-  "discovery",
-  "talk",
-  "gateway",
-  "memory",
-  "database",
-  "cloud",
-  "x402",
-  "mcp",
-  "features",
-]);
-
-// ---------------------------------------------------------------------------
-// Secrets aggregation — collect all sensitive params across plugins
-// ---------------------------------------------------------------------------
-
-interface SecretEntry {
-  key: string;
-  description: string;
-  category: string;
-  sensitive: boolean;
-  required: boolean;
-  isSet: boolean;
-  maskedValue: string | null;
-  usedBy: Array<{ pluginId: string; pluginName: string; enabled: boolean }>;
-}
-
-const AI_PROVIDERS = new Set([
-  "OPENAI",
-  "ANTHROPIC",
-  "GOOGLE",
-  "MISTRAL",
-  "GROQ",
-  "COHERE",
-  "TOGETHER",
-  "FIREWORKS",
-  "PERPLEXITY",
-  "DEEPSEEK",
-  "XAI",
-  "OPENROUTER",
-  "ELEVENLABS",
-  "REPLICATE",
-  "HUGGINGFACE",
-]);
-
-function inferSecretCategory(key: string): string {
-  const upper = key.toUpperCase();
-
-  // AI provider keys
-  if (upper.endsWith("_API_KEY")) {
-    const prefix = upper.replace(/_API_KEY$/, "");
-    if (AI_PROVIDERS.has(prefix)) return "ai-provider";
-  }
-
-  // Blockchain
-  if (
-    upper.endsWith("_RPC_URL") ||
-    upper.endsWith("_PRIVATE_KEY") ||
-    upper.startsWith("SOLANA_") ||
-    upper.startsWith("EVM_") ||
-    upper.includes("_WALLET_") ||
-    upper.includes("HELIUS") ||
-    upper.includes("ALCHEMY") ||
-    upper.includes("INFURA") ||
-    upper.includes("ANKR") ||
-    upper.includes("BIRDEYE")
-  ) {
-    return "blockchain";
-  }
-
-  // Connectors
-  if (
-    upper.endsWith("_BOT_TOKEN") ||
-    upper.startsWith("TELEGRAM_") ||
-    upper.startsWith("DISCORD_") ||
-    upper.startsWith("TWITTER_") ||
-    upper.startsWith("SLACK_") ||
-    upper.startsWith("FARCASTER_")
-  ) {
-    return "connector";
-  }
-
-  // Auth
-  if (
-    upper.endsWith("_TOKEN") ||
-    upper.endsWith("_SECRET") ||
-    upper.endsWith("_PASSWORD")
-  ) {
-    return "auth";
-  }
-
-  return "other";
-}
-
-function aggregateSecrets(plugins: PluginEntry[]): SecretEntry[] {
-  const map = new Map<string, SecretEntry>();
-
-  for (const plugin of plugins) {
-    for (const param of plugin.parameters) {
-      if (!param.sensitive) continue;
-
-      const existing = map.get(param.key);
-      if (existing) {
-        existing.usedBy.push({
-          pluginId: plugin.id,
-          pluginName: plugin.name,
-          enabled: plugin.enabled,
-        });
-        // Only mark required if an *enabled* plugin requires it
-        if (param.required && plugin.enabled) existing.required = true;
-      } else {
-        const envValue = process.env[param.key];
-        const isSet = Boolean(envValue?.trim());
-        map.set(param.key, {
-          key: param.key,
-          description: param.description || inferDescription(param.key),
-          category: inferSecretCategory(param.key),
-          sensitive: true,
-          required: param.required && plugin.enabled,
-          isSet,
-          maskedValue: isSet ? maskValue(envValue ?? "") : null,
-          usedBy: [
-            {
-              pluginId: plugin.id,
-              pluginName: plugin.name,
-              enabled: plugin.enabled,
-            },
-          ],
-        });
-      }
-    }
-  }
-
-  return Array.from(map.values());
-}
-
-/**
- * Discover user-installed plugins from the Store (not bundled in the manifest).
- * Reads from config.plugins.installs and tries to enrich with package.json metadata.
- */
-function discoverInstalledPlugins(
-  config: MiladyConfig,
-  bundledIds: Set<string>,
-): PluginEntry[] {
-  const installs = config.plugins?.installs;
-  if (!installs || typeof installs !== "object") return [];
-
-  const entries: PluginEntry[] = [];
-
-  for (const [packageName, record] of Object.entries(installs)) {
-    // Derive a short id from the package name (e.g. "@elizaos/plugin-foo" -> "foo")
-    const id = packageName
-      .replace(/^@[^/]+\/plugin-/, "")
-      .replace(/^@[^/]+\//, "")
-      .replace(/^plugin-/, "");
-
-    // Skip if it's already covered by the bundled manifest
-    if (bundledIds.has(id)) continue;
-
-    const category = categorizePlugin(id);
-    const installPath = (record as Record<string, string>).installPath;
-
-    // Try to read the plugin's package.json for metadata
-    let name = packageName;
-    let description = `Installed from registry (v${(record as Record<string, string>).version ?? "unknown"})`;
-    let pluginConfigKeys: string[] = [];
-    let pluginParameters: PluginParamDef[] = [];
-
-    if (installPath) {
-      // Check npm layout first, then direct layout
-      const candidates = [
-        path.join(
-          installPath,
-          "node_modules",
-          ...packageName.split("/"),
-          "package.json",
-        ),
-        path.join(installPath, "package.json"),
-      ];
-      for (const pkgPath of candidates) {
-        try {
-          if (fs.existsSync(pkgPath)) {
-            const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8")) as {
-              name?: string;
-              description?: string;
-              elizaos?: {
-                displayName?: string;
-                configKeys?: string[];
-                configDefaults?: Record<string, string>;
-              };
-            };
-            if (pkg.name) name = pkg.name;
-            if (pkg.description) description = pkg.description;
-            if (pkg.elizaos?.displayName) name = pkg.elizaos.displayName;
-            if (pkg.elizaos?.configKeys) {
-              pluginConfigKeys = pkg.elizaos.configKeys;
-              const defaults = pkg.elizaos.configDefaults ?? {};
-              pluginParameters = pluginConfigKeys.map((key) => ({
-                key,
-                label: key,
-                description: "",
-                required: false,
-                sensitive:
-                  key.toLowerCase().includes("key") ||
-                  key.toLowerCase().includes("secret"),
-                type: "string" as const,
-                default: defaults[key] ?? undefined,
-                isSet: Boolean(process.env[key]?.trim()),
-                currentValue: null,
-              }));
-            }
-            break;
-          }
-        } catch {
-          // ignore read errors
-        }
-      }
-    }
-
-    entries.push({
-      id,
-      name,
-      description,
-      enabled: false, // Will be updated against the runtime below
-      configured:
-        pluginConfigKeys.length === 0 || pluginParameters.some((p) => p.isSet),
-      envKey: pluginConfigKeys[0] ?? null,
-      category,
-      source: "store",
-      configKeys: pluginConfigKeys,
-      parameters: pluginParameters,
-      validationErrors: [],
-      validationWarnings: [],
-    });
-  }
-
-  return entries.sort((a, b) => a.name.localeCompare(b.name));
 }
 
 /**
  * Discover available plugins from the bundled plugins.json manifest.
  * Falls back to filesystem scanning for monorepo development.
  */
-function discoverPluginsFromManifest(): PluginEntry[] {
+function discoverPluginsFromManifest(config?: MilaidyConfig): PluginEntry[] {
   const thisDir =
-    import.meta.dirname ?? path.dirname(fileURLToPath(import.meta.url));
+    import.meta.dirname ?? path.dirname(new URL(import.meta.url).pathname);
   const packageRoot = findOwnPackageRoot(thisDir);
   const manifestPath = path.join(packageRoot, "plugins.json");
 
@@ -1052,28 +640,18 @@ function discoverPluginsFromManifest(): PluginEntry[] {
       const index = JSON.parse(
         fs.readFileSync(manifestPath, "utf-8"),
       ) as PluginIndex;
-      // Keys that are auto-injected by infrastructure and should never be
-      // exposed as user-facing "config keys" or parameter definitions.
-      const HIDDEN_KEYS = new Set(["VERCEL_OIDC_TOKEN"]);
       return index.plugins
         .map((p) => {
           const category = categorizePlugin(p.id);
           const envKey = p.envKey;
-          const filteredConfigKeys = p.configKeys.filter(
-            (k) => !HIDDEN_KEYS.has(k),
-          );
+          const storedEntry = config?.plugins?.entries?.[p.id];
+          const storedConfig = storedEntry?.config ?? {};
+          const hasStoredConfig = Object.keys(storedConfig).length > 0;
           const configured = envKey
-            ? Boolean(process.env[envKey])
-            : filteredConfigKeys.length === 0;
-          const filteredParams = p.pluginParameters
-            ? Object.fromEntries(
-                Object.entries(p.pluginParameters).filter(
-                  ([k]) => !HIDDEN_KEYS.has(k),
-                ),
-              )
-            : undefined;
-          const parameters = filteredParams
-            ? buildParamDefs(filteredParams)
+            ? Boolean(process.env[envKey]) || hasStoredConfig
+            : p.configKeys.length === 0 || hasStoredConfig;
+          const parameters = p.pluginParameters
+            ? buildParamDefs(p.pluginParameters)
             : [];
           const paramInfos: PluginParamInfo[] = parameters.map((pd) => ({
             key: pd.key,
@@ -1087,7 +665,7 @@ function discoverPluginsFromManifest(): PluginEntry[] {
             p.id,
             category,
             envKey,
-            filteredConfigKeys,
+            p.configKeys,
             undefined,
             paramInfos,
           );
@@ -1096,34 +674,159 @@ function discoverPluginsFromManifest(): PluginEntry[] {
             id: p.id,
             name: p.name,
             description: p.description,
-            enabled: false,
+            enabled: storedEntry?.enabled ?? false,
             configured,
             envKey,
             category,
-            source: "bundled" as const,
-            configKeys: filteredConfigKeys,
+            configKeys: p.configKeys,
             parameters,
             validationErrors: validation.errors,
             validationWarnings: validation.warnings,
-            npmName: p.npmName,
-            version: p.version,
-            pluginDeps: p.pluginDeps,
-            ...(p.configUiHints ? { configUiHints: p.configUiHints } : {}),
           };
         })
         .sort((a, b) => a.name.localeCompare(b.name));
     } catch (err) {
       logger.debug(
-        `[milady-api] Failed to read plugins.json: ${err instanceof Error ? err.message : err}`,
+        `[milaidy-api] Failed to read plugins.json: ${err instanceof Error ? err.message : err}`,
       );
     }
   }
 
   // Fallback: no manifest found
   logger.debug(
-    "[milady-api] plugins.json not found — run `npm run generate:plugins`",
+    "[milaidy-api] plugins.json not found — run `npm run generate:plugins`",
   );
   return [];
+}
+
+function pluginIdFromPackageName(name: string): string {
+  if (name.startsWith("@elizaos/plugin-")) {
+    return name.replace("@elizaos/plugin-", "");
+  }
+  if (name.startsWith("plugin-")) {
+    return name.replace("plugin-", "");
+  }
+  const idx = name.lastIndexOf("/plugin-");
+  if (idx >= 0) {
+    return name.slice(idx + "/plugin-".length);
+  }
+  // Fallback: last path segment
+  const parts = name.split("/");
+  return parts[parts.length - 1] ?? name;
+}
+
+function formatPluginNameFromId(id: string): string {
+  return id
+    .split("-")
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
+
+function findEnvKeyFromParamKeys(keys: string[]): string | null {
+  return (
+    keys.find(
+      (k) =>
+        k.endsWith("_API_KEY") ||
+        k.endsWith("_BOT_TOKEN") ||
+        k.endsWith("_TOKEN"),
+    ) ?? null
+  );
+}
+
+function mergeInstalledPluginsIntoState(state: ServerState): void {
+  const installs = state.config.plugins?.installs ?? {};
+  const existing = new Set(state.plugins.map((p) => p.id));
+  const added: PluginEntry[] = [];
+
+  for (const [packageName, record] of Object.entries(installs)) {
+    const id = pluginIdFromPackageName(packageName);
+    if (existing.has(id)) continue;
+
+    let pkgName = formatPluginNameFromId(id);
+    let description = "";
+    let pluginParams: Record<string, Record<string, unknown>> = {};
+
+    const installPath = (record as Record<string, unknown>)?.installPath;
+    if (typeof installPath === "string" && installPath.trim()) {
+      try {
+        const pkgPath = path.join(installPath, "package.json");
+        if (fs.existsSync(pkgPath)) {
+          const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8")) as Record<
+            string,
+            unknown
+          >;
+          if (typeof pkg.name === "string" && pkg.name.trim()) {
+            pkgName = pkg.name;
+          }
+          if (typeof pkg.description === "string") {
+            description = pkg.description;
+          }
+          const agentConfig = pkg.agentConfig as
+            | Record<string, unknown>
+            | undefined;
+          const params = agentConfig?.pluginParameters as
+            | Record<string, Record<string, unknown>>
+            | undefined;
+          if (params && typeof params === "object") {
+            pluginParams = params;
+          }
+        }
+      } catch {
+        // Non-fatal: installed plugin may be missing metadata.
+      }
+    }
+
+    const configKeys = Object.keys(pluginParams);
+    const envKey = findEnvKeyFromParamKeys(configKeys);
+    const category = categorizePlugin(id);
+    const storedEntry = state.config.plugins?.entries?.[id];
+    const storedConfig = storedEntry?.config ?? {};
+    const hasStoredConfig = Object.keys(storedConfig).length > 0;
+    const configured = envKey
+      ? Boolean(process.env[envKey]) || hasStoredConfig
+      : configKeys.length === 0 || hasStoredConfig;
+    const parameters =
+      Object.keys(pluginParams).length > 0 ? buildParamDefs(pluginParams) : [];
+    const paramInfos: PluginParamInfo[] = parameters.map((pd) => ({
+      key: pd.key,
+      required: pd.required,
+      sensitive: pd.sensitive,
+      type: pd.type,
+      description: pd.description,
+      default: pd.default,
+    }));
+    const validation = validatePluginConfig(
+      id,
+      category,
+      envKey,
+      configKeys,
+      undefined,
+      paramInfos,
+    );
+
+    added.push({
+      id,
+      name:
+        typeof pkgName === "string" && pkgName.trim()
+          ? pkgName
+          : formatPluginNameFromId(id),
+      description,
+      enabled: storedEntry?.enabled ?? true,
+      configured,
+      envKey,
+      category,
+      configKeys,
+      parameters,
+      validationErrors: validation.errors,
+      validationWarnings: validation.warnings,
+    });
+  }
+
+  if (added.length === 0) return;
+  state.plugins = [...state.plugins, ...added].sort((a, b) =>
+    a.name.localeCompare(b.name),
+  );
 }
 
 function categorizePlugin(
@@ -1146,13 +849,11 @@ function categorizePlugin(
     "perplexity",
     "qwen",
     "minimax",
-    "zai",
   ];
   const connectors = [
     "telegram",
     "discord",
     "slack",
-    "twitter",
     "whatsapp",
     "signal",
     "imessage",
@@ -1186,7 +887,7 @@ function categorizePlugin(
 // ---------------------------------------------------------------------------
 
 /** Cache key for persisting skill enable/disable state in the agent database. */
-const SKILL_PREFS_CACHE_KEY = "milady:skill-preferences";
+const SKILL_PREFS_CACHE_KEY = "milaidy:skill-preferences";
 
 /** Shape stored in the cache: maps skill ID → enabled flag. */
 type SkillPreferencesMap = Record<string, boolean>;
@@ -1220,118 +921,9 @@ async function saveSkillPreferences(
     await runtime.setCache(SKILL_PREFS_CACHE_KEY, prefs);
   } catch (err) {
     logger.debug(
-      `[milady-api] Failed to save skill preferences: ${err instanceof Error ? err.message : err}`,
+      `[milaidy-api] Failed to save skill preferences: ${err instanceof Error ? err.message : err}`,
     );
   }
-}
-
-// ---------------------------------------------------------------------------
-// Skill scan acknowledgments — tracks user review of security findings
-// ---------------------------------------------------------------------------
-
-const SKILL_ACK_CACHE_KEY = "milady:skill-scan-acknowledgments";
-
-type SkillAcknowledgmentMap = Record<
-  string,
-  { acknowledgedAt: string; findingCount: number }
->;
-
-async function loadSkillAcknowledgments(
-  runtime: AgentRuntime | null,
-): Promise<SkillAcknowledgmentMap> {
-  if (!runtime) return {};
-  try {
-    const acks =
-      await runtime.getCache<SkillAcknowledgmentMap>(SKILL_ACK_CACHE_KEY);
-    return acks ?? {};
-  } catch {
-    return {};
-  }
-}
-
-async function saveSkillAcknowledgments(
-  runtime: AgentRuntime,
-  acks: SkillAcknowledgmentMap,
-): Promise<void> {
-  try {
-    await runtime.setCache(SKILL_ACK_CACHE_KEY, acks);
-  } catch (err) {
-    logger.debug(
-      `[milady-api] Failed to save skill acknowledgments: ${err instanceof Error ? err.message : err}`,
-    );
-  }
-}
-
-/**
- * Load a .scan-results.json from the skill's directory on disk.
- *
- * Checks multiple locations because skills can be installed from different sources:
- * - Workspace skills: {workspace}/skills/{id}/
- * - Marketplace skills: {workspace}/skills/.marketplace/{id}/
- * - Catalog-installed (managed) skills: {managed-dir}/{id}/ (default: ./skills/)
- *
- * Also queries the AgentSkillsService for the skill's path when a runtime is available,
- * which covers all sources regardless of directory layout.
- */
-async function loadScanReportFromDisk(
-  skillId: string,
-  workspaceDir: string,
-  runtime?: AgentRuntime | null,
-): Promise<Record<string, unknown> | null> {
-  const fsSync = await import("node:fs");
-  const pathMod = await import("node:path");
-
-  const candidates = [
-    pathMod.join(workspaceDir, "skills", skillId, ".scan-results.json"),
-    pathMod.join(
-      workspaceDir,
-      "skills",
-      ".marketplace",
-      skillId,
-      ".scan-results.json",
-    ),
-  ];
-
-  // Also check the path reported by the AgentSkillsService (covers catalog-installed skills
-  // whose managed dir might differ from the workspace dir)
-  if (runtime) {
-    const svc = runtime.getService("AGENT_SKILLS_SERVICE") as
-      | { getLoadedSkills?: () => Array<{ slug: string; path: string }> }
-      | undefined;
-    if (svc?.getLoadedSkills) {
-      const loaded = svc.getLoadedSkills().find((s) => s.slug === skillId);
-      if (loaded?.path) {
-        candidates.push(pathMod.join(loaded.path, ".scan-results.json"));
-      }
-    }
-  }
-
-  // Deduplicate in case paths overlap
-  const seen = new Set<string>();
-  for (const candidate of candidates) {
-    const resolved = pathMod.resolve(candidate);
-    if (seen.has(resolved)) continue;
-    seen.add(resolved);
-
-    if (!fsSync.existsSync(resolved)) continue;
-    const content = fsSync.readFileSync(resolved, "utf-8");
-    let parsed: Record<string, unknown>;
-    try {
-      parsed = JSON.parse(content) as Record<string, unknown>;
-    } catch {
-      continue;
-    }
-    if (
-      typeof parsed.scannedAt === "string" &&
-      typeof parsed.status === "string" &&
-      Array.isArray(parsed.findings) &&
-      Array.isArray(parsed.manifestFindings)
-    ) {
-      return parsed as Record<string, unknown>;
-    }
-  }
-
-  return null;
 }
 
 /**
@@ -1346,7 +938,7 @@ async function loadScanReportFromDisk(
  */
 function resolveSkillEnabled(
   id: string,
-  config: MiladyConfig,
+  config: MilaidyConfig,
   dbPrefs: SkillPreferencesMap,
 ): boolean {
   // Database preference takes priority (explicit user action)
@@ -1381,7 +973,7 @@ function resolveSkillEnabled(
  */
 async function discoverSkills(
   workspaceDir: string,
-  config: MiladyConfig,
+  config: MilaidyConfig,
   runtime: AgentRuntime | null,
 ): Promise<SkillEntry[]> {
   // Load persisted preferences from the agent database
@@ -1399,58 +991,26 @@ async function discoverSkills(
               name: string;
               description: string;
               source: string;
-              path: string;
             }>;
-            getSkillScanStatus?: (
-              slug: string,
-            ) => "clean" | "warning" | "critical" | "blocked" | null;
           }
         | undefined;
       if (svc && typeof svc.getLoadedSkills === "function") {
         const loadedSkills = svc.getLoadedSkills();
 
         if (loadedSkills.length > 0) {
-          const skills: SkillEntry[] = loadedSkills.map((s) => {
-            // Get scan status from in-memory map (fast) or from disk report
-            let scanStatus: SkillEntry["scanStatus"] = null;
-            if (svc.getSkillScanStatus) {
-              scanStatus = svc.getSkillScanStatus(s.slug);
-            }
-            if (!scanStatus) {
-              // Check for .scan-results.json on disk
-              const reportPath = path.join(s.path, ".scan-results.json");
-              if (fs.existsSync(reportPath)) {
-                const raw = fs.readFileSync(reportPath, "utf-8");
-                try {
-                  const parsed = JSON.parse(raw) as { status?: string };
-                  if (parsed.status) {
-                    scanStatus = parsed.status as
-                      | "clean"
-                      | "warning"
-                      | "critical"
-                      | "blocked";
-                  }
-                } catch {
-                  // Malformed scan report — treat as unscanned.
-                }
-              }
-            }
-
-            return {
-              id: s.slug,
-              name: s.name || s.slug,
-              description: (s.description || "").slice(0, 200),
-              enabled: resolveSkillEnabled(s.slug, config, dbPrefs),
-              scanStatus,
-            };
-          });
+          const skills: SkillEntry[] = loadedSkills.map((s) => ({
+            id: s.slug,
+            name: s.name || s.slug,
+            description: (s.description || "").slice(0, 200),
+            enabled: resolveSkillEnabled(s.slug, config, dbPrefs),
+          }));
 
           return skills.sort((a, b) => a.name.localeCompare(b.name));
         }
       }
     } catch {
       logger.debug(
-        "[milady-api] AgentSkillsService not available, falling back to filesystem scan",
+        "[milaidy-api] AgentSkillsService not available, falling back to filesystem scan",
       );
     }
   }
@@ -1469,7 +1029,7 @@ async function discoverSkills(
     }
   } catch {
     logger.debug(
-      "[milady-api] @elizaos/skills not available for skill discovery",
+      "[milaidy-api] @elizaos/skills not available for skill discovery",
     );
   }
 
@@ -1504,7 +1064,7 @@ function scanSkillsDir(
   dir: string,
   skills: SkillEntry[],
   seen: Set<string>,
-  config: MiladyConfig,
+  config: MilaidyConfig,
   dbPrefs: SkillPreferencesMap,
 ): void {
   if (!fs.existsSync(dir)) return;
@@ -1587,6 +1147,504 @@ function scanSkillsDir(
 
 /** Maximum request body size (1 MB) — prevents memory-based DoS. */
 const MAX_BODY_BYTES = 1_048_576;
+const MAX_CHAT_TEXT_CHARS = Math.max(
+  256,
+  Number(process.env.MILAIDY_MAX_CHAT_TEXT_CHARS ?? "12000"),
+);
+const API_RATE_LIMIT_WINDOW_MS = Math.max(
+  1_000,
+  Number(process.env.MILAIDY_API_RATE_LIMIT_WINDOW_MS ?? "60000"),
+);
+const API_RATE_LIMIT_MAX_REQUESTS = Math.max(
+  10,
+  Number(process.env.MILAIDY_API_RATE_LIMIT_MAX_REQUESTS ?? "300"),
+);
+const CHAT_MAX_CONCURRENCY = Math.max(
+  1,
+  Number(process.env.MILAIDY_CHAT_MAX_CONCURRENCY ?? "8"),
+);
+const CHAT_RESPONSE_TIMEOUT_MS = Math.max(
+  5_000,
+  Number(process.env.MILAIDY_CHAT_RESPONSE_TIMEOUT_MS ?? "12000"),
+);
+const CHAT_PIPELINE_TIMEOUT_MS = Math.max(
+  3_000,
+  Number(process.env.MILAIDY_CHAT_PIPELINE_TIMEOUT_MS ?? "7000"),
+);
+const CHAT_PIPELINE_MAX_RETRIES = Math.max(
+  0,
+  Number(process.env.MILAIDY_CHAT_PIPELINE_MAX_RETRIES ?? "0"),
+);
+const CHAT_PIPELINE_USE_MULTI_STEP =
+  process.env.MILAIDY_CHAT_PIPELINE_USE_MULTI_STEP === "1";
+const CHAT_FALLBACK_ALLOW_LARGE =
+  process.env.MILAIDY_CHAT_FALLBACK_ALLOW_LARGE === "1";
+const UNIVERSAL_ROUTER_ENABLED =
+  process.env.MILAIDY_UNIVERSAL_ROUTER !== "0";
+const INTENT_ENGINE_V2_ENABLED = process.env.MILAIDY_INTENT_ENGINE_V2 === "1";
+
+const IS_PRODUCTION_RUNTIME =
+  process.env.MILAIDY_ENV === "production" ||
+  process.env.NODE_ENV === "production";
+const STRICT_PROD_SECURITY =
+  IS_PRODUCTION_RUNTIME && process.env.MILAIDY_PROD_STRICT_SECURITY !== "0";
+const apiRateLimiter = createRateLimiter();
+const MULTIUSER_V2_ENABLED = process.env.MILAIDY_MULTIUSER_ENABLE === "1";
+const MULTIUSER_ENFORCE_V2_ONLY =
+  process.env.MILAIDY_MULTIUSER_ENFORCE_V2 === "1";
+const REQUIRE_LEGACY_API_TOKEN =
+  process.env.MILAIDY_REQUIRE_API_TOKEN === "1" ||
+  MULTIUSER_ENFORCE_V2_ONLY ||
+  (STRICT_PROD_SECURITY && process.env.MILAIDY_REQUIRE_API_TOKEN !== "0");
+const REQUIRE_USER_PROVIDER_SECRET =
+  process.env.MILAIDY_REQUIRE_USER_PROVIDER_SECRET !== "0";
+let multiUserService: MultiUserService | null = null;
+let multiUserInitError: string | null = null;
+if (MULTIUSER_V2_ENABLED || MULTIUSER_ENFORCE_V2_ONLY) {
+  try {
+    multiUserService = new MultiUserService();
+  } catch (err) {
+    multiUserInitError = err instanceof Error ? err.message : String(err);
+  }
+}
+
+function buildMultiUserPreflightReport(): {
+  enabled: boolean;
+  strictV2Only: boolean;
+  requireLegacyApiToken: boolean;
+  requireUserProviderSecret: boolean;
+  ready: boolean;
+  serviceInitialized: boolean;
+  missingEnv: string[];
+  checks: Array<{ key: string; ok: boolean; detail: string }>;
+  initError: string | null;
+} {
+  const checks: Array<{ key: string; ok: boolean; detail: string }> = [];
+
+  const jwtSecret = process.env.MILAIDY_AUTH_JWT_SECRET?.trim() ?? "";
+  const jwtOk = jwtSecret.length >= 32;
+  checks.push({
+    key: "MILAIDY_AUTH_JWT_SECRET",
+    ok: jwtOk,
+    detail: jwtOk
+      ? "set (length >= 32)"
+      : "missing or too short (min 32 chars)",
+  });
+
+  let keyringOk = false;
+  let keyringDetail = "configured";
+  try {
+    parseSecretKeyringFromEnv(process.env);
+    keyringOk = true;
+  } catch (err) {
+    keyringOk = false;
+    keyringDetail =
+      err instanceof Error ? err.message : "invalid keyring configuration";
+  }
+  checks.push({
+    key: "MILAIDY_SECRET_KEYS + MILAIDY_SECRET_KEY_ACTIVE_VERSION",
+    ok: keyringOk,
+    detail: keyringDetail,
+  });
+
+  const allowOrigins = process.env.MILAIDY_ALLOWED_ORIGINS?.trim() ?? "";
+  checks.push({
+    key: "MILAIDY_ALLOWED_ORIGINS",
+    ok: Boolean(allowOrigins),
+    detail: allowOrigins || "missing",
+  });
+
+  if (STRICT_PROD_SECURITY) {
+    checks.push({
+      key: "MILAIDY_MULTIUSER_ENFORCE_V2",
+      ok: MULTIUSER_ENFORCE_V2_ONLY,
+      detail: MULTIUSER_ENFORCE_V2_ONLY
+        ? "strict v2 enabled"
+        : "must be 1 in production strict mode",
+    });
+    checks.push({
+      key: "MILAIDY_ALLOW_LAN_ORIGINS",
+      ok: process.env.MILAIDY_ALLOW_LAN_ORIGINS === "0",
+      detail:
+        process.env.MILAIDY_ALLOW_LAN_ORIGINS === "0"
+          ? "disabled"
+          : "must be 0 in production strict mode",
+    });
+  }
+
+  const limiterInfo = apiRateLimiter.info();
+  checks.push({
+    key: "rate_limiter",
+    ok: STRICT_PROD_SECURITY ? limiterInfo.distributed : true,
+    detail:
+      STRICT_PROD_SECURITY && !limiterInfo.distributed
+        ? "distributed backend required in production strict mode"
+        : `${limiterInfo.mode}${limiterInfo.failClosed ? " (fail-closed)" : ""}`,
+  });
+
+  const persistence = multiUserService?.getPersistenceInfo();
+  if (persistence) {
+    checks.push({
+      key: "multiuser_persistence",
+      ok: STRICT_PROD_SECURITY ? persistence.productionSafe : true,
+      detail: `${persistence.mode}:${persistence.path}`,
+    });
+  }
+
+  const missingEnv: string[] = [];
+  if (!jwtOk) missingEnv.push("MILAIDY_AUTH_JWT_SECRET");
+  if (!keyringOk) {
+    const hasKeys = Boolean(process.env.MILAIDY_SECRET_KEYS?.trim());
+    const hasActive = Boolean(
+      process.env.MILAIDY_SECRET_KEY_ACTIVE_VERSION?.trim(),
+    );
+    if (!hasKeys) missingEnv.push("MILAIDY_SECRET_KEYS");
+    if (!hasActive) missingEnv.push("MILAIDY_SECRET_KEY_ACTIVE_VERSION");
+  }
+  if (!allowOrigins) missingEnv.push("MILAIDY_ALLOWED_ORIGINS");
+
+  const enabled = MULTIUSER_V2_ENABLED || MULTIUSER_ENFORCE_V2_ONLY;
+  const ready = enabled ? checks.every((c) => c.ok) : true;
+  return {
+    enabled,
+    strictV2Only: MULTIUSER_ENFORCE_V2_ONLY,
+    requireLegacyApiToken: REQUIRE_LEGACY_API_TOKEN,
+    requireUserProviderSecret: REQUIRE_USER_PROVIDER_SECRET,
+    ready,
+    serviceInitialized: Boolean(multiUserService),
+    missingEnv,
+    checks,
+    initError: multiUserInitError,
+  };
+}
+
+function applySecurityHeaders(res: http.ServerResponse): void {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("Referrer-Policy", "no-referrer");
+  res.setHeader("Cross-Origin-Resource-Policy", "same-origin");
+}
+
+function getClientIp(req: http.IncomingMessage): string {
+  const xff =
+    typeof req.headers["x-forwarded-for"] === "string"
+      ? req.headers["x-forwarded-for"]
+      : undefined;
+  if (xff) {
+    const first = xff.split(",")[0]?.trim();
+    if (first) return first;
+  }
+  return req.socket.remoteAddress ?? "unknown";
+}
+
+async function checkApiRateLimit(
+  req: http.IncomingMessage,
+): Promise<{ allowed: boolean; retryAfterSec: number }> {
+  const ip = getClientIp(req);
+  const decision = await apiRateLimiter.check(
+    ip,
+    API_RATE_LIMIT_MAX_REQUESTS,
+    API_RATE_LIMIT_WINDOW_MS,
+  );
+  return {
+    allowed: decision.allowed,
+    retryAfterSec: decision.retryAfterSec,
+  };
+}
+
+function cleanupApiRateLimits(): void {
+  apiRateLimiter.cleanup();
+}
+
+function extractBearerToken(req: http.IncomingMessage): string | null {
+  const header =
+    typeof req.headers.authorization === "string"
+      ? req.headers.authorization.trim()
+      : "";
+  const match = /^Bearer\s+(.+)$/i.exec(header);
+  if (!match?.[1]) return null;
+  const token = match[1].trim();
+  return token || null;
+}
+
+function normalizeConfiguredEvmAddress(
+  value: string | undefined,
+): string | null {
+  const trimmed = value?.trim() ?? "";
+  if (!trimmed) return null;
+  return /^0x[a-fA-F0-9]{40}$/.test(trimmed) ? trimmed : null;
+}
+
+function normalizeConfiguredSolanaAddress(
+  value: string | undefined,
+): string | null {
+  const trimmed = value?.trim() ?? "";
+  if (!trimmed) return null;
+  // Base58 public keys are typically 32-44 chars.
+  return /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(trimmed) ? trimmed : null;
+}
+
+/**
+ * User-connected wallet addresses only.
+ *
+ * Intentionally excludes signer-derived addresses from private keys to avoid
+ * showing "auto connected" wallets that the user did not explicitly connect.
+ */
+function getConnectedWalletAddresses(): {
+  evmAddress: string | null;
+  solanaAddress: string | null;
+} {
+  return {
+    evmAddress: normalizeConfiguredEvmAddress(process.env.EVM_ADDRESS),
+    solanaAddress: normalizeConfiguredSolanaAddress(process.env.SOLANA_ADDRESS),
+  };
+}
+
+function getOptionalMultiUserContextFromBearer(
+  req: http.IncomingMessage,
+): { userId: string; displayName: string } | null {
+  if (!multiUserService) return null;
+  const bearer = extractBearerToken(req);
+  if (!bearer) return null;
+  try {
+    const ctx = multiUserService.getSessionFromAccessToken(bearer);
+    return { userId: ctx.user.id, displayName: ctx.user.displayName };
+  } catch {
+    return null;
+  }
+}
+
+function getEffectiveConnectedWalletAddresses(req: http.IncomingMessage): {
+  evmAddress: string | null;
+  solanaAddress: string | null;
+} {
+  const ctx = getOptionalMultiUserContextFromBearer(req);
+  if (ctx && multiUserService) {
+    const binding = multiUserService.getWalletBinding(ctx.userId);
+    return {
+      evmAddress: normalizeConfiguredEvmAddress(
+        binding.evmAddress ?? undefined,
+      ),
+      solanaAddress: normalizeConfiguredSolanaAddress(
+        binding.solanaAddress ?? undefined,
+      ),
+    };
+  }
+  return getConnectedWalletAddresses();
+}
+
+function getConfiguredUiHandle(config: MilaidyConfig): string | null {
+  const raw = (config as { ui?: { user?: { handle?: unknown } } }).ui?.user
+    ?.handle;
+  if (typeof raw !== "string") return null;
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  return trimmed.startsWith("@") ? trimmed : `@${trimmed}`;
+}
+
+function maskSecretValue(value: string): string {
+  if (value.length <= 8) return "********";
+  return `${value.slice(0, 4)}...${value.slice(-2)}`;
+}
+
+function redactConfigForResponse(config: MilaidyConfig): MilaidyConfig {
+  const cloned = structuredClone(config);
+  const env = (cloned as { env?: Record<string, unknown> }).env;
+  if (env && typeof env === "object") {
+    const redacted: Record<string, unknown> = {};
+    for (const [key, raw] of Object.entries(env)) {
+      const value = typeof raw === "string" ? raw : String(raw ?? "");
+      redacted[key] = maskSecretValue(value);
+    }
+    (cloned as { env?: Record<string, unknown> }).env = redacted;
+  }
+  return cloned;
+}
+
+function validateSafeConfigPatch(
+  input: Record<string, unknown>,
+): Record<string, unknown> {
+  const allowedTopLevel = new Set(["ui"]);
+  for (const key of Object.keys(input)) {
+    if (!allowedTopLevel.has(key)) {
+      throw new MultiUserError(
+        `Unsupported config field: ${key}`,
+        422,
+        "INVALID_CONFIG_PATCH",
+      );
+    }
+  }
+
+  const out: Record<string, unknown> = {};
+  const ui = input.ui;
+  if (ui !== undefined) {
+    if (!ui || typeof ui !== "object" || Array.isArray(ui)) {
+      throw new MultiUserError(
+        "ui must be an object",
+        422,
+        "INVALID_CONFIG_PATCH",
+      );
+    }
+    const uiObj = ui as Record<string, unknown>;
+    const uiOut: Record<string, unknown> = {};
+    if (uiObj.assistant !== undefined) {
+      if (
+        !uiObj.assistant ||
+        typeof uiObj.assistant !== "object" ||
+        Array.isArray(uiObj.assistant)
+      ) {
+        throw new MultiUserError(
+          "ui.assistant must be an object",
+          422,
+          "INVALID_CONFIG_PATCH",
+        );
+      }
+      const assistant = uiObj.assistant as Record<string, unknown>;
+      const assistantOut: Record<string, unknown> = {};
+      if (assistant.name !== undefined) {
+        if (
+          typeof assistant.name !== "string" ||
+          !assistant.name.trim() ||
+          assistant.name.length > 120
+        ) {
+          throw new MultiUserError(
+            "ui.assistant.name must be a non-empty string up to 120 chars",
+            422,
+            "INVALID_CONFIG_PATCH",
+          );
+        }
+        assistantOut.name = assistant.name.trim();
+      }
+      uiOut.assistant = assistantOut;
+    }
+    if (uiObj.user !== undefined) {
+      if (
+        !uiObj.user ||
+        typeof uiObj.user !== "object" ||
+        Array.isArray(uiObj.user)
+      ) {
+        throw new MultiUserError(
+          "ui.user must be an object",
+          422,
+          "INVALID_CONFIG_PATCH",
+        );
+      }
+      const user = uiObj.user as Record<string, unknown>;
+      const userOut: Record<string, unknown> = {};
+
+      if (user.handle !== undefined) {
+        if (typeof user.handle !== "string") {
+          throw new MultiUserError(
+            "ui.user.handle must be a string",
+            422,
+            "INVALID_CONFIG_PATCH",
+          );
+        }
+        const trimmed = user.handle.trim();
+        if (!trimmed) {
+          throw new MultiUserError(
+            "ui.user.handle cannot be empty",
+            422,
+            "INVALID_CONFIG_PATCH",
+          );
+        }
+        if (trimmed.length > 32) {
+          throw new MultiUserError(
+            "ui.user.handle must be 32 chars or fewer",
+            422,
+            "INVALID_CONFIG_PATCH",
+          );
+        }
+        // Allow "@name" or "name". Normalization is handled in the UI.
+        userOut.handle = trimmed;
+      }
+
+      if (user.accent !== undefined) {
+        if (typeof user.accent !== "string") {
+          throw new MultiUserError(
+            "ui.user.accent must be a string",
+            422,
+            "INVALID_CONFIG_PATCH",
+          );
+        }
+        const trimmed = user.accent.trim();
+        if (!/^#[0-9a-fA-F]{6}$/.test(trimmed)) {
+          throw new MultiUserError(
+            "ui.user.accent must be a hex color like #ff8800",
+            422,
+            "INVALID_CONFIG_PATCH",
+          );
+        }
+        userOut.accent = trimmed;
+      }
+
+      if (user.imageUrl !== undefined) {
+        if (typeof user.imageUrl !== "string") {
+          throw new MultiUserError(
+            "ui.user.imageUrl must be a string",
+            422,
+            "INVALID_CONFIG_PATCH",
+          );
+        }
+        const trimmed = user.imageUrl.trim();
+        if (!trimmed || trimmed.length > 1024) {
+          throw new MultiUserError(
+            "ui.user.imageUrl must be a non-empty string up to 1024 chars",
+            422,
+            "INVALID_CONFIG_PATCH",
+          );
+        }
+        userOut.imageUrl = trimmed;
+      }
+
+      if (user.responseMode !== undefined) {
+        if (typeof user.responseMode !== "string") {
+          throw new MultiUserError(
+            "ui.user.responseMode must be a string",
+            422,
+            "INVALID_CONFIG_PATCH",
+          );
+        }
+        const trimmed = user.responseMode.trim();
+        if (!trimmed || trimmed.length > 80) {
+          throw new MultiUserError(
+            "ui.user.responseMode must be a non-empty string up to 80 chars",
+            422,
+            "INVALID_CONFIG_PATCH",
+          );
+        }
+        userOut.responseMode = trimmed;
+      }
+
+      uiOut.user = userOut;
+    }
+    out.ui = uiOut;
+  }
+
+  return out;
+}
+
+function readBody(req: http.IncomingMessage): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    let totalBytes = 0;
+    req.on("data", (c: Buffer) => {
+      totalBytes += c.length;
+      if (totalBytes > MAX_BODY_BYTES) {
+        req.destroy();
+        reject(
+          new Error(
+            `Request body exceeds maximum size (${MAX_BODY_BYTES} bytes)`,
+          ),
+        );
+        return;
+      }
+      chunks.push(c);
+    });
+    req.on("end", () => resolve(Buffer.concat(chunks).toString("utf-8")));
+    req.on("error", reject);
+  });
+}
 
 /**
  * Read and parse a JSON request body with size limits and error handling.
@@ -1595,814 +1653,492 @@ const MAX_BODY_BYTES = 1_048_576;
 async function readJsonBody<T = Record<string, unknown>>(
   req: http.IncomingMessage,
   res: http.ServerResponse,
-  options: ReadJsonBodyOptions = {},
 ): Promise<T | null> {
-  return parseJsonBody(req, res, {
-    maxBytes: MAX_BODY_BYTES,
-    ...options,
-  });
+  let raw: string;
+  try {
+    raw = await readBody(req);
+  } catch (err) {
+    const msg =
+      err instanceof Error ? err.message : "Failed to read request body";
+    error(res, msg, 413);
+    return null;
+  }
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (parsed == null || typeof parsed !== "object" || Array.isArray(parsed)) {
+      error(res, "Request body must be a JSON object", 400);
+      return null;
+    }
+    return parsed as T;
+  } catch {
+    error(res, "Invalid JSON in request body", 400);
+    return null;
+  }
 }
 
-const readBody = (req: http.IncomingMessage): Promise<string> =>
-  readRequestBody(req, { maxBytes: MAX_BODY_BYTES }).then(
-    (value) => value ?? "",
-  );
-
-let activeTerminalRunCount = 0;
-
 function json(res: http.ServerResponse, data: unknown, status = 200): void {
-  sendJson(res, data, status);
+  res.statusCode = status;
+  res.setHeader("Content-Type", "application/json");
+  res.end(JSON.stringify(data));
 }
 
 function error(res: http.ServerResponse, message: string, status = 400): void {
-  sendJsonError(res, message, status);
+  json(res, { error: message }, status);
 }
 
-// ---------------------------------------------------------------------------
-// Static UI serving (production)
-// ---------------------------------------------------------------------------
+function codedError(
+  res: http.ServerResponse,
+  message: string,
+  code: string,
+  status = 400,
+): void {
+  json(res, { error: message, code }, status);
+}
 
-// Serves the built React dashboard from apps/app/dist/ in production mode.
+async function fetchJsonTimeout<T>(
+  url: string,
+  timeoutMs = 5000,
+): Promise<T | null> {
+  try {
+    const resp = await fetch(url, {
+      method: "GET",
+      headers: { Accept: "application/json" },
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    if (!resp.ok) return null;
+    return (await resp.json()) as T;
+  } catch {
+    return null;
+  }
+}
 
-const STATIC_MIME: Record<string, string> = {
-  ".css": "text/css; charset=utf-8",
-  ".gif": "image/gif",
-  ".html": "text/html; charset=utf-8",
-  ".ico": "image/x-icon",
-  ".jpeg": "image/jpeg",
-  ".jpg": "image/jpeg",
-  "": "application/javascript; charset=utf-8",
-  ".json": "application/json; charset=utf-8",
-  ".map": "application/json",
-  ".mjs": "application/javascript; charset=utf-8",
-  ".png": "image/png",
-  ".svg": "image/svg+xml",
-  ".ttf": "font/ttf",
-  ".txt": "text/plain; charset=utf-8",
-  ".wasm": "application/wasm",
-  ".webp": "image/webp",
-  ".woff": "font/woff",
-  ".woff2": "font/woff2",
+interface PolymarketMarketContext {
+  id: string;
+  slug: string | null;
+  question: string;
+  active: boolean | null;
+  endDateIso: string | null;
+  volumeUsd: number | null;
+  liquidityUsd: number | null;
+  yesPrice: number | null;
+  noPrice: number | null;
+}
+
+const polymarketIntelCache: {
+  hot: PolymarketMarketContext[];
+  byQuery: Map<string, PolymarketMarketContext[]>;
+} = {
+  hot: [],
+  byQuery: new Map<string, PolymarketMarketContext[]>(),
 };
 
-/** Resolved UI directory. Lazily computed once on first request. */
-let uiDir: string | null | undefined;
-let uiIndexHtml: Buffer | null = null;
-
-function resolveUiDir(): string | null {
-  if (uiDir !== undefined) return uiDir;
-  if (process.env.NODE_ENV !== "production") {
-    uiDir = null;
-    return null;
-  }
-
-  const thisDir = path.dirname(fileURLToPath(import.meta.url));
-  const candidates = [
-    path.resolve("apps/app/dist"),
-    path.resolve(thisDir, "../../apps/app/dist"),
-  ];
-
-  for (const candidate of candidates) {
-    const indexPath = path.join(candidate, "index.html");
-    try {
-      if (fs.statSync(indexPath).isFile()) {
-        uiDir = candidate;
-        uiIndexHtml = fs.readFileSync(indexPath);
-        logger.info(`[milady-api] Serving dashboard UI from ${candidate}`);
-        return uiDir;
-      }
-    } catch {
-      // Candidate not present, keep searching.
-    }
-  }
-
-  uiDir = null;
-  logger.info("[milady-api] No built UI found — dashboard routes are disabled");
-  return null;
+function isPolymarketMarketCurrent(endDateIso: string | null): boolean {
+  if (!endDateIso) return true;
+  const endMs = Date.parse(endDateIso);
+  if (!Number.isFinite(endMs)) return true;
+  // Exclude markets that have already ended (small grace for clock drift).
+  return endMs > Date.now() - 5 * 60 * 1000;
 }
 
-function sendStaticResponse(
-  req: http.IncomingMessage,
-  res: http.ServerResponse,
-  status: number,
-  headers: Record<string, string | number>,
-  body?: Buffer,
-): void {
-  res.writeHead(status, headers);
-  if (req.method === "HEAD") {
-    res.end();
-    return;
-  }
-  res.end(body);
-}
-
-/**
- * Serve built dashboard assets from apps/app/dist with SPA fallback.
- * Returns true when the request is handled.
- */
-function serveStaticUi(
-  req: http.IncomingMessage,
-  res: http.ServerResponse,
-  pathname: string,
-): boolean {
-  const root = resolveUiDir();
-  if (!root) return false;
-
-  // Keep API and WebSocket namespaces exclusively owned by server handlers.
-  if (pathname === "/api" || pathname.startsWith("/api/")) return false;
-  if (pathname === "/v1" || pathname.startsWith("/v1/")) return false;
-  if (pathname === "/ws") return false;
-
-  let decodedPath: string;
-  try {
-    decodedPath = decodeURIComponent(pathname);
-  } catch {
-    error(res, "Invalid URL path encoding", 400);
-    return true;
-  }
-
-  const relativePath = decodedPath.replace(/^\/+/, "");
-  const candidatePath = path.resolve(root, relativePath);
+function inferPolymarketTopicHint(text: string): string | null {
+  const lower = text.toLowerCase();
   if (
-    candidatePath !== root &&
-    !candidatePath.startsWith(`${root}${path.sep}`)
+    /\b(sport|sports|nfl|nba|mlb|nhl|epl|soccer|football|basketball|tennis|golf|ufc|mma|f1|formula 1|super bowl|world cup|olympic)\b/.test(
+      lower,
+    )
   ) {
-    error(res, "Forbidden", 403);
-    return true;
-  }
-
-  try {
-    const stat = fs.statSync(candidatePath);
-    if (stat.isFile()) {
-      const ext = path.extname(candidatePath).toLowerCase();
-      const body = fs.readFileSync(candidatePath);
-      const cacheControl = relativePath.startsWith("assets/")
-        ? "public, max-age=31536000, immutable"
-        : "public, max-age=0, must-revalidate";
-      sendStaticResponse(
-        req,
-        res,
-        200,
-        {
-          "Cache-Control": cacheControl,
-          "Content-Length": body.length,
-          "Content-Type": STATIC_MIME[ext] ?? "application/octet-stream",
-        },
-        body,
-      );
-      return true;
-    }
-  } catch {
-    // Missing file falls through to SPA index fallback.
-  }
-
-  if (!uiIndexHtml) return false;
-  sendStaticResponse(
-    req,
-    res,
-    200,
-    {
-      "Cache-Control": "public, max-age=0, must-revalidate",
-      "Content-Length": uiIndexHtml.length,
-      "Content-Type": "text/html; charset=utf-8",
-    },
-    uiIndexHtml,
-  );
-  return true;
-}
-
-interface ChatGenerationResult {
-  text: string;
-  agentName: string;
-}
-
-interface ChatGenerateOptions {
-  onChunk?: (chunk: string) => void;
-  isAborted?: () => boolean;
-  resolveNoResponseText?: () => string;
-}
-
-const INSUFFICIENT_CREDITS_RE =
-  /\b(?:insufficient(?:[_\s]+(?:credits?|quota))|insufficient_quota|out of credits|max usage reached|quota(?:\s+exceeded)?)\b/i;
-
-const INSUFFICIENT_CREDITS_CHAT_REPLIES = [
-  "Sorry, we're out of credits right now. Please top up your credits and try again.",
-  "No model credits left in the tank. Time to top up your credits.",
-  "I can't answer on zero credits. Top up your credits and ping me again.",
-  "Credit meter is empty. Please top up your credits so I can keep going.",
-  "Out of credits, boss. Top up your credits and I am back online.",
-] as const;
-
-const GENERIC_NO_RESPONSE_CHAT_REPLY =
-  "Sorry, I couldn't generate a response right now. Please try again.";
-
-function getErrorMessage(err: unknown, fallback = "generation failed"): string {
-  if (err instanceof Error) return err.message;
-  if (typeof err === "string") return err;
-  return fallback;
-}
-
-function isInsufficientCreditsMessage(message: string): boolean {
-  return INSUFFICIENT_CREDITS_RE.test(message);
-}
-
-function pickInsufficientCreditsChatReply(): string {
-  const idx = Math.floor(
-    Math.random() * INSUFFICIENT_CREDITS_CHAT_REPLIES.length,
-  );
-  return INSUFFICIENT_CREDITS_CHAT_REPLIES[idx];
-}
-
-function findRecentInsufficientCreditsLog(
-  logBuffer: LogEntry[],
-  lookbackMs = 60_000,
-): LogEntry | null {
-  const now = Date.now();
-  for (let i = logBuffer.length - 1; i >= 0; i--) {
-    const entry = logBuffer[i];
-    if (now - entry.timestamp > lookbackMs) break;
-    if (isInsufficientCreditsMessage(entry.message)) {
-      return entry;
-    }
+    return "sports";
   }
   return null;
 }
 
-function resolveNoResponseFallback(logBuffer: LogEntry[]): string {
-  if (findRecentInsufficientCreditsLog(logBuffer)) {
-    return pickInsufficientCreditsChatReply();
-  }
-  return GENERIC_NO_RESPONSE_CHAT_REPLY;
-}
-
-function getInsufficientCreditsReplyFromError(err: unknown): string | null {
-  const msg = getErrorMessage(err, "");
-  return isInsufficientCreditsMessage(msg)
-    ? pickInsufficientCreditsChatReply()
-    : null;
-}
-
-function isNoResponsePlaceholder(text: string): boolean {
-  const trimmed = text.trim();
-  return trimmed.length === 0 || /^\(?no response\)?$/i.test(trimmed);
-}
-
-function normalizeChatResponseText(
-  text: string,
-  logBuffer: LogEntry[],
-): string {
-  if (!isNoResponsePlaceholder(text)) return text;
-  return resolveNoResponseFallback(logBuffer);
-}
-
-function initSse(res: http.ServerResponse): void {
-  res.writeHead(200, {
-    "Content-Type": "text/event-stream",
-    "Cache-Control": "no-cache, no-transform",
-    Connection: "keep-alive",
-    "X-Accel-Buffering": "no",
-  });
-}
-
-function writeSse(
-  res: http.ServerResponse,
-  payload: Record<string, string | number | boolean | null | undefined>,
-): void {
-  if (res.writableEnded || res.destroyed) return;
-  res.write(`data: ${JSON.stringify(payload)}\n\n`);
-}
-
-function writeSseData(
-  res: http.ServerResponse,
-  data: string,
-  event?: string,
-): void {
-  if (res.writableEnded || res.destroyed) return;
-  if (event) res.write(`event: ${event}\n`);
-  res.write(`data: ${data}\n\n`);
-}
-
-function writeSseJson(
-  res: http.ServerResponse,
-  payload: unknown,
-  event?: string,
-): void {
-  writeSseData(res, JSON.stringify(payload), event);
-}
-
-async function generateChatResponse(
-  runtime: AgentRuntime,
-  message: ReturnType<typeof createMessageMemory>,
-  agentName: string,
-  opts?: ChatGenerateOptions,
-): Promise<ChatGenerationResult> {
-  type StreamSource = "unset" | "callback" | "onStreamChunk";
-  let responseText = "";
-  let activeStreamSource: StreamSource = "unset";
-  const messageSource =
-    typeof message.content.source === "string" &&
-    message.content.source.trim().length > 0
-      ? message.content.source
-      : "api";
-  const emitChunk = (chunk: string): void => {
-    if (!chunk) return;
-    responseText += chunk;
-    opts?.onChunk?.(chunk);
-  };
-  const claimStreamSource = (
-    source: Exclude<StreamSource, "unset">,
-  ): boolean => {
-    if (activeStreamSource === "unset") {
-      activeStreamSource = source;
-      return true;
-    }
-    return activeStreamSource === source;
-  };
-  const computeDelta = (existing: string, incoming: string): string => {
-    if (!incoming) return "";
-    if (!existing) return incoming;
-    if (incoming === existing) return "";
-    if (incoming.startsWith(existing)) return incoming.slice(existing.length);
-    if (existing.startsWith(incoming)) return "";
-    if (existing.endsWith(incoming) || existing.includes(incoming)) return "";
-
-    const maxOverlap = Math.min(existing.length, incoming.length);
-    for (let overlap = maxOverlap; overlap > 0; overlap -= 1) {
-      if (existing.endsWith(incoming.slice(0, overlap))) {
-        return incoming.slice(overlap);
-      }
-    }
-    return incoming;
-  };
-  const appendIncomingText = (incoming: string): void => {
-    const delta = computeDelta(responseText, incoming);
-    if (!delta) return;
-    emitChunk(delta);
-  };
-
-  // The core message service emits MESSAGE_SENT but not MESSAGE_RECEIVED.
-  // Emit inbound events here so trajectory/session hooks run for API chat.
-  try {
-    if (typeof runtime.emitEvent === "function") {
-      await runtime.emitEvent("MESSAGE_RECEIVED", {
-        message,
-        source: messageSource,
-      });
-    }
-  } catch (err) {
-    runtime.logger?.warn(
-      {
-        err,
-        src: "milady-api",
-        messageId: message.id,
-        roomId: message.roomId,
-      },
-      "Failed to emit MESSAGE_RECEIVED event",
-    );
-  }
-
-  // Fallback when MESSAGE_RECEIVED hooks are unavailable: start a trajectory
-  // directly so /api/chat still produces rows for the Trajectories view.
-
-  let result:
-    | Awaited<
-        ReturnType<NonNullable<AgentRuntime["messageService"]>["handleMessage"]>
-      >
-    | undefined;
-  let _handlerError: unknown = null;
-  try {
-    result = await runtime.messageService?.handleMessage(
-      runtime,
-      message,
-      async (content: Content) => {
-        if (opts?.isAborted?.()) {
-          throw new Error("client_disconnected");
-        }
-
-        const chunk = extractCompatTextContent(content);
-        if (!chunk) return [];
-        if (!claimStreamSource("callback")) return [];
-        appendIncomingText(chunk);
-        return [];
-      },
-      {
-        onStreamChunk: opts?.onChunk
-          ? async (chunk: string) => {
-              if (opts?.isAborted?.()) {
-                throw new Error("client_disconnected");
-              }
-              if (!chunk) return;
-              if (!claimStreamSource("onStreamChunk")) return;
-              appendIncomingText(chunk);
-            }
-          : undefined,
-      },
-    );
-
-    // Ensure MESSAGE_SENT hooks run for API chat flows. Some runtimes emit this
-    // internally, but API wrappers can bypass those hooks.
-    try {
-      const responseMessages = Array.isArray(result?.responseMessages)
-        ? (result.responseMessages as Array<{ id?: string; content?: Content }>)
-        : [];
-      if (
-        responseMessages.length > 0 &&
-        typeof runtime.emitEvent === "function"
-      ) {
-        for (const responseMessage of responseMessages) {
-          const memoryLike = {
-            id: responseMessage.id ?? crypto.randomUUID(),
-            roomId: message.roomId,
-            entityId: runtime.agentId,
-            content: responseMessage.content ?? { text: "" },
-            metadata: message.metadata,
-          } as unknown as ReturnType<typeof createMessageMemory>;
-          await runtime.emitEvent("MESSAGE_SENT", {
-            message: memoryLike,
-            source: messageSource,
-          });
-        }
-      }
-    } catch (err) {
-      runtime.logger?.warn(
-        {
-          err,
-          src: "milady-api",
-          messageId: message.id,
-          roomId: message.roomId,
-        },
-        "Failed to emit MESSAGE_SENT event",
-      );
-    }
-  } catch (err) {
-    _handlerError = err;
-    throw err;
-  }
-
-  const resultText = extractCompatTextContent(result?.responseContent);
-
-  // Fallback: if callbacks weren't used for text, stream + return final text.
-  if (!responseText && resultText) {
-    emitChunk(resultText);
-  } else if (
-    resultText &&
-    resultText !== responseText &&
-    resultText.startsWith(responseText)
-  ) {
-    // Keep streaming monotonic when final text extends emitted chunks.
-    emitChunk(resultText.slice(responseText.length));
-  } else if (resultText && resultText !== responseText) {
-    // Canonical final response may differ from streamed chunks (normalization).
-    responseText = resultText;
-  }
-
-  const noResponseFallback = opts?.resolveNoResponseText?.();
-  const finalText = isNoResponsePlaceholder(responseText)
-    ? (noResponseFallback ?? (responseText || "(no response)"))
-    : responseText;
-
-  return {
-    text: finalText,
-    agentName,
-  };
-}
-
-async function generateConversationTitle(
-  runtime: AgentRuntime,
-  userMessage: string,
-  agentName: string,
-): Promise<string | null> {
-  // Use small model for speed
-  const modelClass = ModelType.TEXT_SMALL;
-
-  const prompt = `Based on the user's first message in a new chat, generate a very short, concise title (max 4-5 words) for the conversation.
-The agent's name is "${agentName}". The title should reflect the topic or intent of the user.
-Ideally, the title should fit the persona/vibe of the agent if possible, but clarity is more important.
-Do not use quotes. Do not include "Title:" prefix.
-
-User message: "${userMessage}"
-
-Title:`;
-
-  try {
-    // Use maxTokens instead of max_tokens
-    const title = await runtime.useModel(modelClass, {
-      prompt,
-      maxTokens: 20,
-      temperature: 0.7,
-    });
-
-    if (!title) return null;
-
-    let cleanTitle = title.trim();
-    // Remove surrounding quotes if present
-    if (
-      (cleanTitle.startsWith('"') && cleanTitle.endsWith('"')) ||
-      (cleanTitle.startsWith("'") && cleanTitle.endsWith("'"))
-    ) {
-      cleanTitle = cleanTitle.slice(1, -1);
-    }
-
-    // Fallback if empty or too long
-    if (!cleanTitle || cleanTitle.length > 50) return null;
-
-    return cleanTitle;
-  } catch (err) {
-    logger.warn(
-      `[milady] Failed to generate conversation title: ${err instanceof Error ? err.message : String(err)}`,
-    );
-    return null;
-  }
-}
-
-function isDuplicateMemoryError(err: unknown): boolean {
-  if (!(err instanceof Error)) return false;
-  const msg = err.message.toLowerCase();
-  return (
-    msg.includes("duplicate") ||
-    msg.includes("already exists") ||
-    msg.includes("unique constraint")
-  );
-}
-
-async function persistConversationMemory(
-  runtime: AgentRuntime,
-  memory: ReturnType<typeof createMessageMemory>,
-): Promise<void> {
-  try {
-    await runtime.createMemory(memory, "messages");
-  } catch (err) {
-    if (isDuplicateMemoryError(err)) return;
-    throw err;
-  }
-}
-
-async function hasRecentAssistantMemory(
-  runtime: AgentRuntime,
-  roomId: UUID,
-  text: string,
-  sinceMs: number,
-): Promise<boolean> {
-  const trimmed = text.trim();
-  if (!trimmed) return false;
-
-  try {
-    const recent = await runtime.getMemories({
-      roomId,
-      tableName: "messages",
-      count: 12,
-    });
-
-    return recent.some((memory) => {
-      const contentText = (memory.content as { text?: string })?.text?.trim();
-      const createdAt = memory.createdAt ?? 0;
-      return (
-        memory.entityId === runtime.agentId &&
-        contentText === trimmed &&
-        createdAt >= sinceMs - 2000
-      );
-    });
-  } catch {
-    return false;
-  }
-}
-
-async function persistAssistantConversationMemory(
-  runtime: AgentRuntime,
-  roomId: UUID,
-  text: string,
-  channelType: ChannelType,
-  dedupeSinceMs?: number,
-): Promise<void> {
-  const trimmed = text.trim();
-  if (!trimmed) return;
-
-  if (typeof dedupeSinceMs === "number") {
-    const alreadyPersisted = await hasRecentAssistantMemory(
-      runtime,
-      roomId,
-      trimmed,
-      dedupeSinceMs,
-    );
-    if (alreadyPersisted) return;
-  }
-
-  await persistConversationMemory(
-    runtime,
-    createMessageMemory({
-      id: crypto.randomUUID() as UUID,
-      entityId: runtime.agentId,
-      roomId,
-      content: {
-        text: trimmed,
-        source: "client_chat",
-        channelType,
-      },
-    }),
-  );
-}
-
-const VALID_CHANNEL_TYPES = new Set<string>(Object.values(ChannelType));
-
-function parseRequestChannelType(
-  value: unknown,
-  fallback: ChannelType = ChannelType.DM,
-): ChannelType | null {
-  if (value === undefined || value === null) {
-    return fallback;
-  }
-  if (typeof value !== "string") {
-    return null;
-  }
-  const normalized = value.trim().toUpperCase();
-  if (!VALID_CHANNEL_TYPES.has(normalized)) {
-    return null;
-  }
-  return normalized as ChannelType;
-}
-
-async function readChatRequestPayload(
-  req: http.IncomingMessage,
-  res: http.ServerResponse,
-  helpers: {
-    readJsonBody: <T = Record<string, unknown>>(
-      req: http.IncomingMessage,
-      res: http.ServerResponse,
-      options?: ReadJsonBodyOptions,
-    ) => Promise<T | null>;
-    error: (res: http.ServerResponse, message: string, status?: number) => void;
-  },
-): Promise<{ prompt: string; channelType: ChannelType } | null> {
-  const body = await helpers.readJsonBody<{
-    text?: string;
-    channelType?: string;
-  }>(req, res);
-  if (!body) return null;
-  if (!body.text?.trim()) {
-    helpers.error(res, "text is required");
-    return null;
-  }
-  const channelType = parseRequestChannelType(body.channelType, ChannelType.DM);
-  if (!channelType) {
-    helpers.error(res, "channelType is invalid", 400);
-    return null;
-  }
-  return {
-    prompt: body.text.trim(),
-    channelType,
-  };
-}
-
-function parseBoundedLimit(rawLimit: string | null, fallback = 15): number {
-  return parseClampedInteger(rawLimit, {
-    min: 1,
-    max: 50,
-    fallback,
-  });
-}
-
-// ---------------------------------------------------------------------------
-// Config redaction
-// ---------------------------------------------------------------------------
-
-/**
- * Key patterns that indicate a value is sensitive and must be redacted.
- * Matches against the property key at unknown nesting depth.  Aligned with
- * SENSITIVE_PATTERNS in src/config/schema.ts so every field the UI marks
- * as sensitive is also redacted in the API response.
- *
- * RESIDUAL RISK: Key-based redaction is heuristic — secrets stored under
- * generic keys (e.g. "value", "data", "config") will not be caught.  A
- * stronger approach would be either (a) schema-level `sensitive: true`
- * annotations that drive redaction, or (b) an allowlist that only exposes
- * known-safe fields and strips everything else.  Both require deeper
- * changes to the config schema infrastructure.
- */
-const SENSITIVE_KEY_RE =
-  /password|secret|api.?key|private.?key|seed.?phrase|authorization|connection.?string|credential|(?<!max)tokens?$/i;
-
-function isBlockedObjectKey(key: string): boolean {
-  return key === "__proto__" || key === "constructor" || key === "prototype";
-}
-
-function hasBlockedObjectKeyDeep(value: unknown): boolean {
-  if (value === null || value === undefined) return false;
-  if (Array.isArray(value)) return value.some(hasBlockedObjectKeyDeep);
-  if (typeof value !== "object") return false;
-
-  for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
-    if (isBlockedObjectKey(key)) return true;
-    if (hasBlockedObjectKeyDeep(child)) return true;
-  }
+function isLikelyJunkMarketQuestion(question: string): boolean {
+  const q = question.trim();
+  if (!q) return true;
+  if (q.length < 16) return true;
+  if (/\[new market\]/i.test(q)) return true;
+  if (/\b(awef|asdf|qwer|zxcv|test market|dummy)\b/i.test(q)) return true;
   return false;
 }
 
-function cloneWithoutBlockedObjectKeys<T>(value: T): T {
-  if (value === null || value === undefined) return value;
-  if (Array.isArray(value)) {
-    return value.map((item) => cloneWithoutBlockedObjectKeys(item)) as T;
+function matchesTopicHint(
+  market: PolymarketMarketContext,
+  topicHint: string | null,
+): boolean {
+  if (!topicHint) return true;
+  const text = `${market.question} ${market.slug ?? ""}`.toLowerCase();
+  if (topicHint === "sports") {
+    return /\b(sport|nfl|nba|mlb|nhl|epl|soccer|football|basketball|tennis|golf|ufc|mma|f1|formula 1|super bowl|world cup|olympic|championship|playoff)\b/.test(
+      text,
+    );
   }
-  if (typeof value !== "object") return value;
-
-  const out: Record<string, unknown> = {};
-  for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
-    if (isBlockedObjectKey(key)) continue;
-    out[key] = cloneWithoutBlockedObjectKeys(child);
-  }
-  return out as T;
+  return true;
 }
 
-/**
- * Replace unknown non-empty value with "[REDACTED]".  For arrays, each string
- * element is individually redacted; for objects, all string leaves are
- * redacted.  Non-string primitives (booleans, numbers) are replaced with
- * the string "[REDACTED]" to avoid leaking e.g. numeric PINs.
- */
-function redactValue(val: unknown): unknown {
-  if (val === null || val === undefined) return val;
-  if (typeof val === "string") return val.length > 0 ? "[REDACTED]" : "";
-  if (typeof val === "number" || typeof val === "boolean") return "[REDACTED]";
-  if (Array.isArray(val)) return val.map(redactValue);
-  if (typeof val === "object") {
-    const out: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(val as Record<string, unknown>)) {
-      out[k] = redactValue(v);
-    }
+function filterPolymarketMarkets(
+  markets: PolymarketMarketContext[],
+  topicHint: string | null,
+): PolymarketMarketContext[] {
+  return markets.filter((m) => {
+    if (!isPolymarketMarketCurrent(m.endDateIso)) return false;
+    if (m.active === false) return false;
+    if (isLikelyJunkMarketQuestion(m.question)) return false;
+    const hasDepth =
+      (m.volumeUsd != null && m.volumeUsd > 0) ||
+      (m.liquidityUsd != null && m.liquidityUsd > 0);
+    if (!hasDepth) return false;
+    if (!matchesTopicHint(m, topicHint)) return false;
+    return true;
+  });
+}
+
+function marketLookupQueryFromUserText(userText: string): string {
+  const stripped = userText
+    .toLowerCase()
+    .replace(
+      /\b(polymarket|market|markets|bet|bets|odds|outcome|outcomes|price|prices|topic|topics|on|about|for|can|you|find|lookup|look up|what|is|the|a|an)\b/g,
+      " ",
+    )
+    .replace(/[^a-z0-9\s-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return stripped.slice(0, 96);
+}
+
+async function fetchPolymarketMarketContext(
+  query: string,
+  topicHint: string | null = null,
+): Promise<PolymarketMarketContext[]> {
+  if (!query.trim()) return [];
+  const encoded = encodeURIComponent(query.trim());
+  const urls = [
+    `https://gamma-api.polymarket.com/markets?limit=8&active=true&closed=false&search=${encoded}`,
+    `https://gamma-api.polymarket.com/markets?limit=8&search=${encoded}`,
+  ];
+
+  for (const url of urls) {
+    const data = await fetchJsonTimeout<unknown>(url, 4200);
+    if (!Array.isArray(data) || data.length === 0) continue;
+    const rows = data
+      .map((m) => {
+        const row = m as Record<string, unknown>;
+        const question =
+          (typeof row.question === "string" && row.question.trim()) ||
+          (typeof row.title === "string" && row.title.trim()) ||
+          "";
+        if (!question) return null;
+        const rawVolume =
+          toFiniteNumber(row.volume) ??
+          toFiniteNumber(row.volumeNum) ??
+          toFiniteNumber(row.volume24hr) ??
+          null;
+        const rawLiquidity =
+          toFiniteNumber(row.liquidity) ??
+          toFiniteNumber(row.liquidityNum) ??
+          null;
+        const id =
+          (typeof row.id === "string" && row.id.trim()) ||
+          (typeof row.conditionId === "string" && row.conditionId.trim()) ||
+          question;
+        const slug =
+          (typeof row.slug === "string" && row.slug.trim()) || null;
+        const active =
+          typeof row.active === "boolean"
+            ? row.active
+            : typeof row.closed === "boolean"
+              ? !row.closed
+              : null;
+        const endDateIso =
+          (typeof row.endDate === "string" && row.endDate) ||
+          (typeof row.end_date_iso === "string" && row.end_date_iso) ||
+          null;
+        let yesPrice: number | null = null;
+        let noPrice: number | null = null;
+        const pricesRaw = row.outcomePrices;
+        const applyPrices = (arr: unknown[]): void => {
+          const first = toFiniteNumber(arr[0]);
+          const second = toFiniteNumber(arr[1]);
+          if (first != null) yesPrice = first <= 1 ? first * 100 : first;
+          if (second != null) noPrice = second <= 1 ? second * 100 : second;
+        };
+        if (Array.isArray(pricesRaw)) {
+          applyPrices(pricesRaw);
+        } else if (typeof pricesRaw === "string" && pricesRaw.trim()) {
+          try {
+            const parsed = JSON.parse(pricesRaw) as unknown;
+            if (Array.isArray(parsed)) applyPrices(parsed);
+          } catch {
+            // ignore malformed price payloads
+          }
+        }
+        return {
+          id,
+          slug,
+          question,
+          active,
+          endDateIso,
+          volumeUsd: rawVolume,
+          liquidityUsd: rawLiquidity,
+          yesPrice,
+          noPrice,
+        } satisfies PolymarketMarketContext;
+      })
+      .filter((r): r is PolymarketMarketContext => r != null);
+
+    const filtered = filterPolymarketMarkets(rows, topicHint);
+    if (filtered.length === 0) continue;
+    filtered.sort((a, b) => (b.volumeUsd ?? 0) - (a.volumeUsd ?? 0));
+    const out = filtered.slice(0, 3);
+    polymarketIntelCache.byQuery.set(query.toLowerCase(), out);
     return out;
   }
-  return "[REDACTED]";
+
+  // Fallback: CLOB markets feed + local filtering.
+  const clob = await fetchJsonTimeout<{
+    data?: Array<Record<string, unknown>>;
+  }>("https://clob.polymarket.com/markets", 4500);
+  const clobRows = Array.isArray(clob?.data) ? clob.data : [];
+  if (clobRows.length > 0) {
+    const terms = query
+      .toLowerCase()
+      .split(/\s+/)
+      .filter((w) => w.length >= 3);
+    const mapped = clobRows
+      .map((row) => {
+        const question =
+          (typeof row.question === "string" && row.question.trim()) ||
+          (typeof row.description === "string" && row.description.trim()) ||
+          "";
+        if (!question) return null;
+        const qLower = question.toLowerCase();
+        if (terms.length > 0 && !terms.some((w) => qLower.includes(w))) {
+          return null;
+        }
+        const endDateIso =
+          (typeof row.end_date_iso === "string" && row.end_date_iso) ||
+          (typeof row.endDate === "string" && row.endDate) ||
+          null;
+        const volumeUsd =
+          toFiniteNumber(row.volume) ?? toFiniteNumber(row.volume_num) ?? null;
+        const liquidityUsd =
+          toFiniteNumber(row.liquidity) ??
+          toFiniteNumber(row.liquidity_num) ??
+          null;
+        const tokens = Array.isArray(row.tokens)
+          ? (row.tokens as Array<Record<string, unknown>>)
+          : [];
+        let yesPrice: number | null = null;
+        let noPrice: number | null = null;
+        const yesToken = tokens.find(
+          (t) =>
+            typeof t.outcome === "string" &&
+            t.outcome.toLowerCase().includes("yes"),
+        );
+        const noToken = tokens.find(
+          (t) =>
+            typeof t.outcome === "string" &&
+            t.outcome.toLowerCase().includes("no"),
+        );
+        const yp = toFiniteNumber(yesToken?.price);
+        const np = toFiniteNumber(noToken?.price);
+        if (yp != null) yesPrice = yp <= 1 ? yp * 100 : yp;
+        if (np != null) noPrice = np <= 1 ? np * 100 : np;
+        return {
+          id:
+            (typeof row.condition_id === "string" && row.condition_id) ||
+            question,
+          slug:
+            (typeof row.market_slug === "string" && row.market_slug) || null,
+          question,
+          active:
+            typeof row.accepting_orders === "boolean"
+              ? row.accepting_orders
+              : null,
+          endDateIso,
+          volumeUsd,
+          liquidityUsd,
+          yesPrice,
+          noPrice,
+        } satisfies PolymarketMarketContext;
+      })
+      .filter((m): m is PolymarketMarketContext => m != null)
+      .filter((m) => filterPolymarketMarkets([m], topicHint).length > 0)
+      .sort((a, b) => (b.volumeUsd ?? 0) - (a.volumeUsd ?? 0))
+      .slice(0, 3);
+    if (mapped.length > 0) {
+      polymarketIntelCache.byQuery.set(query.toLowerCase(), mapped);
+      return mapped;
+    }
+  }
+
+  return polymarketIntelCache.byQuery.get(query.toLowerCase()) ?? [];
 }
 
-/**
- * Recursively walk a JSON-safe value.  For every object property whose key
- * matches SENSITIVE_KEY_RE, redact the **entire value** regardless of type
- * (string, array, nested object).  This prevents leaks when secrets are
- * stored as arrays (e.g. `apiKeys: ["sk-1","sk-2"]`) or objects.
- * Returns a deep copy — the original is never mutated.
- */
-function redactDeep(val: unknown): unknown {
-  if (val === null || val === undefined) return val;
-  if (Array.isArray(val)) return val.map(redactDeep);
-  if (typeof val === "object") {
-    const out: Record<string, unknown> = {};
-    for (const [key, child] of Object.entries(val as Record<string, unknown>)) {
-      if (SENSITIVE_KEY_RE.test(key)) {
-        out[key] = redactValue(child);
-      } else {
-        out[key] = redactDeep(child);
+async function fetchHotPolymarketMarkets(
+  topicHint: string | null = null,
+): Promise<PolymarketMarketContext[]> {
+  const url =
+    "https://gamma-api.polymarket.com/markets?limit=10&active=true&closed=false";
+  const data = await fetchJsonTimeout<unknown>(url, 4200);
+  if (!Array.isArray(data) || data.length === 0) return [];
+  const rows = data
+    .map((m) => {
+      const row = m as Record<string, unknown>;
+      const question =
+        (typeof row.question === "string" && row.question.trim()) ||
+        (typeof row.title === "string" && row.title.trim()) ||
+        "";
+      if (!question) return null;
+      const rawVolume =
+        toFiniteNumber(row.volume) ??
+        toFiniteNumber(row.volumeNum) ??
+        toFiniteNumber(row.volume24hr) ??
+        null;
+      const rawLiquidity =
+        toFiniteNumber(row.liquidity) ??
+        toFiniteNumber(row.liquidityNum) ??
+        null;
+      const id =
+        (typeof row.id === "string" && row.id.trim()) ||
+        (typeof row.conditionId === "string" && row.conditionId.trim()) ||
+        question;
+      const slug = (typeof row.slug === "string" && row.slug.trim()) || null;
+      const active =
+        typeof row.active === "boolean"
+          ? row.active
+          : typeof row.closed === "boolean"
+            ? !row.closed
+            : null;
+      const endDateIso =
+        (typeof row.endDate === "string" && row.endDate) ||
+        (typeof row.end_date_iso === "string" && row.end_date_iso) ||
+        null;
+      let yesPrice: number | null = null;
+      let noPrice: number | null = null;
+      const pricesRaw = row.outcomePrices;
+      const applyPrices = (arr: unknown[]): void => {
+        const first = toFiniteNumber(arr[0]);
+        const second = toFiniteNumber(arr[1]);
+        if (first != null) yesPrice = first <= 1 ? first * 100 : first;
+        if (second != null) noPrice = second <= 1 ? second * 100 : second;
+      };
+      if (Array.isArray(pricesRaw)) {
+        applyPrices(pricesRaw);
+      } else if (typeof pricesRaw === "string" && pricesRaw.trim()) {
+        try {
+          const parsed = JSON.parse(pricesRaw) as unknown;
+          if (Array.isArray(parsed)) applyPrices(parsed);
+        } catch {
+          // ignore malformed price payloads
+        }
       }
+      return {
+        id,
+        slug,
+        question,
+        active,
+        endDateIso,
+        volumeUsd: rawVolume,
+        liquidityUsd: rawLiquidity,
+        yesPrice,
+        noPrice,
+      } satisfies PolymarketMarketContext;
+    })
+    .filter((r): r is PolymarketMarketContext => r != null);
+  const filtered = filterPolymarketMarkets(rows, topicHint);
+  filtered.sort((a, b) => (b.volumeUsd ?? 0) - (a.volumeUsd ?? 0));
+  const primary = filtered.slice(0, 5);
+  if (primary.length > 0) {
+    polymarketIntelCache.hot = primary;
+    return primary;
+  }
+
+  // Fallback: CLOB live markets feed.
+  const clob = await fetchJsonTimeout<{
+    data?: Array<Record<string, unknown>>;
+  }>("https://clob.polymarket.com/markets", 4500);
+  const clobRows = Array.isArray(clob?.data) ? clob.data : [];
+  if (clobRows.length > 0) {
+    const mapped = clobRows
+      .map((row) => {
+        const question =
+          (typeof row.question === "string" && row.question.trim()) ||
+          (typeof row.description === "string" && row.description.trim()) ||
+          "";
+        if (!question) return null;
+        const endDateIso =
+          (typeof row.end_date_iso === "string" && row.end_date_iso) ||
+          (typeof row.endDate === "string" && row.endDate) ||
+          null;
+        const volumeUsd =
+          toFiniteNumber(row.volume) ?? toFiniteNumber(row.volume_num) ?? null;
+        const liquidityUsd =
+          toFiniteNumber(row.liquidity) ??
+          toFiniteNumber(row.liquidity_num) ??
+          null;
+        const tokens = Array.isArray(row.tokens)
+          ? (row.tokens as Array<Record<string, unknown>>)
+          : [];
+        let yesPrice: number | null = null;
+        let noPrice: number | null = null;
+        const yesToken = tokens.find(
+          (t) =>
+            typeof t.outcome === "string" &&
+            t.outcome.toLowerCase().includes("yes"),
+        );
+        const noToken = tokens.find(
+          (t) =>
+            typeof t.outcome === "string" &&
+            t.outcome.toLowerCase().includes("no"),
+        );
+        const yp = toFiniteNumber(yesToken?.price);
+        const np = toFiniteNumber(noToken?.price);
+        if (yp != null) yesPrice = yp <= 1 ? yp * 100 : yp;
+        if (np != null) noPrice = np <= 1 ? np * 100 : np;
+        return {
+          id:
+            (typeof row.condition_id === "string" && row.condition_id) ||
+            question,
+          slug:
+            (typeof row.market_slug === "string" && row.market_slug) || null,
+          question,
+          active:
+            typeof row.accepting_orders === "boolean"
+              ? row.accepting_orders
+              : null,
+          endDateIso,
+          volumeUsd,
+          liquidityUsd,
+          yesPrice,
+          noPrice,
+        } satisfies PolymarketMarketContext;
+      })
+      .filter((m): m is PolymarketMarketContext => m != null)
+      .filter((m) => filterPolymarketMarkets([m], topicHint).length > 0)
+      .sort((a, b) => (b.volumeUsd ?? 0) - (a.volumeUsd ?? 0))
+      .slice(0, 5);
+    if (mapped.length > 0) {
+      polymarketIntelCache.hot = mapped;
+      return mapped;
     }
-    return out;
   }
-  return val;
-}
 
-/**
- * Return a deep copy of the config with every sensitive value replaced by
- * "[REDACTED]".  Uses a recursive walk so that ANY future config field
- * whose key matches the sensitive pattern is automatically covered —
- * no manual enumeration required.
- */
-function redactConfigSecrets(
-  config: Record<string, unknown>,
-): Record<string, unknown> {
-  return redactDeep(config) as Record<string, unknown>;
-}
-
-function isRedactedSecretValue(value: unknown): boolean {
-  return (
-    typeof value === "string" && value.trim().toUpperCase() === "[REDACTED]"
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Skill-ID path-traversal guard
-// ---------------------------------------------------------------------------
-
-/**
- * Validate that a user-supplied skill ID is safe to use in filesystem paths.
- * Rejects IDs containing path separators, ".." sequences, or unknown characters
- * outside the safe set used by the marketplace (`safeName()` in
- * skill-marketplace.ts).  Returns `null` and sends a 400 response if the
- * ID is invalid.
- */
-const SAFE_SKILL_ID_RE = /^[a-zA-Z0-9._-]+$/;
-
-function validateSkillId(
-  skillId: string,
-  res: http.ServerResponse,
-): string | null {
-  if (
-    !skillId ||
-    !SAFE_SKILL_ID_RE.test(skillId) ||
-    skillId === "." ||
-    skillId.includes("..")
-  ) {
-    const safeDisplay = skillId.slice(0, 80).replace(/[^\x20-\x7e]/g, "?");
-    error(res, `Invalid skill ID: "${safeDisplay}"`, 400);
-    return null;
+  if (topicHint) {
+    const topicCached = polymarketIntelCache.hot.filter((m) =>
+      matchesTopicHint(m, topicHint),
+    );
+    if (topicCached.length > 0) return topicCached;
   }
-  return skillId;
+  return polymarketIntelCache.hot;
+}
+
+function toFiniteNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const parsed = Number.parseFloat(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -2410,9 +2146,20 @@ function validateSkillId(
 // ---------------------------------------------------------------------------
 
 // Use shared presets for full parity between CLI and GUI onboarding.
-import { STYLE_PRESETS } from "../onboarding-presets";
+import { STYLE_PRESETS } from "../onboarding-presets.js";
 
-import { pickRandomNames } from "../runtime/onboarding-names";
+/**
+ * User-facing onboarding character presets.
+ * Keep this list deterministic (no random shuffle) so UI themes stay stable.
+ */
+const ONBOARDING_PRESET_NAMES: readonly string[] = [
+  "Reimu",
+  "Marisa",
+  "Sakuya",
+  "Remilia",
+  "Koishi",
+  "Yukari",
+];
 
 function getProviderOptions(): Array<{
   id: string;
@@ -2424,45 +2171,20 @@ function getProviderOptions(): Array<{
 }> {
   return [
     {
-      id: "elizacloud",
-      name: "Eliza Cloud",
-      envKey: null,
-      pluginName: "@elizaos/plugin-elizacloud",
-      keyPrefix: null,
-      description: "Free credits, best option to try the app.",
-    },
-    {
-      id: "anthropic-subscription",
-      name: "Anthropic Subscription",
-      envKey: null,
-      pluginName: "@elizaos/plugin-anthropic",
-      keyPrefix: null,
-      description:
-        "Use your $20-200/mo Claude subscription via OAuth or setup token.",
-    },
-    {
-      id: "openai-subscription",
-      name: "OpenAI Subscription",
-      envKey: null,
-      pluginName: "@elizaos/plugin-openai",
-      keyPrefix: null,
-      description: "Use your $20-200/mo ChatGPT subscription via OAuth.",
-    },
-    {
       id: "anthropic",
-      name: "Anthropic (API Key)",
+      name: "Anthropic",
       envKey: "ANTHROPIC_API_KEY",
       pluginName: "@elizaos/plugin-anthropic",
       keyPrefix: "sk-ant-",
-      description: "Claude models via API key.",
+      description: "Claude models.",
     },
     {
       id: "openai",
-      name: "OpenAI (API Key)",
+      name: "OpenAI",
       envKey: "OPENAI_API_KEY",
       pluginName: "@elizaos/plugin-openai",
       keyPrefix: "sk-",
-      description: "GPT models via API key.",
+      description: "GPT models.",
     },
     {
       id: "openrouter",
@@ -2473,7 +2195,7 @@ function getProviderOptions(): Array<{
       description: "Access multiple models via one API key.",
     },
     {
-      id: "gemini",
+      id: "google-genai",
       name: "Gemini",
       envKey: "GOOGLE_API_KEY",
       pluginName: "@elizaos/plugin-google-genai",
@@ -2481,8 +2203,8 @@ function getProviderOptions(): Array<{
       description: "Google's Gemini models.",
     },
     {
-      id: "grok",
-      name: "Grok",
+      id: "xai",
+      name: "xAI (Grok)",
       envKey: "XAI_API_KEY",
       pluginName: "@elizaos/plugin-xai",
       keyPrefix: "xai-",
@@ -2528,707 +2250,36 @@ function getProviderOptions(): Array<{
       keyPrefix: null,
       description: "Local models, no API key needed.",
     },
-    {
-      id: "zai",
-      name: "z.ai (GLM Coding Plan)",
-      envKey: "ZAI_API_KEY",
-      pluginName: "@homunculuslabs/plugin-zai",
-      keyPrefix: null,
-      description: "GLM models via z.ai Coding Plan.",
-    },
   ];
 }
 
-function getCloudProviderOptions(): Array<{
-  id: string;
-  name: string;
-  description: string;
-}> {
-  return [
-    {
-      id: "elizacloud",
-      name: "Eliza Cloud",
-      description:
-        "Managed cloud infrastructure. Wallets, LLMs, and RPCs included.",
-    },
-  ];
-}
-
-function getModelOptions(): {
-  small: Array<{
-    id: string;
-    name: string;
-    provider: string;
-    description: string;
-  }>;
-  large: Array<{
-    id: string;
-    name: string;
-    provider: string;
-    description: string;
-  }>;
-} {
-  // All models available via Eliza Cloud (Vercel AI Gateway).
-  // IDs use "provider/model" format to match the cloud API routing.
-  return {
-    small: [
-      // OpenAI
-      {
-        id: "openai/gpt-5-mini",
-        name: "GPT-5 Mini",
-        provider: "OpenAI",
-        description: "Fast and affordable.",
-      },
-      {
-        id: "openai/gpt-4o-mini",
-        name: "GPT-4o Mini",
-        provider: "OpenAI",
-        description: "Compact multimodal model.",
-      },
-      // Anthropic
-      {
-        id: "anthropic/claude-sonnet-4",
-        name: "Claude Sonnet 4",
-        provider: "Anthropic",
-        description: "Balanced speed and capability.",
-      },
-      // Google
-      {
-        id: "google/gemini-2.5-flash-lite",
-        name: "Gemini 2.5 Flash Lite",
-        provider: "Google",
-        description: "Fastest option.",
-      },
-      {
-        id: "google/gemini-2.5-flash",
-        name: "Gemini 2.5 Flash",
-        provider: "Google",
-        description: "Fast and smart.",
-      },
-      {
-        id: "google/gemini-2.0-flash",
-        name: "Gemini 2.0 Flash",
-        provider: "Google",
-        description: "Multimodal flash model.",
-      },
-      // Moonshot AI
-      {
-        id: "moonshotai/kimi-k2-turbo",
-        name: "Kimi K2 Turbo",
-        provider: "Moonshot AI",
-        description: "Extra speed.",
-      },
-      // DeepSeek
-      {
-        id: "deepseek/deepseek-v3.2-exp",
-        name: "DeepSeek V3.2",
-        provider: "DeepSeek",
-        description: "Open and powerful.",
-      },
-    ],
-    large: [
-      // Anthropic
-      {
-        id: "anthropic/claude-sonnet-4.5",
-        name: "Claude Sonnet 4.5",
-        provider: "Anthropic",
-        description: "Newest Claude. Excellent reasoning.",
-      },
-      {
-        id: "anthropic/claude-opus-4.5",
-        name: "Claude Opus 4.5",
-        provider: "Anthropic",
-        description: "Most capable Claude model.",
-      },
-      {
-        id: "anthropic/claude-opus-4.1",
-        name: "Claude Opus 4.1",
-        provider: "Anthropic",
-        description: "Deep reasoning powerhouse.",
-      },
-      {
-        id: "anthropic/claude-sonnet-4",
-        name: "Claude Sonnet 4",
-        provider: "Anthropic",
-        description: "Balanced performance.",
-      },
-      // OpenAI
-      {
-        id: "openai/gpt-5",
-        name: "GPT-5",
-        provider: "OpenAI",
-        description: "Most capable OpenAI model.",
-      },
-      {
-        id: "openai/gpt-4o",
-        name: "GPT-4o",
-        provider: "OpenAI",
-        description: "Flagship multimodal model.",
-      },
-      // Google
-      {
-        id: "google/gemini-3-pro-preview",
-        name: "Gemini 3 Pro Preview",
-        provider: "Google",
-        description: "Advanced reasoning.",
-      },
-      {
-        id: "google/gemini-2.5-pro",
-        name: "Gemini 2.5 Pro",
-        provider: "Google",
-        description: "Strong multimodal reasoning.",
-      },
-      // Moonshot AI
-      {
-        id: "moonshotai/kimi-k2-0905",
-        name: "Kimi K2",
-        provider: "Moonshot AI",
-        description: "Fast and capable.",
-      },
-      // DeepSeek
-      {
-        id: "deepseek/deepseek-r1",
-        name: "DeepSeek R1",
-        provider: "DeepSeek",
-        description: "Reasoning model.",
-      },
-    ],
-  };
-}
-
-// ---------------------------------------------------------------------------
-// Dynamic model catalog — per-provider cache, fetch, and serve model lists
-// ---------------------------------------------------------------------------
-
-type ModelCategory = "chat" | "embedding" | "image" | "tts" | "stt" | "other";
-
-interface CachedModel {
-  id: string;
-  name: string;
-  category: ModelCategory;
-}
-
-interface ProviderCache {
-  version: 1;
-  providerId: string;
-  fetchedAt: string;
-  models: CachedModel[];
-}
-
-function classifyModel(modelId: string): ModelCategory {
-  const id = modelId.toLowerCase();
-  if (id.includes("embed") || id.includes("text-embedding")) return "embedding";
-  if (
-    id.includes("dall-e") ||
-    id.includes("dalle") ||
-    id.includes("imagen") ||
-    id.includes("stable-diffusion") ||
-    id.includes("midjourney") ||
-    id.includes("flux")
-  )
-    return "image";
-  if (
-    id.includes("tts") ||
-    id.includes("text-to-speech") ||
-    id.includes("eleven_")
-  )
-    return "tts";
-  if (id.includes("whisper") || id.includes("stt") || id.includes("transcrib"))
-    return "stt";
-  if (
-    id.includes("moderation") ||
-    id.includes("guard") ||
-    id.includes("safety")
-  )
-    return "other";
-  return "chat";
-}
-
-/** Map param key → expected model category */
-function paramKeyToCategory(paramKey: string): ModelCategory {
-  const k = paramKey.toUpperCase();
-  if (k.includes("EMBEDDING")) return "embedding";
-  if (k.includes("IMAGE")) return "image";
-  if (k.includes("TTS")) return "tts";
-  if (k.includes("STT") || k.includes("TRANSCRIPTION")) return "stt";
-  return "chat";
-}
-
-const MODELS_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
-
-const PROVIDER_ENV_KEYS: Record<
-  string,
-  { envKey: string; altEnvKeys?: string[]; baseUrl?: string }
-> = {
-  anthropic: { envKey: "ANTHROPIC_API_KEY" },
-  openai: { envKey: "OPENAI_API_KEY" },
-  groq: { envKey: "GROQ_API_KEY", baseUrl: "https://api.groq.com/openai/v1" },
-  xai: { envKey: "XAI_API_KEY", baseUrl: "https://api.x.ai/v1" },
-  openrouter: {
-    envKey: "OPENROUTER_API_KEY",
-    baseUrl: "https://openrouter.ai/api/v1",
-  },
-  "google-genai": {
-    envKey: "GOOGLE_GENERATIVE_AI_API_KEY",
-    altEnvKeys: ["GOOGLE_API_KEY"],
-  },
-  ollama: { envKey: "OLLAMA_BASE_URL" },
-  "vercel-ai-gateway": {
-    envKey: "AI_GATEWAY_API_KEY",
-    altEnvKeys: ["AIGATEWAY_API_KEY"],
-  },
-};
-
-// ── Per-provider cache read/write ────────────────────────────────────────
-
-function providerCachePath(providerId: string): string {
-  return path.join(resolveModelsCacheDir(), `${providerId}.json`);
-}
-
-function readProviderCache(providerId: string): ProviderCache | null {
-  try {
-    const raw = fs.readFileSync(providerCachePath(providerId), "utf-8");
-    const cache = JSON.parse(raw) as ProviderCache;
-    if (cache.version !== 1 || !cache.fetchedAt || !cache.models) return null;
-    const age = Date.now() - new Date(cache.fetchedAt).getTime();
-    if (age > MODELS_CACHE_TTL_MS) return null;
-    return cache;
-  } catch {
-    return null;
-  }
-}
-
-function writeProviderCache(cache: ProviderCache): void {
-  try {
-    const dir = resolveModelsCacheDir();
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(
-      providerCachePath(cache.providerId),
-      JSON.stringify(cache, null, 2),
-    );
-  } catch (e) {
-    logger.warn(
-      `[model-catalog] Failed to write cache for ${cache.providerId}: ${e instanceof Error ? e.message : e}`,
-    );
-  }
-}
-
-// ── Provider fetchers ────────────────────────────────────────────────────
-
-/** Fetch models from unknown provider's /v1/models endpoint (standard REST). */
-async function fetchModelsREST(
+function setSingleEnabledAiProviderInConfig(
+  config: MilaidyConfig,
   providerId: string,
-  apiKey: string,
-  baseUrl: string,
-): Promise<CachedModel[]> {
-  try {
-    const url = `${baseUrl.replace(/\/+$/, "")}/models`;
-    const headers: Record<string, string> = {};
-    if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
-    const res = await fetch(url, { headers });
-    if (!res.ok) return [];
-    const data = (await res.json()) as {
-      data?: Array<{ id: string; name?: string; type?: string }>;
-    };
-    return (data.data ?? [])
-      .map((m) => ({
-        id: m.id,
-        name: m.name ?? m.id,
-        category: m.type ? restTypeToCategory(m.type) : classifyModel(m.id),
-      }))
-      .sort((a, b) => a.id.localeCompare(b.id));
-  } catch (e) {
-    logger.warn(
-      `[model-catalog] Failed to fetch models for ${providerId}: ${e instanceof Error ? e.message : e}`,
-    );
-    return [];
+): void {
+  const providerIds = new Set(
+    getProviderOptions()
+      .filter((p) => p.envKey || p.id === "ollama")
+      .map((p) => p.id),
+  );
+  if (!providerIds.has(providerId)) return;
+
+  config.plugins ??= {};
+  config.plugins.entries ??= {};
+
+  for (const id of providerIds) {
+    const entry = (config.plugins.entries[id] ??= {});
+    entry.enabled = id === providerId;
   }
 }
 
-function restTypeToCategory(type: string): ModelCategory {
-  const t = type.toLowerCase();
-  if (t.includes("embed")) return "embedding";
-  if (t === "image" || t.includes("image-generation")) return "image";
-  if (t.includes("tts") || t.includes("speech")) return "tts";
-  if (t.includes("stt") || t.includes("transcription") || t.includes("whisper"))
-    return "stt";
-  if (t === "language" || t === "chat" || t.includes("text")) return "chat";
-  return classifyModel(type);
-}
-
-async function fetchAnthropicModels(apiKey: string): Promise<CachedModel[]> {
-  try {
-    const headers: Record<string, string> = {
-      "anthropic-version": "2023-06-01",
-    };
-    if (apiKey) headers["x-api-key"] = apiKey;
-    const res = await fetch("https://api.anthropic.com/v1/models?limit=100", {
-      headers,
-    });
-    if (!res.ok) return [];
-    const data = (await res.json()) as {
-      data?: Array<{ id: string; display_name?: string; type?: string }>;
-    };
-    return (data.data ?? [])
-      .map((m) => ({
-        id: m.id,
-        name: m.display_name ?? m.id,
-        category: classifyModel(m.id),
-      }))
-      .sort((a, b) => a.id.localeCompare(b.id));
-  } catch (e) {
-    logger.warn(
-      `[model-catalog] Failed to fetch Anthropic models: ${e instanceof Error ? e.message : e}`,
-    );
-    return [];
-  }
-}
-
-async function fetchGoogleModels(apiKey: string): Promise<CachedModel[]> {
-  try {
-    const url = apiKey
-      ? `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}`
-      : "https://generativelanguage.googleapis.com/v1beta/models";
-    const res = await fetch(url);
-    if (!res.ok) return [];
-    const data = (await res.json()) as {
-      models?: Array<{ name: string; displayName?: string }>;
-    };
-    return (data.models ?? []).map((m) => {
-      const id = m.name.replace("models/", "");
-      return {
-        id,
-        name: m.displayName ?? id,
-        category: classifyModel(id),
-      };
-    });
-  } catch (e) {
-    logger.warn(
-      `[model-catalog] Failed to fetch Google models: ${e instanceof Error ? e.message : e}`,
-    );
-    return [];
-  }
-}
-
-async function fetchOllamaModels(baseUrl: string): Promise<CachedModel[]> {
-  try {
-    let urlStr = baseUrl.replace(/\/+$/, "");
-    if (!urlStr.startsWith("http://") && !urlStr.startsWith("https://")) {
-      urlStr = `http://${urlStr}`;
-    }
-    const res = await fetch(`${urlStr}/api/tags`);
-    if (!res.ok) return [];
-    const data = (await res.json()) as { models?: Array<{ name: string }> };
-    return (data.models ?? []).map((m) => ({
-      id: m.name,
-      name: m.name,
-      category: classifyModel(m.name),
-    }));
-  } catch (e) {
-    logger.warn(
-      `[model-catalog] Failed to fetch Ollama models: ${e instanceof Error ? e.message : e}`,
-    );
-    return [];
-  }
-}
-
-/** Fetch ALL OpenRouter models: chat (/api/v1/models) + embeddings (/api/v1/embeddings/models). */
-async function fetchOpenRouterModels(apiKey: string): Promise<CachedModel[]> {
-  const headers: Record<string, string> = {};
-  if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
-
-  interface ORModel {
-    id: string;
-    name?: string;
-    architecture?: { modality?: string; output_modalities?: string[] };
-  }
-
-  // Fetch chat/text models and embedding models in parallel
-  const [chatRes, embedRes] = await Promise.all([
-    fetch("https://openrouter.ai/api/v1/models", { headers }).catch(() => null),
-    fetch("https://openrouter.ai/api/v1/embeddings/models", { headers }).catch(
-      () => null,
-    ),
-  ]);
-
-  const models: CachedModel[] = [];
-
-  // Parse chat/text/image models
-  if (chatRes?.ok) {
-    try {
-      const data = (await chatRes.json()) as { data?: ORModel[] };
-      for (const m of data.data ?? []) {
-        const outputs = m.architecture?.output_modalities ?? [];
-        let category: ModelCategory = "chat";
-        if (outputs.includes("image")) category = "image";
-        else if (outputs.includes("audio")) category = "tts";
-        models.push({ id: m.id, name: m.name ?? m.id, category });
-      }
-    } catch {
-      /* parse error */
-    }
-  }
-
-  // Parse embedding models
-  if (embedRes?.ok) {
-    try {
-      const data = (await embedRes.json()) as { data?: ORModel[] };
-      for (const m of data.data ?? []) {
-        models.push({ id: m.id, name: m.name ?? m.id, category: "embedding" });
-      }
-    } catch {
-      /* parse error */
-    }
-  }
-
-  models.sort((a, b) => a.id.localeCompare(b.id));
-  return models;
-}
-
-/** Fetch Vercel AI Gateway models — no auth required, response has `type` field. */
-async function fetchVercelGatewayModels(
-  baseUrl: string,
-): Promise<CachedModel[]> {
-  try {
-    const url = `${baseUrl.replace(/\/+$/, "")}/models`;
-    const res = await fetch(url);
-    if (!res.ok) return [];
-    const data = (await res.json()) as {
-      data?: Array<{ id: string; name?: string; type?: string }>;
-    };
-    return (data.data ?? [])
-      .map((m) => ({
-        id: m.id,
-        name: m.name ?? m.id,
-        category: m.type ? restTypeToCategory(m.type) : classifyModel(m.id),
-      }))
-      .sort((a, b) => a.id.localeCompare(b.id));
-  } catch (e) {
-    logger.warn(
-      `[model-catalog] Failed to fetch Vercel AI Gateway models: ${e instanceof Error ? e.message : e}`,
-    );
-    return [];
-  }
-}
-
-async function fetchProviderModels(
+function setSingleEnabledAiProviderInState(
+  plugins: PluginEntry[],
   providerId: string,
-  apiKey: string,
-  baseUrl?: string,
-): Promise<CachedModel[]> {
-  switch (providerId) {
-    case "anthropic":
-      return fetchAnthropicModels(apiKey);
-    case "google-genai":
-      return fetchGoogleModels(apiKey);
-    case "ollama":
-      return fetchOllamaModels(baseUrl || "http://localhost:11434");
-    case "openrouter":
-      return fetchOpenRouterModels(apiKey);
-    case "openai":
-      return fetchModelsREST(
-        providerId,
-        apiKey,
-        baseUrl ?? "https://api.openai.com/v1",
-      );
-    case "groq":
-      return fetchModelsREST(
-        providerId,
-        apiKey,
-        baseUrl ?? "https://api.groq.com/openai/v1",
-      );
-    case "xai":
-      return fetchModelsREST(
-        providerId,
-        apiKey,
-        baseUrl ?? "https://api.x.ai/v1",
-      );
-    case "vercel-ai-gateway":
-      return fetchVercelGatewayModels(
-        baseUrl ?? "https://ai-gateway.vercel.sh/v1",
-      );
-    default:
-      return [];
-  }
-}
-
-/** Fetch + cache a single provider. Returns cached models or empty array. */
-async function getOrFetchProvider(
-  providerId: string,
-  force = false,
-): Promise<CachedModel[]> {
-  if (!force) {
-    const cached = readProviderCache(providerId);
-    if (cached) return cached.models;
-  }
-
-  const cfg = PROVIDER_ENV_KEYS[providerId];
-  if (!cfg) return [];
-
-  let keyValue = process.env[cfg.envKey]?.trim();
-  if (!keyValue && cfg.altEnvKeys) {
-    for (const alt of cfg.altEnvKeys) {
-      keyValue = process.env[alt]?.trim();
-      if (keyValue) break;
-    }
-  }
-
-  let baseUrl = cfg.baseUrl;
-  if (providerId === "vercel-ai-gateway") {
-    baseUrl =
-      process.env.AI_GATEWAY_BASE_URL?.trim() ||
-      "https://ai-gateway.vercel.sh/v1";
-  }
-
-  // Listing models doesn't require an API key — fetch from all providers
-  const models = await fetchProviderModels(providerId, keyValue ?? "", baseUrl);
-  if (models.length > 0) {
-    writeProviderCache({
-      version: 1,
-      providerId,
-      fetchedAt: new Date().toISOString(),
-      models,
-    });
-  }
-  return models;
-}
-
-/** Fetch all configured providers (parallel). Returns map of providerId → models. */
-async function getOrFetchAllProviders(
-  force = false,
-): Promise<Record<string, CachedModel[]>> {
-  const result: Record<string, CachedModel[]> = {};
-  const fetches: Array<Promise<void>> = [];
-
-  for (const providerId of Object.keys(PROVIDER_ENV_KEYS)) {
-    fetches.push(
-      getOrFetchProvider(providerId, force).then((models) => {
-        if (models.length > 0) result[providerId] = models;
-      }),
-    );
-  }
-
-  await Promise.all(fetches);
-  return result;
-}
-
-function getInventoryProviderOptions(): Array<{
-  id: string;
-  name: string;
-  description: string;
-  rpcProviders: Array<{
-    id: string;
-    name: string;
-    description: string;
-    envKey: string | null;
-    requiresKey: boolean;
-  }>;
-}> {
-  return [
-    {
-      id: "evm",
-      name: "EVM",
-      description: "Ethereum, Base, Arbitrum, Optimism, Polygon.",
-      rpcProviders: [
-        {
-          id: "elizacloud",
-          name: "Eliza Cloud",
-          description: "Managed RPC. No setup needed.",
-          envKey: null,
-          requiresKey: false,
-        },
-        {
-          id: "infura",
-          name: "Infura",
-          description: "Reliable EVM infrastructure.",
-          envKey: "INFURA_API_KEY",
-          requiresKey: true,
-        },
-        {
-          id: "alchemy",
-          name: "Alchemy",
-          description: "Full-featured EVM data platform.",
-          envKey: "ALCHEMY_API_KEY",
-          requiresKey: true,
-        },
-        {
-          id: "ankr",
-          name: "Ankr",
-          description: "Decentralized RPC provider.",
-          envKey: "ANKR_API_KEY",
-          requiresKey: true,
-        },
-      ],
-    },
-    {
-      id: "solana",
-      name: "Solana",
-      description: "Solana mainnet tokens and NFTs.",
-      rpcProviders: [
-        {
-          id: "elizacloud",
-          name: "Eliza Cloud",
-          description: "Managed RPC. No setup needed.",
-          envKey: null,
-          requiresKey: false,
-        },
-        {
-          id: "helius",
-          name: "Helius",
-          description: "Solana-native data platform.",
-          envKey: "HELIUS_API_KEY",
-          requiresKey: true,
-        },
-      ],
-    },
-  ];
-}
-
-function ensureWalletKeysInEnvAndConfig(config: MiladyConfig): boolean {
-  const missingEvm =
-    typeof process.env.EVM_PRIVATE_KEY !== "string" ||
-    !process.env.EVM_PRIVATE_KEY.trim();
-  const missingSolana =
-    typeof process.env.SOLANA_PRIVATE_KEY !== "string" ||
-    !process.env.SOLANA_PRIVATE_KEY.trim();
-
-  if (!missingEvm && !missingSolana) {
-    return false;
-  }
-
-  try {
-    const walletKeys = generateWalletKeys();
-    if (
-      !config.env ||
-      typeof config.env !== "object" ||
-      Array.isArray(config.env)
-    ) {
-      config.env = {};
-    }
-    const envConfig = config.env as Record<string, string>;
-
-    if (missingEvm) {
-      envConfig.EVM_PRIVATE_KEY = walletKeys.evmPrivateKey;
-      process.env.EVM_PRIVATE_KEY = walletKeys.evmPrivateKey;
-      logger.info(
-        `[milady-api] Generated EVM wallet: ${walletKeys.evmAddress}`,
-      );
-    }
-
-    if (missingSolana) {
-      envConfig.SOLANA_PRIVATE_KEY = walletKeys.solanaPrivateKey;
-      process.env.SOLANA_PRIVATE_KEY = walletKeys.solanaPrivateKey;
-      logger.info(
-        `[milady-api] Generated Solana wallet: ${walletKeys.solanaAddress}`,
-      );
-    }
-
-    return true;
-  } catch (err) {
-    logger.warn(
-      `[milady-api] Failed to generate wallet keys: ${err instanceof Error ? err.message : String(err)}`,
-    );
-    return false;
+): void {
+  for (const plugin of plugins) {
+    if (plugin.category !== "ai-provider") continue;
+    plugin.enabled = plugin.id === providerId;
   }
 }
 
@@ -3240,41 +2291,11 @@ interface RequestContext {
   onRestart: (() => Promise<AgentRuntime | null>) | null;
 }
 
-type TrainingServiceLike = TrainingServiceWithRuntime;
-
-type TrainingServiceCtor = new (options: {
-  getRuntime: () => AgentRuntime | null;
-  getConfig: () => MiladyConfig;
-  setConfig: (nextConfig: MiladyConfig) => void;
-}) => TrainingServiceLike;
-
-async function resolveTrainingServiceCtor(): Promise<TrainingServiceCtor | null> {
-  const candidates = [
-    "../services/training-service",
-    "@elizaos/plugin-training",
-  ] as const;
-
-  for (const specifier of candidates) {
-    try {
-      const loaded = (await import(/* @vite-ignore */ specifier)) as Record<
-        string,
-        unknown
-      >;
-      const ctor = loaded.TrainingService;
-      if (typeof ctor === "function") {
-        return ctor as TrainingServiceCtor;
-      }
-    } catch {
-      // Keep trying fallbacks.
-    }
-  }
-
-  return null;
-}
-
 const LOCAL_ORIGIN_RE = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i;
 const APP_ORIGIN_RE =
   /^(capacitor|capacitor-electron|app):\/\/(localhost|-)?$/i;
+const PRIVATE_LAN_ORIGIN_RE =
+  /^https?:\/\/((10\.\d{1,3}\.\d{1,3}\.\d{1,3})|(192\.168\.\d{1,3}\.\d{1,3})|(172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3})|(169\.254\.\d{1,3}\.\d{1,3})|([a-z0-9-]+\.local))(:\d+)?$/i;
 
 function resolveCorsOrigin(origin?: string): string | null {
   if (!origin) return null;
@@ -3282,7 +2303,9 @@ function resolveCorsOrigin(origin?: string): string | null {
   if (!trimmed) return null;
 
   // Explicit allowlist via env (comma-separated)
-  const extra = process.env.MILADY_ALLOWED_ORIGINS;
+  const extra = process.env.MILAIDY_ALLOWED_ORIGINS;
+  const strictCors =
+    STRICT_PROD_SECURITY && process.env.MILAIDY_STRICT_CORS !== "0";
   if (extra) {
     const allow = extra
       .split(",")
@@ -3290,10 +2313,13 @@ function resolveCorsOrigin(origin?: string): string | null {
       .filter(Boolean);
     if (allow.includes(trimmed)) return trimmed;
   }
+  if (strictCors) return null;
 
   if (LOCAL_ORIGIN_RE.test(trimmed)) return trimmed;
+  const allowLanOrigins = process.env.MILAIDY_ALLOW_LAN_ORIGINS !== "0";
+  if (allowLanOrigins && PRIVATE_LAN_ORIGIN_RE.test(trimmed)) return trimmed;
   if (APP_ORIGIN_RE.test(trimmed)) return trimmed;
-  if (trimmed === "null" && process.env.MILADY_ALLOW_NULL_ORIGIN === "1")
+  if (trimmed === "null" && process.env.MILAIDY_ALLOW_NULL_ORIGIN === "1")
     return "null";
   return null;
 }
@@ -3313,11 +2339,11 @@ function applyCors(
     res.setHeader("Vary", "Origin");
     res.setHeader(
       "Access-Control-Allow-Methods",
-      "GET, POST, PUT, DELETE, OPTIONS",
+      "GET, POST, PUT, PATCH, DELETE, OPTIONS",
     );
     res.setHeader(
       "Access-Control-Allow-Headers",
-      "Content-Type, Authorization, X-Milady-Token, X-Api-Key, X-Milady-Export-Token",
+      "Content-Type, Authorization, X-Milaidy-Token, X-Api-Key",
     );
   }
 
@@ -3328,7 +2354,6 @@ const PAIRING_TTL_MS = 10 * 60 * 1000;
 const PAIRING_WINDOW_MS = 10 * 60 * 1000;
 const PAIRING_MAX_ATTEMPTS = 5;
 const PAIRING_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-const API_RESTART_EXIT_CODE = 75;
 
 let pairingCode: string | null = null;
 let pairingExpiresAt = 0;
@@ -3336,8 +2361,8 @@ const pairingAttempts = new Map<string, { count: number; resetAt: number }>();
 
 function pairingEnabled(): boolean {
   return (
-    Boolean(process.env.MILADY_API_TOKEN?.trim()) &&
-    process.env.MILADY_PAIRING_DISABLED !== "1"
+    Boolean(process.env.MILAIDY_API_TOKEN?.trim()) &&
+    process.env.MILAIDY_PAIRING_DISABLED !== "1"
   );
 }
 
@@ -3361,7 +2386,7 @@ function ensurePairingCode(): string | null {
     pairingCode = generatePairingCode();
     pairingExpiresAt = now + PAIRING_TTL_MS;
     logger.warn(
-      `[milady-api] Pairing code: ${pairingCode} (valid for 10 minutes)`,
+      `[milaidy-api] Pairing code: ${pairingCode} (valid for 10 minutes)`,
     );
   }
   return pairingCode;
@@ -3391,914 +2416,351 @@ function extractAuthToken(req: http.IncomingMessage): string | null {
   }
 
   const header =
-    (typeof req.headers["x-milady-token"] === "string" &&
-      req.headers["x-milady-token"]) ||
+    (typeof req.headers["x-milaidy-token"] === "string" &&
+      req.headers["x-milaidy-token"]) ||
     (typeof req.headers["x-api-key"] === "string" && req.headers["x-api-key"]);
   if (typeof header === "string" && header.trim()) return header.trim();
 
   return null;
 }
 
-function tokenMatches(expected: string, provided: string): boolean {
+function isAuthorized(req: http.IncomingMessage): boolean {
+  const expected = process.env.MILAIDY_API_TOKEN?.trim();
+  if (!expected) return !REQUIRE_LEGACY_API_TOKEN;
+  const provided = extractAuthToken(req);
+  if (!provided) return false;
   const a = Buffer.from(expected, "utf8");
   const b = Buffer.from(provided, "utf8");
   if (a.length !== b.length) return false;
   return crypto.timingSafeEqual(a, b);
 }
 
-function isLoopbackBindHost(host: string): boolean {
-  const normalized = host
-    .trim()
-    .toLowerCase()
-    .replace(/^\[|\]$/g, "");
-  if (!normalized) return true;
-  if (
-    normalized === "localhost" ||
-    normalized === "::1" ||
-    normalized === "::ffff:127.0.0.1"
-  ) {
+async function handleMultiUserV2Request(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  state: ServerState,
+): Promise<boolean> {
+  const method = req.method ?? "GET";
+  const url = new URL(
+    req.url ?? "/",
+    `http://${req.headers.host ?? "localhost"}`,
+  );
+  const pathname = url.pathname;
+  if (!pathname.startsWith("/api/v2/")) return false;
+  if (method === "GET" && pathname === "/api/v2/preflight") {
+    json(res, buildMultiUserPreflightReport());
     return true;
   }
-  if (normalized.startsWith("127.")) return true;
-  return false;
-}
-
-export function ensureApiTokenForBindHost(host: string): void {
-  const token = process.env.MILADY_API_TOKEN?.trim();
-  if (token) return;
-  if (isLoopbackBindHost(host)) return;
-
-  const generated = crypto.randomBytes(32).toString("hex");
-  process.env.MILADY_API_TOKEN = generated;
-
-  logger.warn(
-    `[milady-api] MILADY_API_BIND=${host} is non-loopback and MILADY_API_TOKEN is unset.`,
-  );
-  const tokenFingerprint = `${generated.slice(0, 4)}...${generated.slice(-4)}`;
-  logger.warn(
-    `[milady-api] Generated temporary MILADY_API_TOKEN (${tokenFingerprint}) for this process. Set MILADY_API_TOKEN explicitly to override.`,
-  );
-}
-
-function isAuthorized(req: http.IncomingMessage): boolean {
-  const expected = process.env.MILADY_API_TOKEN?.trim();
-  if (!expected) return true;
-  const provided = extractAuthToken(req);
-  if (!provided) return false;
-  return tokenMatches(expected, provided);
-}
-
-export interface PluginConfigMutationRejection {
-  field: string;
-  message: string;
-}
-
-export function resolvePluginConfigMutationRejections(
-  pluginParams: Array<{ key: string }>,
-  config: Record<string, unknown>,
-): PluginConfigMutationRejection[] {
-  const allowedParamKeys = new Set(
-    pluginParams.map((p) => p.key.toUpperCase().trim()),
-  );
-  const rejections: PluginConfigMutationRejection[] = [];
-
-  for (const key of Object.keys(config)) {
-    const normalized = key.toUpperCase().trim();
-
-    if (!allowedParamKeys.has(normalized)) {
-      rejections.push({
-        field: key,
-        message: `${key} is not a declared config key for this plugin`,
-      });
-      continue;
-    }
-
-    if (BLOCKED_ENV_KEYS.has(normalized)) {
-      rejections.push({
-        field: key,
-        message: `${key} is blocked for security reasons`,
-      });
-    }
-  }
-
-  return rejections;
-}
-
-interface WalletExportRequestBody {
-  confirm?: boolean;
-  exportToken?: string;
-}
-
-export interface WalletExportRejection {
-  status: 401 | 403;
-  reason: string;
-}
-
-export function resolveWalletExportRejection(
-  req: http.IncomingMessage,
-  body: WalletExportRequestBody,
-): WalletExportRejection | null {
-  if (!body.confirm) {
-    return {
-      status: 403,
-      reason:
-        'Export requires explicit confirmation. Send { "confirm": true } in the request body.',
-    };
-  }
-
-  const expected = process.env.MILADY_WALLET_EXPORT_TOKEN?.trim();
-  if (!expected) {
-    return {
-      status: 403,
-      reason:
-        "Wallet export is disabled. Set MILADY_WALLET_EXPORT_TOKEN to enable secure exports.",
-    };
-  }
-
-  const headerToken =
-    typeof req.headers["x-milady-export-token"] === "string"
-      ? req.headers["x-milady-export-token"].trim()
-      : "";
-  const bodyToken =
-    typeof body.exportToken === "string" ? body.exportToken.trim() : "";
-  const provided = headerToken || bodyToken;
-
-  if (!provided) {
-    return {
-      status: 401,
-      reason:
-        "Missing export token. Provide X-Milady-Export-Token header or exportToken in request body.",
-    };
-  }
-
-  if (!tokenMatches(expected, provided)) {
-    return { status: 401, reason: "Invalid export token." };
-  }
-
-  return null;
-}
-
-function extractWsQueryToken(url: URL): string | null {
-  const allowQueryToken = process.env.MILADY_ALLOW_WS_QUERY_TOKEN === "1";
-  if (!allowQueryToken) return null;
-
-  const token =
-    url.searchParams.get("token") ??
-    url.searchParams.get("apiKey") ??
-    url.searchParams.get("api_key");
-  return token?.trim() || null;
-}
-
-function isWebSocketAuthorized(
-  request: http.IncomingMessage,
-  url: URL,
-): boolean {
-  const expected = process.env.MILADY_API_TOKEN?.trim();
-  if (!expected) return true;
-
-  const headerToken = extractAuthToken(request);
-  if (headerToken) return tokenMatches(expected, headerToken);
-
-  const queryToken = extractWsQueryToken(url);
-  if (!queryToken) return false;
-  return tokenMatches(expected, queryToken);
-}
-
-export interface WebSocketUpgradeRejection {
-  status: 401 | 403 | 404;
-  reason: string;
-}
-
-export function resolveWebSocketUpgradeRejection(
-  req: http.IncomingMessage,
-  wsUrl: URL,
-): WebSocketUpgradeRejection | null {
-  if (wsUrl.pathname !== "/ws") {
-    return { status: 404, reason: "Not found" };
-  }
-
-  const origin =
-    typeof req.headers.origin === "string" ? req.headers.origin : undefined;
-  const allowedOrigin = resolveCorsOrigin(origin);
-  if (origin && !allowedOrigin) {
-    return { status: 403, reason: "Origin not allowed" };
-  }
-
-  if (!isWebSocketAuthorized(req, wsUrl)) {
-    return { status: 401, reason: "Unauthorized" };
-  }
-
-  return null;
-}
-
-const RESET_STATE_ALLOWED_SEGMENTS = new Set([".milady", "milady"]);
-
-function hasAllowedResetSegment(resolvedState: string): boolean {
-  return resolvedState
-    .split(path.sep)
-    .some((segment) =>
-      RESET_STATE_ALLOWED_SEGMENTS.has(segment.trim().toLowerCase()),
+  if (!multiUserService) {
+    json(
+      res,
+      {
+        error: "Multi-user v2 API is not configured",
+        code: "MULTIUSER_NOT_CONFIGURED",
+        detail: multiUserInitError ?? "Unknown initialization error",
+      },
+      503,
     );
-}
-
-export function isSafeResetStateDir(
-  resolvedState: string,
-  homeDir: string,
-): boolean {
-  const normalizedState = path.resolve(resolvedState);
-  const normalizedHome = path.resolve(homeDir);
-  const parsedRoot = path.parse(normalizedState).root;
-
-  if (normalizedState === parsedRoot) return false;
-  if (normalizedState === normalizedHome) return false;
-
-  const relativeToHome = path.relative(normalizedHome, normalizedState);
-  const isUnderHome =
-    relativeToHome.length > 0 &&
-    !relativeToHome.startsWith("..") &&
-    !path.isAbsolute(relativeToHome);
-  if (!isUnderHome) return false;
-
-  return hasAllowedResetSegment(normalizedState);
-}
-
-type ConversationRoomTitleRef = Pick<
-  ConversationMeta,
-  "id" | "title" | "roomId"
->;
-
-export async function persistConversationRoomTitle(
-  runtime: Pick<AgentRuntime, "getRoom" | "adapter"> | null | undefined,
-  conversation: ConversationRoomTitleRef,
-): Promise<boolean> {
-  if (!runtime) return false;
-  const room = await runtime.getRoom(conversation.roomId);
-  if (!room) return false;
-  if (room.name === conversation.title) return false;
-
-  const adapter = runtime.adapter as {
-    updateRoom?: (nextRoom: typeof room) => Promise<void>;
-  };
-  if (typeof adapter.updateRoom !== "function") return false;
-
-  await adapter.updateRoom({ ...room, name: conversation.title });
-  return true;
-}
-
-function rejectWebSocketUpgrade(
-  socket: import("node:stream").Duplex,
-  statusCode: number,
-  message: string,
-): void {
-  const statusText =
-    statusCode === 401
-      ? "Unauthorized"
-      : statusCode === 403
-        ? "Forbidden"
-        : statusCode === 404
-          ? "Not Found"
-          : "Bad Request";
-  const body = `${message}\n`;
-  socket.write(
-    `HTTP/1.1 ${statusCode} ${statusText}\r\n` +
-      "Connection: close\r\n" +
-      "Content-Type: text/plain; charset=utf-8\r\n" +
-      `Content-Length: ${Buffer.byteLength(body)}\r\n` +
-      "\r\n" +
-      body,
-  );
-  socket.destroy();
-}
-
-function decodePathComponent(
-  raw: string,
-  res: http.ServerResponse,
-  fieldName: string,
-): string | null {
-  try {
-    return decodeURIComponent(raw);
-  } catch {
-    error(res, `Invalid ${fieldName}: malformed URL encoding`, 400);
-    return null;
+    return true;
   }
-}
 
-const WORKBENCH_TASK_TAG = "workbench-task";
-const WORKBENCH_TODO_TAG = "workbench-todo";
-
-interface WorkbenchTaskView {
-  id: string;
-  name: string;
-  description: string;
-  tags: string[];
-  isCompleted: boolean;
-  updatedAt?: number;
-}
-
-interface WorkbenchTodoView {
-  id: string;
-  name: string;
-  description: string;
-  priority: number | null;
-  isUrgent: boolean;
-  isCompleted: boolean;
-  type: string;
-}
-
-interface TodoDataServiceLike {
-  createTodo: (input: Record<string, unknown>) => Promise<string>;
-  getTodos: (
-    filters?: Record<string, unknown>,
-  ) => Promise<Array<Record<string, unknown>>>;
-  getTodo: (todoId: string) => Promise<Record<string, unknown> | null>;
-  updateTodo: (
-    todoId: string,
-    updates: Record<string, unknown>,
-  ) => Promise<boolean>;
-  deleteTodo: (todoId: string) => Promise<boolean>;
-}
-
-function asObject(value: unknown): Record<string, unknown> | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  return value as Record<string, unknown>;
-}
-
-function normalizeStringArray(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-  return value
-    .filter((item): item is string => typeof item === "string")
-    .map((item) => item.trim())
-    .filter((item) => item.length > 0);
-}
-
-function normalizeTimestamp(value: unknown): number | undefined {
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (value instanceof Date) return value.getTime();
-  if (typeof value === "string") {
-    const asNumber = Number(value);
-    if (Number.isFinite(asNumber)) return asNumber;
-    const parsed = Date.parse(value);
-    if (Number.isFinite(parsed)) return parsed;
-  }
-  return undefined;
-}
-
-function parseNullableNumber(value: unknown): number | null {
-  if (value === null || value === undefined || value === "") return null;
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value === "string") {
-    const parsed = Number(value);
-    if (Number.isFinite(parsed)) return parsed;
-  }
-  return null;
-}
-
-function readTaskMetadata(task: Task): Record<string, unknown> {
-  return asObject(task.metadata) ?? {};
-}
-
-function normalizeTaskId(task: Task): string | null {
-  return typeof task.id === "string" && task.id.trim().length > 0
-    ? task.id
-    : null;
-}
-
-function readTaskCompleted(task: Task): boolean {
-  const metadata = readTaskMetadata(task);
-  if (typeof metadata.isCompleted === "boolean") return metadata.isCompleted;
-  const todoMeta =
-    asObject(metadata.workbenchTodo) ?? asObject(metadata.todo) ?? null;
-  if (todoMeta && typeof todoMeta.isCompleted === "boolean") {
-    return todoMeta.isCompleted;
-  }
-  return false;
-}
-
-function isWorkbenchTodoTask(task: Task): boolean {
-  if (readTriggerConfig(task)) return false;
-  const tags = new Set(normalizeStringArray(task.tags));
-  if (tags.has(WORKBENCH_TODO_TAG) || tags.has("todo")) return true;
-  const metadata = readTaskMetadata(task);
-  return (
-    asObject(metadata.workbenchTodo) !== null ||
-    asObject(metadata.todo) !== null
-  );
-}
-
-function toWorkbenchTask(task: Task): WorkbenchTaskView | null {
-  if (readTriggerConfig(task) || isWorkbenchTodoTask(task)) return null;
-  const id = normalizeTaskId(task);
-  if (!id) return null;
-  const metadata = readTaskMetadata(task);
-  const updatedAt =
-    normalizeTimestamp(
-      (task as unknown as Record<string, unknown>).updatedAt,
-    ) ?? normalizeTimestamp(metadata.updatedAt);
-  return {
-    id,
-    name:
-      typeof task.name === "string" && task.name.trim().length > 0
-        ? task.name
-        : "Task",
-    description: typeof task.description === "string" ? task.description : "",
-    tags: normalizeStringArray(task.tags),
-    isCompleted: readTaskCompleted(task),
-    ...(updatedAt !== undefined ? { updatedAt } : {}),
-  };
-}
-
-function toWorkbenchTodo(task: Task): WorkbenchTodoView | null {
-  if (!isWorkbenchTodoTask(task)) return null;
-  const id = normalizeTaskId(task);
-  if (!id) return null;
-  const metadata = readTaskMetadata(task);
-  const todoMeta =
-    asObject(metadata.workbenchTodo) ?? asObject(metadata.todo) ?? {};
-  return {
-    id,
-    name:
-      typeof task.name === "string" && task.name.trim().length > 0
-        ? task.name
-        : "Todo",
-    description:
-      typeof todoMeta.description === "string"
-        ? todoMeta.description
-        : typeof task.description === "string"
-          ? task.description
-          : "",
-    priority: parseNullableNumber(todoMeta.priority),
-    isUrgent: todoMeta.isUrgent === true,
-    isCompleted: readTaskCompleted(task),
-    type:
-      typeof todoMeta.type === "string" && todoMeta.type.trim().length > 0
-        ? todoMeta.type
-        : "task",
-  };
-}
-
-function normalizeTags(value: unknown, required: string[] = []): string[] {
-  const next = new Set<string>([
-    ...normalizeStringArray(value),
-    ...required.map((tag) => tag.trim()).filter((tag) => tag.length > 0),
-  ]);
-  return [...next];
-}
-
-async function getTodoDataService(
-  runtime: AgentRuntime,
-): Promise<TodoDataServiceLike | null> {
-  try {
-    const todoModule = (await import("@elizaos/plugin-todo")) as Record<
-      string,
-      unknown
-    >;
-    const createTodoDataService = todoModule.createTodoDataService as
-      | ((rt: AgentRuntime) => TodoDataServiceLike)
-      | undefined;
-    if (!createTodoDataService) return null;
-    return createTodoDataService(runtime);
-  } catch {
-    return null;
-  }
-}
-
-function toWorkbenchTodoFromRecord(
-  todo: Record<string, unknown>,
-): WorkbenchTodoView | null {
-  const id =
-    typeof todo.id === "string" && todo.id.trim().length > 0 ? todo.id : null;
-  const name =
-    typeof todo.name === "string" && todo.name.trim().length > 0
-      ? todo.name
-      : null;
-  if (!id || !name) return null;
-  return {
-    id,
-    name,
-    description: typeof todo.description === "string" ? todo.description : "",
-    priority: parseNullableNumber(todo.priority),
-    isUrgent: todo.isUrgent === true,
-    isCompleted: todo.isCompleted === true,
-    type:
-      typeof todo.type === "string" && todo.type.trim().length > 0
-        ? todo.type
-        : "task",
-  };
-}
-
-// ── Runtime debug serialization ─────────────────────────────────────
-
-const RUNTIME_DEBUG_DEFAULT_MAX_DEPTH = 10;
-const RUNTIME_DEBUG_MAX_DEPTH_CAP = 24;
-const RUNTIME_DEBUG_DEFAULT_MAX_ARRAY_LENGTH = 1000;
-const RUNTIME_DEBUG_DEFAULT_MAX_OBJECT_ENTRIES = 1000;
-const RUNTIME_DEBUG_DEFAULT_MAX_STRING_LENGTH = 8000;
-
-interface RuntimeDebugSerializeOptions {
-  maxDepth: number;
-  maxArrayLength: number;
-  maxObjectEntries: number;
-  maxStringLength: number;
-}
-
-interface RuntimeOrderItem {
-  index: number;
-  name: string;
-  className: string;
-  id: string | null;
-}
-
-interface RuntimeServiceOrderItem {
-  index: number;
-  serviceType: string;
-  count: number;
-  instances: RuntimeOrderItem[];
-}
-
-function parseDebugPositiveInt(
-  raw: string | null,
-  fallback: number,
-  min: number,
-  max: number,
-): number {
-  if (!raw) return fallback;
-  const parsed = Number(raw);
-  if (!Number.isFinite(parsed)) return fallback;
-  const intValue = Math.floor(parsed);
-  if (intValue < min) return min;
-  if (intValue > max) return max;
-  return intValue;
-}
-
-function classNameFor(value: object): string {
-  const ctor = (value as { constructor?: { name?: string } }).constructor;
-  const maybeName = typeof ctor?.name === "string" ? ctor.name.trim() : "";
-  return maybeName || "Object";
-}
-
-function stringDataProperty(value: unknown, key: string): string | null {
-  if (!value || typeof value !== "object") return null;
-  const descriptor = Object.getOwnPropertyDescriptor(value, key);
-  if (!descriptor || !("value" in descriptor)) return null;
-  const maybeString = descriptor.value;
-  if (typeof maybeString !== "string") return null;
-  const trimmed = maybeString.trim();
-  return trimmed.length > 0 ? trimmed : null;
-}
-
-function describeRuntimeOrder(
-  values: unknown[],
-  fallbackLabel: string,
-): RuntimeOrderItem[] {
-  return values.map((value, index) => {
-    const className =
-      value && typeof value === "object" ? classNameFor(value) : typeof value;
-    const name =
-      stringDataProperty(value, "name") ??
-      stringDataProperty(value, "id") ??
-      stringDataProperty(value, "key") ??
-      stringDataProperty(value, "serviceType") ??
-      `${fallbackLabel} ${index + 1}`;
-    const id =
-      stringDataProperty(value, "id") ?? stringDataProperty(value, "name");
-    return { index, name, className, id };
-  });
-}
-
-function describeRuntimeServiceOrder(
-  servicesMap: Map<string, unknown[]>,
-): RuntimeServiceOrderItem[] {
-  return Array.from(servicesMap.entries()).map(
-    ([serviceType, instances], i) => {
-      const values = Array.isArray(instances) ? instances : [];
-      return {
-        index: i,
-        serviceType,
-        count: values.length,
-        instances: describeRuntimeOrder(values, serviceType),
-      };
-    },
-  );
-}
-
-function serializeForRuntimeDebug(
-  value: unknown,
-  options: RuntimeDebugSerializeOptions,
-): unknown {
-  const seen = new WeakMap<object, string>();
-
-  const visit = (current: unknown, path: string, depth: number): unknown => {
-    if (current === null) return null;
-
-    const kind = typeof current;
-
-    if (kind === "string") {
-      if ((current as string).length <= options.maxStringLength) return current;
-      return {
-        __type: "string",
-        length: (current as string).length,
-        preview: `${(current as string).slice(0, options.maxStringLength)}...`,
-        truncated: true,
-      };
-    }
-    if (kind === "number") {
-      const n = current as number;
-      if (Number.isFinite(n)) return n;
-      return { __type: "number", value: String(n) };
-    }
-    if (kind === "boolean") return current;
-    if (kind === "bigint") return { __type: "bigint", value: String(current) };
-    if (kind === "undefined") return { __type: "undefined" };
-    if (kind === "symbol") return { __type: "symbol", value: String(current) };
-    if (kind === "function") {
-      const fn = current as (...args: unknown[]) => unknown;
-      return {
-        __type: "function",
-        name: fn.name || "(anonymous)",
-        length: fn.length,
-      };
-    }
-
-    const obj = current as object;
-
-    if (obj instanceof Date) {
-      return { __type: "date", value: obj.toISOString() };
-    }
-    if (obj instanceof RegExp) {
-      return { __type: "regexp", value: String(obj) };
-    }
-    if (obj instanceof Error) {
-      const err = obj as Error & { cause?: unknown };
-      const out: Record<string, unknown> = {
-        __type: "error",
-        name: err.name,
-        message: err.message,
-      };
-      if (err.stack) {
-        out.stack =
-          err.stack.length > options.maxStringLength
-            ? `${err.stack.slice(0, options.maxStringLength)}...`
-            : err.stack;
-      }
-      if (err.cause !== undefined) {
-        out.cause = visit(err.cause, `${path}.cause`, depth + 1);
-      }
-      return out;
-    }
-    if (Buffer.isBuffer(obj)) {
-      const previewLength = Math.min(obj.length, 64);
-      return {
-        __type: "buffer",
-        length: obj.length,
-        previewHex: obj.subarray(0, previewLength).toString("hex"),
-        truncated: obj.length > previewLength,
-      };
-    }
-    if (ArrayBuffer.isView(obj)) {
-      const view = obj as ArrayBufferView;
-      const previewLength = Math.min(view.byteLength, 64);
-      const bytes = new Uint8Array(view.buffer, view.byteOffset, previewLength);
-      return {
-        __type: classNameFor(obj),
-        byteLength: view.byteLength,
-        previewHex: Buffer.from(bytes).toString("hex"),
-        truncated: view.byteLength > previewLength,
-      };
-    }
-    if (obj instanceof ArrayBuffer) {
-      const previewLength = Math.min(obj.byteLength, 64);
-      const bytes = new Uint8Array(obj, 0, previewLength);
-      return {
-        __type: "array-buffer",
-        byteLength: obj.byteLength,
-        previewHex: Buffer.from(bytes).toString("hex"),
-        truncated: obj.byteLength > previewLength,
-      };
-    }
-
-    const seenPath = seen.get(obj);
-    if (seenPath) return { __type: "circular", ref: seenPath };
-    if (depth >= options.maxDepth) {
-      return {
-        __type: "max-depth",
-        className: classNameFor(obj),
-        path,
-      };
-    }
-    seen.set(obj, path);
-
-    if (Array.isArray(obj)) {
-      const arr = obj as unknown[];
-      const limit = Math.min(arr.length, options.maxArrayLength);
-      const items = new Array<unknown>(limit);
-      for (let i = 0; i < limit; i++) {
-        items[i] = visit(arr[i], `${path}[${i}]`, depth + 1);
-      }
-      const out: Record<string, unknown> = {
-        __type: "array",
-        length: arr.length,
-        items,
-      };
-      if (arr.length > limit) out.truncatedItems = arr.length - limit;
-      return out;
-    }
-
-    if (obj instanceof Map) {
-      const entries: Array<{ key: unknown; value: unknown }> = [];
-      let i = 0;
-      for (const [entryKey, entryValue] of obj.entries()) {
-        if (i >= options.maxObjectEntries) break;
-        entries.push({
-          key: visit(entryKey, `${path}.<key:${i}>`, depth + 1),
-          value: visit(entryValue, `${path}.<value:${i}>`, depth + 1),
-        });
-        i += 1;
-      }
-      const out: Record<string, unknown> = {
-        __type: "map",
-        size: obj.size,
-        entries,
-      };
-      if (obj.size > entries.length) {
-        out.truncatedEntries = obj.size - entries.length;
-      }
-      return out;
-    }
-
-    if (obj instanceof Set) {
-      const values: unknown[] = [];
-      let i = 0;
-      for (const entry of obj.values()) {
-        if (i >= options.maxArrayLength) break;
-        values.push(visit(entry, `${path}.<set:${i}>`, depth + 1));
-        i += 1;
-      }
-      const out: Record<string, unknown> = {
-        __type: "set",
-        size: obj.size,
-        values,
-      };
-      if (obj.size > values.length)
-        out.truncatedEntries = obj.size - values.length;
-      return out;
-    }
-
-    if (obj instanceof WeakMap) {
-      return { __type: "weak-map" };
-    }
-    if (obj instanceof WeakSet) {
-      return { __type: "weak-set" };
-    }
-    if (obj instanceof Promise) {
-      return { __type: "promise" };
-    }
-
-    const ownNames = Object.getOwnPropertyNames(obj);
-    const ownSymbols = Object.getOwnPropertySymbols(obj);
-    const allKeys: Array<string | symbol> = [...ownNames, ...ownSymbols];
-    const limit = Math.min(allKeys.length, options.maxObjectEntries);
-    const properties: Record<string, unknown> = {};
-
-    for (let i = 0; i < limit; i++) {
-      const propertyKey = allKeys[i];
-      const keyLabel =
-        typeof propertyKey === "string"
-          ? propertyKey
-          : `[${String(propertyKey)}]`;
-      const descriptor = Object.getOwnPropertyDescriptor(obj, propertyKey);
-      if (!descriptor) continue;
-      if ("value" in descriptor) {
-        properties[keyLabel] = visit(
-          descriptor.value,
-          `${path}.${keyLabel}`,
-          depth + 1,
-        );
-      } else {
-        properties[keyLabel] = {
-          __type: "accessor",
-          hasGetter: typeof descriptor.get === "function",
-          hasSetter: typeof descriptor.set === "function",
-          enumerable: descriptor.enumerable,
-        };
-      }
-    }
-
-    if (allKeys.length > limit) {
-      properties.__truncatedKeys = allKeys.length - limit;
-    }
-
-    const prototype = Object.getPrototypeOf(obj);
-    const isPlainObject = prototype === Object.prototype || prototype === null;
-    if (isPlainObject) return properties;
-
-    return {
-      __type: "object",
-      className: classNameFor(obj),
-      properties,
-    };
-  };
-
-  return visit(value, "$", 0);
-}
-
-// ── Autonomy → User message routing ──────────────────────────────────
-
-/**
- * Route non-conversation text output to the user's active conversation.
- * Stores the message as a Memory in the conversation room and broadcasts
- * a `proactive-message` WS event to the frontend.
- */
-async function routeAutonomyTextToUser(
-  state: ServerState,
-  responseText: string,
-  source = "autonomy",
-): Promise<void> {
-  const runtime = state.runtime;
-  if (!runtime) return;
-
-  const normalizedText = responseText.trim();
-  if (!normalizedText) return;
-
-  // Find target conversation (active, or most recent)
-  let conv: ConversationMeta | undefined;
-  if (state.activeConversationId) {
-    conv = state.conversations.get(state.activeConversationId);
-  }
-  if (!conv) {
-    // Fall back to most recently updated conversation
-    const sorted = Array.from(state.conversations.values()).sort(
-      (a, b) =>
-        new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+  if (state.runtime && !multiUserService.hasExecutionBackend()) {
+    multiUserService.setExecutionBackend(
+      createElizaExecutionBackend({
+        getRuntime: () => state.runtime,
+        getEntitySettings: (userId) =>
+          multiUserService!.getRuntimeEntitySettings(userId),
+      }),
     );
-    conv = sorted[0];
-  }
-  if (!conv) return; // No conversations exist yet
-
-  // Store as memory in the conversation's room
-  const agentMessage = createMessageMemory({
-    id: crypto.randomUUID() as UUID,
-    entityId: runtime.agentId,
-    roomId: conv.roomId,
-    content: {
-      text: normalizedText,
-      source,
-    },
-  });
-  await runtime.createMemory(agentMessage, "messages");
-  conv.updatedAt = new Date().toISOString();
-
-  // Broadcast to all WS clients
-  state.broadcastWs?.({
-    type: "proactive-message",
-    conversationId: conv.id,
-    message: {
-      id: agentMessage.id ?? `auto-${Date.now()}`,
-      role: "assistant",
-      text: normalizedText,
-      timestamp: Date.now(),
-      source,
-    },
-  });
-}
-
-/**
- * Route non-conversation agent events into the active user chat.
- * This avoids monkey-patching the message service and relies on explicit
- * event stream plumbing from AGENT_EVENT.
- */
-async function maybeRouteAutonomyEventToConversation(
-  state: ServerState,
-  event: AgentEventPayloadLike,
-): Promise<void> {
-  if (event.stream !== "assistant") return;
-
-  const payload =
-    event.data && typeof event.data === "object"
-      ? (event.data as Record<string, unknown>)
-      : null;
-  const text = typeof payload?.text === "string" ? payload.text.trim() : "";
-  if (!text) return;
-
-  const source =
-    typeof payload?.source === "string" && payload.source.trim().length > 0
-      ? payload.source
-      : "autonomy";
-
-  // Regular user conversation turns should never be re-routed as proactive.
-  // Some AGENT_EVENT payloads may omit roomId metadata, so rely on source too.
-  if (source === "client_chat") return;
-
-  // Keep regular conversation messages in their own room only.
-  if (
-    event.roomId &&
-    Array.from(state.conversations.values()).some(
-      (c) => c.roomId === event.roomId,
-    )
-  ) {
-    return;
   }
 
-  await routeAutonomyTextToUser(state, text, source);
+  const authBypass =
+    (method === "POST" && pathname === "/api/v2/auth/signup") ||
+    (method === "POST" && pathname === "/api/v2/auth/login") ||
+    (method === "POST" && pathname === "/api/v2/auth/refresh");
+
+  let ctx: ReturnType<
+    typeof multiUserService.getSessionFromAccessToken
+  > | null = null;
+  if (!authBypass) {
+    const bearer = extractBearerToken(req);
+    if (!bearer) {
+      json(res, { error: "Unauthorized", code: "UNAUTHORIZED" }, 401);
+      return true;
+    }
+    try {
+      ctx = multiUserService.getSessionFromAccessToken(bearer);
+    } catch (err) {
+      if (err instanceof MultiUserError) {
+        json(res, { error: err.message, code: err.code }, err.status);
+        return true;
+      }
+      json(res, { error: "Unauthorized", code: "UNAUTHORIZED" }, 401);
+      return true;
+    }
+  }
+
+  try {
+    // ── POST /api/v2/auth/signup ────────────────────────────────────────
+    if (method === "POST" && pathname === "/api/v2/auth/signup") {
+      const body = await readJsonBody(req, res);
+      if (!body) return true;
+      const parsed = multiUserService.parseSignup(body);
+      const result = await multiUserService.signup(parsed, {
+        userAgent:
+          typeof req.headers["user-agent"] === "string"
+            ? req.headers["user-agent"]
+            : null,
+        ipAddress: getClientIp(req),
+      });
+      json(res, result, 201);
+      return true;
+    }
+
+    // ── POST /api/v2/auth/login ─────────────────────────────────────────
+    if (method === "POST" && pathname === "/api/v2/auth/login") {
+      const body = await readJsonBody(req, res);
+      if (!body) return true;
+      const parsed = multiUserService.parseLogin(body);
+      const result = await multiUserService.login(parsed, {
+        userAgent:
+          typeof req.headers["user-agent"] === "string"
+            ? req.headers["user-agent"]
+            : null,
+        ipAddress: getClientIp(req),
+      });
+      json(res, result);
+      return true;
+    }
+
+    // ── POST /api/v2/auth/refresh ───────────────────────────────────────
+    if (method === "POST" && pathname === "/api/v2/auth/refresh") {
+      const body = await readJsonBody<{ refreshToken?: string }>(req, res);
+      if (!body) return true;
+      const refreshToken =
+        typeof body.refreshToken === "string" ? body.refreshToken : "";
+      const result = multiUserService.refresh(refreshToken);
+      json(res, result);
+      return true;
+    }
+
+    // ── POST /api/v2/auth/logout ────────────────────────────────────────
+    if (method === "POST" && pathname === "/api/v2/auth/logout") {
+      multiUserService.revokeSession(ctx!.session.id);
+      json(res, { ok: true });
+      return true;
+    }
+
+    // ── GET /api/v2/auth/me ─────────────────────────────────────────────
+    if (method === "GET" && pathname === "/api/v2/auth/me") {
+      json(res, { user: multiUserService.getMe(ctx!) });
+      return true;
+    }
+
+    // ── GET|PATCH /api/v2/settings ──────────────────────────────────────
+    if (pathname === "/api/v2/settings" && method === "GET") {
+      json(res, multiUserService.getSettings(ctx!.user.id));
+      return true;
+    }
+    if (pathname === "/api/v2/settings" && method === "PATCH") {
+      const body = await readJsonBody(req, res);
+      if (!body) return true;
+      const patch = multiUserService.parseTenantPatch(body);
+      json(res, multiUserService.patchSettings(ctx!.user.id, patch));
+      return true;
+    }
+
+    // ── Integrations + secrets ───────────────────────────────────────────
+    if (pathname === "/api/v2/integrations" && method === "GET") {
+      json(res, {
+        integrations: multiUserService.listIntegrations(ctx!.user.id),
+      });
+      return true;
+    }
+    if (pathname === "/api/v2/integrations/secrets" && method === "POST") {
+      const body = await readJsonBody(req, res);
+      if (!body) return true;
+      const reqBody = multiUserService.parseSecretUpsert(body);
+      json(res, multiUserService.upsertSecret(ctx!.user.id, reqBody));
+      return true;
+    }
+    if (
+      pathname.startsWith("/api/v2/integrations/secrets/") &&
+      method === "DELETE"
+    ) {
+      const parts = pathname.split("/").filter(Boolean);
+      // /api/v2/integrations/secrets/:integrationId/:secretKey
+      const integrationId = parts[4] ?? "";
+      const secretKey = parts[5] ?? "";
+      if (!integrationId || !secretKey) {
+        error(res, "integrationId and secretKey are required", 400);
+        return true;
+      }
+      json(
+        res,
+        multiUserService.deleteSecret(
+          ctx!.user.id,
+          decodeURIComponent(integrationId),
+          decodeURIComponent(secretKey),
+        ),
+      );
+      return true;
+    }
+
+    // ── Permissions ──────────────────────────────────────────────────────
+    if (pathname === "/api/v2/permissions" && method === "GET") {
+      json(res, multiUserService.getPermissions(ctx!.user.id));
+      return true;
+    }
+    if (pathname === "/api/v2/permissions" && method === "PATCH") {
+      const body = await readJsonBody(req, res);
+      if (!body) return true;
+      const patch = multiUserService.parsePermissionPatch(body);
+      json(res, multiUserService.patchPermissions(ctx!.user.id, patch));
+      return true;
+    }
+
+    // ── Wallet bindings (user-scoped) ───────────────────────────────────
+    if (pathname === "/api/v2/wallet/addresses" && method === "GET") {
+      json(res, multiUserService.getWalletBinding(ctx!.user.id));
+      return true;
+    }
+    if (pathname === "/api/v2/wallet/addresses" && method === "PUT") {
+      const body = await readJsonBody<Record<string, unknown>>(req, res);
+      if (!body) return true;
+      const evmAddress =
+        typeof body.evmAddress === "string" ? body.evmAddress : null;
+      const solanaAddress =
+        typeof body.solanaAddress === "string" ? body.solanaAddress : null;
+      json(
+        res,
+        multiUserService.setWalletBinding(ctx!.user.id, {
+          evmAddress,
+          solanaAddress,
+        }),
+      );
+      return true;
+    }
+    if (pathname === "/api/v2/wallet/disconnect" && method === "POST") {
+      json(res, multiUserService.clearWalletBinding(ctx!.user.id));
+      return true;
+    }
+
+    // ── Chat sessions + messages ────────────────────────────────────────
+    if (pathname === "/api/v2/chat/sessions" && method === "GET") {
+      json(res, { sessions: multiUserService.listChatSessions(ctx!.user.id) });
+      return true;
+    }
+    if (pathname === "/api/v2/chat/sessions" && method === "POST") {
+      const body = await readJsonBody(req, res);
+      if (!body) return true;
+      const reqBody = multiUserService.parseChatSessionCreate(body);
+      json(
+        res,
+        { session: multiUserService.createChatSession(ctx!.user.id, reqBody) },
+        201,
+      );
+      return true;
+    }
+    if (
+      pathname.startsWith("/api/v2/chat/sessions/") &&
+      pathname.endsWith("/messages") &&
+      method === "GET"
+    ) {
+      const parts = pathname.split("/").filter(Boolean);
+      const sessionId = parts[4] ?? "";
+      if (!sessionId) {
+        error(res, "sessionId is required", 400);
+        return true;
+      }
+      json(res, {
+        messages: multiUserService.listMessages(
+          ctx!.user.id,
+          decodeURIComponent(sessionId),
+        ),
+      });
+      return true;
+    }
+    if (pathname === "/api/v2/chat/messages" && method === "POST") {
+      const body = await readJsonBody(req, res);
+      if (!body) return true;
+      const reqBody = multiUserService.parseChatSend(body);
+      const result = await multiUserService.sendMessage(ctx!.user.id, reqBody);
+      json(res, result, 201);
+      return true;
+    }
+
+    // ── Actions / execution / confirmations ─────────────────────────────
+    if (pathname === "/api/v2/actions/preview" && method === "POST") {
+      const body = await readJsonBody(req, res);
+      if (!body) return true;
+      const action = multiUserService.parseActionExecute(body);
+      json(res, multiUserService.previewAction(ctx!.user.id, action));
+      return true;
+    }
+    if (pathname === "/api/v2/actions/execute" && method === "POST") {
+      const body = await readJsonBody(req, res);
+      if (!body) return true;
+      const action = multiUserService.parseActionExecute(body);
+      json(res, await multiUserService.executeAction(ctx!.user.id, action));
+      return true;
+    }
+    if (pathname === "/api/v2/actions/confirm" && method === "POST") {
+      const body = await readJsonBody(req, res);
+      if (!body) return true;
+      const reqBody = multiUserService.parseConfirm(body);
+      json(res, await multiUserService.confirmAction(ctx!.user.id, reqBody));
+      return true;
+    }
+    if (pathname.startsWith("/api/v2/actions/") && method === "GET") {
+      const parts = pathname.split("/").filter(Boolean);
+      const executionJobId = parts[3] ?? "";
+      if (
+        !executionJobId ||
+        executionJobId === "preview" ||
+        executionJobId === "confirm" ||
+        executionJobId === "execute"
+      ) {
+        error(res, "executionJobId is required", 400);
+        return true;
+      }
+      json(
+        res,
+        multiUserService.getActionStatus(
+          ctx!.user.id,
+          decodeURIComponent(executionJobId),
+        ),
+      );
+      return true;
+    }
+
+    // ── Audit + governance ───────────────────────────────────────────────
+    if (pathname === "/api/v2/audit" && method === "GET") {
+      json(res, { audit: multiUserService.listAudit(ctx!.user.id) });
+      return true;
+    }
+    if (pathname === "/api/v2/limits" && method === "GET") {
+      json(res, multiUserService.getLimitsStatus(ctx!.user.id));
+      return true;
+    }
+    if (pathname === "/api/v2/quotas" && method === "GET") {
+      json(res, multiUserService.getQuotaStatus(ctx!.user.id));
+      return true;
+    }
+
+    error(res, "Not found", 404);
+    return true;
+  } catch (err) {
+    if (err instanceof MultiUserError) {
+      if (err.retryAfterSec != null) {
+        res.setHeader("Retry-After", String(err.retryAfterSec));
+      }
+      json(res, { error: err.message, code: err.code }, err.status);
+      return true;
+    }
+    json(res, { error: "Internal server error", code: "INTERNAL" }, 500);
+    return true;
+  }
 }
 
 async function handleRequest(
@@ -4307,180 +2769,52 @@ async function handleRequest(
   state: ServerState,
   ctx?: RequestContext,
 ): Promise<void> {
+  applySecurityHeaders(res);
   const method = req.method ?? "GET";
-  let url: URL;
-  try {
-    url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
-  } catch {
-    error(res, "Invalid request URL", 400);
-    return;
-  }
+  const url = new URL(
+    req.url ?? "/",
+    `http://${req.headers.host ?? "localhost"}`,
+  );
   const pathname = url.pathname;
   const isAuthEndpoint = pathname.startsWith("/api/auth/");
-  const registryService = state.registryService;
-  const dropService = state.dropService;
+  const isV2Endpoint = pathname.startsWith("/api/v2/");
+  const hasLegacyApiToken = Boolean(process.env.MILAIDY_API_TOKEN?.trim());
 
-  const scheduleRuntimeRestart = (reason: string, delayMs = 300): void => {
-    const restart = () => {
-      if (ctx?.onRestart) {
-        logger.info(`[milady-api] Triggering runtime restart (${reason})...`);
-        Promise.resolve(ctx.onRestart())
-          .then((newRuntime) => {
-            if (!newRuntime) {
-              logger.warn("[milady-api] Runtime restart returned null");
-              return;
-            }
-            state.runtime = newRuntime;
-            state.chatConnectionReady = null;
-            state.chatConnectionPromise = null;
-            state.agentState = "running";
-            state.agentName = newRuntime.character.name ?? "Milady";
-            state.startedAt = Date.now();
-            logger.info("[milady-api] Runtime restarted successfully");
-            // Notify WebSocket clients so the UI can refresh
-            state.broadcastWs?.({
-              type: "status",
-              state: state.agentState,
-              agentName: state.agentName,
-              startedAt: state.startedAt,
-              restarted: true,
-            });
-          })
-          .catch((err) => {
-            logger.error(
-              `[milady-api] Runtime restart failed: ${err instanceof Error ? err.message : err}`,
-            );
-          });
-        return;
-      }
-
-      logger.info(
-        `[milady-api] No in-process restart handler; exiting for external restart (${reason})`,
-      );
-      if (process.env.VITEST || process.env.NODE_ENV === "test") {
-        logger.info("[milady-api] Skipping process.exit during test execution");
-        return;
-      }
-      process.exit(API_RESTART_EXIT_CODE);
-    };
-
-    if (delayMs <= 0) {
-      restart();
-      return;
-    }
-    setTimeout(restart, delayMs);
-  };
-
-  const resolveHyperscapeApiBaseUrl = async (): Promise<string> => {
-    const fromEnv = process.env.HYPERSCAPE_API_URL?.trim();
-    if (fromEnv) {
-      return fromEnv.replace(/\/+$/, "");
-    }
-    // Default to the local Hyperscape API server. Viewer URLs can point at a
-    // client dev server (for example :3333) which does not expose API routes.
-    return "http://localhost:5555";
-  };
-
-  const resolveHyperscapeAuthorizationHeader = (): string | null => {
-    const requestAuth =
-      typeof req.headers.authorization === "string"
-        ? req.headers.authorization.trim()
-        : "";
-    if (requestAuth) {
-      return requestAuth;
-    }
-
-    const envToken = process.env.HYPERSCAPE_AUTH_TOKEN?.trim();
-    if (!envToken) {
-      return null;
-    }
-    return /^Bearer\s+/i.test(envToken) ? envToken : `Bearer ${envToken}`;
-  };
-
-  const relayHyperscapeApi = async (
-    outboundMethod: "GET" | "POST",
-    outboundPath: string,
-    options?: {
-      rawBodyOverride?: string;
-      contentTypeOverride?: string | null;
-    },
-  ): Promise<void> => {
-    const baseUrl = await resolveHyperscapeApiBaseUrl();
-
-    let upstreamUrl: URL;
-    try {
-      upstreamUrl = new URL(outboundPath, baseUrl);
-      upstreamUrl.search = url.search;
-    } catch {
-      error(res, `Invalid Hyperscape API URL: ${baseUrl}`, 500);
-      return;
-    }
-
-    let rawBody: string | undefined;
-    if (options?.rawBodyOverride !== undefined) {
-      rawBody = options.rawBodyOverride;
-    } else if (outboundMethod === "POST") {
-      try {
-        rawBody = await readBody(req);
-        if (rawBody.trim().length === 0) {
-          rawBody = undefined;
-        }
-      } catch (err) {
-        error(
-          res,
-          `Failed to read request body: ${err instanceof Error ? err.message : String(err)}`,
-          400,
-        );
-        return;
-      }
-    }
-
-    const outboundHeaders: Record<string, string> = {};
-    const contentType =
-      options?.contentTypeOverride !== undefined
-        ? options.contentTypeOverride
-        : typeof req.headers["content-type"] === "string"
-          ? req.headers["content-type"]
-          : null;
-    if (contentType && rawBody !== undefined) {
-      outboundHeaders["Content-Type"] = contentType;
-    }
-    const authorization = resolveHyperscapeAuthorizationHeader();
-    if (authorization) {
-      outboundHeaders.Authorization = authorization;
-    }
-
-    let upstreamResponse: Response;
-    try {
-      upstreamResponse = await fetch(upstreamUrl.toString(), {
-        method: outboundMethod,
-        headers: outboundHeaders,
-        body: rawBody !== undefined ? rawBody : undefined,
-      });
-    } catch (err) {
-      error(
-        res,
-        `Failed to reach Hyperscape API: ${err instanceof Error ? err.message : String(err)}`,
-        502,
-      );
-      return;
-    }
-
-    const responseText = await upstreamResponse.text();
-    const responseType = upstreamResponse.headers.get("content-type");
-    if (responseType) {
-      res.setHeader("Content-Type", responseType);
-    }
-    res.statusCode = upstreamResponse.status;
-    res.end(responseText);
-  };
+  if (!["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"].includes(method)) {
+    res.setHeader("Allow", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
+    json(res, { error: "Method not allowed" }, 405);
+    return;
+  }
 
   if (!applyCors(req, res)) {
     json(res, { error: "Origin not allowed" }, 403);
     return;
   }
 
-  if (method !== "OPTIONS" && !isAuthEndpoint && !isAuthorized(req)) {
+  if (
+    method !== "OPTIONS" &&
+    !isAuthEndpoint &&
+    !isV2Endpoint &&
+    REQUIRE_LEGACY_API_TOKEN &&
+    !hasLegacyApiToken
+  ) {
+    json(
+      res,
+      {
+        error:
+          "Legacy API token is required by server policy but MILAIDY_API_TOKEN is not set.",
+      },
+      503,
+    );
+    return;
+  }
+
+  if (
+    method !== "OPTIONS" &&
+    !isAuthEndpoint &&
+    !isV2Endpoint &&
+    !isAuthorized(req)
+  ) {
     json(res, { error: "Unauthorized" }, 401);
     return;
   }
@@ -4492,199 +2826,101 @@ async function handleRequest(
     return;
   }
 
-  if (
-    await handleAuthRoutes({
-      req,
-      res,
-      method,
-      pathname,
-      readJsonBody,
-      json,
-      error,
-      pairingEnabled,
-      ensurePairingCode,
-      normalizePairingCode,
-      rateLimitPairing,
-      getPairingExpiresAt: () => pairingExpiresAt,
-      clearPairing: () => {
-        pairingCode = null;
-        pairingExpiresAt = 0;
-      },
-    })
-  ) {
+  // Generic API rate limiting for abuse control.
+  // Pairing has its own stricter attempt limiter; this is a global guardrail.
+  const limiter = await checkApiRateLimit(req);
+  if (!limiter.allowed) {
+    res.setHeader("Retry-After", String(limiter.retryAfterSec));
+    json(res, { error: "Too many requests. Please retry shortly." }, 429);
     return;
   }
 
-  if (
-    await handleSubscriptionRoutes({
-      req,
+  if (isV2Endpoint) {
+    await handleMultiUserV2Request(req, res, state);
+    return;
+  }
+
+  if (MULTIUSER_ENFORCE_V2_ONLY && pathname.startsWith("/api/")) {
+    json(
       res,
-      method,
-      pathname,
-      state,
-      readJsonBody,
-      json,
-      error,
-      saveConfig: saveMiladyConfig,
-    })
-  ) {
+      {
+        error:
+          "Legacy API is disabled in strict multi-user mode. Use /api/v2/* endpoints.",
+        code: "LEGACY_API_DISABLED",
+      },
+      410,
+    );
+    return;
+  }
+
+  // ── GET /api/auth/status ───────────────────────────────────────────────
+  if (method === "GET" && pathname === "/api/auth/status") {
+    const required = Boolean(process.env.MILAIDY_API_TOKEN?.trim());
+    const enabled = pairingEnabled();
+    if (enabled) ensurePairingCode();
+    json(res, {
+      required,
+      pairingEnabled: enabled,
+      expiresAt: enabled ? pairingExpiresAt : null,
+    });
+    return;
+  }
+
+  // ── POST /api/auth/pair ────────────────────────────────────────────────
+  if (method === "POST" && pathname === "/api/auth/pair") {
+    const body = await readJsonBody<{ code?: string }>(req, res);
+    if (!body) return;
+
+    const token = process.env.MILAIDY_API_TOKEN?.trim();
+    if (!token) {
+      error(res, "Pairing not enabled", 400);
+      return;
+    }
+    if (!pairingEnabled()) {
+      error(res, "Pairing disabled", 403);
+      return;
+    }
+    if (!rateLimitPairing(req.socket.remoteAddress ?? null)) {
+      error(res, "Too many attempts. Try again later.", 429);
+      return;
+    }
+
+    const provided = normalizePairingCode(body.code ?? "");
+    const current = ensurePairingCode();
+    if (!current || Date.now() > pairingExpiresAt) {
+      ensurePairingCode();
+      error(
+        res,
+        "Pairing code expired. Check server logs for a new code.",
+        410,
+      );
+      return;
+    }
+
+    const expected = normalizePairingCode(current);
+    const a = Buffer.from(expected, "utf8");
+    const b = Buffer.from(provided, "utf8");
+    if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+      error(res, "Invalid pairing code", 403);
+      return;
+    }
+
+    pairingCode = null;
+    pairingExpiresAt = 0;
+    json(res, { token });
     return;
   }
 
   // ── GET /api/status ─────────────────────────────────────────────────────
   if (method === "GET" && pathname === "/api/status") {
     const uptime = state.startedAt ? Date.now() - state.startedAt : undefined;
-    const cloudStatus = {
-      connectionStatus: "disconnected",
-      activeAgentId: null,
-    };
-
     json(res, {
       state: state.agentState,
       agentName: state.agentName,
       model: state.model,
       uptime,
-      cloud: cloudStatus,
+      startedAt: state.startedAt,
     });
-    return;
-  }
-
-  // ── GET /api/runtime ───────────────────────────────────────────────────
-  // Deep runtime introspection endpoint for advanced debugging UI.
-  if (method === "GET" && pathname === "/api/runtime") {
-    const maxDepth = parseDebugPositiveInt(
-      url.searchParams.get("depth"),
-      RUNTIME_DEBUG_DEFAULT_MAX_DEPTH,
-      1,
-      RUNTIME_DEBUG_MAX_DEPTH_CAP,
-    );
-    const maxArrayLength = parseDebugPositiveInt(
-      url.searchParams.get("maxArrayLength"),
-      RUNTIME_DEBUG_DEFAULT_MAX_ARRAY_LENGTH,
-      1,
-      5000,
-    );
-    const maxObjectEntries = parseDebugPositiveInt(
-      url.searchParams.get("maxObjectEntries"),
-      RUNTIME_DEBUG_DEFAULT_MAX_OBJECT_ENTRIES,
-      1,
-      5000,
-    );
-    const maxStringLength = parseDebugPositiveInt(
-      url.searchParams.get("maxStringLength"),
-      RUNTIME_DEBUG_DEFAULT_MAX_STRING_LENGTH,
-      64,
-      100_000,
-    );
-
-    const serializeOptions: RuntimeDebugSerializeOptions = {
-      maxDepth,
-      maxArrayLength,
-      maxObjectEntries,
-      maxStringLength,
-    };
-
-    const runtime = state.runtime;
-    const generatedAt = Date.now();
-
-    if (!runtime) {
-      json(res, {
-        runtimeAvailable: false,
-        generatedAt,
-        settings: serializeOptions,
-        meta: {
-          agentState: state.agentState,
-          agentName: state.agentName,
-          model: state.model ?? null,
-          pluginCount: 0,
-          actionCount: 0,
-          providerCount: 0,
-          evaluatorCount: 0,
-          serviceTypeCount: 0,
-          serviceCount: 0,
-        },
-        order: {
-          plugins: [],
-          actions: [],
-          providers: [],
-          evaluators: [],
-          services: [],
-        },
-        sections: {
-          runtime: null,
-          plugins: [],
-          actions: [],
-          providers: [],
-          evaluators: [],
-          services: {},
-        },
-      });
-      return;
-    }
-
-    try {
-      const servicesMap = runtime.services as unknown as Map<string, unknown[]>;
-      const serviceCount = Array.from(servicesMap.values()).reduce(
-        (sum, entries) => sum + (Array.isArray(entries) ? entries.length : 0),
-        0,
-      );
-      const orderServices = describeRuntimeServiceOrder(servicesMap);
-      const orderPlugins = describeRuntimeOrder(runtime.plugins, "plugin");
-      const orderActions = describeRuntimeOrder(runtime.actions, "action");
-      const orderProviders = describeRuntimeOrder(
-        runtime.providers,
-        "provider",
-      );
-      const orderEvaluators = describeRuntimeOrder(
-        runtime.evaluators,
-        "evaluator",
-      );
-
-      json(res, {
-        runtimeAvailable: true,
-        generatedAt,
-        settings: serializeOptions,
-        meta: {
-          agentId: runtime.agentId,
-          agentState: state.agentState,
-          agentName: runtime.character.name ?? state.agentName,
-          model: state.model ?? null,
-          pluginCount: runtime.plugins.length,
-          actionCount: runtime.actions.length,
-          providerCount: runtime.providers.length,
-          evaluatorCount: runtime.evaluators.length,
-          serviceTypeCount: servicesMap.size,
-          serviceCount,
-        },
-        order: {
-          plugins: orderPlugins,
-          actions: orderActions,
-          providers: orderProviders,
-          evaluators: orderEvaluators,
-          services: orderServices,
-        },
-        sections: {
-          runtime: serializeForRuntimeDebug(runtime, serializeOptions),
-          plugins: serializeForRuntimeDebug(runtime.plugins, serializeOptions),
-          actions: serializeForRuntimeDebug(runtime.actions, serializeOptions),
-          providers: serializeForRuntimeDebug(
-            runtime.providers,
-            serializeOptions,
-          ),
-          evaluators: serializeForRuntimeDebug(
-            runtime.evaluators,
-            serializeOptions,
-          ),
-          services: serializeForRuntimeDebug(servicesMap, serializeOptions),
-        },
-      });
-    } catch (err) {
-      error(
-        res,
-        `Failed to build runtime debug snapshot: ${err instanceof Error ? err.message : String(err)}`,
-        500,
-      );
-    }
     return;
   }
 
@@ -4695,16 +2931,149 @@ async function handleRequest(
     return;
   }
 
+  // ── GET /api/handles/check ───────────────────────────────────────────────
+  if (method === "GET" && pathname === "/api/handles/check") {
+    const requested =
+      typeof url.searchParams.get("handle") === "string"
+        ? (url.searchParams.get("handle") ?? "")
+        : "";
+    const ownerId = (url.searchParams.get("ownerId") ?? "").trim();
+    const handle = normalizeHandle(requested);
+    if (!handle || handle.length < 3) {
+      error(res, "Invalid handle", 422);
+      return;
+    }
+    const claims = readHandleRegistry();
+    const claimedBy = claims[handle];
+    const available =
+      !claimedBy || (ownerId.length > 0 && claimedBy === ownerId);
+    const owner: "self" | "other" | "none" = !claimedBy
+      ? "none"
+      : ownerId.length > 0 && claimedBy === ownerId
+        ? "self"
+        : "other";
+    let lockUntil: number | null = null;
+    if (ownerId.length > 0) {
+      const locks = readHandleLockRegistry();
+      const maybe = locks[ownerId];
+      if (Number.isFinite(maybe) && (maybe as number) > Date.now()) {
+        lockUntil = maybe as number;
+      }
+    }
+    json(res, { ok: true, handle, available, owner, lockUntil });
+    return;
+  }
+
+  // ── POST /api/handles/claim ─────────────────────────────────────────────
+  if (method === "POST" && pathname === "/api/handles/claim") {
+    const body = await readJsonBody<{
+      handle?: string;
+      ownerId?: string;
+      previousHandle?: string;
+    }>(req, res);
+    if (!body) return;
+
+    const handle = normalizeHandle(body.handle ?? "");
+    const ownerId = (body.ownerId ?? "").trim();
+    const previousHandle = normalizeHandle(body.previousHandle ?? "");
+
+    if (!handle || handle.length < 3) {
+      error(res, "Invalid handle", 422);
+      return;
+    }
+    if (!ownerId || ownerId.length < 8 || ownerId.length > 128) {
+      error(res, "Invalid owner id", 422);
+      return;
+    }
+
+    const claims = readHandleRegistry();
+    const locks = readHandleLockRegistry();
+    const now = Date.now();
+    const currentHandle = findOwnedHandle(claims, ownerId);
+    const changingHandle = Boolean(currentHandle && currentHandle !== handle);
+    const existingLockUntil = locks[ownerId];
+    if (
+      changingHandle &&
+      Number.isFinite(existingLockUntil) &&
+      (existingLockUntil as number) > now
+    ) {
+      const lockUntil = existingLockUntil as number;
+      json(
+        res,
+        {
+          ok: false,
+          error: "Handle change locked for 48h",
+          lockUntil,
+          retryAfterSec: Math.max(1, Math.ceil((lockUntil - now) / 1000)),
+        },
+        429,
+      );
+      return;
+    }
+
+    if (
+      previousHandle &&
+      previousHandle !== handle &&
+      claims[previousHandle] === ownerId
+    ) {
+      delete claims[previousHandle];
+    }
+    if (
+      currentHandle &&
+      currentHandle !== handle &&
+      claims[currentHandle] === ownerId
+    ) {
+      delete claims[currentHandle];
+    }
+
+    const existingOwner = claims[handle];
+    if (existingOwner && existingOwner !== ownerId) {
+      json(
+        res,
+        { ok: false, error: "Handle already claimed by another user" },
+        409,
+      );
+      return;
+    }
+
+    claims[handle] = ownerId;
+    writeHandleRegistry(claims);
+    let nextLockUntil: number | null = null;
+    if (currentHandle !== handle) {
+      nextLockUntil = now + HANDLE_CHANGE_LOCK_MS;
+      locks[ownerId] = nextLockUntil;
+      writeHandleLockRegistry(locks);
+    } else if (
+      Number.isFinite(existingLockUntil) &&
+      (existingLockUntil as number) > now
+    ) {
+      nextLockUntil = existingLockUntil as number;
+    }
+    json(res, { ok: true, handle, lockUntil: nextLockUntil });
+    return;
+  }
+
   // ── GET /api/onboarding/options ─────────────────────────────────────────
   if (method === "GET" && pathname === "/api/onboarding/options") {
+    // Provide a runtime-free hint for Ollama so UI can explain that the local
+    // server must be installed/running even though no API key is needed.
+    const ollamaReachable = await isOllamaReachable(
+      process.env.OLLAMA_API_ENDPOINT || "http://localhost:11434",
+    );
     json(res, {
-      names: pickRandomNames(5),
+      names: [...ONBOARDING_PRESET_NAMES],
       styles: STYLE_PRESETS,
-      providers: getProviderOptions(),
-      cloudProviders: getCloudProviderOptions(),
-      models: getModelOptions(),
-      inventoryProviders: getInventoryProviderOptions(),
-      sharedStyleRules: "Keep responses brief. Be helpful and concise.",
+      providers: getProviderOptions().map((p) => {
+        if (p.id !== "ollama") return p;
+        return {
+          ...p,
+          description: ollamaReachable
+            ? "Local models, no API key needed. (Ollama detected)"
+            : "Local models, no API key needed. Requires Ollama running on this device.",
+        };
+      }),
+      sharedStyleRules:
+        "Be concise, grounded, and action-oriented. Milaidy is an agentic workspace with subtle milady degen signal.",
     });
     return;
   }
@@ -4713,510 +3082,475 @@ async function handleRequest(
   if (method === "POST" && pathname === "/api/onboarding") {
     const body = await readJsonBody(req, res);
     if (!body) return;
-
-    // ── Validate required fields ──────────────────────────────────────────
-    if (!body.name || typeof body.name !== "string" || !body.name.trim()) {
-      error(res, "Missing or invalid agent name", 400);
-      return;
-    }
-    // Theme is UI-only (milady, haxor, qt314, etc.) — no server validation needed
-    if (body.runMode && body.runMode !== "local" && body.runMode !== "cloud") {
-      error(res, "Invalid runMode: must be 'local' or 'cloud'", 400);
-      return;
-    }
-
     const config = state.config;
 
     if (!config.agents) config.agents = {};
     if (!config.agents.defaults) config.agents.defaults = {};
     config.agents.defaults.workspace = resolveDefaultAgentWorkspaceDir();
-    const onboardingAdminEntityId = stringToUuid(
-      `${(body.name as string).trim()}-admin-entity`,
-    ) as UUID;
-    config.agents.defaults.adminEntityId = onboardingAdminEntityId;
-    state.adminEntityId = onboardingAdminEntityId;
-    state.chatUserId = onboardingAdminEntityId;
-    state.chatConnectionReady = null;
-    state.chatConnectionPromise = null;
 
     if (!config.agents.list) config.agents.list = [];
     if (config.agents.list.length === 0) {
       config.agents.list.push({ id: "main", default: true });
     }
-    const agent = config.agents.list[0];
-    agent.name = (body.name as string).trim();
+    const agent = config.agents.list[0] as Record<string, unknown>;
+    agent.name = body.name;
     agent.workspace = resolveDefaultAgentWorkspaceDir();
-    if (body.bio) agent.bio = body.bio as string[];
-    if (body.systemPrompt) agent.system = body.systemPrompt as string;
-    if (body.style)
-      agent.style = body.style as {
-        all?: string[];
-        chat?: string[];
-        post?: string[];
-      };
-    if (body.adjectives) agent.adjectives = body.adjectives as string[];
-    if (body.topics) agent.topics = body.topics as string[];
-    if (body.postExamples) agent.postExamples = body.postExamples as string[];
-    if (body.messageExamples)
-      agent.messageExamples = body.messageExamples as Array<
-        Array<{ user: string; content: { text: string } }>
-      >;
+    if (body.bio) agent.bio = body.bio;
+    if (body.systemPrompt) agent.system = body.systemPrompt;
+    if (body.style) agent.style = body.style;
+    if (body.adjectives) agent.adjectives = body.adjectives;
+    if (body.topics) agent.topics = body.topics;
+    if (body.messageExamples) agent.messageExamples = body.messageExamples;
 
-    // ── Theme preference ──────────────────────────────────────────────────
-    if (body.theme) {
-      if (!config.ui) config.ui = {};
-      config.ui.theme = body.theme as
-        | "milady"
-        | "qt314"
-        | "web2000"
-        | "programmer"
-        | "haxor"
-        | "psycho";
-    }
-
-    // ── Run mode & cloud configuration ────────────────────────────────────
-    const runMode = (body.runMode as string) || "local";
-    if (!config.cloud) config.cloud = {};
-    config.cloud.enabled = runMode === "cloud";
-
-    // ── Sandbox mode (from 3-mode onboarding: off / light / standard / max)
-    const sandboxMode = (body.sandboxMode as string) || "off";
-    if (sandboxMode !== "off") {
-      if (!config.agents) config.agents = {};
-      if (!config.agents.defaults) config.agents.defaults = {};
-      if (!(config.agents.defaults as Record<string, unknown>).sandbox) {
-        (config.agents.defaults as Record<string, unknown>).sandbox = {};
-      }
-      (
-        (config.agents.defaults as Record<string, unknown>).sandbox as Record<
-          string,
-          unknown
-        >
-      ).mode = sandboxMode;
-      logger.info(`[milady-api] Sandbox mode set to: ${sandboxMode}`);
-    }
-
-    if (runMode === "cloud") {
-      if (body.cloudProvider) {
-        config.cloud.provider = body.cloudProvider as string;
-      }
-      // Always ensure model defaults when cloud is selected so the cloud
-      // plugin has valid models to call even if the user didn't pick unknown.
-      if (!config.models) config.models = {};
-      config.models.small =
-        (body.smallModel as string) ||
-        config.models.small ||
-        "openai/gpt-5-mini";
-      config.models.large =
-        (body.largeModel as string) ||
-        config.models.large ||
-        "anthropic/claude-sonnet-4.5";
-    }
-
-    // ── Local LLM provider ────────────────────────────────────────────────
-    {
-      if (!config.env) config.env = {};
-      const envCfg = config.env as Record<string, unknown>;
-      const vars = (envCfg.vars ?? {}) as Record<string, string>;
-
-      const providerId = typeof body.provider === "string" ? body.provider : "";
-
-      // Persist vars back onto config.env
-      (envCfg as Record<string, unknown>).vars = vars;
-
-      // API-key providers (envKey backed)
-      if (runMode === "local" && providerId && body.providerApiKey) {
-        const providerOpt = getProviderOptions().find(
-          (p) => p.id === providerId,
-        );
-        if (providerOpt?.envKey) {
-          (config.env as Record<string, string>)[providerOpt.envKey] =
-            body.providerApiKey as string;
-          process.env[providerOpt.envKey] = body.providerApiKey as string;
-        }
-      }
-    }
-
-    // ── Subscription providers (no API key needed — uses OAuth) ──────────
-    // If the user selected a subscription provider during onboarding,
-    // note it in config. The actual OAuth flow happens via
-    // /api/subscription/{provider}/start + /exchange endpoints.
-    if (
-      runMode === "local" &&
-      (body.provider === "anthropic-subscription" ||
-        body.provider === "openai-subscription")
-    ) {
-      if (!config.agents) config.agents = {};
-      if (!config.agents.defaults) config.agents.defaults = {};
-      (config.agents.defaults as Record<string, unknown>).subscriptionProvider =
-        body.provider;
-      logger.info(
-        `[milady-api] Subscription provider selected: ${body.provider} — complete OAuth via /api/subscription/ endpoints`,
+    if (typeof body.provider === "string" && body.provider.trim()) {
+      const providerOpt = getProviderOptions().find(
+        (p) => p.id === body.provider,
       );
-    }
+      if (providerOpt) {
+        // Persist provider selection even for providers that don't require a key (e.g. Ollama).
+        setSingleEnabledAiProviderInConfig(config, providerOpt.id);
+        setSingleEnabledAiProviderInState(state.plugins, providerOpt.id);
+        if (
+          providerOpt.envKey &&
+          typeof body.providerApiKey === "string" &&
+          body.providerApiKey.trim()
+        ) {
+          // Store provider secrets in the same place as the Plugins UI so they
+          // are re-applied on runtime startup via applyPluginEntryConfigToEnv().
+          config.plugins ??= {};
+          config.plugins.entries ??= {};
+          const entry = (config.plugins.entries[providerOpt.id] ??= {});
+          entry.config = {
+            ...(entry.config ?? {}),
+            [providerOpt.envKey]: body.providerApiKey,
+          };
 
-    // ── Connectors (Telegram, Discord, WhatsApp, Twilio, Blooio) ────────
-    if (!config.connectors) config.connectors = {};
-    if (
-      body.telegramToken &&
-      typeof body.telegramToken === "string" &&
-      body.telegramToken.trim()
-    ) {
-      config.connectors.telegram = { botToken: body.telegramToken.trim() };
-    }
-    if (
-      body.discordToken &&
-      typeof body.discordToken === "string" &&
-      body.discordToken.trim()
-    ) {
-      config.connectors.discord = { token: body.discordToken.trim() };
-    }
-    if (
-      body.whatsappSessionPath &&
-      typeof body.whatsappSessionPath === "string" &&
-      body.whatsappSessionPath.trim()
-    ) {
-      config.connectors.whatsapp = {
-        sessionPath: body.whatsappSessionPath.trim(),
-      };
-    }
-    if (
-      body.twilioAccountSid &&
-      typeof body.twilioAccountSid === "string" &&
-      body.twilioAccountSid.trim() &&
-      body.twilioAuthToken &&
-      typeof body.twilioAuthToken === "string" &&
-      body.twilioAuthToken.trim()
-    ) {
-      if (!config.env) config.env = {};
-      (config.env as Record<string, string>).TWILIO_ACCOUNT_SID = (
-        body.twilioAccountSid as string
-      ).trim();
-      (config.env as Record<string, string>).TWILIO_AUTH_TOKEN = (
-        body.twilioAuthToken as string
-      ).trim();
-      process.env.TWILIO_ACCOUNT_SID = (body.twilioAccountSid as string).trim();
-      process.env.TWILIO_AUTH_TOKEN = (body.twilioAuthToken as string).trim();
-      if (
-        body.twilioPhoneNumber &&
-        typeof body.twilioPhoneNumber === "string" &&
-        body.twilioPhoneNumber.trim()
-      ) {
-        (config.env as Record<string, string>).TWILIO_PHONE_NUMBER = (
-          body.twilioPhoneNumber as string
-        ).trim();
-        process.env.TWILIO_PHONE_NUMBER = (
-          body.twilioPhoneNumber as string
-        ).trim();
-      }
-    }
-    if (
-      body.blooioApiKey &&
-      typeof body.blooioApiKey === "string" &&
-      body.blooioApiKey.trim()
-    ) {
-      if (!config.env) config.env = {};
-      (config.env as Record<string, string>).BLOOIO_API_KEY = (
-        body.blooioApiKey as string
-      ).trim();
-      process.env.BLOOIO_API_KEY = (body.blooioApiKey as string).trim();
-      if (
-        body.blooioPhoneNumber &&
-        typeof body.blooioPhoneNumber === "string" &&
-        body.blooioPhoneNumber.trim()
-      ) {
-        (config.env as Record<string, string>).BLOOIO_PHONE_NUMBER = (
-          body.blooioPhoneNumber as string
-        ).trim();
-        process.env.BLOOIO_PHONE_NUMBER = (
-          body.blooioPhoneNumber as string
-        ).trim();
-      }
-    }
+          // Legacy/back-compat: keep config.env populated too (some older paths read it).
+          if (!config.env) config.env = {};
+          (config.env as Record<string, string>)[providerOpt.envKey] =
+            body.providerApiKey;
 
-    // ── Inventory / RPC providers ─────────────────────────────────────────
-    if (Array.isArray(body.inventoryProviders)) {
-      if (!config.env) config.env = {};
-      const allInventory = getInventoryProviderOptions();
-      for (const inv of body.inventoryProviders as Array<{
-        chain: string;
-        rpcProvider: string;
-        rpcApiKey?: string;
-      }>) {
-        const chainDef = allInventory.find((ip) => ip.id === inv.chain);
-        if (!chainDef) continue;
-        const rpcDef = chainDef.rpcProviders.find(
-          (rp) => rp.id === inv.rpcProvider,
-        );
-        if (rpcDef?.envKey && inv.rpcApiKey) {
-          (config.env as Record<string, string>)[rpcDef.envKey] = inv.rpcApiKey;
-          process.env[rpcDef.envKey] = inv.rpcApiKey;
+          process.env[providerOpt.envKey] = body.providerApiKey;
         }
       }
     }
 
-    // ── Ensure wallet keys exist so inventory can resolve addresses ───────
-    ensureWalletKeysInEnvAndConfig(config);
+    if (body.telegramBotToken) {
+      if (!config.env) config.env = {};
+      (config.env as Record<string, string>).TELEGRAM_BOT_TOKEN =
+        body.telegramBotToken as string;
+      process.env.TELEGRAM_BOT_TOKEN = body.telegramBotToken as string;
+    }
+    if (body.discordBotToken) {
+      if (!config.env) config.env = {};
+      (config.env as Record<string, string>).DISCORD_API_TOKEN =
+        body.discordBotToken as string;
+      process.env.DISCORD_API_TOKEN = body.discordBotToken as string;
+    }
+
+    // ── Generate wallet keys if not already present ───────────────────────
+    if (!process.env.EVM_PRIVATE_KEY || !process.env.SOLANA_PRIVATE_KEY) {
+      try {
+        const walletKeys = generateWalletKeys();
+
+        if (!process.env.EVM_PRIVATE_KEY) {
+          process.env.EVM_PRIVATE_KEY = walletKeys.evmPrivateKey;
+          logger.info(
+            `[milaidy-api] Generated EVM wallet: ${walletKeys.evmAddress}`,
+          );
+        }
+
+        if (!process.env.SOLANA_PRIVATE_KEY) {
+          process.env.SOLANA_PRIVATE_KEY = walletKeys.solanaPrivateKey;
+          logger.info(
+            `[milaidy-api] Generated Solana wallet: ${walletKeys.solanaAddress}`,
+          );
+        }
+      } catch (err) {
+        logger.warn(`[milaidy-api] Failed to generate wallet keys: ${err}`);
+      }
+    }
 
     state.config = config;
     state.agentName = (body.name as string) ?? state.agentName;
-    try {
-      saveMiladyConfig(config);
-    } catch (err) {
-      logger.error(
-        `[milady-api] Failed to save config after onboarding: ${err}`,
-      );
-      error(res, "Failed to save configuration", 500);
-      return;
-    }
-    logger.info(
-      `[milady-api] Onboarding complete for agent "${body.name}" (mode: ${(body.runMode as string) || "local"})`,
-    );
+    saveMilaidyConfig(config);
     json(res, { ok: true });
     return;
   }
 
-  if (
-    await handleAgentLifecycleRoutes({
-      req,
-      res,
-      method,
-      pathname,
-      state,
-      json,
-    })
-  ) {
+  // ── POST /api/agent/start ───────────────────────────────────────────────
+  if (method === "POST" && pathname === "/api/agent/start") {
+    state.agentState = "running";
+    state.startedAt = Date.now();
+    state.model = detectRuntimeModel(state.runtime) ?? "unknown";
+
+    // Enable the autonomy task — the core TaskService will pick it up
+    // and fire the first tick immediately (updatedAt starts at 0).
+    const svc = getAutonomySvc(state.runtime);
+    if (svc) await svc.enableAutonomy();
+
+    json(res, {
+      ok: true,
+      status: {
+        state: state.agentState,
+        agentName: state.agentName,
+        model: state.model,
+        uptime: 0,
+        startedAt: state.startedAt,
+      },
+    });
     return;
   }
 
-  const triggerHandled = await handleTriggerRoutes({
-    req,
-    res,
-    method,
-    pathname,
-    runtime: state.runtime,
-    readJsonBody,
-    json,
-    error,
-  });
-  if (triggerHandled) {
+  // ── POST /api/agent/stop ────────────────────────────────────────────────
+  if (method === "POST" && pathname === "/api/agent/stop") {
+    const svc = getAutonomySvc(state.runtime);
+    if (svc) await svc.disableAutonomy();
+
+    state.agentState = "stopped";
+    state.startedAt = undefined;
+    state.model = undefined;
+    json(res, {
+      ok: true,
+      status: { state: state.agentState, agentName: state.agentName },
+    });
     return;
   }
 
-  if (pathname.startsWith("/api/training")) {
-    if (!state.trainingService) {
-      error(res, "Training service is not available", 503);
+  // ── POST /api/agent/pause ───────────────────────────────────────────────
+  if (method === "POST" && pathname === "/api/agent/pause") {
+    const svc = getAutonomySvc(state.runtime);
+    if (svc) await svc.disableAutonomy();
+
+    state.agentState = "paused";
+    json(res, {
+      ok: true,
+      status: {
+        state: state.agentState,
+        agentName: state.agentName,
+        model: state.model,
+        uptime: state.startedAt ? Date.now() - state.startedAt : undefined,
+        startedAt: state.startedAt,
+      },
+    });
+    return;
+  }
+
+  // ── POST /api/agent/resume ──────────────────────────────────────────────
+  if (method === "POST" && pathname === "/api/agent/resume") {
+    // Re-enable the autonomy task — first tick fires immediately
+    // because the new task is created with updatedAt: 0.
+    const svc = getAutonomySvc(state.runtime);
+    if (svc) await svc.enableAutonomy();
+
+    state.agentState = "running";
+    json(res, {
+      ok: true,
+      status: {
+        state: state.agentState,
+        agentName: state.agentName,
+        model: state.model,
+        uptime: state.startedAt ? Date.now() - state.startedAt : undefined,
+        startedAt: state.startedAt,
+      },
+    });
+    return;
+  }
+
+  // ── POST /api/agent/restart ────────────────────────────────────────────
+  if (method === "POST" && pathname === "/api/agent/restart") {
+    if (!ctx?.onRestart) {
+      error(
+        res,
+        "Restart is not supported in this mode (no restart handler registered)",
+        501,
+      );
       return;
     }
-    const trainingHandled = await handleTrainingRoutes({
-      req,
-      res,
-      method,
-      pathname,
-      runtime: state.runtime,
-      trainingService: state.trainingService,
-      readJsonBody,
-      json,
-      error,
+
+    // Reject if already mid-restart to prevent overlapping restarts.
+    if (state.agentState === "restarting") {
+      error(res, "A restart is already in progress", 409);
+      return;
+    }
+
+    const previousState = state.agentState;
+    state.agentState = "restarting";
+    try {
+      const newRuntime = await ctx.onRestart();
+      if (newRuntime) {
+        state.runtime = newRuntime;
+        state.agentState = "running";
+        state.agentName = newRuntime.character.name ?? "Milaidy";
+        state.startedAt = Date.now();
+        state.model = detectRuntimeModel(newRuntime) ?? "unknown";
+        json(res, {
+          ok: true,
+          status: {
+            state: state.agentState,
+            agentName: state.agentName,
+            model: state.model,
+            startedAt: state.startedAt,
+          },
+        });
+      } else {
+        // Restore previous state instead of permanently stuck in "error"
+        state.agentState = previousState;
+        error(
+          res,
+          "Restart handler returned null — runtime failed to re-initialize",
+          500,
+        );
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      // Restore previous state so the UI can retry
+      state.agentState = previousState;
+      error(res, `Restart failed: ${msg}`, 500);
+    }
+    return;
+  }
+
+  // ── POST /api/agent/reset ──────────────────────────────────────────────
+  // Wipe config, workspace (memory), and return to onboarding.
+  if (method === "POST" && pathname === "/api/agent/reset") {
+    try {
+      // 1. Stop the runtime if it's running
+      if (state.runtime) {
+        try {
+          await state.runtime.stop();
+        } catch (stopErr) {
+          const msg =
+            stopErr instanceof Error ? stopErr.message : String(stopErr);
+          logger.warn(
+            `[milaidy-api] Error stopping runtime during reset: ${msg}`,
+          );
+        }
+        state.runtime = null;
+      }
+
+      // Also release any claimed @handles (and 48h locks) even if the state
+      // directory cannot be fully removed for some reason. This keeps "Reset
+      // Milaidy" aligned with the UI expectation that a full reset makes the
+      // previous username available again on this server.
+      try {
+        const handleRegistry = handleRegistryPath();
+        if (fs.existsSync(handleRegistry))
+          fs.rmSync(handleRegistry, { force: true });
+      } catch {
+        // ignore
+      }
+      try {
+        const handleLocks = handleLockRegistryPath();
+        if (fs.existsSync(handleLocks)) fs.rmSync(handleLocks, { force: true });
+      } catch {
+        // ignore
+      }
+
+      // 2. Delete the state directory (~/.milaidy/) which contains
+      //    config, workspace, memory, oauth tokens, etc.
+      const stateDir = resolveStateDir();
+      if (fs.existsSync(stateDir)) {
+        fs.rmSync(stateDir, { recursive: true, force: true });
+      }
+
+      // 3. Reset server state
+      state.agentState = "stopped";
+      state.agentName = "Milaidy";
+      state.model = undefined;
+      state.startedAt = undefined;
+      state.config = {} as MilaidyConfig;
+      state.chatRoomId = null;
+      state.chatUserId = null;
+      state.chatTurnCount = 0;
+      state.chatRollingSummary = null;
+      state.chatRecentTurns = [];
+
+      json(res, { ok: true });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      error(res, `Reset failed: ${msg}`, 500);
+    }
+    return;
+  }
+
+  // ── POST /api/agent/autonomy ────────────────────────────────────────────
+  // Autonomy is always enabled; kept for backward compat.
+  if (method === "POST" && pathname === "/api/agent/autonomy") {
+    json(res, { ok: true, autonomy: true });
+    return;
+  }
+
+  // ── GET /api/agent/autonomy ─────────────────────────────────────────────
+  // Autonomy is always enabled.
+  if (method === "GET" && pathname === "/api/agent/autonomy") {
+    json(res, { enabled: true });
+    return;
+  }
+
+  // ── GET /api/character ──────────────────────────────────────────────────
+  if (method === "GET" && pathname === "/api/character") {
+    // Character data lives in the runtime / database, not the config file.
+    const rt = state.runtime;
+    const merged: Record<string, unknown> = {};
+    if (rt) {
+      const c = rt.character;
+      if (c.name) merged.name = c.name;
+      if (c.bio) merged.bio = c.bio;
+      if (c.system) merged.system = c.system;
+      if (c.adjectives) merged.adjectives = c.adjectives;
+      if (c.topics) merged.topics = c.topics;
+      if (c.style) merged.style = c.style;
+      if (c.postExamples) merged.postExamples = c.postExamples;
+    }
+
+    json(res, { character: merged, agentName: state.agentName });
+    return;
+  }
+
+  // ── PUT /api/character ──────────────────────────────────────────────────
+  if (method === "PUT" && pathname === "/api/character") {
+    const body = await readJsonBody(req, res);
+    if (!body) return;
+
+    const result = CharacterSchema.safeParse(body);
+    if (!result.success) {
+      const issues = result.error.issues.map((issue) => ({
+        path: issue.path.join("."),
+        message: issue.message,
+      }));
+      json(res, { ok: false, validationErrors: issues }, 422);
+      return;
+    }
+
+    // Character data lives in the runtime (backed by DB), not the config file.
+    if (state.runtime) {
+      const c = state.runtime.character;
+      if (body.name != null) c.name = body.name as string;
+      if (body.bio != null)
+        c.bio = Array.isArray(body.bio)
+          ? (body.bio as string[])
+          : [String(body.bio)];
+      if (body.system != null) c.system = body.system as string;
+      if (body.adjectives != null) c.adjectives = body.adjectives as string[];
+      if (body.topics != null) c.topics = body.topics as string[];
+      if (body.style != null)
+        c.style = body.style as NonNullable<typeof c.style>;
+      if (body.postExamples != null)
+        c.postExamples = body.postExamples as string[];
+    }
+    if (body.name) {
+      state.agentName = body.name as string;
+    }
+    json(res, { ok: true, character: body, agentName: state.agentName });
+    return;
+  }
+
+  // ── GET /api/character/schema ───────────────────────────────────────────
+  if (method === "GET" && pathname === "/api/character/schema") {
+    json(res, {
+      fields: [
+        {
+          key: "name",
+          type: "string",
+          label: "Name",
+          description: "Agent display name",
+          maxLength: 100,
+        },
+        {
+          key: "username",
+          type: "string",
+          label: "Username",
+          description: "Agent username for platforms",
+          maxLength: 50,
+        },
+        {
+          key: "bio",
+          type: "string | string[]",
+          label: "Bio",
+          description: "Biography — single string or array of points",
+        },
+        {
+          key: "system",
+          type: "string",
+          label: "System Prompt",
+          description: "System prompt defining core behavior",
+          maxLength: 10000,
+        },
+        {
+          key: "adjectives",
+          type: "string[]",
+          label: "Adjectives",
+          description: "Personality adjectives (e.g. curious, witty)",
+        },
+        {
+          key: "topics",
+          type: "string[]",
+          label: "Topics",
+          description: "Topics the agent is knowledgeable about",
+        },
+        {
+          key: "style",
+          type: "object",
+          label: "Style",
+          description: "Communication style guides",
+          children: [
+            {
+              key: "all",
+              type: "string[]",
+              label: "All",
+              description: "Style guidelines for all responses",
+            },
+            {
+              key: "chat",
+              type: "string[]",
+              label: "Chat",
+              description: "Style guidelines for chat responses",
+            },
+            {
+              key: "post",
+              type: "string[]",
+              label: "Post",
+              description: "Style guidelines for social media posts",
+            },
+          ],
+        },
+        {
+          key: "messageExamples",
+          type: "array",
+          label: "Message Examples",
+          description: "Example conversations demonstrating the agent's voice",
+        },
+        {
+          key: "postExamples",
+          type: "string[]",
+          label: "Post Examples",
+          description: "Example social media posts",
+        },
+      ],
     });
-    if (trainingHandled) return;
-  }
-
-  // ── Knowledge routes (/api/knowledge/*) ─────────────────────────────────
-  if (pathname.startsWith("/api/knowledge")) {
-    const knowledgeHandled = await handleKnowledgeRoutes({
-      req,
-      res,
-      method,
-      pathname,
-      url,
-      runtime: state.runtime,
-      readJsonBody,
-      json,
-      error,
-    });
-    if (knowledgeHandled) return;
-  }
-
-  if (
-    await handleAgentAdminRoutes({
-      req,
-      res,
-      method,
-      pathname,
-      state,
-      onRestart: ctx?.onRestart ?? undefined,
-      json,
-      error,
-      resolveStateDir,
-      resolvePath: path.resolve,
-      getHomeDir: os.homedir,
-      isSafeResetStateDir,
-      stateDirExists: fs.existsSync,
-      removeStateDir: (resolvedState) => {
-        fs.rmSync(resolvedState, { recursive: true, force: true });
-      },
-      logWarn: (message) => logger.warn(message),
-    })
-  ) {
-    return;
-  }
-
-  if (
-    await handleAgentTransferRoutes({
-      req,
-      res,
-      method,
-      pathname,
-      state,
-      readJsonBody,
-      json,
-      error,
-    })
-  ) {
-    return;
-  }
-
-  if (
-    await handleAutonomyRoutes({
-      req,
-      res,
-      method,
-      pathname,
-      runtime: state.runtime,
-      readJsonBody,
-      json,
-    })
-  ) {
-    return;
-  }
-
-  if (
-    await handleCharacterRoutes({
-      req,
-      res,
-      method,
-      pathname,
-      state,
-      readJsonBody,
-      json,
-      error,
-      pickRandomNames,
-    })
-  ) {
-    return;
-  }
-
-  if (
-    await handleModelsRoutes({
-      req,
-      res,
-      method,
-      pathname,
-      url,
-      json,
-      providerCachePath,
-      getOrFetchProvider,
-      getOrFetchAllProviders,
-      resolveModelsCacheDir,
-      pathExists: fs.existsSync,
-      readDir: fs.readdirSync,
-      unlinkFile: fs.unlinkSync,
-      joinPath: path.join,
-    })
-  ) {
-    return;
-  }
-
-  if (
-    await handleRegistryRoutes({
-      req,
-      res,
-      method,
-      pathname,
-      url,
-      json,
-      error,
-      getPluginManager: () => requirePluginManager(state.runtime),
-      getLoadedPluginNames: () =>
-        state.runtime?.plugins.map((plugin) => plugin.name) ?? [],
-      getBundledPluginIds: () =>
-        new Set(state.plugins.map((plugin) => plugin.id)),
-    })
-  ) {
     return;
   }
 
   // ── GET /api/plugins ────────────────────────────────────────────────────
   if (method === "GET" && pathname === "/api/plugins") {
-    // Re-read config from disk so we pick up plugins installed since server start.
-    let freshConfig: MiladyConfig;
-    try {
-      freshConfig = loadMiladyConfig();
-    } catch {
-      freshConfig = state.config;
-    }
+    // Include any user-installed plugins in the unified list so their setup
+    // UI and enable/disable toggles work the same as bundled plugins.
+    mergeInstalledPluginsIntoState(state);
 
-    // Merge user-installed plugins into the list (they don't exist in plugins.json)
-    const bundledIds = new Set(state.plugins.map((p) => p.id));
-    const installedEntries = discoverInstalledPlugins(freshConfig, bundledIds);
-    const allPlugins: PluginEntry[] = [...state.plugins, ...installedEntries];
-
-    // Resolve enabled state from config and loaded state from runtime.
-    // "enabled" = user wants it active (config). "isActive" = actually loaded.
-    const configEntries = (
-      freshConfig.plugins as Record<string, unknown> | undefined
-    )?.entries as Record<string, { enabled?: boolean }> | undefined;
-    const loadedNames = state.runtime
-      ? state.runtime.plugins.map((p) => p.name)
-      : [];
-    for (const plugin of allPlugins) {
-      const suffix = `plugin-${plugin.id}`;
-      const packageName = `@elizaos/plugin-${plugin.id}`;
-      const isLoaded =
-        loadedNames.length > 0 &&
-        loadedNames.some((name) => {
-          return (
-            name === plugin.id ||
-            name === suffix ||
-            name === packageName ||
-            name.endsWith(`/${suffix}`) ||
-            name.includes(plugin.id)
-          );
-        });
-      plugin.isActive = isLoaded;
-      // Set enabled from config if available, otherwise from runtime
-      const configEntry = configEntries?.[plugin.id];
-      if (configEntry && typeof configEntry.enabled === "boolean") {
-        plugin.enabled = configEntry.enabled;
-      } else {
-        plugin.enabled = isLoaded;
-      }
-      // Detect installed-but-failed-to-load plugins
-      plugin.loadError = undefined;
-      if (plugin.enabled && !isLoaded && state.runtime) {
-        const installs = freshConfig.plugins?.installs as
-          | Record<string, unknown>
-          | undefined;
-        const packageName = `@elizaos/plugin-${plugin.id}`;
-        const hasInstallRecord =
-          installs?.[packageName] || installs?.[plugin.id];
-        if (hasInstallRecord) {
-          plugin.loadError =
-            "Plugin installed but failed to load — the package may be missing compiled files.";
-        }
-      }
-    }
+    // Keep enabled status sourced from persisted config/user selection.
+    // Runtime plugin snapshots can lag during restarts and cause UI toggles
+    // (especially model/memory) to appear to "flip back".
 
     // Always refresh current env values and re-validate
-    for (const plugin of allPlugins) {
+    for (const plugin of state.plugins) {
       for (const param of plugin.parameters) {
         const envValue = process.env[param.key];
-        param.isSet = Boolean(envValue?.trim());
+        param.isSet = Boolean(envValue && envValue.trim());
         param.currentValue = param.isSet
           ? param.sensitive
-            ? maskValue(envValue ?? "")
-            : (envValue ?? "")
+            ? maskValue(envValue!)
+            : envValue!
           : null;
       }
       const paramInfos: PluginParamInfo[] = plugin.parameters.map((p) => ({
@@ -5237,37 +3571,31 @@ async function handleRequest(
       );
       plugin.validationErrors = validation.errors;
       plugin.validationWarnings = validation.warnings;
-    }
 
-    // Inject per-provider model options into configUiHints for MODEL fields.
-    // Each provider's cache is independent — no cross-population.
-    // Always set type: "select" on MODEL fields so they render as dropdowns,
-    // even when no models are cached yet (empty dropdown prompts user to fetch).
-    for (const plugin of allPlugins) {
-      const providerModels = readProviderCache(plugin.id)?.models ?? [];
-
-      for (const param of plugin.parameters) {
-        if (!param.key.toUpperCase().includes("MODEL")) continue;
-
-        // Filter to the category this field expects (chat, embedding, image, etc.)
-        const expectedCat = paramKeyToCategory(param.key);
-        const filtered = providerModels.filter(
-          (m) => m.category === expectedCat,
-        );
-
-        if (!plugin.configUiHints) plugin.configUiHints = {};
-        plugin.configUiHints[param.key] = {
-          ...plugin.configUiHints[param.key],
-          type: "select",
-          options: filtered.map((m) => ({
-            value: m.id,
-            label: m.name !== m.id ? `${m.name} (${m.id})` : m.id,
-          })),
-        };
+      // Runtime reachability checks for local providers.
+      if (plugin.id === "ollama" && plugin.enabled) {
+        const endpoint = (
+          process.env.OLLAMA_API_ENDPOINT ??
+          process.env.OLLAMA_BASE_URL ??
+          "http://localhost:11434"
+        ).trim();
+        const reachable = await isOllamaReachable(endpoint, 300);
+        if (!reachable) {
+          // Fail-closed for chat: Ollama cannot work if the local server isn't running.
+          const existing = plugin.validationErrors.some(
+            (e) => e.field === "OLLAMA_API_ENDPOINT",
+          );
+          if (!existing) {
+            plugin.validationErrors.push({
+              field: "OLLAMA_API_ENDPOINT",
+              message: `Ollama is not reachable at ${endpoint}. Install and run Ollama on this device, then restart Milaidy.`,
+            });
+          }
+        }
       }
     }
 
-    json(res, { plugins: allPlugins });
+    json(res, { plugins: state.plugins });
     return;
   }
 
@@ -5288,43 +3616,57 @@ async function handleRequest(
 
     if (body.enabled !== undefined) {
       plugin.enabled = body.enabled;
+      if (body.enabled && plugin.category === "ai-provider") {
+        setSingleEnabledAiProviderInState(state.plugins, plugin.id);
+      }
     }
     if (body.config) {
-      const configRejections = resolvePluginConfigMutationRejections(
-        plugin.parameters,
-        body.config,
-      );
-      if (configRejections.length > 0) {
-        json(
-          res,
-          { ok: false, plugin, validationErrors: configRejections },
-          422,
-        );
-        return;
+      // Server-side safety: keep known duplicate credential fields in sync so
+      // clients can provide only one of the pair.
+      if (typeof body.config === "object" && body.config) {
+        const cfg = body.config as Record<string, unknown>;
+        if (pluginId === "openai") {
+          const api =
+            typeof cfg.OPENAI_API_KEY === "string"
+              ? cfg.OPENAI_API_KEY.trim()
+              : "";
+          const emb =
+            typeof cfg.OPENAI_EMBEDDING_API_KEY === "string"
+              ? cfg.OPENAI_EMBEDDING_API_KEY.trim()
+              : "";
+          if (api && !emb) cfg.OPENAI_EMBEDDING_API_KEY = api;
+          if (emb && !api) cfg.OPENAI_API_KEY = emb;
+        } else if (pluginId === "vercel-ai-gateway") {
+          const a =
+            typeof cfg.AI_GATEWAY_API_KEY === "string"
+              ? cfg.AI_GATEWAY_API_KEY.trim()
+              : "";
+          const b =
+            typeof cfg.AIGATEWAY_API_KEY === "string"
+              ? cfg.AIGATEWAY_API_KEY.trim()
+              : "";
+          if (a && !b) cfg.AIGATEWAY_API_KEY = a;
+          if (b && !a) cfg.AI_GATEWAY_API_KEY = b;
+        }
       }
 
-      // Only validate the fields actually being submitted — not all required
-      // fields. Users may save partial config (e.g. just the API key) from
-      // the Settings page; blocking the save because OTHER required fields
-      // aren't set yet is counterproductive.
-      const configObj = body.config;
-      const submittedParamInfos: PluginParamInfo[] = plugin.parameters
-        .filter((p) => p.key in configObj)
-        .map((p) => ({
+      const pluginParamInfos: PluginParamInfo[] = plugin.parameters.map(
+        (p) => ({
           key: p.key,
           required: p.required,
           sensitive: p.sensitive,
           type: p.type,
           description: p.description,
           default: p.default,
-        }));
+        }),
+      );
       const configValidation = validatePluginConfig(
         pluginId,
         plugin.category,
         plugin.envKey,
-        plugin.configKeys,
+        Object.keys(body.config),
         body.config,
-        submittedParamInfos,
+        pluginParamInfos,
       );
 
       if (!configValidation.valid) {
@@ -5336,35 +3678,45 @@ async function handleRequest(
         return;
       }
 
-      const allowedParamKeys = new Set(plugin.parameters.map((p) => p.key));
-
-      // Persist config values to state.config.env so they survive restarts
-      if (!state.config.env) {
-        state.config.env = {};
-      }
       for (const [key, value] of Object.entries(body.config)) {
-        if (
-          allowedParamKeys.has(key) &&
-          !BLOCKED_ENV_KEYS.has(key.toUpperCase()) &&
-          typeof value === "string" &&
-          value.trim()
-        ) {
+        if (typeof value === "string" && value.trim()) {
           process.env[key] = value;
-          (state.config.env as Record<string, unknown>)[key] = value;
         }
       }
       plugin.configured = true;
+      if (plugin.category === "ai-provider") {
+        plugin.enabled = true;
+        setSingleEnabledAiProviderInState(state.plugins, plugin.id);
+      }
+    }
 
-      // Save config even when only config values changed (no enable toggle)
-      if (body.enabled === undefined) {
-        try {
-          saveMiladyConfig(state.config);
-        } catch (err) {
-          logger.warn(
-            `[milady-api] Failed to save config: ${err instanceof Error ? err.message : err}`,
-          );
+    // Persist plugin settings to config
+    try {
+      const nextConfig = state.config;
+      nextConfig.plugins ??= {};
+      nextConfig.plugins.entries ??= {};
+      const entry = (nextConfig.plugins.entries[pluginId] ??= {});
+      if (body.enabled !== undefined) {
+        entry.enabled = body.enabled;
+        if (body.enabled && plugin.category === "ai-provider") {
+          setSingleEnabledAiProviderInConfig(nextConfig, plugin.id);
         }
       }
+      if (body.config) {
+        entry.config = {
+          ...(entry.config ?? {}),
+          ...body.config,
+        };
+        if (plugin.category === "ai-provider") {
+          setSingleEnabledAiProviderInConfig(nextConfig, plugin.id);
+        }
+      }
+      saveMilaidyConfig(nextConfig);
+      state.config = nextConfig;
+    } catch (err) {
+      logger.warn(
+        `[milaidy-api] Failed to persist plugin config: ${err instanceof Error ? err.message : String(err)}`,
+      );
     }
 
     // Refresh validation
@@ -5387,207 +3739,96 @@ async function handleRequest(
     plugin.validationErrors = updated.errors;
     plugin.validationWarnings = updated.warnings;
 
-    // Update config.plugins.entries so the runtime loads/skips this plugin
-    if (body.enabled !== undefined) {
-      const packageName = `@elizaos/plugin-${pluginId}`;
-
-      if (!state.config.plugins) {
-        state.config.plugins = {};
-      }
-      if (!state.config.plugins.entries) {
-        (state.config.plugins as Record<string, unknown>).entries = {};
-      }
-
-      const entries = (state.config.plugins as Record<string, unknown>)
-        .entries as Record<string, Record<string, unknown>>;
-      entries[pluginId] = { enabled: body.enabled };
-      logger.info(
-        `[milady-api] ${body.enabled ? "Enabled" : "Disabled"} plugin: ${packageName}`,
-      );
-
-      // Persist capability toggle state in config.features so the runtime
-      // can gate related behaviour (e.g. disabling image description when
-      // vision is toggled off).
-      const CAPABILITY_FEATURE_IDS = new Set([
-        "vision",
-        "browser",
-        "computeruse",
-      ]);
-      if (CAPABILITY_FEATURE_IDS.has(pluginId)) {
-        if (!state.config.features) {
-          state.config.features = {};
-        }
-        state.config.features[pluginId] = body.enabled;
-      }
-
-      // Save updated config
-      try {
-        saveMiladyConfig(state.config);
-      } catch (err) {
-        logger.warn(
-          `[milady-api] Failed to save config: ${err instanceof Error ? err.message : err}`,
-        );
-      }
-
-      scheduleRuntimeRestart(`Plugin toggle: ${pluginId}`, 300);
-    }
-
     json(res, { ok: true, plugin });
     return;
   }
 
-  // ── GET /api/secrets ─────────────────────────────────────────────────
-  if (method === "GET" && pathname === "/api/secrets") {
-    // Merge bundled + installed plugins for full parameter coverage
-    const bundledIds = new Set(state.plugins.map((p) => p.id));
-    const installedEntries = discoverInstalledPlugins(state.config, bundledIds);
-    const allPlugins: PluginEntry[] = [...state.plugins, ...installedEntries];
-
-    // Sync enabled status from runtime (same logic as GET /api/plugins)
-    if (state.runtime) {
-      const loadedNames = state.runtime.plugins.map((p) => p.name);
-      for (const plugin of allPlugins) {
-        const suffix = `plugin-${plugin.id}`;
-        const packageName = `@elizaos/plugin-${plugin.id}`;
-        plugin.enabled = loadedNames.some(
-          (name) =>
-            name === plugin.id ||
-            name === suffix ||
-            name === packageName ||
-            name.endsWith(`/${suffix}`) ||
-            name.includes(plugin.id),
-        );
-      }
+  // ── GET /api/registry/plugins ──────────────────────────────────────────
+  if (method === "GET" && pathname === "/api/registry/plugins") {
+    const { getRegistryPlugins } = await import(
+      "../services/registry-client.js"
+    );
+    try {
+      const registry = await getRegistryPlugins();
+      const plugins = Array.from(registry.values());
+      json(res, { count: plugins.length, plugins });
+    } catch (err) {
+      error(
+        res,
+        `Failed to fetch registry: ${err instanceof Error ? err.message : String(err)}`,
+        502,
+      );
     }
-
-    const secrets = aggregateSecrets(allPlugins);
-    json(res, { secrets });
     return;
   }
 
-  // ── PUT /api/secrets ─────────────────────────────────────────────────
-  if (method === "PUT" && pathname === "/api/secrets") {
-    const body = await readJsonBody<{ secrets: Record<string, string> }>(
-      req,
-      res,
+  // ── GET /api/registry/plugins/:name ─────────────────────────────────────
+  if (
+    method === "GET" &&
+    pathname.startsWith("/api/registry/plugins/") &&
+    pathname.length > "/api/registry/plugins/".length
+  ) {
+    const name = decodeURIComponent(
+      pathname.slice("/api/registry/plugins/".length),
     );
-    if (!body) return;
-    if (!body.secrets || typeof body.secrets !== "object") {
-      error(res, "Missing or invalid 'secrets' object", 400);
+    const { getPluginInfo } = await import("../services/registry-client.js");
+
+    try {
+      const info = await getPluginInfo(name);
+      if (!info) {
+        error(res, `Plugin "${name}" not found in registry`, 404);
+        return;
+      }
+      json(res, { plugin: info });
+    } catch (err) {
+      error(
+        res,
+        `Failed to look up plugin: ${err instanceof Error ? err.message : String(err)}`,
+        502,
+      );
+    }
+    return;
+  }
+
+  // ── GET /api/registry/search?q=... ──────────────────────────────────────
+  if (method === "GET" && pathname === "/api/registry/search") {
+    const query = url.searchParams.get("q") || "";
+    if (!query.trim()) {
+      error(res, "Query parameter 'q' is required", 400);
       return;
     }
 
-    // Build allowlist from all plugin-declared sensitive params
-    const bundledIds = new Set(state.plugins.map((p) => p.id));
-    const installedEntries = discoverInstalledPlugins(state.config, bundledIds);
-    const allPlugins: PluginEntry[] = [...state.plugins, ...installedEntries];
-    const allowedKeys = new Set<string>();
-    for (const plugin of allPlugins) {
-      for (const param of plugin.parameters) {
-        if (param.sensitive) allowedKeys.add(param.key);
-      }
-    }
+    const { searchPlugins } = await import("../services/registry-client.js");
 
-    const updated: string[] = [];
-    for (const [key, value] of Object.entries(body.secrets)) {
-      if (typeof value !== "string" || !value.trim()) continue;
-      if (!allowedKeys.has(key)) continue;
-      if (BLOCKED_ENV_KEYS.has(key.toUpperCase())) continue;
-      process.env[key] = value;
-      updated.push(key);
+    try {
+      const limitParam = url.searchParams.get("limit");
+      const limit = limitParam
+        ? Math.min(Math.max(Number(limitParam), 1), 50)
+        : 15;
+      const results = await searchPlugins(query, limit);
+      json(res, { query, count: results.length, results });
+    } catch (err) {
+      error(
+        res,
+        `Search failed: ${err instanceof Error ? err.message : String(err)}`,
+        502,
+      );
     }
-
-    // Mark affected plugins as configured
-    for (const plugin of allPlugins) {
-      const pluginKeys = new Set(plugin.parameters.map((p) => p.key));
-      if (updated.some((k) => pluginKeys.has(k))) {
-        plugin.configured = true;
-      }
-    }
-
-    json(res, { ok: true, updated });
     return;
   }
 
-  // ── POST /api/plugins/:id/test ────────────────────────────────────────
-  // Test a plugin's connection / configuration validity.
-  const pluginTestMatch =
-    method === "POST" && pathname.match(/^\/api\/plugins\/([^/]+)\/test$/);
-  if (pluginTestMatch) {
-    const pluginId = decodeURIComponent(pluginTestMatch[1]);
-    const startMs = Date.now();
+  // ── POST /api/registry/refresh ──────────────────────────────────────────
+  if (method === "POST" && pathname === "/api/registry/refresh") {
+    const { refreshRegistry } = await import("../services/registry-client.js");
 
     try {
-      // Find the plugin in the runtime
-      const allPlugins = state.runtime?.plugins ?? [];
-      const normalizePluginId = (value: string): string =>
-        value.replace(/^@[^/]+\//, "").replace(/^plugin-/, "");
-
-      const normalizedPluginId = normalizePluginId(pluginId);
-
-      const plugin = allPlugins.find((p: { id?: string; name?: string }) => {
-        const runtimeName = p.name ?? "";
-        const runtimeId = normalizePluginId(runtimeName);
-        return (
-          p.id === pluginId ||
-          p.name === pluginId ||
-          runtimeId === pluginId ||
-          runtimeId === normalizedPluginId
-        );
-      });
-
-      if (!plugin) {
-        json(
-          res,
-          {
-            success: false,
-            pluginId,
-            error: "Plugin not found or not loaded",
-            durationMs: Date.now() - startMs,
-          },
-          404,
-        );
-        return;
-      }
-
-      // Check if plugin exposes a test/health method
-      const testFn =
-        (plugin as unknown as Record<string, unknown>).testConnection ??
-        (plugin as unknown as Record<string, unknown>).healthCheck;
-      if (typeof testFn === "function") {
-        const result = await (
-          testFn as () => Promise<{ ok: boolean; message?: string }>
-        )();
-        json(res, {
-          success: result.ok !== false,
-          pluginId,
-          message:
-            result.message ??
-            (result.ok !== false
-              ? "Connection successful"
-              : "Connection failed"),
-          durationMs: Date.now() - startMs,
-        });
-        return;
-      }
-
-      // No test function — return a basic "plugin is loaded" status
-      json(res, {
-        success: true,
-        pluginId,
-        message: "Plugin is loaded and active (no custom test available)",
-        durationMs: Date.now() - startMs,
-      });
+      const registry = await refreshRegistry();
+      json(res, { ok: true, count: registry.size });
     } catch (err) {
-      json(
+      error(
         res,
-        {
-          success: false,
-          pluginId,
-          error: err instanceof Error ? err.message : String(err),
-          durationMs: Date.now() - startMs,
-        },
-        500,
+        `Refresh failed: ${err instanceof Error ? err.message : String(err)}`,
+        502,
       );
     }
     return;
@@ -5608,27 +3849,12 @@ async function handleRequest(
       return;
     }
 
-    const npmNamePattern =
-      /^(@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*$/;
-    if (!npmNamePattern.test(pluginName)) {
-      error(res, "Invalid plugin name format", 400);
-      return;
-    }
+    const { installPlugin } = await import("../services/plugin-installer.js");
 
     try {
-      const pluginManager = requirePluginManager(state.runtime);
-      const result = await pluginManager.installPlugin(
-        pluginName,
-        (progress: InstallProgressLike) => {
-          logger.info(`[install] ${progress.phase}: ${progress.message}`);
-          state.broadcastWs?.({
-            type: "install-progress",
-            pluginName: progress.pluginName,
-            phase: progress.phase,
-            message: progress.message,
-          });
-        },
-      );
+      const result = await installPlugin(pluginName, (progress) => {
+        logger.info(`[install] ${progress.phase}: ${progress.message}`);
+      });
 
       if (!result.success) {
         json(res, { ok: false, error: result.error }, 422);
@@ -5637,7 +3863,17 @@ async function handleRequest(
 
       // If autoRestart is not explicitly false, restart the agent
       if (body.autoRestart !== false && result.requiresRestart) {
-        scheduleRuntimeRestart(`Plugin ${result.pluginName} installed`, 500);
+        const { requestRestart } = await import("../runtime/restart.js");
+        // Defer the restart so the HTTP response is sent first
+        setTimeout(() => {
+          Promise.resolve(
+            requestRestart(`Plugin ${result.pluginName} installed`),
+          ).catch((err) => {
+            logger.error(
+              `[api] Restart after install failed: ${err instanceof Error ? err.message : String(err)}`,
+            );
+          });
+        }, 500);
       }
 
       json(res, {
@@ -5676,9 +3912,10 @@ async function handleRequest(
       return;
     }
 
+    const { uninstallPlugin } = await import("../services/plugin-installer.js");
+
     try {
-      const pluginManager = requirePluginManager(state.runtime);
-      const result = await pluginManager.uninstallPlugin(pluginName);
+      const result = await uninstallPlugin(pluginName);
 
       if (!result.success) {
         json(res, { ok: false, error: result.error }, 422);
@@ -5686,7 +3923,16 @@ async function handleRequest(
       }
 
       if (body.autoRestart !== false && result.requiresRestart) {
-        scheduleRuntimeRestart(`Plugin ${pluginName} uninstalled`, 500);
+        const { requestRestart } = await import("../runtime/restart.js");
+        setTimeout(() => {
+          Promise.resolve(
+            requestRestart(`Plugin ${pluginName} uninstalled`),
+          ).catch((err) => {
+            logger.error(
+              `[api] Restart after uninstall failed: ${err instanceof Error ? err.message : String(err)}`,
+            );
+          });
+        }, 500);
       }
 
       json(res, {
@@ -5707,583 +3953,20 @@ async function handleRequest(
     return;
   }
 
-  // ── POST /api/plugins/:id/eject ─────────────────────────────────────────
-  if (method === "POST" && pathname.match(/^\/api\/plugins\/[^/]+\/eject$/)) {
-    const pluginName = decodeURIComponent(
-      pathname.slice("/api/plugins/".length, pathname.length - "/eject".length),
-    );
-    try {
-      const pluginManager = requirePluginManager(state.runtime);
-      // Ensure the method exists on the service (it should)
-      if (typeof pluginManager.ejectPlugin !== "function") {
-        throw new Error("Plugin manager does not support ejecting plugins");
-      }
-      const result = await pluginManager.ejectPlugin(pluginName);
-      if (!result.success) {
-        json(res, { ok: false, error: result.error }, 422);
-        return;
-      }
-      if (result.requiresRestart) {
-        scheduleRuntimeRestart(`Plugin ${pluginName} ejected`, 500);
-      }
-      json(res, {
-        ok: true,
-        pluginName: result.pluginName,
-        requiresRestart: result.requiresRestart,
-        message: `${pluginName} ejected to local source.`,
-      });
-    } catch (err) {
-      error(
-        res,
-        `Eject failed: ${err instanceof Error ? err.message : String(err)}`,
-        500,
-      );
-    }
-    return;
-  }
-
-  // ── POST /api/plugins/:id/sync ──────────────────────────────────────────
-  if (method === "POST" && pathname.match(/^\/api\/plugins\/[^/]+\/sync$/)) {
-    const pluginName = decodeURIComponent(
-      pathname.slice("/api/plugins/".length, pathname.length - "/sync".length),
-    );
-    try {
-      const pluginManager = requirePluginManager(state.runtime);
-      if (typeof pluginManager.syncPlugin !== "function") {
-        throw new Error("Plugin manager does not support syncing plugins");
-      }
-      const result = await pluginManager.syncPlugin(pluginName);
-      if (!result.success) {
-        json(res, { ok: false, error: result.error }, 422);
-        return;
-      }
-      if (result.requiresRestart) {
-        scheduleRuntimeRestart(`Plugin ${pluginName} synced`, 500);
-      }
-      json(res, {
-        ok: true,
-        pluginName: result.pluginName,
-        requiresRestart: result.requiresRestart,
-        message: `${pluginName} synced with upstream.`,
-      });
-    } catch (err) {
-      error(
-        res,
-        `Sync failed: ${err instanceof Error ? err.message : String(err)}`,
-        500,
-      );
-    }
-    return;
-  }
-
-  // ── POST /api/plugins/:id/reinject ──────────────────────────────────────
-  if (
-    method === "POST" &&
-    pathname.match(/^\/api\/plugins\/[^/]+\/reinject$/)
-  ) {
-    const pluginName = decodeURIComponent(
-      pathname.slice(
-        "/api/plugins/".length,
-        pathname.length - "/reinject".length,
-      ),
-    );
-    try {
-      const pluginManager = requirePluginManager(state.runtime);
-      if (typeof pluginManager.reinjectPlugin !== "function") {
-        throw new Error("Plugin manager does not support reinjecting plugins");
-      }
-      const result = await pluginManager.reinjectPlugin(pluginName);
-      if (!result.success) {
-        json(res, { ok: false, error: result.error }, 422);
-        return;
-      }
-      if (result.requiresRestart) {
-        scheduleRuntimeRestart(`Plugin ${pluginName} reinjected`, 500);
-      }
-      json(res, {
-        ok: true,
-        pluginName: result.pluginName,
-        requiresRestart: result.requiresRestart,
-        message: `${pluginName} restored to registry version.`,
-      });
-    } catch (err) {
-      error(
-        res,
-        `Reinject failed: ${err instanceof Error ? err.message : String(err)}`,
-        500,
-      );
-    }
-    return;
-  }
-
   // ── GET /api/plugins/installed ──────────────────────────────────────────
   // List plugins that were installed from the registry at runtime.
   if (method === "GET" && pathname === "/api/plugins/installed") {
+    const { listInstalledPlugins } = await import(
+      "../services/plugin-installer.js"
+    );
+
     try {
-      const pluginManager = requirePluginManager(state.runtime);
-      const installed = await pluginManager.listInstalledPlugins();
+      const installed = await listInstalledPlugins();
       json(res, { count: installed.length, plugins: installed });
     } catch (err) {
       error(
         res,
         `Failed to list installed plugins: ${err instanceof Error ? err.message : String(err)}`,
-        500,
-      );
-    }
-    return;
-  }
-
-  // ── GET /api/plugins/ejected ────────────────────────────────────────────
-  // List plugins ejected to local source checkouts with upstream metadata.
-  if (method === "GET" && pathname === "/api/plugins/ejected") {
-    try {
-      const pluginManager = requirePluginManager(state.runtime);
-      if (typeof pluginManager.listEjectedPlugins !== "function") {
-        throw new Error(
-          "Plugin manager does not support listing ejected plugins",
-        );
-      }
-      const plugins = await pluginManager.listEjectedPlugins();
-      json(res, { count: plugins.length, plugins });
-    } catch (err) {
-      error(
-        res,
-        `Failed to list ejected plugins: ${err instanceof Error ? err.message : String(err)}`,
-        500,
-      );
-    }
-    return;
-  }
-
-  // ── GET /api/core/status ────────────────────────────────────────────────
-  // Returns whether @elizaos/core is ejected or resolved from npm.
-  if (method === "GET" && pathname === "/api/core/status") {
-    try {
-      const coreManager = requireCoreManager(state.runtime);
-      const status = await coreManager.getCoreStatus();
-      json(res, status);
-    } catch (err) {
-      error(
-        res,
-        `Failed to get core status: ${err instanceof Error ? err.message : String(err)}`,
-        500,
-      );
-    }
-    return;
-  }
-
-  // ── GET /api/plugins/core ────────────────────────────────────────────
-  // Returns all core and optional core plugins with their loaded/running status.
-  if (method === "GET" && pathname === "/api/plugins/core") {
-    // Build a set of loaded plugin names for robust matching.
-    // Plugin internal names vary wildly (e.g. "local-ai" for plugin-local-embedding,
-    // "eliza-coder" for plugin-code), so we check loaded names against multiple
-    // derived forms of the npm package name.
-    const loadedNames = state.runtime
-      ? new Set(state.runtime.plugins.map((p: { name: string }) => p.name))
-      : new Set<string>();
-
-    const isLoaded = (npmName: string): boolean => {
-      if (loadedNames.has(npmName)) return true;
-      // @elizaos/plugin-foo -> plugin-foo
-      const withoutScope = npmName.replace("@elizaos/", "");
-      if (loadedNames.has(withoutScope)) return true;
-      // plugin-foo -> foo
-      const shortId = withoutScope.replace("plugin-", "");
-      if (loadedNames.has(shortId)) return true;
-      // Check if ANY loaded name contains the short id or vice versa
-      for (const n of loadedNames) {
-        if (n.includes(shortId) || shortId.includes(n)) return true;
-      }
-      return false;
-    };
-
-    // Check which optional plugins are currently in the allow list
-    const allowList = new Set(state.config.plugins?.allow ?? []);
-
-    const makeEntry = (npm: string, isCore: boolean) => {
-      const id = npm.replace("@elizaos/plugin-", "");
-      return {
-        npmName: npm,
-        id,
-        name: id
-          .split("-")
-          .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
-          .join(" "),
-        isCore,
-        loaded: isLoaded(npm),
-        enabled: isCore || allowList.has(npm) || allowList.has(id),
-      };
-    };
-
-    const coreList = CORE_PLUGINS.map((npm: string) => makeEntry(npm, true));
-    const optionalList = OPTIONAL_CORE_PLUGINS.map((npm: string) =>
-      makeEntry(npm, false),
-    );
-
-    json(res, { core: coreList, optional: optionalList });
-    return;
-  }
-
-  // ── POST /api/plugins/core/toggle ─────────────────────────────────────
-  // Enable or disable an optional core plugin by updating the allow list.
-  if (method === "POST" && pathname === "/api/plugins/core/toggle") {
-    const body = await readJsonBody<{ npmName: string; enabled: boolean }>(
-      req,
-      res,
-    );
-    if (!body || !body.npmName) return;
-
-    // Only allow toggling optional plugins, not core
-    const isCorePlugin = (CORE_PLUGINS as readonly string[]).includes(
-      body.npmName,
-    );
-    if (isCorePlugin) {
-      error(res, "Core plugins cannot be disabled");
-      return;
-    }
-    const isOptional = (OPTIONAL_CORE_PLUGINS as readonly string[]).includes(
-      body.npmName,
-    );
-    if (!isOptional) {
-      error(res, "Unknown optional plugin");
-      return;
-    }
-
-    // Update the allow list in config
-    state.config.plugins = state.config.plugins ?? {};
-    state.config.plugins.allow = state.config.plugins.allow ?? [];
-    const allow = state.config.plugins.allow;
-    const shortId = body.npmName.replace("@elizaos/plugin-", "");
-
-    if (body.enabled) {
-      if (!allow.includes(body.npmName) && !allow.includes(shortId)) {
-        allow.push(body.npmName);
-      }
-    } else {
-      state.config.plugins.allow = allow.filter(
-        (p: string) => p !== body.npmName && p !== shortId,
-      );
-    }
-
-    try {
-      saveMiladyConfig(state.config);
-    } catch (err) {
-      logger.warn(
-        `[api] Config save failed: ${err instanceof Error ? err.message : err}`,
-      );
-    }
-
-    // Auto-restart so the change takes effect
-    scheduleRuntimeRestart(
-      `Plugin ${shortId} ${body.enabled ? "enabled" : "disabled"}`,
-      300,
-    );
-
-    json(res, {
-      ok: true,
-      restarting: true,
-      message: `${shortId} ${body.enabled ? "enabled" : "disabled"}. Restarting...`,
-    });
-    return;
-  }
-
-  // ── GET /api/skills/catalog ───────────────────────────────────────────
-  // Browse the full skill catalog (paginated).
-  if (method === "GET" && pathname === "/api/skills/catalog") {
-    try {
-      const { getCatalogSkills } = await import(
-        "../services/skill-catalog-client"
-      );
-      const all = await getCatalogSkills();
-      const page = Math.max(1, Number(url.searchParams.get("page")) || 1);
-      const perPage = Math.min(
-        100,
-        Math.max(1, Number(url.searchParams.get("perPage")) || 50),
-      );
-      const sort = url.searchParams.get("sort") ?? "downloads";
-      const sorted = [...all];
-      if (sort === "downloads")
-        sorted.sort(
-          (a, b) =>
-            b.stats.downloads - a.stats.downloads || b.updatedAt - a.updatedAt,
-        );
-      else if (sort === "stars")
-        sorted.sort(
-          (a, b) => b.stats.stars - a.stats.stars || b.updatedAt - a.updatedAt,
-        );
-      else if (sort === "updated")
-        sorted.sort((a, b) => b.updatedAt - a.updatedAt);
-      else if (sort === "name")
-        sorted.sort((a, b) =>
-          (a.displayName ?? a.slug).localeCompare(b.displayName ?? b.slug),
-        );
-
-      // Resolve installed status from the AgentSkillsService
-      const installedSlugs = new Set<string>();
-      if (state.runtime) {
-        try {
-          const svc = state.runtime.getService("AGENT_SKILLS_SERVICE") as
-            | {
-                getLoadedSkills?: () => Array<{ slug: string; source: string }>;
-              }
-            | undefined;
-          if (svc && typeof svc.getLoadedSkills === "function") {
-            for (const s of svc.getLoadedSkills()) {
-              installedSlugs.add(s.slug);
-            }
-          }
-        } catch (err) {
-          logger.debug(
-            `[api] Service not available: ${err instanceof Error ? err.message : err}`,
-          );
-        }
-      }
-      // Also check locally discovered skills
-      for (const s of state.skills) {
-        installedSlugs.add(s.id);
-      }
-
-      const start = (page - 1) * perPage;
-      const skills = sorted.slice(start, start + perPage).map((s) => ({
-        ...s,
-        installed: installedSlugs.has(s.slug),
-      }));
-      json(res, {
-        total: all.length,
-        page,
-        perPage,
-        totalPages: Math.ceil(all.length / perPage),
-        installedCount: installedSlugs.size,
-        skills,
-      });
-    } catch (err) {
-      error(
-        res,
-        `Failed to load skill catalog: ${err instanceof Error ? err.message : String(err)}`,
-        500,
-      );
-    }
-    return;
-  }
-
-  // ── GET /api/skills/catalog/search ─────────────────────────────────────
-  if (method === "GET" && pathname === "/api/skills/catalog/search") {
-    const q = url.searchParams.get("q");
-    if (!q) {
-      error(res, "Missing query parameter ?q=", 400);
-      return;
-    }
-    try {
-      const { searchCatalogSkills } = await import(
-        "../services/skill-catalog-client"
-      );
-      const limit = Math.min(
-        100,
-        Math.max(1, Number(url.searchParams.get("limit")) || 30),
-      );
-      const results = await searchCatalogSkills(q, limit);
-      json(res, { query: q, count: results.length, results });
-    } catch (err) {
-      error(
-        res,
-        `Skill catalog search failed: ${err instanceof Error ? err.message : String(err)}`,
-        500,
-      );
-    }
-    return;
-  }
-
-  // ── GET /api/skills/catalog/:slug ──────────────────────────────────────
-  if (method === "GET" && pathname.startsWith("/api/skills/catalog/")) {
-    const slug = decodeURIComponent(
-      pathname.slice("/api/skills/catalog/".length),
-    );
-    // Exclude "search" which is handled above
-    if (slug && slug !== "search") {
-      try {
-        const { getCatalogSkill } = await import(
-          "../services/skill-catalog-client"
-        );
-        const skill = await getCatalogSkill(slug);
-        if (!skill) {
-          error(res, `Skill "${slug}" not found in catalog`, 404);
-          return;
-        }
-        json(res, { skill });
-      } catch (err) {
-        error(
-          res,
-          `Failed to fetch skill: ${err instanceof Error ? err.message : String(err)}`,
-          500,
-        );
-      }
-      return;
-    }
-  }
-
-  // ── POST /api/skills/catalog/refresh ───────────────────────────────────
-  if (method === "POST" && pathname === "/api/skills/catalog/refresh") {
-    try {
-      const { refreshCatalog } = await import(
-        "../services/skill-catalog-client"
-      );
-      const skills = await refreshCatalog();
-      json(res, { ok: true, count: skills.length });
-    } catch (err) {
-      error(
-        res,
-        `Catalog refresh failed: ${err instanceof Error ? err.message : String(err)}`,
-        500,
-      );
-    }
-    return;
-  }
-
-  // ── POST /api/skills/catalog/install ───────────────────────────────────
-  if (method === "POST" && pathname === "/api/skills/catalog/install") {
-    const body = await readJsonBody<{ slug: string; version?: string }>(
-      req,
-      res,
-    );
-    if (!body) return;
-    if (!body.slug) {
-      error(res, "Missing required field: slug", 400);
-      return;
-    }
-
-    if (!state.runtime) {
-      error(res, "Agent runtime not available — start the agent first", 503);
-      return;
-    }
-
-    try {
-      const service = state.runtime.getService("AGENT_SKILLS_SERVICE") as
-        | {
-            install?: (
-              slug: string,
-              opts?: { version?: string; force?: boolean },
-            ) => Promise<boolean>;
-            isInstalled?: (slug: string) => Promise<boolean>;
-          }
-        | undefined;
-
-      if (!service || typeof service.install !== "function") {
-        error(
-          res,
-          "AgentSkillsService not available — ensure @elizaos/plugin-agent-skills is loaded",
-          501,
-        );
-        return;
-      }
-
-      const alreadyInstalled =
-        typeof service.isInstalled === "function"
-          ? await service.isInstalled(body.slug)
-          : false;
-
-      if (alreadyInstalled) {
-        json(res, {
-          ok: true,
-          slug: body.slug,
-          message: `Skill "${body.slug}" is already installed`,
-          alreadyInstalled: true,
-        });
-        return;
-      }
-
-      const success = await service.install(body.slug, {
-        version: body.version,
-      });
-
-      if (success) {
-        // Refresh the skills list so the UI picks up the new skill
-        const workspaceDir =
-          state.config.agents?.defaults?.workspace ??
-          resolveDefaultAgentWorkspaceDir();
-        state.skills = await discoverSkills(
-          workspaceDir,
-          state.config,
-          state.runtime,
-        );
-
-        json(res, {
-          ok: true,
-          slug: body.slug,
-          message: `Skill "${body.slug}" installed successfully`,
-        });
-      } else {
-        error(res, `Failed to install skill "${body.slug}"`, 500);
-      }
-    } catch (err) {
-      error(
-        res,
-        `Skill install failed: ${err instanceof Error ? err.message : String(err)}`,
-        500,
-      );
-    }
-    return;
-  }
-
-  // ── POST /api/skills/catalog/uninstall ─────────────────────────────────
-  if (method === "POST" && pathname === "/api/skills/catalog/uninstall") {
-    const body = await readJsonBody<{ slug: string }>(req, res);
-    if (!body) return;
-    if (!body.slug) {
-      error(res, "Missing required field: slug", 400);
-      return;
-    }
-
-    if (!state.runtime) {
-      error(res, "Agent runtime not available — start the agent first", 503);
-      return;
-    }
-
-    try {
-      const service = state.runtime.getService("AGENT_SKILLS_SERVICE") as
-        | {
-            uninstall?: (slug: string) => Promise<boolean>;
-          }
-        | undefined;
-
-      if (!service || typeof service.uninstall !== "function") {
-        error(
-          res,
-          "AgentSkillsService not available — ensure @elizaos/plugin-agent-skills is loaded",
-          501,
-        );
-        return;
-      }
-
-      const success = await service.uninstall(body.slug);
-
-      if (success) {
-        // Refresh the skills list
-        const workspaceDir =
-          state.config.agents?.defaults?.workspace ??
-          resolveDefaultAgentWorkspaceDir();
-        state.skills = await discoverSkills(
-          workspaceDir,
-          state.config,
-          state.runtime,
-        );
-
-        json(res, {
-          ok: true,
-          slug: body.slug,
-          message: `Skill "${body.slug}" uninstalled successfully`,
-        });
-      } else {
-        error(
-          res,
-          `Failed to uninstall skill "${body.slug}" — it may be a bundled skill`,
-          400,
-        );
-      }
-    } catch (err) {
-      error(
-        res,
-        `Skill uninstall failed: ${err instanceof Error ? err.message : String(err)}`,
         500,
       );
     }
@@ -6318,724 +4001,9 @@ async function handleRequest(
     return;
   }
 
-  // ── GET /api/skills/:id/scan ───────────────────────────────────────────
-  if (method === "GET" && pathname.match(/^\/api\/skills\/[^/]+\/scan$/)) {
-    const skillId = validateSkillId(
-      decodeURIComponent(pathname.split("/")[3]),
-      res,
-    );
-    if (!skillId) return;
-    const workspaceDir =
-      state.config.agents?.defaults?.workspace ??
-      resolveDefaultAgentWorkspaceDir();
-    const report = await loadScanReportFromDisk(
-      skillId,
-      workspaceDir,
-      state.runtime,
-    );
-    const acks = await loadSkillAcknowledgments(state.runtime);
-    const ack = acks[skillId] ?? null;
-    json(res, { ok: true, report, acknowledged: !!ack, acknowledgment: ack });
-    return;
-  }
-
-  // ── POST /api/skills/:id/acknowledge ──────────────────────────────────
-  if (
-    method === "POST" &&
-    pathname.match(/^\/api\/skills\/[^/]+\/acknowledge$/)
-  ) {
-    const skillId = validateSkillId(
-      decodeURIComponent(pathname.split("/")[3]),
-      res,
-    );
-    if (!skillId) return;
-    const body = await readJsonBody<{ enable?: boolean }>(req, res);
-    if (!body) return;
-
-    const workspaceDir =
-      state.config.agents?.defaults?.workspace ??
-      resolveDefaultAgentWorkspaceDir();
-    const report = await loadScanReportFromDisk(
-      skillId,
-      workspaceDir,
-      state.runtime,
-    );
-    if (!report) {
-      error(res, `No scan report found for skill "${skillId}".`, 404);
-      return;
-    }
-    if (report.status === "blocked") {
-      error(
-        res,
-        `Skill "${skillId}" is blocked and cannot be acknowledged.`,
-        403,
-      );
-      return;
-    }
-    if (report.status === "clean") {
-      json(res, {
-        ok: true,
-        message: "No findings to acknowledge.",
-        acknowledged: true,
-      });
-      return;
-    }
-
-    const findings = report.findings as Array<Record<string, unknown>>;
-    const manifestFindings = report.manifestFindings as Array<
-      Record<string, unknown>
-    >;
-    const totalFindings = findings.length + manifestFindings.length;
-
-    if (state.runtime) {
-      const acks = await loadSkillAcknowledgments(state.runtime);
-      acks[skillId] = {
-        acknowledgedAt: new Date().toISOString(),
-        findingCount: totalFindings,
-      };
-      await saveSkillAcknowledgments(state.runtime, acks);
-    }
-
-    if (body.enable === true) {
-      const skill = state.skills.find((s) => s.id === skillId);
-      if (skill) {
-        skill.enabled = true;
-        if (state.runtime) {
-          const prefs = await loadSkillPreferences(state.runtime);
-          prefs[skillId] = true;
-          await saveSkillPreferences(state.runtime, prefs);
-        }
-      }
-    }
-
-    json(res, {
-      ok: true,
-      skillId,
-      acknowledged: true,
-      enabled: body.enable === true,
-      findingCount: totalFindings,
-    });
-    return;
-  }
-
-  // ── POST /api/skills/create ───────────────────────────────────────────
-  if (method === "POST" && pathname === "/api/skills/create") {
-    const body = await readJsonBody<{ name: string; description?: string }>(
-      req,
-      res,
-    );
-    if (!body) return;
-    const rawName = body.name?.trim();
-    if (!rawName) {
-      error(res, "Skill name is required", 400);
-      return;
-    }
-
-    const slug = rawName
-      .toLowerCase()
-      .replace(/[^a-z0-9-]/g, "-")
-      .replace(/-+/g, "-")
-      .replace(/^-+|-+$/g, "");
-    if (!slug || slug.length > 64) {
-      error(
-        res,
-        "Skill name must produce a valid slug (1-64 chars, lowercase alphanumeric + hyphens)",
-        400,
-      );
-      return;
-    }
-
-    const workspaceDir =
-      state.config.agents?.defaults?.workspace ??
-      resolveDefaultAgentWorkspaceDir();
-    const skillDir = path.join(workspaceDir, "skills", slug);
-
-    if (fs.existsSync(skillDir)) {
-      error(res, `Skill "${slug}" already exists`, 409);
-      return;
-    }
-
-    const description =
-      body.description?.trim() || "Describe what this skill does.";
-    const template = `---\nname: ${slug}\ndescription: ${description.replace(/"/g, '\\"')}\n---\n\n## Instructions\n\n[Describe what this skill does and how the agent should use it]\n\n## When to Use\n\nUse this skill when [describe trigger conditions].\n\n## Steps\n\n1. [First step]\n2. [Second step]\n3. [Third step]\n`;
-
-    fs.mkdirSync(skillDir, { recursive: true });
-    fs.writeFileSync(path.join(skillDir, "SKILL.md"), template, "utf-8");
-
-    state.skills = await discoverSkills(
-      workspaceDir,
-      state.config,
-      state.runtime,
-    );
-    const skill = state.skills.find((s) => s.id === slug);
-    json(res, {
-      ok: true,
-      skill: skill ?? { id: slug, name: slug, description, enabled: true },
-      path: skillDir,
-    });
-    return;
-  }
-
-  // ── POST /api/skills/:id/open ─────────────────────────────────────────
-  if (method === "POST" && pathname.match(/^\/api\/skills\/[^/]+\/open$/)) {
-    const skillId = validateSkillId(
-      decodeURIComponent(pathname.split("/")[3]),
-      res,
-    );
-    if (!skillId) return;
-    const workspaceDir =
-      state.config.agents?.defaults?.workspace ??
-      resolveDefaultAgentWorkspaceDir();
-
-    const candidates = [
-      path.join(workspaceDir, "skills", skillId),
-      path.join(workspaceDir, "skills", ".marketplace", skillId),
-    ];
-    let skillPath: string | null = null;
-    for (const c of candidates) {
-      if (fs.existsSync(path.join(c, "SKILL.md"))) {
-        skillPath = c;
-        break;
-      }
-    }
-
-    // Try AgentSkillsService for bundled skills — copy to workspace for editing
-    if (!skillPath && state.runtime) {
-      try {
-        const svc = state.runtime.getService("AGENT_SKILLS_SERVICE") as
-          | {
-              getLoadedSkills?: () => Array<{
-                slug: string;
-                path: string;
-                source: string;
-              }>;
-            }
-          | undefined;
-        if (svc?.getLoadedSkills) {
-          const loaded = svc.getLoadedSkills().find((s) => s.slug === skillId);
-          if (loaded) {
-            if (loaded.source === "bundled" || loaded.source === "plugin") {
-              const targetDir = path.join(workspaceDir, "skills", skillId);
-              if (!fs.existsSync(targetDir)) {
-                fs.cpSync(loaded.path, targetDir, { recursive: true });
-                state.skills = await discoverSkills(
-                  workspaceDir,
-                  state.config,
-                  state.runtime,
-                );
-              }
-              skillPath = targetDir;
-            } else {
-              skillPath = loaded.path;
-            }
-          }
-        }
-      } catch (err) {
-        logger.debug(
-          `[api] Service not available: ${err instanceof Error ? err.message : err}`,
-        );
-      }
-    }
-
-    if (!skillPath) {
-      error(res, `Skill "${skillId}" not found`, 404);
-      return;
-    }
-
-    const { execFile } = await import("node:child_process");
-    const opener =
-      process.platform === "darwin"
-        ? "open"
-        : process.platform === "win32"
-          ? "explorer"
-          : "xdg-open";
-    execFile(opener, [skillPath], (err) => {
-      if (err)
-        logger.warn(`[milady-api] Failed to open skill folder: ${err.message}`);
-    });
-    json(res, { ok: true, path: skillPath });
-    return;
-  }
-
-  // ── GET /api/skills/:id/source ──────────────────────────────────────────
-  if (method === "GET" && pathname.match(/^\/api\/skills\/[^/]+\/source$/)) {
-    const skillId = validateSkillId(
-      decodeURIComponent(pathname.split("/")[3]),
-      res,
-    );
-    if (!skillId) return;
-    const workspaceDir =
-      state.config.agents?.defaults?.workspace ??
-      resolveDefaultAgentWorkspaceDir();
-
-    const candidates = [
-      path.join(workspaceDir, "skills", skillId),
-      path.join(workspaceDir, "skills", ".marketplace", skillId),
-    ];
-    let skillMdPath: string | null = null;
-    for (const c of candidates) {
-      const md = path.join(c, "SKILL.md");
-      if (fs.existsSync(md)) {
-        skillMdPath = md;
-        break;
-      }
-    }
-
-    // Try AgentSkillsService for bundled/plugin skills — copy to workspace for editing
-    if (!skillMdPath && state.runtime) {
-      try {
-        const svc = state.runtime.getService("AGENT_SKILLS_SERVICE") as
-          | {
-              getLoadedSkills?: () => Array<{
-                slug: string;
-                path: string;
-                source: string;
-              }>;
-            }
-          | undefined;
-        if (svc?.getLoadedSkills) {
-          const loaded = svc.getLoadedSkills().find((s) => s.slug === skillId);
-          if (loaded) {
-            if (loaded.source === "bundled" || loaded.source === "plugin") {
-              const targetDir = path.join(workspaceDir, "skills", skillId);
-              if (!fs.existsSync(targetDir)) {
-                fs.cpSync(loaded.path, targetDir, { recursive: true });
-                state.skills = await discoverSkills(
-                  workspaceDir,
-                  state.config,
-                  state.runtime,
-                );
-              }
-              const md = path.join(targetDir, "SKILL.md");
-              if (fs.existsSync(md)) skillMdPath = md;
-            } else {
-              const md = path.join(loaded.path, "SKILL.md");
-              if (fs.existsSync(md)) skillMdPath = md;
-            }
-          }
-        }
-      } catch {
-        /* ignore */
-      }
-    }
-
-    if (!skillMdPath) {
-      error(res, `Skill "${skillId}" not found`, 404);
-      return;
-    }
-
-    try {
-      const content = fs.readFileSync(skillMdPath, "utf-8");
-      json(res, { ok: true, skillId, content, path: skillMdPath });
-    } catch (err) {
-      error(
-        res,
-        `Failed to read skill: ${err instanceof Error ? err.message : "unknown"}`,
-        500,
-      );
-    }
-    return;
-  }
-
-  // ── PUT /api/skills/:id/source ──────────────────────────────────────────
-  if (method === "PUT" && pathname.match(/^\/api\/skills\/[^/]+\/source$/)) {
-    const skillId = validateSkillId(
-      decodeURIComponent(pathname.split("/")[3]),
-      res,
-    );
-    if (!skillId) return;
-    const body = await readBody(req);
-    if (!body) return;
-
-    let parsed: { content?: string };
-    try {
-      parsed = JSON.parse(body);
-    } catch {
-      error(res, "Invalid JSON body", 400);
-      return;
-    }
-    if (typeof parsed.content !== "string") {
-      error(res, "Missing 'content' field", 400);
-      return;
-    }
-
-    const workspaceDir =
-      state.config.agents?.defaults?.workspace ??
-      resolveDefaultAgentWorkspaceDir();
-
-    const candidates = [
-      path.join(workspaceDir, "skills", skillId),
-      path.join(workspaceDir, "skills", ".marketplace", skillId),
-    ];
-    let skillMdPath: string | null = null;
-    for (const c of candidates) {
-      const md = path.join(c, "SKILL.md");
-      if (fs.existsSync(md)) {
-        skillMdPath = md;
-        break;
-      }
-    }
-
-    // Try AgentSkillsService for bundled/plugin skills — copy to workspace for editing
-    if (!skillMdPath && state.runtime) {
-      try {
-        const svc = state.runtime.getService("AGENT_SKILLS_SERVICE") as
-          | {
-              getLoadedSkills?: () => Array<{
-                slug: string;
-                path: string;
-                source: string;
-              }>;
-            }
-          | undefined;
-        if (svc?.getLoadedSkills) {
-          const loaded = svc.getLoadedSkills().find((s) => s.slug === skillId);
-          if (loaded) {
-            if (loaded.source === "bundled" || loaded.source === "plugin") {
-              const targetDir = path.join(workspaceDir, "skills", skillId);
-              if (!fs.existsSync(targetDir)) {
-                fs.cpSync(loaded.path, targetDir, { recursive: true });
-              }
-              const md = path.join(targetDir, "SKILL.md");
-              if (fs.existsSync(md)) skillMdPath = md;
-            } else {
-              const md = path.join(loaded.path, "SKILL.md");
-              if (fs.existsSync(md)) skillMdPath = md;
-            }
-          }
-        }
-      } catch {
-        /* ignore */
-      }
-    }
-
-    if (!skillMdPath) {
-      error(res, `Skill "${skillId}" not found`, 404);
-      return;
-    }
-
-    try {
-      fs.writeFileSync(skillMdPath, parsed.content, "utf-8");
-      // Re-discover skills to pick up unknown name/description changes
-      state.skills = await discoverSkills(
-        workspaceDir,
-        state.config,
-        state.runtime,
-      );
-      const skill = state.skills.find((s) => s.id === skillId);
-      json(res, { ok: true, skillId, skill });
-    } catch (err) {
-      error(
-        res,
-        `Failed to save skill: ${err instanceof Error ? err.message : "unknown"}`,
-        500,
-      );
-    }
-    return;
-  }
-
-  // ── DELETE /api/skills/:id ────────────────────────────────────────────
-  if (
-    method === "DELETE" &&
-    pathname.match(/^\/api\/skills\/[^/]+$/) &&
-    !pathname.includes("/marketplace")
-  ) {
-    const skillId = validateSkillId(
-      decodeURIComponent(pathname.slice("/api/skills/".length)),
-      res,
-    );
-    if (!skillId) return;
-    const workspaceDir =
-      state.config.agents?.defaults?.workspace ??
-      resolveDefaultAgentWorkspaceDir();
-
-    const wsDir = path.join(workspaceDir, "skills", skillId);
-    const mpDir = path.join(workspaceDir, "skills", ".marketplace", skillId);
-    let deleted = false;
-    let source = "";
-
-    if (fs.existsSync(path.join(wsDir, "SKILL.md"))) {
-      fs.rmSync(wsDir, { recursive: true, force: true });
-      deleted = true;
-      source = "workspace";
-    } else if (fs.existsSync(path.join(mpDir, "SKILL.md"))) {
-      try {
-        const { uninstallMarketplaceSkill } = await import(
-          "../services/skill-marketplace"
-        );
-        await uninstallMarketplaceSkill(workspaceDir, skillId);
-        deleted = true;
-        source = "marketplace";
-      } catch (err) {
-        error(
-          res,
-          `Failed to uninstall: ${err instanceof Error ? err.message : String(err)}`,
-          500,
-        );
-        return;
-      }
-    } else if (state.runtime) {
-      try {
-        const svc = state.runtime.getService("AGENT_SKILLS_SERVICE") as
-          | { uninstall?: (slug: string) => Promise<boolean> }
-          | undefined;
-        if (svc?.uninstall) {
-          deleted = await svc.uninstall(skillId);
-          source = "catalog";
-        }
-      } catch (err) {
-        logger.debug(
-          `[api] Service not available: ${err instanceof Error ? err.message : err}`,
-        );
-      }
-    }
-
-    if (!deleted) {
-      error(
-        res,
-        `Skill "${skillId}" not found or is a bundled skill that cannot be deleted`,
-        404,
-      );
-      return;
-    }
-
-    state.skills = await discoverSkills(
-      workspaceDir,
-      state.config,
-      state.runtime,
-    );
-    if (state.runtime) {
-      const prefs = await loadSkillPreferences(state.runtime);
-      delete prefs[skillId];
-      await saveSkillPreferences(state.runtime, prefs);
-      const acks = await loadSkillAcknowledgments(state.runtime);
-      delete acks[skillId];
-      await saveSkillAcknowledgments(state.runtime, acks);
-    }
-    json(res, { ok: true, skillId, source });
-    return;
-  }
-
-  // ── GET /api/skills/marketplace/search ─────────────────────────────────
-  if (method === "GET" && pathname === "/api/skills/marketplace/search") {
-    const query = url.searchParams.get("q") ?? "";
-    if (!query.trim()) {
-      error(res, "Query parameter 'q' is required", 400);
-      return;
-    }
-    try {
-      const limitStr = url.searchParams.get("limit");
-      const limit = limitStr
-        ? parseClampedInteger(limitStr, { min: 1, max: 50, fallback: 20 })
-        : 20;
-      const results = await searchSkillsMarketplace(query, { limit });
-      json(res, { ok: true, results });
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      error(res, msg, 502);
-    }
-    return;
-  }
-
-  // ── GET /api/skills/marketplace/installed ─────────────────────────────
-  if (method === "GET" && pathname === "/api/skills/marketplace/installed") {
-    try {
-      const workspaceDir =
-        state.config.agents?.defaults?.workspace ??
-        resolveDefaultAgentWorkspaceDir();
-      const installed = await listInstalledMarketplaceSkills(workspaceDir);
-      json(res, { ok: true, skills: installed });
-    } catch (err) {
-      error(
-        res,
-        `Failed to list installed skills: ${err instanceof Error ? err.message : err}`,
-        500,
-      );
-    }
-    return;
-  }
-
-  // ── POST /api/skills/marketplace/install ──────────────────────────────
-  if (method === "POST" && pathname === "/api/skills/marketplace/install") {
-    const body = await readJsonBody<{
-      slug?: string;
-      githubUrl?: string;
-      repository?: string;
-      path?: string;
-      name?: string;
-      description?: string;
-      source?: "clawhub" | "skillsmp" | "manual";
-    }>(req, res);
-    if (!body) return;
-
-    const slug = body.slug?.trim() || "";
-    const githubUrl = body.githubUrl?.trim() || "";
-    const repository = body.repository?.trim() || "";
-
-    if (!slug && !githubUrl && !repository) {
-      error(res, "Install requires a slug, githubUrl, or repository", 400);
-      return;
-    }
-
-    try {
-      const workspaceDir =
-        state.config.agents?.defaults?.workspace ??
-        resolveDefaultAgentWorkspaceDir();
-
-      // ClawHub-native install path (slug-based via AgentSkillsService).
-      if (slug && !githubUrl && !repository) {
-        if (!state.runtime) {
-          error(
-            res,
-            "Agent runtime not available — start the agent first",
-            503,
-          );
-          return;
-        }
-
-        const service = state.runtime.getService("AGENT_SKILLS_SERVICE") as
-          | {
-              install?: (
-                skillSlug: string,
-                opts?: { version?: string; force?: boolean },
-              ) => Promise<boolean>;
-              isInstalled?: (skillSlug: string) => Promise<boolean>;
-            }
-          | undefined;
-
-        if (!service || typeof service.install !== "function") {
-          error(
-            res,
-            "AgentSkillsService not available — ensure @elizaos/plugin-agent-skills is loaded",
-            501,
-          );
-          return;
-        }
-
-        const alreadyInstalled =
-          typeof service.isInstalled === "function"
-            ? await service.isInstalled(slug)
-            : false;
-
-        if (alreadyInstalled) {
-          json(res, {
-            ok: true,
-            skill: {
-              id: slug,
-              name: body.name?.trim() || slug,
-              source: "clawhub",
-              installedAt: new Date().toISOString(),
-            },
-            alreadyInstalled: true,
-          });
-          return;
-        }
-
-        const success = await service.install(slug);
-        if (!success) {
-          error(res, `Failed to install skill "${slug}"`, 500);
-          return;
-        }
-
-        state.skills = await discoverSkills(
-          workspaceDir,
-          state.config,
-          state.runtime,
-        );
-
-        json(res, {
-          ok: true,
-          skill: {
-            id: slug,
-            name: body.name?.trim() || slug,
-            source: "clawhub",
-            installedAt: new Date().toISOString(),
-          },
-        });
-      } else {
-        const result = await installMarketplaceSkill(workspaceDir, {
-          githubUrl: body.githubUrl,
-          repository: body.repository,
-          path: body.path,
-          name: body.name,
-          description: body.description,
-          source:
-            body.source === "manual" || body.source === "skillsmp"
-              ? body.source
-              : "clawhub",
-        });
-        json(res, { ok: true, skill: result });
-      }
-    } catch (err) {
-      error(
-        res,
-        `Install failed: ${err instanceof Error ? err.message : err}`,
-        500,
-      );
-    }
-    return;
-  }
-
-  // ── POST /api/skills/marketplace/uninstall ────────────────────────────
-  if (method === "POST" && pathname === "/api/skills/marketplace/uninstall") {
-    const body = await readJsonBody<{ id?: string }>(req, res);
-    if (!body) return;
-
-    if (!body.id?.trim()) {
-      error(res, "Request body must include 'id' (skill id to uninstall)", 400);
-      return;
-    }
-
-    const uninstallId = validateSkillId(body.id.trim(), res);
-    if (!uninstallId) return;
-
-    try {
-      const workspaceDir =
-        state.config.agents?.defaults?.workspace ??
-        resolveDefaultAgentWorkspaceDir();
-      const result = await uninstallMarketplaceSkill(workspaceDir, uninstallId);
-      json(res, { ok: true, skill: result });
-    } catch (err) {
-      error(
-        res,
-        `Uninstall failed: ${err instanceof Error ? err.message : err}`,
-        500,
-      );
-    }
-    return;
-  }
-
-  // ── GET /api/skills/marketplace/config ──────────────────────────────────
-  if (method === "GET" && pathname === "/api/skills/marketplace/config") {
-    json(res, { keySet: Boolean(process.env.SKILLSMP_API_KEY?.trim()) });
-    return;
-  }
-
-  // ── PUT /api/skills/marketplace/config ─────────────────────────────────
-  if (method === "PUT" && pathname === "/api/skills/marketplace/config") {
-    const body = await readJsonBody<{ apiKey?: string }>(req, res);
-    if (!body) return;
-    const apiKey = typeof body.apiKey === "string" ? body.apiKey.trim() : "";
-    if (!apiKey) {
-      error(res, "Request body must include 'apiKey'", 400);
-      return;
-    }
-    process.env.SKILLSMP_API_KEY = apiKey;
-    if (!state.config.env) state.config.env = {};
-    (state.config.env as Record<string, string>).SKILLSMP_API_KEY = apiKey;
-    saveMiladyConfig(state.config);
-    json(res, { ok: true, keySet: true });
-    return;
-  }
-
   // ── PUT /api/skills/:id ────────────────────────────────────────────────
-  // IMPORTANT: This wildcard route MUST be after all /api/skills/<specific-path> routes
   if (method === "PUT" && pathname.startsWith("/api/skills/")) {
-    const skillId = validateSkillId(
-      decodeURIComponent(pathname.slice("/api/skills/".length)),
-      res,
-    );
-    if (!skillId) return;
+    const skillId = decodeURIComponent(pathname.slice("/api/skills/".length));
     const body = await readJsonBody<{ enabled?: boolean }>(req, res);
     if (!body) return;
 
@@ -7045,40 +4013,10 @@ async function handleRequest(
       return;
     }
 
-    // Block enabling skills with unacknowledged scan findings
-    if (body.enabled === true) {
-      const workspaceDir =
-        state.config.agents?.defaults?.workspace ??
-        resolveDefaultAgentWorkspaceDir();
-      const report = await loadScanReportFromDisk(
-        skillId,
-        workspaceDir,
-        state.runtime,
-      );
-      if (
-        report &&
-        (report.status === "critical" || report.status === "warning")
-      ) {
-        const acks = await loadSkillAcknowledgments(state.runtime);
-        const ack = acks[skillId];
-        const findings = report.findings as Array<Record<string, unknown>>;
-        const manifestFindings = report.manifestFindings as Array<
-          Record<string, unknown>
-        >;
-        const totalFindings = findings.length + manifestFindings.length;
-        if (!ack || ack.findingCount !== totalFindings) {
-          error(
-            res,
-            `Skill "${skillId}" has ${totalFindings} security finding(s) that must be acknowledged first. Use POST /api/skills/${skillId}/acknowledge.`,
-            409,
-          );
-          return;
-        }
-      }
-    }
-
     if (body.enabled !== undefined) {
       skill.enabled = body.enabled;
+
+      // Persist to the agent's database (cache table, scoped per-agent)
       if (state.runtime) {
         const prefs = await loadSkillPreferences(state.runtime);
         prefs[skillId] = body.enabled;
@@ -7090,3540 +4028,3617 @@ async function handleRequest(
     return;
   }
 
-  if (
-    await handleDiagnosticsRoutes({
-      req,
-      res,
-      method,
-      pathname,
-      url,
-      logBuffer: state.logBuffer,
-      eventBuffer: state.eventBuffer,
-      json,
-    })
-  ) {
+  // ── GET /api/logs ───────────────────────────────────────────────────────
+  if (method === "GET" && pathname === "/api/logs") {
+    let entries = state.logBuffer;
+
+    const sourceFilter = url.searchParams.get("source");
+    if (sourceFilter)
+      entries = entries.filter((e) => e.source === sourceFilter);
+
+    const levelFilter = url.searchParams.get("level");
+    if (levelFilter) entries = entries.filter((e) => e.level === levelFilter);
+
+    const sinceFilter = url.searchParams.get("since");
+    if (sinceFilter) {
+      const sinceTs = Number(sinceFilter);
+      if (!Number.isNaN(sinceTs))
+        entries = entries.filter((e) => e.timestamp >= sinceTs);
+    }
+
+    const sources = [...new Set(state.logBuffer.map((e) => e.source))].sort();
+    json(res, { entries: entries.slice(-200), sources });
+    return;
+  }
+
+  // ── GET /api/extension/status ─────────────────────────────────────────
+  // Check if the Chrome extension relay server is reachable.
+  if (method === "GET" && pathname === "/api/extension/status") {
+    const relayPort = 18792;
+    let relayReachable = false;
+    try {
+      const resp = await fetch(`http://127.0.0.1:${relayPort}/`, {
+        method: "HEAD",
+        signal: AbortSignal.timeout(2000),
+      });
+      relayReachable = resp.ok || resp.status < 500;
+    } catch {
+      relayReachable = false;
+    }
+
+    // Resolve extension path for UI without exposing local username/home path.
+    let extensionPath: string | null = null;
+    try {
+      const serverDir = path.dirname(new URL(import.meta.url).pathname);
+      const absoluteExtensionPath = path.resolve(
+        serverDir,
+        "..",
+        "..",
+        "apps",
+        "chrome-extension",
+      );
+      extensionPath = fs.existsSync(absoluteExtensionPath)
+        ? "apps/chrome-extension"
+        : null;
+    } catch {
+      // ignore
+    }
+
+    json(res, { relayReachable, relayPort, extensionPath });
     return;
   }
 
   // ═══════════════════════════════════════════════════════════════════════
   // Wallet / Inventory routes
   // ═══════════════════════════════════════════════════════════════════════
-  if (
-    await handleWalletRoutes({
-      req,
-      res,
-      method,
-      pathname,
-      config: state.config,
-      saveConfig: saveMiladyConfig,
-      ensureWalletKeysInEnvAndConfig,
-      resolveWalletExportRejection,
-      readJsonBody,
-      json,
-      error,
-    })
-  ) {
-    return;
-  }
 
-  // ═══════════════════════════════════════════════════════════════════════
-  //  ERC-8004 Registry Routes
-  // ═══════════════════════════════════════════════════════════════════════
+  // ── GET /api/polymarket/portfolio ─────────────────────────────────────
+  if (method === "GET" && pathname === "/api/polymarket/portfolio") {
+    const addrs = getEffectiveConnectedWalletAddresses(req);
+    const wallet = addrs.evmAddress ?? addrs.solanaAddress ?? null;
 
-  if (method === "GET" && pathname === "/api/registry/status") {
-    if (!registryService) {
-      json(res, {
-        registered: false,
-        tokenId: 0,
-        agentName: "",
-        agentEndpoint: "",
-        capabilitiesHash: "",
-        isActive: false,
-        tokenURI: "",
-        walletAddress: "",
-        totalAgents: 0,
-        configured: false,
-      });
-      return;
-    }
-    const status = await registryService.getStatus();
-    json(res, { ...status, configured: true });
-    return;
-  }
+    const empty: PolymarketPortfolioResponse = {
+      wallet,
+      connected: false,
+      availableBalanceUsd: null,
+      openExposureUsd: null,
+      unsettledPnlUsd: null,
+      openPositionsCount: 0,
+      positions: [],
+    };
 
-  if (method === "POST" && pathname === "/api/registry/register") {
-    if (!registryService) {
-      error(
-        res,
-        "Registry service not configured. Set registry config and EVM_PRIVATE_KEY.",
-        503,
-      );
-      return;
-    }
-    const body = await readJsonBody<{
-      name?: string;
-      endpoint?: string;
-      tokenURI?: string;
-    }>(req, res);
-    if (!body) return;
-
-    const agentName = body.name || state.agentName || "Milady Agent";
-    const endpoint = body.endpoint || "";
-    const tokenURI = body.tokenURI || "";
-
-    const result = await registryService.register({
-      name: agentName,
-      endpoint,
-      capabilitiesHash: RegistryService.defaultCapabilitiesHash(),
-      tokenURI,
-    });
-    json(res, result);
-    return;
-  }
-
-  if (method === "POST" && pathname === "/api/registry/update-uri") {
-    if (!registryService) {
-      error(res, "Registry service not configured.", 503);
-      return;
-    }
-    const body = await readJsonBody<{ tokenURI?: string }>(req, res);
-    if (!body || !body.tokenURI) {
-      error(res, "tokenURI is required");
-      return;
-    }
-    const txHash = await registryService.updateTokenURI(body.tokenURI);
-    json(res, { ok: true, txHash });
-    return;
-  }
-
-  if (method === "POST" && pathname === "/api/registry/sync") {
-    if (!registryService) {
-      error(res, "Registry service not configured.", 503);
-      return;
-    }
-    const body = await readJsonBody<{
-      name?: string;
-      endpoint?: string;
-      tokenURI?: string;
-    }>(req, res);
-    if (!body) return;
-
-    const agentName = body.name || state.agentName || "Milady Agent";
-    const endpoint = body.endpoint || "";
-    const tokenURI = body.tokenURI || "";
-
-    const txHash = await registryService.syncProfile({
-      name: agentName,
-      endpoint,
-      capabilitiesHash: RegistryService.defaultCapabilitiesHash(),
-      tokenURI,
-    });
-    // Refresh status after sync
-    json(res, { ok: true, txHash });
-    return;
-  }
-
-  if (method === "GET" && pathname === "/api/registry/config") {
-    const registryConfig = state.config.registry;
-    json(res, {
-      configured: Boolean(registryService),
-      chainId: 1,
-      registryAddress: registryConfig?.registryAddress ?? null,
-      collectionAddress: registryConfig?.collectionAddress ?? null,
-      explorerUrl: "https://etherscan.io",
-    });
-    return;
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════
-  //  Drop / Mint Routes
-  // ═══════════════════════════════════════════════════════════════════════
-
-  if (method === "GET" && pathname === "/api/drop/status") {
-    if (!dropService) {
-      json(res, {
-        dropEnabled: false,
-        publicMintOpen: false,
-        whitelistMintOpen: false,
-        mintedOut: false,
-        currentSupply: 0,
-        maxSupply: 2138,
-        shinyPrice: "0.1",
-        userHasMinted: false,
-      });
-      return;
-    }
-    const status = await dropService.getStatus();
-    json(res, status);
-    return;
-  }
-
-  if (method === "POST" && pathname === "/api/drop/mint") {
-    if (!dropService) {
-      error(res, "Drop service not configured.", 503);
-      return;
-    }
-    const body = await readJsonBody<{
-      name?: string;
-      endpoint?: string;
-      shiny?: boolean;
-    }>(req, res);
-    if (!body) return;
-
-    const agentName = body.name || state.agentName || "Milady Agent";
-    const endpoint = body.endpoint || "";
-
-    const result = body.shiny
-      ? await dropService.mintShiny(agentName, endpoint)
-      : await dropService.mint(agentName, endpoint);
-    json(res, result);
-    return;
-  }
-
-  if (method === "POST" && pathname === "/api/drop/mint-whitelist") {
-    if (!dropService) {
-      error(res, "Drop service not configured.", 503);
-      return;
-    }
-    const body = await readJsonBody<{
-      name?: string;
-      endpoint?: string;
-      proof?: string[];
-    }>(req, res);
-    if (!body || !body.proof) {
-      error(res, "proof array is required");
+    if (!addrs.evmAddress) {
+      json(res, empty);
       return;
     }
 
-    const agentName = body.name || state.agentName || "Milady Agent";
-    const endpoint = body.endpoint || "";
-    const result = await dropService.mintWithWhitelist(
-      agentName,
-      endpoint,
-      body.proof,
-    );
-    json(res, result);
-    return;
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════
-  //  Whitelist Routes
-  // ═══════════════════════════════════════════════════════════════════════
-
-  if (method === "GET" && pathname === "/api/whitelist/status") {
-    const addrs = getWalletAddresses();
-    const walletAddress = addrs.evmAddress ?? "";
-    const twitterVerified = walletAddress
-      ? isAddressWhitelisted(walletAddress)
-      : false;
-    const ogCode = readOGCodeFromState();
-
-    json(res, {
-      eligible: twitterVerified,
-      twitterVerified,
-      ogCode: ogCode ?? null,
-      walletAddress,
-    });
-    return;
-  }
-
-  if (method === "POST" && pathname === "/api/whitelist/twitter/message") {
-    const addrs = getWalletAddresses();
-    const walletAddress = addrs.evmAddress ?? "";
-    if (!walletAddress) {
-      error(res, "EVM wallet not configured. Complete onboarding first.");
-      return;
-    }
-    const agentName = state.agentName || "Milady Agent";
-    const message = generateVerificationMessage(agentName, walletAddress);
-    json(res, { message, walletAddress });
-    return;
-  }
-
-  if (method === "POST" && pathname === "/api/whitelist/twitter/verify") {
-    const body = await readJsonBody<{ tweetUrl?: string }>(req, res);
-    if (!body || !body.tweetUrl) {
-      error(res, "tweetUrl is required");
-      return;
-    }
-
-    const addrs = getWalletAddresses();
-    const walletAddress = addrs.evmAddress ?? "";
-    if (!walletAddress) {
-      error(res, "EVM wallet not configured.");
-      return;
-    }
-
-    const result = await verifyTweet(body.tweetUrl, walletAddress);
-    if (result.verified && result.handle) {
-      markAddressVerified(walletAddress, body.tweetUrl, result.handle);
-    }
-    json(res, result);
-    return;
-  }
-
-  // ── GET /api/update/status ───────────────────────────────────────────────
-  if (method === "GET" && pathname === "/api/update/status") {
-    const { VERSION } = await import("../runtime/version");
-    const {
-      resolveChannel,
-      checkForUpdate,
-      fetchAllChannelVersions,
-      CHANNEL_DIST_TAGS,
-    } = await import("../services/update-checker");
-    const { detectInstallMethod } = await import("../services/self-updater");
-    const channel = resolveChannel(state.config.update);
-
-    const [check, versions] = await Promise.all([
-      checkForUpdate({ force: req.url?.includes("force=true") }),
-      fetchAllChannelVersions(),
+    const encodedWallet = encodeURIComponent(addrs.evmAddress);
+    // Public data API endpoints; when unavailable, we return graceful nulls.
+    const positionsUrl = `https://data-api.polymarket.com/positions?user=${encodedWallet}&sizeThreshold=0`;
+    const valueUrl = `https://data-api.polymarket.com/value?user=${encodedWallet}`;
+    const [positionsData, valueData] = await Promise.all([
+      fetchJsonTimeout<unknown[]>(positionsUrl, 5500),
+      fetchJsonTimeout<Record<string, unknown>>(valueUrl, 4500),
     ]);
 
+    const positions: PolymarketPositionSummary[] = Array.isArray(positionsData)
+      ? positionsData
+          .map((p) => {
+            const row = p as Record<string, unknown>;
+            const market =
+              (typeof row.question === "string" && row.question) ||
+              (typeof row.market === "string" && row.market) ||
+              (typeof row.title === "string" && row.title) ||
+              "Polymarket market";
+            const outcome =
+              (typeof row.outcome === "string" && row.outcome) ||
+              (typeof row.outcomeName === "string" && row.outcomeName) ||
+              "—";
+            const sizeUsd =
+              toFiniteNumber(row.size) ??
+              toFiniteNumber(row.sizeUsd) ??
+              toFiniteNumber(row.amount) ??
+              0;
+            const currentValueUsd =
+              toFiniteNumber(row.currentValue) ??
+              toFiniteNumber(row.value) ??
+              sizeUsd;
+            const pnlUsd =
+              toFiniteNumber(row.cashPnl) ??
+              toFiniteNumber(row.pnl) ??
+              currentValueUsd - sizeUsd;
+            const updatedAt =
+              (typeof row.updatedAt === "string" && row.updatedAt) ||
+              (typeof row.lastUpdated === "string" && row.lastUpdated) ||
+              null;
+            if (sizeUsd <= 0 && currentValueUsd <= 0) return null;
+            return {
+              market,
+              outcome,
+              sizeUsd,
+              currentValueUsd,
+              pnlUsd,
+              updatedAt,
+            };
+          })
+          .filter((p): p is PolymarketPositionSummary => p != null)
+      : [];
+
+    const openExposureUsd = positions.reduce(
+      (sum, p) => sum + p.currentValueUsd,
+      0,
+    );
+    const unsettledPnlUsd = positions.reduce((sum, p) => sum + p.pnlUsd, 0);
+
+    const availableBalanceUsd =
+      toFiniteNumber(valueData?.balance) ??
+      toFiniteNumber(valueData?.availableBalance) ??
+      toFiniteNumber(valueData?.available) ??
+      null;
+
     json(res, {
-      currentVersion: VERSION,
-      channel,
-      installMethod: detectInstallMethod(),
-      updateAvailable: check.updateAvailable,
-      latestVersion: check.latestVersion,
-      channels: {
-        stable: versions.stable,
-        beta: versions.beta,
-        nightly: versions.nightly,
-      },
-      distTags: CHANNEL_DIST_TAGS,
-      lastCheckAt: state.config.update?.lastCheckAt ?? null,
-      error: check.error,
-    });
+      wallet: addrs.evmAddress,
+      connected: true,
+      availableBalanceUsd,
+      openExposureUsd: positions.length > 0 ? openExposureUsd : null,
+      unsettledPnlUsd: positions.length > 0 ? unsettledPnlUsd : null,
+      openPositionsCount: positions.length,
+      positions,
+    } satisfies PolymarketPortfolioResponse);
     return;
   }
 
-  // ── PUT /api/update/channel ────────────────────────────────────────────
-  if (method === "PUT" && pathname === "/api/update/channel") {
-    const body = (await readJsonBody(req, res)) as { channel?: string } | null;
-    if (!body) return;
-    const ch = body.channel;
-    if (ch !== "stable" && ch !== "beta" && ch !== "nightly") {
-      error(res, `Invalid channel "${ch}". Must be stable, beta, or nightly.`);
-      return;
+  // ── GET /api/wallet/addresses ──────────────────────────────────────────
+  if (method === "GET" && pathname === "/api/wallet/addresses") {
+    const addrs = getEffectiveConnectedWalletAddresses(req);
+    json(res, addrs);
+    return;
+  }
+
+  // ── GET /api/wallet/balances ───────────────────────────────────────────
+  if (method === "GET" && pathname === "/api/wallet/balances") {
+    const addrs = getEffectiveConnectedWalletAddresses(req);
+    const alchemyKey = process.env.ALCHEMY_API_KEY;
+    const heliusKey = process.env.HELIUS_API_KEY;
+
+    const result: WalletBalancesResponse = { evm: null, solana: null };
+
+    if (addrs.evmAddress) {
+      try {
+        const chains = alchemyKey
+          ? await fetchEvmBalances(addrs.evmAddress, alchemyKey)
+          : await fetchEvmBalancesPublic(addrs.evmAddress);
+        result.evm = { address: addrs.evmAddress, chains };
+      } catch (err) {
+        logger.warn(`[wallet] EVM balance fetch failed: ${err}`);
+      }
     }
-    state.config.update = {
-      ...state.config.update,
-      channel: ch,
-      lastCheckAt: undefined,
-      lastCheckVersion: undefined,
+
+    if (addrs.solanaAddress) {
+      try {
+        const solData = heliusKey
+          ? await fetchSolanaBalances(addrs.solanaAddress, heliusKey)
+          : await fetchSolanaBalancePublic(addrs.solanaAddress);
+        result.solana = { address: addrs.solanaAddress, ...solData };
+      } catch (err) {
+        logger.warn(`[wallet] Solana balance fetch failed: ${err}`);
+      }
+    }
+
+    json(res, result);
+    return;
+  }
+
+  // ── GET /api/wallet/nfts ───────────────────────────────────────────────
+  if (method === "GET" && pathname === "/api/wallet/nfts") {
+    const addrs = getEffectiveConnectedWalletAddresses(req);
+    const alchemyKey = process.env.ALCHEMY_API_KEY;
+    const heliusKey = process.env.HELIUS_API_KEY;
+
+    const result: WalletNftsResponse = { evm: [], solana: null };
+
+    if (addrs.evmAddress && alchemyKey) {
+      try {
+        result.evm = await fetchEvmNfts(addrs.evmAddress, alchemyKey);
+      } catch (err) {
+        logger.warn(`[wallet] EVM NFT fetch failed: ${err}`);
+      }
+    }
+
+    if (addrs.solanaAddress && heliusKey) {
+      try {
+        const nfts = await fetchSolanaNfts(addrs.solanaAddress, heliusKey);
+        result.solana = { nfts };
+      } catch (err) {
+        logger.warn(`[wallet] Solana NFT fetch failed: ${err}`);
+      }
+    }
+
+    json(res, result);
+    return;
+  }
+
+  // ── GET /api/wallet/connected-data ────────────────────────────────────
+  // Unified account-scoped wallet snapshot for UI reads.
+  if (method === "GET" && pathname === "/api/wallet/connected-data") {
+    const userCtx = getOptionalMultiUserContextFromBearer(req);
+    const addrs = getEffectiveConnectedWalletAddresses(req);
+    const alchemyKey = process.env.ALCHEMY_API_KEY;
+    const heliusKey = process.env.HELIUS_API_KEY;
+
+    const balances: WalletBalancesResponse = { evm: null, solana: null };
+    const nfts: WalletNftsResponse = { evm: [], solana: null };
+
+    if (addrs.evmAddress) {
+      try {
+        const chains = alchemyKey
+          ? await fetchEvmBalances(addrs.evmAddress, alchemyKey)
+          : await fetchEvmBalancesPublic(addrs.evmAddress);
+        balances.evm = { address: addrs.evmAddress, chains };
+      } catch (err) {
+        logger.warn(`[wallet] unified EVM balance fetch failed: ${err}`);
+      }
+      if (alchemyKey) {
+        try {
+          nfts.evm = await fetchEvmNfts(addrs.evmAddress, alchemyKey);
+        } catch (err) {
+          logger.warn(`[wallet] unified EVM NFT fetch failed: ${err}`);
+        }
+      }
+    }
+
+    if (addrs.solanaAddress) {
+      try {
+        const solData = heliusKey
+          ? await fetchSolanaBalances(addrs.solanaAddress, heliusKey)
+          : await fetchSolanaBalancePublic(addrs.solanaAddress);
+        balances.solana = { address: addrs.solanaAddress, ...solData };
+      } catch (err) {
+        logger.warn(`[wallet] unified Solana balance fetch failed: ${err}`);
+      }
+      if (heliusKey) {
+        try {
+          const solNfts = await fetchSolanaNfts(addrs.solanaAddress, heliusKey);
+          nfts.solana = { nfts: solNfts };
+        } catch (err) {
+          logger.warn(`[wallet] unified Solana NFT fetch failed: ${err}`);
+        }
+      }
+    }
+
+    const polymarketWallet = addrs.evmAddress ?? addrs.solanaAddress ?? null;
+    let polymarket: PolymarketPortfolioResponse = {
+      wallet: polymarketWallet,
+      connected: false,
+      availableBalanceUsd: null,
+      openExposureUsd: null,
+      unsettledPnlUsd: null,
+      openPositionsCount: 0,
+      positions: [],
     };
-    saveMiladyConfig(state.config);
-    json(res, { channel: ch });
-    return;
-  }
-
-  // ── GET /api/connectors ──────────────────────────────────────────────────
-  if (method === "GET" && pathname === "/api/connectors") {
-    const connectors = state.config.connectors ?? state.config.channels ?? {};
-    json(res, {
-      connectors: redactConfigSecrets(connectors as Record<string, unknown>),
-    });
-    return;
-  }
-
-  // ── POST /api/connectors ─────────────────────────────────────────────────
-  if (method === "POST" && pathname === "/api/connectors") {
-    const body = await readJsonBody(req, res);
-    if (!body) return;
-    const name = body.name;
-    const config = body.config;
-    if (!name || typeof name !== "string" || !name.trim()) {
-      error(res, "Missing connector name", 400);
-      return;
-    }
-    // Prevent prototype pollution via special keys
-    const connectorName = name.trim();
-    if (isBlockedObjectKey(connectorName)) {
-      error(
-        res,
-        'Invalid connector name: "__proto__", "constructor", and "prototype" are reserved',
-        400,
-      );
-      return;
-    }
-    if (!config || typeof config !== "object") {
-      error(res, "Missing connector config", 400);
-      return;
-    }
-    if (!state.config.connectors) state.config.connectors = {};
-    state.config.connectors[connectorName] = config as ConnectorConfig;
-    try {
-      saveMiladyConfig(state.config);
-    } catch {
-      /* test envs */
-    }
-    json(res, {
-      connectors: redactConfigSecrets(
-        (state.config.connectors ?? {}) as Record<string, unknown>,
-      ),
-    });
-    return;
-  }
-
-  // ── DELETE /api/connectors/:name ─────────────────────────────────────────
-  if (method === "DELETE" && pathname.startsWith("/api/connectors/")) {
-    const name = decodeURIComponent(pathname.slice("/api/connectors/".length));
-    if (!name || isBlockedObjectKey(name)) {
-      error(res, "Missing or invalid connector name", 400);
-      return;
-    }
-    if (
-      state.config.connectors &&
-      Object.hasOwn(state.config.connectors, name)
-    ) {
-      delete state.config.connectors[name];
-    }
-    // Also remove from legacy channels key
-    if (state.config.channels && Object.hasOwn(state.config.channels, name)) {
-      delete state.config.channels[name];
-    }
-    try {
-      saveMiladyConfig(state.config);
-    } catch {
-      /* test envs */
-    }
-    json(res, {
-      connectors: redactConfigSecrets(
-        (state.config.connectors ?? {}) as Record<string, unknown>,
-      ),
-    });
-    return;
-  }
-
-  // ── POST /api/restart ───────────────────────────────────────────────────
-  if (method === "POST" && pathname === "/api/restart") {
-    json(res, { ok: true, message: "Restarting..." });
-    setTimeout(() => process.exit(0), 1000);
-    return;
-  }
-
-  // ── POST /api/tts/elevenlabs ─────────────────────────────────────────────
-  if (method === "POST" && pathname === "/api/tts/elevenlabs") {
-    const body = await readJsonBody<{
-      text?: string;
-      voiceId?: string;
-      modelId?: string;
-      outputFormat?: string;
-      apiKey?: string;
-      apply_text_normalization?: "auto" | "on" | "off";
-      voice_settings?: {
-        stability?: number;
-        similarity_boost?: number;
-        speed?: number;
+    if (addrs.evmAddress) {
+      const encodedWallet = encodeURIComponent(addrs.evmAddress);
+      const positionsUrl = `https://data-api.polymarket.com/positions?user=${encodedWallet}&sizeThreshold=0`;
+      const valueUrl = `https://data-api.polymarket.com/value?user=${encodedWallet}`;
+      const [positionsData, valueData] = await Promise.all([
+        fetchJsonTimeout<unknown[]>(positionsUrl, 5500),
+        fetchJsonTimeout<Record<string, unknown>>(valueUrl, 4500),
+      ]);
+      const positions: PolymarketPositionSummary[] = Array.isArray(
+        positionsData,
+      )
+        ? positionsData
+            .map((p) => {
+              const row = p as Record<string, unknown>;
+              const market =
+                (typeof row.question === "string" && row.question) ||
+                (typeof row.market === "string" && row.market) ||
+                (typeof row.title === "string" && row.title) ||
+                "Polymarket market";
+              const outcome =
+                (typeof row.outcome === "string" && row.outcome) ||
+                (typeof row.outcomeName === "string" && row.outcomeName) ||
+                "—";
+              const sizeUsd =
+                toFiniteNumber(row.size) ??
+                toFiniteNumber(row.sizeUsd) ??
+                toFiniteNumber(row.amount) ??
+                0;
+              const currentValueUsd =
+                toFiniteNumber(row.currentValue) ??
+                toFiniteNumber(row.value) ??
+                sizeUsd;
+              const pnlUsd =
+                toFiniteNumber(row.cashPnl) ??
+                toFiniteNumber(row.pnl) ??
+                currentValueUsd - sizeUsd;
+              const updatedAt =
+                (typeof row.updatedAt === "string" && row.updatedAt) ||
+                (typeof row.lastUpdated === "string" && row.lastUpdated) ||
+                null;
+              if (sizeUsd <= 0 && currentValueUsd <= 0) return null;
+              return {
+                market,
+                outcome,
+                sizeUsd,
+                currentValueUsd,
+                pnlUsd,
+                updatedAt,
+              };
+            })
+            .filter((p): p is PolymarketPositionSummary => p != null)
+        : [];
+      polymarket = {
+        wallet: addrs.evmAddress,
+        connected: true,
+        availableBalanceUsd:
+          toFiniteNumber(valueData?.balance) ??
+          toFiniteNumber(valueData?.availableBalance) ??
+          toFiniteNumber(valueData?.available) ??
+          null,
+        openExposureUsd:
+          positions.length > 0
+            ? positions.reduce((sum, p) => sum + p.currentValueUsd, 0)
+            : null,
+        unsettledPnlUsd:
+          positions.length > 0
+            ? positions.reduce((sum, p) => sum + p.pnlUsd, 0)
+            : null,
+        openPositionsCount: positions.length,
+        positions,
       };
-    }>(req, res);
-    if (!body) return;
-
-    const text = typeof body.text === "string" ? body.text.trim() : "";
-    if (!text) {
-      error(res, "Missing text", 400);
-      return;
     }
 
-    const messages =
-      state.config && typeof state.config === "object"
-        ? ((state.config as Record<string, unknown>).messages as
-            | Record<string, unknown>
-            | undefined)
-        : undefined;
-    const tts =
-      messages && typeof messages === "object"
-        ? ((messages.tts as Record<string, unknown>) ?? undefined)
-        : undefined;
-    const eleven =
-      tts && typeof tts === "object"
-        ? ((tts.elevenlabs as Record<string, unknown>) ?? undefined)
-        : undefined;
+    const configuredHandle = getConfiguredUiHandle(state.config);
+    json(res, {
+      account: userCtx
+        ? {
+            mode: "user",
+            userId: userCtx.userId,
+            displayName: userCtx.displayName,
+            username:
+              configuredHandle ??
+              (userCtx.displayName.startsWith("@")
+                ? userCtx.displayName
+                : `@${userCtx.displayName}`),
+          }
+        : { mode: "server", username: configuredHandle },
+      addresses: addrs,
+      balances,
+      nfts,
+      polymarket,
+    });
+    return;
+  }
 
-    const requestedApiKey =
-      typeof body.apiKey === "string" ? body.apiKey.trim() : "";
-    const configuredApiKey =
-      typeof eleven?.apiKey === "string" ? eleven.apiKey.trim() : "";
-    const envApiKey =
-      typeof process.env.ELEVENLABS_API_KEY === "string"
-        ? process.env.ELEVENLABS_API_KEY.trim()
-        : "";
+  // ── POST /api/wallet/import ──────────────────────────────────────────
+  // Import a wallet by providing a private key + chain.
+  if (method === "POST" && pathname === "/api/wallet/import") {
+    const body = await readJsonBody<{ chain?: string; privateKey?: string }>(
+      req,
+      res,
+    );
+    if (!body) return;
 
-    const resolvedApiKey =
-      requestedApiKey && !isRedactedSecretValue(requestedApiKey)
-        ? requestedApiKey
-        : configuredApiKey && !isRedactedSecretValue(configuredApiKey)
-          ? configuredApiKey
-          : envApiKey && !isRedactedSecretValue(envApiKey)
-            ? envApiKey
-            : "";
-
-    if (!resolvedApiKey) {
+    const userCtx = getOptionalMultiUserContextFromBearer(req);
+    if (userCtx) {
       error(
         res,
-        "ElevenLabs API key is not available. Set ELEVENLABS_API_KEY in Secrets.",
-        400,
+        "Wallet import is disabled for user-scoped sessions. Connect a public wallet address instead.",
+        403,
       );
       return;
     }
 
-    const voiceId =
-      (typeof body.voiceId === "string" && body.voiceId.trim()) ||
-      (typeof eleven?.voiceId === "string" && eleven.voiceId.trim()) ||
-      "EXAVITQu4vr4xnSDxMaL";
-    const modelId =
-      (typeof body.modelId === "string" && body.modelId.trim()) ||
-      (typeof eleven?.modelId === "string" && eleven.modelId.trim()) ||
-      "eleven_flash_v2_5";
-    const outputFormat =
-      (typeof body.outputFormat === "string" && body.outputFormat.trim()) ||
-      "mp3_22050_32";
-
-    const requestedVoiceSettings =
-      body.voice_settings &&
-      typeof body.voice_settings === "object" &&
-      !Array.isArray(body.voice_settings)
-        ? body.voice_settings
-        : undefined;
-
-    const voiceSettings: Record<string, number> = {};
-    const stability = requestedVoiceSettings?.stability;
-    if (typeof stability === "number" && stability >= 0 && stability <= 1) {
-      voiceSettings.stability = stability;
-    }
-    const similarityBoost = requestedVoiceSettings?.similarity_boost;
-    if (
-      typeof similarityBoost === "number" &&
-      similarityBoost >= 0 &&
-      similarityBoost <= 1
-    ) {
-      voiceSettings.similarity_boost = similarityBoost;
-    }
-    const speed = requestedVoiceSettings?.speed;
-    if (typeof speed === "number" && speed >= 0.5 && speed <= 2) {
-      voiceSettings.speed = speed;
+    const currentConnected = getEffectiveConnectedWalletAddresses(req);
+    if (currentConnected.evmAddress || currentConnected.solanaAddress) {
+      error(
+        res,
+        "A wallet is already connected. Disconnect it before importing another wallet.",
+        409,
+      );
+      return;
     }
 
-    const payload: Record<string, unknown> = {
-      text,
-      model_id: modelId,
-      apply_text_normalization:
-        body.apply_text_normalization === "on" ||
-        body.apply_text_normalization === "off"
-          ? body.apply_text_normalization
-          : "auto",
-    };
-    if (Object.keys(voiceSettings).length > 0) {
-      payload.voice_settings = voiceSettings;
+    if (!body.privateKey?.trim()) {
+      error(res, "privateKey is required");
+      return;
+    }
+
+    // Auto-detect chain if not specified
+    let chain: WalletChain;
+    if (body.chain === "evm" || body.chain === "solana") {
+      chain = body.chain;
+    } else if (body.chain) {
+      error(
+        res,
+        `Unsupported chain: ${body.chain}. Must be "evm" or "solana".`,
+      );
+      return;
+    } else {
+      // Auto-detect from key format
+      const detection = validatePrivateKey(body.privateKey.trim());
+      chain = detection.chain;
+    }
+
+    const result = importWallet(chain, body.privateKey.trim());
+
+    if (!result.success) {
+      error(res, result.error ?? "Import failed", 422);
+      return;
+    }
+
+    // Keep private keys only in process env; do not persist to config on disk.
+    if (!state.config.env) state.config.env = {};
+
+    // Set imported wallet as the active connected wallet and enforce single-wallet mode.
+    if (chain === "evm") {
+      process.env.EVM_ADDRESS = result.address ?? "";
+      delete process.env.SOLANA_ADDRESS;
+      (state.config.env as Record<string, string>).EVM_ADDRESS =
+        result.address ?? "";
+      delete (state.config.env as Record<string, string>).SOLANA_ADDRESS;
+    } else {
+      process.env.SOLANA_ADDRESS = result.address ?? "";
+      delete process.env.EVM_ADDRESS;
+      (state.config.env as Record<string, string>).SOLANA_ADDRESS =
+        result.address ?? "";
+      delete (state.config.env as Record<string, string>).EVM_ADDRESS;
     }
 
     try {
-      const upstreamUrl = new URL(
-        `https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voiceId)}/stream`,
+      saveMilaidyConfig(state.config);
+    } catch {
+      // Config path may not be writable in test environments
+    }
+
+    json(res, {
+      ok: true,
+      chain,
+      address: result.address,
+    });
+    return;
+  }
+
+  // ── POST /api/wallet/generate ──────────────────────────────────────────
+  // Generate a new wallet for a specific chain (or both).
+  if (method === "POST" && pathname === "/api/wallet/generate") {
+    const body = await readJsonBody<{ chain?: string }>(req, res);
+    if (!body) return;
+
+    const userCtx = getOptionalMultiUserContextFromBearer(req);
+    if (userCtx) {
+      error(
+        res,
+        "Wallet generation is disabled for user-scoped sessions. Connect a public wallet address instead.",
+        403,
       );
-      upstreamUrl.searchParams.set("output_format", outputFormat);
+      return;
+    }
 
-      const upstream = await fetch(upstreamUrl.toString(), {
-        method: "POST",
-        headers: {
-          "xi-api-key": resolvedApiKey,
-          "Content-Type": "application/json",
-          Accept: "audio/mpeg",
-        },
-        body: JSON.stringify(payload),
-      });
+    const currentConnected = getEffectiveConnectedWalletAddresses(req);
+    if (currentConnected.evmAddress || currentConnected.solanaAddress) {
+      error(
+        res,
+        "A wallet is already connected. Disconnect it before creating another wallet.",
+        409,
+      );
+      return;
+    }
 
-      if (!upstream.ok) {
-        const upstreamBody = await upstream.text().catch(() => "");
+    const chain = body.chain as string | undefined;
+    const validChains: Array<WalletChain | "both"> = ["evm", "solana", "both"];
+
+    if (chain && !validChains.includes(chain as WalletChain | "both")) {
+      error(
+        res,
+        `Unsupported chain: ${chain}. Must be "evm", "solana", or "both".`,
+      );
+      return;
+    }
+
+    const targetChain = (chain ?? "both") as WalletChain | "both";
+
+    if (!state.config.env) state.config.env = {};
+
+    const generated: Array<{ chain: WalletChain; address: string }> = [];
+
+    if (targetChain === "both" || targetChain === "evm") {
+      const result = generateWalletForChain("evm");
+      process.env.EVM_PRIVATE_KEY = result.privateKey;
+      generated.push({ chain: "evm", address: result.address });
+      logger.info(`[milaidy-api] Generated EVM wallet: ${result.address}`);
+      // Set as active connected wallet when generating a single-chain wallet.
+      if (targetChain === "evm") {
+        process.env.EVM_ADDRESS = result.address;
+        delete process.env.SOLANA_ADDRESS;
+        (state.config.env as Record<string, string>).EVM_ADDRESS =
+          result.address;
+        delete (state.config.env as Record<string, string>).SOLANA_ADDRESS;
+      }
+    }
+
+    if (targetChain === "both" || targetChain === "solana") {
+      const result = generateWalletForChain("solana");
+      process.env.SOLANA_PRIVATE_KEY = result.privateKey;
+      generated.push({ chain: "solana", address: result.address });
+      logger.info(`[milaidy-api] Generated Solana wallet: ${result.address}`);
+      // Set as active connected wallet when generating a single-chain wallet.
+      if (targetChain === "solana") {
+        process.env.SOLANA_ADDRESS = result.address;
+        delete process.env.EVM_ADDRESS;
+        (state.config.env as Record<string, string>).SOLANA_ADDRESS =
+          result.address;
+        delete (state.config.env as Record<string, string>).EVM_ADDRESS;
+      }
+    }
+
+    try {
+      saveMilaidyConfig(state.config);
+    } catch {
+      // Config path may not be writable in test environments
+    }
+
+    json(res, { ok: true, wallets: generated });
+    return;
+  }
+
+  // ── GET /api/wallet/config ─────────────────────────────────────────────
+  if (method === "GET" && pathname === "/api/wallet/config") {
+    const addrs = getEffectiveConnectedWalletAddresses(req);
+    const evmConfiguredAddress = addrs.evmAddress;
+    const solanaConfiguredAddress = addrs.solanaAddress;
+    const walletConnectionLocked = Boolean(
+      evmConfiguredAddress || solanaConfiguredAddress,
+    );
+    const configStatus: WalletConfigStatus = {
+      alchemyKeySet: Boolean(process.env.ALCHEMY_API_KEY),
+      heliusKeySet: Boolean(process.env.HELIUS_API_KEY),
+      birdeyeKeySet: Boolean(process.env.BIRDEYE_API_KEY),
+      evmPublicSource: Boolean(addrs.evmAddress),
+      solanaPublicSource: Boolean(addrs.solanaAddress),
+      pricePublicSource: Boolean(
+        process.env.HELIUS_API_KEY || process.env.BIRDEYE_API_KEY,
+      ),
+      solanaWalletConnected: Boolean(solanaConfiguredAddress),
+      walletConnectionLocked,
+      evmConfiguredAddress,
+      solanaConfiguredAddress,
+      evmSigningEnabled: Boolean(process.env.EVM_PRIVATE_KEY),
+      solanaSigningEnabled: Boolean(process.env.SOLANA_PRIVATE_KEY),
+      evmChains: ["Ethereum", "Base", "Arbitrum", "Optimism", "Polygon"],
+      evmAddress: addrs.evmAddress,
+      solanaAddress: addrs.solanaAddress,
+      walletExportEnabled: process.env.MILAIDY_ALLOW_WALLET_EXPORT === "1",
+    };
+    json(res, configStatus);
+    return;
+  }
+
+  // ── PUT /api/wallet/config ─────────────────────────────────────────────
+  if (method === "PUT" && pathname === "/api/wallet/config") {
+    const body = await readJsonBody<Record<string, string>>(req, res);
+    if (!body) return;
+    const nextEvmAddress =
+      typeof body.EVM_ADDRESS === "string"
+        ? normalizeConfiguredEvmAddress(body.EVM_ADDRESS)
+        : null;
+    const nextSolanaAddress =
+      typeof body.SOLANA_ADDRESS === "string"
+        ? normalizeConfiguredSolanaAddress(body.SOLANA_ADDRESS)
+        : null;
+
+    if (
+      typeof body.EVM_ADDRESS === "string" &&
+      body.EVM_ADDRESS.trim() &&
+      !nextEvmAddress
+    ) {
+      error(res, "Invalid EVM_ADDRESS format", 422);
+      return;
+    }
+    if (
+      typeof body.SOLANA_ADDRESS === "string" &&
+      body.SOLANA_ADDRESS.trim() &&
+      !nextSolanaAddress
+    ) {
+      error(res, "Invalid SOLANA_ADDRESS format", 422);
+      return;
+    }
+    if (nextEvmAddress && nextSolanaAddress) {
+      error(
+        res,
+        "Connect one wallet at a time. Provide EVM_ADDRESS or SOLANA_ADDRESS, not both.",
+        422,
+      );
+      return;
+    }
+
+    const userCtx = getOptionalMultiUserContextFromBearer(req);
+    const connected = getEffectiveConnectedWalletAddresses(req);
+    const hasConnected = Boolean(
+      connected.evmAddress || connected.solanaAddress,
+    );
+    const isAddressUpdate = Boolean(nextEvmAddress || nextSolanaAddress);
+    if (hasConnected && isAddressUpdate) {
+      const sameAsCurrent =
+        (nextEvmAddress && nextEvmAddress === connected.evmAddress) ||
+        (nextSolanaAddress && nextSolanaAddress === connected.solanaAddress);
+      if (!sameAsCurrent) {
         error(
           res,
-          `ElevenLabs request failed (${upstream.status}): ${upstreamBody.slice(0, 240)}`,
-          upstream.status === 429 ? 429 : 502,
+          "A wallet is already connected. Disconnect it before connecting a different wallet.",
+          409,
         );
         return;
       }
+    }
 
-      const audio = Buffer.from(await upstream.arrayBuffer());
-      const contentType = upstream.headers.get("content-type") || "audio/mpeg";
-      res.writeHead(200, {
-        "Content-Type": contentType,
-        "Content-Length": String(audio.byteLength),
-        "Cache-Control": "no-store",
-      });
-      res.end(audio);
+    if (userCtx && multiUserService) {
+      // User-scoped: persist only wallet addresses per user, never shared infra keys.
+      const hasEvmField = Object.prototype.hasOwnProperty.call(
+        body,
+        "EVM_ADDRESS",
+      );
+      const hasSolField = Object.prototype.hasOwnProperty.call(
+        body,
+        "SOLANA_ADDRESS",
+      );
+      if (hasEvmField || hasSolField) {
+        const current = multiUserService.getWalletBinding(userCtx.userId);
+        const targetEvm = hasEvmField
+          ? (nextEvmAddress ?? null)
+          : current.evmAddress;
+        const targetSol = hasSolField
+          ? (nextSolanaAddress ?? null)
+          : current.solanaAddress;
+        const unchanged =
+          targetEvm === current.evmAddress &&
+          targetSol === current.solanaAddress;
+        if (!unchanged) {
+          multiUserService.setWalletBinding(userCtx.userId, {
+            evmAddress: targetEvm,
+            solanaAddress: targetSol,
+          });
+        }
+      }
+    } else {
+      const allowedKeys = [
+        "ALCHEMY_API_KEY",
+        "HELIUS_API_KEY",
+        "BIRDEYE_API_KEY",
+        "EVM_ADDRESS",
+        "SOLANA_ADDRESS",
+      ];
+
+      if (!state.config.env) state.config.env = {};
+
+      for (const key of allowedKeys) {
+        const value = body[key];
+        if (typeof value === "string" && value.trim()) {
+          process.env[key] = value.trim();
+          (state.config.env as Record<string, string>)[key] = value.trim();
+        }
+      }
+
+      // Enforce one active connected wallet at a time.
+      if (nextEvmAddress) {
+        process.env.EVM_ADDRESS = nextEvmAddress;
+        delete process.env.SOLANA_ADDRESS;
+        (state.config.env as Record<string, string>).EVM_ADDRESS =
+          nextEvmAddress;
+        delete (state.config.env as Record<string, string>).SOLANA_ADDRESS;
+      } else if (nextSolanaAddress) {
+        process.env.SOLANA_ADDRESS = nextSolanaAddress;
+        delete process.env.EVM_ADDRESS;
+        (state.config.env as Record<string, string>).SOLANA_ADDRESS =
+          nextSolanaAddress;
+        delete (state.config.env as Record<string, string>).EVM_ADDRESS;
+      }
+
+      // If Helius key is set, also update SOLANA_RPC_URL for the plugin
+      const heliusValue = body.HELIUS_API_KEY;
+      if (typeof heliusValue === "string" && heliusValue.trim()) {
+        const rpcUrl = `https://mainnet.helius-rpc.com/?api-key=${heliusValue.trim()}`;
+        process.env.SOLANA_RPC_URL = rpcUrl;
+        (state.config.env as Record<string, string>).SOLANA_RPC_URL = rpcUrl;
+      }
+
+      try {
+        saveMilaidyConfig(state.config);
+      } catch {
+        // Config path may not be writable in test environments
+      }
+    }
+
+    json(res, { ok: true });
+    return;
+  }
+
+  // ── POST /api/wallet/disconnect ────────────────────────────────────────
+  // Clear connected wallet addresses so a new wallet can be connected.
+  // Keep backend signer keys intact to avoid breaking existing agent flows.
+  if (method === "POST" && pathname === "/api/wallet/disconnect") {
+    const userCtx = getOptionalMultiUserContextFromBearer(req);
+    if (userCtx && multiUserService) {
+      json(res, multiUserService.clearWalletBinding(userCtx.userId));
       return;
-    } catch (err) {
+    }
+
+    const keysToClear = ["EVM_ADDRESS", "SOLANA_ADDRESS"];
+
+    for (const key of keysToClear) {
+      delete process.env[key];
+    }
+
+    if (state.config.env) {
+      for (const key of keysToClear) {
+        delete (state.config.env as Record<string, string>)[key];
+      }
+    }
+
+    try {
+      saveMilaidyConfig(state.config);
+    } catch {
+      // Config path may not be writable in test environments
+    }
+
+    json(res, { ok: true });
+    return;
+  }
+
+  // ── POST /api/wallet/export ────────────────────────────────────────────
+  // SECURITY: Requires { confirm: true } in the request body to prevent
+  // accidental exposure of private keys.
+  if (method === "POST" && pathname === "/api/wallet/export") {
+    const body = await readJsonBody<{ confirm?: boolean }>(req, res);
+    if (!body) return;
+
+    if (!body.confirm) {
       error(
         res,
-        `ElevenLabs proxy error: ${err instanceof Error ? err.message : String(err)}`,
-        502,
+        'Export requires explicit confirmation. Send { "confirm": true } in the request body.',
+        403,
       );
       return;
     }
-  }
 
-  // ── GET /api/config/schema ───────────────────────────────────────────────
-  if (method === "GET" && pathname === "/api/config/schema") {
-    const { buildConfigSchema } = await import("../config/schema");
-    const result = buildConfigSchema();
-    json(res, result);
+    if (process.env.MILAIDY_ALLOW_WALLET_EXPORT !== "1") {
+      error(res, "Wallet key export is disabled by server policy.", 403);
+      return;
+    }
+
+    const evmKey = process.env.EVM_PRIVATE_KEY ?? null;
+    const solKey = process.env.SOLANA_PRIVATE_KEY ?? null;
+    const addrs = getEffectiveConnectedWalletAddresses(req);
+
+    logger.warn("[wallet] Private keys exported via API");
+
+    json(res, {
+      evm: evmKey ? { privateKey: evmKey, address: addrs.evmAddress } : null,
+      solana: solKey
+        ? { privateKey: solKey, address: addrs.solanaAddress }
+        : null,
+    });
     return;
   }
 
   // ── GET /api/config ──────────────────────────────────────────────────────
   if (method === "GET" && pathname === "/api/config") {
-    json(res, redactConfigSecrets(state.config));
+    json(res, redactConfigForResponse(state.config));
     return;
   }
 
   // ── PUT /api/config ─────────────────────────────────────────────────────
   if (method === "PUT" && pathname === "/api/config") {
+    if (MULTIUSER_ENFORCE_V2_ONLY) {
+      error(res, "Config writes are disabled in strict multi-user mode.", 403);
+      return;
+    }
     const body = await readJsonBody(req, res);
     if (!body) return;
-
-    // --- Security: validate and safely merge config updates ----------------
-
-    // Keys that could enable prototype pollution.
-    /**
-     * Deep-merge `src` into `target`, only touching keys present in `src`.
-     * Prevents prototype pollution by rejecting dangerous key names at every
-     * level.  Performs a recursive merge for plain objects so that partial
-     * updates don't wipe sibling keys.
-     */
-    function safeMerge(
-      target: Record<string, unknown>,
-      src: Record<string, unknown>,
-    ): void {
-      for (const key of Object.keys(src)) {
-        if (isBlockedObjectKey(key)) continue;
-        const srcVal = src[key];
-        const tgtVal = target[key];
-        if (
-          srcVal !== null &&
-          typeof srcVal === "object" &&
-          !Array.isArray(srcVal) &&
-          tgtVal !== null &&
-          typeof tgtVal === "object" &&
-          !Array.isArray(tgtVal)
-        ) {
-          safeMerge(
-            tgtVal as Record<string, unknown>,
-            srcVal as Record<string, unknown>,
-          );
-        } else {
-          target[key] = srcVal;
-        }
-      }
-    }
-
-    // Filter to allowed top-level keys, then deep-merge.
-    const filtered: Record<string, unknown> = {};
-    for (const key of Object.keys(body)) {
-      if (CONFIG_WRITE_ALLOWED_TOP_KEYS.has(key) && !isBlockedObjectKey(key)) {
-        filtered[key] = body[key];
-      }
-    }
-
-    // Security: keep auth/step-up secrets out of API-driven config writes so
-    // secret rotation remains an out-of-band operation.
-    if (
-      filtered.env &&
-      typeof filtered.env === "object" &&
-      !Array.isArray(filtered.env)
-    ) {
-      const envPatch = filtered.env as Record<string, unknown>;
-      // Defense-in-depth: strip step-up secrets from persisted config before
-      // merge, even though BLOCKED_ENV_KEYS also blocks them during process.env
-      // sync below. Keeping both guards prevents accidental persistence if one
-      // path changes in future refactors.
-      delete envPatch.MILADY_API_TOKEN;
-      delete envPatch.MILADY_WALLET_EXPORT_TOKEN;
-      if (
-        envPatch.vars &&
-        typeof envPatch.vars === "object" &&
-        !Array.isArray(envPatch.vars)
-      ) {
-        delete (envPatch.vars as Record<string, unknown>).MILADY_API_TOKEN;
-        delete (envPatch.vars as Record<string, unknown>)
-          .MILADY_WALLET_EXPORT_TOKEN;
-      }
-    }
-
-    safeMerge(state.config as Record<string, unknown>, filtered);
-
-    // If the client updated env vars, synchronise them into process.env so
-    // subsequent hot-restarts see the latest values (loadMiladyConfig()
-    // only fills missing env vars and does not override existing ones).
-    if (
-      filtered.env &&
-      typeof filtered.env === "object" &&
-      !Array.isArray(filtered.env)
-    ) {
-      const envPatch = filtered.env as Record<string, unknown>;
-
-      // 1) env.vars.* (preferred)
-      const vars = envPatch.vars;
-      if (vars && typeof vars === "object" && !Array.isArray(vars)) {
-        for (const [k, v] of Object.entries(vars as Record<string, unknown>)) {
-          if (BLOCKED_ENV_KEYS.has(k.toUpperCase())) continue;
-          const str = typeof v === "string" ? v : "";
-          if (str.trim()) {
-            process.env[k] = str;
-          } else {
-            delete process.env[k];
-          }
-        }
-      }
-
-      // 2) Direct env.* string keys (legacy)
-      for (const [k, v] of Object.entries(envPatch)) {
-        if (k === "vars" || k === "shellEnv") continue;
-        if (BLOCKED_ENV_KEYS.has(k.toUpperCase())) continue;
-        if (typeof v !== "string") continue;
-        if (v.trim()) process.env[k] = v;
-        else delete process.env[k];
-      }
-
-      // Keep config clean: drop empty env.vars entries so we don't persist
-      // null/empty-string tombstones forever.
-      const cfgEnv = (state.config as Record<string, unknown>).env;
-      if (cfgEnv && typeof cfgEnv === "object" && !Array.isArray(cfgEnv)) {
-        const cfgVars = (cfgEnv as Record<string, unknown>).vars;
-        if (cfgVars && typeof cfgVars === "object" && !Array.isArray(cfgVars)) {
-          for (const [k, v] of Object.entries(
-            cfgVars as Record<string, unknown>,
-          )) {
-            if (typeof v !== "string" || !v.trim()) {
-              delete (cfgVars as Record<string, unknown>)[k];
-            }
-          }
-        }
-      }
-    }
-
+    let patch: Record<string, unknown>;
     try {
-      saveMiladyConfig(state.config);
+      patch = validateSafeConfigPatch(body);
     } catch (err) {
-      logger.warn(
-        `[api] Config save failed: ${err instanceof Error ? err.message : err}`,
-      );
-    }
-    json(res, redactConfigSecrets(state.config));
-    return;
-  }
-
-  if (
-    await handlePermissionRoutes({
-      req,
-      res,
-      method,
-      pathname,
-      state,
-      readJsonBody,
-      json,
-      error,
-      saveConfig: saveMiladyConfig,
-      scheduleRuntimeRestart,
-    })
-  ) {
-    return;
-  }
-
-  // ── Cloud routes (/api/cloud/*) ─────────────────────────────────────────
-  if (pathname.startsWith("/api/cloud/")) {
-    const cloudState: CloudRouteState = {
-      config: state.config,
-      cloudManager: state.cloudManager,
-      runtime: state.runtime,
-    };
-    const handled = await handleCloudRoute(
-      req,
-      res,
-      pathname,
-      method,
-      cloudState,
-    );
-    if (handled) return;
-  }
-
-  // ── Sandbox routes (/api/sandbox/*) ────────────────────────────────────
-  if (pathname.startsWith("/api/sandbox")) {
-    const handled = await handleSandboxRoute(req, res, pathname, method, {
-      sandboxManager: state.sandboxManager,
-    });
-    if (handled) return;
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════
-  // Conversation routes (/api/conversations/*)
-  // ═══════════════════════════════════════════════════════════════════════
-
-  const ensureAdminEntityId = (): UUID => {
-    if (state.adminEntityId) {
-      return state.adminEntityId;
-    }
-    const configured = state.config.agents?.defaults?.adminEntityId?.trim();
-    const nextAdminEntityId =
-      configured && isUuidLike(configured)
-        ? configured
-        : (stringToUuid(`${state.agentName}-admin-entity`) as UUID);
-    if (configured && !isUuidLike(configured)) {
-      logger.warn(
-        `[milady-api] Invalid agents.defaults.adminEntityId "${configured}", using deterministic fallback`,
-      );
-    }
-    state.adminEntityId = nextAdminEntityId;
-    state.chatUserId = state.adminEntityId;
-    return nextAdminEntityId;
-  };
-
-  // Ensure ownership + admin role metadata contract on the world.
-  const ensureWorldOwnershipAndRoles = async (
-    runtime: AgentRuntime,
-    worldId: UUID,
-    ownerId: UUID,
-  ): Promise<void> => {
-    const world = await runtime.getWorld(worldId);
-    if (!world) return;
-    let needsUpdate = false;
-    if (!world.metadata) {
-      world.metadata = {};
-      needsUpdate = true;
-    }
-    if (
-      !world.metadata.ownership ||
-      typeof world.metadata.ownership !== "object" ||
-      (world.metadata.ownership as { ownerId?: string }).ownerId !== ownerId
-    ) {
-      world.metadata.ownership = { ownerId };
-      needsUpdate = true;
-    }
-    const metadataWithRoles = world.metadata as {
-      roles?: Record<string, string>;
-    };
-    const roles = metadataWithRoles.roles ?? {};
-    if (roles[ownerId] !== "OWNER") {
-      roles[ownerId] = "OWNER";
-      metadataWithRoles.roles = roles;
-      needsUpdate = true;
-    }
-    if (needsUpdate) {
-      await runtime.updateWorld(world);
-    }
-  };
-
-  // Helper: ensure the room for a conversation is set up.
-  // Also ensures the world has ownership metadata so the settings provider
-  // can find it via findWorldsForOwner during onboarding.
-  const ensureConversationRoom = async (
-    conv: ConversationMeta,
-  ): Promise<void> => {
-    if (!state.runtime) return;
-    const runtime = state.runtime;
-    const agentName = runtime.character.name ?? "Milady";
-    const userId = ensureAdminEntityId();
-    const worldId = stringToUuid(`${agentName}-web-chat-world`);
-    const messageServerId = stringToUuid(`${agentName}-web-server`) as UUID;
-    await runtime.ensureConnection({
-      entityId: userId,
-      roomId: conv.roomId,
-      worldId,
-      userName: "User",
-      source: "client_chat",
-      channelId: `web-conv-${conv.id}`,
-      type: ChannelType.DM,
-      messageServerId,
-      metadata: { ownership: { ownerId: userId } },
-    });
-    await ensureWorldOwnershipAndRoles(runtime, worldId as UUID, userId);
-  };
-
-  const syncConversationRoomTitle = async (
-    conv: ConversationMeta,
-  ): Promise<void> => {
-    try {
-      await persistConversationRoomTitle(state.runtime, conv);
-    } catch (err) {
-      logger.debug(
-        `[conversations] Failed to persist room title for ${conv.id}: ${err instanceof Error ? err.message : String(err)}`,
-      );
-    }
-  };
-
-  const ensureLegacyChatConnection = async (
-    runtime: AgentRuntime,
-    agentName: string,
-  ): Promise<void> => {
-    const userId = ensureAdminEntityId();
-    if (!state.chatRoomId) {
-      state.chatRoomId = stringToUuid(`${agentName}-web-chat-room`);
-    }
-    state.chatUserId = userId;
-
-    const roomId = state.chatRoomId;
-    const worldId = stringToUuid(`${agentName}-web-chat-world`) as UUID;
-    const messageServerId = stringToUuid(`${agentName}-web-server`) as UUID;
-    const target = { userId, roomId, worldId };
-
-    while (true) {
-      const ready = state.chatConnectionReady;
-      if (
-        ready &&
-        ready.userId === target.userId &&
-        ready.roomId === target.roomId &&
-        ready.worldId === target.worldId
-      ) {
+      if (err instanceof MultiUserError) {
+        error(res, err.message, err.status);
         return;
       }
-
-      if (!state.chatConnectionPromise) {
-        state.chatConnectionPromise = (async () => {
-          await runtime.ensureConnection({
-            entityId: target.userId,
-            roomId: target.roomId,
-            worldId: target.worldId,
-            userName: "User",
-            source: "client_chat",
-            channelId: `${agentName}-web-chat`,
-            type: ChannelType.DM,
-            messageServerId,
-            metadata: { ownership: { ownerId: target.userId } },
-          });
-          await ensureWorldOwnershipAndRoles(
-            runtime,
-            target.worldId,
-            target.userId,
-          );
-          state.chatConnectionReady = target;
-        })().finally(() => {
-          state.chatConnectionPromise = null;
-        });
-      }
-
-      await state.chatConnectionPromise;
-    }
-  };
-
-  const ensureCompatChatConnection = async (
-    runtime: AgentRuntime,
-    agentName: string,
-    channelIdPrefix: string,
-    roomKey: string,
-  ): Promise<{ userId: UUID; roomId: UUID; worldId: UUID }> => {
-    const userId = ensureAdminEntityId();
-    const roomId = stringToUuid(
-      `${agentName}-${channelIdPrefix}-room-${roomKey}`,
-    ) as UUID;
-    const worldId = stringToUuid(`${agentName}-web-chat-world`) as UUID;
-    const messageServerId = stringToUuid(`${agentName}-web-server`) as UUID;
-
-    await runtime.ensureConnection({
-      entityId: userId,
-      roomId,
-      worldId,
-      userName: "User",
-      source: "client_chat",
-      channelId: `${channelIdPrefix}-${roomKey}`,
-      type: ChannelType.DM,
-      messageServerId,
-      metadata: { ownership: { ownerId: userId } },
-    });
-    await ensureWorldOwnershipAndRoles(runtime, worldId, userId);
-
-    return { userId, roomId, worldId };
-  };
-
-  // -------------------------------------------------------------------------
-  // OpenAI / Anthropic compatibility endpoints
-  // -------------------------------------------------------------------------
-
-  // ── GET /v1/models (OpenAI compatible) ─────────────────────────────────
-  if (method === "GET" && pathname === "/v1/models") {
-    const created = Math.floor(Date.now() / 1000);
-    const ids = new Set<string>();
-    ids.add("milady");
-    if (state.agentName?.trim()) ids.add(state.agentName.trim());
-    if (state.runtime?.character.name?.trim())
-      ids.add(state.runtime.character.name.trim());
-
-    json(res, {
-      object: "list",
-      data: Array.from(ids).map((id) => ({
-        id,
-        object: "model",
-        created,
-        owned_by: "milady",
-      })),
-    });
-    return;
-  }
-
-  // ── GET /v1/models/:id (OpenAI compatible) ─────────────────────────────
-  if (method === "GET" && /^\/v1\/models\/[^/]+$/.test(pathname)) {
-    const created = Math.floor(Date.now() / 1000);
-    const raw = pathname.split("/")[3] ?? "";
-    const decoded = decodePathComponent(raw, res, "model id");
-    if (!decoded) return;
-    const id = decoded.trim();
-    if (!id) {
-      json(
-        res,
-        {
-          error: {
-            message: "Model id is required",
-            type: "invalid_request_error",
-          },
-        },
-        400,
-      );
+      error(res, "Invalid config patch", 422);
       return;
     }
-    json(res, { id, object: "model", created, owned_by: "milady" });
-    return;
-  }
-
-  // ── POST /v1/chat/completions (OpenAI compatible) ──────────────────────
-  if (method === "POST" && pathname === "/v1/chat/completions") {
-    const body = await readJsonBody<Record<string, unknown>>(req, res);
-    if (!body) return;
-    if (hasBlockedObjectKeyDeep(body)) {
-      json(
-        res,
-        {
-          error: {
-            message: "Request body contains a blocked object key",
-            type: "invalid_request_error",
-          },
-        },
-        400,
-      );
-      return;
-    }
-    const safeBody = cloneWithoutBlockedObjectKeys(body);
-
-    const extracted = extractOpenAiSystemAndLastUser(safeBody.messages);
-    if (!extracted) {
-      json(
-        res,
-        {
-          error: {
-            message:
-              "messages must be an array containing at least one user message",
-            type: "invalid_request_error",
-          },
-        },
-        400,
-      );
-      return;
-    }
-
-    const roomKey = resolveCompatRoomKey(safeBody).slice(0, 120);
-    const wantsStream =
-      safeBody.stream === true ||
-      (req.headers.accept ?? "").includes("text/event-stream");
-    const requestedModel =
-      typeof safeBody.model === "string" && safeBody.model.trim()
-        ? safeBody.model.trim()
-        : null;
-
-    const prompt = extracted.system
-      ? `${extracted.system}\n\n${extracted.user}`.trim()
-      : extracted.user;
-
-    const created = Math.floor(Date.now() / 1000);
-    const id = `chatcmpl-${crypto.randomUUID()}`;
-    const model = requestedModel ?? state.agentName ?? "milady";
-
-    if (wantsStream) {
-      initSse(res);
-      let aborted = false;
-      req.on("close", () => {
-        aborted = true;
-      });
-
-      const sendChunk = (
-        delta: Record<string, unknown>,
-        finishReason: string | null,
-      ) => {
-        writeSseData(
-          res,
-          JSON.stringify({
-            id,
-            object: "chat.completion.chunk",
-            created,
-            model,
-            choices: [
-              {
-                index: 0,
-                delta,
-                finish_reason: finishReason,
-              },
-            ],
-          }),
-        );
-      };
-
-      try {
-        if (!state.runtime) {
-          writeSseData(
-            res,
-            JSON.stringify({
-              error: {
-                message: "Agent is not running",
-                type: "service_unavailable",
-              },
-            }),
-          );
-          writeSseData(res, "[DONE]");
-          return;
-        }
-
-        sendChunk({ role: "assistant" }, null);
-
-        let fullText = "";
-
-        {
-          const runtime = state.runtime;
-          if (!runtime) throw new Error("Agent is not running");
-          const agentName = runtime.character.name ?? "Milady";
-          const { userId, roomId } = await ensureCompatChatConnection(
-            runtime,
-            agentName,
-            "openai-compat",
-            roomKey,
-          );
-
-          const message = createMessageMemory({
-            id: crypto.randomUUID() as UUID,
-            entityId: userId,
-            roomId,
-            content: {
-              text: prompt,
-              source: "compat_openai",
-              channelType: ChannelType.API,
-            },
-          });
-
-          await generateChatResponse(runtime, message, state.agentName, {
-            isAborted: () => aborted,
-            onChunk: (chunk) => {
-              fullText += chunk;
-              if (chunk) sendChunk({ content: chunk }, null);
-            },
-            resolveNoResponseText: () =>
-              resolveNoResponseFallback(state.logBuffer),
-          });
-        }
-
-        const resolved = normalizeChatResponseText(fullText, state.logBuffer);
-        if (
-          (fullText.trim().length === 0 || isNoResponsePlaceholder(fullText)) &&
-          resolved.trim()
-        ) {
-          // Ensure clients receive a non-empty completion even if the model returned "(no response)".
-          sendChunk({ content: resolved }, null);
-        }
-
-        sendChunk({}, "stop");
-        writeSseData(res, "[DONE]");
-      } catch (err) {
-        if (!aborted) {
-          writeSseData(
-            res,
-            JSON.stringify({
-              error: {
-                message: getErrorMessage(err),
-                type: "server_error",
-              },
-            }),
-          );
-          writeSseData(res, "[DONE]");
-        }
-      } finally {
-        res.end();
-      }
-      return;
-    }
-
-    // Non-streaming
+    Object.assign(state.config, patch);
     try {
-      let responseText: string;
-
-      {
-        if (!state.runtime) {
-          json(
-            res,
-            {
-              error: {
-                message: "Agent is not running",
-                type: "service_unavailable",
-              },
-            },
-            503,
-          );
-          return;
-        }
-        const runtime = state.runtime;
-        const agentName = runtime.character.name ?? "Milady";
-        const { userId, roomId } = await ensureCompatChatConnection(
-          runtime,
-          agentName,
-          "openai-compat",
-          roomKey,
-        );
-        const message = createMessageMemory({
-          id: crypto.randomUUID() as UUID,
-          entityId: userId,
-          roomId,
-          content: {
-            text: prompt,
-            source: "compat_openai",
-            channelType: ChannelType.API,
-          },
-        });
-        const result = await generateChatResponse(
-          runtime,
-          message,
-          state.agentName,
-          {
-            resolveNoResponseText: () =>
-              resolveNoResponseFallback(state.logBuffer),
-          },
-        );
-        responseText = result.text;
-      }
-
-      const resolvedText = normalizeChatResponseText(
-        responseText,
-        state.logBuffer,
-      );
-      json(res, {
-        id,
-        object: "chat.completion",
-        created,
-        model,
-        choices: [
-          {
-            index: 0,
-            message: { role: "assistant", content: resolvedText },
-            finish_reason: "stop",
-          },
-        ],
-      });
-    } catch (err) {
-      json(
-        res,
-        { error: { message: getErrorMessage(err), type: "server_error" } },
-        500,
-      );
+      saveMilaidyConfig(state.config);
+    } catch {
+      // In test environments the config path may not be writable — that's fine.
     }
+    json(res, redactConfigForResponse(state.config));
     return;
   }
 
-  // ── POST /v1/messages (Anthropic compatible) ───────────────────────────
-  if (method === "POST" && pathname === "/v1/messages") {
-    const body = await readJsonBody<Record<string, unknown>>(req, res);
-    if (!body) return;
-    if (hasBlockedObjectKeyDeep(body)) {
-      json(
-        res,
-        {
-          error: {
-            type: "invalid_request_error",
-            message: "Request body contains a blocked object key",
-          },
-        },
-        400,
-      );
-      return;
-    }
-    const safeBody = cloneWithoutBlockedObjectKeys(body);
-
-    const extracted = extractAnthropicSystemAndLastUser({
-      system: safeBody.system,
-      messages: safeBody.messages,
-    });
-    if (!extracted) {
-      json(
-        res,
-        {
-          error: {
-            type: "invalid_request_error",
-            message:
-              "messages must be an array containing at least one user message",
-          },
-        },
-        400,
-      );
-      return;
-    }
-
-    const roomKey = resolveCompatRoomKey(safeBody).slice(0, 120);
-    const wantsStream =
-      safeBody.stream === true ||
-      (req.headers.accept ?? "").includes("text/event-stream");
-    const requestedModel =
-      typeof safeBody.model === "string" && safeBody.model.trim()
-        ? safeBody.model.trim()
-        : null;
-
-    const prompt = extracted.system
-      ? `${extracted.system}\n\n${extracted.user}`.trim()
-      : extracted.user;
-
-    const id = `msg_${crypto.randomUUID().replace(/-/g, "")}`;
-    const model = requestedModel ?? state.agentName ?? "milady";
-
-    if (wantsStream) {
-      initSse(res);
-      let aborted = false;
-      req.on("close", () => {
-        aborted = true;
-      });
-
-      try {
-        if (!state.runtime) {
-          writeSseJson(
-            res,
-            {
-              type: "error",
-              error: {
-                type: "service_unavailable",
-                message: "Agent is not running",
-              },
-            },
-            "error",
-          );
-          return;
-        }
-
-        writeSseJson(
-          res,
-          {
-            type: "message_start",
-            message: {
-              id,
-              type: "message",
-              role: "assistant",
-              model,
-              content: [],
-              stop_reason: null,
-              stop_sequence: null,
-              usage: { input_tokens: 0, output_tokens: 0 },
-            },
-          },
-          "message_start",
-        );
-        writeSseJson(
-          res,
-          {
-            type: "content_block_start",
-            index: 0,
-            content_block: { type: "text", text: "" },
-          },
-          "content_block_start",
-        );
-
-        let fullText = "";
-
-        const onDelta = (chunk: string) => {
-          if (!chunk) return;
-          fullText += chunk;
-          writeSseJson(
-            res,
-            {
-              type: "content_block_delta",
-              index: 0,
-              delta: { type: "text_delta", text: chunk },
-            },
-            "content_block_delta",
-          );
-        };
-
-        {
-          const runtime = state.runtime;
-          if (!runtime) throw new Error("Agent is not running");
-          const agentName = runtime.character.name ?? "Milady";
-          const { userId, roomId } = await ensureCompatChatConnection(
-            runtime,
-            agentName,
-            "anthropic-compat",
-            roomKey,
-          );
-
-          const message = createMessageMemory({
-            id: crypto.randomUUID() as UUID,
-            entityId: userId,
-            roomId,
-            content: {
-              text: prompt,
-              source: "compat_anthropic",
-              channelType: ChannelType.API,
-            },
-          });
-
-          await generateChatResponse(runtime, message, state.agentName, {
-            isAborted: () => aborted,
-            onChunk: onDelta,
-            resolveNoResponseText: () =>
-              resolveNoResponseFallback(state.logBuffer),
-          });
-        }
-
-        const resolved = normalizeChatResponseText(fullText, state.logBuffer);
-        if (
-          (fullText.trim().length === 0 || isNoResponsePlaceholder(fullText)) &&
-          resolved.trim()
-        ) {
-          onDelta(resolved);
-        }
-
-        writeSseJson(
-          res,
-          { type: "content_block_stop", index: 0 },
-          "content_block_stop",
-        );
-        writeSseJson(
-          res,
-          {
-            type: "message_delta",
-            delta: { stop_reason: "end_turn", stop_sequence: null },
-            usage: { output_tokens: 0 },
-          },
-          "message_delta",
-        );
-        writeSseJson(res, { type: "message_stop" }, "message_stop");
-      } catch (err) {
-        if (!aborted) {
-          writeSseJson(
-            res,
-            {
-              type: "error",
-              error: { type: "server_error", message: getErrorMessage(err) },
-            },
-            "error",
-          );
-        }
-      } finally {
-        res.end();
-      }
-      return;
-    }
-
-    // Non-streaming
-    try {
-      let responseText: string;
-
-      {
-        if (!state.runtime) {
-          json(
-            res,
-            {
-              error: {
-                type: "service_unavailable",
-                message: "Agent is not running",
-              },
-            },
-            503,
-          );
-          return;
-        }
-        const runtime = state.runtime;
-        const agentName = runtime.character.name ?? "Milady";
-        const { userId, roomId } = await ensureCompatChatConnection(
-          runtime,
-          agentName,
-          "anthropic-compat",
-          roomKey,
-        );
-        const message = createMessageMemory({
-          id: crypto.randomUUID() as UUID,
-          entityId: userId,
-          roomId,
-          content: {
-            text: prompt,
-            source: "compat_anthropic",
-            channelType: ChannelType.API,
-          },
-        });
-        const result = await generateChatResponse(
-          runtime,
-          message,
-          state.agentName,
-          {
-            resolveNoResponseText: () =>
-              resolveNoResponseFallback(state.logBuffer),
-          },
-        );
-        responseText = result.text;
-      }
-
-      const resolvedText = normalizeChatResponseText(
-        responseText,
-        state.logBuffer,
-      );
-      json(res, {
-        id,
-        type: "message",
-        role: "assistant",
-        model,
-        content: [{ type: "text", text: resolvedText }],
-        stop_reason: "end_turn",
-        stop_sequence: null,
-        usage: { input_tokens: 0, output_tokens: 0 },
-      });
-    } catch (err) {
-      json(
-        res,
-        { error: { type: "server_error", message: getErrorMessage(err) } },
-        500,
-      );
-    }
-    return;
-  }
-
-  // ── GET /api/conversations ──────────────────────────────────────────
-  if (method === "GET" && pathname === "/api/conversations") {
-    const convos = Array.from(state.conversations.values()).sort(
-      (a, b) =>
-        new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
-    );
-    json(res, { conversations: convos });
-    return;
-  }
-
-  // ── POST /api/conversations ─────────────────────────────────────────
-  if (method === "POST" && pathname === "/api/conversations") {
-    const body = await readJsonBody<{ title?: string }>(req, res);
-    if (!body) return;
-    const id = crypto.randomUUID();
-    const now = new Date().toISOString();
-    const roomId = stringToUuid(`web-conv-${id}`);
-    const conv: ConversationMeta = {
-      id,
-      title: body.title?.trim() || "New Chat",
-      roomId,
-      createdAt: now,
-      updatedAt: now,
-    };
-    state.conversations.set(id, conv);
-    if (state.runtime) {
-      await ensureConversationRoom(conv);
-      await syncConversationRoomTitle(conv);
-    }
-    json(res, { conversation: conv });
-    return;
-  }
-
-  // ── GET /api/conversations/:id/messages ─────────────────────────────
-  if (
-    method === "GET" &&
-    /^\/api\/conversations\/[^/]+\/messages$/.test(pathname)
-  ) {
-    const convId = decodeURIComponent(pathname.split("/")[3]);
-    const conv = state.conversations.get(convId);
-    if (!conv) {
-      error(res, "Conversation not found", 404);
-      return;
-    }
-    if (!state.runtime) {
-      json(res, { messages: [] });
-      return;
-    }
-    const runtime = state.runtime;
-    try {
-      const memories = await runtime.getMemories({
-        roomId: conv.roomId,
-        tableName: "messages",
-        count: 200,
-      });
-      // Sort by createdAt ascending
-      memories.sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0));
-      const agentId = runtime.agentId;
-      const messages = memories.map((m) => {
-        const contentSource = (m.content as Record<string, unknown>)?.source;
-        return {
-          id: m.id ?? "",
-          role: m.entityId === agentId ? "assistant" : "user",
-          text: (m.content as { text?: string })?.text ?? "",
-          timestamp: m.createdAt ?? 0,
-          source:
-            typeof contentSource === "string" && contentSource !== "client_chat"
-              ? contentSource
-              : undefined,
-        };
-      });
-      json(res, { messages });
-    } catch (err) {
-      logger.warn(
-        `[conversations] Failed to fetch messages: ${err instanceof Error ? err.message : String(err)}`,
-      );
-      json(res, { error: "Failed to fetch messages" }, 500);
-    }
-    return;
-  }
-
-  // ── POST /api/conversations/:id/messages/stream ─────────────────────
-  if (
-    method === "POST" &&
-    /^\/api\/conversations\/[^/]+\/messages\/stream$/.test(pathname)
-  ) {
-    const convId = decodeURIComponent(pathname.split("/")[3]);
-    const conv = state.conversations.get(convId);
-    if (!conv) {
-      error(res, "Conversation not found", 404);
-      return;
-    }
-
-    const chatPayload = await readChatRequestPayload(req, res, {
-      readJsonBody,
-      error,
-    });
-    if (!chatPayload) return;
-    const { prompt, channelType } = chatPayload;
-
-    const runtime = state.runtime;
-    if (!runtime) {
-      error(res, "Agent is not running", 503);
-      return;
-    }
-
-    const userId = ensureAdminEntityId();
-    const turnStartedAt = Date.now();
-
-    try {
-      await ensureConversationRoom(conv);
-    } catch (err) {
-      error(
-        res,
-        `Failed to initialize conversation room: ${getErrorMessage(err)}`,
-        500,
-      );
-      return;
-    }
-
-    const userMessage = createMessageMemory({
-      id: crypto.randomUUID() as UUID,
-      entityId: userId,
-      roomId: conv.roomId,
-      content: {
-        text: prompt,
-        source: "client_chat",
-        channelType,
-      },
-    });
-
-    try {
-      await persistConversationMemory(runtime, userMessage);
-    } catch (err) {
-      error(res, `Failed to store user message: ${getErrorMessage(err)}`, 500);
-      return;
-    }
-
-    // ── Local runtime path (existing code below) ───────────────────────
-
-    initSse(res);
-    let aborted = false;
-    req.on("close", () => {
-      aborted = true;
-    });
-
-    try {
-      const result = await generateChatResponse(
-        runtime,
-        userMessage,
-        state.agentName,
-        {
-          isAborted: () => aborted,
-          onChunk: (chunk) => {
-            writeSse(res, { type: "token", text: chunk });
-          },
-          resolveNoResponseText: () =>
-            resolveNoResponseFallback(state.logBuffer),
-        },
-      );
-
-      if (!aborted) {
-        await persistAssistantConversationMemory(
-          runtime,
-          conv.roomId,
-          result.text,
-          channelType,
-          turnStartedAt,
-        );
-        conv.updatedAt = new Date().toISOString();
-        writeSse(res, {
-          type: "done",
-          fullText: result.text,
-          agentName: result.agentName,
-        });
-
-        // Background chat renaming
-        if (conv.title === "New Chat") {
-          // Fire and forget (don't await) to not block the response stream close
-          generateConversationTitle(runtime, prompt, state.agentName).then(
-            (newTitle) => {
-              if (newTitle && state.broadcastWs) {
-                conv.title = newTitle;
-                // Broadcast full conversations list update for simplicity
-                // (or ideally a specific event, but the frontend listens for reloads)
-                state.broadcastWs({
-                  type: "conversation-updated",
-                  conversation: conv,
-                });
-              }
-            },
-          );
-        }
-      }
-    } catch (err) {
-      if (!aborted) {
-        const creditReply = getInsufficientCreditsReplyFromError(err);
-        if (creditReply) {
-          try {
-            await persistAssistantConversationMemory(
-              runtime,
-              conv.roomId,
-              creditReply,
-              channelType,
-            );
-            conv.updatedAt = new Date().toISOString();
-            writeSse(res, {
-              type: "done",
-              fullText: creditReply,
-              agentName: state.agentName,
-            });
-          } catch (persistErr) {
-            writeSse(res, {
-              type: "error",
-              message: getErrorMessage(persistErr),
-            });
-          }
-        } else {
-          writeSse(res, {
-            type: "error",
-            message: getErrorMessage(err),
-          });
-        }
-      }
-    } finally {
-      res.end();
-    }
-    return;
-  }
-
-  // ── POST /api/conversations/:id/messages ────────────────────────────
-  if (
-    method === "POST" &&
-    /^\/api\/conversations\/[^/]+\/messages$/.test(pathname)
-  ) {
-    const convId = decodeURIComponent(pathname.split("/")[3]);
-    const conv = state.conversations.get(convId);
-    if (!conv) {
-      error(res, "Conversation not found", 404);
-      return;
-    }
-    const chatPayload = await readChatRequestPayload(req, res, {
-      readJsonBody,
-      error,
-    });
-    if (!chatPayload) return;
-    const { prompt, channelType } = chatPayload;
-    const runtime = state.runtime;
-    if (!runtime) {
-      error(res, "Agent is not running", 503);
-      return;
-    }
-    const userId = ensureAdminEntityId();
-    const turnStartedAt = Date.now();
-
-    try {
-      await ensureConversationRoom(conv);
-    } catch (err) {
-      error(
-        res,
-        `Failed to initialize conversation room: ${getErrorMessage(err)}`,
-        500,
-      );
-      return;
-    }
-
-    const userMessage = createMessageMemory({
-      id: crypto.randomUUID() as UUID,
-      entityId: userId,
-      roomId: conv.roomId,
-      content: {
-        text: prompt,
-        source: "client_chat",
-        channelType,
-      },
-    });
-
-    try {
-      await persistConversationMemory(runtime, userMessage);
-    } catch (err) {
-      error(res, `Failed to store user message: ${getErrorMessage(err)}`, 500);
-      return;
-    }
-
-    try {
-      const result = await generateChatResponse(
-        runtime,
-        userMessage,
-        state.agentName,
-        {
-          resolveNoResponseText: () =>
-            resolveNoResponseFallback(state.logBuffer),
-        },
-      );
-
-      await persistAssistantConversationMemory(
-        runtime,
-        conv.roomId,
-        result.text,
-        channelType,
-        turnStartedAt,
-      );
-      conv.updatedAt = new Date().toISOString();
-      json(res, {
-        text: result.text,
-        agentName: result.agentName,
-      });
-    } catch (err) {
-      logger.warn(
-        `[conversations] POST /messages failed: ${err instanceof Error ? err.message : String(err)}`,
-      );
-      const creditReply = getInsufficientCreditsReplyFromError(err);
-      if (creditReply) {
-        try {
-          await persistAssistantConversationMemory(
-            runtime,
-            conv.roomId,
-            creditReply,
-            channelType,
-          );
-          conv.updatedAt = new Date().toISOString();
-          json(res, {
-            text: creditReply,
-            agentName: state.agentName,
-          });
-        } catch (persistErr) {
-          error(res, getErrorMessage(persistErr), 500);
-        }
-      } else {
-        error(res, getErrorMessage(err), 500);
-      }
-    }
-    return;
-  }
-
-  // ── POST /api/conversations/:id/greeting ───────────────────────────
-  // Pick a random postExample from the character as the opening message.
-  // No model call, no latency, no cost — already in the agent's voice.
-  // Stored as an agent message so it persists on refresh.
-  if (
-    method === "POST" &&
-    /^\/api\/conversations\/[^/]+\/greeting$/.test(pathname)
-  ) {
-    const convId = decodeURIComponent(pathname.split("/")[3]);
-    const conv = state.conversations.get(convId);
-    if (!conv) {
-      error(res, "Conversation not found", 404);
-      return;
-    }
-
-    const runtime = state.runtime;
-    if (!runtime) {
-      error(res, "Agent is not running", 503);
-      return;
-    }
-    const charName = runtime.character.name ?? state.agentName ?? "Milady";
-
-    // Collect post examples from the character
-    const postExamples = runtime.character.postExamples ?? [];
-    const greeting =
-      postExamples[Math.floor(Math.random() * postExamples.length)];
-
-    if (!greeting?.trim()) {
-      json(res, {
-        text: "",
-        agentName: charName,
-        generated: false,
-      });
-      return;
-    }
-
-    try {
-      await ensureConversationRoom(conv);
-    } catch (err) {
-      error(
-        res,
-        `Failed to initialize conversation room: ${getErrorMessage(err)}`,
-        500,
-      );
-      return;
-    }
-
-    try {
-      await persistConversationMemory(
-        runtime,
-        createMessageMemory({
-          id: crypto.randomUUID() as UUID,
-          entityId: runtime.agentId,
-          roomId: conv.roomId,
-          content: {
-            text: greeting,
-            source: "agent_greeting",
-            channelType: ChannelType.DM,
-          },
-        }),
-      );
-    } catch (err) {
-      error(
-        res,
-        `Failed to store greeting message: ${getErrorMessage(err)}`,
-        500,
-      );
-      return;
-    }
-
-    conv.updatedAt = new Date().toISOString();
-    json(res, {
-      text: greeting,
-      agentName: charName,
-      generated: postExamples.length > 0,
-    });
-    return;
-  }
-
-  // ── PATCH /api/conversations/:id ────────────────────────────────────
-  if (
-    method === "PATCH" &&
-    /^\/api\/conversations\/[^/]+$/.test(pathname) &&
-    !pathname.endsWith("/messages")
-  ) {
-    const convId = decodeURIComponent(pathname.split("/")[3]);
-    const conv = state.conversations.get(convId);
-    if (!conv) {
-      error(res, "Conversation not found", 404);
-      return;
-    }
-    const body = await readJsonBody<{ title?: string }>(req, res);
-    if (!body) return;
-    if (body.title?.trim()) {
-      conv.title = body.title.trim();
-      conv.updatedAt = new Date().toISOString();
-      await syncConversationRoomTitle(conv);
-    }
-    json(res, { conversation: conv });
-    return;
-  }
-
-  // ── DELETE /api/conversations/:id ───────────────────────────────────
-  if (
-    method === "DELETE" &&
-    /^\/api\/conversations\/[^/]+$/.test(pathname) &&
-    !pathname.endsWith("/messages")
-  ) {
-    const convId = decodeURIComponent(pathname.split("/")[3]);
-    state.conversations.delete(convId);
-    json(res, { ok: true });
-    return;
-  }
-
-  // ── POST /api/chat/stream ────────────────────────────────────────────
-  if (method === "POST" && pathname === "/api/chat/stream") {
-    const chatPayload = await readChatRequestPayload(req, res, {
-      readJsonBody,
-      error,
-    });
-    if (!chatPayload) return;
-    const { prompt, channelType } = chatPayload;
-
-    // Cloud proxy path
-
-    if (!state.runtime) {
-      error(res, "Agent is not running", 503);
-      return;
-    }
-
-    initSse(res);
-    let aborted = false;
-    req.on("close", () => {
-      aborted = true;
-    });
-
-    try {
-      const runtime = state.runtime;
-      const agentName = runtime.character.name ?? "Milady";
-      await ensureLegacyChatConnection(runtime, agentName);
-      const chatUserId = state.chatUserId;
-      const chatRoomId = state.chatRoomId;
-      if (!chatUserId || !chatRoomId) {
-        throw new Error("Legacy chat connection was not initialized");
-      }
-
-      const message = createMessageMemory({
-        id: crypto.randomUUID() as UUID,
-        entityId: chatUserId,
-        roomId: chatRoomId,
-        content: {
-          text: prompt,
-          source: "client_chat",
-          channelType,
-        },
-      });
-
-      const result = await generateChatResponse(
-        runtime,
-        message,
-        state.agentName,
-        {
-          isAborted: () => aborted,
-          onChunk: (chunk) => {
-            writeSse(res, { type: "token", text: chunk });
-          },
-          resolveNoResponseText: () =>
-            resolveNoResponseFallback(state.logBuffer),
-        },
-      );
-
-      if (!aborted) {
-        writeSse(res, {
-          type: "done",
-          fullText: result.text,
-          agentName: result.agentName,
-        });
-      }
-    } catch (err) {
-      if (!aborted) {
-        const creditReply = getInsufficientCreditsReplyFromError(err);
-        if (creditReply) {
-          writeSse(res, {
-            type: "done",
-            fullText: creditReply,
-            agentName: state.agentName,
-          });
-        } else {
-          writeSse(res, {
-            type: "error",
-            message: getErrorMessage(err),
-          });
-        }
-      }
-    } finally {
-      res.end();
-    }
-    return;
-  }
-
-  // ── POST /api/chat (legacy — routes to default conversation) ───────
+  // ── POST /api/chat ──────────────────────────────────────────────────────
   // Routes messages through the full ElizaOS message pipeline so the agent
   // has conversation memory, context, and always responds (DM + client_chat
   // bypass the shouldRespond LLM evaluation).
-  //
-  // Cloud mode: when a cloud proxy is active, messages are forwarded to the
-  // remote sandbox instead of the local runtime.  Supports SSE streaming
-  // when the client sends Accept: text/event-stream.
   if (method === "POST" && pathname === "/api/chat") {
-    const chatPayload = await readChatRequestPayload(req, res, {
-      readJsonBody,
-      error,
+    const chatRequestStartedAt = Date.now();
+    const body = await readJsonBody<{
+      text?: string;
+      securityContext?: {
+        confirmBeforeExecution?: boolean;
+        confirmBeforeSpend?: boolean;
+        spendGuardEnabled?: boolean;
+        polymarketExecutionEnabled?: boolean;
+        dailySpendLimitUsd?: number;
+        perTradeLimitUsd?: number;
+        cooldownSeconds?: number;
+      };
+    }>(req, res);
+    if (!body) return;
+    const userText = body.text?.trim();
+    const chatSecurityContext = body.securityContext;
+    if (!userText) {
+      error(res, "text is required");
+      return;
+    }
+    if (userText.length > MAX_CHAT_TEXT_CHARS) {
+      error(
+        res,
+        `text exceeds maximum length (${MAX_CHAT_TEXT_CHARS} chars)`,
+        413,
+      );
+      return;
+    }
+
+    // Early hard route: Polymarket market-intel requests should always return
+    // live public context and must not depend on wallet/plugin execution setup.
+    const recentTurnContext = state.chatRecentTurns
+      .slice(-3)
+      .map((t) => `${t.user} ${t.assistant}`)
+      .join(" ");
+    const earlyContext = `${userText} ${recentTurnContext}`.toLowerCase();
+    const mentionsPolymarket =
+      /\b(polymarket|poly\s*market|ply\s*market|prediction\s*market|poly)\b/i.test(
+        earlyContext,
+      );
+    const wantsHotMarkets =
+      /\b(hot|trending|current|popular|live)\b/i.test(earlyContext) &&
+      /\b(markets?|bets?|vets?|odds|topics?)\b/i.test(earlyContext);
+    const isLiveCorrection =
+      /\b(i meant live|meant live|live not|not kive)\b/i.test(userText);
+    const wantsIntelOnly =
+      !/\b(execute|place|run|for me|on my behalf|connect|setup|configure|enable)\b/i.test(
+        earlyContext,
+      );
+    if (
+      mentionsPolymarket &&
+      wantsIntelOnly &&
+      (wantsHotMarkets || isLiveCorrection)
+    ) {
+      const topicHint = inferPolymarketTopicHint(earlyContext);
+      let markets = await fetchHotPolymarketMarkets(topicHint);
+      if (markets.length === 0 && topicHint) {
+        markets = await fetchHotPolymarketMarkets(null);
+      }
+      if (markets.length > 0) {
+        const lines: string[] = ["Live Polymarket hot topics right now:"];
+        if (topicHint === "sports") {
+          lines[0] = "Live Polymarket hot sports topics right now:";
+        }
+        for (const [index, market] of markets.entries()) {
+          const vol =
+            market.volumeUsd == null
+              ? "n/a"
+              : `$${market.volumeUsd.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+          const liq =
+            market.liquidityUsd == null
+              ? "n/a"
+              : `$${market.liquidityUsd.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+          const yesNo =
+            market.yesPrice != null && market.noPrice != null
+              ? `, YES ${market.yesPrice.toFixed(0)}c / NO ${market.noPrice.toFixed(0)}c`
+              : "";
+          const endAt = market.endDateIso
+            ? `, ends ${new Date(market.endDateIso).toLocaleDateString()}`
+            : "";
+          lines.push(
+            `${index + 1}) ${market.question} (vol ${vol}, liq ${liq}${yesNo}${endAt}${market.active === false ? ", inactive" : ""})`,
+          );
+        }
+        lines.push("Hot = highest live volume/liquidity among active markets.");
+        lines.push(
+          "If you want execution later, I can prepare entries once setup is enabled.",
+        );
+        const assistant = lines.join("\n");
+        state.chatTurnCount += 1;
+        state.chatRecentTurns.push({ user: userText, assistant });
+        if (state.chatRecentTurns.length > 12) state.chatRecentTurns.shift();
+        json(res, { text: assistant, agentName: state.agentName });
+        return;
+      }
+      const fallback =
+        "I couldn’t pull the live Polymarket feed right this second.\n" +
+        "Try again in a moment, or send a specific topic (for example: election, fed rates, crypto ETF) and I’ll fetch matching live markets.";
+      state.chatTurnCount += 1;
+      state.chatRecentTurns.push({ user: userText, assistant: fallback });
+      if (state.chatRecentTurns.length > 12) state.chatRecentTurns.shift();
+      json(res, { text: fallback, agentName: state.agentName });
+      return;
+    }
+
+    // Early route: topic-focused polymarket intel (e.g. "poly bet fed rates")
+    // should return live matching markets, even without "hot/live" keywords.
+    if (mentionsPolymarket && wantsIntelOnly) {
+      const topicHint = inferPolymarketTopicHint(earlyContext);
+      const userTopicQuery = marketLookupQueryFromUserText(userText);
+      const contextTopicQuery = marketLookupQueryFromUserText(earlyContext);
+      const looksUseful = (q: string): boolean =>
+        q.length >= 3 &&
+        !/^(rn|now|today|go|continue|yes continue|poly|polymarket|market|markets|bet|bets)$/i.test(
+          q,
+        );
+      const topicQuery = looksUseful(userTopicQuery)
+        ? userTopicQuery
+        : looksUseful(contextTopicQuery)
+          ? contextTopicQuery
+          : "";
+      const followThroughIntent =
+        /^(go|continue|continue please|yes continue|keep going)$/i.test(
+          userText.trim(),
+        );
+      const queryLooksUseful = looksUseful(topicQuery);
+      if (queryLooksUseful) {
+        const topicMarkets = await fetchPolymarketMarketContext(
+          topicQuery,
+          topicHint,
+        );
+        if (topicMarkets.length > 0) {
+          const lines: string[] = [
+            `Live Polymarket matches for “${topicQuery}”:`,
+          ];
+          for (const [index, market] of topicMarkets.entries()) {
+            const vol =
+              market.volumeUsd == null
+                ? "n/a"
+                : `$${market.volumeUsd.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+            const liq =
+              market.liquidityUsd == null
+                ? "n/a"
+                : `$${market.liquidityUsd.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+            const yesNo =
+              market.yesPrice != null && market.noPrice != null
+                ? `, YES ${market.yesPrice.toFixed(0)}c / NO ${market.noPrice.toFixed(0)}c`
+                : "";
+            lines.push(
+              `${index + 1}) ${market.question} (vol ${vol}, liq ${liq}${yesNo})`,
+            );
+          }
+          lines.push(
+            "If you want, I can narrow this to top 1-2 setups by liquidity and risk.",
+          );
+          const assistant = lines.join("\n");
+          state.chatTurnCount += 1;
+          state.chatRecentTurns.push({ user: userText, assistant });
+          if (state.chatRecentTurns.length > 12) state.chatRecentTurns.shift();
+          json(res, { text: assistant, agentName: state.agentName });
+          return;
+        }
+      }
+      if (followThroughIntent && queryLooksUseful) {
+        const topicMarkets = await fetchPolymarketMarketContext(
+          topicQuery,
+          topicHint,
+        );
+        if (topicMarkets.length > 0) {
+          const lines: string[] = [
+            `Continuing with live Polymarket matches for “${topicQuery}”:`,
+          ];
+          for (const [index, market] of topicMarkets.entries()) {
+            const vol =
+              market.volumeUsd == null
+                ? "n/a"
+                : `$${market.volumeUsd.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+            const liq =
+              market.liquidityUsd == null
+                ? "n/a"
+                : `$${market.liquidityUsd.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+            lines.push(`${index + 1}) ${market.question} (vol ${vol}, liq ${liq})`);
+          }
+          const assistant = lines.join("\n");
+          state.chatTurnCount += 1;
+          state.chatRecentTurns.push({ user: userText, assistant });
+          if (state.chatRecentTurns.length > 12) state.chatRecentTurns.shift();
+          json(res, { text: assistant, agentName: state.agentName });
+          return;
+        }
+      }
+    }
+
+    const chatUserCtx = getOptionalMultiUserContextFromBearer(req);
+    const configuredHandle = getConfiguredUiHandle(state.config);
+    const mentionFromDisplayName = (() => {
+      const raw = chatUserCtx?.displayName?.trim() ?? "";
+      if (!raw) return null;
+      const compact = raw.replace(/\s+/g, "");
+      if (!compact) return null;
+      return compact.startsWith("@") ? compact : `@${compact}`;
+    })();
+    const usernameForMention = configuredHandle ?? mentionFromDisplayName;
+    const coreIntents = classifyCoreIntents(userText);
+    const {
+      isGenericOpener,
+      capabilityIntent,
+      toolSafetyReviewIntent,
+      socialCheckInIntent,
+      genericHowItWorksIntent,
+      gettingStartedIntent,
+      platformIntent,
+      agentOverviewIntent,
+      workflowExplainIntent,
+      marketsAppsIntent,
+      explainPluginsIntent,
+      inAppTradeBetAppsIntent,
+      securityControlsIntent,
+      postSetupExecutionIntent,
+      nextStepIntent,
+      setupNoTargetIntent,
+      planningAdviceIntent,
+    } = coreIntents;
+    const isLowContext = isLowContextInput(userText, {
+      agentOverviewIntent,
+      workflowExplainIntent,
     });
-    if (!chatPayload) return;
-    const { prompt, channelType } = chatPayload;
+    const shouldMentionUsernameOnFirstReply =
+      state.chatTurnCount === 0 &&
+      isGenericOpener &&
+      Boolean(usernameForMention);
+    const ambiguousThisIntent =
+      /\bwhat this does\b/i.test(userText) &&
+      !/\b(milaidy|this platform|the platform|workspace)\b/i.test(userText);
+    const globalLower = userText.toLowerCase();
+    const lowerUserText = globalLower;
+    const lastAssistantTextForFlow =
+      [...state.chatRecentTurns]
+        .reverse()
+        .map((t) => t.assistant)
+        .find((txt) => typeof txt === "string" && txt.trim().length > 0) ?? "";
+    const continuationAnswerIntent = (() => {
+      const trimmed = userText.trim();
+      const userIsShort = trimmed.length > 0 && trimmed.length <= 120;
+      const explicitContinue =
+        /^(continue|continue please|go on|carry on|proceed|yes continue|keep going|do it|run it)$/i.test(
+          trimmed,
+        );
+      const looksLikeConstraintAnswer =
+        /\b(no|none|yes|yep|nah|nope|without|with)\b/i.test(trimmed) &&
+        /\b(constraint|restriction|limit|allergy|budget|mobility|preference|preferences)\b/i.test(
+          `${trimmed} ${lastAssistantTextForFlow}`,
+        );
+      const priorAskedQuestion =
+        /\?\s*$/.test(lastAssistantTextForFlow.trim()) ||
+        /\bquick question\b/i.test(lastAssistantTextForFlow) ||
+        /\b(any|what)\b.*\b(constraint|restriction|allerg|budget|mobility|preference)\b/i.test(
+          lastAssistantTextForFlow,
+        );
+      return (
+        userIsShort &&
+        (explicitContinue || (priorAskedQuestion && looksLikeConstraintAnswer))
+      );
+    })();
+    const planningPromptedForRiskHorizon =
+      /\b(time horizon|risk level|risk-aware plan)\b/i.test(
+        lastAssistantTextForFlow,
+      );
+    const riskLevelAnswer =
+      /\b(low|medium|high|conservative|moderate|aggressive)\b/i.exec(
+        userText,
+      )?.[1] ?? null;
+    const horizonAnswer =
+      /\b(\d+\s*(d|day|days|w|week|weeks|m|month|months|y|year|years)|short[- ]term|mid[- ]term|long[- ]term)\b/i.exec(
+        userText,
+      )?.[1] ?? null;
+    const planningFollowupAnswerIntent =
+      planningPromptedForRiskHorizon &&
+      Boolean(riskLevelAnswer || horizonAnswer) &&
+      userText.trim().length <= 120;
+    const continueConversationIntent =
+      /\b(continue|pick up|resume|where we (were|was) last chatting|where we left off|carry on)\b/i.test(
+        userText,
+      );
+    const hasConcreteFollowupIntent =
+      /\b(find|show|list|fetch|lookup|look up|bet|bets|trade|polymarket|market|markets|fed|rates|topic|topics)\b/i.test(
+        userText,
+      );
+    const acknowledgementIntent =
+      /^(thanks|thank you|thx|ty|nice|great|awesome|cool|perfect)[!. ]*$/i.test(
+        userText.trim(),
+      );
+    const genericHelpIntent =
+      /^(help|help me|can you help|i need help|assist me)[!. ]*$/i.test(
+        userText.trim(),
+      );
+    const resolvePluginTarget = () =>
+      resolveComponentTarget(userText, state.plugins, lastAssistantTextForFlow);
+
+    const commitChatTurn = (assistantText: string): void => {
+      const assistant = assistantText.trim();
+      if (!assistant) return;
+      state.chatTurnCount += 1;
+      state.chatRecentTurns.push({ user: userText, assistant });
+      if (state.chatRecentTurns.length > 12) state.chatRecentTurns.shift();
+
+      if (!state.chatRollingSummary || state.chatTurnCount % 4 === 0) {
+        const recent = state.chatRecentTurns.slice(-6);
+        const packed = recent
+          .map((t, i) => {
+            const u = t.user.replace(/\s+/g, " ").slice(0, 140);
+            const a = t.assistant.replace(/\s+/g, " ").slice(0, 180);
+            return `T${i + 1} U:${u} | A:${a}`;
+          })
+          .join("\n");
+        state.chatRollingSummary = packed.slice(0, 1600);
+      }
+    };
+
+    const stableHash = (s: string): number => {
+      let h = 0;
+      for (let i = 0; i < s.length; i += 1) h = (h * 31 + s.charCodeAt(i)) | 0;
+      return Math.abs(h);
+    };
+    const chooseVariant = <T>(seed: string, options: readonly T[]): T =>
+      options[stableHash(seed) % options.length]!;
+
+    const isPolymarketIntelAsk = (() => {
+      const text = `${userText} ${state.chatRecentTurns
+        .slice(-3)
+        .map((t) => t.user)
+        .join(" ")}`.toLowerCase();
+      return (
+        /\b(polymarket|poly\s*market|ply\s*market|prediction\s*market|poly)\b/i.test(
+          text,
+        ) &&
+        /\b(hot|trending|current|popular|live)\b/i.test(text) &&
+        /\b(markets?|bets?|vets?|odds|topics?)\b/i.test(text) &&
+        !/\b(execute|place|run|on my behalf|for me)\b/i.test(text)
+      );
+    })();
+
+    const rewriteDullReply = (inputText: string): string => {
+      let out = inputText.trim();
+      const providersReady = state.plugins
+        .filter(
+          (p) =>
+            p.category === "ai-provider" &&
+            p.enabled &&
+            p.validationErrors.length === 0,
+        )
+        .map((p) => normalizeComponentName(p.name));
+      const integrationsReady = state.plugins
+        .filter(
+          (p) =>
+            p.category === "connector" &&
+            p.enabled &&
+            p.validationErrors.length === 0,
+        )
+        .map((p) => normalizeComponentName(p.name));
+
+      if (/^tell me your goal in one line/i.test(out)) {
+        return (
+          "I’m with you. Tell me what outcome you want and I’ll map the next steps.\n" +
+          `Ready now: provider=${providersReady.length ? providersReady.join(", ") : "none"}, integrations=${integrationsReady.length ? integrationsReady.join(", ") : "none"}.`
+        );
+      }
+
+      if (/^understood\.\s*continuing:.*quick plan:/is.test(out)) {
+        return (
+          "Got it. I’ll keep this practical.\n" +
+          "Tell me the exact outcome you want first, and I’ll give the direct path."
+        );
+      }
+
+      if (
+        isPolymarketIntelAsk &&
+        /blocked by setup|not ready yet|execution.*blocked|not have live market feeds/i.test(
+          out,
+        )
+      ) {
+        const hot = polymarketIntelCache.hot.slice(0, 5);
+        if (hot.length > 0) {
+          const lines: string[] = ["Live Polymarket hot topics right now:"];
+          for (const [index, market] of hot.entries()) {
+            const vol =
+              market.volumeUsd == null
+                ? "n/a"
+                : `$${market.volumeUsd.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+            const liq =
+              market.liquidityUsd == null
+                ? "n/a"
+                : `$${market.liquidityUsd.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+            lines.push(`${index + 1}) ${market.question} (vol ${vol}, liq ${liq})`);
+          }
+          lines.push(
+            "If you want execution later, I can prep the same markets once setup is enabled.",
+          );
+          return lines.join("\n");
+        }
+        return (
+          "I couldn’t load live Polymarket markets right this second.\n" +
+          "Try again in a moment, or send a topic (fed rates, election, crypto ETF) and I’ll fetch matching live markets."
+        );
+      }
+
+      return out;
+    };
+    const enforcePrecisionReply = (inputText: string): string => {
+      let out = inputText.trim().replace(/\n{3,}/g, "\n\n");
+      if (!out) return out;
+
+      // Strip meta narration so answers stay direct.
+      out = out
+        .replace(/^Got it —.*quick summary and next step:\s*/is, "")
+        .replace(
+          /^Understood\.\s*Continuing:.*I[’']ll answer this directly first, then give the exact follow-up checks\/actions\.\s*/is,
+          "",
+        );
+
+      // Keep one focused question max for conversational clarity.
+      if (!isPolymarketIntelAsk) {
+        let seenQuestion = false;
+        out = out.replace(/[^?\n]*\?/g, (chunk) => {
+          if (!seenQuestion) {
+            seenQuestion = true;
+            return chunk;
+          }
+          return chunk.replace(/\?/g, ".");
+        });
+      }
+
+      // Prevent long generic walls in normal conversation.
+      const lines = out.split("\n");
+      const numberedListStyle = /\b1\)|2\)|3\)\b/.test(out);
+      if (!isPolymarketIntelAsk && !numberedListStyle && lines.length > 7) {
+        out = lines.slice(0, 6).join("\n");
+      }
+
+      return out.trim();
+    };
+
+    const replyText = (text: string): void => {
+      let finalText = enforcePrecisionReply(rewriteDullReply(text));
+      if (
+        shouldMentionUsernameOnFirstReply &&
+        usernameForMention &&
+        finalText &&
+        !finalText.toLowerCase().includes(usernameForMention.toLowerCase())
+      ) {
+        const greetingMatch = /^\s*(hey|hi|hello|yo|gm)\b/i.exec(finalText);
+        if (greetingMatch) {
+          const greetingRaw = greetingMatch[1] ?? "Hey";
+          const greeting =
+            greetingRaw.length > 1
+              ? greetingRaw[0]!.toUpperCase() +
+                greetingRaw.slice(1).toLowerCase()
+              : greetingRaw.toUpperCase();
+          const tail = finalText
+            .slice(greetingMatch[0].length)
+            .trimStart()
+            .replace(/^[,\-:\s]+/, "");
+          finalText = tail
+            ? `${greeting} ${usernameForMention}, ${tail}`
+            : `${greeting} ${usernameForMention},`;
+        } else {
+          finalText = `Hey ${usernameForMention}, ${finalText}`;
+        }
+      }
+      // Global anti-repeat guard: if we're about to send nearly the same reply
+      // as recent assistant messages, rewrite/augment so flow doesn't feel stuck.
+      const recentAssistantNormalized = state.chatRecentTurns
+        .slice(-4)
+        .map((t) => t.assistant.replace(/\s+/g, " ").trim().toLowerCase())
+        .filter(Boolean);
+      const normalizedFinal = finalText
+        .replace(/\s+/g, " ")
+        .trim()
+        .toLowerCase();
+      const continuationLikeInput =
+        /^(continue|continue please|go on|carry on|proceed|yes continue|keep going|do it|run it)$/i.test(
+          userText.trim(),
+        );
+      const socialPraiseInput =
+        /\b(damn|dope|nice|sick|fire|awesome|great|love it|love this|that'?s (awesome|great|dope))\b/i.test(
+          userText,
+        ) ||
+        /^(thanks|thank you|thx|ty)\b/i.test(userText.trim());
+      const clarificationFollowUpInput =
+        /\b(i mean|not (right now|rn)|once (it|this) is set up|when (it|this) is set up|when setup is complete)\b/i.test(
+          userText,
+        );
+      const platformExecutionContext =
+        /\b(provider|plugin|integration|app|apps|wallet|polymarket|discord|telegram|ai settings|markets\s*&\s*apps)\b/i.test(
+          `${userText} ${priorGoalHint}`,
+        );
+      if (
+        normalizedFinal &&
+        recentAssistantNormalized.includes(normalizedFinal)
+      ) {
+        if (
+          continuationLikeInput ||
+          (priorGoalHint &&
+            !platformExecutionContext &&
+            !socialPraiseInput &&
+            !clarificationFollowUpInput)
+        ) {
+          finalText = chooseVariant(
+            `${normalizedFinal}:${state.chatTurnCount}:${userText.length}`,
+            [
+              `Continuing your current task: “${priorGoalHint || "active goal"}”. I’ll keep this concise and actionable.`,
+              `Got it — continuing from your current goal${priorGoalHint ? ` (“${priorGoalHint}”)` : ""}.`,
+              `Understood. I’m continuing the same workflow${priorGoalHint ? ` (“${priorGoalHint}”)` : ""}.`,
+            ] as const,
+          );
+        } else if (finalText.length <= 220) {
+          finalText = chooseVariant(
+            `${normalizedFinal}:${state.chatTurnCount}:${userText.length}`,
+            [
+              "Let’s keep momentum. Give me the exact provider/integration and action, and I’ll execute the next step.",
+              "I can run this now. Send target + outcome in one line and I’ll take it from there.",
+              "Ready to execute. Tell me what component to use and the result you want.",
+            ] as const,
+          );
+        } else {
+          const tail = chooseVariant(
+            `${normalizedFinal}:${state.chatTurnCount}`,
+            [
+              "Next: give me the exact target + action and I’ll execute.",
+              "If you want, name the component and I’ll run the next step now.",
+              "Send one concrete command and I’ll execute from here.",
+            ] as const,
+          );
+          finalText = `${finalText}\n${tail}`;
+        }
+      }
+      if (finalText) commitChatTurn(finalText);
+      // Smooth pacing: deterministic responses should not feel "instant/scripted"
+      // compared to model responses. Keep a small latency floor with jitter.
+      const minReplyMs = 520 + (stableHash(userText) % 220);
+      const elapsed = Date.now() - chatRequestStartedAt;
+      const waitMs = Math.max(0, minReplyMs - elapsed);
+      const send = () =>
+        json(res, {
+          text: finalText,
+          agentName: state.agentName,
+        });
+      if (waitMs > 0) {
+        setTimeout(send, waitMs);
+      } else {
+        send();
+      }
+    };
+
+    const recentTurnsContext = (() => {
+      const turns = state.chatRecentTurns.slice(-5);
+      if (turns.length === 0) return "";
+      const packed = turns
+        .map((t, i) => {
+          const u = t.user.replace(/\s+/g, " ").slice(0, 200);
+          const a = t.assistant.replace(/\s+/g, " ").slice(0, 240);
+          return `${i + 1}. User: ${u}\n   Milaidy: ${a}`;
+        })
+        .join("\n");
+      return `Recent conversation turns:\n${packed}\n\n`;
+    })();
+    const summaryContext =
+      state.chatRollingSummary && state.chatRollingSummary.trim()
+        ? `Session context summary:\n${state.chatRollingSummary}\n\n`
+        : "";
+    const fastContext = `${recentTurnsContext}${summaryContext}`;
+    const readyPlugins = state.plugins
+      .filter((p) => p.enabled && p.validationErrors.length === 0)
+      .map((p) => p.name)
+      .slice(0, 10);
+    const blockedPlugins = state.plugins
+      .filter((p) => p.enabled && p.validationErrors.length > 0)
+      .map(
+        (p) =>
+          `${p.name}${p.validationErrors[0]?.field ? ` (${p.validationErrors[0].field})` : ""}`,
+      )
+      .slice(0, 8);
+    const runtimeLimitationsContext =
+      `Runtime capability context:\n` +
+      `- Ready components (providers/integrations): ${readyPlugins.length > 0 ? readyPlugins.join(", ") : "none"}.\n` +
+      `- Enabled but blocked by setup: ${blockedPlugins.length > 0 ? blockedPlugins.join(", ") : "none"}.\n` +
+      `- You must never imply an unavailable capability is ready.\n` +
+      `- If a request needs unavailable capability, state the blocker briefly and ask for the next required input/setup step.\n\n`;
+    const priorGoalHint = (() => {
+      const isPhatic = (text: string) =>
+        /^(hey|hi|hello|yo|sup|gm|good morning|good afternoon|good evening|hola|how are you|how you doing|hows it going|thanks|thank you|thx|ty|yes|yes continue|continue|help|help me)\b/i.test(
+          text.trim(),
+        );
+      const recent = [...state.chatRecentTurns].reverse();
+      const match = recent.find((turn) => {
+        const t = turn.user?.trim() ?? "";
+        return t.length >= 8 && !isPhatic(t);
+      });
+      if (match?.user) return match.user.replace(/\s+/g, " ").slice(0, 110);
+      const summary = state.chatRollingSummary ?? "";
+      if (!summary.trim()) return "";
+      const summaryLines = summary
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .reverse();
+      for (const line of summaryLines) {
+        const m = /\bU:(.+?)\s+\|\s+A:/.exec(line);
+        const candidate = m?.[1]?.trim() ?? "";
+        if (!candidate) continue;
+        if (isPhatic(candidate)) continue;
+        return candidate.replace(/\s+/g, " ").slice(0, 110);
+      }
+      return "";
+    })();
+    const universalWalletAddrs = getEffectiveConnectedWalletAddresses(req);
+    const hasModelRuntime =
+      Boolean(state.runtime) && hasConfiguredAiProvider(state);
+    const highRiskDeterministicIntent =
+      /\b(execute|execution|trade|bet|swap|transfer|send|withdraw|wallet|private key|secret|security|confirmations?|limits?|cooldown)\b/i.test(
+        userText,
+      );
+    const marketsAppsPlanAsk =
+      marketsAppsIntent &&
+      /\b(action plan|next action plan|plan)\b/i.test(userText);
+    const preferConversationFirst =
+      hasModelRuntime &&
+      !highRiskDeterministicIntent &&
+      !acknowledgementIntent &&
+      !genericHelpIntent &&
+      !continueConversationIntent &&
+      userText.trim().length >= 10;
+
+    if (marketsAppsPlanAsk) {
+      const enabledIntegrations = state.plugins
+        .filter(
+          (p) =>
+            p.category === "connector" &&
+            p.enabled &&
+            p.configured &&
+            p.validationErrors.length === 0,
+        )
+        .map((p) => normalizeComponentName(p.name));
+      replyText(
+        "Perfect. I’ll treat Markets & Apps as Milaidy integrations (not geography/industry markets).\n" +
+          `Current integrations ready: ${enabledIntegrations.length ? enabledIntegrations.join(", ") : "none"}.\n` +
+          "Next move: pick 1 distribution app and 1 execution app, then I’ll build your exact 5-step setup + run plan.",
+      );
+      return;
+    }
+
+    if (preferConversationFirst) {
+      try {
+        const dynamicPrompt =
+          `You are ${state.runtime!.character.name ?? "Milaidy"}, an execution-capable workspace operator.\n` +
+          "Priority behavior:\n" +
+          "1) Understand the user's exact meaning from their wording; do not default to canned blocks.\n" +
+          "2) If context is incomplete, ask one focused follow-up question.\n" +
+          "3) Keep replies concise and conversational (1-4 lines).\n" +
+          "4) Only mention setup blockers when they are directly relevant.\n" +
+          "5) Never claim an unavailable integration/capability is ready.\n" +
+          "6) Prefer one clear recommendation over long option menus.\n" +
+          "7) Avoid meta narration (no 'quick summary', no 'continuing').\n" +
+          "8) In Milaidy context, 'Markets & Apps' means integrations/connectors configuration. Do not reinterpret this as geographic or industry market strategy unless the user explicitly asks go-to-market/geography/vertical strategy.\n\n" +
+          runtimeLimitationsContext +
+          fastContext +
+          `User message:\n${userText}`;
+
+        const quick = await Promise.race([
+          state.runtime!.useModel(ModelType.TEXT_SMALL, { prompt: dynamicPrompt }),
+          new Promise<string>((_, reject) =>
+            setTimeout(
+              () => reject(new Error("Conversation-first dynamic reasoning timed out")),
+              7000,
+            ),
+          ),
+        ]);
+        if (typeof quick === "string" && quick.trim()) {
+          replyText(quick.trim());
+          return;
+        }
+      } catch {
+        // Fall through to deterministic router stack.
+      }
+    }
+
+    if (UNIVERSAL_ROUTER_ENABLED && !preferConversationFirst) {
+      const universalReply = orchestrateUniversalReply({
+        userText,
+        turns: state.chatRecentTurns,
+        plugins: state.plugins.map((p) => ({
+          id: p.id,
+          name: p.name,
+          category: p.category,
+          enabled: p.enabled,
+          configured: p.configured,
+          validationErrors: p.validationErrors,
+          parameters: p.parameters.map((pm) => ({
+            key: pm.key,
+            required: pm.required,
+          })),
+        })),
+        username: usernameForMention ?? null,
+        walletConnected: Boolean(
+          universalWalletAddrs.evmAddress || universalWalletAddrs.solanaAddress,
+        ),
+      });
+      if (universalReply) {
+        replyText(universalReply);
+        return;
+      }
+    }
+    if (INTENT_ENGINE_V2_ENABLED && !preferConversationFirst) {
+      const addrs = getEffectiveConnectedWalletAddresses(req);
+      const capabilityGraph = buildCapabilityGraph(
+        state.plugins.map((p) => ({
+          id: p.id,
+          name: p.name,
+          category: p.category,
+          enabled: p.enabled,
+          configured: p.configured,
+          validationErrors: p.validationErrors,
+        })),
+        Boolean(addrs.evmAddress || addrs.solanaAddress),
+      );
+      const interpreted = interpretIntentV2(userText, {
+        lastAssistantText: lastAssistantTextForFlow,
+      });
+      const v2Reply = composeResponseV2(interpreted, capabilityGraph, {
+        username: usernameForMention,
+        priorGoal: priorGoalHint || null,
+      });
+      if (v2Reply) {
+        replyText(v2Reply);
+        return;
+      }
+    }
+
+    const polymarketContextText =
+      `${userText} ${priorGoalHint} ${lastAssistantTextForFlow}`.toLowerCase();
+    const polymarketPolicyIntent =
+      /\b(polymarket|poly market|poly|bet|bets|trade|trades|execution)\b/i.test(
+        polymarketContextText,
+      ) &&
+      /\b(random|randomized|randomise|randomize|choose|chose|decide|variables?|limits?|on my behalf|from my limit|within my limit)\b/i.test(
+        userText,
+      );
+    if (polymarketPolicyIntent) {
+      replyText(
+        "Yes — I can choose bet variables within your configured limits, but only after setup is complete.\n" +
+          "Safety still applies: confirmations, per-trade cap, daily cap, cooldown, and execution toggle.\n" +
+          "If you want randomized execution, define the guardrails (allowed market scope, per-trade max, daily cap), and I’ll stay inside them.",
+      );
+      return;
+    }
+
+    const wantsHotPolymarketNow =
+      /\b(hot|trending|current|popular|live)\b/i.test(
+        polymarketContextText,
+      ) &&
+      /\b(polymarket|poly\s*market|ply\s*market|prediction\s*market|poly)\b/i.test(
+        polymarketContextText,
+      );
+    const polymarketTopicLookupIntent =
+      /\b(polymarket|poly\s*market|ply\s*market|prediction\s*market|poly|bet|bets|odds|outcome)\b/i.test(
+        polymarketContextText,
+      ) &&
+      /\b(on|about|for|topic|find|lookup|look up|what are|show|list|hot|trending|current|popular|live)\b/i.test(
+        polymarketContextText,
+      ) &&
+      !/\b(markets?\s*&?\s*apps?|action plan|next action plan)\b/i.test(
+        polymarketContextText,
+      ) &&
+      !/\b(can you|will you|would you|able|on my behalf|limit|limits|random|variables?|choose|decide)\b/i.test(
+        polymarketContextText,
+      ) &&
+      !/\b(setup|set up|configure|config|connect|enable|manage|api key|token)\b/i.test(
+        polymarketContextText,
+      );
+    if (polymarketTopicLookupIntent) {
+      const query = marketLookupQueryFromUserText(userText);
+      const topicHint = inferPolymarketTopicHint(
+        `${polymarketContextText} ${query}`,
+      );
+      let markets =
+        wantsHotPolymarketNow || query.length < 3
+          ? await fetchHotPolymarketMarkets(topicHint)
+          : await fetchPolymarketMarketContext(query, topicHint);
+      if (markets.length === 0 && !wantsHotPolymarketNow) {
+        markets = await fetchHotPolymarketMarkets(topicHint);
+      }
+      if (markets.length === 0 && topicHint) {
+        markets = await fetchHotPolymarketMarkets(null);
+      }
+      if (markets.length > 0) {
+        const lines: string[] = [];
+        if (!wantsHotPolymarketNow && query.length >= 3) {
+          lines.push(`Live Polymarket context for “${query}”:`);
+        } else {
+          lines.push(
+            topicHint === "sports"
+              ? "Live Polymarket hot sports topics right now:"
+              : "Live Polymarket hot topics right now:",
+          );
+        }
+        for (const [index, market] of markets.entries()) {
+          const vol =
+            market.volumeUsd == null
+              ? "n/a"
+              : `$${market.volumeUsd.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+          const liq =
+            market.liquidityUsd == null
+              ? "n/a"
+              : `$${market.liquidityUsd.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+          const yesNo =
+            market.yesPrice != null && market.noPrice != null
+              ? `, YES ${market.yesPrice.toFixed(0)}c / NO ${market.noPrice.toFixed(0)}c`
+              : "";
+          const endAt = market.endDateIso
+            ? `, ends ${new Date(market.endDateIso).toLocaleDateString()}`
+            : "";
+          lines.push(
+            `${index + 1}) ${market.question} (vol ${vol}, liq ${liq}${yesNo}${endAt}${market.active === false ? ", inactive" : ""})`,
+          );
+        }
+        lines.push(
+          "Hot = highest live volume/liquidity among active markets from public data.",
+        );
+        lines.push(
+          "If you want to execute, tell me: exact market line, outcome (YES/NO), and amount (USD).",
+        );
+        lines.push(
+          "Execution still requires wallet + Polymarket setup + confirmation/limits.",
+        );
+        replyText(lines.join("\n"));
+        return;
+      }
+    }
+
+    const explicitFlowIntent =
+      marketsAppsIntent ||
+      explainPluginsIntent ||
+      inAppTradeBetAppsIntent ||
+      securityControlsIntent ||
+      postSetupExecutionIntent ||
+      nextStepIntent ||
+      setupNoTargetIntent ||
+      gettingStartedIntent;
+    const conversationalReasoningIntent =
+      /\b(plan|advice|explain|understand|how|what|why|help|guide|workflow|strategy|ideas?|invest|travel|write|draft|email|calendar)\b/i.test(
+        userText,
+      );
+    const shouldTryEarlyDynamicReasoning =
+      Boolean(state.runtime) &&
+      hasConfiguredAiProvider(state) &&
+      !preferConversationFirst &&
+      !explicitFlowIntent &&
+      !acknowledgementIntent &&
+      !genericHelpIntent &&
+      !isLowContext &&
+      userText.trim().length >= 12 &&
+      conversationalReasoningIntent;
+    if (shouldTryEarlyDynamicReasoning) {
+      try {
+        const dynamicPrompt =
+          `You are ${state.runtime!.character.name ?? "Milaidy"}, an execution-capable workspace operator.\n` +
+          "Respond like a real conversation partner, not a template.\n" +
+          "Rules:\n" +
+          "1) Briefly acknowledge the user goal.\n" +
+          "2) Provide direct, useful guidance now.\n" +
+          "3) If critical input is missing, ask only one focused question.\n" +
+          "4) Do not invent unavailable integrations; use runtime context.\n" +
+          "5) For money actions, require confirmations/limits before execution.\n" +
+          "6) In Milaidy context, 'Markets & Apps' means integrations/connectors configuration, not geography/industry strategy unless explicitly requested.\n\n" +
+          runtimeLimitationsContext +
+          fastContext +
+          `User message:\n${userText}`;
+
+        const quick = await Promise.race([
+          state.runtime!.useModel(ModelType.TEXT_SMALL, { prompt: dynamicPrompt }),
+          new Promise<string>((_, reject) =>
+            setTimeout(
+              () => reject(new Error("Early dynamic reasoning timed out")),
+              7000,
+            ),
+          ),
+        ]);
+        if (typeof quick === "string" && quick.trim()) {
+          replyText(quick.trim());
+          return;
+        }
+      } catch {
+        // Fall through to deterministic flow and existing model paths.
+      }
+    }
+
+    const universalResponseStructure =
+      "Universal reply style for every message:\n" +
+      "- Sound like a real operator in conversation, not a form/template.\n" +
+      "- Keep replies short by default (1-4 lines).\n" +
+      "- Align to user intent, then give the best next step.\n" +
+      "- Ask one focused follow-up question only when critical detail is missing.\n" +
+      "- If blocked, state blocker plainly and give one concrete next step.\n\n";
+    const buildNoModelContinuityReply = (input: string): string => {
+      const t = input.trim();
+      const lower = t.toLowerCase();
+      const readyProviders = state.plugins
+        .filter(
+          (p) =>
+            p.category === "ai-provider" &&
+            p.enabled &&
+            p.validationErrors.length === 0,
+        )
+        .map((p) => normalizeComponentName(p.name));
+      const readyIntegrations = state.plugins
+        .filter(
+          (p) =>
+            p.category === "connector" &&
+            p.enabled &&
+            p.validationErrors.length === 0,
+        )
+        .map((p) => normalizeComponentName(p.name));
+      const polymarketHotAsk =
+        /\b(polymarket|poly\s*market|ply\s*market|poly)\b/i.test(lower) &&
+        /\b(hot|trending|current|popular|live)\b/i.test(lower) &&
+        /\b(markets?|bets?|vets?|odds|topics?)\b/i.test(lower);
+      if (polymarketHotAsk) {
+        const hot = polymarketIntelCache.hot.slice(0, 5);
+        if (hot.length > 0) {
+          const lines: string[] = ["Latest cached Polymarket hot topics:"];
+          for (const [index, market] of hot.entries()) {
+            const vol =
+              market.volumeUsd == null
+                ? "n/a"
+                : `$${market.volumeUsd.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+            const liq =
+              market.liquidityUsd == null
+                ? "n/a"
+                : `$${market.liquidityUsd.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+            lines.push(`${index + 1}) ${market.question} (vol ${vol}, liq ${liq})`);
+          }
+          lines.push(
+            "I can fetch a fresh list again in a moment, or filter by a topic like fed rates/election/crypto ETF.",
+          );
+          return lines.join("\n");
+        }
+        return (
+          "I couldn’t load the live Polymarket feed right now.\n" +
+          "Try again in a moment, or give a topic (fed rates, election, crypto ETF) and I’ll pull matching markets."
+        );
+      }
+      const recentUserText = state.chatRecentTurns
+        .slice(-6)
+        .map((turn) => turn.user)
+        .join(" ");
+      const combined = `${recentUserText} ${t}`.toLowerCase();
+      const hasContext = combined.replace(/\s+/g, " ").trim().length >= 16;
+      if (hasContext) {
+        const continuationLike =
+          /^(continue|continue please|go on|carry on|proceed|yes continue|keep going|do it|run it|pick up where we left off|continue where we was last chatting)$/i.test(
+            t,
+          );
+        const goal = (continuationLike && priorGoalHint ? priorGoalHint : t)
+          .replace(/\s+/g, " ")
+          .trim();
+        const asksDirectQuestion =
+          /\?/.test(t) ||
+          /^\s*(what|when|why|how|where|who|which|can you|could you|would you|will you|do you|does it|is it|are you|should i|should we|need to)\b/i.test(
+            t,
+          );
+        if (
+          asksDirectQuestion &&
+          /\b(dog|pet)\b/i.test(goal) &&
+          /\b(quar+antine|quaranteen|quarantine)\b/i.test(goal)
+        ) {
+          return (
+            "Short answer: quarantine may be avoidable if all entry requirements are met, but you must verify current destination and carrier rules.\n" +
+            "Check in order:\n" +
+            "1) Official destination pet-entry rules\n" +
+            "2) Airline pet policy for your route\n" +
+            "3) Vet certificate/vaccination timeline\n" +
+            "If you want, I’ll draft a UK -> Romania dog-travel checklist next."
+          );
+        }
+        if (
+          /\b(travel|trip|holiday|vacation|fly|flight|train|ferry)\b/i.test(
+            goal,
+          )
+        ) {
+          return (
+            `Understood. Continuing: “${goal}”.\n` +
+            "Quick execution plan:\n" +
+            "1) Confirm entry + transport rules (country, carrier, pet policy).\n" +
+            "2) Prepare required documents + vet timeline.\n" +
+            "3) Book pet-compatible transport and accommodation.\n" +
+            "4) Build a travel-day checklist (carrier, meds, food/water, backups).\n" +
+            "5) Final 72h checks and contingency plan.\n" +
+            "If you want, I’ll now draft this as a day-by-day checklist."
+          );
+        }
+        if (asksDirectQuestion) {
+          return (
+            "Got it. I can answer this directly.\n" +
+            "Tell me the exact integration or outcome you mean so I can stay precise."
+          );
+        }
+        if (continuationLike) {
+          return (
+            `Continuing: “${goal || "your active task"}”.\n` +
+            "Share the next detail and I’ll keep the same flow."
+          );
+        }
+        return (
+          `Got it — you’re asking about “${goal || "your current task"}”.\n` +
+          `Current readiness: provider=${readyProviders.length ? readyProviders.join(", ") : "none"}, integrations=${readyIntegrations.length ? readyIntegrations.join(", ") : "none"}.\n` +
+          "Give me one concrete outcome and I’ll return the exact next steps."
+        );
+      }
+      if (
+        /\b(then what|what next|next step|what now|after that)\b/.test(lower)
+      ) {
+        return "Next: name the provider/integration you want to run, and I’ll give the exact execute path.";
+      }
+      if (
+        /\b(how (this|it) works?|how do you work|how does this work)\b/.test(
+          lower,
+        )
+      ) {
+        return (
+          "If you’re referring to how the Milaidy workspace works: I interpret your goal, map it to enabled providers/integrations, then execute with permissions and safety checks. " +
+          "If a capability is blocked, I’ll tell you exactly what to enable next. Share your goal and I’ll run the next step."
+        );
+      }
+      if (
+        /\b(plan|planning|trip|travel|itinerary|roadmap|strategy)\b/.test(lower)
+      ) {
+        return "I can help. What’s your destination and budget range?";
+      }
+      if (/\b(reminder|calendar|email|mail|message|draft|send)\b/.test(lower)) {
+        return "I can do that. Share recipient + exact time/timezone first.";
+      }
+      if (/\b(bet|trade|swap|transfer|send|polymarket|wallet)\b/.test(lower)) {
+        return "I can handle this. What exact action and amount do you want?";
+      }
+      return (
+        `I can help with that.\n` +
+        `Ready now: provider=${readyProviders.length ? readyProviders.join(", ") : "none"}, integrations=${readyIntegrations.length ? readyIntegrations.join(", ") : "none"}.\n` +
+        "Tell me the exact outcome you want and I’ll map the next actions."
+      );
+    };
+    const globalTarget = resolvePluginTarget();
+    const universalHypotheticalCapabilityIntent =
+      /\b(when|if|once|after|what if)\b/.test(globalLower) &&
+      /\b(configure|configured|enable|enabled|setup|set up|connected|complete)\b/.test(
+        globalLower,
+      ) &&
+      /\b(can you|will you|would you|be able|are you able|will it|would it|does it)\b/.test(
+        globalLower,
+      );
+    if (universalHypotheticalCapabilityIntent && globalTarget) {
+      const missing = (globalTarget.validationErrors ?? []).map((e) => e.field);
+      const componentLabel =
+        globalTarget.category === "ai-provider" ? "provider" : "integration";
+      const settingsTab =
+        globalTarget.category === "ai-provider"
+          ? "AI Settings"
+          : "Markets & Apps";
+      const yesLead = `Yes — once ${globalTarget.name} is enabled/configured, I can operate through it.`;
+      if (
+        globalTarget.enabled &&
+        globalTarget.configured &&
+        missing.length === 0
+      ) {
+        replyText(
+          `${yesLead}\n` +
+            `Current status: ready.\n` +
+            `Tell me the exact action you want and I’ll run it with required safety checks.`,
+        );
+      } else {
+        replyText(
+          `${yesLead}\n` +
+            `Current status: not ready (${missing.length > 0 ? missing.join(", ") : `${componentLabel} disabled or not configured`}).\n` +
+            `Next: ${settingsTab} -> ${globalTarget.name} -> Manage, save, restart Milaidy.`,
+        );
+      }
+      return;
+    }
+
+    if (inAppTradeBetAppsIntent) {
+      const tradeBetIntegrations = state.plugins
+        .filter((p) => p.category === "connector")
+        .filter((p) =>
+          /\b(polymarket|discord|telegram|slack|wallet|evm|solana)\b/i.test(
+            `${p.id} ${p.name}`,
+          ),
+        )
+        .sort((a, b) => Number(b.enabled) - Number(a.enabled));
+      const enabled = tradeBetIntegrations
+        .filter((p) => p.enabled)
+        .map((p) => p.name);
+      const available = tradeBetIntegrations
+        .filter((p) => !p.enabled)
+        .map((p) => p.name);
+      replyText(
+        `In this Milaidy workspace, I only use in-app Markets & Apps integrations.\n` +
+          `Enabled for actions right now: ${enabled.length ? enabled.join(", ") : "none"}.\n` +
+          `Available to enable: ${available.length ? available.slice(0, 5).join(", ") : "no additional trade/bet integrations detected"}.\n` +
+          `If you want trading/betting here, enable Polymarket in Markets & Apps, then turn execution on in Security.`,
+      );
+      return;
+    }
+
+    if (marketsAppsIntent || explainPluginsIntent) {
+      const connectors = state.plugins
+        .filter((p) => p.category === "connector")
+        .sort((a, b) => Number(b.enabled) - Number(a.enabled))
+        .slice(0, 8);
+      const enabled = connectors.filter((p) => p.enabled).map((p) => p.name);
+      const notEnabled = connectors
+        .filter((p) => !p.enabled)
+        .map((p) => p.name);
+      const setupHypothetical =
+        /\b(what if|if i add|if i put|if i enter|if i set)\b/i.test(userText) &&
+        /\b(will it work|would it work|does it work|work then)\b/i.test(userText);
+      if (setupHypothetical) {
+        const asksTelegram = /\btelegram\b/i.test(userText);
+        const telegram = state.plugins.find((p) =>
+          /\btelegram\b/i.test(`${p.id} ${p.name}`),
+        );
+        if (asksTelegram && !telegram) {
+          replyText(
+            "If Telegram is available in your Markets & Apps list and fully configured, yes, it should work.\n" +
+              "Right now I don’t detect a Telegram integration in this workspace build, so there’s nothing to enable yet.\n" +
+              "Next: install/enable the Telegram integration, then add token/credentials in Markets & Apps -> Telegram -> Manage.",
+          );
+          return;
+        }
+        if (telegram) {
+          const missing = (telegram.validationErrors ?? []).map((e) => e.field);
+          if (telegram.enabled && telegram.configured && missing.length === 0) {
+            replyText(
+              "Yes. Telegram is setup-ready here, so once you add your bot details and save, it should work.\n" +
+                "After saving, restart Milaidy and send one test post command.",
+            );
+          } else {
+            replyText(
+              "Yes, it can work once setup is complete.\n" +
+                `Current Telegram status: ${missing.length > 0 ? `missing ${missing.join(", ")}` : "not fully enabled/configured"}.\n` +
+                "Next: Markets & Apps -> Telegram -> Manage, fill required fields, save, restart Milaidy, then run a test message.",
+            );
+          }
+          return;
+        }
+        replyText(
+          "Yes, once the integration is fully configured in Markets & Apps, it should work.\n" +
+            "After saving credentials, restart Milaidy and run one smoke test action to confirm.",
+        );
+        return;
+      }
+      replyText(
+        `Markets & Apps is where you manage external integrations Milaidy can use.\n` +
+          `Enabled now: ${enabled.length ? enabled.join(", ") : "none"}.\n` +
+          `Available to connect: ${notEnabled.length ? notEnabled.slice(0, 4).join(", ") : "already configured"}.\n` +
+          `Tell me one app (e.g. Discord, Telegram, Polymarket) and I’ll walk setup or execution.`,
+      );
+      return;
+    }
+
+    if (postSetupExecutionIntent) {
+      const providers = state.plugins
+        .filter(
+          (p) =>
+            p.category === "ai-provider" &&
+            p.enabled &&
+            p.validationErrors.length === 0,
+        )
+        .map((p) => normalizeComponentName(p.name))
+        .slice(0, 2);
+      const integrations = state.plugins
+        .filter(
+          (p) =>
+            p.category === "connector" &&
+            p.enabled &&
+            p.validationErrors.length === 0,
+        )
+        .map((p) => normalizeComponentName(p.name))
+        .slice(0, 4);
+      replyText(
+        `After setup, execution is simple: you give a direct command in chat, I validate permissions/safety, then execute through the enabled component.\n` +
+          `Ready now: provider=${providers.length ? providers.join(", ") : "not connected"}, integrations=${integrations.length ? integrations.join(", ") : "none enabled"}.\n` +
+          `For spend/bet actions, confirmations + limits in Security must pass.\n` +
+          `Tell me the exact action you want to run now.`,
+      );
+      return;
+    }
+
+    if (nextStepIntent) {
+      const setupContextDetected =
+        /\bsetup\b/i.test(lastAssistantTextForFlow) ||
+        /\bmanage\b/i.test(lastAssistantTextForFlow) ||
+        /\bsave\b/i.test(lastAssistantTextForFlow) ||
+        /\brestart\b/i.test(lastAssistantTextForFlow);
+      if (setupContextDetected && globalTarget) {
+        const missing = (globalTarget.validationErrors ?? []).map(
+          (e) => e.field,
+        );
+        const settingsTab =
+          globalTarget.category === "ai-provider"
+            ? "AI Settings"
+            : "Markets & Apps";
+        if (
+          globalTarget.enabled &&
+          globalTarget.configured &&
+          missing.length === 0
+        ) {
+          replyText(
+            `${globalTarget.name} is setup-ready.\n` +
+              `Now give me a direct command (for example: “use ${globalTarget.name} to run X”).\n` +
+              `I’ll validate permissions/safety and execute.`,
+          );
+        } else {
+          replyText(
+            `Next for ${globalTarget.name}: ${settingsTab} -> ${globalTarget.name} -> Manage, complete required fields, save, restart Milaidy.\n` +
+              `Then send your direct command and I’ll execute through it.`,
+          );
+        }
+        return;
+      }
+      const enabledProvider = state.plugins.find(
+        (p) =>
+          p.category === "ai-provider" &&
+          p.enabled &&
+          p.validationErrors.length === 0,
+      );
+      const enabledIntegrations = state.plugins
+        .filter(
+          (p) =>
+            p.category === "connector" &&
+            p.enabled &&
+            p.validationErrors.length === 0,
+        )
+        .map((p) => normalizeComponentName(p.name))
+        .slice(0, 4);
+      replyText(
+        `Next step depends on your target.\n` +
+          `Provider ready: ${enabledProvider ? normalizeComponentName(enabledProvider.name) : "none"}.\n` +
+          `Integrations ready: ${enabledIntegrations.length ? enabledIntegrations.join(", ") : "none"}.\n` +
+          `Tell me which one you want to run, and I’ll execute the exact flow.`,
+      );
+      return;
+    }
+
+    if (continueConversationIntent && !hasConcreteFollowupIntent) {
+      if (priorGoalHint) {
+        replyText(
+          `Continuing from: “${priorGoalHint}”.\n` +
+            "Send your next question and I’ll keep this in the same flow.",
+        );
+      } else {
+        replyText(
+          "I can continue, but I don’t have a prior goal in this active session. Send one line of context and I’ll pick it up immediately.",
+        );
+      }
+      return;
+    }
+
+    if (setupNoTargetIntent && !globalTarget) {
+      replyText(
+        "I can route setup immediately.\n" +
+          "If this is an AI provider, open AI Settings.\n" +
+          "If this is an integration/app, open Markets & Apps.\n" +
+          "Tell me the exact name (for example OpenAI, Discord, Telegram, Polymarket) and I’ll give the exact steps.",
+      );
+      return;
+    }
+
+    if (acknowledgementIntent) {
+      if (priorGoalHint) {
+        replyText(
+          `Anytime. We can keep moving on “${priorGoalHint}” whenever you’re ready.`,
+        );
+      } else {
+        replyText(
+          "Anytime. When you’re ready, send the next task and I’ll run it.",
+        );
+      }
+      return;
+    }
+
+    if (genericHelpIntent) {
+      if (priorGoalHint) {
+        replyText(
+          `Happy to help. Do you want to continue with “${priorGoalHint}” or start a new task?`,
+        );
+      } else {
+        replyText(
+          "Happy to help. Tell me what you want to do first and I’ll take the next step.",
+        );
+      }
+      return;
+    }
+
+    if (planningAdviceIntent) {
+      replyText(
+        "I can help with that. I’ll give you a practical step-by-step plan and risk controls, not hype.\n" +
+          "Before I draft it, tell me your time horizon and risk level (low / medium / high).",
+      );
+      return;
+    }
+
+    if (planningFollowupAnswerIntent) {
+      const normalizedRisk = (() => {
+        const value = (riskLevelAnswer ?? "").toLowerCase();
+        if (value === "conservative") return "low";
+        if (value === "moderate") return "medium";
+        if (value === "aggressive") return "high";
+        return value || "medium";
+      })();
+      const horizon = (horizonAnswer ?? "not specified").toLowerCase();
+
+      const addrs = getEffectiveConnectedWalletAddresses(req);
+      const connected = Boolean(addrs.evmAddress || addrs.solanaAddress);
+
+      let walletSummary = "Portfolio snapshot: wallet not connected.";
+      if (connected && addrs.solanaAddress) {
+        const withTimeout = async <T>(
+          promise: Promise<T>,
+          ms: number,
+        ): Promise<T | null> => {
+          let timer: ReturnType<typeof setTimeout> | null = null;
+          try {
+            return await Promise.race([
+              promise,
+              new Promise<null>((resolve) => {
+                timer = setTimeout(() => resolve(null), ms);
+              }),
+            ]);
+          } finally {
+            if (timer) clearTimeout(timer);
+          }
+        };
+
+        const heliusKey = process.env.HELIUS_API_KEY;
+        const sol = await withTimeout(
+          heliusKey
+            ? fetchSolanaBalances(addrs.solanaAddress, heliusKey)
+            : fetchSolanaBalancePublic(addrs.solanaAddress),
+          3000,
+        );
+        if (sol) {
+          const solValue = Number.parseFloat(sol.solValueUsd || "0");
+          walletSummary =
+            `Portfolio snapshot: ${sol.solBalance} SOL` +
+            ` (${Number.isFinite(solValue) ? `$${solValue.toFixed(2)}` : "$0.00"}).`;
+        } else {
+          walletSummary = "Portfolio snapshot: wallet connected (live value unavailable right now).";
+        }
+      }
+
+      const riskChecks =
+        normalizedRisk === "low"
+          ? [
+              "Risk check (low): keep 80-95% in core assets/stable exposure.",
+              "Cap any high-volatility positions to a small sleeve (<=10%).",
+              "Use predefined loss limits and avoid leverage.",
+            ]
+          : normalizedRisk === "high"
+            ? [
+                "Risk check (high): cap max drawdown per idea before entry.",
+                "Keep strict per-position and daily loss limits.",
+                "Use staged entries/exits; avoid full-size single entries.",
+              ]
+            : [
+                "Risk check (medium): keep most capital in core positions.",
+                "Limit speculative sleeve and use clear stop/exit rules.",
+                "Rebalance on schedule instead of impulse changes.",
+              ];
+
+      replyText(
+        `Locked in: risk=${normalizedRisk}, horizon=${horizon}.\n` +
+          `${walletSummary}\n` +
+          `${riskChecks.join("\n")}\n` +
+          "If you want, I’ll now produce a 5-step action plan from this profile.",
+      );
+      return;
+    }
+
+    if (isLowContext && !continuationAnswerIntent) {
+      replyText("Tell me your goal in one line and I’ll take the next step.");
+      return;
+    }
+    const asksForGuideNow =
+      /\b(send|share|give)\b.*\bguide\b/.test(lowerUserText) ||
+      /^(guide|setup guide|send guide)$/i.test(userText.trim());
+    const priorWasReminderEmailFlow =
+      /\btwo-step task\b/i.test(lastAssistantTextForFlow) &&
+      /\bcalendar reminder\b/i.test(lastAssistantTextForFlow) &&
+      /\bemail\b/i.test(lastAssistantTextForFlow);
+    const aiProvidersReady = state.plugins
+      .filter(
+        (p) =>
+          p.category === "ai-provider" &&
+          p.enabled &&
+          p.validationErrors.length === 0,
+      )
+      .map((p) => normalizeComponentName(p.name))
+      .slice(0, 3);
+    const integrationsReady = state.plugins
+      .filter(
+        (p) =>
+          p.category === "connector" &&
+          p.enabled &&
+          p.validationErrors.length === 0,
+      )
+      .map((p) => normalizeComponentName(p.name))
+      .slice(0, 5);
+
+    if (toolSafetyReviewIntent) {
+      const providerState = aiProvidersReady.length
+        ? aiProvidersReady.join(", ")
+        : "none enabled";
+      const integrationsState = integrationsReady.length
+        ? integrationsReady.join(", ")
+        : "none enabled";
+      let confirmationsState = "Unknown (not available in this chat session)";
+      let spendGuardState = "Unknown (not available in this chat session)";
+      let polymarketExecutionState = "Unknown (not available in this chat session)";
+      if (
+        chatSecurityContext &&
+        typeof chatSecurityContext.confirmBeforeSpend === "boolean" &&
+        typeof chatSecurityContext.confirmBeforeExecution === "boolean" &&
+        typeof chatSecurityContext.spendGuardEnabled === "boolean" &&
+        typeof chatSecurityContext.polymarketExecutionEnabled === "boolean"
+      ) {
+        confirmationsState =
+          chatSecurityContext.confirmBeforeSpend &&
+            chatSecurityContext.confirmBeforeExecution
+            ? "ON"
+            : "OFF";
+        spendGuardState = chatSecurityContext.spendGuardEnabled ? "ON" : "OFF";
+        polymarketExecutionState = chatSecurityContext.polymarketExecutionEnabled
+          ? "ON"
+          : "OFF";
+      } else {
+        const userCtx = getOptionalMultiUserContextFromBearer(req);
+        if (userCtx && multiUserService) {
+          try {
+            const perms = multiUserService.getPermissions(userCtx.userId);
+            const poly = perms.integrations.find(
+              (i) => i.integrationId === "polymarket",
+            );
+            confirmationsState =
+              perms.polymarket.confirmationMode === "required" ? "ON" : "OFF";
+            spendGuardState =
+              perms.polymarket.level === "disabled" ? "OFF" : "ON";
+            polymarketExecutionState = poly?.executionEnabled ? "ON" : "OFF";
+          } catch {
+            // keep unknown if permissions cannot be read
+          }
+        }
+      }
+      const capsLine =
+        chatSecurityContext &&
+          Number.isFinite(chatSecurityContext.dailySpendLimitUsd) &&
+          Number.isFinite(chatSecurityContext.perTradeLimitUsd) &&
+          Number.isFinite(chatSecurityContext.cooldownSeconds)
+          ? `- Limits: daily $${Number(chatSecurityContext.dailySpendLimitUsd).toFixed(0)}, per-trade $${Number(chatSecurityContext.perTradeLimitUsd).toFixed(0)}, cooldown ${Number(chatSecurityContext.cooldownSeconds).toFixed(0)}s\n`
+          : "";
+      replyText(
+        "Current app state:\n" +
+          `- AI provider: ${providerState}\n` +
+          `- Markets & Apps: ${integrationsState}\n` +
+          `- Security: confirmations ${confirmationsState}, spend guard ${spendGuardState}, polymarket execution ${polymarketExecutionState}\n` +
+          capsLine +
+          "Safer defaults:\n" +
+          "- Keep confirmations ON for execution and spend/bet actions.\n" +
+          "- Keep spend guard ON and start with conservative daily/per-trade caps.\n" +
+          "- Keep high-risk integrations disabled until actively needed.\n" +
+          "- Rotate API keys regularly and use least-privilege scopes.\n" +
+          "- Enable execution only for the specific workflow you are running.\n" +
+          "Do you handle sensitive data (PII/PHI/proprietary) so I can tighten this baseline further?",
+      );
+      return;
+    }
+
+    if (asksForGuideNow && priorWasReminderEmailFlow) {
+      replyText(
+        "Perfect — here’s the quick setup guide:\n" +
+          "1. Open Markets & Apps and enable your calendar connector (Google Calendar or Outlook).\n" +
+          "2. Open Markets & Apps and enable your email connector (Gmail/SMTP or Outlook Mail).\n" +
+          "3. Add required credentials in Manage for each connector, save, then restart Milaidy.\n" +
+          "4. Come back with reminder time + timezone and your contact email, and I’ll draft the message and queue both actions.",
+      );
+      return;
+    }
+    if (capabilityIntent) {
+      replyText(
+        `Milaidy can reason, plan, and execute through enabled platform components. ` +
+          `AI provider: ${aiProvidersReady.length ? aiProvidersReady.join(", ") : "not connected"}. ` +
+          `Markets & Apps integrations: ${integrationsReady.length ? integrationsReady.join(", ") : "none enabled"}. ` +
+          `For high-risk actions (trades/transfers/bets), execution requires permissions, confirmations, and limits.`,
+      );
+      return;
+    }
+
+    if (socialCheckInIntent) {
+      const openerName = usernameForMention ? ` ${usernameForMention}` : "";
+      if (priorGoalHint) {
+        replyText(
+          `Hey${openerName}, I’m good. We’re currently on: “${priorGoalHint}”. Continue this flow or switch goals?`,
+        );
+        return;
+      }
+      const socialVariants = [
+        `Hey${openerName}, I’m good and ready to run. What are we tackling first?`,
+        `Hey${openerName}, all good on my side. What should we run first?`,
+        `Hey${openerName}, fully live. What do you want to execute first?`,
+      ] as const;
+      const line = socialVariants[state.chatTurnCount % socialVariants.length]!;
+      replyText(line);
+      return;
+    }
+
+    if (genericHowItWorksIntent) {
+      const enabledPlugins = state.plugins.filter((p) => p.enabled);
+      const readyComponents = enabledPlugins
+        .filter((p) => p.validationErrors.length === 0)
+        .map((p) => normalizeComponentName(p.name))
+        .slice(0, 8);
+      const blockedPlugins = enabledPlugins
+        .filter((p) => p.validationErrors.length > 0)
+        .map((p) => p.name)
+        .slice(0, 6);
+      replyText(
+        `If you’re referring to how the Milaidy workspace works, here’s the flow:\n` +
+          `1) I understand your goal.\n` +
+          `2) I plan the next action.\n` +
+          `3) I execute only through enabled providers and integrations.\n` +
+          `Ready now: ${readyComponents.length ? readyComponents.join(", ") : "none"}.\n` +
+          `Needs setup: ${blockedPlugins.length ? blockedPlugins.join(", ") : "none"}.\n` +
+          `High-risk actions (trades/transfers/bets) require execution toggles, confirmations, and limits.\n` +
+          `Tell me your goal and I’ll handle the next step.`,
+      );
+      return;
+    }
+
+    if (agentOverviewIntent || workflowExplainIntent) {
+      const enabledPlugins = state.plugins.filter((p) => p.enabled);
+      const providers = enabledPlugins
+        .filter(
+          (p) =>
+            p.category === "ai-provider" && p.validationErrors.length === 0,
+        )
+        .map((p) => normalizeComponentName(p.name))
+        .slice(0, 2);
+      const integrations = enabledPlugins
+        .filter(
+          (p) => p.category === "connector" && p.validationErrors.length === 0,
+        )
+        .map((p) => normalizeComponentName(p.name))
+        .slice(0, 4);
+      replyText(
+        `Milaidy workflow is simple: you give a goal, I reason on it, then execute through enabled components.\n` +
+          `AI provider: ${providers.length ? providers.join(", ") : "not connected"}.\n` +
+          `Markets & Apps integrations: ${integrations.length ? integrations.join(", ") : "none enabled"}.\n` +
+          `For risky actions, confirmations + limits are enforced in Security.`,
+      );
+      return;
+    }
+
+    if (isGenericOpener && !capabilityIntent) {
+      const openerName = usernameForMention ? ` ${usernameForMention}` : "";
+      if (priorGoalHint) {
+        replyText(
+          `Hey${openerName}, want to continue with “${priorGoalHint}” or start a new task?`,
+        );
+        return;
+      }
+      const enabledPlugins = state.plugins.filter((p) => p.enabled);
+      const readyComponents = enabledPlugins
+        .filter((p) => p.validationErrors.length === 0)
+        .map((p) => normalizeComponentName(p.name))
+        .slice(0, 4);
+      const openerVariants = [
+        `Hey${openerName}, Milaidy workspace is live.\n` +
+          `I can plan and execute through AI Settings + Markets & Apps${readyComponents.length ? ` (${readyComponents.join(", ")})` : ""}.\n` +
+          `Tell me your goal and I’ll take the next step.`,
+        `Hey${openerName}, Milaidy is live.\n` +
+          `I can run tasks through AI Settings + Markets & Apps${readyComponents.length ? ` (${readyComponents.join(", ")})` : ""}.\n` +
+          `Drop your first objective and I’ll route it.`,
+        `Hey${openerName}, workspace is up.\n` +
+          `Execution is available through AI Settings + Markets & Apps${readyComponents.length ? ` (${readyComponents.join(", ")})` : ""}.\n` +
+          `Tell me what you want done first.`,
+      ] as const;
+      const line = openerVariants[state.chatTurnCount % openerVariants.length]!;
+      replyText(line);
+      return;
+    }
+
+    if (platformIntent) {
+      const enabledPlugins = state.plugins.filter((p) => p.enabled);
+      const readyComponents = enabledPlugins
+        .filter((p) => p.validationErrors.length === 0)
+        .map((p) => normalizeComponentName(p.name))
+        .slice(0, 6);
+      replyText(
+        `Milaidy is an agent workspace: you chat goals, it plans, then executes through enabled providers/integrations.\n` +
+          `Right now it can use: ${readyComponents.length ? readyComponents.join(", ") : "no ready components yet"}.\n` +
+          `For money actions, confirmations and limits stay in control.\n` +
+          `Tell me one task and I’ll walk it end-to-end.`,
+      );
+      return;
+    }
+
+    if (ambiguousThisIntent) {
+      replyText(
+        "Happy to break it down. What is “this” — a feature, button, file, or command?",
+      );
+      return;
+    }
+
+    if (gettingStartedIntent) {
+      const activeProvider = state.plugins.find(
+        (p) => p.category === "ai-provider" && p.enabled,
+      );
+      const providerReady =
+        activeProvider != null &&
+        activeProvider.validationErrors.length === 0 &&
+        (activeProvider.id === "ollama" ||
+          !(activeProvider.envKey ?? "").trim() ||
+          activeProvider.parameters.some(
+            (pm) => pm.key === activeProvider.envKey && pm.isSet,
+          ));
+      const addrs = getEffectiveConnectedWalletAddresses(req);
+      const walletConnected = Boolean(addrs.evmAddress || addrs.solanaAddress);
+      const appsEnabled = state.plugins
+        .filter((p) => p.category === "connector" && p.enabled)
+        .map((p) => p.name)
+        .slice(0, 4);
+
+      const lines: string[] = [];
+      lines.push("Fast start:");
+      lines.push(
+        `1) AI provider: ${providerReady ? "connected" : "connect in AI Settings"}`,
+      );
+      lines.push(
+        `2) Wallet: ${walletConnected ? "connected" : "connect in Portfolio"}`,
+      );
+      lines.push(
+        `3) Apps: ${appsEnabled.length ? appsEnabled.join(", ") : "enable what you need in Markets & Apps"}`,
+      );
+      lines.push("Then tell me one task and I’ll run it step-by-step.");
+      replyText(lines.join("\n"));
+      return;
+    }
+
+    if (securityControlsIntent) {
+      replyText(
+        "In Milaidy, go to Security (right-side tab in the main nav).\n" +
+          "Use Action confirmations for:\n" +
+          "- Confirm before execution actions\n" +
+          "- Confirm before spend/bet actions\n" +
+          "- Daily spend limit, per-trade limit, cooldown\n" +
+          "- Spend guard and Polymarket execution toggle\n" +
+          "Markets & Apps is only for enabling integrations; limits/confirmations are managed in Security.",
+      );
+      return;
+    }
+
+    const dynamicPluginHelpResponse = (() => {
+      const lower = userText.toLowerCase();
+      const normalized = lower.replace(/[^a-z0-9]+/g, " ");
+      const upper = userText.toUpperCase();
+      const asksPluginOperationWithoutTarget =
+        /\b(plugin|plugins|provider|providers|integration|integrations)\b/.test(
+          lower,
+        ) && /\b(how|use|operate|work|works|working|run)\b/.test(lower);
+      const findPluginTarget = () => {
+        const resolved = resolvePluginTarget();
+        if (resolved) return resolved;
+        // Follow-up fallback: infer target from the most recent assistant setup reply.
+        const lastAssistant = [...state.chatRecentTurns]
+          .reverse()
+          .map((t) => t.assistant)
+          .find((txt) => typeof txt === "string" && txt.trim().length > 0);
+        if (lastAssistant) {
+          const setupMatch = /^([A-Za-z0-9 ._-]+)\s+setup\b/i.exec(
+            lastAssistant.trim(),
+          );
+          if (setupMatch?.[1]) {
+            const name = setupMatch[1].trim().toLowerCase();
+            const fromName = state.plugins.find(
+              (p) => p.name.toLowerCase() === name,
+            );
+            if (fromName) return fromName;
+          }
+        }
+        return null;
+      };
+      const genericExecutionAsk =
+        /\b(can you|will you|are you able|could you)\b/.test(lower) &&
+        /\b(trade|bet|execute|place|swap|send|transfer)\b/.test(lower);
+      const target = findPluginTarget();
+      if (!target) {
+        if (asksPluginOperationWithoutTarget) {
+          const readyProviders = state.plugins
+            .filter(
+              (p) =>
+                p.category === "ai-provider" &&
+                p.enabled &&
+                p.validationErrors.length === 0,
+            )
+            .map((p) => normalizeComponentName(p.name))
+            .slice(0, 4);
+          const readyIntegrations = state.plugins
+            .filter(
+              (p) =>
+                p.category === "connector" &&
+                p.enabled &&
+                p.validationErrors.length === 0,
+            )
+            .map((p) => normalizeComponentName(p.name))
+            .slice(0, 6);
+          const blockedProviders = state.plugins
+            .filter(
+              (p) =>
+                p.category === "ai-provider" &&
+                p.enabled &&
+                p.validationErrors.length > 0,
+            )
+            .map((p) => normalizeComponentName(p.name))
+            .slice(0, 4);
+          const blockedIntegrations = state.plugins
+            .filter(
+              (p) =>
+                p.category === "connector" &&
+                p.enabled &&
+                p.validationErrors.length > 0,
+            )
+            .map((p) => normalizeComponentName(p.name))
+            .slice(0, 6);
+          return (
+            `I operate in 4 steps: detect intent, map to enabled component, validate setup/permissions, then execute.\n` +
+            `Ready now: provider=${readyProviders.length ? readyProviders.join(", ") : "none"}, integrations=${readyIntegrations.length ? readyIntegrations.join(", ") : "none"}.\n` +
+            `Needs setup: provider=${blockedProviders.length ? blockedProviders.join(", ") : "none"}, integrations=${blockedIntegrations.length ? blockedIntegrations.join(", ") : "none"}.\n` +
+            `Tell me the exact provider/integration name and your goal, and I’ll walk it end-to-end.`
+          );
+        }
+        const genericCredentialAsk =
+          /\b(how do i get|where do i get|how to get|don'?t know how to get|i do not know how to get)\b/.test(
+            lower,
+          ) &&
+          /\b(api key|token|secret|credential|credentials?|private key|application id|client id)\b/.test(
+            lower,
+          );
+        if (genericCredentialAsk) {
+          return "I can help with that. Tell me the service name (for example Discord, Telegram, OpenAI, Polymarket), and I’ll give exact credential steps.";
+        }
+        if (!genericExecutionAsk) return null;
+        const polymarket = state.plugins.find((p) => p.id === "polymarket");
+        if (!polymarket)
+          return "I can execute enabled actions, but no trading integration is available right now.";
+
+        const missing = polymarket.validationErrors.map((e) => e.field);
+        const addrs = getEffectiveConnectedWalletAddresses(req);
+        const walletConnected = Boolean(
+          addrs.evmAddress || addrs.solanaAddress,
+        );
+        const lines: string[] = [];
+        if (
+          polymarket.enabled &&
+          polymarket.configured &&
+          missing.length === 0
+        ) {
+          lines.push(
+            "Yes — I can help execute Polymarket bets with confirmation.",
+          );
+        } else {
+          lines.push("Not yet — Polymarket execution is blocked by setup.");
+        }
+        if (missing.length > 0) lines.push(`Blockers: ${missing.join(", ")}.`);
+        lines.push(
+          "Do this: Markets & Apps -> Polymarket -> Manage, save, restart Milaidy.",
+        );
+        lines.push(
+          walletConnected
+            ? "Then set Security -> Polymarket execution to ON and keep confirmations ON."
+            : "Then connect wallet in Portfolio, set Security -> Polymarket execution ON, keep confirmations ON.",
+        );
+        return lines.join("\n");
+      }
+
+      const missing = (target.validationErrors ?? []).map((e) => e.field);
+      const humanizeBlocker = (field: string): string => {
+        const key = field.trim().toUpperCase();
+        if (key.includes("PRIVATE_KEY") || key.includes("SECRET"))
+          return "trading signer is not configured";
+        if (key.includes("API_KEY") || key.includes("TOKEN")) {
+          return target.category === "ai-provider"
+            ? "required provider credentials are missing"
+            : "required integration credentials are missing";
+        }
+        return field;
+      };
+      const missingHuman = missing.map(humanizeBlocker);
+      const componentLabel =
+        target.category === "ai-provider" ? "provider" : "integration";
+      const requiredKeys = (target.parameters ?? [])
+        .filter((p) => Boolean(p.required))
+        .map((p) => p.key);
+      const settingsTab =
+        target.category === "ai-provider" ? "AI Settings" : "Markets & Apps";
+      const addrs = getEffectiveConnectedWalletAddresses(req);
+      const walletConnected = Boolean(addrs.evmAddress || addrs.solanaAddress);
+      const asksExecutionCapability =
+        /\b(can you|will you|are you able|execute tasks?|run tasks?|do it for me)\b/.test(
+          lower,
+        ) ||
+        (/\bexecute\b/.test(lower) &&
+          /\bdiscord|telegram|polymarket|plugin|bet|trade\b/.test(lower)) ||
+        (target.id === "polymarket" &&
+          (/\b(bet|bets|wager|place|position|trade)\b/.test(lower) ||
+            /\bpolymarket\s*bet\b|polymarketbet|polybet\b/.test(lower)));
+      const wantsMarketIntelOnly =
+        target.id === "polymarket" &&
+        /\b(hot|trending|current|popular|live|list|show|why)\b/.test(lower) &&
+        !/\b(execute|place|run|for me|on my behalf)\b/.test(lower);
+      const asksHypotheticalCapability =
+        /\b(when|once|if)\b/.test(lower) &&
+        /\b(configure|configured|enable|enabled|setup|set up)\b/.test(lower) &&
+        /\b(can you|will you|would you|be able)\b/.test(lower);
+      const asksHowItWorks =
+        /\b(how does|how do|how)\b/.test(lower) &&
+        /\b(work|works|working|flow|operate|operates|use|using|behave|behavior)\b/.test(
+          lower,
+        );
+      const asksHowToUseTarget =
+        /\b(how (do|to) (i )?use|how to operate|operate with|use with|work with)\b/.test(
+          lower,
+        ) &&
+        (lower.includes(target.id.toLowerCase()) ||
+          lower.includes(target.name.toLowerCase()) ||
+          /\bplugin|provider|integration\b/.test(lower));
+      const asksCredentialSource =
+        /\b(how do i get|where (do|can) i get|where is|how to get|i do not know how to get|don'?t know how to get)\b/.test(
+          lower,
+        ) &&
+        /\b(api key|token|private key|application id|client id|secret|credential|credentials?)\b/.test(
+          lower,
+        );
+
+      if (asksExecutionCapability && !wantsMarketIntelOnly) {
+        const lines: string[] = [];
+        const positiveConditional = chooseVariant(lower, [
+          `Yes — once ${target.name} is configured and enabled, I can execute actions there with confirmation.`,
+          `Yes — after setup is complete, I can run ${target.name} actions from chat with the required safety checks.`,
+          `Yes — once enabled and configured, ${target.name} actions are available through Milaidy.`,
+        ] as const);
+        const readyLead = chooseVariant(lower, [
+          `Yes — ${target.name} can run with confirmation.`,
+          `Yes — ${target.name} execution is available with confirmation.`,
+          `Yes — I can run ${target.name} actions once confirmation rules pass.`,
+        ] as const);
+        const blockedLead = chooseVariant(lower, [
+          `Not ready yet — ${target.name} execution is blocked by setup.`,
+          `${target.name} isn’t execution-ready yet — setup is still incomplete.`,
+          `Execution for ${target.name} is currently blocked by setup.`,
+        ] as const);
+        if (target.enabled && target.configured && missing.length === 0) {
+          lines.push(readyLead);
+        } else if (asksHypotheticalCapability) {
+          lines.push(positiveConditional);
+        } else {
+          lines.push(blockedLead);
+        }
+        if (missing.length > 0) {
+          lines.push(`Missing: ${[...new Set(missingHuman)].join(", ")}.`);
+        }
+        lines.push(
+          `Next: ${settingsTab} -> ${target.name} -> Manage, save, restart Milaidy.`,
+        );
+        if (target.id === "polymarket") {
+          lines.push(
+            "Polymarket readiness: plugin enabled, signer configured, wallet connected, execution ON in Security, confirmations ON.",
+          );
+          lines.push(
+            walletConnected
+              ? "Then set Security -> Polymarket execution to ON and keep confirmations ON."
+              : "Then connect wallet in Portfolio, set Security -> Polymarket execution ON, keep confirmations ON.",
+          );
+        }
+        return lines.join("\n");
+      }
+
+      if (asksHowItWorks) {
+        const lines: string[] = [];
+        lines.push(`${target.name} works like this:`);
+        lines.push("1. You state the goal in chat.");
+        lines.push(
+          "2. Milaidy maps it to this integration and validates setup/permissions.",
+        );
+        if (target.id === "polymarket") {
+          lines.push(
+            "3. For bets: execution toggle + confirmations + spend limits must pass.",
+          );
+          lines.push(
+            "4. If approved, the action executes and is logged in Security.",
+          );
+        } else {
+          lines.push(
+            "3. If setup is valid, Milaidy prepares and runs the action.",
+          );
+          lines.push(
+            "4. Result comes back in chat; errors include blocker + next step.",
+          );
+        }
+        if (!target.enabled || !target.configured || missing.length > 0) {
+          lines.push("");
+          lines.push(
+            `Current blocker: ${
+              missing.length > 0
+                ? missing.join(", ")
+                : !target.enabled
+                  ? `${componentLabel} is disabled`
+                  : `${componentLabel} not fully configured`
+            }.`,
+          );
+          lines.push(
+            `To enable: ${settingsTab} -> ${target.name} -> Manage, save, restart Milaidy.`,
+          );
+        } else {
+          lines.push("");
+          lines.push("Status: ready to run when you ask.");
+        }
+        return lines.join("\n");
+      }
+
+      if (asksHowToUseTarget) {
+        const usageByCategory: Record<string, string> = {
+          "ai-provider":
+            "Use this provider for Milaidy reasoning/generation after enabling and adding credentials.",
+          connector:
+            "Use this integration by asking Milaidy to perform actions through it (send/read/sync tasks).",
+          database:
+            "Use this as memory/state backend; Milaidy will persist and retrieve context through it.",
+          feature:
+            "Use this runtime feature by asking Milaidy for the capability it unlocks.",
+        };
+        const usageLine =
+          usageByCategory[target.category] ??
+          "Enable it, configure required fields, then ask Milaidy for the exact task.";
+        const lines: string[] = [];
+        lines.push(`${target.name} operation model:`);
+        lines.push(usageLine);
+        lines.push(
+          `Status: enabled=${target.enabled ? "yes" : "no"}, configured=${target.configured ? "yes" : "no"}${missing.length ? `, blockers=${missing.join(", ")}` : ""}.`,
+        );
+        lines.push(
+          `Next step: ${settingsTab} -> ${target.name} -> Manage, save, restart Milaidy.`,
+        );
+        lines.push(
+          "Then give me one concrete action and I’ll execute or explain blockers immediately.",
+        );
+        return lines.join("\n");
+      }
+
+      if (asksCredentialSource) {
+        const lines: string[] = [];
+        if (target.id === "discord") {
+          lines.push(
+            "Get Discord credentials from the Discord Developer Portal:",
+          );
+          lines.push(
+            "1. Go to https://discord.com/developers/applications and open/create your app.",
+          );
+          lines.push(
+            "2. General Information -> copy Application ID -> use as DISCORD_APPLICATION_ID.",
+          );
+          lines.push(
+            "3. Bot tab -> add a bot (if missing), then copy Bot Token -> use as DISCORD_API_TOKEN.",
+          );
+          lines.push(
+            "4. Paste both in Markets & Apps -> Discord -> Manage, save, restart Milaidy.",
+          );
+          return lines.join("\n");
+        }
+        if (target.id === "telegram") {
+          lines.push("Get your Telegram bot token from BotFather:");
+          lines.push("1. Open Telegram and chat with @BotFather.");
+          lines.push("2. Run /newbot and complete setup.");
+          lines.push(
+            "3. Copy the token BotFather returns -> TELEGRAM_BOT_TOKEN.",
+          );
+          lines.push(
+            "4. Paste it in Markets & Apps -> Telegram -> Manage, save, restart Milaidy.",
+          );
+          return lines.join("\n");
+        }
+        if (target.id === "openai") {
+          lines.push("Get your OpenAI API key from the OpenAI dashboard:");
+          lines.push("1. Open https://platform.openai.com/api-keys.");
+          lines.push("2. Create a new secret key and copy it once.");
+          lines.push(
+            "3. Paste in AI Settings -> OpenAI -> Manage (API key field), save, restart Milaidy.",
+          );
+          return lines.join("\n");
+        }
+        if (target.id === "polymarket") {
+          lines.push(
+            "For Polymarket execution, you need a signing key configured by the app owner/operator.",
+          );
+          lines.push(
+            "If this is a user-facing app, do not ask end users for private keys directly.",
+          );
+          lines.push(
+            "Set up backend signer flow, then enable execution in Security with confirmations/limits.",
+          );
+          return lines.join("\n");
+        }
+        lines.push(
+          `For ${target.name}, get the required credentials from the provider’s developer dashboard.`,
+        );
+        if (requiredKeys.length > 0) {
+          lines.push(`You need: ${requiredKeys.join(", ")}.`);
+        }
+        lines.push(
+          `Then open ${settingsTab} -> ${target.name} -> Manage, save, restart Milaidy.`,
+        );
+        return lines.join("\n");
+      }
+
+      const setupIntent =
+        /\b(setup|set up|configure|config|connect|enable|install|token|api key|plugin)\b/.test(
+          lower,
+        ) || /\bhow (do|to)\b/.test(lower);
+      const strippedTargetText = normalized
+        .replace(new RegExp(`\\b${target.id.toLowerCase()}\\b`, "g"), " ")
+        .replace(
+          new RegExp(
+            `\\b${target.name.toLowerCase().replace(/[^a-z0-9]+/g, " ")}\\b`,
+            "g",
+          ),
+          " ",
+        )
+        .replace(/\s+/g, " ")
+        .trim();
+      if (!setupIntent && strippedTargetText.length <= 8) {
+        return `${target.name}: tell me your intent — setup, how it works, or execute — and I’ll take you through it.`;
+      }
+      if (!setupIntent) return null;
+
+      const lines: string[] = [];
+      lines.push(
+        chooseVariant(lower, [
+          `${target.name} setup — quickest path:`,
+          `To set up ${target.name}, do this:`,
+          `Quick ${target.name} setup flow:`,
+        ] as const),
+      );
+      lines.push(`1. Open ${settingsTab} -> ${target.name} -> Manage.`);
+      if (missing.length > 0) {
+        lines.push(`2. Add missing field(s): ${missing.join(", ")}.`);
+      } else if (requiredKeys.length > 0) {
+        lines.push(
+          `2. Confirm required field(s) are set: ${requiredKeys.join(", ")}.`,
+        );
+      } else {
+        lines.push(
+          `2. Enable the ${componentLabel} and review any optional settings you need.`,
+        );
+      }
+      lines.push("3. Save changes.");
+      lines.push("4. Restart Milaidy so plugin/runtime changes load.");
+      if (target.id === "polymarket") {
+        if (!walletConnected) {
+          lines.push("5. Connect your wallet in Portfolio.");
+        } else {
+          lines.push("5. Wallet is connected.");
+        }
+        lines.push(
+          "6. In Security, turn Polymarket execution ON only when ready to place real bets.",
+        );
+        lines.push("7. Keep confirmations and spend limits enabled.");
+        lines.push("8. Test with a small amount first.");
+      }
+      lines.push("");
+      lines.push(
+        `Current status: enabled=${target.enabled ? "yes" : "no"}, configured=${target.configured ? "yes" : "no"}.`,
+      );
+      return lines.join("\n");
+    })();
+
+    if (dynamicPluginHelpResponse) {
+      replyText(dynamicPluginHelpResponse);
+      return;
+    }
+
+    const orchestrationIntent =
+      /\b(reminder|calendar|schedule|event)\b/i.test(userText) &&
+      /\b(email|mail|gmail|outlook)\b/i.test(userText) &&
+      /\b(can you|help|set|create|send|draft|need)\b/i.test(userText);
+    if (orchestrationIntent) {
+      const enabledPlugins = state.plugins.filter((p) => p.enabled);
+      const hasCalendarConnector = enabledPlugins.some((p) =>
+        /\bgoogle|calendar|outlook\b/i.test(`${p.id} ${p.name}`),
+      );
+      const hasEmailConnector = enabledPlugins.some((p) =>
+        /\bemail|mail|gmail|outlook\b/i.test(`${p.id} ${p.name}`),
+      );
+      const dayMatch = userText.match(/\b(\d{1,2})\s*(day|days)\b/i);
+      const inDays = dayMatch ? Number(dayMatch[1]) : null;
+      const timelineHint = Number.isFinite(inDays)
+        ? `in ${inDays} days`
+        : /\bnext week\b/i.test(userText)
+          ? "next week"
+          : "on your requested date";
+      const recipientMatch =
+        /\bemail(?:ing)?\s+(?:my\s+)?([a-z][a-z0-9' -]{1,30})\b/i.exec(
+          userText,
+        ) ??
+        /\bmail\s+(?:my\s+)?([a-z][a-z0-9' -]{1,30})\b/i.exec(userText) ??
+        /\bto\s+(?:my\s+)?([a-z][a-z0-9' -]{1,30})\b/i.exec(userText);
+      const recipientRaw = recipientMatch?.[1]?.trim() ?? "";
+      const recipient = recipientRaw
+        ? recipientRaw.replace(/\s+/g, " ")
+        : "your contact";
+      const recipientLabel =
+        recipient === "your contact" ? "Contact email" : `${recipient} email`;
+      const emailTaskLine =
+        recipient === "your contact"
+          ? "then send the email"
+          : `then email ${recipient}`;
+
+      const lines: string[] = [];
+      lines.push(
+        `Yes — I can handle that. We’ll do this in two steps: calendar reminder ${timelineHint}, ${emailTaskLine}.`,
+      );
+      lines.push("");
+      lines.push("Send me:");
+      lines.push(`- ${recipientLabel}`);
+      lines.push("- Reminder date/time + timezone");
+      lines.push("- Email tone (formal/casual) + send now or draft first");
+      lines.push("");
+      lines.push(
+        `Connector status: calendar=${hasCalendarConnector ? "ready" : "not detected"}, email=${hasEmailConnector ? "ready" : "not detected"}.`,
+      );
+      lines.push(
+        'If either connector is missing, say "send setup guide" and I’ll walk you through it.',
+      );
+      replyText(lines.join("\n"));
+      return;
+    }
+
+    // Fast path for wallet/portfolio queries: answer from wallet data with a
+    // strict timeout, bypassing slow model/tool chains.
+    const actionIntent =
+      /\b(bet|bets|wager|trade|swap|execute|send|transfer|place)\b/i.test(
+        userText,
+      );
+    const strategyIntent =
+      /\b(scale|grow|optimi[sz]e|improve|strategy|plan|invest|allocation|allocate|rebalance|thesis|ideas?)\b/i.test(
+        userText,
+      ) || /\bwhat can we do\b/i.test(userText);
+    const walletSnapshotIntent =
+      /\b(show|check|view|refresh|get|fetch|what'?s|whats|how much)\b/i.test(
+        userText,
+      ) &&
+      /\b(wallet|portfolio|holdings|balance|balances|token|tokens|nft|nfts|positions?)\b/i.test(
+        userText,
+      );
+    const walletIntent =
+      (walletSnapshotIntent ||
+        /\b(my )?wallet snapshot\b/i.test(userText) ||
+        /\b(balance(s)?|holdings?)\b/i.test(userText)) &&
+      !actionIntent &&
+      !strategyIntent;
+    if (walletIntent) {
+      const addrs = getEffectiveConnectedWalletAddresses(req);
+      const connected = Boolean(addrs.evmAddress || addrs.solanaAddress);
+      if (!connected) {
+        replyText(
+          "No wallet is connected yet. Connect a wallet in Portfolio to view balances.",
+        );
+        return;
+      }
+
+      const withTimeout = async <T>(
+        promise: Promise<T>,
+        ms: number,
+      ): Promise<T | null> => {
+        let timer: ReturnType<typeof setTimeout> | null = null;
+        try {
+          return await Promise.race([
+            promise,
+            new Promise<null>((resolve) => {
+              timer = setTimeout(() => resolve(null), ms);
+            }),
+          ]);
+        } finally {
+          if (timer) clearTimeout(timer);
+        }
+      };
+
+      const heliusKey = process.env.HELIUS_API_KEY;
+      const alchemyKey = process.env.ALCHEMY_API_KEY;
+
+      const [sol, evmChains] = await Promise.all([
+        addrs.solanaAddress
+          ? withTimeout(
+              heliusKey
+                ? fetchSolanaBalances(addrs.solanaAddress, heliusKey)
+                : fetchSolanaBalancePublic(addrs.solanaAddress),
+              3500,
+            )
+          : Promise.resolve(null),
+        addrs.evmAddress
+          ? withTimeout(
+              alchemyKey
+                ? fetchEvmBalances(addrs.evmAddress, alchemyKey)
+                : fetchEvmBalancesPublic(addrs.evmAddress),
+              3500,
+            )
+          : Promise.resolve(null),
+      ]);
+
+      const lines: string[] = [];
+      if (addrs.solanaAddress) {
+        if (sol) {
+          const solValue = Number.parseFloat(sol.solValueUsd || "0");
+          lines.push(`Solana wallet: ${addrs.solanaAddress}`);
+          lines.push(
+            `Balance: ${sol.solBalance} SOL (${Number.isFinite(solValue) ? `$${solValue.toFixed(2)}` : "$0.00"})`,
+          );
+        } else {
+          lines.push(`Solana wallet: ${addrs.solanaAddress}`);
+          lines.push("Balance: connected (live balance unavailable right now)");
+        }
+      } else {
+        lines.push("Solana wallet: not connected");
+        lines.push("Balance: unavailable");
+      }
+
+      replyText(lines.join("\n"));
+      return;
+    }
+
+    // Fast path for normal conversational prompts: try a direct small-model
+    // response first to keep chat snappy for common questions.
+    const toolHeavyIntent =
+      /\b(send|transfer|bet|trade|swap|execute|sign|wallet|portfolio|polymarket|plugin|connect)\b/i.test(
+        userText,
+      );
+    const shouldPreferFastReply = userText.length <= 320 && !toolHeavyIntent;
 
     if (!state.runtime) {
       error(res, "Agent is not running", 503);
       return;
     }
 
+    if (!hasConfiguredAiProvider(state)) {
+      json(
+        res,
+        {
+          error:
+            "AI provider not connected. Open AI Settings and connect your provider key to chat.",
+          code: "AI_PROVIDER_REQUIRED",
+        },
+        412,
+      );
+      return;
+    }
+
+    if (state.inFlightChatRequests >= CHAT_MAX_CONCURRENCY) {
+      error(res, "Chat is busy. Please retry shortly.", 429);
+      return;
+    }
+
+    state.inFlightChatRequests += 1;
+
+    let responseText = "";
+    const tryDirectModelFallback = async (): Promise<{
+      text: string;
+      errors: string[];
+      largeStatus: "not-run" | "ok" | "empty" | "error";
+      smallStatus: "not-run" | "ok" | "empty" | "error";
+    }> => {
+      const errors: string[] = [];
+      let text = "";
+      let largeStatus: "not-run" | "ok" | "empty" | "error" = "not-run";
+      let smallStatus: "not-run" | "ok" | "empty" | "error" = "not-run";
+
+      // Prefer SMALL first for lower latency in chat fallback mode.
+      try {
+        const small = await state.runtime!.useModel(ModelType.TEXT_SMALL, {
+          prompt:
+            `You are ${state.runtime!.character.name ?? "Milaidy"}. Reply helpfully and concisely to the user.\n\n` +
+            runtimeLimitationsContext +
+            fastContext +
+            `User message:\n${userText}`,
+        });
+        if (typeof small === "string" && small.trim()) {
+          text = small.trim();
+          smallStatus = "ok";
+        } else {
+          smallStatus = "empty";
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        errors.push(`TEXT_SMALL: ${msg}`);
+        smallStatus = "error";
+      }
+
+      if (!text && CHAT_FALLBACK_ALLOW_LARGE) {
+        try {
+          const large = await state.runtime!.useModel(ModelType.TEXT_LARGE, {
+            prompt:
+              `You are ${state.runtime!.character.name ?? "Milaidy"}. Reply helpfully and concisely to the user.\n\n` +
+              runtimeLimitationsContext +
+              fastContext +
+              `User message:\n${userText}`,
+          });
+          if (typeof large === "string" && large.trim()) {
+            text = large.trim();
+            largeStatus = "ok";
+          } else {
+            largeStatus = "empty";
+          }
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          errors.push(`TEXT_LARGE: ${msg}`);
+          largeStatus = "error";
+        }
+      }
+
+      return { text, errors, largeStatus, smallStatus };
+    };
+
     try {
       const runtime = state.runtime;
-      const agentName = runtime.character.name ?? "Milady";
-      await ensureLegacyChatConnection(runtime, agentName);
-      const chatUserId = state.chatUserId;
-      const chatRoomId = state.chatRoomId;
-      if (!chatUserId || !chatRoomId) {
-        throw new Error("Legacy chat connection was not initialized");
+      const agentName = runtime.character.name ?? "Milaidy";
+
+      const activeProvider = state.plugins.find(
+        (p) => p.category === "ai-provider" && p.enabled,
+      );
+      // Fail fast for OpenAI misconfiguration to avoid slow timeout loops.
+      if (activeProvider?.id === "openai") {
+        const openaiKey = (process.env.OPENAI_API_KEY ?? "").trim();
+        const embeddingKey = (
+          process.env.OPENAI_EMBEDDING_API_KEY ?? ""
+        ).trim();
+        const looksPlaceholder = (v: string) =>
+          !v || /replace[_-]?me/i.test(v) || /\.\.\./.test(v);
+        if (looksPlaceholder(openaiKey)) {
+          codedError(
+            res,
+            "Provider authentication failed. Verify your OpenAI API key, then restart Milaidy.",
+            "PROVIDER_AUTH",
+            401,
+          );
+          return;
+        }
+        // OpenAI embeddings usually use the same key; mirror at runtime when
+        // only OPENAI_API_KEY is present to keep chat responsive.
+        if (!embeddingKey && openaiKey) {
+          process.env.OPENAI_EMBEDDING_API_KEY = openaiKey;
+        }
+      }
+      // Fail fast for Ollama: it can never work unless the local daemon is running.
+      if (activeProvider?.id === "ollama") {
+        const endpoint = (
+          process.env.OLLAMA_API_ENDPOINT ??
+          process.env.OLLAMA_BASE_URL ??
+          "http://localhost:11434"
+        ).trim();
+        const reachable = await isOllamaReachable(endpoint, 300);
+        if (!reachable) {
+          codedError(
+            res,
+            "Provider not running: start Ollama on this device, then restart Milaidy.",
+            "PROVIDER_NOT_RUNNING",
+            503,
+          );
+          return;
+        }
+      }
+
+      const shouldRunUniversalStructuredReply = userText.length <= 1400;
+      if (shouldRunUniversalStructuredReply) {
+        try {
+          const structured = await Promise.race([
+            runtime.useModel(ModelType.TEXT_SMALL, {
+              prompt:
+                `You are ${runtime.character.name ?? "Milaidy"}, an execution-focused workspace operator.\n` +
+                "Universal response policy (apply to every user input):\n" +
+                "1) Infer user intent and desired outcome from the latest message + recent context.\n" +
+                "2) Check capability/permission limits from runtime context before proposing execution.\n" +
+                "3) Respond conversationally (no rigid template), with: clear understanding, immediate next action, and only missing critical inputs.\n" +
+                "4) If blocked, state blocker plainly and provide one concrete next step.\n" +
+                "5) Keep momentum; avoid generic chatbot filler and avoid repeating prior setup blocks unless user asks.\n" +
+                "6) If user asks broad/open-ended questions, provide a practical plan and continue the conversation.\n" +
+                "7) For high-risk actions (funds/trades/bets), require confirmation/limits before execution.\n\n" +
+                "When context is unclear, ask one concise clarifying question before giving a long answer.\n\n" +
+                universalResponseStructure +
+                runtimeLimitationsContext +
+                fastContext +
+                `User message:\n${userText}`,
+            }),
+            new Promise<string>((_, reject) =>
+              setTimeout(
+                () => reject(new Error("Structured reply timed out")),
+                9000,
+              ),
+            ),
+          ]);
+          if (typeof structured === "string" && structured.trim()) {
+            replyText(structured.trim());
+            return;
+          }
+        } catch {
+          // Continue to other paths.
+        }
+      }
+
+      if (shouldPreferFastReply) {
+        try {
+          const fast = await Promise.race([
+            state.runtime!.useModel(ModelType.TEXT_SMALL, {
+              prompt:
+                `You are ${state.runtime!.character.name ?? "Milaidy"}, an agentic workspace assistant built for autonomous execution across chat, wallets, and connected apps.\n` +
+                "Respond clearly and directly. Do not mention internal tooling.\n\n" +
+                universalResponseStructure +
+                runtimeLimitationsContext +
+                fastContext +
+                `User message:\n${userText}`,
+            }),
+            new Promise<string>((_, reject) =>
+              setTimeout(() => reject(new Error("Fast reply timed out")), 8000),
+            ),
+          ]);
+          if (typeof fast === "string" && fast.trim()) {
+            replyText(fast.trim());
+            return;
+          }
+        } catch {
+          // Fall back to full message pipeline below.
+        }
+      }
+
+      // Lazily initialise a persistent chat room + user for the web UI so
+      // that conversation memory accumulates across messages.
+      if (!state.chatUserId || !state.chatRoomId) {
+        state.chatUserId = crypto.randomUUID() as UUID;
+        state.chatRoomId = stringToUuid(`${agentName}-web-chat-room`);
+        const worldId = stringToUuid(`${agentName}-web-chat-world`);
+        await runtime.ensureConnection({
+          entityId: state.chatUserId,
+          roomId: state.chatRoomId,
+          worldId,
+          userName: "User",
+          source: "client_chat",
+          channelId: `${agentName}-web-chat`,
+          // Use SELF to avoid triggering core "settings onboarding" provider
+          // paths that expect server/world ownership relationships.
+          type: ChannelType.SELF,
+        });
       }
 
       const message = createMessageMemory({
         id: crypto.randomUUID() as UUID,
-        entityId: chatUserId,
-        roomId: chatRoomId,
+        entityId: state.chatUserId,
+        roomId: state.chatRoomId,
         content: {
-          text: prompt,
+          text: userText,
           source: "client_chat",
-          channelType,
+          channelType: ChannelType.SELF,
         },
       });
 
-      const result = await generateChatResponse(
-        runtime,
-        message,
-        state.agentName,
-        {
-          resolveNoResponseText: () =>
-            resolveNoResponseFallback(state.logBuffer),
-        },
-      );
-
-      json(res, {
-        text: result.text,
-        agentName: result.agentName,
-      });
-    } catch (err) {
-      const creditReply = getInsufficientCreditsReplyFromError(err);
-      if (creditReply) {
-        json(res, {
-          text: creditReply,
-          agentName: state.agentName,
-        });
-      } else {
-        error(res, getErrorMessage(err), 500);
-      }
-    }
-    return;
-  }
-
-  // ── Database management API ─────────────────────────────────────────────
-  if (pathname.startsWith("/api/database/")) {
-    const handled = await handleDatabaseRoute(
-      req,
-      res,
-      state.runtime,
-      pathname,
-    );
-    if (handled) return;
-  }
-
-  // ── Trajectory management API ──────────────────────────────────────────
-  if (pathname.startsWith("/api/trajectories")) {
-    if (state.runtime) {
-      const handled = await handleTrajectoryRoute(
-        req,
-        res,
-        state.runtime,
-        pathname,
-        method,
-      );
-      if (handled) return;
-    }
-  }
-
-  if (
-    await handleCloudStatusRoutes({
-      req,
-      res,
-      method,
-      pathname,
-      config: state.config,
-      runtime: state.runtime,
-      json,
-    })
-  ) {
-    return;
-  }
-
-  // ── App routes (/api/apps/*) ──────────────────────────────────────────
-  if (
-    await handleAppsRoutes({
-      req,
-      res,
-      method,
-      pathname,
-      url,
-      appManager: state.appManager,
-      getPluginManager: () => requirePluginManager(state.runtime),
-      parseBoundedLimit,
-      readJsonBody,
-      json,
-      error,
-      runtime: state.runtime,
-    })
-  ) {
-    return;
-  }
-
-  // ── Hyperscape control proxy routes ──────────────────────────────────
-  if (
-    await handleAppsHyperscapeRoutes({
-      req,
-      res,
-      method,
-      pathname,
-      relayHyperscapeApi,
-      readJsonBody,
-      error,
-    })
-  ) {
-    return;
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════
-  // Workbench routes
-  // ═══════════════════════════════════════════════════════════════════════
-
-  // ── GET /api/workbench/overview ──────────────────────────────────────
-  if (method === "GET" && pathname === "/api/workbench/overview") {
-    const tasks: WorkbenchTaskView[] = [];
-    const triggers: Array<
-      NonNullable<ReturnType<typeof taskToTriggerSummary>>
-    > = [];
-    const todos: WorkbenchTodoView[] = [];
-    const summary = {
-      totalTasks: 0,
-      completedTasks: 0,
-      totalTriggers: 0,
-      activeTriggers: 0,
-      totalTodos: 0,
-      completedTodos: 0,
-    };
-    const latestAutonomyEvent = [...state.eventBuffer]
-      .reverse()
-      .find(
-        (event) =>
-          event.type === "agent_event" &&
-          (event.stream === "assistant" ||
-            event.stream === "provider" ||
-            event.stream === "evaluator"),
-      );
-    const autonomyState = getAutonomyState(state.runtime);
-    const autonomy = {
-      enabled: autonomyState.enabled,
-      thinking: autonomyState.thinking,
-      lastEventAt: latestAutonomyEvent?.ts ?? null,
-    };
-    let tasksAvailable = false;
-    let triggersAvailable = false;
-    let todosAvailable = false;
-    let runtimeTasks: Task[] = [];
-    let todoData: TodoDataServiceLike | null = null;
-
-    if (state.runtime) {
+      let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+      let messageResponseText = "";
+      let messageReason: string | null = null;
       try {
-        runtimeTasks = await state.runtime.getTasks({});
-        tasksAvailable = true;
-        todosAvailable = true;
-
-        for (const task of runtimeTasks) {
-          const todo = toWorkbenchTodo(task);
-          if (todo) {
-            todos.push(todo);
-            continue;
-          }
-          const mappedTask = toWorkbenchTask(task);
-          if (mappedTask) {
-            tasks.push(mappedTask);
-          }
-        }
-      } catch {
-        tasksAvailable = false;
-        todosAvailable = false;
-      }
-
-      try {
-        todoData = await getTodoDataService(state.runtime);
-        if (todoData) {
-          const dbTodos = await todoData.getTodos({
-            agentId: state.runtime.agentId,
-          });
-          todosAvailable = true;
-          for (const rawTodo of dbTodos) {
-            const mapped = toWorkbenchTodoFromRecord(rawTodo);
-            if (mapped) {
-              todos.push(mapped);
-            }
-          }
-        }
-      } catch {
-        // plugin todo unavailable or errored; keep fallback todos
-      }
-
-      try {
-        const triggerTasks = await listTriggerTasks(state.runtime);
-        triggersAvailable = true;
-        for (const task of triggerTasks) {
-          const summaryItem = taskToTriggerSummary(task);
-          if (summaryItem) {
-            triggers.push(summaryItem);
-          }
-        }
-      } catch {
-        if (tasksAvailable) {
-          triggersAvailable = true;
-          for (const task of runtimeTasks) {
-            const summaryItem = taskToTriggerSummary(task);
-            if (summaryItem) {
-              triggers.push(summaryItem);
-            }
-          }
-        }
-      }
-    }
-
-    if (todos.length > 1) {
-      const dedupedTodos = new Map<string, WorkbenchTodoView>();
-      for (const todo of todos) {
-        dedupedTodos.set(todo.id, todo);
-      }
-      todos.length = 0;
-      todos.push(...dedupedTodos.values());
-    }
-
-    tasks.sort((a, b) => a.name.localeCompare(b.name));
-    todos.sort((a, b) => a.name.localeCompare(b.name));
-    triggers.sort((a, b) => a.displayName.localeCompare(b.displayName));
-    summary.totalTasks = tasks.length;
-    summary.completedTasks = tasks.filter((task) => task.isCompleted).length;
-    summary.totalTriggers = triggers.length;
-    summary.activeTriggers = triggers.filter(
-      (trigger) => trigger.enabled,
-    ).length;
-    summary.totalTodos = todos.length;
-    summary.completedTodos = todos.filter((todo) => todo.isCompleted).length;
-
-    json(res, {
-      tasks,
-      triggers,
-      todos,
-      summary,
-      autonomy,
-      tasksAvailable,
-      triggersAvailable,
-      todosAvailable,
-    });
-    return;
-  }
-
-  // ── GET /api/workbench/tasks ─────────────────────────────────────────
-  if (method === "GET" && pathname === "/api/workbench/tasks") {
-    if (!state.runtime) {
-      error(res, "Agent runtime is not available", 503);
-      return;
-    }
-    const runtimeTasks = await state.runtime.getTasks({});
-    const tasks = runtimeTasks
-      .map((task) => toWorkbenchTask(task))
-      .filter((task): task is WorkbenchTaskView => task !== null)
-      .sort((a, b) => a.name.localeCompare(b.name));
-    json(res, { tasks });
-    return;
-  }
-
-  // ── POST /api/workbench/tasks ────────────────────────────────────────
-  if (method === "POST" && pathname === "/api/workbench/tasks") {
-    if (!state.runtime) {
-      error(res, "Agent runtime is not available", 503);
-      return;
-    }
-    const body = await readJsonBody<{
-      name?: string;
-      description?: string;
-      tags?: string[];
-      isCompleted?: boolean;
-    }>(req, res);
-    if (!body) return;
-    const name = typeof body.name === "string" ? body.name.trim() : "";
-    if (!name) {
-      error(res, "name is required", 400);
-      return;
-    }
-    const description =
-      typeof body.description === "string" ? body.description : "";
-    const isCompleted = body.isCompleted === true;
-    const metadata = {
-      isCompleted,
-      workbench: { kind: "task" },
-    };
-    const taskId = await state.runtime.createTask({
-      name,
-      description,
-      tags: normalizeTags(body.tags, [WORKBENCH_TASK_TAG]),
-      metadata,
-    });
-    const created = await state.runtime.getTask(taskId);
-    const task = created ? toWorkbenchTask(created) : null;
-    if (!task) {
-      error(res, "Task created but unavailable", 500);
-      return;
-    }
-    json(res, { task }, 201);
-    return;
-  }
-
-  const taskItemMatch = /^\/api\/workbench\/tasks\/([^/]+)$/.exec(pathname);
-  if (taskItemMatch && ["GET", "PUT", "DELETE"].includes(method)) {
-    if (!state.runtime) {
-      error(res, "Agent runtime is not available", 503);
-      return;
-    }
-    const decodedTaskId = decodePathComponent(taskItemMatch[1], res, "task id");
-    if (!decodedTaskId) return;
-    const task = await state.runtime.getTask(decodedTaskId as UUID);
-    const taskView = task ? toWorkbenchTask(task) : null;
-    if (!task || !taskView || !task.id) {
-      error(res, "Task not found", 404);
-      return;
-    }
-
-    if (method === "GET") {
-      json(res, { task: taskView });
-      return;
-    }
-
-    if (method === "DELETE") {
-      await state.runtime.deleteTask(task.id);
-      json(res, { ok: true });
-      return;
-    }
-
-    const body = await readJsonBody<{
-      name?: string;
-      description?: string;
-      tags?: string[];
-      isCompleted?: boolean;
-    }>(req, res);
-    if (!body) return;
-
-    const update: Partial<Task> = {};
-    if (typeof body.name === "string") {
-      const name = body.name.trim();
-      if (!name) {
-        error(res, "name cannot be empty", 400);
-        return;
-      }
-      update.name = name;
-    }
-    if (typeof body.description === "string") {
-      update.description = body.description;
-    }
-    if (body.tags !== undefined) {
-      update.tags = normalizeTags(body.tags, [WORKBENCH_TASK_TAG]);
-    }
-    if (typeof body.isCompleted === "boolean") {
-      update.metadata = {
-        ...readTaskMetadata(task),
-        isCompleted: body.isCompleted,
-      };
-    }
-    await state.runtime.updateTask(task.id, update);
-    const refreshed = await state.runtime.getTask(task.id);
-    const refreshedView = refreshed ? toWorkbenchTask(refreshed) : null;
-    if (!refreshedView) {
-      error(res, "Task updated but unavailable", 500);
-      return;
-    }
-    json(res, { task: refreshedView });
-    return;
-  }
-
-  // ── GET /api/workbench/todos ─────────────────────────────────────────
-  if (method === "GET" && pathname === "/api/workbench/todos") {
-    if (!state.runtime) {
-      error(res, "Agent runtime is not available", 503);
-      return;
-    }
-    const runtimeTasks = await state.runtime.getTasks({});
-    const todos = runtimeTasks
-      .map((task) => toWorkbenchTodo(task))
-      .filter((todo): todo is WorkbenchTodoView => todo !== null)
-      .sort((a, b) => a.name.localeCompare(b.name));
-    const todoData = await getTodoDataService(state.runtime);
-    if (todoData) {
-      try {
-        const dbTodos = await todoData.getTodos({
-          agentId: state.runtime.agentId,
-        });
-        for (const rawTodo of dbTodos) {
-          const mapped = toWorkbenchTodoFromRecord(rawTodo);
-          if (mapped) {
-            const existingIndex = todos.findIndex(
-              (todo) => todo.id === mapped.id,
+        await Promise.race([
+          (async () => {
+            if (!runtime.messageService) return;
+            const result = await runtime.messageService.handleMessage(
+              runtime,
+              message,
+              async (content: Content) => {
+                if (content?.text) {
+                  responseText += content.text;
+                }
+                return [];
+              },
+              {
+                // Favor responsive chat UX in the web app.
+                useMultiStep: CHAT_PIPELINE_USE_MULTI_STEP,
+                maxRetries: CHAT_PIPELINE_MAX_RETRIES,
+                timeoutDuration: CHAT_PIPELINE_TIMEOUT_MS,
+                shouldRespondModel: "small",
+              },
             );
-            if (existingIndex >= 0) {
-              todos[existingIndex] = mapped;
-            } else {
-              todos.push(mapped);
-            }
-          }
-        }
-        todos.sort((a, b) => a.name.localeCompare(b.name));
-      } catch {
-        // fallback to task-backed todos only
+            if (!result || typeof result !== "object") return;
+            const parsed = result as {
+              responseContent?: Content | null;
+              reason?: string;
+            };
+            const candidateText = (
+              parsed.responseContent as { text?: string } | null | undefined
+            )?.text;
+            messageResponseText =
+              typeof candidateText === "string" ? candidateText : "";
+            messageReason =
+              typeof parsed.reason === "string" ? parsed.reason : null;
+          })(),
+          new Promise<never>((_, reject) => {
+            timeoutHandle = setTimeout(
+              () => reject(new Error("Chat response timed out")),
+              CHAT_RESPONSE_TIMEOUT_MS,
+            );
+          }),
+        ]);
+      } finally {
+        if (timeoutHandle) clearTimeout(timeoutHandle);
       }
-    }
-    json(res, { todos });
-    return;
-  }
 
-  // ── POST /api/workbench/todos ────────────────────────────────────────
-  if (method === "POST" && pathname === "/api/workbench/todos") {
-    if (!state.runtime) {
-      error(res, "Agent runtime is not available", 503);
-      return;
-    }
-    const body = await readJsonBody<{
-      name?: string;
-      description?: string;
-      priority?: number | string | null;
-      isUrgent?: boolean;
-      type?: string;
-      isCompleted?: boolean;
-      tags?: string[];
-    }>(req, res);
-    if (!body) return;
-    const name = typeof body.name === "string" ? body.name.trim() : "";
-    if (!name) {
-      error(res, "name is required", 400);
-      return;
-    }
-    const description =
-      typeof body.description === "string" ? body.description : "";
-    const isCompleted = body.isCompleted === true;
-    const priority = parseNullableNumber(body.priority);
-    const isUrgent = body.isUrgent === true;
-    const type =
-      typeof body.type === "string" && body.type.trim().length > 0
-        ? body.type.trim()
-        : "task";
+      // Some message-service paths return text only in responseContent and do
+      // not emit callback chunks. Capture that result before declaring no output.
+      const fallbackText = messageResponseText.trim();
+      if (!responseText.trim() && fallbackText) {
+        responseText = fallbackText;
+      }
 
-    const todoData = await getTodoDataService(state.runtime);
-    if (todoData) {
-      try {
-        const now = Date.now();
-        const roomId =
-          (
-            state.runtime.getService("AUTONOMY") as {
-              getAutonomousRoomId?: () => UUID;
-            } | null
-          )?.getAutonomousRoomId?.() ??
-          stringToUuid(`workbench-todo-room-${state.runtime.agentId}`);
-        const worldId = stringToUuid(
-          `workbench-todo-world-${state.runtime.agentId}`,
+      // Last-resort fallback: if the message pipeline produced no visible
+      // assistant text, directly invoke the active model so chat still works.
+      const {
+        text: directFallbackText,
+        errors: directFallbackErrors,
+        largeStatus: textLargeStatus,
+        smallStatus: textSmallStatus,
+      } = !responseText.trim()
+        ? await tryDirectModelFallback()
+        : {
+            text: "",
+            errors: [],
+            largeStatus: "not-run" as const,
+            smallStatus: "not-run" as const,
+          };
+      if (!responseText.trim() && directFallbackText) {
+        responseText = directFallbackText;
+      }
+
+      if (!responseText.trim()) {
+        const activeProvider = state.plugins.find(
+          (p) =>
+            p.category === "ai-provider" &&
+            p.enabled &&
+            p.validationErrors.length === 0,
         );
-        const entityId =
-          state.adminEntityId ?? stringToUuid(`workbench-todo-entity-${now}`);
-        const createdTodoId = await todoData.createTodo({
-          agentId: state.runtime.agentId,
-          worldId,
-          roomId,
-          entityId,
-          name,
-          description: description || name,
-          type,
-          priority: priority ?? undefined,
-          isUrgent,
-          metadata: {
-            createdAt: new Date(now).toISOString(),
-            source: "workbench-api",
-          },
-          tags: normalizeTags(body.tags, ["TODO"]),
-        });
-        const createdDbTodo = await todoData.getTodo(createdTodoId);
-        const mappedDbTodo = createdDbTodo
-          ? toWorkbenchTodoFromRecord(createdDbTodo)
-          : null;
-        if (mappedDbTodo) {
-          json(res, { todo: mappedDbTodo }, 201);
-          return;
+        const providerHint = activeProvider
+          ? `Active provider: ${activeProvider.name}.`
+          : "No active AI provider detected.";
+        const runtimeReason = messageReason
+          ? ` Runtime reason: ${messageReason}.`
+          : "";
+        const directFallbackReason =
+          directFallbackErrors.length > 0
+            ? ` Direct fallback errors: ${directFallbackErrors.join(" | ")}.`
+            : "";
+        const fallbackStatusReason = ` Fallback status: TEXT_LARGE=${textLargeStatus}, TEXT_SMALL=${textSmallStatus}.`;
+
+        const combined =
+          `${messageReason ?? ""} ${directFallbackErrors.join(" ")}`.toLowerCase();
+        if (
+          combined.includes("you exceeded your current quota") ||
+          combined.includes("insufficient_quota") ||
+          (combined.includes("quota") && combined.includes("billing"))
+        ) {
+          throw new Error(
+            `Provider quota reached. ${providerHint} Update billing/usage limits, then retry.`,
+          );
         }
-      } catch {
-        // fallback to task-backed todo creation
-      }
-    }
-
-    const metadata = {
-      isCompleted,
-      workbenchTodo: {
-        description,
-        priority,
-        isUrgent,
-        isCompleted,
-        type,
-      },
-    };
-    const taskId = await state.runtime.createTask({
-      name,
-      description,
-      tags: normalizeTags(body.tags, [WORKBENCH_TODO_TAG, "todo"]),
-      metadata,
-    });
-    const created = await state.runtime.getTask(taskId);
-    const todo = created ? toWorkbenchTodo(created) : null;
-    if (!todo) {
-      error(res, "Todo created but unavailable", 500);
-      return;
-    }
-    json(res, { todo }, 201);
-    return;
-  }
-
-  const todoCompleteMatch = /^\/api\/workbench\/todos\/([^/]+)\/complete$/.exec(
-    pathname,
-  );
-  if (method === "POST" && todoCompleteMatch) {
-    if (!state.runtime) {
-      error(res, "Agent runtime is not available", 503);
-      return;
-    }
-    const decodedTodoId = decodePathComponent(
-      todoCompleteMatch[1],
-      res,
-      "todo id",
-    );
-    if (!decodedTodoId) return;
-    const body = await readJsonBody<{ isCompleted?: boolean }>(req, res);
-    if (!body) return;
-    const isCompleted = body.isCompleted === true;
-    const todoData = await getTodoDataService(state.runtime);
-    if (todoData) {
-      try {
-        await todoData.updateTodo(decodedTodoId, {
-          isCompleted,
-          completedAt: isCompleted ? new Date() : null,
-        });
-        json(res, { ok: true });
-        return;
-      } catch {
-        // fallback to task-backed path
-      }
-    }
-    const todoTask = await state.runtime.getTask(decodedTodoId as UUID);
-    if (!todoTask || !todoTask.id || !toWorkbenchTodo(todoTask)) {
-      error(res, "Todo not found", 404);
-      return;
-    }
-    const metadata = readTaskMetadata(todoTask);
-    const todoMeta =
-      asObject(metadata.workbenchTodo) ?? asObject(metadata.todo) ?? {};
-    await state.runtime.updateTask(todoTask.id, {
-      metadata: {
-        ...metadata,
-        isCompleted,
-        workbenchTodo: {
-          ...todoMeta,
-          isCompleted,
-        },
-      },
-    });
-    json(res, { ok: true });
-    return;
-  }
-
-  const todoItemMatch = /^\/api\/workbench\/todos\/([^/]+)$/.exec(pathname);
-  if (todoItemMatch && ["GET", "PUT", "DELETE"].includes(method)) {
-    if (!state.runtime) {
-      error(res, "Agent runtime is not available", 503);
-      return;
-    }
-    const decodedTodoId = decodePathComponent(todoItemMatch[1], res, "todo id");
-    if (!decodedTodoId) return;
-    const todoData = await getTodoDataService(state.runtime);
-
-    if (method === "GET" && todoData) {
-      try {
-        const dbTodo = await todoData.getTodo(decodedTodoId);
-        const mapped = dbTodo ? toWorkbenchTodoFromRecord(dbTodo) : null;
-        if (mapped) {
-          json(res, { todo: mapped });
-          return;
+        if (
+          combined.includes("invalid api key") ||
+          combined.includes("incorrect api key") ||
+          combined.includes("unauthorized") ||
+          combined.includes("401")
+        ) {
+          throw new Error(
+            `Provider authentication failed. ${providerHint} Verify your API key and selected model, then restart Milaidy.`,
+          );
         }
-      } catch {
-        // fallback to task-backed path
+        if (combined.includes("no handler found for delegate type")) {
+          throw new Error(
+            `Provider plugin is not available for the selected model. ${providerHint} Enable a model provider in AI Settings and restart Milaidy.`,
+          );
+        }
+        throw new Error(
+          `No assistant response was produced. ${providerHint}${runtimeReason}${directFallbackReason}${fallbackStatusReason} Verify provider key/model configuration and restart Milaidy.`,
+        );
       }
-    }
 
-    if (method === "GET") {
-      const todoTask = await state.runtime.getTask(decodedTodoId as UUID);
-      const todoView = todoTask ? toWorkbenchTodo(todoTask) : null;
-      if (!todoTask || !todoTask.id || !todoView) {
-        error(res, "Todo not found", 404);
-        return;
-      }
-      json(res, { todo: todoView });
-      return;
-    }
-
-    if (method === "DELETE" && todoData) {
-      try {
-        await todoData.deleteTodo(decodedTodoId);
-        json(res, { ok: true });
-        return;
-      } catch {
-        // fallback to task-backed path
-      }
-    }
-
-    if (method === "DELETE") {
-      const todoTask = await state.runtime.getTask(decodedTodoId as UUID);
-      if (!todoTask?.id || !toWorkbenchTodo(todoTask)) {
-        error(res, "Todo not found", 404);
-        return;
-      }
-      await state.runtime.deleteTask(todoTask.id);
-      json(res, { ok: true });
-      return;
-    }
-
-    const body = await readJsonBody<{
-      name?: string;
-      description?: string;
-      priority?: number | string | null;
-      isUrgent?: boolean;
-      type?: string;
-      isCompleted?: boolean;
-      tags?: string[];
-    }>(req, res);
-    if (!body) return;
-
-    if (todoData) {
-      try {
-        const updates: Record<string, unknown> = {};
-        if (typeof body.name === "string") {
-          const name = body.name.trim();
-          if (!name) {
-            error(res, "name cannot be empty", 400);
+      replyText(responseText);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "generation failed";
+      const msgLower = msg.toLowerCase();
+      const isTimeout =
+        msgLower.includes("timed out") ||
+        msgLower.includes("timeout") ||
+        msgLower.includes("exceeded timeout");
+      // If we already have a partial response, return it instead of surfacing
+      // a terminal timeout error to the UI.
+      if (isTimeout && responseText.trim()) {
+        replyText(responseText);
+      } else if (isTimeout) {
+        // Timeout fallback: attempt one short direct model call before failing.
+        try {
+          const direct = await Promise.race([
+            tryDirectModelFallback(),
+            new Promise<{
+              text: string;
+              errors: string[];
+              largeStatus: "not-run" | "ok" | "empty" | "error";
+              smallStatus: "not-run" | "ok" | "empty" | "error";
+            }>((_, reject) => {
+              setTimeout(
+                () => reject(new Error("Direct fallback timed out")),
+                6000,
+              );
+            }),
+          ]);
+          if (direct.text.trim()) {
+            replyText(direct.text.trim());
             return;
           }
-          updates.name = name;
-        }
-        if (typeof body.description === "string") {
-          updates.description = body.description;
-        }
-        if (body.priority !== undefined) {
-          updates.priority = parseNullableNumber(body.priority);
-        }
-        if (typeof body.isUrgent === "boolean") {
-          updates.isUrgent = body.isUrgent;
-        }
-        if (typeof body.type === "string" && body.type.trim().length > 0) {
-          updates.type = body.type.trim();
-        }
-        if (typeof body.isCompleted === "boolean") {
-          updates.isCompleted = body.isCompleted;
-          updates.completedAt = body.isCompleted ? new Date() : null;
-        }
-        await todoData.updateTodo(decodedTodoId, updates);
-        const refreshedDbTodo = await todoData.getTodo(decodedTodoId);
-        const refreshedMapped = refreshedDbTodo
-          ? toWorkbenchTodoFromRecord(refreshedDbTodo)
-          : null;
-        if (refreshedMapped) {
-          json(res, { todo: refreshedMapped });
-          return;
-        }
-      } catch {
-        // fallback to task-backed path
-      }
-    }
-
-    const todoTask = await state.runtime.getTask(decodedTodoId as UUID);
-    const todoView = todoTask ? toWorkbenchTodo(todoTask) : null;
-    if (!todoTask || !todoTask.id || !todoView) {
-      error(res, "Todo not found", 404);
-      return;
-    }
-
-    const update: Partial<Task> = {};
-    if (typeof body.name === "string") {
-      const name = body.name.trim();
-      if (!name) {
-        error(res, "name cannot be empty", 400);
-        return;
-      }
-      update.name = name;
-    }
-    if (typeof body.description === "string") {
-      update.description = body.description;
-    }
-    if (body.tags !== undefined) {
-      update.tags = normalizeTags(body.tags, [WORKBENCH_TODO_TAG, "todo"]);
-    }
-
-    const metadata = readTaskMetadata(todoTask);
-    const existingTodoMeta =
-      asObject(metadata.workbenchTodo) ?? asObject(metadata.todo) ?? {};
-    const nextTodoMeta: Record<string, unknown> = {
-      ...existingTodoMeta,
-    };
-    if (typeof body.description === "string") {
-      nextTodoMeta.description = body.description;
-    }
-    if (body.priority !== undefined) {
-      nextTodoMeta.priority = parseNullableNumber(body.priority);
-    }
-    if (typeof body.isUrgent === "boolean") {
-      nextTodoMeta.isUrgent = body.isUrgent;
-    }
-    if (typeof body.type === "string" && body.type.trim().length > 0) {
-      nextTodoMeta.type = body.type.trim();
-    }
-
-    let isCompleted = readTaskCompleted(todoTask);
-    if (typeof body.isCompleted === "boolean") {
-      isCompleted = body.isCompleted;
-    }
-    nextTodoMeta.isCompleted = isCompleted;
-    update.metadata = {
-      ...metadata,
-      isCompleted,
-      workbenchTodo: nextTodoMeta,
-    };
-
-    await state.runtime.updateTask(todoTask.id, update);
-    const refreshed = await state.runtime.getTask(todoTask.id);
-    const refreshedTodo = refreshed ? toWorkbenchTodo(refreshed) : null;
-    if (!refreshedTodo) {
-      error(res, "Todo updated but unavailable", 500);
-      return;
-    }
-    json(res, { todo: refreshedTodo });
-    return;
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════
-  // Share ingest routes
-  // ═══════════════════════════════════════════════════════════════════════
-
-  // ── POST /api/ingest/share ───────────────────────────────────────────
-  if (method === "POST" && pathname === "/api/ingest/share") {
-    const body = await readJsonBody<{
-      source?: string;
-      title?: string;
-      url?: string;
-      text?: string;
-    }>(req, res);
-    if (!body) return;
-
-    const item: ShareIngestItem = {
-      id: crypto.randomUUID(),
-      source: (body.source as string) ?? "unknown",
-      title: body.title as string | undefined,
-      url: body.url as string | undefined,
-      text: body.text as string | undefined,
-      suggestedPrompt: body.title
-        ? `What do you think about "${body.title}"?`
-        : body.url
-          ? `Can you analyze this: ${body.url}`
-          : body.text
-            ? `What are your thoughts on: ${(body.text as string).slice(0, 100)}`
-            : "What do you think about this shared content?",
-      receivedAt: Date.now(),
-    };
-    state.shareIngestQueue.push(item);
-    json(res, { ok: true, item });
-    return;
-  }
-
-  // ── GET /api/ingest/share ────────────────────────────────────────────
-  if (method === "GET" && pathname === "/api/ingest/share") {
-    const consume = url.searchParams.get("consume") === "1";
-    if (consume) {
-      const items = [...state.shareIngestQueue];
-      state.shareIngestQueue.length = 0;
-      json(res, { items });
-    } else {
-      json(res, { items: state.shareIngestQueue });
-    }
-    return;
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════
-  // MCP marketplace routes
-  // ═══════════════════════════════════════════════════════════════════════
-
-  // ── GET /api/mcp/marketplace/search ──────────────────────────────────
-  if (method === "GET" && pathname === "/api/mcp/marketplace/search") {
-    const query = url.searchParams.get("q") ?? "";
-    const limitStr = url.searchParams.get("limit");
-    const limit = limitStr
-      ? parseClampedInteger(limitStr, { min: 1, max: 50, fallback: 30 })
-      : 30;
-    try {
-      const result = await searchMcpMarketplace(query || undefined, limit);
-      json(res, { ok: true, results: result.results });
-    } catch (err) {
-      error(
-        res,
-        `MCP marketplace search failed: ${err instanceof Error ? err.message : err}`,
-        502,
-      );
-    }
-    return;
-  }
-
-  // ── GET /api/mcp/marketplace/details/:name ───────────────────────────
-  if (
-    method === "GET" &&
-    pathname.startsWith("/api/mcp/marketplace/details/")
-  ) {
-    const serverName = decodePathComponent(
-      pathname.slice("/api/mcp/marketplace/details/".length),
-      res,
-      "server name",
-    );
-    if (serverName === null) return;
-    if (!serverName.trim()) {
-      error(res, "Server name is required", 400);
-      return;
-    }
-    try {
-      const details = await getMcpServerDetails(serverName);
-      if (!details) {
-        error(res, `MCP server "${serverName}" not found`, 404);
-        return;
-      }
-      json(res, { ok: true, server: details });
-    } catch (err) {
-      error(
-        res,
-        `Failed to fetch server details: ${err instanceof Error ? err.message : err}`,
-        502,
-      );
-    }
-    return;
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════
-  // MCP config routes
-  // ═══════════════════════════════════════════════════════════════════════
-
-  // ── GET /api/mcp/config ──────────────────────────────────────────────
-  if (method === "GET" && pathname === "/api/mcp/config") {
-    const servers = state.config.mcp?.servers ?? {};
-    json(res, { ok: true, servers: redactDeep(servers) });
-    return;
-  }
-
-  // ── POST /api/mcp/config/server ──────────────────────────────────────
-  if (method === "POST" && pathname === "/api/mcp/config/server") {
-    const body = await readJsonBody<{
-      name?: string;
-      config?: Record<string, unknown>;
-    }>(req, res);
-    if (!body) return;
-
-    const serverName = (body.name as string | undefined)?.trim();
-    if (!serverName) {
-      error(res, "Server name is required", 400);
-      return;
-    }
-    if (isBlockedObjectKey(serverName)) {
-      error(
-        res,
-        'Invalid server name: "__proto__", "constructor", and "prototype" are reserved',
-        400,
-      );
-      return;
-    }
-
-    const config = body.config as Record<string, unknown> | undefined;
-    if (!config || typeof config !== "object") {
-      error(res, "Server config object is required", 400);
-      return;
-    }
-    if (hasBlockedObjectKeyDeep(config)) {
-      error(
-        res,
-        'Invalid server config: "__proto__", "constructor", and "prototype" are not allowed',
-        400,
-      );
-      return;
-    }
-
-    const configType = config.type as string | undefined;
-    const validTypes = ["stdio", "http", "streamable-http", "sse"];
-    if (!configType || !validTypes.includes(configType)) {
-      error(
-        res,
-        `Invalid config type. Must be one of: ${validTypes.join(", ")}`,
-        400,
-      );
-      return;
-    }
-
-    if (configType === "stdio" && !config.command) {
-      error(res, "Command is required for stdio servers", 400);
-      return;
-    }
-
-    if (
-      (configType === "http" ||
-        configType === "streamable-http" ||
-        configType === "sse") &&
-      !config.url
-    ) {
-      error(res, "URL is required for remote servers", 400);
-      return;
-    }
-
-    if (!state.config.mcp) state.config.mcp = {};
-    if (!state.config.mcp.servers) state.config.mcp.servers = {};
-    const sanitized = cloneWithoutBlockedObjectKeys(config);
-    state.config.mcp.servers[serverName] = sanitized as NonNullable<
-      NonNullable<typeof state.config.mcp>["servers"]
-    >[string];
-
-    try {
-      saveMiladyConfig(state.config);
-    } catch (err) {
-      logger.warn(
-        `[api] Config save failed: ${err instanceof Error ? err.message : err}`,
-      );
-    }
-
-    json(res, { ok: true, name: serverName, requiresRestart: true });
-    return;
-  }
-
-  // ── DELETE /api/mcp/config/server/:name ──────────────────────────────
-  if (method === "DELETE" && pathname.startsWith("/api/mcp/config/server/")) {
-    const serverName = decodePathComponent(
-      pathname.slice("/api/mcp/config/server/".length),
-      res,
-      "server name",
-    );
-    if (serverName === null) return;
-    if (isBlockedObjectKey(serverName)) {
-      error(
-        res,
-        'Invalid server name: "__proto__", "constructor", and "prototype" are reserved',
-        400,
-      );
-      return;
-    }
-
-    if (state.config.mcp?.servers?.[serverName]) {
-      delete state.config.mcp.servers[serverName];
-      try {
-        saveMiladyConfig(state.config);
-      } catch (err) {
-        logger.warn(
-          `[api] Config save failed: ${err instanceof Error ? err.message : err}`,
-        );
-      }
-    }
-
-    json(res, { ok: true, requiresRestart: true });
-    return;
-  }
-
-  // ── PUT /api/mcp/config ──────────────────────────────────────────────
-  if (method === "PUT" && pathname === "/api/mcp/config") {
-    const body = await readJsonBody<{
-      servers?: Record<string, unknown>;
-    }>(req, res);
-    if (!body) return;
-
-    if (!state.config.mcp) state.config.mcp = {};
-    if (body.servers && typeof body.servers === "object") {
-      if (hasBlockedObjectKeyDeep(body.servers)) {
-        error(
-          res,
-          'Invalid servers config: "__proto__", "constructor", and "prototype" are not allowed',
-          400,
-        );
-        return;
-      }
-      const sanitized = cloneWithoutBlockedObjectKeys(body.servers);
-      state.config.mcp.servers = sanitized as NonNullable<
-        NonNullable<typeof state.config.mcp>["servers"]
-      >;
-    }
-
-    try {
-      saveMiladyConfig(state.config);
-    } catch (err) {
-      logger.warn(
-        `[api] Config save failed: ${err instanceof Error ? err.message : err}`,
-      );
-    }
-
-    json(res, { ok: true });
-    return;
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════
-  // MCP status route
-  // ═══════════════════════════════════════════════════════════════════════
-
-  // ── GET /api/mcp/status ──────────────────────────────────────────────
-  if (method === "GET" && pathname === "/api/mcp/status") {
-    const servers: Array<{
-      name: string;
-      status: string;
-      toolCount: number;
-      resourceCount: number;
-    }> = [];
-
-    // If runtime has an MCP service, enumerate active servers
-    if (state.runtime) {
-      try {
-        const mcpService = state.runtime.getService("MCP") as {
-          getServers?: () => Array<{
-            name: string;
-            status: string;
-            tools?: unknown[];
-            resources?: unknown[];
-          }>;
-        } | null;
-        if (mcpService && typeof mcpService.getServers === "function") {
-          for (const s of mcpService.getServers()) {
-            servers.push({
-              name: s.name,
-              status: s.status,
-              toolCount: Array.isArray(s.tools) ? s.tools.length : 0,
-              resourceCount: Array.isArray(s.resources)
-                ? s.resources.length
-                : 0,
-            });
+          const fallbackCombined = direct.errors.join(" ").toLowerCase();
+          if (
+            fallbackCombined.includes("insufficient_quota") ||
+            fallbackCombined.includes("you exceeded your current quota") ||
+            (fallbackCombined.includes("quota") &&
+              fallbackCombined.includes("billing"))
+          ) {
+            codedError(
+              res,
+              "Provider quota reached. Update billing/usage limits, then retry.",
+              "PROVIDER_QUOTA",
+              402,
+            );
+            return;
           }
+          if (
+            fallbackCombined.includes("invalid api key") ||
+            fallbackCombined.includes("incorrect api key") ||
+            fallbackCombined.includes("unauthorized") ||
+            fallbackCombined.includes("401")
+          ) {
+            codedError(
+              res,
+              "Provider authentication failed. Verify your API key, then restart Milaidy.",
+              "PROVIDER_AUTH",
+              401,
+            );
+            return;
+          }
+          // Generic recovery pass: produce a shorter, completion-focused answer
+          // from current context before falling back to non-model continuity text.
+          try {
+            const recovery = await Promise.race([
+              state.runtime!.useModel(ModelType.TEXT_SMALL, {
+                prompt:
+                  `You are ${state.runtime!.character.name ?? "Milaidy"}.\n` +
+                  "The previous generation timed out. Continue the user's request with a concise but complete answer.\n" +
+                  "Rules:\n" +
+                  "- Do not ask broad reset questions.\n" +
+                  "- Use existing context and deliver the next useful output now.\n" +
+                  "- Keep it short enough to avoid timeout.\n\n" +
+                  fastContext +
+                  `User message:\n${userText}`,
+              }),
+              new Promise<string>((_, reject) =>
+                setTimeout(
+                  () => reject(new Error("Recovery reply timed out")),
+                  3500,
+                ),
+              ),
+            ]);
+            if (typeof recovery === "string" && recovery.trim()) {
+              replyText(recovery.trim());
+              return;
+            }
+          } catch {
+            // Continue to non-model fallback.
+          }
+        } catch {
+          // Fall through to timeout response.
         }
-      } catch (err) {
-        logger.debug(
-          `[api] Service not available: ${err instanceof Error ? err.message : err}`,
-        );
-      }
-    }
-
-    json(res, { ok: true, servers });
-    return;
-  }
-
-  // ── GET /api/emotes ──────────────────────────────────────────────────────
-  if (method === "GET" && pathname === "/api/emotes") {
-    json(res, { emotes: EMOTE_CATALOG });
-    return;
-  }
-
-  // ── POST /api/emote ─────────────────────────────────────────────────────
-  if (method === "POST" && pathname === "/api/emote") {
-    const body = await readJsonBody<{ emoteId?: string }>(req, res);
-    if (!body) return;
-    const emote = body.emoteId ? EMOTE_BY_ID.get(body.emoteId) : undefined;
-    if (!emote) {
-      error(res, `Unknown emote: ${body.emoteId ?? "(none)"}`);
-      return;
-    }
-    state.broadcastWs?.({
-      type: "emote",
-      emoteId: emote.id,
-      glbPath: emote.glbPath,
-      duration: emote.duration,
-      loop: emote.loop,
-    });
-    json(res, { ok: true });
-    return;
-  }
-
-  // ── POST /api/terminal/run ──────────────────────────────────────────────
-  // Execute a shell command server-side and stream output via WebSocket.
-  if (method === "POST" && pathname === "/api/terminal/run") {
-    if (state.shellEnabled === false) {
-      error(res, "Shell access is disabled", 403);
-      return;
-    }
-
-    const body = await readJsonBody<{ command?: string }>(req, res);
-    if (!body) return;
-    const command = typeof body.command === "string" ? body.command.trim() : "";
-    if (!command) {
-      error(res, "Missing or empty command");
-      return;
-    }
-
-    // Guard against excessively long commands (likely injection or abuse)
-    if (command.length > 4096) {
-      error(res, "Command exceeds maximum length (4096 chars)", 400);
-      return;
-    }
-
-    const { maxConcurrent, maxDurationMs } = resolveTerminalRunLimits();
-    if (activeTerminalRunCount >= maxConcurrent) {
-      error(
-        res,
-        `Too many active terminal runs (${maxConcurrent}). Wait for a command to finish.`,
-        429,
-      );
-      return;
-    }
-
-    // Respond immediately — output streams via WebSocket
-    json(res, { ok: true });
-
-    // Spawn in background and broadcast output
-    const { spawn } = await import("node:child_process");
-    const runId = `run-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-
-    state.broadcastWs?.({
-      type: "terminal-output",
-      runId,
-      event: "start",
-      command,
-      maxDurationMs,
-    });
-
-    const proc = spawn(command, {
-      shell: true,
-      cwd: process.cwd(),
-      env: { ...process.env, FORCE_COLOR: "0" },
-    });
-
-    activeTerminalRunCount += 1;
-    let finalized = false;
-    const finalize = () => {
-      if (finalized) return;
-      finalized = true;
-      activeTerminalRunCount = Math.max(0, activeTerminalRunCount - 1);
-      clearTimeout(timeoutHandle);
-    };
-
-    const timeoutHandle = setTimeout(() => {
-      if (proc.killed) return;
-      proc.kill("SIGTERM");
-      state.broadcastWs?.({
-        type: "terminal-output",
-        runId,
-        event: "timeout",
-        maxDurationMs,
-      });
-
-      setTimeout(() => {
-        if (!proc.killed) proc.kill("SIGKILL");
-      }, 3000);
-    }, maxDurationMs);
-
-    proc.stdout?.on("data", (chunk: Buffer) => {
-      state.broadcastWs?.({
-        type: "terminal-output",
-        runId,
-        event: "stdout",
-        data: chunk.toString("utf-8"),
-      });
-    });
-
-    proc.stderr?.on("data", (chunk: Buffer) => {
-      state.broadcastWs?.({
-        type: "terminal-output",
-        runId,
-        event: "stderr",
-        data: chunk.toString("utf-8"),
-      });
-    });
-
-    proc.on("close", (code: number | null) => {
-      finalize();
-      state.broadcastWs?.({
-        type: "terminal-output",
-        runId,
-        event: "exit",
-        code: code ?? 1,
-      });
-    });
-
-    proc.on("error", (err: Error) => {
-      finalize();
-      state.broadcastWs?.({
-        type: "terminal-output",
-        runId,
-        event: "error",
-        data: err.message,
-      });
-    });
-
-    return;
-  }
-
-  // ── Custom Actions CRUD ──────────────────────────────────────────────
-
-  if (method === "GET" && pathname === "/api/custom-actions") {
-    const config = loadMiladyConfig();
-    json(res, { actions: config.customActions ?? [] });
-    return;
-  }
-
-  if (method === "POST" && pathname === "/api/custom-actions") {
-    const body = await readJsonBody<Record<string, unknown>>(req, res);
-    if (!body) return;
-
-    const name = typeof body.name === "string" ? body.name.trim() : "";
-    const description =
-      typeof body.description === "string" ? body.description.trim() : "";
-
-    if (!name || !description) {
-      error(res, "name and description are required", 400);
-      return;
-    }
-
-    const handler = body.handler as CustomActionDef["handler"] | undefined;
-    const validHandlerTypes = new Set(["http", "shell", "code"]);
-    if (!handler || !handler.type || !validHandlerTypes.has(handler.type)) {
-      error(
-        res,
-        "handler with valid type (http, shell, code) is required",
-        400,
-      );
-      return;
-    }
-
-    // Validate type-specific required fields
-    if (
-      handler.type === "http" &&
-      (typeof handler.url !== "string" || !handler.url.trim())
-    ) {
-      error(res, "HTTP handler requires a url", 400);
-      return;
-    }
-    if (
-      handler.type === "shell" &&
-      (typeof handler.command !== "string" || !handler.command.trim())
-    ) {
-      error(res, "Shell handler requires a command", 400);
-      return;
-    }
-    if (
-      handler.type === "code" &&
-      (typeof handler.code !== "string" || !handler.code.trim())
-    ) {
-      error(res, "Code handler requires code", 400);
-      return;
-    }
-
-    const now = new Date().toISOString();
-    const actionDef: CustomActionDef = {
-      id: crypto.randomUUID(),
-      name: name.toUpperCase().replace(/\s+/g, "_"),
-      description,
-      similes: Array.isArray(body.similes)
-        ? body.similes.filter((s): s is string => typeof s === "string")
-        : [],
-      parameters: Array.isArray(body.parameters)
-        ? (body.parameters as Array<{
-            name: string;
-            description: string;
-            required: boolean;
-          }>)
-        : [],
-      handler,
-      enabled: body.enabled !== false,
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    const config = loadMiladyConfig();
-    if (!config.customActions) config.customActions = [];
-    config.customActions.push(actionDef);
-    saveMiladyConfig(config);
-
-    // Hot-register into the running agent so it's available immediately
-    if (actionDef.enabled) {
-      registerCustomActionLive(actionDef);
-    }
-
-    json(res, { ok: true, action: actionDef });
-    return;
-  }
-
-  // Generate a custom action definition from a natural language prompt
-  if (method === "POST" && pathname === "/api/custom-actions/generate") {
-    const body = await readJsonBody<{ prompt?: string }>(req, res);
-    if (!body) return;
-
-    const prompt = typeof body.prompt === "string" ? body.prompt.trim() : "";
-    if (!prompt) {
-      error(res, "prompt is required", 400);
-      return;
-    }
-
-    const runtime = state.runtime;
-    if (!runtime) {
-      error(res, "Agent runtime not available", 503);
-      return;
-    }
-
-    try {
-      const systemPrompt = [
-        "You are a helper that generates custom action definitions from natural language descriptions.",
-        "Given a user's description of what they want an action to do, generate a JSON object with these fields:",
-        "",
-        "- name: string (UPPER_SNAKE_CASE action name)",
-        "- description: string (clear description of what the action does)",
-        "- similes: optional string[] of alternative action names and phrases",
-        '- handlerType: "http" | "shell" | "code"',
-        "- handler: object with type-specific fields:",
-        '  For http: { type: "http", method: "GET"|"POST"|etc, url: string, headers?: object, bodyTemplate?: string }',
-        '  For shell: { type: "shell", command: string }',
-        '  For code: { type: "code", code: string }',
-        "- parameters: array of { name: string, description: string, required: boolean }",
-        "",
-        "Use {{paramName}} placeholders in URLs, body templates, and shell commands.",
-        "For code handlers, parameters are available via params.paramName and fetch() is available.",
-        "",
-        "Respond with ONLY the JSON object, no markdown fences or explanation.",
-      ].join("\n");
-
-      const llmResponse = await runtime.useModel(ModelType.TEXT_SMALL, {
-        prompt: `${systemPrompt}\n\nUser request: ${prompt}`,
-      });
-
-      // Parse the JSON from the LLM response
-      const text =
-        typeof llmResponse === "string" ? llmResponse : String(llmResponse);
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) {
-        error(res, "Failed to generate action definition", 500);
+        replyText(buildNoModelContinuityReply(userText));
         return;
+      } else {
+        // Map provider errors into a small set of user-safe categories.
+        const isQuota =
+          msgLower.includes("provider quota reached") ||
+          msgLower.includes("insufficient_quota") ||
+          msgLower.includes("you exceeded your current quota") ||
+          (msgLower.includes("quota") && msgLower.includes("billing"));
+        const isAuth =
+          msgLower.includes("invalid api key") ||
+          msgLower.includes("incorrect api key") ||
+          msgLower.includes("unauthorized") ||
+          msgLower.includes("authentication") ||
+          msgLower.includes("401");
+        const isOllamaDown =
+          msgLower.includes("ollama") &&
+          (msgLower.includes("not reachable") ||
+            msgLower.includes("connection refused") ||
+            msgLower.includes("econnrefused") ||
+            msgLower.includes("11434") ||
+            msgLower.includes("unable to connect"));
+        const isProviderNotLoaded =
+          msgLower.includes("no handler found for delegate type") ||
+          msgLower.includes("provider plugin is not available") ||
+          msgLower.includes("delegate type") ||
+          msgLower.includes("cannot find package") ||
+          msgLower.includes("module_not_found") ||
+          msgLower.includes("no assistant response was produced");
+
+        if (isQuota) {
+          codedError(
+            res,
+            "Provider quota reached. Update billing/usage limits, then retry.",
+            "PROVIDER_QUOTA",
+            402,
+          );
+        } else if (isAuth) {
+          codedError(
+            res,
+            "Provider authentication failed. Verify your API key, then restart Milaidy.",
+            "PROVIDER_AUTH",
+            401,
+          );
+        } else if (isOllamaDown) {
+          codedError(
+            res,
+            "Provider not running: start Ollama on this device, then restart Milaidy.",
+            "PROVIDER_NOT_RUNNING",
+            503,
+          );
+        } else if (isProviderNotLoaded) {
+          codedError(
+            res,
+            "Provider not loaded yet. Restart Milaidy to apply your AI Settings.",
+            "PROVIDER_RESTART_REQUIRED",
+            503,
+          );
+        } else if (
+          msgLower.includes("provider") ||
+          msgLower.includes("model")
+        ) {
+          codedError(
+            res,
+            "Provider error. Restart Milaidy to apply your AI Settings.",
+            "PROVIDER_RESTART_REQUIRED",
+            503,
+          );
+        } else {
+          error(res, "Error generating text. Please try again later.", 500);
+        }
       }
-
-      const generated = JSON.parse(jsonMatch[0]) as Record<string, unknown>;
-      json(res, { ok: true, generated });
-    } catch (err) {
-      error(
-        res,
-        `Generation failed: ${err instanceof Error ? err.message : String(err)}`,
-        500,
-      );
+    } finally {
+      state.inFlightChatRequests = Math.max(0, state.inFlightChatRequests - 1);
     }
     return;
-  }
-
-  const customActionMatch = pathname.match(/^\/api\/custom-actions\/([^/]+)$/);
-  const customActionTestMatch = pathname.match(
-    /^\/api\/custom-actions\/([^/]+)\/test$/,
-  );
-
-  if (method === "POST" && customActionTestMatch) {
-    const actionId = decodeURIComponent(customActionTestMatch[1]);
-    const body = await readJsonBody<{ params?: Record<string, string> }>(
-      req,
-      res,
-    );
-    if (!body) return;
-
-    const config = loadMiladyConfig();
-    const def = (config.customActions ?? []).find((a) => a.id === actionId);
-    if (!def) {
-      error(res, "Action not found", 404);
-      return;
-    }
-
-    const testParams = body.params ?? {};
-    const start = Date.now();
-    try {
-      const handler = buildTestHandler(def);
-      const result = await handler(testParams);
-      json(res, {
-        ok: result.ok,
-        output: result.output,
-        durationMs: Date.now() - start,
-      });
-    } catch (err) {
-      json(res, {
-        ok: false,
-        output: "",
-        error: err instanceof Error ? err.message : String(err),
-        durationMs: Date.now() - start,
-      });
-    }
-    return;
-  }
-
-  if (method === "PUT" && customActionMatch) {
-    const actionId = decodeURIComponent(customActionMatch[1]);
-    const body = await readJsonBody<Record<string, unknown>>(req, res);
-    if (!body) return;
-
-    const config = loadMiladyConfig();
-    const actions = config.customActions ?? [];
-    const idx = actions.findIndex((a) => a.id === actionId);
-    if (idx === -1) {
-      error(res, "Action not found", 404);
-      return;
-    }
-
-    const existing = actions[idx];
-
-    // Validate handler if provided in the update
-    let newHandler = existing.handler;
-    if (body.handler != null) {
-      const h = body.handler as Record<string, unknown>;
-      const hValidTypes = new Set(["http", "shell", "code"]);
-      if (!h.type || !hValidTypes.has(h.type as string)) {
-        error(res, "handler.type must be http, shell, or code", 400);
-        return;
-      }
-      newHandler = h as unknown as CustomActionDef["handler"];
-    }
-
-    const updated: CustomActionDef = {
-      ...existing,
-      name:
-        typeof body.name === "string"
-          ? body.name.trim().toUpperCase().replace(/\s+/g, "_")
-          : existing.name,
-      description:
-        typeof body.description === "string"
-          ? body.description.trim()
-          : existing.description,
-      similes: Array.isArray(body.similes)
-        ? body.similes.filter((s): s is string => typeof s === "string")
-        : existing.similes,
-      parameters: Array.isArray(body.parameters)
-        ? (body.parameters as CustomActionDef["parameters"])
-        : existing.parameters,
-      handler: newHandler,
-      enabled:
-        typeof body.enabled === "boolean" ? body.enabled : existing.enabled,
-      updatedAt: new Date().toISOString(),
-    };
-
-    actions[idx] = updated;
-    config.customActions = actions;
-    saveMiladyConfig(config);
-
-    json(res, { ok: true, action: updated });
-    return;
-  }
-
-  if (method === "DELETE" && customActionMatch) {
-    const actionId = decodeURIComponent(customActionMatch[1]);
-
-    const config = loadMiladyConfig();
-    const actions = config.customActions ?? [];
-    const idx = actions.findIndex((a) => a.id === actionId);
-    if (idx === -1) {
-      error(res, "Action not found", 404);
-      return;
-    }
-
-    actions.splice(idx, 1);
-    config.customActions = actions;
-    saveMiladyConfig(config);
-
-    json(res, { ok: true });
-    return;
-  }
-
-  // ── Static UI serving (production) ──────────────────────────────────────
-  if (method === "GET" || method === "HEAD") {
-    if (serveStaticUi(req, res, pathname)) return;
   }
 
   // ── Fallback ────────────────────────────────────────────────────────────
   error(res, "Not found", 404);
 }
-
-// ---------------------------------------------------------------------------
-// Early log capture — re-exported from the standalone module so existing
-// callers that `import { captureEarlyLogs } from "../api/server"` keep
-// working.  The implementation lives in `./early-logs.ts` to avoid pulling
-// the entire server dependency graph into lightweight consumers (e.g. the
-// headless `startEliza()` path).
-// ---------------------------------------------------------------------------
-import { type captureEarlyLogs, flushEarlyLogs } from "./early-logs";
-export type { captureEarlyLogs };
 
 // ---------------------------------------------------------------------------
 // Server start
@@ -10632,8 +7647,6 @@ export type { captureEarlyLogs };
 export async function startApiServer(opts?: {
   port?: number;
   runtime?: AgentRuntime;
-  /** Initial state when starting without a runtime (e.g. embedded bootstrapping). */
-  initialAgentState?: "not_started" | "starting" | "stopped" | "error";
   /**
    * Called when the UI requests a restart via `POST /api/agent/restart`.
    * Should stop the current runtime, create a new one, and return it.
@@ -10645,283 +7658,116 @@ export async function startApiServer(opts?: {
   close: () => Promise<void>;
   updateRuntime: (rt: AgentRuntime) => void;
 }> {
-  const apiStartTime = Date.now();
-  console.log(`[milady-api] startApiServer called`);
-
   const port = opts?.port ?? 2138;
   const host =
-    (process.env.MILADY_API_BIND ?? "127.0.0.1").trim() || "127.0.0.1";
-  ensureApiTokenForBindHost(host);
-  console.log(`[milady-api] Token check done (${Date.now() - apiStartTime}ms)`);
+    (process.env.MILAIDY_API_BIND ?? "127.0.0.1").trim() || "127.0.0.1";
 
-  let config: MiladyConfig;
+  let config: MilaidyConfig;
   try {
-    config = loadMiladyConfig();
+    config = loadMilaidyConfig();
   } catch (err) {
     logger.warn(
-      `[milady-api] Failed to load config, starting with defaults: ${err instanceof Error ? err.message : err}`,
+      `[milaidy-api] Failed to load config, starting with defaults: ${err instanceof Error ? err.message : err}`,
     );
-    config = {} as MiladyConfig;
-  }
-  console.log(`[milady-api] Config loaded (${Date.now() - apiStartTime}ms)`);
-
-  // Wallet/inventory routes read from process.env at request-time.
-  // Hydrate persisted config.env values so addresses remain visible after restarts.
-  const persistedEnv = config.env as Record<string, string> | undefined;
-  const envKeysToHydrate = [
-    "EVM_PRIVATE_KEY",
-    "SOLANA_PRIVATE_KEY",
-    "ALCHEMY_API_KEY",
-    "INFURA_API_KEY",
-    "ANKR_API_KEY",
-    "HELIUS_API_KEY",
-    "BIRDEYE_API_KEY",
-    "SOLANA_RPC_URL",
-  ] as const;
-  for (const key of envKeysToHydrate) {
-    const value = persistedEnv?.[key];
-    if (typeof value === "string" && value.trim() && !process.env[key]) {
-      process.env[key] = value.trim();
-    }
+    config = {} as MilaidyConfig;
   }
 
-  // Self-heal older configs where wallet keys were never provisioned
-  // (e.g. RPC/cloud configured outside onboarding).
-  if (ensureWalletKeysInEnvAndConfig(config)) {
-    try {
-      saveMiladyConfig(config);
-    } catch (err) {
-      logger.warn(
-        `[milady-api] Failed to persist generated wallet keys: ${err instanceof Error ? err.message : err}`,
-      );
-    }
-  }
-
-  const plugins = discoverPluginsFromManifest();
-  console.log(
-    `[milady-api] Plugins discovered (${Date.now() - apiStartTime}ms)`,
-  );
+  applyPluginEntryConfigToEnv(config);
+  const plugins = discoverPluginsFromManifest(config);
   const workspaceDir =
     config.agents?.defaults?.workspace ?? resolveDefaultAgentWorkspaceDir();
+  const skills = await discoverSkills(
+    workspaceDir,
+    config,
+    opts?.runtime ?? null,
+  );
 
   const hasRuntime = opts?.runtime != null;
-  const initialAgentState = hasRuntime
-    ? "running"
-    : (opts?.initialAgentState ?? "not_started");
   const agentName = hasRuntime
-    ? (opts.runtime?.character.name ?? "Milady")
+    ? (opts.runtime!.character.name ?? "Milaidy")
     : (config.agents?.list?.[0]?.name ??
       config.ui?.assistant?.name ??
-      "Milady");
+      "Milaidy");
 
   const state: ServerState = {
     runtime: opts?.runtime ?? null,
     config,
-    agentState: initialAgentState,
+    agentState: hasRuntime ? "running" : "not_started",
     agentName,
-    model: hasRuntime ? "provided" : undefined,
-    startedAt:
-      hasRuntime || initialAgentState === "starting" ? Date.now() : undefined,
+    model: hasRuntime
+      ? (detectRuntimeModel(opts?.runtime ?? null) ?? "unknown")
+      : undefined,
+    startedAt: hasRuntime ? Date.now() : undefined,
     plugins,
-    // Filled asynchronously after server start to keep startup latency low.
-    skills: [],
+    skills,
     logBuffer: [],
-    eventBuffer: [],
-    nextEventId: 1,
     chatRoomId: null,
     chatUserId: null,
-    chatConnectionReady: null,
-    chatConnectionPromise: null,
-    adminEntityId: null,
-    conversations: new Map(),
-    cloudManager: null,
-    sandboxManager: null,
-    appManager: new AppManager(),
-    trainingService: null,
-    registryService: null,
-    dropService: null,
-    shareIngestQueue: [],
-    broadcastStatus: null,
-    broadcastWs: null,
-    activeConversationId: null,
-    permissionStates: {},
-    shellEnabled: config.features?.shellEnabled !== false,
+    chatTurnCount: 0,
+    chatRollingSummary: null,
+    chatRecentTurns: [],
+    inFlightChatRequests: 0,
   };
 
-  const trainingServiceCtor = await resolveTrainingServiceCtor();
-  const trainingServiceOptions = {
-    getRuntime: () => state.runtime,
-    getConfig: () => state.config,
-    setConfig: (nextConfig: MiladyConfig) => {
-      state.config = nextConfig;
-      saveMiladyConfig(nextConfig);
-    },
-  };
-  if (trainingServiceCtor) {
-    state.trainingService = new trainingServiceCtor(trainingServiceOptions);
-  } else {
-    logger.warn(
-      "[milady-api] Training service package unavailable; using fallback in-memory implementation",
-    );
-    state.trainingService = new FallbackTrainingService(trainingServiceOptions);
-  }
-  // Register immediately so /api/training routes are available without a startup race.
-  const configuredAdminEntityId = config.agents?.defaults?.adminEntityId;
-  if (configuredAdminEntityId && isUuidLike(configuredAdminEntityId)) {
-    state.adminEntityId = configuredAdminEntityId;
-    state.chatUserId = state.adminEntityId;
-  } else if (configuredAdminEntityId) {
-    logger.warn(
-      `[milady-api] Ignoring invalid agents.defaults.adminEntityId "${configuredAdminEntityId}"`,
-    );
-  }
-
-  // Wire the app manager to the runtime if already running
-  if (state.runtime) {
-    // AppManager doesn't need a runtime reference — it just installs plugins
-  }
-
-  const addLog = (
-    level: string,
-    message: string,
-    source = "system",
-    tags: string[] = [],
-  ) => {
+  const addLog = (level: string, message: string, source = "system") => {
     let resolvedSource = source;
     if (source === "auto" || source === "system") {
       const bracketMatch = /^\[([^\]]+)\]\s*/.exec(message);
       if (bracketMatch) resolvedSource = bracketMatch[1];
     }
-    // Auto-tag based on source when no explicit tags provided
-    const resolvedTags =
-      tags.length > 0
-        ? tags
-        : resolvedSource === "runtime" || resolvedSource === "autonomy"
-          ? ["agent"]
-          : resolvedSource === "api" || resolvedSource === "websocket"
-            ? ["server"]
-            : resolvedSource === "cloud"
-              ? ["server", "cloud"]
-              : ["system"];
     state.logBuffer.push({
       timestamp: Date.now(),
       level,
       message,
       source: resolvedSource,
-      tags: resolvedTags,
     });
     if (state.logBuffer.length > 1000) state.logBuffer.shift();
   };
 
-  // ── Flush early-captured logs into the main buffer ────────────────────
-  const earlyEntries = flushEarlyLogs();
-  if (earlyEntries.length > 0) {
-    for (const entry of earlyEntries) {
-      state.logBuffer.push(entry);
-    }
-    if (state.logBuffer.length > 1000) {
-      state.logBuffer.splice(0, state.logBuffer.length - 1000);
-    }
-    addLog(
-      "info",
-      `Flushed ${earlyEntries.length} early startup log entries`,
-      "system",
-      ["system"],
-    );
-  }
-
   addLog(
     "info",
-    `Discovered ${plugins.length} plugins, loading skills in background`,
-    "system",
-    ["system", "plugins"],
+    `Discovered ${plugins.length} plugins, ${skills.length} skills`,
   );
 
-  // Warm per-provider model caches in background (non-blocking)
-  void getOrFetchAllProviders().catch(() => {});
-
-  // ── Intercept loggers so ALL agent/plugin/service logs appear in the UI ──
-  // We patch both the global `logger` singleton from @elizaos/core (used by
-  // eliza.ts, services, plugins, etc.) AND the runtime instance logger.
-  // A marker prevents double-patching on hot-restart and avoids stacking
-  // wrapper functions that would leak memory.
-  const PATCHED_MARKER = "__miladyLogPatched";
-  const LEVELS = ["debug", "info", "warn", "error"] as const;
-
-  /**
-   * Patch a logger object so every log call also feeds into the UI log buffer.
-   * Returns true if patching was performed, false if already patched.
-   */
-  const patchLogger = (
-    target: typeof logger,
-    defaultSource: string,
-    defaultTags: string[],
-  ): boolean => {
-    if ((target as unknown as Record<string, unknown>)[PATCHED_MARKER]) {
-      return false;
-    }
+  // ── Intercept runtime logger so all plugin/autonomy logs appear in the UI ─
+  // Guard against double-patching: if the logger was already patched (e.g.
+  // after a hot-restart) we skip to avoid stacking wrapper functions that
+  // would leak memory and slow down every log call.
+  const PATCHED_MARKER = "__milaidyLogPatched";
+  if (
+    opts?.runtime?.logger &&
+    !(opts.runtime.logger as unknown as Record<string, unknown>)[PATCHED_MARKER]
+  ) {
+    const rtLogger = opts.runtime.logger;
+    const LEVELS = ["debug", "info", "warn", "error"] as const;
 
     for (const lvl of LEVELS) {
-      const original = target[lvl].bind(target);
-      // pino / adze signature: logger.info(obj, msg) or logger.info(msg)
-      const patched: (typeof target)[typeof lvl] = (
+      const original = rtLogger[lvl].bind(rtLogger);
+      // pino signature: logger.info(obj, msg) or logger.info(msg)
+      const patched: (typeof rtLogger)[typeof lvl] = (
         ...args: Parameters<typeof original>
       ) => {
         let msg = "";
-        let source = defaultSource;
-        let tags = [...defaultTags];
+        let source = "runtime";
         if (typeof args[0] === "string") {
           msg = args[0];
         } else if (args[0] && typeof args[0] === "object") {
           const obj = args[0] as Record<string, unknown>;
           if (typeof obj.src === "string") source = obj.src;
-          // Extract tags from structured log objects
-          if (Array.isArray(obj.tags)) {
-            tags = [...tags, ...(obj.tags as string[])];
-          }
           msg = typeof args[1] === "string" ? args[1] : JSON.stringify(obj);
         }
-        // Auto-extract source from [bracket] prefixes (e.g. "[milady] ...")
-        const bracketMatch = /^\[([^\]]+)\]\s*/.exec(msg);
-        if (bracketMatch && source === defaultSource) {
-          source = bracketMatch[1];
-        }
-        // Auto-tag based on source context
-        if (source !== defaultSource && !tags.includes(source)) {
-          tags.push(source);
-        }
-        if (msg) addLog(lvl, msg, source, tags);
+        if (msg) addLog(lvl, msg, source);
         return original(...args);
       };
-      target[lvl] = patched;
+      rtLogger[lvl] = patched;
     }
 
-    (target as unknown as Record<string, unknown>)[PATCHED_MARKER] = true;
-    return true;
-  };
-
-  // 1) Patch the global @elizaos/core logger — this captures ALL log calls
-  //    from eliza.ts, services, plugins, cloud, hooks, etc.
-  if (patchLogger(logger, "agent", ["agent"])) {
+    (rtLogger as unknown as Record<string, unknown>)[PATCHED_MARKER] = true;
     addLog(
       "info",
-      "Global logger connected — all agent logs will stream to the UI",
+      "Runtime logger connected — logs will stream to the UI",
       "system",
-      ["system", "agent"],
     );
-  }
-
-  // 2) Patch the runtime instance logger (if it's a different object)
-  //    This catches logs from runtime internals that use their own logger child.
-  if (opts?.runtime?.logger && opts.runtime.logger !== logger) {
-    if (patchLogger(opts.runtime.logger, "runtime", ["agent", "runtime"])) {
-      addLog(
-        "info",
-        "Runtime logger connected — runtime logs will stream to the UI",
-        "system",
-        ["system", "agent"],
-      );
-    }
   }
 
   // Autonomy is managed by the core AutonomyService + TaskService.
@@ -10933,444 +7779,52 @@ export async function startApiServer(opts?: {
       "info",
       "Autonomy is always enabled — managed by the core task system",
       "autonomy",
-      ["agent", "autonomy"],
     );
   }
 
   // Store the restart callback on the state so the route handler can access it.
   const onRestart = opts?.onRestart ?? null;
 
-  console.log(
-    `[milady-api] Creating http server (${Date.now() - apiStartTime}ms)`,
-  );
   const server = http.createServer(async (req, res) => {
+    const requestId = crypto.randomUUID();
+    res.setHeader("X-Request-Id", requestId);
     try {
       await handleRequest(req, res, state, { onRestart });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "internal error";
-      addLog("error", msg, "api", ["server", "api"]);
-      error(res, msg, 500);
-    }
-  });
-  console.log(`[milady-api] Server created (${Date.now() - apiStartTime}ms)`);
-
-  const broadcastWs = (payload: object): void => {
-    const message = JSON.stringify(payload);
-    for (const client of wsClients) {
-      if (client.readyState === 1) {
-        try {
-          client.send(message);
-        } catch (err) {
-          logger.error(
-            `[milady-api] WebSocket broadcast error: ${err instanceof Error ? err.message : err}`,
-          );
-        }
+      addLog("error", `[request:${requestId}] ${msg}`, "api");
+      if (!res.headersSent) {
+        error(res, "Internal server error", 500);
+      } else {
+        res.end();
       }
-    }
-  };
-
-  const pushEvent = (
-    event: Omit<StreamEventEnvelope, "eventId" | "version">,
-  ) => {
-    const envelope: StreamEventEnvelope = {
-      ...event,
-      eventId: `evt-${state.nextEventId}`,
-      version: 1,
-    };
-    state.nextEventId += 1;
-    state.eventBuffer.push(envelope);
-    if (state.eventBuffer.length > 1500) {
-      state.eventBuffer.splice(0, state.eventBuffer.length - 1500);
-    }
-    broadcastWs(envelope);
-  };
-
-  let detachRuntimeStreams: (() => void) | null = null;
-  let detachTrainingStream: (() => void) | null = null;
-  const bindRuntimeStreams = (runtime: AgentRuntime | null) => {
-    if (detachRuntimeStreams) {
-      detachRuntimeStreams();
-      detachRuntimeStreams = null;
-    }
-    const svc = getAgentEventSvc(runtime);
-    if (!svc) return;
-
-    const unsubAgentEvents = svc.subscribe((event) => {
-      pushEvent({
-        type: "agent_event",
-        ts: event.ts,
-        runId: event.runId,
-        seq: event.seq,
-        stream: event.stream,
-        sessionKey: event.sessionKey,
-        agentId: event.agentId,
-        roomId: event.roomId,
-        payload: event.data,
-      });
-
-      void maybeRouteAutonomyEventToConversation(state, event).catch((err) => {
-        logger.warn(
-          `[autonomy-route] Failed to route proactive event: ${err instanceof Error ? err.message : String(err)}`,
-        );
-      });
-    });
-
-    const unsubHeartbeat = svc.subscribeHeartbeat((event) => {
-      pushEvent({
-        type: "heartbeat_event",
-        ts: event.ts,
-        payload: event,
-      });
-    });
-
-    detachRuntimeStreams = () => {
-      unsubAgentEvents();
-      unsubHeartbeat();
-    };
-  };
-
-  const bindTrainingStream = () => {
-    if (detachTrainingStream) {
-      detachTrainingStream();
-      detachTrainingStream = null;
-    }
-    if (!state.trainingService) return;
-    detachTrainingStream = state.trainingService.subscribe((event: unknown) => {
-      const payload =
-        typeof event === "object" && event !== null ? event : { value: event };
-      pushEvent({
-        type: "training_event",
-        ts: Date.now(),
-        payload,
-      });
-    });
-  };
-
-  // ── Deferred startup work (non-blocking) ────────────────────────────────
-  // Keep API startup fast: listen first, then warm optional subsystems.
-  const startDeferredStartupWork = () => {
-    void (async () => {
-      try {
-        const discoveredSkills = await discoverSkills(
-          workspaceDir,
-          state.config,
-          state.runtime,
-        );
-        state.skills = discoveredSkills;
-        addLog(
-          "info",
-          `Discovered ${discoveredSkills.length} skills`,
-          "system",
-          ["system", "plugins"],
-        );
-      } catch (err) {
-        logger.warn(
-          `[milady-api] Skill discovery failed during startup: ${err instanceof Error ? err.message : String(err)}`,
-        );
-      }
-    })();
-
-    void (async () => {
-      const trainingService = state.trainingService;
-      if (!trainingService) return;
-      try {
-        await trainingService.initialize();
-        bindTrainingStream();
-        addLog("info", "Training service initialised", "system", [
-          "system",
-          "training",
-        ]);
-      } catch (err) {
-        logger.error(
-          `[milady-api] Training service init failed: ${err instanceof Error ? err.message : String(err)}`,
-        );
-      }
-    })();
-
-    void (async () => {
-      initializeOGCodeInState();
-
-      // Get EVM private key from runtime secrets (preferred) or config.env (fallback)
-      const runtime = state.runtime;
-      const evmKey =
-        (runtime?.getSetting?.("EVM_PRIVATE_KEY") as string | undefined) ??
-        (state.config.env as Record<string, string> | undefined)
-          ?.EVM_PRIVATE_KEY;
-      const registryConfig = state.config.registry;
-      if (
-        !evmKey ||
-        !registryConfig?.registryAddress ||
-        !registryConfig.mainnetRpc
-      ) {
-        return;
-      }
-
-      try {
-        const txService = new TxService(registryConfig.mainnetRpc, evmKey);
-        state.registryService = new RegistryService(
-          txService,
-          registryConfig.registryAddress,
-        );
-
-        if (registryConfig.collectionAddress) {
-          const dropEnabled = state.config.features?.dropEnabled === true;
-          state.dropService = new DropService(
-            txService,
-            registryConfig.collectionAddress,
-            dropEnabled,
-          );
-        }
-
-        addLog(
-          "info",
-          `ERC-8004 registry service initialised (${registryConfig.registryAddress})`,
-          "system",
-          ["system"],
-        );
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        addLog("warn", `ERC-8004 registry service disabled: ${msg}`, "system", [
-          "system",
-        ]);
-        logger.warn({ err }, "Failed to initialize ERC-8004 registry service");
-      }
-    })();
-  };
-
-  // ── WebSocket Server ─────────────────────────────────────────────────────
-  const wss = new WebSocketServer({ noServer: true });
-  const wsClients = new Set<WebSocket>();
-  bindRuntimeStreams(opts?.runtime ?? null);
-  bindTrainingStream();
-
-  // Handle upgrade requests for WebSocket
-  server.on("upgrade", (request, socket, head) => {
-    try {
-      const wsUrl = new URL(
-        request.url ?? "/",
-        `http://${request.headers.host ?? "localhost"}`,
-      );
-      const rejection = resolveWebSocketUpgradeRejection(request, wsUrl);
-      if (rejection) {
-        rejectWebSocketUpgrade(socket, rejection.status, rejection.reason);
-        return;
-      }
-      wss.handleUpgrade(request, socket, head, (ws) => {
-        wss.emit("connection", ws, request);
-      });
-    } catch (err) {
-      logger.error(
-        `[milady-api] WebSocket upgrade error: ${err instanceof Error ? err.message : err}`,
-      );
-      rejectWebSocketUpgrade(socket, 404, "Not found");
     }
   });
 
-  // Handle WebSocket connections
-  wss.on("connection", (ws: WebSocket) => {
-    wsClients.add(ws);
-    addLog("info", "WebSocket client connected", "websocket", [
-      "server",
-      "websocket",
-    ]);
+  server.requestTimeout = Math.max(
+    5_000,
+    Number(process.env.MILAIDY_API_REQUEST_TIMEOUT_MS ?? "30000"),
+  );
+  server.headersTimeout = Math.max(
+    5_000,
+    Number(process.env.MILAIDY_API_HEADERS_TIMEOUT_MS ?? "35000"),
+  );
 
-    // Send initial status and latest stream events.
-    try {
-      ws.send(
-        JSON.stringify({
-          type: "status",
-          state: state.agentState,
-          agentName: state.agentName,
-          model: state.model,
-          startedAt: state.startedAt,
-        }),
-      );
-      const replay = state.eventBuffer.slice(-120);
-      for (const event of replay) {
-        ws.send(JSON.stringify(event));
-      }
-    } catch (err) {
-      logger.error(
-        `[milady-api] WebSocket send error: ${err instanceof Error ? err.message : err}`,
-      );
-    }
-
-    ws.on("message", (data) => {
-      try {
-        const msg = JSON.parse(data.toString());
-        if (msg.type === "ping") {
-          ws.send(JSON.stringify({ type: "pong" }));
-        } else if (msg.type === "active-conversation") {
-          state.activeConversationId =
-            typeof msg.conversationId === "string" ? msg.conversationId : null;
-        }
-      } catch (err) {
-        logger.error(
-          `[milady-api] WebSocket message error: ${err instanceof Error ? err.message : err}`,
-        );
-      }
-    });
-
-    ws.on("close", () => {
-      wsClients.delete(ws);
-      addLog("info", "WebSocket client disconnected", "websocket", [
-        "server",
-        "websocket",
-      ]);
-    });
-
-    ws.on("error", (err) => {
-      logger.error(
-        `[milady-api] WebSocket error: ${err instanceof Error ? err.message : err}`,
-      );
-      wsClients.delete(ws);
-    });
-  });
-
-  // Broadcast status to all connected WebSocket clients (flattened — PR #36 fix)
-  const broadcastStatus = () => {
-    broadcastWs({
-      type: "status",
-      state: state.agentState,
-      agentName: state.agentName,
-      model: state.model,
-      startedAt: state.startedAt,
-    });
-  };
-
-  // Make broadcastStatus accessible to route handlers via state
-  state.broadcastStatus = broadcastStatus;
-
-  // Generic broadcast — sends an arbitrary JSON payload to all WS clients.
-  state.broadcastWs = (data: Record<string, unknown>) => {
-    const message = JSON.stringify(data);
-    for (const client of wsClients) {
-      if (client.readyState === 1) {
-        try {
-          client.send(message);
-        } catch (err) {
-          logger.error(
-            `[milady-api] WebSocket broadcast error: ${err instanceof Error ? err.message : err}`,
-          );
-        }
-      }
-    }
-  };
-
-  // Broadcast status every 5 seconds
-  const statusInterval = setInterval(broadcastStatus, 5000);
-
-  /**
-   * Restore the in-memory conversation list from the database.
-   * Web-chat rooms live in a deterministic world; we scan it for rooms
-   * whose channelId starts with "web-conv-" and reconstruct the metadata.
-   */
-  const restoreConversationsFromDb = async (
-    rt: AgentRuntime,
-  ): Promise<void> => {
-    try {
-      const agentName = rt.character.name ?? "Milady";
-      const worldId = stringToUuid(`${agentName}-web-chat-world`);
-      const rooms = await rt.getRoomsByWorld(worldId);
-      if (!rooms?.length) return;
-
-      let restored = 0;
-      for (const room of rooms) {
-        // channelId is "web-conv-{uuid}" — extract the conversation id
-        const channelId =
-          typeof room.channelId === "string" ? room.channelId : "";
-        if (!channelId.startsWith("web-conv-")) continue;
-        const convId = channelId.replace("web-conv-", "");
-        if (!convId || state.conversations.has(convId)) continue;
-
-        // Peek at the latest message to get a timestamp
-        let updatedAt = new Date().toISOString();
-        try {
-          const msgs = await rt.getMemories({
-            roomId: room.id as UUID,
-            tableName: "messages",
-            count: 1,
-          });
-          if (msgs.length > 0 && msgs[0].createdAt) {
-            updatedAt = new Date(msgs[0].createdAt).toISOString();
-          }
-        } catch {
-          // non-fatal — use current time
-        }
-
-        state.conversations.set(convId, {
-          id: convId,
-          title:
-            ((room as unknown as Record<string, unknown>).name as string) ||
-            "Chat",
-          roomId: room.id as UUID,
-          createdAt: updatedAt,
-          updatedAt,
-        });
-        restored++;
-      }
-      if (restored > 0) {
-        addLog(
-          "info",
-          `Restored ${restored} conversation(s) from database`,
-          "system",
-          ["system"],
-        );
-      }
-    } catch (err) {
-      logger.warn(
-        `[milady-api] Failed to restore conversations from DB: ${err instanceof Error ? err.message : err}`,
-      );
-    }
-  };
-
-  // Restore conversations from DB at initial boot (if runtime was passed in)
-  if (opts?.runtime) {
-    void restoreConversationsFromDb(opts.runtime);
-  }
+  const rateCleanupTimer = setInterval(cleanupApiRateLimits, 60_000);
+  // Avoid keeping the process alive solely for cleanup housekeeping.
+  rateCleanupTimer.unref();
 
   /** Hot-swap the runtime reference (used after an in-process restart). */
   const updateRuntime = (rt: AgentRuntime): void => {
     state.runtime = rt;
-    state.chatConnectionReady = null;
-    state.chatConnectionPromise = null;
-    bindRuntimeStreams(rt);
-    // AppManager doesn't need a runtime reference
     state.agentState = "running";
-    state.agentName = rt.character.name ?? "Milady";
+    state.agentName = rt.character.name ?? "Milaidy";
     state.startedAt = Date.now();
-    addLog("info", `Runtime restarted — agent: ${state.agentName}`, "system", [
-      "system",
-      "agent",
-    ]);
-
-    // Restore conversations from DB so they survive restarts
-    void restoreConversationsFromDb(rt);
-
-    // Broadcast status update immediately after restart
-    broadcastStatus();
+    addLog("info", `Runtime restarted — agent: ${state.agentName}`, "system");
   };
 
-  console.log(
-    `[milady-api] Calling server.listen (${Date.now() - apiStartTime}ms)`,
-  );
-  return new Promise((resolve, reject) => {
-    server.on("error", (err: NodeJS.ErrnoException) => {
-      if (err.code === "EADDRINUSE") {
-        console.error(
-          `[milady-api] Port ${port} is already in use. Another process may be running.`,
-        );
-      } else {
-        console.error(
-          `[milady-api] Server error: ${err.message} (code: ${err.code})`,
-        );
-      }
-      reject(err);
-    });
+  return new Promise((resolve) => {
     server.listen(port, host, () => {
-      console.log(
-        `[milady-api] server.listen callback fired (${Date.now() - apiStartTime}ms)`,
-      );
       const addr = server.address();
       const actualPort = typeof addr === "object" && addr ? addr.port : port;
       const displayHost =
@@ -11378,64 +7832,16 @@ export async function startApiServer(opts?: {
       addLog(
         "info",
         `API server listening on http://${displayHost}:${actualPort}`,
-        "system",
-        ["server", "system"],
       );
       logger.info(
-        `[milady-api] Listening on http://${displayHost}:${actualPort}`,
+        `[milaidy-api] Listening on http://${displayHost}:${actualPort}`,
       );
-      startDeferredStartupWork();
       resolve({
         port: actualPort,
         close: () =>
           new Promise<void>((r) => {
-            const closeAllConnections = (
-              server as { closeAllConnections?: () => void }
-            ).closeAllConnections;
-            const closeIdleConnections = (
-              server as { closeIdleConnections?: () => void }
-            ).closeIdleConnections;
-
-            clearInterval(statusInterval);
-            if (detachRuntimeStreams) {
-              detachRuntimeStreams();
-              detachRuntimeStreams = null;
-            }
-            if (detachTrainingStream) {
-              detachTrainingStream();
-              detachTrainingStream = null;
-            }
-            for (const ws of wsClients) {
-              if (ws.readyState === 1 || ws.readyState === 0) {
-                ws.terminate();
-              }
-            }
-            wsClients.clear();
-            wss.close();
-            const closeTimeout = setTimeout(() => r(), 5_000);
-            const resolved = { done: false };
-            const finalize = () => {
-              if (!resolved.done) {
-                resolved.done = true;
-                clearTimeout(closeTimeout);
-                r();
-              }
-            };
-            if (typeof closeAllConnections === "function") {
-              try {
-                closeAllConnections();
-              } catch {
-                // Bun/Node server internals vary by runtime; non-fatal on shutdown.
-              }
-            }
-            if (typeof closeIdleConnections === "function") {
-              try {
-                closeIdleConnections();
-              } catch {
-                // Bun/Node server internals vary by runtime; non-fatal on shutdown.
-              }
-            }
-            server.close(finalize);
+            clearInterval(rateCleanupTimer);
+            server.close(() => r());
           }),
         updateRuntime,
       });

@@ -19,9 +19,13 @@ import {
   type ServiceTypeName,
   type State,
 } from "@elizaos/core";
-import { PluginManagerService } from "@elizaos/plugin-plugin-manager";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AppManager } from "./app-manager";
+import type {
+  InstalledPluginInfo,
+  PluginManagerLike,
+  RegistryPluginInfo,
+} from "./plugin-manager-types";
 
 // Fake Runtime implementation
 class FakeAgentRuntime implements IAgentRuntime {
@@ -308,50 +312,122 @@ class FakeAgentRuntime implements IAgentRuntime {
 
 describe("AppManager Integration", () => {
   let appManager: AppManager;
-  let pluginManager: PluginManagerService;
-  let runtime: FakeAgentRuntime;
+  let pluginManager: PluginManagerLike;
   let tempDir: string;
 
   const APP_NAME = "@elizaos/app-example";
   const APP_PLUGIN_NAME = "@elizaos/plugin-example";
+  const installedPathFor = (pluginName: string): string => path.join(
+    tempDir,
+    "plugins",
+    "installed",
+    `_${pluginName.replace("@", "").replace("/", "_")}`,
+  );
+
+  const registryEntryFor = (name: string): RegistryPluginInfo => ({
+    name,
+    gitRepo: "elizaos/app-example",
+    gitUrl: "https://github.com/elizaos/app-example",
+    description: "An example app",
+    topics: ["app"],
+    stars: 10,
+    language: "TypeScript",
+    npm: { package: APP_PLUGIN_NAME, v2Version: "1.0.0" },
+    supports: { v0: true, v1: false, v2: false },
+  });
+
+  const listInstalled = (pluginsDir: string): InstalledPluginInfo[] => {
+    const installedDir = path.join(pluginsDir, "installed");
+    if (!fs.existsSync(installedDir)) return [];
+    return fs
+      .readdirSync(installedDir, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => {
+        const pkgPath = path.join(installedDir, entry.name, "package.json");
+        if (!fs.existsSync(pkgPath)) return null;
+        try {
+          const parsed = JSON.parse(fs.readFileSync(pkgPath, "utf8")) as {
+            name?: string;
+            version?: string;
+          };
+          if (!parsed.name) return null;
+          return { name: parsed.name, version: parsed.version };
+        } catch {
+          return null;
+        }
+      })
+      .filter((row): row is InstalledPluginInfo => row !== null);
+  };
+
+  const createPluginManagerMock = (pluginsDir: string): PluginManagerLike => ({
+    refreshRegistry: async () =>
+      new Map([
+        [APP_NAME, registryEntryFor(APP_NAME)],
+        [APP_PLUGIN_NAME, registryEntryFor(APP_PLUGIN_NAME)],
+      ]),
+    listInstalledPlugins: async () => listInstalled(pluginsDir),
+    getRegistryPlugin: async (name: string) => {
+      if (name === APP_NAME || name === APP_PLUGIN_NAME) {
+        return registryEntryFor(name);
+      }
+      return null;
+    },
+    searchRegistry: async () => [],
+    installPlugin: async (pluginName: string) => {
+      const installDir = path.join(
+        pluginsDir,
+        "installed",
+        `_${pluginName.replace("@", "").replace("/", "_")}`,
+      );
+      fs.mkdirSync(installDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(installDir, "package.json"),
+        JSON.stringify({ name: pluginName, version: "1.0.0" }),
+      );
+      return {
+        success: true,
+        pluginName,
+        version: "1.0.0",
+        installPath: installDir,
+        requiresRestart: true,
+      };
+    },
+    uninstallPlugin: async (pluginName: string) => {
+      const installDir = path.join(
+        pluginsDir,
+        "installed",
+        `_${pluginName.replace("@", "").replace("/", "_")}`,
+      );
+      fs.rmSync(installDir, { recursive: true, force: true });
+      return { success: true, pluginName, requiresRestart: true };
+    },
+    listEjectedPlugins: async () => [],
+    ejectPlugin: async (pluginName: string) => ({
+      success: true,
+      pluginName,
+      ejectedPath: "",
+      requiresRestart: true,
+    }),
+    syncPlugin: async (pluginName: string) => ({
+      success: true,
+      pluginName,
+      ejectedPath: "",
+      requiresRestart: false,
+    }),
+    reinjectPlugin: async (pluginName: string) => ({
+      success: true,
+      pluginName,
+      removedPath: "",
+      requiresRestart: true,
+    }),
+  });
 
   beforeEach(async () => {
     // Setup temp directory for plugins
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "milady-test-"));
     const pluginsDir = path.join(tempDir, "plugins");
     fs.mkdirSync(pluginsDir);
-
-    // Mock registry response
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        registry: {
-          [APP_NAME]: {
-            git: { repo: "elizaos/app-example", v0: {}, v1: {}, v2: {} },
-            npm: { repo: APP_PLUGIN_NAME, v0: null, v1: null, v2: "1.0.0" },
-            supports: { v0: true, v1: false, v2: false },
-            description: "An example app",
-            topics: ["app"],
-            stargazers_count: 10,
-            language: "TypeScript",
-          },
-          // Add the plugin entry so uninstallPlugin can find it
-          [APP_PLUGIN_NAME]: {
-            git: { repo: "elizaos/plugin-example", v0: {}, v1: {}, v2: {} },
-            npm: { repo: APP_PLUGIN_NAME, v0: null, v1: null, v2: "1.0.0" },
-            supports: { v0: true, v1: false, v2: false },
-            description: "An example plugin",
-            topics: ["plugin"],
-          },
-        },
-      }),
-    });
-
-    runtime = new FakeAgentRuntime();
-    // Initialize PluginManager with real file system path
-    pluginManager = new PluginManagerService(runtime, {
-      pluginDirectory: pluginsDir,
-    });
+    pluginManager = createPluginManagerMock(pluginsDir);
 
     process.env.MILADY_STATE_DIR = tempDir;
 
@@ -366,13 +442,7 @@ describe("AppManager Integration", () => {
 
   it("launches an app directly if plugin is already installed", async () => {
     // Setup: Simulate installed plugin
-    // Use hyphen in sanitized name as verified
-    const installedDir = path.join(
-      tempDir,
-      "plugins",
-      "installed",
-      "_elizaos_plugin-example",
-    );
+    const installedDir = installedPathFor(APP_PLUGIN_NAME);
     fs.mkdirSync(installedDir, { recursive: true });
     fs.writeFileSync(
       path.join(installedDir, "package.json"),
@@ -407,13 +477,7 @@ describe("AppManager Integration", () => {
 
   it("stops an app by uninstalling its plugin", async () => {
     // Setup: Simulate installed plugin
-    // Use hyphen in sanitized name as verified
-    const installedDir = path.join(
-      tempDir,
-      "plugins",
-      "installed",
-      "_elizaos_plugin-example",
-    );
+    const installedDir = installedPathFor(APP_PLUGIN_NAME);
     fs.mkdirSync(installedDir, { recursive: true });
     fs.writeFileSync(
       path.join(installedDir, "package.json"),

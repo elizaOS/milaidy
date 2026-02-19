@@ -1,6 +1,6 @@
 import type { IAgentRuntime, Memory, State } from "@elizaos/core";
-import { adminTrustProvider } from "@elizaos/plugin-trust";
 import { describe, expect, it } from "vitest";
+import { adminTrustProvider } from "./admin-trust";
 
 type FakeWorld = {
   metadata?: {
