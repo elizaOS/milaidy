@@ -78,6 +78,7 @@ interface TrackedBscToken {
   contractAddress: string;
   symbol: string;
   name: string;
+  logoUrl?: string;
 }
 
 function toNormalizedAddress(addr: string): string {
@@ -97,11 +98,92 @@ function loadTrackedBscTokens(): TrackedBscToken[] {
           typeof item.contractAddress === "string" &&
           typeof item.symbol === "string" &&
           typeof item.name === "string" &&
+          (item.logoUrl === undefined || typeof item.logoUrl === "string") &&
           HEX_ADDRESS_RE.test(item.contractAddress),
       )
       .slice(0, MAX_TRACKED_BSC_TOKENS);
   } catch {
     return [];
+  }
+}
+
+interface DexScreenerTokenRef {
+  address?: string;
+  symbol?: string;
+  name?: string;
+}
+
+interface DexScreenerPair {
+  chainId?: string;
+  baseToken?: DexScreenerTokenRef;
+  quoteToken?: DexScreenerTokenRef;
+  info?: {
+    imageUrl?: string;
+  };
+}
+
+interface DexScreenerTokenResponse {
+  pairs?: DexScreenerPair[];
+}
+
+interface DexScreenerTokenMetadata {
+  symbol?: string;
+  name?: string;
+  logoUrl?: string;
+}
+
+async function fetchDexScreenerBscTokenMetadata(
+  contractAddress: string,
+): Promise<DexScreenerTokenMetadata | null> {
+  if (typeof window === "undefined" || typeof fetch !== "function") return null;
+
+  const controller = new AbortController();
+  const timeout = globalThis.setTimeout(() => controller.abort(), 3500);
+  const normalized = toNormalizedAddress(contractAddress);
+
+  try {
+    const response = await fetch(
+      `https://api.dexscreener.com/latest/dex/tokens/${contractAddress}`,
+      {
+        signal: controller.signal,
+      },
+    );
+    if (!response.ok) return null;
+
+    const data = (await response.json()) as DexScreenerTokenResponse;
+    const pairs = Array.isArray(data.pairs) ? data.pairs : [];
+    const bscPairs = pairs.filter((pair) => pair.chainId?.toLowerCase() === "bsc");
+    const byBase = bscPairs.find(
+      (pair) => toNormalizedAddress(pair.baseToken?.address ?? "") === normalized,
+    );
+    const byQuote = bscPairs.find(
+      (pair) => toNormalizedAddress(pair.quoteToken?.address ?? "") === normalized,
+    );
+    const picked = byBase ?? byQuote ?? bscPairs[0] ?? pairs[0];
+    if (!picked) return null;
+
+    const baseMatches =
+      toNormalizedAddress(picked.baseToken?.address ?? "") === normalized;
+    const quoteMatches =
+      toNormalizedAddress(picked.quoteToken?.address ?? "") === normalized;
+    const token = baseMatches
+      ? picked.baseToken
+      : quoteMatches
+        ? picked.quoteToken
+        : picked.baseToken;
+    const symbol = token?.symbol?.trim();
+    const name = token?.name?.trim();
+    const logoUrl = picked.info?.imageUrl?.trim();
+
+    return {
+      symbol: symbol || undefined,
+      name: name || undefined,
+      logoUrl: logoUrl || undefined,
+    };
+  } catch {
+    return null;
+  } finally {
+    globalThis.clearTimeout(timeout);
   }
 }
 
@@ -145,6 +227,7 @@ interface TokenRow {
   symbol: string;
   name: string;
   contractAddress: string | null;
+  logoUrl: string | null;
   balance: string;
   valueUsd: number;
   balanceRaw: number;
@@ -208,15 +291,22 @@ function TokenLogo({
   symbol,
   chain,
   contractAddress,
+  preferredLogoUrl = null,
   size = 32,
 }: {
   symbol: string;
   chain: string;
   contractAddress: string | null;
+  preferredLogoUrl?: string | null;
   size?: number;
 }) {
   const [errored, setErrored] = useState(false);
-  const url = errored ? null : tokenLogoUrl(chain, contractAddress);
+  const usePreferredLogo = Boolean(preferredLogoUrl?.startsWith("http"));
+  const url = errored
+    ? null
+    : usePreferredLogo
+      ? preferredLogoUrl
+      : tokenLogoUrl(chain, contractAddress);
   const icon = chainIcon(chain);
 
   if (url) {
@@ -375,6 +465,7 @@ export function InventoryView() {
           symbol: chain.nativeSymbol,
           name: `${chain.chain} native`,
           contractAddress: null,
+          logoUrl: null,
           balance: chain.nativeBalance,
           valueUsd: Number.parseFloat(chain.nativeValueUsd) || 0,
           balanceRaw: Number.parseFloat(chain.nativeBalance) || 0,
@@ -388,6 +479,7 @@ export function InventoryView() {
             symbol: t.symbol,
             name: t.name,
             contractAddress: t.contractAddress ?? null,
+            logoUrl: t.logoUrl ?? null,
             balance: t.balance,
             valueUsd: Number.parseFloat(t.valueUsd) || 0,
             balanceRaw: Number.parseFloat(t.balance) || 0,
@@ -403,6 +495,7 @@ export function InventoryView() {
           symbol: "BNB",
           name: "BSC native",
           contractAddress: null,
+          logoUrl: null,
           balance: "0",
           valueUsd: 0,
           balanceRaw: 0,
@@ -416,6 +509,7 @@ export function InventoryView() {
         symbol: "BNB",
         name: "BSC native",
         contractAddress: null,
+        logoUrl: null,
         balance: "0",
         valueUsd: 0,
         balanceRaw: 0,
@@ -429,6 +523,7 @@ export function InventoryView() {
         symbol: "SOL",
         name: "Solana native",
         contractAddress: null,
+        logoUrl: null,
         balance: walletBalances.solana.solBalance,
         valueUsd: Number.parseFloat(walletBalances.solana.solValueUsd) || 0,
         balanceRaw: Number.parseFloat(walletBalances.solana.solBalance) || 0,
@@ -440,6 +535,7 @@ export function InventoryView() {
           symbol: t.symbol,
           name: t.name,
           contractAddress: t.mint ?? null,
+          logoUrl: t.logoUrl ?? null,
           balance: t.balance,
           valueUsd: Number.parseFloat(t.valueUsd) || 0,
           balanceRaw: Number.parseFloat(t.balance) || 0,
@@ -461,6 +557,7 @@ export function InventoryView() {
         symbol: tracked.symbol,
         name: tracked.name,
         contractAddress: tracked.contractAddress,
+        logoUrl: tracked.logoUrl ?? null,
         balance: "0",
         valueUsd: 0,
         balanceRaw: 0,
@@ -652,14 +749,15 @@ export function InventoryView() {
       latestQuote && toNormalizedAddress(latestQuote.tokenAddress) === normalized
         ? latestQuote
         : null;
-    const symbol =
+    const symbolFallback =
       matchedRow?.symbol ??
       (matchedQuote
         ? matchedQuote.side === "buy"
           ? matchedQuote.quoteOut.symbol
           : matchedQuote.quoteIn.symbol
         : `TKN-${tokenAddress.slice(2, 6).toUpperCase()}`);
-    const name = matchedRow?.name ?? `${symbol} token`;
+    const nameFallback = matchedRow?.name ?? `${symbolFallback} token`;
+    const logoFallback = matchedRow?.logoUrl ?? null;
     const alreadyTracked = trackedBscTokens.some(
       (item) => toNormalizedAddress(item.contractAddress) === normalized,
     );
@@ -668,8 +766,9 @@ export function InventoryView() {
       upsertTrackedBscToken(
         {
           contractAddress: tokenAddress,
-          symbol,
-          name,
+          symbol: symbolFallback,
+          name: nameFallback,
+          logoUrl: logoFallback ?? undefined,
         },
         prev,
       ),
@@ -681,6 +780,23 @@ export function InventoryView() {
       "success",
       2600,
     );
+
+    // Enrich asynchronously from DexScreener so add action stays instant.
+    void (async () => {
+      const dexMetadata = await fetchDexScreenerBscTokenMetadata(tokenAddress);
+      if (!dexMetadata) return;
+      setTrackedBscTokens((prev) =>
+        upsertTrackedBscToken(
+          {
+            contractAddress: tokenAddress,
+            symbol: dexMetadata.symbol ?? symbolFallback,
+            name: dexMetadata.name ?? nameFallback,
+            logoUrl: dexMetadata.logoUrl ?? logoFallback ?? undefined,
+          },
+          prev,
+        ),
+      );
+    })();
   };
 
   const handleUntrackToken = (contractAddress: string) => {
@@ -1237,6 +1353,7 @@ export function InventoryView() {
                     symbol={row.symbol}
                     chain={row.chain}
                     contractAddress={row.contractAddress}
+                    preferredLogoUrl={row.logoUrl}
                     size={32}
                   />
                 </td>

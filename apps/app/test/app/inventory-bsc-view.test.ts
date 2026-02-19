@@ -452,8 +452,12 @@ describe("InventoryView BSC-first", () => {
       await flushAsync();
     });
 
+    const addButtonUpdated = tree!.root.findAll(
+      (node) => node.type === "button" && node.props["data-testid"] === "wallet-quick-add-token",
+    )[0];
+
     await act(async () => {
-      addButton.props.onClick();
+      addButtonUpdated.props.onClick();
       await flushAsync();
     });
 

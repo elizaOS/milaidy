@@ -329,7 +329,7 @@ export class VrmEngine {
    * non-looping emotes automatically fades back to idle after `duration`
    * seconds. For looping emotes, call {@link stopEmote} to return to idle.
    */
-  async playEmote(glbPath: string, duration: number, loop: boolean): Promise<void> {
+  async playEmote(path: string, duration: number, loop: boolean): Promise<void> {
     const vrm = this.vrm;
     const mixer = this.mixer;
     if (!vrm || !mixer) return;
@@ -341,7 +341,7 @@ export class VrmEngine {
     this.emoteRequestId++;
     const requestId = this.emoteRequestId;
 
-    const clip = await this.loadEmoteClip(glbPath, vrm);
+    const clip = await this.loadEmoteClip(path, vrm);
     if (!clip || this.vrm !== vrm || this.mixer !== mixer) return;
     if (this.emoteRequestId !== requestId) return; // superseded by newer call
 
@@ -775,34 +775,52 @@ export class VrmEngine {
   }
 
   private async loadEmoteClip(
-    glbPath: string,
+    path: string,
     vrm: VRM,
   ): Promise<THREE.AnimationClip | null> {
     // Return from cache if already loaded for this VRM.
-    const cached = this.emoteClipCache.get(glbPath);
+    const cached = this.emoteClipCache.get(path);
     if (cached) return cached;
 
+    const isFbx = path.toLowerCase().endsWith(".fbx");
+
     try {
-      const { retargetMixamoGltfToVrm } = await import(
-        "./retargetMixamoGltfToVrm"
-      );
-      if (this.vrm !== vrm) return null;
+      if (isFbx) {
+        const { retargetMixamoFbxToVrm } = await import("./retargetMixamoFbxToVrm");
+        if (this.vrm !== vrm) return null;
 
-      const loader = new GLTFLoader();
-      const gltf = await loader.loadAsync(glbPath);
-      if (this.vrm !== vrm) return null;
+        const loader = new FBXLoader();
+        const fbx = await loader.loadAsync(path);
+        if (this.vrm !== vrm) return null;
 
-      gltf.scene.updateMatrixWorld(true);
-      vrm.scene.updateMatrixWorld(true);
-      const clip = retargetMixamoGltfToVrm(
-        { scene: gltf.scene, animations: gltf.animations },
-        vrm,
-      );
+        fbx.updateMatrixWorld(true);
+        vrm.scene.updateMatrixWorld(true);
+        const sourceClip =
+          THREE.AnimationClip.findByName(fbx.animations, "mixamo.com") ??
+          fbx.animations[0];
+        if (!sourceClip) return null;
+        const clip = retargetMixamoFbxToVrm(fbx, sourceClip, vrm);
+        this.emoteClipCache.set(path, clip);
+        return clip;
+      } else {
+        const { retargetMixamoGltfToVrm } = await import("./retargetMixamoGltfToVrm");
+        if (this.vrm !== vrm) return null;
 
-      this.emoteClipCache.set(glbPath, clip);
-      return clip;
+        const loader = new GLTFLoader();
+        const gltf = await loader.loadAsync(path);
+        if (this.vrm !== vrm) return null;
+
+        gltf.scene.updateMatrixWorld(true);
+        vrm.scene.updateMatrixWorld(true);
+        const clip = retargetMixamoGltfToVrm(
+          { scene: gltf.scene, animations: gltf.animations },
+          vrm,
+        );
+        this.emoteClipCache.set(path, clip);
+        return clip;
+      }
     } catch (err) {
-      console.error(`[VrmEngine] Failed to load emote: ${glbPath}`, err);
+      console.error(`[VrmEngine] Failed to load emote: ${path}`, err);
       return null;
     }
   }
