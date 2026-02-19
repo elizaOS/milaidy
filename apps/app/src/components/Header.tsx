@@ -139,6 +139,9 @@ export function Header() {
                 <button
                   type="button"
                   onClick={handlePauseResume}
+                  aria-label={
+                    state === "paused" ? "Resume autonomy" : "Pause autonomy"
+                  }
                   title={
                     state === "paused" ? "Resume autonomy" : "Pause autonomy"
                   }
@@ -151,6 +154,7 @@ export function Header() {
               <button
                 type="button"
                 onClick={handleRestart}
+                aria-label="Restart agent"
                 disabled={lifecycleBusy || state === "restarting"}
                 title="Restart agent"
                 className="inline-flex items-center h-7 px-2 sm:px-3 border border-border bg-bg text-[11px] sm:text-xs font-mono cursor-pointer hover:border-accent hover:text-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
@@ -173,6 +177,7 @@ export function Header() {
                 <button
                   type="button"
                   onClick={() => setTab("wallets")}
+                  aria-label="Open wallets"
                   className="inline-flex items-center justify-center w-7 h-7 border border-border bg-bg cursor-pointer hover:border-accent hover:text-accent transition-colors"
                 >
                   <svg

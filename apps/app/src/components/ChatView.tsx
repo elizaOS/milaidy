@@ -534,6 +534,7 @@ export function ChatView() {
               : "border-border bg-card text-muted hover:border-accent hover:text-accent"
           }`}
           onClick={() => fileInputRef.current?.click()}
+          aria-label="Attach image"
           title="Attach image"
           disabled={chatSending}
         >
@@ -562,6 +563,8 @@ export function ChatView() {
                 : "border-border bg-card text-muted hover:border-accent hover:text-accent"
             }`}
             onClick={voice.toggleListening}
+            aria-label={voice.isListening ? "Stop voice input" : "Start voice input"}
+            aria-pressed={voice.isListening}
             title={voice.isListening ? "Stop listening" : "Voice input"}
           >
             <svg
@@ -602,6 +605,7 @@ export function ChatView() {
             ref={textareaRef}
             className="flex-1 min-w-0 px-3 py-2 border border-border bg-card text-txt text-sm font-body leading-relaxed resize-none overflow-y-hidden min-h-[38px] max-h-[200px] focus:border-accent focus:outline-none"
             rows={1}
+            aria-label="Chat message"
             placeholder={
               voice.isListening ? "Listening..." : "Type a message..."
             }
