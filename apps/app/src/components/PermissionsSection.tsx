@@ -203,21 +203,47 @@ function PermissionRow({
   );
 }
 
+/** Human-readable display names for system permission IDs used in capability requirement lists. */
+const PERMISSION_DISPLAY_NAMES: Record<SystemPermissionId, string> = {
+  accessibility: "Accessibility",
+  "screen-recording": "Screen Recording",
+  microphone: "Microphone",
+  camera: "Camera",
+  shell: "Shell access",
+};
+
 /** Capability toggle button. */
 function CapabilityToggle({
   cap,
   plugin,
   permissionsGranted,
+  togglingId,
+  successId,
+  errorId,
   onToggle,
 }: {
   cap: CapabilityDef;
   plugin: PluginInfo | null;
   permissionsGranted: boolean;
+  togglingId: string | null;
+  successId: string | null;
+  errorId: string | null;
   onToggle: (enabled: boolean) => void;
 }) {
   const enabled = plugin?.enabled ?? false;
   const available = plugin !== null;
   const canEnable = permissionsGranted && available;
+  const isToggling = togglingId === cap.id;
+  const isSuccess = successId === cap.id;
+  const isError = errorId === cap.id;
+
+  // Build the "Requires: ..." line from the capability's requiredPermissions array.
+  const requiresText =
+    cap.requiredPermissions.length > 0
+      ? cap.requiredPermissions
+          .map((id) => PERMISSION_DISPLAY_NAMES[id] ?? id)
+          .join(", ")
+      : null;
 
   return (
     <div
@@ -228,6 +254,14 @@ function CapabilityToggle({
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <span className="font-semibold text-[13px]">{cap.label}</span>
+          {/* Spinner while the toggle API call is in-flight */}
+          {isToggling && (
+            <span className="text-[11px] text-[var(--muted)] animate-pulse">...</span>
+          )}
+          {/* Green checkmark flashed on success */}
+          {isSuccess && !isToggling && (
+            <span className="text-[11px] text-[var(--ok)]">&#10003;</span>
+          )}
           {!permissionsGranted && (
             <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--warning)]/20 text-[var(--warning)]">
               Missing Permissions
@@ -237,22 +271,36 @@ function CapabilityToggle({
         <div className="text-[11px] text-[var(--muted)] mt-0.5">
           {cap.description}
         </div>
+        {/* Required permissions hint shown beneath the capability description */}
+        {requiresText && (
+          <div className="text-[11px] text-[var(--muted)] mt-0.5">
+            Requires: {requiresText}
+          </div>
+        )}
+        {/* Inline error shown when the toggle API call fails */}
+        {isError && !isToggling && (
+          <div className="text-[11px] text-[var(--danger)] mt-0.5">
+            Failed to update — try again
+          </div>
+        )}
       </div>
       <Switch
         checked={enabled}
         onChange={onToggle}
-        disabled={!canEnable}
+        disabled={!canEnable || isToggling}
         disabledClassName="opacity-50 cursor-not-allowed"
         trackOnClass="bg-[var(--accent)]"
         trackOffClass="bg-[var(--border)]"
         title={
-          !available
-            ? "Plugin not available"
-            : !permissionsGranted
-              ? "Grant required permissions first"
-              : enabled
-                ? "Disable"
-                : "Enable"
+          isToggling
+            ? "Updating..."
+            : !available
+              ? "Plugin not available"
+              : !permissionsGranted
+                ? "Grant required permissions first"
+                : enabled
+                  ? "Disable"
+                  : "Enable"
         }
       />
     </div>
@@ -350,6 +398,12 @@ export function PermissionsSection() {
   const [shellEnabled, setShellEnabled] = useState(true);
   const [automationMode, setAutomationMode] = useState<AgentAutomationMode>("full");
   const [automationSaving, setAutomationSaving] = useState(false);
+  // Tracks which capability toggle is currently being processed by an API call.
+  const [togglingId, setTogglingId] = useState<string | null>(null);
+  // Tracks which capability toggle recently succeeded (for the 1-second green checkmark).
+  const [successId, setSuccessId] = useState<string | null>(null);
+  // Tracks which capability toggle recently failed (for the inline error message).
+  const [errorId, setErrorId] = useState<string | null>(null);
   const { handleRequest, handleOpenSettings } = usePermissionActions(
     setPermissions,
     setActionNotice,
@@ -577,8 +631,25 @@ export function PermissionsSection() {
                 cap={cap}
                 plugin={plugin}
                 permissionsGranted={permissionsGranted}
-                onToggle={(enabled) => {
-                  if (plugin) void handlePluginToggle(cap.id, enabled);
+                togglingId={togglingId}
+                successId={successId}
+                errorId={errorId}
+                onToggle={async (enabled) => {
+                  if (!plugin) return;
+                  // Clear any previous error for this item and mark it as in-flight.
+                  setErrorId(null);
+                  setSuccessId(null);
+                  setTogglingId(cap.id);
+                  try {
+                    await handlePluginToggle(cap.id, enabled);
+                    // Flash the green checkmark for 1 second on success.
+                    setSuccessId(cap.id);
+                    setTimeout(() => setSuccessId(null), 1000);
+                  } catch {
+                    setErrorId(cap.id);
+                  } finally {
+                    setTogglingId(null);
+                  }
                 }}
               />
             );

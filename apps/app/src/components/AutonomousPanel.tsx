@@ -154,7 +154,7 @@ export function AutonomousPanel() {
 
             <div className="grid grid-cols-3 gap-1.5">
               <button
-                className={`h-8 flex items-center justify-center border rounded cursor-pointer transition-all ${
+                className={`flex flex-col items-center justify-center gap-0.5 py-1.5 border rounded cursor-pointer transition-all ${
                   powerModeEnabled
                     ? "bg-card border-border text-muted hover:border-accent hover:text-accent"
                     : "bg-card border-border text-muted opacity-50 cursor-not-allowed"
@@ -163,13 +163,14 @@ export function AutonomousPanel() {
                 title={powerModeEnabled ? "Custom Actions" : "Custom Actions require Powerful mode"}
                 disabled={!powerModeEnabled}
               >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
                 </svg>
+                <span className="text-[9px] leading-none">Actions</span>
               </button>
 
               <button
-                className={`h-8 flex items-center justify-center border rounded cursor-pointer transition-all bg-card ${
+                className={`flex flex-col items-center justify-center gap-0.5 py-1.5 border rounded cursor-pointer transition-all bg-card ${
                   chatAvatarVisible
                     ? "border-accent text-accent"
                     : "border-border text-muted hover:border-accent hover:text-accent"
@@ -177,15 +178,16 @@ export function AutonomousPanel() {
                 onClick={() => setState("chatAvatarVisible", !chatAvatarVisible)}
                 title={chatAvatarVisible ? "Hide avatar" : "Show avatar"}
               >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                   <circle cx="12" cy="7" r="4" />
                   {!chatAvatarVisible && <line x1="3" y1="3" x2="21" y2="21" />}
                 </svg>
+                <span className="text-[9px] leading-none">Avatar</span>
               </button>
 
               <button
-                className={`h-8 flex items-center justify-center border rounded cursor-pointer transition-all bg-card ${
+                className={`flex flex-col items-center justify-center gap-0.5 py-1.5 border rounded cursor-pointer transition-all bg-card ${
                   chatAgentVoiceMuted
                     ? "border-border text-muted hover:border-accent hover:text-accent"
                     : "border-accent text-accent"
@@ -193,7 +195,7 @@ export function AutonomousPanel() {
                 onClick={() => setState("chatAgentVoiceMuted", !chatAgentVoiceMuted)}
                 title={chatAgentVoiceMuted ? "Unmute agent voice" : "Mute agent voice"}
               >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
                   {chatAgentVoiceMuted ? (
                     <line x1="23" y1="9" x2="17" y2="15" />
@@ -205,6 +207,7 @@ export function AutonomousPanel() {
                   )}
                   {chatAgentVoiceMuted && <line x1="17" y1="9" x2="23" y2="15" />}
                 </svg>
+                <span className="text-[9px] leading-none">Voice</span>
               </button>
             </div>
           </div>

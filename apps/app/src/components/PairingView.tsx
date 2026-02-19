@@ -31,13 +31,16 @@ export function PairingView() {
     if (diff <= 0) return "Expired";
     const minutes = Math.floor(diff / 60000);
     const seconds = Math.floor((diff % 60000) / 1000);
-    return `Expires in ${minutes}:${seconds.toString().padStart(2, "0")}`;
+    if (minutes >= 1) {
+      return `Code valid for ${minutes} min ${seconds} sec`;
+    }
+    return `Expires in ${seconds} seconds`;
   };
 
   return (
     <div className="max-w-[560px] mx-auto mt-15 p-6 border border-border bg-card rounded-[10px]">
       <h1 className="text-lg font-semibold mb-2 text-txt-strong">Pairing Required</h1>
-      <p className="text-muted mb-4 leading-relaxed">Enter the pairing code from the server logs to authenticate.</p>
+      <p className="text-muted mb-4 leading-relaxed">Enter the pairing code shown in the server terminal output to link this client.</p>
 
       {pairingEnabled ? (
         <form onSubmit={handleSubmit}>
@@ -55,6 +58,7 @@ export function PairingView() {
               autoFocus
               className="w-full px-3 py-2.5 rounded-lg border border-border bg-bg-muted text-txt text-sm focus:border-accent focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
             />
+            <p className="mt-1 text-[11px] text-muted">Tip: The code is usually 6-8 characters.</p>
           </div>
 
           <div className="mt-3 flex gap-2.5">
@@ -67,7 +71,14 @@ export function PairingView() {
             </button>
           </div>
 
-          {pairingError && <p className="mt-2.5 text-danger text-[13px]">{pairingError}</p>}
+          {pairingError && (
+            <>
+              <p className="mt-2.5 text-danger text-[13px]">{pairingError}</p>
+              <p className="mt-1.5 text-[12px] text-muted">
+                Check the server terminal for the pairing code. It refreshes every few minutes.
+              </p>
+            </>
+          )}
 
           {pairingExpiresAt && (
             <p className="mt-2.5 text-muted text-[13px]">{formatExpiry(pairingExpiresAt)}</p>

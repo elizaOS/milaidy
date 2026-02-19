@@ -148,7 +148,58 @@ export function OnboardingWizard() {
   const [anthropicError, setAnthropicError] = useState("");
   const [customNameText, setCustomNameText] = useState("");
   const [isCustomSelected, setIsCustomSelected] = useState(false);
+  const [apiKeyFormatWarning, setApiKeyFormatWarning] = useState("");
   const cloudLoginAutoAdvanceRef = useRef(false);
+
+  // ── Step progress helpers ────────────────────────────────────────────────
+  // Ordered list of steps for each path.
+  const QUICK_STEPS: OnboardingStep[] = [
+    "welcome", "name", "avatar", "style", "theme",
+    "setupMode", "llmProvider", "permissions",
+  ];
+  const FULL_STEPS: OnboardingStep[] = [
+    "welcome", "name", "avatar", "style", "theme",
+    "setupMode", "runMode", "cloudProvider", "modelSelection",
+    "cloudLogin", "llmProvider", "inventorySetup", "connectors",
+    "permissions",
+  ];
+
+  /** Return 1-based index of the current step in the active step list. */
+  const getStepIndex = (): number => {
+    const list = onboardingSetupMode === "advanced" ? FULL_STEPS : QUICK_STEPS;
+    const idx = list.indexOf(onboardingStep as OnboardingStep);
+    return idx === -1 ? 1 : idx + 1;
+  };
+
+  /** Total steps depends on whether setup mode has been chosen yet. */
+  const getTotalSteps = (): number | null => {
+    if (!onboardingSetupMode) return null; // show "?" before choice
+    return onboardingSetupMode === "advanced" ? FULL_STEPS.length : QUICK_STEPS.length;
+  };
+
+  const stepIndex = getStepIndex();
+  const totalSteps = getTotalSteps();
+  // Progress percentage; before setupMode is chosen we estimate based on quick path
+  const progressPct =
+    totalSteps != null
+      ? Math.round((stepIndex / totalSteps) * 100)
+      : Math.round((stepIndex / QUICK_STEPS.length) * 100);
+
+  // ── API key format validation ────────────────────────────────────────────
+  const validateApiKeyFormat = (key: string, providerId: string): string => {
+    if (!key || key.trim().length === 0) return "";
+    const trimmed = key.trim();
+    if (providerId === "openai" && !trimmed.startsWith("sk-")) {
+      return "Key format looks incorrect. Double-check and try again.";
+    }
+    if (providerId === "anthropic" && !trimmed.startsWith("sk-ant-")) {
+      return "Key format looks incorrect. Double-check and try again.";
+    }
+    if (trimmed.length < 20) {
+      return "Key format looks incorrect. Double-check and try again.";
+    }
+    return "";
+  };
 
   const avatarVrmPath =
     onboardingAvatar === 0 && customVrmUrl
@@ -207,7 +258,9 @@ export function OnboardingWizard() {
   };
 
   const handleApiKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setState("onboardingApiKey", e.target.value);
+    const newKey = e.target.value;
+    setState("onboardingApiKey", newKey);
+    setApiKeyFormatWarning(validateApiKeyFormat(newKey, onboardingProvider));
   };
 
   const handleOpenRouterModelSelect = (modelId: string) => {
@@ -317,6 +370,7 @@ export function OnboardingWizard() {
             />
             <div className="onboarding-speech bg-card border border-border rounded-xl px-5 py-4 mx-auto mb-6 max-w-[600px] relative text-[15px] text-txt leading-relaxed">
               <h2 className="text-[28px] font-normal mb-1 text-txt-strong">ohhh... what's my name again?</h2>
+              <span className="inline-block text-[10px] font-semibold uppercase tracking-wider text-accent border border-accent/40 px-1.5 py-0.5 rounded mt-1">* Required</span>
             </div>
             <div className="flex flex-wrap gap-2 justify-center mx-auto mb-3">
               {onboardingOptions?.names.slice(0, 5).map((name: string) => (
@@ -772,6 +826,7 @@ export function OnboardingWizard() {
           setState("onboardingProvider", providerId);
           setState("onboardingApiKey", "");
           setState("onboardingPrimaryModel", "");
+          setApiKeyFormatWarning("");
           if (providerId === "anthropic-subscription") {
             setState("onboardingSubscriptionTab", "token");
           }
@@ -818,6 +873,7 @@ export function OnboardingWizard() {
               />
               <div className="onboarding-speech bg-card border border-border rounded-xl px-5 py-4 mx-auto mb-4 max-w-[420px] relative text-[15px] text-txt leading-relaxed">
                 <h2 className="text-[28px] font-normal mb-1 text-txt-strong">what is my brain?</h2>
+                <span className="inline-block text-[10px] font-semibold uppercase tracking-wider text-accent border border-accent/40 px-1.5 py-0.5 rounded mt-1">* Required</span>
               </div>
               <div className="w-full mx-auto px-2">
                 {(onboardingOptions?.piModels?.length || onboardingOptions?.piDefaultModel) && (
@@ -887,6 +943,7 @@ export function OnboardingWizard() {
                   setState("onboardingProvider", "");
                   setState("onboardingApiKey", "");
                   setState("onboardingPrimaryModel", "");
+                  setApiKeyFormatWarning("");
                 }}
               >
                 change
@@ -1092,14 +1149,23 @@ export function OnboardingWizard() {
               onboardingProvider !== "ollama" &&
               onboardingProvider !== "pi-ai" && (
                 <div className="text-left">
-                  <label className="text-[13px] font-bold text-txt-strong block mb-2">API Key:</label>
+                  <label className="text-[13px] font-bold text-txt-strong block mb-2">API Key: <span className="text-[10px] font-semibold uppercase tracking-wider text-accent border border-accent/40 px-1.5 py-0.5 rounded ml-1">* Required</span></label>
                   <input
                     type="password"
                     value={onboardingApiKey}
                     onChange={handleApiKeyChange}
                     placeholder="Enter your API key"
-                    className="w-full px-3 py-2 border border-border bg-card text-sm focus:border-accent focus:outline-none"
+                    className={`w-full px-3 py-2 border bg-card text-sm focus:outline-none ${
+                      apiKeyFormatWarning
+                        ? "border-yellow-400 focus:border-yellow-400"
+                        : "border-border focus:border-accent"
+                    }`}
                   />
+                  {apiKeyFormatWarning && (
+                    <p className="text-[12px] text-yellow-500 mt-1.5">
+                      {apiKeyFormatWarning}
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -1173,6 +1239,7 @@ export function OnboardingWizard() {
             />
             <div className="onboarding-speech bg-card border border-border rounded-xl px-5 py-4 mx-auto mb-6 max-w-[600px] relative text-[15px] text-txt leading-relaxed">
               <h2 className="text-[28px] font-normal mb-1 text-txt-strong">soooo can i have a wallet?</h2>
+              <p className="text-xs text-muted mt-1 italic">optional — you can skip this and set it up later</p>
               <p className="text-xs text-muted mt-2">
                 In Pure Privy mode, I create managed wallets automatically after Cloud login:
                 ETH/Base/BSC + Solana.
@@ -1282,6 +1349,7 @@ export function OnboardingWizard() {
             />
             <div className="onboarding-speech bg-card border border-border rounded-xl px-5 py-4 mx-auto mb-6 max-w-[600px] relative text-[15px] text-txt leading-relaxed">
               <h2 className="text-[28px] font-normal mb-1 text-txt-strong">how do you want to reach me?</h2>
+              <p className="text-xs text-muted mt-1 italic">optional — skip this if you just want to use the web app for now</p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-left w-full max-w-[800px] mx-auto px-2">
               {/* Telegram */}
@@ -1429,6 +1497,7 @@ export function OnboardingWizard() {
       case "permissions":
         return (
           <div className="max-w-[600px] mx-auto mt-10 font-body">
+            <p className="text-xs text-muted italic mb-4 text-center">optional — you can adjust these any time in settings</p>
             <PermissionsOnboardingSection onContinue={(options) => void handleOnboardingNext(options)} />
           </div>
         );
@@ -1507,6 +1576,18 @@ export function OnboardingWizard() {
 
   return (
     <div className="mx-auto px-4 pb-16 text-center font-body h-full overflow-y-auto">
+      {/* Progress bar — thin strip at the top of the wizard */}
+      <div className="w-full h-1 bg-border rounded-full overflow-hidden mb-1">
+        <div
+          className="h-full bg-accent rounded-full transition-all duration-300"
+          style={{ width: `${progressPct}%` }}
+        />
+      </div>
+      {/* Step counter */}
+      <div className="text-[11px] text-muted text-center mb-1 tracking-wide">
+        Step {stepIndex} of {totalSteps != null ? totalSteps : "?"}
+      </div>
+
       {renderStep(onboardingStep)}
       <div className="flex gap-2 mt-8 justify-center">
         {canGoBack && (

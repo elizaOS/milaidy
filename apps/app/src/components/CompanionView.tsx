@@ -497,6 +497,18 @@ export function CompanionView() {
   }
 
   const state = companionSnapshot.state;
+
+  // Tooltip descriptions shown on each KPI card and via the inline ? icon.
+  const STAT_TOOLTIPS: Record<string, string> = {
+    mood: "How happy your companion is. Decreases over time, boosted by interaction and care.",
+    hunger: "How fed your companion is. Decreases over time, restored by Feed action.",
+    energy: "Your companion's stamina. Decreases with activity, restored by Rest action.",
+    social: "Social engagement score. Boosted by Share action and interactions.",
+    level: "Your companion's overall level. Increases as XP accumulates.",
+    xp: "Experience points earned through actions. Fills up to reach next level.",
+    streak: "Consecutive days of engagement. Resets if you miss a day.",
+  };
+
   const statItems = [
     { id: "mood", label: "Mood", value: state.stats.mood },
     { id: "hunger", label: "Hunger", value: state.stats.hunger },
@@ -525,6 +537,8 @@ export function CompanionView() {
       disabled: companionActionBusy || cooldowns.feed > 0,
       onRun: () => { setLastTriggeredAction("feed"); playActionAnimation("feed"); void runCompanionAction("feed"); },
       kind: "feed" as QuickActionGlyph,
+      // Text shown only while the action is in cooldown.
+      cooldownHint: "Companions can only eat every few hours",
     },
     {
       id: "rest",
@@ -533,6 +547,7 @@ export function CompanionView() {
       disabled: companionActionBusy || cooldowns.rest > 0,
       onRun: () => { setLastTriggeredAction("rest"); playActionAnimation("rest"); void runCompanionAction("rest"); },
       kind: "rest" as QuickActionGlyph,
+      cooldownHint: "Rest again after the cooldown ends",
     },
     {
       id: "manual_share",
@@ -541,6 +556,7 @@ export function CompanionView() {
       disabled: companionActionBusy || cooldowns.manualShare > 0 || manualShareCapReached,
       onRun: () => { setLastTriggeredAction("manual_share"); playActionAnimation("manual_share"); void runCompanionAction("manual_share"); },
       kind: "manual_share" as QuickActionGlyph,
+      cooldownHint: "Share limit reached for this period",
     },
   ];
 
@@ -588,6 +604,8 @@ export function CompanionView() {
                     : isCooldown
                     ? formatDuration(action.cooldownMs)
                     : "ready";
+                  // Show the explanatory hint only when the action is on cooldown or at its limit.
+                  const showCooldownHint = isLimit || isCooldown;
 
                   return (
                     <div key={`quick-${action.id}`} className="companion-game__action-item">
@@ -608,6 +626,11 @@ export function CompanionView() {
                       <span className={`companion-game__action-state-text is-${tone}`}>
                         {statusText}
                       </span>
+                      {showCooldownHint && (
+                        <span className="text-[10px] text-muted mt-0.5 text-center">
+                          {action.cooldownHint}
+                        </span>
+                      )}
                     </div>
                   );
                 })}
@@ -719,9 +742,22 @@ export function CompanionView() {
             if (item.id === "social") {
               note = `chat ${companionSnapshot.today.chatCount}/${companionSnapshot.today.chatCap}`;
             }
+            const tooltip = STAT_TOOLTIPS[item.id] ?? "";
             return (
-              <article key={`kpi-${item.id}`} className={`companion-game__kpi-card${changedStats.has(item.id) ? " is-changed" : ""}`}>
-                <div className="companion-game__kpi-label">{item.label}</div>
+              <article
+                key={`kpi-${item.id}`}
+                className={`companion-game__kpi-card${changedStats.has(item.id) ? " is-changed" : ""}`}
+                title={tooltip}
+              >
+                <div className="companion-game__kpi-label">
+                  {item.label}
+                  {tooltip && (
+                    <span
+                      className="text-muted text-[10px] ml-0.5 cursor-help"
+                      title={tooltip}
+                    >?</span>
+                  )}
+                </div>
                 <div className="companion-game__kpi-value">{value}</div>
                 <div className="companion-game__kpi-note">{note}</div>
               </article>

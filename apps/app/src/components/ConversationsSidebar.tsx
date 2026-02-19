@@ -133,8 +133,13 @@ export function ConversationsSidebar() {
                       <div className="text-[11px] text-muted mt-0.5">{formatRelativeTime(conv.updatedAt)}</div>
                     </div>
                     <button
+                      className="opacity-0 group-hover:opacity-100 transition-opacity border-none bg-transparent text-muted hover:text-accent cursor-pointer text-sm px-1 py-0.5 rounded flex-shrink-0"
+                      onClick={(e) => { e.stopPropagation(); handleDoubleClick(conv); }}
+                      title="Rename conversation"
+                    >✎</button>
+                    <button
                       data-testid="conv-delete"
-                      className="opacity-0 group-hover:opacity-100 transition-opacity border-none bg-transparent text-muted hover:text-danger hover:bg-destructive-subtle cursor-pointer text-sm px-1 py-0.5 rounded flex-shrink-0"
+                      className="opacity-30 group-hover:opacity-100 transition-opacity border-none bg-transparent text-muted hover:text-danger hover:bg-destructive-subtle cursor-pointer text-sm px-1 py-0.5 rounded flex-shrink-0"
                       onClick={(e) => {
                         e.stopPropagation();
                         void handleDeleteConversation(conv.id);

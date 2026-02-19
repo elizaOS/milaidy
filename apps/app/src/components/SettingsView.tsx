@@ -93,7 +93,7 @@ function SettingsNav({ activeId }: { activeId: string }) {
               }`}
               onClick={(e) => {
                 e.preventDefault();
-                document.getElementById(s.id)?.scrollIntoView({ behavior: "smooth" });
+                document.getElementById(s.id)?.scrollIntoView({ behavior: "smooth", block: "start" });
               }}
             >
               {s.label}
@@ -175,6 +175,9 @@ export function SettingsView() {
   const [modelSaving, setModelSaving] = useState(false);
   const [modelSaveSuccess, setModelSaveSuccess] = useState(false);
 
+  /* ── Loading state for initial model fetch ─────────────────────────── */
+  const [isLoadingModels, setIsLoadingModels] = useState(true);
+
   /* ── pi-ai provider state ─────────────────────────────────────────── */
   const [piAiEnabled, setPiAiEnabled] = useState(false);
   const [piAiSmallModel, setPiAiSmallModel] = useState("");
@@ -188,6 +191,7 @@ export function SettingsView() {
     void checkExtensionStatus();
 
     void (async () => {
+      setIsLoadingModels(true);
       try {
         const opts = await client.getOnboardingOptions();
         setModelOptions(opts.models);
@@ -222,7 +226,9 @@ export function SettingsView() {
 
         setPiAiSmallModel(small);
         setPiAiLargeModel(large);
-      } catch { /* ignore */ }
+      } catch { /* ignore */ } finally {
+        setIsLoadingModels(false);
+      }
     })();
   }, [loadPlugins, loadUpdateStatus, checkExtensionStatus]);
 
@@ -513,20 +519,40 @@ export function SettingsView() {
       <div id="settings-appearance" className="p-4 border border-[var(--border)] bg-[var(--card)]">
         <div className="font-bold text-sm mb-2">Appearance</div>
         <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
-          {THEMES.map((t) => (
-            <button
-              key={t.id}
-              className={`theme-btn py-2 px-2 ${currentTheme === t.id ? "active" : ""}`}
-              onClick={() => setTheme(t.id)}
-            >
-              <div className="text-xs font-bold text-[var(--text)] whitespace-nowrap text-center">
-                {t.label}
-              </div>
-              <div className="text-[10px] text-[var(--muted)] mt-0.5 text-center whitespace-nowrap">
-                {t.hint}
-              </div>
-            </button>
-          ))}
+          {THEMES.map((t) => {
+            // Map theme IDs to representative swatch colors
+            const THEME_COLORS: Record<string, string> = {
+              default: "#6366f1",
+              dark: "#1f2937",
+              milady: "#f5c842",
+              psycho: "#ef4444",
+              light: "#e5e7eb",
+              midnight: "#0f172a",
+              qt314: "#f9a8d4",
+              web2000: "#22c55e",
+              programmer: "#1e1e1e",
+              haxor: "#00ff41",
+            };
+            const swatchColor = THEME_COLORS[t.id] ?? "#888888";
+            return (
+              <button
+                key={t.id}
+                className={`theme-btn py-2 px-2 ${currentTheme === t.id ? "active" : ""}`}
+                onClick={() => setTheme(t.id)}
+              >
+                <div className="flex items-center justify-center gap-1 text-xs font-bold text-[var(--text)] whitespace-nowrap">
+                  <span
+                    className="inline-block w-3 h-3 rounded-full border border-border/50 shrink-0"
+                    style={{ background: swatchColor }}
+                  />
+                  {t.label}
+                </div>
+                <div className="text-[10px] text-[var(--muted)] mt-0.5 text-center whitespace-nowrap">
+                  {t.hint}
+                </div>
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -534,7 +560,12 @@ export function SettingsView() {
           2. AI MODEL
           ═══════════════════════════════════════════════════════════════ */}
       <div id="settings-ai-model" className="mt-6 p-4 border border-[var(--border)] bg-[var(--card)]">
-        <div className="font-bold text-sm mb-4">AI Model</div>
+        <div className="flex items-center gap-3 mb-4">
+          <div className="font-bold text-sm">AI Model</div>
+          {isLoadingModels && (
+            <span className="text-[11px] text-[var(--muted)] animate-pulse">Loading models...</span>
+          )}
+        </div>
 
         {(() => {
           const totalCols = allAiProviders.length + 2; /* +2 for Eliza Cloud + Pi */
@@ -1196,16 +1227,21 @@ export function SettingsView() {
                 Reveal your EVM and Solana private keys. Never share these with anyone.
               </div>
             </div>
-            <button
-              className="btn whitespace-nowrap !mt-0 text-xs py-1.5 px-4"
-              style={{
-                background: "var(--danger, #e74c3c)",
-                borderColor: "var(--danger, #e74c3c)",
-              }}
-              onClick={() => void handleExportKeys()}
-            >
-              {walletExportVisible ? "Hide Keys" : "Export Keys"}
-            </button>
+            <div className="flex flex-col items-end gap-1.5">
+              <p className="text-[12px] text-amber-500 mb-2 text-right max-w-[220px]">
+                Warning: Private keys give full access to your wallets. Never share them and store them securely.
+              </p>
+              <button
+                className="btn whitespace-nowrap !mt-0 text-xs py-1.5 px-4"
+                style={{
+                  background: "var(--danger, #e74c3c)",
+                  borderColor: "var(--danger, #e74c3c)",
+                }}
+                onClick={() => void handleExportKeys()}
+              >
+                {walletExportVisible ? "Hide Keys" : "Export Keys"}
+              </button>
+            </div>
           </div>
           {walletExportVisible && walletExportData && (
             <div className="mt-3 p-3 border border-[var(--danger,#e74c3c)] bg-[var(--bg-muted)] font-[var(--mono)] text-[11px] break-all leading-relaxed">
@@ -1257,7 +1293,12 @@ export function SettingsView() {
               background: "var(--danger, #e74c3c)",
               borderColor: "var(--danger, #e74c3c)",
             }}
-            onClick={() => void handleReset()}
+            onClick={() => {
+              const confirmed = window.confirm(
+                "Are you sure you want to reset all settings and data? This cannot be undone and you will return to onboarding.",
+              );
+              if (confirmed) void handleReset();
+            }}
           >
             Reset Everything
           </button>

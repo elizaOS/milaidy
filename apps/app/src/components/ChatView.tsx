@@ -319,17 +319,7 @@ export function ChatView() {
         </div>
       )}
 
-      {voiceLatency && (
-        <div className="pb-1 text-[10px] text-muted relative" style={{ zIndex: 1 }}>
-          Silence end→first token: {voiceLatency.speechEndToFirstTokenMs ?? "—"}ms · end→voice start:{" "}
-          {voiceLatency.speechEndToVoiceStartMs ?? "—"}ms · first sentence:{" "}
-          {voiceLatency.firstSegmentCached == null
-            ? "—"
-            : voiceLatency.firstSegmentCached
-              ? "cached"
-              : "uncached"}
-        </div>
-      )}
+      {/* Voice latency debug info — intentionally not rendered in production UI */}
 
       {/* ── Input row: mic + textarea + send ───────────────────────── */}
       <div className="flex gap-2 items-end border-t border-border pt-3 pb-4 relative" style={{ zIndex: 1 }}>
