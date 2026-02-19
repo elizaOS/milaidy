@@ -1,13 +1,19 @@
-import {
-  type GenerateTextParams,
-  type IAgentRuntime,
-  ModelType,
-} from "@elizaos/core";
+import type { GenerateTextParams, IAgentRuntime, Plugin } from "@elizaos/core";
+import { ModelType } from "@elizaos/core";
 import { describe, expect, it } from "vitest";
-import { mockPlugin } from "./mock-plugin";
+
+// mock-plugin.ts is gitignored (local-only benchmarking helper).
+// Skip the suite when the file is absent.
+let mockPlugin: Plugin | undefined;
+try {
+  const mod = await import("./mock-plugin");
+  mockPlugin = mod.mockPlugin;
+} catch {
+  // file does not exist in CI — tests will be skipped below
+}
 
 function getPromptResult(prompt: string): Promise<string> {
-  const model = mockPlugin.models?.[ModelType.TEXT_LARGE];
+  const model = mockPlugin?.models?.[ModelType.TEXT_LARGE];
   if (!model) {
     throw new Error("mock TEXT_LARGE model handler is missing");
   }
@@ -17,7 +23,7 @@ function getPromptResult(prompt: string): Promise<string> {
   ) as Promise<string>;
 }
 
-describe("benchmark mock plugin", () => {
+describe.skipIf(!mockPlugin)("benchmark mock plugin", () => {
   it("returns canonical single-shot XML with required fields", async () => {
     const xml = await getPromptResult(
       [

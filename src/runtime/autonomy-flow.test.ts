@@ -11,6 +11,14 @@ import {
 } from "@elizaos/core";
 import { afterEach, describe, expect, it } from "vitest";
 
+let hasSqlPlugin = false;
+try {
+  await import("@elizaos/plugin-sql");
+  hasSqlPlugin = true;
+} catch {
+  // @elizaos/plugin-sql not installed — skip integration tests
+}
+
 type AutonomyTestState = {
   shouldRespondCalls: number;
   multiStepDecisionCalls: number;
@@ -252,7 +260,7 @@ afterEach(async () => {
   }
 });
 
-describe("autonomy flow integration", () => {
+describe.skipIf(!hasSqlPlugin)("autonomy flow integration", () => {
   it("bypasses shouldRespond when message is marked autonomous loop tick", async () => {
     const harness = await createHarness();
     const result = await runMessage(

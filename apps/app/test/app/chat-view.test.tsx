@@ -388,6 +388,45 @@ describe("ChatView", () => {
 
     expect(scrollTo.mock.calls.length).toBeGreaterThan(callsAfterMount);
   });
+
+  it("renders aria labels for chat composer controls", async () => {
+    mockUseVoiceChat.mockReturnValue({
+      supported: true,
+      isListening: false,
+      interimTranscript: "",
+      toggleListening: vi.fn(),
+      mouthOpen: 0,
+      isSpeaking: false,
+      usingAudioAnalysis: false,
+      speak: vi.fn(),
+      queueAssistantSpeech: vi.fn(),
+      stopSpeaking: vi.fn(),
+    });
+
+    mockUseApp.mockReturnValue(createContext());
+
+    let tree: TestRenderer.ReactTestRenderer;
+    await act(async () => {
+      tree = TestRenderer.create(React.createElement(ChatView));
+    });
+    await flush();
+
+    const textarea = tree?.root.find((node) => node.type === "textarea");
+    expect(textarea.props["aria-label"]).toBe("Chat message");
+
+    const attachButton = tree?.root.find(
+      (node) =>
+        node.type === "button" && node.props["aria-label"] === "Attach image",
+    );
+    expect(attachButton.props["aria-label"]).toBe("Attach image");
+
+    const micButton = tree?.root.find(
+      (node) =>
+        node.type === "button" &&
+        node.props["aria-label"] === "Start voice input",
+    );
+    expect(micButton.props["aria-pressed"]).toBe(false);
+  });
 });
 
 // ---------------------------------------------------------------------------

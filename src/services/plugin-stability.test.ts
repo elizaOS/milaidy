@@ -612,13 +612,13 @@ describe("Provider Validation", () => {
     expect(provider.name).toBe("workspaceContext");
   });
 
-  it.skip("createSessionKeyProvider returns a valid Provider shape", () => {
-    const provider = createSessionKeyProvider();
+  it("createSessionKeyProvider returns a valid Provider shape", () => {
+    const provider = createSessionKeyProvider({ defaultAgentId: "test-agent" });
     expect(provider).toBeDefined();
     expect(typeof provider.name).toBe("string");
     expect(typeof provider.description).toBe("string");
     expect(typeof provider.get).toBe("function");
-    expect(provider.name).toBe("session-key");
+    expect(provider.name).toBe("miladySessionKey");
   });
 
   it("createMiladyPlugin returns a valid Plugin with providers", () => {

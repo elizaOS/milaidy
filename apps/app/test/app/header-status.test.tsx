@@ -101,4 +101,37 @@ describe("header status", () => {
     );
     expect(pauseResumeButton.props.disabled).toBe(true);
   });
+
+  it("renders aria labels for icon-only controls", async () => {
+    mockUseApp.mockReturnValue({
+      ...baseAppState,
+      walletAddresses: {
+        evmAddress: "0x1234567890abcdef1234567890abcdef12345678",
+        solanaAddress: "So1anaAddress1111111111111111111111111111111",
+      },
+    });
+
+    let tree: TestRenderer.ReactTestRenderer;
+    await act(async () => {
+      tree = TestRenderer.create(React.createElement(Header));
+    });
+
+    const pauseResumeButton = tree?.root.find(
+      (node) =>
+        node.type === "button" && node.props["aria-label"] === "Pause autonomy",
+    );
+    expect(pauseResumeButton.props["aria-label"]).toBe("Pause autonomy");
+
+    const restartButton = tree?.root.find(
+      (node) =>
+        node.type === "button" && node.props["aria-label"] === "Restart agent",
+    );
+    expect(restartButton.props["aria-label"]).toBe("Restart agent");
+
+    const walletButton = tree?.root.find(
+      (node) =>
+        node.type === "button" && node.props["aria-label"] === "Open wallets",
+    );
+    expect(walletButton.props["aria-label"]).toBe("Open wallets");
+  });
 });
