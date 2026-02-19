@@ -1821,7 +1821,10 @@ export class MiladyClient {
     });
   }
 
-  async switchProvider(provider: string, apiKey?: string): Promise<{ success: boolean; provider: string; restarting: boolean }> {
+  async switchProvider(
+    provider: string,
+    apiKey?: string,
+  ): Promise<{ success: boolean; provider: string; restarting: boolean }> {
     return this.fetch("/api/provider/switch", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -3312,7 +3315,11 @@ export class MiladyClient {
         Accept: "text/event-stream",
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
-      body: JSON.stringify({ text, channelType, ...(images?.length ? { images } : {}) }),
+      body: JSON.stringify({
+        text,
+        channelType,
+        ...(images?.length ? { images } : {}),
+      }),
       signal,
     });
 
@@ -3500,7 +3507,11 @@ export class MiladyClient {
       blocks?: ContentBlock[];
     }>(`/api/conversations/${encodeURIComponent(id)}/messages`, {
       method: "POST",
-      body: JSON.stringify({ text, channelType, ...(images?.length ? { images } : {}) }),
+      body: JSON.stringify({
+        text,
+        channelType,
+        ...(images?.length ? { images } : {}),
+      }),
     });
     return {
       ...response,

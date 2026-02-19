@@ -11,16 +11,16 @@
  *      Chrome Extension, Export/Import, Danger Zone
  */
 
-import { useEffect, useState, useCallback, useRef } from "react";
-import { useApp, THEMES } from "../AppContext";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { THEMES, useApp } from "../AppContext";
 import { client } from "../api-client";
 import { ConfigPageView } from "./ConfigPageView";
 import { ConfigRenderer, defaultRegistry } from "./config-renderer";
 import { MediaSettingsSection } from "./MediaSettingsSection";
-import { VoiceConfigView } from "./VoiceConfigView";
 import { PermissionsSection } from "./PermissionsSection";
 import { ProviderSwitcher } from "./ProviderSwitcher";
 import { formatByteSize } from "./shared/format";
+import { VoiceConfigView } from "./VoiceConfigView";
 
 /* ── Modal shell ─────────────────────────────────────────────────────── */
 
@@ -142,7 +142,9 @@ export function SettingsView() {
   const [importModalOpen, setImportModalOpen] = useState(false);
   const importFileRef = useRef<HTMLInputElement>(null);
   const [exportEstimateLoading, setExportEstimateLoading] = useState(false);
-  const [exportEstimateError, setExportEstimateError] = useState<string | null>(null);
+  const [exportEstimateError, setExportEstimateError] = useState<string | null>(
+    null,
+  );
   const [exportEstimate, setExportEstimate] = useState<{
     estimatedBytes: number;
     memoriesCount: number;
@@ -167,7 +169,9 @@ export function SettingsView() {
         setExportEstimate(estimate);
       } catch (err) {
         setExportEstimateError(
-          err instanceof Error ? err.message : "Failed to estimate export size.",
+          err instanceof Error
+            ? err.message
+            : "Failed to estimate export size.",
         );
       } finally {
         setExportEstimateLoading(false);
@@ -186,7 +190,9 @@ export function SettingsView() {
   return (
     <div>
       <h2 className="text-lg font-bold mb-1">Settings</h2>
-      <p className="text-[13px] text-[var(--muted)] mb-5">Appearance, AI provider, updates, and app preferences.</p>
+      <p className="text-[13px] text-[var(--muted)] mb-5">
+        Appearance, AI provider, updates, and app preferences.
+      </p>
 
       {/* ═══════════════════════════════════════════════════════════════
           1. APPEARANCE
@@ -194,13 +200,13 @@ export function SettingsView() {
       <div className="p-4 border border-[var(--border)] bg-[var(--card)]">
         <div className="font-bold text-sm mb-2">Appearance</div>
         <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
-	          {THEMES.map((t) => (
-	            <button
-	              key={t.id}
-	              type="button"
-	              className={`theme-btn py-2 px-2 ${currentTheme === t.id ? "active" : ""}`}
-	              onClick={() => setTheme(t.id)}
-	            >
+          {THEMES.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              className={`theme-btn py-2 px-2 ${currentTheme === t.id ? "active" : ""}`}
+              onClick={() => setTheme(t.id)}
+            >
               <div className="text-xs font-bold text-[var(--text)] whitespace-nowrap text-center">
                 {t.label}
               </div>
@@ -280,15 +286,19 @@ export function SettingsView() {
           <div>
             <div className="font-bold text-sm">Software Updates</div>
             <div className="text-xs text-[var(--muted)] mt-0.5">
-              {updateStatus ? <>Version {updateStatus.currentVersion}</> : <>Loading...</>}
+              {updateStatus ? (
+                <>Version {updateStatus.currentVersion}</>
+              ) : (
+                <>Loading...</>
+              )}
             </div>
           </div>
-	          <button
-	            type="button"
-	            className="btn whitespace-nowrap !mt-0 text-xs py-1.5 px-3.5"
-	            disabled={updateLoading}
-	            onClick={() => void loadUpdateStatus(true)}
-	          >
+          <button
+            type="button"
+            className="btn whitespace-nowrap !mt-0 text-xs py-1.5 px-3.5"
+            disabled={updateLoading}
+            onClick={() => void loadUpdateStatus(true)}
+          >
             {updateLoading ? "Checking..." : "Check Now"}
           </button>
         </div>
@@ -312,16 +322,33 @@ export function SettingsView() {
                     type: "radio",
                     width: "full",
                     options: [
-                      { value: "stable", label: "Stable", description: "Recommended — production-ready releases" },
-                      { value: "beta", label: "Beta", description: "Preview — early access to upcoming features" },
-                      { value: "nightly", label: "Nightly", description: "Bleeding edge — latest development builds" },
+                      {
+                        value: "stable",
+                        label: "Stable",
+                        description: "Recommended — production-ready releases",
+                      },
+                      {
+                        value: "beta",
+                        label: "Beta",
+                        description:
+                          "Preview — early access to upcoming features",
+                      },
+                      {
+                        value: "nightly",
+                        label: "Nightly",
+                        description:
+                          "Bleeding edge — latest development builds",
+                      },
                     ],
                   },
                 }}
                 values={{ channel: updateStatus.channel }}
                 registry={defaultRegistry}
                 onChange={(key, value) => {
-                  if (key === "channel") void handleChannelChange(value as "stable" | "beta" | "nightly");
+                  if (key === "channel")
+                    void handleChannelChange(
+                      value as "stable" | "beta" | "nightly",
+                    );
                 }}
               />
             </div>
@@ -329,9 +356,12 @@ export function SettingsView() {
             {updateStatus.updateAvailable && updateStatus.latestVersion && (
               <div className="mt-3 py-2.5 px-3 border border-[var(--accent)] bg-[rgba(255,255,255,0.03)] rounded flex justify-between items-center">
                 <div>
-                  <div className="text-[13px] font-bold text-[var(--accent)]">Update available</div>
+                  <div className="text-[13px] font-bold text-[var(--accent)]">
+                    Update available
+                  </div>
                   <div className="text-xs text-[var(--muted)]">
-                    {updateStatus.currentVersion} &rarr; {updateStatus.latestVersion}
+                    {updateStatus.currentVersion} &rarr;{" "}
+                    {updateStatus.latestVersion}
                   </div>
                 </div>
                 <div className="text-[11px] text-[var(--muted)] text-right">
@@ -351,13 +381,16 @@ export function SettingsView() {
 
             {updateStatus.lastCheckAt && (
               <div className="mt-2 text-[11px] text-[var(--muted)]">
-                Last checked: {new Date(updateStatus.lastCheckAt).toLocaleString()}
+                Last checked:{" "}
+                {new Date(updateStatus.lastCheckAt).toLocaleString()}
               </div>
             )}
           </>
         ) : (
           <div className="text-center py-3 text-[var(--muted)] text-xs">
-            {updateLoading ? "Checking for updates..." : "Unable to load update status."}
+            {updateLoading
+              ? "Checking for updates..."
+              : "Unable to load update status."}
           </div>
         )}
       </div>
@@ -368,12 +401,12 @@ export function SettingsView() {
       <div className="mt-6 p-4 border border-[var(--border)] bg-[var(--card)]">
         <div className="flex justify-between items-center mb-3">
           <div className="font-bold text-sm">Chrome Extension</div>
-	          <button
-	            type="button"
-	            className="btn whitespace-nowrap !mt-0 text-xs py-1.5 px-3.5"
-	            onClick={() => void checkExtensionStatus()}
-	            disabled={extensionChecking}
-	          >
+          <button
+            type="button"
+            className="btn whitespace-nowrap !mt-0 text-xs py-1.5 px-3.5"
+            onClick={() => void checkExtensionStatus()}
+            disabled={extensionChecking}
+          >
             {extensionChecking ? "Checking..." : "Check Connection"}
           </button>
         </div>
@@ -384,7 +417,9 @@ export function SettingsView() {
               <span
                 className="inline-block w-2 h-2 rounded-full"
                 style={{
-                  background: relayOk ? "var(--ok, #16a34a)" : "var(--danger, #e74c3c)",
+                  background: relayOk
+                    ? "var(--ok, #16a34a)"
+                    : "var(--danger, #e74c3c)",
                 }}
               />
               <span className="text-[13px] font-bold">
@@ -396,15 +431,17 @@ export function SettingsView() {
             </div>
             {!relayOk && (
               <div className="text-xs text-[var(--danger,#e74c3c)] mt-1.5">
-                The browser relay server is not running. Start the agent with browser control
-                enabled, then check again.
+                The browser relay server is not running. Start the agent with
+                browser control enabled, then check again.
               </div>
             )}
           </div>
         )}
 
         <div className="mt-3">
-          <div className="font-bold text-[13px] mb-2">Install Chrome Extension</div>
+          <div className="font-bold text-[13px] mb-2">
+            Install Chrome Extension
+          </div>
           <div className="text-xs text-[var(--muted)] leading-relaxed">
             <ol className="m-0 pl-5">
               <li className="mb-1.5">
@@ -414,10 +451,12 @@ export function SettingsView() {
                 </code>
               </li>
               <li className="mb-1.5">
-                Enable <strong>Developer mode</strong> (toggle in the top-right corner)
+                Enable <strong>Developer mode</strong> (toggle in the top-right
+                corner)
               </li>
               <li className="mb-1.5">
-                Click <strong>&quot;Load unpacked&quot;</strong> and select the extension folder:
+                Click <strong>&quot;Load unpacked&quot;</strong> and select the
+                extension folder:
                 {ext?.extensionPath ? (
                   <>
                     <br />
@@ -431,13 +470,19 @@ export function SettingsView() {
                     <code className="text-[11px] px-1.5 border border-[var(--border)] bg-[var(--bg-muted)] inline-block mt-1">
                       apps/chrome-extension/
                     </code>
-                    <span className="italic"> (relative to milady package root)</span>
+                    <span className="italic">
+                      {" "}
+                      (relative to milady package root)
+                    </span>
                   </>
                 )}
               </li>
-              <li className="mb-1.5">Pin the extension icon in Chrome&apos;s toolbar</li>
+              <li className="mb-1.5">
+                Pin the extension icon in Chrome&apos;s toolbar
+              </li>
               <li>
-                Click the extension icon on any tab to attach/detach the Milady browser relay
+                Click the extension icon on any tab to attach/detach the Milady
+                browser relay
               </li>
             </ol>
           </div>
@@ -457,18 +502,18 @@ export function SettingsView() {
         <div className="flex justify-between items-center">
           <div className="font-bold text-sm">Agent Export / Import</div>
           <div className="flex items-center gap-2">
-	            <button
-	              type="button"
-	              className="btn whitespace-nowrap !mt-0 text-xs py-1.5 px-3.5"
-	              onClick={openImportModal}
-	            >
+            <button
+              type="button"
+              className="btn whitespace-nowrap !mt-0 text-xs py-1.5 px-3.5"
+              onClick={openImportModal}
+            >
               Import
             </button>
-	            <button
-	              type="button"
-	              className="btn whitespace-nowrap !mt-0 text-xs py-1.5 px-3.5"
-	              onClick={openExportModal}
-	            >
+            <button
+              type="button"
+              className="btn whitespace-nowrap !mt-0 text-xs py-1.5 px-3.5"
+              onClick={openExportModal}
+            >
               Export
             </button>
           </div>
@@ -479,7 +524,9 @@ export function SettingsView() {
           12. DANGER ZONE
           ═══════════════════════════════════════════════════════════════ */}
       <div className="mt-8 pt-6 border-t border-[var(--border)]">
-        <h3 className="text-lg font-bold text-[var(--danger,#e74c3c)]">Danger Zone</h3>
+        <h3 className="text-lg font-bold text-[var(--danger,#e74c3c)]">
+          Danger Zone
+        </h3>
         <p className="text-[13px] text-[var(--muted)] mb-5">
           Irreversible actions. Proceed with caution.
         </p>
@@ -489,14 +536,15 @@ export function SettingsView() {
             <div>
               <div className="font-bold text-sm">Export Private Keys</div>
               <div className="text-xs text-[var(--muted)] mt-0.5">
-                Reveal your EVM and Solana private keys. Never share these with anyone.
+                Reveal your EVM and Solana private keys. Never share these with
+                anyone.
               </div>
             </div>
-	            <button
-	              type="button"
-	              className="btn whitespace-nowrap !mt-0 text-xs py-1.5 px-4"
-	              style={{
-	                background: "var(--danger, #e74c3c)",
+            <button
+              type="button"
+              className="btn whitespace-nowrap !mt-0 text-xs py-1.5 px-4"
+              style={{
+                background: "var(--danger, #e74c3c)",
                 borderColor: "var(--danger, #e74c3c)",
               }}
               onClick={() => void handleExportKeys()}
@@ -509,35 +557,45 @@ export function SettingsView() {
               {walletExportData.evm && (
                 <div className="mb-2">
                   <strong>EVM Private Key</strong>{" "}
-                  <span className="text-[var(--muted)]">({walletExportData.evm.address})</span>
+                  <span className="text-[var(--muted)]">
+                    ({walletExportData.evm.address})
+                  </span>
                   <br />
                   <span>{walletExportData.evm.privateKey}</span>
-	                  <button
-	                    type="button"
-	                    className="ml-2 px-1.5 py-0.5 border border-[var(--border)] bg-[var(--bg)] cursor-pointer text-[10px] font-[var(--mono)] hover:border-[var(--accent)] hover:text-[var(--accent)]"
-	                    onClick={() => void copyToClipboard(walletExportData.evm.privateKey)}
-	                  >
-	                    copy
-	                  </button>
+                  <button
+                    type="button"
+                    className="ml-2 px-1.5 py-0.5 border border-[var(--border)] bg-[var(--bg)] cursor-pointer text-[10px] font-[var(--mono)] hover:border-[var(--accent)] hover:text-[var(--accent)]"
+                    onClick={() =>
+                      void copyToClipboard(walletExportData.evm.privateKey)
+                    }
+                  >
+                    copy
+                  </button>
                 </div>
               )}
               {walletExportData.solana && (
                 <div>
                   <strong>Solana Private Key</strong>{" "}
-                  <span className="text-[var(--muted)]">({walletExportData.solana.address})</span>
+                  <span className="text-[var(--muted)]">
+                    ({walletExportData.solana.address})
+                  </span>
                   <br />
                   <span>{walletExportData.solana.privateKey}</span>
-	                  <button
-	                    type="button"
-	                    className="ml-2 px-1.5 py-0.5 border border-[var(--border)] bg-[var(--bg)] cursor-pointer text-[10px] font-[var(--mono)] hover:border-[var(--accent)] hover:text-[var(--accent)]"
-	                    onClick={() => void copyToClipboard(walletExportData.solana.privateKey)}
-	                  >
-	                    copy
-	                  </button>
+                  <button
+                    type="button"
+                    className="ml-2 px-1.5 py-0.5 border border-[var(--border)] bg-[var(--bg)] cursor-pointer text-[10px] font-[var(--mono)] hover:border-[var(--accent)] hover:text-[var(--accent)]"
+                    onClick={() =>
+                      void copyToClipboard(walletExportData.solana.privateKey)
+                    }
+                  >
+                    copy
+                  </button>
                 </div>
               )}
               {!walletExportData.evm && !walletExportData.solana && (
-                <div className="text-[var(--muted)]">No wallet keys configured.</div>
+                <div className="text-[var(--muted)]">
+                  No wallet keys configured.
+                </div>
               )}
             </div>
           )}
@@ -547,14 +605,15 @@ export function SettingsView() {
           <div>
             <div className="font-bold text-sm">Reset Agent</div>
             <div className="text-xs text-[var(--muted)] mt-0.5">
-              Wipe all config, memory, and data. Returns to the onboarding wizard.
+              Wipe all config, memory, and data. Returns to the onboarding
+              wizard.
             </div>
           </div>
-	          <button
-	            type="button"
-	            className="btn whitespace-nowrap !mt-0 text-xs py-1.5 px-4"
-	            style={{
-	              background: "var(--danger, #e74c3c)",
+          <button
+            type="button"
+            className="btn whitespace-nowrap !mt-0 text-xs py-1.5 px-4"
+            style={{
+              background: "var(--danger, #e74c3c)",
               borderColor: "var(--danger, #e74c3c)",
             }}
             onClick={() => void handleReset()}
@@ -565,20 +624,33 @@ export function SettingsView() {
       </div>
 
       {/* ── Modals ── */}
-      <Modal open={exportModalOpen} onClose={() => setExportModalOpen(false)} title="Export Agent">
+      <Modal
+        open={exportModalOpen}
+        onClose={() => setExportModalOpen(false)}
+        title="Export Agent"
+      >
         <div className="flex flex-col gap-3">
           <div className="text-xs text-[var(--muted)]">
-            Your character, memories, chats, secrets, and relationships will be downloaded as a
-            single file. Exports are encrypted and require a password.
+            Your character, memories, chats, secrets, and relationships will be
+            downloaded as a single file. Exports are encrypted and require a
+            password.
           </div>
           {exportEstimateLoading && (
-            <div className="text-[11px] text-[var(--muted)]">Estimating export size…</div>
+            <div className="text-[11px] text-[var(--muted)]">
+              Estimating export size…
+            </div>
           )}
           {!exportEstimateLoading && exportEstimate && (
             <div className="text-[11px] text-[var(--muted)] border border-[var(--border)] bg-[var(--bg-muted)] px-2.5 py-2">
-              <div>Estimated file size: {formatByteSize(exportEstimate.estimatedBytes)}</div>
               <div>
-                Contains {exportEstimate.memoriesCount} memories, {exportEstimate.entitiesCount} entities, {exportEstimate.roomsCount} rooms, {exportEstimate.worldsCount} worlds, {exportEstimate.tasksCount} tasks.
+                Estimated file size:{" "}
+                {formatByteSize(exportEstimate.estimatedBytes)}
+              </div>
+              <div>
+                Contains {exportEstimate.memoriesCount} memories,{" "}
+                {exportEstimate.entitiesCount} entities,{" "}
+                {exportEstimate.roomsCount} rooms, {exportEstimate.worldsCount}{" "}
+                worlds, {exportEstimate.tasksCount} tasks.
               </div>
             </div>
           )}
@@ -588,8 +660,14 @@ export function SettingsView() {
             </div>
           )}
           <div className="flex flex-col gap-1">
-            <label className="font-semibold text-xs">Encryption Password</label>
+            <label
+              htmlFor="agent-export-password-input"
+              className="font-semibold text-xs"
+            >
+              Encryption Password
+            </label>
             <input
+              id="agent-export-password-input"
               type="password"
               placeholder="Enter password (minimum 4 characters)"
               value={exportPassword}
@@ -609,40 +687,54 @@ export function SettingsView() {
             Include logs in export
           </label>
           {exportError && (
-            <div className="text-[11px] text-[var(--danger,#e74c3c)]">{exportError}</div>
+            <div className="text-[11px] text-[var(--danger,#e74c3c)]">
+              {exportError}
+            </div>
           )}
           {exportSuccess && (
-            <div className="text-[11px] text-[var(--ok,#16a34a)]">{exportSuccess}</div>
+            <div className="text-[11px] text-[var(--ok,#16a34a)]">
+              {exportSuccess}
+            </div>
           )}
           <div className="flex justify-end gap-2 mt-1">
-	            <button
-	              type="button"
-	              className="btn text-xs py-1.5 px-4 !mt-0 !bg-transparent !border-[var(--border)] !text-[var(--txt)]"
-	              onClick={() => setExportModalOpen(false)}
-	            >
+            <button
+              type="button"
+              className="btn text-xs py-1.5 px-4 !mt-0 !bg-transparent !border-[var(--border)] !text-[var(--txt)]"
+              onClick={() => setExportModalOpen(false)}
+            >
               Cancel
             </button>
-	            <button
-	              type="button"
-	              className="btn text-xs py-1.5 px-4 !mt-0"
-	              disabled={exportBusy}
-	              onClick={() => void handleAgentExport()}
-	            >
+            <button
+              type="button"
+              className="btn text-xs py-1.5 px-4 !mt-0"
+              disabled={exportBusy}
+              onClick={() => void handleAgentExport()}
+            >
               {exportBusy ? "Exporting..." : "Download Export"}
             </button>
           </div>
         </div>
       </Modal>
 
-      <Modal open={importModalOpen} onClose={() => setImportModalOpen(false)} title="Import Agent">
+      <Modal
+        open={importModalOpen}
+        onClose={() => setImportModalOpen(false)}
+        title="Import Agent"
+      >
         <div className="flex flex-col gap-3">
           <div className="text-xs text-[var(--muted)]">
-            Select an <code className="text-[11px]">.eliza-agent</code> export file and enter the
-            password used during export.
+            Select an <code className="text-[11px]">.eliza-agent</code> export
+            file and enter the password used during export.
           </div>
           <div className="flex flex-col gap-1">
-            <label className="font-semibold text-xs">Export File</label>
+            <label
+              htmlFor="agent-import-file-input"
+              className="font-semibold text-xs"
+            >
+              Export File
+            </label>
             <input
+              id="agent-import-file-input"
               ref={importFileRef}
               type="file"
               accept=".eliza-agent"
@@ -655,8 +747,14 @@ export function SettingsView() {
             />
           </div>
           <div className="flex flex-col gap-1">
-            <label className="font-semibold text-xs">Decryption Password</label>
+            <label
+              htmlFor="agent-import-password-input"
+              className="font-semibold text-xs"
+            >
+              Decryption Password
+            </label>
             <input
+              id="agent-import-password-input"
               type="password"
               placeholder="Enter password (minimum 4 characters)"
               value={importPassword}
@@ -668,25 +766,29 @@ export function SettingsView() {
             </div>
           </div>
           {importError && (
-            <div className="text-[11px] text-[var(--danger,#e74c3c)]">{importError}</div>
+            <div className="text-[11px] text-[var(--danger,#e74c3c)]">
+              {importError}
+            </div>
           )}
           {importSuccess && (
-            <div className="text-[11px] text-[var(--ok,#16a34a)]">{importSuccess}</div>
+            <div className="text-[11px] text-[var(--ok,#16a34a)]">
+              {importSuccess}
+            </div>
           )}
           <div className="flex justify-end gap-2 mt-1">
-	            <button
-	              type="button"
-	              className="btn text-xs py-1.5 px-4 !mt-0 !bg-transparent !border-[var(--border)] !text-[var(--txt)]"
-	              onClick={() => setImportModalOpen(false)}
-	            >
+            <button
+              type="button"
+              className="btn text-xs py-1.5 px-4 !mt-0 !bg-transparent !border-[var(--border)] !text-[var(--txt)]"
+              onClick={() => setImportModalOpen(false)}
+            >
               Cancel
             </button>
-	            <button
-	              type="button"
-	              className="btn text-xs py-1.5 px-4 !mt-0"
-	              disabled={importBusy}
-	              onClick={() => void handleAgentImport()}
-	            >
+            <button
+              type="button"
+              className="btn text-xs py-1.5 px-4 !mt-0"
+              disabled={importBusy}
+              onClick={() => void handleAgentImport()}
+            >
               {importBusy ? "Importing..." : "Import Agent"}
             </button>
           </div>

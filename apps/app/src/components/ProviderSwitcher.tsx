@@ -6,12 +6,16 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { client, type OnboardingOptions, type PluginParamDef } from "../api-client";
+import {
+  client,
+  type OnboardingOptions,
+  type PluginParamDef,
+} from "../api-client";
+import type { ConfigUiHint } from "../types";
+import { ApiKeyConfig } from "./ApiKeyConfig";
+import type { JsonSchemaObject } from "./config-catalog";
 import { ConfigRenderer, defaultRegistry } from "./config-renderer";
 import { SubscriptionStatus } from "./SubscriptionStatus";
-import { ApiKeyConfig } from "./ApiKeyConfig";
-import type { ConfigUiHint } from "../types";
-import type { JsonSchemaObject } from "./config-catalog";
 
 interface PluginInfo {
   id: string;
@@ -42,7 +46,10 @@ export interface ProviderSwitcherProps {
   // Actions
   loadPlugins: () => Promise<void>;
   handlePluginToggle: (id: string, enabled: boolean) => Promise<void>;
-  handlePluginConfigSave: (pluginId: string, values: Record<string, string>) => void;
+  handlePluginConfigSave: (
+    pluginId: string,
+    values: Record<string, string>,
+  ) => void;
   handleCloudLogin: () => Promise<void>;
   handleCloudDisconnect: () => Promise<void>;
   setState: (key: "cloudEnabled", value: boolean) => void;
@@ -72,19 +79,23 @@ export function ProviderSwitcher({
   setTab,
 }: ProviderSwitcherProps) {
   /* ── Model selection state ─────────────────────────────────────── */
-  const [modelOptions, setModelOptions] = useState<OnboardingOptions["models"] | null>(null);
+  const [modelOptions, setModelOptions] = useState<
+    OnboardingOptions["models"] | null
+  >(null);
   const [currentSmallModel, setCurrentSmallModel] = useState("");
   const [currentLargeModel, setCurrentLargeModel] = useState("");
   const [modelSaving, setModelSaving] = useState(false);
   const [modelSaveSuccess, setModelSaveSuccess] = useState(false);
 
   /* ── Subscription state ────────────────────────────────────────── */
-  const [subscriptionStatus, setSubscriptionStatus] = useState<Array<{
-    provider: string;
-    configured: boolean;
-    valid: boolean;
-    expiresAt: number | null;
-  }>>([]);
+  const [subscriptionStatus, setSubscriptionStatus] = useState<
+    Array<{
+      provider: string;
+      configured: boolean;
+      valid: boolean;
+      expiresAt: number | null;
+    }>
+  >([]);
   const [anthropicConnected, setAnthropicConnected] = useState(false);
   const [openaiConnected, setOpenaiConnected] = useState(false);
 
@@ -113,8 +124,12 @@ export function ProviderSwitcher({
         const cloudEnabledCfg = cloud?.enabled === true;
         const defaultSmall = "moonshotai/kimi-k2-turbo";
         const defaultLarge = "moonshotai/kimi-k2-0905";
-        setCurrentSmallModel(models?.small || (cloudEnabledCfg ? defaultSmall : ""));
-        setCurrentLargeModel(models?.large || (cloudEnabledCfg ? defaultLarge : ""));
+        setCurrentSmallModel(
+          models?.small || (cloudEnabledCfg ? defaultSmall : ""),
+        );
+        setCurrentLargeModel(
+          models?.large || (cloudEnabledCfg ? defaultLarge : ""),
+        );
       } catch (err) {
         console.warn("[milady] Failed to load config", err);
       }
@@ -122,9 +137,12 @@ export function ProviderSwitcher({
   }, [loadSubscriptionStatus]);
 
   useEffect(() => {
-    const anthStatus = subscriptionStatus.find((s) => s.provider === "anthropic-subscription");
-    const oaiStatus = subscriptionStatus.find((s) =>
-      s.provider === "openai-subscription" || s.provider === "openai-codex",
+    const anthStatus = subscriptionStatus.find(
+      (s) => s.provider === "anthropic-subscription",
+    );
+    const oaiStatus = subscriptionStatus.find(
+      (s) =>
+        s.provider === "openai-subscription" || s.provider === "openai-codex",
     );
     setAnthropicConnected(Boolean(anthStatus?.configured && anthStatus?.valid));
     setOpenaiConnected(Boolean(oaiStatus?.configured && oaiStatus?.valid));
@@ -148,14 +166,17 @@ export function ProviderSwitcher({
   useEffect(() => {
     if (hasManualSelection.current) return;
     if (cloudEnabled) {
-      if (selectedProviderId !== "__cloud__") setSelectedProviderId("__cloud__");
+      if (selectedProviderId !== "__cloud__")
+        setSelectedProviderId("__cloud__");
     }
   }, [cloudEnabled, selectedProviderId]);
 
   const resolvedSelectedId =
     selectedProviderId === "__cloud__"
       ? "__cloud__"
-      : selectedProviderId && (allAiProviders.some((p) => p.id === selectedProviderId) || isSubscriptionId(selectedProviderId))
+      : selectedProviderId &&
+          (allAiProviders.some((p) => p.id === selectedProviderId) ||
+            isSubscriptionId(selectedProviderId))
         ? selectedProviderId
         : cloudEnabled
           ? "__cloud__"
@@ -163,11 +184,13 @@ export function ProviderSwitcher({
             ? "anthropic-subscription"
             : openaiConnected
               ? "openai-subscription"
-              : enabledAiProviders[0]?.id ?? null;
+              : (enabledAiProviders[0]?.id ?? null);
 
   const selectedProvider =
-    resolvedSelectedId && resolvedSelectedId !== "__cloud__" && !isSubscriptionId(resolvedSelectedId)
-      ? allAiProviders.find((p) => p.id === resolvedSelectedId) ?? null
+    resolvedSelectedId &&
+    resolvedSelectedId !== "__cloud__" &&
+    !isSubscriptionId(resolvedSelectedId)
+      ? (allAiProviders.find((p) => p.id === resolvedSelectedId) ?? null)
       : null;
 
   /* ── Handlers ─────────────────────────────────────────────────── */
@@ -206,7 +229,13 @@ export function ProviderSwitcher({
         }
       }
     },
-    [allAiProviders, enabledAiProviders, handlePluginToggle, setState, cloudEnabled],
+    [
+      allAiProviders,
+      enabledAiProviders,
+      handlePluginToggle,
+      setState,
+      cloudEnabled,
+    ],
   );
 
   const handleSelectSubscription = useCallback(
@@ -221,9 +250,10 @@ export function ProviderSwitcher({
       if (!target) return;
 
       try {
-        const switchId = providerId === "anthropic-subscription"
-          ? "anthropic-subscription"
-          : "openai-codex";
+        const switchId =
+          providerId === "anthropic-subscription"
+            ? "anthropic-subscription"
+            : "openai-codex";
         await client.switchProvider(switchId);
         setState("cloudEnabled", false);
       } catch (err) {
@@ -263,7 +293,9 @@ export function ProviderSwitcher({
   /* ── Render ───────────────────────────────────────────────────── */
   const totalCols = allAiProviders.length + 1 + subscriptionProviders.length;
   const isCloudSelected = resolvedSelectedId === "__cloud__";
-  const isSubscriptionSelected = resolvedSelectedId === "anthropic-subscription" || resolvedSelectedId === "openai-subscription";
+  const isSubscriptionSelected =
+    resolvedSelectedId === "anthropic-subscription" ||
+    resolvedSelectedId === "openai-subscription";
   const providerChoices = [
     { id: "__cloud__", label: "Eliza Cloud", disabled: false },
     ...subscriptionProviders.map((provider) => ({
@@ -283,16 +315,15 @@ export function ProviderSwitcher({
       <div className="p-4 border border-[var(--warning,#f39c12)] bg-[var(--card)]">
         <div className="text-xs text-[var(--warning,#f39c12)]">
           No AI providers available. Install a provider plugin from the{" "}
-          <a
-            href="#"
+          <button
+            type="button"
             className="text-[var(--accent)] underline"
-            onClick={(e: React.MouseEvent) => {
-              e.preventDefault();
+            onClick={() => {
               setTab("plugins");
             }}
           >
             Plugins
-          </a>{" "}
+          </button>{" "}
           page.
         </div>
       </div>
@@ -303,8 +334,14 @@ export function ProviderSwitcher({
     <>
       {/* Mobile dropdown */}
       <div className="lg:hidden mb-3">
-        <label className="block text-xs font-semibold mb-1.5">Provider</label>
+        <label
+          htmlFor="provider-switcher-mobile-select"
+          className="block text-xs font-semibold mb-1.5"
+        >
+          Provider
+        </label>
         <select
+          id="provider-switcher-mobile-select"
           className="w-full px-2.5 py-[8px] border border-[var(--border)] bg-[var(--card)] text-[13px] transition-colors focus:border-[var(--accent)] focus:outline-none"
           value={resolvedSelectedId ?? "__cloud__"}
           onChange={(e) => {
@@ -313,7 +350,10 @@ export function ProviderSwitcher({
               void handleSelectCloud();
               return;
             }
-            if (nextId === "anthropic-subscription" || nextId === "openai-subscription") {
+            if (
+              nextId === "anthropic-subscription" ||
+              nextId === "openai-subscription"
+            ) {
               void handleSelectSubscription(nextId);
               return;
             }
@@ -321,7 +361,11 @@ export function ProviderSwitcher({
           }}
         >
           {providerChoices.map((choice) => (
-            <option key={choice.id} value={choice.id} disabled={choice.disabled}>
+            <option
+              key={choice.id}
+              value={choice.id}
+              disabled={choice.disabled}
+            >
               {choice.label}
             </option>
           ))}
@@ -342,13 +386,16 @@ export function ProviderSwitcher({
           }`}
           onClick={() => void handleSelectCloud()}
         >
-          <div className={`text-xs font-bold whitespace-nowrap ${isCloudSelected ? "" : "text-[var(--text)]"}`}>
+          <div
+            className={`text-xs font-bold whitespace-nowrap ${isCloudSelected ? "" : "text-[var(--text)]"}`}
+          >
             Eliza Cloud
           </div>
         </button>
 
         {subscriptionProviders.map((provider) => {
-          const isSelected = !isCloudSelected && provider.id === resolvedSelectedId;
+          const isSelected =
+            !isCloudSelected && provider.id === resolvedSelectedId;
           return (
             <button
               key={provider.id}
@@ -360,7 +407,9 @@ export function ProviderSwitcher({
               }`}
               onClick={() => void handleSelectSubscription(provider.id)}
             >
-              <div className={`text-xs font-bold whitespace-nowrap ${isSelected ? "" : "text-[var(--text)]"}`}>
+              <div
+                className={`text-xs font-bold whitespace-nowrap ${isSelected ? "" : "text-[var(--text)]"}`}
+              >
                 {provider.label}
               </div>
             </button>
@@ -368,7 +417,8 @@ export function ProviderSwitcher({
         })}
 
         {allAiProviders.map((provider) => {
-          const isSelected = !isCloudSelected && provider.id === resolvedSelectedId;
+          const isSelected =
+            !isCloudSelected && provider.id === resolvedSelectedId;
           return (
             <button
               key={provider.id}
@@ -380,7 +430,9 @@ export function ProviderSwitcher({
               }`}
               onClick={() => void handleSwitchProvider(provider.id)}
             >
-              <div className={`text-xs font-bold whitespace-nowrap ${isSelected ? "" : "text-[var(--text)]"}`}>
+              <div
+                className={`text-xs font-bold whitespace-nowrap ${isSelected ? "" : "text-[var(--text)]"}`}
+              >
                 {provider.name}
               </div>
             </button>
@@ -396,7 +448,9 @@ export function ProviderSwitcher({
               <div className="flex justify-between items-center mb-3">
                 <div className="flex items-center gap-2">
                   <span className="inline-block w-2 h-2 rounded-full bg-[var(--ok,#16a34a)]" />
-                  <span className="text-xs font-semibold">Logged into Eliza Cloud</span>
+                  <span className="text-xs font-semibold">
+                    Logged into Eliza Cloud
+                  </span>
                 </div>
                 <button
                   type="button"
@@ -411,7 +465,9 @@ export function ProviderSwitcher({
               <div className="text-xs mb-4">
                 {cloudUserId && (
                   <span className="text-[var(--muted)] mr-3">
-                    <code className="font-[var(--mono)] text-[11px]">{cloudUserId}</code>
+                    <code className="font-[var(--mono)] text-[11px]">
+                      {cloudUserId}
+                    </code>
                   </span>
                 )}
                 {cloudCredits !== null && (
@@ -440,74 +496,93 @@ export function ProviderSwitcher({
                 )}
               </div>
 
-              {modelOptions && (() => {
-                const modelSchema = {
-                  type: "object" as const,
-                  properties: {
-                    small: {
-                      type: "string",
-                      enum: modelOptions.small.map((m) => m.id),
-                      description: "Fast model for simple tasks",
+              {modelOptions &&
+                (() => {
+                  const modelSchema = {
+                    type: "object" as const,
+                    properties: {
+                      small: {
+                        type: "string",
+                        enum: modelOptions.small.map((m) => m.id),
+                        description: "Fast model for simple tasks",
+                      },
+                      large: {
+                        type: "string",
+                        enum: modelOptions.large.map((m) => m.id),
+                        description: "Powerful model for complex reasoning",
+                      },
                     },
-                    large: {
-                      type: "string",
-                      enum: modelOptions.large.map((m) => m.id),
-                      description: "Powerful model for complex reasoning",
-                    },
-                  },
-                  required: [] as string[],
-                };
-                const modelHints: Record<string, ConfigUiHint> = {
-                  small: { label: "Small Model", width: "half" },
-                  large: { label: "Large Model", width: "half" },
-                };
-                const modelValues: Record<string, unknown> = {};
-                const modelSetKeys = new Set<string>();
-                if (currentSmallModel) { modelValues.small = currentSmallModel; modelSetKeys.add("small"); }
-                if (currentLargeModel) { modelValues.large = currentLargeModel; modelSetKeys.add("large"); }
+                    required: [] as string[],
+                  };
+                  const modelHints: Record<string, ConfigUiHint> = {
+                    small: { label: "Small Model", width: "half" },
+                    large: { label: "Large Model", width: "half" },
+                  };
+                  const modelValues: Record<string, unknown> = {};
+                  const modelSetKeys = new Set<string>();
+                  if (currentSmallModel) {
+                    modelValues.small = currentSmallModel;
+                    modelSetKeys.add("small");
+                  }
+                  if (currentLargeModel) {
+                    modelValues.large = currentLargeModel;
+                    modelSetKeys.add("large");
+                  }
 
-                return (
-                  <ConfigRenderer
-                    schema={modelSchema as JsonSchemaObject}
-                    hints={modelHints}
-                    values={modelValues}
-                    setKeys={modelSetKeys}
-                    registry={defaultRegistry}
-                    onChange={(key, value) => {
-                      const val = String(value);
-                      if (key === "small") setCurrentSmallModel(val);
-                      if (key === "large") setCurrentLargeModel(val);
-                      const updated = {
-                        small: key === "small" ? val : currentSmallModel,
-                        large: key === "large" ? val : currentLargeModel,
-                      };
-                      void (async () => {
-                        setModelSaving(true);
-                        try {
-                          await client.updateConfig({ models: updated });
-                          setModelSaveSuccess(true);
-                          setTimeout(() => setModelSaveSuccess(false), 2000);
-                          await client.restartAgent();
-                        } catch (err) {
-                          console.warn("[milady] Failed to save cloud model config", err);
-                        }
-                        setModelSaving(false);
-                      })();
-                    }}
-                  />
-                );
-              })()}
+                  return (
+                    <ConfigRenderer
+                      schema={modelSchema as JsonSchemaObject}
+                      hints={modelHints}
+                      values={modelValues}
+                      setKeys={modelSetKeys}
+                      registry={defaultRegistry}
+                      onChange={(key, value) => {
+                        const val = String(value);
+                        if (key === "small") setCurrentSmallModel(val);
+                        if (key === "large") setCurrentLargeModel(val);
+                        const updated = {
+                          small: key === "small" ? val : currentSmallModel,
+                          large: key === "large" ? val : currentLargeModel,
+                        };
+                        void (async () => {
+                          setModelSaving(true);
+                          try {
+                            await client.updateConfig({ models: updated });
+                            setModelSaveSuccess(true);
+                            setTimeout(() => setModelSaveSuccess(false), 2000);
+                            await client.restartAgent();
+                          } catch (err) {
+                            console.warn(
+                              "[milady] Failed to save cloud model config",
+                              err,
+                            );
+                          }
+                          setModelSaving(false);
+                        })();
+                      }}
+                    />
+                  );
+                })()}
 
               <div className="flex items-center justify-end gap-2 mt-3">
-                {modelSaving && <span className="text-[11px] text-[var(--muted)]">Saving &amp; restarting...</span>}
-                {modelSaveSuccess && <span className="text-[11px] text-[var(--ok,#16a34a)]">Saved — restarting agent</span>}
+                {modelSaving && (
+                  <span className="text-[11px] text-[var(--muted)]">
+                    Saving &amp; restarting...
+                  </span>
+                )}
+                {modelSaveSuccess && (
+                  <span className="text-[11px] text-[var(--ok,#16a34a)]">
+                    Saved — restarting agent
+                  </span>
+                )}
               </div>
             </div>
           ) : (
             <div>
               {cloudLoginBusy ? (
                 <div className="text-xs text-[var(--muted)]">
-                  Waiting for browser authentication... A new tab should have opened.
+                  Waiting for browser authentication... A new tab should have
+                  opened.
                 </div>
               ) : (
                 <>

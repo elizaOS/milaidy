@@ -280,40 +280,33 @@ describe("addImageFiles functional updater", () => {
   it("calls setChatPendingImages with a functional updater, not a static array", async () => {
     // Synchronous FileReader mock — calls onload immediately so we don't need
     // to wait for real async I/O inside the test.
-    let readerInstance: { onload?: (() => void) | null; result: string };
-    const MockFileReader = vi.fn().mockImplementation(function () {
-      readerInstance = { onload: null, result: "" };
-      return {
-        get onload() {
-          return readerInstance.onload;
-        },
-        set onload(fn) {
-          readerInstance.onload = fn;
-        },
-        get result() {
-          return readerInstance.result;
-        },
-        readAsDataURL() {
-          readerInstance.result = "data:image/png;base64,abc123";
-          readerInstance.onload?.();
-        },
-      };
-    });
-    vi.stubGlobal("FileReader", MockFileReader);
+    class MockFileReader {
+      onload: (() => void) | null = null;
+      result: string | ArrayBuffer | null = null;
+
+      readAsDataURL() {
+        this.result = "data:image/png;base64,abc123";
+        this.onload?.();
+      }
+    }
+    vi.stubGlobal("FileReader", MockFileReader as unknown as typeof FileReader);
 
     const setChatPendingImages = vi.fn();
     mockUseApp.mockReturnValue(
       createContext({ chatPendingImages: [], setChatPendingImages }),
     );
 
-    let tree: TestRenderer.ReactTestRenderer;
+    let tree: TestRenderer.ReactTestRenderer | null = null;
     await act(async () => {
       tree = TestRenderer.create(React.createElement(ChatView));
     });
     await flush();
 
     // Find the hidden <input type="file"> and fire onChange with a fake File
-    const fileInput = tree!.root.find(
+    if (!tree) {
+      throw new Error("ChatView test renderer did not initialize");
+    }
+    const fileInput = tree.root.find(
       (node) => node.type === "input" && node.props.accept === "image/*",
     );
 
@@ -341,7 +334,9 @@ describe("addImageFiles functional updater", () => {
     expect(typeof callArg).toBe("function");
 
     // Verify the updater correctly appends to the existing array
-    const prev = [{ data: "existing", mimeType: "image/jpeg", name: "prev.jpg" }];
+    const prev = [
+      { data: "existing", mimeType: "image/jpeg", name: "prev.jpg" },
+    ];
     const next = callArg(prev);
     expect(next).toHaveLength(2);
     expect(next[0]).toEqual(prev[0]);

@@ -340,9 +340,13 @@ export function ChatView() {
   );
 
   return (
-    <div
+    <section
+      aria-label="Chat workspace"
       className={`flex flex-col flex-1 min-h-0 px-2 sm:px-3 relative${imageDragOver ? " ring-2 ring-accent ring-inset" : ""}`}
-      onDragOver={(e) => { e.preventDefault(); setImageDragOver(true); }}
+      onDragOver={(e) => {
+        e.preventDefault();
+        setImageDragOver(true);
+      }}
       onDragLeave={() => setImageDragOver(false)}
       onDrop={handleImageDrop}
     >
@@ -470,7 +474,10 @@ export function ChatView() {
           style={{ zIndex: 1 }}
         >
           {chatPendingImages.map((img, i) => (
-            <div key={`${img.name}-${i}`} className="relative group w-16 h-16 shrink-0">
+            <div
+              key={`${img.name}-${i}`}
+              className="relative group w-16 h-16 shrink-0"
+            >
               <img
                 src={`data:${img.mimeType};base64,${img.data}`}
                 alt={img.name}
@@ -530,7 +537,16 @@ export function ChatView() {
           title="Attach image"
           disabled={chatSending}
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
             <title>Attach image</title>
             <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
           </svg>
@@ -626,6 +642,6 @@ export function ChatView() {
           </button>
         )}
       </div>
-    </div>
+    </section>
   );
 }

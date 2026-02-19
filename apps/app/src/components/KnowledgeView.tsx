@@ -686,23 +686,26 @@ export function KnowledgeView() {
     [loadData, setActionNotice],
   );
 
-  const handleSearch = useCallback(async (query: string) => {
-    setSearching(true);
-    try {
-      const result = await client.searchKnowledge(query, {
-        threshold: 0.3,
-        limit: 20,
-      });
-      setSearchResults(result.results);
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Unknown search error";
-      setActionNotice(`Search failed: ${message}`, "error", 4000);
-      setSearchResults([]);
-    } finally {
-      setSearching(false);
-    }
-  }, []);
+  const handleSearch = useCallback(
+    async (query: string) => {
+      setSearching(true);
+      try {
+        const result = await client.searchKnowledge(query, {
+          threshold: 0.3,
+          limit: 20,
+        });
+        setSearchResults(result.results);
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Unknown search error";
+        setActionNotice(`Search failed: ${message}`, "error", 4000);
+        setSearchResults([]);
+      } finally {
+        setSearching(false);
+      }
+    },
+    [setActionNotice],
+  );
 
   const handleDelete = useCallback(
     async (documentId: string) => {

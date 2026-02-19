@@ -1242,7 +1242,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [shareIngestNotice, setShareIngestNotice] = useState("");
 
   // --- Chat pending images ---
-  const [chatPendingImages, setChatPendingImages] = useState<ImageAttachment[]>([]);
+  const [chatPendingImages, setChatPendingImages] = useState<ImageAttachment[]>(
+    [],
+  );
 
   // --- Game ---
   const [activeGameApp, setActiveGameApp] = useState("");
@@ -2082,7 +2084,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       chatSendBusyRef.current = true;
 
       // Capture and clear pending images before async work
-      const imagesToSend = chatPendingImages.length ? chatPendingImages : undefined;
+      const imagesToSend = chatPendingImages.length
+        ? chatPendingImages
+        : undefined;
       setChatPendingImages([]);
 
       try {

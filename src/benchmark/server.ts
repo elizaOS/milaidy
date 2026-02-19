@@ -13,6 +13,14 @@ import {
 import dotenv from "dotenv";
 import { CORE_PLUGINS } from "../runtime/core-plugins";
 import { createMiladyPlugin } from "../runtime/milady-plugin";
+import {
+  type BenchmarkContext,
+  type CapturedAction,
+  clearCapturedAction,
+  createBenchmarkPlugin,
+  getCapturedAction,
+  setBenchmarkContext,
+} from "./plugin";
 
 // Load environment variables BEFORE anything else
 // This ensures API keys are available when plugins initialize
@@ -188,6 +196,54 @@ function coerceParams(value: unknown): Record<string, unknown> {
   return {};
 }
 
+function normalizeBenchmarkContext(
+  session: BenchmarkSession,
+  context: Record<string, unknown> | undefined,
+): BenchmarkContext {
+  const normalized: Record<string, unknown> = {
+    ...(context ?? {}),
+    benchmark: session.benchmark,
+    taskId: session.taskId,
+  };
+
+  if (
+    !Array.isArray(normalized.actionSpace) &&
+    Array.isArray(normalized.action_space)
+  ) {
+    normalized.actionSpace = normalized.action_space;
+  }
+
+  if (normalized.task_id === undefined) {
+    normalized.task_id = session.taskId;
+  }
+
+  return normalized as BenchmarkContext;
+}
+
+function capturedActionToParams(
+  capturedAction: CapturedAction | null,
+): Record<string, unknown> {
+  if (!capturedAction) return {};
+
+  const benchmarkParams: Record<string, unknown> = {};
+  if (capturedAction.command) benchmarkParams.command = capturedAction.command;
+  if (capturedAction.toolName)
+    benchmarkParams.tool_name = capturedAction.toolName;
+  if (capturedAction.arguments)
+    benchmarkParams.arguments = capturedAction.arguments;
+  if (capturedAction.operation)
+    benchmarkParams.operation = capturedAction.operation;
+  if (capturedAction.elementId)
+    benchmarkParams.element_id = capturedAction.elementId;
+  if (capturedAction.value) benchmarkParams.value = capturedAction.value;
+
+  if (Object.keys(benchmarkParams).length === 0) {
+    return {};
+  }
+
+  return { BENCHMARK_ACTION: benchmarkParams };
+}
+
 function sessionKey(session: BenchmarkSession): string {
   return `${session.benchmark}:${session.taskId}`;
 }
@@ -348,6 +404,17 @@ export async function startBenchmarkServer() {
   } catch (error: unknown) {
     elizaLogger.error(
       `[bench] Failed to load milady plugin: ${formatUnknownError(error)}`,
+    );
+  }
+
+  // Load benchmark plugin — provides benchmark provider + BENCHMARK_ACTION
+  try {
+    const benchmarkPlugin = createBenchmarkPlugin();
+    plugins.push(toPlugin(benchmarkPlugin, "benchmark-plugin"));
+    elizaLogger.info("[bench] Loaded benchmark plugin");
+  } catch (error: unknown) {
+    elizaLogger.error(
+      `[bench] Failed to load benchmark plugin: ${formatUnknownError(error)}`,
     );
   }
 
@@ -774,9 +841,10 @@ export async function startBenchmarkServer() {
 
           await ensureBenchmarkSessionContext(runtime, session);
 
+          const benchmarkContext = normalizeBenchmarkContext(session, context);
           const composedPrompt = composeBenchmarkPrompt({
             text,
-            context,
+            context: benchmarkContext,
             image: parsed.image,
           });
 
@@ -811,12 +879,23 @@ export async function startBenchmarkServer() {
           if (!runtime.messageService) {
             throw new Error("Runtime message service is not available");
           }
+          const messageService = runtime.messageService;
 
-          const result = await runtime.messageService.handleMessage(
-            runtime,
-            incomingMessage,
-            callback,
-          );
+          clearCapturedAction();
+          setBenchmarkContext(benchmarkContext);
+          const result = await (async () => {
+            try {
+              return await messageService.handleMessage(
+                runtime,
+                incomingMessage,
+                callback,
+              );
+            } finally {
+              setBenchmarkContext(null);
+            }
+          })();
+
+          const capturedAction = getCapturedAction();
 
           const responseText =
             typeof result.responseContent?.text === "string"
@@ -826,8 +905,18 @@ export async function startBenchmarkServer() {
             typeof result.responseContent?.thought === "string"
               ? result.responseContent.thought
               : null;
-          const actions = coerceActions(result.responseContent?.actions);
-          const params = coerceParams(result.responseContent?.params);
+          const actionList = coerceActions(result.responseContent?.actions);
+          const actions =
+            actionList.length > 0
+              ? actionList
+              : capturedAction
+                ? ["BENCHMARK_ACTION"]
+                : [];
+          const parsedParams = coerceParams(result.responseContent?.params);
+          const params =
+            Object.keys(parsedParams).length > 0
+              ? parsedParams
+              : capturedActionToParams(capturedAction);
           const finishedAt = Date.now();
 
           trajectory.push({

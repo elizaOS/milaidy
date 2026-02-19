@@ -12,13 +12,15 @@ function formatRequestError(err: unknown): string {
   return String(err);
 }
 
-function normalizeOpenAICallbackInput(input: string): {
-  ok: true;
-  code: string;
-} | {
-  ok: false;
-  error: string;
-} {
+function normalizeOpenAICallbackInput(input: string):
+  | {
+      ok: true;
+      code: string;
+    }
+  | {
+      ok: false;
+      error: string;
+    } {
   const trimmed = input.trim();
   if (!trimmed) {
     return {
@@ -47,12 +49,20 @@ function normalizeOpenAICallbackInput(input: string): {
     return { ok: false, error: "Invalid callback URL." };
   }
 
-  const hostOk = parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1";
-  if (!hostOk || parsed.port !== "1455" || parsed.pathname !== "/auth/callback") {
+  const hostOk =
+    parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1";
+  if (
+    !hostOk ||
+    parsed.port !== "1455" ||
+    parsed.pathname !== "/auth/callback"
+  ) {
     return { ok: false, error: "Expected a localhost:1455/auth/callback URL." };
   }
   if (!parsed.searchParams.get("code")) {
-    return { ok: false, error: "Callback URL is missing the ?code= parameter." };
+    return {
+      ok: false,
+      error: "Callback URL is missing the ?code= parameter.",
+    };
   }
   return { ok: true, code: normalized };
 }
@@ -83,7 +93,9 @@ export function SubscriptionStatus({
   handleSelectSubscription,
   loadSubscriptionStatus,
 }: SubscriptionStatusProps) {
-  const [subscriptionTab, setSubscriptionTab] = useState<"token" | "oauth">("token");
+  const [subscriptionTab, setSubscriptionTab] = useState<"token" | "oauth">(
+    "token",
+  );
   const [setupTokenValue, setSetupTokenValue] = useState("");
   const [setupTokenSaving, setSetupTokenSaving] = useState(false);
   const setupTokenRef = useRef(setupTokenValue);
@@ -105,13 +117,18 @@ export function SubscriptionStatus({
   const [openaiError, setOpenaiError] = useState("");
   const [openaiExchangeBusy, setOpenaiExchangeBusy] = useState(false);
   const openaiExchangeBusyRef = useRef(false);
-  const [subscriptionDisconnecting, setSubscriptionDisconnecting] = useState<string | null>(null);
+  const [subscriptionDisconnecting, setSubscriptionDisconnecting] = useState<
+    string | null
+  >(null);
   const disconnectingRef = useRef(subscriptionDisconnecting);
   disconnectingRef.current = subscriptionDisconnecting;
 
-  const anthropicStatus = subscriptionStatus.find((s) => s.provider === "anthropic-subscription");
-  const openaiStatus = subscriptionStatus.find((s) =>
-    s.provider === "openai-subscription" || s.provider === "openai-codex",
+  const anthropicStatus = subscriptionStatus.find(
+    (s) => s.provider === "anthropic-subscription",
+  );
+  const openaiStatus = subscriptionStatus.find(
+    (s) =>
+      s.provider === "openai-subscription" || s.provider === "openai-codex",
   );
 
   const handleSaveSetupToken = useCallback(async () => {
@@ -120,7 +137,9 @@ export function SubscriptionStatus({
     setSetupTokenSuccess(false);
     setAnthropicError("");
     try {
-      const result = await client.submitAnthropicSetupToken(setupTokenRef.current.trim());
+      const result = await client.submitAnthropicSetupToken(
+        setupTokenRef.current.trim(),
+      );
       if (!result.success) {
         setAnthropicError("Failed to save setup token.");
         return;
@@ -145,7 +164,8 @@ export function SubscriptionStatus({
       setAnthropicError("");
       setOpenaiError("");
       try {
-        const apiProvider = providerId === "openai-subscription" ? "openai-codex" : providerId;
+        const apiProvider =
+          providerId === "openai-subscription" ? "openai-codex" : providerId;
         await client.deleteSubscription(apiProvider);
         await loadSubscriptionStatus();
         if (providerId === "anthropic-subscription") {
@@ -175,7 +195,11 @@ export function SubscriptionStatus({
     try {
       const { authUrl } = await client.startAnthropicLogin();
       if (authUrl) {
-        window.open(authUrl, "anthropic-oauth", "width=600,height=700,top=50,left=200");
+        window.open(
+          authUrl,
+          "anthropic-oauth",
+          "width=600,height=700,top=50,left=200",
+        );
         setAnthropicOAuthStarted(true);
         return;
       }
@@ -216,7 +240,11 @@ export function SubscriptionStatus({
     try {
       const { authUrl } = await client.startOpenAILogin();
       if (authUrl) {
-        window.open(authUrl, "openai-oauth", "width=500,height=700,top=50,left=200");
+        window.open(
+          authUrl,
+          "openai-oauth",
+          "width=500,height=700,top=50,left=200",
+        );
         setOpenaiOAuthStarted(true);
         return;
       }
@@ -249,9 +277,11 @@ export function SubscriptionStatus({
         return;
       }
       const msg = data.error ?? "Exchange failed";
-      setOpenaiError(msg.includes("No active flow")
-        ? "Login session expired. Click 'Start Over' and try again."
-        : msg);
+      setOpenaiError(
+        msg.includes("No active flow")
+          ? "Login session expired. Click 'Start Over' and try again."
+          : msg,
+      );
     } catch (err) {
       console.warn("[milady] OpenAI exchange failed", err);
       setOpenaiError("Network error — check your connection and try again.");
@@ -270,28 +300,39 @@ export function SubscriptionStatus({
               <span
                 className="inline-block w-2 h-2 rounded-full"
                 style={{
-                  background: anthropicConnected ? "var(--ok,#16a34a)" : "var(--warning,#f39c12)",
+                  background: anthropicConnected
+                    ? "var(--ok,#16a34a)"
+                    : "var(--warning,#f39c12)",
                 }}
               />
               <span className="text-xs font-semibold">
-                {anthropicConnected ? "Connected to Claude Subscription" : "Claude Subscription"}
+                {anthropicConnected
+                  ? "Connected to Claude Subscription"
+                  : "Claude Subscription"}
               </span>
             </div>
             {anthropicConnected && (
               <button
                 type="button"
                 className="btn text-xs py-[3px] px-3 !mt-0 !bg-transparent !border-[var(--border)] !text-[var(--muted)]"
-                onClick={() => void handleDisconnectSubscription("anthropic-subscription")}
-                disabled={subscriptionDisconnecting === "anthropic-subscription"}
+                onClick={() =>
+                  void handleDisconnectSubscription("anthropic-subscription")
+                }
+                disabled={
+                  subscriptionDisconnecting === "anthropic-subscription"
+                }
               >
-                {subscriptionDisconnecting === "anthropic-subscription" ? "Disconnecting..." : "Disconnect"}
+                {subscriptionDisconnecting === "anthropic-subscription"
+                  ? "Disconnecting..."
+                  : "Disconnect"}
               </button>
             )}
           </div>
 
           {anthropicStatus?.configured && !anthropicStatus.valid && (
             <div className="text-xs text-[var(--warning,#f39c12)] mb-3">
-              Claude subscription credentials are expired or invalid. Reconnect to continue.
+              Claude subscription credentials are expired or invalid. Reconnect
+              to continue.
             </div>
           )}
 
@@ -322,8 +363,14 @@ export function SubscriptionStatus({
 
           {subscriptionTab === "token" ? (
             <div>
-              <label className="text-xs font-semibold mb-1.5 block">Setup Token</label>
+              <label
+                htmlFor="subscription-setup-token-input"
+                className="text-xs font-semibold mb-1.5 block"
+              >
+                Setup Token
+              </label>
               <input
+                id="subscription-setup-token-input"
                 type="password"
                 placeholder="sk-ant-oat01-..."
                 value={setupTokenValue}
@@ -335,7 +382,9 @@ export function SubscriptionStatus({
                 className="w-full px-2.5 py-1.5 border border-[var(--border)] bg-[var(--card)] text-xs font-[var(--mono)] focus:border-[var(--accent)] focus:outline-none"
               />
               <div className="text-[11px] text-[var(--muted)] mt-2 whitespace-pre-line">
-                {"How to get your setup token:\n\n• Option A: Run  claude setup-token  in your terminal (if you have Claude Code CLI installed)\n\n• Option B: Go to claude.ai/settings/api → \"Claude Code\" → \"Use setup token\""}
+                {
+                  'How to get your setup token:\n\n• Option A: Run  claude setup-token  in your terminal (if you have Claude Code CLI installed)\n\n• Option B: Go to claude.ai/settings/api → "Claude Code" → "Use setup token"'
+                }
               </div>
               {anthropicError && (
                 <div className="text-[11px] text-[var(--danger,#e74c3c)] mt-2">
@@ -353,10 +402,14 @@ export function SubscriptionStatus({
                 </button>
                 <div className="flex items-center gap-2">
                   {setupTokenSaving && (
-                    <span className="text-[11px] text-[var(--muted)]">Saving &amp; restarting...</span>
+                    <span className="text-[11px] text-[var(--muted)]">
+                      Saving &amp; restarting...
+                    </span>
                   )}
                   {setupTokenSuccess && (
-                    <span className="text-[11px] text-[var(--ok,#16a34a)]">Saved</span>
+                    <span className="text-[11px] text-[var(--ok,#16a34a)]">
+                      Saved
+                    </span>
                   )}
                 </div>
               </div>
@@ -386,7 +439,8 @@ export function SubscriptionStatus({
           ) : (
             <div>
               <div className="text-xs text-[var(--muted)] mb-2">
-                After logging in, copy the authorization code from Anthropic and paste it below.
+                After logging in, copy the authorization code from Anthropic and
+                paste it below.
               </div>
               <input
                 type="text"
@@ -415,7 +469,10 @@ export function SubscriptionStatus({
                 <button
                   type="button"
                   className="btn text-xs py-[5px] px-3.5 !mt-0 !bg-transparent !border-[var(--border)] !text-[var(--muted)]"
-                  onClick={() => { setAnthropicOAuthStarted(false); setAnthropicCode(""); }}
+                  onClick={() => {
+                    setAnthropicOAuthStarted(false);
+                    setAnthropicCode("");
+                  }}
                 >
                   Start Over
                 </button>
@@ -432,34 +489,44 @@ export function SubscriptionStatus({
               <span
                 className="inline-block w-2 h-2 rounded-full"
                 style={{
-                  background: openaiConnected ? "var(--ok,#16a34a)" : "var(--warning,#f39c12)",
+                  background: openaiConnected
+                    ? "var(--ok,#16a34a)"
+                    : "var(--warning,#f39c12)",
                 }}
               />
               <span className="text-xs font-semibold">
-                {openaiConnected ? "Connected to ChatGPT Subscription" : "ChatGPT Subscription"}
+                {openaiConnected
+                  ? "Connected to ChatGPT Subscription"
+                  : "ChatGPT Subscription"}
               </span>
             </div>
             {openaiConnected && (
               <button
                 type="button"
                 className="btn text-xs py-[3px] px-3 !mt-0 !bg-transparent !border-[var(--border)] !text-[var(--muted)]"
-                onClick={() => void handleDisconnectSubscription("openai-subscription")}
+                onClick={() =>
+                  void handleDisconnectSubscription("openai-subscription")
+                }
                 disabled={subscriptionDisconnecting === "openai-subscription"}
               >
-                {subscriptionDisconnecting === "openai-subscription" ? "Disconnecting..." : "Disconnect"}
+                {subscriptionDisconnecting === "openai-subscription"
+                  ? "Disconnecting..."
+                  : "Disconnect"}
               </button>
             )}
           </div>
 
           {openaiStatus?.configured && !openaiStatus.valid && (
             <div className="text-xs text-[var(--warning,#f39c12)] mb-3">
-              ChatGPT subscription credentials are expired or invalid. Reconnect to continue.
+              ChatGPT subscription credentials are expired or invalid. Reconnect
+              to continue.
             </div>
           )}
 
           {openaiConnected ? (
             <div className="text-xs text-[var(--muted)]">
-              Your ChatGPT subscription is linked. Disconnect to switch accounts.
+              Your ChatGPT subscription is linked. Disconnect to switch
+              accounts.
             </div>
           ) : !openaiOAuthStarted ? (
             <div>
@@ -478,15 +545,21 @@ export function SubscriptionStatus({
             <div>
               <div className="p-2.5 border border-[var(--border)] bg-[var(--bg-muted)] text-[11px] text-[var(--muted)] leading-relaxed">
                 After logging in, you'll be redirected to a page that won't load
-                (starts with <code className="text-[10px] px-1 border border-[var(--border)] bg-[var(--card)]">localhost:1455</code>).
-                Copy the entire URL and paste it below.
+                (starts with{" "}
+                <code className="text-[10px] px-1 border border-[var(--border)] bg-[var(--card)]">
+                  localhost:1455
+                </code>
+                ). Copy the entire URL and paste it below.
               </div>
               <input
                 type="text"
                 className="w-full mt-2 px-2.5 py-1.5 border border-[var(--border)] bg-[var(--card)] text-xs focus:border-[var(--accent)] focus:outline-none"
                 placeholder="http://localhost:1455/auth/callback?code=..."
                 value={openaiCallbackUrl}
-                onChange={(e) => { setOpenaiCallbackUrl(e.target.value); setOpenaiError(""); }}
+                onChange={(e) => {
+                  setOpenaiCallbackUrl(e.target.value);
+                  setOpenaiError("");
+                }}
               />
               {openaiError && (
                 <div className="text-[11px] text-[var(--danger,#e74c3c)] mt-2">
@@ -505,7 +578,10 @@ export function SubscriptionStatus({
                 <button
                   type="button"
                   className="btn text-xs py-[5px] px-3.5 !mt-0 !bg-transparent !border-[var(--border)] !text-[var(--muted)]"
-                  onClick={() => { setOpenaiOAuthStarted(false); setOpenaiCallbackUrl(""); }}
+                  onClick={() => {
+                    setOpenaiOAuthStarted(false);
+                    setOpenaiCallbackUrl("");
+                  }}
                 >
                   Start Over
                 </button>

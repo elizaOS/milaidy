@@ -6,9 +6,9 @@
 
 import { useCallback, useState } from "react";
 import { client, type PluginParamDef } from "../api-client";
-import { ConfigRenderer, defaultRegistry } from "./config-renderer";
 import type { ConfigUiHint } from "../types";
 import type { JsonSchemaObject } from "./config-catalog";
+import { ConfigRenderer, defaultRegistry } from "./config-renderer";
 import { autoLabel } from "./shared/labels";
 
 interface ProviderPlugin {
@@ -25,7 +25,10 @@ export interface ApiKeyConfigProps {
   selectedProvider: ProviderPlugin | null;
   pluginSaving: Set<string>;
   pluginSaveSuccess: Set<string>;
-  handlePluginConfigSave: (pluginId: string, values: Record<string, string>) => void;
+  handlePluginConfigSave: (
+    pluginId: string,
+    values: Record<string, string>,
+  ) => void;
   loadPlugins: () => Promise<void>;
 }
 
@@ -36,9 +39,13 @@ export function ApiKeyConfig({
   handlePluginConfigSave,
   loadPlugins,
 }: ApiKeyConfigProps) {
-  const [pluginFieldValues, setPluginFieldValues] = useState<Record<string, Record<string, string>>>({});
+  const [pluginFieldValues, setPluginFieldValues] = useState<
+    Record<string, Record<string, string>>
+  >({});
   const [modelsFetching, setModelsFetching] = useState(false);
-  const [modelsFetchResult, setModelsFetchResult] = useState<string | null>(null);
+  const [modelsFetchResult, setModelsFetchResult] = useState<string | null>(
+    null,
+  );
 
   const handlePluginFieldChange = useCallback(
     (pluginId: string, key: string, value: string) => {
@@ -69,7 +76,9 @@ export function ApiKeyConfig({
         await loadPlugins();
         setTimeout(() => setModelsFetchResult(null), 3000);
       } catch (err) {
-        setModelsFetchResult(`Error: ${err instanceof Error ? err.message : "failed"}`);
+        setModelsFetchResult(
+          `Error: ${err instanceof Error ? err.message : "failed"}`,
+        );
         setTimeout(() => setModelsFetchResult(null), 5000);
       }
       setModelsFetching(false);
@@ -77,7 +86,8 @@ export function ApiKeyConfig({
     [loadPlugins],
   );
 
-  if (!selectedProvider || selectedProvider.parameters.length === 0) return null;
+  if (!selectedProvider || selectedProvider.parameters.length === 0)
+    return null;
 
   const isSaving = pluginSaving.has(selectedProvider.id);
   const saveSuccess = pluginSaveSuccess.has(selectedProvider.id);
@@ -112,8 +122,11 @@ export function ApiKeyConfig({
   const setKeys = new Set<string>();
   for (const p of params) {
     const cv = pluginFieldValues[selectedProvider.id]?.[p.key];
-    if (cv !== undefined) { values[p.key] = cv; }
-    else if (p.isSet && !p.sensitive && p.currentValue != null) { values[p.key] = p.currentValue; }
+    if (cv !== undefined) {
+      values[p.key] = cv;
+    } else if (p.isSet && !p.sensitive && p.currentValue != null) {
+      values[p.key] = p.currentValue;
+    }
     if (p.isSet) setKeys.add(p.key);
   }
 
@@ -130,8 +143,12 @@ export function ApiKeyConfig({
           <span
             className="text-[11px] px-2 py-[3px] border"
             style={{
-              borderColor: selectedProvider.configured ? "#2d8a4e" : "var(--warning,#f39c12)",
-              color: selectedProvider.configured ? "#2d8a4e" : "var(--warning,#f39c12)",
+              borderColor: selectedProvider.configured
+                ? "#2d8a4e"
+                : "var(--warning,#f39c12)",
+              color: selectedProvider.configured
+                ? "#2d8a4e"
+                : "var(--warning,#f39c12)",
             }}
           >
             {selectedProvider.configured ? "Configured" : "Needs Setup"}
@@ -146,7 +163,9 @@ export function ApiKeyConfig({
         setKeys={setKeys}
         registry={defaultRegistry}
         pluginId={selectedProvider.id}
-        onChange={(key, value) => handlePluginFieldChange(selectedProvider.id, key, String(value ?? ""))}
+        onChange={(key, value) =>
+          handlePluginFieldChange(selectedProvider.id, key, String(value ?? ""))
+        }
       />
 
       <div className="flex justify-between items-center mt-3">
@@ -160,7 +179,9 @@ export function ApiKeyConfig({
             {modelsFetching ? "Fetching..." : "Fetch Models"}
           </button>
           {modelsFetchResult && (
-            <span className={`text-[11px] ${modelsFetchResult.startsWith("Error") ? "text-[var(--danger,#e74c3c)]" : "text-[var(--ok,#16a34a)]"}`}>
+            <span
+              className={`text-[11px] ${modelsFetchResult.startsWith("Error") ? "text-[var(--danger,#e74c3c)]" : "text-[var(--ok,#16a34a)]"}`}
+            >
               {modelsFetchResult}
             </span>
           )}
