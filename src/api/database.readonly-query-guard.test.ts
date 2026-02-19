@@ -6,6 +6,12 @@ import {
 } from "../test-support/test-helpers";
 import { handleDatabaseRoute } from "./database";
 
+vi.mock("drizzle-orm", () => ({
+  sql: {
+    raw: (query: string) => ({ queryChunks: [{ sql: query }] }),
+  },
+}));
+
 interface DbExecuteResult {
   rows: Array<Record<string, unknown>>;
   fields?: Array<{ name: string }>;
