@@ -1,6 +1,7 @@
 import { ethers } from "ethers";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  buildBscApproveUnsignedTx,
   BSC_WBNB_FALLBACK,
   buildBscBuyUnsignedTx,
   buildBscSellUnsignedTx,
@@ -447,5 +448,21 @@ describe("bsc-trade execute payload", () => {
     expect(() => buildBscSellUnsignedTx(baseBuyQuote, WALLET, 600)).toThrow(
       /sell execution/i,
     );
+  });
+
+  it("builds unsigned approval tx", () => {
+    const tx = buildBscApproveUnsignedTx(
+      TOKEN,
+      WALLET,
+      PANCAKE_SWAP_V2_ROUTER,
+      ethers.parseUnits("1", 18).toString(),
+    );
+
+    expect(tx.chainId).toBe(56);
+    expect(tx.to).toBe(ethers.getAddress(TOKEN));
+    expect(tx.from).toBe(ethers.getAddress(WALLET));
+    expect(tx.spender).toBe(PANCAKE_SWAP_V2_ROUTER);
+    expect(tx.valueWei).toBe("0");
+    expect(tx.data.startsWith("0x")).toBe(true);
   });
 });

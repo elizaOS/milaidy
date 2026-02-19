@@ -123,12 +123,20 @@ function createQuote(side: "buy" | "sell" = "buy") {
   };
 }
 
-function createExecuteResult(executed = true) {
+function createExecuteResult(
+  executed = true,
+  options?: {
+    side?: "buy" | "sell";
+    requiresApproval?: boolean;
+  },
+) {
+  const side = options?.side ?? "buy";
+  const requiresApproval = options?.requiresApproval ?? false;
   return {
     ok: true,
-    side: "buy" as const,
+    side,
     mode: executed ? ("local-key" as const) : ("user-sign" as const),
-    quote: createQuote(),
+    quote: createQuote(side),
     executed,
     requiresUserSignature: !executed,
     unsignedTx: {
@@ -140,6 +148,20 @@ function createExecuteResult(executed = true) {
       deadline: Math.floor(Date.now() / 1000) + 600,
       explorerUrl: "https://bscscan.com",
     },
+    unsignedApprovalTx:
+      !executed && side === "sell" && requiresApproval
+        ? {
+            chainId: 56,
+            from: "0x1111111111111111111111111111111111111111",
+            to: "0x0e09fabb73bd3ade0a17ecc321fd13a19e81ce82",
+            data: "0xabcd",
+            valueWei: "0",
+            explorerUrl: "https://bscscan.com",
+            spender: "0x10ED43C718714eb63d5aA57B78B54704E256024E",
+            amountWei: "1000000000000000000",
+          }
+        : undefined,
+    requiresApproval: !executed && side === "sell" ? requiresApproval : undefined,
     execution: executed
       ? {
           hash: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -454,6 +476,85 @@ describe("InventoryView BSC-first", () => {
       expect(confirmMock).toHaveBeenCalledTimes(1);
       expect(ctx.executeBscTrade).toHaveBeenCalledTimes(1);
       expect(text(tree!.root)).toContain("View tx 0xaaaaaaaa");
+    } finally {
+      if (originalWindow) {
+        Object.defineProperty(originalWindow, "confirm", {
+          value: originalConfirm,
+          configurable: true,
+        });
+      } else {
+        Object.defineProperty(globalThis, "window", {
+          value: undefined,
+          configurable: true,
+        });
+      }
+    }
+  });
+
+  it("shows two-step notice for sell in user-sign mode", async () => {
+    const ctx = createContext({
+      walletBalances: createWalletBalances("0.02", null),
+    });
+    ctx.executeBscTrade = vi.fn(async () =>
+      createExecuteResult(false, { side: "sell", requiresApproval: true }),
+    );
+    mockUseApp.mockImplementation(() => ctx);
+
+    const originalWindow = globalThis.window;
+    const originalConfirm =
+      originalWindow && typeof originalWindow.confirm === "function"
+        ? originalWindow.confirm
+        : undefined;
+    const confirmMock = vi.fn(() => true);
+    if (originalWindow) {
+      Object.defineProperty(originalWindow, "confirm", {
+        value: confirmMock,
+        configurable: true,
+      });
+    } else {
+      Object.defineProperty(globalThis, "window", {
+        value: { confirm: confirmMock },
+        configurable: true,
+      });
+    }
+
+    try {
+      let tree: TestRenderer.ReactTestRenderer;
+      await act(async () => {
+        tree = TestRenderer.create(React.createElement(InventoryView));
+      });
+
+      const tokenInput = tree!.root.findAll(
+        (node) => node.type === "input" && node.props["data-testid"] === "wallet-quick-token-input",
+      )[0];
+      await act(async () => {
+        tokenInput.props.onChange({ target: { value: "0x1234567890abcdef1234567890abcdef12345678" } });
+      });
+
+      const quickSell = tree!.root.findAll(
+        (node) => node.type === "button" && node.props["data-testid"] === "wallet-quick-sell",
+      )[0];
+      await act(async () => {
+        quickSell.props.onClick();
+        await flushAsync();
+      });
+
+      const executeButton = tree!.root.findAll(
+        (node) => node.type === "button" && node.props["data-testid"] === "wallet-quote-execute",
+      )[0];
+      await act(async () => {
+        executeButton.props.onClick();
+        await flushAsync();
+      });
+
+      expect(ctx.executeBscTrade).toHaveBeenCalledWith(
+        expect.objectContaining({ side: "sell" }),
+      );
+      expect(ctx.setActionNotice).toHaveBeenCalledWith(
+        expect.stringContaining("Step 1 approve token allowance"),
+        "info",
+        4600,
+      );
     } finally {
       if (originalWindow) {
         Object.defineProperty(originalWindow, "confirm", {

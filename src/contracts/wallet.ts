@@ -163,6 +163,17 @@ export interface BscUnsignedTradeTx {
   explorerUrl: string;
 }
 
+export interface BscUnsignedApprovalTx {
+  chainId: number;
+  from: string | null;
+  to: string;
+  data: string;
+  valueWei: string;
+  explorerUrl: string;
+  spender: string;
+  amountWei: string;
+}
+
 export interface BscTradeExecutionResult {
   hash: string;
   nonce: number;
@@ -182,6 +193,8 @@ export interface BscTradeExecuteResponse {
   executed: boolean;
   requiresUserSignature: boolean;
   unsignedTx: BscUnsignedTradeTx;
+  unsignedApprovalTx?: BscUnsignedApprovalTx;
+  requiresApproval?: boolean;
   execution?: BscTradeExecutionResult;
 }
 

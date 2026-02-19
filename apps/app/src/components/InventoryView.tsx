@@ -389,13 +389,21 @@ export function InventoryView() {
       }
       setLatestTxHash(null);
       if (result.requiresUserSignature) {
-        setActionNotice(
-          latestQuote.side === "sell"
-            ? "Execution switched to user-sign mode. Approve token allowance first, then submit sell swap."
-            : "Execution switched to user-sign mode. Local key execution is disabled or unavailable.",
-          "info",
-          4200,
-        );
+        if (latestQuote.side === "sell" && result.requiresApproval) {
+          setActionNotice(
+            "User-sign mode: Step 1 approve token allowance, Step 2 sign sell swap.",
+            "info",
+            4600,
+          );
+        } else {
+          setActionNotice(
+            latestQuote.side === "sell"
+              ? "User-sign mode: sign sell swap in your wallet."
+              : "Execution switched to user-sign mode. Local key execution is disabled or unavailable.",
+            "info",
+            4200,
+          );
+        }
       } else {
         setActionNotice("Execution did not complete.", "error", 3200);
       }

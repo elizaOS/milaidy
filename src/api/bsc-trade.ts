@@ -9,6 +9,7 @@
 import { logger } from "@elizaos/core";
 import { ethers } from "ethers";
 import type {
+  BscUnsignedApprovalTx,
   BscUnsignedTradeTx,
   BscTradePreflightResponse,
   BscTradeQuoteRequest,
@@ -40,6 +41,7 @@ const ERC20_IFACE = new ethers.Interface([
   "function symbol() view returns (string)",
   "function decimals() view returns (uint8)",
   "function balanceOf(address owner) view returns (uint256)",
+  "function approve(address spender, uint256 amount) returns (bool)",
 ]);
 
 export interface BscTradeRpcConfig {
@@ -618,5 +620,44 @@ export function buildBscSellUnsignedTx(
     valueWei: "0",
     deadline,
     explorerUrl: "https://bscscan.com",
+  };
+}
+
+export function buildBscApproveUnsignedTx(
+  tokenAddress: string,
+  ownerAddress: string | null,
+  spenderAddress: string,
+  amountWei: string,
+): BscUnsignedApprovalTx {
+  const normalizedToken = normalizeAddress(tokenAddress);
+  if (!normalizedToken) {
+    throw new Error("Token address is invalid for approval payload.");
+  }
+  const normalizedOwner = normalizeAddress(ownerAddress);
+  if (!normalizedOwner) {
+    throw new Error("Owner wallet address is required for approval payload.");
+  }
+  const normalizedSpender = normalizeAddress(spenderAddress);
+  if (!normalizedSpender) {
+    throw new Error("Spender address is invalid for approval payload.");
+  }
+  const amount = BigInt(amountWei);
+  if (amount <= 0n) {
+    throw new Error("Approval amount must be greater than zero.");
+  }
+  const data = ERC20_IFACE.encodeFunctionData("approve", [
+    normalizedSpender,
+    amount,
+  ]);
+
+  return {
+    chainId: BSC_CHAIN_ID,
+    from: normalizedOwner,
+    to: normalizedToken,
+    data,
+    valueWei: "0",
+    explorerUrl: "https://bscscan.com",
+    spender: normalizedSpender,
+    amountWei: amount.toString(),
   };
 }
