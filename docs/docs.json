@@ -247,7 +247,8 @@
               "rest/plugins",
               "rest/permissions",
               "rest/diagnostics",
-              "rest/subscriptions"
+              "rest/subscriptions",
+              "rest/trajectories"
             ]
           },
           {
