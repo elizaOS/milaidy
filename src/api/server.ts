@@ -9249,7 +9249,9 @@ async function handleRequest(
         localPrivateKey.length > 0;
 
       if (!useLocalExecution) {
-        let unsignedApprovalTx;
+        let unsignedApprovalTx:
+          | ReturnType<typeof buildBscApproveUnsignedTx>
+          | undefined;
         let requiresApproval = false;
         if (body.side === "sell" && addrs.evmAddress) {
           const rpcUrl = resolvePrimaryBscRpcUrl(rpcConfig);

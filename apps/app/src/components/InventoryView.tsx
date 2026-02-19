@@ -65,6 +65,28 @@ interface NftItem {
   collectionName: string;
 }
 
+interface UserSignPlanState {
+  side: "buy" | "sell";
+  requiresApproval: boolean;
+  unsignedTx: {
+    chainId: number;
+    to: string;
+    data: string;
+    valueWei: string;
+    deadline: number;
+    explorerUrl: string;
+  };
+  unsignedApprovalTx?: {
+    chainId: number;
+    to: string;
+    data: string;
+    valueWei: string;
+    explorerUrl: string;
+    spender: string;
+    amountWei: string;
+  };
+}
+
 /* ── Copyable address ─────────────────────────────────────────────── */
 
 function CopyableAddress({ address, onCopy }: { address: string; onCopy: (text: string) => Promise<void> }) {
@@ -134,6 +156,7 @@ export function InventoryView() {
   const [latestQuote, setLatestQuote] = useState<BscTradeQuoteResponse | null>(null);
   const [executeBusy, setExecuteBusy] = useState(false);
   const [latestTxHash, setLatestTxHash] = useState<string | null>(null);
+  const [userSignPlan, setUserSignPlan] = useState<UserSignPlanState | null>(null);
 
   const cfg = walletConfig;
   const hasManagedBscRpc = Boolean(cfg?.managedBscRpcReady);
@@ -306,6 +329,7 @@ export function InventoryView() {
         slippageBps: 500,
       });
       setLatestQuote(quote);
+      setUserSignPlan(null);
       setActionNotice(
         `Quote ready: ${quote.quoteIn.amount} ${quote.quoteIn.symbol} -> ~${quote.quoteOut.amount} ${quote.quoteOut.symbol}.`,
         "success",
@@ -384,11 +408,18 @@ export function InventoryView() {
       });
       if (result.executed && result.execution) {
         setLatestTxHash(result.execution.hash);
+        setUserSignPlan(null);
         setActionNotice(`Trade sent: ${result.execution.hash.slice(0, 10)}...`, "success", 3600);
         return;
       }
       setLatestTxHash(null);
       if (result.requiresUserSignature) {
+        setUserSignPlan({
+          side: result.side,
+          requiresApproval: Boolean(result.requiresApproval),
+          unsignedTx: result.unsignedTx,
+          unsignedApprovalTx: result.unsignedApprovalTx,
+        });
         if (latestQuote.side === "sell" && result.requiresApproval) {
           setActionNotice(
             "User-sign mode: Step 1 approve token allowance, Step 2 sign sell swap.",
@@ -413,6 +444,16 @@ export function InventoryView() {
     } finally {
       setExecuteBusy(false);
     }
+  };
+
+  const handleCopyTxPayload = async (
+    tx:
+      | UserSignPlanState["unsignedTx"]
+      | NonNullable<UserSignPlanState["unsignedApprovalTx"]>,
+    label: string,
+  ) => {
+    await copyToClipboard(JSON.stringify(tx, null, 2));
+    setActionNotice(`${label} payload copied.`, "success", 2200);
   };
 
   return (
@@ -611,6 +652,52 @@ export function InventoryView() {
                 </a>
               )}
             </div>
+            {userSignPlan && (
+              <div className="wt__quote-usersign" data-testid="wallet-usersign-plan">
+                <div className="wt__quote-k">User-Sign Plan</div>
+                {userSignPlan.side === "sell" && userSignPlan.requiresApproval ? (
+                  <div className="wt__usersign-steps">
+                    <div className="wt__usersign-step">
+                      1. Approve token allowance ({latestQuote.quoteIn.symbol})
+                    </div>
+                    <button
+                      className="wt__row-btn is-preflight"
+                      data-testid="wallet-copy-approve-tx"
+                      onClick={() => {
+                        if (userSignPlan.unsignedApprovalTx) {
+                          void handleCopyTxPayload(userSignPlan.unsignedApprovalTx, "Approval tx");
+                        }
+                      }}
+                    >
+                      COPY APPROVE TX
+                    </button>
+                    <div className="wt__usersign-step">
+                      2. Sign swap tx to execute sell
+                    </div>
+                    <button
+                      className="wt__row-btn is-quote"
+                      data-testid="wallet-copy-swap-tx"
+                      onClick={() => void handleCopyTxPayload(userSignPlan.unsignedTx, "Swap tx")}
+                    >
+                      COPY SWAP TX
+                    </button>
+                  </div>
+                ) : (
+                  <div className="wt__usersign-steps">
+                    <div className="wt__usersign-step">
+                      1. Sign swap tx in wallet ({latestQuote.side.toUpperCase()})
+                    </div>
+                    <button
+                      className="wt__row-btn is-quote"
+                      data-testid="wallet-copy-swap-tx"
+                      onClick={() => void handleCopyTxPayload(userSignPlan.unsignedTx, "Swap tx")}
+                    >
+                      COPY SWAP TX
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 

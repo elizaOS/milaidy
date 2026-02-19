@@ -1131,6 +1131,27 @@
   border-bottom-color: color-mix(in srgb, var(--text) 70%, transparent);
 }
 
+.wt__quote-usersign {
+  margin-top: 10px;
+  border: 1px dashed color-mix(in srgb, var(--border) 80%, transparent);
+  background: color-mix(in srgb, var(--bg) 92%, transparent);
+  padding: 8px;
+}
+
+.wt__usersign-steps {
+  margin-top: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.wt__usersign-step {
+  font-size: 11px;
+  color: var(--muted);
+  font-family: var(--mono);
+}
+
 .companion-game__roster-list::before {
   content: "";
   position: absolute;

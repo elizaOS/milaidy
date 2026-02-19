@@ -555,6 +555,22 @@ describe("InventoryView BSC-first", () => {
         "info",
         4600,
       );
+
+      const approveCopy = tree!.root.findAll(
+        (node) => node.type === "button" && node.props["data-testid"] === "wallet-copy-approve-tx",
+      )[0];
+      const swapCopy = tree!.root.findAll(
+        (node) => node.type === "button" && node.props["data-testid"] === "wallet-copy-swap-tx",
+      )[0];
+      expect(approveCopy).toBeDefined();
+      expect(swapCopy).toBeDefined();
+
+      await act(async () => {
+        approveCopy.props.onClick();
+        swapCopy.props.onClick();
+        await flushAsync();
+      });
+      expect(ctx.copyToClipboard).toHaveBeenCalledTimes(2);
     } finally {
       if (originalWindow) {
         Object.defineProperty(originalWindow, "confirm", {
