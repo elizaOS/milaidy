@@ -19,7 +19,10 @@ import {
   type ServiceTypeName,
   type State,
 } from "@elizaos/core";
-import { PluginManagerService } from "@elizaos/plugin-plugin-manager";
+import {
+  PluginManagerService,
+  pluginRegistry,
+} from "@elizaos/plugin-plugin-manager";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AppManager } from "./app-manager";
 
@@ -443,6 +446,10 @@ describe("Hyperscape Auto-Provisioning", () => {
   const HYPERSCAPE_PLUGIN_NAME = "@elizaos/plugin-hyperscape";
 
   beforeEach(async () => {
+    // Flush any cached registry from prior test suites so fresh fetch mocks
+    // installed in individual tests are honoured.
+    pluginRegistry.resetRegistryCache();
+
     // Save original env vars
     originalEnv = {
       HYPERSCAPE_CHARACTER_ID: process.env.HYPERSCAPE_CHARACTER_ID,
