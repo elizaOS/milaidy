@@ -390,7 +390,9 @@ export function InventoryView() {
       setLatestTxHash(null);
       if (result.requiresUserSignature) {
         setActionNotice(
-          "Execution switched to user-sign mode. Local key execution is disabled or unavailable.",
+          latestQuote.side === "sell"
+            ? "Execution switched to user-sign mode. Approve token allowance first, then submit sell swap."
+            : "Execution switched to user-sign mode. Local key execution is disabled or unavailable.",
           "info",
           4200,
         );
