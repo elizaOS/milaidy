@@ -1707,6 +1707,30 @@ function sendStaticResponse(
   res.end(body);
 }
 
+// ── Static file cache ─────────────────────────────────────────────────
+// Bounded in-memory cache for dashboard assets. Avoids repeated
+// synchronous disk reads on every request.  Max 50 files, <=512 KB each,
+// validated by mtime so stale entries are refreshed after a rebuild.
+const STATIC_CACHE_MAX = 50;
+const STATIC_CACHE_FILE_LIMIT = 512 * 1024; // 512 KB
+const staticFileCache = new Map<string, { body: Buffer; mtimeMs: number }>();
+
+function getCachedFile(filePath: string, mtimeMs: number): Buffer {
+  const cached = staticFileCache.get(filePath);
+  if (cached && cached.mtimeMs === mtimeMs) return cached.body;
+
+  const body = fs.readFileSync(filePath);
+  if (body.length <= STATIC_CACHE_FILE_LIMIT) {
+    if (staticFileCache.size >= STATIC_CACHE_MAX) {
+      // Evict oldest entry (first inserted — Map preserves insertion order)
+      const firstKey = staticFileCache.keys().next().value;
+      if (firstKey !== undefined) staticFileCache.delete(firstKey);
+    }
+    staticFileCache.set(filePath, { body, mtimeMs });
+  }
+  return body;
+}
+
 /**
  * Serve built dashboard assets from apps/app/dist with SPA fallback.
  * Returns true when the request is handled.
@@ -1746,7 +1770,7 @@ function serveStaticUi(
     const stat = fs.statSync(candidatePath);
     if (stat.isFile()) {
       const ext = path.extname(candidatePath).toLowerCase();
-      const body = fs.readFileSync(candidatePath);
+      const body = getCachedFile(candidatePath, stat.mtimeMs);
       const cacheControl = relativePath.startsWith("assets/")
         ? "public, max-age=31536000, immutable"
         : "public, max-age=0, must-revalidate";
@@ -3810,6 +3834,14 @@ function ensurePairingCode(): string | null {
 function rateLimitPairing(ip: string | null): boolean {
   const key = ip ?? "unknown";
   const now = Date.now();
+
+  // Lazy sweep: evict expired entries when map grows beyond 100
+  if (pairingAttempts.size > 100) {
+    for (const [k, v] of pairingAttempts) {
+      if (now > v.resetAt) pairingAttempts.delete(k);
+    }
+  }
+
   const current = pairingAttempts.get(key);
   if (!current || now > current.resetAt) {
     pairingAttempts.set(key, { count: 1, resetAt: now + PAIRING_WINDOW_MS });
@@ -9341,6 +9373,21 @@ async function handleRequest(
       updatedAt: now,
     };
     state.conversations.set(id, conv);
+
+    // Soft cap: evict the oldest conversation when the map exceeds 500
+    if (state.conversations.size > 500) {
+      let oldestKey: string | null = null;
+      let oldestTime = Infinity;
+      for (const [k, v] of state.conversations) {
+        const t = new Date(v.updatedAt).getTime();
+        if (t < oldestTime) {
+          oldestTime = t;
+          oldestKey = k;
+        }
+      }
+      if (oldestKey) state.conversations.delete(oldestKey);
+    }
+
     if (state.runtime) {
       await ensureConversationRoom(conv);
       await syncConversationRoomTitle(conv);
@@ -11541,7 +11588,11 @@ export async function startApiServer(opts?: {
       source: resolvedSource,
       tags: resolvedTags,
     });
-    if (state.logBuffer.length > 1000) state.logBuffer.shift();
+    // Batch evict to amortize O(n) cost — trim 200 at once instead of
+    // shifting one element per push.
+    if (state.logBuffer.length > 1200) {
+      state.logBuffer.splice(0, 200);
+    }
   };
 
   // ── Flush early-captured logs into the main buffer ────────────────────
