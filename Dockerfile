@@ -24,15 +24,20 @@ RUN if [ -d .git ]; then \
 
 # If pointer files remain (common in some cloud build contexts), fallback to
 # cloning the repo and pulling LFS assets directly, then overwrite local media.
-ARG MILADY_LFS_REPO_URL="https://github.com/cayden970207/milady.git"
+ARG MILADY_LFS_REPO_URL=""
 ARG MILADY_LFS_REF=""
 ARG MILADY_LFS_COMMIT=""
 ARG GITHUB_TOKEN=""
 RUN set -e; \
+    REPO_URL_RAW="$MILADY_LFS_REPO_URL"; \
+    if [ -z "$REPO_URL_RAW" ] && [ -d .git ]; then REPO_URL_RAW="$(git config --get remote.origin.url || true)"; fi; \
+    if [ -z "$REPO_URL_RAW" ]; then REPO_URL_RAW="https://github.com/miladybsc/milady.git"; fi; \
+    if echo "$REPO_URL_RAW" | grep -q '^git@github.com:'; then REPO_URL_RAW="$(echo "$REPO_URL_RAW" | sed -E 's#^git@github.com:(.+)$#https://github.com/\1#')"; fi; \
+    if echo "$REPO_URL_RAW" | grep -q '^ssh://git@github.com/'; then REPO_URL_RAW="$(echo "$REPO_URL_RAW" | sed -E 's#^ssh://git@github.com/#https://github.com/#')"; fi; \
     POINTERS="$(grep -RIl '^version https://git-lfs.github.com/spec/v1' apps/app/public/vrms apps/app/public/animations || true)"; \
     if [ -n "$POINTERS" ]; then \
       echo '[build] Unresolved Git LFS pointers detected in build context; attempting fallback clone...'; \
-      REPO_URL="$MILADY_LFS_REPO_URL"; \
+      REPO_URL="$REPO_URL_RAW"; \
       REF="$MILADY_LFS_REF"; \
       COMMIT="$MILADY_LFS_COMMIT"; \
       if [ -z "$REF" ] && [ -n "${RAILWAY_GIT_BRANCH:-}" ]; then REF="${RAILWAY_GIT_BRANCH}"; fi; \
@@ -71,9 +76,9 @@ RUN set -e; \
         echo '[build] WARNING: fallback clone failed; continuing with existing assets.'; \
       fi; \
     fi; \
-    MEDIA_REPO="$MILADY_LFS_REPO_URL"; \
-    MEDIA_REPO_PATH="$(echo "$MEDIA_REPO" | sed -E 's#^https://github.com/([^/]+/[^/.]+)(\\.git)?$#\\1#')"; \
-    if [ -z "$MEDIA_REPO_PATH" ] || [ "$MEDIA_REPO_PATH" = "$MEDIA_REPO" ]; then MEDIA_REPO_PATH="cayden970207/milady"; fi; \
+    MEDIA_REPO="$REPO_URL_RAW"; \
+    MEDIA_REPO_PATH="$(echo "$MEDIA_REPO" | sed -E 's#^https://([^@/]+@)?github.com/([^/]+/[^/.]+)(\\.git)?$#\\2#')"; \
+    if [ -z "$MEDIA_REPO_PATH" ] || [ "$MEDIA_REPO_PATH" = "$MEDIA_REPO" ]; then MEDIA_REPO_PATH="miladybsc/milady"; fi; \
     MEDIA_REF="$MILADY_LFS_REF"; \
     if [ -z "$MEDIA_REF" ] && [ -n "${RAILWAY_GIT_BRANCH:-}" ]; then MEDIA_REF="${RAILWAY_GIT_BRANCH}"; fi; \
     if [ -z "$MEDIA_REF" ]; then MEDIA_REF="main"; fi; \

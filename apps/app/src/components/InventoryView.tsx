@@ -3,12 +3,14 @@
  * Terminal-style layout inspired by GMGN / degen trading tools.
  */
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useApp } from "../AppContext";
 import type { BscTradeQuoteResponse, EvmChainBalance } from "../api-client";
 
 const BSC_GAS_READY_THRESHOLD = 0.005;
 const HEX_ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
+const RECENTS_KEY = "wt_recent_contracts";
+const MAX_RECENTS = 5;
 
 /* ── Chain icon helper ─────────────────────────────────────────────── */
 
@@ -43,6 +45,31 @@ function formatBalance(balance: string): string {
   if (num < 1) return num.toFixed(6);
   if (num < 1000) return num.toFixed(4);
   return num.toLocaleString("en-US", { maximumFractionDigits: 2 });
+}
+
+/* ── Recent contracts helpers ─────────────────────────────────────── */
+
+function loadRecents(): string[] {
+  try {
+    const raw = localStorage.getItem(RECENTS_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed.filter((x: unknown) => typeof x === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveRecent(addr: string, prev: string[]): string[] {
+  const next = [addr, ...prev.filter((a) => a.toLowerCase() !== addr.toLowerCase())].slice(
+    0,
+    MAX_RECENTS,
+  );
+  try {
+    localStorage.setItem(RECENTS_KEY, JSON.stringify(next));
+  } catch {
+    /* ignore */
+  }
+  return next;
 }
 
 /* ── Row types ─────────────────────────────────────────────────────── */
@@ -85,6 +112,66 @@ interface UserSignPlanState {
     spender: string;
     amountWei: string;
   };
+}
+
+/* ── Token logo with CDN + fallback ──────────────────────────────── */
+
+function tokenLogoUrl(chain: string, contractAddress: string | null): string | null {
+  if (!contractAddress) {
+    if (isBscChainName(chain))
+      return "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/smartchain/info/logo.png";
+    const c = chain.toLowerCase();
+    if (c === "ethereum" || c === "mainnet")
+      return "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/info/logo.png";
+    if (c === "base")
+      return "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/base/info/logo.png";
+    if (c === "solana")
+      return "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/solana/info/logo.png";
+    return null;
+  }
+  if (isBscChainName(chain))
+    return `https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/smartchain/assets/${contractAddress}/logo.png`;
+  const c = chain.toLowerCase();
+  if (c === "ethereum" || c === "mainnet")
+    return `https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/${contractAddress}/logo.png`;
+  return null;
+}
+
+function TokenLogo({
+  symbol,
+  chain,
+  contractAddress,
+  size = 32,
+}: {
+  symbol: string;
+  chain: string;
+  contractAddress: string | null;
+  size?: number;
+}) {
+  const [errored, setErrored] = useState(false);
+  const url = errored ? null : tokenLogoUrl(chain, contractAddress);
+  const icon = chainIcon(chain);
+
+  if (url) {
+    return (
+      <img
+        src={url}
+        alt={symbol}
+        width={size}
+        height={size}
+        className="wt__token-logo"
+        onError={() => setErrored(true)}
+      />
+    );
+  }
+  return (
+    <span
+      className={`wt__token-logo is-letter ${icon.cls}`}
+      style={{ width: size, height: size, fontSize: size * 0.38 }}
+    >
+      {symbol.charAt(0).toUpperCase()}
+    </span>
+  );
 }
 
 /* ── Copyable address ─────────────────────────────────────────────── */
@@ -150,26 +237,69 @@ export function InventoryView() {
     getBscTradePreflight,
     getBscTradeQuote,
   } = useApp();
+
   const [quickTokenInput, setQuickTokenInput] = useState("");
   const [quickBnbAmount, setQuickBnbAmount] = useState("0.1");
+  const [slippageBps, setSlippageBps] = useState(500);
+  const [customSlippageInput, setCustomSlippageInput] = useState("");
   const [tradeBusy, setTradeBusy] = useState(false);
   const [latestQuote, setLatestQuote] = useState<BscTradeQuoteResponse | null>(null);
   const [executeBusy, setExecuteBusy] = useState(false);
   const [latestTxHash, setLatestTxHash] = useState<string | null>(null);
   const [userSignPlan, setUserSignPlan] = useState<UserSignPlanState | null>(null);
+  const [recentContracts, setRecentContracts] = useState<string[]>(loadRecents);
+  const [showRecents, setShowRecents] = useState(false);
+  const recentsRef = useRef<HTMLDivElement>(null);
+
+  // Close recents dropdown on outside click
+  useEffect(() => {
+    if (
+      typeof document === "undefined" ||
+      typeof document.addEventListener !== "function"
+    ) {
+      return;
+    }
+    const handler = (e: MouseEvent) => {
+      if (recentsRef.current && !recentsRef.current.contains(e.target as Node)) {
+        setShowRecents(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
 
   const cfg = walletConfig;
   const hasManagedBscRpc = Boolean(cfg?.managedBscRpcReady);
   const hasLegacyEvmProviders = Boolean(cfg?.alchemyKeySet || cfg?.ankrKeySet || cfg?.infuraKeySet);
   const needsSetup = !cloudConnected && !hasManagedBscRpc && !hasLegacyEvmProviders;
 
+  const isValidAddress = HEX_ADDRESS_RE.test(quickTokenInput.trim());
+  const hasInput = quickTokenInput.trim().length > 0;
+
+  // Effective slippage: custom input takes priority if valid
+  const effectiveSlippageBps = useMemo(() => {
+    if (customSlippageInput) {
+      const parsed = Number.parseFloat(customSlippageInput);
+      if (!Number.isNaN(parsed) && parsed > 0 && parsed <= 50) {
+        return Math.round(parsed * 100);
+      }
+    }
+    return slippageBps;
+  }, [slippageBps, customSlippageInput]);
+
   const tokenRows = useMemo((): TokenRow[] => {
-    if (!walletBalances) return [];
     const rows: TokenRow[] = [];
 
-    if (walletBalances.evm) {
+    // Derive EVM address directly from state so BNB row can be added
+    // even before walletBalances is loaded or when evm is null.
+    const knownEvmAddr = walletAddresses?.evmAddress ?? walletConfig?.evmAddress;
+
+    if (walletBalances?.evm) {
+      let hasBsc = false;
       for (const chain of walletBalances.evm.chains) {
-        if (chain.error) continue;
+        if (isBscChainName(chain.chain)) hasBsc = true;
+        // Always include native token row — even when chain has an error,
+        // so BNB always appears when the wallet is connected.
         rows.push({
           chain: chain.chain,
           symbol: chain.nativeSymbol,
@@ -180,6 +310,8 @@ export function InventoryView() {
           balanceRaw: Number.parseFloat(chain.nativeBalance) || 0,
           isNative: true,
         });
+        // Skip ERC-20 tokens when chain data errored
+        if (chain.error) continue;
         for (const t of chain.tokens) {
           rows.push({
             chain: chain.chain,
@@ -193,9 +325,34 @@ export function InventoryView() {
           });
         }
       }
+      // If BSC wasn't in the chains list but wallet address is known, add a placeholder
+      if (!hasBsc && knownEvmAddr) {
+        rows.unshift({
+          chain: "BSC",
+          symbol: "BNB",
+          name: "BSC native",
+          contractAddress: null,
+          balance: "0",
+          valueUsd: 0,
+          balanceRaw: 0,
+          isNative: true,
+        });
+      }
+    } else if (knownEvmAddr) {
+      // evm is null (RPC not connected yet) — always show BNB row as placeholder
+      rows.push({
+        chain: "BSC",
+        symbol: "BNB",
+        name: "BSC native",
+        contractAddress: null,
+        balance: "0",
+        valueUsd: 0,
+        balanceRaw: 0,
+        isNative: true,
+      });
     }
 
-    if (walletBalances.solana) {
+    if (walletBalances?.solana) {
       rows.push({
         chain: "Solana",
         symbol: "SOL",
@@ -221,7 +378,7 @@ export function InventoryView() {
     }
 
     return rows;
-  }, [walletBalances]);
+  }, [walletBalances, walletAddresses, walletConfig]);
 
   const sortedRows = useMemo(() => {
     const sorted = [...tokenRows];
@@ -277,7 +434,6 @@ export function InventoryView() {
   );
   const bscChainError = bscChain?.error ?? chainErrors.find((chain) => isBscChainName(chain.chain))?.error ?? null;
   const bscNativeBalance = bscChain?.nativeBalance ?? null;
-
   const bscNativeBalanceNum = Number.parseFloat(bscNativeBalance ?? "");
 
   const walletReady = Boolean(evmAddr);
@@ -326,15 +482,17 @@ export function InventoryView() {
         side,
         tokenAddress,
         amount,
-        slippageBps: 500,
+        slippageBps: effectiveSlippageBps,
       });
       setLatestQuote(quote);
       setUserSignPlan(null);
       setActionNotice(
-        `Quote ready: ${quote.quoteIn.amount} ${quote.quoteIn.symbol} -> ~${quote.quoteOut.amount} ${quote.quoteOut.symbol}.`,
+        `Quote ready: ${quote.quoteIn.amount} ${quote.quoteIn.symbol} → ~${quote.quoteOut.amount} ${quote.quoteOut.symbol}.`,
         "success",
         3200,
       );
+      // Save to recents on successful quote
+      setRecentContracts((prev) => saveRecent(tokenAddress, prev));
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to fetch quote.";
       setActionNotice(message, "error", 3400);
@@ -513,14 +671,36 @@ export function InventoryView() {
         <div className="wt__portfolio">
           <div className="flex items-start justify-between gap-3 flex-wrap">
             <div>
-              <div className="wt__portfolio-label">Portfolio</div>
+              <div className="flex items-center gap-2 mb-1">
+                <div className="wt__portfolio-label">Portfolio</div>
+                <span className="wt__network-badge">BSC Mainnet</span>
+              </div>
               <div className="wt__portfolio-value" data-testid="bsc-balance-value">
                 {totalUsd > 0
                   ? `$${totalUsd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                   : "$0.00"}
               </div>
+              {bscNativeBalance !== null && (
+                <div className="wt__bnb-sub">
+                  {formatBalance(bscNativeBalance)} BNB
+                </div>
+              )}
             </div>
-            {evmAddr && <CopyableAddress address={evmAddr} onCopy={copyToClipboard} />}
+            <div className="flex flex-col items-end gap-2">
+              {evmAddr && (
+                <button
+                  className="wt__receive-btn"
+                  onClick={() => {
+                    void copyToClipboard(evmAddr);
+                    setActionNotice("Address copied — share to receive funds.", "success", 2400);
+                  }}
+                  title={evmAddr}
+                >
+                  ↓ Receive
+                </button>
+              )}
+              {evmAddr && <CopyableAddress address={evmAddr} onCopy={copyToClipboard} />}
+            </div>
           </div>
           <div className="wt__status-row mt-2">
             <StatusDot
@@ -529,16 +709,16 @@ export function InventoryView() {
               title={walletReady ? "Address detected." : "Create or import wallet first."}
             />
             <StatusDot
-                ready={rpcReady}
-                label={rpcReady ? "Feed Live" : "Feed Offline"}
-                title={
-                  rpcReady
-                    ? "BSC market data is available."
-                    : bscChainError
-                      ? `BSC data error: ${bscChainError}`
+              ready={rpcReady}
+              label={rpcReady ? "Feed Live" : "Feed Offline"}
+              title={
+                rpcReady
+                  ? "BSC market data is available."
+                  : bscChainError
+                    ? `BSC data error: ${bscChainError}`
                     : "Managed BSC feed is offline (NodeReal/QuickNode)."
-                }
-              />
+              }
+            />
             <StatusDot
               ready={gasReady}
               label={gasReady ? "Trade Ready" : "Trade Not Ready"}
@@ -551,18 +731,66 @@ export function InventoryView() {
               }
             />
           </div>
+          {/* Inline BSC error with retry */}
+          {bscChainError && (
+            <div className="wt__error-inline mt-2">
+              <span className="wt__error-inline-text">BSC: {bscChainError}</span>
+              <button
+                className="wt__error-retry"
+                onClick={() => void loadBalances()}
+                title="Retry fetching BSC balance"
+              >
+                retry ↻
+              </button>
+            </div>
+          )}
         </div>
 
         {/* ── Block 2: Quick Trade (hero) ───────────────────────── */}
         <div className="wt__quick">
           <div className="wt__quick-row">
-            <input
-              data-testid="wallet-quick-token-input"
-              value={quickTokenInput}
-              onChange={(e) => setQuickTokenInput(e.target.value)}
-              placeholder="Paste token contract (0x...)"
-              className="wt__quick-input"
-            />
+            <div className="wt__input-wrap" ref={recentsRef}>
+              <input
+                data-testid="wallet-quick-token-input"
+                value={quickTokenInput}
+                onChange={(e) => {
+                  setQuickTokenInput(e.target.value);
+                  setShowRecents(false);
+                }}
+                onFocus={() => {
+                  if (!quickTokenInput && recentContracts.length > 0) setShowRecents(true);
+                }}
+                placeholder="Paste token contract (0x...)"
+                className={`wt__quick-input${hasInput ? (isValidAddress ? " is-valid" : " is-invalid") : ""}`}
+              />
+              {recentContracts.length > 0 && (
+                <button
+                  className="wt__recents-toggle"
+                  title="Recent contracts"
+                  onClick={() => setShowRecents((v) => !v)}
+                  tabIndex={-1}
+                >
+                  ▾
+                </button>
+              )}
+              {showRecents && recentContracts.length > 0 && (
+                <div className="wt__recents">
+                  {recentContracts.map((addr) => (
+                    <button
+                      key={addr}
+                      className="wt__recents-item"
+                      onClick={() => {
+                        setQuickTokenInput(addr);
+                        setShowRecents(false);
+                      }}
+                    >
+                      <span className="wt__recents-addr">{addr.slice(0, 10)}...{addr.slice(-6)}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
             <div className="wt__presets">
               {["0.05", "0.1", "0.2", "0.5", "1"].map((amount) => (
                 <button
@@ -574,7 +802,7 @@ export function InventoryView() {
                   {amount}
                 </button>
               ))}
-              <span className="text-[10px] text-muted self-center font-mono">size</span>
+              <span className="text-[10px] text-muted self-center font-mono">BNB</span>
             </div>
             <div className="wt__quick-actions">
               <button
@@ -594,6 +822,36 @@ export function InventoryView() {
                 SELL
               </button>
             </div>
+          </div>
+
+          {/* Slippage selector */}
+          <div className="wt__slip">
+            <span className="wt__slip-label">Slippage:</span>
+            {([100, 300, 500] as const).map((bps) => (
+              <button
+                key={bps}
+                className={`wt__slip-btn${slippageBps === bps && !customSlippageInput ? " is-active" : ""}`}
+                onClick={() => {
+                  setSlippageBps(bps);
+                  setCustomSlippageInput("");
+                }}
+              >
+                {bps / 100}%
+              </button>
+            ))}
+            <input
+              className={`wt__slip-input${customSlippageInput ? " is-active" : ""}`}
+              placeholder="custom %"
+              value={customSlippageInput}
+              onChange={(e) => {
+                setCustomSlippageInput(e.target.value);
+              }}
+            />
+            {customSlippageInput && (
+              <span className="text-[10px] text-muted font-mono self-center">
+                = {effectiveSlippageBps} bps
+              </span>
+            )}
           </div>
         </div>
 
@@ -794,81 +1052,96 @@ export function InventoryView() {
 
     return (
       <>
-        <table className="w-full border-collapse text-xs">
+        <table className="w-full border-collapse">
           <thead>
             <tr className="border-b border-border">
-              <th className="pl-3 pr-1 py-1.5 text-left w-8" />
-              <th className="px-3 py-1.5 text-left text-[10px] text-muted font-bold uppercase tracking-wide">
+              <th className="pl-3 pr-2 py-2 text-left w-12" />
+              <th className="px-3 py-2 text-left text-[10px] text-muted font-bold uppercase tracking-wide">
                 Token
               </th>
-              <th className="px-3 py-1.5 text-right text-[10px] text-muted font-bold uppercase tracking-wide">
+              <th className="px-3 py-2 text-right text-[10px] text-muted font-bold uppercase tracking-wide">
                 Balance
               </th>
-              <th className="px-3 py-1.5 text-right text-[10px] text-muted font-bold uppercase tracking-wide">
+              <th className="px-3 py-2 text-right text-[10px] text-muted font-bold uppercase tracking-wide">
                 Value
               </th>
-              <th className="pl-3 pr-3 py-1.5 text-right w-16" />
+              <th className="pl-3 pr-3 py-2 text-right w-24" />
             </tr>
           </thead>
           <tbody>
-            {visibleRows.map((row, idx) => {
-              const icon = chainIcon(row.chain);
-              return (
-                <tr
-                  key={`${row.chain}-${row.symbol}-${idx}`}
-                  className="border-b border-border last:border-b-0 hover:bg-bg-hover transition-colors"
-                >
-                  <td className="pl-3 pr-1 py-2 align-middle">
-                    <span
-                      className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-[9px] font-bold text-white shrink-0 ${icon.cls}`}
-                      title={row.chain}
-                    >
-                      {icon.code}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2 align-middle">
-                    <span className="font-bold font-mono">{row.symbol}</span>
-                    {inventoryChainFocus === "all" && (
-                      <span className="ml-1.5 text-[10px] text-muted">{row.chain}</span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2 align-middle font-mono text-right whitespace-nowrap">
-                    {formatBalance(row.balance)}
-                  </td>
-                  <td className="px-3 py-2 align-middle font-mono text-right text-muted whitespace-nowrap">
-                    {row.valueUsd > 0
-                      ? `$${row.valueUsd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                      : "—"}
-                  </td>
-                  <td className="pl-2 pr-3 py-2 align-middle whitespace-nowrap text-right">
-                    {row.isNative ? (
-                      <span className="text-[10px] text-muted font-mono">native</span>
-                    ) : !isBscChainName(row.chain) ? (
-                      <span className="text-[10px] text-muted font-mono">view</span>
-                    ) : (
-                      <div className="inline-flex items-center gap-1">
-                        <button
-                          data-testid="wallet-token-preflight"
-                          className="wt__row-btn is-preflight"
-                          onClick={() => void handleRowAction("preflight", row)}
-                          disabled={tradeBusy}
-                        >
-                          PF
-                        </button>
-                        <button
-                          data-testid="wallet-token-quote"
-                          className="wt__row-btn is-quote"
-                          onClick={() => void handleRowAction("quote", row)}
-                          disabled={tradeBusy}
-                        >
-                          Q
-                        </button>
+            {visibleRows.map((row, idx) => (
+              <tr
+                key={`${row.chain}-${row.symbol}-${idx}`}
+                className={`border-b border-border last:border-b-0 hover:bg-bg-hover transition-colors${row.isNative ? " wt__row--native" : ""}`}
+              >
+                {/* Logo */}
+                <td className="pl-3 pr-2 py-3 align-middle">
+                  <TokenLogo
+                    symbol={row.symbol}
+                    chain={row.chain}
+                    contractAddress={row.contractAddress}
+                    size={32}
+                  />
+                </td>
+                {/* Symbol + name */}
+                <td className="px-3 py-3 align-middle">
+                  <div className="flex items-center gap-2">
+                    <div>
+                      <div className="text-sm font-bold font-mono leading-tight">{row.symbol}</div>
+                      <div className="text-[10px] text-muted leading-tight mt-0.5">
+                        {row.isNative ? (
+                          <span className="wt__native-badge">native gas</span>
+                        ) : (
+                          <span className="truncate max-w-[160px] inline-block">{row.name}</span>
+                        )}
                       </div>
+                    </div>
+                    {inventoryChainFocus === "all" && (
+                      <span className="text-[9px] text-muted font-mono border border-border px-1 py-0.5 rounded shrink-0">
+                        {row.chain}
+                      </span>
                     )}
-                  </td>
-                </tr>
-              );
-            })}
+                  </div>
+                </td>
+                {/* Balance */}
+                <td className="px-3 py-3 align-middle font-mono text-sm text-right whitespace-nowrap">
+                  {formatBalance(row.balance)}
+                </td>
+                {/* Value */}
+                <td className="px-3 py-3 align-middle font-mono text-sm text-right text-muted whitespace-nowrap">
+                  {row.valueUsd > 0
+                    ? `$${row.valueUsd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                    : "—"}
+                </td>
+                {/* Actions */}
+                <td className="pl-2 pr-3 py-3 align-middle whitespace-nowrap text-right">
+                  {row.isNative ? null : !isBscChainName(row.chain) ? (
+                    <span className="text-[10px] text-muted font-mono">view</span>
+                  ) : (
+                    <div className="inline-flex items-center gap-1">
+                      <button
+                        data-testid="wallet-token-preflight"
+                        className="wt__row-btn is-preflight"
+                        title="Preflight check — verify wallet, RPC, and gas are ready"
+                        onClick={() => void handleRowAction("preflight", row)}
+                        disabled={tradeBusy}
+                      >
+                        check
+                      </button>
+                      <button
+                        data-testid="wallet-token-quote"
+                        className="wt__row-btn is-quote"
+                        title="Get a swap quote for this token"
+                        onClick={() => void handleRowAction("quote", row)}
+                        disabled={tradeBusy}
+                      >
+                        quote
+                      </button>
+                    </div>
+                  )}
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
 

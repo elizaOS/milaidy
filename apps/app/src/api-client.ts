@@ -48,6 +48,7 @@ import type {
   WalletBalancesResponse,
   WalletConfigStatus,
   WalletNftsResponse,
+  TradePermissionMode as WalletTradePermissionMode,
 } from "../../../src/contracts/wallet.js";
 import type { DropStatus, MintResult } from "../../../src/contracts/drop.js";
 import type { VerificationResult } from "../../../src/contracts/verification.js";
@@ -111,10 +112,25 @@ export type {
 };
 
 export type AgentAutomationMode = "connectors-only" | "full";
+export type TradePermissionMode = WalletTradePermissionMode;
 
 export interface AgentAutomationModeResponse {
   mode: AgentAutomationMode;
   options: AgentAutomationMode[];
+}
+
+export interface TradePermissionModeResponse {
+  mode: TradePermissionMode;
+  options: TradePermissionMode[];
+}
+
+export interface ApplyProductionWalletDefaultsResponse {
+  ok: boolean;
+  profile: "pure-privy-safe";
+  walletMode: "privy";
+  tradePermissionMode: "user-sign-only";
+  bscExecutionEnabled: false;
+  clearedSecrets: string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -401,6 +417,8 @@ export interface ConnectorConfig {
 
 export interface OnboardingData {
   name: string;
+  /** What the agent should call the user. Optional — defaults to "User" if not set. */
+  ownerName?: string;
   theme: string;
   runMode: "local" | "cloud";
   /** Sandbox execution mode: "off" (rawdog), "light" (cloud), "standard" (local sandbox), "max". */
@@ -2303,6 +2321,12 @@ export class MiladyClient {
       body: JSON.stringify({ confirm: true, exportToken }),
     });
   }
+  async applyProductionWalletDefaults(): Promise<ApplyProductionWalletDefaultsResponse> {
+    return this.fetch("/api/wallet/production-defaults", {
+      method: "POST",
+      body: JSON.stringify({ confirm: true }),
+    });
+  }
 
   // Software Updates
   async getUpdateStatus(force = false): Promise<UpdateStatus> {
@@ -3425,6 +3449,25 @@ export class MiladyClient {
     mode: AgentAutomationMode,
   ): Promise<AgentAutomationModeResponse> {
     return this.fetch("/api/permissions/automation-mode", {
+      method: "PUT",
+      body: JSON.stringify({ mode }),
+    });
+  }
+
+  /**
+   * Get wallet trade execution permission mode.
+   */
+  async getTradePermissionMode(): Promise<TradePermissionModeResponse> {
+    return this.fetch("/api/permissions/trade-mode");
+  }
+
+  /**
+   * Set wallet trade execution permission mode.
+   */
+  async setTradePermissionMode(
+    mode: TradePermissionMode,
+  ): Promise<TradePermissionModeResponse> {
+    return this.fetch("/api/permissions/trade-mode", {
       method: "PUT",
       body: JSON.stringify({ mode }),
     });

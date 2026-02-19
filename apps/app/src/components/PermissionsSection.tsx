@@ -14,6 +14,7 @@ import { useApp } from "../AppContext";
 import {
   client,
   type AgentAutomationMode,
+  type TradePermissionMode,
   type AllPermissionsState,
   type PermissionState,
   type SystemPermissionId,
@@ -398,6 +399,9 @@ export function PermissionsSection() {
   const [shellEnabled, setShellEnabled] = useState(true);
   const [automationMode, setAutomationMode] = useState<AgentAutomationMode>("full");
   const [automationSaving, setAutomationSaving] = useState(false);
+  const [tradeMode, setTradeMode] = useState<TradePermissionMode>("user-sign-only");
+  const [tradeModeSaving, setTradeModeSaving] = useState(false);
+  const [productionDefaultsSaving, setProductionDefaultsSaving] = useState(false);
   // Tracks which capability toggle is currently being processed by an API call.
   const [togglingId, setTogglingId] = useState<string | null>(null);
   // Tracks which capability toggle recently succeeded (for the 1-second green checkmark).
@@ -422,6 +426,8 @@ export function PermissionsSection() {
         setPermissions(perms);
         setShellEnabled(isShell);
         setAutomationMode(automation.mode);
+        const trade = await client.getTradePermissionMode();
+        setTradeMode(trade.mode);
         // Detect platform from permissions (accessibility only on darwin)
         if (perms.accessibility?.status !== "not-applicable") {
           setPlatform("darwin");
@@ -484,6 +490,68 @@ export function PermissionsSection() {
       setAutomationSaving(false);
     }
   }, [automationMode, automationSaving, setActionNotice]);
+
+  const handleTradeModeChange = useCallback(
+    async (mode: TradePermissionMode) => {
+      if (tradeModeSaving || mode === tradeMode) return;
+      setTradeModeSaving(true);
+      try {
+        const result = await client.setTradePermissionMode(mode);
+        setTradeMode(result.mode);
+        const notice =
+          result.mode === "agent-auto"
+            ? "Trade mode set to Agent auto."
+            : result.mode === "manual-local-key"
+              ? "Trade mode set to Manual local-key."
+              : "Trade mode set to User-sign only.";
+        setActionNotice?.(notice, "success", 2200);
+      } catch (err) {
+        console.error("Failed to update trade mode:", err);
+        setActionNotice?.(
+          err instanceof Error ? err.message : "Failed to update trade mode.",
+          "error",
+          4200,
+        );
+      } finally {
+        setTradeModeSaving(false);
+      }
+    },
+    [tradeMode, tradeModeSaving, setActionNotice],
+  );
+
+  const handleApplyProductionDefaults = useCallback(async () => {
+    if (productionDefaultsSaving) return;
+    const confirmFn =
+      typeof window !== "undefined" && typeof window.confirm === "function"
+        ? window.confirm.bind(window)
+        : () => true;
+    const confirmed = confirmFn(
+      "Apply production wallet defaults?\n\nThis will enforce Pure Privy mode, set trade mode to User-sign only, disable local execution, and clear local private keys from runtime/config.",
+    );
+    if (!confirmed) return;
+
+    setProductionDefaultsSaving(true);
+    try {
+      const result = await client.applyProductionWalletDefaults();
+      setTradeMode(result.tradePermissionMode);
+      setActionNotice?.(
+        "Production defaults applied: Pure Privy + User-sign only.",
+        "success",
+        3200,
+      );
+    } catch (err) {
+      console.error("Failed to apply production defaults:", err);
+      setActionNotice?.(
+        err instanceof Error
+          ? err.message
+          : "Failed to apply production defaults.",
+        "error",
+        4200,
+      );
+    } finally {
+      setProductionDefaultsSaving(false);
+    }
+  }, [productionDefaultsSaving, setActionNotice]);
 
   /** Check if all required permissions for a capability are granted. */
   const arePermissionsGranted = useCallback(
@@ -614,6 +682,97 @@ export function PermissionsSection() {
           <div className="text-[11px] text-[var(--muted)]">
             Current: <strong>{automationMode === "full" ? "Full" : "Connectors only"}</strong>
             {automationSaving ? " (saving...)" : ""}
+          </div>
+        </div>
+      </div>
+
+      {/* Wallet trade permissions */}
+      <div>
+        <div className="font-bold text-sm mb-3">Wallet Trade Permission Mode</div>
+        <div className="border border-[var(--border)] bg-[var(--card)] p-3 space-y-2">
+          <div className="text-[11px] text-[var(--muted)]">
+            Independent safety layer for BSC trade execution.
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <button
+              type="button"
+              className={`text-left p-2.5 border rounded ${
+                tradeMode === "user-sign-only"
+                  ? "border-[var(--accent)] bg-[var(--accent)]/10"
+                  : "border-[var(--border)] bg-[var(--bg)]"
+              }`}
+              disabled={tradeModeSaving}
+              onClick={() => {
+                void handleTradeModeChange("user-sign-only");
+              }}
+            >
+              <div className="text-[12px] font-semibold">User-sign only</div>
+              <div className="text-[11px] text-[var(--muted)] mt-0.5">
+                No server-side execution. Wallet signature required.
+              </div>
+            </button>
+            <button
+              type="button"
+              className={`text-left p-2.5 border rounded ${
+                tradeMode === "manual-local-key"
+                  ? "border-[var(--accent)] bg-[var(--accent)]/10"
+                  : "border-[var(--border)] bg-[var(--bg)]"
+              }`}
+              disabled={tradeModeSaving}
+              onClick={() => {
+                void handleTradeModeChange("manual-local-key");
+              }}
+            >
+              <div className="text-[12px] font-semibold">Manual local-key</div>
+              <div className="text-[11px] text-[var(--muted)] mt-0.5">
+                UI-triggered execution allowed; agent execution blocked.
+              </div>
+            </button>
+            <button
+              type="button"
+              className={`text-left p-2.5 border rounded ${
+                tradeMode === "agent-auto"
+                  ? "border-[var(--accent)] bg-[var(--accent)]/10"
+                  : "border-[var(--border)] bg-[var(--bg)]"
+              }`}
+              disabled={tradeModeSaving}
+              onClick={() => {
+                void handleTradeModeChange("agent-auto");
+              }}
+            >
+              <div className="text-[12px] font-semibold">Agent auto</div>
+              <div className="text-[11px] text-[var(--muted)] mt-0.5">
+                Agent is allowed to execute trades with local-key mode.
+              </div>
+            </button>
+          </div>
+          <div className="text-[11px] text-[var(--muted)]">
+            Current:{" "}
+            <strong>
+              {tradeMode === "agent-auto"
+                ? "Agent auto"
+                : tradeMode === "manual-local-key"
+                  ? "Manual local-key"
+                  : "User-sign only"}
+            </strong>
+            {tradeModeSaving ? " (saving...)" : ""}
+          </div>
+          <div className="pt-2 mt-1 border-t border-[var(--border)] flex items-center justify-between gap-2 flex-wrap">
+            <div className="text-[11px] text-[var(--muted)]">
+              One-click production defaults for public deployment.
+            </div>
+            <button
+              type="button"
+              className="btn text-xs py-1.5 px-3.5 !mt-0"
+              onClick={() => {
+                void handleApplyProductionDefaults();
+              }}
+              disabled={productionDefaultsSaving}
+            >
+              {productionDefaultsSaving
+                ? "Applying..."
+                : "Apply Production Defaults"}
+            </button>
           </div>
         </div>
       </div>

@@ -48,6 +48,11 @@ type PermissionStateRecord = {
   canRequest: boolean;
 };
 type PermissionsStateRecord = Record<PermissionId, PermissionStateRecord>;
+type AgentAutomationMode = "connectors-only" | "full";
+type TradePermissionMode =
+  | "user-sign-only"
+  | "manual-local-key"
+  | "agent-auto";
 
 interface ConversationRecord {
   id: string;
@@ -221,6 +226,8 @@ export async function startMockApiServer(options: MockApiServerOptions = {}): Pr
   let onboardingComplete = Boolean(options.onboardingComplete);
   let agentState: AgentState = onboardingComplete ? "running" : "not_started";
   let permissionStates = mergePermissionsState(createDefaultPermissionsState(), options.permissions);
+  let agentAutomationMode: AgentAutomationMode = "full";
+  let tradePermissionMode: TradePermissionMode = "user-sign-only";
   const requiredAuthToken = options.auth?.token?.trim() || null;
   const pairingCode = options.auth?.pairingCode ?? "1234-5678";
   const pairingEnabled = options.auth?.pairingEnabled ?? Boolean(requiredAuthToken);
@@ -415,6 +422,52 @@ export async function startMockApiServer(options: MockApiServerOptions = {}): Pr
     }
     if (method === "GET" && pathname === "/api/permissions/shell") {
       json(res, 200, { enabled: permissionStates.shell.status === "granted" });
+      return;
+    }
+    if (method === "GET" && pathname === "/api/permissions/automation-mode") {
+      json(res, 200, {
+        mode: agentAutomationMode,
+        options: ["connectors-only", "full"],
+      });
+      return;
+    }
+    if (method === "PUT" && pathname === "/api/permissions/automation-mode") {
+      const body = await readJson(req);
+      const mode = body.mode;
+      if (mode === "connectors-only" || mode === "full") {
+        agentAutomationMode = mode;
+        json(res, 200, {
+          mode: agentAutomationMode,
+          options: ["connectors-only", "full"],
+        });
+        return;
+      }
+      json(res, 400, { error: "Invalid mode" });
+      return;
+    }
+    if (method === "GET" && pathname === "/api/permissions/trade-mode") {
+      json(res, 200, {
+        mode: tradePermissionMode,
+        options: ["user-sign-only", "manual-local-key", "agent-auto"],
+      });
+      return;
+    }
+    if (method === "PUT" && pathname === "/api/permissions/trade-mode") {
+      const body = await readJson(req);
+      const mode = body.mode;
+      if (
+        mode === "user-sign-only" ||
+        mode === "manual-local-key" ||
+        mode === "agent-auto"
+      ) {
+        tradePermissionMode = mode;
+        json(res, 200, {
+          mode: tradePermissionMode,
+          options: ["user-sign-only", "manual-local-key", "agent-auto"],
+        });
+        return;
+      }
+      json(res, 400, { error: "Invalid mode" });
       return;
     }
     if (method === "PUT" && pathname === "/api/permissions/shell") {
@@ -615,11 +668,29 @@ export async function startMockApiServer(options: MockApiServerOptions = {}): Pr
         alchemyKeySet: true,
         infuraKeySet: false,
         ankrKeySet: false,
+        managedBscRpcReady: true,
+        nodeRealBscRpcSet: true,
+        quickNodeBscRpcSet: false,
+        tradePermissionMode,
+        tradeUserCanLocalExecute: tradePermissionMode !== "user-sign-only",
+        tradeAgentCanLocalExecute: tradePermissionMode === "agent-auto",
         heliusKeySet: true,
         birdeyeKeySet: false,
         evmChains: ["ethereum", "base", "bsc"],
         evmAddress: "0x1234567890abcdef1234567890abcdef12345678",
         solanaAddress: "7YfA9q2w8GJTkf3k4sydp6q9Q8h5k2m1u8r7t6v5w4x3",
+      });
+      return;
+    }
+    if (method === "POST" && pathname === "/api/wallet/production-defaults") {
+      tradePermissionMode = "user-sign-only";
+      json(res, 200, {
+        ok: true,
+        profile: "pure-privy-safe",
+        walletMode: "privy",
+        tradePermissionMode,
+        bscExecutionEnabled: false,
+        clearedSecrets: ["EVM_PRIVATE_KEY", "SOLANA_PRIVATE_KEY"],
       });
       return;
     }

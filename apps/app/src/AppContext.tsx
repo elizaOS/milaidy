@@ -250,6 +250,7 @@ function saveChatMode(value: ConversationMode): void {
 export type OnboardingStep =
   | "welcome"
   | "name"
+  | "ownerName"
   | "avatar"
   | "style"
   | "theme"
@@ -701,6 +702,7 @@ export interface AppState {
   onboardingRpcSelections: Record<string, string>;
   onboardingRpcKeys: Record<string, string>;
   onboardingAvatar: number;
+  onboardingOwnerName: string;
   onboardingRestarting: boolean;
   onboardingSetupMode: "quick" | "advanced" | "";
 
@@ -1140,6 +1142,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [onboardingRpcSelections, setOnboardingRpcSelections] = useState<Record<string, string>>({});
   const [onboardingRpcKeys, setOnboardingRpcKeys] = useState<Record<string, string>>({});
   const [onboardingAvatar, setOnboardingAvatar] = useState(1);
+  const [onboardingOwnerName, setOnboardingOwnerName] = useState("");
   const [onboardingRestarting, setOnboardingRestarting] = useState(false);
   const [onboardingSetupMode, setOnboardingSetupMode] = useState<"quick" | "advanced" | "">("");
 
@@ -2926,6 +2929,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setOnboardingStep("name");
         break;
       case "name":
+        setOnboardingStep("ownerName");
+        break;
+      case "ownerName":
         setOnboardingStep("avatar");
         break;
       case "avatar":
@@ -3039,8 +3045,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       case "name":
         setOnboardingStep("welcome");
         break;
-      case "avatar":
+      case "ownerName":
         setOnboardingStep("name");
+        break;
+      case "avatar":
+        setOnboardingStep("ownerName");
         break;
       case "style":
         setOnboardingStep("avatar");
@@ -3140,6 +3149,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try {
       await client.submitOnboarding({
         name: onboardingName,
+        ownerName: onboardingOwnerName.trim() || undefined,
         theme: onboardingTheme,
         runMode: apiRunMode as "local" | "cloud",
         sandboxMode: effectiveRunMode === "local-sandbox" ? "standard" : effectiveRunMode === "cloud" ? "light" : "off",
@@ -3182,7 +3192,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, [
     onboardingRestarting,
-    onboardingOptions, onboardingStyle, onboardingName, onboardingTheme,
+    onboardingOptions, onboardingStyle, onboardingName, onboardingOwnerName, onboardingTheme,
     onboardingRunMode, onboardingCloudProvider, onboardingSmallModel,
     onboardingLargeModel, onboardingProvider, onboardingApiKey,
     onboardingPrimaryModel,
@@ -3460,6 +3470,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       onboardingSubscriptionTab: setOnboardingSubscriptionTab,
       onboardingRpcKeys: setOnboardingRpcKeys,
       onboardingAvatar: setOnboardingAvatar,
+      onboardingOwnerName: setOnboardingOwnerName,
       onboardingRestarting: setOnboardingRestarting,
       onboardingSetupMode: setOnboardingSetupMode,
       selectedVrmIndex: setSelectedVrmIndex,
@@ -3928,7 +3939,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     onboardingTwilioAccountSid, onboardingTwilioAuthToken, onboardingTwilioPhoneNumber,
     onboardingBlooioApiKey, onboardingBlooioPhoneNumber, onboardingSubscriptionTab,
     onboardingSelectedChains, onboardingRpcSelections, onboardingRpcKeys,
-    onboardingAvatar, onboardingRestarting, onboardingSetupMode,
+    onboardingAvatar, onboardingOwnerName, onboardingRestarting, onboardingSetupMode,
     commandPaletteOpen, commandQuery, commandActiveIndex, emotePickerOpen,
     mcpConfiguredServers, mcpServerStatuses, mcpMarketplaceQuery, mcpMarketplaceResults,
     mcpMarketplaceLoading, mcpAction, mcpAddingServer, mcpAddingResult,

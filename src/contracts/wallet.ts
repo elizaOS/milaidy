@@ -84,12 +84,20 @@ export interface WalletConfigStatus {
   nodeRealBscRpcSet?: boolean;
   quickNodeBscRpcSet?: boolean;
   managedBscRpcReady?: boolean;
+  tradePermissionMode?: TradePermissionMode;
+  tradeUserCanLocalExecute?: boolean;
+  tradeAgentCanLocalExecute?: boolean;
   heliusKeySet: boolean;
   birdeyeKeySet: boolean;
   evmChains: string[];
   evmAddress: string | null;
   solanaAddress: string | null;
 }
+
+export type TradePermissionMode =
+  | "user-sign-only"
+  | "manual-local-key"
+  | "agent-auto";
 
 export type BscTradeSide = "buy" | "sell";
 
