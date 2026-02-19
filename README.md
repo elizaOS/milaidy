@@ -17,7 +17,7 @@ This is **[miladybsc/milady](https://github.com/miladybsc/milady)** — a BSC-na
 Key differences from upstream:
 
 - **BSC-native** — wallet and chain integrations default to Binance Smart Chain
-- **Expanded VRM model set** — ships with the full official Milady VRM set (models 1–8) bundled, with automatic LFS-pointer fallback for Railway/cloud deployments
+- **Expanded VRM model set** — 20+ additional cute anime waifu VRM models included out of the box
 - **UX improvements** — streamlined onboarding with Quick/Full setup paths, companion stat tooltips, settings section navigation, and more
 
 To sync with upstream changes:
