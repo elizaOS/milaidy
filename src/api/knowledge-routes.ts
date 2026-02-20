@@ -62,6 +62,8 @@ interface KnowledgeServiceLike {
 
 const FRAGMENT_COUNT_BATCH_SIZE = 500;
 const MAX_URL_IMPORT_BYTES = 10 * 1024 * 1024; // 10 MB
+const MAX_YOUTUBE_WATCH_PAGE_BYTES = 2 * 1024 * 1024; // 2 MB
+const MAX_YOUTUBE_TRANSCRIPT_BYTES = 10 * 1024 * 1024; // 10 MB
 const BLOCKED_HOST_LITERALS = new Set([
   "localhost",
   "metadata.google.internal",
@@ -322,7 +324,9 @@ async function fetchYouTubeTranscript(videoId: string): Promise<string | null> {
     return null;
   }
 
-  const html = await response.text();
+  const html = new TextDecoder().decode(
+    await readResponseBodyWithLimit(response, MAX_YOUTUBE_WATCH_PAGE_BYTES),
+  );
 
   // Extract the captions track URL from the page
   const captionsMatch = html.match(
@@ -355,7 +359,12 @@ async function fetchYouTubeTranscript(videoId: string): Promise<string | null> {
     return null;
   }
 
-  const transcriptXml = await transcriptResponse.text();
+  const transcriptXml = new TextDecoder().decode(
+    await readResponseBodyWithLimit(
+      transcriptResponse,
+      MAX_YOUTUBE_TRANSCRIPT_BYTES,
+    ),
+  );
 
   // Parse the XML transcript
   const textMatches = transcriptXml.matchAll(/<text[^>]*>([^<]*)<\/text>/g);

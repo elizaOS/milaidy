@@ -579,4 +579,95 @@ describe("knowledge routes", () => {
     );
     expect(addKnowledgeMock).not.toHaveBeenCalled();
   });
+
+  test("rejects YouTube import when watch page exceeds max size", async () => {
+    vi.spyOn(dns, "lookup").mockResolvedValue([
+      { address: "142.250.190.14", family: 4 },
+    ]);
+
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      headers: new Headers({
+        "content-type": "text/html; charset=utf-8",
+        "content-length": String(2 * 1024 * 1024 + 1),
+      }),
+      body: new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode("small"));
+          controller.close();
+        },
+      }),
+    } as Response);
+
+    const result = await invoke({
+      method: "POST",
+      pathname: "/api/knowledge/documents/url",
+      body: { url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" },
+    });
+
+    expect(result.status).toBe(400);
+    expect((result.payload as { error?: string }).error).toContain(
+      "maximum size",
+    );
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(addKnowledgeMock).not.toHaveBeenCalled();
+  });
+
+  test("rejects YouTube import when transcript exceeds max size", async () => {
+    vi.spyOn(dns, "lookup").mockResolvedValue([
+      { address: "142.250.190.14", family: 4 },
+    ]);
+
+    const watchHtml =
+      '{"captionTracks":[{"baseUrl":"https://www.youtube.com/api/timedtext?lang=en"}]}';
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    fetchSpy
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        statusText: "OK",
+        headers: new Headers({
+          "content-type": "text/html; charset=utf-8",
+          "content-length": String(new TextEncoder().encode(watchHtml).length),
+        }),
+        body: new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(new TextEncoder().encode(watchHtml));
+            controller.close();
+          },
+        }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        statusText: "OK",
+        headers: new Headers({
+          "content-type": "application/xml; charset=utf-8",
+          "content-length": String(10 * 1024 * 1024 + 1),
+        }),
+        body: new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(
+              new TextEncoder().encode("<transcript></transcript>"),
+            );
+            controller.close();
+          },
+        }),
+      } as Response);
+
+    const result = await invoke({
+      method: "POST",
+      pathname: "/api/knowledge/documents/url",
+      body: { url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" },
+    });
+
+    expect(result.status).toBe(400);
+    expect((result.payload as { error?: string }).error).toContain(
+      "maximum size",
+    );
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    expect(addKnowledgeMock).not.toHaveBeenCalled();
+  });
 });
