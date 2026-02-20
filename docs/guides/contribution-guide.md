@@ -85,7 +85,7 @@ bun run test:coverage
 bun run test:e2e
 
 # Live API tests (requires API keys)
-MILAIDY_LIVE_TEST=1 bun run test:live
+MILADY_LIVE_TEST=1 bun run test:live
 
 # Docker-based integration tests
 bun run test:docker:all

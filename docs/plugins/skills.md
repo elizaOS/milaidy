@@ -211,7 +211,7 @@ If no registry is configured, Milaidy automatically sets `SKILLS_REGISTRY=https:
 For the legacy SkillsMP marketplace, set the `SKILLSMP_API_KEY` environment variable:
 
 ```bash
-export MILAIDY_SKILLSMP_API_KEY="your-api-key"
+export MILADY_SKILLSMP_API_KEY="your-api-key"
 ```
 
 ### Searching the Marketplace
@@ -386,7 +386,7 @@ The skill catalog provides a local, cached index of all available skills from th
 
 The catalog client checks these paths in order:
 
-1. `MILAIDY_SKILLS_CATALOG` environment variable (if set, used exclusively)
+1. `MILADY_SKILLS_CATALOG` environment variable (if set, used exclusively)
 2. `skills/.cache/catalog.json` relative to the package root (walks up to 5 parent directories)
 3. `~/.milaidy/skills/catalog.json` (home directory fallback)
 
@@ -659,12 +659,12 @@ apt install my-tool   # Linux
 
 | Variable | Description |
 |----------|-------------|
-| `MILAIDY_SKILLS_CATALOG` | Override the catalog file path |
+| `MILADY_SKILLS_CATALOG` | Override the catalog file path |
 | `SKILLS_REGISTRY` | Marketplace registry URL (default: `https://clawhub.ai`) |
 | `CLAWHUB_REGISTRY` | Alternative to `SKILLS_REGISTRY` |
 | `SKILLS_MARKETPLACE_URL` | Alternative to `SKILLS_REGISTRY` |
 | `SKILLSMP_API_KEY` | API key for the legacy SkillsMP marketplace |
-| `MILAIDY_STATE_DIR` | Override the base state directory (default: `~/.milaidy`) |
+| `MILADY_STATE_DIR` | Override the base state directory (default: `~/.milaidy`) |
 | `BUNDLED_SKILLS_DIRS` | Set by runtime -- path to bundled skills |
 | `WORKSPACE_SKILLS_DIR` | Set by runtime -- path to workspace skills |
 | `EXTRA_SKILLS_DIRS` | Set by runtime -- comma-separated extra skill directories |

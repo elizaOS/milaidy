@@ -266,7 +266,7 @@ milaidy plugins config twitter
 milaidy plugins config twitter --edit
 ```
 
-In **display mode** (default), all plugin parameters are listed with their current values. Sensitive fields (API keys, tokens) are masked as `--------`.
+In **display mode** (default), all plugin parameters are listed with their current values. Sensitive fields (API keys, tokens) are masked as `●●●●●●●●`.
 
 <Note>
 This command reads available config parameters from a local `plugins.json` catalog file. If the catalog is not available, parameter discovery may be limited.

@@ -67,7 +67,8 @@
               "guides/media-generation",
               "guides/training",
               "guides/agent-export",
-              "guides/themes"
+              "guides/themes",
+              "chat-commands"
             ]
           },
           {

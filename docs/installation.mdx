@@ -236,7 +236,7 @@ MILADY_PORT=3000 MILADY_GATEWAY_PORT=19000 milaidy start
 
 ## Security: API Token
 
-The API server binds to `127.0.0.1` (loopback) by default -- only your local machine can reach it. If you expose the server to the network (e.g., `MILAIDY_API_BIND=0.0.0.0` for container or cloud deployments), you **must** set an authentication token:
+The API server binds to `127.0.0.1` (loopback) by default -- only your local machine can reach it. If you expose the server to the network (e.g., `MILADY_API_BIND=0.0.0.0` for container or cloud deployments), you **must** set an authentication token:
 
 ```bash
 echo "MILADY_API_TOKEN=$(openssl rand -hex 32)" >> ~/.milady/.env

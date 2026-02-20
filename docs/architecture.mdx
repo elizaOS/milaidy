@@ -375,7 +375,7 @@ When `MILADY_API_TOKEN` is set (or auto-generated for non-loopback binds), all A
 Authorization: Bearer <token>
 ```
 
-If the API is bound to a non-loopback address (`MILAIDY_API_BIND` is not `127.0.0.1` or `localhost`) and no token is set, the server auto-generates a temporary token and logs it to stderr.
+If the API is bound to a non-loopback address (`MILADY_API_BIND` is not `127.0.0.1` or `localhost`) and no token is set, the server auto-generates a temporary token and logs it to stderr.
 
 ## WebSocket Event System
 
@@ -442,7 +442,7 @@ Milaidy resolves configuration through a priority cascade:
 ```
 Highest priority
   1. CLI flags (--debug, --verbose, --no-color, --profile)
-  2. Environment variables (MILAIDY_*, ANTHROPIC_API_KEY, etc.)
+  2. Environment variables (MILADY_*, ANTHROPIC_API_KEY, etc.)
   3. .env file (loaded by dotenv in run-main.ts)
   4. Config file (~/.milaidy/milaidy.json)
   5. Profile-specific overrides (--profile <name>)
@@ -454,11 +454,11 @@ Lowest priority
 
 The state directory (`~/.milaidy/`) is resolved via:
 
-1. `MILAIDY_STATE_DIR` environment variable (if set)
+1. `MILADY_STATE_DIR` environment variable (if set)
 2. Default: `~/.milaidy/` (`$HOME/.milaidy/`)
 
 The config file path follows a similar pattern:
-1. `MILAIDY_CONFIG_PATH` environment variable (if set)
+1. `MILADY_CONFIG_PATH` environment variable (if set)
 2. Default: `<stateDir>/milaidy.json`
 
 ### Config File Structure

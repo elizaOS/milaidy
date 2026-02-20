@@ -42,10 +42,10 @@ ENV PATH="/root/.bun/bin:${PATH}"
 
 WORKDIR /app
 
-ARG MILAIDY_DOCKER_APT_PACKAGES=""
-RUN if [ -n "$MILAIDY_DOCKER_APT_PACKAGES" ]; then \
+ARG MILADY_DOCKER_APT_PACKAGES=""
+RUN if [ -n "$MILADY_DOCKER_APT_PACKAGES" ]; then \
       apt-get update && \
-      DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends $MILAIDY_DOCKER_APT_PACKAGES && \
+      DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends $MILADY_DOCKER_APT_PACKAGES && \
       apt-get clean && \
       rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*; \
     fi
@@ -72,7 +72,7 @@ USER node
 
 # Default: bind to 0.0.0.0 in containers so the service is reachable.
 # Set MILADY_API_TOKEN in production to require auth.
-ENV MILAIDY_API_BIND="0.0.0.0"
+ENV MILADY_API_BIND="0.0.0.0"
 
 # Start the API server + dashboard UI on port 2138.
 CMD ["node", "milaidy.mjs", "start"]
@@ -85,7 +85,7 @@ Key characteristics:
 - **Layer caching**: Dependency manifests copied before source for efficient rebuilds
 - **Security**: Runs as the non-root `node` user
 - **Network**: Binds to `0.0.0.0` by default (required for container networking)
-- **Custom packages**: Supports `MILAIDY_DOCKER_APT_PACKAGES` build arg for additional system packages
+- **Custom packages**: Supports `MILADY_DOCKER_APT_PACKAGES` build arg for additional system packages
 
 #### Custom System Packages
 
@@ -93,7 +93,7 @@ Pass additional Debian packages at build time:
 
 ```bash
 docker build \
-  --build-arg MILAIDY_DOCKER_APT_PACKAGES="ffmpeg imagemagick" \
+  --build-arg MILADY_DOCKER_APT_PACKAGES="ffmpeg imagemagick" \
   -t milaidy:local \
   -f deploy/Dockerfile \
   deploy/
@@ -112,27 +112,27 @@ The `docker-compose.yml` defines two services:
     ```yaml
     services:
       milaidy-gateway:
-        image: ${MILAIDY_IMAGE:-milaidy:local}
+        image: ${MILADY_IMAGE:-milaidy:local}
         environment:
           HOME: /home/node
           TERM: xterm-256color
-          MILAIDY_GATEWAY_TOKEN: ${MILAIDY_GATEWAY_TOKEN}
-          MILAIDY_ALLOWED_ORIGINS: ${MILAIDY_ALLOWED_ORIGINS}
+          MILADY_GATEWAY_TOKEN: ${MILADY_GATEWAY_TOKEN}
+          MILADY_ALLOWED_ORIGINS: ${MILADY_ALLOWED_ORIGINS}
           CLAUDE_AI_SESSION_KEY: ${CLAUDE_AI_SESSION_KEY}
           CLAUDE_WEB_SESSION_KEY: ${CLAUDE_WEB_SESSION_KEY}
           CLAUDE_WEB_COOKIE: ${CLAUDE_WEB_COOKIE}
         volumes:
-          - ${MILAIDY_CONFIG_DIR}:/home/node/.milaidy
-          - ${MILAIDY_WORKSPACE_DIR}:/home/node/.milaidy/workspace
+          - ${MILADY_CONFIG_DIR}:/home/node/.milaidy
+          - ${MILADY_WORKSPACE_DIR}:/home/node/.milaidy/workspace
         ports:
-          - "${MILAIDY_GATEWAY_PORT:-18789}:18789"
-          - "${MILAIDY_BRIDGE_PORT:-18790}:18790"
+          - "${MILADY_GATEWAY_PORT:-18789}:18789"
+          - "${MILADY_BRIDGE_PORT:-18790}:18790"
         init: true
         restart: unless-stopped
         command:
           [
             "node", "dist/index.js", "gateway",
-            "--bind", "${MILAIDY_GATEWAY_BIND:-lan}",
+            "--bind", "${MILADY_GATEWAY_BIND:-lan}",
             "--port", "18789",
           ]
     ```
@@ -143,18 +143,18 @@ The `docker-compose.yml` defines two services:
     ```yaml
     services:
       milaidy-cli:
-        image: ${MILAIDY_IMAGE:-milaidy:local}
+        image: ${MILADY_IMAGE:-milaidy:local}
         environment:
           HOME: /home/node
           TERM: xterm-256color
-          MILAIDY_GATEWAY_TOKEN: ${MILAIDY_GATEWAY_TOKEN}
+          MILADY_GATEWAY_TOKEN: ${MILADY_GATEWAY_TOKEN}
           BROWSER: echo
           CLAUDE_AI_SESSION_KEY: ${CLAUDE_AI_SESSION_KEY}
           CLAUDE_WEB_SESSION_KEY: ${CLAUDE_WEB_SESSION_KEY}
           CLAUDE_WEB_COOKIE: ${CLAUDE_WEB_COOKIE}
         volumes:
-          - ${MILAIDY_CONFIG_DIR}:/home/node/.milaidy
-          - ${MILAIDY_WORKSPACE_DIR}:/home/node/.milaidy/workspace
+          - ${MILADY_CONFIG_DIR}:/home/node/.milaidy
+          - ${MILADY_WORKSPACE_DIR}:/home/node/.milaidy/workspace
         stdin_open: true
         tty: true
         init: true
@@ -169,11 +169,11 @@ Both services share two persistent volumes:
 
 | Volume Mount | Container Path | Purpose |
 |-------------|---------------|---------|
-| `MILAIDY_CONFIG_DIR` | `/home/node/.milaidy` | Configuration files (`milaidy.json`), database, secrets |
-| `MILAIDY_WORKSPACE_DIR` | `/home/node/.milaidy/workspace` | Agent workspace files, uploaded knowledge, generated content |
+| `MILADY_CONFIG_DIR` | `/home/node/.milaidy` | Configuration files (`milaidy.json`), database, secrets |
+| `MILADY_WORKSPACE_DIR` | `/home/node/.milaidy/workspace` | Agent workspace files, uploaded knowledge, generated content |
 
 <Tip>
-The setup script defaults `MILAIDY_CONFIG_DIR` to `$HOME/.milaidy` and `MILAIDY_WORKSPACE_DIR` to `$HOME/.milaidy/workspace` on the host machine.
+The setup script defaults `MILADY_CONFIG_DIR` to `$HOME/.milaidy` and `MILADY_WORKSPACE_DIR` to `$HOME/.milaidy/workspace` on the host machine.
 </Tip>
 
 ### Extra Mounts and Home Volume
@@ -182,10 +182,10 @@ The setup script supports additional mount points and a dedicated home volume:
 
 ```bash
 # Mount additional directories
-MILAIDY_EXTRA_MOUNTS="/data/models:/app/models,/data/cache:/app/cache" ./docker-setup.sh
+MILADY_EXTRA_MOUNTS="/data/models:/app/models,/data/cache:/app/cache" ./docker-setup.sh
 
 # Use a named Docker volume for the node home directory
-MILAIDY_HOME_VOLUME="milaidy-home" ./docker-setup.sh
+MILADY_HOME_VOLUME="milaidy-home" ./docker-setup.sh
 ```
 
 When extra mounts or a home volume are specified, the setup script generates a `docker-compose.extra.yml` file that is merged with the base compose file.
@@ -195,8 +195,8 @@ When extra mounts or a home volume are specified, the setup script generates a `
 | Port | Service | Default | Environment Variable |
 |------|---------|---------|---------------------|
 | 2138 | API Server + Dashboard UI | Always exposed inside container | `PORT` |
-| 18789 | Gateway (WebSocket + HTTP) | Host-mapped | `MILAIDY_GATEWAY_PORT` |
-| 18790 | Bridge (inter-service communication) | Host-mapped | `MILAIDY_BRIDGE_PORT` |
+| 18789 | Gateway (WebSocket + HTTP) | Host-mapped | `MILADY_GATEWAY_PORT` |
+| 18790 | Bridge (inter-service communication) | Host-mapped | `MILADY_BRIDGE_PORT` |
 
 ## Environment Variables
 
@@ -204,24 +204,24 @@ When extra mounts or a home volume are specified, the setup script generates a `
 
 | Variable | Description |
 |----------|-------------|
-| `MILAIDY_GATEWAY_TOKEN` | Authentication token for the gateway. Auto-generated by the setup script if not set. |
+| `MILADY_GATEWAY_TOKEN` | Authentication token for the gateway. Auto-generated by the setup script if not set. |
 
 ### Optional
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `MILAIDY_IMAGE` | `milaidy:local` | Docker image name/tag to use |
-| `MILAIDY_CONFIG_DIR` | `$HOME/.milaidy` | Host path for configuration storage |
-| `MILAIDY_WORKSPACE_DIR` | `$HOME/.milaidy/workspace` | Host path for workspace storage |
-| `MILAIDY_GATEWAY_PORT` | `18789` | Host port for the gateway |
-| `MILAIDY_BRIDGE_PORT` | `18790` | Host port for the bridge |
-| `MILAIDY_GATEWAY_BIND` | `lan` | Gateway bind mode (`lan`, `localhost`, `0.0.0.0`) |
-| `MILAIDY_API_BIND` | `0.0.0.0` | API server bind address |
+| `MILADY_IMAGE` | `milaidy:local` | Docker image name/tag to use |
+| `MILADY_CONFIG_DIR` | `$HOME/.milaidy` | Host path for configuration storage |
+| `MILADY_WORKSPACE_DIR` | `$HOME/.milaidy/workspace` | Host path for workspace storage |
+| `MILADY_GATEWAY_PORT` | `18789` | Host port for the gateway |
+| `MILADY_BRIDGE_PORT` | `18790` | Host port for the bridge |
+| `MILADY_GATEWAY_BIND` | `lan` | Gateway bind mode (`lan`, `localhost`, `0.0.0.0`) |
+| `MILADY_API_BIND` | `0.0.0.0` | API server bind address |
 | `MILADY_API_TOKEN` | (none) | Token-based auth for the API server. Set in production. |
-| `MILAIDY_ALLOWED_ORIGINS` | (none) | CORS allowed origins for the API server |
-| `MILAIDY_DOCKER_APT_PACKAGES` | (none) | Additional apt packages to install at build time |
-| `MILAIDY_EXTRA_MOUNTS` | (none) | Comma-separated extra volume mounts |
-| `MILAIDY_HOME_VOLUME` | (none) | Named Docker volume for `/home/node` |
+| `MILADY_ALLOWED_ORIGINS` | (none) | CORS allowed origins for the API server |
+| `MILADY_DOCKER_APT_PACKAGES` | (none) | Additional apt packages to install at build time |
+| `MILADY_EXTRA_MOUNTS` | (none) | Comma-separated extra volume mounts |
+| `MILADY_HOME_VOLUME` | (none) | Named Docker volume for `/home/node` |
 
 ### AI Provider Keys
 
@@ -359,7 +359,7 @@ docker compose -f deploy/docker-compose.yml logs -f milaidy-gateway
 
 ```bash
 docker compose -f deploy/docker-compose.yml exec milaidy-gateway \
-  node dist/index.js health --token "$MILAIDY_GATEWAY_TOKEN"
+  node dist/index.js health --token "$MILADY_GATEWAY_TOKEN"
 ```
 
 ### Adding Messaging Channels
@@ -403,10 +403,10 @@ docker compose -f deploy/docker-compose.yml up -d milaidy-gateway
     The gateway token is auto-generated with 256 bits of entropy. Store it securely and rotate periodically.
   </Card>
   <Card title="Network Binding" icon="network-wired">
-    Use `MILAIDY_GATEWAY_BIND=localhost` to restrict gateway access to the host machine only. Use `lan` for local network access.
+    Use `MILADY_GATEWAY_BIND=localhost` to restrict gateway access to the host machine only. Use `lan` for local network access.
   </Card>
 </CardGroup>
 
 <Warning>
-Never expose the gateway to the public internet without setting `MILAIDY_GATEWAY_TOKEN` and configuring TLS. See the [Configuration Schema](/config-schema) for TLS settings under the `gateway` section.
+Never expose the gateway to the public internet without setting `MILADY_GATEWAY_TOKEN` and configuring TLS. See the [Configuration Schema](/config-schema) for TLS settings under the `gateway` section.
 </Warning>

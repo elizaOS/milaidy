@@ -64,14 +64,14 @@ Milaidy supports three release channels, each mapped to an npm dist-tag:
 | `nightly` | `nightly` | Latest development builds. May be unstable. |
 
 <Note>
-The default channel is `stable`. The channel can be overridden by the `MILAIDY_UPDATE_CHANNEL` environment variable or the `update.channel` field in `milaidy.json`.
+The default channel is `stable`. The channel can be overridden by the `MILADY_UPDATE_CHANNEL` environment variable or the `update.channel` field in `milaidy.json`.
 </Note>
 
 ### Channel Resolution Order
 
 The effective release channel is resolved by `resolveChannel()` in this priority order:
 
-1. `MILAIDY_UPDATE_CHANNEL` environment variable (if set to `stable`, `beta`, or `nightly`)
+1. `MILADY_UPDATE_CHANNEL` environment variable (if set to `stable`, `beta`, or `nightly`)
 2. `update.channel` field in `milaidy.json` configuration
 3. Default: `stable`
 
@@ -486,7 +486,7 @@ Set `checkOnStart: false` to disable all automatic update checking, useful for l
 
 | Variable | Description |
 |----------|-------------|
-| `MILAIDY_UPDATE_CHANNEL` | Override the release channel (`stable`, `beta`, `nightly`). Takes priority over config. |
+| `MILADY_UPDATE_CHANNEL` | Override the release channel (`stable`, `beta`, `nightly`). Takes priority over config. |
 | `CI` | When set, suppresses the background update notification on startup. |
 
 ## Breaking Change Handling
