@@ -670,4 +670,25 @@ describe("knowledge routes", () => {
     expect(fetchSpy).toHaveBeenCalledTimes(2);
     expect(addKnowledgeMock).not.toHaveBeenCalled();
   });
+
+  test("rejects URL import when upstream fetch aborts", async () => {
+    vi.spyOn(dns, "lookup").mockResolvedValue([
+      { address: "93.184.216.34", family: 4 },
+    ]);
+
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockRejectedValue(new DOMException("Aborted", "AbortError"));
+
+    const result = await invoke({
+      method: "POST",
+      pathname: "/api/knowledge/documents/url",
+      body: { url: "https://example.com/slow.txt" },
+    });
+
+    expect(result.status).toBe(400);
+    expect((result.payload as { error?: string }).error).toContain("timed out");
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(addKnowledgeMock).not.toHaveBeenCalled();
+  });
 });
