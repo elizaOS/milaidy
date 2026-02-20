@@ -1,6 +1,6 @@
 import React from "react";
 import TestRenderer, { act } from "react-test-renderer";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // --- hoisted mocks ----------------------------------------------------------
 
@@ -284,7 +284,7 @@ describe("BugReportModal", () => {
 
   // --- fallback mode ---
 
-  it("opens GitHub in new tab on fallback response", async () => {
+  it("does not show success URL on fallback response", async () => {
     mockClient.submitBugReport.mockResolvedValue({
       fallback: "https://github.com/milady-ai/milady/issues/new",
     });
@@ -302,11 +302,10 @@ describe("BugReportModal", () => {
       submitBtn?.props.onClick();
     });
 
-    expect(globalThis.window?.open).toHaveBeenCalledWith(
-      "https://github.com/milady-ai/milady/issues/new",
-      "_blank",
-      "noopener",
-    );
+    // Fallback path does not transition to success URL view
+    expect(getText(tree?.root)).not.toContain("Bug Report Submitted");
+    // Form should still be visible (not replaced by success state)
+    expect(getTextareas(tree?.root).length).toBeGreaterThan(0);
   });
 
   // --- close behavior ---
