@@ -1,4 +1,3 @@
-import html2canvas from "html2canvas";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { client } from "../api-client";
 import { useBugReport } from "../hooks/useBugReport";
@@ -98,6 +97,7 @@ export function BugReportModal() {
 
   const takeScreenshot = useCallback(async () => {
     try {
+      const { default: html2canvas } = await import("html2canvas");
       const canvas = await html2canvas(document.body, {
         useCORS: true,
         logging: false,
