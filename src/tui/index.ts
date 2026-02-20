@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
-import type { AgentRuntime } from "@elizaos/core";
+import { type AgentRuntime, stringToUuid, type UUID } from "@elizaos/core";
 import type { Api, Model } from "@mariozechner/pi-ai";
 import { Text } from "@mariozechner/pi-tui";
 import { loadMiladyConfig, saveMiladyConfig } from "../config/config.js";
@@ -151,12 +151,37 @@ async function switchEmbeddingTier(tier: EmbeddingTier, tui: MiladyTUI) {
   );
 }
 
+function createApiModeRuntimeStub(agentName: string): AgentRuntime {
+  const noopAsync = async () => {};
+
+  return {
+    agentId: stringToUuid(`milady-tui-api:${agentName}`) as UUID,
+    character: { name: agentName },
+    getSetting: () => undefined,
+    setSetting: () => {},
+    registerEvent: () => {},
+    ensureWorldExists: noopAsync,
+    ensureRoomExists: noopAsync,
+    ensureConnection: noopAsync,
+    stop: noopAsync,
+  } as unknown as AgentRuntime;
+}
+
 export async function launchTUI(
-  runtime: AgentRuntime,
+  runtime: AgentRuntime | null,
   options: LaunchTUIOptions = {},
 ): Promise<void> {
+  const apiMode = Boolean(options.apiBaseUrl);
+
   const piCreds = await createPiCredentialProvider();
   const miladyConfig = loadMiladyConfig();
+  const fallbackAgentName = miladyConfig.agents?.list?.[0]?.name ?? "milady";
+
+  if (!runtime && !apiMode) {
+    throw new Error("Runtime is required when API mode is not configured");
+  }
+
+  const runtimeRef = runtime ?? createApiModeRuntimeStub(fallbackAgentName);
 
   const configPrimaryModel = miladyConfig.agents?.defaults?.model?.primary;
   const configEnv = miladyConfig.env as
@@ -168,7 +193,7 @@ export async function launchTUI(
       ? configEnv.PI_AI_MODEL_SPEC
       : undefined);
 
-  const runtimeModelProvider = runtime.getSetting("MODEL_PROVIDER") as
+  const runtimeModelProvider = runtimeRef.getSetting("MODEL_PROVIDER") as
     | string
     | undefined;
 
@@ -187,7 +212,7 @@ export async function launchTUI(
   const smallModel = largeModel;
 
   const tui = new MiladyTUI({
-    runtime,
+    runtime: runtimeRef,
     apiBaseUrl: options.apiBaseUrl,
     modelRegistry: {
       authStorage: {
@@ -196,35 +221,51 @@ export async function launchTUI(
       },
     },
   });
-  const bridge = new ElizaTUIBridge(runtime, tui, {
+  const bridge = new ElizaTUIBridge(runtimeRef, tui, {
     apiBaseUrl: options.apiBaseUrl,
   });
 
-  const controller = registerPiAiModelHandler(runtime, {
-    largeModel,
-    smallModel,
-    ...(options.apiBaseUrl
-      ? {}
-      : {
-          onStreamEvent: (event) => bridge.onStreamEvent(event),
-          getAbortSignal: () => bridge.getAbortSignal(),
-        }),
-    // Keep TUI model switching authoritative even when the runtime also loaded
-    // the pi-ai provider plugin.
-    priority: 20000,
-    getApiKey: (p) => piCreds.getApiKey(p),
-  });
+  const controller = apiMode
+    ? null
+    : registerPiAiModelHandler(runtimeRef, {
+        largeModel,
+        smallModel,
+        onStreamEvent: (event) => bridge.onStreamEvent(event),
+        getAbortSignal: () => bridge.getAbortSignal(),
+        // Keep TUI model switching authoritative even when the runtime also loaded
+        // the pi-ai provider plugin.
+        priority: 20000,
+        getApiKey: (p) => piCreds.getApiKey(p),
+      });
 
-  tui.getStatusBar().update({
-    modelId: controller.getLargeModel().id,
-    modelProvider: controller.getLargeModel().provider,
-  });
+  if (controller) {
+    tui.getStatusBar().update({
+      modelId: controller.getLargeModel().id,
+      modelProvider: controller.getLargeModel().provider,
+    });
+  } else {
+    tui.getStatusBar().update({
+      modelId: "backend",
+      modelProvider: "api",
+    });
+  }
 
   const switchModel = (model: Model<Api>): void => {
+    if (!controller) {
+      tui.addToChatContainer(
+        new Text(
+          "Model switching is managed by the connected API runtime in API mode.",
+          1,
+          0,
+        ),
+      );
+      return;
+    }
+
     controller.setLargeModel(model);
     controller.setSmallModel(model);
 
-    runtime.setSetting("MODEL_PROVIDER", `${model.provider}/${model.id}`);
+    runtimeRef.setSetting("MODEL_PROVIDER", `${model.provider}/${model.id}`);
 
     tui.getStatusBar().update({
       modelId: model.id,
@@ -255,6 +296,17 @@ export async function launchTUI(
 
       try {
         if (cmd === "model" || cmd === "models") {
+          if (apiMode) {
+            tui.addToChatContainer(
+              new Text(
+                "Model selection is managed by the connected API runtime in API mode.",
+                1,
+                0,
+              ),
+            );
+            return;
+          }
+
           if (!argText) {
             tui.openModelSelector();
             return;
@@ -267,6 +319,17 @@ export async function launchTUI(
         }
 
         if (cmd === "embeddings") {
+          if (apiMode) {
+            tui.addToChatContainer(
+              new Text(
+                "Embedding controls are only available in local runtime mode.",
+                1,
+                0,
+              ),
+            );
+            return;
+          }
+
           if (!argText) {
             tui.openEmbeddings();
             return;
@@ -289,6 +352,16 @@ export async function launchTUI(
         }
 
         if (cmd === "knowledge" || cmd === "ctx") {
+          if (apiMode) {
+            tui.addToChatContainer(
+              new Text(
+                "Knowledge enrichment settings are managed by the connected API runtime in API mode.",
+                1,
+                0,
+              ),
+            );
+            return;
+          }
           const cfg = loadMiladyConfig();
           const ctxEnabled = cfg.knowledge?.contextualEnrichment === true;
 
@@ -349,7 +422,7 @@ export async function launchTUI(
             }
             // Update the live runtime setting only after config is persisted
             // so runtime and config stay in sync on save failure.
-            runtime.setSetting("CTX_KNOWLEDGE_ENABLED", "true");
+            runtimeRef.setSetting("CTX_KNOWLEDGE_ENABLED", "true");
             tui.addToChatContainer(
               new Text(
                 "Knowledge enrichment enabled. Takes effect on next document ingestion.\n" +
@@ -380,7 +453,7 @@ export async function launchTUI(
             }
             // Remove the setting entirely (same as startup behavior where
             // the key is simply omitted when CTX is off).
-            runtime.setSetting("CTX_KNOWLEDGE_ENABLED", null);
+            runtimeRef.setSetting("CTX_KNOWLEDGE_ENABLED", null);
             tui.addToChatContainer(
               new Text(
                 "Knowledge enrichment disabled. Existing enriched chunks are not affected.",
@@ -442,7 +515,7 @@ export async function launchTUI(
 
         if (cmd === "exit" || cmd === "quit") {
           await tui.stop();
-          await runtime.stop();
+          await runtimeRef.stop();
           process.exit(0);
         }
 
@@ -475,31 +548,33 @@ export async function launchTUI(
       try {
         await tui.stop();
       } finally {
-        await runtime.stop();
+        await runtimeRef.stop();
         process.exit(0);
       }
     })();
   });
 
-  tui.setModelSelectorHandlers({
-    getCurrentModel: () => controller.getLargeModel(),
-    hasCredentials: (provider) => piCreds.hasCredentials(provider),
-    onSelectModel: (model) => {
-      try {
-        switchModel(model);
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        tui.addToChatContainer(new Text(`Model switch error: ${msg}`, 1, 0));
-      }
-    },
-  });
+  if (!apiMode && controller) {
+    tui.setModelSelectorHandlers({
+      getCurrentModel: () => controller.getLargeModel(),
+      hasCredentials: (provider) => piCreds.hasCredentials(provider),
+      onSelectModel: (model) => {
+        try {
+          switchModel(model);
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          tui.addToChatContainer(new Text(`Model switch error: ${msg}`, 1, 0));
+        }
+      },
+    });
 
-  tui.setEmbeddingHandlers({
-    getOptions: () => getEmbeddingOptions(),
-    onSelectTier: async (tier) => {
-      await switchEmbeddingTier(tier, tui);
-    },
-  });
+    tui.setEmbeddingHandlers({
+      getOptions: () => getEmbeddingOptions(),
+      onSelectTier: async (tier) => {
+        await switchEmbeddingTier(tier, tui);
+      },
+    });
+  }
 
   await bridge.initialize();
   await tui.start();

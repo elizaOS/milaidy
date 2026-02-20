@@ -22,8 +22,14 @@ import {
   ToolExecutionComponent,
   UserMessageComponent,
 } from "./components/index.js";
+import {
+  drainSseEvents,
+  extractSseDataPayloads,
+  parseConversationStreamPayload,
+} from "./sse-parser.js";
 import { miladyMarkdownTheme, tuiTheme } from "./theme.js";
 import type { MiladyTUI } from "./tui-app.js";
+import { ApiModeWsClient } from "./ws-client.js";
 
 // NOTE: Room + world IDs are derived from the agentId so that switching
 // characters (which changes agentId) does not reuse the same persisted
@@ -96,6 +102,15 @@ export class ElizaTUIBridge {
   private conversationId: string | null = null;
   private conversationRoomId: string | null = null;
   private conversationInitPromise: Promise<string> | null = null;
+  private apiWsClient: ApiModeWsClient | null = null;
+
+  private pendingProactiveMessages: string[] = [];
+  private lastCompletedAssistantText = "";
+  private lastCompletedAssistantAt = 0;
+
+  private seenProactiveMessageIds = new Set<string>();
+  private seenProactiveMessageOrder: string[] = [];
+  private readonly proactiveMessageIdLimit = 128;
 
   constructor(
     private runtime: AgentRuntime,
@@ -218,6 +233,18 @@ export class ElizaTUIBridge {
         channelId: this.channelId,
         metadata: { ownership: { ownerId: TUI_USER_ID } },
       });
+    } else {
+      this.apiWsClient = new ApiModeWsClient({
+        apiBaseUrl: this.apiBaseUrl,
+        getAuthToken: () => this.getApiToken(),
+        onMessage: (data) => this.handleApiWsMessage(data),
+        onError: (error) => {
+          process.stderr.write(
+            `[milady-tui] websocket error: ${error.message}\n`,
+          );
+        },
+      });
+      this.apiWsClient.connect();
     }
 
     // Action/tool execution hooks.
@@ -412,6 +439,7 @@ export class ElizaTUIBridge {
       this.tui.setBusy(false);
       this.abortController = null;
       this.isProcessing = false;
+      this.flushPendingProactiveMessages();
     }
   }
 
@@ -550,7 +578,10 @@ export class ElizaTUIBridge {
   }
 
   private async ensureConversationId(): Promise<string> {
-    if (this.conversationId) return this.conversationId;
+    if (this.conversationId) {
+      this.apiWsClient?.setActiveConversationId(this.conversationId);
+      return this.conversationId;
+    }
 
     if (!this.conversationInitPromise) {
       this.conversationInitPromise = this.resolveConversationId().finally(
@@ -562,6 +593,7 @@ export class ElizaTUIBridge {
 
     const resolved = await this.conversationInitPromise;
     this.conversationId = resolved;
+    this.apiWsClient?.setActiveConversationId(resolved);
     return resolved;
   }
 
@@ -638,26 +670,9 @@ export class ElizaTUIBridge {
     let fullText = "";
     let doneText: string | null = null;
 
-    const parseDataLine = (line: string): void => {
-      const payload = line.startsWith("data:") ? line.slice(5).trim() : "";
-      if (!payload) return;
-
-      let parsed: {
-        type?: string;
-        text?: string;
-        fullText?: string;
-        message?: string;
-      };
-      try {
-        parsed = JSON.parse(payload) as {
-          type?: string;
-          text?: string;
-          fullText?: string;
-          message?: string;
-        };
-      } catch {
-        return;
-      }
+    const parsePayload = (payload: string): void => {
+      const parsed = parseConversationStreamPayload(payload);
+      if (!parsed) return;
 
       if (parsed.type === "token") {
         const chunk = parsed.text ?? "";
@@ -701,21 +716,19 @@ export class ElizaTUIBridge {
       if (done) break;
 
       buffer += decoder.decode(value, { stream: true });
-      let eventBreak = buffer.indexOf("\n\n");
-      while (eventBreak !== -1) {
-        const rawEvent = buffer.slice(0, eventBreak);
-        buffer = buffer.slice(eventBreak + 2);
-        for (const line of rawEvent.split("\n")) {
-          if (!line.startsWith("data:")) continue;
-          parseDataLine(line);
+      const drained = drainSseEvents(buffer);
+      buffer = drained.remaining;
+
+      for (const rawEvent of drained.events) {
+        for (const payload of extractSseDataPayloads(rawEvent)) {
+          parsePayload(payload);
         }
-        eventBreak = buffer.indexOf("\n\n");
       }
     }
 
     if (buffer.trim()) {
-      for (const line of buffer.split("\n")) {
-        if (line.startsWith("data:")) parseDataLine(line);
+      for (const payload of extractSseDataPayloads(buffer)) {
+        parsePayload(payload);
       }
     }
 
@@ -724,6 +737,121 @@ export class ElizaTUIBridge {
     } else if (!this.streamedText && fullText) {
       this.streamedText = fullText;
     }
+  }
+
+  private getApiToken(): string | null {
+    const token = process.env.MILADY_API_TOKEN?.trim();
+    return token || null;
+  }
+
+  private handleApiWsMessage(data: Record<string, unknown>): void {
+    if (data.type !== "proactive-message") return;
+
+    const conversationId =
+      typeof data.conversationId === "string" ? data.conversationId.trim() : "";
+    if (!conversationId || !this.conversationId) return;
+    if (conversationId !== this.conversationId) return;
+
+    const rawMessage = data.message;
+    if (
+      !rawMessage ||
+      typeof rawMessage !== "object" ||
+      Array.isArray(rawMessage)
+    ) {
+      return;
+    }
+
+    const message = rawMessage as Record<string, unknown>;
+    const messageId = typeof message.id === "string" ? message.id.trim() : "";
+    if (messageId) {
+      if (this.seenProactiveMessageIds.has(messageId)) return;
+      this.rememberProactiveMessageId(messageId);
+    }
+
+    const text = typeof message.text === "string" ? message.text.trim() : "";
+    if (!text) return;
+
+    if (this.isLikelyDuplicateAssistantText(text)) return;
+
+    if (this.isProcessing) {
+      this.queuePendingProactiveMessage(text);
+      return;
+    }
+
+    this.renderProactiveAssistantMessage(text);
+  }
+
+  private rememberProactiveMessageId(id: string): void {
+    this.seenProactiveMessageIds.add(id);
+    this.seenProactiveMessageOrder.push(id);
+
+    if (this.seenProactiveMessageOrder.length <= this.proactiveMessageIdLimit) {
+      return;
+    }
+
+    const oldest = this.seenProactiveMessageOrder.shift();
+    if (oldest) {
+      this.seenProactiveMessageIds.delete(oldest);
+    }
+  }
+
+  private queuePendingProactiveMessage(text: string): void {
+    const lastQueued =
+      this.pendingProactiveMessages[this.pendingProactiveMessages.length - 1];
+    if (lastQueued === text) {
+      return;
+    }
+
+    this.pendingProactiveMessages.push(text);
+    if (this.pendingProactiveMessages.length > 32) {
+      this.pendingProactiveMessages.shift();
+    }
+  }
+
+  private flushPendingProactiveMessages(): void {
+    if (this.pendingProactiveMessages.length < 1) return;
+
+    const pending = this.pendingProactiveMessages;
+    this.pendingProactiveMessages = [];
+
+    for (const text of pending) {
+      if (this.isLikelyDuplicateAssistantText(text)) continue;
+      this.renderProactiveAssistantMessage(text);
+    }
+  }
+
+  private isLikelyDuplicateAssistantText(text: string): boolean {
+    const normalized = text.trim();
+    if (!normalized) return true;
+
+    if (this.streamedText.trim() === normalized) {
+      return true;
+    }
+
+    if (
+      this.lastCompletedAssistantText === normalized &&
+      Date.now() - this.lastCompletedAssistantAt < 1_500
+    ) {
+      return true;
+    }
+
+    return false;
+  }
+
+  private renderProactiveAssistantMessage(text: string): void {
+    const component = new AssistantMessageComponent(
+      this.showThinking,
+      miladyMarkdownTheme,
+      this.runtime.character?.name ?? "milady",
+    );
+    component.updateContent(text);
+    component.finalize();
+
+    this.tui.addToChatContainer(component);
+    this.tui.requestRender();
+
+    this.lastCompletedAssistantText = text.trim();
+    this.lastCompletedAssistantAt = Date.now();
   }
 
   private async apiFetch(path: string, init?: RequestInit): Promise<Response> {
@@ -736,7 +864,7 @@ export class ElizaTUIBridge {
       headers.set("Content-Type", "application/json");
     }
 
-    const token = process.env.MILADY_API_TOKEN?.trim();
+    const token = this.getApiToken();
     if (token && !headers.has("Authorization")) {
       headers.set("Authorization", `Bearer ${token}`);
     }
@@ -809,6 +937,15 @@ export class ElizaTUIBridge {
     if (!component) return;
 
     component.finalize();
+
+    const completedText = this.normalizeAssistantText(
+      this.streamedText,
+    ).text.trim();
+    if (completedText) {
+      this.lastCompletedAssistantText = completedText;
+      this.lastCompletedAssistantAt = Date.now();
+    }
+
     this.currentAssistant = null;
     this.assistantFinalizedForTurn = true;
   }
