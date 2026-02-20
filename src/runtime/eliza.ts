@@ -1036,10 +1036,10 @@ ACTION vs REPLY decision:
 When multiple actions could match, prefer the one that matches the user's INTENT (what they want to happen) over the one that matches a keyword in their message.
 
 DISAMBIGUATION — safety-first routing:
-- FILE OPERATIONS: If the user mentions a file path or filename, prefer READ_FILE over EXECUTE_COMMAND. Only use EXECUTE_COMMAND for files if the user explicitly says "run", "execute", or "compile".
-- GIT OPERATIONS: If the user mentions git (commit, diff, log, status, branch, push, pull), prefer GIT over EXECUTE_COMMAND. Only use EXECUTE_COMMAND for git if the user says "run git ..." explicitly.
+- FILE OPERATIONS: If the user mentions a file path or filename, ALWAYS use READ_FILE instead of EXECUTE_COMMAND. Only use EXECUTE_COMMAND for files if the user explicitly says "run", "execute", or "compile".
+- GIT OPERATIONS: If the user mentions git (commit, diff, log, status, branch, push, pull), ALWAYS use GIT instead of EXECUTE_COMMAND. Only use EXECUTE_COMMAND if the user explicitly says "run git ..." or GIT cannot handle the specific subcommand.
 - SKILLS vs FILES: "search for X in skills" or "find a skill" → SEARCH_SKILLS. "search for X in files" or "find X in code" → SEARCH_FILES. The word "skill" or "plugin" routes to skill actions, not file search.
-- SHELL SAFETY: EXECUTE_COMMAND is a last resort. If a more specific action exists for the task (READ_FILE, WRITE_FILE, GIT, SEARCH_FILES, LIST_FILES, MANAGE_PROCESS), use that instead.
+- SHELL SAFETY: EXECUTE_COMMAND is a last resort. If a more specific action exists for the task (READ_FILE, WRITE_FILE, GIT, SEARCH_FILES, LIST_FILES, MANAGE_PROCESS), ALWAYS use that instead.
 
 WRONG: User says "show my tasks" → actions: REPLY (describes tasks from memory)
 RIGHT: User says "show my tasks" → actions: LIST_TASKS (fetches real task data)
@@ -2043,47 +2043,50 @@ export async function startEliza(
     },
   };
 
-  // Codex provider — uses the @openai/codex-sdk package when available.
-  // The SDK is lazy-imported at execution time so it won't fail at startup
-  // if the package isn't installed (returns a graceful error instead).
+  // Codex provider — only registered when OPENAI_API_KEY is set.
+  // The upstream CodexSdkSubAgent lazy-imports @openai/codex-sdk at execution
+  // time, so it won't crash at startup if the package isn't installed.
   let cachedCodexProvider: ReturnType<typeof createSubAgentProvider> | null =
     null;
-  const lazyCodexProvider = {
-    id: "codex",
-    label: "Codex (OpenAI)",
-    description:
-      "Executes tasks using the OpenAI Codex SDK. " +
-      "Requires @openai/codex-sdk and OPENAI_API_KEY.",
-    executeTask: async (
-      task: import("@elizaos/plugin-agent-orchestrator").OrchestratedTask,
-      ctx: import("@elizaos/plugin-agent-orchestrator").ProviderTaskExecutionContext,
-    ): Promise<import("@elizaos/plugin-agent-orchestrator").TaskResult> => {
-      if (!runtimeRef) {
-        logger.error(
-          "[milaidy] codex executeTask called before runtime was initialized",
-        );
-        return {
-          success: false,
-          summary: "Runtime not initialized yet",
-          filesCreated: [],
-          filesModified: [],
-          error: "Runtime not available",
-        };
+  const hasOpenAiKey = Boolean(process.env.OPENAI_API_KEY?.trim());
+  const lazyCodexProvider = hasOpenAiKey
+    ? {
+        id: "codex" as const,
+        label: "Codex (OpenAI)",
+        description:
+          "Executes tasks using the OpenAI Codex SDK. " +
+          "Requires @openai/codex-sdk and OPENAI_API_KEY.",
+        executeTask: async (
+          task: import("@elizaos/plugin-agent-orchestrator").OrchestratedTask,
+          ctx: import("@elizaos/plugin-agent-orchestrator").ProviderTaskExecutionContext,
+        ): Promise<import("@elizaos/plugin-agent-orchestrator").TaskResult> => {
+          if (!runtimeRef) {
+            logger.error(
+              "[milaidy] codex executeTask called before runtime was initialized",
+            );
+            return {
+              success: false,
+              summary: "Runtime not initialized yet",
+              filesCreated: [],
+              filesModified: [],
+              error: "Runtime not available",
+            };
+          }
+          if (!cachedCodexProvider) {
+            cachedCodexProvider = createSubAgentProvider(
+              runtimeRef,
+              "codex",
+              "codex",
+              "Codex (OpenAI)",
+            );
+          }
+          return cachedCodexProvider.executeTask(task, ctx);
+        },
       }
-      if (!cachedCodexProvider) {
-        cachedCodexProvider = createSubAgentProvider(
-          runtimeRef,
-          "codex",
-          "codex",
-          "Codex (OpenAI)",
-        );
-      }
-      return cachedCodexProvider.executeTask(task, ctx);
-    },
-  };
+    : null;
 
   configureAgentOrchestratorPlugin({
-    providers: [lazyElizaProvider, lazyCodexProvider],
+    providers: [lazyElizaProvider, ...(lazyCodexProvider ? [lazyCodexProvider] : [])],
     defaultProviderId: "eliza",
     // NOTE: workingDirectory is the CWD for sub-agent tools but does NOT form
     // a security sandbox. Upstream tools use path.resolve() without containment
@@ -2208,19 +2211,22 @@ export async function startEliza(
   // 8c. Wire task-result surfacing: when a task completes or fails, post
   //     the result summary as a message in the originating room so the user
   //     sees the outcome without having to run LIST_TASKS.
-  try {
-    const orchestratorSvc = runtime.getService("CODE_TASK") as
-      | import("@elizaos/plugin-agent-orchestrator").AgentOrchestratorService
-      | undefined;
-    if (orchestratorSvc?.on) {
+  //     Returns a teardown function so hot-reload can clean up listeners.
+  function wireTaskResultSurfacing(rt: AgentRuntime): (() => void) | null {
+    try {
+      const svc = rt.getService("CODE_TASK") as
+        | import("@elizaos/plugin-agent-orchestrator").AgentOrchestratorService
+        | undefined;
+      if (!svc?.on) return null;
+
       const handleTaskDone = async (event: { taskId: string; data?: Record<string, unknown> }) => {
         try {
-          const task = await orchestratorSvc.getTask(event.taskId);
+          const task = await svc.getTask(event.taskId);
           if (!task?.roomId) return;
 
           const result = task.metadata?.result;
           const status = task.metadata?.status;
-          const isSuccess = status === "completed" && result?.success !== false;
+          const isSuccess = status === "completed" && result?.success === true;
 
           const parts: string[] = [];
           parts.push(isSuccess ? `Task completed: ${task.name}` : `Task failed: ${task.name}`);
@@ -2234,9 +2240,9 @@ export async function startEliza(
           }
 
           const text = parts.join("\n");
-          await runtime.createMemory(
+          await rt.createMemory(
             {
-              entityId: runtime.agentId,
+              entityId: rt.agentId,
               roomId: task.roomId,
               content: { text, source: "orchestrator" },
             },
@@ -2248,13 +2254,20 @@ export async function startEliza(
         }
       };
 
-      orchestratorSvc.on("task:completed", handleTaskDone as any);
-      orchestratorSvc.on("task:failed", handleTaskDone as any);
+      svc.on("task:completed", handleTaskDone as any);
+      svc.on("task:failed", handleTaskDone as any);
       logger.info("[milaidy] Task result surfacing enabled");
+
+      return () => {
+        svc.off("task:completed", handleTaskDone as any);
+        svc.off("task:failed", handleTaskDone as any);
+      };
+    } catch (err) {
+      logger.debug(`[milaidy] Could not wire task result surfacing: ${formatError(err)}`);
+      return null;
     }
-  } catch (err) {
-    logger.debug(`[milaidy] Could not wire task result surfacing: ${formatError(err)}`);
   }
+  let teardownTaskSurfacing = wireTaskResultSurfacing(runtime);
 
   // 9. Graceful shutdown handler
   //
@@ -2415,10 +2428,12 @@ export async function startEliza(
           }
 
           await newRuntime.initialize();
+          teardownTaskSurfacing?.(); // clean up old listeners
           runtime = newRuntime;
           runtimeRef = newRuntime;
           cachedProvider = null; // force re-creation with new runtime
           cachedCodexProvider = null;
+          teardownTaskSurfacing = wireTaskResultSurfacing(newRuntime);
           logger.info("[milaidy] Hot-reload: Runtime restarted successfully");
           return newRuntime;
         } catch (err) {
