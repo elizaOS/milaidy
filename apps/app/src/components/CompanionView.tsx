@@ -16,6 +16,7 @@ import {
   pickRandomAnimationDef,
 } from "./avatar/companionAnimationIntent";
 import { BubbleEmote } from "./BubbleEmote";
+import { createTranslator } from "../i18n";
 
 type QuickActionGlyph = "feed" | "rest" | "manual_share";
 type QuickActionTone = "ready" | "cooldown" | "limit";
@@ -56,7 +57,7 @@ function QuickActionIcon({ kind }: { kind: QuickActionGlyph }) {
 }
 
 function formatDuration(ms: number): string {
-  if (ms <= 0) return "ready";
+  if (ms <= 0) return "0s";
   const totalSeconds = Math.ceil(ms / 1000);
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
@@ -104,7 +105,9 @@ export function CompanionView() {
     selectedVrmIndex,
     customVrmUrl,
     copyToClipboard,
+    uiLanguage,
   } = useApp();
+  const t = createTranslator(uiLanguage);
 
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -466,35 +469,47 @@ export function CompanionView() {
 
     ctx.fillStyle = "#f5f5f5";
     ctx.font = "700 64px serif";
-    ctx.fillText("Milady Companion", 80, 130);
+    ctx.fillText(t("companion.share.title"), 80, 130);
 
     ctx.font = "500 40px sans-serif";
     ctx.fillStyle = "#e5e5e5";
-    ctx.fillText(`Level ${state.level} | XP ${state.xp}/${snapshot.nextLevelXp}`, 80, 210);
+    ctx.fillText(
+      `${t("companion.level")} ${state.level} | XP ${state.xp}/${snapshot.nextLevelXp}`,
+      80,
+      210,
+    );
 
     ctx.fillStyle = "#d4d4d4";
     ctx.font = "500 36px sans-serif";
-    ctx.fillText(`Mood ${Math.round(state.stats.mood)}  Hunger ${Math.round(state.stats.hunger)}`, 80, 320);
-    ctx.fillText(`Energy ${Math.round(state.stats.energy)}  Social ${Math.round(state.stats.social)}`, 80, 380);
-    ctx.fillText(`Streak ${state.streakDays} day(s)`, 80, 440);
+    ctx.fillText(
+      `${t("companion.stat.mood")} ${Math.round(state.stats.mood)}  ${t("companion.stat.hunger")} ${Math.round(state.stats.hunger)}`,
+      80,
+      320,
+    );
+    ctx.fillText(
+      `${t("companion.stat.energy")} ${Math.round(state.stats.energy)}  ${t("companion.stat.social")} ${Math.round(state.stats.social)}`,
+      80,
+      380,
+    );
+    ctx.fillText(`${t("companion.streak")} ${state.streakDays} ${t("companion.daySuffix")}`, 80, 440);
 
     ctx.fillStyle = "#c7c7c7";
     ctx.font = "500 30px sans-serif";
     ctx.fillText(
-      `Today: chat ${snapshot.today.chatCount}/${snapshot.today.chatCap}  external ${snapshot.today.externalCount}/${snapshot.today.externalCap}`,
+      `${t("companion.today")}: ${t("companion.chat")} ${snapshot.today.chatCount}/${snapshot.today.chatCap}  ${t("companion.external")} ${snapshot.today.externalCount}/${snapshot.today.externalCap}`,
       80,
       530,
     );
     ctx.fillText(
-      `Manual share ${snapshot.today.manualShareCount}/${snapshot.today.manualShareCap}  autopost ${snapshot.today.autoPostCount}/${snapshot.today.autoPostCap}`,
+      `${t("companion.manualShare")} ${snapshot.today.manualShareCount}/${snapshot.today.manualShareCap}  ${t("companion.autopost")} ${snapshot.today.autoPostCount}/${snapshot.today.autoPostCap}`,
       80,
       585,
     );
 
     ctx.fillStyle = "#9ca3af";
     ctx.font = "500 28px sans-serif";
-    ctx.fillText(`Mood tier: ${snapshot.moodTier}`, 80, 675);
-    ctx.fillText(`Timezone: ${snapshot.today.timezone}`, 80, 725);
+    ctx.fillText(`${t("companion.moodTier")}: ${snapshot.moodTier}`, 80, 675);
+    ctx.fillText(`${t("companion.timezone")}: ${snapshot.today.timezone}`, 80, 725);
 
     const dataUrl = canvas.toDataURL("image/png");
     const anchor = document.createElement("a");
@@ -507,29 +522,29 @@ export function CompanionView() {
     if (!companionSnapshot) return;
     const state = companionSnapshot.state;
     const text = [
-      `Milady Companion Level ${state.level} (${companionSnapshot.moodTier})`,
-      `Mood ${Math.round(state.stats.mood)} | Hunger ${Math.round(state.stats.hunger)} | Energy ${Math.round(state.stats.energy)} | Social ${Math.round(state.stats.social)}`,
-      `XP ${state.xp}/${companionSnapshot.nextLevelXp} | Streak ${state.streakDays} day(s)`,
-      `Today: chat ${companionSnapshot.today.chatCount}/${companionSnapshot.today.chatCap}, external ${companionSnapshot.today.externalCount}/${companionSnapshot.today.externalCap}, manual-share ${companionSnapshot.today.manualShareCount}/${companionSnapshot.today.manualShareCap}, autopost ${companionSnapshot.today.autoPostCount}/${companionSnapshot.today.autoPostCap}`,
+      `${t("companion.share.title")} ${t("companion.level")} ${state.level} (${companionSnapshot.moodTier})`,
+      `${t("companion.stat.mood")} ${Math.round(state.stats.mood)} | ${t("companion.stat.hunger")} ${Math.round(state.stats.hunger)} | ${t("companion.stat.energy")} ${Math.round(state.stats.energy)} | ${t("companion.stat.social")} ${Math.round(state.stats.social)}`,
+      `XP ${state.xp}/${companionSnapshot.nextLevelXp} | ${t("companion.streak")} ${state.streakDays} ${t("companion.daySuffix")}`,
+      `${t("companion.today")}: ${t("companion.chat")} ${companionSnapshot.today.chatCount}/${companionSnapshot.today.chatCap}, ${t("companion.external")} ${companionSnapshot.today.externalCount}/${companionSnapshot.today.externalCap}, ${t("companion.manualShare")} ${companionSnapshot.today.manualShareCount}/${companionSnapshot.today.manualShareCap}, ${t("companion.autopost")} ${companionSnapshot.today.autoPostCount}/${companionSnapshot.today.autoPostCap}`,
     ].join("\n");
     await copyToClipboard(text);
   };
 
   if (companionLoading && !companionSnapshot) {
-    return <div className="text-muted text-sm">Loading companion status...</div>;
+    return <div className="text-muted text-sm">{t("companion.loading")}</div>;
   }
 
   if (!companionSnapshot) {
     return (
       <div className="border border-border bg-card p-4 text-sm text-muted">
-        Companion state is not available.
+        {t("companion.notAvailable")}
         <button
           className="ml-3 px-3 py-1 border border-border bg-bg-hover text-txt hover:border-accent"
           onClick={() => {
             void loadCompanion();
           }}
         >
-          Retry
+          {t("common.retry")}
         </button>
       </div>
     );
@@ -539,20 +554,20 @@ export function CompanionView() {
 
   // Tooltip descriptions shown on each KPI card and via the inline ? icon.
   const STAT_TOOLTIPS: Record<string, string> = {
-    mood: "How happy your companion is. Decreases over time, boosted by interaction and care.",
-    hunger: "How fed your companion is. Decreases over time, restored by Feed action.",
-    energy: "Your companion's stamina. Decreases with activity, restored by Rest action.",
-    social: "Social engagement score. Boosted by Share action and interactions.",
-    level: "Your companion's overall level. Increases as XP accumulates.",
-    xp: "Experience points earned through actions. Fills up to reach next level.",
-    streak: "Consecutive days of engagement. Resets if you miss a day.",
+    mood: t("companion.tooltip.mood"),
+    hunger: t("companion.tooltip.hunger"),
+    energy: t("companion.tooltip.energy"),
+    social: t("companion.tooltip.social"),
+    level: t("companion.tooltip.level"),
+    xp: t("companion.tooltip.xp"),
+    streak: t("companion.tooltip.streak"),
   };
 
   const statItems = [
-    { id: "mood", label: "Mood", value: state.stats.mood },
-    { id: "hunger", label: "Hunger", value: state.stats.hunger },
-    { id: "energy", label: "Energy", value: state.stats.energy },
-    { id: "social", label: "Social", value: state.stats.social },
+    { id: "mood", label: t("companion.stat.mood"), value: state.stats.mood },
+    { id: "hunger", label: t("companion.stat.hunger"), value: state.stats.hunger },
+    { id: "energy", label: t("companion.stat.energy"), value: state.stats.energy },
+    { id: "social", label: t("companion.stat.social"), value: state.stats.social },
   ] as const;
 
   const autopostProgress = ratioPercent(
@@ -563,28 +578,31 @@ export function CompanionView() {
   const softPenalty = companionSnapshot.thresholds.softPenalty;
   const autopostEligible = companionSnapshot.thresholds.autopostEligible;
   const reasons = companionSnapshot.thresholds.reasons;
-  const reasonsSummary = reasons.length > 0 ? reasons.slice(0, 2).join(" | ") : "All thresholds healthy.";
+  const reasonsSummary =
+    reasons.length > 0
+      ? reasons.slice(0, 2).join(" | ")
+      : t("companion.thresholdsHealthy");
 
   const MOOD_TIER_LABELS: Record<string, string> = {
-    excited: "Thriving",
-    calm:    "Content",
-    neutral: "Okay",
-    low:     "Tired",
-    burnout: "Exhausted",
+    excited: t("companion.mood.excited"),
+    calm:    t("companion.mood.calm"),
+    neutral: t("companion.mood.neutral"),
+    low:     t("companion.mood.low"),
+    burnout: t("companion.mood.burnout"),
   };
 
   const PENALTY_REASON_LABELS: Record<string, string> = {
-    hunger_too_low: "Hungry",
-    energy_too_low: "Needs rest",
-    mood_too_low:   "Feeling low",
-    social_too_low: "Lonely",
+    hunger_too_low: t("companion.penalty.hunger"),
+    energy_too_low: t("companion.penalty.energy"),
+    mood_too_low:   t("companion.penalty.mood"),
+    social_too_low: t("companion.penalty.social"),
   };
 
   const penaltyHint = reasons
     .map((r) => PENALTY_REASON_LABELS[r])
     .filter(Boolean)
     .slice(0, 2)
-    .join(" · ") || "Needs care";
+    .join(" · ") || t("companion.penalty.needsCare");
 
   const daysTogether = companionSnapshot.state.firstMetAt
     ? Math.floor((Date.now() - (companionSnapshot.state.firstMetAt as number)) / (24 * 60 * 60 * 1000))
@@ -596,31 +614,31 @@ export function CompanionView() {
   const quickActions = [
     {
       id: "feed",
-      label: "Feed",
+      label: t("companion.action.feed"),
       cooldownMs: cooldowns.feed,
       disabled: companionActionBusy || cooldowns.feed > 0,
       onRun: () => { setLastTriggeredAction("feed"); playActionAnimation("feed"); void runCompanionAction("feed"); },
       kind: "feed" as QuickActionGlyph,
       // Text shown only while the action is in cooldown.
-      cooldownHint: "Companions can only eat every few hours",
+      cooldownHint: t("companion.action.feedHint"),
     },
     {
       id: "rest",
-      label: "Rest",
+      label: t("companion.action.rest"),
       cooldownMs: cooldowns.rest,
       disabled: companionActionBusy || cooldowns.rest > 0,
       onRun: () => { setLastTriggeredAction("rest"); playActionAnimation("rest"); void runCompanionAction("rest"); },
       kind: "rest" as QuickActionGlyph,
-      cooldownHint: "Rest again after the cooldown ends",
+      cooldownHint: t("companion.action.restHint"),
     },
     {
       id: "manual_share",
-      label: "Share",
+      label: t("companion.action.share"),
       cooldownMs: cooldowns.manualShare,
       disabled: companionActionBusy || cooldowns.manualShare > 0 || manualShareCapReached,
       onRun: () => { setLastTriggeredAction("manual_share"); playActionAnimation("manual_share"); void runCompanionAction("manual_share"); },
       kind: "manual_share" as QuickActionGlyph,
-      cooldownHint: "Share limit reached for this period",
+      cooldownHint: t("companion.action.shareHint"),
     },
   ];
 
@@ -630,7 +648,7 @@ export function CompanionView() {
         <header className="flex flex-wrap items-center justify-between gap-3">
           <div className="companion-game__utility-pill" data-testid="companion-top-bar">
             <span className="companion-game__utility-dot" />
-            <span className="companion-game__utility-text">Companion Console</span>
+            <span className="companion-game__utility-text">{t("companion.console")}</span>
           </div>
           <div className="companion-game__logo-mark">milady</div>
           <div className="flex items-center gap-2">
@@ -638,13 +656,13 @@ export function CompanionView() {
               className="companion-game__top-btn"
               onClick={() => { void loadCompanion(); }}
             >
-              Sync
+              {t("companion.sync")}
             </button>
             <button
               className="companion-game__top-btn companion-game__top-btn--primary"
               onClick={() => setDrawerOpen(true)}
             >
-              Control Hub
+              {t("companion.controlHub")}
             </button>
           </div>
         </header>
@@ -652,7 +670,7 @@ export function CompanionView() {
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-[148px_minmax(0,1fr)_296px]">
           <aside className="companion-game__left-rail">
             <div className="companion-game__rail-actions" data-testid="companion-quick-actions">
-              <div className="companion-game__rail-title">Quick Actions</div>
+              <div className="companion-game__rail-title">{t("companion.quickActions")}</div>
               <div className="companion-game__action-list">
                 {quickActions.map((action) => {
                   const isLimit =
@@ -664,10 +682,10 @@ export function CompanionView() {
                     ? "cooldown"
                     : "ready";
                   const statusText = isLimit
-                    ? "limit reached"
+                    ? t("companion.status.limitReached")
                     : isCooldown
                     ? formatDuration(action.cooldownMs)
-                    : "ready";
+                    : t("companion.status.ready");
                   // Show the explanatory hint only when the action is on cooldown or at its limit.
                   const showCooldownHint = isLimit || isCooldown;
 
@@ -711,13 +729,15 @@ export function CompanionView() {
           <section className="companion-game__stage" data-testid="companion-stage">
             <div className="companion-game__stage-head">
               <div>
-                <div className="companion-game__headline">Agent Companion</div>
+                <div className="companion-game__headline">{t("companion.headline")}</div>
                 <p className="companion-game__subline">
                   <span className="text-accent">{companionSnapshot.evolutionStage.label}</span>
                   {" · "}
-                  <span className="companion-game__days-together">Day {daysTogether}</span>
+                  <span className="companion-game__days-together">
+                    {t("companion.day")} {daysTogether}
+                  </span>
                   {" · "}
-                  Streak {state.streakDays}d
+                  {t("companion.streak")} {state.streakDays}d
                 </p>
               </div>
               <div className="companion-game__tier-chip">{MOOD_TIER_LABELS[companionSnapshot.moodTier] ?? companionSnapshot.moodTier}</div>
@@ -746,7 +766,7 @@ export function CompanionView() {
                 {showVrmFallback && !vrmLoaded && (
                   <img
                     src={fallbackPreviewUrl}
-                    alt="companion avatar preview"
+                    alt={t("companion.avatarPreviewAlt")}
                     className="absolute left-1/2 top-1/2 h-[78%] -translate-x-1/2 -translate-y-1/2 object-contain opacity-90"
                   />
                 )}
@@ -760,10 +780,10 @@ export function CompanionView() {
           </section>
 
           <aside className="companion-game__roster" data-testid="companion-roster">
-            <div className="companion-game__panel-title">Character Roster</div>
+            <div className="companion-game__panel-title">{t("companion.roster")}</div>
             {selectedVrmIndex === 0 && (
               <div className="companion-game__status-notes">
-                Custom VRM active. Choose a roster slot to switch back.
+                {t("companion.customVrmActive")}
               </div>
             )}
             <div className="companion-game__roster-list">
@@ -783,7 +803,7 @@ export function CompanionView() {
                     <span className="companion-game__roster-meta">
                       <span className="companion-game__roster-title">{item.title}</span>
                       <span className="companion-game__roster-subtitle">
-                        {active ? "active companion" : "switch avatar"}
+                        {active ? t("companion.activeCompanion") : t("companion.switchAvatar")}
                       </span>
                     </span>
                   </button>
@@ -795,7 +815,7 @@ export function CompanionView() {
               className="companion-game__panel-btn"
               onClick={() => setDrawerOpen(true)}
             >
-              Open Control Hub
+              {t("companion.openControlHub")}
             </button>
           </aside>
         </div>
@@ -803,12 +823,24 @@ export function CompanionView() {
         <section className="companion-game__kpi-grid" data-testid="companion-kpi">
           {statItems.map((item) => {
             const value = Math.round(item.value);
-            let note = "core status";
+            let note = t("companion.coreStatus");
             if (item.id === "mood") note = MOOD_TIER_LABELS[companionSnapshot.moodTier] ?? companionSnapshot.moodTier;
-            if (item.id === "hunger") note = `feed ${formatDuration(cooldowns.feed)}`;
-            if (item.id === "energy") note = `rest ${formatDuration(cooldowns.rest)}`;
+            if (item.id === "hunger") {
+              note = `${t("companion.action.feed").toLowerCase()} ${
+                cooldowns.feed > 0
+                  ? formatDuration(cooldowns.feed)
+                  : t("companion.status.ready")
+              }`;
+            }
+            if (item.id === "energy") {
+              note = `${t("companion.action.rest").toLowerCase()} ${
+                cooldowns.rest > 0
+                  ? formatDuration(cooldowns.rest)
+                  : t("companion.status.ready")
+              }`;
+            }
             if (item.id === "social") {
-              note = `chat ${companionSnapshot.today.chatCount}/${companionSnapshot.today.chatCap}`;
+              note = `${t("companion.chat")} ${companionSnapshot.today.chatCount}/${companionSnapshot.today.chatCap}`;
             }
             const tooltip = STAT_TOOLTIPS[item.id] ?? "";
             return (
@@ -843,19 +875,19 @@ export function CompanionView() {
       <aside className={`companion-game__drawer ${drawerOpen ? "is-open" : ""}`} aria-hidden={!drawerOpen}>
         <div className="companion-game__drawer-header">
           <div>
-            <h3>Control Hub</h3>
-            <p>Settings, share tools, and recent activity.</p>
+            <h3>{t("companion.controlHub")}</h3>
+            <p>{t("companion.drawer.subtitle")}</p>
           </div>
           <button className="companion-game__drawer-close" onClick={() => setDrawerOpen(false)}>
-            Close
+            {t("companion.close")}
           </button>
         </div>
 
         <section className="companion-game__drawer-section">
-          <div className="companion-game__drawer-title">Status Overview</div>
+          <div className="companion-game__drawer-title">{t("companion.statusOverview")}</div>
           <div className="companion-game__mini-progress">
             <div className="companion-game__mini-progress-label">
-              <span>Autopost</span>
+              <span>{t("companion.autopost")}</span>
               <span>{companionSnapshot.today.autoPostCount}/{companionSnapshot.today.autoPostCap}</span>
             </div>
             <div className="companion-game__mini-progress-track">
@@ -864,7 +896,7 @@ export function CompanionView() {
           </div>
 
           <div className={`companion-game__status-chip ${autopostEligible ? "is-good" : "is-danger"}`}>
-            {autopostEligible ? "Autopost eligible" : "Autopost paused"}
+            {autopostEligible ? t("companion.autopostEligible") : t("companion.autopostPaused")}
           </div>
 
           {!autopostEligible && (
@@ -873,21 +905,21 @@ export function CompanionView() {
 
           {softPenalty && (
             <div className="companion-game__status-notes companion-game__status-notes--danger">
-              Low core stats are reducing gains and XP multipliers.
+              {t("companion.softPenaltyHint")}
             </div>
           )}
 
         </section>
 
         <section className="companion-game__drawer-section">
-          <div className="companion-game__drawer-title">Autopost Controls</div>
+          <div className="companion-game__drawer-title">{t("companion.autopostControls")}</div>
           <label className="companion-game__checkbox">
             <input
               type="checkbox"
               checked={autopostEnabled}
               onChange={(event) => setAutopostEnabled(event.target.checked)}
             />
-            <span>Enable Autopost</span>
+            <span>{t("companion.enableAutopost")}</span>
           </label>
           <label className="companion-game__checkbox">
             <input
@@ -895,12 +927,12 @@ export function CompanionView() {
               checked={autopostDryRun}
               onChange={(event) => setAutopostDryRun(event.target.checked)}
             />
-            <span>Dry Run Mode</span>
+            <span>{t("companion.dryRunMode")}</span>
           </label>
 
           <div className="companion-game__drawer-grid">
             <label className="companion-game__field">
-              <span>Quiet Start</span>
+              <span>{t("companion.quietStart")}</span>
               <select value={quietStart} onChange={(event) => setQuietStart(Number(event.target.value))}>
                 {Array.from({ length: 24 }).map((_, hour) => (
                   <option key={`qs-${hour}`} value={hour}>{formatClockHour(hour)}</option>
@@ -908,7 +940,7 @@ export function CompanionView() {
               </select>
             </label>
             <label className="companion-game__field">
-              <span>Quiet End</span>
+              <span>{t("companion.quietEnd")}</span>
               <select value={quietEnd} onChange={(event) => setQuietEnd(Number(event.target.value))}>
                 {Array.from({ length: 24 }).map((_, hour) => (
                   <option key={`qe-${hour}`} value={hour}>{formatClockHour(hour)}</option>
@@ -918,14 +950,14 @@ export function CompanionView() {
           </div>
 
           <label className="companion-game__field">
-            <span>Policy</span>
+            <span>{t("companion.policy")}</span>
             <select
               value={policyLevel}
               onChange={(event) => setPolicyLevel(event.target.value as CompanionPolicyLevel)}
             >
-              <option value="strict">Strict</option>
-              <option value="balanced">Balanced</option>
-              <option value="aggressive">Aggressive</option>
+              <option value="strict">{t("companion.policyStrict")}</option>
+              <option value="balanced">{t("companion.policyBalanced")}</option>
+              <option value="aggressive">{t("companion.policyAggressive")}</option>
             </select>
           </label>
 
@@ -935,42 +967,42 @@ export function CompanionView() {
               disabled={companionActionBusy}
               onClick={() => { void handleApplySettings(); }}
             >
-              Save Settings
+              {t("companion.saveSettings")}
             </button>
             <button
               className="companion-game__drawer-btn"
               onClick={() => { void refreshCompanionActivity(); }}
             >
-              Refresh Activity
+              {t("companion.refreshActivity")}
             </button>
           </div>
         </section>
 
         <section className="companion-game__drawer-section">
-          <div className="companion-game__drawer-title">Share Card</div>
+          <div className="companion-game__drawer-title">{t("companion.shareCard")}</div>
           <p className="companion-game__helper">
-            Export your current companion snapshot as text or PNG.
+            {t("companion.shareCardHint")}
           </p>
           <div className="companion-game__drawer-actions">
             <button
               className="companion-game__drawer-btn"
               onClick={() => { void handleCopySummary(); }}
             >
-              Copy Summary
+              {t("companion.copySummary")}
             </button>
             <button
               className="companion-game__drawer-btn"
               onClick={() => { void handleExportShareCard(); }}
             >
-              Download PNG
+              {t("companion.downloadPng")}
             </button>
           </div>
         </section>
 
         <section className="companion-game__drawer-section">
-          <div className="companion-game__drawer-title">Activity</div>
+          <div className="companion-game__drawer-title">{t("companion.activity")}</div>
           {companionActivity.length === 0 ? (
-            <div className="companion-game__helper">No events yet.</div>
+            <div className="companion-game__helper">{t("companion.noEvents")}</div>
           ) : (
             <div className="companion-game__activity-list">
               {companionActivity.map((event) => (

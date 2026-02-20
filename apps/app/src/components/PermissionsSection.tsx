@@ -24,12 +24,13 @@ import {
 import { hasRequiredOnboardingPermissions } from "../onboarding-permissions";
 import { StatusBadge } from "./shared/ui-badges";
 import { Switch } from "./shared/ui-switch";
+import { createTranslator } from "../i18n";
 
 /** Permission definition for UI rendering. */
 interface PermissionDef {
   id: SystemPermissionId;
-  name: string;
-  description: string;
+  nameKey: string;
+  descriptionKey: string;
   icon: string;
   platforms: string[];
   requiredForFeatures: string[];
@@ -38,40 +39,40 @@ interface PermissionDef {
 const SYSTEM_PERMISSIONS: PermissionDef[] = [
   {
     id: "accessibility",
-    name: "Accessibility",
-    description: "Control mouse, keyboard, and interact with other applications",
+    nameKey: "permissions.accessibility",
+    descriptionKey: "permissions.accessibilityDesc",
     icon: "cursor",
     platforms: ["darwin"],
     requiredForFeatures: ["computeruse", "browser"],
   },
   {
     id: "screen-recording",
-    name: "Screen Recording",
-    description: "Capture screen content for screenshots and vision",
+    nameKey: "permissions.screenRecording",
+    descriptionKey: "permissions.screenRecordingDesc",
     icon: "monitor",
     platforms: ["darwin"],
     requiredForFeatures: ["computeruse", "vision"],
   },
   {
     id: "microphone",
-    name: "Microphone",
-    description: "Voice input for talk mode and speech recognition",
+    nameKey: "permissions.microphone",
+    descriptionKey: "permissions.microphoneDesc",
     icon: "mic",
     platforms: ["darwin", "win32", "linux"],
     requiredForFeatures: ["talkmode", "voice"],
   },
   {
     id: "camera",
-    name: "Camera",
-    description: "Video input for vision and video capture",
+    nameKey: "permissions.camera",
+    descriptionKey: "permissions.cameraDesc",
     icon: "camera",
     platforms: ["darwin", "win32", "linux"],
     requiredForFeatures: ["camera", "vision"],
   },
   {
     id: "shell",
-    name: "Shell Access",
-    description: "Execute terminal commands and scripts",
+    nameKey: "permissions.shellAccess",
+    descriptionKey: "permissions.shellAccessDesc",
     icon: "terminal",
     platforms: ["darwin", "win32", "linux"],
     requiredForFeatures: ["shell"],
@@ -81,41 +82,41 @@ const SYSTEM_PERMISSIONS: PermissionDef[] = [
 /** Capability toggle definition. */
 interface CapabilityDef {
   id: string;
-  label: string;
-  description: string;
+  labelKey: string;
+  descriptionKey: string;
   requiredPermissions: SystemPermissionId[];
 }
 
 const CAPABILITIES: CapabilityDef[] = [
   {
     id: "browser",
-    label: "Browser Control",
-    description: "Automated web browsing and interaction",
+    labelKey: "permissions.browserControl",
+    descriptionKey: "permissions.browserControlDesc",
     requiredPermissions: ["accessibility"],
   },
   {
     id: "computeruse",
-    label: "Computer Use",
-    description: "Full desktop control with mouse and keyboard",
+    labelKey: "permissions.computerUse",
+    descriptionKey: "permissions.computerUseDesc",
     requiredPermissions: ["accessibility", "screen-recording"],
   },
   {
     id: "vision",
-    label: "Vision",
-    description: "Screen capture and visual analysis",
+    labelKey: "permissions.vision",
+    descriptionKey: "permissions.visionDesc",
     requiredPermissions: ["screen-recording"],
   },
 ];
 
 const PERMISSION_BADGE_LABELS: Record<
   PermissionStatus,
-  { tone: "success" | "danger" | "warning" | "muted"; label: string }
+  { tone: "success" | "danger" | "warning" | "muted"; labelKey: string }
 > = {
-  granted: { tone: "success", label: "Granted" },
-  denied: { tone: "danger", label: "Denied" },
-  "not-determined": { tone: "warning", label: "Not Set" },
-  restricted: { tone: "muted", label: "Restricted" },
-  "not-applicable": { tone: "muted", label: "N/A" },
+  granted: { tone: "success", labelKey: "permissions.granted" },
+  denied: { tone: "danger", labelKey: "permissions.denied" },
+  "not-determined": { tone: "warning", labelKey: "permissions.notSet" },
+  restricted: { tone: "muted", labelKey: "permissions.restricted" },
+  "not-applicable": { tone: "muted", labelKey: "permissions.na" },
 };
 
 /** Icon mapping for permissions. */
@@ -140,6 +141,7 @@ function PermissionRow({
   isShell,
   shellEnabled,
   onToggleShell,
+  t,
 }: {
   def: PermissionDef;
   status: PermissionStatus;
@@ -149,24 +151,26 @@ function PermissionRow({
   isShell: boolean;
   shellEnabled: boolean;
   onToggleShell?: (enabled: boolean) => void;
+  t: (key: string, vars?: Record<string, string | number | boolean | null | undefined>) => string;
 }) {
   const showAction = status !== "granted" && status !== "not-applicable";
+  const badge = PERMISSION_BADGE_LABELS[status];
 
   return (
     <div className="flex items-center gap-3 py-2.5 px-3 border-b border-[var(--border)] last:border-b-0">
       <PermissionIcon icon={def.icon} />
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <span className="font-semibold text-[13px]">{def.name}</span>
+          <span className="font-semibold text-[13px]">{t(def.nameKey)}</span>
           <StatusBadge
-            label={PERMISSION_BADGE_LABELS[status].label}
-            tone={PERMISSION_BADGE_LABELS[status].tone}
+            label={t(badge.labelKey)}
+            tone={badge.tone}
             withDot
             className="rounded-full font-semibold"
           />
         </div>
         <div className="text-[11px] text-[var(--muted)] mt-0.5 truncate">
-          {def.description}
+          {t(def.descriptionKey)}
         </div>
       </div>
       <div className="flex items-center gap-2">
@@ -174,7 +178,11 @@ function PermissionRow({
           <Switch
             checked={shellEnabled}
             onChange={onToggleShell}
-            title={shellEnabled ? "Disable shell access" : "Enable shell access"}
+            title={
+              shellEnabled
+                ? t("permissions.disableShell")
+                : t("permissions.enableShell")
+            }
             trackOnClass="bg-[var(--accent)]"
             trackOffClass="bg-[var(--border)]"
           />
@@ -187,7 +195,7 @@ function PermissionRow({
                 className="btn text-[11px] py-1 px-2.5"
                 onClick={onRequest}
               >
-                Request
+                {t("permissions.request")}
               </button>
             )}
             <button
@@ -195,7 +203,7 @@ function PermissionRow({
               className="btn text-[11px] py-1 px-2.5"
               onClick={onOpenSettings}
             >
-              Settings
+              {t("permissions.settings")}
             </button>
           </>
         )}
@@ -206,11 +214,11 @@ function PermissionRow({
 
 /** Human-readable display names for system permission IDs used in capability requirement lists. */
 const PERMISSION_DISPLAY_NAMES: Record<SystemPermissionId, string> = {
-  accessibility: "Accessibility",
-  "screen-recording": "Screen Recording",
-  microphone: "Microphone",
-  camera: "Camera",
-  shell: "Shell access",
+  accessibility: "permissions.accessibility",
+  "screen-recording": "permissions.screenRecording",
+  microphone: "permissions.microphone",
+  camera: "permissions.camera",
+  shell: "permissions.shellAccess",
 };
 
 /** Capability toggle button. */
@@ -222,6 +230,7 @@ function CapabilityToggle({
   successId,
   errorId,
   onToggle,
+  t,
 }: {
   cap: CapabilityDef;
   plugin: PluginInfo | null;
@@ -230,6 +239,7 @@ function CapabilityToggle({
   successId: string | null;
   errorId: string | null;
   onToggle: (enabled: boolean) => void;
+  t: (key: string, vars?: Record<string, string | number | boolean | null | undefined>) => string;
 }) {
   const enabled = plugin?.enabled ?? false;
   const available = plugin !== null;
@@ -242,7 +252,7 @@ function CapabilityToggle({
   const requiresText =
     cap.requiredPermissions.length > 0
       ? cap.requiredPermissions
-          .map((id) => PERMISSION_DISPLAY_NAMES[id] ?? id)
+          .map((id) => t(PERMISSION_DISPLAY_NAMES[id] ?? id))
           .join(", ")
       : null;
 
@@ -254,7 +264,7 @@ function CapabilityToggle({
     >
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <span className="font-semibold text-[13px]">{cap.label}</span>
+          <span className="font-semibold text-[13px]">{t(cap.labelKey)}</span>
           {/* Spinner while the toggle API call is in-flight */}
           {isToggling && (
             <span className="text-[11px] text-[var(--muted)] animate-pulse">...</span>
@@ -265,23 +275,23 @@ function CapabilityToggle({
           )}
           {!permissionsGranted && (
             <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--warning)]/20 text-[var(--warning)]">
-              Missing Permissions
+              {t("permissions.missingPermissions")}
             </span>
           )}
         </div>
         <div className="text-[11px] text-[var(--muted)] mt-0.5">
-          {cap.description}
+          {t(cap.descriptionKey)}
         </div>
         {/* Required permissions hint shown beneath the capability description */}
         {requiresText && (
           <div className="text-[11px] text-[var(--muted)] mt-0.5">
-            Requires: {requiresText}
+            {t("permissions.requires")}: {requiresText}
           </div>
         )}
         {/* Inline error shown when the toggle API call fails */}
         {isError && !isToggling && (
           <div className="text-[11px] text-[var(--danger)] mt-0.5">
-            Failed to update — try again
+            {t("permissions.failedToUpdate")}
           </div>
         )}
       </div>
@@ -294,14 +304,14 @@ function CapabilityToggle({
         trackOffClass="bg-[var(--border)]"
         title={
           isToggling
-            ? "Updating..."
+            ? t("permissions.updating")
             : !available
-              ? "Plugin not available"
+              ? t("permissions.pluginNotAvailable")
               : !permissionsGranted
-                ? "Grant required permissions first"
+                ? t("permissions.grantRequiredFirst")
                 : enabled
-                  ? "Disable"
-                  : "Enable"
+                  ? t("permissions.disable")
+                  : t("permissions.enable")
         }
       />
     </div>
@@ -311,6 +321,7 @@ function CapabilityToggle({
 function usePermissionActions(
   setPermissions: Dispatch<SetStateAction<AllPermissionsState | null>>,
   setActionNotice?: (text: string, tone?: "info" | "success" | "error", ttlMs?: number) => void,
+  t?: (key: string, vars?: Record<string, string | number | boolean | null | undefined>) => string,
 ) {
   const hasNativePermissionBridge = useCallback(() => {
     if (typeof window === "undefined") return false;
@@ -351,12 +362,14 @@ function usePermissionActions(
     } catch (err) {
       console.error("Failed to request permission:", err);
       setActionNotice?.(
-        err instanceof Error ? err.message : "Failed to request permission.",
+        err instanceof Error
+          ? err.message
+          : (t?.("permissions.requestFailed") ?? "Failed to request permission."),
         "error",
         4200,
       );
     }
-  }, [hasNativePermissionBridge, setPermissions, setActionNotice]);
+  }, [hasNativePermissionBridge, setPermissions, setActionNotice, t]);
 
   const handleOpenSettings = useCallback(async (id: SystemPermissionId) => {
     try {
@@ -367,31 +380,41 @@ function usePermissionActions(
           }
         ).electron;
         await maybeElectron?.ipcRenderer?.invoke?.("permissions:openSettings", id);
-        setActionNotice?.("Opened system settings.", "success", 2200);
+        setActionNotice?.(
+          t?.("permissions.openedSystemSettings") ?? "Opened system settings.",
+          "success",
+          2200,
+        );
         return;
       }
 
       await client.openPermissionSettings(id);
       setActionNotice?.(
-        "Open Settings only works in Milady Desktop. In browser/cloud mode, open OS settings manually.",
+        t
+          ? t("permissions.openSettingsDesktopOnly")
+          : "Open Settings only works in Milady Desktop. In browser/cloud mode, open OS settings manually.",
         "info",
         5200,
       );
     } catch (err) {
       console.error("Failed to open settings:", err);
       setActionNotice?.(
-        err instanceof Error ? err.message : "Failed to open system settings.",
+        err instanceof Error
+          ? err.message
+          : (t?.("permissions.openSettingsFailed") ??
+            "Failed to open system settings."),
         "error",
         4200,
       );
     }
-  }, [hasNativePermissionBridge, setActionNotice]);
+  }, [hasNativePermissionBridge, setActionNotice, t]);
 
   return { handleRequest, handleOpenSettings };
 }
 
 export function PermissionsSection() {
-  const { plugins, handlePluginToggle, setActionNotice } = useApp();
+  const { plugins, handlePluginToggle, setActionNotice, uiLanguage } = useApp();
+  const t = createTranslator(uiLanguage);
   const [permissions, setPermissions] = useState<AllPermissionsState | null>(null);
   const [platform, setPlatform] = useState<string>("unknown");
   const [loading, setLoading] = useState(true);
@@ -411,6 +434,7 @@ export function PermissionsSection() {
   const { handleRequest, handleOpenSettings } = usePermissionActions(
     setPermissions,
     setActionNotice,
+    t,
   );
 
   /** Load permissions on mount. */
@@ -474,22 +498,24 @@ export function PermissionsSection() {
       setAutomationMode(result.mode);
       setActionNotice?.(
         result.mode === "full"
-          ? "Agent automation mode set to Full."
-          : "Agent automation mode set to Connectors only.",
+          ? t("permissions.automationModeSetFull")
+          : t("permissions.automationModeSetConnectors"),
         "success",
         2200,
       );
     } catch (err) {
       console.error("Failed to update automation mode:", err);
       setActionNotice?.(
-        err instanceof Error ? err.message : "Failed to update automation mode.",
+        err instanceof Error
+          ? err.message
+          : t("permissions.updateAutomationFailed"),
         "error",
         4200,
       );
     } finally {
       setAutomationSaving(false);
     }
-  }, [automationMode, automationSaving, setActionNotice]);
+  }, [automationMode, automationSaving, setActionNotice, t]);
 
   const handleTradeModeChange = useCallback(
     async (mode: TradePermissionMode) => {
@@ -500,15 +526,15 @@ export function PermissionsSection() {
         setTradeMode(result.mode);
         const notice =
           result.mode === "agent-auto"
-            ? "Trade mode set to Agent auto."
+            ? t("permissions.tradeModeSetAgent")
             : result.mode === "manual-local-key"
-              ? "Trade mode set to Manual local-key."
-              : "Trade mode set to User-sign only.";
+              ? t("permissions.tradeModeSetManual")
+              : t("permissions.tradeModeSetUser");
         setActionNotice?.(notice, "success", 2200);
       } catch (err) {
         console.error("Failed to update trade mode:", err);
         setActionNotice?.(
-          err instanceof Error ? err.message : "Failed to update trade mode.",
+          err instanceof Error ? err.message : t("permissions.updateTradeFailed"),
           "error",
           4200,
         );
@@ -516,7 +542,7 @@ export function PermissionsSection() {
         setTradeModeSaving(false);
       }
     },
-    [tradeMode, tradeModeSaving, setActionNotice],
+    [tradeMode, tradeModeSaving, setActionNotice, t],
   );
 
   const handleApplyProductionDefaults = useCallback(async () => {
@@ -525,9 +551,7 @@ export function PermissionsSection() {
       typeof window !== "undefined" && typeof window.confirm === "function"
         ? window.confirm.bind(window)
         : () => true;
-    const confirmed = confirmFn(
-      "Apply production wallet defaults?\n\nThis will enforce Pure Privy mode, set trade mode to User-sign only, disable local execution, and clear local private keys from runtime/config.",
-    );
+    const confirmed = confirmFn(t("permissions.confirmProductionDefaults"));
     if (!confirmed) return;
 
     setProductionDefaultsSaving(true);
@@ -535,7 +559,7 @@ export function PermissionsSection() {
       const result = await client.applyProductionWalletDefaults();
       setTradeMode(result.tradePermissionMode);
       setActionNotice?.(
-        "Production defaults applied: Pure Privy + User-sign only.",
+        t("permissions.productionDefaultsApplied"),
         "success",
         3200,
       );
@@ -544,14 +568,14 @@ export function PermissionsSection() {
       setActionNotice?.(
         err instanceof Error
           ? err.message
-          : "Failed to apply production defaults.",
+          : t("permissions.productionDefaultsFailed"),
         "error",
         4200,
       );
     } finally {
       setProductionDefaultsSaving(false);
     }
-  }, [productionDefaultsSaving, setActionNotice]);
+  }, [productionDefaultsSaving, setActionNotice, t]);
 
   /** Check if all required permissions for a capability are granted. */
   const arePermissionsGranted = useCallback(
@@ -575,7 +599,7 @@ export function PermissionsSection() {
   if (loading) {
     return (
       <div className="text-center py-6 text-[var(--muted)] text-xs">
-        Loading permissions...
+        {t("permissions.loadingPermissions")}
       </div>
     );
   }
@@ -583,7 +607,7 @@ export function PermissionsSection() {
   if (!permissions) {
     return (
       <div className="text-center py-6 text-[var(--muted)] text-xs">
-        Unable to load permissions. This feature requires Electron.
+        {t("permissions.unableLoadPermissions")}
       </div>
     );
   }
@@ -593,17 +617,19 @@ export function PermissionsSection() {
       {/* System Permissions */}
       <div>
         <div className="flex justify-between items-center mb-1">
-          <div className="font-bold text-sm">System Permissions</div>
+          <div className="font-bold text-sm">{t("permissions.systemPermissions")}</div>
           <button
             type="button"
             className="btn text-[11px] py-1 px-2.5"
             onClick={handleRefresh}
             disabled={refreshing}
           >
-            {refreshing ? "Refreshing..." : "Refresh"}
+            {refreshing ? t("permissions.refreshing") : t("permissions.refresh")}
           </button>
         </div>
-        <div className="text-[11px] text-[var(--muted)] mb-3">Desktop mode only — "Settings" buttons open macOS System Preferences via the native app.</div>
+        <div className="text-[11px] text-[var(--muted)] mb-3">
+          {t("permissions.desktopOnlyHint")}
+        </div>
         <div className="border border-[var(--border)] bg-[var(--card)]">
           {applicablePermissions.map((def) => {
             const state = permissions[def.id];
@@ -618,30 +644,26 @@ export function PermissionsSection() {
                 isShell={def.id === "shell"}
                 shellEnabled={shellEnabled}
                 onToggleShell={def.id === "shell" ? handleToggleShell : undefined}
+                t={t}
               />
             );
           })}
         </div>
         <div className="text-[11px] text-[var(--muted)] mt-2">
           {platform === "darwin" ? (
-            <>
-              macOS requires Accessibility permission for computer control.
-              Open System Preferences → Security & Privacy → Privacy to grant access.
-            </>
+            t("permissions.macosHint")
           ) : (
-            <>
-              Grant permissions to enable features like voice input and computer control.
-            </>
+            t("permissions.genericHint")
           )}
         </div>
       </div>
 
       {/* Agent automation permissions */}
       <div>
-        <div className="font-bold text-sm mb-3">Agent Automation Mode</div>
+        <div className="font-bold text-sm mb-3">{t("permissions.automationMode")}</div>
         <div className="border border-[var(--border)] bg-[var(--card)] p-3 space-y-2">
           <div className="text-[11px] text-[var(--muted)]">
-            Choose what the agent can change by itself.
+            {t("permissions.automationHint")}
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <button
@@ -656,9 +678,9 @@ export function PermissionsSection() {
                 void handleAutomationModeChange("connectors-only");
               }}
             >
-              <div className="text-[12px] font-semibold">Semi-automation</div>
+              <div className="text-[12px] font-semibold">{t("permissions.mode.semi")}</div>
               <div className="text-[11px] text-[var(--muted)] mt-0.5">
-                Agent can modify connectors only.
+                {t("permissions.mode.semiDesc")}
               </div>
             </button>
             <button
@@ -673,25 +695,30 @@ export function PermissionsSection() {
                 void handleAutomationModeChange("full");
               }}
             >
-              <div className="text-[12px] font-semibold">Full automation</div>
+              <div className="text-[12px] font-semibold">{t("permissions.mode.full")}</div>
               <div className="text-[11px] text-[var(--muted)] mt-0.5">
-                Agent can configure all plugins.
+                {t("permissions.mode.fullDesc")}
               </div>
             </button>
           </div>
           <div className="text-[11px] text-[var(--muted)]">
-            Current: <strong>{automationMode === "full" ? "Full" : "Connectors only"}</strong>
-            {automationSaving ? " (saving...)" : ""}
+            {t("permissions.current")}:{" "}
+            <strong>
+              {automationMode === "full"
+                ? t("permissions.mode.full")
+                : t("permissions.mode.semi")}
+            </strong>
+            {automationSaving ? ` (${t("permissions.saving")})` : ""}
           </div>
         </div>
       </div>
 
       {/* Wallet trade permissions */}
       <div>
-        <div className="font-bold text-sm mb-3">Wallet Trade Permission Mode</div>
+        <div className="font-bold text-sm mb-3">{t("permissions.tradeMode")}</div>
         <div className="border border-[var(--border)] bg-[var(--card)] p-3 space-y-2">
           <div className="text-[11px] text-[var(--muted)]">
-            Independent safety layer for BSC trade execution.
+            {t("permissions.tradeHint")}
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <button
@@ -706,9 +733,9 @@ export function PermissionsSection() {
                 void handleTradeModeChange("user-sign-only");
               }}
             >
-              <div className="text-[12px] font-semibold">User-sign only</div>
+              <div className="text-[12px] font-semibold">{t("permissions.trade.userSign")}</div>
               <div className="text-[11px] text-[var(--muted)] mt-0.5">
-                No server-side execution. Wallet signature required.
+                {t("permissions.trade.userSignDesc")}
               </div>
             </button>
             <button
@@ -723,9 +750,9 @@ export function PermissionsSection() {
                 void handleTradeModeChange("manual-local-key");
               }}
             >
-              <div className="text-[12px] font-semibold">Manual local-key</div>
+              <div className="text-[12px] font-semibold">{t("permissions.trade.manual")}</div>
               <div className="text-[11px] text-[var(--muted)] mt-0.5">
-                UI-triggered execution allowed; agent execution blocked.
+                {t("permissions.trade.manualDesc")}
               </div>
             </button>
             <button
@@ -740,26 +767,26 @@ export function PermissionsSection() {
                 void handleTradeModeChange("agent-auto");
               }}
             >
-              <div className="text-[12px] font-semibold">Agent auto</div>
+              <div className="text-[12px] font-semibold">{t("permissions.trade.agent")}</div>
               <div className="text-[11px] text-[var(--muted)] mt-0.5">
-                Agent is allowed to execute trades with local-key mode.
+                {t("permissions.trade.agentDesc")}
               </div>
             </button>
           </div>
           <div className="text-[11px] text-[var(--muted)]">
-            Current:{" "}
+            {t("permissions.current")}:{" "}
             <strong>
               {tradeMode === "agent-auto"
-                ? "Agent auto"
+                ? t("permissions.trade.agent")
                 : tradeMode === "manual-local-key"
-                  ? "Manual local-key"
-                  : "User-sign only"}
+                  ? t("permissions.trade.manual")
+                  : t("permissions.trade.userSign")}
             </strong>
-            {tradeModeSaving ? " (saving...)" : ""}
+            {tradeModeSaving ? ` (${t("permissions.saving")})` : ""}
           </div>
           <div className="pt-2 mt-1 border-t border-[var(--border)] flex items-center justify-between gap-2 flex-wrap">
             <div className="text-[11px] text-[var(--muted)]">
-              One-click production defaults for public deployment.
+              {t("permissions.productionDefaults")}
             </div>
             <button
               type="button"
@@ -770,8 +797,8 @@ export function PermissionsSection() {
               disabled={productionDefaultsSaving}
             >
               {productionDefaultsSaving
-                ? "Applying..."
-                : "Apply Production Defaults"}
+                ? t("permissions.applying")
+                : t("permissions.applyProductionDefaults")}
             </button>
           </div>
         </div>
@@ -779,7 +806,7 @@ export function PermissionsSection() {
 
       {/* Capability Toggles */}
       <div>
-        <div className="font-bold text-sm mb-3">Capabilities</div>
+        <div className="font-bold text-sm mb-3">{t("permissions.capabilities")}</div>
         <div className="space-y-2">
           {CAPABILITIES.map((cap) => {
             const plugin = plugins.find((p) => p.id === cap.id) ?? null;
@@ -810,13 +837,13 @@ export function PermissionsSection() {
                     setTogglingId(null);
                   }
                 }}
+                t={t}
               />
             );
           })}
         </div>
         <div className="text-[11px] text-[var(--muted)] mt-2">
-          Capabilities require their underlying system permissions to be granted.
-          Enable capabilities to unlock agent features.
+          {t("permissions.capabilitiesHint")}
         </div>
       </div>
     </div>
@@ -833,12 +860,14 @@ export function PermissionsOnboardingSection({
 }: {
   onContinue: (options?: { allowPermissionBypass?: boolean }) => void;
 }) {
-  const { setActionNotice } = useApp();
+  const { setActionNotice, uiLanguage } = useApp();
+  const t = createTranslator(uiLanguage);
   const [permissions, setPermissions] = useState<AllPermissionsState | null>(null);
   const [loading, setLoading] = useState(true);
   const { handleRequest, handleOpenSettings } = usePermissionActions(
     setPermissions,
     setActionNotice,
+    t,
   );
 
   useEffect(() => {
@@ -861,7 +890,7 @@ export function PermissionsOnboardingSection({
   if (loading) {
     return (
       <div className="text-center py-8">
-        <div className="text-[var(--muted)] text-sm">Checking permissions...</div>
+        <div className="text-[var(--muted)] text-sm">{t("permissions.checking")}</div>
       </div>
     );
   }
@@ -870,14 +899,14 @@ export function PermissionsOnboardingSection({
     return (
       <div className="text-center py-8">
         <div className="text-[var(--muted)] text-sm mb-4">
-          Unable to check permissions. You can configure them later in Settings.
+          {t("permissions.unableCheck")}
         </div>
         <button
           type="button"
           className="btn"
           onClick={() => onContinue({ allowPermissionBypass: true })}
         >
-          Continue
+          {t("permissions.continue")}
         </button>
       </div>
     );
@@ -892,9 +921,9 @@ export function PermissionsOnboardingSection({
   return (
     <div>
       <div className="text-center mb-6">
-        <div className="text-xl font-bold mb-2">System Permissions</div>
+        <div className="text-xl font-bold mb-2">{t("permissions.systemPermissions")}</div>
         <div className="text-[var(--muted)] text-sm">
-          Grant permissions to unlock full capabilities
+          {t("permissions.grantToUnlock")}
         </div>
       </div>
 
@@ -916,9 +945,9 @@ export function PermissionsOnboardingSection({
             >
               <PermissionIcon icon={def.icon} />
               <div className="flex-1">
-                <div className="font-semibold text-sm">{def.name}</div>
+                <div className="font-semibold text-sm">{t(def.nameKey)}</div>
                 <div className="text-[11px] text-[var(--muted)]">
-                  {def.description}
+                  {t(def.descriptionKey)}
                 </div>
               </div>
               {isGranted ? (
@@ -931,7 +960,7 @@ export function PermissionsOnboardingSection({
                       className="btn text-xs py-1.5 px-3"
                       onClick={() => handleRequest(def.id)}
                     >
-                      Grant
+                      {t("permissions.grant")}
                     </button>
                   )}
                   <button
@@ -939,7 +968,7 @@ export function PermissionsOnboardingSection({
                     className="btn text-xs py-1.5 px-3"
                     onClick={() => handleOpenSettings(def.id)}
                   >
-                    Open Settings
+                    {t("permissions.settings")}
                   </button>
                 </div>
               )}
@@ -954,7 +983,7 @@ export function PermissionsOnboardingSection({
           className="btn text-xs py-2 px-6 opacity-70"
           onClick={() => onContinue({ allowPermissionBypass: true })}
         >
-          Skip for Now
+          {t("permissions.skipForNow")}
         </button>
         {allGranted && (
           <button
@@ -966,13 +995,13 @@ export function PermissionsOnboardingSection({
             }}
             onClick={() => onContinue()}
           >
-            Continue
+            {t("permissions.continue")}
           </button>
         )}
       </div>
 
       <div className="text-center mt-4 text-[11px] text-[var(--muted)]">
-        You can change these settings later in Settings → Permissions
+        {t("permissions.changeLater")}
       </div>
     </div>
   );

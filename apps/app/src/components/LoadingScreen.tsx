@@ -8,6 +8,7 @@
 
 import { useMemo } from "react";
 import type { StartupPhase } from "../AppContext";
+import { createTranslator, type UiLanguage } from "../i18n";
 
 /* ── ASCII source ──────────────────────────────────────────────────── */
 
@@ -42,16 +43,21 @@ interface CharCell {
 
 /* ── Component ─────────────────────────────────────────────────────── */
 
-const PHASE_LABELS: Record<StartupPhase, string> = {
-  "starting-backend": "starting backend",
-  "initializing-agent": "initializing agent",
+const PHASE_LABEL_KEYS: Record<StartupPhase, string> = {
+  "starting-backend": "loading.startingBackend",
+  "initializing-agent": "loading.initializingAgent",
 };
 
 interface LoadingScreenProps {
   phase?: StartupPhase;
+  lang?: UiLanguage | string | null;
 }
 
-export function LoadingScreen({ phase = "starting-backend" }: LoadingScreenProps) {
+export function LoadingScreen({
+  phase = "starting-backend",
+  lang = "en",
+}: LoadingScreenProps) {
+  const t = createTranslator(lang);
   /* Build the character grid once — each non-space character gets its
      own random timing so the dither pattern is never uniform. */
   const grid = useMemo<CharCell[][]>(
@@ -105,7 +111,7 @@ export function LoadingScreen({ phase = "starting-backend" }: LoadingScreenProps
         className="text-muted text-xs tracking-widest uppercase"
         style={{ fontFamily: "var(--mono)" }}
       >
-        {PHASE_LABELS[phase]}
+        {t(PHASE_LABEL_KEYS[phase])}
       </div>
     </div>
   );

@@ -6,6 +6,11 @@
  */
 
 import type { ConfigUiHint } from "./types";
+import {
+  DEFAULT_UI_LANGUAGE,
+  normalizeLanguage,
+  type UiLanguage,
+} from "./i18n";
 import type {
   AudioGenConfig,
   AudioGenProvider,
@@ -420,6 +425,7 @@ export interface OnboardingData {
   /** What the agent should call the user. Optional — defaults to "User" if not set. */
   ownerName?: string;
   theme: string;
+  language?: UiLanguage;
   runMode: "local" | "cloud";
   /** Sandbox execution mode: "off" (rawdog), "light" (cloud), "standard" (local sandbox), "max". */
   sandboxMode?: "off" | "light" | "standard" | "max";
@@ -1480,6 +1486,7 @@ export class MiladyClient {
   private _baseUrl: string;
   private _explicitBase: boolean;
   private _token: string | null;
+  private _uiLanguage: UiLanguage = DEFAULT_UI_LANGUAGE;
   private ws: WebSocket | null = null;
   private wsHandlers = new Map<string, Set<WsEventHandler>>();
   private wsSendQueue: string[] = [];
@@ -1561,6 +1568,31 @@ export class MiladyClient {
     }
   }
 
+  setUiLanguage(language: UiLanguage | string): void {
+    this._uiLanguage = normalizeLanguage(language);
+  }
+
+  private buildRequestHeaders(
+    headers: HeadersInit | undefined,
+    token: string | null,
+    opts?: { stream?: boolean },
+  ): Headers {
+    const merged = new Headers(headers ?? undefined);
+    if (!merged.has("Content-Type")) {
+      merged.set("Content-Type", "application/json");
+    }
+    if (opts?.stream && !merged.has("Accept")) {
+      merged.set("Accept", "text/event-stream");
+    }
+    if (!merged.has("X-Milady-UI-Language")) {
+      merged.set("X-Milady-UI-Language", this._uiLanguage);
+    }
+    if (token && !merged.has("Authorization")) {
+      merged.set("Authorization", `Bearer ${token}`);
+    }
+    return merged;
+  }
+
   /** True when we have a usable HTTP(S) API endpoint. */
   get apiAvailable(): boolean {
     if (this.baseUrl) return true;
@@ -1577,14 +1609,11 @@ export class MiladyClient {
     if (!this.apiAvailable) {
       throw new Error("API not available (no HTTP origin)");
     }
-    const makeRequest = (token: string | null) => fetch(`${this.baseUrl}${path}`, {
-      ...init,
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        ...init?.headers,
-      },
-    });
+    const makeRequest = (token: string | null) =>
+      fetch(`${this.baseUrl}${path}`, {
+        ...init,
+        headers: this.buildRequestHeaders(init?.headers, token),
+      });
 
     const token = this.apiToken;
     let res = await makeRequest(token);
@@ -2866,11 +2895,7 @@ export class MiladyClient {
     const token = this.apiToken;
     const res = await fetch(`${this.baseUrl}${path}`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "text/event-stream",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
+      headers: this.buildRequestHeaders(undefined, token, { stream: true }),
       body: JSON.stringify({ text, mode }),
       signal,
     });

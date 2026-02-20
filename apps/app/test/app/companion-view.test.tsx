@@ -1,6 +1,6 @@
 import React from "react";
 import TestRenderer, { act } from "react-test-renderer";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CompanionStateSnapshot } from "../../src/api-client";
 
 const { mockUseApp } = vi.hoisted(() => ({
@@ -11,6 +11,7 @@ vi.mock("../../src/AppContext", () => ({
   useApp: () => mockUseApp(),
   getVrmPreviewUrl: () => "/vrms/previews/milady-1.png",
   getVrmUrl: () => "/vrms/milady-1.vrm",
+  getVrmTitle: (index: number) => `MILADY-${index}`,
   VRM_COUNT: 24,
 }));
 
@@ -40,6 +41,11 @@ function createSnapshot(overrides?: Partial<CompanionStateSnapshot>): CompanionS
       manualShareCap: 2,
       autoPostCount: 2,
       autoPostCap: 6,
+    },
+    evolutionStage: {
+      id: "baby",
+      label: "Seed",
+      description: "Newly awakened companion.",
     },
     state: {
       version: 1,
@@ -139,6 +145,7 @@ function createContext(snapshot: CompanionStateSnapshot | null) {
     selectedVrmIndex: 1,
     customVrmUrl: "",
     copyToClipboard: vi.fn(async () => {}),
+    uiLanguage: "en",
   };
 }
 
@@ -149,6 +156,27 @@ function text(node: TestRenderer.ReactTestInstance): string {
 }
 
 describe("CompanionView", () => {
+  const originalWindow = globalThis.window;
+
+  beforeEach(() => {
+    Object.defineProperty(globalThis, "window", {
+      value: {
+        setTimeout: globalThis.setTimeout.bind(globalThis),
+        clearTimeout: globalThis.clearTimeout.bind(globalThis),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      },
+      configurable: true,
+    });
+  });
+
+  afterEach(() => {
+    Object.defineProperty(globalThis, "window", {
+      value: originalWindow,
+      configurable: true,
+    });
+  });
+
   it("renders game-style companion sections and autopost summary", async () => {
     mockUseApp.mockReturnValue(createContext(createSnapshot()));
 
@@ -159,13 +187,12 @@ describe("CompanionView", () => {
 
     const content = text(tree!.root);
     expect(content).toContain("Companion Console");
-    expect(content).toContain("Agent Companion");
+    expect(content).toContain("Cyber Companion");
     expect(content).toContain("Character Roster");
     expect(content).toContain("Mood");
     expect(content).toContain("Hunger");
     expect(content).toContain("Energy");
     expect(content).toContain("Social");
-    expect(content).toContain("Autopost today: 2/6");
     expect(content).toContain("Control Hub");
   });
 
@@ -211,7 +238,7 @@ describe("CompanionView", () => {
     expect(drawer.props.className.includes("is-open")).toBe(true);
 
     const saveButton = tree!.root.findAll(
-      (node) => node.type === "button" && text(node).trim() === "Save Settings",
+      (node) => node.type === "button" && text(node).trim() === "Save settings",
     )[0];
     expect(saveButton).toBeDefined();
 
@@ -230,7 +257,7 @@ describe("CompanionView", () => {
     });
 
     const content = text(tree!.root);
-    expect(content).toContain("Companion state is not available.");
+    expect(content).toContain("Companion is not available yet.");
     expect(content).toContain("Retry");
   });
 });

@@ -17,6 +17,7 @@ import { getVrmPreviewUrl, useApp } from "../AppContext.js";
 import { useVoiceChat, type VoicePlaybackStartEvent } from "../hooks/useVoiceChat.js";
 import { client, type VoiceConfig } from "../api-client.js";
 import { MessageContent } from "./MessageContent.js";
+import { createTranslator } from "../i18n";
 
 function nowMs(): number {
   return typeof performance !== "undefined" ? performance.now() : Date.now();
@@ -37,7 +38,9 @@ export function ChatView() {
     chatMode,
     chatAgentVoiceMuted,
     selectedVrmIndex,
+    uiLanguage,
   } = useApp();
+  const t = createTranslator(uiLanguage);
 
   const messagesRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -114,6 +117,7 @@ export function ChatView() {
   const voice = useVoiceChat({
     onTranscript: handleVoiceTranscript,
     onPlaybackStart: handleVoicePlaybackStart,
+    lang: uiLanguage === "zh-CN" ? "zh-CN" : "en-US",
     voiceConfig,
   });
   const { queueAssistantSpeech, stopSpeaking } = voice;
@@ -220,7 +224,7 @@ export function ChatView() {
       <div ref={messagesRef} className="flex-1 overflow-y-auto py-2 relative" style={{ zIndex: 1 }}>
         {visibleMsgs.length === 0 && !chatSending ? (
           <div className="text-center py-10 text-muted italic">
-            Send a message to start chatting.
+            {t("chat.empty")}
           </div>
         ) : (
           <div className="w-full px-0">
@@ -259,13 +263,13 @@ export function ChatView() {
                   >
                     {!grouped && (
                       <div className="font-bold text-[12px] mb-1 text-accent">
-                        {isUser ? "You" : agentName}
+                        {isUser ? t("chat.you") : agentName}
                         {!isUser &&
                           typeof msg.source === "string" &&
                           msg.source &&
                           msg.source !== "client_chat" && (
                             <span className="ml-1.5 text-[10px] font-normal text-muted">
-                              via {msg.source}
+                              {t("chat.via")} {msg.source}
                             </span>
                           )}
                       </div>
@@ -332,7 +336,7 @@ export function ChatView() {
                 : "border-border bg-card text-muted hover:border-accent hover:text-accent"
             }`}
             onClick={voice.toggleListening}
-            title={voice.isListening ? "Stop listening" : "Voice input"}
+            title={voice.isListening ? t("chat.stopListening") : t("chat.voiceInput")}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill={voice.isListening ? "currentColor" : "none"} stroke="currentColor" strokeWidth={voice.isListening ? "0" : "2"}>
               {voice.isListening ? (
@@ -362,7 +366,7 @@ export function ChatView() {
             ref={textareaRef}
             className="flex-1 px-3 py-2 border border-border bg-card text-txt text-sm font-body leading-relaxed resize-none overflow-y-hidden min-h-[38px] max-h-[200px] focus:border-accent focus:outline-none"
             rows={1}
-            placeholder={voice.isListening ? "Listening..." : "Type a message..."}
+            placeholder={voice.isListening ? t("chat.listening") : t("chat.inputPlaceholder")}
             value={chatInput}
             onChange={(e) => setState("chatInput", e.target.value)}
             onKeyDown={handleKeyDown}
@@ -375,17 +379,17 @@ export function ChatView() {
           <button
             className="h-[38px] px-4 py-2 border border-danger bg-danger/10 text-danger text-sm cursor-pointer hover:bg-danger/20 self-end"
             onClick={handleChatStop}
-            title="Stop generation"
+            title={t("chat.stopGeneration")}
           >
-            Stop
+            {t("chat.stop")}
           </button>
         ) : voice.isSpeaking ? (
           <button
             className="h-[38px] px-4 py-2 border border-danger bg-danger/10 text-danger text-sm cursor-pointer hover:bg-danger/20 self-end"
             onClick={stopSpeaking}
-            title="Stop speaking"
+            title={t("chat.stopSpeaking")}
           >
-            Stop Voice
+            {t("chat.stopVoice")}
           </button>
         ) : (
           <button
@@ -393,7 +397,7 @@ export function ChatView() {
             onClick={() => void handleChatSend(chatMode)}
             disabled={chatSending}
           >
-            Send
+            {t("chat.send")}
           </button>
         )}
       </div>

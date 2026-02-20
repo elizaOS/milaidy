@@ -25,6 +25,7 @@ import { DatabasePageView } from "./DatabasePageView";
 import { LogsPageView } from "./LogsPageView";
 import { TriggersView } from "./TriggersView";
 import type { Tab } from "../navigation";
+import { createTranslator } from "../i18n";
 
 type SubTab =
   | "plugins"
@@ -37,16 +38,16 @@ type SubTab =
   | "database"
   | "logs";
 
-const SUB_TABS: Array<{ id: SubTab; label: string; description: string }> = [
-  { id: "plugins", label: "Plugins", description: "Features and connectors" },
-  { id: "skills", label: "Skills", description: "Custom agent skills" },
-  { id: "actions", label: "Actions", description: "Custom agent actions" },
-  { id: "triggers", label: "Triggers", description: "Scheduled and event-based automations" },
-  { id: "fine-tuning", label: "Fine-Tuning", description: "Dataset and model training workflows" },
-  { id: "trajectories", label: "Trajectories", description: "LLM call history and analysis" },
-  { id: "runtime", label: "Runtime", description: "Deep runtime object introspection and load order" },
-  { id: "database", label: "Databases", description: "Tables, media, and vector browser" },
-  { id: "logs", label: "Logs", description: "Runtime and service logs" },
+const SUB_TABS: Array<{ id: SubTab; labelKey: string; descriptionKey: string }> = [
+  { id: "plugins", labelKey: "advanced.plugins", descriptionKey: "advanced.pluginsDesc" },
+  { id: "skills", labelKey: "advanced.skills", descriptionKey: "advanced.skillsDesc" },
+  { id: "actions", labelKey: "advanced.actions", descriptionKey: "advanced.actionsDesc" },
+  { id: "triggers", labelKey: "advanced.triggers", descriptionKey: "advanced.triggersDesc" },
+  { id: "fine-tuning", labelKey: "advanced.fineTuning", descriptionKey: "advanced.fineTuningDesc" },
+  { id: "trajectories", labelKey: "advanced.trajectories", descriptionKey: "advanced.trajectoriesDesc" },
+  { id: "runtime", labelKey: "advanced.runtime", descriptionKey: "advanced.runtimeDesc" },
+  { id: "database", labelKey: "advanced.database", descriptionKey: "advanced.databaseDesc" },
+  { id: "logs", labelKey: "advanced.logs", descriptionKey: "advanced.logsDesc" },
 ];
 
 function mapTabToSubTab(tab: Tab): SubTab {
@@ -65,7 +66,8 @@ function mapTabToSubTab(tab: Tab): SubTab {
 }
 
 export function AdvancedPageView() {
-  const { tab, setTab } = useApp();
+  const { tab, setTab, uiLanguage } = useApp();
+  const t = createTranslator(uiLanguage);
   const [selectedTrajectoryId, setSelectedTrajectoryId] = useState<string | null>(null);
 
   const currentSubTab = mapTabToSubTab(tab);
@@ -156,9 +158,9 @@ export function AdvancedPageView() {
                     : "border-transparent text-muted hover:text-txt hover:border-border"
                 }`}
                 onClick={() => handleSubTabChange(subTab.id)}
-                title={subTab.description}
+                title={t(subTab.descriptionKey)}
               >
-                {subTab.label}
+                {t(subTab.labelKey)}
               </button>
             );
           })}

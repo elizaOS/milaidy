@@ -67,6 +67,12 @@ import { tabFromPath, pathForTab, type Tab } from "./navigation";
 import { SkillScanReportSummary } from "./api-client";
 import { resolveAppAssetUrl } from "./asset-url";
 import { getMissingOnboardingPermissions } from "./onboarding-permissions";
+import {
+  DEFAULT_UI_LANGUAGE,
+  t as translateText,
+  normalizeLanguage,
+  type UiLanguage,
+} from "./i18n";
 
 // ── VRM helpers ─────────────────────────────────────────────────────────
 
@@ -125,6 +131,7 @@ export function isOfficialVrmIndex(index: number): boolean {
 // ── Theme ──────────────────────────────────────────────────────────────
 
 const THEME_STORAGE_KEY = "milady:theme";
+const UI_LANGUAGE_STORAGE_KEY = "milady:ui-language";
 
 export type ThemeName =
   | "milady"
@@ -166,6 +173,23 @@ function applyTheme(name: ThemeName) {
     localStorage.setItem(THEME_STORAGE_KEY, name);
   } catch {
     /* ignore */
+  }
+}
+
+function loadUiLanguage(): UiLanguage {
+  try {
+    const stored = localStorage.getItem(UI_LANGUAGE_STORAGE_KEY);
+    return normalizeLanguage(stored ?? DEFAULT_UI_LANGUAGE);
+  } catch {
+    return DEFAULT_UI_LANGUAGE;
+  }
+}
+
+function saveUiLanguage(language: UiLanguage): void {
+  try {
+    localStorage.setItem(UI_LANGUAGE_STORAGE_KEY, normalizeLanguage(language));
+  } catch {
+    // ignore
   }
 }
 
@@ -479,6 +503,7 @@ export interface AppState {
   // Core
   tab: Tab;
   currentTheme: ThemeName;
+  uiLanguage: UiLanguage;
   connected: boolean;
   agentStatus: AgentStatus | null;
   onboardingComplete: boolean;
@@ -753,6 +778,7 @@ export interface AppActions {
   // Navigation
   setTab: (tab: Tab) => void;
   setTheme: (theme: ThemeName) => void;
+  setUiLanguage: (language: UiLanguage) => void;
 
   // Lifecycle
   handleStart: () => Promise<void>;
@@ -895,6 +921,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // --- Core state ---
   const [tab, setTabRaw] = useState<Tab>("chat");
   const [currentTheme, setCurrentTheme] = useState<ThemeName>(loadTheme);
+  const [uiLanguage, setUiLanguageState] = useState<UiLanguage>(loadUiLanguage);
   const [connected, setConnected] = useState(false);
   const [agentStatus, setAgentStatus] = useState<AgentStatus | null>(null);
   const [onboardingComplete, setOnboardingComplete] = useState(false);
@@ -1255,6 +1282,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setCurrentTheme(name);
     applyTheme(name);
   }, []);
+
+  const setUiLanguage = useCallback((language: UiLanguage) => {
+    const nextLanguage = normalizeLanguage(language);
+    setUiLanguageState(nextLanguage);
+    void client.updateConfig({ ui: { language: nextLanguage } }).catch(() => {
+      setActionNotice(
+        translateText(nextLanguage, "settings.languageSyncFailed"),
+        "error",
+        3200,
+      );
+    });
+  }, [setActionNotice]);
+
+  useEffect(() => {
+    saveUiLanguage(uiLanguage);
+    const maybeSetUiLanguage = (client as { setUiLanguage?: (lang: UiLanguage) => void }).setUiLanguage;
+    if (typeof maybeSetUiLanguage === "function") {
+      maybeSetUiLanguage(uiLanguage);
+    }
+  }, [uiLanguage]);
 
   // ── Navigation ─────────────────────────────────────────────────────
 
@@ -3151,6 +3198,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         name: onboardingName,
         ownerName: onboardingOwnerName.trim() || undefined,
         theme: onboardingTheme,
+        language: uiLanguage,
         runMode: apiRunMode as "local" | "cloud",
         sandboxMode: effectiveRunMode === "local-sandbox" ? "standard" : effectiveRunMode === "cloud" ? "light" : "off",
         bio: style?.bio ?? ["An autonomous AI agent."],
@@ -3193,6 +3241,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [
     onboardingRestarting,
     onboardingOptions, onboardingStyle, onboardingName, onboardingOwnerName, onboardingTheme,
+    uiLanguage,
     onboardingRunMode, onboardingCloudProvider, onboardingSmallModel,
     onboardingLargeModel, onboardingProvider, onboardingApiKey,
     onboardingPrimaryModel,
@@ -3413,6 +3462,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const setState = useCallback(<K extends keyof AppState>(key: K, value: AppState[K]) => {
     const setterMap: Partial<{ [S in keyof AppState]: (v: AppState[S]) => void }> = {
       tab: setTabRaw,
+      uiLanguage: setUiLanguageState,
       chatInput: setChatInput,
       chatAvatarVisible: setChatAvatarVisible,
       chatAgentVoiceMuted: setChatAgentVoiceMuted,
@@ -3805,8 +3855,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       try {
         const cfg = await client.getConfig();
         const settings = cfg.settings as Record<string, unknown> | undefined;
+        const ui = cfg.ui as Record<string, unknown> | undefined;
         if (settings?.avatarIndex != null) {
           setSelectedVrmIndex(Number(settings.avatarIndex));
+        }
+        if (ui?.language != null) {
+          setUiLanguageState(normalizeLanguage(ui.language));
         }
       } catch {
         /* ignore — localStorage fallback already loaded */
@@ -3895,7 +3949,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const value: AppContextValue = {
     // State
-    tab, currentTheme, connected, agentStatus, onboardingComplete, onboardingLoading,
+    tab, currentTheme, uiLanguage, connected, agentStatus, onboardingComplete, onboardingLoading,
     startupPhase, authRequired, publicAppMode, actionNotice, lifecycleBusy, lifecycleAction,
     pairingEnabled, pairingExpiresAt, pairingCodeInput, pairingError, pairingBusy,
     chatInput, chatSending, chatFirstTokenReceived,
@@ -3952,7 +4006,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     activeGamePostMessagePayload,
 
     // Actions
-    setTab, setTheme,
+    setTab, setTheme, setUiLanguage,
     handleStart, handleStop, handlePauseResume, handleRestart, handleReset,
     handleChatSend, handleChatStop, handleChatClear, handleNewConversation,
     handleSelectConversation, handleDeleteConversation, handleRenameConversation,

@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useApp } from "../AppContext.js";
+import { createTranslator } from "../i18n";
 
 export function Header() {
   const {
@@ -7,7 +8,9 @@ export function Header() {
     cloudTopUpUrl, walletAddresses, lifecycleBusy, lifecycleAction, handlePauseResume,
     handleRestart, openCommandPalette, copyToClipboard, setTab,
     dropStatus, loadDropStatus, registryStatus,
+    uiLanguage,
   } = useApp();
+  const t = createTranslator(uiLanguage);
 
   useEffect(() => { void loadDropStatus(); }, [loadDropStatus]);
 
@@ -44,7 +47,7 @@ export function Header() {
             className="inline-flex items-center gap-1.5 px-3 py-1 border border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] text-xs font-bold text-[var(--accent)] cursor-pointer hover:bg-[color-mix(in_srgb,var(--accent)_20%,transparent)] transition-colors animate-pulse"
           >
             <span className="inline-block w-2 h-2 rounded-full bg-[var(--accent)] animate-ping" style={{ animationDuration: "1.5s" }} />
-            Free Mint Live!
+            {t("header.freeMintLive")}
           </button>
         )}
         {(cloudEnabled || cloudConnected) && (
@@ -52,11 +55,11 @@ export function Header() {
             <a href={cloudTopUpUrl} target="_blank" rel="noopener noreferrer"
               className={`inline-flex items-center gap-1 px-2.5 py-0.5 border font-mono text-xs no-underline transition-colors hover:border-accent hover:text-accent ${cloudCredits === null ? "border-muted text-muted" : creditColor}`}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 18V6"/></svg>
-              {cloudCredits === null ? "Cloud connected" : `$${cloudCredits.toFixed(2)}`}
+              {cloudCredits === null ? t("header.cloudConnected") : `$${cloudCredits.toFixed(2)}`}
             </a>
           ) : (
             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 border border-danger text-danger font-mono text-xs">
-              Cloud disconnected
+              {t("header.cloudDisconnected")}
             </span>
           )
         )}
@@ -67,7 +70,7 @@ export function Header() {
           ) : (
             <button
               onClick={handlePauseResume}
-              title={state === "paused" ? "Resume autonomy" : "Pause autonomy"}
+              title={state === "paused" ? t("header.resumeAutonomy") : t("header.pauseAutonomy")}
               className={`${iconBtn} disabled:opacity-40 disabled:cursor-not-allowed`}
               disabled={pauseResumeDisabled}
             >
@@ -77,10 +80,12 @@ export function Header() {
           <button
             onClick={handleRestart}
             disabled={lifecycleBusy || state === "restarting"}
-            title="Restart agent"
+            title={t("header.restartAgent")}
             className="inline-flex items-center h-7 px-3 border border-border bg-bg text-xs font-mono cursor-pointer hover:border-accent hover:text-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            {restartBusy || state === "restarting" ? "Restarting..." : "Restart"}
+            {restartBusy || state === "restarting"
+              ? t("header.restarting")
+              : t("header.restart")}
           </button>
         </div>
         {(evmShort || solShort) && (
@@ -94,7 +99,7 @@ export function Header() {
                   <span className="font-bold font-mono min-w-[30px]">EVM</span>
                   <code className="font-mono flex-1 truncate">{evmShort}</code>
                   <button onClick={(e) => { e.stopPropagation(); copyToClipboard(walletAddresses!.evmAddress!); }}
-                    className="px-1.5 py-0.5 border border-border bg-bg text-[10px] font-mono cursor-pointer hover:border-accent hover:text-accent">copy</button>
+                    className="px-1.5 py-0.5 border border-border bg-bg text-[10px] font-mono cursor-pointer hover:border-accent hover:text-accent">{t("header.walletCopy")}</button>
                 </div>
               )}
               {solShort && (
@@ -102,7 +107,7 @@ export function Header() {
                   <span className="font-bold font-mono min-w-[30px]">SOL</span>
                   <code className="font-mono flex-1 truncate">{solShort}</code>
                   <button onClick={(e) => { e.stopPropagation(); copyToClipboard(walletAddresses!.solanaAddress!); }}
-                    className="px-1.5 py-0.5 border border-border bg-bg text-[10px] font-mono cursor-pointer hover:border-accent hover:text-accent">copy</button>
+                    className="px-1.5 py-0.5 border border-border bg-bg text-[10px] font-mono cursor-pointer hover:border-accent hover:text-accent">{t("header.walletCopy")}</button>
                 </div>
               )}
             </div>
@@ -110,7 +115,7 @@ export function Header() {
         )}
       </div>
     </header>
-    <button onClick={openCommandPalette} className="fixed bottom-5 right-5 z-50 inline-flex items-center h-7 px-3 border border-border bg-bg text-xs font-mono cursor-pointer hover:border-accent hover:text-accent transition-colors shadow-lg">Cmd+K</button>
+    <button onClick={openCommandPalette} className="fixed bottom-5 right-5 z-50 inline-flex items-center h-7 px-3 border border-border bg-bg text-xs font-mono cursor-pointer hover:border-accent hover:text-accent transition-colors shadow-lg">{t("header.cmdk")}</button>
   </>
   );
 }

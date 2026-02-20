@@ -24,6 +24,7 @@ import {
 import { getProviderLogo } from "../provider-logos.js";
 import { AvatarSelector } from "./AvatarSelector.js";
 import { PermissionsOnboardingSection } from "./PermissionsSection.js";
+import { createTranslator } from "../i18n";
 
 const SANDBOX_POLL_INTERVAL_MS = 3000;
 const SANDBOX_START_MAX_ATTEMPTS = 20;
@@ -128,6 +129,7 @@ export function OnboardingWizard() {
     customVrmUrl,
     onboardingRestarting,
     onboardingSetupMode,
+    uiLanguage,
     cloudConnected,
     cloudLoginBusy,
     cloudLoginError,
@@ -137,6 +139,7 @@ export function OnboardingWizard() {
     setTheme,
     handleCloudLogin,
   } = useApp();
+  const t = createTranslator(uiLanguage);
 
   const [showAllProviders, setShowAllProviders] = useState(false);
   const [openaiOAuthStarted, setOpenaiOAuthStarted] = useState(false);
@@ -357,8 +360,8 @@ export function OnboardingWizard() {
               vrmPath={avatarVrmPath}
               fallbackPreviewUrl={avatarFallbackPreviewUrl}
             />
-            <h1 className="text-[28px] font-normal mb-1 text-txt-strong">ohhh uhhhh hey there!</h1>
-            <h1 className="text-[28px] font-normal mb-1 text-txt-strong">welcome to milady!</h1>
+            <h1 className="text-[28px] font-normal mb-1 text-txt-strong">{t("onboarding.welcomeLine1")}</h1>
+            <h1 className="text-[28px] font-normal mb-1 text-txt-strong">{t("onboarding.welcomeLine2")}</h1>
           </div>
         );
 
@@ -370,8 +373,8 @@ export function OnboardingWizard() {
               fallbackPreviewUrl={avatarFallbackPreviewUrl}
             />
             <div className="onboarding-speech bg-card border border-border rounded-xl px-5 py-4 mx-auto mb-6 max-w-[600px] relative text-[15px] text-txt leading-relaxed">
-              <h2 className="text-[28px] font-normal mb-1 text-txt-strong">ohhh... what's my name again?</h2>
-              <span className="inline-block text-[10px] font-semibold uppercase tracking-wider text-accent border border-accent/40 px-1.5 py-0.5 rounded mt-1">* Required</span>
+              <h2 className="text-[28px] font-normal mb-1 text-txt-strong">{t("onboarding.nameQuestion")}</h2>
+              <span className="inline-block text-[10px] font-semibold uppercase tracking-wider text-accent border border-accent/40 px-1.5 py-0.5 rounded mt-1">* {t("onboarding.required")}</span>
             </div>
             <div className="flex flex-wrap gap-2 justify-center mx-auto mb-3">
               {onboardingOptions?.names.slice(0, 5).map((name: string) => (
@@ -416,7 +419,7 @@ export function OnboardingWizard() {
                     setState("onboardingName", customNameText);
                   }}
                   className="border-none bg-transparent text-sm font-bold w-full p-0 outline-none text-txt text-center placeholder:text-muted"
-                  placeholder="enter custom name..."
+                  placeholder={t("onboarding.customNamePlaceholder")}
                 />
               </div>
             </div>
@@ -434,9 +437,9 @@ export function OnboardingWizard() {
             />
             <div className="onboarding-speech bg-card border border-border rounded-xl px-5 py-4 mx-auto mb-6 max-w-[600px] relative text-[15px] text-txt leading-relaxed">
               <h2 className="text-[28px] font-normal mb-1 text-txt-strong">
-                and what should i call u?
+                {t("onboarding.ownerQuestion")}
               </h2>
-              <p className="text-[13px] opacity-60 mt-1">optional — skip if you don't mind being called anon</p>
+              <p className="text-[13px] opacity-60 mt-1">{t("onboarding.optionalOwnerHint")}</p>
             </div>
             <div className="flex flex-wrap gap-2 justify-center mx-auto mb-3">
               {ownerPresets.map((preset) => (
@@ -471,7 +474,7 @@ export function OnboardingWizard() {
                     if (!isOwnerCustom) setState("onboardingOwnerName", "");
                   }}
                   className="border-none bg-transparent text-sm font-bold w-full p-0 outline-none text-txt text-center placeholder:text-muted"
-                  placeholder="or type your own..."
+                  placeholder={t("onboarding.customOwnerPlaceholder")}
                 />
               </div>
             </div>
@@ -487,7 +490,7 @@ export function OnboardingWizard() {
               fallbackPreviewUrl={avatarFallbackPreviewUrl}
             />
             <div className="onboarding-speech bg-card border border-border rounded-xl px-5 py-4 mx-auto mb-6 max-w-[600px] relative text-[15px] text-txt leading-relaxed">
-              <h2 className="text-[28px] font-normal mb-1 text-txt-strong">what body should i, uhhh, use?</h2>
+              <h2 className="text-[28px] font-normal mb-1 text-txt-strong">{t("onboarding.avatarQuestion")}</h2>
             </div>
             <div className="mx-auto">
               <AvatarSelector
@@ -512,7 +515,7 @@ export function OnboardingWizard() {
               fallbackPreviewUrl={avatarFallbackPreviewUrl}
             />
             <div className="onboarding-speech bg-card border border-border rounded-xl px-5 py-4 mx-auto mb-6 max-w-[600px] relative text-[15px] text-txt leading-relaxed">
-              <h2 className="text-[28px] font-normal mb-1 text-txt-strong">whats my vibe?</h2>
+              <h2 className="text-[28px] font-normal mb-1 text-txt-strong">{t("onboarding.styleQuestion")}</h2>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mx-auto max-w-[480px]">
               {onboardingOptions?.styles.map((preset: StylePreset) => (
@@ -543,7 +546,7 @@ export function OnboardingWizard() {
               fallbackPreviewUrl={avatarFallbackPreviewUrl}
             />
             <div className="onboarding-speech bg-card border border-border rounded-xl px-5 py-4 mx-auto mb-6 max-w-[600px] relative text-[15px] text-txt leading-relaxed">
-              <h2 className="text-[28px] font-normal mb-1 text-txt-strong">what colors do u like?</h2>
+              <h2 className="text-[28px] font-normal mb-1 text-txt-strong">{t("onboarding.themeQuestion")}</h2>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-w-[600px] mx-auto">
               {THEMES.map((theme) => (
@@ -571,8 +574,8 @@ export function OnboardingWizard() {
               fallbackPreviewUrl={avatarFallbackPreviewUrl}
             />
             <div className="onboarding-speech bg-card border border-border rounded-xl px-5 py-4 mx-auto mb-6 max-w-[420px] relative text-[15px] text-txt leading-relaxed">
-              <h2 className="text-[28px] font-normal mb-1 text-txt-strong">how much setup?</h2>
-              <p className="text-muted text-sm">Choose your path — you can always change settings later.</p>
+              <h2 className="text-[28px] font-normal mb-1 text-txt-strong">{t("onboarding.howMuchSetup")}</h2>
+              <p className="text-muted text-sm">{t("onboarding.choosePath")}</p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-[420px] mx-auto">
               <button
@@ -583,9 +586,9 @@ export function OnboardingWizard() {
                 }`}
                 onClick={() => setState("onboardingSetupMode", "quick")}
               >
-                <div className="font-semibold text-sm mb-1">Quick Setup</div>
+                <div className="font-semibold text-sm mb-1">{t("onboarding.quickSetup")}</div>
                 <div className={`text-xs ${onboardingSetupMode === "quick" ? "opacity-80" : "text-muted"}`}>
-                  Recommended — pick your AI provider and go.
+                  {t("onboarding.quickSetupHint")}
                 </div>
               </button>
               <button
@@ -596,9 +599,9 @@ export function OnboardingWizard() {
                 }`}
                 onClick={() => setState("onboardingSetupMode", "advanced")}
               >
-                <div className="font-semibold text-sm mb-1">Full Setup</div>
+                <div className="font-semibold text-sm mb-1">{t("onboarding.fullSetup")}</div>
                 <div className={`text-xs ${onboardingSetupMode === "advanced" ? "opacity-80" : "text-muted"}`}>
-                  Configure run mode, wallets, connectors, and more.
+                  {t("onboarding.fullSetupHint")}
                 </div>
               </button>
             </div>
@@ -619,16 +622,16 @@ export function OnboardingWizard() {
                 fallbackPreviewUrl={avatarFallbackPreviewUrl}
               />
               <div className="onboarding-speech bg-card border border-border rounded-xl px-5 py-4 mx-auto mb-6 max-w-[600px] relative text-[15px] text-txt leading-relaxed">
-                <h2 className="text-[28px] font-normal mb-1 text-txt-strong">i'll live in the cloud~</h2>
+                <h2 className="text-[28px] font-normal mb-1 text-txt-strong">{t("onboarding.mobileCloudTitle")}</h2>
                 <p className="text-[13px] text-txt mt-1 opacity-70">
-                  since ur on mobile i'll run on eliza cloud. i can still do everything — browse the web, manage ur stuff, and more
+                  {t("onboarding.mobileCloudDescription")}
                 </p>
               </div>
               <div className="flex flex-col gap-3 max-w-[460px] mx-auto">
                 <div className="px-4 py-4 border border-accent bg-accent text-accent-fg rounded-lg text-left">
-                  <div className="font-bold text-sm">☁️ cloud (Recommended)</div>
+                  <div className="font-bold text-sm">{t("onboarding.cloudRecommended")}</div>
                   <div className="text-[12px] mt-1 opacity-80">
-                    always on, works from any device, easiest setup
+                    {t("onboarding.mobileCloudBadgeHint")}
                   </div>
                 </div>
               </div>
@@ -643,8 +646,8 @@ export function OnboardingWizard() {
               fallbackPreviewUrl={avatarFallbackPreviewUrl}
             />
             <div className="onboarding-speech bg-card border border-border rounded-xl px-5 py-4 mx-auto mb-6 max-w-[600px] relative text-[15px] text-txt leading-relaxed">
-              <h2 className="text-[28px] font-normal mb-1 text-txt-strong">where should i live?</h2>
-              <p className="text-[13px] text-txt mt-1 opacity-70">pick how u want me to run bb</p>
+              <h2 className="text-[28px] font-normal mb-1 text-txt-strong">{t("onboarding.whereShouldILive")}</h2>
+              <p className="text-[13px] text-txt mt-1 opacity-70">{t("onboarding.pickHowToRun")}</p>
             </div>
             <div className="flex flex-col gap-3 max-w-[460px] mx-auto">
               <button
@@ -655,9 +658,9 @@ export function OnboardingWizard() {
                 }`}
                 onClick={() => handleRunModeSelect("cloud")}
               >
-                <div className="font-bold text-sm">☁️ cloud (Recommended)</div>
+                <div className="font-bold text-sm">{t("onboarding.cloudRecommended")}</div>
                 <div className="text-[12px] mt-1 opacity-70">
-                  i run on eliza cloud. easiest setup, always on, can still use ur browser &amp; computer if u let me
+                  {t("onboarding.cloudDescription")}
                 </div>
               </button>
               <button
@@ -668,9 +671,9 @@ export function OnboardingWizard() {
                 }`}
                 onClick={() => handleRunModeSelect("local-sandbox")}
               >
-                <div className="font-bold text-sm">🔒 local (sandbox)</div>
+                <div className="font-bold text-sm">{t("onboarding.localSandbox")}</div>
                 <div className="text-[12px] mt-1 opacity-70">
-                  i run on ur machine in a secure container. ur api keys stay hidden even from me. needs docker
+                  {t("onboarding.localSandboxDescription")}
                 </div>
               </button>
               <button
@@ -681,9 +684,9 @@ export function OnboardingWizard() {
                 }`}
                 onClick={() => handleRunModeSelect("local-rawdog")}
               >
-                <div className="font-bold text-sm">⚡ local (raw)</div>
+                <div className="font-bold text-sm">{t("onboarding.localRaw")}</div>
                 <div className="text-[12px] mt-1 opacity-70">
-                  i run directly on ur machine w full access. fastest &amp; simplest but no sandbox protection
+                  {t("onboarding.localRawDescription")}
                 </div>
               </button>
             </div>
@@ -706,7 +709,7 @@ export function OnboardingWizard() {
               fallbackPreviewUrl={avatarFallbackPreviewUrl}
             />
             <div className="onboarding-speech bg-card border border-border rounded-xl px-5 py-4 mx-auto mb-6 max-w-[600px] relative text-[15px] text-txt leading-relaxed">
-              <h2 className="text-[28px] font-normal mb-1 text-txt-strong">okay which cloud?</h2>
+              <h2 className="text-[28px] font-normal mb-1 text-txt-strong">{t("onboarding.whichCloud")}</h2>
             </div>
             <div className="flex flex-col gap-2 text-left max-w-[600px] mx-auto">
               {onboardingOptions?.cloudProviders.map((provider: CloudProviderOption) => (
@@ -761,12 +764,12 @@ export function OnboardingWizard() {
         return (
           <div className="max-w-[500px] mx-auto mt-10 text-center font-body">
             <div className="onboarding-speech bg-card border border-border rounded-xl px-5 py-4 mx-auto mb-6 max-w-[600px] relative text-[15px] text-txt leading-relaxed">
-              <h2 className="text-[28px] font-normal mb-1 text-txt-strong">Model Selection</h2>
+              <h2 className="text-[28px] font-normal mb-1 text-txt-strong">{t("onboarding.modelSelection")}</h2>
             </div>
             <div className="flex flex-col gap-4 text-left max-w-[600px] mx-auto">
               <div>
                 <label className="text-[13px] font-bold text-txt-strong block mb-2 text-left">
-                  Small Model:
+                  {t("onboarding.smallModelLabel")}
                 </label>
                 <select
                   value={onboardingSmallModel}
@@ -782,7 +785,7 @@ export function OnboardingWizard() {
               </div>
               <div>
                 <label className="text-[13px] font-bold text-txt-strong block mb-2 text-left">
-                  Large Model:
+                  {t("onboarding.largeModelLabel")}
                 </label>
                 <select
                   value={onboardingLargeModel}
@@ -804,18 +807,18 @@ export function OnboardingWizard() {
         return (
           <div className="max-w-[500px] mx-auto mt-10 text-center font-body">
             <div className="onboarding-speech bg-card border border-border rounded-xl px-5 py-4 mx-auto mb-6 max-w-[600px] relative text-[15px] text-txt leading-relaxed">
-              <h2 className="text-[28px] font-normal mb-1 text-txt-strong">Sign in to continue</h2>
+              <h2 className="text-[28px] font-normal mb-1 text-txt-strong">{t("onboarding.signInToContinue")}</h2>
               <p className="text-xs text-muted mt-2">
-                One login. Wallets are set up automatically.
+                {t("onboarding.oneLoginWallets")}
               </p>
             </div>
             {cloudConnected ? (
               <div className="max-w-[600px] mx-auto">
-                <p className="text-txt mb-2">You're in. Taking you to the next step...</p>
+                <p className="text-txt mb-2">{t("onboarding.youAreIn")}</p>
               </div>
             ) : (
               <div className="max-w-[600px] mx-auto">
-                <p className="text-txt mb-4">Continue with Eliza Cloud</p>
+                <p className="text-txt mb-4">{t("onboarding.continueWithCloud")}</p>
                 <button
                   className="px-6 py-2 border border-accent bg-accent text-accent-fg text-sm cursor-pointer hover:bg-accent-hover disabled:opacity-40 disabled:cursor-not-allowed mt-5"
                   onClick={handleCloudLogin}
@@ -824,10 +827,10 @@ export function OnboardingWizard() {
                   {cloudLoginBusy ? (
                     <span className="flex items-center justify-center gap-2">
                       <span className="inline-block w-5 h-5 border-2 border-border border-t-accent rounded-full animate-spin"></span>
-                      Signing in...
+                      {t("onboarding.signingIn")}
                     </span>
                   ) : (
-                    "Continue with Eliza Cloud"
+                    t("onboarding.continueWithCloud")
                   )}
                 </button>
                 {cloudLoginError && <p className="text-danger text-[13px] mt-2.5">{cloudLoginError}</p>}
@@ -1295,15 +1298,14 @@ export function OnboardingWizard() {
               fallbackPreviewUrl={avatarFallbackPreviewUrl}
             />
             <div className="onboarding-speech bg-card border border-border rounded-xl px-5 py-4 mx-auto mb-6 max-w-[600px] relative text-[15px] text-txt leading-relaxed">
-              <h2 className="text-[28px] font-normal mb-1 text-txt-strong">soooo can i have a wallet?</h2>
-              <p className="text-xs text-muted mt-1 italic">optional — you can skip this and set it up later</p>
+              <h2 className="text-[28px] font-normal mb-1 text-txt-strong">{t("onboarding.walletQuestion")}</h2>
+              <p className="text-xs text-muted mt-1 italic">{t("onboarding.optionalWalletHint")}</p>
               <p className="text-xs text-muted mt-2">
-                In Pure Privy mode, I create managed wallets automatically after Cloud login:
-                ETH/Base/BSC + Solana.
+                {t("onboarding.walletProvisionHint")}
               </p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-left w-full px-4">
-              <h3 className="text-[13px] font-bold text-txt-strong col-span-full mb-2">Select Chains:</h3>
+              <h3 className="text-[13px] font-bold text-txt-strong col-span-full mb-2">{t("onboarding.selectChains")}</h3>
               {onboardingOptions?.inventoryProviders.map((provider: InventoryProviderOption) => {
                 const selectedRpc = onboardingRpcSelections[provider.id] ?? "elizacloud";
                 const isElizaCloudRpc = selectedRpc === "elizacloud";
@@ -1405,8 +1407,8 @@ export function OnboardingWizard() {
               fallbackPreviewUrl={avatarFallbackPreviewUrl}
             />
             <div className="onboarding-speech bg-card border border-border rounded-xl px-5 py-4 mx-auto mb-6 max-w-[600px] relative text-[15px] text-txt leading-relaxed">
-              <h2 className="text-[28px] font-normal mb-1 text-txt-strong">how do you want to reach me?</h2>
-              <p className="text-xs text-muted mt-1 italic">optional — skip this if you just want to use the web app for now</p>
+              <h2 className="text-[28px] font-normal mb-1 text-txt-strong">{t("onboarding.connectorsQuestion")}</h2>
+              <p className="text-xs text-muted mt-1 italic">{t("onboarding.optionalConnectorsHint")}</p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-left w-full max-w-[800px] mx-auto px-2">
               {/* Telegram */}
@@ -1554,7 +1556,7 @@ export function OnboardingWizard() {
       case "permissions":
         return (
           <div className="max-w-[600px] mx-auto mt-10 font-body">
-            <p className="text-xs text-muted italic mb-4 text-center">optional — you can adjust these any time in settings</p>
+            <p className="text-xs text-muted italic mb-4 text-center">{t("onboarding.optionalPermissionsHint")}</p>
             <PermissionsOnboardingSection onContinue={(options) => void handleOnboardingNext(options)} />
           </div>
         );
@@ -1644,7 +1646,10 @@ export function OnboardingWizard() {
       </div>
       {/* Step counter */}
       <div className="text-[11px] text-muted text-center mb-1 tracking-wide">
-        Step {stepIndex} of {totalSteps != null ? totalSteps : "?"}
+        {t("onboarding.stepLabel", {
+          current: stepIndex,
+          total: totalSteps != null ? totalSteps : "?",
+        })}
       </div>
 
       {renderStep(onboardingStep)}
@@ -1655,7 +1660,7 @@ export function OnboardingWizard() {
             onClick={handleBack}
             disabled={onboardingRestarting}
           >
-            back
+            {t("common.back")}
           </button>
         )}
         {showPrimaryNext && (
@@ -1664,7 +1669,7 @@ export function OnboardingWizard() {
             onClick={() => void handleOnboardingNext()}
             disabled={!canGoNext() || onboardingRestarting}
           >
-            {onboardingRestarting ? "restarting..." : "next"}
+            {onboardingRestarting ? t("onboarding.restarting") : t("common.next")}
           </button>
         )}
       </div>

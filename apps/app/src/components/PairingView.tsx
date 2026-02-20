@@ -3,6 +3,7 @@
  */
 
 import { useApp } from "../AppContext.js";
+import { createTranslator } from "../i18n";
 
 export function PairingView() {
   const {
@@ -11,9 +12,11 @@ export function PairingView() {
     pairingCodeInput,
     pairingError,
     pairingBusy,
+    uiLanguage,
     handlePairingSubmit,
     setState,
   } = useApp();
+  const t = createTranslator(uiLanguage);
 
   const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setState("pairingCodeInput", e.target.value);
@@ -28,37 +31,37 @@ export function PairingView() {
     if (!timestamp) return "";
     const now = Date.now();
     const diff = timestamp - now;
-    if (diff <= 0) return "Expired";
+    if (diff <= 0) return t("pairing.expired");
     const minutes = Math.floor(diff / 60000);
     const seconds = Math.floor((diff % 60000) / 1000);
     if (minutes >= 1) {
-      return `Code valid for ${minutes} min ${seconds} sec`;
+      return t("pairing.codeValidFor", { minutes, seconds });
     }
-    return `Expires in ${seconds} seconds`;
+    return t("pairing.expiresIn", { seconds });
   };
 
   return (
     <div className="max-w-[560px] mx-auto mt-15 p-6 border border-border bg-card rounded-[10px]">
-      <h1 className="text-lg font-semibold mb-2 text-txt-strong">Pairing Required</h1>
-      <p className="text-muted mb-4 leading-relaxed">Enter the pairing code shown in the server terminal output to link this client.</p>
+      <h1 className="text-lg font-semibold mb-2 text-txt-strong">{t("pairing.title")}</h1>
+      <p className="text-muted mb-4 leading-relaxed">{t("pairing.description")}</p>
 
       {pairingEnabled ? (
         <form onSubmit={handleSubmit}>
           <div>
             <label htmlFor="pairing-code" className="text-sm text-txt-strong block mb-2">
-              Pairing Code
+              {t("pairing.codeLabel")}
             </label>
             <input
               id="pairing-code"
               type="text"
               value={pairingCodeInput}
               onChange={handleCodeChange}
-              placeholder="Enter pairing code"
+              placeholder={t("pairing.codePlaceholder")}
               disabled={pairingBusy}
               autoFocus
               className="w-full px-3 py-2.5 rounded-lg border border-border bg-bg-muted text-txt text-sm focus:border-accent focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
             />
-            <p className="mt-1 text-[11px] text-muted">Tip: The code is usually 6-8 characters.</p>
+            <p className="mt-1 text-[11px] text-muted">{t("pairing.tip")}</p>
           </div>
 
           <div className="mt-3 flex gap-2.5">
@@ -67,7 +70,7 @@ export function PairingView() {
               className="px-6 py-2 border border-accent bg-accent text-accent-fg text-sm cursor-pointer hover:bg-accent-hover disabled:opacity-40 disabled:cursor-not-allowed"
               disabled={pairingBusy || !pairingCodeInput.trim()}
             >
-              {pairingBusy ? "Pairing..." : "Submit"}
+              {pairingBusy ? t("pairing.submitting") : t("pairing.submit")}
             </button>
           </div>
 
@@ -75,7 +78,7 @@ export function PairingView() {
             <>
               <p className="mt-2.5 text-danger text-[13px]">{pairingError}</p>
               <p className="mt-1.5 text-[12px] text-muted">
-                Check the server terminal for the pairing code. It refreshes every few minutes.
+                {t("pairing.checkTerminal")}
               </p>
             </>
           )}
@@ -85,7 +88,7 @@ export function PairingView() {
           )}
         </form>
       ) : (
-        <p className="text-muted">Pairing is not enabled on the server.</p>
+        <p className="text-muted">{t("pairing.notEnabled")}</p>
       )}
     </div>
   );

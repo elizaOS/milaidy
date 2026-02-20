@@ -23,6 +23,7 @@ import type { ConfigUiHint } from "../types";
 import type { JsonSchemaObject } from "./config-catalog";
 import { autoLabel } from "./shared/labels";
 import { formatByteSize } from "./shared/format";
+import { createTranslator } from "../i18n";
 
 /* ── Modal shell ─────────────────────────────────────────────────────── */
 
@@ -66,19 +67,25 @@ function Modal({
 /* ── Section anchors for sticky nav ──────────────────────────────────── */
 
 const SETTINGS_SECTIONS = [
-  { id: "settings-appearance", label: "Appearance" },
-  { id: "settings-ai-model", label: "AI Model" },
-  { id: "settings-wallet", label: "Wallet / RPC" },
-  { id: "settings-media", label: "Media" },
-  { id: "settings-speech", label: "Speech" },
-  { id: "settings-permissions", label: "Permissions" },
-  { id: "settings-updates", label: "Updates" },
-  { id: "settings-extension", label: "Extension" },
-  { id: "settings-export", label: "Export / Import" },
-  { id: "settings-danger", label: "Danger Zone" },
+  { id: "settings-appearance", labelKey: "settings.appearance", fallback: "Appearance" },
+  { id: "settings-ai-model", labelKey: "settings.aiModel", fallback: "AI Model" },
+  { id: "settings-wallet", labelKey: "settings.walletRpc", fallback: "Wallet / RPC" },
+  { id: "settings-media", labelKey: "settings.media", fallback: "Media" },
+  { id: "settings-speech", labelKey: "settings.speech", fallback: "Speech" },
+  { id: "settings-permissions", labelKey: "settings.permissions", fallback: "Permissions" },
+  { id: "settings-updates", labelKey: "settings.updates", fallback: "Updates" },
+  { id: "settings-extension", labelKey: "settings.extension", fallback: "Extension" },
+  { id: "settings-export", labelKey: "settings.exportImport", fallback: "Export / Import" },
+  { id: "settings-danger", labelKey: "settings.dangerZone", fallback: "Danger Zone" },
 ] as const;
 
-function SettingsNav({ activeId }: { activeId: string }) {
+function SettingsNav({
+  activeId,
+  t,
+}: {
+  activeId: string;
+  t: (key: string) => string;
+}) {
   return (
     <nav className="hidden md:block sticky top-6 w-[160px] shrink-0 self-start">
       <ul className="space-y-0.5">
@@ -96,7 +103,7 @@ function SettingsNav({ activeId }: { activeId: string }) {
                 document.getElementById(s.id)?.scrollIntoView({ behavior: "smooth", block: "start" });
               }}
             >
-              {s.label}
+              {t(s.labelKey) === s.labelKey ? s.fallback : t(s.labelKey)}
             </a>
           </li>
         ))}
@@ -126,6 +133,7 @@ export function SettingsView() {
     pluginSaveSuccess,
     // Theme
     currentTheme,
+    uiLanguage,
     // Updates
     updateStatus,
     updateLoading,
@@ -150,6 +158,7 @@ export function SettingsView() {
     loadPlugins,
     handlePluginToggle,
     setTheme,
+    setUiLanguage,
     setTab,
     loadUpdateStatus,
     handleChannelChange,
@@ -162,8 +171,10 @@ export function SettingsView() {
     handleReset,
     handleExportKeys,
     copyToClipboard,
+    setActionNotice,
     setState,
   } = useApp();
+  const t = createTranslator(uiLanguage);
 
   /* ── Model selection state ─────────────────────────────────────────── */
   const [modelOptions, setModelOptions] = useState<OnboardingOptions["models"] | null>(null);
@@ -508,16 +519,51 @@ export function SettingsView() {
 
   return (
     <div className="flex gap-6">
-      <SettingsNav activeId={activeSection} />
+      <SettingsNav activeId={activeSection} t={t} />
       <div className="min-w-0 flex-1">
-      <h2 className="text-lg font-bold mb-1">Settings</h2>
-      <p className="text-[13px] text-[var(--muted)] mb-5">Appearance, AI provider, updates, and app preferences.</p>
+      <h2 className="text-lg font-bold mb-1">{t("nav.settings")}</h2>
+      <p className="text-[13px] text-[var(--muted)] mb-5">
+        {t("settings.languageHint")}
+      </p>
 
       {/* ═══════════════════════════════════════════════════════════════
           1. APPEARANCE
           ═══════════════════════════════════════════════════════════════ */}
       <div id="settings-appearance" className="p-4 border border-[var(--border)] bg-[var(--card)]">
-        <div className="font-bold text-sm mb-2">Appearance</div>
+        <div className="font-bold text-sm mb-2">{t("settings.appearance")}</div>
+        <div className="mb-3">
+          <div className="text-[12px] font-semibold text-[var(--text)] mb-1.5">
+            {t("settings.language")}
+          </div>
+          <div className="inline-flex gap-1.5 border border-[var(--border)] rounded-md p-1">
+            <button
+              className={`px-2.5 py-1 text-xs rounded ${
+                uiLanguage === "en"
+                  ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
+                  : "text-[var(--text)] hover:bg-[var(--bg-hover)]"
+              }`}
+              onClick={() => {
+                setUiLanguage("en");
+                setActionNotice(t("settings.languageSaved"), "success", 2200);
+              }}
+            >
+              {t("settings.languageEnglish")}
+            </button>
+            <button
+              className={`px-2.5 py-1 text-xs rounded ${
+                uiLanguage === "zh-CN"
+                  ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
+                  : "text-[var(--text)] hover:bg-[var(--bg-hover)]"
+              }`}
+              onClick={() => {
+                setUiLanguage("zh-CN");
+                setActionNotice(t("settings.languageSaved"), "success", 2200);
+              }}
+            >
+              {t("settings.languageChineseSimplified")}
+            </button>
+          </div>
+        </div>
         <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
           {THEMES.map((t) => {
             // Map theme IDs to representative swatch colors

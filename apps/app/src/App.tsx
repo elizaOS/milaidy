@@ -59,6 +59,7 @@ export function App() {
   const {
     onboardingLoading,
     startupPhase,
+    uiLanguage,
     authRequired,
     onboardingComplete,
     tab,
@@ -84,7 +85,7 @@ export function App() {
   }, []);
 
   if (onboardingLoading) {
-    return <LoadingScreen phase={startupPhase} />;
+    return <LoadingScreen phase={startupPhase} lang={uiLanguage} />;
   }
 
   if (authRequired) return <PairingView />;

@@ -417,7 +417,7 @@ describe("InventoryView BSC-first", () => {
 
     expect(ctx.getBscTradeQuote).toHaveBeenCalled();
     const content = text(tree!.root);
-    expect(content).toContain("Latest Quote");
+    expect(content).toContain("Latest quote");
 
     await act(async () => {
       quickSell.props.onClick();
@@ -462,7 +462,7 @@ describe("InventoryView BSC-first", () => {
     });
 
     expect(ctx.setActionNotice).toHaveBeenCalledWith(
-      "Token contract added to manual list.",
+      "Token added to watchlist.",
       "success",
       2600,
     );
@@ -612,7 +612,7 @@ describe("InventoryView BSC-first", () => {
         expect.objectContaining({ side: "sell" }),
       );
       expect(ctx.setActionNotice).toHaveBeenCalledWith(
-        expect.stringContaining("Step 1 approve token allowance"),
+        expect.stringContaining("Sign swap transaction"),
         "info",
         4600,
       );

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useMemo } from "react";
 import { useApp } from "../AppContext.js";
+import { createTranslator } from "../i18n";
 
 interface CommandItem {
   id: string;
@@ -24,9 +25,11 @@ export function CommandPalette() {
     loadWorkbench,
     handleChatClear,
     activeGameViewerUrl,
+    uiLanguage,
     setState,
     closeCommandPalette,
   } = useApp();
+  const t = createTranslator(uiLanguage);
 
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -44,44 +47,44 @@ export function CommandPalette() {
     if (agentState === "stopped" || agentState === "not_started") {
       commands.push({
         id: "start-agent",
-        label: "Start Agent",
+        label: t("command.startAgent"),
         action: handleStart,
       });
     }
     if (isRunning || isPaused) {
       commands.push({
         id: "pause-resume-agent",
-        label: isPaused ? "Resume Agent" : "Pause Agent",
+        label: isPaused ? t("command.resumeAgent") : t("command.pauseAgent"),
         action: handlePauseResume,
       });
     }
     commands.push({
       id: "restart-agent",
-      label: "Restart Agent",
+      label: t("command.restartAgent"),
       action: handleRestart,
     });
 
     // Navigation commands
     commands.push(
-      { id: "nav-chat", label: "Open Chat", action: () => setTab("chat") },
-      { id: "nav-companion", label: "Open Companion", action: () => setTab("companion") },
-      { id: "nav-apps", label: "Open Apps", action: () => setTab("apps") },
-      { id: "nav-character", label: "Open Character", action: () => setTab("character") },
-      { id: "nav-triggers", label: "Open Triggers", action: () => setTab("triggers") },
-      { id: "nav-wallets", label: "Open Wallets", action: () => setTab("wallets") },
-      { id: "nav-knowledge", label: "Open Knowledge", action: () => setTab("knowledge") },
-      { id: "nav-connectors", label: "Open Social", action: () => setTab("connectors") },
-      { id: "nav-plugins", label: "Open Plugins", action: () => setTab("plugins") },
-      { id: "nav-config", label: "Open Config", action: () => setTab("settings") },
-      { id: "nav-database", label: "Open Database", action: () => setTab("database") },
-      { id: "nav-settings", label: "Open Settings", action: () => setTab("settings") },
-      { id: "nav-logs", label: "Open Logs", action: () => setTab("logs") }
+      { id: "nav-chat", label: t("command.openChat"), action: () => setTab("chat") },
+      { id: "nav-companion", label: t("command.openCompanion"), action: () => setTab("companion") },
+      { id: "nav-apps", label: t("command.openApps"), action: () => setTab("apps") },
+      { id: "nav-character", label: t("command.openCharacter"), action: () => setTab("character") },
+      { id: "nav-triggers", label: t("command.openTriggers"), action: () => setTab("triggers") },
+      { id: "nav-wallets", label: t("command.openWallets"), action: () => setTab("wallets") },
+      { id: "nav-knowledge", label: t("command.openKnowledge"), action: () => setTab("knowledge") },
+      { id: "nav-connectors", label: t("command.openSocial"), action: () => setTab("connectors") },
+      { id: "nav-plugins", label: t("command.openPlugins"), action: () => setTab("plugins") },
+      { id: "nav-config", label: t("command.openConfig"), action: () => setTab("settings") },
+      { id: "nav-database", label: t("command.openDatabase"), action: () => setTab("database") },
+      { id: "nav-settings", label: t("command.openSettings"), action: () => setTab("settings") },
+      { id: "nav-logs", label: t("command.openLogs"), action: () => setTab("logs") }
     );
 
     if (currentGameViewerUrl.trim()) {
       commands.push({
         id: "nav-current-game",
-        label: "Open Current Game",
+        label: t("command.openCurrentGame"),
         action: () => {
           setTab("apps");
           setState("appsSubTab", "games");
@@ -91,16 +94,16 @@ export function CommandPalette() {
 
     // Refresh commands
     commands.push(
-      { id: "refresh-plugins", label: "Refresh Features", action: loadPlugins },
-      { id: "refresh-skills", label: "Refresh Skills", action: loadSkills },
-      { id: "refresh-logs", label: "Refresh Logs", action: loadLogs },
-      { id: "refresh-workbench", label: "Refresh Workbench", action: loadWorkbench }
+      { id: "refresh-plugins", label: t("command.refreshFeatures"), action: loadPlugins },
+      { id: "refresh-skills", label: t("command.refreshSkills"), action: loadSkills },
+      { id: "refresh-logs", label: t("command.refreshLogs"), action: loadLogs },
+      { id: "refresh-workbench", label: t("command.refreshWorkbench"), action: loadWorkbench }
     );
 
     // Chat commands
     commands.push({
       id: "chat-clear",
-      label: "Clear Chat",
+      label: t("command.clearChat"),
       action: handleChatClear,
     });
 
@@ -120,6 +123,7 @@ export function CommandPalette() {
     loadSkills,
     loadLogs,
     loadWorkbench,
+    t,
   ]);
 
   // Filter commands by query
@@ -212,14 +216,14 @@ export function CommandPalette() {
           ref={inputRef}
           type="text"
           className="w-full px-4 py-3.5 border-b border-border bg-transparent text-[15px] text-txt outline-none font-body"
-          placeholder="Type to search commands..."
+          placeholder={t("command.searchPlaceholder")}
           value={commandQuery}
           onChange={(e) => setState("commandQuery", e.target.value)}
         />
         <div className="flex-1 overflow-y-auto py-1">
           {filteredCommands.length === 0 ? (
             <div className="py-5 text-center text-muted text-[13px]">
-              No commands found
+              {t("command.empty")}
             </div>
           ) : (
             filteredCommands.map((cmd, idx) => (

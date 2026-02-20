@@ -5330,6 +5330,102 @@ async function getCompanionContextForChat(runtime: AgentRuntime, ownerName?: str
   }
 }
 
+type UiLanguageForPrompt = "en" | "zh-CN";
+type LanguagePromptPolicy = "follow-ui-with-input-override";
+
+function normalizeUiLanguageForPrompt(input: unknown): UiLanguageForPrompt {
+  if (typeof input !== "string") return "en";
+  const trimmed = input.trim();
+  if (!trimmed) return "en";
+  if (trimmed === "en" || trimmed.toLowerCase().startsWith("en-")) return "en";
+  const lower = trimmed.toLowerCase();
+  if (lower === "zh" || lower === "zh-cn" || lower.startsWith("zh-hans")) {
+    return "zh-CN";
+  }
+  return "en";
+}
+
+function detectMessageLanguage(text: string): UiLanguageForPrompt | null {
+  const trimmed = text.trim();
+  if (!trimmed) return null;
+
+  // CJK characters strongly indicate Simplified Chinese for this release.
+  if (/[\u3400-\u9FFF\uF900-\uFAFF]/u.test(trimmed)) return "zh-CN";
+
+  const latinCount = (trimmed.match(/[A-Za-z]/g) ?? []).length;
+  const visibleChars = (trimmed.match(/[^\s]/g) ?? []).length;
+  if (latinCount >= 3 && latinCount / Math.max(1, visibleChars) >= 0.2) {
+    return "en";
+  }
+
+  return null;
+}
+
+export function resolveUiLanguageFromRequest(
+  req: Pick<http.IncomingMessage, "headers">,
+  state: Pick<ServerState, "config">,
+): UiLanguageForPrompt {
+  const headerValue = req.headers["x-milady-ui-language"];
+  const headerLanguage = Array.isArray(headerValue)
+    ? headerValue[0]
+    : headerValue;
+  if (typeof headerLanguage === "string" && headerLanguage.trim()) {
+    return normalizeUiLanguageForPrompt(headerLanguage);
+  }
+  return normalizeUiLanguageForPrompt(state.config.ui?.language);
+}
+
+export function buildLanguageInstruction(
+  lang: UiLanguageForPrompt,
+  messageText: string,
+  policy: LanguagePromptPolicy = "follow-ui-with-input-override",
+): string {
+  const detectedLanguage =
+    policy === "follow-ui-with-input-override"
+      ? detectMessageLanguage(messageText)
+      : null;
+  const effectiveLanguage = detectedLanguage ?? lang;
+
+  if (effectiveLanguage === "zh-CN") {
+    return [
+      "[Response Language Policy]",
+      "- Reply in Simplified Chinese (zh-CN) for this turn.",
+      "- Keep code, URLs, contract addresses, commands, and quoted identifiers unchanged.",
+      "- If the user switches language later, follow the user's language in that turn.",
+    ].join("\n");
+  }
+
+  return [
+    "[Response Language Policy]",
+    "- Reply in English for this turn.",
+    "- Keep code, URLs, contract addresses, commands, and quoted identifiers unchanged.",
+    "- If the user switches language later, follow the user's language in that turn.",
+  ].join("\n");
+}
+
+export function injectLanguageContext(
+  messageText: string | undefined,
+  lang: UiLanguageForPrompt,
+  policy: LanguagePromptPolicy = "follow-ui-with-input-override",
+): string {
+  const sourceText = typeof messageText === "string" ? messageText : "";
+  const trimmed = sourceText.trim();
+  if (!trimmed) return sourceText;
+  const instruction = buildLanguageInstruction(lang, trimmed, policy).trim();
+  if (!instruction) return trimmed;
+  return `${instruction}\n\n${trimmed}`;
+}
+
+function composePromptWithContext(
+  messageText: string | undefined,
+  lang: UiLanguageForPrompt,
+  companionContext: string,
+): string {
+  const withLanguage = injectLanguageContext(messageText, lang);
+  if (!companionContext.trim()) return withLanguage;
+  return `${companionContext}\n\n${withLanguage}`;
+}
+
 /**
  * Route non-conversation output to the user's active conversation.
  * Stores the message as a Memory in the conversation room and broadcasts
@@ -6181,6 +6277,12 @@ async function handleRequest(
         | "programmer"
         | "haxor"
         | "psycho";
+    }
+
+    // ── UI language preference (en / zh-CN) ───────────────────────────────
+    if (typeof body.language === "string" && body.language.trim()) {
+      if (!config.ui) config.ui = {};
+      config.ui.language = normalizeUiLanguageForPrompt(body.language);
     }
 
     // ── Owner name (what the agent calls the user) ─────────────────────────
@@ -11649,6 +11751,7 @@ async function handleRequest(
     }
     const mode: ChatMode = body.mode === "simple" ? "simple" : "power";
     const prompt = body.text.trim();
+    const uiLanguage = resolveUiLanguageFromRequest(req, state);
 
     const runtime = state.runtime;
     if (!runtime) {
@@ -11700,16 +11803,21 @@ async function handleRequest(
       aborted = true;
     });
 
-    const companionCtxStream = await getCompanionContextForChat(runtime, state.config.ui?.ownerName);
-    const messageForGenerationStream = companionCtxStream
-      ? {
-          ...userMessage,
-          content: {
-            ...userMessage.content,
-            text: `${companionCtxStream}\n\n${userMessage.content.text}`,
-          },
-        }
-      : userMessage;
+    const companionCtxStream = await getCompanionContextForChat(
+      runtime,
+      state.config.ui?.ownerName,
+    );
+    const messageForGenerationStream = {
+      ...userMessage,
+      content: {
+        ...userMessage.content,
+        text: composePromptWithContext(
+          userMessage.content.text,
+          uiLanguage,
+          companionCtxStream,
+        ),
+      },
+    };
 
     try {
       const result = await generateChatResponse(
@@ -11805,6 +11913,7 @@ async function handleRequest(
       return;
     }
     const prompt = body.text.trim();
+    const uiLanguage = resolveUiLanguageFromRequest(req, state);
     const userId = ensureAdminEntityId();
     const turnStartedAt = Date.now();
 
@@ -11841,16 +11950,21 @@ async function handleRequest(
 
     applyCompanionSignalToState(state, runtime, "chat");
 
-    const companionCtx = await getCompanionContextForChat(runtime, state.config.ui?.ownerName);
-    const messageForGeneration = companionCtx
-      ? {
-          ...userMessage,
-          content: {
-            ...userMessage.content,
-            text: `${companionCtx}\n\n${userMessage.content.text}`,
-          },
-        }
-      : userMessage;
+    const companionCtx = await getCompanionContextForChat(
+      runtime,
+      state.config.ui?.ownerName,
+    );
+    const messageForGeneration = {
+      ...userMessage,
+      content: {
+        ...userMessage.content,
+        text: composePromptWithContext(
+          userMessage.content.text,
+          uiLanguage,
+          companionCtx,
+        ),
+      },
+    };
 
     try {
       const result = await generateChatResponse(
@@ -12031,6 +12145,7 @@ async function handleRequest(
     }
     const mode: ChatMode = body.mode === "simple" ? "simple" : "power";
     const prompt = body.text.trim();
+    const uiLanguage = resolveUiLanguageFromRequest(req, state);
 
     // Cloud proxy path
 
@@ -12070,16 +12185,21 @@ async function handleRequest(
 
       applyCompanionSignalToState(state, runtime, "chat");
 
-      const companionCtxLegacyStream = await getCompanionContextForChat(runtime, state.config.ui?.ownerName);
-      const messageWithCtxLegacyStream = companionCtxLegacyStream
-        ? {
-            ...message,
-            content: {
-              ...message.content,
-              text: `${companionCtxLegacyStream}\n\n${message.content.text}`,
-            },
-          }
-        : message;
+      const companionCtxLegacyStream = await getCompanionContextForChat(
+        runtime,
+        state.config.ui?.ownerName,
+      );
+      const messageWithCtxLegacyStream = {
+        ...message,
+        content: {
+          ...message.content,
+          text: composePromptWithContext(
+            message.content.text,
+            uiLanguage,
+            companionCtxLegacyStream,
+          ),
+        },
+      };
 
       const result = await generateChatResponse(
         runtime,
@@ -12145,6 +12265,7 @@ async function handleRequest(
     }
     const mode: ChatMode = body.mode === "simple" ? "simple" : "power";
     const prompt = body.text.trim();
+    const uiLanguage = resolveUiLanguageFromRequest(req, state);
 
     if (!state.runtime) {
       error(res, "Agent is not running", 503);
@@ -12176,16 +12297,21 @@ async function handleRequest(
 
       applyCompanionSignalToState(state, runtime, "chat");
 
-      const companionCtxLegacy = await getCompanionContextForChat(runtime, state.config.ui?.ownerName);
-      const messageWithCtxLegacy = companionCtxLegacy
-        ? {
-            ...message,
-            content: {
-              ...message.content,
-              text: `${companionCtxLegacy}\n\n${message.content.text}`,
-            },
-          }
-        : message;
+      const companionCtxLegacy = await getCompanionContextForChat(
+        runtime,
+        state.config.ui?.ownerName,
+      );
+      const messageWithCtxLegacy = {
+        ...message,
+        content: {
+          ...message.content,
+          text: composePromptWithContext(
+            message.content.text,
+            uiLanguage,
+            companionCtxLegacy,
+          ),
+        },
+      };
 
       const result = await generateChatResponse(
         runtime,
