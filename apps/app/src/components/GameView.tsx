@@ -11,6 +11,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useApp } from "../AppContext";
 import { client, type LogEntry } from "../api-client";
+import { useRetakeCapture } from "../hooks/useRetakeCapture";
 import { formatTime } from "./shared/format";
 
 const DEFAULT_VIEWER_SANDBOX = "allow-scripts allow-same-origin allow-popups";
@@ -42,6 +43,7 @@ export function GameView() {
     activeGameSandbox,
     activeGamePostMessageAuth,
     activeGamePostMessagePayload,
+    plugins,
     logs,
     loadLogs,
     setState,
@@ -54,9 +56,13 @@ export function GameView() {
   >("connecting");
   const [chatInput, setChatInput] = useState("");
   const [sendingChat, setSendingChat] = useState(false);
+  const [retakeCapture, setRetakeCapture] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const authSentRef = useRef(false);
   const logsIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Stream iframe frames to retake.tv when capture is active
+  useRetakeCapture(iframeRef, retakeCapture);
 
   // Send command to the agent - routes through ElizaOS which processes
   // the message and decides what hyperscape actions to take
@@ -94,6 +100,12 @@ export function GameView() {
   const postMessageTargetOrigin = useMemo(
     () => resolvePostMessageTargetOrigin(activeGameViewerUrl),
     [activeGameViewerUrl],
+  );
+
+  // Only show retake capture button when the retake connector is enabled
+  const retakeEnabled = useMemo(
+    () => plugins.some((p) => p.id === "retake" && p.enabled),
+    [plugins],
   );
 
   // Filter logs relevant to the current game
@@ -388,6 +400,20 @@ export function GameView() {
         >
           {showLogsPanel ? "Hide Logs" : "Show Logs"}
         </button>
+        {retakeEnabled && (
+          <button
+            type="button"
+            className={`text-xs px-3 py-1 border cursor-pointer hover:bg-accent-hover disabled:opacity-40 ${
+              retakeCapture
+                ? "bg-accent text-accent-fg border-accent"
+                : "bg-card text-txt border-border hover:border-accent"
+            }`}
+            onClick={() => setRetakeCapture(!retakeCapture)}
+            title="Stream this view to retake.tv (requires active retake stream)"
+          >
+            {retakeCapture ? "Stop Capture" : "Retake Capture"}
+          </button>
+        )}
         <button
           type="button"
           className="text-xs px-3 py-1 bg-accent text-accent-fg border border-accent cursor-pointer hover:bg-accent-hover disabled:opacity-40"

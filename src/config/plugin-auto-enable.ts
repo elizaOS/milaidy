@@ -28,6 +28,7 @@ export const CONNECTOR_PLUGINS: Record<string, string> = {
   feishu: "@elizaos/plugin-feishu",
   matrix: "@elizaos/plugin-matrix",
   nostr: "@elizaos/plugin-nostr",
+  retake: "@milady/plugin-retake",
 };
 
 const PROVIDER_PLUGINS: Record<string, string> = {
@@ -168,6 +169,8 @@ function isConnectorConfigured(
               },
             )),
       );
+    case "retake":
+      return Boolean(config.accessToken || config.enabled === true);
     default:
       return false;
   }

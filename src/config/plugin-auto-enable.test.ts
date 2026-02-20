@@ -438,8 +438,12 @@ describe("CONNECTOR_PLUGINS", () => {
     expect(CONNECTOR_PLUGINS.discord).toBe("@elizaos/plugin-discord");
   });
 
-  it("contains 16 connector mappings", () => {
-    expect(Object.keys(CONNECTOR_PLUGINS)).toHaveLength(16);
+  it("contains 17 connector mappings", () => {
+    expect(Object.keys(CONNECTOR_PLUGINS)).toHaveLength(17);
+  });
+
+  it("maps retake to @milady/plugin-retake", () => {
+    expect(CONNECTOR_PLUGINS.retake).toBe("@milady/plugin-retake");
   });
 });
 
@@ -551,5 +555,55 @@ describe("WhatsApp connector auto-enable", () => {
       }),
     );
     expect(config.plugins?.allow ?? []).not.toContain("whatsapp");
+  });
+});
+
+// ============================================================================
+//  Retake connector auto-enable
+// ============================================================================
+
+describe("Retake connector auto-enable", () => {
+  it("auto-enables when accessToken is set", () => {
+    const { config } = applyPluginAutoEnable(
+      makeParams({
+        config: {
+          connectors: { retake: { accessToken: "rtk-test-token" } },
+        },
+      }),
+    );
+    expect(config.plugins?.allow).toContain("retake");
+  });
+
+  it("auto-enables when enabled is true", () => {
+    const { config } = applyPluginAutoEnable(
+      makeParams({
+        config: {
+          connectors: { retake: { enabled: true } },
+        },
+      }),
+    );
+    expect(config.plugins?.allow).toContain("retake");
+  });
+
+  it("does not auto-enable when config is empty", () => {
+    const { config } = applyPluginAutoEnable(
+      makeParams({
+        config: { connectors: { retake: {} } },
+      }),
+    );
+    expect(config.plugins?.allow ?? []).not.toContain("retake");
+  });
+
+  it("does not auto-enable when enabled is explicitly false", () => {
+    const { config } = applyPluginAutoEnable(
+      makeParams({
+        config: {
+          connectors: {
+            retake: { enabled: false, accessToken: "rtk-test" },
+          },
+        },
+      }),
+    );
+    expect(config.plugins?.allow ?? []).not.toContain("retake");
   });
 });
