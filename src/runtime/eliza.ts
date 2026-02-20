@@ -1211,10 +1211,6 @@ export function buildCharacterFromConfig(config: MilaidyConfig): Character {
       // actions.  At this scale, sending all validated actions to the LLM is
       // fine — our custom messageHandlerTemplate provides routing guidance.
       ACTION_FILTER_THRESHOLD: "100",
-      // Use temperature 0 for action selection to eliminate non-determinism.
-      // The messageHandler (which picks the action) uses the TEXT_LARGE model.
-      // Response text quality is unaffected — handlers generate their own output.
-      TEXT_LARGE_TEMPERATURE: "0",
     },
   });
 }
