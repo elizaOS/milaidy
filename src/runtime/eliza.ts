@@ -249,7 +249,20 @@ const OPTIONAL_PLUGIN_MAP: Readonly<Record<string, string>> = {
 function looksLikePlugin(value: unknown): value is Plugin {
   if (!value || typeof value !== "object") return false;
   const obj = value as Record<string, unknown>;
-  return typeof obj.name === "string" && typeof obj.description === "string";
+  if (typeof obj.name !== "string" || typeof obj.description !== "string")
+    return false;
+  // Providers also have name + description but expose a `get()` method.
+  // Reject provider-shaped objects unless they also carry plugin-specific
+  // fields (actions, providers, services, init).
+  if (typeof obj.get === "function") {
+    const hasPluginFields =
+      Array.isArray(obj.actions) ||
+      Array.isArray(obj.providers) ||
+      Array.isArray(obj.services) ||
+      typeof obj.init === "function";
+    if (!hasPluginFields) return false;
+  }
+  return true;
 }
 
 function extractPlugin(mod: PluginModuleShape): Plugin | null {
@@ -1022,6 +1035,12 @@ ACTION vs REPLY decision:
 
 When multiple actions could match, prefer the one that matches the user's INTENT (what they want to happen) over the one that matches a keyword in their message.
 
+DISAMBIGUATION — safety-first routing:
+- FILE OPERATIONS: If the user mentions a file path or filename, prefer READ_FILE over EXECUTE_COMMAND. Only use EXECUTE_COMMAND for files if the user explicitly says "run", "execute", or "compile".
+- GIT OPERATIONS: If the user mentions git (commit, diff, log, status, branch, push, pull), prefer GIT over EXECUTE_COMMAND. Only use EXECUTE_COMMAND for git if the user says "run git ..." explicitly.
+- SKILLS vs FILES: "search for X in skills" or "find a skill" → SEARCH_SKILLS. "search for X in files" or "find X in code" → SEARCH_FILES. The word "skill" or "plugin" routes to skill actions, not file search.
+- SHELL SAFETY: EXECUTE_COMMAND is a last resort. If a more specific action exists for the task (READ_FILE, WRITE_FILE, GIT, SEARCH_FILES, LIST_FILES, MANAGE_PROCESS), use that instead.
+
 WRONG: User says "show my tasks" → actions: REPLY (describes tasks from memory)
 RIGHT: User says "show my tasks" → actions: LIST_TASKS (fetches real task data)
 
@@ -1030,6 +1049,12 @@ RIGHT: User says "run ls -la" → actions: EXECUTE_COMMAND (actually runs the co
 
 WRONG: User says "what do you think about AI?" → actions: SEARCH_SKILLS
 RIGHT: User says "what do you think about AI?" → actions: REPLY (general conversation, no action applies)
+
+WRONG: User says "read package.json" → actions: EXECUTE_COMMAND (cat package.json)
+RIGHT: User says "read package.json" → actions: READ_FILE (safe file read)
+
+WRONG: User says "show the git diff" → actions: EXECUTE_COMMAND (git diff)
+RIGHT: User says "show the git diff" → actions: GIT (dedicated git action)
 
 IMPORTANT ACTION PARAMETERS:
 - Some actions accept input parameters that you should extract from the conversation
@@ -2018,8 +2043,47 @@ export async function startEliza(
     },
   };
 
+  // Codex provider — uses the @openai/codex-sdk package when available.
+  // The SDK is lazy-imported at execution time so it won't fail at startup
+  // if the package isn't installed (returns a graceful error instead).
+  let cachedCodexProvider: ReturnType<typeof createSubAgentProvider> | null =
+    null;
+  const lazyCodexProvider = {
+    id: "codex",
+    label: "Codex (OpenAI)",
+    description:
+      "Executes tasks using the OpenAI Codex SDK. " +
+      "Requires @openai/codex-sdk and OPENAI_API_KEY.",
+    executeTask: async (
+      task: import("@elizaos/plugin-agent-orchestrator").OrchestratedTask,
+      ctx: import("@elizaos/plugin-agent-orchestrator").ProviderTaskExecutionContext,
+    ): Promise<import("@elizaos/plugin-agent-orchestrator").TaskResult> => {
+      if (!runtimeRef) {
+        logger.error(
+          "[milaidy] codex executeTask called before runtime was initialized",
+        );
+        return {
+          success: false,
+          summary: "Runtime not initialized yet",
+          filesCreated: [],
+          filesModified: [],
+          error: "Runtime not available",
+        };
+      }
+      if (!cachedCodexProvider) {
+        cachedCodexProvider = createSubAgentProvider(
+          runtimeRef,
+          "codex",
+          "codex",
+          "Codex (OpenAI)",
+        );
+      }
+      return cachedCodexProvider.executeTask(task, ctx);
+    },
+  };
+
   configureAgentOrchestratorPlugin({
-    providers: [lazyElizaProvider],
+    providers: [lazyElizaProvider, lazyCodexProvider],
     defaultProviderId: "eliza",
     // NOTE: workingDirectory is the CWD for sub-agent tools but does NOT form
     // a security sandbox. Upstream tools use path.resolve() without containment
@@ -2139,6 +2203,57 @@ export async function startEliza(
     | undefined;
   if (actionFilter?.buildIndex) {
     await actionFilter.buildIndex(runtime);
+  }
+
+  // 8c. Wire task-result surfacing: when a task completes or fails, post
+  //     the result summary as a message in the originating room so the user
+  //     sees the outcome without having to run LIST_TASKS.
+  try {
+    const orchestratorSvc = runtime.getService("CODE_TASK") as
+      | import("@elizaos/plugin-agent-orchestrator").AgentOrchestratorService
+      | undefined;
+    if (orchestratorSvc?.on) {
+      const handleTaskDone = async (event: { taskId: string; data?: Record<string, unknown> }) => {
+        try {
+          const task = await orchestratorSvc.getTask(event.taskId);
+          if (!task?.roomId) return;
+
+          const result = task.metadata?.result;
+          const status = task.metadata?.status;
+          const isSuccess = status === "completed" && result?.success !== false;
+
+          const parts: string[] = [];
+          parts.push(isSuccess ? `Task completed: ${task.name}` : `Task failed: ${task.name}`);
+          if (result?.summary) parts.push(result.summary);
+          if (result?.error) parts.push(`Error: ${result.error}`);
+          if (result?.filesModified?.length) {
+            parts.push(`Files modified: ${result.filesModified.join(", ")}`);
+          }
+          if (result?.filesCreated?.length) {
+            parts.push(`Files created: ${result.filesCreated.join(", ")}`);
+          }
+
+          const text = parts.join("\n");
+          await runtime.createMemory(
+            {
+              entityId: runtime.agentId,
+              roomId: task.roomId,
+              content: { text, source: "orchestrator" },
+            },
+            "messages",
+          );
+          logger.info(`[milaidy] Task result posted to room ${task.roomId}: ${task.name}`);
+        } catch (err) {
+          logger.warn(`[milaidy] Failed to surface task result: ${formatError(err)}`);
+        }
+      };
+
+      orchestratorSvc.on("task:completed", handleTaskDone as any);
+      orchestratorSvc.on("task:failed", handleTaskDone as any);
+      logger.info("[milaidy] Task result surfacing enabled");
+    }
+  } catch (err) {
+    logger.debug(`[milaidy] Could not wire task result surfacing: ${formatError(err)}`);
   }
 
   // 9. Graceful shutdown handler
@@ -2303,6 +2418,7 @@ export async function startEliza(
           runtime = newRuntime;
           runtimeRef = newRuntime;
           cachedProvider = null; // force re-creation with new runtime
+          cachedCodexProvider = null;
           logger.info("[milaidy] Hot-reload: Runtime restarted successfully");
           return newRuntime;
         } catch (err) {

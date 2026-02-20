@@ -228,20 +228,23 @@ Raised threshold 50→100, added index rebuild after enrichments, rewrote 16 enr
 
 ### 3. Make Action Selection Deterministic
 
-See "Exploration Findings" section above. Three approaches identified, not yet implemented:
-1. Temperature = 0 (highest impact, one line)
-2. Action count reduction 52→37 (remove noise)
-3. Template disambiguation rules
+See "Exploration Findings" section above. ~~Temperature=0~~ rejected (commit `38ffacd`).
+Remaining approaches:
+1. ~~Temperature = 0~~ REJECTED — makes response text boring
+2. Action count reduction 52→37 (remove noise) — not yet implemented
+3. Template disambiguation rules — DONE (added safety-first routing rules)
 
-### 4. Fix Benchmark Expectations
+### ~~4. Fix Benchmark Expectations~~ DONE
 
 In `scripts/test-action-selection.ts`:
-- #65: Accept IGNORE alongside NONE/REPLY (already identified as equivalent)
-- #60: Accept LIST_MESSAGING_CHANNELS or update test expectation
+- #65: Already accepts `["NONE", "REPLY", "IGNORE"]`
+- #60: Already expects `["REPLY", "NONE"]` (SEND_TO_ROOM fails validate)
 
-### 5. Fix SEARCH_KNOWLEDGE (upstream bug)
+### ~~5. Fix SEARCH_KNOWLEDGE (extractPlugin bug)~~ DONE
 
-`extractPlugin()` in ElizaOS picks `documentsProvider` instead of `knowledgePlugin` from plugin-knowledge's exports. Needs upstream fix or local patch.
+Root cause: `looksLikePlugin()` in `extractPlugin()` only checked for `name` + `description` strings, matching both Plugins AND Providers. `knowledgeProvider` was the first matching export, picked over `knowledgePlugin`.
+
+Fix: Enhanced `looksLikePlugin()` to reject objects with a `get()` function (Provider pattern) unless they also have plugin-specific fields (`actions`, `providers`, `services`, or `init`).
 
 ## Session 2 Progress (2026-02-17)
 
@@ -276,33 +279,11 @@ Overall: ~9/16 on coder+skill subset.
 | +Ghost action fixes | 68 | ~78% | 6 coder actions now register |
 | +Threshold 100, index rebuild, semantic enrichments | coder+skill subset | 9/16 (56%) | GIT commit passes, others remain non-deterministic |
 
-## Exploration Findings (NOT YET IMPLEMENTED)
+## Exploration Findings
 
-### Approach 1: Temperature = 0 for Deterministic Action Selection
+### ~~Approach 1: Temperature = 0~~ REJECTED
 
-**Finding:** Temperature is configurable via ElizaOS character settings.
-
-The messageHandler uses the "large" model category. Temperature is set via:
-```typescript
-// In character settings:
-settings: {
-  TEXT_LARGE_TEMPERATURE: "0",  // Affects messageHandler (action selection)
-  // OR
-  DEFAULT_TEMPERATURE: "0",     // Affects all model calls
-}
-```
-
-**How it works:**
-- `src/runtime/eliza.ts` passes character settings to runtime
-- Runtime's `useModel()` reads `TEXT_LARGE_TEMPERATURE` for the large model category
-- If not set, falls back to `DEFAULT_TEMPERATURE`, then model provider's default (~0.7-1.0)
-- Setting to "0" makes action selection deterministic (same input → same output)
-
-**Impact:** High. Removes non-determinism from the 7 remaining LLM routing failures. Benchmark becomes reproducible. Does NOT affect response text quality since action selection and text generation are separate calls (shouldRespond + messageHandler for action, then handler generates text).
-
-**Risk:** Low. Only affects action selection determinism. May make the agent slightly more "rigid" in borderline cases, but that's the desired behavior for action routing.
-
-**Implementation:** One line in `src/runtime/eliza.ts` character settings block (~line 1210).
+Setting `TEXT_LARGE_TEMPERATURE: "0"` was tested and reverted (commit `38ffacd`). ElizaOS uses a **single LLM call** for both action selection AND response text generation (the `messageHandler` prompt generates `<thought>`, `<actions>`, AND `<text>` together). Temperature=0 made action selection deterministic but also made response text robotic and boring. Not viable without decoupling action selection from text generation upstream.
 
 ### Approach 2: Action Count Reduction (52 → ~37 actions)
 
@@ -366,18 +347,17 @@ settings: {
 
 ### Recommended Implementation Order
 
-1. **Temperature = 0** — Highest impact, lowest risk, one line change. Do this first, run benchmark, establish deterministic baseline.
-2. **Action count reduction (Phase 1)** — Remove 10 obvious noise actions. Run benchmark, measure improvement.
-3. **Template disambiguation** — Add explicit rules for remaining confusing pairs. Run benchmark per change.
-4. **Action count reduction (Phase 2)** — Only if needed after steps 1-3.
+1. ~~**Temperature = 0**~~ REJECTED — Makes response text boring (single LLM call couples action + text).
+2. **Template disambiguation** — Add explicit rules for confusing pairs (file ops, git, skills). Low risk, moderate impact.
+3. **Action count reduction (Phase 1)** — Remove 10 obvious noise actions. Run benchmark, measure improvement.
+4. **Action count reduction (Phase 2)** — Only if needed after steps 2-3.
 
 ### Expected Outcome
 
-With all 3 approaches:
-- Benchmark should be reproducible (temperature=0)
+With approaches 2-4:
 - LLM sees ~37 well-described actions instead of 52 noisy ones
 - Template guides disambiguation for edge cases
-- Target: 90%+ raw accuracy on full 68-test suite
+- Target: 85%+ raw accuracy on full 68-test suite
 
 ## Cost Analysis
 
