@@ -60,7 +60,9 @@ export function useRetakeCapture(
           (blob) => {
             if (blob) {
               fetch(FRAME_ENDPOINT, { method: "POST", body: blob })
-                .catch(() => {})
+                .catch((err) => {
+                  console.warn("[retake] frame push failed:", err);
+                })
                 .finally(() => {
                   pendingRef.current = false;
                 });
