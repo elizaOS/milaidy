@@ -155,7 +155,7 @@ export function BugReportModal() {
         // No GITHUB_TOKEN on server — copy report and open GitHub manually
         const ok = await copyText(formatMarkdown());
         setCopied(ok);
-        window.open(result.fallback, "_blank", "noopener");
+        globalThis.window?.open(result.fallback, "_blank", "noopener");
       }
     } catch (err) {
       setErrorMsg(
@@ -169,12 +169,12 @@ export function BugReportModal() {
   const handleCopyAndOpen = useCallback(async () => {
     const ok = await copyText(formatMarkdown());
     setCopied(ok);
-    window.open(GITHUB_NEW_ISSUE_URL, "_blank", "noopener");
+    globalThis.window?.open(GITHUB_NEW_ISSUE_URL, "_blank", "noopener");
   }, [formatMarkdown]);
 
   // Close on Escape
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || typeof window === "undefined") return;
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         e.preventDefault();
