@@ -1,0 +1,726 @@
+/* ── Blue Archive / Bright Anime Style Character Screen ────────────────────────────── */
+
+.anime-comp-screen {
+    --ac-bg-base: #f4f8fc;
+    --ac-bg-pattern: #e6eff7;
+    --ac-accent: #00a2e8; /* Bright Cyan/Blue */
+    --ac-accent-light: rgba(0, 162, 232, 0.15);
+    --ac-accent-pink: #ff6b8b;
+    --ac-glass: rgba(255, 255, 255, 0.85);
+    --ac-glass-hover: rgba(255, 255, 255, 0.95);
+    --ac-glass-border: rgba(0, 162, 232, 0.2);
+    --ac-text-primary: #1e2b4d;
+    --ac-text-secondary: #5c7499;
+
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    background-color: var(--ac-bg-base);
+    color: var(--ac-text-primary);
+    font-family: var(--font-display), "Nunito", "Quicksand", sans-serif;
+    animation: anime-screen-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes anime-screen-in {
+    from {
+        opacity: 0;
+        transform: scale(1.05);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+/* Diagonal stripes pattern common in anime UIs */
+.anime-comp-bg-graphic {
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+        -45deg,
+        transparent,
+        transparent 10px,
+        var(--ac-bg-pattern) 10px,
+        var(--ac-bg-pattern) 20px
+    );
+    opacity: 0.6;
+    z-index: 0;
+}
+
+/* ── Layer 1: 3D Model ── */
+.anime-comp-model-layer {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: auto;
+}
+
+.anime-vrm-fallback {
+    position: absolute;
+    left: 50%;
+    top: 52%;
+    transform: translate(-50%, -50%);
+    height: 90%;
+    object-fit: contain;
+    opacity: 0.85;
+}
+
+.anime-comp-bubble-wrap {
+    position: absolute;
+    top: 15%;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 5;
+    pointer-events: none;
+}
+
+/* ── Layer 2: UI Canvas ── */
+.anime-comp-ui-layer {
+    position: absolute;
+    inset: 0;
+    z-index: 10;
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    padding: 24px;
+}
+
+.anime-comp-ui-layer > * {
+    pointer-events: auto;
+}
+
+.glass-panel {
+    background: var(--ac-glass);
+    backdrop-filter: blur(16px);
+    border: 1px solid var(--ac-glass-border);
+    border-radius: 20px;
+    box-shadow: 0 12px 32px rgba(0, 162, 232, 0.08);
+}
+
+/* ── Floating Header (Top Left/Right) ── */
+.anime-comp-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 24px;
+}
+
+.anime-comp-header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+/* Status Pill */
+.anime-status-pill {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: #ffffff;
+    padding: 6px 16px 6px 8px;
+    border-radius: 999px;
+    box-shadow: 0 4px 16px rgba(0, 162, 232, 0.15);
+    border: 2px solid var(--ac-accent-light);
+}
+
+.anime-logo-circle {
+    width: 36px;
+    height: 36px;
+    background: var(--ac-accent);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 900;
+    font-size: 14px;
+    font-style: italic;
+    box-shadow: 0 0 10px rgba(0, 162, 232, 0.4);
+}
+
+.anime-btn-ghost {
+    background: #ffffff;
+    border: 1px solid var(--ac-glass-border);
+    color: var(--ac-text-primary);
+    padding: 8px 16px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 162, 232, 0.05);
+    transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.anime-btn-ghost:hover {
+    transform: translateY(-2px);
+    background: var(--ac-accent);
+    color: white;
+    border-color: var(--ac-accent);
+    box-shadow: 0 6px 16px rgba(0, 162, 232, 0.2);
+}
+
+.anime-comp-header-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.anime-level-badge {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: #ffffff;
+    padding: 8px 16px;
+    border-radius: 999px;
+    box-shadow: 0 4px 16px rgba(0, 162, 232, 0.1);
+    border: 2px solid var(--ac-accent-light);
+}
+
+.anime-level-number {
+    font-size: 16px;
+    font-weight: 900;
+    color: var(--ac-accent);
+}
+
+.anime-xp-track {
+    width: 80px;
+    height: 8px;
+    background: #e6eff7;
+    border-radius: 999px;
+    overflow: hidden;
+    position: relative;
+}
+
+.anime-xp-fill {
+    height: 100%;
+    background: var(--ac-accent);
+    border-radius: 999px;
+    transition: width 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.anime-xp-text {
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--ac-text-secondary);
+}
+
+.anime-tier-badge {
+    background: var(--ac-accent-pink);
+    color: #fff;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 8px 16px;
+    border-radius: 999px;
+    box-shadow: 0 4px 12px rgba(255, 107, 139, 0.3);
+}
+
+/* Global Nav Button (Top Right) */
+.anime-nav-toggle {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: #ffffff;
+    border: 2px solid var(--ac-accent-light);
+    color: var(--ac-accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 4px 16px rgba(0, 162, 232, 0.1);
+    transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.anime-nav-toggle:hover {
+    transform: scale(1.1) rotate(5deg);
+    background: var(--ac-accent);
+    color: #fff;
+}
+
+/* ── Main Layout ── */
+.anime-comp-main-grid {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 300px 1fr 300px;
+    gap: 24px;
+}
+
+.anime-comp-left-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    justify-content: center;
+}
+
+.anime-profile-header {
+    background: #ffffff;
+    padding: 20px;
+    border-radius: 20px;
+    box-shadow: 0 8px 24px rgba(0, 162, 232, 0.08);
+    position: relative;
+    overflow: hidden;
+}
+
+/* A cute accent bar for the card */
+.anime-profile-header::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 6px;
+    background: var(--ac-accent);
+}
+
+.anime-profile-header h2 {
+    font-size: 32px;
+    font-weight: 900;
+    text-transform: capitalize;
+    color: var(--ac-text-primary);
+    margin-bottom: 4px;
+}
+
+.anime-profile-header p {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--ac-text-secondary);
+}
+
+.anime-warning-banner {
+    background: #ffeaf0;
+    color: var(--ac-accent-pink);
+    padding: 12px 16px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 800;
+    border: 2px dashed rgba(255, 107, 139, 0.3);
+}
+
+.anime-kpi-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 20px;
+}
+
+.anime-kpi-item {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.anime-kpi-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+}
+
+.anime-kpi-label {
+    font-size: 12px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--ac-text-secondary);
+}
+
+.anime-kpi-note {
+    font-size: 10px;
+    font-weight: 800;
+    color: var(--ac-accent);
+}
+
+.anime-kpi-track-wrap {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.anime-kpi-val {
+    font-size: 16px;
+    font-weight: 900;
+    width: 32px;
+    text-align: right;
+    color: var(--ac-text-primary);
+}
+
+.anime-kpi-mini-track {
+    flex: 1;
+    height: 8px;
+    background: #e6eff7;
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.anime-kpi-mini-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #00a2e8, #00d2ff);
+    border-radius: 999px;
+    transition: width 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Right Panel: Actions */
+.anime-comp-right-panel {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    gap: 24px;
+    padding-bottom: 24px;
+}
+
+/* Roster / Vrm picker */
+.anime-roster {
+    padding: 16px;
+    background: #ffffff;
+}
+
+.anime-panel-title {
+    font-size: 12px;
+    font-weight: 900;
+    text-transform: uppercase;
+    color: var(--ac-text-secondary);
+    margin-bottom: 12px;
+}
+
+.anime-roster-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 200px;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.anime-roster-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 6px;
+    border-radius: 12px;
+    background: transparent;
+    border: 2px solid transparent;
+    width: 100%;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: left;
+}
+
+.anime-roster-item:hover {
+    background: #f4f8fc;
+}
+
+.anime-roster-item.is-active {
+    background: var(--ac-accent-light);
+    border-color: var(--ac-accent);
+}
+
+.anime-roster-img {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    object-fit: cover;
+}
+
+.anime-roster-name {
+    font-size: 13px;
+    font-weight: 800;
+    color: var(--ac-text-primary);
+}
+
+/* Big Action Buttons (Flat, Bouncy) */
+.anime-action-cluster {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    align-items: flex-end;
+}
+
+.anime-action-btn {
+    position: relative;
+    width: 220px;
+    height: 64px;
+    border-radius: 16px;
+    background: #ffffff;
+    border: 2px solid var(--ac-accent-light);
+    cursor: pointer;
+    box-shadow: 0 8px 24px rgba(0, 162, 232, 0.1);
+    transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    gap: 16px;
+}
+
+/* Primary Action is larger and stands out */
+.anime-action-cluster button:first-child {
+    background: var(--ac-accent);
+    color: #fff;
+    border-color: var(--ac-accent);
+}
+
+.anime-action-cluster button:first-child .anime-action-label,
+.anime-action-cluster button:first-child .anime-action-status,
+.anime-action-cluster button:first-child svg {
+    color: #fff;
+}
+
+.anime-action-btn:hover:not(:disabled) {
+    transform: scale(1.05) translateX(-5px);
+    box-shadow: 0 12px 32px rgba(0, 162, 232, 0.2);
+    border-color: var(--ac-accent);
+}
+
+.anime-action-btn:active:not(:disabled) {
+    transform: scale(0.95);
+}
+
+.anime-action-btn.is-disabled {
+    background: #e6eff7;
+    border-color: transparent;
+    cursor: not-allowed;
+    box-shadow: none;
+    opacity: 0.7;
+}
+
+.anime-action-inner {
+    display: flex;
+    align-items: center;
+    flex: 1;
+    gap: 12px;
+}
+
+.anime-action-inner svg {
+    width: 28px;
+    height: 28px;
+    stroke: var(--ac-accent);
+}
+
+.anime-action-label {
+    font-size: 14px;
+    font-weight: 900;
+    text-transform: uppercase;
+    color: var(--ac-text-primary);
+    flex: 1;
+    text-align: left;
+}
+
+.anime-action-status {
+    background: rgba(0, 0, 0, 0.05);
+    padding: 4px 10px;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--ac-text-secondary);
+}
+
+/* ── Floating Sidebar/Drawer (Right) ── */
+.anime-drawer-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(30, 43, 77, 0.4);
+    backdrop-filter: blur(4px);
+    z-index: 50;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+}
+
+.anime-drawer-overlay.is-open {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.anime-drawer {
+    position: absolute;
+    top: 24px;
+    bottom: 24px;
+    right: 24px;
+    width: 380px;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(20px);
+    z-index: 60;
+    border-radius: 24px;
+    box-shadow: -10px 10px 40px rgba(0, 162, 232, 0.15);
+    transform: translateX(120%);
+    transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid var(--ac-glass-border);
+}
+
+.anime-drawer.is-open {
+    transform: translateX(0);
+}
+
+.anime-drawer-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.anime-drawer-header {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    position: relative;
+}
+
+.anime-drawer-header h2 {
+    font-size: 24px;
+    font-weight: 900;
+    color: var(--ac-text-primary);
+}
+
+.anime-drawer-header p {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--ac-text-secondary);
+}
+
+.anime-drawer-close {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #f4f8fc;
+    color: var(--ac-text-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    border: none;
+    cursor: pointer;
+}
+
+.anime-drawer-close:hover {
+    background: var(--ac-accent-pink);
+    color: white;
+}
+
+/* Nav links in drawer */
+.anime-nav-menu {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 24px;
+    border-bottom: 2px dashed #e6eff7;
+    padding-bottom: 24px;
+}
+
+.anime-nav-link {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: #ffffff;
+    border: 2px solid transparent;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 800;
+    color: var(--ac-text-primary);
+    cursor: pointer;
+    transition: all 0.2s;
+    text-decoration: none;
+}
+
+.anime-nav-link:hover {
+    background: var(--ac-accent-light);
+    border-color: var(--ac-accent);
+    transform: translateX(4px);
+}
+
+.anime-drawer-sec {
+    background: #f4f8fc;
+    border-radius: 16px;
+    padding: 16px;
+}
+
+.anime-drawer-sec h3 {
+    font-size: 13px;
+    font-weight: 900;
+    text-transform: uppercase;
+    color: var(--ac-accent);
+    margin-bottom: 12px;
+}
+
+.anime-status-chip {
+    display: inline-block;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.anime-status-chip.is-good {
+    background: #e0f8e9;
+    color: #00b050;
+}
+
+.anime-status-chip.is-warn {
+    background: #ffeaf0;
+    color: var(--ac-accent-pink);
+}
+
+.anime-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    margin-bottom: 8px;
+    color: var(--ac-text-primary);
+}
+
+.anime-checkbox input {
+    accent-color: var(--ac-accent);
+    width: 18px;
+    height: 18px;
+}
+
+.anime-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--ac-text-secondary);
+    font-weight: 800;
+}
+
+.anime-field select {
+    background: #ffffff;
+    border: 2px solid var(--ac-glass-border);
+    color: var(--ac-text-primary);
+    padding: 10px;
+    border-radius: 10px;
+    outline: none;
+    font-weight: 700;
+}
+
+.anime-field select:focus {
+    border-color: var(--ac-accent);
+}
+
+.anime-btn-solid {
+    background: var(--ac-accent);
+    color: #fff;
+    border: none;
+    padding: 12px;
+    border-radius: 12px;
+    font-weight: 900;
+    cursor: pointer;
+    transition: 0.2s;
+    box-shadow: 0 4px 12px rgba(0, 162, 232, 0.2);
+}
+
+.anime-btn-solid:hover {
+    background: #008cc7;
+    transform: translateY(-2px);
+}

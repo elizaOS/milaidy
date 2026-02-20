@@ -186,9 +186,9 @@ describe("CompanionView", () => {
     });
 
     const content = text(tree!.root);
-    expect(content).toContain("Companion Console");
-    expect(content).toContain("Cyber Companion");
-    expect(content).toContain("Character Roster");
+    expect(content).toContain("milady");
+    expect(content).toContain("Seed");
+    expect(content).toContain("MILADY");
     expect(content).toContain("Mood");
     expect(content).toContain("Hunger");
     expect(content).toContain("Energy");
@@ -205,7 +205,7 @@ describe("CompanionView", () => {
     });
 
     const feedButton = tree!.root.findAll(
-      (node) => node.type === "button" && node.props["data-testid"] === "companion-action-feed",
+      (node) => node.type === "button" && text(node).trim() === "Feed30s",
     )[0];
     expect(feedButton).toBeDefined();
     expect(feedButton.props.disabled).toBe(true);
@@ -221,7 +221,7 @@ describe("CompanionView", () => {
     });
 
     const hubButton = tree!.root.findAll(
-      (node) => node.type === "button" && text(node).trim() === "Control Hub",
+      (node) => node.type === "button" && typeof node.props.className === "string" && node.props.className.includes("anime-nav-toggle"),
     )[0];
     expect(hubButton).toBeDefined();
 
@@ -233,7 +233,7 @@ describe("CompanionView", () => {
       (node) =>
         node.type === "aside" &&
         typeof node.props.className === "string" &&
-        node.props.className.includes("companion-game__drawer"),
+        node.props.className.includes("anime-drawer"),
     )[0];
     expect(drawer.props.className.includes("is-open")).toBe(true);
 

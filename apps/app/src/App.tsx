@@ -104,6 +104,28 @@ export function App() {
     tab === "database" ||
     tab === "logs";
 
+  if (tab === "companion") {
+    return (
+      <>
+        <div className="relative w-full h-[100vh] overflow-hidden bg-white">
+          <CompanionView />
+        </div>
+        <CommandPalette />
+        <EmotePicker />
+        {actionNotice && (
+          <div
+            className={`fixed bottom-6 left-1/2 -translate-x-1/2 px-5 py-2 rounded-lg text-[13px] font-medium z-[10000] text-white ${
+              actionNotice.tone === "error" ? "bg-danger" :
+              actionNotice.tone === "success" ? "bg-ok" : "bg-accent"
+            }`}
+          >
+            {actionNotice.text}
+          </div>
+        )}
+      </>
+    );
+  }
+
   return (
     <>
       {isChat ? (

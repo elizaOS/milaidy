@@ -106,6 +106,7 @@ export function CompanionView() {
     customVrmUrl,
     copyToClipboard,
     uiLanguage,
+    setTab,
   } = useApp();
   const t = createTranslator(uiLanguage);
 
@@ -123,7 +124,7 @@ export function CompanionView() {
   const currentAmbientIntentIdRef = useRef<string | null>(null);
   const idleCycleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const actionAnimatingRef = useRef(false);
-  const scheduleNextAccentRef = useRef<() => void>(() => {});
+  const scheduleNextAccentRef = useRef<() => void>(() => { });
   const prevSnapshotVersionRef = useRef<number | null>(null);
   const prevStatsRef = useRef<Record<string, number>>({});
 
@@ -382,13 +383,13 @@ export function CompanionView() {
 
   // --- Proactive trigger animations ---
   const PROACTIVE_ANIMATION_MAP: Record<string, string[]> = {
-    hunger_critical:  ["shoulder-rubbing", "bored"],
-    hunger_low:       ["yawn", "shoulder-rubbing"],
-    energy_critical:  ["yawn", "relieved-sigh"],
-    mood_burnout:     ["crying", "relieved-sigh"],
-    mood_excited:     ["cheering", "happy", "joyful-jump"],
+    hunger_critical: ["shoulder-rubbing", "bored"],
+    hunger_low: ["yawn", "shoulder-rubbing"],
+    energy_critical: ["yawn", "relieved-sigh"],
+    mood_burnout: ["crying", "relieved-sigh"],
+    mood_excited: ["cheering", "happy", "joyful-jump"],
     streak_milestone: ["clapping", "cheering", "blow-a-kiss"],
-    level_up:         ["cheering", "joyful-jump", "hip-hop-dancing"],
+    level_up: ["cheering", "joyful-jump", "hip-hop-dancing"],
   };
 
   useEffect(() => {
@@ -585,16 +586,16 @@ export function CompanionView() {
 
   const MOOD_TIER_LABELS: Record<string, string> = {
     excited: t("companion.mood.excited"),
-    calm:    t("companion.mood.calm"),
+    calm: t("companion.mood.calm"),
     neutral: t("companion.mood.neutral"),
-    low:     t("companion.mood.low"),
+    low: t("companion.mood.low"),
     burnout: t("companion.mood.burnout"),
   };
 
   const PENALTY_REASON_LABELS: Record<string, string> = {
     hunger_too_low: t("companion.penalty.hunger"),
     energy_too_low: t("companion.penalty.energy"),
-    mood_too_low:   t("companion.penalty.mood"),
+    mood_too_low: t("companion.penalty.mood"),
     social_too_low: t("companion.penalty.social"),
   };
 
@@ -643,379 +644,299 @@ export function CompanionView() {
   ];
 
   return (
-    <div className="companion-game relative min-h-[820px] overflow-hidden rounded-[34px] border border-[rgba(180,184,195,0.75)] px-4 py-5 md:px-6 md:py-6 lg:px-8 lg:py-7">
-      <div className="relative z-[1] flex flex-col gap-6">
-        <header className="flex flex-wrap items-center justify-between gap-3">
-          <div className="companion-game__utility-pill" data-testid="companion-top-bar">
-            <span className="companion-game__utility-dot" />
-            <span className="companion-game__utility-text">{t("companion.console")}</span>
-          </div>
-          <div className="companion-game__logo-mark">milady</div>
-          <div className="flex items-center gap-2">
+    <div className="anime-comp-screen font-display">
+      <div className="anime-comp-bg-graphic"></div>
+
+      {/* Model Layer */}
+      <div className="anime-comp-model-layer">
+        <div
+          className="absolute inset-0"
+          style={{
+            opacity: vrmLoaded ? 1 : 0,
+            transition: "opacity 400ms ease",
+          }}
+        >
+          <VrmViewer
+            vrmPath={vrmPath}
+            mouthOpen={0}
+            isSpeaking={false}
+            interactive
+            cameraProfile="companion"
+            interactiveMode="orbitZoom"
+            onEngineReady={handleVrmEngineReady}
+            onEngineState={handleVrmEngineState}
+          />
+        </div>
+        {showVrmFallback && !vrmLoaded && (
+          <img
+            src={fallbackPreviewUrl}
+            alt={t("companion.avatarPreviewAlt")}
+            className="anime-vrm-fallback"
+          />
+        )}
+        <div className="anime-comp-bubble-wrap">
+          <BubbleEmote
+            moodTier={companionSnapshot.moodTier}
+            activeAction={lastTriggeredAction}
+            visible={vrmLoaded}
+          />
+        </div>
+      </div>
+
+      {/* UI Overlay */}
+      <div className="anime-comp-ui-layer">
+
+        {/* Top Header */}
+        <header className="anime-comp-header">
+          <div className="anime-comp-header-left">
             <button
-              className="companion-game__top-btn"
-              onClick={() => { void loadCompanion(); }}
+              className="anime-btn-ghost"
+              onClick={() => setTab("chat")}
+              title={t("nav.chat")}
             >
-              {t("companion.sync")}
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
             </button>
-            <button
-              className="companion-game__top-btn companion-game__top-btn--primary"
-              onClick={() => setDrawerOpen(true)}
-            >
-              {t("companion.controlHub")}
+            
+            <div className="anime-status-pill">
+              <div className="anime-logo-circle">M</div>
+              <span className="text-sm font-black mr-2 text-[var(--ac-text-primary)]">milady</span>
+            </div>
+            
+            <button className="anime-btn-ghost" onClick={() => { void loadCompanion(); }} title={t("companion.sync")}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21v-5h5"/></svg>
+            </button>
+          </div>
+
+          <div className="anime-comp-header-right">
+            <div className="anime-level-badge">
+              <span className="anime-level-number">Lv.{state.level}</span>
+              <div className="anime-xp-track">
+                <div
+                  className="anime-xp-fill"
+                  style={{ width: `${ratioPercent(state.xp, companionSnapshot.nextLevelXp)}%` }}
+                />
+              </div>
+            </div>
+            <div className="anime-tier-badge">
+              {MOOD_TIER_LABELS[companionSnapshot.moodTier] ?? companionSnapshot.moodTier}
+            </div>
+            <button className="anime-nav-toggle" onClick={() => setDrawerOpen(true)}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
             </button>
           </div>
         </header>
 
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[148px_minmax(0,1fr)_296px]">
-          <aside className="companion-game__left-rail">
-            <div className="companion-game__rail-actions" data-testid="companion-quick-actions">
-              <div className="companion-game__rail-title">{t("companion.quickActions")}</div>
-              <div className="companion-game__action-list">
-                {quickActions.map((action) => {
-                  const isLimit =
-                    action.id === "manual_share" && manualShareCapReached;
-                  const isCooldown = !isLimit && action.cooldownMs > 0;
-                  const tone: QuickActionTone = isLimit
-                    ? "limit"
-                    : isCooldown
-                    ? "cooldown"
-                    : "ready";
-                  const statusText = isLimit
-                    ? t("companion.status.limitReached")
-                    : isCooldown
-                    ? formatDuration(action.cooldownMs)
-                    : t("companion.status.ready");
-                  // Show the explanatory hint only when the action is on cooldown or at its limit.
-                  const showCooldownHint = isLimit || isCooldown;
+        {/* Main Content Area */}
+        <div className="anime-comp-main-grid">
 
-                  return (
-                    <div key={`quick-${action.id}`} className="companion-game__action-item">
-                      <button
-                        className="companion-game__action-icon-btn"
-                        data-testid={`companion-action-${action.id}`}
-                        aria-label={`${action.label} (${statusText})`}
-                        title={`${action.label}: ${statusText}`}
-                        disabled={action.disabled}
-                        onClick={action.onRun}
-                      >
-                        <span className="companion-game__action-icon">
-                          <QuickActionIcon kind={action.kind} />
-                        </span>
-                        <span className={`companion-game__action-state-dot is-${tone}`} />
-                      </button>
-                      <span className="companion-game__action-title">{action.label}</span>
-                      <span className={`companion-game__action-state-text is-${tone}`}>
-                        {statusText}
-                      </span>
-                      {showCooldownHint && (
-                        <span className="text-[10px] text-muted mt-0.5 text-center">
-                          {action.cooldownHint}
-                        </span>
-                      )}
+          {/* Left Panel: Profile & Stats */}
+          <aside className="anime-comp-left-panel">
+            <div className="anime-profile-header">
+              <h2>{t("companion.headline")}</h2>
+              <p>
+                <span className="text-accent">{companionSnapshot.evolutionStage.label}</span>
+                <span className="mx-2 opacity-50">/</span>
+                <span>{t("companion.day")} {daysTogether}</span>
+                <span className="mx-2 opacity-50">/</span>
+                <span>{t("companion.streak")} {state.streakDays}d</span>
+              </p>
+            </div>
+
+            {softPenalty && (
+              <div className="anime-warning-banner">
+                {penaltyHint}
+              </div>
+            )}
+
+            <div className="anime-kpi-panel glass-panel">
+              {statItems.map((item) => {
+                const value = Math.round(item.value);
+                const tooltip = STAT_TOOLTIPS[item.id] ?? "";
+                let note = t("companion.coreStatus");
+                if (item.id === "mood") note = MOOD_TIER_LABELS[companionSnapshot.moodTier] ?? companionSnapshot.moodTier;
+                if (item.id === "hunger") {
+                  note = `${cooldowns.feed > 0 ? formatDuration(cooldowns.feed) : t("companion.status.ready")}`;
+                }
+                if (item.id === "energy") {
+                  note = `${cooldowns.rest > 0 ? formatDuration(cooldowns.rest) : t("companion.status.ready")}`;
+                }
+                if (item.id === "social") {
+                  note = `${companionSnapshot.today.chatCount}/${companionSnapshot.today.chatCap}`;
+                }
+
+                return (
+                  <div key={item.id} className="anime-kpi-item" title={tooltip}>
+                    <div className="anime-kpi-info">
+                      <span className="anime-kpi-label">{item.label}</span>
+                      <span className="anime-kpi-note">{note}</span>
                     </div>
+                    <div className="anime-kpi-track-wrap">
+                      <div className="anime-kpi-val">{value}</div>
+                      <div className="anime-kpi-mini-track">
+                        <div className="anime-kpi-mini-fill" style={{ width: `${toPercent(value)}%` }} />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </aside>
+
+          {/* Center (Empty to show character) */}
+          <div className="anime-comp-center"></div>
+
+          {/* Right Panel: Roster & Actions */}
+          <aside className="anime-comp-right-panel">
+
+            <div className="anime-roster glass-panel">
+              <div className="anime-panel-title">{t("companion.roster")}</div>
+              {selectedVrmIndex === 0 && <div className="text-xs text-accent mt-1 mb-2">{t("companion.customVrmActive")}</div>}
+              <div className="anime-roster-list">
+                {rosterItems.map((item) => {
+                  const active = selectedVrmIndex !== 0 && item.index === safeSelectedVrmIndex;
+                  return (
+                    <button
+                      key={item.index}
+                      className={`anime-roster-item ${active ? "is-active" : ""}`}
+                      onClick={() => setState("selectedVrmIndex", item.index)}
+                    >
+                      <img src={item.previewUrl} alt={item.title} className="anime-roster-img" />
+                      <div className="anime-roster-meta">
+                        <span className="anime-roster-name">{item.title}</span>
+                      </div>
+                    </button>
                   );
                 })}
               </div>
             </div>
 
-            {softPenalty && (
-              <div className="companion-game__warning-chip">
-                {penaltyHint}
-              </div>
-            )}
-          </aside>
+            <div className="anime-action-cluster">
+              {quickActions.map(action => {
+                const isLimit = action.id === "manual_share" && manualShareCapReached;
+                const isCooldown = !isLimit && action.cooldownMs > 0;
+                const statusText = isLimit ? "LIMIT" : isCooldown ? formatDuration(action.cooldownMs) : "READY";
 
-          <section className="companion-game__stage" data-testid="companion-stage">
-            <div className="companion-game__stage-head">
-              <div>
-                <div className="companion-game__headline">{t("companion.headline")}</div>
-                <p className="companion-game__subline">
-                  <span className="text-accent">{companionSnapshot.evolutionStage.label}</span>
-                  {" · "}
-                  <span className="companion-game__days-together">
-                    {t("companion.day")} {daysTogether}
-                  </span>
-                  {" · "}
-                  {t("companion.streak")} {state.streakDays}d
-                </p>
-              </div>
-              <div className="companion-game__tier-chip">{MOOD_TIER_LABELS[companionSnapshot.moodTier] ?? companionSnapshot.moodTier}</div>
-            </div>
-
-            <div className="companion-game__vrm-shell">
-              <div className="relative h-full w-full">
-                <div
-                  className="absolute inset-0"
-                  style={{
-                    opacity: vrmLoaded ? 1 : 0,
-                    transition: "opacity 220ms ease",
-                  }}
-                >
-                  <VrmViewer
-                    vrmPath={vrmPath}
-                    mouthOpen={0}
-                    isSpeaking={false}
-                    interactive
-                    cameraProfile="companion"
-                    interactiveMode="orbitZoom"
-                    onEngineReady={handleVrmEngineReady}
-                    onEngineState={handleVrmEngineState}
-                  />
-                </div>
-                {showVrmFallback && !vrmLoaded && (
-                  <img
-                    src={fallbackPreviewUrl}
-                    alt={t("companion.avatarPreviewAlt")}
-                    className="absolute left-1/2 top-1/2 h-[78%] -translate-x-1/2 -translate-y-1/2 object-contain opacity-90"
-                  />
-                )}
-              </div>
-              <BubbleEmote
-                moodTier={companionSnapshot.moodTier}
-                activeAction={lastTriggeredAction}
-                visible={vrmLoaded}
-              />
-            </div>
-          </section>
-
-          <aside className="companion-game__roster" data-testid="companion-roster">
-            <div className="companion-game__panel-title">{t("companion.roster")}</div>
-            {selectedVrmIndex === 0 && (
-              <div className="companion-game__status-notes">
-                {t("companion.customVrmActive")}
-              </div>
-            )}
-            <div className="companion-game__roster-list">
-              {rosterItems.map((item) => {
-                const active = selectedVrmIndex !== 0 && item.index === safeSelectedVrmIndex;
                 return (
                   <button
-                    key={`roster-${item.index}`}
-                    className={`companion-game__roster-item ${active ? "is-active" : ""}`}
-                    data-testid={`companion-roster-item-${item.index}`}
-                    onClick={() => setState("selectedVrmIndex", item.index)}
+                    key={action.id}
+                    className={`anime-action-btn ${action.disabled ? "is-disabled" : ""}`}
+                    disabled={action.disabled}
+                    onClick={action.onRun}
+                    title={action.cooldownHint}
                   >
-                    <span className="companion-game__roster-node" aria-hidden="true" />
-                    <span className="companion-game__roster-thumb">
-                      <img src={item.previewUrl} alt={item.title} />
-                    </span>
-                    <span className="companion-game__roster-meta">
-                      <span className="companion-game__roster-title">{item.title}</span>
-                      <span className="companion-game__roster-subtitle">
-                        {active ? t("companion.activeCompanion") : t("companion.switchAvatar")}
-                      </span>
-                    </span>
+                    <div className={`anime-action-ring ${!action.disabled ? "is-pulsing" : ""}`} />
+                    <div className="anime-action-inner">
+                      <QuickActionIcon kind={action.kind} />
+                      <span className="anime-action-label">{action.label}</span>
+                      <span className="anime-action-status">{statusText}</span>
+                    </div>
                   </button>
                 );
               })}
             </div>
 
-            <button
-              className="companion-game__panel-btn"
-              onClick={() => setDrawerOpen(true)}
-            >
-              {t("companion.openControlHub")}
-            </button>
           </aside>
         </div>
-
-        <section className="companion-game__kpi-grid" data-testid="companion-kpi">
-          {statItems.map((item) => {
-            const value = Math.round(item.value);
-            let note = t("companion.coreStatus");
-            if (item.id === "mood") note = MOOD_TIER_LABELS[companionSnapshot.moodTier] ?? companionSnapshot.moodTier;
-            if (item.id === "hunger") {
-              note = `${t("companion.action.feed").toLowerCase()} ${
-                cooldowns.feed > 0
-                  ? formatDuration(cooldowns.feed)
-                  : t("companion.status.ready")
-              }`;
-            }
-            if (item.id === "energy") {
-              note = `${t("companion.action.rest").toLowerCase()} ${
-                cooldowns.rest > 0
-                  ? formatDuration(cooldowns.rest)
-                  : t("companion.status.ready")
-              }`;
-            }
-            if (item.id === "social") {
-              note = `${t("companion.chat")} ${companionSnapshot.today.chatCount}/${companionSnapshot.today.chatCap}`;
-            }
-            const tooltip = STAT_TOOLTIPS[item.id] ?? "";
-            return (
-              <article
-                key={`kpi-${item.id}`}
-                className={`companion-game__kpi-card${changedStats.has(item.id) ? " is-changed" : ""}`}
-                title={tooltip}
-              >
-                <div className="companion-game__kpi-label">
-                  {item.label}
-                  {tooltip && (
-                    <span
-                      className="text-muted text-[10px] ml-0.5 cursor-help"
-                      title={tooltip}
-                    >?</span>
-                  )}
-                </div>
-                <div className="companion-game__kpi-value">{value}</div>
-                <div className="companion-game__kpi-note">{note}</div>
-              </article>
-            );
-          })}
-        </section>
-
       </div>
 
-      <div
-        className={`companion-game__drawer-overlay ${drawerOpen ? "is-open" : ""}`}
-        onClick={() => setDrawerOpen(false)}
-      />
+      <div className={`anime-drawer-overlay ${drawerOpen ? "is-open" : ""}`} onClick={() => setDrawerOpen(false)} />
 
-      <aside className={`companion-game__drawer ${drawerOpen ? "is-open" : ""}`} aria-hidden={!drawerOpen}>
-        <div className="companion-game__drawer-header">
-          <div>
-            <h3>{t("companion.controlHub")}</h3>
+      <aside className={`anime-drawer ${drawerOpen ? "is-open" : ""}`}>
+        <div className="anime-drawer-content">
+          <div className="anime-drawer-header">
+            <h2>{t("companion.controlHub")}</h2>
             <p>{t("companion.drawer.subtitle")}</p>
+            <button className="anime-drawer-close" onClick={() => setDrawerOpen(false)}>×</button>
           </div>
-          <button className="companion-game__drawer-close" onClick={() => setDrawerOpen(false)}>
-            {t("companion.close")}
-          </button>
-        </div>
 
-        <section className="companion-game__drawer-section">
-          <div className="companion-game__drawer-title">{t("companion.statusOverview")}</div>
-          <div className="companion-game__mini-progress">
-            <div className="companion-game__mini-progress-label">
-              <span>{t("companion.autopost")}</span>
-              <span>{companionSnapshot.today.autoPostCount}/{companionSnapshot.today.autoPostCap}</span>
+          <div className="anime-drawer-body">
+            {/* Global Nav for immersive view */}
+            <div className="anime-nav-menu">
+              <button className="anime-nav-link" onClick={() => { setDrawerOpen(false); setTab("chat"); }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 9a2 2 0 0 1-2 2H6l-4 4V4c0-1.1.9-2 2-2h8a2 2 0 0 1 2 2v5Z"/><path d="M18 9h2a2 2 0 0 1 2 2v11l-4-4h-6a2 2 0 0 1-2-2v-1"/></svg>
+                {t("nav.chat")}
+              </button>
+              <button className="anime-nav-link" onClick={() => { setDrawerOpen(false); setTab("knowledge"); }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
+                {t("nav.knowledge")}
+              </button>
+              <button className="anime-nav-link" onClick={() => { setDrawerOpen(false); setTab("wallets"); }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg>
+                {t("nav.inventory")}
+              </button>
+              <button className="anime-nav-link" onClick={() => { setDrawerOpen(false); setTab("settings"); }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>
+                {t("nav.settings")}
+              </button>
             </div>
-            <div className="companion-game__mini-progress-track">
-              <div className="companion-game__mini-progress-fill" style={{ width: `${autopostProgress}%` }} />
-            </div>
-          </div>
 
-          <div className={`companion-game__status-chip ${autopostEligible ? "is-good" : "is-danger"}`}>
-            {autopostEligible ? t("companion.autopostEligible") : t("companion.autopostPaused")}
-          </div>
+            <section className="anime-drawer-sec">
+              <h3>{t("companion.statusOverview")}</h3>
+              <p className="text-sm opacity-80 mb-2">{t("companion.autopost")} {companionSnapshot.today.autoPostCount}/{companionSnapshot.today.autoPostCap}</p>
+              <div className={`anime-status-chip ${autopostEligible ? "is-good" : "is-warn"}`}>
+                {autopostEligible ? t("companion.autopostEligible") : t("companion.autopostPaused")}
+              </div>
+              {!autopostEligible && <div className="text-xs text-red-300 mt-2">{reasonsSummary}</div>}
+              {softPenalty && <div className="text-xs text-red-400 mt-2">{t("companion.softPenaltyHint")}</div>}
+            </section>
 
-          {!autopostEligible && (
-            <div className="companion-game__status-notes">{reasonsSummary}</div>
-          )}
+            <section className="anime-drawer-sec">
+              <h3>{t("companion.autopostControls")}</h3>
+              <div className="anime-drawer-form">
+                <label className="anime-checkbox">
+                  <input type="checkbox" checked={autopostEnabled} onChange={e => setAutopostEnabled(e.target.checked)} />
+                  <span>{t("companion.enableAutopost")}</span>
+                </label>
+                <label className="anime-checkbox">
+                  <input type="checkbox" checked={autopostDryRun} onChange={e => setAutopostDryRun(e.target.checked)} />
+                  <span>{t("companion.dryRunMode")}</span>
+                </label>
 
-          {softPenalty && (
-            <div className="companion-game__status-notes companion-game__status-notes--danger">
-              {t("companion.softPenaltyHint")}
-            </div>
-          )}
-
-        </section>
-
-        <section className="companion-game__drawer-section">
-          <div className="companion-game__drawer-title">{t("companion.autopostControls")}</div>
-          <label className="companion-game__checkbox">
-            <input
-              type="checkbox"
-              checked={autopostEnabled}
-              onChange={(event) => setAutopostEnabled(event.target.checked)}
-            />
-            <span>{t("companion.enableAutopost")}</span>
-          </label>
-          <label className="companion-game__checkbox">
-            <input
-              type="checkbox"
-              checked={autopostDryRun}
-              onChange={(event) => setAutopostDryRun(event.target.checked)}
-            />
-            <span>{t("companion.dryRunMode")}</span>
-          </label>
-
-          <div className="companion-game__drawer-grid">
-            <label className="companion-game__field">
-              <span>{t("companion.quietStart")}</span>
-              <select value={quietStart} onChange={(event) => setQuietStart(Number(event.target.value))}>
-                {Array.from({ length: 24 }).map((_, hour) => (
-                  <option key={`qs-${hour}`} value={hour}>{formatClockHour(hour)}</option>
-                ))}
-              </select>
-            </label>
-            <label className="companion-game__field">
-              <span>{t("companion.quietEnd")}</span>
-              <select value={quietEnd} onChange={(event) => setQuietEnd(Number(event.target.value))}>
-                {Array.from({ length: 24 }).map((_, hour) => (
-                  <option key={`qe-${hour}`} value={hour}>{formatClockHour(hour)}</option>
-                ))}
-              </select>
-            </label>
-          </div>
-
-          <label className="companion-game__field">
-            <span>{t("companion.policy")}</span>
-            <select
-              value={policyLevel}
-              onChange={(event) => setPolicyLevel(event.target.value as CompanionPolicyLevel)}
-            >
-              <option value="strict">{t("companion.policyStrict")}</option>
-              <option value="balanced">{t("companion.policyBalanced")}</option>
-              <option value="aggressive">{t("companion.policyAggressive")}</option>
-            </select>
-          </label>
-
-          <div className="companion-game__drawer-actions">
-            <button
-              className="companion-game__drawer-btn companion-game__drawer-btn--primary"
-              disabled={companionActionBusy}
-              onClick={() => { void handleApplySettings(); }}
-            >
-              {t("companion.saveSettings")}
-            </button>
-            <button
-              className="companion-game__drawer-btn"
-              onClick={() => { void refreshCompanionActivity(); }}
-            >
-              {t("companion.refreshActivity")}
-            </button>
-          </div>
-        </section>
-
-        <section className="companion-game__drawer-section">
-          <div className="companion-game__drawer-title">{t("companion.shareCard")}</div>
-          <p className="companion-game__helper">
-            {t("companion.shareCardHint")}
-          </p>
-          <div className="companion-game__drawer-actions">
-            <button
-              className="companion-game__drawer-btn"
-              onClick={() => { void handleCopySummary(); }}
-            >
-              {t("companion.copySummary")}
-            </button>
-            <button
-              className="companion-game__drawer-btn"
-              onClick={() => { void handleExportShareCard(); }}
-            >
-              {t("companion.downloadPng")}
-            </button>
-          </div>
-        </section>
-
-        <section className="companion-game__drawer-section">
-          <div className="companion-game__drawer-title">{t("companion.activity")}</div>
-          {companionActivity.length === 0 ? (
-            <div className="companion-game__helper">{t("companion.noEvents")}</div>
-          ) : (
-            <div className="companion-game__activity-list">
-              {companionActivity.map((event) => (
-                <div key={event.id} className="companion-game__activity-item">
-                  <div className="companion-game__activity-meta">
-                    {new Date(event.ts).toLocaleString()} | {event.kind}
-                  </div>
-                  <div>{event.message}</div>
+                <div className="flex gap-4 mt-2">
+                  <label className="anime-field flex-1">
+                    <span>{t("companion.quietStart")}</span>
+                    <select value={quietStart} onChange={e => setQuietStart(Number(e.target.value))}>
+                      {Array.from({ length: 24 }).map((_, h) => <option key={h} value={h}>{formatClockHour(h)}</option>)}
+                    </select>
+                  </label>
+                  <label className="anime-field flex-1">
+                    <span>{t("companion.quietEnd")}</span>
+                    <select value={quietEnd} onChange={e => setQuietEnd(Number(e.target.value))}>
+                      {Array.from({ length: 24 }).map((_, h) => <option key={h} value={h}>{formatClockHour(h)}</option>)}
+                    </select>
+                  </label>
                 </div>
-              ))}
-            </div>
-          )}
-        </section>
+
+                <label className="anime-field mt-2">
+                  <span>{t("companion.policy")}</span>
+                  <select value={policyLevel} onChange={e => setPolicyLevel(e.target.value as CompanionPolicyLevel)}>
+                    <option value="strict">{t("companion.policyStrict")}</option>
+                    <option value="balanced">{t("companion.policyBalanced")}</option>
+                    <option value="aggressive">{t("companion.policyAggressive")}</option>
+                  </select>
+                </label>
+
+                <div className="flex gap-3 mt-4">
+                  <button className="anime-btn-solid flex-1" disabled={companionActionBusy} onClick={() => { void handleApplySettings(); }}>
+                    {t("companion.saveSettings")}
+                  </button>
+                  <button className="anime-btn-ghost flex-1" onClick={() => { void refreshCompanionActivity(); }}>
+                    {t("companion.refreshActivity")}
+                  </button>
+                </div>
+              </div>
+            </section>
+
+            <section className="anime-drawer-sec">
+              <h3>{t("companion.shareCard")}</h3>
+              <p className="text-xs opacity-70 mb-3">{t("companion.shareCardHint")}</p>
+              <div className="flex gap-3">
+                <button className="anime-btn-ghost flex-1" onClick={() => { void handleCopySummary(); }}>{t("companion.copySummary")}</button>
+                <button className="anime-btn-ghost flex-1" onClick={() => { void handleExportShareCard(); }}>{t("companion.downloadPng")}</button>
+              </div>
+            </section>
+          </div>
+        </div>
       </aside>
     </div>
   );
