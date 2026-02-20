@@ -26,7 +26,7 @@ export function applySubscriptionProviderConfig(
 
   if (modelProvider) {
     defaults.subscriptionProvider = subscriptionKey;
-    defaults.model = { primary: modelProvider };
+    defaults.model = { ...defaults.model, primary: modelProvider };
   }
 }
 

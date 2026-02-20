@@ -90,6 +90,24 @@ describe("applySubscriptionProviderConfig", () => {
     expect(config.agents?.defaults?.subscriptionProvider).toBe("openai-codex");
     expect(config.agents?.defaults?.model?.primary).toBe("openai");
   });
+
+  it("preserves existing model.fallbacks when switching providers", () => {
+    const config = configWithDefaults({
+      subscriptionProvider: "anthropic-subscription",
+      model: {
+        primary: "anthropic",
+        fallbacks: ["openai", "groq"],
+      },
+    });
+
+    applySubscriptionProviderConfig(config, "openai-codex");
+
+    expect(config.agents?.defaults?.model?.primary).toBe("openai");
+    expect(config.agents?.defaults?.model?.fallbacks).toEqual([
+      "openai",
+      "groq",
+    ]);
+  });
 });
 
 // ============================================================================
