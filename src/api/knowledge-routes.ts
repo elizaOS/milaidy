@@ -61,6 +61,7 @@ interface KnowledgeServiceLike {
 }
 
 const FRAGMENT_COUNT_BATCH_SIZE = 500;
+const MAX_URL_IMPORT_BYTES = 10 * 1024 * 1024; // 10 MB
 const BLOCKED_HOST_LITERALS = new Set([
   "localhost",
   "metadata.google.internal",
@@ -383,6 +384,71 @@ async function fetchYouTubeTranscript(videoId: string): Promise<string | null> {
   return segments.join(" ");
 }
 
+function readContentLengthHeader(response: Response): number | null {
+  const raw = response.headers.get("content-length");
+  if (!raw) return null;
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isFinite(parsed) || parsed < 0) return null;
+  return parsed;
+}
+
+async function readResponseBodyWithLimit(
+  response: Response,
+  maxBytes: number,
+): Promise<Uint8Array> {
+  const declaredLength = readContentLengthHeader(response);
+  if (declaredLength !== null && declaredLength > maxBytes) {
+    throw new Error(`URL content exceeds maximum size of ${maxBytes} bytes`);
+  }
+
+  if (!response.body) {
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    if (bytes.byteLength > maxBytes) {
+      throw new Error(`URL content exceeds maximum size of ${maxBytes} bytes`);
+    }
+    return bytes;
+  }
+
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!value) continue;
+
+      totalBytes += value.byteLength;
+      if (totalBytes > maxBytes) {
+        throw new Error(
+          `URL content exceeds maximum size of ${maxBytes} bytes`,
+        );
+      }
+
+      chunks.push(value);
+    }
+  } catch (err) {
+    try {
+      await reader.cancel(err);
+    } catch {
+      // Best effort cleanup; keep the original error.
+    }
+    throw err;
+  } finally {
+    reader.releaseLock();
+  }
+
+  const output = new Uint8Array(totalBytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    output.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+
+  return output;
+}
+
 async function fetchUrlContent(
   url: string,
 ): Promise<{ content: string; contentType: string; filename: string }> {
@@ -433,8 +499,12 @@ async function fetchUrlContent(
   const encodedFilename = pathSegments[pathSegments.length - 1] || "document";
   const filename = decodeURIComponent(encodedFilename);
 
+  const buffer = await readResponseBodyWithLimit(
+    response,
+    MAX_URL_IMPORT_BYTES,
+  );
+
   // For binary content, return as base64
-  const buffer = await response.arrayBuffer();
   const isBinary =
     contentType.startsWith("application/pdf") ||
     contentType.startsWith("application/msword") ||

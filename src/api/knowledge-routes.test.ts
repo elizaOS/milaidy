@@ -505,4 +505,78 @@ describe("knowledge routes", () => {
     );
     expect(addKnowledgeMock).not.toHaveBeenCalled();
   });
+
+  test("rejects URL import when declared content-length exceeds max size", async () => {
+    vi.spyOn(dns, "lookup").mockResolvedValue([
+      { address: "93.184.216.34", family: 4 },
+    ]);
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      headers: new Headers({
+        "content-type": "text/plain; charset=utf-8",
+        "content-length": String(10 * 1024 * 1024 + 1),
+      }),
+      body: new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode("small"));
+          controller.close();
+        },
+      }),
+    } as Response);
+
+    const result = await invoke({
+      method: "POST",
+      pathname: "/api/knowledge/documents/url",
+      body: { url: "https://example.com/huge.txt" },
+    });
+
+    expect(result.status).toBe(400);
+    expect((result.payload as { error?: string }).error).toContain(
+      "maximum size",
+    );
+    expect(fetchSpy).toHaveBeenCalled();
+    expect(addKnowledgeMock).not.toHaveBeenCalled();
+  });
+
+  test("rejects URL import when streamed body exceeds max size", async () => {
+    vi.spyOn(dns, "lookup").mockResolvedValue([
+      { address: "93.184.216.34", family: 4 },
+    ]);
+
+    const chunk = new Uint8Array(256 * 1024); // 256 KiB
+    let chunksSent = 0;
+
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      headers: new Headers({
+        "content-type": "text/plain; charset=utf-8",
+      }),
+      body: new ReadableStream<Uint8Array>({
+        pull(controller) {
+          if (chunksSent >= 41) {
+            controller.close();
+            return;
+          }
+          chunksSent += 1;
+          controller.enqueue(chunk);
+        },
+      }),
+    } as Response);
+
+    const result = await invoke({
+      method: "POST",
+      pathname: "/api/knowledge/documents/url",
+      body: { url: "https://example.com/chunked.txt" },
+    });
+
+    expect(result.status).toBe(400);
+    expect((result.payload as { error?: string }).error).toContain(
+      "maximum size",
+    );
+    expect(addKnowledgeMock).not.toHaveBeenCalled();
+  });
 });
