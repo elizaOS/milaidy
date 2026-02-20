@@ -100,6 +100,7 @@ import {
   readJsonBody as parseJsonBody,
   type ReadJsonBodyOptions,
   readRequestBody,
+  readRequestBodyBuffer,
   sendJson,
   sendJsonError,
 } from "./http-helpers";
@@ -11522,7 +11523,6 @@ async function handleRequest(
       return;
     }
     try {
-      const { readRequestBodyBuffer } = await import("./http-helpers");
       const buf = await readRequestBodyBuffer(req, {
         maxBytes: 2 * 1024 * 1024,
       });
