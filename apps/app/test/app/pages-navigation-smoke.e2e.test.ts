@@ -206,8 +206,17 @@ function expectValidContent(content: string): void {
 
 function mainContent(tree: TestRenderer.ReactTestRenderer): string {
   const mains = tree.root.findAll((node) => node.type === "main");
-  expect(mains.length).toBeGreaterThan(0);
-  return textOf(mains[0]);
+  if (mains.length > 0) {
+    return textOf(mains[0]);
+  }
+  
+  // Companion tab doesn't use a main tag, it uses a relative div
+  const companionDivs = tree.root.findAll((node) => node.type === "div" && typeof node.props.className === "string" && node.props.className.includes("relative w-full h-[100vh]"));
+  if (companionDivs.length > 0) {
+    return textOf(companionDivs[0]);
+  }
+
+  throw new Error("Could not find main content container");
 }
 
 async function clickAndRerender(
