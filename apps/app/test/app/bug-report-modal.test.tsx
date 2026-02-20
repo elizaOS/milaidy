@@ -76,6 +76,10 @@ describe("BugReportModal", () => {
     vi.useFakeTimers();
   });
 
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   // --- rendering ---
 
   it("renders nothing when closed", () => {
@@ -298,7 +302,7 @@ describe("BugReportModal", () => {
       submitBtn?.props.onClick();
     });
 
-    expect(window.open).toHaveBeenCalledWith(
+    expect(globalThis.window?.open).toHaveBeenCalledWith(
       "https://github.com/milady-ai/milady/issues/new",
       "_blank",
       "noopener",
