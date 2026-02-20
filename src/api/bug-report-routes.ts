@@ -136,13 +136,17 @@ export async function handleBugReportRoutes(
       }
 
       const issueData = (await issueRes.json()) as { html_url?: string };
-      json(res, { url: issueData.html_url });
-    } catch (err) {
-      error(
-        res,
-        err instanceof Error ? err.message : "Failed to create issue",
-        500,
-      );
+      const url = issueData.html_url;
+      if (
+        typeof url !== "string" ||
+        !url.startsWith(`https://github.com/${BUG_REPORT_REPO}/issues/`)
+      ) {
+        error(res, "Unexpected response from GitHub API", 502);
+        return true;
+      }
+      json(res, { url });
+    } catch (_err) {
+      error(res, "Failed to create GitHub issue", 500);
     }
     return true;
   }

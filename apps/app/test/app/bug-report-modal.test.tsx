@@ -20,11 +20,6 @@ vi.mock("../../src/api-client", () => ({
   client: mockClient,
 }));
 
-// Prevent html2canvas dynamic import from loading real module
-vi.mock("html2canvas", () => ({
-  default: vi.fn(),
-}));
-
 import { BugReportModal } from "../../src/components/BugReportModal";
 
 // --- helpers ----------------------------------------------------------------

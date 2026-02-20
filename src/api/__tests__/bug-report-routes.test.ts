@@ -255,7 +255,10 @@ describe("POST /api/bug-report", () => {
         "fetch",
         vi.fn().mockResolvedValue({
           ok: true,
-          json: () => Promise.resolve({ html_url: "https://example.com/1" }),
+          json: () =>
+            Promise.resolve({
+              html_url: "https://github.com/milady-ai/milady/issues/99",
+            }),
         }),
       );
 
@@ -273,6 +276,52 @@ describe("POST /api/bug-report", () => {
       const body = JSON.parse(fetchCall[1].body);
       expect(body.title).not.toContain("<script>");
       expect(body.title).toContain("Bug here");
+    });
+
+    it("rejects html_url that is not a valid GitHub issue URL", async () => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              html_url: "https://evil.com/phishing",
+            }),
+        }),
+      );
+
+      const ctx = makeCtx({
+        method: "POST",
+        pathname: "/api/bug-report",
+        readJsonBody: vi.fn().mockResolvedValue(validBody),
+      });
+      await handleBugReportRoutes(ctx);
+      expect(ctx.error).toHaveBeenCalledWith(
+        ctx.res,
+        "Unexpected response from GitHub API",
+        502,
+      );
+    });
+
+    it("does not leak internal error details on fetch failure", async () => {
+      vi.stubGlobal(
+        "fetch",
+        vi
+          .fn()
+          .mockRejectedValue(new Error("getaddrinfo ENOTFOUND api.github.com")),
+      );
+
+      const ctx = makeCtx({
+        method: "POST",
+        pathname: "/api/bug-report",
+        readJsonBody: vi.fn().mockResolvedValue(validBody),
+      });
+      await handleBugReportRoutes(ctx);
+      expect(ctx.error).toHaveBeenCalledWith(
+        ctx.res,
+        "Failed to create GitHub issue",
+        500,
+      );
     });
   });
 

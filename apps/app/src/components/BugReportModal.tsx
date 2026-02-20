@@ -40,7 +40,6 @@ async function copyText(text: string): Promise<boolean> {
 export function BugReportModal() {
   const { isOpen, close } = useBugReport();
   const [form, setForm] = useState<BugReportForm>(EMPTY_FORM);
-  const [screenshot, setScreenshot] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [resultUrl, setResultUrl] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -54,7 +53,6 @@ export function BugReportModal() {
     let cancelled = false;
 
     setForm(EMPTY_FORM);
-    setScreenshot(null);
     setSubmitting(false);
     setResultUrl(null);
     setErrorMsg(null);
@@ -95,39 +93,25 @@ export function BugReportModal() {
     [],
   );
 
-  const takeScreenshot = useCallback(async () => {
-    try {
-      const { default: html2canvas } = await import("html2canvas");
-      const canvas = await html2canvas(document.body, {
-        useCORS: true,
-        logging: false,
-        scale: 1,
-      });
-      // Convert to JPEG at 0.7 quality, cap at 1MB
-      let dataUrl = canvas.toDataURL("image/jpeg", 0.7);
-      // If still too large, reduce quality further
-      if (dataUrl.length > 1_400_000) {
-        dataUrl = canvas.toDataURL("image/jpeg", 0.4);
-      }
-      setScreenshot(dataUrl);
-    } catch {
-      setErrorMsg("Failed to capture screenshot");
-    }
-  }, []);
-
   const formatMarkdown = useCallback((): string => {
+    const strip = (s: string, max = 10_000) =>
+      s.replace(/<[^>]*>/g, "").slice(0, max);
     const lines: string[] = [];
-    lines.push(`### Description\n${form.description}`);
-    lines.push(`\n### Steps to Reproduce\n${form.stepsToReproduce}`);
+    lines.push(`### Description\n${strip(form.description)}`);
+    lines.push(`\n### Steps to Reproduce\n${strip(form.stepsToReproduce)}`);
     if (form.expectedBehavior)
-      lines.push(`\n### Expected Behavior\n${form.expectedBehavior}`);
+      lines.push(`\n### Expected Behavior\n${strip(form.expectedBehavior)}`);
     if (form.actualBehavior)
-      lines.push(`\n### Actual Behavior\n${form.actualBehavior}`);
-    lines.push(`\n### Environment\n${form.environment || "Not specified"}`);
-    if (form.nodeVersion) lines.push(`\n### Node Version\n${form.nodeVersion}`);
+      lines.push(`\n### Actual Behavior\n${strip(form.actualBehavior)}`);
+    lines.push(
+      `\n### Environment\n${strip(form.environment || "Not specified", 200)}`,
+    );
+    if (form.nodeVersion)
+      lines.push(`\n### Node Version\n${strip(form.nodeVersion, 200)}`);
     if (form.modelProvider)
-      lines.push(`\n### Model Provider\n${form.modelProvider}`);
-    if (form.logs) lines.push(`\n### Logs\n\`\`\`\n${form.logs}\n\`\`\``);
+      lines.push(`\n### Model Provider\n${strip(form.modelProvider, 200)}`);
+    if (form.logs)
+      lines.push(`\n### Logs\n\`\`\`\n${strip(form.logs, 50_000)}\n\`\`\``);
     return lines.join("\n");
   }, [form]);
 
@@ -382,33 +366,6 @@ export function BugReportModal() {
                 onChange={(e) => updateField("logs", e.target.value)}
                 rows={4}
               />
-            )}
-          </div>
-
-          {/* Screenshot */}
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={takeScreenshot}
-              className="px-3 py-1.5 border border-border text-xs text-muted hover:text-txt hover:border-accent cursor-pointer transition-colors"
-            >
-              Take Screenshot
-            </button>
-            {screenshot && (
-              <div className="flex items-center gap-2">
-                <img
-                  src={screenshot}
-                  alt="Screenshot preview"
-                  className="h-10 border border-border object-cover"
-                />
-                <button
-                  type="button"
-                  onClick={() => setScreenshot(null)}
-                  className="text-muted hover:text-danger text-xs cursor-pointer"
-                >
-                  Remove
-                </button>
-              </div>
             )}
           </div>
         </div>
