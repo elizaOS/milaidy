@@ -3988,6 +3988,32 @@ export class MiladyClient {
       body: JSON.stringify({ prompt }),
     });
   }
+
+  // --- Bug Report ---
+
+  async checkBugReportInfo(): Promise<{
+    nodeVersion?: string;
+    platform?: string;
+  }> {
+    return this.fetch("/api/bug-report/info");
+  }
+
+  async submitBugReport(report: {
+    description: string;
+    stepsToReproduce: string;
+    expectedBehavior?: string;
+    actualBehavior?: string;
+    environment?: string;
+    nodeVersion?: string;
+    modelProvider?: string;
+    logs?: string;
+    screenshot?: string;
+  }): Promise<{ url?: string; fallback?: string }> {
+    return this.fetch("/api/bug-report", {
+      method: "POST",
+      body: JSON.stringify(report),
+    });
+  }
 }
 
 // Singleton

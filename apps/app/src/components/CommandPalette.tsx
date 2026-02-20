@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useApp } from "../AppContext";
+import { useBugReport } from "../hooks/useBugReport";
 
 interface CommandItem {
   id: string;
@@ -27,6 +28,7 @@ export function CommandPalette() {
     setState,
     closeCommandPalette,
   } = useApp();
+  const { open: openBugReport } = useBugReport();
 
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -148,6 +150,13 @@ export function CommandPalette() {
       action: handleChatClear,
     });
 
+    // Bug report
+    commands.push({
+      id: "report-bug",
+      label: "Report Bug",
+      action: openBugReport,
+    });
+
     return commands;
   }, [
     agentState,
@@ -164,6 +173,7 @@ export function CommandPalette() {
     loadSkills,
     loadLogs,
     loadWorkbench,
+    openBugReport,
   ]);
 
   // Filter commands by query
