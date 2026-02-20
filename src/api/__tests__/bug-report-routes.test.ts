@@ -1,6 +1,11 @@
 import type http from "node:http";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { handleBugReportRoutes, sanitize } from "../bug-report-routes";
+import {
+  handleBugReportRoutes,
+  rateLimitBugReport,
+  resetBugReportRateLimit,
+  sanitize,
+} from "../bug-report-routes";
 import type { RouteRequestContext } from "../route-helpers";
 
 // --- helpers ----------------------------------------------------------------
@@ -12,7 +17,9 @@ function makeCtx(
   },
 ): RouteRequestContext {
   return {
-    req: {} as http.IncomingMessage,
+    req: {
+      socket: { remoteAddress: "127.0.0.1" },
+    } as unknown as http.IncomingMessage,
     res: {} as http.ServerResponse,
     json: vi.fn(),
     error: vi.fn(),
@@ -38,6 +45,39 @@ describe("sanitize", () => {
 
   it("strips nested tags", () => {
     expect(sanitize("<div><script>alert(1)</script></div>")).toBe("alert(1)");
+  });
+});
+
+// --- rate limiting ----------------------------------------------------------
+
+describe("rateLimitBugReport", () => {
+  beforeEach(() => {
+    resetBugReportRateLimit();
+  });
+
+  it("allows requests under the limit", () => {
+    for (let i = 0; i < 5; i++) {
+      expect(rateLimitBugReport("10.0.0.1")).toBe(true);
+    }
+  });
+
+  it("blocks after exceeding limit", () => {
+    for (let i = 0; i < 5; i++) {
+      rateLimitBugReport("10.0.0.1");
+    }
+    expect(rateLimitBugReport("10.0.0.1")).toBe(false);
+  });
+
+  it("tracks IPs independently", () => {
+    for (let i = 0; i < 5; i++) {
+      rateLimitBugReport("10.0.0.1");
+    }
+    expect(rateLimitBugReport("10.0.0.1")).toBe(false);
+    expect(rateLimitBugReport("10.0.0.2")).toBe(true);
+  });
+
+  it("handles null IP", () => {
+    expect(rateLimitBugReport(null)).toBe(true);
   });
 });
 
@@ -73,6 +113,10 @@ describe("POST /api/bug-report", () => {
     stepsToReproduce: "1. Open app\n2. Click start",
   };
 
+  beforeEach(() => {
+    resetBugReportRateLimit();
+  });
+
   it("rejects missing required fields", async () => {
     const ctx = makeCtx({
       method: "POST",
@@ -100,6 +144,29 @@ describe("POST /api/bug-report", () => {
     expect(handled).toBe(true);
     expect(ctx.json).not.toHaveBeenCalled();
     expect(ctx.error).not.toHaveBeenCalled(); // readJsonBody already sent error
+  });
+
+  it("returns 429 when rate limited", async () => {
+    for (let i = 0; i < 5; i++) {
+      const ctx = makeCtx({
+        method: "POST",
+        pathname: "/api/bug-report",
+        readJsonBody: vi.fn().mockResolvedValue(validBody),
+      });
+      await handleBugReportRoutes(ctx);
+    }
+
+    const ctx = makeCtx({
+      method: "POST",
+      pathname: "/api/bug-report",
+      readJsonBody: vi.fn().mockResolvedValue(validBody),
+    });
+    await handleBugReportRoutes(ctx);
+    expect(ctx.error).toHaveBeenCalledWith(
+      ctx.res,
+      "Too many bug reports. Try again later.",
+      429,
+    );
   });
 
   describe("without GITHUB_TOKEN", () => {
@@ -161,13 +228,12 @@ describe("POST /api/bug-report", () => {
       });
     });
 
-    it("returns 502 on GitHub API failure", async () => {
+    it("returns 502 without raw error text on GitHub API failure", async () => {
       vi.stubGlobal(
         "fetch",
         vi.fn().mockResolvedValue({
           ok: false,
           status: 422,
-          text: () => Promise.resolve("Validation Failed"),
         }),
       );
 
@@ -179,7 +245,7 @@ describe("POST /api/bug-report", () => {
       await handleBugReportRoutes(ctx);
       expect(ctx.error).toHaveBeenCalledWith(
         ctx.res,
-        expect.stringContaining("GitHub API error (422)"),
+        "GitHub API error (422)",
         502,
       );
     });

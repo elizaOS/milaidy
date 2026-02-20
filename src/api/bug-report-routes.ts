@@ -1,9 +1,37 @@
 import os from "node:os";
+import { sweepExpiredEntries } from "./memory-bounds";
 import type { RouteRequestContext } from "./route-helpers";
 
 export const BUG_REPORT_REPO = "milady-ai/milady";
 const GITHUB_ISSUES_URL = `https://api.github.com/repos/${BUG_REPORT_REPO}/issues`;
 const GITHUB_NEW_ISSUE_URL = `https://github.com/${BUG_REPORT_REPO}/issues/new?template=bug_report.yml`;
+
+// Rate limit: 5 bug reports per IP per 10-minute window
+const BUG_REPORT_WINDOW_MS = 10 * 60 * 1000;
+const BUG_REPORT_MAX_SUBMISSIONS = 5;
+const bugReportAttempts = new Map<string, { count: number; resetAt: number }>();
+
+export function rateLimitBugReport(ip: string | null): boolean {
+  const key = ip ?? "unknown";
+  const now = Date.now();
+  sweepExpiredEntries(bugReportAttempts, now, 100);
+  const current = bugReportAttempts.get(key);
+  if (!current || now > current.resetAt) {
+    bugReportAttempts.set(key, {
+      count: 1,
+      resetAt: now + BUG_REPORT_WINDOW_MS,
+    });
+    return true;
+  }
+  if (current.count >= BUG_REPORT_MAX_SUBMISSIONS) return false;
+  current.count += 1;
+  return true;
+}
+
+/** Reset rate limit state (for testing). */
+export function resetBugReportRateLimit(): void {
+  bugReportAttempts.clear();
+}
 
 interface BugReportBody {
   description: string;
@@ -62,6 +90,11 @@ export async function handleBugReportRoutes(
 
   // POST /api/bug-report
   if (method === "POST" && pathname === "/api/bug-report") {
+    if (!rateLimitBugReport(req.socket.remoteAddress ?? null)) {
+      error(res, "Too many bug reports. Try again later.", 429);
+      return true;
+    }
+
     const body = await readJsonBody<BugReportBody>(req, res);
     if (!body) return true;
 
@@ -98,8 +131,7 @@ export async function handleBugReportRoutes(
       });
 
       if (!issueRes.ok) {
-        const errText = await issueRes.text();
-        error(res, `GitHub API error (${issueRes.status}): ${errText}`, 502);
+        error(res, `GitHub API error (${issueRes.status})`, 502);
         return true;
       }
 

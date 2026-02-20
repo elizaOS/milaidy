@@ -10,6 +10,10 @@ vi.mock("../../src/AppContext", () => ({
   useApp: () => mockUseApp(),
 }));
 
+vi.mock("../../src/hooks/useBugReport", () => ({
+  useBugReport: () => ({ isOpen: false, open: vi.fn(), close: vi.fn() }),
+}));
+
 import { Header } from "../../src/components/Header";
 
 let baseAppState: Record<string, unknown>;
