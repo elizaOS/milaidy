@@ -7,8 +7,10 @@
  */
 
 import crypto from "node:crypto";
+import { lookup as dnsLookup } from "node:dns/promises";
 import fs from "node:fs";
 import http from "node:http";
+import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -43,6 +45,10 @@ import {
   buildTestHandler,
   registerCustomActionLive,
 } from "../runtime/custom-actions";
+import {
+  isBlockedPrivateOrLinkLocalIp,
+  normalizeHostLike,
+} from "../security/network-policy";
 
 import { AppManager } from "../services/app-manager";
 import { FallbackTrainingService } from "../services/fallback-training-service";
@@ -2688,6 +2694,10 @@ const BLOCKED_CONTAINER_FLAGS = new Set([
   "--network",
 ]);
 const BLOCKED_DENO_SUBCOMMANDS = new Set(["eval"]);
+const BLOCKED_MCP_REMOTE_HOST_LITERALS = new Set([
+  "localhost",
+  "metadata.google.internal",
+]);
 
 function normalizeMcpCommand(command: string): string {
   const baseName = command.replace(/\\/g, "/").split("/").pop() ?? "";
@@ -2726,9 +2736,62 @@ function firstPositionalArg(args: string[]): string | null {
   return null;
 }
 
-export function validateMcpServerConfig(
+async function resolveMcpRemoteUrlRejection(
+  rawUrl: string,
+): Promise<string | null> {
+  let parsed: URL;
+  try {
+    parsed = new URL(rawUrl);
+  } catch {
+    return "URL must be a valid absolute URL";
+  }
+
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    return "URL must use http:// or https://";
+  }
+
+  const hostname = normalizeHostLike(parsed.hostname);
+  if (!hostname) return "URL hostname is required";
+
+  if (
+    BLOCKED_MCP_REMOTE_HOST_LITERALS.has(hostname) ||
+    hostname.endsWith(".localhost") ||
+    hostname.endsWith(".local")
+  ) {
+    return `URL host "${hostname}" is blocked for security reasons`;
+  }
+
+  if (net.isIP(hostname)) {
+    if (isBlockedPrivateOrLinkLocalIp(hostname)) {
+      return `URL host "${hostname}" is blocked for security reasons`;
+    }
+    return null;
+  }
+
+  let addresses: Array<{ address: string }>;
+  try {
+    const resolved = await dnsLookup(hostname, { all: true });
+    addresses = Array.isArray(resolved) ? resolved : [resolved];
+  } catch {
+    return `Could not resolve URL host "${hostname}"`;
+  }
+
+  if (addresses.length === 0) {
+    return `Could not resolve URL host "${hostname}"`;
+  }
+
+  for (const entry of addresses) {
+    if (isBlockedPrivateOrLinkLocalIp(entry.address)) {
+      return `URL host "${hostname}" resolves to blocked address ${entry.address}`;
+    }
+  }
+
+  return null;
+}
+
+export async function validateMcpServerConfig(
   config: Record<string, unknown>,
-): string | null {
+): Promise<string | null> {
   const configType = config.type;
   if (
     typeof configType !== "string" ||
@@ -2795,6 +2858,8 @@ export function validateMcpServerConfig(
     if (!url) {
       return "URL is required for remote servers";
     }
+    const urlRejection = await resolveMcpRemoteUrlRejection(url);
+    if (urlRejection) return urlRejection;
   }
 
   if (config.env !== undefined) {
@@ -2836,9 +2901,9 @@ export function validateMcpServerConfig(
   return null;
 }
 
-export function resolveMcpServersRejection(
+export async function resolveMcpServersRejection(
   servers: Record<string, unknown>,
-): string | null {
+): Promise<string | null> {
   for (const [serverName, serverConfig] of Object.entries(servers)) {
     if (isBlockedObjectKey(serverName)) {
       return `Invalid server name: "${serverName}"`;
@@ -2853,7 +2918,7 @@ export function resolveMcpServersRejection(
     if (hasBlockedObjectKeyDeep(serverConfig)) {
       return `Server "${serverName}" contains blocked object keys`;
     }
-    const configError = validateMcpServerConfig(
+    const configError = await validateMcpServerConfig(
       serverConfig as Record<string, unknown>,
     );
     if (configError) {
@@ -8546,7 +8611,7 @@ async function handleRequest(
           error(res, "mcp.servers must be a JSON object", 400);
           return;
         }
-        const mcpRejection = resolveMcpServersRejection(
+        const mcpRejection = await resolveMcpServersRejection(
           mcpPatch.servers as Record<string, unknown>,
         );
         if (mcpRejection) {
@@ -10838,7 +10903,9 @@ async function handleRequest(
       return;
     }
 
-    const mcpRejection = resolveMcpServersRejection({ [serverName]: config });
+    const mcpRejection = await resolveMcpServersRejection({
+      [serverName]: config,
+    });
     if (mcpRejection) {
       error(res, mcpRejection, 400);
       return;
@@ -10912,7 +10979,7 @@ async function handleRequest(
         error(res, "servers must be a JSON object", 400);
         return;
       }
-      const mcpRejection = resolveMcpServersRejection(
+      const mcpRejection = await resolveMcpServersRejection(
         body.servers as Record<string, unknown>,
       );
       if (mcpRejection) {

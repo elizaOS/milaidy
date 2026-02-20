@@ -580,7 +580,12 @@ function createRuntimeForChatSseTests(options?: {
           onStreamChunk?: (chunk: string, messageId?: string) => Promise<void>;
         },
       ) =>
-        options?.handleMessage?.(runtime, message, onResponse, messageOptions) ??
+        options?.handleMessage?.(
+          runtime,
+          message,
+          onResponse,
+          messageOptions,
+        ) ??
         (await (async () => {
           await onResponse({ text: "Hello " } as Content);
           await onResponse({ text: "world" } as Content);
@@ -1425,7 +1430,19 @@ describe("API Server E2E (no runtime)", () => {
     it("POST /api/chat/stream preserves repeated characters in incremental callback tokens", async () => {
       const runtime = createRuntimeForChatSseTests({
         handleMessage: async (_runtime, _message, onResponse) => {
-          for (const token of ["H", "e", "l", "l", "o", " ", "w", "o", "r", "l", "d"]) {
+          for (const token of [
+            "H",
+            "e",
+            "l",
+            "l",
+            "o",
+            " ",
+            "w",
+            "o",
+            "r",
+            "l",
+            "d",
+          ]) {
             await onResponse({ text: token } as Content);
           }
           return {
@@ -3205,8 +3222,7 @@ describe("API Server E2E (no runtime)", () => {
         expect(status).toBe(200);
         const autonomy = (
           data as { autonomy?: { enabled?: boolean; thinking?: boolean } }
-        )
-          .autonomy;
+        ).autonomy;
         expect(autonomy?.enabled).toBe(true);
         expect(autonomy?.thinking).toBe(true);
       } finally {
@@ -3522,7 +3538,7 @@ describe("API Server E2E (no runtime)", () => {
           name: "test-remote",
           config: {
             type: "streamable-http",
-            url: "https://mcp.example.com/api",
+            url: "https://93.184.216.34/api",
           },
         },
       );
@@ -3581,7 +3597,7 @@ describe("API Server E2E (no runtime)", () => {
     it("PUT /api/mcp/config replaces entire config", async () => {
       const newServers = {
         "bulk-a": { type: "stdio", command: "npx", args: ["-y", "@test/a"] },
-        "bulk-b": { type: "streamable-http", url: "https://example.com/mcp" },
+        "bulk-b": { type: "streamable-http", url: "https://93.184.216.34/mcp" },
       };
 
       const { status, data } = await req(port, "PUT", "/api/mcp/config", {

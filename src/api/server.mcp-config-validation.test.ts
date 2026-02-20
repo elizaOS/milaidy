@@ -1,12 +1,28 @@
-import { describe, expect, it } from "vitest";
+import { lookup as dnsLookup } from "node:dns/promises";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   resolveMcpServersRejection,
   validateMcpServerConfig,
 } from "./server.js";
 
+vi.mock("node:dns/promises", () => ({
+  lookup: vi.fn(),
+}));
+
 describe("validateMcpServerConfig", () => {
-  it("rejects stdio commands outside the allowlist", () => {
-    const rejection = validateMcpServerConfig({
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(dnsLookup).mockResolvedValue([
+      { address: "93.184.216.34", family: 4 },
+    ]);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("rejects stdio commands outside the allowlist", async () => {
+    const rejection = await validateMcpServerConfig({
       type: "stdio",
       command: "/bin/bash",
     });
@@ -14,8 +30,8 @@ describe("validateMcpServerConfig", () => {
     expect(rejection).toContain("bare executable name");
   });
 
-  it("allows known stdio launchers including path and extension forms", () => {
-    const rejection = validateMcpServerConfig({
+  it("allows known stdio launchers including path and extension forms", async () => {
+    const rejection = await validateMcpServerConfig({
       type: "stdio",
       command: "npx.cmd",
       args: ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"],
@@ -24,8 +40,8 @@ describe("validateMcpServerConfig", () => {
     expect(rejection).toBeNull();
   });
 
-  it("rejects non-string stdio args", () => {
-    const rejection = validateMcpServerConfig({
+  it("rejects non-string stdio args", async () => {
+    const rejection = await validateMcpServerConfig({
       type: "stdio",
       command: "npx",
       args: ["-y", 123],
@@ -34,13 +50,13 @@ describe("validateMcpServerConfig", () => {
     expect(rejection).toBe("Each arg must be a string");
   });
 
-  it("rejects blocked env keys and malformed env values", () => {
-    const blockedKey = validateMcpServerConfig({
+  it("rejects blocked env keys and malformed env values", async () => {
+    const blockedKey = await validateMcpServerConfig({
       type: "stdio",
       command: "npx",
       env: { NODE_OPTIONS: "--require ./payload.js" },
     });
-    const badValue = validateMcpServerConfig({
+    const badValue = await validateMcpServerConfig({
       type: "stdio",
       command: "npx",
       env: { SAFE_KEY: 42 },
@@ -50,8 +66,8 @@ describe("validateMcpServerConfig", () => {
     expect(badValue).toBe("env.SAFE_KEY must be a string");
   });
 
-  it("rejects path-based command values", () => {
-    const rejection = validateMcpServerConfig({
+  it("rejects path-based command values", async () => {
+    const rejection = await validateMcpServerConfig({
       type: "stdio",
       command: "/tmp/npx",
       args: ["-y", "@modelcontextprotocol/server-filesystem"],
@@ -60,23 +76,23 @@ describe("validateMcpServerConfig", () => {
     expect(rejection).toContain("bare executable name");
   });
 
-  it("rejects inline-eval flags for interpreter commands", () => {
-    const nodeEval = validateMcpServerConfig({
+  it("rejects inline-eval flags for interpreter commands", async () => {
+    const nodeEval = await validateMcpServerConfig({
       type: "stdio",
       command: "node",
       args: ["-e", "console.log('pwn')"],
     });
-    const pythonEval = validateMcpServerConfig({
+    const pythonEval = await validateMcpServerConfig({
       type: "stdio",
       command: "python3",
       args: ["-c", "print('pwn')"],
     });
-    const pythonAttachedEval = validateMcpServerConfig({
+    const pythonAttachedEval = await validateMcpServerConfig({
       type: "stdio",
       command: "python3",
       args: ['-cprint("pwn")'],
     });
-    const uvEval = validateMcpServerConfig({
+    const uvEval = await validateMcpServerConfig({
       type: "stdio",
       command: "uv",
       args: ["run", "-c", "print('pwn')"],
@@ -88,13 +104,13 @@ describe("validateMcpServerConfig", () => {
     expect(uvEval).toContain('Flag "-c" is not allowed');
   });
 
-  it("rejects inline-exec flags for package runner commands", () => {
-    const rejection = validateMcpServerConfig({
+  it("rejects inline-exec flags for package runner commands", async () => {
+    const rejection = await validateMcpServerConfig({
       type: "stdio",
       command: "npx",
       args: ["-c", "echo pwn"],
     });
-    const attachedRejection = validateMcpServerConfig({
+    const attachedRejection = await validateMcpServerConfig({
       type: "stdio",
       command: "npx",
       args: ["-cecho pwn"],
@@ -104,13 +120,13 @@ describe("validateMcpServerConfig", () => {
     expect(attachedRejection).toContain('Flag "-c" is not allowed');
   });
 
-  it("rejects dangerous container flags for docker/podman", () => {
-    const dockerPrivileged = validateMcpServerConfig({
+  it("rejects dangerous container flags for docker/podman", async () => {
+    const dockerPrivileged = await validateMcpServerConfig({
       type: "stdio",
       command: "docker",
       args: ["run", "--privileged", "alpine"],
     });
-    const podmanVolume = validateMcpServerConfig({
+    const podmanVolume = await validateMcpServerConfig({
       type: "stdio",
       command: "podman",
       args: ["run", "-v", "/:/host", "alpine"],
@@ -120,8 +136,8 @@ describe("validateMcpServerConfig", () => {
     expect(podmanVolume).toContain('Flag "-v" is not allowed');
   });
 
-  it("rejects deno eval subcommand", () => {
-    const rejection = validateMcpServerConfig({
+  it("rejects deno eval subcommand", async () => {
+    const rejection = await validateMcpServerConfig({
       type: "stdio",
       command: "deno",
       args: ["eval", "console.log('pwn')"],
@@ -129,35 +145,86 @@ describe("validateMcpServerConfig", () => {
 
     expect(rejection).toContain('Subcommand "eval" is not allowed');
   });
+
+  it("rejects remote URLs with non-http protocols", async () => {
+    const rejection = await validateMcpServerConfig({
+      type: "streamable-http",
+      url: "file:///etc/passwd",
+    });
+
+    expect(rejection).toBe("URL must use http:// or https://");
+  });
+
+  it("rejects remote URLs targeting blocked local hosts", async () => {
+    const rejection = await validateMcpServerConfig({
+      type: "streamable-http",
+      url: "http://localhost:8080/mcp",
+    });
+
+    expect(rejection).toContain('URL host "localhost" is blocked');
+  });
+
+  it("rejects remote URLs when DNS resolves to blocked addresses", async () => {
+    vi.mocked(dnsLookup).mockResolvedValue([
+      { address: "127.0.0.1", family: 4 },
+    ]);
+    const rejection = await validateMcpServerConfig({
+      type: "streamable-http",
+      url: "https://metadata.nip.io/mcp",
+    });
+
+    expect(rejection).toContain("resolves to blocked address 127.0.0.1");
+  });
+
+  it("rejects remote URLs when DNS lookup fails", async () => {
+    vi.mocked(dnsLookup).mockRejectedValue(new Error("DNS failure"));
+    const rejection = await validateMcpServerConfig({
+      type: "streamable-http",
+      url: "https://mcp.example.com/mcp",
+    });
+
+    expect(rejection).toContain('Could not resolve URL host "mcp.example.com"');
+  });
 });
 
 describe("resolveMcpServersRejection", () => {
-  it("rejects blocked server names", () => {
-    const rejection = resolveMcpServersRejection({
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(dnsLookup).mockResolvedValue([
+      { address: "93.184.216.34", family: 4 },
+    ]);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("rejects blocked server names", async () => {
+    const rejection = await resolveMcpServersRejection({
       constructor: { type: "stdio", command: "npx" },
     });
 
     expect(rejection).toContain('Invalid server name: "constructor"');
   });
 
-  it("rejects non-object server config entries", () => {
-    const rejection = resolveMcpServersRejection({
+  it("rejects non-object server config entries", async () => {
+    const rejection = await resolveMcpServersRejection({
       bad: "not-an-object",
     });
 
     expect(rejection).toBe('Server "bad" config must be a JSON object');
   });
 
-  it("prefixes nested validation errors with server name", () => {
-    const rejection = resolveMcpServersRejection({
+  it("prefixes nested validation errors with server name", async () => {
+    const rejection = await resolveMcpServersRejection({
       filesystem: { type: "stdio", command: "curl" },
     });
 
     expect(rejection).toContain('Server "filesystem":');
   });
 
-  it("accepts safe server maps", () => {
-    const rejection = resolveMcpServersRejection({
+  it("accepts safe server maps", async () => {
+    const rejection = await resolveMcpServersRejection({
       files: {
         type: "stdio",
         command: "npx",
@@ -166,7 +233,7 @@ describe("resolveMcpServersRejection", () => {
       },
       remote: {
         type: "streamable-http",
-        url: "https://mcp.example.com",
+        url: "https://93.184.216.34/mcp",
       },
     });
 
