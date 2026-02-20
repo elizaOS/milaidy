@@ -3865,6 +3865,22 @@ function extractAuthToken(req: http.IncomingMessage): string | null {
   return null;
 }
 
+/**
+ * Resolve Authorization for Hyperscape API relays.
+ *
+ * Security: never forward the incoming request Authorization header
+ * (which typically carries MILADY_API_TOKEN for this API). Hyperscape relay
+ * auth must come from the dedicated HYPERSCAPE_AUTH_TOKEN secret instead.
+ */
+export function resolveHyperscapeAuthorizationHeader(
+  req: Pick<http.IncomingMessage, "headers">,
+): string | null {
+  void req;
+  const envToken = process.env.HYPERSCAPE_AUTH_TOKEN?.trim();
+  if (!envToken) return null;
+  return /^Bearer\s+/i.test(envToken) ? envToken : `Bearer ${envToken}`;
+}
+
 function tokenMatches(expected: string, provided: string): boolean {
   const a = Buffer.from(expected, "utf8");
   const b = Buffer.from(provided, "utf8");
@@ -4842,22 +4858,6 @@ async function handleRequest(
     return "http://localhost:5555";
   };
 
-  const resolveHyperscapeAuthorizationHeader = (): string | null => {
-    const requestAuth =
-      typeof req.headers.authorization === "string"
-        ? req.headers.authorization.trim()
-        : "";
-    if (requestAuth) {
-      return requestAuth;
-    }
-
-    const envToken = process.env.HYPERSCAPE_AUTH_TOKEN?.trim();
-    if (!envToken) {
-      return null;
-    }
-    return /^Bearer\s+/i.test(envToken) ? envToken : `Bearer ${envToken}`;
-  };
-
   const relayHyperscapeApi = async (
     outboundMethod: "GET" | "POST",
     outboundPath: string,
@@ -4906,7 +4906,7 @@ async function handleRequest(
     if (contentType && rawBody !== undefined) {
       outboundHeaders["Content-Type"] = contentType;
     }
-    const authorization = resolveHyperscapeAuthorizationHeader();
+    const authorization = resolveHyperscapeAuthorizationHeader(req);
     if (authorization) {
       outboundHeaders.Authorization = authorization;
     }
