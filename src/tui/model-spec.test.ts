@@ -13,9 +13,21 @@ describe("resolveTuiModelSpec", () => {
     expect(modelSpec).toBe("openai/gpt-5");
   });
 
-  it("uses runtime MODEL_PROVIDER when no CLI override is set", () => {
+  it("uses config primary model before runtime MODEL_PROVIDER", () => {
     const modelSpec = resolveTuiModelSpec({
-      runtimeModelSpec: "openai/gpt-5",
+      configPrimaryModelSpec: "openai/gpt-5",
+      runtimeModelSpec: "anthropic/claude-sonnet-4-20250514",
+      piDefaultModelSpec: "anthropic/claude-sonnet-4-20250514",
+      hasCredentials: () => true,
+    });
+
+    expect(modelSpec).toBe("openai/gpt-5");
+  });
+
+  it("uses config PI_AI_MODEL_SPEC when primary model is not set", () => {
+    const modelSpec = resolveTuiModelSpec({
+      configPiAiModelSpec: "openai/gpt-5",
+      runtimeModelSpec: "anthropic/claude-sonnet-4-20250514",
       piDefaultModelSpec: "anthropic/claude-sonnet-4-20250514",
       hasCredentials: () => true,
     });

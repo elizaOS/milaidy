@@ -156,6 +156,17 @@ export async function launchTUI(
   options: LaunchTUIOptions = {},
 ): Promise<void> {
   const piCreds = await createPiCredentialProvider();
+  const miladyConfig = loadMiladyConfig();
+
+  const configPrimaryModel = miladyConfig.agents?.defaults?.model?.primary;
+  const configEnv = miladyConfig.env as
+    | (Record<string, unknown> & { vars?: Record<string, unknown> })
+    | undefined;
+  const configPiAiModelSpec =
+    (configEnv?.vars?.PI_AI_MODEL_SPEC as string | undefined) ??
+    (typeof configEnv?.PI_AI_MODEL_SPEC === "string"
+      ? configEnv.PI_AI_MODEL_SPEC
+      : undefined);
 
   const runtimeModelProvider = runtime.getSetting("MODEL_PROVIDER") as
     | string
@@ -163,6 +174,8 @@ export async function launchTUI(
 
   const modelSpec = resolveTuiModelSpec({
     modelOverride: options.modelOverride,
+    configPrimaryModelSpec: configPrimaryModel,
+    configPiAiModelSpec,
     runtimeModelSpec: runtimeModelProvider,
     piDefaultModelSpec: await piCreds.getDefaultModelSpec(),
     hasCredentials: (provider) => piCreds.hasCredentials(provider),

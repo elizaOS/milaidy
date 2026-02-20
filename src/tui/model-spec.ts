@@ -2,6 +2,10 @@ import { DEFAULT_PI_MODEL_SPEC, parseModelSpec } from "../utils/pi-ai.js";
 
 export interface ResolveTuiModelSpecParams {
   modelOverride?: string;
+  /** Primary model from milady.json (agents.defaults.model.primary). */
+  configPrimaryModelSpec?: string;
+  /** Optional pi-ai plugin model override from milady config env vars. */
+  configPiAiModelSpec?: string;
   runtimeModelSpec?: string;
   piDefaultModelSpec?: string;
   hasCredentials: (provider: string) => boolean;
@@ -26,28 +30,34 @@ function toValidModelSpec(spec?: string): string | undefined {
  *
  * Priority:
  * 1) explicit CLI override (--model)
- * 2) runtime MODEL_PROVIDER (from config/onboarding)
- * 3) pi settings default (settings.json)
- * 4) built-in safe default
+ * 2) milady config primary model (agents.defaults.model.primary)
+ * 3) milady config PI_AI_MODEL_SPEC
+ * 4) runtime MODEL_PROVIDER
+ * 5) pi settings default (settings.json)
+ * 6) built-in safe default
  *
  * Candidate specs are only used when credentials exist for the provider.
  */
 export function resolveTuiModelSpec(params: ResolveTuiModelSpecParams): string {
-  const requestedSpec =
-    toValidModelSpec(params.modelOverride) ??
-    toValidModelSpec(params.runtimeModelSpec);
-
   const defaultSpec =
     toValidModelSpec(params.piDefaultModelSpec) ?? DEFAULT_PI_MODEL_SPEC;
 
-  if (!requestedSpec) {
-    return defaultSpec;
+  const candidates = [
+    params.modelOverride,
+    params.configPrimaryModelSpec,
+    params.configPiAiModelSpec,
+    params.runtimeModelSpec,
+  ];
+
+  for (const candidate of candidates) {
+    const spec = toValidModelSpec(candidate);
+    if (!spec) continue;
+
+    const { provider } = parseModelSpec(spec);
+    if (params.hasCredentials(provider)) {
+      return spec;
+    }
   }
 
-  const { provider } = parseModelSpec(requestedSpec);
-  if (!params.hasCredentials(provider)) {
-    return defaultSpec;
-  }
-
-  return requestedSpec;
+  return defaultSpec;
 }
