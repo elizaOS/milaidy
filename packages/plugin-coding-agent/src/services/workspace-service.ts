@@ -14,16 +14,33 @@ import {
   WorkspaceService,
   CredentialService,
   MemoryTokenStore,
+  GitHubPatClient,
+  OAuthDeviceFlow,
   type Workspace,
   type WorkspaceConfig,
   type WorkspaceFinalization,
   type PullRequestInfo,
   type WorkspaceEvent,
   type WorkspaceStatus,
+  type IssueInfo,
+  type CreateIssueOptions,
+  type IssueComment,
+  type IssueCommentOptions,
+  type IssueState,
 } from "git-workspace-service";
 import type { IAgentRuntime } from "@elizaos/core";
 import * as path from "node:path";
 import * as os from "node:os";
+
+/**
+ * Callback for surfacing auth prompts to the user.
+ * Returns the auth prompt text so Milady can relay it through chat.
+ */
+export type AuthPromptCallback = (prompt: {
+  verificationUri: string;
+  userCode: string;
+  expiresIn: number;
+}) => void;
 
 export interface CodingWorkspaceConfig {
   /** Base directory for workspaces (default: ~/.milaidy/workspaces) */
@@ -97,9 +114,12 @@ export class CodingWorkspaceService {
   private runtime: IAgentRuntime;
   private workspaceService: WorkspaceService | null = null;
   private credentialService: CredentialService | null = null;
+  private githubClient: GitHubPatClient | null = null;
+  private githubAuthInProgress: Promise<GitHubPatClient> | null = null;
   private serviceConfig: CodingWorkspaceConfig;
   private workspaces: Map<string, WorkspaceResult> = new Map();
   private eventCallbacks: WorkspaceEventCallback[] = [];
+  private authPromptCallback: AuthPromptCallback | null = null;
 
   constructor(runtime: IAgentRuntime, config: CodingWorkspaceConfig = {}) {
     this.runtime = runtime;
@@ -147,6 +167,15 @@ export class CodingWorkspaceService {
 
     await this.workspaceService.initialize();
 
+    // Initialize GitHub PAT client for issue management (if token available)
+    const githubToken = this.runtime.getSetting("GITHUB_TOKEN") as string | undefined;
+    if (githubToken) {
+      this.githubClient = new GitHubPatClient({ token: githubToken });
+      this.log("GitHubPatClient initialized with PAT");
+    } else {
+      this.log("GITHUB_TOKEN not set - will use OAuth device flow when GitHub access is needed");
+    }
+
     // Set up event forwarding
     this.workspaceService.onEvent((event: WorkspaceEvent) => {
       this.emitEvent(event);
@@ -167,6 +196,7 @@ export class CodingWorkspaceService {
     this.workspaces.clear();
     this.workspaceService = null;
     this.credentialService = null;
+    this.githubClient = null;
     this.log("CodingWorkspaceService shutdown complete");
   }
 
@@ -369,6 +399,159 @@ export class CodingWorkspaceService {
 
     this.log(`Created PR #${result.number} for workspace ${workspaceId}`);
     return result;
+  }
+
+  // === Issue Management ===
+
+  private parseOwnerRepo(repo: string): { owner: string; repo: string } {
+    // Handle URLs like https://github.com/owner/repo or owner/repo
+    const match = repo.match(/(?:github\.com\/)?([^/]+)\/([^/.]+)/);
+    if (!match) {
+      throw new Error(`Cannot parse owner/repo from: ${repo}`);
+    }
+    return { owner: match[1], repo: match[2] };
+  }
+
+  /**
+   * Set a callback to surface OAuth auth prompts to the user.
+   * Called with verification URL + user code when GitHub auth is needed.
+   */
+  setAuthPromptCallback(callback: AuthPromptCallback): void {
+    this.authPromptCallback = callback;
+  }
+
+  private async ensureGitHubClient(): Promise<GitHubPatClient> {
+    // Already have a client
+    if (this.githubClient) return this.githubClient;
+
+    // Auth already in progress (another call triggered it) - wait for it
+    if (this.githubAuthInProgress) return this.githubAuthInProgress;
+
+    // Check for PAT (re-check in case it was set after init)
+    const githubToken = this.runtime.getSetting("GITHUB_TOKEN") as string | undefined;
+    if (githubToken) {
+      this.githubClient = new GitHubPatClient({ token: githubToken });
+      this.log("GitHubPatClient initialized with PAT (late binding)");
+      return this.githubClient;
+    }
+
+    // Try OAuth device flow (explicit user consent, scoped permissions)
+    const clientId = this.runtime.getSetting("GITHUB_OAUTH_CLIENT_ID") as string | undefined;
+    if (!clientId) {
+      throw new Error(
+        "GitHub access required but no credentials available. " +
+        "Set GITHUB_TOKEN (PAT) or GITHUB_OAUTH_CLIENT_ID (for OAuth device flow)."
+      );
+    }
+
+    // Start OAuth - deduplicate concurrent requests
+    this.githubAuthInProgress = this.performOAuthFlow(clientId);
+    try {
+      const client = await this.githubAuthInProgress;
+      return client;
+    } finally {
+      this.githubAuthInProgress = null;
+    }
+  }
+
+  private async performOAuthFlow(clientId: string): Promise<GitHubPatClient> {
+    const clientSecret = this.runtime.getSetting("GITHUB_OAUTH_CLIENT_SECRET") as string | undefined;
+
+    const oauth = new OAuthDeviceFlow({
+      clientId,
+      clientSecret,
+      permissions: {
+        repositories: { type: "public" },
+        contents: "write",
+        issues: "write",
+        pullRequests: "write",
+        metadata: "read",
+      },
+      timeout: 300, // 5 minutes
+    });
+
+    // Step 1: Request device code
+    const deviceCode = await oauth.requestDeviceCode();
+
+    // Step 2: Surface the auth prompt to the user
+    if (this.authPromptCallback) {
+      this.authPromptCallback({
+        verificationUri: deviceCode.verificationUri,
+        userCode: deviceCode.userCode,
+        expiresIn: deviceCode.expiresIn,
+      });
+    } else {
+      // Fallback: log to console
+      console.log(
+        `\n[GitHub Auth] Go to ${deviceCode.verificationUri} and enter code: ${deviceCode.userCode}\n`
+      );
+    }
+
+    // Step 3: Poll until user completes auth
+    const token = await oauth.pollForToken(deviceCode);
+
+    // Step 4: Create client with the obtained token
+    this.githubClient = new GitHubPatClient({ token: token.accessToken });
+    this.log("GitHubPatClient initialized via OAuth device flow");
+    return this.githubClient;
+  }
+
+  async createIssue(repo: string, options: CreateIssueOptions): Promise<IssueInfo> {
+    const client = await this.ensureGitHubClient();
+    const { owner, repo: repoName } = this.parseOwnerRepo(repo);
+    const issue = await client.createIssue(owner, repoName, options);
+    this.log(`Created issue #${issue.number}: ${issue.title}`);
+    return issue;
+  }
+
+  async getIssue(repo: string, issueNumber: number): Promise<IssueInfo> {
+    const client = await this.ensureGitHubClient();
+    const { owner, repo: repoName } = this.parseOwnerRepo(repo);
+    return client.getIssue(owner, repoName, issueNumber);
+  }
+
+  async listIssues(repo: string, options?: { state?: IssueState | "all"; labels?: string[]; assignee?: string }): Promise<IssueInfo[]> {
+    const client = await this.ensureGitHubClient();
+    const { owner, repo: repoName } = this.parseOwnerRepo(repo);
+    return client.listIssues(owner, repoName, options);
+  }
+
+  async updateIssue(repo: string, issueNumber: number, options: { title?: string; body?: string; state?: IssueState; labels?: string[]; assignees?: string[] }): Promise<IssueInfo> {
+    const client = await this.ensureGitHubClient();
+    const { owner, repo: repoName } = this.parseOwnerRepo(repo);
+    return client.updateIssue(owner, repoName, issueNumber, options);
+  }
+
+  async addComment(repo: string, issueNumber: number, body: string): Promise<IssueComment> {
+    const client = await this.ensureGitHubClient();
+    const { owner, repo: repoName } = this.parseOwnerRepo(repo);
+    return client.addComment(owner, repoName, issueNumber, { body });
+  }
+
+  async listComments(repo: string, issueNumber: number): Promise<IssueComment[]> {
+    const client = await this.ensureGitHubClient();
+    const { owner, repo: repoName } = this.parseOwnerRepo(repo);
+    return client.listComments(owner, repoName, issueNumber);
+  }
+
+  async closeIssue(repo: string, issueNumber: number): Promise<IssueInfo> {
+    const client = await this.ensureGitHubClient();
+    const { owner, repo: repoName } = this.parseOwnerRepo(repo);
+    const issue = await client.closeIssue(owner, repoName, issueNumber);
+    this.log(`Closed issue #${issueNumber}`);
+    return issue;
+  }
+
+  async reopenIssue(repo: string, issueNumber: number): Promise<IssueInfo> {
+    const client = await this.ensureGitHubClient();
+    const { owner, repo: repoName } = this.parseOwnerRepo(repo);
+    return client.reopenIssue(owner, repoName, issueNumber);
+  }
+
+  async addLabels(repo: string, issueNumber: number, labels: string[]): Promise<void> {
+    const client = await this.ensureGitHubClient();
+    const { owner, repo: repoName } = this.parseOwnerRepo(repo);
+    await client.addLabels(owner, repoName, issueNumber, labels);
   }
 
   /**

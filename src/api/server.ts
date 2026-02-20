@@ -130,6 +130,7 @@ import { handleTrainingRoutes } from "./training-routes";
 import type { TrainingServiceWithRuntime } from "./training-service-like";
 import { handleTrajectoryRoute } from "./trajectory-routes";
 import { handleTriggerRoutes } from "./trigger-routes";
+import { createCodingAgentRouteHandler } from "@milaidy/plugin-coding-agent";
 import {
   generateVerificationMessage,
   isAddressWhitelisted,
@@ -10098,6 +10099,13 @@ async function handleRequest(
       );
       if (handled) return;
     }
+  }
+
+  // ── Coding Agent API (/api/coding-agents/*, /api/workspace/*, /api/issues/*) ──
+  if (state.runtime && (pathname.startsWith("/api/coding-agents") || pathname.startsWith("/api/workspace") || pathname.startsWith("/api/issues"))) {
+    const handler = createCodingAgentRouteHandler(state.runtime);
+    const handled = await handler(req, res, pathname);
+    if (handled) return;
   }
 
   if (
