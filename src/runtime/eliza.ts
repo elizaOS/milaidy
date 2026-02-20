@@ -2043,50 +2043,49 @@ export async function startEliza(
     },
   };
 
-  // Codex provider — only registered when OPENAI_API_KEY is set.
-  // The upstream CodexSdkSubAgent lazy-imports @openai/codex-sdk at execution
-  // time, so it won't crash at startup if the package isn't installed.
+  // Codex provider — always registered. The upstream CodexSdkSubAgent
+  // lazy-imports @openai/codex-sdk at execution time, so it won't crash at
+  // startup if the package isn't installed. Auth is resolved by the SDK at
+  // runtime via: CODEX_API_KEY > OPENAI_API_KEY > ~/.codex/auth.json (CLI
+  // login tokens). Users with the Codex CLI installed get auth for free.
   let cachedCodexProvider: ReturnType<typeof createSubAgentProvider> | null =
     null;
-  const hasOpenAiKey = Boolean(process.env.OPENAI_API_KEY?.trim());
-  const lazyCodexProvider = hasOpenAiKey
-    ? {
-        id: "codex" as const,
-        label: "Codex (OpenAI)",
-        description:
-          "Executes tasks using the OpenAI Codex SDK. " +
-          "Requires @openai/codex-sdk and OPENAI_API_KEY.",
-        executeTask: async (
-          task: import("@elizaos/plugin-agent-orchestrator").OrchestratedTask,
-          ctx: import("@elizaos/plugin-agent-orchestrator").ProviderTaskExecutionContext,
-        ): Promise<import("@elizaos/plugin-agent-orchestrator").TaskResult> => {
-          if (!runtimeRef) {
-            logger.error(
-              "[milaidy] codex executeTask called before runtime was initialized",
-            );
-            return {
-              success: false,
-              summary: "Runtime not initialized yet",
-              filesCreated: [],
-              filesModified: [],
-              error: "Runtime not available",
-            };
-          }
-          if (!cachedCodexProvider) {
-            cachedCodexProvider = createSubAgentProvider(
-              runtimeRef,
-              "codex",
-              "codex",
-              "Codex (OpenAI)",
-            );
-          }
-          return cachedCodexProvider.executeTask(task, ctx);
-        },
+  const lazyCodexProvider = {
+    id: "codex" as const,
+    label: "Codex (OpenAI)",
+    description:
+      "Executes tasks using the OpenAI Codex SDK. " +
+      "Auth: CODEX_API_KEY, OPENAI_API_KEY, or ~/.codex/auth.json.",
+    executeTask: async (
+      task: import("@elizaos/plugin-agent-orchestrator").OrchestratedTask,
+      ctx: import("@elizaos/plugin-agent-orchestrator").ProviderTaskExecutionContext,
+    ): Promise<import("@elizaos/plugin-agent-orchestrator").TaskResult> => {
+      if (!runtimeRef) {
+        logger.error(
+          "[milaidy] codex executeTask called before runtime was initialized",
+        );
+        return {
+          success: false,
+          summary: "Runtime not initialized yet",
+          filesCreated: [],
+          filesModified: [],
+          error: "Runtime not available",
+        };
       }
-    : null;
+      if (!cachedCodexProvider) {
+        cachedCodexProvider = createSubAgentProvider(
+          runtimeRef,
+          "codex",
+          "codex",
+          "Codex (OpenAI)",
+        );
+      }
+      return cachedCodexProvider.executeTask(task, ctx);
+    },
+  };
 
   configureAgentOrchestratorPlugin({
-    providers: [lazyElizaProvider, ...(lazyCodexProvider ? [lazyCodexProvider] : [])],
+    providers: [lazyElizaProvider, lazyCodexProvider],
     defaultProviderId: "eliza",
     // NOTE: workingDirectory is the CWD for sub-agent tools but does NOT form
     // a security sandbox. Upstream tools use path.resolve() without containment
