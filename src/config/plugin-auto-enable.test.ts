@@ -370,7 +370,63 @@ describe("applyPluginAutoEnable — hooks", () => {
 });
 
 // ============================================================================
-//  7. Mapping constants
+//  7. Subscription provider auto-enable
+// ============================================================================
+
+describe("applyPluginAutoEnable — subscription provider", () => {
+  it("force-enables anthropic plugin when subscriptionProvider is anthropic-subscription", () => {
+    const params = makeParams({
+      config: {
+        agents: {
+          defaults: { subscriptionProvider: "anthropic-subscription" },
+        },
+      },
+    });
+    const { config, changes } = applyPluginAutoEnable(params);
+
+    expect(config.plugins?.allow).toContain("anthropic");
+    expect(changes.some((c) => c.includes("subscription"))).toBe(true);
+  });
+
+  it("force-enables openai plugin when subscriptionProvider is openai-codex", () => {
+    const params = makeParams({
+      config: {
+        agents: { defaults: { subscriptionProvider: "openai-codex" } },
+      },
+    });
+    const { config, changes } = applyPluginAutoEnable(params);
+
+    expect(config.plugins?.allow).toContain("openai");
+    expect(changes.some((c) => c.includes("subscription"))).toBe(true);
+  });
+
+  it("overrides explicit enabled=false for the subscription plugin", () => {
+    const params = makeParams({
+      config: {
+        plugins: { entries: { anthropic: { enabled: false } } },
+        agents: {
+          defaults: { subscriptionProvider: "anthropic-subscription" },
+        },
+      },
+    });
+    const { config } = applyPluginAutoEnable(params);
+
+    expect(config.plugins?.allow).toContain("anthropic");
+    expect(config.plugins?.entries?.anthropic?.enabled).toBe(true);
+  });
+
+  it("does nothing when subscriptionProvider is not set", () => {
+    const params = makeParams({
+      config: { agents: { defaults: {} } },
+    });
+    const { changes } = applyPluginAutoEnable(params);
+
+    expect(changes.every((c) => !c.includes("subscription"))).toBe(true);
+  });
+});
+
+// ============================================================================
+//  8. Mapping constants
 // ============================================================================
 
 describe("CONNECTOR_PLUGINS", () => {

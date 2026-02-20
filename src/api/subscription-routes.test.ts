@@ -161,4 +161,43 @@ describe("subscription routes", () => {
       error: expect.stringContaining("Unknown provider"),
     });
   });
+
+  test("anthropic exchange passes state.config to applySubscriptionCredentials", async () => {
+    // Set up a flow on state
+    const submitCode = vi.fn();
+    state._anthropicFlow = {
+      authUrl: "https://auth.example/anthropic",
+      submitCode,
+      credentials: Promise.resolve({ expires: Date.now() + 60000 }),
+    } as unknown as import("../auth/index").AnthropicFlow;
+
+    const result = await invoke({
+      method: "POST",
+      pathname: "/api/subscription/anthropic/exchange",
+      body: { code: "test-code" },
+    });
+
+    expect(result.status).toBe(200);
+    expect(applySubscriptionCredentials).toHaveBeenCalledWith(state.config);
+  });
+
+  test("openai exchange passes state.config to applySubscriptionCredentials", async () => {
+    const submitCode = vi.fn();
+    state._codexFlow = {
+      authUrl: "https://auth.example/openai",
+      state: "state-123",
+      submitCode,
+      close: vi.fn(),
+      credentials: Promise.resolve({ expires: Date.now() + 60000 }),
+    } as unknown as import("../auth/index").CodexFlow;
+
+    const result = await invoke({
+      method: "POST",
+      pathname: "/api/subscription/openai/exchange",
+      body: { code: "test-code" },
+    });
+
+    expect(result.status).toBe(200);
+    expect(applySubscriptionCredentials).toHaveBeenCalledWith(state.config);
+  });
 });

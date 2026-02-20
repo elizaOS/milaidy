@@ -160,11 +160,25 @@ export function getSubscriptionStatus(): Array<{
   });
 }
 
+/** Maps subscription provider names to their model provider identifiers. */
+const SUBSCRIPTION_MODEL_MAP: Record<string, string> = {
+  "anthropic-subscription": "anthropic",
+  "openai-codex": "openai",
+};
+
 /**
  * Apply subscription credentials to the environment.
  * Called at startup to make credentials available to ElizaOS plugins.
+ *
+ * When a `config` is provided and the active subscription provider has
+ * credentials, `model.primary` is auto-set so the user doesn't need to
+ * configure it manually.
  */
-export async function applySubscriptionCredentials(): Promise<void> {
+export async function applySubscriptionCredentials(config?: {
+  agents?: {
+    defaults?: { subscriptionProvider?: string; model?: { primary?: string } };
+  };
+}): Promise<void> {
   // Anthropic subscription → set ANTHROPIC_API_KEY
   const anthropicToken = await getAccessToken("anthropic-subscription");
   if (anthropicToken) {
@@ -172,6 +186,15 @@ export async function applySubscriptionCredentials(): Promise<void> {
     logger.info(
       "[auth] Applied Anthropic subscription credentials to environment",
     );
+    // Install Claude stealth interceptor (non-fatal)
+    try {
+      const { applyClaudeCodeStealth } = await import("./apply-stealth");
+      applyClaudeCodeStealth();
+    } catch (err) {
+      logger.warn(
+        `[auth] Failed to apply Claude stealth: ${err instanceof Error ? err.message : err}`,
+      );
+    }
   }
 
   // OpenAI Codex subscription → set OPENAI_API_KEY
@@ -181,5 +204,35 @@ export async function applySubscriptionCredentials(): Promise<void> {
     logger.info(
       "[auth] Applied OpenAI Codex subscription credentials to environment",
     );
+    // Install OpenAI Codex stealth interceptor (non-fatal)
+    try {
+      const { applyOpenAICodexStealth } = await import("./apply-stealth");
+      await applyOpenAICodexStealth();
+    } catch (err) {
+      logger.warn(
+        `[auth] Failed to apply OpenAI Codex stealth: ${err instanceof Error ? err.message : err}`,
+      );
+    }
+  }
+
+  // Auto-set model.primary from subscription provider when not explicitly
+  // configured, so users who connect a subscription don't need to manually
+  // choose a model provider.
+  if (config?.agents?.defaults) {
+    const defaults = config.agents.defaults;
+    const provider = defaults.subscriptionProvider;
+    if (provider && SUBSCRIPTION_MODEL_MAP[provider]) {
+      if (!defaults.model) {
+        defaults.model = { primary: SUBSCRIPTION_MODEL_MAP[provider] };
+        logger.info(
+          `[auth] Auto-set model.primary to "${SUBSCRIPTION_MODEL_MAP[provider]}" from subscription provider`,
+        );
+      } else if (!defaults.model.primary) {
+        defaults.model.primary = SUBSCRIPTION_MODEL_MAP[provider];
+        logger.info(
+          `[auth] Auto-set model.primary to "${SUBSCRIPTION_MODEL_MAP[provider]}" from subscription provider`,
+        );
+      }
+    }
   }
 }

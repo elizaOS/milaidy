@@ -2515,7 +2515,7 @@ export async function startEliza(
   // 2f. Apply subscription-based credentials (Claude Max, Codex Max)
   try {
     const { applySubscriptionCredentials } = await import("../auth/index");
-    await applySubscriptionCredentials();
+    await applySubscriptionCredentials(config);
   } catch (err) {
     logger.warn(`[milady] Failed to apply subscription credentials: ${err}`);
   }
@@ -3054,7 +3054,7 @@ export async function startEliza(
             const { applySubscriptionCredentials } = await import(
               "../auth/index"
             );
-            await applySubscriptionCredentials();
+            await applySubscriptionCredentials(freshConfig);
           } catch (subErr) {
             logger.warn(
               `[milady] Hot-reload: subscription credentials: ${formatError(subErr)}`,

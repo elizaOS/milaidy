@@ -78,7 +78,7 @@ export async function handleSubscriptionRoutes(
       flow.submitCode(body.code);
       const credentials = await flow.credentials;
       saveCredentials("anthropic-subscription", credentials);
-      await applySubscriptionCredentials();
+      await applySubscriptionCredentials(state.config);
       delete state._anthropicFlow;
       json(res, { success: true, expiresAt: credentials.expires });
     } catch (err) {
@@ -218,7 +218,7 @@ export async function handleSubscriptionRoutes(
         return true;
       }
       saveCredentials("openai-codex", credentials);
-      await applySubscriptionCredentials();
+      await applySubscriptionCredentials(state.config);
       flow.close();
       delete state._codexFlow;
       clearTimeout(state._codexFlowTimer);

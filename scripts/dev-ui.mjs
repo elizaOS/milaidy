@@ -278,6 +278,28 @@ function resolveStealthImportFlags() {
     }
   }
 
+  // Auto-detect subscription credentials: if the user has logged in via
+  // a subscription provider, enable the corresponding stealth interceptor
+  // automatically (unless explicitly disabled above).
+  const stateDir =
+    process.env.MILADY_STATE_DIR?.trim() || path.join(os.homedir(), ".milady");
+  if (openaiFlag === null) {
+    const codexAuthPath = path.join(stateDir, "auth", "openai-codex.json");
+    if (existsSync(codexAuthPath)) {
+      openaiFlag = true;
+    }
+  }
+  if (claudeFlag === null) {
+    const anthropicAuthPath = path.join(
+      stateDir,
+      "auth",
+      "anthropic-subscription.json",
+    );
+    if (existsSync(anthropicAuthPath)) {
+      claudeFlag = true;
+    }
+  }
+
   return {
     openai: openaiFlag === true,
     claude: claudeFlag === true,
@@ -993,7 +1015,15 @@ if (uiOnly) {
   }
 
   const apiCmd = hasBun
-    ? ["bun", "--watch", "src/runtime/dev-server.ts"]
+    ? [
+        "bun",
+        ...resolvedStealthImports.flatMap((filePath) => [
+          "--preload",
+          filePath,
+        ]),
+        "--watch",
+        "src/runtime/dev-server.ts",
+      ]
     : [
         "node",
         ...resolvedStealthImports.flatMap((filePath) => ["--import", filePath]),
