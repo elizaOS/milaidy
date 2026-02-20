@@ -73,13 +73,25 @@ These variables configure access to AI model providers. Set at least one to enab
 | Variable | Provider | Notes |
 |----------|----------|-------|
 | `ANTHROPIC_API_KEY` | Anthropic (Claude) | Claude 3 and 4 model families |
+| `CLAUDE_API_KEY` | Anthropic (Claude) | Alias for `ANTHROPIC_API_KEY` |
 | `OPENAI_API_KEY` | OpenAI (GPT) | GPT-4o, GPT-4, and other OpenAI models |
 | `AI_GATEWAY_API_KEY` | Vercel AI Gateway | Routes requests through the Vercel AI Gateway |
+| `AIGATEWAY_API_KEY` | Vercel AI Gateway | Alias for `AI_GATEWAY_API_KEY` |
 | `GOOGLE_API_KEY` | Google (Gemini) | Gemini model family |
+| `GOOGLE_GENERATIVE_AI_API_KEY` | Google (Gemini) | Alias for `GOOGLE_API_KEY` |
 | `GROQ_API_KEY` | Groq | Fast inference via Groq hardware |
 | `XAI_API_KEY` | xAI (Grok) | Grok model family |
+| `GROK_API_KEY` | xAI (Grok) | Alias for `XAI_API_KEY` |
 | `OPENROUTER_API_KEY` | OpenRouter | Unified API routing for many providers |
+| `DEEPSEEK_API_KEY` | DeepSeek | DeepSeek model family |
+| `TOGETHER_API_KEY` | Together AI | Together AI inference |
+| `MISTRAL_API_KEY` | Mistral | Mistral model family |
+| `COHERE_API_KEY` | Cohere | Cohere model family |
+| `PERPLEXITY_API_KEY` | Perplexity | Perplexity model family |
+| `ZAI_API_KEY` | Zai | Zai model provider |
 | `OLLAMA_BASE_URL` | Ollama (local) | Base URL for a local Ollama server (not an API key) |
+| `ELIZAOS_CLOUD_API_KEY` | ElizaOS Cloud | Cloud-hosted model inference via ElizaOS |
+| `ELIZAOS_CLOUD_ENABLED` | ElizaOS Cloud | Set to `1` to enable ElizaOS Cloud (requires API key) |
 
 Use `milaidy models` to check which providers are currently configured.
 
@@ -100,6 +112,80 @@ These variables affect how Milaidy stores and applies credentials.
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `EDITOR` | Editor command used by `milaidy plugins open`. Accepts a full command string (e.g. `code`, `vim`, `nano -w`). | `code` |
+
+---
+
+## Database
+
+These variables configure the database backend used by the ElizaOS runtime.
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `POSTGRES_URL` | PostgreSQL connection URL. When set, switches the database provider from PGLite to PostgreSQL. | (unset -- PGLite used) |
+| `PGLITE_DATA_DIR` | Override the PGLite data directory. Automatically set by the runtime when using PGLite mode. | `~/.milady/pglite/` |
+
+---
+
+## Model Override
+
+These variables override the default model selections used by the runtime.
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `SMALL_MODEL` | Override the small/fast model used for lightweight tasks. | (from provider defaults) |
+| `LARGE_MODEL` | Override the large/capable model used for complex tasks. | (from provider defaults) |
+| `ELIZAOS_CLOUD_SMALL_MODEL` | Override the small model when using ElizaOS Cloud. | (from cloud defaults) |
+| `ELIZAOS_CLOUD_LARGE_MODEL` | Override the large model when using ElizaOS Cloud. | (from cloud defaults) |
+
+---
+
+## Local Embedding
+
+These variables configure local embedding model inference. Only relevant when using local embeddings instead of a cloud provider.
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `LOCAL_EMBEDDING_MODEL` | GGUF model filename for local embeddings. | (auto-selected) |
+| `LOCAL_EMBEDDING_MODEL_REPO` | Hugging Face repo containing the embedding model. | (auto-selected) |
+| `LOCAL_EMBEDDING_DIMENSIONS` | Embedding vector dimensions. | (auto-detected from model) |
+| `LOCAL_EMBEDDING_CONTEXT_SIZE` | Maximum context size for the embedding model. | (auto-detected from model) |
+| `LOCAL_EMBEDDING_GPU_LAYERS` | Number of GPU layers to offload. Set to `auto` on Apple Silicon. | `0` (CPU-only) |
+| `LOCAL_EMBEDDING_USE_MMAP` | Enable memory-mapped file access for the model. | (auto) |
+
+---
+
+## Runtime Behavior
+
+These variables control ElizaOS runtime initialization behavior.
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `ELIZA_ALLOW_DESTRUCTIVE_MIGRATIONS` | Allow destructive database migrations on startup. Automatically set to `true` by Milaidy. | `true` (set by Milaidy) |
+| `IGNORE_BOOTSTRAP` | Skip the ElizaOS bootstrap plugin. Automatically set to `true` by Milaidy (Milaidy provides its own bootstrap). | `true` (set by Milaidy) |
+| `MILADY_DISABLE_WORKSPACE_PLUGIN_OVERRIDES` | When set to `1`, disables loading plugin overrides from workspace directories. | (unset) |
+
+---
+
+## Skills and Marketplace
+
+These variables configure the skills registry and marketplace integration.
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `SKILLS_REGISTRY` | URL of the skills registry. Falls back to `CLAWHUB_REGISTRY` if not set. | `https://clawhub.ai` |
+| `CLAWHUB_REGISTRY` | Alias for `SKILLS_REGISTRY`. | (unset) |
+| `SKILLSMP_API_KEY` | API key for authenticating with the skills marketplace. | (unset) |
+
+---
+
+## Wallet and Blockchain
+
+These variables configure blockchain wallet keys used by wallet plugins.
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `EVM_PRIVATE_KEY` | Private key for EVM-compatible chains (Ethereum, Polygon, etc.). | (unset) |
+| `SOLANA_PRIVATE_KEY` | Private key for the Solana blockchain. | (unset) |
 
 ---
 
