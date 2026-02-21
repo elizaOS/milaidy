@@ -483,9 +483,23 @@ export function OnboardingWizard() {
                 selected={onboardingAvatar}
                 onSelect={(i) => setState("onboardingAvatar", i)}
                 onUpload={(file) => {
+                  const previousAvatar = onboardingAvatar;
                   const url = URL.createObjectURL(file);
                   setState("customVrmUrl", url);
                   setState("onboardingAvatar", 0);
+                  client
+                    .uploadCustomVrm(file)
+                    .then(() => {
+                      setState(
+                        "customVrmUrl",
+                        `/api/avatar/vrm?t=${Date.now()}`,
+                      );
+                      requestAnimationFrame(() => URL.revokeObjectURL(url));
+                    })
+                    .catch(() => {
+                      setState("onboardingAvatar", previousAvatar);
+                      URL.revokeObjectURL(url);
+                    });
                 }}
                 showUpload
               />

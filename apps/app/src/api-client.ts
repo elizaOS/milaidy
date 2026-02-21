@@ -1970,6 +1970,31 @@ export class MiladyClient {
     });
   }
 
+  // ── Custom VRM avatar ────────────────────────────────────────────────
+
+  async uploadCustomVrm(file: File): Promise<void> {
+    const buf = await file.arrayBuffer();
+    await this.fetch("/api/avatar/vrm", {
+      method: "POST",
+      headers: { "Content-Type": "application/octet-stream" },
+      body: buf,
+    });
+  }
+
+  /** Uses raw fetch instead of this.fetch() because HEAD returns no JSON body. */
+  async hasCustomVrm(): Promise<boolean> {
+    try {
+      const token = this.apiToken;
+      const res = await fetch(`${this.baseUrl}/api/avatar/vrm`, {
+        method: "HEAD",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  }
+
   // ── Connectors ──────────────────────────────────────────────────────
 
   async getConnectors(): Promise<{
