@@ -7,6 +7,7 @@
  */
 import { describe, expect, it } from "vitest";
 
+import { normalizeSubscriptionProvider } from "../auth/types";
 import {
   type ApplyPluginAutoEnableParams,
   AUTH_PROVIDER_PLUGINS,
@@ -441,6 +442,22 @@ describe("applyPluginAutoEnable — subscription provider", () => {
     const params = makeParams({
       config: {
         agents: { defaults: { subscriptionProvider: "openai-codex" } },
+      },
+    });
+    const { config, changes } = applyPluginAutoEnable(params);
+
+    expect(config.plugins?.allow).toContain("openai");
+    expect(changes.some((c) => c.includes("subscription"))).toBe(true);
+  });
+
+  it("enables openai plugin for onboarding alias once normalized", () => {
+    const normalized = normalizeSubscriptionProvider("openai-subscription");
+    expect(normalized).toBe("openai-codex");
+    if (!normalized) throw new Error("Expected normalized provider value");
+
+    const params = makeParams({
+      config: {
+        agents: { defaults: { subscriptionProvider: normalized } },
       },
     });
     const { config, changes } = applyPluginAutoEnable(params);

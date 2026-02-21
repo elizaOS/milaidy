@@ -1,4 +1,7 @@
-import { SUBSCRIPTION_PROVIDER_MAP } from "../auth/types";
+import {
+  normalizeSubscriptionProvider,
+  SUBSCRIPTION_PROVIDER_MAP,
+} from "../auth/types";
 import type { MiladyConfig } from "../config/types.milady";
 
 /**
@@ -17,12 +20,10 @@ export function applySubscriptionProviderConfig(
   config.agents.defaults ??= {};
   const defaults = config.agents.defaults;
 
-  const subscriptionKey =
-    provider === "openai-subscription" ? "openai-codex" : provider;
-  const modelProvider =
-    SUBSCRIPTION_PROVIDER_MAP[
-      subscriptionKey as keyof typeof SUBSCRIPTION_PROVIDER_MAP
-    ];
+  const subscriptionKey = normalizeSubscriptionProvider(provider);
+  if (!subscriptionKey) return;
+
+  const modelProvider = SUBSCRIPTION_PROVIDER_MAP[subscriptionKey];
 
   if (modelProvider) {
     defaults.subscriptionProvider = subscriptionKey;

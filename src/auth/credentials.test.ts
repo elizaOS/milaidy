@@ -105,6 +105,27 @@ describe("applySubscriptionCredentials", () => {
     expect(config.agents.defaults.model.primary).toBe("openai");
   });
 
+  test("auto-sets openai model.primary when onboarding alias is normalized", async () => {
+    const { applySubscriptionCredentials } = await import("./credentials");
+    const { normalizeSubscriptionProvider } = await import("./types");
+    const normalized = normalizeSubscriptionProvider("openai-subscription");
+    expect(normalized).toBe("openai-codex");
+    if (!normalized) throw new Error("Expected normalized provider value");
+
+    const config = {
+      agents: {
+        defaults: {
+          subscriptionProvider: normalized as string,
+          model: {} as { primary?: string },
+        },
+      },
+    };
+
+    await applySubscriptionCredentials(config);
+
+    expect(config.agents.defaults.model.primary).toBe("openai");
+  });
+
   test("does not override existing model.primary", async () => {
     const { applySubscriptionCredentials } = await import("./credentials");
     const config = {

@@ -3123,6 +3123,23 @@ describe("API Server E2E (no runtime)", () => {
         /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
       );
     });
+
+    it("POST /api/onboarding normalizes openai-subscription to openai-codex in config", async () => {
+      const res = await req(port, "POST", "/api/onboarding", {
+        name: "OpenAIOnboardingAlias",
+        runMode: "local",
+        provider: "openai-subscription",
+      });
+      expect(res.status).toBe(200);
+
+      const cfg = await req(port, "GET", "/api/config");
+      const defaults = (
+        cfg.data as {
+          agents?: { defaults?: { subscriptionProvider?: string } };
+        }
+      ).agents?.defaults;
+      expect(defaults?.subscriptionProvider).toBe("openai-codex");
+    });
   });
 
   // -- Config --

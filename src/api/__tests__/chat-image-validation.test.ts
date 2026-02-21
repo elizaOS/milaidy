@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildChatAttachments,
   buildUserMessages,
+  countChatAttachmentsMissingPayload,
   validateChatImages,
 } from "../server";
 
@@ -311,6 +312,25 @@ describe("buildChatAttachments", () => {
     ]);
     expect(attachments).toHaveLength(3);
     expect(compactAttachments).toHaveLength(3);
+  });
+});
+
+describe("countChatAttachmentsMissingPayload", () => {
+  it("returns 0 for non-array inputs", () => {
+    expect(countChatAttachmentsMissingPayload(undefined)).toBe(0);
+    expect(countChatAttachmentsMissingPayload(null)).toBe(0);
+    expect(countChatAttachmentsMissingPayload({})).toBe(0);
+  });
+
+  it("counts attachments missing _data or _mimeType", () => {
+    const count = countChatAttachmentsMissingPayload([
+      { _data: "abc", _mimeType: "image/png" },
+      { _data: "abc" },
+      { _mimeType: "image/png" },
+      {},
+    ]);
+
+    expect(count).toBe(3);
   });
 });
 

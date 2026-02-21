@@ -7,10 +7,8 @@
  */
 
 import crypto from "node:crypto";
-import { lookup as dnsLookup } from "node:dns/promises";
 import fs from "node:fs";
 import http from "node:http";
-import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -30,6 +28,7 @@ import {
 import { listPiAiModelOptions } from "@elizaos/plugin-pi-ai";
 import { createCodingAgentRouteHandler } from "@milaidy/plugin-coding-agent";
 import { type WebSocket, WebSocketServer } from "ws";
+import { normalizeSubscriptionProvider } from "../auth/types";
 import type { CloudManager } from "../cloud/cloud-manager";
 import {
   configFileExists,
@@ -46,10 +45,6 @@ import {
   buildTestHandler,
   registerCustomActionLive,
 } from "../runtime/custom-actions";
-import {
-  isBlockedPrivateOrLinkLocalIp,
-  normalizeHostLike,
-} from "../security/network-policy";
 import { AppManager } from "../services/app-manager";
 import { FallbackTrainingService } from "../services/fallback-training-service";
 import {
@@ -104,6 +99,7 @@ import {
   sendJsonError,
 } from "./http-helpers";
 import { handleKnowledgeRoutes } from "./knowledge-routes";
+import { resolveMcpServersRejection } from "./mcp-config-validation";
 import {
   evictOldestConversation,
   getOrReadCachedFile,
@@ -111,6 +107,10 @@ import {
   sweepExpiredEntries,
 } from "./memory-bounds";
 import { handleModelsRoutes } from "./models-routes";
+import {
+  hasBlockedObjectKeyDeep,
+  isBlockedObjectKey,
+} from "./object-key-guards";
 import { handlePermissionRoutes } from "./permissions-routes";
 import {
   type PluginParamInfo,
@@ -138,6 +138,11 @@ import {
 import { TxService } from "./tx-service";
 import { generateWalletKeys, getWalletAddresses } from "./wallet";
 import { handleWalletRoutes } from "./wallet-routes";
+
+export {
+  resolveMcpServersRejection,
+  validateMcpServerConfig,
+} from "./mcp-config-validation";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -2480,8 +2485,9 @@ interface ChatImageAttachment {
 
 const MAX_CHAT_IMAGES = 4;
 
-/** Maximum base64 data length for a single image (~3.75 MB binary). */
-const MAX_IMAGE_DATA_BYTES = 5 * 1_048_576;
+/** Maximum base64 character length for a single image payload. */
+const MAX_IMAGE_DATA_CHARS = 5 * 1_048_576;
+const MAX_IMAGE_BINARY_BYTES = Math.floor((MAX_IMAGE_DATA_CHARS * 3) / 4);
 
 /** Maximum length of an image filename. */
 const MAX_IMAGE_NAME_LENGTH = 255;
@@ -2508,8 +2514,12 @@ export function validateChatImages(images: unknown): string | null {
       return "Each image must have a non-empty data string";
     if (data.startsWith("data:"))
       return "Image data must be raw base64, not a data URL";
-    if (data.length > MAX_IMAGE_DATA_BYTES)
-      return `Image too large (max ${MAX_IMAGE_DATA_BYTES / 1_048_576} MB per image)`;
+    if (data.length > MAX_IMAGE_DATA_CHARS)
+      return (
+        "Image too large " +
+        `(max ${MAX_IMAGE_DATA_CHARS / 1_048_576} MB base64 data, ` +
+        `~${(MAX_IMAGE_BINARY_BYTES / 1_048_576).toFixed(2)} MB binary per image)`
+      );
     if (!BASE64_RE.test(data))
       return "Image data contains invalid base64 characters";
     if (typeof mimeType !== "string" || !mimeType)
@@ -2576,6 +2586,32 @@ export function buildChatAttachments(
   return { attachments, compactAttachments };
 }
 
+type ChatAttachmentPayloadCandidate = Partial<{
+  _data: unknown;
+  _mimeType: unknown;
+}>;
+
+/**
+ * Counts attachment entries that are missing `_data` or `_mimeType`.
+ * Exported so we can unit-test the runtime guard in isolation.
+ */
+export function countChatAttachmentsMissingPayload(
+  attachments: unknown,
+): number {
+  if (!Array.isArray(attachments)) return 0;
+  let missingCount = 0;
+  for (const attachment of attachments) {
+    const candidate = attachment as ChatAttachmentPayloadCandidate;
+    if (
+      typeof candidate?._data !== "string" ||
+      typeof candidate?._mimeType !== "string"
+    ) {
+      missingCount += 1;
+    }
+  }
+  return missingCount;
+}
+
 type MessageMemory = ReturnType<typeof createMessageMemory>;
 
 /**
@@ -2605,6 +2641,18 @@ export function buildUserMessages(params: {
       ...(attachments?.length ? { attachments } : {}),
     },
   });
+  // Surface attachment-payload regressions early if createMessageMemory or
+  // future runtime plumbing strips `_data`/`_mimeType` unexpectedly.
+  if (images?.length) {
+    const missingCount = countChatAttachmentsMissingPayload(
+      (userMessage.content as { attachments?: unknown }).attachments,
+    );
+    if (missingCount > 0) {
+      logger.warn(
+        `[chat] ${missingCount}/${images.length} image attachment payload(s) missing _data/_mimeType before runtime dispatch; attachment-based actions may fail`,
+      );
+    }
+  }
   // Persisted message: compact placeholder URL, no raw bytes in DB.
   const messageToStore = compactAttachments?.length
     ? createMessageMemory({
@@ -2704,22 +2752,6 @@ function parseBoundedLimit(rawLimit: string | null, fallback = 15): number {
  */
 const SENSITIVE_KEY_RE =
   /password|secret|api.?key|private.?key|seed.?phrase|authorization|connection.?string|credential|(?<!max)tokens?$/i;
-
-function isBlockedObjectKey(key: string): boolean {
-  return key === "__proto__" || key === "constructor" || key === "prototype";
-}
-
-function hasBlockedObjectKeyDeep(value: unknown): boolean {
-  if (value === null || value === undefined) return false;
-  if (Array.isArray(value)) return value.some(hasBlockedObjectKeyDeep);
-  if (typeof value !== "object") return false;
-
-  for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
-    if (isBlockedObjectKey(key)) return true;
-    if (hasBlockedObjectKeyDeep(child)) return true;
-  }
-  return false;
-}
 
 function cloneWithoutBlockedObjectKeys<T>(value: T): T {
   if (value === null || value === undefined) return value;
@@ -2827,307 +2859,6 @@ function validateSkillId(
     return null;
   }
   return skillId;
-}
-
-const ALLOWED_MCP_CONFIG_TYPES = new Set([
-  "stdio",
-  "http",
-  "streamable-http",
-  "sse",
-]);
-
-const ALLOWED_MCP_COMMANDS = new Set([
-  "npx",
-  "node",
-  "bun",
-  "bunx",
-  "deno",
-  "python",
-  "python3",
-  "uvx",
-  "uv",
-  "docker",
-  "podman",
-]);
-
-const BLOCKED_MCP_ENV_KEYS = new Set([
-  "LD_PRELOAD",
-  "LD_LIBRARY_PATH",
-  "DYLD_INSERT_LIBRARIES",
-  "DYLD_LIBRARY_PATH",
-  "NODE_OPTIONS",
-  "NODE_EXTRA_CA_CERTS",
-  "ELECTRON_RUN_AS_NODE",
-  "PATH",
-  "HOME",
-  "SHELL",
-]);
-
-const INTERPRETER_MCP_COMMANDS = new Set([
-  "node",
-  "bun",
-  "deno",
-  "python",
-  "python3",
-  "uv",
-]);
-
-const PACKAGE_RUNNER_MCP_COMMANDS = new Set(["npx", "bunx", "uvx"]);
-const CONTAINER_MCP_COMMANDS = new Set(["docker", "podman"]);
-
-const BLOCKED_INTERPRETER_FLAGS = new Set([
-  "-e",
-  "--eval",
-  "-p",
-  "--print",
-  "-c",
-  "-m",
-]);
-
-const BLOCKED_PACKAGE_RUNNER_FLAGS = new Set(["-c", "--call", "-e", "--eval"]);
-const BLOCKED_CONTAINER_FLAGS = new Set([
-  "--privileged",
-  "-v",
-  "--volume",
-  "--mount",
-  "--cap-add",
-  "--security-opt",
-  "--pid",
-  "--network",
-]);
-const BLOCKED_DENO_SUBCOMMANDS = new Set(["eval"]);
-const BLOCKED_MCP_REMOTE_HOST_LITERALS = new Set([
-  "localhost",
-  "metadata.google.internal",
-]);
-
-function normalizeMcpCommand(command: string): string {
-  const baseName = command.replace(/\\/g, "/").split("/").pop() ?? "";
-  return baseName.replace(/\.(exe|cmd|bat)$/i, "").toLowerCase();
-}
-
-function hasBlockedFlag(
-  args: string[],
-  blockedFlags: ReadonlySet<string>,
-): string | null {
-  for (const arg of args) {
-    const trimmed = arg.trim();
-    for (const flag of blockedFlags) {
-      if (trimmed === flag || trimmed.startsWith(`${flag}=`)) {
-        return flag;
-      }
-      // Block attached short-option forms like -cpayload or -epayload.
-      if (
-        /^-[A-Za-z]$/.test(flag) &&
-        trimmed.startsWith(flag) &&
-        trimmed.length > flag.length
-      ) {
-        return flag;
-      }
-    }
-  }
-  return null;
-}
-
-function firstPositionalArg(args: string[]): string | null {
-  for (const arg of args) {
-    const trimmed = arg.trim();
-    if (!trimmed || trimmed === "--" || trimmed.startsWith("-")) continue;
-    return trimmed.toLowerCase();
-  }
-  return null;
-}
-
-async function resolveMcpRemoteUrlRejection(
-  rawUrl: string,
-): Promise<string | null> {
-  let parsed: URL;
-  try {
-    parsed = new URL(rawUrl);
-  } catch {
-    return "URL must be a valid absolute URL";
-  }
-
-  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-    return "URL must use http:// or https://";
-  }
-
-  const hostname = normalizeHostLike(parsed.hostname);
-  if (!hostname) return "URL hostname is required";
-
-  if (
-    BLOCKED_MCP_REMOTE_HOST_LITERALS.has(hostname) ||
-    hostname.endsWith(".localhost") ||
-    hostname.endsWith(".local")
-  ) {
-    return `URL host "${hostname}" is blocked for security reasons`;
-  }
-
-  if (net.isIP(hostname)) {
-    if (isBlockedPrivateOrLinkLocalIp(hostname)) {
-      return `URL host "${hostname}" is blocked for security reasons`;
-    }
-    return null;
-  }
-
-  let addresses: Array<{ address: string }>;
-  try {
-    const resolved = await dnsLookup(hostname, { all: true });
-    addresses = Array.isArray(resolved) ? resolved : [resolved];
-  } catch {
-    return `Could not resolve URL host "${hostname}"`;
-  }
-
-  if (addresses.length === 0) {
-    return `Could not resolve URL host "${hostname}"`;
-  }
-
-  for (const entry of addresses) {
-    if (isBlockedPrivateOrLinkLocalIp(entry.address)) {
-      return `URL host "${hostname}" resolves to blocked address ${entry.address}`;
-    }
-  }
-
-  return null;
-}
-
-export async function validateMcpServerConfig(
-  config: Record<string, unknown>,
-): Promise<string | null> {
-  const configType = config.type;
-  if (
-    typeof configType !== "string" ||
-    !ALLOWED_MCP_CONFIG_TYPES.has(configType)
-  ) {
-    return `Invalid config type. Must be one of: ${[...ALLOWED_MCP_CONFIG_TYPES].join(", ")}`;
-  }
-
-  if (configType === "stdio") {
-    const command =
-      typeof config.command === "string" ? config.command.trim() : "";
-    if (!command) {
-      return "Command is required for stdio servers";
-    }
-    if (!/^[A-Za-z0-9._-]+$/.test(command)) {
-      return "Command must be a bare executable name without path separators";
-    }
-
-    const normalizedCommand = normalizeMcpCommand(command);
-    if (!ALLOWED_MCP_COMMANDS.has(normalizedCommand)) {
-      return (
-        `Command "${command}" is not allowed. ` +
-        `Allowed commands: ${[...ALLOWED_MCP_COMMANDS].join(", ")}`
-      );
-    }
-
-    if (config.args !== undefined) {
-      if (!Array.isArray(config.args)) {
-        return "args must be an array of strings";
-      }
-      for (const arg of config.args) {
-        if (typeof arg !== "string") {
-          return "Each arg must be a string";
-        }
-      }
-      const args = config.args as string[];
-      if (INTERPRETER_MCP_COMMANDS.has(normalizedCommand)) {
-        const blocked = hasBlockedFlag(args, BLOCKED_INTERPRETER_FLAGS);
-        if (blocked) {
-          return `Flag "${blocked}" is not allowed for ${normalizedCommand} MCP servers`;
-        }
-      }
-      if (PACKAGE_RUNNER_MCP_COMMANDS.has(normalizedCommand)) {
-        const blocked = hasBlockedFlag(args, BLOCKED_PACKAGE_RUNNER_FLAGS);
-        if (blocked) {
-          return `Flag "${blocked}" is not allowed for ${normalizedCommand} MCP servers`;
-        }
-      }
-      if (CONTAINER_MCP_COMMANDS.has(normalizedCommand)) {
-        const blocked = hasBlockedFlag(args, BLOCKED_CONTAINER_FLAGS);
-        if (blocked) {
-          return `Flag "${blocked}" is not allowed for ${normalizedCommand} MCP servers`;
-        }
-      }
-      if (normalizedCommand === "deno") {
-        const subcommand = firstPositionalArg(args);
-        if (subcommand && BLOCKED_DENO_SUBCOMMANDS.has(subcommand)) {
-          return `Subcommand "${subcommand}" is not allowed for deno MCP servers`;
-        }
-      }
-    }
-  } else {
-    const url = typeof config.url === "string" ? config.url.trim() : "";
-    if (!url) {
-      return "URL is required for remote servers";
-    }
-    const urlRejection = await resolveMcpRemoteUrlRejection(url);
-    if (urlRejection) return urlRejection;
-  }
-
-  if (config.env !== undefined) {
-    if (
-      typeof config.env !== "object" ||
-      config.env === null ||
-      Array.isArray(config.env)
-    ) {
-      return "env must be a plain object of string key-value pairs";
-    }
-
-    for (const [key, value] of Object.entries(config.env)) {
-      if (isBlockedObjectKey(key)) {
-        return `env key "${key}" is blocked for security reasons`;
-      }
-      if (typeof value !== "string") {
-        return `env.${key} must be a string`;
-      }
-      if (BLOCKED_MCP_ENV_KEYS.has(key.toUpperCase())) {
-        return `env variable "${key}" is not allowed for security reasons`;
-      }
-    }
-  }
-
-  if (config.cwd !== undefined && typeof config.cwd !== "string") {
-    return "cwd must be a string";
-  }
-
-  if (config.timeoutInMillis !== undefined) {
-    if (
-      typeof config.timeoutInMillis !== "number" ||
-      !Number.isFinite(config.timeoutInMillis) ||
-      config.timeoutInMillis < 0
-    ) {
-      return "timeoutInMillis must be a non-negative number";
-    }
-  }
-
-  return null;
-}
-
-export async function resolveMcpServersRejection(
-  servers: Record<string, unknown>,
-): Promise<string | null> {
-  for (const [serverName, serverConfig] of Object.entries(servers)) {
-    if (isBlockedObjectKey(serverName)) {
-      return `Invalid server name: "${serverName}"`;
-    }
-    if (
-      !serverConfig ||
-      typeof serverConfig !== "object" ||
-      Array.isArray(serverConfig)
-    ) {
-      return `Server "${serverName}" config must be a JSON object`;
-    }
-    if (hasBlockedObjectKeyDeep(serverConfig)) {
-      return `Server "${serverName}" contains blocked object keys`;
-    }
-    const configError = await validateMcpServerConfig(
-      serverConfig as Record<string, unknown>,
-    );
-    if (configError) {
-      return `Server "${serverName}": ${configError}`;
-    }
-  }
-  return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -5958,17 +5689,19 @@ async function handleRequest(
     // If the user selected a subscription provider during onboarding,
     // note it in config. The actual OAuth flow happens via
     // /api/subscription/{provider}/start + /exchange endpoints.
-    if (
-      runMode === "local" &&
-      (body.provider === "anthropic-subscription" ||
-        body.provider === "openai-subscription")
-    ) {
+    const rawSubscriptionProvider =
+      typeof body.provider === "string" ? body.provider : "";
+    const normalizedSubscriptionProvider =
+      runMode === "local"
+        ? normalizeSubscriptionProvider(rawSubscriptionProvider)
+        : null;
+    if (normalizedSubscriptionProvider) {
       if (!config.agents) config.agents = {};
       if (!config.agents.defaults) config.agents.defaults = {};
       (config.agents.defaults as Record<string, unknown>).subscriptionProvider =
-        body.provider;
+        normalizedSubscriptionProvider;
       logger.info(
-        `[milady-api] Subscription provider selected: ${body.provider} — complete OAuth via /api/subscription/ endpoints`,
+        `[milady-api] Subscription provider selected: ${normalizedSubscriptionProvider} — complete OAuth via /api/subscription/ endpoints`,
       );
 
       // Handle Anthropic setup token (sk-ant-oat01-...) provided during
@@ -5976,7 +5709,7 @@ async function handleRequest(
       // because their envKey is null. Mirrors POST /api/subscription/
       // anthropic/setup-token in subscription-routes.ts.
       if (
-        body.provider === "anthropic-subscription" &&
+        normalizedSubscriptionProvider === "anthropic-subscription" &&
         typeof body.providerApiKey === "string" &&
         body.providerApiKey.trim().startsWith("sk-ant-")
       ) {

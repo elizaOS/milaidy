@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   resolveMcpServersRejection,
   validateMcpServerConfig,
-} from "./server.js";
+} from "./mcp-config-validation.js";
 
 vi.mock("node:dns/promises", () => ({
   lookup: vi.fn(),
