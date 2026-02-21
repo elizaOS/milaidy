@@ -57,7 +57,7 @@ export function GameView() {
   >("connecting");
   const [chatInput, setChatInput] = useState("");
   const [sendingChat, setSendingChat] = useState(false);
-  const [retakeCapture, setRetakeCapture] = useState(true);
+  const [retakeCapture, setRetakeCapture] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const authSentRef = useRef(false);
   const logsIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);

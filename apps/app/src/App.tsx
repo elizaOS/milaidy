@@ -28,7 +28,6 @@ import { SaveCommandModal } from "./components/SaveCommandModal";
 import { SettingsView } from "./components/SettingsView";
 import { TerminalPanel } from "./components/TerminalPanel";
 import { useContextMenu } from "./hooks/useContextMenu";
-import { useWhipStream } from "./hooks/useWhipStream";
 
 const CHAT_MOBILE_BREAKPOINT_PX = 1024;
 
@@ -81,11 +80,9 @@ export function App() {
     gameOverlayEnabled,
   } = useApp();
   const contextMenu = useContextMenu();
-  const whipStream = useWhipStream();
-  const startWhipStream = whipStream.start;
 
-  // Auto-start retake.tv WHIP stream + LTCG autonomy when game is active.
-  // Uses LiveKit WHIP (WebRTC) — pure browser streaming, no FFmpeg needed.
+  // Auto-start retake.tv stream + LTCG autonomy when game is active.
+  // Uses headless Chrome capture → FFmpeg RTMP via /api/retake/live.
   const streamAutoStarted = useRef(false);
   useEffect(() => {
     if (activeGameViewerUrl && !streamAutoStarted.current) {
@@ -93,15 +90,16 @@ export function App() {
       const timer = setTimeout(async () => {
         const apiBase = window.__MILADY_API_BASE__ || window.location.origin;
         try {
-          // Get WHIP URL from backend (registers session + fetches RTMP creds + derives WHIP)
-          const whipRes = await fetch(`${apiBase}/api/retake/whip`);
-          if (whipRes.ok) {
-            const { whipUrl } = await whipRes.json();
-            await startWhipStream(whipUrl);
-            console.log("[App] WHIP stream started via LiveKit");
+          const liveRes = await fetch(`${apiBase}/api/retake/live`, {
+            method: "POST",
+          });
+          if (liveRes.ok) {
+            console.log(
+              "[App] retake.tv stream started via headless browser capture",
+            );
           }
         } catch (err) {
-          console.warn("[App] WHIP stream failed:", err);
+          console.warn("[App] retake.tv stream failed:", err);
         }
         try {
           // Start LTCG PvP autonomy
@@ -114,7 +112,7 @@ export function App() {
       }, 3000);
       return () => clearTimeout(timer);
     }
-  }, [activeGameViewerUrl, startWhipStream]);
+  }, [activeGameViewerUrl]);
 
   const [customActionsPanelOpen, setCustomActionsPanelOpen] = useState(false);
   const [customActionsEditorOpen, setCustomActionsEditorOpen] = useState(false);

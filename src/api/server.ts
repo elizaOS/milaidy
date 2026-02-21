@@ -12056,27 +12056,11 @@ async function handleRequest(
       }
       return;
     }
-    const retakeSvc = state.runtime?.getService("retake") as
-      | { pushFrame?: (buf: Buffer) => boolean }
-      | null
-      | undefined;
-    if (!retakeSvc?.pushFrame) {
-      error(res, "Retake service not available", 503);
-      return;
-    }
-    try {
-      const buf = await readRequestBodyBuffer(req, {
-        maxBytes: 2 * 1024 * 1024,
-      });
-      if (!buf || buf.length === 0) {
-        error(res, "Empty frame", 400);
-        return;
-      }
-      const ok = retakeSvc.pushFrame(buf);
-      json(res, { ok });
-    } catch (err) {
-      error(res, err instanceof Error ? err.message : "Frame push failed", 500);
-    }
+    error(
+      res,
+      "StreamManager not running — start stream via POST /api/retake/live",
+      503,
+    );
     return;
   }
 
