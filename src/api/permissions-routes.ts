@@ -1,4 +1,7 @@
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import type { AgentRuntime } from "@elizaos/core";
+import type { SystemPermissionId } from "../contracts/permissions";
 import type { MiladyConfig } from "../config/config";
 import type { RouteRequestContext } from "./route-helpers";
 
@@ -20,6 +23,48 @@ export interface PermissionRouteContext extends RouteRequestContext {
   state: PermissionRouteState;
   saveConfig: (config: MiladyConfig) => void;
   scheduleRuntimeRestart: (reason: string) => void;
+}
+
+const execFileAsync = promisify(execFile);
+
+const SYSTEM_PERMISSION_IDS: ReadonlySet<SystemPermissionId> = new Set([
+  "accessibility",
+  "screen-recording",
+  "microphone",
+  "camera",
+  "shell",
+]);
+
+const DARWIN_PRIVACY_PANE_URLS: Record<SystemPermissionId, string> = {
+  accessibility:
+    "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility",
+  "screen-recording":
+    "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture",
+  microphone:
+    "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone",
+  camera:
+    "x-apple.systempreferences:com.apple.preference.security?Privacy_Camera",
+  shell:
+    "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles",
+};
+
+function isSystemPermissionId(value: string): value is SystemPermissionId {
+  return SYSTEM_PERMISSION_IDS.has(value as SystemPermissionId);
+}
+
+async function openPermissionSettingsOnHost(
+  permissionId: SystemPermissionId,
+): Promise<boolean> {
+  if (process.platform !== "darwin") return false;
+  const paneUrl = DARWIN_PRIVACY_PANE_URLS[permissionId];
+  if (!paneUrl) return false;
+
+  try {
+    await execFileAsync("open", [paneUrl]);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export async function handlePermissionRoutes(
@@ -121,6 +166,10 @@ export async function handlePermissionRoutes(
     pathname.match(/^\/api\/permissions\/[^/]+\/request$/)
   ) {
     const permId = pathname.split("/")[3];
+    if (!isSystemPermissionId(permId)) {
+      error(res, "Invalid permission ID", 400);
+      return true;
+    }
     json(res, {
       message: `Permission request for ${permId}`,
       action: `ipc:permissions:request:${permId}`,
@@ -135,6 +184,20 @@ export async function handlePermissionRoutes(
     pathname.match(/^\/api\/permissions\/[^/]+\/open-settings$/)
   ) {
     const permId = pathname.split("/")[3];
+    if (!isSystemPermissionId(permId)) {
+      error(res, "Invalid permission ID", 400);
+      return true;
+    }
+
+    const openedOnHost = await openPermissionSettingsOnHost(permId);
+    if (openedOnHost) {
+      json(res, {
+        message: `Opening settings for ${permId}`,
+        opened: true,
+      });
+      return true;
+    }
+
     json(res, {
       message: `Opening settings for ${permId}`,
       action: `ipc:permissions:openSettings:${permId}`,

@@ -34,31 +34,45 @@ cp main main_arm64
 echo "[whisper-universal] arm64 build OK: $(file main_arm64)"
 echo ""
 
-# --- x86_64 build (via Rosetta on Apple Silicon, or native on Intel) ---
-# Disable Metal for x86_64 since older Intel Macs may lack GPU support,
-# and Accelerate framework handles CPU-based BLAS on all macOS versions.
-echo "[whisper-universal] === Building x86_64 ==="
-make clean 2>/dev/null || true
-arch -x86_64 make main -j"$NCPU" WHISPER_NO_METAL=1 2>&1
-cp main main_x86_64
-echo "[whisper-universal] x86_64 build OK: $(file main_x86_64)"
-echo ""
+CAN_BUILD_X86=1
+if ! arch -x86_64 /usr/bin/true >/dev/null 2>&1; then
+  CAN_BUILD_X86=0
+fi
 
-# --- Combine into universal (fat) binary ---
-echo "[whisper-universal] === Creating universal binary with lipo ==="
-lipo -create main_arm64 main_x86_64 -output main
-rm -f main_arm64 main_x86_64
+if [ "$CAN_BUILD_X86" -eq 1 ]; then
+  # --- x86_64 build (via Rosetta on Apple Silicon, or native on Intel) ---
+  # Disable Metal for x86_64 since older Intel Macs may lack GPU support,
+  # and Accelerate framework handles CPU-based BLAS on all macOS versions.
+  echo "[whisper-universal] === Building x86_64 ==="
+  make clean 2>/dev/null || true
+  arch -x86_64 make main -j"$NCPU" WHISPER_NO_METAL=1 2>&1
+  cp main main_x86_64
+  echo "[whisper-universal] x86_64 build OK: $(file main_x86_64)"
+  echo ""
 
-echo "[whisper-universal] Result: $(file main)"
-lipo -detailed_info main
-echo ""
+  # --- Combine into universal (fat) binary ---
+  echo "[whisper-universal] === Creating universal binary with lipo ==="
+  lipo -create main_arm64 main_x86_64 -output main
+  rm -f main_arm64 main_x86_64
 
-# --- Verify both slices execute ---
+  echo "[whisper-universal] Result: $(file main)"
+  lipo -detailed_info main
+  echo ""
+else
+  echo "[whisper-universal] Rosetta/x86_64 build unavailable; keeping arm64 binary only."
+  mv main_arm64 main
+  echo "[whisper-universal] Result: $(file main)"
+  echo ""
+fi
+
+# --- Verify binary executes ---
 echo "[whisper-universal] === Verifying arm64 execution ==="
 ./main -h >/dev/null 2>&1 && echo "[whisper-universal] arm64 OK" || echo "[whisper-universal] arm64 FAILED"
 
-echo "[whisper-universal] === Verifying x86_64 execution ==="
-arch -x86_64 ./main -h >/dev/null 2>&1 && echo "[whisper-universal] x86_64 OK" || echo "[whisper-universal] x86_64 FAILED"
+if [ "$CAN_BUILD_X86" -eq 1 ]; then
+  echo "[whisper-universal] === Verifying x86_64 execution ==="
+  arch -x86_64 ./main -h >/dev/null 2>&1 && echo "[whisper-universal] x86_64 OK" || echo "[whisper-universal] x86_64 FAILED"
+fi
 
 echo ""
-echo "[whisper-universal] Done. Universal binary ready at: $WHISPER_CPP_DIR/main"
+echo "[whisper-universal] Done. Binary ready at: $WHISPER_CPP_DIR/main"

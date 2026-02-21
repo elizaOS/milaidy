@@ -1558,10 +1558,39 @@ export interface VerificationMessageResponse {
 // System Permissions
 // ---------------------------------------------------------------------------
 
+interface ElectronIpcRendererBridge {
+  invoke: (channel: string, ...args: unknown[]) => Promise<unknown>;
+}
+
+interface ElectronBridge {
+  ipcRenderer?: ElectronIpcRendererBridge;
+}
+
+const SYSTEM_PERMISSION_IDS = [
+  "accessibility",
+  "screen-recording",
+  "microphone",
+  "camera",
+  "shell",
+] as const satisfies readonly SystemPermissionId[];
+
+const PERMISSION_STATUS_SET = new Set<PermissionStatus>([
+  "granted",
+  "denied",
+  "not-determined",
+  "restricted",
+  "not-applicable",
+]);
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 declare global {
   interface Window {
     __MILADY_API_BASE__?: string;
     __MILADY_API_TOKEN__?: string;
+    electron?: ElectronBridge;
   }
 }
 
@@ -1713,6 +1742,129 @@ export class MiladyClient {
       throw err;
     }
     return res.json() as Promise<T>;
+  }
+
+  private getElectronIpcRenderer(): ElectronIpcRendererBridge | null {
+    if (typeof window === "undefined") return null;
+    const ipcRenderer = window.electron?.ipcRenderer;
+    if (!ipcRenderer || typeof ipcRenderer.invoke !== "function") return null;
+    return ipcRenderer;
+  }
+
+  private isPermissionStatus(value: unknown): value is PermissionStatus {
+    return (
+      typeof value === "string" &&
+      PERMISSION_STATUS_SET.has(value as PermissionStatus)
+    );
+  }
+
+  private normalizePermissionState(
+    id: SystemPermissionId,
+    payload: unknown,
+    fallback?: Partial<PermissionState>,
+  ): PermissionState {
+    const source = isRecord(payload)
+      ? payload
+      : isRecord(fallback)
+        ? fallback
+        : null;
+
+    return {
+      id,
+      status: this.isPermissionStatus(source?.status)
+        ? source.status
+        : this.isPermissionStatus(fallback?.status)
+          ? fallback.status
+          : "not-determined",
+      canRequest:
+        typeof source?.canRequest === "boolean"
+          ? source.canRequest
+          : typeof fallback?.canRequest === "boolean"
+            ? fallback.canRequest
+            : false,
+      lastChecked:
+        typeof source?.lastChecked === "number"
+          ? source.lastChecked
+          : typeof fallback?.lastChecked === "number"
+            ? fallback.lastChecked
+            : Date.now(),
+    };
+  }
+
+  private normalizePermissionsPayload(payload: unknown): AllPermissionsState {
+    const root = isRecord(payload) ? payload : {};
+    const source = isRecord(root.permissions) ? root.permissions : root;
+    const shellEnabled =
+      typeof root.shellEnabled === "boolean" ? root.shellEnabled : undefined;
+
+    const permissions = {} as AllPermissionsState;
+    for (const id of SYSTEM_PERMISSION_IDS) {
+      permissions[id] = this.normalizePermissionState(id, source[id]);
+    }
+
+    if (!isRecord(source.shell) && shellEnabled != null) {
+      permissions.shell = this.normalizePermissionState("shell", source.shell, {
+        status: shellEnabled ? "granted" : "denied",
+        canRequest: false,
+      });
+    }
+
+    return permissions;
+  }
+
+  private async syncPermissionStates(
+    permissions: AllPermissionsState,
+  ): Promise<void> {
+    if (!this.apiAvailable) return;
+    try {
+      await this.fetch<{ updated: boolean }>("/api/permissions/state", {
+        method: "PUT",
+        body: JSON.stringify({ permissions }),
+      });
+    } catch {
+      // Best-effort sync for HTTP consumers.
+    }
+  }
+
+  private async getPermissionsFromElectron(
+    forceRefresh: boolean,
+  ): Promise<AllPermissionsState | null> {
+    const ipcRenderer = this.getElectronIpcRenderer();
+    if (!ipcRenderer) return null;
+
+    try {
+      if (forceRefresh) {
+        await ipcRenderer.invoke("permissions:clearCache");
+      }
+      const payload = await ipcRenderer.invoke(
+        "permissions:getAll",
+        forceRefresh,
+      );
+      const permissions = this.normalizePermissionsPayload(payload);
+      void this.syncPermissionStates(permissions);
+      return permissions;
+    } catch {
+      return null;
+    }
+  }
+
+  private async getPermissionFromElectron(
+    id: SystemPermissionId,
+    forceRefresh = false,
+  ): Promise<PermissionState | null> {
+    const ipcRenderer = this.getElectronIpcRenderer();
+    if (!ipcRenderer) return null;
+
+    try {
+      const payload = await ipcRenderer.invoke(
+        "permissions:check",
+        id,
+        forceRefresh,
+      );
+      return this.normalizePermissionState(id, payload);
+    } catch {
+      return null;
+    }
   }
 
   async getStatus(): Promise<AgentStatus> {
@@ -3796,27 +3948,74 @@ export class MiladyClient {
    * Get all system permission states.
    */
   async getPermissions(): Promise<AllPermissionsState> {
-    return this.fetch("/api/permissions");
+    const viaElectron = await this.getPermissionsFromElectron(false);
+    if (viaElectron) return viaElectron;
+
+    const payload = await this.fetch<unknown>("/api/permissions");
+    return this.normalizePermissionsPayload(payload);
   }
 
   /**
    * Get a single permission state.
    */
   async getPermission(id: SystemPermissionId): Promise<PermissionState> {
-    return this.fetch(`/api/permissions/${id}`);
+    const viaElectron = await this.getPermissionFromElectron(id, false);
+    if (viaElectron) return viaElectron;
+
+    const payload = await this.fetch<unknown>(`/api/permissions/${id}`);
+    return this.normalizePermissionState(id, payload);
   }
 
   /**
    * Request a specific permission (triggers OS prompt if applicable).
    */
   async requestPermission(id: SystemPermissionId): Promise<PermissionState> {
-    return this.fetch(`/api/permissions/${id}/request`, { method: "POST" });
+    const ipcRenderer = this.getElectronIpcRenderer();
+    if (ipcRenderer) {
+      try {
+        await ipcRenderer.invoke("permissions:request", id);
+        const refreshed = await this.getPermissionsFromElectron(false);
+        if (refreshed) return refreshed[id];
+
+        const checked = await this.getPermissionFromElectron(id, true);
+        if (checked) return checked;
+      } catch {
+        // Fall through to HTTP route for non-Electron and bridge-failure cases.
+      }
+    }
+
+    const payload = await this.fetch<unknown>(
+      `/api/permissions/${id}/request`,
+      {
+        method: "POST",
+      },
+    );
+
+    if (isRecord(payload) && isRecord(payload.permission)) {
+      return this.normalizePermissionState(id, payload.permission);
+    }
+
+    if (isRecord(payload) && typeof payload.action === "string") {
+      return this.getPermission(id);
+    }
+
+    return this.normalizePermissionState(id, payload);
   }
 
   /**
    * Open system settings for a specific permission.
    */
   async openPermissionSettings(id: SystemPermissionId): Promise<void> {
+    const ipcRenderer = this.getElectronIpcRenderer();
+    if (ipcRenderer) {
+      try {
+        await ipcRenderer.invoke("permissions:openSettings", id);
+        return;
+      } catch {
+        // Fall through to HTTP route for non-Electron and bridge-failure cases.
+      }
+    }
+
     await this.fetch(`/api/permissions/${id}/open-settings`, {
       method: "POST",
     });
@@ -3826,27 +4025,61 @@ export class MiladyClient {
    * Refresh all permission states from the OS.
    */
   async refreshPermissions(): Promise<AllPermissionsState> {
-    return this.fetch("/api/permissions/refresh", { method: "POST" });
+    const viaElectron = await this.getPermissionsFromElectron(true);
+    if (viaElectron) return viaElectron;
+
+    const payload = await this.fetch<unknown>("/api/permissions/refresh", {
+      method: "POST",
+    });
+
+    if (isRecord(payload) && typeof payload.action === "string") {
+      return this.getPermissions();
+    }
+
+    return this.normalizePermissionsPayload(payload);
   }
 
   /**
    * Enable or disable shell access.
    */
   async setShellEnabled(enabled: boolean): Promise<PermissionState> {
-    return this.fetch("/api/permissions/shell", {
+    const payload = await this.fetch<unknown>("/api/permissions/shell", {
       method: "PUT",
       body: JSON.stringify({ enabled }),
     });
+
+    if (isRecord(payload) && isRecord(payload.permission)) {
+      return this.normalizePermissionState("shell", payload.permission);
+    }
+
+    if (isRecord(payload) && typeof payload.shellEnabled === "boolean") {
+      return this.normalizePermissionState("shell", payload.permission, {
+        status: payload.shellEnabled ? "granted" : "denied",
+        canRequest: false,
+      });
+    }
+
+    return this.normalizePermissionState("shell", payload);
   }
 
   /**
    * Get shell enabled status.
    */
   async isShellEnabled(): Promise<boolean> {
-    const result = await this.fetch<{ enabled: boolean }>(
-      "/api/permissions/shell",
-    );
-    return result.enabled;
+    const result = await this.fetch<unknown>("/api/permissions/shell");
+
+    if (isRecord(result) && typeof result.enabled === "boolean") {
+      return result.enabled;
+    }
+
+    if (isRecord(result) && isRecord(result.permission)) {
+      return (
+        this.normalizePermissionState("shell", result.permission).status ===
+        "granted"
+      );
+    }
+
+    return this.normalizePermissionState("shell", result).status === "granted";
   }
 
   disconnectWs(): void {

@@ -130,4 +130,24 @@ describe("permission routes", () => {
     expect(result.status).toBe(400);
     expect(result.payload).toMatchObject({ error: "Invalid permission ID" });
   });
+
+  test("rejects invalid permission id on request route", async () => {
+    const result = await invoke({
+      method: "POST",
+      pathname: "/api/permissions/not-real/request",
+    });
+
+    expect(result.status).toBe(400);
+    expect(result.payload).toMatchObject({ error: "Invalid permission ID" });
+  });
+
+  test("rejects invalid permission id on open-settings route", async () => {
+    const result = await invoke({
+      method: "POST",
+      pathname: "/api/permissions/not-real/open-settings",
+    });
+
+    expect(result.status).toBe(400);
+    expect(result.payload).toMatchObject({ error: "Invalid permission ID" });
+  });
 });

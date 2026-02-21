@@ -13,119 +13,50 @@
  * them in System Preferences.
  */
 
-import { exec } from "node:child_process";
-import { promisify } from "node:util";
 import { desktopCapturer, shell, systemPreferences } from "electron";
 import type {
   PermissionCheckResult,
   SystemPermissionId,
 } from "./permissions-shared";
 
-const execAsync = promisify(exec);
+function mapMacMediaStatus(
+  status: ReturnType<typeof systemPreferences.getMediaAccessStatus>,
+): PermissionCheckResult {
+  switch (status) {
+    case "granted":
+      return { status: "granted", canRequest: false };
+    case "denied":
+      return { status: "denied", canRequest: false };
+    case "restricted":
+      return { status: "restricted", canRequest: false };
+    case "not-determined":
+      return { status: "not-determined", canRequest: true };
+    default:
+      return { status: "not-determined", canRequest: true };
+  }
+}
 
 /**
  * Check if Accessibility permission is granted.
  *
- * Accessibility permission is required for:
- * - Controlling mouse and keyboard
- * - Interacting with other applications
- * - Computer Use functionality
- *
- * This cannot be requested programmatically - user must enable it
- * in System Preferences > Privacy & Security > Accessibility.
+ * Uses macOS AX trust APIs exposed by Electron.
  */
 export async function checkAccessibility(): Promise<PermissionCheckResult> {
-  // Try to interact with System Events - this will fail if not granted
-  const script = `
-    tell application "System Events"
-      return (exists process 1)
-    end tell
-  `;
-
-  const { stdout, stderr } = await execAsync(`osascript -e '${script}'`, {
-    timeout: 5000,
-  }).catch((err) => ({ stdout: "", stderr: err.message || "failed" }));
-
-  if (
-    stderr &&
-    (stderr.includes("not allowed") || stderr.includes("assistive"))
-  ) {
-    return { status: "denied", canRequest: false };
-  }
-
-  if (stdout.trim() === "true") {
+  const trusted = systemPreferences.isTrustedAccessibilityClient(false);
+  if (trusted) {
     return { status: "granted", canRequest: false };
   }
-
-  // If we got here without error but no clear result, check another way
-  // Try a simple mouse position query
-  const posScript = `
-    tell application "System Events"
-      return position of (first process whose frontmost is true)
-    end tell
-  `;
-
-  const posResult = await execAsync(`osascript -e '${posScript}'`, {
-    timeout: 5000,
-  }).catch(() => null);
-
-  if (posResult && !posResult.stderr) {
-    return { status: "granted", canRequest: false };
-  }
-
-  return { status: "denied", canRequest: false };
+  return { status: "denied", canRequest: true };
 }
 
 /**
  * Check if Screen Recording permission is granted.
  *
- * Screen Recording permission is required for:
- * - Taking screenshots
- * - Screen capture for vision
- * - Computer Use functionality
- *
- * This cannot be requested programmatically - user must enable it
- * in System Preferences > Privacy & Security > Screen Recording.
- *
- * We detect this by attempting to get screen sources and checking
- * if we receive actual thumbnail data or just blank frames.
+ * Uses macOS media access status for screen capture.
  */
 export async function checkScreenRecording(): Promise<PermissionCheckResult> {
-  const sources = await desktopCapturer.getSources({
-    types: ["screen"],
-    thumbnailSize: { width: 100, height: 100 },
-  });
-
-  if (sources.length === 0) {
-    return { status: "denied", canRequest: false };
-  }
-
-  // Check if we got actual content or just a blank/placeholder image
-  // When screen recording is denied, thumbnails are typically blank
-  const firstSource = sources[0];
-  if (firstSource.thumbnail) {
-    const size = firstSource.thumbnail.getSize();
-    if (size.width > 0 && size.height > 0) {
-      // Get the raw bitmap to check if it's not just blank
-      const bitmap = firstSource.thumbnail.toBitmap();
-      // Check if there's any non-zero pixel data (not completely blank)
-      let hasContent = false;
-      for (let i = 0; i < Math.min(bitmap.length, 1000); i += 4) {
-        // Check RGB values (skip alpha)
-        if (bitmap[i] !== 0 || bitmap[i + 1] !== 0 || bitmap[i + 2] !== 0) {
-          hasContent = true;
-          break;
-        }
-      }
-      if (hasContent) {
-        return { status: "granted", canRequest: false };
-      }
-    }
-  }
-
-  // On newer macOS, we can also check via the media access status
-  // though this is less reliable for screen recording specifically
-  return { status: "not-determined", canRequest: false };
+  const status = systemPreferences.getMediaAccessStatus("screen");
+  return mapMacMediaStatus(status);
 }
 
 /**
@@ -136,19 +67,7 @@ export async function checkScreenRecording(): Promise<PermissionCheckResult> {
  */
 export async function checkMicrophone(): Promise<PermissionCheckResult> {
   const status = systemPreferences.getMediaAccessStatus("microphone");
-
-  switch (status) {
-    case "granted":
-      return { status: "granted", canRequest: false };
-    case "denied":
-      return { status: "denied", canRequest: false };
-    case "restricted":
-      return { status: "restricted", canRequest: false };
-    case "not-determined":
-      return { status: "not-determined", canRequest: true };
-    default:
-      return { status: "not-determined", canRequest: true };
-  }
+  return mapMacMediaStatus(status);
 }
 
 /**
@@ -159,19 +78,7 @@ export async function checkMicrophone(): Promise<PermissionCheckResult> {
  */
 export async function checkCamera(): Promise<PermissionCheckResult> {
   const status = systemPreferences.getMediaAccessStatus("camera");
-
-  switch (status) {
-    case "granted":
-      return { status: "granted", canRequest: false };
-    case "denied":
-      return { status: "denied", canRequest: false };
-    case "restricted":
-      return { status: "restricted", canRequest: false };
-    case "not-determined":
-      return { status: "not-determined", canRequest: true };
-    default:
-      return { status: "not-determined", canRequest: true };
-  }
+  return mapMacMediaStatus(status);
 }
 
 /**
@@ -200,6 +107,51 @@ export async function requestCamera(): Promise<PermissionCheckResult> {
     status: granted ? "granted" : "denied",
     canRequest: false,
   };
+}
+
+/**
+ * Request Accessibility permission.
+ *
+ * This prompts macOS to show the Accessibility trust dialog and registers
+ * the app in the System Settings list if needed.
+ */
+export async function requestAccessibility(): Promise<PermissionCheckResult> {
+  const granted = systemPreferences.isTrustedAccessibilityClient(true);
+  if (granted) {
+    return { status: "granted", canRequest: false };
+  }
+
+  await openPrivacySettings("accessibility");
+  return { status: "denied", canRequest: true };
+}
+
+/**
+ * Request Screen Recording permission.
+ *
+ * macOS has no direct API for this permission, but attempting a screen source
+ * query can trigger the first-time OS prompt. If still not granted, we open
+ * the relevant System Settings pane.
+ */
+export async function requestScreenRecording(): Promise<PermissionCheckResult> {
+  try {
+    await desktopCapturer.getSources({
+      types: ["screen"],
+      thumbnailSize: { width: 2, height: 2 },
+      fetchWindowIcons: false,
+    });
+  } catch {
+    // Ignore capture probe failures; we'll rely on status check + settings pane.
+  }
+
+  // Give TCC a brief moment to update after prompt interaction.
+  await new Promise((resolve) => setTimeout(resolve, 200));
+
+  const status = await checkScreenRecording();
+  if (status.status !== "granted") {
+    await openPrivacySettings("screen-recording");
+  }
+
+  return status;
 }
 
 /**
@@ -254,8 +206,6 @@ export async function checkPermission(
 
 /**
  * Request a specific permission by ID.
- * Only microphone and camera can be requested programmatically.
- * For other permissions, this opens the settings pane.
  */
 export async function requestPermission(
   id: SystemPermissionId,
@@ -266,12 +216,9 @@ export async function requestPermission(
     case "camera":
       return requestCamera();
     case "accessibility":
+      return requestAccessibility();
     case "screen-recording":
-      // Cannot request programmatically, open settings instead
-      await openPrivacySettings(id);
-      // Re-check after a short delay to see if user granted
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      return checkPermission(id);
+      return requestScreenRecording();
     case "shell":
       return { status: "granted", canRequest: false };
     default:

@@ -40,7 +40,12 @@
     "gatekeeperAssess": false,
     "entitlements": "entitlements.mac.plist",
     "entitlementsInherit": "entitlements.mac.plist",
-    "notarize": true
+    "notarize": true,
+    "extendInfo": {
+      "NSMicrophoneUsageDescription": "Milady needs microphone access for voice input and speech recognition.",
+      "NSCameraUsageDescription": "Milady needs camera access for vision features and video capture.",
+      "NSAppleEventsUsageDescription": "Milady uses automation to interact with desktop applications for computer-use features."
+    }
   },
   "dmg": {
     "format": "UDZO",

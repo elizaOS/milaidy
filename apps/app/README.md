@@ -97,6 +97,15 @@ bun run build:electron
 bun run electron
 ```
 
+### Package the Desktop App (local test build)
+
+```bash
+cd apps/app/electron
+npm install --workspaces=false
+bun run electron:pack:local
+open dist/mac-arm64/Milady.app
+```
+
 ### Dev Server
 
 ```bash

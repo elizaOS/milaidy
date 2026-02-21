@@ -18,9 +18,11 @@
     "build:whisper": "bash ./scripts/build-whisper-universal.sh",
     "electron:start-live": "node ./live-runner.js",
     "electron:start": "bun run build && electron --inspect=5858 ./",
-    "electron:pack": "bun run build && bun run build:whisper && electron-builder build --dir -c ./electron-builder.config.json",
-    "electron:make": "bun run build && bun run build:whisper && electron-builder build -c ./electron-builder.config.json -p always",
-    "electron:make:dmg:test": "bun run build && bun run build:whisper && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder build --mac dmg -c ./electron-builder.config.json -p never"
+    "electron:pack": "bun run build && bun run build:whisper && electron-builder build --dir -c ./electron-builder.config.json && node ./scripts/postpack-macos-adhoc-sign.mjs",
+    "electron:pack:local": "CSC_IDENTITY_AUTO_DISCOVERY=false bun run electron:pack",
+    "electron:make": "bun run build && bun run build:whisper && electron-builder build -c ./electron-builder.config.json -p always && node ./scripts/postpack-macos-adhoc-sign.mjs",
+    "electron:make:local": "CSC_IDENTITY_AUTO_DISCOVERY=false bun run electron:make",
+    "electron:make:dmg:test": "bun run build && bun run build:whisper && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder build --mac dmg -c ./electron-builder.config.json -p never && node ./scripts/postpack-macos-adhoc-sign.mjs"
   },
   "dependencies": {
     "@capacitor-community/electron": "^5.0.1",
