@@ -70,7 +70,9 @@ interface EmbeddingMeta {
 export function readEmbeddingMeta(): EmbeddingMeta | null {
   try {
     if (!fs.existsSync(EMBEDDING_META_PATH)) return null;
-    return JSON.parse(fs.readFileSync(EMBEDDING_META_PATH, "utf-8")) as EmbeddingMeta;
+    return JSON.parse(
+      fs.readFileSync(EMBEDDING_META_PATH, "utf-8"),
+    ) as EmbeddingMeta;
   } catch {
     return null;
   }
@@ -85,7 +87,10 @@ function writeEmbeddingMeta(meta: EmbeddingMeta): void {
   }
 }
 
-export function checkDimensionMigration(model: string, dimensions: number): void {
+export function checkDimensionMigration(
+  model: string,
+  dimensions: number,
+): void {
   const log = getLogger();
   const stored = readEmbeddingMeta();
 
@@ -135,7 +140,9 @@ export function isCorruptedModelLoadError(error: unknown): boolean {
   );
 }
 
-function parseContentLength(contentLength: string | string[] | undefined): number | null {
+function parseContentLength(
+  contentLength: string | string[] | undefined,
+): number | null {
   if (!contentLength || Array.isArray(contentLength)) return null;
   const parsed = Number.parseInt(contentLength, 10);
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
@@ -158,7 +165,9 @@ function validateDownloadUrl(rawUrl: string): URL {
   }
 
   if (!isAllowedDownloadHost(parsed.hostname.toLowerCase())) {
-    throw new Error(`Download failed: host "${parsed.hostname}" is not allowed`);
+    throw new Error(
+      `Download failed: host "${parsed.hostname}" is not allowed`,
+    );
   }
 
   return parsed;
@@ -183,13 +192,20 @@ function sanitizeModelFilename(filename: string): string {
 function resolveModelPath(modelsDir: string, filename: string): string {
   const resolvedDir = path.resolve(modelsDir);
   const resolvedPath = path.resolve(resolvedDir, filename);
-  if (resolvedPath !== resolvedDir && !resolvedPath.startsWith(`${resolvedDir}${path.sep}`)) {
+  if (
+    resolvedPath !== resolvedDir &&
+    !resolvedPath.startsWith(`${resolvedDir}${path.sep}`)
+  ) {
     throw new Error("Invalid embedding model path");
   }
   return resolvedPath;
 }
 
-function downloadFile(url: string, dest: string, maxRedirects = 5): Promise<void> {
+function downloadFile(
+  url: string,
+  dest: string,
+  maxRedirects = 5,
+): Promise<void> {
   return new Promise<void>((resolve, reject) => {
     let settled = false;
     let redirectCount = 0;
@@ -199,7 +215,9 @@ function downloadFile(url: string, dest: string, maxRedirects = 5): Promise<void
       try {
         validatedUrl = validateDownloadUrl(reqUrl);
       } catch (error) {
-        reject(error instanceof Error ? error : new Error("Invalid download URL"));
+        reject(
+          error instanceof Error ? error : new Error("Invalid download URL"),
+        );
         return;
       }
 
@@ -232,47 +250,62 @@ function downloadFile(url: string, dest: string, maxRedirects = 5): Promise<void
       };
 
       https
-        .get(validatedUrl.toString(), { headers: { "User-Agent": "milaidy" } }, (res) => {
-          expectedBytes = parseContentLength(res.headers["content-length"]);
-          if (
-            res.statusCode &&
-            res.statusCode >= 300 &&
-            res.statusCode < 400 &&
-            res.headers.location
-          ) {
-            res.resume();
-            file.close();
-            safeUnlink(dest);
-            redirectCount += 1;
-            if (redirectCount > maxRedirects) {
-              settleError(new Error(`Download failed: too many redirects (>${maxRedirects})`));
+        .get(
+          validatedUrl.toString(),
+          { headers: { "User-Agent": "milaidy" } },
+          (res) => {
+            expectedBytes = parseContentLength(res.headers["content-length"]);
+            if (
+              res.statusCode &&
+              res.statusCode >= 300 &&
+              res.statusCode < 400 &&
+              res.headers.location
+            ) {
+              res.resume();
+              file.close();
+              safeUnlink(dest);
+              redirectCount += 1;
+              if (redirectCount > maxRedirects) {
+                settleError(
+                  new Error(
+                    `Download failed: too many redirects (>${maxRedirects})`,
+                  ),
+                );
+                return;
+              }
+              let next: string;
+              try {
+                next = new URL(
+                  res.headers.location,
+                  validatedUrl.toString(),
+                ).toString();
+              } catch {
+                settleError(
+                  new Error(
+                    `Download failed: malformed redirect URL "${res.headers.location}"`,
+                  ),
+                );
+                return;
+              }
+              request(next);
               return;
             }
-            let next: string;
-            try {
-              next = new URL(res.headers.location, validatedUrl.toString()).toString();
-            } catch {
+            if (res.statusCode !== 200) {
               settleError(
-                new Error(`Download failed: malformed redirect URL "${res.headers.location}"`),
+                new Error(
+                  `Download failed: HTTP ${res.statusCode} for ${validatedUrl.toString()}`,
+                ),
               );
               return;
             }
-            request(next);
-            return;
-          }
-          if (res.statusCode !== 200) {
-            settleError(
-              new Error(`Download failed: HTTP ${res.statusCode} for ${validatedUrl.toString()}`),
-            );
-            return;
-          }
-          res.on("data", (chunk: Buffer) => {
-            bytesReceived += chunk.length;
-          });
-          res.pipe(file);
-          file.on("finish", settleSuccess);
-          file.on("error", settleError);
-        })
+            res.on("data", (chunk: Buffer) => {
+              bytesReceived += chunk.length;
+            });
+            res.pipe(file);
+            file.on("finish", settleSuccess);
+            file.on("error", settleError);
+          },
+        )
         .on("error", settleError);
     };
     request(url);
@@ -295,7 +328,9 @@ export async function ensureModel(
   fs.mkdirSync(path.resolve(modelsDir), { recursive: true });
 
   const url = `https://huggingface.co/${safeRepo}/resolve/main/${safeFilename}`;
-  log.info(`[milaidy] Downloading embedding model: ${safeFilename} from ${safeRepo}...`);
+  log.info(
+    `[milaidy] Downloading embedding model: ${safeFilename} from ${safeRepo}...`,
+  );
 
   await downloadFile(url, modelPath);
   log.info(`[milaidy] Embedding model downloaded: ${modelPath}`);

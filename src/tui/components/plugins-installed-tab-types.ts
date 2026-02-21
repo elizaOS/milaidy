@@ -26,4 +26,8 @@ export interface InstalledTabOptions {
   requestRender: () => void;
 }
 
-export type InstalledTabState = "list" | "edit-select" | "edit-value" | "add-key";
+export type InstalledTabState =
+  | "list"
+  | "edit-select"
+  | "edit-value"
+  | "add-key";

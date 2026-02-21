@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-import { existsSync, realpathSync } from "node:fs";
 import { spawnSync } from "node:child_process";
+import { existsSync, realpathSync } from "node:fs";
 import path from "node:path";
 
 const root = process.cwd();
@@ -21,7 +21,9 @@ for (const dir of candidates) {
 }
 
 if (uniqueDirs.length === 0) {
-  console.log("[build-local-plugins] No local plugin directories found, skipping.");
+  console.log(
+    "[build-local-plugins] No local plugin directories found, skipping.",
+  );
   process.exit(0);
 }
 

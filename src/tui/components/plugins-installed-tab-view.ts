@@ -1,8 +1,11 @@
-import { type Input } from "@mariozechner/pi-tui";
-import type { PluginParam } from "./plugins-installed-tab-types.js";
+import type { Input } from "@mariozechner/pi-tui";
 import { tuiTheme } from "../theme.js";
+import type { PluginParam } from "./plugins-installed-tab-types.js";
 
-function formatSettingValue(value: string, showUnmaskedValues: boolean): string {
+function formatSettingValue(
+  value: string,
+  showUnmaskedValues: boolean,
+): string {
   if (value === "") {
     return tuiTheme.dim("(empty)");
   }
