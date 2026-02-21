@@ -64,7 +64,6 @@ The `run` command is a direct alias that calls the exact same `startEliza({ serv
 | `MILADY_PORT` | API server port | `2138` |
 | `MILADY_STATE_DIR` | State directory override | `~/.milady/` |
 | `MILADY_CONFIG_PATH` | Config file path override | `~/.milady/milady.json` |
-| `MILADY_HEADLESS` | Enables headless mode when set to `1` | (unset) |
 
 ## Deployment
 

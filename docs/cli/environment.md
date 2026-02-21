@@ -33,7 +33,6 @@ These variables control the API server and network behavior.
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `MILADY_PORT` | API server port when running `milady start`. | `2138` |
-| `MILADY_HEADLESS` | Run in headless mode. Set to `1` to suppress interactive prompts. **Note:** This variable is read by the dev server (`dev-server.ts`) and is not parsed by `startEliza()` directly. The headless behavior in the main runtime is controlled by the `opts.headless` parameter passed programmatically. | (unset) |
 | `MILADY_GATEWAY_PORT` | Gateway port. Automatically set to `19001` when the `--dev` flag is used. | (unset) |
 | `MILADY_API_TOKEN` | Static API token for authenticating requests to the agent API server. When set, all API requests must include this token. | (unset) |
 | `MILADY_ALLOW_WS_QUERY_TOKEN` | When set to `1`, allows the API token to be passed as a WebSocket query parameter (less secure; useful for some clients). | (unset) |
@@ -194,10 +193,10 @@ These variables configure blockchain wallet keys used by wallet plugins.
 Several Milady environment variables use a "truthy value" convention. A variable is considered truthy when it is set to a non-empty string that is not `0`, `false`, `no`, or `off` (case-insensitive). Unset variables are always falsy.
 
 Examples:
-- `MILADY_HEADLESS=1` -- truthy
-- `MILADY_HEADLESS=true` -- truthy
-- `MILADY_HEADLESS=0` -- falsy
-- `MILADY_HEADLESS=` -- falsy (empty string)
+- `MILADY_API_TOKEN=secret123` -- truthy
+- `MILADY_ALLOW_WS_QUERY_TOKEN=1` -- truthy
+- `MILADY_ALLOW_WS_QUERY_TOKEN=0` -- falsy
+- `MILADY_ALLOW_WS_QUERY_TOKEN=` -- falsy (empty string)
 
 ---
 
