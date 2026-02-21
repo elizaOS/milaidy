@@ -31,6 +31,7 @@ cd milaidy
 
 # Match repository Node version
 nvm use || nvm install
+node -v  # expected: v22.22.0
 
 # Install dependencies
 bun install
@@ -251,13 +252,13 @@ The project uses **Biome** for formatting and linting:
 
 ```bash
 # Check formatting and lint
-pnpm check
+bun run check
 
 # Fix formatting issues
-pnpm format:fix
+bun run format:fix
 
 # Fix lint issues
-pnpm lint:fix
+bun run lint:fix
 ```
 
 ### File Size
@@ -329,8 +330,8 @@ try {
 
 3. **Run checks before pushing**
    ```bash
-   pnpm check
-   pnpm test
+   bun run check
+   bun run test
    ```
 
 4. **Push and create PR**
@@ -376,9 +377,9 @@ chore: update @elizaos/core to 2.0.0-alpha.4
 
 Before submitting:
 
-- [ ] Code builds without errors (`pnpm build`)
-- [ ] Tests pass (`pnpm test`)
-- [ ] Linting passes (`pnpm check`)
+- [ ] Code builds without errors (`bun run build`)
+- [ ] Tests pass (`bun run test`)
+- [ ] Linting passes (`bun run check`)
 - [ ] New code has tests (if applicable)
 - [ ] Documentation updated (if applicable)
 - [ ] Commit messages follow conventions
