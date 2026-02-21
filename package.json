@@ -204,6 +204,7 @@
     "tar": "^7.5.7",
     "@elizaos/core": "next",
     "@elizaos/prompts": "next",
+    "//libsignal": "Transitive dep of @whiskeysockets/baileys. Not published to npm; must be pulled from git. Pinned to commit 1c30d7d (2024-10-15) to ensure reproducible builds. See: https://github.com/nicepkg/libsignal-node",
     "libsignal": "git+https://github.com/whiskeysockets/libsignal-node.git#1c30d7d"
   }
 }

@@ -472,3 +472,212 @@ describe("extractMessageText()", () => {
     expect(extractMessageText(msg)).toBeUndefined();
   });
 });
+
+// ---------------------------------------------------------------------------
+// handleIncomingMessage() — private, tested via bracket notation
+// ---------------------------------------------------------------------------
+
+describe("handleIncomingMessage()", () => {
+  let svc: WhatsAppBaileysService;
+  let runtime: ReturnType<typeof createMockRuntime>;
+
+  function callHandle(msg: Record<string, unknown>): Promise<void> {
+    return (svc as unknown as { handleIncomingMessage(m: Record<string, unknown>): Promise<void> })
+      .handleIncomingMessage(msg);
+  }
+
+  /** Build a minimal valid incoming Baileys message. */
+  function makeMsg(overrides: Record<string, unknown> = {}) {
+    return {
+      key: {
+        fromMe: false,
+        remoteJid: "5511999999999@s.whatsapp.net",
+        id: "MSG001",
+      },
+      message: { conversation: "Hello agent" },
+      ...overrides,
+    };
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    runtime = createMockRuntime();
+    svc = new WhatsAppBaileysService(runtime);
+    Object.assign(svc, {
+      sock: { sendMessage: vi.fn().mockResolvedValue(undefined) },
+      connected: true,
+    });
+  });
+
+  // -- Early-exit guard clauses --
+
+  it("skips messages with no key", async () => {
+    await callHandle({ message: { conversation: "hi" } });
+    expect(runtime.ensureConnection).not.toHaveBeenCalled();
+  });
+
+  it("skips own messages (fromMe)", async () => {
+    await callHandle(makeMsg({ key: { fromMe: true, remoteJid: "123@s.whatsapp.net", id: "x" } }));
+    expect(runtime.ensureConnection).not.toHaveBeenCalled();
+  });
+
+  it("skips status broadcast messages", async () => {
+    await callHandle(makeMsg({ key: { fromMe: false, remoteJid: "status@broadcast", id: "x" } }));
+    expect(runtime.ensureConnection).not.toHaveBeenCalled();
+  });
+
+  it("skips messages with no remoteJid", async () => {
+    await callHandle(makeMsg({ key: { fromMe: false, id: "x" } }));
+    expect(runtime.ensureConnection).not.toHaveBeenCalled();
+  });
+
+  it("skips group messages (@g.us)", async () => {
+    await callHandle(makeMsg({ key: { fromMe: false, remoteJid: "120363@g.us", id: "x" } }));
+    expect(runtime.ensureConnection).not.toHaveBeenCalled();
+  });
+
+  it("skips messages with empty text", async () => {
+    await callHandle(makeMsg({ message: {} }));
+    expect(runtime.ensureConnection).not.toHaveBeenCalled();
+  });
+
+  it("skips messages with whitespace-only text", async () => {
+    await callHandle(makeMsg({ message: { conversation: "   " } }));
+    expect(runtime.ensureConnection).not.toHaveBeenCalled();
+  });
+
+  // -- Happy path --
+
+  it("calls ensureConnection with correct params for a valid DM", async () => {
+    await callHandle(makeMsg());
+
+    expect(runtime.ensureConnection).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userName: "5511999999999",
+        name: "5511999999999",
+        source: "whatsapp",
+        channelId: "5511999999999@s.whatsapp.net",
+        type: "DM",
+      }),
+    );
+  });
+
+  it("falls back to emitEvent when no messagingAPI or messageService exists", async () => {
+    await callHandle(makeMsg());
+
+    expect(runtime.emitEvent).toHaveBeenCalledWith(
+      ["MESSAGE_RECEIVED"],
+      expect.objectContaining({
+        runtime,
+        source: "whatsapp",
+        message: expect.objectContaining({
+          content: expect.objectContaining({
+            text: "Hello agent",
+            source: "whatsapp",
+            channelType: "DM",
+          }),
+        }),
+        callback: expect.any(Function),
+      }),
+    );
+  });
+
+  it("constructs memory with correct fields", async () => {
+    await callHandle(makeMsg());
+
+    const emitCall = runtime.emitEvent.mock.calls[0];
+    const { message } = emitCall[1] as { message: Record<string, unknown> };
+    expect(message).toMatchObject({
+      entityId: expect.any(String),
+      agentId: "agent-1",
+      roomId: expect.any(String),
+      content: { text: "Hello agent", source: "whatsapp", channelType: "DM" },
+    });
+    expect(message.metadata).toMatchObject({
+      entityName: "5511999999999",
+      fromId: "5511999999999@s.whatsapp.net",
+    });
+  });
+
+  it("uses messagingAPI when available", async () => {
+    const mockSendMessage = vi.fn().mockResolvedValue(undefined);
+    runtime = createMockRuntime({
+      elizaOS: { sendMessage: mockSendMessage },
+    });
+    svc = new WhatsAppBaileysService(runtime);
+    Object.assign(svc, {
+      sock: { sendMessage: vi.fn().mockResolvedValue(undefined) },
+      connected: true,
+    });
+
+    await callHandle(makeMsg());
+
+    expect(mockSendMessage).toHaveBeenCalledWith(
+      "agent-1",
+      expect.objectContaining({ content: expect.objectContaining({ text: "Hello agent" }) }),
+      expect.objectContaining({ onResponse: expect.any(Function) }),
+    );
+    expect(runtime.emitEvent).not.toHaveBeenCalled();
+  });
+
+  // -- Response callback --
+
+  it("callback sends reply via socket and creates memory", async () => {
+    await callHandle(makeMsg());
+
+    const emitCall = runtime.emitEvent.mock.calls[0];
+    const { callback } = emitCall[1] as { callback: (content: Record<string, unknown>) => Promise<unknown[]> };
+
+    const results = await callback({ text: "Hi there!" });
+
+    const sock = (svc as unknown as { sock: { sendMessage: ReturnType<typeof vi.fn> } }).sock;
+    expect(sock.sendMessage).toHaveBeenCalledWith(
+      "5511999999999@s.whatsapp.net",
+      { text: "Hi there!" },
+    );
+    expect(runtime.createMemory).toHaveBeenCalled();
+    expect(results).toHaveLength(1);
+  });
+
+  it("callback skips replies targeted to a different platform", async () => {
+    await callHandle(makeMsg());
+
+    const emitCall = runtime.emitEvent.mock.calls[0];
+    const { callback } = emitCall[1] as { callback: (content: Record<string, unknown>) => Promise<unknown[]> };
+
+    const results = await callback({ text: "Hi", target: "discord" });
+
+    const sock = (svc as unknown as { sock: { sendMessage: ReturnType<typeof vi.fn> } }).sock;
+    expect(sock.sendMessage).not.toHaveBeenCalled();
+    expect(results).toHaveLength(0);
+  });
+
+  it("callback skips empty reply text", async () => {
+    await callHandle(makeMsg());
+
+    const emitCall = runtime.emitEvent.mock.calls[0];
+    const { callback } = emitCall[1] as { callback: (content: Record<string, unknown>) => Promise<unknown[]> };
+
+    const results = await callback({ text: "   " });
+
+    const sock = (svc as unknown as { sock: { sendMessage: ReturnType<typeof vi.fn> } }).sock;
+    expect(sock.sendMessage).not.toHaveBeenCalled();
+    expect(results).toHaveLength(0);
+  });
+
+  it("callback returns empty array on send error", async () => {
+    Object.assign(svc, {
+      sock: { sendMessage: vi.fn().mockRejectedValue(new Error("send failed")) },
+    });
+
+    await callHandle(makeMsg());
+
+    const emitCall = runtime.emitEvent.mock.calls[0];
+    const { callback } = emitCall[1] as { callback: (content: Record<string, unknown>) => Promise<unknown[]> };
+
+    const results = await callback({ text: "Hi" });
+
+    expect(results).toHaveLength(0);
+    expect(runtime.logger.error).toHaveBeenCalled();
+  });
+});
