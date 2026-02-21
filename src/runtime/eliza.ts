@@ -925,6 +925,24 @@ function getWorkspacePluginOverridePath(pluginName: string): string | null {
  * find it.  Returns `true` when the server index.js is available (or was made
  * available via symlink), `false` otherwise.
  */
+/**
+ * Returns true if the given env var key is safe to forward to runtime.settings.
+ * Blocks blockchain private keys, secrets, passwords, tokens, credentials,
+ * mnemonics, and seed phrases while allowing API keys that plugins need.
+ */
+export function isEnvKeyAllowedForForwarding(key: string): boolean {
+  const upper = key.toUpperCase();
+  // Block blockchain private keys
+  if (upper.includes("PRIVATE_KEY")) return false;
+  if (upper.startsWith("EVM_") || upper.startsWith("SOLANA_")) return false;
+  // Block secrets, passwords, tokens, and seed phrases (but not API_KEY which plugins need)
+  if (/(SECRET|PASSWORD|CREDENTIAL|MNEMONIC|SEED_PHRASE)/i.test(key))
+    return false;
+  if (/(ACCESS_TOKEN|REFRESH_TOKEN|SESSION_TOKEN|AUTH_TOKEN)$/i.test(key))
+    return false;
+  return true;
+}
+
 export function ensureBrowserServerLink(): boolean {
   try {
     // Resolve the plugin-browser package root via its package.json.
@@ -2955,17 +2973,9 @@ export async function startEliza(
       // allowed since plugins need them via runtime.getSetting(). Private keys
       // should only be accessed via process.env by signing services.
       ...Object.fromEntries(
-        Object.entries(collectConfigEnvVars(config)).filter(([key]) => {
-          const upper = key.toUpperCase();
-          // Block blockchain private keys
-          if (upper.includes("PRIVATE_KEY")) return false;
-          if (upper.startsWith("EVM_") || upper.startsWith("SOLANA_"))
-            return false;
-          // Block secrets, passwords, auth tokens (but not API_KEY which plugins need)
-          if (/(SECRET|PASSWORD|AUTH_TOKEN|CREDENTIAL)$/i.test(key))
-            return false;
-          return true;
-        }),
+        Object.entries(collectConfigEnvVars(config)).filter(([key]) =>
+          isEnvKeyAllowedForForwarding(key),
+        ),
       ),
       // Forward Milady config env vars as runtime settings
       ...(primaryModel ? { MODEL_PROVIDER: primaryModel } : {}),

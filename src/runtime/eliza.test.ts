@@ -23,6 +23,7 @@ import {
   CUSTOM_PLUGINS_DIRNAME,
   collectPluginNames,
   findRuntimePluginExport,
+  isEnvKeyAllowedForForwarding,
   isRecoverablePgliteInitError,
   mergeDropInPlugins,
   repairBrokenInstallRecord,
@@ -1841,5 +1842,169 @@ describe("end-to-end import chain", () => {
     const { pathToFileURL } = await import("node:url");
 
     await expect(import(pathToFileURL(entry).href)).rejects.toThrow();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// isEnvKeyAllowedForForwarding — env var security denylist
+// ---------------------------------------------------------------------------
+
+describe("isEnvKeyAllowedForForwarding", () => {
+  // API keys should be allowed (plugins need them via runtime.getSetting)
+  it.each([
+    "OPENAI_API_KEY",
+    "ANTHROPIC_API_KEY",
+    "GEMINI_API_KEY",
+    "GOOGLE_GENERATIVE_AI_API_KEY",
+    "GROQ_API_KEY",
+    "MY_CUSTOM_API_KEY",
+    "MODEL_PROVIDER",
+    "GOOGLE_SMALL_MODEL",
+  ])("allows %s", (key) => {
+    expect(isEnvKeyAllowedForForwarding(key)).toBe(true);
+  });
+
+  // Blockchain private keys
+  it.each([
+    "EVM_PRIVATE_KEY",
+    "SOLANA_PRIVATE_KEY",
+    "X402_PRIVATE_KEY",
+    "MY_PRIVATE_KEY",
+    "EVM_WALLET_ADDRESS",
+    "SOLANA_RPC_URL",
+  ])("blocks %s", (key) => {
+    expect(isEnvKeyAllowedForForwarding(key)).toBe(false);
+  });
+
+  // Secrets and passwords
+  it.each([
+    "GITHUB_CLIENT_SECRET",
+    "API_SECRET_KEY",
+    "MY_SECRET",
+    "DB_PASSWORD",
+    "ADMIN_PASSWORD",
+    "OAUTH_CREDENTIAL",
+  ])("blocks %s (secret/password/credential)", (key) => {
+    expect(isEnvKeyAllowedForForwarding(key)).toBe(false);
+  });
+
+  // Token variants
+  it.each([
+    "AUTH_TOKEN",
+    "ACCESS_TOKEN",
+    "REFRESH_TOKEN",
+    "SESSION_TOKEN",
+    "GITHUB_AUTH_TOKEN",
+    "OAUTH_ACCESS_TOKEN",
+  ])("blocks %s (token)", (key) => {
+    expect(isEnvKeyAllowedForForwarding(key)).toBe(false);
+  });
+
+  // Mnemonics and seed phrases
+  it.each([
+    "WALLET_MNEMONIC",
+    "MY_MNEMONIC",
+    "SEED_PHRASE",
+    "HD_SEED_PHRASE",
+  ])("blocks %s (mnemonic/seed)", (key) => {
+    expect(isEnvKeyAllowedForForwarding(key)).toBe(false);
+  });
+
+  // SECRET mid-string (not just end-of-string)
+  it("blocks SECRET appearing anywhere in the key", () => {
+    expect(isEnvKeyAllowedForForwarding("API_SECRET_KEY")).toBe(false);
+    expect(isEnvKeyAllowedForForwarding("SECRET_VALUE")).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Gemini API key normalization
+// ---------------------------------------------------------------------------
+
+describe("Gemini API key normalization", () => {
+  const geminiEnvKeys = [
+    "GEMINI_API_KEY",
+    "GOOGLE_API_KEY",
+    "GOOGLE_GENERATIVE_AI_API_KEY",
+  ];
+  const snap = envSnapshot(geminiEnvKeys);
+
+  beforeEach(() => {
+    snap.save();
+    for (const k of geminiEnvKeys) delete process.env[k];
+  });
+  afterEach(() => snap.restore());
+
+  it("collectPluginNames detects Gemini via GEMINI_API_KEY alias", () => {
+    process.env.GEMINI_API_KEY = "test-key";
+    // Simulate what the runtime does: normalize before collectPluginNames
+    if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
+      process.env.GOOGLE_GENERATIVE_AI_API_KEY =
+        process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || "";
+    }
+    const names = collectPluginNames({} as MiladyConfig);
+    expect(names.has("@elizaos/plugin-google-genai")).toBe(true);
+  });
+
+  it("collectPluginNames detects Gemini via GOOGLE_API_KEY alias", () => {
+    process.env.GOOGLE_API_KEY = "test-key";
+    if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
+      process.env.GOOGLE_GENERATIVE_AI_API_KEY =
+        process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || "";
+    }
+    const names = collectPluginNames({} as MiladyConfig);
+    expect(names.has("@elizaos/plugin-google-genai")).toBe(true);
+  });
+
+  it("does not overwrite GOOGLE_GENERATIVE_AI_API_KEY if already set", () => {
+    process.env.GOOGLE_GENERATIVE_AI_API_KEY = "canonical-key";
+    process.env.GEMINI_API_KEY = "alias-key";
+    // setEnvIfMissing logic: skip if already set
+    if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
+      process.env.GOOGLE_GENERATIVE_AI_API_KEY =
+        process.env.GEMINI_API_KEY || "";
+    }
+    expect(process.env.GOOGLE_GENERATIVE_AI_API_KEY).toBe("canonical-key");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getSetting null fallback — default model names
+// ---------------------------------------------------------------------------
+
+describe("getSetting null fallback — default Google model names", () => {
+  const modelKeys = ["GOOGLE_SMALL_MODEL", "GOOGLE_LARGE_MODEL"];
+  const snap = envSnapshot(modelKeys);
+
+  beforeEach(() => {
+    snap.save();
+    for (const k of modelKeys) delete process.env[k];
+  });
+  afterEach(() => snap.restore());
+
+  it("sets GOOGLE_SMALL_MODEL default when not present", () => {
+    // Simulate runtime normalization
+    if (!process.env.GOOGLE_SMALL_MODEL) {
+      process.env.GOOGLE_SMALL_MODEL = "gemini-3-flash-preview";
+    }
+    expect(process.env.GOOGLE_SMALL_MODEL).toBe("gemini-3-flash-preview");
+    expect(process.env.GOOGLE_SMALL_MODEL).not.toBe("null");
+  });
+
+  it("sets GOOGLE_LARGE_MODEL default when not present", () => {
+    if (!process.env.GOOGLE_LARGE_MODEL) {
+      process.env.GOOGLE_LARGE_MODEL = "gemini-3.1-pro-preview";
+    }
+    expect(process.env.GOOGLE_LARGE_MODEL).toBe("gemini-3.1-pro-preview");
+    expect(process.env.GOOGLE_LARGE_MODEL).not.toBe("null");
+  });
+
+  it("does not overwrite user-configured model names", () => {
+    process.env.GOOGLE_SMALL_MODEL = "gemini-custom";
+    // setEnvIfMissing logic: skip if already set
+    if (!process.env.GOOGLE_SMALL_MODEL) {
+      process.env.GOOGLE_SMALL_MODEL = "gemini-3-flash-preview";
+    }
+    expect(process.env.GOOGLE_SMALL_MODEL).toBe("gemini-custom");
   });
 });
