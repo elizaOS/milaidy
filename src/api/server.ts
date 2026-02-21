@@ -27,8 +27,8 @@ import {
   type Task,
   type UUID,
 } from "@elizaos/core";
-import { createCodingAgentRouteHandler } from "@milaidy/plugin-coding-agent";
 import { listPiAiModelOptions } from "@elizaos/plugin-pi-ai";
+import { createCodingAgentRouteHandler } from "@milaidy/plugin-coding-agent";
 import { type WebSocket, WebSocketServer } from "ws";
 import type { CloudManager } from "../cloud/cloud-manager";
 import {
