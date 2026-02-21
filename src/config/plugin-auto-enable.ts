@@ -16,7 +16,7 @@ export const CONNECTOR_PLUGINS: Record<string, string> = {
   discord: "@elizaos/plugin-discord",
   slack: "@elizaos/plugin-slack",
   twitter: "@elizaos/plugin-twitter",
-  whatsapp: "@elizaos/plugin-whatsapp",
+  whatsapp: "@milady/plugin-whatsapp",
   signal: "@elizaos/plugin-signal",
   bluebubbles: "@elizaos/plugin-bluebubbles",
   imessage: "@elizaos/plugin-imessage",
