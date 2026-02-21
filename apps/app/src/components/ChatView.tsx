@@ -494,8 +494,9 @@ export function ChatView() {
               <button
                 type="button"
                 title="Remove image"
+                aria-label={`Remove image ${img.name}`}
                 onClick={() => removeImage(i)}
-                className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-danger text-white text-[10px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-danger text-white text-[10px] flex items-center justify-center opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-visible:opacity-100 transition-opacity cursor-pointer"
               >
                 ×
               </button>
@@ -650,7 +651,7 @@ export function ChatView() {
             type="button"
             className="h-[38px] shrink-0 px-4 sm:px-6 py-2 border border-accent bg-accent text-accent-fg text-sm cursor-pointer hover:bg-accent-hover disabled:opacity-40 disabled:cursor-not-allowed self-end"
             onClick={() => void handleChatSend()}
-            disabled={chatSending}
+            disabled={chatSending || !chatInput.trim()}
           >
             Send
           </button>
