@@ -39,6 +39,8 @@ export interface WhatsAppRouteState {
 }
 
 const MAX_BODY_BYTES = 1_048_576;
+/** Maximum concurrent pairing sessions to prevent resource exhaustion. */
+export const MAX_PAIRING_SESSIONS = 10;
 
 async function readJsonBody<T = Record<string, unknown>>(
   req: IncomingMessage,
@@ -77,6 +79,17 @@ export async function handleWhatsAppRoute(
       );
     } catch (err) {
       json(res, { error: (err as Error).message }, 400);
+      return true;
+    }
+
+    // Enforce session limit (existing session for this account doesn't count)
+    const isReplacing = state.whatsappPairingSessions.has(accountId);
+    if (!isReplacing && state.whatsappPairingSessions.size >= MAX_PAIRING_SESSIONS) {
+      json(
+        res,
+        { error: `Too many concurrent pairing sessions (max ${MAX_PAIRING_SESSIONS})` },
+        429,
+      );
       return true;
     }
 
@@ -225,4 +238,32 @@ export async function handleWhatsAppRoute(
   }
 
   return false;
+}
+
+// ---------------------------------------------------------------------------
+// Plugin UI helper
+// ---------------------------------------------------------------------------
+
+/**
+ * When WhatsApp is connected via QR code (Baileys auth on disk), mark the
+ * plugin entry as configured and clear validation errors so the UI doesn't
+ * show misleading "missing API key" warnings.
+ */
+export function applyWhatsAppQrOverride(
+  plugins: { id: string; validationErrors: unknown[]; configured: boolean; qrConnected?: boolean }[],
+  workspaceDir: string,
+): void {
+  try {
+    const waCredsPath = path.join(workspaceDir, "whatsapp-auth", "default", "creds.json");
+    if (fs.existsSync(waCredsPath)) {
+      const waPlugin = plugins.find((p) => p.id === "whatsapp");
+      if (waPlugin) {
+        waPlugin.validationErrors = [];
+        waPlugin.configured = true;
+        waPlugin.qrConnected = true;
+      }
+    }
+  } catch {
+    /* workspace dir may not exist */
+  }
 }
