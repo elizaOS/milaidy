@@ -85,15 +85,16 @@ describe("collectPluginNames", () => {
   });
 
   describe("remote provider precedence", () => {
-    const originalEnv = process.env;
+    const envKeys = ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "OLLAMA_BASE_URL"];
+    const precSnap = envSnapshot(envKeys);
 
     beforeEach(() => {
-      vi.resetModules();
-      process.env = { ...originalEnv };
+      precSnap.save();
+      for (const k of envKeys) delete process.env[k];
     });
 
     afterEach(() => {
-      process.env = originalEnv;
+      precSnap.restore();
     });
 
     it("should keep @elizaos/plugin-local-embedding even when a remote provider env var is present", async () => {
@@ -713,6 +714,7 @@ describe("autoResolveDiscordAppId", () => {
     "DISCORD_BOT_TOKEN",
   ];
   const snap = envSnapshot(envKeys);
+  const originalFetch = globalThis.fetch;
 
   beforeEach(() => {
     snap.save();
@@ -722,7 +724,7 @@ describe("autoResolveDiscordAppId", () => {
   afterEach(() => {
     snap.restore();
     vi.restoreAllMocks();
-    vi.unstubAllGlobals();
+    globalThis.fetch = originalFetch;
   });
 
   it("no-ops when DISCORD_APPLICATION_ID is already set", async () => {
@@ -730,7 +732,7 @@ describe("autoResolveDiscordAppId", () => {
     process.env.DISCORD_API_TOKEN = "tok";
 
     const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
 
     await autoResolveDiscordAppId();
 
@@ -740,7 +742,7 @@ describe("autoResolveDiscordAppId", () => {
 
   it("no-ops when no Discord token exists", async () => {
     const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
 
     await autoResolveDiscordAppId();
 
@@ -758,7 +760,7 @@ describe("autoResolveDiscordAppId", () => {
       status: 200,
       json: async () => ({ id: "app-123" }),
     }));
-    vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
 
     await autoResolveDiscordAppId();
 
@@ -781,13 +783,10 @@ describe("autoResolveDiscordAppId", () => {
     process.env.DISCORD_API_TOKEN = "tok";
     const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => {});
 
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => ({
-        ok: false,
-        status: 401,
-      })) as unknown as typeof fetch,
-    );
+    globalThis.fetch = vi.fn(async () => ({
+      ok: false,
+      status: 401,
+    })) as unknown as typeof fetch;
 
     await autoResolveDiscordAppId();
 
@@ -801,12 +800,9 @@ describe("autoResolveDiscordAppId", () => {
     process.env.DISCORD_API_TOKEN = "tok";
     const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => {});
 
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => {
-        throw new Error("network down");
-      }) as unknown as typeof fetch,
-    );
+    globalThis.fetch = vi.fn(async () => {
+      throw new Error("network down");
+    }) as unknown as typeof fetch;
 
     await autoResolveDiscordAppId();
 
