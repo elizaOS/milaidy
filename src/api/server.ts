@@ -5155,6 +5155,96 @@ async function maybeRouteAutonomyEventToConversation(
   await routeAutonomyTextToUser(state, text, source);
 }
 
+/**
+ * Shared pipeline: fetch RTMP creds → register session → headless capture → FFmpeg.
+ * Used by both the POST /api/retake/live handler and deferred auto-start.
+ */
+async function startRetakeStream(): Promise<{ rtmpUrl: string }> {
+  const retakeToken = process.env.RETAKE_AGENT_TOKEN?.trim() || "";
+  if (!retakeToken) {
+    throw new Error("RETAKE_AGENT_TOKEN not configured");
+  }
+  const retakeApiUrl = process.env.RETAKE_API_URL || "https://retake.tv/api/v1";
+  const authHeaders = {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${retakeToken}`,
+  };
+
+  // 1. Fetch fresh RTMP credentials
+  const rtmpRes = await fetch(`${retakeApiUrl}/agent/rtmp`, {
+    method: "POST",
+    headers: authHeaders,
+  });
+  if (!rtmpRes.ok) {
+    throw new Error(`RTMP creds failed: ${rtmpRes.status}`);
+  }
+  const { url: rtmpUrl, key: rtmpKey } = (await rtmpRes.json()) as {
+    url: string;
+    key: string;
+  };
+
+  // 2. Register stream session on retake.tv
+  const startRes = await fetch(`${retakeApiUrl}/agent/stream/start`, {
+    method: "POST",
+    headers: authHeaders,
+  });
+  if (!startRes.ok) {
+    const text = await startRes.text();
+    throw new Error(`retake.tv start failed: ${startRes.status} ${text}`);
+  }
+
+  // 3. Start headless browser capture (writes frames to temp file)
+  const baseGameUrl = (
+    process.env.RETAKE_GAME_URL || "https://lunchtable.cards"
+  ).replace(/\/$/, "");
+  const ltcgApiKey = process.env.LTCG_API_KEY || "";
+  const gameUrl = ltcgApiKey
+    ? `${baseGameUrl}/stream-overlay?apiKey=${encodeURIComponent(ltcgApiKey)}&embedded=true`
+    : baseGameUrl;
+
+  const { startBrowserCapture, FRAME_FILE } = await import(
+    "../services/browser-capture.js"
+  );
+  try {
+    await startBrowserCapture({
+      url: gameUrl,
+      width: 1280,
+      height: 720,
+      quality: 70,
+    });
+    // Wait for first frame file to be written
+    await new Promise((resolve) => {
+      const check = setInterval(() => {
+        try {
+          if (fs.existsSync(FRAME_FILE) && fs.statSync(FRAME_FILE).size > 0) {
+            clearInterval(check);
+            resolve(true);
+          }
+        } catch {}
+      }, 200);
+      setTimeout(() => {
+        clearInterval(check);
+        resolve(false);
+      }, 10_000);
+    });
+  } catch (captureErr) {
+    logger.warn(`[retake] Browser capture failed: ${captureErr}`);
+  }
+
+  // 4. Start FFmpeg → RTMP
+  await streamManager.start({
+    rtmpUrl,
+    rtmpKey,
+    inputMode: "file",
+    frameFile: FRAME_FILE,
+    resolution: "1280x720",
+    framerate: 30,
+    bitrate: "1500k",
+  });
+
+  return { rtmpUrl };
+}
+
 async function handleRequest(
   req: http.IncomingMessage,
   res: http.ServerResponse,
@@ -12064,97 +12154,19 @@ async function handleRequest(
     return;
   }
 
-  // ── Retake go-live via StreamManager (testsrc fallback for headless/macOS) ──
-  // Sequence: /agent/stream/start → /agent/rtmp → StreamManager.start(testsrc)
-  // This is the server-side fallback when WHIP (Electron) is unavailable.
+  // ── Retake go-live via StreamManager ────────────────────────────────────
   if (method === "POST" && pathname === "/api/retake/live") {
     if (streamManager.isRunning()) {
       json(res, { ok: true, live: true, message: "Already streaming" });
       return;
     }
     const retakeToken = process.env.RETAKE_AGENT_TOKEN || "";
-    const retakeApiUrl =
-      process.env.RETAKE_API_URL || "https://retake.tv/api/v1";
     if (!retakeToken) {
       error(res, "RETAKE_AGENT_TOKEN not configured", 400);
       return;
     }
     try {
-      const authHeaders = {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${retakeToken}`,
-      };
-      // 1. Fetch fresh RTMP credentials (must be first per retake.tv docs)
-      const rtmpRes = await fetch(`${retakeApiUrl}/agent/rtmp`, {
-        method: "POST",
-        headers: authHeaders,
-      });
-      if (!rtmpRes.ok) {
-        error(res, `RTMP creds failed: ${rtmpRes.status}`, 502);
-        return;
-      }
-      const { url: rtmpUrl, key: rtmpKey } = (await rtmpRes.json()) as {
-        url: string;
-        key: string;
-      };
-      // 2. Register stream session on retake.tv
-      const startRes = await fetch(`${retakeApiUrl}/agent/stream/start`, {
-        method: "POST",
-        headers: authHeaders,
-      });
-      if (!startRes.ok) {
-        const text = await startRes.text();
-        error(res, `retake.tv start failed: ${startRes.status} ${text}`, 502);
-        return;
-      }
-      // 3. Start headless browser capture first (writes frames to temp file)
-      const baseGameUrl = (
-        process.env.RETAKE_GAME_URL || "https://lunchtable.cards"
-      ).replace(/\/$/, "");
-      const ltcgApiKey = process.env.LTCG_API_KEY || "";
-      // Use the authenticated stream-overlay route when an API key is available
-      const gameUrl = ltcgApiKey
-        ? `${baseGameUrl}/stream-overlay?apiKey=${encodeURIComponent(ltcgApiKey)}&embedded=true`
-        : baseGameUrl;
-      const { startBrowserCapture, FRAME_FILE } = await import(
-        "../services/browser-capture.js"
-      );
-      try {
-        await startBrowserCapture({
-          url: gameUrl,
-          width: 1280,
-          height: 720,
-          quality: 70,
-        });
-        // Wait for first frame file to be written
-        await new Promise((resolve) => {
-          const check = setInterval(() => {
-            try {
-              const { existsSync, statSync } = require("node:fs");
-              if (existsSync(FRAME_FILE) && statSync(FRAME_FILE).size > 0) {
-                clearInterval(check);
-                resolve(true);
-              }
-            } catch {}
-          }, 200);
-          setTimeout(() => {
-            clearInterval(check);
-            resolve(false);
-          }, 10_000);
-        });
-      } catch (captureErr) {
-        logger.warn(`[retake] Browser capture failed: ${captureErr}`);
-      }
-      // 4. Start FFmpeg reading from the frame file (settings per retake.tv skill.md)
-      await streamManager.start({
-        rtmpUrl,
-        rtmpKey,
-        inputMode: "file",
-        frameFile: FRAME_FILE,
-        resolution: "1280x720",
-        framerate: 30,
-        bitrate: "1500k",
-      });
+      const { rtmpUrl } = await startRetakeStream();
       json(res, { ok: true, live: true, rtmpUrl });
     } catch (err) {
       error(res, err instanceof Error ? err.message : "Failed to go live", 500);
@@ -12193,112 +12205,6 @@ async function handleRequest(
       error(
         res,
         err instanceof Error ? err.message : "Failed to go offline",
-        500,
-      );
-    }
-    return;
-  }
-
-  // ── Retake WHIP URL (for browser-based WebRTC streaming) ────────────────
-  if (method === "GET" && pathname === "/api/retake/whip") {
-    const retakeToken = process.env.RETAKE_AGENT_TOKEN || "";
-    const retakeApiUrl =
-      process.env.RETAKE_API_URL || "https://retake.tv/api/v1";
-
-    if (!retakeToken) {
-      error(res, "RETAKE_AGENT_TOKEN not configured", 400);
-      return;
-    }
-
-    try {
-      // 1. Get RTMP/stream key FIRST (retake.tv requires rtmp before stream/start)
-      const rtmpRes = await fetch(`${retakeApiUrl}/agent/rtmp`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${retakeToken}`,
-        },
-      });
-      if (!rtmpRes.ok) {
-        const text = await rtmpRes.text();
-        error(
-          res,
-          `Failed to get RTMP credentials: ${rtmpRes.status} ${text}`,
-          502,
-        );
-        return;
-      }
-      const rtmpData = (await rtmpRes.json()) as { url: string; key: string };
-
-      // 2. Start the stream session (after rtmp creds are obtained)
-      const startRes = await fetch(`${retakeApiUrl}/agent/stream/start`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${retakeToken}`,
-        },
-      });
-      if (!startRes.ok) {
-        const text = await startRes.text();
-        error(
-          res,
-          `Failed to start retake stream: ${startRes.status} ${text}`,
-          502,
-        );
-        return;
-      }
-
-      // 3. Derive WHIP URL from the RTMP URL
-      // RTMP: rtmps://retaketv-XXXX.rtmp.livekit.cloud/x
-      // WHIP: https://retaketv-XXXX.livekit.cloud/whip/{key}
-      const rtmpHost = new URL(rtmpData.url.replace("rtmps://", "https://"))
-        .hostname;
-      const whipHost = rtmpHost.replace(".rtmp.", ".");
-      const whipUrl = `https://${whipHost}/whip/${rtmpData.key}`;
-
-      console.log(`[retake] WHIP URL: ${whipUrl}`);
-      json(res, { whipUrl, key: rtmpData.key, rtmpUrl: rtmpData.url });
-    } catch (err) {
-      error(
-        res,
-        err instanceof Error ? err.message : "Failed to get WHIP URL",
-        500,
-      );
-    }
-    return;
-  }
-
-  // ── LiveKit token generation ─────────────────────────────────────────────
-  if (method === "GET" && pathname === "/api/livekit/token") {
-    const livekitUrl = process.env.LIVEKIT_URL;
-    const apiKey = process.env.LIVEKIT_API_KEY;
-    const apiSecret = process.env.LIVEKIT_API_SECRET;
-    if (!livekitUrl || !apiKey || !apiSecret) {
-      error(res, "LiveKit not configured", 503);
-      return;
-    }
-    try {
-      const { AccessToken } = await import("livekit-server-sdk");
-      const roomName =
-        (url.searchParams?.get("room") as string) || "milady-stream";
-      const identity =
-        (url.searchParams?.get("identity") as string) || "milady-agent";
-      const at = new AccessToken(apiKey, apiSecret, {
-        identity,
-        ttl: "6h",
-      });
-      at.addGrant({
-        roomJoin: true,
-        room: roomName,
-        canPublish: true,
-        canSubscribe: false,
-      });
-      const token = await at.toJwt();
-      json(res, { token, url: livekitUrl, room: roomName, identity });
-    } catch (err) {
-      error(
-        res,
-        err instanceof Error ? err.message : "Token generation failed",
         500,
       );
     }
@@ -12889,6 +12795,32 @@ export async function startApiServer(opts?: {
           "system",
         ]);
         logger.warn({ err }, "Failed to initialize ERC-8004 registry service");
+      }
+    })();
+
+    // Auto-start retake.tv stream (best-effort, non-blocking)
+    void (async () => {
+      const retakeToken = process.env.RETAKE_AGENT_TOKEN || "";
+      if (!retakeToken) return; // No token — skip silently
+
+      // Let LTCG plugin finish init before starting the stream
+      await new Promise((r) => setTimeout(r, 5_000));
+
+      if (streamManager.isRunning()) {
+        logger.info(
+          "[milady-api] Retake stream already running, skipping auto-start",
+        );
+        return;
+      }
+
+      logger.info("[milady-api] Auto-starting retake.tv stream...");
+      try {
+        await startRetakeStream();
+        logger.info("[milady-api] Retake.tv stream auto-started successfully");
+      } catch (err) {
+        logger.warn(
+          `[milady-api] Retake stream auto-start failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
       }
     })();
   };

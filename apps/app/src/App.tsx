@@ -81,26 +81,14 @@ export function App() {
   } = useApp();
   const contextMenu = useContextMenu();
 
-  // Auto-start retake.tv stream + LTCG autonomy when game is active.
-  // Uses headless Chrome capture → FFmpeg RTMP via /api/retake/live.
-  const streamAutoStarted = useRef(false);
+  // Auto-start LTCG autonomy when game is active.
+  // (retake.tv stream is now auto-started server-side in deferred startup)
+  const autonomyAutoStarted = useRef(false);
   useEffect(() => {
-    if (activeGameViewerUrl && !streamAutoStarted.current) {
-      streamAutoStarted.current = true;
+    if (activeGameViewerUrl && !autonomyAutoStarted.current) {
+      autonomyAutoStarted.current = true;
       const timer = setTimeout(async () => {
         const apiBase = window.__MILADY_API_BASE__ || window.location.origin;
-        try {
-          const liveRes = await fetch(`${apiBase}/api/retake/live`, {
-            method: "POST",
-          });
-          if (liveRes.ok) {
-            console.log(
-              "[App] retake.tv stream started via headless browser capture",
-            );
-          }
-        } catch (err) {
-          console.warn("[App] retake.tv stream failed:", err);
-        }
         try {
           // Start LTCG PvP autonomy
           await fetch(`${apiBase}/api/ltcg/autonomy/start`, {
