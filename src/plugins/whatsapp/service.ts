@@ -15,6 +15,7 @@ import fs from "node:fs";
 import os from "node:os";
 import {
   Service,
+  createUniqueUuid,
   type IAgentRuntime,
   type Memory,
   type Content,
@@ -332,9 +333,6 @@ export class WhatsAppBaileysService extends Service {
     this.runtime.logger.info(
       `[whatsapp] Incoming message from +${senderPhone}: "${text.slice(0, 50)}${text.length > 50 ? "..." : ""}"`,
     );
-
-    // Import core utilities
-    const { createUniqueUuid } = await import("@elizaos/core");
 
     const entityId = createUniqueUuid(this.runtime, remoteJid);
     const roomId = createUniqueUuid(this.runtime, remoteJid);
