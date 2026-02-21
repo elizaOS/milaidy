@@ -3,7 +3,7 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { WhatsAppPairingSession } from "../../services/whatsapp-pairing";
+import { whatsappLogout, type WhatsAppPairingSession } from "../../services/whatsapp-pairing";
 import { handleWhatsAppRoute, type WhatsAppRouteState } from "../whatsapp-routes";
 import { createMockReq, createMockRes } from "./sandbox-test-helpers";
 
@@ -290,7 +290,6 @@ describe("handleWhatsAppRoute", () => {
       expect(mockSession.stop).toHaveBeenCalled();
       expect(sessions.has("default")).toBe(false);
 
-      const { whatsappLogout } = await import("../../services/whatsapp-pairing");
       expect(whatsappLogout).toHaveBeenCalledWith("/tmp/test-workspace", "default");
 
       // Connector config should be removed

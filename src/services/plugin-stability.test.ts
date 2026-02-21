@@ -55,7 +55,7 @@ const CONNECTOR_PLUGINS: Record<string, string> = {
   discord: "@elizaos/plugin-discord",
   telegram: "@elizaos/plugin-telegram",
   slack: "@elizaos/plugin-slack",
-  whatsapp: "@elizaos/plugin-whatsapp",
+  whatsapp: "@milady/plugin-whatsapp",
   signal: "@elizaos/plugin-signal",
   imessage: "@elizaos/plugin-imessage",
   bluebubbles: "@elizaos/plugin-bluebubbles",
@@ -146,7 +146,7 @@ describe("Plugin Enumeration", () => {
     expect(Object.keys(CONNECTOR_PLUGINS).length).toBe(10);
     for (const [connector, pluginName] of Object.entries(CONNECTOR_PLUGINS)) {
       expect(typeof connector).toBe("string");
-      expect(pluginName).toMatch(/^@elizaos\/plugin-/);
+      expect(pluginName).toMatch(/^@(elizaos|milady)\/plugin-/);
     }
   });
 

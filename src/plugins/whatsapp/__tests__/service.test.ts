@@ -28,7 +28,7 @@ vi.mock("node:fs", () => ({
   existsSync: vi.fn(),
 }));
 
-import { WhatsAppBaileysService } from "../service";
+import { WhatsAppBaileysService, extractMessageText } from "../service";
 
 // ---------------------------------------------------------------------------
 // Helpers — build mock runtime objects
@@ -399,5 +399,76 @@ describe("WhatsAppBaileysService", () => {
         WhatsAppBaileysService.stopRuntime(runtime),
       ).resolves.toBeUndefined();
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// extractMessageText()
+// ---------------------------------------------------------------------------
+
+describe("extractMessageText()", () => {
+  it("returns undefined when msg has no message field", () => {
+    expect(extractMessageText({})).toBeUndefined();
+  });
+
+  it("returns undefined when msg.message is undefined", () => {
+    expect(extractMessageText({ message: undefined })).toBeUndefined();
+  });
+
+  it("extracts plain conversation text", () => {
+    const msg = { message: { conversation: "Hello world" } };
+    expect(extractMessageText(msg)).toBe("Hello world");
+  });
+
+  it("extracts extendedTextMessage text", () => {
+    const msg = {
+      message: { extendedTextMessage: { text: "Reply text" } },
+    };
+    expect(extractMessageText(msg)).toBe("Reply text");
+  });
+
+  it("prefers conversation over extendedTextMessage", () => {
+    const msg = {
+      message: {
+        conversation: "Plain",
+        extendedTextMessage: { text: "Extended" },
+      },
+    };
+    expect(extractMessageText(msg)).toBe("Plain");
+  });
+
+  it("extracts imageMessage caption", () => {
+    const msg = {
+      message: { imageMessage: { caption: "Photo caption" } },
+    };
+    expect(extractMessageText(msg)).toBe("Photo caption");
+  });
+
+  it("extracts videoMessage caption", () => {
+    const msg = {
+      message: { videoMessage: { caption: "Video caption" } },
+    };
+    expect(extractMessageText(msg)).toBe("Video caption");
+  });
+
+  it("extracts documentMessage caption", () => {
+    const msg = {
+      message: { documentMessage: { caption: "Doc caption" } },
+    };
+    expect(extractMessageText(msg)).toBe("Doc caption");
+  });
+
+  it("returns undefined for media message without caption", () => {
+    const msg = {
+      message: { imageMessage: { url: "https://example.com/img.jpg" } },
+    };
+    expect(extractMessageText(msg)).toBeUndefined();
+  });
+
+  it("returns undefined for unknown message types", () => {
+    const msg = {
+      message: { stickerMessage: { url: "sticker.webp" } },
+    };
+    expect(extractMessageText(msg)).toBeUndefined();
   });
 });

@@ -45,7 +45,7 @@ function resolveAuthDir(runtime: IAgentRuntime): string {
   return path.join(workspaceDir, "whatsapp-auth", "default");
 }
 
-function extractMessageText(
+export function extractMessageText(
   msg: Record<string, unknown>,
 ): string | undefined {
   const m = msg.message as Record<string, unknown> | undefined;

@@ -11,9 +11,12 @@ import {
   readJsonBody as parseJsonBody,
   sendJson,
 } from "./http-helpers";
-import type {
+import {
+  sanitizeAccountId,
   WhatsAppPairingSession,
-  WhatsAppPairingEvent,
+  whatsappAuthExists,
+  whatsappLogout,
+  type WhatsAppPairingEvent,
 } from "../services/whatsapp-pairing";
 
 // ---------------------------------------------------------------------------
@@ -67,7 +70,6 @@ export async function handleWhatsAppRoute(
     const body = await readJsonBody<{ accountId?: string }>(req, res);
     let accountId: string;
     try {
-      const { sanitizeAccountId } = await import("../services/whatsapp-pairing");
       accountId = sanitizeAccountId(
         body && typeof body.accountId === "string" && body.accountId.trim()
           ? body.accountId.trim()
@@ -83,11 +85,7 @@ export async function handleWhatsAppRoute(
     // Stop any existing session for this account
     state.whatsappPairingSessions?.get(accountId)?.stop();
 
-    const { WhatsAppPairingSession: SessionCtor } = await import(
-      "../services/whatsapp-pairing"
-    );
-
-    const session = new SessionCtor({
+    const session = new WhatsAppPairingSession({
       authDir,
       accountId,
       onEvent: (event: WhatsAppPairingEvent) => {
@@ -127,7 +125,6 @@ export async function handleWhatsAppRoute(
     const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
     let accountId: string;
     try {
-      const { sanitizeAccountId } = await import("../services/whatsapp-pairing");
       accountId = sanitizeAccountId(url.searchParams.get("accountId") || "default");
     } catch (err) {
       json(res, { error: (err as Error).message }, 400);
@@ -135,8 +132,6 @@ export async function handleWhatsAppRoute(
     }
 
     const session = state.whatsappPairingSessions?.get(accountId);
-
-    const { whatsappAuthExists } = await import("../services/whatsapp-pairing");
 
     let serviceConnected = false;
     let servicePhone: string | null = null;
@@ -165,7 +160,6 @@ export async function handleWhatsAppRoute(
     const body = await readJsonBody<{ accountId?: string }>(req, res);
     let accountId: string;
     try {
-      const { sanitizeAccountId } = await import("../services/whatsapp-pairing");
       accountId = sanitizeAccountId(
         body && typeof body.accountId === "string" && body.accountId.trim()
           ? body.accountId.trim()
@@ -191,7 +185,6 @@ export async function handleWhatsAppRoute(
     const body = await readJsonBody<{ accountId?: string }>(req, res);
     let accountId: string;
     try {
-      const { sanitizeAccountId } = await import("../services/whatsapp-pairing");
       accountId = sanitizeAccountId(
         body && typeof body.accountId === "string" && body.accountId.trim()
           ? body.accountId.trim()
@@ -211,7 +204,6 @@ export async function handleWhatsAppRoute(
 
     // Properly logout then delete auth files
     try {
-      const { whatsappLogout } = await import("../services/whatsapp-pairing");
       await whatsappLogout(state.workspaceDir, accountId);
     } catch {
       const authDir = path.join(state.workspaceDir, "whatsapp-auth", accountId);
