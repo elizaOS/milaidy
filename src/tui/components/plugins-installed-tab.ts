@@ -8,17 +8,17 @@ import {
   SelectList,
 } from "@mariozechner/pi-tui";
 import { tuiTheme } from "../theme.js";
-import {
-  renderAddKeyView,
-  renderEditSelectView,
-  renderEditValueView,
-} from "./plugins-installed-tab-view.js";
 import type {
   InstalledTabOptions,
   InstalledTabState,
   PluginListItem,
   PluginParam,
 } from "./plugins-installed-tab-types.js";
+import {
+  renderAddKeyView,
+  renderEditSelectView,
+  renderEditValueView,
+} from "./plugins-installed-tab-view.js";
 
 export type {
   InstalledTabOptions,
@@ -389,7 +389,6 @@ export class InstalledPluginsTab implements Component, Focusable {
       this.selectList.setFilter(after);
     }
   }
-
 
   render(width: number): string[] {
     this.filterInput.focused = this.focused && this.state === "list";
