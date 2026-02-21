@@ -54,6 +54,7 @@ export default defineConfig([
   },
   {
     entry: "src/plugins/whatsapp/index.ts",
+    outDir: "dist/plugins/whatsapp",
     env,
     fixedExtension: false,
     platform: "node",
