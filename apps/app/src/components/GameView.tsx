@@ -59,6 +59,7 @@ export function GameView() {
   const [retakeCapture, setRetakeCapture] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const authSentRef = useRef(false);
+  const viewerSessionRef = useRef<string>("");
   const logsIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Stream iframe frames to retake.tv when capture is active
@@ -100,6 +101,11 @@ export function GameView() {
   const postMessageTargetOrigin = useMemo(
     () => resolvePostMessageTargetOrigin(activeGameViewerUrl),
     [activeGameViewerUrl],
+  );
+  const viewerSessionKey = useMemo(
+    () =>
+      `${activeGameViewerUrl}::${JSON.stringify(activeGamePostMessagePayload ?? null)}`,
+    [activeGamePostMessagePayload, activeGameViewerUrl],
   );
 
   // Only show retake capture button when the retake connector is enabled
@@ -146,17 +152,19 @@ export function GameView() {
     };
   }, [showLogsPanel, loadLogs]);
 
-  // Update connection status based on postMessage auth
+  // Reset auth handshake state when the active viewer session changes.
   useEffect(() => {
-    if (authSentRef.current) {
-      setConnectionStatus("connected");
-    } else if (activeGamePostMessageAuth) {
-      setConnectionStatus("connecting");
-    } else {
-      // No auth required, assume connected once iframe loads
-      setConnectionStatus("connected");
+    if (viewerSessionRef.current !== viewerSessionKey) {
+      viewerSessionRef.current = viewerSessionKey;
+      authSentRef.current = false;
     }
-  }, [activeGamePostMessageAuth]);
+    if (activeGamePostMessageAuth) {
+      setConnectionStatus("connecting");
+      return;
+    }
+    // No auth required, assume connected once iframe loads.
+    setConnectionStatus("connected");
+  }, [activeGamePostMessageAuth, viewerSessionKey]);
 
   const resetActiveGameState = useCallback(() => {
     setState("activeGameApp", "");
@@ -166,10 +174,6 @@ export function GameView() {
     setState("activeGamePostMessageAuth", false);
     setState("activeGamePostMessagePayload", null);
   }, [setState]);
-
-  useEffect(() => {
-    authSentRef.current = false;
-  }, []);
 
   useEffect(() => {
     if (!activeGamePostMessageAuth || !activeGamePostMessagePayload) return;
