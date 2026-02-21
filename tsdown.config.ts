@@ -62,4 +62,13 @@ export default defineConfig([
     inlineOnly: false,
     external: [...nativeExternals, "socket.io-client"],
   },
+  {
+    entry: "src/plugins/whatsapp/index.ts",
+    env,
+    fixedExtension: false,
+    platform: "node",
+    unbundle: true,
+    inlineOnly: false,
+    external: nativeExternals,
+  },
 ]);

@@ -177,7 +177,7 @@
     "unique-names-generator": "^4.7.1",
     "whisper-node": "^1.1.1",
     "@hapi/boom": "^10.0.1",
-    "@whiskeysockets/baileys": "^7.0.0-rc.9",
+    "@whiskeysockets/baileys": "7.0.0-rc.9",
     "pino": "^10.3.1",
     "qrcode": "^1.5.4",
     "ws": "^8.19.0",
