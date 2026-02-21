@@ -1,20 +1,20 @@
 ---
 title: "OpenAI Plugin"
 sidebarTitle: "OpenAI"
-description: "OpenAI model provider for Milaidy — GPT-4o, o1, o3, embeddings, image generation, and speech."
+description: "OpenAI model provider for Milady — GPT-4o, o1, o3, embeddings, image generation, and speech."
 ---
 
-The OpenAI plugin connects Milaidy agents to OpenAI's API, providing access to GPT-4o, the o1/o3 reasoning model families, DALL-E image generation, and Whisper speech-to-text.
+The OpenAI plugin connects Milady agents to OpenAI's API, providing access to GPT-4o, the o1/o3 reasoning model families, DALL-E image generation, and Whisper speech-to-text.
 
 **Package:** `@elizaos/plugin-openai`
 
 ## Installation
 
 ```bash
-milaidy plugins install openai
+milady plugins install openai
 ```
 
-Or add to `milaidy.json`:
+Or add to `milady.json`:
 
 ```json
 {
@@ -41,7 +41,7 @@ export OPENAI_API_KEY=sk-...
 | `OPENAI_ORG_ID` | No | Organization ID for usage tracking |
 | `OPENAI_PROJECT_ID` | No | Project ID for quota management |
 
-### milaidy.json Example
+### milady.json Example
 
 ```json
 {

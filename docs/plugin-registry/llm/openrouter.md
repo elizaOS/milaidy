@@ -1,17 +1,17 @@
 ---
 title: "OpenRouter Plugin"
 sidebarTitle: "OpenRouter"
-description: "OpenRouter multi-provider gateway for Milaidy — access 200+ models from OpenAI, Anthropic, Google, Meta, and others through a single API."
+description: "OpenRouter multi-provider gateway for Milady — access 200+ models from OpenAI, Anthropic, Google, Meta, and others through a single API."
 ---
 
-The OpenRouter plugin connects Milaidy agents to OpenRouter's unified inference gateway, providing access to over 200 models from all major providers through a single API key and endpoint.
+The OpenRouter plugin connects Milady agents to OpenRouter's unified inference gateway, providing access to over 200 models from all major providers through a single API key and endpoint.
 
 **Package:** `@elizaos/plugin-openrouter`
 
 ## Installation
 
 ```bash
-milaidy plugins install openrouter
+milady plugins install openrouter
 ```
 
 ## Auto-Enable
@@ -28,7 +28,7 @@ export OPENROUTER_API_KEY=sk-or-...
 |---------------------|----------|-------------|
 | `OPENROUTER_API_KEY` | Yes | OpenRouter API key from [openrouter.ai](https://openrouter.ai) |
 
-### milaidy.json Example
+### milady.json Example
 
 ```json
 {

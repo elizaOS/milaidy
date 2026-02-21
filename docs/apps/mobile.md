@@ -1,10 +1,10 @@
 ---
 title: Mobile App (iOS/Android)
 sidebarTitle: Mobile App
-description: Run Milaidy on iOS and Android devices using the Capacitor-based mobile app with native plugin support.
+description: Run Milady on iOS and Android devices using the Capacitor-based mobile app with native plugin support.
 ---
 
-The Milaidy mobile app brings the full dashboard experience to iOS and Android devices using [Capacitor](https://capacitorjs.com/), a cross-platform native runtime. The same web UI runs inside a native WebView with access to device hardware through Capacitor plugins.
+The Milady mobile app brings the full dashboard experience to iOS and Android devices using [Capacitor](https://capacitorjs.com/), a cross-platform native runtime. The same web UI runs inside a native WebView with access to device hardware through Capacitor plugins.
 
 ## Platform Support
 
@@ -153,7 +153,7 @@ The mobile app uses 9 custom Milady Capacitor plugins plus the core Haptics plug
 
 ### 1. Gateway (`@milady/capacitor-gateway`)
 
-Connects the mobile app to a Milaidy agent running elsewhere on the network.
+Connects the mobile app to a Milady agent running elsewhere on the network.
 
 - **Discovery:** Native Bonjour/mDNS discovery scans for `_milady-gw._tcp` services on the local network. Supports both local discovery and wide-area DNS-SD (e.g., over Tailscale).
 - **WebSocket:** Real-time RPC communication with authentication, reconnection, and event streaming.
@@ -392,7 +392,7 @@ The global bridge object is exposed on `window.Milady` and provides a unified AP
 | `capabilities` | `CapacitorCapabilities` | Platform capability flags (native, haptics, camera, microphone, screenCapture, fileSystem, notifications, geolocation, background, voiceWake) |
 | `pluginCapabilities` | `PluginCapabilities` | Per-plugin capability details (see above) |
 | `haptics` | object | Haptic feedback functions: `light()`, `medium()`, `heavy()`, `success()`, `warning()`, `error()`, `selectionStart()`, `selectionChanged()`, `selectionEnd()` |
-| `plugins` | `MiladyPlugins` | Access to all Milaidy plugins with fallback support |
+| `plugins` | `MiladyPlugins` | Access to all Milady plugins with fallback support |
 | `isFeatureAvailable(feature)` | function | Check if a specific feature is available on the current platform |
 | `platform` | object | Platform detection: `name`, `isNative`, `isIOS`, `isAndroid`, `isElectron`, `isWeb`, `isMacOS` |
 | `getPlugin(name)` | function | Get a registered plugin by name |

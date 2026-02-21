@@ -71,9 +71,9 @@ Add the WhatsApp connector to your agent's configuration file:
 }
 ```
 
-The `authDir` is where Baileys stores session credentials. Create this directory or let Milaidy create it automatically.
+The `authDir` is where Baileys stores session credentials. Create this directory or let Milady create it automatically.
 
-### Step 2: Start Milaidy
+### Step 2: Start Milady
 
 ```bash
 npm start -- --character=./your-character.json
@@ -81,7 +81,7 @@ npm start -- --character=./your-character.json
 
 ### Step 3: Scan the QR Code
 
-When Milaidy starts with a fresh WhatsApp configuration, a QR code appears in the terminal:
+When Milady starts with a fresh WhatsApp configuration, a QR code appears in the terminal:
 
 1. Open WhatsApp on your phone
 2. Go to **Settings** > **Linked Devices**
@@ -111,7 +111,7 @@ WHATSAPP_WEBHOOK_VERIFY_TOKEN=your_verify_token
 WHATSAPP_BUSINESS_ACCOUNT_ID=your_account_id
 ```
 
-These can also be placed in the `env` section of `milaidy.json`.
+These can also be placed in the `env` section of `milady.json`.
 
 ---
 
@@ -189,7 +189,7 @@ Baileys saves its session state to the directory specified by `authDir`. This in
 
 ## Reconnection
 
-Milaidy automatically reconnects using saved session files on restart. A new QR code is only generated when:
+Milady automatically reconnects using saved session files on restart. A new QR code is only generated when:
 
 - The session files in `authDir` are deleted or corrupted
 - Your phone revokes the linked device (Settings > Linked Devices > remove)
@@ -205,7 +205,7 @@ A complete example character configuration for WhatsApp testing:
 
 ```json
 {
-  "name": "Milaidy WhatsApp Test",
+  "name": "Milady WhatsApp Test",
   "description": "Test configuration for WhatsApp connector with Baileys (QR code) authentication",
   "bio": [
     "A test bot for validating WhatsApp connector functionality",
@@ -222,7 +222,7 @@ A complete example character configuration for WhatsApp testing:
       "dmPolicy": "pairing",
       "sendReadReceipts": true,
       "selfChatMode": false,
-      "messagePrefix": "[Milaidy] "
+      "messagePrefix": "[Milady] "
     }
   },
   "modelProvider": "anthropic",
@@ -246,14 +246,14 @@ If the WhatsApp plugin does not start, verify:
 
 ### QR Code Expires
 
-QR codes have a short time-to-live (typically around 20 seconds). Milaidy automatically generates a new QR code when the previous one expires. Make sure your phone has internet access when scanning.
+QR codes have a short time-to-live (typically around 20 seconds). Milady automatically generates a new QR code when the previous one expires. Make sure your phone has internet access when scanning.
 
 ### Session Expired
 
 If reconnection fails with a session error:
 
 1. Delete the contents of your `authDir` directory
-2. Restart Milaidy
+2. Restart Milady
 3. Scan the new QR code
 
 ### `dmPolicy: "open"` Validation Error

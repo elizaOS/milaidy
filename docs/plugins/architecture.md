@@ -1,10 +1,10 @@
 ---
 title: "Plugin Architecture"
 sidebarTitle: "Architecture"
-description: "Deep dive into Milaidy's plugin system — registration lifecycle, hook points, auto-enable mechanism, and dependency resolution."
+description: "Deep dive into Milady's plugin system — registration lifecycle, hook points, auto-enable mechanism, and dependency resolution."
 ---
 
-The Milaidy plugin system is built on ElizaOS core. Every capability beyond the base runtime — model providers, platform connectors, DeFi integrations, scheduling, and custom features — is delivered as a plugin.
+The Milady plugin system is built on ElizaOS core. Every capability beyond the base runtime — model providers, platform connectors, DeFi integrations, scheduling, and custom features — is delivered as a plugin.
 
 ## System Design
 
@@ -160,7 +160,7 @@ const CONNECTOR_PLUGINS = {
 };
 ```
 
-**Feature flags** — The `features` section of `milaidy.json` auto-enables feature plugins. A feature can be enabled with `features.<name>: true` or `features.<name>.enabled: true`:
+**Feature flags** — The `features` section of `milady.json` auto-enables feature plugins. A feature can be enabled with `features.<name>: true` or `features.<name>.enabled: true`:
 
 ```json
 {

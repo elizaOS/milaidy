@@ -4,16 +4,16 @@ sidebarTitle: "Model Providers"
 description: "Supported AI model providers and how to configure them."
 ---
 
-Milaidy supports **17 model providers** out of the box. Providers are loaded as plugins and can be auto-enabled by setting the right environment variable, or explicitly configured in `milaidy.json`.
+Milady supports **17 model providers** out of the box. Providers are loaded as plugins and can be auto-enabled by setting the right environment variable, or explicitly configured in `milady.json`.
 
 ---
 
 ## Provider Reference
 
-The table below is the complete list of supported providers, sourced from the auto-enable system in Milaidy's core.
+The table below is the complete list of supported providers, sourced from the auto-enable system in Milady's core.
 
 <Note>
-Providers marked **bundled** ship with every Milaidy install. Others are installed on demand the first time they are needed — no manual plugin install required.
+Providers marked **bundled** ship with every Milady install. Others are installed on demand the first time they are needed — no manual plugin install required.
 </Note>
 
 | Provider | Plugin Package | Env Variable(s) | Bundled | Notes |
@@ -44,18 +44,18 @@ There is also an **ElizaOS Cloud** provider (`@elizaos/plugin-elizacloud`) activ
 
 ## How Provider Selection Works
 
-Milaidy uses an **auto-enable** system. You do not need to manually register provider plugins — just set the API key and Milaidy handles the rest.
+Milady uses an **auto-enable** system. You do not need to manually register provider plugins — just set the API key and Milady handles the rest.
 
 ### Auto-enable flow
 
-1. On startup, Milaidy scans your environment variables (from `~/.milady/.env`, shell environment, or `milaidy.json`).
+1. On startup, Milady scans your environment variables (from `~/.milady/.env`, shell environment, or `milady.json`).
 2. If a recognized API key is found (e.g., `ANTHROPIC_API_KEY`), the corresponding provider plugin is automatically added to the plugin allowlist.
 3. The plugin is installed on demand if not already present (installed to `~/.milady/plugins/installed/`).
 4. The provider becomes available for model selection.
 
 ### Explicit plugin configuration
 
-You can also enable providers manually in `~/.milady/milaidy.json` under the `plugins` key:
+You can also enable providers manually in `~/.milady/milady.json` under the `plugins` key:
 
 ```json5
 {
@@ -116,7 +116,7 @@ GROQ_API_KEY=gsk_...
 
 ### Option 2: Config file
 
-Add keys directly in `~/.milady/milaidy.json`:
+Add keys directly in `~/.milady/milady.json`:
 
 ```json5
 {
@@ -130,13 +130,13 @@ Add keys directly in `~/.milady/milaidy.json`:
 ### Option 3: Interactive setup
 
 ```bash
-milaidy configure
+milady configure
 ```
 
 This walks you through setting common environment variables including your preferred model provider.
 
 <Warning>
-When using the config file approach, your API keys are stored in plaintext in `milaidy.json`. The `.env` file approach keeps secrets separate from configuration and is easier to exclude from version control.
+When using the config file approach, your API keys are stored in plaintext in `milady.json`. The `.env` file approach keeps secrets separate from configuration and is easier to exclude from version control.
 </Warning>
 
 ---
@@ -144,15 +144,15 @@ When using the config file approach, your API keys are stored in plaintext in `m
 ## CLI Commands
 
 ```bash
-milaidy models             # list configured model providers and their status
-milaidy models add         # add a new provider interactively
-milaidy models test        # test if your API keys are valid
-milaidy configure          # interactive config wizard (includes provider setup)
+milady models             # list configured model providers and their status
+milady models add         # add a new provider interactively
+milady models test        # test if your API keys are valid
+milady configure          # interactive config wizard (includes provider setup)
 ```
 
 ### Setting the default model
 
-In `~/.milady/milaidy.json`, specify the model using `provider/model` format:
+In `~/.milady/milady.json`, specify the model using `provider/model` format:
 
 ```json5
 {
@@ -176,7 +176,7 @@ Or switch mid-session using the `/model` chat command:
 
 ## Model Fallbacks
 
-Milaidy supports an ordered fallback chain. If the primary model fails (rate limit, outage, billing issue), the next model in the list is tried automatically.
+Milady supports an ordered fallback chain. If the primary model fails (rate limit, outage, billing issue), the next model in the list is tried automatically.
 
 ```json5
 {
@@ -264,7 +264,7 @@ Ollama lets you run models locally with no API key and full privacy. It is the o
     ```
   </Step>
   <Step title="Select the model">
-    In `~/.milady/milaidy.json`:
+    In `~/.milady/milady.json`:
     ```json5
     {
       agents: {

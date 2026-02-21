@@ -1,15 +1,15 @@
 ---
 title: "Create a Plugin"
 sidebarTitle: "Create a Plugin"
-description: "Step-by-step tutorial for building a Milaidy plugin from scratch — scaffolding, actions, providers, testing, and local development."
+description: "Step-by-step tutorial for building a Milady plugin from scratch — scaffolding, actions, providers, testing, and local development."
 ---
 
-This tutorial walks you through creating a complete plugin from scratch. By the end you will have a working plugin with an action, a provider, and a background service running inside the Milaidy runtime.
+This tutorial walks you through creating a complete plugin from scratch. By the end you will have a working plugin with an action, a provider, and a background service running inside the Milady runtime.
 
 ## Prerequisites
 
 - Node.js 22 or later
-- A working Milaidy installation (`milaidy start` runs without errors)
+- A working Milady installation (`milady start` runs without errors)
 
 ## Step 1: Scaffold the Project
 
@@ -257,18 +257,18 @@ describe("weather-plugin", () => {
 Place the plugin directory inside the project:
 
 ```
-milaidy-project/
+milady-project/
 └── plugins/
     └── weather-plugin/
         ├── package.json
         └── src/index.ts
 ```
 
-Milaidy automatically discovers plugins in the `plugins/` directory.
+Milady automatically discovers plugins in the `plugins/` directory.
 
 ### Option B: Config-Based Loading
 
-Add to `milaidy.json`:
+Add to `milady.json`:
 
 ```json
 {
@@ -306,8 +306,8 @@ cd my-plugin && npm run build
 # Run tests
 npm test
 
-# Start Milaidy with the plugin loaded
-milaidy start
+# Start Milady with the plugin loaded
+milady start
 ```
 
 Check the logs for `[weather-plugin] Initialized` to confirm the plugin loaded.

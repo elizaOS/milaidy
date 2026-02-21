@@ -1,14 +1,14 @@
 ---
 title: "Environment Variables"
 sidebarTitle: "environment"
-description: "Complete reference for all Milaidy environment variables."
+description: "Complete reference for all Milady environment variables."
 ---
 
-Milaidy reads environment variables at startup to configure paths, ports, API access, feature flags, and runtime behavior. Variables take precedence over config file values for path and server settings. This page documents every recognized environment variable.
+Milady reads environment variables at startup to configure paths, ports, API access, feature flags, and runtime behavior. Variables take precedence over config file values for path and server settings. This page documents every recognized environment variable.
 
 ## Path and State
 
-These variables control where Milaidy stores its state, config, and credentials.
+These variables control where Milady stores its state, config, and credentials.
 
 | Variable | Description | Default |
 |----------|-------------|---------|
@@ -32,7 +32,7 @@ These variables control the API server and network behavior.
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `MILADY_PORT` | API server port when running `milaidy start`. | `2138` |
+| `MILADY_PORT` | API server port when running `milady start`. | `2138` |
 | `MILADY_HEADLESS` | Run in headless mode. Set to `1` to suppress interactive prompts. **Note:** This variable is read by the dev server (`dev-server.ts`) and is not parsed by `startEliza()` directly. The headless behavior in the main runtime is controlled by the `opts.headless` parameter passed programmatically. | (unset) |
 | `MILADY_GATEWAY_PORT` | Gateway port. Automatically set to `19001` when the `--dev` flag is used. | (unset) |
 | `MILADY_API_TOKEN` | Static API token for authenticating requests to the agent API server. When set, all API requests must include this token. | (unset) |
@@ -59,7 +59,7 @@ These variables affect the CLI output and banner behavior.
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `MILADY_HIDE_BANNER` | When set to `1`, suppresses the Milaidy ASCII banner that normally prints before each command. The banner is also suppressed for the `update` and `completion` commands regardless of this variable. | (unset) |
+| `MILADY_HIDE_BANNER` | When set to `1`, suppresses the Milady ASCII banner that normally prints before each command. The banner is also suppressed for the `update` and `completion` commands regardless of this variable. | (unset) |
 | `FORCE_COLOR` | Force colored terminal output even when stdout is not a TTY. Set to any non-empty, non-`0` string to enable. | (unset) |
 | `LOG_LEVEL` | Set the logging verbosity level. Accepted values: `debug`, `info`, `warn`, `error`. | `error` |
 | `NODE_NO_WARNINGS` | Suppresses Node.js runtime warnings. Automatically set to `1` by the CLI when `--verbose` / `--debug` is not active. | (auto-set) |
@@ -93,13 +93,13 @@ These variables configure access to AI model providers. Set at least one to enab
 | `ELIZAOS_CLOUD_API_KEY` | ElizaOS Cloud | Cloud-hosted model inference via ElizaOS |
 | `ELIZAOS_CLOUD_ENABLED` | ElizaOS Cloud | Set to `1` to enable ElizaOS Cloud (requires API key) |
 
-Use `milaidy models` to check which providers are currently configured.
+Use `milady models` to check which providers are currently configured.
 
 ---
 
 ## Authentication and Credentials
 
-These variables affect how Milaidy stores and applies credentials.
+These variables affect how Milady stores and applies credentials.
 
 | Variable | Description | Default |
 |----------|-------------|---------|
@@ -111,7 +111,7 @@ These variables affect how Milaidy stores and applies credentials.
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `EDITOR` | Editor command used by `milaidy plugins open`. Accepts a full command string (e.g. `code`, `vim`, `nano -w`). | `code` |
+| `EDITOR` | Editor command used by `milady plugins open`. Accepts a full command string (e.g. `code`, `vim`, `nano -w`). | `code` |
 
 ---
 
@@ -160,8 +160,8 @@ These variables control ElizaOS runtime initialization behavior.
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `ELIZA_ALLOW_DESTRUCTIVE_MIGRATIONS` | Allow destructive database migrations on startup. Automatically set to `true` by Milaidy. | `true` (set by Milaidy) |
-| `IGNORE_BOOTSTRAP` | Skip the ElizaOS bootstrap plugin. Automatically set to `true` by Milaidy (Milaidy provides its own bootstrap). | `true` (set by Milaidy) |
+| `ELIZA_ALLOW_DESTRUCTIVE_MIGRATIONS` | Allow destructive database migrations on startup. Automatically set to `true` by Milady. | `true` (set by Milady) |
+| `IGNORE_BOOTSTRAP` | Skip the ElizaOS bootstrap plugin. Automatically set to `true` by Milady (Milady provides its own bootstrap). | `true` (set by Milady) |
 | `MILADY_DISABLE_WORKSPACE_PLUGIN_OVERRIDES` | When set to `1`, disables loading plugin overrides from workspace directories. | (unset) |
 
 ---
@@ -191,7 +191,7 @@ These variables configure blockchain wallet keys used by wallet plugins.
 
 ## Truthy Value Convention
 
-Several Milaidy environment variables use a "truthy value" convention. A variable is considered truthy when it is set to a non-empty string that is not `0`, `false`, `no`, or `off` (case-insensitive). Unset variables are always falsy.
+Several Milady environment variables use a "truthy value" convention. A variable is considered truthy when it is set to a non-empty string that is not `0`, `false`, `no`, or `off` (case-insensitive). Unset variables are always falsy.
 
 Examples:
 - `MILADY_HEADLESS=1` -- truthy
@@ -215,14 +215,14 @@ export MILADY_STATE_DIR="/srv/milady/state"
 Or set them inline for a single command:
 
 ```bash
-ANTHROPIC_API_KEY="sk-ant-..." MILADY_PORT=3000 milaidy start
+ANTHROPIC_API_KEY="sk-ant-..." MILADY_PORT=3000 milady start
 ```
 
-Or use a `.env` file in your working directory (Milaidy loads `.env` files via the runtime configuration system).
+Or use a `.env` file in your working directory (Milady loads `.env` files via the runtime configuration system).
 
 ## Related
 
-- [milaidy models](/cli/models) -- check configured model providers
-- [milaidy config](/cli/config) -- read and inspect config file values
-- [milaidy configure](/cli/configure) -- display common environment variable guidance
+- [milady models](/cli/models) -- check configured model providers
+- [milady config](/cli/config) -- read and inspect config file values
+- [milady configure](/cli/configure) -- display common environment variable guidance
 - [CLI Reference](/cli/overview) -- complete CLI command reference with global flags

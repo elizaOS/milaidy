@@ -1,17 +1,17 @@
 ---
 title: "Twitter / X Plugin"
 sidebarTitle: "Twitter"
-description: "Twitter/X connector for Milaidy — posting, replying, monitoring mentions, and timeline interactions."
+description: "Twitter/X connector for Milady — posting, replying, monitoring mentions, and timeline interactions."
 ---
 
-The Twitter plugin connects Milaidy agents to Twitter/X, enabling autonomous posting, replying to mentions, monitoring timelines, and engaging with other accounts.
+The Twitter plugin connects Milady agents to Twitter/X, enabling autonomous posting, replying to mentions, monitoring timelines, and engaging with other accounts.
 
 **Package:** `@elizaos/plugin-twitter`
 
 ## Installation
 
 ```bash
-milaidy plugins install twitter
+milady plugins install twitter
 ```
 
 ## Setup
@@ -24,7 +24,7 @@ milaidy plugins install twitter
 4. Set the app permissions to **Read and Write** (required for posting)
 5. Generate your API keys and tokens
 
-### 2. Configure Milaidy
+### 2. Configure Milady
 
 ```json
 {

@@ -4,7 +4,7 @@ sidebarTitle: "Deep Linking"
 description: "Handle milady:// custom URL scheme links to open the desktop app and share content from external applications."
 ---
 
-The Milaidy desktop app registers the `milady://` custom URL protocol so that external applications, browsers, and OS-level actions can open and communicate with the running app. Protocol registration is handled by Capacitor's Electron deep linking module and is set up during app initialization before the main window loads.
+The Milady desktop app registers the `milady://` custom URL protocol so that external applications, browsers, and OS-level actions can open and communicate with the running app. Protocol registration is handled by Capacitor's Electron deep linking module and is set up during app initialization before the main window loads.
 
 When an external application opens a `milady://` URL while the app is already running, Electron routes the URL to the main process. If the main window is not yet ready (still loading), incoming payloads are queued and flushed to the renderer once the `did-finish-load` event fires. Events are dispatched to the renderer as `milady:share-target` custom DOM events.
 

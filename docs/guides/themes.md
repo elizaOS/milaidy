@@ -1,10 +1,10 @@
 ---
 title: Themes & Avatars
 sidebarTitle: Themes & Avatars
-description: Customize the Milaidy dashboard appearance with 6 built-in themes and 8 VRM 3D avatars with 29 emotes across 6 categories.
+description: Customize the Milady dashboard appearance with 6 built-in themes and 8 VRM 3D avatars with 29 emotes across 6 categories.
 ---
 
-Milaidy ships with 6 visual themes and 8 built-in 3D VRM avatars. Themes control the entire dashboard look and feel -- colors, typography, border radii, shadows, and animations. Avatars provide a live 3D character in the chat view.
+Milady ships with 6 visual themes and 8 built-in 3D VRM avatars. Themes control the entire dashboard look and feel -- colors, typography, border radii, shadows, and animations. Avatars provide a live 3D character in the chat view.
 
 ## Themes
 
@@ -19,7 +19,7 @@ The theme switching flow:
 3. The selected theme name is saved to `localStorage` under the key `milady:theme`.
 4. On page load, `loadTheme()` reads `localStorage`, validates the value against the set of known theme names, and falls back to `"milady"` if the stored value is missing or invalid.
 
-The theme can also be set in the Milaidy configuration file under the `ui.theme` key:
+The theme can also be set in the Milady configuration file under the `ui.theme` key:
 
 ```yaml
 ui:
@@ -49,7 +49,7 @@ The signature theme inspired by miladymaker.net. A light-mode aesthetic with sag
 
 - **Color scheme:** Light (`color-scheme: light`)
 - **Background:** White base (`#ffffff`); gradient overlay on `#root`
-- **Accent:** Signature milaidy green (`#4a7c59`), hover `#3d6b4a`
+- **Accent:** Signature milady green (`#4a7c59`), hover `#3d6b4a`
 - **Text:** Forest green (`#2d4a3e`), strong `#1a332b`, muted `#6b8e7a`
 - **Header bar:** Rich forest green bg (`#3d5c42`), light text (`#f2f7f0`)
 - **Borders:** Bold forest green (`#5b8350`), strong `#3d6b3a`, hover `#2d5228`
@@ -145,7 +145,7 @@ Neon chaos. A deliberately overwhelming, maximalist theme.
 
 ### Dark/Light Mode Handling
 
-Milaidy does not use the OS-level `prefers-color-scheme` media query. Instead, each theme explicitly sets `color-scheme: light` or `color-scheme: dark` in its CSS block. This tells the browser how to render native form controls, scrollbars, and other UA-styled elements.
+Milady does not use the OS-level `prefers-color-scheme` media query. Instead, each theme explicitly sets `color-scheme: light` or `color-scheme: dark` in its CSS block. This tells the browser how to render native form controls, scrollbars, and other UA-styled elements.
 
 - **Light themes:** `milady`, `qt314`
 - **Dark themes:** `web2000`, `programmer`, `haxor`, `psycho`
@@ -330,11 +330,11 @@ The TUI uses a separate set of brand colors: accent `#E879F9`, dim accent `#A855
 
 ### What Are VRM Avatars?
 
-[VRM](https://vrm.dev/) is an open standard for 3D humanoid avatars. Milaidy uses VRM models to render a live 3D character in the chat view that reacts to conversation with animations and emotes.
+[VRM](https://vrm.dev/) is an open standard for 3D humanoid avatars. Milady uses VRM models to render a live 3D character in the chat view that reacts to conversation with animations and emotes.
 
 ### Built-in Avatars
 
-Milaidy ships with **8 built-in VRM avatars** (indexed 1 through 8). Each avatar has:
+Milady ships with **8 built-in VRM avatars** (indexed 1 through 8). Each avatar has:
 
 - A `.vrm` model file located at `vrms/{index}.vrm`.
 - A preview thumbnail at `vrms/previews/milady-{index}.png`.

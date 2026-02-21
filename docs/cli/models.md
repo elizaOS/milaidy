@@ -1,5 +1,5 @@
 ---
-title: "milaidy models"
+title: "milady models"
 sidebarTitle: "models"
 description: "Show configured model providers by checking environment variables."
 ---
@@ -9,16 +9,16 @@ Show the status of all supported AI model providers. The `models` command checks
 ## Usage
 
 ```bash
-milaidy models
+milady models
 ```
 
 ## Options
 
-`milaidy models` takes no options beyond the standard global flags.
+`milady models` takes no options beyond the standard global flags.
 
 | Flag | Description |
 |------|-------------|
-| `--version`, `-v`, `-V` | Print the current Milaidy version and exit |
+| `--version`, `-v`, `-V` | Print the current Milady version and exit |
 | `--help`, `-h` | Show help for this command |
 | `--profile <name>` | Use a named configuration profile |
 | `--dev` | Shorthand for `--profile dev` |
@@ -26,7 +26,7 @@ milaidy models
 ## Example
 
 ```bash
-milaidy models
+milady models
 ```
 
 ## Output
@@ -71,27 +71,27 @@ export OPENAI_API_KEY="sk-..."
 source ~/.zshrc
 ```
 
-Or set them inline when running Milaidy:
+Or set them inline when running Milady:
 
 ```bash
-ANTHROPIC_API_KEY="sk-ant-..." milaidy tui
+ANTHROPIC_API_KEY="sk-ant-..." milady tui
 ```
 
 ## Selecting a Model at Runtime
 
-Use the `--model` flag with `milaidy tui` to override the active model for a session:
+Use the `--model` flag with `milady tui` to override the active model for a session:
 
 ```bash
-milaidy tui --model anthropic/claude-sonnet-4-20250514
-milaidy tui --model openai/gpt-4o
-milaidy tui --model google/gemini-2.0-flash
+milady tui --model anthropic/claude-sonnet-4-20250514
+milady tui --model openai/gpt-4o
+milady tui --model google/gemini-2.0-flash
 ```
 
 Inside the TUI, use the `/model` slash command or press `Ctrl+P` to open the model selector overlay.
 
 ## Related
 
-- [milaidy configure](/cli/configure) -- print provider key guidance to the terminal
-- [milaidy tui](/cli/tui) -- start the TUI with a model override flag
+- [milady configure](/cli/configure) -- print provider key guidance to the terminal
+- [milady tui](/cli/tui) -- start the TUI with a model override flag
 - [Environment Variables](/cli/environment) -- complete environment variable reference
 - [Model Providers](/model-providers) -- detailed provider configuration and model IDs

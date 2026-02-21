@@ -1,10 +1,10 @@
 ---
 title: "Computer Use Plugin"
 sidebarTitle: "Computer Use"
-description: "Computer use plugin for Milaidy — screen control, mouse/keyboard automation, desktop screenshot, and GUI interaction."
+description: "Computer use plugin for Milady — screen control, mouse/keyboard automation, desktop screenshot, and GUI interaction."
 ---
 
-The Computer Use plugin gives Milaidy agents the ability to control the desktop — taking screenshots, moving the mouse, clicking, typing, and interacting with any GUI application running on the host machine.
+The Computer Use plugin gives Milady agents the ability to control the desktop — taking screenshots, moving the mouse, clicking, typing, and interacting with any GUI application running on the host machine.
 
 **Package:** `@elizaos/plugin-computeruse`
 
@@ -15,7 +15,7 @@ Computer use enables agents to operate the computer as a human would: viewing th
 ## Installation
 
 ```bash
-milaidy plugins install computeruse
+milady plugins install computeruse
 ```
 
 ## Enable via Features

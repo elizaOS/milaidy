@@ -82,7 +82,7 @@ npm run build
 
 ### 4. Test
 
-Restart Milaidy. The runtime auto-discovers ejected plugins and loads them instead of the npm versions:
+Restart Milady. The runtime auto-discovers ejected plugins and loads them instead of the npm versions:
 
 ```bash
 npm start
@@ -119,7 +119,7 @@ reinject the telegram plugin
 Or manually:
 ```bash
 rm -rf ~/.milady/plugins/ejected/plugin-telegram
-# Restart Milaidy — it loads the npm version again
+# Restart Milady — it loads the npm version again
 ```
 
 ---
@@ -213,7 +213,7 @@ When the runtime resolves plugins, ejected versions always take precedence:
 2. **Workspace override** (project-local plugin overrides)
 3. **Official npm** (`node_modules/@elizaos/plugin-*`) -- with install record repair
 4. **User-installed** (`~/.milady/plugins/installed/`)
-5. **Local @milaidy** (built-in dist plugins)
+5. **Local @milady** (built-in dist plugins)
 6. **npm fallback** (`import(name)`)
 
 This means you can eject any plugin and your local version automatically takes over without any additional configuration.

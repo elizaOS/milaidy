@@ -4,7 +4,7 @@ sidebarTitle: "Skills"
 description: "Markdown-based extensions that teach the agent how to perform specific tasks."
 ---
 
-Skills are markdown-based extensions that teach the Milaidy agent how to perform specific tasks. Each skill is a folder containing a `SKILL.md` file with YAML frontmatter and instructional content that gets injected into the agent's context at runtime.
+Skills are markdown-based extensions that teach the Milady agent how to perform specific tasks. Each skill is a folder containing a `SKILL.md` file with YAML frontmatter and instructional content that gets injected into the agent's context at runtime.
 
 ---
 
@@ -27,7 +27,7 @@ Skills can include:
 | Complexity | Low -- documentation-focused | High -- full programmatic control |
 | Runtime | Injected into agent prompts | Runs as executable code |
 | Use case | Task instructions, workflows | Actions, services, API integrations |
-| Installation | Drop a folder or install from marketplace | `milaidy plugin install` |
+| Installation | Drop a folder or install from marketplace | `milady plugin install` |
 
 Use skills when you want to teach the agent a procedure. Use plugins when you need executable logic, background services, or API routes.
 
@@ -83,13 +83,13 @@ The YAML frontmatter between `---` delimiters is parsed to extract skill metadat
 | `command-tool` | string | No | Tool used for command execution (e.g., `bash`). |
 | `metadata` | object | No | Arbitrary additional data (JSON object). |
 
-**Parsing behavior:** The frontmatter parser extracts `name` and `description` from simple `key: value` lines. If the frontmatter is missing or malformed, Milaidy falls back to reading the first markdown heading as the skill name and the first non-heading paragraph as the description.
+**Parsing behavior:** The frontmatter parser extracts `name` and `description` from simple `key: value` lines. If the frontmatter is missing or malformed, Milady falls back to reading the first markdown heading as the skill name and the first non-heading paragraph as the description.
 
 ---
 
 ## Skill Locations
 
-Milaidy discovers skills from multiple directories. Skills found in later (higher-precedence) directories override earlier ones with the same name.
+Milady discovers skills from multiple directories. Skills found in later (higher-precedence) directories override earlier ones with the same name.
 
 ### 1. Bundled Skills (lowest precedence)
 
@@ -206,7 +206,7 @@ The marketplace URL is resolved from environment variables in this order:
 3. `SKILLS_MARKETPLACE_URL`
 4. Default: `https://clawhub.ai`
 
-If no registry is configured, Milaidy automatically sets `SKILLS_REGISTRY=https://clawhub.ai` at startup.
+If no registry is configured, Milady automatically sets `SKILLS_REGISTRY=https://clawhub.ai` at startup.
 
 For the legacy SkillsMP marketplace, set the `SKILLSMP_API_KEY` environment variable:
 

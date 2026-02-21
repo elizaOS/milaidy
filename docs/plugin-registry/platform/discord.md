@@ -1,17 +1,17 @@
 ---
 title: "Discord Plugin"
 sidebarTitle: "Discord"
-description: "Discord connector for Milaidy — bot integration, slash commands, voice support, and multi-server management."
+description: "Discord connector for Milady — bot integration, slash commands, voice support, and multi-server management."
 ---
 
-The Discord plugin connects Milaidy agents to Discord as a bot, enabling message handling across servers, channels, and DMs with support for slash commands, reactions, and voice channels.
+The Discord plugin connects Milady agents to Discord as a bot, enabling message handling across servers, channels, and DMs with support for slash commands, reactions, and voice channels.
 
 **Package:** `@elizaos/plugin-discord`
 
 ## Installation
 
 ```bash
-milaidy plugins install discord
+milady plugins install discord
 ```
 
 ## Setup
@@ -34,7 +34,7 @@ milaidy plugins install discord
 3. Select permissions: `Send Messages`, `Read Message History`, `Add Reactions`, `Connect` (for voice)
 4. Copy the generated URL and open it to invite the bot
 
-### 3. Configure Milaidy
+### 3. Configure Milady
 
 ```json
 {
@@ -95,7 +95,7 @@ Determines if agent should respond:
   - DM → always respond
   - Channel → respond if mentioned or addressed
        ↓
-Formats as Milaidy Memory
+Formats as Milady Memory
        ↓
 AgentRuntime processes
        ↓

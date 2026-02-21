@@ -1,15 +1,15 @@
 ---
-title: "milaidy setup"
+title: "milady setup"
 sidebarTitle: "setup"
-description: "Initialize the Milaidy config file and agent workspace."
+description: "Initialize the Milady config file and agent workspace."
 ---
 
-Initialize the Milaidy configuration file (`~/.milady/milady.json`) and bootstrap the agent workspace directory with required scaffold files. Run this command once before starting the agent for the first time, or to repair a missing or incomplete workspace.
+Initialize the Milady configuration file (`~/.milady/milady.json`) and bootstrap the agent workspace directory with required scaffold files. Run this command once before starting the agent for the first time, or to repair a missing or incomplete workspace.
 
 ## Usage
 
 ```bash
-milaidy setup [options]
+milady setup [options]
 ```
 
 ## Options
@@ -22,7 +22,7 @@ Global flags:
 
 | Flag | Description |
 |------|-------------|
-| `--version`, `-v`, `-V` | Print the current Milaidy version and exit |
+| `--version`, `-v`, `-V` | Print the current Milady version and exit |
 | `--help`, `-h` | Show help for this command |
 | `--profile <name>` | Use a named configuration profile |
 | `--dev` | Shorthand for `--profile dev` |
@@ -31,21 +31,21 @@ Global flags:
 
 ```bash
 # Run default setup (uses config or built-in defaults)
-milaidy setup
+milady setup
 
 # Initialize with a custom workspace directory
-milaidy setup --workspace ~/my-agent-workspace
+milady setup --workspace ~/my-agent-workspace
 
 # Setup for a named profile
-milaidy --profile staging setup
+milady --profile staging setup
 
 # Setup with an absolute path
-milaidy setup --workspace /srv/milady/workspace
+milady setup --workspace /srv/milady/workspace
 ```
 
 ## Behavior
 
-`milaidy setup` performs the following steps in order:
+`milady setup` performs the following steps in order:
 
 1. **Load existing config** -- attempts to read `~/.milady/milady.json`. If the file does not exist (ENOENT), setup continues with default values. Any other error is re-thrown.
 
@@ -87,7 +87,7 @@ If neither is set, the default is `~/.milady/milady.json`.
 
 ## What the Workspace Contains
 
-The agent workspace is the directory where Milaidy stores:
+The agent workspace is the directory where Milady stores:
 
 - Character definition files
 - Memory databases
@@ -98,7 +98,7 @@ Bootstrap files are only written on first setup or if they are missing. Existing
 
 ## Related
 
-- [milaidy start](/cli/start) -- start the agent runtime after setup
-- [milaidy configure](/cli/configure) -- view configuration guidance
-- [milaidy config](/cli/config) -- read and inspect config values
+- [milady start](/cli/start) -- start the agent runtime after setup
+- [milady configure](/cli/configure) -- view configuration guidance
+- [milady config](/cli/config) -- read and inspect config values
 - [Environment Variables](/cli/environment) -- all environment variables

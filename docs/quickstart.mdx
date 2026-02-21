@@ -1,10 +1,10 @@
 ---
 title: "Quick Start"
 sidebarTitle: "Quick Start"
-description: "Get Milaidy up and running in under a minute."
+description: "Get Milady up and running in under a minute."
 ---
 
-This guide walks through what happens the first time you launch Milaidy, from installation to your first conversation.
+This guide walks through what happens the first time you launch Milady, from installation to your first conversation.
 
 ## Install
 
@@ -17,7 +17,7 @@ If you haven't installed yet, the fastest path:
   <Tab title="CLI (macOS / Linux)">
     ```bash
     curl -fsSL https://milady-ai.github.io/milady/install.sh | bash
-    milaidy setup
+    milady setup
     ```
   </Tab>
   <Tab title="CLI (Windows)">
@@ -28,7 +28,7 @@ If you haven't installed yet, the fastest path:
   <Tab title="npm">
     ```bash
     npm install -g milaidy
-    milaidy setup
+    milady setup
     ```
   </Tab>
 </Tabs>
@@ -36,22 +36,22 @@ If you haven't installed yet, the fastest path:
 Then start:
 
 ```bash
-milaidy
+milady
 ```
 
 ## What Happens on First Run
 
-When Milaidy detects no existing agent configuration (no `name` field in `~/.milady/milady.json`), it launches an interactive onboarding wizard. The wizard runs in your terminal via [@clack/prompts](https://github.com/bombshell-dev/clack) and walks through five steps: naming your agent, choosing a personality, selecting a model provider, setting up wallets, and saving everything to config.
+When Milady detects no existing agent configuration (no `name` field in `~/.milady/milady.json`), it launches an interactive onboarding wizard. The wizard runs in your terminal via [@clack/prompts](https://github.com/bombshell-dev/clack) and walks through five steps: naming your agent, choosing a personality, selecting a model provider, setting up wallets, and saving everything to config.
 
 <Info>
-The onboarding wizard only runs when stdin is a TTY (interactive terminal). In headless or piped environments, Milaidy skips onboarding and expects a pre-configured `milady.json`.
+The onboarding wizard only runs when stdin is a TTY (interactive terminal). In headless or piped environments, Milady skips onboarding and expects a pre-configured `milady.json`.
 </Info>
 
 ## The Onboarding Flow
 
 <Steps>
   <Step title="Welcome">
-    Milaidy greets you with a welcome banner:
+    Milady greets you with a welcome banner:
 
     ```
     ┌  WELCOME TO MILADY!
@@ -122,7 +122,7 @@ The onboarding wizard only runs when stdin is a TTY (interactive terminal). In h
     After selecting a provider, you paste your API key (masked input). For Ollama, you confirm or change the base URL (default: `http://localhost:11434`).
 
     <Info>
-    If Milaidy detects an existing API key in your environment (e.g., `ANTHROPIC_API_KEY` is already set), it skips this step and uses the detected provider automatically.
+    If Milady detects an existing API key in your environment (e.g., `ANTHROPIC_API_KEY` is already set), it skips this step and uses the detected provider automatically.
     </Info>
   </Step>
 
@@ -161,7 +161,7 @@ The onboarding wizard only runs when stdin is a TTY (interactive terminal). In h
 
 ## After Onboarding
 
-Once onboarding completes, Milaidy starts the following services:
+Once onboarding completes, Milady starts the following services:
 
 | Service | URL | Description |
 |---------|-----|-------------|
@@ -235,7 +235,7 @@ you: explain how transformers work
     EOF
 
     # Start headless
-    milaidy start --headless
+    milady start --headless
     ```
 
     <Warning>
@@ -247,7 +247,7 @@ you: explain how transformers work
     The TUI provides a rich terminal interface with live activity feed, hotkeys, and token tracking:
 
     ```bash
-    milaidy tui
+    milady tui
     ```
 
     Or during development:
@@ -256,7 +256,7 @@ you: explain how transformers work
     bun run tui
     ```
 
-    The TUI expects an existing `~/.milady/milady.json` config file. Run `milaidy` first to go through onboarding, then switch to TUI mode.
+    The TUI expects an existing `~/.milady/milady.json` config file. Run `milady` first to go through onboarding, then switch to TUI mode.
 
     **TUI Hotkeys:**
 
@@ -272,12 +272,12 @@ you: explain how transformers work
   </Tab>
 
   <Tab title="Existing ElizaOS Users">
-    Milaidy is built on ElizaOS, so the plugin system, action/provider/evaluator patterns, and character format are all compatible. Key differences:
+    Milady is built on ElizaOS, so the plugin system, action/provider/evaluator patterns, and character format are all compatible. Key differences:
 
     - **Config location**: `~/.milady/milady.json` instead of an inline character file.
-    - **Gateway**: Milaidy adds a multiplexed WebSocket + HTTP gateway on port 18789.
+    - **Gateway**: Milady adds a multiplexed WebSocket + HTTP gateway on port 18789.
     - **Onboarding**: The first-run wizard generates a character from style presets and random pool sampling.
-    - **Plugin manager**: Install plugins via `milaidy plugins add <name>` -- they are tracked in config and auto-loaded.
+    - **Plugin manager**: Install plugins via `milady plugins add <name>` -- they are tracked in config and auto-loaded.
     - **Skills**: Markdown-based extensions via ClawHub registry, separate from the plugin system.
 
     Existing ElizaOS plugins are fully compatible. Add them to your config or install via the plugin manager.

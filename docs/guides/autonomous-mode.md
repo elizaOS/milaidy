@@ -4,7 +4,7 @@ sidebarTitle: Autonomous Mode
 description: Configure and monitor the agent's autonomous reasoning loop, where it acts independently between conversations.
 ---
 
-Autonomous mode allows the Milaidy agent to reason and act independently between user conversations. When enabled, the agent runs a continuous loop -- observing its environment, making decisions, and executing actions without waiting for explicit user input. This is useful for background monitoring, scheduled workflows, and proactive behavior.
+Autonomous mode allows the Milady agent to reason and act independently between user conversations. When enabled, the agent runs a continuous loop -- observing its environment, making decisions, and executing actions without waiting for explicit user input. This is useful for background monitoring, scheduled workflows, and proactive behavior.
 
 ## How Autonomous Mode Works
 

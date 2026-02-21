@@ -1,5 +1,5 @@
 ---
-title: "milaidy plugins"
+title: "milady plugins"
 sidebarTitle: "plugins"
 description: "Browse, search, install, and manage ElizaOS plugins from the registry."
 ---
@@ -11,7 +11,7 @@ Plugin names support shorthand resolution: `twitter` resolves to `@elizaos/plugi
 ## Usage
 
 ```bash
-milaidy plugins <subcommand> [options]
+milady plugins <subcommand> [options]
 ```
 
 ## Subcommands
@@ -33,14 +33,14 @@ milaidy plugins <subcommand> [options]
 
 ---
 
-## `milaidy plugins list`
+## `milady plugins list`
 
 List all plugins from the ElizaOS registry, alphabetically sorted.
 
 ### Usage
 
 ```bash
-milaidy plugins list [options]
+milady plugins list [options]
 ```
 
 ### Options
@@ -54,27 +54,27 @@ milaidy plugins list [options]
 
 ```bash
 # List all registry plugins
-milaidy plugins list
+milady plugins list
 
 # Search within the list command
-milaidy plugins list -q twitter
+milady plugins list -q twitter
 
 # Show more results
-milaidy plugins list --limit 100
+milady plugins list --limit 100
 ```
 
 When a query is provided, results include version compatibility badges (v0/v1/v2), installation status, tags, and descriptions. Without a query, all registry plugins are listed with a brief description.
 
 ---
 
-## `milaidy plugins search <query>`
+## `milady plugins search <query>`
 
 Search the plugin registry by keyword with relevance scoring and star counts.
 
 ### Usage
 
 ```bash
-milaidy plugins search <query> [options]
+milady plugins search <query> [options]
 ```
 
 ### Options
@@ -86,46 +86,46 @@ milaidy plugins search <query> [options]
 ### Examples
 
 ```bash
-milaidy plugins search twitter
-milaidy plugins search "discord bot" --limit 30
+milady plugins search twitter
+milady plugins search "discord bot" --limit 30
 ```
 
 Results show each plugin's name, match percentage, description, and GitHub star count.
 
 ---
 
-## `milaidy plugins info <name>`
+## `milady plugins info <name>`
 
 Show detailed information about a specific plugin from the registry.
 
 ### Usage
 
 ```bash
-milaidy plugins info <name>
+milady plugins info <name>
 ```
 
 ### Examples
 
 ```bash
 # Shorthand name
-milaidy plugins info twitter
+milady plugins info twitter
 
 # Fully qualified name
-milaidy plugins info @elizaos/plugin-twitter
+milady plugins info @elizaos/plugin-twitter
 ```
 
 The info view includes: GitHub repository URL, homepage, programming language, star count, topics, npm version availability across ElizaOS versions (v0/v1/v2), and the install command.
 
 ---
 
-## `milaidy plugins install <name>`
+## `milady plugins install <name>`
 
 Install a plugin from the registry. Supports pinning to a specific version or dist-tag.
 
 ### Usage
 
 ```bash
-milaidy plugins install <name> [options]
+milady plugins install <name> [options]
 ```
 
 ### Options
@@ -138,19 +138,19 @@ milaidy plugins install <name> [options]
 
 ```bash
 # Install the latest version
-milaidy plugins install twitter
+milady plugins install twitter
 
 # Pin to a specific version
-milaidy plugins install twitter@1.2.3
+milady plugins install twitter@1.2.3
 
 # Install a dist-tag
-milaidy plugins install @elizaos/plugin-twitter@next
+milady plugins install @elizaos/plugin-twitter@next
 
 # Install a custom scoped package
-milaidy plugins install @custom/plugin-x@2.0.0
+milady plugins install @custom/plugin-x@2.0.0
 
 # Install without restarting
-milaidy plugins install twitter --no-restart
+milady plugins install twitter --no-restart
 ```
 
 By default, the agent restarts automatically after a successful install to load the new plugin. Use `--no-restart` to defer the restart.
@@ -168,14 +168,14 @@ Plugin names are normalized using these rules:
 
 ---
 
-## `milaidy plugins uninstall <name>`
+## `milady plugins uninstall <name>`
 
 Remove a user-installed plugin.
 
 ### Usage
 
 ```bash
-milaidy plugins uninstall <name> [options]
+milady plugins uninstall <name> [options]
 ```
 
 ### Options
@@ -187,46 +187,46 @@ milaidy plugins uninstall <name> [options]
 ### Example
 
 ```bash
-milaidy plugins uninstall twitter
-milaidy plugins uninstall twitter --no-restart
+milady plugins uninstall twitter
+milady plugins uninstall twitter --no-restart
 ```
 
 ---
 
-## `milaidy plugins installed`
+## `milady plugins installed`
 
 List all plugins installed from the registry (does not include bundled or custom drop-in plugins).
 
 ### Usage
 
 ```bash
-milaidy plugins installed
+milady plugins installed
 ```
 
 Output shows each installed plugin's name and version.
 
 ---
 
-## `milaidy plugins refresh`
+## `milady plugins refresh`
 
 Force-refresh the plugin registry cache. Fetches the latest plugin data from the remote registry, bypassing any cached results.
 
 ### Usage
 
 ```bash
-milaidy plugins refresh
+milady plugins refresh
 ```
 
 ---
 
-## `milaidy plugins test`
+## `milady plugins test`
 
 Validate custom drop-in plugins placed in `~/.milady/plugins/custom/` and any additional directories registered via `add-path`.
 
 ### Usage
 
 ```bash
-milaidy plugins test
+milady plugins test
 ```
 
 For each candidate plugin directory, the test command:
@@ -240,14 +240,14 @@ A summary of valid and failed plugins is printed after all candidates are tested
 
 ---
 
-## `milaidy plugins config <name>`
+## `milady plugins config <name>`
 
 Show or interactively edit the configuration parameters for a plugin.
 
 ### Usage
 
 ```bash
-milaidy plugins config <name> [options]
+milady plugins config <name> [options]
 ```
 
 ### Options
@@ -260,10 +260,10 @@ milaidy plugins config <name> [options]
 
 ```bash
 # View current plugin configuration
-milaidy plugins config twitter
+milady plugins config twitter
 
 # Interactively edit plugin configuration
-milaidy plugins config twitter --edit
+milady plugins config twitter --edit
 ```
 
 In **display mode** (default), all plugin parameters are listed with their current values. Sensitive fields (API keys, tokens) are masked as `●●●●●●●●`.
@@ -281,62 +281,62 @@ Values are saved to both `process.env` and the `plugins.entries.<pluginId>.confi
 
 ---
 
-## `milaidy plugins add-path <path>`
+## `milady plugins add-path <path>`
 
 Register an additional plugin search directory in the config file. The path must be an existing directory.
 
 ### Usage
 
 ```bash
-milaidy plugins add-path <path>
+milady plugins add-path <path>
 ```
 
 ### Example
 
 ```bash
-milaidy plugins add-path ~/my-custom-plugins
-milaidy plugins add-path /opt/milady/plugins
+milady plugins add-path ~/my-custom-plugins
+milady plugins add-path /opt/milady/plugins
 ```
 
 The path is added to `plugins.load.paths` in `milady.json`. Duplicate paths (after resolution) are detected and rejected. Restart the agent for plugins in the new directory to be loaded.
 
 ---
 
-## `milaidy plugins paths`
+## `milady plugins paths`
 
 List all plugin search directories and their contents, including the default custom plugins directory and any directories registered via `add-path`.
 
 ### Usage
 
 ```bash
-milaidy plugins paths
+milady plugins paths
 ```
 
 Output shows each directory's origin (`custom` for the built-in directory, `config` for registered paths), path, and the plugins found in each.
 
 ---
 
-## `milaidy plugins open [name-or-path]`
+## `milady plugins open [name-or-path]`
 
 Open a plugin directory in your editor using the `EDITOR` environment variable (defaults to `code`).
 
 ### Usage
 
 ```bash
-milaidy plugins open [name-or-path]
+milady plugins open [name-or-path]
 ```
 
 ### Examples
 
 ```bash
 # Open the custom plugins directory
-milaidy plugins open
+milady plugins open
 
 # Open a specific plugin by name
-milaidy plugins open twitter
+milady plugins open twitter
 
 # Open a directory path
-milaidy plugins open ~/my-custom-plugins/my-plugin
+milady plugins open ~/my-custom-plugins/my-plugin
 ```
 
 - With no argument: opens `~/.milady/plugins/custom/`
@@ -347,7 +347,7 @@ milaidy plugins open ~/my-custom-plugins/my-plugin
 
 ## Custom Drop-In Plugins
 
-Milaidy supports custom plugins that do not need to come from the ElizaOS registry. Place a plugin directory in `~/.milady/plugins/custom/` and it will be automatically loaded at startup.
+Milady supports custom plugins that do not need to come from the ElizaOS registry. Place a plugin directory in `~/.milady/plugins/custom/` and it will be automatically loaded at startup.
 
 A valid drop-in plugin directory must:
 
@@ -355,10 +355,10 @@ A valid drop-in plugin directory must:
 2. Export an object with at least `name` (string) and `description` (string) properties
 3. Include at least one capability: `services`, `providers`, `actions`, `routes`, `events`, or an `init` function
 
-Use `milaidy plugins test` to validate your custom plugins before restarting the agent.
+Use `milady plugins test` to validate your custom plugins before restarting the agent.
 
 ## Related
 
-- [milaidy plugins test](/cli/plugins) -- validate custom plugins
-- [milaidy start](/cli/start) -- restart the agent after installing plugins
+- [milady plugins test](/cli/plugins) -- validate custom plugins
+- [milady start](/cli/start) -- restart the agent after installing plugins
 - [Configuration Reference](/configuration) -- `plugins` config section

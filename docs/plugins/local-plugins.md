@@ -23,7 +23,7 @@ This guide covers developing plugins locally without publishing to npm -- custom
 
 ## Plugin Locations
 
-Milaidy discovers plugins from three locations under the state directory (`~/.milady/` by default):
+Milady discovers plugins from three locations under the state directory (`~/.milady/` by default):
 
 ### 1. Ejected Plugins
 
@@ -57,7 +57,7 @@ Any subdirectory here with a `package.json` is auto-discovered at startup. This 
 
 ### 4. Extra Load Paths
 
-Additional directories can be specified in `milaidy.json`:
+Additional directories can be specified in `milady.json`:
 
 ```json
 {
@@ -78,7 +78,7 @@ Each directory is scanned the same way as `plugins/custom/` -- subdirectories wi
 
 ```
 ~/.milady/
-├── milaidy.json              # Main config file
+├── milady.json              # Main config file
 └── plugins/
     ├── ejected/              # Git-cloned upstream plugins for editing
     │   └── plugin-telegram/
@@ -101,20 +101,20 @@ Each directory is scanned the same way as `plugins/custom/` -- subdirectories wi
 
 ## Plugin Loading Priority
 
-When multiple sources provide the same plugin name, Milaidy uses this precedence (highest first):
+When multiple sources provide the same plugin name, Milady uses this precedence (highest first):
 
 | Priority | Source | Path | Use case |
 |----------|--------|------|----------|
 | 1 | **Ejected** | `~/.milady/plugins/ejected/` | Modifying upstream plugin source |
-| 2 | **Workspace override** | Internal dev mechanism | Milaidy contributors only |
+| 2 | **Workspace override** | Internal dev mechanism | Milady contributors only |
 | 3 | **Official npm** (with install record) | `node_modules/@elizaos/plugin-*` | Standard `@elizaos/*` plugins prefer bundled copies |
 | 4 | **User-installed** (with install record) | `~/.milady/plugins/installed/` | Third-party plugins installed at runtime |
-| 5 | **Local @milady** | `src/plugins/` (compiled dist) | Built-in Milaidy plugins |
+| 5 | **Local @milady** | `src/plugins/` (compiled dist) | Built-in Milady plugins |
 | 6 | **npm fallback** | `import(name)` | Last resort dynamic import |
 
 Custom/drop-in plugins are merged into the install records before resolution, so they participate in priorities 3-4 depending on their package name.
 
-The deny list (`plugins.deny` in `milaidy.json`) takes absolute precedence -- denied plugins are never loaded regardless of source.
+The deny list (`plugins.deny` in `milady.json`) takes absolute precedence -- denied plugins are never loaded regardless of source.
 
 ---
 
@@ -186,7 +186,7 @@ const greetAction: Action = {
     const name = options?.parameters?.name ?? "friend";
     return {
       success: true,
-      text: `Hello, ${name}! Welcome to Milaidy.`,
+      text: `Hello, ${name}! Welcome to Milady.`,
     };
   },
   parameters: [
@@ -229,11 +229,11 @@ bun install
 bun run build
 ```
 
-### Step 6: Restart Milaidy
+### Step 6: Restart Milady
 
 ```bash
 # If running in terminal
-milaidy start
+milady start
 
 # Or restart via the agent chat
 # Type: /restart
@@ -251,7 +251,7 @@ On startup, you should see in the logs:
 
 ### Allow and Deny Lists
 
-Control which plugins load via `milaidy.json`:
+Control which plugins load via `milady.json`:
 
 ```json
 {
@@ -296,7 +296,7 @@ Setting `enabled: false` on an entry prevents that plugin from loading, even if 
 
 ### Auto-Enable System
 
-Milaidy automatically enables plugins based on your configuration:
+Milady automatically enables plugins based on your configuration:
 
 - **Connector plugins**: If a connector (telegram, discord, slack, etc.) has credentials configured under `connectors`, its plugin is auto-enabled.
 - **Provider plugins**: If an API key env var is set (e.g., `ANTHROPIC_API_KEY`), the corresponding provider plugin is auto-enabled.
@@ -316,7 +316,7 @@ The plugin installer (`plugin-installer.ts`) handles runtime installation of plu
 2. **Installs** via `bun add` (preferred) or `npm install` (fallback) into an isolated directory at `~/.milady/plugins/installed/<sanitised-name>/`
 3. **Falls back** to `git clone` if the npm install fails
 4. **Validates** that the installed plugin has a resolvable entry point
-5. **Records** the installation in `milaidy.json` under `plugins.installs`
+5. **Records** the installation in `milady.json` under `plugins.installs`
 6. **Triggers** an agent restart to load the new plugin
 
 ### Package Name Sanitisation
@@ -325,7 +325,7 @@ The installer sanitises package names for directory names by replacing non-alpha
 
 ### Install Record
 
-Each installed plugin is tracked in `milaidy.json`:
+Each installed plugin is tracked in `milady.json`:
 
 ```json
 {
@@ -349,13 +349,13 @@ The installer uses a serialisation lock to prevent concurrent installs from corr
 
 ### Uninstalling
 
-Uninstallation removes the plugin directory from disk and deletes its record from `milaidy.json`. Core/built-in plugins cannot be uninstalled. The uninstaller refuses to delete directories outside `~/.milady/plugins/installed/` as a safety measure.
+Uninstallation removes the plugin directory from disk and deletes its record from `milady.json`. Core/built-in plugins cannot be uninstalled. The uninstaller refuses to delete directories outside `~/.milady/plugins/installed/` as a safety measure.
 
 ---
 
 ## Ejecting Upstream Plugins
 
-The eject system lets you clone an upstream plugin's source, modify it, and have Milaidy load your local copy instead of the npm package.
+The eject system lets you clone an upstream plugin's source, modify it, and have Milady load your local copy instead of the npm package.
 
 ### Eject via Agent Chat
 
@@ -411,7 +411,7 @@ Remove the ejected directory to fall back to the npm version:
 
 ```bash
 rm -rf ~/.milady/plugins/ejected/plugin-telegram
-# Restart milaidy -- it will load the npm version again
+# Restart milady -- it will load the npm version again
 ```
 
 Or via agent chat: `reinject the telegram plugin`
@@ -429,14 +429,14 @@ The standard development loop for local plugins:
 cd ~/.milady/plugins/custom/my-plugin
 bun run dev  # runs tsc --watch
 
-# Terminal 2: Run milaidy
-milaidy start
+# Terminal 2: Run milady
+milady start
 ```
 
 After making changes, the TypeScript watcher rebuilds `dist/` automatically. You still need to restart the agent to pick up the new build:
 
 - Type `/restart` in the agent chat, or
-- Press Ctrl+C and run `milaidy start` again
+- Press Ctrl+C and run `milady start` again
 
 ### Testing Your Plugin
 
@@ -444,7 +444,7 @@ Chat with the agent and trigger your action:
 
 ```
 You: Greet me as Alice
-Agent: Hello, Alice! Welcome to Milaidy.
+Agent: Hello, Alice! Welcome to Milady.
 ```
 
 Check the logs for your plugin's initialization message and any debug output.
@@ -455,7 +455,7 @@ If you prefer manual builds:
 
 ```bash
 cd ~/.milady/plugins/custom/my-plugin
-bun run build && milaidy start
+bun run build && milady start
 ```
 
 ### Using Source Directly (Development Only)
@@ -468,7 +468,7 @@ For rapid prototyping, you can point `main` at the TypeScript source:
 }
 ```
 
-Milaidy's runtime can import TypeScript files directly in dev mode. Switch to `dist/index.js` before distributing.
+Milady's runtime can import TypeScript files directly in dev mode. Switch to `dist/index.js` before distributing.
 
 ---
 
@@ -476,14 +476,14 @@ Milaidy's runtime can import TypeScript files directly in dev mode. Switch to `d
 
 ### Log Levels
 
-Milaidy reads the log level from `LOG_LEVEL` env var or `logging.level` in config. If `LOG_LEVEL` is set in the environment, it takes precedence over the config value.
+Milady reads the log level from `LOG_LEVEL` env var or `logging.level` in config. If `LOG_LEVEL` is set in the environment, it takes precedence over the config value.
 
 ```bash
 # Verbose logging via environment variable
-LOG_LEVEL=debug milaidy start
+LOG_LEVEL=debug milady start
 ```
 
-Or set it in `milaidy.json`:
+Or set it in `milady.json`:
 
 ```json
 {
@@ -513,7 +513,7 @@ init: async (config, runtime) => {
 Enable source maps for readable stack traces pointing to your TypeScript source:
 
 ```bash
-NODE_OPTIONS="--enable-source-maps" milaidy start
+NODE_OPTIONS="--enable-source-maps" milady start
 ```
 
 Make sure `"sourceMap": true` is set in your `tsconfig.json` (included in the template above).
@@ -529,9 +529,9 @@ Create `.vscode/launch.json` in your project:
     {
       "type": "node",
       "request": "launch",
-      "name": "Debug Milaidy",
+      "name": "Debug Milady",
       "runtimeExecutable": "bun",
-      "runtimeArgs": ["run", "milaidy", "start"],
+      "runtimeArgs": ["run", "milady", "start"],
       "cwd": "${workspaceFolder}",
       "env": {
         "LOG_LEVEL": "debug"
@@ -556,10 +556,10 @@ Set breakpoints in your plugin's TypeScript files and launch with F5.
 **Plugin discovered but fails to load:**
 - Run `bun run build` -- the `dist/` directory may be missing
 - Verify the default export is a valid Plugin object with `name` and `description`
-- Check for import errors in the logs: `LOG_LEVEL=debug milaidy start`
+- Check for import errors in the logs: `LOG_LEVEL=debug milady start`
 
 **Plugin denied or filtered out:**
-- Check `plugins.deny` in `milaidy.json` -- your plugin name may be listed
+- Check `plugins.deny` in `milady.json` -- your plugin name may be listed
 - If `plugins.allow` is set, your plugin must be in the allowlist
 - Check `plugins.entries.<name>.enabled` is not set to `false`
 
@@ -578,14 +578,14 @@ These environment variables affect plugin paths and behavior. They are defined i
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `MILADY_STATE_DIR` | `~/.milady` | Override the state directory. Changes where plugins, config, and credentials are stored. |
-| `MILADY_CONFIG_PATH` | `~/.milady/milaidy.json` | Override the config file path directly. |
+| `MILADY_CONFIG_PATH` | `~/.milady/milady.json` | Override the config file path directly. |
 | `MILADY_OAUTH_DIR` | `~/.milady/credentials` | Override the OAuth credentials directory. |
 | `LOG_LEVEL` | `error` | Set log verbosity: `debug`, `info`, `warn`, `error`. |
 | `MILADY_DISABLE_WORKSPACE_PLUGIN_OVERRIDES` | unset | Set to `1` to disable workspace plugin overrides (dev-only mechanism). |
 
 When `MILADY_STATE_DIR` is set, all derived paths change accordingly:
 - Plugins: `$MILADY_STATE_DIR/plugins/installed/`, `$MILADY_STATE_DIR/plugins/custom/`, `$MILADY_STATE_DIR/plugins/ejected/`
-- Config: `$MILADY_STATE_DIR/milaidy.json` (unless `MILADY_CONFIG_PATH` is also set)
+- Config: `$MILADY_STATE_DIR/milady.json` (unless `MILADY_CONFIG_PATH` is also set)
 - Models cache: `$MILADY_STATE_DIR/models/`
 
 ---
@@ -623,7 +623,7 @@ npm pack              # Preview what gets published
 npm publish --access public
 ```
 
-### 3. Install via Milaidy
+### 3. Install via Milady
 
 Once published, install through the agent chat or directly in config:
 

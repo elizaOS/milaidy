@@ -4,7 +4,7 @@ sidebarTitle: "Knowledge"
 description: "RAG system — document ingestion, embedding generation, similarity search, knowledge retrieval, and supported file formats."
 ---
 
-The Knowledge plugin provides a Retrieval-Augmented Generation (RAG) system for Milaidy agents. It enables agents to retrieve relevant information from a document corpus and inject it into the LLM context.
+The Knowledge plugin provides a Retrieval-Augmented Generation (RAG) system for Milady agents. It enables agents to retrieve relevant information from a document corpus and inject it into the LLM context.
 
 **Package:** `@elizaos/plugin-knowledge` (core plugin — always loaded)
 
@@ -49,7 +49,7 @@ curl -X POST http://localhost:3000/api/knowledge \
 
 ### Via Configuration
 
-Place documents in the knowledge directory specified in `milaidy.json`:
+Place documents in the knowledge directory specified in `milady.json`:
 
 ```json
 {
@@ -97,7 +97,7 @@ Place documents in the knowledge directory specified in `milaidy.json`:
 
 By default, knowledge embeddings use the local embedding model provided by `@elizaos/plugin-local-embedding` (Nomic Embed Text v1.5, 768 dimensions). This runs entirely on-device — no API key required.
 
-To use a different embedding model, configure it in `milaidy.json`:
+To use a different embedding model, configure it in `milady.json`:
 
 ```json
 {

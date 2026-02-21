@@ -1,17 +1,17 @@
 ---
 title: "Anthropic Plugin"
 sidebarTitle: "Anthropic"
-description: "Anthropic Claude model provider for Milaidy — Claude Opus 4, Sonnet 4.5, Haiku, and the extended thinking models."
+description: "Anthropic Claude model provider for Milady — Claude Opus 4, Sonnet 4.5, Haiku, and the extended thinking models."
 ---
 
-The Anthropic plugin connects Milaidy agents to Anthropic's Claude API, providing access to the Claude 4 and Claude 3 model families including Opus, Sonnet, and Haiku variants.
+The Anthropic plugin connects Milady agents to Anthropic's Claude API, providing access to the Claude 4 and Claude 3 model families including Opus, Sonnet, and Haiku variants.
 
 **Package:** `@elizaos/plugin-anthropic`
 
 ## Installation
 
 ```bash
-milaidy plugins install anthropic
+milady plugins install anthropic
 ```
 
 ## Auto-Enable
@@ -32,7 +32,7 @@ export ANTHROPIC_API_KEY=sk-ant-...
 
 *Either `ANTHROPIC_API_KEY` or `CLAUDE_API_KEY` is required.
 
-### milaidy.json Example
+### milady.json Example
 
 ```json
 {

@@ -1,10 +1,10 @@
 ---
 title: Plugins Overview
 sidebarTitle: Overview
-description: Milaidy's plugin system provides modular capabilities — model providers, platform connectors, DeFi integrations, and custom features.
+description: Milady's plugin system provides modular capabilities — model providers, platform connectors, DeFi integrations, and custom features.
 ---
 
-Plugins are the primary extension mechanism for Milaidy. Every capability beyond the core runtime — from LLM providers to blockchain interactions — is delivered as a plugin.
+Plugins are the primary extension mechanism for Milady. Every capability beyond the core runtime — from LLM providers to blockchain interactions — is delivered as a plugin.
 
 ## What is a Plugin?
 
@@ -20,7 +20,7 @@ A plugin is a self-contained module that registers one or more of:
 <CardGroup cols={2}>
 
 <Card title="Core Plugins" icon="cube" href="/plugin-registry/bootstrap">
-  Essential plugins that ship with every Milaidy installation — message processing, knowledge, database, and secrets.
+  Essential plugins that ship with every Milady installation — message processing, knowledge, database, and secrets.
 </Card>
 
 <Card title="Model Providers" icon="brain" href="/plugin-registry/llm/openai">
@@ -79,26 +79,26 @@ Install → Register → Initialize → Active → Shutdown
 ### Install from Registry
 
 ```bash
-milaidy plugins install @elizaos/plugin-openai
+milady plugins install @elizaos/plugin-openai
 ```
 
 ### List Installed Plugins
 
 ```bash
-milaidy plugins list
+milady plugins list
 ```
 
 ### Enable/Disable
 
 ```bash
-milaidy plugins enable plugin-name
-milaidy plugins disable plugin-name
+milady plugins enable plugin-name
+milady plugins disable plugin-name
 ```
 
 ### Eject (Copy to Local)
 
 ```bash
-milaidy plugins eject plugin-name
+milady plugins eject plugin-name
 ```
 
 See [Plugin Eject](/plugins/plugin-eject) for details on customizing ejected plugins.

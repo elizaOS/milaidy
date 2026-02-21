@@ -1,10 +1,10 @@
 ---
 title: System Architecture
 sidebarTitle: Architecture
-description: High-level overview of the Milaidy AI system architecture, layers, plugin system, and cross-platform delivery.
+description: High-level overview of the Milady AI system architecture, layers, plugin system, and cross-platform delivery.
 ---
 
-Milaidy is a cross-platform AI agent runtime built on top of [ElizaOS](https://elizaos.ai). It delivers the same backend across CLI, web, desktop (Electron), and mobile (Capacitor) surfaces through a layered architecture. This page covers the full system from entry points through runtime lifecycle, plugin loading, API surface, and build tooling.
+Milady is a cross-platform AI agent runtime built on top of [ElizaOS](https://elizaos.ai). It delivers the same backend across CLI, web, desktop (Electron), and mobile (Capacitor) surfaces through a layered architecture. This page covers the full system from entry points through runtime lifecycle, plugin loading, API surface, and build tooling.
 
 ## High-Level Diagram
 
@@ -28,7 +28,7 @@ Milaidy is a cross-platform AI agent runtime built on top of [ElizaOS](https://e
 +---------------------------------------------------------------+
 |                    Runtime Layer (ElizaOS)                     |
 |  AgentRuntime + Plugin system                                 |
-|  13 core plugins + optional plugins + Milaidy plugin           |
+|  13 core plugins + optional plugins + Milady plugin           |
 |  Providers, Actions, Services, Evaluators                     |
 +----------------------------+----------------------------------+
                              |
@@ -43,7 +43,7 @@ Milaidy is a cross-platform AI agent runtime built on top of [ElizaOS](https://e
                              v
 +---------------------------------------------------------------+
 |                    Storage & Config Layer                      |
-|  ~/.milady/milaidy.json  (Zod-validated config)              |
+|  ~/.milady/milady.json  (Zod-validated config)              |
 |  PGLite (default) or PostgreSQL (database)                    |
 |  ~/.milady/workspace/ (agent files, skills, bootstrap)       |
 |  ~/.milady/plugins/  (custom, ejected, installed)            |
@@ -52,15 +52,15 @@ Milaidy is a cross-platform AI agent runtime built on top of [ElizaOS](https://e
 
 ## Entry Points and Boot Sequence
 
-Milaidy has two primary entry points, plus a dev-server variant:
+Milady has two primary entry points, plus a dev-server variant:
 
 ### CLI Entry (`src/entry.ts`)
 
-The CLI entry point is the bootstrap for all Milaidy operations. Built by `tsdown` into `dist/entry.js` and invoked by the `milaidy.mjs` wrapper script.
+The CLI entry point is the bootstrap for all Milady operations. Built by `tsdown` into `dist/entry.js` and invoked by the `milady.mjs` wrapper script.
 
 The boot sequence is:
 
-1. **Set process title** to `milaidy` (visible in `ps` output)
+1. **Set process title** to `milady` (visible in `ps` output)
 2. **Normalize environment** -- honor `--no-color`, `--debug`, `--verbose` flags by setting `NO_COLOR`, `FORCE_COLOR`, and `LOG_LEVEL` in `process.env`
 3. **Suppress native logging** -- set `NODE_LLAMA_CPP_LOG_LEVEL` to match the chosen log level, suppressing noisy tokenizer warnings at default verbosity
 4. **Parse CLI profiles** -- extract `--profile <name>` from `process.argv` via `parseCliProfileArgs()`, apply the profile environment via `applyCliProfileEnv()`
@@ -68,7 +68,7 @@ The boot sequence is:
 
 ```typescript
 // src/entry.ts — simplified bootstrap
-process.title = "milaidy";
+process.title = "milady";
 const parsed = parseCliProfileArgs(process.argv);
 if (parsed.profile) applyCliProfileEnv({ profile: parsed.profile });
 import("./cli/run-main")
@@ -79,7 +79,7 @@ import("./cli/run-main")
 
 ### Library Entry (`src/index.ts`)
 
-The public API surface exported by the `milaidy` npm package. It re-exports:
+The public API surface exported by the `milady` npm package. It re-exports:
 
 - **Config types** from `src/config/types.ts` -- the full `MiladyConfig` type and its nested schemas
 - **Restart infrastructure** -- `RESTART_EXIT_CODE`, `requestRestart()`, `setRestartHandler()`, and the `RestartHandler` type
@@ -104,7 +104,7 @@ The `startEliza()` function in `src/runtime/eliza.ts` orchestrates the full life
 
 <Steps>
   <Step title="Load Configuration">
-    Read `~/.milady/milaidy.json` via `loadMiladyConfig()`. If no config exists, fall back to an empty `MiladyConfig` object with all-optional fields.
+    Read `~/.milady/milady.json` via `loadMiladyConfig()`. If no config exists, fall back to an empty `MiladyConfig` object with all-optional fields.
   </Step>
   <Step title="First-Run Onboarding">
     If no agent name is configured and stdin is a TTY, run the interactive onboarding flow: welcome banner, name selection (4 random + custom), personality/style preset, AI provider selection, and wallet setup. In headless mode (GUI), this is deferred to the web UI.
@@ -113,19 +113,19 @@ The `startEliza()` function in `src/runtime/eliza.ts` orchestrates the full life
     Push connector secrets (`DISCORD_API_TOKEN`, `TELEGRAM_BOT_TOKEN`, etc.) from config into `process.env`. Auto-resolve Discord Application ID from bot token via the Discord API. Propagate cloud, x402, and database config into env vars.
   </Step>
   <Step title="Build Character">
-    Construct an ElizaOS `Character` object from the Milaidy config: agent name, bio, system prompt, style, adjectives, topics, message examples, and API key secrets.
+    Construct an ElizaOS `Character` object from the Milady config: agent name, bio, system prompt, style, adjectives, topics, message examples, and API key secrets.
   </Step>
   <Step title="Prepare Workspace">
     Ensure `~/.milady/workspace/` exists with bootstrap files. Create the `~/.milady/plugins/custom/` directory for drop-in plugins.
   </Step>
-  <Step title="Create Milaidy Plugin">
+  <Step title="Create Milady Plugin">
     Instantiate the bridge plugin that provides workspace context, session keys, emotes, custom actions, trigger tasks, and autonomous state tracking to the ElizaOS runtime.
   </Step>
   <Step title="Resolve and Load Plugins">
     Run the full plugin resolution pipeline (detailed below). Plugins are loaded in parallel for faster startup.
   </Step>
   <Step title="Create AgentRuntime">
-    Instantiate `AgentRuntime` with the character, Milaidy plugin, and all resolved plugins. Pre-register `plugin-sql` (with PGLite recovery) and `plugin-local-embedding` before other plugins to avoid race conditions.
+    Instantiate `AgentRuntime` with the character, Milady plugin, and all resolved plugins. Pre-register `plugin-sql` (with PGLite recovery) and `plugin-local-embedding` before other plugins to avoid race conditions.
   </Step>
   <Step title="Initialize Runtime">
     Call `runtime.initialize()` which registers all remaining plugins in parallel, starts services, and sets up the agent loop. Enable trajectory logging. Warm up the AgentSkillsService asynchronously.
@@ -169,11 +169,11 @@ Restart is pluggable via `setRestartHandler()`:
 
 ## ElizaOS Integration Layer
 
-Milaidy extends ElizaOS through several integration points:
+Milady extends ElizaOS through several integration points:
 
 ### Plugin System Bridge
 
-The `createMiladyPlugin()` function (`src/runtime/milady-plugin.ts`) creates a standard ElizaOS `Plugin` that bridges Milaidy-specific functionality into the runtime:
+The `createMiladyPlugin()` function (`src/runtime/milady-plugin.ts`) creates a standard ElizaOS `Plugin` that bridges Milady-specific functionality into the runtime:
 
 **Providers** (injected into every LLM context):
 - `channelProfileProvider` -- channel-specific personality profiles
@@ -272,7 +272,7 @@ Two plugins require special ordering to avoid race conditions:
 
 ## Action, Provider, and Evaluator System
 
-Milaidy inherits ElizaOS's three-part extension model:
+Milady inherits ElizaOS's three-part extension model:
 
 ### Providers
 
@@ -286,7 +286,7 @@ interface Provider {
 }
 ```
 
-Milaidy registers 8+ providers through the Milaidy plugin, plus any providers from loaded plugins.
+Milady registers 8+ providers through the Milady plugin, plus any providers from loaded plugins.
 
 ### Actions
 
@@ -305,7 +305,7 @@ Evaluators run after each conversation turn to assess agent performance and upda
 
 ### Database Layer
 
-Milaidy uses `@elizaos/plugin-sql` as the database adapter with two backend options:
+Milady uses `@elizaos/plugin-sql` as the database adapter with two backend options:
 
 | Backend | Config | Use Case |
 |---------|--------|----------|
@@ -418,7 +418,7 @@ Events are buffered in a ring buffer on the server so newly connected clients ca
 
 ## Service Architecture
 
-Milaidy's `src/services/` directory contains standalone service modules:
+Milady's `src/services/` directory contains standalone service modules:
 
 | Service | File | Purpose |
 |---------|------|---------|
@@ -437,14 +437,14 @@ Milaidy's `src/services/` directory contains standalone service modules:
 
 ## Configuration Cascade
 
-Milaidy resolves configuration through a priority cascade:
+Milady resolves configuration through a priority cascade:
 
 ```
 Highest priority
   1. CLI flags (--debug, --verbose, --no-color, --profile)
   2. Environment variables (MILADY_*, ANTHROPIC_API_KEY, etc.)
   3. .env file (loaded by dotenv in run-main.ts)
-  4. Config file (~/.milady/milaidy.json)
+  4. Config file (~/.milady/milady.json)
   5. Profile-specific overrides (--profile <name>)
   6. Built-in defaults (hardcoded in Zod schemas)
 Lowest priority
@@ -459,11 +459,11 @@ The state directory (`~/.milady/`) is resolved via:
 
 The config file path follows a similar pattern:
 1. `MILADY_CONFIG_PATH` environment variable (if set)
-2. Default: `<stateDir>/milaidy.json`
+2. Default: `<stateDir>/milady.json`
 
 ### Config File Structure
 
-Milaidy uses a Zod-validated JSON configuration file (`milaidy.json`):
+Milady uses a Zod-validated JSON configuration file (`milady.json`):
 
 <Tabs>
   <Tab title="Structure">
@@ -486,7 +486,7 @@ Milaidy uses a Zod-validated JSON configuration file (`milaidy.json`):
     - `logging` -- Log level configuration
   </Tab>
   <Tab title="Validation">
-    All config sections are validated against Zod schemas at load time. Invalid fields produce warnings but do not prevent startup. The config file includes metadata tracking the last Milaidy version that wrote it and when.
+    All config sections are validated against Zod schemas at load time. Invalid fields produce warnings but do not prevent startup. The config file includes metadata tracking the last Milady version that wrote it and when.
   </Tab>
 </Tabs>
 
@@ -529,7 +529,7 @@ The same backend serves all platforms:
 
 | Platform | Delivery | Notes |
 |----------|----------|-------|
-| CLI | `milaidy start` | Direct Node.js process, runner script handles restart exit codes |
+| CLI | `milady start` | Direct Node.js process, runner script handles restart exit codes |
 | Web | Browser at `http://localhost:2138` | Vite dev proxy in development |
 | Desktop | Electron wrapper | Bundles the API server + UI, uses `electron-updater` for native updates |
 | iOS | Capacitor | Connects to local/remote API |
@@ -564,7 +564,7 @@ The Gateway runs on port **18789** (default) and provides:
 The monorepo uses npm workspaces:
 
 ```
-milaidy/
+milady/
   src/              # Core runtime, CLI, API, services
   apps/
     app/            # React SPA frontend (Vite)
@@ -593,7 +593,7 @@ The `scripts/rt.sh` helper resolves the best available runtime (bun or Node.js w
 
 ### Engine Requirements
 
-Milaidy requires **Node.js 22+** (specified in `package.json` `engines` field). The `node-llama-cpp` dependency for local embeddings benefits from native compilation on the target platform.
+Milady requires **Node.js 22+** (specified in `package.json` `engines` field). The `node-llama-cpp` dependency for local embeddings benefits from native compilation on the target platform.
 
 <Tip>
 See the [Configuration Schema Reference](/config-schema) for a complete field-by-field breakdown of every config section.

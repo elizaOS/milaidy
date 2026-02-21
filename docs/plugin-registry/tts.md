@@ -1,10 +1,10 @@
 ---
 title: "Text-to-Speech Plugin"
 sidebarTitle: "TTS"
-description: "Text-to-speech plugin for Milaidy — ElevenLabs, OpenAI TTS, and Edge TTS voice synthesis."
+description: "Text-to-speech plugin for Milady — ElevenLabs, OpenAI TTS, and Edge TTS voice synthesis."
 ---
 
-The Text-to-Speech (TTS) plugin enables Milaidy agents to synthesize speech from text, providing voice responses through ElevenLabs, OpenAI TTS, or Microsoft Edge TTS.
+The Text-to-Speech (TTS) plugin enables Milady agents to synthesize speech from text, providing voice responses through ElevenLabs, OpenAI TTS, or Microsoft Edge TTS.
 
 **Package:** `@elizaos/plugin-tts`
 
@@ -15,7 +15,7 @@ The TTS plugin registers a `TEXT_TO_SPEECH` model handler and actions that allow
 ## Installation
 
 ```bash
-milaidy plugins install tts
+milady plugins install tts
 ```
 
 ## Enable via Features
@@ -148,7 +148,7 @@ After the plugin is loaded:
 
 > "Read this article to me"
 
-> "Say the following in a cheerful voice: Welcome to Milaidy!"
+> "Say the following in a cheerful voice: Welcome to Milady!"
 
 > "Generate an audio file from this text"
 

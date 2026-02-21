@@ -1,10 +1,10 @@
 ---
-title: "Milaidy"
+title: "Milady"
 sidebarTitle: "Introduction"
 description: "Your personal AI assistant that runs on YOUR machine. Local-first, multi-provider, extensible."
 ---
 
-**Milaidy** is a local-first AI assistant built on [ElizaOS](https://github.com/elizaOS). It runs entirely on your machine -- not in a datacenter, not in the cloud. It manages your sessions, tools, and agent personality through a Gateway control plane, connects to Telegram, Discord, and other platforms, and ships with a web dashboard for real-time interaction.
+**Milady** is a local-first AI assistant built on [ElizaOS](https://github.com/elizaOS). It runs entirely on your machine -- not in a datacenter, not in the cloud. It manages your sessions, tools, and agent personality through a Gateway control plane, connects to Telegram, Discord, and other platforms, and ships with a web dashboard for real-time interaction.
 
 It supports 11 model providers out of the box (including fully local inference via Ollama), has a growing plugin ecosystem powered by ElizaOS, a skills marketplace via [ClawHub](https://clawhub.ai), and runs on every major platform: desktop, mobile, web, CLI, and Chrome extension.
 
@@ -22,18 +22,18 @@ It supports 11 model providers out of the box (including fully local inference v
     All terminal commands and options
   </Card>
   <Card title="Plugin Development" icon="puzzle-piece" href="/guides/plugin-development">
-    Extend Milaidy with custom plugins
+    Extend Milady with custom plugins
   </Card>
   <Card title="Architecture" icon="sitemap" href="/architecture">
     How the runtime, gateway, and plugins fit together
   </Card>
 </CardGroup>
 
-## Why Milaidy
+## Why Milady
 
 ### Local-First Privacy
 
-Milaidy runs on your hardware. Your conversations, memory, and wallet keys stay in `~/.milady/` on your local filesystem. Nothing leaves your machine unless you explicitly connect an external service. Even embedding generation can run locally via the `plugin-local-embedding` package.
+Milady runs on your hardware. Your conversations, memory, and wallet keys stay in `~/.milady/` on your local filesystem. Nothing leaves your machine unless you explicitly connect an external service. Even embedding generation can run locally via the `plugin-local-embedding` package.
 
 ### Multi-Model, Multi-Provider
 
@@ -57,7 +57,7 @@ Switch providers mid-conversation with `/model <id>`. No lock-in.
 
 ### Plugin Ecosystem
 
-Milaidy ships with 25+ first-party ElizaOS plugins covering knowledge management, browser automation, computer use, Discord, Telegram, TTS (Edge TTS and ElevenLabs), PDF processing, shell access, cron scheduling, trust scoring, and more. Third-party plugins install with a single command through the plugin manager.
+Milady ships with 25+ first-party ElizaOS plugins covering knowledge management, browser automation, computer use, Discord, Telegram, TTS (Edge TTS and ElevenLabs), PDF processing, shell access, cron scheduling, trust scoring, and more. Third-party plugins install with a single command through the plugin manager.
 
 ### Skills Marketplace
 
@@ -65,7 +65,7 @@ Skills are markdown-based extensions that teach your agent new capabilities with
 
 ### Autonomous Mode
 
-Milaidy can operate autonomously -- executing scheduled tasks, running multi-step workflows, and maintaining its own loop of thoughts and actions. Configure triggers (interval, cron, or one-shot) and let the agent work on your behalf.
+Milady can operate autonomously -- executing scheduled tasks, running multi-step workflows, and maintaining its own loop of thoughts and actions. Configure triggers (interval, cron, or one-shot) and let the agent work on your behalf.
 
 ### Built-In Crypto Wallet
 
@@ -73,7 +73,7 @@ The onboarding flow can generate or import EVM and Solana wallets. Keys are stor
 
 ## Platform Support
 
-Milaidy is a single codebase that targets every surface you need:
+Milady is a single codebase that targets every surface you need:
 
 <CardGroup cols={3}>
   <Card title="Desktop" icon="desktop">
@@ -98,7 +98,7 @@ Milaidy is a single codebase that targets every surface you need:
 
 ## Architecture at a Glance
 
-Milaidy is structured as a layered system:
+Milady is structured as a layered system:
 
 ```
  User Interfaces (Desktop / Mobile / Web / CLI / TUI)
@@ -109,7 +109,7 @@ Milaidy is structured as a layered system:
                          |
                   ElizaOS Runtime
                     |         |
-            Milaidy Plugin    Other Plugins
+            Milady Plugin    Other Plugins
             (personality,     (knowledge, browser,
              wallet, skills,   TTS, Discord, Telegram,
              autonomous state) shell, cron, ...)
@@ -119,7 +119,7 @@ Milaidy is structured as a layered system:
 ```
 
 - **ElizaOS Runtime** -- the core agent framework that handles memory, message processing, action dispatch, and provider abstraction.
-- **Milaidy Plugin** -- a first-party ElizaOS plugin that provides workspace context, session keys, personality presets, autonomous state, and wallet integration.
+- **Milady Plugin** -- a first-party ElizaOS plugin that provides workspace context, session keys, personality presets, autonomous state, and wallet integration.
 - **Gateway** -- a WebSocket + HTTP multiplexed server that bridges the runtime to all connected clients and connectors.
 - **Plugin System** -- standard ElizaOS plugins that add capabilities (knowledge, browser, TTS, etc.).
 - **Connector Layer** -- platform-specific adapters for Telegram, Discord, and the web chat UI.
@@ -127,5 +127,5 @@ Milaidy is structured as a layered system:
 All configuration lives in `~/.milady/milady.json`. Secrets can go in `~/.milady/.env`.
 
 <Info>
-Milaidy is currently in alpha (`v2.0.0-alpha`). APIs and configuration may change between releases. Check the [GitHub releases](https://github.com/milady-ai/milady/releases) for the latest version.
+Milady is currently in alpha (`v2.0.0-alpha`). APIs and configuration may change between releases. Check the [GitHub releases](https://github.com/milady-ai/milady/releases) for the latest version.
 </Info>

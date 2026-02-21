@@ -1,17 +1,17 @@
 ---
-title: "milaidy update"
+title: "milady update"
 sidebarTitle: "update"
-description: "Check for and install updates to the Milaidy CLI."
+description: "Check for and install updates to the Milady CLI."
 ---
 
-Check for and install updates to the Milaidy CLI. The `update` command detects your installation method and runs the appropriate update command automatically. It supports release channels (stable, beta, nightly) and an update interval cache to avoid redundant checks.
+Check for and install updates to the Milady CLI. The `update` command detects your installation method and runs the appropriate update command automatically. It supports release channels (stable, beta, nightly) and an update interval cache to avoid redundant checks.
 
 ## Usage
 
 ```bash
-milaidy update [options]
-milaidy update status
-milaidy update channel [channel]
+milady update [options]
+milady update status
+milady update channel [channel]
 ```
 
 ## Options
@@ -26,7 +26,7 @@ Global flags:
 
 | Flag | Description |
 |------|-------------|
-| `--version`, `-v`, `-V` | Print the current Milaidy version and exit |
+| `--version`, `-v`, `-V` | Print the current Milady version and exit |
 | `--help`, `-h` | Show help for this command |
 | `--profile <name>` | Use a named configuration profile |
 
@@ -34,22 +34,22 @@ Global flags:
 
 ```bash
 # Check for and install updates on the current channel
-milaidy update
+milady update
 
 # Check for updates without installing
-milaidy update --check
+milady update --check
 
 # Switch to the beta channel and update
-milaidy update --channel beta
+milady update --channel beta
 
 # Force a fresh check, bypassing the cache
-milaidy update --force
+milady update --force
 
 # Switch channel without updating
-milaidy update channel nightly
+milady update channel nightly
 
 # View all channel versions
-milaidy update status
+milady update status
 ```
 
 ## Release Channels
@@ -64,25 +64,25 @@ The active channel is stored in `milady.json` under `update.channel`. It can als
 
 ## Behavior
 
-When you run `milaidy update`:
+When you run `milady update`:
 
 1. Loads your current config and resolves the active release channel.
 2. If `--channel` is provided and differs from the current channel, saves the new channel to `milady.json` and prints the change.
 3. Calls the update checker, which fetches the latest version for the active channel from the npm registry.
 4. If `--check` is set, prints whether an update is available and exits without installing.
 5. Detects the installation method (`npm`, `bunx`, `local-dev`, etc.) and runs the appropriate update command.
-6. Prints the result and reminds you to restart Milaidy for the new version to take effect.
+6. Prints the result and reminds you to restart Milady for the new version to take effect.
 
 Local development installs (detected by the `local-dev` method) are handled specially -- the command directs you to use `git pull` instead of running a package manager update.
 
 ## Subcommands
 
-### `milaidy update status`
+### `milady update status`
 
 Show the current installed version, active release channel, installation method, and the latest available version across all channels.
 
 ```bash
-milaidy update status
+milady update status
 ```
 
 Example output:
@@ -103,21 +103,21 @@ Available Versions
   nightly                  1.3.0-nightly.20260219
 ```
 
-### `milaidy update channel [channel]`
+### `milady update channel [channel]`
 
 View the current release channel and all available options, or switch to a different channel.
 
 ```bash
 # View current channel and all options
-milaidy update channel
+milady update channel
 
 # Switch to a specific channel
-milaidy update channel beta
-milaidy update channel stable
-milaidy update channel nightly
+milady update channel beta
+milady update channel stable
+milady update channel nightly
 ```
 
-Switching channels with this command saves the new channel to `milady.json`. Run `milaidy update` afterward to install the latest version from the new channel.
+Switching channels with this command saves the new channel to `milady.json`. Run `milady update` afterward to install the latest version from the new channel.
 
 ## Environment Variables
 
@@ -133,6 +133,6 @@ When switching channels (`--channel` or `update channel`), the cache is automati
 
 ## Related
 
-- [milaidy start](/cli/start) -- restart the agent after updating
+- [milady start](/cli/start) -- restart the agent after updating
 - [Environment Variables](/cli/environment) -- `MILADY_UPDATE_CHANNEL` and other variables
 - [Self-Updates](/self-updates) -- detailed documentation on the update system

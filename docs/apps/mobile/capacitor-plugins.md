@@ -1,10 +1,10 @@
 ---
 title: "Capacitor Plugins"
 sidebarTitle: "Capacitor Plugins"
-description: "Nine custom Capacitor plugins that give the Milaidy mobile app access to native iOS and Android capabilities."
+description: "Nine custom Capacitor plugins that give the Milady mobile app access to native iOS and Android capabilities."
 ---
 
-The Milaidy mobile app ships nine custom Capacitor plugins plus the core `@capacitor/haptics` plugin. Each plugin is an independent package under `apps/app/plugins/` and must be compiled before the web app can bundle it (`bun run plugin:build`). Plugins are wrapped by the plugin bridge (`src/bridge/plugin-bridge.ts`), which performs capability detection per platform and provides graceful degradation to web API fallbacks where possible.
+The Milady mobile app ships nine custom Capacitor plugins plus the core `@capacitor/haptics` plugin. Each plugin is an independent package under `apps/app/plugins/` and must be compiled before the web app can bundle it (`bun run plugin:build`). Plugins are wrapped by the plugin bridge (`src/bridge/plugin-bridge.ts`), which performs capability detection per platform and provides graceful degradation to web API fallbacks where possible.
 
 All plugins follow the same structure: a TypeScript interface describing the web-facing API, a web implementation used in browser environments, and native implementations for iOS (Swift) and Android (Kotlin). On platforms where a feature is unavailable, plugin calls are silently caught and logged by the bridge's `Proxy` wrapper.
 
@@ -41,7 +41,7 @@ if (isFeatureAvailable("gateway")) {
 
 ## @milady/capacitor-gateway
 
-WebSocket RPC connection to a Milaidy gateway with mDNS/Bonjour discovery of local gateways on the same network. Handles token or password authentication, automatic reconnection, and session continuity via session keys.
+WebSocket RPC connection to a Milady gateway with mDNS/Bonjour discovery of local gateways on the same network. Handles token or password authentication, automatic reconnection, and session continuity via session keys.
 
 ### Methods
 
@@ -272,7 +272,7 @@ Drawing primitives, layer management, embedded web view control, JavaScript eval
 
 ## @milady/capacitor-agent
 
-Agent lifecycle management. Communicates with the Milaidy agent process via IPC on Electron and via HTTP on iOS, Android, and web.
+Agent lifecycle management. Communicates with the Milady agent process via IPC on Electron and via HTTP on iOS, Android, and web.
 
 ### Methods
 

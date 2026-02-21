@@ -1,10 +1,10 @@
 ---
 title: "Ollama Plugin"
 sidebarTitle: "Ollama"
-description: "Ollama local model inference for Milaidy — run Llama, Mistral, Gemma, and other models entirely on-device."
+description: "Ollama local model inference for Milady — run Llama, Mistral, Gemma, and other models entirely on-device."
 ---
 
-The Ollama plugin connects Milaidy agents to a locally running Ollama instance, enabling fully on-device inference with no API keys and no data leaving your machine.
+The Ollama plugin connects Milady agents to a locally running Ollama instance, enabling fully on-device inference with no API keys and no data leaving your machine.
 
 **Package:** `@elizaos/plugin-ollama`
 
@@ -41,7 +41,7 @@ Ollama listens on `http://localhost:11434` by default.
 ### 4. Enable the Plugin
 
 ```bash
-milaidy plugins install ollama
+milady plugins install ollama
 ```
 
 ## Auto-Enable
@@ -58,7 +58,7 @@ export OLLAMA_BASE_URL=http://localhost:11434
 |---------------------|----------|-------------|
 | `OLLAMA_BASE_URL` | Yes | Ollama server URL (default: `http://localhost:11434`) |
 
-### milaidy.json Example
+### milady.json Example
 
 ```json
 {

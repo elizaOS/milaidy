@@ -4,7 +4,7 @@ sidebarTitle: "Local Models"
 description: "Download and run AI models locally for offline inference."
 ---
 
-Milaidy can download and run AI models locally for vision, text generation, text-to-speech, speech-to-text, and embedding tasks. Models are downloaded from HuggingFace or pulled via Ollama, cached on disk, and available for offline use.
+Milady can download and run AI models locally for vision, text generation, text-to-speech, speech-to-text, and embedding tasks. Models are downloaded from HuggingFace or pulled via Ollama, cached on disk, and available for offline use.
 
 ## Model Types
 
@@ -96,7 +96,7 @@ import {
   downloadRecommendedModel,
   getLocalModelStatuses,
   ensureLocalModel,
-} from "milaidy/providers/local-models";
+} from "milady/providers/local-models";
 
 // Get the singleton manager
 const manager = getLocalModelManager();
@@ -117,4 +117,4 @@ const statuses = getLocalModelStatuses("embedding");
 
 - [Model Providers](/model-providers)
 - [Environment variables](/cli/environment) — `OLLAMA_BASE_URL`, `LOCAL_EMBEDDING_*`
-- [`milaidy models`](/cli/models) — check configured providers
+- [`milady models`](/cli/models) — check configured providers

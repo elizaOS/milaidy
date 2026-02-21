@@ -1,19 +1,19 @@
 ---
 title: Web Dashboard
 sidebarTitle: Dashboard
-description: Navigate the Milaidy web dashboard to configure your agent, chat, manage knowledge, and access advanced settings.
+description: Navigate the Milady web dashboard to configure your agent, chat, manage knowledge, and access advanced settings.
 ---
 
-The Milaidy web dashboard is the primary interface for interacting with your agent. It provides a full-featured control panel for chatting, configuring your agent's character, managing plugins, and monitoring runtime behavior.
+The Milady web dashboard is the primary interface for interacting with your agent. It provides a full-featured control panel for chatting, configuring your agent's character, managing plugins, and monitoring runtime behavior.
 
 ## Accessing the Dashboard
 
-The dashboard runs as a web application served by the Milaidy agent runtime.
+The dashboard runs as a web application served by the Milady agent runtime.
 
 | Method | Details |
 |--------|---------|
 | **Default URL** | `http://localhost:2138` |
-| **CLI shortcut** | Run `milaidy dashboard` to open the dashboard in your default browser |
+| **CLI shortcut** | Run `milady dashboard` to open the dashboard in your default browser |
 | **Desktop app** | The Electron desktop app embeds the dashboard directly (no browser required) |
 
 On first launch you will see the **Onboarding Wizard**, which walks you through initial agent setup. If authentication is required you will see the **Pairing View** before reaching the main dashboard.
@@ -35,7 +35,7 @@ The header displays across all tabs and includes:
 - **Agent name** -- the name of the currently running agent, pulled from `agentStatus.agentName`.
 - **Agent status indicator** -- a color-coded dot showing the agent's runtime state (see [Agent Status Indicator](#agent-status-indicator) below).
 - **Wallet addresses** -- truncated EVM and Solana addresses with copy-to-clipboard functionality.
-- **Cloud credits** -- if Milaidy Cloud is enabled, the header shows credit balance with color-coded thresholds (green for OK, yellow for low, red for critical), along with a top-up link.
+- **Cloud credits** -- if Milady Cloud is enabled, the header shows credit balance with color-coded thresholds (green for OK, yellow for low, red for critical), along with a top-up link.
 - **Lifecycle controls** -- Pause/Resume and Restart buttons for the agent runtime. These are disabled during state transitions (starting, restarting).
 - **Drop / Mint status** -- when a public mint is active and the user has not yet minted, a mint button appears.
 
@@ -213,7 +213,7 @@ The active theme is highlighted. Theme selection is persisted to local storage a
 
 Provider selection and model configuration via the `ProviderSwitcher` component. This section supports:
 
-- **Milaidy Cloud** -- if cloud is enabled, shows connection status, credit balance (with low/critical thresholds), and a login/disconnect flow.
+- **Milady Cloud** -- if cloud is enabled, shows connection status, credit balance (with low/critical thresholds), and a login/disconnect flow.
 - **Local/third-party providers** -- toggle AI provider plugins (e.g., Anthropic, OpenAI) and configure their API keys and model settings.
 - **Plugin config save** -- each provider plugin's settings can be saved independently.
 

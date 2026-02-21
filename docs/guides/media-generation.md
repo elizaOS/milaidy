@@ -4,15 +4,15 @@ sidebarTitle: Media Generation
 description: Generate images, videos, and audio, or analyze images using AI providers like FAL, OpenAI, Google, xAI, and Eliza Cloud.
 ---
 
-Milaidy includes a media generation abstraction layer that provides a unified interface for creating images, videos, and audio, as well as analyzing images with AI vision. Multiple provider backends are supported, with Eliza Cloud as the default (no API key required).
+Milady includes a media generation abstraction layer that provides a unified interface for creating images, videos, and audio, as well as analyzing images with AI vision. Multiple provider backends are supported, with Eliza Cloud as the default (no API key required).
 
 ## Architecture Overview
 
 The media system is organized into three components:
 
 1. **Provider abstraction** (`src/providers/media-provider.ts`) -- Defines unified interfaces (`ImageGenerationProvider`, `VideoGenerationProvider`, `AudioGenerationProvider`, `VisionAnalysisProvider`) and concrete implementations for each backend. A factory function for each media type selects the appropriate provider based on your configuration.
-2. **Actions** (`src/actions/media.ts`) -- Four built-in agent actions (`GENERATE_IMAGE`, `GENERATE_VIDEO`, `GENERATE_AUDIO`, `ANALYZE_IMAGE`) that expose media capabilities to the agent during conversations. Each action reads the current `milaidy.json` configuration, instantiates the correct provider, and returns results as message attachments.
-3. **Configuration** (`milaidy.json`) -- The `media` section controls which provider is used for each media type, whether to use Eliza Cloud or your own API keys, and provider-specific settings like model names and base URLs.
+2. **Actions** (`src/actions/media.ts`) -- Four built-in agent actions (`GENERATE_IMAGE`, `GENERATE_VIDEO`, `GENERATE_AUDIO`, `ANALYZE_IMAGE`) that expose media capabilities to the agent during conversations. Each action reads the current `milady.json` configuration, instantiates the correct provider, and returns results as message attachments.
+3. **Configuration** (`milady.json`) -- The `media` section controls which provider is used for each media type, whether to use Eliza Cloud or your own API keys, and provider-specific settings like model names and base URLs.
 
 ```
 User message: "Draw me a sunset over mountains"
@@ -184,7 +184,7 @@ Analyzes an image using AI vision. Accepts either an image URL or base64-encoded
 
 ## Configuration
 
-Media providers are configured in the `media` section of `milaidy.json`. Each media type (image, video, audio, vision) is configured independently, so you can use different providers for different capabilities.
+Media providers are configured in the `media` section of `milady.json`. Each media type (image, video, audio, vision) is configured independently, so you can use different providers for different capabilities.
 
 ```json
 {
@@ -236,7 +236,7 @@ If the selected provider's API key is missing or the provider is not recognized,
 
 ### Eliza Cloud Configuration
 
-Eliza Cloud settings are in the `cloud` section of `milaidy.json`:
+Eliza Cloud settings are in the `cloud` section of `milady.json`:
 
 ```json
 {

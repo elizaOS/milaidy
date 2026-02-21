@@ -1,10 +1,10 @@
 ---
 title: "Build Guide"
 sidebarTitle: "Build Guide"
-description: "Compile, sign, and distribute the Milaidy mobile app for iOS and Android."
+description: "Compile, sign, and distribute the Milady mobile app for iOS and Android."
 ---
 
-The Milaidy mobile app (`apps/app`) is a Capacitor project that wraps the shared web UI in a native shell. Building it requires three steps: compiling the nine custom Capacitor plugins, bundling the Vite web assets, and syncing them into the native iOS or Android project. Distribution builds additionally require code signing — Apple certificates and provisioning profiles for iOS, a keystore for Android.
+The Milady mobile app (`apps/app`) is a Capacitor project that wraps the shared web UI in a native shell. Building it requires three steps: compiling the nine custom Capacitor plugins, bundling the Vite web assets, and syncing them into the native iOS or Android project. Distribution builds additionally require code signing — Apple certificates and provisioning profiles for iOS, a keystore for Android.
 
 All build commands are invoked via the `scripts/rt.sh` runtime wrapper from inside the `apps/app` directory. The script selects the correct package manager (Bun) and ensures environment variables are sourced before running.
 
@@ -168,7 +168,7 @@ cd apps/app/android && ./gradlew assembleRelease
 1. Generate a keystore:
 
 ```bash
-keytool -genkey -v -keystore release.keystore -alias milaidy -keyalg RSA -keysize 2048 -validity 10000
+keytool -genkey -v -keystore release.keystore -alias milady -keyalg RSA -keysize 2048 -validity 10000
 ```
 
 2. Configure the keystore in `apps/app/android/app/build.gradle` under `signingConfigs`:
@@ -179,7 +179,7 @@ android {
         release {
             storeFile file("release.keystore")
             storePassword "your-store-password"
-            keyAlias "milaidy"
+            keyAlias "milady"
             keyPassword "your-key-password"
         }
     }

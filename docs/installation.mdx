@@ -1,12 +1,12 @@
 ---
 title: "Installation"
 sidebarTitle: "Installation"
-description: "Download the desktop app or install Milaidy via CLI on macOS, Windows, or Linux."
+description: "Download the desktop app or install Milady via CLI on macOS, Windows, or Linux."
 ---
 
 ## Prerequisites
 
-Before installing Milaidy, make sure you have the required toolchain:
+Before installing Milady, make sure you have the required toolchain:
 
 | Requirement | Version | How to Check | Install |
 |-------------|---------|-------------|---------|
@@ -14,23 +14,23 @@ Before installing Milaidy, make sure you have the required toolchain:
 | **Bun** | latest | `bun --version` | `curl -fsSL https://bun.sh/install \| bash` |
 
 <Info>
-Node 22+ is required because Milaidy uses native ES modules, the `node:` protocol prefix, and other modern Node APIs. Bun is used as the package manager and script runner for builds and development.
+Node 22+ is required because Milady uses native ES modules, the `node:` protocol prefix, and other modern Node APIs. Bun is used as the package manager and script runner for builds and development.
 </Info>
 
 You will also need an API key from at least one model provider (Anthropic, OpenAI, OpenRouter, etc.) -- unless you plan to use [Ollama](https://ollama.ai) for fully local inference, which requires no API key.
 
 ## Desktop App (Recommended)
 
-The desktop app is the easiest way to get started. It packages the full Milaidy runtime, web dashboard, and gateway into a native Electron application with auto-updates and system tray integration.
+The desktop app is the easiest way to get started. It packages the full Milady runtime, web dashboard, and gateway into a native Electron application with auto-updates and system tray integration.
 
 Download from **[GitHub Releases](https://github.com/milady-ai/milady/releases/latest)**:
 
 | Platform | File | Notes |
 |----------|------|-------|
-| macOS (Apple Silicon) | [`Milaidy-arm64.dmg`](https://github.com/milady-ai/milady/releases/latest) | M1/M2/M3/M4 Macs |
-| macOS (Intel) | [`Milaidy-x64.dmg`](https://github.com/milady-ai/milady/releases/latest) | Pre-2020 Macs |
-| Windows | [`Milaidy-Setup.exe`](https://github.com/milady-ai/milady/releases/latest) | Windows 10+ |
-| Linux | [`Milaidy.AppImage`](https://github.com/milady-ai/milady/releases/latest) / [`.deb`](https://github.com/milady-ai/milady/releases/latest) | AppImage or Debian package |
+| macOS (Apple Silicon) | [`Milady-arm64.dmg`](https://github.com/milady-ai/milady/releases/latest) | M1/M2/M3/M4 Macs |
+| macOS (Intel) | [`Milady-x64.dmg`](https://github.com/milady-ai/milady/releases/latest) | Pre-2020 Macs |
+| Windows | [`Milady-Setup.exe`](https://github.com/milady-ai/milady/releases/latest) | Windows 10+ |
+| Linux | [`Milady.AppImage`](https://github.com/milady-ai/milady/releases/latest) / [`.deb`](https://github.com/milady-ai/milady/releases/latest) | AppImage or Debian package |
 
 All releases are signed and notarized. No Gatekeeper warnings on macOS.
 
@@ -50,13 +50,13 @@ shasum -a 256 --check --ignore-missing SHA256SUMS.txt
 
     ```bash
     curl -fsSL https://milady-ai.github.io/milady/install.sh | bash
-    milaidy setup
+    milady setup
     ```
 
-    Then start Milaidy:
+    Then start Milady:
 
     ```bash
-    milaidy
+    milady
     ```
   </Tab>
   <Tab title="Windows (PowerShell)">
@@ -67,8 +67,8 @@ shasum -a 256 --check --ignore-missing SHA256SUMS.txt
     After installation, open a new terminal window and run:
 
     ```powershell
-    milaidy setup
-    milaidy
+    milady setup
+    milady
     ```
   </Tab>
   <Tab title="npm">
@@ -76,8 +76,8 @@ shasum -a 256 --check --ignore-missing SHA256SUMS.txt
 
     ```bash
     npm install -g milaidy
-    milaidy setup
-    milaidy
+    milady setup
+    milady
     ```
   </Tab>
 </Tabs>
@@ -111,7 +111,7 @@ For contributors or anyone who wants the latest development version:
     If you want to build without Bun as the runtime (Node only): `bun run build:node` uses `node --import tsx` instead of Bun for script execution.
     </Info>
   </Step>
-  <Step title="Start Milaidy">
+  <Step title="Start Milady">
     ```bash
     bun run start
     ```
@@ -122,7 +122,7 @@ For contributors or anyone who wants the latest development version:
 
 ## Development Mode
 
-Milaidy has several development modes depending on what you are working on:
+Milady has several development modes depending on what you are working on:
 
 <CodeGroup>
 ```bash Full dev (runtime + UI hot reload)
@@ -154,7 +154,7 @@ The `dev` script uses `scripts/dev-ui.mjs` to start the runtime with hot-reload 
 
 ## Mobile Builds
 
-Milaidy uses [Capacitor](https://capacitorjs.com) to target Android and iOS:
+Milady uses [Capacitor](https://capacitorjs.com) to target Android and iOS:
 
 <Tabs>
   <Tab title="Android">
@@ -187,7 +187,7 @@ Milaidy uses [Capacitor](https://capacitorjs.com) to target Android and iOS:
 
 ## Environment Setup
 
-Milaidy stores all state in `~/.milady/` by default. The onboarding wizard handles initial configuration, but you can also set environment variables directly.
+Milady stores all state in `~/.milady/` by default. The onboarding wizard handles initial configuration, but you can also set environment variables directly.
 
 ### API Keys
 
@@ -224,14 +224,14 @@ export OLLAMA_BASE_URL="http://localhost:11434"
 
 ```bash
 # Example: custom ports
-MILADY_PORT=3000 MILADY_GATEWAY_PORT=19000 milaidy start
+MILADY_PORT=3000 MILADY_GATEWAY_PORT=19000 milady start
 ```
 
 ### State Directory
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `MILADY_STATE_DIR` | `~/.milady` | Root directory for all Milaidy state |
+| `MILADY_STATE_DIR` | `~/.milady` | Root directory for all Milady state |
 | `MILADY_CONFIG_PATH` | `~/.milady/milady.json` | Explicit config file path |
 
 ## Security: API Token
@@ -252,13 +252,13 @@ After installation, confirm everything is working:
 
 ```bash
 # Check version
-milaidy --version
+milady --version
 
 # Run diagnostics
-milaidy doctor
+milady doctor
 
 # Test model provider connectivity
-milaidy models test
+milady models test
 ```
 
 The `doctor` command checks your Node version, Bun availability, config file health, provider key validity, and port availability.
@@ -268,7 +268,7 @@ The `doctor` command checks your Node version, Bun availability, config file hea
 ### Node version too old
 
 ```
-Error: Milaidy requires Node.js >= 22
+Error: Milady requires Node.js >= 22
 ```
 
 Upgrade Node.js: `nvm install 22 && nvm use 22`, or download from [nodejs.org](https://nodejs.org).
@@ -294,22 +294,22 @@ Error: EADDRINUSE :::2138
 
 Another process is using the default port. Either stop it or use a different port:
 ```bash
-MILADY_PORT=3000 milaidy start
+MILADY_PORT=3000 milady start
 ```
 
 ### Permission denied on install script
 
 ```bash
-chmod +x ~/.milady/bin/milaidy
+chmod +x ~/.milady/bin/milady
 ```
 
 ### PGLite / database corruption
 
-If you see database errors on startup, Milaidy will attempt automatic recovery. If that fails, you can reset the database:
+If you see database errors on startup, Milady will attempt automatic recovery. If that fails, you can reset the database:
 
 ```bash
 rm -rf ~/.milady/workspace/.eliza/.elizadb
-milaidy start
+milady start
 ```
 
 <Warning>
@@ -321,5 +321,5 @@ Deleting the database directory removes all conversation history and memory. Use
 The desktop app is signed and notarized. If Gatekeeper still blocks it:
 
 ```bash
-xattr -cr /Applications/Milaidy.app
+xattr -cr /Applications/Milady.app
 ```

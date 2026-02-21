@@ -1,7 +1,7 @@
 ---
 title: "Dashboard Settings"
 sidebarTitle: "Dashboard Settings"
-description: "Configure the Milaidy web dashboard preferences, theme, permissions, and advanced runtime options."
+description: "Configure the Milady web dashboard preferences, theme, permissions, and advanced runtime options."
 ---
 
 The Dashboard Settings panel controls appearance, AI model selection, media generation, voice, permissions, updates, and agent data management. Settings are persisted to `localStorage` under the key `milady.control.settings.v1`. On native platforms (iOS/Android) they are automatically synced to Capacitor Preferences, so they survive app reinstalls. Changes take effect immediately without restarting the agent.
@@ -63,7 +63,7 @@ Private keys stored here are **not** displayed in plaintext within this section.
 
 ## 4. Media Generation
 
-Controls which providers handle image, video, audio, and vision tasks. Each sub-section has an independent provider selection and, for cloud-capable providers, a mode toggle between Milaidy Cloud (no key required) and your own API key.
+Controls which providers handle image, video, audio, and vision tasks. Each sub-section has an independent provider selection and, for cloud-capable providers, a mode toggle between Milady Cloud (no key required) and your own API key.
 
 ### Image
 
@@ -207,7 +207,7 @@ Settings > Agent Export / Import > Export Agent
 
 ### Import
 
-Accepts a `.eliza-agent` file created by a Milaidy-compatible agent runtime. You must provide the password used at export time.
+Accepts a `.eliza-agent` file created by a Milady-compatible agent runtime. You must provide the password used at export time.
 
 ```
 Settings > Agent Export / Import > Import Agent

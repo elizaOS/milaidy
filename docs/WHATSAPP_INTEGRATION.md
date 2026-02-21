@@ -131,7 +131,7 @@ When using `dmPolicy: "open"`, you must also set `allowFrom: ["*"]` in your conf
 
 ## Testing Checklist
 
-From issue [#147](https://github.com/milady-ai/milaidy/issues/147):
+From issue [#147](https://github.com/milady-ai/milady/issues/147):
 
 ### Setup & Authentication
 - [ ] QR code authentication flow
@@ -163,4 +163,4 @@ From issue [#147](https://github.com/milady-ai/milaidy/issues/147):
 
 - [WhatsApp Plugin Repository](https://github.com/elizaos-plugins/plugin-whatsapp)
 - [Baileys Library](https://github.com/WhiskeySockets/Baileys)
-- [Issue #147](https://github.com/milady-ai/milaidy/issues/147)
+- [Issue #147](https://github.com/milady-ai/milady/issues/147)

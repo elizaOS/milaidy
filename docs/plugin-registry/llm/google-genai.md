@@ -1,17 +1,17 @@
 ---
 title: "Google Gemini Plugin"
 sidebarTitle: "Google Gemini"
-description: "Google Gemini model provider for Milaidy — Gemini 2.5 Pro, Flash, and multimodal capabilities."
+description: "Google Gemini model provider for Milady — Gemini 2.5 Pro, Flash, and multimodal capabilities."
 ---
 
-The Google Gemini plugin connects Milaidy agents to Google's Gemini API, providing access to the Gemini 2.5 and 2.0 model families with multimodal input support.
+The Google Gemini plugin connects Milady agents to Google's Gemini API, providing access to the Gemini 2.5 and 2.0 model families with multimodal input support.
 
 **Package:** `@elizaos/plugin-google-gemini`
 
 ## Installation
 
 ```bash
-milaidy plugins install google-gemini
+milady plugins install google-gemini
 ```
 
 ## Auto-Enable
@@ -35,7 +35,7 @@ export GOOGLE_GENERATIVE_AI_API_KEY=AIza...
 
 Get your API key from [aistudio.google.com](https://aistudio.google.com).
 
-### milaidy.json Example
+### milady.json Example
 
 ```json
 {

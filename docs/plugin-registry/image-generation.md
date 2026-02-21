@@ -1,10 +1,10 @@
 ---
 title: "Image Generation Plugin"
 sidebarTitle: "Image Generation"
-description: "Image generation plugin for Milaidy — DALL-E, Stable Diffusion, FAL, and other image models."
+description: "Image generation plugin for Milady — DALL-E, Stable Diffusion, FAL, and other image models."
 ---
 
-The Image Generation plugin enables Milaidy agents to generate images using AI image models, including OpenAI's DALL-E, Stable Diffusion via FAL, and other providers.
+The Image Generation plugin enables Milady agents to generate images using AI image models, including OpenAI's DALL-E, Stable Diffusion via FAL, and other providers.
 
 **Package:** `@elizaos/plugin-image-generation`
 
@@ -15,7 +15,7 @@ The Image Generation plugin registers an `IMAGE` model handler and a set of acti
 ## Installation
 
 ```bash
-milaidy plugins install image-generation
+milady plugins install image-generation
 ```
 
 ## Enable via Features
@@ -117,7 +117,7 @@ After the plugin is loaded:
 
 > "Generate an image of a robot reading a book in a library"
 
-> "Create a logo for an AI company called Milaidy"
+> "Create a logo for an AI company called Milady"
 
 The agent generates the image and can share it in the conversation or save it to the workspace.
 

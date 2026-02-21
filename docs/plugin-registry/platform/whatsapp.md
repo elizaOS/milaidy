@@ -1,10 +1,10 @@
 ---
 title: "WhatsApp Plugin"
 sidebarTitle: "WhatsApp"
-description: "WhatsApp connector for Milaidy — personal and multi-account messaging via the Baileys WebSocket API."
+description: "WhatsApp connector for Milady — personal and multi-account messaging via the Baileys WebSocket API."
 ---
 
-The WhatsApp plugin connects Milaidy agents to WhatsApp using the Baileys WebSocket library, enabling messaging from personal WhatsApp accounts without the official Business API.
+The WhatsApp plugin connects Milady agents to WhatsApp using the Baileys WebSocket library, enabling messaging from personal WhatsApp accounts without the official Business API.
 
 **Package:** `@elizaos/plugin-whatsapp`
 
@@ -17,7 +17,7 @@ The WhatsApp plugin uses Baileys, an unofficial WhatsApp Web multi-device API cl
 ## Installation
 
 ```bash
-milaidy plugins install whatsapp
+milady plugins install whatsapp
 ```
 
 ## Setup

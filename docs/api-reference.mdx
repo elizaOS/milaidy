@@ -1,10 +1,10 @@
 ---
 title: REST API Reference
 sidebarTitle: API Reference
-description: Complete reference for all Milaidy REST API endpoints, organized by resource group.
+description: Complete reference for all Milady REST API endpoints, organized by resource group.
 ---
 
-The Milaidy API server runs on port **2138** by default. All endpoints are prefixed with `/api/`. Authentication is required when `MILADY_API_TOKEN` is set.
+The Milady API server runs on port **2138** by default. All endpoints are prefixed with `/api/`. Authentication is required when `MILADY_API_TOKEN` is set.
 
 <Warning>
 When `MILADY_API_TOKEN` is configured, include the token as a `Bearer` token in the `Authorization` header, or use the pairing flow to obtain it.
@@ -87,14 +87,14 @@ curl -X POST http://localhost:2138/api/knowledge/documents \
   -H "Content-Type: application/json" \
   -d '{
     "title": "Company FAQ",
-    "content": "Q: What is Milaidy?\nA: A personal AI assistant built on ElizaOS."
+    "content": "Q: What is Milady?\nA: A personal AI assistant built on ElizaOS."
   }'
 ```
 
 ### Search knowledge
 
 ```bash
-curl "http://localhost:2138/api/knowledge/search?q=what+is+milaidy&limit=5" \
+curl "http://localhost:2138/api/knowledge/search?q=what+is+milady&limit=5" \
   -H "Authorization: Bearer YOUR_TOKEN"
 ```
 

@@ -1,15 +1,15 @@
 ---
-title: "milaidy dashboard"
+title: "milady dashboard"
 sidebarTitle: "dashboard"
-description: "Open the Milaidy Control UI in your browser."
+description: "Open the Milady Control UI in your browser."
 ---
 
-Open the Milaidy Control UI in your default web browser. The command automatically detects whether the agent server is already running and either opens the live instance, connects to an existing dev server, or starts the Vite dev server from the local app source.
+Open the Milady Control UI in your default web browser. The command automatically detects whether the agent server is already running and either opens the live instance, connects to an existing dev server, or starts the Vite dev server from the local app source.
 
 ## Usage
 
 ```bash
-milaidy dashboard [options]
+milady dashboard [options]
 ```
 
 ## Options
@@ -23,7 +23,7 @@ Global flags:
 
 | Flag | Description |
 |------|-------------|
-| `--version`, `-v`, `-V` | Print the current Milaidy version and exit |
+| `--version`, `-v`, `-V` | Print the current Milady version and exit |
 | `--help`, `-h` | Show help for this command |
 | `--profile <name>` | Use a named configuration profile |
 | `--dev` | Shorthand for `--profile dev` |
@@ -32,16 +32,16 @@ Global flags:
 
 ```bash
 # Open the dashboard (auto-detects running server)
-milaidy dashboard
+milady dashboard
 
 # Check a custom port
-milaidy dashboard --port 3000
+milady dashboard --port 3000
 
 # Open a specific URL directly
-milaidy dashboard --url http://my-server:8080
+milady dashboard --url http://my-server:8080
 
 # Open a remote instance
-milaidy dashboard --url https://milady.example.com
+milady dashboard --url https://milady.example.com
 ```
 
 ## Behavior
@@ -54,7 +54,7 @@ The `dashboard` command follows this resolution order:
 
 3. **Check dev port** -- if the specified port is not responding, checks port `2138` (the default dev server port). If listening, opens `http://localhost:2138`.
 
-4. **Start Vite dev server** -- if neither port is responding, attempts to start the Vite dev server from the `apps/app/` directory inside the Milaidy package root. Once the server reports "Local:" in its output (or after 10 seconds), opens `http://localhost:2138`.
+4. **Start Vite dev server** -- if neither port is responding, attempts to start the Vite dev server from the `apps/app/` directory inside the Milady package root. Once the server reports "Local:" in its output (or after 10 seconds), opens `http://localhost:2138`.
 
 If the app UI is not available in the current installation (e.g. a published npm package without source), the command prints an error and exits with code 1.
 
@@ -76,7 +76,7 @@ If the browser cannot be opened automatically, the URL is printed to the termina
 
 ## Control UI
 
-The Milaidy Control UI is a web application that provides:
+The Milady Control UI is a web application that provides:
 
 - Real-time chat interface connecting to the running agent
 - Agent status and session monitoring
@@ -87,6 +87,6 @@ The web UI communicates with the agent API server at `http://localhost:2138` (or
 
 ## Related
 
-- [milaidy start](/cli/start) -- start the agent API server that the dashboard connects to
-- [milaidy tui](/cli/tui) -- terminal UI alternative to the web dashboard
+- [milady start](/cli/start) -- start the agent API server that the dashboard connects to
+- [milady tui](/cli/tui) -- terminal UI alternative to the web dashboard
 - [Environment Variables](/cli/environment) -- `MILADY_PORT` and other server configuration

@@ -8,7 +8,7 @@ The MCP (Model Context Protocol) marketplace lets your agent discover and connec
 
 ## How It Works
 
-Milaidy integrates with the official MCP registry at `https://registry.modelcontextprotocol.io`. You can browse available servers, install them into your agent config, and the runtime connects to them automatically.
+Milady integrates with the official MCP registry at `https://registry.modelcontextprotocol.io`. You can browse available servers, install them into your agent config, and the runtime connects to them automatically.
 
 MCP servers run in three modes:
 

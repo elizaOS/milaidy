@@ -4,7 +4,7 @@ sidebarTitle: "Cloud"
 description: "REST API endpoints for Eliza Cloud authentication, connection status, credit balance, and cloud agent management."
 ---
 
-The cloud API connects the local Milaidy agent to Eliza Cloud for cloud-hosted inference, credits, and remote agent management. Login uses a browser-based OAuth-style flow with polling for session completion.
+The cloud API connects the local Milady agent to Eliza Cloud for cloud-hosted inference, credits, and remote agent management. Login uses a browser-based OAuth-style flow with polling for session completion.
 
 ## Endpoints
 

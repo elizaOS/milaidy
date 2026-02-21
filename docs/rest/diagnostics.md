@@ -120,7 +120,7 @@ data: {"type":"entry","entry":{"type":"policy_decision","severity":"warn",...}}
 
 ### GET /api/extension/status
 
-Check browser extension relay status and extension path. Used to determine whether the Milaidy browser extension is connected and loadable.
+Check browser extension relay status and extension path. Used to determine whether the Milady browser extension is connected and loadable.
 
 **Response**
 

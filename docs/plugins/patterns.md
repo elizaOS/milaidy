@@ -4,7 +4,7 @@ sidebarTitle: "Patterns"
 description: "Common plugin implementation patterns — singleton services, state providers, action chains, evaluator pipelines, error handling, and testing."
 ---
 
-This page documents proven patterns for building reliable, maintainable Milaidy plugins.
+This page documents proven patterns for building reliable, maintainable Milady plugins.
 
 ## Singleton Service
 

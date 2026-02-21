@@ -1,10 +1,10 @@
 ---
 title: Configuration Schema Reference
 sidebarTitle: Config Schema
-description: Complete reference for the milaidy.json configuration file, organized by section with all fields documented.
+description: Complete reference for the milady.json configuration file, organized by section with all fields documented.
 ---
 
-Milaidy is configured through a `milaidy.json` file stored in the state directory (default: `~/.milady/milaidy.json`). All sections are optional; Milaidy uses sensible defaults when fields are omitted.
+Milady is configured through a `milady.json` file stored in the state directory (default: `~/.milady/milady.json`). All sections are optional; Milady uses sensible defaults when fields are omitted.
 
 The configuration is validated against Zod schemas at load time. Invalid fields produce warnings but do not block startup.
 
@@ -12,7 +12,7 @@ The configuration is validated against Zod schemas at load time. Invalid fields 
 
 ## Top-Level Structure
 
-The `MiladyConfig` type defines every section available in `milaidy.json`. Below is the complete list of top-level keys:
+The `MiladyConfig` type defines every section available in `milady.json`. Below is the complete list of top-level keys:
 
 | Section | Type | Description |
 |---------|------|-------------|
@@ -109,7 +109,7 @@ Metadata about the config file itself.
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `lastTouchedVersion` | `string` | -- | Last Milaidy version that wrote this config |
+| `lastTouchedVersion` | `string` | -- | Last Milady version that wrote this config |
 | `lastTouchedAt` | `string` | -- | ISO timestamp when config was last written |
 
 ---
@@ -161,7 +161,7 @@ Onboarding wizard state tracking.
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `lastRunAt` | `string` | -- | ISO timestamp of last wizard run |
-| `lastRunVersion` | `string` | -- | Milaidy version of last wizard run |
+| `lastRunVersion` | `string` | -- | Milady version of last wizard run |
 | `lastRunCommit` | `string` | -- | Git commit of last wizard run |
 | `lastRunCommand` | `string` | -- | Command used in last wizard run |
 | `lastRunMode` | `"local" \| "remote"` | -- | Whether the wizard ran locally or remotely |
@@ -246,7 +246,7 @@ Browser automation and Chrome DevTools Protocol (CDP) configuration.
 | `cdpUrl` | `string` | -- | Base CDP endpoint URL (for remote browsers) |
 | `remoteCdpTimeoutMs` | `number` | `1500` | Remote CDP HTTP timeout (ms) |
 | `remoteCdpHandshakeTimeoutMs` | `number` | `max(remoteCdpTimeoutMs * 2, 2000)` | Remote CDP WebSocket handshake timeout (ms) |
-| `color` | `string` | `#FF4500` | Accent color for the Milaidy browser profile (hex) |
+| `color` | `string` | `#FF4500` | Accent color for the Milady browser profile (hex) |
 | `executablePath` | `string` | -- | Override the browser executable path (all platforms) |
 | `headless` | `boolean` | `false` | Start Chrome headless |
 | `noSandbox` | `boolean` | `false` | Pass `--no-sandbox` to Chrome (Linux containers) |
@@ -272,7 +272,7 @@ UI appearance configuration.
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `seamColor` | `string` | -- | Accent color for Milaidy UI chrome (hex) |
+| `seamColor` | `string` | -- | Accent color for Milady UI chrome (hex) |
 | `theme` | `"milady" \| "qt314" \| "web2000" \| "programmer" \| "haxor" \| "psycho"` | -- | User's preferred UI theme (set during onboarding) |
 | `assistant.name` | `string` | -- | Assistant display name for UI surfaces |
 | `assistant.avatar` | `string` | -- | Avatar emoji, short text, or image URL/data URI |
@@ -1111,7 +1111,7 @@ Gateway server configuration: port, bind address, TLS, auth, HTTP endpoints, and
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `enabled` | `boolean` | -- | Serve the Control UI (default: `/`) |
-| `basePath` | `string` | -- | Base path prefix (e.g. `"/milaidy"`) |
+| `basePath` | `string` | -- | Base path prefix (e.g. `"/milady"`) |
 | `root` | `string` | -- | Filesystem root for Control UI assets (defaults to `dist/control-ui`) |
 | `allowedOrigins` | `string[]` | -- | Allowed browser origins for WebSocket connections |
 | `allowInsecureAuth` | `boolean` | `false` | Allow token-only auth over insecure HTTP |

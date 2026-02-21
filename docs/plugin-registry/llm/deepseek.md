@@ -1,17 +1,17 @@
 ---
 title: "DeepSeek Plugin"
 sidebarTitle: "DeepSeek"
-description: "DeepSeek model provider for Milaidy — DeepSeek-V3 and DeepSeek-R1 reasoning models."
+description: "DeepSeek model provider for Milady — DeepSeek-V3 and DeepSeek-R1 reasoning models."
 ---
 
-The DeepSeek plugin connects Milaidy agents to DeepSeek's API, providing access to DeepSeek-V3 (general-purpose) and DeepSeek-R1 (reasoning-focused) models at competitive pricing.
+The DeepSeek plugin connects Milady agents to DeepSeek's API, providing access to DeepSeek-V3 (general-purpose) and DeepSeek-R1 (reasoning-focused) models at competitive pricing.
 
 **Package:** `@elizaos/plugin-deepseek`
 
 ## Installation
 
 ```bash
-milaidy plugins install deepseek
+milady plugins install deepseek
 ```
 
 ## Auto-Enable
@@ -29,7 +29,7 @@ export DEEPSEEK_API_KEY=sk-...
 | `DEEPSEEK_API_KEY` | Yes | DeepSeek API key from [platform.deepseek.com](https://platform.deepseek.com) |
 | `DEEPSEEK_API_URL` | No | Custom base URL (default: `https://api.deepseek.com`) |
 
-### milaidy.json Example
+### milady.json Example
 
 ```json
 {
@@ -73,7 +73,7 @@ DeepSeek-V3 is a mixture-of-experts model with 671B parameters (37B active). Dee
 
 ## DeepSeek-R1 Reasoning
 
-The `deepseek-reasoner` model produces a `<think>` block containing its reasoning chain before the final answer. Milaidy exposes this through the standard reasoning model type:
+The `deepseek-reasoner` model produces a `<think>` block containing its reasoning chain before the final answer. Milady exposes this through the standard reasoning model type:
 
 ```typescript
 const response = await runtime.useModel("TEXT_REASONING_LARGE", {

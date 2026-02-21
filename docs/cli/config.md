@@ -1,15 +1,15 @@
 ---
-title: "milaidy config"
+title: "milady config"
 sidebarTitle: "config"
-description: "Read and inspect Milaidy configuration values."
+description: "Read and inspect Milady configuration values."
 ---
 
-A group of subcommands for reading and inspecting the Milaidy configuration file. The `config` group provides structured access to values stored in `~/.milady/milady.json` without requiring you to open and parse the file manually.
+A group of subcommands for reading and inspecting the Milady configuration file. The `config` group provides structured access to values stored in `~/.milady/milady.json` without requiring you to open and parse the file manually.
 
 ## Usage
 
 ```bash
-milaidy config <subcommand> [options]
+milady config <subcommand> [options]
 ```
 
 ## Subcommands
@@ -22,14 +22,14 @@ milaidy config <subcommand> [options]
 
 ---
 
-## `milaidy config get <key>`
+## `milady config get <key>`
 
 Read a single configuration value. Supports **dot-notation** to traverse nested objects (e.g. `gateway.port`, `agents.defaults.workspace`).
 
 ### Usage
 
 ```bash
-milaidy config get <key>
+milady config get <key>
 ```
 
 ### Behavior
@@ -43,38 +43,38 @@ milaidy config get <key>
 
 ```bash
 # Read a simple top-level value
-milaidy config get gateway.port
+milady config get gateway.port
 
 # Read a nested value
-milaidy config get agents.defaults.workspace
+milady config get agents.defaults.workspace
 
 # Read a full object (printed as JSON)
-milaidy config get plugins
+milady config get plugins
 
 # Read a deeply nested value
-milaidy config get plugins.load.paths
+milady config get plugins.load.paths
 ```
 
 ---
 
-## `milaidy config path`
+## `milady config path`
 
 Print the resolved absolute path to the active configuration file. The path is determined by environment variables, profile flags, and built-in defaults.
 
 ### Usage
 
 ```bash
-milaidy config path
+milady config path
 ```
 
 ### Example
 
 ```bash
-milaidy config path
+milady config path
 # Output: /Users/you/.milady/milady.json
 
 # With a profile
-milaidy --profile staging config path
+milady --profile staging config path
 # Output: /Users/you/.milady-staging/milady.json
 ```
 
@@ -88,14 +88,14 @@ The resolved path is affected by:
 
 ---
 
-## `milaidy config show`
+## `milady config show`
 
 Display all configuration values grouped by logical section, with labels, help text, and sensitive value masking. Sensitive fields (API keys, tokens) are displayed as `●●●●●●●●` in the formatted view.
 
 ### Usage
 
 ```bash
-milaidy config show [options]
+milady config show [options]
 ```
 
 ### Options
@@ -109,16 +109,16 @@ milaidy config show [options]
 
 ```bash
 # Formatted output grouped by section
-milaidy config show
+milady config show
 
 # Include advanced and hidden fields
-milaidy config show --all
+milady config show --all
 
 # Machine-readable JSON (includes actual sensitive values)
-milaidy config show --json
+milady config show --json
 
 # With a profile
-milaidy --profile staging config show
+milady --profile staging config show
 ```
 
 ### Output Format
@@ -142,15 +142,15 @@ The configuration file is `~/.milady/milady.json` by default. It is a JSON file 
 
 ```bash
 # Find the file
-milaidy config path
+milady config path
 
 # Open it in your editor
-$EDITOR "$(milaidy config path)"
+$EDITOR "$(milady config path)"
 ```
 
 ## Related
 
-- [milaidy configure](/cli/configure) -- display configuration guidance and provider env vars
-- [milaidy setup](/cli/setup) -- initialize the config file on first run
+- [milady configure](/cli/configure) -- display configuration guidance and provider env vars
+- [milady setup](/cli/setup) -- initialize the config file on first run
 - [Configuration Reference](/configuration) -- full config schema and all available keys
 - [Environment Variables](/cli/environment) -- environment variables that affect config resolution

@@ -1,17 +1,17 @@
 ---
 title: "Telegram Plugin"
 sidebarTitle: "Telegram"
-description: "Telegram bot connector for Milaidy — messaging, groups, inline queries, and media handling."
+description: "Telegram bot connector for Milady — messaging, groups, inline queries, and media handling."
 ---
 
-The Telegram plugin connects Milaidy agents to Telegram as a bot, handling private messages, group chats, inline queries, and media sharing.
+The Telegram plugin connects Milady agents to Telegram as a bot, handling private messages, group chats, inline queries, and media sharing.
 
 **Package:** `@elizaos/plugin-telegram`
 
 ## Installation
 
 ```bash
-milaidy plugins install telegram
+milady plugins install telegram
 ```
 
 ## Setup
@@ -22,7 +22,7 @@ milaidy plugins install telegram
 2. Send `/newbot` and follow the prompts
 3. BotFather will give you a bot token in the format `123456789:ABCdef...`
 
-### 2. Configure Milaidy
+### 2. Configure Milady
 
 ```json
 {

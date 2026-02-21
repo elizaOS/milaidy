@@ -1,10 +1,10 @@
 ---
 title: CLI Overview
 sidebarTitle: Overview
-description: The Milaidy CLI is the primary interface for managing agents, plugins, configuration, and deployment from the terminal.
+description: The Milady CLI is the primary interface for managing agents, plugins, configuration, and deployment from the terminal.
 ---
 
-The `milaidy` CLI is the primary interface for managing the Milaidy AI agent. Every command is registered through the Commander.js framework and supports `--help` for inline documentation.
+The `milady` CLI is the primary interface for managing the Milady AI agent. Every command is registered through the Commander.js framework and supports `--help` for inline documentation.
 
 ## Installation
 
@@ -15,7 +15,7 @@ bun install -g milaidy
 Or run directly:
 
 ```bash
-bunx milaidy
+bunx milady
 ```
 
 ## Global Flags
@@ -66,7 +66,7 @@ bunx milaidy
 </Card>
 
 <Card title="update" icon="arrow-up" href="/cli/update">
-  Check for and apply updates to the Milaidy installation.
+  Check for and apply updates to the Milady installation.
 </Card>
 
 <Card title="doctor" icon="stethoscope" href="/cli/doctor">
@@ -79,25 +79,25 @@ bunx milaidy
 
 ```bash
 # Start agent with default character
-milaidy start
+milady start
 
 # Start with a specific character
-milaidy start --character ./my-character.json
+milady start --character ./my-character.json
 
 # Launch TUI
-milaidy tui
+milady tui
 
 # Run setup wizard
-milaidy setup
+milady setup
 
 # Install a plugin
-milaidy plugins install @elizaos/plugin-openai
+milady plugins install @elizaos/plugin-openai
 
 # Check for updates
-milaidy update
+milady update
 
 # Diagnose issues
-milaidy doctor
+milady doctor
 ```
 
 ## Environment Variables
@@ -106,6 +106,6 @@ See [Environment Reference](/cli/environment) for a complete list of environment
 
 ## Related
 
-- [Installation](/installation) — Install Milaidy
+- [Installation](/installation) — Install Milady
 - [Quickstart](/quickstart) — Get started in minutes
 - [Configuration](/configuration) — Configuration file reference

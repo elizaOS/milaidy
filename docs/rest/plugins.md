@@ -41,7 +41,7 @@ List all plugins from the ElizaOS registry with installation and load status.
 | `installed` | boolean | Whether this plugin is currently installed |
 | `installedVersion` | string \| null | Installed version, or `null` if not installed |
 | `loaded` | boolean | Whether this plugin is loaded in the running agent runtime |
-| `bundled` | boolean | Whether this plugin is bundled into the Milaidy binary |
+| `bundled` | boolean | Whether this plugin is bundled into the Milady binary |
 
 ---
 

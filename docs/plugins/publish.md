@@ -1,10 +1,10 @@
 ---
 title: "Publish a Plugin"
 sidebarTitle: "Publish"
-description: "How to package, version, and publish a Milaidy plugin to the npm registry and submit it to the community registry."
+description: "How to package, version, and publish a Milady plugin to the npm registry and submit it to the community registry."
 ---
 
-This guide covers the full publishing workflow for a Milaidy plugin — from packaging to npm publication and community registry submission.
+This guide covers the full publishing workflow for a Milady plugin — from packaging to npm publication and community registry submission.
 
 ## Naming Conventions
 
@@ -31,7 +31,7 @@ Your plugin's `package.json` must include these fields:
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": ["dist", "elizaos.plugin.json"],
-  "keywords": ["elizaos", "milaidy", "plugin"],
+  "keywords": ["elizaos", "milady", "plugin"],
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -137,7 +137,7 @@ npm info @yourorg/plugin-my-feature
 
 ## Plugin Manifest
 
-Include an `elizaos.plugin.json` at the package root for rich UI integration in the Milaidy admin panel:
+Include an `elizaos.plugin.json` at the package root for rich UI integration in the Milady admin panel:
 
 ```json
 {
@@ -193,7 +193,7 @@ Include an `elizaos.plugin.json` at the package root for rich UI integration in 
 
 ## Community Registry
 
-After publishing to npm, submit your plugin to the Milaidy community registry by opening a pull request to the [milady-ai/milady](https://github.com/milady-ai/milady) repository.
+After publishing to npm, submit your plugin to the Milady community registry by opening a pull request to the [milady-ai/milady](https://github.com/milady-ai/milady) repository.
 
 Include:
 1. The npm package name

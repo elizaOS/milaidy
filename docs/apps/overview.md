@@ -1,10 +1,10 @@
 ---
 title: Apps Overview
 sidebarTitle: Overview
-description: Milaidy ships as a cross-platform suite — desktop, mobile, browser extension, web dashboard, and terminal UI.
+description: Milady ships as a cross-platform suite — desktop, mobile, browser extension, web dashboard, and terminal UI.
 ---
 
-Milaidy is available on every platform you work on. Each app connects to the same agent runtime, giving you a consistent experience whether you're at your desk or on your phone.
+Milady is available on every platform you work on. Each app connects to the same agent runtime, giving you a consistent experience whether you're at your desk or on your phone.
 
 ## Available Apps
 
@@ -61,7 +61,7 @@ All apps share a common connection pattern:
 
 ## Standalone Apps vs. Plugin Apps
 
-Milaidy has two distinct types of "apps" — understanding the difference prevents confusion.
+Milady has two distinct types of "apps" — understanding the difference prevents confusion.
 
 ### Standalone Apps (Platforms)
 

@@ -1,17 +1,17 @@
 ---
 title: "Slack Plugin"
 sidebarTitle: "Slack"
-description: "Slack connector for Milaidy — workspace bot, channel monitoring, slash commands, and interactive components."
+description: "Slack connector for Milady — workspace bot, channel monitoring, slash commands, and interactive components."
 ---
 
-The Slack plugin connects Milaidy agents to Slack workspaces as a bot app, handling messages in channels, DMs, and threads with support for slash commands and interactive components.
+The Slack plugin connects Milady agents to Slack workspaces as a bot app, handling messages in channels, DMs, and threads with support for slash commands and interactive components.
 
 **Package:** `@elizaos/plugin-slack`
 
 ## Installation
 
 ```bash
-milaidy plugins install slack
+milady plugins install slack
 ```
 
 ## Setup
@@ -58,7 +58,7 @@ Navigate to **Event Subscriptions** and subscribe to bot events:
 
 Navigate to **OAuth & Permissions** and click **Install to Workspace**. Copy the **Bot User OAuth Token** (`xoxb-...`).
 
-### 6. Configure Milaidy
+### 6. Configure Milady
 
 ```json
 {

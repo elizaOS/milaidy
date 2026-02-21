@@ -1,10 +1,10 @@
 ---
 title: "Chat Commands"
 sidebarTitle: "Chat Commands"
-description: "In-session commands available in Milaidy TUI and web chat."
+description: "In-session commands available in Milady TUI and web chat."
 ---
 
-Milaidy supports several layers of in-session commands: TUI slash commands for the terminal interface, runtime commands controlled by configuration, custom command handlers via the hooks system, and plugin-provided commands.
+Milady supports several layers of in-session commands: TUI slash commands for the terminal interface, runtime commands controlled by configuration, custom command handlers via the hooks system, and plugin-provided commands.
 
 ## TUI Slash Commands
 
@@ -16,7 +16,7 @@ These commands are available in the interactive TUI (terminal) chat input. The T
 | `/models` | Alias for `/model` |
 | `/clear` | Clear the chat display and reset to the welcome message |
 | `/help` | Show help information |
-| `/exit` | Quit Milaidy |
+| `/exit` | Quit Milady |
 | `/quit` | Alias for `/exit` |
 
 When using `/model` without an argument, a centered overlay appears showing all available models with the current selection highlighted. When a `provider/id` is provided (e.g. `/model anthropic/claude-sonnet-4-20250514`), the model switches immediately without opening the selector. The model selector also shows credential status for each provider when available.
@@ -190,7 +190,7 @@ export const myPlugin = {
 
 ## Web Dashboard Commands
 
-The web Control UI (opened via `milaidy dashboard`) provides its own command interface through the API server. Commands sent through the web chat are processed by the same ElizaOS runtime, so all runtime commands, hook handlers, and plugin-provided actions are available.
+The web Control UI (opened via `milady dashboard`) provides its own command interface through the API server. Commands sent through the web chat are processed by the same ElizaOS runtime, so all runtime commands, hook handlers, and plugin-provided actions are available.
 
 The API server exposes endpoints at `http://localhost:2138` (default) that the web UI uses to send messages and receive responses. The agent restart endpoint (`POST /api/agent/restart`) is also available when `commands.restart` is enabled.
 

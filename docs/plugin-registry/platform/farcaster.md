@@ -1,21 +1,21 @@
 ---
 title: "Farcaster Plugin"
 sidebarTitle: "Farcaster"
-description: "Farcaster connector for Milaidy — decentralized social protocol, casts, replies, and on-chain identity."
+description: "Farcaster connector for Milady — decentralized social protocol, casts, replies, and on-chain identity."
 ---
 
-The Farcaster plugin connects Milaidy agents to the Farcaster decentralized social protocol, enabling agents to cast (post), reply, react, and interact with users on the Farcaster network.
+The Farcaster plugin connects Milady agents to the Farcaster decentralized social protocol, enabling agents to cast (post), reply, react, and interact with users on the Farcaster network.
 
 **Package:** `@elizaos/plugin-farcaster`
 
 ## Overview
 
-Farcaster is a sufficiently decentralized social protocol. Users own their accounts on-chain (via Ethereum) while messages are stored off-chain on Hubs. The Milaidy Farcaster plugin interacts with the network via the Neynar API.
+Farcaster is a sufficiently decentralized social protocol. Users own their accounts on-chain (via Ethereum) while messages are stored off-chain on Hubs. The Milady Farcaster plugin interacts with the network via the Neynar API.
 
 ## Installation
 
 ```bash
-milaidy plugins install farcaster
+milady plugins install farcaster
 ```
 
 ## Setup
@@ -36,7 +36,7 @@ Your agent needs a Farcaster account (FID — Farcaster ID):
 2. Note the account's FID
 3. Create a Neynar signer for the account (allows API-based posting)
 
-### 3. Configure Milaidy
+### 3. Configure Milady
 
 ```json
 {

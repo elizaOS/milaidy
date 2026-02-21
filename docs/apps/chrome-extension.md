@@ -4,11 +4,11 @@ sidebarTitle: Chrome Extension
 description: Use the Milady Browser Relay Chrome extension to let your agent control browser tabs via the Chrome DevTools Protocol.
 ---
 
-The **Milady Browser Relay** is a Chrome extension that bridges your browser tabs to the Milaidy agent runtime using the Chrome DevTools Protocol (CDP). This allows your agent to inspect, navigate, and interact with web pages in real time.
+The **Milady Browser Relay** is a Chrome extension that bridges your browser tabs to the Milady agent runtime using the Chrome DevTools Protocol (CDP). This allows your agent to inspect, navigate, and interact with web pages in real time.
 
 ## What It Does
 
-The extension attaches Chrome's built-in debugger to browser tabs and relays CDP commands between the Milaidy agent and the browser over a WebSocket connection. This gives the agent the ability to:
+The extension attaches Chrome's built-in debugger to browser tabs and relays CDP commands between the Milady agent and the browser over a WebSocket connection. This gives the agent the ability to:
 
 - Read page content and DOM structure.
 - Execute JavaScript in the page context.
@@ -25,18 +25,18 @@ The extension is not published to the Chrome Web Store. You install it from sour
 
 ### Using the CLI (recommended)
 
-The `milaidy` CLI can install the extension files to a stable path for you:
+The `milady` CLI can install the extension files to a stable path for you:
 
 ```bash
-milaidy browser extension install
-milaidy browser extension path
+milady browser extension install
+milady browser extension path
 ```
 
 The second command prints the absolute path you will point Chrome to in step 3 below.
 
 ### Manual Installation
 
-1. Clone the Milaidy repository and locate `apps/chrome-extension/`.
+1. Clone the Milady repository and locate `apps/chrome-extension/`.
 2. Open Chrome and navigate to `chrome://extensions/`.
 3. Enable **Developer mode** (toggle in the top-right corner).
 4. Click **Load unpacked** and select the extension directory (the folder containing `manifest.json`).
@@ -47,10 +47,10 @@ On first install, the extension automatically opens its options page with setup 
 
 ### Prerequisites
 
-Before the extension can function, the Milaidy relay server must be running on your machine. The relay is part of the Milaidy Gateway — start it with browser control enabled:
+Before the extension can function, the Milady relay server must be running on your machine. The relay is part of the Milady Gateway — start it with browser control enabled:
 
 ```bash
-milaidy start --browser-relay
+milady start --browser-relay
 ```
 
 Verify the relay is reachable by opening `http://127.0.0.1:18792/` in your browser. You should get a response (any HTTP status) rather than a connection refused error.
@@ -69,14 +69,14 @@ The extension consists of three files plus icons:
 ### Data Flow
 
 ```
-Browser Tab  <-->  Chrome Extension  <-->  Milaidy Agent
+Browser Tab  <-->  Chrome Extension  <-->  Milady Agent
  (CDP 1.3)         (WebSocket)           (Relay Server)
 ```
 
 The relay architecture involves three components that communicate through two protocols:
 
 1. **Chrome DevTools Protocol (CDP 1.3)** between the extension and the browser's debugging API.
-2. **WebSocket JSON messages** between the extension and the Milaidy relay server.
+2. **WebSocket JSON messages** between the extension and the Milady relay server.
 
 ### Internal State
 
@@ -155,7 +155,7 @@ The options page shows the current relay URL (`http://127.0.0.1:{port}/`) and au
 
 Port values are validated and clamped: non-numeric values, numbers less than or equal to 0, and numbers greater than 65535 all revert to the default port.
 
-Only change the port if your Milaidy profile uses a different `cdpUrl` port.
+Only change the port if your Milady profile uses a different `cdpUrl` port.
 
 ### Permissions
 
@@ -264,7 +264,7 @@ To see the CDP commands and events flowing through the extension:
 
 The relay server is not reachable. Verify that:
 
-1. The Milaidy Gateway is running with browser relay enabled.
+1. The Milady Gateway is running with browser relay enabled.
 2. The relay server port matches what the extension expects (default: 18792).
 3. No firewall is blocking `127.0.0.1:{port}`.
 4. Try opening `http://127.0.0.1:18792/` in your browser directly.
@@ -275,7 +275,7 @@ The WebSocket connection is failing after the preflight succeeds. This can happe
 
 1. The relay server accepts HTTP but has not started the WebSocket endpoint at `/extension`.
 2. The WebSocket connect timeout (5 seconds) is being exceeded.
-3. Another process is listening on the port but is not the Milaidy relay.
+3. Another process is listening on the port but is not the Milady relay.
 
 ### Debugger detaches unexpectedly
 

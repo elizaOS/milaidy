@@ -1,7 +1,7 @@
 ---
 title: "Secrets Manager Plugin"
 sidebarTitle: "Secrets Manager"
-description: "Secure secret storage, environment variable mapping, runtime secret injection, and encryption for Milaidy agents."
+description: "Secure secret storage, environment variable mapping, runtime secret injection, and encryption for Milady agents."
 ---
 
 The Secrets Manager plugin provides secure, encrypted storage for API keys and other sensitive configuration values. It is loaded early in the startup sequence — before any connector or provider plugins — so secrets are available at plugin initialization time.
@@ -26,12 +26,12 @@ Navigate to **Agent → Settings → Secrets** and add key-value pairs.
 ### Via the CLI
 
 ```bash
-milaidy config set secrets.OPENAI_API_KEY sk-...
+milady config set secrets.OPENAI_API_KEY sk-...
 ```
 
 ### Via Configuration File
 
-Secrets can be included in `milaidy.json` (not recommended for production — use environment variables instead):
+Secrets can be included in `milady.json` (not recommended for production — use environment variables instead):
 
 ```json
 {
@@ -47,7 +47,7 @@ Secrets can be included in `milaidy.json` (not recommended for production — us
 Any environment variable present at startup is automatically available as a secret. Plugins access them through `runtime.getSetting()` which checks both stored secrets and `process.env`.
 
 ```bash
-OPENAI_API_KEY=sk-... TELEGRAM_BOT_TOKEN=123456:ABC... milaidy start
+OPENAI_API_KEY=sk-... TELEGRAM_BOT_TOKEN=123456:ABC... milady start
 ```
 
 ## Accessing Secrets in Plugins

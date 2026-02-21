@@ -1,18 +1,18 @@
 ---
-title: "milaidy tui"
+title: "milady tui"
 sidebarTitle: "tui"
-description: "Start Milaidy with the interactive terminal UI."
+description: "Start Milady with the interactive terminal UI."
 ---
 
-Start Milaidy with the full-screen interactive terminal chat interface. This is the **default command** -- running `milaidy` with no arguments is equivalent to `milaidy tui`.
+Start Milady with the full-screen interactive terminal chat interface. This is the **default command** -- running `milady` with no arguments is equivalent to `milady tui`.
 
 The TUI boots the full ElizaOS agent runtime (with `requireConfig: true`) and launches a multi-pane terminal application with a status bar, scrollable chat area, and a multi-line input editor with slash command autocomplete.
 
 ## Usage
 
 ```bash
-milaidy tui [options]
-milaidy        # equivalent default
+milady tui [options]
+milady        # equivalent default
 ```
 
 ## Options
@@ -25,7 +25,7 @@ Global flags:
 
 | Flag | Description |
 |------|-------------|
-| `--version`, `-v`, `-V` | Print the current Milaidy version and exit |
+| `--version`, `-v`, `-V` | Print the current Milady version and exit |
 | `--help`, `-h` | Show help for this command |
 | `--profile <name>` | Use a named configuration profile |
 | `--dev` | Shorthand for `--profile dev` |
@@ -33,22 +33,22 @@ Global flags:
 ## Examples
 
 ```bash
-# Start with default settings (same as running milaidy)
-milaidy tui
+# Start with default settings (same as running milady)
+milady tui
 
 # Override the model for this session
-milaidy tui -m anthropic/claude-sonnet-4-20250514
+milady tui -m anthropic/claude-sonnet-4-20250514
 
 # Use a named profile
-milaidy --profile work tui
+milady --profile work tui
 
 # Use dev profile with model override
-milaidy --dev tui --model openai/gpt-4o
+milady --dev tui --model openai/gpt-4o
 ```
 
 ## Behavior
 
-When you run `milaidy tui`:
+When you run `milady tui`:
 
 1. The ElizaOS runtime boots with `requireConfig: true` -- the agent fails fast if no config is found.
 2. If a `--model` flag is provided, it is passed as a `modelOverride` to the TUI layer.
@@ -78,7 +78,7 @@ Slash commands are typed directly in the TUI input field. The autocomplete provi
 | `/models` | Alias for `/model` |
 | `/clear` | Clear the chat display and reset to the welcome message |
 | `/help` | Show help information |
-| `/exit` | Quit Milaidy |
+| `/exit` | Quit Milady |
 | `/quit` | Alias for `/exit` |
 
 When using `/model` without an argument, a centered overlay appears listing all available models with the current selection highlighted. Credential status is shown per provider when available.
@@ -90,16 +90,16 @@ Slash commands are handled entirely within the TUI layer and do not reach the ag
 The `--model` flag (or `-m`) accepts a provider-prefixed model identifier in the format `provider/model-id`. Examples:
 
 ```bash
-milaidy tui -m anthropic/claude-sonnet-4-20250514
-milaidy tui -m openai/gpt-4o
-milaidy tui -m google/gemini-2.0-flash
+milady tui -m anthropic/claude-sonnet-4-20250514
+milady tui -m openai/gpt-4o
+milady tui -m google/gemini-2.0-flash
 ```
 
 The model override applies only for the current session. To set a persistent default model, edit `~/.milady/milady.json` directly.
 
 ## Related
 
-- [milaidy start](/cli/start) -- headless server mode with no TUI
+- [milady start](/cli/start) -- headless server mode with no TUI
 - [Chat Commands](/chat-commands) -- full reference for runtime commands, hooks, and plugin-provided commands
-- [milaidy models](/cli/models) -- check which model providers are configured
+- [milady models](/cli/models) -- check which model providers are configured
 - [Environment Variables](/cli/environment) -- all environment variables

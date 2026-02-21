@@ -1,10 +1,10 @@
 ---
 title: "Plugin Development"
 sidebarTitle: "Plugin Development"
-description: "Create, test, and publish plugins for Milaidy/ElizaOS."
+description: "Create, test, and publish plugins for Milady/ElizaOS."
 ---
 
-This guide walks you through creating, testing, and publishing plugins for Milaidy/ElizaOS.
+This guide walks you through creating, testing, and publishing plugins for Milady/ElizaOS.
 
 ## Table of Contents
 
@@ -82,7 +82,7 @@ export default myPlugin;
 ### Plugin Lifecycle
 
 1. **Discovery** — Plugins are discovered from:
-   - Bundled plugins (shipped with Milaidy)
+   - Bundled plugins (shipped with Milady)
    - Workspace plugins (`./plugins/`)
    - Global plugins (`~/.milady/plugins/`)
    - npm packages (`@elizaos/plugin-*`)
@@ -753,7 +753,7 @@ For local plugin development without publishing:
    - `./plugins/my-plugin/` (project-local)
    - `~/.milady/plugins/my-plugin/` (global)
 
-2. **Config-based loading** — Add to `milaidy.json`:
+2. **Config-based loading** — Add to `milady.json`:
    ```json
    {
      "plugins": ["./path/to/my-plugin"]
@@ -833,7 +833,7 @@ Indicates where a plugin was discovered:
 
 | Origin | Description |
 |--------|-------------|
-| `bundled` | Shipped with Milaidy |
+| `bundled` | Shipped with Milady |
 | `global` | From `~/.milady/plugins/` |
 | `workspace` | From `./plugins/` |
 | `config` | Explicitly listed in config |
@@ -1089,4 +1089,4 @@ const myPlugin: Plugin = {
 
 - [Skills Documentation](./skills.md) — Learn about markdown-based skill extensions
 - [Registry Guide](./registry.md) — Publishing to the plugin registry
-- [Contributing Guide](/guides/contribution-guide) — Contributing to Milaidy/ElizaOS
+- [Contributing Guide](/guides/contribution-guide) — Contributing to Milady/ElizaOS

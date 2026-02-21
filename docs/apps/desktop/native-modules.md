@@ -4,7 +4,7 @@ sidebarTitle: "Native Modules"
 description: "IPC-based native module system that gives the Electron desktop app access to platform capabilities."
 ---
 
-The Milaidy desktop app exposes platform capabilities to the web renderer through a set of **native modules** — singleton manager classes running in the Electron main process. Each module is initialized in `initializeNativeModules()` and registers its IPC handlers via `registerAllIPC()`. The renderer calls into these modules using Electron's `ipcRenderer.invoke` and `ipcRenderer.on` APIs, proxied through the context-isolated preload script.
+The Milady desktop app exposes platform capabilities to the web renderer through a set of **native modules** — singleton manager classes running in the Electron main process. Each module is initialized in `initializeNativeModules()` and registers its IPC handlers via `registerAllIPC()`. The renderer calls into these modules using Electron's `ipcRenderer.invoke` and `ipcRenderer.on` APIs, proxied through the context-isolated preload script.
 
 There are **10 native modules** with **118+ IPC channels** in total, covering agent lifecycle, desktop integration, network discovery, voice I/O, wake-word detection, screen capture, camera, canvas windows, geolocation, and system permissions.
 

@@ -119,4 +119,4 @@ List available AI models. Optionally filter by a specific provider or refresh th
 
 - [Model Providers](/model-providers) — configuring model providers
 - [Environment variables](/cli/environment) — API key variables
-- [`milaidy models`](/cli/models) — CLI command for checking models
+- [`milady models`](/cli/models) — CLI command for checking models

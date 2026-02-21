@@ -1,12 +1,12 @@
 ---
 title: "Contributing Guide"
 sidebarTitle: "Contributing"
-description: "Set up your development environment and contribute to Milaidy."
+description: "Set up your development environment and contribute to Milady."
 ---
 
-Welcome to the Milaidy project. This guide covers environment setup, development workflow, and the pull request process.
+Welcome to the Milady project. This guide covers environment setup, development workflow, and the pull request process.
 
-Before contributing, read [CONTRIBUTING.md](https://github.com/milady-ai/milady/blob/develop/CONTRIBUTING.md) in the repo root for the project's contribution philosophy. Milaidy is an **agents-only codebase** -- every PR is reviewed and merged by AI agents, not human maintainers. Humans contribute primarily as QA testers and bug reporters.
+Before contributing, read [CONTRIBUTING.md](https://github.com/milady-ai/milady/blob/develop/CONTRIBUTING.md) in the repo root for the project's contribution philosophy. Milady is an **agents-only codebase** -- every PR is reviewed and merged by AI agents, not human maintainers. Humans contribute primarily as QA testers and bug reporters.
 
 ---
 
@@ -39,10 +39,10 @@ bun run build
 After building, verify the CLI works:
 
 ```bash
-bun run milaidy --help
+bun run milady --help
 ```
 
-Configuration is stored at `~/.milady/milaidy.json` and the workspace lives at `~/.milady/workspace/`.
+Configuration is stored at `~/.milady/milady.json` and the workspace lives at `~/.milady/workspace/`.
 
 ---
 
@@ -64,7 +64,7 @@ bun run dev:desktop
 bun run tui
 
 # Run the CLI directly
-bun run milaidy start
+bun run milady start
 ```
 
 ### Testing
@@ -165,7 +165,7 @@ Always branch from `develop` and target PRs back to `develop`.
 
 2. **Make changes** with concise, action-oriented commits
    ```bash
-   git commit -m "milaidy: add verbose flag to send action"
+   git commit -m "milady: add verbose flag to send action"
    ```
 
 3. **Run checks before pushing**
@@ -193,7 +193,7 @@ refactor: extract session key logic to provider
 chore: update @elizaos/core to latest
 ```
 
-Other accepted styles follow the `milaidy: description` pattern seen in the repo history (e.g., `milaidy: fix telegram reconnect on rate limit`).
+Other accepted styles follow the `milady: description` pattern seen in the repo history (e.g., `milady: fix telegram reconnect on rate limit`).
 
 ### The Agent Review Bot
 
@@ -259,8 +259,8 @@ Before submitting, verify:
 
 ### Product vs Code Naming
 
-- **Milaidy** -- Product name, headings, documentation prose
-- **milaidy** -- CLI binary name, package paths, config keys
+- **Milady** -- Product name, headings, documentation prose
+- **milady** -- CLI binary name, package paths, config keys
 
 ### File Size
 
@@ -307,7 +307,7 @@ Install the [Biome VS Code extension](https://marketplace.visualstudio.com/items
 ## Project Structure
 
 ```
-milaidy/
+milady/
 ├── apps/
 │   ├── app/                 # Desktop/mobile app (Capacitor + React)
 │   │   ├── electron/        # Electron desktop wrapper
@@ -342,7 +342,7 @@ milaidy/
 ├── tsconfig.json            # TypeScript config
 ├── tsdown.config.ts         # Build config (tsdown bundler)
 ├── vitest.config.ts         # Vitest test config
-└── milaidy.mjs               # npm bin entry point
+└── milady.mjs               # npm bin entry point
 ```
 
 ### Key Entry Points
@@ -352,8 +352,8 @@ milaidy/
 | `src/entry.ts` | CLI entry point |
 | `src/index.ts` | Library exports |
 | `src/runtime/eliza.ts` | ElizaOS runtime initialization |
-| `src/runtime/milaidy-plugin.ts` | Main Milaidy plugin |
-| `milaidy.mjs` | npm bin entry (`"bin"` in package.json) |
+| `src/runtime/milady-plugin.ts` | Main Milady plugin |
+| `milady.mjs` | npm bin entry (`"bin"` in package.json) |
 
 ---
 
@@ -363,7 +363,7 @@ When filing a bug report:
 
 1. **Check existing issues** to avoid duplicates
 2. **Include reproduction steps** -- what you did, what happened, what you expected
-3. **Share your environment** -- OS, Node version, Milaidy version (`milaidy --version`)
+3. **Share your environment** -- OS, Node version, Milady version (`milady --version`)
 4. **Attach logs** -- relevant error output
 
 An AI agent triages all incoming issues. Valid bugs are labeled and prioritized. Issues that are out of scope (aesthetic requests, feature creep) will be closed with an explanation.

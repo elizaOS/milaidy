@@ -1,10 +1,10 @@
 ---
 title: "Browser Plugin"
 sidebarTitle: "Browser"
-description: "Browser automation plugin for Milaidy — web scraping, form submission, screenshot capture, and JavaScript execution via Playwright."
+description: "Browser automation plugin for Milady — web scraping, form submission, screenshot capture, and JavaScript execution via Playwright."
 ---
 
-The Browser plugin gives Milaidy agents the ability to control a headless web browser — navigating pages, extracting content, filling forms, capturing screenshots, and executing JavaScript.
+The Browser plugin gives Milady agents the ability to control a headless web browser — navigating pages, extracting content, filling forms, capturing screenshots, and executing JavaScript.
 
 **Package:** `@elizaos/plugin-browser`
 
@@ -15,7 +15,7 @@ The Browser plugin uses Playwright under the hood to provide a full Chromium bro
 ## Installation
 
 ```bash
-milaidy plugins install browser
+milady plugins install browser
 ```
 
 The plugin automatically installs Playwright's Chromium browser on first run.

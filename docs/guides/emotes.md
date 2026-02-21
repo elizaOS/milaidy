@@ -80,7 +80,7 @@ Alternative trigger names: `EMOTE`, `ANIMATE`, `GESTURE`, `DANCE`, `WAVE`, `PLAY
 ## Programmatic Access
 
 ```typescript
-import { getEmote, getEmotesByCategory, isValidEmote, EMOTE_CATALOG } from "milaidy/emotes/catalog";
+import { getEmote, getEmotesByCategory, isValidEmote, EMOTE_CATALOG } from "milady/emotes/catalog";
 
 // Look up a single emote
 const emote = getEmote("dance-happy");

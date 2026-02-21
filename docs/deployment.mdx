@@ -1,14 +1,14 @@
 ---
 title: Deployment Guide
 sidebarTitle: Deployment
-description: Deploy Milaidy using Docker, Docker Compose, or cloud containers. Covers environment variables, port configuration, volumes, and security hardening.
+description: Deploy Milady using Docker, Docker Compose, or cloud containers. Covers environment variables, port configuration, volumes, and security hardening.
 ---
 
-Milaidy supports multiple deployment strategies: standalone Docker containers, Docker Compose orchestration, and cloud-managed containers for ElizaCloud (AWS ECS).
+Milady supports multiple deployment strategies: standalone Docker containers, Docker Compose orchestration, and cloud-managed containers for ElizaCloud (AWS ECS).
 
 ## Quick Start with Docker Compose
 
-The fastest way to deploy Milaidy is using the included setup script, which builds the image, generates authentication tokens, runs interactive onboarding, and starts the gateway.
+The fastest way to deploy Milady is using the included setup script, which builds the image, generates authentication tokens, runs interactive onboarding, and starts the gateway.
 
 ```bash
 cd deploy
@@ -17,10 +17,10 @@ cd deploy
 
 The setup script performs the following steps:
 
-1. Builds the Docker image (`milaidy:local` by default)
+1. Builds the Docker image (`milady:local` by default)
 2. Generates a random gateway token (via `openssl rand -hex 32`, or Python `secrets.token_hex(32)` as fallback)
 3. Writes environment variables to `deploy/.env`
-4. Runs interactive onboarding (`milaidy-cli onboard --no-install-daemon`)
+4. Runs interactive onboarding (`milady-cli onboard --no-install-daemon`)
 5. Starts the gateway service in detached mode
 
 <Warning>
@@ -75,7 +75,7 @@ USER node
 ENV MILADY_API_BIND="0.0.0.0"
 
 # Start the API server + dashboard UI on port 2138.
-CMD ["node", "milaidy.mjs", "start"]
+CMD ["node", "milady.mjs", "start"]
 ```
 
 Key characteristics:
@@ -94,7 +94,7 @@ Pass additional Debian packages at build time:
 ```bash
 docker build \
   --build-arg MILADY_DOCKER_APT_PACKAGES="ffmpeg imagemagick" \
-  -t milaidy:local \
+  -t milady:local \
   -f deploy/Dockerfile \
   deploy/
 ```
@@ -106,13 +106,13 @@ docker build \
 The `docker-compose.yml` defines two services:
 
 <Tabs>
-  <Tab title="milaidy-gateway">
+  <Tab title="milady-gateway">
     The primary long-running service. Runs the gateway on port 18789 with WebSocket multiplexing, TLS support, and authentication.
 
     ```yaml
     services:
-      milaidy-gateway:
-        image: ${MILADY_IMAGE:-milaidy:local}
+      milady-gateway:
+        image: ${MILADY_IMAGE:-milady:local}
         environment:
           HOME: /home/node
           TERM: xterm-256color
@@ -137,13 +137,13 @@ The `docker-compose.yml` defines two services:
           ]
     ```
   </Tab>
-  <Tab title="milaidy-cli">
+  <Tab title="milady-cli">
     An interactive CLI container for running one-off commands (onboarding, channel setup, health checks).
 
     ```yaml
     services:
-      milaidy-cli:
-        image: ${MILADY_IMAGE:-milaidy:local}
+      milady-cli:
+        image: ${MILADY_IMAGE:-milady:local}
         environment:
           HOME: /home/node
           TERM: xterm-256color
@@ -169,7 +169,7 @@ Both services share two persistent volumes:
 
 | Volume Mount | Container Path | Purpose |
 |-------------|---------------|---------|
-| `MILADY_CONFIG_DIR` | `/home/node/.milady` | Configuration files (`milaidy.json`), database, secrets |
+| `MILADY_CONFIG_DIR` | `/home/node/.milady` | Configuration files (`milady.json`), database, secrets |
 | `MILADY_WORKSPACE_DIR` | `/home/node/.milady/workspace` | Agent workspace files, uploaded knowledge, generated content |
 
 <Tip>
@@ -185,7 +185,7 @@ The setup script supports additional mount points and a dedicated home volume:
 MILADY_EXTRA_MOUNTS="/data/models:/app/models,/data/cache:/app/cache" ./docker-setup.sh
 
 # Use a named Docker volume for the node home directory
-MILADY_HOME_VOLUME="milaidy-home" ./docker-setup.sh
+MILADY_HOME_VOLUME="milady-home" ./docker-setup.sh
 ```
 
 When extra mounts or a home volume are specified, the setup script generates a `docker-compose.extra.yml` file that is merged with the base compose file.
@@ -210,7 +210,7 @@ When extra mounts or a home volume are specified, the setup script generates a `
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `MILADY_IMAGE` | `milaidy:local` | Docker image name/tag to use |
+| `MILADY_IMAGE` | `milady:local` | Docker image name/tag to use |
 | `MILADY_CONFIG_DIR` | `$HOME/.milady` | Host path for configuration storage |
 | `MILADY_WORKSPACE_DIR` | `$HOME/.milady/workspace` | Host path for workspace storage |
 | `MILADY_GATEWAY_PORT` | `18789` | Host port for the gateway |
@@ -352,13 +352,13 @@ The sandbox runs as a sidecar and sleeps indefinitely, ready to accept commands 
 ### Viewing Logs
 
 ```bash
-docker compose -f deploy/docker-compose.yml logs -f milaidy-gateway
+docker compose -f deploy/docker-compose.yml logs -f milady-gateway
 ```
 
 ### Health Check
 
 ```bash
-docker compose -f deploy/docker-compose.yml exec milaidy-gateway \
+docker compose -f deploy/docker-compose.yml exec milady-gateway \
   node dist/index.js health --token "$MILADY_GATEWAY_TOKEN"
 ```
 
@@ -366,16 +366,16 @@ docker compose -f deploy/docker-compose.yml exec milaidy-gateway \
 
 <CodeGroup>
 ```bash WhatsApp (QR)
-docker compose -f deploy/docker-compose.yml run --rm milaidy-cli channels login
+docker compose -f deploy/docker-compose.yml run --rm milady-cli channels login
 ```
 
 ```bash Telegram
-docker compose -f deploy/docker-compose.yml run --rm milaidy-cli \
+docker compose -f deploy/docker-compose.yml run --rm milady-cli \
   channels add --channel telegram --token <bot-token>
 ```
 
 ```bash Discord
-docker compose -f deploy/docker-compose.yml run --rm milaidy-cli \
+docker compose -f deploy/docker-compose.yml run --rm milady-cli \
   channels add --channel discord --token <bot-token>
 ```
 </CodeGroup>
@@ -387,7 +387,7 @@ docker compose -f deploy/docker-compose.yml run --rm milaidy-cli \
 docker compose -f deploy/docker-compose.yml down
 
 # Restart the gateway
-docker compose -f deploy/docker-compose.yml up -d milaidy-gateway
+docker compose -f deploy/docker-compose.yml up -d milady-gateway
 ```
 
 ## Security Hardening

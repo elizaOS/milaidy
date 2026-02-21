@@ -1,26 +1,26 @@
 ---
 title: "Configuration"
 sidebarTitle: "Configuration"
-description: "Complete reference for the Milaidy config file, environment variables, CLI commands, and all configuration sections."
+description: "Complete reference for the Milady config file, environment variables, CLI commands, and all configuration sections."
 ---
 
-Milaidy uses a single JSON5 config file for all settings. This page documents every configuration section, environment variable override, and CLI command available.
+Milady uses a single JSON5 config file for all settings. This page documents every configuration section, environment variable override, and CLI command available.
 
 ## Config File Location
 
-By default, Milaidy stores its configuration at:
+By default, Milady stores its configuration at:
 
 ```
 ~/.milady/milady.json
 ```
 
 <Info>
-The config directory is `~/.milady` and the config file is `milady.json` inside it. Despite the directory name, the product is **Milaidy** and the CLI binary is `milaidy`.
+The config directory is `~/.milady` and the config file is `milady.json` inside it. The CLI binary is `milady` and the npm package name is `milaidy`.
 </Info>
 
 ### Overriding the Location
 
-Two environment variables control where Milaidy looks for configuration:
+Two environment variables control where Milady looks for configuration:
 
 | Variable | Purpose | Default |
 |----------|---------|---------|
@@ -30,11 +30,11 @@ Two environment variables control where Milaidy looks for configuration:
 `MILADY_CONFIG_PATH` takes precedence over `MILADY_STATE_DIR`. Both support `~` expansion for the home directory.
 
 ```bash
-# Use a custom state directory (config lives at /opt/milaidy/milady.json)
-MILADY_STATE_DIR=/opt/milaidy milaidy start
+# Use a custom state directory (config lives at /opt/milady/milady.json)
+MILADY_STATE_DIR=/opt/milady milady start
 
 # Point to a specific config file
-MILADY_CONFIG_PATH=~/projects/bot/config.json5 milaidy start
+MILADY_CONFIG_PATH=~/projects/bot/config.json5 milady start
 ```
 
 ### Other State Directory Paths
@@ -93,7 +93,7 @@ Includes support up to 10 levels of nesting. Circular includes are detected and 
 
 ### Environment Variables in Config
 
-Milaidy loads environment variables from two sources:
+Milady loads environment variables from two sources:
 
 <Tabs>
   <Tab title="Inline in config (env section)">
@@ -367,7 +367,7 @@ Each custom provider can specify an authentication mode:
 
 ## Plugin Configuration
 
-Plugins extend Milaidy with connectors, providers, and feature capabilities.
+Plugins extend Milady with connectors, providers, and feature capabilities.
 
 ```json5
 {
@@ -399,7 +399,7 @@ Plugins extend Milaidy with connectors, providers, and feature capabilities.
 
 ### Plugin Auto-Enable
 
-Milaidy automatically enables plugins based on your configuration. You do not need to manually add plugins to the allowlist in most cases.
+Milady automatically enables plugins based on your configuration. You do not need to manually add plugins to the allowlist in most cases.
 
 **Connector plugins** are auto-enabled when a connector is configured with credentials:
 
@@ -469,7 +469,7 @@ You can always force-disable any auto-enabled plugin by setting `plugins.entries
 
 ## Connectors (Messaging Channels)
 
-Connectors integrate Milaidy with messaging platforms. Configure them under `connectors`:
+Connectors integrate Milady with messaging platforms. Configure them under `connectors`:
 
 ```json5
 {
@@ -682,7 +682,7 @@ The `tools` section controls tool availability, web search/fetch, exec permissio
     level: "error",            // silent | fatal | error | warn | info | debug | trace
     consoleLevel: "info",      // Independent console log level
     consoleStyle: "pretty",    // "pretty" | "compact" | "json"
-    file: "/var/log/milaidy.log",
+    file: "/var/log/milady.log",
     redactSensitive: "tools",  // "off" | "tools"
     redactPatterns: ["sk-[a-zA-Z0-9]+"],
   },
@@ -690,12 +690,12 @@ The `tools` section controls tool availability, web search/fetch, exec permissio
 ```
 
 <Info>
-When no config file exists, Milaidy defaults to `logging.level: "error"`.
+When no config file exists, Milady defaults to `logging.level: "error"`.
 </Info>
 
 ## Database
 
-Milaidy supports two database backends:
+Milady supports two database backends:
 
 <Tabs>
   <Tab title="PGLite (default)">
@@ -721,12 +721,12 @@ Milaidy supports two database backends:
         provider: "postgres",
         postgres: {
           // Option 1: Connection string
-          connectionString: "postgresql://user:pass@localhost:5432/milaidy",
+          connectionString: "postgresql://user:pass@localhost:5432/milady",
           // Option 2: Individual fields
           host: "localhost",
           port: 5432,
-          database: "milaidy",
-          user: "milaidy",
+          database: "milady",
+          user: "milady",
           password: "secret",
           ssl: true,
         },
@@ -991,7 +991,7 @@ Configure Model Context Protocol (MCP) servers:
       enabled: true,
       endpoint: "https://otel.example.com",
       protocol: "http/protobuf",    // "http/protobuf" | "grpc"
-      serviceName: "milaidy",
+      serviceName: "milady",
       traces: true,
       metrics: true,
       logs: true,
@@ -1160,7 +1160,7 @@ Toggle CLI and chat commands:
 
 ## Environment Variables Reference
 
-Key environment variables that affect Milaidy behavior:
+Key environment variables that affect Milady behavior:
 
 ### Path Overrides
 
@@ -1179,7 +1179,7 @@ Key environment variables that affect Milaidy behavior:
 
 ```bash
 # Custom ports
-MILADY_GATEWAY_PORT=19000 MILADY_PORT=3000 milaidy start
+MILADY_GATEWAY_PORT=19000 MILADY_PORT=3000 milady start
 ```
 
 ### Model Provider API Keys
@@ -1212,23 +1212,23 @@ See the [Model Providers](/model-providers) page for a full list of supported pr
 
 ## CLI Config Commands
 
-Milaidy provides CLI commands to manage configuration without editing JSON directly:
+Milady provides CLI commands to manage configuration without editing JSON directly:
 
 ```bash
 # Interactive configuration wizard (guided setup)
-milaidy configure
+milady configure
 
 # Read a config value (dot-notation)
-milaidy config get agents.defaults.model
-milaidy config get gateway.port
+milady config get agents.defaults.model
+milady config get gateway.port
 
 # Set a config value
-milaidy config set gateway.port 19000
-milaidy config set agents.defaults.thinkingDefault "high"
+milady config set gateway.port 19000
+milady config set agents.defaults.thinkingDefault "high"
 ```
 
 <Tip>
-Use `milaidy configure` for initial setup. It walks through model provider selection, agent personality, and connector setup interactively.
+Use `milady configure` for initial setup. It walks through model provider selection, agent personality, and connector setup interactively.
 </Tip>
 
 ## Full Example

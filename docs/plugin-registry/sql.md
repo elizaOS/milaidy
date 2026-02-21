@@ -4,7 +4,7 @@ sidebarTitle: "SQL"
 description: "Database layer — SQLite adapter, schema, migrations, query interface, and memory persistence."
 ---
 
-The SQL plugin is the database layer for Milaidy agents. It provides persistent storage for conversation memory, entity data, knowledge embeddings, and agent state.
+The SQL plugin is the database layer for Milady agents. It provides persistent storage for conversation memory, entity data, knowledge embeddings, and agent state.
 
 **Package:** `@elizaos/plugin-sql` (core plugin — always loaded)
 
@@ -73,7 +73,7 @@ For production deployments, the SQL plugin supports PostgreSQL via the `pg` driv
 {
   "database": {
     "type": "postgres",
-    "url": "postgresql://user:password@host:5432/milaidy"
+    "url": "postgresql://user:password@host:5432/milady"
   }
 }
 ```
@@ -87,7 +87,7 @@ The SQL plugin runs migrations automatically on startup. Migration files are emb
 To inspect the current schema version:
 
 ```bash
-milaidy doctor
+milady doctor
 ```
 
 ## Runtime API

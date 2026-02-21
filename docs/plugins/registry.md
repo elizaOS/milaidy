@@ -1,10 +1,10 @@
 ---
 title: "Plugin Registry"
 sidebarTitle: "Registry"
-description: "How Milaidy discovers, caches, and resolves plugins from the remote registry."
+description: "How Milady discovers, caches, and resolves plugins from the remote registry."
 ---
 
-The plugin registry is the system that discovers, caches, and resolves plugins and apps for Milaidy agents. It combines a bundled local index with a remote GitHub-hosted registry, using a 3-tier cache to work offline, in Electron app bundles, and in development.
+The plugin registry is the system that discovers, caches, and resolves plugins and apps for Milady agents. It combines a bundled local index with a remote GitHub-hosted registry, using a 3-tier cache to work offline, in Electron app bundles, and in development.
 
 ## Table of Contents
 
@@ -25,7 +25,7 @@ The registry has two layers:
 
 ### Bundled Registry (`plugins.json`)
 
-A local JSON file shipped with Milaidy containing metadata for ~97 plugins from the ElizaOS ecosystem. Each entry includes the plugin's id, npm package name, category, environment variables, version, dependencies, and detailed parameter definitions. This file follows the `plugin-index-v1` schema.
+A local JSON file shipped with Milady containing metadata for ~97 plugins from the ElizaOS ecosystem. Each entry includes the plugin's id, npm package name, category, environment variables, version, dependencies, and detailed parameter definitions. This file follows the `plugin-index-v1` schema.
 
 ```json
 {
@@ -50,7 +50,7 @@ A local JSON file shipped with Milaidy containing metadata for ~97 plugins from 
 }
 ```
 
-The bundled `plugins.json` is used by the `milaidy plugins config` command to look up parameter definitions, environment keys, and UI hints for plugin configuration.
+The bundled `plugins.json` is used by the `milady plugins config` command to look up parameter definitions, environment keys, and UI hints for plugin configuration.
 
 ### Remote Registry (GitHub)
 
@@ -107,7 +107,7 @@ All tiers share a 1-hour TTL (`3_600_000` ms). After expiry, the next call to `g
 Call `refreshRegistry()` to clear both the memory cache and the file cache, then fetch from the network:
 
 ```typescript
-import { refreshRegistry } from "milaidy/services/registry-client";
+import { refreshRegistry } from "milady/services/registry-client";
 
 const plugins = await refreshRegistry();
 ```
@@ -115,7 +115,7 @@ const plugins = await refreshRegistry();
 Or from the CLI:
 
 ```bash
-milaidy plugins refresh
+milady plugins refresh
 ```
 
 ---
@@ -137,142 +137,142 @@ The CLI also normalizes user input via `normalizePluginName()`:
 Version pinning is supported with the `@` separator:
 
 ```bash
-milaidy plugins install twitter@1.2.3
-milaidy plugins install @custom/plugin-x@2.0.0
-milaidy plugins install twitter@next    # dist-tags work too
+milady plugins install twitter@1.2.3
+milady plugins install @custom/plugin-x@2.0.0
+milady plugins install twitter@next    # dist-tags work too
 ```
 
 ---
 
 ## CLI Commands
 
-All plugin commands live under `milaidy plugins`. Run `milaidy plugins --help` for the full list.
+All plugin commands live under `milady plugins`. Run `milady plugins --help` for the full list.
 
-### `milaidy plugins list`
+### `milady plugins list`
 
 List all plugins from the remote registry.
 
 ```bash
 # List all plugins (default limit: 30)
-milaidy plugins list
+milady plugins list
 
 # Search by keyword
-milaidy plugins list -q telegram
+milady plugins list -q telegram
 
 # Increase the result limit
-milaidy plugins list --limit 100
+milady plugins list --limit 100
 ```
 
-### `milaidy plugins search <query>`
+### `milady plugins search <query>`
 
 Search the registry by keyword with relevance scoring.
 
 ```bash
-milaidy plugins search "discord bot"
-milaidy plugins search openai --limit 5
+milady plugins search "discord bot"
+milady plugins search openai --limit 5
 ```
 
 Results show a match percentage based on scoring across name, description, and topics.
 
-### `milaidy plugins info <name>`
+### `milady plugins info <name>`
 
 Show detailed information about a specific plugin: repository, homepage, language, stars, topics, npm versions, and supported ElizaOS versions.
 
 ```bash
-milaidy plugins info telegram
-milaidy plugins info @elizaos/plugin-openai
+milady plugins info telegram
+milady plugins info @elizaos/plugin-openai
 ```
 
-### `milaidy plugins install <name>`
+### `milady plugins install <name>`
 
 Install a plugin from the registry into `~/.milady/plugins/installed/<name>/`.
 
 ```bash
 # Install by shorthand (expands to @elizaos/plugin-telegram)
-milaidy plugins install telegram
+milady plugins install telegram
 
 # Install a specific version
-milaidy plugins install telegram@1.2.3
+milady plugins install telegram@1.2.3
 
 # Install without restarting the agent
-milaidy plugins install telegram --no-restart
+milady plugins install telegram --no-restart
 ```
 
 The installer uses npm/bun to install into an isolated prefix directory. If that fails, it falls back to cloning the plugin's GitHub repository. The installation is tracked in `milady.json`.
 
-### `milaidy plugins uninstall <name>`
+### `milady plugins uninstall <name>`
 
 Remove a user-installed plugin.
 
 ```bash
-milaidy plugins uninstall @elizaos/plugin-telegram
-milaidy plugins uninstall telegram --no-restart
+milady plugins uninstall @elizaos/plugin-telegram
+milady plugins uninstall telegram --no-restart
 ```
 
-### `milaidy plugins installed`
+### `milady plugins installed`
 
 List all plugins that were installed from the registry (not bundled).
 
 ```bash
-milaidy plugins installed
+milady plugins installed
 ```
 
-### `milaidy plugins refresh`
+### `milady plugins refresh`
 
 Force-refresh the registry cache (clears memory + file cache, fetches from GitHub).
 
 ```bash
-milaidy plugins refresh
+milady plugins refresh
 ```
 
-### `milaidy plugins config <name>`
+### `milady plugins config <name>`
 
 Show or interactively edit a plugin's configuration parameters.
 
 ```bash
 # View current config values
-milaidy plugins config telegram
+milady plugins config telegram
 
 # Interactive edit mode
-milaidy plugins config telegram --edit
+milady plugins config telegram --edit
 ```
 
 In edit mode, the CLI walks through each parameter, showing current values (masking sensitive ones) and prompting for new values. Changes are saved to `milady.json`.
 
-### `milaidy plugins test`
+### `milady plugins test`
 
 Validate custom drop-in plugins in `~/.milady/plugins/custom/`. Checks that each plugin directory has a valid entry point and exports a Plugin object with `name` and `description`.
 
 ```bash
-milaidy plugins test
+milady plugins test
 ```
 
-### `milaidy plugins add-path <path>`
+### `milady plugins add-path <path>`
 
 Register an additional plugin search directory in the config file.
 
 ```bash
-milaidy plugins add-path ~/my-plugins
+milady plugins add-path ~/my-plugins
 ```
 
-### `milaidy plugins paths`
+### `milady plugins paths`
 
 List all plugin search directories and their contents.
 
 ```bash
-milaidy plugins paths
+milady plugins paths
 ```
 
-### `milaidy plugins open [name-or-path]`
+### `milady plugins open [name-or-path]`
 
 Open a plugin directory (or the custom plugins folder) in your editor.
 
 ```bash
 # Open the custom plugins folder
-milaidy plugins open
+milady plugins open
 
 # Open a specific custom plugin
-milaidy plugins open my-plugin
+milady plugins open my-plugin
 ```
 
 ---
@@ -353,7 +353,7 @@ The registry has first-class support for **apps** -- launchable applications tha
 ### App-Specific Functions
 
 ```typescript
-import { listApps, getAppInfo, searchApps } from "milaidy/services/registry-client";
+import { listApps, getAppInfo, searchApps } from "milady/services/registry-client";
 
 // List all registered apps, sorted by stars
 const apps = await listApps();
@@ -393,7 +393,7 @@ import {
   searchApps,          // Search apps
   listNonAppPlugins,   // List plugins excluding apps
   searchNonAppPlugins, // Search plugins excluding apps
-} from "milaidy/services/registry-client";
+} from "milady/services/registry-client";
 ```
 
 ### Usage Example

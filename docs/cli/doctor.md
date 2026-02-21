@@ -1,17 +1,17 @@
 ---
-title: "milaidy doctor"
+title: "milady doctor"
 sidebarTitle: "doctor"
-description: "Run diagnostics to verify your Milaidy installation."
+description: "Run diagnostics to verify your Milady installation."
 ---
 
-Run a suite of diagnostic checks to verify that your Milaidy installation is healthy and properly configured. The `doctor` command inspects the runtime environment, configuration, API key availability, plugin state, and network connectivity, then prints a structured report with pass/fail indicators and suggested fixes.
+Run a suite of diagnostic checks to verify that your Milady installation is healthy and properly configured. The `doctor` command inspects the runtime environment, configuration, API key availability, plugin state, and network connectivity, then prints a structured report with pass/fail indicators and suggested fixes.
 
 > **Note:** The `doctor` command is planned for an upcoming release. The checks described here represent the expected behavior based on the existing CLI architecture.
 
 ## Usage
 
 ```bash
-milaidy doctor [options]
+milady doctor [options]
 ```
 
 ## Options
@@ -25,7 +25,7 @@ Global flags:
 
 | Flag | Description |
 |------|-------------|
-| `--version`, `-v`, `-V` | Print the current Milaidy version and exit |
+| `--version`, `-v`, `-V` | Print the current Milady version and exit |
 | `--help`, `-h` | Show help for this command |
 | `--profile <name>` | Run diagnostics against a specific profile |
 
@@ -33,13 +33,13 @@ Global flags:
 
 ```bash
 # Run all diagnostic checks
-milaidy doctor
+milady doctor
 
 # Output results as JSON
-milaidy doctor --json
+milady doctor --json
 
 # Check a specific profile
-milaidy --profile staging doctor
+milady --profile staging doctor
 ```
 
 ## Diagnostic Checks
@@ -90,7 +90,7 @@ The doctor command is expected to perform the following checks:
 ## Output Format
 
 ```
-Milaidy Doctor
+Milady Doctor
 
 Runtime
   ✓ Node.js 22.0.0
@@ -99,7 +99,7 @@ Runtime
 
 Configuration
   ✓ Config valid
-  ✗ Workspace missing — run: milaidy setup
+  ✗ Workspace missing — run: milady setup
 
 API Keys
   ✓ Anthropic (ANTHROPIC_API_KEY configured)
@@ -133,7 +133,7 @@ With `--json`, results are output as a structured object:
       "category": "Configuration",
       "name": "Workspace missing",
       "status": "fail",
-      "fix": "milaidy setup"
+      "fix": "milady setup"
     }
   ],
   "summary": { "passed": 4, "failed": 1, "warnings": 1 }
@@ -142,8 +142,8 @@ With `--json`, results are output as a structured object:
 
 ## Related
 
-- [milaidy setup](/cli/setup) -- initialize the workspace when setup checks fail
-- [milaidy config](/cli/config) -- inspect configuration values
-- [milaidy models](/cli/models) -- verify model provider key configuration
-- [milaidy plugins test](/cli/plugins) -- validate custom drop-in plugins
+- [milady setup](/cli/setup) -- initialize the workspace when setup checks fail
+- [milady config](/cli/config) -- inspect configuration values
+- [milady models](/cli/models) -- verify model provider key configuration
+- [milady plugins test](/cli/plugins) -- validate custom drop-in plugins
 - [Environment Variables](/cli/environment) -- all environment variables that affect diagnostics
