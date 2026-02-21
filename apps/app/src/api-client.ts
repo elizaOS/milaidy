@@ -4037,6 +4037,55 @@ export class MiladyClient {
       body: JSON.stringify({ prompt }),
     });
   }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  //  WhatsApp Pairing
+  // ═══════════════════════════════════════════════════════════════════════
+
+  async getWhatsAppStatus(accountId = "default"): Promise<{
+    accountId: string;
+    status: string;
+    authExists: boolean;
+    serviceConnected: boolean;
+    servicePhone: string | null;
+  }> {
+    return this.fetch(
+      `/api/whatsapp/status?accountId=${encodeURIComponent(accountId)}`,
+    );
+  }
+
+  async startWhatsAppPairing(accountId = "default"): Promise<{
+    ok: boolean;
+    accountId: string;
+    status: string;
+    error?: string;
+  }> {
+    return this.fetch("/api/whatsapp/pair", {
+      method: "POST",
+      body: JSON.stringify({ accountId }),
+    });
+  }
+
+  async stopWhatsAppPairing(accountId = "default"): Promise<{
+    ok: boolean;
+    accountId: string;
+    status: string;
+  }> {
+    return this.fetch("/api/whatsapp/pair/stop", {
+      method: "POST",
+      body: JSON.stringify({ accountId }),
+    });
+  }
+
+  async disconnectWhatsApp(accountId = "default"): Promise<{
+    ok: boolean;
+    accountId: string;
+  }> {
+    return this.fetch("/api/whatsapp/disconnect", {
+      method: "POST",
+      body: JSON.stringify({ accountId }),
+    });
+  }
 }
 
 // Singleton

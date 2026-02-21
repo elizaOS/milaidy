@@ -12,6 +12,7 @@ import type { ConfigUiHint } from "../types";
 import type { JsonSchemaObject } from "./config-catalog";
 import { ConfigRenderer, defaultRegistry } from "./config-renderer";
 import { autoLabel } from "./shared/labels";
+import { WhatsAppQrOverlay } from "./WhatsAppQrOverlay";
 
 /* ── UI Showcase Plugin ────────────────────────────────────────────── */
 
@@ -2132,6 +2133,9 @@ function PluginListView({ label, mode = "all" }: PluginListViewProps) {
                       pluginConfigs={pluginConfigs}
                       onParamChange={handleParamChange}
                     />
+                    {p.id === "whatsapp" && (
+                      <WhatsAppQrOverlay accountId="default" />
+                    )}
                   </div>
                 </div>
 

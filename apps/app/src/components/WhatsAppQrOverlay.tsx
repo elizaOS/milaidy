@@ -90,6 +90,9 @@ export function WhatsAppQrOverlay({
         <div className="text-xs text-[var(--muted)] mb-2">
           Scan a QR code with your phone to link WhatsApp.
         </div>
+        <div className="text-[10px] text-[var(--muted)] mb-2 opacity-70">
+          Uses an unofficial WhatsApp API. Use a dedicated phone number.
+        </div>
         <button
           type="button"
           className="px-3 py-1.5 text-[11px] border border-[var(--accent)] text-[var(--accent)] bg-transparent hover:bg-[var(--accent)] hover:text-[var(--accent-fg)] cursor-pointer transition-colors"

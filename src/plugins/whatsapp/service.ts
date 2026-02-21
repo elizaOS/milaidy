@@ -13,12 +13,13 @@
 import path from "node:path";
 import fs from "node:fs";
 import os from "node:os";
-import type {
-  IAgentRuntime,
-  Memory,
-  Content,
+import {
   Service,
-  UUID,
+  type IAgentRuntime,
+  type Memory,
+  type Content,
+  type ServiceClass,
+  type UUID,
 } from "@elizaos/core";
 
 // ---------------------------------------------------------------------------
@@ -78,35 +79,30 @@ function jidToPhoneNumber(jid: string): string {
 // WhatsAppBaileysService
 // ---------------------------------------------------------------------------
 
-export class WhatsAppBaileysService {
+export class WhatsAppBaileysService extends Service {
   static serviceType = "whatsapp" as const;
 
   capabilityDescription =
     "The agent can send and receive WhatsApp messages via Baileys";
 
-  private runtime!: IAgentRuntime;
   private sock: BaileysSocket | null = null;
-  private phoneNumber: string | null = null;
-  private connected = false;
+  phoneNumber: string | null = null;
+  connected = false;
   private reconnectDelay = 3000;
-
-  constructor(runtime?: IAgentRuntime) {
-    if (runtime) this.runtime = runtime;
-  }
 
   // -- ServiceClass static interface -----------------------------------------
 
-  static async start(runtime: IAgentRuntime): Promise<WhatsAppBaileysService> {
+  static async start(runtime: IAgentRuntime): Promise<Service> {
     const service = new WhatsAppBaileysService(runtime);
     await service.initialize();
-    return service as unknown as WhatsAppBaileysService;
+    return service;
   }
 
   static registerSendHandlers(
     runtime: IAgentRuntime,
     service: Service,
   ): void {
-    const svc = service as unknown as WhatsAppBaileysService;
+    const svc = service as WhatsAppBaileysService;
     runtime.registerSendHandler(
       "whatsapp",
       svc.handleSendMessage.bind(svc),
@@ -115,7 +111,7 @@ export class WhatsAppBaileysService {
   }
 
   static async stopRuntime(runtime: IAgentRuntime): Promise<void> {
-    const svc = runtime.getService("whatsapp") as unknown as WhatsAppBaileysService | null;
+    const svc = runtime.getService("whatsapp") as WhatsAppBaileysService | null;
     if (svc) {
       await svc.stop();
     }
