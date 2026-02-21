@@ -224,6 +224,21 @@ export function runChecks() {
     };
   }
 
+  if (changed.files.length === 0) {
+    return {
+      classification: "other",
+      scopeVerdict: "in scope",
+      codeQuality: "pass",
+      security: "clear",
+      tests: "not applicable: no files changed compared to base branch.",
+      decision: "APPROVE",
+      checklist: [],
+      details: [],
+      changedFiles: [],
+      exitCode: 0,
+    };
+  }
+
   const issues = scanForBlockedDiffPatterns(base, changed.files);
 
   const checks = [
