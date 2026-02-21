@@ -270,6 +270,11 @@ interface ServerState {
   shellEnabled?: boolean;
   /** Reasons a restart is pending. Empty array = no restart needed. */
   pendingRestartReasons: string[];
+  /** Active WhatsApp pairing sessions (QR code flow). */
+  whatsappPairingSessions?: Map<
+    string,
+    import("../services/whatsapp-pairing").WhatsAppPairingSession
+  >;
 }
 
 interface ShareIngestItem {
@@ -1079,7 +1084,7 @@ function discoverPluginsFromManifest(): PluginEntry[] {
       // Keys that are auto-injected by infrastructure and should never be
       // exposed as user-facing "config keys" or parameter definitions.
       const HIDDEN_KEYS = new Set(["VERCEL_OIDC_TOKEN"]);
-      return index.plugins
+      const entries = index.plugins
         .map((p) => {
           const category = categorizePlugin(p.id);
           const envKey = p.envKey;
@@ -1136,6 +1141,27 @@ function discoverPluginsFromManifest(): PluginEntry[] {
           };
         })
         .sort((a, b) => a.name.localeCompare(b.name));
+
+      // ── WhatsApp QR auth override ──────────────────────────────────────
+      // When WhatsApp is connected via QR code (Baileys auth on disk),
+      // the Cloud API access token is not required. Clear validation errors
+      // and mark as configured so the card doesn't show misleading warnings.
+      try {
+        const workspaceBase = resolveDefaultAgentWorkspaceDir();
+        const waCredsPath = path.join(workspaceBase, "whatsapp-auth", "default", "creds.json");
+        if (fs.existsSync(waCredsPath)) {
+          const waEntry = entries.find((e) => e.id === "whatsapp");
+          if (waEntry) {
+            waEntry.validationErrors = [];
+            waEntry.configured = true;
+            (waEntry as Record<string, unknown>).qrConnected = true;
+          }
+        }
+      } catch {
+        /* workspace dir may not exist */
+      }
+
+      return entries;
     } catch (err) {
       logger.debug(
         `[milady-api] Failed to read plugins.json: ${err instanceof Error ? err.message : err}`,
@@ -6386,6 +6412,24 @@ async function handleRequest(
       plugin.validationWarnings = validation.warnings;
     }
 
+    // ── WhatsApp QR auth override (post-validation) ────────────────────
+    // When QR auth exists, clear validation errors for the WhatsApp plugin
+    // since the Cloud API access token is not needed.
+    try {
+      const workspaceBase = resolveDefaultAgentWorkspaceDir();
+      const waCredsPath = path.join(workspaceBase, "whatsapp-auth", "default", "creds.json");
+      if (fs.existsSync(waCredsPath)) {
+        const waPlugin = allPlugins.find((p) => p.id === "whatsapp");
+        if (waPlugin) {
+          waPlugin.validationErrors = [];
+          waPlugin.configured = true;
+          (waPlugin as Record<string, unknown>).qrConnected = true;
+        }
+      }
+    } catch {
+      /* workspace dir may not exist */
+    }
+
     // Inject per-provider model options into configUiHints for MODEL fields.
     // Each provider's cache is independent — no cross-population.
     // Always set type: "select" on MODEL fields so they render as dropdowns,
@@ -8659,6 +8703,165 @@ async function handleRequest(
         (state.config.connectors ?? {}) as Record<string, unknown>,
       ),
     });
+    return;
+  }
+
+  // ── POST /api/whatsapp/pair ────────────────────────────────────────────
+  // Start a WhatsApp pairing session — streams QR codes over WebSocket.
+  if (method === "POST" && pathname === "/api/whatsapp/pair") {
+    const body = await readJsonBody<{ accountId?: string }>(req, res);
+    const accountId =
+      body && typeof body.accountId === "string" && body.accountId.trim()
+        ? body.accountId.trim()
+        : "default";
+
+    const workspaceBase = resolveDefaultAgentWorkspaceDir();
+    const authDir = path.join(workspaceBase, "whatsapp-auth", accountId);
+
+    // Stop any existing session for this account
+    state.whatsappPairingSessions?.get(accountId)?.stop();
+
+    const { WhatsAppPairingSession } = await import(
+      "../services/whatsapp-pairing"
+    );
+
+    const session = new WhatsAppPairingSession({
+      authDir,
+      accountId,
+      onEvent: (event) => {
+        state.broadcastWs?.(event as unknown as Record<string, unknown>);
+
+        // On successful connection, persist connector config so the
+        // WhatsApp plugin auto-loads on subsequent startups.
+        if (event.status === "connected") {
+          if (!state.config.connectors)
+            state.config.connectors = {} as Record<string, unknown>;
+          (state.config.connectors as Record<string, unknown>).whatsapp = {
+            ...((state.config.connectors as Record<string, unknown>)
+              .whatsapp as Record<string, unknown> | undefined) ?? {},
+            authDir,
+            enabled: true,
+          };
+          try {
+            saveMiladyConfig(state.config);
+          } catch {
+            /* test envs */
+          }
+        }
+      },
+    });
+
+    if (!state.whatsappPairingSessions) {
+      state.whatsappPairingSessions = new Map();
+    }
+    state.whatsappPairingSessions.set(accountId, session);
+
+    try {
+      await session.start();
+      json(res, { ok: true, accountId, status: session.getStatus() });
+    } catch (err) {
+      json(
+        res,
+        {
+          ok: false,
+          error: err instanceof Error ? err.message : String(err),
+        },
+        500,
+      );
+    }
+    return;
+  }
+
+  // ── GET /api/whatsapp/status ──────────────────────────────────────────
+  if (method === "GET" && pathname === "/api/whatsapp/status") {
+    const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
+    const accountId = url.searchParams.get("accountId") || "default";
+    const session = state.whatsappPairingSessions?.get(accountId);
+
+    const { whatsappAuthExists } = await import("../services/whatsapp-pairing");
+    const workspaceBase = resolveDefaultAgentWorkspaceDir();
+
+    // Also report service connection status from the runtime
+    let serviceConnected = false;
+    let servicePhone: string | null = null;
+    if (state.runtime) {
+      try {
+        const waService = state.runtime.getService("whatsapp") as Record<string, unknown> | null;
+        if (waService) {
+          serviceConnected = Boolean(waService.connected);
+          servicePhone = (waService.phoneNumber as string) ?? null;
+        }
+      } catch { /* service not yet registered */ }
+    }
+
+    json(res, {
+      accountId,
+      status: session?.getStatus() ?? "idle",
+      authExists: whatsappAuthExists(workspaceBase, accountId),
+      serviceConnected,
+      servicePhone,
+    });
+    return;
+  }
+
+  // ── POST /api/whatsapp/pair/stop ──────────────────────────────────────
+  if (method === "POST" && pathname === "/api/whatsapp/pair/stop") {
+    const body = await readJsonBody<{ accountId?: string }>(req, res);
+    const accountId =
+      body && typeof body.accountId === "string" && body.accountId.trim()
+        ? body.accountId.trim()
+        : "default";
+    const session = state.whatsappPairingSessions?.get(accountId);
+
+    if (session) {
+      session.stop();
+      state.whatsappPairingSessions?.delete(accountId);
+    }
+
+    json(res, { ok: true, accountId, status: "idle" });
+    return;
+  }
+
+  // ── POST /api/whatsapp/disconnect ────────────────────────────────────────
+  // Fully disconnect WhatsApp: stop session, delete auth, remove connector config.
+  if (method === "POST" && pathname === "/api/whatsapp/disconnect") {
+    const body = await readJsonBody<{ accountId?: string }>(req, res);
+    const accountId =
+      body && typeof body.accountId === "string" && body.accountId.trim()
+        ? body.accountId.trim()
+        : "default";
+
+    // Stop any active pairing session
+    const session = state.whatsappPairingSessions?.get(accountId);
+    if (session) {
+      session.stop();
+      state.whatsappPairingSessions?.delete(accountId);
+    }
+
+    // Properly logout (unlink device from WhatsApp) then delete auth files
+    const workspaceBase = resolveDefaultAgentWorkspaceDir();
+    try {
+      const { whatsappLogout } = await import("../services/whatsapp-pairing");
+      await whatsappLogout(workspaceBase, accountId);
+    } catch {
+      // Fallback: just delete files if logout fails
+      const authDir = path.join(workspaceBase, "whatsapp-auth", accountId);
+      try {
+        fs.rmSync(authDir, { recursive: true, force: true });
+      } catch { /* may not exist */ }
+    }
+
+    // Remove connector config
+    if (state.config.connectors) {
+      delete (state.config.connectors as Record<string, unknown>).whatsapp;
+      try {
+        saveMiladyConfig(state.config);
+      } catch {
+        /* test envs */
+      }
+    }
+
+    json(res, { ok: true, accountId });
     return;
   }
 
@@ -12736,6 +12939,13 @@ export async function startApiServer(opts?: {
               }
             }
             wsClients.clear();
+            // Clean up WhatsApp pairing sessions
+            if (state.whatsappPairingSessions) {
+              for (const s of state.whatsappPairingSessions.values()) {
+                try { s.stop(); } catch { /* non-fatal */ }
+              }
+              state.whatsappPairingSessions.clear();
+            }
             wss.close();
             const closeTimeout = setTimeout(() => r(), 5_000);
             const resolved = { done: false };

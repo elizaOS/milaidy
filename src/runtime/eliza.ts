@@ -415,7 +415,7 @@ const CHANNEL_PLUGIN_MAP: Readonly<Record<string, string>> = {
   telegram: "@elizaos/plugin-telegram",
   slack: "@elizaos/plugin-slack",
   twitter: "@elizaos/plugin-twitter",
-  whatsapp: "@elizaos/plugin-whatsapp",
+  whatsapp: "@milady/plugin-whatsapp",
   signal: "@elizaos/plugin-signal",
   imessage: "@elizaos/plugin-imessage",
   bluebubbles: "@elizaos/plugin-bluebubbles",
@@ -1545,7 +1545,7 @@ export function applyCloudConfigToEnv(config: MiladyConfig): void {
     delete process.env.ELIZAOS_CLOUD_SMALL_MODEL;
     delete process.env.ELIZAOS_CLOUD_LARGE_MODEL;
   }
-  if (cloud.apiKey) {
+  if (effectivelyEnabled && cloud.apiKey) {
     process.env.ELIZAOS_CLOUD_API_KEY = cloud.apiKey;
   } else {
     delete process.env.ELIZAOS_CLOUD_API_KEY;
@@ -2729,8 +2729,20 @@ export async function startEliza(
     logger.warn(`[milady] Failed to apply subscription credentials: ${err}`);
   }
 
+  // 2g. Hydrate persisted config.env values into process.env so plugins
+  //     can access them via character.secrets populated by buildCharacterFromConfig.
+  const persistedEnv = config.env as Record<string, string> | undefined;
+  if (persistedEnv) {
+    for (const [key, value] of Object.entries(persistedEnv)) {
+      if (typeof value === "string" && value.trim() && key !== "vars") {
+        process.env[key] = value.trim();
+      }
+    }
+  }
+
   // 3. Build ElizaOS Character from Milady config
   const character = buildCharacterFromConfig(config);
+  logger.info(`[milady] character.secrets keys: ${Object.keys(character.secrets ?? {}).join(", ")}`);
 
   const primaryModel = resolvePrimaryModel(config);
 
