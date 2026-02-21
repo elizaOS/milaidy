@@ -19,7 +19,7 @@ export function Header() {
 
   const stateColor = state === "running" ? "text-ok border-ok" :
     state === "paused" || state === "restarting" || state === "starting" ? "text-warn border-warn" :
-    state === "error" ? "text-danger border-danger" : "text-muted border-muted";
+      state === "error" ? "text-danger border-danger" : "text-muted border-muted";
   const restartBusy = lifecycleBusy && lifecycleAction === "restart";
   const pauseResumeBusy = lifecycleBusy;
   const pauseResumeDisabled =
@@ -54,7 +54,7 @@ export function Header() {
           cloudConnected ? (
             <a href={cloudTopUpUrl} target="_blank" rel="noopener noreferrer"
               className={`inline-flex items-center gap-1 px-2.5 py-0.5 border font-mono text-xs no-underline transition-colors hover:border-accent hover:text-accent ${cloudCredits === null ? "border-muted text-muted" : creditColor}`}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 18V6"/></svg>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8" /><path d="M12 18V6" /></svg>
               {cloudCredits === null ? t("header.cloudConnected") : `$${cloudCredits.toFixed(2)}`}
             </a>
           ) : (
@@ -91,7 +91,7 @@ export function Header() {
         {(evmShort || solShort) && (
           <div className="wallet-wrapper relative inline-flex">
             <button onClick={() => setTab("wallets")} className="inline-flex items-center justify-center w-7 h-7 border border-border bg-bg cursor-pointer hover:border-accent hover:text-accent transition-colors">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" /><path d="M3 5v14a2 2 0 0 0 2 2h16v-5" /><path d="M18 12a2 2 0 0 0 0 4h4v-4Z" /></svg>
             </button>
             <div className="wallet-tooltip hidden absolute top-full right-0 mt-2 p-3 border border-border bg-bg z-50 min-w-[280px] shadow-lg">
               {evmShort && (

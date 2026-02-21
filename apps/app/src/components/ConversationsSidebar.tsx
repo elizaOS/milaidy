@@ -109,9 +109,8 @@ export function ConversationsSidebar() {
                 key={conv.id}
                 data-testid="conv-item"
                 data-active={isActive || undefined}
-                className={`flex items-center px-3 py-2 gap-2 cursor-pointer transition-colors border-l-[3px] ${
-                  isActive ? "bg-bg-hover border-l-accent" : "border-l-transparent hover:bg-bg-hover"
-                } group`}
+                className={`flex items-center px-3 py-2 gap-2 cursor-pointer transition-colors border-l-[3px] ${isActive ? "bg-bg-hover border-l-accent" : "border-l-transparent hover:bg-bg-hover"
+                  } group`}
                 onClick={() => {
                   if (!isEditing) {
                     void handleSelectConversation(conv.id);

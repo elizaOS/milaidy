@@ -157,10 +157,10 @@ function ThemedSelect<T extends string>({
       </button>
 
       {open && (
-        <div className="absolute z-50 left-0 right-0 mt-0.5 max-h-[280px] overflow-y-auto border border-[var(--border)] bg-[var(--card)] shadow-lg">
+        <div className="absolute z-50 left-0 right-0 mt-0.5 max-h-[280px] overflow-y-auto border border-white/10 bg-[rgba(15,18,22,0.95)] backdrop-blur-xl shadow-2xl rounded-lg">
           {groups.map((g) => (
             <div key={g.label}>
-              <div className="px-2.5 py-1 text-[10px] font-semibold text-[var(--muted)] bg-[var(--bg-muted)] sticky top-0">
+              <div className="px-2.5 py-1.5 text-[10px] font-semibold text-[var(--muted)] bg-black/40 sticky top-0 backdrop-blur-md">
                 {g.label}
               </div>
               {g.items.map((item) => {
@@ -169,11 +169,10 @@ function ThemedSelect<T extends string>({
                   <button
                     key={item.id}
                     type="button"
-                    className={`w-full text-left px-2.5 py-1.5 text-xs cursor-pointer transition-colors ${
-                      active
-                        ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
-                        : "text-[var(--text)] hover:bg-[var(--bg-muted)]"
-                    }`}
+                    className={`w-full flex flex-col text-left px-3 py-2 text-xs cursor-pointer transition-colors ${active
+                      ? "bg-[var(--accent)]/20 text-[var(--accent)] border-l-2 border-[var(--accent)]"
+                      : "text-white hover:bg-white/10 border-l-2 border-transparent"
+                      }`}
                     onClick={() => {
                       onChange(item.id);
                       setOpen(false);
@@ -254,7 +253,8 @@ function parseImportedMessageExamples(
 
 /* ── CharacterView ──────────────────────────────────────────────────── */
 
-export function CharacterView() {
+export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
+  const [activeTab, setActiveTab] = useState<"identity" | "style" | "messages" | "voice">("identity");
   const {
     characterData,
     characterDraft,
@@ -592,12 +592,12 @@ export function CharacterView() {
   }, [handleFieldEdit]);
 
   /* ── Helpers ────────────────────────────────────────────────────── */
-  const sectionCls = "mt-4 p-4 border border-[var(--border)] bg-[var(--card)]";
-  const inputCls = "px-2.5 py-1.5 border border-[var(--border)] bg-[var(--card)] text-xs focus:border-[var(--accent)] focus:outline-none";
+  const sectionCls = "mt-6 p-6 border border-white/10 bg-[rgba(20,22,28,0.5)] rounded-2xl relative overflow-hidden backdrop-blur-md shadow-[0_4px_20px_rgba(0,0,0,0.2)]";
+  const inputCls = "px-3 py-2 bg-black/30 border border-white/10 rounded-lg text-xs focus:border-[var(--accent)] focus:bg-[var(--accent)]/5 focus:outline-none transition-all";
   const textareaCls = `${inputCls} font-inherit resize-y leading-relaxed`;
-  const labelCls = "font-semibold text-xs";
-  const hintCls = "text-[11px] text-[var(--muted)]";
-  const tinyBtnCls = "text-[10px] px-1.5 py-0.5 border border-[var(--border)] bg-[var(--card)] cursor-pointer hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors disabled:opacity-40";
+  const labelCls = "font-medium text-[11px] uppercase tracking-wider text-[var(--muted)] mb-1.5";
+  const hintCls = "text-[10px] text-[var(--muted)] mt-1";
+  const tinyBtnCls = "text-[10px] font-medium uppercase tracking-wider px-4 py-1.5 bg-white/5 border border-white/10 rounded-full cursor-pointer hover:bg-[var(--accent)] hover:text-black hover:border-[var(--accent)] transition-all disabled:opacity-40 shadow-[0_2px_10px_rgba(0,0,0,0.2)]";
 
   /* Hidden file input for import */
   const fileInput = (
@@ -626,584 +626,652 @@ export function CharacterView() {
   const userMinted = dropStatus?.userHasMinted === true;
 
   return (
-    <div>
+    <div className={`h-full flex gap-8 ${inModal ? "" : "max-w-6xl mx-auto"}`}>
       {fileInput}
 
-      {/* ═══ ON-CHAIN IDENTITY ═══ */}
-      {hasWallet && 
-      <div className={sectionCls}>
-        {!isRegistered && !dropLive && (
-          <div className="flex flex-col gap-3">
-            <div className="text-[12px] text-[var(--muted)]">
-              Register your agent on Ethereum mainnet to claim your ERC-8004 identity NFT.
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                className="btn text-xs py-[5px] px-4 !mt-0"
-                disabled={registryRegistering || registryLoading}
-                onClick={() => void registerOnChain()}
-              >
-                {registryRegistering ? "registering..." : "register now"}
-              </button>
-              {registryError && (
-                <span className="text-xs text-[var(--danger,#e74c3c)]">{registryError}</span>
-              )}
-            </div>
-          </div>
-        )}
-
-        {hasWallet && !isRegistered && dropLive && !userMinted && (
-          <div className="flex flex-col gap-3">
-            <div className="flex items-center gap-2 px-3 py-2 border border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_8%,transparent)]">
-              <span className="text-xs font-bold text-[var(--accent)]">MINT IS LIVE</span>
-              <span className="text-[11px] text-[var(--muted)]">
-                MiladyMaker #{(dropStatus?.currentSupply ?? 0) + 1} of {dropStatus?.maxSupply ?? 2138}
-              </span>
-            </div>
-            <div className="text-[12px] text-[var(--muted)]">
-              Claim your limited-edition Milady Agent NFT. {dropStatus?.maxSupply ?? 2138} total.
-              {" "}{(dropStatus?.maxSupply ?? 2138) - (dropStatus?.currentSupply ?? 0)} remaining.
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                className="btn text-xs py-[5px] px-4 !mt-0"
-                disabled={mintInProgress}
-                onClick={() => void mintFromDrop(false)}
-              >
-                {mintInProgress && !mintShiny ? "minting..." : "free mint"}
-              </button>
-              <button
-                className="btn text-xs py-[5px] px-4 !mt-0"
-                disabled={mintInProgress}
-                onClick={() => void mintFromDrop(true)}
-              >
-                {mintInProgress && mintShiny ? "minting..." : "shiny mint (0.1 ETH)"}
-              </button>
-            </div>
-            {mintError && (
-              <span className="text-xs text-[var(--danger,#e74c3c)]">{mintError}</span>
-            )}
-            {mintResult && (
-              <div className="text-xs text-[var(--ok,#16a34a)]">
-                Minted! Token #{mintResult.agentId} | MiladyMaker #{mintResult.mintNumber}
-                {mintResult.isShiny && " (shiny)"}
-                {" "}<a
-                  href={`https://etherscan.io/tx/${mintResult.txHash}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="underline text-[var(--accent)]"
-                >view tx</a>
-              </div>
-            )}
-          </div>
-        )}
-
-        {isRegistered && (() => {
-          const currentName = characterDraft?.name || d.name || "";
-          const onChainName = registryStatus.agentName || "";
-          const nameOutOfSync = currentName && onChainName && currentName !== onChainName;
+      {/* ═══ LEFT SIDEBAR ═══ */}
+      <div className="w-64 shrink-0 flex flex-col gap-2 border-r border-white/5 pr-6 overflow-y-auto custom-scrollbar">
+        {(["identity", "style", "messages", "voice"] as const).map((tab) => {
+          const isActive = activeTab === tab;
           return (
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center gap-2 text-[12px]">
-                <span className="text-[var(--ok,#16a34a)] font-semibold">Registered</span>
-                <span className="text-[var(--muted)]">|</span>
-                <span>Token #{registryStatus.tokenId}</span>
-                <span className="text-[var(--muted)]">|</span>
-                <span>{onChainName}</span>
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`text-left px-4 py-3 rounded-lg flex items-center gap-3 transition-all ${isActive
+                ? "bg-white/10 text-white border border-white/10 shadow-[0_0_15px_rgba(255,255,255,0.05)]"
+                : "text-white/40 hover:bg-white/5 hover:text-white/80 border border-transparent"
+                }`}
+            >
+              <div className={`w-1 h-3 rounded-full transition-colors ${isActive ? "bg-[#d4af37]" : "bg-transparent"}`} />
+              <span className="font-semibold tracking-wider uppercase text-xs">{tab}</span>
+            </button>
+          );
+        })}
+
+        {/* Save Bar inside sidebar for HSR layout */}
+        <div className="mt-auto pt-6 border-t border-white/5 pb-2">
+          <button
+            className="w-full btn text-[13px] py-3 px-6 !mt-0 !rounded-full shadow-[0_4px_15px_rgba(212,175,55,0.15)] whitespace-nowrap font-bold tracking-wide"
+            disabled={characterSaving}
+            onClick={() => void handleSaveCharacter()}
+            style={{ backgroundColor: '#d4af37', borderColor: '#d4af37', color: 'black' }}
+          >
+            {characterSaving ? "saving..." : "Save Online"}
+          </button>
+          {characterSaveSuccess && (
+            <div className="text-xs text-[var(--ok,#16a34a)] mt-3 text-center font-medium">{characterSaveSuccess}</div>
+          )}
+          {characterSaveError && (
+            <div className="text-xs text-[var(--danger,#e74c3c)] mt-3 text-center font-medium">{characterSaveError}</div>
+          )}
+        </div>
+      </div>
+
+      {/* ═══ RIGHT CONTENT AREA ═══ */}
+      <div className="flex-1 overflow-y-auto pr-4 custom-scrollbar pb-20">
+
+        {activeTab === "identity" && (
+          <div className="flex flex-col gap-6">
+            {/* ═══ ON-CHAIN IDENTITY ═══ */}
+            {hasWallet &&
+              <div className={sectionCls}>
+                {!isRegistered && !dropLive && (
+                  <div className="flex flex-col gap-3">
+                    <div className="text-[12px] text-[var(--muted)]">
+                      Register your agent on Ethereum mainnet to claim your ERC-8004 identity NFT.
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        className="btn text-xs py-[5px] px-4 !mt-0"
+                        disabled={registryRegistering || registryLoading}
+                        onClick={() => void registerOnChain()}
+                      >
+                        {registryRegistering ? "registering..." : "register now"}
+                      </button>
+                      {registryError && (
+                        <span className="text-xs text-[var(--danger,#e74c3c)]">{registryError}</span>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {hasWallet && !isRegistered && dropLive && !userMinted && (
+                  <div className="flex flex-col gap-3">
+                    <div className="flex items-center gap-2 px-3 py-2 border border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_8%,transparent)]">
+                      <span className="text-xs font-bold text-[var(--accent)]">MINT IS LIVE</span>
+                      <span className="text-[11px] text-[var(--muted)]">
+                        MiladyMaker #{(dropStatus?.currentSupply ?? 0) + 1} of {dropStatus?.maxSupply ?? 2138}
+                      </span>
+                    </div>
+                    <div className="text-[12px] text-[var(--muted)]">
+                      Claim your limited-edition Milady Agent NFT. {dropStatus?.maxSupply ?? 2138} total.
+                      {" "}{(dropStatus?.maxSupply ?? 2138) - (dropStatus?.currentSupply ?? 0)} remaining.
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        className="btn text-xs py-[5px] px-4 !mt-0"
+                        disabled={mintInProgress}
+                        onClick={() => void mintFromDrop(false)}
+                      >
+                        {mintInProgress && !mintShiny ? "minting..." : "free mint"}
+                      </button>
+                      <button
+                        className="btn text-xs py-[5px] px-4 !mt-0"
+                        disabled={mintInProgress}
+                        onClick={() => void mintFromDrop(true)}
+                      >
+                        {mintInProgress && mintShiny ? "minting..." : "shiny mint (0.1 ETH)"}
+                      </button>
+                    </div>
+                    {mintError && (
+                      <span className="text-xs text-[var(--danger,#e74c3c)]">{mintError}</span>
+                    )}
+                    {mintResult && (
+                      <div className="text-xs text-[var(--ok,#16a34a)]">
+                        Minted! Token #{mintResult.agentId} | MiladyMaker #{mintResult.mintNumber}
+                        {mintResult.isShiny && " (shiny)"}
+                        {" "}<a
+                          href={`https://etherscan.io/tx/${mintResult.txHash}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="underline text-[var(--accent)]"
+                        >view tx</a>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {isRegistered && (() => {
+                  const currentName = characterDraft?.name || d.name || "";
+                  const onChainName = registryStatus.agentName || "";
+                  const nameOutOfSync = currentName && onChainName && currentName !== onChainName;
+                  return (
+                    <div className="flex flex-col gap-2">
+                      <div className="flex items-center gap-2 text-[12px]">
+                        <span className="text-[var(--ok,#16a34a)] font-semibold">Registered</span>
+                        <span className="text-[var(--muted)]">|</span>
+                        <span>Token #{registryStatus.tokenId}</span>
+                        <span className="text-[var(--muted)]">|</span>
+                        <span>{onChainName}</span>
+                      </div>
+                      {nameOutOfSync && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-[11px] text-[var(--warn,#f59e0b)]">
+                            On-chain name "{onChainName}" differs from "{currentName}"
+                          </span>
+                          <button
+                            className="text-[10px] px-2 py-0.5 border border-[var(--accent)] text-[var(--accent)] bg-transparent cursor-pointer hover:bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] transition-colors"
+                            disabled={registryRegistering}
+                            onClick={() => void syncRegistryProfile()}
+                          >
+                            {registryRegistering ? "syncing..." : "sync to chain"}
+                          </button>
+                        </div>
+                      )}
+                      {registryError && (
+                        <span className="text-xs text-[var(--danger,#e74c3c)]">{registryError}</span>
+                      )}
+                      <a
+                        href={`https://etherscan.io/token/${registryStatus.walletAddress}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[11px] underline text-[var(--accent)]"
+                      >view on etherscan</a>
+                    </div>
+                  );
+                })()}
+
+                {hasWallet && userMinted && !isRegistered && (
+                  <div className="text-[12px] text-[var(--ok,#16a34a)]">
+                    Minted from collection! Waiting for confirmation...
+                  </div>
+                )}
               </div>
-              {nameOutOfSync && (
-                <div className="flex items-center gap-2">
-                  <span className="text-[11px] text-[var(--warn,#f59e0b)]">
-                    On-chain name "{onChainName}" differs from "{currentName}"
-                  </span>
+            }
+
+            {/* ═══ SECTION 1: IDENTITY + PERSONALITY ═══ */}
+            <div className={sectionCls}>
+              {/* Subtle top glare */}
+              <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+              {/* Header row: title + action buttons */}
+              <div className="flex items-center justify-between mb-6">
+                <div className="font-semibold text-lg tracking-wide flex items-center gap-3">
+                  <div className="w-1.5 h-1.5 rounded-full bg-[var(--accent)] shadow-[0_0_8px_var(--accent)]" />
+                  Identity & Personality
+                </div>
+                <div className="flex items-center gap-1.5">
                   <button
-                    className="text-[10px] px-2 py-0.5 border border-[var(--accent)] text-[var(--accent)] bg-transparent cursor-pointer hover:bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] transition-colors"
-                    disabled={registryRegistering}
-                    onClick={() => void syncRegistryProfile()}
+                    className={tinyBtnCls}
+                    onClick={() => void loadCharacter()}
+                    disabled={characterLoading}
                   >
-                    {registryRegistering ? "syncing..." : "sync to chain"}
+                    {characterLoading ? "loading..." : "reload"}
+                  </button>
+                  <button
+                    className={tinyBtnCls}
+                    onClick={() => fileInputRef.current?.click()}
+                    title="import character.json"
+                    type="button"
+                  >
+                    import
+                  </button>
+                  <button
+                    className={tinyBtnCls}
+                    onClick={handleExport}
+                    title="export as character.json"
+                    type="button"
+                  >
+                    export
                   </button>
                 </div>
-              )}
-              {registryError && (
-                <span className="text-xs text-[var(--danger,#e74c3c)]">{registryError}</span>
-              )}
-              <a
-                href={`https://etherscan.io/token/${registryStatus.walletAddress}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-[11px] underline text-[var(--accent)]"
-              >view on etherscan</a>
-            </div>
-          );
-        })()}
+              </div>
 
-        {hasWallet && userMinted && !isRegistered && (
-          <div className="text-[12px] text-[var(--ok,#16a34a)]">
-            Minted from collection! Waiting for confirmation...
+              <div className="flex flex-col gap-4">
+                {/* Name */}
+                <div className="flex flex-col gap-1">
+                  <label className={labelCls}>name</label>
+                  <div className="flex items-center gap-2 max-w-[280px]">
+                    <input
+                      type="text"
+                      value={d.name ?? ""}
+                      maxLength={50}
+                      placeholder="agent name"
+                      onChange={(e) => handleFieldEdit("name", e.target.value)}
+                      className={inputCls + " flex-1 text-[13px]"}
+                    />
+                    <button
+                      className={tinyBtnCls}
+                      onClick={() => void handleRandomName()}
+                      title="random name"
+                      type="button"
+                    >
+                      random
+                    </button>
+                  </div>
+                </div>
+
+                {/* Avatar full-width row (Hidden in Gamified Modal) */}
+                {!inModal && (
+                  <div className="flex flex-col gap-1 w-full">
+                    <label className={labelCls}>avatar</label>
+                    <div className="w-full">
+                      <AvatarSelector
+                        selected={selectedVrmIndex}
+                        onSelect={(i) => setState("selectedVrmIndex", i)}
+                        onUpload={(file) => {
+                          const url = URL.createObjectURL(file);
+                          setState("customVrmUrl", url);
+                          setState("selectedVrmIndex", 0);
+                        }}
+                        showUpload
+                        fullWidth
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* About me + adjectives + topics */}
+                <div className="mt-1 grid grid-cols-1 md:grid-cols-[1.2fr_1fr_1fr] gap-4">
+                  <div className="flex flex-col gap-1 h-[220px]">
+                    <div className="flex items-center justify-between">
+                      <label className={labelCls}>about me</label>
+                      <button
+                        className={tinyBtnCls}
+                        onClick={() => void handleGenerate("bio")}
+                        disabled={generating === "bio"}
+                        type="button"
+                      >
+                        {generating === "bio" ? "generating..." : "regenerate"}
+                      </button>
+                    </div>
+                    <textarea
+                      value={bioText}
+                      rows={4}
+                      placeholder="describe who your agent is. personality, background, how they see the world."
+                      onChange={(e) => handleFieldEdit("bio", e.target.value)}
+                      className={textareaCls + " flex-1 min-h-0"}
+                    />
+                  </div>
+                  <TagEditor
+                    label="adjectives"
+                    items={d.adjectives ?? []}
+                    onChange={(items) => handleCharacterArrayInput("adjectives", items.join("\n"))}
+                    placeholder="add adjective..."
+                  />
+                  <TagEditor
+                    label="topics"
+                    items={d.topics ?? []}
+                    onChange={(items) => handleCharacterArrayInput("topics", items.join("\n"))}
+                    placeholder="add topic..."
+                  />
+                </div>
+
+                {/* System prompt below */}
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-center justify-between">
+                    <label className={labelCls}>directions and things i should know</label>
+                    <button
+                      className={tinyBtnCls}
+                      onClick={() => void handleGenerate("system")}
+                      disabled={generating === "system"}
+                      type="button"
+                    >
+                      {generating === "system" ? "generating..." : "regenerate"}
+                    </button>
+                  </div>
+                  <textarea
+                    value={d.system ?? ""}
+                    rows={5}
+                    maxLength={10000}
+                    placeholder="write in first person. this is who they are, not instructions about them."
+                    onChange={(e) => handleFieldEdit("system", e.target.value)}
+                    className={textareaCls + " font-[var(--mono)]"}
+                  />
+                </div>
+              </div>
+            </div>
           </div>
         )}
-      </div>
-      }
 
-      {/* ═══ SECTION 1: IDENTITY + PERSONALITY ═══ */}
-      <div className={sectionCls}>
-        {/* Header row: title + action buttons */}
-        <div className="flex items-center justify-between mb-4">
-          <div className="font-bold text-sm">Identity & Personality</div>
-          <div className="flex items-center gap-1.5">
-            <button
-              className={tinyBtnCls}
-              onClick={() => void loadCharacter()}
-              disabled={characterLoading}
-            >
-              {characterLoading ? "loading..." : "reload"}
-            </button>
-            <button
-              className={tinyBtnCls}
-              onClick={() => fileInputRef.current?.click()}
-              title="import character.json"
-              type="button"
-            >
-              import
-            </button>
-            <button
-              className={tinyBtnCls}
-              onClick={handleExport}
-              title="export as character.json"
-              type="button"
-            >
-              export
-            </button>
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-4">
-          {/* Name */}
-          <div className="flex flex-col gap-1">
-            <label className={labelCls}>name</label>
-            <div className="flex items-center gap-2 max-w-[280px]">
-              <input
-                type="text"
-                value={d.name ?? ""}
-                maxLength={50}
-                placeholder="agent name"
-                onChange={(e) => handleFieldEdit("name", e.target.value)}
-                className={inputCls + " flex-1 text-[13px]"}
-              />
-              <button
-                className={tinyBtnCls}
-                onClick={() => void handleRandomName()}
-                title="random name"
-                type="button"
-              >
-                random
-              </button>
-            </div>
-          </div>
-
-          {/* Avatar full-width row */}
-          <div className="flex flex-col gap-1 w-full">
-            <label className={labelCls}>avatar</label>
-            <div className="w-full">
-              <AvatarSelector
-                selected={selectedVrmIndex}
-                onSelect={(i) => setState("selectedVrmIndex", i)}
-                onUpload={(file) => {
-                  const url = URL.createObjectURL(file);
-                  setState("customVrmUrl", url);
-                  setState("selectedVrmIndex", 0);
-                }}
-                showUpload
-                fullWidth
-              />
-            </div>
-          </div>
-
-          {/* About me + adjectives + topics */}
-          <div className="mt-1 grid grid-cols-1 md:grid-cols-[1.2fr_1fr_1fr] gap-4">
-            <div className="flex flex-col gap-1 h-[220px]">
-              <div className="flex items-center justify-between">
-                <label className={labelCls}>about me</label>
+        {activeTab === "style" && (
+          <div className="flex flex-col gap-6">
+            {/* ═══ SECTION 2: STYLE ═══ */}
+            <div className={sectionCls}>
+              <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="font-semibold text-lg tracking-wide flex items-center gap-3">
+                    <div className="w-1.5 h-1.5 rounded-full bg-[var(--accent)] shadow-[0_0_8px_var(--accent)]" />
+                    Style Rules
+                  </div>
+                  <span className="font-normal text-[11px] text-[var(--muted)] mt-1 tracking-wider uppercase">— Communication Guidelines</span>
+                </div>
                 <button
                   className={tinyBtnCls}
-                  onClick={() => void handleGenerate("bio")}
-                  disabled={generating === "bio"}
+                  onClick={() => void handleGenerate("style", "replace")}
+                  disabled={generating === "style"}
                   type="button"
                 >
-                  {generating === "bio" ? "generating..." : "regenerate"}
+                  {generating === "style" ? "generating..." : "regenerate"}
                 </button>
               </div>
-              <textarea
-                value={bioText}
-                rows={4}
-                placeholder="describe who your agent is. personality, background, how they see the world."
-                onChange={(e) => handleFieldEdit("bio", e.target.value)}
-                className={textareaCls + " flex-1 min-h-0"}
-              />
-            </div>
-            <TagEditor
-              label="adjectives"
-              items={d.adjectives ?? []}
-              onChange={(items) => handleCharacterArrayInput("adjectives", items.join("\n"))}
-              placeholder="add adjective..."
-            />
-            <TagEditor
-              label="topics"
-              items={d.topics ?? []}
-              onChange={(items) => handleCharacterArrayInput("topics", items.join("\n"))}
-              placeholder="add topic..."
-            />
-          </div>
 
-          {/* System prompt below */}
-          <div className="flex flex-col gap-1">
-            <div className="flex items-center justify-between">
-              <label className={labelCls}>directions and things i should know</label>
-              <button
-                className={tinyBtnCls}
-                onClick={() => void handleGenerate("system")}
-                disabled={generating === "system"}
-                type="button"
-              >
-                {generating === "system" ? "generating..." : "regenerate"}
-              </button>
-            </div>
-            <textarea
-              value={d.system ?? ""}
-              rows={5}
-              maxLength={10000}
-              placeholder="write in first person. this is who they are, not instructions about them."
-              onChange={(e) => handleFieldEdit("system", e.target.value)}
-              className={textareaCls + " font-[var(--mono)]"}
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* ═══ SECTION 2: STYLE ═══ */}
-      <div className={sectionCls}>
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-1.5">
-            <div className="font-bold text-sm">Style Rules</div>
-            <span className="font-normal text-[11px] text-[var(--muted)]">— communication guidelines</span>
-          </div>
-          <button
-            className={tinyBtnCls}
-            onClick={() => void handleGenerate("style", "replace")}
-            disabled={generating === "style"}
-            type="button"
-          >
-            {generating === "style" ? "generating..." : "regenerate"}
-          </button>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          {(["all", "chat", "post"] as const).map((key) => {
-            const val = key === "all" ? styleAllText : key === "chat" ? styleChatText : stylePostText;
-            return (
-              <div key={key} className="flex flex-col gap-1">
-                <label className="font-semibold text-[11px] text-[var(--muted)]">{key}</label>
-                <textarea
-                  value={val}
-                  rows={3}
-                  placeholder={`${key} style rules, one per line`}
-                  onChange={(e) => handleStyleEdit(key, e.target.value)}
-                  className={textareaCls}
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {(["all", "chat", "post"] as const).map((key) => {
+                  const val = key === "all" ? styleAllText : key === "chat" ? styleChatText : stylePostText;
+                  return (
+                    <div key={key} className="flex flex-col gap-1">
+                      <label className="font-semibold text-[11px] text-[var(--muted)]">{key}</label>
+                      <textarea
+                        value={val}
+                        rows={3}
+                        placeholder={`${key} style rules, one per line`}
+                        onChange={(e) => handleStyleEdit(key, e.target.value)}
+                        className={textareaCls}
+                      />
+                    </div>
+                  );
+                })}
               </div>
-            );
-          })}
-        </div>
-      </div>
+            </div>
+          </div>
+        )}
 
-      {/* ═══ SECTION 3: EXAMPLES ═══ */}
-      <div className={sectionCls}>
-        <div className="font-bold text-sm mb-3">Examples</div>
+        {activeTab === "messages" && (
+          <div className="flex flex-col gap-6">
+            {/* ═══ SECTION 3: MESSAGE EXAMPLES ═══ */}
+            <div className={sectionCls}>
+              <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="font-semibold text-lg tracking-wide flex items-center gap-3">
+                    <div className="w-1.5 h-1.5 rounded-full bg-[var(--accent)] shadow-[0_0_8px_var(--accent)]" />
+                    Message Examples
+                  </div>
+                  <span className="font-normal text-[11px] text-[var(--muted)] mt-1 tracking-wider uppercase">— Conversation Patterns</span>
+                </div>
+                <button
+                  className={tinyBtnCls}
+                  onClick={(e) => { e.preventDefault(); void handleGenerate("chatExamples", "replace"); }}
+                  disabled={generating === "chatExamples"}
+                  type="button"
+                >
+                  {generating === "chatExamples" ? "generating..." : "generate"}
+                </button>
+              </div>
 
-        <div className="flex flex-col gap-3">
-          {/* Chat Examples */}
-          <details className="group">
-            <summary className="flex items-center gap-1.5 cursor-pointer select-none text-xs font-semibold list-none [&::-webkit-details-marker]:hidden">
-              <span className="inline-block transition-transform group-open:rotate-90">&#9654;</span>
-              chat examples
-              <span className="font-normal text-[var(--muted)]">— how the agent responds</span>
-              <button
-                className={tinyBtnCls + " ml-auto"}
-                onClick={(e) => { e.preventDefault(); void handleGenerate("chatExamples", "replace"); }}
-                disabled={generating === "chatExamples"}
-                type="button"
-              >
-                {generating === "chatExamples" ? "generating..." : "generate"}
-              </button>
-            </summary>
-            <div className="flex flex-col gap-2 mt-3">
-              {(d.messageExamples ?? []).map((convo, ci) => (
-                <div key={ci} className="p-2.5 border border-[var(--border)] bg-[var(--bg-muted)]">
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-[10px] text-[var(--muted)] font-semibold">conversation {ci + 1}</span>
+              <div className="flex flex-col gap-3">
+                {/* Chat Examples */}
+                <details className="group">
+                  <summary className="flex items-center gap-1.5 cursor-pointer select-none text-xs font-semibold list-none [&::-webkit-details-marker]:hidden">
+                    <span className="inline-block transition-transform group-open:rotate-90 text-[var(--accent)]">&#9654;</span>
+                    <span className="uppercase tracking-wider">Chat Examples</span>
+                    <span className="font-normal text-[var(--muted)] ml-2 italic">— How the Agent Responds</span>
+                  </summary>
+                  <div className="flex flex-col gap-2 mt-3">
+                    {(d.messageExamples ?? []).map((convo, ci) => (
+                      <div key={ci} className="p-2.5 border border-[var(--border)] bg-[var(--bg-muted)]">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-[10px] text-[var(--muted)] font-semibold">conversation {ci + 1}</span>
+                          <button
+                            className="text-[10px] text-[var(--muted)] hover:text-[var(--danger,#e74c3c)] cursor-pointer"
+                            onClick={() => {
+                              const updated = [...(d.messageExamples ?? [])];
+                              updated.splice(ci, 1);
+                              handleFieldEdit("messageExamples", updated);
+                            }}
+                            type="button"
+                          >
+                            remove
+                          </button>
+                        </div>
+                        {convo.examples.map((msg, mi) => (
+                          <div key={mi} className="flex gap-2 mb-1 last:mb-0">
+                            <span className={`text-[10px] font-semibold shrink-0 w-16 pt-0.5 ${msg.name === "{{user1}}" ? "text-[var(--muted)]" : "text-[var(--accent)]"}`}>
+                              {msg.name === "{{user1}}" ? "user" : "agent"}
+                            </span>
+                            <input
+                              type="text"
+                              value={msg.content?.text ?? ""}
+                              onChange={(e) => {
+                                const updated = [...(d.messageExamples ?? [])];
+                                const convoClone = { examples: [...updated[ci].examples] };
+                                convoClone.examples[mi] = { ...convoClone.examples[mi], content: { text: e.target.value } };
+                                updated[ci] = convoClone;
+                                handleFieldEdit("messageExamples", updated);
+                              }}
+                              className={inputCls + " flex-1"}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    ))}
+                    {(d.messageExamples ?? []).length === 0 && (
+                      <div className={hintCls + " py-2"}>no chat examples yet. click generate to create some.</div>
+                    )}
+                  </div>
+                </details>
+
+                {/* Post Examples */}
+                <details className="group">
+                  <summary className="flex items-center gap-1.5 cursor-pointer select-none text-xs font-semibold list-none [&::-webkit-details-marker]:hidden border-t border-white/5 pt-4 mt-2">
+                    <span className="inline-block transition-transform group-open:rotate-90 text-[var(--accent)]">&#9654;</span>
+                    <span className="uppercase tracking-wider">Post Examples</span>
+                    <span className="font-normal text-[var(--muted)] ml-2 italic">— Social Media Voice</span>
                     <button
-                      className="text-[10px] text-[var(--muted)] hover:text-[var(--danger,#e74c3c)] cursor-pointer"
+                      className={tinyBtnCls + " ml-auto"}
+                      onClick={(e) => { e.preventDefault(); void handleGenerate("postExamples", "replace"); }}
+                      disabled={generating === "postExamples"}
+                      type="button"
+                    >
+                      {generating === "postExamples" ? "generating..." : "generate"}
+                    </button>
+                  </summary>
+                  <div className="flex flex-col gap-1.5 mt-3">
+                    {(d.postExamples ?? []).map((post: string, pi: number) => (
+                      <div key={pi} className="flex gap-2 items-start">
+                        <input
+                          type="text"
+                          value={post}
+                          onChange={(e) => {
+                            const updated = [...(d.postExamples ?? [])];
+                            updated[pi] = e.target.value;
+                            handleFieldEdit("postExamples", updated);
+                          }}
+                          className={inputCls + " flex-1"}
+                        />
+                        <button
+                          className="text-[10px] text-[var(--muted)] hover:text-[var(--danger,#e74c3c)] cursor-pointer shrink-0 py-1.5"
+                          onClick={() => {
+                            const updated = [...(d.postExamples ?? [])];
+                            updated.splice(pi, 1);
+                            handleFieldEdit("postExamples", updated);
+                          }}
+                          type="button"
+                        >
+                          &times;
+                        </button>
+                      </div>
+                    ))}
+                    {(d.postExamples ?? []).length === 0 && (
+                      <div className={hintCls + " py-2"}>no post examples yet. click generate to create some.</div>
+                    )}
+                    <button
+                      className="text-[11px] text-[var(--muted)] hover:text-[var(--accent)] cursor-pointer self-start mt-0.5"
                       onClick={() => {
-                        const updated = [...(d.messageExamples ?? [])];
-                        updated.splice(ci, 1);
-                        handleFieldEdit("messageExamples", updated);
+                        const updated = [...(d.postExamples ?? []), ""];
+                        handleFieldEdit("postExamples", updated);
                       }}
                       type="button"
                     >
-                      remove
+                      + add post
                     </button>
                   </div>
-                  {convo.examples.map((msg, mi) => (
-                    <div key={mi} className="flex gap-2 mb-1 last:mb-0">
-                      <span className={`text-[10px] font-semibold shrink-0 w-16 pt-0.5 ${msg.name === "{{user1}}" ? "text-[var(--muted)]" : "text-[var(--accent)]"}`}>
-                        {msg.name === "{{user1}}" ? "user" : "agent"}
-                      </span>
+                </details>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === "voice" && (
+          <div className="flex flex-col gap-6">
+            {/* ═══ SECTION 4: VOICE ═══ */}
+            <div className={sectionCls}>
+              <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+              <div className="flex items-center gap-3 mb-6">
+                <div className="font-semibold text-lg tracking-wide flex items-center gap-3">
+                  <div className="w-1.5 h-1.5 rounded-full bg-[var(--accent)] shadow-[0_0_8px_var(--accent)]" />
+                  Vocal Parameters
+                </div>
+                <span className="font-normal text-[11px] text-[var(--muted)] mt-1 tracking-wider uppercase">— TTS Synthesis</span>
+              </div>
+
+              {voiceLoading ? (
+                <div className="text-center py-4 text-[var(--muted)] text-[13px]">Loading voice config...</div>
+              ) : (
+                <div className="flex flex-col gap-4">
+                  <div className="text-xs text-[var(--muted)]">
+                    Choose the speaking voice here. Provider and TTS/STT backend setup is in Settings.
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <label className={labelCls}>voice</label>
+                    <div className="flex items-center gap-2">
+                      <ThemedSelect
+                        value={selectedPresetId === "custom" ? "__custom__" : (selectedPresetId ?? null)}
+                        groups={[
+                          {
+                            label: "Female",
+                            items: VOICE_PRESETS.filter((p) => p.gender === "female").map((p) => ({
+                              id: p.id, text: p.name, hint: p.hint,
+                            })),
+                          },
+                          {
+                            label: "Male",
+                            items: VOICE_PRESETS.filter((p) => p.gender === "male").map((p) => ({
+                              id: p.id, text: p.name, hint: p.hint,
+                            })),
+                          },
+                          {
+                            label: "Character",
+                            items: VOICE_PRESETS.filter((p) => p.gender === "character").map((p) => ({
+                              id: p.id, text: p.name, hint: p.hint,
+                            })),
+                          },
+                          {
+                            label: "Other",
+                            items: [{ id: "__custom__", text: "Custom voice ID..." }],
+                          },
+                        ]}
+                        onChange={(id) => {
+                          if (id === "__custom__") {
+                            setSelectedPresetId("custom");
+                          } else {
+                            const preset = VOICE_PRESETS.find((p) => p.id === id);
+                            if (preset) handleSelectPreset(preset);
+                          }
+                        }}
+                        placeholder="select a voice..."
+                      />
+                      {(() => {
+                        const activePreset = VOICE_PRESETS.find((p) => p.id === selectedPresetId);
+                        if (!activePreset) return null;
+                        return voiceTesting ? (
+                          <button
+                            className={tinyBtnCls}
+                            onClick={handleStopTest}
+                            type="button"
+                          >
+                            stop
+                          </button>
+                        ) : (
+                          <button
+                            className={tinyBtnCls}
+                            onClick={() => handleTestVoice(activePreset.previewUrl)}
+                            type="button"
+                          >
+                            preview
+                          </button>
+                        );
+                      })()}
+                    </div>
+                  </div>
+
+                  {selectedPresetId === "custom" && (
+                    <div className="flex flex-col gap-1">
+                      <label className={labelCls}>voice ID</label>
                       <input
                         type="text"
-                        value={msg.content?.text ?? ""}
-                        onChange={(e) => {
-                          const updated = [...(d.messageExamples ?? [])];
-                          const convoClone = { examples: [...updated[ci].examples] };
-                          convoClone.examples[mi] = { ...convoClone.examples[mi], content: { text: e.target.value } };
-                          updated[ci] = convoClone;
-                          handleFieldEdit("messageExamples", updated);
-                        }}
-                        className={inputCls + " flex-1"}
+                        value={voiceConfig.elevenlabs?.voiceId ?? ""}
+                        placeholder="paste ElevenLabs voice ID"
+                        onChange={(e) => handleVoiceFieldChange("voiceId", e.target.value)}
+                        className={inputCls + " w-full font-[var(--mono)] text-[13px]"}
                       />
                     </div>
-                  ))}
-                </div>
-              ))}
-              {(d.messageExamples ?? []).length === 0 && (
-                <div className={hintCls + " py-2"}>no chat examples yet. click generate to create some.</div>
-              )}
-            </div>
-          </details>
+                  )}
 
-          {/* Post Examples */}
-          <details className="group">
-            <summary className="flex items-center gap-1.5 cursor-pointer select-none text-xs font-semibold list-none [&::-webkit-details-marker]:hidden">
-              <span className="inline-block transition-transform group-open:rotate-90">&#9654;</span>
-              post examples
-              <span className="font-normal text-[var(--muted)]">— social media voice</span>
-              <button
-                className={tinyBtnCls + " ml-auto"}
-                onClick={(e) => { e.preventDefault(); void handleGenerate("postExamples", "replace"); }}
-                disabled={generating === "postExamples"}
-                type="button"
-              >
-                {generating === "postExamples" ? "generating..." : "generate"}
-              </button>
-            </summary>
-            <div className="flex flex-col gap-1.5 mt-3">
-              {(d.postExamples ?? []).map((post: string, pi: number) => (
-                <div key={pi} className="flex gap-2 items-start">
-                  <input
-                    type="text"
-                    value={post}
-                    onChange={(e) => {
-                      const updated = [...(d.postExamples ?? [])];
-                      updated[pi] = e.target.value;
-                      handleFieldEdit("postExamples", updated);
-                    }}
-                    className={inputCls + " flex-1"}
-                  />
-                  <button
-                    className="text-[10px] text-[var(--muted)] hover:text-[var(--danger,#e74c3c)] cursor-pointer shrink-0 py-1.5"
-                    onClick={() => {
-                      const updated = [...(d.postExamples ?? [])];
-                      updated.splice(pi, 1);
-                      handleFieldEdit("postExamples", updated);
-                    }}
-                    type="button"
-                  >
-                    &times;
-                  </button>
-                </div>
-              ))}
-              {(d.postExamples ?? []).length === 0 && (
-                <div className={hintCls + " py-2"}>no post examples yet. click generate to create some.</div>
-              )}
-              <button
-                className="text-[11px] text-[var(--muted)] hover:text-[var(--accent)] cursor-pointer self-start mt-0.5"
-                onClick={() => {
-                  const updated = [...(d.postExamples ?? []), ""];
-                  handleFieldEdit("postExamples", updated);
-                }}
-                type="button"
-              >
-                + add post
-              </button>
-            </div>
-          </details>
-        </div>
-      </div>
+                  <details className="group">
+                    <summary className="flex items-center gap-1.5 cursor-pointer select-none text-xs font-semibold list-none [&::-webkit-details-marker]:hidden">
+                      <span className="inline-block transition-transform group-open:rotate-90">&#9654;</span>
+                      advanced voice settings
+                    </summary>
+                    <div className="mt-3">
+                      <ConfigRenderer
+                        schema={{
+                          type: "object",
+                          properties: {
+                            modelId: { type: "string", enum: ["", "eleven_flash_v2_5", "eleven_turbo_v2_5", "eleven_multilingual_v2", "eleven_turbo_v2", "eleven_monolingual_v1"] },
+                            stability: { type: "number", minimum: 0, maximum: 1 },
+                            similarityBoost: { type: "number", minimum: 0, maximum: 1 },
+                            speed: { type: "number", minimum: 0.5, maximum: 2 },
+                          },
+                        } satisfies JsonSchemaObject}
+                        hints={{
+                          modelId: {
+                            label: "Model", type: "select", width: "full", options: [
+                              { value: "", label: "Default (Flash v2.5)" },
+                              { value: "eleven_flash_v2_5", label: "Flash v2.5 (Fastest)" },
+                              { value: "eleven_turbo_v2_5", label: "Turbo v2.5" },
+                              { value: "eleven_multilingual_v2", label: "Multilingual v2" },
+                              { value: "eleven_turbo_v2", label: "Turbo v2" },
+                              { value: "eleven_monolingual_v1", label: "Monolingual v1" },
+                            ]
+                          } satisfies ConfigUiHint,
+                          stability: { label: "Stability", type: "number", width: "third", placeholder: "0.5", step: 0.05 } satisfies ConfigUiHint,
+                          similarityBoost: { label: "Similarity", type: "number", width: "third", placeholder: "0.75", step: 0.05 } satisfies ConfigUiHint,
+                          speed: { label: "Speed", type: "number", width: "third", placeholder: "1.0", step: 0.1 } satisfies ConfigUiHint,
+                        }}
+                        values={{
+                          modelId: voiceConfig.elevenlabs?.modelId ?? "",
+                          stability: voiceConfig.elevenlabs?.stability ?? "",
+                          similarityBoost: voiceConfig.elevenlabs?.similarityBoost ?? "",
+                          speed: voiceConfig.elevenlabs?.speed ?? "",
+                        }}
+                        registry={defaultRegistry}
+                        onChange={(key, value) => {
+                          handleVoiceFieldChange(key, key === "modelId" ? String(value) : (typeof value === "number" ? value : parseFloat(String(value)) || 0));
+                        }}
+                      />
+                    </div>
+                  </details>
 
-      {/* ═══ SECTION 4: VOICE ═══ */}
-      <div className={sectionCls}>
-        <div className="font-bold text-sm mb-3">Voice</div>
-
-        {voiceLoading ? (
-          <div className="text-center py-4 text-[var(--muted)] text-[13px]">Loading voice config...</div>
-        ) : (
-          <div className="flex flex-col gap-4">
-            <div className="text-xs text-[var(--muted)]">
-              Choose the speaking voice here. Provider and TTS/STT backend setup is in Settings.
-            </div>
-
-            <div className="flex flex-col gap-1">
-              <label className={labelCls}>voice</label>
-              <div className="flex items-center gap-2">
-                <ThemedSelect
-                  value={selectedPresetId === "custom" ? "__custom__" : (selectedPresetId ?? null)}
-                  groups={[
-                    {
-                      label: "Female",
-                      items: VOICE_PRESETS.filter((p) => p.gender === "female").map((p) => ({
-                        id: p.id, text: p.name, hint: p.hint,
-                      })),
-                    },
-                    {
-                      label: "Male",
-                      items: VOICE_PRESETS.filter((p) => p.gender === "male").map((p) => ({
-                        id: p.id, text: p.name, hint: p.hint,
-                      })),
-                    },
-                    {
-                      label: "Character",
-                      items: VOICE_PRESETS.filter((p) => p.gender === "character").map((p) => ({
-                        id: p.id, text: p.name, hint: p.hint,
-                      })),
-                    },
-                    {
-                      label: "Other",
-                      items: [{ id: "__custom__", text: "Custom voice ID..." }],
-                    },
-                  ]}
-                  onChange={(id) => {
-                    if (id === "__custom__") {
-                      setSelectedPresetId("custom");
-                    } else {
-                      const preset = VOICE_PRESETS.find((p) => p.id === id);
-                      if (preset) handleSelectPreset(preset);
-                    }
-                  }}
-                  placeholder="select a voice..."
-                />
-                {(() => {
-                  const activePreset = VOICE_PRESETS.find((p) => p.id === selectedPresetId);
-                  if (!activePreset) return null;
-                  return voiceTesting ? (
+                  <div className="flex items-center gap-3 mt-2 pt-3 border-t border-[var(--border)]">
                     <button
-                      className={tinyBtnCls}
-                      onClick={handleStopTest}
-                      type="button"
+                      className={`btn text-xs py-[5px] px-4 !mt-0 ${voiceSaveSuccess ? "!bg-[var(--ok,#16a34a)] !border-[var(--ok,#16a34a)]" : ""}`}
+                      onClick={() => void handleVoiceSave()}
+                      disabled={voiceSaving}
                     >
-                      stop
+                      {voiceSaving ? "saving..." : voiceSaveSuccess ? "saved" : "save voice"}
                     </button>
-                  ) : (
-                    <button
-                      className={tinyBtnCls}
-                      onClick={() => handleTestVoice(activePreset.previewUrl)}
-                      type="button"
-                    >
-                      preview
-                    </button>
-                  );
-                })()}
-              </div>
-            </div>
-
-            {selectedPresetId === "custom" && (
-              <div className="flex flex-col gap-1">
-                <label className={labelCls}>voice ID</label>
-                <input
-                  type="text"
-                  value={voiceConfig.elevenlabs?.voiceId ?? ""}
-                  placeholder="paste ElevenLabs voice ID"
-                  onChange={(e) => handleVoiceFieldChange("voiceId", e.target.value)}
-                  className={inputCls + " w-full font-[var(--mono)] text-[13px]"}
-                />
-              </div>
-            )}
-
-            <details className="group">
-              <summary className="flex items-center gap-1.5 cursor-pointer select-none text-xs font-semibold list-none [&::-webkit-details-marker]:hidden">
-                <span className="inline-block transition-transform group-open:rotate-90">&#9654;</span>
-                advanced voice settings
-              </summary>
-              <div className="mt-3">
-                <ConfigRenderer
-                  schema={{
-                    type: "object",
-                    properties: {
-                      modelId: { type: "string", enum: ["", "eleven_flash_v2_5", "eleven_turbo_v2_5", "eleven_multilingual_v2", "eleven_turbo_v2", "eleven_monolingual_v1"] },
-                      stability: { type: "number", minimum: 0, maximum: 1 },
-                      similarityBoost: { type: "number", minimum: 0, maximum: 1 },
-                      speed: { type: "number", minimum: 0.5, maximum: 2 },
-                    },
-                  } satisfies JsonSchemaObject}
-                  hints={{
-                    modelId: { label: "Model", type: "select", width: "full", options: [
-                      { value: "", label: "Default (Flash v2.5)" },
-                      { value: "eleven_flash_v2_5", label: "Flash v2.5 (Fastest)" },
-                      { value: "eleven_turbo_v2_5", label: "Turbo v2.5" },
-                      { value: "eleven_multilingual_v2", label: "Multilingual v2" },
-                      { value: "eleven_turbo_v2", label: "Turbo v2" },
-                      { value: "eleven_monolingual_v1", label: "Monolingual v1" },
-                    ] } satisfies ConfigUiHint,
-                    stability: { label: "Stability", type: "number", width: "third", placeholder: "0.5", step: 0.05 } satisfies ConfigUiHint,
-                    similarityBoost: { label: "Similarity", type: "number", width: "third", placeholder: "0.75", step: 0.05 } satisfies ConfigUiHint,
-                    speed: { label: "Speed", type: "number", width: "third", placeholder: "1.0", step: 0.1 } satisfies ConfigUiHint,
-                  }}
-                  values={{
-                    modelId: voiceConfig.elevenlabs?.modelId ?? "",
-                    stability: voiceConfig.elevenlabs?.stability ?? "",
-                    similarityBoost: voiceConfig.elevenlabs?.similarityBoost ?? "",
-                    speed: voiceConfig.elevenlabs?.speed ?? "",
-                  }}
-                  registry={defaultRegistry}
-                  onChange={(key, value) => {
-                    handleVoiceFieldChange(key, key === "modelId" ? String(value) : (typeof value === "number" ? value : parseFloat(String(value)) || 0));
-                  }}
-                />
-              </div>
-            </details>
-
-            <div className="flex items-center gap-3 mt-2 pt-3 border-t border-[var(--border)]">
-              <button
-                className={`btn text-xs py-[5px] px-4 !mt-0 ${voiceSaveSuccess ? "!bg-[var(--ok,#16a34a)] !border-[var(--ok,#16a34a)]" : ""}`}
-                onClick={() => void handleVoiceSave()}
-                disabled={voiceSaving}
-              >
-                {voiceSaving ? "saving..." : voiceSaveSuccess ? "saved" : "save voice"}
-              </button>
-              {voiceSaveError && (
-                <span className="text-xs text-[var(--danger,#e74c3c)]">{voiceSaveError}</span>
+                    {voiceSaveError && (
+                      <span className="text-xs text-[var(--danger,#e74c3c)]">{voiceSaveError}</span>
+                    )}
+                  </div>
+                </div>
               )}
             </div>
           </div>
         )}
-      </div>
-
-      {/* ═══ SAVE BAR ═══ */}
-      <div className={sectionCls}>
-        <div className="flex items-center gap-3">
-          <button
-            className="btn text-[13px] py-2 px-6 !mt-0"
-            disabled={characterSaving}
-            onClick={() => void handleSaveCharacter()}
-          >
-            {characterSaving ? "saving..." : "save character"}
-          </button>
-          {characterSaveSuccess && (
-            <span className="text-xs text-[var(--ok,#16a34a)]">{characterSaveSuccess}</span>
-          )}
-          {characterSaveError && (
-            <span className="text-xs text-[var(--danger,#e74c3c)]">{characterSaveError}</span>
-          )}
-        </div>
       </div>
     </div>
   );

@@ -7,6 +7,7 @@ export type Tab =
   | "companion"
   | "apps"
   | "character"
+  | "character-select"
   | "wallets"
   | "knowledge"
   | "connectors"
@@ -26,7 +27,7 @@ export type Tab =
 export const TAB_GROUPS = [
   { label: "Chat", tabs: ["chat"] as Tab[] },
   { label: "Companion", tabs: ["companion"] as Tab[] },
-  { label: "Character", tabs: ["character"] as Tab[] },
+  { label: "Character", tabs: ["character", "character-select"] as Tab[] },
   { label: "Wallets", tabs: ["wallets"] as Tab[] },
   { label: "Knowledge", tabs: ["knowledge"] as Tab[] },
   { label: "Social", tabs: ["connectors"] as Tab[] },
@@ -54,6 +55,7 @@ const TAB_PATHS: Record<Tab, string> = {
   companion: "/companion",
   apps: "/apps",
   character: "/character",
+  "character-select": "/character-select",
   triggers: "/triggers",
   wallets: "/wallets",
   knowledge: "/knowledge",
@@ -130,6 +132,7 @@ export function titleForTab(tab: Tab): string {
     case "companion": return "Companion";
     case "apps": return "Apps";
     case "character": return "Character";
+    case "character-select": return "Character Select";
     case "triggers": return "Triggers";
     case "wallets": return "Wallets";
     case "knowledge": return "Knowledge";

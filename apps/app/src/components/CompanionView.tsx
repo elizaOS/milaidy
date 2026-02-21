@@ -19,18 +19,18 @@ import { BubbleEmote } from "./BubbleEmote";
 import { createTranslator } from "../i18n";
 
 type QuickActionGlyph = "feed" | "rest" | "manual_share";
-type QuickActionTone = "ready" | "cooldown" | "limit";
 
 function QuickActionIcon({ kind }: { kind: QuickActionGlyph }) {
   if (kind === "feed") {
     return (
       <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M5 15h14" />
-        <path d="M7 15a5 5 0 0 0 10 0" />
-        <path d="M9 10V5" />
-        <path d="M12 10V4" />
-        <path d="M15 10v4" />
-        <path d="M18 10v4" />
+        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" fill="none" />
+        <path d="M8 14s1.5 2 4 2 4-2 4-2" />
+        <path d="M9 9h.01" />
+        <path d="M15 9h.01" />
+        <path d="M12 17c2 0 3-1 3-1" opacity="0.5" />
+        <path d="M7 12l2-3 2 3" />
+        <path d="M13 12l2-3 2 3" />
       </svg>
     );
   }
@@ -38,20 +38,19 @@ function QuickActionIcon({ kind }: { kind: QuickActionGlyph }) {
   if (kind === "rest") {
     return (
       <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M4 12h16" />
-        <rect x="4" y="12" width="16" height="5" rx="1.5" />
-        <path d="M6 17v2" />
-        <path d="M18 17v2" />
-        <path d="M8 12V9a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v3" />
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+        <path d="M14 9l2-2" opacity="0.5" />
+        <path d="M17 6l1-1" opacity="0.3" />
+        <circle cx="17" cy="4" r="0.5" fill="currentColor" opacity="0.6" />
       </svg>
     );
   }
 
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M14 3h7v7" />
-      <path d="M10 14L21 3" />
-      <path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5" />
+      <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+      <polyline points="16 6 12 2 8 6" />
+      <line x1="12" y1="2" x2="12" y2="15" />
     </svg>
   );
 }
@@ -107,8 +106,41 @@ export function CompanionView() {
     copyToClipboard,
     uiLanguage,
     setTab,
+    // Header properties
+    agentStatus,
+    cloudEnabled,
+    cloudConnected,
+    cloudCredits,
+    cloudCreditsCritical,
+    cloudCreditsLow,
+    cloudTopUpUrl,
+    walletAddresses,
+    lifecycleBusy,
+    lifecycleAction,
+    handlePauseResume,
+    handleRestart,
   } = useApp();
   const t = createTranslator(uiLanguage);
+
+  // Compute Header properties
+  const name = agentStatus?.agentName ?? "Milady";
+  const agentState = agentStatus?.state ?? "not_started";
+
+  const stateColor = agentState === "running" ? "text-ok border-ok" :
+    agentState === "paused" || agentState === "restarting" || agentState === "starting" ? "text-warn border-warn" :
+      agentState === "error" ? "text-danger border-danger" : "text-muted border-muted";
+
+  const restartBusy = lifecycleBusy && lifecycleAction === "restart";
+  const pauseResumeBusy = lifecycleBusy;
+  const pauseResumeDisabled = lifecycleBusy || agentState === "restarting" || agentState === "starting";
+
+  const creditColor = cloudCreditsCritical ? "border-danger text-danger" :
+    cloudCreditsLow ? "border-warn text-warn" : "border-ok text-ok";
+
+  const evmShort = walletAddresses?.evmAddress
+    ? `${walletAddresses.evmAddress.slice(0, 4)}...${walletAddresses.evmAddress.slice(-4)}` : null;
+  const solShort = walletAddresses?.solanaAddress
+    ? `${walletAddresses.solanaAddress.slice(0, 4)}...${walletAddresses.solanaAddress.slice(-4)}` : null;
 
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -214,6 +246,7 @@ export function CompanionView() {
     () => resolveCompanionAnimationIntent(companionSnapshot),
     [companionSnapshot],
   );
+
   const rosterItems = useMemo(
     () =>
       Array.from({ length: VRM_COUNT }, (_, i) => {
@@ -694,17 +727,91 @@ export function CompanionView() {
               onClick={() => setTab("chat")}
               title={t("nav.chat")}
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6" /></svg>
             </button>
-            
+
             <div className="anime-status-pill">
               <div className="anime-logo-circle">M</div>
-              <span className="text-sm font-black mr-2 text-[var(--ac-text-primary)]">milady</span>
+              <span className="text-sm font-black mr-2 text-[var(--ac-text-primary)]">{name}</span>
             </div>
-            
+
             <button className="anime-btn-ghost" onClick={() => { void loadCompanion(); }} title={t("companion.sync")}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21v-5h5"/></svg>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" /><path d="M16 21v-5h5" /></svg>
             </button>
+
+            {/* Hub Header Elements */}
+            <div className="anime-header-extensions">
+
+              {/* Agent Status */}
+              <div className="anime-header-pill">
+                <span className={`anime-header-pill-text ${stateColor}`} data-testid="status-pill">
+                  {agentState}
+                </span>
+                {(agentState as string) === "restarting" || (agentState as string) === "starting" || (agentState as string) === "not_started" || (agentState as string) === "stopped" ? (
+                  <span className="anime-header-pill-icon opacity-60">
+                    <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56" /></svg>
+                  </span>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => { void handlePauseResume(); }}
+                      title={agentState === "paused" ? t("header.resumeAutonomy") : t("header.pauseAutonomy")}
+                      className={`anime-header-action-btn ${pauseResumeDisabled ? "is-disabled" : ""}`}
+                      disabled={pauseResumeDisabled}
+                    >
+                      {pauseResumeBusy ? (
+                        <svg className="animate-spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56" /></svg>
+                      ) : agentState === "paused" ? (
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3" /></svg>
+                      ) : (
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" /><rect x="14" y="4" width="4" height="16" /></svg>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => { void handleRestart(); }}
+                      title={t("header.restartAgent")}
+                      className={`anime-header-action-btn ${lifecycleBusy || (agentState as string) === "restarting" ? "is-disabled" : ""}`}
+                      disabled={lifecycleBusy || (agentState as string) === "restarting"}
+                    >
+                      {restartBusy || (agentState as string) === "restarting" ? (
+                        <svg className="animate-spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56" /></svg>
+                      ) : (
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /></svg>
+                      )}
+                    </button>
+                  </>
+                )}
+              </div>
+
+              {/* Cloud Balance */}
+              {(cloudEnabled || cloudConnected) && (
+                cloudConnected ? (
+                  <a href={cloudTopUpUrl} target="_blank" rel="noopener noreferrer"
+                    className={`anime-header-pill is-clickable no-underline hover:no-underline ${cloudCredits === null ? "text-white/60" : creditColor}`}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8" /><path d="M12 18V6" /></svg>
+                    <span className="anime-header-pill-text">
+                      {cloudCredits === null ? t("header.cloudConnected") : `$${cloudCredits.toFixed(2)}`}
+                    </span>
+                  </a>
+                ) : (
+                  <span className="anime-header-pill is-danger">
+                    <span className="anime-header-pill-text">{t("header.cloudDisconnected")}</span>
+                  </span>
+                )
+              )}
+
+              {/* Wallets */}
+              {(evmShort || solShort) && (
+                <div className="anime-header-pill">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" /><path d="M3 5v14a2 2 0 0 0 2 2h16v-5" /><path d="M18 12a2 2 0 0 0 0 4h4v-4Z" /></svg>
+                  <div className="anime-header-wallet-text">
+                    {evmShort && <span>{evmShort}</span>}
+                    {solShort && !evmShort && <span>{solShort}</span>}
+                  </div>
+                </div>
+              )}
+
+            </div>
           </div>
 
           <div className="anime-comp-header-right">
@@ -721,7 +828,7 @@ export function CompanionView() {
               {MOOD_TIER_LABELS[companionSnapshot.moodTier] ?? companionSnapshot.moodTier}
             </div>
             <button className="anime-nav-toggle" onClick={() => setDrawerOpen(true)}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="4" x2="20" y1="12" y2="12" /><line x1="4" x2="20" y1="6" y2="6" /><line x1="4" x2="20" y1="18" y2="18" /></svg>
             </button>
           </div>
         </header>
@@ -765,7 +872,11 @@ export function CompanionView() {
                 }
 
                 return (
-                  <div key={item.id} className="anime-kpi-item" title={tooltip}>
+                  <div
+                    key={item.id}
+                    className={`anime-kpi-item ${changedStats.has(item.id) ? "is-changed" : ""}`}
+                    title={tooltip}
+                  >
                     <div className="anime-kpi-info">
                       <span className="anime-kpi-label">{item.label}</span>
                       <span className="anime-kpi-note">{note}</span>
@@ -780,36 +891,8 @@ export function CompanionView() {
                 );
               })}
             </div>
-          </aside>
 
-          {/* Center (Empty to show character) */}
-          <div className="anime-comp-center"></div>
-
-          {/* Right Panel: Roster & Actions */}
-          <aside className="anime-comp-right-panel">
-
-            <div className="anime-roster glass-panel">
-              <div className="anime-panel-title">{t("companion.roster")}</div>
-              {selectedVrmIndex === 0 && <div className="text-xs text-accent mt-1 mb-2">{t("companion.customVrmActive")}</div>}
-              <div className="anime-roster-list">
-                {rosterItems.map((item) => {
-                  const active = selectedVrmIndex !== 0 && item.index === safeSelectedVrmIndex;
-                  return (
-                    <button
-                      key={item.index}
-                      className={`anime-roster-item ${active ? "is-active" : ""}`}
-                      onClick={() => setState("selectedVrmIndex", item.index)}
-                    >
-                      <img src={item.previewUrl} alt={item.title} className="anime-roster-img" />
-                      <div className="anime-roster-meta">
-                        <span className="anime-roster-name">{item.title}</span>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
+            {/* Quick Action Buttons */}
             <div className="anime-action-cluster">
               {quickActions.map(action => {
                 const isLimit = action.id === "manual_share" && manualShareCapReached;
@@ -834,6 +917,66 @@ export function CompanionView() {
                 );
               })}
             </div>
+          </aside>
+
+          {/* Center (Empty to show character) */}
+          <div className="anime-comp-center"></div>
+
+          {/* Right Panel: Roster & Actions */}
+          <aside className="anime-comp-right-panel">
+
+            <div className="anime-roster glass-panel">
+              <div className="flex justify-between items-center mb-2">
+                <div className="anime-panel-title !mb-0">CHARACTER</div>
+                <button
+                  onClick={() => setTab("character")}
+                  className="p-1.5 rounded-full text-[var(--muted)] hover:text-[var(--accent)] hover:bg-[var(--accent)]/10 transition-all focus:outline-none cursor-pointer"
+                  title="Agent Configuration"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 20h9"></path>
+                    <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                  </svg>
+                </button>
+              </div>
+              {selectedVrmIndex === 0 && <div className="text-xs text-accent mt-1 mb-2">{t("companion.customVrmActive")}</div>}
+              <div className="anime-roster-list">
+                {rosterItems.map((item) => {
+                  const active = selectedVrmIndex !== 0 && item.index === safeSelectedVrmIndex;
+                  return (
+                    <button
+                      key={item.index}
+                      className={`anime-roster-item ${active ? "is-active" : ""}`}
+                      onClick={() => setState("selectedVrmIndex", item.index)}
+                    >
+                      <img src={item.previewUrl} alt={item.title} className="anime-roster-img" />
+                      <div className="anime-roster-meta">
+                        <span className="anime-roster-name">{item.title}</span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Talents / Skills Entrance */}
+            <button className="anime-talents-btn glass-panel" onClick={() => setTab("skills")}>
+              <div className="anime-talents-icon-wrap">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                  <circle cx="12" cy="12" r="3" fill="var(--ac-accent)" opacity="0.4" />
+                </svg>
+              </div>
+              <div className="anime-talents-info">
+                <span className="anime-talents-title">TALENTS</span>
+                <span className="anime-talents-sub">Mind & Skills</span>
+              </div>
+              <div className="anime-talents-arrow">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6" /></svg>
+              </div>
+            </button>
+
+
 
           </aside>
         </div>
@@ -853,19 +996,19 @@ export function CompanionView() {
             {/* Global Nav for immersive view */}
             <div className="anime-nav-menu">
               <button className="anime-nav-link" onClick={() => { setDrawerOpen(false); setTab("chat"); }}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 9a2 2 0 0 1-2 2H6l-4 4V4c0-1.1.9-2 2-2h8a2 2 0 0 1 2 2v5Z"/><path d="M18 9h2a2 2 0 0 1 2 2v11l-4-4h-6a2 2 0 0 1-2-2v-1"/></svg>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 9a2 2 0 0 1-2 2H6l-4 4V4c0-1.1.9-2 2-2h8a2 2 0 0 1 2 2v5Z" /><path d="M18 9h2a2 2 0 0 1 2 2v11l-4-4h-6a2 2 0 0 1-2-2v-1" /></svg>
                 {t("nav.chat")}
               </button>
               <button className="anime-nav-link" onClick={() => { setDrawerOpen(false); setTab("knowledge"); }}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" /></svg>
                 {t("nav.knowledge")}
               </button>
               <button className="anime-nav-link" onClick={() => { setDrawerOpen(false); setTab("wallets"); }}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" /><path d="M3 5v14a2 2 0 0 0 2 2h16v-5" /><path d="M18 12a2 2 0 0 0 0 4h4v-4Z" /></svg>
                 {t("nav.inventory")}
               </button>
               <button className="anime-nav-link" onClick={() => { setDrawerOpen(false); setTab("settings"); }}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1Z" /></svg>
                 {t("nav.settings")}
               </button>
             </div>
@@ -873,6 +1016,11 @@ export function CompanionView() {
             <section className="anime-drawer-sec">
               <h3>{t("companion.statusOverview")}</h3>
               <p className="text-sm opacity-80 mb-2">{t("companion.autopost")} {companionSnapshot.today.autoPostCount}/{companionSnapshot.today.autoPostCap}</p>
+
+              <div className="anime-kpi-mini-track mb-4">
+                <div className="anime-kpi-mini-fill" style={{ width: `${autopostProgress}%` }} />
+              </div>
+
               <div className={`anime-status-chip ${autopostEligible ? "is-good" : "is-warn"}`}>
                 {autopostEligible ? t("companion.autopostEligible") : t("companion.autopostPaused")}
               </div>
@@ -934,6 +1082,24 @@ export function CompanionView() {
                 <button className="anime-btn-ghost flex-1" onClick={() => { void handleCopySummary(); }}>{t("companion.copySummary")}</button>
                 <button className="anime-btn-ghost flex-1" onClick={() => { void handleExportShareCard(); }}>{t("companion.downloadPng")}</button>
               </div>
+            </section>
+
+            <section className="anime-drawer-sec">
+              <h3>{t("companion.activity")}</h3>
+              {companionActivity.length === 0 ? (
+                <div className="text-sm opacity-50">{t("companion.noEvents")}</div>
+              ) : (
+                <div className="flex flex-col gap-3 max-h-[300px] overflow-y-auto pr-2 mt-2">
+                  {companionActivity.map((event) => (
+                    <div key={event.id} className="flex flex-col gap-1 text-sm border-l-2 border-[var(--ac-accent)] pl-3">
+                      <div className="text-[10px] font-mono text-[var(--ac-accent)] opacity-80">
+                        {new Date(event.ts).toLocaleString()} | {event.kind}
+                      </div>
+                      <div className="text-white opacity-90">{event.message}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </section>
           </div>
         </div>

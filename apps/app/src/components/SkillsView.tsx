@@ -16,14 +16,12 @@ import { Switch } from "./shared/ui-switch";
 
 /* ── Shared style constants ─────────────────────────────────────────── */
 
-const inputCls =
-  "px-2.5 py-1.5 border border-[var(--border)] bg-[var(--card)] text-[var(--txt)] text-xs focus:border-[var(--accent)] focus:outline-none";
 const btnPrimary =
-  "px-3 py-1.5 text-xs font-medium bg-[var(--accent)] text-[var(--accent-foreground)] border border-[var(--accent)] cursor-pointer hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-default";
+  "anime-tech-btn anime-tech-btn-primary";
 const btnGhost =
-  "px-3 py-1.5 text-xs bg-transparent text-[var(--muted)] border border-[var(--border)] cursor-pointer hover:text-[var(--txt)] hover:border-[var(--txt)] transition-colors disabled:opacity-40 disabled:cursor-default";
+  "anime-tech-btn";
 const btnDanger =
-  "px-2 py-1 text-[11px] bg-transparent text-[var(--muted)] border border-[var(--border)] cursor-pointer hover:text-[#e74c3c] hover:border-[#e74c3c] transition-colors";
+  "anime-tech-btn !text-[#e74c3c] !border-[#e74c3c]/30 hover:!bg-[#e74c3c]/10";
 
 /* ── Skill Card ─────────────────────────────────────────────────────── */
 
@@ -58,58 +56,55 @@ function SkillCard({
 
   return (
     <div
-      className={`flex flex-col border bg-[var(--card)] transition-colors ${
-        isQuarantined || isBlocked
-          ? "border-[#e74c3c]/40"
-          : "border-[var(--border)] hover:border-[var(--accent)]/50"
-      }`}
+      className={`anime-skill-card ${skill.enabled ? "is-active" : ""} ${isQuarantined || isBlocked ? "!border-l-[#e74c3c] !shadow-[inset_2px_0_15px_rgba(231,76,60,0.1)]" : ""
+        }`}
       data-skill-id={skill.id}
     >
-        {/* Main content area */}
-        <div className="p-4">
-          {/* Top row: badge + toggle */}
-          <div className="flex items-center justify-between mb-2.5">
-            <StatusBadge
-              label={
-                skill.scanStatus === "blocked" || skill.scanStatus === "critical"
-                  ? "Blocked"
-                  : skill.scanStatus === "warning"
-                    ? "Warning"
-                    : skill.enabled
-                      ? "Active"
-                      : "Inactive"
-              }
-              tone={
-                skill.scanStatus === "blocked" || skill.scanStatus === "critical" || skill.scanStatus === "warning"
-                  ? skill.scanStatus === "warning"
-                    ? "warning"
-                    : "danger"
+      {/* Main content area */}
+      <div className="p-4">
+        {/* Top row: badge + toggle */}
+        <div className="flex items-center justify-between mb-2.5">
+          <StatusBadge
+            label={
+              skill.scanStatus === "blocked" || skill.scanStatus === "critical"
+                ? "Blocked"
+                : skill.scanStatus === "warning"
+                  ? "Warning"
                   : skill.enabled
-                    ? "success"
-                    : "muted"
-              }
-              withDot
+                    ? "Active"
+                    : "Inactive"
+            }
+            tone={
+              skill.scanStatus === "blocked" || skill.scanStatus === "critical" || skill.scanStatus === "warning"
+                ? skill.scanStatus === "warning"
+                  ? "warning"
+                  : "danger"
+                : skill.enabled
+                  ? "success"
+                  : "muted"
+            }
+            withDot
+          />
+          {!isBlocked && !isQuarantined && (
+            <Switch
+              checked={skill.enabled}
+              disabled={skillToggleAction === skill.id}
+              onChange={(val) => onToggle(skill.id, val)}
+              size="compact"
+              trackOnClass="bg-[var(--accent)]"
+              trackOffClass="bg-[var(--border)]"
+              knobClass="bg-white shadow-sm"
             />
-            {!isBlocked && !isQuarantined && (
-              <Switch
-                checked={skill.enabled}
-                disabled={skillToggleAction === skill.id}
-                onChange={(val) => onToggle(skill.id, val)}
-                size="compact"
-                trackOnClass="bg-[var(--accent)]"
-                trackOffClass="bg-[var(--border)]"
-                knobClass="bg-white shadow-sm"
-              />
-            )}
-            {isQuarantined && !isReviewing && (
-              <button
-                className="px-2.5 py-1 text-[11px] font-medium bg-[#f39c12]/15 text-[#f39c12] border border-[#f39c12]/30 cursor-pointer hover:bg-[#f39c12]/25 transition-colors"
-                onClick={() => onReview(skill.id)}
-              >
-                Review Findings
-              </button>
-            )}
-          </div>
+          )}
+          {isQuarantined && !isReviewing && (
+            <button
+              className="px-2.5 py-1 text-[11px] font-medium bg-[#f39c12]/15 text-[#f39c12] border border-[#f39c12]/30 cursor-pointer hover:bg-[#f39c12]/25 transition-colors"
+              onClick={() => onReview(skill.id)}
+            >
+              Review Findings
+            </button>
+          )}
+        </div>
 
         {/* Name + description */}
         <div className="font-semibold text-sm text-[var(--txt)] mb-1 truncate" title={skill.name}>
@@ -156,16 +151,14 @@ function SkillCard({
               {skillReviewReport.findings.map((f: SkillScanReportSummary["findings"][number], idx: number) => (
                 <div
                   key={idx}
-                  className={`flex items-start gap-2 px-3 py-1.5 text-[11px] font-mono ${
-                    idx > 0 ? "border-t border-[var(--border)]" : ""
-                  }`}
+                  className={`flex items-start gap-2 px-3 py-1.5 text-[11px] font-mono ${idx > 0 ? "border-t border-[var(--border)]" : ""
+                    }`}
                 >
                   <span
-                    className={`shrink-0 px-1.5 py-px font-bold text-[10px] uppercase ${
-                      f.severity === "critical"
-                        ? "bg-[#e74c3c]/15 text-[#e74c3c]"
-                        : "bg-[#f39c12]/15 text-[#f39c12]"
-                    }`}
+                    className={`shrink-0 px-1.5 py-px font-bold text-[10px] uppercase ${f.severity === "critical"
+                      ? "bg-[#e74c3c]/15 text-[#e74c3c]"
+                      : "bg-[#f39c12]/15 text-[#f39c12]"
+                      }`}
                   >
                     {f.severity}
                   </span>
@@ -215,7 +208,7 @@ function MarketplaceCard({
   const sourceLabel = item.repository || item.slug || item.id;
 
   return (
-    <div className="flex items-start gap-4 p-4 border border-[var(--border)] bg-[var(--card)] hover:border-[var(--accent)]/50 transition-colors">
+    <div className="anime-skill-card flex-row items-start gap-4 p-4 !clip-path-none rounded-sm">
       {/* Icon placeholder */}
       <div className="w-10 h-10 shrink-0 flex items-center justify-center bg-[var(--accent)]/10 text-[var(--accent)] text-sm font-bold rounded">
         {item.name.charAt(0).toUpperCase()}
@@ -303,12 +296,12 @@ function InstallModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70"
+      className="absolute inset-0 z-[60] flex items-center justify-center bg-black/70"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="w-full max-w-2xl max-h-[80vh] flex flex-col border border-[var(--border)] bg-[var(--bg)] overflow-hidden mx-4">
+      <div className="relative w-full max-w-2xl max-h-[80vh] flex flex-col border border-[var(--ac-accent)]/40 bg-[#0a0c12] shadow-[0_0_50px_rgba(0,0,0,0.8)] mx-4 overflow-hidden" style={{ clipPath: "polygon(0 0, 100% 0, 100% calc(100% - 15px), calc(100% - 15px) 100%, 0 100%)" }}>
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border)]">
           <div>
@@ -335,11 +328,10 @@ function InstallModal({
           ).map((t) => (
             <button
               key={t.id}
-              className={`flex-1 px-4 py-2.5 text-xs font-medium bg-transparent border-0 border-b-2 cursor-pointer transition-colors ${
-                tab === t.id
-                  ? "text-[var(--accent)] border-b-[var(--accent)]"
-                  : "text-[var(--muted)] border-b-transparent hover:text-[var(--txt)]"
-              }`}
+              className={`flex-1 px-4 py-2.5 text-xs font-medium bg-transparent border-0 border-b-2 cursor-pointer transition-colors ${tab === t.id
+                ? "text-[var(--accent)] border-b-[var(--accent)]"
+                : "text-[var(--muted)] border-b-transparent hover:text-[var(--txt)]"
+                }`}
               onClick={() => setTab(t.id)}
             >
               {t.label}
@@ -352,15 +344,16 @@ function InstallModal({
           {tab === "search" && (
             <>
               <div className="flex gap-2 items-center mb-4">
-                <input
-                  className={`${inputCls} flex-1 min-w-[200px]`}
-                  placeholder="Search skills by keyword..."
-                  value={skillsMarketplaceQuery}
-                  onChange={(e) => setState("skillsMarketplaceQuery", e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") void searchSkillsMarketplace();
-                  }}
-                />
+                <div className="anime-tech-input-wrap flex-1 min-w-[200px]">
+                  <input
+                    placeholder="Search skills by keyword..."
+                    value={skillsMarketplaceQuery}
+                    onChange={(e) => setState("skillsMarketplaceQuery", e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") void searchSkillsMarketplace();
+                    }}
+                  />
+                </div>
                 <button
                   className={btnPrimary}
                   onClick={() => searchSkillsMarketplace()}
@@ -410,15 +403,16 @@ function InstallModal({
                 Paste a full GitHub URL or a /tree/... path to install a skill directly.
               </div>
               <div className="flex gap-2 items-center">
-                <input
-                  className={`${inputCls} flex-1`}
-                  placeholder="https://github.com/owner/repo/tree/main/skills/my-skill"
-                  value={skillsMarketplaceManualGithubUrl}
-                  onChange={(e) => setState("skillsMarketplaceManualGithubUrl", e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") void installSkillFromGithubUrl();
-                  }}
-                />
+                <div className="anime-tech-input-wrap flex-1">
+                  <input
+                    placeholder="https://github.com/owner/repo/tree/main/skills/my-skill"
+                    value={skillsMarketplaceManualGithubUrl}
+                    onChange={(e) => setState("skillsMarketplaceManualGithubUrl", e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") void installSkillFromGithubUrl();
+                    }}
+                  />
+                </div>
                 <button
                   className={btnPrimary}
                   onClick={() => installSkillFromGithubUrl()}
@@ -471,30 +465,32 @@ function CreateSkillForm({
           <label className="block text-[11px] text-[var(--muted)] mb-1 font-medium">
             Skill Name <span className="text-[#e74c3c]">*</span>
           </label>
-          <input
-            className={`${inputCls} w-full`}
-            placeholder="e.g. my-awesome-skill"
-            value={skillCreateName}
-            onChange={(e) => setState("skillCreateName", e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && skillCreateName.trim()) onCreate();
-            }}
-            autoFocus
-          />
+          <div className="anime-tech-input-wrap w-full mt-1">
+            <input
+              placeholder="e.g. my-awesome-skill"
+              value={skillCreateName}
+              onChange={(e) => setState("skillCreateName", e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && skillCreateName.trim()) onCreate();
+              }}
+              autoFocus
+            />
+          </div>
         </div>
         <div>
           <label className="block text-[11px] text-[var(--muted)] mb-1 font-medium">
             Description
           </label>
-          <input
-            className={`${inputCls} w-full`}
-            placeholder="Brief description of what this skill does (optional)"
-            value={skillCreateDescription}
-            onChange={(e) => setState("skillCreateDescription", e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && skillCreateName.trim()) onCreate();
-            }}
-          />
+          <div className="anime-tech-input-wrap w-full mt-1">
+            <input
+              placeholder="Brief description of what this skill does (optional)"
+              value={skillCreateDescription}
+              onChange={(e) => setState("skillCreateDescription", e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && skillCreateName.trim()) onCreate();
+              }}
+            />
+          </div>
         </div>
         <div className="flex gap-2 justify-end pt-1">
           <button className={btnGhost} onClick={onCancel}>
@@ -589,12 +585,12 @@ function EditSkillModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70"
+      className="absolute inset-0 z-[60] flex items-center justify-center bg-black/70"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="w-full max-w-4xl h-[85vh] flex flex-col border border-[var(--border)] bg-[var(--bg)] overflow-hidden mx-4">
+      <div className="relative w-full max-w-4xl h-[85vh] flex flex-col border border-[var(--ac-accent)]/40 bg-[#0a0c12] shadow-[0_0_50px_rgba(0,0,0,0.8)] mx-4 overflow-hidden" style={{ clipPath: "polygon(0 0, 100% 0, 100% calc(100% - 15px), calc(100% - 15px) 100%, 0 100%)" }}>
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-[var(--border)] shrink-0">
           <div className="flex items-center gap-3 min-w-0">
@@ -802,13 +798,14 @@ export function SkillsView() {
 
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-2 mb-4">
-        <input
-          type="text"
-          placeholder="Filter skills..."
-          value={filterText}
-          onChange={(e) => setFilterText(e.target.value)}
-          className={`${inputCls} w-[200px]`}
-        />
+        <div className="anime-tech-input-wrap w-[200px]">
+          <input
+            type="text"
+            placeholder="FILTER_SKILLS..."
+            value={filterText}
+            onChange={(e) => setFilterText(e.target.value)}
+          />
+        </div>
 
         <span className="flex-1" />
 
@@ -844,17 +841,33 @@ export function SkillsView() {
 
       {/* Skill grid — grouped by status */}
       {skills.length === 0 ? (
-        <div className="text-center py-16">
-          <div className="text-[var(--muted)] text-sm mb-2">No skills installed</div>
-          <div className="text-[var(--muted)] text-[11px] mb-4">
-            Install skills from the marketplace or create a new one.
+        <div className="flex flex-col items-center justify-center py-20 relative">
+          {/* Animated Tech Node Warning Graphic */}
+          <div className="relative w-32 h-32 mb-6 flex items-center justify-center">
+            <svg className="absolute inset-0 w-full h-full animate-[spin_10s_linear_infinite]" viewBox="0 0 100 100">
+              <circle cx="50" cy="50" r="48" fill="none" stroke="rgba(0,225,255,0.2)" strokeWidth="1" strokeDasharray="4 6" />
+              <circle cx="50" cy="50" r="40" fill="none" stroke="rgba(0,225,255,0.4)" strokeWidth="2" strokeDasharray="20 10 10 5" />
+              <polygon points="50,15 80,80 20,80" fill="none" stroke="var(--ac-accent)" strokeWidth="1" opacity="0.5" />
+            </svg>
+            <div className="w-16 h-16 rounded-full bg-[var(--ac-accent)]/10 border border-[var(--ac-accent)] flex items-center justify-center shadow-[0_0_20px_rgba(0,225,255,0.2)]">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--ac-accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg>
+            </div>
           </div>
-          <div className="flex justify-center gap-2">
-            <button className={btnPrimary} onClick={() => setInstallModalOpen(true)}>
-              Browse Marketplace
+          <div className="text-[var(--ac-accent)] font-bold text-lg mb-2 tracking-[0.2em] uppercase" style={{ textShadow: "0 0 10px rgba(0,225,255,0.5)" }}>
+            [ SYS.NEURAL_NET: NO NODES ]
+          </div>
+          <div className="text-[var(--muted)] text-[11px] mb-8 max-w-sm text-center tracking-wide font-mono">
+            WARNING: Core skill matrix is currently unpopulated.
+            <br />Please install modules to restore uplink functionality.
+          </div>
+          <div className="flex justify-center gap-4">
+            <button className={`${btnPrimary} py-2 px-6`} onClick={() => setInstallModalOpen(true)}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
+              MARKETPLACE UPLINK
             </button>
-            <button className={btnGhost} onClick={() => setState("skillCreateFormOpen", true)}>
-              Create Skill
+            <button className={`${btnGhost} py-2 px-6`} onClick={() => setState("skillCreateFormOpen", true)}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+              INIT LOCAL NODE
             </button>
           </div>
         </div>

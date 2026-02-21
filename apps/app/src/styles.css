@@ -1,5 +1,7 @@
 @import "tailwindcss";
 @import "./styles/base.css";
+@import "./styles/anime.css";
+
 
 /*
  * Map the existing theme CSS custom properties to Tailwind theme tokens.
@@ -233,8 +235,6 @@
   animation: dither-fade infinite;
   animation-timing-function: steps(4);
 }
-
-@import './styles/anime.css';
 
 /* ── Wallets BSC-first view ───────────────────────────────────────── */
 

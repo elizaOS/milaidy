@@ -1297,9 +1297,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     saveUiLanguage(uiLanguage);
-    const maybeSetUiLanguage = (client as { setUiLanguage?: (lang: UiLanguage) => void }).setUiLanguage;
-    if (typeof maybeSetUiLanguage === "function") {
-      maybeSetUiLanguage(uiLanguage);
+    if (typeof client.setUiLanguage === "function") {
+      client.setUiLanguage(uiLanguage);
     }
   }, [uiLanguage]);
 
