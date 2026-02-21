@@ -21,7 +21,7 @@ import type {
 // ---------------------------------------------------------------------------
 
 export interface WhatsAppRouteState {
-  whatsappPairingSessions?: Map<string, WhatsAppPairingSession>;
+  whatsappPairingSessions: Map<string, WhatsAppPairingSession>;
   broadcastWs?: (data: Record<string, unknown>) => void;
   config: {
     connectors?: Record<string, unknown>;
@@ -107,9 +107,6 @@ export async function handleWhatsAppRoute(
       },
     });
 
-    if (!state.whatsappPairingSessions) {
-      state.whatsappPairingSessions = new Map();
-    }
     state.whatsappPairingSessions.set(accountId, session);
 
     try {

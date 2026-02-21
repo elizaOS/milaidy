@@ -1074,7 +1074,7 @@ function discoverInstalledPlugins(
  * show misleading "missing API key" warnings.
  */
 function applyWhatsAppQrOverride(
-  plugins: { id: string; validationErrors: unknown[]; configured: boolean }[],
+  plugins: { id: string; validationErrors: unknown[]; configured: boolean; qrConnected?: boolean }[],
 ): void {
   try {
     const workspaceBase = resolveDefaultAgentWorkspaceDir();
@@ -1084,7 +1084,7 @@ function applyWhatsAppQrOverride(
       if (waPlugin) {
         waPlugin.validationErrors = [];
         waPlugin.configured = true;
-        (waPlugin as Record<string, unknown>).qrConnected = true;
+        waPlugin.qrConnected = true;
       }
     }
   } catch {
@@ -8820,6 +8820,9 @@ async function handleRequest(
 
   // ── WhatsApp routes (/api/whatsapp/*) ────────────────────────────────────
   if (pathname.startsWith("/api/whatsapp")) {
+    if (!state.whatsappPairingSessions) {
+      state.whatsappPairingSessions = new Map();
+    }
     const handled = await handleWhatsAppRoute(req, res, pathname, method, {
       whatsappPairingSessions: state.whatsappPairingSessions,
       broadcastWs: state.broadcastWs,
@@ -8828,13 +8831,7 @@ async function handleRequest(
       saveConfig: () => saveMiladyConfig(state.config),
       workspaceDir: resolveDefaultAgentWorkspaceDir(),
     });
-    if (handled) {
-      // Propagate sessions map back to server state (may have been created)
-      if (!state.whatsappPairingSessions) {
-        state.whatsappPairingSessions = new Map();
-      }
-      return;
-    }
+    if (handled) return;
   }
 
   // ── POST /api/restart ───────────────────────────────────────────────────

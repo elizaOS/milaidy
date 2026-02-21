@@ -34,6 +34,7 @@ vi.mock("../../services/whatsapp-pairing", () => ({
 
 function createState(overrides: Partial<WhatsAppRouteState> = {}): WhatsAppRouteState {
   return {
+    whatsappPairingSessions: new Map(),
     config: { connectors: {} },
     saveConfig: vi.fn(),
     workspaceDir: "/tmp/test-workspace",

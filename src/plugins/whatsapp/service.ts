@@ -89,6 +89,7 @@ export class WhatsAppBaileysService extends Service {
   phoneNumber: string | null = null;
   connected = false;
   private reconnectDelay = 3000;
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
   // -- ServiceClass static interface -----------------------------------------
 
@@ -206,7 +207,8 @@ export class WhatsAppBaileysService extends Service {
             const delay = this.reconnectDelay;
             this.reconnectDelay = Math.min(this.reconnectDelay * 2, 60000);
             this.sock = null;
-            setTimeout(() => {
+            this.reconnectTimer = setTimeout(() => {
+              this.reconnectTimer = null;
               connect().catch((err) => {
                 this.runtime.logger.error(
                   `[whatsapp] Reconnect failed: ${err instanceof Error ? err.message : String(err)}`,
@@ -238,6 +240,10 @@ export class WhatsAppBaileysService extends Service {
 
   async stop(): Promise<void> {
     this.runtime.logger.info("[whatsapp] Stopping service...");
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
     try {
       this.sock?.end(undefined);
     } catch {

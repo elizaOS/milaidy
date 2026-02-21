@@ -53,6 +53,7 @@ export class WhatsAppPairingSession {
   private options: WhatsAppPairingOptions;
   private qrAttempts = 0;
   private readonly MAX_QR_ATTEMPTS = 5;
+  private restartTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(options: WhatsAppPairingOptions) {
     this.options = options;
@@ -140,7 +141,8 @@ export class WhatsAppPairingSession {
           console.info(`${LOG_PREFIX} Restarting pairing after transient close...`);
           this.socket = null;
           this.qrAttempts = 0;
-          setTimeout(() => {
+          this.restartTimer = setTimeout(() => {
+            this.restartTimer = null;
             this.start().catch((err) => {
               console.error(`${LOG_PREFIX} Restart failed:`, err);
               this.setStatus("error");
@@ -167,6 +169,10 @@ export class WhatsAppPairingSession {
   }
 
   stop(): void {
+    if (this.restartTimer) {
+      clearTimeout(this.restartTimer);
+      this.restartTimer = null;
+    }
     try {
       this.socket?.end(undefined);
     } catch {
