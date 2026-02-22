@@ -5,6 +5,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   classificationFromInputs,
+  decisionFromFindings,
   runChecks,
   scanDiffTextForBlockedPatterns,
   scopeVerdictFor,
@@ -46,6 +47,29 @@ describe("pre-review-local helpers", () => {
     expect(scopeVerdictFor("feature")).toBe("needs deep review");
     expect(scopeVerdictFor("bugfix")).toBe("in scope");
     expect(scopeVerdictFor("security")).toBe("in scope");
+  });
+
+  it("treats feature classification as advisory when objective checks pass", () => {
+    expect(
+      decisionFromFindings({
+        classification: "feature",
+        issues: [],
+      }),
+    ).toBe("APPROVE");
+
+    expect(
+      decisionFromFindings({
+        classification: "feature",
+        issues: ["bun run lint failed."],
+      }),
+    ).toBe("REQUEST CHANGES");
+
+    expect(
+      decisionFromFindings({
+        classification: "aesthetic",
+        issues: [],
+      }),
+    ).toBe("REQUEST CHANGES");
   });
 
   it("flags TypeScript any usage without matching plain English text", () => {
