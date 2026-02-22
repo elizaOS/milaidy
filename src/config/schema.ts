@@ -1,16 +1,24 @@
 import { VERSION } from "../runtime/version";
 
-/** Known connector IDs for config schema generation */
-const CONNECTOR_IDS = [
-  "discord",
+/** Known connector IDs for config schema generation. Keep in sync with runtime/plugin maps. */
+export const CONNECTOR_IDS = [
   "telegram",
+  "discord",
   "slack",
+  "twitter",
   "whatsapp",
   "signal",
+  "bluebubbles",
   "imessage",
-  "matrix",
+  "farcaster",
+  "lens",
   "msteams",
+  "mattermost",
   "googlechat",
+  "feishu",
+  "matrix",
+  "nostr",
+  "retake",
 ] as const;
 
 import { MiladySchema } from "./zod-schema";
