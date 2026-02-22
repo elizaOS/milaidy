@@ -3,15 +3,8 @@ import TestRenderer, { act } from "react-test-renderer";
 import { describe, expect, it, vi } from "vitest";
 import { SaveCommandModal } from "../../src/components/SaveCommandModal";
 
-function textContent(node: TestRenderer.ReactTestInstance): string {
-  return node.children
-    .map((child) => (typeof child === "string" ? child : ""))
-    .join("")
-    .trim();
-}
-
 describe("SaveCommandModal keyboard behavior", () => {
-  it("does not close the modal when Enter is pressed in the name input", () => {
+  it("does not close on Enter or Space from the backdrop keydown handler", () => {
     const onSave = vi.fn();
     const onClose = vi.fn();
 
@@ -27,18 +20,18 @@ describe("SaveCommandModal keyboard behavior", () => {
       );
     });
 
-    const input = tree.root.findByType("input");
+    const dialog = tree.root.findByProps({ role: "dialog" });
+    const enterPreventDefault = vi.fn();
+    const spacePreventDefault = vi.fn();
     act(() => {
-      input.props.onKeyDown({ key: "Enter" });
+      dialog.props.onKeyDown({ key: "Enter", preventDefault: enterPreventDefault });
+      dialog.props.onKeyDown({ key: " ", preventDefault: spacePreventDefault });
     });
 
     expect(onSave).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
-
-    const errorNode = tree.root.find(
-      (node) => node.type === "p" && textContent(node) === "Name is required",
-    );
-    expect(textContent(errorNode)).toBe("Name is required");
+    expect(enterPreventDefault).not.toHaveBeenCalled();
+    expect(spacePreventDefault).not.toHaveBeenCalled();
   });
 
   it("closes on Escape from the backdrop keydown handler", () => {
