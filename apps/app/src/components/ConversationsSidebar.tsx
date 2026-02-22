@@ -4,6 +4,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useApp } from "../AppContext";
+import { ConfirmDeleteControl } from "./shared/confirm-delete-control";
 
 interface ConversationsSidebarProps {
   mobile?: boolean;
@@ -177,18 +178,18 @@ export function ConversationsSidebar({
                         </div>
                       </div>
                     </button>
-                    <button
-                      type="button"
-                      data-testid="conv-delete"
-                      className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity border-none bg-transparent text-muted hover:text-danger hover:bg-destructive-subtle cursor-pointer text-sm px-1 py-0.5 rounded flex-shrink-0"
-                      onClick={(e) => {
-                        e.stopPropagation();
+                    <ConfirmDeleteControl
+                      triggerLabel="×"
+                      promptText="Delete?"
+                      confirmLabel="Yes"
+                      cancelLabel="No"
+                      triggerClassName="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity border-none bg-transparent text-muted hover:text-danger hover:bg-destructive-subtle cursor-pointer text-sm px-1 py-0.5 rounded flex-shrink-0"
+                      confirmClassName="px-1.5 py-0.5 text-[11px] border border-danger bg-transparent text-danger hover:bg-destructive-subtle cursor-pointer rounded"
+                      cancelClassName="px-1.5 py-0.5 text-[11px] border border-border bg-transparent text-muted hover:text-txt cursor-pointer rounded"
+                      onConfirm={() => {
                         void handleDeleteConversation(conv.id);
                       }}
-                      title="Delete conversation"
-                    >
-                      ×
-                    </button>
+                    />
                   </>
                 )}
               </div>
