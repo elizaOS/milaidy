@@ -6,7 +6,7 @@
  * resolves into the logo and dissolves again.
  */
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { StartupPhase } from "../AppContext";
 
 /* ── ASCII source ──────────────────────────────────────────────────── */
@@ -49,11 +49,31 @@ const PHASE_LABELS: Record<StartupPhase, string> = {
 
 interface LoadingScreenProps {
   phase?: StartupPhase;
+  elapsedSeconds?: number;
 }
 
 export function LoadingScreen({
   phase = "starting-backend",
+  elapsedSeconds,
 }: LoadingScreenProps) {
+  const [runtimeElapsedSeconds, setRuntimeElapsedSeconds] = useState(0);
+
+  useEffect(() => {
+    if (typeof elapsedSeconds === "number") return;
+    const startedAt = Date.now();
+    const timer = setInterval(() => {
+      setRuntimeElapsedSeconds(
+        Math.max(0, Math.floor((Date.now() - startedAt) / 1000)),
+      );
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [elapsedSeconds]);
+
+  const displayedElapsedSeconds =
+    typeof elapsedSeconds === "number"
+      ? Math.max(0, Math.floor(elapsedSeconds))
+      : runtimeElapsedSeconds;
+
   /* Build the character grid once — each non-space character gets its
      own random timing so the dither pattern is never uniform. */
   const grid = useMemo<CharCell[][]>(
@@ -113,7 +133,7 @@ export function LoadingScreen({
         className="text-muted text-xs tracking-widest uppercase"
         style={{ fontFamily: "var(--mono)" }}
       >
-        {PHASE_LABELS[phase]}
+        {PHASE_LABELS[phase]} ({displayedElapsedSeconds}s)
       </div>
     </div>
   );

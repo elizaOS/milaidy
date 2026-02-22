@@ -4018,6 +4018,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
             requiresAuth = true;
             break;
           }
+          if (apiErr?.status === 404) {
+            setStartupError(describeBackendFailure(err, false));
+            setOnboardingLoading(false);
+            return;
+          }
           lastBackendError = err;
           backendAttempts += 1;
           const delay = Math.min(
@@ -4058,6 +4063,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
               setAuthRequired(true);
               setPairingEnabled(latestAuth.pairingEnabled);
               setPairingExpiresAt(latestAuth.expiresAt);
+              setOnboardingLoading(false);
+              return;
+            }
+            if (apiErr?.status === 404) {
+              setStartupError(describeBackendFailure(err, false));
               setOnboardingLoading(false);
               return;
             }

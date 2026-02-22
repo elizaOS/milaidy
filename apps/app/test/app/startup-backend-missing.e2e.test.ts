@@ -74,7 +74,7 @@ describe("startup failure: backend missing", () => {
     vi.useRealTimers();
   });
 
-  it("stops loading and surfaces backend-unreachable instead of spinning forever", async () => {
+  it("fails fast on backend 404 and surfaces backend-unreachable", async () => {
     let latest: StartupSnapshot | null = null;
     let tree: TestRenderer.ReactTestRenderer | null = null;
 
@@ -93,7 +93,8 @@ describe("startup failure: backend missing", () => {
     });
 
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(31_000);
+      await Promise.resolve();
+      await vi.runOnlyPendingTimersAsync();
     });
 
     expect(latest).not.toBeNull();
@@ -106,7 +107,8 @@ describe("startup failure: backend missing", () => {
     );
     expect(latest?.startupError?.status).toBe(404);
     expect(latest?.startupError?.path).toBe("/api/onboarding/status");
-    expect(mockClient.getOnboardingStatus).toHaveBeenCalled();
+    expect(mockClient.getAuthStatus).toHaveBeenCalledTimes(1);
+    expect(mockClient.getOnboardingStatus).toHaveBeenCalledTimes(1);
 
     await act(async () => {
       tree?.unmount();

@@ -35,4 +35,19 @@ describe("LoadingScreen", () => {
 
     expect(renderedText(tree)).toContain("initializing agent");
   });
+
+  it("renders elapsed seconds label when provided", async () => {
+    let tree: TestRenderer.ReactTestRenderer | null = null;
+    await act(async () => {
+      tree = TestRenderer.create(
+        React.createElement(LoadingScreen, {
+          phase: "starting-backend",
+          elapsedSeconds: 7,
+        }),
+      );
+    });
+    if (!tree) throw new Error("failed to render loading screen");
+
+    expect(renderedText(tree)).toContain("starting backend (7s)");
+  });
 });
