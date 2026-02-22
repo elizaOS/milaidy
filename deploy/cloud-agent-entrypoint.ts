@@ -476,6 +476,39 @@ const bridgeServer = http.createServer(async (req, res) => {
     return;
   }
 
+  // ── Discord credentials endpoint ──────────────────────────────────────
+  // Receives Discord bot token from the backend after OAuth flow
+  if (req.method === "POST" && req.url === "/discord/credentials") {
+    const body = await readBody(req);
+    const { botToken, applicationId, guildId } = JSON.parse(body) as {
+      botToken?: string;
+      applicationId?: string;
+      guildId?: string;
+    };
+
+    if (!botToken || !applicationId) {
+      res.writeHead(400);
+      res.end(JSON.stringify({ success: false, error: "botToken and applicationId required" }));
+      return;
+    }
+
+    // Store Discord credentials in environment for Discord client initialization
+    process.env.DISCORD_API_TOKEN = botToken;
+    process.env.DISCORD_APPLICATION_ID = applicationId;
+    if (guildId) {
+      process.env.DISCORD_GUILD_ID = guildId;
+    }
+
+    console.log(`[cloud-agent] Discord credentials received (app: ${applicationId}, guild: ${guildId || 'none'})`);
+
+    // TODO: Dynamically initialize Discord client here if not already running
+    // For now, just store the credentials - Discord client will pick them up on next restart
+
+    res.writeHead(200);
+    res.end(JSON.stringify({ success: true, message: "Discord credentials stored" }));
+    return;
+  }
+
   res.writeHead(404);
   res.end(JSON.stringify({ error: "Not Found" }));
 });
