@@ -43,6 +43,7 @@
     "build:desktop": "cd apps/app && ../../scripts/rt.sh run build:electron",
     "build:ios": "cd apps/app && ../../scripts/rt.sh run build:ios",
     "check": "scripts/rt.sh run typecheck && scripts/rt.sh run lint",
+    "db:check": "bunx vitest run src/api/database.security.test.ts src/api/database.readonly-query-guard.test.ts test/database-api.e2e.test.ts",
     "dev": "scripts/rt.sh scripts/dev-ui.mjs",
     "dev:all": "scripts/rt.sh scripts/dev-all.mjs",
     "dev:android": "cd apps/app && ../../scripts/rt.sh run android",
