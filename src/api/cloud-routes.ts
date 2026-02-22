@@ -107,8 +107,8 @@ const CLOUD_LOGIN_POLL_TIMEOUT_MS = 10_000;
  * Cloud container port - configurable via environment variable.
  * Default: 2187 (standard Eliza Cloud container port)
  */
-const CLOUD_CONTAINER_PORT =
-  process.env.CLOUD_CONTAINER_PORT ?? "2187";
+const CONTAINER_API_PORT =
+  process.env.CONTAINER_API_PORT ?? "2187";
 
 function isTimeoutError(error: unknown): boolean {
   if (!(error instanceof Error)) return false;
@@ -362,8 +362,15 @@ export async function handleCloudRoute(
       return true;
     }
 
+    // SECURITY FIX: Sanitize agent name to prevent XSS
+    const sanitizedAgentName = sanitizeAgentName(body.agentName);
+    if (!sanitizedAgentName) {
+      err(res, "Invalid agent name");
+      return true;
+    }
+
     const agent = await client.createAgent({
-      agentName: body.agentName,
+      agentName: sanitizedAgentName,
       agentConfig: body.agentConfig,
       environmentVars: body.environmentVars,
     });
@@ -457,6 +464,15 @@ export async function handleCloudRoute(
       return true;
     }
 
+    // SECURITY FIX: Sanitize deviceId to prevent injection attacks
+    const sanitizedDeviceId = sanitizeText(body.deviceId, 200);
+    if (!sanitizedDeviceId) {
+      err(res, "Invalid device ID", 400, {
+        endpoint: "/api/cloud/elizacloud/device-auth",
+      });
+      return true;
+    }
+
     const baseUrl = state.config.cloud?.baseUrl ?? "https://www.elizacloud.ai";
     const urlError = await validateCloudBaseUrl(baseUrl);
     if (urlError) {
@@ -468,7 +484,7 @@ export async function handleCloudRoute(
     }
 
     logger.info("[cloud-device-auth] Initiating device authentication", {
-      deviceId: body.deviceId,
+      deviceId: sanitizedDeviceId.slice(0, 20) + "...", // Log only prefix for security
       baseUrl,
     });
 
@@ -478,7 +494,7 @@ export async function handleCloudRoute(
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ deviceId: body.deviceId }),
+          body: JSON.stringify({ deviceId: sanitizedDeviceId }),
         },
         10_000,
       );
@@ -545,6 +561,18 @@ export async function handleCloudRoute(
         endpoint: "/api/cloud/elizacloud/agents",
       });
       return true;
+    }
+
+    // SECURITY FIX: Sanitize agent name to prevent XSS
+    if (body.agentName) {
+      const sanitizedAgentName = sanitizeAgentName(body.agentName);
+      if (!sanitizedAgentName) {
+        err(res, "Invalid agent name", 400, {
+          endpoint: "/api/cloud/elizacloud/agents",
+        });
+        return true;
+      }
+      body.agentName = sanitizedAgentName;
     }
 
     const baseUrl = state.config.cloud?.baseUrl ?? "https://www.elizacloud.ai";
@@ -712,11 +740,11 @@ export async function handleCloudRoute(
       // - Discord OAuth flow requires direct agent container access
       // - elizacloud API doesn't expose Discord-specific endpoints
       // - Container runs agent runtime with Discord client setup
-      const containerUrl = `http://${body.containerIp}:${CLOUD_CONTAINER_PORT}/api/discord/connect`;
+      const containerUrl = `http://${body.containerIp}:${CONTAINER_API_PORT}/api/discord/connect`;
       
       logger.debug("[cloud-discord] Forwarding OAuth to container", {
         containerUrl,
-        port: CLOUD_CONTAINER_PORT,
+        port: CONTAINER_API_PORT,
       });
 
       const connectRes = await fetchWithTimeout(
@@ -767,7 +795,7 @@ export async function handleCloudRoute(
         endpoint: "/api/cloud/discord/connect",
         agentId: body.agentId,
         containerIp: body.containerIp,
-        port: CLOUD_CONTAINER_PORT,
+        port: CONTAINER_API_PORT,
       });
       return true;
     }
