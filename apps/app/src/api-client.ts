@@ -160,6 +160,14 @@ export type AgentState =
   | "restarting"
   | "error";
 
+export interface AgentStartupDiagnostics {
+  phase: string;
+  attempt: number;
+  lastError?: string;
+  lastErrorAt?: number;
+  nextRetryAt?: number;
+}
+
 export interface AgentStatus {
   state: AgentState;
   agentName: string;
@@ -168,6 +176,40 @@ export interface AgentStatus {
   startedAt: number | undefined;
   pendingRestart?: boolean;
   pendingRestartReasons?: string[];
+  startup?: AgentStartupDiagnostics;
+}
+
+export type ApiErrorKind = "timeout" | "network" | "http";
+
+export class ApiError extends Error {
+  readonly kind: ApiErrorKind;
+  readonly status?: number;
+  readonly path: string;
+
+  constructor(options: {
+    kind: ApiErrorKind;
+    path: string;
+    message: string;
+    status?: number;
+    cause?: unknown;
+  }) {
+    super(options.message);
+    this.name = "ApiError";
+    this.kind = options.kind;
+    this.path = options.path;
+    this.status = options.status;
+    if (options.cause !== undefined) {
+      (
+        this as Error & {
+          cause?: unknown;
+        }
+      ).cause = options.cause;
+    }
+  }
+}
+
+export function isApiError(value: unknown): value is ApiError {
+  return value instanceof ApiError;
 }
 
 export interface RuntimeOrderItem {
@@ -1574,6 +1616,7 @@ declare global {
 const GENERIC_NO_RESPONSE_TEXT =
   "Sorry, I couldn't generate a response right now. Please try again.";
 const AGENT_TRANSFER_MIN_PASSWORD_LENGTH = 4;
+const DEFAULT_FETCH_TIMEOUT_MS = 10_000;
 
 export class MiladyClient {
   private _baseUrl: string;
@@ -1685,18 +1728,55 @@ export class MiladyClient {
 
   private async fetch<T>(path: string, init?: RequestInit): Promise<T> {
     if (!this.apiAvailable) {
-      throw new Error("API not available (no HTTP origin)");
-    }
-    const makeRequest = (token: string | null) =>
-      fetch(`${this.baseUrl}${path}`, {
-        ...init,
-        headers: {
-          "Content-Type": "application/json",
-          "X-Milady-Client-Id": this.clientId,
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          ...init?.headers,
-        },
+      throw new ApiError({
+        kind: "network",
+        path,
+        message: "API not available (no HTTP origin)",
       });
+    }
+    const makeRequest = async (token: string | null): Promise<Response> => {
+      const timeoutController = new AbortController();
+      const timeoutId = setTimeout(() => {
+        timeoutController.abort();
+      }, DEFAULT_FETCH_TIMEOUT_MS);
+      const signal =
+        init?.signal && typeof AbortSignal.any === "function"
+          ? AbortSignal.any([init.signal, timeoutController.signal])
+          : (init?.signal ?? timeoutController.signal);
+
+      try {
+        return await fetch(`${this.baseUrl}${path}`, {
+          ...init,
+          signal,
+          headers: {
+            "Content-Type": "application/json",
+            "X-Milady-Client-Id": this.clientId,
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            ...init?.headers,
+          },
+        });
+      } catch (err) {
+        if (timeoutController.signal.aborted) {
+          throw new ApiError({
+            kind: "timeout",
+            path,
+            message: `Request timed out after ${DEFAULT_FETCH_TIMEOUT_MS}ms`,
+            cause: err,
+          });
+        }
+        throw new ApiError({
+          kind: "network",
+          path,
+          message:
+            err instanceof Error && err.message
+              ? err.message
+              : "Network request failed",
+          cause: err,
+        });
+      } finally {
+        clearTimeout(timeoutId);
+      }
+    };
 
     const token = this.apiToken;
     let res = await makeRequest(token);
@@ -1710,9 +1790,12 @@ export class MiladyClient {
       const body = (await res
         .json()
         .catch(() => ({ error: res.statusText }))) as Record<string, string>;
-      const err = new Error(body.error ?? `HTTP ${res.status}`);
-      (err as Error & { status?: number }).status = res.status;
-      throw err;
+      throw new ApiError({
+        kind: "http",
+        path,
+        status: res.status,
+        message: body.error ?? `HTTP ${res.status}`,
+      });
     }
     return res.json() as Promise<T>;
   }

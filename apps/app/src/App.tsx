@@ -26,6 +26,7 @@ import { PairingView } from "./components/PairingView";
 import { RestartBanner } from "./components/RestartBanner";
 import { SaveCommandModal } from "./components/SaveCommandModal";
 import { SettingsView } from "./components/SettingsView";
+import { StartupFailureView } from "./components/StartupFailureView";
 import { TerminalPanel } from "./components/TerminalPanel";
 import { useContextMenu } from "./hooks/useContextMenu";
 
@@ -70,8 +71,10 @@ export function App() {
   const {
     onboardingLoading,
     startupPhase,
+    startupError,
     authRequired,
     onboardingComplete,
+    retryStartup,
     tab,
     actionNotice,
     agentStatus,
@@ -251,6 +254,10 @@ export function App() {
   }, [isChat]);
 
   const agentStarting = agentStatus?.state === "starting";
+
+  if (startupError) {
+    return <StartupFailureView error={startupError} onRetry={retryStartup} />;
+  }
 
   if (onboardingLoading || agentStarting) {
     return (
