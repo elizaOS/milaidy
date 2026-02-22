@@ -701,7 +701,7 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
     setActionNotice,
     setState,
   } = useApp();
-  const isPluginsGameModal = Boolean(inModal && mode === "all");
+  const isGameModal = Boolean(inModal && (mode === "all" || mode === "connectors"));
 
   const [pluginConfigs, setPluginConfigs] = useState<Record<string, Record<string, string>>>({});
   const [testResults, setTestResults] = useState<Map<string, { success: boolean; message?: string; error?: string; durationMs: number; loading: boolean }>>(new Map());
@@ -752,7 +752,7 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
 
   // Detect narrow viewport for game-style modal mobile list/detail switch
   useEffect(() => {
-    if (!isPluginsGameModal || typeof window === "undefined" || typeof window.matchMedia !== "function") {
+    if (!isGameModal || typeof window === "undefined" || typeof window.matchMedia !== "function") {
       setIsNarrow(false);
       return;
     }
@@ -768,7 +768,7 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
 
     media.addListener(onChange);
     return () => media.removeListener(onChange);
-  }, [isPluginsGameModal]);
+  }, [isGameModal]);
 
   // Persist custom order
   useEffect(() => {
@@ -888,9 +888,9 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
   }, [showSubgroupFilters, pluginsWithSubgroup, sorted, subgroupFilter]);
 
   useEffect(() => {
-    if (!isPluginsGameModal || !isNarrow) return;
+    if (!isGameModal || !isNarrow) return;
     setMobilePane("list");
-  }, [isPluginsGameModal, isNarrow]);
+  }, [isGameModal, isNarrow]);
 
   // ── Master-detail auto-select ────────────────────────────────────
   useEffect(() => {
@@ -906,11 +906,11 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
   }, [selectedPluginId, visiblePlugins]);
 
   useEffect(() => {
-    if (!isPluginsGameModal || !isNarrow) return;
+    if (!isGameModal || !isNarrow) return;
     if (visiblePlugins.length === 0) {
       setMobilePane("list");
     }
-  }, [isPluginsGameModal, isNarrow, visiblePlugins.length]);
+  }, [isGameModal, isNarrow, visiblePlugins.length]);
 
   // ── Handlers ───────────────────────────────────────────────────────
 
@@ -1574,9 +1574,11 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
     );
   };
 
-  // ── Game-style renderer (plugins modal only) ───────────────────────
+  // ── Game-style modal renderer (plugins + connectors) ───────────────
   const renderPluginsGameModal = () => {
     const sp = selectedPlugin;
+    const fallbackIcon = mode === "connectors" ? "🔌" : "🧩";
+    const singularLabel = label.toLowerCase().endsWith("s") ? label.toLowerCase().slice(0, -1) : label.toLowerCase();
     const rootClass = `plugins-game-modal ${isNarrow ? "is-narrow" : ""} ${
       isNarrow && mobilePane === "list" ? "is-mobile-list" : isNarrow ? "is-mobile-detail" : ""
     }`;
@@ -1613,7 +1615,7 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
       <div className={rootClass} data-plugins-game-modal>
         <section className={`plugins-game-list-panel ${showListPane ? "" : "is-hidden"}`} data-pane="list">
           <div className="plugins-game-list-head">
-            <div className="plugins-game-section-title">Plugins</div>
+            <div className="plugins-game-section-title">{label}</div>
             <div className="plugins-game-section-meta">{visiblePlugins.length} visible · {activeFilterLabel}</div>
           </div>
 
@@ -1630,7 +1632,7 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
                 type="button"
                 className="plugins-game-chip plugins-game-add-btn"
                 onClick={() => setAddDirOpen(true)}
-                title="Install plugin from local directory or package"
+                title="Install from local directory or package"
               >
                 <span className="plugins-game-add-symbol">+</span>
                 <span>Add</span>
@@ -1642,7 +1644,7 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
                 className="plugins-game-filter-select"
                 value={gameFilterValue}
                 onChange={(e) => handleGameFilterChange(e.target.value)}
-                aria-label="Filter plugins"
+                aria-label={`Filter ${label.toLowerCase()}`}
               >
                 <option value="status:all">Filter: All</option>
                 <option value="status:enabled">Filter: Enabled</option>
@@ -1697,7 +1699,7 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
                             icon
                           )
                         ) : (
-                          "🧩"
+                          fallbackIcon
                         )}
                       </span>
                     </span>
@@ -1756,7 +1758,7 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
                             icon
                           )
                         ) : (
-                          "🧩"
+                          fallbackIcon
                         )}
                       </div>
                     </div>
@@ -1866,8 +1868,8 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
             );
           })() : (
             <div className="plugins-game-detail-empty">
-              <div className="plugins-game-detail-empty-icon">🧩</div>
-              <div className="plugins-game-detail-empty-text">Select a plugin</div>
+              <div className="plugins-game-detail-empty-icon">{fallbackIcon}</div>
+              <div className="plugins-game-detail-empty-text">Select a {singularLabel}</div>
             </div>
           )}
         </section>
@@ -1948,7 +1950,7 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
   if (inModal) {
     return (
       <>
-        {isPluginsGameModal ? renderPluginsGameModal() : renderMasterDetail()}
+        {isGameModal ? renderPluginsGameModal() : renderMasterDetail()}
         {renderAddDirModal()}
       </>
     );

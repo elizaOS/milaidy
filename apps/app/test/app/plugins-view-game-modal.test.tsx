@@ -136,7 +136,7 @@ describe("PluginsView game modal", () => {
     }
   });
 
-  it("renders game modal for plugins modal and keeps connectors layout unchanged", async () => {
+  it("renders game modal for both plugins and connectors modals", async () => {
     let tree: TestRenderer.ReactTestRenderer;
     await act(async () => {
       tree = TestRenderer.create(React.createElement(PluginsView, { inModal: true, mode: "all" }));
@@ -148,8 +148,9 @@ describe("PluginsView game modal", () => {
     await act(async () => {
       tree!.update(React.createElement(PluginsView, { inModal: true, mode: "connectors" }));
     });
-    expect(tree!.root.findAll((node) => hasClass(node, "conn-master-detail")).length).toBe(1);
-    expect(tree!.root.findAll((node) => hasClass(node, "plugins-game-modal")).length).toBe(0);
+    expect(tree!.root.findAll((node) => hasClass(node, "plugins-game-modal")).length).toBe(1);
+    expect(tree!.root.findAll((node) => hasClass(node, "conn-master-detail")).length).toBe(0);
+    expect(text(tree!.root)).toContain("Connectors");
   });
 
   it("uses list/detail mobile panes on narrow viewport", async () => {
