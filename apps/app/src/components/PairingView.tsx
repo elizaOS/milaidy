@@ -5,7 +5,7 @@
 import { useApp } from "../AppContext";
 
 const PAIRING_DOCS_URL =
-  "https://github.com/milady-ai/milady/blob/develop/docs/api-reference.mdx#authenticate-via-pairing";
+  "https://github.com/milady-ai/milady/blob/develop/docs/api-reference.mdx#authenticate-via-pairing-code";
 
 export function PairingView() {
   const {

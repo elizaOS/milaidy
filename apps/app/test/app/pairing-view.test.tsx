@@ -57,7 +57,7 @@ describe("PairingView", () => {
 
     const docsLink = tree.root.findByType("a");
     expect(docsLink.props.href).toContain(
-      "docs/api-reference.mdx#authenticate-via-pairing",
+      "docs/api-reference.mdx#authenticate-via-pairing-code",
     );
     expect(docsLink.children.join("")).toBe("Pairing setup docs");
   });
