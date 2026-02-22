@@ -103,7 +103,7 @@ export function tabFromPath(pathname: string, basePath = ""): Tab | null {
   }
   let normalized = normalizePath(p).toLowerCase();
   if (normalized.endsWith("/index.html")) normalized = "/";
-  if (normalized === "/") return "chat";
+  if (normalized === "/") return "companion";
   if (normalized === "/voice") return "settings";
   // Check current paths first, then legacy redirects
   return PATH_TO_TAB.get(normalized) ?? LEGACY_PATHS[normalized] ?? null;

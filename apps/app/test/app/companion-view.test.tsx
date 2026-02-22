@@ -134,16 +134,36 @@ function createSnapshot(overrides?: Partial<CompanionStateSnapshot>): CompanionS
 function createContext(snapshot: CompanionStateSnapshot | null) {
   return {
     companionSnapshot: snapshot,
-    companionActivity: snapshot?.state.activity ?? [],
-    companionLoading: false,
-    companionActionBusy: false,
     loadCompanion: vi.fn(async () => {}),
-    refreshCompanionActivity: vi.fn(async () => {}),
-    runCompanionAction: vi.fn(async () => {}),
-    updateCompanionSettings: vi.fn(async () => {}),
     setState: vi.fn(),
     selectedVrmIndex: 1,
     customVrmUrl: "",
+    walletAddresses: null,
+    walletBalances: null,
+    walletLoading: false,
+    walletError: null,
+    loadBalances: vi.fn(async () => {}),
+    getBscTradePreflight: vi.fn(async () => ({ ok: false, reasons: ["disabled"] })),
+    getBscTradeQuote: vi.fn(async () => ({
+      route: [],
+      quoteIn: { amount: "0", symbol: "BNB" },
+      quoteOut: { amount: "0", symbol: "BNB" },
+      minReceive: { amount: "0", symbol: "BNB" },
+      slippageBps: 100,
+    })),
+    executeBscTrade: vi.fn(async () => ({ executed: false, execution: null, requiresUserSignature: false })),
+    setActionNotice: vi.fn(),
+    agentStatus: { state: "running", agentName: "Milady", platform: "test", pid: null },
+    cloudEnabled: false,
+    cloudConnected: false,
+    cloudCredits: null,
+    cloudCreditsCritical: false,
+    cloudCreditsLow: false,
+    cloudTopUpUrl: "",
+    lifecycleBusy: false,
+    lifecycleAction: null,
+    handlePauseResume: vi.fn(async () => {}),
+    handleRestart: vi.fn(async () => {}),
     copyToClipboard: vi.fn(async () => {}),
     uiLanguage: "en",
     setTab: vi.fn(),
@@ -154,6 +174,15 @@ function text(node: TestRenderer.ReactTestInstance): string {
   return node.children
     .map((child) => (typeof child === "string" ? child : text(child)))
     .join("");
+}
+
+function countByClass(node: TestRenderer.ReactTestInstance, className: string): number {
+  return node.root.findAll((candidate) => (
+    typeof candidate.props.className === "string" &&
+    candidate.props.className
+      .split(/\s+/)
+      .includes(className)
+  )).length;
 }
 
 describe("CompanionView", () => {
@@ -178,7 +207,7 @@ describe("CompanionView", () => {
     });
   });
 
-  it("renders game-style companion sections and autopost summary", async () => {
+  it("renders clean companion page without tomodachi status blocks", async () => {
     mockUseApp.mockReturnValue(createContext(createSnapshot()));
 
     let tree: TestRenderer.ReactTestRenderer;
@@ -188,16 +217,16 @@ describe("CompanionView", () => {
 
     const content = text(tree!.root);
     expect(content).toContain("Milady");
-    expect(content).toContain("Seed");
     expect(content).toContain("MILADY");
-    expect(content).toContain("Mood");
-    expect(content).toContain("Hunger");
-    expect(content).toContain("Energy");
-    expect(content).toContain("Social");
-    expect(content).toContain("Control Hub");
+    expect(content).not.toContain("Mood");
+    expect(content).not.toContain("Hunger");
+    expect(content).not.toContain("Energy");
+    expect(content).not.toContain("Social");
+    expect(content).not.toContain("Control Hub");
+    expect(content).toContain("Character");
   });
 
-  it("disables action buttons when cooldown is active", async () => {
+  it("renders a single character roster panel", async () => {
     mockUseApp.mockReturnValue(createContext(createSnapshot()));
 
     let tree: TestRenderer.ReactTestRenderer;
@@ -205,14 +234,11 @@ describe("CompanionView", () => {
       tree = TestRenderer.create(React.createElement(CompanionView));
     });
 
-    const feedButton = tree!.root.findAll(
-      (node) => node.type === "button" && text(node).trim() === "Feed30s",
-    )[0];
-    expect(feedButton).toBeDefined();
-    expect(feedButton.props.disabled).toBe(true);
+    const rosterCount = countByClass(tree!, "anime-roster");
+    expect(rosterCount).toBe(1);
   });
 
-  it("opens control drawer and saves settings", async () => {
+  it("navigates when hub buttons are clicked", async () => {
     const ctx = createContext(createSnapshot());
     mockUseApp.mockReturnValue(ctx);
 
@@ -221,36 +247,97 @@ describe("CompanionView", () => {
       tree = TestRenderer.create(React.createElement(CompanionView));
     });
 
-    const navButtons = tree!.root.findAll(
-      (node) => node.type === "button" && typeof node.props.className === "string" && node.props.className.includes("anime-nav-toggle"),
-    );
-    const hubButton = navButtons[navButtons.length - 1];
-    expect(hubButton).toBeDefined();
-
-    await act(async () => {
-      hubButton.props.onClick();
-    });
-
-    const drawer = tree!.root.findAll(
+    const skillButton = tree!.root.findAll(
       (node) =>
-        node.type === "aside" &&
+        node.type === "button" &&
         typeof node.props.className === "string" &&
-        node.props.className.includes("anime-drawer"),
+        node.props.className.includes("anime-hub-btn") &&
+        text(node).trim() === "Talents",
     )[0];
-    expect(drawer.props.className.includes("is-open")).toBe(true);
-
-    const saveButton = tree!.root.findAll(
-      (node) => node.type === "button" && text(node).trim() === "Save settings",
-    )[0];
-    expect(saveButton).toBeDefined();
+    expect(skillButton).toBeDefined();
 
     await act(async () => {
-      await saveButton.props.onClick();
+      skillButton.props.onClick();
     });
-    expect(ctx.updateCompanionSettings).toHaveBeenCalledTimes(1);
+    expect(ctx.setTab).toHaveBeenCalledWith("skills");
+
+    const settingsButton = tree!.root.findAll(
+      (node) =>
+        node.type === "button" &&
+        typeof node.props.className === "string" &&
+        node.props.className.includes("anime-hub-btn") &&
+        text(node).trim() === "Settings",
+    )[0];
+    expect(settingsButton).toBeDefined();
+
+    await act(async () => {
+      settingsButton.props.onClick();
+    });
+    expect(ctx.setTab).toHaveBeenCalledWith("settings");
+
+    const advancedButton = tree!.root.findAll(
+      (node) =>
+        node.type === "button" &&
+        typeof node.props.className === "string" &&
+        node.props.className.includes("anime-hub-btn") &&
+        text(node).trim() === "Advanced",
+    )[0];
+    expect(advancedButton).toBeDefined();
+
+    await act(async () => {
+      advancedButton.props.onClick();
+    });
+    expect(ctx.setTab).toHaveBeenCalledWith("advanced");
   });
 
-  it("shows retry state when snapshot is unavailable", async () => {
+  it("toggles character roster from top-right character header", async () => {
+    const ctx = createContext(createSnapshot());
+    mockUseApp.mockReturnValue(ctx);
+
+    let tree: TestRenderer.ReactTestRenderer;
+    await act(async () => {
+      tree = TestRenderer.create(React.createElement(CompanionView));
+    });
+
+    const characterToggle = tree!.root.find(
+      (node) =>
+        node.type === "button" &&
+        node.props["data-testid"] === "character-roster-toggle",
+    );
+    expect(characterToggle).toBeDefined();
+
+    const shellBefore = tree!.root.find(
+      (node) =>
+        typeof node.props.className === "string" &&
+        node.props.className.includes("anime-character-panel-shell"),
+    );
+    expect(shellBefore.props.className.includes("is-open")).toBe(false);
+
+    await act(async () => {
+      characterToggle.props.onClick();
+    });
+
+    const shellAfter = tree!.root.find(
+      (node) =>
+        typeof node.props.className === "string" &&
+        node.props.className.includes("anime-character-panel-shell"),
+    );
+    expect(shellAfter.props.className.includes("is-open")).toBe(true);
+
+    const characterSettings = tree!.root.find(
+      (node) =>
+        node.type === "button" &&
+        node.props["data-testid"] === "character-roster-settings",
+    );
+    expect(characterSettings).toBeDefined();
+
+    await act(async () => {
+      characterSettings.props.onClick();
+    });
+    expect(ctx.setTab).toHaveBeenCalledWith("character");
+  });
+
+  it("renders core companion view when snapshot is unavailable", async () => {
     mockUseApp.mockReturnValue(createContext(null));
 
     let tree: TestRenderer.ReactTestRenderer;
@@ -259,7 +346,8 @@ describe("CompanionView", () => {
     });
 
     const content = text(tree!.root);
-    expect(content).toContain("Companion is not available yet.");
-    expect(content).toContain("Retry");
+    expect(content).toContain("Milady");
+    expect(content).toContain("Character");
+    expect(content).not.toContain("Companion is not available yet.");
   });
 });

@@ -148,7 +148,56 @@
 .anime-comp-header-right {
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: 10px;
+}
+
+.anime-character-header-control {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px 6px 12px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, rgba(20, 24, 38, 0.8) 0%, rgba(10, 12, 18, 0.9) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+}
+
+.anime-character-header-control.is-open {
+    border-color: rgba(148, 163, 184, 0.65);
+    box-shadow: 0 0 16px rgba(148, 163, 184, 0.28), 0 8px 20px rgba(0, 0, 0, 0.35);
+}
+
+.anime-character-header-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border: 0;
+    background: transparent;
+    color: #dbe6f4;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 0;
+}
+
+.anime-character-header-toggle:hover {
+    color: #fff;
+}
+
+.anime-character-header-label {
+    line-height: 1;
+}
+
+.anime-character-header-caret {
+    opacity: 0.75;
+    transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.anime-character-header-caret.is-open {
+    transform: rotate(180deg);
+    opacity: 1;
 }
 
 /* ── Hub Header Extensions (Wallet, Balance, Status) ── */
@@ -972,13 +1021,13 @@
 .anime-comp-main-grid {
     flex: 1;
     display: grid;
-    grid-template-columns: 320px 1fr 280px;
-    gap: 24px;
+    grid-template-columns: minmax(0, 1fr) minmax(292px, 360px);
+    gap: 18px;
 }
 
 @media (max-width: 1024px) {
     .anime-comp-main-grid {
-        grid-template-columns: 240px 1fr 240px;
+        grid-template-columns: minmax(0, 1fr) minmax(250px, 320px);
         gap: 16px;
     }
 }
@@ -986,18 +1035,27 @@
 @media (max-width: 768px) {
     .anime-comp-main-grid {
         grid-template-columns: 1fr;
-        grid-template-rows: auto 1fr auto;
-        gap: 16px;
-    }
-
-    .anime-comp-left-panel {
-        padding-top: 0;
+        grid-template-rows: minmax(0, 1fr) auto;
+        gap: 12px;
     }
 
     .anime-comp-center {
-        min-height: 40vh;
-        /* Provide some space for the model */
+        min-height: 42vh;
     }
+
+    .anime-character-header-control {
+        padding: 5px 7px 5px 10px;
+        gap: 6px;
+    }
+
+    .anime-character-header-label {
+        letter-spacing: 0.11em;
+        font-size: 11px;
+    }
+}
+
+.anime-comp-center {
+    min-height: 0;
 }
 
 .anime-comp-left-panel {
@@ -1098,9 +1156,58 @@
 .anime-comp-right-panel {
     display: flex;
     flex-direction: column;
+    align-items: flex-end;
     justify-content: flex-end;
-    gap: 24px;
+    gap: 14px;
     padding-bottom: 24px;
+    min-width: 0;
+}
+
+.anime-character-panel-shell {
+    width: min(360px, 42vw);
+    max-height: 0;
+    opacity: 0;
+    margin-bottom: 0;
+    overflow: hidden;
+    transform: translateY(12px) scale(0.985);
+    transform-origin: top right;
+    pointer-events: none;
+    transition: max-height 0.34s ease, opacity 0.24s ease, transform 0.24s ease, margin-bottom 0.24s ease;
+}
+
+.anime-character-panel-shell.is-open {
+    max-height: 520px;
+    opacity: 1;
+    margin-bottom: 8px;
+    transform: translateY(0) scale(1);
+    pointer-events: auto;
+}
+
+.anime-comp-character-panel {
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    background: linear-gradient(160deg, rgba(51, 57, 74, 0.9) 0%, rgba(31, 36, 52, 0.9) 62%, rgba(24, 30, 46, 0.92) 100%);
+    box-shadow: 0 14px 28px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.03) inset;
+}
+
+.anime-roster-config-btn {
+    width: 30px;
+    height: 30px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    background: rgba(255, 255, 255, 0.04);
+    color: rgba(226, 232, 240, 0.9);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.anime-roster-config-btn:hover {
+    color: #fff;
+    border-color: rgba(148, 163, 184, 0.65);
+    background: rgba(148, 163, 184, 0.16);
+    transform: translateY(-1px);
 }
 
 .anime-roster {
@@ -1121,7 +1228,7 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
-    max-height: 250px;
+    max-height: 280px;
     overflow-y: auto;
     padding-right: 4px;
 }
@@ -1168,6 +1275,7 @@
     flex-direction: column;
     gap: 16px;
     align-items: flex-end;
+    width: min(360px, 42vw);
 }
 
 .anime-hub-btn {
@@ -1184,6 +1292,10 @@
 }
 
 .anime-hub-btn:hover {
+    transform: translateX(-6px);
+}
+
+.anime-hub-btn.is-active {
     transform: translateX(-6px);
 }
 
@@ -1236,7 +1348,19 @@
     box-shadow: 0 0 16px rgba(var(--ac-accent-rgb), 0.3), 0 4px 12px rgba(0, 0, 0, 0.4);
 }
 
+.anime-hub-btn.is-active .anime-hub-btn-icon {
+    background: rgba(var(--ac-accent-rgb), 0.15);
+    border-color: var(--ac-accent);
+    color: #fff;
+    box-shadow: 0 0 16px rgba(var(--ac-accent-rgb), 0.3), 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
 .anime-hub-btn:hover .anime-hub-btn-icon::after {
+    opacity: 0.6;
+    transform: scale(1);
+}
+
+.anime-hub-btn.is-active .anime-hub-btn-icon::after {
     opacity: 0.6;
     transform: scale(1);
 }
@@ -1244,6 +1368,11 @@
 .anime-hub-btn:hover .anime-hub-btn-icon svg {
     filter: drop-shadow(0 0 4px rgba(var(--ac-accent-rgb), 0.8));
     transform: scale(1.1);
+}
+
+.anime-hub-btn.is-active .anime-hub-btn-icon svg {
+    filter: drop-shadow(0 0 4px rgba(var(--ac-accent-rgb), 0.8));
+    transform: scale(1.08);
 }
 
 .anime-hub-btn-label {
@@ -1260,6 +1389,40 @@
 .anime-hub-btn:hover .anime-hub-btn-label {
     color: #fff;
     text-shadow: 0 0 8px rgba(var(--ac-accent-rgb), 0.6), 0 2px 4px rgba(0, 0, 0, 0.9);
+}
+
+.anime-hub-btn.is-active .anime-hub-btn-label {
+    color: #fff;
+    text-shadow: 0 0 8px rgba(var(--ac-accent-rgb), 0.6), 0 2px 4px rgba(0, 0, 0, 0.9);
+}
+
+@media (max-width: 768px) {
+    .anime-comp-right-panel {
+        align-items: stretch;
+        padding-bottom: 6px;
+    }
+
+    .anime-character-panel-shell {
+        width: 100%;
+    }
+
+    .anime-character-panel-shell.is-open {
+        max-height: 54vh;
+        margin-bottom: 10px;
+    }
+
+    .anime-hub-menu {
+        width: 100%;
+        gap: 12px;
+    }
+
+    .anime-hub-btn {
+        justify-content: space-between;
+    }
+
+    .anime-roster-list {
+        max-height: 36vh;
+    }
 }
 
 /* Big Action Buttons! */

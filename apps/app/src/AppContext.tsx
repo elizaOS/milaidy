@@ -58,10 +58,7 @@ import {
   type MintResult,
   type WhitelistStatus,
   type SystemPermissionId,
-  type CompanionAction,
-  type CompanionActivityEvent,
   type CompanionStateSnapshot,
-  type UpdateCompanionSettingsRequest,
 } from "./api-client";
 import { tabFromPath, pathForTab, type Tab } from "./navigation";
 import { SkillScanReportSummary } from "./api-client";
@@ -540,9 +537,7 @@ export interface AppState {
 
   // Companion
   companionSnapshot: CompanionStateSnapshot | null;
-  companionActivity: CompanionActivityEvent[];
   companionLoading: boolean;
-  companionActionBusy: boolean;
 
   // Triggers
   triggers: TriggerSummary[];
@@ -798,9 +793,6 @@ export interface AppActions {
 
   // Companion
   loadCompanion: () => Promise<void>;
-  refreshCompanionActivity: (limit?: number) => Promise<void>;
-  runCompanionAction: (action: CompanionAction) => Promise<void>;
-  updateCompanionSettings: (patch: UpdateCompanionSettingsRequest) => Promise<void>;
 
   // Triggers
   loadTriggers: () => Promise<void>;
@@ -919,7 +911,7 @@ export function useApp(): AppContextValue {
 
 export function AppProvider({ children }: { children: ReactNode }) {
   // --- Core state ---
-  const [tab, setTabRaw] = useState<Tab>("chat");
+  const [tab, setTabRaw] = useState<Tab>("companion");
   const [currentTheme, setCurrentTheme] = useState<ThemeName>(loadTheme);
   const [uiLanguage, setUiLanguageState] = useState<UiLanguage>(loadUiLanguage);
   const [connected, setConnected] = useState(false);
@@ -956,9 +948,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [autonomousLatestEventId, setAutonomousLatestEventId] = useState<string | null>(null);
   const [unreadConversations, setUnreadConversations] = useState<Set<string>>(new Set());
   const [companionSnapshot, setCompanionSnapshot] = useState<CompanionStateSnapshot | null>(null);
-  const [companionActivity, setCompanionActivity] = useState<CompanionActivityEvent[]>([]);
   const [companionLoading, setCompanionLoading] = useState(false);
-  const [companionActionBusy, setCompanionActionBusy] = useState(false);
   const activeConversationIdRef = useRef<string | null>(null);
   const conversationsRef = useRef<Conversation[]>([]);
 
@@ -1718,70 +1708,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setCompanionLoading(true);
     try {
       const timezone = resolveUserTimezone();
-      const [snapshot, activity] = await Promise.all([
-        client.getCompanionState(timezone),
-        client.getCompanionActivity(50),
-      ]);
+      const snapshot = await client.getCompanionState(timezone);
       setCompanionSnapshot(snapshot);
-      setCompanionActivity(activity);
     } catch {
       // Ignore companion fetch errors to keep the rest of the app responsive.
     } finally {
       setCompanionLoading(false);
     }
   }, []);
-
-  const refreshCompanionActivity = useCallback(async (limit = 50) => {
-    try {
-      const activity = await client.getCompanionActivity(limit);
-      setCompanionActivity(activity);
-    } catch {
-      // Ignore companion activity refresh failures.
-    }
-  }, []);
-
-  const runCompanionAction = useCallback(async (action: CompanionAction) => {
-    setCompanionActionBusy(true);
-    try {
-      const result = await client.runCompanionAction(action);
-      setCompanionSnapshot(result.snapshot);
-      await refreshCompanionActivity();
-      if (result.ok) {
-        setActionNotice("Companion action applied.", "success", 1800);
-      } else {
-        setActionNotice(result.error ?? "Companion action is not available.", "error", 3200);
-      }
-    } catch (err) {
-      setActionNotice(
-        `Failed to run companion action: ${err instanceof Error ? err.message : "network error"}`,
-        "error",
-        4200,
-      );
-    } finally {
-      setCompanionActionBusy(false);
-    }
-  }, [refreshCompanionActivity, setActionNotice]);
-
-  const updateCompanionSettings = useCallback(
-    async (patch: UpdateCompanionSettingsRequest) => {
-      setCompanionActionBusy(true);
-      try {
-        const result = await client.updateCompanionSettings(patch);
-        setCompanionSnapshot(result.snapshot);
-        await refreshCompanionActivity();
-        setActionNotice("Companion settings updated.", "success", 1800);
-      } catch (err) {
-        setActionNotice(
-          `Failed to update companion settings: ${err instanceof Error ? err.message : "network error"}`,
-          "error",
-          4200,
-        );
-      } finally {
-        setCompanionActionBusy(false);
-      }
-    },
-    [refreshCompanionActivity, setActionNotice],
-  );
   const loadUpdateStatus = useCallback(async (force = false) => {
     setUpdateLoading(true);
     try {
@@ -1998,7 +1932,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       activeConversationIdRef.current = null;
       setConversations([]);
       setCompanionSnapshot(null);
-      setCompanionActivity([]);
       setPlugins([]);
       setSkills([]);
       setLogs([]);
@@ -2123,7 +2056,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
           ),
         );
         await loadConversations();
-        void loadCompanion();
       } catch (err) {
         const abortError = err as Error;
         if (abortError.name === "AbortError") {
@@ -2157,7 +2089,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
                 timestamp: Date.now(),
               },
             ]);
-            void loadCompanion();
           } catch {
             setConversationMessages((prev) =>
               prev.filter((message) => !(message.id === assistantMsgId && !message.text.trim())),
@@ -2176,7 +2107,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     } finally {
       chatSendBusyRef.current = false;
     }
-  }, [chatInput, chatSending, activeConversationId, loadCompanion, loadConversationMessages, loadConversations]);
+  }, [chatInput, chatSending, activeConversationId, loadConversationMessages, loadConversations]);
 
   const handleChatStop = useCallback(() => {
     chatSendBusyRef.current = false;
@@ -3224,7 +3155,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         blooioPhoneNumber: onboardingBlooioPhoneNumber.trim() || undefined,
       });
       setOnboardingComplete(true);
-      setTab("chat");
+      setTab("companion");
       try {
         setAgentStatus(await client.restartAgent());
       } catch {
@@ -3762,7 +3693,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
 
       void loadWorkbench();
-      void loadCompanion();
 
       // Connect WebSocket
       client.connectWs();
@@ -3804,12 +3734,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const parsed = parseProactiveMessageEvent(data);
         if (!parsed) return;
         const { conversationId: convId, message: msg } = parsed;
-
-        // Fire animation trigger if this message has a companion trigger ID
-        const triggerId = typeof data.triggerId === "string" ? data.triggerId : null;
-        if (triggerId) {
-          window.dispatchEvent(new CustomEvent("milady:proactive-trigger", { detail: { triggerId } }));
-        }
 
         if (convId === activeConversationIdRef.current) {
           // Active conversation — append in real-time (deduplicate by id)
@@ -3889,9 +3813,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (urlTab === "character") {
           void loadCharacter();
         }
-        if (urlTab === "companion") {
-          void loadCompanion();
-        }
       }
     };
 
@@ -3955,7 +3876,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     chatAvatarVisible, chatAgentVoiceMuted, chatMode, chatAvatarSpeaking,
     conversations, activeConversationId, conversationMessages,
     autonomousEvents, autonomousLatestEventId, unreadConversations,
-    companionSnapshot, companionActivity, companionLoading, companionActionBusy,
+    companionSnapshot, companionLoading,
     triggers, triggersLoading, triggersSaving, triggerRunsById, triggerHealth, triggerError,
     plugins, pluginFilter, pluginStatusFilter, pluginSearch, pluginSettingsOpen,
     pluginAdvancedOpen, pluginSaving, pluginSaveSuccess,
@@ -4009,7 +3930,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     handleStart, handleStop, handlePauseResume, handleRestart, handleReset,
     handleChatSend, handleChatStop, handleChatClear, handleNewConversation,
     handleSelectConversation, handleDeleteConversation, handleRenameConversation,
-    loadCompanion, refreshCompanionActivity, runCompanionAction, updateCompanionSettings,
+    loadCompanion,
     loadTriggers, createTrigger, updateTrigger, deleteTrigger, runTriggerNow,
     loadTriggerRuns, loadTriggerHealth,
     handlePairingSubmit,

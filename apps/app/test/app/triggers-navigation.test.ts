@@ -73,6 +73,11 @@ describe("navigation", () => {
     expect(titleForTab("wallets")).toBe("Wallets");
   });
 
+  test("maps root path to companion tab", () => {
+    expect(tabFromPath("/")).toBe("companion");
+    expect(tabFromPath("/index.html")).toBe("companion");
+  });
+
   test("does not expose game as a top-level apps tab", () => {
     const apps = TAB_GROUPS.find((group) => group.label === "Apps");
     expect(apps).toBeDefined();
