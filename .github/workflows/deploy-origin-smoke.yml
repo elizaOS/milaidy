@@ -1,0 +1,56 @@
+name: Deploy Origin Smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      marketing_origin:
+        description: "Marketing origin to verify"
+        required: false
+        default: "https://milady.ai"
+        type: string
+      app_origin:
+        description: "App origin to verify"
+        required: false
+        default: "https://app.milady.ai"
+        type: string
+  repository_dispatch:
+    types: [pre-cutover-smoke]
+
+concurrency:
+  group: deploy-origin-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  smoke-api-status:
+    name: Smoke /api/status on deploy origins
+    runs-on: ubuntu-latest
+    env:
+      MARKETING_ORIGIN: ${{ github.event.inputs.marketing_origin || github.event.client_payload.marketing_origin || 'https://milady.ai' }}
+      APP_ORIGIN: ${{ github.event.inputs.app_origin || github.event.client_payload.app_origin || 'https://app.milady.ai' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Run deploy smoke checks
+        run: bun run smoke:api-status -- "$MARKETING_ORIGIN" "$APP_ORIGIN"
+
+      - name: Summarize checked origins
+        if: always()
+        run: |
+          echo "## Deploy Origin Smoke" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Marketing origin: \`$MARKETING_ORIGIN\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- App origin: \`$APP_ORIGIN\`" >> "$GITHUB_STEP_SUMMARY"

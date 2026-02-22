@@ -70,6 +70,7 @@
     "publish:plugins:next": "cd plugins && bun run publish:next",
     "release:check": "node --import tsx scripts/release-check.ts",
     "smoke:api-status": "node scripts/smoke-api-status.mjs",
+    "smoke:api-status:prod": "node scripts/smoke-api-status.mjs https://milady.ai https://app.milady.ai",
     "start": "scripts/rt.sh scripts/run-node.mjs start",
     "start:desktop": "cd apps/app && ../../scripts/rt.sh run build:electron && cd electron && ../../../scripts/rt.sh run electron:start",
     "start:eliza": "node --import tsx src/runtime/eliza.ts",

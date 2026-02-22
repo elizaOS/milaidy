@@ -101,6 +101,9 @@ describe("startup failure: backend missing", () => {
     expect(latest?.authRequired).toBe(false);
     expect(latest?.startupError?.reason).toBe("backend-unreachable");
     expect(latest?.startupError?.phase).toBe("starting-backend");
+    expect(latest?.startupError?.message).toContain(
+      "Backend API routes are unavailable on this origin",
+    );
     expect(latest?.startupError?.status).toBe(404);
     expect(latest?.startupError?.path).toBe("/api/onboarding/status");
     expect(mockClient.getOnboardingStatus).toHaveBeenCalled();
