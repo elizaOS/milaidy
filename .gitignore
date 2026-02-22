@@ -33,7 +33,6 @@ vendor/
 # Local untracked files
 .local/
 .vscode/
-.claude/settings.local.json
 IDENTITY.md
 USER.md
 .tgz

@@ -1,0 +1,35 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node --version:*)",
+      "Bash(echo:*)",
+      "Bash(bun --version:*)",
+      "Bash(bun install)",
+      "Bash(bun run ui:build:*)",
+      "Bash(bun run build)",
+      "Bash(timeout 30 bun run start:*)",
+      "Bash(timeout 30 node:*)",
+      "Bash(node:*)",
+      "Bash(timeout 5 node:*)",
+      "Bash(pkill:*)",
+      "Bash(taskkill:*)",
+      "Bash(netstat:*)",
+      "Bash(xargs:*)",
+      "Bash(curl:*)",
+      "Bash(bun add:*)",
+      "Bash(python:*)",
+      "Bash(timeout /t 5)",
+      "Bash(powershell:*)",
+      "Bash(bun pm:*)",
+      "Bash(bun run dev)",
+      "Bash(dir:*)",
+      "Bash(findstr:*)",
+      "Bash(grep:*)",
+      "Bash(ls:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git remote:*)",
+      "Bash(git pull:*)"
+    ]
+  }
+}
