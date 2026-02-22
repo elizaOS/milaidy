@@ -1,5 +1,26 @@
-import type { CompanionAction, CompanionMoodTier, CompanionStateSnapshot } from "../../api-client.js";
 import { MIXAMO_ANIMATION_BY_ID } from "./mixamoAnimationCatalog";
+
+export type AvatarMoodTier =
+  | "excited"
+  | "calm"
+  | "neutral"
+  | "low"
+  | "burnout";
+
+interface AvatarStatsLike {
+  mood?: number;
+  hunger?: number;
+  energy?: number;
+  social?: number;
+}
+
+export interface CompanionAnimationSnapshotLike {
+  moodTier?: AvatarMoodTier;
+  stats?: AvatarStatsLike;
+  state?: {
+    stats?: AvatarStatsLike;
+  };
+}
 
 export interface CompanionAnimationIntent {
   id: string;
@@ -12,14 +33,18 @@ export interface CompanionAnimationIntent {
 const DEFAULT_INTENT_ID = "breathing-idle";
 
 function pickIntentIdAndReason(
-  snapshot: CompanionStateSnapshot | null | undefined,
+  snapshot: CompanionAnimationSnapshotLike | null | undefined,
 ): { id: string; reason: string } {
   if (!snapshot) {
     return { id: DEFAULT_INTENT_ID, reason: "snapshot_missing" };
   }
 
-  const { mood, hunger, energy, social } = snapshot.state.stats;
-  const tier = snapshot.moodTier;
+  const stats = snapshot.state?.stats ?? snapshot.stats ?? {};
+  const mood = typeof stats.mood === "number" ? stats.mood : 50;
+  const hunger = typeof stats.hunger === "number" ? stats.hunger : 50;
+  const energy = typeof stats.energy === "number" ? stats.energy : 50;
+  const social = typeof stats.social === "number" ? stats.social : 50;
+  const tier = snapshot.moodTier ?? "neutral";
 
   if (tier === "burnout" || energy < 18 || hunger < 12) {
     return { id: "fallen-idle", reason: "critical_core_stats" };
@@ -37,7 +62,7 @@ function pickIntentIdAndReason(
 }
 
 export function resolveCompanionAnimationIntent(
-  snapshot: CompanionStateSnapshot | null | undefined,
+  snapshot: CompanionAnimationSnapshotLike | null | undefined,
 ): CompanionAnimationIntent | null {
   const picked = pickIntentIdAndReason(snapshot);
   const selected =
@@ -58,7 +83,7 @@ export function resolveCompanionAnimationIntent(
 // Mood animation pools — accent animations to cycle during idle
 // ---------------------------------------------------------------------------
 
-export const MOOD_ANIMATION_POOLS: Record<CompanionMoodTier, { idleId: string; accents: string[] }> = {
+export const MOOD_ANIMATION_POOLS: Record<AvatarMoodTier, { idleId: string; accents: string[] }> = {
   excited: {
     idleId: "happy-idle",
     accents: ["cheering", "joyful-jump", "hip-hop-dancing", "spin-in-place", "clapping", "happy"],
@@ -79,16 +104,6 @@ export const MOOD_ANIMATION_POOLS: Record<CompanionMoodTier, { idleId: string; a
     idleId: "fallen-idle",
     accents: ["crying", "relieved-sigh"],
   },
-};
-
-// ---------------------------------------------------------------------------
-// Action → animation mapping for quick-action feedback
-// ---------------------------------------------------------------------------
-
-export const ACTION_ANIMATION_MAP: Record<CompanionAction, string[]> = {
-  feed: ["happy", "cheering"],
-  rest: ["yawn"],
-  manual_share: ["blow-a-kiss", "thankful"],
 };
 
 // ---------------------------------------------------------------------------

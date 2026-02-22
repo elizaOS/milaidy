@@ -1,74 +1,21 @@
 import { describe, expect, it } from "vitest";
-import type { CompanionStateSnapshot } from "../../src/api-client";
-import { resolveCompanionAnimationIntent } from "../../src/components/avatar/companionAnimationIntent";
+import {
+  type CompanionAnimationSnapshotLike,
+  resolveCompanionAnimationIntent,
+} from "../../src/components/avatar/companionAnimationIntent";
 
 function createSnapshot(
-  overrides?: Partial<CompanionStateSnapshot>,
-): CompanionStateSnapshot {
-  const base: CompanionStateSnapshot = {
+  overrides?: Partial<CompanionAnimationSnapshotLike>,
+): CompanionAnimationSnapshotLike {
+  const base: CompanionAnimationSnapshotLike = {
     moodTier: "calm",
-    nextLevelXp: 100,
-    thresholds: {
-      softPenalty: false,
-      autopostEligible: true,
-      reasons: [],
-    },
-    today: {
-      timezone: "UTC",
-      dayKey: "2026-02-16",
-      chatCount: 0,
-      chatCap: 40,
-      externalCount: 0,
-      externalCap: 30,
-      manualShareCount: 0,
-      manualShareCap: 2,
-      autoPostCount: 0,
-      autoPostCap: 6,
-    },
     state: {
-      version: 1,
       stats: {
         mood: 70,
         hunger: 70,
         energy: 70,
         social: 70,
       },
-      xp: 0,
-      level: 1,
-      streakDays: 0,
-      lastAppliedAtMs: Date.now(),
-      cooldowns: {
-        feedAvailableAtMs: 0,
-        restAvailableAtMs: 0,
-        manualShareAvailableAtMs: 0,
-      },
-      daily: {
-        dayKey: "2026-02-16",
-        timezone: "UTC",
-        chatCount: 0,
-        externalCount: 0,
-        manualShareCount: 0,
-        autoPostCount: 0,
-        lastResetAtMs: Date.now(),
-      },
-      autopost: {
-        enabled: true,
-        dryRun: true,
-        policyLevel: "balanced",
-        quietHoursStart: 1,
-        quietHoursEnd: 8,
-        maxPostsPerDay: 6,
-        intervalMinutes: 240,
-        jitterMinutes: 20,
-        nextAttemptAtMs: Date.now(),
-        pauseUntilMs: null,
-        failureWindowStartMs: null,
-        failureCountInWindow: 0,
-        lastAttemptAtMs: null,
-        lastSuccessAtMs: null,
-        recentPostHashes: [],
-      },
-      activity: [],
     },
   };
 
@@ -103,7 +50,7 @@ describe("resolveCompanionAnimationIntent", () => {
             energy: 12,
             social: 30,
           },
-        } as CompanionStateSnapshot["state"],
+        },
       }),
     );
     expect(intent?.id).toBe("fallen-idle");
@@ -120,7 +67,7 @@ describe("resolveCompanionAnimationIntent", () => {
             energy: 29,
             social: 45,
           },
-        } as CompanionStateSnapshot["state"],
+        },
       }),
     );
     expect(intent?.id).toBe("kneeling-idle");
@@ -137,7 +84,7 @@ describe("resolveCompanionAnimationIntent", () => {
             energy: 76,
             social: 68,
           },
-        } as CompanionStateSnapshot["state"],
+        },
       }),
     );
     expect(intent?.id).toBe("happy-idle");

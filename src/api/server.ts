@@ -59,10 +59,6 @@ import {
 } from "../services/agent-export.js";
 import { AppManager } from "../services/app-manager.js";
 import {
-  COMPANION_INTERNAL_TAG,
-  isExternalSocialSource,
-} from "../services/companion-engine.js";
-import {
   getMcpServerDetails,
   searchMcpMarketplace,
 } from "../services/mcp-marketplace.js";
@@ -86,12 +82,6 @@ import {
 } from "../triggers/runtime.js";
 import { parseClampedInteger } from "../utils/number-parsing.js";
 import { type CloudRouteState, handleCloudRoute } from "./cloud-routes.js";
-import {
-  applyCompanionSignalMutation,
-  handleCompanionRoutes,
-  loadCompanionStateForContext,
-  runCompanionMinuteTick,
-} from "./companion-routes.js";
 import {
   extractAnthropicSystemAndLastUser,
   extractOpenAiSystemAndLastUser,
@@ -4825,16 +4815,16 @@ function isWorkbenchTodoTask(task: Task): boolean {
   );
 }
 
-function isCompanionInternalTask(task: Task): boolean {
+function isMiladyInternalTask(task: Task): boolean {
   const tags = normalizeStringArray(task.tags).map((tag) => tag.toLowerCase());
-  return tags.includes(COMPANION_INTERNAL_TAG.toLowerCase());
+  return tags.includes("milady-internal");
 }
 
 function toWorkbenchTask(task: Task): WorkbenchTaskView | null {
   if (
     readTriggerConfig(task) ||
     isWorkbenchTodoTask(task) ||
-    isCompanionInternalTask(task)
+    isMiladyInternalTask(task)
   )
     return null;
   const id = normalizeTaskId(task);
@@ -4858,7 +4848,7 @@ function toWorkbenchTask(task: Task): WorkbenchTaskView | null {
 }
 
 function toWorkbenchTodo(task: Task): WorkbenchTodoView | null {
-  if (!isWorkbenchTodoTask(task) || isCompanionInternalTask(task)) return null;
+  if (!isWorkbenchTodoTask(task) || isMiladyInternalTask(task)) return null;
   const id = normalizeTaskId(task);
   if (!id) return null;
   const metadata = readTaskMetadata(task);
@@ -5253,83 +5243,6 @@ function serializeForRuntimeDebug(
 
 // ── Autonomy → User message routing ──────────────────────────────────
 
-function applyCompanionSignalToState(
-  state: ServerState,
-  runtime: AgentRuntime,
-  signal: "chat" | "external-source",
-): void {
-  void applyCompanionSignalMutation({
-    runtime,
-    signal,
-    broadcastWs: state.broadcastWs,
-    sendProactiveMessage: (text, source, triggerId) => routeTextToUser(state, text, source, triggerId),
-  }).catch((err) => {
-    logger.warn(
-      `[companion] Failed to apply ${signal} signal: ${err instanceof Error ? err.message : String(err)}`,
-    );
-  });
-}
-
-/**
- * Route a single text message proactively to the user's active conversation.
- */
-async function routeTextToUser(
-  state: ServerState,
-  text: string,
-  source = "companion",
-  triggerId?: string,
-): Promise<void> {
-  const runtime = state.runtime;
-  if (!runtime || !text.trim()) return;
-
-  // Find target conversation (active, or most recent)
-  let conv: ConversationMeta | undefined;
-  if (state.activeConversationId) {
-    conv = state.conversations.get(state.activeConversationId);
-  }
-  if (!conv) {
-    const sorted = Array.from(state.conversations.values()).sort(
-      (a, b) =>
-        new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
-    );
-    conv = sorted[0];
-  }
-  if (!conv) return;
-
-  const agentMessage = createMessageMemory({
-    id: crypto.randomUUID() as UUID,
-    entityId: runtime.agentId,
-    roomId: conv.roomId,
-    content: { text: text.trim(), source },
-  });
-  await runtime.createMemory(agentMessage, "messages");
-  conv.updatedAt = new Date().toISOString();
-
-  state.broadcastWs?.({
-    type: "proactive-message",
-    conversationId: conv.id,
-    ...(triggerId ? { triggerId } : {}),
-    message: {
-      id: agentMessage.id ?? `auto-${Date.now()}`,
-      role: "assistant",
-      text: text.trim(),
-      timestamp: Date.now(),
-      source,
-    },
-  });
-}
-
-/**
- * Load companion state and build a short context block for system prompt injection.
- */
-async function getCompanionContextForChat(runtime: AgentRuntime, ownerName?: string): Promise<string> {
-  try {
-    return await loadCompanionStateForContext(runtime, ownerName);
-  } catch {
-    return "";
-  }
-}
-
 type UiLanguageForPrompt = "en" | "zh-CN";
 type LanguagePromptPolicy = "follow-ui-with-input-override";
 
@@ -5416,16 +5329,6 @@ export function injectLanguageContext(
   return `${instruction}\n\n${trimmed}`;
 }
 
-function composePromptWithContext(
-  messageText: string | undefined,
-  lang: UiLanguageForPrompt,
-  companionContext: string,
-): string {
-  const withLanguage = injectLanguageContext(messageText, lang);
-  if (!companionContext.trim()) return withLanguage;
-  return `${companionContext}\n\n${withLanguage}`;
-}
-
 /**
  * Route non-conversation output to the user's active conversation.
  * Stores the message as a Memory in the conversation room and broadcasts
@@ -5490,16 +5393,12 @@ async function routeAutonomyToUser(
       source,
     },
   });
-
-  if (isExternalSocialSource(source)) {
-    applyCompanionSignalToState(state, runtime, "external-source");
-  }
 }
 
 /**
  * Monkey-patch `runtime.messageService.handleMessage` to intercept
  * autonomy output and route it to the user's active conversation.
- * Follows the same pattern as phetta-companion-plugin.ts:222-280.
+ * Follows the same patch pattern used by runtime event bridge plugins.
  */
 function patchMessageServiceForAutonomy(state: ServerState): void {
   const runtime = state.runtime;
@@ -6626,22 +6525,6 @@ async function handleRequest(
     error,
   });
   if (triggerHandled) {
-    return;
-  }
-
-  const companionHandled = await handleCompanionRoutes({
-    req,
-    res,
-    method,
-    pathname,
-    url,
-    runtime: state.runtime,
-    readJsonBody,
-    json,
-    error,
-    broadcastWs: state.broadcastWs,
-  });
-  if (companionHandled) {
     return;
   }
 
@@ -11793,8 +11676,6 @@ async function handleRequest(
       return;
     }
 
-    applyCompanionSignalToState(state, runtime, "chat");
-
     // ── Local runtime path (existing code below) ───────────────────────
 
     initSse(res);
@@ -11803,19 +11684,11 @@ async function handleRequest(
       aborted = true;
     });
 
-    const companionCtxStream = await getCompanionContextForChat(
-      runtime,
-      state.config.ui?.ownerName,
-    );
     const messageForGenerationStream = {
       ...userMessage,
       content: {
         ...userMessage.content,
-        text: composePromptWithContext(
-          userMessage.content.text,
-          uiLanguage,
-          companionCtxStream,
-        ),
+        text: injectLanguageContext(userMessage.content.text, uiLanguage),
       },
     };
 
@@ -11948,21 +11821,11 @@ async function handleRequest(
       return;
     }
 
-    applyCompanionSignalToState(state, runtime, "chat");
-
-    const companionCtx = await getCompanionContextForChat(
-      runtime,
-      state.config.ui?.ownerName,
-    );
     const messageForGeneration = {
       ...userMessage,
       content: {
         ...userMessage.content,
-        text: composePromptWithContext(
-          userMessage.content.text,
-          uiLanguage,
-          companionCtx,
-        ),
+        text: injectLanguageContext(userMessage.content.text, uiLanguage),
       },
     };
 
@@ -12183,21 +12046,11 @@ async function handleRequest(
         },
       });
 
-      applyCompanionSignalToState(state, runtime, "chat");
-
-      const companionCtxLegacyStream = await getCompanionContextForChat(
-        runtime,
-        state.config.ui?.ownerName,
-      );
       const messageWithCtxLegacyStream = {
         ...message,
         content: {
           ...message.content,
-          text: composePromptWithContext(
-            message.content.text,
-            uiLanguage,
-            companionCtxLegacyStream,
-          ),
+          text: injectLanguageContext(message.content.text, uiLanguage),
         },
       };
 
@@ -12295,21 +12148,11 @@ async function handleRequest(
         },
       });
 
-      applyCompanionSignalToState(state, runtime, "chat");
-
-      const companionCtxLegacy = await getCompanionContextForChat(
-        runtime,
-        state.config.ui?.ownerName,
-      );
       const messageWithCtxLegacy = {
         ...message,
         content: {
           ...message.content,
-          text: composePromptWithContext(
-            message.content.text,
-            uiLanguage,
-            companionCtxLegacy,
-          ),
+          text: injectLanguageContext(message.content.text, uiLanguage),
         },
       };
 
@@ -14799,24 +14642,6 @@ export async function startApiServer(opts?: {
   // Broadcast status every 5 seconds
   const statusInterval = setInterval(broadcastStatus, 5000);
 
-  // Run companion decay/autopost checks every minute.
-  const companionTickInterval = setInterval(() => {
-    void runCompanionMinuteTick({
-      runtime: state.runtime,
-      broadcastWs: state.broadcastWs,
-      addLog,
-      sendProactiveMessage: (text, source, triggerId) => routeTextToUser(state, text, source, triggerId),
-      ownerName: state.config.ui?.ownerName,
-    }).catch((err) => {
-      addLog(
-        "warn",
-        `Companion minute tick failed: ${err instanceof Error ? err.message : String(err)}`,
-        "companion",
-        ["companion"],
-      );
-    });
-  }, 60_000);
-
   /**
    * Restore the in-memory conversation list from the database.
    * Web-chat rooms live in a deterministic world; we scan it for rooms
@@ -14950,7 +14775,6 @@ export async function startApiServer(opts?: {
             ).closeIdleConnections;
 
             clearInterval(statusInterval);
-            clearInterval(companionTickInterval);
             if (detachRuntimeStreams) {
               detachRuntimeStreams();
               detachRuntimeStreams = null;

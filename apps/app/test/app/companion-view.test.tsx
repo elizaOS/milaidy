@@ -1,7 +1,6 @@
 import React from "react";
 import TestRenderer, { act } from "react-test-renderer";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { CompanionStateSnapshot } from "../../src/api-client";
 
 const { mockUseApp } = vi.hoisted(() => ({
   mockUseApp: vi.fn(),
@@ -21,120 +20,8 @@ vi.mock("../../src/components/avatar/VrmViewer", () => ({
 
 import { CompanionView } from "../../src/components/CompanionView";
 
-function createSnapshot(overrides?: Partial<CompanionStateSnapshot>): CompanionStateSnapshot {
-  const base: CompanionStateSnapshot = {
-    moodTier: "calm",
-    nextLevelXp: 150,
-    thresholds: {
-      softPenalty: false,
-      autopostEligible: true,
-      reasons: [],
-    },
-    today: {
-      timezone: "UTC",
-      dayKey: "2026-02-16",
-      chatCount: 3,
-      chatCap: 40,
-      externalCount: 1,
-      externalCap: 30,
-      manualShareCount: 1,
-      manualShareCap: 2,
-      autoPostCount: 2,
-      autoPostCap: 6,
-    },
-    evolutionStage: {
-      id: "baby",
-      label: "Seed",
-      description: "Newly awakened companion.",
-    },
-    state: {
-      version: 1,
-      stats: {
-        mood: 70,
-        hunger: 65,
-        energy: 62,
-        social: 58,
-      },
-      xp: 33,
-      level: 3,
-      streakDays: 2,
-      lastAppliedAtMs: Date.now(),
-      cooldowns: {
-        feedAvailableAtMs: Date.now() + 30_000,
-        restAvailableAtMs: Date.now() + 60_000,
-        manualShareAvailableAtMs: Date.now() + 120_000,
-      },
-      daily: {
-        dayKey: "2026-02-16",
-        timezone: "UTC",
-        chatCount: 3,
-        externalCount: 1,
-        manualShareCount: 1,
-        autoPostCount: 2,
-        lastResetAtMs: Date.now(),
-      },
-      autopost: {
-        enabled: true,
-        dryRun: true,
-        policyLevel: "balanced",
-        quietHoursStart: 1,
-        quietHoursEnd: 8,
-        maxPostsPerDay: 6,
-        intervalMinutes: 240,
-        jitterMinutes: 20,
-        nextAttemptAtMs: Date.now() + 60_000,
-        pauseUntilMs: null,
-        failureWindowStartMs: null,
-        failureCountInWindow: 0,
-        lastAttemptAtMs: null,
-        lastSuccessAtMs: null,
-        recentPostHashes: [],
-      },
-      activity: [
-        {
-          id: "evt-1",
-          ts: Date.now(),
-          kind: "signal",
-          message: "Chat interaction reward applied.",
-        },
-      ],
-    },
-  };
-
+function createContext() {
   return {
-    ...base,
-    ...overrides,
-    state: {
-      ...base.state,
-      ...(overrides?.state ?? {}),
-      stats: {
-        ...base.state.stats,
-        ...(overrides?.state?.stats ?? {}),
-      },
-      cooldowns: {
-        ...base.state.cooldowns,
-        ...(overrides?.state?.cooldowns ?? {}),
-      },
-      autopost: {
-        ...base.state.autopost,
-        ...(overrides?.state?.autopost ?? {}),
-      },
-    },
-    today: {
-      ...base.today,
-      ...(overrides?.today ?? {}),
-    },
-    thresholds: {
-      ...base.thresholds,
-      ...(overrides?.thresholds ?? {}),
-    },
-  };
-}
-
-function createContext(snapshot: CompanionStateSnapshot | null) {
-  return {
-    companionSnapshot: snapshot,
-    loadCompanion: vi.fn(async () => {}),
     setState: vi.fn(),
     selectedVrmIndex: 1,
     customVrmUrl: "",
@@ -208,7 +95,7 @@ describe("CompanionView", () => {
   });
 
   it("renders clean companion page without tomodachi status blocks", async () => {
-    mockUseApp.mockReturnValue(createContext(createSnapshot()));
+    mockUseApp.mockReturnValue(createContext());
 
     let tree: TestRenderer.ReactTestRenderer;
     await act(async () => {
@@ -227,7 +114,7 @@ describe("CompanionView", () => {
   });
 
   it("renders a single character roster panel", async () => {
-    mockUseApp.mockReturnValue(createContext(createSnapshot()));
+    mockUseApp.mockReturnValue(createContext());
 
     let tree: TestRenderer.ReactTestRenderer;
     await act(async () => {
@@ -239,7 +126,7 @@ describe("CompanionView", () => {
   });
 
   it("navigates when hub buttons are clicked", async () => {
-    const ctx = createContext(createSnapshot());
+    const ctx = createContext();
     mockUseApp.mockReturnValue(ctx);
 
     let tree: TestRenderer.ReactTestRenderer;
@@ -291,7 +178,7 @@ describe("CompanionView", () => {
   });
 
   it("toggles character roster from top-right character header", async () => {
-    const ctx = createContext(createSnapshot());
+    const ctx = createContext();
     mockUseApp.mockReturnValue(ctx);
 
     let tree: TestRenderer.ReactTestRenderer;
@@ -338,7 +225,7 @@ describe("CompanionView", () => {
   });
 
   it("renders core companion view when snapshot is unavailable", async () => {
-    mockUseApp.mockReturnValue(createContext(null));
+    mockUseApp.mockReturnValue(createContext());
 
     let tree: TestRenderer.ReactTestRenderer;
     await act(async () => {
@@ -348,6 +235,5 @@ describe("CompanionView", () => {
     const content = text(tree!.root);
     expect(content).toContain("Milady");
     expect(content).toContain("Character");
-    expect(content).not.toContain("Companion is not available yet.");
   });
 });

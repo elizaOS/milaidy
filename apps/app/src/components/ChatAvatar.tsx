@@ -20,7 +20,7 @@ export interface ChatAvatarProps {
 }
 
 export function ChatAvatar({ mouthOpen = 0, isSpeaking = false }: ChatAvatarProps) {
-  const { selectedVrmIndex, customVrmUrl, companionSnapshot } = useApp();
+  const { selectedVrmIndex, customVrmUrl } = useApp();
 
   // Resolve VRM path from selected index or custom upload
   const vrmPath = selectedVrmIndex === 0 && customVrmUrl
@@ -39,8 +39,8 @@ export function ChatAvatar({ mouthOpen = 0, isSpeaking = false }: ChatAvatarProp
   const [showFallback, setShowFallback] = useState(false);
 
   const ambientIntent = useMemo(
-    () => resolveCompanionAnimationIntent(companionSnapshot),
-    [companionSnapshot],
+    () => resolveCompanionAnimationIntent({ moodTier: "neutral" }),
+    [],
   );
 
   const applyAmbientIntent = useCallback(() => {

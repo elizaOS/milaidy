@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
-import type { CompanionAction, CompanionMoodTier } from "../api-client.js";
+
+type BubbleAction = "feed" | "rest" | "manual_share";
+type BubbleMoodTier = "excited" | "calm" | "neutral" | "low" | "burnout";
 
 /* ── SVG icon components ─────────────────────────────────────────────── */
 
@@ -166,7 +168,7 @@ function IconManualShare() {
 
 /* ── Icon resolvers ──────────────────────────────────────────────────── */
 
-const moodIcons: Record<CompanionMoodTier, () => React.JSX.Element> = {
+const moodIcons: Record<BubbleMoodTier, () => React.JSX.Element> = {
   excited: IconExcited,
   calm: IconCalm,
   neutral: IconNeutral,
@@ -174,7 +176,7 @@ const moodIcons: Record<CompanionMoodTier, () => React.JSX.Element> = {
   burnout: IconBurnout,
 };
 
-const actionIcons: Record<CompanionAction, () => React.JSX.Element> = {
+const actionIcons: Record<BubbleAction, () => React.JSX.Element> = {
   feed: IconFeed,
   rest: IconRest,
   manual_share: IconManualShare,
@@ -183,8 +185,8 @@ const actionIcons: Record<CompanionAction, () => React.JSX.Element> = {
 /* ── BubbleEmote component ───────────────────────────────────────────── */
 
 export interface BubbleEmoteProps {
-  moodTier: CompanionMoodTier;
-  activeAction: CompanionAction | null;
+  moodTier: BubbleMoodTier;
+  activeAction: BubbleAction | null;
   visible: boolean;
 }
 
@@ -195,8 +197,8 @@ const FADE_MS = 200;
 
 export function BubbleEmote({ moodTier, activeAction, visible }: BubbleEmoteProps) {
   const [displayMode, setDisplayMode] = useState<DisplayMode>("mood");
-  const [displayedMood, setDisplayedMood] = useState<CompanionMoodTier>(moodTier);
-  const [displayedAction, setDisplayedAction] = useState<CompanionAction | null>(null);
+  const [displayedMood, setDisplayedMood] = useState<BubbleMoodTier>(moodTier);
+  const [displayedAction, setDisplayedAction] = useState<BubbleAction | null>(null);
   const [phase, setPhase] = useState<"visible" | "exiting">("visible");
 
   const actionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);

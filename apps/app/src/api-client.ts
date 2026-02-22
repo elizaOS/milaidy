@@ -29,16 +29,6 @@ import type {
 } from "../../../src/config/types.milady.js";
 import type { StylePreset } from "../../../src/contracts/onboarding.js";
 import type {
-  CompanionAction,
-  CompanionActivityEvent,
-  CompanionMoodTier,
-  CompanionPolicyLevel,
-  CompanionStateSnapshot,
-  RunCompanionActionResponse,
-  UpdateCompanionSettingsRequest,
-  UpdateCompanionSettingsResponse,
-} from "../../../src/contracts/companion.js";
-import type {
   BscTradeExecuteRequest,
   BscTradeExecuteResponse,
   BscTradePreflightResponse,
@@ -82,14 +72,6 @@ export type {
   VisionProvider,
 };
 export type { StylePreset };
-export type {
-  CompanionAction,
-  CompanionActivityEvent,
-  CompanionMoodTier,
-  CompanionPolicyLevel,
-  CompanionStateSnapshot,
-  UpdateCompanionSettingsRequest,
-};
 export type {
   BscTradeExecuteRequest,
   BscTradeExecuteResponse,
@@ -3049,40 +3031,6 @@ export class MiladyClient {
       mode,
       signal,
     );
-  }
-
-  // Companion
-
-  async getCompanionState(timezone?: string): Promise<CompanionStateSnapshot> {
-    const query = timezone ? `?timezone=${encodeURIComponent(timezone)}` : "";
-    const response = await this.fetch<{ snapshot: CompanionStateSnapshot }>(
-      `/api/companion/state${query}`,
-    );
-    return response.snapshot;
-  }
-
-  async getCompanionActivity(limit = 50): Promise<CompanionActivityEvent[]> {
-    const safeLimit = Math.max(1, Math.min(200, Math.trunc(limit) || 50));
-    const response = await this.fetch<{ activity: CompanionActivityEvent[] }>(
-      `/api/companion/activity?limit=${safeLimit}`,
-    );
-    return response.activity;
-  }
-
-  async runCompanionAction(action: CompanionAction): Promise<RunCompanionActionResponse> {
-    return this.fetch<RunCompanionActionResponse>("/api/companion/actions", {
-      method: "POST",
-      body: JSON.stringify({ action }),
-    });
-  }
-
-  async updateCompanionSettings(
-    patch: UpdateCompanionSettingsRequest,
-  ): Promise<UpdateCompanionSettingsResponse> {
-    return this.fetch<UpdateCompanionSettingsResponse>("/api/companion/settings", {
-      method: "PUT",
-      body: JSON.stringify(patch),
-    });
   }
 
   // Conversations

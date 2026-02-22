@@ -58,7 +58,6 @@ import {
   type MintResult,
   type WhitelistStatus,
   type SystemPermissionId,
-  type CompanionStateSnapshot,
 } from "./api-client";
 import { tabFromPath, pathForTab, type Tab } from "./navigation";
 import { SkillScanReportSummary } from "./api-client";
@@ -463,31 +462,6 @@ function parseProactiveMessageEvent(
   return { conversationId, message };
 }
 
-function parseCompanionSnapshotEvent(
-  data: Record<string, unknown>,
-): CompanionStateSnapshot | null {
-  const snapshot = data.snapshot;
-  if (!isRecord(snapshot)) return null;
-  if (!isRecord(snapshot.state)) return null;
-  if (!isRecord(snapshot.today)) return null;
-  if (!isRecord(snapshot.thresholds)) return null;
-  if (typeof snapshot.moodTier !== "string") return null;
-  if (typeof snapshot.nextLevelXp !== "number") return null;
-  return snapshot as unknown as CompanionStateSnapshot;
-}
-
-function resolveUserTimezone(): string {
-  try {
-    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    if (typeof timezone === "string" && timezone.trim()) {
-      return timezone;
-    }
-  } catch {
-    // Ignore timezone detection failures and fallback to UTC.
-  }
-  return "UTC";
-}
-
 type LoadConversationMessagesResult =
   | { ok: true }
   | { ok: false; status?: number; message: string };
@@ -534,10 +508,6 @@ export interface AppState {
   autonomousLatestEventId: string | null;
   /** Conversation IDs with unread proactive messages from the agent. */
   unreadConversations: Set<string>;
-
-  // Companion
-  companionSnapshot: CompanionStateSnapshot | null;
-  companionLoading: boolean;
 
   // Triggers
   triggers: TriggerSummary[];
@@ -791,9 +761,6 @@ export interface AppActions {
   handleDeleteConversation: (id: string) => Promise<void>;
   handleRenameConversation: (id: string, title: string) => Promise<void>;
 
-  // Companion
-  loadCompanion: () => Promise<void>;
-
   // Triggers
   loadTriggers: () => Promise<void>;
   createTrigger: (request: CreateTriggerRequest) => Promise<TriggerSummary | null>;
@@ -947,8 +914,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [autonomousEvents, setAutonomousEvents] = useState<StreamEventEnvelope[]>([]);
   const [autonomousLatestEventId, setAutonomousLatestEventId] = useState<string | null>(null);
   const [unreadConversations, setUnreadConversations] = useState<Set<string>>(new Set());
-  const [companionSnapshot, setCompanionSnapshot] = useState<CompanionStateSnapshot | null>(null);
-  const [companionLoading, setCompanionLoading] = useState(false);
   const activeConversationIdRef = useRef<string | null>(null);
   const conversationsRef = useRef<Conversation[]>([]);
 
@@ -1704,18 +1669,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const loadCompanion = useCallback(async () => {
-    setCompanionLoading(true);
-    try {
-      const timezone = resolveUserTimezone();
-      const snapshot = await client.getCompanionState(timezone);
-      setCompanionSnapshot(snapshot);
-    } catch {
-      // Ignore companion fetch errors to keep the rest of the app responsive.
-    } finally {
-      setCompanionLoading(false);
-    }
-  }, []);
   const loadUpdateStatus = useCallback(async (force = false) => {
     setUpdateLoading(true);
     try {
@@ -1931,7 +1884,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setActiveConversationId(null);
       activeConversationIdRef.current = null;
       setConversations([]);
-      setCompanionSnapshot(null);
       setPlugins([]);
       setSkills([]);
       setLogs([]);
@@ -3517,7 +3469,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     let unbindAgentEvents: (() => void) | null = null;
     let unbindHeartbeatEvents: (() => void) | null = null;
     let unbindProactiveMessages: (() => void) | null = null;
-    let unbindCompanionState: (() => void) | null = null;
     let cancelled = false;
 
     const initApp = async () => {
@@ -3761,12 +3712,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         });
       });
 
-      unbindCompanionState = client.onWsEvent("companion-state", (data: Record<string, unknown>) => {
-        const snapshot = parseCompanionSnapshotEvent(data);
-        if (!snapshot) return;
-        setCompanionSnapshot(snapshot);
-      });
-
       // Load wallet addresses for header
       try {
         setWalletAddresses(await client.getWalletAddresses());
@@ -3834,7 +3779,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       unbindAgentEvents?.();
       unbindHeartbeatEvents?.();
       unbindProactiveMessages?.();
-      unbindCompanionState?.();
       client.disconnectWs();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -3876,7 +3820,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     chatAvatarVisible, chatAgentVoiceMuted, chatMode, chatAvatarSpeaking,
     conversations, activeConversationId, conversationMessages,
     autonomousEvents, autonomousLatestEventId, unreadConversations,
-    companionSnapshot, companionLoading,
     triggers, triggersLoading, triggersSaving, triggerRunsById, triggerHealth, triggerError,
     plugins, pluginFilter, pluginStatusFilter, pluginSearch, pluginSettingsOpen,
     pluginAdvancedOpen, pluginSaving, pluginSaveSuccess,
@@ -3930,7 +3873,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     handleStart, handleStop, handlePauseResume, handleRestart, handleReset,
     handleChatSend, handleChatStop, handleChatClear, handleNewConversation,
     handleSelectConversation, handleDeleteConversation, handleRenameConversation,
-    loadCompanion,
     loadTriggers, createTrigger, updateTrigger, deleteTrigger, runTriggerNow,
     loadTriggerRuns, loadTriggerHealth,
     handlePairingSubmit,

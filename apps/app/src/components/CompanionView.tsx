@@ -34,7 +34,6 @@ function formatRouteAddress(address: string): string {
 
 export function CompanionView() {
   const {
-    companionSnapshot,
     setState,
     selectedVrmIndex,
     customVrmUrl,
@@ -437,6 +436,7 @@ export function CompanionView() {
   }, [walletPanelOpen, walletLoading, walletBalances, loadBalances]);
 
   const safeSelectedVrmIndex = selectedVrmIndex > 0 ? selectedVrmIndex : 1;
+  const avatarMoodTier = "neutral";
   const vrmPath = selectedVrmIndex === 0 && customVrmUrl
     ? customVrmUrl
     : getVrmUrl(safeSelectedVrmIndex);
@@ -444,8 +444,8 @@ export function CompanionView() {
     ? getVrmPreviewUrl(safeSelectedVrmIndex)
     : getVrmPreviewUrl(1);
   const ambientIntent = useMemo(
-    () => resolveCompanionAnimationIntent(companionSnapshot),
-    [companionSnapshot],
+    () => resolveCompanionAnimationIntent({ moodTier: avatarMoodTier }),
+    [avatarMoodTier],
   );
 
   const rosterItems = useMemo(
@@ -485,7 +485,7 @@ export function CompanionView() {
     const engine = vrmEngineRef.current;
     if (!engine) return;
 
-    const moodTier = companionSnapshot?.moodTier ?? "neutral";
+    const moodTier = avatarMoodTier;
     const pool = MOOD_ANIMATION_POOLS[moodTier];
     if (!pool || pool.accents.length === 0) return;
 
@@ -503,7 +503,7 @@ export function CompanionView() {
         scheduleNextAccentRef.current();
       }
     }, delayMs);
-  }, [companionSnapshot?.moodTier]);
+  }, [avatarMoodTier]);
 
   scheduleNextAccentRef.current = scheduleNextAccent;
 
@@ -584,7 +584,7 @@ export function CompanionView() {
         )}
         <div className="anime-comp-bubble-wrap">
           <BubbleEmote
-            moodTier={companionSnapshot?.moodTier ?? "neutral"}
+            moodTier={avatarMoodTier}
             activeAction={null}
             visible={vrmLoaded}
           />
