@@ -36,6 +36,22 @@ describe("tx-service", () => {
     expect(destroySpy).toHaveBeenCalledTimes(1);
   });
 
+  it("destroys the fresh provider even when nonce lookup fails", async () => {
+    const nonceError = new Error("nonce fetch failed");
+    vi.spyOn(
+      ethers.JsonRpcProvider.prototype,
+      "getTransactionCount",
+    ).mockRejectedValue(nonceError);
+    const destroySpy = vi
+      .spyOn(ethers.JsonRpcProvider.prototype, "destroy")
+      .mockImplementation(() => undefined);
+
+    const service = createService();
+
+    await expect(service.getFreshNonce()).rejects.toThrow("nonce fetch failed");
+    expect(destroySpy).toHaveBeenCalledTimes(1);
+  });
+
   it("throws when waiting for a transaction times out", async () => {
     const service = createService();
     const provider = (

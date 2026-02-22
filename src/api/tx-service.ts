@@ -57,12 +57,15 @@ export class TxService {
   async getFreshNonce(): Promise<number> {
     // Use a fresh provider for each nonce lookup to avoid ethers.js v6 caching
     const freshProvider = new ethers.JsonRpcProvider(this.rpcUrl);
-    const nonce = await freshProvider.getTransactionCount(
-      this.wallet.address,
-      "pending",
-    );
-    freshProvider.destroy();
-    return nonce;
+    try {
+      const nonce = await freshProvider.getTransactionCount(
+        this.wallet.address,
+        "pending",
+      );
+      return nonce;
+    } finally {
+      freshProvider.destroy();
+    }
   }
 
   get address(): string {

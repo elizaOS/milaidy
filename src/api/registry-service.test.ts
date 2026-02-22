@@ -117,4 +117,68 @@ describe("registry-service", () => {
     expect(wait).toHaveBeenCalledTimes(1);
     expect(txHash).toBe("0xupdate");
   });
+
+  it("surfaces register failures from transaction wait", async () => {
+    const { service, contract } = createFixture();
+    const wait = vi
+      .fn()
+      .mockRejectedValue(new Error("replacement transaction underpriced"));
+    contract.registerAgent.mockResolvedValue({ hash: "0xsubmitted", wait });
+
+    await expect(
+      service.register({
+        name: "Milady",
+        endpoint: "https://agent.example",
+        capabilitiesHash: "0xcapabilities",
+        tokenURI: "ipfs://token",
+      }),
+    ).rejects.toThrow("replacement transaction underpriced");
+  });
+
+  it("uses a fresh nonce when updating endpoint/capabilities", async () => {
+    const { service, contract, txService } = createFixture();
+    const wait = vi.fn().mockResolvedValue({ hash: "0xagentupdate" });
+    contract.updateAgent.mockResolvedValue({ wait });
+    txService.getFreshNonce.mockResolvedValue(44);
+
+    const txHash = await service.updateAgent(
+      "https://agent.example/v2",
+      "0xcapabilities2",
+    );
+
+    expect(contract.updateAgent).toHaveBeenCalledWith(
+      "https://agent.example/v2",
+      "0xcapabilities2",
+      { nonce: 44 },
+    );
+    expect(wait).toHaveBeenCalledTimes(1);
+    expect(txHash).toBe("0xagentupdate");
+  });
+
+  it("uses a fresh nonce when syncing the full profile", async () => {
+    const { service, contract, txService } = createFixture();
+    const wait = vi.fn().mockResolvedValue({ hash: "0xprofilesync" });
+    contract.updateAgentProfile.mockResolvedValue({
+      hash: "0xsubmitted",
+      wait,
+    });
+    txService.getFreshNonce.mockResolvedValue(55);
+
+    const txHash = await service.syncProfile({
+      name: "Milady v2",
+      endpoint: "https://agent.example/v2",
+      capabilitiesHash: "0xprofilecap",
+      tokenURI: "ipfs://token-v2",
+    });
+
+    expect(contract.updateAgentProfile).toHaveBeenCalledWith(
+      "Milady v2",
+      "https://agent.example/v2",
+      "0xprofilecap",
+      "ipfs://token-v2",
+      { nonce: 55 },
+    );
+    expect(wait).toHaveBeenCalledTimes(1);
+    expect(txHash).toBe("0xprofilesync");
+  });
 });

@@ -147,4 +147,39 @@ describe("drop-service", () => {
       isShiny: false,
     });
   });
+
+  it("marks drop status as minted out when current supply reaches max", async () => {
+    const { service, contract } = createFixture(true);
+    contract.getCollectionDetails.mockResolvedValue([100n, 100n, true]);
+    contract.whitelistMintOpen.mockResolvedValue(true);
+    contract.hasMinted.mockResolvedValue(true);
+    contract.SHINY_PRICE.mockResolvedValue(200_000_000_000_000_000n);
+
+    const status = await service.getStatus();
+
+    expect(status).toEqual({
+      dropEnabled: true,
+      publicMintOpen: true,
+      whitelistMintOpen: true,
+      mintedOut: true,
+      currentSupply: 100,
+      maxSupply: 100,
+      shinyPrice: "0.2",
+      userHasMinted: true,
+    });
+  });
+
+  it("surfaces mint failures from transaction wait", async () => {
+    const { service, contract } = createFixture(true);
+    const wait = vi
+      .fn()
+      .mockRejectedValue(
+        new Error("insufficient funds for gas * price + value"),
+      );
+    contract.mint.mockResolvedValue({ hash: "0xsubmitted", wait });
+
+    await expect(
+      service.mint("Milady", "https://agent.example"),
+    ).rejects.toThrow("insufficient funds");
+  });
 });
