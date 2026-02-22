@@ -133,7 +133,6 @@
     "@elizaos/plugin-secrets-manager": "next",
     "@elizaos/plugin-shell": "next",
     "@elizaos/plugin-signal": "next",
-    "@elizaos/plugin-slack": "next",
     "@elizaos/plugin-social-alpha": "2.0.0-alpha.4",
     "@elizaos/plugin-sql": "^1.7.2",
     "@elizaos/plugin-telegram": "next",
