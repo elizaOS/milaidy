@@ -81,6 +81,9 @@ bun run test:watch
 # Run with coverage report
 bun run test:coverage
 
+# Run database safety/migration compatibility checks
+bun run db:check
+
 # End-to-end tests
 bun run test:e2e
 
