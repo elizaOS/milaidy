@@ -24,9 +24,20 @@ import type { IpcValue } from "./ipc-types";
  * milady dist bundles are ESM.  This wrapper keeps a real `import()` call
  * at runtime.
  */
-const dynamicImport = new Function("specifier", "return import(specifier)") as (
+const dynamicImport = async (
   specifier: string,
-) => Promise<Record<string, unknown>>;
+): Promise<Record<string, unknown>> => {
+  try {
+    const importer = new Function("s", "return import(s)") as (
+      s: string,
+    ) => Promise<Record<string, unknown>>;
+    return await importer(specifier);
+  } catch {
+    // Test runners can sandbox dynamic import callbacks. Fall back to native
+    // import so startup logic remains testable.
+    return import(specifier);
+  }
+};
 
 // ---------------------------------------------------------------------------
 // Types
@@ -65,6 +76,36 @@ export class AgentManager {
   async start(): Promise<AgentStatus> {
     if (this.status.state === "running" || this.status.state === "starting") {
       return this.status;
+    }
+
+    if (this.apiClose) {
+      try {
+        await this.apiClose();
+      } catch (err) {
+        console.warn(
+          "[Agent] Failed to close stale API server before restart:",
+          err instanceof Error ? err.message : err,
+        );
+      } finally {
+        this.apiClose = null;
+        this.status.port = null;
+      }
+    }
+    if (
+      this.runtime &&
+      typeof (this.runtime as { stop?: () => Promise<void> }).stop ===
+        "function"
+    ) {
+      try {
+        await (this.runtime as { stop: () => Promise<void> }).stop();
+      } catch (err) {
+        console.warn(
+          "[Agent] Failed to stop stale runtime before restart:",
+          err instanceof Error ? err.message : err,
+        );
+      } finally {
+        this.runtime = null;
+      }
     }
 
     this.status.state = "starting";
@@ -249,6 +290,34 @@ export class AgentManager {
       return this.status;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
+      if (this.apiClose) {
+        try {
+          await this.apiClose();
+        } catch (closeErr) {
+          console.warn(
+            "[Agent] Failed to close API server after startup failure:",
+            closeErr instanceof Error ? closeErr.message : closeErr,
+          );
+        } finally {
+          this.apiClose = null;
+          this.status.port = null;
+        }
+      }
+      if (
+        this.runtime &&
+        typeof (this.runtime as { stop?: () => Promise<void> }).stop ===
+          "function"
+      ) {
+        try {
+          await (this.runtime as { stop: () => Promise<void> }).stop();
+        } catch (stopErr) {
+          console.warn(
+            "[Agent] Failed to stop runtime after startup failure:",
+            stopErr instanceof Error ? stopErr.message : stopErr,
+          );
+        }
+      }
+      this.runtime = null;
       this.status = {
         state: "error",
         agentName: null,

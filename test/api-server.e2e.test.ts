@@ -850,12 +850,30 @@ function createRuntimeForCreditErrorTests(): AgentRuntime {
 describe("API Server E2E (no runtime)", () => {
   let port: number;
   let close: () => Promise<void>;
+  let updateStartup: (
+    update: {
+      phase?: string;
+      attempt?: number;
+      lastError?: string;
+      lastErrorAt?: number;
+      nextRetryAt?: number;
+      state?:
+        | "not_started"
+        | "starting"
+        | "running"
+        | "paused"
+        | "stopped"
+        | "restarting"
+        | "error";
+    },
+  ) => void;
 
   beforeAll(async () => {
     // Start the REAL server with no runtime (port 0 = auto-assign)
     const server = await startApiServer({ port: 0 });
     port = server.port;
     close = server.close;
+    updateStartup = server.updateStartup;
   }, 30_000);
 
   afterAll(async () => {
@@ -876,6 +894,33 @@ describe("API Server E2E (no runtime)", () => {
       const { data } = await req(port, "GET", "/api/status");
       expect(data.uptime).toBeUndefined();
       expect(data.startedAt).toBeUndefined();
+    });
+
+    it("includes startup status diagnostics and reflects updates", async () => {
+      const now = Date.now();
+      updateStartup({
+        phase: "runtime-retry",
+        attempt: 2,
+        lastError: "bootstrap failed",
+        lastErrorAt: now,
+        nextRetryAt: now + 1_000,
+        state: "starting",
+      });
+      const { data } = await req(port, "GET", "/api/status");
+      expect(data.startup).toBeDefined();
+      expect(data.startup.phase).toBe("runtime-retry");
+      expect(data.startup.attempt).toBe(2);
+      expect(data.startup.lastError).toContain("bootstrap failed");
+      expect(data.state).toBe("starting");
+
+      updateStartup({
+        phase: "idle",
+        attempt: 0,
+        lastError: undefined,
+        lastErrorAt: undefined,
+        nextRetryAt: undefined,
+        state: "not_started",
+      });
     });
   });
 

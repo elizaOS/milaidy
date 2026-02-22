@@ -208,6 +208,14 @@ interface ConversationMeta {
   updatedAt: string;
 }
 
+interface AgentStartupDiagnostics {
+  phase: string;
+  attempt: number;
+  lastError?: string;
+  lastErrorAt?: number;
+  nextRetryAt?: number;
+}
+
 interface ServerState {
   runtime: AgentRuntime | null;
   config: MiladyConfig;
@@ -222,6 +230,7 @@ interface ServerState {
   agentName: string;
   model: string | undefined;
   startedAt: number | undefined;
+  startup: AgentStartupDiagnostics;
   plugins: PluginEntry[];
   skills: SkillEntry[];
   logBuffer: LogEntry[];
@@ -5745,6 +5754,7 @@ async function handleRequest(
       agentName: state.agentName,
       model: state.model,
       uptime,
+      startup: state.startup,
       cloud: cloudStatus,
       pendingRestart: state.pendingRestartReasons.length > 0,
       pendingRestartReasons: state.pendingRestartReasons,
@@ -12387,6 +12397,13 @@ export async function startApiServer(opts?: {
   port: number;
   close: () => Promise<void>;
   updateRuntime: (rt: AgentRuntime) => void;
+  updateStartup: (
+    update: Partial<AgentStartupDiagnostics> & {
+      phase?: string;
+      attempt?: number;
+      state?: ServerState["agentState"];
+    },
+  ) => void;
 }> {
   const apiStartTime = Date.now();
   console.log(`[milady-api] startApiServer called`);
@@ -12451,6 +12468,12 @@ export async function startApiServer(opts?: {
   const initialAgentState = hasRuntime
     ? "running"
     : (opts?.initialAgentState ?? "not_started");
+  const initialStartup: AgentStartupDiagnostics =
+    initialAgentState === "running"
+      ? { phase: "running", attempt: 0 }
+      : initialAgentState === "starting"
+        ? { phase: "starting", attempt: 0 }
+        : { phase: "idle", attempt: 0 };
   const agentName = hasRuntime
     ? (opts.runtime?.character.name ?? "Milady")
     : (config.agents?.list?.[0]?.name ??
@@ -12465,6 +12488,7 @@ export async function startApiServer(opts?: {
     model: hasRuntime ? "provided" : undefined,
     startedAt:
       hasRuntime || initialAgentState === "starting" ? Date.now() : undefined,
+    startup: initialStartup,
     plugins,
     // Filled asynchronously after server start to keep startup latency low.
     skills: [],
@@ -12975,6 +12999,7 @@ export async function startApiServer(opts?: {
           agentName: state.agentName,
           model: state.model,
           startedAt: state.startedAt,
+          startup: state.startup,
         }),
       );
       const replay = state.eventBuffer.slice(-120);
@@ -13027,6 +13052,7 @@ export async function startApiServer(opts?: {
       agentName: state.agentName,
       model: state.model,
       startedAt: state.startedAt,
+      startup: state.startup,
       pendingRestart: state.pendingRestartReasons.length > 0,
       pendingRestartReasons: state.pendingRestartReasons,
     });
@@ -13154,6 +13180,10 @@ export async function startApiServer(opts?: {
     state.agentState = "running";
     state.agentName = rt.character.name ?? "Milady";
     state.startedAt = Date.now();
+    state.startup = {
+      phase: "running",
+      attempt: 0,
+    };
     addLog("info", `Runtime restarted — agent: ${state.agentName}`, "system", [
       "system",
       "agent",
@@ -13163,6 +13193,32 @@ export async function startApiServer(opts?: {
     void restoreConversationsFromDb(rt);
 
     // Broadcast status update immediately after restart
+    broadcastStatus();
+  };
+
+  const updateStartup = (
+    update: Partial<AgentStartupDiagnostics> & {
+      phase?: string;
+      attempt?: number;
+      state?: ServerState["agentState"];
+    },
+  ): void => {
+    const { state: nextState, ...startupUpdate } = update;
+    state.startup = {
+      ...state.startup,
+      ...startupUpdate,
+    };
+    if (nextState) {
+      state.agentState = nextState;
+      if (nextState === "error") {
+        state.startedAt = undefined;
+      } else if (
+        (nextState === "starting" || nextState === "running") &&
+        !state.startedAt
+      ) {
+        state.startedAt = Date.now();
+      }
+    }
     broadcastStatus();
   };
 
@@ -13264,6 +13320,7 @@ export async function startApiServer(opts?: {
             server.close(finalize);
           }),
         updateRuntime,
+        updateStartup,
       });
     });
   });
