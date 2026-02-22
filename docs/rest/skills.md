@@ -149,6 +149,33 @@ Open the skill file in the system's default code editor.
 
 ---
 
+## Skills Catalog and Marketplace Runbook
+
+### Setup Checklist
+
+1. Confirm skills directory is readable and writable by the runtime.
+2. Confirm marketplace registry/network access is available.
+3. Confirm plugin installer prerequisites (`npm`/`pnpm`/`bun`) are present in runtime PATH.
+
+### Failure Modes
+
+- Search returns empty unexpectedly:
+  Check query input, upstream registry availability, and rate limiting.
+- Install fails:
+  Check package name/version validity, installer permissions, and network.
+- Uninstall leaves stale state:
+  Refresh skills list and verify the package is removed from install records.
+
+### Verification Commands
+
+```bash
+bunx vitest run src/services/plugin-installer.test.ts src/services/skill-marketplace.test.ts
+bunx vitest run --config vitest.e2e.config.ts test/api-server.e2e.test.ts
+bun run typecheck
+```
+
+---
+
 ### GET /api/skills/:id/source
 
 Read the raw TypeScript source code of a skill file.

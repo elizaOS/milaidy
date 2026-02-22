@@ -482,3 +482,27 @@ The agent actions require a `prompt` parameter. If the agent responds with "I ne
 ### Google Veo Pending Operations
 
 Google Veo video generation uses a long-running operation model. If the video is not ready immediately, the response includes a `videoUrl` prefixed with `pending:` followed by the operation name. In production, you would poll the Google operation endpoint until the video is ready.
+
+## Media Provider Runbook
+
+### Setup Checklist
+
+1. Set `media.<type>.mode` and `media.<type>.provider` for each enabled media type.
+2. Provide provider credentials for every `own-key` integration.
+3. Confirm fallback behavior is acceptable when provider selection fails.
+
+### Failure Modes
+
+- Provider auth failures:
+  Verify API keys, base URLs, and model IDs for the selected provider.
+- Generation timeouts:
+  Check provider latency and retry policy; avoid aggressive client timeouts.
+- Wrong provider selected:
+  Confirm `mode` and nested provider config are set at the correct media path.
+
+### Verification Commands
+
+```bash
+bunx vitest run src/actions/__tests__/media.test.ts src/providers/media-provider.test.ts
+bun run typecheck
+```

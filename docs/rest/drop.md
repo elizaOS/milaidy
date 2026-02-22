@@ -154,3 +154,29 @@ Submit a tweet URL for verification. The server fetches the tweet, validates the
 | 400 | Missing address or tweet URL |
 | 400 | Tweet does not contain the expected verification message |
 | 400 | Tweet author does not match expectations |
+
+---
+
+## Operational Runbook
+
+### Setup Checklist
+
+1. Configure drop contract/network settings and signer credentials.
+2. Configure Twitter verification integration for whitelist checks.
+3. Verify the runtime can reach RPC and social verification providers.
+
+### Failure Modes
+
+- Mint request fails on-chain:
+  Check signer funding, nonce state, gas policy, and RPC availability.
+- Whitelist verify fails:
+  Check tweet URL parsing, author validation, and expected message format.
+- Status endpoint stale or inconsistent:
+  Check drop service initialization and cache invalidation behavior.
+
+### Verification Commands
+
+```bash
+bunx vitest run src/api/registry-routes.test.ts src/api/twitter-verify.test.ts
+bun run typecheck
+```

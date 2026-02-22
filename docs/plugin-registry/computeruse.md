@@ -144,3 +144,27 @@ Computer use sessions are automatically logged by the `@elizaos/plugin-trajector
 - [Browser Plugin](/plugin-registry/browser) — Web-only automation (sandboxed)
 - [Shell Plugin](/plugin-registry/cron) — Shell command execution
 - [Sandbox Guide](/guides/sandbox) — Security and isolation options
+
+## CUA Operations Runbook
+
+### Setup Checklist
+
+1. Enable `features.computeruse` or include `computeruse` in `plugins.allow`.
+2. Ensure desktop/session permissions are granted for input and screenshot capture.
+3. Pair with a vision-capable model and verify screenshot-to-action loop behavior.
+
+### Failure Modes
+
+- Screenshot/tool calls fail:
+  Check host permissions, display access, and sandbox restrictions.
+- Agent performs unstable or repeated actions:
+  Add approval gates and enforce per-action rate limits.
+- Cross-platform behavior mismatch:
+  Validate platform-specific automation prerequisites before enabling in production.
+
+### Verification Commands
+
+```bash
+bunx vitest run src/runtime/computeruse-integration.test.ts
+bun run typecheck
+```

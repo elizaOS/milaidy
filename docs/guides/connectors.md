@@ -507,3 +507,30 @@ The `dmPolicy` options are:
 | `pairing` | Default. Agent responds after a pairing/onboarding flow. |
 | `open` | Agent responds to all DMs. Requires `allowFrom: ["*"]`. |
 | `closed` | Agent does not respond to DMs. |
+
+---
+
+## Connector Operations Runbook
+
+### Setup Checklist
+
+1. Configure connector credentials under `connectors.<name>`.
+2. Enable connector plugin loading via connector config or plugin allow-list.
+3. Validate DM/group policy values and allow-lists before enabling `open` policies.
+
+### Failure Modes
+
+- Connector plugin not loading:
+  Check connector ID mapping, plugin availability, and `plugins.entries` overrides.
+- Auth succeeds but no messages arrive:
+  Check platform webhook/socket settings and policy gates (`dmPolicy`, `groupPolicy`).
+- Misrouted connector secrets:
+  Confirm expected env vars are populated from config and not overwritten by stale env.
+
+### Verification Commands
+
+```bash
+bunx vitest run src/runtime/eliza.test.ts src/connectors/discord-connector.test.ts
+bunx vitest run --config vitest.e2e.config.ts test/discord-connector.e2e.test.ts test/signal-connector.e2e.test.ts
+bun run typecheck
+```
