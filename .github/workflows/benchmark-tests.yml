@@ -44,7 +44,16 @@ jobs:
         uses: oven-sh/setup-bun@v2
 
       - name: Install dependencies
-        run: bun install
+        run: |
+          for i in 1 2 3; do
+            bun install --frozen-lockfile && break
+            if [ "$i" -eq 3 ]; then
+              echo "bun install failed after $i attempts"
+              exit 1
+            fi
+            echo "Retry $i: bun install failed, retrying..."
+            sleep 5
+          done
 
       - name: Run repository postinstall patches
         run: bun run postinstall
