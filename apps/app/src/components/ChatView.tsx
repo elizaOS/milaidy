@@ -73,7 +73,7 @@ export function ChatView() {
     firstSegmentCached?: boolean;
   } | null>(null);
 
-  const [voiceLatency, setVoiceLatency] = useState<{
+  const [, setVoiceLatency] = useState<{
     speechEndToFirstTokenMs: number | null;
     speechEndToVoiceStartMs: number | null;
     firstSegmentCached: boolean | null;

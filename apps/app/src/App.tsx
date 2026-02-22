@@ -24,6 +24,7 @@ import { InventoryView } from "./components/InventoryView.js";
 import { KnowledgeView } from "./components/KnowledgeView.js";
 import { CompanionView } from "./components/CompanionView.js";
 import { SettingsView } from "./components/SettingsView.js";
+import { PluginsView } from "./components/PluginsView.js";
 import { SkillsView } from "./components/SkillsView.js";
 import { LoadingScreen } from "./components/LoadingScreen.js";
 import { useContextMenu } from "./hooks/useContextMenu.js";
@@ -40,7 +41,6 @@ function ViewRouter() {
     case "knowledge": return <KnowledgeView />;
     case "connectors": return <ConnectorsPageView />;
     case "advanced":
-    case "plugins":
     case "skills":
     case "actions":
     case "triggers":
@@ -96,7 +96,6 @@ export function App() {
   const isChat = tab === "chat";
   const isAdvancedTab =
     tab === "advanced" ||
-    tab === "plugins" ||
     tab === "actions" ||
     tab === "triggers" ||
     tab === "fine-tuning" ||
@@ -105,9 +104,13 @@ export function App() {
     tab === "database" ||
     tab === "logs";
 
-  if (tab === "companion" || tab === "skills" || tab === "character") {
+  if (tab === "companion" || tab === "skills" || tab === "character" || tab === "settings" || tab === "plugins") {
     const isSkills = tab === "skills";
-    const accentColor = isSkills ? "#00e1ff" : "#d4af37"; // Cyan for skills, Star Rail Gold for Character
+    const isSettings = tab === "settings";
+    const isPlugins = tab === "plugins";
+    const isCentered = isSkills || isSettings || isPlugins;
+    const accentColor = isSkills ? "#00e1ff" : "#d4af37"; // Cyan for skills, Gold for Character
+    const topBarColor = isSkills ? "#00e1ff" : isSettings ? "rgba(210, 205, 200, 0.7)" : isPlugins ? "#f0b232" : "#d4af37";
     const cardColor = isSkills ? "rgba(20, 24, 38, 0.85)" : "rgba(10, 12, 16, 0.75)";
     const shadowFx = isSkills ? "shadow-[0_0_50px_rgba(0,225,255,0.15)]" : "shadow-[0_4px_30px_rgba(0,0,0,0.5)]";
 
@@ -117,26 +120,27 @@ export function App() {
           <CompanionView />
 
           {/* Hub Modals (Overlay on top of CompanionView) */}
-          <div className={`absolute inset-0 z-[60] flex items-center justify-center transition-all duration-300 ${tab === "skills" || tab === "character" ? "opacity-100 backdrop-blur-2xl bg-black/40" : "opacity-0 pointer-events-none"
+          {/* Hub Modals (Overlay on top of CompanionView) */}
+          <div className={`absolute inset-0 z-[60] flex ${isCentered ? 'items-center justify-center' : 'justify-end'} transition-all duration-300 pointer-events-none ${tab === "skills" ? "opacity-100 backdrop-blur-2xl bg-black/40 pointer-events-auto" : tab === "settings" || tab === "plugins" ? "opacity-100 backdrop-blur-2xl bg-black/50 pointer-events-auto" : tab === "character" ? "opacity-100" : "opacity-0"
             }`}>
-            {(tab === "skills" || tab === "character") && (
-              <div className={`relative w-[90vw] h-[90vh] max-w-5xl backdrop-blur-3xl border flex flex-col pt-6 ${shadowFx} transition-all duration-500`}
+            {(tab === "skills" || tab === "character" || tab === "settings" || tab === "plugins") && (
+              <div className={`relative flex flex-col pointer-events-auto ${isSkills ? 'w-[90vw] h-[90vh] max-w-5xl backdrop-blur-3xl border rounded-2xl pt-6' : isSettings || isPlugins ? 'w-[90vw] h-[90vh] max-w-5xl backdrop-blur-3xl border rounded-2xl overflow-hidden' : 'w-[65vw] min-w-[700px] h-[100vh] border-l backdrop-blur-2xl'} transition-all duration-500`}
                 style={{
-                  backgroundColor: cardColor,
-                  borderColor: `rgba(${isSkills ? '0,225,255' : '255,255,255'}, ${isSkills ? '0.2' : '0.1'})`,
-                  borderRadius: isSkills ? '1rem' : '16px',
-                  borderTopRightRadius: isSkills ? '1rem' : '16px',
-                  borderBottomLeftRadius: isSkills ? '1rem' : '16px'
+                  background: isSkills ? cardColor : isSettings || isPlugins ? "rgba(18, 22, 32, 0.92)" : "linear-gradient(to left, rgba(6, 8, 12, 0.95) 40%, rgba(6, 8, 12, 0.7) 80%, rgba(6, 8, 12, 0.2) 100%)",
+                  borderColor: isSkills ? "rgba(0,225,255,0.2)" : isSettings || isPlugins ? "rgba(255, 255, 255, 0.08)" : "rgba(255,255,255,0.05)",
+                  boxShadow: isSkills ? shadowFx : isSettings || isPlugins ? "0 8px 60px rgba(0,0,0,0.6), 0 2px 24px rgba(0,0,0,0.4)" : "-60px 0 100px -20px rgba(0,0,0,0.8)",
+                  borderTopRightRadius: isCentered ? '1rem' : '0',
+                  borderBottomLeftRadius: isCentered ? '1rem' : '0'
                 }}>
 
-                {/* Top bar decoration */}
-                {!isSkills && (
+                {/* Top bar accent line */}
+                {tab === "character" && (
                   <div className="absolute top-0 left-0 right-0 h-[1px] opacity-100 flex justify-center">
                     <div className="w-1/2 h-full" style={{ background: `linear-gradient(90deg, transparent, rgba(212, 175, 55, 0.8), transparent)` }} />
                   </div>
                 )}
-                {isSkills && (
-                  <div className="absolute top-0 left-0 right-0 h-[2px] opacity-80" style={{ background: `linear-gradient(to right, transparent, ${accentColor}, transparent)` }} />
+                {isCentered && (
+                  <div className="absolute top-0 left-0 right-0 h-[2px] opacity-80" style={{ background: `linear-gradient(to right, transparent, ${topBarColor}, transparent)` }} />
                 )}
 
                 {/* Decorative Elements */}
@@ -153,16 +157,46 @@ export function App() {
                       <div className={`absolute bottom-[20%] left-0 w-[2px] h-[100px] bg-gradient-to-b from-transparent via-[${accentColor}] to-transparent opacity-50`} />
                     </>
                   )}
-                  {!isSkills && (
+                  {isSettings && (
+                    <>
+                      {/* HSR-style system configuration decorations */}
+                      <div className="absolute top-0 left-6 px-4 py-1.5 bg-white/[0.04] border-b border-l border-r border-white/10 text-white/40 text-[10px] font-mono tracking-[0.2em] font-bold" style={{ clipPath: "polygon(0 0, 100% 0, calc(100% - 6px) 100%, 6px 100%)" }}>
+                        SYS.CONFIG // ACTIVE
+                      </div>
+                      {/* Side accent lines */}
+                      <div className="absolute top-[15%] right-0 w-[1.5px] h-[80px] bg-gradient-to-b from-transparent via-white/20 to-transparent" />
+                      <div className="absolute bottom-[15%] left-0 w-[1.5px] h-[80px] bg-gradient-to-b from-transparent via-white/20 to-transparent" />
+                      {/* Corner accents — top-right */}
+                      <div className="absolute top-3 right-14 w-[20px] h-[1px] bg-white/15" />
+                      <div className="absolute top-3 right-14 w-[1px] h-[20px] bg-white/15" />
+                      {/* Corner accents — bottom-left */}
+                      <div className="absolute bottom-3 left-3 w-[20px] h-[1px] bg-white/15" />
+                      <div className="absolute bottom-3 left-3 w-[1px] h-[20px] bg-white/15" />
+                      {/* Bottom-right version text */}
+                      <div className="absolute bottom-3 right-4 text-white/15 text-[9px] font-mono tracking-widest">
+                        CFG.PANEL_V2
+                      </div>
+                    </>
+                  )}
+                  {isPlugins && (
+                    <>
+                      <div className="absolute top-0 left-6 px-4 py-1.5 bg-[#f0b232]/[0.06] border-b border-l border-r border-[#f0b232]/20 text-[#f0b232]/50 text-[10px] font-mono tracking-[0.2em] font-bold" style={{ clipPath: "polygon(0 0, 100% 0, calc(100% - 6px) 100%, 6px 100%)" }}>
+                        SYS.EQUIPMENT // ACTIVE
+                      </div>
+                      <div className="absolute top-[15%] right-0 w-[1.5px] h-[80px] bg-gradient-to-b from-transparent via-[#f0b232]/20 to-transparent" />
+                      <div className="absolute bottom-[15%] left-0 w-[1.5px] h-[80px] bg-gradient-to-b from-transparent via-[#f0b232]/20 to-transparent" />
+                      <div className="absolute bottom-3 right-4 text-[#f0b232]/20 text-[9px] font-mono tracking-widest">
+                        PLG.PANEL_V1
+                      </div>
+                    </>
+                  )}
+                  {tab === "character" && (
                     <>
                       {/* Honkai Star Rail / Elegant Gacha UI Decorations */}
                       <div className="absolute top-6 left-10 flex flex-col">
                         <div className="text-white text-2xl font-semibold tracking-wide flex items-center gap-3">
                           <div className="w-1.5 h-1.5 rounded-full bg-[#d4af37]" />
                           Agent Details
-                        </div>
-                        <div className="text-white/30 text-xs font-mono tracking-widest mt-1 uppercase">
-                          Stellar Configuration Data
                         </div>
                       </div>
 
@@ -176,29 +210,49 @@ export function App() {
                 {/* Close Modal Button */}
                 <button
                   onClick={() => setTab("companion")}
-                  className={`absolute top-6 right-6 z-50 p-2 rounded-full transition-all flex items-center justify-center ${isSkills
-                      ? 'text-white/70 hover:text-white hover:bg-white/10'
-                      : 'text-white/50 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 shadow-[0_0_15px_rgba(0,0,0,0.5)] w-10 h-10'
+                  className={`absolute top-6 right-6 z-50 p-2 rounded-full transition-all flex items-center justify-center ${isCentered
+                    ? 'text-white/70 hover:text-white hover:bg-white/10'
+                    : 'text-white/50 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 shadow-[0_0_15px_rgba(0,0,0,0.5)] w-10 h-10'
                     }`}
                 >
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={isSkills ? "2.5" : "2"} strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={isCentered ? "2.5" : "2"} strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
                 </button>
 
                 {/* View Wrapper with Overridden CSS Variables */}
                 <div
-                  className={`flex-1 overflow-y-auto px-10 pb-10 ${isSkills ? 'pt-6' : 'pt-24'} custom-scrollbar text-white anime-theme-scope relative z-10`}
-                  style={{
+                  className={`flex-1 min-h-0 ${isSettings ? 'overflow-hidden' : 'overflow-y-auto'} ${isSkills ? 'px-10 pb-10 pt-6' : isSettings ? 'p-0' : isPlugins ? 'px-10 pb-10 pt-6' : 'px-16 pt-32 pb-16'} custom-scrollbar text-white anime-theme-scope relative z-10`}
+                  style={isSettings || isPlugins ? {
+                    // Dark theme vars — matches dark semi-transparent content area
                     "--bg": "transparent",
-                    "--card": isSkills ? "rgba(255, 255, 255, 0.05)" : "rgba(20, 22, 28, 0.6)",
-                    "--border": `rgba(${isSkills ? '0,225,255' : '255,255,255'}, ${isSkills ? '0.3' : '0.1'})`,
+                    "--card": "rgba(255, 255, 255, 0.05)",
+                    "--border": "rgba(255, 255, 255, 0.08)",
+                    "--accent": isPlugins ? "#f0b232" : "#7b8fb5",
+                    "--accent-foreground": "#ffffff",
+                    "--accent-subtle": isPlugins ? "rgba(240, 178, 50, 0.12)" : "rgba(123, 143, 181, 0.12)",
+                    "--accent-rgb": isPlugins ? "240, 178, 50" : "123, 143, 181",
+                    "--muted": "rgba(255, 255, 255, 0.45)",
+                    "--txt": "rgba(240, 238, 250, 0.92)",
+                    "--text": "rgba(240, 238, 250, 0.92)",
+                    "--danger": "#ef4444",
+                    "--ok": "#22c55e",
+                    "--warning": "#f59e0b",
+                    "--bg-hover": "rgba(255, 255, 255, 0.04)",
+                    "--bg-muted": "rgba(255, 255, 255, 0.03)",
+                    "--border-hover": "rgba(255, 255, 255, 0.15)",
+                  } as React.CSSProperties : {
+                    "--bg": "transparent",
+                    "--card": isSkills ? "rgba(255, 255, 255, 0.05)" : "transparent",
+                    "--border": isSkills ? "rgba(0,225,255,0.3)" : "rgba(255,255,255,0.08)",
                     "--accent": accentColor,
                     "--accent-foreground": isSkills ? "#000000" : "#ffffff",
-                    "--muted": isSkills ? "rgba(255, 255, 255, 0.5)" : "rgba(255, 255, 255, 0.4)",
+                    "--muted": "rgba(255, 255, 255, 0.55)",
                     "--txt": "#ffffff",
                   } as React.CSSProperties}
                 >
                   {tab === "skills" && <SkillsView />}
                   {tab === "character" && <CharacterView inModal={true} />}
+                  {tab === "settings" && <SettingsView inModal={true} />}
+                  {tab === "plugins" && <PluginsView inModal={true} />}
                 </div>
               </div>
             )}

@@ -49,9 +49,9 @@ function TagEditor({
   };
 
   return (
-    <div className="flex flex-col gap-1.5 h-[220px]">
-      <label className="font-semibold text-xs">{label}</label>
-      <div className="flex items-center gap-1.5">
+    <div className="flex flex-col gap-2 h-[220px]">
+      <label className="font-semibold text-[10px] uppercase tracking-[0.2em] text-[var(--muted)]">{label}</label>
+      <div className="flex items-center gap-2 border-b border-white/20 focus-within:border-[#d4af37] pb-1 transition-colors">
         <input
           type="text"
           value={inputValue}
@@ -63,26 +63,26 @@ function TagEditor({
               addItem();
             }
           }}
-          className="px-2 py-1 border border-[var(--border)] bg-[var(--card)] text-[11px] focus:border-[var(--accent)] focus:outline-none flex-1 min-w-0"
+          className="bg-transparent text-[11px] focus:outline-none flex-1 min-w-0 placeholder-white/30"
         />
         <button
           type="button"
-          className="text-[10px] px-1.5 py-0.5 border border-[var(--border)] bg-[var(--card)] cursor-pointer hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors"
+          className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 border border-white/20 rounded-none cursor-pointer hover:bg-white/5 hover:text-[#d4af37] hover:border-[#d4af37] transition-colors"
           onClick={addItem}
         >
           + add
         </button>
       </div>
-      <div className="flex-1 min-h-0 overflow-y-auto border border-[var(--border)] bg-[var(--bg-muted)] p-1.5 flex flex-wrap gap-1.5 content-start">
+      <div className="flex-1 min-h-0 overflow-y-auto char-subpanel flex flex-wrap gap-1.5 content-start">
         {items.map((item, i) => (
           <span
             key={i}
-            className="inline-flex items-center gap-1 px-2 py-0.5 border border-[var(--border)] bg-[var(--card)] text-[11px] h-fit"
+            className="char-tag"
           >
             {item}
             <button
               type="button"
-              className="text-[var(--muted)] hover:text-[var(--danger,#e74c3c)] cursor-pointer text-[10px] leading-none"
+              className="text-white/40 hover:text-[var(--danger,#e74c3c)] cursor-pointer text-[10px] leading-none transition-colors"
               onClick={() => removeItem(i)}
             >
               &times;
@@ -592,12 +592,12 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
   }, [handleFieldEdit]);
 
   /* ── Helpers ────────────────────────────────────────────────────── */
-  const sectionCls = "mt-6 p-6 border border-white/10 bg-[rgba(20,22,28,0.5)] rounded-2xl relative overflow-hidden backdrop-blur-md shadow-[0_4px_20px_rgba(0,0,0,0.2)]";
-  const inputCls = "px-3 py-2 bg-black/30 border border-white/10 rounded-lg text-xs focus:border-[var(--accent)] focus:bg-[var(--accent)]/5 focus:outline-none transition-all";
+  const sectionCls = "mt-6 char-panel";
+  const inputCls = "px-0 py-2 bg-transparent border-0 border-b border-white/20 rounded-none text-[13px] text-white/90 placeholder-white/30 focus:border-[#d4af37] focus:bg-transparent focus:outline-none transition-all";
   const textareaCls = `${inputCls} font-inherit resize-y leading-relaxed`;
-  const labelCls = "font-medium text-[11px] uppercase tracking-wider text-[var(--muted)] mb-1.5";
-  const hintCls = "text-[10px] text-[var(--muted)] mt-1";
-  const tinyBtnCls = "text-[10px] font-medium uppercase tracking-wider px-4 py-1.5 bg-white/5 border border-white/10 rounded-full cursor-pointer hover:bg-[var(--accent)] hover:text-black hover:border-[var(--accent)] transition-all disabled:opacity-40 shadow-[0_2px_10px_rgba(0,0,0,0.2)]";
+  const labelCls = "font-semibold text-[10px] uppercase tracking-[0.2em] text-[var(--muted)] mb-2";
+  const hintCls = "text-[10px] text-white/40 mt-1 uppercase tracking-wider font-mono";
+  const tinyBtnCls = "text-[9px] font-bold uppercase tracking-[0.1em] px-3 py-1 bg-transparent border border-white/20 rounded-none cursor-pointer hover:bg-white/5 hover:text-white hover:border-[#d4af37] transition-all disabled:opacity-40";
 
   /* Hidden file input for import */
   const fileInput = (
@@ -626,49 +626,53 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
   const userMinted = dropStatus?.userHasMinted === true;
 
   return (
-    <div className={`h-full flex gap-8 ${inModal ? "" : "max-w-6xl mx-auto"}`}>
+    <div className={`h-full flex flex-col ${inModal ? "" : "max-w-6xl mx-auto"}`}>
       {fileInput}
 
-      {/* ═══ LEFT SIDEBAR ═══ */}
-      <div className="w-64 shrink-0 flex flex-col gap-2 border-r border-white/5 pr-6 overflow-y-auto custom-scrollbar">
-        {(["identity", "style", "messages", "voice"] as const).map((tab) => {
-          const isActive = activeTab === tab;
-          return (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`text-left px-4 py-3 rounded-lg flex items-center gap-3 transition-all ${isActive
-                ? "bg-white/10 text-white border border-white/10 shadow-[0_0_15px_rgba(255,255,255,0.05)]"
-                : "text-white/40 hover:bg-white/5 hover:text-white/80 border border-transparent"
-                }`}
-            >
-              <div className={`w-1 h-3 rounded-full transition-colors ${isActive ? "bg-[#d4af37]" : "bg-transparent"}`} />
-              <span className="font-semibold tracking-wider uppercase text-xs">{tab}</span>
-            </button>
-          );
-        })}
+      {/* ═══ ELEGANT TOP NAV ═══ */}
+      <div className="flex items-center justify-between border-b border-white/10 pb-0 shrink-0 mb-6 relative">
+        <div className="flex items-center gap-10 px-2 h-14">
+          {(["identity", "style", "messages", "voice"] as const).map((tab) => {
+            const isActive = activeTab === tab;
+            return (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`relative h-full flex items-center transition-all uppercase tracking-[0.2em] text-[11px] font-bold ${isActive
+                  ? "text-white"
+                  : "text-white/40 hover:text-white/80"
+                  }`}
+              >
+                {tab}
+                {isActive && (
+                  <div className="absolute bottom-[-1px] left-0 right-0 h-[3px] bg-[#d4af37] shadow-[0_0_15px_rgba(212,175,55,0.8)]" />
+                )}
+              </button>
+            );
+          })}
+        </div>
 
-        {/* Save Bar inside sidebar for HSR layout */}
-        <div className="mt-auto pt-6 border-t border-white/5 pb-2">
-          <button
-            className="w-full btn text-[13px] py-3 px-6 !mt-0 !rounded-full shadow-[0_4px_15px_rgba(212,175,55,0.15)] whitespace-nowrap font-bold tracking-wide"
-            disabled={characterSaving}
-            onClick={() => void handleSaveCharacter()}
-            style={{ backgroundColor: '#d4af37', borderColor: '#d4af37', color: 'black' }}
-          >
-            {characterSaving ? "saving..." : "Save Online"}
-          </button>
+        {/* Action Panel */}
+        <div className="flex items-center gap-4 pr-2">
           {characterSaveSuccess && (
-            <div className="text-xs text-[var(--ok,#16a34a)] mt-3 text-center font-medium">{characterSaveSuccess}</div>
+            <span className="text-[10px] text-[var(--ok,#16a34a)] font-bold uppercase tracking-widest">{characterSaveSuccess}</span>
           )}
           {characterSaveError && (
-            <div className="text-xs text-[var(--danger,#e74c3c)] mt-3 text-center font-medium">{characterSaveError}</div>
+            <span className="text-[10px] text-[var(--danger,#e74c3c)] font-bold uppercase tracking-widest">{characterSaveError}</span>
           )}
+          <button
+            className="btn text-[10px] py-1.5 px-6 !rounded-none border border-[#d4af37]/30 hover:border-[#d4af37] hover:bg-[#d4af37]/10 transition-all font-bold tracking-[0.1em] uppercase"
+            disabled={characterSaving}
+            onClick={() => void handleSaveCharacter()}
+            style={{ backgroundColor: 'transparent', color: '#d4af37' }}
+          >
+            {characterSaving ? "saving..." : "SAVE ONLINE"}
+          </button>
         </div>
       </div>
 
-      {/* ═══ RIGHT CONTENT AREA ═══ */}
-      <div className="flex-1 overflow-y-auto pr-4 custom-scrollbar pb-20">
+      {/* ═══ CONTENT AREA ═══ */}
+      <div className="flex-1 overflow-y-auto pr-8 pl-2 custom-scrollbar pb-32">
 
         {activeTab === "identity" && (
           <div className="flex flex-col gap-6">
@@ -791,8 +795,6 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
 
             {/* ═══ SECTION 1: IDENTITY + PERSONALITY ═══ */}
             <div className={sectionCls}>
-              {/* Subtle top glare */}
-              <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent" />
               {/* Header row: title + action buttons */}
               <div className="flex items-center justify-between mb-6">
                 <div className="font-semibold text-lg tracking-wide flex items-center gap-3">
@@ -872,7 +874,7 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
 
                 {/* About me + adjectives + topics */}
                 <div className="mt-1 grid grid-cols-1 md:grid-cols-[1.2fr_1fr_1fr] gap-4">
-                  <div className="flex flex-col gap-1 h-[220px]">
+                  <div className="flex flex-col gap-1 h-[220px] char-subpanel">
                     <div className="flex items-center justify-between">
                       <label className={labelCls}>about me</label>
                       <button
@@ -937,7 +939,6 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
           <div className="flex flex-col gap-6">
             {/* ═══ SECTION 2: STYLE ═══ */}
             <div className={sectionCls}>
-              <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent" />
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-3">
                   <div className="font-semibold text-lg tracking-wide flex items-center gap-3">
@@ -960,7 +961,7 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
                 {(["all", "chat", "post"] as const).map((key) => {
                   const val = key === "all" ? styleAllText : key === "chat" ? styleChatText : stylePostText;
                   return (
-                    <div key={key} className="flex flex-col gap-1">
+                    <div key={key} className="flex flex-col gap-1 char-subpanel">
                       <label className="font-semibold text-[11px] text-[var(--muted)]">{key}</label>
                       <textarea
                         value={val}
@@ -981,7 +982,6 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
           <div className="flex flex-col gap-6">
             {/* ═══ SECTION 3: MESSAGE EXAMPLES ═══ */}
             <div className={sectionCls}>
-              <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent" />
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-3">
                   <div className="font-semibold text-lg tracking-wide flex items-center gap-3">
@@ -1010,7 +1010,7 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
                   </summary>
                   <div className="flex flex-col gap-2 mt-3">
                     {(d.messageExamples ?? []).map((convo, ci) => (
-                      <div key={ci} className="p-2.5 border border-[var(--border)] bg-[var(--bg-muted)]">
+                      <div key={ci} className="p-2.5 char-subpanel">
                         <div className="flex items-center justify-between mb-1.5">
                           <span className="text-[10px] text-[var(--muted)] font-semibold">conversation {ci + 1}</span>
                           <button

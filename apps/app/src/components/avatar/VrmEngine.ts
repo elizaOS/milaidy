@@ -99,20 +99,13 @@ export class VrmEngine {
   private interactionEnabled = false;
   private interactionMode: InteractionMode = "free";
   private cameraProfile: CameraProfile = "chat";
-  private userInteracting = false;
-  private userControlResumeAtMs = 0;
-  private static readonly USER_CONTROL_GRACE_MS = 2200;
 
   private handleControlStart = (): void => {
     if (!this.interactionEnabled) return;
-    this.userInteracting = true;
-    this.userControlResumeAtMs = 0;
   };
 
   private handleControlEnd = (): void => {
     if (!this.interactionEnabled) return;
-    this.userInteracting = false;
-    this.userControlResumeAtMs = this.nowMs() + VrmEngine.USER_CONTROL_GRACE_MS;
     if (this.camera) {
       this.baseCameraPosition.copy(this.camera.position);
     }
@@ -248,10 +241,6 @@ export class VrmEngine {
     this.interactionEnabled = enabled;
     if (this.controls) {
       this.controls.enabled = enabled;
-    }
-    if (!enabled) {
-      this.userInteracting = false;
-      this.userControlResumeAtMs = 0;
     }
   }
 
@@ -985,10 +974,6 @@ export class VrmEngine {
       vrm.scene.rotateY(Math.PI);
       vrm.scene.updateMatrixWorld(true);
     }
-  }
-
-  private nowMs(): number {
-    return typeof performance !== "undefined" ? performance.now() : Date.now();
   }
 
   private applyInteractionMode(controls: OrbitControls): void {

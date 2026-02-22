@@ -1568,9 +1568,9 @@ export class MiladyClient {
     }
   }
 
-  setUiLanguage(language: UiLanguage | string): void {
+  setUiLanguage = (language: UiLanguage | string): void => {
     this._uiLanguage = normalizeLanguage(language);
-  }
+  };
 
   private buildRequestHeaders(
     headers: HeadersInit | undefined,
@@ -3420,7 +3420,7 @@ export class MiladyClient {
       typeof response.lastChecked === "number" &&
       typeof response.canRequest === "boolean"
     ) {
-      return response as PermissionState;
+      return response as unknown as PermissionState;
     }
     return this.getPermission(id);
   }
