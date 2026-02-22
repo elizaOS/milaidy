@@ -30,6 +30,7 @@ export default defineConfig({
     maxWorkers: isCI ? ciWorkers : localWorkers,
     include: [
       "src/**/*.test.ts",
+      "scripts/**/*.test.ts",
       "apps/**/*.test.tsx",
       "test/format-error.test.ts",
     ],

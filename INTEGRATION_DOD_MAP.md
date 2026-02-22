@@ -1,7 +1,7 @@
 # Integration Map + Definition of Done (DoD)
 
 Timestamp: 2026-02-22 04:14:09 UTC  
-Repository: `milaidy` (`/Users/home/Desktop/shaws projects/milaidy-fresh`)
+Repository: `milady-ai/milady`
 
 ## 1) Repo Facts
 

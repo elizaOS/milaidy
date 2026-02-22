@@ -8,7 +8,7 @@ import {
   MANAGED_LABEL,
   parseInlineList,
   parseIssueDrafts,
-} from "../../scripts/sync-dod-gap-issues-lib.mjs";
+} from "./sync-dod-gap-issues-lib.mjs";
 
 const SAMPLE_REPORT = `
 # Integration Map
