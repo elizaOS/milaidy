@@ -18,8 +18,8 @@ Fix a critical keyboard interaction bug in the Secrets picker dialog.
 - [x] Add test coverage in app tests
 - [x] Run targeted tests
 - [x] Review diff and diffstat
-- [ ] Commit on fresh branch
-- [ ] Push branch and open PR to `develop`
+- [x] Commit on fresh branch
+- [x] Push branch and open PR to `develop`
 
 ## Verification Commands
 - `bun run --cwd apps/app test -- test/app/secrets-view.test.tsx`
@@ -32,3 +32,6 @@ Fix a critical keyboard interaction bug in the Secrets picker dialog.
   - Result: 1 test file passed, 1 test passed.
 - Diff review:
   - Scoped to a single key-handling condition in `SecretPicker` and one focused regression test.
+- Push/PR:
+  - Direct push to `origin` was blocked by repository permission (HTTP 403, read-only access).
+  - Pushed to writable `fork` remote and opened PR to upstream `develop`.
