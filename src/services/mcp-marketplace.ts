@@ -4,6 +4,8 @@
  * Fetches MCP servers from the official registry and manages local config.
  */
 
+import { createIntegrationTelemetrySpan } from "../diagnostics/integration-observability";
+
 const MCP_REGISTRY_BASE_URL = "https://registry.modelcontextprotocol.io";
 
 export interface McpRegistryServer {
@@ -95,20 +97,31 @@ export async function searchMcpMarketplace(
   limit = 30,
 ): Promise<{ results: McpMarketplaceSearchItem[] }> {
   const url = `${MCP_REGISTRY_BASE_URL}/v0/servers`;
+  const searchSpan = createIntegrationTelemetrySpan({
+    boundary: "mcp",
+    operation: "search_registry_servers",
+  });
 
   // The registry API doesn't have a search query param, so we fetch all and filter
   // If they add search later, we can update this
-  const resp = await fetch(url, {
-    headers: {
-      Accept: "application/json",
-    },
-  });
+  let resp: Response;
+  try {
+    resp = await fetch(url, {
+      headers: {
+        Accept: "application/json",
+      },
+    });
+  } catch (err) {
+    searchSpan.failure({ error: err });
+    throw err;
+  }
 
   if (!resp.ok) {
+    searchSpan.failure({ statusCode: resp.status, errorKind: "http_error" });
     throw new Error(`Registry API error: ${resp.status} ${resp.statusText}`);
   }
 
-  const data = (await resp.json()) as {
+  let data: {
     servers: Array<{
       server: McpRegistryServer;
       _meta?: {
@@ -120,6 +133,23 @@ export async function searchMcpMarketplace(
     }>;
     metadata?: { nextCursor?: string; count?: number };
   };
+  try {
+    data = (await resp.json()) as {
+      servers: Array<{
+        server: McpRegistryServer;
+        _meta?: {
+          "io.modelcontextprotocol.registry/official"?: {
+            isLatest?: boolean;
+            publishedAt?: string;
+          };
+        };
+      }>;
+      metadata?: { nextCursor?: string; count?: number };
+    };
+  } catch (err) {
+    searchSpan.failure({ error: err, statusCode: resp.status });
+    throw err;
+  }
 
   const results: McpMarketplaceSearchItem[] = [];
   const seenNames = new Set<string>();
@@ -183,6 +213,7 @@ export async function searchMcpMarketplace(
     if (results.length >= limit) break;
   }
 
+  searchSpan.success({ statusCode: resp.status });
   return { results };
 }
 
@@ -193,16 +224,37 @@ export async function getMcpServerDetails(
   name: string,
 ): Promise<McpRegistryServer | null> {
   const url = `${MCP_REGISTRY_BASE_URL}/v0/servers/${encodeURIComponent(name)}`;
-  const resp = await fetch(url, {
-    headers: { Accept: "application/json" },
+  const detailsSpan = createIntegrationTelemetrySpan({
+    boundary: "mcp",
+    operation: "get_registry_server_details",
   });
+  let resp: Response;
+  try {
+    resp = await fetch(url, {
+      headers: { Accept: "application/json" },
+    });
+  } catch (err) {
+    detailsSpan.failure({ error: err });
+    throw err;
+  }
 
   if (!resp.ok) {
-    if (resp.status === 404) return null;
+    if (resp.status === 404) {
+      detailsSpan.success({ statusCode: resp.status });
+      return null;
+    }
+    detailsSpan.failure({ statusCode: resp.status, errorKind: "http_error" });
     throw new Error(`Registry API error: ${resp.status}`);
   }
 
-  const data = (await resp.json()) as { server: McpRegistryServer };
+  let data: { server: McpRegistryServer };
+  try {
+    data = (await resp.json()) as { server: McpRegistryServer };
+  } catch (err) {
+    detailsSpan.failure({ error: err, statusCode: resp.status });
+    throw err;
+  }
+  detailsSpan.success({ statusCode: resp.status });
   return data.server;
 }
 

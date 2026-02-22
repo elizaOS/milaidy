@@ -1,6 +1,7 @@
 import type http from "node:http";
 import { logger } from "@elizaos/core";
 import type { MiladyConfig } from "../config/config";
+import { createIntegrationTelemetrySpan } from "../diagnostics/integration-observability";
 import type { RouteHelpers, RouteRequestMeta } from "./route-helpers";
 import {
   fetchEvmBalances,
@@ -96,25 +97,37 @@ export async function handleWalletRoutes(
     const result: WalletBalancesResponse = { evm: null, solana: null };
 
     if (addresses.evmAddress && alchemyKey) {
+      const evmBalancesSpan = createIntegrationTelemetrySpan({
+        boundary: "wallet",
+        operation: "fetch_evm_balances",
+      });
       try {
         const chains = await deps.fetchEvmBalances(
           addresses.evmAddress,
           alchemyKey,
         );
         result.evm = { address: addresses.evmAddress, chains };
+        evmBalancesSpan.success();
       } catch (err) {
+        evmBalancesSpan.failure({ error: err });
         logger.warn(`[wallet] EVM balance fetch failed: ${err}`);
       }
     }
 
     if (addresses.solanaAddress && heliusKey) {
+      const solanaBalancesSpan = createIntegrationTelemetrySpan({
+        boundary: "wallet",
+        operation: "fetch_solana_balances",
+      });
       try {
         const solanaData = await deps.fetchSolanaBalances(
           addresses.solanaAddress,
           heliusKey,
         );
         result.solana = { address: addresses.solanaAddress, ...solanaData };
+        solanaBalancesSpan.success();
       } catch (err) {
+        solanaBalancesSpan.failure({ error: err });
         logger.warn(`[wallet] Solana balance fetch failed: ${err}`);
       }
     }
@@ -132,21 +145,33 @@ export async function handleWalletRoutes(
     const result: WalletNftsResponse = { evm: [], solana: null };
 
     if (addresses.evmAddress && alchemyKey) {
+      const evmNftsSpan = createIntegrationTelemetrySpan({
+        boundary: "wallet",
+        operation: "fetch_evm_nfts",
+      });
       try {
         result.evm = await deps.fetchEvmNfts(addresses.evmAddress, alchemyKey);
+        evmNftsSpan.success();
       } catch (err) {
+        evmNftsSpan.failure({ error: err });
         logger.warn(`[wallet] EVM NFT fetch failed: ${err}`);
       }
     }
 
     if (addresses.solanaAddress && heliusKey) {
+      const solanaNftsSpan = createIntegrationTelemetrySpan({
+        boundary: "wallet",
+        operation: "fetch_solana_nfts",
+      });
       try {
         const nfts = await deps.fetchSolanaNfts(
           addresses.solanaAddress,
           heliusKey,
         );
         result.solana = { nfts };
+        solanaNftsSpan.success();
       } catch (err) {
+        solanaNftsSpan.failure({ error: err });
         logger.warn(`[wallet] Solana NFT fetch failed: ${err}`);
       }
     }
