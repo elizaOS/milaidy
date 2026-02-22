@@ -17,11 +17,13 @@ Patch a critical RCE hardening gap around `/api/terminal/run`.
 - [x] Enforce helper in terminal run route
 - [x] Add focused auth regression tests
 - [x] Run targeted tests
-- [ ] Review final diff/diffstat
-- [ ] Commit and open PR
+- [x] Review final diff/diffstat
+- [x] Commit and open PR
 
 ## Verification
 - `bunx vitest run src/api/server.terminal-run-auth.test.ts`
 
 ## Review Notes
 - Targeted test result: pass (`7` tests).
+- Direct push to `origin` is blocked by upstream permissions (HTTP 403).
+- Patch branch was pushed to writable `fork` and PR opened to upstream `develop`.
