@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import type { TxService } from "./tx-service";
 import { DropService } from "./drop-service";
+import type { TxService } from "./tx-service";
 
 interface MockTxService {
   address: string;

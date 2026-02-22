@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import type { TxService } from "./tx-service";
 import { RegistryService } from "./registry-service";
+import type { TxService } from "./tx-service";
 
 interface MockTxService {
   address: string;
@@ -111,11 +111,9 @@ describe("registry-service", () => {
 
     const txHash = await service.updateTokenURI("ipfs://updated");
 
-    expect(contract.updateTokenURI).toHaveBeenCalledWith(
-      9,
-      "ipfs://updated",
-      { nonce: 99 },
-    );
+    expect(contract.updateTokenURI).toHaveBeenCalledWith(9, "ipfs://updated", {
+      nonce: 99,
+    });
     expect(wait).toHaveBeenCalledTimes(1);
     expect(txHash).toBe("0xupdate");
   });

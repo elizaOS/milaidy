@@ -38,15 +38,17 @@ describe("tx-service", () => {
 
   it("throws when waiting for a transaction times out", async () => {
     const service = createService();
-    const provider = (service as unknown as {
-      provider: {
-        waitForTransaction: (
-          txHash: string,
-          confirmations: number,
-          timeoutMs: number,
-        ) => Promise<ethers.TransactionReceipt | null>;
-      };
-    }).provider;
+    const provider = (
+      service as unknown as {
+        provider: {
+          waitForTransaction: (
+            txHash: string,
+            confirmations: number,
+            timeoutMs: number,
+          ) => Promise<ethers.TransactionReceipt | null>;
+        };
+      }
+    ).provider;
 
     vi.spyOn(provider, "waitForTransaction").mockResolvedValue(null);
 
@@ -57,15 +59,17 @@ describe("tx-service", () => {
 
   it("throws when a mined transaction reverted", async () => {
     const service = createService();
-    const provider = (service as unknown as {
-      provider: {
-        waitForTransaction: (
-          txHash: string,
-          confirmations: number,
-          timeoutMs: number,
-        ) => Promise<ethers.TransactionReceipt | null>;
-      };
-    }).provider;
+    const provider = (
+      service as unknown as {
+        provider: {
+          waitForTransaction: (
+            txHash: string,
+            confirmations: number,
+            timeoutMs: number,
+          ) => Promise<ethers.TransactionReceipt | null>;
+        };
+      }
+    ).provider;
 
     const revertedReceipt = {
       status: 0,
@@ -82,15 +86,17 @@ describe("tx-service", () => {
 
   it("returns the receipt for successful transactions", async () => {
     const service = createService();
-    const provider = (service as unknown as {
-      provider: {
-        waitForTransaction: (
-          txHash: string,
-          confirmations: number,
-          timeoutMs: number,
-        ) => Promise<ethers.TransactionReceipt | null>;
-      };
-    }).provider;
+    const provider = (
+      service as unknown as {
+        provider: {
+          waitForTransaction: (
+            txHash: string,
+            confirmations: number,
+            timeoutMs: number,
+          ) => Promise<ethers.TransactionReceipt | null>;
+        };
+      }
+    ).provider;
 
     const receipt = {
       status: 1,
@@ -100,6 +106,8 @@ describe("tx-service", () => {
 
     vi.spyOn(provider, "waitForTransaction").mockResolvedValue(receipt);
 
-    await expect(service.waitForTransaction("0xsuccess")).resolves.toBe(receipt);
+    await expect(service.waitForTransaction("0xsuccess")).resolves.toBe(
+      receipt,
+    );
   });
 });
