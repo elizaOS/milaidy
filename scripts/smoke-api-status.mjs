@@ -12,70 +12,98 @@
  *   MILADY_DEPLOY_BASE_URLS=https://milady.ai,https://app.milady.ai node scripts/smoke-api-status.mjs
  */
 
-const argvBases = process.argv
-  .slice(2)
-  .map((value) => value.trim())
-  .filter(Boolean);
-const envList =
-  process.env.MILADY_DEPLOY_BASE_URLS?.split(",")
-    .map((value) => value.trim())
-    .filter(Boolean) ?? [];
-const legacyEnv = process.env.MILADY_DEPLOY_BASE_URL?.trim();
-if (legacyEnv) envList.push(legacyEnv);
-const bases = argvBases.length > 0 ? argvBases : envList;
+import { pathToFileURL } from "node:url";
 
-if (bases.length === 0) {
-  console.error(
-    "[smoke-api-status] Missing base URLs. Pass args or set MILADY_DEPLOY_BASE_URLS.",
-  );
-  process.exit(2);
+const DEFAULT_TIMEOUT_MS = 10_000;
+
+export function resolveBaseUrls(
+  argv = process.argv.slice(2),
+  env = process.env,
+) {
+  const argvBases = argv.map((value) => value.trim()).filter(Boolean);
+  const envList =
+    env.MILADY_DEPLOY_BASE_URLS?.split(",")
+      .map((value) => value.trim())
+      .filter(Boolean) ?? [];
+  const legacyEnv = env.MILADY_DEPLOY_BASE_URL?.trim();
+  if (legacyEnv) envList.push(legacyEnv);
+  return argvBases.length > 0 ? argvBases : envList;
 }
 
-const timeoutMs = 10_000;
-let hasFailure = false;
+export async function runSmokeApiStatus(options = {}) {
+  const {
+    argv = process.argv.slice(2),
+    env = process.env,
+    fetchImpl = globalThis.fetch,
+    timeoutMs = DEFAULT_TIMEOUT_MS,
+    log = console.log,
+    error = console.error,
+  } = options;
 
-for (const base of bases) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const url = new URL("/api/status", base).toString();
-    const res = await fetch(url, {
-      method: "GET",
-      headers: { Accept: "application/json" },
-      signal: controller.signal,
-    });
-    if (!res.ok) {
-      console.error(
-        `[smoke-api-status] FAIL ${url} returned HTTP ${res.status} ${res.statusText}`,
-      );
+  const bases = resolveBaseUrls(argv, env);
+  if (bases.length === 0) {
+    error(
+      "[smoke-api-status] Missing base URLs. Pass args or set MILADY_DEPLOY_BASE_URLS.",
+    );
+    return 2;
+  }
+
+  let hasFailure = false;
+
+  for (const base of bases) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const url = new URL("/api/status", base).toString();
+      const res = await fetchImpl(url, {
+        method: "GET",
+        headers: { Accept: "application/json" },
+        signal: controller.signal,
+      });
+      if (!res.ok) {
+        error(
+          `[smoke-api-status] FAIL ${url} returned HTTP ${res.status} ${res.statusText}`,
+        );
+        hasFailure = true;
+        continue;
+      }
+
+      const body = await res.json().catch(() => null);
+      if (!body || typeof body.state !== "string") {
+        error(
+          `[smoke-api-status] FAIL ${url} responded without expected status payload.`,
+        );
+        hasFailure = true;
+        continue;
+      }
+
+      log(`[smoke-api-status] OK ${url} state=${body.state}`);
+    } catch (err) {
+      const timedOut = controller.signal.aborted;
+      const msg = err instanceof Error ? err.message : String(err);
+      if (timedOut) {
+        error(`[smoke-api-status] FAIL ${base} timed out after ${timeoutMs}ms`);
+      } else {
+        error(`[smoke-api-status] FAIL ${base} ${msg}`);
+      }
       hasFailure = true;
-      continue;
+    } finally {
+      clearTimeout(timer);
     }
+  }
 
-    const body = await res.json().catch(() => null);
-    if (!body || typeof body.state !== "string") {
-      console.error(
-        `[smoke-api-status] FAIL ${url} responded without expected status payload.`,
-      );
-      hasFailure = true;
-      continue;
-    }
+  return hasFailure ? 1 : 0;
+}
 
-    console.log(`[smoke-api-status] OK ${url} state=${body.state}`);
-  } catch (err) {
-    const timedOut = controller.signal.aborted;
-    const msg = err instanceof Error ? err.message : String(err);
-    if (timedOut) {
-      console.error(
-        `[smoke-api-status] FAIL ${base} timed out after ${timeoutMs}ms`,
-      );
-    } else {
-      console.error(`[smoke-api-status] FAIL ${base} ${msg}`);
-    }
-    hasFailure = true;
-  } finally {
-    clearTimeout(timer);
+const isMain = (() => {
+  const entry = process.argv[1];
+  if (!entry) return false;
+  return import.meta.url === pathToFileURL(entry).href;
+})();
+
+if (isMain) {
+  const exitCode = await runSmokeApiStatus();
+  if (exitCode !== 0) {
+    process.exit(exitCode);
   }
 }
-
-if (hasFailure) process.exit(1);

@@ -27,6 +27,7 @@ jobs:
   smoke-api-status:
     name: Smoke /api/status on deploy origins
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     env:
       MARKETING_ORIGIN: ${{ github.event.inputs.marketing_origin || github.event.client_payload.marketing_origin || 'https://milady.ai' }}
       APP_ORIGIN: ${{ github.event.inputs.app_origin || github.event.client_payload.app_origin || 'https://app.milady.ai' }}
@@ -45,7 +46,9 @@ jobs:
           bun-version: latest
 
       - name: Run deploy smoke checks
-        run: bun run smoke:api-status -- "$MARKETING_ORIGIN" "$APP_ORIGIN"
+        env:
+          MILADY_DEPLOY_BASE_URLS: ${{ env.MARKETING_ORIGIN }},${{ env.APP_ORIGIN }}
+        run: bun run smoke:api-status
 
       - name: Summarize checked origins
         if: always()
@@ -54,3 +57,4 @@ jobs:
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "- Marketing origin: \`$MARKETING_ORIGIN\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- App origin: \`$APP_ORIGIN\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Runbook: \`docs/DEPLOY_ORIGIN_SMOKE.md\`" >> "$GITHUB_STEP_SUMMARY"
