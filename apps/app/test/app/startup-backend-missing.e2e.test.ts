@@ -1,0 +1,112 @@
+// @vitest-environment jsdom
+
+import React, { useEffect } from "react";
+import TestRenderer, { act } from "react-test-renderer";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const { mockClient } = vi.hoisted(() => ({
+  mockClient: {
+    hasToken: vi.fn(() => false),
+    setToken: vi.fn(),
+    getAuthStatus: vi.fn(async () => ({
+      required: false,
+      pairingEnabled: false,
+      expiresAt: null,
+    })),
+    getOnboardingStatus: vi.fn(async () => ({ complete: true })),
+    disconnectWs: vi.fn(),
+  },
+}));
+
+vi.mock("../../src/api-client", () => ({
+  client: mockClient,
+  SkillScanReportSummary: {},
+}));
+
+import { AppProvider, useApp } from "../../src/AppContext";
+
+interface StartupSnapshot {
+  onboardingLoading: boolean;
+  authRequired: boolean;
+  startupError: ReturnType<typeof useApp>["startupError"];
+}
+
+function Probe(props: { onChange: (snapshot: StartupSnapshot) => void }) {
+  const app = useApp();
+  useEffect(() => {
+    props.onChange({
+      onboardingLoading: app.onboardingLoading,
+      authRequired: app.authRequired,
+      startupError: app.startupError,
+    });
+  }, [
+    app.onboardingLoading,
+    app.authRequired,
+    app.startupError,
+    props.onChange,
+  ]);
+  return null;
+}
+
+describe("startup failure: backend missing", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    Object.assign(document.documentElement, { setAttribute: vi.fn() });
+    mockClient.hasToken.mockReturnValue(false);
+    mockClient.disconnectWs.mockImplementation(() => {});
+    mockClient.getAuthStatus.mockResolvedValue({
+      required: false,
+      pairingEnabled: false,
+      expiresAt: null,
+    });
+    const err = Object.assign(
+      new Error("Backend API routes are unavailable on this origin"),
+      {
+        kind: "http",
+        status: 404,
+        path: "/api/onboarding/status",
+      },
+    );
+    mockClient.getOnboardingStatus.mockRejectedValue(err);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("stops loading and surfaces backend-unreachable instead of spinning forever", async () => {
+    let latest: StartupSnapshot | null = null;
+    let tree: TestRenderer.ReactTestRenderer | null = null;
+
+    await act(async () => {
+      tree = TestRenderer.create(
+        React.createElement(
+          AppProvider,
+          null,
+          React.createElement(Probe, {
+            onChange: (snapshot) => {
+              latest = snapshot;
+            },
+          }),
+        ),
+      );
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(31_000);
+    });
+
+    expect(latest).not.toBeNull();
+    expect(latest?.onboardingLoading).toBe(false);
+    expect(latest?.authRequired).toBe(false);
+    expect(latest?.startupError?.reason).toBe("backend-unreachable");
+    expect(latest?.startupError?.phase).toBe("starting-backend");
+    expect(latest?.startupError?.status).toBe(404);
+    expect(latest?.startupError?.path).toBe("/api/onboarding/status");
+    expect(mockClient.getOnboardingStatus).toHaveBeenCalled();
+
+    await act(async () => {
+      tree?.unmount();
+    });
+  });
+});

@@ -38,6 +38,24 @@ let currentRuntime: AgentRuntime | null = null;
 
 /** The API server's `updateRuntime` handle (set after startup). */
 let apiUpdateRuntime: ((rt: AgentRuntime) => void) | null = null;
+/** API server startup diagnostics updater (set after startup). */
+let apiUpdateStartup:
+  | ((update: {
+      phase?: string;
+      attempt?: number;
+      lastError?: string;
+      lastErrorAt?: number;
+      nextRetryAt?: number;
+      state?:
+        | "not_started"
+        | "starting"
+        | "running"
+        | "paused"
+        | "stopped"
+        | "restarting"
+        | "error";
+    }) => void)
+  | null = null;
 
 /** Guards against concurrent restart attempts (bun --watch + API restart). */
 let isRestarting = false;
@@ -49,6 +67,9 @@ let isShuttingDown = false;
 let runtimeBootAttempt = 0;
 let runtimeBootInProgress = false;
 let runtimeBootTimer: ReturnType<typeof setTimeout> | null = null;
+let runtimeBootFirstFailureAt: number | null = null;
+const RUNTIME_BOOT_ERROR_ATTEMPT_THRESHOLD = 3;
+const RUNTIME_BOOT_ERROR_DURATION_MS = 2 * 60_000;
 
 function formatError(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
@@ -83,6 +104,15 @@ async function bootstrapRuntime(reason: string): Promise<void> {
   if (isShuttingDown || isRestarting || runtimeBootInProgress) return;
   runtimeBootInProgress = true;
   const bootstrapStart = Date.now();
+  const attempt = runtimeBootAttempt + 1;
+  apiUpdateStartup?.({
+    phase: "runtime-bootstrap",
+    attempt,
+    lastError: undefined,
+    lastErrorAt: undefined,
+    nextRetryAt: undefined,
+    state: "starting",
+  });
 
   try {
     logger.info(`[milady] Runtime bootstrap starting (${reason})`);
@@ -103,14 +133,38 @@ async function bootstrapRuntime(reason: string): Promise<void> {
       apiUpdateRuntime(rt);
     }
     runtimeBootAttempt = 0;
+    runtimeBootFirstFailureAt = null;
+    apiUpdateStartup?.({
+      phase: "running",
+      attempt: 0,
+      lastError: undefined,
+      lastErrorAt: undefined,
+      nextRetryAt: undefined,
+      state: "running",
+    });
     logger.info(
       `[milady] Runtime ready — agent: ${agentName} (total: ${Date.now() - bootstrapStart}ms)`,
     );
   } catch (err) {
+    const now = Date.now();
     runtimeBootAttempt += 1;
+    if (!runtimeBootFirstFailureAt) {
+      runtimeBootFirstFailureAt = now;
+    }
     const delayMs = nextRetryDelayMs(runtimeBootAttempt);
+    const shouldMarkError =
+      runtimeBootAttempt >= RUNTIME_BOOT_ERROR_ATTEMPT_THRESHOLD ||
+      now - runtimeBootFirstFailureAt >= RUNTIME_BOOT_ERROR_DURATION_MS;
+    apiUpdateStartup?.({
+      phase: shouldMarkError ? "runtime-error" : "runtime-retry",
+      attempt: runtimeBootAttempt,
+      lastError: formatError(err),
+      lastErrorAt: now,
+      nextRetryAt: now + delayMs,
+      state: shouldMarkError ? "error" : "starting",
+    });
     logger.error(
-      `[milady] Runtime bootstrap failed (${formatError(err)}). Retrying in ${Math.round(delayMs / 1000)}s`,
+      `[milady] Runtime bootstrap failed (${formatError(err)}). Retrying in ${Math.round(delayMs / 1000)}s${shouldMarkError ? " (UI state set to error)" : ""}`,
     );
     scheduleRuntimeBootstrap(delayMs, "retry");
   } finally {
@@ -179,6 +233,14 @@ async function handleRestart(reason?: string): Promise<void> {
     logger.info(
       `[milady] Restart requested${reason ? ` (${reason})` : ""} — bouncing runtime…`,
     );
+    apiUpdateStartup?.({
+      phase: "runtime-restart",
+      attempt: 0,
+      lastError: undefined,
+      lastErrorAt: undefined,
+      nextRetryAt: undefined,
+      state: "starting",
+    });
 
     const rt = await createRuntime();
     const agentName = rt.character.name ?? "Milady";
@@ -233,7 +295,11 @@ async function main() {
   // 1. Start the API server first (no runtime yet) so the UI can connect
   //    immediately while the heavier agent runtime boots in the background.
   const apiStart = Date.now();
-  const { port: actualPort, updateRuntime } = await startApiServer({
+  const {
+    port: actualPort,
+    updateRuntime,
+    updateStartup,
+  } = await startApiServer({
     port,
     initialAgentState: "starting",
     onRestart: async () => {
@@ -242,6 +308,15 @@ async function main() {
     },
   });
   apiUpdateRuntime = updateRuntime;
+  apiUpdateStartup = updateStartup;
+  apiUpdateStartup({
+    phase: "api-ready",
+    attempt: 0,
+    lastError: undefined,
+    lastErrorAt: undefined,
+    nextRetryAt: undefined,
+    state: "starting",
+  });
   const apiReady = Date.now();
   // Use console.log for startup timing to bypass logger filtering
   console.log(
