@@ -31,6 +31,7 @@ export default defineConfig({
     include: [
       "src/**/*.test.ts",
       "scripts/**/*.test.ts",
+      "apps/**/*.test.ts",
       "apps/**/*.test.tsx",
       "test/format-error.test.ts",
     ],
