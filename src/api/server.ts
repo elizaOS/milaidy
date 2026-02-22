@@ -4082,7 +4082,7 @@ function applyCors(
     );
     res.setHeader(
       "Access-Control-Allow-Headers",
-      "Content-Type, Authorization, X-Milady-Token, X-Api-Key, X-Milady-Export-Token, X-Milady-Client-Id",
+      "Content-Type, Authorization, X-Milady-Token, X-Api-Key, X-Milady-Export-Token, X-Milady-Client-Id, X-Milady-Terminal-Token",
     );
   }
 
@@ -11693,10 +11693,7 @@ async function handleRequest(
       command?: string;
       clientId?: unknown;
       terminalToken?: string;
-    }>(
-      req,
-      res,
-    );
+    }>(req, res);
     if (!body) return;
 
     const terminalRejection = resolveTerminalRunRejection(req, body);
