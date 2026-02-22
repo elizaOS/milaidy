@@ -36,7 +36,6 @@ const emptyForm: TriggerFormState = {
   enabled: true,
 };
 
-const accentFg: React.CSSProperties = { color: "var(--accent-foreground)" };
 
 function scheduleLabel(t: TriggerSummary): string {
   if (t.triggerType === "interval") return `Every ${formatDurationMs(t.intervalMs)}`;
@@ -172,8 +171,7 @@ export function TriggersView() {
         <div className="flex items-center justify-between gap-2 mb-3">
           <h2 className="text-sm font-bold">Trigger Health</h2>
           <button
-            className="px-2.5 py-1 text-[11px] border border-accent bg-accent hover:bg-accent-hover cursor-pointer"
-            style={accentFg}
+            className="btn btn-ghost text-[11px] py-1"
             onClick={() => { void loadTriggerHealth(); void loadTriggers(); }}
           >
             Refresh
@@ -305,15 +303,14 @@ export function TriggersView() {
 
           <div className="flex gap-2 pt-1">
             <button
-              className="px-4 py-1.5 text-sm border border-accent bg-accent hover:bg-accent-hover disabled:opacity-40 cursor-pointer"
-              style={accentFg}
+              className="btn text-sm py-1.5"
               disabled={triggersSaving}
               onClick={() => { void onSubmit(); }}
             >
               {triggersSaving ? "Saving…" : editingId ? "Save Changes" : "Create Trigger"}
             </button>
             {editingId && (
-              <button className="px-4 py-1.5 text-sm border border-border hover:border-accent cursor-pointer" onClick={clearForm}>
+              <button className="btn btn-ghost text-sm py-1.5" onClick={clearForm}>
                 Cancel
               </button>
             )}
@@ -365,26 +362,25 @@ export function TriggersView() {
                     {/* Actions */}
                     <div className="flex gap-1 flex-shrink-0 flex-wrap justify-end">
                       <button
-                        className="px-2 py-1 text-[11px] border border-accent bg-accent hover:bg-accent-hover cursor-pointer"
-                        style={accentFg}
+                        className="btn text-[11px] py-1"
                         onClick={() => { setEditingId(trigger.id); setForm(formFromTrigger(trigger)); setFormError(null); window.scrollTo({ top: 0, behavior: "smooth" }); }}
                       >
                         Edit
                       </button>
                       <button
-                        className="px-2 py-1 text-[11px] border border-border hover:border-accent cursor-pointer"
+                        className="btn btn-ghost text-[11px] py-1"
                         onClick={() => { void updateTrigger(trigger.id, { enabled: !trigger.enabled }); }}
                       >
                         {trigger.enabled ? "Disable" : "Enable"}
                       </button>
                       <button
-                        className="px-2 py-1 text-[11px] border border-border hover:border-accent cursor-pointer"
+                        className="btn btn-ghost text-[11px] py-1"
                         onClick={() => { void runTriggerNow(trigger.id); }}
                       >
                         Run now
                       </button>
                       <button
-                        className="px-2 py-1 text-[11px] border border-border hover:border-accent cursor-pointer"
+                        className="btn btn-ghost text-[11px] py-1"
                         onClick={() => {
                           if (selectedRunsId === trigger.id) { setSelectedRunsId(null); }
                           else { setSelectedRunsId(trigger.id); void loadTriggerRuns(trigger.id); }
@@ -393,7 +389,7 @@ export function TriggersView() {
                         {selectedRunsId === trigger.id ? "Hide runs" : "Runs"}
                       </button>
                       <button
-                        className="px-2 py-1 text-[11px] border border-border hover:border-danger text-danger cursor-pointer"
+                        className="btn btn-danger text-[11px] py-1"
                         onClick={() => { if (confirm(`Delete "${trigger.displayName}"?`)) void deleteTrigger(trigger.id); }}
                       >
                         Delete

@@ -141,7 +141,7 @@ export function CustomActionsView() {
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-bold text-txt">Custom Actions</h1>
         <div className="flex items-center gap-2">
-          <label className="px-3 py-1.5 text-sm border border-border bg-surface text-muted rounded cursor-pointer hover:bg-card transition-colors">
+          <label className="btn text-xs py-1.5 cursor-pointer !bg-transparent !border-[rgba(255,255,255,0.12)] !text-[rgba(255,255,255,0.55)] hover:!text-white hover:!border-[var(--s-accent,var(--accent))]">
             Import
             <input
               type="file"
@@ -153,13 +153,13 @@ export function CustomActionsView() {
           <button
             onClick={handleExport}
             disabled={actions.length === 0}
-            className="px-3 py-1.5 text-sm border border-border bg-surface text-muted rounded hover:bg-card transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="btn text-xs py-1.5 !bg-transparent !border-[rgba(255,255,255,0.12)] !text-[rgba(255,255,255,0.55)] hover:!text-white hover:!border-[var(--s-accent,var(--accent))] disabled:opacity-30 disabled:cursor-not-allowed"
           >
             Export
           </button>
           <button
             onClick={handleCreate}
-            className="px-3 py-1.5 text-sm border border-accent bg-accent text-txt rounded hover:bg-accent/80 transition-colors"
+            className="btn text-xs py-1.5"
           >
             Create Action
           </button>
@@ -188,7 +188,7 @@ export function CustomActionsView() {
           {!search && (
             <button
               onClick={handleCreate}
-              className="px-4 py-2 text-sm border border-accent bg-accent text-txt rounded hover:bg-accent/80 transition-colors"
+              className="btn text-xs py-1.5"
             >
               Create Action
             </button>
@@ -258,7 +258,7 @@ export function CustomActionsView() {
                       e.stopPropagation();
                       handleEdit(action);
                     }}
-                    className="px-2 py-1 text-xs border border-border bg-surface text-muted rounded hover:bg-card transition-colors"
+                    className="btn text-xs py-0.5 !bg-transparent !border-[rgba(255,255,255,0.12)] !text-[rgba(255,255,255,0.55)] hover:!text-white hover:!border-[var(--s-accent,var(--accent))]"
                   >
                     Edit
                   </button>
@@ -267,7 +267,7 @@ export function CustomActionsView() {
                       e.stopPropagation();
                       handleDelete(action.id, action.name);
                     }}
-                    className="px-2 py-1 text-xs border border-border bg-surface text-danger rounded hover:bg-card transition-colors"
+                    className="btn text-xs py-0.5 !bg-transparent !border-[rgba(255,255,255,0.12)] !text-danger hover:!border-danger"
                   >
                     Delete
                   </button>

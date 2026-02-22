@@ -1578,7 +1578,13 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
   const renderPluginsGameModal = () => {
     const sp = selectedPlugin;
     const fallbackIcon = mode === "connectors" ? "🔌" : "🧩";
-    const singularLabel = label.toLowerCase().endsWith("s") ? label.toLowerCase().slice(0, -1) : label.toLowerCase();
+    const pluralLabel = mode === "connectors" ? "channels" : label.toLowerCase();
+    const singularLabel = mode === "connectors"
+      ? "channel"
+      : label.toLowerCase().endsWith("s")
+        ? label.toLowerCase().slice(0, -1)
+        : label.toLowerCase();
+    const sectionTitle = mode === "connectors" ? "Channels" : label;
     const rootClass = `plugins-game-modal ${isNarrow ? "is-narrow" : ""} ${
       isNarrow && mobilePane === "list" ? "is-mobile-list" : isNarrow ? "is-mobile-detail" : ""
     }`;
@@ -1593,6 +1599,9 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
       : pluginStatusFilter === "enabled"
         ? "Enabled"
         : "All";
+    const sectionMeta = mode === "connectors"
+      ? `${visiblePlugins.length} visible`
+      : `${visiblePlugins.length} visible · ${activeFilterLabel}`;
 
     const handleGameFilterChange = (value: string) => {
       if (value.startsWith("status:")) {
@@ -1615,8 +1624,8 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
       <div className={rootClass} data-plugins-game-modal>
         <section className={`plugins-game-list-panel ${showListPane ? "" : "is-hidden"}`} data-pane="list">
           <div className="plugins-game-list-head">
-            <div className="plugins-game-section-title">{label}</div>
-            <div className="plugins-game-section-meta">{visiblePlugins.length} visible · {activeFilterLabel}</div>
+            <div className="plugins-game-section-title">{sectionTitle}</div>
+            <div className="plugins-game-section-meta">{sectionMeta}</div>
           </div>
 
           <div className="plugins-game-list-search">
@@ -1624,7 +1633,7 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
               <input
                 type="text"
                 className="plugins-game-search-input"
-                placeholder={`Search ${label.toLowerCase()}...`}
+                placeholder={`Search ${pluralLabel}...`}
                 value={pluginSearch}
                 onChange={(e) => setState("pluginSearch", e.target.value)}
               />
@@ -1644,7 +1653,7 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
                 className="plugins-game-filter-select"
                 value={gameFilterValue}
                 onChange={(e) => handleGameFilterChange(e.target.value)}
-                aria-label={`Filter ${label.toLowerCase()}`}
+                aria-label={`Filter ${pluralLabel}`}
               >
                 <option value="status:all">Filter: All</option>
                 <option value="status:enabled">Filter: Enabled</option>
@@ -1669,7 +1678,7 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
           <div className="plugins-game-list-scroll">
             {visiblePlugins.length === 0 ? (
               <div className="plugins-game-list-empty">
-                {pluginSearch ? `No ${label.toLowerCase()} match your search.` : `No ${label.toLowerCase()} available.`}
+                {pluginSearch ? `No ${pluralLabel} match your search.` : `No ${pluralLabel} available.`}
               </div>
             ) : (
               visiblePlugins.map((p) => {

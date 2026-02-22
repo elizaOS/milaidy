@@ -150,7 +150,7 @@ describe("PluginsView game modal", () => {
     });
     expect(tree!.root.findAll((node) => hasClass(node, "plugins-game-modal")).length).toBe(1);
     expect(tree!.root.findAll((node) => hasClass(node, "conn-master-detail")).length).toBe(0);
-    expect(text(tree!.root)).toContain("Connectors");
+    expect(text(tree!.root)).toContain("Channels");
   });
 
   it("uses list/detail mobile panes on narrow viewport", async () => {

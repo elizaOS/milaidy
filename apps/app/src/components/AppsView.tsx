@@ -488,7 +488,7 @@ export function AppsView() {
     <div className="flex flex-col gap-3">
       <button
         onClick={handleToggleHyperscapePanel}
-        className="px-3 py-1 text-xs bg-accent text-accent-fg border border-accent cursor-pointer hover:bg-accent-hover self-start"
+        className="btn text-xs py-1 self-start"
       >
         {hyperscapePanelOpen
           ? "Hide Hyperscape Controls"
@@ -504,14 +504,14 @@ export function AppsView() {
 
           <div className="flex flex-wrap gap-2">
             <button
-              className="px-3 py-1 text-xs bg-accent text-accent-fg border border-accent cursor-pointer hover:bg-accent-hover disabled:opacity-40"
+              className="btn text-xs py-1"
               disabled={hyperscapeAgentsLoading}
               onClick={() => void loadHyperscapeAgents()}
             >
               {hyperscapeAgentsLoading ? "Refreshing..." : "Refresh Agents"}
             </button>
             <button
-              className="px-3 py-1 text-xs bg-accent text-accent-fg border border-accent cursor-pointer hover:bg-accent-hover disabled:opacity-40"
+              className="btn text-xs py-1"
               disabled={hyperscapeTelemetryLoading || !hyperscapeSelectedAgentId}
               onClick={() =>
                 void refreshHyperscapeTelemetry(hyperscapeSelectedAgentId)
@@ -554,7 +554,7 @@ export function AppsView() {
             {(["start", "pause", "resume", "stop"] as const).map((action) => (
               <button
                 key={action}
-                className="px-3 py-1 text-xs bg-accent text-accent-fg border border-accent cursor-pointer hover:bg-accent-hover disabled:opacity-40"
+                className="btn text-xs py-1"
                 disabled={
                   !selectedHyperscapeAgent ||
                   hyperscapeBusyAction === `control:${action}`
@@ -605,7 +605,7 @@ export function AppsView() {
                 Auto start
               </label>
               <button
-                className="px-3 py-1 text-xs bg-accent text-accent-fg border border-accent cursor-pointer hover:bg-accent-hover disabled:opacity-40"
+                className="btn text-xs py-1"
                 disabled={hyperscapeBusyAction === "create"}
                 onClick={() => void handleCreateHyperscapeAgent()}
               >
@@ -624,7 +624,7 @@ export function AppsView() {
               className="px-3 py-2 border border-border rounded-md bg-card text-txt text-xs focus:border-accent focus:outline-none resize-y"
             />
             <button
-              className="px-3 py-1 text-xs bg-accent text-accent-fg border border-accent cursor-pointer hover:bg-accent-hover disabled:opacity-40 self-start"
+              className="btn text-xs py-1 self-start"
               disabled={hyperscapeBusyAction === "message"}
               onClick={() => void handleSendHyperscapeMessage()}
             >
@@ -657,7 +657,7 @@ export function AppsView() {
               className="px-3 py-2 border border-border rounded-md bg-card text-txt text-xs focus:border-accent focus:outline-none resize-y"
             />
             <button
-              className="px-3 py-1 text-xs bg-accent text-accent-fg border border-accent cursor-pointer hover:bg-accent-hover disabled:opacity-40 self-start"
+              className="btn text-xs py-1 self-start"
               disabled={hyperscapeBusyAction === "command"}
               onClick={() => void handleSendHyperscapeCommand()}
             >
@@ -700,7 +700,7 @@ export function AppsView() {
                 {hyperscapeQuickActionsResponse.quickCommands.map((command) => (
                   <button
                     key={command.id}
-                    className="text-[10px] px-2 py-1 border border-border bg-card text-txt cursor-pointer hover:bg-accent hover:text-accent-fg disabled:opacity-40"
+                    className="btn btn-ghost text-[10px] py-1"
                     disabled={!command.available || hyperscapeBusyAction === "message"}
                     onClick={() => void handleSendHyperscapeMessage(command.command)}
                     title={command.reason ?? command.command}
@@ -742,13 +742,13 @@ export function AppsView() {
         <div className="flex flex-wrap gap-2">
           <button
             onClick={handleOpenCurrentGame}
-            className="px-3 py-1 text-xs bg-accent text-accent-fg border border-accent cursor-pointer hover:bg-accent-hover"
+            className="btn text-xs py-1"
           >
             Resume Fullscreen
           </button>
           <button
             onClick={handleOpenCurrentGameInNewTab}
-            className="px-3 py-1 text-xs bg-accent text-accent-fg border border-accent cursor-pointer hover:bg-accent-hover"
+            className="btn text-xs py-1"
           >
             Open in New Tab
           </button>
@@ -763,7 +763,7 @@ export function AppsView() {
         <div className="flex items-center gap-2 mb-4">
           <button
             onClick={() => setSelectedAppName(null)}
-            className="px-3 py-1 text-xs bg-accent text-accent-fg border border-accent cursor-pointer hover:bg-accent-hover"
+            className="btn text-xs py-1"
           >
             Back
           </button>
@@ -803,7 +803,7 @@ export function AppsView() {
 
           <div className="flex flex-wrap gap-2">
             <button
-              className="text-xs px-3.5 py-1.5 bg-accent text-accent-fg border border-accent cursor-pointer hover:bg-accent-hover disabled:opacity-40 disabled:cursor-not-allowed"
+              className="btn text-xs py-1.5"
               disabled={busyApp === selectedApp.name}
               onClick={() => void handleLaunch(selectedApp)}
             >
@@ -811,7 +811,7 @@ export function AppsView() {
             </button>
             {selectedAppHasActiveViewer ? (
               <button
-                className="text-xs px-3.5 py-1.5 bg-accent text-accent-fg border border-accent cursor-pointer hover:bg-accent-hover"
+                className="btn text-xs py-1.5"
                 onClick={handleOpenCurrentGame}
               >
                 View Active Session
@@ -819,7 +819,7 @@ export function AppsView() {
             ) : null}
             {selectedAppHasActiveViewer ? (
               <button
-                className="text-xs px-3.5 py-1.5 bg-accent text-accent-fg border border-accent cursor-pointer hover:bg-accent-hover"
+                className="btn text-xs py-1.5"
                 onClick={handleOpenCurrentGameInNewTab}
               >
                 Open Viewer in New Tab
@@ -914,7 +914,7 @@ export function AppsView() {
         />
         <button
           onClick={() => void loadApps()}
-          className="px-3 py-1 text-xs bg-accent text-accent-fg border border-accent cursor-pointer hover:bg-accent-hover"
+          className="btn text-xs py-1"
         >
           Refresh
         </button>
@@ -923,7 +923,7 @@ export function AppsView() {
       <div className="flex items-center gap-2 mb-4 text-[11px] text-muted">
         <button
           onClick={() => setShowActiveOnly((current) => !current)}
-          className="px-2.5 py-1 text-[11px] bg-card border border-border cursor-pointer hover:border-accent"
+          className="btn btn-ghost text-[11px] py-1"
         >
           {showActiveOnly ? "Showing Active" : "Active Only"}
         </button>
@@ -960,7 +960,7 @@ export function AppsView() {
                 <div className="flex justify-between items-start gap-2">
                   <div className="font-bold text-sm">{app.displayName ?? app.name}</div>
                   <button
-                    className="text-xs px-2 py-0.5 bg-card border border-border cursor-pointer hover:border-accent"
+                    className="btn btn-ghost text-xs py-0.5"
                     onClick={() => setSelectedAppName(app.name)}
                     title={`Open ${app.displayName ?? app.name}`}
                   >
@@ -984,7 +984,7 @@ export function AppsView() {
                 <div className="text-xs text-muted flex-1">{app.description ?? "No description"}</div>
 
                 <button
-                  className="text-xs px-3.5 py-1.5 bg-accent text-accent-fg border border-accent cursor-pointer hover:bg-accent-hover self-start disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="btn text-xs py-1.5 self-start disabled:opacity-40 disabled:cursor-not-allowed"
                   disabled={busyApp === app.name}
                   onClick={() => void handleLaunch(app)}
                 >

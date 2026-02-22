@@ -95,20 +95,17 @@ export function App() {
     const isSkills = tab === "skills";
     const isSettings = tab === "settings";
     const isPlugins = tab === "plugins";
+    const isPluginsLike = isPlugins || isConnectors;
     const isCentered = isSkills || isSettings || isPlugins || isAdvanced || isApps || isConnectors || isKnowledge;
-    const accentColor = isSkills ? "#00e1ff" : isApps ? "#10b981" : isConnectors ? "#f472b6" : isKnowledge ? "#a78bfa" : "#d4af37";
-    const sysTag = isSkills ? "SYS.MIND_MATRIX" : isSettings ? "SYS.CONFIG" : isPlugins ? "SYS.EQUIPMENT" : isAdvanced ? "SYS.ADVANCED" : isApps ? "SYS.APPS" : isConnectors ? "SYS.SOCIAL" : isKnowledge ? "SYS.KNOWLEDGE" : "";
-    const sysTagColor = isSkills ? "#00e1ff" : isPlugins ? "#f0b232" : isApps ? "#10b981" : isConnectors ? "#f472b6" : isKnowledge ? "#a78bfa" : "rgba(255,255,255,0.35)";
-    const sysTagBg = isSkills ? "rgba(0,225,255,0.06)" : isPlugins ? "rgba(240,178,50,0.06)" : isApps ? "rgba(16,185,129,0.06)" : isConnectors ? "rgba(244,114,182,0.06)" : isKnowledge ? "rgba(167,139,250,0.06)" : "rgba(255,255,255,0.04)";
-    const sysTagBorder = isSkills ? "rgba(0,225,255,0.20)" : isPlugins ? "rgba(240,178,50,0.20)" : isApps ? "rgba(16,185,129,0.20)" : isConnectors ? "rgba(244,114,182,0.20)" : isKnowledge ? "rgba(167,139,250,0.20)" : "rgba(255,255,255,0.10)";
-    const topBarColor = isSkills ? "#00e1ff" : isSettings || isAdvanced ? "rgba(210, 205, 200, 0.7)" : isPlugins ? "#f0b232" : isApps ? "rgba(16, 185, 129, 0.7)" : isConnectors ? "rgba(244, 114, 182, 0.7)" : isKnowledge ? "rgba(167, 139, 250, 0.7)" : "#d4af37";
+    const accentColor = isSkills ? "#00e1ff" : isApps ? "#10b981" : isPluginsLike ? "#f0b232" : isKnowledge ? "#a78bfa" : "#d4af37";
+    const topBarColor = isSkills ? "#00e1ff" : isSettings || isAdvanced ? "rgba(210, 205, 200, 0.7)" : isPluginsLike ? "#f0b232" : isApps ? "rgba(16, 185, 129, 0.7)" : isKnowledge ? "rgba(167, 139, 250, 0.7)" : "#d4af37";
     const cardColor = isSkills ? "rgba(20, 24, 38, 0.85)" : "rgba(10, 12, 16, 0.75)";
     const shadowFx = isSkills ? "shadow-[0_0_50px_rgba(0,225,255,0.15)]" : "shadow-[0_4px_30px_rgba(0,0,0,0.5)]";
     const overlayBackdropClass = tab === "skills"
       ? "opacity-100 backdrop-blur-2xl bg-black/40 pointer-events-auto"
-      : tab === "plugins"
+      : isPluginsLike
         ? "opacity-100 backdrop-blur-xl bg-black/35 pointer-events-auto"
-        : tab === "settings" || isAdvanced || isApps || isConnectors || isKnowledge
+        : tab === "settings" || isAdvanced || isApps || isKnowledge
           ? "opacity-100 backdrop-blur-2xl bg-black/50 pointer-events-auto"
           : tab === "character"
             ? "opacity-100"
@@ -124,31 +121,31 @@ export function App() {
           <div className={`absolute inset-0 z-[60] flex ${isCentered ? 'items-center justify-center' : 'justify-end'} transition-all duration-300 pointer-events-none ${overlayBackdropClass}`}>
             {(tab === "skills" || tab === "character" || tab === "settings" || tab === "plugins" || isAdvanced || isApps || isConnectors || isKnowledge) && (
               <div className={isCentered ? "relative pointer-events-auto" : "contents"}>
-              <div className={`relative flex flex-col pointer-events-auto ${isSkills ? 'w-[90vw] h-[90vh] max-w-5xl backdrop-blur-3xl border rounded-2xl' : isPlugins ? 'w-[97vw] h-[92vh] md:w-[88vw] md:h-[80vh] max-w-[1460px] overflow-visible' : isAdvanced ? 'w-[95vw] h-[95vh] max-w-[1500px] backdrop-blur-3xl border rounded-2xl overflow-hidden' : isSettings || isApps || isConnectors || isKnowledge ? 'w-[90vw] h-[90vh] max-w-5xl backdrop-blur-3xl border rounded-2xl overflow-hidden' : 'w-[65vw] min-w-[700px] h-[100vh] border-l backdrop-blur-2xl'} transition-all duration-500`}
+              <div className={`relative flex flex-col pointer-events-auto ${isSkills ? 'w-[90vw] h-[90vh] max-w-5xl backdrop-blur-3xl border rounded-2xl' : isPluginsLike ? 'w-[97vw] h-[92vh] md:w-[88vw] md:h-[80vh] max-w-[1460px] overflow-visible' : isAdvanced ? 'w-[95vw] h-[95vh] max-w-[1500px] backdrop-blur-3xl border rounded-2xl overflow-hidden' : isSettings || isApps || isKnowledge ? 'w-[90vw] h-[90vh] max-w-5xl backdrop-blur-3xl border rounded-2xl overflow-hidden' : 'w-[65vw] min-w-[700px] h-[100vh] border-l backdrop-blur-2xl'} transition-all duration-500`}
                 style={{
                   background: isSkills
                     ? cardColor
-                    : isPlugins
+                    : isPluginsLike
                       ? "transparent"
-                      : isSettings || isAdvanced || isApps || isConnectors || isKnowledge
+                      : isSettings || isAdvanced || isApps || isKnowledge
                         ? "rgba(18, 22, 32, 0.92)"
                         : "linear-gradient(to left, rgba(6, 8, 12, 0.95) 40%, rgba(6, 8, 12, 0.7) 80%, rgba(6, 8, 12, 0.2) 100%)",
                   borderColor: isSkills
                     ? "rgba(0,225,255,0.2)"
-                    : isPlugins
+                    : isPluginsLike
                       ? "transparent"
-                      : isSettings || isAdvanced || isApps || isConnectors || isKnowledge
+                      : isSettings || isAdvanced || isApps || isKnowledge
                         ? "rgba(255, 255, 255, 0.08)"
                         : "rgba(255,255,255,0.05)",
                   boxShadow: isSkills
                     ? shadowFx
-                    : isPlugins
+                    : isPluginsLike
                       ? "none"
-                      : isSettings || isAdvanced || isApps || isConnectors || isKnowledge
+                      : isSettings || isAdvanced || isApps || isKnowledge
                         ? "0 8px 60px rgba(0,0,0,0.6), 0 2px 24px rgba(0,0,0,0.4)"
                         : "-60px 0 100px -20px rgba(0,0,0,0.8)",
-                  borderTopRightRadius: isPlugins ? '0' : isCentered ? '1rem' : '0',
-                  borderBottomLeftRadius: isPlugins ? '0' : isCentered ? '1rem' : '0'
+                  borderTopRightRadius: isPluginsLike ? '0' : isCentered ? '1rem' : '0',
+                  borderBottomLeftRadius: isPluginsLike ? '0' : isCentered ? '1rem' : '0'
                 }}>
 
                 {/* Top bar accent line */}
@@ -157,13 +154,13 @@ export function App() {
                     <div className="w-1/2 h-full" style={{ background: `linear-gradient(90deg, transparent, rgba(212, 175, 55, 0.8), transparent)` }} />
                   </div>
                 )}
-                {isCentered && !isPlugins && (
+                {isCentered && !isPluginsLike && (
                   <div className="absolute top-0 left-0 right-0 h-[2px] opacity-80" style={{ background: `linear-gradient(to right, transparent, ${topBarColor}, transparent)` }} />
                 )}
 
 
                 {/* Decorative Elements */}
-                <div className={`pointer-events-none absolute inset-0 overflow-hidden ${isPlugins ? "" : "rounded-[16px]"}`}>
+                <div className={`pointer-events-none absolute inset-0 overflow-hidden ${isPluginsLike ? "" : "rounded-[16px]"}`}>
                   {isSkills && (
                     <>
                       <div className={`absolute bottom-4 left-4 text-[${accentColor}]/30 text-[9px] font-mono tracking-widest transform -rotate-90 origin-bottom-left`}>
@@ -236,16 +233,16 @@ export function App() {
 
                 {/* View Wrapper with Overridden CSS Variables */}
                 <div
-                  className={`flex-1 min-h-0 ${isPlugins ? 'overflow-visible' : isSettings || isAdvanced || isApps || isConnectors ? 'overflow-hidden' : 'overflow-y-auto'} ${isSkills ? 'px-10 pb-10 pt-4' : isSettings || isAdvanced || isApps || isConnectors || isPlugins ? 'p-0' : isKnowledge ? 'px-8 py-8' : 'px-16 pt-32 pb-16'} custom-scrollbar text-white anime-theme-scope relative z-10`}
+                  className={`flex-1 min-h-0 ${isPluginsLike ? 'overflow-visible' : isSettings || isAdvanced || isApps || isConnectors ? 'overflow-hidden' : 'overflow-y-auto'} ${isSkills ? 'px-10 pb-10 pt-4' : isSettings || isAdvanced || isApps || isConnectors || isPlugins ? 'p-0' : isKnowledge ? 'px-8 py-8' : 'px-16 pt-32 pb-16'} custom-scrollbar text-white anime-theme-scope relative z-10`}
                   style={isSettings || isPlugins || isAdvanced || isApps || isConnectors || isKnowledge ? {
                     // Dark theme vars — matches dark semi-transparent content area
                     "--bg": "transparent",
                     "--card": "rgba(255, 255, 255, 0.05)",
                     "--border": "rgba(255, 255, 255, 0.08)",
-                    "--accent": isPlugins ? "#f0b232" : isApps ? "#10b981" : isConnectors ? "#f472b6" : isKnowledge ? "#a78bfa" : "#7b8fb5",
+                    "--accent": isPluginsLike ? "#f0b232" : isApps ? "#10b981" : isKnowledge ? "#a78bfa" : "#7b8fb5",
                     "--accent-foreground": "#ffffff",
-                    "--accent-subtle": isPlugins ? "rgba(240, 178, 50, 0.12)" : isApps ? "rgba(16, 185, 129, 0.12)" : isConnectors ? "rgba(244, 114, 182, 0.12)" : isKnowledge ? "rgba(167, 139, 250, 0.12)" : "rgba(123, 143, 181, 0.12)",
-                    "--accent-rgb": isPlugins ? "240, 178, 50" : isApps ? "16, 185, 129" : isConnectors ? "244, 114, 182" : isKnowledge ? "167, 139, 250" : "123, 143, 181",
+                    "--accent-subtle": isPluginsLike ? "rgba(240, 178, 50, 0.12)" : isApps ? "rgba(16, 185, 129, 0.12)" : isKnowledge ? "rgba(167, 139, 250, 0.12)" : "rgba(123, 143, 181, 0.12)",
+                    "--accent-rgb": isPluginsLike ? "240, 178, 50" : isApps ? "16, 185, 129" : isKnowledge ? "167, 139, 250" : "123, 143, 181",
                     "--muted": "rgba(255, 255, 255, 0.45)",
                     "--txt": "rgba(240, 238, 250, 0.92)",
                     "--text": "rgba(240, 238, 250, 0.92)",

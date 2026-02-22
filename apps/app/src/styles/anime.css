@@ -267,6 +267,657 @@
     transform: skewX(-5deg);
 }
 
+.anime-header-wallet-shell {
+    position: relative;
+}
+
+.anime-header-wallet-trigger {
+    border: none;
+    cursor: pointer;
+    min-width: 156px;
+    justify-content: flex-start;
+    padding-right: 12px;
+}
+
+.anime-header-wallet-trigger:hover {
+    border-left-color: color-mix(in srgb, var(--ac-accent) 70%, white 30%);
+}
+
+.anime-header-wallet-trigger.is-open {
+    border-left-color: color-mix(in srgb, var(--ac-accent) 70%, white 30%);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5), inset 2px 0 12px rgba(240, 178, 50, 0.22);
+}
+
+.anime-header-wallet-caret {
+    margin-left: auto;
+    opacity: 0.7;
+    transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.anime-header-wallet-caret.is-open {
+    transform: rotate(180deg);
+    opacity: 1;
+}
+
+.anime-wallet-popover {
+    position: absolute;
+    top: calc(100% + 10px);
+    right: 0;
+    width: 344px;
+    background:
+        radial-gradient(120% 90% at 0% 0%, rgba(240, 178, 50, 0.14), transparent 54%),
+        linear-gradient(165deg, rgba(17, 23, 34, 0.96), rgba(7, 10, 18, 0.96));
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 14px;
+    box-shadow:
+        0 20px 44px rgba(0, 0, 0, 0.6),
+        inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    padding: 12px;
+    display: grid;
+    gap: 10px;
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+    transform-origin: top right;
+    transition: opacity 0.18s ease, transform 0.18s ease;
+    z-index: 40;
+}
+
+.anime-wallet-popover.is-open {
+    pointer-events: auto;
+    opacity: 1;
+    transform: translateY(0) scale(1);
+}
+
+.anime-wallet-popover::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 14px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    background: linear-gradient(120deg, rgba(255, 255, 255, 0.05), transparent 34%, rgba(240, 178, 50, 0.08) 70%, transparent);
+}
+
+.anime-wallet-popover.is-open::before {
+    opacity: 1;
+}
+
+.anime-wallet-popover-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.anime-wallet-popover-head-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.anime-wallet-popover-title {
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #f8f8fb;
+}
+
+.anime-wallet-popover-sub {
+    margin-top: 2px;
+    font-size: 11px;
+    font-family: var(--font-mono), monospace;
+    letter-spacing: 0.08em;
+    color: rgba(235, 238, 246, 0.72);
+}
+
+.anime-wallet-popover-ghost {
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.03);
+    color: rgba(245, 246, 252, 0.9);
+    border-radius: 8px;
+    padding: 5px 10px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+}
+
+.anime-wallet-popover-ghost:hover:not(:disabled) {
+    border-color: rgba(255, 255, 255, 0.38);
+    color: #fff;
+}
+
+.anime-wallet-popover-ghost:disabled {
+    opacity: 0.45;
+    cursor: default;
+}
+
+.anime-wallet-popover-manage {
+    width: 28px;
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.04);
+    color: rgba(239, 242, 252, 0.92);
+    cursor: pointer;
+    transition: border-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+
+.anime-wallet-popover-manage:hover {
+    border-color: color-mix(in srgb, var(--ac-accent) 58%, white 42%);
+    color: #fff;
+    transform: translateY(-1px);
+}
+
+.anime-wallet-popover-total {
+    border: 1px solid rgba(255, 255, 255, 0.11);
+    border-radius: 10px;
+    padding: 10px;
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.anime-wallet-popover-total-value {
+    font-family: var(--font-display), sans-serif;
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    color: #f6f7fb;
+}
+
+.anime-wallet-popover-total-label {
+    margin-top: 2px;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    color: rgba(228, 232, 244, 0.64);
+}
+
+.anime-wallet-popover-error {
+    border-left: 2px solid #ef4444;
+    background: rgba(239, 68, 68, 0.12);
+    color: #fca5a5;
+    font-size: 11px;
+    padding: 7px 8px;
+}
+
+.anime-wallet-address-list {
+    display: grid;
+    gap: 6px;
+}
+
+.anime-wallet-address-row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 8px;
+    align-items: center;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 9px;
+    padding: 7px 8px;
+    background: rgba(255, 255, 255, 0.02);
+    transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+}
+
+.anime-wallet-address-row:hover {
+    border-color: rgba(255, 255, 255, 0.22);
+    background: rgba(255, 255, 255, 0.045);
+    transform: translateY(-1px);
+}
+
+.anime-wallet-address-chain {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(221, 224, 236, 0.72);
+}
+
+.anime-wallet-address-code {
+    font-size: 11px;
+    font-family: var(--font-mono), monospace;
+    color: rgba(246, 248, 255, 0.94);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.anime-wallet-address-copy {
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: rgba(255, 255, 255, 0.02);
+    color: rgba(236, 240, 252, 0.92);
+    border-radius: 6px;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 4px 6px;
+    cursor: pointer;
+}
+
+.anime-wallet-address-copy:hover {
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.anime-wallet-asset-list {
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.02);
+    overflow: hidden;
+}
+
+.anime-wallet-asset-row {
+    display: grid;
+    grid-template-columns: auto auto 1fr;
+    gap: 8px;
+    align-items: center;
+    padding: 7px 9px;
+    border-top: 1px solid rgba(255, 255, 255, 0.07);
+    transition: background 0.2s ease;
+}
+
+.anime-wallet-asset-row:first-child {
+    border-top: none;
+}
+
+.anime-wallet-asset-row:hover {
+    background: rgba(255, 255, 255, 0.045);
+}
+
+.anime-wallet-asset-symbol {
+    font-size: 11px;
+    font-weight: 700;
+    color: rgba(247, 249, 255, 0.95);
+}
+
+.anime-wallet-asset-chain {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: rgba(221, 226, 240, 0.62);
+}
+
+.anime-wallet-asset-value {
+    justify-self: end;
+    font-size: 10px;
+    font-family: var(--font-mono), monospace;
+    color: rgba(239, 243, 255, 0.87);
+}
+
+.anime-wallet-asset-empty {
+    padding: 10px 9px;
+    font-size: 11px;
+    color: rgba(219, 224, 240, 0.62);
+}
+
+.anime-wallet-popover-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+}
+
+.anime-wallet-popover-actions.is-swap {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.anime-wallet-popover-action {
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: rgba(255, 255, 255, 0.03);
+    color: rgba(241, 244, 252, 0.95);
+    border-radius: 8px;
+    padding: 7px 6px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.anime-wallet-popover-action:hover {
+    border-color: rgba(255, 255, 255, 0.32);
+    transform: translateY(-1px);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.28);
+}
+
+.anime-wallet-popover-action:disabled {
+    opacity: 0.45;
+    cursor: default;
+    transform: none;
+    box-shadow: none;
+}
+
+.anime-wallet-popover-action.is-primary {
+    border-color: color-mix(in srgb, var(--ac-accent) 62%, white 38%);
+    color: #0f172a;
+    background: linear-gradient(108deg, color-mix(in srgb, var(--ac-accent) 86%, white 14%), color-mix(in srgb, var(--ac-accent) 64%, #d4b35f 36%));
+}
+
+.anime-wallet-mode-switch {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+}
+
+.anime-wallet-mode-btn {
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: rgba(255, 255, 255, 0.02);
+    color: rgba(235, 239, 248, 0.86);
+    border-radius: 8px;
+    padding: 7px 8px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+
+.anime-wallet-mode-btn:hover {
+    border-color: rgba(255, 255, 255, 0.3);
+    transform: translateY(-1px);
+}
+
+.anime-wallet-mode-btn.is-active {
+    border-color: color-mix(in srgb, var(--ac-accent) 68%, white 32%);
+    color: #0f172a;
+    background: linear-gradient(106deg, color-mix(in srgb, var(--ac-accent) 84%, white 16%), color-mix(in srgb, var(--ac-accent) 62%, #d4b35f 38%));
+}
+
+.anime-wallet-readiness-row {
+    display: flex;
+    gap: 6px;
+}
+
+.anime-wallet-ready-chip {
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 999px;
+    padding: 4px 8px;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    font-weight: 700;
+    background: rgba(255, 255, 255, 0.03);
+    color: rgba(232, 236, 247, 0.75);
+}
+
+.anime-wallet-ready-chip.is-ready {
+    border-color: rgba(74, 222, 128, 0.42);
+    color: #86efac;
+    background: rgba(74, 222, 128, 0.1);
+}
+
+.anime-wallet-ready-chip.is-off {
+    border-color: rgba(248, 113, 113, 0.33);
+    color: #fca5a5;
+    background: rgba(239, 68, 68, 0.09);
+}
+
+.anime-wallet-action-body {
+    display: grid;
+    gap: 8px;
+}
+
+.anime-wallet-flow {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+}
+
+.anime-wallet-flow-step {
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 7px;
+    padding: 4px 6px;
+    text-align: center;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(220, 226, 239, 0.64);
+    background: rgba(255, 255, 255, 0.02);
+    transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
+}
+
+.anime-wallet-flow-step.is-active {
+    border-color: color-mix(in srgb, var(--ac-accent) 62%, white 38%);
+    color: #0f172a;
+    background: linear-gradient(108deg, color-mix(in srgb, var(--ac-accent) 86%, white 14%), color-mix(in srgb, var(--ac-accent) 62%, #d4b35f 38%));
+}
+
+.anime-wallet-status-hint {
+    border-left: 2px solid color-mix(in srgb, var(--ac-accent) 68%, transparent);
+    background: color-mix(in srgb, var(--ac-accent) 9%, rgba(255, 255, 255, 0.01));
+    color: rgba(235, 239, 248, 0.84);
+    padding: 6px 8px;
+    border-radius: 7px;
+    font-size: 10px;
+    line-height: 1.45;
+}
+
+.anime-wallet-field {
+    display: grid;
+    gap: 4px;
+}
+
+.anime-wallet-field>span {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: rgba(223, 228, 241, 0.74);
+}
+
+.anime-wallet-field input,
+.anime-wallet-field select {
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 8px;
+    background: rgba(6, 10, 20, 0.75);
+    color: rgba(245, 248, 255, 0.94);
+    padding: 8px 9px;
+    font-size: 12px;
+    outline: none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.anime-wallet-field input:focus,
+.anime-wallet-field select:focus {
+    border-color: color-mix(in srgb, var(--ac-accent) 66%, white 34%);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--ac-accent) 48%, transparent);
+    background: rgba(8, 13, 24, 0.9);
+}
+
+.anime-wallet-field-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.anime-wallet-balance-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    font-size: 10px;
+    color: rgba(219, 224, 238, 0.72);
+}
+
+.anime-wallet-amount-presets {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+}
+
+.anime-wallet-preset-btn {
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 7px;
+    background: rgba(255, 255, 255, 0.02);
+    color: rgba(233, 239, 250, 0.88);
+    padding: 5px 6px;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: border-color 0.2s ease, transform 0.2s ease, background 0.2s ease;
+}
+
+.anime-wallet-preset-btn:hover:not(:disabled) {
+    border-color: rgba(255, 255, 255, 0.34);
+    transform: translateY(-1px);
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.anime-wallet-preset-btn.is-active {
+    border-color: color-mix(in srgb, var(--ac-accent) 62%, white 38%);
+    background: color-mix(in srgb, var(--ac-accent) 18%, transparent);
+    color: var(--ac-accent);
+}
+
+.anime-wallet-preset-btn:disabled {
+    opacity: 0.45;
+    cursor: default;
+    transform: none;
+}
+
+.anime-wallet-side-toggle {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+}
+
+.anime-wallet-side-btn {
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.02);
+    color: rgba(236, 241, 252, 0.9);
+    padding: 6px 8px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+}
+
+.anime-wallet-side-btn.is-active {
+    border-color: color-mix(in srgb, var(--ac-accent) 68%, white 32%);
+    background: color-mix(in srgb, var(--ac-accent) 20%, transparent);
+    color: var(--ac-accent);
+}
+
+.anime-wallet-quote-card {
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.02);
+    padding: 8px;
+    display: grid;
+    gap: 5px;
+}
+
+.anime-wallet-quote-line {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 10px;
+    color: rgba(223, 229, 243, 0.84);
+}
+
+.anime-wallet-quote-line strong {
+    font-size: 11px;
+    color: rgba(248, 249, 253, 0.98);
+}
+
+.anime-wallet-quote-route {
+    border-top: 1px dashed rgba(255, 255, 255, 0.1);
+    margin-top: 2px;
+    padding-top: 6px;
+    font-size: 9px;
+    font-family: var(--font-mono), monospace;
+    color: rgba(229, 234, 247, 0.68);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.anime-wallet-tx-row {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 10px;
+    color: rgba(223, 229, 244, 0.84);
+}
+
+.anime-wallet-tx-row code {
+    font-family: var(--font-mono), monospace;
+    color: rgba(245, 247, 255, 0.96);
+}
+
+.anime-wallet-tx-link {
+    margin-left: auto;
+    color: color-mix(in srgb, var(--ac-accent) 68%, white 32%);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    text-decoration: none;
+}
+
+.anime-wallet-tx-link:hover {
+    text-decoration: underline;
+}
+
+.anime-wallet-usersign {
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 9px;
+    background: rgba(255, 255, 255, 0.02);
+    padding: 8px;
+    display: grid;
+    gap: 6px;
+}
+
+.anime-wallet-usersign-title {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(228, 233, 245, 0.82);
+}
+
+.anime-wallet-usersign-actions {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.anime-wallet-usersign-steps {
+    display: grid;
+    gap: 5px;
+}
+
+.anime-wallet-usersign-step {
+    font-size: 10px;
+    color: rgba(226, 231, 244, 0.78);
+    line-height: 1.4;
+}
+
+.anime-wallet-send-hint {
+    font-size: 10px;
+    color: rgba(222, 227, 240, 0.64);
+}
+
+@media (max-width: 980px) {
+    .anime-wallet-popover {
+        width: min(92vw, 344px);
+        right: -14px;
+    }
+}
+
 .anime-level-badge {
     display: flex;
     align-items: center;
@@ -2625,9 +3276,10 @@
 }
 
 .plugins-game-list-head {
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
     align-items: baseline;
-    justify-content: space-between;
+    column-gap: 10px;
     padding: 14px 14px 8px;
 }
 
@@ -2638,6 +3290,10 @@
     letter-spacing: 0.16em;
     text-transform: uppercase;
     color: var(--pg-text);
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .plugins-game-section-meta {
@@ -2646,6 +3302,8 @@
     color: var(--pg-muted);
     text-transform: uppercase;
     letter-spacing: 0.1em;
+    white-space: nowrap;
+    text-align: right;
 }
 
 .plugins-game-list-search {

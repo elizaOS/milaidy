@@ -239,7 +239,7 @@ export function TrajectoriesView({ onSelectTrajectory }: TrajectoriesViewProps) 
 
         {hasActiveFilters && (
           <button
-            className="text-xs px-3 py-1.5 border border-border bg-card text-txt cursor-pointer hover:border-accent hover:text-accent"
+            className="btn btn-ghost text-xs py-1.5"
             onClick={handleClearFilters}
           >
             Clear filters
@@ -248,7 +248,7 @@ export function TrajectoriesView({ onSelectTrajectory }: TrajectoriesViewProps) 
 
         <div className="ml-auto flex gap-1.5">
           <button
-            className="text-xs px-3 py-1.5 border border-border bg-card text-txt cursor-pointer hover:border-accent hover:text-accent"
+            className="btn btn-ghost text-xs py-1.5"
             onClick={() => void loadTrajectories()}
             disabled={loading}
           >
@@ -257,7 +257,7 @@ export function TrajectoriesView({ onSelectTrajectory }: TrajectoriesViewProps) 
 
           <div className="relative group">
             <button
-              className="text-xs px-3 py-1.5 border border-border bg-card text-txt cursor-pointer hover:border-accent hover:text-accent"
+              className="btn btn-ghost text-xs py-1.5"
               disabled={exporting || trajectories.length === 0}
             >
               {exporting ? "Exporting..." : "Export"}
@@ -291,7 +291,7 @@ export function TrajectoriesView({ onSelectTrajectory }: TrajectoriesViewProps) 
           </div>
 
           <button
-            className="text-xs px-3 py-1.5 border border-danger/50 bg-card text-danger cursor-pointer hover:border-danger hover:bg-danger/10"
+            className="btn btn-danger text-xs py-1.5"
             onClick={handleClearAll}
             disabled={clearing || stats?.totalTrajectories === 0}
           >
@@ -397,14 +397,14 @@ export function TrajectoriesView({ onSelectTrajectory }: TrajectoriesViewProps) 
           </span>
           <div className="flex gap-1">
             <button
-              className="px-2 py-1 border border-border bg-card disabled:opacity-50"
+              className="btn btn-ghost text-xs py-1"
               onClick={() => setPage((p) => Math.max(0, p - 1))}
               disabled={page === 0}
             >
               Prev
             </button>
             <button
-              className="px-2 py-1 border border-border bg-card disabled:opacity-50"
+              className="btn btn-ghost text-xs py-1"
               onClick={() => setPage((p) => p + 1)}
               disabled={page >= totalPages - 1}
             >

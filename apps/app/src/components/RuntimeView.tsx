@@ -306,21 +306,21 @@ export function RuntimeView() {
           type="button"
           onClick={() => void loadSnapshot()}
           disabled={loading}
-          className="px-3 py-1.5 text-xs rounded border border-[var(--border)] bg-[var(--bg)] hover:bg-[var(--bg-hover)] disabled:opacity-60"
+          className="btn btn-ghost text-xs py-1.5"
         >
           {loading ? "Refreshing..." : "Refresh"}
         </button>
         <button
           type="button"
           onClick={() => setExpandedPaths(new Set([rootPath]))}
-          className="px-3 py-1.5 text-xs rounded border border-[var(--border)] bg-[var(--bg)] hover:bg-[var(--bg-hover)]"
+          className="btn btn-ghost text-xs py-1.5"
         >
           Collapse
         </button>
         <button
           type="button"
           onClick={() => setExpandedPaths(buildInitialExpanded(rootPath, sectionData))}
-          className="px-3 py-1.5 text-xs rounded border border-[var(--border)] bg-[var(--bg)] hover:bg-[var(--bg-hover)]"
+          className="btn btn-ghost text-xs py-1.5"
         >
           Expand Top
         </button>

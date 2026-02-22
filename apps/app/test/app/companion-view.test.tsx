@@ -146,6 +146,7 @@ function createContext(snapshot: CompanionStateSnapshot | null) {
     customVrmUrl: "",
     copyToClipboard: vi.fn(async () => {}),
     uiLanguage: "en",
+    setTab: vi.fn(),
   };
 }
 
@@ -186,7 +187,7 @@ describe("CompanionView", () => {
     });
 
     const content = text(tree!.root);
-    expect(content).toContain("milady");
+    expect(content).toContain("Milady");
     expect(content).toContain("Seed");
     expect(content).toContain("MILADY");
     expect(content).toContain("Mood");
@@ -220,9 +221,10 @@ describe("CompanionView", () => {
       tree = TestRenderer.create(React.createElement(CompanionView));
     });
 
-    const hubButton = tree!.root.findAll(
+    const navButtons = tree!.root.findAll(
       (node) => node.type === "button" && typeof node.props.className === "string" && node.props.className.includes("anime-nav-toggle"),
-    )[0];
+    );
+    const hubButton = navButtons[navButtons.length - 1];
     expect(hubButton).toBeDefined();
 
     await act(async () => {

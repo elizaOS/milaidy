@@ -476,7 +476,7 @@ export function FineTuningView() {
             </p>
           </div>
           <button
-            className="px-3 py-1 text-xs border border-border hover:border-accent"
+            className="btn btn-ghost text-xs py-1"
             onClick={() => {
               void refreshAll();
             }}
@@ -507,7 +507,7 @@ export function FineTuningView() {
         <div className="flex items-center justify-between gap-3 mb-3">
           <h3 className="text-sm font-bold">Trajectories</h3>
           <button
-            className="px-2 py-1 text-xs border border-border hover:border-accent"
+            className="btn btn-ghost text-xs py-1"
             onClick={() => {
               void loadTrajectories();
             }}
@@ -603,7 +603,7 @@ export function FineTuningView() {
             placeholder="Min LLM calls per trajectory"
           />
           <button
-            className="px-3 py-1 text-xs border border-border hover:border-accent disabled:opacity-50"
+            className="btn text-xs py-1"
             disabled={datasetBuilding}
             onClick={() => {
               void handleBuildDataset();
@@ -612,7 +612,7 @@ export function FineTuningView() {
             {datasetBuilding ? "Building..." : "Build Dataset"}
           </button>
           <button
-            className="px-3 py-1 text-xs border border-border hover:border-accent"
+            className="btn btn-ghost text-xs py-1"
             onClick={() => {
               void loadDatasets();
             }}
@@ -698,7 +698,7 @@ export function FineTuningView() {
         </div>
         <div className="flex gap-2 mb-3">
           <button
-            className="px-3 py-1 text-xs border border-border hover:border-accent disabled:opacity-50"
+            className="btn text-xs py-1"
             disabled={startingJob || Boolean(activeRunningJob)}
             onClick={() => {
               void handleStartJob();
@@ -707,7 +707,7 @@ export function FineTuningView() {
             {startingJob ? "Starting..." : "Start Training Job"}
           </button>
           <button
-            className="px-3 py-1 text-xs border border-border hover:border-accent"
+            className="btn btn-ghost text-xs py-1"
             onClick={() => {
               void loadJobs();
               void loadStatus();
@@ -742,7 +742,7 @@ export function FineTuningView() {
                     </button>
                     {(job.status === "running" || job.status === "queued") && (
                       <button
-                        className="px-2 py-0.5 border border-border hover:border-danger text-[11px] disabled:opacity-50"
+                        className="btn btn-danger text-[11px] py-0.5"
                         disabled={cancellingJobId === job.id}
                         onClick={() => {
                           void handleCancelJob(job.id);
@@ -851,7 +851,7 @@ export function FineTuningView() {
                   placeholder="Ollama URL"
                 />
                 <button
-                  className="px-3 py-1 text-xs border border-border hover:border-accent disabled:opacity-50"
+                  className="btn text-xs py-1"
                   disabled={modelAction === `import:${selectedModel.id}`}
                   onClick={() => {
                     void handleImportSelectedModel();
@@ -870,7 +870,7 @@ export function FineTuningView() {
                 />
                 <div className="flex gap-2">
                   <button
-                    className="px-3 py-1 text-xs border border-border hover:border-accent disabled:opacity-50"
+                    className="btn text-xs py-1"
                     disabled={modelAction === `activate:${selectedModel.id}`}
                     onClick={() => {
                       void handleActivateSelectedModel();
@@ -881,7 +881,7 @@ export function FineTuningView() {
                       : "Activate Model"}
                   </button>
                   <button
-                    className="px-3 py-1 text-xs border border-border hover:border-accent disabled:opacity-50"
+                    className="btn btn-ghost text-xs py-1"
                     disabled={modelAction === `benchmark:${selectedModel.id}`}
                     onClick={() => {
                       void handleBenchmarkSelectedModel();
@@ -892,7 +892,7 @@ export function FineTuningView() {
                       : "Benchmark"}
                   </button>
                   <button
-                    className="px-3 py-1 text-xs border border-border hover:border-accent disabled:opacity-50"
+                    className="btn btn-ghost text-xs py-1"
                     disabled={modelAction === `smoke:${selectedModel.id}`}
                     onClick={() => {
                       void handleSmokeTestSelectedModel();
