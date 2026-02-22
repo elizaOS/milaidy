@@ -1,6 +1,6 @@
 import React from "react";
 import TestRenderer, { act } from "react-test-renderer";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { mockUseApp } = vi.hoisted(() => ({
   mockUseApp: vi.fn(),
@@ -46,18 +46,10 @@ function createContext(overrides?: Record<string, unknown>) {
 describe("ConversationsSidebar delete confirmation", () => {
   beforeEach(() => {
     mockUseApp.mockReset();
-    Object.assign(globalThis, {
-      window: { confirm: vi.fn() },
-    });
-  });
-
-  afterEach(() => {
-    vi.restoreAllMocks();
   });
 
   it("does not delete when confirmation is canceled", async () => {
     const ctx = createContext();
-    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
     mockUseApp.mockReturnValue(ctx);
 
     let tree: TestRenderer.ReactTestRenderer;
@@ -65,20 +57,25 @@ describe("ConversationsSidebar delete confirmation", () => {
       tree = TestRenderer.create(React.createElement(ConversationsSidebar));
     });
 
-    const deleteButton = tree.root.findByProps({ "data-testid": "conv-delete" });
+    const deleteButton = tree.root.find(
+      (node) => node.type === "button" && node.props.children === "×",
+    );
     await act(async () => {
-      deleteButton.props.onClick({ stopPropagation: vi.fn() });
+      deleteButton.props.onClick();
     });
 
-    expect(confirmSpy).toHaveBeenCalledWith(
-      'Delete conversation "Important chat"? This cannot be undone.',
+    const cancelButton = tree.root.find(
+      (node) => node.type === "button" && node.props.children === "No",
     );
+    await act(async () => {
+      cancelButton.props.onClick();
+    });
+
     expect(ctx.handleDeleteConversation).not.toHaveBeenCalled();
   });
 
   it("deletes when confirmation is accepted", async () => {
     const ctx = createContext();
-    vi.spyOn(window, "confirm").mockReturnValue(true);
     mockUseApp.mockReturnValue(ctx);
 
     let tree: TestRenderer.ReactTestRenderer;
@@ -86,9 +83,18 @@ describe("ConversationsSidebar delete confirmation", () => {
       tree = TestRenderer.create(React.createElement(ConversationsSidebar));
     });
 
-    const deleteButton = tree.root.findByProps({ "data-testid": "conv-delete" });
+    const deleteButton = tree.root.find(
+      (node) => node.type === "button" && node.props.children === "×",
+    );
     await act(async () => {
-      deleteButton.props.onClick({ stopPropagation: vi.fn() });
+      deleteButton.props.onClick();
+    });
+
+    const confirmButton = tree.root.find(
+      (node) => node.type === "button" && node.props.children === "Yes",
+    );
+    await act(async () => {
+      confirmButton.props.onClick();
       await Promise.resolve();
     });
 
