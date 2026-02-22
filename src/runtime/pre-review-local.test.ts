@@ -40,6 +40,14 @@ describe("pre-review-local helpers", () => {
         message: "add helper script",
       }),
     ).toBe("feature");
+
+    expect(
+      classificationFromInputs({
+        branch: "fix/whatsapp-review-fixes",
+        message:
+          "fix: bound session map, add whatsappLogout/applyWhatsAppQrOverride tests",
+      }),
+    ).toBe("bugfix");
   });
 
   it("maps classification to scope verdict", () => {

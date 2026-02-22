@@ -7,8 +7,8 @@
  * can reconnect automatically on subsequent startups.
  */
 
-import path from "node:path";
 import fs from "node:fs";
+import path from "node:path";
 
 const LOG_PREFIX = "[whatsapp-pairing]";
 
@@ -16,7 +16,9 @@ const LOG_PREFIX = "[whatsapp-pairing]";
 export function sanitizeAccountId(raw: string): string {
   const cleaned = raw.replace(/[^a-zA-Z0-9_-]/g, "");
   if (!cleaned || cleaned !== raw) {
-    throw new Error(`Invalid accountId: must only contain alphanumeric characters, dashes, and underscores`);
+    throw new Error(
+      `Invalid accountId: must only contain alphanumeric characters, dashes, and underscores`,
+    );
   }
   return cleaned;
 }
@@ -47,8 +49,9 @@ export interface WhatsAppPairingOptions {
 }
 
 export class WhatsAppPairingSession {
-  private socket: ReturnType<typeof import("@whiskeysockets/baileys").default> | null =
-    null;
+  private socket: ReturnType<
+    typeof import("@whiskeysockets/baileys").default
+  > | null = null;
   private status: WhatsAppPairingStatus = "idle";
   private options: WhatsAppPairingOptions;
   private qrAttempts = 0;
@@ -65,15 +68,20 @@ export class WhatsAppPairingSession {
     // Lazy-import so the module is only loaded when actually needed.
     const baileys = await import("@whiskeysockets/baileys");
     const makeWASocket = baileys.default;
-    const { useMultiFileAuthState, fetchLatestBaileysVersion, DisconnectReason } =
-      baileys;
+    const {
+      useMultiFileAuthState,
+      fetchLatestBaileysVersion,
+      DisconnectReason,
+    } = baileys;
     const QRCode = (await import("qrcode")).default;
     const { Boom } = await import("@hapi/boom");
 
     // Ensure auth directory exists
     fs.mkdirSync(this.options.authDir, { recursive: true });
 
-    const { state, saveCreds } = await useMultiFileAuthState(this.options.authDir);
+    const { state, saveCreds } = await useMultiFileAuthState(
+      this.options.authDir,
+    );
     const { version } = await fetchLatestBaileysVersion();
 
     // Create a silent pino logger to suppress Baileys internal noise
@@ -124,8 +132,8 @@ export class WhatsAppPairingSession {
       }
 
       if (connection === "close") {
-        const statusCode = (lastDisconnect?.error as InstanceType<typeof Boom>)?.output
-          ?.statusCode;
+        const statusCode = (lastDisconnect?.error as InstanceType<typeof Boom>)
+          ?.output?.statusCode;
         console.info(
           `${LOG_PREFIX} Connection closed, statusCode=${statusCode}, status=${this.status}`,
         );
@@ -138,7 +146,9 @@ export class WhatsAppPairingSession {
           statusCode === DisconnectReason.connectionReplaced
         ) {
           // Baileys needs a fresh socket for these — restart pairing
-          console.info(`${LOG_PREFIX} Restarting pairing after transient close...`);
+          console.info(
+            `${LOG_PREFIX} Restarting pairing after transient close...`,
+          );
           this.socket = null;
           this.qrAttempts = 0;
           this.restartTimer = setTimeout(() => {
@@ -198,8 +208,16 @@ export class WhatsAppPairingSession {
 /**
  * Check if WhatsApp auth credentials exist on disk for an account.
  */
-export function whatsappAuthExists(workspaceDir: string, accountId = "default"): boolean {
-  const credsPath = path.join(workspaceDir, "whatsapp-auth", accountId, "creds.json");
+export function whatsappAuthExists(
+  workspaceDir: string,
+  accountId = "default",
+): boolean {
+  const credsPath = path.join(
+    workspaceDir,
+    "whatsapp-auth",
+    accountId,
+    "creds.json",
+  );
   return fs.existsSync(credsPath);
 }
 
@@ -207,7 +225,10 @@ export function whatsappAuthExists(workspaceDir: string, accountId = "default"):
  * Properly logout from WhatsApp (unlinks the device on WhatsApp servers)
  * then delete auth files from disk.
  */
-export async function whatsappLogout(workspaceDir: string, accountId = "default"): Promise<void> {
+export async function whatsappLogout(
+  workspaceDir: string,
+  accountId = "default",
+): Promise<void> {
   const authDir = path.join(workspaceDir, "whatsapp-auth", accountId);
   const credsPath = path.join(authDir, "creds.json");
 
@@ -232,10 +253,25 @@ export async function whatsappLogout(workspaceDir: string, accountId = "default"
 
       // Wait for connection to open, then logout
       await new Promise<void>((resolve) => {
-        const timeout = setTimeout(() => {
-          try { sock.end(undefined); } catch { /* */ }
+        let settled = false;
+        const finish = () => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timeout);
+          try {
+            sock.ev.removeAllListeners("connection.update");
+          } catch {
+            /* */
+          }
+          try {
+            sock.end(undefined);
+          } catch {
+            /* */
+          }
           resolve();
-        }, 10_000);
+        };
+
+        const timeout = setTimeout(finish, 10_000);
 
         sock.ev.on("connection.update", async (update) => {
           if (update.connection === "open") {
@@ -244,12 +280,9 @@ export async function whatsappLogout(workspaceDir: string, accountId = "default"
             } catch {
               // May fail if already logged out remotely
             }
-            clearTimeout(timeout);
-            try { sock.end(undefined); } catch { /* */ }
-            resolve();
+            finish();
           } else if (update.connection === "close") {
-            clearTimeout(timeout);
-            resolve();
+            finish();
           }
         });
       });

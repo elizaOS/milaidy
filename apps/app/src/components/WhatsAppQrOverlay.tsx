@@ -67,7 +67,7 @@ export function WhatsAppQrOverlay({
         <div className="text-xs text-[var(--destructive)] mb-2">
           {status === "timeout"
             ? "QR code expired. Please try again."
-            : error ?? "An error occurred."}
+            : (error ?? "An error occurred.")}
         </div>
         <button
           type="button"

@@ -8,16 +8,13 @@ import fs from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import path from "node:path";
 import {
-  readJsonBody as parseJsonBody,
-  sendJson,
-} from "./http-helpers";
-import {
   sanitizeAccountId,
+  type WhatsAppPairingEvent,
   WhatsAppPairingSession,
   whatsappAuthExists,
   whatsappLogout,
-  type WhatsAppPairingEvent,
 } from "../services/whatsapp-pairing";
+import { readJsonBody as parseJsonBody, sendJson } from "./http-helpers";
 
 // ---------------------------------------------------------------------------
 // State interface (subset of ServerState relevant to WhatsApp routes)
@@ -84,10 +81,15 @@ export async function handleWhatsAppRoute(
 
     // Enforce session limit (existing session for this account doesn't count)
     const isReplacing = state.whatsappPairingSessions.has(accountId);
-    if (!isReplacing && state.whatsappPairingSessions.size >= MAX_PAIRING_SESSIONS) {
+    if (
+      !isReplacing &&
+      state.whatsappPairingSessions.size >= MAX_PAIRING_SESSIONS
+    ) {
       json(
         res,
-        { error: `Too many concurrent pairing sessions (max ${MAX_PAIRING_SESSIONS})` },
+        {
+          error: `Too many concurrent pairing sessions (max ${MAX_PAIRING_SESSIONS})`,
+        },
         429,
       );
       return true;
@@ -107,13 +109,17 @@ export async function handleWhatsAppRoute(
         if (event.status === "connected") {
           if (!state.config.connectors) state.config.connectors = {};
           state.config.connectors.whatsapp = {
-            ...(state.config.connectors.whatsapp as Record<string, unknown> | undefined) ?? {},
+            ...((state.config.connectors.whatsapp as
+              | Record<string, unknown>
+              | undefined) ?? {}),
             authDir,
             enabled: true,
           };
           try {
             state.saveConfig();
-          } catch { /* test envs */ }
+          } catch {
+            /* test envs */
+          }
         }
       },
     });
@@ -135,10 +141,15 @@ export async function handleWhatsAppRoute(
 
   // ── GET /api/whatsapp/status ────────────────────────────────────────
   if (method === "GET" && pathname === "/api/whatsapp/status") {
-    const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
+    const url = new URL(
+      req.url ?? "/",
+      `http://${req.headers.host ?? "localhost"}`,
+    );
     let accountId: string;
     try {
-      accountId = sanitizeAccountId(url.searchParams.get("accountId") || "default");
+      accountId = sanitizeAccountId(
+        url.searchParams.get("accountId") || "default",
+      );
     } catch (err) {
       json(res, { error: (err as Error).message }, 400);
       return true;
@@ -150,12 +161,17 @@ export async function handleWhatsAppRoute(
     let servicePhone: string | null = null;
     if (state.runtime) {
       try {
-        const waService = state.runtime.getService("whatsapp") as Record<string, unknown> | null;
+        const waService = state.runtime.getService("whatsapp") as Record<
+          string,
+          unknown
+        > | null;
         if (waService) {
           serviceConnected = Boolean(waService.connected);
           servicePhone = (waService.phoneNumber as string) ?? null;
         }
-      } catch { /* service not yet registered */ }
+      } catch {
+        /* service not yet registered */
+      }
     }
 
     json(res, {
@@ -218,11 +234,17 @@ export async function handleWhatsAppRoute(
     // Properly logout then delete auth files
     try {
       await whatsappLogout(state.workspaceDir, accountId);
-    } catch {
+    } catch (logoutErr) {
+      console.warn(
+        `[whatsapp] Logout failed for ${accountId}, deleting auth files directly:`,
+        logoutErr instanceof Error ? logoutErr.message : String(logoutErr),
+      );
       const authDir = path.join(state.workspaceDir, "whatsapp-auth", accountId);
       try {
         fs.rmSync(authDir, { recursive: true, force: true });
-      } catch { /* may not exist */ }
+      } catch {
+        /* may not exist */
+      }
     }
 
     // Remove connector config
@@ -230,7 +252,9 @@ export async function handleWhatsAppRoute(
       delete state.config.connectors.whatsapp;
       try {
         state.saveConfig();
-      } catch { /* test envs */ }
+      } catch {
+        /* test envs */
+      }
     }
 
     json(res, { ok: true, accountId });
@@ -250,11 +274,21 @@ export async function handleWhatsAppRoute(
  * show misleading "missing API key" warnings.
  */
 export function applyWhatsAppQrOverride(
-  plugins: { id: string; validationErrors: unknown[]; configured: boolean; qrConnected?: boolean }[],
+  plugins: {
+    id: string;
+    validationErrors: unknown[];
+    configured: boolean;
+    qrConnected?: boolean;
+  }[],
   workspaceDir: string,
 ): void {
   try {
-    const waCredsPath = path.join(workspaceDir, "whatsapp-auth", "default", "creds.json");
+    const waCredsPath = path.join(
+      workspaceDir,
+      "whatsapp-auth",
+      "default",
+      "creds.json",
+    );
     if (fs.existsSync(waCredsPath)) {
       const waPlugin = plugins.find((p) => p.id === "whatsapp");
       if (waPlugin) {

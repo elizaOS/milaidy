@@ -1,0 +1,26 @@
+{
+  "name": "milady-ai-workbench",
+  "version": "0.1.0",
+  "description": "Milady AI repository operations plugin for Claude Code: scope-safe delivery, deterministic review gates, workflow automation, and plugin/runtime maintenance.",
+  "author": {
+    "name": "Milady AI",
+    "email": "hi@milady.ai",
+    "url": "https://github.com/milady-ai"
+  },
+  "homepage": "https://github.com/milady-ai/milady",
+  "repository": "https://github.com/milady-ai/milady",
+  "license": "MIT",
+  "keywords": [
+    "milady-ai",
+    "claude-code",
+    "plugin",
+    "typescript",
+    "elizaos",
+    "review-gates",
+    "bun"
+  ],
+  "commands": "./commands",
+  "agents": "./agents",
+  "skills": "./skills",
+  "hooks": "./hooks/hooks.json"
+}

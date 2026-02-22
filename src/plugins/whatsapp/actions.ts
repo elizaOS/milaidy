@@ -13,6 +13,7 @@ import type {
   HandlerCallback,
   Content,
   ActionExample,
+  TargetInfo,
 } from "@elizaos/core";
 
 export const sendWhatsAppMessage: Action = {
@@ -96,7 +97,7 @@ export const sendWhatsAppMessage: Action = {
           source: "whatsapp",
           channelId: jid,
           roomId: message.roomId,
-        },
+        } as unknown as TargetInfo,
         {
           text: messageText,
         } as Content,

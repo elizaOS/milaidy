@@ -226,7 +226,7 @@ export class WhatsAppBaileysService extends Service {
 
         for (const msg of messages) {
           try {
-            await this.handleIncomingMessage(msg);
+            await this.handleIncomingMessage(msg as unknown as Record<string, unknown>);
           } catch (err) {
             this.runtime.logger.error(
               `[whatsapp] Error handling incoming message: ${err instanceof Error ? err.message : String(err)}`,
@@ -240,7 +240,7 @@ export class WhatsAppBaileysService extends Service {
   }
 
   async stop(): Promise<void> {
-    this.runtime.logger.info("[whatsapp] Stopping service...");
+    this.runtime?.logger?.info("[whatsapp] Stopping service...");
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
@@ -438,12 +438,15 @@ export class WhatsAppBaileysService extends Service {
       this.runtime.logger.debug(
         "[whatsapp] Using event-based handling for inbound message",
       );
-      await this.runtime.emitEvent(["MESSAGE_RECEIVED"], {
-        runtime: this.runtime,
-        message: memory,
-        callback,
-        source: "whatsapp",
-      });
+      await (this.runtime.emitEvent as (event: string[], params: Record<string, unknown>) => Promise<void>)(
+        ["MESSAGE_RECEIVED"],
+        {
+          runtime: this.runtime,
+          message: memory,
+          callback,
+          source: "whatsapp",
+        },
+      );
     }
   }
 
@@ -456,7 +459,7 @@ export class WhatsAppBaileysService extends Service {
       opts: { onResponse: (content: Content) => Promise<Memory[]> },
     ) => Promise<void>;
   } | null {
-    const rt = this.runtime as Record<string, unknown>;
+    const rt = this.runtime as unknown as Record<string, unknown>;
     if (
       "elizaOS" in rt &&
       typeof rt.elizaOS === "object" &&
@@ -477,7 +480,7 @@ export class WhatsAppBaileysService extends Service {
       callback: (content: Content) => Promise<Memory[]>,
     ) => Promise<unknown>;
   } | null {
-    const rt = this.runtime as Record<string, unknown>;
+    const rt = this.runtime as unknown as Record<string, unknown>;
     const svc = rt.messageService as Record<string, unknown> | null | undefined;
     if (svc && typeof svc.handleMessage === "function") {
       return svc as ReturnType<typeof this.getMessageService> & object;

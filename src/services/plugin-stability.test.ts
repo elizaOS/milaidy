@@ -172,9 +172,12 @@ describe("Plugin Enumeration", () => {
       "@elizaos/skills",
       "@elizaos/tui",
     ]);
-    // All enumerated plugins should be valid package names
+    // All enumerated plugins should be valid scoped package names
     for (const name of ALL_KNOWN_PLUGINS) {
-      expect(name.startsWith("@elizaos/plugin-")).toBe(true);
+      expect(
+        name.startsWith("@elizaos/plugin-") ||
+          name.startsWith("@milady/plugin-"),
+      ).toBe(true);
     }
     expect(knownPackages.size).toBeGreaterThan(0);
   });

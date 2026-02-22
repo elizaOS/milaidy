@@ -81,7 +81,7 @@ export function classificationFromInputs({ branch, message }) {
   const content = `${branch} ${message}`.toLowerCase();
 
   if (
-    /(redesign|restyle|theme|font|layout|css|visual|icon|logo|dark mode|animation|aesthetic)/.test(
+    /(\b(redesign|restyle|theme|font|layout|css|visual|icon|logo|animation|aesthetic)\b|dark\s+mode)/.test(
       content,
     )
   ) {
@@ -280,7 +280,9 @@ export function runChecks() {
         "Run tests that validate the exact behavior change and check them in.",
       );
     } else {
-      const testRun = runCommand(`bunx vitest run ${testFiles.join(" ")}`);
+      const testRun = runCommand(
+        `bunx vitest run --no-cache ${testFiles.join(" ")}`,
+      );
       if (!testRun.ok) {
         issues.push("Regression/new-behavior tests did not pass.");
         missingTests.push(

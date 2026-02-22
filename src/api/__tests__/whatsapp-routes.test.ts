@@ -2,12 +2,15 @@
  * Tests for WhatsApp API routes: pair, status, stop, disconnect.
  */
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
 import fs from "node:fs";
-import { whatsappLogout, type WhatsAppPairingSession } from "../../services/whatsapp-pairing";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  handleWhatsAppRoute,
+  type WhatsAppPairingSession,
+  whatsappLogout,
+} from "../../services/whatsapp-pairing";
+import {
   applyWhatsAppQrOverride,
+  handleWhatsAppRoute,
   MAX_PAIRING_SESSIONS,
   type WhatsAppRouteState,
 } from "../whatsapp-routes";
@@ -17,11 +20,13 @@ import { createMockReq, createMockRes } from "./sandbox-test-helpers";
 // Mocks
 // ---------------------------------------------------------------------------
 
-const mockSession = {
+// vi.hoisted ensures these are available when vi.mock factories execute
+// (vi.mock calls are hoisted above imports and variable declarations).
+const mockSession = vi.hoisted(() => ({
   start: vi.fn().mockResolvedValue(undefined),
   stop: vi.fn(),
   getStatus: vi.fn().mockReturnValue("waiting_for_qr"),
-};
+}));
 
 vi.mock("node:fs", () => ({
   default: { existsSync: vi.fn().mockReturnValue(false), rmSync: vi.fn() },
@@ -37,14 +42,19 @@ vi.mock("../../services/whatsapp-pairing", () => ({
   },
   whatsappAuthExists: vi.fn().mockReturnValue(false),
   whatsappLogout: vi.fn().mockResolvedValue(undefined),
-  WhatsAppPairingSession: vi.fn().mockImplementation(() => mockSession),
+  // biome-ignore lint/complexity/useArrowFunction: regular function required for vi.fn constructor mock
+  WhatsAppPairingSession: vi.fn().mockImplementation(function () {
+    return mockSession;
+  }),
 }));
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function createState(overrides: Partial<WhatsAppRouteState> = {}): WhatsAppRouteState {
+function createState(
+  overrides: Partial<WhatsAppRouteState> = {},
+): WhatsAppRouteState {
   return {
     whatsappPairingSessions: new Map(),
     config: { connectors: {} },
@@ -69,7 +79,13 @@ describe("handleWhatsAppRoute", () => {
     it("returns false for non-whatsapp routes", async () => {
       const req = createMockReq("GET");
       const res = createMockRes();
-      const handled = await handleWhatsAppRoute(req, res, "/api/chat", "GET", createState());
+      const handled = await handleWhatsAppRoute(
+        req,
+        res,
+        "/api/chat",
+        "GET",
+        createState(),
+      );
       expect(handled).toBe(false);
     });
 
@@ -170,7 +186,10 @@ describe("handleWhatsAppRoute", () => {
 
   describe("POST /api/whatsapp/pair", () => {
     it("creates a session and starts pairing", async () => {
-      const req = createMockReq("POST", JSON.stringify({ accountId: "default" }));
+      const req = createMockReq(
+        "POST",
+        JSON.stringify({ accountId: "default" }),
+      );
       const res = createMockRes();
       const state = createState();
 
@@ -190,12 +209,18 @@ describe("handleWhatsAppRoute", () => {
     });
 
     it("stops existing session before creating new one", async () => {
-      const req = createMockReq("POST", JSON.stringify({ accountId: "default" }));
+      const req = createMockReq(
+        "POST",
+        JSON.stringify({ accountId: "default" }),
+      );
       const res = createMockRes();
 
       const existingSession = { stop: vi.fn(), getStatus: vi.fn() };
       const sessions = new Map<string, WhatsAppPairingSession>();
-      sessions.set("default", existingSession as unknown as WhatsAppPairingSession);
+      sessions.set(
+        "default",
+        existingSession as unknown as WhatsAppPairingSession,
+      );
       const state = createState({ whatsappPairingSessions: sessions });
 
       await handleWhatsAppRoute(req, res, "/api/whatsapp/pair", "POST", state);
@@ -220,7 +245,10 @@ describe("handleWhatsAppRoute", () => {
     });
 
     it("rejects invalid accountId with 400", async () => {
-      const req = createMockReq("POST", JSON.stringify({ accountId: "../evil" }));
+      const req = createMockReq(
+        "POST",
+        JSON.stringify({ accountId: "../evil" }),
+      );
       const res = createMockRes();
 
       await handleWhatsAppRoute(
@@ -237,7 +265,10 @@ describe("handleWhatsAppRoute", () => {
 
   describe("POST /api/whatsapp/pair/stop", () => {
     it("stops and removes an existing session", async () => {
-      const req = createMockReq("POST", JSON.stringify({ accountId: "default" }));
+      const req = createMockReq(
+        "POST",
+        JSON.stringify({ accountId: "default" }),
+      );
       const res = createMockRes();
 
       const sessions = new Map<string, WhatsAppPairingSession>();
@@ -261,7 +292,10 @@ describe("handleWhatsAppRoute", () => {
     });
 
     it("succeeds even when no session exists", async () => {
-      const req = createMockReq("POST", JSON.stringify({ accountId: "default" }));
+      const req = createMockReq(
+        "POST",
+        JSON.stringify({ accountId: "default" }),
+      );
       const res = createMockRes();
 
       await handleWhatsAppRoute(
@@ -279,12 +313,17 @@ describe("handleWhatsAppRoute", () => {
 
   describe("POST /api/whatsapp/disconnect", () => {
     it("stops session, calls logout, and removes connector config", async () => {
-      const req = createMockReq("POST", JSON.stringify({ accountId: "default" }));
+      const req = createMockReq(
+        "POST",
+        JSON.stringify({ accountId: "default" }),
+      );
       const res = createMockRes();
 
       const sessions = new Map<string, WhatsAppPairingSession>();
       sessions.set("default", mockSession as unknown as WhatsAppPairingSession);
-      const connectors: Record<string, unknown> = { whatsapp: { enabled: true } };
+      const connectors: Record<string, unknown> = {
+        whatsapp: { enabled: true },
+      };
       const state = createState({
         whatsappPairingSessions: sessions,
         config: { connectors },
@@ -302,7 +341,10 @@ describe("handleWhatsAppRoute", () => {
       expect(mockSession.stop).toHaveBeenCalled();
       expect(sessions.has("default")).toBe(false);
 
-      expect(whatsappLogout).toHaveBeenCalledWith("/tmp/test-workspace", "default");
+      expect(whatsappLogout).toHaveBeenCalledWith(
+        "/tmp/test-workspace",
+        "default",
+      );
 
       // Connector config should be removed
       expect(connectors.whatsapp).toBeUndefined();
@@ -316,7 +358,10 @@ describe("handleWhatsAppRoute", () => {
     });
 
     it("succeeds even when no session exists", async () => {
-      const req = createMockReq("POST", JSON.stringify({ accountId: "default" }));
+      const req = createMockReq(
+        "POST",
+        JSON.stringify({ accountId: "default" }),
+      );
       const res = createMockRes();
 
       await handleWhatsAppRoute(
@@ -334,13 +379,19 @@ describe("handleWhatsAppRoute", () => {
 
   describe("POST /api/whatsapp/pair — session limit", () => {
     it("rejects with 429 when max sessions reached", async () => {
-      const req = createMockReq("POST", JSON.stringify({ accountId: "new-account" }));
+      const req = createMockReq(
+        "POST",
+        JSON.stringify({ accountId: "new-account" }),
+      );
       const res = createMockRes();
 
       // Fill the sessions map to the limit
       const sessions = new Map<string, WhatsAppPairingSession>();
       for (let i = 0; i < MAX_PAIRING_SESSIONS; i++) {
-        sessions.set(`acct-${i}`, mockSession as unknown as WhatsAppPairingSession);
+        sessions.set(
+          `acct-${i}`,
+          mockSession as unknown as WhatsAppPairingSession,
+        );
       }
       const state = createState({ whatsappPairingSessions: sessions });
 
@@ -352,12 +403,18 @@ describe("handleWhatsAppRoute", () => {
     });
 
     it("allows replacing an existing session even at max capacity", async () => {
-      const req = createMockReq("POST", JSON.stringify({ accountId: "acct-0" }));
+      const req = createMockReq(
+        "POST",
+        JSON.stringify({ accountId: "acct-0" }),
+      );
       const res = createMockRes();
 
       const sessions = new Map<string, WhatsAppPairingSession>();
       for (let i = 0; i < MAX_PAIRING_SESSIONS; i++) {
-        sessions.set(`acct-${i}`, { stop: vi.fn(), getStatus: vi.fn() } as unknown as WhatsAppPairingSession);
+        sessions.set(`acct-${i}`, {
+          stop: vi.fn(),
+          getStatus: vi.fn(),
+        } as unknown as WhatsAppPairingSession);
       }
       const state = createState({ whatsappPairingSessions: sessions });
 
@@ -383,23 +440,38 @@ describe("applyWhatsAppQrOverride()", () => {
     (fs.existsSync as ReturnType<typeof vi.fn>).mockReturnValue(true);
 
     const plugins = [
-      { id: "discord", validationErrors: [], configured: true, qrConnected: undefined as boolean | undefined },
-      { id: "whatsapp", validationErrors: [{ msg: "missing key" }], configured: false, qrConnected: undefined as boolean | undefined },
+      {
+        id: "discord",
+        validationErrors: [],
+        configured: true,
+        qrConnected: undefined as boolean | undefined,
+      },
+      {
+        id: "whatsapp",
+        validationErrors: [{ msg: "missing key" }],
+        configured: false,
+        qrConnected: undefined as boolean | undefined,
+      },
     ];
 
     applyWhatsAppQrOverride(plugins, "/workspace");
 
-    const wa = plugins.find((p) => p.id === "whatsapp")!;
-    expect(wa.configured).toBe(true);
-    expect(wa.qrConnected).toBe(true);
-    expect(wa.validationErrors).toEqual([]);
+    const wa = plugins.find((p) => p.id === "whatsapp");
+    expect(wa).toBeDefined();
+    expect(wa?.configured).toBe(true);
+    expect(wa?.qrConnected).toBe(true);
+    expect(wa?.validationErrors).toEqual([]);
   });
 
   it("does nothing when creds.json does not exist", () => {
     (fs.existsSync as ReturnType<typeof vi.fn>).mockReturnValue(false);
 
     const plugins = [
-      { id: "whatsapp", validationErrors: [{ msg: "missing" }], configured: false },
+      {
+        id: "whatsapp",
+        validationErrors: [{ msg: "missing" }],
+        configured: false,
+      },
     ];
 
     applyWhatsAppQrOverride(plugins, "/workspace");
@@ -411,9 +483,7 @@ describe("applyWhatsAppQrOverride()", () => {
   it("does nothing when whatsapp plugin is not in the list", () => {
     (fs.existsSync as ReturnType<typeof vi.fn>).mockReturnValue(true);
 
-    const plugins = [
-      { id: "discord", validationErrors: [], configured: true },
-    ];
+    const plugins = [{ id: "discord", validationErrors: [], configured: true }];
 
     // Should not throw
     applyWhatsAppQrOverride(plugins, "/workspace");
@@ -428,7 +498,8 @@ describe("applyWhatsAppQrOverride()", () => {
     expect(fs.existsSync).toHaveBeenCalledWith(
       expect.stringContaining("whatsapp-auth"),
     );
-    const calledPath = (fs.existsSync as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
+    const calledPath = (fs.existsSync as ReturnType<typeof vi.fn>).mock
+      .calls[0][0] as string;
     expect(calledPath).toMatch(/[/\\]my[/\\]workspace.*creds\.json$/);
   });
 });

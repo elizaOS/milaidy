@@ -34,6 +34,7 @@ export const OPTIONAL_CORE_PLUGINS: readonly string[] = [
   // "@elizaos/plugin-cli", // CLI interface
   "@elizaos/plugin-code", // code writing and file operations
   "@elizaos/plugin-repoprompt", // RepoPrompt CLI integration and workflow orchestration
+  "@milaidy/plugin-claude-code-workbench", // Claude Code companion workflows for this monorepo
   // "@elizaos/plugin-edge-tts", // text-to-speech
   // "@elizaos/plugin-mcp", // MCP protocol support
   // "@elizaos/plugin-computeruse", // computer use automation

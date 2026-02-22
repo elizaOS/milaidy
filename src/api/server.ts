@@ -124,7 +124,6 @@ import {
 import { handleRegistryRoutes } from "./registry-routes";
 import { RegistryService } from "./registry-service";
 import { handleSandboxRoute } from "./sandbox-routes";
-import { handleWhatsAppRoute, applyWhatsAppQrOverride } from "./whatsapp-routes";
 import { handleSubscriptionRoutes } from "./subscription-routes";
 import { resolveTerminalRunLimits } from "./terminal-run-limits";
 import { handleTrainingRoutes } from "./training-routes";
@@ -140,6 +139,10 @@ import {
 import { TxService } from "./tx-service";
 import { generateWalletKeys, getWalletAddresses } from "./wallet";
 import { handleWalletRoutes } from "./wallet-routes";
+import {
+  applyWhatsAppQrOverride,
+  handleWhatsAppRoute,
+} from "./whatsapp-routes";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -8870,9 +8873,9 @@ async function handleRequest(
     }
     const handled = await handleWhatsAppRoute(req, res, pathname, method, {
       whatsappPairingSessions: state.whatsappPairingSessions,
-      broadcastWs: state.broadcastWs,
+      broadcastWs: state.broadcastWs ?? undefined,
       config: state.config,
-      runtime: state.runtime,
+      runtime: state.runtime ?? undefined,
       saveConfig: () => saveMiladyConfig(state.config),
       workspaceDir: resolveDefaultAgentWorkspaceDir(),
     });
@@ -13346,7 +13349,11 @@ export async function startApiServer(opts?: {
             // Clean up WhatsApp pairing sessions
             if (state.whatsappPairingSessions) {
               for (const s of state.whatsappPairingSessions.values()) {
-                try { s.stop(); } catch { /* non-fatal */ }
+                try {
+                  s.stop();
+                } catch {
+                  /* non-fatal */
+                }
               }
               state.whatsappPairingSessions.clear();
             }

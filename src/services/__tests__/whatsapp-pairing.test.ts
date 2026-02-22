@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // ---------------------------------------------------------------------------
 // Mock fs before importing the module under test
@@ -42,7 +42,9 @@ vi.mock("@whiskeysockets/baileys", () => ({
 }));
 
 vi.mock("qrcode", () => ({
-  default: { toDataURL: vi.fn().mockResolvedValue("data:image/png;base64,mock") },
+  default: {
+    toDataURL: vi.fn().mockResolvedValue("data:image/png;base64,mock"),
+  },
 }));
 
 vi.mock("@hapi/boom", () => ({
@@ -54,9 +56,9 @@ vi.mock("@hapi/boom", () => ({
 import fs from "node:fs";
 import {
   sanitizeAccountId,
+  WhatsAppPairingSession,
   whatsappAuthExists,
   whatsappLogout,
-  WhatsAppPairingSession,
 } from "../whatsapp-pairing";
 
 // ---------------------------------------------------------------------------
@@ -108,11 +110,15 @@ describe("sanitizeAccountId()", () => {
     });
 
     it("rejects special characters", () => {
-      expect(() => sanitizeAccountId("account@home")).toThrow(/invalid accountid/i);
+      expect(() => sanitizeAccountId("account@home")).toThrow(
+        /invalid accountid/i,
+      );
     });
 
     it("rejects dots", () => {
-      expect(() => sanitizeAccountId("my.account")).toThrow(/invalid accountid/i);
+      expect(() => sanitizeAccountId("my.account")).toThrow(
+        /invalid accountid/i,
+      );
     });
   });
 });
@@ -151,7 +157,8 @@ describe("whatsappAuthExists()", () => {
     whatsappAuthExists("/workspace");
 
     // Path should include "default" as the account directory
-    const calledPath = (fs.existsSync as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
+    const calledPath = (fs.existsSync as ReturnType<typeof vi.fn>).mock
+      .calls[0][0] as string;
     expect(calledPath).toContain("default");
     expect(calledPath).toContain("whatsapp-auth");
   });
@@ -161,7 +168,8 @@ describe("whatsappAuthExists()", () => {
 
     whatsappAuthExists("/workspace", "my-account");
 
-    const calledPath = (fs.existsSync as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
+    const calledPath = (fs.existsSync as ReturnType<typeof vi.fn>).mock
+      .calls[0][0] as string;
     expect(calledPath).toContain("my-account");
     expect(calledPath).toContain("whatsapp-auth");
   });
@@ -272,7 +280,8 @@ describe("whatsappLogout()", () => {
 
     await whatsappLogout("/workspace");
 
-    const rmPath = (fs.rmSync as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
+    const rmPath = (fs.rmSync as ReturnType<typeof vi.fn>).mock
+      .calls[0][0] as string;
     expect(rmPath).toContain("default");
   });
 
@@ -283,8 +292,11 @@ describe("whatsappLogout()", () => {
     // The Baileys mock will create a socket that fires connection.update
     const mockEnd = vi.fn();
     const mockLogout = vi.fn().mockResolvedValue(undefined);
-    const { default: makeWASocket, useMultiFileAuthState, fetchLatestBaileysVersion } =
-      await import("@whiskeysockets/baileys");
+    const {
+      default: makeWASocket,
+      useMultiFileAuthState,
+      fetchLatestBaileysVersion,
+    } = await import("@whiskeysockets/baileys");
 
     // Setup Baileys mocks to simulate connection open → logout
     const evHandlers: Record<string, (...args: unknown[]) => void> = {};
@@ -313,17 +325,18 @@ describe("whatsappLogout()", () => {
 
     expect(mockLogout).toHaveBeenCalled();
     expect(mockEnd).toHaveBeenCalledWith(undefined);
-    expect(fs.rmSync).toHaveBeenCalledWith(
-      expect.stringContaining("default"),
-      { recursive: true, force: true },
-    );
+    expect(fs.rmSync).toHaveBeenCalledWith(expect.stringContaining("default"), {
+      recursive: true,
+      force: true,
+    });
   });
 
   it("still deletes files when Baileys connection fails", async () => {
     (fs.existsSync as ReturnType<typeof vi.fn>).mockReturnValue(true);
 
-    const { default: makeWASocket, useMultiFileAuthState, fetchLatestBaileysVersion } =
-      await import("@whiskeysockets/baileys");
+    const { useMultiFileAuthState, fetchLatestBaileysVersion } = await import(
+      "@whiskeysockets/baileys"
+    );
 
     // Make Baileys throw during setup
     (useMultiFileAuthState as ReturnType<typeof vi.fn>).mockRejectedValue(
@@ -336,9 +349,9 @@ describe("whatsappLogout()", () => {
     await whatsappLogout("/workspace", "broken");
 
     // Files should still be cleaned up even though Baileys failed
-    expect(fs.rmSync).toHaveBeenCalledWith(
-      expect.stringContaining("broken"),
-      { recursive: true, force: true },
-    );
+    expect(fs.rmSync).toHaveBeenCalledWith(expect.stringContaining("broken"), {
+      recursive: true,
+      force: true,
+    });
   });
 });

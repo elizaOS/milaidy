@@ -4,7 +4,7 @@ This guide explains how to use the WhatsApp connector in Milady with Baileys (QR
 
 ## Overview
 
-As of `@elizaos/plugin-whatsapp@2.0.0-alpha.6`, the plugin supports two authentication methods:
+As of `@milady/plugin-whatsapp`, the plugin supports two authentication methods:
 - **Cloud API**: For business accounts using the WhatsApp Business API
 - **Baileys**: For personal accounts using QR code authentication (like WhatsApp Web)
 
