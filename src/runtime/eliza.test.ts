@@ -17,6 +17,7 @@ import {
   applyCloudConfigToEnv,
   applyConnectorSecretsToEnv,
   applyDatabaseConfigToEnv,
+  applyX402ConfigToEnv,
   autoResolveDiscordAppId,
   buildCharacterFromConfig,
   CORE_PLUGINS,
@@ -275,6 +276,42 @@ describe("collectPluginNames", () => {
     const names = collectPluginNames(config);
 
     expect(names.has("@elizaos/plugin-cua")).toBe(true);
+  });
+
+  it("loads CUA plugin when features.cua is enabled", () => {
+    const config = {
+      features: { cua: true },
+    } as unknown as MiladyConfig;
+    const names = collectPluginNames(config);
+
+    expect(names.has("@elizaos/plugin-cua")).toBe(true);
+  });
+
+  it("does not load CUA plugin when features.cua.enabled is false", () => {
+    const config = {
+      features: { cua: { enabled: false } },
+    } as unknown as MiladyConfig;
+    const names = collectPluginNames(config);
+
+    expect(names.has("@elizaos/plugin-cua")).toBe(false);
+  });
+
+  it("loads x402 plugin when config.x402.enabled is true", () => {
+    const config = {
+      x402: { enabled: true },
+    } as unknown as MiladyConfig;
+    const names = collectPluginNames(config);
+
+    expect(names.has("@elizaos/plugin-x402")).toBe(true);
+  });
+
+  it("does not load x402 plugin when config.x402.enabled is false", () => {
+    const config = {
+      x402: { enabled: false },
+    } as unknown as MiladyConfig;
+    const names = collectPluginNames(config);
+
+    expect(names.has("@elizaos/plugin-x402")).toBe(false);
   });
 
   it("normalizes short plugin IDs in plugins.allow", () => {
@@ -815,6 +852,74 @@ describe("applyCloudConfigToEnv", () => {
 
   it("handles missing cloud config gracefully", () => {
     expect(() => applyCloudConfigToEnv({} as MiladyConfig)).not.toThrow();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// applyX402ConfigToEnv
+// ---------------------------------------------------------------------------
+
+describe("applyX402ConfigToEnv", () => {
+  const envKeys = ["X402_ENABLED", "X402_API_KEY", "X402_BASE_URL"];
+  const snap = envSnapshot(envKeys);
+
+  beforeEach(() => {
+    snap.save();
+    for (const key of envKeys) delete process.env[key];
+  });
+
+  afterEach(() => snap.restore());
+
+  it("propagates x402 config to env when enabled", () => {
+    const config = {
+      x402: {
+        enabled: true,
+        apiKey: "x402-key",
+        baseUrl: "https://x402.example",
+      },
+    } as unknown as MiladyConfig;
+
+    applyX402ConfigToEnv(config);
+
+    expect(process.env.X402_ENABLED).toBe("true");
+    expect(process.env.X402_API_KEY).toBe("x402-key");
+    expect(process.env.X402_BASE_URL).toBe("https://x402.example");
+  });
+
+  it("does not override existing x402 env values", () => {
+    process.env.X402_ENABLED = "existing-enabled";
+    process.env.X402_API_KEY = "existing-key";
+    process.env.X402_BASE_URL = "https://existing.example";
+
+    const config = {
+      x402: {
+        enabled: true,
+        apiKey: "new-key",
+        baseUrl: "https://new.example",
+      },
+    } as unknown as MiladyConfig;
+
+    applyX402ConfigToEnv(config);
+
+    expect(process.env.X402_ENABLED).toBe("existing-enabled");
+    expect(process.env.X402_API_KEY).toBe("existing-key");
+    expect(process.env.X402_BASE_URL).toBe("https://existing.example");
+  });
+
+  it("does nothing when x402 is disabled", () => {
+    const config = {
+      x402: {
+        enabled: false,
+        apiKey: "x402-key",
+        baseUrl: "https://x402.example",
+      },
+    } as unknown as MiladyConfig;
+
+    applyX402ConfigToEnv(config);
+
+    expect(process.env.X402_ENABLED).toBeUndefined();
+    expect(process.env.X402_API_KEY).toBeUndefined();
+    expect(process.env.X402_BASE_URL).toBeUndefined();
   });
 });
 
