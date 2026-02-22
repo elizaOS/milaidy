@@ -563,47 +563,50 @@ function PluginConfigForm({
 
 /* ── Default Icons ─────────────────────────────────────────────────── */
 
-const DEFAULT_ICONS: Record<string, string> = {
-  // AI Providers
-  anthropic: "🧠", "google-genai": "✦", groq: "⚡", "local-ai": "🖥️",
-  ollama: "🦙", openai: "◐", openrouter: "🔀", "vercel-ai-gateway": "▲", xai: "𝕏",
-  // Connectors — chat & social
-  discord: "💬", telegram: "✈️", slack: "💼", twitter: "🐦", whatsapp: "📱",
-  signal: "🔒", imessage: "💭", bluebubbles: "🫧", bluesky: "🦋",
-  farcaster: "🟣", instagram: "📸", nostr: "🔑", twitch: "🎮",
-  matrix: "🔗", mattermost: "💠", msteams: "🟦", "google-chat": "💚",
-  feishu: "🪶", line: "🟢", "nextcloud-talk": "☁️", tlon: "🌀",
-  zalo: "💙", zalouser: "💙",
-  // Features — voice & audio
-  "edge-tts": "🗣️", elevenlabs: "🎙️", tts: "🔊", "simple-voice": "🎤", "robot-voice": "🤖",
-  // Features — blockchain & finance
-  evm: "⛓️", solana: "◎", "auto-trader": "📈", "lp-manager": "💹",
-  "social-alpha": "📊", polymarket: "🎲", x402: "💳", trust: "🤝", iq: "🧩",
-  // Features — dev tools & infra
-  cli: "⌨️", code: "💻", shell: "🐚", github: "🐙", linear: "◻️",
-  mcp: "🔌", browser: "🌐", computeruse: "🖱️", n8n: "⚙️", webhooks: "🪝",
-  // Features — knowledge & memory
-  knowledge: "📚", memory: "🧬", "local-embedding": "📐", pdf: "📄",
-  "secrets-manager": "🔐", "scratchpad": "📝", rlm: "🔄",
-  // Features — agents & orchestration
-  "agent-orchestrator": "🎯", "agent-skills": "🛠️", "plugin-manager": "📦",
-  "copilot-proxy": "🤝", directives: "📋", goals: "🎯", "eliza-classic": "👩",
-  // Features — media & content
-  vision: "👁️", rss: "📡", "gmail-watch": "📧", prose: "✍️", form: "📝",
-  // Features — scheduling & automation
-  cron: "⏰", scheduling: "📅", todo: "✅", commands: "⌘",
-  // Features — storage & logging
-  "s3-storage": "🗄️", "trajectory-logger": "📉", experience: "🌟",
-  // Features — gaming & misc
-  minecraft: "⛏️", roblox: "🧱", babylon: "🎮", mysticism: "🔮",
-  personality: "🎭", moltbook: "📖", tee: "🔏",
-  blooio: "🟠", acp: "🏗️", elizacloud: "☁️", twilio: "📞",
-};
+const DEFAULT_ICON_IDS = [
+  "anthropic", "google-genai", "groq", "local-ai", "ollama", "openai", "openrouter", "vercel-ai-gateway", "xai",
+  "discord", "telegram", "slack", "twitter", "whatsapp", "signal", "imessage", "bluebubbles", "bluesky", "farcaster", "instagram", "nostr", "twitch", "matrix", "mattermost", "msteams", "google-chat", "feishu", "line", "nextcloud-talk", "tlon", "zalo", "zalouser",
+  "edge-tts", "elevenlabs", "tts", "simple-voice", "robot-voice",
+  "evm", "solana", "auto-trader", "lp-manager", "social-alpha", "polymarket", "x402", "trust", "iq",
+  "cli", "code", "shell", "github", "linear", "mcp", "browser", "computeruse", "n8n", "webhooks",
+  "knowledge", "memory", "local-embedding", "pdf", "secrets-manager", "scratchpad", "rlm",
+  "agent-orchestrator", "agent-skills", "plugin-manager", "copilot-proxy", "directives", "goals", "eliza-classic",
+  "vision", "rss", "gmail-watch", "prose", "form",
+  "cron", "scheduling", "todo", "commands",
+  "s3-storage", "trajectory-logger", "experience",
+  "minecraft", "roblox", "babylon", "mysticism", "personality", "moltbook", "tee", "blooio", "acp", "elizacloud", "twilio",
+] as const;
 
-/** Resolve display icon: explicit plugin.icon, fallback to default map, or null. */
+const DEFAULT_ICONS: Record<string, string> = Object.fromEntries(
+  DEFAULT_ICON_IDS.map((id) => [id, `/plugin-logos/${id}.svg`]),
+);
+
+function isImageIcon(icon: string): boolean {
+  return icon.startsWith("http://") || icon.startsWith("https://") || icon.startsWith("/") || icon.startsWith("data:image/");
+}
+
+function hashSeed(input: string): number {
+  let h = 0;
+  for (let i = 0; i < input.length; i++) h = (h * 33 + input.charCodeAt(i)) >>> 0;
+  return h;
+}
+
+function buildFallbackIconDataUri(id: string, name?: string): string {
+  const source = (name?.trim() || id).replace(/[_-]+/g, " ");
+  const parts = source.split(/\s+/).filter(Boolean);
+  const initialsRaw = parts.length >= 2
+    ? `${parts[0][0] ?? ""}${parts[1][0] ?? ""}`
+    : source.slice(0, 2);
+  const initials = initialsRaw.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 2) || "PL";
+  const hue = hashSeed(id) % 360;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><defs><linearGradient id="g" x1="0" x2="1" y1="0" y2="1"><stop offset="0%" stop-color="hsl(${hue} 42% 30%)"/><stop offset="100%" stop-color="hsl(${(hue + 36) % 360} 48% 20%)"/></linearGradient></defs><rect x="4" y="4" width="56" height="56" rx="12" fill="url(#g)"/><path d="M4 20 L20 4 H60 V44 L44 60 H4 Z" fill="none" stroke="rgba(255,255,255,0.22)" stroke-width="2"/><text x="32" y="39" text-anchor="middle" font-size="21" font-family="Inter,Arial,sans-serif" font-weight="700" fill="rgba(244,246,255,0.92)">${initials}</text></svg>`;
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+
+/** Resolve display icon: plugin image/icon URL → local svg logo map → generated svg fallback. */
 function resolveIcon(p: PluginInfo): string | null {
-  if (p.icon) return p.icon;
-  return DEFAULT_ICONS[p.id] ?? null;
+  if (p.icon && isImageIcon(p.icon)) return p.icon;
+  return DEFAULT_ICONS[p.id] ?? buildFallbackIconDataUri(p.id, p.name);
 }
 
 /* ── Sub-group Classification ──────────────────────────────────────── */
@@ -671,6 +674,7 @@ function subgroupForPlugin(plugin: PluginInfo): string {
 
 type StatusFilter = "all" | "enabled";
 type PluginsViewMode = "all" | "connectors";
+type MobilePane = "list" | "detail";
 
 /* ── Shared PluginListView ─────────────────────────────────────────── */
 
@@ -697,6 +701,7 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
     setActionNotice,
     setState,
   } = useApp();
+  const isPluginsGameModal = Boolean(inModal && mode === "all");
 
   const [pluginConfigs, setPluginConfigs] = useState<Record<string, Record<string, string>>>({});
   const [testResults, setTestResults] = useState<Map<string, { success: boolean; message?: string; error?: string; durationMs: number; loading: boolean }>>(new Map());
@@ -707,6 +712,11 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
   const [installProgress, setInstallProgress] = useState<Map<string, { phase: string; message: string }>>(new Map());
   const [togglingPlugins, setTogglingPlugins] = useState<Set<string>>(new Set());
   const hasPluginToggleInFlight = togglingPlugins.size > 0;
+
+  // ── Master-detail selection (connectors modal) ──────────────────────
+  const [selectedPluginId, setSelectedPluginId] = useState<string | null>(null);
+  const [isNarrow, setIsNarrow] = useState(false);
+  const [mobilePane, setMobilePane] = useState<MobilePane>("list");
 
   // ── Drag-to-reorder state ────────────────────────────────────────
   const [pluginOrder, setPluginOrder] = useState<string[]>(() => {
@@ -740,12 +750,36 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
     return unbind;
   }, []);
 
+  // Detect narrow viewport for game-style modal mobile list/detail switch
+  useEffect(() => {
+    if (!isPluginsGameModal || typeof window === "undefined" || typeof window.matchMedia !== "function") {
+      setIsNarrow(false);
+      return;
+    }
+    const media = window.matchMedia("(max-width: 768px)");
+    const apply = () => setIsNarrow(media.matches);
+    apply();
+
+    const onChange = (event: MediaQueryListEvent) => setIsNarrow(event.matches);
+    if (typeof media.addEventListener === "function") {
+      media.addEventListener("change", onChange);
+      return () => media.removeEventListener("change", onChange);
+    }
+
+    media.addListener(onChange);
+    return () => media.removeListener(onChange);
+  }, [isPluginsGameModal]);
+
   // Persist custom order
   useEffect(() => {
     if (pluginOrder.length > 0) {
       localStorage.setItem("pluginOrder", JSON.stringify(pluginOrder));
     }
   }, [pluginOrder]);
+
+  // ── Auto-select first connector in master-detail mode ────────────
+  // (effects placed here so visiblePlugins is available below — they reference
+  //  the memoized list which is defined shortly after.)
 
   // ── Derived data ───────────────────────────────────────────────────
 
@@ -852,6 +886,31 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
       .filter(({ subgroup }) => subgroup === subgroupFilter)
       .map(({ plugin }) => plugin);
   }, [showSubgroupFilters, pluginsWithSubgroup, sorted, subgroupFilter]);
+
+  useEffect(() => {
+    if (!isPluginsGameModal || !isNarrow) return;
+    setMobilePane("list");
+  }, [isPluginsGameModal, isNarrow]);
+
+  // ── Master-detail auto-select ────────────────────────────────────
+  useEffect(() => {
+    if (inModal && !selectedPluginId && visiblePlugins.length > 0) {
+      setSelectedPluginId(visiblePlugins[0].id);
+    }
+  }, [inModal, selectedPluginId, visiblePlugins]);
+
+  useEffect(() => {
+    if (selectedPluginId && !visiblePlugins.find(p => p.id === selectedPluginId)) {
+      setSelectedPluginId(visiblePlugins[0]?.id ?? null);
+    }
+  }, [selectedPluginId, visiblePlugins]);
+
+  useEffect(() => {
+    if (!isPluginsGameModal || !isNarrow) return;
+    if (visiblePlugins.length === 0) {
+      setMobilePane("list");
+    }
+  }, [isPluginsGameModal, isNarrow, visiblePlugins.length]);
 
   // ── Handlers ───────────────────────────────────────────────────────
 
@@ -1096,7 +1155,7 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
             {(() => {
               const icon = resolveIcon(p);
               if (!icon) return null;
-              return icon.startsWith("http") ? (
+              return isImageIcon(icon) ? (
                 <img src={icon} alt="" className="w-4 h-4 rounded-sm object-cover" loading="lazy" />
               ) : (
                 <span className="text-sm">{icon}</span>
@@ -1255,7 +1314,645 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
     return null;
   }, [pluginSettingsOpen, nonDbPlugins]);
 
+  // ── Master-detail derived data ───────────────────────────────────
+  const selectedPlugin = selectedPluginId ? visiblePlugins.find(p => p.id === selectedPluginId) ?? null : null;
+
+  // ── Master-detail renderer (connectors modal) ──────────────────────
+  const renderMasterDetail = () => {
+    const sp = selectedPlugin;
+
+    return (
+      <div className="conn-master-detail">
+        {/* ── Left Panel: Plugin List ── */}
+        <div className="conn-list-panel">
+          <div className="conn-list-search" style={{ display: 'flex', gap: 8 }}>
+            <input
+              type="text"
+              className="conn-search-input"
+              style={{ flex: 1 }}
+              placeholder={`Search ${label.toLowerCase()}...`}
+              value={pluginSearch}
+              onChange={(e) => setState("pluginSearch", e.target.value)}
+            />
+            <button
+              type="button"
+              className="conn-filter-pill"
+              style={{ padding: "0 10px", flexShrink: 0 }}
+              onClick={() => setAddDirOpen(true)}
+              title="Install Plugin from local directory or package"
+            >
+              + Add
+            </button>
+          </div>
+
+          <div className="conn-filter-row">
+            <button
+              type="button"
+              className={`conn-filter-pill ${pluginStatusFilter === "all" ? "is-active" : ""}`}
+              onClick={() => setState("pluginStatusFilter", "all" as StatusFilter)}
+            >
+              All ({categoryPlugins.length})
+            </button>
+            <button
+              type="button"
+              className={`conn-filter-pill ${pluginStatusFilter === "enabled" ? "is-active" : ""}`}
+              onClick={() => setState("pluginStatusFilter", "enabled" as StatusFilter)}
+            >
+              Enabled ({enabledCount})
+            </button>
+          </div>
+
+          {showSubgroupFilters && (
+            <div className="conn-filter-row" style={{ marginTop: 8, flexWrap: "wrap" }}>
+              {subgroupTags.map((tag) => (
+                <button
+                  key={tag.id}
+                  type="button"
+                  className={`conn-filter-pill ${subgroupFilter === tag.id ? "is-active" : ""}`}
+                  style={{ fontSize: 10, padding: "2px 8px" }}
+                  onClick={() => setSubgroupFilter(tag.id)}
+                >
+                  {tag.label} ({tag.count})
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div className="conn-list-scroll">
+            {visiblePlugins.length === 0 ? (
+              <div style={{ padding: "24px 12px", textAlign: "center", color: "rgba(255,255,255,0.3)", fontSize: 12 }}>
+                {pluginSearch ? `No ${label.toLowerCase()} match your search.` : `No ${label.toLowerCase()} available.`}
+              </div>
+            ) : (
+              visiblePlugins.map((p) => {
+                const icon = resolveIcon(p);
+                const hasParams = p.parameters && p.parameters.length > 0;
+                const setCount = hasParams ? p.parameters.filter((param: PluginParamDef) => param.isSet).length : 0;
+                const totalCount = hasParams ? p.parameters.length : 0;
+                const isToggling = togglingPlugins.has(p.id);
+
+                return (
+                  <div
+                    key={p.id}
+                    className={`conn-card ${selectedPluginId === p.id ? "is-selected" : ""} ${!p.enabled ? "is-disabled" : ""}`}
+                    onClick={() => setSelectedPluginId(p.id)}
+                  >
+                    <div className="conn-card-icon">
+                      {icon ? (
+                        isImageIcon(icon) ? (
+                          <img src={icon} alt="" loading="lazy" />
+                        ) : (
+                          icon
+                        )
+                      ) : (
+                        mode === 'connectors' ? '🔌' : '🧩'
+                      )}
+                    </div>
+                    <div className="conn-card-info">
+                      <div className="conn-card-name">{p.name}</div>
+                      <div className="conn-card-badges">
+                        <span className={`conn-badge ${p.enabled ? "is-on" : "is-off"}`}>
+                          {p.enabled ? "ON" : "OFF"}
+                        </span>
+                        {hasParams && (
+                          <span className={`conn-badge ${setCount === totalCount ? "is-configured" : "is-incomplete"}`}>
+                            {setCount}/{totalCount}
+                          </span>
+                        )}
+                        {isToggling && (
+                          <span className="conn-badge is-busy">...</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+
+        {/* ── Right Panel: Detail View ── */}
+        <div className="conn-detail-panel">
+          {sp ? (() => {
+            const icon = resolveIcon(sp);
+            const hasParams = sp.parameters && sp.parameters.length > 0;
+            const isSaving = pluginSaving.has(sp.id);
+            const saveSuccess = pluginSaveSuccess.has(sp.id);
+            const isToggling = togglingPlugins.has(sp.id);
+            const toggleDisabled = isToggling || (hasPluginToggleInFlight && !isToggling);
+            const testResult = testResults.get(sp.id);
+
+            return (
+              <>
+                {/* Header */}
+                <div className="conn-detail-header">
+                  <div className="conn-card-icon">
+                    {icon ? (
+                      isImageIcon(icon) ? (
+                        <img src={icon} alt="" loading="lazy" />
+                      ) : (
+                        icon
+                      )
+                    ) : (
+                      mode === 'connectors' ? '🔌' : '🧩'
+                    )}
+                  </div>
+                  <div className="conn-detail-header-info">
+                    <div className="conn-detail-name">{sp.name}</div>
+                    <div className="conn-detail-meta">
+                      <span className="conn-badge is-off" style={{ fontSize: 10 }}>{sp.category === 'connector' ? 'connector' : sp.category === 'ai-provider' ? 'ai provider' : 'plugin'}</span>
+                      {sp.version && (
+                        <span style={{ fontSize: 10, fontFamily: "var(--font-mono)", color: "rgba(255,255,255,0.4)" }}>
+                          v{sp.version}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className={`conn-detail-toggle ${sp.enabled ? "is-on" : "is-off"}`}
+                    disabled={toggleDisabled}
+                    onClick={() => void handleTogglePlugin(sp.id, !sp.enabled)}
+                  >
+                    {isToggling ? "APPLYING" : sp.enabled ? "ENABLED" : "DISABLED"}
+                  </button>
+                </div>
+
+                {/* Description */}
+                {sp.description && (
+                  <div className="conn-detail-description">
+                    {sp.description}
+                  </div>
+                )}
+
+                {/* Validation errors */}
+                {sp.enabled && sp.validationErrors && sp.validationErrors.length > 0 && (
+                  <div className="conn-detail-errors">
+                    {sp.validationErrors.map((err: { field: string; message: string }, i: number) => (
+                      <div key={i}>{err.field}: {err.message}</div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Install button */}
+                {sp.enabled && !sp.isActive && sp.npmName && !sp.loadError && (
+                  <div style={{ marginBottom: 16 }}>
+                    <button
+                      type="button"
+                      className="conn-action-btn"
+                      style={{ borderColor: "var(--s-accent)", color: "var(--s-accent)" }}
+                      disabled={installingPlugins.has(sp.id)}
+                      onClick={() => handleInstallPlugin(sp.id, sp.npmName!)}
+                    >
+                      {installingPlugins.has(sp.id)
+                        ? installProgress.get(sp.npmName!)?.message || "Installing..."
+                        : "Install Plugin"}
+                    </button>
+                  </div>
+                )}
+
+                {/* Config form */}
+                {hasParams && (
+                  <div className="conn-detail-config">
+                    <PluginConfigForm
+                      plugin={sp}
+                      pluginConfigs={pluginConfigs}
+                      onParamChange={handleParamChange}
+                    />
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div className="conn-detail-actions">
+                  {sp.isActive && (
+                    <button
+                      type="button"
+                      className="conn-action-btn"
+                      disabled={testResult?.loading}
+                      onClick={() => handleTestConnection(sp.id)}
+                      style={
+                        testResult?.success ? { borderColor: "#4ade80", color: "#4ade80" } :
+                        testResult?.error ? { borderColor: "#ef4444", color: "#fca5a5" } :
+                        undefined
+                      }
+                    >
+                      {testResult?.loading
+                        ? "Testing..."
+                        : testResult?.success
+                          ? `\u2713 OK (${testResult.durationMs}ms)`
+                          : testResult?.error
+                            ? `\u2715 ${testResult.error}`
+                            : "Test Connection"}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="conn-action-btn"
+                    onClick={() => handleConfigReset(sp.id)}
+                  >
+                    Reset
+                  </button>
+                  <button
+                    type="button"
+                    className={`conn-action-btn conn-action-save ${saveSuccess ? "is-saved" : ""}`}
+                    onClick={() => handleConfigSave(sp.id)}
+                    disabled={isSaving}
+                  >
+                    {isSaving ? "Saving..." : saveSuccess ? "\u2713 Saved" : "Save Settings"}
+                  </button>
+                </div>
+              </>
+            );
+          })() : (
+            <div className="conn-detail-empty">
+              <div className="conn-detail-empty-icon">{mode === 'connectors' ? '🔌' : '🧩'}</div>
+              <div className="conn-detail-empty-text">Select a {label.toLowerCase().slice(0, -1)}</div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  // ── Game-style renderer (plugins modal only) ───────────────────────
+  const renderPluginsGameModal = () => {
+    const sp = selectedPlugin;
+    const rootClass = `plugins-game-modal ${isNarrow ? "is-narrow" : ""} ${
+      isNarrow && mobilePane === "list" ? "is-mobile-list" : isNarrow ? "is-mobile-detail" : ""
+    }`;
+    const showListPane = !isNarrow || mobilePane === "list";
+    const showDetailPane = !isNarrow || mobilePane === "detail";
+    const subgroupLabelMap = new Map(subgroupTags.map((tag) => [tag.id, tag.label]));
+    const gameFilterValue = subgroupFilter !== "all"
+      ? `subgroup:${subgroupFilter}`
+      : `status:${pluginStatusFilter}`;
+    const activeFilterLabel = subgroupFilter !== "all"
+      ? subgroupLabelMap.get(subgroupFilter) ?? "Filtered"
+      : pluginStatusFilter === "enabled"
+        ? "Enabled"
+        : "All";
+
+    const handleGameFilterChange = (value: string) => {
+      if (value.startsWith("status:")) {
+        const status = value.slice("status:".length);
+        if (status === "all" || status === "enabled") {
+          setState("pluginStatusFilter", status as StatusFilter);
+          setSubgroupFilter("all");
+        }
+        return;
+      }
+
+      if (value.startsWith("subgroup:")) {
+        const subgroup = value.slice("subgroup:".length);
+        setState("pluginStatusFilter", "all" as StatusFilter);
+        setSubgroupFilter(subgroup);
+      }
+    };
+
+    return (
+      <div className={rootClass} data-plugins-game-modal>
+        <section className={`plugins-game-list-panel ${showListPane ? "" : "is-hidden"}`} data-pane="list">
+          <div className="plugins-game-list-head">
+            <div className="plugins-game-section-title">Plugins</div>
+            <div className="plugins-game-section-meta">{visiblePlugins.length} visible · {activeFilterLabel}</div>
+          </div>
+
+          <div className="plugins-game-list-search">
+            <div className="plugins-game-list-search-row">
+              <input
+                type="text"
+                className="plugins-game-search-input"
+                placeholder={`Search ${label.toLowerCase()}...`}
+                value={pluginSearch}
+                onChange={(e) => setState("pluginSearch", e.target.value)}
+              />
+              <button
+                type="button"
+                className="plugins-game-chip plugins-game-add-btn"
+                onClick={() => setAddDirOpen(true)}
+                title="Install plugin from local directory or package"
+              >
+                <span className="plugins-game-add-symbol">+</span>
+                <span>Add</span>
+              </button>
+            </div>
+
+            <div className="plugins-game-list-filter-row">
+              <select
+                className="plugins-game-filter-select"
+                value={gameFilterValue}
+                onChange={(e) => handleGameFilterChange(e.target.value)}
+                aria-label="Filter plugins"
+              >
+                <option value="status:all">Filter: All</option>
+                <option value="status:enabled">Filter: Enabled</option>
+                {showSubgroupFilters &&
+                  subgroupTags
+                    .filter((tag) => tag.id !== "all")
+                    .map((tag) => (
+                      <option key={tag.id} value={`subgroup:${tag.id}`}>
+                        {tag.label}
+                      </option>
+                    ))}
+              </select>
+            </div>
+          </div>
+
+          {hasPluginToggleInFlight && (
+            <div className="plugins-game-inflight">
+              Applying plugin change and waiting for agent restart...
+            </div>
+          )}
+
+          <div className="plugins-game-list-scroll">
+            {visiblePlugins.length === 0 ? (
+              <div className="plugins-game-list-empty">
+                {pluginSearch ? `No ${label.toLowerCase()} match your search.` : `No ${label.toLowerCase()} available.`}
+              </div>
+            ) : (
+              visiblePlugins.map((p) => {
+                const icon = resolveIcon(p);
+                const hasParams = p.parameters && p.parameters.length > 0;
+                const setCount = hasParams ? p.parameters.filter((param: PluginParamDef) => param.isSet).length : 0;
+                const totalCount = hasParams ? p.parameters.length : 0;
+                const isToggling = togglingPlugins.has(p.id);
+                const isSelected = selectedPluginId === p.id;
+
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    className={`plugins-game-card ${isSelected ? "is-selected" : ""} ${!p.enabled ? "is-disabled" : ""}`}
+                    onClick={() => {
+                      setSelectedPluginId(p.id);
+                      if (isNarrow) setMobilePane("detail");
+                    }}
+                  >
+                    <span className="plugins-game-card-icon-shell">
+                      <span className="plugins-game-card-icon">
+                        {icon ? (
+                          isImageIcon(icon) ? (
+                            <img src={icon} alt="" loading="lazy" />
+                          ) : (
+                            icon
+                          )
+                        ) : (
+                          "🧩"
+                        )}
+                      </span>
+                    </span>
+                    <span className="plugins-game-card-body">
+                      <span className="plugins-game-card-name">{p.name}</span>
+                      <span className="plugins-game-card-meta">
+                        <span className={`plugins-game-badge ${p.enabled ? "is-on" : "is-off"}`}>
+                          {p.enabled ? "ON" : "OFF"}
+                        </span>
+                        {hasParams && (
+                          <span className={`plugins-game-badge ${setCount === totalCount ? "is-configured" : "is-incomplete"}`}>
+                            {setCount}/{totalCount}
+                          </span>
+                        )}
+                        {isToggling && <span className="plugins-game-badge is-busy">...</span>}
+                      </span>
+                    </span>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </section>
+
+        <section className={`plugins-game-detail-panel ${showDetailPane ? "" : "is-hidden"}`} data-pane="detail">
+          {sp ? (() => {
+            const icon = resolveIcon(sp);
+            const hasParams = sp.parameters && sp.parameters.length > 0;
+            const isSaving = pluginSaving.has(sp.id);
+            const saveSuccess = pluginSaveSuccess.has(sp.id);
+            const isToggling = togglingPlugins.has(sp.id);
+            const toggleDisabled = isToggling || (hasPluginToggleInFlight && !isToggling);
+            const testResult = testResults.get(sp.id);
+            const setCount = hasParams ? sp.parameters.filter((param: PluginParamDef) => param.isSet).length : 0;
+            const totalCount = hasParams ? sp.parameters.length : 0;
+
+            return (
+              <>
+                <div className="plugins-game-detail-head">
+                  {isNarrow && (
+                    <button
+                      type="button"
+                      className="plugins-game-back-btn"
+                      onClick={() => setMobilePane("list")}
+                    >
+                      &#8592; Back
+                    </button>
+                  )}
+                  <div className="plugins-game-detail-title-row">
+                    <div className="plugins-game-detail-icon-shell">
+                      <div className="plugins-game-detail-icon">
+                        {icon ? (
+                          isImageIcon(icon) ? (
+                            <img src={icon} alt="" loading="lazy" />
+                          ) : (
+                            icon
+                          )
+                        ) : (
+                          "🧩"
+                        )}
+                      </div>
+                    </div>
+                    <div className="plugins-game-detail-main">
+                      <div className="plugins-game-detail-name">{sp.name}</div>
+                      <div className="plugins-game-detail-meta">
+                        <span className="plugins-game-badge is-off">
+                          {sp.category === "connector" ? "connector" : sp.category === "ai-provider" ? "ai provider" : "plugin"}
+                        </span>
+                        {sp.version && (
+                          <span className="plugins-game-version">v{sp.version}</span>
+                        )}
+                        {hasParams && (
+                          <span className="plugins-game-version">{setCount}/{totalCount} configured</span>
+                        )}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      className={`plugins-game-toggle ${sp.enabled ? "is-on" : "is-off"}`}
+                      disabled={toggleDisabled}
+                      onClick={() => void handleTogglePlugin(sp.id, !sp.enabled)}
+                    >
+                      {isToggling ? "APPLYING" : sp.enabled ? "ENABLED" : "DISABLED"}
+                    </button>
+                  </div>
+                </div>
+
+                {sp.description && (
+                  <div className="plugins-game-detail-description">
+                    {sp.description}
+                  </div>
+                )}
+
+                {sp.enabled && sp.validationErrors && sp.validationErrors.length > 0 && (
+                  <div className="plugins-game-detail-errors">
+                    {sp.validationErrors.map((err: { field: string; message: string }, i: number) => (
+                      <div key={i}>{err.field}: {err.message}</div>
+                    ))}
+                  </div>
+                )}
+
+                {sp.enabled && !sp.isActive && sp.npmName && !sp.loadError && (
+                  <div className="plugins-game-install-row">
+                    <button
+                      type="button"
+                      className="plugins-game-action-btn"
+                      disabled={installingPlugins.has(sp.id)}
+                      onClick={() => handleInstallPlugin(sp.id, sp.npmName!)}
+                    >
+                      {installingPlugins.has(sp.id)
+                        ? installProgress.get(sp.npmName!)?.message || "Installing..."
+                        : "Install Plugin"}
+                    </button>
+                  </div>
+                )}
+
+                {hasParams && (
+                  <div className="plugins-game-detail-config">
+                    <PluginConfigForm
+                      plugin={sp}
+                      pluginConfigs={pluginConfigs}
+                      onParamChange={handleParamChange}
+                    />
+                  </div>
+                )}
+
+                <div className="plugins-game-detail-actions">
+                  {sp.isActive && (
+                    <button
+                      type="button"
+                      className="plugins-game-action-btn"
+                      disabled={testResult?.loading}
+                      onClick={() => handleTestConnection(sp.id)}
+                      style={
+                        testResult?.success ? { borderColor: "#4ade80", color: "#4ade80" } :
+                        testResult?.error ? { borderColor: "#ef4444", color: "#fca5a5" } :
+                        undefined
+                      }
+                    >
+                      {testResult?.loading
+                        ? "Testing..."
+                        : testResult?.success
+                          ? `\u2713 OK (${testResult.durationMs}ms)`
+                          : testResult?.error
+                            ? `\u2715 ${testResult.error}`
+                            : "Test Connection"}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="plugins-game-action-btn"
+                    onClick={() => handleConfigReset(sp.id)}
+                  >
+                    Reset
+                  </button>
+                  <button
+                    type="button"
+                    className={`plugins-game-action-btn plugins-game-save-btn ${saveSuccess ? "is-saved" : ""}`}
+                    onClick={() => handleConfigSave(sp.id)}
+                    disabled={isSaving}
+                  >
+                    {isSaving ? "Saving..." : saveSuccess ? "\u2713 Saved" : "Save Settings"}
+                  </button>
+                </div>
+              </>
+            );
+          })() : (
+            <div className="plugins-game-detail-empty">
+              <div className="plugins-game-detail-empty-icon">🧩</div>
+              <div className="plugins-game-detail-empty-text">Select a plugin</div>
+            </div>
+          )}
+        </section>
+      </div>
+    );
+  };
+
+  // ── Add Directory Modal Renderer ──────────────────────────────────
+  const renderAddDirModal = () => {
+    if (!addDirOpen) return null;
+    return (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+        onClick={(e) => {
+          if (e.target === e.currentTarget) {
+            setAddDirOpen(false);
+            setAddDirPath("");
+          }
+        }}
+      >
+        <div className="w-full max-w-md border border-border bg-card p-5 shadow-lg">
+          <div className="flex items-center justify-between mb-4">
+            <div className="font-bold text-sm">Add Plugin</div>
+            <button
+              className="text-muted hover:text-txt text-lg leading-none px-1"
+              onClick={() => {
+                setAddDirOpen(false);
+                setAddDirPath("");
+              }}
+            >
+              &times;
+            </button>
+          </div>
+
+          <p className="text-xs text-muted mb-3">
+            Enter the path to a local plugin directory or package name.
+          </p>
+
+          <input
+            type="text"
+            className="w-full py-2 px-3 border border-border bg-bg text-[13px] font-mono transition-colors duration-150 focus:border-accent focus:outline-none placeholder:text-muted placeholder:font-body placeholder:italic"
+            placeholder="/path/to/plugin or package-name"
+            value={addDirPath}
+            onChange={(e) => setAddDirPath(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") void handleAddFromDirectory();
+            }}
+            autoFocus
+          />
+
+          <div className="flex justify-end gap-2 mt-4">
+            <button
+              type="button"
+              className="px-4 py-[5px] border border-border bg-transparent text-muted text-xs cursor-pointer hover:text-txt hover:bg-bg-hover"
+              onClick={() => {
+                setAddDirOpen(false);
+                setAddDirPath("");
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="px-4 py-[5px] border border-accent bg-accent text-accent-fg text-xs cursor-pointer hover:bg-accent-hover hover:border-accent-hover disabled:opacity-40 disabled:cursor-not-allowed"
+              onClick={handleAddFromDirectory}
+              disabled={addDirLoading || !addDirPath.trim()}
+            >
+              {addDirLoading ? "Adding..." : "Add"}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   // ── Main render ────────────────────────────────────────────────────
+
+  if (inModal) {
+    return (
+      <>
+        {isPluginsGameModal ? renderPluginsGameModal() : renderMasterDetail()}
+        {renderAddDirModal()}
+      </>
+    );
+  }
 
   return (
     <div>
@@ -1385,7 +2082,7 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
                   {(() => {
                     const icon = resolveIcon(p);
                     if (!icon) return null;
-                    return icon.startsWith("http") ? (
+                    return isImageIcon(icon) ? (
                       <img src={icon} alt="" className="w-4 h-4 rounded-sm object-cover" loading="lazy" />
                     ) : (
                       <span className="text-sm">{icon}</span>
@@ -1519,69 +2216,7 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
       })()}
 
       {/* Add from directory modal */}
-      {addDirOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              setAddDirOpen(false);
-              setAddDirPath("");
-            }
-          }}
-        >
-          <div className="w-full max-w-md border border-border bg-card p-5 shadow-lg">
-            <div className="flex items-center justify-between mb-4">
-              <div className="font-bold text-sm">Add Plugin</div>
-              <button
-                className="text-muted hover:text-txt text-lg leading-none px-1"
-                onClick={() => {
-                  setAddDirOpen(false);
-                  setAddDirPath("");
-                }}
-              >
-                &times;
-              </button>
-            </div>
-
-            <p className="text-xs text-muted mb-3">
-              Enter the path to a local plugin directory or package name.
-            </p>
-
-            <input
-              type="text"
-              className="w-full py-2 px-3 border border-border bg-bg text-[13px] font-mono transition-colors duration-150 focus:border-accent focus:outline-none placeholder:text-muted placeholder:font-body placeholder:italic"
-              placeholder="/path/to/plugin or package-name"
-              value={addDirPath}
-              onChange={(e) => setAddDirPath(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") void handleAddFromDirectory();
-              }}
-              autoFocus
-            />
-
-            <div className="flex justify-end gap-2 mt-4">
-              <button
-                type="button"
-                className="px-4 py-[5px] border border-border bg-transparent text-muted text-xs cursor-pointer hover:text-txt hover:bg-bg-hover"
-                onClick={() => {
-                  setAddDirOpen(false);
-                  setAddDirPath("");
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="px-4 py-[5px] border border-accent bg-accent text-accent-fg text-xs cursor-pointer hover:bg-accent-hover hover:border-accent-hover disabled:opacity-40 disabled:cursor-not-allowed"
-                onClick={handleAddFromDirectory}
-                disabled={addDirLoading || !addDirPath.trim()}
-              >
-                {addDirLoading ? "Adding..." : "Add"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {renderAddDirModal()}
     </div>
   );
 }
