@@ -511,91 +511,104 @@
     color: #fff;
 }
 
-/* ── Talents / Skills Entrance ── */
-.anime-talents-btn {
+/* ── Game HUD Icon Menu ── */
+.anime-hub-menu {
     display: flex;
+    flex-direction: column;
+    gap: 16px;
+    align-items: flex-end;
+}
+
+.anime-hub-btn {
+    display: flex;
+    flex-direction: row-reverse;
+    /* Icon right, Label left */
     align-items: center;
-    gap: 14px;
-    padding: 12px 16px 12px 12px;
-    background: linear-gradient(135deg, rgba(20, 24, 38, 0.8) 0%, rgba(10, 12, 18, 0.9) 100%);
-    backdrop-filter: blur(12px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-right: 3px solid var(--ac-accent);
-    color: white;
+    gap: 12px;
+    background: none;
+    border: none;
+    padding: 0;
     cursor: pointer;
-    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-    text-align: left;
-    margin-bottom: 24px;
-    width: 100%;
-    /* Slanted geometric cut */
-    clip-path: polygon(10px 0, 100% 0, 100% 100%, 0 100%);
+    transition: transform 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
-.anime-talents-btn:hover {
-    background: linear-gradient(135deg, rgba(30, 36, 56, 0.95) 0%, rgba(15, 18, 28, 0.95) 100%);
-    border-color: var(--ac-accent);
-    box-shadow: 0 4px 20px rgba(0, 225, 255, 0.15), inset 2px 0 15px rgba(0, 225, 255, 0.2);
-    transform: translateX(-4px);
-    /* Pushes out to the left to feel immersive */
+.anime-hub-btn:hover {
+    transform: translateX(-6px);
 }
 
-.anime-talents-icon-wrap {
+/* Sci-fi Circular Icon Container */
+.anime-hub-btn-icon {
+    position: relative;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.35);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 44px;
-    height: 44px;
-    background: rgba(0, 225, 255, 0.05);
-    border: 1px solid rgba(0, 225, 255, 0.2);
+    color: rgba(255, 255, 255, 0.85);
+    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+/* Outer Accent Ring (hidden initially, scales up on hover) */
+.anime-hub-btn-icon::after {
+    content: '';
+    position: absolute;
+    inset: -3px;
     border-radius: 50%;
-    color: var(--ac-accent);
-    flex-shrink: 0;
-    transition: all 0.3s ease;
+    border: 1px solid var(--ac-accent);
+    opacity: 0;
+    transform: scale(0.9);
+    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
-.anime-talents-btn:hover .anime-talents-icon-wrap {
-    background: rgba(0, 225, 255, 0.2);
-    box-shadow: 0 0 15px rgba(0, 225, 255, 0.5);
-    transform: scale(1.05);
+.anime-hub-btn-icon::before {
+    display: none;
 }
 
-.anime-talents-info {
-    display: flex;
-    flex-direction: column;
-    flex-grow: 1;
+.anime-hub-btn-icon svg {
+    position: relative;
+    z-index: 1;
+    width: 20px;
+    height: 20px;
+    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
-.anime-talents-title {
-    font-size: 15px;
-    font-weight: 800;
-    letter-spacing: 0.15em;
+.anime-hub-btn:hover .anime-hub-btn-icon {
+    background: rgba(var(--ac-accent-rgb), 0.15);
+    border-color: var(--ac-accent);
     color: #fff;
-    text-transform: uppercase;
-    transform: skewX(-5deg);
-    text-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
+    box-shadow: 0 0 16px rgba(var(--ac-accent-rgb), 0.3), 0 4px 12px rgba(0, 0, 0, 0.4);
 }
 
-.anime-talents-btn:hover .anime-talents-title {
-    color: var(--ac-accent);
-    text-shadow: 0 0 10px rgba(0, 225, 255, 0.5);
+.anime-hub-btn:hover .anime-hub-btn-icon::after {
+    opacity: 0.6;
+    transform: scale(1);
 }
 
-.anime-talents-sub {
-    font-size: 10px;
-    color: rgba(255, 255, 255, 0.5);
+.anime-hub-btn:hover .anime-hub-btn-icon svg {
+    filter: drop-shadow(0 0 4px rgba(var(--ac-accent-rgb), 0.8));
+    transform: scale(1.1);
+}
+
+.anime-hub-btn-label {
+    font-size: 13px;
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.15em;
+    color: rgba(255, 255, 255, 0.6);
+    white-space: nowrap;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
-.anime-talents-arrow {
-    color: rgba(255, 255, 255, 0.3);
-    transition: all 0.3s ease;
-}
-
-.anime-talents-btn:hover .anime-talents-arrow {
-    color: var(--ac-accent);
-    transform: translateX(4px);
+.anime-hub-btn:hover .anime-hub-btn-label {
+    color: #fff;
+    text-shadow: 0 0 8px rgba(var(--ac-accent-rgb), 0.6), 0 2px 4px rgba(0, 0, 0, 0.9);
 }
 
 /* Big Action Buttons! */
@@ -1019,4 +1032,880 @@
     height: 40px;
     background: linear-gradient(135deg, transparent 50%, rgba(255, 255, 255, 0.05) 50%);
     pointer-events: none;
+}
+
+/* ── Gamified Config Forms (Settings/Plugins/Knowledge) ── */
+.anime-theme-scope input.border,
+.anime-theme-scope textarea.border,
+.anime-theme-scope select.border {
+    background: rgba(0, 0, 0, 0.2) !important;
+    border-radius: 4px 4px 0 0 !important;
+    border-top: none !important;
+    border-left: none !important;
+    border-right: none !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2) !important;
+    transition: all 0.3s ease !important;
+    color: #fff !important;
+    box-shadow: none !important;
+}
+
+.anime-theme-scope input.border:focus,
+.anime-theme-scope textarea.border:focus,
+.anime-theme-scope select.border:focus {
+    background: rgba(255, 255, 255, 0.05) !important;
+    border-bottom-color: var(--accent) !important;
+    outline: none !important;
+}
+
+.anime-theme-scope input.border::placeholder,
+.anime-theme-scope textarea.border::placeholder {
+    color: rgba(255, 255, 255, 0.3) !important;
+}
+
+/* ── HSR-style Character Modal Panels ──────────────────────────────── */
+
+/* Main section panel — chamfered corners, gold left border, L-bracket corners */
+.char-panel {
+    position: relative;
+    background: linear-gradient(135deg, rgba(212, 175, 55, 0.05) 0%, rgba(10, 12, 20, 0.92) 100%);
+    border: 1px solid rgba(212, 175, 55, 0.12);
+    border-left: 3px solid rgba(212, 175, 55, 0.55);
+    padding: 14px 18px 18px;
+    clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 18px 100%, 0 calc(100% - 18px));
+    transition: box-shadow 0.3s ease, border-color 0.3s ease;
+}
+
+.char-panel:hover {
+    box-shadow: 0 0 28px rgba(212, 175, 55, 0.08), inset 2px 0 12px rgba(212, 175, 55, 0.06);
+    border-color: rgba(212, 175, 55, 0.22);
+    border-left-color: rgba(212, 175, 55, 0.75);
+}
+
+/* Top-left L-bracket (intact corner) */
+.char-panel::before {
+    content: '';
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    width: 12px;
+    height: 12px;
+    border-top: 2px solid rgba(212, 175, 55, 0.8);
+    border-left: 2px solid rgba(212, 175, 55, 0.8);
+    pointer-events: none;
+}
+
+/* Bottom-right L-bracket (intact corner) */
+.char-panel::after {
+    content: '';
+    position: absolute;
+    bottom: 4px;
+    right: 4px;
+    width: 12px;
+    height: 12px;
+    border-bottom: 2px solid rgba(212, 175, 55, 0.8);
+    border-right: 2px solid rgba(212, 175, 55, 0.8);
+    pointer-events: none;
+}
+
+/* Column sub-panel — top accent line, no clip-path */
+.char-subpanel {
+    position: relative;
+    background: rgba(0, 0, 0, 0.28);
+    border: 1px solid rgba(212, 175, 55, 0.08);
+    border-top: 2px solid rgba(212, 175, 55, 0.38);
+    padding: 5px 8px;
+    overflow: hidden;
+}
+
+/* Tag badge — gold left border + tint bg */
+.char-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 1.5px;
+    padding: 2px 8px;
+    background: rgba(212, 175, 55, 0.07);
+    border: 1px solid rgba(212, 175, 55, 0.18);
+    border-left: 2px solid rgba(212, 175, 55, 0.55);
+    font-size: 11px;
+    height: fit-content;
+    transition: box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.char-tag:hover {
+    background: rgba(212, 175, 55, 0.12);
+    box-shadow: 0 0 8px rgba(212, 175, 55, 0.15);
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   SETTINGS MODAL — HSR Deep Dark Frosted Glass
+   Dark translucent panel with amber-gold accents.  3D scene bleeds
+   through dark glass.  Zero duplicate selectors, minimal !important.
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ── Group 1: Layout ─────────────────────────────────────────────────── */
+
+.settings-modal-layout {
+    display: flex;
+    height: 100%;
+    overflow: hidden;
+}
+
+.settings-icon-sidebar {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 16px 10px;
+    width: 100px;
+    min-width: 100px;
+    background: rgba(4, 5, 10, 0.92);
+    border-right: 1px solid rgba(255, 255, 255, 0.05);
+    overflow-y: auto;
+    scrollbar-width: none;
+}
+
+.settings-icon-sidebar::-webkit-scrollbar {
+    display: none;
+}
+
+.settings-content-area {
+    /* ── design tokens ── */
+    --s-panel-bg: rgba(8, 10, 18, 0.88);
+    --s-panel-blur: blur(20px);
+    --s-card-bg: rgba(255, 255, 255, 0.03);
+    --s-card-bg-hover: rgba(255, 255, 255, 0.06);
+    --s-input-bg: rgba(0, 0, 0, 0.25);
+    --s-input-bg-hover: rgba(0, 0, 0, 0.3);
+    --s-input-bg-focus: rgba(0, 0, 0, 0.35);
+    --s-sidebar-bg: rgba(4, 5, 10, 0.92);
+    --s-text: rgba(240, 238, 250, 0.93);
+    --s-text-secondary: rgba(240, 238, 250, 0.75);
+    --s-text-muted: rgba(240, 238, 250, 0.55);
+    --s-text-accent: #f0b232;
+    --s-border-subtle: rgba(255, 255, 255, 0.06);
+    --s-border: rgba(255, 255, 255, 0.10);
+    --s-border-medium: rgba(255, 255, 255, 0.15);
+    --s-border-strong: rgba(255, 255, 255, 0.25);
+    --s-accent: #f0b232;
+    --s-accent-glow: rgba(240, 178, 50, 0.35);
+    --s-accent-subtle: rgba(240, 178, 50, 0.12);
+    --s-grid-line: rgba(240, 178, 50, 0.02);
+    --s-glow-edge: rgba(240, 178, 50, 0.08);
+
+    /* ── override global CSS variables for child components ── */
+    --accent: #f0b232;
+    --accent-foreground: rgba(240, 238, 250, 0.93);
+    --border: rgba(255, 255, 255, 0.10);
+    --card: rgba(255, 255, 255, 0.03);
+    --bg-hover: rgba(255, 255, 255, 0.06);
+    --bg-muted: rgba(0, 0, 0, 0.2);
+    --text: rgba(240, 238, 250, 0.93);
+    --txt: rgba(240, 238, 250, 0.93);
+    --muted: rgba(240, 238, 250, 0.60);
+    --ok: #16a34a;
+
+    /* ── config-renderer field label/help variables ── */
+    --plugin-label: rgba(240, 238, 250, 0.93);
+    --plugin-label-size: 13px;
+    --plugin-help: rgba(240, 238, 250, 0.55);
+    --plugin-help-size: 11px;
+
+    /* ── layout ── */
+    flex: 1;
+    min-width: 0;
+    overflow-y: auto;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    position: relative;
+
+    /* ── dark frosted glass ── */
+    background: var(--s-panel-bg);
+    backdrop-filter: var(--s-panel-blur);
+    -webkit-backdrop-filter: var(--s-panel-blur);
+    color: var(--s-text);
+}
+
+.settings-section-pane {
+    padding: 0 24px 24px;
+}
+
+/* ── Group 2: Decorative pseudo-elements ─────────────────────────────── */
+
+/* Left edge accent glow */
+.settings-content-area::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 1px;
+    height: 100%;
+    pointer-events: none;
+    z-index: 3;
+    background: linear-gradient(180deg, transparent 10%, var(--s-accent-glow) 50%, transparent 90%);
+    box-shadow: 0 0 10px var(--s-glow-edge);
+}
+
+/* Grid texture overlay */
+.settings-content-area::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1;
+    background:
+        linear-gradient(var(--s-grid-line) 1px, transparent 1px),
+        linear-gradient(90deg, var(--s-grid-line) 1px, transparent 1px);
+    background-size: 40px 40px;
+}
+
+/* Keep content above grid overlay */
+.settings-content-area>* {
+    position: relative;
+    z-index: 2;
+}
+
+/* ── Group 3: Typography + semantic utility classes ──────────────────── */
+
+.s-text {
+    color: var(--s-text);
+}
+
+.s-text-muted {
+    color: var(--s-text-muted);
+}
+
+.s-text-secondary {
+    color: var(--s-text-secondary);
+}
+
+.s-text-accent {
+    color: var(--s-text-accent);
+}
+
+.s-bg-subtle {
+    background: var(--s-card-bg-hover);
+}
+
+.s-bg-inset {
+    background: var(--s-input-bg);
+}
+
+.s-border {
+    border-color: var(--s-border-medium);
+}
+
+.s-border-subtle {
+    border-color: var(--s-border);
+}
+
+.s-hover-text:hover {
+    color: var(--s-text);
+}
+
+.s-hover-bg:hover {
+    background: var(--s-card-bg);
+}
+
+.s-hover-bg-subtle:hover {
+    background: var(--s-card-bg-hover);
+}
+
+.s-hover-border:hover {
+    border-color: var(--s-border-strong);
+}
+
+/* Code blocks */
+.settings-content-area code {
+    background: var(--s-input-bg);
+    border: 1px solid var(--s-border);
+    padding: 1px 5px;
+    font-size: 11px;
+}
+
+/* ── Group 4: Controls ───────────────────────────────────────────────── */
+
+/* Text inputs + textarea — single definition */
+.settings-content-area input[type="text"],
+.settings-content-area input[type="password"],
+.settings-content-area input[type="number"],
+.settings-content-area input[type="email"],
+.settings-content-area textarea {
+    background: var(--s-input-bg);
+    border: 1px solid var(--s-border);
+    border-radius: 4px;
+    color: var(--s-text);
+    font-size: 12px;
+    padding: 8px 12px;
+    transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.settings-content-area input[type="text"]:hover,
+.settings-content-area input[type="password"]:hover,
+.settings-content-area input[type="number"]:hover,
+.settings-content-area input[type="email"]:hover,
+.settings-content-area textarea:hover {
+    background: var(--s-input-bg-hover);
+    border-color: var(--s-border-medium);
+}
+
+.settings-content-area input[type="text"]:focus,
+.settings-content-area input[type="password"]:focus,
+.settings-content-area input[type="number"]:focus,
+.settings-content-area input[type="email"]:focus,
+.settings-content-area textarea:focus {
+    background: var(--s-input-bg-focus);
+    border-color: var(--s-accent);
+    outline: none;
+    box-shadow: 0 0 0 1px var(--s-accent-subtle);
+}
+
+.settings-content-area input::placeholder,
+.settings-content-area textarea::placeholder {
+    color: var(--s-text-muted);
+}
+
+/* Select — custom chevron, accent left border */
+.settings-content-area select {
+    appearance: none;
+    -webkit-appearance: none;
+    background-color: var(--s-input-bg);
+    border: 1px solid var(--s-border);
+    border-left: 2px solid var(--s-accent);
+    border-radius: 4px;
+    color: var(--s-text);
+    font-size: 12px;
+    font-weight: 500;
+    padding: 8px 30px 8px 12px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='rgba(240,238,250,0.5)' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    transition: border-color 0.15s ease;
+    cursor: pointer;
+}
+
+.settings-content-area select:hover {
+    border-color: var(--s-border-medium);
+}
+
+.settings-content-area select:focus {
+    border-color: var(--s-accent);
+    outline: none;
+    box-shadow: 0 0 0 1px var(--s-accent-subtle);
+}
+
+/* Checkbox — toggle switch */
+.settings-content-area input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 36px;
+    height: 18px;
+    border-radius: 9px !important;
+    border: 1.5px solid var(--s-border-medium);
+    background: var(--s-input-bg);
+    cursor: pointer;
+    position: relative;
+    flex-shrink: 0;
+    transition: background 0.25s ease, border-color 0.25s ease;
+}
+
+.settings-content-area input[type="checkbox"]::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50% !important;
+    background: var(--s-text-muted);
+    transition: transform 0.25s ease, background 0.25s ease;
+}
+
+.settings-content-area input[type="checkbox"]:checked {
+    background: var(--s-accent);
+    border-color: var(--s-accent);
+}
+
+.settings-content-area input[type="checkbox"]:checked::after {
+    transform: translateX(18px);
+    background: #ffffff;
+}
+
+/* Buttons — chamfered clip-path, dark glass with amber border */
+.settings-content-area .btn {
+    background: rgba(240, 178, 50, 0.08) !important;
+    border: 1px solid var(--s-accent) !important;
+    color: var(--s-text) !important;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 7px 18px;
+    transition: all 0.2s ease;
+    position: relative;
+    clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+}
+
+.settings-content-area .btn:hover {
+    background: rgba(240, 178, 50, 0.18) !important;
+    color: #fff !important;
+    box-shadow: 0 0 15px rgba(240, 178, 50, 0.3), inset 0 0 10px rgba(240, 178, 50, 0.08);
+    filter: none;
+    opacity: 1;
+}
+
+/* Theme buttons — dark glass cards */
+.settings-content-area .theme-btn {
+    border: 1px solid var(--s-border);
+    background: var(--s-card-bg);
+    padding: 10px 8px;
+    transition: all 0.18s ease;
+    position: relative;
+}
+
+.settings-content-area .theme-btn:hover {
+    border-color: var(--s-border-medium);
+    background: var(--s-card-bg-hover);
+}
+
+.settings-content-area .theme-btn.active {
+    border-color: var(--s-accent);
+    background: var(--s-card-bg-hover);
+    box-shadow: inset 0 -2px 0 0 var(--s-accent);
+}
+
+/* Swatch dot — keep round */
+.settings-content-area .theme-btn span[class*="rounded-full"] {
+    border-radius: 50% !important;
+}
+
+/* Status dots — keep round */
+.settings-content-area span[class*="rounded-full"][class*="w-2"] {
+    border-radius: 50% !important;
+}
+
+/* Status badges */
+.settings-content-area span[class*="px-2"][class*="py-"][class*="border"] {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+/* Provider grid tabs (ConfigPageView RPC buttons) — game tab bar */
+.settings-content-area .grid button[class*="border"][class*="cursor-pointer"] {
+    clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px);
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    font-size: 11px;
+    transition: all 0.2s ease;
+}
+
+/* Active provider tab — amber glow underline */
+.settings-content-area .grid button[class*="bg-[var(--accent)]"] {
+    box-shadow: inset 0 -2px 0 0 var(--s-accent), 0 0 12px var(--s-accent-subtle);
+}
+
+/* Inactive provider tab hover — warm glow */
+.settings-content-area .grid button[class*="cursor-pointer"]:not([class*="bg-[var(--accent)]"]):hover {
+    background: rgba(240, 178, 50, 0.06);
+    box-shadow: inset 0 0 20px rgba(240, 178, 50, 0.04);
+}
+
+/* Wallet section container — game panel */
+.settings-content-area .grid.grid-cols-2 {
+    gap: 24px;
+}
+
+/* Font visibility: ensure all text inside content area inherits proper color */
+.settings-content-area .font-bold {
+    color: var(--s-text);
+}
+
+.settings-content-area .font-semibold {
+    color: var(--s-text);
+}
+
+.settings-content-area .text-xs,
+.settings-content-area .text-\[11px\],
+.settings-content-area .text-\[12px\],
+.settings-content-area .text-\[13px\] {
+    color: var(--s-text-secondary);
+}
+
+/* ── Solid accent bg override ─────────────────────────────────────────
+   Tailwind classes like bg-[var(--accent)] produce solid amber fill (#f0b232)
+   which is jarring on dark glass.  Convert to transparent amber + amber text.
+   ───────────────────────────────────────────────────────────────────── */
+.settings-content-area .bg-\[var\(--accent\)\] {
+    background: rgba(240, 178, 50, 0.15) !important;
+    color: var(--s-accent) !important;
+    box-shadow: inset 0 -2px 0 0 var(--s-accent), 0 0 10px rgba(240, 178, 50, 0.08);
+}
+
+.settings-content-area .text-\[var\(--accent-foreground\)\] {
+    color: var(--s-accent) !important;
+}
+
+/* Inactive/muted elements — boost readability */
+.settings-content-area .text-\[var\(--muted\)\] {
+    color: var(--s-text-secondary) !important;
+}
+
+/* Input placeholder double-opacity fix (placeholder:opacity-60 * muted 0.55) */
+.settings-content-area select,
+.settings-content-area input,
+.settings-content-area textarea {
+    color: var(--s-text) !important;
+}
+
+.settings-content-area option {
+    background: #141620;
+    color: var(--s-text);
+}
+
+/* ── Group 5: Sidebar nav ────────────────────────────────────────────── */
+
+.settings-icon-btn {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    width: 72px;
+    height: 54px;
+    border-radius: 10px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--s-text-muted, rgba(185, 183, 200, 0.55));
+    cursor: pointer;
+    transition: color 0.18s ease, background 0.18s ease;
+    flex-shrink: 0;
+    overflow: hidden;
+}
+
+.settings-icon-btn svg {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+}
+
+.settings-icon-btn:hover {
+    color: var(--s-text-secondary, rgba(215, 213, 228, 0.85));
+    background: rgba(255, 255, 255, 0.06);
+}
+
+/* Active: left amber bar + bright icon + glow */
+.settings-icon-btn.is-active {
+    color: var(--s-text, rgba(238, 236, 248, 0.98));
+    background: rgba(240, 178, 50, 0.06);
+    box-shadow: inset 0 0 12px rgba(240, 178, 50, 0.08);
+}
+
+.settings-icon-btn.is-active::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 20%;
+    height: 60%;
+    width: 3px;
+    border-radius: 0 2px 2px 0;
+    background: var(--s-accent, #f0b232);
+    box-shadow: 0 0 8px rgba(240, 178, 50, 0.5);
+}
+
+.settings-icon-label {
+    font-size: 8px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: inherit;
+}
+
+/* ── Group 6: Section components ─────────────────────────────────────── */
+
+/* Backward-compat section card */
+.settings-section-card {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    padding: 0;
+}
+
+.settings-section-card+.settings-section-card {
+    border-top: none;
+    margin-top: 8px;
+}
+
+.settings-section-card>*:not(.settings-section-title) {
+    padding: 4px 24px 16px;
+}
+
+/* Section title bar */
+.settings-section-title {
+    display: flex;
+    align-items: center;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--s-text-secondary);
+    padding: 11px 24px 9px;
+    background: linear-gradient(90deg, var(--s-accent-subtle) 0%, rgba(240, 178, 50, 0.03) 40%, transparent 100%);
+    border-bottom: 1px solid var(--s-border-subtle);
+    border-top: 1px solid var(--s-border-subtle);
+    margin-bottom: 0;
+    border-left: 2px solid var(--s-accent);
+}
+
+/* HSR header — blue-steel glow + diamond accent */
+.settings-hsr-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+    padding-top: 16px;
+}
+
+.settings-hsr-header-text {
+    font-size: 18px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--s-text);
+    white-space: nowrap;
+    text-shadow: 0 0 10px var(--s-accent-glow), 0 0 20px var(--s-glow-edge);
+}
+
+.settings-hsr-header-text::before {
+    content: '◆';
+    margin-right: 8px;
+    font-size: 10px;
+    color: var(--s-accent);
+    opacity: 0.8;
+    vertical-align: middle;
+}
+
+.settings-hsr-line {
+    flex: 1;
+    height: 2px;
+    background: linear-gradient(90deg, var(--s-accent-glow) 0%, var(--s-glow-edge) 50%, transparent 100%);
+    box-shadow: 0 0 6px var(--s-glow-edge);
+}
+
+/* HSR row */
+.settings-hsr-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 8px;
+    border-bottom: 1px solid var(--s-border-subtle);
+    transition: background 0.2s ease;
+}
+
+.settings-hsr-row:hover {
+    background: linear-gradient(90deg, rgba(240, 178, 50, 0.04) 0%, rgba(240, 178, 50, 0.01) 100%);
+}
+
+.settings-hsr-row-left {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-width: 60%;
+}
+
+.settings-hsr-row-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--s-text);
+}
+
+.settings-hsr-row-desc {
+    font-size: 12px;
+    color: var(--s-text-secondary);
+    line-height: 1.5;
+}
+
+.settings-hsr-row-right {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+}
+
+/* HSR nav bar (provider tabs) */
+.settings-hsr-nav-bar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    border-bottom: 1px solid var(--s-border);
+    padding-bottom: 8px;
+    margin-bottom: 16px;
+}
+
+.settings-hsr-nav-item {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--s-text-muted);
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding-bottom: 8px;
+    position: relative;
+    transition: color 0.2s;
+}
+
+.settings-hsr-nav-item:hover {
+    color: var(--s-text);
+}
+
+.settings-hsr-nav-item.is-active {
+    color: var(--s-accent);
+}
+
+.settings-hsr-nav-item.is-active::after {
+    content: '';
+    position: absolute;
+    bottom: -9px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--s-accent);
+    box-shadow: 0 -2px 12px rgba(240, 178, 50, 0.5), 0 0 4px rgba(240, 178, 50, 0.3);
+}
+
+/* HSR status card */
+.settings-hsr-status-card {
+    background: var(--s-card-bg);
+    border: 1px solid var(--s-border);
+    border-radius: 8px;
+    padding: 12px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* Theme carousel */
+.settings-hsr-theme-carousel {
+    display: flex;
+    gap: 12px;
+    overflow-x: auto;
+    padding-bottom: 12px;
+    padding-top: 8px;
+    scrollbar-width: none;
+}
+
+.settings-hsr-theme-carousel::-webkit-scrollbar {
+    display: none;
+}
+
+/* Theme card — chamfered dark glass */
+.settings-hsr-theme-card {
+    flex: 0 0 calc(33.333% - 8px);
+    position: relative;
+    padding: 16px 12px;
+    background: linear-gradient(135deg, var(--s-card-bg-hover) 0%, var(--s-card-bg) 100%);
+    border: 1px solid var(--s-border);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+}
+
+.settings-hsr-theme-card:hover {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, var(--s-card-bg-hover) 100%);
+    border-color: rgba(240, 178, 50, 0.3);
+    box-shadow: 0 0 15px rgba(240, 178, 50, 0.06);
+}
+
+.settings-hsr-theme-card.is-active {
+    border-color: var(--s-accent);
+    box-shadow: inset 0 0 15px rgba(240, 178, 50, 0.08), 0 0 18px rgba(240, 178, 50, 0.12);
+}
+
+.settings-hsr-theme-card.is-active::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    pointer-events: none;
+    border: 1px solid var(--s-accent);
+    clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+}
+
+/* Sticky header */
+.settings-section-pane .settings-hsr-header {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    padding-top: 20px;
+    padding-bottom: 12px;
+    margin-bottom: 12px;
+    background: rgba(8, 10, 18, 0.92);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--s-border-subtle);
+}
+
+/* Danger zone */
+.settings-content-area #settings-danger {
+    margin: 0;
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
+}
+
+/* ── Group 7: Scrollbar + misc ───────────────────────────────────────── */
+
+.settings-content-area::-webkit-scrollbar {
+    width: 4px;
+}
+
+.settings-content-area::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.settings-content-area::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 2px;
+}
+
+/* Ordered list counters */
+.settings-content-area ol {
+    counter-reset: step-counter;
+    list-style: none;
+    padding-left: 0;
+}
+
+.settings-content-area ol li {
+    counter-increment: step-counter;
+    position: relative;
+    padding-left: 28px;
+}
+
+.settings-content-area ol li::before {
+    content: counter(step-counter);
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--s-accent-subtle);
+    border: 1px solid var(--s-border-medium);
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--s-accent);
+}
+
+/* Scrollable sub-content */
+.settings-content-area .overflow-y-auto {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.06) transparent;
 }
