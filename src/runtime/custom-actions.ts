@@ -253,7 +253,18 @@ function buildHandler(
           `http://localhost:${API_PORT}/api/terminal/run`,
           {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: (() => {
+              const headers: Record<string, string> = {
+                "Content-Type": "application/json",
+              };
+              const token = process.env.MILADY_API_TOKEN?.trim();
+              if (token) {
+                headers.Authorization = /^Bearer\s+/i.test(token)
+                  ? token
+                  : `Bearer ${token}`;
+              }
+              return headers;
+            })(),
             body: JSON.stringify({ command, clientId: "runtime-shell-action" }),
           },
         );
