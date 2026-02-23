@@ -1237,6 +1237,7 @@ function categorizePlugin(
     "twitch",
     "nextcloud-talk",
     "instagram",
+    "retake",
   ];
   const databases = ["sql", "localdb", "inmemorydb"];
 

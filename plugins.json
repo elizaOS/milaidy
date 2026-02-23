@@ -8607,6 +8607,53 @@
       }
     },
     {
+      "id": "retake",
+      "dirName": "plugin-retake",
+      "name": "Retake.tv",
+      "npmName": "@milady/plugin-retake",
+      "description": "Live video streaming connector for retake.tv",
+      "category": "connector",
+      "envKey": null,
+      "configKeys": [],
+      "pluginParameters": {
+        "RETAKE_ACCESS_TOKEN": {
+          "type": "string",
+          "description": "Access token for retake.tv API",
+          "required": false,
+          "sensitive": true
+        },
+        "RETAKE_API_URL": {
+          "type": "string",
+          "description": "Retake.tv API base URL",
+          "required": false,
+          "sensitive": false
+        },
+        "RETAKE_CAPTURE_URL": {
+          "type": "string",
+          "description": "Capture URL for retake.tv stream",
+          "required": false,
+          "sensitive": false
+        }
+      },
+      "configUiHints": {
+        "RETAKE_ACCESS_TOKEN": {
+          "label": "Access Token",
+          "group": "Authentication",
+          "width": "full"
+        },
+        "RETAKE_API_URL": {
+          "label": "API URL",
+          "group": "Connection",
+          "width": "half"
+        },
+        "RETAKE_CAPTURE_URL": {
+          "label": "Capture URL",
+          "group": "Connection",
+          "width": "half"
+        }
+      }
+    },
+    {
       "id": "vercel-ai-gateway",
       "dirName": "plugin-vercel-ai-gateway",
       "name": "Vercel Ai Gateway",
