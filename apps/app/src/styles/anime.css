@@ -205,6 +205,44 @@
     opacity: 1;
 }
 
+.anime-lang-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: linear-gradient(140deg, rgba(13, 17, 30, 0.9) 0%, rgba(7, 10, 18, 0.94) 100%);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03), 0 5px 14px rgba(0, 0, 0, 0.3);
+}
+
+.anime-lang-toggle-btn {
+    min-width: 34px;
+    height: 25px;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: rgba(203, 213, 225, 0.8);
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.anime-lang-toggle-btn:hover {
+    color: rgba(255, 255, 255, 0.96);
+    background: rgba(148, 163, 184, 0.14);
+}
+
+.anime-lang-toggle-btn.is-active {
+    color: #f8fafc;
+    border-color: rgba(56, 189, 248, 0.58);
+    background: linear-gradient(135deg, rgba(56, 189, 248, 0.18) 0%, rgba(30, 41, 59, 0.8) 100%);
+    box-shadow: 0 0 14px rgba(56, 189, 248, 0.26), inset 0 0 10px rgba(56, 189, 248, 0.17);
+}
+
 /* ── Hub Header Extensions (Wallet, Balance, Status) ── */
 .anime-header-extensions {
     display: flex;
@@ -617,10 +655,6 @@
     gap: 6px;
 }
 
-.anime-wallet-popover-actions.is-swap {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
 .anime-wallet-popover-action {
     border: 1px solid rgba(255, 255, 255, 0.14);
     background: rgba(255, 255, 255, 0.03);
@@ -899,6 +933,51 @@
     text-overflow: ellipsis;
 }
 
+.anime-wallet-preflight {
+    border-top: 1px dashed rgba(255, 255, 255, 0.1);
+    margin-top: 4px;
+    padding-top: 6px;
+    display: grid;
+    gap: 6px;
+}
+
+.anime-wallet-preflight-checks {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.anime-wallet-preflight-chip {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 999px;
+    padding: 2px 7px;
+    font-size: 9px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(224, 230, 244, 0.78);
+}
+
+.anime-wallet-preflight-chip.is-pass {
+    border-color: rgba(74, 222, 128, 0.44);
+    color: #86efac;
+    background: rgba(74, 222, 128, 0.08);
+}
+
+.anime-wallet-preflight-chip.is-fail {
+    border-color: rgba(248, 113, 113, 0.4);
+    color: #fca5a5;
+    background: rgba(239, 68, 68, 0.08);
+}
+
+.anime-wallet-preflight-reasons {
+    font-size: 10px;
+    color: rgba(222, 227, 242, 0.72);
+    line-height: 1.45;
+}
+
 .anime-wallet-tx-row {
     display: flex;
     align-items: center;
@@ -924,6 +1003,50 @@
 
 .anime-wallet-tx-link:hover {
     text-decoration: underline;
+}
+
+.anime-wallet-tx-status-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.anime-wallet-tx-pill {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 999px;
+    padding: 2px 8px;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(228, 233, 245, 0.82);
+}
+
+.anime-wallet-tx-pill.is-pending {
+    border-color: rgba(251, 191, 36, 0.45);
+    color: #fde68a;
+    background: rgba(251, 191, 36, 0.08);
+}
+
+.anime-wallet-tx-pill.is-success {
+    border-color: rgba(74, 222, 128, 0.45);
+    color: #86efac;
+    background: rgba(74, 222, 128, 0.08);
+}
+
+.anime-wallet-tx-pill.is-reverted,
+.anime-wallet-tx-pill.is-not_found {
+    border-color: rgba(248, 113, 113, 0.44);
+    color: #fca5a5;
+    background: rgba(239, 68, 68, 0.08);
+}
+
+.anime-wallet-tx-meta {
+    font-size: 10px;
+    color: rgba(220, 226, 240, 0.72);
 }
 
 .anime-wallet-usersign {
@@ -1056,6 +1179,17 @@
     .anime-character-header-label {
         letter-spacing: 0.11em;
         font-size: 11px;
+    }
+
+    .anime-lang-toggle {
+        gap: 3px;
+        padding: 2px;
+    }
+
+    .anime-lang-toggle-btn {
+        min-width: 30px;
+        height: 23px;
+        font-size: 9px;
     }
 }
 
@@ -4251,7 +4385,7 @@
 
 .chat-game-header {
     position: relative;
-    z-index: 1;
+    z-index: 4;
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
@@ -4326,7 +4460,8 @@
 
 .chat-game-more-btn {
     padding: 0 11px;
-    min-width: 72px;
+    min-width: 116px;
+    white-space: nowrap;
     font-size: 10px;
     font-weight: 650;
     letter-spacing: 0.1em;
@@ -4340,7 +4475,7 @@
     position: absolute;
     right: 0;
     top: calc(100% + 8px);
-    min-width: 180px;
+    min-width: 280px;
     border: 1px solid rgba(255, 255, 255, 0.18);
     border-radius: 10px;
     background: rgba(8, 12, 22, 0.94);
@@ -4349,7 +4484,7 @@
     display: flex;
     flex-direction: column;
     gap: 4px;
-    z-index: 20;
+    z-index: 80;
 }
 
 .chat-game-more-item {
@@ -4360,17 +4495,98 @@
     background: transparent;
     color: rgba(239, 243, 253, 0.85);
     text-align: left;
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
     cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
     transition: background 0.18s ease, color 0.18s ease;
+}
+
+.chat-game-more-item-title {
+    font-size: 11px;
+    font-weight: 650;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.chat-game-more-item-sub {
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.03em;
+    text-transform: none;
+    color: rgba(213, 223, 246, 0.72);
+}
+
+.chat-game-mode-group {
+    width: 100%;
+    border: 1px solid rgba(255, 255, 255, 0.11);
+    border-radius: 8px;
+    padding: 9px 9px 8px;
+    background: linear-gradient(160deg, rgba(10, 14, 25, 0.92), rgba(7, 10, 20, 0.86));
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+}
+
+.chat-game-mode-row {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.chat-game-mode-label {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(204, 215, 241, 0.7);
+}
+
+.chat-game-mode-switch {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+.chat-game-mode-chip {
+    min-height: 23px;
+    border-radius: 999px;
+    border: 1px solid rgba(160, 176, 208, 0.28);
+    background: rgba(10, 15, 28, 0.55);
+    color: rgba(227, 235, 255, 0.78);
+    font-size: 10px;
+    font-weight: 620;
+    letter-spacing: 0.03em;
+    padding: 0 9px;
+    cursor: pointer;
+    transition: all 0.16s ease;
+}
+
+.chat-game-mode-chip:hover {
+    border-color: color-mix(in srgb, var(--accent, #f0b232) 55%, rgba(160, 176, 208, 0.28));
+    color: rgba(255, 255, 255, 0.96);
+}
+
+.chat-game-mode-chip.is-active {
+    color: color-mix(in srgb, var(--accent, #f0b232) 84%, white 16%);
+    border-color: color-mix(in srgb, var(--accent, #f0b232) 62%, rgba(160, 176, 208, 0.2));
+    background: color-mix(in srgb, var(--accent, #f0b232) 15%, rgba(8, 14, 26, 0.88));
+    box-shadow: inset 0 0 10px color-mix(in srgb, var(--accent, #f0b232) 16%, transparent);
+}
+
+.chat-game-mode-chip:disabled {
+    opacity: 0.52;
+    cursor: default;
 }
 
 .chat-game-more-item:hover {
     color: #fff;
     background: color-mix(in srgb, var(--accent, #f0b232) 17%, transparent);
+}
+
+.chat-game-more-item:hover .chat-game-more-item-sub {
+    color: rgba(241, 246, 255, 0.86);
 }
 
 .chat-game-body {
@@ -4443,6 +4659,69 @@
 .chat-game-sidebar-list::-webkit-scrollbar-thumb {
     background: rgba(255, 255, 255, 0.2);
     border-radius: 999px;
+}
+
+.chat-game-sidebar-footer {
+    padding: 10px 11px 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(8, 12, 22, 0.4));
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.chat-game-sidebar-footer-label {
+    font-family: var(--font-mono), monospace;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: rgba(201, 213, 237, 0.72);
+}
+
+.chat-game-sidebar-footer-value {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: color-mix(in srgb, var(--accent, #f0b232) 76%, white 24%);
+}
+
+.chat-game-sidebar-footer-model {
+    font-family: var(--font-mono), monospace;
+    font-size: 10px;
+    color: rgba(219, 227, 246, 0.74);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.chat-game-sidebar-usage {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.chat-game-sidebar-usage-total {
+    font-size: 17px;
+    font-weight: 760;
+    letter-spacing: 0.03em;
+    color: color-mix(in srgb, var(--accent, #f0b232) 90%, white 10%);
+    line-height: 1.08;
+}
+
+.chat-game-sidebar-usage-breakdown {
+    font-family: var(--font-mono), monospace;
+    font-size: 10px;
+    color: rgba(226, 233, 247, 0.82);
+}
+
+.chat-game-sidebar-usage-cost {
+    font-family: var(--font-mono), monospace;
+    font-size: 10px;
+    color: rgba(199, 212, 238, 0.72);
 }
 
 .chat-game-sidebar-empty {
@@ -4838,6 +5117,10 @@
     .chat-game-more-btn {
         padding: 0 11px;
         font-size: 10px;
+    }
+
+    .chat-game-more-menu {
+        min-width: min(86vw, 300px);
     }
 
     .chat-game-body {

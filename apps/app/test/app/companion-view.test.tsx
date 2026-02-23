@@ -8,6 +8,7 @@ const { mockUseApp } = vi.hoisted(() => ({
 
 vi.mock("../../src/AppContext", () => ({
   useApp: () => mockUseApp(),
+  getVrmNeedsFlip: () => false,
   getVrmPreviewUrl: () => "/vrms/previews/milady-1.png",
   getVrmUrl: () => "/vrms/milady-1.vrm",
   getVrmTitle: (index: number) => `MILADY-${index}`,
@@ -62,6 +63,9 @@ function createContext() {
     handleRestart: vi.fn(async () => {}),
     copyToClipboard: vi.fn(async () => {}),
     uiLanguage: "en",
+    setUiLanguage: vi.fn(),
+    uiShellMode: "companion",
+    setUiShellMode: vi.fn(),
     setTab: vi.fn(),
   };
 }
@@ -232,6 +236,38 @@ describe("CompanionView", () => {
       characterSettings.props.onClick();
     });
     expect(ctx.setTab).toHaveBeenCalledWith("character");
+  });
+
+  it("switches language from companion top-right toggle", async () => {
+    const ctx = createContext();
+    mockUseApp.mockReturnValue(ctx);
+
+    let tree: TestRenderer.ReactTestRenderer;
+    await act(async () => {
+      tree = TestRenderer.create(React.createElement(CompanionView));
+    });
+
+    const zhToggle = tree!.root.find(
+      (node) =>
+        node.type === "button" &&
+        node.props["data-testid"] === "companion-language-zh",
+    );
+
+    await act(async () => {
+      zhToggle.props.onClick();
+    });
+    expect(ctx.setUiLanguage).toHaveBeenCalledWith("zh-CN");
+
+    const enToggle = tree!.root.find(
+      (node) =>
+        node.type === "button" &&
+        node.props["data-testid"] === "companion-language-en",
+    );
+
+    await act(async () => {
+      enToggle.props.onClick();
+    });
+    expect(ctx.setUiLanguage).toHaveBeenCalledWith("en");
   });
 
   it("renders core companion view when snapshot is unavailable", async () => {

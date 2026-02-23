@@ -6,7 +6,7 @@ export function Header() {
   const {
     agentStatus, cloudEnabled, cloudConnected, cloudCredits, cloudCreditsCritical, cloudCreditsLow,
     cloudTopUpUrl, walletAddresses, lifecycleBusy, lifecycleAction, handlePauseResume,
-    handleRestart, openCommandPalette, copyToClipboard, setTab,
+    handleRestart, openCommandPalette, copyToClipboard, setTab, uiShellMode, setUiShellMode,
     dropStatus, loadDropStatus, registryStatus,
     uiLanguage,
   } = useApp();
@@ -34,6 +34,19 @@ export function Header() {
     ? `${walletAddresses.solanaAddress.slice(0, 4)}...${walletAddresses.solanaAddress.slice(-4)}` : null;
 
   const iconBtn = "inline-flex items-center justify-center w-7 h-7 border border-border bg-bg cursor-pointer text-sm leading-none hover:border-accent hover:text-accent transition-colors";
+  const shellMode = uiShellMode ?? "companion";
+  const isNativeShell = shellMode === "native";
+  const shellToggleStateLabel = isNativeShell ? "Native Mode" : "Companion Mode";
+  const shellToggleActionLabel = isNativeShell ? "Switch to Companion" : "Switch to Native";
+  const shellToggleClass = isNativeShell
+    ? "border-[#22c55e] text-[#22c55e] bg-[rgba(34,197,94,0.12)] hover:bg-[rgba(34,197,94,0.2)] shadow-[0_0_0_1px_rgba(34,197,94,0.35),0_0_16px_rgba(34,197,94,0.22)]"
+    : "border-[var(--accent)] text-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_15%,transparent)] hover:bg-[color-mix(in_srgb,var(--accent)_24%,transparent)] shadow-[0_0_0_1px_rgba(212,175,55,0.35),0_0_16px_rgba(212,175,55,0.2)]";
+
+  const handleShellToggle = () => {
+    const nextMode = shellMode === "companion" ? "native" : "companion";
+    setUiShellMode(nextMode);
+    setTab(nextMode === "companion" ? "companion" : "chat");
+  };
 
   return (<>
     <header className="flex items-center justify-between border-b border-border py-4 px-5">
@@ -64,6 +77,21 @@ export function Header() {
           )
         )}
         <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={handleShellToggle}
+            className={`inline-flex items-center gap-2 h-8 px-3 border rounded-[2px] font-mono cursor-pointer transition-all ${shellToggleClass}`}
+            title={shellToggleActionLabel}
+            data-testid="ui-shell-toggle"
+          >
+            <span className="inline-flex items-center justify-center w-4 h-4 rounded-full border border-current/50 text-[10px] leading-none">
+              ⇄
+            </span>
+            <span className="flex flex-col items-start leading-[1.02]">
+              <span className="text-[9px] uppercase tracking-[0.08em] opacity-80">{shellToggleStateLabel}</span>
+              <span className="text-[11px] font-semibold">{shellToggleActionLabel}</span>
+            </span>
+          </button>
           <span className={`inline-flex items-center h-7 px-2.5 border font-mono text-xs leading-none ${stateColor}`} data-testid="status-pill">{state}</span>
           {state === "restarting" || state === "starting" || state === "not_started" || state === "stopped" ? (
             <span className="inline-flex items-center justify-center w-7 h-7 text-sm leading-none opacity-60">⏳</span>

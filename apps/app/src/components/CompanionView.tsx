@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  getVrmNeedsFlip,
   getVrmPreviewUrl,
   getVrmTitle,
   getVrmUrl,
@@ -40,7 +41,9 @@ export function CompanionView() {
     customVrmUrl,
     copyToClipboard,
     uiLanguage,
+    setUiLanguage,
     setTab,
+    setUiShellMode,
     // Header properties
     agentStatus,
     cloudEnabled,
@@ -264,10 +267,10 @@ export function CompanionView() {
 
   const swapNeedsUserSign = Boolean(swapUserSignTx || swapUserSignApprovalTx);
 
-  const handleOpenWalletView = useCallback(() => {
-    setWalletPanelOpen(false);
-    setTab("wallets");
-  }, [setTab]);
+  const handleSwitchToNativeShell = useCallback(() => {
+    setUiShellMode("native");
+    setTab("chat");
+  }, [setTab, setUiShellMode]);
 
   const handleSwapQuote = useCallback(async () => {
     const token = swapTokenAddress.trim();
@@ -447,6 +450,7 @@ export function CompanionView() {
   const fallbackPreviewUrl = selectedVrmIndex > 0
     ? getVrmPreviewUrl(safeSelectedVrmIndex)
     : getVrmPreviewUrl(1);
+  const needsFlip = selectedVrmIndex > 0 && getVrmNeedsFlip(safeSelectedVrmIndex);
   const ambientIntent = useMemo(
     () => resolveCompanionAnimationIntent({ moodTier: avatarMoodTier }),
     [avatarMoodTier],
@@ -575,6 +579,7 @@ export function CompanionView() {
             interactive
             cameraProfile="companion"
             interactiveMode="orbitZoom"
+            forceFaceCameraFlip={needsFlip}
             onEngineReady={handleVrmEngineReady}
             onEngineState={handleVrmEngineState}
           />
@@ -916,7 +921,7 @@ export function CompanionView() {
                           ))}
                         </div>
 
-                        <div className="anime-wallet-popover-actions is-swap">
+                        <div className="anime-wallet-popover-actions">
                           <button
                             type="button"
                             className="anime-wallet-popover-action"
@@ -936,13 +941,6 @@ export function CompanionView() {
                             }}
                           >
                             {swapExecuteBusy ? "Executing..." : swapNeedsUserSign ? "Refresh Payload" : "Execute"}
-                          </button>
-                          <button
-                            type="button"
-                            className="anime-wallet-popover-action"
-                            onClick={handleOpenWalletView}
-                          >
-                            Wallet View
                           </button>
                         </div>
 
@@ -1065,7 +1063,7 @@ export function CompanionView() {
                           </label>
                         </div>
                         <div className="anime-wallet-send-hint">
-                          BSC transfer intent. Copy payload, open Wallet view, then execute/sign.
+                          BSC transfer intent. Copy payload and execute/sign in wallet extension.
                         </div>
                         <div className="anime-wallet-popover-actions">
                           <button
@@ -1077,13 +1075,6 @@ export function CompanionView() {
                             }}
                           >
                             Copy Intent
-                          </button>
-                          <button
-                            type="button"
-                            className="anime-wallet-popover-action is-primary"
-                            onClick={handleOpenWalletView}
-                          >
-                            Wallet View
                           </button>
                         </div>
                       </div>
@@ -1139,6 +1130,46 @@ export function CompanionView() {
                   <circle cx="12" cy="12" r="3" />
                 </svg>
               </button>
+
+              <button
+                type="button"
+                onClick={handleSwitchToNativeShell}
+                className="anime-roster-config-btn"
+                title="Switch to native UI"
+                data-testid="ui-shell-toggle"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="4" width="18" height="14" rx="2" />
+                  <line x1="8" y1="20" x2="16" y2="20" />
+                  <line x1="12" y1="18" x2="12" y2="20" />
+                </svg>
+              </button>
+
+              <div
+                className="anime-lang-toggle"
+                role="group"
+                aria-label={t("settings.language")}
+                data-testid="companion-language-toggle"
+              >
+                <button
+                  type="button"
+                  className={`anime-lang-toggle-btn ${uiLanguage === "en" ? "is-active" : ""}`}
+                  onClick={() => setUiLanguage("en")}
+                  aria-pressed={uiLanguage === "en"}
+                  data-testid="companion-language-en"
+                >
+                  EN
+                </button>
+                <button
+                  type="button"
+                  className={`anime-lang-toggle-btn ${uiLanguage === "zh-CN" ? "is-active" : ""}`}
+                  onClick={() => setUiLanguage("zh-CN")}
+                  aria-pressed={uiLanguage === "zh-CN"}
+                  data-testid="companion-language-zh"
+                >
+                  中
+                </button>
+              </div>
             </div>
           </div>
 

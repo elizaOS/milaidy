@@ -449,7 +449,9 @@ export class VrmEngine {
       vrm.scene.rotateY(Math.PI * 2);
       vrm.scene.updateMatrixWorld(true);
     } else if (this.forceFaceCameraFlip) {
-      vrm.scene.rotateY(Math.PI);
+      // Skip orientation heuristics for models where the eye-bone cross product
+      // gives wrong results (e.g. Shaw). rotateVRM0 already correctly oriented
+      // these models — no additional rotation needed.
       vrm.scene.updateMatrixWorld(true);
     } else {
       this.ensureFacingCamera(vrm);

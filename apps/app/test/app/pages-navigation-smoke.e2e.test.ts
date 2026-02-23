@@ -139,8 +139,10 @@ type HarnessState = {
   authRequired: boolean;
   onboardingComplete: boolean;
   tab: Tab;
+  uiShellMode: "companion" | "native";
   actionNotice: null;
   setTab: (tab: Tab) => void;
+  setUiShellMode: (mode: "companion" | "native") => void;
 };
 
 function textOf(node: TestRenderer.ReactTestInstance): string {
@@ -192,9 +194,13 @@ describe("pages navigation smoke (e2e)", () => {
       authRequired: false,
       onboardingComplete: true,
       tab: "chat",
+      uiShellMode: "native",
       actionNotice: null,
       setTab: (tab: Tab) => {
         state.tab = tab;
+      },
+      setUiShellMode: (mode: "companion" | "native") => {
+        state.uiShellMode = mode;
       },
     };
     mockUseApp.mockReset();
@@ -207,7 +213,7 @@ describe("pages navigation smoke (e2e)", () => {
 
     const expectedByPrimaryTab: Record<Tab, string> = {
       chat: "ChatView Ready",
-      companion: "CompanionView Ready",
+      companion: "ChatView Ready",
       character: "CharacterView Ready",
       wallets: "InventoryView Ready",
       knowledge: "KnowledgeView Ready",
@@ -216,8 +222,8 @@ describe("pages navigation smoke (e2e)", () => {
       apps: "AppsPageView Ready",
       settings: "SettingsView Ready",
       advanced: "AdvancedPageView Ready",
-      plugins: "PluginsView Ready",
-      skills: "SkillsView Ready",
+      plugins: "AdvancedPageView Ready",
+      skills: "AdvancedPageView Ready",
       actions: "AdvancedPageView Ready",
       "fine-tuning": "AdvancedPageView Ready",
       trajectories: "AdvancedPageView Ready",
@@ -264,8 +270,8 @@ describe("pages navigation smoke (e2e)", () => {
     const warnSpy = vi.spyOn(console, "warn");
 
     const subPages: Array<{ tab: Tab; token: string }> = [
-      { tab: "plugins", token: "PluginsView Ready" },
-      { tab: "skills", token: "SkillsView Ready" },
+      { tab: "plugins", token: "AdvancedPageView Ready" },
+      { tab: "skills", token: "AdvancedPageView Ready" },
       { tab: "actions", token: "AdvancedPageView Ready" },
       { tab: "triggers", token: "AdvancedPageView Ready" },
       { tab: "fine-tuning", token: "AdvancedPageView Ready" },
@@ -312,15 +318,15 @@ describe("pages navigation smoke (e2e)", () => {
 
     const expectedByTab: Array<{ tab: Tab; token: string }> = [
       { tab: "chat", token: "ChatView Ready" },
-      { tab: "companion", token: "CompanionView Ready" },
+      { tab: "companion", token: "ChatView Ready" },
       { tab: "apps", token: "AppsPageView Ready" },
       { tab: "character", token: "CharacterView Ready" },
       { tab: "wallets", token: "InventoryView Ready" },
       { tab: "knowledge", token: "KnowledgeView Ready" },
       { tab: "connectors", token: "ConnectorsPageView Ready" },
       { tab: "triggers", token: "AdvancedPageView Ready" },
-      { tab: "plugins", token: "PluginsView Ready" },
-      { tab: "skills", token: "SkillsView Ready" },
+      { tab: "plugins", token: "AdvancedPageView Ready" },
+      { tab: "skills", token: "AdvancedPageView Ready" },
       { tab: "actions", token: "AdvancedPageView Ready" },
       { tab: "advanced", token: "AdvancedPageView Ready" },
       { tab: "fine-tuning", token: "AdvancedPageView Ready" },
@@ -399,9 +405,13 @@ describe("pages navigation smoke (e2e)", () => {
         authRequired: false,
         onboardingComplete: true,
         tab: "chat",
+        uiShellMode: "native",
         actionNotice: null,
         setTab: (tab: Tab) => {
           state.tab = tab;
+        },
+        setUiShellMode: (mode: "companion" | "native") => {
+          state.uiShellMode = mode;
         },
       };
       Object.assign(state, entry.patch);

@@ -3,10 +3,20 @@
  * Terminal-style layout inspired by GMGN / degen trading tools.
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useApp } from "../AppContext";
-import type { BscTradeQuoteResponse, EvmChainBalance } from "../api-client";
+import type {
+  BscTradeQuoteResponse,
+  BscTradeTxStatusResponse,
+  EvmChainBalance,
+} from "../api-client";
 import { createTranslator } from "../i18n";
+import {
+  buildWalletPreflightNotice,
+  getWalletPreflightChecks,
+  getWalletTxStatusLabel,
+  mapWalletTradeError,
+} from "./wallet-trade-helpers";
 
 const BSC_GAS_READY_THRESHOLD = 0.005;
 const HEX_ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
@@ -394,6 +404,7 @@ export function InventoryView() {
     executeBscTrade,
     getBscTradePreflight,
     getBscTradeQuote,
+    getBscTradeTxStatus,
     uiLanguage,
   } = useApp();
   const t = createTranslator(uiLanguage);
@@ -406,6 +417,10 @@ export function InventoryView() {
   const [latestQuote, setLatestQuote] = useState<BscTradeQuoteResponse | null>(null);
   const [executeBusy, setExecuteBusy] = useState(false);
   const [latestTxHash, setLatestTxHash] = useState<string | null>(null);
+  const [latestTxStatus, setLatestTxStatus] = useState<BscTradeTxStatusResponse | null>(
+    null,
+  );
+  const [txStatusBusy, setTxStatusBusy] = useState(false);
   const [userSignPlan, setUserSignPlan] = useState<UserSignPlanState | null>(null);
   const [recentContracts, setRecentContracts] = useState<string[]>(loadRecents);
   const [trackedBscTokens, setTrackedBscTokens] = useState<TrackedBscToken[]>(
@@ -648,15 +663,44 @@ export function InventoryView() {
       ? chainErrors.filter((chain) => isBscChainName(chain.chain))
       : chainErrors;
 
+  const refreshTxStatus = useCallback(
+    async (hash: string, silent = false) => {
+      if (!hash) return;
+      setTxStatusBusy(true);
+      try {
+        const status = await getBscTradeTxStatus(hash);
+        setLatestTxStatus(status);
+        if (!silent && status.status !== "pending") {
+          setActionNotice(
+            getWalletTxStatusLabel(status.status, t),
+            status.status === "success" ? "success" : "info",
+            2400,
+          );
+        }
+      } catch (err) {
+        if (!silent) {
+          setActionNotice(
+            mapWalletTradeError(err, t, "wallet.txStatusFetchFailed"),
+            "error",
+            3200,
+          );
+        }
+      } finally {
+        setTxStatusBusy(false);
+      }
+    },
+    [getBscTradeTxStatus, setActionNotice, t],
+  );
+
   const runTradePreflight = async (tokenAddress: string) => {
     const result = await getBscTradePreflight(tokenAddress);
-    if (result.ok) {
-      setActionNotice(t("wallet.preflightPassed"), "success", 2400);
-      return result;
+    const notice = buildWalletPreflightNotice(result, t);
+    setActionNotice(notice.text, notice.tone, result.ok ? 2400 : 3200);
+    if (!result.ok) {
+      setLatestQuote(null);
+      setLatestTxHash(null);
+      setLatestTxStatus(null);
     }
-    setLatestQuote(null);
-    const reason = result.reasons[0] ?? t("wallet.preflightFailed");
-    setActionNotice(reason, "error", 3200);
     return result;
   };
 
@@ -666,6 +710,8 @@ export function InventoryView() {
     amount: string,
   ) => {
     setTradeBusy(true);
+    setLatestTxHash(null);
+    setLatestTxStatus(null);
     try {
       const preflight = await runTradePreflight(tokenAddress);
       if (!preflight.ok) return;
@@ -691,8 +737,7 @@ export function InventoryView() {
       // Save to recents on successful quote
       setRecentContracts((prev) => saveRecent(tokenAddress, prev));
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : t("wallet.failedFetchQuote");
+      const message = mapWalletTradeError(err, t, "wallet.failedFetchQuote");
       setActionNotice(message, "error", 3400);
     } finally {
       setTradeBusy(false);
@@ -716,6 +761,12 @@ export function InventoryView() {
       try {
         setTradeBusy(true);
         await runTradePreflight(row.contractAddress);
+      } catch (err) {
+        setActionNotice(
+          mapWalletTradeError(err, t, "wallet.preflightFailed"),
+          "error",
+          3200,
+        );
       } finally {
         setTradeBusy(false);
       }
@@ -849,15 +900,33 @@ export function InventoryView() {
       });
       if (result.executed && result.execution) {
         setLatestTxHash(result.execution.hash);
+        setLatestTxStatus({
+          ok: true,
+          hash: result.execution.hash,
+          status: result.execution.status,
+          explorerUrl: result.execution.explorerUrl,
+          chainId: 56,
+          blockNumber: result.execution.blockNumber,
+          confirmations: result.execution.blockNumber ? 1 : 0,
+          nonce: result.execution.nonce,
+          gasUsed: result.execution.gasLimit,
+          effectiveGasPriceWei: null,
+        });
         setUserSignPlan(null);
         setActionNotice(
-          t("wallet.tradeSent", { tx: result.execution.hash.slice(0, 10) }),
-          "success",
-          3600,
+          result.execution.status === "pending"
+            ? t("wallet.tradePending")
+            : t("wallet.tradeSent", { tx: result.execution.hash.slice(0, 10) }),
+          result.execution.status === "pending" ? "info" : "success",
+          result.execution.status === "pending" ? 4200 : 3600,
         );
+        if (result.execution.status === "pending") {
+          void refreshTxStatus(result.execution.hash, true);
+        }
         return;
       }
       setLatestTxHash(null);
+      setLatestTxStatus(null);
       if (result.requiresUserSignature) {
         setUserSignPlan({
           side: result.side,
@@ -884,8 +953,7 @@ export function InventoryView() {
         setActionNotice(t("wallet.executionDidNotComplete"), "error", 3200);
       }
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : t("wallet.tradeExecutionFailed");
+      const message = mapWalletTradeError(err, t, "wallet.tradeExecutionFailed");
       setActionNotice(message, "error", 4200);
     } finally {
       setExecuteBusy(false);
@@ -901,6 +969,17 @@ export function InventoryView() {
     await copyToClipboard(JSON.stringify(tx, null, 2));
     setActionNotice(t("wallet.payloadCopied", { label }), "success", 2200);
   };
+
+  useEffect(() => {
+    if (!latestTxHash) return;
+    if (latestTxStatus?.status !== "pending") return;
+    const timer = globalThis.setInterval(() => {
+      void refreshTxStatus(latestTxHash, true);
+    }, 12_000);
+    return () => {
+      globalThis.clearInterval(timer);
+    };
+  }, [latestTxHash, latestTxStatus?.status, refreshTxStatus]);
 
   return (
     <div className="wallets-bsc">
@@ -1167,8 +1246,8 @@ export function InventoryView() {
             <div className="wt__quote-head">
               <span className="wt__quote-title">{t("wallet.latestQuote")}</span>
               <span className="wt__quote-route">
-                {t("wallet.route")}: {latestQuote.route[0].slice(0, 6)}...{latestQuote.route[0].slice(-4)} →{" "}
-                {latestQuote.route[1].slice(0, 6)}...{latestQuote.route[1].slice(-4)}
+                {t("wallet.route")}: {latestQuote.route[0]?.slice(0, 6)}...{latestQuote.route[0]?.slice(-4)} →{" "}
+                {latestQuote.route.at(-1)?.slice(0, 6)}...{latestQuote.route.at(-1)?.slice(-4)}
               </span>
             </div>
             <div className="wt__quote-grid">
@@ -1197,6 +1276,24 @@ export function InventoryView() {
                 <div className="wt__quote-v">{latestQuote.price}</div>
               </div>
             </div>
+            <div className="wt__preflight" data-testid="wallet-preflight-summary">
+              <div className="wt__quote-k">{t("wallet.preflightTitle")}</div>
+              <div className="wt__preflight-checks">
+                {getWalletPreflightChecks(latestQuote.preflight, t).map((check) => (
+                  <span
+                    key={check.key}
+                    className={`wt__preflight-chip ${check.passed ? "is-pass" : "is-fail"}`}
+                  >
+                    {check.label}
+                  </span>
+                ))}
+              </div>
+              {latestQuote.preflight.reasons.length > 0 && (
+                <div className="wt__preflight-reasons">
+                  {latestQuote.preflight.reasons.join(" | ")}
+                </div>
+              )}
+            </div>
             <div className="wt__quote-actions">
               <button
                 data-testid="wallet-quote-execute"
@@ -1219,6 +1316,46 @@ export function InventoryView() {
                 </a>
               )}
             </div>
+            {latestTxHash && (
+              <div className="wt__tx-status-row" data-testid="wallet-tx-status-row">
+                <span
+                  className={`wt__tx-pill is-${latestTxStatus?.status ?? "pending"}`}
+                >
+                  {getWalletTxStatusLabel(latestTxStatus?.status ?? "pending", t)}
+                </span>
+                {latestTxStatus && (
+                  <>
+                    <span className="wt__tx-meta">
+                      {t("wallet.txStatus.confirmations", {
+                        count: latestTxStatus.confirmations,
+                      })}
+                    </span>
+                    {typeof latestTxStatus.nonce === "number" && (
+                      <span className="wt__tx-meta">
+                        {t("wallet.txStatus.nonce", {
+                          nonce: latestTxStatus.nonce,
+                        })}
+                      </span>
+                    )}
+                  </>
+                )}
+                <button
+                  data-testid="wallet-tx-refresh"
+                  className="wt__row-btn is-preflight"
+                  onClick={() => {
+                    void refreshTxStatus(latestTxHash);
+                  }}
+                  disabled={txStatusBusy}
+                >
+                  {txStatusBusy ? "..." : t("wallet.txStatusRefresh")}
+                </button>
+              </div>
+            )}
+            {latestTxStatus?.status === "reverted" && latestTxStatus.reason && (
+              <div className="wt__error-inline mt-2">
+                <span className="wt__error-inline-text">{latestTxStatus.reason}</span>
+              </div>
+            )}
             {userSignPlan && (
               <div className="wt__quote-usersign" data-testid="wallet-usersign-plan">
                 <div className="wt__quote-k">{t("wallet.userSignPlan")}</div>

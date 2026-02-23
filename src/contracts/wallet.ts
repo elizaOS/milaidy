@@ -193,6 +193,22 @@ export interface BscTradeExecutionResult {
   approvalHash?: string;
 }
 
+export type BscTradeTxStatus = "pending" | "success" | "reverted" | "not_found";
+
+export interface BscTradeTxStatusResponse {
+  ok: boolean;
+  hash: string;
+  status: BscTradeTxStatus;
+  explorerUrl: string;
+  chainId: number | null;
+  blockNumber: number | null;
+  confirmations: number;
+  nonce: number | null;
+  gasUsed: string | null;
+  effectiveGasPriceWei: string | null;
+  reason?: string;
+}
+
 export interface BscTradeExecuteResponse {
   ok: boolean;
   side: BscTradeSide;

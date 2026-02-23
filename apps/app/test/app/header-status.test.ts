@@ -33,6 +33,8 @@ describe("header status", () => {
       openCommandPalette: vi.fn(),
       copyToClipboard: vi.fn(),
       setTab: vi.fn(),
+      uiShellMode: "native",
+      setUiShellMode: vi.fn(),
       dropStatus: null,
       loadDropStatus: vi.fn().mockResolvedValue(undefined),
       registryStatus: null,

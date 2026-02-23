@@ -58,5 +58,25 @@ describe("Nav language switching", () => {
     expect(text).toContain("钱包");
     expect(text).toContain("设置");
   });
-});
 
+  it("hides companion tab in native shell mode", async () => {
+    mockUseApp.mockReturnValue({
+      tab: "chat",
+      setTab: vi.fn(),
+      uiLanguage: "en",
+      uiShellMode: "native",
+    });
+
+    let tree: TestRenderer.ReactTestRenderer;
+    await act(async () => {
+      tree = TestRenderer.create(React.createElement(Nav));
+    });
+
+    const text = tree!.root
+      .findAllByType("button")
+      .map((node) => node.children.join(""))
+      .join(" ");
+    expect(text).not.toContain("Companion");
+    expect(text).toContain("Chat");
+  });
+});

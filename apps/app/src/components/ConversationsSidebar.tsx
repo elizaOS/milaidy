@@ -4,6 +4,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { getVrmPreviewUrl, useApp, VRM_COUNT } from "../AppContext.js";
+import { client } from "../api-client.js";
 import { createTranslator } from "../i18n";
 
 export type ConversationsSidebarVariant = "default" | "game-modal";
@@ -40,11 +41,90 @@ function avatarIndexFromConversationId(id: string): number {
   return normalized + 1;
 }
 
+function resolveProviderLabel(model: string | undefined): string {
+  const value = (model ?? "").trim();
+  if (!value) return "N/A";
+
+  const lower = value.toLowerCase();
+  const knownProviders: Array<{ match: string; label: string }> = [
+    { match: "elizacloud", label: "Eliza Cloud" },
+    { match: "openrouter", label: "OpenRouter" },
+    { match: "openai", label: "OpenAI" },
+    { match: "anthropic", label: "Anthropic" },
+    { match: "gemini", label: "Google" },
+    { match: "google", label: "Google" },
+    { match: "grok", label: "xAI" },
+    { match: "xai", label: "xAI" },
+    { match: "groq", label: "Groq" },
+    { match: "ollama", label: "Ollama" },
+    { match: "deepseek", label: "DeepSeek" },
+    { match: "mistral", label: "Mistral" },
+    { match: "together", label: "Together AI" },
+    { match: "zai", label: "z.ai" },
+    { match: "cohere", label: "Cohere" },
+    { match: "pi-ai", label: "Pi AI" },
+  ];
+  for (const provider of knownProviders) {
+    if (lower.includes(provider.match)) return provider.label;
+  }
+
+  if (lower.startsWith("gpt")) return "OpenAI";
+  if (lower.startsWith("claude")) return "Anthropic";
+  if (lower.startsWith("gemini")) return "Google";
+
+  const splitToken = value.split(/[/:|]/)[0]?.trim();
+  if (splitToken) return splitToken.toUpperCase();
+  return "N/A";
+}
+
+function estimateTokenCost(
+  promptTokens: number,
+  completionTokens: number,
+  model: string | undefined,
+): string {
+  const normalizedModel = (model ?? "").toLowerCase();
+  const pricingByMillion: Record<string, [number, number]> = {
+    "gpt-5": [1.25, 10.0],
+    "gpt-4.1": [2.0, 8.0],
+    "gpt-4o": [2.5, 10.0],
+    "gpt-4": [30.0, 60.0],
+    "claude-4": [15.0, 75.0],
+    "claude-3.7": [3.0, 15.0],
+    "claude-3.5": [3.0, 15.0],
+    "gemini-2.5-pro": [1.25, 10.0],
+    "gemini-2.0-flash": [0.1, 0.4],
+    "deepseek": [0.55, 2.19],
+    "qwen": [0.35, 1.4],
+    "kimi": [0.2, 0.8],
+    "moonshot": [0.2, 0.8],
+  };
+
+  let inputCostPerMillion = 1.0;
+  let outputCostPerMillion = 3.0;
+  for (const [key, [inCost, outCost]] of Object.entries(pricingByMillion)) {
+    if (normalizedModel.includes(key)) {
+      inputCostPerMillion = inCost;
+      outputCostPerMillion = outCost;
+      break;
+    }
+  }
+
+  const estimated =
+    (promptTokens / 1_000_000) * inputCostPerMillion +
+    (completionTokens / 1_000_000) * outputCostPerMillion;
+  if (estimated <= 0) return "$0.0000";
+  if (estimated < 0.0001) return "<$0.0001";
+  if (estimated < 0.01) return `~$${estimated.toFixed(4)}`;
+  return `~$${estimated.toFixed(3)}`;
+}
+
 export function ConversationsSidebar({ variant = "default" }: ConversationsSidebarProps) {
   const {
     conversations,
     activeConversationId,
     unreadConversations,
+    agentStatus,
+    chatLastUsage,
     handleNewConversation,
     handleSelectConversation,
     handleDeleteConversation,
@@ -55,6 +135,8 @@ export function ConversationsSidebar({ variant = "default" }: ConversationsSideb
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
+  const [runtimeModel, setRuntimeModel] = useState("");
+  const [runtimeModelLoading, setRuntimeModelLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Focus input when editing starts
@@ -101,6 +183,57 @@ export function ConversationsSidebar({ variant = "default" }: ConversationsSideb
   };
 
   const isGameModal = variant === "game-modal";
+  const statusModelLabel = (agentStatus?.model ?? "").trim();
+
+  useEffect(() => {
+    if (!isGameModal) return;
+    if (statusModelLabel) {
+      setRuntimeModel("");
+      setRuntimeModelLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setRuntimeModelLoading(true);
+    void client
+      .getRuntimeSnapshot({ depth: 1, maxArrayLength: 0, maxObjectEntries: 0, maxStringLength: 240 })
+      .then((snapshot) => {
+        if (cancelled) return;
+        const runtimeModelValue = (snapshot.meta.model ?? "").trim();
+        setRuntimeModel(runtimeModelValue);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setRuntimeModel("");
+      })
+      .finally(() => {
+        if (!cancelled) setRuntimeModelLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isGameModal, statusModelLabel]);
+
+  const modelLabel = (statusModelLabel || runtimeModel).trim();
+  const providerLabel = modelLabel
+    ? resolveProviderLabel(modelLabel)
+    : runtimeModelLoading
+      ? t("chat.modal.providerDetecting")
+      : "N/A";
+  const usageTotalLabel = chatLastUsage
+    ? chatLastUsage.totalTokens.toLocaleString()
+    : t("chat.modal.usageAwaiting");
+  const usageBreakdownLabel = chatLastUsage
+    ? `${chatLastUsage.promptTokens.toLocaleString()}↑ / ${chatLastUsage.completionTokens.toLocaleString()}↓`
+    : "—";
+  const usageCostLabel = chatLastUsage
+    ? estimateTokenCost(
+      chatLastUsage.promptTokens,
+      chatLastUsage.completionTokens,
+      chatLastUsage.model || modelLabel,
+    )
+    : "—";
 
   return (
     <aside
@@ -222,6 +355,24 @@ export function ConversationsSidebar({ variant = "default" }: ConversationsSideb
           })
         )}
       </div>
+
+      {isGameModal && (
+        <div className="chat-game-sidebar-footer" data-testid="chat-game-provider">
+          <div className="chat-game-sidebar-footer-label">{t("chat.modal.aiProvider")}</div>
+          <div className="chat-game-sidebar-footer-value">{providerLabel}</div>
+          <div className="chat-game-sidebar-footer-model" title={modelLabel || undefined}>
+            {modelLabel || t("chat.modal.providerUnknown")}
+          </div>
+          <div className="chat-game-sidebar-usage">
+            <div className="chat-game-sidebar-footer-label">{t("chat.modal.tokenUsage")}</div>
+            <div className="chat-game-sidebar-usage-total">{usageTotalLabel}</div>
+            <div className="chat-game-sidebar-usage-breakdown">{usageBreakdownLabel}</div>
+            <div className="chat-game-sidebar-usage-cost">
+              {t("chat.modal.estimatedCost")}: {usageCostLabel}
+            </div>
+          </div>
+        </div>
+      )}
     </aside>
   );
 }
