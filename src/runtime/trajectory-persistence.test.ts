@@ -21,7 +21,18 @@ function createRuntimeWithTrajectoryLogger(logger: Record<string, unknown>): {
   runtime: IAgentRuntime;
   dbExecute: ReturnType<typeof vi.fn>;
 } {
+  return createRuntimeWithTrajectoryLoggers([logger], logger);
+}
+
+function createRuntimeWithTrajectoryLoggers(
+  loggers: Record<string, unknown>[],
+  primaryLogger?: Record<string, unknown> | null,
+): {
+  runtime: IAgentRuntime;
+  dbExecute: ReturnType<typeof vi.fn>;
+} {
   const dbExecute = vi.fn(async () => ({ rows: [] as unknown[] }));
+  const primary = primaryLogger ?? loggers[0] ?? null;
   const runtime = {
     agentId: "00000000-0000-0000-0000-000000000001",
     adapter: {
@@ -30,9 +41,9 @@ function createRuntimeWithTrajectoryLogger(logger: Record<string, unknown>): {
       },
     },
     getServicesByType: (serviceType: string) =>
-      serviceType === "trajectory_logger" ? [logger] : [],
+      serviceType === "trajectory_logger" ? loggers : [],
     getService: (serviceType: string) =>
-      serviceType === "trajectory_logger" ? logger : null,
+      serviceType === "trajectory_logger" ? primary : null,
     logger: {
       warn: vi.fn(),
     },
@@ -151,5 +162,93 @@ describe("installDatabaseTrajectoryLogger", () => {
     );
 
     await waitForCallCount(dbExecute, callsAfterInstall + 2);
+  });
+
+  it("patches all discovered trajectory logger instances", async () => {
+    const primaryLogLlmCall = vi.fn();
+    const primaryLogProviderAccess = vi.fn();
+    const primaryLogger = {
+      capabilityDescription:
+        "Captures provider/LLM traces for benchmarks and training trajectories",
+      llmCalls: [] as unknown[],
+      providerAccess: [] as unknown[],
+      logLlmCall: primaryLogLlmCall,
+      logProviderAccess: primaryLogProviderAccess,
+    } as Record<string, unknown>;
+
+    const secondaryLogLlmCall = vi.fn();
+    const secondaryLogProviderAccess = vi.fn();
+    const secondaryLogger = {
+      listTrajectories: vi.fn(),
+      getTrajectoryDetail: vi.fn(),
+      logLlmCall: secondaryLogLlmCall,
+      logProviderAccess: secondaryLogProviderAccess,
+      isEnabled: () => true,
+    } as Record<string, unknown>;
+
+    const { runtime, dbExecute } = createRuntimeWithTrajectoryLoggers(
+      [primaryLogger, secondaryLogger],
+      secondaryLogger,
+    );
+
+    installDatabaseTrajectoryLogger(runtime);
+    await waitForCallCount(dbExecute, 1);
+    const callsAfterInstall = dbExecute.mock.calls.length;
+
+    const patchedPrimaryLogLlmCall = primaryLogger.logLlmCall as (
+      ...args: unknown[]
+    ) => void;
+    const patchedPrimaryLogProviderAccess = primaryLogger.logProviderAccess as (
+      ...args: unknown[]
+    ) => void;
+    const patchedSecondaryLogLlmCall = secondaryLogger.logLlmCall as (
+      ...args: unknown[]
+    ) => void;
+    const patchedSecondaryLogProviderAccess =
+      secondaryLogger.logProviderAccess as (...args: unknown[]) => void;
+
+    patchedPrimaryLogLlmCall({
+      stepId: "step-primary-1",
+      model: "primary-model",
+      systemPrompt: "system",
+      userPrompt: "user",
+      response: "assistant",
+      temperature: 0,
+      maxTokens: 64,
+      purpose: "action",
+      actionType: "runtime.useModel",
+      latencyMs: 8,
+    });
+    patchedPrimaryLogProviderAccess({
+      stepId: "step-primary-1",
+      providerName: "primary-provider",
+      data: { ok: true },
+      purpose: "compose_state",
+    });
+    patchedSecondaryLogLlmCall({
+      stepId: "step-secondary-1",
+      model: "secondary-model",
+      systemPrompt: "system",
+      userPrompt: "user",
+      response: "assistant",
+      temperature: 0,
+      maxTokens: 64,
+      purpose: "action",
+      actionType: "runtime.useModel",
+      latencyMs: 8,
+    });
+    patchedSecondaryLogProviderAccess({
+      stepId: "step-secondary-1",
+      providerName: "secondary-provider",
+      data: { ok: true },
+      purpose: "compose_state",
+    });
+
+    expect(primaryLogLlmCall).toHaveBeenCalledTimes(1);
+    expect(primaryLogProviderAccess).toHaveBeenCalledTimes(1);
+    expect(secondaryLogLlmCall).toHaveBeenCalledTimes(1);
+    expect(secondaryLogProviderAccess).toHaveBeenCalledTimes(1);
+
+    await waitForCallCount(dbExecute, callsAfterInstall + 4);
   });
 });

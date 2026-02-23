@@ -26,6 +26,7 @@ import {
   CUSTOM_PLUGINS_DIRNAME,
   collectPluginNames,
   deduplicatePluginActions,
+  ensureTrajectoryLoggerServiceCompatibility,
   findRuntimePluginExport,
   isEnvKeyAllowedForForwarding,
   isRecoverablePgliteInitError,
@@ -58,6 +59,167 @@ function envSnapshot(keys: string[]): {
     },
   };
 }
+
+// ---------------------------------------------------------------------------
+// ensureTrajectoryLoggerServiceCompatibility
+// ---------------------------------------------------------------------------
+
+describe("ensureTrajectoryLoggerServiceCompatibility", () => {
+  it("reroutes trajectory_logger lookup to a lifecycle-capable service", () => {
+    const partialLogger = {
+      logLlmCall: vi.fn(),
+    };
+    const lifecycleLogger = {
+      startTrajectory: vi.fn(),
+      endTrajectory: vi.fn(),
+      startStep: vi.fn(),
+      logLlmCall: vi.fn(),
+    };
+
+    const originalGetService = vi.fn((serviceType: string) => {
+      if (serviceType === "trajectory_logger") return partialLogger;
+      if (serviceType === "OTHER") return "other-service";
+      return null;
+    });
+    const runtime = {
+      getService: originalGetService,
+      getServicesByType: (serviceType: string) =>
+        serviceType === "trajectory_logger"
+          ? [partialLogger, lifecycleLogger]
+          : [],
+    } as unknown as {
+      getService: (serviceType: string) => unknown;
+      getServicesByType: (serviceType: string) => unknown;
+    };
+
+    ensureTrajectoryLoggerServiceCompatibility(
+      runtime as unknown as Parameters<
+        typeof ensureTrajectoryLoggerServiceCompatibility
+      >[0],
+      "unit-test",
+    );
+
+    expect(runtime.getService("trajectory_logger")).toBe(lifecycleLogger);
+    expect(runtime.getService("OTHER")).toBe("other-service");
+  });
+
+  it("does not patch when the current trajectory logger already has lifecycle methods", () => {
+    const lifecycleLogger = {
+      startTrajectory: vi.fn(),
+      endTrajectory: vi.fn(),
+    };
+
+    const originalGetService = vi.fn((serviceType: string) =>
+      serviceType === "trajectory_logger" ? lifecycleLogger : null,
+    );
+    const runtime = {
+      getService: originalGetService,
+      getServicesByType: (serviceType: string) =>
+        serviceType === "trajectory_logger" ? [lifecycleLogger] : [],
+    } as unknown as {
+      getService: (serviceType: string) => unknown;
+      getServicesByType: (serviceType: string) => unknown;
+    };
+
+    const before = runtime.getService;
+    ensureTrajectoryLoggerServiceCompatibility(
+      runtime as unknown as Parameters<
+        typeof ensureTrajectoryLoggerServiceCompatibility
+      >[0],
+      "unit-test",
+    );
+    expect(runtime.getService).toBe(before);
+    expect(runtime.getService("trajectory_logger")).toBe(lifecycleLogger);
+  });
+
+  it("reroutes to a higher-fidelity lifecycle logger when current logger is only shim-compatible", () => {
+    const shimmedLogger = {
+      startTrajectory: vi.fn(),
+      endTrajectory: vi.fn(),
+      logLlmCall: vi.fn(),
+    };
+    const persistentLogger = {
+      startTrajectory: vi.fn(),
+      endTrajectory: vi.fn(),
+      startStep: vi.fn(),
+      logLlmCall: vi.fn(),
+      listTrajectories: vi.fn(),
+    };
+
+    const runtime = {
+      getService: vi.fn((serviceType: string) =>
+        serviceType === "trajectory_logger" ? shimmedLogger : null,
+      ),
+      getServicesByType: (serviceType: string) =>
+        serviceType === "trajectory_logger"
+          ? [shimmedLogger, persistentLogger]
+          : [],
+    } as unknown as {
+      getService: (serviceType: string) => unknown;
+      getServicesByType: (serviceType: string) => unknown;
+    };
+
+    ensureTrajectoryLoggerServiceCompatibility(
+      runtime as unknown as Parameters<
+        typeof ensureTrajectoryLoggerServiceCompatibility
+      >[0],
+      "unit-test",
+    );
+
+    expect(runtime.getService("trajectory_logger")).toBe(persistentLogger);
+  });
+
+  it("adds lifecycle shims when only a non-lifecycle trajectory logger is available", async () => {
+    const routeLogger = {
+      listTrajectories: vi.fn(),
+      logLlmCall: vi.fn(),
+    } as Record<string, unknown>;
+
+    const runtime = {
+      getService: (serviceType: string) =>
+        serviceType === "trajectory_logger" ? routeLogger : null,
+      getServicesByType: (serviceType: string) =>
+        serviceType === "trajectory_logger" ? [routeLogger] : [],
+    } as unknown as {
+      getService: (serviceType: string) => unknown;
+      getServicesByType: (serviceType: string) => unknown;
+    };
+
+    ensureTrajectoryLoggerServiceCompatibility(
+      runtime as unknown as Parameters<
+        typeof ensureTrajectoryLoggerServiceCompatibility
+      >[0],
+      "unit-test",
+    );
+
+    const startTrajectory = routeLogger.startTrajectory as
+      | ((
+          stepIdOrAgentId: string,
+          options?: { source?: string },
+        ) => Promise<string>)
+      | undefined;
+    const startStep = routeLogger.startStep as
+      | ((trajectoryId: string) => string)
+      | undefined;
+    const endTrajectory = routeLogger.endTrajectory as
+      | ((stepIdOrTrajectoryId: string, status?: string) => Promise<void>)
+      | undefined;
+
+    expect(typeof startTrajectory).toBe("function");
+    expect(typeof startStep).toBe("function");
+    expect(typeof endTrajectory).toBe("function");
+
+    const trajectoryId = await startTrajectory?.("agent-id", {
+      source: "chat",
+    });
+    expect(typeof trajectoryId).toBe("string");
+    expect((trajectoryId ?? "").length).toBeGreaterThan(0);
+    expect(startStep?.(trajectoryId ?? "fallback")).toBe(trajectoryId);
+    await expect(endTrajectory?.(trajectoryId ?? "fallback")).resolves.toBe(
+      undefined,
+    );
+  });
+});
 
 // ---------------------------------------------------------------------------
 // collectPluginNames

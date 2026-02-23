@@ -1116,7 +1116,7 @@ describe("API Server E2E (no runtime)", () => {
       }
     });
 
-    it("POST /api/chat does not use deprecated direct trajectory fallback when hooks do not set a step id", async () => {
+    it("POST /api/chat starts and ends a fallback trajectory when hooks do not set a step id", async () => {
       const starts: Array<{ stepId: string; source?: string }> = [];
       const ends: Array<{ stepId: string; status?: string }> = [];
       const trajectoryLogger = {
@@ -1150,14 +1150,17 @@ describe("API Server E2E (no runtime)", () => {
 
         expect(status).toBe(200);
         expect(String(data.text ?? "")).toBe("Hello world");
-        expect(starts).toHaveLength(0);
-        expect(ends).toHaveLength(0);
+        expect(starts).toHaveLength(1);
+        expect(starts[0]?.source).toBe("client_chat");
+        expect(ends).toHaveLength(1);
+        expect(ends[0]?.stepId).toBe(starts[0]?.stepId);
+        expect(ends[0]?.status).toBe("completed");
       } finally {
         await streamServer.close();
       }
     });
 
-    it("POST /api/chat does not call deprecated direct trajectory fallback even when logger is only in getServicesByType", async () => {
+    it("POST /api/chat falls back to lifecycle logger discovered via getServicesByType", async () => {
       const starts: Array<{ stepId: string; source?: string }> = [];
       const ends: Array<{ stepId: string; status?: string }> = [];
       const trajectoryLogger = {
@@ -1192,8 +1195,11 @@ describe("API Server E2E (no runtime)", () => {
 
         expect(status).toBe(200);
         expect(String(data.text ?? "")).toBe("Hello world");
-        expect(starts).toHaveLength(0);
-        expect(ends).toHaveLength(0);
+        expect(starts).toHaveLength(1);
+        expect(starts[0]?.source).toBe("client_chat");
+        expect(ends).toHaveLength(1);
+        expect(ends[0]?.stepId).toBe(starts[0]?.stepId);
+        expect(ends[0]?.status).toBe("completed");
       } finally {
         await streamServer.close();
       }
@@ -1254,7 +1260,7 @@ describe("API Server E2E (no runtime)", () => {
       }
     });
 
-    it("POST /api/chat no longer proxies trajectory logger routing through deprecated fallback", async () => {
+    it("POST /api/chat uses lifecycle fallback without rewiring getService trajectory logger", async () => {
       const starts: Array<{ stepId: string }> = [];
       const ends: Array<{ stepId: string; status?: string }> = [];
       const persistentLlmCalls: Array<{ stepId: string; model?: string }> = [];
@@ -1329,10 +1335,13 @@ describe("API Server E2E (no runtime)", () => {
 
         expect(status).toBe(200);
         expect(String(data.text ?? "")).toBe("Hello world");
-        expect(starts).toHaveLength(0);
-        expect(ends).toHaveLength(0);
+        expect(starts).toHaveLength(1);
+        expect(ends).toHaveLength(1);
+        expect(ends[0]?.stepId).toBe(starts[0]?.stepId);
+        expect(ends[0]?.status).toBe("completed");
         expect(persistentLlmCalls).toHaveLength(0);
-        expect(coreLlmCalls).toHaveLength(0);
+        expect(coreLlmCalls).toHaveLength(1);
+        expect(coreLlmCalls[0]?.stepId).toBe(starts[0]?.stepId);
       } finally {
         await streamServer.close();
       }

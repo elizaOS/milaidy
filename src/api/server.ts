@@ -2182,6 +2182,108 @@ async function generateChatResponse(
   agentName: string,
   opts?: ChatGenerateOptions,
 ): Promise<ChatGenerationResult> {
+  type ChatTrajectoryLogger = {
+    isEnabled?: () => boolean;
+    startTrajectory?: (
+      stepIdOrAgentId: string,
+      options?: {
+        roomId?: string;
+        entityId?: string;
+        source?: string;
+        metadata?: Record<string, unknown>;
+      },
+    ) => string | Promise<string>;
+    startStep?: (trajectoryId: string) => string;
+    endTrajectory?: (
+      stepIdOrTrajectoryId: string,
+      status?: "active" | "completed" | "error" | "timeout",
+    ) => void | Promise<void>;
+  };
+
+  const collectLifecycleTrajectoryLoggers = (): ChatTrajectoryLogger[] => {
+    const runtimeLike = runtime as AgentRuntime & {
+      getServicesByType?: (serviceType: string) => unknown;
+      getService?: (serviceType: string) => unknown;
+    };
+    const candidates: ChatTrajectoryLogger[] = [];
+    const seen = new Set<unknown>();
+    const addCandidate = (candidate: unknown): void => {
+      if (!candidate || seen.has(candidate) || typeof candidate !== "object") {
+        return;
+      }
+      const loggerCandidate = candidate as ChatTrajectoryLogger;
+      if (
+        typeof loggerCandidate.startTrajectory !== "function" ||
+        typeof loggerCandidate.endTrajectory !== "function"
+      ) {
+        return;
+      }
+      seen.add(candidate);
+      candidates.push(loggerCandidate);
+    };
+
+    if (typeof runtimeLike.getServicesByType === "function") {
+      const byType = runtimeLike.getServicesByType("trajectory_logger");
+      if (Array.isArray(byType)) {
+        for (const candidate of byType) addCandidate(candidate);
+      } else {
+        addCandidate(byType);
+      }
+    }
+
+    if (typeof runtimeLike.getService === "function") {
+      addCandidate(runtimeLike.getService("trajectory_logger"));
+    }
+
+    return candidates;
+  };
+
+  const selectLifecycleTrajectoryLogger = (): ChatTrajectoryLogger | null => {
+    const candidates = collectLifecycleTrajectoryLoggers();
+    let selected: ChatTrajectoryLogger | null = null;
+    let bestScore = -1;
+    for (const candidate of candidates) {
+      if (typeof candidate.isEnabled === "function" && !candidate.isEnabled()) {
+        continue;
+      }
+      let score = 0;
+      if (typeof candidate.startTrajectory === "function") score += 20;
+      if (typeof candidate.endTrajectory === "function") score += 20;
+      if (typeof candidate.startStep === "function") score += 8;
+      if (typeof candidate.isEnabled === "function") score += 1;
+      if (score > bestScore) {
+        selected = candidate;
+        bestScore = score;
+      }
+    }
+    return selected;
+  };
+
+  const getMessageMetadata = (): Record<string, unknown> | null => {
+    const current = (message as { metadata?: unknown }).metadata;
+    if (current && typeof current === "object" && !Array.isArray(current)) {
+      return current as Record<string, unknown>;
+    }
+    return null;
+  };
+
+  const ensureMessageMetadata = (): Record<string, unknown> => {
+    const current = getMessageMetadata();
+    if (current) return current;
+    const metadata: Record<string, unknown> = {};
+    (message as { metadata?: Record<string, unknown> }).metadata = metadata;
+    return metadata;
+  };
+
+  const getExistingTrajectoryStepId = (): string | null => {
+    const metadata = getMessageMetadata();
+    if (!metadata) return null;
+    const stepId = metadata.trajectoryStepId;
+    return typeof stepId === "string" && stepId.trim().length > 0
+      ? stepId
+      : null;
+  };
+
   type StreamSource = "unset" | "callback" | "onStreamChunk";
   let responseText = "";
   let activeStreamSource: StreamSource = "unset";
@@ -2254,13 +2356,61 @@ async function generateChatResponse(
 
   // Fallback when MESSAGE_RECEIVED hooks are unavailable: start a trajectory
   // directly so /api/chat still produces rows for the Trajectories view.
+  let fallbackTrajectoryEnd: {
+    logger: ChatTrajectoryLogger;
+    stepId: string;
+  } | null = null;
+  if (!getExistingTrajectoryStepId()) {
+    const trajectoryLogger = selectLifecycleTrajectoryLogger();
+    if (trajectoryLogger) {
+      try {
+        const trajectoryIdRaw = await Promise.resolve(
+          trajectoryLogger.startTrajectory?.(runtime.agentId, {
+            roomId: message.roomId,
+            entityId: message.entityId,
+            source: messageSource,
+            metadata: {
+              messageId: message.id,
+              roomId: message.roomId,
+              source: messageSource,
+            },
+          }),
+        );
+        const trajectoryId =
+          typeof trajectoryIdRaw === "string" ? trajectoryIdRaw.trim() : "";
+        if (trajectoryId) {
+          const stepIdRaw =
+            typeof trajectoryLogger.startStep === "function"
+              ? trajectoryLogger.startStep(trajectoryId)
+              : trajectoryId;
+          const stepId =
+            typeof stepIdRaw === "string" && stepIdRaw.trim().length > 0
+              ? stepIdRaw
+              : trajectoryId;
+
+          ensureMessageMetadata().trajectoryStepId = stepId;
+          fallbackTrajectoryEnd = { logger: trajectoryLogger, stepId };
+        }
+      } catch (err) {
+        runtime.logger?.warn(
+          {
+            err,
+            src: "milady-api",
+            messageId: message.id,
+            roomId: message.roomId,
+          },
+          "Failed to initialize fallback trajectory for /api/chat",
+        );
+      }
+    }
+  }
 
   let result:
     | Awaited<
         ReturnType<NonNullable<AgentRuntime["messageService"]>["handleMessage"]>
       >
     | undefined;
-  let _handlerError: unknown = null;
+  let handlerError: unknown = null;
   try {
     result = await runtime.messageService?.handleMessage(
       runtime,
@@ -2309,6 +2459,21 @@ async function generateChatResponse(
       const responseMessages = Array.isArray(result?.responseMessages)
         ? (result.responseMessages as Array<{ id?: string; content?: Content }>)
         : [];
+
+      if (responseMessages.length === 0) {
+        const syntheticText =
+          extractCompatTextContent(result?.responseContent) || responseText;
+        const syntheticContent = {
+          text: syntheticText,
+          source: messageSource,
+          channelType: message.content.channelType,
+        } as Content;
+        responseMessages.push({
+          id: crypto.randomUUID(),
+          content: syntheticContent,
+        });
+      }
+
       if (
         responseMessages.length > 0 &&
         typeof runtime.emitEvent === "function"
@@ -2339,8 +2504,32 @@ async function generateChatResponse(
       );
     }
   } catch (err) {
-    _handlerError = err;
+    handlerError = err;
     throw err;
+  } finally {
+    if (fallbackTrajectoryEnd) {
+      const status = handlerError ? "error" : "completed";
+      try {
+        await Promise.resolve(
+          fallbackTrajectoryEnd.logger.endTrajectory?.(
+            fallbackTrajectoryEnd.stepId,
+            status,
+          ),
+        );
+      } catch (err) {
+        runtime.logger?.warn(
+          {
+            err,
+            src: "milady-api",
+            messageId: message.id,
+            roomId: message.roomId,
+            stepId: fallbackTrajectoryEnd.stepId,
+            status,
+          },
+          "Failed to finalize fallback trajectory for /api/chat",
+        );
+      }
+    }
   }
 
   // Log the response mode and actions for debugging action execution

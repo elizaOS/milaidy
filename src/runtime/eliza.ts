@@ -78,6 +78,11 @@ import { SandboxManager, type SandboxMode } from "../services/sandbox-manager";
 import { diagnoseNoAIProvider } from "../services/version-compat";
 import { CORE_PLUGINS, OPTIONAL_CORE_PLUGINS } from "./core-plugins";
 import { createMiladyPlugin } from "./milady-plugin";
+import {
+  completeTrajectoryStepInDatabase,
+  installDatabaseTrajectoryLogger,
+  startTrajectoryStepInDatabase,
+} from "./trajectory-persistence";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -242,6 +247,11 @@ export function deduplicatePluginActions(plugins: Plugin[]): void {
 interface TrajectoryLoggerControl {
   isEnabled?: () => boolean;
   setEnabled?: (enabled: boolean) => void;
+  startTrajectory?: (...args: unknown[]) => unknown;
+  endTrajectory?: (...args: unknown[]) => unknown;
+  startStep?: (...args: unknown[]) => unknown;
+  logLlmCall?: (...args: unknown[]) => unknown;
+  logProviderAccess?: (...args: unknown[]) => unknown;
 }
 
 type TrajectoryLoggerRegistrationStatus =
@@ -260,25 +270,189 @@ type TrajectoryLoggerRuntimeLike = {
   ) => TrajectoryLoggerRegistrationStatus;
 };
 
-function collectTrajectoryLoggerCandidates(
+const patchedTrajectoryGetServiceRuntimes = new WeakSet<object>();
+const lifecycleShimmedTrajectoryLoggers = new WeakSet<object>();
+
+function collectTrajectoryLoggerCandidatesByType(
   runtimeLike: TrajectoryLoggerRuntimeLike,
 ): TrajectoryLoggerControl[] {
   const candidates: TrajectoryLoggerControl[] = [];
-  if (typeof runtimeLike.getServicesByType === "function") {
-    const byType = runtimeLike.getServicesByType("trajectory_logger");
-    if (Array.isArray(byType) && byType.length > 0) {
-      for (const service of byType) {
-        if (service) candidates.push(service as TrajectoryLoggerControl);
-      }
-    } else if (byType && !Array.isArray(byType)) {
-      candidates.push(byType as TrajectoryLoggerControl);
+  if (typeof runtimeLike.getServicesByType !== "function") return candidates;
+  const byType = runtimeLike.getServicesByType("trajectory_logger");
+  if (Array.isArray(byType) && byType.length > 0) {
+    for (const service of byType) {
+      if (service) candidates.push(service as TrajectoryLoggerControl);
     }
+  } else if (byType && !Array.isArray(byType)) {
+    candidates.push(byType as TrajectoryLoggerControl);
   }
+  return candidates;
+}
+
+function collectTrajectoryLoggerCandidates(
+  runtimeLike: TrajectoryLoggerRuntimeLike,
+): TrajectoryLoggerControl[] {
+  const candidates = collectTrajectoryLoggerCandidatesByType(runtimeLike);
   if (typeof runtimeLike.getService === "function") {
     const single = runtimeLike.getService("trajectory_logger");
     if (single) candidates.push(single as TrajectoryLoggerControl);
   }
   return candidates;
+}
+
+function hasTrajectoryLifecycleMethods(candidate: unknown): boolean {
+  if (!candidate || typeof candidate !== "object") return false;
+  const loggerCandidate = candidate as TrajectoryLoggerControl;
+  return (
+    typeof loggerCandidate.startTrajectory === "function" &&
+    typeof loggerCandidate.endTrajectory === "function"
+  );
+}
+
+function selectLifecycleTrajectoryLogger(
+  candidates: TrajectoryLoggerControl[],
+): TrajectoryLoggerControl | null {
+  let best: TrajectoryLoggerControl | null = null;
+  let bestScore = -1;
+  for (const candidate of candidates) {
+    let score = 0;
+    if (typeof candidate.startTrajectory === "function") score += 20;
+    if (typeof candidate.endTrajectory === "function") score += 20;
+    if (typeof candidate.startStep === "function") score += 8;
+    if (typeof candidate.logLlmCall === "function") score += 4;
+    if (typeof candidate.logProviderAccess === "function") score += 4;
+    if (typeof candidate.isEnabled === "function") score += 1;
+    if (typeof candidate.setEnabled === "function") score += 1;
+    if (score > bestScore) {
+      best = candidate;
+      bestScore = score;
+    }
+  }
+  return best && hasTrajectoryLifecycleMethods(best) ? best : null;
+}
+
+export function ensureTrajectoryLoggerServiceCompatibility(
+  runtime: AgentRuntime,
+  context: string,
+): void {
+  const runtimeLike = runtime as unknown as TrajectoryLoggerRuntimeLike & {
+    getService?: (serviceType: string) => unknown;
+  };
+  if (typeof runtimeLike.getService !== "function") return;
+
+  const runtimeKey = runtime as unknown as object;
+  if (patchedTrajectoryGetServiceRuntimes.has(runtimeKey)) return;
+
+  const byTypeCandidates = collectTrajectoryLoggerCandidatesByType(runtimeLike);
+  const preferredLogger = selectLifecycleTrajectoryLogger(byTypeCandidates);
+  if (!preferredLogger) {
+    const currentLogger = runtimeLike.getService("trajectory_logger");
+    if (currentLogger && typeof currentLogger === "object") {
+      const currentLoggerObject = currentLogger as TrajectoryLoggerControl &
+        object;
+      if (!lifecycleShimmedTrajectoryLoggers.has(currentLoggerObject)) {
+        const hasRouteSurface =
+          typeof (currentLogger as { listTrajectories?: unknown })
+            .listTrajectories === "function" ||
+          typeof currentLoggerObject.logLlmCall === "function";
+        if (hasRouteSurface) {
+          if (typeof currentLoggerObject.startTrajectory !== "function") {
+            currentLoggerObject.startTrajectory = async (
+              ...args: unknown[]
+            ): Promise<string> => {
+              const options =
+                args[1] &&
+                typeof args[1] === "object" &&
+                !Array.isArray(args[1])
+                  ? (args[1] as Record<string, unknown>)
+                  : null;
+              const trajectoryId = crypto.randomUUID();
+              try {
+                await startTrajectoryStepInDatabase({
+                  runtime,
+                  stepId: trajectoryId,
+                  source:
+                    typeof options?.source === "string"
+                      ? options.source
+                      : "chat",
+                  metadata:
+                    options?.metadata &&
+                    typeof options.metadata === "object" &&
+                    !Array.isArray(options.metadata)
+                      ? (options.metadata as Record<string, unknown>)
+                      : undefined,
+                });
+              } catch {
+                // Keep compatibility shims fail-open; trajectory hooks should
+                // never break chat execution.
+              }
+              return trajectoryId;
+            };
+          }
+          if (typeof currentLoggerObject.startStep !== "function") {
+            currentLoggerObject.startStep = (...args: unknown[]): string => {
+              const trajectoryId = args[0];
+              return typeof trajectoryId === "string" &&
+                trajectoryId.trim().length > 0
+                ? trajectoryId
+                : crypto.randomUUID();
+            };
+          }
+          if (typeof currentLoggerObject.endTrajectory !== "function") {
+            currentLoggerObject.endTrajectory = async (
+              ...args: unknown[]
+            ): Promise<void> => {
+              const stepIdOrTrajectoryId = args[0];
+              const status = args[1];
+              const resolvedStepId =
+                typeof stepIdOrTrajectoryId === "string" &&
+                stepIdOrTrajectoryId.trim().length > 0
+                  ? stepIdOrTrajectoryId
+                  : null;
+              if (!resolvedStepId) return;
+              try {
+                await completeTrajectoryStepInDatabase({
+                  runtime,
+                  stepId: resolvedStepId,
+                  status:
+                    typeof status === "string"
+                      ? (status as "active" | "completed" | "error" | "timeout")
+                      : "completed",
+                });
+              } catch {
+                // Keep compatibility shims fail-open; trajectory hooks should
+                // never break chat execution.
+              }
+            };
+          }
+          lifecycleShimmedTrajectoryLoggers.add(currentLoggerObject);
+          logger.info(
+            `[milady] Added trajectory_logger lifecycle compatibility shims (${context})`,
+          );
+        }
+      }
+    }
+    return;
+  }
+
+  const current = runtimeLike.getService("trajectory_logger");
+  if (current === preferredLogger) return;
+
+  const originalGetService = runtimeLike.getService.bind(runtimeLike);
+  runtimeLike.getService = ((serviceType: string): unknown => {
+    if (serviceType === "trajectory_logger") {
+      const dynamicPreferred = selectLifecycleTrajectoryLogger(
+        collectTrajectoryLoggerCandidatesByType(runtimeLike),
+      );
+      if (dynamicPreferred) return dynamicPreferred;
+    }
+    return originalGetService(serviceType);
+  }) as (serviceType: string) => unknown;
+
+  patchedTrajectoryGetServiceRuntimes.add(runtimeKey);
+  logger.debug(
+    `[milady] Patched trajectory_logger lookup for lifecycle compatibility (${context})`,
+  );
 }
 
 async function waitForTrajectoryLoggerService(
@@ -373,6 +547,30 @@ function ensureTrajectoryLoggerEnabled(
   if (!isEnabled && typeof trajectoryLogger.setEnabled === "function") {
     trajectoryLogger.setEnabled(true);
     logger.info("[milady] trajectory_logger enabled by default");
+  }
+}
+
+function scheduleTrajectoryLoggerCompatibilityRecheck(
+  runtime: AgentRuntime,
+  context: string,
+  delayMs = 1500,
+): void {
+  const timer = setTimeout(() => {
+    try {
+      ensureTrajectoryLoggerServiceCompatibility(
+        runtime,
+        `${context} +${delayMs}ms`,
+      );
+      installDatabaseTrajectoryLogger(runtime);
+      ensureTrajectoryLoggerEnabled(runtime, `${context} +${delayMs}ms`);
+    } catch (err) {
+      logger.debug(
+        `[milady] trajectory_logger delayed compatibility check failed (${context}): ${formatError(err)}`,
+      );
+    }
+  }, delayMs);
+  if (typeof timer === "object" && typeof timer.unref === "function") {
+    timer.unref();
   }
 }
 
@@ -3279,7 +3477,19 @@ export async function startEliza(
     // 8. Initialize the runtime (registers remaining plugins, starts services)
     await runtime.initialize();
     await waitForTrajectoryLoggerService(runtime, "runtime.initialize()");
+    ensureTrajectoryLoggerServiceCompatibility(runtime, "runtime.initialize()");
+    installDatabaseTrajectoryLogger(runtime);
     ensureTrajectoryLoggerEnabled(runtime, "runtime.initialize()");
+    scheduleTrajectoryLoggerCompatibilityRecheck(
+      runtime,
+      "runtime.initialize()",
+      1500,
+    );
+    scheduleTrajectoryLoggerCompatibilityRecheck(
+      runtime,
+      "runtime.initialize()",
+      5000,
+    );
 
     // 8b. Ensure AutonomyService is available for trigger dispatch.
     // IGNORE_BOOTSTRAP=true prevents the bootstrap plugin (which normally
@@ -3538,9 +3748,24 @@ export async function startEliza(
             newRuntime,
             "hot-reload runtime.initialize()",
           );
+          ensureTrajectoryLoggerServiceCompatibility(
+            newRuntime,
+            "hot-reload runtime.initialize()",
+          );
+          installDatabaseTrajectoryLogger(newRuntime);
           ensureTrajectoryLoggerEnabled(
             newRuntime,
             "hot-reload runtime.initialize()",
+          );
+          scheduleTrajectoryLoggerCompatibilityRecheck(
+            newRuntime,
+            "hot-reload runtime.initialize()",
+            1500,
+          );
+          scheduleTrajectoryLoggerCompatibilityRecheck(
+            newRuntime,
+            "hot-reload runtime.initialize()",
+            5000,
           );
 
           // Ensure AutonomyService survives hot-reload

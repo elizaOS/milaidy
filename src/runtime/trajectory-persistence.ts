@@ -399,9 +399,9 @@ function isLegacyTrajectoryLogger(logger: TrajectoryLoggerLike): boolean {
   );
 }
 
-function resolveTrajectoryLogger(
+function collectTrajectoryLoggers(
   runtime: IAgentRuntime,
-): TrajectoryLoggerLike | null {
+): TrajectoryLoggerLike[] {
   const runtimeLike = runtime as unknown as {
     getServicesByType?: (serviceType: string) => unknown;
     getService?: (serviceType: string) => unknown;
@@ -428,24 +428,29 @@ function resolveTrajectoryLogger(
     push(runtimeLike.getService("trajectory_logger"));
   }
 
-  if (candidates.length === 0) return null;
+  return candidates;
+}
 
-  let best: TrajectoryLoggerLike | null = null;
-  let bestScore = -1;
-  for (const candidate of candidates) {
-    let score = 0;
-    if (isLegacyTrajectoryLogger(candidate)) score += 100;
-    if (typeof candidate.logLlmCall === "function") score += 10;
-    if (typeof candidate.logProviderAccess === "function") score += 10;
-    if (typeof candidate.getLlmCallLogs === "function") score += 2;
-    if (typeof candidate.getProviderAccessLogs === "function") score += 2;
-    if (score > bestScore) {
-      best = candidate;
-      bestScore = score;
-    }
-  }
+function scoreTrajectoryLogger(candidate: TrajectoryLoggerLike): number {
+  let score = 0;
+  if (isLegacyTrajectoryLogger(candidate)) score += 100;
+  if (typeof candidate.logLlmCall === "function") score += 10;
+  if (typeof candidate.logProviderAccess === "function") score += 10;
+  if (typeof candidate.getLlmCallLogs === "function") score += 2;
+  if (typeof candidate.getProviderAccessLogs === "function") score += 2;
+  if (Array.isArray(candidate.llmCalls)) score += 40;
+  if (Array.isArray(candidate.providerAccess)) score += 40;
+  return score;
+}
 
-  return best;
+function resolveTrajectoryLoggers(
+  runtime: IAgentRuntime,
+): TrajectoryLoggerLike[] {
+  const candidates = collectTrajectoryLoggers(runtime);
+  if (candidates.length <= 1) return candidates;
+  return [...candidates].sort(
+    (a, b) => scoreTrajectoryLogger(b) - scoreTrajectoryLogger(a),
+  );
 }
 
 function enqueueStepWrite(
@@ -819,83 +824,93 @@ async function appendProviderAccess(
 export function installDatabaseTrajectoryLogger(runtime: IAgentRuntime): void {
   if (!hasRuntimeDb(runtime)) return;
 
-  const logger = resolveTrajectoryLogger(runtime);
-  if (!logger) return;
+  const loggers = resolveTrajectoryLoggers(runtime);
+  if (loggers.length === 0) return;
 
-  const loggerObject = logger as unknown as object;
-  if (patchedLoggers.has(loggerObject)) return;
+  for (const logger of loggers) {
+    const loggerObject = logger as unknown as object;
+    if (patchedLoggers.has(loggerObject)) continue;
 
-  if (typeof logger.isEnabled === "function" && !logger.isEnabled()) {
-    try {
-      logger.setEnabled?.(true);
-    } catch {
-      // Ignore logger enable failures and continue.
-    }
-  }
-
-  if (Array.isArray(logger.llmCalls)) {
-    logger.llmCalls.splice(0, logger.llmCalls.length);
-  }
-  if (Array.isArray(logger.providerAccess)) {
-    logger.providerAccess.splice(0, logger.providerAccess.length);
-  }
-
-  type VariadicLoggerCall = (...args: unknown[]) => unknown;
-  const originalLogLlmCall =
-    typeof logger.logLlmCall === "function"
-      ? ((logger.logLlmCall as unknown as VariadicLoggerCall).bind(
-          logger,
-        ) as VariadicLoggerCall)
-      : null;
-  const originalLogProviderAccess =
-    typeof logger.logProviderAccess === "function"
-      ? ((logger.logProviderAccess as unknown as VariadicLoggerCall).bind(
-          logger,
-        ) as VariadicLoggerCall)
-      : null;
-
-  logger.logLlmCall = ((...args: unknown[]) => {
-    if (originalLogLlmCall) {
+    if (typeof logger.isEnabled === "function" && !logger.isEnabled()) {
       try {
-        originalLogLlmCall(...args);
-      } catch (err) {
-        warnRuntime(runtime, "Trajectory logger logLlmCall threw", err);
+        logger.setEnabled?.(true);
+      } catch {
+        // Ignore logger enable failures and continue.
       }
     }
 
-    const normalized = normalizeLlmCallPayload(args);
-    if (!normalized) return;
-
-    void enqueueStepWrite(runtime, normalized.stepId, async () => {
-      const tableReady = await ensureTrajectoriesTable(runtime);
-      if (!tableReady) return;
-      await appendLlmCall(runtime, normalized.stepId, normalized.params);
-    });
-  }) as unknown as (params: Record<string, unknown>) => void;
-
-  logger.logProviderAccess = ((...args: unknown[]) => {
-    if (originalLogProviderAccess) {
-      try {
-        originalLogProviderAccess(...args);
-      } catch (err) {
-        warnRuntime(runtime, "Trajectory logger logProviderAccess threw", err);
-      }
+    if (Array.isArray(logger.llmCalls)) {
+      logger.llmCalls.splice(0, logger.llmCalls.length);
+    }
+    if (Array.isArray(logger.providerAccess)) {
+      logger.providerAccess.splice(0, logger.providerAccess.length);
     }
 
-    const normalized = normalizeProviderAccessPayload(args);
-    if (!normalized) return;
+    type VariadicLoggerCall = (...args: unknown[]) => unknown;
+    const originalLogLlmCall =
+      typeof logger.logLlmCall === "function"
+        ? ((logger.logLlmCall as unknown as VariadicLoggerCall).bind(
+            logger,
+          ) as VariadicLoggerCall)
+        : null;
+    const originalLogProviderAccess =
+      typeof logger.logProviderAccess === "function"
+        ? ((logger.logProviderAccess as unknown as VariadicLoggerCall).bind(
+            logger,
+          ) as VariadicLoggerCall)
+        : null;
 
-    void enqueueStepWrite(runtime, normalized.stepId, async () => {
-      const tableReady = await ensureTrajectoriesTable(runtime);
-      if (!tableReady) return;
-      await appendProviderAccess(runtime, normalized.stepId, normalized.params);
-    });
-  }) as unknown as (params: Record<string, unknown>) => void;
+    logger.logLlmCall = ((...args: unknown[]) => {
+      if (originalLogLlmCall) {
+        try {
+          originalLogLlmCall(...args);
+        } catch (err) {
+          warnRuntime(runtime, "Trajectory logger logLlmCall threw", err);
+        }
+      }
 
-  logger.getLlmCallLogs = () => [];
-  logger.getProviderAccessLogs = () => [];
+      const normalized = normalizeLlmCallPayload(args);
+      if (!normalized) return;
 
-  patchedLoggers.add(loggerObject);
+      void enqueueStepWrite(runtime, normalized.stepId, async () => {
+        const tableReady = await ensureTrajectoriesTable(runtime);
+        if (!tableReady) return;
+        await appendLlmCall(runtime, normalized.stepId, normalized.params);
+      });
+    }) as unknown as (params: Record<string, unknown>) => void;
+
+    logger.logProviderAccess = ((...args: unknown[]) => {
+      if (originalLogProviderAccess) {
+        try {
+          originalLogProviderAccess(...args);
+        } catch (err) {
+          warnRuntime(
+            runtime,
+            "Trajectory logger logProviderAccess threw",
+            err,
+          );
+        }
+      }
+
+      const normalized = normalizeProviderAccessPayload(args);
+      if (!normalized) return;
+
+      void enqueueStepWrite(runtime, normalized.stepId, async () => {
+        const tableReady = await ensureTrajectoriesTable(runtime);
+        if (!tableReady) return;
+        await appendProviderAccess(
+          runtime,
+          normalized.stepId,
+          normalized.params,
+        );
+      });
+    }) as unknown as (params: Record<string, unknown>) => void;
+
+    logger.getLlmCallLogs = () => [];
+    logger.getProviderAccessLogs = () => [];
+
+    patchedLoggers.add(loggerObject);
+  }
 
   void ensureTrajectoriesTable(runtime);
 }
