@@ -53,12 +53,13 @@ RUN set -e; \
           git -c filter.lfs.smudge= -c filter.lfs.process= -c filter.lfs.required=false fetch --depth 1 origin "$COMMIT" && GIT_LFS_SKIP_SMUDGE=1 git checkout "$COMMIT"; \
         fi; \
         git lfs install --local; \
-        git lfs fetch origin "$REF" --include='apps/app/public/vrms'; \
+        # LFS budget/quota can block fetch; continue so media.githubusercontent fallback can run.
+        git lfs fetch origin "$REF" --include='apps/app/public/vrms' || true; \
         git lfs fetch origin "$REF" --include='apps/app/public/animations/mixamo' || true; \
         git lfs fetch origin "$REF" --include='apps/app/public/animations/idle.glb' || true; \
         git lfs fetch origin "$REF" --include='apps/app/public/animations/Idle.fbx' || true; \
         git lfs fetch origin "$REF" --include='apps/app/public/animations/BreathingIdle.fbx' || true; \
-        git lfs checkout apps/app/public/vrms; \
+        git lfs checkout apps/app/public/vrms || true; \
         git lfs checkout apps/app/public/animations/mixamo || true; \
         git lfs checkout apps/app/public/animations/idle.glb || true; \
         git lfs checkout apps/app/public/animations/Idle.fbx || true; \
