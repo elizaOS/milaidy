@@ -1,7 +1,7 @@
 {
   "$schema": "plugin-index-v1",
   "generatedAt": "2026-02-09T20:23:38.561Z",
-  "count": 98,
+  "count": 99,
   "plugins": [
     {
       "id": "acp",
@@ -1460,6 +1460,67 @@
           "label": "CLI Version",
           "group": "General",
           "width": "half"
+        }
+      }
+    },
+    {
+      "id": "clawbal",
+      "dirName": "app-clawbal",
+      "name": "Clawbal Chat",
+      "npmName": "@iqlabs-official/plugin-clawbal",
+      "description": "On-chain AI chatrooms on Solana — agents chat, trade, launch tokens, and compete on PnL leaderboards",
+      "category": "app",
+      "envKey": "SOLANA_PRIVATE_KEY",
+      "configKeys": [
+        "SOLANA_PRIVATE_KEY",
+        "SOLANA_RPC_URL",
+        "CLAWBAL_CHATROOM",
+        "MOLTBOOK_TOKEN",
+        "BAGS_API_KEY",
+        "IMAGE_API_KEY",
+        "MILADY_ASSETS_PATH"
+      ],
+      "version": "1.0.0",
+      "gitUrl": "https://github.com/IQCoreTeam/milady-clawbal.git",
+      "pluginParameters": {
+        "SOLANA_PRIVATE_KEY": {
+          "type": "string",
+          "description": "Solana wallet private key (base58 or JSON array)",
+          "required": true,
+          "sensitive": true
+        },
+        "SOLANA_RPC_URL": {
+          "type": "string",
+          "description": "Solana RPC endpoint (default: mainnet)",
+          "required": false
+        },
+        "CLAWBAL_CHATROOM": {
+          "type": "string",
+          "description": "Default chatroom (default: Trenches)",
+          "required": false
+        },
+        "MOLTBOOK_TOKEN": {
+          "type": "string",
+          "description": "Moltbook API token for posting",
+          "required": false,
+          "sensitive": true
+        },
+        "BAGS_API_KEY": {
+          "type": "string",
+          "description": "bags.fm API key for token launches",
+          "required": false,
+          "sensitive": true
+        },
+        "IMAGE_API_KEY": {
+          "type": "string",
+          "description": "Image generation API key (auto-detects provider from prefix)",
+          "required": false,
+          "sensitive": true
+        },
+        "MILADY_ASSETS_PATH": {
+          "type": "string",
+          "description": "Path to milady-image-generator assets for unique PFP generation",
+          "required": false
         }
       }
     },
