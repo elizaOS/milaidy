@@ -25,8 +25,8 @@ interface ChatViewContextStub {
     updater:
       | Array<{ data: string; mimeType: string; name: string }>
       | ((
-        prev: Array<{ data: string; mimeType: string; name: string }>,
-      ) => Array<{ data: string; mimeType: string; name: string }>),
+          prev: Array<{ data: string; mimeType: string; name: string }>,
+        ) => Array<{ data: string; mimeType: string; name: string }>),
   ) => void;
 }
 
@@ -71,7 +71,7 @@ function createContext(
     chatSending: false,
     chatFirstTokenReceived: false,
     conversationMessages: [],
-    handleChatSend: vi.fn(async () => { }),
+    handleChatSend: vi.fn(async () => {}),
     handleChatStop: vi.fn(),
     setState: vi.fn(),
     droppedFiles: [],

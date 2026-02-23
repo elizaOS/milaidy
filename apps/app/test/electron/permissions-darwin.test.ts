@@ -30,7 +30,18 @@ vi.mock("node:child_process", async () => {
   return { exec: execFn };
 });
 
-
+vi.mock("electron", () => ({
+  shell: {
+    openExternal: vi.fn(),
+  },
+  systemPreferences: {
+    askForMediaAccess: vi.fn(),
+    getMediaAccessStatus: vi.fn(),
+  },
+  desktopCapturer: {
+    getSources: vi.fn(),
+  },
+}));
 
 import { exec } from "node:child_process";
 import { desktopCapturer, shell, systemPreferences } from "electron";

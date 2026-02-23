@@ -69,7 +69,7 @@ function createContext(
     chatSending: false,
     chatFirstTokenReceived: false,
     conversationMessages: [],
-    handleChatSend: vi.fn(async () => { }),
+    handleChatSend: vi.fn(async () => {}),
     handleChatStop: vi.fn(),
     setState: vi.fn(),
     droppedFiles: [],
@@ -96,7 +96,8 @@ function findButtonByText(
   label: string,
 ): TestRenderer.ReactTestInstance {
   const found = root.root.findAll(
-    (n: TestRenderer.ReactTestInstance) => n.type === "button" && text(n) === label,
+    (n: TestRenderer.ReactTestInstance) =>
+      n.type === "button" && text(n) === label,
   );
   expect(found.length).toBeGreaterThan(0);
   return found[0];
@@ -107,7 +108,8 @@ function findInputByPlaceholder(
   placeholder: string,
 ): TestRenderer.ReactTestInstance {
   const found = root.root.findAll(
-    (n: TestRenderer.ReactTestInstance) => n.type === "input" && n.props.placeholder === placeholder,
+    (n: TestRenderer.ReactTestInstance) =>
+      n.type === "input" && n.props.placeholder === placeholder,
   );
   expect(found.length).toBeGreaterThan(0);
   return found[0];
@@ -265,7 +267,6 @@ describe("custom actions smoke flow", () => {
     // The ChatView no longer renders an "Actions" button — the panel is toggled
     // via a custom event. Dispatch it directly to open the panel.
 
-
     await act(async () => {
       window.dispatchEvent(new Event("toggle-custom-actions-panel"));
     });
@@ -274,7 +275,8 @@ describe("custom actions smoke flow", () => {
     expect(mockClient.listCustomActions).toHaveBeenCalledTimes(1);
 
     const title = tree?.root.findAll(
-      (node: TestRenderer.ReactTestInstance) => node.type === "h2" && text(node) === "Custom Actions",
+      (node: TestRenderer.ReactTestInstance) =>
+        node.type === "h2" && text(node) === "Custom Actions",
     );
     expect(title.length).toBe(1);
 
@@ -285,7 +287,8 @@ describe("custom actions smoke flow", () => {
     await flush();
 
     const editorHeader = tree?.root.findAll(
-      (node: TestRenderer.ReactTestInstance) => node.type === "h2" && text(node) === "New Custom Action",
+      (node: TestRenderer.ReactTestInstance) =>
+        node.type === "h2" && text(node) === "New Custom Action",
     );
     expect(editorHeader.length).toBe(1);
 
