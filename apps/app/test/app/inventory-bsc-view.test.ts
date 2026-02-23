@@ -128,10 +128,12 @@ function createExecuteResult(
   options?: {
     side?: "buy" | "sell";
     requiresApproval?: boolean;
+    executionStatus?: "success" | "pending";
   },
 ) {
   const side = options?.side ?? "buy";
   const requiresApproval = options?.requiresApproval ?? false;
+  const executionStatus = options?.executionStatus ?? "success";
   return {
     ok: true,
     side,
@@ -170,7 +172,7 @@ function createExecuteResult(
           valueWei: "100000000000000000",
           explorerUrl: "https://bscscan.com/tx/0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           blockNumber: 51_234_567,
-          status: "success" as const,
+          status: executionStatus,
         }
       : undefined,
   };
@@ -209,6 +211,18 @@ function createContext(
     getBscTradePreflight: vi.fn(async () => createPreflight(true)),
     getBscTradeQuote: vi.fn(async (request?: { side?: "buy" | "sell" }) => createQuote(request?.side ?? "buy")),
     executeBscTrade: vi.fn(async () => createExecuteResult(true)),
+    getBscTradeTxStatus: vi.fn(async () => ({
+      ok: true,
+      hash: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      status: "success" as const,
+      explorerUrl: "https://bscscan.com/tx/0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      chainId: 56,
+      blockNumber: 51_234_567,
+      confirmations: 7,
+      nonce: 12,
+      gasUsed: "180000",
+      effectiveGasPriceWei: "3000000000",
+    })),
     setTab: vi.fn(),
     setActionNotice: vi.fn(),
     copyToClipboard: vi.fn(async () => {}),
@@ -632,6 +646,91 @@ describe("InventoryView BSC-first", () => {
         await flushAsync();
       });
       expect(ctx.copyToClipboard).toHaveBeenCalledTimes(2);
+    } finally {
+      if (originalWindow) {
+        Object.defineProperty(originalWindow, "confirm", {
+          value: originalConfirm,
+          configurable: true,
+        });
+      } else {
+        Object.defineProperty(globalThis, "window", {
+          value: undefined,
+          configurable: true,
+        });
+      }
+    }
+  });
+
+  it("refreshes pending tx status after execute", async () => {
+    const ctx = createContext({
+      walletBalances: createWalletBalances("0.02", null),
+    });
+    ctx.executeBscTrade = vi.fn(async () =>
+      createExecuteResult(true, { executionStatus: "pending" }),
+    );
+    mockUseApp.mockImplementation(() => ctx);
+
+    const confirmMock = vi.fn(() => true);
+    const originalWindow = globalThis.window;
+    const originalConfirm =
+      originalWindow && typeof originalWindow.confirm === "function"
+        ? originalWindow.confirm
+        : undefined;
+    if (originalWindow) {
+      Object.defineProperty(originalWindow, "confirm", {
+        value: confirmMock,
+        configurable: true,
+      });
+    } else {
+      Object.defineProperty(globalThis, "window", {
+        value: { confirm: confirmMock },
+        configurable: true,
+      });
+    }
+
+    try {
+      let tree: TestRenderer.ReactTestRenderer;
+      await act(async () => {
+        tree = TestRenderer.create(React.createElement(InventoryView));
+      });
+
+      const tokenInput = tree!.root.findAll(
+        (node) => node.type === "input" && node.props["data-testid"] === "wallet-quick-token-input",
+      )[0];
+      await act(async () => {
+        tokenInput.props.onChange({ target: { value: "0x1234567890abcdef1234567890abcdef12345678" } });
+      });
+
+      const quickBuy = tree!.root.findAll(
+        (node) => node.type === "button" && node.props["data-testid"] === "wallet-quick-buy",
+      )[0];
+      await act(async () => {
+        quickBuy.props.onClick();
+        await flushAsync();
+      });
+
+      const executeButton = tree!.root.findAll(
+        (node) => node.type === "button" && node.props["data-testid"] === "wallet-quote-execute",
+      )[0];
+      await act(async () => {
+        executeButton.props.onClick();
+        await flushAsync();
+      });
+
+      const refreshButton = tree!.root.findAll(
+        (node) => node.type === "button" && node.props["data-testid"] === "wallet-tx-refresh",
+      )[0];
+      expect(refreshButton).toBeDefined();
+
+      await act(async () => {
+        refreshButton.props.onClick();
+        await flushAsync();
+      });
+
+      expect(ctx.getBscTradeTxStatus).toHaveBeenCalledWith(
+        "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      );
+      expect(text(tree!.root)).toContain("Confirmations");
     } finally {
       if (originalWindow) {
         Object.defineProperty(originalWindow, "confirm", {

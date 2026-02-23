@@ -53,7 +53,11 @@
       "Bash(git -C /Users/cayden0207/Desktop/Cursor/milaidy push origin pancake-swap)",
       "Bash(bunx tsc:*)",
       "Bash(bun --eval:*)",
-      "Bash(bun tsc:*)"
+      "Bash(bun tsc:*)",
+      "Bash(head)",
+      "Bash(git:*)",
+      "Bash(gh auth:*)",
+      "Bash(GIT_ASKPASS= GIT_TERMINAL_PROMPT=0 git:*)"
     ]
   }
 }

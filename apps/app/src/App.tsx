@@ -4,6 +4,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useApp } from "./AppContext.js";
+import type { Tab } from "./navigation";
 import { Header } from "./components/Header.js";
 import { Nav } from "./components/Nav.js";
 import { CommandPalette } from "./components/CommandPalette.js";
@@ -30,16 +31,27 @@ import { LoadingScreen } from "./components/LoadingScreen.js";
 import { useContextMenu } from "./hooks/useContextMenu.js";
 import { TerminalPanel } from "./components/TerminalPanel.js";
 
-function ViewRouter() {
-  const { tab } = useApp();
+function ViewRouter({ tab }: { tab: Tab }) {
   switch (tab) {
     case "chat": return <ChatView />;
     case "companion": return <CompanionView />;
     case "apps": return <AppsPageView />;
     case "character": return <CharacterView />;
+    case "character-select": return <CharacterView />;
     case "wallets": return <InventoryView />;
     case "knowledge": return <KnowledgeView />;
     case "connectors": return <ConnectorsPageView />;
+    case "plugins":
+    case "skills":
+    case "advanced":
+    case "actions":
+    case "triggers":
+    case "fine-tuning":
+    case "trajectories":
+    case "runtime":
+    case "database":
+    case "logs":
+      return <AdvancedPageView />;
     case "voice":
     case "settings": return <SettingsView />;
     default: return <ChatView />;
@@ -54,9 +66,12 @@ export function App() {
     authRequired,
     onboardingComplete,
     tab,
+    uiShellMode,
     setTab,
     actionNotice,
   } = useApp();
+  const shellMode = uiShellMode ?? "companion";
+  const effectiveTab: Tab = shellMode === "native" && tab === "companion" ? "chat" : tab;
   const contextMenu = useContextMenu();
 
   const [customActionsPanelOpen, setCustomActionsPanelOpen] = useState(false);
@@ -83,31 +98,31 @@ export function App() {
   if (authRequired) return <PairingView />;
   if (!onboardingComplete) return <OnboardingWizard />;
 
-  const isChat = tab === "chat";
-  const isAdvanced = tab === "advanced" || tab === "actions" || tab === "triggers" ||
-    tab === "fine-tuning" || tab === "trajectories" || tab === "runtime" ||
-    tab === "database" || tab === "logs";
-  const isApps = tab === "apps";
-  const isConnectors = tab === "connectors";
-  const isKnowledge = tab === "knowledge";
+  const isChat = effectiveTab === "chat";
+  const isAdvanced = effectiveTab === "advanced" || effectiveTab === "actions" || effectiveTab === "triggers" ||
+    effectiveTab === "fine-tuning" || effectiveTab === "trajectories" || effectiveTab === "runtime" ||
+    effectiveTab === "database" || effectiveTab === "logs";
+  const isApps = effectiveTab === "apps";
+  const isConnectors = effectiveTab === "connectors";
+  const isKnowledge = effectiveTab === "knowledge";
 
-  if (tab === "companion" || tab === "skills" || tab === "character" || tab === "settings" || tab === "plugins" || isAdvanced || isApps || isConnectors || isKnowledge) {
-    const isSkills = tab === "skills";
-    const isSettings = tab === "settings";
-    const isPlugins = tab === "plugins";
+  if (shellMode === "companion" && (effectiveTab === "companion" || effectiveTab === "skills" || effectiveTab === "character" || effectiveTab === "settings" || effectiveTab === "plugins" || isAdvanced || isApps || isConnectors || isKnowledge)) {
+    const isSkills = effectiveTab === "skills";
+    const isSettings = effectiveTab === "settings";
+    const isPlugins = effectiveTab === "plugins";
     const isPluginsLike = isPlugins || isConnectors;
     const isCentered = isSkills || isSettings || isPlugins || isAdvanced || isApps || isConnectors || isKnowledge;
     const accentColor = isSkills ? "#00e1ff" : isApps ? "#10b981" : isPluginsLike ? "#f0b232" : isKnowledge ? "#a78bfa" : "#d4af37";
     const topBarColor = isSkills ? "#00e1ff" : isSettings || isAdvanced ? "rgba(210, 205, 200, 0.7)" : isPluginsLike ? "#f0b232" : isApps ? "rgba(16, 185, 129, 0.7)" : isKnowledge ? "rgba(167, 139, 250, 0.7)" : "#d4af37";
     const cardColor = isSkills ? "rgba(20, 24, 38, 0.85)" : "rgba(10, 12, 16, 0.75)";
     const shadowFx = isSkills ? "shadow-[0_0_50px_rgba(0,225,255,0.15)]" : "shadow-[0_4px_30px_rgba(0,0,0,0.5)]";
-    const overlayBackdropClass = tab === "skills"
+    const overlayBackdropClass = effectiveTab === "skills"
       ? "opacity-100 backdrop-blur-2xl bg-black/40 pointer-events-auto"
       : isPluginsLike
         ? "opacity-100 backdrop-blur-xl bg-black/35 pointer-events-auto"
-        : tab === "settings" || isAdvanced || isApps || isKnowledge
+        : effectiveTab === "settings" || isAdvanced || isApps || isKnowledge
           ? "opacity-100 backdrop-blur-2xl bg-black/50 pointer-events-auto"
-          : tab === "character"
+          : effectiveTab === "character"
             ? "opacity-100"
             : "opacity-0";
 
@@ -119,7 +134,7 @@ export function App() {
           {/* Hub Modals (Overlay on top of CompanionView) */}
           {/* Hub Modals (Overlay on top of CompanionView) */}
           <div className={`absolute inset-0 z-[60] flex ${isCentered ? 'items-center justify-center' : 'justify-end'} transition-all duration-300 pointer-events-none ${overlayBackdropClass}`}>
-            {(tab === "skills" || tab === "character" || tab === "settings" || tab === "plugins" || isAdvanced || isApps || isConnectors || isKnowledge) && (
+            {(effectiveTab === "skills" || effectiveTab === "character" || effectiveTab === "settings" || effectiveTab === "plugins" || isAdvanced || isApps || isConnectors || isKnowledge) && (
               <div className={isCentered ? "relative pointer-events-auto" : "contents"}>
               <div className={`relative flex flex-col pointer-events-auto ${isSkills ? 'w-[90vw] h-[90vh] max-w-5xl backdrop-blur-3xl border rounded-2xl' : isPluginsLike ? 'w-[97vw] h-[92vh] md:w-[88vw] md:h-[80vh] max-w-[1460px] overflow-visible' : isAdvanced ? 'w-[95vw] h-[95vh] max-w-[1500px] backdrop-blur-3xl border rounded-2xl overflow-hidden' : isSettings || isApps || isKnowledge ? 'w-[90vw] h-[90vh] max-w-5xl backdrop-blur-3xl border rounded-2xl overflow-hidden' : 'w-[65vw] min-w-[700px] h-[100vh] border-l backdrop-blur-2xl'} transition-all duration-500`}
                 style={{
@@ -149,7 +164,7 @@ export function App() {
                 }}>
 
                 {/* Top bar accent line */}
-                {tab === "character" && (
+                {effectiveTab === "character" && (
                   <div className="absolute top-0 left-0 right-0 h-[1px] opacity-100 flex justify-center">
                     <div className="w-1/2 h-full" style={{ background: `linear-gradient(90deg, transparent, rgba(212, 175, 55, 0.8), transparent)` }} />
                   </div>
@@ -204,7 +219,7 @@ export function App() {
                       </div>
                     </>
                   )}
-                  {tab === "character" && (
+                  {effectiveTab === "character" && (
                     <>
                       {/* Honkai Star Rail / Elegant Gacha UI Decorations */}
                       <div className="absolute top-6 left-10 flex flex-col">
@@ -263,10 +278,10 @@ export function App() {
                     "--txt": "#ffffff",
                   } as React.CSSProperties}
                 >
-                  {tab === "skills" && <SkillsView />}
-                  {tab === "character" && <CharacterView inModal={true} />}
-                  {tab === "settings" && <SettingsView inModal={true} />}
-                  {tab === "plugins" && <PluginsView inModal={true} />}
+                  {effectiveTab === "skills" && <SkillsView />}
+                  {effectiveTab === "character" && <CharacterView inModal={true} />}
+                  {effectiveTab === "settings" && <SettingsView inModal={true} />}
+                  {effectiveTab === "plugins" && <PluginsView inModal={true} />}
                   {isAdvanced && <AdvancedPageView inModal={true} />}
                   {isApps && <AppsPageView inModal={true} />}
                   {isConnectors && <ConnectorsPageView inModal={true} />}
@@ -329,7 +344,7 @@ export function App() {
           <Header />
           <Nav />
           <main className="flex-1 min-h-0 py-6 px-5 overflow-y-auto">
-            <ViewRouter />
+            <ViewRouter tab={effectiveTab} />
           </main>
           <TerminalPanel />
         </div>

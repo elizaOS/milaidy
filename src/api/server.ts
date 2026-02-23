@@ -136,6 +136,7 @@ import {
   type BscTradePreflightRequest,
   type BscTradeExecuteRequest,
   type BscTradeQuoteRequest,
+  type BscTradeTxStatusResponse,
   type WalletAddresses,
   type WalletBalancesResponse,
   type WalletChain,
@@ -1855,12 +1856,21 @@ function serveStaticUi(
 interface ChatGenerationResult {
   text: string;
   agentName: string;
+  usage?: ChatTokenUsageSummary;
 }
 
 interface ChatGenerateOptions {
   onChunk?: (chunk: string) => void;
   isAborted?: () => boolean;
   resolveNoResponseText?: () => string;
+}
+
+interface ChatTokenUsageSummary {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  llmCalls: number;
+  model?: string;
 }
 
 interface TrajectoryLoggerForChat {
@@ -2005,6 +2015,87 @@ function getTrajectoryStepId(entry: unknown): string | null {
   if (!entry || typeof entry !== "object") return null;
   const raw = (entry as { stepId?: unknown }).stepId;
   return typeof raw === "string" && raw.trim() ? raw.trim() : null;
+}
+
+function readNumberFromUnknown(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return null;
+}
+
+function readUsageTokenCount(
+  row: Record<string, unknown>,
+  keyCandidates: string[],
+): number {
+  for (const key of keyCandidates) {
+    const direct = readNumberFromUnknown(row[key]);
+    if (direct !== null) return Math.max(0, Math.round(direct));
+  }
+
+  const usage = row.usage;
+  if (usage && typeof usage === "object") {
+    const usageRecord = usage as Record<string, unknown>;
+    for (const key of keyCandidates) {
+      const nested = readNumberFromUnknown(usageRecord[key]);
+      if (nested !== null) return Math.max(0, Math.round(nested));
+    }
+  }
+
+  return 0;
+}
+
+function summarizeChatTokenUsageFromTrajectory(
+  logger: TrajectoryLoggerForChat | null,
+  stepId: string | null,
+): ChatTokenUsageSummary | null {
+  if (!logger || !stepId) return null;
+
+  let promptTokens = 0;
+  let completionTokens = 0;
+  let llmCalls = 0;
+  let model: string | undefined;
+
+  for (const entry of readTrajectoryLlmLogs(logger)) {
+    if (getTrajectoryStepId(entry) !== stepId) continue;
+    if (!entry || typeof entry !== "object") continue;
+
+    const row = entry as Record<string, unknown>;
+    llmCalls += 1;
+    promptTokens += readUsageTokenCount(row, [
+      "promptTokens",
+      "prompt_tokens",
+      "inputTokens",
+      "input_tokens",
+      "input",
+    ]);
+    completionTokens += readUsageTokenCount(row, [
+      "completionTokens",
+      "completion_tokens",
+      "outputTokens",
+      "output_tokens",
+      "output",
+    ]);
+
+    if (!model) {
+      const rawModel = row.model;
+      if (typeof rawModel === "string" && rawModel.trim().length > 0) {
+        model = rawModel.trim();
+      }
+    }
+  }
+
+  if (llmCalls <= 0) return null;
+
+  return {
+    promptTokens,
+    completionTokens,
+    totalTokens: promptTokens + completionTokens,
+    llmCalls,
+    ...(model ? { model } : {}),
+  };
 }
 
 function copyTrajectoryLogsToLogger(
@@ -2500,6 +2591,7 @@ async function generateChatResponse(
   const trajectoryLogger = getTrajectoryLoggerForRuntime(runtime);
   let fallbackTrajectoryStepId: string | null = null;
   let fallbackTrajectoryEndTargetId: string | null = null;
+  let usageStepId: string | null = null;
 
   // The core message service emits MESSAGE_SENT but not MESSAGE_RECEIVED.
   // Emit inbound events here so trajectory/session hooks run for API chat.
@@ -2660,6 +2752,10 @@ async function generateChatResponse(
       fallbackTrajectoryStepId ??
       metadataTrajectoryStepId ??
       eventTrajectoryStepId;
+    usageStepId =
+      metadataTrajectoryStepId ??
+      fallbackTrajectoryStepId ??
+      eventTrajectoryStepId;
 
     if (
       stepIdToEnd &&
@@ -2694,10 +2790,12 @@ async function generateChatResponse(
   const finalText = isNoResponsePlaceholder(responseText)
     ? (noResponseFallback ?? (responseText || "(no response)"))
     : responseText;
+  const usage = summarizeChatTokenUsageFromTrajectory(trajectoryLogger, usageStepId);
 
   return {
     text: finalText,
     agentName,
+    ...(usage ? { usage } : {}),
   };
 }
 
@@ -4384,6 +4482,104 @@ function toPluginShortId(pluginNameOrId: string): string {
     .replace(/^@[^/]+\/plugin-/, "")
     .replace(/^@[^/]+\//, "")
     .replace(/^plugin-/, "");
+}
+
+const AI_PROVIDER_ID_BY_PLUGIN_SHORT_ID: Readonly<Record<string, string>> = {
+  anthropic: "anthropic",
+  openai: "openai",
+  openrouter: "openrouter",
+  "google-genai": "gemini",
+  xai: "grok",
+  groq: "groq",
+  deepseek: "deepseek",
+  mistral: "mistral",
+  together: "together",
+  ollama: "ollama",
+  "pi-ai": "pi-ai",
+  zai: "zai",
+  elizacloud: "elizacloud",
+};
+
+function sanitizeAgentModelLabel(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  const lower = trimmed.toLowerCase();
+  if (
+    lower === "unknown" ||
+    lower === "provided" ||
+    lower === "n/a" ||
+    lower === "na" ||
+    lower === "none"
+  ) {
+    return undefined;
+  }
+  return trimmed;
+}
+
+function resolveModelFromAgentModelConfig(value: unknown): string | undefined {
+  if (typeof value === "string") {
+    return sanitizeAgentModelLabel(value);
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+  const modelRecord = value as { primary?: unknown };
+  return sanitizeAgentModelLabel(modelRecord.primary);
+}
+
+function resolveConfigModelLabel(config: MiladyConfig): string | undefined {
+  const defaultModel = resolveModelFromAgentModelConfig(
+    config.agents?.defaults?.model,
+  );
+  if (defaultModel) return defaultModel;
+
+  const activeAgent =
+    config.agents?.list?.find((agent) => agent.default) ?? config.agents?.list?.[0];
+  const activeAgentModel = resolveModelFromAgentModelConfig(activeAgent?.model);
+  if (activeAgentModel) return activeAgentModel;
+
+  const largeModel = sanitizeAgentModelLabel(config.models?.large);
+  if (largeModel) return largeModel;
+
+  const smallModel = sanitizeAgentModelLabel(config.models?.small);
+  if (smallModel) return smallModel;
+
+  return sanitizeAgentModelLabel(config.cloud?.provider);
+}
+
+function resolveRuntimeSettingModelLabel(
+  runtime: Pick<AgentRuntime, "getSetting"> | null,
+): string | undefined {
+  if (!runtime) return undefined;
+  return sanitizeAgentModelLabel(runtime.getSetting("MODEL_PROVIDER"));
+}
+
+function resolveRuntimePluginProviderLabel(
+  runtime: Pick<AgentRuntime, "plugins"> | null,
+): string | undefined {
+  if (!runtime) return undefined;
+  for (const plugin of runtime.plugins) {
+    const pluginName = typeof plugin?.name === "string" ? plugin.name : "";
+    if (!pluginName) continue;
+    const shortId = toPluginShortId(pluginName).toLowerCase();
+    const providerId = AI_PROVIDER_ID_BY_PLUGIN_SHORT_ID[shortId];
+    if (providerId) return providerId;
+  }
+  return undefined;
+}
+
+export function resolveAgentModelLabel(
+  runtime: Pick<AgentRuntime, "plugins" | "getSetting"> | null,
+  config: MiladyConfig,
+): string | undefined {
+  const runtimeModel = resolveRuntimeSettingModelLabel(runtime);
+  if (runtimeModel) return runtimeModel;
+
+  const configModel = resolveConfigModelLabel(config);
+  if (configModel) return configModel;
+
+  return resolveRuntimePluginProviderLabel(runtime);
 }
 
 function resolvePluginCategoryForMutation(
@@ -6427,15 +6623,7 @@ async function handleRequest(
   if (method === "POST" && pathname === "/api/agent/start") {
     state.agentState = "running";
     state.startedAt = Date.now();
-    const detectedModel = state.runtime
-      ? (state.runtime.plugins.find(
-          (p) =>
-            p.name.includes("anthropic") ||
-            p.name.includes("openai") ||
-            p.name.includes("groq"),
-        )?.name ?? "unknown")
-      : "unknown";
-    state.model = detectedModel;
+    state.model = resolveAgentModelLabel(state.runtime, state.config);
 
     // Enable the autonomy task — the core TaskService will pick it up
     // and fire the first tick immediately (updatedAt starts at 0).
@@ -9578,6 +9766,112 @@ async function handleRequest(
     return;
   }
 
+  // ── GET /api/wallet/trade/tx-status ─────────────────────────────────
+  // Query on-chain status for a broadcast BSC transaction hash.
+  if (method === "GET" && pathname === "/api/wallet/trade/tx-status") {
+    const txHash = (url.searchParams.get("hash") ?? "").trim();
+    if (!/^0x[a-fA-F0-9]{64}$/.test(txHash)) {
+      error(res, "hash must be a valid 0x-prefixed 32-byte transaction hash.");
+      return;
+    }
+
+    const rpcConfig = {
+      nodeRealBscRpcUrl: process.env.NODEREAL_BSC_RPC_URL,
+      quickNodeBscRpcUrl: process.env.QUICKNODE_BSC_RPC_URL,
+    };
+    const rpcUrl = resolvePrimaryBscRpcUrl(rpcConfig);
+    if (!rpcUrl) {
+      error(res, "No managed BSC RPC available for tx status lookup.", 503);
+      return;
+    }
+
+    try {
+      const provider = new ethers.JsonRpcProvider(rpcUrl);
+      const [network, tx, receipt, latestBlock] = await Promise.all([
+        provider.getNetwork(),
+        provider.getTransaction(txHash),
+        provider.getTransactionReceipt(txHash),
+        provider.getBlockNumber(),
+      ]);
+
+      const networkChainId = Number(network.chainId);
+      const chainId = Number.isFinite(networkChainId) ? networkChainId : null;
+      const explorerUrl = `https://bscscan.com/tx/${txHash}`;
+
+      if (!tx && !receipt) {
+        const payload: BscTradeTxStatusResponse = {
+          ok: true,
+          hash: txHash,
+          status: "not_found",
+          explorerUrl,
+          chainId,
+          blockNumber: null,
+          confirmations: 0,
+          nonce: null,
+          gasUsed: null,
+          effectiveGasPriceWei: null,
+          reason: "Transaction hash not found on active BSC RPC yet.",
+        };
+        json(res, payload);
+        return;
+      }
+
+      if (!receipt) {
+        const payload: BscTradeTxStatusResponse = {
+          ok: true,
+          hash: txHash,
+          status: "pending",
+          explorerUrl,
+          chainId,
+          blockNumber: null,
+          confirmations: 0,
+          nonce: tx?.nonce ?? null,
+          gasUsed: null,
+          effectiveGasPriceWei: null,
+        };
+        json(res, payload);
+        return;
+      }
+
+      const maybeReceipt = receipt as ethers.TransactionReceipt & {
+        effectiveGasPrice?: bigint;
+        gasPrice?: bigint;
+      };
+      const effectiveGasPriceWei =
+        typeof maybeReceipt.effectiveGasPrice === "bigint"
+          ? maybeReceipt.effectiveGasPrice.toString()
+          : typeof maybeReceipt.gasPrice === "bigint"
+            ? maybeReceipt.gasPrice.toString()
+            : null;
+      const confirmations = Number.isFinite(latestBlock)
+        ? Math.max(0, latestBlock - receipt.blockNumber + 1)
+        : 0;
+      const status = receipt.status === 1 ? "success" : "reverted";
+
+      const payload: BscTradeTxStatusResponse = {
+        ok: true,
+        hash: txHash,
+        status,
+        explorerUrl,
+        chainId,
+        blockNumber: receipt.blockNumber ?? null,
+        confirmations,
+        nonce: tx?.nonce ?? null,
+        gasUsed: receipt.gasUsed?.toString() ?? null,
+        effectiveGasPriceWei,
+        reason: status === "reverted" ? "Transaction reverted on-chain." : undefined,
+      };
+      json(res, payload);
+    } catch (err) {
+      error(
+        res,
+        `Failed to fetch tx status: ${err instanceof Error ? err.message : String(err)}`,
+        422,
+      );
+    }
+    return;
+  }
+
   // ── POST /api/wallet/import ──────────────────────────────────────────
   // Import a wallet by providing a private key + chain.
   if (method === "POST" && pathname === "/api/wallet/import") {
@@ -11720,6 +12014,11 @@ async function handleRequest(
           type: "done",
           fullText: result.text,
           agentName: result.agentName,
+          promptTokens: result.usage?.promptTokens,
+          completionTokens: result.usage?.completionTokens,
+          totalTokens: result.usage?.totalTokens,
+          llmCalls: result.usage?.llmCalls,
+          model: result.usage?.model,
         });
       }
     } catch (err) {
@@ -11851,6 +12150,11 @@ async function handleRequest(
       json(res, {
         text: result.text,
         agentName: result.agentName,
+        promptTokens: result.usage?.promptTokens,
+        completionTokens: result.usage?.completionTokens,
+        totalTokens: result.usage?.totalTokens,
+        llmCalls: result.usage?.llmCalls,
+        model: result.usage?.model,
       });
     } catch (err) {
       logger.warn(
@@ -12073,6 +12377,11 @@ async function handleRequest(
           type: "done",
           fullText: result.text,
           agentName: result.agentName,
+          promptTokens: result.usage?.promptTokens,
+          completionTokens: result.usage?.completionTokens,
+          totalTokens: result.usage?.totalTokens,
+          llmCalls: result.usage?.llmCalls,
+          model: result.usage?.model,
         });
       }
     } catch (err) {
@@ -12169,6 +12478,11 @@ async function handleRequest(
       json(res, {
         text: result.text,
         agentName: result.agentName,
+        promptTokens: result.usage?.promptTokens,
+        completionTokens: result.usage?.completionTokens,
+        totalTokens: result.usage?.totalTokens,
+        llmCalls: result.usage?.llmCalls,
+        model: result.usage?.model,
       });
     } catch (err) {
       const creditReply = getInsufficientCreditsReplyFromError(err);
@@ -14102,7 +14416,7 @@ export async function startApiServer(opts?: {
     config,
     agentState: initialAgentState,
     agentName,
-    model: hasRuntime ? "provided" : undefined,
+    model: resolveAgentModelLabel(opts?.runtime ?? null, config),
     startedAt:
       hasRuntime || initialAgentState === "starting" ? Date.now() : undefined,
     plugins,
@@ -14722,6 +15036,7 @@ export async function startApiServer(opts?: {
     state.agentState = "running";
     state.agentName = rt.character.name ?? "Milady";
     state.startedAt = Date.now();
+    state.model = resolveAgentModelLabel(rt, state.config);
     addLog("info", `Runtime restarted — agent: ${state.agentName}`, "system", [
       "system",
       "agent",

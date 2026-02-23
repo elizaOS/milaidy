@@ -34,6 +34,7 @@ import type {
   BscTradePreflightResponse,
   BscTradeQuoteRequest,
   BscTradeQuoteResponse,
+  BscTradeTxStatusResponse,
   EvmChainBalance,
   EvmNft,
   EvmTokenBalance,
@@ -78,6 +79,7 @@ export type {
   BscTradePreflightResponse,
   BscTradeQuoteRequest,
   BscTradeQuoteResponse,
+  BscTradeTxStatusResponse,
   EvmChainBalance,
   EvmNft,
   EvmTokenBalance,
@@ -593,6 +595,14 @@ export interface ConversationMessage {
   blocks?: ContentBlock[];
   /** Source channel when forwarded from another channel (e.g. "autonomy"). */
   source?: string;
+}
+
+export interface ChatTokenUsage {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  llmCalls?: number;
+  model?: string;
 }
 
 export type ConversationMode = "simple" | "power";
@@ -2318,6 +2328,9 @@ export class MiladyClient {
       body: JSON.stringify(request),
     });
   }
+  async getBscTradeTxStatus(hash: string): Promise<BscTradeTxStatusResponse> {
+    return this.fetch(`/api/wallet/trade/tx-status?hash=${encodeURIComponent(hash)}`);
+  }
   async getWalletConfig(): Promise<WalletConfigStatus> { return this.fetch("/api/wallet/config"); }
   async updateWalletConfig(config: Record<string, string>): Promise<{ ok: boolean }> { return this.fetch("/api/wallet/config", { method: "PUT", body: JSON.stringify(config) }); }
   async generateWallets(chain: "evm" | "solana" | "both" = "both"): Promise<{ ok: boolean; wallets: Array<{ chain: "evm" | "solana"; address: string }> }> {
@@ -2869,7 +2882,7 @@ export class MiladyClient {
     onToken: (token: string) => void,
     mode: ConversationMode = "simple",
     signal?: AbortSignal,
-  ): Promise<{ text: string; agentName: string }> {
+  ): Promise<{ text: string; agentName: string; usage?: ChatTokenUsage }> {
     if (!this.apiAvailable) {
       throw new Error("API not available (no HTTP origin)");
     }
@@ -2901,6 +2914,18 @@ export class MiladyClient {
     let fullText = "";
     let doneText: string | null = null;
     let doneAgentName: string | null = null;
+    let doneUsage: ChatTokenUsage | undefined;
+
+    const toFiniteTokenCount = (value: unknown): number | null => {
+      if (typeof value === "number" && Number.isFinite(value)) {
+        return Math.max(0, Math.round(value));
+      }
+      if (typeof value === "string" && value.trim()) {
+        const parsed = Number(value);
+        if (Number.isFinite(parsed)) return Math.max(0, Math.round(parsed));
+      }
+      return null;
+    };
 
     const findSseEventBreak = (
       chunkBuffer: string,
@@ -2926,6 +2951,11 @@ export class MiladyClient {
         fullText?: string;
         agentName?: string;
         message?: string;
+        promptTokens?: number | string;
+        completionTokens?: number | string;
+        totalTokens?: number | string;
+        llmCalls?: number | string;
+        model?: string;
       };
       try {
         parsed = JSON.parse(payload) as {
@@ -2934,6 +2964,11 @@ export class MiladyClient {
           fullText?: string;
           agentName?: string;
           message?: string;
+          promptTokens?: number | string;
+          completionTokens?: number | string;
+          totalTokens?: number | string;
+          llmCalls?: number | string;
+          model?: string;
         };
       } catch {
         return;
@@ -2952,6 +2987,23 @@ export class MiladyClient {
         if (typeof parsed.fullText === "string") doneText = parsed.fullText;
         if (typeof parsed.agentName === "string" && parsed.agentName.trim()) {
           doneAgentName = parsed.agentName;
+        }
+        const promptTokens = toFiniteTokenCount(parsed.promptTokens);
+        const completionTokens = toFiniteTokenCount(parsed.completionTokens);
+        const totalTokensRaw = toFiniteTokenCount(parsed.totalTokens);
+        const llmCalls = toFiniteTokenCount(parsed.llmCalls);
+        if (promptTokens !== null || completionTokens !== null || totalTokensRaw !== null) {
+          const safePrompt = promptTokens ?? 0;
+          const safeCompletion = completionTokens ?? 0;
+          doneUsage = {
+            promptTokens: safePrompt,
+            completionTokens: safeCompletion,
+            totalTokens: totalTokensRaw ?? safePrompt + safeCompletion,
+            ...(llmCalls !== null ? { llmCalls } : {}),
+            ...(typeof parsed.model === "string" && parsed.model.trim().length > 0
+              ? { model: parsed.model.trim() }
+              : {}),
+          };
         }
         return;
       }
@@ -2994,6 +3046,7 @@ export class MiladyClient {
     return {
       text: resolvedText,
       agentName: doneAgentName ?? "Milady",
+      ...(doneUsage ? { usage: doneUsage } : {}),
     };
   }
 
@@ -3004,17 +3057,43 @@ export class MiladyClient {
   async sendChatRest(
     text: string,
     mode: ConversationMode = "simple",
-  ): Promise<{ text: string; agentName: string }> {
-    const response = await this.fetch<{ text: string; agentName: string }>(
+  ): Promise<{ text: string; agentName: string; usage?: ChatTokenUsage }> {
+    const response = await this.fetch<{
+      text: string;
+      agentName: string;
+      promptTokens?: number;
+      completionTokens?: number;
+      totalTokens?: number;
+      llmCalls?: number;
+      model?: string;
+    }>(
       "/api/chat",
       {
         method: "POST",
         body: JSON.stringify({ text, mode }),
       },
     );
+    const hasUsage =
+      typeof response.promptTokens === "number" ||
+      typeof response.completionTokens === "number" ||
+      typeof response.totalTokens === "number";
+    const usage = hasUsage
+      ? {
+        promptTokens: response.promptTokens ?? 0,
+        completionTokens: response.completionTokens ?? 0,
+        totalTokens:
+          response.totalTokens ??
+          ((response.promptTokens ?? 0) + (response.completionTokens ?? 0)),
+        ...(typeof response.llmCalls === "number" ? { llmCalls: response.llmCalls } : {}),
+        ...(typeof response.model === "string" && response.model.trim().length > 0
+          ? { model: response.model.trim() }
+          : {}),
+      }
+      : undefined;
     return {
-      ...response,
       text: this.normalizeAssistantText(response.text),
+      agentName: response.agentName,
+      ...(usage ? { usage } : {}),
     };
   }
 
@@ -3023,7 +3102,7 @@ export class MiladyClient {
     onToken: (token: string) => void,
     mode: ConversationMode = "simple",
     signal?: AbortSignal,
-  ): Promise<{ text: string; agentName: string }> {
+  ): Promise<{ text: string; agentName: string; usage?: ChatTokenUsage }> {
     return this.streamChatEndpoint(
       "/api/chat/stream",
       text,
@@ -3054,18 +3133,47 @@ export class MiladyClient {
     id: string,
     text: string,
     mode: ConversationMode = "simple",
-  ): Promise<{ text: string; agentName: string; blocks?: ContentBlock[] }> {
+  ): Promise<{
+    text: string;
+    agentName: string;
+    blocks?: ContentBlock[];
+    usage?: ChatTokenUsage;
+  }> {
     const response = await this.fetch<{
       text: string;
       agentName: string;
       blocks?: ContentBlock[];
+      promptTokens?: number;
+      completionTokens?: number;
+      totalTokens?: number;
+      llmCalls?: number;
+      model?: string;
     }>(`/api/conversations/${encodeURIComponent(id)}/messages`, {
       method: "POST",
       body: JSON.stringify({ text, mode }),
     });
+    const hasUsage =
+      typeof response.promptTokens === "number" ||
+      typeof response.completionTokens === "number" ||
+      typeof response.totalTokens === "number";
+    const usage = hasUsage
+      ? {
+        promptTokens: response.promptTokens ?? 0,
+        completionTokens: response.completionTokens ?? 0,
+        totalTokens:
+          response.totalTokens ??
+          ((response.promptTokens ?? 0) + (response.completionTokens ?? 0)),
+        ...(typeof response.llmCalls === "number" ? { llmCalls: response.llmCalls } : {}),
+        ...(typeof response.model === "string" && response.model.trim().length > 0
+          ? { model: response.model.trim() }
+          : {}),
+      }
+      : undefined;
     return {
-      ...response,
       text: this.normalizeAssistantText(response.text),
+      agentName: response.agentName,
+      ...(response.blocks ? { blocks: response.blocks } : {}),
+      ...(usage ? { usage } : {}),
     };
   }
 
@@ -3075,7 +3183,7 @@ export class MiladyClient {
     onToken: (token: string) => void,
     mode: ConversationMode = "simple",
     signal?: AbortSignal,
-  ): Promise<{ text: string; agentName: string }> {
+  ): Promise<{ text: string; agentName: string; usage?: ChatTokenUsage }> {
     return this.streamChatEndpoint(
       `/api/conversations/${encodeURIComponent(id)}/messages/stream`,
       text,

@@ -8,7 +8,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { VrmViewer } from "./avatar/VrmViewer";
 import type { VrmEngine, VrmEngineState } from "./avatar/VrmEngine";
-import { useApp, getVrmPreviewUrl, getVrmUrl } from "../AppContext";
+import { useApp, getVrmPreviewUrl, getVrmUrl, getVrmNeedsFlip } from "../AppContext";
 import { client } from "../api-client";
 import { resolveCompanionAnimationIntent } from "./avatar/companionAnimationIntent";
 
@@ -29,6 +29,7 @@ export function ChatAvatar({ mouthOpen = 0, isSpeaking = false }: ChatAvatarProp
   const fallbackPreviewUrl = selectedVrmIndex > 0
     ? getVrmPreviewUrl(selectedVrmIndex)
     : getVrmPreviewUrl(1);
+  const needsFlip = selectedVrmIndex > 0 && getVrmNeedsFlip(selectedVrmIndex);
 
   const vrmEngineRef = useRef<VrmEngine | null>(null);
   const currentAmbientIntentIdRef = useRef<string | null>(null);
@@ -164,6 +165,7 @@ export function ChatAvatar({ mouthOpen = 0, isSpeaking = false }: ChatAvatarProp
               isSpeaking={isSpeaking}
               interactive
               interactiveMode="orbitZoom"
+              forceFaceCameraFlip={needsFlip}
               onEngineReady={handleEngineReady}
               onEngineState={handleEngineState}
             />
