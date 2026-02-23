@@ -670,3 +670,64 @@ apt install my-tool   # Linux
 | `EXTRA_SKILLS_DIRS` | Set by runtime -- comma-separated extra skill directories |
 | `SKILLS_ALLOWLIST` | Set by runtime -- comma-separated allowed skill IDs |
 | `SKILLS_DENYLIST` | Set by runtime -- comma-separated denied skill IDs |
+
+---
+
+## Skill Operations Runbook
+
+### Setup Checklist
+
+1. Verify the skills plugin is loaded: `GET /api/skills` should return a non-empty list.
+2. For marketplace installs, confirm registry connectivity: `GET /api/skills/marketplace/config` should show `configured: true` or a reachable default registry.
+3. For catalog browsing, confirm the catalog file exists at one of the expected paths (see [Catalog File Locations](#catalog-file-locations) above).
+4. Ensure `~/.milady/workspace/skills/` is writable for marketplace and workspace skill installs.
+5. For legacy SkillsMP marketplace, set `SKILLSMP_API_KEY` in the environment.
+
+### Failure Modes
+
+**Catalog operations:**
+
+- Catalog returns empty results:
+  The catalog file may be missing or empty. Run `POST /api/skills/catalog/refresh` to force a reload from disk. If the file does not exist, check that the `@elizaos/plugin-agent-skills` package is installed (it ships the initial catalog).
+- Catalog search returns no matches:
+  Search uses fuzzy matching across slug, name, summary, and tags. Try broader search terms. Exact slug matches score highest.
+- Catalog cache is stale:
+  The in-memory cache expires after 10 minutes (`MEMORY_TTL_MS`). Force-refresh with `POST /api/skills/catalog/refresh` or restart the agent.
+
+**Marketplace operations:**
+
+- Marketplace search fails with network error:
+  Confirm the registry URL is reachable. Check `SKILLS_REGISTRY`, `CLAWHUB_REGISTRY`, or `SKILLS_MARKETPLACE_URL` environment variables. The default is `https://clawhub.ai`.
+- Git clone fails during marketplace install:
+  The installer uses sparse checkout to fetch only the skill directory. Confirm the repository URL and path are valid. Check that `git` is available in `PATH` and network access to GitHub is not blocked.
+- Security scan blocks install (`blocked` status):
+  The scan detected binary files (`.exe`, `.dll`, `.so`, etc.), symlink escapes, or a missing `SKILL.md`. The skill directory is automatically deleted. Inspect the skill source repository to confirm it is safe before requesting the author fix the issue.
+- Install fails with "already installed":
+  A record for this skill ID already exists in `marketplace-installs.json`. Uninstall first with `POST /api/skills/marketplace/uninstall`, then retry.
+
+**Skill loading:**
+
+- Custom skill not appearing in `/api/skills`:
+  Confirm the skill directory contains a valid `SKILL.md` with name/description frontmatter. Check that the directory is in a scanned location (bundled, managed, workspace, or marketplace). Run `POST /api/skills/refresh` to re-scan.
+- Skill loads but is disabled:
+  Check the enable/disable cascade: database preferences override config, `denyBundled` blocks unconditionally, `allowBundled` acts as a whitelist. Use `PUT /api/skills/:id` with `{ "enabled": true }` to force-enable.
+- Required binary or env var missing:
+  Skills with `required-bins` or `required-env` frontmatter are skipped if dependencies are absent. Install the required CLI tool or set the environment variable.
+
+### Recovery Procedures
+
+1. **Corrupted marketplace install:** Delete `~/.milady/workspace/skills/.marketplace/<skill-id>/` and remove its entry from `~/.milady/workspace/skills/.cache/marketplace-installs.json`, then re-install.
+2. **Catalog file missing:** Re-install or update `@elizaos/plugin-agent-skills` to restore the bundled catalog. Alternatively, copy a known-good `catalog.json` to `~/.milady/skills/catalog.json`.
+3. **Skill override conflict:** If a workspace skill unexpectedly overrides a bundled skill, rename the workspace skill directory or move it to a different location. Higher-precedence sources always win.
+
+### Verification Commands
+
+```bash
+# Skill catalog and marketplace unit tests
+bunx vitest run src/services/skill-marketplace.test.ts src/services/skill-catalog-client.test.ts
+
+# Skill marketplace e2e lifecycle
+bunx vitest run --config vitest.e2e.config.ts test/skills-marketplace.e2e.test.ts
+
+bun run typecheck
+```

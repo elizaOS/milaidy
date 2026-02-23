@@ -473,8 +473,12 @@ pnpm add elizaos-plugin-custom-feature
 1. Ensure plugin metadata exists and is valid in `plugins.json`.
 2. Ensure installable packages resolve from npm or your internal registry.
 3. Ensure required env keys for each plugin are documented in the manifest.
+4. For on-chain registry operations, set `EVM_PRIVATE_KEY` and configure `mainnetRpc`, `registryAddress`, and `collectionAddress` in agent config.
+5. Verify the plugin install directory is writable: `ls -ld ~/.milady/plugins/installed/`.
 
 ### Failure Modes
+
+**Plugin registry lookup:**
 
 - Registry lookup returns no results:
   Confirm `plugins.json` is current and plugin IDs are spelled correctly.
@@ -483,10 +487,44 @@ pnpm add elizaos-plugin-custom-feature
 - Version drift between manifest and package:
   Regenerate registry metadata and commit updated manifest.
 
+**NPM resolution and install:**
+
+- `npm pack` or `bun install` fails during plugin install:
+  Check network connectivity to the npm registry. The installer falls back from npm to direct git clone — if both fail, the package spec is likely invalid.
+- Entry point not found after install:
+  The installer checks for `package.json` in the target directory. Confirm the package has a valid `main` or `module` field, or that `index.js`/`index.ts` exists at the package root.
+- Concurrent install corruption:
+  The installer uses a serialisation lock. If a previous install crashed, stale lock state may block new installs. Restart the agent to clear in-memory locks.
+
+**On-chain registry/drop operations:**
+
+- Transaction reverts or times out:
+  Check that `EVM_PRIVATE_KEY` has sufficient gas balance. Verify `mainnetRpc` is reachable and not rate-limited. The tx-service retries with escalating gas — if all retries fail, the error includes the revert reason.
+- Registry contract call returns empty data:
+  Confirm `registryAddress` and `collectionAddress` point to deployed contracts on the correct chain. Use a block explorer to verify contract state.
+- Nonce conflict on rapid sequential transactions:
+  The tx-service manages nonce locally. If an external wallet transaction changes the nonce, restart the agent to re-sync.
+
+### Recovery Procedures
+
+1. **Stale plugin state:** Delete `~/.milady/plugins/installed/<plugin-name>/` and remove the entry from `milady.json` under `plugins.installs`, then re-install.
+2. **Registry metadata out of sync:** Run `milady plugin sync` or manually update `plugins.json` from the upstream registry.
+3. **On-chain tx stuck:** Check the pending transaction on a block explorer. If stuck, the agent will retry with higher gas on next attempt. Manual speed-up via wallet is safe — the agent re-reads nonce on next call.
+
 ### Verification Commands
 
 ```bash
+# Plugin registry and installer tests
 bunx vitest run src/services/plugin-installer.test.ts src/services/skill-marketplace.test.ts src/services/mcp-marketplace.test.ts
+
+# Plugin install e2e lifecycle
+bunx vitest run --config vitest.e2e.config.ts test/plugin-install.e2e.test.ts test/skills-marketplace.e2e.test.ts
+
+# On-chain service tests
+bunx vitest run src/api/tx-service.test.ts src/api/registry-service.test.ts src/api/drop-service.test.ts
+
+# API server e2e (includes registry routes)
 bunx vitest run --config vitest.e2e.config.ts test/api-server.e2e.test.ts
+
 bun run typecheck
 ```

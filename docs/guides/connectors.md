@@ -517,20 +517,72 @@ The `dmPolicy` options are:
 1. Configure connector credentials under `connectors.<name>`.
 2. Enable connector plugin loading via connector config or plugin allow-list.
 3. Validate DM/group policy values and allow-lists before enabling `open` policies.
+4. For each connector, confirm the platform bot/app is created and tokens are valid (see platform-specific notes below).
+5. Test connectivity in `pairing` mode before switching to `open` mode.
 
 ### Failure Modes
 
+**General connector failures:**
+
 - Connector plugin not loading:
-  Check connector ID mapping, plugin availability, and `plugins.entries` overrides.
+  Check connector ID mapping in `src/config/plugin-auto-enable.ts`, plugin availability, and `plugins.entries` overrides. The auto-enable layer maps connector config keys to plugin package names — a mismatch means the plugin is silently skipped.
 - Auth succeeds but no messages arrive:
-  Check platform webhook/socket settings and policy gates (`dmPolicy`, `groupPolicy`).
+  Check platform webhook/socket settings and policy gates (`dmPolicy`, `groupPolicy`). For webhook-based connectors, confirm the callback URL is publicly reachable.
 - Misrouted connector secrets:
-  Confirm expected env vars are populated from config and not overwritten by stale env.
+  Confirm expected env vars are populated from config and not overwritten by stale env. The config schema merges env vars with file config — env takes precedence.
+
+**Discord:**
+
+- Bot token rejected (`401 Unauthorized`):
+  Regenerate the bot token in the Discord Developer Portal. Tokens are invalidated if the bot's password is reset or the token is leaked and auto-revoked.
+- Bot is online but does not respond in channels:
+  Check that the bot has `MESSAGE_CONTENT` intent enabled in the Developer Portal and the `groupPolicy` is not `closed`. Confirm the bot has `Send Messages` permission in the target channel.
+- Rate limited (`429 Too Many Requests`):
+  Discord rate limits are per-route. The connector should back off automatically. If persistent, reduce message frequency or check for message loops (bot replying to itself).
+
+**Telegram:**
+
+- Webhook not receiving updates:
+  Telegram requires HTTPS with a valid certificate. Use `getWebhookInfo` to check status. If using long polling, confirm no other process is polling the same bot token (Telegram allows only one consumer).
+- Bot token expired or revoked:
+  Re-create the bot via BotFather and update `TELEGRAM_BOT_TOKEN`. Telegram tokens do not expire automatically but can be revoked.
+- Messages delayed or missing:
+  Telegram buffers updates for up to 24 hours if the webhook is unreachable. After restoring connectivity, a burst of backlogged messages may arrive.
+
+**Slack:**
+
+- `invalid_auth` or `token_revoked`:
+  Reinstall the Slack app to the workspace. Bot tokens are revoked when the app is uninstalled or workspace permissions change.
+- Events not arriving:
+  Confirm the Events API subscription includes the required event types (`message.im`, `message.channels`). Check the Slack app's Request URL is verified and receiving challenge responses.
+
+**WhatsApp:**
+
+- QR pairing fails or session drops:
+  WhatsApp Web sessions expire after extended inactivity. Re-pair by scanning a new QR code via `POST /api/whatsapp/pair`. The `whatsapp-pairing` service manages session state.
+- Messages not delivered:
+  WhatsApp enforces strict anti-spam policies. If the number is flagged, messages are silently dropped. Confirm the business account is in good standing.
+
+### Recovery Procedures
+
+1. **Stale connector session:** Restart the agent. Connectors re-initialize their platform connections on startup. For WebSocket-based connectors (Discord, Slack), this forces a fresh handshake.
+2. **Token rotation:** Update the token in `milady.json` under `connectors.<name>` and restart. Do not edit env vars in a running process — the config is read at startup.
+3. **Rate limit recovery:** The agent automatically backs off on 429 responses. If the connector is fully blocked, wait for the rate limit window to expire (typically 1–60 seconds for Discord, varies by platform) and restart.
 
 ### Verification Commands
 
 ```bash
-bunx vitest run src/runtime/eliza.test.ts src/connectors/discord-connector.test.ts
+# Connector auto-enable and runtime loading
+bunx vitest run src/config/plugin-auto-enable.test.ts src/runtime/eliza.test.ts
+
+# Platform-specific connector tests
+bunx vitest run src/connectors/discord-connector.test.ts
+
+# Connector e2e tests
 bunx vitest run --config vitest.e2e.config.ts test/discord-connector.e2e.test.ts test/signal-connector.e2e.test.ts
+
+# WhatsApp pairing
+bunx vitest run src/services/__tests__/whatsapp-pairing.test.ts src/api/__tests__/whatsapp-routes.test.ts
+
 bun run typecheck
 ```
