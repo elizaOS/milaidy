@@ -156,7 +156,7 @@ def _install_milady_global() -> None:
         )
 
     print(
-        "milady: installing milady runtime (npm install -g milady)...",
+        "milady: installing milady runtime (npm install -g miladyai)...",
         file=sys.stderr,
     )
     try:
@@ -167,7 +167,7 @@ def _install_milady_global() -> None:
         if result.returncode != 0:
             raise RuntimeInstallError(
                 f"Failed to install {NPM_PACKAGE} via npm (exit code {result.returncode}).\n"
-                "Try running manually: npm install -g milady"
+                "Try running manually: npm install -g miladyai"
             )
         print("milady: milady runtime installed successfully.", file=sys.stderr)
     except subprocess.TimeoutExpired:

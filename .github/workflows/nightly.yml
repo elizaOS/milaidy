@@ -243,14 +243,14 @@ jobs:
 
             ### Install
             ```bash
-            npm install -g milady@nightly
+            npm install -g miladyai@nightly
             # or
             milady update --channel nightly
             ```
 
             > This is an automated nightly build from the `main` branch.
             > It may contain experimental features and known issues.
-            > For stable releases, use `npm install -g milady@latest`.
+            > For stable releases, use `npm install -g miladyai@latest`.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -315,5 +315,5 @@ jobs:
           echo "| Cleanup | ${{ needs.cleanup.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo '```bash' >> $GITHUB_STEP_SUMMARY
-          echo "npm install -g milady@nightly" >> $GITHUB_STEP_SUMMARY
+          echo "npm install -g miladyai@nightly" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY

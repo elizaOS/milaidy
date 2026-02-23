@@ -1,7 +1,7 @@
 {
   "$schema": "plugin-index-v1",
   "generatedAt": "2026-02-09T20:23:38.561Z",
-  "count": 97,
+  "count": 99,
   "plugins": [
     {
       "id": "acp",
@@ -1462,6 +1462,78 @@
           "width": "half"
         }
       }
+    },
+    {
+      "id": "clawbal",
+      "dirName": "app-clawbal",
+      "name": "Clawbal Chat",
+      "npmName": "@iqlabs-official/plugin-clawbal",
+      "description": "On-chain AI chatrooms on Solana — agents chat, trade, launch tokens, and compete on PnL leaderboards",
+      "category": "app",
+      "envKey": "SOLANA_PRIVATE_KEY",
+      "configKeys": [
+        "SOLANA_PRIVATE_KEY",
+        "SOLANA_RPC_URL",
+        "CLAWBAL_CHATROOM",
+        "MOLTBOOK_TOKEN",
+        "BAGS_API_KEY",
+        "IMAGE_API_KEY",
+        "MILADY_ASSETS_PATH"
+      ],
+      "version": "1.0.0",
+      "gitUrl": "https://github.com/IQCoreTeam/milady-clawbal.git",
+      "pluginParameters": {
+        "SOLANA_PRIVATE_KEY": {
+          "type": "string",
+          "description": "Solana wallet private key (base58 or JSON array)",
+          "required": true,
+          "sensitive": true
+        },
+        "SOLANA_RPC_URL": {
+          "type": "string",
+          "description": "Solana RPC endpoint (default: mainnet)",
+          "required": false
+        },
+        "CLAWBAL_CHATROOM": {
+          "type": "string",
+          "description": "Default chatroom (default: Trenches)",
+          "required": false
+        },
+        "MOLTBOOK_TOKEN": {
+          "type": "string",
+          "description": "Moltbook API token for posting",
+          "required": false,
+          "sensitive": true
+        },
+        "BAGS_API_KEY": {
+          "type": "string",
+          "description": "bags.fm API key for token launches",
+          "required": false,
+          "sensitive": true
+        },
+        "IMAGE_API_KEY": {
+          "type": "string",
+          "description": "Image generation API key (auto-detects provider from prefix)",
+          "required": false,
+          "sensitive": true
+        },
+        "MILADY_ASSETS_PATH": {
+          "type": "string",
+          "description": "Path to milady-image-generator assets for unique PFP generation",
+          "required": false
+        }
+      }
+    },
+    {
+      "id": "coding-agent",
+      "dirName": "plugin-coding-agent",
+      "name": "Coding Agent Swarms",
+      "npmName": "@milaidy/plugin-coding-agent",
+      "description": "Orchestrate CLI coding agents (Claude Code, Gemini CLI, Codex, Aider) via PTY sessions with workspace and issue management",
+      "category": "feature",
+      "envKey": null,
+      "configKeys": [],
+      "version": "1.0.0"
     },
     {
       "id": "code",
@@ -8535,6 +8607,57 @@
       }
     },
     {
+      "id": "retake",
+      "dirName": "plugin-retake",
+      "name": "Retake.tv",
+      "npmName": "@milady/plugin-retake",
+      "description": "Live video streaming connector for retake.tv",
+      "category": "connector",
+      "envKey": "RETAKE_ACCESS_TOKEN",
+      "configKeys": [
+        "RETAKE_ACCESS_TOKEN",
+        "RETAKE_API_URL",
+        "RETAKE_CAPTURE_URL"
+      ],
+      "pluginParameters": {
+        "RETAKE_ACCESS_TOKEN": {
+          "type": "string",
+          "description": "Access token for retake.tv API",
+          "required": false,
+          "sensitive": true
+        },
+        "RETAKE_API_URL": {
+          "type": "string",
+          "description": "Retake.tv API base URL",
+          "required": false,
+          "sensitive": false
+        },
+        "RETAKE_CAPTURE_URL": {
+          "type": "string",
+          "description": "Capture URL for retake.tv stream",
+          "required": false,
+          "sensitive": false
+        }
+      },
+      "configUiHints": {
+        "RETAKE_ACCESS_TOKEN": {
+          "label": "Access Token",
+          "group": "Authentication",
+          "width": "full"
+        },
+        "RETAKE_API_URL": {
+          "label": "API URL",
+          "group": "Connection",
+          "width": "half"
+        },
+        "RETAKE_CAPTURE_URL": {
+          "label": "Capture URL",
+          "group": "Connection",
+          "width": "half"
+        }
+      }
+    },
+    {
       "id": "vercel-ai-gateway",
       "dirName": "plugin-vercel-ai-gateway",
       "name": "Vercel Ai Gateway",
@@ -8732,7 +8855,7 @@
       "id": "whatsapp",
       "dirName": "plugin-whatsapp",
       "name": "Whatsapp",
-      "npmName": "@elizaos/plugin-whatsapp",
+      "npmName": "@milady/plugin-whatsapp",
       "description": "WhatsApp plugin for ElizaOS — supports Baileys (QR code) and Cloud API",
       "category": "connector",
       "envKey": "WHATSAPP_ACCESS_TOKEN",

@@ -28,6 +28,7 @@ import {
   type UUID,
 } from "@elizaos/core";
 import { listPiAiModelOptions } from "@elizaos/plugin-pi-ai";
+import { createCodingAgentRouteHandler } from "@milaidy/plugin-coding-agent";
 import { type WebSocket, WebSocketServer } from "ws";
 import type { CloudManager } from "../cloud/cloud-manager";
 import {
@@ -37,6 +38,7 @@ import {
   saveMiladyConfig,
 } from "../config/config";
 import { resolveModelsCacheDir, resolveStateDir } from "../config/paths";
+import { isConnectorConfigured } from "../config/plugin-auto-enable";
 import type { ConnectorConfig, CustomActionDef } from "../config/types.milady";
 import { EMOTE_BY_ID, EMOTE_CATALOG } from "../emotes/catalog";
 import { resolveDefaultAgentWorkspaceDir } from "../providers/workspace";
@@ -49,7 +51,6 @@ import {
   isBlockedPrivateOrLinkLocalIp,
   normalizeHostLike,
 } from "../security/network-policy";
-
 import { AppManager } from "../services/app-manager";
 import { FallbackTrainingService } from "../services/fallback-training-service";
 import {
@@ -70,6 +71,7 @@ import {
   searchSkillsMarketplace,
   uninstallMarketplaceSkill,
 } from "../services/skill-marketplace";
+import { streamManager } from "../services/stream-manager";
 import {
   listTriggerTasks,
   readTriggerConfig,
@@ -83,10 +85,10 @@ import { handleAppsHyperscapeRoutes } from "./apps-hyperscape-routes";
 import { handleAppsRoutes } from "./apps-routes";
 import { handleAuthRoutes } from "./auth-routes";
 import { getAutonomyState, handleAutonomyRoutes } from "./autonomy-routes";
+import { handleBugReportRoutes } from "./bug-report-routes";
 import { handleCharacterRoutes } from "./character-routes";
 import { type CloudRouteState, handleCloudRoute } from "./cloud-routes";
 import { handleCloudStatusRoutes } from "./cloud-status-routes";
-
 import {
   extractAnthropicSystemAndLastUser,
   extractCompatTextContent,
@@ -100,6 +102,7 @@ import {
   readJsonBody as parseJsonBody,
   type ReadJsonBodyOptions,
   readRequestBody,
+  readRequestBodyBuffer,
   sendJson,
   sendJsonError,
 } from "./http-helpers";
@@ -138,10 +141,22 @@ import {
 import { TxService } from "./tx-service";
 import { generateWalletKeys, getWalletAddresses } from "./wallet";
 import { handleWalletRoutes } from "./wallet-routes";
+import {
+  applyWhatsAppQrOverride,
+  handleWhatsAppRoute,
+} from "./whatsapp-routes";
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
+
+/** A connector-registered route handler. Returns `true` if the request was handled. */
+type ConnectorRouteHandler = (
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  pathname: string,
+  method: string,
+) => Promise<boolean>;
 
 function getAgentEventSvc(
   runtime: AgentRuntime | null,
@@ -203,6 +218,14 @@ interface ConversationMeta {
   updatedAt: string;
 }
 
+interface AgentStartupDiagnostics {
+  phase: string;
+  attempt: number;
+  lastError?: string;
+  lastErrorAt?: number;
+  nextRetryAt?: number;
+}
+
 interface ServerState {
   runtime: AgentRuntime | null;
   config: MiladyConfig;
@@ -217,6 +240,7 @@ interface ServerState {
   agentName: string;
   model: string | undefined;
   startedAt: number | undefined;
+  startup: AgentStartupDiagnostics;
   plugins: PluginEntry[];
   skills: SkillEntry[];
   logBuffer: LogEntry[];
@@ -270,6 +294,13 @@ interface ServerState {
   shellEnabled?: boolean;
   /** Reasons a restart is pending. Empty array = no restart needed. */
   pendingRestartReasons: string[];
+  /** Route handlers registered by connector plugins (loaded dynamically). */
+  connectorRouteHandlers: ConnectorRouteHandler[];
+  /** Active WhatsApp pairing sessions (QR code flow). */
+  whatsappPairingSessions?: Map<
+    string,
+    import("../services/whatsapp-pairing").WhatsAppPairingSession
+  >;
 }
 
 interface ShareIngestItem {
@@ -540,6 +571,7 @@ function _extractResponseBlocks(
 // ---------------------------------------------------------------------------
 
 export function findOwnPackageRoot(startDir: string): string {
+  const KNOWN_NAMES = new Set(["milady", "milaidy", "miladyai"]);
   let dir = startDir;
   for (let i = 0; i < 10; i++) {
     const pkgPath = path.join(dir, "package.json");
@@ -551,7 +583,9 @@ export function findOwnPackageRoot(startDir: string): string {
         >;
         const pkgName =
           typeof pkg.name === "string" ? pkg.name.toLowerCase() : "";
-        if (pkgName === "milady") return dir;
+        if (KNOWN_NAMES.has(pkgName)) return dir;
+        // Also match if plugins.json exists at this level (resilient to renames)
+        if (fs.existsSync(path.join(dir, "plugins.json"))) return dir;
       } catch {
         /* keep searching */
       }
@@ -1061,6 +1095,8 @@ function discoverInstalledPlugins(
   return entries.sort((a, b) => a.name.localeCompare(b.name));
 }
 
+// applyWhatsAppQrOverride is imported from ./whatsapp-routes
+
 /**
  * Discover available plugins from the bundled plugins.json manifest.
  * Falls back to filesystem scanning for monorepo development.
@@ -1079,7 +1115,7 @@ function discoverPluginsFromManifest(): PluginEntry[] {
       // Keys that are auto-injected by infrastructure and should never be
       // exposed as user-facing "config keys" or parameter definitions.
       const HIDDEN_KEYS = new Set(["VERCEL_OIDC_TOKEN"]);
-      return index.plugins
+      const entries = index.plugins
         .map((p) => {
           const category = categorizePlugin(p.id);
           const envKey = p.envKey;
@@ -1136,6 +1172,10 @@ function discoverPluginsFromManifest(): PluginEntry[] {
           };
         })
         .sort((a, b) => a.name.localeCompare(b.name));
+
+      applyWhatsAppQrOverride(entries, resolveDefaultAgentWorkspaceDir());
+
+      return entries;
     } catch (err) {
       logger.debug(
         `[milady-api] Failed to read plugins.json: ${err instanceof Error ? err.message : err}`,
@@ -1197,6 +1237,7 @@ function categorizePlugin(
     "twitch",
     "nextcloud-talk",
     "instagram",
+    "retake",
   ];
   const databases = ["sql", "localdb", "inmemorydb"];
 
@@ -1485,7 +1526,7 @@ async function discoverSkills(
 
   // Bundled skills from the @elizaos/skills package
   try {
-    const skillsPkg = (await import("@elizaos/skills")) as {
+    const skillsPkg = (await import(/* @vite-ignore */ "@elizaos/skills")) as {
       getSkillsDir: () => string;
     };
     const bundledDir = skillsPkg.getSkillsDir();
@@ -1619,6 +1660,203 @@ const MAX_BODY_BYTES = 1_048_576;
  * (~3–7 MB base64); 20 MB accommodates up to 4 images with room to spare.
  */
 const CHAT_MAX_BODY_BYTES = 20 * 1_048_576;
+const ELEVENLABS_FETCH_TIMEOUT_MS = 20_000;
+const ELEVENLABS_AUDIO_MAX_BYTES = 20 * 1_048_576;
+
+type StreamableServerResponse = Pick<
+  http.ServerResponse,
+  "write" | "once" | "off" | "removeListener"
+> & {
+  writableEnded?: boolean;
+  destroyed?: boolean;
+};
+
+function removeResponseListener(
+  res: StreamableServerResponse,
+  event: "drain" | "error",
+  handler: (...args: unknown[]) => void,
+): void {
+  if (typeof res.off === "function") {
+    res.off(event, handler);
+    return;
+  }
+  if (typeof res.removeListener === "function") {
+    res.removeListener(event, handler);
+  }
+}
+
+function responseContentLength(headers: Pick<Headers, "get">): number | null {
+  const raw = headers.get("content-length");
+  if (!raw) return null;
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isFinite(parsed) || parsed < 0) return null;
+  return parsed;
+}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof DOMException
+    ? error.name === "AbortError" || error.name === "TimeoutError"
+    : error instanceof Error &&
+        (error.name === "AbortError" || error.name === "TimeoutError");
+}
+
+function createTimeoutError(message: string): Error {
+  const timeoutError = new Error(message);
+  timeoutError.name = "TimeoutError";
+  return timeoutError;
+}
+
+export async function fetchWithTimeoutGuard(
+  input: string | URL,
+  init: RequestInit,
+  timeoutMs: number,
+): Promise<Response> {
+  const controller = new AbortController();
+  const upstreamSignal = init.signal;
+  let timedOut = false;
+
+  const onAbort = () => {
+    controller.abort();
+  };
+
+  if (upstreamSignal) {
+    if (upstreamSignal.aborted) {
+      controller.abort();
+    } else {
+      upstreamSignal.addEventListener("abort", onAbort, { once: true });
+    }
+  }
+
+  const timeoutHandle = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, timeoutMs);
+
+  try {
+    return await fetch(input, {
+      ...init,
+      signal: controller.signal,
+    });
+  } catch (err) {
+    if (timedOut && isAbortError(err)) {
+      throw createTimeoutError(
+        `Upstream request timed out after ${timeoutMs}ms`,
+      );
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeoutHandle);
+    if (upstreamSignal) {
+      upstreamSignal.removeEventListener("abort", onAbort);
+    }
+  }
+}
+
+async function waitForDrain(res: StreamableServerResponse): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    const onDrain = () => {
+      cleanup();
+      resolve();
+    };
+    const onError = (err: unknown) => {
+      cleanup();
+      reject(err instanceof Error ? err : new Error(String(err)));
+    };
+    const cleanup = () => {
+      removeResponseListener(
+        res,
+        "drain",
+        onDrain as (...args: unknown[]) => void,
+      );
+      removeResponseListener(
+        res,
+        "error",
+        onError as (...args: unknown[]) => void,
+      );
+    };
+
+    res.once("drain", onDrain);
+    res.once("error", onError);
+  });
+}
+
+/**
+ * Stream a web Response body to an HTTP response while enforcing a strict byte cap.
+ * Returns the number of bytes forwarded.
+ */
+export async function streamResponseBodyWithByteLimit(
+  upstream: Response,
+  res: StreamableServerResponse,
+  maxBytes: number,
+  timeoutMs?: number,
+): Promise<number> {
+  const declaredLength = responseContentLength(upstream.headers);
+  if (declaredLength !== null && declaredLength > maxBytes) {
+    throw new Error(
+      `Upstream response exceeds maximum size of ${maxBytes} bytes`,
+    );
+  }
+
+  if (!upstream.body) {
+    throw new Error("Upstream response did not include a body stream");
+  }
+
+  const reader = upstream.body.getReader();
+  let totalBytes = 0;
+  let streamTimeoutHandle: ReturnType<typeof setTimeout> | null = null;
+  const streamTimeoutPromise =
+    typeof timeoutMs === "number" && timeoutMs > 0
+      ? new Promise<never>((_resolve, reject) => {
+          streamTimeoutHandle = setTimeout(() => {
+            reject(
+              createTimeoutError(
+                `Upstream response body timed out after ${timeoutMs}ms`,
+              ),
+            );
+          }, timeoutMs);
+        })
+      : null;
+
+  try {
+    while (true) {
+      const { done, value } = streamTimeoutPromise
+        ? await Promise.race([reader.read(), streamTimeoutPromise])
+        : await reader.read();
+      if (done) break;
+      if (!value || value.byteLength === 0) continue;
+
+      totalBytes += value.byteLength;
+      if (totalBytes > maxBytes) {
+        throw new Error(
+          `Upstream response exceeds maximum size of ${maxBytes} bytes`,
+        );
+      }
+
+      if (res.writableEnded || res.destroyed) {
+        throw new Error("Client connection closed while streaming response");
+      }
+
+      const canContinue = res.write(Buffer.from(value));
+      if (!canContinue) {
+        await waitForDrain(res);
+      }
+    }
+  } catch (err) {
+    try {
+      await reader.cancel(err);
+    } catch {
+      // Best effort cleanup; keep original error.
+    }
+    throw err;
+  } finally {
+    if (streamTimeoutHandle !== null) {
+      clearTimeout(streamTimeoutHandle);
+    }
+    reader.releaseLock();
+  }
+
+  return totalBytes;
+}
 
 /**
  * Read and parse a JSON request body with size limits and error handling.
@@ -1663,7 +1901,7 @@ const STATIC_MIME: Record<string, string> = {
   ".ico": "image/x-icon",
   ".jpeg": "image/jpeg",
   ".jpg": "image/jpeg",
-  "": "application/javascript; charset=utf-8",
+  ".js": "application/javascript; charset=utf-8",
   ".json": "application/json; charset=utf-8",
   ".map": "application/json",
   ".mjs": "application/javascript; charset=utf-8",
@@ -2032,6 +2270,19 @@ async function generateChatResponse(
           throw new Error("client_disconnected");
         }
 
+        // Trace action callback invocations so we can verify handlers execute.
+        const actionTag = (content as Record<string, unknown>)?.action;
+        if (actionTag) {
+          runtime.logger?.info(
+            {
+              src: "milady-api",
+              action: actionTag,
+              hasText: Boolean(extractCompatTextContent(content)),
+            },
+            `[milady-api] Action callback fired: ${actionTag}`,
+          );
+        }
+
         const chunk = extractCompatTextContent(content);
         if (!chunk) return [];
         if (!claimStreamSource("callback")) return [];
@@ -2090,6 +2341,22 @@ async function generateChatResponse(
   } catch (err) {
     _handlerError = err;
     throw err;
+  }
+
+  // Log the response mode and actions for debugging action execution
+  if (result) {
+    const rc = result.responseContent as Record<string, unknown> | null;
+    const resultRecord = result as unknown as Record<string, unknown>;
+    runtime.logger?.info(
+      {
+        src: "milady-api",
+        mode: resultRecord.mode,
+        actions: rc?.actions,
+        simple: rc?.simple,
+        hasText: Boolean(rc?.text),
+      },
+      "[milady-api] Chat response metadata",
+    );
   }
 
   const resultText = extractCompatTextContent(result?.responseContent);
@@ -2683,6 +2950,12 @@ const BLOCKED_INTERPRETER_FLAGS = new Set([
   "--eval",
   "-p",
   "--print",
+  "-r",
+  "--require",
+  "--import",
+  "--loader",
+  "--experimental-loader",
+  "--preload",
   "-c",
   "-m",
 ]);
@@ -3012,7 +3285,7 @@ function getProviderOptions(): Array<{
     {
       id: "gemini",
       name: "Gemini",
-      envKey: "GOOGLE_API_KEY",
+      envKey: "GOOGLE_GENERATIVE_AI_API_KEY",
       pluginName: "@elizaos/plugin-google-genai",
       keyPrefix: null,
       description: "Google's Gemini models.",
@@ -3307,7 +3580,7 @@ const PROVIDER_ENV_KEYS: Record<
   },
   "google-genai": {
     envKey: "GOOGLE_GENERATIVE_AI_API_KEY",
-    altEnvKeys: ["GOOGLE_API_KEY"],
+    altEnvKeys: ["GOOGLE_API_KEY", "GEMINI_API_KEY"],
   },
   ollama: { envKey: "OLLAMA_BASE_URL" },
   "vercel-ai-gateway": {
@@ -3855,7 +4128,7 @@ function applyCors(
     );
     res.setHeader(
       "Access-Control-Allow-Headers",
-      "Content-Type, Authorization, X-Milady-Token, X-Api-Key, X-Milady-Export-Token, X-Milady-Client-Id",
+      "Content-Type, Authorization, X-Milady-Token, X-Api-Key, X-Milady-Export-Token, X-Milady-Client-Id, X-Milady-Terminal-Token",
     );
   }
 
@@ -4158,6 +4431,62 @@ export function resolveWalletExportRejection(
 
   if (!tokenMatches(expected, provided)) {
     return { status: 401, reason: "Invalid export token." };
+  }
+
+  return null;
+}
+
+interface TerminalRunRequestBody {
+  terminalToken?: string;
+}
+
+export interface TerminalRunRejection {
+  status: 401 | 403;
+  reason: string;
+}
+
+export function resolveTerminalRunRejection(
+  req: http.IncomingMessage,
+  body: TerminalRunRequestBody,
+): TerminalRunRejection | null {
+  const expected = process.env.MILADY_TERMINAL_RUN_TOKEN?.trim();
+  const apiTokenEnabled = Boolean(process.env.MILADY_API_TOKEN?.trim());
+
+  // Compatibility mode: local loopback sessions without API token keep
+  // existing behavior unless an explicit terminal token is configured.
+  if (!expected && !apiTokenEnabled) {
+    return null;
+  }
+
+  if (!expected) {
+    return {
+      status: 403,
+      reason:
+        "Terminal run is disabled for token-authenticated API sessions. Set MILADY_TERMINAL_RUN_TOKEN to enable command execution.",
+    };
+  }
+
+  const headerToken =
+    typeof req.headers["x-milady-terminal-token"] === "string"
+      ? req.headers["x-milady-terminal-token"].trim()
+      : "";
+  const bodyToken =
+    typeof body.terminalToken === "string" ? body.terminalToken.trim() : "";
+  const provided = headerToken || bodyToken;
+
+  if (!provided) {
+    return {
+      status: 401,
+      reason:
+        "Missing terminal token. Provide X-Milady-Terminal-Token header or terminalToken in request body.",
+    };
+  }
+
+  if (!tokenMatches(expected, provided)) {
+    return {
+      status: 401,
+      reason: "Invalid terminal token.",
+    };
   }
 
   return null;
@@ -5413,6 +5742,7 @@ async function handleRequest(
       agentName: state.agentName,
       model: state.model,
       uptime,
+      startup: state.startup,
       cloud: cloudStatus,
       pendingRestart: state.pendingRestartReasons.length > 0,
       pendingRestartReasons: state.pendingRestartReasons,
@@ -5596,6 +5926,7 @@ async function handleRequest(
       piAiDefaultModel,
       inventoryProviders: getInventoryProviderOptions(),
       sharedStyleRules: "Keep responses brief. Be helpful and concise.",
+      githubOAuthAvailable: Boolean(process.env.GITHUB_OAUTH_CLIENT_ID?.trim()),
     });
     return;
   }
@@ -5790,6 +6121,18 @@ async function handleRequest(
           "[milady-api] Anthropic setup token saved during onboarding",
         );
       }
+    }
+
+    // ── GitHub token ────────────────────────────────────────────────────
+    if (
+      body.githubToken &&
+      typeof body.githubToken === "string" &&
+      body.githubToken.trim()
+    ) {
+      if (!config.env) config.env = {};
+      (config.env as Record<string, string>).GITHUB_TOKEN =
+        body.githubToken.trim();
+      process.env.GITHUB_TOKEN = body.githubToken.trim();
     }
 
     // ── Connectors (Telegram, Discord, WhatsApp, Twilio, Blooio) ────────
@@ -6176,6 +6519,8 @@ async function handleRequest(
       plugin.validationWarnings = validation.warnings;
     }
 
+    applyWhatsAppQrOverride(allPlugins, resolveDefaultAgentWorkspaceDir());
+
     // Inject per-provider model options into configUiHints for MODEL fields.
     // Each provider's cache is independent — no cross-population.
     // Always set type: "select" on MODEL fields so they render as dropdowns,
@@ -6349,6 +6694,7 @@ async function handleRequest(
         "vision",
         "browser",
         "computeruse",
+        "coding-agent",
       ]);
       if (CAPABILITY_FEATURE_IDS.has(pluginId)) {
         if (!state.config.features) {
@@ -8044,6 +8390,23 @@ async function handleRequest(
   }
 
   // ═══════════════════════════════════════════════════════════════════════
+  // Bug report routes
+  // ═══════════════════════════════════════════════════════════════════════
+  if (
+    await handleBugReportRoutes({
+      req,
+      res,
+      method,
+      pathname,
+      readJsonBody,
+      json,
+      error,
+    })
+  ) {
+    return;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
   // Wallet / Inventory routes
   // ═══════════════════════════════════════════════════════════════════════
   if (
@@ -8451,6 +8814,23 @@ async function handleRequest(
     return;
   }
 
+  // ── WhatsApp routes (/api/whatsapp/*) ────────────────────────────────────
+  // Auth: these routes are protected by the isAuthorized(req) gate at L5331.
+  if (pathname.startsWith("/api/whatsapp")) {
+    if (!state.whatsappPairingSessions) {
+      state.whatsappPairingSessions = new Map();
+    }
+    const handled = await handleWhatsAppRoute(req, res, pathname, method, {
+      whatsappPairingSessions: state.whatsappPairingSessions,
+      broadcastWs: state.broadcastWs ?? undefined,
+      config: state.config,
+      runtime: state.runtime ?? undefined,
+      saveConfig: () => saveMiladyConfig(state.config),
+      workspaceDir: resolveDefaultAgentWorkspaceDir(),
+    });
+    if (handled) return;
+  }
+
   // ── POST /api/restart ───────────────────────────────────────────────────
   if (method === "POST" && pathname === "/api/restart") {
     json(res, { ok: true, message: "Restarting..." });
@@ -8579,15 +8959,19 @@ async function handleRequest(
       );
       upstreamUrl.searchParams.set("output_format", outputFormat);
 
-      const upstream = await fetch(upstreamUrl.toString(), {
-        method: "POST",
-        headers: {
-          "xi-api-key": resolvedApiKey,
-          "Content-Type": "application/json",
-          Accept: "audio/mpeg",
+      const upstream = await fetchWithTimeoutGuard(
+        upstreamUrl.toString(),
+        {
+          method: "POST",
+          headers: {
+            "xi-api-key": resolvedApiKey,
+            "Content-Type": "application/json",
+            Accept: "audio/mpeg",
+          },
+          body: JSON.stringify(payload),
         },
-        body: JSON.stringify(payload),
-      });
+        ELEVENLABS_FETCH_TIMEOUT_MS,
+      );
 
       if (!upstream.ok) {
         const upstreamBody = await upstream.text().catch(() => "");
@@ -8599,23 +8983,112 @@ async function handleRequest(
         return;
       }
 
-      const audio = Buffer.from(await upstream.arrayBuffer());
       const contentType = upstream.headers.get("content-type") || "audio/mpeg";
+      const contentLength = responseContentLength(upstream.headers);
+      if (
+        contentLength !== null &&
+        contentLength > ELEVENLABS_AUDIO_MAX_BYTES
+      ) {
+        error(
+          res,
+          `ElevenLabs response exceeds maximum size of ${ELEVENLABS_AUDIO_MAX_BYTES} bytes`,
+          502,
+        );
+        return;
+      }
+
       res.writeHead(200, {
         "Content-Type": contentType,
-        "Content-Length": String(audio.byteLength),
         "Cache-Control": "no-store",
+        ...(contentLength !== null
+          ? { "Content-Length": String(contentLength) }
+          : {}),
       });
-      res.end(audio);
+
+      await streamResponseBodyWithByteLimit(
+        upstream,
+        res,
+        ELEVENLABS_AUDIO_MAX_BYTES,
+        ELEVENLABS_FETCH_TIMEOUT_MS,
+      );
+      res.end();
       return;
     } catch (err) {
+      if (res.headersSent) {
+        res.destroy(
+          err instanceof Error
+            ? err
+            : new Error(
+                `ElevenLabs proxy error: ${typeof err === "string" ? err : String(err)}`,
+              ),
+        );
+        return;
+      }
       error(
         res,
         `ElevenLabs proxy error: ${err instanceof Error ? err.message : String(err)}`,
-        502,
+        isAbortError(err) ? 504 : 502,
       );
       return;
     }
+  }
+
+  // ── POST /api/avatar/vrm ─────────────────────────────────────────────────
+  // Upload a custom VRM avatar file. Saved to ~/.milady/avatars/custom.vrm.
+  if (method === "POST" && pathname === "/api/avatar/vrm") {
+    const MAX_VRM_BYTES = 50 * 1024 * 1024; // 50 MB
+    const rawBody = await readRequestBodyBuffer(req, {
+      maxBytes: MAX_VRM_BYTES,
+      returnNullOnTooLarge: true,
+    });
+    if (!rawBody || rawBody.length === 0) {
+      error(res, "Request body is empty or exceeds 50 MB", 400);
+      return;
+    }
+    // VRM files are GLB (binary glTF) — validate the 4-byte magic header
+    const GLB_MAGIC = Buffer.from([0x67, 0x6c, 0x54, 0x46]); // "glTF"
+    if (rawBody.length < 4 || !rawBody.subarray(0, 4).equals(GLB_MAGIC)) {
+      error(res, "Invalid VRM file: not a valid glTF/GLB file", 400);
+      return;
+    }
+    const avatarDir = path.join(resolveStateDir(), "avatars");
+    fs.mkdirSync(avatarDir, { recursive: true });
+    const vrmPath = path.join(avatarDir, "custom.vrm");
+    fs.writeFileSync(vrmPath, rawBody);
+    json(res, { ok: true, size: rawBody.length });
+    return;
+  }
+
+  // ── GET /api/avatar/vrm ──────────────────────────────────────────────────
+  // Serve the user's custom VRM avatar file if it exists.
+  if (
+    (method === "GET" || method === "HEAD") &&
+    pathname === "/api/avatar/vrm"
+  ) {
+    const vrmPath = path.join(resolveStateDir(), "avatars", "custom.vrm");
+    try {
+      const stat = fs.statSync(vrmPath);
+      if (!stat.isFile()) {
+        error(res, "No custom avatar found", 404);
+        return;
+      }
+      const headers: Record<string, string | number> = {
+        "Content-Type": "model/gltf-binary",
+        "Content-Length": stat.size,
+        "Cache-Control": "no-cache",
+      };
+      if (method === "HEAD") {
+        res.writeHead(200, headers);
+        res.end();
+        return;
+      }
+      const body = fs.readFileSync(vrmPath);
+      res.writeHead(200, headers);
+      res.end(body);
+    } catch {
+      error(res, "No custom avatar found", 404);
+    }
+    return;
   }
 
   // ── GET /api/config/schema ───────────────────────────────────────────────
@@ -9177,6 +9650,7 @@ async function handleRequest(
           const message = createMessageMemory({
             id: crypto.randomUUID() as UUID,
             entityId: userId,
+            agentId: runtime.agentId,
             roomId,
             content: {
               text: prompt,
@@ -10049,6 +10523,7 @@ async function handleRequest(
       const message = createMessageMemory({
         id: crypto.randomUUID() as UUID,
         entityId: chatUserId,
+        agentId: runtime.agentId,
         roomId: chatRoomId,
         content: {
           text: prompt,
@@ -10138,6 +10613,7 @@ async function handleRequest(
       const message = createMessageMemory({
         id: crypto.randomUUID() as UUID,
         entityId: chatUserId,
+        agentId: runtime.agentId,
         roomId: chatRoomId,
         content: {
           text: prompt,
@@ -10197,6 +10673,18 @@ async function handleRequest(
       );
       if (handled) return;
     }
+  }
+
+  // ── Coding Agent API (/api/coding-agents/*, /api/workspace/*, /api/issues/*) ──
+  if (
+    state.runtime &&
+    (pathname.startsWith("/api/coding-agents") ||
+      pathname.startsWith("/api/workspace") ||
+      pathname.startsWith("/api/issues"))
+  ) {
+    const handler = createCodingAgentRouteHandler(state.runtime);
+    const handled = await handler(req, res, pathname);
+    if (handled) return;
   }
 
   if (
@@ -11194,11 +11682,19 @@ async function handleRequest(
       return;
     }
 
-    const body = await readJsonBody<{ command?: string; clientId?: unknown }>(
-      req,
-      res,
-    );
+    const body = await readJsonBody<{
+      command?: string;
+      clientId?: unknown;
+      terminalToken?: string;
+    }>(req, res);
     if (!body) return;
+
+    const terminalRejection = resolveTerminalRunRejection(req, body);
+    if (terminalRejection) {
+      error(res, terminalRejection.reason, terminalRejection.status);
+      return;
+    }
+
     const command = typeof body.command === "string" ? body.command.trim() : "";
     if (!command) {
       error(res, "Missing or empty command");
@@ -11611,6 +12107,91 @@ async function handleRequest(
     return;
   }
 
+  // ── Stream Manager (macOS-compatible RTMP via FFmpeg) ────────────────────
+  if (method === "POST" && pathname === "/api/stream/start") {
+    try {
+      const body = await readJsonBody(req, res, { maxBytes: MAX_BODY_BYTES });
+      const rtmpUrl = body?.rtmpUrl as string | undefined;
+      const rtmpKey = body?.rtmpKey as string | undefined;
+
+      if (!rtmpUrl || !rtmpKey) {
+        error(res, "rtmpUrl and rtmpKey are required", 400);
+        return;
+      }
+
+      await streamManager.start({
+        rtmpUrl,
+        rtmpKey,
+        inputMode: (body?.inputMode as "testsrc" | "avfoundation") || "testsrc",
+        resolution: (body?.resolution as string) || "1280x720",
+        bitrate: (body?.bitrate as string) || "2500k",
+        framerate: (body?.framerate as number) || 30,
+      });
+
+      json(res, { ok: true, message: "Stream started" });
+    } catch (err) {
+      error(
+        res,
+        err instanceof Error ? err.message : "Stream start failed",
+        500,
+      );
+    }
+    return;
+  }
+
+  if (method === "POST" && pathname === "/api/stream/stop") {
+    try {
+      const result = await streamManager.stop();
+      json(res, { ok: true, ...result });
+    } catch (err) {
+      error(
+        res,
+        err instanceof Error ? err.message : "Stream stop failed",
+        500,
+      );
+    }
+    return;
+  }
+
+  if (method === "GET" && pathname === "/api/stream/status") {
+    json(res, streamManager.getHealth());
+    return;
+  }
+
+  // ── Stream frame push (pipe mode — Electron capturePage → FFmpeg stdin)
+  if (method === "POST" && pathname === "/api/stream/frame") {
+    if (!streamManager.isRunning()) {
+      error(res, "Stream not running", 400);
+      return;
+    }
+    try {
+      const buf = await readRequestBodyBuffer(req, {
+        maxBytes: 2 * 1024 * 1024,
+      });
+      if (!buf || buf.length === 0) {
+        error(res, "Empty frame", 400);
+        return;
+      }
+      const ok = streamManager.writeFrame(buf);
+      // Minimal response to reduce overhead at 15fps
+      res.writeHead(200);
+      res.end(ok ? "1" : "0");
+    } catch (err) {
+      error(
+        res,
+        err instanceof Error ? err.message : "Frame write failed",
+        500,
+      );
+    }
+    return;
+  }
+
+  // ── Connector plugin routes (dynamically registered) ────────────────────
+  for (const handler of state.connectorRouteHandlers) {
+    const handled = await handler(req, res, pathname, method);
+    if (handled) return;
+  }
+
   // ── Fallback ────────────────────────────────────────────────────────────
   error(res, "Not found", 404);
 }
@@ -11644,6 +12225,13 @@ export async function startApiServer(opts?: {
   port: number;
   close: () => Promise<void>;
   updateRuntime: (rt: AgentRuntime) => void;
+  updateStartup: (
+    update: Partial<AgentStartupDiagnostics> & {
+      phase?: string;
+      attempt?: number;
+      state?: ServerState["agentState"];
+    },
+  ) => void;
 }> {
   const apiStartTime = Date.now();
   console.log(`[milady-api] startApiServer called`);
@@ -11708,6 +12296,12 @@ export async function startApiServer(opts?: {
   const initialAgentState = hasRuntime
     ? "running"
     : (opts?.initialAgentState ?? "not_started");
+  const initialStartup: AgentStartupDiagnostics =
+    initialAgentState === "running"
+      ? { phase: "running", attempt: 0 }
+      : initialAgentState === "starting"
+        ? { phase: "starting", attempt: 0 }
+        : { phase: "idle", attempt: 0 };
   const agentName = hasRuntime
     ? (opts.runtime?.character.name ?? "Milady")
     : (config.agents?.list?.[0]?.name ??
@@ -11722,6 +12316,7 @@ export async function startApiServer(opts?: {
     model: hasRuntime ? "provided" : undefined,
     startedAt:
       hasRuntime || initialAgentState === "starting" ? Date.now() : undefined,
+    startup: initialStartup,
     plugins,
     // Filled asynchronously after server start to keep startup latency low.
     skills: [],
@@ -11748,6 +12343,7 @@ export async function startApiServer(opts?: {
     permissionStates: {},
     shellEnabled: config.features?.shellEnabled !== false,
     pendingRestartReasons: [],
+    connectorRouteHandlers: [],
   };
 
   const trainingServiceCtor = await resolveTrainingServiceCtor();
@@ -12141,6 +12737,39 @@ export async function startApiServer(opts?: {
         logger.warn({ err }, "Failed to initialize ERC-8004 registry service");
       }
     })();
+
+    // ── Dynamic connector route loading ──────────────────────────────────
+    // Connectors that need HTTP routes register them here, gated by config.
+    // Each loader dynamically imports its route module only when configured.
+    void (async () => {
+      const connectors = state.config.connectors ?? {};
+      if (isConnectorConfigured("retake", connectors.retake)) {
+        try {
+          const { handleRetakeRoute, initRetakeAutoStart } = await import(
+            "./retake-routes.js"
+          );
+          const retakeState = {
+            streamManager,
+            port,
+            config: connectors.retake as
+              | { accessToken?: string; apiUrl?: string; captureUrl?: string }
+              | undefined,
+          };
+          state.connectorRouteHandlers.push((req, res, pathname, method) =>
+            handleRetakeRoute(req, res, pathname, method, retakeState),
+          );
+          initRetakeAutoStart(retakeState);
+          addLog("info", "Retake connector routes registered", "system", [
+            "system",
+            "connectors",
+          ]);
+        } catch (err) {
+          logger.warn(
+            `[milady-api] Failed to load retake routes: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
+      }
+    })();
   };
 
   // ── WebSocket Server ─────────────────────────────────────────────────────
@@ -12201,6 +12830,7 @@ export async function startApiServer(opts?: {
           agentName: state.agentName,
           model: state.model,
           startedAt: state.startedAt,
+          startup: state.startup,
         }),
       );
       const replay = state.eventBuffer.slice(-120);
@@ -12253,6 +12883,7 @@ export async function startApiServer(opts?: {
       agentName: state.agentName,
       model: state.model,
       startedAt: state.startedAt,
+      startup: state.startup,
       pendingRestart: state.pendingRestartReasons.length > 0,
       pendingRestartReasons: state.pendingRestartReasons,
     });
@@ -12380,6 +13011,10 @@ export async function startApiServer(opts?: {
     state.agentState = "running";
     state.agentName = rt.character.name ?? "Milady";
     state.startedAt = Date.now();
+    state.startup = {
+      phase: "running",
+      attempt: 0,
+    };
     addLog("info", `Runtime restarted — agent: ${state.agentName}`, "system", [
       "system",
       "agent",
@@ -12389,6 +13024,32 @@ export async function startApiServer(opts?: {
     void restoreConversationsFromDb(rt);
 
     // Broadcast status update immediately after restart
+    broadcastStatus();
+  };
+
+  const updateStartup = (
+    update: Partial<AgentStartupDiagnostics> & {
+      phase?: string;
+      attempt?: number;
+      state?: ServerState["agentState"];
+    },
+  ): void => {
+    const { state: nextState, ...startupUpdate } = update;
+    state.startup = {
+      ...state.startup,
+      ...startupUpdate,
+    };
+    if (nextState) {
+      state.agentState = nextState;
+      if (nextState === "error") {
+        state.startedAt = undefined;
+      } else if (
+        (nextState === "starting" || nextState === "running") &&
+        !state.startedAt
+      ) {
+        state.startedAt = Date.now();
+      }
+    }
     broadcastStatus();
   };
 
@@ -12452,6 +13113,17 @@ export async function startApiServer(opts?: {
               }
             }
             wsClients.clear();
+            // Clean up WhatsApp pairing sessions
+            if (state.whatsappPairingSessions) {
+              for (const s of state.whatsappPairingSessions.values()) {
+                try {
+                  s.stop();
+                } catch {
+                  /* non-fatal */
+                }
+              }
+              state.whatsappPairingSessions.clear();
+            }
             wss.close();
             const closeTimeout = setTimeout(() => r(), 5_000);
             const resolved = { done: false };
@@ -12479,6 +13151,7 @@ export async function startApiServer(opts?: {
             server.close(finalize);
           }),
         updateRuntime,
+        updateStartup,
       });
     });
   });

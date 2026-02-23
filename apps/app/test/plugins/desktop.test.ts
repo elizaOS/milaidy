@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 /**
  * Tests for @milady/capacitor-desktop — web fallbacks, window ops, clipboard, events.
  */
@@ -9,6 +10,70 @@ describe("@milady/capacitor-desktop", () => {
 
   beforeEach(() => {
     vi.restoreAllMocks();
+    // jsdom doesn't provide navigator.clipboard — stub it
+    if (!navigator.clipboard) {
+      Object.defineProperty(navigator, "clipboard", {
+        value: {
+          writeText: vi.fn(async () => { }),
+          readText: vi.fn(async () => ""),
+          read: vi.fn(async () => []),
+          write: vi.fn(async () => { }),
+        },
+        writable: true,
+        configurable: true,
+      });
+    } else {
+      // Ensure methods exist on already-stubbed clipboard
+      if (!navigator.clipboard.writeText) {
+        Object.defineProperty(navigator.clipboard, "writeText", {
+          value: vi.fn(async () => { }),
+          writable: true,
+          configurable: true,
+        });
+      }
+      if (!navigator.clipboard.readText) {
+        Object.defineProperty(navigator.clipboard, "readText", {
+          value: vi.fn(async () => ""),
+          writable: true,
+          configurable: true,
+        });
+      }
+    }
+
+    // jsdom doesn't provide AudioContext — stub it for beep()
+    const gainNode = {
+      gain: { setValueAtTime: vi.fn(), linearRampToValueAtTime: vi.fn(), exponentialRampToValueAtTime: vi.fn() },
+      connect: vi.fn(),
+    };
+    gainNode.connect.mockReturnValue(gainNode);
+    const dest = {};
+    (globalThis as Record<string, unknown>).AudioContext = class {
+      createOscillator() {
+        const osc = {
+          type: "sine",
+          frequency: { value: 0, setValueAtTime: vi.fn() },
+          connect: vi.fn().mockReturnValue(gainNode),
+          start: vi.fn(),
+          stop: vi.fn(),
+        };
+        return osc;
+      }
+      createGain() {
+        return gainNode;
+      }
+      get destination() {
+        return dest;
+      }
+      get currentTime() {
+        return 0;
+      }
+    };
+
+    // jsdom location.reload is read-only; replace location entirely
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (window as any).location = new URL("http://localhost/") as any;
+    (window as any).location.reload = vi.fn();
+
     d = new DesktopWeb();
   });
 

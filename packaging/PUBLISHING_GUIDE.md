@@ -126,7 +126,7 @@ cp /path/to/milady/packaging/homebrew/milady.rb Formula/milady.rb
 
 ```bash
 # Download the tarball and compute hash
-curl -fsSL "https://registry.npmjs.org/milady/-/milady-2.0.0-alpha.7.tgz" -o milady.tgz
+curl -fsSL "https://registry.npmjs.org/miladyai/-/miladyai-2.0.0-alpha.7.tgz" -o milady.tgz
 shasum -a 256 milady.tgz
 # Replace PLACEHOLDER_SHA256 in milady.rb with the actual hash
 ```
@@ -167,7 +167,7 @@ brew install milady-ai/tap/milady
 
 ```bash
 # Compute new SHA256
-curl -fsSL "https://registry.npmjs.org/milady/-/milady-NEW_VERSION.tgz" -o milady.tgz
+curl -fsSL "https://registry.npmjs.org/miladyai/-/miladyai-NEW_VERSION.tgz" -o milady.tgz
 shasum -a 256 milady.tgz
 
 # Update the formula: change url and sha256
@@ -502,7 +502,7 @@ jobs:
         run: |
           VERSION="${{ github.event.release.tag_name || github.event.inputs.version }}"
           VERSION="${VERSION#v}"
-          URL="https://registry.npmjs.org/milady/-/milady-${VERSION}.tgz"
+          URL="https://registry.npmjs.org/miladyai/-/miladyai-${VERSION}.tgz"
           SHA256=$(curl -fsSL "$URL" | shasum -a 256 | cut -d' ' -f1)
 
           git clone "https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/milady-ai/homebrew-tap.git"
@@ -572,11 +572,11 @@ When releasing a new version, update these files:
 
 | Platform | Command |
 |---|---|
-| **npm** | `npm install -g milady` |
+| **npm** | `npm install -g miladyai` |
 | **PyPI** | `pip install milady` |
 | **Homebrew** | `brew install milady-ai/tap/milady` |
 | **apt** | `sudo apt install milady` (after adding repo) |
 | **Snap** | `sudo snap install milady --classic` |
 | **Flatpak** | `flatpak install flathub ai.milady.Milady` |
-| **npx** | `npx milady` (no install) |
+| **npx** | `npx miladyai` (no install) |
 | **pipx** | `pipx install milady` |

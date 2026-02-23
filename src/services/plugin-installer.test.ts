@@ -32,6 +32,40 @@ vi.mock("../runtime/restart", () => ({
   requestRestart: vi.fn(),
 }));
 
+vi.mock("node:child_process", async () => {
+  const actual =
+    await vi.importActual<typeof import("node:child_process")>(
+      "node:child_process",
+    );
+  return {
+    ...actual,
+    execFile: vi.fn(
+      (_cmd: string, args: string[], optionsOrCb: unknown, cb?: unknown) => {
+        let callback = typeof optionsOrCb === "function" ? optionsOrCb : cb;
+        if (!callback && typeof args === "function") callback = args as unknown;
+
+        const argsStr = JSON.stringify(args || []);
+        const cbFn = callback as (
+          err: Error | null,
+          stdout: string,
+          stderr: string,
+        ) => void;
+
+        if (argsStr.includes("--version")) {
+          return process.nextTick(() => cbFn(null, "1.0.0", ""));
+        }
+        if (argsStr.includes("file:")) {
+          return process.nextTick(() => cbFn(null, "", ""));
+        }
+
+        process.nextTick(() =>
+          cbFn(new Error("Mock command failed"), "", "error from mock"),
+        );
+      },
+    ),
+  };
+});
+
 // ---------------------------------------------------------------------------
 // Test helpers
 // ---------------------------------------------------------------------------
@@ -424,7 +458,11 @@ describe("plugin-installer", () => {
         testPluginInfo({ name: "@elizaos/plugin-foo-bar" }),
       );
 
-      const phases: Array<{ pluginName: string; message: string }> = [];
+      const phases: Array<{
+        pluginName: string;
+        message: string;
+        phase: string;
+      }> = [];
       const { installPlugin } = await loadInstaller();
       await installPlugin("@elizaos/plugin-foo-bar", (p) => phases.push(p));
 

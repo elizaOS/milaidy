@@ -4,6 +4,9 @@
 
 import { useApp } from "../AppContext";
 
+const PAIRING_DOCS_URL =
+  "https://github.com/milady-ai/milady/blob/develop/docs/api-reference.mdx#authenticate-via-pairing-code";
+
 export function PairingView() {
   const {
     pairingEnabled,
@@ -84,7 +87,22 @@ export function PairingView() {
           )}
         </form>
       ) : (
-        <p className="text-muted">Pairing is not enabled on the server.</p>
+        <div className="text-muted text-sm space-y-2">
+          <p>Pairing is not enabled on this server.</p>
+          <p>Next steps:</p>
+          <ol className="list-decimal pl-5 space-y-1">
+            <li>Ask the server owner for an API token.</li>
+            <li>Enable pairing on the server and restart Milady.</li>
+          </ol>
+          <a
+            href={PAIRING_DOCS_URL}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex px-3 py-2 border border-border rounded text-txt hover:border-accent hover:text-accent"
+          >
+            Pairing setup docs
+          </a>
+        </div>
       )}
     </div>
   );

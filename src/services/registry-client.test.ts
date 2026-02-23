@@ -665,7 +665,8 @@ describe("registry-client", () => {
                 "@elizaos/app-dungeons": {
                   ...fakeGeneratedRegistry().registry["@elizaos/app-dungeons"],
                   app: {
-                    ...fakeGeneratedRegistry().registry["@elizaos/app-dungeons"].app,
+                    ...fakeGeneratedRegistry().registry["@elizaos/app-dungeons"]
+                      .app,
                     viewer: {
                       url: "https://example.org/embed",
                       sandbox:

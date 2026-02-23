@@ -520,11 +520,11 @@ check_package_manager() {
 install_milady() {
   local pm="$1"
   local version="${MILADY_VERSION:-latest}"
-  local pkg="milady"
+  local pkg="miladyai"
   local local_tarball="${MILADY_LOCAL_TARBALL:-}"
 
   if [[ "$version" != "latest" ]]; then
-    pkg="milady@${version}"
+    pkg="miladyai@${version}"
   fi
 
   step "Installing milady"

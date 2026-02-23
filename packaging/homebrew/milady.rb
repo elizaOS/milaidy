@@ -10,13 +10,13 @@
 class Milady < Formula
   desc "Personal AI assistant built on ElizaOS — cute agents for the acceleration"
   homepage "https://milady.ai"
-  url "https://registry.npmjs.org/milady/-/milady-2.0.0-alpha.6.tgz"
+  url "https://registry.npmjs.org/miladyai/-/miladyai-2.0.0-alpha.6.tgz"
   sha256 "d0da83506fc528ab7f3b4d9b1e44aaec2761005aac874ca2478c37444e8ae6e5"
   license "MIT"
 
   # Semantic versioning — tracks stable releases
   livecheck do
-    url "https://registry.npmjs.org/milady"
+    url "https://registry.npmjs.org/miladyai"
     regex(/["']version["']:\s*["']([^"']+)["']/i)
   end
 

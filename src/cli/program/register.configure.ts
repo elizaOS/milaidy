@@ -27,7 +27,7 @@ export function registerConfigureCommand(program: Command) {
         `  ${theme.command("AI_GATEWAY_API_KEY")}   Vercel AI Gateway`,
       );
       console.log(
-        `  ${theme.command("GOOGLE_API_KEY")}       Google (Gemini)\n`,
+        `  ${theme.command("GEMINI_API_KEY")}       Google (Gemini)\n`,
       );
     });
 }

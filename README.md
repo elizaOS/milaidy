@@ -90,7 +90,7 @@ irm https://milady-ai.github.io/milady/install.ps1 | iex
 
 NPM global:
 ```bash
-npm install -g milaidy
+npm install -g miladyai
 milady setup
 ```
 

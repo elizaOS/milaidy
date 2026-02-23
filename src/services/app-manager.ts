@@ -27,6 +27,7 @@ import type {
   RegistryPluginInfo,
   RegistrySearchResult,
 } from "./plugin-manager-types";
+import { getPluginInfo, getRegistryPlugins } from "./registry-client";
 
 const LOCAL_PLUGINS_DIR = "plugins";
 
@@ -70,6 +71,20 @@ interface ActiveAppSession {
 function resolvePluginPackageName(appInfo: RegistryPluginInfo): string {
   const npmPackage = appInfo.npm.package.trim();
   return npmPackage && npmPackage.length > 0 ? npmPackage : appInfo.name;
+}
+
+function mergeAppMeta(
+  appInfo: RegistryPluginInfo,
+  meta: RegistryPluginInfo["appMeta"],
+): void {
+  if (!meta) return;
+  appInfo.viewer = meta.viewer ?? appInfo.viewer;
+  appInfo.launchUrl = meta.launchUrl ?? appInfo.launchUrl;
+  appInfo.launchType = meta.launchType ?? appInfo.launchType;
+  appInfo.displayName = meta.displayName ?? appInfo.displayName;
+  appInfo.category = meta.category ?? appInfo.category;
+  appInfo.capabilities = meta.capabilities ?? appInfo.capabilities;
+  appInfo.icon = meta.icon ?? appInfo.icon;
 }
 
 function isAutoInstallable(appInfo: RegistryPluginInfo): boolean {
@@ -444,11 +459,40 @@ export class AppManager {
     pluginManager: PluginManagerLike,
   ): Promise<RegistryPluginInfo[]> {
     const registry = await pluginManager.refreshRegistry();
-    // Filter to only include app packages (those with "/app-" in the name)
-    return Array.from(registry.values()).filter((plugin) => {
+    // Merge in local workspace app entries that are discovered by our
+    // registry-client but not by the elizaos
+    // plugin-manager service.
+    try {
+      const localRegistry = await getRegistryPlugins();
+      for (const [name, info] of localRegistry) {
+        if (!registry.has(name) && info.kind === "app") {
+          registry.set(name, info);
+        }
+      }
+    } catch {
+      // local discovery is best-effort
+    }
+    // Include app packages: those with "/app-" in the name OR kind === "app"
+    const apps = Array.from(registry.values()).filter((plugin) => {
+      if (plugin.kind === "app") return true;
       const name = plugin.name.toLowerCase();
       const npmPackage = plugin.npm.package.toLowerCase();
       return name.includes("/app-") || npmPackage.includes("/app-");
+    });
+    // Flatten appMeta into top-level fields for the frontend
+    return apps.map((p) => {
+      const meta = p.appMeta;
+      if (!meta) return p;
+      return {
+        ...p,
+        displayName: meta.displayName,
+        launchType: meta.launchType,
+        launchUrl: meta.launchUrl,
+        icon: meta.icon,
+        category: meta.category,
+        capabilities: meta.capabilities,
+        viewer: meta.viewer,
+      };
     });
   }
 
@@ -488,9 +532,27 @@ export class AppManager {
     onProgress?: (progress: InstallProgressLike) => void,
     runtime?: IAgentRuntime | null,
   ): Promise<AppLaunchResult> {
-    const appInfo = (await pluginManager.getRegistryPlugin(
+    let appInfo = (await pluginManager.getRegistryPlugin(
       name,
     )) as RegistryAppPlugin | null;
+    // Supplement with local registry metadata since the elizaos plugin-manager
+    // service doesn't include our local workspace app discovery.
+    try {
+      const localInfo = await getPluginInfo(name);
+      if (localInfo) {
+        const meta = localInfo.appMeta;
+        if (!appInfo) {
+          appInfo = { ...localInfo } as RegistryAppPlugin;
+          mergeAppMeta(appInfo, meta);
+        } else if (meta && !appInfo.viewer) {
+          // Merge local metadata into existing registry entry
+          mergeAppMeta(appInfo, meta);
+          appInfo.kind = localInfo.kind ?? appInfo.kind;
+        }
+      }
+    } catch {
+      // local lookup is best-effort
+    }
     if (!appInfo) {
       throw new Error(`App "${name}" not found in the registry.`);
     }
@@ -659,7 +721,7 @@ export class AppManager {
     pluginManager: PluginManagerLike,
   ): Promise<InstalledAppInfo[]> {
     const installed = await pluginManager.listInstalledPlugins();
-    // Filter to only include app plugins
+    // Filter to only include app plugins (by name convention or known game plugins)
     const appPlugins = installed.filter((p: InstalledPluginInfo) => {
       const name = p.name.toLowerCase();
       return name.includes("/app-");

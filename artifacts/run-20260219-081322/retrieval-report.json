@@ -1,0 +1,305 @@
+{
+  "schema": "openclaw-memory-bench/retrieval-report/v0.2",
+  "run_id": "run-20260219-081322",
+  "provider": "milady-agent",
+  "dataset": "locomo",
+  "top_k": 5,
+  "created_at_utc": "2026-02-19T08:16:22.790264+00:00",
+  "config": {
+    "skip_ingest": false,
+    "preindex_once": true,
+    "sample_size": 3,
+    "sample_seed": 7
+  },
+  "manifest": {
+    "schema": "openclaw-memory-bench/run-manifest/v0.2",
+    "track": "retrieval",
+    "run_id": "run-20260219-081322",
+    "created_at_utc": "2026-02-19T08:13:22.226051+00:00",
+    "toolkit": {
+      "name": "openclaw-memory-bench",
+      "version": "0.1.0",
+      "git_commit": "40641b584311bba28f303615fa03bdc50b09a2bb"
+    },
+    "provider": {
+      "name": "milady-agent",
+      "config": {
+        "milady_bench_url": "http://127.0.0.1:3939",
+        "milady_bench_name": "openclaw-memory-bench",
+        "timeout_sec": 180,
+        "strict_json": false,
+        "max_messages_per_session": 40,
+        "max_message_chars": 500,
+        "max_chars_per_session": 5000
+      }
+    },
+    "dataset": {
+      "name": "locomo",
+      "path": "/Users/shawwalters/eliza-workspace/milady/benchmarks/openclaw-memory-bench/data/datasets/locomo-20.json",
+      "sha256": "af538a027a549d64f7ebea09aa2709f8dda1bf1ce37ee2732e385070cce8ae13",
+      "meta": {
+        "schema": "openclaw-memory-bench/dataset-meta/v0.1",
+        "benchmark": "locomo",
+        "limit": 20,
+        "converted_at_utc": "2026-02-19T07:36:37.886454+00:00",
+        "sources": [
+          "https://raw.githubusercontent.com/snap-research/locomo/main/data/locomo10.json"
+        ]
+      }
+    },
+    "parameters": {
+      "top_k": 5,
+      "limit": null,
+      "sample_size": 3,
+      "sample_seed": 7,
+      "skip_ingest": false,
+      "preindex_once": true,
+      "fail_fast": false
+    },
+    "runtime": {
+      "python": "3.14.2",
+      "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
+      "executable": "/Users/shawwalters/eliza-workspace/milady/benchmarks/openclaw-memory-bench/.venv/bin/python3"
+    }
+  },
+  "summary": {
+    "questions_total": 3,
+    "questions_succeeded": 3,
+    "questions_failed": 0,
+    "hit_at_k": 1.0,
+    "precision_at_k": 0.2,
+    "recall_at_k": 1.0,
+    "mrr": 0.48333333333333334,
+    "ndcg_at_k": 0.6058431217693115,
+    "by_question_type": {
+      "category-2": {
+        "questions_total": 2,
+        "questions_succeeded": 2,
+        "questions_failed": 0,
+        "hit_at_k": 1.0,
+        "precision_at_k": 0.2,
+        "recall_at_k": 1.0,
+        "mrr": 0.6,
+        "ndcg_at_k": 0.6934264036172708,
+        "search_ms_p50": 10147.80591649469,
+        "search_ms_p95": 10242.708591383416,
+        "search_ms_mean": 10147.80591649469
+      },
+      "category-1": {
+        "questions_total": 1,
+        "questions_succeeded": 1,
+        "questions_failed": 0,
+        "hit_at_k": 1.0,
+        "precision_at_k": 0.2,
+        "recall_at_k": 1.0,
+        "mrr": 0.25,
+        "ndcg_at_k": 0.43067655807339306,
+        "search_ms_p50": 11389.9134589592,
+        "search_ms_p95": 11389.9134589592,
+        "search_ms_mean": 11389.9134589592
+      }
+    },
+    "failure_breakdown": {
+      "by_code": {},
+      "by_category": {},
+      "by_phase": {}
+    }
+  },
+  "latency": {
+    "search_ms_p50": 10253.25333303772,
+    "search_ms_p95": 11276.247446367051,
+    "search_ms_mean": 10561.84176398286
+  },
+  "results": [
+    {
+      "question_id": "conv-26-q4",
+      "question": "What is Caroline's identity?",
+      "question_type": "category-1",
+      "ground_truth": "Transgender woman",
+      "relevant_session_ids": [
+        "conv-26-session_1"
+      ],
+      "retrieved_session_ids": [
+        "conv-26-session_3",
+        "conv-26-session_11",
+        "conv-26-session_16",
+        "conv-26-session_1",
+        "conv-26-session_2"
+      ],
+      "retrieved_observation_ids": [
+        "milady-agent:run-20260219-081322:GLOBAL:conv-26-session_3:1",
+        "milady-agent:run-20260219-081322:GLOBAL:conv-26-session_11:2",
+        "milady-agent:run-20260219-081322:GLOBAL:conv-26-session_16:3",
+        "milady-agent:run-20260219-081322:GLOBAL:conv-26-session_1:4",
+        "milady-agent:run-20260219-081322:GLOBAL:conv-26-session_2:5"
+      ],
+      "retrieved_sources": [],
+      "ingest_result": {
+        "ingest": "preindexed",
+        "container_tag": "run-20260219-081322:GLOBAL",
+        "global_ingest_result": {
+          "container_tag": "run-20260219-081322:GLOBAL",
+          "sessions_ingested": 19,
+          "turns_ingested": 419,
+          "ingest_requests": 19,
+          "session_ids": [
+            "conv-26-session_1",
+            "conv-26-session_2",
+            "conv-26-session_3",
+            "conv-26-session_4",
+            "conv-26-session_5",
+            "conv-26-session_6",
+            "conv-26-session_7",
+            "conv-26-session_8",
+            "conv-26-session_9",
+            "conv-26-session_10",
+            "conv-26-session_11",
+            "conv-26-session_12",
+            "conv-26-session_13",
+            "conv-26-session_14",
+            "conv-26-session_15",
+            "conv-26-session_16",
+            "conv-26-session_17",
+            "conv-26-session_18",
+            "conv-26-session_19"
+          ]
+        }
+      },
+      "latency_ms": 11389.9134589592,
+      "metrics": {
+        "hit_at_k": 1.0,
+        "precision_at_k": 0.2,
+        "recall_at_k": 1.0,
+        "mrr": 0.25,
+        "ndcg_at_k": 0.43067655807339306
+      }
+    },
+    {
+      "question_id": "conv-26-q10",
+      "question": "How long has Caroline had her current group of friends for?",
+      "question_type": "category-2",
+      "ground_truth": "4 years",
+      "relevant_session_ids": [
+        "conv-26-session_3"
+      ],
+      "retrieved_session_ids": [
+        "conv-26-session_6",
+        "conv-26-session_16",
+        "conv-26-session_19",
+        "conv-26-session_1",
+        "conv-26-session_3"
+      ],
+      "retrieved_observation_ids": [
+        "milady-agent:run-20260219-081322:GLOBAL:conv-26-session_6:1",
+        "milady-agent:run-20260219-081322:GLOBAL:conv-26-session_16:2",
+        "milady-agent:run-20260219-081322:GLOBAL:conv-26-session_19:3",
+        "milady-agent:run-20260219-081322:GLOBAL:conv-26-session_1:4",
+        "milady-agent:run-20260219-081322:GLOBAL:conv-26-session_3:5"
+      ],
+      "retrieved_sources": [],
+      "ingest_result": {
+        "ingest": "preindexed",
+        "container_tag": "run-20260219-081322:GLOBAL",
+        "global_ingest_result": {
+          "container_tag": "run-20260219-081322:GLOBAL",
+          "sessions_ingested": 19,
+          "turns_ingested": 419,
+          "ingest_requests": 19,
+          "session_ids": [
+            "conv-26-session_1",
+            "conv-26-session_2",
+            "conv-26-session_3",
+            "conv-26-session_4",
+            "conv-26-session_5",
+            "conv-26-session_6",
+            "conv-26-session_7",
+            "conv-26-session_8",
+            "conv-26-session_9",
+            "conv-26-session_10",
+            "conv-26-session_11",
+            "conv-26-session_12",
+            "conv-26-session_13",
+            "conv-26-session_14",
+            "conv-26-session_15",
+            "conv-26-session_16",
+            "conv-26-session_17",
+            "conv-26-session_18",
+            "conv-26-session_19"
+          ]
+        }
+      },
+      "latency_ms": 10042.35849995166,
+      "metrics": {
+        "hit_at_k": 1.0,
+        "precision_at_k": 0.2,
+        "recall_at_k": 1.0,
+        "mrr": 0.2,
+        "ndcg_at_k": 0.38685280723454163
+      }
+    },
+    {
+      "question_id": "conv-26-q12",
+      "question": "How long ago was Caroline's 18th birthday?",
+      "question_type": "category-2",
+      "ground_truth": "10 years ago",
+      "relevant_session_ids": [
+        "conv-26-session_4"
+      ],
+      "retrieved_session_ids": [
+        "conv-26-session_4",
+        "conv-26-session_3",
+        "conv-26-session_8",
+        "conv-26-session_15",
+        "conv-26-session_16"
+      ],
+      "retrieved_observation_ids": [
+        "milady-agent:run-20260219-081322:GLOBAL:conv-26-session_4:1",
+        "milady-agent:run-20260219-081322:GLOBAL:conv-26-session_3:2",
+        "milady-agent:run-20260219-081322:GLOBAL:conv-26-session_8:3",
+        "milady-agent:run-20260219-081322:GLOBAL:conv-26-session_15:4",
+        "milady-agent:run-20260219-081322:GLOBAL:conv-26-session_16:5"
+      ],
+      "retrieved_sources": [],
+      "ingest_result": {
+        "ingest": "preindexed",
+        "container_tag": "run-20260219-081322:GLOBAL",
+        "global_ingest_result": {
+          "container_tag": "run-20260219-081322:GLOBAL",
+          "sessions_ingested": 19,
+          "turns_ingested": 419,
+          "ingest_requests": 19,
+          "session_ids": [
+            "conv-26-session_1",
+            "conv-26-session_2",
+            "conv-26-session_3",
+            "conv-26-session_4",
+            "conv-26-session_5",
+            "conv-26-session_6",
+            "conv-26-session_7",
+            "conv-26-session_8",
+            "conv-26-session_9",
+            "conv-26-session_10",
+            "conv-26-session_11",
+            "conv-26-session_12",
+            "conv-26-session_13",
+            "conv-26-session_14",
+            "conv-26-session_15",
+            "conv-26-session_16",
+            "conv-26-session_17",
+            "conv-26-session_18",
+            "conv-26-session_19"
+          ]
+        }
+      },
+      "latency_ms": 10253.25333303772,
+      "metrics": {
+        "hit_at_k": 1.0,
+        "precision_at_k": 0.2,
+        "recall_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0
+      }
+    }
+  ],
+  "failures": []
+}

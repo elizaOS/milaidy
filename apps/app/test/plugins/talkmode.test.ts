@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 /**
  * Tests for @milady/capacitor-talkmode — state machine, speak, config, permissions.
  */
@@ -9,6 +10,35 @@ describe("@milady/capacitor-talkmode", () => {
 
   beforeEach(() => {
     vi.restoreAllMocks();
+
+    // jsdom doesn't provide navigator.mediaDevices — stub it for spyOn
+    if (!navigator.mediaDevices) {
+      Object.defineProperty(navigator, "mediaDevices", {
+        value: {
+          getUserMedia: vi.fn(async () => ({
+            getTracks: () => [{ stop: vi.fn() }],
+          })),
+          enumerateDevices: vi.fn(async () => []),
+        },
+        writable: true,
+        configurable: true,
+      });
+    }
+    Object.defineProperty(navigator.mediaDevices, "getUserMedia", {
+      value: vi.fn(),
+      writable: true,
+      configurable: true,
+    });
+
+    // jsdom doesn't provide navigator.permissions — stub it for spyOn
+    if (!navigator.permissions) {
+      Object.defineProperty(navigator, "permissions", {
+        value: { query: vi.fn().mockResolvedValue({ state: "prompt" }) },
+        writable: true,
+        configurable: true,
+      });
+    }
+
     tm = new TalkModeWeb();
   });
 

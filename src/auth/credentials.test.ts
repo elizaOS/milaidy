@@ -12,30 +12,41 @@ vi.mock("./apply-stealth", () => ({
   applyOpenAICodexStealth: vi.fn(async () => undefined),
 }));
 
-// Mock fs to simulate credential files
+// Mock fs to simulate credential files.
+// Note: Bun's vi.mock does not support `importOriginal`, so we provide the
+// full mock directly.  The closures over `mockCredentials` work because the
+// factory returns functions that are only called at test time (after init).
 const mockCredentials: Record<string, string | null> = {};
-vi.mock("node:fs", async (importOriginal) => {
-  const actual = (await importOriginal()) as Record<string, unknown>;
-  return {
-    ...actual,
-    default: {
-      ...(actual.default as Record<string, unknown>),
-      existsSync: (p: string) => !!mockCredentials[p],
-      readFileSync: (p: string) => {
-        const data = mockCredentials[p];
-        if (!data) {
-          const err = new Error("ENOENT") as NodeJS.ErrnoException;
-          err.code = "ENOENT";
-          throw err;
-        }
-        return data;
-      },
-      writeFileSync: vi.fn(),
-      mkdirSync: vi.fn(),
-      unlinkSync: vi.fn(),
+vi.mock("node:fs", () => ({
+  default: {
+    existsSync: (p: string) => !!mockCredentials[p],
+    readFileSync: (p: string) => {
+      const data = mockCredentials[p];
+      if (!data) {
+        const err = new Error("ENOENT") as NodeJS.ErrnoException;
+        err.code = "ENOENT";
+        throw err;
+      }
+      return data;
     },
-  };
-});
+    writeFileSync: vi.fn(),
+    mkdirSync: vi.fn(),
+    unlinkSync: vi.fn(),
+  },
+  existsSync: (p: string) => !!mockCredentials[p],
+  readFileSync: (p: string) => {
+    const data = mockCredentials[p];
+    if (!data) {
+      const err = new Error("ENOENT") as NodeJS.ErrnoException;
+      err.code = "ENOENT";
+      throw err;
+    }
+    return data;
+  },
+  writeFileSync: vi.fn(),
+  mkdirSync: vi.fn(),
+  unlinkSync: vi.fn(),
+}));
 
 describe("applySubscriptionCredentials", () => {
   const savedEnv: Record<string, string | undefined> = {};
@@ -112,12 +123,12 @@ describe("applySubscriptionCredentials", () => {
 
   test("handles missing config gracefully", async () => {
     const { applySubscriptionCredentials } = await import("./credentials");
-    // Should not throw when config is undefined
-    await expect(applySubscriptionCredentials()).resolves.not.toThrow();
-    await expect(applySubscriptionCredentials({})).resolves.not.toThrow();
+    // Should not throw when config is undefined / empty
+    await expect(applySubscriptionCredentials()).resolves.toBeUndefined();
+    await expect(applySubscriptionCredentials({})).resolves.toBeUndefined();
     await expect(
       applySubscriptionCredentials({ agents: {} }),
-    ).resolves.not.toThrow();
+    ).resolves.toBeUndefined();
   });
 
   test("calls applyClaudeCodeStealth when Anthropic token is applied", async () => {

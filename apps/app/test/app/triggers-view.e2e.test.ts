@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import crypto from "node:crypto";
 import React, {
   type ReactElement,

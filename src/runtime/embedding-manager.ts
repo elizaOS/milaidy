@@ -5,21 +5,20 @@
  *   • Idle timeout unloading (default: 30 min) with transparent lazy re-init
  *   • Dimension migration detection with warning logging
  */
-import { detectEmbeddingPreset } from "./embedding-presets.js";
+
 import {
   checkDimensionMigration,
   DEFAULT_IDLE_TIMEOUT_MS,
   DEFAULT_MODELS_DIR,
   type EmbeddingManagerConfig,
   type EmbeddingManagerStats,
-  EMBEDDING_META_PATH,
   ensureModel,
   getErrorMessage,
   getLogger,
   isCorruptedModelLoadError,
-  readEmbeddingMeta,
   safeUnlink,
 } from "./embedding-manager-support.js";
+import { detectEmbeddingPreset } from "./embedding-presets.js";
 
 // Lazy-imported to keep the module lightweight at parse time.
 // node-llama-cpp pulls in native binaries — importing at the top would slow
@@ -115,7 +114,8 @@ export class MiladyEmbeddingManager {
   }
 
   private async ensureInitialized(): Promise<void> {
-    if (this.initialized && this.embeddingModel && this.embeddingContext) return;
+    if (this.initialized && this.embeddingModel && this.embeddingContext)
+      return;
 
     if (this.initializing) {
       await this.initializing;
@@ -138,7 +138,11 @@ export class MiladyEmbeddingManager {
       this.dimensionCheckDone = true;
     }
 
-    const modelPath = await ensureModel(this.modelsDir, this.modelRepo, this.model);
+    const modelPath = await ensureModel(
+      this.modelsDir,
+      this.modelRepo,
+      this.model,
+    );
 
     const { getLlama, LlamaLogLevel } = await import("node-llama-cpp");
 
@@ -229,7 +233,10 @@ export class MiladyEmbeddingManager {
     const checkIntervalMs = Math.min(this.idleTimeoutMs, 60_000);
     this.idleTimer = setInterval(() => {
       if (this.inFlightCount > 0) return;
-      if (this.lastUsedAt && Date.now() - this.lastUsedAt > this.idleTimeoutMs) {
+      if (
+        this.lastUsedAt &&
+        Date.now() - this.lastUsedAt > this.idleTimeoutMs
+      ) {
         getLogger().info(
           `[milaidy] Embedding model idle for >${Math.round(this.idleTimeoutMs / 60_000)} min — unloading to free memory`,
         );
@@ -293,6 +300,14 @@ export class MiladyEmbeddingManager {
   }
 }
 
-export type { EmbeddingManagerConfig, EmbeddingManagerStats } from "./embedding-manager-support.js";
-export { EMBEDDING_META_PATH, checkDimensionMigration, readEmbeddingMeta } from "./embedding-manager-support.js";
-export { DEFAULT_MODELS_DIR, ensureModel } from "./embedding-manager-support.js";
+export type {
+  EmbeddingManagerConfig,
+  EmbeddingManagerStats,
+} from "./embedding-manager-support.js";
+export {
+  checkDimensionMigration,
+  DEFAULT_MODELS_DIR,
+  EMBEDDING_META_PATH,
+  ensureModel,
+  readEmbeddingMeta,
+} from "./embedding-manager-support.js";

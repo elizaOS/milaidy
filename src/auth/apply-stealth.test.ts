@@ -9,7 +9,7 @@ const OPENAI_STEALTH_GUARD = Symbol.for("milady.openaiCodexStealthInstalled");
 
 describe("applyClaudeCodeStealth", () => {
   beforeEach(() => {
-    vi.resetModules();
+    vi.clearAllMocks();
     delete process.env.ANTHROPIC_API_KEY;
   });
 
@@ -44,20 +44,20 @@ describe("applyClaudeCodeStealth", () => {
 });
 
 describe("findProjectRoot", () => {
-  test("resolves project root by matching package name 'milaidy'", async () => {
+  test("resolves project root by matching package name 'miladyai'", async () => {
     const { findProjectRoot } = await import("./apply-stealth");
     const result = findProjectRoot(__dirname);
-    // Should walk up from src/auth/ and find the root package.json with name "milaidy"
+    // Should walk up from src/auth/ and find the root package.json with name "miladyai"
     expect(result).not.toBe(__dirname);
     // The resolved root should contain a package.json
     const fs = await import("node:fs");
     const pkg = JSON.parse(fs.readFileSync(`${result}/package.json`, "utf-8"));
-    expect(pkg.name.toLowerCase()).toBe("milaidy");
+    expect(pkg.name.toLowerCase()).toBe("miladyai");
   });
 
   test("returns startDir when no matching package.json is found", async () => {
     const { findProjectRoot } = await import("./apply-stealth");
-    // Use filesystem root — no package.json with name "milaidy" there
+    // Use filesystem root — no package.json with name "miladyai" there
     const result = findProjectRoot("/tmp");
     expect(result).toBe("/tmp");
   });

@@ -2,7 +2,7 @@
 # ==========================================================================
 # CLI Boot E2E — Docker-based CLI entry validation (Issue #6)
 #
-# Tests the full `npx milady` equivalent flow:
+# Tests the full `npx miladyai` equivalent flow:
 #   1. CLI entry point boots
 #   2. --help and --version work
 #   3. Subcommands are discoverable

@@ -1,0 +1,336 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "Milady",
+  "colors": {
+    "primary": "#4a7c59",
+    "light": "#6b9e7a",
+    "dark": "#3d6b4a"
+  },
+  "favicon": "/favicon.png",
+  "logo": {
+    "light": "/logo/light.png",
+    "dark": "/logo/dark.png"
+  },
+  "navbar": {
+    "links": [
+      {
+        "label": "GitHub",
+        "href": "https://github.com/milady-ai/milady"
+      },
+      {
+        "label": "Discord",
+        "href": "https://discord.gg/milady"
+      }
+    ]
+  },
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Docs",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "index",
+              "installation",
+              "quickstart",
+              "what-you-can-build",
+              "architecture"
+            ]
+          },
+          {
+            "group": "Agent",
+            "pages": [
+              "agents/character-interface",
+              "agents/personality-and-behavior",
+              "agents/memory-and-state",
+              "agents/runtime-and-lifecycle"
+            ]
+          },
+          {
+            "group": "Configuration",
+            "pages": [
+              "configuration",
+              "config-schema",
+              "model-providers"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/autonomous-mode",
+              "guides/custom-actions",
+              "guides/triggers",
+              "guides/hooks",
+              "guides/knowledge",
+              "guides/media-generation",
+              "guides/training",
+              "guides/agent-export",
+              "guides/themes",
+              "guides/config-includes",
+              "guides/emotes",
+              "guides/local-models",
+              "guides/mcp-marketplace",
+              "chat-commands"
+            ]
+          },
+          {
+            "group": "Connectors",
+            "pages": [
+              "guides/connectors",
+              "guides/whatsapp",
+              "connectors/discord",
+              "connectors/telegram",
+              "connectors/twitter",
+              "connectors/slack"
+            ]
+          },
+          {
+            "group": "Infrastructure",
+            "pages": [
+              "guides/wallet",
+              "guides/sandbox",
+              "guides/cloud",
+              "deployment",
+              "self-updates"
+            ]
+          },
+          {
+            "group": "Contributing",
+            "pages": [
+              "guides/contribution-guide"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Apps",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": [
+              "apps/overview"
+            ]
+          },
+          {
+            "group": "Desktop App",
+            "pages": [
+              "apps/desktop",
+              "apps/desktop/native-modules",
+              "apps/desktop/deep-linking"
+            ]
+          },
+          {
+            "group": "Mobile App",
+            "pages": [
+              "apps/mobile",
+              "apps/mobile/capacitor-plugins",
+              "apps/mobile/build-guide"
+            ]
+          },
+          {
+            "group": "Chrome Extension",
+            "pages": [
+              "apps/chrome-extension"
+            ]
+          },
+          {
+            "group": "Dashboard",
+            "pages": [
+              "apps/dashboard",
+              "apps/dashboard/settings"
+            ]
+          },
+          {
+            "group": "TUI",
+            "pages": [
+              "apps/tui"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Plugins",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": [
+              "plugins/overview",
+              "plugins/architecture",
+              "plugins/registry"
+            ]
+          },
+          {
+            "group": "Development",
+            "pages": [
+              "plugins/create-a-plugin",
+              "plugins/development",
+              "plugins/local-plugins",
+              "plugins/plugin-eject",
+              "plugins/patterns",
+              "plugins/schemas",
+              "plugins/publish"
+            ]
+          },
+          {
+            "group": "Skills",
+            "pages": [
+              "plugins/skills"
+            ]
+          },
+          {
+            "group": "Core Plugins",
+            "pages": [
+              "plugin-registry/bootstrap",
+              "plugin-registry/knowledge",
+              "plugin-registry/sql",
+              "plugin-registry/secrets-manager"
+            ]
+          },
+          {
+            "group": "Model Providers",
+            "pages": [
+              "plugin-registry/llm/openai",
+              "plugin-registry/llm/anthropic",
+              "plugin-registry/llm/google-genai",
+              "plugin-registry/llm/groq",
+              "plugin-registry/llm/ollama",
+              "plugin-registry/llm/openrouter",
+              "plugin-registry/llm/deepseek"
+            ]
+          },
+          {
+            "group": "Platform Connectors",
+            "pages": [
+              "plugin-registry/platform/discord",
+              "plugin-registry/platform/telegram",
+              "plugin-registry/platform/twitter",
+              "plugin-registry/platform/slack",
+              "plugin-registry/platform/whatsapp",
+              "plugin-registry/platform/farcaster"
+            ]
+          },
+          {
+            "group": "DeFi & Blockchain",
+            "pages": [
+              "plugin-registry/defi/evm",
+              "plugin-registry/defi/solana"
+            ]
+          },
+          {
+            "group": "Feature Plugins",
+            "pages": [
+              "plugin-registry/browser",
+              "plugin-registry/image-generation",
+              "plugin-registry/tts",
+              "plugin-registry/computeruse",
+              "plugin-registry/cron"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "REST API",
+            "pages": [
+              "api-reference",
+              "rest/system",
+              "rest/agents",
+              "rest/auth",
+              "rest/onboarding",
+              "rest/character",
+              "rest/conversations",
+              "rest/knowledge",
+              "rest/wallet",
+              "rest/models",
+              "rest/autonomy",
+              "rest/triggers",
+              "rest/training",
+              "rest/workbench",
+              "rest/sandbox",
+              "rest/cloud",
+              "rest/apps",
+              "rest/plugins",
+              "rest/skills",
+              "rest/secrets",
+              "rest/mcp",
+              "rest/custom-actions",
+              "rest/connectors",
+              "rest/emotes",
+              "rest/drop",
+              "rest/update",
+              "rest/permissions",
+              "rest/diagnostics",
+              "rest/subscriptions",
+              "rest/trajectories",
+              "rest/v1-compat"
+            ]
+          },
+          {
+            "group": "WebSocket",
+            "pages": [
+              "websocket-events"
+            ]
+          },
+          {
+            "group": "Runtime Reference",
+            "pages": [
+              "runtime/core",
+              "runtime/events",
+              "runtime/memory",
+              "runtime/providers",
+              "runtime/services",
+              "runtime/models",
+              "runtime/types"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "CLI Reference",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": [
+              "cli/overview"
+            ]
+          },
+          {
+            "group": "Commands",
+            "pages": [
+              "cli/start",
+              "cli/tui",
+              "cli/setup",
+              "cli/configure",
+              "cli/config",
+              "cli/dashboard",
+              "cli/models",
+              "cli/plugins",
+              "cli/update",
+              "cli/doctor"
+            ]
+          },
+          {
+            "group": "Environment",
+            "pages": [
+              "cli/environment"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/milady-ai/milady",
+      "x": "https://x.com/milaboratory",
+      "discord": "https://discord.gg/milady"
+    }
+  },
+  "contextual": {
+    "options": ["copy", "view", "chatgpt", "claude", "perplexity"]
+  }
+}

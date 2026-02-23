@@ -19,7 +19,7 @@ if (process.argv.includes("--no-color")) {
   process.env.FORCE_COLOR = "0";
 }
 
-// Keep `npx milady` startup readable by default.
+// Keep `npx miladyai` startup readable by default.
 // This runs before CLI/runtime imports so @elizaos/core logger picks it up.
 if (!process.env.LOG_LEVEL) {
   if (process.argv.includes("--debug")) {

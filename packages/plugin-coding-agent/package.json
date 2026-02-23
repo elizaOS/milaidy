@@ -1,0 +1,36 @@
+{
+  "name": "@milaidy/plugin-coding-agent",
+  "version": "0.1.0",
+  "description": "Coding agent orchestration plugin - spawn and manage CLI coding agents via PTY",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "src/index.ts",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "files": [
+    "src",
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "test": "bun test",
+    "test:watch": "bun test --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@elizaos/core": ">=2.0.0-alpha.0",
+    "git-workspace-service": ">=0.3.0",
+    "pty-manager": ">=1.2.3"
+  },
+  "devDependencies": {
+    "@types/node": "^25.2.3",
+    "typescript": "^5.9.3"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "coding-agent-adapters": "0.7.3"
+  }
+}

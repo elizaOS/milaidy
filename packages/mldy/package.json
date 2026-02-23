@@ -1,7 +1,7 @@
 {
   "name": "mldy",
   "version": "1.0.2",
-  "description": "Alias for milady CLI — cute agents for the acceleration",
+  "description": "Alias for miladyai CLI — cute agents for the acceleration",
   "type": "module",
   "bin": {
     "mldy": "cli.js"
@@ -10,7 +10,7 @@
     "cli.js"
   ],
   "dependencies": {
-    "milady": "next"
+    "miladyai": "next"
   },
   "license": "MIT"
 }

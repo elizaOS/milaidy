@@ -362,7 +362,7 @@ describe("checkForUpdate", () => {
 
     expect(mockFetch).toHaveBeenCalledOnce();
     const [url, options] = mockFetch.mock.calls[0];
-    expect(url).toBe("https://registry.npmjs.org/milady");
+    expect(url).toBe("https://registry.npmjs.org/miladyai");
     expect(options.headers.Accept).toBe("application/vnd.npm.install-v1+json");
     expect(options.signal).toBeInstanceOf(AbortSignal);
   });
@@ -631,7 +631,7 @@ describe("npm registry integration", () => {
     }
 
     // Fetch the abbreviated packument directly (same way update-checker does)
-    const res = await globalThis.fetch("https://registry.npmjs.org/milady", {
+    const res = await globalThis.fetch("https://registry.npmjs.org/miladyai", {
       headers: {
         Accept: "application/vnd.npm.install-v1+json",
       },
@@ -645,7 +645,7 @@ describe("npm registry integration", () => {
     };
 
     // Verify the response has the expected shape
-    expect(data.name).toBe("milady");
+    expect(data.name).toBe("miladyai");
     expect(data["dist-tags"]).toBeDefined();
     expect(typeof data["dist-tags"]).toBe("object");
 

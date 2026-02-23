@@ -249,7 +249,7 @@ if (-not $pm) {
 
 Write-Step "Installing milady"
 
-$pkg = if ($Version -ne "latest") { "milady@$Version" } else { "milady" }
+$pkg = if ($Version -ne "latest") { "miladyai@$Version" } else { "miladyai" }
 
 # Check if already installed
 if (Test-CommandExists "milady") {

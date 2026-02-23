@@ -463,3 +463,30 @@ pnpm add elizaos-plugin-custom-feature
 - [Plugin Development Guide](./plugin-development.md) — Create your own plugins
 - [Local Plugin Development](./local-plugins.md) — Develop without publishing
 - [Contributing Guide](./contributing.md) — Submit plugins upstream
+
+---
+
+## Registry Runbook
+
+### Setup Checklist
+
+1. Ensure plugin metadata exists and is valid in `plugins.json`.
+2. Ensure installable packages resolve from npm or your internal registry.
+3. Ensure required env keys for each plugin are documented in the manifest.
+
+### Failure Modes
+
+- Registry lookup returns no results:
+  Confirm `plugins.json` is current and plugin IDs are spelled correctly.
+- Install succeeds but plugin does not load:
+  Confirm required env keys are set and plugin is enabled in `plugins.allow` or `plugins.entries`.
+- Version drift between manifest and package:
+  Regenerate registry metadata and commit updated manifest.
+
+### Verification Commands
+
+```bash
+bunx vitest run src/services/plugin-installer.test.ts src/services/skill-marketplace.test.ts src/services/mcp-marketplace.test.ts
+bunx vitest run --config vitest.e2e.config.ts test/api-server.e2e.test.ts
+bun run typecheck
+```

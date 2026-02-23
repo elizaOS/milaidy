@@ -42,16 +42,16 @@ irm https://milady-ai.github.io/milady/install.ps1 | iex
 ### npm global
 
 ```bash
-npm install -g milady
+npm install -g miladyai
 milady setup
 ```
 
 ### no-install (optional)
 
 ```bash
-bunx milady setup
+bunx miladyai setup
 # or
-npx milady setup
+npx miladyai setup
 ```
 
 ### Download the App

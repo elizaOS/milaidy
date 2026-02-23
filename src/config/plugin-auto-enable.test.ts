@@ -13,6 +13,7 @@ import {
   applyPluginAutoEnable,
   CONNECTOR_PLUGINS,
 } from "./plugin-auto-enable";
+import { CONNECTOR_IDS } from "./schema";
 
 // ---------------------------------------------------------------------------
 // helpers
@@ -236,6 +237,18 @@ describe("applyPluginAutoEnable — env vars", () => {
     expect(changes.some((c) => c.includes("REPOPROMPT_CLI_PATH"))).toBe(true);
   });
 
+  it("enables claude code workbench plugin when CLAUDE_CODE_WORKBENCH_ENABLED is set", () => {
+    const params = makeParams({
+      env: { CLAUDE_CODE_WORKBENCH_ENABLED: "1" },
+    });
+    const { config, changes } = applyPluginAutoEnable(params);
+
+    expect(config.plugins?.allow).toContain("claude-code-workbench");
+    expect(
+      changes.some((c) => c.includes("CLAUDE_CODE_WORKBENCH_ENABLED")),
+    ).toBe(true);
+  });
+
   it("enables pi-ai plugin when MILAIDY_USE_PI_AI is set", () => {
     const params = makeParams({
       env: { MILAIDY_USE_PI_AI: "1" },
@@ -311,6 +324,61 @@ describe("applyPluginAutoEnable — env vars", () => {
     const anthropicEntries = allow.filter((p) => p === "anthropic");
     expect(anthropicEntries).toHaveLength(1);
   });
+
+  it("auto-enables cua plugin when CUA_API_KEY is set", () => {
+    const params = makeParams({
+      env: { CUA_API_KEY: "cua-key" },
+    });
+    const { config, changes } = applyPluginAutoEnable(params);
+
+    expect(config.plugins?.allow).toContain("cua");
+    expect(changes.some((c) => c.includes("CUA_API_KEY"))).toBe(true);
+  });
+
+  it("auto-enables cua plugin when CUA_HOST is set", () => {
+    const params = makeParams({
+      env: { CUA_HOST: "https://cua.example" },
+    });
+    const { config, changes } = applyPluginAutoEnable(params);
+
+    expect(config.plugins?.allow).toContain("cua");
+    expect(changes.some((c) => c.includes("CUA_HOST"))).toBe(true);
+  });
+
+  it("respects cua enabled=false override for env auto-enable", () => {
+    const params = makeParams({
+      config: {
+        plugins: { entries: { cua: { enabled: false } } },
+      },
+      env: { CUA_API_KEY: "cua-key" },
+    });
+    const { config } = applyPluginAutoEnable(params);
+
+    expect(config.plugins?.allow ?? []).not.toContain("cua");
+  });
+
+  it("respects x402 enabled=false override for env auto-enable", () => {
+    const params = makeParams({
+      config: {
+        plugins: { entries: { x402: { enabled: false } } },
+      },
+      env: { X402_API_KEY: "x402-key" },
+    });
+    const { config } = applyPluginAutoEnable(params);
+
+    expect(config.plugins?.allow ?? []).not.toContain("x402");
+  });
+
+  it("does not duplicate cua when both CUA_API_KEY and CUA_HOST are set", () => {
+    const params = makeParams({
+      env: { CUA_API_KEY: "cua-key", CUA_HOST: "https://cua.example" },
+    });
+    const { config } = applyPluginAutoEnable(params);
+    const allow = config.plugins?.allow ?? [];
+
+    const cuaEntries = allow.filter((p) => p === "cua");
+    expect(cuaEntries).toHaveLength(1);
+  });
 });
 
 // ============================================================================
@@ -336,6 +404,18 @@ describe("applyPluginAutoEnable — features", () => {
 
     expect(config.plugins?.allow).toContain("repoprompt");
     expect(changes.some((c) => c.includes("feature: repoprompt"))).toBe(true);
+  });
+
+  it("enables claude code workbench plugin when feature flag is enabled", () => {
+    const params = makeParams({
+      config: { features: { claudeCodeWorkbench: true } },
+    });
+    const { config, changes } = applyPluginAutoEnable(params);
+
+    expect(config.plugins?.allow).toContain("claude-code-workbench");
+    expect(
+      changes.some((c) => c.includes("feature: claudeCodeWorkbench")),
+    ).toBe(true);
   });
 
   it("enables plugin when feature is an object with enabled not false", () => {
@@ -372,6 +452,45 @@ describe("applyPluginAutoEnable — features", () => {
     const { config } = applyPluginAutoEnable(params);
 
     expect(config.plugins?.allow).toContain("obsidian");
+  });
+
+  it("enables x402 plugin when features.x402 = true", () => {
+    const params = makeParams({
+      config: { features: { x402: true } },
+    });
+    const { config, changes } = applyPluginAutoEnable(params);
+
+    expect(config.plugins?.allow).toContain("x402");
+    expect(changes.some((c) => c.includes("feature: x402"))).toBe(true);
+  });
+
+  it("enables cua plugin when features.cua = true", () => {
+    const params = makeParams({
+      config: { features: { cua: true } },
+    });
+    const { config, changes } = applyPluginAutoEnable(params);
+
+    expect(config.plugins?.allow).toContain("cua");
+    expect(changes.some((c) => c.includes("feature: cua"))).toBe(true);
+  });
+
+  it("skips x402 feature when features.x402.enabled is explicitly false", () => {
+    const params = makeParams({
+      config: { features: { x402: { enabled: false } } },
+    });
+    const { config } = applyPluginAutoEnable(params);
+
+    expect(config.plugins?.allow ?? []).not.toContain("x402");
+  });
+
+  it("enables computeruse plugin when features.computeruse = true", () => {
+    const params = makeParams({
+      config: { features: { computeruse: true } },
+    });
+    const { config, changes } = applyPluginAutoEnable(params);
+
+    expect(config.plugins?.allow).toContain("computeruse");
+    expect(changes.some((c) => c.includes("feature: computeruse"))).toBe(true);
   });
 });
 
@@ -487,8 +606,18 @@ describe("CONNECTOR_PLUGINS", () => {
     expect(CONNECTOR_PLUGINS.discord).toBe("@elizaos/plugin-discord");
   });
 
-  it("contains 16 connector mappings", () => {
-    expect(Object.keys(CONNECTOR_PLUGINS)).toHaveLength(16);
+  it("contains 17 connector mappings", () => {
+    expect(Object.keys(CONNECTOR_PLUGINS)).toHaveLength(17);
+  });
+
+  it("maps retake to @milady/plugin-retake", () => {
+    expect(CONNECTOR_PLUGINS.retake).toBe("@milady/plugin-retake");
+  });
+
+  it("has keys matching CONNECTOR_IDS from schema", () => {
+    expect([...Object.keys(CONNECTOR_PLUGINS)].sort()).toEqual(
+      [...CONNECTOR_IDS].sort(),
+    );
   });
 });
 
@@ -519,6 +648,11 @@ describe("AUTH_PROVIDER_PLUGINS", () => {
     expect(AUTH_PROVIDER_PLUGINS.MILAIDY_USE_PI_AI).toBe(
       "@elizaos/plugin-pi-ai",
     );
+  });
+
+  it("maps CUA env keys to cua plugin", () => {
+    expect(AUTH_PROVIDER_PLUGINS.CUA_API_KEY).toBe("@elizaos/plugin-cua");
+    expect(AUTH_PROVIDER_PLUGINS.CUA_HOST).toBe("@elizaos/plugin-cua");
   });
 });
 
@@ -615,5 +749,55 @@ describe("WhatsApp connector auto-enable", () => {
       }),
     );
     expect(config.plugins?.allow ?? []).not.toContain("whatsapp");
+  });
+});
+
+// ============================================================================
+//  Retake connector auto-enable
+// ============================================================================
+
+describe("Retake connector auto-enable", () => {
+  it("auto-enables when accessToken is set", () => {
+    const { config } = applyPluginAutoEnable(
+      makeParams({
+        config: {
+          connectors: { retake: { accessToken: "rtk-test-token" } },
+        },
+      }),
+    );
+    expect(config.plugins?.allow).toContain("retake");
+  });
+
+  it("auto-enables when enabled is true", () => {
+    const { config } = applyPluginAutoEnable(
+      makeParams({
+        config: {
+          connectors: { retake: { enabled: true } },
+        },
+      }),
+    );
+    expect(config.plugins?.allow).toContain("retake");
+  });
+
+  it("does not auto-enable when config is empty", () => {
+    const { config } = applyPluginAutoEnable(
+      makeParams({
+        config: { connectors: { retake: {} } },
+      }),
+    );
+    expect(config.plugins?.allow ?? []).not.toContain("retake");
+  });
+
+  it("does not auto-enable when enabled is explicitly false", () => {
+    const { config } = applyPluginAutoEnable(
+      makeParams({
+        config: {
+          connectors: {
+            retake: { enabled: false, accessToken: "rtk-test" },
+          },
+        },
+      }),
+    );
+    expect(config.plugins?.allow ?? []).not.toContain("retake");
   });
 });

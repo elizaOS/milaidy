@@ -4,7 +4,7 @@
  * Comprehensive E2E tests covering the full Milady validation matrix:
  *
  *   1. Fresh install simulation (build → CLI boot → onboarding → agent running)
- *   2. CLI entry point test (npx milady equivalent)
+ *   2. CLI entry point test (npx miladyai equivalent)
  *   3. Plugin stress test (all plugins loaded simultaneously)
  *   4. Long-running session test (simulated via timeout-based operations)
  *   5. Context integrity test (no corruption after multiple operations)
@@ -50,7 +50,7 @@ const testDir = path.dirname(fileURLToPath(import.meta.url));
 const packageRoot = path.resolve(testDir, "..");
 
 type RootPackageManifest = {
-  bin?: { milady?: string };
+  bin?: { milady?: string; miladyai?: string };
   exports?: Record<string, string>;
   engines?: { node?: string };
   dependencies?: Record<string, string>;
@@ -59,7 +59,8 @@ type RootPackageManifest = {
 const packageManifest = JSON.parse(
   fs.readFileSync(path.join(packageRoot, "package.json"), "utf-8"),
 ) as RootPackageManifest;
-const cliEntryRelativePath = packageManifest.bin?.milady ?? "milaidy.mjs";
+const cliEntryRelativePath =
+  packageManifest.bin?.miladyai ?? packageManifest.bin?.milady ?? "milaidy.mjs";
 const cliEntryPath = path.join(packageRoot, cliEntryRelativePath);
 
 function fileExistsAny(candidates: string[]): boolean {
@@ -464,10 +465,10 @@ describe("Fresh Install Simulation", () => {
 });
 
 // ===================================================================
-//  2. CLI ENTRY POINT TEST (npx milady equivalent)
+//  2. CLI ENTRY POINT TEST (npx miladyai equivalent)
 // ===================================================================
 
-describe("CLI Entry Point (npx milady equivalent)", () => {
+describe("CLI Entry Point (npx miladyai equivalent)", () => {
   it("dist entry artifact exists and is loadable", () => {
     expect(
       fileExistsAny([
@@ -606,7 +607,7 @@ describe("Plugin Stress Test", () => {
     "@elizaos/plugin-discord",
     "@elizaos/plugin-telegram",
     "@elizaos/plugin-slack",
-    "@elizaos/plugin-whatsapp",
+    "@milady/plugin-whatsapp",
     "@elizaos/plugin-signal",
     "@elizaos/plugin-imessage",
     "@elizaos/plugin-bluebubbles",

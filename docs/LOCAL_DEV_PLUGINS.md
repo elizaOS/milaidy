@@ -58,7 +58,7 @@ npm run build
 
 ### 4. Restart runtime
 
-The runtime auto-discovers ejected plugins. Just restart milaidy and it will load the ejected version instead of the npm package.
+The runtime auto-discovers ejected plugins. Just restart milady and it will load the ejected version instead of the npm package.
 
 ## Directory Structure
 
@@ -83,7 +83,7 @@ When the runtime resolves plugins, ejected versions always win:
 1. **Ejected** (`~/.milady/plugins/ejected/`) — highest priority
 2. **Official npm** (`node_modules/@elizaos/plugin-*`) — with install record repair
 3. **User-installed** (`~/.milady/plugins/installed/`)
-4. **Local @milaidy** (`src/plugins/`)
+4. **Local @milady** (`src/plugins/`)
 5. **npm fallback** (`import(name)`)
 
 This means you can eject any plugin — even core `@elizaos/*` ones — and your local version takes over.
@@ -145,7 +145,7 @@ To stop using the ejected version and fall back to npm:
 
 ```bash
 rm -rf ~/.milady/plugins/ejected/plugin-telegram
-# Restart milaidy — it will load the npm version again
+# Restart milady — it will load the npm version again
 ```
 
 Or via agent: `reinject the telegram plugin`

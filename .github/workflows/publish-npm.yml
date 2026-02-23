@@ -140,11 +140,11 @@ jobs:
       - name: Verify publish
         run: |
           sleep 5  # Give the registry a moment to propagate
-          PUBLISHED=$(npm view milady@${{ steps.meta.outputs.dist_tag }} version 2>/dev/null || echo "")
+          PUBLISHED=$(npm view miladyai@${{ steps.meta.outputs.dist_tag }} version 2>/dev/null || echo "")
           EXPECTED="${{ steps.meta.outputs.version }}"
 
           if [[ "$PUBLISHED" == "$EXPECTED" ]]; then
-            echo "Verified: milady@${{ steps.meta.outputs.dist_tag }} → $PUBLISHED"
+            echo "Verified: miladyai@${{ steps.meta.outputs.dist_tag }} → $PUBLISHED"
           else
             echo "::warning::Published version ($PUBLISHED) does not match expected ($EXPECTED). Registry may still be propagating."
           fi
@@ -161,5 +161,5 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Install" >> $GITHUB_STEP_SUMMARY
           echo '```bash' >> $GITHUB_STEP_SUMMARY
-          echo "npm install -g milady@${{ steps.meta.outputs.dist_tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "npm install -g miladyai@${{ steps.meta.outputs.dist_tag }}" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY

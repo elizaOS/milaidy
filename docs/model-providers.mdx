@@ -1,0 +1,322 @@
+---
+title: "Model Providers"
+sidebarTitle: "Model Providers"
+description: "Supported AI model providers and how to configure them."
+---
+
+Milady supports **17 model providers** out of the box. Providers are loaded as plugins and can be auto-enabled by setting the right environment variable, or explicitly configured in `milady.json`.
+
+---
+
+## Provider Reference
+
+The table below is the complete list of supported providers, sourced from the auto-enable system in Milady's core.
+
+<Note>
+Providers marked **bundled** ship with every Milady install. Others are installed on demand the first time they are needed — no manual plugin install required.
+</Note>
+
+| Provider | Plugin Package | Env Variable(s) | Bundled | Notes |
+|----------|----------------|------------------|---------|-------|
+| [Anthropic](https://anthropic.com) | `@elizaos/plugin-anthropic` | `ANTHROPIC_API_KEY` or `CLAUDE_API_KEY` | No | **Recommended.** Claude models (Opus, Sonnet, Haiku). |
+| [OpenAI](https://openai.com) | `@elizaos/plugin-openai` | `OPENAI_API_KEY` | Yes | GPT-4o, o1, o3, GPT-4.1. |
+| [Google Gemini](https://ai.google.dev) | `@elizaos/plugin-google-genai` | `GOOGLE_API_KEY` or `GOOGLE_GENERATIVE_AI_API_KEY` | No | Gemini Pro, Flash, Ultra. |
+| [Google Antigravity](https://cloud.google.com/vertex-ai) | `@elizaos/plugin-google-antigravity` | `GOOGLE_CLOUD_API_KEY` | No | Google Cloud / Vertex AI models. |
+| [Vercel AI Gateway](https://sdk.vercel.ai) | `@elizaos/plugin-vercel-ai-gateway` | `AI_GATEWAY_API_KEY` or `AIGATEWAY_API_KEY` | No | Unified gateway to multiple providers. |
+| [OpenRouter](https://openrouter.ai) | `@elizaos/plugin-openrouter` | `OPENROUTER_API_KEY` | Yes | 100+ models behind one API key. |
+| [Groq](https://groq.com) | `@elizaos/plugin-groq` | `GROQ_API_KEY` | Yes | Ultra-fast inference (LPU). |
+| [xAI](https://x.ai) | `@elizaos/plugin-xai` | `XAI_API_KEY` or `GROK_API_KEY` | No | Grok models. |
+| [DeepSeek](https://deepseek.com) | `@elizaos/plugin-deepseek` | `DEEPSEEK_API_KEY` | No | Reasoning and code models. |
+| [Ollama](https://ollama.ai) | `@elizaos/plugin-ollama` | `OLLAMA_BASE_URL` | Yes | **Local models.** No API key needed. |
+| [Qwen](https://qwen.ai) | `@elizaos/plugin-qwen` | — | No | Alibaba's Qwen models. Configure via plugin entry. |
+| [MiniMax](https://minimaxi.com) | `@elizaos/plugin-minimax` | — | No | MiniMax language models. Configure via plugin entry. |
+| [Together AI](https://together.ai) | `@elizaos/plugin-together` | `TOGETHER_API_KEY` | No | Open-source model hosting. |
+| [Mistral](https://mistral.ai) | `@elizaos/plugin-mistral` | `MISTRAL_API_KEY` | No | Mistral and Mixtral models. |
+| [Cohere](https://cohere.com) | `@elizaos/plugin-cohere` | `COHERE_API_KEY` | No | Command R+ and embed models. |
+| [Perplexity](https://perplexity.ai) | `@elizaos/plugin-perplexity` | `PERPLEXITY_API_KEY` | No | Search-augmented generation. |
+| [Zai](https://homunculuslabs.com) | `@homunculuslabs/plugin-zai` | `ZAI_API_KEY` | No | Homunculus Labs Zai models. |
+
+<Info>
+There is also an **ElizaOS Cloud** provider (`@elizaos/plugin-elizacloud`) activated by `ELIZAOS_CLOUD_API_KEY` or `ELIZAOS_CLOUD_ENABLED`. This is a managed cloud option and ships bundled.
+</Info>
+
+---
+
+## How Provider Selection Works
+
+Milady uses an **auto-enable** system. You do not need to manually register provider plugins — just set the API key and Milady handles the rest.
+
+### Auto-enable flow
+
+1. On startup, Milady scans your environment variables (from `~/.milady/.env`, shell environment, or `milady.json`).
+2. If a recognized API key is found (e.g., `ANTHROPIC_API_KEY`), the corresponding provider plugin is automatically added to the plugin allowlist.
+3. The plugin is installed on demand if not already present (installed to `~/.milady/plugins/installed/`).
+4. The provider becomes available for model selection.
+
+### Explicit plugin configuration
+
+You can also enable providers manually in `~/.milady/milady.json` under the `plugins` key:
+
+```json5
+{
+  plugins: {
+    allow: ["anthropic", "openai", "ollama"],
+  },
+}
+```
+
+To **disable** an auto-enabled provider, set its entry to `enabled: false`:
+
+```json5
+{
+  plugins: {
+    entries: {
+      anthropic: { enabled: false },
+    },
+  },
+}
+```
+
+### Auth profiles
+
+Providers can also be activated through auth profiles in your config:
+
+```json5
+{
+  auth: {
+    profiles: {
+      main: {
+        provider: "anthropic",
+      },
+      backup: {
+        provider: "openrouter",
+      },
+    },
+  },
+}
+```
+
+---
+
+## Setting Up Providers
+
+### Option 1: Environment file (recommended)
+
+Create or edit `~/.milady/.env`:
+
+```bash
+# Primary provider
+ANTHROPIC_API_KEY=sk-ant-api03-...
+
+# Additional providers
+OPENAI_API_KEY=sk-...
+OPENROUTER_API_KEY=sk-or-v1-...
+GROQ_API_KEY=gsk_...
+```
+
+### Option 2: Config file
+
+Add keys directly in `~/.milady/milady.json`:
+
+```json5
+{
+  env: {
+    ANTHROPIC_API_KEY: "sk-ant-api03-...",
+    OPENAI_API_KEY: "sk-...",
+  },
+}
+```
+
+### Option 3: Interactive setup
+
+```bash
+milady configure
+```
+
+This walks you through setting common environment variables including your preferred model provider.
+
+<Warning>
+When using the config file approach, your API keys are stored in plaintext in `milady.json`. The `.env` file approach keeps secrets separate from configuration and is easier to exclude from version control.
+</Warning>
+
+---
+
+## CLI Commands
+
+```bash
+milady models             # list configured model providers and their status
+milady models add         # add a new provider interactively
+milady models test        # test if your API keys are valid
+milady configure          # interactive config wizard (includes provider setup)
+```
+
+### Setting the default model
+
+In `~/.milady/milady.json`, specify the model using `provider/model` format:
+
+```json5
+{
+  agents: {
+    defaults: {
+      model: {
+        primary: "anthropic/claude-sonnet-4-20250514",
+      },
+    },
+  },
+}
+```
+
+Or switch mid-session using the `/model` chat command:
+
+```
+/model openai/gpt-4o
+```
+
+---
+
+## Model Fallbacks
+
+Milady supports an ordered fallback chain. If the primary model fails (rate limit, outage, billing issue), the next model in the list is tried automatically.
+
+```json5
+{
+  agents: {
+    defaults: {
+      model: {
+        primary: "anthropic/claude-sonnet-4-20250514",
+        fallbacks: [
+          "openai/gpt-4o",
+          "groq/llama-3.3-70b-versatile",
+        ],
+      },
+    },
+  },
+}
+```
+
+Fallbacks are tried in order. Each provider in the fallback chain must have its API key configured.
+
+---
+
+## Using Multiple Providers
+
+You can have multiple providers active simultaneously. Every provider whose API key is detected will be auto-enabled and available for selection.
+
+A common setup:
+
+```bash
+# ~/.milady/.env
+
+# Primary — high-quality reasoning
+ANTHROPIC_API_KEY=sk-ant-api03-...
+
+# Fast inference for simple tasks
+GROQ_API_KEY=gsk_...
+
+# Fallback — wide model selection
+OPENROUTER_API_KEY=sk-or-v1-...
+
+# Local — offline / privacy-sensitive work
+OLLAMA_BASE_URL=http://127.0.0.1:11434
+```
+
+With this setup, all four providers are available. You can set different models for different purposes:
+
+```json5
+{
+  agents: {
+    defaults: {
+      model: {
+        primary: "anthropic/claude-sonnet-4-20250514",
+        fallbacks: ["openrouter/anthropic/claude-sonnet-4-20250514"],
+      },
+      imageModel: {
+        primary: "openai/gpt-4o",
+      },
+    },
+  },
+}
+```
+
+---
+
+## Local Models with Ollama
+
+Ollama lets you run models locally with no API key and full privacy. It is the only provider that does not require an API key — just a running Ollama server.
+
+### Setup
+
+<Steps>
+  <Step title="Install Ollama">
+    ```bash
+    curl -fsSL https://ollama.ai/install.sh | sh
+    ```
+  </Step>
+  <Step title="Pull a model">
+    ```bash
+    ollama pull llama3.3
+    ```
+  </Step>
+  <Step title="Set the base URL">
+    Add to `~/.milady/.env`:
+    ```bash
+    OLLAMA_BASE_URL=http://127.0.0.1:11434
+    ```
+  </Step>
+  <Step title="Select the model">
+    In `~/.milady/milady.json`:
+    ```json5
+    {
+      agents: {
+        defaults: {
+          model: {
+            primary: "ollama/llama3.3",
+          },
+        },
+      },
+    }
+    ```
+  </Step>
+</Steps>
+
+Ollama auto-enables as soon as `OLLAMA_BASE_URL` is set. If you are running Ollama on the default port locally, just set:
+
+```bash
+OLLAMA_BASE_URL=http://127.0.0.1:11434
+```
+
+For remote Ollama instances, point to your server's address instead.
+
+---
+
+## Env Variable Quick Reference
+
+Every env variable that triggers auto-enable, grouped by provider:
+
+| Env Variable | Provider Activated |
+|--------------|--------------------|
+| `ANTHROPIC_API_KEY` | Anthropic |
+| `CLAUDE_API_KEY` | Anthropic |
+| `OPENAI_API_KEY` | OpenAI |
+| `GOOGLE_API_KEY` | Google Gemini |
+| `GOOGLE_GENERATIVE_AI_API_KEY` | Google Gemini |
+| `GOOGLE_CLOUD_API_KEY` | Google Antigravity (Vertex AI) |
+| `AI_GATEWAY_API_KEY` | Vercel AI Gateway |
+| `AIGATEWAY_API_KEY` | Vercel AI Gateway |
+| `GROQ_API_KEY` | Groq |
+| `XAI_API_KEY` | xAI |
+| `GROK_API_KEY` | xAI |
+| `OPENROUTER_API_KEY` | OpenRouter |
+| `OLLAMA_BASE_URL` | Ollama |
+| `DEEPSEEK_API_KEY` | DeepSeek |
+| `TOGETHER_API_KEY` | Together AI |
+| `MISTRAL_API_KEY` | Mistral |
+| `COHERE_API_KEY` | Cohere |
+| `PERPLEXITY_API_KEY` | Perplexity |
+| `ZAI_API_KEY` | Zai |
+| `ELIZAOS_CLOUD_API_KEY` | ElizaOS Cloud |
+| `ELIZAOS_CLOUD_ENABLED` | ElizaOS Cloud |
+
+<Tip>
+Some providers accept multiple env variable names for convenience (e.g., both `ANTHROPIC_API_KEY` and `CLAUDE_API_KEY` activate Anthropic). You only need to set one.
+</Tip>

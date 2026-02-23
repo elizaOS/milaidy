@@ -9,7 +9,7 @@ export function registerModelsCli(program: Command) {
         ["ANTHROPIC_API_KEY", "Anthropic (Claude)"],
         ["OPENAI_API_KEY", "OpenAI (GPT)"],
         ["AI_GATEWAY_API_KEY", "Vercel AI Gateway"],
-        ["GOOGLE_API_KEY", "Google (Gemini)"],
+        ["GEMINI_API_KEY", "Google (Gemini)"],
         ["GROQ_API_KEY", "Groq"],
         ["XAI_API_KEY", "xAI (Grok)"],
         ["OPENROUTER_API_KEY", "OpenRouter"],

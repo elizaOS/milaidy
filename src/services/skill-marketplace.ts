@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { logger } from "@elizaos/core";
+import { createIntegrationTelemetrySpan } from "../diagnostics/integration-observability";
 
 const execFileAsync = promisify(execFile);
 
@@ -531,6 +532,11 @@ export async function searchSkillsMarketplace(
     headers.Authorization = `Bearer ${apiKey}`;
   }
 
+  const searchSpan = createIntegrationTelemetrySpan({
+    boundary: "marketplace",
+    operation: "search_skills_marketplace",
+    timeoutMs: FETCH_TIMEOUT_MS,
+  });
   let resp: Response;
   try {
     resp = await fetch(url, {
@@ -538,6 +544,7 @@ export async function searchSkillsMarketplace(
       signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     });
   } catch (err) {
+    searchSpan.failure({ error: err });
     const msg = err instanceof Error ? err.message : String(err);
     throw new Error(
       msg.includes("aborted") || msg.includes("timeout")
@@ -552,6 +559,7 @@ export async function searchSkillsMarketplace(
   >;
 
   if (!resp.ok) {
+    searchSpan.failure({ statusCode: resp.status, errorKind: "http_error" });
     const msg = (payload.error as Record<string, unknown> | undefined)?.message;
     throw new Error(
       typeof msg === "string" && msg
@@ -622,6 +630,7 @@ export async function searchSkillsMarketplace(
     });
   }
 
+  searchSpan.success({ statusCode: resp.status });
   return out;
 }
 

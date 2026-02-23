@@ -20,3 +20,10 @@ declare module "@elizaos/plugin-groq" {
   const plugin: Plugin;
   export default plugin;
 }
+
+declare module "qrcode" {
+  const QRCode: {
+    toDataURL(text: string, options?: Record<string, unknown>): Promise<string>;
+  };
+  export default QRCode;
+}

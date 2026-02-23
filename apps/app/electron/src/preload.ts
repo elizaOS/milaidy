@@ -5,12 +5,16 @@
  * This is the secure bridge between Node.js and the web context.
  */
 
-import { contextBridge, desktopCapturer, ipcRenderer } from "electron";
+import { contextBridge, ipcRenderer } from "electron";
 import type { IpcChannel } from "./native/ipc-channels";
 import type { IpcValue } from "./native/ipc-types";
 
-// Load Capacitor runtime
-require("./rt/electron-rt");
+// Load Capacitor runtime (optional — don't let it crash the preload)
+try {
+  require("./rt/electron-rt");
+} catch {
+  // Capacitor runtime not available — non-fatal
+}
 
 type IpcListener = (...args: IpcValue[]) => void;
 type ElectronIpcListener = Parameters<typeof ipcRenderer.on>[1];
@@ -87,22 +91,23 @@ const electronAPI = {
   },
 
   /**
-   * Desktop Capturer for screen capture
+   * Desktop Capturer for screen capture (via IPC — desktopCapturer
+   * was removed from preload/renderer in Electron 36+)
    */
   desktopCapturer: {
-    getSources: async (options: {
+    getSources: async (_options: {
       types: string[];
       thumbnailSize?: { width: number; height: number };
     }) => {
-      const sources = await desktopCapturer.getSources(
-        options as Electron.SourcesOptions,
+      const result = await ipcRenderer.invoke(
+        "screencapture:getSources" as IpcChannel,
       );
-      return sources.map((source) => ({
-        id: source.id,
-        name: source.name,
-        thumbnail: source.thumbnail.toDataURL(),
-        appIcon: source.appIcon?.toDataURL(),
-      }));
+      return (result?.sources ?? []) as Array<{
+        id: string;
+        name: string;
+        thumbnail: string;
+        appIcon?: string;
+      }>;
     },
   },
 

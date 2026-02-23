@@ -10,6 +10,8 @@ import { fileURLToPath } from "node:url";
 import type { ReleaseChannel } from "../config/types.milady";
 import { CHANNEL_DIST_TAGS } from "./update-checker";
 
+const NPM_PACKAGE_NAME = "miladyai";
+
 export type InstallMethod =
   | "npm-global"
   | "bun-global"
@@ -88,7 +90,7 @@ export function buildUpdateCommand(
   method: InstallMethod,
   channel: ReleaseChannel,
 ): { command: string; args: string[] } | null {
-  const spec = `milady@${CHANNEL_DIST_TAGS[channel]}`;
+  const spec = `${NPM_PACKAGE_NAME}@${CHANNEL_DIST_TAGS[channel]}`;
 
   switch (method) {
     case "npm-global":

@@ -13,6 +13,10 @@ vi.mock("../AppContext", () => ({
   useApp: vi.fn(),
 }));
 
+vi.mock("../hooks/useBugReport", () => ({
+  useBugReport: () => ({ isOpen: false, open: vi.fn(), close: vi.fn() }),
+}));
+
 describe("Header", () => {
   it("renders wallet overlay with correct hover classes", async () => {
     // Mock the useApp hook return value

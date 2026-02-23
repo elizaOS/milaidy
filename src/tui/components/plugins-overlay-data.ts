@@ -3,14 +3,6 @@ import { installPlugin } from "../../services/plugin-installer.js";
 import { getRegistryPlugins } from "../../services/registry-client.js";
 import type { PluginListItem } from "./plugins-installed-tab.js";
 import {
-  API_MASKED_SENTINEL,
-  type ApiInstalledPluginInfo,
-  type ApiPluginEntry,
-  matchesInstalledPluginName,
-  type PluginsOverlayOptions,
-  registerPluginNameVariants,
-} from "./plugins-overlay-data-shared.js";
-import {
   buildPluginCatalogIndex,
   inferRequiredKey,
   inferSensitiveKey,
@@ -18,6 +10,14 @@ import {
   readInstalledPluginMetadata,
 } from "./plugins-overlay-catalog.js";
 import { installPluginViaApiRequest } from "./plugins-overlay-data-api.js";
+import {
+  API_MASKED_SENTINEL,
+  type ApiInstalledPluginInfo,
+  type ApiPluginEntry,
+  matchesInstalledPluginName,
+  type PluginsOverlayOptions,
+  registerPluginNameVariants,
+} from "./plugins-overlay-data-shared.js";
 import type { StorePluginItem } from "./plugins-store-tab.js";
 
 export type { PluginsOverlayOptions } from "./plugins-overlay-data-shared.js";
@@ -386,9 +386,10 @@ export class PluginsOverlayDataBridge {
   ): Promise<{ success: boolean; message: string }> {
     const apiBaseUrl = this.getApiBaseUrl();
     if (apiBaseUrl) {
-      return installPluginViaApiRequest((routePath, init) =>
-        this.apiFetchJson(apiBaseUrl, routePath, init),
-      name);
+      return installPluginViaApiRequest(
+        (routePath, init) => this.apiFetchJson(apiBaseUrl, routePath, init),
+        name,
+      );
     }
 
     const result = await installPlugin(name);

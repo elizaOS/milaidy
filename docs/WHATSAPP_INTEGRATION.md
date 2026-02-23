@@ -4,9 +4,14 @@ This guide explains how to use the WhatsApp connector in Milady with Baileys (QR
 
 ## Overview
 
-As of `@elizaos/plugin-whatsapp@2.0.0-alpha.6`, the plugin supports two authentication methods:
+As of `@milady/plugin-whatsapp`, the plugin supports two authentication methods:
 - **Cloud API**: For business accounts using the WhatsApp Business API
 - **Baileys**: For personal accounts using QR code authentication (like WhatsApp Web)
+
+`@milady/plugin-whatsapp` is an internal plugin identifier used by Milady's
+plugin maps. It is built from `src/plugins/whatsapp/index.ts` into
+`dist/plugins/whatsapp/` during the normal build and is not published as a
+standalone npm package.
 
 ## Quick Start with Baileys (QR Code)
 
@@ -131,7 +136,7 @@ When using `dmPolicy: "open"`, you must also set `allowFrom: ["*"]` in your conf
 
 ## Testing Checklist
 
-From issue [#147](https://github.com/milady-ai/milaidy/issues/147):
+From issue [#147](https://github.com/milady-ai/milady/issues/147):
 
 ### Setup & Authentication
 - [ ] QR code authentication flow
@@ -163,4 +168,4 @@ From issue [#147](https://github.com/milady-ai/milaidy/issues/147):
 
 - [WhatsApp Plugin Repository](https://github.com/elizaos-plugins/plugin-whatsapp)
 - [Baileys Library](https://github.com/WhiskeySockets/Baileys)
-- [Issue #147](https://github.com/milady-ai/milaidy/issues/147)
+- [Issue #147](https://github.com/milady-ai/milady/issues/147)

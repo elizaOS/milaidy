@@ -16,7 +16,8 @@ export const CONNECTOR_PLUGINS: Record<string, string> = {
   discord: "@elizaos/plugin-discord",
   slack: "@elizaos/plugin-slack",
   twitter: "@elizaos/plugin-twitter",
-  whatsapp: "@elizaos/plugin-whatsapp",
+  // Internal connector built from src/plugins/whatsapp (not an npm package).
+  whatsapp: "@milady/plugin-whatsapp",
   signal: "@elizaos/plugin-signal",
   bluebubbles: "@elizaos/plugin-bluebubbles",
   imessage: "@elizaos/plugin-imessage",
@@ -28,6 +29,7 @@ export const CONNECTOR_PLUGINS: Record<string, string> = {
   feishu: "@elizaos/plugin-feishu",
   matrix: "@elizaos/plugin-matrix",
   nostr: "@elizaos/plugin-nostr",
+  retake: "@milady/plugin-retake",
 };
 
 const PROVIDER_PLUGINS: Record<string, string> = {
@@ -79,6 +81,7 @@ export const AUTH_PROVIDER_PLUGINS: Record<string, string> = {
   OBSIDIAN_VAULT_PATH: "@elizaos/plugin-obsidian",
   OBSIDAN_VAULT_PATH: "@elizaos/plugin-obsidian",
   REPOPROMPT_CLI_PATH: "@elizaos/plugin-repoprompt",
+  CLAUDE_CODE_WORKBENCH_ENABLED: "@milaidy/plugin-claude-code-workbench",
 };
 
 const FEATURE_PLUGINS: Record<string, string> = {
@@ -106,9 +109,10 @@ const FEATURE_PLUGINS: Record<string, string> = {
   vision: "@elizaos/plugin-vision",
   computeruse: "@elizaos/plugin-computeruse",
   repoprompt: "@elizaos/plugin-repoprompt",
+  claudeCodeWorkbench: "@milaidy/plugin-claude-code-workbench",
 };
 
-function isConnectorConfigured(
+export function isConnectorConfigured(
   connectorName: string,
   connectorConfig: unknown,
 ): boolean {
@@ -178,6 +182,8 @@ function isConnectorConfigured(
               },
             )),
       );
+    case "retake":
+      return Boolean(config.accessToken || config.enabled === true);
     default:
       return false;
   }

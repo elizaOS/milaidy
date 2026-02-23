@@ -163,7 +163,7 @@ jobs:
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
         run: |
           VERSION="${{ needs.prepare.outputs.npm_version }}"
-          URL="https://registry.npmjs.org/milady/-/milady-${VERSION}.tgz"
+          URL="https://registry.npmjs.org/miladyai/-/miladyai-${VERSION}.tgz"
 
           echo "Fetching tarball SHA256 for $URL ..."
           SHA256=$(curl -fsSL "$URL" | sha256sum | cut -d' ' -f1)

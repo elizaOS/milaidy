@@ -104,6 +104,22 @@ describe("validateMcpServerConfig", () => {
     expect(uvEval).toContain('Flag "-c" is not allowed');
   });
 
+  it("rejects interpreter bootstrap flags that can execute preload code", async () => {
+    const nodeImport = await validateMcpServerConfig({
+      type: "stdio",
+      command: "node",
+      args: ["--import", "data:text/javascript,console.log('pwn')"],
+    });
+    const nodeRequireAttached = await validateMcpServerConfig({
+      type: "stdio",
+      command: "node",
+      args: ["-r./bootstrap.js", "server.js"],
+    });
+
+    expect(nodeImport).toContain('Flag "--import" is not allowed');
+    expect(nodeRequireAttached).toContain('Flag "-r" is not allowed');
+  });
+
   it("rejects inline-exec flags for package runner commands", async () => {
     const rejection = await validateMcpServerConfig({
       type: "stdio",
@@ -184,6 +200,40 @@ describe("validateMcpServerConfig", () => {
     });
 
     expect(rejection).toContain('Could not resolve URL host "mcp.example.com"');
+  });
+
+  it("rejects invalid config type", async () => {
+    const rejection = await validateMcpServerConfig({
+      type: "invalid-type",
+    });
+
+    expect(rejection).toContain("Invalid config type");
+  });
+
+  it("rejects missing command for stdio type", async () => {
+    const rejection = await validateMcpServerConfig({
+      type: "stdio",
+    });
+
+    expect(rejection).toBe("Command is required for stdio servers");
+  });
+
+  it("rejects missing URL for remote server type", async () => {
+    const rejection = await validateMcpServerConfig({
+      type: "streamable-http",
+    });
+
+    expect(rejection).toBe("URL is required for remote servers");
+  });
+
+  it("rejects non-array args", async () => {
+    const rejection = await validateMcpServerConfig({
+      type: "stdio",
+      command: "npx",
+      args: "not-an-array",
+    });
+
+    expect(rejection).toBe("args must be an array of strings");
   });
 });
 

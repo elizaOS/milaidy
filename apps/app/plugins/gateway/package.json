@@ -5,13 +5,6 @@
   "main": "./dist/plugin.cjs.js",
   "module": "./src/index.ts",
   "types": "./dist/plugin.d.ts",
-  "exports": {
-    ".": {
-      "types": "./dist/plugin.d.ts",
-      "import": "./dist/plugin.js",
-      "require": "./dist/plugin.cjs.js"
-    }
-  },
   "unpkg": "dist/plugin.js",
   "files": [
     "android/src/main/",

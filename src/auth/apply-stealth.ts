@@ -17,7 +17,7 @@ export function findProjectRoot(startDir: string): string {
       const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
       if (
         typeof pkg.name === "string" &&
-        pkg.name.toLowerCase() === "milaidy"
+        pkg.name.toLowerCase() === "miladyai"
       ) {
         return dir;
       }

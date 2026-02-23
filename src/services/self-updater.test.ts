@@ -117,18 +117,18 @@ describe("detectInstallMethod", () => {
 // ============================================================================
 
 describe("buildUpdateCommand", () => {
-  it("npm-global + stable → npm install -g milady@latest", () => {
+  it("npm-global + stable → npm install -g miladyai@latest", () => {
     const result = buildUpdateCommand("npm-global", "stable");
     expect(result).not.toBeNull();
     expect(result?.command).toBe("npm");
-    expect(result?.args).toEqual(["install", "-g", "milady@latest"]);
+    expect(result?.args).toEqual(["install", "-g", "miladyai@latest"]);
   });
 
-  it("bun-global + stable → bun install -g milady@latest", () => {
+  it("bun-global + stable → bun install -g miladyai@latest", () => {
     const result = buildUpdateCommand("bun-global", "stable");
     expect(result).not.toBeNull();
     expect(result?.command).toBe("bun");
-    expect(result?.args).toEqual(["install", "-g", "milady@latest"]);
+    expect(result?.args).toEqual(["install", "-g", "miladyai@latest"]);
   });
 
   it("homebrew → brew upgrade milady (ignores channel)", () => {
@@ -194,7 +194,7 @@ describe("buildUpdateCommand", () => {
     const result = buildUpdateCommand("unknown", "stable");
     expect(result).not.toBeNull();
     expect(result?.command).toBe("npm");
-    expect(result?.args).toContain("milady@latest");
+    expect(result?.args).toContain("miladyai@latest");
   });
 });
 
@@ -266,7 +266,7 @@ describe("performUpdate", () => {
 
     expect(result.success).toBe(false);
     expect(result.method).toBe("npm-global");
-    expect(result.command).toContain("npm install -g milady@latest");
+    expect(result.command).toContain("npm install -g miladyai@latest");
     expect(result.error).toContain("E403");
   });
 
@@ -367,7 +367,7 @@ describe("performUpdate edge cases", () => {
 
     expect(result.success).toBe(true);
     expect(result.method).toBe("bun-global");
-    expect(result.command).toContain("bun install -g milady@beta");
+    expect(result.command).toContain("bun install -g miladyai@beta");
   });
 
   it("handles spawn error event (command not found)", async () => {

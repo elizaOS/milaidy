@@ -26,6 +26,19 @@ const childSessionToTab = new Map();
 /** @type {Map<number, {resolve:(v:any)=>void, reject:(e:Error)=>void}>} */
 const pending = new Map();
 
+export { tabs, tabBySession, childSessionToTab, pending };
+
+export function _resetForTest() {
+  relayWs = null;
+  relayConnectPromise = null;
+  debuggerListenersInstalled = false;
+  nextSession = 1;
+  tabs.clear();
+  tabBySession.clear();
+  childSessionToTab.clear();
+  pending.clear();
+}
+
 function nowStack() {
   try {
     return new Error().stack || "";
@@ -34,7 +47,7 @@ function nowStack() {
   }
 }
 
-async function getRelayPort() {
+export async function getRelayPort() {
   const stored = await chrome.storage.local.get(["relayPort"]);
   const raw = stored.relayPort;
   const n = Number.parseInt(String(raw || ""), 10);
@@ -42,7 +55,7 @@ async function getRelayPort() {
   return n;
 }
 
-function setBadge(tabId, kind) {
+export function setBadge(tabId, kind) {
   const cfg = BADGE[kind];
   void chrome.action.setBadgeText({ tabId, text: cfg.text });
   void chrome.action.setBadgeBackgroundColor({ tabId, color: cfg.color });
@@ -51,7 +64,7 @@ function setBadge(tabId, kind) {
     .catch(() => {});
 }
 
-async function ensureRelayConnection() {
+export async function ensureRelayConnection() {
   if (relayWs && relayWs.readyState === WebSocket.OPEN) return;
   if (relayConnectPromise) return await relayConnectPromise;
 
@@ -116,7 +129,7 @@ async function ensureRelayConnection() {
   }
 }
 
-function onRelayClosed(reason) {
+export function onRelayClosed(reason) {
   relayWs = null;
   for (const [id, p] of pending.entries()) {
     pending.delete(id);
@@ -136,7 +149,7 @@ function onRelayClosed(reason) {
   childSessionToTab.clear();
 }
 
-function sendToRelay(payload) {
+export function sendToRelay(payload) {
   const ws = relayWs;
   if (!ws || ws.readyState !== WebSocket.OPEN) {
     throw new Error("Relay not connected");
@@ -144,7 +157,7 @@ function sendToRelay(payload) {
   ws.send(JSON.stringify(payload));
 }
 
-async function maybeOpenHelpOnce() {
+export async function maybeOpenHelpOnce() {
   try {
     const stored = await chrome.storage.local.get(["helpOnErrorShown"]);
     if (stored.helpOnErrorShown === true) return;
@@ -168,7 +181,7 @@ function _requestFromRelay(command) {
   });
 }
 
-async function onRelayMessage(text) {
+export async function onRelayMessage(text) {
   /** @type {any} */
   let msg;
   try {
@@ -212,7 +225,7 @@ async function onRelayMessage(text) {
   }
 }
 
-function getTabBySessionId(sessionId) {
+export function getTabBySessionId(sessionId) {
   const direct = tabBySession.get(sessionId);
   if (direct) return { tabId: direct, kind: "main" };
   const child = childSessionToTab.get(sessionId);
@@ -220,14 +233,14 @@ function getTabBySessionId(sessionId) {
   return null;
 }
 
-function getTabByTargetId(targetId) {
+export function getTabByTargetId(targetId) {
   for (const [tabId, tab] of tabs.entries()) {
     if (tab.targetId === targetId) return tabId;
   }
   return null;
 }
 
-async function attachTab(tabId, opts = {}) {
+export async function attachTab(tabId, opts = {}) {
   const debuggee = { tabId };
   await chrome.debugger.attach(debuggee, "1.3");
   await chrome.debugger.sendCommand(debuggee, "Page.enable").catch(() => {});
@@ -269,7 +282,7 @@ async function attachTab(tabId, opts = {}) {
   return { sessionId, targetId };
 }
 
-async function detachTab(tabId, reason) {
+export async function detachTab(tabId, reason) {
   const tab = tabs.get(tabId);
   if (tab?.sessionId && tab?.targetId) {
     try {
@@ -305,7 +318,7 @@ async function detachTab(tabId, reason) {
   });
 }
 
-async function connectOrToggleForActiveTab() {
+export async function connectOrToggleForActiveTab() {
   const [active] = await chrome.tabs.query({
     active: true,
     currentWindow: true,
@@ -343,7 +356,7 @@ async function connectOrToggleForActiveTab() {
   }
 }
 
-async function handleForwardCdpCommand(msg) {
+export async function handleForwardCdpCommand(msg) {
   const method = String(msg?.params?.method || "").trim();
   const params = msg?.params?.params || undefined;
   const sessionId =
@@ -431,7 +444,7 @@ async function handleForwardCdpCommand(msg) {
   return await chrome.debugger.sendCommand(debuggerSession, method, params);
 }
 
-function onDebuggerEvent(source, method, params) {
+export function onDebuggerEvent(source, method, params) {
   const tabId = source.tabId;
   if (!tabId) return;
   const tab = tabs.get(tabId);
@@ -459,7 +472,7 @@ function onDebuggerEvent(source, method, params) {
   }
 }
 
-function onDebuggerDetach(source, reason) {
+export function onDebuggerDetach(source, reason) {
   const tabId = source.tabId;
   if (!tabId) return;
   if (!tabs.has(tabId)) return;

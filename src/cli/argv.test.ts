@@ -183,6 +183,12 @@ describe("argv helpers", () => {
     });
     expect(directArgv).toEqual(["node", "milady", "config"]);
 
+    const directMiladyAiArgv = buildParseArgv({
+      programName: "milady",
+      rawArgs: ["miladyai", "config"],
+    });
+    expect(directMiladyAiArgv).toEqual(["node", "milady", "config"]);
+
     const bunArgv = buildParseArgv({
       programName: "milady",
       rawArgs: ["bun", "src/entry.ts", "config"],

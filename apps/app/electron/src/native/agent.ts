@@ -14,7 +14,7 @@
  */
 
 import path from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { app, type BrowserWindow, ipcMain } from "electron";
 import type { IpcValue } from "./ipc-types";
 
@@ -23,10 +23,55 @@ import type { IpcValue } from "./ipc-types";
  * tsc converts `import()` to `require()` when targeting CommonJS, but the
  * milady dist bundles are ESM.  This wrapper keeps a real `import()` call
  * at runtime.
+ *
+ * For ASAR-packed files (Electron packaged app), ESM import() doesn't work
+ * because Node's ESM loader can't read from ASAR archives.  In that case
+ * we fall back to require() with the filesystem path.
  */
-const dynamicImport = new Function("specifier", "return import(specifier)") as (
+const dynamicImport = async (
   specifier: string,
-) => Promise<Record<string, unknown>>;
+): Promise<Record<string, unknown>> => {
+  // Convert file:// URLs to filesystem paths for require() fallback
+  const fsPath = specifier.startsWith("file://")
+    ? fileURLToPath(specifier)
+    : specifier;
+
+  // If the path is inside an ASAR archive, require() is the only option.
+  // Electron patches require() to handle ASAR reads, but the ESM loader
+  // does NOT support ASAR.
+  const isAsar = fsPath.includes(".asar");
+
+  if (isAsar) {
+    console.log(`[Agent] Loading from ASAR via require(): ${fsPath}`);
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      return require(fsPath) as Record<string, unknown>;
+    } catch (requireErr) {
+      console.error(
+        "[Agent] ASAR require() failed:",
+        requireErr instanceof Error ? requireErr.message : requireErr,
+      );
+      throw requireErr;
+    }
+  }
+
+  // Primary path: use new Function to get a real async import() at runtime,
+  // bypassing tsc's CJS downgrade.
+  try {
+    const importer = new Function("s", "return import(s)") as (
+      s: string,
+    ) => Promise<Record<string, unknown>>;
+    return await importer(specifier);
+  } catch (primaryErr) {
+    // If the primary path failed, try require() with filesystem path
+    console.warn(
+      "[Agent] ESM dynamic import failed, falling back to require():",
+      primaryErr instanceof Error ? primaryErr.message : primaryErr,
+    );
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return require(fsPath) as Record<string, unknown>;
+  }
+};
 
 // ---------------------------------------------------------------------------
 // Types
@@ -67,6 +112,36 @@ export class AgentManager {
       return this.status;
     }
 
+    if (this.apiClose) {
+      try {
+        await this.apiClose();
+      } catch (err) {
+        console.warn(
+          "[Agent] Failed to close stale API server before restart:",
+          err instanceof Error ? err.message : err,
+        );
+      } finally {
+        this.apiClose = null;
+        this.status.port = null;
+      }
+    }
+    if (
+      this.runtime &&
+      typeof (this.runtime as { stop?: () => Promise<void> }).stop ===
+        "function"
+    ) {
+      try {
+        await (this.runtime as { stop: () => Promise<void> }).stop();
+      } catch (err) {
+        console.warn(
+          "[Agent] Failed to stop stale runtime before restart:",
+          err instanceof Error ? err.message : err,
+        );
+      } finally {
+        this.runtime = null;
+      }
+    }
+
     this.status.state = "starting";
     this.status.error = null;
     this.sendToRenderer("agent:status", this.status);
@@ -74,9 +149,14 @@ export class AgentManager {
     try {
       // Resolve the milady dist.
       // In dev: __dirname = electron/build/src/native/ → 6 levels up to milady root/dist
-      // In packaged app: extraResources copies dist/ to Resources/milady-dist/
+      // In packaged app: dist is unpacked to app.asar.unpacked/milady-dist
+      // (asarUnpack in electron-builder.config.json ensures milady-dist is
+      // extracted outside the ASAR so ESM import() works normally.)
       const miladyDist = app.isPackaged
-        ? path.join(process.resourcesPath, "milady-dist")
+        ? path.join(
+            app.getAppPath().replace("app.asar", "app.asar.unpacked"),
+            "milady-dist",
+          )
         : path.resolve(__dirname, "../../../../../../dist");
 
       console.log(
@@ -249,6 +329,34 @@ export class AgentManager {
       return this.status;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
+      if (this.apiClose) {
+        try {
+          await this.apiClose();
+        } catch (closeErr) {
+          console.warn(
+            "[Agent] Failed to close API server after startup failure:",
+            closeErr instanceof Error ? closeErr.message : closeErr,
+          );
+        } finally {
+          this.apiClose = null;
+          this.status.port = null;
+        }
+      }
+      if (
+        this.runtime &&
+        typeof (this.runtime as { stop?: () => Promise<void> }).stop ===
+          "function"
+      ) {
+        try {
+          await (this.runtime as { stop: () => Promise<void> }).stop();
+        } catch (stopErr) {
+          console.warn(
+            "[Agent] Failed to stop runtime after startup failure:",
+            stopErr instanceof Error ? stopErr.message : stopErr,
+          );
+        }
+      }
+      this.runtime = null;
       this.status = {
         state: "error",
         agentName: null,

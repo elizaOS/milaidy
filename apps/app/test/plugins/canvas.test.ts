@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 /**
  * Tests for @milady/capacitor-canvas — lifecycle, layers, error paths.
  *

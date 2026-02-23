@@ -153,10 +153,13 @@ describe("Hyperscape E2E Integration", () => {
   describe("App Discovery", () => {
     test("lists available apps including Hyperscape", async () => {
       const apps = await appManager.listAvailable(pluginManager);
+      const hyperscape = apps.find(
+        (app) => app.name === "@elizaos/app-hyperscape",
+      );
 
-      expect(apps).toHaveLength(1);
-      expect(apps[0].name).toBe("@elizaos/app-hyperscape");
-      expect(apps[0].displayName).toBe("Hyperscape");
+      expect(apps.length).toBeGreaterThan(0);
+      expect(hyperscape).toBeDefined();
+      expect(hyperscape?.displayName).toBe("Hyperscape");
     });
 
     test("filters out non-app plugins", async () => {

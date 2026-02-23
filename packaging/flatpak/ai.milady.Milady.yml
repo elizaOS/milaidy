@@ -48,7 +48,7 @@ modules:
         npm_config_nodedir: /app
     build-commands:
       # Install milady globally
-      - npm install -g milady --prefix=/app
+      - npm install -g miladyai --prefix=/app
 
       # Create wrapper script
       - |

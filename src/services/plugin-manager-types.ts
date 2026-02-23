@@ -18,6 +18,16 @@ export interface RegistryPluginViewerInfo {
   sandbox?: string;
 }
 
+export interface RegistryPluginAppMeta {
+  displayName?: string;
+  category?: string;
+  launchType?: string;
+  launchUrl?: string | null;
+  icon?: string | null;
+  capabilities?: string[];
+  viewer?: RegistryPluginViewerInfo;
+}
+
 export interface RegistryPluginInfo {
   name: string;
   gitRepo: string;
@@ -31,6 +41,8 @@ export interface RegistryPluginInfo {
   launchType?: string;
   launchUrl?: string | null;
   viewer?: RegistryPluginViewerInfo;
+  kind?: string;
+  appMeta?: RegistryPluginAppMeta;
   npm: RegistryPluginNpmInfo;
   supports: RegistryVersionSupport;
   // App-specific metadata

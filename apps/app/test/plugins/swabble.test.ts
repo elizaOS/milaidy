@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 /**
  * Tests for @milady/capacitor-swabble — wake word, speech, audio devices, permissions.
  */
@@ -9,6 +10,31 @@ describe("@milady/capacitor-swabble", () => {
 
   beforeEach(() => {
     vi.restoreAllMocks();
+    // jsdom doesn't fully provide mediaDevices or permissions — stub them
+    if (!navigator.mediaDevices) {
+      Object.defineProperty(navigator, "mediaDevices", {
+        value: {},
+        writable: true,
+        configurable: true,
+      });
+    }
+    Object.defineProperty(navigator.mediaDevices, "getUserMedia", {
+      value: vi.fn(),
+      writable: true,
+      configurable: true,
+    });
+    Object.defineProperty(navigator.mediaDevices, "enumerateDevices", {
+      value: vi.fn().mockResolvedValue([]),
+      writable: true,
+      configurable: true,
+    });
+    if (!navigator.permissions) {
+      Object.defineProperty(navigator, "permissions", {
+        value: { query: vi.fn().mockResolvedValue({ state: "prompt" }) },
+        writable: true,
+        configurable: true,
+      });
+    }
     sw = new SwabbleWeb();
   });
 

@@ -396,6 +396,80 @@ describe("Token auth gate (MILADY_API_TOKEN set)", () => {
     // shell policy may still deny execution, but auth gate must pass
     expect(status).not.toBe(401);
   });
+
+  it("protects sensitive config mutation surfaces with token auth", async () => {
+    const auth = { headers: { Authorization: `Bearer ${TEST_TOKEN}` } };
+
+    const mutationRequests: Array<{
+      method: string;
+      path: string;
+      body?: Record<string, unknown>;
+      expectedWithAuth: number;
+    }> = [
+      {
+        method: "PUT",
+        path: "/api/config",
+        body: { features: { browser: true } },
+        expectedWithAuth: 200,
+      },
+      {
+        method: "PUT",
+        path: "/api/secrets",
+        body: { secrets: {} },
+        expectedWithAuth: 200,
+      },
+      {
+        method: "POST",
+        path: "/api/connectors",
+        body: { name: "auth-gate-test", config: { enabled: true } },
+        expectedWithAuth: 200,
+      },
+      {
+        method: "DELETE",
+        path: "/api/connectors/auth-gate-test",
+        expectedWithAuth: 200,
+      },
+      {
+        method: "POST",
+        path: "/api/mcp/config/server",
+        body: {
+          name: "auth-gate-mcp",
+          config: { type: "stdio", command: "node", args: ["--version"] },
+        },
+        expectedWithAuth: 200,
+      },
+      {
+        method: "PUT",
+        path: "/api/mcp/config",
+        body: { servers: {} },
+        expectedWithAuth: 200,
+      },
+      {
+        method: "DELETE",
+        path: "/api/mcp/config/server/auth-gate-mcp",
+        expectedWithAuth: 200,
+      },
+    ];
+
+    for (const testCase of mutationRequests) {
+      const { status: noAuthStatus } = await req(
+        port,
+        testCase.method,
+        testCase.path,
+        testCase.body,
+      );
+      expect(noAuthStatus).toBe(401);
+
+      const { status: withAuthStatus } = await req(
+        port,
+        testCase.method,
+        testCase.path,
+        testCase.body,
+        auth,
+      );
+      expect(withAuthStatus).toBe(testCase.expectedWithAuth);
+    }
+  });
 });
 
 // ═══════════════════════════════════════════════════════════════════════════

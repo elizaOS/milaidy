@@ -33,6 +33,7 @@ export interface AppsRouteContext
 }
 
 function isNonAppRegistryPlugin(plugin: RegistryPluginInfo): boolean {
+  if (plugin.kind === "app") return false;
   const name = plugin.name.toLowerCase();
   const npmPackage = plugin.npm.package.toLowerCase();
   return !name.includes("/app-") && !npmPackage.includes("/app-");

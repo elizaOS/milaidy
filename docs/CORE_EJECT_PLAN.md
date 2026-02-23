@@ -4,13 +4,13 @@
 
 `@elizaos/core` is consumed as an npm package (`"next"` tag, currently `2.0.0-alpha.10`). The package ships dist-only (110K line bundle, no source). This means:
 
-1. **milaidy cannot patch core bugs** without waiting for upstream releases
-2. **milaidy cannot experiment** with runtime/memory/service changes
+1. **milady cannot patch core bugs** without waiting for upstream releases
+2. **milady cannot experiment** with runtime/memory/service changes
 3. **The agent cannot modify its own framework** — a key goal for self-improving agents
 
 ## Solution: Core Source Eject
 
-Similar to the plugin eject system (PR #300), add the ability to "eject" `@elizaos/core` (and potentially other `@elizaos/*` packages) from npm into a local source checkout that milaidy builds and loads instead.
+Similar to the plugin eject system (PR #300), add the ability to "eject" `@elizaos/core` (and potentially other `@elizaos/*` packages) from npm into a local source checkout that milady builds and loads instead.
 
 ## Architecture
 
@@ -44,7 +44,7 @@ Current plugin loading priority in `resolvePlugins()`:
 1. Ejected plugins (`~/.milady/plugins/ejected/`)
 2. Official npm (with repair logic)
 3. User-installed (`~/.milady/plugins/installed/`)
-4. `@milaidy/plugin-*` local
+4. `@milady/plugin-*` local
 5. npm fallback
 
 For core, we need a **separate mechanism** — core isn't a "plugin", it's a dependency imported everywhere via `import { ... } from "@elizaos/core"`. Options:
@@ -60,7 +60,7 @@ Add a `paths` entry in `tsconfig.json` at build time:
   }
 }
 ```
-Plus configure the bundler (`tsdown`) to resolve this alias. At runtime, the built milaidy bundle would import from the ejected core's dist instead of `node_modules`.
+Plus configure the bundler (`tsdown`) to resolve this alias. At runtime, the built milady bundle would import from the ejected core's dist instead of `node_modules`.
 
 #### Option B: npm/bun Link
 Run `bun link` or `npm link` to symlink the ejected core's built output into `node_modules/@elizaos/core`. Simpler but fragile (survives `bun install` poorly).
@@ -112,14 +112,14 @@ When ejected core exists:
 - `scripts/run-node.mjs` (the build orchestrator) checks for `~/.milady/core/eliza/packages/core/dist/`
 - If present, generates a `tsconfig.eject-overrides.json` that extends the main `tsconfig.json` with path mappings
 - `tsdown` config reads from this override
-- The built milaidy bundle imports from ejected core instead of npm
+- The built milady bundle imports from ejected core instead of npm
 
 When not ejected:
 - No override file exists, normal npm resolution
 
 #### 3. Agent Actions
 
-Add to `src/runtime/milaidy-plugin.ts`:
+Add to `src/runtime/milady-plugin.ts`:
 - `EJECT_CORE` — Triggers `ejectCore()` 
 - `SYNC_CORE` — Triggers `syncCore()`
 - `REINJECT_CORE` — Triggers `reinjectCore()`
@@ -151,10 +151,10 @@ The eliza monorepo uses:
 
 ### Edge Cases
 
-- **Version drift**: Ejected core is on `develop` (bleeding edge) while milaidy expects `2.0.0-alpha.10`. Type mismatches possible. Mitigation: `syncCore()` warns about breaking changes, user can pin to a tag.
+- **Version drift**: Ejected core is on `develop` (bleeding edge) while milady expects `2.0.0-alpha.10`. Type mismatches possible. Mitigation: `syncCore()` warns about breaking changes, user can pin to a tag.
 - **Monorepo size**: Full clone is ~200MB+. Use `--depth 50` for shallow clone. `syncCore()` may need to unshallow.
 - **Build failures**: Same pattern as plugin eject — `ejectCore()` cleans up on build failure, `syncCore()` returns structured error.
-- **Multiple @elizaos packages**: If milaidy also imports `@elizaos/plugin-bootstrap` etc., those resolve from the monorepo too. Path mappings should cover all used `@elizaos/*` packages.
+- **Multiple @elizaos packages**: If milady also imports `@elizaos/plugin-bootstrap` etc., those resolve from the monorepo too. Path mappings should cover all used `@elizaos/*` packages.
 
 ### Scope for v1
 
@@ -184,7 +184,7 @@ The eliza monorepo uses:
 - `docs/CORE_EJECT.md` — Dev docs (brief, not a stale plan)
 
 **Modify:**
-- `src/runtime/milaidy-plugin.ts` — Register 4 new actions
+- `src/runtime/milady-plugin.ts` — Register 4 new actions
 - `src/runtime/eliza.ts` — Startup detection of ejected core
 - `src/api/server.ts` — `GET /api/core/status` endpoint
 - `tsdown.config.ts` — Conditional path alias when ejected core detected

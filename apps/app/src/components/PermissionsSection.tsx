@@ -109,6 +109,13 @@ const CAPABILITIES: CapabilityDef[] = [
     description: "Screen capture and visual analysis",
     requiredPermissions: ["screen-recording"],
   },
+  {
+    id: "coding-agent",
+    label: "Coding Agent Swarms",
+    description:
+      "Orchestrate CLI coding agents (Claude Code, Gemini, Codex, Aider)",
+    requiredPermissions: [],
+  },
 ];
 
 const PERMISSION_BADGE_LABELS: Record<

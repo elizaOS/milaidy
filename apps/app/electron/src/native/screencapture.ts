@@ -8,7 +8,14 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { IpcMainInvokeEvent } from "electron";
-import { app, BrowserWindow, desktopCapturer, ipcMain, screen } from "electron";
+import {
+  app,
+  BrowserWindow,
+  desktopCapturer,
+  ipcMain,
+  net,
+  screen,
+} from "electron";
 import type { IpcValue } from "./ipc-types";
 
 // ── Screenshot types ────────────────────────────────────────────────────────
@@ -86,6 +93,10 @@ export class ScreenCaptureManager {
     duration: 0,
     fileSize: 0,
   };
+  private _frameCaptureTimer: ReturnType<typeof setInterval> | null = null;
+  private _frameCaptureActive = false;
+  private _frameCaptureSkipping = false;
+  private _frameCaptureWindow: BrowserWindow | null = null;
 
   setMainWindow(window: BrowserWindow): void {
     this.mainWindow = window;
@@ -490,9 +501,144 @@ export class ScreenCaptureManager {
   }
 
   /**
+   * Start capturing frames and POSTing them as JPEG to the stream endpoint.
+   *
+   * If `gameUrl` is provided, opens a dedicated offscreen BrowserWindow that
+   * loads only the game — no app chrome, sidebar, or tabs. Uses the `paint`
+   * event (correct API for offscreen rendering on macOS) instead of capturePage.
+   * Falls back to capturing the main window if no gameUrl.
+   */
+  async startFrameCapture(options?: {
+    fps?: number;
+    quality?: number;
+    apiBase?: string;
+    endpoint?: string;
+    gameUrl?: string;
+  }): Promise<void> {
+    if (this._frameCaptureActive) return;
+
+    const fps = options?.fps ?? 10;
+    const quality = options?.quality ?? 70;
+    const apiBase = options?.apiBase ?? "http://localhost:2138";
+    const endpointPath = options?.endpoint ?? "/api/stream/frame";
+    const endpoint = `${apiBase}${endpointPath}`;
+    const interval = Math.round(1000 / fps);
+
+    this._frameCaptureActive = true;
+    this._frameCaptureSkipping = false;
+
+    if (options?.gameUrl) {
+      // Offscreen window: use the `paint` event for reliable frame capture
+      console.log(
+        `[ScreenCapture] Creating offscreen game window for ${options.gameUrl}`,
+      );
+      this._frameCaptureWindow = new BrowserWindow({
+        width: 1280,
+        height: 720,
+        show: false,
+        webPreferences: {
+          nodeIntegration: false,
+          contextIsolation: true,
+          offscreen: true,
+        },
+      });
+
+      this._frameCaptureWindow.webContents.setFrameRate(fps);
+
+      // Use the `paint` event — the correct API for offscreen rendering.
+      // capturePage() doesn't work on offscreen windows on macOS.
+      let framesSent = 0;
+      this._frameCaptureWindow.webContents.on(
+        "paint",
+        (_event, _dirty, image) => {
+          if (!this._frameCaptureActive) return;
+          if (this._frameCaptureSkipping) return;
+          this._frameCaptureSkipping = true;
+
+          try {
+            const jpeg = image.toJPEG(quality);
+            if (jpeg.length > 100) {
+              // Skip tiny/blank frames
+              const req = net.request({ method: "POST", url: endpoint });
+              req.setHeader("Content-Type", "image/jpeg");
+              req.on("error", () => {}); // Ignore network errors
+              req.end(jpeg);
+              framesSent++;
+              if (framesSent % 100 === 0) {
+                console.log(
+                  `[ScreenCapture] Sent ${framesSent} frames (paint event)`,
+                );
+              }
+            }
+          } catch {
+            // Skip frame on error
+          } finally {
+            this._frameCaptureSkipping = false;
+          }
+        },
+      );
+
+      await this._frameCaptureWindow.loadURL(options.gameUrl);
+      console.log(
+        `[ScreenCapture] Offscreen game window loaded, paint events active at ${fps}fps`,
+      );
+    } else {
+      // Main window: use capturePage() with timer
+      if (!this.mainWindow) throw new Error("Main window not available");
+      const captureTarget = this.mainWindow;
+
+      console.log(
+        `[ScreenCapture] Starting frame capture at ${fps}fps → ${endpoint}`,
+      );
+
+      this._frameCaptureTimer = setInterval(async () => {
+        if (this._frameCaptureSkipping) return;
+        if (!this._frameCaptureActive || captureTarget.isDestroyed()) {
+          this.stopFrameCapture();
+          return;
+        }
+
+        this._frameCaptureSkipping = true;
+        try {
+          const image = await captureTarget.webContents.capturePage();
+          const jpeg = image.toJPEG(quality);
+
+          const req = net.request({ method: "POST", url: endpoint });
+          req.setHeader("Content-Type", "image/jpeg");
+          req.on("error", () => {});
+          req.end(jpeg);
+        } catch {
+          // Skip frame on error
+        } finally {
+          this._frameCaptureSkipping = false;
+        }
+      }, interval);
+    }
+  }
+
+  stopFrameCapture(): void {
+    if (this._frameCaptureTimer) {
+      clearInterval(this._frameCaptureTimer);
+      this._frameCaptureTimer = null;
+    }
+    if (this._frameCaptureWindow && !this._frameCaptureWindow.isDestroyed()) {
+      this._frameCaptureWindow.close();
+      this._frameCaptureWindow = null;
+    }
+    this._frameCaptureActive = false;
+    this._frameCaptureSkipping = false;
+    console.log("[ScreenCapture] Frame capture stopped");
+  }
+
+  isFrameCaptureActive(): boolean {
+    return this._frameCaptureActive;
+  }
+
+  /**
    * Clean up all resources
    */
   dispose(): void {
+    this.stopFrameCapture();
     if (this.recordingWindow && !this.recordingWindow.isDestroyed()) {
       this.recordingWindow.webContents
         .executeJavaScript(`
@@ -563,5 +709,25 @@ export function registerScreenCaptureIPC(): void {
   );
   ipcMain.handle("screencapture:getRecordingState", async () =>
     m.getRecordingState(),
+  );
+
+  ipcMain.handle(
+    "screencapture:startFrameCapture",
+    async (
+      _e: IpcMainInvokeEvent,
+      options?: {
+        fps?: number;
+        quality?: number;
+        apiBase?: string;
+        endpoint?: string;
+        gameUrl?: string;
+      },
+    ) => m.startFrameCapture(options),
+  );
+  ipcMain.handle("screencapture:stopFrameCapture", async () =>
+    m.stopFrameCapture(),
+  );
+  ipcMain.handle("screencapture:isFrameCaptureActive", async () =>
+    m.isFrameCaptureActive(),
   );
 }

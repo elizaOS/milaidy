@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 /**
  * Tests for @milady/capacitor-screencapture — feature detection, state, errors, events.
  */
@@ -9,6 +10,23 @@ describe("@milady/capacitor-screencapture", () => {
 
   beforeEach(() => {
     vi.restoreAllMocks();
+    // jsdom doesn't provide getDisplayMedia; stub it for feature detection
+    if (!navigator.mediaDevices) {
+      Object.defineProperty(navigator, "mediaDevices", {
+        value: {},
+        writable: true,
+        configurable: true,
+      });
+    }
+    Object.defineProperty(navigator.mediaDevices, "getDisplayMedia", {
+      value: vi.fn(),
+      writable: true,
+      configurable: true,
+    });
+    // Stub AudioContext for system_audio feature detection
+    if (typeof globalThis.AudioContext === "undefined") {
+      (globalThis as Record<string, unknown>).AudioContext = class { };
+    }
     sc = new ScreenCaptureWeb();
   });
 

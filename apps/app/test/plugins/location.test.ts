@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 /**
  * Tests for @milady/capacitor-location — geolocation, watches, error codes, permissions.
  */
@@ -9,6 +10,26 @@ describe("@milady/capacitor-location", () => {
 
   beforeEach(() => {
     vi.restoreAllMocks();
+
+    // jsdom doesn't provide navigator.geolocation — stub it for spyOn
+    if (!navigator.geolocation) {
+      Object.defineProperty(navigator, "geolocation", {
+        value: {
+          getCurrentPosition: vi.fn(),
+          watchPosition: vi.fn(() => 0),
+          clearWatch: vi.fn(),
+        },
+        writable: true,
+        configurable: true,
+      });
+    }
+    if (!navigator.permissions) {
+      Object.defineProperty(navigator, "permissions", {
+        value: { query: vi.fn().mockResolvedValue({ state: "prompt" }) },
+        writable: true,
+        configurable: true,
+      });
+    }
     loc = new LocationWeb();
   });
 

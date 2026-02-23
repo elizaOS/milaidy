@@ -418,6 +418,23 @@ export class ElectronCapacitorApp {
       }, 400);
     });
 
+    // Forward renderer console messages to stdout for debugging
+    this.MainWindow.webContents.on(
+      "console-message",
+      (_event, level, message, _line, _sourceId) => {
+        if (
+          message.includes("[LiveKit]") ||
+          message.includes("[App]") ||
+          message.includes("[GameView]") ||
+          message.includes("[WHIP]") ||
+          level >= 2
+        ) {
+          const prefix = level >= 2 ? "[renderer:ERROR]" : "[renderer]";
+          console.log(`${prefix} ${message}`);
+        }
+      },
+    );
+
     // ── Context menu ──────────────────────────────────────────────────
     this.MainWindow.webContents.on("context-menu", (_event, params) => {
       const menuItems: MenuItemConstructorOptions[] = [];
@@ -544,6 +561,30 @@ export class ElectronCapacitorApp {
 // so the policy is intentionally permissive to support third-party game clients.
 export function setupContentSecurityPolicy(customScheme: string): void {
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    // For sub-frame requests (iframes), strip frame-ancestors so embedded
+    // apps like Privy auth can load inside our GameView iframe.
+    // This is safe because Electron windows are native containers and
+    // aren't vulnerable to clickjacking via frame-ancestors.
+    if (details.resourceType === "subFrame") {
+      const headers = { ...details.responseHeaders };
+      for (const key of Object.keys(headers)) {
+        const lk = key.toLowerCase();
+        if (
+          lk === "content-security-policy" ||
+          lk === "content-security-policy-report-only"
+        ) {
+          const values = headers[key];
+          if (Array.isArray(values)) {
+            headers[key] = values.map((v) =>
+              v.replace(/frame-ancestors\s+[^;]+(;|$)/gi, ""),
+            );
+          }
+        }
+      }
+      callback({ responseHeaders: headers });
+      return;
+    }
+
     const base = [
       `default-src 'self' ${customScheme}://* https://* http://localhost:* http://127.0.0.1:*`,
       // Allow scripts from localhost game servers, plus eval/wasm for WebAssembly

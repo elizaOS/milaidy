@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import React, { useEffect } from "react";
 import TestRenderer, { act } from "react-test-renderer";
 import { beforeEach, describe, expect, it, vi } from "vitest";

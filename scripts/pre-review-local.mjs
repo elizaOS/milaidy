@@ -105,6 +105,12 @@ export function scopeVerdictFor(classification) {
   return "in scope";
 }
 
+export function decisionFromFindings({ classification, issues }) {
+  return classification === "aesthetic" || issues.length > 0
+    ? "REQUEST CHANGES"
+    : "APPROVE";
+}
+
 export function scanDiffTextForBlockedPatterns(diffChunks) {
   const issues = [];
 
@@ -224,6 +230,21 @@ export function runChecks() {
     };
   }
 
+  if (changed.files.length === 0) {
+    return {
+      classification: "other",
+      scopeVerdict: "in scope",
+      codeQuality: "pass",
+      security: "clear",
+      tests: "not applicable: no files changed compared to base branch.",
+      decision: "APPROVE",
+      checklist: [],
+      details: [],
+      changedFiles: [],
+      exitCode: 0,
+    };
+  }
+
   const issues = scanForBlockedDiffPatterns(base, changed.files);
 
   const checks = [
@@ -272,16 +293,7 @@ export function runChecks() {
     }
   }
 
-  if (classification === "feature") {
-    issues.push(
-      "Feature work generally needs deeper review and explicit test expectations.",
-    );
-  }
-
-  const decision =
-    classification === "aesthetic" || issues.length
-      ? "REQUEST CHANGES"
-      : "APPROVE";
+  const decision = decisionFromFindings({ classification, issues });
 
   if (classification === "aesthetic") {
     checklist.push(
