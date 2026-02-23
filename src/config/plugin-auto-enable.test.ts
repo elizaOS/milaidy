@@ -236,6 +236,18 @@ describe("applyPluginAutoEnable — env vars", () => {
     expect(changes.some((c) => c.includes("REPOPROMPT_CLI_PATH"))).toBe(true);
   });
 
+  it("enables claude code workbench plugin when CLAUDE_CODE_WORKBENCH_ENABLED is set", () => {
+    const params = makeParams({
+      env: { CLAUDE_CODE_WORKBENCH_ENABLED: "1" },
+    });
+    const { config, changes } = applyPluginAutoEnable(params);
+
+    expect(config.plugins?.allow).toContain("claude-code-workbench");
+    expect(
+      changes.some((c) => c.includes("CLAUDE_CODE_WORKBENCH_ENABLED")),
+    ).toBe(true);
+  });
+
   it("enables pi-ai plugin when MILAIDY_USE_PI_AI is set", () => {
     const params = makeParams({
       env: { MILAIDY_USE_PI_AI: "1" },
@@ -368,6 +380,18 @@ describe("applyPluginAutoEnable — features", () => {
 
     expect(config.plugins?.allow).toContain("repoprompt");
     expect(changes.some((c) => c.includes("feature: repoprompt"))).toBe(true);
+  });
+
+  it("enables claude code workbench plugin when feature flag is enabled", () => {
+    const params = makeParams({
+      config: { features: { claudeCodeWorkbench: true } },
+    });
+    const { config, changes } = applyPluginAutoEnable(params);
+
+    expect(config.plugins?.allow).toContain("claude-code-workbench");
+    expect(
+      changes.some((c) => c.includes("feature: claudeCodeWorkbench")),
+    ).toBe(true);
   });
 
   it("enables plugin when feature is an object with enabled not false", () => {
