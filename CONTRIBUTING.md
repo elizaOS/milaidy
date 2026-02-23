@@ -74,7 +74,7 @@ If you are a coding agent submitting work:
 - **TypeScript strict mode.** No `any` unless you explain why.
 - **Biome lint/format.** Run `bun run check` before submitting.
 - **Tests required.** Bug fixes need regression tests. Features need unit tests.
-- **Coverage floor:** 25% lines/functions/statements, 15% branches.
+- **Coverage floor:** 25% lines/functions/statements, 15% branches (enforced in `vitest.config.ts`).
 - **Files under ~500 LOC.** Split when it improves clarity.
 - **No secrets.** No real credentials, phone numbers, or live config in code.
 - **Minimal dependencies.** Don't add packages unless `src/` directly imports them.

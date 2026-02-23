@@ -17,6 +17,10 @@ const pluginSpecs = [
     name: "@milaidy/plugin-claude-code-workbench",
     candidates: [path.join(root, "packages", "plugin-claude-code-workbench")],
   },
+  {
+    name: "@milaidy/plugin-coding-agent",
+    candidates: [path.join(root, "packages", "plugin-coding-agent")],
+  },
 ];
 
 const buildTargets = [];

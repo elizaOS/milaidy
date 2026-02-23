@@ -22,4 +22,33 @@ describe("connector map parity", () => {
       expect(CHANNEL_PLUGIN_MAP[connectorId]).toBe(pluginName);
     }
   });
+
+  it("keeps runtime-to-auto-enable package mappings aligned (reverse)", () => {
+    for (const [connectorId, pluginName] of Object.entries(
+      CHANNEL_PLUGIN_MAP,
+    )) {
+      expect(CONNECTOR_PLUGINS[connectorId]).toBe(pluginName);
+    }
+  });
+
+  it("has no duplicate IDs in the CONNECTOR_IDS schema array", () => {
+    const unique = new Set(CONNECTOR_IDS);
+    expect(unique.size).toBe(CONNECTOR_IDS.length);
+  });
+
+  it("has identical count across all three maps", () => {
+    expect(CONNECTOR_IDS).toHaveLength(17);
+    expect(Object.keys(CONNECTOR_PLUGINS)).toHaveLength(17);
+    expect(Object.keys(CHANNEL_PLUGIN_MAP)).toHaveLength(17);
+  });
+
+  it("uses valid package name prefixes for all plugin mappings", () => {
+    const validPrefix = /^@(elizaos|milady)\//;
+    for (const pkg of Object.values(CONNECTOR_PLUGINS)) {
+      expect(pkg).toMatch(validPrefix);
+    }
+    for (const pkg of Object.values(CHANNEL_PLUGIN_MAP)) {
+      expect(pkg).toMatch(validPrefix);
+    }
+  });
 });

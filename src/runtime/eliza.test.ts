@@ -13,6 +13,7 @@ import { logger, type Plugin } from "@elizaos/core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { findPluginExport } from "../cli/plugins-cli";
 import type { MiladyConfig } from "../config/config";
+import { CONNECTOR_IDS } from "../config/schema";
 import {
   applyCloudConfigToEnv,
   applyConnectorSecretsToEnv,
@@ -20,6 +21,7 @@ import {
   applyX402ConfigToEnv,
   autoResolveDiscordAppId,
   buildCharacterFromConfig,
+  CHANNEL_PLUGIN_MAP,
   CORE_PLUGINS,
   CUSTOM_PLUGINS_DIRNAME,
   collectPluginNames,
@@ -316,6 +318,39 @@ describe("collectPluginNames", () => {
     expect(names.has("@elizaos/plugin-x402")).toBe(false);
   });
 
+  it("normalizes x402 short IDs in plugins.allow", () => {
+    const config = {
+      plugins: { allow: ["x402"] },
+    } as unknown as MiladyConfig;
+    const names = collectPluginNames(config);
+
+    expect(names.has("@elizaos/plugin-x402")).toBe(true);
+  });
+
+  it("loads x402 plugin via features.x402 flag", () => {
+    const config = {
+      features: { x402: true },
+    } as unknown as MiladyConfig;
+    const names = collectPluginNames(config);
+
+    expect(names.has("@elizaos/plugin-x402")).toBe(true);
+  });
+
+  it("does not load x402 when features.x402.enabled is false", () => {
+    const config = {
+      features: { x402: { enabled: false } },
+    } as unknown as MiladyConfig;
+    const names = collectPluginNames(config);
+
+    expect(names.has("@elizaos/plugin-x402")).toBe(false);
+  });
+
+  it("does not load x402 plugin when x402 config section is absent", () => {
+    const names = collectPluginNames({} as MiladyConfig);
+
+    expect(names.has("@elizaos/plugin-x402")).toBe(false);
+  });
+
   it("normalizes short plugin IDs in plugins.allow", () => {
     const config = {
       plugins: { allow: ["discord"] },
@@ -542,6 +577,12 @@ describe("collectPluginNames", () => {
     } as unknown as MiladyConfig;
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-obsidian")).toBe(true);
+  });
+
+  it("CHANNEL_PLUGIN_MAP keys match CONNECTOR_IDS from schema", () => {
+    expect([...Object.keys(CHANNEL_PLUGIN_MAP)].sort()).toEqual(
+      [...CONNECTOR_IDS].sort(),
+    );
   });
 });
 
@@ -917,6 +958,47 @@ describe("applyX402ConfigToEnv", () => {
     expect(process.env.X402_ENABLED).toBeUndefined();
     expect(process.env.X402_API_KEY).toBeUndefined();
     expect(process.env.X402_BASE_URL).toBeUndefined();
+  });
+
+  it("does nothing when x402 config section is absent", () => {
+    applyX402ConfigToEnv({} as MiladyConfig);
+
+    expect(process.env.X402_ENABLED).toBeUndefined();
+    expect(process.env.X402_API_KEY).toBeUndefined();
+    expect(process.env.X402_BASE_URL).toBeUndefined();
+  });
+
+  it("sets only X402_ENABLED when apiKey and baseUrl are absent", () => {
+    const config = {
+      x402: { enabled: true },
+    } as unknown as MiladyConfig;
+
+    applyX402ConfigToEnv(config);
+
+    expect(process.env.X402_ENABLED).toBe("true");
+    expect(process.env.X402_API_KEY).toBeUndefined();
+    expect(process.env.X402_BASE_URL).toBeUndefined();
+  });
+
+  it("does not propagate privateKey to environment", () => {
+    const privateKeyValue = "0xdeadbeef1234567890abcdef";
+    const config = {
+      x402: {
+        enabled: true,
+        apiKey: "x402-key",
+        baseUrl: "https://x402.example",
+        privateKey: privateKeyValue,
+      },
+    } as unknown as MiladyConfig;
+
+    applyX402ConfigToEnv(config);
+
+    // Verify standard fields are set
+    expect(process.env.X402_ENABLED).toBe("true");
+    expect(process.env.X402_API_KEY).toBe("x402-key");
+    // Verify privateKey is NOT leaked into any env var
+    const envValues = Object.values(process.env);
+    expect(envValues).not.toContain(privateKeyValue);
   });
 });
 

@@ -15,6 +15,7 @@
       "filter": ["**/*.js", "package.json"]
     }
   ],
+  "asarUnpack": ["milady-dist/**/*"],
   "publish": {
     "provider": "github",
     "owner": "milady-ai",
