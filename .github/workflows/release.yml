@@ -195,7 +195,8 @@ jobs:
           set -euo pipefail
           rm -rf milady-dist
           mkdir -p milady-dist
-          # Copy only .js files and package.json (matching the old filter)
+
+          # 1. Copy only .js files and package.json (matching the old filter)
           find ../../../dist -name '*.js' | while read f; do
             rel="${f#../../../dist/}"
             mkdir -p "milady-dist/$(dirname "$rel")"
@@ -203,6 +204,40 @@ jobs:
           done
           echo '{"type":"module"}' > milady-dist/package.json
           echo "Copied $(find milady-dist -name '*.js' | wc -l | tr -d ' ') JS files to milady-dist/"
+
+          # 2. Scan dist for external npm imports and copy needed node_modules
+          #    so ESM import() from app.asar.unpacked can resolve them.
+          #    (ESM ignores NODE_PATH, so deps must be on the real filesystem.)
+          ext_deps=$(grep -rh 'from "' milady-dist/ 2>/dev/null \
+            | grep -v 'from "\.\/' \
+            | grep -v 'from "node:' \
+            | sed 's/.*from "//;s/".*//' \
+            | sed 's|/.*||' \
+            | sort -u)
+
+          # For scoped packages, keep the scope+name together
+          scoped_deps=$(grep -rh 'from "@' milady-dist/ 2>/dev/null \
+            | grep -v 'from "\.\/' \
+            | sed 's/.*from "//;s/".*//' \
+            | sed 's|\(/[^/]*\)/.*|\1|' \
+            | sort -u)
+
+          all_deps=$(echo -e "$ext_deps\n$scoped_deps" | sort -u | grep -v '^$')
+          echo "External deps found: $all_deps"
+
+          node_modules_root="../../../node_modules"
+          for dep in $all_deps; do
+            src="$node_modules_root/$dep"
+            if [ -d "$src" ]; then
+              dest="milady-dist/node_modules/$dep"
+              mkdir -p "$(dirname "$dest")"
+              cp -R "$src" "$dest"
+              echo "  Copied $dep"
+            else
+              echo "  WARN: $dep not found in node_modules (may be bundled inline)"
+            fi
+          done
+          echo "Done copying external deps"
         working-directory: apps/app/electron
 
       - name: Prepare platform electron-builder config
