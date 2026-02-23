@@ -522,8 +522,6 @@ export function AppsView() {
     "hyperscape",
     "hyperfy",
     "babylon",
-    "ltcg",
-    "lunchtable",
   ];
 
   const filtered = apps.filter((app) => {

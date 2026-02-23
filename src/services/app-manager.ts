@@ -459,8 +459,8 @@ export class AppManager {
     pluginManager: PluginManagerLike,
   ): Promise<RegistryPluginInfo[]> {
     const registry = await pluginManager.refreshRegistry();
-    // Merge in local workspace app entries (e.g. @lunchtable/plugin-ltcg)
-    // that are discovered by our registry-client but not by the elizaos
+    // Merge in local workspace app entries that are discovered by our
+    // registry-client but not by the elizaos
     // plugin-manager service.
     try {
       const localRegistry = await getRegistryPlugins();
@@ -535,8 +535,7 @@ export class AppManager {
     let appInfo = (await pluginManager.getRegistryPlugin(
       name,
     )) as RegistryAppPlugin | null;
-    // Supplement with local registry metadata (e.g. LOCAL_APP_OVERRIDES
-    // for @lunchtable/plugin-ltcg) since the elizaos plugin-manager
+    // Supplement with local registry metadata since the elizaos plugin-manager
     // service doesn't include our local workspace app discovery.
     try {
       const localInfo = await getPluginInfo(name);
@@ -725,7 +724,7 @@ export class AppManager {
     // Filter to only include app plugins (by name convention or known game plugins)
     const appPlugins = installed.filter((p: InstalledPluginInfo) => {
       const name = p.name.toLowerCase();
-      return name.includes("/app-") || name === "@lunchtable/plugin-ltcg";
+      return name.includes("/app-");
     });
     return appPlugins.map((p: InstalledPluginInfo) => ({
       name: p.name,

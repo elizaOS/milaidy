@@ -105,7 +105,7 @@ class StreamManager {
     const isScreenCapture = mode === "avfoundation" || mode === "screen";
 
     // FFmpeg arg order: all inputs first, then encoding/output options
-    // Settings per retake.tv skill.md: libx264 veryfast, zerolatency, -g 60, -thread_queue_size 512
+    // FFmpeg encoding settings: libx264 veryfast, zerolatency, -g 60, -thread_queue_size 512
     const ffmpegArgs = [
       "-thread_queue_size",
       "512",

@@ -1179,7 +1179,6 @@ const FEATURE_SUBGROUP: Record<string, string> = {
   mysticism: "gaming",
   personality: "gaming",
   moltbook: "gaming",
-  ltcg: "gaming",
 };
 
 const SUBGROUP_DISPLAY_ORDER = [

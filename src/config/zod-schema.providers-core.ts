@@ -802,6 +802,17 @@ export const BlueBubblesConfigSchema = BlueBubblesAccountSchemaBase.extend({
   });
 });
 
+// ── Retake.tv streaming connector ──────────────────────────────────────────
+
+export const RetakeConfigSchema = z
+  .object({
+    enabled: z.boolean().optional(),
+    accessToken: z.string().optional(),
+    apiUrl: z.string().url().optional(),
+    captureUrl: z.string().optional(),
+  })
+  .strict();
+
 export const MSTeamsChannelSchema = z
   .object({
     requireMention: z.boolean().optional(),

@@ -38,6 +38,7 @@ import {
   saveMiladyConfig,
 } from "../config/config";
 import { resolveModelsCacheDir, resolveStateDir } from "../config/paths";
+import { isConnectorConfigured } from "../config/plugin-auto-enable";
 import type { ConnectorConfig, CustomActionDef } from "../config/types.milady";
 import { EMOTE_BY_ID, EMOTE_CATALOG } from "../emotes/catalog";
 import { resolveDefaultAgentWorkspaceDir } from "../providers/workspace";
@@ -148,6 +149,14 @@ import {
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
+
+/** A connector-registered route handler. Returns `true` if the request was handled. */
+type ConnectorRouteHandler = (
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  pathname: string,
+  method: string,
+) => Promise<boolean>;
 
 function getAgentEventSvc(
   runtime: AgentRuntime | null,
@@ -285,6 +294,8 @@ interface ServerState {
   shellEnabled?: boolean;
   /** Reasons a restart is pending. Empty array = no restart needed. */
   pendingRestartReasons: string[];
+  /** Route handlers registered by connector plugins (loaded dynamically). */
+  connectorRouteHandlers: ConnectorRouteHandler[];
   /** Active WhatsApp pairing sessions (QR code flow). */
   whatsappPairingSessions?: Map<
     string,
@@ -5240,96 +5251,6 @@ async function maybeRouteAutonomyEventToConversation(
   }
 
   await routeAutonomyTextToUser(state, text, source);
-}
-
-/**
- * Shared pipeline: fetch RTMP creds → register session → headless capture → FFmpeg.
- * Used by both the POST /api/retake/live handler and deferred auto-start.
- */
-async function startRetakeStream(): Promise<{ rtmpUrl: string }> {
-  const retakeToken = process.env.RETAKE_AGENT_TOKEN?.trim() || "";
-  if (!retakeToken) {
-    throw new Error("RETAKE_AGENT_TOKEN not configured");
-  }
-  const retakeApiUrl = process.env.RETAKE_API_URL || "https://retake.tv/api/v1";
-  const authHeaders = {
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${retakeToken}`,
-  };
-
-  // 1. Fetch fresh RTMP credentials
-  const rtmpRes = await fetch(`${retakeApiUrl}/agent/rtmp`, {
-    method: "POST",
-    headers: authHeaders,
-  });
-  if (!rtmpRes.ok) {
-    throw new Error(`RTMP creds failed: ${rtmpRes.status}`);
-  }
-  const { url: rtmpUrl, key: rtmpKey } = (await rtmpRes.json()) as {
-    url: string;
-    key: string;
-  };
-
-  // 2. Register stream session on retake.tv
-  const startRes = await fetch(`${retakeApiUrl}/agent/stream/start`, {
-    method: "POST",
-    headers: authHeaders,
-  });
-  if (!startRes.ok) {
-    const text = await startRes.text();
-    throw new Error(`retake.tv start failed: ${startRes.status} ${text}`);
-  }
-
-  // 3. Start headless browser capture (writes frames to temp file)
-  const baseGameUrl = (
-    process.env.RETAKE_GAME_URL || "https://lunchtable.cards"
-  ).replace(/\/$/, "");
-  const ltcgApiKey = process.env.LTCG_API_KEY || "";
-  const gameUrl = ltcgApiKey
-    ? `${baseGameUrl}/stream-overlay?apiKey=${encodeURIComponent(ltcgApiKey)}&embedded=true`
-    : baseGameUrl;
-
-  const { startBrowserCapture, FRAME_FILE } = await import(
-    "../services/browser-capture.js"
-  );
-  try {
-    await startBrowserCapture({
-      url: gameUrl,
-      width: 1280,
-      height: 720,
-      quality: 70,
-    });
-    // Wait for first frame file to be written
-    await new Promise((resolve) => {
-      const check = setInterval(() => {
-        try {
-          if (fs.existsSync(FRAME_FILE) && fs.statSync(FRAME_FILE).size > 0) {
-            clearInterval(check);
-            resolve(true);
-          }
-        } catch {}
-      }, 200);
-      setTimeout(() => {
-        clearInterval(check);
-        resolve(false);
-      }, 10_000);
-    });
-  } catch (captureErr) {
-    logger.warn(`[retake] Browser capture failed: ${captureErr}`);
-  }
-
-  // 4. Start FFmpeg → RTMP
-  await streamManager.start({
-    rtmpUrl,
-    rtmpKey,
-    inputMode: "file",
-    frameFile: FRAME_FILE,
-    resolution: "1280x720",
-    framerate: 30,
-    bitrate: "1500k",
-  });
-
-  return { rtmpUrl };
 }
 
 async function handleRequest(
@@ -12186,52 +12107,12 @@ async function handleRequest(
   if (method === "POST" && pathname === "/api/stream/start") {
     try {
       const body = await readJsonBody(req, res, { maxBytes: MAX_BODY_BYTES });
-      // Get RTMP credentials from retake.tv if not provided
-      let rtmpUrl = body?.rtmpUrl as string | undefined;
-      let rtmpKey = body?.rtmpKey as string | undefined;
+      const rtmpUrl = body?.rtmpUrl as string | undefined;
+      const rtmpKey = body?.rtmpKey as string | undefined;
 
       if (!rtmpUrl || !rtmpKey) {
-        // Auto-fetch from retake.tv using the token in config
-        const retakeToken = process.env.RETAKE_AGENT_TOKEN || "";
-        const retakeApiUrl =
-          process.env.RETAKE_API_URL || "https://retake.tv/api/v1";
-
-        if (!retakeToken) {
-          error(res, "RETAKE_AGENT_TOKEN not configured", 400);
-          return;
-        }
-
-        // Start the stream session first
-        const startRes = await fetch(`${retakeApiUrl}/agent/stream/start`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${retakeToken}`,
-          },
-        });
-        if (!startRes.ok) {
-          error(res, `Failed to start retake stream: ${startRes.status}`, 502);
-          return;
-        }
-
-        // Get RTMP credentials
-        const rtmpRes = await fetch(`${retakeApiUrl}/agent/rtmp`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${retakeToken}`,
-          },
-        });
-        if (!rtmpRes.ok) {
-          error(res, `Failed to get RTMP credentials: ${rtmpRes.status}`, 502);
-          return;
-        }
-        const rtmpData = (await rtmpRes.json()) as {
-          url: string;
-          key: string;
-        };
-        rtmpUrl = rtmpData.url;
-        rtmpKey = rtmpData.key;
+        error(res, "rtmpUrl and rtmpKey are required", 400);
+        return;
       }
 
       await streamManager.start({
@@ -12257,21 +12138,6 @@ async function handleRequest(
   if (method === "POST" && pathname === "/api/stream/stop") {
     try {
       const result = await streamManager.stop();
-
-      // Also stop the retake session
-      const retakeToken = process.env.RETAKE_AGENT_TOKEN || "";
-      const retakeApiUrl =
-        process.env.RETAKE_API_URL || "https://retake.tv/api/v1";
-      if (retakeToken) {
-        await fetch(`${retakeApiUrl}/agent/stream/stop`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${retakeToken}`,
-          },
-        }).catch(() => {});
-      }
-
       json(res, { ok: true, ...result });
     } catch (err) {
       error(
@@ -12316,140 +12182,10 @@ async function handleRequest(
     return;
   }
 
-  // ── Retake frame push (browser-capture mode) ────────────────────────────
-  if (method === "POST" && pathname === "/api/retake/frame") {
-    // Route frames to StreamManager (pipe mode) or RetakeService
-    if (streamManager.isRunning()) {
-      try {
-        const buf = await readRequestBodyBuffer(req, {
-          maxBytes: 2 * 1024 * 1024,
-        });
-        if (!buf || buf.length === 0) {
-          error(res, "Empty frame", 400);
-          return;
-        }
-        streamManager.writeFrame(buf);
-        res.writeHead(200);
-        res.end();
-      } catch {
-        error(res, "Frame write failed", 500);
-      }
-      return;
-    }
-    error(
-      res,
-      "StreamManager not running — start stream via POST /api/retake/live",
-      503,
-    );
-    return;
-  }
-
-  // ── Retake go-live via StreamManager ────────────────────────────────────
-  if (method === "POST" && pathname === "/api/retake/live") {
-    if (streamManager.isRunning()) {
-      json(res, { ok: true, live: true, message: "Already streaming" });
-      return;
-    }
-    const retakeToken = process.env.RETAKE_AGENT_TOKEN || "";
-    if (!retakeToken) {
-      error(res, "RETAKE_AGENT_TOKEN not configured", 400);
-      return;
-    }
-    try {
-      const { rtmpUrl } = await startRetakeStream();
-      json(res, { ok: true, live: true, rtmpUrl });
-    } catch (err) {
-      error(res, err instanceof Error ? err.message : "Failed to go live", 500);
-    }
-    return;
-  }
-
-  if (method === "POST" && pathname === "/api/retake/offline") {
-    try {
-      // Stop browser capture
-      try {
-        const { stopBrowserCapture } = await import(
-          "../services/browser-capture.js"
-        );
-        await stopBrowserCapture();
-      } catch {}
-      // Stop StreamManager
-      if (streamManager.isRunning()) {
-        await streamManager.stop();
-      }
-      // Stop retake.tv session
-      const retakeToken = process.env.RETAKE_AGENT_TOKEN || "";
-      const retakeApiUrl =
-        process.env.RETAKE_API_URL || "https://retake.tv/api/v1";
-      if (retakeToken) {
-        await fetch(`${retakeApiUrl}/agent/stream/stop`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${retakeToken}`,
-          },
-        }).catch(() => {});
-      }
-      json(res, { ok: true, live: false });
-    } catch (err) {
-      error(
-        res,
-        err instanceof Error ? err.message : "Failed to go offline",
-        500,
-      );
-    }
-    return;
-  }
-
-  // ── LTCG Autonomy routes ─────────────────────────────────────────────
-  // The LTCG plugin registers these as ElizaOS plugin routes, but Milady's
-  // server doesn't dispatch plugin routes. Wire them up directly here.
-  if (pathname.startsWith("/api/ltcg/autonomy")) {
-    try {
-      const { getAutonomyController } = await import("@lunchtable/plugin-ltcg");
-      const ctrl = getAutonomyController();
-
-      if (method === "GET" && pathname === "/api/ltcg/autonomy/status") {
-        json(res, ctrl.getStatus());
-        return;
-      }
-
-      if (method === "POST" && pathname === "/api/ltcg/autonomy/start") {
-        const body = (await readJsonBody(req, res)) ?? {};
-        const bodyRecord = body as Record<string, unknown>;
-        const mode = bodyRecord.mode === "pvp" ? "pvp" : "story";
-        const continuousValue = bodyRecord.continuous;
-        const continuous =
-          typeof continuousValue === "boolean" ? continuousValue : true;
-        await ctrl.start({ mode, continuous });
-        json(res, { ok: true, mode, continuous });
-        return;
-      }
-
-      if (method === "POST" && pathname === "/api/ltcg/autonomy/pause") {
-        ctrl.pause();
-        json(res, { ok: true, state: "paused" });
-        return;
-      }
-
-      if (method === "POST" && pathname === "/api/ltcg/autonomy/resume") {
-        ctrl.resume();
-        json(res, { ok: true, state: "running" });
-        return;
-      }
-
-      if (method === "POST" && pathname === "/api/ltcg/autonomy/stop") {
-        await ctrl.stop();
-        json(res, { ok: true, state: "idle" });
-        return;
-      }
-    } catch (err) {
-      logger.error(
-        `[ltcg-autonomy] ${err instanceof Error ? err.message : err}`,
-      );
-      error(res, err instanceof Error ? err.message : "Autonomy error", 500);
-      return;
-    }
+  // ── Connector plugin routes (dynamically registered) ────────────────────
+  for (const handler of state.connectorRouteHandlers) {
+    const handled = await handler(req, res, pathname, method);
+    if (handled) return;
   }
 
   // ── Fallback ────────────────────────────────────────────────────────────
@@ -12603,6 +12339,7 @@ export async function startApiServer(opts?: {
     permissionStates: {},
     shellEnabled: config.features?.shellEnabled !== false,
     pendingRestartReasons: [],
+    connectorRouteHandlers: [],
   };
 
   const trainingServiceCtor = await resolveTrainingServiceCtor();
@@ -12890,11 +12627,6 @@ export async function startApiServer(opts?: {
     };
   };
 
-  // NOTE: registerStreamAutoStart was removed — it spawned a competing
-  // FFmpeg RTMP process whenever the LTCG plugin fired START_RETAKE_STREAM,
-  // conflicting with @milady/plugin-retake's own FfmpegManager. Streaming
-  // is now solely owned by plugin-retake (RetakeService).
-
   const bindTrainingStream = () => {
     if (detachTrainingStream) {
       detachTrainingStream();
@@ -13002,29 +12734,36 @@ export async function startApiServer(opts?: {
       }
     })();
 
-    // Auto-start retake.tv stream (best-effort, non-blocking)
+    // ── Dynamic connector route loading ──────────────────────────────────
+    // Connectors that need HTTP routes register them here, gated by config.
+    // Each loader dynamically imports its route module only when configured.
     void (async () => {
-      const retakeToken = process.env.RETAKE_AGENT_TOKEN || "";
-      if (!retakeToken) return; // No token — skip silently
-
-      // Let LTCG plugin finish init before starting the stream
-      await new Promise((r) => setTimeout(r, 5_000));
-
-      if (streamManager.isRunning()) {
-        logger.info(
-          "[milady-api] Retake stream already running, skipping auto-start",
-        );
-        return;
-      }
-
-      logger.info("[milady-api] Auto-starting retake.tv stream...");
-      try {
-        await startRetakeStream();
-        logger.info("[milady-api] Retake.tv stream auto-started successfully");
-      } catch (err) {
-        logger.warn(
-          `[milady-api] Retake stream auto-start failed: ${err instanceof Error ? err.message : String(err)}`,
-        );
+      const connectors = state.config.connectors ?? {};
+      if (isConnectorConfigured("retake", connectors.retake)) {
+        try {
+          const { handleRetakeRoute, initRetakeAutoStart } = await import(
+            "./retake-routes.js"
+          );
+          const retakeState = {
+            streamManager,
+            port,
+            config: connectors.retake as
+              | { accessToken?: string; apiUrl?: string; captureUrl?: string }
+              | undefined,
+          };
+          state.connectorRouteHandlers.push((req, res, pathname, method) =>
+            handleRetakeRoute(req, res, pathname, method, retakeState),
+          );
+          initRetakeAutoStart(retakeState);
+          addLog("info", "Retake connector routes registered", "system", [
+            "system",
+            "connectors",
+          ]);
+        } catch (err) {
+          logger.warn(
+            `[milady-api] Failed to load retake routes: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
       }
     })();
   };

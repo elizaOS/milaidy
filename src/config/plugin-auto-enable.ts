@@ -112,7 +112,7 @@ const FEATURE_PLUGINS: Record<string, string> = {
   claudeCodeWorkbench: "@milaidy/plugin-claude-code-workbench",
 };
 
-function isConnectorConfigured(
+export function isConnectorConfigured(
   connectorName: string,
   connectorConfig: unknown,
 ): boolean {

@@ -140,7 +140,6 @@
     "@elizaos/tui": "next",
     "@langchain/core": "^1.1.12",
     "@langchain/textsplitters": "^1.0.1",
-    "@lunchtable/plugin-ltcg": "0.1.0",
     "@mariozechner/pi-ai": "0.52.12",
     "@mariozechner/pi-tui": "0.54.0",
     "@milaidy/plugin-claude-code-workbench": "workspace:*",

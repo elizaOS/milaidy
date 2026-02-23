@@ -51,7 +51,7 @@ export function useLiveKitStream(gameUrl?: string) {
       const apiBase = window.__MILADY_API_BASE__ || window.location.origin;
 
       // 1. Start FFmpeg in pipe mode via backend
-      console.log("[Retake] Starting FFmpeg pipe stream...");
+      console.log("[Stream] Starting FFmpeg pipe stream...");
       const res = await fetch(`${apiBase}/api/stream/start`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -72,7 +72,7 @@ export function useLiveKitStream(gameUrl?: string) {
       const ipc = window.electron?.ipcRenderer;
       if (ipc?.invoke) {
         console.log(
-          `[Retake] Starting frame capture for: ${gameUrl || "main window"}`,
+          `[Stream] Starting frame capture for: ${gameUrl || "main window"}`,
         );
         await ipc.invoke("screencapture:startFrameCapture", {
           fps: 10,
@@ -82,11 +82,11 @@ export function useLiveKitStream(gameUrl?: string) {
           gameUrl: gameUrl || undefined,
         });
       } else {
-        console.warn("[Retake] No Electron IPC — frame capture unavailable");
+        console.warn("[Stream] No Electron IPC — frame capture unavailable");
       }
 
-      console.log("[Retake] Stream pipeline active — live on retake.tv!");
-      setState({ active: true, status: "live", room: "retake.tv" });
+      console.log("[Stream] Stream pipeline active — live on retake.tv!");
+      setState({ active: true, status: "live", room: "live" });
 
       // Poll health every 10s
       pollRef.current = setInterval(async () => {
@@ -95,7 +95,7 @@ export function useLiveKitStream(gameUrl?: string) {
           if (healthRes.ok) {
             const health = await healthRes.json();
             if (!health.running || !health.ffmpegAlive) {
-              console.warn("[Retake] Stream stopped (FFmpeg exited)");
+              console.warn("[Stream] Stream stopped (FFmpeg exited)");
               if (ipc?.invoke) {
                 ipc.invoke("screencapture:stopFrameCapture").catch(() => {});
               }
@@ -110,7 +110,7 @@ export function useLiveKitStream(gameUrl?: string) {
       }, 10000);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";
-      console.error("[Retake] Stream failed:", message);
+      console.error("[Stream] Stream failed:", message);
       setState({ active: false, status: "error", error: message });
     }
   }, [state.active, gameUrl]);
