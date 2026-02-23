@@ -126,4 +126,115 @@ describe("tx-service", () => {
       receipt,
     );
   });
+
+  it("accepts 0x-prefixed private keys", () => {
+    const service = new TxService(RPC_URL, "0x" + VALID_PRIVATE_KEY);
+    expect(service.address).toBeTruthy();
+  });
+
+  it("shows preview in error for short keys", () => {
+    expect(() => new TxService(RPC_URL, "abc")).toThrow(
+      /empty or too short/,
+    );
+  });
+
+  it("getBalance delegates to provider", async () => {
+    const service = createService();
+    vi.spyOn(
+      ethers.JsonRpcProvider.prototype,
+      "getBalance",
+    ).mockResolvedValue(5_000_000_000_000_000_000n);
+
+    const balance = await service.getBalance();
+
+    expect(balance).toBe(5_000_000_000_000_000_000n);
+  });
+
+  it("getBalanceFormatted returns ETH string", async () => {
+    const service = createService();
+    vi.spyOn(
+      ethers.JsonRpcProvider.prototype,
+      "getBalance",
+    ).mockResolvedValue(1_500_000_000_000_000_000n);
+
+    const formatted = await service.getBalanceFormatted();
+
+    expect(formatted).toBe("1.5");
+  });
+
+  it("getChainId returns network chain ID", async () => {
+    const service = createService();
+    vi.spyOn(
+      ethers.JsonRpcProvider.prototype,
+      "getNetwork",
+    ).mockResolvedValue({ chainId: 8453n } as ethers.Network);
+
+    const chainId = await service.getChainId();
+
+    expect(chainId).toBe(8453);
+  });
+
+  it("estimateGasCostEth combines gas estimate and fee data", async () => {
+    const service = createService();
+    vi.spyOn(
+      ethers.JsonRpcProvider.prototype,
+      "estimateGas",
+    ).mockResolvedValue(21_000n);
+    vi.spyOn(
+      ethers.JsonRpcProvider.prototype,
+      "getFeeData",
+    ).mockResolvedValue({
+      gasPrice: 1_000_000_000n,
+      maxFeePerGas: null,
+      maxPriorityFeePerGas: null,
+    } as unknown as ethers.FeeData);
+
+    const cost = await service.estimateGasCostEth({ to: "0x0" });
+
+    // 21000 * 1 gwei = 0.000021 ETH
+    expect(cost).toBe("0.000021");
+  });
+
+  it("hasEnoughBalance returns true when sufficient", async () => {
+    const service = createService();
+    vi.spyOn(
+      ethers.JsonRpcProvider.prototype,
+      "getBalance",
+    ).mockResolvedValue(1_000_000_000_000_000_000n);
+    vi.spyOn(
+      ethers.JsonRpcProvider.prototype,
+      "getFeeData",
+    ).mockResolvedValue({
+      gasPrice: 1_000_000_000n,
+      maxFeePerGas: null,
+      maxPriorityFeePerGas: null,
+    } as unknown as ethers.FeeData);
+
+    const result = await service.hasEnoughBalance(0n, 21_000n);
+
+    expect(result).toBe(true);
+  });
+
+  it("hasEnoughBalance returns false when insufficient", async () => {
+    const service = createService();
+    vi.spyOn(
+      ethers.JsonRpcProvider.prototype,
+      "getBalance",
+    ).mockResolvedValue(100n);
+    vi.spyOn(
+      ethers.JsonRpcProvider.prototype,
+      "getFeeData",
+    ).mockResolvedValue({
+      gasPrice: 1_000_000_000n,
+      maxFeePerGas: null,
+      maxPriorityFeePerGas: null,
+    } as unknown as ethers.FeeData);
+
+    const result = await service.hasEnoughBalance(
+      1_000_000_000_000_000_000n,
+      21_000n,
+    );
+
+    expect(result).toBe(false);
+  });
 });

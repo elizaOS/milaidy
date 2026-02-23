@@ -1,3 +1,4 @@
+import { ethers } from "ethers";
 import { describe, expect, it, vi } from "vitest";
 import { RegistryService } from "./registry-service";
 import type { TxService } from "./tx-service";
@@ -180,5 +181,140 @@ describe("registry-service", () => {
     );
     expect(wait).toHaveBeenCalledTimes(1);
     expect(txHash).toBe("0xprofilesync");
+  });
+
+  it("returns full agent info for registered wallet", async () => {
+    const { service, contract, txService } = createFixture();
+    contract.isRegistered.mockResolvedValue(true);
+    contract.totalAgents.mockResolvedValue(50n);
+    contract.getTokenId.mockResolvedValue(7n);
+    contract.getAgentInfo.mockResolvedValue([
+      "Milady",
+      "https://agent.example",
+      "0xcaphash",
+      true,
+    ]);
+    contract.tokenURI.mockResolvedValue("ipfs://token-7");
+
+    const status = await service.getStatus();
+
+    expect(status).toEqual({
+      registered: true,
+      tokenId: 7,
+      agentName: "Milady",
+      agentEndpoint: "https://agent.example",
+      capabilitiesHash: "0xcaphash",
+      isActive: true,
+      tokenURI: "ipfs://token-7",
+      walletAddress: txService.address,
+      totalAgents: 50,
+    });
+  });
+
+  it("parses AgentRegistered event from logs for tokenId", async () => {
+    const { service, contract } = createFixture();
+
+    const iface = new ethers.Interface([
+      "event AgentRegistered(uint256 indexed tokenId, address indexed owner, string name, string endpoint)",
+    ]);
+    const encoded = iface.encodeEventLog("AgentRegistered", [
+      42,
+      "0x1111111111111111111111111111111111111111",
+      "Milady",
+      "https://agent.example",
+    ]);
+
+    const wait = vi.fn().mockResolvedValue({
+      hash: "0xtx",
+      logs: [{ topics: encoded.topics, data: encoded.data }],
+    });
+    contract.registerAgent.mockResolvedValue({ hash: "0xsubmitted", wait });
+
+    const result = await service.register({
+      name: "Milady",
+      endpoint: "https://agent.example",
+      capabilitiesHash: "0xcap",
+      tokenURI: "ipfs://token",
+    });
+
+    expect(result).toEqual({ tokenId: 42, txHash: "0xtx" });
+    expect(contract.getTokenId).not.toHaveBeenCalled();
+  });
+
+  it("uses default capabilities hash when empty string passed to register", async () => {
+    const { service, contract } = createFixture();
+    const wait = vi.fn().mockResolvedValue({ hash: "0xtx", logs: [] });
+    contract.registerAgent.mockResolvedValue({ hash: "0xsubmitted", wait });
+    contract.getTokenId.mockResolvedValue(1n);
+
+    await service.register({
+      name: "Milady",
+      endpoint: "https://agent.example",
+      capabilitiesHash: "",
+      tokenURI: "ipfs://token",
+    });
+
+    expect(contract.registerAgent).toHaveBeenCalledWith(
+      "Milady",
+      "https://agent.example",
+      RegistryService.defaultCapabilitiesHash(),
+      "ipfs://token",
+      { nonce: 7 },
+    );
+  });
+
+  it("uses default capabilities hash when empty string passed to updateAgent", async () => {
+    const { service, contract, txService } = createFixture();
+    const wait = vi.fn().mockResolvedValue({ hash: "0xupdate" });
+    contract.updateAgent.mockResolvedValue({ wait });
+    txService.getFreshNonce.mockResolvedValue(10);
+
+    await service.updateAgent("https://agent.example/v2", "");
+
+    expect(contract.updateAgent).toHaveBeenCalledWith(
+      "https://agent.example/v2",
+      RegistryService.defaultCapabilitiesHash(),
+      { nonce: 10 },
+    );
+  });
+
+  it("delegates getChainId to txService", async () => {
+    const { service, txService } = createFixture();
+
+    const chainId = await service.getChainId();
+
+    expect(chainId).toBe(8453);
+    expect(txService.getChainId).toHaveBeenCalledTimes(1);
+  });
+
+  it("exposes address from txService", () => {
+    const { service, txService } = createFixture();
+
+    expect(service.address).toBe(txService.address);
+  });
+
+  it("exposes contractAddress", () => {
+    const { service } = createFixture();
+
+    expect(service.contractAddress).toBe(
+      "0x2222222222222222222222222222222222222222",
+    );
+  });
+
+  it("delegates isRegistered to contract", async () => {
+    const { service, contract } = createFixture();
+    contract.isRegistered.mockResolvedValue(true);
+
+    const result = await service.isRegistered("0xsome-address");
+
+    expect(result).toBe(true);
+    expect(contract.isRegistered).toHaveBeenCalledWith("0xsome-address");
+  });
+
+  it("returns default capabilities hash from static method", () => {
+    const hash = RegistryService.defaultCapabilitiesHash();
+
+    expect(hash).toBe(ethers.id("milady-agent"));
+    expect(hash).toMatch(/^0x[0-9a-f]{64}$/);
   });
 });

@@ -355,6 +355,29 @@ describe("applyPluginAutoEnable — env vars", () => {
 
     expect(config.plugins?.allow ?? []).not.toContain("cua");
   });
+
+  it("respects x402 enabled=false override for env auto-enable", () => {
+    const params = makeParams({
+      config: {
+        plugins: { entries: { x402: { enabled: false } } },
+      },
+      env: { X402_API_KEY: "x402-key" },
+    });
+    const { config } = applyPluginAutoEnable(params);
+
+    expect(config.plugins?.allow ?? []).not.toContain("x402");
+  });
+
+  it("does not duplicate cua when both CUA_API_KEY and CUA_HOST are set", () => {
+    const params = makeParams({
+      env: { CUA_API_KEY: "cua-key", CUA_HOST: "https://cua.example" },
+    });
+    const { config } = applyPluginAutoEnable(params);
+    const allow = config.plugins?.allow ?? [];
+
+    const cuaEntries = allow.filter((p) => p === "cua");
+    expect(cuaEntries).toHaveLength(1);
+  });
 });
 
 // ============================================================================
@@ -448,6 +471,15 @@ describe("applyPluginAutoEnable — features", () => {
 
     expect(config.plugins?.allow).toContain("cua");
     expect(changes.some((c) => c.includes("feature: cua"))).toBe(true);
+  });
+
+  it("skips x402 feature when features.x402.enabled is explicitly false", () => {
+    const params = makeParams({
+      config: { features: { x402: { enabled: false } } },
+    });
+    const { config } = applyPluginAutoEnable(params);
+
+    expect(config.plugins?.allow ?? []).not.toContain("x402");
   });
 
   it("enables computeruse plugin when features.computeruse = true", () => {

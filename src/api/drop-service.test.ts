@@ -1,3 +1,4 @@
+import { ethers } from "ethers";
 import { describe, expect, it, vi } from "vitest";
 import { DropService } from "./drop-service";
 import type { TxService } from "./tx-service";
@@ -181,5 +182,120 @@ describe("drop-service", () => {
     await expect(
       service.mint("Milady", "https://agent.example"),
     ).rejects.toThrow("insufficient funds");
+  });
+
+  it("returns full enabled status from contract", async () => {
+    const { service, contract } = createFixture(true);
+    contract.getCollectionDetails.mockResolvedValue([2138n, 50n, true]);
+    contract.whitelistMintOpen.mockResolvedValue(false);
+    contract.hasMinted.mockResolvedValue(false);
+    contract.SHINY_PRICE.mockResolvedValue(100_000_000_000_000_000n);
+
+    const status = await service.getStatus();
+
+    expect(status).toEqual({
+      dropEnabled: true,
+      publicMintOpen: true,
+      whitelistMintOpen: false,
+      mintedOut: false,
+      currentSupply: 50,
+      maxSupply: 2138,
+      shinyPrice: "0.1",
+      userHasMinted: false,
+    });
+  });
+
+  it("parses AgentMinted event from logs for mint result", async () => {
+    const { service, contract } = createFixture(true);
+
+    const iface = new ethers.Interface([
+      "event AgentMinted(uint256 indexed agentId, uint256 indexed mintNumber, address indexed owner, bool shiny)",
+    ]);
+    const encoded = iface.encodeEventLog("AgentMinted", [
+      7,
+      42,
+      "0x3333333333333333333333333333333333333333",
+      true,
+    ]);
+
+    const wait = vi.fn().mockResolvedValue({
+      hash: "0xminted",
+      logs: [{ topics: encoded.topics, data: encoded.data }],
+    });
+    contract.mint.mockResolvedValue({ hash: "0xsubmitted", wait });
+
+    const result = await service.mint("Milady", "https://agent.example");
+
+    expect(result).toEqual({
+      agentId: 7,
+      mintNumber: 42,
+      txHash: "0xminted",
+      isShiny: true,
+    });
+  });
+
+  it("delegates getMintNumber to contract", async () => {
+    const { service, contract } = createFixture(true);
+    contract.getAgentMintNumber.mockResolvedValue(99n);
+
+    const mintNumber = await service.getMintNumber(5);
+
+    expect(mintNumber).toBe(99);
+    expect(contract.getAgentMintNumber).toHaveBeenCalledWith(5);
+  });
+
+  it("delegates checkIsShiny to contract", async () => {
+    const { service, contract } = createFixture(true);
+    contract.isShiny.mockResolvedValue(true);
+
+    const isShiny = await service.checkIsShiny(5);
+
+    expect(isShiny).toBe(true);
+    expect(contract.isShiny).toHaveBeenCalledWith(5);
+  });
+
+  it("uses default capabilities hash when not provided", async () => {
+    const { service, contract } = createFixture(true);
+    const wait = vi.fn().mockResolvedValue({ hash: "0xmint", logs: [] });
+    contract.mint.mockResolvedValue({ hash: "0xsubmitted", wait });
+
+    await service.mint("Milady", "https://agent.example");
+
+    expect(contract.mint).toHaveBeenCalledWith(
+      "Milady",
+      "https://agent.example",
+      ethers.id("milady-agent"),
+      { nonce: 5 },
+    );
+  });
+
+  it("surfaces shiny mint failure from transaction wait", async () => {
+    const { service, contract } = createFixture(true);
+    contract.SHINY_PRICE.mockResolvedValue(100_000_000_000_000_000n);
+    const wait = vi
+      .fn()
+      .mockRejectedValue(new Error("execution reverted: not enough ETH"));
+    contract.mintShiny.mockResolvedValue({ hash: "0xsubmitted", wait });
+
+    await expect(
+      service.mintShiny("Shiny", "https://agent.example/shiny"),
+    ).rejects.toThrow("not enough ETH");
+  });
+
+  it("surfaces whitelist mint failure from transaction wait", async () => {
+    const { service, contract } = createFixture(true);
+    const wait = vi
+      .fn()
+      .mockRejectedValue(new Error("execution reverted: invalid proof"));
+    contract.mintWhitelist.mockResolvedValue({ hash: "0xsubmitted", wait });
+
+    await expect(
+      service.mintWithWhitelist(
+        "WL",
+        "https://agent.example/wl",
+        ["0xproof"],
+        "0xcap",
+      ),
+    ).rejects.toThrow("invalid proof");
   });
 });
