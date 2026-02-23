@@ -23,6 +23,7 @@ import {
   GoogleChatConfigSchema,
   IMessageConfigSchema,
   MSTeamsConfigSchema,
+  RetakeConfigSchema,
   SignalConfigSchema,
   SlackConfigSchema,
   TelegramConfigSchema,
@@ -143,6 +144,7 @@ const ConnectorsSchema = z
     imessage: IMessageConfigSchema.optional(),
     bluebubbles: BlueBubblesConfigSchema.optional(),
     msteams: MSTeamsConfigSchema.optional(),
+    retake: RetakeConfigSchema.optional(),
   })
   .passthrough() // Allow extension connector configs (nostr, matrix, zalo, etc.)
   .optional();

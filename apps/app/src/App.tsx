@@ -2,7 +2,7 @@
  * Root App component — routing shell.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useApp } from "./AppContext";
 import { AdvancedPageView } from "./components/AdvancedPageView";
 import { AppsPageView } from "./components/AppsPageView";
@@ -87,27 +87,6 @@ export function App() {
     gameOverlayEnabled,
   } = useApp();
   const contextMenu = useContextMenu();
-
-  // Auto-start LTCG autonomy when game is active.
-  // (retake.tv stream is now auto-started server-side in deferred startup)
-  const autonomyAutoStarted = useRef(false);
-  useEffect(() => {
-    if (activeGameViewerUrl && !autonomyAutoStarted.current) {
-      autonomyAutoStarted.current = true;
-      const timer = setTimeout(async () => {
-        const apiBase = window.__MILADY_API_BASE__ || window.location.origin;
-        try {
-          // Start LTCG PvP autonomy
-          await fetch(`${apiBase}/api/ltcg/autonomy/start`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ mode: "pvp", continuous: true }),
-          });
-        } catch {}
-      }, 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [activeGameViewerUrl]);
 
   const [customActionsPanelOpen, setCustomActionsPanelOpen] = useState(false);
   const [customActionsEditorOpen, setCustomActionsEditorOpen] = useState(false);

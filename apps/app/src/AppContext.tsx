@@ -4155,22 +4155,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setStartupError(null);
       setOnboardingLoading(false);
 
-      // Auto-launch LTCG game viewer (autonomous mode)
-      // LTCG is a connector loaded via env vars, not a registry plugin,
-      // so we directly set the game iframe state.
-      if (agentReady) {
-        setActiveGameApp("@lunchtable/plugin-ltcg");
-        setActiveGameDisplayName("LunchTable TCG");
-        setActiveGameViewerUrl("https://lunchtable.cards");
-        setActiveGameSandbox(
-          "allow-scripts allow-same-origin allow-popups allow-forms",
-        );
-        setActiveGamePostMessageAuth(false);
-        setActiveGamePostMessagePayload(null);
-        setTabRaw("apps" as Tab);
-        setAppsSubTab("games");
-      }
-
       // Load conversations — if none exist, create one and request a greeting
       let greetConvId: string | null = null;
       try {
