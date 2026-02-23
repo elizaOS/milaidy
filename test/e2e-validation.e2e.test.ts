@@ -394,11 +394,10 @@ describe("Fresh Install Simulation", () => {
       if (v !== undefined) env[k] = v;
     }
 
-    const result = await runSubprocess(
-      "node",
-      [cliEntryPath, "--help"],
-      { env, timeoutMs: 30_000 },
-    );
+    const result = await runSubprocess("node", [cliEntryPath, "--help"], {
+      env,
+      timeoutMs: 30_000,
+    });
 
     expect(result.exitCode).toBe(0);
     expect(result.stdout + result.stderr).toContain("milady");
@@ -484,11 +483,10 @@ describe("CLI Entry Point (npx miladyai equivalent)", () => {
       if (v !== undefined) env[k] = v;
     }
 
-    const result = await runSubprocess(
-      "node",
-      [cliEntryPath, "--version"],
-      { env, timeoutMs: 30_000 },
-    );
+    const result = await runSubprocess("node", [cliEntryPath, "--version"], {
+      env,
+      timeoutMs: 30_000,
+    });
 
     // Commander outputs the version to stdout
     const output = result.stdout + result.stderr;
@@ -1651,10 +1649,16 @@ describe("Fresh Machine Validation (non-Docker)", () => {
     }
 
     expect(
-      fileExistsAny([path.join(distDir, "index.js"), path.join(distDir, "index")]),
+      fileExistsAny([
+        path.join(distDir, "index.js"),
+        path.join(distDir, "index"),
+      ]),
     ).toBe(true);
     expect(
-      fileExistsAny([path.join(distDir, "entry.js"), path.join(distDir, "entry")]),
+      fileExistsAny([
+        path.join(distDir, "entry.js"),
+        path.join(distDir, "entry"),
+      ]),
     ).toBe(true);
   });
 

@@ -2,7 +2,15 @@ import fs from "node:fs/promises";
 import http from "node:http";
 import os from "node:os";
 import path from "node:path";
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import { startApiServer } from "../src/api/server";
 import type { OAuthCredentials } from "../src/auth/types";
 
@@ -259,21 +267,15 @@ describe("subscription auth routes (e2e contract)", () => {
       expect(exchangeRes.data.success).toBe(true);
       expect(exchangeRes.data.expiresAt).toBe(credentials.expires);
       expect(submitCode).toHaveBeenCalledWith("openai-auth-code");
-      expect(saveCredentials).toHaveBeenCalledWith(
-        "openai-codex",
-        credentials,
-      );
+      expect(saveCredentials).toHaveBeenCalledWith("openai-codex", credentials);
       expect(applySubscriptionCredentials).toHaveBeenCalledTimes(1);
       expect(closeFn).toHaveBeenCalledTimes(1);
     });
 
     it("returns 400 when exchange is called without an active flow", async () => {
-      const res = await req(
-        port,
-        "POST",
-        "/api/subscription/openai/exchange",
-        { code: "some-code" },
-      );
+      const res = await req(port, "POST", "/api/subscription/openai/exchange", {
+        code: "some-code",
+      });
       expect(res.status).toBe(400);
       expect(res.data.error).toContain("No active flow");
     });
@@ -296,7 +298,9 @@ describe("subscription auth routes (e2e contract)", () => {
         {},
       );
       expect(res.status).toBe(400);
-      expect(res.data.error).toContain("Provide either code or set waitForCallback");
+      expect(res.data.error).toContain(
+        "Provide either code or set waitForCallback",
+      );
     });
 
     it("cleans up failed exchange flow and supports retry start", async () => {
@@ -323,7 +327,11 @@ describe("subscription auth routes (e2e contract)", () => {
           close: secondFlowClose,
         });
 
-      const firstStart = await req(port, "POST", "/api/subscription/openai/start");
+      const firstStart = await req(
+        port,
+        "POST",
+        "/api/subscription/openai/start",
+      );
       expect(firstStart.status).toBe(200);
       expect(firstStart.data.authUrl).toBe(
         "https://auth.example/openai?state=first",
@@ -349,7 +357,11 @@ describe("subscription auth routes (e2e contract)", () => {
       expect(exchangeAfterCleanup.status).toBe(400);
       expect(exchangeAfterCleanup.data.error).toContain("No active flow");
 
-      const retryStart = await req(port, "POST", "/api/subscription/openai/start");
+      const retryStart = await req(
+        port,
+        "POST",
+        "/api/subscription/openai/start",
+      );
       expect(retryStart.status).toBe(200);
       expect(retryStart.data.authUrl).toBe(
         "https://auth.example/openai?state=second",
@@ -381,11 +393,7 @@ describe("subscription auth routes (e2e contract)", () => {
     });
 
     it("DELETE /api/subscription/openai-codex succeeds", async () => {
-      const res = await req(
-        port,
-        "DELETE",
-        "/api/subscription/openai-codex",
-      );
+      const res = await req(port, "DELETE", "/api/subscription/openai-codex");
       expect(res.status).toBe(200);
       expect(res.data.success).toBe(true);
       expect(deleteCredentials).toHaveBeenCalledWith("openai-codex");

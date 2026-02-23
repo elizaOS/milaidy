@@ -129,9 +129,7 @@
       "question": "When did Caroline go to the LGBTQ support group?",
       "question_type": "category-2",
       "ground_truth": "7 May 2023",
-      "relevant_session_ids": [
-        "conv-26-session_1"
-      ],
+      "relevant_session_ids": ["conv-26-session_1"],
       "retrieved_session_ids": [
         "conv-26-session_10",
         "conv-26-session_1",
@@ -192,9 +190,7 @@
       "question": "What fields would Caroline be likely to pursue in her educaton?",
       "question_type": "category-3",
       "ground_truth": "Psychology, counseling certification",
-      "relevant_session_ids": [
-        "conv-26-session_1"
-      ],
+      "relevant_session_ids": ["conv-26-session_1"],
       "retrieved_session_ids": [
         "conv-26-session_7",
         "conv-26-session_10",
@@ -255,9 +251,7 @@
       "question": "What did Caroline research?",
       "question_type": "category-1",
       "ground_truth": "Adoption agencies",
-      "relevant_session_ids": [
-        "conv-26-session_2"
-      ],
+      "relevant_session_ids": ["conv-26-session_2"],
       "retrieved_session_ids": [
         "conv-26-session_1",
         "conv-26-session_17",
@@ -318,10 +312,7 @@
       "question": "What is Caroline's relationship status?",
       "question_type": "category-1",
       "ground_truth": "Single",
-      "relevant_session_ids": [
-        "conv-26-session_3",
-        "conv-26-session_2"
-      ],
+      "relevant_session_ids": ["conv-26-session_3", "conv-26-session_2"],
       "retrieved_session_ids": [
         "conv-26-session_1",
         "conv-26-session_2",
@@ -382,9 +373,7 @@
       "question": "When did Caroline give a speech at a school?",
       "question_type": "category-2",
       "ground_truth": "The week before 9 June 2023",
-      "relevant_session_ids": [
-        "conv-26-session_3"
-      ],
+      "relevant_session_ids": ["conv-26-session_3"],
       "retrieved_session_ids": [
         "conv-26-session_3",
         "conv-26-session_5",
@@ -445,9 +434,7 @@
       "question": "When did Melanie sign up for a pottery class?",
       "question_type": "category-2",
       "ground_truth": "2 July 2023",
-      "relevant_session_ids": [
-        "conv-26-session_5"
-      ],
+      "relevant_session_ids": ["conv-26-session_5"],
       "retrieved_session_ids": [
         "conv-26-session_14",
         "conv-26-session_5",

@@ -11,16 +11,8 @@
         "scripts/**/*.mjs",
         "scripts/**/*.js"
       ],
-      "project": [
-        "src/**/*.ts",
-        "scripts/**/*.ts"
-      ],
-      "ignore": [
-        "dist/**",
-        "build/**",
-        "coverage/**",
-        "**/*.test.ts"
-      ]
+      "project": ["src/**/*.ts", "scripts/**/*.ts"],
+      "ignore": ["dist/**", "build/**", "coverage/**", "**/*.test.ts"]
     },
     "apps/app": {
       "entry": [
@@ -38,10 +30,7 @@
         "index.html",
         "capacitor.config.ts"
       ],
-      "project": [
-        "src/**/*.{ts,tsx}",
-        "electron/**/*.{ts,tsx}"
-      ],
+      "project": ["src/**/*.{ts,tsx}", "electron/**/*.{ts,tsx}"],
       "ignore": [
         "dist/**",
         "build/**",
@@ -57,10 +46,5 @@
       ]
     }
   },
-  "ignore": [
-    "**/*.d.ts",
-    ".eslintrc.js",
-    "**/__tests__/**",
-    "**/__mocks__/**"
-  ]
+  "ignore": ["**/*.d.ts", ".eslintrc.js", "**/__tests__/**", "**/__mocks__/**"]
 }

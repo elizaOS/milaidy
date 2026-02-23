@@ -150,21 +150,58 @@ Computer use sessions are automatically logged by the `@elizaos/plugin-trajector
 ### Setup Checklist
 
 1. Enable `features.computeruse` or include `computeruse` in `plugins.allow`.
-2. Ensure desktop/session permissions are granted for input and screenshot capture.
-3. Pair with a vision-capable model and verify screenshot-to-action loop behavior.
+2. Set `CUA_API_KEY` for the vision model provider (e.g., Anthropic or OpenAI).
+3. If using a remote sandbox, set `CUA_HOST` and `CUA_SANDBOX_NAME`.
+4. Ensure desktop/session permissions are granted for input and screenshot capture. On macOS, grant Accessibility and Screen Recording permissions. On Linux, ensure the X11/Wayland session allows programmatic input.
+5. Pair with a vision-capable model (Claude with computer use, GPT-4o, etc.) and verify screenshot-to-action loop behavior.
 
 ### Failure Modes
 
-- Screenshot/tool calls fail:
-  Check host permissions, display access, and sandbox restrictions.
-- Agent performs unstable or repeated actions:
-  Add approval gates and enforce per-action rate limits.
-- Cross-platform behavior mismatch:
-  Validate platform-specific automation prerequisites before enabling in production.
+**Screenshot and display:**
+
+- Screenshot capture returns blank or fails:
+  Check display server access. On macOS, confirm Screen Recording permission in System Settings > Privacy. On Linux, confirm `DISPLAY` is set and accessible. In Docker/headless environments, use Xvfb or a virtual framebuffer.
+- Screenshot resolution mismatch:
+  The CUA plugin captures at the display's native resolution. If the vision model receives oversized images, actions may target wrong coordinates. Configure display scaling or crop regions if needed.
+
+**Vision model and action loop:**
+
+- Vision model returns no actions:
+  Confirm the model supports computer use / tool-use mode. Not all models can interpret screenshots and emit click/type actions. Check that the model ID in config is correct and the API key has access to computer use features.
+- Actions target wrong screen coordinates:
+  Coordinate mapping depends on screenshot resolution matching the actual display. If using display scaling (e.g., Retina), the plugin must account for the scale factor. Check `CUA_HOST` configuration for remote sandboxes.
+- Agent performs repeated or unstable actions (click loops):
+  Add approval gates via the agent's action policy. Enforce per-action rate limits in config. The trajectory logger captures action sequences — review logs to identify the loop trigger.
+- Tool call errors (`tool_use_error`):
+  The model may emit malformed tool calls. Check that the CUA plugin's tool schema matches what the model expects. Version mismatches between the plugin and the model API can cause schema drift.
+
+**Sandbox and isolation:**
+
+- Remote sandbox connection refused:
+  Confirm `CUA_HOST` is reachable and the sandbox service is running. Check firewall rules and port access. The sandbox name (`CUA_SANDBOX_NAME`) must match an active session.
+- Sandbox session expires:
+  Remote sandboxes may have idle timeouts. If a long CUA task is interrupted, the session may need to be re-created. Check the sandbox provider's session lifecycle documentation.
+
+**Cross-platform:**
+
+- macOS: Requires Accessibility permission for keyboard/mouse input and Screen Recording for screenshots. Both must be granted to the terminal or agent process.
+- Linux: Requires X11 access (`DISPLAY` env var) or Wayland equivalent. In containers, use Xvfb. `xdotool` or equivalent must be available for input simulation.
+- Windows: Requires UIAccess or running as administrator for input to elevated windows. Screenshot APIs vary by Windows version.
+
+### Recovery Procedures
+
+1. **Stuck CUA session:** Kill the agent process and restart. The trajectory logger preserves the action log for debugging. Review `~/.milady/agents/{agentId}/trajectories/` for the last action sequence.
+2. **Permission denied after OS update:** macOS and Windows may revoke automation permissions after OS updates. Re-grant Accessibility and Screen Recording permissions.
+3. **Coordinate drift after resolution change:** Restart the CUA session after any display resolution or scaling change. The plugin re-calibrates on session start.
 
 ### Verification Commands
 
 ```bash
+# CUA integration and runtime boundary tests
 bunx vitest run src/runtime/computeruse-integration.test.ts
+
+# Runtime plugin loading (includes CUA short-id normalization)
+bunx vitest run src/runtime/eliza.test.ts
+
 bun run typecheck
 ```

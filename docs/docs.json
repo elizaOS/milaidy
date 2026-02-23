@@ -50,11 +50,7 @@
           },
           {
             "group": "Configuration",
-            "pages": [
-              "configuration",
-              "config-schema",
-              "model-providers"
-            ]
+            "pages": ["configuration", "config-schema", "model-providers"]
           },
           {
             "group": "Guides",
@@ -98,9 +94,7 @@
           },
           {
             "group": "Contributing",
-            "pages": [
-              "guides/contribution-guide"
-            ]
+            "pages": ["guides/contribution-guide"]
           }
         ]
       },
@@ -109,9 +103,7 @@
         "groups": [
           {
             "group": "Overview",
-            "pages": [
-              "apps/overview"
-            ]
+            "pages": ["apps/overview"]
           },
           {
             "group": "Desktop App",
@@ -131,22 +123,15 @@
           },
           {
             "group": "Chrome Extension",
-            "pages": [
-              "apps/chrome-extension"
-            ]
+            "pages": ["apps/chrome-extension"]
           },
           {
             "group": "Dashboard",
-            "pages": [
-              "apps/dashboard",
-              "apps/dashboard/settings"
-            ]
+            "pages": ["apps/dashboard", "apps/dashboard/settings"]
           },
           {
             "group": "TUI",
-            "pages": [
-              "apps/tui"
-            ]
+            "pages": ["apps/tui"]
           }
         ]
       },
@@ -175,9 +160,7 @@
           },
           {
             "group": "Skills",
-            "pages": [
-              "plugins/skills"
-            ]
+            "pages": ["plugins/skills"]
           },
           {
             "group": "Core Plugins",
@@ -213,10 +196,7 @@
           },
           {
             "group": "DeFi & Blockchain",
-            "pages": [
-              "plugin-registry/defi/evm",
-              "plugin-registry/defi/solana"
-            ]
+            "pages": ["plugin-registry/defi/evm", "plugin-registry/defi/solana"]
           },
           {
             "group": "Feature Plugins",
@@ -271,9 +251,7 @@
           },
           {
             "group": "WebSocket",
-            "pages": [
-              "websocket-events"
-            ]
+            "pages": ["websocket-events"]
           },
           {
             "group": "Runtime Reference",
@@ -294,9 +272,7 @@
         "groups": [
           {
             "group": "Overview",
-            "pages": [
-              "cli/overview"
-            ]
+            "pages": ["cli/overview"]
           },
           {
             "group": "Commands",
@@ -315,9 +291,7 @@
           },
           {
             "group": "Environment",
-            "pages": [
-              "cli/environment"
-            ]
+            "pages": ["cli/environment"]
           }
         ]
       }

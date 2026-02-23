@@ -185,62 +185,61 @@ jobs:
         run: bun run build
         working-directory: apps/app/electron
 
-      # Re-bundle server.ts and eliza.ts as standalone files with all deps
-      # inlined (no code splitting).  The main build uses unbundle mode which
-      # creates code-split shared chunks with external imports, but ESM
-      # import() from app.asar.unpacked can't resolve those externals.
-      # Running tsdown separately ensures zero external dependencies.
-      - name: Re-bundle dist for Electron (standalone server & eliza)
+      # Build a custom dist specifically for the Electron app where all third-party
+      # npm dependencies are bundled inline (noExternal: true behavior via rolldown).
+      # This prevents the packaged app from failing to resolve external imports
+      # like "json5" from within the app.asar.unpacked directory.
+      - name: Bundle dist for Electron
         shell: bash
         run: |
           set -euo pipefail
-          echo "Re-bundling server.ts and eliza.ts as standalone files..."
-          npx tsdown src/api/server.ts \
-            --format esm \
-            --platform node \
-            --out-dir dist \
-            --no-clean \
-            --external node-llama-cpp \
-            --external '@reflink/reflink' \
-            --external '@reflink/reflink-darwin-arm64' \
-            --external '@reflink/reflink-darwin-x64' \
-            --external '@reflink/reflink-linux-arm64-gnu' \
-            --external '@reflink/reflink-linux-x64-gnu' \
-            --external fsevents
-          npx tsdown src/runtime/eliza.ts \
-            --format esm \
-            --platform node \
-            --out-dir dist \
-            --no-clean \
-            --external node-llama-cpp \
-            --external '@reflink/reflink' \
-            --external '@reflink/reflink-darwin-arm64' \
-            --external '@reflink/reflink-darwin-x64' \
-            --external '@reflink/reflink-linux-arm64-gnu' \
-            --external '@reflink/reflink-linux-x64-gnu' \
-            --external fsevents
-          echo "Re-bundled server.js: $(wc -c < dist/server.js) bytes"
-          echo "Re-bundled eliza.js: $(wc -c < dist/eliza.js) bytes"
+          echo "Building standalone Electron dist with all node_modules inlined..."
 
-      # Copy milady dist into the electron directory so electron-builder can
-      # include it in the ASAR *and* asarUnpack can extract it.  The from/to
-      # file mapping in electron-builder doesn't support asarUnpack, so we
-      # pre-copy the files as a real local directory.
-      - name: Copy milady-dist into Electron project
-        shell: bash
-        run: |
-          set -euo pipefail
-          rm -rf milady-dist
-          mkdir -p milady-dist
-          # Copy only .js files and package.json (matching the old filter)
-          find ../../../dist -name '*.js' | while read f; do
-            rel="${f#../../../dist/}"
-            mkdir -p "milady-dist/$(dirname "$rel")"
-            cp "$f" "milady-dist/$rel"
+          cat << 'EOF' > tsdown.electron.config.ts
+          import { defineConfig } from "tsdown";
+          export default defineConfig([{
+            entry: [
+              "src/index.ts",
+              "src/entry.ts",
+              "src/runtime/eliza.ts",
+              "src/api/server.ts",
+              "src/plugins/whatsapp/index.ts",
+              "src/plugins/retake/index.ts"
+            ],
+            format: "esm",
+            platform: "node",
+            outDir: "dist-electron",
+            noExternal: [/.*/],
+            external: [
+              "node-llama-cpp",
+              "@reflink/reflink",
+              "@reflink/reflink-darwin-arm64",
+              "@reflink/reflink-darwin-x64",
+              "@reflink/reflink-linux-arm64-gnu",
+              "@reflink/reflink-linux-x64-gnu",
+              "fsevents",
+              "koffi",
+            ],
+            fixedExtension: false,
+            env: { NODE_ENV: "production" }
+          }]);
+          EOF
+
+          npx tsdown --config tsdown.electron.config.ts --no-clean
+
+          # Copy to milady-dist so electron-builder can pack it.
+          rm -rf apps/app/electron/milady-dist
+          mkdir -p apps/app/electron/milady-dist
+
+          find dist-electron -name '*.js' | while read f; do
+            rel="${f#dist-electron/}"
+            mkdir -p "apps/app/electron/milady-dist/$(dirname "$rel")"
+            cp "$f" "apps/app/electron/milady-dist/$rel"
           done
-          echo '{"type":"module"}' > milady-dist/package.json
-          echo "Copied $(find milady-dist -name '*.js' | wc -l | tr -d ' ') JS files to milady-dist/"
-        working-directory: apps/app/electron
+
+          echo '{"type":"module"}' > apps/app/electron/milady-dist/package.json
+          echo "Copied $(find apps/app/electron/milady-dist -name '*.js' | wc -l | tr -d ' ') JS files to milady-dist/"
+        working-directory: .
 
       - name: Prepare platform electron-builder config
         run: |
@@ -408,8 +407,6 @@ jobs:
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID || '' }}
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID || '' }}
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET || '' }}
-
-
 
       - name: Install Playwright browser runtime
         if: matrix.platform.os == 'macos' && matrix.platform.artifact-name == 'macos-arm64'

@@ -1,4 +1,4 @@
-The content has been copied to your clipboard. Please paste it here to complete the file creation.{
+{
   "repo_notes": [
     {
       "content": "Milady AI is a personal AI assistant powered by ElizaOS. It runs locally on the user's machine (privacy-first) with optional cloud sync. It supports multiple platforms: Electron desktop app (macOS/Windows/Linux), Capacitor mobile app (iOS/Android), Chrome extension, web dashboard, terminal UI, and CLI. The core architecture wraps ElizaOS AgentRuntime with a rich plugin system, multi-provider LLM support (Anthropic, OpenAI, Groq, Ollama, xAI, DeepSeek, Google, OpenRouter), wallet management (EVM + Solana), knowledge imports, autonomous behavior, and social platform connectors (Discord, Telegram, Signal). The API server runs on port 18789 with WebSocket support. The web UI runs on port 2138."
