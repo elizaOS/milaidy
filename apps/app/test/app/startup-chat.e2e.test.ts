@@ -59,6 +59,9 @@ vi.mock("../../src/components/InventoryView.js", () => ({
 vi.mock("../../src/components/KnowledgeView.js", () => ({
   KnowledgeView: () => React.createElement("div", null, "KnowledgeView"),
 }));
+vi.mock("../../src/components/CompanionView.js", () => ({
+  CompanionView: () => React.createElement("div", null, "CompanionView"),
+}));
 vi.mock("../../src/components/SettingsView.js", () => ({
   SettingsView: () => React.createElement("div", null, "SettingsView"),
 }));
@@ -91,6 +94,8 @@ describe("app startup routing (e2e)", () => {
       .join("\n");
 
     expect(renderedText).toContain("ChatView");
+    expect(renderedText).toContain("Header");
+    expect(renderedText).toContain("Nav");
     expect(renderedText).not.toContain("LoadingScreen");
     expect(renderedText).not.toContain("OnboardingWizard");
     expect(renderedText).not.toContain("PairingView");

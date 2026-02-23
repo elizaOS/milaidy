@@ -73,6 +73,11 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "chat.voiceInput": "Voice input",
     "chat.you": "You",
     "chat.via": "via",
+    "chat.modal.back": "Back",
+    "chat.modal.more": "More",
+    "chat.modal.addParticipant": "Add participant",
+    "chat.modal.participants": "Conversations: {{count}}",
+    "chat.modal.emptyConversation": "No active conversation",
 
     // Conversations
     "conversations.newChat": "+ New Chat",
@@ -579,6 +584,11 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "chat.voiceInput": "语音输入",
     "chat.you": "你",
     "chat.via": "来自",
+    "chat.modal.back": "返回",
+    "chat.modal.more": "更多",
+    "chat.modal.addParticipant": "新增会话",
+    "chat.modal.participants": "会话数：{{count}}",
+    "chat.modal.emptyConversation": "暂无会话",
 
     // Conversations
     "conversations.newChat": "+ 新建聊天",

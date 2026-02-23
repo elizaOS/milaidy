@@ -165,6 +165,9 @@ vi.mock("../../src/components/PairingView.js", () => ({
 vi.mock("../../src/components/ChatView.js", () => ({
   ChatView: () => React.createElement("div", null, "ChatView"),
 }));
+vi.mock("../../src/components/CompanionView.js", () => ({
+  CompanionView: () => React.createElement("div", null, "CompanionView"),
+}));
 vi.mock("../../src/components/LoadingScreen.js", () => ({
   LoadingScreen: () => React.createElement("div", null, "LoadingScreen"),
 }));

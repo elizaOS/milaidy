@@ -18,6 +18,15 @@ vi.mock("../../src/components/avatar/VrmViewer", () => ({
   VrmViewer: () => React.createElement("div", null, "VrmViewer"),
 }));
 
+vi.mock("../../src/components/ChatModalView.js", () => ({
+  ChatModalView: () =>
+    React.createElement(
+      "div",
+      { "data-testid": "companion-chat-modal-stub" },
+      "ChatModalView",
+    ),
+}));
+
 import { CompanionView } from "../../src/components/CompanionView";
 
 function createContext() {
@@ -78,6 +87,7 @@ describe("CompanionView", () => {
   beforeEach(() => {
     Object.defineProperty(globalThis, "window", {
       value: {
+        innerWidth: 1440,
         setTimeout: globalThis.setTimeout.bind(globalThis),
         clearTimeout: globalThis.clearTimeout.bind(globalThis),
         addEventListener: vi.fn(),
@@ -235,5 +245,39 @@ describe("CompanionView", () => {
     const content = text(tree!.root);
     expect(content).toContain("Milady");
     expect(content).toContain("Character");
+  });
+
+  it("toggles left chat dock from companion header", async () => {
+    mockUseApp.mockReturnValue(createContext());
+
+    let tree: TestRenderer.ReactTestRenderer;
+    await act(async () => {
+      tree = TestRenderer.create(React.createElement(CompanionView));
+    });
+
+    const toggle = tree!.root.find(
+      (node) =>
+        node.type === "button" &&
+        node.props["data-testid"] === "companion-chat-toggle",
+    );
+    expect(toggle).toBeDefined();
+
+    const dock = tree!.root.find(
+      (node) =>
+        typeof node.props.className === "string" &&
+        node.props.className.includes("anime-comp-chat-dock-anchor"),
+    );
+    expect(dock.props.className.includes("is-open")).toBe(true);
+
+    await act(async () => {
+      toggle.props.onClick();
+    });
+
+    const dockAfter = tree!.root.find(
+      (node) =>
+        typeof node.props.className === "string" &&
+        node.props.className.includes("anime-comp-chat-dock-anchor"),
+    );
+    expect(dockAfter.props.className.includes("is-open")).toBe(false);
   });
 });

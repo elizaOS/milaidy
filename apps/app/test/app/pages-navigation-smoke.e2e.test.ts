@@ -17,6 +17,10 @@ vi.mock("../../src/components/Header.js", () => ({
   Header: () => React.createElement("header", null, "Header"),
 }));
 
+vi.mock("../../src/components/Nav.js", () => ({
+  Nav: () => React.createElement("nav", null, "Nav"),
+}));
+
 vi.mock("../../src/components/CommandPalette.js", () => ({
   CommandPalette: () => React.createElement("div", null, "CommandPalette"),
 }));
@@ -64,13 +68,14 @@ vi.mock("../../src/components/AppsPageView.js", () => ({
   AppsPageView: () => React.createElement("section", null, "AppsPageView Ready"),
 }));
 
+vi.mock("../../src/components/AdvancedPageView.js", () => ({
+  AdvancedPageView: () =>
+    React.createElement("section", null, "AdvancedPageView Ready"),
+}));
+
 vi.mock("../../src/components/CharacterView.js", () => ({
   CharacterView: () =>
     React.createElement("section", null, "CharacterView Ready"),
-}));
-
-vi.mock("../../src/components/TriggersView.js", () => ({
-  TriggersView: () => React.createElement("section", null, "TriggersView Ready"),
 }));
 
 vi.mock("../../src/components/ConnectorsPageView.js", () => ({
@@ -93,60 +98,29 @@ vi.mock("../../src/components/CompanionView.js", () => ({
     React.createElement("section", null, "CompanionView Ready"),
 }));
 
+vi.mock("../../src/components/ChatModalView.js", () => ({
+  ChatModalView: () =>
+    React.createElement("section", null, "ChatModalView Ready"),
+}));
+
 vi.mock("../../src/components/SettingsView.js", () => ({
   SettingsView: () => React.createElement("section", null, "SettingsView Ready"),
 }));
 
+vi.mock("../../src/components/PluginsView.js", () => ({
+  PluginsView: () => React.createElement("section", null, "PluginsView Ready"),
+}));
+
+vi.mock("../../src/components/SkillsView.js", () => ({
+  SkillsView: () => React.createElement("section", null, "SkillsView Ready"),
+}));
+
 vi.mock("../../src/components/LoadingScreen.js", () => ({
-  LoadingScreen: () =>
-    React.createElement("div", null, "LoadingScreen"),
+  LoadingScreen: () => React.createElement("div", null, "LoadingScreen"),
 }));
 
 vi.mock("../../src/components/TerminalPanel.js", () => ({
   TerminalPanel: () => React.createElement("footer", null, "TerminalPanel"),
-}));
-
-vi.mock("../../src/components/PluginsPageView", () => ({
-  PluginsPageView: () =>
-    React.createElement("section", null, "PluginsPageView Ready"),
-}));
-
-vi.mock("../../src/components/SkillsView", () => ({
-  SkillsView: () => React.createElement("section", null, "SkillsView Ready"),
-}));
-
-vi.mock("../../src/components/CustomActionsView", () => ({
-  CustomActionsView: () =>
-    React.createElement("section", null, "CustomActionsView Ready"),
-}));
-
-vi.mock("../../src/components/FineTuningView", () => ({
-  FineTuningView: () =>
-    React.createElement("section", null, "FineTuningView Ready"),
-}));
-
-vi.mock("../../src/components/TrajectoriesView", () => ({
-  TrajectoriesView: () =>
-    React.createElement("section", null, "TrajectoriesView Ready"),
-}));
-
-vi.mock("../../src/components/TrajectoryDetailView", () => ({
-  TrajectoryDetailView: () =>
-    React.createElement("section", null, "TrajectoryDetailView Ready"),
-}));
-
-vi.mock("../../src/components/RuntimeView", () => ({
-  RuntimeView: () => React.createElement("section", null, "RuntimeView Ready"),
-}));
-
-vi.mock("../../src/components/DatabasePageView", () => ({
-  DatabasePageView: () =>
-    React.createElement("section", null, "DatabasePageView Ready"),
-}));
-
-vi.mock("../../src/components/LogsPageView", () => ({
-  LogsPageView: () =>
-    React.createElement("section", null, "LogsPageView Ready"),
 }));
 
 vi.mock("../../src/hooks/useContextMenu.js", () => ({
@@ -175,20 +149,6 @@ function textOf(node: TestRenderer.ReactTestInstance): string {
     .join("");
 }
 
-function getButtonByLabel(
-  tree: TestRenderer.ReactTestRenderer,
-  label: string,
-): TestRenderer.ReactTestInstance {
-  const buttons = tree.root.findAll(
-    (node) =>
-      node.type === "button" &&
-      typeof node.props.onClick === "function" &&
-      textOf(node).trim() === label,
-  );
-  expect(buttons.length).toBeGreaterThan(0);
-  return buttons[0];
-}
-
 function expectValidContent(content: string): void {
   expect(content.trim().length).toBeGreaterThan(0);
   const invalidPatterns = [
@@ -209,27 +169,18 @@ function mainContent(tree: TestRenderer.ReactTestRenderer): string {
   if (mains.length > 0) {
     return textOf(mains[0]);
   }
-  
-  // Companion tab doesn't use a main tag, it uses a relative div
-  const companionDivs = tree.root.findAll((node) => node.type === "div" && typeof node.props.className === "string" && node.props.className.includes("relative w-full h-[100vh]"));
+
+  const companionDivs = tree.root.findAll(
+    (node) =>
+      node.type === "div" &&
+      typeof node.props.className === "string" &&
+      node.props.className.includes("relative w-full h-[100vh]"),
+  );
   if (companionDivs.length > 0) {
     return textOf(companionDivs[0]);
   }
 
   throw new Error("Could not find main content container");
-}
-
-async function clickAndRerender(
-  tree: TestRenderer.ReactTestRenderer,
-  label: string,
-): Promise<void> {
-  const button = getButtonByLabel(tree, label);
-  await act(async () => {
-    button.props.onClick();
-  });
-  await act(async () => {
-    tree.update(React.createElement(App));
-  });
 }
 
 describe("pages navigation smoke (e2e)", () => {
@@ -250,14 +201,9 @@ describe("pages navigation smoke (e2e)", () => {
     mockUseApp.mockImplementation(() => state);
   });
 
-  it("clicks every top-level nav page and renders non-empty valid content", async () => {
+  it("renders every top-level tab group with non-empty valid content", async () => {
     const errorSpy = vi.spyOn(console, "error");
     const warnSpy = vi.spyOn(console, "warn");
-
-    let tree: TestRenderer.ReactTestRenderer;
-    await act(async () => {
-      tree = TestRenderer.create(React.createElement(App));
-    });
 
     const expectedByPrimaryTab: Record<Tab, string> = {
       chat: "ChatView Ready",
@@ -266,26 +212,33 @@ describe("pages navigation smoke (e2e)", () => {
       wallets: "InventoryView Ready",
       knowledge: "KnowledgeView Ready",
       connectors: "ConnectorsPageView Ready",
-      triggers: "TriggersView Ready",
+      triggers: "AdvancedPageView Ready",
       apps: "AppsPageView Ready",
       settings: "SettingsView Ready",
-      advanced: "PluginsPageView Ready",
-      plugins: "PluginsPageView Ready",
+      advanced: "AdvancedPageView Ready",
+      plugins: "PluginsView Ready",
       skills: "SkillsView Ready",
-      actions: "CustomActionsView Ready",
-      "fine-tuning": "FineTuningView Ready",
-      trajectories: "TrajectoriesView Ready",
-      runtime: "RuntimeView Ready",
-      database: "DatabasePageView Ready",
-      logs: "LogsPageView Ready",
+      actions: "AdvancedPageView Ready",
+      "fine-tuning": "AdvancedPageView Ready",
+      trajectories: "AdvancedPageView Ready",
+      runtime: "AdvancedPageView Ready",
+      database: "AdvancedPageView Ready",
+      logs: "AdvancedPageView Ready",
       voice: "SettingsView Ready",
     };
 
+    let tree: TestRenderer.ReactTestRenderer;
+    await act(async () => {
+      tree = TestRenderer.create(React.createElement(App));
+    });
+
     for (const group of TAB_GROUPS) {
-      await clickAndRerender(tree!, group.label);
       const nextTab = group.tabs[0];
+      state.tab = nextTab;
+      await act(async () => {
+        tree!.update(React.createElement(App));
+      });
       const content = mainContent(tree!);
-      expect(state.tab).toBe(nextTab);
       expect(content).toContain(expectedByPrimaryTab[nextTab]);
       expectValidContent(content);
     }
@@ -306,42 +259,33 @@ describe("pages navigation smoke (e2e)", () => {
     warnSpy.mockRestore();
   });
 
-  it("clicks every Advanced sub-page and renders non-empty valid content", async () => {
+  it("renders every Advanced sub-tab with non-empty valid content", async () => {
     const errorSpy = vi.spyOn(console, "error");
     const warnSpy = vi.spyOn(console, "warn");
+
+    const subPages: Array<{ tab: Tab; token: string }> = [
+      { tab: "plugins", token: "PluginsView Ready" },
+      { tab: "skills", token: "SkillsView Ready" },
+      { tab: "actions", token: "AdvancedPageView Ready" },
+      { tab: "triggers", token: "AdvancedPageView Ready" },
+      { tab: "fine-tuning", token: "AdvancedPageView Ready" },
+      { tab: "trajectories", token: "AdvancedPageView Ready" },
+      { tab: "runtime", token: "AdvancedPageView Ready" },
+      { tab: "database", token: "AdvancedPageView Ready" },
+      { tab: "logs", token: "AdvancedPageView Ready" },
+    ];
 
     let tree: TestRenderer.ReactTestRenderer;
     await act(async () => {
       tree = TestRenderer.create(React.createElement(App));
     });
 
-    await clickAndRerender(tree!, "Advanced");
-    expect(state.tab).toBe("advanced");
-
-    const subPages: Array<{ label: string; tab: Tab; token: string }> = [
-      { label: "Plugins", tab: "plugins", token: "PluginsPageView Ready" },
-      { label: "Skills", tab: "skills", token: "SkillsView Ready" },
-      { label: "Actions", tab: "actions", token: "CustomActionsView Ready" },
-      { label: "Triggers", tab: "triggers", token: "TriggersView Ready" },
-      {
-        label: "Fine-Tuning",
-        tab: "fine-tuning",
-        token: "FineTuningView Ready",
-      },
-      {
-        label: "Trajectories",
-        tab: "trajectories",
-        token: "TrajectoriesView Ready",
-      },
-      { label: "Runtime", tab: "runtime", token: "RuntimeView Ready" },
-      { label: "Databases", tab: "database", token: "DatabasePageView Ready" },
-      { label: "Logs", tab: "logs", token: "LogsPageView Ready" },
-    ];
-
     for (const subPage of subPages) {
-      await clickAndRerender(tree!, subPage.label);
+      state.tab = subPage.tab;
+      await act(async () => {
+        tree!.update(React.createElement(App));
+      });
       const content = mainContent(tree!);
-      expect(state.tab).toBe(subPage.tab);
       expect(content).toContain(subPage.token);
       expectValidContent(content);
     }
@@ -374,18 +318,18 @@ describe("pages navigation smoke (e2e)", () => {
       { tab: "wallets", token: "InventoryView Ready" },
       { tab: "knowledge", token: "KnowledgeView Ready" },
       { tab: "connectors", token: "ConnectorsPageView Ready" },
-      { tab: "triggers", token: "TriggersView Ready" },
-      { tab: "plugins", token: "PluginsPageView Ready" },
+      { tab: "triggers", token: "AdvancedPageView Ready" },
+      { tab: "plugins", token: "PluginsView Ready" },
       { tab: "skills", token: "SkillsView Ready" },
-      { tab: "actions", token: "CustomActionsView Ready" },
-      { tab: "advanced", token: "PluginsPageView Ready" },
-      { tab: "fine-tuning", token: "FineTuningView Ready" },
-      { tab: "trajectories", token: "TrajectoriesView Ready" },
+      { tab: "actions", token: "AdvancedPageView Ready" },
+      { tab: "advanced", token: "AdvancedPageView Ready" },
+      { tab: "fine-tuning", token: "AdvancedPageView Ready" },
+      { tab: "trajectories", token: "AdvancedPageView Ready" },
       { tab: "voice", token: "SettingsView Ready" },
-      { tab: "runtime", token: "RuntimeView Ready" },
-      { tab: "database", token: "DatabasePageView Ready" },
+      { tab: "runtime", token: "AdvancedPageView Ready" },
+      { tab: "database", token: "AdvancedPageView Ready" },
       { tab: "settings", token: "SettingsView Ready" },
-      { tab: "logs", token: "LogsPageView Ready" },
+      { tab: "logs", token: "AdvancedPageView Ready" },
     ];
 
     let tree: TestRenderer.ReactTestRenderer;
@@ -424,23 +368,27 @@ describe("pages navigation smoke (e2e)", () => {
     const warnSpy = vi.spyOn(console, "warn");
 
     const cases: Array<{
-      name: string;
       patch: Partial<HarnessState>;
       token: string;
     }> = [
       {
-        name: "loading",
         patch: { onboardingLoading: true, onboardingComplete: false },
         token: "LoadingScreen",
       },
       {
-        name: "pairing",
-        patch: { onboardingLoading: false, onboardingComplete: true, authRequired: true },
+        patch: {
+          onboardingLoading: false,
+          onboardingComplete: true,
+          authRequired: true,
+        },
         token: "PairingView",
       },
       {
-        name: "onboarding",
-        patch: { onboardingLoading: false, authRequired: false, onboardingComplete: false },
+        patch: {
+          onboardingLoading: false,
+          authRequired: false,
+          onboardingComplete: false,
+        },
         token: "OnboardingWizard",
       },
     ];

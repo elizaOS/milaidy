@@ -15,6 +15,7 @@ import {
   pickRandomAnimationDef,
 } from "./avatar/companionAnimationIntent";
 import { BubbleEmote } from "./BubbleEmote";
+import { ChatModalView } from "./ChatModalView.js";
 import { createTranslator } from "../i18n";
 
 const BSC_GAS_READY_THRESHOLD = 0.005;
@@ -102,6 +103,9 @@ export function CompanionView() {
   const [swapUserSignTx, setSwapUserSignTx] = useState<string | null>(null);
   const [swapUserSignApprovalTx, setSwapUserSignApprovalTx] = useState<string | null>(null);
   const [characterRosterOpen, setCharacterRosterOpen] = useState(false);
+  const [chatDockOpen, setChatDockOpen] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth > 1024 : true,
+  );
   const [vrmLoaded, setVrmLoaded] = useState(false);
   const [showVrmFallback, setShowVrmFallback] = useState(false);
   const vrmEngineRef = useRef<VrmEngine | null>(null);
@@ -598,11 +602,16 @@ export function CompanionView() {
         <header className="anime-comp-header">
           <div className="anime-comp-header-left">
             <button
-              className="anime-btn-ghost"
-              onClick={() => setTab("chat")}
-              title={t("nav.chat")}
+              className={`anime-btn-ghost anime-chat-toggle-btn ${chatDockOpen ? "is-open" : ""}`}
+              onClick={() => setChatDockOpen((open) => !open)}
+              title={chatDockOpen ? t("chat.modal.back") : t("nav.chat")}
+              data-testid="companion-chat-toggle"
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6" /></svg>
+              {chatDockOpen ? (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6" /></svg>
+              ) : (
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>
+              )}
             </button>
 
             <div className="anime-status-pill">
@@ -1134,6 +1143,16 @@ export function CompanionView() {
           </div>
 
         </header>
+
+        <div
+          className={`anime-comp-chat-dock-anchor ${chatDockOpen ? "is-open" : ""}`}
+          data-testid="companion-chat-dock"
+        >
+          <ChatModalView
+            variant="companion-dock"
+            onRequestClose={() => setChatDockOpen(false)}
+          />
+        </div>
 
         {/* Main Content Area */}
         <div className="anime-comp-main-grid">

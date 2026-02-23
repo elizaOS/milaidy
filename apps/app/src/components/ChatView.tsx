@@ -23,7 +23,13 @@ function nowMs(): number {
   return typeof performance !== "undefined" ? performance.now() : Date.now();
 }
 
-export function ChatView() {
+export type ChatViewVariant = "default" | "game-modal";
+
+interface ChatViewProps {
+  variant?: ChatViewVariant;
+}
+
+export function ChatView({ variant = "default" }: ChatViewProps) {
   const {
     agentStatus,
     chatInput,
@@ -41,6 +47,7 @@ export function ChatView() {
     uiLanguage,
   } = useApp();
   const t = createTranslator(uiLanguage);
+  const isGameModal = variant === "game-modal";
 
   const messagesRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -218,16 +225,39 @@ export function ChatView() {
     }
   };
 
+  const messageContainerClass = isGameModal
+    ? "chat-game-messages flex-1 overflow-y-auto relative"
+    : "flex-1 overflow-y-auto py-2 relative";
+  const headerClass = isGameModal
+    ? "chat-game-message-author"
+    : "font-bold text-[12px] mb-1 text-accent";
+  const messageBodyClass = isGameModal
+    ? "chat-game-message-body"
+    : "max-w-[85%] px-0 py-1 text-sm leading-relaxed whitespace-pre-wrap break-words";
+  const composerClass = isGameModal
+    ? "chat-game-composer"
+    : "flex gap-2 items-end border-t border-border pt-3 pb-4 relative";
+
   return (
-    <div className="flex flex-col flex-1 min-h-0 px-3 relative">
+    <div
+      className={
+        isGameModal
+          ? "chat-game-thread-inner flex flex-col flex-1 min-h-0 relative"
+          : "flex flex-col flex-1 min-h-0 px-3 relative"
+      }
+    >
       {/* ── Messages ───────────────────────────────────────────────── */}
-      <div ref={messagesRef} className="flex-1 overflow-y-auto py-2 relative" style={{ zIndex: 1 }}>
+      <div
+        ref={messagesRef}
+        className={messageContainerClass}
+        style={{ zIndex: 1 }}
+      >
         {visibleMsgs.length === 0 && !chatSending ? (
-          <div className="text-center py-10 text-muted italic">
+          <div className={isGameModal ? "chat-game-empty" : "text-center py-10 text-muted italic"}>
             {t("chat.empty")}
           </div>
         ) : (
-          <div className="w-full px-0">
+          <div className={isGameModal ? "chat-game-message-list" : "w-full px-0"}>
             {visibleMsgs.map((msg, i) => {
               const prev = i > 0 ? visibleMsgs[i - 1] : null;
               const grouped = prev?.role === msg.role;
@@ -236,35 +266,34 @@ export function ChatView() {
               return (
                 <div
                   key={msg.id}
-                  className={`flex items-start gap-2 ${isUser ? "justify-end" : "justify-start"} ${grouped ? "mt-1" : "mt-3"}`}
+                  className={`${isGameModal ? "chat-game-message-row" : "flex items-start gap-2"} ${isUser ? "justify-end" : "justify-start"} ${grouped ? "mt-1" : "mt-3"}`}
                   data-testid="chat-message"
                   data-role={msg.role}
                 >
                   {!isUser &&
                     (grouped ? (
-                      <div className="w-7 h-7 shrink-0" aria-hidden />
+                      <div className={isGameModal ? "chat-game-avatar chat-game-avatar-ghost" : "w-7 h-7 shrink-0"} aria-hidden />
                     ) : (
-                      <div className="w-7 h-7 shrink-0 rounded-full overflow-hidden border border-border bg-bg-hover">
+                      <div className={isGameModal ? "chat-game-avatar" : "w-7 h-7 shrink-0 rounded-full overflow-hidden border border-border bg-bg-hover"}>
                         {agentAvatarSrc ? (
                           <img
                             src={agentAvatarSrc}
                             alt={`${agentName} avatar`}
-                            className="w-full h-full object-cover"
+                            className={isGameModal ? "chat-game-avatar-img" : "w-full h-full object-cover"}
                           />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center text-[11px] font-bold text-muted">
+                          <div className={isGameModal ? "chat-game-avatar-initial" : "w-full h-full flex items-center justify-center text-[11px] font-bold text-muted"}>
                             {agentInitial}
                           </div>
                         )}
                       </div>
                     ))}
-                  <div
-                    className="max-w-[85%] px-0 py-1 text-sm leading-relaxed whitespace-pre-wrap break-words"
-                  >
+                  <div className={`${messageBodyClass} ${isGameModal ? (isUser ? "chat-game-bubble chat-game-bubble-user" : "chat-game-bubble") : ""}`}>
                     {!grouped && (
-                      <div className="font-bold text-[12px] mb-1 text-accent">
+                      <div className={headerClass}>
                         {isUser ? t("chat.you") : agentName}
-                        {!isUser &&
+                        {!isGameModal &&
+                          !isUser &&
                           typeof msg.source === "string" &&
                           msg.source &&
                           msg.source !== "client_chat" && (
@@ -281,23 +310,23 @@ export function ChatView() {
             })}
 
             {chatSending && !chatFirstTokenReceived && (
-              <div className="mt-3 flex items-start gap-2 justify-start">
-                <div className="w-7 h-7 shrink-0 rounded-full overflow-hidden border border-border bg-bg-hover">
+              <div className={`${isGameModal ? "chat-game-message-row" : "mt-3 flex items-start gap-2"} justify-start`}>
+                <div className={isGameModal ? "chat-game-avatar" : "w-7 h-7 shrink-0 rounded-full overflow-hidden border border-border bg-bg-hover"}>
                   {agentAvatarSrc ? (
                     <img
                       src={agentAvatarSrc}
                       alt={`${agentName} avatar`}
-                      className="w-full h-full object-cover"
+                      className={isGameModal ? "chat-game-avatar-img" : "w-full h-full object-cover"}
                     />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center text-[11px] font-bold text-muted">
+                    <div className={isGameModal ? "chat-game-avatar-initial" : "w-full h-full flex items-center justify-center text-[11px] font-bold text-muted"}>
                       {agentInitial}
                     </div>
                   )}
                 </div>
-                <div className="max-w-[85%] px-0 py-1 text-sm leading-relaxed">
-                  <div className="font-bold text-[12px] mb-1 text-accent">{agentName}</div>
-                  <div className="flex gap-1 py-1">
+                <div className={`${isGameModal ? "chat-game-bubble chat-game-bubble-typing" : "max-w-[85%] px-0 py-1 text-sm leading-relaxed"}`}>
+                  <div className={headerClass}>{agentName}</div>
+                  <div className={isGameModal ? "chat-game-typing-dots" : "flex gap-1 py-1"}>
                     <span className="w-1.5 h-1.5 rounded-full bg-muted-strong animate-[typing-bounce_1.2s_ease-in-out_infinite]" />
                     <span className="w-1.5 h-1.5 rounded-full bg-muted-strong animate-[typing-bounce_1.2s_ease-in-out_infinite_0.2s]" />
                     <span className="w-1.5 h-1.5 rounded-full bg-muted-strong animate-[typing-bounce_1.2s_ease-in-out_infinite_0.4s]" />
@@ -311,12 +340,12 @@ export function ChatView() {
 
       {/* Share ingest notice */}
       {shareIngestNotice && (
-        <div className="text-xs text-ok py-1 relative" style={{ zIndex: 1 }}>{shareIngestNotice}</div>
+        <div className={isGameModal ? "chat-game-notice chat-game-notice-ok" : "text-xs text-ok py-1 relative"} style={{ zIndex: 1 }}>{shareIngestNotice}</div>
       )}
 
       {/* Dropped files */}
       {droppedFiles.length > 0 && (
-        <div className="text-xs text-muted py-0.5 flex gap-2 relative" style={{ zIndex: 1 }}>
+        <div className={isGameModal ? "chat-game-notice chat-game-notice-muted" : "text-xs text-muted py-0.5 flex gap-2 relative"} style={{ zIndex: 1 }}>
           {droppedFiles.map((f, i) => (
             <span key={i}>{f}</span>
           ))}
@@ -326,11 +355,11 @@ export function ChatView() {
       {/* Voice latency debug info — intentionally not rendered in production UI */}
 
       {/* ── Input row: mic + textarea + send ───────────────────────── */}
-      <div className="flex gap-2 items-end border-t border-border pt-3 pb-4 relative" style={{ zIndex: 1 }}>
+      <div className={composerClass} style={{ zIndex: 1 }}>
         {/* Mic button — user voice input */}
         {voice.supported && (
           <button
-            className={`h-[38px] w-[38px] flex-shrink-0 flex items-center justify-center border rounded cursor-pointer transition-all self-end ${voice.isListening
+            className={`${isGameModal ? "chat-game-mic-btn" : "h-[38px] w-[38px] flex-shrink-0 flex items-center justify-center border rounded cursor-pointer transition-all self-end"} ${voice.isListening
                 ? "bg-accent border-accent text-accent-fg shadow-[0_0_10px_rgba(124,58,237,0.4)] animate-pulse"
                 : "border-border bg-card text-muted hover:border-accent hover:text-accent"
               }`}
@@ -357,13 +386,13 @@ export function ChatView() {
 
         {/* Textarea / live transcript */}
         {voice.isListening && voice.interimTranscript ? (
-          <div className="flex-1 px-3 py-2 border border-accent bg-card text-txt text-sm font-body leading-relaxed min-h-[38px] flex items-center">
+          <div className={`${isGameModal ? "chat-game-live-transcript" : "flex-1 px-3 py-2 border border-accent bg-card text-txt text-sm font-body leading-relaxed min-h-[38px] flex items-center"}`}>
             <span className="text-muted italic">{voice.interimTranscript}</span>
           </div>
         ) : (
           <textarea
             ref={textareaRef}
-            className="flex-1 px-3 py-2 border border-border bg-card text-txt text-sm font-body leading-relaxed resize-none overflow-y-hidden min-h-[38px] max-h-[200px] focus:border-accent focus:outline-none"
+            className={isGameModal ? "chat-game-input" : "flex-1 px-3 py-2 border border-border bg-card text-txt text-sm font-body leading-relaxed resize-none overflow-y-hidden min-h-[38px] max-h-[200px] focus:border-accent focus:outline-none"}
             rows={1}
             placeholder={voice.isListening ? t("chat.listening") : t("chat.inputPlaceholder")}
             value={chatInput}
@@ -376,7 +405,7 @@ export function ChatView() {
         {/* Send / Stop */}
         {chatSending ? (
           <button
-            className="h-[38px] px-4 py-2 border border-danger bg-danger/10 text-danger text-sm cursor-pointer hover:bg-danger/20 self-end"
+            className={isGameModal ? "chat-game-send-btn chat-game-send-btn-danger" : "h-[38px] px-4 py-2 border border-danger bg-danger/10 text-danger text-sm cursor-pointer hover:bg-danger/20 self-end"}
             onClick={handleChatStop}
             title={t("chat.stopGeneration")}
           >
@@ -384,7 +413,7 @@ export function ChatView() {
           </button>
         ) : voice.isSpeaking ? (
           <button
-            className="h-[38px] px-4 py-2 border border-danger bg-danger/10 text-danger text-sm cursor-pointer hover:bg-danger/20 self-end"
+            className={isGameModal ? "chat-game-send-btn chat-game-send-btn-danger" : "h-[38px] px-4 py-2 border border-danger bg-danger/10 text-danger text-sm cursor-pointer hover:bg-danger/20 self-end"}
             onClick={stopSpeaking}
             title={t("chat.stopSpeaking")}
           >
@@ -392,7 +421,7 @@ export function ChatView() {
           </button>
         ) : (
           <button
-            className="h-[38px] px-6 py-2 border border-accent bg-accent text-accent-fg text-sm cursor-pointer hover:bg-accent-hover disabled:opacity-40 disabled:cursor-not-allowed self-end"
+            className={isGameModal ? "chat-game-send-btn chat-game-send-btn-primary" : "h-[38px] px-6 py-2 border border-accent bg-accent text-accent-fg text-sm cursor-pointer hover:bg-accent-hover disabled:opacity-40 disabled:cursor-not-allowed self-end"}
             onClick={() => void handleChatSend(chatMode)}
             disabled={chatSending}
           >

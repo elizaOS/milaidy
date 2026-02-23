@@ -3,8 +3,14 @@
  */
 
 import { useState, useRef, useEffect } from "react";
-import { useApp } from "../AppContext.js";
+import { getVrmPreviewUrl, useApp, VRM_COUNT } from "../AppContext.js";
 import { createTranslator } from "../i18n";
+
+export type ConversationsSidebarVariant = "default" | "game-modal";
+
+interface ConversationsSidebarProps {
+  variant?: ConversationsSidebarVariant;
+}
 
 function formatRelativeTime(
   dateString: string,
@@ -25,7 +31,16 @@ function formatRelativeTime(
   return date.toLocaleDateString();
 }
 
-export function ConversationsSidebar() {
+function avatarIndexFromConversationId(id: string): number {
+  let hash = 0;
+  for (let i = 0; i < id.length; i += 1) {
+    hash = (hash * 31 + id.charCodeAt(i)) | 0;
+  }
+  const normalized = Math.abs(hash) % VRM_COUNT;
+  return normalized + 1;
+}
+
+export function ConversationsSidebar({ variant = "default" }: ConversationsSidebarProps) {
   const {
     conversations,
     activeConversationId,
@@ -85,32 +100,61 @@ export function ConversationsSidebar() {
     }
   };
 
+  const isGameModal = variant === "game-modal";
+
   return (
-    <aside className="w-60 min-w-60 border-r border-border bg-bg flex flex-col overflow-y-auto text-[13px]" data-testid="conversations-sidebar">
-      <div className="p-3 border-b border-border">
+    <aside
+      className={
+        isGameModal
+          ? "chat-game-sidebar-root"
+          : "w-60 min-w-60 border-r border-border bg-bg flex flex-col overflow-y-auto text-[13px]"
+      }
+      data-testid="conversations-sidebar"
+      data-variant={variant}
+    >
+      <div className={isGameModal ? "chat-game-sidebar-head" : "p-3 border-b border-border"}>
         <button
-          className="w-full px-3 py-2 border border-border rounded-md bg-accent text-accent-fg text-[13px] font-medium cursor-pointer transition-opacity hover:opacity-90"
+          className={
+            isGameModal
+              ? "chat-game-new-chat-btn"
+              : "w-full px-3 py-2 border border-border rounded-md bg-accent text-accent-fg text-[13px] font-medium cursor-pointer transition-opacity hover:opacity-90"
+          }
           onClick={handleNewConversation}
         >
           {t("conversations.newChat")}
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto py-1">
+      <div className={isGameModal ? "chat-game-sidebar-list" : "flex-1 overflow-y-auto py-1"}>
         {sortedConversations.length === 0 ? (
-          <div className="px-3 py-6 text-center text-muted text-xs">{t("conversations.none")}</div>
+          <div className={isGameModal ? "chat-game-sidebar-empty" : "px-3 py-6 text-center text-muted text-xs"}>{t("conversations.none")}</div>
         ) : (
           sortedConversations.map((conv) => {
             const isActive = conv.id === activeConversationId;
             const isEditing = editingId === conv.id;
+            const avatarSrc = getVrmPreviewUrl(
+              avatarIndexFromConversationId(conv.id),
+            );
+            const fallbackInitial = conv.title.trim().charAt(0).toUpperCase() || "#";
 
             return (
               <div
                 key={conv.id}
                 data-testid="conv-item"
                 data-active={isActive || undefined}
-                className={`flex items-center px-3 py-2 gap-2 cursor-pointer transition-colors border-l-[3px] ${isActive ? "bg-bg-hover border-l-accent" : "border-l-transparent hover:bg-bg-hover"
-                  } group`}
+                className={`${
+                  isGameModal
+                    ? "chat-game-conv-item"
+                    : "flex items-center px-3 py-2 gap-2 cursor-pointer transition-colors border-l-[3px]"
+                } ${
+                  isActive
+                    ? isGameModal
+                      ? "is-active"
+                      : "bg-bg-hover border-l-accent"
+                    : isGameModal
+                      ? ""
+                      : "border-l-transparent hover:bg-bg-hover"
+                } group`}
                 onClick={() => {
                   if (!isEditing) {
                     void handleSelectConversation(conv.id);
@@ -131,20 +175,38 @@ export function ConversationsSidebar() {
                 ) : (
                   <>
                     {unreadConversations.has(conv.id) && (
-                      <span className="w-2 h-2 rounded-full bg-accent shrink-0" />
+                      <span className={isGameModal ? "chat-game-conv-unread" : "w-2 h-2 rounded-full bg-accent shrink-0"} />
                     )}
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium truncate text-txt">{conv.title}</div>
-                      <div className="text-[11px] text-muted mt-0.5">{formatRelativeTime(conv.updatedAt, t)}</div>
+                    {isGameModal && (
+                      <div className="chat-game-conv-avatar">
+                        <img
+                          src={avatarSrc}
+                          alt={conv.title}
+                          className="chat-game-conv-avatar-img"
+                        />
+                        <span className="chat-game-conv-avatar-initial">{fallbackInitial}</span>
+                      </div>
+                    )}
+                    <div className={isGameModal ? "chat-game-conv-body" : "flex-1 min-w-0"}>
+                      <div className={isGameModal ? "chat-game-conv-title" : "font-medium truncate text-txt"}>{conv.title}</div>
+                      <div className={isGameModal ? "chat-game-conv-time" : "text-[11px] text-muted mt-0.5"}>{formatRelativeTime(conv.updatedAt, t)}</div>
                     </div>
                     <button
-                      className="opacity-0 group-hover:opacity-100 transition-opacity border-none bg-transparent text-muted hover:text-accent cursor-pointer text-sm px-1 py-0.5 rounded flex-shrink-0"
+                      className={
+                        isGameModal
+                          ? "chat-game-conv-action"
+                          : "opacity-0 group-hover:opacity-100 transition-opacity border-none bg-transparent text-muted hover:text-accent cursor-pointer text-sm px-1 py-0.5 rounded flex-shrink-0"
+                      }
                       onClick={(e) => { e.stopPropagation(); handleDoubleClick(conv); }}
                       title={t("conversations.rename")}
                     >✎</button>
                     <button
                       data-testid="conv-delete"
-                      className="opacity-30 group-hover:opacity-100 transition-opacity border-none bg-transparent text-muted hover:text-danger hover:bg-destructive-subtle cursor-pointer text-sm px-1 py-0.5 rounded flex-shrink-0"
+                      className={
+                        isGameModal
+                          ? "chat-game-conv-action chat-game-conv-action-danger"
+                          : "opacity-30 group-hover:opacity-100 transition-opacity border-none bg-transparent text-muted hover:text-danger hover:bg-destructive-subtle cursor-pointer text-sm px-1 py-0.5 rounded flex-shrink-0"
+                      }
                       onClick={(e) => {
                         e.stopPropagation();
                         void handleDeleteConversation(conv.id);
