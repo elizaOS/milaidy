@@ -624,6 +624,8 @@ export interface ConversationMessage {
   blocks?: ContentBlock[];
   /** Source channel when forwarded from another channel (e.g. "autonomy"). */
   source?: string;
+  /** Username of the sender (e.g. retake viewer username, discord username). */
+  from?: string;
 }
 
 export type ConversationChannelType =
@@ -4342,6 +4344,37 @@ export class MiladyClient {
     } catch {
       return "";
     }
+  }
+
+  // ── Retake.tv stream controls ───────────────────────────────────────────
+
+  async retakeGoLive(): Promise<{
+    ok: boolean;
+    live: boolean;
+    rtmpUrl?: string;
+    inputMode?: string;
+    audioSource?: string;
+    message?: string;
+  }> {
+    return this.fetch("/api/retake/live", { method: "POST" });
+  }
+
+  async retakeGoOffline(): Promise<{ ok: boolean; live: boolean }> {
+    return this.fetch("/api/retake/offline", { method: "POST" });
+  }
+
+  async retakeStatus(): Promise<{
+    ok: boolean;
+    running: boolean;
+    ffmpegAlive: boolean;
+    uptime: number;
+    frameCount: number;
+    volume: number;
+    muted: boolean;
+    audioSource: string;
+    inputMode: string | null;
+  }> {
+    return this.fetch("/api/retake/status");
   }
 }
 

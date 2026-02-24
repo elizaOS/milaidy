@@ -28,6 +28,7 @@ import { RestartBanner } from "./components/RestartBanner";
 import { SaveCommandModal } from "./components/SaveCommandModal";
 import { SettingsView } from "./components/SettingsView";
 import { StartupFailureView } from "./components/StartupFailureView";
+import { StreamView } from "./components/StreamView";
 import { TerminalPanel } from "./components/TerminalPanel";
 import { BugReportProvider, useBugReportState } from "./hooks/useBugReport";
 import { useContextMenu } from "./hooks/useContextMenu";
@@ -35,11 +36,25 @@ import { APPS_ENABLED } from "./navigation";
 
 const CHAT_MOBILE_BREAKPOINT_PX = 1024;
 
+/** Check if we're in pop-out mode (StreamView only, no chrome). */
+function useIsPopout(): boolean {
+  const [popout] = useState(() => {
+    if (typeof window === "undefined") return false;
+    const params = new URLSearchParams(
+      window.location.search || window.location.hash.split("?")[1] || "",
+    );
+    return params.has("popout");
+  });
+  return popout;
+}
+
 function ViewRouter() {
   const { tab } = useApp();
   switch (tab) {
     case "chat":
       return <ChatView />;
+    case "stream":
+      return <StreamView />;
     case "apps":
       // Apps disabled in production builds; fall through to chat
       return APPS_ENABLED ? <AppsPageView /> : <ChatView />;
@@ -80,13 +95,32 @@ export function App() {
     onboardingComplete,
     retryStartup,
     tab,
+    setTab,
     actionNotice,
     agentStatus,
     unreadConversations,
     activeGameViewerUrl,
     gameOverlayEnabled,
   } = useApp();
+  const isPopout = useIsPopout();
   const contextMenu = useContextMenu();
+
+  // When the stream is popped out, navigate away; when closed, navigate back.
+  const [streamPoppedOut, setStreamPoppedOut] = useState(false);
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail === "opened") {
+        setStreamPoppedOut(true);
+        setTab("chat");
+      } else if (detail === "closed") {
+        setStreamPoppedOut(false);
+        setTab("stream");
+      }
+    };
+    window.addEventListener("stream-popout", handler);
+    return () => window.removeEventListener("stream-popout", handler);
+  }, [setTab]);
 
   const [customActionsPanelOpen, setCustomActionsPanelOpen] = useState(false);
   const [customActionsEditorOpen, setCustomActionsEditorOpen] = useState(false);
@@ -240,6 +274,16 @@ export function App() {
 
   const agentStarting = agentStatus?.state === "starting";
 
+  // Pop-out mode — render only StreamView, skip startup gates.
+  // Platform init is skipped in main.tsx; AppProvider hydrates WS in background.
+  if (isPopout) {
+    return (
+      <div className="flex flex-col h-screen w-screen font-body text-txt bg-bg overflow-hidden">
+        <StreamView />
+      </div>
+    );
+  }
+
   if (startupError) {
     return <StartupFailureView error={startupError} onRetry={retryStartup} />;
   }
@@ -257,7 +301,15 @@ export function App() {
 
   return (
     <BugReportProvider value={bugReport}>
-      {isChat ? (
+      {tab === "stream" && !streamPoppedOut ? (
+        <div className="flex flex-col flex-1 min-h-0 w-full font-body text-txt bg-bg">
+          <Header />
+          <Nav />
+          <main className="flex-1 min-h-0 overflow-hidden">
+            <StreamView />
+          </main>
+        </div>
+      ) : isChat || (tab === "stream" && streamPoppedOut) ? (
         <div className="flex flex-col flex-1 min-h-0 w-full font-body text-txt bg-bg">
           <Header />
           <Nav mobileLeft={mobileChatControls} />
