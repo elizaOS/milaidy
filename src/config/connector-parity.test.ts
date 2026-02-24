@@ -37,9 +37,9 @@ describe("connector map parity", () => {
   });
 
   it("has identical count across all three maps", () => {
-    expect(CONNECTOR_IDS).toHaveLength(17);
-    expect(Object.keys(CONNECTOR_PLUGINS)).toHaveLength(17);
-    expect(Object.keys(CHANNEL_PLUGIN_MAP)).toHaveLength(17);
+    expect(CONNECTOR_IDS).toHaveLength(18);
+    expect(Object.keys(CONNECTOR_PLUGINS)).toHaveLength(18);
+    expect(Object.keys(CHANNEL_PLUGIN_MAP)).toHaveLength(18);
   });
 
   it("uses valid package name prefixes for all plugin mappings", () => {

@@ -427,6 +427,13 @@ const CHANNEL_ENV_MAP: Readonly<
   googlechat: {
     serviceAccountKey: "GOOGLE_CHAT_SERVICE_ACCOUNT_KEY",
   },
+  blooio: {
+    apiKey: "BLOOIO_API_KEY",
+    fromNumber: "BLOOIO_PHONE_NUMBER",
+    webhookSecret: "BLOOIO_WEBHOOK_SECRET",
+    webhookUrl: "BLOOIO_WEBHOOK_URL",
+    webhookPort: "BLOOIO_WEBHOOK_PORT",
+  },
 };
 
 // ---------------------------------------------------------------------------
@@ -466,6 +473,7 @@ export const CHANNEL_PLUGIN_MAP: Readonly<Record<string, string>> = {
   matrix: "@elizaos/plugin-matrix",
   nostr: "@elizaos/plugin-nostr",
   retake: "@milady/plugin-retake",
+  blooio: "@elizaos/plugin-blooio",
 };
 
 const PI_AI_PLUGIN_PACKAGE = "@elizaos/plugin-pi-ai";

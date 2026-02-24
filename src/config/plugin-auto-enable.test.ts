@@ -606,8 +606,8 @@ describe("CONNECTOR_PLUGINS", () => {
     expect(CONNECTOR_PLUGINS.discord).toBe("@elizaos/plugin-discord");
   });
 
-  it("contains 17 connector mappings", () => {
-    expect(Object.keys(CONNECTOR_PLUGINS)).toHaveLength(17);
+  it("contains 18 connector mappings", () => {
+    expect(Object.keys(CONNECTOR_PLUGINS)).toHaveLength(18);
   });
 
   it("maps retake to @milady/plugin-retake", () => {
@@ -618,6 +618,10 @@ describe("CONNECTOR_PLUGINS", () => {
     expect([...Object.keys(CONNECTOR_PLUGINS)].sort()).toEqual(
       [...CONNECTOR_IDS].sort(),
     );
+  });
+
+  it("maps blooio to @elizaos/plugin-blooio", () => {
+    expect(CONNECTOR_PLUGINS.blooio).toBe("@elizaos/plugin-blooio");
   });
 });
 
@@ -799,5 +803,38 @@ describe("Retake connector auto-enable", () => {
       }),
     );
     expect(config.plugins?.allow ?? []).not.toContain("retake");
+  });
+});
+
+describe("Blooio connector auto-enable", () => {
+  it("auto-enables when apiKey is set", () => {
+    const { config } = applyPluginAutoEnable(
+      makeParams({
+        config: { connectors: { blooio: { apiKey: "blk-test-key" } } },
+      }),
+    );
+    expect(config.plugins?.allow).toContain("blooio");
+  });
+
+  it("does not auto-enable when config is empty", () => {
+    const { config } = applyPluginAutoEnable(
+      makeParams({
+        config: { connectors: { blooio: {} } },
+      }),
+    );
+    expect(config.plugins?.allow ?? []).not.toContain("blooio");
+  });
+
+  it("does not auto-enable when enabled is explicitly false", () => {
+    const { config } = applyPluginAutoEnable(
+      makeParams({
+        config: {
+          connectors: {
+            blooio: { enabled: false, apiKey: "blk-test-key" },
+          },
+        },
+      }),
+    );
+    expect(config.plugins?.allow ?? []).not.toContain("blooio");
   });
 });

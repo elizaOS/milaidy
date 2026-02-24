@@ -30,6 +30,7 @@ export const CONNECTOR_PLUGINS: Record<string, string> = {
   matrix: "@elizaos/plugin-matrix",
   nostr: "@elizaos/plugin-nostr",
   retake: "@milady/plugin-retake",
+  blooio: "@elizaos/plugin-blooio",
 };
 
 const PROVIDER_PLUGINS: Record<string, string> = {

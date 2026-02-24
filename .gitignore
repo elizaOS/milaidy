@@ -29,6 +29,7 @@ apps/ui/test-results/
 
 # Vendored repos (clone separately if needed)
 vendor/
+plugins/plugin-blooio/
 
 # Local untracked files
 .local/

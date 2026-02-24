@@ -1266,6 +1266,7 @@ function categorizePlugin(
     "nextcloud-talk",
     "instagram",
     "retake",
+    "blooio",
   ];
   const databases = ["sql", "localdb", "inmemorydb"];
 
@@ -6408,22 +6409,25 @@ async function handleRequest(
       body.blooioApiKey.trim()
     ) {
       if (!config.env) config.env = {};
-      (config.env as Record<string, string>).BLOOIO_API_KEY = (
-        body.blooioApiKey as string
-      ).trim();
-      process.env.BLOOIO_API_KEY = (body.blooioApiKey as string).trim();
+      const trimmedKey = (body.blooioApiKey as string).trim();
+      (config.env as Record<string, string>).BLOOIO_API_KEY = trimmedKey;
+      process.env.BLOOIO_API_KEY = trimmedKey;
+
+      const blooioConnector: Record<string, string> = { apiKey: trimmedKey };
+
       if (
         body.blooioPhoneNumber &&
         typeof body.blooioPhoneNumber === "string" &&
         body.blooioPhoneNumber.trim()
       ) {
-        (config.env as Record<string, string>).BLOOIO_PHONE_NUMBER = (
-          body.blooioPhoneNumber as string
-        ).trim();
-        process.env.BLOOIO_PHONE_NUMBER = (
-          body.blooioPhoneNumber as string
-        ).trim();
+        const trimmedPhone = (body.blooioPhoneNumber as string).trim();
+        (config.env as Record<string, string>).BLOOIO_PHONE_NUMBER =
+          trimmedPhone;
+        process.env.BLOOIO_PHONE_NUMBER = trimmedPhone;
+        blooioConnector.fromNumber = trimmedPhone;
       }
+
+      config.connectors.blooio = blooioConnector;
     }
 
     // ── Inventory / RPC providers ─────────────────────────────────────────
