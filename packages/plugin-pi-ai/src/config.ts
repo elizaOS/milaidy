@@ -18,7 +18,7 @@ const optionalModelSpecSchema = z
       return value;
     } catch {
       throw new Error(
-        `Invalid model spec \"${value}\". Expected format: provider/modelId`,
+        `Invalid model spec "${value}". Expected format: provider/modelId`,
       );
     }
   });

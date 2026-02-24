@@ -5,4 +5,5 @@ app
 node_modules
 build
 dist
+milady-dist
 logs

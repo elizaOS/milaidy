@@ -124,7 +124,7 @@ export class RepoPromptService extends Service {
     return new RepoPromptService(runtime);
   }
 
-  static override async stop(runtime: IAgentRuntime): Promise<void> {
+  static async stop(runtime: IAgentRuntime): Promise<void> {
     const service = runtime.getService(RepoPromptService.serviceType);
     if (service && "stop" in service && typeof service.stop === "function") {
       await service.stop();

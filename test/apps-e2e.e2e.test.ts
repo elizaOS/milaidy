@@ -329,11 +329,7 @@ describe("Apps E2E", () => {
     });
 
     it("returns array for a query", async () => {
-      const response = await api(
-        server.port,
-        "GET",
-        "/api/apps/search?q=game",
-      );
+      const response = await api(server.port, "GET", "/api/apps/search?q=game");
       if (!pluginManagerAvailable) {
         expectPluginManagerUnavailable(response);
         return;
@@ -365,7 +361,12 @@ describe("Apps E2E", () => {
       );
 
       if (!pluginManagerAvailable) {
-        for (const response of [maxLimit, invalidLimit, underLimit, overLimit]) {
+        for (const response of [
+          maxLimit,
+          invalidLimit,
+          underLimit,
+          overLimit,
+        ]) {
           expectPluginManagerUnavailable(response);
         }
         return;
@@ -447,11 +448,7 @@ describe("Apps E2E", () => {
 
   describe("GET /api/apps/installed", () => {
     it("returns 200 with an array", async () => {
-      const response = await api(
-        server.port,
-        "GET",
-        "/api/apps/installed",
-      );
+      const response = await api(server.port, "GET", "/api/apps/installed");
       if (!pluginManagerAvailable) {
         expectPluginManagerUnavailable(response);
         return;
@@ -648,14 +645,9 @@ describe("Apps E2E", () => {
       }
       expect(launch.status).toBe(200);
 
-      const response = await api(
-        server.port,
-        "POST",
-        "/api/apps/stop",
-        {
-          name: KNOWN_LOCAL_APP_NAME,
-        },
-      );
+      const response = await api(server.port, "POST", "/api/apps/stop", {
+        name: KNOWN_LOCAL_APP_NAME,
+      });
       if (!pluginManagerAvailable) {
         expectPluginManagerUnavailable(response);
         return;
@@ -673,14 +665,9 @@ describe("Apps E2E", () => {
     });
 
     it("returns no-op on repeated stop after app is already disconnected", async () => {
-      const response = await api(
-        server.port,
-        "POST",
-        "/api/apps/stop",
-        {
-          name: KNOWN_LOCAL_APP_NAME,
-        },
-      );
+      const response = await api(server.port, "POST", "/api/apps/stop", {
+        name: KNOWN_LOCAL_APP_NAME,
+      });
       if (!pluginManagerAvailable) {
         expectPluginManagerUnavailable(response);
         return;
@@ -997,14 +984,9 @@ describe("Apps E2E", () => {
     it("launch includes postMessageAuth config for 2004scape", async () => {
       // This test verifies the postMessage auth configuration is included
       // in the launch response for 2004scape, enabling autologin when embedded
-      const response = await api(
-        server.port,
-        "POST",
-        "/api/apps/launch",
-        {
-          name: "@elizaos/app-2004scape",
-        },
-      );
+      const response = await api(server.port, "POST", "/api/apps/launch", {
+        name: "@elizaos/app-2004scape",
+      });
       if (!pluginManagerAvailable) {
         expectPluginManagerUnavailable(response);
         return;
@@ -1050,14 +1032,9 @@ describe("Apps E2E", () => {
       process.env.HYPERSCAPE_AUTH_TOKEN = "test-auth-token-e2e";
 
       try {
-        const response = await api(
-          server.port,
-          "POST",
-          "/api/apps/launch",
-          {
-            name: "@elizaos/app-hyperscape",
-          },
-        );
+        const response = await api(server.port, "POST", "/api/apps/launch", {
+          name: "@elizaos/app-hyperscape",
+        });
         if (!pluginManagerAvailable) {
           expectPluginManagerUnavailable(response);
           return;
@@ -1099,14 +1076,9 @@ describe("Apps E2E", () => {
       delete process.env.HYPERSCAPE_AUTH_TOKEN;
 
       try {
-        const response = await api(
-          server.port,
-          "POST",
-          "/api/apps/launch",
-          {
-            name: "@elizaos/app-hyperscape",
-          },
-        );
+        const response = await api(server.port, "POST", "/api/apps/launch", {
+          name: "@elizaos/app-hyperscape",
+        });
         if (!pluginManagerAvailable) {
           expectPluginManagerUnavailable(response);
           return;

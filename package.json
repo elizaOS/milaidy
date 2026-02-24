@@ -130,6 +130,7 @@
     "@elizaos/plugin-plugin-manager": "next",
     "@elizaos/plugin-rolodex": "next",
     "@elizaos/plugin-secrets-manager": "next",
+    "@elizaos/plugin-sql": "next",
     "@elizaos/plugin-shell": "next",
     "@elizaos/plugin-telegram": "next",
     "@elizaos/plugin-todo": "next",

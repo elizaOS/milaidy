@@ -1,11 +1,11 @@
-import path from 'node:path';
-import { z } from 'zod';
+import path from "node:path";
+import { z } from "zod";
 
 export const DEFAULT_ALLOWED_COMMANDS = [
-  'context_builder',
-  'read_file',
-  'file_search',
-  'tree',
+  "context_builder",
+  "read_file",
+  "file_search",
+  "tree",
 ] as const;
 const DEFAULT_TIMEOUT_MS = 45_000;
 const DEFAULT_MAX_OUTPUT_CHARS = 20_000;
@@ -20,13 +20,13 @@ const MAX_STDIN_BYTES = 1_048_576;
 function validateCliPath(value: string): string {
   const normalized = value.trim();
   if (!normalized) {
-    throw new Error('REPOPROMPT_CLI_PATH is required');
+    throw new Error("REPOPROMPT_CLI_PATH is required");
   }
 
   const binaryName = path.basename(normalized).toLowerCase();
-  if (!binaryName.includes('rp-cli') && !binaryName.includes('repoprompt')) {
+  if (!binaryName.includes("rp-cli") && !binaryName.includes("repoprompt")) {
     throw new Error(
-      'REPOPROMPT_CLI_PATH must point to a repoprompt binary (name must include "rp-cli" or "repoprompt")'
+      'REPOPROMPT_CLI_PATH must point to a repoprompt binary (name must include "rp-cli" or "repoprompt")',
     );
   }
 
@@ -41,7 +41,7 @@ const allowedCommandsSchema = z
       return [...DEFAULT_ALLOWED_COMMANDS];
     }
 
-    const parsed = Array.isArray(value) ? value : value.split(',');
+    const parsed = Array.isArray(value) ? value : value.split(",");
     const normalized = parsed
       .map((command) => normalizeCommandName(command))
       .filter((command) => command.length > 0);
@@ -54,7 +54,7 @@ const allowedCommandsSchema = z
   });
 
 export const repopromptConfigSchema = z.object({
-  REPOPROMPT_CLI_PATH: z.string().default('rp-cli').transform(validateCliPath),
+  REPOPROMPT_CLI_PATH: z.string().default("rp-cli").transform(validateCliPath),
   REPOPROMPT_DEFAULT_WINDOW: z.string().trim().min(1).optional(),
   REPOPROMPT_DEFAULT_TAB: z.string().trim().min(1).optional(),
   REPOPROMPT_WORKSPACE_ROOT: z.string().trim().min(1).optional(),
@@ -91,10 +91,13 @@ export interface RepoPromptConfig {
 }
 
 export function normalizeCommandName(command: string): string {
-  return command.trim().replace(/^--?/, '').toLowerCase();
+  return command.trim().replace(/^--?/, "").toLowerCase();
 }
 
-export function isCommandAllowed(command: string, allowedCommands: string[]): boolean {
+export function isCommandAllowed(
+  command: string,
+  allowedCommands: string[],
+): boolean {
   const normalizedCommand = normalizeCommandName(command);
   if (!normalizedCommand) {
     return false;
@@ -102,12 +105,16 @@ export function isCommandAllowed(command: string, allowedCommands: string[]): bo
 
   return allowedCommands.some((allowed) => {
     const normalizedAllowed = normalizeCommandName(allowed);
-    return normalizedAllowed === '*' || normalizedAllowed === 'all' || normalizedAllowed === normalizedCommand;
+    return (
+      normalizedAllowed === "*" ||
+      normalizedAllowed === "all" ||
+      normalizedAllowed === normalizedCommand
+    );
   });
 }
 
 export function loadRepoPromptConfig(
-  raw: Record<string, string | undefined>
+  raw: Record<string, string | undefined>,
 ): RepoPromptConfig {
   const parsed = repopromptConfigSchema.parse(raw);
 
@@ -115,12 +122,15 @@ export function loadRepoPromptConfig(
     cliPath: parsed.REPOPROMPT_CLI_PATH,
     defaultWindow: parsed.REPOPROMPT_DEFAULT_WINDOW,
     defaultTab: parsed.REPOPROMPT_DEFAULT_TAB,
-    workspaceRoot: path.resolve(parsed.REPOPROMPT_WORKSPACE_ROOT ?? process.cwd()),
+    workspaceRoot: path.resolve(
+      parsed.REPOPROMPT_WORKSPACE_ROOT ?? process.cwd(),
+    ),
     timeoutMs: parsed.REPOPROMPT_TIMEOUT_MS,
     maxOutputChars: parsed.REPOPROMPT_MAX_OUTPUT_CHARS,
     maxStdinBytes: parsed.REPOPROMPT_MAX_STDIN_BYTES,
     allowedCommands:
-      parsed.REPOPROMPT_ALLOWED_COMMANDS && parsed.REPOPROMPT_ALLOWED_COMMANDS.length > 0
+      parsed.REPOPROMPT_ALLOWED_COMMANDS &&
+      parsed.REPOPROMPT_ALLOWED_COMMANDS.length > 0
         ? parsed.REPOPROMPT_ALLOWED_COMMANDS
         : [...DEFAULT_ALLOWED_COMMANDS],
   };

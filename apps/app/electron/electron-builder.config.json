@@ -9,11 +9,8 @@
     "build/**/*",
     "capacitor.config.*",
     "app/**/*",
-    {
-      "from": "../../../dist",
-      "to": "milady-dist",
-      "filter": ["**/*.js", "package.json"]
-    }
+    "milady-dist/**/*.js",
+    "milady-dist/package.json"
   ],
   "asarUnpack": ["milady-dist/**/*"],
   "publish": {

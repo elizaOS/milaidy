@@ -116,9 +116,7 @@
       "question": "What is Caroline's identity?",
       "question_type": "category-1",
       "ground_truth": "Transgender woman",
-      "relevant_session_ids": [
-        "conv-26-session_1"
-      ],
+      "relevant_session_ids": ["conv-26-session_1"],
       "retrieved_session_ids": [
         "conv-26-session_3",
         "conv-26-session_11",
@@ -179,9 +177,7 @@
       "question": "How long has Caroline had her current group of friends for?",
       "question_type": "category-2",
       "ground_truth": "4 years",
-      "relevant_session_ids": [
-        "conv-26-session_3"
-      ],
+      "relevant_session_ids": ["conv-26-session_3"],
       "retrieved_session_ids": [
         "conv-26-session_6",
         "conv-26-session_16",
@@ -242,9 +238,7 @@
       "question": "How long ago was Caroline's 18th birthday?",
       "question_type": "category-2",
       "ground_truth": "10 years ago",
-      "relevant_session_ids": [
-        "conv-26-session_4"
-      ],
+      "relevant_session_ids": ["conv-26-session_4"],
       "retrieved_session_ids": [
         "conv-26-session_4",
         "conv-26-session_3",

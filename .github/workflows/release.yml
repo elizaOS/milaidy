@@ -185,6 +185,63 @@ jobs:
         run: bun run build
         working-directory: apps/app/electron
 
+      # Build a custom dist specifically for the Electron app where all third-party
+      # npm dependencies are bundled inline (noExternal: true behavior via rolldown).
+      # This prevents the packaged app from failing to resolve external imports
+      # like "json5" from within the app.asar.unpacked directory.
+      - name: Bundle dist for Electron
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Building standalone Electron dist with all node_modules inlined..."
+
+          cat << 'EOF' > tsdown.electron.config.ts
+          import { defineConfig } from "tsdown";
+          export default defineConfig([{
+            entry: {
+              "index": "src/index.ts",
+              "entry": "src/entry.ts",
+              "eliza": "src/runtime/eliza.ts",
+              "server": "src/api/server.ts",
+              "plugins/whatsapp/index": "src/plugins/whatsapp/index.ts",
+              "plugins/retake/index": "src/plugins/retake/index.ts"
+            },
+            format: "esm",
+            platform: "node",
+            outDir: "dist-electron",
+            noExternal: [/.*/],
+            external: [
+              "node-llama-cpp",
+              "@reflink/reflink",
+              "@reflink/reflink-darwin-arm64",
+              "@reflink/reflink-darwin-x64",
+              "@reflink/reflink-linux-arm64-gnu",
+              "@reflink/reflink-linux-x64-gnu",
+              "fsevents",
+              "koffi",
+            ],
+            fixedExtension: false,
+            inlineOnly: false,
+            env: { NODE_ENV: "production" }
+          }]);
+          EOF
+
+          npx tsdown --config tsdown.electron.config.ts --no-clean
+
+          # Copy to milady-dist so electron-builder can pack it.
+          rm -rf apps/app/electron/milady-dist
+          mkdir -p apps/app/electron/milady-dist
+
+          find dist-electron -name '*.js' | while read f; do
+            rel="${f#dist-electron/}"
+            mkdir -p "apps/app/electron/milady-dist/$(dirname "$rel")"
+            cp "$f" "apps/app/electron/milady-dist/$rel"
+          done
+
+          echo '{"type":"module"}' > apps/app/electron/milady-dist/package.json
+          echo "Copied $(find apps/app/electron/milady-dist -name '*.js' | wc -l | tr -d ' ') JS files to milady-dist/"
+        working-directory: .
+
       - name: Prepare platform electron-builder config
         run: |
           node -e "

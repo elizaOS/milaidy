@@ -20,13 +20,15 @@
 import { describe, expect, it } from "vitest";
 
 const LIVE_TEST =
-  process.env.MILADY_LIVE_TEST === "1" ||
-  process.env.MILAIDY_LIVE_TEST === "1";
+  process.env.MILADY_LIVE_TEST === "1" || process.env.MILAIDY_LIVE_TEST === "1";
 const SIGNAL_ACCOUNT_NUMBER = process.env.SIGNAL_ACCOUNT_NUMBER;
 const SIGNAL_HTTP_URL = process.env.SIGNAL_HTTP_URL;
 const SIGNAL_CLI_PATH = process.env.SIGNAL_CLI_PATH;
 
-const hasSignalConfig = !!(SIGNAL_ACCOUNT_NUMBER && (SIGNAL_HTTP_URL || SIGNAL_CLI_PATH));
+const hasSignalConfig = !!(
+  SIGNAL_ACCOUNT_NUMBER &&
+  (SIGNAL_HTTP_URL || SIGNAL_CLI_PATH)
+);
 const signalPluginModule = await import("@elizaos/plugin-signal").catch(
   () => null,
 );
@@ -52,7 +54,8 @@ describe("Signal Connector (@elizaos/plugin-signal)", () => {
       expect(Array.isArray(plugin.actions)).toBe(true);
 
       // Expected actions based on source code analysis
-      const actionNames = plugin.actions?.map((a: { name: string }) => a.name) ?? [];
+      const actionNames =
+        plugin.actions?.map((a: { name: string }) => a.name) ?? [];
       expect(actionNames).toContain("SIGNAL_LIST_CONTACTS");
       expect(actionNames).toContain("SIGNAL_LIST_GROUPS");
       expect(actionNames).toContain("SIGNAL_SEND_MESSAGE");
@@ -64,7 +67,8 @@ describe("Signal Connector (@elizaos/plugin-signal)", () => {
       expect(plugin.providers).toBeDefined();
       expect(Array.isArray(plugin.providers)).toBe(true);
 
-      const providerNames = plugin.providers?.map((p: { name: string }) => p.name) ?? [];
+      const providerNames =
+        plugin.providers?.map((p: { name: string }) => p.name) ?? [];
       expect(providerNames).toContain("signalConversationState");
     });
 
@@ -120,7 +124,9 @@ describe("Signal Connector (@elizaos/plugin-signal)", () => {
       const shortMessage = "Hello";
       const longMessage = "x".repeat(5000);
 
-      expect(shortMessage.length).toBeLessThanOrEqual(MAX_SIGNAL_MESSAGE_LENGTH);
+      expect(shortMessage.length).toBeLessThanOrEqual(
+        MAX_SIGNAL_MESSAGE_LENGTH,
+      );
       expect(longMessage.length).toBeGreaterThan(MAX_SIGNAL_MESSAGE_LENGTH);
     });
 
@@ -150,86 +156,74 @@ describe("Signal Connector (@elizaos/plugin-signal)", () => {
         // TODO: Test SIGNAL_LIST_GROUPS action
         expect(true).toBe(true);
       });
-    }
+    },
   );
 
-  describe.skipIf(!LIVE_TEST || !hasSignalConfig)(
-    "Message Handling",
-    () => {
-      it("sends text message", async () => {
-        // TODO: Test SIGNAL_SEND_MESSAGE action
-        expect(true).toBe(true);
-      });
+  describe.skipIf(!LIVE_TEST || !hasSignalConfig)("Message Handling", () => {
+    it("sends text message", async () => {
+      // TODO: Test SIGNAL_SEND_MESSAGE action
+      expect(true).toBe(true);
+    });
 
-      it("receives text message", async () => {
-        // TODO: Test message reception
-        expect(true).toBe(true);
-      });
+    it("receives text message", async () => {
+      // TODO: Test message reception
+      expect(true).toBe(true);
+    });
 
-      it("sends reaction to message", async () => {
-        // TODO: Test SIGNAL_SEND_REACTION action
-        expect(true).toBe(true);
-      });
-    }
-  );
+    it("sends reaction to message", async () => {
+      // TODO: Test SIGNAL_SEND_REACTION action
+      expect(true).toBe(true);
+    });
+  });
 
-  describe.skipIf(!LIVE_TEST || !hasSignalConfig)(
-    "Group Messages",
-    () => {
-      it("sends message to group", async () => {
-        // TODO: Test group messaging
-        expect(true).toBe(true);
-      });
+  describe.skipIf(!LIVE_TEST || !hasSignalConfig)("Group Messages", () => {
+    it("sends message to group", async () => {
+      // TODO: Test group messaging
+      expect(true).toBe(true);
+    });
 
-      it("receives group message", async () => {
-        // TODO: Test group message reception
-        expect(true).toBe(true);
-      });
+    it("receives group message", async () => {
+      // TODO: Test group message reception
+      expect(true).toBe(true);
+    });
 
-      it("respects SIGNAL_SHOULD_IGNORE_GROUP_MESSAGES setting", async () => {
-        // TODO: Test group ignore setting
-        expect(true).toBe(true);
-      });
-    }
-  );
+    it("respects SIGNAL_SHOULD_IGNORE_GROUP_MESSAGES setting", async () => {
+      // TODO: Test group ignore setting
+      expect(true).toBe(true);
+    });
+  });
 
-  describe.skipIf(!LIVE_TEST || !hasSignalConfig)(
-    "Media & Attachments",
-    () => {
-      it("receives image attachment", async () => {
-        // TODO: Test image reception
-        expect(true).toBe(true);
-      });
+  describe.skipIf(!LIVE_TEST || !hasSignalConfig)("Media & Attachments", () => {
+    it("receives image attachment", async () => {
+      // TODO: Test image reception
+      expect(true).toBe(true);
+    });
 
-      it("receives voice message", async () => {
-        // TODO: Test voice message reception
-        expect(true).toBe(true);
-      });
+    it("receives voice message", async () => {
+      // TODO: Test voice message reception
+      expect(true).toBe(true);
+    });
 
-      it("sends image attachment", async () => {
-        // TODO: Test image sending
-        expect(true).toBe(true);
-      });
-    }
-  );
+    it("sends image attachment", async () => {
+      // TODO: Test image sending
+      expect(true).toBe(true);
+    });
+  });
 
-  describe.skipIf(!LIVE_TEST || !hasSignalConfig)(
-    "Error Handling",
-    () => {
-      it("handles network errors gracefully", async () => {
-        // TODO: Test network error handling
-        expect(true).toBe(true);
-      });
+  describe.skipIf(!LIVE_TEST || !hasSignalConfig)("Error Handling", () => {
+    it("handles network errors gracefully", async () => {
+      // TODO: Test network error handling
+      expect(true).toBe(true);
+    });
 
-      it("handles invalid phone number", async () => {
-        // TODO: Test invalid recipient handling
-        expect(true).toBe(true);
-      });
+    it("handles invalid phone number", async () => {
+      // TODO: Test invalid recipient handling
+      expect(true).toBe(true);
+    });
 
-      it("handles rate limiting", async () => {
-        // TODO: Test rate limit handling
-        expect(true).toBe(true);
-      });
-    }
-  );
+    it("handles rate limiting", async () => {
+      // TODO: Test rate limit handling
+      expect(true).toBe(true);
+    });
+  });
 });

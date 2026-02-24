@@ -80,20 +80,15 @@ afterAll(async () => {
 
 describe("MCP config write path", () => {
   it("POST adds stdio server, GET returns it with redacted env", async () => {
-    const { status, data } = await req(
-      port,
-      "POST",
-      "/api/mcp/config/server",
-      {
-        name: "write-stdio",
-        config: {
-          type: "stdio",
-          command: "npx",
-          args: ["-y", "@test/mcp-write"],
-          env: { MY_TOKEN: "secret-value-123" },
-        },
+    const { status, data } = await req(port, "POST", "/api/mcp/config/server", {
+      name: "write-stdio",
+      config: {
+        type: "stdio",
+        command: "npx",
+        args: ["-y", "@test/mcp-write"],
+        env: { MY_TOKEN: "secret-value-123" },
       },
-    );
+    });
     expect(status).toBe(200);
     expect(data.ok).toBe(true);
     expect(data.requiresRestart).toBe(true);
@@ -116,18 +111,13 @@ describe("MCP config write path", () => {
   });
 
   it("POST adds remote (streamable-http) server with URL, verifies persistence", async () => {
-    const { status, data } = await req(
-      port,
-      "POST",
-      "/api/mcp/config/server",
-      {
-        name: "write-remote",
-        config: {
-          type: "streamable-http",
-          url: "https://93.184.216.34/mcp",
-        },
+    const { status, data } = await req(port, "POST", "/api/mcp/config/server", {
+      name: "write-remote",
+      config: {
+        type: "streamable-http",
+        url: "https://93.184.216.34/mcp",
       },
-    );
+    });
     expect(status).toBe(200);
     expect(data.ok).toBe(true);
 
@@ -217,34 +207,31 @@ describe("MCP reject-path: server name guards", () => {
     expect(status).toBe(400);
   });
 
-  it.each(["__proto__", "constructor", "prototype"])(
-    "rejects reserved name %s via POST (400)",
-    async (name) => {
-      const { status, data } = await req(
-        port,
-        "POST",
-        "/api/mcp/config/server",
-        {
-          name,
-          config: { type: "stdio", command: "npx" },
-        },
-      );
-      expect(status).toBe(400);
-      expect(typeof data.error).toBe("string");
-    },
-  );
+  it.each([
+    "__proto__",
+    "constructor",
+    "prototype",
+  ])("rejects reserved name %s via POST (400)", async (name) => {
+    const { status, data } = await req(port, "POST", "/api/mcp/config/server", {
+      name,
+      config: { type: "stdio", command: "npx" },
+    });
+    expect(status).toBe(400);
+    expect(typeof data.error).toBe("string");
+  });
 
-  it.each(["__proto__", "constructor", "prototype"])(
-    "rejects reserved name %s via DELETE path (400)",
-    async (name) => {
-      const { status } = await req(
-        port,
-        "DELETE",
-        `/api/mcp/config/server/${name}`,
-      );
-      expect(status).toBe(400);
-    },
-  );
+  it.each([
+    "__proto__",
+    "constructor",
+    "prototype",
+  ])("rejects reserved name %s via DELETE path (400)", async (name) => {
+    const { status } = await req(
+      port,
+      "DELETE",
+      `/api/mcp/config/server/${name}`,
+    );
+    expect(status).toBe(400);
+  });
 });
 
 // ===========================================================================
@@ -269,15 +256,10 @@ describe("MCP reject-path: stdio validation", () => {
   });
 
   it("rejects path-based command (400)", async () => {
-    const { status, data } = await req(
-      port,
-      "POST",
-      "/api/mcp/config/server",
-      {
-        name: "path-cmd",
-        config: { type: "stdio", command: "/usr/bin/npx" },
-      },
-    );
+    const { status, data } = await req(port, "POST", "/api/mcp/config/server", {
+      name: "path-cmd",
+      config: { type: "stdio", command: "/usr/bin/npx" },
+    });
     expect(status).toBe(400);
     expect(data.error).toContain("bare executable name");
   });
@@ -307,19 +289,14 @@ describe("MCP reject-path: stdio validation", () => {
   });
 
   it("rejects blocked package runner flags via npx (400)", async () => {
-    const { status, data } = await req(
-      port,
-      "POST",
-      "/api/mcp/config/server",
-      {
-        name: "npx-c-flag",
-        config: {
-          type: "stdio",
-          command: "npx",
-          args: ["-c", "malicious-script"],
-        },
+    const { status, data } = await req(port, "POST", "/api/mcp/config/server", {
+      name: "npx-c-flag",
+      config: {
+        type: "stdio",
+        command: "npx",
+        args: ["-c", "malicious-script"],
       },
-    );
+    });
     expect(status).toBe(400);
     expect(data.error).toContain("-c");
   });
@@ -345,19 +322,14 @@ describe("MCP reject-path: stdio validation", () => {
   });
 
   it("rejects deno eval subcommand (400)", async () => {
-    const { status, data } = await req(
-      port,
-      "POST",
-      "/api/mcp/config/server",
-      {
-        name: "deno-eval",
-        config: {
-          type: "stdio",
-          command: "deno",
-          args: ["eval", "Deno.exit()"],
-        },
+    const { status, data } = await req(port, "POST", "/api/mcp/config/server", {
+      name: "deno-eval",
+      config: {
+        type: "stdio",
+        command: "deno",
+        args: ["eval", "Deno.exit()"],
       },
-    );
+    });
     expect(status).toBe(400);
     expect(data.error).toContain("eval");
   });
@@ -369,15 +341,10 @@ describe("MCP reject-path: stdio validation", () => {
 
 describe("MCP reject-path: remote & env validation", () => {
   it("rejects invalid config type (400)", async () => {
-    const { status, data } = await req(
-      port,
-      "POST",
-      "/api/mcp/config/server",
-      {
-        name: "bad-type",
-        config: { type: "websocket" },
-      },
-    );
+    const { status, data } = await req(port, "POST", "/api/mcp/config/server", {
+      name: "bad-type",
+      config: { type: "websocket" },
+    });
     expect(status).toBe(400);
     expect(data.error).toContain("Invalid config type");
   });
@@ -391,29 +358,19 @@ describe("MCP reject-path: remote & env validation", () => {
   });
 
   it("rejects non-http protocol URL (400)", async () => {
-    const { status, data } = await req(
-      port,
-      "POST",
-      "/api/mcp/config/server",
-      {
-        name: "file-url",
-        config: { type: "streamable-http", url: "file:///etc/passwd" },
-      },
-    );
+    const { status, data } = await req(port, "POST", "/api/mcp/config/server", {
+      name: "file-url",
+      config: { type: "streamable-http", url: "file:///etc/passwd" },
+    });
     expect(status).toBe(400);
     expect(data.error).toContain("http");
   });
 
   it("rejects localhost URL for SSRF prevention (400)", async () => {
-    const { status, data } = await req(
-      port,
-      "POST",
-      "/api/mcp/config/server",
-      {
-        name: "ssrf-localhost",
-        config: { type: "streamable-http", url: "http://localhost:3000/mcp" },
-      },
-    );
+    const { status, data } = await req(port, "POST", "/api/mcp/config/server", {
+      name: "ssrf-localhost",
+      config: { type: "streamable-http", url: "http://localhost:3000/mcp" },
+    });
     expect(status).toBe(400);
     expect(data.error).toContain("blocked");
   });
@@ -440,20 +397,15 @@ describe("MCP reject-path: remote & env validation", () => {
   });
 
   it("rejects non-string env values (400)", async () => {
-    const { status, data } = await req(
-      port,
-      "POST",
-      "/api/mcp/config/server",
-      {
-        name: "env-non-string",
-        config: {
-          type: "stdio",
-          command: "npx",
-          args: ["-y", "@test/env"],
-          env: { SAFE_KEY: 12345 },
-        },
+    const { status, data } = await req(port, "POST", "/api/mcp/config/server", {
+      name: "env-non-string",
+      config: {
+        type: "stdio",
+        command: "npx",
+        args: ["-y", "@test/env"],
+        env: { SAFE_KEY: 12345 },
       },
-    );
+    });
     expect(status).toBe(400);
     expect(data.error).toContain("must be a string");
   });

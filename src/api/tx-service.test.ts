@@ -128,7 +128,7 @@ describe("tx-service", () => {
   });
 
   it("accepts 0x-prefixed private keys", () => {
-    const service = new TxService(RPC_URL, "0x" + VALID_PRIVATE_KEY);
+    const service = new TxService(RPC_URL, `0x${VALID_PRIVATE_KEY}`);
     expect(service.address).toBeTruthy();
   });
 

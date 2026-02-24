@@ -1048,6 +1048,114 @@ export function ensureBrowserServerLink(): boolean {
  * Each plugin is loaded inside an error boundary so a single failing plugin
  * cannot crash the entire agent startup.
  */
+/**
+ * Internally mapped static imports for all core and provider official plugins.
+ * By using static string literals, bundlers like `tsdown` can statically analyze
+ * and inline these packages into the final `eliza.js` single-file bundle.
+ */
+async function resolveStaticElizaPlugin(
+  pluginName: string,
+): Promise<any | null> {
+  switch (pluginName) {
+    // Core Plugins
+    // @ts-ignore - implicit any or missing declaration
+    case "@elizaos/plugin-sql":
+      return import("@elizaos/plugin-sql");
+    // @ts-ignore
+    case "@elizaos/plugin-local-embedding":
+      return import("@elizaos/plugin-local-embedding");
+    // @ts-ignore
+    case "@elizaos/plugin-secrets-manager":
+      return import("@elizaos/plugin-secrets-manager");
+    // @ts-ignore
+    case "@elizaos/plugin-form":
+      return import("@elizaos/plugin-form");
+    // @ts-ignore
+    case "@elizaos/plugin-knowledge":
+      return import("@elizaos/plugin-knowledge");
+    // @ts-ignore
+    case "@elizaos/plugin-rolodex":
+      return import("@elizaos/plugin-rolodex");
+    // @ts-ignore
+    case "@elizaos/plugin-trajectory-logger":
+      return import("@elizaos/plugin-trajectory-logger");
+    // @ts-ignore
+    case "@elizaos/plugin-agent-orchestrator":
+      return import("@elizaos/plugin-agent-orchestrator");
+    // @ts-ignore
+    case "@elizaos/plugin-cron":
+      return import("@elizaos/plugin-cron");
+    // @ts-ignore
+    case "@elizaos/plugin-shell":
+      return import("@elizaos/plugin-shell");
+    // @ts-ignore
+    case "@elizaos/plugin-plugin-manager":
+      return import("@elizaos/plugin-plugin-manager");
+    // @ts-ignore
+    case "@elizaos/plugin-agent-skills":
+      return import("@elizaos/plugin-agent-skills");
+    // @ts-ignore
+    case "@elizaos/plugin-pdf":
+      return import("@elizaos/plugin-pdf");
+
+    // Optional / Provider Plugins
+    // @ts-ignore
+    case "@elizaos/plugin-cua":
+      return import("@elizaos/plugin-cua");
+    // @ts-ignore
+    case "@elizaos/plugin-obsidian":
+      return import("@elizaos/plugin-obsidian");
+    // @ts-ignore
+    case "@elizaos/plugin-code":
+      return import("@elizaos/plugin-code");
+    // @ts-ignore
+    case "@elizaos/plugin-repoprompt":
+      return import("@elizaos/plugin-repoprompt");
+    // @ts-ignore
+    case "@milaidy/plugin-claude-code-workbench":
+      return import("@milaidy/plugin-claude-code-workbench");
+    // @ts-ignore
+    case "@elizaos/plugin-openai":
+      return import("@elizaos/plugin-openai");
+    // @ts-ignore
+    case "@elizaos/plugin-anthropic":
+      return import("@elizaos/plugin-anthropic");
+    // @ts-ignore
+    case "@elizaos/plugin-google-genai":
+      return import("@elizaos/plugin-google-genai");
+    // @ts-ignore
+    case "@elizaos/plugin-xai":
+      return import("@elizaos/plugin-xai");
+    // @ts-ignore
+    case "@elizaos/plugin-groq":
+      return import("@elizaos/plugin-groq");
+    // @ts-ignore
+    case "@elizaos/plugin-openrouter":
+      return import("@elizaos/plugin-openrouter");
+    // @ts-ignore
+    case "@elizaos/plugin-ollama":
+      return import("@elizaos/plugin-ollama");
+    // @ts-ignore
+    case "@elizaos/plugin-deepseek":
+      return import("@elizaos/plugin-deepseek");
+    // @ts-ignore
+    case "@elizaos/plugin-mistral":
+      return import("@elizaos/plugin-mistral");
+    // @ts-ignore
+    case "@elizaos/plugin-together":
+      return import("@elizaos/plugin-together");
+    // @ts-ignore
+    case "@elizaos/plugin-pi-ai":
+      return import("@elizaos/plugin-pi-ai");
+    // @ts-ignore
+    case "@elizaos/plugin-elizacloud":
+      return import("@elizaos/plugin-elizacloud");
+
+    default:
+      return null;
+  }
+}
+
 async function resolvePlugins(
   config: MiladyConfig,
   opts?: { quiet?: boolean },
@@ -1166,7 +1274,10 @@ async function resolvePlugins(
 
         if (isOfficialElizaPlugin) {
           try {
-            mod = (await import(pluginName)) as PluginModuleShape;
+            const staticMod = await resolveStaticElizaPlugin(pluginName);
+            mod = staticMod
+              ? (staticMod as PluginModuleShape)
+              : ((await import(pluginName)) as PluginModuleShape);
             if (repairBrokenInstallRecord(config, pluginName)) {
               repairedInstallRecords.add(pluginName);
             }
@@ -1184,7 +1295,10 @@ async function resolvePlugins(
             logger.warn(
               `[milady] Installed plugin ${pluginName} failed at ${installRecord.installPath} (${formatError(installErr)}). Falling back to node_modules resolution.`,
             );
-            mod = (await import(pluginName)) as PluginModuleShape;
+            const staticMod = await resolveStaticElizaPlugin(pluginName);
+            mod = staticMod
+              ? (staticMod as PluginModuleShape)
+              : ((await import(pluginName)) as PluginModuleShape);
             if (repairBrokenInstallRecord(config, pluginName)) {
               repairedInstallRecords.add(pluginName);
             }

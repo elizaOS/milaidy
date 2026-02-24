@@ -281,9 +281,7 @@ class FakeTrajectoryLoggerService {
       ? stepIdOrAgentId
       : `step-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const agentId =
-      isLegacySignature && options?.agentId
-        ? options.agentId
-        : stepIdOrAgentId;
+      isLegacySignature && options?.agentId ? options.agentId : stepIdOrAgentId;
 
     return this.store.start(stepId, {
       agentId,

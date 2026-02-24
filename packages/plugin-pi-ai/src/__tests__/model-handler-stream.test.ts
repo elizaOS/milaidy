@@ -67,7 +67,10 @@ describe("createPiAiHandler", () => {
 
     const result = await handler(runtime, {
       prompt: "test",
-    } as GenerateTextParams as unknown as Record<string, object | string | number | boolean>);
+    } as GenerateTextParams as unknown as Record<
+      string,
+      object | string | number | boolean
+    >);
 
     expect(result).toBe("ok");
     expect(seenSignal).toBe(ac.signal);
@@ -77,6 +80,7 @@ describe("createPiAiHandler", () => {
     const handler = createPiAiHandler(
       () => makeModel(),
       {},
+      // biome-ignore lint/correctness/useYield: mock generator error
       async function* () {
         throw new Error("network down");
       },
@@ -85,7 +89,10 @@ describe("createPiAiHandler", () => {
     await expect(
       handler(runtime, {
         prompt: "test",
-      } as GenerateTextParams as unknown as Record<string, object | string | number | boolean>),
+      } as GenerateTextParams as unknown as Record<
+        string,
+        object | string | number | boolean
+      >),
     ).rejects.toThrow("pi-ai stream() failed");
   });
 });

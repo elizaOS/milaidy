@@ -36,10 +36,12 @@ const dynamicImport = async (
     ? fileURLToPath(specifier)
     : specifier;
 
-  // If the path is inside an ASAR archive, require() is the only option.
-  // Electron patches require() to handle ASAR reads, but the ESM loader
-  // does NOT support ASAR.
-  const isAsar = fsPath.includes(".asar");
+  // If the path is inside an ASAR archive (but NOT in app.asar.unpacked),
+  // require() is the only option.  Electron patches require() to handle
+  // ASAR reads, but the ESM loader does NOT support ASAR.
+  // Note: app.asar.unpacked is a regular directory on the real filesystem,
+  // so ESM import() works there.
+  const isAsar = fsPath.includes(".asar") && !fsPath.includes(".asar.unpacked");
 
   if (isAsar) {
     console.log(`[Agent] Loading from ASAR via require(): ${fsPath}`);
@@ -58,10 +60,17 @@ const dynamicImport = async (
   // Primary path: use new Function to get a real async import() at runtime,
   // bypassing tsc's CJS downgrade.
   try {
+    // Ensure we use a file:// URL for import()
+    const importUrl = fsPath.startsWith("file://")
+      ? fsPath
+      : specifier.startsWith("file://")
+        ? specifier
+        : pathToFileURL(fsPath).href;
+    console.log(`[Agent] Loading via ESM import(): ${importUrl}`);
     const importer = new Function("s", "return import(s)") as (
       s: string,
     ) => Promise<Record<string, unknown>>;
-    return await importer(specifier);
+    return await importer(importUrl);
   } catch (primaryErr) {
     // If the primary path failed, try require() with filesystem path
     console.warn(
@@ -162,6 +171,23 @@ export class AgentManager {
       console.log(
         `[Agent] Resolved milady dist: ${miladyDist} (packaged: ${app.isPackaged})`,
       );
+
+      // When loading from app.asar.unpacked, Node's module resolution can't
+      // find dependencies inside the ASAR's node_modules (e.g. json5). Add
+      // the ASAR's node_modules to NODE_PATH so ESM imports can resolve them.
+      if (app.isPackaged) {
+        const asarModules = path.join(app.getAppPath(), "node_modules");
+        const existing = process.env.NODE_PATH || "";
+        process.env.NODE_PATH = existing
+          ? `${asarModules}${path.delimiter}${existing}`
+          : asarModules;
+        // Force Node to re-read NODE_PATH
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        require("node:module").Module._initPaths();
+        console.log(
+          `[Agent] Added ASAR node_modules to NODE_PATH: ${asarModules}`,
+        );
+      }
 
       // 1. Start API server immediately so the UI can bootstrap while runtime starts.
       //    (or MILADY_PORT if set)

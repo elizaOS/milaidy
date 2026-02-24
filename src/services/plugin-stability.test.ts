@@ -142,6 +142,20 @@ describe("Plugin Enumeration", () => {
     }
   });
 
+  it("declares every core plugin in root package dependencies", async () => {
+    const { readFile } = await import("node:fs/promises");
+    const { resolve } = await import("node:path");
+    const pkgPath = resolve(process.cwd(), "package.json");
+    const pkg = JSON.parse(await readFile(pkgPath, "utf-8")) as RootPackageJson;
+
+    for (const pluginName of CORE_PLUGINS) {
+      expect(
+        pkg.dependencies[pluginName],
+        `${pluginName} is missing from package.json dependencies`,
+      ).toBeDefined();
+    }
+  });
+
   it("lists all connector plugins", () => {
     expect(Object.keys(CONNECTOR_PLUGINS).length).toBe(10);
     for (const [connector, pluginName] of Object.entries(CONNECTOR_PLUGINS)) {

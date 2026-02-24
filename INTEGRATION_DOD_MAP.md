@@ -464,7 +464,7 @@ Prioritization order applied: correctness/security first, then reliability/obser
 | MW-08 | P1 | API | API | Skills/plugin installer flows | Missing e2e install/uninstall workflow tests | Add sandboxed integration tests with fixture registry and install/uninstall assertions | `bunx vitest run --config vitest.e2e.config.ts test/plugin-install.e2e.test.ts test/skills-marketplace.e2e.test.ts` | `test/plugin-install.e2e.test.ts`, `test/skills-marketplace.e2e.test.ts` | Runtime install path regressions |
 | MW-09 | P1 | DX/Tooling | DX/Tooling | Observability baseline | No standardized metrics/traces for integration boundaries | Define minimal metrics contract (success/failure/latency) for cloud, wallet, marketplace, and MCP boundaries | `bun run typecheck && bunx vitest run <observability-tests>` | `src/services/*`, `src/api/*`, optional `src/diagnostics/*` | Hard incident triage and SLO blind spots |
 | MW-10 | P2 | API | API | Twitter whitelist | No dedicated tests for `twitter-verify.ts` parser/error cases | Add table-driven unit tests for URL parse, timeout/fetch fail, and message mismatch | `bunx vitest run src/api/twitter-verify.test.ts` | `src/api/twitter-verify.test.ts` | Verification false positives/negatives |
-| MW-11 | P2 | Docs | Docs | Docs completeness | Missing or partial docs for registry/drop, skill catalog, media provider runbooks, connector specifics, and CUA operations | Add setup + failure-mode + verification sections per integration boundary | `bun run docs:build` | `docs/rest/*`, `docs/guides/*`, `README.md` | Slower onboarding and misconfigurations |
+| MW-11 | P2 | Docs | Docs | Docs completeness | Resolved — runbooks expanded for registry/drop, skill catalog, connectors, and CUA operations with setup, failure modes, recovery, and verification sections | Add setup + failure-mode + verification sections per integration boundary | `bun run docs:build` | `docs/guides/registry.md`, `docs/plugins/skills.md`, `docs/guides/connectors.md`, `docs/plugin-registry/computeruse.md` | Slower onboarding and misconfigurations |
 | MW-12 | P2 | DX/Tooling | DX/Tooling | Migration checks | No explicit DB migration verification command surfaced in scripts | Define and add minimal migration check script or explicit N/A policy | `bun run db:check` (proposed) | `package.json`, `scripts/` | Schema drift not caught early |
 
 ---
@@ -610,6 +610,13 @@ Prioritization order applied: correctness/security first, then reliability/obser
 - Title: `Close docs/runbook gaps for high-risk integrations`
 - Labels: `priority:P2`, `area:Docs`
 - Owner: `Docs`
+- Status: **Resolved**
+- Resolution: Expanded runbook sections across four docs:
+  - `docs/guides/registry.md` — added on-chain registry/drop failure modes, NPM resolution errors, recovery procedures, and expanded verification commands.
+  - `docs/plugins/skills.md` — added Skill Operations Runbook covering catalog, marketplace, and skill loading failure modes with recovery procedures.
+  - `docs/guides/connectors.md` — added platform-specific failure modes for Discord, Telegram, Slack, and WhatsApp with recovery procedures.
+  - `docs/plugin-registry/computeruse.md` — added vision model selection, action failure taxonomy, sandbox configuration, cross-platform guidance, and recovery procedures.
+  - `docs/guides/media-generation.md` — already comprehensive (no changes needed).
 - Acceptance criteria:
   - Registry/drop, skill catalog, media provider, connector specifics, and CUA operations have setup, failure, and verify guidance.
 - Verification commands:
