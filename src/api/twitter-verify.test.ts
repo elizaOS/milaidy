@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 /**
  * Unit tests for twitter-verify.ts — whitelist eligibility via X/Twitter.
  *
@@ -47,6 +48,20 @@ import {
 } from "./twitter-verify";
 
 // ── Constants ────────────────────────────────────────────────────────────
+=======
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  generateVerificationMessage,
+  getVerifiedAddresses,
+  isAddressWhitelisted,
+  loadWhitelist,
+  markAddressVerified,
+  verifyTweet,
+} from "./twitter-verify";
+>>>>>>> pr-542
 
 const WALLET = "0x1234567890abcdef1234567890abcdef12345678";
 const VALID_TWEET_URL = "https://x.com/miladyai/status/1234567890";
@@ -406,6 +421,124 @@ describe("twitter-verify (MW-10)", () => {
       expect(new Date(ts).getTime()).toBeGreaterThanOrEqual(
         new Date(before).getTime(),
       );
+    });
+  });
+});
+
+// ── Whitelist storage (table-driven) ──────────────────────────────────
+
+describe("whitelist storage", () => {
+  let tmpDir: string;
+  const origEnv = process.env.MILADY_STATE_DIR;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "milady-wl-"));
+    process.env.MILADY_STATE_DIR = tmpDir;
+  });
+
+  afterEach(() => {
+    if (origEnv === undefined) delete process.env.MILADY_STATE_DIR;
+    else process.env.MILADY_STATE_DIR = origEnv;
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  describe("loadWhitelist", () => {
+    it("returns empty verified map when file does not exist", () => {
+      const wl = loadWhitelist();
+      expect(wl).toEqual({ verified: {} });
+    });
+
+    it("returns parsed data when file exists", () => {
+      const data = {
+        verified: {
+          "0xabc": {
+            timestamp: "2026-01-01T00:00:00.000Z",
+            tweetUrl: "https://x.com/u/status/1",
+            handle: "testuser",
+          },
+        },
+      };
+      fs.writeFileSync(
+        path.join(tmpDir, "whitelist.json"),
+        JSON.stringify(data),
+      );
+
+      const wl = loadWhitelist();
+      expect(wl).toEqual(data);
+    });
+  });
+
+  describe("markAddressVerified", () => {
+    it("creates whitelist file and stores entry with lowercase address", () => {
+      markAddressVerified(
+        "0xABCDef1234567890ABCDef1234567890ABCDef12",
+        "https://x.com/user1/status/100",
+        "user1",
+      );
+
+      const wl = loadWhitelist();
+      const key = "0xabcdef1234567890abcdef1234567890abcdef12";
+      expect(wl.verified[key]).toBeDefined();
+      expect(wl.verified[key].tweetUrl).toBe("https://x.com/user1/status/100");
+      expect(wl.verified[key].handle).toBe("user1");
+      expect(wl.verified[key].timestamp).toMatch(
+        /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/,
+      );
+    });
+
+    it("appends to existing whitelist without overwriting", () => {
+      markAddressVerified("0xAAAA", "https://x.com/a/status/1", "userA");
+      markAddressVerified("0xBBBB", "https://x.com/b/status/2", "userB");
+
+      const wl = loadWhitelist();
+      expect(Object.keys(wl.verified)).toHaveLength(2);
+      expect(wl.verified["0xaaaa"]).toBeDefined();
+      expect(wl.verified["0xbbbb"]).toBeDefined();
+    });
+
+    it("overwrites entry for same address (case-insensitive)", () => {
+      markAddressVerified("0xAAAA", "https://x.com/a/status/1", "old");
+      markAddressVerified("0xaaaa", "https://x.com/a/status/2", "new");
+
+      const wl = loadWhitelist();
+      expect(Object.keys(wl.verified)).toHaveLength(1);
+      expect(wl.verified["0xaaaa"].handle).toBe("new");
+      expect(wl.verified["0xaaaa"].tweetUrl).toBe("https://x.com/a/status/2");
+    });
+  });
+
+  describe("isAddressWhitelisted", () => {
+    it.each([
+      { input: "0xABCD", stored: "0xabcd", label: "uppercase input" },
+      { input: "0xabcd", stored: "0xabcd", label: "lowercase input" },
+      { input: "0xAbCd", stored: "0xabcd", label: "mixed case input" },
+    ])("returns true for verified address ($label)", ({ input, stored }) => {
+      markAddressVerified(stored, "https://x.com/u/status/1", "u");
+      expect(isAddressWhitelisted(input)).toBe(true);
+    });
+
+    it("returns false for unverified address", () => {
+      expect(isAddressWhitelisted("0xNOTVERIFIED")).toBe(false);
+    });
+
+    it("returns false when whitelist file does not exist", () => {
+      expect(isAddressWhitelisted("0x1234")).toBe(false);
+    });
+  });
+
+  describe("getVerifiedAddresses", () => {
+    it("returns empty array when no addresses are verified", () => {
+      expect(getVerifiedAddresses()).toEqual([]);
+    });
+
+    it("returns all verified addresses as lowercase keys", () => {
+      markAddressVerified("0xAAAA", "https://x.com/a/status/1", "a");
+      markAddressVerified("0xBBBB", "https://x.com/b/status/2", "b");
+
+      const addresses = getVerifiedAddresses();
+      expect(addresses).toHaveLength(2);
+      expect(addresses).toContain("0xaaaa");
+      expect(addresses).toContain("0xbbbb");
     });
   });
 });

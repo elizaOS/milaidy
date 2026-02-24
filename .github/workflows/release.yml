@@ -209,7 +209,7 @@ jobs:
             format: "esm",
             platform: "node",
             outDir: "dist-electron",
-            noExternal: [/.*/],
+            noExternal: [/.*/, "json5"],
             external: [
               "node-llama-cpp",
               "@reflink/reflink",
