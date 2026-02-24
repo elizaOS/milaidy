@@ -14,6 +14,7 @@
  */
 import http from "node:http";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { WebSocket } from "ws";
 import { startApiServer } from "../src/api/server";
 
 function saveEnv(...keys: string[]): { restore: () => void } {
@@ -83,6 +84,46 @@ function req(
   });
 }
 
+function waitForWsMessage(
+  ws: WebSocket,
+  predicate: (message: Record<string, unknown>) => boolean,
+  timeoutMs = 3000,
+): Promise<Record<string, unknown>> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      cleanup();
+      reject(new Error("Timed out waiting for websocket message"));
+    }, timeoutMs);
+
+    const onMessage = (raw: WebSocket.RawData) => {
+      try {
+        const text = Buffer.isBuffer(raw) ? raw.toString("utf-8") : String(raw);
+        const message = JSON.parse(text) as Record<string, unknown>;
+        if (predicate(message)) {
+          cleanup();
+          resolve(message);
+        }
+      } catch {
+        // Ignore malformed websocket payloads.
+      }
+    };
+
+    const onError = (err: Error) => {
+      cleanup();
+      reject(err);
+    };
+
+    const cleanup = () => {
+      clearTimeout(timer);
+      ws.off("message", onMessage);
+      ws.off("error", onError);
+    };
+
+    ws.on("message", onMessage);
+    ws.on("error", onError);
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Test suite
 // ---------------------------------------------------------------------------
@@ -120,6 +161,32 @@ describe("Permissions API E2E", () => {
     it("returns permissions as an object", async () => {
       const { data } = await req(port, "GET", "/api/permissions");
       expect(typeof data.permissions).toBe("object");
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // GET /api/permissions/definitions
+  // ─────────────────────────────────────────────────────────────────────────
+
+  describe("GET /api/permissions/definitions", () => {
+    it("returns canonical definitions with platform applicability", async () => {
+      const { status, data } = await req(
+        port,
+        "GET",
+        "/api/permissions/definitions",
+      );
+      expect(status).toBe(200);
+      expect(data).toHaveProperty("platform");
+      expect(data).toHaveProperty("permissions");
+      const permissions = data.permissions as Array<Record<string, unknown>>;
+      expect(Array.isArray(permissions)).toBe(true);
+      expect(permissions.length).toBeGreaterThan(0);
+      const shell = permissions.find((permission) => permission.id === "shell");
+      expect(shell).toBeDefined();
+      expect(shell).toMatchObject({
+        requiredForFeatures: expect.arrayContaining(["shell"]),
+      });
+      expect(typeof shell?.applicable).toBe("boolean");
     });
   });
 
@@ -240,6 +307,19 @@ describe("Permissions API E2E", () => {
         "action",
         "ipc:permissions:request:microphone",
       );
+      expect(data).toMatchObject({
+        telemetry: {
+          type: "permissions_telemetry",
+          source: "api",
+          action: "request",
+          permissionId: "microphone",
+          method: "POST",
+          path: "/api/permissions/microphone/request",
+        },
+      });
+      expect(
+        typeof (data.telemetry as Record<string, unknown> | undefined)?.ts,
+      ).toBe("number");
     });
 
     it("returns IPC action for camera request", async () => {
@@ -264,6 +344,26 @@ describe("Permissions API E2E", () => {
         "ipc:permissions:request:accessibility",
       );
     });
+
+    it("returns 400 for unknown permission request IDs", async () => {
+      const { status, data } = await req(
+        port,
+        "POST",
+        "/api/permissions/not-a-real-permission/request",
+      );
+      expect(status).toBe(400);
+      expect(data).toHaveProperty("error", "Unknown permission ID");
+    });
+
+    it("returns 400 for malformed permission request IDs", async () => {
+      const { status, data } = await req(
+        port,
+        "POST",
+        "/api/permissions/%2F/request",
+      );
+      expect(status).toBe(400);
+      expect(data).toHaveProperty("error", "Invalid permission ID");
+    });
   });
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -283,6 +383,19 @@ describe("Permissions API E2E", () => {
         "action",
         "ipc:permissions:openSettings:microphone",
       );
+      expect(data).toMatchObject({
+        telemetry: {
+          type: "permissions_telemetry",
+          source: "api",
+          action: "open-settings",
+          permissionId: "microphone",
+          method: "POST",
+          path: "/api/permissions/microphone/open-settings",
+        },
+      });
+      expect(
+        typeof (data.telemetry as Record<string, unknown> | undefined)?.ts,
+      ).toBe("number");
     });
 
     it("returns IPC action for opening camera settings", async () => {
@@ -310,6 +423,16 @@ describe("Permissions API E2E", () => {
         "ipc:permissions:openSettings:accessibility",
       );
     });
+
+    it("returns 400 for unknown permission open-settings IDs", async () => {
+      const { status, data } = await req(
+        port,
+        "POST",
+        "/api/permissions/not-a-real-permission/open-settings",
+      );
+      expect(status).toBe(400);
+      expect(data).toHaveProperty("error", "Unknown permission ID");
+    });
   });
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -326,6 +449,16 @@ describe("Permissions API E2E", () => {
       );
       expect(status).toBe(200);
       expect(data).toHaveProperty("shellEnabled", true);
+      expect(data).toMatchObject({
+        telemetry: {
+          type: "permissions_telemetry",
+          source: "api",
+          action: "shell-toggle",
+          permissionId: "shell",
+          enabled: true,
+          previousEnabled: true,
+        },
+      });
     });
 
     it("disables shell access", async () => {
@@ -337,6 +470,16 @@ describe("Permissions API E2E", () => {
       );
       expect(status).toBe(200);
       expect(data).toHaveProperty("shellEnabled", false);
+      expect(data).toMatchObject({
+        telemetry: {
+          type: "permissions_telemetry",
+          source: "api",
+          action: "shell-toggle",
+          permissionId: "shell",
+          enabled: false,
+          previousEnabled: true,
+        },
+      });
     });
 
     it("persists shell enabled state", async () => {
@@ -392,6 +535,72 @@ describe("Permissions API E2E", () => {
         "error",
         "Command must be a single line without control characters",
       );
+    });
+  });
+
+  describe("Permission telemetry websocket stream", () => {
+    it("broadcasts telemetry events for request/open-settings/shell-toggle", async () => {
+      const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`);
+      try {
+        await waitForWsMessage(ws, (message) => message.type === "status");
+
+        const requestEventPromise = waitForWsMessage(
+          ws,
+          (message) =>
+            message.type === "permissions_telemetry" &&
+            message.action === "request",
+        );
+        await req(port, "POST", "/api/permissions/microphone/request");
+        const requestEvent = await requestEventPromise;
+        expect(requestEvent).toMatchObject({
+          type: "permissions_telemetry",
+          source: "api",
+          action: "request",
+          permissionId: "microphone",
+          method: "POST",
+          path: "/api/permissions/microphone/request",
+        });
+
+        const openSettingsEventPromise = waitForWsMessage(
+          ws,
+          (message) =>
+            message.type === "permissions_telemetry" &&
+            message.action === "open-settings",
+        );
+        await req(port, "POST", "/api/permissions/microphone/open-settings");
+        const openSettingsEvent = await openSettingsEventPromise;
+        expect(openSettingsEvent).toMatchObject({
+          type: "permissions_telemetry",
+          source: "api",
+          action: "open-settings",
+          permissionId: "microphone",
+          method: "POST",
+          path: "/api/permissions/microphone/open-settings",
+        });
+
+        const shellToggleEventPromise = waitForWsMessage(
+          ws,
+          (message) =>
+            message.type === "permissions_telemetry" &&
+            message.action === "shell-toggle" &&
+            message.enabled === false,
+        );
+        await req(port, "PUT", "/api/permissions/shell", { enabled: false });
+        const shellToggleEvent = await shellToggleEventPromise;
+        expect(shellToggleEvent).toMatchObject({
+          type: "permissions_telemetry",
+          source: "api",
+          action: "shell-toggle",
+          permissionId: "shell",
+          enabled: false,
+          previousEnabled: true,
+          method: "PUT",
+          path: "/api/permissions/shell",
+        });
+      } finally {
+        ws.close();
+        await req(port, "PUT", "/api/permissions/shell", { enabled: true });
+      }
     });
   });
 
@@ -502,8 +711,13 @@ describe("Permissions API auth access", () => {
 
   it("blocks unauthenticated access to permissions endpoints", async () => {
     const { status: s1 } = await req(port, "GET", "/api/permissions");
-    const { status: s2 } = await req(port, "POST", "/api/permissions/refresh");
-    const { status: s3 } = await req(
+    const { status: s2 } = await req(
+      port,
+      "GET",
+      "/api/permissions/definitions",
+    );
+    const { status: s3 } = await req(port, "POST", "/api/permissions/refresh");
+    const { status: s4 } = await req(
       port,
       "POST",
       "/api/permissions/microphone/request",
@@ -511,6 +725,7 @@ describe("Permissions API auth access", () => {
     expect(s1).toBe(401);
     expect(s2).toBe(401);
     expect(s3).toBe(401);
+    expect(s4).toBe(401);
   });
 
   it("allows authenticated access to permissions endpoints", async () => {
@@ -522,14 +737,21 @@ describe("Permissions API auth access", () => {
       undefined,
       auth,
     );
-    const { status: s2 } = await req(
+    const { status: s2, data: definitions } = await req(
+      port,
+      "GET",
+      "/api/permissions/definitions",
+      undefined,
+      auth,
+    );
+    const { status: s3 } = await req(
       port,
       "POST",
       "/api/permissions/refresh",
       undefined,
       auth,
     );
-    const { status: s3, data } = await req(
+    const { status: s4, data } = await req(
       port,
       "POST",
       "/api/permissions/microphone/request",
@@ -539,6 +761,8 @@ describe("Permissions API auth access", () => {
     expect(s1).toBe(200);
     expect(s2).toBe(200);
     expect(s3).toBe(200);
+    expect(s4).toBe(200);
+    expect(definitions).toHaveProperty("permissions");
     expect(data).toHaveProperty("action", "ipc:permissions:request:microphone");
   });
 });

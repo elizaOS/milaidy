@@ -6,6 +6,29 @@ description: "REST API endpoints for reading and managing system permission stat
 
 The permissions API manages OS-level permissions (microphone, camera, screen recording, etc.) and the shell access toggle. Permission states are tracked in server memory and updated via Electron IPC in desktop deployments. Shell access controls whether the agent can execute terminal commands.
 
+## Telemetry events
+
+For QA/debugging, permission mutation endpoints emit a `permissions_telemetry` event for:
+
+- `POST /api/permissions/:id/request`
+- `POST /api/permissions/:id/open-settings`
+- `PUT /api/permissions/shell`
+
+The event is returned in the endpoint response as `telemetry` and also broadcast over `/ws` with the same payload.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `type` | string | Always `permissions_telemetry` |
+| `source` | string | Always `api` |
+| `action` | string | `request`, `open-settings`, or `shell-toggle` |
+| `permissionId` | string | Permission identifier (`microphone`, `camera`, `shell`, etc.) |
+| `method` | string | HTTP method that triggered the event |
+| `path` | string | Request path that triggered the event |
+| `ts` | number | Event timestamp (epoch milliseconds) |
+| `enabled` | boolean | Present for shell toggles; resulting shell state |
+| `previousEnabled` | boolean | Present for shell toggles; prior shell state |
+| `restartScheduled` | boolean | Present for shell toggles; whether runtime restart was queued |
+
 ## Endpoints
 
 ### GET /api/permissions
@@ -40,6 +63,37 @@ Get all system permission states.
 | `permissions` | object | Map of permission ID to permission state |
 | `platform` | string | Operating system platform (`darwin`, `win32`, `linux`) |
 | `shellEnabled` | boolean | Whether shell command execution is currently enabled |
+
+---
+
+### GET /api/permissions/definitions
+
+Get canonical permission metadata from the runtime registry, including whether each permission applies on the current platform.
+
+**Response**
+
+```json
+{
+  "platform": "darwin",
+  "permissions": [
+    {
+      "id": "microphone",
+      "name": "Microphone",
+      "description": "Voice input for talk mode and speech recognition",
+      "icon": "mic",
+      "platforms": ["darwin", "win32", "linux"],
+      "requiredForFeatures": ["talkmode", "voice"],
+      "applicable": true
+    }
+  ]
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `platform` | string | Current OS platform |
+| `permissions` | array | Permission definitions from registry |
+| `permissions[].applicable` | boolean | Whether that permission applies on the current platform |
 
 ---
 
@@ -121,6 +175,18 @@ Toggle shell access on or off. When changed while the agent is running, schedule
     "status": "denied",
     "lastChecked": 1718000000000,
     "canRequest": false
+  },
+  "telemetry": {
+    "type": "permissions_telemetry",
+    "source": "api",
+    "action": "shell-toggle",
+    "permissionId": "shell",
+    "method": "PUT",
+    "path": "/api/permissions/shell",
+    "enabled": false,
+    "previousEnabled": true,
+    "restartScheduled": true,
+    "ts": 1718000000000
   }
 }
 ```
@@ -130,6 +196,7 @@ Toggle shell access on or off. When changed while the agent is running, schedule
 ### PUT /api/permissions/state
 
 Update permission states in bulk. Used by the Electron renderer after receiving updated permission states via IPC.
+Malformed entries are ignored and valid entries are normalized into a stable shape.
 
 **Request**
 
@@ -179,6 +246,7 @@ Force refresh all permission states. In Electron deployments, this signals the r
 ### POST /api/permissions/:id/request
 
 Request a specific system permission. In Electron deployments, this triggers a native system permission prompt.
+The `id` must be a known permission from the registry.
 
 **Path Parameters**
 
@@ -191,7 +259,16 @@ Request a specific system permission. In Electron deployments, this triggers a n
 ```json
 {
   "message": "Permission request for microphone",
-  "action": "ipc:permissions:request:microphone"
+  "action": "ipc:permissions:request:microphone",
+  "telemetry": {
+    "type": "permissions_telemetry",
+    "source": "api",
+    "action": "request",
+    "permissionId": "microphone",
+    "method": "POST",
+    "path": "/api/permissions/microphone/request",
+    "ts": 1718000000000
+  }
 }
 ```
 
@@ -200,6 +277,7 @@ Request a specific system permission. In Electron deployments, this triggers a n
 ### POST /api/permissions/:id/open-settings
 
 Open system settings for a specific permission (e.g., macOS Privacy & Security settings).
+The `id` must be a known permission from the registry.
 
 **Path Parameters**
 
@@ -212,6 +290,15 @@ Open system settings for a specific permission (e.g., macOS Privacy & Security s
 ```json
 {
   "message": "Opening settings for microphone",
-  "action": "ipc:permissions:openSettings:microphone"
+  "action": "ipc:permissions:openSettings:microphone",
+  "telemetry": {
+    "type": "permissions_telemetry",
+    "source": "api",
+    "action": "open-settings",
+    "permissionId": "microphone",
+    "method": "POST",
+    "path": "/api/permissions/microphone/open-settings",
+    "ts": 1718000000000
+  }
 }
 ```

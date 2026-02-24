@@ -116,7 +116,10 @@ import {
 import { buildWhitelistTree, generateProof } from "./merkle-tree";
 import { handleModelsRoutes } from "./models-routes";
 import { verifyAndWhitelistHolder } from "./nft-verify";
-import { handlePermissionRoutes } from "./permissions-routes";
+import {
+  handlePermissionRoutes,
+  type PermissionTelemetryEvent,
+} from "./permissions-routes";
 import {
   type PluginParamInfo,
   validatePluginConfig,
@@ -294,6 +297,8 @@ interface ServerState {
   >;
   /** Whether shell access is enabled (can be toggled in UI). */
   shellEnabled?: boolean;
+  /** Emits structured permission telemetry events for QA/debugging. */
+  emitPermissionTelemetry: ((event: PermissionTelemetryEvent) => void) | null;
   /** Reasons a restart is pending. Empty array = no restart needed. */
   pendingRestartReasons: string[];
   /** Route handlers registered by connector plugins (loaded dynamically). */
@@ -9493,6 +9498,7 @@ async function handleRequest(
       error,
       saveConfig: saveMiladyConfig,
       scheduleRuntimeRestart,
+      emitPermissionTelemetry: state.emitPermissionTelemetry ?? undefined,
     })
   ) {
     return;
@@ -12706,6 +12712,7 @@ export async function startApiServer(opts?: {
     activeConversationId: null,
     permissionStates: {},
     shellEnabled: config.features?.shellEnabled !== false,
+    emitPermissionTelemetry: null,
     pendingRestartReasons: [],
     connectorRouteHandlers: [],
   };
@@ -13291,6 +13298,24 @@ export async function startApiServer(opts?: {
       }
     }
     return delivered;
+  };
+
+  state.emitPermissionTelemetry = (event: PermissionTelemetryEvent) => {
+    let message = `Permission telemetry: ${event.action} (${event.permissionId})`;
+    if (event.action === "shell-toggle") {
+      const previousState =
+        event.previousEnabled === true ? "enabled" : "disabled";
+      const nextState = event.enabled === true ? "enabled" : "disabled";
+      message =
+        `Permission telemetry: shell-toggle ${previousState} -> ${nextState}` +
+        ` (restartScheduled=${event.restartScheduled === true})`;
+    }
+    addLog("info", message, "permissions", [
+      "server",
+      "permissions",
+      "telemetry",
+    ]);
+    state.broadcastWs?.({ ...event });
   };
 
   // Broadcast status every 5 seconds

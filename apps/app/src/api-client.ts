@@ -82,6 +82,22 @@ export type {
   SystemPermissionDefinition as PermissionDefinition,
 };
 
+export interface PermissionsSummaryResponse {
+  permissions: AllPermissionsState;
+  platform: string;
+  shellEnabled: boolean;
+}
+
+export interface PermissionDefinitionWithApplicability
+  extends SystemPermissionDefinition {
+  applicable: boolean;
+}
+
+export interface PermissionDefinitionsResponse {
+  platform: string;
+  permissions: PermissionDefinitionWithApplicability[];
+}
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -3904,10 +3920,18 @@ export class MiladyClient {
   // ═══════════════════════════════════════════════════════════════════════
 
   /**
+   * Get permissions in server summary shape.
+   */
+  async getPermissionsSummary(): Promise<PermissionsSummaryResponse> {
+    return this.fetch("/api/permissions");
+  }
+
+  /**
    * Get all system permission states.
    */
   async getPermissions(): Promise<AllPermissionsState> {
-    return this.fetch("/api/permissions");
+    const summary = await this.getPermissionsSummary();
+    return summary.permissions ?? {};
   }
 
   /**
@@ -3921,7 +3945,8 @@ export class MiladyClient {
    * Request a specific permission (triggers OS prompt if applicable).
    */
   async requestPermission(id: SystemPermissionId): Promise<PermissionState> {
-    return this.fetch(`/api/permissions/${id}/request`, { method: "POST" });
+    await this.fetch(`/api/permissions/${id}/request`, { method: "POST" });
+    return this.getPermission(id);
   }
 
   /**
@@ -3937,17 +3962,29 @@ export class MiladyClient {
    * Refresh all permission states from the OS.
    */
   async refreshPermissions(): Promise<AllPermissionsState> {
-    return this.fetch("/api/permissions/refresh", { method: "POST" });
+    await this.fetch("/api/permissions/refresh", { method: "POST" });
+    return this.getPermissions();
   }
 
   /**
    * Enable or disable shell access.
    */
   async setShellEnabled(enabled: boolean): Promise<PermissionState> {
-    return this.fetch("/api/permissions/shell", {
-      method: "PUT",
-      body: JSON.stringify({ enabled }),
-    });
+    const result = await this.fetch<{ permission: PermissionState }>(
+      "/api/permissions/shell",
+      {
+        method: "PUT",
+        body: JSON.stringify({ enabled }),
+      },
+    );
+    return result.permission;
+  }
+
+  /**
+   * Get canonical permission definitions with platform applicability.
+   */
+  async getPermissionDefinitions(): Promise<PermissionDefinitionsResponse> {
+    return this.fetch("/api/permissions/definitions");
   }
 
   /**

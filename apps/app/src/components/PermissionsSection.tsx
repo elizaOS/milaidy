@@ -329,18 +329,10 @@ export function PermissionsSection() {
     void (async () => {
       setLoading(true);
       try {
-        const [perms, isShell] = await Promise.all([
-          client.getPermissions(),
-          client.isShellEnabled(),
-        ]);
-        setPermissions(perms);
-        setShellEnabled(isShell);
-        // Detect platform from permissions (accessibility only on darwin)
-        if (perms.accessibility?.status !== "not-applicable") {
-          setPlatform("darwin");
-        } else if (perms.microphone?.status !== "not-applicable") {
-          setPlatform("win32"); // or linux, but we can't easily distinguish
-        }
+        const summary = await client.getPermissionsSummary();
+        setPermissions(summary.permissions ?? null);
+        setShellEnabled(summary.shellEnabled);
+        setPlatform(summary.platform);
       } catch (err) {
         console.error("Failed to load permissions:", err);
       } finally {
