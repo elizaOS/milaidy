@@ -40,11 +40,11 @@ vi.mock("../config/paths", () => ({
 
 import {
   generateVerificationMessage,
-  verifyTweet,
+  getVerifiedAddresses,
+  isAddressWhitelisted,
   loadWhitelist,
   markAddressVerified,
-  isAddressWhitelisted,
-  getVerifiedAddresses,
+  verifyTweet,
 } from "./twitter-verify";
 
 // ── Constants ────────────────────────────────────────────────────────────
@@ -141,14 +141,11 @@ describe("twitter-verify (MW-10)", () => {
         "0x1111...1111",
       ],
       ["", "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045", "0xd8dA...6045"],
-    ])(
-      "formats correctly for agent=%s addr=%s → expects %s",
-      (agentName, addr, expectedShort) => {
-        const msg = generateVerificationMessage(agentName, addr);
-        expect(msg).toContain(expectedShort);
-        expect(msg).toContain("#MiladyAgent");
-      },
-    );
+    ])("formats correctly for agent=%s addr=%s → expects %s", (agentName, addr, expectedShort) => {
+      const msg = generateVerificationMessage(agentName, addr);
+      expect(msg).toContain(expectedShort);
+      expect(msg).toContain("#MiladyAgent");
+    });
   });
 
   // ===================================================================
@@ -188,8 +185,7 @@ describe("twitter-verify (MW-10)", () => {
       const result = await verifyTweet(VALID_TWEET_URL, WALLET);
       expect(result).toEqual({
         verified: false,
-        error:
-          "Could not reach tweet verification service. Try again later.",
+        error: "Could not reach tweet verification service. Try again later.",
         handle: null,
       });
     });
@@ -210,15 +206,12 @@ describe("twitter-verify (MW-10)", () => {
       [502, "HTTP 502"],
       [503, "HTTP 503"],
       [429, "HTTP 429"],
-    ])(
-      "maps non-OK HTTP %d to status-aware error",
-      async (status, expectedSubstring) => {
-        mockFetchResponse({ ok: false, status });
-        const result = await verifyTweet(VALID_TWEET_URL, WALLET);
-        expect(result.verified).toBe(false);
-        expect(result.error).toContain(expectedSubstring);
-      },
-    );
+    ])("maps non-OK HTTP %d to status-aware error", async (status, expectedSubstring) => {
+      mockFetchResponse({ ok: false, status });
+      const result = await verifyTweet(VALID_TWEET_URL, WALLET);
+      expect(result.verified).toBe(false);
+      expect(result.error).toContain(expectedSubstring);
+    });
 
     it("handles invalid JSON from verification service", async () => {
       mockFetchResponse({ ok: true, status: 200, jsonReject: true });

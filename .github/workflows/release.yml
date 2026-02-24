@@ -219,6 +219,7 @@ jobs:
               "@reflink/reflink-linux-x64-gnu",
               "fsevents",
               "koffi",
+              "canvas",
             ],
             fixedExtension: false,
             inlineOnly: false,
