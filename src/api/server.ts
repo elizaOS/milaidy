@@ -2806,7 +2806,15 @@ const SENSITIVE_KEY_RE =
   /password|secret|api.?key|private.?key|seed.?phrase|authorization|connection.?string|credential|(?<!max)tokens?$/i;
 
 function isBlockedObjectKey(key: string): boolean {
-  return key === "__proto__" || key === "constructor" || key === "prototype";
+  return (
+    key === "__proto__" ||
+    key === "constructor" ||
+    key === "prototype" ||
+    // Block config include directives — if an API caller embeds "$include"
+    // inside a config patch, the next loadMiladyConfig() → resolveConfigIncludes
+    // pass would read arbitrary local files and merge them into the config.
+    key === "$include"
+  );
 }
 
 function hasBlockedObjectKeyDeep(value: unknown): boolean {

@@ -99,6 +99,26 @@ export function loadMiladyConfig(): MiladyConfig {
   return resolved;
 }
 
+/**
+ * Recursively strip "$include" keys from a config object before persisting.
+ * Defense-in-depth: even if an API-driven config write somehow smuggles a
+ * "$include" key past the merge-time blocklist, this ensures the directive
+ * never reaches disk where resolveConfigIncludes would process it on the
+ * next loadMiladyConfig() call.
+ */
+function stripIncludeDirectives(value: unknown): unknown {
+  if (value === null || value === undefined) return value;
+  if (Array.isArray(value)) return value.map(stripIncludeDirectives);
+  if (typeof value !== "object") return value;
+
+  const result: Record<string, unknown> = {};
+  for (const [key, val] of Object.entries(value as Record<string, unknown>)) {
+    if (key === "$include") continue;
+    result[key] = stripIncludeDirectives(val);
+  }
+  return result;
+}
+
 export function saveMiladyConfig(config: MiladyConfig): void {
   const configPath = resolveConfigPath();
   const dir = path.dirname(configPath);
@@ -107,7 +127,11 @@ export function saveMiladyConfig(config: MiladyConfig): void {
     fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
   }
 
-  fs.writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`, {
+  // Strip any $include directives before writing — defense-in-depth against
+  // config include injection (see isBlockedObjectKey in server.ts).
+  const sanitized = stripIncludeDirectives(config) as MiladyConfig;
+
+  fs.writeFileSync(configPath, `${JSON.stringify(sanitized, null, 2)}\n`, {
     encoding: "utf-8",
     mode: 0o600, // Owner read+write only — config may contain private keys in env section
   });
