@@ -23,6 +23,7 @@ import {
   type SessionInfo,
   toPiCommand,
 } from "../services/pty-types.js";
+import type { SwarmCoordinator } from "../services/swarm-coordinator.js";
 import type { CodingWorkspaceService } from "../services/workspace-service.js";
 import {
   createScratchDir,
@@ -202,6 +203,11 @@ export async function handleMultiAgent(
         }
       }
 
+      // Check if coordinator is active — route blocking prompts through it
+      const coordinator = (
+        runtime as unknown as Record<string, unknown>
+      ).__swarmCoordinator as SwarmCoordinator | undefined;
+
       // Spawn the agent
       const initialTask = specPiRequested ? toPiCommand(specTask) : specTask;
       const displayType = specPiRequested ? "pi" : specAgentType;
@@ -212,8 +218,9 @@ export async function handleMultiAgent(
         initialTask,
         memoryContent,
         credentials,
-        approvalPreset: approvalPreset as ApprovalPreset | undefined,
+        approvalPreset: (approvalPreset as ApprovalPreset | undefined) ?? ptyService.defaultApprovalPreset,
         customCredentials,
+        ...(coordinator ? { skipAdapterAutoResponse: true } : {}),
         metadata: {
           requestedType: specRequestedType,
           messageId: message.id,
@@ -234,7 +241,16 @@ export async function handleMultiAgent(
         specLabel,
         scratchDir,
         callback,
+        !!coordinator,
       );
+      if (coordinator && specTask) {
+        coordinator.registerTask(session.id, {
+          agentType: specAgentType,
+          label: specLabel,
+          originalTask: specTask,
+          workdir,
+        });
+      }
 
       results.push({
         sessionId: session.id,
@@ -396,6 +412,11 @@ export async function handleSingleAgent(
     const initialTask = piRequested ? toPiCommand(task) : task;
     const displayType = piRequested ? "pi" : agentType;
 
+    // Check if coordinator is active — route blocking prompts through it
+    const coordinator = (
+      runtime as unknown as Record<string, unknown>
+    ).__swarmCoordinator as SwarmCoordinator | undefined;
+
     const session: SessionInfo = await ptyService.spawnSession({
       name: `coding-${Date.now()}`,
       agentType,
@@ -403,8 +424,9 @@ export async function handleSingleAgent(
       initialTask,
       memoryContent,
       credentials,
-      approvalPreset: approvalPreset as ApprovalPreset | undefined,
+      approvalPreset: (approvalPreset as ApprovalPreset | undefined) ?? ptyService.defaultApprovalPreset,
       customCredentials,
+      ...(coordinator ? { skipAdapterAutoResponse: true } : {}),
       metadata: {
         requestedType: rawAgentType,
         messageId: message.id,
@@ -424,7 +446,16 @@ export async function handleSingleAgent(
       label,
       scratchDir,
       callback,
+      !!coordinator,
     );
+    if (coordinator && task) {
+      coordinator.registerTask(session.id, {
+        agentType,
+        label,
+        originalTask: task,
+        workdir,
+      });
+    }
 
     if (state) {
       state.codingSession = {

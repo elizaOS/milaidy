@@ -164,7 +164,11 @@ export async function initializePTYManager(
           );
         }
       }
-      // Show operational logs at info level
+      // Show operational logs at info level (suppress noisy loading-suppression messages)
+      if (msg.includes("suppressing stall emission")) {
+        // Loading pattern suppression fires every few seconds — too noisy for console
+        return;
+      }
       if (
         msg.includes("ready") ||
         msg.includes("blocking") ||

@@ -17,6 +17,7 @@ import {
   normalizeAgentType,
   toPiCommand,
 } from "../services/pty-types.js";
+import type { SwarmCoordinator } from "../services/swarm-coordinator.js";
 import type { RouteContext } from "./routes.js";
 import { parseBody, sendError, sendJson } from "./routes.js";
 
@@ -137,6 +138,18 @@ export async function handleAgentRoutes(
         500,
       );
     }
+    return true;
+  }
+
+  // GET /api/coding-agents/settings
+  if (method === "GET" && pathname === "/api/coding-agents/settings") {
+    if (!ctx.ptyService) {
+      sendError(res, "PTY Service not available", 503);
+      return true;
+    }
+    sendJson(res, {
+      defaultApprovalPreset: ctx.ptyService.defaultApprovalPreset,
+    } as unknown as JsonValue);
     return true;
   }
 
@@ -290,6 +303,11 @@ export async function handleAgentRoutes(
           ? (ctx.runtime.getSetting("PARALLAX_AIDER_PROVIDER") as string | null)
           : null;
 
+      // Check if coordinator is active — route blocking prompts through it
+      const coordinator = (
+        ctx.runtime as unknown as Record<string, unknown>
+      ).__swarmCoordinator as SwarmCoordinator | undefined;
+
       const session = await ctx.ptyService.spawnSession({
         name: `agent-${Date.now()}`,
         agentType: normalizedType,
@@ -305,6 +323,7 @@ export async function handleAgentRoutes(
         customCredentials: customCredentials as
           | Record<string, string>
           | undefined,
+        ...(coordinator ? { skipAdapterAutoResponse: true } : {}),
         metadata: {
           requestedType: agentStr,
           ...(metadata as Record<string, unknown>),
@@ -315,6 +334,17 @@ export async function handleAgentRoutes(
           },
         },
       });
+      if (coordinator && task) {
+        const label =
+          (metadata as Record<string, unknown>)?.label as string | undefined;
+        coordinator.registerTask(session.id, {
+          agentType:
+            agentStr as import("../services/pty-service.js").CodingAgentType,
+          label: label || `agent-${session.id.slice(-8)}`,
+          originalTask: task as string,
+          workdir: session.workdir,
+        });
+      }
 
       sendJson(
         res,

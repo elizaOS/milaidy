@@ -10,8 +10,10 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { IAgentRuntime } from "@elizaos/core";
 import type { PTYService } from "../services/pty-service.js";
+import type { SwarmCoordinator } from "../services/swarm-coordinator.js";
 import type { CodingWorkspaceService } from "../services/workspace-service.js";
 import { handleAgentRoutes } from "./agent-routes.js";
+import { handleCoordinatorRoutes } from "./coordinator-routes.js";
 import { handleIssueRoutes } from "./issue-routes.js";
 import { handleWorkspaceRoutes } from "./workspace-routes.js";
 
@@ -27,6 +29,7 @@ export interface RouteContext {
   runtime: IAgentRuntime;
   ptyService: PTYService | null;
   workspaceService: CodingWorkspaceService | null;
+  coordinator?: SwarmCoordinator;
 }
 
 // Max request body size (1 MB)
@@ -88,6 +91,11 @@ export async function handleCodingAgentRoutes(
   pathname: string,
   ctx: RouteContext,
 ): Promise<boolean> {
+  // Delegate to coordinator routes (before agent routes — more specific prefix)
+  if (await handleCoordinatorRoutes(req, res, pathname, ctx)) {
+    return true;
+  }
+
   // Delegate to agent routes
   if (await handleAgentRoutes(req, res, pathname, ctx)) {
     return true;
@@ -110,7 +118,10 @@ export async function handleCodingAgentRoutes(
 /**
  * Create route handler with services from runtime
  */
-export function createCodingAgentRouteHandler(runtime: IAgentRuntime) {
+export function createCodingAgentRouteHandler(
+  runtime: IAgentRuntime,
+  coordinator?: SwarmCoordinator,
+) {
   const ptyService = runtime.getService(
     "PTY_SERVICE",
   ) as unknown as PTYService | null;
@@ -122,6 +133,7 @@ export function createCodingAgentRouteHandler(runtime: IAgentRuntime) {
     runtime,
     ptyService,
     workspaceService,
+    coordinator,
   };
 
   return (req: IncomingMessage, res: ServerResponse, pathname: string) =>

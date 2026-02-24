@@ -46,15 +46,18 @@ import type {
   CodingAgentType,
   PTYServiceConfig,
   SessionEventCallback,
+  SessionEventName,
   SessionInfo,
   SpawnSessionOptions,
 } from "./pty-types.js";
 import { isPiAgentType, toPiCommand } from "./pty-types.js";
 import { classifyStallOutput } from "./stall-classifier.js";
+import { SwarmCoordinator } from "./swarm-coordinator.js";
 
 export type {
   CodingAgentType,
   PTYServiceConfig,
+  SessionEventName,
   SessionInfo,
   SpawnSessionOptions,
 } from "./pty-types.js";
@@ -90,6 +93,7 @@ export class PTYService {
       debug: config.debug ?? false,
       registerCodingAdapters: config.registerCodingAdapters ?? true,
       maxConcurrentSessions: config.maxConcurrentSessions ?? 8,
+      defaultApprovalPreset: config.defaultApprovalPreset ?? "permissive",
     };
   }
 
@@ -100,6 +104,21 @@ export class PTYService {
       | undefined;
     const service = new PTYService(runtime, config ?? {});
     await service.initialize();
+
+    // Wire the SwarmCoordinator — done here instead of plugin init()
+    // because ElizaOS calls Service.start() reliably but may not call
+    // plugin.init() depending on the registration path.
+    try {
+      const coordinator = new SwarmCoordinator(runtime);
+      coordinator.start(service);
+      // Store on runtime so actions / route handlers can access it
+      (runtime as unknown as Record<string, unknown>).__swarmCoordinator =
+        coordinator;
+      console.log("[PTYService] SwarmCoordinator wired and started");
+    } catch (err) {
+      console.error("[PTYService] Failed to wire SwarmCoordinator:", err);
+    }
+
     return service;
   }
 
@@ -131,6 +150,15 @@ export class PTYService {
   }
 
   async stop(): Promise<void> {
+    // Stop the coordinator if one was wired to this service
+    const coordinator = (this.runtime as unknown as Record<string, unknown>)
+      .__swarmCoordinator as SwarmCoordinator | undefined;
+    if (coordinator) {
+      coordinator.stop();
+      (this.runtime as unknown as Record<string, unknown>).__swarmCoordinator =
+        undefined;
+    }
+
     for (const unsubscribe of this.outputUnsubscribers.values()) {
       unsubscribe();
     }
@@ -343,6 +371,20 @@ export class PTYService {
     );
   }
 
+  /** Default approval preset — runtime env var takes precedence over config. */
+  get defaultApprovalPreset(): ApprovalPreset {
+    const fromEnv = this.runtime.getSetting(
+      "PARALLAX_DEFAULT_APPROVAL_PRESET",
+    ) as string | undefined;
+    if (
+      fromEnv &&
+      ["readonly", "standard", "permissive", "autonomous"].includes(fromEnv)
+    ) {
+      return fromEnv as ApprovalPreset;
+    }
+    return this.serviceConfig.defaultApprovalPreset ?? "permissive";
+  }
+
   getSession(sessionId: string): SessionInfo | undefined {
     if (!this.manager) return undefined;
     const session = this.manager.get(sessionId);
@@ -451,8 +493,12 @@ export class PTYService {
 
   // ─── Event & Adapter Registration ───
 
-  onSessionEvent(callback: SessionEventCallback): void {
+  onSessionEvent(callback: SessionEventCallback): () => void {
     this.eventCallbacks.push(callback);
+    return () => {
+      const idx = this.eventCallbacks.indexOf(callback);
+      if (idx !== -1) this.eventCallbacks.splice(idx, 1);
+    };
   }
 
   registerAdapter(adapter: unknown): void {

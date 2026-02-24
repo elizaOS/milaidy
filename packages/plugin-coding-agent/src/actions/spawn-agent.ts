@@ -27,6 +27,7 @@ import {
   type SessionInfo,
   toPiCommand,
 } from "../services/pty-types.js";
+import type { SwarmCoordinator } from "../services/swarm-coordinator.js";
 import type { CodingWorkspaceService } from "../services/workspace-service.js";
 
 export const spawnAgentAction: Action = {
@@ -218,6 +219,11 @@ export const spawnAgentAction: Action = {
         }
       }
 
+      // Check if coordinator is active — route blocking prompts through it
+      const coordinator = (
+        runtime as unknown as Record<string, unknown>
+      ).__swarmCoordinator as SwarmCoordinator | undefined;
+
       // Spawn the PTY session
       const session: SessionInfo = await ptyService.spawnSession({
         name: `coding-${Date.now()}`,
@@ -226,8 +232,9 @@ export const spawnAgentAction: Action = {
         initialTask,
         memoryContent,
         credentials,
-        approvalPreset: approvalPreset as ApprovalPreset | undefined,
+        approvalPreset: (approvalPreset as ApprovalPreset | undefined) ?? ptyService.defaultApprovalPreset,
         customCredentials,
+        ...(coordinator ? { skipAdapterAutoResponse: true } : {}),
         metadata: {
           requestedType: rawAgentType,
           messageId: message.id,
@@ -242,27 +249,38 @@ export const spawnAgentAction: Action = {
         // Log session events for debugging
         console.log(`[Session ${sessionId}] ${event}:`, data);
 
-        // Handle blocked state - agent is waiting for input
-        if (event === "blocked" && callback) {
-          callback({
-            text: `Coding agent is waiting for input: ${(data as { prompt?: string }).prompt ?? "unknown prompt"}`,
-          });
-        }
+        // When coordinator is active it owns chat messaging for these events
+        if (!coordinator) {
+          // Handle blocked state - agent is waiting for input
+          if (event === "blocked" && callback) {
+            callback({
+              text: `Coding agent is waiting for input: ${(data as { prompt?: string }).prompt ?? "unknown prompt"}`,
+            });
+          }
 
-        // Handle completion
-        if (event === "completed" && callback) {
-          callback({
-            text: "Coding agent completed the task.",
-          });
-        }
+          // Handle completion
+          if (event === "completed" && callback) {
+            callback({
+              text: "Coding agent completed the task.",
+            });
+          }
 
-        // Handle errors
-        if (event === "error" && callback) {
-          callback({
-            text: `Coding agent encountered an error: ${(data as { message?: string }).message ?? "unknown error"}`,
-          });
+          // Handle errors
+          if (event === "error" && callback) {
+            callback({
+              text: `Coding agent encountered an error: ${(data as { message?: string }).message ?? "unknown error"}`,
+            });
+          }
         }
       });
+      if (coordinator && task) {
+        coordinator.registerTask(session.id, {
+          agentType,
+          label: `agent-${session.id.slice(-8)}`,
+          originalTask: task,
+          workdir,
+        });
+      }
 
       // Store session info in state for subsequent actions
       if (state) {

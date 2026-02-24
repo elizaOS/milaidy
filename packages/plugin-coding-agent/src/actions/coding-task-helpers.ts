@@ -62,7 +62,13 @@ export function generateLabel(
   return parts.join("/");
 }
 
-/** Register lifecycle event handlers for a spawned session */
+/**
+ * Register lifecycle event handlers for a spawned session.
+ *
+ * When `coordinatorActive` is true the SwarmCoordinator owns chat messaging
+ * and session lifecycle for blocked / task_complete / error events.
+ * This listener still handles scratch-dir cleanup regardless.
+ */
 export function registerSessionEvents(
   ptyService: PTYService,
   runtime: IAgentRuntime,
@@ -70,42 +76,44 @@ export function registerSessionEvents(
   label: string,
   scratchDir: string | null,
   callback?: HandlerCallback,
+  coordinatorActive = false,
 ): void {
   ptyService.onSessionEvent((sid, event, data) => {
     if (sid !== sessionId) return;
 
-    if (event === "blocked" && callback) {
-      callback({
-        text: `Agent "${label}" is waiting for input: ${(data as { prompt?: string }).prompt ?? "unknown prompt"}`,
-      });
-    }
-    if (event === "task_complete") {
-      if (callback) {
-        const response = (data as { response?: string }).response ?? "";
-        const preview =
-          response.length > 500 ? `${response.slice(0, 500)}...` : response;
+    // When coordinator is active it handles chat + lifecycle for these events
+    if (!coordinatorActive) {
+      if (event === "blocked" && callback) {
         callback({
-          text: preview
-            ? `Agent "${label}" completed the task.\n\n${preview}`
-            : `Agent "${label}" completed the task.`,
+          text: `Agent "${label}" is waiting for input: ${(data as { prompt?: string }).prompt ?? "unknown prompt"}`,
         });
       }
-      // Auto-stop the session after task completion. Without a websocket
-      // interactive layer, the idle session can't accept follow-up input
-      // and just leaks resources.
-      ptyService.stopSession(sessionId).catch((err) => {
-        console.warn(
-          `[START_CODING_TASK] Failed to stop session for "${label}" after task complete: ${err}`,
-        );
-      });
-    }
-    if (event === "error" && callback) {
-      callback({
-        text: `Agent "${label}" encountered an error: ${(data as { message?: string }).message ?? "unknown error"}`,
-      });
+      if (event === "task_complete") {
+        if (callback) {
+          const response = (data as { response?: string }).response ?? "";
+          const preview =
+            response.length > 500 ? `${response.slice(0, 500)}...` : response;
+          callback({
+            text: preview
+              ? `Agent "${label}" completed the task.\n\n${preview}`
+              : `Agent "${label}" completed the task.`,
+          });
+        }
+        // Auto-stop the session after task completion.
+        ptyService.stopSession(sessionId).catch((err) => {
+          console.warn(
+            `[START_CODING_TASK] Failed to stop session for "${label}" after task complete: ${err}`,
+          );
+        });
+      }
+      if (event === "error" && callback) {
+        callback({
+          text: `Agent "${label}" encountered an error: ${(data as { message?: string }).message ?? "unknown error"}`,
+        });
+      }
     }
 
-    // Auto-cleanup scratch directories when the session exits
+    // Auto-cleanup scratch directories when the session exits (always runs)
     if (
       (event === "stopped" || event === "task_complete" || event === "error") &&
       scratchDir

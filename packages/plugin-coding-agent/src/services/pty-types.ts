@@ -24,6 +24,16 @@ export interface PTYServiceConfig {
   registerCodingAdapters?: boolean;
   /** Maximum concurrent PTY sessions (default: 8) */
   maxConcurrentSessions?: number;
+  /**
+   * Default approval preset for coding agents when not specified per-spawn.
+   * Controls what tools the agent can use without asking for permission.
+   *   - "readonly"   — Read-only tools only
+   *   - "standard"   — Read + write, asks for shell/network
+   *   - "permissive" — Most tools auto-approved, asks for destructive ops
+   *   - "autonomous" — All tools auto-approved (yolo mode)
+   * Default: "permissive"
+   */
+  defaultApprovalPreset?: ApprovalPreset;
 }
 
 /** Available coding agent types */
@@ -95,6 +105,10 @@ export interface SpawnSessionOptions {
   approvalPreset?: ApprovalPreset;
   /** Custom credentials for MCP servers or other integrations */
   customCredentials?: Record<string, string>;
+  /** When true, adapter-level blocking prompts (tool permissions, file access)
+   *  are emitted with autoResponded=false instead of being auto-handled.
+   *  Used by the swarm coordinator to route decisions through its LLM loop. */
+  skipAdapterAutoResponse?: boolean;
 }
 
 export interface SessionInfo {
@@ -107,6 +121,16 @@ export interface SessionInfo {
   lastActivityAt: Date;
   metadata?: Record<string, unknown>;
 }
+
+/** Known event names emitted by the PTY layer. */
+export type SessionEventName =
+  | "ready"
+  | "blocked"
+  | "login_required"
+  | "task_complete"
+  | "stopped"
+  | "error"
+  | "message";
 
 type SessionEventCallback = (
   sessionId: string,
