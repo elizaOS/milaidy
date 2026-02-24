@@ -105,9 +105,31 @@ async function runCodeHandler(
   // via constructor chain traversal (e.g. this.constructor.constructor(
   // 'return process')()). All injected values are frozen to prevent
   // prototype mutation.
+  //
+  // IMPORTANT: node:vm is NOT a security sandbox (Node.js docs state this
+  // explicitly). The MILADY_TERMINAL_RUN_TOKEN gate is the real protection
+  // layer. These hardening measures are defense-in-depth only.
   const context: Record<string, unknown> = Object.create(null);
   context.params = Object.freeze({ ...params });
-  context.fetch = safeCodeFetch;
+
+  // Wrap safeCodeFetch in a sandbox-native function so user code cannot
+  // reach the host Function constructor via fetch.constructor.
+  // We compile a thin wrapper inside the VM context that calls the host
+  // function through a closure variable, keeping the prototype chain
+  // inside the sandbox.
+  const wrapperScript = `(function(hostFetch) {
+    return function fetch(input, init) { return hostFetch(input, init); };
+  })`;
+  const wrapFetch = vmRunner.runInNewContext(
+    wrapperScript,
+    Object.create(null),
+    {
+      filename: "milady-fetch-wrapper",
+      timeout: 1_000,
+    },
+  ) as (fn: typeof safeCodeFetch) => typeof safeCodeFetch;
+  context.fetch = wrapFetch(safeCodeFetch);
+
   return await vmRunner.runInNewContext(`"use strict"; ${script}`, context, {
     filename: "milady-custom-action",
     timeout: 30_000,

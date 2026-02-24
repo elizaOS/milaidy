@@ -12293,6 +12293,22 @@ async function handleRequest(
       return;
     }
 
+    // Security gate: shell/code handlers execute arbitrary commands on the host.
+    if (def.handler.type === "shell" || def.handler.type === "code") {
+      const terminalRejection = resolveTerminalRunRejection(
+        req,
+        body as TerminalRunRequestBody,
+      );
+      if (terminalRejection) {
+        error(
+          res,
+          `Testing ${def.handler.type} actions requires terminal authorization. ${terminalRejection.reason}`,
+          terminalRejection.status,
+        );
+        return;
+      }
+    }
+
     const testParams = body.params ?? {};
     const start = Date.now();
     try {
@@ -12339,6 +12355,23 @@ async function handleRequest(
         return;
       }
       newHandler = h as unknown as CustomActionDef["handler"];
+    }
+
+    // Security gate: if the new/updated handler is shell or code, require
+    // terminal authorization — same gate as POST creation.
+    if (newHandler.type === "shell" || newHandler.type === "code") {
+      const terminalRejection = resolveTerminalRunRejection(
+        req,
+        body as TerminalRunRequestBody,
+      );
+      if (terminalRejection) {
+        error(
+          res,
+          `Updating to ${newHandler.type} handler requires terminal authorization. ${terminalRejection.reason}`,
+          terminalRejection.status,
+        );
+        return;
+      }
     }
 
     const updated: CustomActionDef = {
