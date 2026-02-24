@@ -1,3 +1,4 @@
+import { createIntegrationTelemetrySpan } from "../diagnostics/integration-observability";
 import type { RegistryPluginInfo } from "./registry-client.js";
 
 export async function fetchFromNetwork(params: {
@@ -19,6 +20,10 @@ export async function fetchFromNetwork(params: {
     sanitizeSandbox,
   } = params;
 
+  const generatedSpan = createIntegrationTelemetrySpan({
+    boundary: "marketplace",
+    operation: "fetch_generated_registry",
+  });
   try {
     const resp = await fetch(generatedRegistryUrl, { redirect: "error" });
     if (resp.ok) {
@@ -115,15 +120,30 @@ export async function fetchFromNetwork(params: {
       }
       await applyLocalWorkspaceApps(plugins);
       await applyNodeModulePlugins(plugins);
+      generatedSpan.success({ statusCode: resp.status });
       return plugins;
     }
-  } catch {
+    generatedSpan.failure({ statusCode: resp.status, errorKind: "http_error" });
+  } catch (err) {
+    generatedSpan.failure({ error: err });
     // caller logs fallback warnings
   }
 
-  const resp = await fetch(indexRegistryUrl, { redirect: "error" });
-  if (!resp.ok)
+  const indexSpan = createIntegrationTelemetrySpan({
+    boundary: "marketplace",
+    operation: "fetch_index_registry",
+  });
+  let resp: Response;
+  try {
+    resp = await fetch(indexRegistryUrl, { redirect: "error" });
+  } catch (err) {
+    indexSpan.failure({ error: err });
+    throw err;
+  }
+  if (!resp.ok) {
+    indexSpan.failure({ statusCode: resp.status, errorKind: "http_error" });
     throw new Error(`index.json: ${resp.status} ${resp.statusText}`);
+  }
   const data = (await resp.json()) as Record<string, string>;
   const plugins = new Map<string, RegistryPluginInfo>();
   for (const [name, gitRef] of Object.entries(data)) {
@@ -144,5 +164,6 @@ export async function fetchFromNetwork(params: {
   }
   await applyLocalWorkspaceApps(plugins);
   await applyNodeModulePlugins(plugins);
+  indexSpan.success({ statusCode: resp.status });
   return plugins;
 }

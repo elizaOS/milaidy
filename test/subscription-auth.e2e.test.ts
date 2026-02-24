@@ -130,7 +130,12 @@ describe("subscription auth routes (e2e contract)", () => {
     if (closeServer) {
       await closeServer();
     }
-    await fs.rm(stateDir, { recursive: true, force: true });
+    await fs.rm(stateDir, {
+      recursive: true,
+      force: true,
+      maxRetries: 5,
+      retryDelay: 100,
+    });
     envBackup.restore();
   });
 

@@ -298,4 +298,104 @@ describe("drop-service", () => {
       ),
     ).rejects.toThrow("invalid proof");
   });
+
+  // ── Timeout handling ────────────────────────────────────────────────
+
+  it("surfaces timeout from mint tx.wait", async () => {
+    const { service, contract } = createFixture(true);
+    const wait = vi
+      .fn()
+      .mockRejectedValue(new Error("Transaction timed out after 120000ms"));
+    contract.mint.mockResolvedValue({ hash: "0xsubmitted", wait });
+
+    await expect(
+      service.mint("Milady", "https://agent.example"),
+    ).rejects.toThrow("timed out");
+  });
+
+  it("surfaces timeout from mintShiny tx.wait", async () => {
+    const { service, contract } = createFixture(true);
+    contract.SHINY_PRICE.mockResolvedValue(100_000_000_000_000_000n);
+    const wait = vi
+      .fn()
+      .mockRejectedValue(new Error("Transaction timed out after 120000ms"));
+    contract.mintShiny.mockResolvedValue({ hash: "0xsubmitted", wait });
+
+    await expect(
+      service.mintShiny("Shiny", "https://agent.example/shiny"),
+    ).rejects.toThrow("timed out");
+  });
+
+  it("surfaces timeout from mintWithWhitelist tx.wait", async () => {
+    const { service, contract } = createFixture(true);
+    const wait = vi
+      .fn()
+      .mockRejectedValue(new Error("Transaction timed out after 120000ms"));
+    contract.mintWhitelist.mockResolvedValue({ hash: "0xsubmitted", wait });
+
+    await expect(
+      service.mintWithWhitelist(
+        "WL",
+        "https://agent.example/wl",
+        ["0xproof"],
+        "0xcap",
+      ),
+    ).rejects.toThrow("timed out");
+  });
+
+  // ── Nonce/retry error mapping ───────────────────────────────────────
+
+  it("surfaces nonce-expired from mint contract call", async () => {
+    const { service, contract } = createFixture(true);
+    contract.mint.mockRejectedValue(new Error("nonce has already been used"));
+
+    await expect(
+      service.mint("Milady", "https://agent.example"),
+    ).rejects.toThrow("nonce has already been used");
+  });
+
+  it("surfaces replacement-underpriced from mintShiny tx submission", async () => {
+    const { service, contract } = createFixture(true);
+    contract.SHINY_PRICE.mockResolvedValue(100_000_000_000_000_000n);
+    contract.mintShiny.mockRejectedValue(
+      new Error("replacement transaction underpriced"),
+    );
+
+    await expect(
+      service.mintShiny("Shiny", "https://agent.example/shiny"),
+    ).rejects.toThrow("replacement transaction underpriced");
+  });
+
+  // ── Contract read / service failure mapping ─────────────────────────
+
+  it("surfaces contract read failure from getStatus when enabled", async () => {
+    const { service, contract } = createFixture(true);
+    contract.getCollectionDetails.mockRejectedValue(
+      new Error("call revert exception"),
+    );
+
+    await expect(service.getStatus()).rejects.toThrow("call revert exception");
+  });
+
+  it("surfaces SHINY_PRICE fetch failure before mintShiny tx", async () => {
+    const { service, contract } = createFixture(true);
+    contract.SHINY_PRICE.mockRejectedValue(
+      new Error("execution reverted: contract not deployed"),
+    );
+
+    await expect(
+      service.mintShiny("Shiny", "https://agent.example/shiny"),
+    ).rejects.toThrow("contract not deployed");
+  });
+
+  it("propagates getFreshNonce failure through mint", async () => {
+    const { service, txService } = createFixture(true);
+    txService.getFreshNonce.mockRejectedValue(
+      new Error("RPC connection refused"),
+    );
+
+    await expect(
+      service.mint("Milady", "https://agent.example"),
+    ).rejects.toThrow("RPC connection refused");
+  });
 });

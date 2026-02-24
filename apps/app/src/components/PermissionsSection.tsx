@@ -10,6 +10,15 @@
  */
 
 import {
+  Camera,
+  Check,
+  Mic,
+  Monitor,
+  MousePointer2,
+  Settings,
+  Terminal,
+} from "lucide-react";
+import {
   type Dispatch,
   type SetStateAction,
   useCallback,
@@ -113,7 +122,7 @@ const CAPABILITIES: CapabilityDef[] = [
     id: "coding-agent",
     label: "Coding Agent Swarms",
     description:
-      "Orchestrate CLI coding agents (Claude Code, Gemini, Codex, Aider)",
+      "Orchestrate CLI coding agents (Claude Code, Gemini, Codex, Aider, Pi)",
     requiredPermissions: [],
   },
 ];
@@ -131,14 +140,18 @@ const PERMISSION_BADGE_LABELS: Record<
 
 /** Icon mapping for permissions. */
 function PermissionIcon({ icon }: { icon: string }) {
-  const icons: Record<string, string> = {
-    cursor: "🖱️",
-    monitor: "🖥️",
-    mic: "🎤",
-    camera: "📷",
-    terminal: "⌨️",
+  const icons: Record<string, React.ReactNode> = {
+    cursor: <MousePointer2 className="w-4 h-4" />,
+    monitor: <Monitor className="w-4 h-4" />,
+    mic: <Mic className="w-4 h-4" />,
+    camera: <Camera className="w-4 h-4" />,
+    terminal: <Terminal className="w-4 h-4" />,
   };
-  return <span className="text-base">{icons[icon] || "⚙️"}</span>;
+  return (
+    <span className="text-base">
+      {icons[icon] || <Settings className="w-4 h-4" />}
+    </span>
+  );
 }
 
 /** Individual permission row. */
@@ -578,7 +591,7 @@ export function PermissionsOnboardingSection({
                 </div>
               </div>
               {isGranted ? (
-                <span className="text-[var(--ok)] text-sm">✓</span>
+                <Check className="w-4 h-4 text-[var(--ok)]" />
               ) : (
                 <div className="flex gap-2">
                   {canRequest && (

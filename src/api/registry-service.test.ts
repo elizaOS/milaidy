@@ -317,4 +317,118 @@ describe("registry-service", () => {
     expect(hash).toBe(ethers.id("milady-agent"));
     expect(hash).toMatch(/^0x[0-9a-f]{64}$/);
   });
+
+  // ── Timeout handling ────────────────────────────────────────────────
+
+  it("surfaces timeout from register tx.wait", async () => {
+    const { service, contract } = createFixture();
+    const wait = vi
+      .fn()
+      .mockRejectedValue(new Error("Transaction timed out after 120000ms"));
+    contract.registerAgent.mockResolvedValue({ hash: "0xsubmitted", wait });
+
+    await expect(
+      service.register({
+        name: "Milady",
+        endpoint: "https://agent.example",
+        capabilitiesHash: "0xcap",
+        tokenURI: "ipfs://token",
+      }),
+    ).rejects.toThrow("timed out");
+  });
+
+  it("surfaces timeout from updateTokenURI tx.wait", async () => {
+    const { service, contract } = createFixture();
+    contract.getTokenId.mockResolvedValue(9n);
+    const wait = vi
+      .fn()
+      .mockRejectedValue(new Error("Transaction timed out after 120000ms"));
+    contract.updateTokenURI.mockResolvedValue({ wait });
+
+    await expect(service.updateTokenURI("ipfs://updated")).rejects.toThrow(
+      "timed out",
+    );
+  });
+
+  it("surfaces timeout from updateAgent tx.wait", async () => {
+    const { service, contract } = createFixture();
+    const wait = vi
+      .fn()
+      .mockRejectedValue(new Error("Transaction timed out after 120000ms"));
+    contract.updateAgent.mockResolvedValue({ wait });
+
+    await expect(
+      service.updateAgent("https://agent.example/v2", "0xcap2"),
+    ).rejects.toThrow("timed out");
+  });
+
+  it("surfaces timeout from syncProfile tx.wait", async () => {
+    const { service, contract } = createFixture();
+    const wait = vi
+      .fn()
+      .mockRejectedValue(new Error("Transaction timed out after 120000ms"));
+    contract.updateAgentProfile.mockResolvedValue({
+      hash: "0xsubmitted",
+      wait,
+    });
+
+    await expect(
+      service.syncProfile({
+        name: "Milady v2",
+        endpoint: "https://agent.example/v2",
+        capabilitiesHash: "0xcap",
+        tokenURI: "ipfs://token-v2",
+      }),
+    ).rejects.toThrow("timed out");
+  });
+
+  // ── Nonce/retry error mapping ───────────────────────────────────────
+
+  it("surfaces NONCE_EXPIRED from register contract call", async () => {
+    const { service, contract } = createFixture();
+    contract.registerAgent.mockRejectedValue(
+      new Error("nonce has already been used"),
+    );
+
+    await expect(
+      service.register({
+        name: "Milady",
+        endpoint: "https://agent.example",
+        capabilitiesHash: "0xcap",
+        tokenURI: "ipfs://token",
+      }),
+    ).rejects.toThrow("nonce has already been used");
+  });
+
+  it("surfaces replacement-underpriced from updateAgent tx submission", async () => {
+    const { service, contract } = createFixture();
+    contract.updateAgent.mockRejectedValue(
+      new Error("replacement transaction underpriced"),
+    );
+
+    await expect(
+      service.updateAgent("https://agent.example/v2", "0xcap2"),
+    ).rejects.toThrow("replacement transaction underpriced");
+  });
+
+  // ── Contract read failure mapping ───────────────────────────────────
+
+  it("surfaces contract read failure from getStatus", async () => {
+    const { service, contract } = createFixture();
+    contract.isRegistered.mockRejectedValue(new Error("call revert exception"));
+
+    await expect(service.getStatus()).rejects.toThrow("call revert exception");
+  });
+
+  it("surfaces getAgentInfo failure for registered wallet in getStatus", async () => {
+    const { service, contract } = createFixture();
+    contract.isRegistered.mockResolvedValue(true);
+    contract.totalAgents.mockResolvedValue(10n);
+    contract.getTokenId.mockResolvedValue(5n);
+    contract.getAgentInfo.mockRejectedValue(
+      new Error("execution reverted: token does not exist"),
+    );
+
+    await expect(service.getStatus()).rejects.toThrow("token does not exist");
+  });
 });

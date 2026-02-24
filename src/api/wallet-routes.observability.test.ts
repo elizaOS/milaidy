@@ -54,12 +54,15 @@ function baseDeps(): WalletRouteDependencies {
   };
 }
 
-async function invokeBalances(deps: WalletRouteDependencies): Promise<void> {
-  await handleWalletRoutes({
+function walletRouteCtx(
+  pathname: string,
+  deps: WalletRouteDependencies,
+): Parameters<typeof handleWalletRoutes>[0] {
+  return {
     req: {} as never,
     res: {} as never,
     method: "GET",
-    pathname: "/api/wallet/balances",
+    pathname,
     config: { env: {} } as MiladyConfig,
     saveConfig: vi.fn(),
     ensureWalletKeysInEnvAndConfig: vi.fn(),
@@ -68,7 +71,15 @@ async function invokeBalances(deps: WalletRouteDependencies): Promise<void> {
     readJsonBody: vi.fn(async () => null),
     json: vi.fn(),
     error: vi.fn(),
-  });
+  };
+}
+
+async function invokeBalances(deps: WalletRouteDependencies): Promise<void> {
+  await handleWalletRoutes(walletRouteCtx("/api/wallet/balances", deps));
+}
+
+async function invokeNfts(deps: WalletRouteDependencies): Promise<void> {
+  await handleWalletRoutes(walletRouteCtx("/api/wallet/nfts", deps));
 }
 
 describe("wallet routes observability", () => {
@@ -123,6 +134,42 @@ describe("wallet routes observability", () => {
     expect(createSpanMock).toHaveBeenCalledWith({
       boundary: "wallet",
       operation: "fetch_evm_balances",
+    });
+    expect(spanFailureMock).toHaveBeenCalledTimes(1);
+    expect(spanFailureMock).toHaveBeenCalledWith(
+      expect.objectContaining({ error: expect.any(Error) }),
+    );
+  });
+
+  it("records success spans for wallet NFT fetches", async () => {
+    const deps = baseDeps();
+
+    await invokeNfts(deps);
+
+    expect(createSpanMock).toHaveBeenCalledWith({
+      boundary: "wallet",
+      operation: "fetch_evm_nfts",
+    });
+    expect(createSpanMock).toHaveBeenCalledWith({
+      boundary: "wallet",
+      operation: "fetch_solana_nfts",
+    });
+    expect(spanSuccessMock).toHaveBeenCalledTimes(2);
+    expect(spanFailureMock).not.toHaveBeenCalled();
+  });
+
+  it("records failure span when NFT provider throws", async () => {
+    const deps = baseDeps();
+    deps.fetchEvmNfts = vi.fn(async () => {
+      throw new Error("nft api down");
+    });
+    delete process.env.HELIUS_API_KEY;
+
+    await invokeNfts(deps);
+
+    expect(createSpanMock).toHaveBeenCalledWith({
+      boundary: "wallet",
+      operation: "fetch_evm_nfts",
     });
     expect(spanFailureMock).toHaveBeenCalledTimes(1);
     expect(spanFailureMock).toHaveBeenCalledWith(

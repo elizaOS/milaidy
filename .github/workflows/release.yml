@@ -198,18 +198,18 @@ jobs:
           cat << 'EOF' > tsdown.electron.config.ts
           import { defineConfig } from "tsdown";
           export default defineConfig([{
-            entry: [
-              "src/index.ts",
-              "src/entry.ts",
-              "src/runtime/eliza.ts",
-              "src/api/server.ts",
-              "src/plugins/whatsapp/index.ts",
-              "src/plugins/retake/index.ts"
-            ],
+            entry: {
+              "index": "src/index.ts",
+              "entry": "src/entry.ts",
+              "eliza": "src/runtime/eliza.ts",
+              "server": "src/api/server.ts",
+              "plugins/whatsapp/index": "src/plugins/whatsapp/index.ts",
+              "plugins/retake/index": "src/plugins/retake/index.ts"
+            },
             format: "esm",
             platform: "node",
             outDir: "dist-electron",
-            noExternal: [/.*/],
+            noExternal: [/.*/, "json5"],
             external: [
               "node-llama-cpp",
               "@reflink/reflink",
@@ -219,8 +219,10 @@ jobs:
               "@reflink/reflink-linux-x64-gnu",
               "fsevents",
               "koffi",
+              "canvas",
             ],
             fixedExtension: false,
+            inlineOnly: false,
             env: { NODE_ENV: "production" }
           }]);
           EOF

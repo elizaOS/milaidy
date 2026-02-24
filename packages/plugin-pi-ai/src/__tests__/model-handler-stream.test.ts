@@ -80,6 +80,7 @@ describe("createPiAiHandler", () => {
     const handler = createPiAiHandler(
       () => makeModel(),
       {},
+      // biome-ignore lint/correctness/useYield: mock generator error
       async function* () {
         throw new Error("network down");
       },

@@ -1552,6 +1552,24 @@ export interface KnowledgeUploadResult {
   warnings?: string[];
 }
 
+export interface KnowledgeBulkUploadItemResult {
+  index: number;
+  ok: boolean;
+  filename: string;
+  documentId?: string;
+  fragmentCount?: number;
+  error?: string;
+  warnings?: string[];
+}
+
+export interface KnowledgeBulkUploadResult {
+  ok: boolean;
+  total: number;
+  successCount: number;
+  failureCount: number;
+  results: KnowledgeBulkUploadItemResult[];
+}
+
 // WebSocket
 
 export type WsEventHandler = (data: Record<string, unknown>) => void;
@@ -3193,6 +3211,20 @@ export class MiladyClient {
     metadata?: Record<string, unknown>;
   }): Promise<KnowledgeUploadResult> {
     return this.fetch("/api/knowledge/documents", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async uploadKnowledgeDocumentsBulk(data: {
+    documents: Array<{
+      content: string;
+      filename: string;
+      contentType?: string;
+      metadata?: Record<string, unknown>;
+    }>;
+  }): Promise<KnowledgeBulkUploadResult> {
+    return this.fetch("/api/knowledge/documents/bulk", {
       method: "POST",
       body: JSON.stringify(data),
     });

@@ -220,4 +220,141 @@ describe("tx-service", () => {
 
     expect(result).toBe(false);
   });
+
+  // ── Timeout edge cases ──────────────────────────────────────────────
+
+  it("waitForTransaction forwards default 120s timeout to provider", async () => {
+    const service = createService();
+    const provider = (
+      service as unknown as {
+        provider: {
+          waitForTransaction: (
+            txHash: string,
+            confirmations: number,
+            timeoutMs: number,
+          ) => Promise<ethers.TransactionReceipt | null>;
+        };
+      }
+    ).provider;
+
+    const receipt = {
+      status: 1,
+      hash: "0xdefault",
+      logs: [],
+    } as unknown as ethers.TransactionReceipt;
+
+    const spy = vi
+      .spyOn(provider, "waitForTransaction")
+      .mockResolvedValue(receipt);
+
+    await service.waitForTransaction("0xdefault");
+
+    expect(spy).toHaveBeenCalledWith("0xdefault", 1, 120_000);
+  });
+
+  it("waitForTransaction forwards custom confirmations and timeout", async () => {
+    const service = createService();
+    const provider = (
+      service as unknown as {
+        provider: {
+          waitForTransaction: (
+            txHash: string,
+            confirmations: number,
+            timeoutMs: number,
+          ) => Promise<ethers.TransactionReceipt | null>;
+        };
+      }
+    ).provider;
+
+    const receipt = {
+      status: 1,
+      hash: "0xcustom",
+      logs: [],
+    } as unknown as ethers.TransactionReceipt;
+
+    const spy = vi
+      .spyOn(provider, "waitForTransaction")
+      .mockResolvedValue(receipt);
+
+    await service.waitForTransaction("0xcustom", 3, 60_000);
+
+    expect(spy).toHaveBeenCalledWith("0xcustom", 3, 60_000);
+  });
+
+  // ── Nonce isolation ─────────────────────────────────────────────────
+
+  it("creates an isolated provider for each getFreshNonce call", async () => {
+    const nonceSpy = vi
+      .spyOn(ethers.JsonRpcProvider.prototype, "getTransactionCount")
+      .mockResolvedValueOnce(10)
+      .mockResolvedValueOnce(11);
+    const destroySpy = vi
+      .spyOn(ethers.JsonRpcProvider.prototype, "destroy")
+      .mockImplementation(() => undefined);
+
+    const service = createService();
+    const first = await service.getFreshNonce();
+    const second = await service.getFreshNonce();
+
+    expect(first).toBe(10);
+    expect(second).toBe(11);
+    expect(nonceSpy).toHaveBeenCalledTimes(2);
+    expect(destroySpy).toHaveBeenCalledTimes(2);
+  });
+
+  it("getFreshNonce returns correct value after a simulated failed transaction", async () => {
+    vi.spyOn(ethers.JsonRpcProvider.prototype, "destroy").mockImplementation(
+      () => undefined,
+    );
+    const nonceSpy = vi
+      .spyOn(ethers.JsonRpcProvider.prototype, "getTransactionCount")
+      .mockResolvedValueOnce(5)
+      .mockResolvedValueOnce(5);
+
+    const service = createService();
+
+    // First call — nonce for tx that will "fail"
+    const nonceBefore = await service.getFreshNonce();
+    // Second call — nonce should still be 5 (pending tx didn't land)
+    const nonceAfter = await service.getFreshNonce();
+
+    expect(nonceBefore).toBe(5);
+    expect(nonceAfter).toBe(5);
+    expect(nonceSpy).toHaveBeenCalledTimes(2);
+  });
+
+  // ── Failure propagation ─────────────────────────────────────────────
+
+  it("estimateGasCostEth propagates provider estimateGas failure", async () => {
+    const service = createService();
+    vi.spyOn(ethers.JsonRpcProvider.prototype, "estimateGas").mockRejectedValue(
+      new Error("execution reverted"),
+    );
+
+    await expect(service.estimateGasCostEth({ to: "0x0" })).rejects.toThrow(
+      "execution reverted",
+    );
+  });
+
+  it("hasEnoughBalance propagates getBalance failure", async () => {
+    const service = createService();
+    vi.spyOn(ethers.JsonRpcProvider.prototype, "getBalance").mockRejectedValue(
+      new Error("RPC connection refused"),
+    );
+
+    await expect(service.hasEnoughBalance(0n, 21_000n)).rejects.toThrow(
+      "RPC connection refused",
+    );
+  });
+
+  it("getChainId propagates network errors", async () => {
+    const service = createService();
+    vi.spyOn(ethers.JsonRpcProvider.prototype, "getNetwork").mockRejectedValue(
+      new Error("could not detect network"),
+    );
+
+    await expect(service.getChainId()).rejects.toThrow(
+      "could not detect network",
+    );
+  });
 });

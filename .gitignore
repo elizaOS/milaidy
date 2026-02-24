@@ -58,6 +58,10 @@ knip_output*.txt
 src/benchmark/mock-plugin.ts
 biome-report.json
 
+# Test/build log files
+*.log
+!docs/**/*.log
+
 # Local audit outputs
 report/
 

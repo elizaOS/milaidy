@@ -191,7 +191,13 @@
               "plugin-registry/platform/twitter",
               "plugin-registry/platform/slack",
               "plugin-registry/platform/whatsapp",
-              "plugin-registry/platform/farcaster"
+              "plugin-registry/platform/farcaster",
+              "plugin-registry/platform/signal",
+              "plugin-registry/platform/imessage",
+              "plugin-registry/platform/bluebubbles",
+              "plugin-registry/platform/msteams",
+              "plugin-registry/platform/googlechat",
+              "plugin-registry/platform/mattermost"
             ]
           },
           {

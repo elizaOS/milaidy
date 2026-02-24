@@ -136,7 +136,7 @@ Runtime map uses `@milady/plugin-whatsapp`, while multiple docs and CLI normaliz
 ### P2 - Testing depth and quality gates
 1. Add targeted connector integration/e2e tests for `twitter`, `googlechat`, and smoke-only connectors.
 2. Add dedicated tests for the currently unmapped auto-enable connectors or remove unsupported entries.
-3. Resolve policy drift on coverage thresholds (repo policy docs call for 70%, current Vitest config enforces 25/15).
+3. ~~Resolve policy drift on coverage thresholds~~ Done: all docs and CI now aligned to 25% lines/functions/statements, 15% branches (matching `vitest.config.ts`).
 
 ## 8) Recommended DoD Checklist Template (Per Integration PR)
 

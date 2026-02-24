@@ -119,4 +119,68 @@ describe("cloud routes observability", () => {
       expect.objectContaining({ statusCode: 504 }),
     );
   });
+
+  it("records success for cloud login poll-status flow", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        headers: new Headers(),
+        json: async () => ({ status: "pending" }),
+      } as Response),
+    );
+
+    const req = createMockIncomingMessage({
+      method: "GET",
+      url: "/api/cloud/login/status?sessionId=abc-123",
+      headers: { host: "localhost:2138" },
+    }) as http.IncomingMessage;
+    const { res, getStatus } = createMockHttpResponse();
+
+    const handled = await handleCloudRoute(
+      req,
+      res,
+      "/api/cloud/login/status",
+      "GET",
+      cloudState(),
+    );
+
+    expect(handled).toBe(true);
+    expect(getStatus()).toBe(200);
+    expect(createSpanMock).toHaveBeenCalledWith({
+      boundary: "cloud",
+      operation: "login_poll_status",
+      timeoutMs: 10_000,
+    });
+    expect(spanSuccessMock).toHaveBeenCalledWith({ statusCode: 200 });
+  });
+
+  it("records failure when cloud poll-status times out", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockRejectedValue(new Error("request timeout")),
+    );
+
+    const req = createMockIncomingMessage({
+      method: "GET",
+      url: "/api/cloud/login/status?sessionId=abc-123",
+      headers: { host: "localhost:2138" },
+    }) as http.IncomingMessage;
+    const { res, getStatus } = createMockHttpResponse();
+
+    const handled = await handleCloudRoute(
+      req,
+      res,
+      "/api/cloud/login/status",
+      "GET",
+      cloudState(),
+    );
+
+    expect(handled).toBe(true);
+    expect(getStatus()).toBe(504);
+    expect(spanFailureMock).toHaveBeenCalledWith(
+      expect.objectContaining({ statusCode: 504 }),
+    );
+  });
 });

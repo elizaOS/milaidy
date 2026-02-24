@@ -18,8 +18,10 @@ import type { AgentCredentials, ApprovalPreset } from "coding-agent-adapters";
 import type { PTYService } from "../services/pty-service.js";
 import {
   type CodingAgentType,
+  isPiAgentType,
   normalizeAgentType,
   type SessionInfo,
+  toPiCommand,
 } from "../services/pty-types.js";
 import type { CodingWorkspaceService } from "../services/workspace-service.js";
 import {
@@ -130,6 +132,8 @@ export async function handleMultiAgent(
   for (const [i, spec] of agentSpecs.entries()) {
     // Parse optional "agentType:task" prefix
     let specAgentType = defaultAgentType;
+    let specPiRequested = isPiAgentType(rawAgentType);
+    let specRequestedType = rawAgentType;
     let specTask = spec;
     const colonIdx = spec.indexOf(":");
     if (colonIdx > 0 && colonIdx < 20) {
@@ -143,10 +147,17 @@ export async function handleMultiAgent(
         "gemini",
         "google",
         "aider",
+        "pi",
+        "pi-ai",
+        "piai",
+        "pi-coding-agent",
+        "picodingagent",
         "shell",
         "bash",
       ];
       if (knownTypes.includes(prefix)) {
+        specRequestedType = prefix;
+        specPiRequested = isPiAgentType(prefix);
         specAgentType = normalizeAgentType(prefix);
         specTask = spec.slice(colonIdx + 1).trim();
       }
@@ -174,9 +185,9 @@ export async function handleMultiAgent(
       }
 
       // Preflight check
-      if (specAgentType !== "shell") {
+      if (specAgentType !== "shell" && specAgentType !== "pi") {
         const [preflight] = await ptyService.checkAvailableAgents([
-          specAgentType as Exclude<CodingAgentType, "shell">,
+          specAgentType as Exclude<CodingAgentType, "shell" | "pi">,
         ]);
         if (preflight && !preflight.installed) {
           results.push({
@@ -192,17 +203,19 @@ export async function handleMultiAgent(
       }
 
       // Spawn the agent
+      const initialTask = specPiRequested ? toPiCommand(specTask) : specTask;
+      const displayType = specPiRequested ? "pi" : specAgentType;
       const session: SessionInfo = await ptyService.spawnSession({
         name: `coding-${Date.now()}-${i}`,
         agentType: specAgentType,
         workdir,
-        initialTask: specTask,
+        initialTask,
         memoryContent,
         credentials,
         approvalPreset: approvalPreset as ApprovalPreset | undefined,
         customCredentials,
         metadata: {
-          requestedType: rawAgentType,
+          requestedType: specRequestedType,
           messageId: message.id,
           userId: (message as unknown as Record<string, unknown>).userId,
           workspaceId,
@@ -225,7 +238,7 @@ export async function handleMultiAgent(
 
       results.push({
         sessionId: session.id,
-        agentType: specAgentType,
+        agentType: displayType,
         workdir,
         workspaceId,
         branch,
@@ -235,7 +248,7 @@ export async function handleMultiAgent(
 
       if (callback) {
         await callback({
-          text: `[${i + 1}/${agentSpecs.length}] Spawned ${specAgentType} agent as "${specLabel}"`,
+          text: `[${i + 1}/${agentSpecs.length}] Spawned ${displayType} agent as "${specLabel}"`,
         });
       }
     } catch (error) {
@@ -365,9 +378,9 @@ export async function handleSingleAgent(
 
   // --- Step 2: Spawn the agent ---
   try {
-    if (agentType !== "shell") {
+    if (agentType !== "shell" && agentType !== "pi") {
       const [preflight] = await ptyService.checkAvailableAgents([
-        agentType as Exclude<CodingAgentType, "shell">,
+        agentType as Exclude<CodingAgentType, "shell" | "pi">,
       ]);
       if (preflight && !preflight.installed) {
         if (callback) {
@@ -379,11 +392,15 @@ export async function handleSingleAgent(
       }
     }
 
+    const piRequested = isPiAgentType(rawAgentType);
+    const initialTask = piRequested ? toPiCommand(task) : task;
+    const displayType = piRequested ? "pi" : agentType;
+
     const session: SessionInfo = await ptyService.spawnSession({
       name: `coding-${Date.now()}`,
       agentType,
       workdir,
-      initialTask: task,
+      initialTask,
       memoryContent,
       credentials,
       approvalPreset: approvalPreset as ApprovalPreset | undefined,
@@ -419,8 +436,8 @@ export async function handleSingleAgent(
     }
 
     const summary = repo
-      ? `Cloned ${repo} and started ${agentType} agent as "${label}"${task ? ` with task: "${task}"` : ""}`
-      : `Started ${agentType} agent as "${label}" in scratch workspace${task ? ` with task: "${task}"` : ""}`;
+      ? `Cloned ${repo} and started ${displayType} agent as "${label}"${task ? ` with task: "${task}"` : ""}`
+      : `Started ${displayType} agent as "${label}" in scratch workspace${task ? ` with task: "${task}"` : ""}`;
 
     if (callback) {
       await callback({ text: `${summary}\nSession ID: ${session.id}` });
@@ -431,7 +448,7 @@ export async function handleSingleAgent(
       text: summary,
       data: {
         sessionId: session.id,
-        agentType: session.agentType,
+        agentType: displayType,
         workdir: session.workdir,
         workspaceId,
         branch,

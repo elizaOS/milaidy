@@ -218,6 +218,32 @@ describe("spawnAgentAction", () => {
       );
     });
 
+    it("should map pi agent type to shell and wrap task as pi command", async () => {
+      const ptyService = createMockPTYService();
+      const runtime = createMockRuntime(ptyService);
+      const message = createMockMessage({
+        agentType: "pi",
+        workdir: validWorkdir,
+        task: "Fix flaky tests",
+      });
+      const callback = jest.fn();
+
+      await spawnAgentAction.handler(
+        runtime as unknown as IAgentRuntime,
+        message as unknown as Memory,
+        undefined,
+        {},
+        callback,
+      );
+
+      expect(mockSpawnSession).toHaveBeenCalledWith(
+        expect.objectContaining({
+          agentType: "shell",
+          initialTask: "pi 'Fix flaky tests'",
+        }),
+      );
+    });
+
     it("should use codex adapter for codex type", async () => {
       const ptyService = createMockPTYService();
       const runtime = createMockRuntime(ptyService);

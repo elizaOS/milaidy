@@ -5,6 +5,7 @@
  * in a split view layout (side-by-side on desktop, stacked on mobile).
  */
 
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import {
   client,
@@ -167,8 +168,12 @@ function LlmCallCard({
             className="w-full text-left px-3 py-1.5 text-[10px] text-muted hover:bg-muted/5"
             onClick={() => setShowSystem(!showSystem)}
           >
-            {showSystem ? "▼" : "▶"} System prompt (
-            {call.systemPrompt.length.toLocaleString()} chars)
+            {showSystem ? (
+              <ChevronDown className="w-3 h-3 inline" />
+            ) : (
+              <ChevronRight className="w-3 h-3 inline" />
+            )}{" "}
+            System prompt ({call.systemPrompt.length.toLocaleString()} chars)
           </button>
           {showSystem && (
             <div className="p-2">

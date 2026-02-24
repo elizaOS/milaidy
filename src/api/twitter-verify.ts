@@ -12,6 +12,7 @@ import path from "node:path";
 import { logger } from "@elizaos/core";
 import { resolveStateDir } from "../config/paths";
 import type { VerificationResult } from "../contracts/verification";
+import { createIntegrationTelemetrySpan } from "../diagnostics/integration-observability";
 
 export type { VerificationResult } from "../contracts/verification";
 
@@ -64,6 +65,12 @@ export async function verifyTweet(
 
   const apiUrl = `https://api.fxtwitter.com/${parsed.screenName}/status/${parsed.tweetId}`;
 
+  const verifySpan = createIntegrationTelemetrySpan({
+    boundary: "marketplace",
+    operation: "verify_tweet",
+    timeoutMs: 15_000,
+  });
+
   let response: Response;
   try {
     response = await fetch(apiUrl, {
@@ -71,6 +78,7 @@ export async function verifyTweet(
       signal: AbortSignal.timeout(15_000),
     });
   } catch (err) {
+    verifySpan.failure({ error: err });
     logger.warn(`[twitter-verify] FxTwitter fetch failed: ${err}`);
     return {
       verified: false,
@@ -81,6 +89,7 @@ export async function verifyTweet(
 
   if (!response.ok) {
     if (response.status === 404) {
+      verifySpan.success({ statusCode: 404 });
       return {
         verified: false,
         error:
@@ -88,6 +97,10 @@ export async function verifyTweet(
         handle: null,
       };
     }
+    verifySpan.failure({
+      statusCode: response.status,
+      errorKind: "http_error",
+    });
     return {
       verified: false,
       error: `Tweet fetch failed (HTTP ${response.status})`,
@@ -105,7 +118,8 @@ export async function verifyTweet(
 
   try {
     data = (await response.json()) as typeof data;
-  } catch {
+  } catch (err) {
+    verifySpan.failure({ error: err, statusCode: response.status });
     return {
       verified: false,
       error: "Invalid response from verification service",
@@ -146,6 +160,7 @@ export async function verifyTweet(
     };
   }
 
+  verifySpan.success({ statusCode: response.status });
   return { verified: true, error: null, handle };
 }
 

@@ -3,6 +3,10 @@ import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
+import {
+  chooseMiladyRuntime,
+  resolveRuntimeExecPath,
+} from "./run-node-runtime.mjs";
 
 const args = process.argv.slice(2);
 const env = { ...process.env };
@@ -113,9 +117,20 @@ const logRunner = (message) => {
 const RESTART_EXIT_CODE = 75;
 
 const runNode = () => {
-  // Eliza MIGRATION: Use bun for faster startup and better TypeScript support
-  const runtime = process.env.MILADY_RUNTIME || "bun";
-  const execPath = runtime === "bun" ? "bun" : process.execPath;
+  const { runtime, warning } = chooseMiladyRuntime({
+    requestedRuntime: process.env.MILADY_RUNTIME,
+    platform: process.platform,
+    bunVersion: process.versions?.bun,
+  });
+  if (warning) {
+    logRunner(`${warning} Set MILADY_RUNTIME=bun to force Bun runtime.`);
+  }
+  const execPath = resolveRuntimeExecPath({
+    runtime,
+    currentExecPath: process.execPath,
+    platform: process.platform,
+    explicitNodePath: process.env.MILADY_NODE_PATH,
+  });
   const nodeProcess = spawn(execPath, ["milady.mjs", ...args], {
     cwd,
     env,

@@ -44,7 +44,7 @@ export const startCodingTaskAction: Action = {
   ],
 
   description:
-    "Start a coding task: optionally clone a repo, then spawn a coding agent (Claude Code, Codex, Gemini, Aider) " +
+    "Start a coding task: optionally clone a repo, then spawn a coding agent (Claude Code, Codex, Gemini, Aider, Pi) " +
     "to work on it. If no repo is provided, the agent runs in a safe scratch directory. " +
     "Use this whenever the user asks to work on code, research something with an agent, or run any agent task.",
 
@@ -209,7 +209,7 @@ export const startCodingTaskAction: Action = {
     {
       name: "agentType",
       description:
-        "Type of coding agent to spawn (default for all agents). Options: claude, codex, gemini, aider, shell.",
+        "Type of coding agent to spawn (default for all agents). Options: claude, codex, gemini, aider, pi, shell.",
       required: false,
       schema: { type: "string" as const, default: "claude" },
     },

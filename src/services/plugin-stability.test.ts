@@ -15,6 +15,7 @@
 import type { Plugin, Provider, ProviderResult } from "@elizaos/core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { validateRuntimeContext } from "../api/plugin-validation";
+import { CONNECTOR_PLUGINS } from "../config/plugin-auto-enable";
 import type { MiladyConfig } from "../config/types.milady";
 import { createSessionKeyProvider } from "../providers/session-bridge";
 import { createWorkspaceProvider } from "../providers/workspace-provider";
@@ -49,20 +50,7 @@ function _getCoreOverride(pkg: RootPackageJson): string | undefined {
 // Constants — Full plugin enumeration
 // ---------------------------------------------------------------------------
 // CORE_PLUGINS and OPTIONAL_CORE_PLUGINS are imported from eliza.ts
-
-/** Connector plugins (loaded when connector config is present). */
-const CONNECTOR_PLUGINS: Record<string, string> = {
-  discord: "@elizaos/plugin-discord",
-  telegram: "@elizaos/plugin-telegram",
-  slack: "@elizaos/plugin-slack",
-  whatsapp: "@milady/plugin-whatsapp",
-  signal: "@elizaos/plugin-signal",
-  imessage: "@elizaos/plugin-imessage",
-  bluebubbles: "@elizaos/plugin-bluebubbles",
-  msteams: "@elizaos/plugin-msteams",
-  mattermost: "@elizaos/plugin-mattermost",
-  googlechat: "@elizaos/plugin-google-chat",
-};
+// CONNECTOR_PLUGINS is imported from ../config/plugin-auto-enable (canonical source)
 
 /** Model-provider plugins (loaded when env key is set). */
 const PROVIDER_PLUGINS: Record<string, string> = {
@@ -157,7 +145,7 @@ describe("Plugin Enumeration", () => {
   });
 
   it("lists all connector plugins", () => {
-    expect(Object.keys(CONNECTOR_PLUGINS).length).toBe(10);
+    expect(Object.keys(CONNECTOR_PLUGINS).length).toBeGreaterThanOrEqual(17);
     for (const [connector, pluginName] of Object.entries(CONNECTOR_PLUGINS)) {
       expect(typeof connector).toBe("string");
       expect(pluginName).toMatch(/^@(elizaos|milady)\/plugin-/);
