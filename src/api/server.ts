@@ -5346,6 +5346,44 @@ async function routeAutonomyTextToUser(
   });
 }
 
+// ── Coding Agent Chat Bridge ──────────────────────────────────────────
+
+/**
+ * Wire the SwarmCoordinator's chatCallback so coordinator messages
+ * appear in the user's chat UI via the existing proactive-message flow.
+ * Returns true if successfully wired.
+ */
+function wireCodingAgentChatBridge(st: ServerState): boolean {
+  if (!st.runtime) return false;
+  const coordinator = (st.runtime as unknown as Record<string, unknown>)
+    .__swarmCoordinator as
+    | { setChatCallback?: (cb: (text: string, source?: string) => Promise<void>) => void }
+    | undefined;
+  if (!coordinator?.setChatCallback) return false;
+  coordinator.setChatCallback(async (text: string, source?: string) => {
+    await routeAutonomyTextToUser(st, text, source ?? "coding-agent");
+  });
+  return true;
+}
+
+/**
+ * Wire the SwarmCoordinator's wsBroadcast callback so coordinator events
+ * are relayed to all WebSocket clients as "pty-session-event" messages.
+ * Returns true if successfully wired.
+ */
+function wireCodingAgentWsBridge(st: ServerState): boolean {
+  if (!st.runtime) return false;
+  const coordinator = (st.runtime as unknown as Record<string, unknown>)
+    .__swarmCoordinator as
+    | { setWsBroadcast?: (cb: (event: Record<string, unknown>) => void) => void }
+    | undefined;
+  if (!coordinator?.setWsBroadcast) return false;
+  coordinator.setWsBroadcast((event: Record<string, unknown>) => {
+    st.broadcastWs?.({ type: "pty-session-event", ...event });
+  });
+  return true;
+}
+
 /**
  * Route non-conversation agent events into the active user chat.
  * This avoids monkey-patching the message service and relies on explicit
@@ -11066,7 +11104,9 @@ async function handleRequest(
       pathname.startsWith("/api/workspace") ||
       pathname.startsWith("/api/issues"))
   ) {
-    const handler = createCodingAgentRouteHandler(state.runtime);
+    const coordinator = (state.runtime as unknown as Record<string, unknown>)
+      .__swarmCoordinator as Parameters<typeof createCodingAgentRouteHandler>[1];
+    const handler = createCodingAgentRouteHandler(state.runtime, coordinator);
     const handled = await handler(req, res, pathname);
     if (handled) return;
   }
@@ -13364,6 +13404,23 @@ export async function startApiServer(opts?: {
   bindRuntimeStreams(opts?.runtime ?? null);
   bindTrainingStream();
 
+  // Wire coding-agent bridges at initial boot (coordinator may not exist yet)
+  if (opts?.runtime) {
+    const chatOk = wireCodingAgentChatBridge(state);
+    const wsOk = wireCodingAgentWsBridge(state);
+    if (!chatOk || !wsOk) {
+      let wireAttempts = 0;
+      const wireInterval = setInterval(() => {
+        wireAttempts++;
+        const chatDone = chatOk || wireCodingAgentChatBridge(state);
+        const wsDone = wsOk || wireCodingAgentWsBridge(state);
+        if ((chatDone && wsDone) || wireAttempts >= 15) {
+          clearInterval(wireInterval);
+        }
+      }, 1000);
+    }
+  }
+
   // Handle upgrade requests for WebSocket
   server.on("upgrade", (request, socket, head) => {
     try {
@@ -13612,6 +13669,23 @@ export async function startApiServer(opts?: {
 
     // Broadcast status update immediately after restart
     broadcastStatus();
+
+    // Wire coding-agent bridges (coordinator may not exist yet — retry)
+    {
+      const chatOk = wireCodingAgentChatBridge(state);
+      const wsOk = wireCodingAgentWsBridge(state);
+      if (!chatOk || !wsOk) {
+        let wireAttempts = 0;
+        const wireInterval = setInterval(() => {
+          wireAttempts++;
+          const chatDone = chatOk || wireCodingAgentChatBridge(state);
+          const wsDone = wsOk || wireCodingAgentWsBridge(state);
+          if ((chatDone && wsDone) || wireAttempts >= 15) {
+            clearInterval(wireInterval);
+          }
+        }, 1000);
+      }
+    }
   };
 
   const updateStartup = (
