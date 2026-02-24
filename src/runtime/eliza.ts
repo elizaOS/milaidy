@@ -1055,131 +1055,131 @@ export function ensureBrowserServerLink(): boolean {
  */
 async function resolveStaticElizaPlugin(
   pluginName: string,
-): Promise<PluginModuleShape | null> {
+): Promise<unknown | null> {
   switch (pluginName) {
     // Core Plugins
     case "@elizaos/plugin-sql":
-      return import(
-        "@elizaos/plugin-sql"
-      ) as unknown as Promise<PluginModuleShape>;
+      // biome-ignore lint/suspicious/noTsIgnore: dynamic import
+      // @ts-ignore
+      return import("@elizaos/plugin-sql");
     case "@elizaos/plugin-local-embedding":
-      return import(
-        "@elizaos/plugin-local-embedding"
-      ) as unknown as Promise<PluginModuleShape>;
+      // biome-ignore lint/suspicious/noTsIgnore: dynamic import
+      // @ts-ignore
+      return import("@elizaos/plugin-local-embedding");
     case "@elizaos/plugin-secrets-manager":
-      return import(
-        "@elizaos/plugin-secrets-manager"
-      ) as unknown as Promise<PluginModuleShape>;
+      // biome-ignore lint/suspicious/noTsIgnore: dynamic import
+      // @ts-ignore
+      return import("@elizaos/plugin-secrets-manager");
     case "@elizaos/plugin-form":
-      return import(
-        "@elizaos/plugin-form"
-      ) as unknown as Promise<PluginModuleShape>;
+      // biome-ignore lint/suspicious/noTsIgnore: dynamic import
+      // @ts-ignore
+      return import("@elizaos/plugin-form");
     case "@elizaos/plugin-knowledge":
-      return import(
-        "@elizaos/plugin-knowledge"
-      ) as unknown as Promise<PluginModuleShape>;
+      // biome-ignore lint/suspicious/noTsIgnore: dynamic import
+      // @ts-ignore
+      return import("@elizaos/plugin-knowledge");
     case "@elizaos/plugin-rolodex":
-      return import(
-        "@elizaos/plugin-rolodex"
-      ) as unknown as Promise<PluginModuleShape>;
+      // biome-ignore lint/suspicious/noTsIgnore: dynamic import
+      // @ts-ignore
+      return import("@elizaos/plugin-rolodex");
     case "@elizaos/plugin-trajectory-logger":
-      return import(
-        "@elizaos/plugin-trajectory-logger"
-      ) as unknown as Promise<PluginModuleShape>;
+      // biome-ignore lint/suspicious/noTsIgnore: dynamic import
+      // @ts-ignore
+      return import("@elizaos/plugin-trajectory-logger");
     case "@elizaos/plugin-agent-orchestrator":
-      return import(
-        "@elizaos/plugin-agent-orchestrator"
-      ) as unknown as Promise<PluginModuleShape>;
+      // biome-ignore lint/suspicious/noTsIgnore: dynamic import
+      // @ts-ignore
+      return import("@elizaos/plugin-agent-orchestrator");
     case "@elizaos/plugin-cron":
-      return import(
-        "@elizaos/plugin-cron"
-      ) as unknown as Promise<PluginModuleShape>;
+      // biome-ignore lint/suspicious/noTsIgnore: dynamic import
+      // @ts-ignore
+      return import("@elizaos/plugin-cron");
     case "@elizaos/plugin-shell":
-      return import(
-        "@elizaos/plugin-shell"
-      ) as unknown as Promise<PluginModuleShape>;
+      // biome-ignore lint/suspicious/noTsIgnore: dynamic import
+      // @ts-ignore
+      return import("@elizaos/plugin-shell");
     case "@elizaos/plugin-plugin-manager":
-      return import(
-        "@elizaos/plugin-plugin-manager"
-      ) as unknown as Promise<PluginModuleShape>;
+      // biome-ignore lint/suspicious/noTsIgnore: dynamic import
+      // @ts-ignore
+      return import("@elizaos/plugin-plugin-manager");
     case "@elizaos/plugin-agent-skills":
-      return import(
-        "@elizaos/plugin-agent-skills"
-      ) as unknown as Promise<PluginModuleShape>;
+      // biome-ignore lint/suspicious/noTsIgnore: dynamic import
+      // @ts-ignore
+      return import("@elizaos/plugin-agent-skills");
     case "@elizaos/plugin-pdf":
-      return import(
-        "@elizaos/plugin-pdf"
-      ) as unknown as Promise<PluginModuleShape>;
+      // biome-ignore lint/suspicious/noTsIgnore: dynamic import
+      // @ts-ignore
+      return import("@elizaos/plugin-pdf");
 
     // Optional / Provider Plugins
     case "@elizaos/plugin-cua":
-      return import(
-        "@elizaos/plugin-cua"
-      ) as unknown as Promise<PluginModuleShape>;
+      // biome-ignore lint/suspicious/noTsIgnore: dynamic import
+      // @ts-ignore
+      return import("@elizaos/plugin-cua");
     case "@elizaos/plugin-obsidian":
-      return import(
-        "@elizaos/plugin-obsidian"
-      ) as unknown as Promise<PluginModuleShape>;
+      // biome-ignore lint/suspicious/noTsIgnore: dynamic import
+      // @ts-ignore
+      return import("@elizaos/plugin-obsidian");
     case "@elizaos/plugin-code":
-      return import(
-        "@elizaos/plugin-code"
-      ) as unknown as Promise<PluginModuleShape>;
+      // biome-ignore lint/suspicious/noTsIgnore: dynamic import
+      // @ts-ignore
+      return import("@elizaos/plugin-code");
     case "@elizaos/plugin-repoprompt":
-      return import(
-        "@elizaos/plugin-repoprompt"
-      ) as unknown as Promise<PluginModuleShape>;
+      // biome-ignore lint/suspicious/noTsIgnore: dynamic import
+      // @ts-ignore
+      return import("@elizaos/plugin-repoprompt");
     case "@milaidy/plugin-claude-code-workbench":
-      return import(
-        "@milaidy/plugin-claude-code-workbench"
-      ) as unknown as Promise<PluginModuleShape>;
+      // biome-ignore lint/suspicious/noTsIgnore: dynamic import
+      // @ts-ignore
+      return import("@milaidy/plugin-claude-code-workbench");
     case "@elizaos/plugin-openai":
-      return import(
-        "@elizaos/plugin-openai"
-      ) as unknown as Promise<PluginModuleShape>;
+      // biome-ignore lint/suspicious/noTsIgnore: dynamic import
+      // @ts-ignore
+      return import("@elizaos/plugin-openai");
     case "@elizaos/plugin-anthropic":
-      return import(
-        "@elizaos/plugin-anthropic"
-      ) as unknown as Promise<PluginModuleShape>;
+      // biome-ignore lint/suspicious/noTsIgnore: dynamic import
+      // @ts-ignore
+      return import("@elizaos/plugin-anthropic");
     case "@elizaos/plugin-google-genai":
-      return import(
-        "@elizaos/plugin-google-genai"
-      ) as unknown as Promise<PluginModuleShape>;
+      // biome-ignore lint/suspicious/noTsIgnore: dynamic import
+      // @ts-ignore
+      return import("@elizaos/plugin-google-genai");
     case "@elizaos/plugin-xai":
-      return import(
-        "@elizaos/plugin-xai"
-      ) as unknown as Promise<PluginModuleShape>;
+      // biome-ignore lint/suspicious/noTsIgnore: dynamic import
+      // @ts-ignore
+      return import("@elizaos/plugin-xai");
     case "@elizaos/plugin-groq":
-      return import(
-        "@elizaos/plugin-groq"
-      ) as unknown as Promise<PluginModuleShape>;
+      // biome-ignore lint/suspicious/noTsIgnore: dynamic import
+      // @ts-ignore
+      return import("@elizaos/plugin-groq");
     case "@elizaos/plugin-openrouter":
-      return import(
-        "@elizaos/plugin-openrouter"
-      ) as unknown as Promise<PluginModuleShape>;
+      // biome-ignore lint/suspicious/noTsIgnore: dynamic import
+      // @ts-ignore
+      return import("@elizaos/plugin-openrouter");
     case "@elizaos/plugin-ollama":
-      return import(
-        "@elizaos/plugin-ollama"
-      ) as unknown as Promise<PluginModuleShape>;
+      // biome-ignore lint/suspicious/noTsIgnore: dynamic import
+      // @ts-ignore
+      return import("@elizaos/plugin-ollama");
     case "@elizaos/plugin-deepseek":
-      return import(
-        "@elizaos/plugin-deepseek"
-      ) as unknown as Promise<PluginModuleShape>;
+      // biome-ignore lint/suspicious/noTsIgnore: dynamic import
+      // @ts-ignore
+      return import("@elizaos/plugin-deepseek");
     case "@elizaos/plugin-mistral":
-      return import(
-        "@elizaos/plugin-mistral"
-      ) as unknown as Promise<PluginModuleShape>;
+      // biome-ignore lint/suspicious/noTsIgnore: dynamic import
+      // @ts-ignore
+      return import("@elizaos/plugin-mistral");
     case "@elizaos/plugin-together":
-      return import(
-        "@elizaos/plugin-together"
-      ) as unknown as Promise<PluginModuleShape>;
+      // biome-ignore lint/suspicious/noTsIgnore: dynamic import
+      // @ts-ignore
+      return import("@elizaos/plugin-together");
     case "@elizaos/plugin-pi-ai":
-      return import(
-        "@elizaos/plugin-pi-ai"
-      ) as unknown as Promise<PluginModuleShape>;
+      // biome-ignore lint/suspicious/noTsIgnore: dynamic import
+      // @ts-ignore
+      return import("@elizaos/plugin-pi-ai");
     case "@elizaos/plugin-elizacloud":
-      return import(
-        "@elizaos/plugin-elizacloud"
-      ) as unknown as Promise<PluginModuleShape>;
+      // biome-ignore lint/suspicious/noTsIgnore: dynamic import
+      // @ts-ignore
+      return import("@elizaos/plugin-elizacloud");
 
     default:
       return null;
