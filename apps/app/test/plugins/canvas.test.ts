@@ -6,14 +6,53 @@
  * which is unavailable in Node.js. Those are tested via error paths for invalid IDs
  * and method existence checks. Full rendering is tested in browser/e2e tests.
  */
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CanvasWeb } from "../../plugins/canvas/src/web";
+
+// jsdom does not implement canvas 2D context — mock it so CanvasWeb.create()
+// and createLayer() can obtain a context without throwing.
+const stubContext = {
+  fillStyle: "",
+  fillRect: vi.fn(),
+  clearRect: vi.fn(),
+  getImageData: vi.fn().mockReturnValue({ data: new Uint8ClampedArray(0), width: 0, height: 0 }),
+  putImageData: vi.fn(),
+  setTransform: vi.fn(),
+  save: vi.fn(),
+  restore: vi.fn(),
+  beginPath: vi.fn(),
+  closePath: vi.fn(),
+  rect: vi.fn(),
+  fill: vi.fn(),
+  stroke: vi.fn(),
+  moveTo: vi.fn(),
+  lineTo: vi.fn(),
+  arc: vi.fn(),
+  ellipse: vi.fn(),
+  quadraticCurveTo: vi.fn(),
+  bezierCurveTo: vi.fn(),
+  arcTo: vi.fn(),
+  drawImage: vi.fn(),
+  fillText: vi.fn(),
+  globalAlpha: 1,
+  font: "",
+  textAlign: "left",
+  textBaseline: "alphabetic",
+} as unknown as CanvasRenderingContext2D;
+
+const originalGetContext = HTMLCanvasElement.prototype.getContext;
 
 describe("@milady/capacitor-canvas", () => {
   let c: CanvasWeb;
 
   beforeEach(() => {
+    // Return our stub for any "2d" context request
+    HTMLCanvasElement.prototype.getContext = vi.fn().mockReturnValue(stubContext) as typeof originalGetContext;
     c = new CanvasWeb();
+  });
+
+  afterEach(() => {
+    HTMLCanvasElement.prototype.getContext = originalGetContext;
   });
 
   // -- Canvas lifecycle --
