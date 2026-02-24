@@ -1,11 +1,11 @@
-import {
-  type IAgentRuntime,
-  type Memory,
-  type Provider,
-  type ProviderResult,
-  type State,
+import type {
+  IAgentRuntime,
+  Memory,
+  Provider,
+  ProviderResult,
+  State,
 } from "@elizaos/core";
-import { RepoPromptService } from "../services/repoprompt-service.ts";
+import type { RepoPromptService } from "../services/repoprompt-service.ts";
 
 export const repoPromptStatusProvider: Provider = {
   name: "REPOPROMPT_STATUS",
