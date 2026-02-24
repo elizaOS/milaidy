@@ -1,3 +1,4 @@
+import { ChevronRight } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { client } from "../api-client";
 import { useBugReport } from "../hooks/useBugReport";
@@ -350,12 +351,10 @@ export function BugReportModal() {
               className="text-[11px] font-bold text-muted hover:text-txt cursor-pointer flex items-center gap-1"
               onClick={() => setShowLogs(!showLogs)}
             >
-              <span
-                className="inline-block transition-transform"
+              <ChevronRight
+                className="w-3 h-3 inline-block transition-transform"
                 style={{ transform: showLogs ? "rotate(90deg)" : "none" }}
-              >
-                ▶
-              </span>
+              />
               Logs
             </button>
             {showLogs && (

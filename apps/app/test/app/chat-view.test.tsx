@@ -437,8 +437,9 @@ describe("ChatView", () => {
     });
     await flush();
 
+    // Find send button by title since we now use an icon instead of text
     const sendButton = tree?.root.find(
-      (node) => node.type === "button" && text(node) === "Send",
+      (node) => node.type === "button" && node.props.title === "Send message",
     );
     expect(sendButton.props.disabled).toBe(true);
   });

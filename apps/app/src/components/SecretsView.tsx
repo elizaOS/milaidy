@@ -6,6 +6,7 @@
  * available secrets from plugins and pick which ones to manage here.
  */
 
+import { ChevronDown } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { SecretInfo } from "../api-client";
 import { client } from "../api-client";
@@ -275,16 +276,14 @@ export function SecretsView() {
             className="flex items-center gap-2 w-full bg-transparent border-0 cursor-pointer text-left mb-3"
             onClick={() => toggleCollapse(category)}
           >
-            <span
-              className="text-[11px] text-[var(--muted)] select-none transition-transform"
+            <ChevronDown
+              className="w-3 h-3 text-[var(--muted)] select-none transition-transform"
               style={{
                 transform: collapsed.has(category)
                   ? "rotate(-90deg)"
                   : "rotate(0deg)",
               }}
-            >
-              ▼
-            </span>
+            />
             <span className="text-[14px] font-semibold text-[var(--txt)]">
               {label}
             </span>

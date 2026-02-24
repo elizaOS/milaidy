@@ -1,3 +1,4 @@
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useApp } from "../AppContext";
 import type {
@@ -164,7 +165,13 @@ export function AutonomousPanel({
               onClick={() => setEventsCollapsed(!eventsCollapsed)}
             >
               <span>Event Stream ({events.length})</span>
-              <span>{eventsCollapsed ? "▶" : "▼"}</span>
+              <span>
+                {eventsCollapsed ? (
+                  <ChevronRight className="w-3 h-3" />
+                ) : (
+                  <ChevronDown className="w-3 h-3" />
+                )}
+              </span>
             </button>
             {!eventsCollapsed && (
               <div className="px-3 pb-2 max-h-[320px] overflow-y-auto space-y-2">
@@ -210,7 +217,13 @@ export function AutonomousPanel({
                     onClick={() => setTasksCollapsed(!tasksCollapsed)}
                   >
                     <span>Tasks ({tasks.length})</span>
-                    <span>{tasksCollapsed ? "▶" : "▼"}</span>
+                    <span>
+                      {tasksCollapsed ? (
+                        <ChevronRight className="w-3 h-3" />
+                      ) : (
+                        <ChevronDown className="w-3 h-3" />
+                      )}
+                    </span>
                   </button>
                   {!tasksCollapsed && (
                     <div className="px-3 py-2">
@@ -264,7 +277,13 @@ export function AutonomousPanel({
                     onClick={() => setTriggersCollapsed(!triggersCollapsed)}
                   >
                     <span>Triggers ({triggers.length})</span>
-                    <span>{triggersCollapsed ? "▶" : "▼"}</span>
+                    <span>
+                      {triggersCollapsed ? (
+                        <ChevronRight className="w-3 h-3" />
+                      ) : (
+                        <ChevronDown className="w-3 h-3" />
+                      )}
+                    </span>
                   </button>
                   {!triggersCollapsed && (
                     <div className="px-3 py-2">
@@ -299,7 +318,13 @@ export function AutonomousPanel({
                     onClick={() => setTodosCollapsed(!todosCollapsed)}
                   >
                     <span>Todos ({todos.length})</span>
-                    <span>{todosCollapsed ? "▶" : "▼"}</span>
+                    <span>
+                      {todosCollapsed ? (
+                        <ChevronRight className="w-3 h-3" />
+                      ) : (
+                        <ChevronDown className="w-3 h-3" />
+                      )}
+                    </span>
                   </button>
                   {!todosCollapsed && (
                     <div className="px-3 py-2">
