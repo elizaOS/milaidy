@@ -38,6 +38,21 @@ function createState(createAgent: (args: unknown) => Promise<unknown>) {
 }
 
 describe("handleCloudRoute", () => {
+  beforeEach(() => {
+    fetchMock.mockReset();
+    vi.stubGlobal("fetch", fetchMock);
+    validateCloudBaseUrlMock.mockResolvedValue(null);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    fetchMock.mockReset();
+    saveMiladyConfigMock.mockReset();
+    validateCloudBaseUrlMock.mockReset();
+    delete process.env.ELIZAOS_CLOUD_API_KEY;
+    delete process.env.ELIZAOS_CLOUD_ENABLED;
+  });
+
   it("returns false for unknown routes", async () => {
     const { res } = createMockHttpResponse();
     const handled = await handleCloudRoute(

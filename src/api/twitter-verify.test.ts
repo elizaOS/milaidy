@@ -1,4 +1,3 @@
-
 /**
  * Unit tests for twitter-verify.ts — whitelist eligibility via X/Twitter.
  *
@@ -49,7 +48,6 @@ import {
 } from "./twitter-verify";
 
 // ── Constants ────────────────────────────────────────────────────────────
-
 
 const WALLET = "0x1234567890abcdef1234567890abcdef12345678";
 const VALID_TWEET_URL = "https://x.com/miladyai/status/1234567890";

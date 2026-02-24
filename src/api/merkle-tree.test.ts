@@ -107,7 +107,7 @@ describe("merkle-tree", () => {
     it("returns zero root for empty input", () => {
       const tree = buildTree([]);
       expect(tree).toHaveLength(1);
-      expect(getRoot(tree)).toBe("0x" + "0".repeat(64));
+      expect(getRoot(tree)).toBe(`0x${"0".repeat(64)}`);
     });
 
     it("returns single leaf as root", () => {
@@ -260,7 +260,7 @@ describe("merkle-tree", () => {
       const leaves = [ADDR_A, ADDR_B].map(hashLeaf);
       const tree = buildTree(leaves);
       const proof = getProof(tree, tree[0][0]);
-      const fakeRoot = "0x" + "ab".repeat(32);
+      const fakeRoot = `0x${"ab".repeat(32)}`;
       expect(verifyProof(tree[0][0], proof, fakeRoot)).toBe(false);
     });
 
@@ -281,7 +281,7 @@ describe("merkle-tree", () => {
 
       // Tamper with a proof element
       const tamperedProof = [...proof];
-      tamperedProof[0] = "0x" + "ff".repeat(32);
+      tamperedProof[0] = `0x${"ff".repeat(32)}`;
       expect(verifyProof(tree[0][0], tamperedProof, root)).toBe(false);
     });
   });
@@ -302,7 +302,7 @@ describe("merkle-tree", () => {
     it("returns zero root when whitelist is empty", () => {
       const { info } = buildWhitelistTree();
       expect(info.addressCount).toBe(0);
-      expect(info.root).toBe("0x" + "0".repeat(64));
+      expect(info.root).toBe(`0x${"0".repeat(64)}`);
     });
   });
 

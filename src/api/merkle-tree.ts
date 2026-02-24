@@ -91,7 +91,7 @@ function hashPair(a: string, b: string): string {
  */
 export function buildTree(leaves: string[]): string[][] {
   if (leaves.length === 0) {
-    return [["0x" + "0".repeat(64)]]; // empty tree → zero root
+    return [[`0x${"0".repeat(64)}`]]; // empty tree → zero root
   }
 
   // Sort leaves for deterministic construction
@@ -215,7 +215,7 @@ export function generateProof(walletAddress: string): MerkleProofResult {
   } catch {
     return {
       proof: [],
-      leaf: "0x" + "0".repeat(64),
+      leaf: `0x${"0".repeat(64)}`,
       root: info.root,
       isWhitelisted: false,
     };
