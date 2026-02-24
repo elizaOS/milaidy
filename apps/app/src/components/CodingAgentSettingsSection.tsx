@@ -198,23 +198,25 @@ export function CodingAgentSettingsSection() {
     <div className="flex flex-col gap-4">
       {/* Agent tabs */}
       <div className="flex border border-[var(--border)]">
-        {(["claude", "gemini", "codex", "aider", "pi"] as AgentTab[]).map((agent) => {
-          const active = activeTab === agent;
-          return (
-            <button
-              key={agent}
-              type="button"
-              className={`flex-1 px-3 py-2 text-xs font-semibold cursor-pointer transition-colors border-r last:border-r-0 border-[var(--border)] ${
-                active
-                  ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
-                  : "bg-[var(--card)] text-[var(--muted)] hover:text-[var(--text)]"
-              }`}
-              onClick={() => setActiveTab(agent)}
-            >
-              {AGENT_LABELS[agent]}
-            </button>
-          );
-        })}
+        {(["claude", "gemini", "codex", "aider", "pi"] as AgentTab[]).map(
+          (agent) => {
+            const active = activeTab === agent;
+            return (
+              <button
+                key={agent}
+                type="button"
+                className={`flex-1 px-3 py-2 text-xs font-semibold cursor-pointer transition-colors border-r last:border-r-0 border-[var(--border)] ${
+                  active
+                    ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
+                    : "bg-[var(--card)] text-[var(--muted)] hover:text-[var(--text)]"
+                }`}
+                onClick={() => setActiveTab(agent)}
+              >
+                {AGENT_LABELS[agent]}
+              </button>
+            );
+          },
+        )}
       </div>
 
       {/* Aider provider selector */}
@@ -259,7 +261,9 @@ export function CodingAgentSettingsSection() {
               <select
                 className="px-2.5 py-1.5 border border-[var(--border)] bg-[var(--card)] text-xs focus:border-[var(--accent)] focus:outline-none"
                 value={fastValue}
-                onChange={(e) => setPref(`${prefix}_MODEL_FAST`, e.target.value)}
+                onChange={(e) =>
+                  setPref(`${prefix}_MODEL_FAST`, e.target.value)
+                }
               >
                 <option value="">Default</option>
                 {modelOptions.map((opt) => (

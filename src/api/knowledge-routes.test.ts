@@ -460,15 +460,24 @@ describe("knowledge routes", () => {
       failureCount: 1,
     });
     expect(
-      (result.payload as { results: Array<{ index: number; ok: boolean }> }).results,
+      (result.payload as { results: Array<{ index: number; ok: boolean }> })
+        .results,
     ).toEqual([
-      expect.objectContaining({ index: 0, ok: true, filename: "docs/alpha.md" }),
+      expect.objectContaining({
+        index: 0,
+        ok: true,
+        filename: "docs/alpha.md",
+      }),
       expect.objectContaining({
         index: 1,
         ok: false,
         error: "content and filename must be non-empty strings",
       }),
-      expect.objectContaining({ index: 2, ok: true, filename: "docs/beta.txt" }),
+      expect.objectContaining({
+        index: 2,
+        ok: true,
+        filename: "docs/beta.txt",
+      }),
     ]);
   });
 
@@ -509,9 +518,14 @@ describe("knowledge routes", () => {
       failureCount: 1,
     });
     expect(
-      (result.payload as { results: Array<{ index: number; ok: boolean }> }).results,
+      (result.payload as { results: Array<{ index: number; ok: boolean }> })
+        .results,
     ).toEqual([
-      expect.objectContaining({ index: 0, ok: true, filename: "batch/first.md" }),
+      expect.objectContaining({
+        index: 0,
+        ok: true,
+        filename: "batch/first.md",
+      }),
       expect.objectContaining({
         index: 1,
         ok: false,
