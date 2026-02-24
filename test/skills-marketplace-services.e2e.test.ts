@@ -14,8 +14,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // Hoisted mutable ref — controls what files git clone creates
 // ---------------------------------------------------------------------------
 
-const { gitFixtureRef } = vi.hoisted(() => ({
+const { gitFixtureRef, gitSymlinksRef } = vi.hoisted(() => ({
   gitFixtureRef: { files: {} as Record<string, string> },
+  gitSymlinksRef: { links: {} as Record<string, string> },
 }));
 
 // ---------------------------------------------------------------------------
@@ -66,6 +67,15 @@ vi.mock("node:child_process", async () => {
                 recursive: true,
               });
               nodeFs.default.writeFileSync(filePath, content);
+            }
+            for (const [relPath, target] of Object.entries(
+              gitSymlinksRef.links,
+            )) {
+              const linkPath = nodePath.default.join(cloneDir, relPath);
+              nodeFs.default.mkdirSync(nodePath.default.dirname(linkPath), {
+                recursive: true,
+              });
+              nodeFs.default.symlinkSync(target, linkPath);
             }
             return process.nextTick(() => cbFn(null, "", ""));
           }
@@ -123,6 +133,7 @@ beforeEach(async () => {
   delete process.env.SKILLSMP_API_KEY;
 
   gitFixtureRef.files = {};
+  gitSymlinksRef.links = {};
 });
 
 afterEach(async () => {
@@ -320,6 +331,37 @@ describe("Skills Marketplace E2E", () => {
           name: "no-manifest",
         }),
       ).rejects.toThrow(/does not contain SKILL\.md/i);
+    });
+
+    it("blocks skill with symlink escape and cleans up (rollback)", async () => {
+      gitFixtureRef.files = {
+        "skills/symlink-attack/SKILL.md": "# Symlink Attack",
+        "skills/symlink-attack/safe.ts": "export default {};",
+      };
+      gitSymlinksRef.links = {
+        "skills/symlink-attack/escape.lnk": "/etc/passwd",
+      };
+
+      const { installMarketplaceSkill } = await import(
+        "../src/services/skill-marketplace"
+      );
+
+      await expect(
+        installMarketplaceSkill(workspaceDir, {
+          repository: "evil-org/symlink-repo",
+          path: "skills/symlink-attack",
+          name: "symlink-attack",
+        }),
+      ).rejects.toThrow(/blocked by security scan/i);
+
+      // Verify directory was cleaned up (rollback)
+      const installRoot = path.join(
+        workspaceDir,
+        "skills",
+        ".marketplace",
+        "symlink-attack",
+      );
+      await expect(fs.access(installRoot)).rejects.toThrow();
     });
 
     it("rejects already-installed skill", async () => {

@@ -14,7 +14,7 @@
 
 import { logger } from "@elizaos/core";
 import { ethers } from "ethers";
-import { markAddressVerified, isAddressWhitelisted } from "./twitter-verify";
+import { isAddressWhitelisted, markAddressVerified } from "./twitter-verify";
 
 // ── Constants ────────────────────────────────────────────────────────────
 
@@ -23,14 +23,14 @@ const MILADY_CONTRACT = "0x5Af0D9827E0c53E4799BB226655A1de152A425a5";
 
 /** Minimal ERC-721 ABI — only what we need. */
 const ERC721_BALANCE_ABI = [
-    "function balanceOf(address owner) view returns (uint256)",
+  "function balanceOf(address owner) view returns (uint256)",
 ] as const;
 
 /** Default public Ethereum RPC endpoints (fallback chain). */
 const DEFAULT_RPC_ENDPOINTS = [
-    "https://cloudflare-eth.com",
-    "https://eth.llamarpc.com",
-    "https://rpc.ankr.com/eth",
+  "https://cloudflare-eth.com",
+  "https://eth.llamarpc.com",
+  "https://rpc.ankr.com/eth",
 ];
 
 /** Timeout for RPC calls (ms). */
@@ -39,10 +39,10 @@ const RPC_TIMEOUT_MS = 15_000;
 // ── Types ────────────────────────────────────────────────────────────────
 
 export interface NftVerificationResult {
-    verified: boolean;
-    balance: number;
-    contractAddress: string;
-    error: string | null;
+  verified: boolean;
+  balance: number;
+  contractAddress: string;
+  error: string | null;
 }
 
 // ── Provider ─────────────────────────────────────────────────────────────
@@ -52,12 +52,12 @@ export interface NftVerificationResult {
  * Prefers ETHEREUM_RPC_URL env var, falls back to public endpoints.
  */
 function getProvider(): ethers.JsonRpcProvider {
-    const customRpc = process.env.ETHEREUM_RPC_URL?.trim();
-    const rpcUrl = customRpc || DEFAULT_RPC_ENDPOINTS[0];
+  const customRpc = process.env.ETHEREUM_RPC_URL?.trim();
+  const rpcUrl = customRpc || DEFAULT_RPC_ENDPOINTS[0];
 
-    return new ethers.JsonRpcProvider(rpcUrl, 1, {
-        staticNetwork: true,
-    });
+  return new ethers.JsonRpcProvider(rpcUrl, 1, {
+    staticNetwork: true,
+  });
 }
 
 // ── Core Verification ────────────────────────────────────────────────────
@@ -69,81 +69,80 @@ function getProvider(): ethers.JsonRpcProvider {
  * mainnet. This is a read-only view call — no gas, no signing required.
  */
 export async function verifyMiladyHolder(
-    walletAddress: string,
+  walletAddress: string,
 ): Promise<NftVerificationResult> {
-    const contractAddress =
-        process.env.MILADY_NFT_CONTRACT?.trim() || MILADY_CONTRACT;
+  const contractAddress =
+    process.env.MILADY_NFT_CONTRACT?.trim() || MILADY_CONTRACT;
 
-    // ── Input validation ───────────────────────────────────────────────
-    if (!walletAddress || typeof walletAddress !== "string") {
-        return {
-            verified: false,
-            balance: 0,
-            contractAddress,
-            error: "Wallet address is required.",
-        };
+  // ── Input validation ───────────────────────────────────────────────
+  if (!walletAddress || typeof walletAddress !== "string") {
+    return {
+      verified: false,
+      balance: 0,
+      contractAddress,
+      error: "Wallet address is required.",
+    };
+  }
+
+  if (!ethers.isAddress(walletAddress)) {
+    return {
+      verified: false,
+      balance: 0,
+      contractAddress,
+      error: "Invalid Ethereum address format.",
+    };
+  }
+
+  // ── On-chain balance check ─────────────────────────────────────────
+  const provider = getProvider();
+
+  try {
+    const contract = new ethers.Contract(
+      contractAddress,
+      ERC721_BALANCE_ABI,
+      provider,
+    );
+
+    const balanceBN = (await Promise.race([
+      contract.balanceOf(walletAddress),
+      new Promise((_, reject) =>
+        setTimeout(
+          () => reject(new Error("RPC request timed out")),
+          RPC_TIMEOUT_MS,
+        ),
+      ),
+    ])) as bigint;
+
+    const balance = Number(balanceBN);
+
+    if (balance > 0) {
+      logger.info(
+        `[nft-verify] Address ${walletAddress} holds ${balance} Milady NFT(s) — verified ✓`,
+      );
+      return { verified: true, balance, contractAddress, error: null };
     }
 
-    if (!ethers.isAddress(walletAddress)) {
-        return {
-            verified: false,
-            balance: 0,
-            contractAddress,
-            error: "Invalid Ethereum address format.",
-        };
-    }
-
-    // ── On-chain balance check ─────────────────────────────────────────
-    const provider = getProvider();
-
-    try {
-        const contract = new ethers.Contract(
-            contractAddress,
-            ERC721_BALANCE_ABI,
-            provider,
-        );
-
-        const balanceBN = (await Promise.race([
-            contract.balanceOf(walletAddress),
-            new Promise((_, reject) =>
-                setTimeout(
-                    () => reject(new Error("RPC request timed out")),
-                    RPC_TIMEOUT_MS,
-                ),
-            ),
-        ])) as bigint;
-
-        const balance = Number(balanceBN);
-
-        if (balance > 0) {
-            logger.info(
-                `[nft-verify] Address ${walletAddress} holds ${balance} Milady NFT(s) — verified ✓`,
-            );
-            return { verified: true, balance, contractAddress, error: null };
-        }
-
-        logger.info(
-            `[nft-verify] Address ${walletAddress} holds 0 Milady NFTs — not eligible`,
-        );
-        return {
-            verified: false,
-            balance: 0,
-            contractAddress,
-            error: "Wallet does not hold any Milady NFTs.",
-        };
-    } catch (err) {
-        const message =
-            err instanceof Error ? err.message : "Unknown RPC error";
-        logger.warn(`[nft-verify] Balance check failed: ${message}`);
-        return {
-            verified: false,
-            balance: 0,
-            contractAddress,
-            error: `NFT verification failed: ${message}`,
-        };
-    } finally {
-        provider.destroy();
-    }
+    logger.info(
+      `[nft-verify] Address ${walletAddress} holds 0 Milady NFTs — not eligible`,
+    );
+    return {
+      verified: false,
+      balance: 0,
+      contractAddress,
+      error: "Wallet does not hold any Milady NFTs.",
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown RPC error";
+    logger.warn(`[nft-verify] Balance check failed: ${message}`);
+    return {
+      verified: false,
+      balance: 0,
+      contractAddress,
+      error: `NFT verification failed: ${message}`,
+    };
+  } finally {
+    provider.destroy();
+  }
 }
 
 // ── Whitelist Integration ────────────────────────────────────────────────
@@ -156,34 +155,34 @@ export async function verifyMiladyHolder(
  * alongside any Twitter-verified addresses.
  */
 export async function verifyAndWhitelistHolder(
-    walletAddress: string,
+  walletAddress: string,
 ): Promise<NftVerificationResult> {
-    // Skip the on-chain call if already whitelisted
-    if (isAddressWhitelisted(walletAddress)) {
-        logger.info(
-            `[nft-verify] Address ${walletAddress} already whitelisted — skipping RPC call`,
-        );
-        return {
-            verified: true,
-            balance: -1, // -1 indicates "already verified, balance not re-checked"
-            contractAddress:
-                process.env.MILADY_NFT_CONTRACT?.trim() || MILADY_CONTRACT,
-            error: null,
-        };
-    }
+  // Skip the on-chain call if already whitelisted
+  if (isAddressWhitelisted(walletAddress)) {
+    logger.info(
+      `[nft-verify] Address ${walletAddress} already whitelisted — skipping RPC call`,
+    );
+    return {
+      verified: true,
+      balance: -1, // -1 indicates "already verified, balance not re-checked"
+      contractAddress:
+        process.env.MILADY_NFT_CONTRACT?.trim() || MILADY_CONTRACT,
+      error: null,
+    };
+  }
 
-    const result = await verifyMiladyHolder(walletAddress);
+  const result = await verifyMiladyHolder(walletAddress);
 
-    if (result.verified) {
-        markAddressVerified(
-            walletAddress,
-            `nft:milady:${result.contractAddress}`,
-            `milady-holder:${result.balance}`,
-        );
-        logger.info(
-            `[nft-verify] Address ${walletAddress} added to whitelist via NFT verification`,
-        );
-    }
+  if (result.verified) {
+    markAddressVerified(
+      walletAddress,
+      `nft:milady:${result.contractAddress}`,
+      `milady-holder:${result.balance}`,
+    );
+    logger.info(
+      `[nft-verify] Address ${walletAddress} added to whitelist via NFT verification`,
+    );
+  }
 
-    return result;
+  return result;
 }

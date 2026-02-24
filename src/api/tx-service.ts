@@ -8,6 +8,7 @@
 
 import { logger } from "@elizaos/core";
 import { ethers } from "ethers";
+import { createIntegrationTelemetrySpan } from "../diagnostics/integration-observability";
 
 /**
  * Validate that a private key is a valid 32-byte hex string.
@@ -55,6 +56,10 @@ export class TxService {
    * This ensures we always get the correct nonce even after failed transactions.
    */
   async getFreshNonce(): Promise<number> {
+    const span = createIntegrationTelemetrySpan({
+      boundary: "wallet",
+      operation: "rpc_get_nonce",
+    });
     // Use a fresh provider for each nonce lookup to avoid ethers.js v6 caching
     const freshProvider = new ethers.JsonRpcProvider(this.rpcUrl);
     try {
@@ -62,7 +67,11 @@ export class TxService {
         this.wallet.address,
         "pending",
       );
+      span.success();
       return nonce;
+    } catch (err) {
+      span.failure({ error: err });
+      throw err;
     } finally {
       freshProvider.destroy();
     }
@@ -114,17 +123,35 @@ export class TxService {
     confirmations: number = 1,
     timeoutMs: number = 120_000,
   ): Promise<ethers.TransactionReceipt> {
-    const receipt = await this.provider.waitForTransaction(
-      txHash,
-      confirmations,
+    const span = createIntegrationTelemetrySpan({
+      boundary: "wallet",
+      operation: "rpc_wait_for_transaction",
       timeoutMs,
-    );
+    });
+    let receipt: ethers.TransactionReceipt | null;
+    try {
+      receipt = await this.provider.waitForTransaction(
+        txHash,
+        confirmations,
+        timeoutMs,
+      );
+    } catch (err) {
+      span.failure({ error: err });
+      throw err;
+    }
     if (!receipt) {
-      throw new Error(`Transaction ${txHash} timed out after ${timeoutMs}ms`);
+      const err = new Error(
+        `Transaction ${txHash} timed out after ${timeoutMs}ms`,
+      );
+      span.failure({ error: err, errorKind: "timeout" });
+      throw err;
     }
     if (receipt.status === 0) {
-      throw new Error(`Transaction ${txHash} reverted`);
+      const err = new Error(`Transaction ${txHash} reverted`);
+      span.failure({ error: err, errorKind: "tx_reverted" });
+      throw err;
     }
+    span.success();
     return receipt;
   }
 

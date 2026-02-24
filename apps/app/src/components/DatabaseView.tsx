@@ -6,6 +6,7 @@
  *  - SQL editor: code textarea with run button and results grid
  */
 
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   type ColumnInfo,
@@ -607,7 +608,11 @@ export function DatabaseView() {
             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
             title={sidebarCollapsed ? "Show sidebar" : "Hide sidebar"}
           >
-            <span className="text-[10px]">{sidebarCollapsed ? "▶" : "◀"}</span>
+            {sidebarCollapsed ? (
+              <ChevronRight className="w-3 h-3" />
+            ) : (
+              <ChevronLeft className="w-3 h-3" />
+            )}
           </button>
 
           {/* Main grid area */}

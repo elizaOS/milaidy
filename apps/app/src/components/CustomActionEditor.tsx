@@ -1,3 +1,4 @@
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { useEffect, useState } from "react";
 import {
   type CustomActionDef,
@@ -1020,7 +1021,13 @@ export function CustomActionEditor({
               className="flex items-center justify-between text-xs text-muted hover:text-txt cursor-pointer"
             >
               <span>Test Action</span>
-              <span>{testExpanded ? "▼" : "▶"}</span>
+              <span>
+                {testExpanded ? (
+                  <ChevronDown className="w-3 h-3" />
+                ) : (
+                  <ChevronRight className="w-3 h-3" />
+                )}
+              </span>
             </button>
             {testExpanded && (
               <div className="flex flex-col gap-2 pl-2 border-l-2 border-border">

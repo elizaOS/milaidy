@@ -3,6 +3,15 @@
  */
 
 import {
+  AlertTriangle,
+  CheckCircle,
+  Cloud,
+  Lock,
+  Minus,
+  XCircle,
+  Zap,
+} from "lucide-react";
+import {
   type ChangeEvent,
   useCallback,
   useEffect,
@@ -605,7 +614,9 @@ export function OnboardingWizard() {
               </div>
               <div className="flex flex-col gap-3 max-w-[460px] mx-auto">
                 <div className="px-4 py-4 border border-accent bg-accent text-accent-fg rounded-lg text-left">
-                  <div className="font-bold text-sm">☁️ cloud</div>
+                  <div className="font-bold text-sm flex items-center gap-1.5">
+                    <Cloud className="w-4 h-4" /> cloud
+                  </div>
                   <div className="text-[12px] mt-1 opacity-80">
                     always on, works from any device, easiest setup
                   </div>
@@ -640,7 +651,9 @@ export function OnboardingWizard() {
                 }`}
                 onClick={() => handleRunModeSelect("cloud")}
               >
-                <div className="font-bold text-sm">☁️ cloud</div>
+                <div className="font-bold text-sm flex items-center gap-1.5">
+                  <Cloud className="w-4 h-4" /> cloud
+                </div>
                 <div className="text-[12px] mt-1 opacity-70">
                   i run on eliza cloud. easiest setup, always on, can still use
                   ur browser &amp; computer if u let me
@@ -655,7 +668,9 @@ export function OnboardingWizard() {
                 }`}
                 onClick={() => handleRunModeSelect("local-sandbox")}
               >
-                <div className="font-bold text-sm">🔒 local (sandbox)</div>
+                <div className="font-bold text-sm flex items-center gap-1.5">
+                  <Lock className="w-4 h-4" /> local (sandbox)
+                </div>
                 <div className="text-[12px] mt-1 opacity-70">
                   i run on ur machine in a secure container. ur api keys stay
                   hidden even from me. needs docker
@@ -670,7 +685,9 @@ export function OnboardingWizard() {
                 }`}
                 onClick={() => handleRunModeSelect("local-rawdog")}
               >
-                <div className="font-bold text-sm">⚡ local (raw)</div>
+                <div className="font-bold text-sm flex items-center gap-1.5">
+                  <Zap className="w-4 h-4" /> local (raw)
+                </div>
                 <div className="text-[12px] mt-1 opacity-70">
                   i run directly on ur machine w full access. fastest &amp;
                   simplest but no sandbox protection
@@ -2131,7 +2148,13 @@ function DockerSetupStep() {
               : "bg-red-50 border-red-200 text-red-800 dark:bg-red-950 dark:border-red-800 dark:text-red-200"
           }`}
         >
-          <span>{isInstalled ? "✅" : "❌"}</span>
+          <span>
+            {isInstalled ? (
+              <CheckCircle className="w-4 h-4" />
+            ) : (
+              <XCircle className="w-4 h-4" />
+            )}
+          </span>
           <span>Docker {isInstalled ? "installed" : "not found"}</span>
         </div>
 
@@ -2143,7 +2166,13 @@ function DockerSetupStep() {
                 : "bg-yellow-50 border-yellow-200 text-yellow-800 dark:bg-yellow-950 dark:border-yellow-800 dark:text-yellow-200"
             }`}
           >
-            <span>{isRunning ? "✅" : "⚠️"}</span>
+            <span>
+              {isRunning ? (
+                <CheckCircle className="w-4 h-4" />
+              ) : (
+                <AlertTriangle className="w-4 h-4" />
+              )}
+            </span>
             <span>Docker daemon {isRunning ? "running" : "not running"}</span>
           </div>
         )}
@@ -2156,7 +2185,13 @@ function DockerSetupStep() {
                 : "bg-card border-border text-txt opacity-60"
             }`}
           >
-            <span>{hasAppleContainer ? "✅" : "➖"}</span>
+            <span>
+              {hasAppleContainer ? (
+                <CheckCircle className="w-4 h-4" />
+              ) : (
+                <Minus className="w-4 h-4" />
+              )}
+            </span>
             <span>
               Apple Container{" "}
               {hasAppleContainer

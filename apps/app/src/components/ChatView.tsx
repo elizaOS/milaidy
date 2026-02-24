@@ -6,6 +6,7 @@
  * Input row at bottom with mic + textarea + send button.
  */
 
+import { Mic, Paperclip, Send, Square } from "lucide-react";
 import {
   type ChangeEvent,
   type DragEvent,
@@ -537,7 +538,7 @@ export function ChatView() {
         {/* Paperclip / image attach button */}
         <button
           type="button"
-          className={`h-[38px] w-[38px] shrink-0 flex items-center justify-center border rounded cursor-pointer transition-all self-end ${
+          className={`h-[38px] w-[38px] shrink-0 flex items-center justify-center border rounded cursor-pointer transition-all duration-200 hover:shadow-sm self-end ${
             chatPendingImages.length > 0
               ? "border-accent bg-accent/10 text-accent"
               : "border-border bg-card text-muted hover:border-accent hover:text-accent"
@@ -547,19 +548,7 @@ export function ChatView() {
           title="Attach image"
           disabled={chatSending}
         >
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <title>Attach image</title>
-            <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
-          </svg>
+          <Paperclip className="w-4 h-4" />
         </button>
 
         {/* Mic button — user voice input */}
@@ -578,31 +567,11 @@ export function ChatView() {
             aria-pressed={voice.isListening}
             title={voice.isListening ? "Stop listening" : "Voice input"}
           >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill={voice.isListening ? "currentColor" : "none"}
-              stroke="currentColor"
-              strokeWidth={voice.isListening ? "0" : "2"}
-            >
-              <title>
-                {voice.isListening ? "Stop listening" : "Voice input"}
-              </title>
-              {voice.isListening ? (
-                <>
-                  <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" />
-                  <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
-                </>
-              ) : (
-                <>
-                  <path d="M12 1a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-                  <path d="M19 10v1a7 7 0 0 1-14 0v-1" />
-                  <line x1="12" y1="19" x2="12" y2="23" />
-                  <line x1="8" y1="23" x2="16" y2="23" />
-                </>
-              )}
-            </svg>
+            {voice.isListening ? (
+              <Mic className="w-4 h-4 fill-current" />
+            ) : (
+              <Mic className="w-4 h-4" />
+            )}
           </button>
         )}
 
@@ -631,29 +600,34 @@ export function ChatView() {
         {chatSending ? (
           <button
             type="button"
-            className="h-[38px] shrink-0 px-3 sm:px-4 py-2 border border-danger bg-danger/10 text-danger text-sm cursor-pointer hover:bg-danger/20 self-end"
+            className="h-[38px] shrink-0 px-3 sm:px-4 py-2 border border-danger bg-danger/10 text-danger text-sm cursor-pointer hover:bg-danger/20 transition-all duration-200 hover:shadow-sm self-end flex items-center gap-1.5"
             onClick={handleChatStop}
             title="Stop generation"
           >
-            Stop
+            <Square className="w-3 h-3 fill-current" />
+            <span>Stop</span>
           </button>
         ) : voice.isSpeaking ? (
           <button
             type="button"
-            className="h-[38px] shrink-0 px-3 sm:px-4 py-2 border border-danger bg-danger/10 text-danger text-sm cursor-pointer hover:bg-danger/20 self-end"
+            className="h-[38px] shrink-0 px-3 sm:px-4 py-2 border border-danger bg-danger/10 text-danger text-sm cursor-pointer hover:bg-danger/20 transition-all duration-200 hover:shadow-sm self-end flex items-center gap-1.5"
             onClick={stopSpeaking}
             title="Stop speaking"
           >
-            Stop Voice
+            <Square className="w-3 h-3 fill-current" />
+            <span>Stop Voice</span>
           </button>
         ) : (
           <button
             type="button"
-            className="h-[38px] shrink-0 px-4 sm:px-6 py-2 border border-accent bg-accent text-accent-fg text-sm cursor-pointer hover:bg-accent-hover disabled:opacity-40 disabled:cursor-not-allowed self-end"
+            className="h-[38px] shrink-0 px-4 sm:px-5 py-2 border border-accent bg-accent text-accent-fg text-sm cursor-pointer hover:bg-accent-hover disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200 hover:shadow-sm self-end flex items-center gap-1.5"
             onClick={() => void handleChatSend()}
             disabled={chatSending || !chatInput.trim()}
+            aria-label="Send message"
+            title="Send message"
           >
-            Send
+            <Send className="w-4 h-4" />
+            <span>Send</span>
           </button>
         )}
       </div>

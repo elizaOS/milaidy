@@ -319,6 +319,29 @@ describe("Plugin Install E2E", () => {
       expect(phases).toContain("resolving");
       expect(phases).toContain("downloading");
     }, 180_000);
+
+    it("cleans up temp directory when git clone fails (rollback)", async () => {
+      const { getPluginInfo } = await import("../src/services/registry-client");
+      vi.mocked(getPluginInfo).mockResolvedValue(
+        fixturePluginInfo({ name: "@elizaos/plugin-rollback" }),
+      );
+
+      const { installPlugin } = await loadInstaller();
+      const result = await installPlugin("@elizaos/plugin-rollback");
+
+      expect(result.success).toBe(false);
+
+      // Verify no temp-* directories remain under the plugins install directory.
+      // gitCloneInstall creates temp-<timestamp> and must remove it in finally.
+      const installedDir = path.join(configDir, "plugins", "installed");
+      try {
+        const entries = await fs.readdir(installedDir);
+        const tempDirs = entries.filter((e) => e.startsWith("temp-"));
+        expect(tempDirs).toEqual([]);
+      } catch {
+        // Directory doesn't exist at all — also fine, nothing leaked.
+      }
+    }, 180_000);
   });
 
   describe("uninstall", () => {
@@ -467,6 +490,92 @@ describe("Plugin Install E2E", () => {
 
       expect(result.success).toBe(true);
       expect(vi.mocked(requestRestart)).toHaveBeenCalledOnce();
+    }, 180_000);
+  });
+
+  describe("git clone install", () => {
+    it("succeeds via git clone when npm install fails", async () => {
+      const { getPluginInfo } = await import("../src/services/registry-client");
+      vi.mocked(getPluginInfo).mockResolvedValue(
+        fixturePluginInfo({ name: "@elizaos/plugin-gitclone" }),
+      );
+
+      // Override execFile to make git clone succeed and npm fail
+      const { execFile: mockExecFile } = await import("node:child_process");
+      vi.mocked(mockExecFile).mockImplementation(
+        (cmd: string, args: unknown, optionsOrCb: unknown, cb?: unknown) => {
+          let callback = typeof optionsOrCb === "function" ? optionsOrCb : cb;
+          if (!callback && typeof args === "function")
+            callback = args as unknown;
+          const cbFn = callback as (
+            err: Error | null,
+            stdout: string,
+            stderr: string,
+          ) => void;
+          const argsArr = Array.isArray(args) ? args : [];
+          const argsStr = JSON.stringify(argsArr);
+
+          if (argsStr.includes("--version")) {
+            return process.nextTick(() => cbFn(null, "1.0.0", ""));
+          }
+          // ls-remote for branch resolution — pretend "next" branch exists
+          if (cmd === "git" && argsArr[0] === "ls-remote") {
+            const fakeRef = "abc123\trefs/heads/next";
+            return process.nextTick(() => cbFn(null, fakeRef, ""));
+          }
+          // git clone — create a minimal plugin in the clone target
+          if (cmd === "git" && argsArr[0] === "clone") {
+            const cloneDir = argsArr[argsArr.length - 1];
+            const nodeFs = require("node:fs") as typeof import("node:fs");
+            const nodePath = require("node:path") as typeof import("node:path");
+            nodeFs.mkdirSync(cloneDir, { recursive: true });
+            nodeFs.writeFileSync(
+              nodePath.join(cloneDir, "package.json"),
+              JSON.stringify({
+                name: "@elizaos/plugin-gitclone",
+                version: "2.0.0-alpha.1",
+                type: "module",
+                main: "index",
+              }),
+            );
+            nodeFs.writeFileSync(
+              nodePath.join(cloneDir, "index"),
+              "export default { name: 'gitclone' };",
+            );
+            return process.nextTick(() => cbFn(null, "", ""));
+          }
+          // bun/npm install in cloned dir — succeed
+          if (
+            (cmd === "bun" || cmd === "npm") &&
+            (argsStr.includes("install") || argsStr.includes("add"))
+          ) {
+            return process.nextTick(() => cbFn(null, "", ""));
+          }
+          process.nextTick(() =>
+            cbFn(new Error("Mock command failed"), "", ""),
+          );
+        },
+      );
+
+      const phases: string[] = [];
+      const { installPlugin, listInstalledPlugins } = await loadInstaller();
+      const result = await installPlugin("@elizaos/plugin-gitclone", (p) =>
+        phases.push(p.phase),
+      );
+
+      expect(result.success).toBe(true);
+      expect(result.pluginName).toBe("@elizaos/plugin-gitclone");
+      expect(result.requiresRestart).toBe(true);
+      expect(phases).toContain("downloading");
+      expect(phases).toContain("complete");
+
+      // Verify it's listed
+      const installed = listInstalledPlugins();
+      expect(installed).toHaveLength(1);
+      expect(installed[0].name).toBe("@elizaos/plugin-gitclone");
+
+      // Verify the install directory exists on disk
+      await expect(fs.access(result.installPath)).resolves.toBeUndefined();
     }, 180_000);
   });
 

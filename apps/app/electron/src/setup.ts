@@ -322,7 +322,7 @@ export class ElectronCapacitorApp {
           app.getAppPath(),
           "assets",
           this.CapacitorFileConfig.electron?.splashScreenImageName ??
-          "splash.png",
+            "splash.png",
         ),
         windowWidth: 400,
         windowHeight: 400,
