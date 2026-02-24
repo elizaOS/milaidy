@@ -189,4 +189,268 @@ describe("database read-only query guard", () => {
     expect(getStatus()).toBe(200);
     expect(execute).toHaveBeenCalledTimes(1);
   });
+
+  // ── Dangerous functions (file I/O, DoS, backend control) ──────────────
+
+  it("rejects lo_import() — arbitrary file read on DB server", async () => {
+    const { runtime, execute } = makeRuntime({
+      rows: [],
+      fields: [{ name: "oid" }],
+    });
+    const req = createMockJsonRequest(
+      { sql: "SELECT lo_import('/etc/passwd')" },
+      { method: "POST", url: "/api/database/query" },
+    );
+    const { res, getStatus, getJson } = createMockHttpResponse<{
+      error?: string;
+    }>();
+
+    const handled = await handleDatabaseRoute(
+      req,
+      res,
+      runtime,
+      "/api/database/query",
+    );
+
+    expect(handled).toBe(true);
+    expect(getStatus()).toBe(400);
+    expect(String(getJson()?.error ?? "")).toContain("LO_IMPORT");
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  it("rejects lo_export() — arbitrary file write on DB server", async () => {
+    const { runtime, execute } = makeRuntime({
+      rows: [],
+      fields: [{ name: "result" }],
+    });
+    const req = createMockJsonRequest(
+      { sql: "SELECT lo_export(12345, '/tmp/evil.so')" },
+      { method: "POST", url: "/api/database/query" },
+    );
+    const { res, getStatus, getJson } = createMockHttpResponse<{
+      error?: string;
+    }>();
+
+    const handled = await handleDatabaseRoute(
+      req,
+      res,
+      runtime,
+      "/api/database/query",
+    );
+
+    expect(handled).toBe(true);
+    expect(getStatus()).toBe(400);
+    expect(String(getJson()?.error ?? "")).toContain("LO_EXPORT");
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  it("rejects pg_read_file() — server file read (superuser)", async () => {
+    const { runtime, execute } = makeRuntime({
+      rows: [],
+      fields: [{ name: "content" }],
+    });
+    const req = createMockJsonRequest(
+      { sql: "SELECT pg_read_file('/etc/passwd')" },
+      { method: "POST", url: "/api/database/query" },
+    );
+    const { res, getStatus, getJson } = createMockHttpResponse<{
+      error?: string;
+    }>();
+
+    const handled = await handleDatabaseRoute(
+      req,
+      res,
+      runtime,
+      "/api/database/query",
+    );
+
+    expect(handled).toBe(true);
+    expect(getStatus()).toBe(400);
+    expect(String(getJson()?.error ?? "")).toContain("PG_READ_FILE");
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  it("rejects pg_sleep() — denial of service", async () => {
+    const { runtime, execute } = makeRuntime({
+      rows: [],
+      fields: [{ name: "pg_sleep" }],
+    });
+    const req = createMockJsonRequest(
+      { sql: "SELECT pg_sleep(999999)" },
+      { method: "POST", url: "/api/database/query" },
+    );
+    const { res, getStatus, getJson } = createMockHttpResponse<{
+      error?: string;
+    }>();
+
+    const handled = await handleDatabaseRoute(
+      req,
+      res,
+      runtime,
+      "/api/database/query",
+    );
+
+    expect(handled).toBe(true);
+    expect(getStatus()).toBe(400);
+    expect(String(getJson()?.error ?? "")).toContain("PG_SLEEP");
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  it("rejects pg_terminate_backend() — kill other connections", async () => {
+    const { runtime, execute } = makeRuntime({
+      rows: [],
+      fields: [{ name: "result" }],
+    });
+    const req = createMockJsonRequest(
+      { sql: "SELECT pg_terminate_backend(42)" },
+      { method: "POST", url: "/api/database/query" },
+    );
+    const { res, getStatus, getJson } = createMockHttpResponse<{
+      error?: string;
+    }>();
+
+    const handled = await handleDatabaseRoute(
+      req,
+      res,
+      runtime,
+      "/api/database/query",
+    );
+
+    expect(handled).toBe(true);
+    expect(getStatus()).toBe(400);
+    expect(String(getJson()?.error ?? "")).toContain("PG_TERMINATE_BACKEND");
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  it("rejects set_config() — SET equivalent as function form", async () => {
+    const { runtime, execute } = makeRuntime({
+      rows: [],
+      fields: [{ name: "set_config" }],
+    });
+    const req = createMockJsonRequest(
+      { sql: "SELECT set_config('role', 'superuser', false)" },
+      { method: "POST", url: "/api/database/query" },
+    );
+    const { res, getStatus, getJson } = createMockHttpResponse<{
+      error?: string;
+    }>();
+
+    const handled = await handleDatabaseRoute(
+      req,
+      res,
+      runtime,
+      "/api/database/query",
+    );
+
+    expect(handled).toBe(true);
+    expect(getStatus()).toBe(400);
+    expect(String(getJson()?.error ?? "")).toContain("SET_CONFIG");
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  it("rejects pg_advisory_lock() — can deadlock other connections", async () => {
+    const { runtime, execute } = makeRuntime({
+      rows: [],
+      fields: [{ name: "pg_advisory_lock" }],
+    });
+    const req = createMockJsonRequest(
+      { sql: "SELECT pg_advisory_lock(1)" },
+      { method: "POST", url: "/api/database/query" },
+    );
+    const { res, getStatus, getJson } = createMockHttpResponse<{
+      error?: string;
+    }>();
+
+    const handled = await handleDatabaseRoute(
+      req,
+      res,
+      runtime,
+      "/api/database/query",
+    );
+
+    expect(handled).toBe(true);
+    expect(getStatus()).toBe(400);
+    expect(String(getJson()?.error ?? "")).toContain("PG_ADVISORY_LOCK");
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  // ── Newly blocked keywords ────────────────────────────────────────────
+
+  it("rejects SET ROLE — privilege escalation", async () => {
+    const { runtime, execute } = makeRuntime({
+      rows: [],
+      fields: [],
+    });
+    const req = createMockJsonRequest(
+      { sql: "SET ROLE superuser" },
+      { method: "POST", url: "/api/database/query" },
+    );
+    const { res, getStatus, getJson } = createMockHttpResponse<{
+      error?: string;
+    }>();
+
+    const handled = await handleDatabaseRoute(
+      req,
+      res,
+      runtime,
+      "/api/database/query",
+    );
+
+    expect(handled).toBe(true);
+    expect(getStatus()).toBe(400);
+    expect(String(getJson()?.error ?? "")).toContain('"SET"');
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  it("rejects NOTIFY — async side-effect", async () => {
+    const { runtime, execute } = makeRuntime({
+      rows: [],
+      fields: [],
+    });
+    const req = createMockJsonRequest(
+      { sql: "NOTIFY mychannel, 'payload'" },
+      { method: "POST", url: "/api/database/query" },
+    );
+    const { res, getStatus, getJson } = createMockHttpResponse<{
+      error?: string;
+    }>();
+
+    const handled = await handleDatabaseRoute(
+      req,
+      res,
+      runtime,
+      "/api/database/query",
+    );
+
+    expect(handled).toBe(true);
+    expect(getStatus()).toBe(400);
+    expect(String(getJson()?.error ?? "")).toContain('"NOTIFY"');
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  it("rejects LOCK — can deadlock tables", async () => {
+    const { runtime, execute } = makeRuntime({
+      rows: [],
+      fields: [],
+    });
+    const req = createMockJsonRequest(
+      { sql: "LOCK TABLE users IN EXCLUSIVE MODE" },
+      { method: "POST", url: "/api/database/query" },
+    );
+    const { res, getStatus, getJson } = createMockHttpResponse<{
+      error?: string;
+    }>();
+
+    const handled = await handleDatabaseRoute(
+      req,
+      res,
+      runtime,
+      "/api/database/query",
+    );
+
+    expect(handled).toBe(true);
+    expect(getStatus()).toBe(400);
+    expect(String(getJson()?.error ?? "")).toContain('"LOCK"');
+    expect(execute).not.toHaveBeenCalled();
+  });
 });
