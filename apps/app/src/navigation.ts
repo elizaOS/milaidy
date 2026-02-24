@@ -8,17 +8,19 @@ import {
   Brain,
   Gamepad2,
   MessageSquare,
+  Radio,
   Settings,
   Share2,
   Sparkles,
   Wallet,
 } from "lucide-react";
 
-/** Apps are only enabled in dev mode; production builds hide this feature. */
-export const APPS_ENABLED = import.meta.env.DEV;
+/** Apps tab — always enabled when running from source. */
+export const APPS_ENABLED = true;
 
 export type Tab =
   | "chat"
+  | "stream"
   | "apps"
   | "character"
   | "wallets"
@@ -51,6 +53,12 @@ const ALL_TAB_GROUPS: TabGroup[] = [
     tabs: ["chat"],
     icon: MessageSquare,
     description: "Conversations and messaging",
+  },
+  {
+    label: "Stream",
+    tabs: ["stream"],
+    icon: Radio,
+    description: "Live streaming controls",
   },
   {
     label: "Character",
@@ -114,6 +122,7 @@ export const TAB_GROUPS = APPS_ENABLED
 
 const TAB_PATHS: Record<Tab, string> = {
   chat: "/chat",
+  stream: "/stream",
   apps: "/apps",
   character: "/character",
   triggers: "/triggers",
@@ -230,6 +239,8 @@ export function titleForTab(tab: Tab): string {
       return "Settings";
     case "logs":
       return "Logs";
+    case "stream":
+      return "Stream";
     case "security":
       return "Security";
     default:
