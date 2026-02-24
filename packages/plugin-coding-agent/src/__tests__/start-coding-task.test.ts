@@ -200,6 +200,28 @@ describe("startCodingTaskAction", () => {
       );
     });
 
+    it("should map pi agent type to shell and wrap the task as a pi command", async () => {
+      const ptyService = createMockPTYService();
+      const runtime = createMockRuntime(ptyService);
+      const message = createMockMessage({ text: "Fix flaky tests" });
+      const callback = jest.fn();
+
+      await startCodingTaskAction.handler(
+        runtime as unknown as IAgentRuntime,
+        message as unknown as Memory,
+        undefined,
+        { parameters: { task: "Fix flaky tests", agentType: "pi" } },
+        callback,
+      );
+
+      expect(mockSpawnSession).toHaveBeenCalledWith(
+        expect.objectContaining({
+          agentType: "shell",
+          initialTask: "pi 'Fix flaky tests'",
+        }),
+      );
+    });
+
     it("should create scratch dir when no repo provided", async () => {
       const ptyService = createMockPTYService();
       const runtime = createMockRuntime(ptyService);
@@ -313,6 +335,28 @@ describe("startCodingTaskAction", () => {
       const secondCall = mockSpawnSession.mock.calls[1][0];
       expect(secondCall.agentType).toBe("gemini");
       expect(secondCall.initialTask).toBe("Write tests");
+    });
+
+    it("should handle pi agent prefix in pipe-delimited specs", async () => {
+      const ptyService = createMockPTYService();
+      const runtime = createMockRuntime(ptyService);
+      const message = createMockMessage();
+      const callback = jest.fn();
+
+      await startCodingTaskAction.handler(
+        runtime as unknown as IAgentRuntime,
+        message as unknown as Memory,
+        undefined,
+        { parameters: { agents: "pi:Investigate flaky tests" } },
+        callback,
+      );
+
+      expect(mockSpawnSession).toHaveBeenCalledWith(
+        expect.objectContaining({
+          agentType: "shell",
+          initialTask: "pi 'Investigate flaky tests'",
+        }),
+      );
     });
 
     it("should return error when more than 8 agents requested", async () => {

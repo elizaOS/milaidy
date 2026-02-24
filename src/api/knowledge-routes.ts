@@ -61,6 +61,8 @@ interface KnowledgeServiceLike {
 }
 
 const FRAGMENT_COUNT_BATCH_SIZE = 500;
+const KNOWLEDGE_UPLOAD_MAX_BODY_BYTES = 32 * 1_048_576; // 32 MB
+const MAX_BULK_DOCUMENTS = 100;
 const MAX_URL_IMPORT_BYTES = 10 * 1024 * 1024; // 10 MB
 const MAX_YOUTUBE_WATCH_PAGE_BYTES = 2 * 1024 * 1024; // 2 MB
 const MAX_YOUTUBE_TRANSCRIPT_BYTES = 10 * 1024 * 1024; // 10 MB
@@ -604,17 +606,18 @@ export async function handleKnowledgeRoutes(
     error(res, "Agent runtime is not available", 503);
     return true;
   }
+  const activeKnowledgeService = knowledgeService;
   const agentId = runtime.agentId as UUID;
 
   // ── GET /api/knowledge/stats ────────────────────────────────────────────
   if (method === "GET" && pathname === "/api/knowledge/stats") {
-    const documentCount = await knowledgeService.countMemories({
+    const documentCount = await activeKnowledgeService.countMemories({
       tableName: "documents",
       roomId: agentId,
       unique: false,
     });
 
-    const fragmentCount = await knowledgeService.countMemories({
+    const fragmentCount = await activeKnowledgeService.countMemories({
       tableName: "knowledge",
       roomId: agentId,
       unique: false,
@@ -633,7 +636,7 @@ export async function handleKnowledgeRoutes(
     const limit = parsePositiveInteger(url.searchParams.get("limit"), 100);
     const offset = parsePositiveInteger(url.searchParams.get("offset"), 0);
 
-    const documents = await knowledgeService.getMemories({
+    const documents = await activeKnowledgeService.getMemories({
       tableName: "documents",
       roomId: agentId,
       count: limit,
@@ -680,7 +683,7 @@ export async function handleKnowledgeRoutes(
   if (method === "GET" && docIdMatch) {
     const documentId = decodeURIComponent(docIdMatch[1]) as UUID;
 
-    const documents = await knowledgeService.getMemories({
+    const documents = await activeKnowledgeService.getMemories({
       tableName: "documents",
       roomId: agentId,
       count: 10000,
@@ -728,11 +731,11 @@ export async function handleKnowledgeRoutes(
     );
 
     for (const fragmentId of fragmentIds) {
-      await knowledgeService.deleteMemory(fragmentId);
+      await activeKnowledgeService.deleteMemory(fragmentId);
     }
 
     // Then delete the document itself
-    await knowledgeService.deleteMemory(documentId);
+    await activeKnowledgeService.deleteMemory(documentId);
 
     json(res, {
       ok: true,
@@ -741,15 +744,52 @@ export async function handleKnowledgeRoutes(
     return true;
   }
 
+  type KnowledgeUploadDocumentBody = {
+    content: string;
+    filename: string;
+    contentType?: string;
+    metadata?: Record<string, unknown>;
+  };
+
+  async function addKnowledgeDocument(
+    document: KnowledgeUploadDocumentBody,
+  ): Promise<{
+    documentId: UUID;
+    fragmentCount: number;
+    warnings?: string[];
+  }> {
+    const result = await activeKnowledgeService.addKnowledge({
+      agentId,
+      worldId: agentId,
+      roomId: agentId,
+      entityId: agentId,
+      clientDocumentId: "" as UUID, // Will be generated
+      contentType: document.contentType || "text/plain",
+      originalFilename: document.filename,
+      content: document.content,
+      metadata: document.metadata,
+    });
+
+    const warningsValue = (result as { warnings?: unknown }).warnings;
+    const warnings = Array.isArray(warningsValue)
+      ? warningsValue.filter(
+          (warning): warning is string => typeof warning === "string",
+        )
+      : undefined;
+
+    return {
+      documentId: result.clientDocumentId,
+      fragmentCount: result.fragmentCount,
+      warnings,
+    };
+  }
+
   // ── POST /api/knowledge/documents ───────────────────────────────────────
   // Upload document from base64 content or text
   if (method === "POST" && pathname === "/api/knowledge/documents") {
-    const body = await readJsonBody<{
-      content: string;
-      filename: string;
-      contentType?: string;
-      metadata?: Record<string, unknown>;
-    }>(req, res);
+    const body = await readJsonBody<KnowledgeUploadDocumentBody>(req, res, {
+      maxBytes: KNOWLEDGE_UPLOAD_MAX_BODY_BYTES,
+    });
     if (!body) return true;
 
     if (!body.content || !body.filename) {
@@ -757,22 +797,102 @@ export async function handleKnowledgeRoutes(
       return true;
     }
 
-    const result = await knowledgeService.addKnowledge({
-      agentId,
-      worldId: agentId,
-      roomId: agentId,
-      entityId: agentId,
-      clientDocumentId: "" as UUID, // Will be generated
-      contentType: body.contentType || "text/plain",
-      originalFilename: body.filename,
-      content: body.content,
-      metadata: body.metadata,
-    });
+    const result = await addKnowledgeDocument(body);
 
     json(res, {
       ok: true,
-      documentId: result.clientDocumentId,
+      documentId: result.documentId,
       fragmentCount: result.fragmentCount,
+      warnings: result.warnings,
+    });
+    return true;
+  }
+
+  // ── POST /api/knowledge/documents/bulk ──────────────────────────────────
+  if (method === "POST" && pathname === "/api/knowledge/documents/bulk") {
+    const body = await readJsonBody<{
+      documents?: KnowledgeUploadDocumentBody[];
+    }>(req, res, {
+      maxBytes: KNOWLEDGE_UPLOAD_MAX_BODY_BYTES,
+    });
+    if (!body) return true;
+
+    if (!Array.isArray(body.documents) || body.documents.length === 0) {
+      error(res, "documents array is required");
+      return true;
+    }
+
+    if (body.documents.length > MAX_BULK_DOCUMENTS) {
+      error(
+        res,
+        `documents array exceeds limit (${MAX_BULK_DOCUMENTS} per request)`,
+      );
+      return true;
+    }
+
+    const results: Array<{
+      index: number;
+      ok: boolean;
+      filename: string;
+      documentId?: UUID;
+      fragmentCount?: number;
+      error?: string;
+      warnings?: string[];
+    }> = [];
+
+    for (const [index, document] of body.documents.entries()) {
+      const filename = document?.filename || `document-${index + 1}`;
+      if (
+        typeof document?.content !== "string" ||
+        typeof document?.filename !== "string" ||
+        document.content.trim().length === 0 ||
+        document.filename.trim().length === 0
+      ) {
+        results.push({
+          index,
+          ok: false,
+          filename,
+          error: "content and filename must be non-empty strings",
+        });
+        continue;
+      }
+
+      const normalizedDocument: KnowledgeUploadDocumentBody = {
+        ...document,
+        content: document.content,
+        filename: document.filename.trim(),
+      };
+
+      try {
+        const uploadResult = await addKnowledgeDocument(normalizedDocument);
+        results.push({
+          index,
+          ok: true,
+          filename,
+          documentId: uploadResult.documentId,
+          fragmentCount: uploadResult.fragmentCount,
+          warnings: uploadResult.warnings,
+        });
+      } catch (err) {
+        results.push({
+          index,
+          ok: false,
+          filename,
+          error:
+            err instanceof Error ? err.message : "Failed to upload document",
+        });
+      }
+    }
+
+    const successCount = results.filter((item) => item.ok).length;
+    const failureCount = results.length - successCount;
+
+    json(res, {
+      ok: failureCount === 0,
+      total: results.length,
+      successCount,
+      failureCount,
+      results,
     });
     return true;
   }

@@ -22,8 +22,10 @@ import type { AgentCredentials, ApprovalPreset } from "coding-agent-adapters";
 import type { PTYService } from "../services/pty-service.js";
 import {
   type CodingAgentType,
+  isPiAgentType,
   normalizeAgentType,
   type SessionInfo,
+  toPiCommand,
 } from "../services/pty-types.js";
 import type { CodingWorkspaceService } from "../services/workspace-service.js";
 
@@ -39,7 +41,7 @@ export const spawnAgentAction: Action = {
   ],
 
   description:
-    "Spawn a CLI coding agent (Claude Code, Codex, Gemini, Aider) to work on a coding task. " +
+    "Spawn a CLI coding agent (Claude Code, Codex, Gemini, Aider, Pi) to work on a coding task. " +
     "The agent runs in a PTY session and can execute code, run tests, and make changes. " +
     "Returns a session ID that can be used to interact with the agent.",
 
@@ -116,6 +118,8 @@ export const spawnAgentAction: Action = {
       "claude";
     const agentType = normalizeAgentType(rawAgentType);
     const task = (params?.task as string) ?? (content.task as string);
+    const piRequested = isPiAgentType(rawAgentType);
+    const initialTask = piRequested ? toPiCommand(task) : task;
 
     // Resolve workdir: explicit param > state from PROVISION_WORKSPACE > most recent workspace > cwd
     let workdir = (params?.workdir as string) ?? (content.workdir as string);
@@ -197,9 +201,9 @@ export const spawnAgentAction: Action = {
 
     try {
       // Check if the agent CLI is installed (for non-shell agents)
-      if (agentType !== "shell") {
+      if (agentType !== "shell" && agentType !== "pi") {
         const [preflight] = await ptyService.checkAvailableAgents([
-          agentType as Exclude<CodingAgentType, "shell">,
+          agentType as Exclude<CodingAgentType, "shell" | "pi">,
         ]);
         if (preflight && !preflight.installed) {
           if (callback) {
@@ -219,7 +223,7 @@ export const spawnAgentAction: Action = {
         name: `coding-${Date.now()}`,
         agentType,
         workdir,
-        initialTask: task,
+        initialTask,
         memoryContent,
         credentials,
         approvalPreset: approvalPreset as ApprovalPreset | undefined,
@@ -272,16 +276,16 @@ export const spawnAgentAction: Action = {
 
       if (callback) {
         await callback({
-          text: `Started ${agentType} coding agent in ${workdir}${task ? ` with task: "${task}"` : ""}. Session ID: ${session.id}`,
+          text: `Started ${piRequested ? "pi" : agentType} coding agent in ${workdir}${task ? ` with task: "${task}"` : ""}. Session ID: ${session.id}`,
         });
       }
 
       return {
         success: true,
-        text: `Started ${agentType} coding agent`,
+        text: `Started ${piRequested ? "pi" : agentType} coding agent`,
         data: {
           sessionId: session.id,
-          agentType: session.agentType,
+          agentType: piRequested ? "pi" : session.agentType,
           workdir: session.workdir,
           status: session.status,
         },
@@ -308,7 +312,7 @@ export const spawnAgentAction: Action = {
     {
       name: "agentType",
       description:
-        "Type of coding agent to spawn. Options: claude (Claude Code), codex (OpenAI Codex), gemini (Google Gemini), aider, shell (generic shell)",
+        "Type of coding agent to spawn. Options: claude (Claude Code), codex (OpenAI Codex), gemini (Google Gemini), aider, pi, shell (generic shell)",
       required: false,
       schema: { type: "string" as const, default: "claude" },
     },

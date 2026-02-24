@@ -579,6 +579,27 @@ describe("collectPluginNames", () => {
     expect(names.has("@elizaos/plugin-obsidian")).toBe(true);
   });
 
+  it("preserves fully-qualified optional plugin package names from plugins.allow", () => {
+    const optionalPlugins = [
+      "@elizaos/plugin-cua",
+      "@elizaos/plugin-code",
+      "@elizaos/plugin-xai",
+      "@elizaos/plugin-deepseek",
+      "@elizaos/plugin-mistral",
+      "@elizaos/plugin-together",
+      "@milaidy/plugin-claude-code-workbench",
+    ];
+    const config = {
+      plugins: { allow: optionalPlugins },
+    } as unknown as MiladyConfig;
+
+    const names = collectPluginNames(config);
+
+    for (const pluginName of optionalPlugins) {
+      expect(names.has(pluginName)).toBe(true);
+    }
+  });
+
   it("CHANNEL_PLUGIN_MAP keys match CONNECTOR_IDS from schema", () => {
     expect([...Object.keys(CHANNEL_PLUGIN_MAP)].sort()).toEqual(
       [...CONNECTOR_IDS].sort(),

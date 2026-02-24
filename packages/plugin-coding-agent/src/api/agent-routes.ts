@@ -12,6 +12,11 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import * as os from "node:os";
 import * as path from "node:path";
+import {
+  isPiAgentType,
+  normalizeAgentType,
+  toPiCommand,
+} from "../services/pty-types.js";
 import type { RouteContext } from "./routes.js";
 import { parseBody, sendError, sendJson } from "./routes.js";
 
@@ -80,8 +85,20 @@ export async function handleAgentRoutes(
       if (!agentType) {
         sendError(
           res,
-          "agentType query parameter required (claude, gemini, codex, aider)",
+          "agentType query parameter required (claude, gemini, codex, aider, pi)",
           400,
+        );
+        return true;
+      }
+
+      if (isPiAgentType(agentType)) {
+        sendJson(
+          res,
+          {
+            agentType: "pi",
+            memoryFilePath: ".pi/agent/settings.json",
+            files: [],
+          } as unknown as JsonValue,
         );
         return true;
       }
@@ -256,6 +273,8 @@ export async function handleAgentRoutes(
 
       // Read model preferences from runtime settings
       const agentStr = ((agentType as string) || "claude").toLowerCase();
+      const piRequested = isPiAgentType(agentStr);
+      const normalizedType = normalizeAgentType(agentStr);
       const prefixMap: Record<string, string> = {
         claude: "PARALLAX_CLAUDE",
         gemini: "PARALLAX_GEMINI",
@@ -276,10 +295,11 @@ export async function handleAgentRoutes(
 
       const session = await ctx.ptyService.spawnSession({
         name: `agent-${Date.now()}`,
-        agentType:
-          agentStr as import("../services/pty-service.js").CodingAgentType,
+        agentType: normalizedType,
         workdir: workdir as string,
-        initialTask: task as string,
+        initialTask: piRequested
+          ? toPiCommand(task as string | undefined)
+          : (task as string),
         memoryContent: memoryContent as string | undefined,
         credentials,
         approvalPreset: approvalPreset as
@@ -289,6 +309,7 @@ export async function handleAgentRoutes(
           | Record<string, string>
           | undefined,
         metadata: {
+          requestedType: agentStr,
           ...(metadata as Record<string, unknown>),
           ...(aiderProvider ? { provider: aiderProvider } : {}),
           modelPrefs: {

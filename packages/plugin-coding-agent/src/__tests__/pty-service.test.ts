@@ -186,6 +186,7 @@ describe("PTYService", () => {
       expect(session.metadata).toEqual({
         userId: "user-123",
         taskId: "task-456",
+        requestedType: "shell",
         agentType: "shell",
       });
     });
@@ -306,6 +307,10 @@ describe("PTYService", () => {
 
     it("should return false for unknown session blocked check", () => {
       expect(service.isSessionBlocked("unknown-id")).toBe(false);
+    });
+
+    it("should include pi in supported agent types", () => {
+      expect(service.getSupportedAgentTypes()).toContain("pi");
     });
   });
 

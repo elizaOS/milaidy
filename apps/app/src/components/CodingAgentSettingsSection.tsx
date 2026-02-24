@@ -2,7 +2,8 @@ import { useCallback, useEffect, useState } from "react";
 import { client } from "../api-client";
 import { ConfigSaveFooter } from "./ConfigSaveFooter";
 
-type AgentTab = "claude" | "gemini" | "codex" | "aider";
+type AgentTab = "claude" | "gemini" | "codex" | "aider" | "pi";
+type ConfigurableAgentTab = Exclude<AgentTab, "pi">;
 type AiderProvider = "anthropic" | "openai" | "google";
 
 interface ModelOption {
@@ -11,7 +12,7 @@ interface ModelOption {
 }
 
 // Maps agent tabs (and aider providers) to the provider IDs used by /api/models
-const AGENT_PROVIDER_MAP: Record<AgentTab, string> = {
+const AGENT_PROVIDER_MAP: Record<ConfigurableAgentTab, string> = {
   claude: "anthropic",
   gemini: "google-genai",
   codex: "openai",
@@ -47,9 +48,10 @@ const AGENT_LABELS: Record<AgentTab, string> = {
   gemini: "Gemini",
   codex: "Codex",
   aider: "Aider",
+  pi: "Pi",
 };
 
-const ENV_PREFIX: Record<AgentTab, string> = {
+const ENV_PREFIX: Record<ConfigurableAgentTab, string> = {
   claude: "PARALLAX_CLAUDE",
   gemini: "PARALLAX_GEMINI",
   codex: "PARALLAX_CODEX",
@@ -157,7 +159,10 @@ export function CodingAgentSettingsSection() {
   }, [prefs]);
 
   // Resolve the provider ID for the current tab
-  const getProviderId = (tab: AgentTab, aiderProv: AiderProvider): string => {
+  const getProviderId = (
+    tab: ConfigurableAgentTab,
+    aiderProv: AiderProvider,
+  ): string => {
     if (tab === "aider") return AIDER_PROVIDER_MAP[aiderProv];
     return AGENT_PROVIDER_MAP[tab];
   };
@@ -175,36 +180,43 @@ export function CodingAgentSettingsSection() {
     );
   }
 
-  const prefix = ENV_PREFIX[activeTab];
+  const isPiTab = activeTab === "pi";
+  const editableTab: ConfigurableAgentTab =
+    activeTab === "pi" ? "claude" : activeTab;
+  const prefix = ENV_PREFIX[editableTab];
   const aiderProvider = (prefs.PARALLAX_AIDER_PROVIDER ||
     "anthropic") as AiderProvider;
-  const providerId = getProviderId(activeTab, aiderProvider);
-  const modelOptions = getModelOptions(providerId);
+  const providerId = !isPiTab
+    ? getProviderId(editableTab, aiderProvider)
+    : undefined;
+  const modelOptions = providerId ? getModelOptions(providerId) : [];
   const powerfulValue = prefs[`${prefix}_MODEL_POWERFUL`] ?? "";
   const fastValue = prefs[`${prefix}_MODEL_FAST`] ?? "";
-  const isDynamic = !!providerModels[providerId];
+  const isDynamic = providerId ? !!providerModels[providerId] : false;
 
   return (
     <div className="flex flex-col gap-4">
       {/* Agent tabs */}
       <div className="flex border border-[var(--border)]">
-        {(["claude", "gemini", "codex", "aider"] as AgentTab[]).map((agent) => {
-          const active = activeTab === agent;
-          return (
-            <button
-              key={agent}
-              type="button"
-              className={`flex-1 px-3 py-2 text-xs font-semibold cursor-pointer transition-colors border-r last:border-r-0 border-[var(--border)] ${
-                active
-                  ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
-                  : "bg-[var(--card)] text-[var(--muted)] hover:text-[var(--text)]"
-              }`}
-              onClick={() => setActiveTab(agent)}
-            >
-              {AGENT_LABELS[agent]}
-            </button>
-          );
-        })}
+        {(["claude", "gemini", "codex", "aider", "pi"] as AgentTab[]).map(
+          (agent) => {
+            const active = activeTab === agent;
+            return (
+              <button
+                key={agent}
+                type="button"
+                className={`flex-1 px-3 py-2 text-xs font-semibold cursor-pointer transition-colors border-r last:border-r-0 border-[var(--border)] ${
+                  active
+                    ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
+                    : "bg-[var(--card)] text-[var(--muted)] hover:text-[var(--text)]"
+                }`}
+                onClick={() => setActiveTab(agent)}
+              >
+                {AGENT_LABELS[agent]}
+              </button>
+            );
+          },
+        )}
       </div>
 
       {/* Aider provider selector */}
@@ -224,46 +236,56 @@ export function CodingAgentSettingsSection() {
       )}
 
       {/* Model selectors — both use the same list, user picks tier preference */}
-      <div className="flex gap-3">
-        <div className="flex-1 flex flex-col gap-1.5">
-          <span className="text-xs font-semibold">Powerful Model</span>
-          <select
-            className="px-2.5 py-1.5 border border-[var(--border)] bg-[var(--card)] text-xs focus:border-[var(--accent)] focus:outline-none"
-            value={powerfulValue}
-            onChange={(e) =>
-              setPref(`${prefix}_MODEL_POWERFUL`, e.target.value)
-            }
-          >
-            <option value="">Default</option>
-            {modelOptions.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
+      {!isPiTab ? (
+        <>
+          <div className="flex gap-3">
+            <div className="flex-1 flex flex-col gap-1.5">
+              <span className="text-xs font-semibold">Powerful Model</span>
+              <select
+                className="px-2.5 py-1.5 border border-[var(--border)] bg-[var(--card)] text-xs focus:border-[var(--accent)] focus:outline-none"
+                value={powerfulValue}
+                onChange={(e) =>
+                  setPref(`${prefix}_MODEL_POWERFUL`, e.target.value)
+                }
+              >
+                <option value="">Default</option>
+                {modelOptions.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex-1 flex flex-col gap-1.5">
+              <span className="text-xs font-semibold">Fast Model</span>
+              <select
+                className="px-2.5 py-1.5 border border-[var(--border)] bg-[var(--card)] text-xs focus:border-[var(--accent)] focus:outline-none"
+                value={fastValue}
+                onChange={(e) =>
+                  setPref(`${prefix}_MODEL_FAST`, e.target.value)
+                }
+              >
+                <option value="">Default</option>
+                {modelOptions.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className="text-[11px] text-[var(--muted)]">
+            {isDynamic
+              ? "Models fetched from provider API. These are preferences — the CLI may override based on availability."
+              : "Using fallback model list — configure your API key to see all available models."}
+          </div>
+        </>
+      ) : (
+        <div className="text-[11px] text-[var(--muted)] border border-[var(--border)] bg-[var(--card)] p-3">
+          Pi agent runs via the local <code>pi</code> CLI and uses your Pi
+          environment/configuration. Model routing is managed by Pi directly.
         </div>
-        <div className="flex-1 flex flex-col gap-1.5">
-          <span className="text-xs font-semibold">Fast Model</span>
-          <select
-            className="px-2.5 py-1.5 border border-[var(--border)] bg-[var(--card)] text-xs focus:border-[var(--accent)] focus:outline-none"
-            value={fastValue}
-            onChange={(e) => setPref(`${prefix}_MODEL_FAST`, e.target.value)}
-          >
-            <option value="">Default</option>
-            {modelOptions.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      <div className="text-[11px] text-[var(--muted)]">
-        {isDynamic
-          ? "Models fetched from provider API. These are preferences — the CLI may override based on availability."
-          : "Using fallback model list — configure your API key to see all available models."}
-      </div>
+      )}
 
       <ConfigSaveFooter
         dirty={dirty}

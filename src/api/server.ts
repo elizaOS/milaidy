@@ -1436,6 +1436,14 @@ function resolveSkillEnabled(
   return true;
 }
 
+function parseSkillDirsSetting(raw: unknown): string[] {
+  if (typeof raw !== "string") return [];
+  return raw
+    .split(",")
+    .map((dir) => dir.trim())
+    .filter((dir) => dir.length > 0);
+}
+
 /**
  * Discover skills from @elizaos/skills and workspace, applying
  * database preferences and config filtering.
@@ -1522,7 +1530,7 @@ async function discoverSkills(
   }
 
   // ── Fallback: filesystem scanning ───────────────────────────────────────
-  const skillsDirs: string[] = [];
+  const skillsDirs = new Set<string>();
 
   // Bundled skills from the @elizaos/skills package
   try {
@@ -1531,7 +1539,7 @@ async function discoverSkills(
     };
     const bundledDir = skillsPkg.getSkillsDir();
     if (bundledDir && fs.existsSync(bundledDir)) {
-      skillsDirs.push(bundledDir);
+      skillsDirs.add(bundledDir);
     }
   } catch {
     logger.debug(
@@ -1539,17 +1547,37 @@ async function discoverSkills(
     );
   }
 
+  // Runtime-provided skill directories (works even when @elizaos/skills is not installed
+  // as a direct dependency and AgentSkillsService catalog sync is degraded).
+  if (runtime && typeof runtime.getSetting === "function") {
+    for (const dir of parseSkillDirsSetting(
+      runtime.getSetting("BUNDLED_SKILLS_DIRS"),
+    )) {
+      if (fs.existsSync(dir)) skillsDirs.add(dir);
+    }
+    for (const dir of parseSkillDirsSetting(
+      runtime.getSetting("EXTRA_SKILLS_DIRS"),
+    )) {
+      if (fs.existsSync(dir)) skillsDirs.add(dir);
+    }
+    for (const dir of parseSkillDirsSetting(
+      runtime.getSetting("WORKSPACE_SKILLS_DIR"),
+    )) {
+      if (fs.existsSync(dir)) skillsDirs.add(dir);
+    }
+  }
+
   // Workspace-local skills
   const workspaceSkills = path.join(workspaceDir, "skills");
   if (fs.existsSync(workspaceSkills)) {
-    skillsDirs.push(workspaceSkills);
+    skillsDirs.add(workspaceSkills);
   }
 
   // Extra dirs from config
   const extraDirs = config.skills?.load?.extraDirs;
   if (extraDirs) {
     for (const dir of extraDirs) {
-      if (fs.existsSync(dir)) skillsDirs.push(dir);
+      if (fs.existsSync(dir)) skillsDirs.add(dir);
     }
   }
 
@@ -10117,7 +10145,7 @@ async function handleRequest(
       logger.warn(
         `[conversations] Failed to fetch messages: ${err instanceof Error ? err.message : String(err)}`,
       );
-      json(res, { error: "Failed to fetch messages" }, 500);
+      json(res, { messages: [], error: "Failed to fetch messages" }, 500);
     }
     return;
   }

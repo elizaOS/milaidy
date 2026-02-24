@@ -5,7 +5,7 @@
  * - PTY session management (spawn, control, monitor coding agents)
  * - Git workspace provisioning (clone, branch, PR creation)
  * - GitHub issue management (create, list, update, close)
- * - Integration with Claude Code, Codex, Gemini CLI, Aider, etc.
+ * - Integration with Claude Code, Codex, Gemini CLI, Aider, Pi, etc.
  *
  * @module @milaidy/plugin-coding-agent
  */
@@ -73,7 +73,7 @@ function wireAuthPromptCallback(runtime: IAgentRuntime): void {
 export const codingAgentPlugin: Plugin = {
   name: "@milaidy/plugin-coding-agent",
   description:
-    "Orchestrate CLI coding agents (Claude Code, Codex, etc.) via PTY sessions, " +
+    "Orchestrate CLI coding agents (Claude Code, Codex, Gemini, Aider, Pi, etc.) via PTY sessions, " +
     "manage git workspaces, and handle GitHub issues for autonomous coding tasks",
 
   // Plugin init - wire up deciders and callbacks after services are ready

@@ -1,13 +1,13 @@
 # @milaidy/plugin-coding-agent
 
-Orchestrate CLI-based coding agents (Claude Code, Codex, Gemini CLI, Aider) via PTY sessions and manage git workspaces for autonomous coding tasks.
+Orchestrate CLI-based coding agents (Claude Code, Codex, Gemini CLI, Aider, Pi) via PTY sessions and manage git workspaces for autonomous coding tasks.
 
 ## Features
 
 - **PTY Session Management**: Spawn, control, and monitor coding agents running in pseudo-terminals
 - **Git Workspace Provisioning**: Clone repos, create worktrees, manage branches
 - **PR Workflow**: Commit changes, push to remote, create pull requests
-- **Multi-Agent Support**: Claude Code, Codex, Gemini CLI, Aider, or generic shell
+- **Multi-Agent Support**: Claude Code, Codex, Gemini CLI, Aider, Pi, or generic shell
 
 ## Installation
 

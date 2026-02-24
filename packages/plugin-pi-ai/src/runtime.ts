@@ -1,11 +1,11 @@
 import process from "node:process";
 import type { IAgentRuntime } from "@elizaos/core";
+import { registerPiAiModelHandler } from "./model-handler.js";
 import {
   DEFAULT_PI_MODEL_SPEC,
   getPiModel,
   parseModelSpec,
 } from "./model-utils.js";
-import { registerPiAiModelHandler } from "./model-handler.js";
 import { createPiCredentialProvider } from "./pi-credentials.js";
 
 export function isPiAiEnabledFromEnv(

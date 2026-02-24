@@ -113,7 +113,7 @@ const CAPABILITIES: CapabilityDef[] = [
     id: "coding-agent",
     label: "Coding Agent Swarms",
     description:
-      "Orchestrate CLI coding agents (Claude Code, Gemini, Codex, Aider)",
+      "Orchestrate CLI coding agents (Claude Code, Gemini, Codex, Aider, Pi)",
     requiredPermissions: [],
   },
 ];

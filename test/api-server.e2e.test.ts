@@ -18,7 +18,10 @@
  */
 
 import crypto from "node:crypto";
+import fs from "node:fs/promises";
 import http from "node:http";
+import os from "node:os";
+import path from "node:path";
 import type { AgentRuntime, Content, Task, UUID } from "@elizaos/core";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { WebSocket } from "ws";
@@ -1683,6 +1686,42 @@ describe("API Server E2E (no runtime)", () => {
         await streamServer.close();
       }
     });
+
+    it("GET /api/conversations/:id/messages returns an empty messages array on runtime read failure", async () => {
+      const runtime = createRuntimeForChatSseTests();
+      runtime.getMemories = async () => {
+        throw new Error("forced-memories-failure");
+      };
+
+      const streamServer = await startApiServer({ port: 0, runtime });
+      try {
+        const create = await req(
+          streamServer.port,
+          "POST",
+          "/api/conversations",
+          {
+            title: "Conversation messages failure fallback",
+          },
+        );
+        expect(create.status).toBe(200);
+        const conversation = create.data.conversation as { id?: string };
+        const conversationId = conversation.id ?? "";
+        expect(conversationId.length).toBeGreaterThan(0);
+
+        const response = await req(
+          streamServer.port,
+          "GET",
+          `/api/conversations/${conversationId}/messages`,
+        );
+
+        expect(response.status).toBe(500);
+        expect(Array.isArray(response.data.messages)).toBe(true);
+        expect((response.data.messages as unknown[]).length).toBe(0);
+        expect(typeof response.data.error).toBe("string");
+      } finally {
+        await streamServer.close();
+      }
+    });
   });
 
   describe("trajectory endpoints (runtime stub)", () => {
@@ -2647,6 +2686,70 @@ describe("API Server E2E (no runtime)", () => {
       const { status, data } = await req(port, "GET", "/api/skills");
       expect(status).toBe(200);
       expect(Array.isArray(data.skills)).toBe(true);
+    });
+
+    it("falls back to runtime-provided skill directories when AgentSkillsService is empty", async () => {
+      const tempRoot = await fs.mkdtemp(
+        path.join(os.tmpdir(), "milady-skills-"),
+      );
+      const bundledDir = path.join(tempRoot, "bundled-skills");
+      const skillDir = path.join(bundledDir, "fallback-skill");
+      await fs.mkdir(skillDir, { recursive: true });
+      await fs.writeFile(
+        path.join(skillDir, "SKILL.md"),
+        [
+          "---",
+          "name: Fallback Skill",
+          "description: Loads when catalog sync fails",
+          "---",
+          "",
+          "# Fallback skill",
+        ].join("\n"),
+        "utf-8",
+      );
+
+      const runtime = {
+        agentId: "skills-fallback-agent",
+        character: { name: "SkillsFallbackAgent" },
+        getService: (serviceType: string) => {
+          if (serviceType === "AGENT_SKILLS_SERVICE") {
+            return {
+              getLoadedSkills: () => [],
+            };
+          }
+          return null;
+        },
+        getSetting: (key: string) => {
+          if (key === "BUNDLED_SKILLS_DIRS") return bundledDir;
+          return undefined;
+        },
+        getRoomsByWorld: async () => [],
+        getTasks: async () => [],
+        getTask: async () => null,
+        createTask: async () => crypto.randomUUID() as UUID,
+        updateTask: async () => {},
+        deleteTask: async () => {},
+      } as unknown as AgentRuntime;
+
+      const streamServer = await startApiServer({ port: 0, runtime });
+      const streamPort = streamServer.port;
+
+      try {
+        const refreshed = await req(
+          streamPort,
+          "POST",
+          "/api/skills/refresh",
+          {},
+        );
+        expect(refreshed.status).toBe(200);
+        const skills = refreshed.data.skills as Array<{ id?: string }>;
+        expect(skills.some((skill) => skill.id === "fallback-skill")).toBe(
+          true,
+        );
+      } finally {
+        await streamServer.close();
+        await fs.rm(tempRoot, { recursive: true, force: true });
+      }
     });
   });
 
