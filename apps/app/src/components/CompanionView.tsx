@@ -7,7 +7,13 @@ import {
   useApp,
   VRM_COUNT,
 } from "../AppContext.js";
-import type { BscTradeQuoteResponse } from "../api-client.js";
+import type {
+  BscTradeQuoteResponse,
+  BscTradeTxStatusResponse,
+  WalletTradingProfileResponse,
+  WalletTradingProfileSourceFilter,
+  WalletTradingProfileWindow,
+} from "../api-client.js";
 import { VrmViewer } from "./avatar/VrmViewer";
 import type { VrmEngine, VrmEngineState } from "./avatar/VrmEngine";
 import {
@@ -17,21 +23,204 @@ import {
 } from "./avatar/companionAnimationIntent";
 import { BubbleEmote } from "./BubbleEmote";
 import { ChatModalView } from "./ChatModalView.js";
+import { WalletTradingProfileModal } from "./WalletTradingProfileModal.js";
 import { createTranslator } from "../i18n";
+import { getWalletTxStatusLabel, mapWalletTradeError } from "./wallet-trade-helpers";
 
 const BSC_GAS_READY_THRESHOLD = 0.005;
 const BSC_SWAP_GAS_RESERVE = 0.002;
 const HEX_ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
+const MILADY_BSC_TOKEN_ADDRESS = "0xc20e45e49e0e79f0fc81e71f05fd2772d6587777";
+const BSC_USDT_TOKEN_ADDRESS = "0x55d398326f99059fF775485246999027B3197955";
+const BSC_USDC_TOKEN_ADDRESS = "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d";
+const BSC_NATIVE_LOGO_URL = "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/smartchain/info/logo.png";
+const SOL_NATIVE_LOGO_URL = "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/solana/info/logo.png";
+const WALLET_RECENT_TRADES_KEY = "anime_wallet_recent_trades";
+const MAX_WALLET_RECENT_TRADES = 10;
+
+type WalletPortfolioChainFilter = "all" | "bsc" | "evm" | "solana";
+
+type WalletTokenRow = {
+  key: string;
+  symbol: string;
+  name: string;
+  chain: string;
+  chainKey: Exclude<WalletPortfolioChainFilter, "all">;
+  assetAddress: string | null;
+  isNative: boolean;
+  valueUsd: number;
+  balance: string;
+  logoUrl: string | null;
+};
+
+type WalletCollectibleRow = {
+  key: string;
+  chain: string;
+  chainKey: Exclude<WalletPortfolioChainFilter, "all">;
+  name: string;
+  collectionName: string;
+  imageUrl: string | null;
+};
+
+type WalletRecentTrade = {
+  hash: string;
+  side: "buy" | "sell";
+  tokenAddress: string;
+  amount: string;
+  inputSymbol: string;
+  outputSymbol: string;
+  createdAt: number;
+  status: BscTradeTxStatusResponse["status"];
+  confirmations: number;
+  nonce: number | null;
+  reason: string | null;
+  explorerUrl: string;
+};
+
+type WalletRecentFilter = "all" | BscTradeTxStatusResponse["status"];
+
+type TokenMetadata = {
+  symbol: string;
+  name: string;
+  logoUrl: string | null;
+};
 
 function isBscChainName(chain: string): boolean {
   const normalized = chain.trim().toLowerCase();
   return normalized === "bsc" || normalized === "bnb chain" || normalized === "bnb smart chain";
 }
 
+function resolvePortfolioChainKey(chain: string): Exclude<WalletPortfolioChainFilter, "all"> {
+  const normalized = chain.trim().toLowerCase();
+  if (isBscChainName(chain)) return "bsc";
+  if (normalized.includes("solana") || normalized === "sol") return "solana";
+  return "evm";
+}
+
 function formatRouteAddress(address: string): string {
   const trimmed = address.trim();
   if (trimmed.length <= 14) return trimmed;
   return `${trimmed.slice(0, 6)}...${trimmed.slice(-4)}`;
+}
+
+function getTokenExplorerUrl(row: WalletTokenRow): string | null {
+  if (!row.assetAddress) return null;
+  if (row.chainKey === "solana") return `https://solscan.io/token/${row.assetAddress}`;
+  const chain = row.chain.trim().toLowerCase();
+  if (isBscChainName(row.chain)) return `https://bscscan.com/token/${row.assetAddress}`;
+  if (chain === "ethereum" || chain === "mainnet") return `https://etherscan.io/token/${row.assetAddress}`;
+  if (chain === "base") return `https://basescan.org/token/${row.assetAddress}`;
+  if (chain === "arbitrum") return `https://arbiscan.io/token/${row.assetAddress}`;
+  if (chain === "optimism") return `https://optimistic.etherscan.io/token/${row.assetAddress}`;
+  if (chain === "polygon") return `https://polygonscan.com/token/${row.assetAddress}`;
+  return null;
+}
+
+function loadRecentTrades(): WalletRecentTrade[] {
+  if (typeof localStorage === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(WALLET_RECENT_TRADES_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter(
+        (entry): entry is WalletRecentTrade =>
+          Boolean(entry) &&
+          typeof entry === "object" &&
+          typeof entry.hash === "string" &&
+          typeof entry.side === "string" &&
+          (entry.side === "buy" || entry.side === "sell") &&
+          typeof entry.createdAt === "number" &&
+          typeof entry.status === "string",
+      )
+      .slice(0, MAX_WALLET_RECENT_TRADES);
+  } catch {
+    return [];
+  }
+}
+
+function persistRecentTrades(rows: WalletRecentTrade[]): void {
+  if (typeof localStorage === "undefined") return;
+  try {
+    localStorage.setItem(WALLET_RECENT_TRADES_KEY, JSON.stringify(rows.slice(0, MAX_WALLET_RECENT_TRADES)));
+  } catch {
+    // Ignore persistence errors so wallet actions remain usable.
+  }
+}
+
+function shortHash(hash: string): string {
+  const normalized = hash.trim();
+  if (normalized.length <= 14) return normalized;
+  return `${normalized.slice(0, 8)}...${normalized.slice(-6)}`;
+}
+
+function getRecentTradeGroupKey(createdAt: number, nowMs: number = Date.now()): "today" | "yesterday" | "earlier" {
+  const DAY_MS = 24 * 60 * 60 * 1000;
+  const now = new Date(nowMs);
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const startOfCreatedAt = new Date(createdAt);
+  const createdDayStart = new Date(
+    startOfCreatedAt.getFullYear(),
+    startOfCreatedAt.getMonth(),
+    startOfCreatedAt.getDate(),
+  ).getTime();
+  if (createdDayStart >= startOfToday) return "today";
+  if (createdDayStart >= startOfToday - DAY_MS) return "yesterday";
+  return "earlier";
+}
+
+type DexScreenerTokenRef = {
+  address?: string;
+  symbol?: string;
+  name?: string;
+};
+
+type DexScreenerPair = {
+  chainId?: string;
+  baseToken?: DexScreenerTokenRef;
+  quoteToken?: DexScreenerTokenRef;
+  info?: {
+    imageUrl?: string;
+  };
+};
+
+type DexScreenerTokenResponse = {
+  pairs?: DexScreenerPair[];
+};
+
+async function fetchBscTokenMetadata(contractAddress: string): Promise<TokenMetadata | null> {
+  if (typeof fetch !== "function") return null;
+  const controller = new AbortController();
+  const timeout = globalThis.setTimeout(() => controller.abort(), 3500);
+  const normalized = contractAddress.trim().toLowerCase();
+
+  try {
+    const response = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${contractAddress}`, {
+      signal: controller.signal,
+    });
+    if (!response.ok) return null;
+    const payload = (await response.json()) as DexScreenerTokenResponse;
+    const pairs = Array.isArray(payload.pairs) ? payload.pairs : [];
+    const pair = pairs.find((item) => (item.chainId ?? "").toLowerCase() === "bsc");
+    if (!pair) return null;
+    const baseAddr = pair.baseToken?.address?.trim().toLowerCase();
+    const quoteAddr = pair.quoteToken?.address?.trim().toLowerCase();
+    const tokenRef =
+      baseAddr === normalized
+        ? pair.baseToken
+        : quoteAddr === normalized
+          ? pair.quoteToken
+          : pair.baseToken;
+    return {
+      symbol: tokenRef?.symbol?.trim() || "MILADY",
+      name: tokenRef?.name?.trim() || "Milady",
+      logoUrl: pair.info?.imageUrl?.trim() || null,
+    };
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 export function CompanionView() {
@@ -54,19 +243,25 @@ export function CompanionView() {
     cloudTopUpUrl,
     walletAddresses,
     walletBalances,
+    walletNfts,
     walletLoading,
+    walletNftsLoading,
     walletError,
     loadBalances,
+    loadNfts,
     getBscTradePreflight,
     getBscTradeQuote,
+    getBscTradeTxStatus,
+    loadWalletTradingProfile,
     executeBscTrade,
+    executeBscTransfer,
     lifecycleBusy,
     lifecycleAction,
     handlePauseResume,
     handleRestart,
     setActionNotice,
   } = useApp();
-  const t = createTranslator(uiLanguage);
+  const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
 
   // Compute Header properties
   const name = agentStatus?.agentName ?? "Milady";
@@ -92,9 +287,16 @@ export function CompanionView() {
 
   const [walletPanelOpen, setWalletPanelOpen] = useState(false);
   const [walletActionMode, setWalletActionMode] = useState<"send" | "swap" | "receive">("receive");
+  const [walletPortfolioTab, setWalletPortfolioTab] = useState<"tokens" | "collectibles">("tokens");
+  const [walletPortfolioChain, setWalletPortfolioChain] = useState<WalletPortfolioChainFilter>("all");
+  const [walletSelectedTokenKey, setWalletSelectedTokenKey] = useState<string | null>(null);
+  const [walletTokenDetailsOpen, setWalletTokenDetailsOpen] = useState(false);
   const [sendTo, setSendTo] = useState("");
   const [sendAmount, setSendAmount] = useState("");
   const [sendAsset, setSendAsset] = useState("BNB");
+  const [sendExecuteBusy, setSendExecuteBusy] = useState(false);
+  const [sendLastTxHash, setSendLastTxHash] = useState<string | null>(null);
+  const [sendUserSignTx, setSendUserSignTx] = useState<string | null>(null);
   const [swapSide, setSwapSide] = useState<"buy" | "sell">("buy");
   const [swapTokenAddress, setSwapTokenAddress] = useState("");
   const [swapAmount, setSwapAmount] = useState("0.01");
@@ -105,6 +307,22 @@ export function CompanionView() {
   const [swapLastTxHash, setSwapLastTxHash] = useState<string | null>(null);
   const [swapUserSignTx, setSwapUserSignTx] = useState<string | null>(null);
   const [swapUserSignApprovalTx, setSwapUserSignApprovalTx] = useState<string | null>(null);
+  const [miladyTokenMeta, setMiladyTokenMeta] = useState<TokenMetadata>({
+    symbol: "MILADY",
+    name: "Milady",
+    logoUrl: null,
+  });
+  const [miladyTokenMetaLoaded, setMiladyTokenMetaLoaded] = useState(false);
+  const [walletRecentTrades, setWalletRecentTrades] = useState<WalletRecentTrade[]>(() => loadRecentTrades());
+  const [walletRecentFilter, setWalletRecentFilter] = useState<WalletRecentFilter>("all");
+  const [walletRecentExpanded, setWalletRecentExpanded] = useState(false);
+  const [walletRecentBusyHashes, setWalletRecentBusyHashes] = useState<Record<string, boolean>>({});
+  const [walletProfileOpen, setWalletProfileOpen] = useState(false);
+  const [walletProfileLoading, setWalletProfileLoading] = useState(false);
+  const [walletProfileError, setWalletProfileError] = useState<string | null>(null);
+  const [walletProfileWindow, setWalletProfileWindow] = useState<WalletTradingProfileWindow>("30d");
+  const [walletProfileSource, setWalletProfileSource] = useState<WalletTradingProfileSourceFilter>("all");
+  const [walletProfileData, setWalletProfileData] = useState<WalletTradingProfileResponse | null>(null);
   const [characterRosterOpen, setCharacterRosterOpen] = useState(false);
   const [chatDockOpen, setChatDockOpen] = useState(() =>
     typeof window !== "undefined" ? window.innerWidth > 1024 : true,
@@ -116,55 +334,348 @@ export function CompanionView() {
   const idleCycleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const actionAnimatingRef = useRef(false);
   const scheduleNextAccentRef = useRef<() => void>(() => { });
+  const recentTxRefreshAtRef = useRef<Record<string, number>>({});
 
   const walletPanelRef = useRef<HTMLDivElement | null>(null);
 
-  const walletPreviewRows = useMemo(() => {
-    const rows: Array<{ symbol: string; chain: string; valueUsd: number; balance: string }> = [];
+  const walletTokenRows = useMemo(() => {
+    const rows: WalletTokenRow[] = [];
     for (const chain of walletBalances?.evm?.chains ?? []) {
       const nativeValue = Number.parseFloat(chain.nativeValueUsd) || 0;
       rows.push({
+        key: `evm-native-${chain.chain}-${chain.nativeSymbol || "native"}`,
         symbol: chain.nativeSymbol || "NATIVE",
+        name: chain.nativeSymbol || chain.chain,
         chain: chain.chain,
+        chainKey: resolvePortfolioChainKey(chain.chain),
+        assetAddress: null,
+        isNative: true,
         valueUsd: nativeValue,
         balance: chain.nativeBalance,
+        logoUrl: isBscChainName(chain.chain) ? BSC_NATIVE_LOGO_URL : null,
       });
       for (const token of chain.tokens ?? []) {
         rows.push({
+          key: `evm-token-${chain.chain}-${token.contractAddress}`,
           symbol: token.symbol || "TOKEN",
+          name: token.name || token.symbol || "Token",
           chain: chain.chain,
+          chainKey: resolvePortfolioChainKey(chain.chain),
+          assetAddress: token.contractAddress || null,
+          isNative: false,
           valueUsd: Number.parseFloat(token.valueUsd) || 0,
           balance: token.balance,
+          logoUrl: token.logoUrl || null,
         });
       }
     }
 
     if (walletBalances?.solana) {
       rows.push({
+        key: "solana-native",
         symbol: "SOL",
+        name: "Solana",
         chain: "Solana",
+        chainKey: "solana",
+        assetAddress: null,
+        isNative: true,
         valueUsd: Number.parseFloat(walletBalances.solana.solValueUsd) || 0,
         balance: walletBalances.solana.solBalance,
+        logoUrl: SOL_NATIVE_LOGO_URL,
       });
       for (const token of walletBalances.solana.tokens ?? []) {
         rows.push({
+          key: `solana-token-${token.mint}`,
           symbol: token.symbol || "TOKEN",
+          name: token.name || token.symbol || "Token",
           chain: "Solana",
+          chainKey: "solana",
+          assetAddress: token.mint || null,
+          isNative: false,
           valueUsd: Number.parseFloat(token.valueUsd) || 0,
           balance: token.balance,
+          logoUrl: token.logoUrl || null,
         });
       }
     }
 
-    return rows
+    const positiveValueRows = rows
       .filter((row) => Number.isFinite(row.valueUsd) && row.valueUsd > 0)
-      .sort((a, b) => b.valueUsd - a.valueUsd)
-      .slice(0, 4);
-  }, [walletBalances]);
+      .sort((a, b) => b.valueUsd - a.valueUsd);
+
+    const bscNativeFromRaw = rows.find((row) => row.chainKey === "bsc" && row.isNative);
+    if (!positiveValueRows.some((row) => row.chainKey === "bsc" && row.isNative)) {
+      positiveValueRows.push(
+        bscNativeFromRaw ?? {
+          key: "fallback-bsc-native",
+          symbol: "BNB",
+          name: "BNB",
+          chain: "BSC",
+          chainKey: "bsc",
+          assetAddress: null,
+          isNative: true,
+          valueUsd: 0,
+          balance: "0",
+          logoUrl: BSC_NATIVE_LOGO_URL,
+        },
+      );
+    }
+
+    const miladyAddr = MILADY_BSC_TOKEN_ADDRESS.toLowerCase();
+    const miladyFromRaw = rows.find(
+      (row) => row.assetAddress?.trim().toLowerCase() === miladyAddr,
+    );
+    if (!positiveValueRows.some((row) => row.assetAddress?.trim().toLowerCase() === miladyAddr)) {
+      positiveValueRows.push(
+        miladyFromRaw ?? {
+          key: `fallback-bsc-${miladyAddr}`,
+          symbol: miladyTokenMeta.symbol,
+          name: miladyTokenMeta.name,
+          chain: "BSC",
+          chainKey: "bsc",
+          assetAddress: MILADY_BSC_TOKEN_ADDRESS,
+          isNative: false,
+          valueUsd: 0,
+          balance: "0",
+          logoUrl: miladyTokenMeta.logoUrl,
+        },
+      );
+    }
+
+    return positiveValueRows.sort((a, b) => b.valueUsd - a.valueUsd);
+  }, [miladyTokenMeta, walletBalances]);
 
   const walletTotalUsd = useMemo(() => {
-    return walletPreviewRows.reduce((sum, row) => sum + row.valueUsd, 0);
-  }, [walletPreviewRows]);
+    return walletTokenRows.reduce((sum, row) => sum + row.valueUsd, 0);
+  }, [walletTokenRows]);
+
+  const walletBnbUsdEstimate = useMemo(() => {
+    const bscNative = walletBalances?.evm?.chains.find((chain) => isBscChainName(chain.chain));
+    if (!bscNative) return null;
+    const nativeBalance = Number.parseFloat(bscNative.nativeBalance);
+    const nativeValueUsd = Number.parseFloat(bscNative.nativeValueUsd);
+    if (!Number.isFinite(nativeBalance) || nativeBalance <= 0) return null;
+    if (!Number.isFinite(nativeValueUsd) || nativeValueUsd <= 0) return null;
+    const estimate = nativeValueUsd / nativeBalance;
+    return Number.isFinite(estimate) && estimate > 0 ? estimate : null;
+  }, [walletBalances]);
+
+  const walletCollectibleRows = useMemo(() => {
+    const rows: WalletCollectibleRow[] = [];
+    for (const chainGroup of walletNfts?.evm ?? []) {
+      for (const nft of chainGroup.nfts ?? []) {
+        rows.push({
+          key: `evm-nft-${chainGroup.chain}-${nft.contractAddress}-${nft.tokenId}`,
+          chain: chainGroup.chain,
+          chainKey: resolvePortfolioChainKey(chainGroup.chain),
+          name: nft.name || `#${nft.tokenId}`,
+          collectionName: nft.collectionName || "EVM NFT",
+          imageUrl: nft.imageUrl || null,
+        });
+      }
+    }
+    for (const nft of walletNfts?.solana?.nfts ?? []) {
+      rows.push({
+        key: `solana-nft-${nft.mint}`,
+        chain: "Solana",
+        chainKey: "solana",
+        name: nft.name || "Solana NFT",
+        collectionName: nft.collectionName || "Solana NFT",
+        imageUrl: nft.imageUrl || null,
+      });
+    }
+    return rows;
+  }, [walletNfts]);
+
+  const filteredWalletTokenRows = useMemo(() => {
+    if (walletPortfolioChain === "all") return walletTokenRows;
+    return walletTokenRows.filter((row) => row.chainKey === walletPortfolioChain);
+  }, [walletPortfolioChain, walletTokenRows]);
+
+  const filteredWalletCollectibleRows = useMemo(() => {
+    if (walletPortfolioChain === "all") return walletCollectibleRows;
+    return walletCollectibleRows.filter((row) => row.chainKey === walletPortfolioChain);
+  }, [walletPortfolioChain, walletCollectibleRows]);
+
+  const visibleWalletTokenRows = useMemo(
+    () => filteredWalletTokenRows.slice(0, 14),
+    [filteredWalletTokenRows],
+  );
+
+  const selectedWalletToken = useMemo(() => {
+    if (visibleWalletTokenRows.length === 0) return null;
+    if (!walletSelectedTokenKey) return visibleWalletTokenRows[0];
+    return visibleWalletTokenRows.find((row) => row.key === walletSelectedTokenKey) ?? visibleWalletTokenRows[0];
+  }, [visibleWalletTokenRows, walletSelectedTokenKey]);
+
+  const selectedWalletTokenShare = useMemo(() => {
+    if (!selectedWalletToken || walletTotalUsd <= 0) return 0;
+    return Math.max(0, Math.min(100, (selectedWalletToken.valueUsd / walletTotalUsd) * 100));
+  }, [selectedWalletToken, walletTotalUsd]);
+
+  const selectedWalletTokenExplorerUrl = useMemo(
+    () => (selectedWalletToken ? getTokenExplorerUrl(selectedWalletToken) : null),
+    [selectedWalletToken],
+  );
+
+  const walletChainOptions = useMemo(() => {
+    const hasBsc = [...walletTokenRows, ...walletCollectibleRows].some((row) => row.chainKey === "bsc");
+    const hasEvm = [...walletTokenRows, ...walletCollectibleRows].some((row) => row.chainKey === "evm");
+    const hasSolana = [...walletTokenRows, ...walletCollectibleRows].some((row) => row.chainKey === "solana");
+    const options: Array<{ value: WalletPortfolioChainFilter; label: string }> = [
+      { value: "all", label: "All" },
+    ];
+    if (hasBsc) options.push({ value: "bsc", label: "BSC" });
+    if (hasEvm) options.push({ value: "evm", label: "EVM" });
+    if (hasSolana) options.push({ value: "solana", label: "SOL" });
+    return options;
+  }, [walletCollectibleRows, walletTokenRows]);
+
+  const walletRefreshBusy = walletLoading || (walletPortfolioTab === "collectibles" && walletNftsLoading);
+
+  const addRecentTrade = useCallback((trade: WalletRecentTrade) => {
+    setWalletRecentTrades((prev) => {
+      const next = [trade, ...prev.filter((entry) => entry.hash !== trade.hash)]
+        .slice(0, MAX_WALLET_RECENT_TRADES);
+      persistRecentTrades(next);
+      return next;
+    });
+  }, []);
+
+  const refreshRecentTradeStatus = useCallback(
+    async (hash: string, silent = false) => {
+      if (!hash) return;
+      setWalletRecentBusyHashes((prev) => ({ ...prev, [hash]: true }));
+      try {
+        const status = await getBscTradeTxStatus(hash);
+        setWalletRecentTrades((prev) => {
+          let changed = false;
+          const next = prev.map((entry) => {
+            if (entry.hash !== hash) return entry;
+            const nextReason = status.reason ?? null;
+            const nextExplorer = status.explorerUrl || entry.explorerUrl;
+            const unchanged =
+              entry.status === status.status &&
+              entry.confirmations === status.confirmations &&
+              entry.nonce === status.nonce &&
+              entry.reason === nextReason &&
+              entry.explorerUrl === nextExplorer;
+            if (unchanged) return entry;
+            changed = true;
+            return {
+              ...entry,
+              status: status.status,
+              confirmations: status.confirmations,
+              nonce: status.nonce,
+              reason: nextReason,
+              explorerUrl: nextExplorer,
+            };
+          });
+          if (!changed) return prev;
+          persistRecentTrades(next);
+          return next;
+        });
+        if (!silent && status.status !== "pending") {
+          setActionNotice(
+            getWalletTxStatusLabel(status.status, t),
+            status.status === "success" ? "success" : "info",
+            2200,
+          );
+        }
+      } catch (err) {
+        if (!silent) {
+          setActionNotice(
+            mapWalletTradeError(err, t, "wallet.txStatusFetchFailed"),
+            "error",
+            3000,
+          );
+        }
+      } finally {
+        setWalletRecentBusyHashes((prev) => {
+          const next = { ...prev };
+          delete next[hash];
+          return next;
+        });
+      }
+    },
+    [getBscTradeTxStatus, setActionNotice, t],
+  );
+
+  const pendingRecentHashes = useMemo(
+    () => walletRecentTrades
+      .filter((entry) => entry.status === "pending")
+      .map((entry) => entry.hash),
+    [walletRecentTrades],
+  );
+
+  const walletRecentFilterOptions = useMemo(
+    () => [
+      { key: "all" as const, label: t("wallet.recentFilterAll") },
+      { key: "pending" as const, label: getWalletTxStatusLabel("pending", t) },
+      { key: "success" as const, label: getWalletTxStatusLabel("success", t) },
+      { key: "reverted" as const, label: getWalletTxStatusLabel("reverted", t) },
+      { key: "not_found" as const, label: getWalletTxStatusLabel("not_found", t) },
+    ],
+    [t],
+  );
+
+  const filteredWalletRecentTrades = useMemo(() => {
+    if (walletRecentFilter === "all") return walletRecentTrades;
+    return walletRecentTrades.filter((entry) => entry.status === walletRecentFilter);
+  }, [walletRecentFilter, walletRecentTrades]);
+
+  const visibleWalletRecentTrades = useMemo(
+    () => filteredWalletRecentTrades.slice(0, 8),
+    [filteredWalletRecentTrades],
+  );
+
+  const groupedWalletRecentTrades = useMemo(() => {
+    const grouped: Record<"today" | "yesterday" | "earlier", WalletRecentTrade[]> = {
+      today: [],
+      yesterday: [],
+      earlier: [],
+    };
+    for (const entry of visibleWalletRecentTrades) {
+      grouped[getRecentTradeGroupKey(entry.createdAt)].push(entry);
+    }
+    return [
+      {
+        key: "today",
+        label: t("wallet.recentGroup.today"),
+        entries: grouped.today,
+      },
+      {
+        key: "yesterday",
+        label: t("wallet.recentGroup.yesterday"),
+        entries: grouped.yesterday,
+      },
+      {
+        key: "earlier",
+        label: t("wallet.recentGroup.earlier"),
+        entries: grouped.earlier,
+      },
+    ].filter((group) => group.entries.length > 0);
+  }, [t, visibleWalletRecentTrades]);
+
+  const refreshWalletTradingProfile = useCallback(async () => {
+    setWalletProfileLoading(true);
+    setWalletProfileError(null);
+    try {
+      const profile = await loadWalletTradingProfile(walletProfileWindow, walletProfileSource);
+      setWalletProfileData(profile);
+    } catch (err) {
+      setWalletProfileError(
+        err instanceof Error ? err.message : t("wallet.profile.loadFailed"),
+      );
+    } finally {
+      setWalletProfileLoading(false);
+    }
+  }, [loadWalletTradingProfile, t, walletProfileSource, walletProfileWindow]);
+
+  useEffect(() => {
+    if (!walletProfileOpen) return;
+    void refreshWalletTradingProfile();
+  }, [walletProfileOpen, refreshWalletTradingProfile]);
 
   const bscChain = useMemo(() => {
     return (walletBalances?.evm?.chains ?? []).find((chain) => isBscChainName(chain.chain)) ?? null;
@@ -189,6 +700,19 @@ export function CompanionView() {
   const sendAmountNum = Number.parseFloat(sendAmount);
   const sendAmountValid = Number.isFinite(sendAmountNum) && sendAmountNum > 0;
   const sendReady = Boolean(evmAddress && sendToValid && sendAmountValid);
+  const sendAssetTokenAddress = useMemo(() => {
+    const normalizedAsset = sendAsset.trim().toUpperCase();
+    if (normalizedAsset === "BNB") return null;
+    const fromWallet = (bscChain?.tokens ?? []).find(
+      (token) => token.symbol.trim().toUpperCase() === normalizedAsset,
+    );
+    if (fromWallet?.contractAddress && HEX_ADDRESS_RE.test(fromWallet.contractAddress.trim())) {
+      return fromWallet.contractAddress.trim();
+    }
+    if (normalizedAsset === "USDT") return BSC_USDT_TOKEN_ADDRESS;
+    if (normalizedAsset === "USDC") return BSC_USDC_TOKEN_ADDRESS;
+    return null;
+  }, [bscChain, sendAsset]);
   const normalizedSwapTokenAddress = swapTokenAddress.trim().toLowerCase();
 
   const selectedBscToken = useMemo(() => {
@@ -348,10 +872,31 @@ export function CompanionView() {
       });
 
       if (result.executed && result.execution?.hash) {
-        setSwapLastTxHash(result.execution.hash);
+        const txHash = result.execution.hash;
+        const initialStatus: BscTradeTxStatusResponse["status"] =
+          result.execution.status === "success" ? "success" : "pending";
+        setSwapLastTxHash(txHash);
         setSwapUserSignTx(null);
         setSwapUserSignApprovalTx(null);
-        setActionNotice(`Trade sent: ${result.execution.hash.slice(0, 10)}...`, "success", 3600);
+        addRecentTrade({
+          hash: txHash,
+          side: swapQuote.side,
+          tokenAddress: swapQuote.tokenAddress,
+          amount: swapQuote.quoteIn.amount,
+          inputSymbol: swapQuote.quoteIn.symbol,
+          outputSymbol: swapQuote.quoteOut.symbol,
+          createdAt: Date.now(),
+          status: initialStatus,
+          confirmations: 0,
+          nonce: result.execution.nonce ?? null,
+          reason: null,
+          explorerUrl: result.execution.explorerUrl || `https://bscscan.com/tx/${txHash}`,
+        });
+        if (initialStatus === "pending") {
+          recentTxRefreshAtRef.current[txHash] = Date.now();
+          void refreshRecentTradeStatus(txHash, true);
+        }
+        setActionNotice(`Trade sent: ${txHash.slice(0, 10)}...`, "success", 3600);
         void loadBalances();
         return;
       }
@@ -378,7 +923,7 @@ export function CompanionView() {
     } finally {
       setSwapExecuteBusy(false);
     }
-  }, [executeBscTrade, loadBalances, setActionNotice, swapQuote]);
+  }, [addRecentTrade, executeBscTrade, loadBalances, refreshRecentTradeStatus, setActionNotice, swapQuote]);
 
   const handleCopyUserSignPayload = useCallback(
     async (payload: string, label: string) => {
@@ -388,24 +933,109 @@ export function CompanionView() {
     [copyToClipboard, setActionNotice],
   );
 
-  const handleSendIntent = useCallback(async () => {
+  const handleSendExecute = useCallback(async () => {
     if (!sendReady || !evmAddress) {
       setActionNotice("Enter a valid destination and amount first.", "error", 2600);
       return;
     }
 
-    const intent = {
-      chain: "BSC",
-      asset: sendAsset,
-      from: evmAddress,
-      to: sendTo.trim(),
-      amount: sendAmount.trim(),
-      createdAt: new Date().toISOString(),
-    };
+    const normalizedAsset = sendAsset.trim().toUpperCase();
+    if (normalizedAsset !== "BNB" && !sendAssetTokenAddress) {
+      setActionNotice(`No token contract found for ${normalizedAsset}.`, "error", 3200);
+      return;
+    }
 
-    await copyToClipboard(JSON.stringify(intent, null, 2));
-    setActionNotice("Send intent copied. You can execute it from Wallet view.", "success", 3200);
-  }, [copyToClipboard, evmAddress, sendAmount, sendAsset, sendReady, sendTo, setActionNotice]);
+    setSendExecuteBusy(true);
+    setSendLastTxHash(null);
+    setSendUserSignTx(null);
+
+    try {
+      const result = await executeBscTransfer({
+        toAddress: sendTo.trim(),
+        amount: sendAmount.trim(),
+        assetSymbol: normalizedAsset,
+        ...(sendAssetTokenAddress ? { tokenAddress: sendAssetTokenAddress } : {}),
+        confirm: true,
+      });
+
+      if (result.requiresUserSignature) {
+        setSendUserSignTx(JSON.stringify(result.unsignedTx, null, 2));
+        setActionNotice("User-sign payload ready. Copy and sign in your wallet.", "info", 4200);
+        return;
+      }
+
+      if (result.execution?.hash) {
+        setSendLastTxHash(result.execution.hash);
+        setActionNotice("Transfer submitted.", "success", 3200);
+        await loadBalances();
+        return;
+      }
+
+      setActionNotice("Transfer execution did not complete.", "error", 3200);
+    } catch (err) {
+      setActionNotice(
+        mapWalletTradeError(err, t, "wallet.transferExecutionFailed"),
+        "error",
+        4200,
+      );
+    } finally {
+      setSendExecuteBusy(false);
+    }
+  }, [
+    evmAddress,
+    executeBscTransfer,
+    loadBalances,
+    sendAmount,
+    sendAsset,
+    sendAssetTokenAddress,
+    sendReady,
+    sendTo,
+    setActionNotice,
+    t,
+  ]);
+
+  const handleCopySelectedTokenAddress = useCallback(async () => {
+    if (!selectedWalletToken?.assetAddress) {
+      setActionNotice(t("wallet.tokenAddressUnavailable"), "info", 2200);
+      return;
+    }
+    await copyToClipboard(selectedWalletToken.assetAddress);
+    setActionNotice(t("wallet.addressCopied"), "success", 2200);
+  }, [copyToClipboard, selectedWalletToken, setActionNotice, t]);
+
+  const handleCopyRecentTxHash = useCallback(
+    async (hash: string) => {
+      await copyToClipboard(hash);
+      setActionNotice(t("wallet.txHashCopied"), "success", 2200);
+    },
+    [copyToClipboard, setActionNotice, t],
+  );
+
+  const handleSelectedTokenSwap = useCallback(() => {
+    if (!selectedWalletToken) return;
+    if (selectedWalletToken.chainKey !== "bsc") {
+      setActionNotice(t("wallet.tokenOpenWalletForSwap"), "info", 2600);
+      return;
+    }
+    setWalletActionMode("swap");
+    if (!selectedWalletToken.isNative && selectedWalletToken.assetAddress) {
+      setSwapTokenAddress(selectedWalletToken.assetAddress);
+      setSwapSide("sell");
+      return;
+    }
+    setSwapSide("buy");
+    setActionNotice("Paste token contract to buy with BNB.", "info", 2600);
+  }, [selectedWalletToken, setActionNotice, t]);
+
+  const handleSelectedTokenSend = useCallback(() => {
+    if (!selectedWalletToken) return;
+    setWalletActionMode("send");
+    if (selectedWalletToken.symbol === "BNB" || selectedWalletToken.symbol === "USDT" || selectedWalletToken.symbol === "USDC") {
+      setSendAsset(selectedWalletToken.symbol);
+    } else {
+      setActionNotice(t("wallet.tokenUnsupportedSendAsset"), "info", 2600);
+    }
+  }, [selectedWalletToken, setActionNotice, t]);
 
   useEffect(() => {
     setSwapQuote(null);
@@ -413,6 +1043,11 @@ export function CompanionView() {
     setSwapUserSignTx(null);
     setSwapUserSignApprovalTx(null);
   }, [swapAmount, swapSide, swapSlippageBps, swapTokenAddress]);
+
+  useEffect(() => {
+    setSendLastTxHash(null);
+    setSendUserSignTx(null);
+  }, [sendAmount, sendAsset, sendTo]);
 
   useEffect(() => {
     if (!walletPanelOpen) return;
@@ -441,6 +1076,85 @@ export function CompanionView() {
     if (walletLoading || walletBalances) return;
     void loadBalances();
   }, [walletPanelOpen, walletLoading, walletBalances, loadBalances]);
+
+  useEffect(() => {
+    if (!walletPanelOpen) return;
+    if (walletPortfolioTab !== "collectibles") return;
+    if (walletNftsLoading || walletNfts) return;
+    void loadNfts();
+  }, [walletPanelOpen, walletPortfolioTab, walletNftsLoading, walletNfts, loadNfts]);
+
+  useEffect(() => {
+    if (!walletPanelOpen || !walletReady) return;
+    if (miladyTokenMetaLoaded) return;
+    let cancelled = false;
+    void (async () => {
+      const metadata = await fetchBscTokenMetadata(MILADY_BSC_TOKEN_ADDRESS);
+      if (cancelled) return;
+      if (metadata) setMiladyTokenMeta(metadata);
+      setMiladyTokenMetaLoaded(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [miladyTokenMetaLoaded, walletPanelOpen, walletReady]);
+
+  useEffect(() => {
+    if (walletPortfolioChain === "all") return;
+    const stillAvailable = walletChainOptions.some((option) => option.value === walletPortfolioChain);
+    if (!stillAvailable) {
+      setWalletPortfolioChain("all");
+    }
+  }, [walletChainOptions, walletPortfolioChain]);
+
+  useEffect(() => {
+    if (visibleWalletTokenRows.length === 0) {
+      if (walletSelectedTokenKey !== null) setWalletSelectedTokenKey(null);
+      return;
+    }
+    if (!walletSelectedTokenKey) {
+      setWalletSelectedTokenKey(visibleWalletTokenRows[0].key);
+      return;
+    }
+    const stillVisible = visibleWalletTokenRows.some((row) => row.key === walletSelectedTokenKey);
+    if (!stillVisible) {
+      setWalletSelectedTokenKey(visibleWalletTokenRows[0].key);
+    }
+  }, [visibleWalletTokenRows, walletSelectedTokenKey]);
+
+  useEffect(() => {
+    if (walletActionMode !== "receive" || walletPortfolioTab !== "tokens") {
+      setWalletTokenDetailsOpen(false);
+    }
+  }, [walletActionMode, walletPortfolioTab]);
+
+  useEffect(() => {
+    if (walletActionMode !== "send") {
+      setSendUserSignTx(null);
+      setSendLastTxHash(null);
+    }
+  }, [walletActionMode]);
+
+  useEffect(() => {
+    if (!walletPanelOpen) {
+      setWalletTokenDetailsOpen(false);
+    }
+  }, [walletPanelOpen]);
+
+  useEffect(() => {
+    if (!walletPanelOpen || walletActionMode !== "receive") return;
+    if (!walletRecentExpanded) return;
+    if (pendingRecentHashes.length === 0) return;
+    const now = Date.now();
+    const due = pendingRecentHashes
+      .slice(0, 4)
+      .filter((hash) => now - (recentTxRefreshAtRef.current[hash] ?? 0) > 15000);
+    if (due.length === 0) return;
+    for (const hash of due) {
+      recentTxRefreshAtRef.current[hash] = now;
+      void refreshRecentTradeStatus(hash, true);
+    }
+  }, [walletPanelOpen, walletActionMode, walletRecentExpanded, pendingRecentHashes, refreshRecentTradeStatus]);
 
   const safeSelectedVrmIndex = selectedVrmIndex > 0 ? selectedVrmIndex : 1;
   const avatarMoodTier = "neutral";
@@ -709,19 +1423,22 @@ export function CompanionView() {
                         <div className="anime-wallet-popover-title">Wallet</div>
                         <div className="anime-wallet-popover-sub">{evmShort ?? solShort ?? "Not connected"}</div>
                       </div>
-                        <div className="anime-wallet-popover-head-actions">
-                          <button
-                            type="button"
-                            className="anime-wallet-popover-ghost"
-                            onClick={() => {
-                              void loadBalances();
-                            }}
-                            disabled={walletLoading}
-                          >
-                            {walletLoading ? "..." : "Refresh"}
-                          </button>
-                        </div>
+                      <div className="anime-wallet-popover-head-actions">
+                        <button
+                          type="button"
+                          className="anime-wallet-popover-ghost"
+                          onClick={() => {
+                            void loadBalances();
+                            if (walletPortfolioTab === "collectibles") {
+                              void loadNfts();
+                            }
+                          }}
+                          disabled={walletRefreshBusy}
+                        >
+                          {walletRefreshBusy ? "..." : "Refresh"}
+                        </button>
                       </div>
+                    </div>
 
                     <div className="anime-wallet-popover-total">
                       <div className="anime-wallet-popover-total-value">
@@ -798,23 +1515,321 @@ export function CompanionView() {
                           )}
                         </div>
 
-                        <div className="anime-wallet-asset-list">
-                          {walletPreviewRows.length > 0 ? (
-                            walletPreviewRows.map((row) => (
-                              <div key={`${row.chain}-${row.symbol}-${row.balance}`} className="anime-wallet-asset-row">
-                                <span className="anime-wallet-asset-symbol">{row.symbol}</span>
-                                <span className="anime-wallet-asset-chain">{row.chain}</span>
-                                <span className="anime-wallet-asset-value">
-                                  ${row.valueUsd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                </span>
-                              </div>
-                            ))
-                          ) : (
-                            <div className="anime-wallet-asset-empty">
-                              {walletLoading ? "Loading assets..." : "No asset data yet"}
+                        <div className="anime-wallet-portfolio-toolbar">
+                          <div className="anime-wallet-portfolio-tabs">
+                            {([
+                              { key: "tokens", label: "Tokens" },
+                              { key: "collectibles", label: "Collectibles" },
+                            ] as const).map((tab) => (
+                              <button
+                                key={tab.key}
+                                type="button"
+                                className={`anime-wallet-portfolio-tab ${walletPortfolioTab === tab.key ? "is-active" : ""}`}
+                                onClick={() => setWalletPortfolioTab(tab.key)}
+                              >
+                                {tab.label}
+                              </button>
+                            ))}
+                          </div>
+                          <div className="anime-wallet-portfolio-filters">
+                            {walletChainOptions.map((chainOption) => (
+                              <button
+                                key={chainOption.value}
+                                type="button"
+                                className={`anime-wallet-portfolio-filter ${walletPortfolioChain === chainOption.value ? "is-active" : ""}`}
+                                onClick={() => setWalletPortfolioChain(chainOption.value)}
+                              >
+                                {chainOption.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {walletPortfolioTab === "tokens" ? (
+                          <>
+                            <div className="anime-wallet-token-list">
+                              {visibleWalletTokenRows.length > 0 ? (
+                                visibleWalletTokenRows.map((row) => (
+                                  <button
+                                    key={row.key}
+                                    type="button"
+                                    className={`anime-wallet-token-row ${walletSelectedTokenKey === row.key ? "is-active" : ""}`}
+                                    onClick={() => {
+                                      setWalletSelectedTokenKey(row.key);
+                                      setWalletTokenDetailsOpen(true);
+                                    }}
+                                    data-testid={`wallet-token-row-${row.key}`}
+                                  >
+                                    <div className="anime-wallet-token-main">
+                                      <span className="anime-wallet-token-logo" aria-hidden="true">
+                                        {row.logoUrl ? (
+                                          <img src={row.logoUrl} alt="" loading="lazy" />
+                                        ) : (
+                                          row.symbol.slice(0, 1)
+                                        )}
+                                      </span>
+                                      <div className="anime-wallet-token-meta">
+                                        <span className="anime-wallet-token-name">{row.name}</span>
+                                        <span className="anime-wallet-token-balance">
+                                          {row.balance} {row.symbol}
+                                        </span>
+                                      </div>
+                                    </div>
+                                    <div className="anime-wallet-token-value-wrap">
+                                      <span className="anime-wallet-token-value">
+                                        ${row.valueUsd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                      </span>
+                                      <span className="anime-wallet-token-chain">{row.chain}</span>
+                                    </div>
+                                  </button>
+                                ))
+                              ) : (
+                                <div className="anime-wallet-asset-empty">
+                                  {walletLoading ? "Loading assets..." : "No token data yet"}
+                                </div>
+                              )}
                             </div>
+
+                            {selectedWalletToken && (
+                              <div className="anime-wallet-token-detail-toggle">
+                                <div className="anime-wallet-token-detail-toggle-meta">
+                                  <span>{selectedWalletToken.name}</span>
+                                  <span>{selectedWalletToken.chain}</span>
+                                </div>
+                                <button
+                                  type="button"
+                                  className="anime-wallet-address-copy"
+                                  data-testid="wallet-token-details-toggle"
+                                  onClick={() => setWalletTokenDetailsOpen((prev) => !prev)}
+                                >
+                                  {walletTokenDetailsOpen ? t("wallet.tokenDetailsHide") : t("wallet.tokenDetailsShow")}
+                                </button>
+                              </div>
+                            )}
+
+                            {selectedWalletToken && walletTokenDetailsOpen && (
+                              <div className="anime-wallet-token-detail">
+                                <div className="anime-wallet-token-detail-head">
+                                  <span>{t("wallet.tokenDetails")}</span>
+                                  <span>
+                                    {t("wallet.tokenShare")}: {selectedWalletTokenShare.toFixed(2)}%
+                                  </span>
+                                </div>
+                                <div className="anime-wallet-token-detail-grid">
+                                  <div className="anime-wallet-token-detail-item">
+                                    <span>{t("wallet.name")}</span>
+                                    <strong>{selectedWalletToken.name}</strong>
+                                  </div>
+                                  <div className="anime-wallet-token-detail-item">
+                                    <span>{t("wallet.chain")}</span>
+                                    <strong>{selectedWalletToken.chain}</strong>
+                                  </div>
+                                  <div className="anime-wallet-token-detail-item">
+                                    <span>{t("wallet.table.balance")}</span>
+                                    <strong>{selectedWalletToken.balance} {selectedWalletToken.symbol}</strong>
+                                  </div>
+                                  <div className="anime-wallet-token-detail-item">
+                                    <span>{t("wallet.value")}</span>
+                                    <strong>${selectedWalletToken.valueUsd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+                                  </div>
+                                </div>
+                                {selectedWalletToken.assetAddress && (
+                                  <div className="anime-wallet-token-detail-address">
+                                    <span>{t("wallet.tokenAddress")}</span>
+                                    <code title={selectedWalletToken.assetAddress}>{selectedWalletToken.assetAddress}</code>
+                                  </div>
+                                )}
+                                <div className="anime-wallet-token-detail-actions">
+                                  {selectedWalletToken.assetAddress && (
+                                    <button
+                                      type="button"
+                                      className="anime-wallet-address-copy"
+                                      onClick={() => {
+                                        void handleCopySelectedTokenAddress();
+                                      }}
+                                    >
+                                      {t("wallet.tokenCopyAddress")}
+                                    </button>
+                                  )}
+                                  {selectedWalletTokenExplorerUrl && (
+                                    <a
+                                      href={selectedWalletTokenExplorerUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="anime-wallet-tx-link anime-wallet-recent-link"
+                                    >
+                                      {t("wallet.tokenViewExplorer")}
+                                    </a>
+                                  )}
+                                  <button
+                                    type="button"
+                                    className="anime-wallet-address-copy"
+                                    onClick={handleSelectedTokenSwap}
+                                  >
+                                    {t("wallet.tokenSwapThis")}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="anime-wallet-address-copy"
+                                    onClick={handleSelectedTokenSend}
+                                  >
+                                    {t("wallet.tokenSendThis")}
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <div className="anime-wallet-nft-grid">
+                            {walletNftsLoading ? (
+                              <div className="anime-wallet-asset-empty">Loading collectibles...</div>
+                            ) : filteredWalletCollectibleRows.length > 0 ? (
+                              filteredWalletCollectibleRows.slice(0, 8).map((row) => (
+                                <div key={row.key} className="anime-wallet-nft-card">
+                                  <div className="anime-wallet-nft-thumb">
+                                    {row.imageUrl ? (
+                                      <img src={row.imageUrl} alt={row.name} loading="lazy" />
+                                    ) : (
+                                      <span>No image</span>
+                                    )}
+                                  </div>
+                                  <div className="anime-wallet-nft-meta">
+                                    <span className="anime-wallet-nft-name">{row.name}</span>
+                                    <span className="anime-wallet-nft-collection">{row.collectionName}</span>
+                                    <span className="anime-wallet-nft-chain">{row.chain}</span>
+                                  </div>
+                                </div>
+                              ))
+                            ) : (
+                              <div className="anime-wallet-asset-empty">No collectible data yet</div>
+                            )}
+                          </div>
+                        )}
+
+                        <div className="anime-wallet-recent-section">
+                          <div className="anime-wallet-recent-header">
+                            <span>{t("wallet.recentActivity")}</span>
+                            <div className="anime-wallet-recent-header-actions">
+                              {walletRecentExpanded && visibleWalletRecentTrades.length > 0 && (
+                                <button
+                                  type="button"
+                                  className="anime-wallet-address-copy"
+                                  onClick={() => {
+                                    for (const entry of visibleWalletRecentTrades) {
+                                      void refreshRecentTradeStatus(entry.hash, true);
+                                    }
+                                  }}
+                                >
+                                  {t("wallet.txStatusRefresh")}
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                className="anime-wallet-address-copy"
+                                data-testid="wallet-recent-toggle"
+                                onClick={() => setWalletRecentExpanded((prev) => !prev)}
+                              >
+                                {walletRecentExpanded ? t("wallet.recentHide") : t("wallet.recentShow")}
+                              </button>
+                            </div>
+                          </div>
+                          {walletRecentExpanded && (
+                            <>
+                              <div className="anime-wallet-recent-filters">
+                                {walletRecentFilterOptions.map((filterOption) => (
+                                  <button
+                                    key={filterOption.key}
+                                    type="button"
+                                    className={`anime-wallet-portfolio-filter ${walletRecentFilter === filterOption.key ? "is-active" : ""}`}
+                                    onClick={() => setWalletRecentFilter(filterOption.key)}
+                                    data-testid={`wallet-recent-filter-${filterOption.key}`}
+                                  >
+                                    {filterOption.label}
+                                  </button>
+                                ))}
+                              </div>
+                              <div className="anime-wallet-recent-list">
+                                {groupedWalletRecentTrades.length > 0 ? (
+                                  groupedWalletRecentTrades.map((group) => (
+                                    <div
+                                      key={group.key}
+                                      className="anime-wallet-recent-group"
+                                      data-testid={`wallet-recent-group-${group.key}`}
+                                    >
+                                      <div className="anime-wallet-recent-group-title">{group.label}</div>
+                                      {group.entries.map((entry, entryIndex) => (
+                                        <div key={entry.hash} className="anime-wallet-recent-row">
+                                          <div className="anime-wallet-recent-main">
+                                            <span className={`anime-wallet-recent-side is-${entry.side}`}>
+                                              {entry.side.toUpperCase()}
+                                            </span>
+                                            <div className="anime-wallet-recent-meta">
+                                              <span>{entry.amount} {entry.inputSymbol} {"->"} {entry.outputSymbol}</span>
+                                              <code>{shortHash(entry.hash)}</code>
+                                            </div>
+                                          </div>
+                                          <div className="anime-wallet-recent-actions">
+                                            <span className={`anime-wallet-tx-pill is-${entry.status}`}>
+                                              {getWalletTxStatusLabel(entry.status, t)}
+                                            </span>
+                                            <a
+                                              href={entry.explorerUrl || `https://bscscan.com/tx/${entry.hash}`}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="anime-wallet-tx-link anime-wallet-recent-link"
+                                            >
+                                              View
+                                            </a>
+                                            <button
+                                              type="button"
+                                              className="anime-wallet-address-copy"
+                                              data-testid={`wallet-recent-copy-hash-${group.key}-${entryIndex}`}
+                                              onClick={() => {
+                                                void handleCopyRecentTxHash(entry.hash);
+                                              }}
+                                            >
+                                              {t("wallet.copyTxHash")}
+                                            </button>
+                                            <button
+                                              type="button"
+                                              className="anime-wallet-address-copy"
+                                              disabled={Boolean(walletRecentBusyHashes[entry.hash])}
+                                              onClick={() => {
+                                                void refreshRecentTradeStatus(entry.hash);
+                                              }}
+                                            >
+                                              {walletRecentBusyHashes[entry.hash] ? "..." : t("wallet.txStatusRefresh")}
+                                            </button>
+                                          </div>
+                                          {(entry.confirmations > 0 || typeof entry.nonce === "number") && (
+                                            <div className="anime-wallet-recent-extra">
+                                              {entry.confirmations > 0 && (
+                                                <span>
+                                                  {t("wallet.txStatus.confirmations", { count: entry.confirmations })}
+                                                </span>
+                                              )}
+                                              {typeof entry.nonce === "number" && (
+                                                <span>{t("wallet.txStatus.nonce", { nonce: entry.nonce })}</span>
+                                              )}
+                                            </div>
+                                          )}
+                                          {entry.status === "reverted" && entry.reason && (
+                                            <div className="anime-wallet-recent-reason">{entry.reason}</div>
+                                          )}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  ))
+                                ) : (
+                                  <div className="anime-wallet-asset-empty">
+                                    {t("wallet.noRecentActivity")}
+                                  </div>
+                                )}
+                              </div>
+                            </>
                           )}
                         </div>
+
                       </>
                     )}
 
@@ -826,14 +1841,25 @@ export function CompanionView() {
                             { label: "Quote", step: 2 },
                             { label: swapNeedsUserSign ? "Sign" : "Execute", step: 3 },
                             { label: "Done", step: 4 },
-                          ].map((item) => (
-                            <span
-                              key={item.label}
-                              className={`anime-wallet-flow-step ${swapFlowStep >= item.step ? "is-active" : ""}`}
-                            >
-                              {item.label}
-                            </span>
-                          ))}
+                          ].map((item, index, steps) => {
+                            const isActive = swapFlowStep >= item.step;
+                            const railActive = swapFlowStep > item.step;
+                            return (
+                              <div
+                                key={item.step}
+                                className={`anime-wallet-flow-step ${isActive ? "is-active" : ""}`}
+                              >
+                                <span className="anime-wallet-flow-marker" aria-hidden="true" />
+                                <span className="anime-wallet-flow-label">{item.label}</span>
+                                {index < steps.length - 1 && (
+                                  <span
+                                    className={`anime-wallet-flow-rail ${railActive ? "is-active" : ""}`}
+                                    aria-hidden="true"
+                                  />
+                                )}
+                              </div>
+                            );
+                          })}
                         </div>
 
                         <div className="anime-wallet-status-hint">
@@ -1063,20 +2089,52 @@ export function CompanionView() {
                           </label>
                         </div>
                         <div className="anime-wallet-send-hint">
-                          BSC transfer intent. Copy payload and execute/sign in wallet extension.
+                          Execute transfer directly. If mode is user-sign-only, copy payload and sign in wallet.
                         </div>
                         <div className="anime-wallet-popover-actions">
                           <button
                             type="button"
                             className="anime-wallet-popover-action"
-                            disabled={!sendReady}
+                            disabled={!sendReady || sendExecuteBusy}
                             onClick={() => {
-                              void handleSendIntent();
+                              void handleSendExecute();
                             }}
                           >
-                            Copy Intent
+                            {sendExecuteBusy ? "Executing..." : "Execute Send"}
                           </button>
                         </div>
+
+                        {sendUserSignTx && (
+                          <div className="anime-wallet-usersign">
+                            <div className="anime-wallet-usersign-title">User-sign send payload</div>
+                            <div className="anime-wallet-usersign-actions">
+                              <button
+                                type="button"
+                                className="anime-wallet-address-copy"
+                                onClick={() => {
+                                  void handleCopyUserSignPayload(sendUserSignTx, "Send");
+                                }}
+                              >
+                                Copy Send Payload
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        {sendLastTxHash && (
+                          <div className="anime-wallet-tx-row">
+                            <span>Latest tx</span>
+                            <code>{shortHash(sendLastTxHash)}</code>
+                            <a
+                              href={`https://bscscan.com/tx/${sendLastTxHash}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="anime-wallet-tx-link"
+                            >
+                              View
+                            </a>
+                          </div>
+                        )}
                       </div>
                     )}
 
@@ -1171,6 +2229,32 @@ export function CompanionView() {
                 </button>
               </div>
             </div>
+
+            <button
+              type="button"
+              className={`anime-character-profile-trigger ${walletProfileOpen ? "is-open" : ""}`}
+              onClick={() => setWalletProfileOpen(true)}
+              title={t("wallet.profile.title")}
+              aria-label={t("wallet.profile.title")}
+              data-testid="wallet-profile-trigger"
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.9"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M8 21h8" />
+                <path d="M12 17v4" />
+                <path d="M7 4h10v2a5 5 0 0 1-10 0z" />
+                <path d="M5 6H3a2 2 0 0 0 2 4h2" />
+                <path d="M19 6h2a2 2 0 0 1-2 4h-2" />
+              </svg>
+            </button>
           </div>
 
         </header>
@@ -1306,6 +2390,23 @@ export function CompanionView() {
             </nav>
           </aside>
         </div>
+
+        <WalletTradingProfileModal
+          open={walletProfileOpen}
+          loading={walletProfileLoading}
+          error={walletProfileError}
+          profile={walletProfileData}
+          bnbUsdEstimate={walletBnbUsdEstimate}
+          windowFilter={walletProfileWindow}
+          sourceFilter={walletProfileSource}
+          onClose={() => setWalletProfileOpen(false)}
+          onRefresh={() => {
+            void refreshWalletTradingProfile();
+          }}
+          onWindowFilterChange={(windowFilter) => setWalletProfileWindow(windowFilter)}
+          onSourceFilterChange={(sourceFilter) => setWalletProfileSource(sourceFilter)}
+          t={t}
+        />
       </div>
     </div>
   );

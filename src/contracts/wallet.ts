@@ -209,6 +209,100 @@ export interface BscTradeTxStatusResponse {
   reason?: string;
 }
 
+export type WalletTradeSource = "agent" | "manual";
+
+export type WalletTradingProfileWindow = "7d" | "30d" | "all";
+
+export type WalletTradingProfileSourceFilter = "all" | WalletTradeSource;
+
+export interface WalletTradeLedgerQuoteLeg {
+  symbol: string;
+  amount: string;
+  amountWei: string;
+}
+
+export interface WalletTradeLedgerEntry {
+  hash: string;
+  createdAt: string;
+  updatedAt: string;
+  source: WalletTradeSource;
+  side: BscTradeSide;
+  tokenAddress: string;
+  slippageBps: number;
+  route: string[];
+  quoteIn: WalletTradeLedgerQuoteLeg;
+  quoteOut: WalletTradeLedgerQuoteLeg;
+  status: BscTradeTxStatus;
+  confirmations: number;
+  nonce: number | null;
+  blockNumber: number | null;
+  gasUsed: string | null;
+  effectiveGasPriceWei: string | null;
+  reason?: string;
+  explorerUrl: string;
+}
+
+export interface WalletTradingProfileSummary {
+  totalSwaps: number;
+  buyCount: number;
+  sellCount: number;
+  settledCount: number;
+  successCount: number;
+  revertedCount: number;
+  tradeWinRate: number | null;
+  txSuccessRate: number | null;
+  winningTrades: number;
+  evaluatedTrades: number;
+  realizedPnlBnb: string;
+  volumeBnb: string;
+}
+
+export interface WalletTradingProfileSeriesPoint {
+  day: string;
+  realizedPnlBnb: string;
+  volumeBnb: string;
+  swaps: number;
+}
+
+export interface WalletTradingProfileTokenBreakdown {
+  tokenAddress: string;
+  symbol: string;
+  buyCount: number;
+  sellCount: number;
+  realizedPnlBnb: string;
+  volumeBnb: string;
+  tradeWinRate: number | null;
+  winningTrades: number;
+  evaluatedTrades: number;
+}
+
+export interface WalletTradingProfileRecentSwap {
+  hash: string;
+  createdAt: string;
+  source: WalletTradeSource;
+  side: BscTradeSide;
+  status: BscTradeTxStatus;
+  tokenAddress: string;
+  tokenSymbol: string;
+  inputAmount: string;
+  inputSymbol: string;
+  outputAmount: string;
+  outputSymbol: string;
+  explorerUrl: string;
+  confirmations: number;
+  reason?: string;
+}
+
+export interface WalletTradingProfileResponse {
+  window: WalletTradingProfileWindow;
+  source: WalletTradingProfileSourceFilter;
+  generatedAt: string;
+  summary: WalletTradingProfileSummary;
+  pnlSeries: WalletTradingProfileSeriesPoint[];
+  tokenBreakdown: WalletTradingProfileTokenBreakdown[];
+  recentSwaps: WalletTradingProfileRecentSwap[];
+}
+
 export interface BscTradeExecuteResponse {
   ok: boolean;
   side: BscTradeSide;
@@ -220,6 +314,49 @@ export interface BscTradeExecuteResponse {
   unsignedApprovalTx?: BscUnsignedApprovalTx;
   requiresApproval?: boolean;
   execution?: BscTradeExecutionResult;
+}
+
+export interface BscTransferExecuteRequest {
+  toAddress: string;
+  amount: string;
+  assetSymbol: string;
+  tokenAddress?: string;
+  confirm?: boolean;
+}
+
+export interface BscUnsignedTransferTx {
+  chainId: number;
+  from: string | null;
+  to: string;
+  data: string;
+  valueWei: string;
+  explorerUrl: string;
+  assetSymbol: string;
+  amount: string;
+  tokenAddress?: string;
+}
+
+export interface BscTransferExecutionResult {
+  hash: string;
+  nonce: number;
+  gasLimit: string;
+  valueWei: string;
+  explorerUrl: string;
+  blockNumber: number | null;
+  status: "success" | "pending";
+}
+
+export interface BscTransferExecuteResponse {
+  ok: boolean;
+  mode: "local-key" | "user-sign";
+  executed: boolean;
+  requiresUserSignature: boolean;
+  toAddress: string;
+  amount: string;
+  assetSymbol: string;
+  tokenAddress?: string;
+  unsignedTx: BscUnsignedTransferTx;
+  execution?: BscTransferExecutionResult;
 }
 
 export type WalletChain = "evm" | "solana";

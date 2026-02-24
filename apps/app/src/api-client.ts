@@ -31,10 +31,15 @@ import type { StylePreset } from "../../../src/contracts/onboarding.js";
 import type {
   BscTradeExecuteRequest,
   BscTradeExecuteResponse,
+  BscTransferExecuteRequest,
+  BscTransferExecuteResponse,
   BscTradePreflightResponse,
   BscTradeQuoteRequest,
   BscTradeQuoteResponse,
   BscTradeTxStatusResponse,
+  WalletTradingProfileResponse,
+  WalletTradingProfileSourceFilter,
+  WalletTradingProfileWindow,
   EvmChainBalance,
   EvmNft,
   EvmTokenBalance,
@@ -76,10 +81,15 @@ export type { StylePreset };
 export type {
   BscTradeExecuteRequest,
   BscTradeExecuteResponse,
+  BscTransferExecuteRequest,
+  BscTransferExecuteResponse,
   BscTradePreflightResponse,
   BscTradeQuoteRequest,
   BscTradeQuoteResponse,
   BscTradeTxStatusResponse,
+  WalletTradingProfileResponse,
+  WalletTradingProfileSourceFilter,
+  WalletTradingProfileWindow,
   EvmChainBalance,
   EvmNft,
   EvmTokenBalance,
@@ -2328,8 +2338,24 @@ export class MiladyClient {
       body: JSON.stringify(request),
     });
   }
+  async executeBscTransfer(request: BscTransferExecuteRequest): Promise<BscTransferExecuteResponse> {
+    return this.fetch("/api/wallet/transfer/execute", {
+      method: "POST",
+      body: JSON.stringify(request),
+    });
+  }
   async getBscTradeTxStatus(hash: string): Promise<BscTradeTxStatusResponse> {
     return this.fetch(`/api/wallet/trade/tx-status?hash=${encodeURIComponent(hash)}`);
+  }
+  async getWalletTradingProfile(
+    window: WalletTradingProfileWindow = "30d",
+    source: WalletTradingProfileSourceFilter = "all",
+  ): Promise<WalletTradingProfileResponse> {
+    const params = new URLSearchParams({
+      window,
+      source,
+    });
+    return this.fetch(`/api/wallet/trading/profile?${params.toString()}`);
   }
   async getWalletConfig(): Promise<WalletConfigStatus> { return this.fetch("/api/wallet/config"); }
   async updateWalletConfig(config: Record<string, string>): Promise<{ ok: boolean }> { return this.fetch("/api/wallet/config", { method: "PUT", body: JSON.stringify(config) }); }

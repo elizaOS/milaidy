@@ -33,6 +33,7 @@ function stripServerPrefix(message: string): string {
     .replace(/^trade preflight failed:\s*/i, "")
     .replace(/^trade quote failed:\s*/i, "")
     .replace(/^trade execution failed:\s*/i, "")
+    .replace(/^transfer execution failed:\s*/i, "")
     .trim();
 }
 

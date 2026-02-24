@@ -8,25 +8,12 @@ import crypto from "node:crypto";
 import { logger } from "@elizaos/core";
 import { secp256k1 } from "@noble/curves/secp256k1.js";
 import type {
-  BscTradePreflightRequest,
-  BscTradePreflightResponse,
-  BscTradeExecuteRequest,
-  BscTradeExecuteResponse,
-  BscTradeExecutionResult,
-  BscTradeTxStatus,
-  BscTradeTxStatusResponse,
-  BscUnsignedApprovalTx,
-  BscTradeQuoteRequest,
-  BscTradeQuoteResponse,
-  BscTradeSide,
-  BscUnsignedTradeTx,
   EvmChainBalance,
   EvmNft,
   EvmTokenBalance,
   KeyValidationResult,
   SolanaNft,
   SolanaTokenBalance,
-  TradePermissionMode,
   WalletAddresses,
   WalletChain,
   WalletGenerateResult,
@@ -35,18 +22,22 @@ import type {
 } from "../contracts/wallet.js";
 
 export type {
-  BscTradePreflightRequest,
-  BscTradePreflightResponse,
   BscTradeExecuteRequest,
   BscTradeExecuteResponse,
   BscTradeExecutionResult,
-  BscTradeTxStatus,
-  BscTradeTxStatusResponse,
-  BscUnsignedApprovalTx,
+  BscTradePreflightRequest,
+  BscTradePreflightResponse,
   BscTradeQuoteRequest,
   BscTradeQuoteResponse,
   BscTradeSide,
+  BscTradeTxStatus,
+  BscTradeTxStatusResponse,
+  BscTransferExecuteRequest,
+  BscTransferExecuteResponse,
+  BscTransferExecutionResult,
+  BscUnsignedApprovalTx,
   BscUnsignedTradeTx,
+  BscUnsignedTransferTx,
   EvmChainBalance,
   EvmNft,
   EvmTokenBalance,
@@ -62,6 +53,11 @@ export type {
   WalletImportResult,
   WalletKeys,
   WalletNftsResponse,
+  WalletTradeLedgerEntry,
+  WalletTradeSource,
+  WalletTradingProfileResponse,
+  WalletTradingProfileSourceFilter,
+  WalletTradingProfileWindow,
 } from "../contracts/wallet.js";
 
 const FETCH_TIMEOUT_MS = 15_000;
@@ -616,7 +612,9 @@ function resolveEvmProviderKeys(
 }
 
 function isBscChain(chain: EvmChainConfig): boolean {
-  return chain.chainId === 56 || (chain.ankrChain ?? "").toLowerCase() === "bsc";
+  return (
+    chain.chainId === 56 || (chain.ankrChain ?? "").toLowerCase() === "bsc"
+  );
 }
 
 function describeRpcEndpoint(url: string): string {

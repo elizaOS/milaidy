@@ -28,10 +28,15 @@ import {
   type WalletBalancesResponse,
   type BscTradeExecuteRequest,
   type BscTradeExecuteResponse,
+  type BscTransferExecuteRequest,
+  type BscTransferExecuteResponse,
   type BscTradePreflightResponse,
   type BscTradeQuoteRequest,
   type BscTradeQuoteResponse,
   type BscTradeTxStatusResponse,
+  type WalletTradingProfileResponse,
+  type WalletTradingProfileSourceFilter,
+  type WalletTradingProfileWindow,
   type WalletNftsResponse,
   type WalletConfigStatus,
   type WalletExportResult,
@@ -861,9 +866,14 @@ export interface AppActions {
   loadBalances: () => Promise<void>;
   loadNfts: () => Promise<void>;
   executeBscTrade: (request: BscTradeExecuteRequest) => Promise<BscTradeExecuteResponse>;
+  executeBscTransfer: (request: BscTransferExecuteRequest) => Promise<BscTransferExecuteResponse>;
   getBscTradePreflight: (tokenAddress?: string) => Promise<BscTradePreflightResponse>;
   getBscTradeQuote: (request: BscTradeQuoteRequest) => Promise<BscTradeQuoteResponse>;
   getBscTradeTxStatus: (hash: string) => Promise<BscTradeTxStatusResponse>;
+  loadWalletTradingProfile: (
+    window?: WalletTradingProfileWindow,
+    source?: WalletTradingProfileSourceFilter,
+  ) => Promise<WalletTradingProfileResponse>;
   handleWalletApiKeySave: (config: Record<string, string>) => Promise<void>;
   handleExportKeys: () => Promise<void>;
 
@@ -1689,9 +1699,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  const loadWalletTradingProfile = useCallback(
+    async (
+      window: WalletTradingProfileWindow = "30d",
+      source: WalletTradingProfileSourceFilter = "all",
+    ): Promise<WalletTradingProfileResponse> =>
+      client.getWalletTradingProfile(window, source),
+    [],
+  );
+
   const executeBscTrade = useCallback(
     async (request: BscTradeExecuteRequest): Promise<BscTradeExecuteResponse> =>
       client.executeBscTrade(request),
+    [],
+  );
+
+  const executeBscTransfer = useCallback(
+    async (request: BscTransferExecuteRequest): Promise<BscTransferExecuteResponse> =>
+      client.executeBscTransfer(request),
     [],
   );
 
@@ -3975,7 +4000,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     handleOpenSkill, handleDeleteSkill, handleReviewSkill, handleAcknowledgeSkill,
     searchSkillsMarketplace, installSkillFromMarketplace, uninstallMarketplaceSkill, installSkillFromGithubUrl,
     loadLogs,
-    loadInventory, loadBalances, loadNfts, executeBscTrade, getBscTradePreflight, getBscTradeQuote, getBscTradeTxStatus, handleWalletApiKeySave, handleExportKeys,
+    loadInventory, loadBalances, loadNfts, executeBscTrade, executeBscTransfer, getBscTradePreflight, getBscTradeQuote, getBscTradeTxStatus, loadWalletTradingProfile, handleWalletApiKeySave, handleExportKeys,
     loadRegistryStatus, registerOnChain, syncRegistryProfile, loadDropStatus, mintFromDrop, loadWhitelistStatus,
     loadCharacter, handleSaveCharacter, handleCharacterFieldInput,
     handleCharacterArrayInput, handleCharacterStyleInput, handleCharacterMessageExamplesInput,

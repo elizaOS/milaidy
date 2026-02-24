@@ -122,6 +122,11 @@ import {
 } from "./bsc-trade.js";
 import { TxService } from "./tx-service.js";
 import {
+  loadWalletTradingProfile,
+  recordWalletTradeLedgerEntry,
+  updateWalletTradeLedgerEntryStatus,
+} from "./wallet-trading-profile.js";
+import {
   fetchEvmBalances,
   fetchEvmNfts,
   fetchSolanaBalances,
@@ -135,8 +140,12 @@ import {
   validatePrivateKey,
   type BscTradePreflightRequest,
   type BscTradeExecuteRequest,
+  type BscTransferExecuteRequest,
   type BscTradeQuoteRequest,
+  type BscTradeTxStatus,
   type BscTradeTxStatusResponse,
+  type WalletTradingProfileSourceFilter,
+  type WalletTradingProfileWindow,
   type WalletAddresses,
   type WalletBalancesResponse,
   type WalletChain,
@@ -4423,6 +4432,31 @@ export function canUseLocalTradeExecution(
   if (mode === "user-sign-only") return false;
   if (!isAgentRequest) return true;
   return mode === "agent-auto";
+}
+
+const BSC_TRANSFER_ERC20_IFACE = new ethers.Interface([
+  "function transfer(address to, uint256 amount) returns (bool)",
+  "function decimals() view returns (uint8)",
+]);
+
+const BSC_TRANSFER_TOKEN_BY_SYMBOL: Readonly<Record<string, string>> = {
+  USDT: ethers.getAddress("0x55d398326f99059fF775485246999027B3197955"),
+  USDC: ethers.getAddress("0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d"),
+};
+
+function resolveTransferTokenAddress(
+  tokenAddress: string | undefined,
+  assetSymbol: string,
+): string | null {
+  const trimmed = tokenAddress?.trim();
+  if (trimmed) {
+    try {
+      return ethers.getAddress(trimmed);
+    } catch {
+      return null;
+    }
+  }
+  return BSC_TRANSFER_TOKEN_BY_SYMBOL[assetSymbol] ?? null;
 }
 
 export interface ApplyProductionWalletDefaultsResult {
@@ -9736,6 +9770,48 @@ async function handleRequest(
 
       const tx = await signer.sendTransaction(txRequest);
       const receipt = await provider.waitForTransaction(tx.hash, 1, 120_000);
+      const explorerUrl = `https://bscscan.com/tx/${tx.hash}`;
+      const responseStatus = receipt?.status === 1 ? "success" : "pending";
+      const ledgerStatus: BscTradeTxStatus = receipt
+        ? receipt.status === 1
+          ? "success"
+          : "reverted"
+        : "pending";
+      const maybeReceipt = receipt as ethers.TransactionReceipt & {
+        effectiveGasPrice?: bigint;
+        gasPrice?: bigint;
+      };
+      const effectiveGasPriceWei =
+        typeof maybeReceipt?.effectiveGasPrice === "bigint"
+          ? maybeReceipt.effectiveGasPrice.toString()
+          : typeof maybeReceipt?.gasPrice === "bigint"
+            ? maybeReceipt.gasPrice.toString()
+            : null;
+
+      try {
+        recordWalletTradeLedgerEntry({
+          hash: tx.hash,
+          source: agentRequest ? "agent" : "manual",
+          side: body.side,
+          tokenAddress: quote.tokenAddress,
+          slippageBps: quote.slippageBps,
+          route: quote.route,
+          quoteIn: quote.quoteIn,
+          quoteOut: quote.quoteOut,
+          status: ledgerStatus,
+          confirmations: receipt?.blockNumber ? 1 : 0,
+          nonce: tx.nonce,
+          blockNumber: receipt?.blockNumber ?? null,
+          gasUsed: receipt?.gasUsed?.toString() ?? null,
+          effectiveGasPriceWei,
+          reason: ledgerStatus === "reverted" ? "Transaction reverted on-chain." : undefined,
+          explorerUrl,
+        });
+      } catch (ledgerErr) {
+        logger.warn(
+          `[wallet-profile] Failed to record trade execution ${tx.hash}: ${ledgerErr instanceof Error ? ledgerErr.message : String(ledgerErr)}`,
+        );
+      }
 
       json(res, {
         ok: true,
@@ -9750,9 +9826,9 @@ async function handleRequest(
           nonce: tx.nonce,
           gasLimit: (txRequest.gasLimit ?? gasEstimate).toString(),
           valueWei: unsignedTx.valueWei,
-          explorerUrl: `https://bscscan.com/tx/${tx.hash}`,
+          explorerUrl,
           blockNumber: receipt?.blockNumber ?? null,
-          status: receipt?.status === 1 ? "success" : "pending",
+          status: responseStatus,
           approvalHash: approvalHash ?? undefined,
         },
       });
@@ -9760,6 +9836,228 @@ async function handleRequest(
       error(
         res,
         `Trade execution failed: ${err instanceof Error ? err.message : String(err)}`,
+        422,
+      );
+    }
+    return;
+  }
+
+  // ── POST /api/wallet/transfer/execute ────────────────────────────────
+  // Execute a direct BSC transfer (native BNB or ERC-20 token transfer).
+  if (method === "POST" && pathname === "/api/wallet/transfer/execute") {
+    const body = await readJsonBody<BscTransferExecuteRequest>(req, res);
+    if (!body) return;
+
+    if (!body.confirm) {
+      error(res, "confirm=true is required for execution.");
+      return;
+    }
+
+    if (typeof body.toAddress !== "string" || !body.toAddress.trim()) {
+      error(res, "toAddress is required.");
+      return;
+    }
+    let toAddress: string;
+    try {
+      toAddress = ethers.getAddress(body.toAddress.trim());
+    } catch {
+      error(res, "toAddress must be a valid EVM address.");
+      return;
+    }
+
+    if (typeof body.amount !== "string" || !body.amount.trim()) {
+      error(res, "amount is required.");
+      return;
+    }
+    const amount = body.amount.trim();
+    const amountNum = Number.parseFloat(amount);
+    if (!Number.isFinite(amountNum) || amountNum <= 0) {
+      error(res, "amount must be a positive number.");
+      return;
+    }
+
+    const assetSymbol = typeof body.assetSymbol === "string" && body.assetSymbol.trim()
+      ? body.assetSymbol.trim().toUpperCase()
+      : "BNB";
+    const tokenAddress = resolveTransferTokenAddress(body.tokenAddress, assetSymbol);
+    const isNativeTransfer = assetSymbol === "BNB" && !body.tokenAddress?.trim();
+    if (!isNativeTransfer && !tokenAddress) {
+      error(res, `tokenAddress is required for ${assetSymbol} transfer.`, 422);
+      return;
+    }
+
+    const addrs = await resolveWalletAddressesForRequest(state, ["evm"]);
+    const rpcConfig = {
+      nodeRealBscRpcUrl: process.env.NODEREAL_BSC_RPC_URL,
+      quickNodeBscRpcUrl: process.env.QUICKNODE_BSC_RPC_URL,
+    };
+    const tradePermissionMode = state.tradePermissionMode ?? "user-sign-only";
+    const agentRequest = isAgentAutomationRequest(req);
+    if (agentRequest && !canUseLocalTradeExecution(tradePermissionMode, true)) {
+      error(
+        res,
+        `Blocked by trade permission mode "${tradePermissionMode}". Agent local transfer execution is disabled.`,
+        403,
+      );
+      return;
+    }
+
+    try {
+      const executionEnabled = /^(1|true|yes|on)$/i.test(
+        process.env.MILADY_BSC_EXECUTION_ENABLED ?? "",
+      );
+      const localPrivateKey = process.env.EVM_PRIVATE_KEY?.trim() ?? "";
+      const localExecutionAllowedByMode = canUseLocalTradeExecution(
+        tradePermissionMode,
+        agentRequest,
+      );
+      const useLocalExecution =
+        localExecutionAllowedByMode &&
+        executionEnabled &&
+        !isPurePrivyWalletMode(state.config) &&
+        localPrivateKey.length > 0;
+
+      let txTo = toAddress;
+      let data = "0x";
+      let valueWei = "0";
+      let resolvedTokenAddress: string | undefined;
+
+      if (isNativeTransfer) {
+        valueWei = ethers.parseEther(amount).toString();
+      } else {
+        const rpcUrl = resolvePrimaryBscRpcUrl(rpcConfig);
+        if (!rpcUrl) {
+          error(res, "No managed BSC RPC available for transfer.", 503);
+          return;
+        }
+        const normalizedToken = ethers.getAddress(tokenAddress as string);
+        const provider = new ethers.JsonRpcProvider(rpcUrl);
+        const erc20 = new ethers.Contract(
+          normalizedToken,
+          BSC_TRANSFER_ERC20_IFACE,
+          provider,
+        );
+
+        let decimals = 18;
+        try {
+          const onchainDecimals = await erc20.decimals();
+          const parsedDecimals = Number(onchainDecimals);
+          if (Number.isFinite(parsedDecimals) && parsedDecimals >= 0 && parsedDecimals <= 36) {
+            decimals = parsedDecimals;
+          }
+        } catch {
+          // Use default 18 when decimals() lookup is unavailable.
+        }
+
+        const amountWei = ethers.parseUnits(amount, decimals);
+        txTo = normalizedToken;
+        data = BSC_TRANSFER_ERC20_IFACE.encodeFunctionData("transfer", [
+          toAddress,
+          amountWei,
+        ]);
+        valueWei = "0";
+        resolvedTokenAddress = normalizedToken;
+      }
+
+      const unsignedTx = {
+        chainId: 56,
+        from: addrs.evmAddress,
+        to: txTo,
+        data,
+        valueWei,
+        explorerUrl: `https://bscscan.com/address/${txTo}`,
+        assetSymbol,
+        amount,
+        ...(resolvedTokenAddress ? { tokenAddress: resolvedTokenAddress } : {}),
+      };
+
+      if (!useLocalExecution) {
+        json(res, {
+          ok: true,
+          mode: "user-sign",
+          executed: false,
+          requiresUserSignature: true,
+          toAddress,
+          amount,
+          assetSymbol,
+          ...(resolvedTokenAddress ? { tokenAddress: resolvedTokenAddress } : {}),
+          unsignedTx,
+        });
+        return;
+      }
+
+      const rpcUrl = resolvePrimaryBscRpcUrl(rpcConfig);
+      if (!rpcUrl) {
+        error(res, "No managed BSC RPC available for transfer execution.", 503);
+        return;
+      }
+
+      const normalizedPk = localPrivateKey.startsWith("0x")
+        ? localPrivateKey
+        : `0x${localPrivateKey}`;
+      const provider = new ethers.JsonRpcProvider(rpcUrl);
+      const signer = new ethers.Wallet(normalizedPk, provider);
+
+      if (
+        addrs.evmAddress &&
+        signer.address.toLowerCase() !== addrs.evmAddress.toLowerCase()
+      ) {
+        error(
+          res,
+          "Local signer does not match active wallet address. Execution halted.",
+          409,
+        );
+        return;
+      }
+
+      const txRequest: ethers.TransactionRequest = {
+        chainId: 56,
+        to: txTo,
+        data,
+        value: BigInt(valueWei),
+      };
+
+      const feeData = await provider.getFeeData();
+      if (feeData.maxFeePerGas && feeData.maxPriorityFeePerGas) {
+        txRequest.maxFeePerGas = feeData.maxFeePerGas;
+        txRequest.maxPriorityFeePerGas = feeData.maxPriorityFeePerGas;
+      } else if (feeData.gasPrice) {
+        txRequest.gasPrice = feeData.gasPrice;
+      }
+
+      const gasEstimate = await provider.estimateGas({
+        ...txRequest,
+        from: signer.address,
+      });
+      txRequest.gasLimit = (gasEstimate * 12n) / 10n;
+
+      const tx = await signer.sendTransaction(txRequest);
+      const receipt = await provider.waitForTransaction(tx.hash, 1, 120_000);
+
+      json(res, {
+        ok: true,
+        mode: "local-key",
+        executed: true,
+        requiresUserSignature: false,
+        toAddress,
+        amount,
+        assetSymbol,
+        ...(resolvedTokenAddress ? { tokenAddress: resolvedTokenAddress } : {}),
+        unsignedTx,
+        execution: {
+          hash: tx.hash,
+          nonce: tx.nonce,
+          gasLimit: (txRequest.gasLimit ?? gasEstimate).toString(),
+          valueWei,
+          explorerUrl: `https://bscscan.com/tx/${tx.hash}`,
+          blockNumber: receipt?.blockNumber ?? null,
+          status: receipt?.status === 1 ? "success" : "pending",
+        },
+      });
+    } catch (err) {
+      error(
+        res,
+        `Transfer execution failed: ${err instanceof Error ? err.message : String(err)}`,
         422,
       );
     }
@@ -9812,6 +10110,22 @@ async function handleRequest(
           effectiveGasPriceWei: null,
           reason: "Transaction hash not found on active BSC RPC yet.",
         };
+        try {
+          updateWalletTradeLedgerEntryStatus(txHash, {
+            status: payload.status,
+            confirmations: payload.confirmations,
+            nonce: payload.nonce,
+            blockNumber: payload.blockNumber,
+            gasUsed: payload.gasUsed,
+            effectiveGasPriceWei: payload.effectiveGasPriceWei,
+            reason: payload.reason,
+            explorerUrl: payload.explorerUrl,
+          });
+        } catch (ledgerErr) {
+          logger.warn(
+            `[wallet-profile] Failed to update tx status ${txHash}: ${ledgerErr instanceof Error ? ledgerErr.message : String(ledgerErr)}`,
+          );
+        }
         json(res, payload);
         return;
       }
@@ -9829,6 +10143,21 @@ async function handleRequest(
           gasUsed: null,
           effectiveGasPriceWei: null,
         };
+        try {
+          updateWalletTradeLedgerEntryStatus(txHash, {
+            status: payload.status,
+            confirmations: payload.confirmations,
+            nonce: payload.nonce,
+            blockNumber: payload.blockNumber,
+            gasUsed: payload.gasUsed,
+            effectiveGasPriceWei: payload.effectiveGasPriceWei,
+            explorerUrl: payload.explorerUrl,
+          });
+        } catch (ledgerErr) {
+          logger.warn(
+            `[wallet-profile] Failed to update tx status ${txHash}: ${ledgerErr instanceof Error ? ledgerErr.message : String(ledgerErr)}`,
+          );
+        }
         json(res, payload);
         return;
       }
@@ -9861,12 +10190,58 @@ async function handleRequest(
         effectiveGasPriceWei,
         reason: status === "reverted" ? "Transaction reverted on-chain." : undefined,
       };
+      try {
+        updateWalletTradeLedgerEntryStatus(txHash, {
+          status: payload.status,
+          confirmations: payload.confirmations,
+          nonce: payload.nonce,
+          blockNumber: payload.blockNumber,
+          gasUsed: payload.gasUsed,
+          effectiveGasPriceWei: payload.effectiveGasPriceWei,
+          reason: payload.reason,
+          explorerUrl: payload.explorerUrl,
+        });
+      } catch (ledgerErr) {
+        logger.warn(
+          `[wallet-profile] Failed to update tx status ${txHash}: ${ledgerErr instanceof Error ? ledgerErr.message : String(ledgerErr)}`,
+        );
+      }
       json(res, payload);
     } catch (err) {
       error(
         res,
         `Failed to fetch tx status: ${err instanceof Error ? err.message : String(err)}`,
         422,
+      );
+    }
+    return;
+  }
+
+  // ── GET /api/wallet/trading/profile ──────────────────────────────────
+  // Aggregated BSC swap trading profile from local wallet ledger.
+  if (method === "GET" && pathname === "/api/wallet/trading/profile") {
+    const rawWindow = (url.searchParams.get("window") ?? "").trim().toLowerCase();
+    const rawSource = (url.searchParams.get("source") ?? "").trim().toLowerCase();
+    const windowValue: WalletTradingProfileWindow =
+      rawWindow === "7d" || rawWindow === "30d" || rawWindow === "all"
+        ? rawWindow
+        : "30d";
+    const sourceValue: WalletTradingProfileSourceFilter =
+      rawSource === "agent" || rawSource === "manual" || rawSource === "all"
+        ? rawSource
+        : "all";
+
+    try {
+      const profile = loadWalletTradingProfile({
+        window: windowValue,
+        source: sourceValue,
+      });
+      json(res, profile);
+    } catch (err) {
+      error(
+        res,
+        `Failed to build wallet trading profile: ${err instanceof Error ? err.message : String(err)}`,
+        500,
       );
     }
     return;
