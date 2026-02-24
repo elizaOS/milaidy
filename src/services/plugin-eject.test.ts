@@ -370,7 +370,7 @@ describe("plugin-eject", () => {
           );
           return;
         }
-        if (file === "npm" && args.join(" ") === "install") {
+        if (file === "npm" && args.join(" ") === "install --ignore-scripts") {
           throw new Error("install failed");
         }
         if (file === "git" && args.join(" ") === "rev-parse HEAD") {
@@ -480,13 +480,13 @@ describe("plugin-eject", () => {
       expect(result.pluginName).toBe("@elizaos/plugin-test");
       expect(execFile).toHaveBeenCalledWith(
         "bun",
-        ["install"],
+        ["install", "--ignore-scripts"],
         expect.any(Object),
         expect.any(Function),
       );
       expect(execFile).toHaveBeenCalledWith(
         "npm",
-        ["install"],
+        ["install", "--ignore-scripts"],
         expect.any(Object),
         expect.any(Function),
       );
@@ -517,7 +517,8 @@ describe("plugin-eject", () => {
           );
           return;
         }
-        if (file === "npm" && args.join(" ") === "install") return;
+        if (file === "npm" && args.join(" ") === "install --ignore-scripts")
+          return;
         if (file === "npm" && args.join(" ") === "run build") {
           throw new Error("build failed");
         }
@@ -559,7 +560,7 @@ describe("plugin-eject", () => {
           );
           return;
         }
-        if (file === "npm" && args.join(" ") === "install") {
+        if (file === "npm" && args.join(" ") === "install --ignore-scripts") {
           throw "install failed without Error";
         }
         if (file === "git" && args.join(" ") === "rev-parse HEAD") {
@@ -662,7 +663,8 @@ describe("plugin-eject", () => {
           return { stdout: "2\n" };
         }
         if (file === "git" && args[0] === "merge") return;
-        if (file === "npm" && args.join(" ") === "install") return;
+        if (file === "npm" && args.join(" ") === "install --ignore-scripts")
+          return;
         if (file === "git" && args.join(" ") === "rev-parse HEAD") {
           return { stdout: "newhead456\n" };
         }
@@ -776,7 +778,8 @@ describe("plugin-eject", () => {
         ) {
           return { stdout: "0\n" };
         }
-        if (file === "npm" && args.join(" ") === "install") return;
+        if (file === "npm" && args.join(" ") === "install --ignore-scripts")
+          return;
         if (file === "git" && args.join(" ") === "rev-parse HEAD") {
           return { stdout: "head789\n" };
         }
@@ -880,7 +883,8 @@ describe("plugin-eject", () => {
         ) {
           return { stdout: "1\n" };
         }
-        if (file === "npm" && args.join(" ") === "install") return;
+        if (file === "npm" && args.join(" ") === "install --ignore-scripts")
+          return;
         if (file === "git" && args[0] === "merge") return;
       });
 
@@ -1151,6 +1155,24 @@ describe("plugin-eject", () => {
       expect(beta?.upstream).toBeNull();
       expect(alpha?.version).toBe("1.0.0");
       expect(beta?.version).toBe("2.0.0");
+    });
+  });
+
+  describe("postinstall script prevention (regression)", () => {
+    it("every execFileAsync install call in plugin-eject.ts includes --ignore-scripts", async () => {
+      const { readFileSync } = await import("node:fs");
+      const { resolve } = await import("node:path");
+      const source = readFileSync(
+        resolve(__dirname, "../services/plugin-eject.ts"),
+        "utf-8",
+      );
+      const installCalls = [
+        ...source.matchAll(/execFileAsync\([^)]*\[([^\]]*"install"[^\]]*)\]/gs),
+      ];
+      expect(installCalls.length).toBeGreaterThanOrEqual(2);
+      for (const match of installCalls) {
+        expect(match[0]).toContain("--ignore-scripts");
+      }
     });
   });
 });

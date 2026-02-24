@@ -179,15 +179,17 @@ async function writeUpstreamMetadata(
 }
 
 async function runInstallDeps(cwd: string): Promise<void> {
+  // SECURITY: --ignore-scripts prevents postinstall lifecycle scripts from
+  // executing arbitrary code on the host (see PR #573 for full analysis).
   const pm = await detectPackageManager();
   try {
-    await execFileAsync(pm, ["install"], { cwd });
+    await execFileAsync(pm, ["install", "--ignore-scripts"], { cwd });
   } catch (err) {
     if (pm === "npm") throw err;
     logger.warn(
       `[plugin-eject] ${pm} install failed; retrying with npm: ${err instanceof Error ? err.message : String(err)}`,
     );
-    await execFileAsync("npm", ["install"], { cwd });
+    await execFileAsync("npm", ["install", "--ignore-scripts"], { cwd });
   }
 }
 

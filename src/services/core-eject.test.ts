@@ -331,7 +331,8 @@ describe("core-eject", () => {
           return { stdout: "2\n" };
         }
         if (file === "git" && args[0] === "merge") return;
-        if (file === "bun" && args.join(" ") === "install") return;
+        if (file === "bun" && args.join(" ") === "install --ignore-scripts")
+          return;
         if (
           file === "bun" &&
           args.join(" ") === "run --filter @elizaos/core build"
@@ -503,6 +504,24 @@ describe("core-eject", () => {
       expect(status.commitHash).toBe("corehead987");
       expect(status.localChanges).toBe(true);
       expect(status.upstream?.$schema).toBe("milaidy-upstream-v1");
+    });
+  });
+
+  describe("postinstall script prevention (regression)", () => {
+    it("every execFileAsync install call in core-eject.ts includes --ignore-scripts", async () => {
+      const { readFileSync } = await import("node:fs");
+      const { resolve } = await import("node:path");
+      const source = readFileSync(
+        resolve(__dirname, "../services/core-eject.ts"),
+        "utf-8",
+      );
+      const installCalls = [
+        ...source.matchAll(/execFileAsync\([^)]*\[([^\]]*"install"[^\]]*)\]/gs),
+      ];
+      expect(installCalls.length).toBeGreaterThanOrEqual(1);
+      for (const match of installCalls) {
+        expect(match[0]).toContain("--ignore-scripts");
+      }
     });
   });
 });

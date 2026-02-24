@@ -268,7 +268,11 @@ async function writeTsconfigCorePaths(
 }
 
 async function runCoreInstallAndBuild(monorepoDir: string): Promise<void> {
-  await execFileAsync("bun", ["install"], { cwd: monorepoDir });
+  // SECURITY: --ignore-scripts prevents postinstall lifecycle scripts from
+  // executing arbitrary code on the host (see PR #573 for full analysis).
+  await execFileAsync("bun", ["install", "--ignore-scripts"], {
+    cwd: monorepoDir,
+  });
   await execFileAsync("bun", ["run", "--filter", CORE_PACKAGE_NAME, "build"], {
     cwd: monorepoDir,
   });
