@@ -68,7 +68,9 @@ export function getKnowledgeUploadFilename(file: KnowledgeUploadFile): string {
   return file.webkitRelativePath?.trim() || file.name;
 }
 
-export function shouldReadKnowledgeFileAsText(file: Pick<File, "type" | "name">): boolean {
+export function shouldReadKnowledgeFileAsText(
+  file: Pick<File, "type" | "name">,
+): boolean {
   const textTypes = [
     "text/plain",
     "text/markdown",
@@ -78,7 +80,9 @@ export function shouldReadKnowledgeFileAsText(file: Pick<File, "type" | "name">)
     "application/xml",
   ];
 
-  return textTypes.some((t) => file.type.includes(t)) || file.name.endsWith(".md");
+  return (
+    textTypes.some((t) => file.type.includes(t)) || file.name.endsWith(".md")
+  );
 }
 
 function isSupportedKnowledgeFile(file: Pick<File, "name">): boolean {
@@ -137,7 +141,10 @@ function UploadZone({
   uploading,
   uploadStatus,
 }: {
-  onFilesUpload: (files: KnowledgeUploadFile[], options: KnowledgeUploadOptions) => void;
+  onFilesUpload: (
+    files: KnowledgeUploadFile[],
+    options: KnowledgeUploadOptions,
+  ) => void;
   onUrlUpload: (url: string, options: KnowledgeUploadOptions) => void;
   uploading: boolean;
   uploadStatus: { current: number; total: number; filename: string } | null;
@@ -676,7 +683,9 @@ export function KnowledgeView() {
           relativePath: file.webkitRelativePath || undefined,
         },
       };
-      const requestBytes = new TextEncoder().encode(JSON.stringify(request)).length;
+      const requestBytes = new TextEncoder().encode(
+        JSON.stringify(request),
+      ).length;
       if (requestBytes > MAX_UPLOAD_REQUEST_BYTES) {
         throw new Error(
           `Upload payload is ${formatByteSize(requestBytes)}, which exceeds the current limit (${formatByteSize(MAX_UPLOAD_REQUEST_BYTES)}).`,
@@ -728,7 +737,8 @@ export function KnowledgeView() {
       let successful = 0;
 
       const normalizeUploadError = (err: unknown): string => {
-        const message = err instanceof Error ? err.message : "Unknown upload error";
+        const message =
+          err instanceof Error ? err.message : "Unknown upload error";
         const status = (err as Error & { status?: number })?.status;
         return status === 413 || /maximum size|payload is/i.test(message)
           ? "Upload too large. Try splitting this file."
@@ -736,7 +746,11 @@ export function KnowledgeView() {
       };
 
       setUploading(true);
-      setUploadStatus({ current: 0, total: uploadQueue.length, filename: "Preparing..." });
+      setUploadStatus({
+        current: 0,
+        total: uploadQueue.length,
+        filename: "Preparing...",
+      });
 
       try {
         type PreparedUpload = {
@@ -777,7 +791,8 @@ export function KnowledgeView() {
 
             for (const item of result.results) {
               const batchItem = batchToUpload[item.index];
-              const filename = item.filename || batchItem?.filename || "document";
+              const filename =
+                item.filename || batchItem?.filename || "document";
               if (item.ok) {
                 successful += 1;
                 if (item.warnings?.[0]) {
@@ -807,7 +822,8 @@ export function KnowledgeView() {
             const prepared = await buildKnowledgeUploadRequest(file, options);
             if (
               currentBatch.length > 0 &&
-              (currentBatchBytes + prepared.requestBytes > BULK_UPLOAD_TARGET_BYTES ||
+              (currentBatchBytes + prepared.requestBytes >
+                BULK_UPLOAD_TARGET_BYTES ||
                 currentBatch.length >= MAX_BULK_REQUEST_DOCUMENTS)
             ) {
               await flushBatch();
@@ -837,7 +853,11 @@ export function KnowledgeView() {
           ? " Uploaded, but failed to refresh document list."
           : "";
 
-        if (uploadQueue.length === 1 && successful === 1 && failures.length === 0) {
+        if (
+          uploadQueue.length === 1 &&
+          successful === 1 &&
+          failures.length === 0
+        ) {
           const onlyFile = getKnowledgeUploadFilename(uploadQueue[0]);
           const baseMessage = `Uploaded "${onlyFile}"`;
           if (warnings.length > 0) {

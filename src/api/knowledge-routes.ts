@@ -771,7 +771,9 @@ export async function handleKnowledgeRoutes(
 
     const warningsValue = (result as { warnings?: unknown }).warnings;
     const warnings = Array.isArray(warningsValue)
-      ? warningsValue.filter((warning): warning is string => typeof warning === "string")
+      ? warningsValue.filter(
+          (warning): warning is string => typeof warning === "string",
+        )
       : undefined;
 
     return {
@@ -875,7 +877,8 @@ export async function handleKnowledgeRoutes(
           index,
           ok: false,
           filename,
-          error: err instanceof Error ? err.message : "Failed to upload document",
+          error:
+            err instanceof Error ? err.message : "Failed to upload document",
         });
       }
     }

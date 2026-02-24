@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   getKnowledgeUploadFilename,
-  shouldReadKnowledgeFileAsText,
   type KnowledgeUploadFile,
+  shouldReadKnowledgeFileAsText,
 } from "../../src/components/KnowledgeView";
 
 function makeUploadFile(
@@ -33,7 +33,10 @@ describe("knowledge upload helpers", () => {
 
   it("detects text-readable knowledge files", () => {
     expect(
-      shouldReadKnowledgeFileAsText({ type: "application/json", name: "a.bin" }),
+      shouldReadKnowledgeFileAsText({
+        type: "application/json",
+        name: "a.bin",
+      }),
     ).toBe(true);
     expect(
       shouldReadKnowledgeFileAsText({
