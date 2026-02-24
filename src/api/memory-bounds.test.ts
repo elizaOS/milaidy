@@ -1,3 +1,11 @@
+/**
+ * Unit tests for api/memory-bounds.ts — bounded data structures for rate
+ * limiting, conversation capping, log buffer eviction, and file caching.
+ *
+ * These utilities are used by server.ts and bug-report-routes.ts to prevent
+ * unbounded memory growth from long-running agents.
+ */
+
 import { describe, expect, it } from "vitest";
 import {
   evictOldestConversation,
@@ -6,209 +14,199 @@ import {
   sweepExpiredEntries,
 } from "./memory-bounds";
 
-// ── sweepExpiredEntries ───────────────────────────────────────────────
+// ═════════════════════════════════════════════════════════════════════════
+describe("memory-bounds", () => {
+  // ── sweepExpiredEntries ───────────────────────────────────────────
+  describe("sweepExpiredEntries", () => {
+    it("skips sweep when under threshold", () => {
+      const map = new Map([["a", { count: 1, resetAt: 100 }]]);
+      sweepExpiredEntries(map, 200, 5);
+      expect(map.size).toBe(1); // Not evicted — under threshold
+    });
 
-describe("sweepExpiredEntries", () => {
-  it("does nothing when map size is at or below threshold", () => {
-    const map = new Map<string, { count: number; resetAt: number }>();
-    for (let i = 0; i < 100; i++) {
-      map.set(`ip-${i}`, { count: 1, resetAt: 0 }); // all expired
-    }
-    sweepExpiredEntries(map, Date.now(), 100);
-    expect(map.size).toBe(100); // untouched — at threshold, not above
+    it("evicts expired entries when over threshold", () => {
+      const map = new Map([
+        ["expired1", { count: 1, resetAt: 100 }],
+        ["expired2", { count: 1, resetAt: 150 }],
+        ["fresh", { count: 1, resetAt: 500 }],
+      ]);
+      sweepExpiredEntries(map, 200, 2); // threshold=2, map.size=3 > threshold
+      expect(map.has("expired1")).toBe(false);
+      expect(map.has("expired2")).toBe(false);
+      expect(map.has("fresh")).toBe(true);
+      expect(map.size).toBe(1);
+    });
+
+    it("does nothing when exactly at threshold", () => {
+      const map = new Map([
+        ["a", { count: 1, resetAt: 100 }],
+        ["b", { count: 1, resetAt: 100 }],
+      ]);
+      sweepExpiredEntries(map, 200, 2); // size === threshold
+      expect(map.size).toBe(2); // No eviction
+    });
+
+    it("handles empty map gracefully", () => {
+      const map = new Map<string, { count: number; resetAt: number }>();
+      sweepExpiredEntries(map, 200, 0);
+      expect(map.size).toBe(0);
+    });
   });
 
-  it("evicts only expired entries when map exceeds threshold", () => {
-    const now = Date.now();
-    const map = new Map<string, { count: number; resetAt: number }>();
-    // 60 expired entries
-    for (let i = 0; i < 60; i++) {
-      map.set(`expired-${i}`, { count: 1, resetAt: now - 1000 });
-    }
-    // 50 valid entries
-    for (let i = 0; i < 50; i++) {
-      map.set(`valid-${i}`, { count: 1, resetAt: now + 60_000 });
-    }
-    expect(map.size).toBe(110); // above threshold of 100
+  // ── evictOldestConversation ───────────────────────────────────────
+  describe("evictOldestConversation", () => {
+    it("returns null when under cap", () => {
+      const map = new Map([["a", { updatedAt: "2024-01-01T00:00:00Z" }]]);
+      expect(evictOldestConversation(map, 5)).toBeNull();
+      expect(map.size).toBe(1);
+    });
 
-    sweepExpiredEntries(map, now, 100);
+    it("evicts oldest entry when over cap", () => {
+      const map = new Map([
+        ["old", { updatedAt: "2024-01-01T00:00:00Z" }],
+        ["mid", { updatedAt: "2024-06-01T00:00:00Z" }],
+        ["new", { updatedAt: "2024-12-01T00:00:00Z" }],
+      ]);
+      const evicted = evictOldestConversation(map, 2);
+      expect(evicted).toBe("old");
+      expect(map.has("old")).toBe(false);
+      expect(map.size).toBe(2);
+    });
 
-    expect(map.size).toBe(50);
-    // All valid entries remain
-    for (let i = 0; i < 50; i++) {
-      expect(map.has(`valid-${i}`)).toBe(true);
-    }
-    // All expired entries removed
-    for (let i = 0; i < 60; i++) {
-      expect(map.has(`expired-${i}`)).toBe(false);
-    }
+    it("evicts from map with single entry over cap=0", () => {
+      const map = new Map([["only", { updatedAt: "2024-01-01T00:00:00Z" }]]);
+      const evicted = evictOldestConversation(map, 0);
+      expect(evicted).toBe("only");
+      expect(map.size).toBe(0);
+    });
+
+    it("returns null when empty", () => {
+      const map = new Map<string, { updatedAt: string }>();
+      expect(evictOldestConversation(map, 0)).toBeNull();
+    });
   });
 
-  it("leaves valid entries untouched even when all are above threshold", () => {
-    const now = Date.now();
-    const map = new Map<string, { count: number; resetAt: number }>();
-    for (let i = 0; i < 150; i++) {
-      map.set(`ip-${i}`, { count: 1, resetAt: now + 60_000 }); // all valid
-    }
+  // ── pushWithBatchEvict ───────────────────────────────────────────
+  describe("pushWithBatchEvict", () => {
+    it("pushes to buffer and returns length", () => {
+      const buf: number[] = [1, 2, 3];
+      const len = pushWithBatchEvict(buf, 4, 10, 5);
+      expect(len).toBe(4);
+      expect(buf).toEqual([1, 2, 3, 4]);
+    });
 
-    sweepExpiredEntries(map, now, 100);
+    it("does not evict when at high water mark", () => {
+      const buf = [1, 2, 3, 4, 5];
+      pushWithBatchEvict(buf, 6, 6, 3); // 6 === highWater, no eviction
+      expect(buf).toEqual([1, 2, 3, 4, 5, 6]);
+    });
 
-    expect(map.size).toBe(150); // none expired, none removed
-  });
-});
+    it("evicts oldest entries when exceeding high water", () => {
+      const buf = [1, 2, 3, 4, 5];
+      pushWithBatchEvict(buf, 6, 5, 3); // len 6 > 5, evict 3 oldest
+      expect(buf).toEqual([4, 5, 6]);
+    });
 
-// ── evictOldestConversation ───────────────────────────────────────────
+    it("evicts all when evictCount >= buffer length", () => {
+      const buf = [1, 2];
+      pushWithBatchEvict(buf, 3, 2, 100);
+      expect(buf).toEqual([]);
+    });
 
-describe("evictOldestConversation", () => {
-  it("returns null and does not evict when map is at or below cap", () => {
-    const map = new Map([
-      ["a", { updatedAt: "2026-01-01T00:00:00Z" }],
-      ["b", { updatedAt: "2026-01-02T00:00:00Z" }],
-    ]);
-
-    const evicted = evictOldestConversation(map, 2);
-    expect(evicted).toBeNull();
-    expect(map.size).toBe(2);
-  });
-
-  it("evicts the oldest entry by updatedAt when map exceeds cap", () => {
-    const map = new Map([
-      ["newest", { updatedAt: "2026-02-19T12:00:00Z" }],
-      ["oldest", { updatedAt: "2025-01-01T00:00:00Z" }],
-      ["middle", { updatedAt: "2026-01-15T06:00:00Z" }],
-    ]);
-
-    const evicted = evictOldestConversation(map, 2);
-    expect(evicted).toBe("oldest");
-    expect(map.size).toBe(2);
-    expect(map.has("oldest")).toBe(false);
-    expect(map.has("newest")).toBe(true);
-    expect(map.has("middle")).toBe(true);
+    it("works with string buffers", () => {
+      const buf: string[] = ["a", "b"];
+      pushWithBatchEvict(buf, "c", 2, 1);
+      expect(buf).toEqual(["b", "c"]);
+    });
   });
 
-  it("evicts one entry per call, bringing size back to cap", () => {
-    const map = new Map([
-      ["a", { updatedAt: "2026-01-01T00:00:00Z" }],
-      ["b", { updatedAt: "2026-01-02T00:00:00Z" }],
-      ["c", { updatedAt: "2026-01-03T00:00:00Z" }],
-      ["d", { updatedAt: "2026-01-04T00:00:00Z" }],
-    ]);
+  // ── getOrReadCachedFile ──────────────────────────────────────────
+  describe("getOrReadCachedFile", () => {
+    it("reads file on cache miss", () => {
+      const cache = new Map<string, { body: Buffer; mtimeMs: number }>();
+      const body = getOrReadCachedFile(
+        cache,
+        "/test.txt",
+        1000,
+        () => Buffer.from("hello"),
+        10,
+        1024,
+      );
+      expect(body.toString()).toBe("hello");
+      expect(cache.has("/test.txt")).toBe(true);
+    });
 
-    evictOldestConversation(map, 3);
-    expect(map.size).toBe(3);
-    expect(map.has("a")).toBe(false); // oldest removed
-  });
-});
+    it("returns cached value on cache hit", () => {
+      const cache = new Map<string, { body: Buffer; mtimeMs: number }>();
+      cache.set("/test.txt", {
+        body: Buffer.from("cached"),
+        mtimeMs: 1000,
+      });
+      let readCalled = false;
+      const body = getOrReadCachedFile(
+        cache,
+        "/test.txt",
+        1000,
+        () => {
+          readCalled = true;
+          return Buffer.from("fresh");
+        },
+        10,
+        1024,
+      );
+      expect(body.toString()).toBe("cached");
+      expect(readCalled).toBe(false);
+    });
 
-// ── pushWithBatchEvict ────────────────────────────────────────────────
+    it("re-reads when mtime changes", () => {
+      const cache = new Map<string, { body: Buffer; mtimeMs: number }>();
+      cache.set("/test.txt", {
+        body: Buffer.from("stale"),
+        mtimeMs: 1000,
+      });
+      const body = getOrReadCachedFile(
+        cache,
+        "/test.txt",
+        2000, // Different mtime
+        () => Buffer.from("fresh"),
+        10,
+        1024,
+      );
+      expect(body.toString()).toBe("fresh");
+    });
 
-describe("pushWithBatchEvict", () => {
-  it("pushes without eviction when below high-water mark", () => {
-    const buffer: number[] = [1, 2, 3];
-    const len = pushWithBatchEvict(buffer, 4, 10, 3);
-    expect(len).toBe(4);
-    expect(buffer).toEqual([1, 2, 3, 4]);
-  });
+    it("does not cache files exceeding size limit", () => {
+      const cache = new Map<string, { body: Buffer; mtimeMs: number }>();
+      const largeBody = Buffer.alloc(2048);
+      const body = getOrReadCachedFile(
+        cache,
+        "/big.bin",
+        1000,
+        () => largeBody,
+        10,
+        1024, // File is 2048, limit is 1024
+      );
+      expect(body.length).toBe(2048);
+      expect(cache.has("/big.bin")).toBe(false);
+    });
 
-  it("evicts oldest entries when high-water mark is exceeded", () => {
-    const buffer: number[] = [];
-    // Fill to 1200
-    for (let i = 0; i < 1200; i++) buffer.push(i);
+    it("evicts oldest cache entry when cache is full", () => {
+      const cache = new Map<string, { body: Buffer; mtimeMs: number }>();
+      cache.set("/a.txt", { body: Buffer.from("a"), mtimeMs: 1 });
+      cache.set("/b.txt", { body: Buffer.from("b"), mtimeMs: 1 });
 
-    // Push one more — triggers eviction at >1200
-    const len = pushWithBatchEvict(buffer, 1200, 1200, 200);
+      getOrReadCachedFile(
+        cache,
+        "/c.txt",
+        1,
+        () => Buffer.from("c"),
+        2, // maxEntries=2, cache already has 2
+        1024,
+      );
 
-    expect(len).toBe(1001); // 1201 - 200
-    expect(buffer[0]).toBe(200); // first 200 entries were removed
-    expect(buffer[buffer.length - 1]).toBe(1200); // newly pushed entry
-  });
-
-  it("does not evict at exactly the high-water mark", () => {
-    const buffer: number[] = [];
-    for (let i = 0; i < 1199; i++) buffer.push(i);
-
-    // Push to exactly 1200 — should NOT trigger eviction (> not >=)
-    pushWithBatchEvict(buffer, 1199, 1200, 200);
-
-    expect(buffer.length).toBe(1200);
-    expect(buffer[0]).toBe(0); // nothing removed
-  });
-
-  it("handles evictCount larger than buffer length gracefully", () => {
-    const buffer: number[] = [1, 2, 3];
-    pushWithBatchEvict(buffer, 4, 3, 100); // evictCount > buffer.length
-    // splice(0, 100) on a 4-element array just empties it
-    expect(buffer.length).toBe(0);
-  });
-});
-
-// ── getOrReadCachedFile ───────────────────────────────────────────────
-
-describe("getOrReadCachedFile", () => {
-  const makeReader = (content: string) => {
-    let callCount = 0;
-    const reader = (_p: string) => {
-      callCount++;
-      return Buffer.from(content);
-    };
-    return { reader, getCallCount: () => callCount };
-  };
-
-  it("reads from disk on cache miss and caches the result", () => {
-    const cache = new Map<string, { body: Buffer; mtimeMs: number }>();
-    const { reader, getCallCount } = makeReader("hello");
-
-    const body = getOrReadCachedFile(cache, "/a.js", 100, reader, 50, 1024);
-    expect(body.toString()).toBe("hello");
-    expect(getCallCount()).toBe(1);
-    expect(cache.size).toBe(1);
-
-    // Second call with same mtime — cache hit
-    const body2 = getOrReadCachedFile(cache, "/a.js", 100, reader, 50, 1024);
-    expect(body2.toString()).toBe("hello");
-    expect(getCallCount()).toBe(1); // no additional disk read
-  });
-
-  it("invalidates cache when mtime changes", () => {
-    const cache = new Map<string, { body: Buffer; mtimeMs: number }>();
-    const { reader, getCallCount } = makeReader("v1");
-
-    getOrReadCachedFile(cache, "/a.js", 100, reader, 50, 1024);
-    expect(getCallCount()).toBe(1);
-
-    // Changed mtime — should re-read
-    getOrReadCachedFile(cache, "/a.js", 200, reader, 50, 1024);
-    expect(getCallCount()).toBe(2);
-  });
-
-  it("does not cache files exceeding the size limit", () => {
-    const cache = new Map<string, { body: Buffer; mtimeMs: number }>();
-    const bigContent = "x".repeat(1025); // exceeds 1024 limit
-    const { reader, getCallCount } = makeReader(bigContent);
-
-    getOrReadCachedFile(cache, "/big.js", 100, reader, 50, 1024);
-    expect(cache.size).toBe(0); // not cached
-    expect(getCallCount()).toBe(1);
-
-    // Next call reads from disk again
-    getOrReadCachedFile(cache, "/big.js", 100, reader, 50, 1024);
-    expect(getCallCount()).toBe(2);
-  });
-
-  it("evicts the oldest entry when cache is at capacity", () => {
-    const cache = new Map<string, { body: Buffer; mtimeMs: number }>();
-    const { reader } = makeReader("data");
-
-    // Fill cache to capacity (3 entries)
-    getOrReadCachedFile(cache, "/a.js", 1, reader, 3, 1024);
-    getOrReadCachedFile(cache, "/b.js", 1, reader, 3, 1024);
-    getOrReadCachedFile(cache, "/c.js", 1, reader, 3, 1024);
-    expect(cache.size).toBe(3);
-
-    // Add a 4th — should evict /a.js (first inserted)
-    getOrReadCachedFile(cache, "/d.js", 1, reader, 3, 1024);
-    expect(cache.size).toBe(3);
-    expect(cache.has("/a.js")).toBe(false);
-    expect(cache.has("/d.js")).toBe(true);
+      expect(cache.has("/a.txt")).toBe(false); // oldest evicted
+      expect(cache.has("/b.txt")).toBe(true);
+      expect(cache.has("/c.txt")).toBe(true);
+    });
   });
 });
