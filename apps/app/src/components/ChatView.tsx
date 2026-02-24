@@ -623,6 +623,8 @@ export function ChatView() {
             className="h-[38px] shrink-0 px-4 sm:px-5 py-2 border border-accent bg-accent text-accent-fg text-sm cursor-pointer hover:bg-accent-hover disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200 hover:shadow-sm self-end flex items-center gap-1.5"
             onClick={() => void handleChatSend()}
             disabled={chatSending || !chatInput.trim()}
+            aria-label="Send message"
+            title="Send message"
           >
             <Send className="w-4 h-4" />
             <span>Send</span>

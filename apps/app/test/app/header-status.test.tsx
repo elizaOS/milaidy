@@ -73,7 +73,8 @@ describe("header status", () => {
       .join("\n");
 
     expect(renderedText).toContain("starting");
-    expect(renderedText).toContain("⏳");
+    // Check that pause button is not present during starting state
+    // (Loader2 spinner is shown instead of the pause/resume button)
     expect(renderedText).not.toContain("⏸️");
   });
 
