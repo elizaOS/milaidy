@@ -1,0 +1,5 @@
+// Stub for @milaidy/plugin-coding-agent used in e2e tests.
+// The real module is optional and not available in all environments.
+export function createCodingAgentRouteHandler() {
+    return async () => undefined;
+}
