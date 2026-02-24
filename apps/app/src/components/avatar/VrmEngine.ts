@@ -363,12 +363,19 @@ export class VrmEngine {
     this.vrmName = name ?? null;
     this.resetBlink();
 
+    // Create the mixer early so emotes can play even if idle anim fails.
+    this.mixer = new THREE.AnimationMixer(vrm.scene);
+
     try {
       await this.loadAndPlayIdle(vrm);
       if (!this.loadingAborted && this.vrm === vrm) {
         vrm.scene.visible = true;
       }
-    } catch {
+    } catch (err) {
+      console.warn(
+        "[VrmEngine] Failed to load idle animation — avatar will show T-pose",
+        { idleGlbUrl: this.idleGlbUrl, error: err },
+      );
       if (!this.loadingAborted && this.vrm === vrm) {
         vrm.scene.visible = true;
       }
@@ -505,8 +512,9 @@ export class VrmEngine {
 
     if (this.loadingAborted || this.vrm !== vrm) return;
 
-    const mixer = new THREE.AnimationMixer(vrm.scene);
-    this.mixer = mixer;
+    // Reuse the mixer created in loadVrmFromUrl (so emotes work even if this fails).
+    const mixer = this.mixer;
+    if (!mixer) return;
 
     const action = mixer.clipAction(clip);
     action.reset();
