@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getVrmPreviewUrl, getVrmUrl, useApp } from "../AppContext";
 import { client } from "../api-client";
+import { resolveAppAssetUrl } from "../asset-url";
 import type { VrmEngine, VrmEngineState } from "./avatar/VrmEngine";
 import { VrmViewer } from "./avatar/VrmViewer";
 
@@ -69,8 +70,12 @@ export function ChatAvatar({
     return client.onWsEvent("emote", (data) => {
       const engine = vrmEngineRef.current;
       if (!engine) return;
+      // Resolve the GLB path through the asset URL resolver so it works
+      // in both http:// and Electron file:// contexts.
+      const rawPath = data.glbPath as string;
+      const resolvedPath = resolveAppAssetUrl(rawPath);
       void engine.playEmote(
-        data.glbPath as string,
+        resolvedPath,
         data.duration as number,
         data.loop as boolean,
       );

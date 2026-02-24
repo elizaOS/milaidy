@@ -2,7 +2,7 @@
  * PLAY_EMOTE action — plays an emote animation on the avatar.
  *
  * When triggered the action:
- *   1. Extracts the emote ID from the parameters
+ *   1. Extracts the emote ID from parameters, or falls back to text-matching
  *   2. Looks up the emote in the catalog
  *   3. POSTs to the local API server to trigger the animation
  *   4. Returns a descriptive text response with the emote name
@@ -72,21 +72,21 @@ export const emoteAction: Action = {
 
   handler: async (_runtime, message, _state, options) => {
     try {
-      // Extract emote ID from parameters.
+      // Extract emote ID from structured parameters first.
       const params = (options as HandlerOptions | undefined)?.parameters;
       let emoteId =
         typeof params?.emote === "string" ? params.emote : undefined;
 
+      // Fallback: resolve from the triggering message text (covers retake
+      // chat and other sources where structured parameters may be absent).
       if (!emoteId) {
         const text = (message as Memory)?.content?.text ?? "";
         emoteId = resolveEmoteFromText(text);
       }
 
       if (!emoteId) {
-        return {
-          text: "",
-          success: false,
-        };
+        // Last resort: default to wave (action was triggered intentionally)
+        emoteId = "wave";
       }
 
       // Look up the emote in the catalog.

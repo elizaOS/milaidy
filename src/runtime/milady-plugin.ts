@@ -90,6 +90,8 @@ export function createMiladyPlugin(config?: MiladyPluginConfig): Plugin {
           'Include both actions: actions: ["REPLY", "PLAY_EMOTE"] with the emote parameter set to the emote ID.',
           "",
           `Available emote IDs: ${ids}`,
+          "",
+          "Common mappings: dance/vibe → dance-happy, wave/greet → wave, flip/backflip → flip, cry/sad → crying, fight/punch → punching, fish → fishing",
         ].join("\n"),
       };
     },

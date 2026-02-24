@@ -1698,8 +1698,12 @@ export function applyConnectorSecretsToEnv(config: MiladyConfig): void {
 
     for (const [configField, envKey] of Object.entries(envMap)) {
       const value = configObj[configField];
-      if (typeof value === "string" && value.trim() && !process.env[envKey]) {
-        process.env[envKey] = value;
+      if (typeof value === "string" && value.trim()) {
+        // Set if unset, or overwrite stale [REDACTED] placeholders
+        const existing = process.env[envKey];
+        if (!existing || existing.startsWith("[REDACT")) {
+          process.env[envKey] = value;
+        }
       }
     }
   }
