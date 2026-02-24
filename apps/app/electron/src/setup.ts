@@ -482,7 +482,7 @@ export class ElectronCapacitorApp {
         menuItems.push(
           {
             label: "Open Link in Browser",
-            click: () => shell.openExternal(params.linkURL),
+            click: () => openExternal(params.linkURL),
           },
           {
             label: "Copy Link Address",

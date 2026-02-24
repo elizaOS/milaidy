@@ -681,14 +681,35 @@ export class DesktopManager {
     clipboard.clear();
   }
 
-  // MARK: - Shell
-
+  // SECURITY: restrict to http/https to prevent the renderer from opening
+  // arbitrary protocol handlers (file://, smb://, custom schemes) that could
+  // execute code or access local resources.
   async openExternal(options: OpenExternalOptions): Promise<void> {
-    await shell.openExternal(options.url);
+    const url = typeof options.url === "string" ? options.url.trim() : "";
+    try {
+      const parsed = new URL(url);
+      if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+        throw new Error(
+          `Blocked openExternal for non-http(s) URL: ${parsed.protocol}`,
+        );
+      }
+    } catch (err) {
+      if (err instanceof TypeError) {
+        throw new Error(`Invalid URL passed to openExternal: ${url}`);
+      }
+      throw err;
+    }
+    await shell.openExternal(url);
   }
 
+  // SECURITY: require an absolute path to prevent relative path confusion.
+  // shell.showItemInFolder reveals the item in the OS file manager (no execution).
   async showItemInFolder(options: ShowItemInFolderOptions): Promise<void> {
-    shell.showItemInFolder(options.path);
+    const p = typeof options.path === "string" ? options.path.trim() : "";
+    if (!p || !path.isAbsolute(p)) {
+      throw new Error("showItemInFolder requires an absolute path");
+    }
+    shell.showItemInFolder(p);
   }
 
   async beep(): Promise<void> {
