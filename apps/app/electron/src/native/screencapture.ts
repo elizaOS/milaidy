@@ -105,7 +105,9 @@ export class ScreenCaptureManager {
   private _frameCaptureActive = false;
   private _frameCaptureSkipping = false;
   private _frameCaptureWindow: BrowserWindow | null = null;
+  /** Override capture target — when set, frame capture uses this window instead of mainWindow. */
   private _captureTarget: BrowserWindow | null = null;
+  /** Stored capture options so we can restart after target switch. */
   private _frameCaptureOptions: FrameCaptureOptions | null = null;
 
   setMainWindow(window: BrowserWindow): void {
@@ -553,6 +555,7 @@ export class ScreenCaptureManager {
 
     this._frameCaptureActive = true;
     this._frameCaptureSkipping = false;
+    this._frameCaptureOptions = options ?? null;
 
     if (options?.gameUrl) {
       // Offscreen window: use the `paint` event for reliable frame capture
@@ -610,27 +613,37 @@ export class ScreenCaptureManager {
         `[ScreenCapture] Offscreen game window loaded, paint events active at ${fps}fps`,
       );
     } else {
-      // Main window: use capturePage() with timer
+      // Use override target (popout window) if set, otherwise main window
       const captureTarget =
         this._captureTarget && !this._captureTarget.isDestroyed()
           ? this._captureTarget
           : this.mainWindow;
-      if (!captureTarget) throw new Error("Main window not available");
+      if (!captureTarget) throw new Error("No capture target available");
 
+      const targetName = this._captureTarget ? "popout window" : "main window";
       console.log(
-        `[ScreenCapture] Starting frame capture at ${fps}fps → ${endpoint}`,
+        `[ScreenCapture] Starting frame capture at ${fps}fps → ${endpoint} (target: ${targetName})`,
       );
 
       this._frameCaptureTimer = setInterval(async () => {
         if (this._frameCaptureSkipping) return;
-        if (!this._frameCaptureActive || captureTarget.isDestroyed()) {
+        // Use the current _captureTarget (may change) or fall back to mainWindow
+        const target = this._captureTarget ?? this.mainWindow;
+        if (!this._frameCaptureActive || !target || target.isDestroyed()) {
           this.stopFrameCapture();
           return;
         }
 
         this._frameCaptureSkipping = true;
         try {
-          const image = await captureTarget.webContents.capturePage();
+          const raw = await target.webContents.capturePage();
+          // Ensure consistent 1280×720 output for the stream, regardless of
+          // window size or device pixel ratio (e.g. PIP mode on non-Retina).
+          const size = raw.getSize();
+          const image =
+            size.width !== 1280 || size.height !== 720
+              ? raw.resize({ width: 1280, height: 720 })
+              : raw;
           const jpeg = image.toJPEG(quality);
 
           const req = net.request({ method: "POST", url: endpoint });
@@ -647,6 +660,7 @@ export class ScreenCaptureManager {
   }
 
   stopFrameCapture(): void {
+    this._frameCaptureOptions = null;
     if (this._frameCaptureTimer) {
       clearInterval(this._frameCaptureTimer);
       this._frameCaptureTimer = null;

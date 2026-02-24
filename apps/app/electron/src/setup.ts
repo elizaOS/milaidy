@@ -367,6 +367,26 @@ export class ElectronCapacitorApp {
         openExternal(details.url);
         return { action: "deny" };
       }
+      // Popout stream windows get always-on-top, PIP-friendly, frameless treatment
+      if (details.url.includes("popout")) {
+        return {
+          action: "allow",
+          overrideBrowserWindowOptions: {
+            alwaysOnTop: true,
+            visibleOnAllWorkspaces: true,
+            frame: false,
+            titleBarStyle: "hidden",
+            backgroundColor: "#0a0a0a",
+            fullscreenable: false,
+            minimizable: false,
+            webPreferences: {
+              nodeIntegration: false,
+              contextIsolation: true,
+              preload: preloadPath,
+            },
+          },
+        };
+      }
       return { action: "allow" };
     });
 
