@@ -27,11 +27,29 @@ export interface PTYServiceConfig {
 }
 
 /** Available coding agent types */
-export type CodingAgentType = "shell" | AdapterType;
+export type CodingAgentType = "shell" | "pi" | AdapterType;
+
+const PI_AGENT_ALIASES = new Set([
+  "pi",
+  "pi-ai",
+  "piai",
+  "pi-coding-agent",
+  "picodingagent",
+]);
+
+/** True when the user requested the Pi coding agent. */
+export const isPiAgentType = (input: string | undefined | null): boolean => {
+  if (!input) return false;
+  return PI_AGENT_ALIASES.has(input.toLowerCase().trim());
+};
 
 /** Normalize user-provided agent type string to a valid CodingAgentType */
 export const normalizeAgentType = (input: string): CodingAgentType => {
   const normalized = input.toLowerCase().trim();
+  if (isPiAgentType(normalized)) {
+    // PI currently runs through the generic shell adapter.
+    return "shell";
+  }
   const mapping: Record<string, CodingAgentType> = {
     claude: "claude",
     "claude-code": "claude",
@@ -48,10 +66,18 @@ export const normalizeAgentType = (input: string): CodingAgentType => {
   return mapping[normalized] ?? "claude";
 };
 
+/** Build the initial shell command for Pi agent sessions. */
+export const toPiCommand = (task: string | undefined): string => {
+  const trimmed = task?.trim();
+  if (!trimmed) return "pi";
+  const shellSafe = `'${trimmed.replace(/'/g, `'\"'\"'`)}'`;
+  return `pi ${shellSafe}`;
+};
+
 export interface SpawnSessionOptions {
   /** Human-readable session name */
   name: string;
-  /** Adapter type: "shell" | "claude" | "gemini" | "codex" | "aider" */
+  /** Adapter type: "shell" | "pi" | "claude" | "gemini" | "codex" | "aider" */
   agentType: CodingAgentType;
   /** Working directory for the session */
   workdir?: string;

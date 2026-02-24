@@ -211,7 +211,8 @@ export async function initializePTYManager(
   // Register built-in adapters
   nodeManager.registerAdapter(new ShellAdapter());
 
-  // Register coding agent adapters (claude, gemini, codex, aider)
+  // Register coding agent adapters (claude, gemini, codex, aider).
+  // Pi currently routes through the generic shell adapter.
   if (ctx.serviceConfig.registerCodingAdapters) {
     const codingAdapters = createAllAdapters();
     for (const adapter of codingAdapters) {

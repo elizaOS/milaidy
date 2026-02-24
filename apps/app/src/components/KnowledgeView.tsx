@@ -33,11 +33,65 @@ const btnGhost =
 const btnDanger =
   "px-2 py-1 text-[11px] bg-transparent text-[var(--muted)] border border-[var(--border)] cursor-pointer hover:text-[#e74c3c] hover:border-[#e74c3c] transition-colors rounded";
 const MAX_UPLOAD_REQUEST_BYTES = 32 * 1_048_576; // Must match server knowledge route limit
+const BULK_UPLOAD_TARGET_BYTES = 24 * 1_048_576;
+const MAX_BULK_REQUEST_DOCUMENTS = 100;
 const LARGE_FILE_WARNING_BYTES = 8 * 1_048_576;
+const SUPPORTED_UPLOAD_EXTENSIONS = new Set([
+  ".txt",
+  ".md",
+  ".pdf",
+  ".docx",
+  ".json",
+  ".csv",
+  ".xml",
+  ".html",
+  ".png",
+  ".jpg",
+  ".jpeg",
+  ".webp",
+  ".gif",
+]);
+const DIRECTORY_INPUT_ATTRS = {
+  webkitdirectory: "",
+  directory: "",
+} as Record<string, string>;
+
+export type KnowledgeUploadFile = File & {
+  webkitRelativePath?: string;
+};
 
 type KnowledgeUploadOptions = {
   includeImageDescriptions: boolean;
 };
+
+export function getKnowledgeUploadFilename(file: KnowledgeUploadFile): string {
+  return file.webkitRelativePath?.trim() || file.name;
+}
+
+export function shouldReadKnowledgeFileAsText(
+  file: Pick<File, "type" | "name">,
+): boolean {
+  const textTypes = [
+    "text/plain",
+    "text/markdown",
+    "text/html",
+    "text/csv",
+    "application/json",
+    "application/xml",
+  ];
+
+  return (
+    textTypes.some((t) => file.type.includes(t)) || file.name.endsWith(".md")
+  );
+}
+
+function isSupportedKnowledgeFile(file: Pick<File, "name">): boolean {
+  const lowerName = file.name.toLowerCase();
+  for (const extension of SUPPORTED_UPLOAD_EXTENSIONS) {
+    if (lowerName.endsWith(extension)) return true;
+  }
+  return false;
+}
 
 /* ── Stats Card ─────────────────────────────────────────────────────── */
 
@@ -82,13 +136,18 @@ function StatsCard({
 /* ── Upload Zone ────────────────────────────────────────────────────── */
 
 function UploadZone({
-  onFileUpload,
+  onFilesUpload,
   onUrlUpload,
   uploading,
+  uploadStatus,
 }: {
-  onFileUpload: (file: File, options: KnowledgeUploadOptions) => void;
+  onFilesUpload: (
+    files: KnowledgeUploadFile[],
+    options: KnowledgeUploadOptions,
+  ) => void;
   onUrlUpload: (url: string, options: KnowledgeUploadOptions) => void;
   uploading: boolean;
+  uploadStatus: { current: number; total: number; filename: string } | null;
 }) {
   const [dragOver, setDragOver] = useState(false);
   const [urlInput, setUrlInput] = useState("");
@@ -96,28 +155,31 @@ function UploadZone({
   const [includeImageDescriptions, setIncludeImageDescriptions] =
     useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault();
       setDragOver(false);
-      const files = Array.from(e.dataTransfer.files);
+      const files = Array.from(e.dataTransfer.files) as KnowledgeUploadFile[];
       if (files.length > 0 && !uploading) {
-        onFileUpload(files[0], { includeImageDescriptions });
+        onFilesUpload(files, { includeImageDescriptions });
       }
     },
-    [includeImageDescriptions, onFileUpload, uploading],
+    [includeImageDescriptions, onFilesUpload, uploading],
   );
 
   const handleFileSelect = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const files = e.target.files;
       if (files && files.length > 0 && !uploading) {
-        onFileUpload(files[0], { includeImageDescriptions });
+        onFilesUpload(Array.from(files) as KnowledgeUploadFile[], {
+          includeImageDescriptions,
+        });
       }
       e.target.value = "";
     },
-    [includeImageDescriptions, onFileUpload, uploading],
+    [includeImageDescriptions, onFilesUpload, uploading],
   );
 
   const handleUrlSubmit = useCallback(() => {
@@ -149,19 +211,33 @@ function UploadZone({
           ref={fileInputRef}
           type="file"
           className="hidden"
+          multiple
+          accept=".txt,.md,.pdf,.docx,.json,.csv,.xml,.html,.png,.jpg,.jpeg,.webp,.gif"
+          onChange={handleFileSelect}
+        />
+        <input
+          {...DIRECTORY_INPUT_ATTRS}
+          ref={folderInputRef}
+          type="file"
+          className="hidden"
+          multiple
           accept=".txt,.md,.pdf,.docx,.json,.csv,.xml,.html,.png,.jpg,.jpeg,.webp,.gif"
           onChange={handleFileSelect}
         />
         <div className="text-[var(--muted)] mb-3">
           {uploading ? (
-            <span className="text-[var(--accent)]">Uploading...</span>
+            <span className="text-[var(--accent)]">
+              {uploadStatus
+                ? `Uploading ${uploadStatus.current}/${uploadStatus.total}${uploadStatus.filename ? `: ${uploadStatus.filename}` : ""}`
+                : "Uploading..."}
+            </span>
           ) : (
-            <>Drop files here or click to browse</>
+            <>Drop files/folders here or click to browse</>
           )}
         </div>
         <div className="text-[11px] text-[var(--muted)] mb-4">
           Supported: PDF, Markdown, Text, DOCX, JSON, CSV, XML, HTML, PNG, JPG,
-          WEBP, GIF
+          WEBP, GIF • folders are imported recursively
         </div>
         <div className="flex gap-3 justify-center">
           <button
@@ -170,7 +246,15 @@ function UploadZone({
             onClick={() => fileInputRef.current?.click()}
             disabled={uploading}
           >
-            Choose File
+            Choose Files
+          </button>
+          <button
+            type="button"
+            className={btnGhost}
+            onClick={() => folderInputRef.current?.click()}
+            disabled={uploading}
+          >
+            Choose Folder
           </button>
           <button
             type="button"
@@ -522,6 +606,11 @@ export function KnowledgeView() {
   >(null);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState<{
+    current: number;
+    total: number;
+    filename: string;
+  } | null>(null);
   const [searching, setSearching] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
@@ -547,111 +636,266 @@ export function KnowledgeView() {
     });
   }, [loadData]);
 
-  const handleFileUpload = useCallback(
-    async (file: File, options: KnowledgeUploadOptions) => {
-      if (file.size >= LARGE_FILE_WARNING_BYTES) {
+  const readKnowledgeFile = useCallback(async (file: KnowledgeUploadFile) => {
+    const reader = new FileReader();
+    return new Promise<string>((resolve, reject) => {
+      reader.onload = () => {
+        const result = reader.result;
+        if (typeof result === "string") {
+          resolve(result);
+          return;
+        }
+
+        if (result instanceof ArrayBuffer) {
+          const bytes = new Uint8Array(result);
+          let binary = "";
+          for (let i = 0; i < bytes.byteLength; i++) {
+            binary += String.fromCharCode(bytes[i]);
+          }
+          resolve(btoa(binary));
+          return;
+        }
+
+        reject(new Error("Failed to read file"));
+      };
+
+      reader.onerror = () => reject(reader.error);
+
+      if (shouldReadKnowledgeFileAsText(file)) {
+        reader.readAsText(file);
+      } else {
+        reader.readAsArrayBuffer(file);
+      }
+    });
+  }, []);
+
+  const buildKnowledgeUploadRequest = useCallback(
+    async (file: KnowledgeUploadFile, options: KnowledgeUploadOptions) => {
+      const uploadFilename = getKnowledgeUploadFilename(file);
+      const content = await readKnowledgeFile(file);
+
+      const request = {
+        content,
+        filename: uploadFilename,
+        contentType: file.type || "application/octet-stream",
+        metadata: {
+          includeImageDescriptions: options.includeImageDescriptions,
+          relativePath: file.webkitRelativePath || undefined,
+        },
+      };
+      const requestBytes = new TextEncoder().encode(
+        JSON.stringify(request),
+      ).length;
+      if (requestBytes > MAX_UPLOAD_REQUEST_BYTES) {
+        throw new Error(
+          `Upload payload is ${formatByteSize(requestBytes)}, which exceeds the current limit (${formatByteSize(MAX_UPLOAD_REQUEST_BYTES)}).`,
+        );
+      }
+
+      return {
+        filename: uploadFilename,
+        request,
+        requestBytes,
+      };
+    },
+    [readKnowledgeFile],
+  );
+
+  const handleFilesUpload = useCallback(
+    async (files: KnowledgeUploadFile[], options: KnowledgeUploadOptions) => {
+      const unsupportedFiles = files.filter(
+        (file) => !isSupportedKnowledgeFile(file),
+      );
+      const uploadQueue = files.filter(
+        (file) => file.size > 0 && isSupportedKnowledgeFile(file),
+      );
+      if (uploadQueue.length === 0) {
+        setActionNotice(
+          unsupportedFiles.length > 0
+            ? "No supported non-empty files were selected."
+            : "No non-empty files were selected.",
+          "info",
+          3000,
+        );
+        return;
+      }
+
+      const largeFiles = uploadQueue.filter(
+        (file) => file.size >= LARGE_FILE_WARNING_BYTES,
+      );
+      if (largeFiles.length > 0) {
         const shouldContinue =
           typeof window === "undefined" ||
           window.confirm(
-            `This file is ${formatByteSize(file.size)}. Large uploads can take longer and may increase embedding/vision costs. Continue?`,
+            `${largeFiles.length} large file(s) detected. Uploading can take longer and may increase embedding/vision costs. Continue?`,
           );
         if (!shouldContinue) return;
       }
 
-      setUploading(true);
-      try {
-        // Read file content
-        const reader = new FileReader();
-        const content = await new Promise<string>((resolve, reject) => {
-          reader.onload = () => {
-            const result = reader.result;
-            if (typeof result === "string") {
-              // For text files
-              resolve(result);
-            } else if (result instanceof ArrayBuffer) {
-              // For binary files (PDF, DOCX, images), convert to base64
-              const bytes = new Uint8Array(result);
-              let binary = "";
-              for (let i = 0; i < bytes.byteLength; i++) {
-                binary += String.fromCharCode(bytes[i]);
-              }
-              resolve(btoa(binary));
-            } else {
-              reject(new Error("Failed to read file"));
-            }
-          };
-          reader.onerror = () => reject(reader.error);
+      const failures: string[] = [];
+      const warnings: string[] = [];
+      let successful = 0;
 
-          // Read as text for text-based files, binary for others
-          const textTypes = [
-            "text/plain",
-            "text/markdown",
-            "text/html",
-            "text/csv",
-            "application/json",
-            "application/xml",
-          ];
-          if (
-            textTypes.some((t) => file.type.includes(t)) ||
-            file.name.endsWith(".md")
-          ) {
-            reader.readAsText(file);
-          } else {
-            reader.readAsArrayBuffer(file);
-          }
-        });
-
-        const request = {
-          content,
-          filename: file.name,
-          contentType: file.type || "application/octet-stream",
-          metadata: {
-            includeImageDescriptions: options.includeImageDescriptions,
-          },
-        };
-        const requestBytes = new TextEncoder().encode(
-          JSON.stringify(request),
-        ).length;
-        if (requestBytes > MAX_UPLOAD_REQUEST_BYTES) {
-          throw new Error(
-            `Upload payload is ${formatByteSize(requestBytes)}, which exceeds the current limit (${formatByteSize(MAX_UPLOAD_REQUEST_BYTES)}).`,
-          );
-        }
-
-        const result = await client.uploadKnowledgeDocument(request);
-        const baseMessage = `Uploaded "${file.name}" (${result.fragmentCount} fragments)`;
-        if (result.warnings && result.warnings.length > 0) {
-          setActionNotice(
-            `${baseMessage}. ${result.warnings[0]}`,
-            "info",
-            6000,
-          );
-        } else {
-          setActionNotice(baseMessage, "success", 3000);
-        }
-        loadData();
-      } catch (err) {
+      const normalizeUploadError = (err: unknown): string => {
         const message =
           err instanceof Error ? err.message : "Unknown upload error";
         const status = (err as Error & { status?: number })?.status;
-        if (status === 413 || /maximum size|payload is/i.test(message)) {
-          setActionNotice(
-            `Upload too large. Try a smaller file or split it into parts.`,
-            "error",
-            6000,
-          );
-        } else {
-          setActionNotice(
-            `Failed to upload "${file.name}": ${message}`,
-            "error",
-            5000,
-          );
+        return status === 413 || /maximum size|payload is/i.test(message)
+          ? "Upload too large. Try splitting this file."
+          : message;
+      };
+
+      setUploading(true);
+      setUploadStatus({
+        current: 0,
+        total: uploadQueue.length,
+        filename: "Preparing...",
+      });
+
+      try {
+        type PreparedUpload = {
+          filename: string;
+          request: {
+            content: string;
+            filename: string;
+            contentType: string;
+            metadata: {
+              includeImageDescriptions: boolean;
+              relativePath: string | undefined;
+            };
+          };
+          requestBytes: number;
+        };
+
+        let currentBatch: PreparedUpload[] = [];
+        let currentBatchBytes = 0;
+
+        const flushBatch = async () => {
+          if (currentBatch.length === 0) return;
+
+          const batchToUpload = currentBatch;
+          currentBatch = [];
+          currentBatchBytes = 0;
+
+          const batchLabel = batchToUpload[0]?.filename || "batch";
+          setUploadStatus({
+            current: successful + failures.length,
+            total: uploadQueue.length,
+            filename: `Uploading batch starting with ${batchLabel}`,
+          });
+
+          try {
+            const result = await client.uploadKnowledgeDocumentsBulk({
+              documents: batchToUpload.map((item) => item.request),
+            });
+
+            for (const item of result.results) {
+              const batchItem = batchToUpload[item.index];
+              const filename =
+                item.filename || batchItem?.filename || "document";
+              if (item.ok) {
+                successful += 1;
+                if (item.warnings?.[0]) {
+                  warnings.push(`${filename}: ${item.warnings[0]}`);
+                }
+              } else {
+                failures.push(`${filename}: ${item.error || "Upload failed"}`);
+              }
+            }
+          } catch (err) {
+            const message = normalizeUploadError(err);
+            for (const batchItem of batchToUpload) {
+              failures.push(`${batchItem.filename}: ${message}`);
+            }
+          }
+        };
+
+        for (const [index, file] of uploadQueue.entries()) {
+          const uploadFilename = getKnowledgeUploadFilename(file);
+          setUploadStatus({
+            current: index + 1,
+            total: uploadQueue.length,
+            filename: `Preparing: ${uploadFilename}`,
+          });
+
+          try {
+            const prepared = await buildKnowledgeUploadRequest(file, options);
+            if (
+              currentBatch.length > 0 &&
+              (currentBatchBytes + prepared.requestBytes >
+                BULK_UPLOAD_TARGET_BYTES ||
+                currentBatch.length >= MAX_BULK_REQUEST_DOCUMENTS)
+            ) {
+              await flushBatch();
+            }
+            currentBatch.push(prepared);
+            currentBatchBytes += prepared.requestBytes;
+          } catch (err) {
+            failures.push(`${uploadFilename}: ${normalizeUploadError(err)}`);
+          }
         }
+
+        await flushBatch();
+
+        let refreshFailed = false;
+        try {
+          await loadData();
+        } catch (err) {
+          refreshFailed = true;
+          console.error("[KnowledgeView] Failed to refresh after upload:", err);
+        }
+
+        const skippedSummary =
+          unsupportedFiles.length > 0
+            ? ` Skipped ${unsupportedFiles.length} unsupported file(s).`
+            : "";
+        const refreshSummary = refreshFailed
+          ? " Uploaded, but failed to refresh document list."
+          : "";
+
+        if (
+          uploadQueue.length === 1 &&
+          successful === 1 &&
+          failures.length === 0
+        ) {
+          const onlyFile = getKnowledgeUploadFilename(uploadQueue[0]);
+          const baseMessage = `Uploaded "${onlyFile}"`;
+          if (warnings.length > 0) {
+            setActionNotice(`${baseMessage}. ${warnings[0]}`, "info", 6000);
+          } else if (refreshFailed) {
+            setActionNotice(
+              `${baseMessage}. Uploaded, but failed to refresh document list.`,
+              "info",
+              6000,
+            );
+          } else {
+            setActionNotice(baseMessage, "success", 3000);
+          }
+          return;
+        }
+
+        if (failures.length === 0) {
+          setActionNotice(
+            `Uploaded ${successful}/${uploadQueue.length} files.${warnings.length > 0 ? ` ${warnings[0]}` : ""}${skippedSummary}${refreshSummary}`,
+            warnings.length > 0 || refreshFailed || unsupportedFiles.length > 0
+              ? "info"
+              : "success",
+            7000,
+          );
+          return;
+        }
+
+        setActionNotice(
+          `Uploaded ${successful}/${uploadQueue.length} files. ${failures.length} failed.${failures.length > 0 ? ` ${failures[0]}` : ""}${skippedSummary}${refreshSummary}`,
+          successful > 0 ? "info" : "error",
+          7000,
+        );
       } finally {
         setUploading(false);
+        setUploadStatus(null);
       }
     },
-    [loadData, setActionNotice],
+    [buildKnowledgeUploadRequest, loadData, setActionNotice],
   );
 
   const handleUrlUpload = useCallback(
@@ -744,9 +988,10 @@ export function KnowledgeView() {
       <StatsCard stats={stats} loading={loading} />
 
       <UploadZone
-        onFileUpload={handleFileUpload}
+        onFilesUpload={handleFilesUpload}
         onUrlUpload={handleUrlUpload}
         uploading={uploading}
+        uploadStatus={uploadStatus}
       />
 
       <SearchBar onSearch={handleSearch} searching={searching} />

@@ -40,6 +40,16 @@ const CODING_AGENT_EXAMPLES: ActionCallExample[] = [
     },
   },
   {
+    user: "Use pi to investigate flaky tests and write findings to FLAKY_TESTS.md",
+    actions: ["REPLY", "START_CODING_TASK"],
+    params: {
+      START_CODING_TASK: {
+        agentType: "pi",
+        task: "Investigate flaky tests, identify likely root causes, and write your findings to FLAKY_TESTS.md",
+      },
+    },
+  },
+  {
     user: "Tell the coding agent to accept those changes",
     actions: ["REPLY", "SEND_TO_CODING_AGENT"],
     params: {

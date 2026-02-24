@@ -42,6 +42,7 @@ import {
   setupDeferredTaskDelivery,
   setupOutputBuffer,
 } from "./pty-spawn.js";
+import { isPiAgentType, toPiCommand } from "./pty-types.js";
 import type {
   CodingAgentType,
   PTYServiceConfig,
@@ -168,6 +169,14 @@ export class PTYService {
       throw new Error("PTYService not initialized");
     }
 
+    const piRequested = isPiAgentType(options.agentType);
+    const resolvedAgentType: CodingAgentType = piRequested
+      ? "shell"
+      : options.agentType;
+    const resolvedInitialTask = piRequested
+      ? toPiCommand(options.initialTask)
+      : options.initialTask;
+
     const maxSessions = this.serviceConfig.maxConcurrentSessions ?? 8;
     const activeSessions = (await this.listSessions()).length;
     if (activeSessions >= maxSessions) {
@@ -181,47 +190,56 @@ export class PTYService {
     this.sessionWorkdirs.set(sessionId, workdir);
 
     // Write memory content before spawning so the agent reads it on startup
-    if (options.memoryContent && options.agentType !== "shell") {
+    if (options.memoryContent && resolvedAgentType !== "shell") {
       try {
         const writtenPath = await this.writeMemoryFile(
-          options.agentType as AdapterType,
+          resolvedAgentType as AdapterType,
           workdir,
           options.memoryContent,
         );
-        this.log(`Wrote memory file for ${options.agentType}: ${writtenPath}`);
+        this.log(`Wrote memory file for ${resolvedAgentType}: ${writtenPath}`);
       } catch (err) {
         this.log(
-          `Failed to write memory file for ${options.agentType}: ${err}`,
+          `Failed to write memory file for ${resolvedAgentType}: ${err}`,
         );
       }
     }
 
     // Write approval config files to workspace before spawn
-    if (options.approvalPreset && options.agentType !== "shell") {
+    if (options.approvalPreset && resolvedAgentType !== "shell") {
       try {
         const written = await this.getAdapter(
-          options.agentType as AdapterType,
+          resolvedAgentType as AdapterType,
         ).writeApprovalConfig(workdir, {
           name: options.name,
-          type: options.agentType,
+          type: resolvedAgentType,
           workdir,
           adapterConfig: { approvalPreset: options.approvalPreset },
         } as SpawnConfig);
         this.log(
-          `Wrote approval config (${options.approvalPreset}) for ${options.agentType}: ${written.join(", ")}`,
+          `Wrote approval config (${options.approvalPreset}) for ${resolvedAgentType}: ${written.join(", ")}`,
         );
       } catch (err) {
         this.log(`Failed to write approval config: ${err}`);
       }
     }
 
-    const spawnConfig = buildSpawnConfig(sessionId, options, workdir);
+    const spawnConfig = buildSpawnConfig(
+      sessionId,
+      {
+        ...options,
+        agentType: resolvedAgentType,
+        initialTask: resolvedInitialTask,
+      },
+      workdir,
+    );
     const session = await this.manager.spawn(spawnConfig);
 
     // Store metadata separately (always include agentType for stall classification)
     this.sessionMetadata.set(session.id, {
       ...options.metadata,
-      agentType: options.agentType,
+      requestedType: options.metadata?.requestedType ?? options.agentType,
+      agentType: resolvedAgentType,
     });
 
     // Build spawn context for delegating to extracted spawn modules
@@ -254,18 +272,18 @@ export class PTYService {
     // Defer initial task until session is ready.
     // IMPORTANT: Set up the listener BEFORE pushDefaultRules (which has a 1500ms sleep),
     // otherwise session_ready fires during pushDefaultRules and the listener misses it.
-    if (options.initialTask) {
+    if (resolvedInitialTask) {
       setupDeferredTaskDelivery(
         ctx,
         session,
-        options.initialTask,
-        options.agentType,
+        resolvedInitialTask,
+        resolvedAgentType,
       );
     }
 
-    await this.pushDefaultRules(session.id, options.agentType);
-    this.metricsTracker.get(options.agentType).spawned++;
-    this.log(`Spawned session ${session.id} (${options.agentType})`);
+    await this.pushDefaultRules(session.id, resolvedAgentType);
+    this.metricsTracker.get(resolvedAgentType).spawned++;
+    this.log(`Spawned session ${session.id} (${resolvedAgentType})`);
     return this.toSessionInfo(session, workdir);
   }
 
@@ -369,7 +387,7 @@ export class PTYService {
   }
 
   getSupportedAgentTypes(): CodingAgentType[] {
-    return ["shell", "claude", "gemini", "codex", "aider"];
+    return ["shell", "claude", "gemini", "codex", "aider", "pi"];
   }
 
   private async classifyStall(
@@ -459,17 +477,26 @@ export class PTYService {
     session: SessionHandle | WorkerSessionHandle,
     workdir?: string,
   ): SessionInfo {
+    const metadata = this.sessionMetadata.get(session.id);
+    const requestedType =
+      typeof metadata?.requestedType === "string"
+        ? metadata.requestedType
+        : undefined;
+    const displayAgentType =
+      session.type === "shell" && isPiAgentType(requestedType)
+        ? "pi"
+        : session.type;
     return {
       id: session.id,
       name: session.name,
-      agentType: session.type,
+      agentType: displayAgentType,
       workdir: workdir ?? process.cwd(),
       status: session.status,
       createdAt: session.startedAt ? new Date(session.startedAt) : new Date(),
       lastActivityAt: session.lastActivityAt
         ? new Date(session.lastActivityAt)
         : new Date(),
-      metadata: this.sessionMetadata.get(session.id),
+      metadata,
     };
   }
 
