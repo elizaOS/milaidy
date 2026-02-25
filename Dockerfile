@@ -18,9 +18,23 @@ RUN if [ -n "$MILADY_DOCKER_APT_PACKAGES" ]; then \
 # (build:local-plugins compiles workspace packages like plugin-pi-ai).
 COPY . .
 
-# Install deps + run postinstall (which builds local plugins), then build.
-RUN bun install
-RUN bun run build
+# Install deps + run postinstall (which builds local plugins).
+# bun install may exit 1 if optional native modules (node-pty, node-llama-cpp,
+# whisper-node) fail to compile — these aren't needed for server deployment.
+RUN bun install || true
+
+# Build backend (tsdown) — don't use `bun run build` because the apps/app
+# build script calls `bun install` internally which hits the same native
+# module exit-code-1 issue. Inline the steps and skip redundant installs.
+RUN bun run build:local-plugins && \
+    npx tsdown && \
+    echo '{"type":"module"}' > dist/package.json && \
+    bun scripts/write-build-info.ts
+
+# Build frontend: Capacitor plugins + Vite (skip inner bun install)
+RUN cd apps/app && \
+    bun run plugin:build && \
+    npx vite build
 
 ENV NODE_ENV=production
 
