@@ -302,12 +302,7 @@ export class VrmEngine {
     }
 
     const loader = new GLTFLoader();
-    loader.register(
-      (parser: unknown) =>
-        new VRMLoaderPlugin(
-          parser as ConstructorParameters<typeof VRMLoaderPlugin>[0],
-        ),
-    );
+    loader.register((parser) => new VRMLoaderPlugin(parser));
 
     const originalWarn = console.warn;
     type ConsoleArg =

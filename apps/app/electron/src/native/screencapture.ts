@@ -102,28 +102,6 @@ export class ScreenCaptureManager {
     this.mainWindow = window;
   }
 
-  /**
-   * Switch the frame capture target to a different window (e.g. pop-out).
-   * Pass null to revert to the main window.
-   * If frame capture is active, it restarts with the new target.
-   */
-  setCaptureTarget(window: BrowserWindow | null): void {
-    this._captureTarget = window;
-    console.log(
-      `[ScreenCapture] Capture target switched to ${window ? "popout window" : "main window"}`,
-    );
-    // If frame capture is active (timer-based, not offscreen/gameUrl), restart it
-    if (
-      this._frameCaptureActive &&
-      this._frameCaptureTimer &&
-      this._frameCaptureOptions
-    ) {
-      const opts = this._frameCaptureOptions;
-      this.stopFrameCapture();
-      void this.startFrameCapture(opts);
-    }
-  }
-
   // ── Sources ─────────────────────────────────────────────────────────────
 
   /**

@@ -23,7 +23,6 @@ import {
   type ConversationChannelType,
   type ConversationMessage,
   type CreateTriggerRequest,
-  type CustomActionDef,
   client,
   type DropStatus,
   type ExtensionStatus,
@@ -59,18 +58,6 @@ import {
   type WorkbenchOverview,
 } from "./api-client";
 import { resolveAppAssetUrl } from "./asset-url";
-import {
-  type AutonomyRunHealthMap,
-  hasPendingAutonomyGaps,
-  markPendingAutonomyGapsPartial,
-  mergeAutonomyEvents,
-} from "./autonomy-events";
-import {
-  expandSavedCustomCommand,
-  loadSavedCustomCommands,
-  normalizeSlashCommandName,
-  splitCommandArgs,
-} from "./chat-commands";
 import { pathForTab, type Tab, tabFromPath } from "./navigation";
 import { getMissingOnboardingPermissions } from "./onboarding-permissions";
 
@@ -472,104 +459,6 @@ function shouldApplyFinalStreamText(
   );
 }
 
-type SlashCommandInput = {
-  name: string;
-  argsRaw: string;
-};
-
-function parseSlashCommandInput(text: string): SlashCommandInput | null {
-  if (!text.startsWith("/")) return null;
-  const body = text.slice(1).trim();
-  if (!body) return null;
-  const firstSpace = body.search(/\s/);
-  if (firstSpace === -1) {
-    return { name: normalizeSlashCommandName(body), argsRaw: "" };
-  }
-  return {
-    name: normalizeSlashCommandName(body.slice(0, firstSpace)),
-    argsRaw: body.slice(firstSpace + 1).trim(),
-  };
-}
-
-function normalizeCustomActionName(value: string): string {
-  return value
-    .trim()
-    .replace(/[\s-]+/g, "_")
-    .toUpperCase();
-}
-
-function parseCustomActionParams(
-  action: CustomActionDef,
-  argsRaw: string,
-): {
-  params: Record<string, string>;
-  missingRequired: string[];
-} {
-  const tokens = splitCommandArgs(argsRaw);
-  const named = new Map<string, string>();
-  const positional: string[] = [];
-
-  for (const token of tokens) {
-    const eq = token.indexOf("=");
-    if (eq > 0) {
-      const key = token.slice(0, eq).trim().toLowerCase();
-      const value = token.slice(eq + 1).trim();
-      if (key) {
-        named.set(key, value);
-        continue;
-      }
-    }
-    positional.push(token);
-  }
-
-  const params: Record<string, string> = {};
-  const defs = Array.isArray(action.parameters) ? action.parameters : [];
-  const defsByLower = new Map(
-    defs.map((def) => [def.name.trim().toLowerCase(), def.name]),
-  );
-
-  for (const [key, value] of named) {
-    const canonical = defsByLower.get(key);
-    if (canonical) {
-      params[canonical] = value;
-    } else {
-      params[key] = value;
-    }
-  }
-
-  for (const def of defs) {
-    if (params[def.name] == null && positional.length > 0) {
-      params[def.name] = positional.shift() as string;
-    }
-  }
-
-  if (positional.length > 0) {
-    const sink = defs.find((def) =>
-      ["input", "text", "query", "message", "prompt"].includes(
-        def.name.toLowerCase(),
-      ),
-    );
-    if (sink) {
-      const existing = params[sink.name];
-      params[sink.name] = existing
-        ? `${existing} ${positional.join(" ")}`
-        : positional.join(" ");
-    }
-  }
-
-  const missingRequired = defs
-    .filter((def) => def.required)
-    .map((def) => def.name)
-    .filter((name) => !(params[name] ?? "").trim());
-
-  return { params, missingRequired };
-}
-
-function formatSearchBullet(label: string, items: string[]): string {
-  if (items.length === 0) return `${label}: none`;
-  return `${label}:\n${items.map((item) => `- ${item}`).join("\n")}`;
-}
-
 type LoadConversationMessagesResult =
   | { ok: true }
   | { ok: false; status?: number; message: string };
@@ -676,7 +565,6 @@ export interface AppState {
   conversationMessages: ConversationMessage[];
   autonomousEvents: StreamEventEnvelope[];
   autonomousLatestEventId: string | null;
-  autonomousRunHealthByRunId: AutonomyRunHealthMap;
   /** Conversation IDs with unread proactive messages from the agent. */
   unreadConversations: Set<string>;
 
@@ -1122,29 +1010,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [autonomousLatestEventId, setAutonomousLatestEventId] = useState<
     string | null
   >(null);
-  const [autonomousRunHealthByRunId, setAutonomousRunHealthByRunId] =
-    useState<AutonomyRunHealthMap>({});
   const [unreadConversations, setUnreadConversations] = useState<Set<string>>(
     new Set(),
   );
-  const autonomousEventsRef = useRef<StreamEventEnvelope[]>([]);
-  const autonomousLatestEventIdRef = useRef<string | null>(null);
-  const autonomousRunHealthByRunIdRef = useRef<AutonomyRunHealthMap>({});
-  const autonomousReplayInFlightRef = useRef(false);
   const activeConversationIdRef = useRef<string | null>(null);
   const conversationsRef = useRef<Conversation[]>([]);
-
-  useEffect(() => {
-    autonomousEventsRef.current = autonomousEvents;
-  }, [autonomousEvents]);
-
-  useEffect(() => {
-    autonomousLatestEventIdRef.current = autonomousLatestEventId;
-  }, [autonomousLatestEventId]);
-
-  useEffect(() => {
-    autonomousRunHealthByRunIdRef.current = autonomousRunHealthByRunId;
-  }, [autonomousRunHealthByRunId]);
 
   useEffect(() => {
     conversationsRef.current = conversations;
@@ -1816,66 +1686,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [loadTriggerHealth, loadTriggerRuns, loadTriggers, sortTriggersByNextRun],
   );
 
-  const applyAutonomyEventMerge = useCallback(
-    (incomingEvents: StreamEventEnvelope[], replay = false) => {
-      const merged = mergeAutonomyEvents({
-        existingEvents: autonomousEventsRef.current,
-        incomingEvents,
-        runHealthByRunId: autonomousRunHealthByRunIdRef.current,
-        replay,
-      });
-      autonomousEventsRef.current = merged.events;
-      autonomousLatestEventIdRef.current = merged.latestEventId;
-      autonomousRunHealthByRunIdRef.current = merged.runHealthByRunId;
-
-      setAutonomousEvents(merged.events);
-      setAutonomousLatestEventId(merged.latestEventId);
-      setAutonomousRunHealthByRunId(merged.runHealthByRunId);
-
+  const appendAutonomousEvent = useCallback((event: StreamEventEnvelope) => {
+    setAutonomousEvents((prev) => {
+      if (prev.some((entry) => entry.eventId === event.eventId)) {
+        return prev;
+      }
+      const merged = [...prev, event];
+      if (merged.length > 1200) {
+        return merged.slice(merged.length - 1200);
+      }
       return merged;
-    },
-    [],
-  );
-
-  const fetchAutonomyReplay = useCallback(async () => {
-    if (autonomousReplayInFlightRef.current) return;
-    autonomousReplayInFlightRef.current = true;
-    try {
-      const afterEventId = autonomousLatestEventIdRef.current ?? undefined;
-      const replay = await client.getAgentEvents({
-        afterEventId,
-        limit: 300,
-      });
-      if (
-        replay.events.length > 0 ||
-        hasPendingAutonomyGaps(autonomousRunHealthByRunIdRef.current)
-      ) {
-        applyAutonomyEventMerge(replay.events, true);
-      }
-    } catch (err) {
-      if (hasPendingAutonomyGaps(autonomousRunHealthByRunIdRef.current)) {
-        const partial = markPendingAutonomyGapsPartial(
-          autonomousRunHealthByRunIdRef.current,
-          Date.now(),
-        );
-        autonomousRunHealthByRunIdRef.current = partial;
-        setAutonomousRunHealthByRunId(partial);
-      }
-      console.warn("[milady] Failed to fetch autonomous event replay", err);
-    } finally {
-      autonomousReplayInFlightRef.current = false;
-    }
-  }, [applyAutonomyEventMerge]);
-
-  const appendAutonomousEvent = useCallback(
-    (event: StreamEventEnvelope) => {
-      const merged = applyAutonomyEventMerge([event]);
-      if (merged.runsWithNewGaps.length > 0) {
-        void fetchAutonomyReplay();
-      }
-    },
-    [applyAutonomyEventMerge, fetchAutonomyReplay],
-  );
+    });
+    setAutonomousLatestEventId(event.eventId);
+  }, []);
 
   const loadConversations = useCallback(async (): Promise<
     Conversation[] | null
@@ -2353,250 +2176,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, [fetchGreeting]);
 
-  const appendLocalCommandTurn = useCallback(
-    (userText: string, assistantText: string) => {
-      const now = Date.now();
-      const nonce = Math.random().toString(36).slice(2, 8);
-      setConversationMessages((prev: ConversationMessage[]) => [
-        ...prev,
-        {
-          id: `local-user-${now}-${nonce}`,
-          role: "user",
-          text: userText,
-          timestamp: now,
-        },
-        {
-          id: `local-assistant-${now}-${nonce}`,
-          role: "assistant",
-          text: assistantText,
-          timestamp: now,
-          source: "local_command",
-        },
-      ]);
-    },
-    [],
-  );
-
-  const tryHandlePrefixedChatCommand = useCallback(
-    async (
-      rawText: string,
-    ): Promise<{ handled: boolean; rewrittenText?: string }> => {
-      const slash = parseSlashCommandInput(rawText);
-      if (slash) {
-        const savedCommand = loadSavedCustomCommands().find(
-          (command) => normalizeSlashCommandName(command.name) === slash.name,
-        );
-        if (savedCommand) {
-          const rewrittenText = expandSavedCustomCommand(
-            savedCommand.text,
-            slash.argsRaw,
-          );
-          if (!rewrittenText.trim()) {
-            appendLocalCommandTurn(
-              rawText,
-              `Saved command "/${slash.name}" is empty.`,
-            );
-            return { handled: true };
-          }
-          return { handled: false, rewrittenText };
-        }
-
-        if (slash.name === "commands") {
-          const customActions = (await client.listCustomActions()).filter(
-            (action) => action.enabled,
-          );
-          const customCommandNames = customActions
-            .map((action) => `/${action.name.toLowerCase()}`)
-            .sort();
-          const savedCommandNames = loadSavedCustomCommands()
-            .map((command) => `/${normalizeSlashCommandName(command.name)}`)
-            .sort();
-          const lines = [
-            formatSearchBullet("Saved / commands", savedCommandNames),
-            formatSearchBullet("Custom action / commands", customCommandNames),
-            "Use #remember ... to save memory notes. Use #memory or #knowledge to target retrieval.",
-            "Use $query for a quick, non-persistent context answer.",
-          ];
-          appendLocalCommandTurn(rawText, lines.join("\n\n"));
-          return { handled: true };
-        }
-
-        let customActions: CustomActionDef[] = [];
-        try {
-          customActions = (await client.listCustomActions()).filter(
-            (action) => action.enabled,
-          );
-        } catch {
-          // If custom actions can't be loaded, fall back to normal slash routing.
-          return { handled: false };
-        }
-
-        const customAction = customActions.find(
-          (action) =>
-            normalizeCustomActionName(action.name).toLowerCase() === slash.name,
-        );
-        if (customAction) {
-          const { params, missingRequired } = parseCustomActionParams(
-            customAction,
-            slash.argsRaw,
-          );
-          if (missingRequired.length > 0) {
-            appendLocalCommandTurn(
-              rawText,
-              `Missing required parameter(s): ${missingRequired.join(", ")}`,
-            );
-            return { handled: true };
-          }
-
-          const result = await client.testCustomAction(customAction.id, params);
-          if (!result.ok) {
-            appendLocalCommandTurn(
-              rawText,
-              `Custom action "${customAction.name}" failed: ${
-                result.error ?? "unknown error"
-              }`,
-            );
-            return { handled: true };
-          }
-
-          appendLocalCommandTurn(
-            rawText,
-            result.output?.trim() || `(no output from ${customAction.name})`,
-          );
-          return { handled: true };
-        }
-      }
-
-      if (rawText.startsWith("#")) {
-        const commandBody = rawText.slice(1).trim();
-        if (!commandBody) {
-          appendLocalCommandTurn(
-            rawText,
-            "Usage: #remember <text>, #memory <query>, #knowledge <query>, or #<query>.",
-          );
-          return { handled: true };
-        }
-
-        const lower = commandBody.toLowerCase();
-        if (
-          lower.startsWith("remember ") ||
-          lower.startsWith("remmeber ") ||
-          lower.startsWith("save ")
-        ) {
-          const memoryText = commandBody
-            .replace(/^(remember|remmeber|save)\s+/i, "")
-            .trim();
-          if (!memoryText) {
-            appendLocalCommandTurn(rawText, "Nothing to remember.");
-            return { handled: true };
-          }
-          await client.rememberMemory(memoryText);
-          appendLocalCommandTurn(rawText, `Saved memory note: "${memoryText}"`);
-          return { handled: true };
-        }
-
-        let scope: "memory" | "knowledge" | "all" = "all";
-        let query = commandBody;
-        if (lower.startsWith("memory ")) {
-          scope = "memory";
-          query = commandBody.slice("memory ".length).trim();
-        } else if (lower.startsWith("knowledge ")) {
-          scope = "knowledge";
-          query = commandBody.slice("knowledge ".length).trim();
-        } else if (lower.startsWith("all ")) {
-          scope = "all";
-          query = commandBody.slice("all ".length).trim();
-        }
-
-        if (!query) {
-          appendLocalCommandTurn(rawText, "Search query cannot be empty.");
-          return { handled: true };
-        }
-
-        const [memoryResult, knowledgeResult] = await Promise.all([
-          scope === "knowledge"
-            ? Promise.resolve(null)
-            : client.searchMemory(query, { limit: 6 }),
-          scope === "memory"
-            ? Promise.resolve(null)
-            : client.searchKnowledge(query, { threshold: 0.2, limit: 6 }),
-        ]);
-
-        const memoryLines =
-          memoryResult?.results.map(
-            (item, index) =>
-              `${index + 1}. ${item.text.replace(/\s+/g, " ").trim()}`,
-          ) ?? [];
-        const knowledgeLines =
-          knowledgeResult?.results.map(
-            (item, index) =>
-              `${index + 1}. ${item.text.replace(/\s+/g, " ").trim()} (sim ${item.similarity.toFixed(2)})`,
-          ) ?? [];
-
-        appendLocalCommandTurn(
-          rawText,
-          [
-            scope === "memory"
-              ? "Memory search"
-              : scope === "knowledge"
-                ? "Knowledge search"
-                : "Memory + knowledge search",
-            "",
-            scope === "knowledge"
-              ? ""
-              : formatSearchBullet("Memories", memoryLines),
-            scope === "memory"
-              ? ""
-              : formatSearchBullet("Knowledge", knowledgeLines),
-          ]
-            .filter(Boolean)
-            .join("\n\n"),
-        );
-        return { handled: true };
-      }
-
-      if (rawText.startsWith("$")) {
-        const queryRaw = rawText.slice(1).trim();
-        if (queryRaw) {
-          appendLocalCommandTurn(
-            rawText,
-            "Use bare `$` only. `$ <text>` is not supported.",
-          );
-          return { handled: true };
-        }
-        const query =
-          "What is most relevant from memory and knowledge right now?";
-
-        const quick = await client.quickContext(query, { limit: 6 });
-        const memoryLines = quick.memories.map(
-          (item, index) =>
-            `${index + 1}. ${item.text.replace(/\s+/g, " ").trim()}`,
-        );
-        const knowledgeLines = quick.knowledge.map(
-          (item, index) =>
-            `${index + 1}. ${item.text.replace(/\s+/g, " ").trim()} (sim ${item.similarity.toFixed(2)})`,
-        );
-        appendLocalCommandTurn(
-          rawText,
-          [
-            quick.answer,
-            "",
-            formatSearchBullet("Memories used", memoryLines),
-            formatSearchBullet("Knowledge used", knowledgeLines),
-          ].join("\n"),
-        );
-        return { handled: true };
-      }
-
-      return { handled: false };
-    },
-    [appendLocalCommandTurn],
-  );
-
   const handleChatSend = useCallback(
     async (channelType: ConversationChannelType = "DM") => {
-      const rawText = chatInput.trim();
-      if (!rawText) return;
+      const text = chatInput.trim();
+      if (!text) return;
       if (chatSendBusyRef.current || chatSending) return;
       chatSendBusyRef.current = true;
 
@@ -2607,29 +2190,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setChatPendingImages([]);
 
       try {
-        let text = rawText;
-        let commandResult: { handled: boolean; rewrittenText?: string };
-        try {
-          commandResult = await tryHandlePrefixedChatCommand(rawText);
-        } catch (err) {
-          appendLocalCommandTurn(
-            rawText,
-            `Command failed: ${err instanceof Error ? err.message : "unknown error"}`,
-          );
-          setChatInput("");
-          return;
-        }
-        if (commandResult.handled) {
-          setChatInput("");
-          return;
-        }
-        if (
-          typeof commandResult.rewrittenText === "string" &&
-          commandResult.rewrittenText.trim()
-        ) {
-          text = commandResult.rewrittenText.trim();
-        }
-
         let convId: string = activeConversationId ?? "";
         if (!convId) {
           try {
@@ -2775,8 +2335,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       activeConversationId,
       loadConversationMessages,
       loadConversations,
-      appendLocalCommandTurn,
-      tryHandlePrefixedChatCommand,
     ],
   );
 
@@ -4212,7 +3770,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         chatAvatarVisible: setChatAvatarVisible,
         chatAgentVoiceMuted: setChatAgentVoiceMuted,
         chatAvatarSpeaking: setChatAvatarSpeaking,
-        autonomousRunHealthByRunId: setAutonomousRunHealthByRunId,
         startupError: setStartupError,
         pairingCodeInput: setPairingCodeInput,
         pluginFilter: setPluginFilter,
@@ -4404,52 +3961,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     };
 
     const initApp = async () => {
-      // Popout fast-path: just connect WS and fetch events. No agent
-      // lifecycle, no onboarding, no auth gates.
-      if (isPopoutMode) {
-        setOnboardingComplete(true);
-        setOnboardingLoading(false);
-
-        // Wait for API to be reachable (it's already running from the main window)
-        for (let i = 0; i < 30 && !cancelled; i++) {
-          try {
-            const status = await client.getStatus();
-            setAgentStatus(status);
-            setConnected(true);
-            break;
-          } catch {
-            await new Promise<void>((r) => setTimeout(r, 500));
-          }
-        }
-
-        client.connectWs();
-        unbindStatus = client.onWsEvent(
-          "status",
-          (data: Record<string, unknown>) => {
-            const nextStatus = parseAgentStatusEvent(data);
-            if (nextStatus) setAgentStatus(nextStatus);
-          },
-        );
-        unbindAgentEvents = client.onWsEvent(
-          "agent_event",
-          (data: Record<string, unknown>) => {
-            const event = parseStreamEventEnvelopeEvent(data);
-            if (event) appendAutonomousEvent(event);
-          },
-        );
-        unbindHeartbeatEvents = client.onWsEvent(
-          "heartbeat_event",
-          (data: Record<string, unknown>) => {
-            const event = parseStreamEventEnvelopeEvent(data);
-            if (event) appendAutonomousEvent(event);
-          },
-        );
-
-        await fetchAutonomyReplay();
-
-        return;
-      }
-
       if (import.meta.env.DEV && startupRunId > 0) {
         console.debug(`[milady] Retrying startup run #${startupRunId}`);
       }
@@ -4786,7 +4297,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
         },
       );
 
-      await fetchAutonomyReplay();
+      try {
+        const replay = await client.getAgentEvents({ limit: 300 });
+        if (replay.events.length > 0) {
+          setAutonomousEvents(replay.events);
+          setAutonomousLatestEventId(replay.latestEventId);
+        }
+      } catch (err) {
+        console.warn("[milady] Failed to fetch autonomous event replay", err);
+      }
 
       // Handle proactive messages from autonomy
       unbindProactiveMessages = client.onWsEvent(
@@ -4938,7 +4457,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     appendAutonomousEvent,
     checkExtensionStatus,
     currentTheme,
-    fetchAutonomyReplay,
     loadCharacter,
     loadInventory,
     loadPlugins,
@@ -5017,7 +4535,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     conversationMessages,
     autonomousEvents,
     autonomousLatestEventId,
-    autonomousRunHealthByRunId,
     unreadConversations,
     triggers,
     triggersLoading,

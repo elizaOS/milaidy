@@ -113,7 +113,7 @@ import {
   pushWithBatchEvict,
   sweepExpiredEntries,
 } from "./memory-bounds";
-import { handleMemoryRoutes } from "./memory-routes";
+import { buildWhitelistTree, generateProof } from "./merkle-tree";
 import { handleModelsRoutes } from "./models-routes";
 import { verifyAndWhitelistHolder } from "./nft-verify";
 import { handlePermissionRoutes } from "./permissions-routes";
@@ -6537,22 +6537,6 @@ async function handleRequest(
       error,
     });
     if (knowledgeHandled) return;
-  }
-
-  if (pathname.startsWith("/api/memory") || pathname === "/api/context/quick") {
-    const memoryHandled = await handleMemoryRoutes({
-      req,
-      res,
-      method,
-      pathname,
-      url,
-      runtime: state.runtime,
-      agentName: state.agentName,
-      readJsonBody,
-      json,
-      error,
-    });
-    if (memoryHandled) return;
   }
 
   if (

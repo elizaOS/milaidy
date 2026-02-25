@@ -1,9 +1,0 @@
-declare module "@elizaos/plugin-secrets-manager";
-declare module "@elizaos/plugin-cua";
-declare module "@elizaos/plugin-obsidian";
-declare module "@elizaos/plugin-code";
-declare module "@elizaos/plugin-xai";
-declare module "@elizaos/plugin-deepseek";
-declare module "@elizaos/plugin-mistral";
-declare module "@elizaos/plugin-together";
-declare module "@milaidy/plugin-claude-code-workbench";

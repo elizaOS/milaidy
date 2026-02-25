@@ -397,8 +397,6 @@ function cancelOnboarding(): never {
  * Milady stores channel credentials under `config.channels.<name>.<field>`,
  * while ElizaOS plugins read them from process.env.
  */
-const RETAKE_CHANNEL_ACCESS_TOKEN_ENV = "RETAKE_AGENT_TOKEN";
-
 const CHANNEL_ENV_MAP: Readonly<
   Record<string, Readonly<Record<string, string>>>
 > = {
@@ -429,9 +427,12 @@ const CHANNEL_ENV_MAP: Readonly<
   googlechat: {
     serviceAccountKey: "GOOGLE_CHAT_SERVICE_ACCOUNT_KEY",
   },
-  retake: {
-    accessToken: RETAKE_CHANNEL_ACCESS_TOKEN_ENV,
-    apiUrl: "RETAKE_API_URL",
+  blooio: {
+    apiKey: "BLOOIO_API_KEY",
+    fromNumber: "BLOOIO_PHONE_NUMBER",
+    webhookSecret: "BLOOIO_WEBHOOK_SECRET",
+    webhookUrl: "BLOOIO_WEBHOOK_URL",
+    webhookPort: "BLOOIO_WEBHOOK_PORT",
   },
 };
 

@@ -1552,33 +1552,22 @@ export interface KnowledgeUploadResult {
   warnings?: string[];
 }
 
-// Memory / context command types
-export interface MemorySearchResult {
-  id: string;
-  text: string;
-  createdAt: number;
-  score: number;
-}
-
-export interface MemorySearchResponse {
-  query: string;
-  results: MemorySearchResult[];
-  count: number;
-  limit: number;
-}
-
-export interface MemoryRememberResponse {
+export interface KnowledgeBulkUploadItemResult {
+  index: number;
   ok: boolean;
-  id: string;
-  text: string;
-  createdAt: number;
+  filename: string;
+  documentId?: string;
+  fragmentCount?: number;
+  error?: string;
+  warnings?: string[];
 }
 
-export interface QuickContextResponse {
-  query: string;
-  answer: string;
-  memories: MemorySearchResult[];
-  knowledge: KnowledgeSearchResult[];
+export interface KnowledgeBulkUploadResult {
+  ok: boolean;
+  total: number;
+  successCount: number;
+  failureCount: number;
+  results: KnowledgeBulkUploadItemResult[];
 }
 
 // WebSocket
@@ -3269,35 +3258,6 @@ export class MiladyClient {
     return this.fetch(
       `/api/knowledge/fragments/${encodeURIComponent(documentId)}`,
     );
-  }
-
-  // Memory commands
-
-  async rememberMemory(text: string): Promise<MemoryRememberResponse> {
-    return this.fetch("/api/memory/remember", {
-      method: "POST",
-      body: JSON.stringify({ text }),
-    });
-  }
-
-  async searchMemory(
-    query: string,
-    options?: { limit?: number },
-  ): Promise<MemorySearchResponse> {
-    const params = new URLSearchParams({ q: query });
-    if (options?.limit !== undefined)
-      params.set("limit", String(options.limit));
-    return this.fetch(`/api/memory/search?${params}`);
-  }
-
-  async quickContext(
-    query: string,
-    options?: { limit?: number },
-  ): Promise<QuickContextResponse> {
-    const params = new URLSearchParams({ q: query });
-    if (options?.limit !== undefined)
-      params.set("limit", String(options.limit));
-    return this.fetch(`/api/context/quick?${params}`);
   }
 
   // MCP
