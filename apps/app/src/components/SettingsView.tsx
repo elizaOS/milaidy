@@ -13,7 +13,12 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useApp, THEMES } from "../AppContext";
-import { client, type PluginParamDef, type OnboardingOptions } from "../api-client";
+import {
+  client,
+  type PluginParamDef,
+  type OnboardingOptions,
+  type SubscriptionProviderStatus,
+} from "../api-client";
 import { ConfigPageView } from "./ConfigPageView";
 import { ConfigRenderer, defaultRegistry } from "./config-renderer";
 import { MediaSettingsSection } from "./MediaSettingsSection";
@@ -522,6 +527,123 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
   /* ── Plugin config local state for collecting field values ──────── */
   const [pluginFieldValues, setPluginFieldValues] = useState<Record<string, Record<string, string>>>({});
 
+  /* ── OpenAI subscription auth state ─────────────────────────────── */
+  const [subscriptionProviders, setSubscriptionProviders] = useState<SubscriptionProviderStatus[]>([]);
+  const [subscriptionLoading, setSubscriptionLoading] = useState(false);
+  const [openAIAuthorizing, setOpenAIAuthorizing] = useState(false);
+  const [openAIExchanging, setOpenAIExchanging] = useState(false);
+  const [openAIDisconnecting, setOpenAIDisconnecting] = useState(false);
+  const [openAIAuthStarted, setOpenAIAuthStarted] = useState(false);
+  const [openAICallbackUrl, setOpenAICallbackUrl] = useState("");
+  const [openAIAuthError, setOpenAIAuthError] = useState("");
+  const [openAIAuthInstructions, setOpenAIAuthInstructions] = useState("");
+
+  const refreshSubscriptionStatus = useCallback(async () => {
+    setSubscriptionLoading(true);
+    try {
+      const response = await client.getSubscriptionStatus();
+      setSubscriptionProviders(response.providers);
+    } catch {
+      setSubscriptionProviders([]);
+    } finally {
+      setSubscriptionLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshSubscriptionStatus();
+  }, [refreshSubscriptionStatus]);
+
+  const openAIPlanProvider = subscriptionProviders.find((p) => p.provider === "openai-codex");
+  const isOpenAIPlanConnected = Boolean(openAIPlanProvider && openAIPlanProvider.configured);
+  const isOpenAIPlanUsable = Boolean(
+    openAIPlanProvider && openAIPlanProvider.configured && openAIPlanProvider.valid,
+  );
+  const isOpenAIProviderSelected = Boolean(
+    resolvedSelectedId &&
+      selectedProvider &&
+      (selectedProvider.id.toLowerCase().includes("openai") ||
+        selectedProvider.name.toLowerCase().includes("openai")),
+  );
+
+  const handleOpenAIStart = useCallback(async () => {
+    setOpenAIAuthError("");
+    setOpenAIAuthorizing(true);
+    try {
+      const result = await client.startOpenAILogin();
+      if (result?.authUrl) {
+        window.open(result.authUrl, "openai-oauth", "width=500,height=700,top=50,left=200");
+        setOpenAIAuthStarted(true);
+        setOpenAIAuthInstructions(result.instructions);
+        setOpenAIAuthError("");
+        return;
+      }
+      setOpenAIAuthError(t("settings.openaiStartMissingUrl"));
+    } catch (err) {
+      setOpenAIAuthError(
+        err instanceof Error
+          ? err.message
+          : t("settings.openaiStartFailed"),
+      );
+    } finally {
+      setOpenAIAuthorizing(false);
+    }
+  }, [t]);
+
+  const handleOpenAIExchange = useCallback(async () => {
+    if (!openAICallbackUrl.trim()) {
+      setOpenAIAuthError(t("settings.openaiPasteRequired"));
+      return;
+    }
+
+    setOpenAIAuthError("");
+    setOpenAIExchanging(true);
+    try {
+      const result = await client.exchangeOpenAICode(openAICallbackUrl.trim());
+      if (result?.success) {
+        setOpenAIAuthStarted(false);
+        setOpenAICallbackUrl("");
+        setOpenAIAuthInstructions("");
+        setOpenAIAuthError("");
+        await refreshSubscriptionStatus();
+        setActionNotice(t("settings.openaiConnected"), "success", 2500);
+        return;
+      }
+
+      const errorText = result?.error ?? t("settings.openaiExchangeFailed");
+      setOpenAIAuthError(errorText);
+    } catch (err) {
+      setOpenAIAuthError(
+        err instanceof Error
+          ? err.message
+          : t("settings.openaiExchangeFailed"),
+      );
+    } finally {
+      setOpenAIExchanging(false);
+    }
+  }, [openAICallbackUrl, refreshSubscriptionStatus, setActionNotice, t]);
+
+  const handleOpenAIDisconnect = useCallback(async () => {
+    setOpenAIAuthError("");
+    setOpenAIDisconnecting(true);
+    try {
+      await client.disconnectOpenAICredentials();
+      await refreshSubscriptionStatus();
+      setOpenAIAuthStarted(false);
+      setOpenAIAuthInstructions("");
+      setOpenAICallbackUrl("");
+      setActionNotice(t("settings.openaiDisconnected"), "success", 2500);
+    } catch (err) {
+      setOpenAIAuthError(
+        err instanceof Error
+          ? err.message
+          : t("settings.openaiDisconnectFailed"),
+      );
+    } finally {
+      setOpenAIDisconnecting(false);
+    }
+  }, [refreshSubscriptionStatus, setActionNotice, t]);
+
   const handlePluginFieldChange = useCallback(
     (pluginId: string, key: string, value: string) => {
       setPluginFieldValues((prev) => ({
@@ -972,6 +1094,127 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
                           </>
                         )}
                       </div>
+                    )}
+                  </div>
+                )}
+
+                {/* ── OpenAI plan auth (alternative to API key) ───────── */}
+                {!isCloudSelected && isOpenAIProviderSelected && (
+                  <div className={inModal ? "mt-4" : "mt-4 pt-4 border-t border-[var(--border)]"}>
+                    <div className="flex justify-between items-center">
+                      <div className="text-xs font-semibold">{t("settings.openaiAuthTitle")}</div>
+                      <div
+                        className="text-[11px] px-2 py-[3px] border"
+                        style={{
+                          borderColor: isOpenAIPlanUsable
+                            ? "var(--ok,#16a34a)"
+                            : isOpenAIPlanConnected
+                              ? "#f59e0b"
+                              : "var(--warning,#f59e0b)",
+                          color: isOpenAIPlanUsable
+                            ? "var(--ok,#16a34a)"
+                            : isOpenAIPlanConnected
+                              ? "#f59e0b"
+                              : "var(--warning,#f59e0b)",
+                        }}
+                      >
+                        {isOpenAIPlanUsable
+                          ? t("settings.openaiStatusConnected")
+                          : isOpenAIPlanConnected
+                            ? t("settings.openaiStatusExpiring")
+                            : t("settings.openaiStatusDisconnected")}
+                      </div>
+                    </div>
+
+                    <div className="mt-2 text-[11px] text-[var(--muted)] leading-relaxed">
+                      {isOpenAIPlanUsable || isOpenAIPlanConnected
+                        ? t("settings.openaiConnectedHint")
+                        : t("settings.openaiNotConnectedHint")}
+                    </div>
+
+                    {isOpenAIPlanConnected && openAIPlanProvider?.expiresAt ? (
+                      <div className="text-[11px] text-[var(--muted)] mt-2">
+                        {t("settings.openaiExpiresAt")}: {new Date(openAIPlanProvider.expiresAt).toLocaleString()}
+                      </div>
+                    ) : null}
+
+                    {openAIAuthError && (
+                      <div className="mt-2 text-xs text-[var(--danger,#e74c3c)]">
+                        {openAIAuthError}
+                      </div>
+                    )}
+
+                    {!isOpenAIPlanConnected && !openAIAuthStarted && (
+                      <button
+                        className="btn text-xs py-[5px] px-3.5 !mt-3"
+                        onClick={() => void handleOpenAIStart()}
+                        disabled={subscriptionLoading || openAIAuthorizing}
+                      >
+                        {subscriptionLoading
+                          ? t("common.loading")
+                          : openAIAuthorizing
+                            ? t("settings.openaiConnecting")
+                            : t("settings.openaiLogin")}
+                      </button>
+                    )}
+
+                    {!isOpenAIPlanConnected && (
+                      <>
+                        {!openAIAuthStarted ? (
+                          <div className="text-[10px] text-[var(--muted)] mt-2">
+                            {t("settings.openaiRequirements")}
+                          </div>
+                        ) : (
+                          <div className="mt-3">
+                            <div className="text-xs text-[var(--muted)]">
+                              {openAIAuthInstructions || t("settings.openaiInstructions")}
+                            </div>
+                            <input
+                              className={`w-full px-2.5 py-[7px] text-[13px] mt-2 font-[var(--mono)] transition-colors focus:outline-none ${inModal
+                                ? ""
+                                : "border border-[var(--border)] bg-[var(--card)] focus:border-[var(--accent)]"
+                                }`}
+                              type="text"
+                              value={openAICallbackUrl}
+                              placeholder={t("settings.openaiCallbackPlaceholder")}
+                              onChange={(e) => {
+                                setOpenAIAuthError("");
+                                setOpenAICallbackUrl(e.target.value);
+                              }}
+                            />
+                            <div className="flex items-center justify-end gap-2 mt-2">
+                              <button
+                                className="btn text-xs py-[5px] px-3.5 !mt-0 !bg-transparent !border-[var(--border)] !text-[var(--muted)] hover:!text-[var(--text)] hover:!border-[var(--accent)]"
+                                onClick={() => {
+                                  setOpenAIAuthStarted(false);
+                                  setOpenAIAuthInstructions("");
+                                  setOpenAIAuthError("");
+                                  setOpenAICallbackUrl("");
+                                }}
+                              >
+                                {t("settings.openaiStartOver")}
+                              </button>
+                              <button
+                                className="btn text-xs py-[5px] px-4 !mt-0"
+                                onClick={() => void handleOpenAIExchange()}
+                                disabled={openAIExchanging || !openAICallbackUrl.trim()}
+                              >
+                                {openAIExchanging ? t("settings.openaiCompleting") : t("settings.openaiConnect")}
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
+
+                    {isOpenAIPlanConnected && (
+                      <button
+                        className="btn text-xs py-[5px] px-3.5 !mt-3 !bg-transparent !border-[var(--border)] !text-[var(--muted)] hover:!text-[var(--text)] hover:!border-[var(--accent)]"
+                        onClick={() => void handleOpenAIDisconnect()}
+                        disabled={openAIDisconnecting}
+                      >
+                        {openAIDisconnecting ? t("settings.openaiDisconnecting") : t("settings.openaiDisconnect")}
+                      </button>
                     )}
                   </div>
                 )}

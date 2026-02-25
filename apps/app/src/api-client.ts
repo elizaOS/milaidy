@@ -465,6 +465,17 @@ export interface OnboardingData {
   blooioPhoneNumber?: string;
 }
 
+export interface SubscriptionProviderStatus {
+  provider: string;
+  configured: boolean;
+  valid: boolean;
+  expiresAt: number | null;
+}
+
+export interface SubscriptionStatusResponse {
+  providers: SubscriptionProviderStatus[];
+}
+
 export interface SandboxPlatformStatus {
   platform: string;
   arch?: string;
@@ -1752,6 +1763,12 @@ export class MiladyClient {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ code }),
+    });
+  }
+
+  async disconnectOpenAICredentials(): Promise<{ success: boolean }> {
+    return this.fetch<{ success: boolean }>("/api/subscription/openai-codex", {
+      method: "DELETE",
     });
   }
 
@@ -3731,6 +3748,10 @@ export class MiladyClient {
       method: "POST",
       body: JSON.stringify({ prompt }),
     });
+  }
+
+  async getSubscriptionStatus(): Promise<SubscriptionStatusResponse> {
+    return this.fetch<SubscriptionStatusResponse>("/api/subscription/status");
   }
 }
 
