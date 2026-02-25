@@ -1979,10 +1979,6 @@ let uiIndexHtml: Buffer | null = null;
 
 function resolveUiDir(): string | null {
   if (uiDir !== undefined) return uiDir;
-  if (process.env.NODE_ENV !== "production") {
-    uiDir = null;
-    return null;
-  }
 
   const thisDir = path.dirname(fileURLToPath(import.meta.url));
   const candidates = [
@@ -5651,6 +5647,22 @@ async function handleRequest(
   // fully protected by the token check below.
   if (method === "GET" || method === "HEAD") {
     if (serveStaticUi(req, res, pathname)) return;
+    // Keep the web process healthy even if dashboard assets are unavailable.
+    // This avoids deploy hangs when platforms probe "/" for readiness.
+    if (pathname === "/" || pathname === "/index.html") {
+      sendStaticResponse(
+        req,
+        res,
+        200,
+        {
+          "Cache-Control": "no-store",
+          "Content-Length": 10,
+          "Content-Type": "text/plain; charset=utf-8",
+        },
+        Buffer.from("milady-api"),
+      );
+      return;
+    }
   }
 
   if (method !== "OPTIONS" && !isAuthEndpoint && !isAuthorized(req)) {
