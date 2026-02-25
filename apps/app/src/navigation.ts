@@ -2,6 +2,18 @@
  * Navigation — tabs + onboarding.
  */
 
+import type { LucideIcon } from "lucide-react";
+import {
+  Bot,
+  Brain,
+  Gamepad2,
+  MessageSquare,
+  Settings,
+  Share2,
+  Sparkles,
+  Wallet,
+} from "lucide-react";
+
 /** Apps are only enabled in dev mode; production builds hide this feature. */
 export const APPS_ENABLED = import.meta.env.DEV;
 
@@ -26,14 +38,56 @@ export type Tab =
   | "logs"
   | "security";
 
-const ALL_TAB_GROUPS = [
-  { label: "Chat", tabs: ["chat"] as Tab[] },
-  { label: "Character", tabs: ["character"] as Tab[] },
-  { label: "Wallets", tabs: ["wallets"] as Tab[] },
-  { label: "Knowledge", tabs: ["knowledge"] as Tab[] },
-  { label: "Social", tabs: ["connectors"] as Tab[] },
-  { label: "Apps", tabs: ["apps"] as Tab[] },
-  { label: "Settings", tabs: ["settings"] as Tab[] },
+export interface TabGroup {
+  label: string;
+  tabs: Tab[];
+  icon: LucideIcon;
+  description?: string;
+}
+
+const ALL_TAB_GROUPS: TabGroup[] = [
+  {
+    label: "Chat",
+    tabs: ["chat"],
+    icon: MessageSquare,
+    description: "Conversations and messaging",
+  },
+  {
+    label: "Character",
+    tabs: ["character"],
+    icon: Bot,
+    description: "AI personality and behavior",
+  },
+  {
+    label: "Wallets",
+    tabs: ["wallets"],
+    icon: Wallet,
+    description: "Crypto wallets and inventory",
+  },
+  {
+    label: "Knowledge",
+    tabs: ["knowledge"],
+    icon: Brain,
+    description: "Documents and memory",
+  },
+  {
+    label: "Social",
+    tabs: ["connectors"],
+    icon: Share2,
+    description: "Platform connections",
+  },
+  {
+    label: "Apps",
+    tabs: ["apps"],
+    icon: Gamepad2,
+    description: "Games and integrations",
+  },
+  {
+    label: "Settings",
+    tabs: ["settings"],
+    icon: Settings,
+    description: "Configuration and preferences",
+  },
   {
     label: "Advanced",
     tabs: [
@@ -48,9 +102,11 @@ const ALL_TAB_GROUPS = [
       "database",
       "logs",
       "security",
-    ] as Tab[],
+    ],
+    icon: Sparkles,
+    description: "Developer and power user tools",
   },
-] as const;
+];
 
 export const TAB_GROUPS = APPS_ENABLED
   ? ALL_TAB_GROUPS

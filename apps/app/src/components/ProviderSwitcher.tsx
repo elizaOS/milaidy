@@ -447,17 +447,17 @@ export function ProviderSwitcher({
 
   return (
     <>
-      {/* Mobile dropdown */}
-      <div className="lg:hidden mb-3">
+      {/* Provider dropdown - works for all screen sizes */}
+      <div className="mb-3">
         <label
-          htmlFor="provider-switcher-mobile-select"
-          className="block text-xs font-semibold mb-1.5"
+          htmlFor="provider-switcher-select"
+          className="block text-xs font-semibold mb-1.5 text-[var(--muted)]"
         >
-          Provider
+          Select AI Provider
         </label>
         <select
-          id="provider-switcher-mobile-select"
-          className="w-full px-2.5 py-[8px] border border-[var(--border)] bg-[var(--card)] text-[13px] transition-colors focus:border-[var(--accent)] focus:outline-none"
+          id="provider-switcher-select"
+          className="w-full px-3 py-2.5 border border-[var(--border)] bg-[var(--card)] text-[13px] rounded-lg transition-all duration-200 focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/20 focus:outline-none hover:border-[var(--border-hover)]"
           value={resolvedSelectedId ?? "__cloud__"}
           onChange={(e) => {
             const nextId = e.target.value;
@@ -489,90 +489,10 @@ export function ProviderSwitcher({
             </option>
           ))}
         </select>
-      </div>
-
-      {/* Desktop grid */}
-      <div
-        className="hidden lg:grid gap-1.5"
-        style={{ gridTemplateColumns: `repeat(${totalCols}, 1fr)` }}
-      >
-        <button
-          type="button"
-          className={`text-center px-2 py-2 border cursor-pointer transition-colors ${
-            isCloudSelected
-              ? "border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-foreground)]"
-              : "border-[var(--border)] bg-[var(--card)] hover:border-[var(--accent)]"
-          }`}
-          onClick={() => void handleSelectCloud()}
-        >
-          <div
-            className={`text-xs font-bold whitespace-nowrap ${isCloudSelected ? "" : "text-[var(--text)]"}`}
-          >
-            Eliza Cloud
-          </div>
-        </button>
-
-        <button
-          type="button"
-          className={`text-center px-2 py-2 border cursor-pointer transition-colors ${
-            isPiAiSelected
-              ? "border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-foreground)]"
-              : "border-[var(--border)] bg-[var(--card)] hover:border-[var(--accent)]"
-          }`}
-          onClick={() => void handleSelectPiAi()}
-        >
-          <div
-            className={`text-xs font-bold whitespace-nowrap ${isPiAiSelected ? "" : "text-[var(--text)]"}`}
-          >
-            Pi (pi-ai)
-          </div>
-        </button>
-
-        {subscriptionProviders.map((provider) => {
-          const isSelected =
-            !isCloudSelected && provider.id === resolvedSelectedId;
-          return (
-            <button
-              key={provider.id}
-              type="button"
-              className={`text-center px-2 py-2 border cursor-pointer transition-colors ${
-                isSelected
-                  ? "border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-foreground)]"
-                  : "border-[var(--border)] bg-[var(--card)] hover:border-[var(--accent)]"
-              }`}
-              onClick={() => void handleSelectSubscription(provider.id)}
-            >
-              <div
-                className={`text-xs font-bold whitespace-nowrap ${isSelected ? "" : "text-[var(--text)]"}`}
-              >
-                {provider.label}
-              </div>
-            </button>
-          );
-        })}
-
-        {allAiProviders.map((provider) => {
-          const isSelected =
-            !isCloudSelected && provider.id === resolvedSelectedId;
-          return (
-            <button
-              key={provider.id}
-              type="button"
-              className={`text-center px-2 py-2 border cursor-pointer transition-colors ${
-                isSelected
-                  ? "border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-foreground)]"
-                  : "border-[var(--border)] bg-[var(--card)] hover:border-[var(--accent)]"
-              }`}
-              onClick={() => void handleSwitchProvider(provider.id)}
-            >
-              <div
-                className={`text-xs font-bold whitespace-nowrap ${isSelected ? "" : "text-[var(--text)]"}`}
-              >
-                {provider.name}
-              </div>
-            </button>
-          );
-        })}
+        <p className="text-[11px] text-[var(--muted)] mt-1.5">
+          Choose your preferred AI provider. This affects how the agent
+          processes and responds to messages.
+        </p>
       </div>
 
       {/* Cloud settings */}

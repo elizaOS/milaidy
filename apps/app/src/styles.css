@@ -287,3 +287,197 @@
 .hover\:translate-x-1:hover {
   transform: translateX(4px);
 }
+
+/* Utility: hide scrollbar */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Focus trap for modals */
+.focus-trap {
+  outline: none;
+}
+
+.focus-trap:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Touch-friendly utilities - min 44px for accessibility */
+.touch-min-h {
+  min-height: 44px;
+}
+
+.touch-min-w {
+  min-width: 44px;
+}
+
+/* Keyboard shortcuts styling */
+kbd {
+  font-family: var(--mono);
+}
+
+/* Enhanced animations and transitions */
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slide-down {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  10%,
+  30%,
+  50%,
+  70%,
+  90% {
+    transform: translateX(-2px);
+  }
+  20%,
+  40%,
+  60%,
+  80% {
+    transform: translateX(2px);
+  }
+}
+
+@keyframes glow {
+  0%,
+  100% {
+    box-shadow:
+      0 0 5px var(--accent),
+      0 0 10px var(--accent);
+  }
+  50% {
+    box-shadow:
+      0 0 20px var(--accent),
+      0 0 30px var(--accent);
+  }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.3s ease-out;
+}
+
+.animate-slide-down {
+  animation: slide-down 0.3s ease-out;
+}
+
+.animate-scale-in {
+  animation: scale-in 0.2s ease-out;
+}
+
+.animate-shake {
+  animation: shake 0.5s ease-in-out;
+}
+
+.animate-glow {
+  animation: glow 2s ease-in-out infinite;
+}
+
+/* Smooth transitions */
+.transition-smooth {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.transition-bounce {
+  transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+/* Focus ring improvements */
+.focus-ring:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent);
+}
+
+.focus-ring:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent);
+}
+
+/* Hover lift effect */
+.hover-lift {
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Press effect */
+.press:active {
+  transform: scale(0.98);
+}
+
+/* Dark mode contrast improvements */
+[data-theme="dark"] .text-muted {
+  color: hsl(240 5% 64.9%);
+}
+
+[data-theme="dark"] .text-muted-strong {
+  color: hsl(240 4% 74%);
+}
+
+[data-theme="dark"] .bg-bg-accent {
+  background-color: hsl(240 5.9% 14%);
+}
+
+[data-theme="dark"] .bg-bg-elevated {
+  background-color: hsl(240 4.8% 10%);
+}
+
+/* Focus visible improvements for dark mode */
+[data-theme="dark"] :focus-visible {
+  outline: 2px solid hsl(217 91% 60%);
+  outline-offset: 2px;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
