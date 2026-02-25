@@ -1552,6 +1552,24 @@ export interface KnowledgeUploadResult {
   warnings?: string[];
 }
 
+export interface KnowledgeBulkUploadItemResult {
+  index: number;
+  ok: boolean;
+  filename: string;
+  documentId?: string;
+  fragmentCount?: number;
+  error?: string;
+  warnings?: string[];
+}
+
+export interface KnowledgeBulkUploadResult {
+  ok: boolean;
+  total: number;
+  successCount: number;
+  failureCount: number;
+  results: KnowledgeBulkUploadItemResult[];
+}
+
 // Memory / context command types
 export interface MemorySearchResult {
   id: string;

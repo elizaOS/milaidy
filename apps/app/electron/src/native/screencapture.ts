@@ -71,6 +71,14 @@ export interface ScreenRecordingResult {
   mimeType: string;
 }
 
+interface FrameCaptureOptions {
+  fps?: number;
+  quality?: number;
+  apiBase?: string;
+  endpoint?: string;
+  gameUrl?: string;
+}
+
 const RECORDING_BITRATE: Record<string, number> = {
   low: 1_000_000,
   medium: 4_000_000,
@@ -97,6 +105,8 @@ export class ScreenCaptureManager {
   private _frameCaptureActive = false;
   private _frameCaptureSkipping = false;
   private _frameCaptureWindow: BrowserWindow | null = null;
+  private _captureTarget: BrowserWindow | null = null;
+  private _frameCaptureOptions: FrameCaptureOptions | null = null;
 
   setMainWindow(window: BrowserWindow): void {
     this.mainWindow = window;
@@ -530,14 +540,9 @@ export class ScreenCaptureManager {
    * event (correct API for offscreen rendering on macOS) instead of capturePage.
    * Falls back to capturing the main window if no gameUrl.
    */
-  async startFrameCapture(options?: {
-    fps?: number;
-    quality?: number;
-    apiBase?: string;
-    endpoint?: string;
-    gameUrl?: string;
-  }): Promise<void> {
+  async startFrameCapture(options?: FrameCaptureOptions): Promise<void> {
     if (this._frameCaptureActive) return;
+    this._frameCaptureOptions = options ? { ...options } : {};
 
     const fps = options?.fps ?? 10;
     const quality = options?.quality ?? 70;
@@ -606,8 +611,11 @@ export class ScreenCaptureManager {
       );
     } else {
       // Main window: use capturePage() with timer
-      if (!this.mainWindow) throw new Error("Main window not available");
-      const captureTarget = this.mainWindow;
+      const captureTarget =
+        this._captureTarget && !this._captureTarget.isDestroyed()
+          ? this._captureTarget
+          : this.mainWindow;
+      if (!captureTarget) throw new Error("Main window not available");
 
       console.log(
         `[ScreenCapture] Starting frame capture at ${fps}fps → ${endpoint}`,
@@ -649,6 +657,7 @@ export class ScreenCaptureManager {
     }
     this._frameCaptureActive = false;
     this._frameCaptureSkipping = false;
+    this._frameCaptureOptions = null;
     console.log("[ScreenCapture] Frame capture stopped");
   }
 
