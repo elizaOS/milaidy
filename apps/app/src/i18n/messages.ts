@@ -14,8 +14,10 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "common.save": "Save",
     "common.cancel": "Cancel",
     "common.retry": "Retry",
+    "common.add": "Add",
     "common.settings": "Settings",
     "common.loading": "Loading",
+    "common.as": "as",
 
     // Loading screen
     "loading.startingBackend": "starting backend",
@@ -25,8 +27,11 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "nav.chat": "Chat",
     "nav.companion": "Companion",
     "nav.character": "Character",
+    "nav.talents": "Talents",
     "nav.wallets": "Wallets",
+    "nav.channels": "Channels",
     "nav.knowledge": "Knowledge",
+    "nav.plugins": "Plugins",
     "nav.social": "Social",
     "nav.apps": "Apps",
     "nav.settings": "Settings",
@@ -124,6 +129,116 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "command.refreshWorkbench": "Refresh Workbench",
     "command.clearChat": "Clear Chat",
 
+    // App context notices
+    "appContext.notice.noActiveConversationToClear":
+      "No active conversation to clear.",
+    "appContext.notice.conversationAlreadyCleared":
+      "Conversation was already cleared.",
+    "appContext.notice.conversationTitleEmpty":
+      "Conversation title cannot be empty.",
+    "appContext.notice.openingSkillFolder": "Opening skill folder...",
+    "appContext.notice.skillInstalledFromGithubUrl":
+      "Skill installed from GitHub URL.",
+    "appContext.notice.walletApiKeysSavedAndRestarted":
+      "Wallet API keys saved and agent restarted.",
+    "appContext.notice.cloudLoginSuccess":
+      "Logged in to Eliza Cloud successfully.",
+    "appContext.notice.cloudDisconnected":
+      "Disconnected from Eliza Cloud.",
+
+    // Apps notices
+    "apps.notice.requiresIframeAuthMissingPayload":
+      "{{appName}} requires iframe auth, but no auth payload is configured.",
+    "apps.notice.openedInNewTab": "{{appName}} opened in a new tab.",
+    "apps.notice.popupBlockedWhileOpening":
+      "Popup blocked while opening {{appName}}. Allow popups and try again.",
+    "apps.notice.launchedWithoutViewerOrUrl":
+      "{{appName}} launched, but no viewer or URL is configured.",
+    "apps.notice.failedLaunch":
+      "Failed to launch {{appName}}: {{error}}",
+    "apps.notice.currentGameOpenedInNewTab":
+      "Current game opened in a new tab.",
+    "apps.notice.popupBlocked": "Popup blocked. Allow popups and try again.",
+    "apps.notice.hyperscapeControlsError":
+      "Hyperscape controls: {{error}}",
+    "apps.notice.hyperscapeTelemetryError":
+      "Hyperscape telemetry: {{error}}",
+    "apps.notice.characterIdRequired":
+      "Character ID is required to create an embedded agent.",
+    "apps.notice.embeddedAgentCreated": "Embedded agent created.",
+    "apps.notice.failedCreateEmbeddedAgent":
+      "Failed to create embedded agent: {{error}}",
+    "apps.notice.selectEmbeddedAgentFirst":
+      "Select an embedded agent first.",
+    "apps.notice.agentActionRequestSent": "Agent {{action}} request sent.",
+    "apps.notice.failedAgentAction":
+      "Failed to {{action}} agent: {{error}}",
+    "apps.notice.messageEmpty": "Message cannot be empty.",
+    "apps.notice.messageSentToAgent": "Message sent to agent.",
+    "apps.notice.failedSendMessage": "Failed to send message: {{error}}",
+    "apps.notice.commandEmpty": "Command cannot be empty.",
+    "apps.notice.commandDataInvalidJsonObject":
+      "Command data must be valid JSON object.",
+    "apps.notice.commandSent": "Command \"{{command}}\" sent.",
+    "apps.notice.failedSendCommand": "Failed to send command: {{error}}",
+
+    // Game view
+    "game.notice.viewerAuthSent": "Viewer auth sent.",
+    "game.notice.failedStop": "Failed to stop: {{error}}",
+    "game.empty.noActiveSession": "No active game session.",
+    "game.empty.backToApps": "Back to Apps",
+    "game.badge.postMessageAuth": "postMessage auth",
+    "game.action.openInNewTab": "Open in New Tab",
+    "game.action.stopping": "Stopping...",
+    "game.action.stop": "Stop",
+    "game.title.fallback": "Game",
+
+    // Knowledge notices
+    "knowledge.notice.uploadedFileFragments":
+      "Uploaded \"{{filename}}\" ({{count}} fragments)",
+    "knowledge.notice.uploadFailed": "Failed to upload document",
+    "knowledge.notice.importedYoutubeTranscript":
+      "Imported YouTube transcript ({{count}} fragments)",
+    "knowledge.notice.importedFileFragments":
+      "Imported \"{{filename}}\" ({{count}} fragments)",
+    "knowledge.notice.importFromUrlFailed": "Failed to import from URL",
+    "knowledge.notice.deletedDocumentFragments":
+      "Deleted document ({{count}} fragments removed)",
+    "knowledge.notice.deleteDocumentFailed": "Failed to delete document",
+
+    // Fine-tuning notices
+    "fineTuning.error.refreshStateFailed":
+      "Failed to refresh fine-tuning state.",
+    "fineTuning.error.loadTrajectoryDetailFailed":
+      "Failed to load trajectory detail.",
+    "fineTuning.notice.datasetBuilt":
+      "Built dataset {{id}} ({{count}} samples).",
+    "fineTuning.error.buildDatasetFailed": "Failed to build dataset.",
+    "fineTuning.notice.startedTrainingJob":
+      "Started training job {{id}}.",
+    "fineTuning.error.startTrainingJobFailed":
+      "Failed to start training job.",
+    "fineTuning.notice.cancelledJob": "Cancelled job {{id}}.",
+    "fineTuning.error.cancelJobFailed":
+      "Failed to cancel {{id}}.",
+    "fineTuning.notice.importedModelToOllama":
+      "Imported model {{modelId}} to Ollama{{alias}}.",
+    "fineTuning.error.importModelToOllamaFailed":
+      "Failed to import model to Ollama.",
+    "fineTuning.notice.activatedModel":
+      "Activated model {{modelId}} as {{providerModel}}.",
+    "fineTuning.confirm.restartAfterActivation":
+      "Model activation was saved. Restart the agent now to load the new model?",
+    "fineTuning.error.activateModelFailed": "Failed to activate model.",
+    "fineTuning.notice.benchmarkResult":
+      "Benchmark {{status}} for {{modelId}}.",
+    "fineTuning.error.benchmarkModelFailed":
+      "Failed to benchmark model.",
+    "fineTuning.notice.smokeTestCompleted":
+      "Smoke test completed.",
+    "fineTuning.error.smokeTestFailed":
+      "Failed to run smoke test.",
+
     // Onboarding (high-frequency)
     "onboarding.whereShouldILive": "where should i live?",
     "onboarding.pickHowToRun": "pick how u want me to run bb",
@@ -203,6 +318,129 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "settings.extension": "Extension",
     "settings.exportImport": "Export / Import",
     "settings.dangerZone": "Danger Zone",
+    "settings.languageRowDescription": "Select the primary system language.",
+    "settings.themeStyle": "System Theme Style",
+    "settings.aiComputeCore": "AI Compute Core",
+    "settings.loadingModels": "Loading models...",
+    "settings.synchronizingCore": "Synchronizing core...",
+    "settings.noAiProvidersPrefix":
+      "No AI providers available. Install a provider plugin from the",
+    "settings.noAiProvidersSuffix": "page.",
+    "settings.cloud.connected": "Connected to Eliza Cloud",
+    "settings.cloud.loggedIn": "Logged into Eliza Cloud",
+    "settings.cloud.disconnect": "Disconnect",
+    "settings.cloud.disconnecting": "Disconnecting...",
+    "settings.cloud.idLabel": "ID:",
+    "settings.cloud.creditsLabel": "Credits:",
+    "settings.cloud.topUp": "Top up",
+    "settings.cloud.waitingAuth":
+      "Waiting for browser authentication... A new tab should have opened.",
+    "settings.cloud.login": "Log in to Eliza Cloud",
+    "settings.cloud.loginHint": "Opens a browser window to authenticate.",
+    "settings.modelSavingRestarting": "Saving & restarting...",
+    "settings.modelSavedRestarting": "Saved — restarting agent",
+    "settings.enabled": "Enabled",
+    "settings.disabled": "Disabled",
+    "settings.pi.title": "Pi (pi-ai) Settings",
+    "settings.pi.credentialsHint": "Uses credentials from",
+    "settings.pi.smallModelOptional": "Small Model (optional)",
+    "settings.pi.largeModelOptional": "Large Model (optional)",
+    "settings.pi.smallModelHint": "Used for fast tasks.",
+    "settings.pi.largeModelHint": "Used for complex reasoning.",
+    "settings.pi.leaveBlankUseDefault": "Leave blank to use pi default",
+    "settings.pi.placeholderExample": "e.g.",
+    "settings.pi.providerModelPlaceholder": "provider/modelId",
+    "settings.saving": "Saving...",
+    "settings.saved": "Saved",
+    "settings.saveAndRestart": "Save & Restart",
+    "settings.providerConfiguredCount": "{{setCount}}/{{total}} configured",
+    "settings.configured": "Configured",
+    "settings.needsSetup": "Needs Setup",
+    "settings.fetching": "Fetching...",
+    "settings.fetchModels": "Fetch Models",
+    "settings.ai.fetchModelsLoaded": "Loaded {{count}} models",
+    "settings.ai.fetchModelsError": "Error: {{error}}",
+    "settings.ai.fetchModelsFailed": "failed",
+    "settings.mediaGeneration": "Media Generation",
+    "settings.speechInterface": "Speech (TTS / STT)",
+    "settings.permissionsCapabilities": "Permissions & Capabilities",
+    "settings.desktopOnlyPermissionHint":
+      "Desktop mode only — system permissions require the native Milady Desktop app.",
+    "settings.softwareUpdates": "Software Updates",
+    "settings.versionPrefix": "Version",
+    "settings.checking": "Checking...",
+    "settings.checkNow": "Check Now",
+    "settings.updateAvailable": "Update available",
+    "settings.lastChecked": "Last checked:",
+    "settings.checkingForUpdates": "Checking for updates...",
+    "settings.unableLoadUpdateStatus": "Unable to load update status.",
+    "settings.chromeExtension": "Chrome Extension",
+    "settings.extensionDesktopHint":
+      "Desktop mode only — relay connects via localhost.",
+    "settings.checkConnection": "Check Connection",
+    "settings.relayServer": "Relay Server",
+    "settings.connected": "Connected",
+    "settings.notReachable": "Not Reachable",
+    "settings.installChromeExtension": "Install Chrome Extension",
+    "settings.extension.relayNotRunning":
+      "The browser relay server is not running. Start the agent with browser control enabled, then check again.",
+    "settings.extension.stepOpenChrome": "Open Chrome and navigate to",
+    "settings.extension.stepEnableDeveloperModePrefix": "Enable",
+    "settings.extension.developerMode": "Developer mode",
+    "settings.extension.stepEnableDeveloperModeSuffix":
+      "(toggle in the top-right corner)",
+    "settings.extension.stepLoadUnpackedPrefix": "Click",
+    "settings.extension.loadUnpacked": "\"Load unpacked\"",
+    "settings.extension.stepLoadUnpackedSuffix":
+      "and select the extension folder:",
+    "settings.extension.relativeToPackageRoot":
+      "relative to milady package root",
+    "settings.extension.stepPinIcon":
+      "Pin the extension icon in Chrome's toolbar",
+    "settings.extension.stepAttachRelay":
+      "Click the extension icon on any tab to attach/detach the Milady browser relay",
+    "settings.extension.pathLabel": "Extension path",
+    "settings.exportImportAgent": "Export / Import Agent",
+    "settings.import": "Import",
+    "settings.export": "Export",
+    "settings.irreversibleActions": "Irreversible actions. Proceed with caution.",
+    "settings.exportPrivateKeys": "Export Private Keys",
+    "settings.exportPrivateKeysHint":
+      "Reveal your EVM and Solana private keys. Never share these with anyone.",
+    "settings.privateKeysWarning":
+      "Warning: Private keys give full access to your wallets. Never share them and store them securely.",
+    "settings.hideKeys": "Hide Keys",
+    "settings.exportKeys": "Export Keys",
+    "settings.evmPrivateKey": "EVM Private Key",
+    "settings.solanaPrivateKey": "Solana Private Key",
+    "settings.noWalletKeysConfigured": "No wallet keys configured.",
+    "settings.resetAgent": "Reset Agent",
+    "settings.resetAgentHint":
+      "Wipe all config, memory, and data. Returns to the onboarding wizard.",
+    "settings.resetConfirmMessage":
+      "Are you sure you want to reset all settings and data? This cannot be undone and you will return to onboarding.",
+    "settings.resetEverything": "Reset Everything",
+    "settings.exportAgent": "Export Agent",
+    "settings.exportAgentHint":
+      "Your character, memories, chats, secrets, and relationships will be downloaded as a single file. Exports are encrypted and require a password.",
+    "settings.estimatingExportSize": "Estimating export size…",
+    "settings.export.estimateFailed": "Failed to estimate export size.",
+    "settings.estimatedFileSize": "Estimated file size:",
+    "settings.exportContainsCount":
+      "Contains {{memories}} memories, {{entities}} entities, {{rooms}} rooms, {{worlds}} worlds, {{tasks}} tasks.",
+    "settings.couldNotEstimateExportSize": "Could not estimate export size:",
+    "settings.encryptionPassword": "Encryption Password",
+    "settings.passwordPlaceholder": "Enter password (minimum 4 characters)",
+    "settings.passwordMinLength": "Password must be at least 4 characters.",
+    "settings.includeLogsInExport": "Include logs in export",
+    "settings.exporting": "Exporting...",
+    "settings.downloadExport": "Download Export",
+    "settings.importAgent": "Import Agent",
+    "settings.importAgentHint":
+      "Select an .eliza-agent export file and enter the password used during export.",
+    "settings.exportFile": "Export File",
+    "settings.decryptionPassword": "Decryption Password",
+    "settings.importing": "Importing...",
 
     // Advanced page
     "advanced.plugins": "Plugins",
@@ -334,8 +572,16 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     // Wallet (BSC-first)
     "wallet.portfolio": "Portfolio",
     "wallet.bscMainnet": "BSC Mainnet",
+    "wallet.title": "Wallet",
+    "wallet.panelAriaLabel": "Wallet panel",
+    "wallet.notConnected": "Not connected",
+    "wallet.refreshing": "...",
     "wallet.receive": "Receive",
+    "wallet.send": "Send",
+    "wallet.swap": "Swap",
+    "wallet.copy": "Copy",
     "wallet.addressCopied": "Address copied.",
+    "wallet.estimatedPortfolioValue": "Estimated portfolio value",
     "wallet.status.connected": "Connected",
     "wallet.status.connectedTitle": "Wallet connected",
     "wallet.status.feedLive": "Feed Live",
@@ -365,6 +611,7 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "wallet.preflightCheck.chain": "Chain",
     "wallet.preflightCheck.gas": "Gas",
     "wallet.preflightCheck.token": "Token",
+    "wallet.readyChipFeed": "Feed",
     "wallet.quoteTitle": "Quote",
     "wallet.quoteReady": "Ready",
     "wallet.latestQuote": "Latest quote",
@@ -373,18 +620,33 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "wallet.quote.expected": "Expected",
     "wallet.quote.minReceive": "Min Receive",
     "wallet.quote.price": "Price",
+    "wallet.getQuote": "Get Quote",
+    "wallet.quoting": "Quoting...",
+    "wallet.execute": "Execute",
+    "wallet.refreshPayload": "Refresh Payload",
     "wallet.buy": "BUY",
     "wallet.sell": "SELL",
+    "wallet.spendSymbol": "Spend ({{symbol}})",
+    "wallet.sellSymbol": "Sell ({{symbol}})",
+    "wallet.slippagePercent": "Slippage %",
+    "wallet.available": "Available",
+    "wallet.gasReserve": "Gas reserve: {{amount}} BNB",
     "wallet.executeSide": "Execute {{side}}",
     "wallet.confirmExecute": "Confirm to execute {{side}}?",
     "wallet.executing": "Executing...",
     "wallet.tradeSent": "Trade sent.",
+    "wallet.tradeSentWithHash": "Trade sent: {{hash}}",
     "wallet.tradePending": "Trade submitted and still pending confirmation.",
+    "wallet.transferSubmitted": "Transfer submitted.",
     "wallet.tradeExecutionFailed": "Trade execution failed.",
     "wallet.transferExecutionFailed": "Transfer execution failed.",
+    "wallet.transferExecutionDidNotComplete":
+      "Transfer execution did not complete.",
     "wallet.executionDidNotComplete": "Execution did not complete.",
     "wallet.executionSwitchedUserSign":
       "Execution switched to user-sign mode.",
+    "wallet.userSignPayloadReady":
+      "User-sign payload ready. Copy and sign in your wallet.",
     "wallet.txStatus.pending": "Pending",
     "wallet.txStatus.success": "Confirmed",
     "wallet.txStatus.reverted": "Reverted",
@@ -401,8 +663,14 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "wallet.error.rejected": "Signing request was rejected in wallet.",
     "wallet.error.timeout": "Request timed out. Please retry.",
     "wallet.error.network": "RPC or network is unavailable right now.",
+    "wallet.invalidAmount": "Enter a valid amount.",
+    "wallet.enterValidDestinationAmount":
+      "Enter a valid destination and amount first.",
+    "wallet.noTokenContractForAsset":
+      "No token contract found for {{asset}}.",
     "wallet.createQuoteFirst": "Create quote first.",
     "wallet.failedFetchQuote": "Failed to fetch quote.",
+    "wallet.pasteContractToBuy": "Paste token contract to buy with BNB.",
     "wallet.invalidRowContract": "Invalid token contract in row.",
     "wallet.nativeNoQuote": "Native token does not require quote.",
     "wallet.noDataRefresh": "No data yet. Click Refresh.",
@@ -410,6 +678,7 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "wallet.noNftsFound": "No NFTs found.",
     "wallet.noNftData": "No NFT data.",
     "wallet.noImage": "No image",
+    "wallet.collectibles": "Collectibles",
     "wallet.recentActivity": "Recent activity",
     "wallet.noRecentActivity": "No recent transactions yet.",
     "wallet.recentFilterAll": "All",
@@ -428,6 +697,7 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "wallet.tokenAddressUnavailable": "No token address (native asset).",
     "wallet.tokenCopyAddress": "Copy address",
     "wallet.tokenViewExplorer": "Explorer",
+    "wallet.tokenBscContract": "Token (BSC Contract)",
     "wallet.tokenSwapThis": "Swap",
     "wallet.tokenSendThis": "Send",
     "wallet.tokenOpenWalletForSwap": "Only BSC tokens are swappable in this panel.",
@@ -438,6 +708,10 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
       "1. Sign approval transaction for token allowance.",
     "wallet.userSignSellTwoStep":
       "2. Sign swap transaction after approval confirms.",
+    "wallet.userSignSwapOneStep":
+      "1. Sign the swap transaction in wallet extension.",
+    "wallet.userSignSendPayload": "User-sign send payload",
+    "wallet.copySendPayload": "Copy Send Payload",
     "wallet.usersign.approveStep": "Approve step",
     "wallet.usersign.signSwapStep": "Sign swap",
     "wallet.usersign.signSellStep": "Sign sell",
@@ -450,6 +724,12 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "wallet.slippage": "Slippage",
     "wallet.customPercent": "custom %",
     "wallet.value": "Value",
+    "wallet.amount": "Amount",
+    "wallet.asset": "Asset",
+    "wallet.toAddressBsc": "To Address (BSC)",
+    "wallet.sendHint":
+      "Execute transfer directly. If mode is user-sign-only, copy payload and sign in wallet.",
+    "wallet.executeSend": "Execute Send",
     "wallet.chain": "Chain",
     "wallet.name": "Name",
     "wallet.sort": "Sort",
@@ -481,6 +761,27 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "wallet.tokenUpdatedManual": "Token metadata updated.",
     "wallet.tokenRemovedManual": "Token removed from watchlist.",
     "wallet.enableIt": "Enable it",
+    "wallet.swapFlowAria": "Swap flow",
+    "wallet.flow.input": "Input",
+    "wallet.flow.quote": "Quote",
+    "wallet.flow.sign": "Sign",
+    "wallet.flow.execute": "Execute",
+    "wallet.flow.done": "Done",
+    "wallet.flowHint.input": "Paste token contract, choose side and amount.",
+    "wallet.flowHint.quoteLoading": "Fetching route and output quote...",
+    "wallet.flowHint.quoteReady":
+      "Quote ready. Review route and minimum receive before execution.",
+    "wallet.flowHint.sending": "Sending trade to BSC...",
+    "wallet.flowHint.signingRequired":
+      "Manual signing required. Copy payloads and sign in wallet.",
+    "wallet.flowHint.tradeReady":
+      "Trade ready. Press execute to broadcast transaction.",
+    "wallet.flowHint.submitted":
+      "Transaction submitted. Track status with the tx hash.",
+    "wallet.hopsCount": "{{count}} hops",
+    "wallet.txSubmitted": "Tx Submitted",
+    "wallet.latestTx": "Latest tx",
+    "wallet.bscFeedError": "BSC feed: {{error}}",
     "wallet.profile.title": "Profile",
     "wallet.profile.subtitle": "Agent trading profile (BSC swaps only)",
     "wallet.profile.refresh": "Refresh",
@@ -595,6 +896,8 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     // Companion
     "companion.customVrmActive": "custom VRM active",
     "companion.avatarPreviewAlt": "Avatar preview",
+    "companion.characterSettings": "Character settings",
+    "companion.switchToNativeUi": "Switch to native UI",
   },
   "zh-CN": {
     // Common
@@ -603,8 +906,10 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "common.save": "保存",
     "common.cancel": "取消",
     "common.retry": "重试",
+    "common.add": "添加",
     "common.settings": "设置",
     "common.loading": "加载中",
+    "common.as": "为",
 
     // Loading screen
     "loading.startingBackend": "正在启动后端",
@@ -614,8 +919,11 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "nav.chat": "聊天",
     "nav.companion": "主页",
     "nav.character": "角色",
+    "nav.talents": "天赋",
     "nav.wallets": "钱包",
+    "nav.channels": "渠道",
     "nav.knowledge": "知识",
+    "nav.plugins": "插件",
     "nav.social": "社交",
     "nav.apps": "应用",
     "nav.settings": "设置",
@@ -711,6 +1019,116 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "command.refreshWorkbench": "刷新工作台",
     "command.clearChat": "清空聊天",
 
+    // App context notices
+    "appContext.notice.noActiveConversationToClear":
+      "当前没有可清空的会话。",
+    "appContext.notice.conversationAlreadyCleared":
+      "该会话已被清空。",
+    "appContext.notice.conversationTitleEmpty":
+      "会话标题不能为空。",
+    "appContext.notice.openingSkillFolder": "正在打开技能目录...",
+    "appContext.notice.skillInstalledFromGithubUrl":
+      "已从 GitHub URL 安装技能。",
+    "appContext.notice.walletApiKeysSavedAndRestarted":
+      "钱包 API Key 已保存，Agent 已重启。",
+    "appContext.notice.cloudLoginSuccess":
+      "已成功登录 Eliza Cloud。",
+    "appContext.notice.cloudDisconnected":
+      "已断开 Eliza Cloud。",
+
+    // Apps notices
+    "apps.notice.requiresIframeAuthMissingPayload":
+      "{{appName}} 需要 iframe 鉴权，但未配置鉴权载荷。",
+    "apps.notice.openedInNewTab": "{{appName}} 已在新标签页打开。",
+    "apps.notice.popupBlockedWhileOpening":
+      "打开 {{appName}} 时被浏览器拦截弹窗，请允许弹窗后重试。",
+    "apps.notice.launchedWithoutViewerOrUrl":
+      "{{appName}} 已启动，但未配置 viewer 或 URL。",
+    "apps.notice.failedLaunch":
+      "启动 {{appName}} 失败：{{error}}",
+    "apps.notice.currentGameOpenedInNewTab":
+      "当前游戏已在新标签页打开。",
+    "apps.notice.popupBlocked": "弹窗被拦截，请允许后重试。",
+    "apps.notice.hyperscapeControlsError":
+      "Hyperscape 控制错误：{{error}}",
+    "apps.notice.hyperscapeTelemetryError":
+      "Hyperscape 遥测错误：{{error}}",
+    "apps.notice.characterIdRequired":
+      "创建嵌入式 Agent 需要 Character ID。",
+    "apps.notice.embeddedAgentCreated": "嵌入式 Agent 已创建。",
+    "apps.notice.failedCreateEmbeddedAgent":
+      "创建嵌入式 Agent 失败：{{error}}",
+    "apps.notice.selectEmbeddedAgentFirst":
+      "请先选择一个嵌入式 Agent。",
+    "apps.notice.agentActionRequestSent": "已发送 Agent {{action}} 请求。",
+    "apps.notice.failedAgentAction":
+      "{{action}} Agent 失败：{{error}}",
+    "apps.notice.messageEmpty": "消息不能为空。",
+    "apps.notice.messageSentToAgent": "消息已发送给 Agent。",
+    "apps.notice.failedSendMessage": "发送消息失败：{{error}}",
+    "apps.notice.commandEmpty": "命令不能为空。",
+    "apps.notice.commandDataInvalidJsonObject":
+      "命令数据必须是合法的 JSON 对象。",
+    "apps.notice.commandSent": "命令 \"{{command}}\" 已发送。",
+    "apps.notice.failedSendCommand": "发送命令失败：{{error}}",
+
+    // Game view
+    "game.notice.viewerAuthSent": "已发送 Viewer 鉴权。",
+    "game.notice.failedStop": "停止失败：{{error}}",
+    "game.empty.noActiveSession": "当前没有进行中的游戏会话。",
+    "game.empty.backToApps": "返回 Apps",
+    "game.badge.postMessageAuth": "postMessage 鉴权",
+    "game.action.openInNewTab": "在新标签页打开",
+    "game.action.stopping": "停止中...",
+    "game.action.stop": "停止",
+    "game.title.fallback": "游戏",
+
+    // Knowledge notices
+    "knowledge.notice.uploadedFileFragments":
+      "已上传 \"{{filename}}\"（{{count}} 个分片）",
+    "knowledge.notice.uploadFailed": "上传文档失败",
+    "knowledge.notice.importedYoutubeTranscript":
+      "已导入 YouTube 转录（{{count}} 个分片）",
+    "knowledge.notice.importedFileFragments":
+      "已导入 \"{{filename}}\"（{{count}} 个分片）",
+    "knowledge.notice.importFromUrlFailed": "URL 导入失败",
+    "knowledge.notice.deletedDocumentFragments":
+      "已删除文档（移除 {{count}} 个分片）",
+    "knowledge.notice.deleteDocumentFailed": "删除文档失败",
+
+    // Fine-tuning notices
+    "fineTuning.error.refreshStateFailed":
+      "刷新微调状态失败。",
+    "fineTuning.error.loadTrajectoryDetailFailed":
+      "加载轨迹详情失败。",
+    "fineTuning.notice.datasetBuilt":
+      "已构建数据集 {{id}}（{{count}} 个样本）。",
+    "fineTuning.error.buildDatasetFailed": "构建数据集失败。",
+    "fineTuning.notice.startedTrainingJob":
+      "已启动训练任务 {{id}}。",
+    "fineTuning.error.startTrainingJobFailed":
+      "启动训练任务失败。",
+    "fineTuning.notice.cancelledJob": "已取消任务 {{id}}。",
+    "fineTuning.error.cancelJobFailed":
+      "取消 {{id}} 失败。",
+    "fineTuning.notice.importedModelToOllama":
+      "已将模型 {{modelId}} 导入到 Ollama{{alias}}。",
+    "fineTuning.error.importModelToOllamaFailed":
+      "导入模型到 Ollama 失败。",
+    "fineTuning.notice.activatedModel":
+      "已将模型 {{modelId}} 激活为 {{providerModel}}。",
+    "fineTuning.confirm.restartAfterActivation":
+      "模型激活已保存。现在重启 Agent 以加载新模型吗？",
+    "fineTuning.error.activateModelFailed": "激活模型失败。",
+    "fineTuning.notice.benchmarkResult":
+      "模型 {{modelId}} 的基准测试结果：{{status}}。",
+    "fineTuning.error.benchmarkModelFailed":
+      "模型基准测试失败。",
+    "fineTuning.notice.smokeTestCompleted":
+      "冒烟测试完成。",
+    "fineTuning.error.smokeTestFailed":
+      "运行冒烟测试失败。",
+
     // Onboarding (high-frequency)
     "onboarding.whereShouldILive": "我应该运行在哪里？",
     "onboarding.pickHowToRun": "选择你希望我如何运行",
@@ -783,6 +1201,125 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "settings.extension": "扩展",
     "settings.exportImport": "导出 / 导入",
     "settings.dangerZone": "危险操作",
+    "settings.languageRowDescription": "选择主要系统语言。",
+    "settings.themeStyle": "系统主题风格",
+    "settings.aiComputeCore": "AI 计算核心",
+    "settings.loadingModels": "正在加载模型...",
+    "settings.synchronizingCore": "正在同步核心...",
+    "settings.noAiProvidersPrefix":
+      "当前没有可用的 AI Provider。请前往",
+    "settings.noAiProvidersSuffix": "页面安装 Provider 插件。",
+    "settings.cloud.connected": "已连接 Eliza Cloud",
+    "settings.cloud.loggedIn": "已登录 Eliza Cloud",
+    "settings.cloud.disconnect": "断开连接",
+    "settings.cloud.disconnecting": "断开中...",
+    "settings.cloud.idLabel": "ID：",
+    "settings.cloud.creditsLabel": "额度：",
+    "settings.cloud.topUp": "充值",
+    "settings.cloud.waitingAuth": "等待浏览器认证中... 应已自动打开新标签页。",
+    "settings.cloud.login": "登录 Eliza Cloud",
+    "settings.cloud.loginHint": "将打开浏览器窗口完成认证。",
+    "settings.modelSavingRestarting": "保存并重启中...",
+    "settings.modelSavedRestarting": "已保存，正在重启 Agent",
+    "settings.enabled": "已启用",
+    "settings.disabled": "已禁用",
+    "settings.pi.title": "Pi（pi-ai）设置",
+    "settings.pi.credentialsHint": "使用本地凭据文件",
+    "settings.pi.smallModelOptional": "小模型（可选）",
+    "settings.pi.largeModelOptional": "大模型（可选）",
+    "settings.pi.smallModelHint": "用于快速任务。",
+    "settings.pi.largeModelHint": "用于复杂推理。",
+    "settings.pi.leaveBlankUseDefault": "留空则使用 pi 默认模型",
+    "settings.pi.placeholderExample": "例如",
+    "settings.pi.providerModelPlaceholder": "provider/modelId",
+    "settings.saving": "保存中...",
+    "settings.saved": "已保存",
+    "settings.saveAndRestart": "保存并重启",
+    "settings.providerConfiguredCount": "已配置 {{setCount}}/{{total}}",
+    "settings.configured": "已配置",
+    "settings.needsSetup": "需设置",
+    "settings.fetching": "拉取中...",
+    "settings.fetchModels": "拉取模型",
+    "settings.ai.fetchModelsLoaded": "已加载 {{count}} 个模型",
+    "settings.ai.fetchModelsError": "错误：{{error}}",
+    "settings.ai.fetchModelsFailed": "失败",
+    "settings.mediaGeneration": "媒体生成",
+    "settings.speechInterface": "语音（TTS / STT）",
+    "settings.permissionsCapabilities": "权限与能力",
+    "settings.desktopOnlyPermissionHint":
+      "仅桌面模式可用 — 系统权限需要 Milady Desktop 原生应用。",
+    "settings.softwareUpdates": "软件更新",
+    "settings.versionPrefix": "版本",
+    "settings.checking": "检查中...",
+    "settings.checkNow": "立即检查",
+    "settings.updateAvailable": "有可用更新",
+    "settings.lastChecked": "上次检查：",
+    "settings.checkingForUpdates": "正在检查更新...",
+    "settings.unableLoadUpdateStatus": "无法加载更新状态。",
+    "settings.chromeExtension": "Chrome 扩展",
+    "settings.extensionDesktopHint":
+      "仅桌面模式可用 — relay 通过 localhost 连接。",
+    "settings.checkConnection": "检查连接",
+    "settings.relayServer": "Relay 服务",
+    "settings.connected": "已连接",
+    "settings.notReachable": "不可达",
+    "settings.installChromeExtension": "安装 Chrome 扩展",
+    "settings.extension.relayNotRunning":
+      "浏览器 relay 服务未运行。请先启用浏览器控制启动 Agent，再重新检查。",
+    "settings.extension.stepOpenChrome": "打开 Chrome 并访问",
+    "settings.extension.stepEnableDeveloperModePrefix": "启用",
+    "settings.extension.developerMode": "开发者模式",
+    "settings.extension.stepEnableDeveloperModeSuffix": "（右上角开关）",
+    "settings.extension.stepLoadUnpackedPrefix": "点击",
+    "settings.extension.loadUnpacked": "“加载已解压的扩展程序”",
+    "settings.extension.stepLoadUnpackedSuffix": "并选择扩展目录：",
+    "settings.extension.relativeToPackageRoot":
+      "相对于 milady 包根目录",
+    "settings.extension.stepPinIcon": "将扩展图标固定到 Chrome 工具栏",
+    "settings.extension.stepAttachRelay":
+      "在任意标签页点击扩展图标，即可附加/断开 Milady 浏览器 relay",
+    "settings.extension.pathLabel": "扩展路径",
+    "settings.exportImportAgent": "导出 / 导入 Agent",
+    "settings.import": "导入",
+    "settings.export": "导出",
+    "settings.irreversibleActions": "不可逆操作，请谨慎执行。",
+    "settings.exportPrivateKeys": "导出私钥",
+    "settings.exportPrivateKeysHint":
+      "显示 EVM 和 Solana 私钥。请勿与任何人分享。",
+    "settings.privateKeysWarning":
+      "警告：私钥拥有钱包完整控制权。请勿泄露并妥善保存。",
+    "settings.hideKeys": "隐藏私钥",
+    "settings.exportKeys": "导出私钥",
+    "settings.evmPrivateKey": "EVM 私钥",
+    "settings.solanaPrivateKey": "Solana 私钥",
+    "settings.noWalletKeysConfigured": "未配置钱包私钥。",
+    "settings.resetAgent": "重置 Agent",
+    "settings.resetAgentHint":
+      "清空所有配置、记忆和数据，并返回引导页。",
+    "settings.resetConfirmMessage":
+      "确定要重置全部设置和数据吗？该操作不可撤销，并会返回引导页。",
+    "settings.resetEverything": "全部重置",
+    "settings.exportAgent": "导出 Agent",
+    "settings.exportAgentHint":
+      "你的角色、记忆、聊天、密钥和关系数据会下载为单个文件。导出文件会加密并需要密码。",
+    "settings.estimatingExportSize": "正在估算导出体积…",
+    "settings.export.estimateFailed": "导出体积估算失败。",
+    "settings.estimatedFileSize": "预计文件大小：",
+    "settings.exportContainsCount":
+      "包含 {{memories}} 条记忆、{{entities}} 个实体、{{rooms}} 个房间、{{worlds}} 个世界、{{tasks}} 个任务。",
+    "settings.couldNotEstimateExportSize": "无法估算导出大小：",
+    "settings.encryptionPassword": "加密密码",
+    "settings.passwordPlaceholder": "输入密码（至少 4 个字符）",
+    "settings.passwordMinLength": "密码至少需要 4 个字符。",
+    "settings.includeLogsInExport": "导出时包含日志",
+    "settings.exporting": "导出中...",
+    "settings.downloadExport": "下载导出文件",
+    "settings.importAgent": "导入 Agent",
+    "settings.importAgentHint":
+      "选择 .eliza-agent 导出文件，并输入导出时使用的密码。",
+    "settings.exportFile": "导出文件",
+    "settings.decryptionPassword": "解密密码",
+    "settings.importing": "导入中...",
 
     // Advanced page
     "advanced.plugins": "插件",
@@ -901,8 +1438,16 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     // Wallet (BSC-first)
     "wallet.portfolio": "资产总览",
     "wallet.bscMainnet": "BSC 主网",
+    "wallet.title": "钱包",
+    "wallet.panelAriaLabel": "钱包面板",
+    "wallet.notConnected": "未连接",
+    "wallet.refreshing": "...",
     "wallet.receive": "收款",
+    "wallet.send": "发送",
+    "wallet.swap": "兑换",
+    "wallet.copy": "复制",
     "wallet.addressCopied": "地址已复制。",
+    "wallet.estimatedPortfolioValue": "预估资产总值",
     "wallet.status.connected": "已连接",
     "wallet.status.connectedTitle": "钱包已连接",
     "wallet.status.feedLive": "行情在线",
@@ -932,6 +1477,7 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "wallet.preflightCheck.chain": "链",
     "wallet.preflightCheck.gas": "Gas",
     "wallet.preflightCheck.token": "代币",
+    "wallet.readyChipFeed": "行情",
     "wallet.quoteTitle": "报价",
     "wallet.quoteReady": "已就绪",
     "wallet.latestQuote": "最新报价",
@@ -940,17 +1486,30 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "wallet.quote.expected": "预估",
     "wallet.quote.minReceive": "最少到手",
     "wallet.quote.price": "价格",
+    "wallet.getQuote": "获取报价",
+    "wallet.quoting": "报价中...",
+    "wallet.execute": "执行",
+    "wallet.refreshPayload": "刷新载荷",
     "wallet.buy": "买入",
     "wallet.sell": "卖出",
+    "wallet.spendSymbol": "花费 ({{symbol}})",
+    "wallet.sellSymbol": "卖出 ({{symbol}})",
+    "wallet.slippagePercent": "滑点 %",
+    "wallet.available": "可用",
+    "wallet.gasReserve": "Gas 预留：{{amount}} BNB",
     "wallet.executeSide": "执行 {{side}}",
     "wallet.confirmExecute": "确认执行 {{side}} 吗？",
     "wallet.executing": "执行中...",
     "wallet.tradeSent": "交易已发送。",
+    "wallet.tradeSentWithHash": "交易已发送：{{hash}}",
     "wallet.tradePending": "交易已提交，等待链上确认。",
+    "wallet.transferSubmitted": "转账已提交。",
     "wallet.tradeExecutionFailed": "交易执行失败。",
     "wallet.transferExecutionFailed": "转账执行失败。",
+    "wallet.transferExecutionDidNotComplete": "转账执行未完成。",
     "wallet.executionDidNotComplete": "交易未完成。",
     "wallet.executionSwitchedUserSign": "已切换为用户签名模式执行。",
+    "wallet.userSignPayloadReady": "用户签名载荷已就绪，请复制并在钱包中签名。",
     "wallet.txStatus.pending": "待确认",
     "wallet.txStatus.success": "已确认",
     "wallet.txStatus.reverted": "已回滚",
@@ -967,8 +1526,12 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "wallet.error.rejected": "钱包中已拒绝签名请求。",
     "wallet.error.timeout": "请求超时，请重试。",
     "wallet.error.network": "RPC 或网络暂时不可用。",
+    "wallet.invalidAmount": "请输入有效数量。",
+    "wallet.enterValidDestinationAmount": "请先输入有效的目标地址和数量。",
+    "wallet.noTokenContractForAsset": "未找到 {{asset}} 的代币合约。",
     "wallet.createQuoteFirst": "请先生成报价。",
     "wallet.failedFetchQuote": "获取报价失败。",
+    "wallet.pasteContractToBuy": "请粘贴代币合约地址后再用 BNB 买入。",
     "wallet.invalidRowContract": "该行代币合约地址无效。",
     "wallet.nativeNoQuote": "原生代币无需报价。",
     "wallet.noDataRefresh": "暂无数据，请点击刷新。",
@@ -976,6 +1539,7 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "wallet.noNftsFound": "未找到 NFT。",
     "wallet.noNftData": "暂无 NFT 数据。",
     "wallet.noImage": "无图片",
+    "wallet.collectibles": "收藏品",
     "wallet.recentActivity": "最近活动",
     "wallet.noRecentActivity": "暂无最近交易记录。",
     "wallet.recentFilterAll": "全部",
@@ -994,6 +1558,7 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "wallet.tokenAddressUnavailable": "原生资产无合约地址。",
     "wallet.tokenCopyAddress": "复制地址",
     "wallet.tokenViewExplorer": "浏览器",
+    "wallet.tokenBscContract": "代币 (BSC 合约)",
     "wallet.tokenSwapThis": "兑换",
     "wallet.tokenSendThis": "发送",
     "wallet.tokenOpenWalletForSwap": "这个面板只支持 BSC 代币兑换。",
@@ -1002,6 +1567,9 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "wallet.userSignPlan": "用户签名执行流程",
     "wallet.userSignSellOneStep": "1. 先签名授权交易，允许路由合约使用代币。",
     "wallet.userSignSellTwoStep": "2. 授权确认后，再签名 swap 交易。",
+    "wallet.userSignSwapOneStep": "1. 在钱包扩展中签名 swap 交易。",
+    "wallet.userSignSendPayload": "用户签名转账载荷",
+    "wallet.copySendPayload": "复制转账载荷",
     "wallet.usersign.approveStep": "授权步骤",
     "wallet.usersign.signSwapStep": "签名 Swap",
     "wallet.usersign.signSellStep": "签名卖出",
@@ -1014,6 +1582,11 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "wallet.slippage": "滑点",
     "wallet.customPercent": "自定义 %",
     "wallet.value": "价值",
+    "wallet.amount": "数量",
+    "wallet.asset": "资产",
+    "wallet.toAddressBsc": "目标地址 (BSC)",
+    "wallet.sendHint": "直接执行转账。若模式为仅用户签名，请复制载荷并在钱包中签名。",
+    "wallet.executeSend": "执行发送",
     "wallet.chain": "链",
     "wallet.name": "名称",
     "wallet.sort": "排序",
@@ -1043,6 +1616,23 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "wallet.tokenUpdatedManual": "代币元数据已更新。",
     "wallet.tokenRemovedManual": "代币已从观察列表移除。",
     "wallet.enableIt": "去启用",
+    "wallet.swapFlowAria": "兑换流程",
+    "wallet.flow.input": "输入",
+    "wallet.flow.quote": "报价",
+    "wallet.flow.sign": "签名",
+    "wallet.flow.execute": "执行",
+    "wallet.flow.done": "完成",
+    "wallet.flowHint.input": "粘贴代币合约，选择方向与数量。",
+    "wallet.flowHint.quoteLoading": "正在获取路由和输出报价...",
+    "wallet.flowHint.quoteReady": "报价已就绪，执行前请确认路由与最少到手。",
+    "wallet.flowHint.sending": "正在发送交易到 BSC...",
+    "wallet.flowHint.signingRequired": "需要手动签名。请复制载荷并在钱包中签名。",
+    "wallet.flowHint.tradeReady": "交易已就绪，点击执行即可广播。",
+    "wallet.flowHint.submitted": "交易已提交，可通过哈希追踪状态。",
+    "wallet.hopsCount": "{{count}} 跳",
+    "wallet.txSubmitted": "交易已提交",
+    "wallet.latestTx": "最新交易",
+    "wallet.bscFeedError": "BSC 行情：{{error}}",
     "wallet.profile.title": "交易画像",
     "wallet.profile.subtitle": "Agent 交易画像（仅 BSC Swap）",
     "wallet.profile.refresh": "刷新",
@@ -1157,5 +1747,7 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     // Companion
     "companion.customVrmActive": "当前使用自定义 VRM",
     "companion.avatarPreviewAlt": "头像预览",
+    "companion.characterSettings": "角色设置",
+    "companion.switchToNativeUi": "切换到原生界面",
   },
 };

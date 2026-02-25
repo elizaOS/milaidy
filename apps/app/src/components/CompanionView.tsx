@@ -523,13 +523,13 @@ export function CompanionView() {
     const hasEvm = [...walletTokenRows, ...walletCollectibleRows].some((row) => row.chainKey === "evm");
     const hasSolana = [...walletTokenRows, ...walletCollectibleRows].some((row) => row.chainKey === "solana");
     const options: Array<{ value: WalletPortfolioChainFilter; label: string }> = [
-      { value: "all", label: "All" },
+      { value: "all", label: t("wallet.all") },
     ];
     if (hasBsc) options.push({ value: "bsc", label: "BSC" });
     if (hasEvm) options.push({ value: "evm", label: "EVM" });
     if (hasSolana) options.push({ value: "solana", label: "SOL" });
     return options;
-  }, [walletCollectibleRows, walletTokenRows]);
+  }, [t, walletCollectibleRows, walletTokenRows]);
 
   const walletRefreshBusy = walletLoading || (walletPortfolioTab === "collectibles" && walletNftsLoading);
 
@@ -799,13 +799,13 @@ export function CompanionView() {
   const handleSwapQuote = useCallback(async () => {
     const token = swapTokenAddress.trim();
     if (!HEX_ADDRESS_RE.test(token)) {
-      setActionNotice("Enter a valid token contract address (0x...).", "error", 2600);
+      setActionNotice(t("wallet.contractMustBeHex"), "error", 2600);
       return;
     }
     const amount = swapAmount.trim();
     const amountNum = Number.parseFloat(amount);
     if (!Number.isFinite(amountNum) || amountNum <= 0) {
-      setActionNotice("Enter a valid amount.", "error", 2400);
+      setActionNotice(t("wallet.invalidAmount"), "error", 2400);
       return;
     }
 
@@ -817,7 +817,7 @@ export function CompanionView() {
         setSwapLastTxHash(null);
         setSwapUserSignTx(null);
         setSwapUserSignApprovalTx(null);
-        setActionNotice(preflight.reasons[0] ?? "Trade preflight failed.", "error", 3200);
+        setActionNotice(preflight.reasons[0] ?? t("wallet.preflightFailed"), "error", 3200);
         return;
       }
 
@@ -841,7 +841,11 @@ export function CompanionView() {
       setSwapLastTxHash(null);
       setSwapUserSignTx(null);
       setSwapUserSignApprovalTx(null);
-      setActionNotice(err instanceof Error ? err.message : "Failed to fetch quote.", "error", 3600);
+      setActionNotice(
+        mapWalletTradeError(err, t, "wallet.failedFetchQuote"),
+        "error",
+        3600,
+      );
     } finally {
       setSwapBusy(false);
     }
@@ -853,11 +857,12 @@ export function CompanionView() {
     swapSide,
     swapSlippageBps,
     swapTokenAddress,
+    t,
   ]);
 
   const handleSwapExecute = useCallback(async () => {
     if (!swapQuote) {
-      setActionNotice("Create a quote first.", "info", 2200);
+      setActionNotice(t("wallet.createQuoteFirst"), "info", 2200);
       return;
     }
 
@@ -896,7 +901,7 @@ export function CompanionView() {
           recentTxRefreshAtRef.current[txHash] = Date.now();
           void refreshRecentTradeStatus(txHash, true);
         }
-        setActionNotice(`Trade sent: ${txHash.slice(0, 10)}...`, "success", 3600);
+        setActionNotice(t("wallet.tradeSentWithHash", { hash: `${txHash.slice(0, 10)}...` }), "success", 3600);
         void loadBalances();
         return;
       }
@@ -907,41 +912,45 @@ export function CompanionView() {
         setSwapUserSignApprovalTx(
           result.unsignedApprovalTx ? JSON.stringify(result.unsignedApprovalTx, null, 2) : null,
         );
-        setActionNotice("User-sign payload ready. Copy and sign in your wallet.", "info", 4200);
+        setActionNotice(t("wallet.userSignPayloadReady"), "info", 4200);
         return;
       }
 
       setSwapLastTxHash(null);
       setSwapUserSignTx(null);
       setSwapUserSignApprovalTx(null);
-      setActionNotice("Trade execution did not complete.", "error", 3200);
+      setActionNotice(t("wallet.executionDidNotComplete"), "error", 3200);
     } catch (err) {
       setSwapLastTxHash(null);
       setSwapUserSignTx(null);
       setSwapUserSignApprovalTx(null);
-      setActionNotice(err instanceof Error ? err.message : "Trade execution failed.", "error", 4200);
+      setActionNotice(
+        mapWalletTradeError(err, t, "wallet.tradeExecutionFailed"),
+        "error",
+        4200,
+      );
     } finally {
       setSwapExecuteBusy(false);
     }
-  }, [addRecentTrade, executeBscTrade, loadBalances, refreshRecentTradeStatus, setActionNotice, swapQuote]);
+  }, [addRecentTrade, executeBscTrade, loadBalances, refreshRecentTradeStatus, setActionNotice, swapQuote, t]);
 
   const handleCopyUserSignPayload = useCallback(
-    async (payload: string, label: string) => {
+    async (payload: string) => {
       await copyToClipboard(payload);
-      setActionNotice(`${label} payload copied.`, "success", 2400);
+      setActionNotice(t("wallet.payloadCopied"), "success", 2400);
     },
-    [copyToClipboard, setActionNotice],
+    [copyToClipboard, setActionNotice, t],
   );
 
   const handleSendExecute = useCallback(async () => {
     if (!sendReady || !evmAddress) {
-      setActionNotice("Enter a valid destination and amount first.", "error", 2600);
+      setActionNotice(t("wallet.enterValidDestinationAmount"), "error", 2600);
       return;
     }
 
     const normalizedAsset = sendAsset.trim().toUpperCase();
     if (normalizedAsset !== "BNB" && !sendAssetTokenAddress) {
-      setActionNotice(`No token contract found for ${normalizedAsset}.`, "error", 3200);
+      setActionNotice(t("wallet.noTokenContractForAsset", { asset: normalizedAsset }), "error", 3200);
       return;
     }
 
@@ -960,18 +969,18 @@ export function CompanionView() {
 
       if (result.requiresUserSignature) {
         setSendUserSignTx(JSON.stringify(result.unsignedTx, null, 2));
-        setActionNotice("User-sign payload ready. Copy and sign in your wallet.", "info", 4200);
+        setActionNotice(t("wallet.userSignPayloadReady"), "info", 4200);
         return;
       }
 
       if (result.execution?.hash) {
         setSendLastTxHash(result.execution.hash);
-        setActionNotice("Transfer submitted.", "success", 3200);
+        setActionNotice(t("wallet.transferSubmitted"), "success", 3200);
         await loadBalances();
         return;
       }
 
-      setActionNotice("Transfer execution did not complete.", "error", 3200);
+      setActionNotice(t("wallet.transferExecutionDidNotComplete"), "error", 3200);
     } catch (err) {
       setActionNotice(
         mapWalletTradeError(err, t, "wallet.transferExecutionFailed"),
@@ -1024,7 +1033,7 @@ export function CompanionView() {
       return;
     }
     setSwapSide("buy");
-    setActionNotice("Paste token contract to buy with BNB.", "info", 2600);
+    setActionNotice(t("wallet.pasteContractToBuy"), "info", 2600);
   }, [selectedWalletToken, setActionNotice, t]);
 
   const handleSelectedTokenSend = useCallback(() => {
@@ -1417,11 +1426,15 @@ export function CompanionView() {
                     <svg className={`anime-header-wallet-caret ${walletPanelOpen ? "is-open" : ""}`} width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
                   </button>
 
-                  <div className={`anime-wallet-popover ${walletPanelOpen ? "is-open" : ""}`} role="dialog" aria-label="Wallet panel">
+                  <div
+                    className={`anime-wallet-popover ${walletPanelOpen ? "is-open" : ""}`}
+                    role="dialog"
+                    aria-label={t("wallet.panelAriaLabel")}
+                  >
                     <div className="anime-wallet-popover-head">
                       <div>
-                        <div className="anime-wallet-popover-title">Wallet</div>
-                        <div className="anime-wallet-popover-sub">{evmShort ?? solShort ?? "Not connected"}</div>
+                        <div className="anime-wallet-popover-title">{t("wallet.title")}</div>
+                        <div className="anime-wallet-popover-sub">{evmShort ?? solShort ?? t("wallet.notConnected")}</div>
                       </div>
                       <div className="anime-wallet-popover-head-actions">
                         <button
@@ -1435,7 +1448,7 @@ export function CompanionView() {
                           }}
                           disabled={walletRefreshBusy}
                         >
-                          {walletRefreshBusy ? "..." : "Refresh"}
+                          {walletRefreshBusy ? t("wallet.refreshing") : t("wallet.profile.refresh")}
                         </button>
                       </div>
                     </div>
@@ -1446,7 +1459,7 @@ export function CompanionView() {
                           ? `$${walletTotalUsd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                           : "$0.00"}
                       </div>
-                      <div className="anime-wallet-popover-total-label">Estimated portfolio value</div>
+                      <div className="anime-wallet-popover-total-label">{t("wallet.estimatedPortfolioValue")}</div>
                     </div>
 
                     {walletError && (
@@ -1463,15 +1476,15 @@ export function CompanionView() {
                           className={`anime-wallet-mode-btn ${walletActionMode === mode ? "is-active" : ""}`}
                           onClick={() => setWalletActionMode(mode)}
                         >
-                          {mode}
+                          {mode === "send" ? t("wallet.send") : mode === "swap" ? t("wallet.swap") : t("wallet.receive")}
                         </button>
                       ))}
                     </div>
 
                     <div className="anime-wallet-readiness-row">
-                      <span className={`anime-wallet-ready-chip ${walletReady ? "is-ready" : "is-off"}`}>Wallet</span>
-                      <span className={`anime-wallet-ready-chip ${rpcReady ? "is-ready" : "is-off"}`}>Feed</span>
-                      <span className={`anime-wallet-ready-chip ${gasReady ? "is-ready" : "is-off"}`}>Gas</span>
+                      <span className={`anime-wallet-ready-chip ${walletReady ? "is-ready" : "is-off"}`}>{t("wallet.preflightCheck.wallet")}</span>
+                      <span className={`anime-wallet-ready-chip ${rpcReady ? "is-ready" : "is-off"}`}>{t("wallet.readyChipFeed")}</span>
+                      <span className={`anime-wallet-ready-chip ${gasReady ? "is-ready" : "is-off"}`}>{t("wallet.preflightCheck.gas")}</span>
                     </div>
 
                     {walletActionMode === "receive" && (
@@ -1488,10 +1501,10 @@ export function CompanionView() {
                                 className="anime-wallet-address-copy"
                                 onClick={() => {
                                   void copyToClipboard(evmAddress);
-                                  setActionNotice("Address copied.", "success", 2200);
+                                  setActionNotice(t("wallet.addressCopied"), "success", 2200);
                                 }}
                               >
-                                Copy
+                                {t("wallet.copy")}
                               </button>
                             </div>
                           )}
@@ -1506,10 +1519,10 @@ export function CompanionView() {
                                 className="anime-wallet-address-copy"
                                 onClick={() => {
                                   void copyToClipboard(solAddress);
-                                  setActionNotice("Address copied.", "success", 2200);
+                                  setActionNotice(t("wallet.addressCopied"), "success", 2200);
                                 }}
                               >
-                                Copy
+                                {t("wallet.copy")}
                               </button>
                             </div>
                           )}
@@ -1518,8 +1531,8 @@ export function CompanionView() {
                         <div className="anime-wallet-portfolio-toolbar">
                           <div className="anime-wallet-portfolio-tabs">
                             {([
-                              { key: "tokens", label: "Tokens" },
-                              { key: "collectibles", label: "Collectibles" },
+                              { key: "tokens", label: t("wallet.tokens") },
+                              { key: "collectibles", label: t("wallet.collectibles") },
                             ] as const).map((tab) => (
                               <button
                                 key={tab.key}
@@ -1585,7 +1598,7 @@ export function CompanionView() {
                                 ))
                               ) : (
                                 <div className="anime-wallet-asset-empty">
-                                  {walletLoading ? "Loading assets..." : "No token data yet"}
+                                  {walletLoading ? t("wallet.loadingBalances") : t("wallet.noTokensFound")}
                                 </div>
                               )}
                             </div>
@@ -1682,7 +1695,7 @@ export function CompanionView() {
                         ) : (
                           <div className="anime-wallet-nft-grid">
                             {walletNftsLoading ? (
-                              <div className="anime-wallet-asset-empty">Loading collectibles...</div>
+                              <div className="anime-wallet-asset-empty">{t("wallet.loadingNfts")}</div>
                             ) : filteredWalletCollectibleRows.length > 0 ? (
                               filteredWalletCollectibleRows.slice(0, 8).map((row) => (
                                 <div key={row.key} className="anime-wallet-nft-card">
@@ -1690,7 +1703,7 @@ export function CompanionView() {
                                     {row.imageUrl ? (
                                       <img src={row.imageUrl} alt={row.name} loading="lazy" />
                                     ) : (
-                                      <span>No image</span>
+                                      <span>{t("wallet.noImage")}</span>
                                     )}
                                   </div>
                                   <div className="anime-wallet-nft-meta">
@@ -1701,7 +1714,7 @@ export function CompanionView() {
                                 </div>
                               ))
                             ) : (
-                              <div className="anime-wallet-asset-empty">No collectible data yet</div>
+                              <div className="anime-wallet-asset-empty">{t("wallet.noNftsFound")}</div>
                             )}
                           </div>
                         )}
@@ -1778,7 +1791,7 @@ export function CompanionView() {
                                               rel="noopener noreferrer"
                                               className="anime-wallet-tx-link anime-wallet-recent-link"
                                             >
-                                              View
+                                              {t("wallet.view")}
                                             </a>
                                             <button
                                               type="button"
@@ -1798,7 +1811,7 @@ export function CompanionView() {
                                                 void refreshRecentTradeStatus(entry.hash);
                                               }}
                                             >
-                                              {walletRecentBusyHashes[entry.hash] ? "..." : t("wallet.txStatusRefresh")}
+                                              {walletRecentBusyHashes[entry.hash] ? t("wallet.refreshing") : t("wallet.txStatusRefresh")}
                                             </button>
                                           </div>
                                           {(entry.confirmations > 0 || typeof entry.nonce === "number") && (
@@ -1835,12 +1848,12 @@ export function CompanionView() {
 
                     {walletActionMode === "swap" && (
                       <div className="anime-wallet-action-body">
-                        <div className="anime-wallet-flow" aria-label="Swap flow">
+                        <div className="anime-wallet-flow" aria-label={t("wallet.swapFlowAria")}>
                           {[
-                            { label: "Input", step: 1 },
-                            { label: "Quote", step: 2 },
-                            { label: swapNeedsUserSign ? "Sign" : "Execute", step: 3 },
-                            { label: "Done", step: 4 },
+                            { label: t("wallet.flow.input"), step: 1 },
+                            { label: t("wallet.flow.quote"), step: 2 },
+                            { label: swapNeedsUserSign ? t("wallet.flow.sign") : t("wallet.flow.execute"), step: 3 },
+                            { label: t("wallet.flow.done"), step: 4 },
                           ].map((item, index, steps) => {
                             const isActive = swapFlowStep >= item.step;
                             const railActive = swapFlowStep > item.step;
@@ -1863,16 +1876,16 @@ export function CompanionView() {
                         </div>
 
                         <div className="anime-wallet-status-hint">
-                          {swapFlowStep === 1 && "Paste token contract, choose side and amount."}
+                          {swapFlowStep === 1 && t("wallet.flowHint.input")}
                           {swapFlowStep === 2 && (swapBusy
-                            ? "Fetching route and output quote..."
-                            : "Quote ready. Review route and minimum receive before execution.")}
+                            ? t("wallet.flowHint.quoteLoading")
+                            : t("wallet.flowHint.quoteReady"))}
                           {swapFlowStep === 3 && (swapExecuteBusy
-                            ? "Sending trade to BSC..."
+                            ? t("wallet.flowHint.sending")
                             : swapNeedsUserSign
-                              ? "Manual signing required. Copy payloads and sign in wallet."
-                              : "Trade ready. Press execute to broadcast transaction.")}
-                          {swapFlowStep === 4 && "Transaction submitted. Track status with the tx hash."}
+                              ? t("wallet.flowHint.signingRequired")
+                              : t("wallet.flowHint.tradeReady"))}
+                          {swapFlowStep === 4 && t("wallet.flowHint.submitted")}
                         </div>
 
                         <div className="anime-wallet-side-toggle">
@@ -1881,19 +1894,19 @@ export function CompanionView() {
                             className={`anime-wallet-side-btn ${swapSide === "buy" ? "is-active" : ""}`}
                             onClick={() => setSwapSide("buy")}
                           >
-                            Buy
+                            {t("wallet.buy")}
                           </button>
                           <button
                             type="button"
                             className={`anime-wallet-side-btn ${swapSide === "sell" ? "is-active" : ""}`}
                             onClick={() => setSwapSide("sell")}
                           >
-                            Sell
+                            {t("wallet.sell")}
                           </button>
                         </div>
 
                         <label className="anime-wallet-field">
-                          <span>Token (BSC Contract)</span>
+                          <span>{t("wallet.tokenBscContract")}</span>
                           <input
                             type="text"
                             value={swapTokenAddress}
@@ -1903,7 +1916,11 @@ export function CompanionView() {
                         </label>
                         <div className="anime-wallet-field-grid">
                           <label className="anime-wallet-field">
-                            <span>{swapSide === "buy" ? `Spend (${swapInputSymbol})` : `Sell (${swapInputSymbol})`}</span>
+                            <span>
+                              {swapSide === "buy"
+                                ? t("wallet.spendSymbol", { symbol: swapInputSymbol })
+                                : t("wallet.sellSymbol", { symbol: swapInputSymbol })}
+                            </span>
                             <input
                               type="text"
                               value={swapAmount}
@@ -1912,7 +1929,7 @@ export function CompanionView() {
                             />
                           </label>
                           <label className="anime-wallet-field">
-                            <span>Slippage %</span>
+                            <span>{t("wallet.slippagePercent")}</span>
                             <input
                               type="text"
                               value={swapSlippage}
@@ -1924,10 +1941,10 @@ export function CompanionView() {
 
                         <div className="anime-wallet-balance-meta">
                           <span>
-                            Available: {swapCanUsePresets ? `${formatSwapAmount(swapAvailableAmountNum)} ${swapInputSymbol}` : "--"}
+                            {t("wallet.available")}: {swapCanUsePresets ? `${formatSwapAmount(swapAvailableAmountNum)} ${swapInputSymbol}` : "--"}
                           </span>
                           {swapSide === "buy" && (
-                            <span>Gas reserve: {BSC_SWAP_GAS_RESERVE} BNB</span>
+                            <span>{t("wallet.gasReserve", { amount: BSC_SWAP_GAS_RESERVE })}</span>
                           )}
                         </div>
 
@@ -1956,7 +1973,7 @@ export function CompanionView() {
                               void handleSwapQuote();
                             }}
                           >
-                            {swapBusy ? "Quoting..." : "Get Quote"}
+                            {swapBusy ? t("wallet.quoting") : t("wallet.getQuote")}
                           </button>
                           <button
                             type="button"
@@ -1966,27 +1983,27 @@ export function CompanionView() {
                               void handleSwapExecute();
                             }}
                           >
-                            {swapExecuteBusy ? "Executing..." : swapNeedsUserSign ? "Refresh Payload" : "Execute"}
+                            {swapExecuteBusy ? t("wallet.executing") : swapNeedsUserSign ? t("wallet.refreshPayload") : t("wallet.execute")}
                           </button>
                         </div>
 
                         {swapQuote && (
                           <div className="anime-wallet-quote-card">
                             <div className="anime-wallet-quote-line">
-                              <span>Input</span>
+                              <span>{t("wallet.quote.input")}</span>
                               <strong>{swapQuote.quoteIn.amount} {swapQuote.quoteIn.symbol}</strong>
                             </div>
                             <div className="anime-wallet-quote-line">
-                              <span>Expected</span>
+                              <span>{t("wallet.quote.expected")}</span>
                               <strong>{swapQuote.quoteOut.amount} {swapQuote.quoteOut.symbol}</strong>
                             </div>
                             <div className="anime-wallet-quote-line">
-                              <span>Min Receive</span>
+                              <span>{t("wallet.quote.minReceive")}</span>
                               <strong>{swapQuote.minReceive.amount} {swapQuote.minReceive.symbol}</strong>
                             </div>
                             <div className="anime-wallet-quote-line">
-                              <span>Route</span>
-                              <strong>{swapQuote.route.length} hops</strong>
+                              <span>{t("wallet.route")}</span>
+                              <strong>{t("wallet.hopsCount", { count: swapQuote.route.length })}</strong>
                             </div>
                             {swapRouteLabel && (
                               <div className="anime-wallet-quote-route" title={swapQuote.route.join(" -> ")}>
@@ -1998,7 +2015,7 @@ export function CompanionView() {
 
                         {swapLastTxHash && (
                           <div className="anime-wallet-tx-row">
-                            <span>Tx Submitted:</span>
+                            <span>{t("wallet.txSubmitted")}:</span>
                             <code>{swapLastTxHash.slice(0, 10)}...{swapLastTxHash.slice(-6)}</code>
                             <a
                               href={`https://bscscan.com/tx/${swapLastTxHash}`}
@@ -2006,24 +2023,24 @@ export function CompanionView() {
                               rel="noopener noreferrer"
                               className="anime-wallet-tx-link"
                             >
-                              View
+                              {t("wallet.view")}
                             </a>
                           </div>
                         )}
 
                         {(swapUserSignTx || swapUserSignApprovalTx) && (
                           <div className="anime-wallet-usersign">
-                            <div className="anime-wallet-usersign-title">User-sign payloads</div>
+                            <div className="anime-wallet-usersign-title">{t("wallet.userSignPlan")}</div>
                             <div className="anime-wallet-usersign-steps">
                               {swapUserSignApprovalTx && (
                                 <div className="anime-wallet-usersign-step">
-                                  1. Sign approval transaction for token allowance.
+                                  {t("wallet.userSignSellOneStep")}
                                 </div>
                               )}
                               <div className="anime-wallet-usersign-step">
                                 {swapUserSignApprovalTx
-                                  ? "2. Sign swap transaction after approval confirms."
-                                  : "1. Sign the swap transaction in wallet extension."}
+                                  ? t("wallet.userSignSellTwoStep")
+                                  : t("wallet.userSignSwapOneStep")}
                               </div>
                             </div>
                             <div className="anime-wallet-usersign-actions">
@@ -2032,10 +2049,10 @@ export function CompanionView() {
                                   type="button"
                                   className="anime-wallet-address-copy"
                                   onClick={() => {
-                                    void handleCopyUserSignPayload(swapUserSignApprovalTx, "Approval");
+                                    void handleCopyUserSignPayload(swapUserSignApprovalTx);
                                   }}
                                 >
-                                  Copy Approval
+                                  {t("wallet.usersign.copyApproveTx")}
                                 </button>
                               )}
                               {swapUserSignTx && (
@@ -2043,10 +2060,10 @@ export function CompanionView() {
                                   type="button"
                                   className="anime-wallet-address-copy"
                                   onClick={() => {
-                                    void handleCopyUserSignPayload(swapUserSignTx, "Swap");
+                                    void handleCopyUserSignPayload(swapUserSignTx);
                                   }}
                                 >
-                                  Copy Swap
+                                  {t("wallet.usersign.copySwapTx")}
                                 </button>
                               )}
                             </div>
@@ -2058,7 +2075,7 @@ export function CompanionView() {
                     {walletActionMode === "send" && (
                       <div className="anime-wallet-action-body">
                         <label className="anime-wallet-field">
-                          <span>To Address (BSC)</span>
+                          <span>{t("wallet.toAddressBsc")}</span>
                           <input
                             type="text"
                             value={sendTo}
@@ -2068,7 +2085,7 @@ export function CompanionView() {
                         </label>
                         <div className="anime-wallet-field-grid">
                           <label className="anime-wallet-field">
-                            <span>Amount</span>
+                            <span>{t("wallet.amount")}</span>
                             <input
                               type="text"
                               value={sendAmount}
@@ -2077,7 +2094,7 @@ export function CompanionView() {
                             />
                           </label>
                           <label className="anime-wallet-field">
-                            <span>Asset</span>
+                            <span>{t("wallet.asset")}</span>
                             <select
                               value={sendAsset}
                               onChange={(event) => setSendAsset(event.target.value)}
@@ -2089,7 +2106,7 @@ export function CompanionView() {
                           </label>
                         </div>
                         <div className="anime-wallet-send-hint">
-                          Execute transfer directly. If mode is user-sign-only, copy payload and sign in wallet.
+                          {t("wallet.sendHint")}
                         </div>
                         <div className="anime-wallet-popover-actions">
                           <button
@@ -2100,22 +2117,22 @@ export function CompanionView() {
                               void handleSendExecute();
                             }}
                           >
-                            {sendExecuteBusy ? "Executing..." : "Execute Send"}
+                            {sendExecuteBusy ? t("wallet.executing") : t("wallet.executeSend")}
                           </button>
                         </div>
 
                         {sendUserSignTx && (
                           <div className="anime-wallet-usersign">
-                            <div className="anime-wallet-usersign-title">User-sign send payload</div>
+                            <div className="anime-wallet-usersign-title">{t("wallet.userSignSendPayload")}</div>
                             <div className="anime-wallet-usersign-actions">
                               <button
                                 type="button"
                                 className="anime-wallet-address-copy"
                                 onClick={() => {
-                                  void handleCopyUserSignPayload(sendUserSignTx, "Send");
+                                  void handleCopyUserSignPayload(sendUserSignTx);
                                 }}
                               >
-                                Copy Send Payload
+                                {t("wallet.copySendPayload")}
                               </button>
                             </div>
                           </div>
@@ -2123,7 +2140,7 @@ export function CompanionView() {
 
                         {sendLastTxHash && (
                           <div className="anime-wallet-tx-row">
-                            <span>Latest tx</span>
+                            <span>{t("wallet.latestTx")}</span>
                             <code>{shortHash(sendLastTxHash)}</code>
                             <a
                               href={`https://bscscan.com/tx/${sendLastTxHash}`}
@@ -2131,7 +2148,7 @@ export function CompanionView() {
                               rel="noopener noreferrer"
                               className="anime-wallet-tx-link"
                             >
-                              View
+                              {t("wallet.view")}
                             </a>
                           </div>
                         )}
@@ -2140,7 +2157,7 @@ export function CompanionView() {
 
                     {bscChainError && (
                       <div className="anime-wallet-popover-error">
-                        BSC feed: {bscChainError}
+                        {t("wallet.bscFeedError", { error: bscChainError })}
                       </div>
                     )}
                   </div>
@@ -2180,7 +2197,7 @@ export function CompanionView() {
                 type="button"
                 onClick={() => setTab("character")}
                 className="anime-roster-config-btn"
-                title="Character settings"
+                title={t("companion.characterSettings")}
                 data-testid="character-roster-settings"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -2193,7 +2210,7 @@ export function CompanionView() {
                 type="button"
                 onClick={handleSwitchToNativeShell}
                 className="anime-roster-config-btn"
-                title="Switch to native UI"
+                title={t("companion.switchToNativeUi")}
                 data-testid="ui-shell-toggle"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -2312,7 +2329,7 @@ export function CompanionView() {
                     <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
                   </svg>
                 </div>
-                <span className="anime-hub-btn-label">Talents</span>
+                <span className="anime-hub-btn-label">{t("nav.talents")}</span>
               </button>
 
               {/* Knowledge */}
@@ -2323,7 +2340,7 @@ export function CompanionView() {
                     <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
                   </svg>
                 </div>
-                <span className="anime-hub-btn-label">Knowledge</span>
+                <span className="anime-hub-btn-label">{t("nav.knowledge")}</span>
               </button>
 
               {/* Channels */}
@@ -2334,7 +2351,7 @@ export function CompanionView() {
                     <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
                   </svg>
                 </div>
-                <span className="anime-hub-btn-label">Channels</span>
+                <span className="anime-hub-btn-label">{t("nav.channels")}</span>
               </button>
 
               {/* Plugins */}
@@ -2347,7 +2364,7 @@ export function CompanionView() {
                     <path d="M12 8v1M12 13v1M9.5 9.5l.7.7M13.8 13.8l.7.7M9 11H8M16 11h-1M9.5 12.5l.7-.7M13.8 8.2l.7-.7" />
                   </svg>
                 </div>
-                <span className="anime-hub-btn-label">Plugins</span>
+                <span className="anime-hub-btn-label">{t("nav.plugins")}</span>
               </button>
 
               {/* Apps */}
@@ -2361,7 +2378,7 @@ export function CompanionView() {
                     <rect x="14" y="14" width="7" height="7" rx="1" />
                   </svg>
                 </div>
-                <span className="anime-hub-btn-label">Apps</span>
+                <span className="anime-hub-btn-label">{t("nav.apps")}</span>
               </button>
 
               {/* Settings */}

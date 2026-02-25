@@ -475,7 +475,7 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
         setExportEstimate(estimate);
       } catch (err) {
         setExportEstimateError(
-          err instanceof Error ? err.message : "Failed to estimate export size.",
+          err instanceof Error ? err.message : t("settings.export.estimateFailed"),
         );
       } finally {
         setExportEstimateLoading(false);
@@ -502,12 +502,16 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
       try {
         const result = await client.fetchModels(providerId, true);
         const count = Array.isArray(result?.models) ? result.models.length : 0;
-        setModelsFetchResult(`Loaded ${count} models`);
+        setModelsFetchResult(t("settings.ai.fetchModelsLoaded", { count: String(count) }));
         // Reload plugins so configUiHints are refreshed with new model options
         await loadPlugins();
         setTimeout(() => setModelsFetchResult(null), 3000);
       } catch (err) {
-        setModelsFetchResult(`Error: ${err instanceof Error ? err.message : "failed"}`);
+        setModelsFetchResult(
+          t("settings.ai.fetchModelsError", {
+            error: err instanceof Error ? err.message : t("settings.ai.fetchModelsFailed"),
+          }),
+        );
         setTimeout(() => setModelsFetchResult(null), 5000);
       }
       setModelsFetching(false);
@@ -572,7 +576,7 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
           {/* HSR Section Header */}
           {inModal ? (
             <div className="settings-hsr-header">
-              <span className="settings-hsr-header-text">APPEARANCE</span>
+              <span className="settings-hsr-header-text">{t("settings.appearance").toUpperCase()}</span>
               <div className="settings-hsr-line"></div>
             </div>
           ) : (
@@ -583,7 +587,7 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
           <div className={inModal ? "settings-hsr-row" : "mb-3"}>
             <div className={inModal ? "settings-hsr-row-left" : "text-[12px] font-semibold text-[var(--text)] mb-1.5"}>
               <div className={inModal ? "settings-hsr-row-title" : ""}>{t("settings.language")}</div>
-              {inModal && <div className="settings-hsr-row-desc">Select the primary system language.</div>}
+              {inModal && <div className="settings-hsr-row-desc">{t("settings.languageRowDescription")}</div>}
             </div>
 
             <div className={inModal ? "settings-hsr-row-right" : "inline-flex gap-1.5 border border-[var(--border)] rounded-md p-1"}>
@@ -646,7 +650,7 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
           </div>
 
           {/* Theme Carousel */}
-          {inModal && <div className="settings-hsr-row-title mt-4 mb-2 ml-2">System Theme Style</div>}
+          {inModal && <div className="settings-hsr-row-title mt-4 mb-2 ml-2">{t("settings.themeStyle")}</div>}
           <div className={inModal ? "settings-hsr-theme-carousel" : "grid grid-cols-3 sm:grid-cols-6 gap-1.5"}>
             {THEMES.map((th) => {
               const THEME_COLORS: Record<string, string> = {
@@ -712,20 +716,20 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
         >
           {inModal ? (
             <div className="settings-hsr-header">
-              <span className="settings-hsr-header-text">AI COMPUTE CORE</span>
+              <span className="settings-hsr-header-text">{t("settings.aiComputeCore")}</span>
               <div className="settings-hsr-line"></div>
             </div>
           ) : (
             <div className={`flex items-center gap-3 mb-4`}>
-              <div className="font-bold text-sm">AI Model</div>
+              <div className="font-bold text-sm">{t("settings.aiModel")}</div>
               {isLoadingModels && (
-                <span className="text-[11px] text-[var(--muted)] animate-pulse">Loading models...</span>
+                <span className="text-[11px] text-[var(--muted)] animate-pulse">{t("settings.loadingModels")}</span>
               )}
             </div>
           )}
 
           {isLoadingModels && inModal && (
-            <span className="text-[11px] text-[var(--accent)] animate-pulse ml-2 mb-2 block">Synchronizing core...</span>
+            <span className="text-[11px] text-[var(--accent)] animate-pulse ml-2 mb-2 block">{t("settings.synchronizingCore")}</span>
           )}
 
           {(() => {
@@ -737,7 +741,7 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
               return (
                 <div className="p-4 border border-[var(--warning,#f39c12)] bg-[var(--card)]">
                   <div className="text-xs text-[var(--warning,#f39c12)]">
-                    No AI providers available. Install a provider plugin from the{" "}
+                    {t("settings.noAiProvidersPrefix")}{" "}
                     <a
                       href="#"
                       className="text-[var(--accent)] underline"
@@ -746,9 +750,9 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
                         setTab("plugins");
                       }}
                     >
-                      Plugins
+                      {t("advanced.plugins")}
                     </a>{" "}
-                    page.
+                    {t("settings.noAiProvidersSuffix")}
                   </div>
                 </div>
               );
@@ -828,12 +832,12 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
                               {inModal ? (
                                 <>
                                   <span className="inline-block w-2 h-2 rounded-full bg-[var(--ok,#16a34a)] shadow-[0_0_8px_var(--ok,#16a34a)]" />
-                                  <span className="text-xs font-bold tracking-wider text-[var(--ok,#16a34a)] uppercase">Connected to Eliza Cloud</span>
+                                  <span className="text-xs font-bold tracking-wider text-[var(--ok,#16a34a)] uppercase">{t("settings.cloud.connected")}</span>
                                 </>
                               ) : (
                                 <>
                                   <span className="inline-block w-2 h-2 rounded-full bg-[var(--ok,#16a34a)]" />
-                                  <span className="text-xs font-semibold">Logged into Eliza Cloud</span>
+                                  <span className="text-xs font-semibold">{t("settings.cloud.loggedIn")}</span>
                                 </>
                               )}
                             </div>
@@ -845,19 +849,19 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
                               onClick={() => void handleCloudDisconnect()}
                               disabled={cloudDisconnecting}
                             >
-                              {cloudDisconnecting ? "Disconnecting..." : "Disconnect"}
+                              {cloudDisconnecting ? t("settings.cloud.disconnecting") : t("settings.cloud.disconnect")}
                             </button>
                           </div>
 
                           <div className={inModal ? "text-xs font-mono" : "text-xs mb-4"}>
                             {cloudUserId && (
                               <div className="text-[var(--muted)] mb-1">
-                                <span className={inModal ? "uppercase tracking-wider text-[10px]" : ""}>ID:</span> <code className="text-[11px]">{cloudUserId}</code>
+                                <span className={inModal ? "uppercase tracking-wider text-[10px]" : ""}>{t("settings.cloud.idLabel")}</span> <code className="text-[11px]">{cloudUserId}</code>
                               </div>
                             )}
                             {cloudCredits !== null && (
                               <div className="flex items-center gap-3">
-                                <span className={inModal ? "uppercase tracking-wider text-[10px] s-text-muted" : "text-[var(--muted)]"}>Credits:</span>{" "}
+                                <span className={inModal ? "uppercase tracking-wider text-[10px] s-text-muted" : "text-[var(--muted)]"}>{t("settings.cloud.creditsLabel")}</span>{" "}
                                 <span
                                   className={
                                     cloudCreditsCritical
@@ -875,7 +879,7 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
                                   rel="noopener noreferrer"
                                   className={inModal ? "text-[10px] uppercase font-bold s-text-secondary s-hover-text underline" : "text-[11px] text-[var(--accent)]"}
                                 >
-                                  Top up
+                                  {t("settings.cloud.topUp")}
                                 </a>
                               </div>
                             )}
@@ -939,15 +943,15 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
                         })()}
 
                         <div className="flex items-center justify-end gap-2 mt-3">
-                          {modelSaving && <span className="text-[11px] text-[var(--muted)]">Saving &amp; restarting...</span>}
-                          {modelSaveSuccess && <span className="text-[11px] text-[var(--ok,#16a34a)]">Saved — restarting agent</span>}
+                          {modelSaving && <span className="text-[11px] text-[var(--muted)]">{t("settings.modelSavingRestarting")}</span>}
+                          {modelSaveSuccess && <span className="text-[11px] text-[var(--ok,#16a34a)]">{t("settings.modelSavedRestarting")}</span>}
                         </div>
                       </div>
                     ) : (
                       <div>
                         {cloudLoginBusy ? (
                           <div className="text-xs text-[var(--muted)]">
-                            Waiting for browser authentication... A new tab should have opened.
+                            {t("settings.cloud.waitingAuth")}
                           </div>
                         ) : (
                           <>
@@ -960,10 +964,10 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
                               className="btn text-xs py-[5px] px-3.5 font-bold !mt-0"
                               onClick={() => void handleCloudLogin()}
                             >
-                              Log in to Eliza Cloud
+                              {t("settings.cloud.login")}
                             </button>
                             <div className="text-[11px] text-[var(--muted)] mt-1.5">
-                              Opens a browser window to authenticate.
+                              {t("settings.cloud.loginHint")}
                             </div>
                           </>
                         )}
@@ -976,33 +980,33 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
                 {!isCloudSelected && isPiAiSelected && (
                   <div className="mt-4 pt-4 border-t border-[var(--border)]">
                     <div className="flex justify-between items-center mb-2">
-                      <div className="text-xs font-semibold">Pi (pi-ai) Settings</div>
+                      <div className="text-xs font-semibold">{t("settings.pi.title")}</div>
                       <span
                         className={`text-[11px] px-2 py-[3px] border ${piAiEnabled ? "" : "opacity-70"}`}
                         style={{
                           borderColor: piAiEnabled ? "#2d8a4e" : "var(--warning,#f39c12)",
                           color: piAiEnabled ? "#2d8a4e" : "var(--warning,#f39c12)",
                         }}
-                      >
-                        {piAiEnabled ? "Enabled" : "Disabled"}
+                    >
+                        {piAiEnabled ? t("settings.enabled") : t("settings.disabled")}
                       </span>
                     </div>
 
                     <div className="text-[11px] text-[var(--muted)] mb-3">
-                      Uses credentials from <code className="font-[var(--mono)]">~/.pi/agent/auth.json</code>.
+                      {t("settings.pi.credentialsHint")} <code className="font-[var(--mono)]">~/.pi/agent/auth.json</code>.
                     </div>
 
                     <div className="flex flex-col gap-1">
-                      <label className="text-xs font-semibold">Small Model (optional)</label>
+                      <label className="text-xs font-semibold">{t("settings.pi.smallModelOptional")}</label>
                       <div className="text-[10px] text-[var(--muted)]">
-                        Used for fast tasks. Leave blank to use pi default{piDefaultModel ? ` (${piDefaultModel})` : ""}.
+                        {t("settings.pi.smallModelHint")} {t("settings.pi.leaveBlankUseDefault")}{piDefaultModel ? ` (${piDefaultModel})` : ""}.
                       </div>
                       <input
                         className={`w-full px-2.5 py-[7px] text-[13px] font-[var(--mono)] transition-colors focus:outline-none ${inModal ? "" : "border border-[var(--border)] bg-[var(--card)] focus:border-[var(--accent)]"}`}
                         type="text"
                         value={piAiSmallModel}
                         onChange={(e) => setPiAiSmallModel(e.target.value)}
-                        placeholder={piDefaultModel ? `e.g. ${piDefaultModel}` : "provider/modelId"}
+                        placeholder={piDefaultModel ? `${t("settings.pi.placeholderExample")} ${piDefaultModel}` : t("settings.pi.providerModelPlaceholder")}
                         list="pi-ai-models-config"
                       />
                       <datalist id="pi-ai-models-config">
@@ -1013,16 +1017,16 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
                     </div>
 
                     <div className="flex flex-col gap-1 mt-3">
-                      <label className="text-xs font-semibold">Large Model (optional)</label>
+                      <label className="text-xs font-semibold">{t("settings.pi.largeModelOptional")}</label>
                       <div className="text-[10px] text-[var(--muted)]">
-                        Used for complex reasoning. Leave blank to use pi default{piDefaultModel ? ` (${piDefaultModel})` : ""}.
+                        {t("settings.pi.largeModelHint")} {t("settings.pi.leaveBlankUseDefault")}{piDefaultModel ? ` (${piDefaultModel})` : ""}.
                       </div>
                       <input
                         className={`w-full px-2.5 py-[7px] text-[13px] font-[var(--mono)] transition-colors focus:outline-none ${inModal ? "" : "border border-[var(--border)] bg-[var(--card)] focus:border-[var(--accent)]"}`}
                         type="text"
                         value={piAiLargeModel}
                         onChange={(e) => setPiAiLargeModel(e.target.value)}
-                        placeholder={piDefaultModel ? `e.g. ${piDefaultModel}` : "provider/modelId"}
+                        placeholder={piDefaultModel ? `${t("settings.pi.placeholderExample")} ${piDefaultModel}` : t("settings.pi.providerModelPlaceholder")}
                         list="pi-ai-models-config-large"
                       />
                       <datalist id="pi-ai-models-config-large">
@@ -1038,7 +1042,7 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
                         onClick={() => void handlePiAiSave()}
                         disabled={piAiSaving}
                       >
-                        {piAiSaving ? "Saving..." : piAiSaveSuccess ? "Saved" : "Save & Restart"}
+                        {piAiSaving ? t("settings.saving") : piAiSaveSuccess ? t("settings.saved") : t("settings.saveAndRestart")}
                       </button>
                     </div>
                   </div>
@@ -1055,11 +1059,11 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
                     <div className="mt-4 pt-4 border-t border-[var(--border)]">
                       <div className="flex justify-between items-center mb-3">
                         <div className="text-xs font-semibold">
-                          {selectedProvider.name} Settings
+                          {selectedProvider.name} {t("common.settings")}
                         </div>
                         <div className="flex items-center gap-2">
                           <span className="text-[11px] text-[var(--muted)]">
-                            {setCount}/{params.length} configured
+                            {t("settings.providerConfiguredCount", { setCount: String(setCount), total: String(params.length) })}
                           </span>
                           <span
                             className="text-[11px] px-2 py-[3px] border"
@@ -1068,7 +1072,7 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
                               color: selectedProvider.configured ? "#2d8a4e" : "var(--warning,#f39c12)",
                             }}
                           >
-                            {selectedProvider.configured ? "Configured" : "Needs Setup"}
+                            {selectedProvider.configured ? t("settings.configured") : t("settings.needsSetup")}
                           </span>
                         </div>
                       </div>
@@ -1126,7 +1130,7 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
                             onClick={() => void handleFetchModels(selectedProvider.id)}
                             disabled={modelsFetching}
                           >
-                            {modelsFetching ? "Fetching..." : "Fetch Models"}
+                            {modelsFetching ? t("settings.fetching") : t("settings.fetchModels")}
                           </button>
                           {modelsFetchResult && (
                             <span className={`text-[11px] ${modelsFetchResult.startsWith("Error") ? "text-[var(--danger,#e74c3c)]" : "text-[var(--ok,#16a34a)]"}`}>
@@ -1139,7 +1143,7 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
                           onClick={() => handlePluginSave(selectedProvider.id)}
                           disabled={isSaving}
                         >
-                          {isSaving ? "Saving..." : saveSuccess ? "Saved" : "Save"}
+                          {isSaving ? t("settings.saving") : saveSuccess ? t("settings.saved") : t("common.save")}
                         </button>
                       </div>
                     </div>
@@ -1159,11 +1163,11 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
         >
           {inModal ? (
             <div className="settings-hsr-header">
-              <span className="settings-hsr-header-text">WALLET / RPC</span>
+              <span className="settings-hsr-header-text">{t("settings.walletRpc").toUpperCase()}</span>
               <div className="settings-hsr-line"></div>
             </div>
           ) : (
-            <div className="settings-section-title">Wallet / RPC</div>
+            <div className="settings-section-title">{t("settings.walletRpc")}</div>
           )}
           <ConfigPageView embedded />
         </div>
@@ -1177,11 +1181,11 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
         >
           {inModal ? (
             <div className="settings-hsr-header">
-              <span className="settings-hsr-header-text">MEDIA GENERATION</span>
+              <span className="settings-hsr-header-text">{t("settings.mediaGeneration").toUpperCase()}</span>
               <div className="settings-hsr-line"></div>
             </div>
           ) : (
-            <div className="font-bold text-sm mb-4">Media Generation</div>
+            <div className="font-bold text-sm mb-4">{t("settings.mediaGeneration")}</div>
           )}
           <MediaSettingsSection />
         </div>
@@ -1195,11 +1199,11 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
         >
           {inModal ? (
             <div className="settings-hsr-header">
-              <span className="settings-hsr-header-text">SPEECH INTERFACE</span>
+              <span className="settings-hsr-header-text">{t("settings.speechInterface").toUpperCase()}</span>
               <div className="settings-hsr-line"></div>
             </div>
           ) : (
-            <div className="font-bold text-sm mb-4">Speech (TTS / STT)</div>
+            <div className="font-bold text-sm mb-4">{t("settings.speechInterface")}</div>
           )}
           <VoiceConfigView />
         </div>
@@ -1213,13 +1217,13 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
         >
           {inModal ? (
             <div className="settings-hsr-header">
-              <span className="settings-hsr-header-text">PERMISSIONS & CAPABILITIES</span>
+              <span className="settings-hsr-header-text">{t("settings.permissionsCapabilities").toUpperCase()}</span>
               <div className="settings-hsr-line"></div>
             </div>
           ) : (
-            <div className="font-bold text-sm mb-1">Permissions & Capabilities</div>
+            <div className="font-bold text-sm mb-1">{t("settings.permissionsCapabilities")}</div>
           )}
-          <div className={`text-[11px] mb-4 text-[var(--muted)]`}>Desktop mode only — system permissions require the native Milady Desktop app.</div>
+          <div className={`text-[11px] mb-4 text-[var(--muted)]`}>{t("settings.desktopOnlyPermissionHint")}</div>
           <PermissionsSection />
         </div>
 
@@ -1232,15 +1236,15 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
         >
           {inModal && (
             <div className="settings-hsr-header">
-              <span className="settings-hsr-header-text">SOFTWARE UPDATES</span>
+              <span className="settings-hsr-header-text">{t("settings.softwareUpdates").toUpperCase()}</span>
               <div className="settings-hsr-line"></div>
             </div>
           )}
           <div className="flex justify-between items-center mb-3">
             <div>
-              {!inModal && <div className="font-bold text-sm">Software Updates</div>}
+              {!inModal && <div className="font-bold text-sm">{t("settings.softwareUpdates")}</div>}
               <div className="text-xs text-[var(--muted)] mt-0.5">
-                {updateStatus ? <>Version {updateStatus.currentVersion}</> : <>Loading...</>}
+                {updateStatus ? <>{t("settings.versionPrefix")} {updateStatus.currentVersion}</> : <>{t("common.loading")}...</>}
               </div>
             </div>
             <button
@@ -1248,7 +1252,7 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
               disabled={updateLoading}
               onClick={() => void loadUpdateStatus(true)}
             >
-              {updateLoading ? "Checking..." : "Check Now"}
+              {updateLoading ? t("settings.checking") : t("settings.checkNow")}
             </button>
           </div>
 
@@ -1288,7 +1292,7 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
               {updateStatus.updateAvailable && updateStatus.latestVersion && (
                 <div className="mt-3 py-2.5 px-3 border border-[var(--accent)] bg-[rgba(255,255,255,0.03)] rounded flex justify-between items-center">
                   <div>
-                    <div className="text-[13px] font-bold text-[var(--accent)]">Update available</div>
+                    <div className="text-[13px] font-bold text-[var(--accent)]">{t("settings.updateAvailable")}</div>
                     <div className="text-xs text-[var(--muted)]">
                       {updateStatus.currentVersion} &rarr; {updateStatus.latestVersion}
                     </div>
@@ -1310,13 +1314,13 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
 
               {updateStatus.lastCheckAt && (
                 <div className="mt-2 text-[11px] text-[var(--muted)]">
-                  Last checked: {new Date(updateStatus.lastCheckAt).toLocaleString()}
+                  {t("settings.lastChecked")} {new Date(updateStatus.lastCheckAt).toLocaleString()}
                 </div>
               )}
             </>
           ) : (
             <div className="text-center py-3 text-[var(--muted)] text-xs">
-              {updateLoading ? "Checking for updates..." : "Unable to load update status."}
+              {updateLoading ? t("settings.checkingForUpdates") : t("settings.unableLoadUpdateStatus")}
             </div>
           )}
         </div>
@@ -1330,21 +1334,21 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
         >
           {inModal && (
             <div className="settings-hsr-header">
-              <span className="settings-hsr-header-text">CHROME EXTENSION</span>
+              <span className="settings-hsr-header-text">{t("settings.chromeExtension").toUpperCase()}</span>
               <div className="settings-hsr-line"></div>
             </div>
           )}
           <div className="flex justify-between items-center mb-3">
             <div>
-              {!inModal && <div className="font-bold text-sm">Chrome Extension</div>}
-              <div className="text-[11px] text-[var(--muted)] mt-0.5">Desktop mode only — relay connects via localhost.</div>
+              {!inModal && <div className="font-bold text-sm">{t("settings.chromeExtension")}</div>}
+              <div className="text-[11px] text-[var(--muted)] mt-0.5">{t("settings.extensionDesktopHint")}</div>
             </div>
             <button
               className="btn whitespace-nowrap !mt-0 text-xs py-1.5 px-3.5"
               onClick={() => void checkExtensionStatus()}
               disabled={extensionChecking}
             >
-              {extensionChecking ? "Checking..." : "Check Connection"}
+              {extensionChecking ? t("settings.checking") : t("settings.checkConnection")}
             </button>
           </div>
 
@@ -1358,7 +1362,7 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
                   }}
                 />
                 <span className="text-[13px] font-bold">
-                  Relay Server: {relayOk ? "Connected" : "Not Reachable"}
+                  {t("settings.relayServer")}: {relayOk ? t("settings.connected") : t("settings.notReachable")}
                 </span>
               </div>
               <div className="text-xs text-[var(--muted)] font-[var(--mono)]">
@@ -1366,28 +1370,31 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
               </div>
               {!relayOk && (
                 <div className="text-xs text-[var(--danger,#e74c3c)] mt-1.5">
-                  The browser relay server is not running. Start the agent with browser control
-                  enabled, then check again.
+                  {t("settings.extension.relayNotRunning")}
                 </div>
               )}
             </div>
           )}
 
           <div className="mt-3">
-            <div className="font-bold text-[13px] mb-2">Install Chrome Extension</div>
+            <div className="font-bold text-[13px] mb-2">{t("settings.installChromeExtension")}</div>
             <div className="text-xs text-[var(--muted)] leading-relaxed">
               <ol className="m-0 pl-5">
                 <li className="mb-1.5">
-                  Open Chrome and navigate to{" "}
+                  {t("settings.extension.stepOpenChrome")}{" "}
                   <code className="text-[11px] px-1 border border-[var(--border)] bg-[var(--bg-muted)]">
                     chrome://extensions
                   </code>
                 </li>
                 <li className="mb-1.5">
-                  Enable <strong>Developer mode</strong> (toggle in the top-right corner)
+                  {t("settings.extension.stepEnableDeveloperModePrefix")}{" "}
+                  <strong>{t("settings.extension.developerMode")}</strong>{" "}
+                  {t("settings.extension.stepEnableDeveloperModeSuffix")}
                 </li>
                 <li className="mb-1.5">
-                  Click <strong>&quot;Load unpacked&quot;</strong> and select the extension folder:
+                  {t("settings.extension.stepLoadUnpackedPrefix")}{" "}
+                  <strong>{t("settings.extension.loadUnpacked")}</strong>{" "}
+                  {t("settings.extension.stepLoadUnpackedSuffix")}
                   {ext?.extensionPath ? (
                     <>
                       <br />
@@ -1401,13 +1408,16 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
                       <code className="text-[11px] px-1.5 border border-[var(--border)] bg-[var(--bg-muted)] inline-block mt-1">
                         apps/chrome-extension/
                       </code>
-                      <span className="italic"> (relative to milady package root)</span>
+                      <span className="italic">
+                        {" "}
+                        ({t("settings.extension.relativeToPackageRoot")})
+                      </span>
                     </>
                   )}
                 </li>
-                <li className="mb-1.5">Pin the extension icon in Chrome&apos;s toolbar</li>
+                <li className="mb-1.5">{t("settings.extension.stepPinIcon")}</li>
                 <li>
-                  Click the extension icon on any tab to attach/detach the Milady browser relay
+                  {t("settings.extension.stepAttachRelay")}
                 </li>
               </ol>
             </div>
@@ -1415,7 +1425,7 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
 
           {ext?.extensionPath && (
             <div className="mt-3 py-2 px-3 border border-[var(--border)] bg-[var(--bg-muted)] font-[var(--mono)] text-[11px] break-all">
-              Extension path: {ext.extensionPath}
+              {t("settings.extension.pathLabel")}: {ext.extensionPath}
             </div>
           )}
         </div>
@@ -1429,25 +1439,25 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
         >
           {inModal ? (
             <div className="settings-hsr-header">
-              <span className="settings-hsr-header-text">EXPORT / IMPORT AGENT</span>
+              <span className="settings-hsr-header-text">{t("settings.exportImportAgent").toUpperCase()}</span>
               <div className="settings-hsr-line"></div>
             </div>
           ) : (
-            <div className="font-bold text-sm mb-1">Export / Import Agent</div>
+            <div className="font-bold text-sm mb-1">{t("settings.exportImportAgent")}</div>
           )}
-          <div className={`text-[11px] mb-4 text-[var(--muted)]`}>Agent Export / Import</div>
+          <div className={`text-[11px] mb-4 text-[var(--muted)]`}>{t("settings.exportImportAgent")}</div>
           <div className="flex items-center gap-2">
             <button
               className="btn whitespace-nowrap !mt-0 text-xs py-1.5 px-3.5"
               onClick={openImportModal}
             >
-              Import
+              {t("settings.import")}
             </button>
             <button
               className="btn whitespace-nowrap !mt-0 text-xs py-1.5 px-3.5"
               onClick={openExportModal}
             >
-              Export
+              {t("settings.export")}
             </button>
           </div>
         </div>
@@ -1461,27 +1471,27 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
         >
           {inModal ? (
             <div className="settings-hsr-header mb-4">
-              <span className="settings-hsr-header-text text-[var(--danger,#e74c3c)]">DANGER ZONE</span>
+              <span className="settings-hsr-header-text text-[var(--danger,#e74c3c)]">{t("settings.dangerZone").toUpperCase()}</span>
               <div className="settings-hsr-line !bg-[var(--danger,#e74c3c)] opacity-20"></div>
             </div>
           ) : (
-            <h3 className="text-lg font-bold text-[var(--danger,#e74c3c)]">Danger Zone</h3>
+            <h3 className="text-lg font-bold text-[var(--danger,#e74c3c)]">{t("settings.dangerZone")}</h3>
           )}
           <p className="text-[13px] text-[var(--muted)] mb-5">
-            Irreversible actions. Proceed with caution.
+            {t("settings.irreversibleActions")}
           </p>
 
           <div className="border border-[var(--danger,#e74c3c)] p-4 mb-3">
             <div className="flex justify-between items-center">
               <div>
-                <div className="font-bold text-sm">Export Private Keys</div>
+                <div className="font-bold text-sm">{t("settings.exportPrivateKeys")}</div>
                 <div className="text-xs text-[var(--muted)] mt-0.5">
-                  Reveal your EVM and Solana private keys. Never share these with anyone.
+                  {t("settings.exportPrivateKeysHint")}
                 </div>
               </div>
               <div className="flex flex-col items-end gap-1.5">
                 <p className="text-[12px] text-amber-500 mb-2 text-right max-w-[220px]">
-                  Warning: Private keys give full access to your wallets. Never share them and store them securely.
+                  {t("settings.privateKeysWarning")}
                 </p>
                 <button
                   className="btn whitespace-nowrap !mt-0 text-xs py-1.5 px-4"
@@ -1491,7 +1501,7 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
                   }}
                   onClick={() => void handleExportKeys()}
                 >
-                  {walletExportVisible ? "Hide Keys" : "Export Keys"}
+                  {walletExportVisible ? t("settings.hideKeys") : t("settings.exportKeys")}
                 </button>
               </div>
             </div>
@@ -1499,7 +1509,7 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
               <div className="mt-3 p-3 border border-[var(--danger,#e74c3c)] bg-[var(--bg-muted)] font-[var(--mono)] text-[11px] break-all leading-relaxed">
                 {walletExportData.evm && (
                   <div className="mb-2">
-                    <strong>EVM Private Key</strong>{" "}
+                    <strong>{t("settings.evmPrivateKey")}</strong>{" "}
                     <span className="text-[var(--muted)]">({walletExportData.evm.address})</span>
                     <br />
                     <span>{walletExportData.evm.privateKey}</span>
@@ -1507,13 +1517,13 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
                       className="ml-2 px-1.5 py-0.5 border border-[var(--border)] bg-[var(--bg)] cursor-pointer text-[10px] font-[var(--mono)] hover:border-[var(--accent)] hover:text-[var(--accent)]"
                       onClick={() => void copyToClipboard(walletExportData.evm!.privateKey)}
                     >
-                      copy
+                      {t("wallet.copy")}
                     </button>
                   </div>
                 )}
                 {walletExportData.solana && (
                   <div>
-                    <strong>Solana Private Key</strong>{" "}
+                    <strong>{t("settings.solanaPrivateKey")}</strong>{" "}
                     <span className="text-[var(--muted)]">({walletExportData.solana.address})</span>
                     <br />
                     <span>{walletExportData.solana.privateKey}</span>
@@ -1521,12 +1531,12 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
                       className="ml-2 px-1.5 py-0.5 border border-[var(--border)] bg-[var(--bg)] cursor-pointer text-[10px] font-[var(--mono)] hover:border-[var(--accent)] hover:text-[var(--accent)]"
                       onClick={() => void copyToClipboard(walletExportData.solana!.privateKey)}
                     >
-                      copy
+                      {t("wallet.copy")}
                     </button>
                   </div>
                 )}
                 {!walletExportData.evm && !walletExportData.solana && (
-                  <div className="text-[var(--muted)]">No wallet keys configured.</div>
+                  <div className="text-[var(--muted)]">{t("settings.noWalletKeysConfigured")}</div>
                 )}
               </div>
             )}
@@ -1534,9 +1544,9 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
 
           <div className="border border-[var(--danger,#e74c3c)] p-4 flex justify-between items-center">
             <div>
-              <div className="font-bold text-sm">Reset Agent</div>
+              <div className="font-bold text-sm">{t("settings.resetAgent")}</div>
               <div className="text-xs text-[var(--muted)] mt-0.5">
-                Wipe all config, memory, and data. Returns to the onboarding wizard.
+                {t("settings.resetAgentHint")}
               </div>
             </div>
             <button
@@ -1547,50 +1557,55 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
               }}
               onClick={() => {
                 const confirmed = window.confirm(
-                  "Are you sure you want to reset all settings and data? This cannot be undone and you will return to onboarding.",
+                  t("settings.resetConfirmMessage"),
                 );
                 if (confirmed) void handleReset();
               }}
             >
-              Reset Everything
+              {t("settings.resetEverything")}
             </button>
           </div>
         </div>
 
         {/* ── Modals ── */}
-        <Modal open={exportModalOpen} onClose={() => setExportModalOpen(false)} title="Export Agent">
+        <Modal open={exportModalOpen} onClose={() => setExportModalOpen(false)} title={t("settings.exportAgent")}>
           <div className="flex flex-col gap-3">
             <div className="text-xs text-[var(--muted)]">
-              Your character, memories, chats, secrets, and relationships will be downloaded as a
-              single file. Exports are encrypted and require a password.
+              {t("settings.exportAgentHint")}
             </div>
             {exportEstimateLoading && (
-              <div className="text-[11px] text-[var(--muted)]">Estimating export size…</div>
+              <div className="text-[11px] text-[var(--muted)]">{t("settings.estimatingExportSize")}</div>
             )}
             {!exportEstimateLoading && exportEstimate && (
               <div className="text-[11px] text-[var(--muted)] border border-[var(--border)] bg-[var(--bg-muted)] px-2.5 py-2">
-                <div>Estimated file size: {formatByteSize(exportEstimate.estimatedBytes)}</div>
+                <div>{t("settings.estimatedFileSize")} {formatByteSize(exportEstimate.estimatedBytes)}</div>
                 <div>
-                  Contains {exportEstimate.memoriesCount} memories, {exportEstimate.entitiesCount} entities, {exportEstimate.roomsCount} rooms, {exportEstimate.worldsCount} worlds, {exportEstimate.tasksCount} tasks.
+                  {t("settings.exportContainsCount", {
+                    memories: String(exportEstimate.memoriesCount),
+                    entities: String(exportEstimate.entitiesCount),
+                    rooms: String(exportEstimate.roomsCount),
+                    worlds: String(exportEstimate.worldsCount),
+                    tasks: String(exportEstimate.tasksCount),
+                  })}
                 </div>
               </div>
             )}
             {!exportEstimateLoading && exportEstimateError && (
               <div className="text-[11px] text-[var(--danger,#e74c3c)]">
-                Could not estimate export size: {exportEstimateError}
+                {t("settings.couldNotEstimateExportSize")} {exportEstimateError}
               </div>
             )}
             <div className="flex flex-col gap-1">
-              <label className="font-semibold text-xs">Encryption Password</label>
+              <label className="font-semibold text-xs">{t("settings.encryptionPassword")}</label>
               <input
                 type="password"
-                placeholder="Enter password (minimum 4 characters)"
+                placeholder={t("settings.passwordPlaceholder")}
                 value={exportPassword}
                 onChange={(e) => setState("exportPassword", e.target.value)}
                 className="px-2.5 py-1.5 border border-[var(--border)] bg-[var(--card)] text-xs font-[var(--mono)] focus:border-[var(--accent)] focus:outline-none"
               />
               <div className="text-[11px] text-[var(--muted)]">
-                Password must be at least 4 characters.
+                {t("settings.passwordMinLength")}
               </div>
             </div>
             <label className="flex items-center gap-2 text-xs text-[var(--muted)] cursor-pointer">
@@ -1599,7 +1614,7 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
                 checked={exportIncludeLogs}
                 onChange={(e) => setState("exportIncludeLogs", e.target.checked)}
               />
-              Include logs in export
+              {t("settings.includeLogsInExport")}
             </label>
             {exportError && (
               <div className="text-[11px] text-[var(--danger,#e74c3c)]">{exportError}</div>
@@ -1612,27 +1627,26 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
                 className="btn text-xs py-1.5 px-4 !mt-0 !bg-transparent !border-[var(--border)] !text-[var(--txt)]"
                 onClick={() => setExportModalOpen(false)}
               >
-                Cancel
+                {t("common.cancel")}
               </button>
               <button
                 className="btn text-xs py-1.5 px-4 !mt-0"
                 disabled={exportBusy}
                 onClick={() => void handleAgentExport()}
               >
-                {exportBusy ? "Exporting..." : "Download Export"}
+                {exportBusy ? t("settings.exporting") : t("settings.downloadExport")}
               </button>
             </div>
           </div>
         </Modal>
 
-        <Modal open={importModalOpen} onClose={() => setImportModalOpen(false)} title="Import Agent">
+        <Modal open={importModalOpen} onClose={() => setImportModalOpen(false)} title={t("settings.importAgent")}>
           <div className="flex flex-col gap-3">
             <div className="text-xs text-[var(--muted)]">
-              Select an <code className="text-[11px]">.eliza-agent</code> export file and enter the
-              password used during export.
+              {t("settings.importAgentHint")}
             </div>
             <div className="flex flex-col gap-1">
-              <label className="font-semibold text-xs">Export File</label>
+              <label className="font-semibold text-xs">{t("settings.exportFile")}</label>
               <input
                 ref={importFileRef}
                 type="file"
@@ -1646,16 +1660,16 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
               />
             </div>
             <div className="flex flex-col gap-1">
-              <label className="font-semibold text-xs">Decryption Password</label>
+              <label className="font-semibold text-xs">{t("settings.decryptionPassword")}</label>
               <input
                 type="password"
-                placeholder="Enter password (minimum 4 characters)"
+                placeholder={t("settings.passwordPlaceholder")}
                 value={importPassword}
                 onChange={(e) => setState("importPassword", e.target.value)}
                 className="px-2.5 py-1.5 border border-[var(--border)] bg-[var(--card)] text-xs font-[var(--mono)] focus:border-[var(--accent)] focus:outline-none"
               />
               <div className="text-[11px] text-[var(--muted)]">
-                Password must be at least 4 characters.
+                {t("settings.passwordMinLength")}
               </div>
             </div>
             {importError && (
@@ -1669,14 +1683,14 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
                 className="btn text-xs py-1.5 px-4 !mt-0 !bg-transparent !border-[var(--border)] !text-[var(--txt)]"
                 onClick={() => setImportModalOpen(false)}
               >
-                Cancel
+                {t("common.cancel")}
               </button>
               <button
                 className="btn text-xs py-1.5 px-4 !mt-0"
                 disabled={importBusy}
                 onClick={() => void handleAgentImport()}
               >
-                {importBusy ? "Importing..." : "Import Agent"}
+                {importBusy ? t("settings.importing") : t("settings.importAgent")}
               </button>
             </div>
           </div>
