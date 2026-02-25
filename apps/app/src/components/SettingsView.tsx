@@ -156,6 +156,7 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
     pluginSaving,
     pluginSaveSuccess,
     // Theme
+    agentStatus,
     currentTheme,
     uiLanguage,
     // Updates
@@ -572,6 +573,37 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
       (selectedProvider.id.toLowerCase().includes("openai") ||
         selectedProvider.name.toLowerCase().includes("openai")),
   );
+  const openAIPlanSyncingRef = useRef(false);
+  const openAIPlanAutoSyncTriedRef = useRef(false);
+
+  const ensureOpenAIPlanIsActiveProvider = useCallback(
+    async (reason: "exchange" | "autosync") => {
+      if (openAIPlanSyncingRef.current) return;
+      openAIPlanSyncingRef.current = true;
+      try {
+        await handleSwitchProvider("openai");
+        // Align runtime to OpenAI plan when cloud is off; otherwise model can
+        // remain on stale cloud-only ids (e.g. moonshot/kimi) and fail to reply.
+        await client.updateConfig({
+          cloud: { enabled: false },
+          env: { vars: { MILADY_USE_PI_AI: "" } },
+          agents: { defaults: { model: { primary: "openai/gpt-5-mini" } } },
+          models: {
+            small: "openai/gpt-5-mini",
+            large: "openai/gpt-5-mini",
+          },
+        });
+        await client.restartAndWait();
+        await loadPlugins();
+        if (reason === "autosync") {
+          setActionNotice("OpenAI plan detected. Switched active agent provider to OpenAI.", "success", 3200);
+        }
+      } finally {
+        openAIPlanSyncingRef.current = false;
+      }
+    },
+    [handleSwitchProvider, loadPlugins, setActionNotice],
+  );
 
   const handleOpenAIStart = useCallback(async () => {
     setOpenAIAuthError("");
@@ -612,9 +644,7 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
         setOpenAICallbackUrl("");
         setOpenAIAuthInstructions("");
         setOpenAIAuthError("");
-        if (isOpenAIProviderSelected) {
-          await client.restartAndWait();
-        }
+        await ensureOpenAIPlanIsActiveProvider("exchange");
         await refreshSubscriptionStatus();
         setActionNotice(t("settings.openaiConnected"), "success", 2500);
         return;
@@ -632,11 +662,30 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
       setOpenAIExchanging(false);
     }
   }, [
-    isOpenAIProviderSelected,
+    ensureOpenAIPlanIsActiveProvider,
     openAICallbackUrl,
     refreshSubscriptionStatus,
     setActionNotice,
     t,
+  ]);
+
+  useEffect(() => {
+    const runtimeModel = (agentStatus?.model ?? "").toLowerCase();
+    const looksLikeCloudOnlyModel =
+      runtimeModel.includes("moonshot") || runtimeModel.includes("kimi");
+    if (!looksLikeCloudOnlyModel) return;
+    if (!isOpenAIPlanUsable) return;
+    if (cloudEnabled || cloudConnected) return;
+    if (openAIPlanSyncingRef.current) return;
+    if (openAIPlanAutoSyncTriedRef.current) return;
+    openAIPlanAutoSyncTriedRef.current = true;
+    void ensureOpenAIPlanIsActiveProvider("autosync");
+  }, [
+    agentStatus?.model,
+    cloudConnected,
+    cloudEnabled,
+    ensureOpenAIPlanIsActiveProvider,
+    isOpenAIPlanUsable,
   ]);
 
   const handleOpenAIDisconnect = useCallback(async () => {

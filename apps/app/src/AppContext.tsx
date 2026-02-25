@@ -1271,6 +1271,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const privyPollInterval = useRef<number | null>(null);
   const cloudPollInterval = useRef<number | null>(null);
   const cloudLoginPollTimer = useRef<number | null>(null);
+  const openAiPlanFallbackCheckedRef = useRef(false);
   const prevAgentStateRef = useRef<string | null>(null);
   const lifecycleBusyRef = useRef(false);
   const lifecycleActionRef = useRef<LifecycleAction | null>(null);
@@ -1891,6 +1892,68 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setCloudCreditsCritical(false);
     }
   }, []);
+
+  const ensureLocalOpenAIPlanProvider = useCallback(async () => {
+    try {
+      const [subscriptionStatus, cfg, status] = await Promise.all([
+        client.getSubscriptionStatus().catch(() => null),
+        client.getConfig().catch(() => null),
+        client.getStatus().catch(() => null),
+      ]);
+      const openAiPlan = subscriptionStatus?.providers?.find(
+        (provider) =>
+          provider.provider === "openai-codex" &&
+          provider.configured &&
+          provider.valid,
+      );
+      if (!openAiPlan) return;
+
+      const cloudCfg = cfg?.cloud as Record<string, unknown> | undefined;
+      if (cloudCfg?.enabled === true) return;
+
+      const runtimeModel = (status?.model ?? "").toLowerCase();
+      const modelsCfg = (cfg?.models as Record<string, unknown> | undefined) ?? {};
+      const configLargeModel =
+        typeof modelsCfg.large === "string" ? modelsCfg.large.toLowerCase() : "";
+      const agentsCfg = (cfg?.agents as Record<string, unknown> | undefined) ?? {};
+      const defaultsCfg = (agentsCfg.defaults as Record<string, unknown> | undefined) ?? {};
+      const modelCfg = (defaultsCfg.model as Record<string, unknown> | undefined) ?? {};
+      const configPrimaryModel =
+        typeof modelCfg.primary === "string" ? modelCfg.primary.toLowerCase() : "";
+      const looksLikeCloudOnlyModel =
+        runtimeModel.includes("moonshot") ||
+        runtimeModel.includes("kimi") ||
+        configLargeModel.includes("moonshot") ||
+        configLargeModel.includes("kimi") ||
+        configPrimaryModel.includes("moonshot") ||
+        configPrimaryModel.includes("kimi");
+      if (!looksLikeCloudOnlyModel) return;
+
+      await client.updateConfig({
+        cloud: { enabled: false },
+        env: { vars: { MILADY_USE_PI_AI: "" } },
+        agents: { defaults: { model: { primary: "openai/gpt-5-mini" } } },
+        models: {
+          small: "openai/gpt-5-mini",
+          large: "openai/gpt-5-mini",
+        },
+      });
+      await client.updatePlugin("openai", { enabled: true }).catch(() => null);
+      await client.restartAndWait();
+      const refreshedStatus = await client.getStatus().catch(() => null);
+      if (refreshedStatus) {
+        setAgentStatus(refreshedStatus);
+      }
+      await loadPlugins().catch(() => null);
+      setActionNotice(
+        "OpenAI plan detected. Switched active agent provider to OpenAI.",
+        "success",
+        3400,
+      );
+    } catch {
+      // Ignore auto-recovery failures; users can still switch provider manually.
+    }
+  }, [loadPlugins, setActionNotice]);
 
   // ── Lifecycle actions ──────────────────────────────────────────────
 
@@ -3448,13 +3511,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setCloudCreditsCritical(false);
       setCloudUserId(null);
       await pollCloudCredits();
+      await ensureLocalOpenAIPlanProvider();
       setActionNotice(t("appContext.notice.cloudDisconnected"), "success");
     } catch (err) {
       setActionNotice(`Disconnect failed: ${err instanceof Error ? err.message : "error"}`, "error");
     } finally {
       setCloudDisconnecting(false);
     }
-  }, [pollCloudCredits, setActionNotice, t]);
+  }, [ensureLocalOpenAIPlanProvider, pollCloudCredits, setActionNotice, t]);
 
   // ── Updates ────────────────────────────────────────────────────────
 
@@ -3848,6 +3912,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
 
       setOnboardingLoading(false);
+
+      if (!openAiPlanFallbackCheckedRef.current) {
+        openAiPlanFallbackCheckedRef.current = true;
+        void ensureLocalOpenAIPlanProvider();
+      }
 
       // Load conversations — if none exist, create one and request a greeting
       let greetConvId: string | null = null;
