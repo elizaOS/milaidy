@@ -77,3 +77,7 @@ apps/app/test-results/
 benchmarks/
 plugins/
 !docs/plugins/
+
+# Electron build directories
+apps/app/electron/app-build/
+apps/app/electron/milady-dist/
