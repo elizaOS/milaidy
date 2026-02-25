@@ -13,6 +13,14 @@
   },
   "license": "MIT",
   "main": "dist-tsc/src/index.js",
+  "files": [
+    "assets",
+    "dist-tsc",
+    "app",
+    "milady-dist",
+    "capacitor.config.json",
+    "capacitor.config.ts"
+  ],
   "scripts": {
     "build": "tsc && electron-rebuild",
     "build:whisper": "bash ./scripts/build-whisper-universal.sh",
