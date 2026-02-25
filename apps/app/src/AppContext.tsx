@@ -60,7 +60,9 @@ import {
 } from "./api-client";
 import { resolveAppAssetUrl } from "./asset-url";
 import {
+  type AutonomyEventStore,
   type AutonomyRunHealthMap,
+  buildAutonomyGapReplayRequests,
   hasPendingAutonomyGaps,
   markPendingAutonomyGapsPartial,
   mergeAutonomyEvents,
@@ -1127,6 +1129,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [unreadConversations, setUnreadConversations] = useState<Set<string>>(
     new Set(),
   );
+  const autonomousStoreRef = useRef<AutonomyEventStore>({
+    eventsById: {},
+    eventOrder: [],
+    runIndex: {},
+    watermark: null,
+  });
   const autonomousEventsRef = useRef<StreamEventEnvelope[]>([]);
   const autonomousLatestEventIdRef = useRef<string | null>(null);
   const autonomousRunHealthByRunIdRef = useRef<AutonomyRunHealthMap>({});
@@ -1819,11 +1827,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const applyAutonomyEventMerge = useCallback(
     (incomingEvents: StreamEventEnvelope[], replay = false) => {
       const merged = mergeAutonomyEvents({
-        existingEvents: autonomousEventsRef.current,
+        store: autonomousStoreRef.current,
         incomingEvents,
         runHealthByRunId: autonomousRunHealthByRunIdRef.current,
         replay,
       });
+      autonomousStoreRef.current = merged.store;
       autonomousEventsRef.current = merged.events;
       autonomousLatestEventIdRef.current = merged.latestEventId;
       autonomousRunHealthByRunIdRef.current = merged.runHealthByRunId;
@@ -1841,16 +1850,39 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (autonomousReplayInFlightRef.current) return;
     autonomousReplayInFlightRef.current = true;
     try {
-      const afterEventId = autonomousLatestEventIdRef.current ?? undefined;
+      const afterEventId = autonomousStoreRef.current.watermark ?? undefined;
       const replay = await client.getAgentEvents({
         afterEventId,
         limit: 300,
       });
-      if (
-        replay.events.length > 0 ||
-        hasPendingAutonomyGaps(autonomousRunHealthByRunIdRef.current)
-      ) {
-        applyAutonomyEventMerge(replay.events, true);
+
+      if (replay.events.length > 0) {
+        applyAutonomyEventMerge(replay.events);
+      }
+
+      const gapReplays = buildAutonomyGapReplayRequests(
+        autonomousRunHealthByRunIdRef.current,
+        autonomousStoreRef.current,
+      ).slice(0, 4);
+
+      for (const request of gapReplays) {
+        const gapReplay = await client.getAgentEvents({
+          runId: request.runId,
+          fromSeq: request.fromSeq,
+          limit: 300,
+        });
+        if (gapReplay.events.length > 0) {
+          applyAutonomyEventMerge(gapReplay.events);
+        }
+      }
+
+      if (hasPendingAutonomyGaps(autonomousRunHealthByRunIdRef.current)) {
+        const partial = markPendingAutonomyGapsPartial(
+          autonomousRunHealthByRunIdRef.current,
+          Date.now(),
+        );
+        autonomousRunHealthByRunIdRef.current = partial;
+        setAutonomousRunHealthByRunId(partial);
       }
     } catch (err) {
       if (hasPendingAutonomyGaps(autonomousRunHealthByRunIdRef.current)) {
