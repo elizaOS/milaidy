@@ -2521,11 +2521,16 @@ export class MiladyClient {
   async getAgentEvents(opts?: {
     afterEventId?: string;
     limit?: number;
+    runId?: string;
+    fromSeq?: number;
   }): Promise<AgentEventsResponse> {
     const params = new URLSearchParams();
     if (opts?.afterEventId) params.set("after", opts.afterEventId);
     if (typeof opts?.limit === "number")
       params.set("limit", String(opts.limit));
+    if (opts?.runId) params.set("runId", opts.runId);
+    if (typeof opts?.fromSeq === "number")
+      params.set("fromSeq", String(Math.trunc(opts.fromSeq)));
     const qs = params.toString();
     return this.fetch(`/api/agent/events${qs ? `?${qs}` : ""}`);
   }

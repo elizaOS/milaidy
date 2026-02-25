@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { StreamEventEnvelope } from "../../src/api-client";
 import {
+  buildAutonomyGapReplayRequests,
   hasPendingAutonomyGaps,
   mergeAutonomyEvents,
 } from "../../src/autonomy-events";
@@ -35,6 +36,8 @@ describe("autonomy-events merge", () => {
     expect(result.events).toHaveLength(1);
     expect(result.insertedCount).toBe(0);
     expect(result.duplicateCount).toBe(1);
+    expect(result.store.eventOrder).toEqual(["evt-1"]);
+    expect(result.store.watermark).toBe("evt-1");
   });
 
   it("deduplicates events by fallback runId/seq/stream key", () => {
@@ -92,6 +95,38 @@ describe("autonomy-events merge", () => {
     expect(partial.runHealthByRunId["run-1"]?.status).toBe("partial");
     expect(partial.runHealthByRunId["run-1"]?.missingSeqs).toEqual([2]);
     expect(partial.hasUnresolvedGaps).toBe(true);
+  });
+
+  it("builds per-run replay requests from unresolved gaps", () => {
+    const gap = mergeAutonomyEvents({
+      existingEvents: [makeEvent("evt-1", "run-1", 1)],
+      incomingEvents: [makeEvent("evt-3", "run-1", 3)],
+      runHealthByRunId: {},
+    });
+
+    const requests = buildAutonomyGapReplayRequests(
+      gap.runHealthByRunId,
+      gap.store,
+    );
+    expect(requests).toEqual([
+      {
+        runId: "run-1",
+        fromSeq: 2,
+        missingSeqs: [2],
+      },
+    ]);
+
+    const recovered = mergeAutonomyEvents({
+      store: gap.store,
+      incomingEvents: [makeEvent("evt-2", "run-1", 2)],
+      runHealthByRunId: gap.runHealthByRunId,
+    });
+    expect(
+      buildAutonomyGapReplayRequests(
+        recovered.runHealthByRunId,
+        recovered.store,
+      ),
+    ).toEqual([]);
   });
 
   it("keeps only the newest events when maxEvents is exceeded", () => {
