@@ -339,13 +339,20 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
       setPiAiEnabled(false);
       const target = allAiProviders.find((p) => p.id === newId);
       if (!target) return;
+      const defaultPrimaryModel =
+        newId === "openai"
+          ? "openai/gpt-5-mini"
+          : newId === "anthropic"
+            ? "anthropic/claude-sonnet-4.5"
+            : null;
 
       /* Turn off cloud mode (and pi-ai mode) when switching to a local provider */
       try {
         await client.updateConfig({
           cloud: { enabled: false },
           env: { vars: { MILADY_USE_PI_AI: "" } },
-          agents: { defaults: { model: { primary: null } } },
+          agents: { defaults: { model: { primary: defaultPrimaryModel } } },
+          ...(defaultPrimaryModel ? { models: { large: defaultPrimaryModel } } : {}),
         });
       } catch { /* non-fatal */ }
       if (!target.enabled) {
@@ -605,6 +612,9 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
         setOpenAICallbackUrl("");
         setOpenAIAuthInstructions("");
         setOpenAIAuthError("");
+        if (isOpenAIProviderSelected) {
+          await client.restartAndWait();
+        }
         await refreshSubscriptionStatus();
         setActionNotice(t("settings.openaiConnected"), "success", 2500);
         return;
@@ -621,13 +631,22 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
     } finally {
       setOpenAIExchanging(false);
     }
-  }, [openAICallbackUrl, refreshSubscriptionStatus, setActionNotice, t]);
+  }, [
+    isOpenAIProviderSelected,
+    openAICallbackUrl,
+    refreshSubscriptionStatus,
+    setActionNotice,
+    t,
+  ]);
 
   const handleOpenAIDisconnect = useCallback(async () => {
     setOpenAIAuthError("");
     setOpenAIDisconnecting(true);
     try {
       await client.disconnectOpenAICredentials();
+      if (isOpenAIProviderSelected) {
+        await client.restartAndWait();
+      }
       await refreshSubscriptionStatus();
       setOpenAIAuthStarted(false);
       setOpenAIAuthInstructions("");
@@ -642,7 +661,7 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
     } finally {
       setOpenAIDisconnecting(false);
     }
-  }, [refreshSubscriptionStatus, setActionNotice, t]);
+  }, [isOpenAIProviderSelected, refreshSubscriptionStatus, setActionNotice, t]);
 
   const handlePluginFieldChange = useCallback(
     (pluginId: string, key: string, value: string) => {

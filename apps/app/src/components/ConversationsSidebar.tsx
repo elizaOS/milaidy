@@ -187,35 +187,46 @@ export function ConversationsSidebar({ variant = "default" }: ConversationsSideb
 
   useEffect(() => {
     if (!isGameModal) return;
-    if (statusModelLabel) {
-      setRuntimeModel("");
-      setRuntimeModelLoading(false);
-      return;
-    }
 
     let cancelled = false;
-    setRuntimeModelLoading(true);
-    void client
-      .getRuntimeSnapshot({ depth: 1, maxArrayLength: 0, maxObjectEntries: 0, maxStringLength: 240 })
-      .then((snapshot) => {
+    let firstLoad = true;
+
+    const syncRuntimeModel = async () => {
+      if (firstLoad && !statusModelLabel) {
+        setRuntimeModelLoading(true);
+      }
+      try {
+        const snapshot = await client.getRuntimeSnapshot({
+          depth: 1,
+          maxArrayLength: 0,
+          maxObjectEntries: 0,
+          maxStringLength: 240,
+        });
         if (cancelled) return;
-        const runtimeModelValue = (snapshot.meta.model ?? "").trim();
-        setRuntimeModel(runtimeModelValue);
-      })
-      .catch(() => {
+        setRuntimeModel((snapshot.meta.model ?? "").trim());
+      } catch {
         if (cancelled) return;
         setRuntimeModel("");
-      })
-      .finally(() => {
-        if (!cancelled) setRuntimeModelLoading(false);
-      });
+      } finally {
+        if (!cancelled && firstLoad) {
+          setRuntimeModelLoading(false);
+        }
+        firstLoad = false;
+      }
+    };
+
+    void syncRuntimeModel();
+    const intervalId = window.setInterval(() => {
+      void syncRuntimeModel();
+    }, 15000);
 
     return () => {
       cancelled = true;
+      window.clearInterval(intervalId);
     };
   }, [isGameModal, statusModelLabel]);
 
-  const modelLabel = (statusModelLabel || runtimeModel).trim();
+  const modelLabel = (runtimeModel || statusModelLabel).trim();
   const providerLabel = modelLabel
     ? resolveProviderLabel(modelLabel)
     : runtimeModelLoading

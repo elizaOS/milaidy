@@ -486,9 +486,9 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
       "i run directly on ur machine w full access. fastest & simplest but no sandbox protection",
     "onboarding.signInToContinue": "Sign in to continue",
     "onboarding.oneLoginWallets":
-      "One login. Wallets are set up automatically.",
+      "Sign in with Privy. Wallets are set up automatically.",
     "onboarding.youAreIn": "You're in. Taking you to the next step...",
-    "onboarding.continueWithCloud": "Continue with Eliza Cloud",
+    "onboarding.continueWithCloud": "Continue with Privy",
     "onboarding.signingIn": "Signing in...",
     "onboarding.howMuchSetup": "how much setup?",
     "onboarding.choosePath":
@@ -523,7 +523,7 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "onboarding.optionalWalletHint":
       "optional — you can skip this and set it up later",
     "onboarding.walletProvisionHint":
-      "In Pure Privy mode, I create managed wallets automatically after Cloud login: ETH/Base/BSC + Solana.",
+      "In Pure Privy mode, I create managed wallets automatically after Privy login: ETH/Base/BSC + Solana.",
     "onboarding.selectChains": "Select Chains:",
     "onboarding.connectorsQuestion": "how do you want to reach me?",
     "onboarding.optionalConnectorsHint":
@@ -1614,9 +1614,9 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "onboarding.localRawDescription":
       "我直接运行在你的机器，速度快、配置简单，但没有沙箱保护。",
     "onboarding.signInToContinue": "登录后继续",
-    "onboarding.oneLoginWallets": "一次登录，钱包自动创建完成。",
+    "onboarding.oneLoginWallets": "使用 Privy 登录后，钱包会自动创建完成。",
     "onboarding.youAreIn": "登录成功，正在进入下一步...",
-    "onboarding.continueWithCloud": "继续使用 Eliza Cloud",
+    "onboarding.continueWithCloud": "继续使用 Privy",
     "onboarding.signingIn": "登录中...",
     "onboarding.howMuchSetup": "你想要多复杂的配置？",
     "onboarding.choosePath": "选择你的路径，后续都可以在设置里修改。",
@@ -1646,7 +1646,7 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "onboarding.walletQuestion": "我可以拥有钱包吗？",
     "onboarding.optionalWalletHint": "可选 — 也可以先跳过，之后再设置",
     "onboarding.walletProvisionHint":
-      "Pure Privy 模式下，Cloud 登录后会自动创建托管钱包：ETH/Base/BSC + Solana。",
+      "Pure Privy 模式下，完成 Privy 登录后会自动创建托管钱包：ETH/Base/BSC + Solana。",
     "onboarding.selectChains": "选择链：",
     "onboarding.connectorsQuestion": "你希望通过哪些渠道联系我？",
     "onboarding.optionalConnectorsHint":

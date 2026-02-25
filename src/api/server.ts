@@ -3882,6 +3882,8 @@ function getInventoryProviderOptions(): Array<{
 }
 
 type WalletMode = "privy" | "hybrid";
+const PRIVY_CUSTOM_USER_ID_ENV_KEY = "MILADY_PRIVY_CUSTOM_USER_ID";
+const PRIVY_USER_ID_ENV_KEY = "MILADY_PRIVY_USER_ID";
 
 export function resolveWalletMode(config?: MiladyConfig): WalletMode {
   const configMode =
@@ -3955,31 +3957,75 @@ function ensureWalletKeysInEnvAndConfig(config: MiladyConfig): boolean {
   }
 }
 
+function resolveConfiguredEnvValue(
+  state: ServerState,
+  key: string,
+): string | null {
+  const envValue = process.env[key]?.trim();
+  if (envValue) return envValue;
+  const configEnv =
+    state.config.env && typeof state.config.env === "object"
+      ? (state.config.env as Record<string, string>)
+      : null;
+  const configValue = configEnv?.[key]?.trim();
+  return configValue || null;
+}
+
 function resolvePrivyCustomUserId(state: ServerState): string | null {
-  const cloudAuth = state.runtime
-    ? (state.runtime.getService("CLOUD_AUTH") as {
-        isAuthenticated?: () => boolean;
-        getUserId?: () => string | undefined;
-      } | null)
-    : null;
+  return resolveConfiguredEnvValue(state, PRIVY_CUSTOM_USER_ID_ENV_KEY);
+}
 
-  const cloudUserId =
-    cloudAuth?.isAuthenticated?.() === true ? cloudAuth.getUserId?.() : null;
-  if (typeof cloudUserId === "string" && cloudUserId.trim()) {
-    return `elizacloud-user:${cloudUserId.trim()}`;
+function resolvePrivyUserId(state: ServerState): string | null {
+  return resolveConfiguredEnvValue(state, PRIVY_USER_ID_ENV_KEY);
+}
+
+function persistPrivyIdentity(
+  state: ServerState,
+  customUserId: string | null,
+  privyUserId: string | null,
+): boolean {
+  let envConfig: Record<string, string>;
+  if (
+    state.config.env &&
+    typeof state.config.env === "object" &&
+    !Array.isArray(state.config.env)
+  ) {
+    envConfig = state.config.env as Record<string, string>;
+  } else {
+    state.config.env = {};
+    envConfig = state.config.env as Record<string, string>;
   }
 
-  const apiKey = state.config.cloud?.apiKey?.trim();
-  if (apiKey) {
-    const fingerprint = crypto
-      .createHash("sha256")
-      .update(apiKey)
-      .digest("hex")
-      .slice(0, 32);
-    return `elizacloud-apikey:${fingerprint}`;
+  const updates: Array<[string, string | null]> = [
+    [PRIVY_CUSTOM_USER_ID_ENV_KEY, customUserId],
+    [PRIVY_USER_ID_ENV_KEY, privyUserId],
+  ];
+
+  let changed = false;
+  for (const [key, value] of updates) {
+    const normalized = typeof value === "string" ? value.trim() : "";
+    if (normalized) {
+      if (process.env[key] !== normalized) {
+        process.env[key] = normalized;
+        changed = true;
+      }
+      if (envConfig[key] !== normalized) {
+        envConfig[key] = normalized;
+        changed = true;
+      }
+      continue;
+    }
+    if (process.env[key] != null) {
+      delete process.env[key];
+      changed = true;
+    }
+    if (envConfig[key] != null) {
+      delete envConfig[key];
+      changed = true;
+    }
   }
 
-  return null;
+  return changed;
 }
 
 function persistManagedWalletAddresses(
@@ -4073,19 +4119,27 @@ async function resolveWalletAddressesForRequest(
 ): Promise<WalletAddresses> {
   const current = getWalletAddresses();
   const targetChains = Array.from(new Set(requestedChains));
+  const fallbackCurrent: WalletAddresses = {
+    evmAddress: targetChains.includes("evm") ? current.evmAddress : null,
+    solanaAddress: targetChains.includes("solana") ? current.solanaAddress : null,
+  };
 
   if (isPurePrivyWalletMode(state.config)) {
+    const customUserId = resolvePrivyCustomUserId(state);
+    if (!customUserId) {
+      return { evmAddress: null, solanaAddress: null };
+    }
     try {
       const managed = await ensurePrivyManagedWalletAddresses(
         state,
         targetChains,
       );
-      return managed ?? { evmAddress: null, solanaAddress: null };
+      return managed ? mergeWalletAddresses(managed, fallbackCurrent) : fallbackCurrent;
     } catch (err) {
       logger.warn(
         `[wallet] Pure Privy address resolve failed: ${err instanceof Error ? err.message : String(err)}`,
       );
-      return { evmAddress: null, solanaAddress: null };
+      return fallbackCurrent;
     }
   }
 
@@ -6319,8 +6373,143 @@ async function handleRequest(
 
   // ── GET /api/onboarding/status ──────────────────────────────────────────
   if (method === "GET" && pathname === "/api/onboarding/status") {
-    const complete = configFileExists() && Boolean(state.config.agents);
-    json(res, { complete });
+    const baseComplete = configFileExists() && Boolean(state.config.agents);
+    const requiresPrivyIdentity = resolveWalletMode(state.config) === "privy";
+    const hasPrivyIdentity = Boolean(resolvePrivyCustomUserId(state));
+    const complete = baseComplete && (!requiresPrivyIdentity || hasPrivyIdentity);
+    json(res, {
+      complete,
+      baseComplete,
+      requiresPrivyIdentity,
+      privyConnected: hasPrivyIdentity,
+    });
+    return;
+  }
+
+  // ── GET /api/privy/status ───────────────────────────────────────────────
+  if (method === "GET" && pathname === "/api/privy/status") {
+    const configured = isPrivyWalletProvisioningEnabled();
+    const customUserId = resolvePrivyCustomUserId(state);
+    const userId = resolvePrivyUserId(state);
+    const connected = Boolean(customUserId);
+    const wallets = await resolveWalletAddressesForRequest(state, [
+      "evm",
+      "solana",
+    ]);
+    json(res, {
+      configured,
+      connected,
+      customUserId: customUserId ?? undefined,
+      userId: userId ?? undefined,
+      wallets,
+    });
+    return;
+  }
+
+  // ── POST /api/privy/login ───────────────────────────────────────────────
+  if (method === "POST" && pathname === "/api/privy/login") {
+    if (!isPrivyWalletProvisioningEnabled()) {
+      error(
+        res,
+        "Privy is not configured. Set PRIVY_APP_ID and PRIVY_APP_SECRET first.",
+        503,
+      );
+      return;
+    }
+
+    const body = await readJsonBody<{ customUserId?: string }>(req, res);
+    if (!body) return;
+
+    const requestedCustomUserId = body.customUserId?.trim() || null;
+    const existingCustomUserId = resolvePrivyCustomUserId(state);
+    const customUserId =
+      requestedCustomUserId ??
+      existingCustomUserId ??
+      `milady-user:${crypto.randomUUID()}`;
+
+    let changed = persistPrivyIdentity(state, customUserId, null);
+
+    let ensured:
+      | Awaited<ReturnType<typeof ensurePrivyWalletsForCustomUser>>
+      | null = null;
+    try {
+      ensured = await ensurePrivyWalletsForCustomUser(customUserId, [
+        "ethereum",
+        "solana",
+      ]);
+    } catch (err) {
+      error(
+        res,
+        `Privy login failed: ${err instanceof Error ? err.message : String(err)}`,
+        502,
+      );
+      return;
+    }
+
+    changed =
+      persistPrivyIdentity(state, customUserId, ensured.userId) || changed;
+    changed =
+      persistManagedWalletAddresses(state, {
+        evmAddress: ensured.evmAddress,
+        solanaAddress: ensured.solanaAddress,
+      }) || changed;
+
+    if (changed) {
+      try {
+        saveMiladyConfig(state.config);
+      } catch (err) {
+        logger.warn(
+          `[privy] Failed to persist privy login state: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
+
+    json(res, {
+      ok: true,
+      configured: true,
+      connected: true,
+      customUserId,
+      userId: ensured.userId,
+      wallets: {
+        evmAddress: ensured.evmAddress,
+        solanaAddress: ensured.solanaAddress,
+      },
+    });
+    return;
+  }
+
+  // ── POST /api/privy/logout ──────────────────────────────────────────────
+  if (method === "POST" && pathname === "/api/privy/logout") {
+    let changed = persistPrivyIdentity(state, null, null);
+    const envConfig =
+      state.config.env && typeof state.config.env === "object"
+        ? (state.config.env as Record<string, string>)
+        : null;
+    for (const key of [
+      MANAGED_EVM_ADDRESS_ENV_KEY,
+      MANAGED_SOLANA_ADDRESS_ENV_KEY,
+    ]) {
+      if (process.env[key] != null) {
+        delete process.env[key];
+        changed = true;
+      }
+      if (envConfig && envConfig[key] != null) {
+        delete envConfig[key];
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      try {
+        saveMiladyConfig(state.config);
+      } catch (err) {
+        logger.warn(
+          `[privy] Failed to persist privy logout state: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
+
+    json(res, { ok: true });
     return;
   }
 
@@ -10360,7 +10549,7 @@ async function handleRequest(
       if (!customUserId) {
         error(
           res,
-          "Pure Privy mode requires a logged-in cloud identity before wallet provisioning.",
+          "Pure Privy mode requires a Privy identity login before wallet provisioning.",
           401,
         );
         return;
@@ -12899,7 +13088,8 @@ async function handleRequest(
   if (method === "GET" && pathname === "/api/cloud/status") {
     const cloudEnabled = Boolean(state.config.cloud?.enabled);
     const hasApiKey = Boolean(state.config.cloud?.apiKey?.trim());
-    const effectivelyEnabled = cloudEnabled || hasApiKey;
+    const effectivelyEnabled = cloudEnabled;
+    const hasUsableConfigAuth = cloudEnabled && hasApiKey;
     const rt = state.runtime;
     const cloudAuth = rt
       ? (rt.getService("CLOUD_AUTH") as {
@@ -12910,7 +13100,7 @@ async function handleRequest(
       : null;
     const authConnected = Boolean(cloudAuth?.isAuthenticated());
 
-    if (authConnected || hasApiKey) {
+    if (authConnected || hasUsableConfigAuth) {
       json(res, {
         connected: true,
         enabled: effectivelyEnabled,
@@ -14740,6 +14930,8 @@ export async function startApiServer(opts?: {
     "PRIVY_API_BASE_URL",
     "BABYLON_PRIVY_APP_ID",
     "BABYLON_PRIVY_APP_SECRET",
+    PRIVY_CUSTOM_USER_ID_ENV_KEY,
+    PRIVY_USER_ID_ENV_KEY,
     MANAGED_EVM_ADDRESS_ENV_KEY,
     MANAGED_SOLANA_ADDRESS_ENV_KEY,
     "EVM_PRIVATE_KEY",

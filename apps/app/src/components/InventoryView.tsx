@@ -396,7 +396,7 @@ export function InventoryView() {
     walletError,
     loadBalances,
     loadNfts,
-    cloudConnected,
+    privyConnected,
     setTab,
     setState,
     setActionNotice,
@@ -449,7 +449,14 @@ export function InventoryView() {
   const cfg = walletConfig;
   const hasManagedBscRpc = Boolean(cfg?.managedBscRpcReady);
   const hasLegacyEvmProviders = Boolean(cfg?.alchemyKeySet || cfg?.ankrKeySet || cfg?.infuraKeySet);
-  const needsSetup = !cloudConnected && !hasManagedBscRpc && !hasLegacyEvmProviders;
+  const hasWalletIdentity = Boolean(
+    privyConnected ||
+      walletAddresses?.evmAddress ||
+      walletAddresses?.solanaAddress ||
+      walletConfig?.evmAddress ||
+      walletConfig?.solanaAddress,
+  );
+  const needsSetup = !hasWalletIdentity && !hasManagedBscRpc && !hasLegacyEvmProviders;
 
   const isValidAddress = HEX_ADDRESS_RE.test(quickTokenInput.trim());
   const hasInput = quickTokenInput.trim().length > 0;

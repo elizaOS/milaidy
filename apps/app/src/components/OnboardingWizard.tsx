@@ -130,6 +130,9 @@ export function OnboardingWizard() {
     onboardingRestarting,
     onboardingSetupMode,
     uiLanguage,
+    privyConnected,
+    privyLoginBusy,
+    privyLoginError,
     cloudConnected,
     cloudLoginBusy,
     cloudLoginError,
@@ -137,6 +140,7 @@ export function OnboardingWizard() {
     handleOnboardingBack,
     setState,
     setTheme,
+    handlePrivyLogin,
     handleCloudLogin,
   } = useApp();
   const t = createTranslator(uiLanguage);
@@ -223,7 +227,7 @@ export function OnboardingWizard() {
       cloudLoginAutoAdvanceRef.current = false;
       return;
     }
-    if (!cloudConnected) {
+    if (!privyConnected) {
       cloudLoginAutoAdvanceRef.current = false;
       return;
     }
@@ -234,7 +238,7 @@ export function OnboardingWizard() {
       void handleOnboardingNext();
     }, 900);
     return () => window.clearTimeout(timer);
-  }, [onboardingStep, cloudConnected, handleOnboardingNext]);
+  }, [onboardingStep, privyConnected, handleOnboardingNext]);
 
   const handleStyleSelect = (catchphrase: string) => {
     setState("onboardingStyle", catchphrase);
@@ -812,7 +816,7 @@ export function OnboardingWizard() {
                 {t("onboarding.oneLoginWallets")}
               </p>
             </div>
-            {cloudConnected ? (
+            {privyConnected ? (
               <div className="max-w-[600px] mx-auto">
                 <p className="text-txt mb-2">{t("onboarding.youAreIn")}</p>
               </div>
@@ -821,10 +825,10 @@ export function OnboardingWizard() {
                 <p className="text-txt mb-4">{t("onboarding.continueWithCloud")}</p>
                 <button
                   className="px-6 py-2 border border-accent bg-accent text-accent-fg text-sm cursor-pointer hover:bg-accent-hover disabled:opacity-40 disabled:cursor-not-allowed mt-5"
-                  onClick={handleCloudLogin}
-                  disabled={cloudLoginBusy}
+                  onClick={handlePrivyLogin}
+                  disabled={privyLoginBusy}
                 >
-                  {cloudLoginBusy ? (
+                  {privyLoginBusy ? (
                     <span className="flex items-center justify-center gap-2">
                       <span className="inline-block w-5 h-5 border-2 border-border border-t-accent rounded-full animate-spin"></span>
                       {t("onboarding.signingIn")}
@@ -833,7 +837,7 @@ export function OnboardingWizard() {
                     t("onboarding.continueWithCloud")
                   )}
                 </button>
-                {cloudLoginError && <p className="text-danger text-[13px] mt-2.5">{cloudLoginError}</p>}
+                {privyLoginError && <p className="text-danger text-[13px] mt-2.5">{privyLoginError}</p>}
               </div>
             )}
           </div>
@@ -1037,7 +1041,7 @@ export function OnboardingWizard() {
                 {cloudLoginError && <p className="text-danger text-[13px] mt-2">{cloudLoginError}</p>}
                 <p className="text-xs text-muted mt-3">
                   Free credits to start. No AI API key needed.
-                  Wallets auto-provision after Cloud login (ETH/Base/BSC + Solana).
+                  Wallets auto-provision after Privy identity login (ETH/Base/BSC + Solana).
                 </p>
               </div>
             )}
@@ -1592,7 +1596,7 @@ export function OnboardingWizard() {
       case "modelSelection":
         return onboardingSmallModel.length > 0 && onboardingLargeModel.length > 0;
       case "cloudLogin":
-        return cloudConnected;
+        return privyConnected;
       case "llmProvider":
         if (onboardingProvider === "anthropic-subscription") {
           return onboardingSubscriptionTab === "token" ? onboardingApiKey.length > 0 : anthropicConnected;
@@ -1622,7 +1626,7 @@ export function OnboardingWizard() {
   const canGoBack = onboardingStep !== "welcome";
   const showPrimaryNext =
     onboardingStep !== "permissions" &&
-    !(onboardingStep === "cloudLogin" && cloudConnected);
+    !(onboardingStep === "cloudLogin" && privyConnected);
 
   /** On the llmProvider config screen, "back" returns to the provider grid. */
   const handleBack = () => {

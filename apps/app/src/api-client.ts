@@ -936,6 +936,16 @@ export interface CloudStatus { connected: boolean; enabled?: boolean; hasApiKey?
 export interface CloudCredits { connected: boolean; balance: number | null; low?: boolean; critical?: boolean; topUpUrl?: string }
 export interface CloudLoginResponse { ok: boolean; sessionId: string; browserUrl: string }
 export interface CloudLoginPollResponse { status: "pending" | "authenticated" | "expired" | "error"; keyPrefix?: string; error?: string }
+export interface PrivyStatus {
+  configured: boolean;
+  connected: boolean;
+  customUserId?: string;
+  userId?: string;
+  wallets?: WalletAddresses;
+}
+export interface PrivyLoginResponse extends PrivyStatus {
+  ok: boolean;
+}
 
 // Skills Marketplace
 export interface SkillMarketplaceResult {
@@ -1684,7 +1694,12 @@ export class MiladyClient {
     });
   }
 
-  async getOnboardingStatus(): Promise<{ complete: boolean }> {
+  async getOnboardingStatus(): Promise<{
+    complete: boolean;
+    baseComplete?: boolean;
+    requiresPrivyIdentity?: boolean;
+    privyConnected?: boolean;
+  }> {
     return this.fetch("/api/onboarding/status");
   }
 
@@ -2409,6 +2424,20 @@ export class MiladyClient {
   async cloudLogin(): Promise<CloudLoginResponse> { return this.fetch("/api/cloud/login", { method: "POST" }); }
   async cloudLoginPoll(sessionId: string): Promise<CloudLoginPollResponse> { return this.fetch(`/api/cloud/login/status?sessionId=${encodeURIComponent(sessionId)}`); }
   async cloudDisconnect(): Promise<{ ok: boolean }> { return this.fetch("/api/cloud/disconnect", { method: "POST" }); }
+  async getPrivyStatus(): Promise<PrivyStatus> { return this.fetch("/api/privy/status"); }
+  async privyLogin(customUserId?: string): Promise<PrivyLoginResponse> {
+    return this.fetch("/api/privy/login", {
+      method: "POST",
+      body: JSON.stringify(
+        customUserId?.trim()
+          ? { customUserId: customUserId.trim() }
+          : {},
+      ),
+    });
+  }
+  async privyLogout(): Promise<{ ok: boolean }> {
+    return this.fetch("/api/privy/logout", { method: "POST" });
+  }
 
   // Apps & Registry
   async listApps(): Promise<RegistryAppInfo[]> { return this.fetch("/api/apps"); }

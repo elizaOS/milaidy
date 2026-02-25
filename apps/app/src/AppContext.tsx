@@ -668,6 +668,12 @@ export interface AppState {
   customVrmUrl: string;
 
   // Cloud
+  privyConfigured: boolean;
+  privyConnected: boolean;
+  privyCustomUserId: string | null;
+  privyUserId: string | null;
+  privyLoginBusy: boolean;
+  privyLoginError: string | null;
   cloudEnabled: boolean;
   cloudConnected: boolean;
   cloudCredits: number | null;
@@ -902,6 +908,8 @@ export interface AppActions {
   handleOnboardingBack: () => void;
 
   // Cloud
+  handlePrivyLogin: () => Promise<void>;
+  handlePrivyLogout: () => Promise<void>;
   handleCloudLogin: () => Promise<void>;
   handleCloudDisconnect: () => Promise<void>;
 
@@ -1113,6 +1121,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // --- Cloud ---
+  const [privyConfigured, setPrivyConfigured] = useState(false);
+  const [privyConnected, setPrivyConnected] = useState(false);
+  const [privyCustomUserId, setPrivyCustomUserId] = useState<string | null>(
+    null,
+  );
+  const [privyUserId, setPrivyUserId] = useState<string | null>(null);
+  const [privyLoginBusy, setPrivyLoginBusy] = useState(false);
+  const [privyLoginError, setPrivyLoginError] = useState<string | null>(null);
   const [cloudEnabled, setCloudEnabled] = useState(false);
   const [cloudConnected, setCloudConnected] = useState(false);
   const [cloudCredits, setCloudCredits] = useState<number | null>(null);
@@ -1206,6 +1222,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [onboardingOwnerName, setOnboardingOwnerName] = useState("");
   const [onboardingRestarting, setOnboardingRestarting] = useState(false);
   const [onboardingSetupMode, setOnboardingSetupMode] = useState<"quick" | "advanced" | "">("");
+  const [onboardingPrivyGateOnly, setOnboardingPrivyGateOnly] = useState(false);
 
   // --- Command palette ---
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
@@ -1251,6 +1268,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // --- Refs for timers ---
   const actionNoticeTimer = useRef<number | null>(null);
+  const privyPollInterval = useRef<number | null>(null);
   const cloudPollInterval = useRef<number | null>(null);
   const cloudLoginPollTimer = useRef<number | null>(null);
   const prevAgentStateRef = useRef<string | null>(null);
@@ -1270,6 +1288,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const importBusyRef = useRef(false);
   /** Synchronous lock for wallet API key save to prevent duplicate clicks in the same tick. */
   const walletApiKeySavingRef = useRef(false);
+  /** Synchronous lock for privy login action to prevent duplicate clicks in the same tick. */
+  const privyLoginBusyRef = useRef(false);
   /** Synchronous lock for cloud login action to prevent duplicate clicks in the same tick. */
   const cloudLoginBusyRef = useRef(false);
   /** Synchronous lock for update channel changes to prevent duplicate submits. */
@@ -1736,11 +1756,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setCharacterSaveError(null);
     setCharacterSaveSuccess(null);
     try {
-      const { character } = await client.getCharacter();
-      setCharacterData(character);
+      const { character, agentName } = await client.getCharacter();
+      const fallbackName =
+        character.name?.trim() || character.username?.trim() || agentName || "";
+      const merged: CharacterData = {
+        ...character,
+        name: fallbackName,
+        username: character.username ?? fallbackName,
+      };
+      setCharacterData(merged);
       setCharacterDraft({
-        name: character.name ?? "",
-        username: character.username ?? "",
+        name: fallbackName,
+        username: merged.username ?? fallbackName,
         bio: Array.isArray(character.bio) ? character.bio.join("\n") : (character.bio ?? ""),
         system: character.system ?? "",
         adjectives: character.adjectives ?? [],
@@ -1752,12 +1779,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
         },
         postExamples: character.postExamples ?? [],
       });
+      setAgentStatus((current) => {
+        if (!current) return current;
+        if (!fallbackName || current.agentName === fallbackName) return current;
+        return { ...current, agentName: fallbackName };
+      });
     } catch {
       setCharacterData(null);
       setCharacterDraft({});
     }
     setCharacterLoading(false);
-  }, []);
+  }, [setAgentStatus]);
 
   const loadWorkbench = useCallback(async () => {
     setWorkbenchLoading(true);
@@ -1799,19 +1831,43 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setExtensionChecking(false);
   }, []);
 
+  const pollPrivyStatus = useCallback(async () => {
+    const getPrivyStatus =
+      typeof client.getPrivyStatus === "function"
+        ? client.getPrivyStatus.bind(client)
+        : null;
+    const status = await (getPrivyStatus ? getPrivyStatus() : Promise.resolve(null)).catch(
+      () => null,
+    );
+    if (!status) {
+      setPrivyConfigured(false);
+      setPrivyConnected(false);
+      setPrivyCustomUserId(null);
+      setPrivyUserId(null);
+      return;
+    }
+    setPrivyConfigured(Boolean(status.configured));
+    setPrivyConnected(Boolean(status.connected));
+    setPrivyCustomUserId(status.customUserId ?? null);
+    setPrivyUserId(status.userId ?? null);
+    if (status.wallets) {
+      setWalletAddresses(status.wallets);
+    }
+  }, []);
+
   const pollCloudCredits = useCallback(async () => {
     const cloudStatus = await client.getCloudStatus().catch(() => null);
     if (!cloudStatus) {
+      setCloudEnabled(false);
       setCloudConnected(false);
+      setCloudUserId(null);
       setCloudCredits(null);
       setCloudCreditsLow(false);
       setCloudCreditsCritical(false);
       return;
     }
-    // A cached cloud API key represents a completed login and should be shared
-    // across all views, even before runtime CLOUD_AUTH fully initializes.
-    const isConnected = Boolean(cloudStatus.connected || cloudStatus.hasApiKey);
-    setCloudEnabled(Boolean((cloudStatus.enabled ?? false) || cloudStatus.hasApiKey));
+    const isConnected = Boolean(cloudStatus.connected);
+    setCloudEnabled(Boolean(cloudStatus.enabled ?? false));
     setCloudConnected(Boolean(isConnected));
     setCloudUserId(cloudStatus.userId ?? null);
     if (cloudStatus.topUpUrl) setCloudTopUpUrl(cloudStatus.topUpUrl);
@@ -1829,6 +1885,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (credits?.topUpUrl) setCloudTopUpUrl(credits.topUpUrl);
       }
     } else {
+      setCloudUserId(null);
       setCloudCredits(null);
       setCloudCreditsLow(false);
       setCloudCreditsCritical(false);
@@ -2885,6 +2942,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setCharacterSaveSuccess(null);
     try {
       const draft = { ...characterDraft };
+      const sanitizedName =
+        typeof draft.name === "string" ? draft.name.trim() : "";
+      if (sanitizedName) draft.name = sanitizedName;
+      if (!sanitizedName) delete draft.name;
       if (typeof draft.bio === "string") {
         const lines = draft.bio.split("\n").map((l: string) => l.trim()).filter((l: string) => l.length > 0);
         draft.bio = lines.length > 0 ? lines : undefined;
@@ -2901,7 +2962,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (!s.all && !s.chat && !s.post) delete draft.style;
       }
       if (draft.name) draft.username = draft.name;
-      if (!draft.name) delete draft.name;
       if (!draft.username) delete draft.username;
       if (!draft.system) delete draft.system;
       const { agentName } = await client.updateCharacter(draft);
@@ -2910,15 +2970,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
         await client.updateConfig({ settings: { avatarIndex: selectedVrmIndex } });
       } catch { /* non-fatal */ }
       setCharacterSaveSuccess("Character saved successfully.");
-      if (agentName && agentStatus) {
-        setAgentStatus({ ...agentStatus, agentName });
+      const newName = (agentName || sanitizedName || "").trim();
+      if (newName) {
+        setAgentStatus((current) =>
+          current && current.agentName !== newName
+            ? { ...current, agentName: newName }
+            : current,
+        );
       }
       await loadCharacter();
     } catch (err) {
       setCharacterSaveError(`Failed to save: ${err instanceof Error ? err.message : "unknown error"}`);
     }
     setCharacterSaving(false);
-  }, [characterDraft, agentStatus, loadCharacter, selectedVrmIndex]);
+  }, [characterDraft, loadCharacter, selectedVrmIndex]);
 
   const handleCharacterFieldInput = useCallback(
     <K extends keyof CharacterData>(field: K, value: CharacterData[K]) => {
@@ -2988,7 +3053,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         break;
       case "avatar":
         if (publicAppMode) {
-          if (cloudConnected) {
+          if (privyConnected) {
             await handleOnboardingFinish();
           } else {
             setOnboardingStep("cloudLogin");
@@ -3033,7 +3098,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setOnboardingStep("modelSelection");
         break;
       case "modelSelection":
-        if (cloudConnected) {
+        if (privyConnected) {
           setOnboardingStep("connectors");
         } else {
           setOnboardingStep("cloudLogin");
@@ -3042,6 +3107,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       case "cloudLogin":
         if (publicAppMode) {
           await handleOnboardingFinish();
+        } else if (onboardingPrivyGateOnly) {
+          setOnboardingPrivyGateOnly(false);
+          setOnboardingComplete(true);
+          setTab("companion");
         } else {
           setOnboardingStep("connectors");
         }
@@ -3090,7 +3159,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         break;
       }
     }
-  }, [onboardingStep, onboardingOptions, onboardingRunMode, onboardingSetupMode, onboardingTheme, setTheme, cloudConnected, publicAppMode, setActionNotice]);
+  }, [onboardingStep, onboardingOptions, onboardingRunMode, onboardingSetupMode, onboardingTheme, setTheme, privyConnected, publicAppMode, onboardingPrivyGateOnly, setActionNotice]);
 
   const handleOnboardingBack = useCallback(() => {
     switch (onboardingStep) {
@@ -3122,7 +3191,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setOnboardingStep("cloudProvider");
         break;
       case "cloudLogin":
-        setOnboardingStep(publicAppMode ? "avatar" : "modelSelection");
+        if (onboardingPrivyGateOnly) {
+          setOnboardingStep("welcome");
+          setOnboardingPrivyGateOnly(false);
+        } else {
+          setOnboardingStep(publicAppMode ? "avatar" : "modelSelection");
+        }
+        privyLoginBusyRef.current = false;
+        setPrivyLoginBusy(false);
+        setPrivyLoginError(null);
         if (cloudLoginPollTimer.current) {
           clearInterval(cloudLoginPollTimer.current);
           cloudLoginPollTimer.current = null;
@@ -3162,7 +3239,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
         break;
     }
-  }, [onboardingStep, onboardingOptions, onboardingRunMode, onboardingSetupMode, publicAppMode]);
+  }, [onboardingStep, onboardingOptions, onboardingRunMode, onboardingSetupMode, publicAppMode, onboardingPrivyGateOnly, setPrivyLoginBusy, setPrivyLoginError]);
 
   const handleOnboardingFinish = useCallback(async () => {
     if (onboardingFinishBusyRef.current || onboardingRestarting) return;
@@ -3260,6 +3337,51 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // ── Cloud ──────────────────────────────────────────────────────────
 
+  const handlePrivyLogin = useCallback(async () => {
+    if (privyLoginBusyRef.current || privyLoginBusy) return;
+    privyLoginBusyRef.current = true;
+    setPrivyLoginBusy(true);
+    setPrivyLoginError(null);
+    try {
+      const response = await client.privyLogin();
+      setPrivyConfigured(Boolean(response.configured));
+      setPrivyConnected(Boolean(response.connected));
+      setPrivyCustomUserId(response.customUserId ?? null);
+      setPrivyUserId(response.userId ?? null);
+      if (response.wallets) {
+        setWalletAddresses(response.wallets);
+      }
+      await pollPrivyStatus();
+      setActionNotice("Privy identity connected.", "success", 3200);
+      void loadInventory();
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Privy login failed.";
+      setPrivyLoginError(message);
+      setActionNotice(message, "error", 4200);
+    } finally {
+      privyLoginBusyRef.current = false;
+      setPrivyLoginBusy(false);
+    }
+  }, [privyLoginBusy, pollPrivyStatus, setActionNotice, loadInventory]);
+
+  const handlePrivyLogout = useCallback(async () => {
+    try {
+      await client.privyLogout();
+      setPrivyConnected(false);
+      setPrivyCustomUserId(null);
+      setPrivyUserId(null);
+      setWalletAddresses({ evmAddress: null, solanaAddress: null });
+      setActionNotice("Privy identity disconnected.", "success", 2800);
+    } catch (err) {
+      setActionNotice(
+        err instanceof Error ? err.message : "Failed to disconnect Privy identity.",
+        "error",
+        4200,
+      );
+    }
+  }, [setActionNotice]);
+
   const handleCloudLogin = useCallback(async () => {
     if (cloudLoginBusyRef.current || cloudLoginBusy) return;
     cloudLoginBusyRef.current = true;
@@ -3319,16 +3441,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setCloudDisconnecting(true);
     try {
       await client.cloudDisconnect();
+      setCloudEnabled(false);
       setCloudConnected(false);
       setCloudCredits(null);
+      setCloudCreditsLow(false);
+      setCloudCreditsCritical(false);
       setCloudUserId(null);
+      await pollCloudCredits();
       setActionNotice(t("appContext.notice.cloudDisconnected"), "success");
     } catch (err) {
       setActionNotice(`Disconnect failed: ${err instanceof Error ? err.message : "error"}`, "error");
     } finally {
       setCloudDisconnecting(false);
     }
-  }, [setActionNotice, t]);
+  }, [pollCloudCredits, setActionNotice, t]);
 
   // ── Updates ────────────────────────────────────────────────────────
 
@@ -3600,6 +3726,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const MAX_DELAY_MS = 1000;
       const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
       let onboardingNeedsOptions = false;
+      let privyGateOnly = false;
       let requiresAuth = false;
       let isPublicMode = false;
       setStartupPhase("starting-backend");
@@ -3618,9 +3745,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
             requiresAuth = true;
             break;
           }
-          const { complete } = await client.getOnboardingStatus();
-          setOnboardingComplete(complete);
-          onboardingNeedsOptions = !complete;
+          const onboardingStatus = await client.getOnboardingStatus();
+          setOnboardingComplete(onboardingStatus.complete);
+          onboardingNeedsOptions = !onboardingStatus.complete;
+          if (
+            onboardingStatus.baseComplete === true &&
+            onboardingStatus.requiresPrivyIdentity === true &&
+            onboardingStatus.privyConnected !== true
+          ) {
+            privyGateOnly = true;
+            setOnboardingPrivyGateOnly(true);
+            setOnboardingStep("cloudLogin");
+          } else {
+            setOnboardingPrivyGateOnly(false);
+          }
+          await pollPrivyStatus();
           break;
         } catch {
           backendAttempts += 1;
@@ -3641,6 +3780,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
       // On fresh installs, unblock to onboarding as soon as options are available.
       if (onboardingNeedsOptions) {
+        if (privyGateOnly) {
+          setOnboardingLoading(false);
+          return;
+        }
         let optionsLoaded = false;
         while (!cancelled && !optionsLoaded) {
           try {
@@ -3861,6 +4004,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // Cloud polling
       pollCloudCredits();
       cloudPollInterval.current = window.setInterval(() => pollCloudCredits(), 60_000);
+      void pollPrivyStatus();
+      privyPollInterval.current = window.setInterval(() => {
+        void pollPrivyStatus();
+      }, 60_000);
 
       // Load tab from URL
       const urlTab = tabFromPath(window.location.pathname);
@@ -3897,6 +4044,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
       window.removeEventListener("popstate", handlePopState);
+      if (privyPollInterval.current) clearInterval(privyPollInterval.current);
       if (cloudPollInterval.current) clearInterval(cloudPollInterval.current);
       if (cloudLoginPollTimer.current) clearInterval(cloudLoginPollTimer.current);
       unbindStatus?.();
@@ -3913,6 +4061,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       void loadInventory();
     }
   }, [tab, loadInventory]);
+
+  useEffect(() => {
+    if (tab === "character" || tab === "character-select") {
+      void loadCharacter();
+    }
+  }, [tab, loadCharacter]);
 
   // When agent transitions to "running", send a greeting if conversation is empty
   useEffect(() => {
@@ -3961,6 +4115,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     whitelistStatus, whitelistLoading, twitterVerifyMessage, twitterVerifyUrl, twitterVerifying,
     characterData, characterLoading, characterSaving, characterSaveSuccess,
     characterSaveError, characterDraft, selectedVrmIndex, customVrmUrl,
+    privyConfigured, privyConnected, privyCustomUserId, privyUserId,
+    privyLoginBusy, privyLoginError,
     cloudEnabled, cloudConnected, cloudCredits, cloudCreditsLow, cloudCreditsCritical,
     cloudTopUpUrl, cloudUserId, cloudLoginBusy, cloudLoginError, cloudDisconnecting,
     updateStatus, updateLoading, updateChannelSaving,
@@ -4010,6 +4166,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     loadCharacter, handleSaveCharacter, handleCharacterFieldInput,
     handleCharacterArrayInput, handleCharacterStyleInput, handleCharacterMessageExamplesInput,
     handleOnboardingNext, handleOnboardingBack,
+    handlePrivyLogin, handlePrivyLogout,
     handleCloudLogin, handleCloudDisconnect,
     loadUpdateStatus, handleChannelChange,
     checkExtensionStatus,
