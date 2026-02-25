@@ -25,6 +25,11 @@ import {
 } from "@elizaos/plugin-plugin-manager";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AppManager } from "./app-manager";
+import type {
+  PluginManagerLike,
+  RegistryPluginInfo,
+} from "./plugin-manager-types";
+import * as registryClient from "./registry-client";
 
 // Fake Runtime implementation
 class FakeAgentRuntime implements IAgentRuntime {
@@ -669,5 +674,150 @@ describe("Hyperscape Auto-Provisioning", () => {
     // Credentials should remain unchanged (auto-provisioning skipped)
     expect(process.env.HYPERSCAPE_CHARACTER_ID).toBe("existing-char-id");
     expect(process.env.HYPERSCAPE_AUTH_TOKEN).toBe("existing-auth-token");
+  });
+});
+
+describe("App URL template security", () => {
+  let originalEnv: Record<string, string | undefined>;
+
+  function createRegistryApp(
+    overrides: Partial<RegistryPluginInfo> = {},
+  ): RegistryPluginInfo {
+    return {
+      name: "@elizaos/app-security-test",
+      gitRepo: "elizaos/app-security-test",
+      gitUrl: "https://github.com/elizaos/app-security-test",
+      description: "security test app",
+      topics: ["app"],
+      stars: 0,
+      language: "TypeScript",
+      launchType: "connect",
+      launchUrl: null,
+      kind: "app",
+      npm: {
+        package: "@elizaos/plugin-security-test",
+        v0Version: "1.0.0",
+        v1Version: null,
+        v2Version: null,
+      },
+      supports: { v0: true, v1: false, v2: false },
+      ...overrides,
+    };
+  }
+
+  function createPluginManagerStub(
+    appInfo: RegistryPluginInfo,
+  ): PluginManagerLike {
+    const pluginName = appInfo.npm.package;
+    return {
+      refreshRegistry: vi
+        .fn()
+        .mockResolvedValue(new Map<string, RegistryPluginInfo>()),
+      listInstalledPlugins: vi
+        .fn()
+        .mockResolvedValue([{ name: pluginName, version: "1.0.0" }]),
+      getRegistryPlugin: vi.fn().mockResolvedValue(appInfo),
+      searchRegistry: vi.fn().mockResolvedValue([]),
+      installPlugin: vi.fn().mockResolvedValue({
+        success: true,
+        pluginName,
+        version: "1.0.0",
+        installPath: "/tmp",
+        requiresRestart: true,
+      }),
+      uninstallPlugin: vi.fn().mockResolvedValue({
+        success: true,
+        pluginName,
+        requiresRestart: true,
+      }),
+      listEjectedPlugins: vi.fn().mockResolvedValue([]),
+      ejectPlugin: vi.fn().mockResolvedValue({
+        success: true,
+        pluginName,
+        ejectedPath: "/tmp",
+        requiresRestart: false,
+      }),
+      syncPlugin: vi.fn().mockResolvedValue({
+        success: true,
+        pluginName,
+        ejectedPath: "/tmp",
+        requiresRestart: false,
+      }),
+      reinjectPlugin: vi.fn().mockResolvedValue({
+        success: true,
+        pluginName,
+        removedPath: "/tmp",
+        requiresRestart: false,
+      }),
+    };
+  }
+
+  beforeEach(() => {
+    originalEnv = {
+      BOT_NAME: process.env.BOT_NAME,
+      MILADY_API_TOKEN: process.env.MILADY_API_TOKEN,
+    };
+    vi.spyOn(registryClient, "getPluginInfo").mockResolvedValue(null);
+  });
+
+  afterEach(() => {
+    for (const [key, value] of Object.entries(originalEnv)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+    vi.restoreAllMocks();
+  });
+
+  it("does not interpolate non-allowlisted env vars into app URLs", async () => {
+    process.env.BOT_NAME = "allowlisted-bot";
+    process.env.MILADY_API_TOKEN = "super-secret-token";
+    const appInfo = createRegistryApp({
+      launchUrl:
+        "https://launch.example/?bot={BOT_NAME}&token={MILADY_API_TOKEN}",
+      viewer: {
+        url: "https://viewer.example/play?bot={BOT_NAME}&token={MILADY_API_TOKEN}",
+        embedParams: { session: "{MILADY_API_TOKEN}" },
+      },
+    });
+
+    const appManager = new AppManager();
+    const result = await appManager.launch(
+      createPluginManagerStub(appInfo),
+      appInfo.name,
+    );
+
+    expect(result.launchUrl).toBe(
+      "https://launch.example/?bot=allowlisted-bot&token=",
+    );
+    expect(result.viewer?.url).toBeDefined();
+    expect(result.viewer?.url).not.toContain("super-secret-token");
+
+    const viewerUrl = new URL(result.viewer?.url ?? "https://viewer.example");
+    expect(viewerUrl.searchParams.get("bot")).toBe("allowlisted-bot");
+    expect(viewerUrl.searchParams.get("token")).toBe("");
+    expect(viewerUrl.searchParams.get("session")).toBe("");
+  });
+
+  it("still interpolates allowlisted env vars", async () => {
+    process.env.BOT_NAME = "test-agent";
+    const appInfo = createRegistryApp({
+      launchUrl: "https://launch.example/?bot={BOT_NAME}",
+      viewer: {
+        url: "https://viewer.example/play?bot={BOT_NAME}",
+      },
+    });
+
+    const appManager = new AppManager();
+    const result = await appManager.launch(
+      createPluginManagerStub(appInfo),
+      appInfo.name,
+    );
+
+    expect(result.launchUrl).toBe("https://launch.example/?bot=test-agent");
+    const viewerUrl = new URL(result.viewer?.url ?? "https://viewer.example");
+    expect(viewerUrl.searchParams.get("bot")).toBe("test-agent");
   });
 });

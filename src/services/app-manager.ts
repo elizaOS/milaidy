@@ -44,6 +44,14 @@ const HYPERSCAPE_AUTH_MESSAGE_TYPE = "HYPERSCAPE_AUTH";
 const RS_2004SCAPE_APP_NAME = "@elizaos/app-2004scape";
 const RS_2004SCAPE_AUTH_MESSAGE_TYPE = "RS_2004SCAPE_AUTH";
 const SAFE_APP_URL_PROTOCOLS = new Set(["http:", "https:"]);
+const ALLOWED_APP_URL_TEMPLATE_KEYS = new Set([
+  // Public display identity only.
+  "BOT_NAME",
+  "RS_SDK_BOT_NAME",
+  // Non-secret endpoint routing values.
+  "HYPERSCAPE_CLIENT_URL",
+  "HYPERSCAPE_SERVER_URL",
+]);
 
 type AppViewerConfig = NonNullable<AppLaunchResult["viewer"]>;
 
@@ -143,6 +151,10 @@ function getTemplateFallbackValue(key: string): string | undefined {
 
 function substituteTemplateVars(raw: string): string {
   return raw.replace(/\{([A-Z0-9_]+)\}/g, (_full, key: string) => {
+    if (!ALLOWED_APP_URL_TEMPLATE_KEYS.has(key)) {
+      return getTemplateFallbackValue(key) ?? "";
+    }
+
     const value = process.env[key];
     if (value && value.trim().length > 0) {
       return value.trim();
