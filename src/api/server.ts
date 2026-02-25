@@ -6431,10 +6431,27 @@ async function handleRequest(
     if (body.adjectives) agent.adjectives = body.adjectives as string[];
     if (body.topics) agent.topics = body.topics as string[];
     if (body.postExamples) agent.postExamples = body.postExamples as string[];
-    if (body.messageExamples)
-      agent.messageExamples = body.messageExamples as Array<
-        Array<{ user: string; content: { text: string } }>
-      >;
+    if (body.messageExamples) {
+      // Normalise to the {examples: [{name, content}]} format that @elizaos/core expects.
+      const raw = body.messageExamples as unknown[];
+      agent.messageExamples = raw.map((item) => {
+        if (
+          item &&
+          typeof item === "object" &&
+          "examples" in (item as Record<string, unknown>)
+        ) {
+          return item as { examples: { name: string; content: { text: string } }[] };
+        }
+        // Old format: [{user, content}, ...] → {examples: [{name, content}, ...]}
+        const arr = item as { user?: string; name?: string; content: { text: string } }[];
+        return {
+          examples: arr.map((m) => ({
+            name: m.name ?? m.user ?? "",
+            content: m.content,
+          })),
+        };
+      });
+    }
 
     // ── Theme preference ──────────────────────────────────────────────────
     if (body.theme) {

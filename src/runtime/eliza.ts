@@ -1372,8 +1372,14 @@ async function resolvePlugins(
           pathToFileURL(indexPath).href
         )) as PluginModuleShape;
       } else {
-        // Built-in/npm plugin — import by package name from node_modules.
-        mod = (await import(pluginName)) as PluginModuleShape;
+        // Built-in/npm plugin — try bundled static import first, then
+        // fall back to bare node_modules resolution.
+        const staticMod = pluginName.startsWith("@elizaos/plugin-")
+          ? await resolveStaticElizaPlugin(pluginName)
+          : null;
+        mod = staticMod
+          ? (staticMod as PluginModuleShape)
+          : ((await import(pluginName)) as PluginModuleShape);
       }
 
       const pluginInstance = findRuntimePluginExport(mod);
@@ -2293,12 +2299,24 @@ export function buildCharacterFromConfig(config: MiladyConfig): Character {
     }
   }
 
-  // The messageExamples stored in config use the loose preset format
-  // ({ user, content: { text } }).  The core Character type requires a
-  // `name` field on each example, so we map `user` → `name` here.
-  const mappedExamples = messageExamples?.map((convo) =>
-    convo.map((msg) => ({ ...msg, name: msg.user })),
-  );
+  // Normalise messageExamples to the {examples: [{name,content}]} shape
+  // that @elizaos/core expects.  Config may contain EITHER format:
+  //   OLD (preset/onboarding): [[{user, content}, ...], ...]
+  //   NEW (@elizaos/core):     [{examples: [{name, content}, ...]}, ...]
+  const mappedExamples = messageExamples?.map((item: unknown) => {
+    // Already in new format — pass through
+    if (item && typeof item === "object" && "examples" in (item as Record<string, unknown>)) {
+      return item as { examples: { name: string; content: { text: string } }[] };
+    }
+    // Old format — array of {user, content} entries
+    const arr = item as { user?: string; name?: string; content: { text: string } }[];
+    return {
+      examples: arr.map((msg) => ({
+        name: msg.name ?? msg.user ?? "",
+        content: msg.content,
+      })),
+    };
+  });
 
   return mergeCharacterDefaults({
     name,

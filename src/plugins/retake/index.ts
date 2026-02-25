@@ -67,6 +67,7 @@ let chatPollTimer: ReturnType<typeof setInterval> | null = null;
 let viewerStatsPollTimer: ReturnType<typeof setInterval> | null = null;
 let lastSeenId: string | null = null;
 let pluginRuntime: IAgentRuntime | null = null;
+let chatPollInFlight = false;
 let ourUserDbId: string | null = null;
 
 /** Tracks usernames seen during the current stream session for new viewer detection. */
@@ -253,6 +254,16 @@ function triggerEmote(emoteId: string): void {
 // ---------------------------------------------------------------------------
 
 async function pollChat(): Promise<void> {
+  if (chatPollInFlight) return; // skip if previous poll still running
+  chatPollInFlight = true;
+  try {
+    await pollChatInner();
+  } finally {
+    chatPollInFlight = false;
+  }
+}
+
+async function pollChatInner(): Promise<void> {
   if (!pluginRuntime) return;
   const runtime = pluginRuntime;
   const { accessToken, apiUrl } = getRetakeAuth(runtime);
@@ -266,11 +277,22 @@ async function pollChat(): Promise<void> {
       50,
     );
 
-    // Only log on first fetch or when new messages arrive
-    if (comments.length > 0 && !lastSeenId) {
-      pluginRuntime?.logger.info(
-        `${TAG} Initial fetch: ${comments.length} comments (newest=${comments[0]?.chat_event_id})`,
-      );
+    // On first poll, set cursor to newest message and skip processing.
+    // This prevents replaying dozens of stale historical messages on restart
+    // which floods the LLM and blocks new conversations.
+    if (!lastSeenId) {
+      if (comments.length > 0) {
+        // Find the highest chat_event_id in the batch
+        let maxId = comments[0]?.chat_event_id;
+        for (const c of comments) {
+          if (Number(c.chat_event_id) > Number(maxId)) maxId = c.chat_event_id;
+        }
+        lastSeenId = maxId;
+        pluginRuntime?.logger.info(
+          `${TAG} Initial fetch: ${comments.length} comments — cursor set to ${lastSeenId}`,
+        );
+      }
+      return;
     }
 
     // Comments come newest-first; process oldest-first
@@ -378,6 +400,9 @@ async function pollChat(): Promise<void> {
             return [];
           }
           const replyText = responseContent.text ?? "";
+          runtime.logger.info(
+            `${TAG} Callback fired for @${comment.sender_username} (target=${responseContent.target ?? "none"}, text=${replyText.slice(0, 40) || "(empty)"})`,
+          );
           if (!replyText.trim()) return [];
 
           await sendChatMessage(
@@ -1423,13 +1448,21 @@ export const retakePlugin: Plugin = {
       runtime.logger.info(`${TAG} Injected retake system prompt`);
     }
 
-    // Inject retake message examples so the LLM learns the action patterns
+    // Inject retake message examples so the LLM learns the action patterns.
+    // Convert old [[{user,content}]] format → [{examples:[{name,content}]}]
+    // that @elizaos/core expects.
+    const convertedRetakeExamples = RETAKE_MESSAGE_EXAMPLES.map((convo) => ({
+      examples: convo.map((msg) => ({
+        name: msg.user,
+        content: msg.content,
+      })),
+    }));
     const existingExamples = Array.isArray(character.messageExamples)
-      ? (character.messageExamples as typeof RETAKE_MESSAGE_EXAMPLES)
+      ? (character.messageExamples as typeof convertedRetakeExamples)
       : [];
     character.messageExamples = [
       ...existingExamples,
-      ...RETAKE_MESSAGE_EXAMPLES,
+      ...convertedRetakeExamples,
     ];
 
     runtime.logger.info(
