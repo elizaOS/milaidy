@@ -45,6 +45,8 @@
     "@milady/capacitor-screencapture": "workspace:*",
     "@milady/capacitor-swabble": "workspace:*",
     "@milady/capacitor-talkmode": "workspace:*",
+    "@lifo-sh/core": "0.4.4",
+    "@lifo-sh/ui": "^0.4.2",
     "@noble/curves": "^2.0.1",
     "@pixiv/three-vrm": "^3.4.5",
     "react": "^19.0.0",

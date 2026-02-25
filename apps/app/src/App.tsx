@@ -60,6 +60,7 @@ function ViewRouter() {
     case "trajectories":
     case "runtime":
     case "database":
+    case "lifo":
     case "logs":
     case "security":
       return <AdvancedPageView />;
@@ -112,6 +113,7 @@ export function App() {
     tab === "trajectories" ||
     tab === "runtime" ||
     tab === "database" ||
+    tab === "lifo" ||
     tab === "logs" ||
     tab === "security";
   const unreadCount = unreadConversations?.size ?? 0;

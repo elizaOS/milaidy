@@ -151,6 +151,11 @@ vi.mock("../../src/components/LogsPageView", () => ({
     React.createElement("section", null, "LogsPageView Ready"),
 }));
 
+vi.mock("../../src/components/LifoSandboxView", () => ({
+  LifoSandboxView: () =>
+    React.createElement("section", null, "LifoSandboxView Ready"),
+}));
+
 vi.mock("../../src/hooks/useContextMenu", () => ({
   useContextMenu: () => ({
     saveCommandModalOpen: false,
@@ -337,6 +342,7 @@ describe("pages navigation smoke (e2e)", () => {
       },
       { label: "Runtime", tab: "runtime", token: "RuntimeView Ready" },
       { label: "Databases", tab: "database", token: "DatabasePageView Ready" },
+      { label: "Lifo", tab: "lifo", token: "LifoSandboxView Ready" },
       { label: "Logs", tab: "logs", token: "LogsPageView Ready" },
     ];
 
@@ -385,6 +391,7 @@ describe("pages navigation smoke (e2e)", () => {
       { tab: "voice", token: "SettingsView Ready" },
       { tab: "runtime", token: "RuntimeView Ready" },
       { tab: "database", token: "DatabasePageView Ready" },
+      { tab: "lifo", token: "LifoSandboxView Ready" },
       { tab: "settings", token: "SettingsView Ready" },
       { tab: "logs", token: "LogsPageView Ready" },
     ];
