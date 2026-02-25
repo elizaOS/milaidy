@@ -23,4 +23,4 @@ cmds = ["bun run build"]
 
 # Start the agent server. Sevalla injects PORT at runtime.
 [start]
-cmd = "MILADY_PORT=${PORT:-2138} MILADY_API_BIND=0.0.0.0 MILADY_WEB_SURFACE=${MILADY_WEB_SURFACE:-landing} node milady.mjs start"
+cmd = "MILADY_PORT=${PORT:-2138} MILADY_API_BIND=0.0.0.0 node milady.mjs start"

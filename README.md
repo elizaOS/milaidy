@@ -234,9 +234,6 @@ Logs go to `~/.milady/logs/`. Daemonize with your favorite process manager.
 ```bash
 # custom ports
 MILADY_GATEWAY_PORT=19000 MILADY_PORT=3000 milady start
-
-# cloud marketing-first surface
-MILADY_WEB_SURFACE=landing milady start
 ```
 
 ---
