@@ -2948,11 +2948,26 @@ export class MiladyClient {
   }
 
   private normalizeAssistantText(text: string): string {
-    const trimmed = text.trim();
+    const maybeDecodeEscapedNewlines = (raw: string): string => {
+      if (/[\r\n]/.test(raw)) return raw;
+      if (!raw.includes("\\n") && !raw.includes("\\r\\n")) return raw;
+      // Only decode when the text looks like serialized paragraphs/lists.
+      if (!/\\n\\n|\\r\\n|\\n[-*0-9]/.test(raw)) return raw;
+      try {
+        const decoded = JSON.parse(`"${raw.replace(/"/g, '\\"')}"`);
+        if (typeof decoded === "string") return decoded;
+      } catch {
+        // Fallback to targeted newline decoding.
+      }
+      return raw.replace(/\\r\\n/g, "\n").replace(/\\n/g, "\n");
+    };
+
+    const normalized = maybeDecodeEscapedNewlines(text);
+    const trimmed = normalized.trim();
     if (trimmed.length === 0 || /^\(?no response\)?$/i.test(trimmed)) {
       return GENERIC_NO_RESPONSE_TEXT;
     }
-    return text;
+    return normalized;
   }
 
   private async streamChatEndpoint(

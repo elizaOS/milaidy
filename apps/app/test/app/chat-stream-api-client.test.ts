@@ -166,4 +166,44 @@ describe("MiladyClient streaming chat endpoints", () => {
       ),
     ).rejects.toThrow("stream failed");
   });
+
+  test("decodes escaped newline sequences in done payload text", async () => {
+    fetchMock.mockResolvedValue(
+      buildSseResponse([
+        'data: {"type":"done","fullText":"Line 1\\\\n\\\\nLine 2","agentName":"Milady"}\n\n',
+      ]),
+    );
+
+    const client = new MiladyClient("http://localhost:2138");
+    const result = await client.sendChatStream(
+      "newline-test",
+      () => {},
+      "simple",
+    );
+
+    expect(result).toEqual({
+      text: "Line 1\n\nLine 2",
+      agentName: "Milady",
+    });
+  });
+
+  test("keeps plain backslash content untouched when not paragraph-like escapes", async () => {
+    fetchMock.mockResolvedValue(
+      buildSseResponse([
+        'data: {"type":"done","fullText":"Path: C:\\\\temp\\\\file","agentName":"Milady"}\n\n',
+      ]),
+    );
+
+    const client = new MiladyClient("http://localhost:2138");
+    const result = await client.sendChatStream(
+      "path-test",
+      () => {},
+      "simple",
+    );
+
+    expect(result).toEqual({
+      text: "Path: C:\\temp\\file",
+      agentName: "Milady",
+    });
+  });
 });
