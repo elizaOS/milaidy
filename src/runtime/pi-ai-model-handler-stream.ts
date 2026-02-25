@@ -299,14 +299,10 @@ export function createPiAiHandler(
             }
 
             emitError(config.onStreamEvent, errText, event.reason);
-
-            // If no one is listening for stream events, surface the error.
-            // This is especially important when forceStreaming=true (API/server path).
-            if (!p.onStreamChunk && !config.onStreamEvent) {
-              throw new Error(errText);
-            }
-
-            break;
+            // Surface provider errors to callers even in streaming mode.
+            // Returning partial/no text here turns hard failures into generic
+            // "(no response)" fallbacks and hides real auth/model problems.
+            throw new Error(errText);
           }
         }
       }

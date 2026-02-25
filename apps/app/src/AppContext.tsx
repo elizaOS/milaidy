@@ -1925,8 +1925,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (!openAiPlan) {
         const looksLikeStaleOpenAiModel =
           runtimeModel.includes("openai/") ||
+          runtimeModel.includes("openai-codex") ||
           configLargeModel.includes("openai/") ||
-          configPrimaryModel.includes("openai/");
+          configLargeModel.includes("openai-codex") ||
+          configPrimaryModel.includes("openai/") ||
+          configPrimaryModel.includes("openai-codex");
         if (
           looksLikeStaleOpenAiModel &&
           !openAiPluginEnabled &&
@@ -1965,8 +1968,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      if (cloudCfg?.enabled === true) return;
-
+      const looksLikeOpenAiCodexModel =
+        runtimeModel.includes("openai-codex") ||
+        configLargeModel.includes("openai-codex") ||
+        configPrimaryModel.includes("openai-codex");
       const looksLikeCloudOnlyModel =
         runtimeModel.includes("moonshot") ||
         runtimeModel.includes("kimi") ||
@@ -1974,7 +1979,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
         configLargeModel.includes("kimi") ||
         configPrimaryModel.includes("moonshot") ||
         configPrimaryModel.includes("kimi");
-      if (!looksLikeCloudOnlyModel) return;
+      const looksModelUnset =
+        !runtimeModel.trim() &&
+        !configLargeModel.trim() &&
+        !configPrimaryModel.trim();
+      const shouldActivateOpenAiPlan =
+        !looksLikeOpenAiCodexModel &&
+        (cloudCfg?.enabled === true || looksLikeCloudOnlyModel || looksModelUnset);
+      if (!shouldActivateOpenAiPlan) return;
 
       await client.updateConfig({
         cloud: { enabled: false },
@@ -2329,6 +2341,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
             );
           }
         } else {
+          const errorText = err instanceof Error ? err.message : "generation failed";
+          setActionNotice(`Message failed: ${errorText}`, "error", 4200);
           await loadConversationMessages(convId);
         }
       } finally {
@@ -2341,7 +2355,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     } finally {
       chatSendBusyRef.current = false;
     }
-  }, [chatInput, chatSending, activeConversationId, loadConversationMessages, loadConversations]);
+  }, [
+    chatInput,
+    chatSending,
+    activeConversationId,
+    loadConversationMessages,
+    loadConversations,
+    setActionNotice,
+  ]);
 
   const handleChatStop = useCallback(() => {
     chatSendBusyRef.current = false;

@@ -186,6 +186,14 @@ function isUuidLike(value: string): value is UUID {
 }
 
 const OG_FILENAME = ".og";
+const DELETED_CONVERSATIONS_FILENAME = "deleted-conversations.v1.json";
+const MAX_DELETED_CONVERSATION_IDS = 5000;
+
+interface DeletedConversationsStateFile {
+  version: 1;
+  updatedAt: string;
+  ids: string[];
+}
 
 function readOGCodeFromState(): string | null {
   const filePath = path.join(resolveStateDir(), OG_FILENAME);
@@ -205,6 +213,52 @@ function initializeOGCodeInState(): void {
     encoding: "utf-8",
     mode: 0o600,
   });
+}
+
+function readDeletedConversationIdsFromState(): Set<string> {
+  const filePath = path.join(resolveStateDir(), DELETED_CONVERSATIONS_FILENAME);
+  if (!fs.existsSync(filePath)) return new Set();
+  try {
+    const raw = fs.readFileSync(filePath, "utf-8");
+    const parsed = JSON.parse(raw) as Partial<DeletedConversationsStateFile>;
+    const ids = Array.isArray(parsed.ids) ? parsed.ids : [];
+    return new Set(
+      ids
+        .map((id) => (typeof id === "string" ? id.trim() : ""))
+        .filter((id) => id.length > 0),
+    );
+  } catch (err) {
+    logger.warn(
+      `[milady-api] Failed to read deleted conversations state: ${err instanceof Error ? err.message : String(err)}`,
+    );
+    return new Set();
+  }
+}
+
+function persistDeletedConversationIdsToState(ids: Set<string>): void {
+  const dir = resolveStateDir();
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
+  }
+
+  const normalized = Array.from(ids)
+    .map((id) => id.trim())
+    .filter((id) => id.length > 0)
+    .slice(-MAX_DELETED_CONVERSATION_IDS);
+
+  const filePath = path.join(dir, DELETED_CONVERSATIONS_FILENAME);
+  const tmpFilePath = `${filePath}.${process.pid}.tmp`;
+  const payload: DeletedConversationsStateFile = {
+    version: 1,
+    updatedAt: new Date().toISOString(),
+    ids: normalized,
+  };
+
+  fs.writeFileSync(tmpFilePath, `${JSON.stringify(payload, null, 2)}\n`, {
+    encoding: "utf-8",
+    mode: 0o600,
+  });
+  fs.renameSync(tmpFilePath, filePath);
 }
 
 /** Metadata for a web-chat conversation. */
@@ -244,6 +298,8 @@ interface ServerState {
   adminEntityId: UUID | null;
   /** Conversation metadata by conversation id. */
   conversations: Map<string, ConversationMeta>;
+  /** Tombstones for conversation IDs explicitly deleted by the user. */
+  deletedConversationIds: Set<string>;
   /** Cloud manager for Eliza Cloud integration (null when cloud is disabled). */
   cloudManager: CloudManager | null;
   sandboxManager: SandboxManager | null;
@@ -11714,6 +11770,51 @@ async function handleRequest(
     }
   };
 
+  const markConversationDeleted = (conversationId: string): void => {
+    const normalizedId = conversationId.trim();
+    if (!normalizedId) return;
+    if (state.deletedConversationIds.has(normalizedId)) return;
+
+    state.deletedConversationIds.add(normalizedId);
+    while (state.deletedConversationIds.size > MAX_DELETED_CONVERSATION_IDS) {
+      const oldest = state.deletedConversationIds.values().next().value;
+      if (!oldest) break;
+      state.deletedConversationIds.delete(oldest);
+    }
+
+    try {
+      persistDeletedConversationIdsToState(state.deletedConversationIds);
+    } catch (err) {
+      logger.warn(
+        `[conversations] Failed to persist deleted conversation tombstones: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  };
+
+  const deleteConversationRoomData = async (
+    runtime: AgentRuntime,
+    roomId: UUID,
+  ): Promise<void> => {
+    const runtimeWithDelete = runtime as AgentRuntime & {
+      deleteRoom?: (id: UUID) => Promise<unknown>;
+      adapter?: {
+        db?: {
+          deleteRoom?: (id: UUID) => Promise<unknown>;
+        };
+      };
+    };
+
+    if (typeof runtimeWithDelete.deleteRoom === "function") {
+      await runtimeWithDelete.deleteRoom(roomId);
+      return;
+    }
+
+    const dbDeleteRoom = runtimeWithDelete.adapter?.db?.deleteRoom;
+    if (typeof dbDeleteRoom === "function") {
+      await dbDeleteRoom.call(runtimeWithDelete.adapter?.db, roomId);
+    }
+  };
+
   // Helper: ensure the room for a conversation is set up.
   // Also ensures the world has ownership metadata so the settings provider
   // can find it via findWorldsForOwner during onboarding.
@@ -12864,7 +12965,18 @@ async function handleRequest(
     !pathname.endsWith("/messages")
   ) {
     const convId = decodeURIComponent(pathname.split("/")[3]);
+    const conv = state.conversations.get(convId);
+    if (conv?.roomId && state.runtime) {
+      try {
+        await deleteConversationRoomData(state.runtime, conv.roomId);
+      } catch (err) {
+        logger.debug(
+          `[conversations] Failed to delete room data for ${convId}: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
     state.conversations.delete(convId);
+    markConversationDeleted(convId);
     json(res, { ok: true });
     return;
   }
@@ -14984,6 +15096,7 @@ export async function startApiServer(opts?: {
     : (config.agents?.list?.[0]?.name ??
       config.ui?.assistant?.name ??
       "Milady");
+  const deletedConversationIds = readDeletedConversationIdsFromState();
 
   const state: ServerState = {
     runtime: opts?.runtime ?? null,
@@ -15005,6 +15118,7 @@ export async function startApiServer(opts?: {
     chatConnectionPromise: null,
     adminEntityId: null,
     conversations: new Map(),
+    deletedConversationIds,
     cloudManager: null,
     sandboxManager: null,
     appManager: new AppManager(),
@@ -15552,6 +15666,7 @@ export async function startApiServer(opts?: {
         if (!channelId.startsWith("web-conv-")) continue;
         const convId = channelId.replace("web-conv-", "");
         if (!convId || state.conversations.has(convId)) continue;
+        if (state.deletedConversationIds.has(convId)) continue;
 
         // Peek at the latest message to get a timestamp
         let updatedAt = new Date().toISOString();
