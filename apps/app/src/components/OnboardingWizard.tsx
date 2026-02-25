@@ -1640,42 +1640,44 @@ export function OnboardingWizard() {
   };
 
   return (
-    <div className="mx-auto px-4 pb-16 text-center font-body h-full overflow-y-auto">
-      {/* Progress bar — thin strip at the top of the wizard */}
-      <div className="w-full h-1 bg-border rounded-full overflow-hidden mb-1">
-        <div
-          className="h-full bg-accent rounded-full transition-all duration-300"
-          style={{ width: `${progressPct}%` }}
-        />
-      </div>
-      {/* Step counter */}
-      <div className="text-[11px] text-muted text-center mb-1 tracking-wide">
-        {t("onboarding.stepLabel", {
-          current: stepIndex,
-          total: totalSteps != null ? totalSteps : "?",
-        })}
-      </div>
+    <div className="onboarding-game-screen">
+      <div className="onboarding-game-shell mx-auto px-4 pb-16 text-center font-body h-full overflow-y-auto">
+        {/* Progress bar — thin strip at the top of the wizard */}
+        <div className="onboarding-game-progress-track w-full h-1 rounded-full overflow-hidden mb-1">
+          <div
+            className="onboarding-game-progress-fill h-full rounded-full transition-all duration-300"
+            style={{ width: `${progressPct}%` }}
+          />
+        </div>
+        {/* Step counter */}
+        <div className="onboarding-game-step-label text-[11px] text-center mb-1 tracking-wide">
+          {t("onboarding.stepLabel", {
+            current: stepIndex,
+            total: totalSteps != null ? totalSteps : "?",
+          })}
+        </div>
 
-      {renderStep(onboardingStep)}
-      <div className="flex gap-2 mt-8 justify-center">
-        {canGoBack && (
-          <button
-            className="px-6 py-2 border border-border bg-transparent text-txt text-sm cursor-pointer rounded-full hover:bg-accent-subtle hover:text-accent"
-            onClick={handleBack}
-            disabled={onboardingRestarting}
-          >
-            {t("common.back")}
-          </button>
-        )}
-        {showPrimaryNext && (
-          <button
-            className="px-6 py-2 border border-accent bg-accent text-accent-fg text-sm cursor-pointer rounded-full hover:bg-accent-hover disabled:opacity-40 disabled:cursor-not-allowed"
-            onClick={() => void handleOnboardingNext()}
-            disabled={!canGoNext() || onboardingRestarting}
-          >
-            {onboardingRestarting ? t("onboarding.restarting") : t("common.next")}
-          </button>
-        )}
+        {renderStep(onboardingStep)}
+        <div className="onboarding-game-actions flex gap-2 mt-8 justify-center">
+          {canGoBack && (
+            <button
+              className="onboarding-game-btn onboarding-game-btn--ghost px-6 py-2 text-sm cursor-pointer rounded-full"
+              onClick={handleBack}
+              disabled={onboardingRestarting}
+            >
+              {t("common.back")}
+            </button>
+          )}
+          {showPrimaryNext && (
+            <button
+              className="onboarding-game-btn onboarding-game-btn--primary px-6 py-2 text-sm cursor-pointer rounded-full disabled:opacity-40 disabled:cursor-not-allowed"
+              onClick={() => void handleOnboardingNext()}
+              disabled={!canGoNext() || onboardingRestarting}
+            >
+              {onboardingRestarting ? t("onboarding.restarting") : t("common.next")}
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
