@@ -538,7 +538,7 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "settings.language": "Language",
     "settings.languageHint": "Choose your UI language",
     "settings.languageEnglish": "English",
-    "settings.languageChineseSimplified": "简体中文",
+    "settings.languageChineseSimplified": "中",
     "settings.languageSaved": "Language updated.",
     "settings.languageSyncFailed":
       "Language changed locally, but cloud sync failed.",
@@ -1637,7 +1637,7 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "settings.language": "语言",
     "settings.languageHint": "选择界面语言",
     "settings.languageEnglish": "English",
-    "settings.languageChineseSimplified": "简体中文",
+    "settings.languageChineseSimplified": "中",
     "settings.languageSaved": "语言已更新。",
     "settings.languageSyncFailed": "语言已在本地切换，但云端同步失败。",
     "settings.aiModel": "AI 模型",
