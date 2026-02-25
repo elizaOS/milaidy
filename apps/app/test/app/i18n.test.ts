@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import fs from "node:fs";
+import path from "node:path";
 import {
   createTranslator,
   normalizeLanguage,
@@ -60,5 +62,66 @@ describe("i18n helpers", () => {
 
     expect(missingInZh).toEqual([]);
     expect(missingInEn).toEqual([]);
+  });
+
+  it("keeps production UI source files free of hardcoded Chinese text", () => {
+    const candidates = [
+      path.resolve(process.cwd(), "src"),
+      path.resolve(process.cwd(), "apps", "app", "src"),
+      path.resolve(__dirname, "..", "src"),
+    ];
+    const sourceDir =
+      candidates.find((candidate) => fs.existsSync(candidate)) ?? path.resolve(process.cwd(), "src");
+    const exclusions = [
+      path.join(sourceDir, "i18n", "messages.ts"),
+      path.join(sourceDir, "components", "BubbleEmote.tsx"),
+    ];
+
+    const hasChinese = /[\u4e00-\u9fff]/;
+    const filesWithChinese: string[] = [];
+
+    const visit = (dir: string) => {
+      const items = fs.readdirSync(dir, { withFileTypes: true });
+      for (const item of items) {
+        const itemPath = path.join(dir, item.name);
+
+        if (item.isDirectory()) {
+          if (item.name === "test" || item.name.startsWith(".")) {
+            continue;
+          }
+          visit(itemPath);
+          continue;
+        }
+
+        if (!item.isFile()) {
+          continue;
+        }
+
+        if (!/\.(ts|tsx|js|jsx)$/.test(item.name)) {
+          continue;
+        }
+
+        if (item.name.endsWith(".test.ts") || item.name.endsWith(".test.tsx")) {
+          continue;
+        }
+
+        if (exclusions.includes(itemPath)) {
+          continue;
+        }
+
+        const content = fs.readFileSync(itemPath, "utf8");
+        if (hasChinese.test(content)) {
+          const lines = content.split("\n");
+          const lineIndex = lines.findIndex((line) => hasChinese.test(line));
+          const snippet = lines[lineIndex]?.trim() ?? "";
+          const relative = path.relative(process.cwd(), itemPath);
+          filesWithChinese.push(`${relative}: L${lineIndex + 1}: ${snippet}`);
+        }
+      }
+    };
+
+    visit(sourceDir);
+
+    expect(filesWithChinese).toEqual([]);
   });
 });
