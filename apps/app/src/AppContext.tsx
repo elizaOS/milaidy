@@ -74,6 +74,7 @@ import {
   DEFAULT_UI_LANGUAGE,
   t as translateText,
   normalizeLanguage,
+  type TranslationVars,
   type UiLanguage,
 } from "./i18n";
 
@@ -954,6 +955,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [uiShellMode, setUiShellModeState] = useState<UiShellMode>(loadUiShellMode);
   const [currentTheme, setCurrentTheme] = useState<ThemeName>(loadTheme);
   const [uiLanguage, setUiLanguageState] = useState<UiLanguage>(loadUiLanguage);
+  const t = useCallback(
+    (key: string, vars?: TranslationVars) => translateText(uiLanguage, key, vars),
+    [uiLanguage],
+  );
   const [connected, setConnected] = useState(false);
   const [agentStatus, setAgentStatus] = useState<AgentStatus | null>(null);
   const [onboardingComplete, setOnboardingComplete] = useState(false);
@@ -2183,7 +2188,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const handleChatClear = useCallback(async () => {
     const convId = activeConversationId;
     if (!convId) {
-      setActionNotice("No active conversation to clear.", "info", 2200);
+      setActionNotice(t("appContext.notice.noActiveConversationToClear"), "info", 2200);
       return;
     }
     try {
@@ -2211,7 +2216,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           return next;
         });
         await loadConversations();
-        setActionNotice("Conversation was already cleared.", "info", 2600);
+        setActionNotice(t("appContext.notice.conversationAlreadyCleared"), "info", 2600);
         return;
       }
       setActionNotice(
@@ -2220,7 +2225,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         4200,
       );
     }
-  }, [activeConversationId, loadConversations, setActionNotice]);
+  }, [activeConversationId, loadConversations, setActionNotice, t]);
 
   const handleSelectConversation = useCallback(
     async (id: string) => {
@@ -2372,7 +2377,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     async (id: string, title: string) => {
       const trimmed = title.trim();
       if (!trimmed) {
-        setActionNotice("Conversation title cannot be empty.", "error", 2800);
+        setActionNotice(t("appContext.notice.conversationTitleEmpty"), "error", 2800);
         return;
       }
       try {
@@ -2400,7 +2405,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         );
       }
     },
-    [loadConversations, setActionNotice],
+    [loadConversations, setActionNotice, t],
   );
 
   // ── Pairing ────────────────────────────────────────────────────────
@@ -2574,12 +2579,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     async (skillId: string) => {
       try {
         await client.openSkill(skillId);
-        setActionNotice("Opening skill folder...", "success", 2000);
+        setActionNotice(t("appContext.notice.openingSkillFolder"), "success", 2000);
       } catch (err) {
         setActionNotice(`Failed to open: ${err instanceof Error ? err.message : "error"}`, "error", 4200);
       }
     },
-    [setActionNotice],
+    [setActionNotice, t],
   );
 
   const handleDeleteSkill = useCallback(
@@ -2701,13 +2706,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
       });
       setSkillsMarketplaceManualGithubUrl("");
       await refreshSkills();
-      setActionNotice("Skill installed from GitHub URL.", "success");
+      setActionNotice(t("appContext.notice.skillInstalledFromGithubUrl"), "success");
     } catch (err) {
       setActionNotice(`GitHub install failed: ${err instanceof Error ? err.message : "unknown error"}`, "error", 4200);
     } finally {
       setSkillsMarketplaceAction("");
     }
-  }, [skillsMarketplaceManualGithubUrl, refreshSkills, setActionNotice]);
+  }, [skillsMarketplaceManualGithubUrl, refreshSkills, setActionNotice, t]);
 
   const uninstallMarketplaceSkill = useCallback(
     async (skillId: string, name: string) => {
@@ -2739,7 +2744,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         await client.restartAgent();
         await loadWalletConfig();
         await loadBalances();
-        setActionNotice("Wallet API keys saved and agent restarted.", "success");
+        setActionNotice(t("appContext.notice.walletApiKeysSavedAndRestarted"), "success");
       } catch (err) {
         setWalletError(`Failed to save API keys: ${err instanceof Error ? err.message : "network error"}`);
       } finally {
@@ -2747,7 +2752,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setWalletApiKeySaving(false);
       }
     },
-    [walletApiKeySaving, loadWalletConfig, loadBalances, setActionNotice],
+    [walletApiKeySaving, loadWalletConfig, loadBalances, setActionNotice, t],
   );
 
   const handleExportKeys = useCallback(async () => {
@@ -3285,7 +3290,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             // background poll which may race with the config save.
             setCloudConnected(true);
             setCloudEnabled(true);
-            setActionNotice("Logged in to Eliza Cloud successfully.", "success", 6000);
+            setActionNotice(t("appContext.notice.cloudLoginSuccess"), "success", 6000);
             await ensureManagedWallets();
             void loadInventory();
             // Delay the credit fetch slightly so the backend has time to
@@ -3306,7 +3311,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       cloudLoginBusyRef.current = false;
       setCloudLoginBusy(false);
     }
-  }, [cloudLoginBusy, setActionNotice, pollCloudCredits, ensureManagedWallets, loadInventory]);
+  }, [cloudLoginBusy, setActionNotice, pollCloudCredits, ensureManagedWallets, loadInventory, t]);
 
   const handleCloudDisconnect = useCallback(async () => {
     if (!confirm("Disconnect from Eliza Cloud? The agent will need a local AI provider to continue working."))
@@ -3317,13 +3322,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setCloudConnected(false);
       setCloudCredits(null);
       setCloudUserId(null);
-      setActionNotice("Disconnected from Eliza Cloud.", "success");
+      setActionNotice(t("appContext.notice.cloudDisconnected"), "success");
     } catch (err) {
       setActionNotice(`Disconnect failed: ${err instanceof Error ? err.message : "error"}`, "error");
     } finally {
       setCloudDisconnecting(false);
     }
-  }, [setActionNotice]);
+  }, [setActionNotice, t]);
 
   // ── Updates ────────────────────────────────────────────────────────
 

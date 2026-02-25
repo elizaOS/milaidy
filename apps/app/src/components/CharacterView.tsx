@@ -16,6 +16,7 @@ import { AvatarSelector } from "./AvatarSelector";
 import { ConfigRenderer, defaultRegistry } from "./config-renderer";
 import type { ConfigUiHint } from "../types";
 import type { JsonSchemaObject } from "./config-catalog";
+import { createTranslator } from "../i18n";
 
 const DEFAULT_ELEVEN_FAST_MODEL = "eleven_flash_v2_5";
 
@@ -26,11 +27,13 @@ function TagEditor({
   items,
   onChange,
   placeholder = "add item...",
+  addLabel = "add",
 }: {
   label: string;
   items: string[];
   onChange: (items: string[]) => void;
   placeholder?: string;
+  addLabel?: string;
 }) {
   const [inputValue, setInputValue] = useState("");
 
@@ -70,7 +73,7 @@ function TagEditor({
           className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 border border-white/20 rounded-none cursor-pointer hover:bg-white/5 hover:text-[#d4af37] hover:border-[#d4af37] transition-colors"
           onClick={addItem}
         >
-          + add
+          + {addLabel}
         </button>
       </div>
       <div className="flex-1 min-h-0 overflow-y-auto char-subpanel flex flex-wrap gap-1.5 content-start">
@@ -285,7 +288,9 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
     loadDropStatus,
     mintFromDrop,
     walletConfig,
+    uiLanguage,
   } = useApp();
+  const t = createTranslator(uiLanguage);
 
   useEffect(() => {
     void loadCharacter();
@@ -332,10 +337,10 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${(d.name ?? "character").toLowerCase().replace(/\s+/g, "-")}.character.json`;
+    a.download = `${(d.name ?? t("character.defaultAgentName")).toLowerCase().replace(/\s+/g, "-")}.character.json`;
     a.click();
     URL.revokeObjectURL(url);
-  }, [characterDraft]);
+  }, [characterDraft, t]);
 
   const handleImport = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -391,12 +396,12 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
         const postExamples = readStringArray(parsed.postExamples);
         if (postExamples) handleCharacterFieldInput("postExamples", postExamples);
       } catch {
-        alert("invalid json file");
+        alert(t("character.invalidJson"));
       }
     };
     reader.readAsText(file);
     e.target.value = "";
-  }, [handleCharacterFieldInput, handleCharacterStyleInput]);
+  }, [handleCharacterFieldInput, handleCharacterStyleInput, t]);
 
   /* ── Character generation state ─────────────────────────────────── */
   const [generating, setGenerating] = useState<string | null>(null);
@@ -520,10 +525,10 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
       setVoiceSaveSuccess(true);
       setTimeout(() => setVoiceSaveSuccess(false), 2500);
     } catch (err) {
-      setVoiceSaveError(err instanceof Error ? err.message : "Failed to save — is the agent running?");
+      setVoiceSaveError(err instanceof Error ? err.message : t("character.voiceSaveFailed"));
     }
     setVoiceSaving(false);
-  }, [voiceConfig, DEFAULT_ELEVEN_FAST_MODEL]);
+  }, [voiceConfig, DEFAULT_ELEVEN_FAST_MODEL, t]);
 
   const d = characterDraft;
   const bioText = typeof d.bio === "string" ? d.bio : Array.isArray(d.bio) ? d.bio.join("\n") : "";
@@ -614,7 +619,7 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
     return (
       <div className={sectionCls}>
         <div className="text-center py-6 text-[var(--muted)] text-[13px]">
-          loading character data...
+          {t("character.loading")}
         </div>
       </div>
     );
@@ -643,7 +648,7 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
                   : "text-white/40 hover:text-white/80"
                   }`}
               >
-                {tab}
+                {t(`character.nav.${tab}`)}
                 {isActive && (
                   <div className="absolute bottom-[-1px] left-0 right-0 h-[3px] bg-[#d4af37] shadow-[0_0_15px_rgba(212,175,55,0.8)]" />
                 )}
@@ -666,7 +671,7 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
             onClick={() => void handleSaveCharacter()}
             style={{ backgroundColor: 'transparent', color: '#d4af37' }}
           >
-            {characterSaving ? "saving..." : "SAVE ONLINE"}
+            {characterSaving ? t("character.saving") : t("character.saveOnline")}
           </button>
         </div>
       </div>
@@ -682,7 +687,7 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
                 {!isRegistered && !dropLive && (
                   <div className="flex flex-col gap-3">
                     <div className="text-[12px] text-[var(--muted)]">
-                      Register your agent on Ethereum mainnet to claim your ERC-8004 identity NFT.
+                      {t("character.onchainRegisterHint")}
                     </div>
                     <div className="flex items-center gap-2">
                       <button
@@ -690,7 +695,7 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
                         disabled={registryRegistering || registryLoading}
                         onClick={() => void registerOnChain()}
                       >
-                        {registryRegistering ? "registering..." : "register now"}
+                        {registryRegistering ? t("character.registering") : t("character.registerNow")}
                       </button>
                       {registryError && (
                         <span className="text-xs text-[var(--danger,#e74c3c)]">{registryError}</span>
@@ -702,13 +707,13 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
                 {hasWallet && !isRegistered && dropLive && !userMinted && (
                   <div className="flex flex-col gap-3">
                     <div className="flex items-center gap-2 px-3 py-2 border border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_8%,transparent)]">
-                      <span className="text-xs font-bold text-[var(--accent)]">MINT IS LIVE</span>
+                      <span className="text-xs font-bold text-[var(--accent)]">{t("character.mintLive")}</span>
                       <span className="text-[11px] text-[var(--muted)]">
                         MiladyMaker #{(dropStatus?.currentSupply ?? 0) + 1} of {dropStatus?.maxSupply ?? 2138}
                       </span>
                     </div>
                     <div className="text-[12px] text-[var(--muted)]">
-                      Claim your limited-edition Milady Agent NFT. {dropStatus?.maxSupply ?? 2138} total.
+                      {t("character.claimNftHint")} {dropStatus?.maxSupply ?? 2138} total.
                       {" "}{(dropStatus?.maxSupply ?? 2138) - (dropStatus?.currentSupply ?? 0)} remaining.
                     </div>
                     <div className="flex items-center gap-2">
@@ -717,14 +722,14 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
                         disabled={mintInProgress}
                         onClick={() => void mintFromDrop(false)}
                       >
-                        {mintInProgress && !mintShiny ? "minting..." : "free mint"}
+                        {mintInProgress && !mintShiny ? t("character.minting") : t("character.freeMint")}
                       </button>
                       <button
                         className="btn text-xs py-[5px] px-4 !mt-0"
                         disabled={mintInProgress}
                         onClick={() => void mintFromDrop(true)}
                       >
-                        {mintInProgress && mintShiny ? "minting..." : "shiny mint (0.1 ETH)"}
+                        {mintInProgress && mintShiny ? t("character.minting") : t("character.shinyMint")}
                       </button>
                     </div>
                     {mintError && (
@@ -732,14 +737,14 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
                     )}
                     {mintResult && (
                       <div className="text-xs text-[var(--ok,#16a34a)]">
-                        Minted! Token #{mintResult.agentId} | MiladyMaker #{mintResult.mintNumber}
-                        {mintResult.isShiny && " (shiny)"}
+                        {t("character.minted")} Token #{mintResult.agentId} | MiladyMaker #{mintResult.mintNumber}
+                        {mintResult.isShiny && ` (${t("character.shiny")})`}
                         {" "}<a
                           href={`https://etherscan.io/tx/${mintResult.txHash}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="underline text-[var(--accent)]"
-                        >view tx</a>
+                        >{t("character.viewTx")}</a>
                       </div>
                     )}
                   </div>
@@ -752,7 +757,7 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
                   return (
                     <div className="flex flex-col gap-2">
                       <div className="flex items-center gap-2 text-[12px]">
-                        <span className="text-[var(--ok,#16a34a)] font-semibold">Registered</span>
+                        <span className="text-[var(--ok,#16a34a)] font-semibold">{t("character.registered")}</span>
                         <span className="text-[var(--muted)]">|</span>
                         <span>Token #{registryStatus.tokenId}</span>
                         <span className="text-[var(--muted)]">|</span>
@@ -761,14 +766,14 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
                       {nameOutOfSync && (
                         <div className="flex items-center gap-2">
                           <span className="text-[11px] text-[var(--warn,#f59e0b)]">
-                            On-chain name "{onChainName}" differs from "{currentName}"
+                            {t("character.onchainMismatch")} "{onChainName}" / "{currentName}"
                           </span>
                           <button
                             className="text-[10px] px-2 py-0.5 border border-[var(--accent)] text-[var(--accent)] bg-transparent cursor-pointer hover:bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] transition-colors"
                             disabled={registryRegistering}
                             onClick={() => void syncRegistryProfile()}
                           >
-                            {registryRegistering ? "syncing..." : "sync to chain"}
+                            {registryRegistering ? t("character.syncing") : t("character.syncToChain")}
                           </button>
                         </div>
                       )}
@@ -780,14 +785,14 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-[11px] underline text-[var(--accent)]"
-                      >view on etherscan</a>
+                      >{t("character.viewOnEtherscan")}</a>
                     </div>
                   );
                 })()}
 
                 {hasWallet && userMinted && !isRegistered && (
                   <div className="text-[12px] text-[var(--ok,#16a34a)]">
-                    Minted from collection! Waiting for confirmation...
+                    {t("character.waitingConfirmation")}
                   </div>
                 )}
               </div>
@@ -799,7 +804,7 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
               <div className="flex items-center justify-between mb-6">
                 <div className="font-semibold text-lg tracking-wide flex items-center gap-3">
                   <div className="w-1.5 h-1.5 rounded-full bg-[var(--accent)] shadow-[0_0_8px_var(--accent)]" />
-                  Identity & Personality
+                  {t("character.section.identity")}
                 </div>
                 <div className="flex items-center gap-1.5">
                   <button
@@ -807,23 +812,23 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
                     onClick={() => void loadCharacter()}
                     disabled={characterLoading}
                   >
-                    {characterLoading ? "loading..." : "reload"}
+                    {characterLoading ? t("common.loading") : t("character.reload")}
                   </button>
                   <button
                     className={tinyBtnCls}
                     onClick={() => fileInputRef.current?.click()}
-                    title="import character.json"
+                    title={t("character.import")}
                     type="button"
                   >
-                    import
+                    {t("character.import")}
                   </button>
                   <button
                     className={tinyBtnCls}
                     onClick={handleExport}
-                    title="export as character.json"
+                    title={t("character.export")}
                     type="button"
                   >
-                    export
+                    {t("character.export")}
                   </button>
                 </div>
               </div>
@@ -831,23 +836,23 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
               <div className="flex flex-col gap-4">
                 {/* Name */}
                 <div className="flex flex-col gap-1">
-                  <label className={labelCls}>name</label>
+                  <label className={labelCls}>{t("character.name")}</label>
                   <div className="flex items-center gap-2 max-w-[280px]">
                     <input
                       type="text"
                       value={d.name ?? ""}
                       maxLength={50}
-                      placeholder="agent name"
+                      placeholder={t("character.namePlaceholder")}
                       onChange={(e) => handleFieldEdit("name", e.target.value)}
                       className={inputCls + " flex-1 text-[13px]"}
                     />
                     <button
                       className={tinyBtnCls}
                       onClick={() => void handleRandomName()}
-                      title="random name"
+                      title={t("character.random")}
                       type="button"
                     >
-                      random
+                      {t("character.random")}
                     </button>
                   </div>
                 </div>
@@ -855,7 +860,7 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
                 {/* Avatar full-width row (Hidden in Gamified Modal) */}
                 {!inModal && (
                   <div className="flex flex-col gap-1 w-full">
-                    <label className={labelCls}>avatar</label>
+                    <label className={labelCls}>{t("character.avatar")}</label>
                     <div className="w-full">
                       <AvatarSelector
                         selected={selectedVrmIndex}
@@ -876,56 +881,58 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
                 <div className="mt-1 grid grid-cols-1 md:grid-cols-[1.2fr_1fr_1fr] gap-4">
                   <div className="flex flex-col gap-1 h-[220px] char-subpanel">
                     <div className="flex items-center justify-between">
-                      <label className={labelCls}>about me</label>
+                      <label className={labelCls}>{t("character.aboutMe")}</label>
                       <button
                         className={tinyBtnCls}
                         onClick={() => void handleGenerate("bio")}
                         disabled={generating === "bio"}
                         type="button"
                       >
-                        {generating === "bio" ? "generating..." : "regenerate"}
+                        {generating === "bio" ? t("character.generating") : t("character.regenerate")}
                       </button>
                     </div>
                     <textarea
                       value={bioText}
                       rows={4}
-                      placeholder="describe who your agent is. personality, background, how they see the world."
+                      placeholder={t("character.bioPlaceholder")}
                       onChange={(e) => handleFieldEdit("bio", e.target.value)}
                       className={textareaCls + " flex-1 min-h-0"}
                     />
                   </div>
                   <TagEditor
-                    label="adjectives"
+                    label={t("character.adjectives")}
                     items={d.adjectives ?? []}
                     onChange={(items) => handleCharacterArrayInput("adjectives", items.join("\n"))}
-                    placeholder="add adjective..."
+                    placeholder={t("character.addAdjective")}
+                    addLabel={t("common.add")}
                   />
                   <TagEditor
-                    label="topics"
+                    label={t("character.topics")}
                     items={d.topics ?? []}
                     onChange={(items) => handleCharacterArrayInput("topics", items.join("\n"))}
-                    placeholder="add topic..."
+                    placeholder={t("character.addTopic")}
+                    addLabel={t("common.add")}
                   />
                 </div>
 
                 {/* System prompt below */}
                 <div className="flex flex-col gap-1">
                   <div className="flex items-center justify-between">
-                    <label className={labelCls}>directions and things i should know</label>
+                    <label className={labelCls}>{t("character.systemPrompt")}</label>
                     <button
                       className={tinyBtnCls}
                       onClick={() => void handleGenerate("system")}
                       disabled={generating === "system"}
                       type="button"
                     >
-                      {generating === "system" ? "generating..." : "regenerate"}
+                      {generating === "system" ? t("character.generating") : t("character.regenerate")}
                     </button>
                   </div>
                   <textarea
                     value={d.system ?? ""}
                     rows={5}
                     maxLength={10000}
-                    placeholder="write in first person. this is who they are, not instructions about them."
+                    placeholder={t("character.systemPlaceholder")}
                     onChange={(e) => handleFieldEdit("system", e.target.value)}
                     className={textareaCls + " font-[var(--mono)]"}
                   />
@@ -943,9 +950,9 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
                 <div className="flex items-center gap-3">
                   <div className="font-semibold text-lg tracking-wide flex items-center gap-3">
                     <div className="w-1.5 h-1.5 rounded-full bg-[var(--accent)] shadow-[0_0_8px_var(--accent)]" />
-                    Style Rules
+                    {t("character.section.style")}
                   </div>
-                  <span className="font-normal text-[11px] text-[var(--muted)] mt-1 tracking-wider uppercase">— Communication Guidelines</span>
+                  <span className="font-normal text-[11px] text-[var(--muted)] mt-1 tracking-wider uppercase">— {t("character.section.styleSub")}</span>
                 </div>
                 <button
                   className={tinyBtnCls}
@@ -953,7 +960,7 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
                   disabled={generating === "style"}
                   type="button"
                 >
-                  {generating === "style" ? "generating..." : "regenerate"}
+                  {generating === "style" ? t("character.generating") : t("character.regenerate")}
                 </button>
               </div>
 
@@ -966,7 +973,7 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
                       <textarea
                         value={val}
                         rows={3}
-                        placeholder={`${key} style rules, one per line`}
+                        placeholder={t("character.stylePlaceholder", { key })}
                         onChange={(e) => handleStyleEdit(key, e.target.value)}
                         className={textareaCls}
                       />
@@ -986,9 +993,9 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
                 <div className="flex items-center gap-3">
                   <div className="font-semibold text-lg tracking-wide flex items-center gap-3">
                     <div className="w-1.5 h-1.5 rounded-full bg-[var(--accent)] shadow-[0_0_8px_var(--accent)]" />
-                    Message Examples
+                    {t("character.section.messages")}
                   </div>
-                  <span className="font-normal text-[11px] text-[var(--muted)] mt-1 tracking-wider uppercase">— Conversation Patterns</span>
+                  <span className="font-normal text-[11px] text-[var(--muted)] mt-1 tracking-wider uppercase">— {t("character.section.messagesSub")}</span>
                 </div>
                 <button
                   className={tinyBtnCls}
@@ -996,7 +1003,7 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
                   disabled={generating === "chatExamples"}
                   type="button"
                 >
-                  {generating === "chatExamples" ? "generating..." : "generate"}
+                  {generating === "chatExamples" ? t("character.generating") : t("character.generate")}
                 </button>
               </div>
 
@@ -1005,14 +1012,14 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
                 <details className="group">
                   <summary className="flex items-center gap-1.5 cursor-pointer select-none text-xs font-semibold list-none [&::-webkit-details-marker]:hidden">
                     <span className="inline-block transition-transform group-open:rotate-90 text-[var(--accent)]">&#9654;</span>
-                    <span className="uppercase tracking-wider">Chat Examples</span>
-                    <span className="font-normal text-[var(--muted)] ml-2 italic">— How the Agent Responds</span>
+                    <span className="uppercase tracking-wider">{t("character.chatExamples")}</span>
+                    <span className="font-normal text-[var(--muted)] ml-2 italic">— {t("character.chatExamplesSub")}</span>
                   </summary>
                   <div className="flex flex-col gap-2 mt-3">
                     {(d.messageExamples ?? []).map((convo, ci) => (
                       <div key={ci} className="p-2.5 char-subpanel">
                         <div className="flex items-center justify-between mb-1.5">
-                          <span className="text-[10px] text-[var(--muted)] font-semibold">conversation {ci + 1}</span>
+                          <span className="text-[10px] text-[var(--muted)] font-semibold">{t("character.conversation")} {ci + 1}</span>
                           <button
                             className="text-[10px] text-[var(--muted)] hover:text-[var(--danger,#e74c3c)] cursor-pointer"
                             onClick={() => {
@@ -1022,13 +1029,13 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
                             }}
                             type="button"
                           >
-                            remove
+                            {t("character.remove")}
                           </button>
                         </div>
                         {convo.examples.map((msg, mi) => (
                           <div key={mi} className="flex gap-2 mb-1 last:mb-0">
                             <span className={`text-[10px] font-semibold shrink-0 w-16 pt-0.5 ${msg.name === "{{user1}}" ? "text-[var(--muted)]" : "text-[var(--accent)]"}`}>
-                              {msg.name === "{{user1}}" ? "user" : "agent"}
+                              {msg.name === "{{user1}}" ? t("character.user") : t("character.agent")}
                             </span>
                             <input
                               type="text"
@@ -1047,7 +1054,7 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
                       </div>
                     ))}
                     {(d.messageExamples ?? []).length === 0 && (
-                      <div className={hintCls + " py-2"}>no chat examples yet. click generate to create some.</div>
+                      <div className={hintCls + " py-2"}>{t("character.noChatExamples")}</div>
                     )}
                   </div>
                 </details>
@@ -1056,15 +1063,15 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
                 <details className="group">
                   <summary className="flex items-center gap-1.5 cursor-pointer select-none text-xs font-semibold list-none [&::-webkit-details-marker]:hidden border-t border-white/5 pt-4 mt-2">
                     <span className="inline-block transition-transform group-open:rotate-90 text-[var(--accent)]">&#9654;</span>
-                    <span className="uppercase tracking-wider">Post Examples</span>
-                    <span className="font-normal text-[var(--muted)] ml-2 italic">— Social Media Voice</span>
+                    <span className="uppercase tracking-wider">{t("character.postExamples")}</span>
+                    <span className="font-normal text-[var(--muted)] ml-2 italic">— {t("character.postExamplesSub")}</span>
                     <button
                       className={tinyBtnCls + " ml-auto"}
                       onClick={(e) => { e.preventDefault(); void handleGenerate("postExamples", "replace"); }}
                       disabled={generating === "postExamples"}
                       type="button"
                     >
-                      {generating === "postExamples" ? "generating..." : "generate"}
+                      {generating === "postExamples" ? t("character.generating") : t("character.generate")}
                     </button>
                   </summary>
                   <div className="flex flex-col gap-1.5 mt-3">
@@ -1094,7 +1101,7 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
                       </div>
                     ))}
                     {(d.postExamples ?? []).length === 0 && (
-                      <div className={hintCls + " py-2"}>no post examples yet. click generate to create some.</div>
+                      <div className={hintCls + " py-2"}>{t("character.noPostExamples")}</div>
                     )}
                     <button
                       className="text-[11px] text-[var(--muted)] hover:text-[var(--accent)] cursor-pointer self-start mt-0.5"
@@ -1104,7 +1111,7 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
                       }}
                       type="button"
                     >
-                      + add post
+                      {t("character.addPost")}
                     </button>
                   </div>
                 </details>
@@ -1121,21 +1128,21 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
               <div className="flex items-center gap-3 mb-6">
                 <div className="font-semibold text-lg tracking-wide flex items-center gap-3">
                   <div className="w-1.5 h-1.5 rounded-full bg-[var(--accent)] shadow-[0_0_8px_var(--accent)]" />
-                  Vocal Parameters
+                  {t("character.section.voice")}
                 </div>
-                <span className="font-normal text-[11px] text-[var(--muted)] mt-1 tracking-wider uppercase">— TTS Synthesis</span>
+                <span className="font-normal text-[11px] text-[var(--muted)] mt-1 tracking-wider uppercase">— {t("character.section.voiceSub")}</span>
               </div>
 
               {voiceLoading ? (
-                <div className="text-center py-4 text-[var(--muted)] text-[13px]">Loading voice config...</div>
+                <div className="text-center py-4 text-[var(--muted)] text-[13px]">{t("character.loadingVoiceConfig")}</div>
               ) : (
                 <div className="flex flex-col gap-4">
                   <div className="text-xs text-[var(--muted)]">
-                    Choose the speaking voice here. Provider and TTS/STT backend setup is in Settings.
+                    {t("character.voiceHint")}
                   </div>
 
                   <div className="flex flex-col gap-1">
-                    <label className={labelCls}>voice</label>
+                    <label className={labelCls}>{t("character.voice")}</label>
                     <div className="flex items-center gap-2">
                       <ThemedSelect
                         value={selectedPresetId === "custom" ? "__custom__" : (selectedPresetId ?? null)}
@@ -1160,7 +1167,7 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
                           },
                           {
                             label: "Other",
-                            items: [{ id: "__custom__", text: "Custom voice ID..." }],
+                            items: [{ id: "__custom__", text: t("character.voiceIdPlaceholder") }],
                           },
                         ]}
                         onChange={(id) => {
@@ -1171,7 +1178,7 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
                             if (preset) handleSelectPreset(preset);
                           }
                         }}
-                        placeholder="select a voice..."
+                        placeholder={t("character.selectVoice")}
                       />
                       {(() => {
                         const activePreset = VOICE_PRESETS.find((p) => p.id === selectedPresetId);
@@ -1182,7 +1189,7 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
                             onClick={handleStopTest}
                             type="button"
                           >
-                            stop
+                            {t("character.stop")}
                           </button>
                         ) : (
                           <button
@@ -1190,7 +1197,7 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
                             onClick={() => handleTestVoice(activePreset.previewUrl)}
                             type="button"
                           >
-                            preview
+                            {t("character.preview")}
                           </button>
                         );
                       })()}
@@ -1199,11 +1206,11 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
 
                   {selectedPresetId === "custom" && (
                     <div className="flex flex-col gap-1">
-                      <label className={labelCls}>voice ID</label>
+                      <label className={labelCls}>{t("character.voiceId")}</label>
                       <input
                         type="text"
                         value={voiceConfig.elevenlabs?.voiceId ?? ""}
-                        placeholder="paste ElevenLabs voice ID"
+                        placeholder={t("character.voiceIdPlaceholder")}
                         onChange={(e) => handleVoiceFieldChange("voiceId", e.target.value)}
                         className={inputCls + " w-full font-[var(--mono)] text-[13px]"}
                       />
@@ -1213,7 +1220,7 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
                   <details className="group">
                     <summary className="flex items-center gap-1.5 cursor-pointer select-none text-xs font-semibold list-none [&::-webkit-details-marker]:hidden">
                       <span className="inline-block transition-transform group-open:rotate-90">&#9654;</span>
-                      advanced voice settings
+                      {t("character.advancedVoiceSettings")}
                     </summary>
                     <div className="mt-3">
                       <ConfigRenderer
@@ -1261,7 +1268,7 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
                       onClick={() => void handleVoiceSave()}
                       disabled={voiceSaving}
                     >
-                      {voiceSaving ? "saving..." : voiceSaveSuccess ? "saved" : "save voice"}
+                      {voiceSaving ? t("character.saving") : voiceSaveSuccess ? t("character.saved") : t("character.saveVoice")}
                     </button>
                     {voiceSaveError && (
                       <span className="text-xs text-[var(--danger,#e74c3c)]">{voiceSaveError}</span>

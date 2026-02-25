@@ -4,6 +4,7 @@ import {
   normalizeLanguage,
   t,
 } from "../../src/i18n";
+import { MESSAGES } from "../../src/i18n/messages";
 
 describe("i18n helpers", () => {
   it("normalizes supported language tags", () => {
@@ -33,5 +34,31 @@ describe("i18n helpers", () => {
     const zh = createTranslator("zh-CN");
     expect(zh("nav.wallets")).toBe("钱包");
   });
-});
 
+  it("keeps locale keys in sync between en and zh-CN", () => {
+    const collectKeys = (obj: Record<string, string>): string[] => {
+      return Object.keys(obj);
+    };
+
+    const enKeys = new Set(collectKeys(MESSAGES.en));
+    const zhKeys = new Set(collectKeys(MESSAGES["zh-CN"]));
+
+    const missingInZh: string[] = [];
+    const missingInEn: string[] = [];
+
+    enKeys.forEach((key) => {
+      if (!zhKeys.has(key)) {
+        missingInZh.push(key);
+      }
+    });
+
+    zhKeys.forEach((key) => {
+      if (!enKeys.has(key)) {
+        missingInEn.push(key);
+      }
+    });
+
+    expect(missingInZh).toEqual([]);
+    expect(missingInEn).toEqual([]);
+  });
+});

@@ -42,6 +42,27 @@ function formatPercent(value: number | null): string {
   return `${value.toFixed(1)}%`;
 }
 
+function formatTradeSide(side: "buy" | "sell", t: (key: string, vars?: TranslationVars) => string): string {
+  return side === "buy" ? t("wallet.buy") : t("wallet.sell");
+}
+
+function formatTxStatus(
+  status: "pending" | "success" | "reverted" | "not_found",
+  t: (key: string, vars?: TranslationVars) => string,
+): string {
+  if (status === "success") return t("wallet.txStatus.success");
+  if (status === "reverted") return t("wallet.txStatus.reverted");
+  if (status === "not_found") return t("wallet.txStatus.notFound");
+  return t("wallet.txStatus.pending");
+}
+
+function formatProfileSource(
+  source: "agent" | "manual",
+  t: (key: string, vars?: TranslationVars) => string,
+): string {
+  return source === "agent" ? t("wallet.profile.sourceAgent") : t("wallet.profile.sourceManual");
+}
+
 export function WalletTradingProfileModal({
   open,
   loading,
@@ -215,7 +236,7 @@ export function WalletTradingProfileModal({
                     <div className="anime-wallet-profile-recent-row" key={swap.hash}>
                       <div className="anime-wallet-profile-recent-main">
                         <span className={`anime-wallet-recent-side is-${swap.side}`}>
-                          {swap.side.toUpperCase()}
+                          {formatTradeSide(swap.side, t)}
                         </span>
                         <div className="anime-wallet-recent-meta">
                           <span>{swap.inputAmount} {swap.inputSymbol} {"->"} {swap.outputAmount} {swap.outputSymbol}</span>
@@ -223,8 +244,10 @@ export function WalletTradingProfileModal({
                         </div>
                       </div>
                       <div className="anime-wallet-profile-recent-actions">
-                        <span className={`anime-wallet-tx-pill is-${swap.status}`}>{swap.status}</span>
-                        <span className={`anime-wallet-profile-source is-${swap.source}`}>{swap.source.toUpperCase()}</span>
+                        <span className={`anime-wallet-tx-pill is-${swap.status}`}>{formatTxStatus(swap.status, t)}</span>
+                        <span className={`anime-wallet-profile-source is-${swap.source}`}>
+                          {formatProfileSource(swap.source, t)}
+                        </span>
                         <a
                           href={swap.explorerUrl}
                           target="_blank"

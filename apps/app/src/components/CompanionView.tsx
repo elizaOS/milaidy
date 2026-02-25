@@ -2242,7 +2242,7 @@ export function CompanionView() {
                   aria-pressed={uiLanguage === "zh-CN"}
                   data-testid="companion-language-zh"
                 >
-                  中
+                  {t("settings.languageChineseSimplified")}
                 </button>
               </div>
             </div>

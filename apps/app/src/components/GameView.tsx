@@ -5,6 +5,7 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { client } from "../api-client";
 import { useApp } from "../AppContext";
+import { createTranslator } from "../i18n";
 
 const DEFAULT_VIEWER_SANDBOX = "allow-scripts allow-same-origin allow-popups";
 const READY_EVENT_BY_AUTH_TYPE: Record<string, string> = {
@@ -26,9 +27,11 @@ export function GameView() {
     activeGameSandbox,
     activeGamePostMessageAuth,
     activeGamePostMessagePayload,
+    uiLanguage,
     setState,
     setActionNotice,
   } = useApp();
+  const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
   const [stopping, setStopping] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const authSentRef = useRef(false);
@@ -70,7 +73,7 @@ export function GameView() {
       }
       iframeWindow.postMessage(activeGamePostMessagePayload, postMessageTargetOrigin);
       authSentRef.current = true;
-      setActionNotice("Viewer auth sent.", "info", 1800);
+      setActionNotice(t("game.notice.viewerAuthSent"), "info", 1800);
     };
 
     window.addEventListener("message", onMessage);
@@ -82,14 +85,15 @@ export function GameView() {
     activeGamePostMessagePayload,
     postMessageTargetOrigin,
     setActionNotice,
+    t,
   ]);
 
   const handleOpenInNewTab = useCallback(() => {
     const popup = window.open(activeGameViewerUrl, "_blank", "noopener,noreferrer");
     if (!popup) {
-      setActionNotice("Popup blocked. Allow popups and try again.", "error", 3600);
+      setActionNotice(t("apps.notice.popupBlocked"), "error", 3600);
     }
-  }, [activeGameViewerUrl, setActionNotice]);
+  }, [activeGameViewerUrl, setActionNotice, t]);
 
   const handleStop = useCallback(async () => {
     if (!activeGameApp) return;
@@ -104,16 +108,21 @@ export function GameView() {
         stopResult.needsRestart ? 5000 : 3200,
       );
     } catch (err) {
-      setActionNotice(`Failed to stop: ${err instanceof Error ? err.message : "error"}`, "error");
+      setActionNotice(
+        t("game.notice.failedStop", {
+          error: err instanceof Error ? err.message : "error",
+        }),
+        "error",
+      );
     } finally {
       setStopping(false);
     }
-  }, [activeGameApp, resetActiveGameState, setState, setActionNotice]);
+  }, [activeGameApp, resetActiveGameState, setState, setActionNotice, t]);
 
   if (!activeGameViewerUrl) {
     return (
       <div className="flex items-center justify-center py-10 text-muted italic">
-        No active game session.{" "}
+        {t("game.empty.noActiveSession")}{" "}
         <button
           onClick={() => {
             setState("tab", "apps");
@@ -121,7 +130,7 @@ export function GameView() {
           }}
           className="text-xs px-3 py-1 bg-accent text-accent-fg border border-accent cursor-pointer hover:bg-accent-hover disabled:opacity-40 ml-2"
         >
-          Back to Apps
+          {t("game.empty.backToApps")}
         </button>
       </div>
     );
@@ -133,7 +142,7 @@ export function GameView() {
         <span className="font-bold text-sm">{activeGameDisplayName || activeGameApp}</span>
         {activeGamePostMessageAuth ? (
           <span className="text-[10px] px-1.5 py-0.5 border border-border text-muted">
-            postMessage auth
+            {t("game.badge.postMessageAuth")}
           </span>
         ) : null}
         <span className="flex-1" />
@@ -141,14 +150,14 @@ export function GameView() {
           className="text-xs px-3 py-1 bg-accent text-accent-fg border border-accent cursor-pointer hover:bg-accent-hover disabled:opacity-40"
           onClick={handleOpenInNewTab}
         >
-          Open in New Tab
+          {t("game.action.openInNewTab")}
         </button>
         <button
           className="text-xs px-3 py-1 bg-accent text-accent-fg border border-accent cursor-pointer hover:bg-accent-hover disabled:opacity-40"
           disabled={stopping}
           onClick={handleStop}
         >
-          {stopping ? "Stopping..." : "Stop"}
+          {stopping ? t("game.action.stopping") : t("game.action.stop")}
         </button>
         <button
           className="text-xs px-3 py-1 bg-accent text-accent-fg border border-accent cursor-pointer hover:bg-accent-hover disabled:opacity-40"
@@ -157,7 +166,7 @@ export function GameView() {
             setState("appsSubTab", "browse");
           }}
         >
-          Back to Apps
+          {t("game.empty.backToApps")}
         </button>
       </div>
       <div className="flex-1 min-h-0 relative">
@@ -166,7 +175,7 @@ export function GameView() {
           src={activeGameViewerUrl}
           sandbox={activeGameSandbox}
           className="w-full h-full border-none"
-          title={activeGameDisplayName || "Game"}
+          title={activeGameDisplayName || t("game.title.fallback")}
         />
       </div>
     </div>

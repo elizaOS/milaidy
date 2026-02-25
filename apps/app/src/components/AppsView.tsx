@@ -16,6 +16,7 @@ import {
   type RegistryAppInfo,
 } from "../api-client";
 import { useApp } from "../AppContext";
+import { createTranslator } from "../i18n";
 
 const DEFAULT_VIEWER_SANDBOX = "allow-scripts allow-same-origin allow-popups";
 const HYPERSCAPE_APP_NAME = "@elizaos/app-hyperscape";
@@ -30,22 +31,19 @@ const HYPERSCAPE_COMMAND_OPTIONS = [
   "use",
   "stop",
 ] as const;
-const HYPERSCAPE_SCRIPTED_ROLE_OPTIONS: Array<{
-  value: HyperscapeScriptedRole;
-  label: string;
-}> = [
-  { value: "balanced", label: "Balanced" },
-  { value: "combat", label: "Combat" },
-  { value: "woodcutting", label: "Woodcutting" },
-  { value: "fishing", label: "Fishing" },
-  { value: "mining", label: "Mining" },
+const HYPERSCAPE_SCRIPTED_ROLE_OPTIONS: HyperscapeScriptedRole[] = [
+  "balanced",
+  "combat",
+  "woodcutting",
+  "fishing",
+  "mining",
 ];
 
-const CATEGORY_LABELS: Record<string, string> = {
-  game: "Game",
-  social: "Social",
-  platform: "Platform",
-  world: "World",
+const CATEGORY_LABEL_KEYS: Record<string, string> = {
+  game: "apps.ui.category.game",
+  social: "apps.ui.category.social",
+  platform: "apps.ui.category.platform",
+  world: "apps.ui.category.world",
 };
 
 function formatHyperscapePosition(position: HyperscapeEmbeddedAgent["position"]): string {
@@ -78,9 +76,11 @@ export function AppsView() {
     activeGameApp,
     activeGameDisplayName,
     activeGameViewerUrl,
+    uiLanguage,
     setState,
     setActionNotice,
   } = useApp();
+  const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
   const [apps, setApps] = useState<RegistryAppInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -124,6 +124,23 @@ export function AppsView() {
   const selectedAppIsActive =
     !!selectedApp && activeAppNames.has(selectedApp.name);
   const hyperscapeDetailOpen = selectedApp?.name === HYPERSCAPE_APP_NAME;
+  const getCategoryLabel = useCallback(
+    (category?: string) => {
+      if (!category) return "";
+      const key = CATEGORY_LABEL_KEYS[category];
+      return key ? t(key) : category;
+    },
+    [t],
+  );
+  const getHyperscapeRoleLabel = useCallback(
+    (role: HyperscapeScriptedRole) => t(`apps.ui.hyperscape.role.${role}`),
+    [t],
+  );
+  const getHyperscapeCommandLabel = useCallback(
+    (command: (typeof HYPERSCAPE_COMMAND_OPTIONS)[number]) =>
+      t(`apps.ui.hyperscape.command.${command}`),
+    [t],
+  );
 
   const loadApps = useCallback(async () => {
     setLoading(true);
@@ -140,11 +157,15 @@ export function AppsView() {
         return list.some((app) => app.name === current) ? current : null;
       });
     } catch (err) {
-      setError(`Failed to load apps: ${err instanceof Error ? err.message : "network error"}`);
+      setError(
+        t("apps.ui.failedLoadApps", {
+          error: err instanceof Error ? err.message : t("apps.ui.networkError"),
+        }),
+      );
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   const clearActiveGameState = useCallback(() => {
     setState("activeGameApp", "");
@@ -177,7 +198,9 @@ export function AppsView() {
         setState("activeGamePostMessagePayload", result.viewer.authMessage ?? null);
         if (result.viewer.postMessageAuth && !result.viewer.authMessage) {
           setActionNotice(
-            `${app.displayName ?? app.name} requires iframe auth, but no auth payload is configured.`,
+            t("apps.notice.requiresIframeAuthMissingPayload", {
+              appName: app.displayName ?? app.name,
+            }),
             "error",
             4800,
           );
@@ -192,13 +215,15 @@ export function AppsView() {
         const popup = window.open(targetUrl, "_blank", "noopener,noreferrer");
         if (popup) {
           setActionNotice(
-            `${app.displayName ?? app.name} opened in a new tab.`,
+            t("apps.notice.openedInNewTab", { appName: app.displayName ?? app.name }),
             "success",
             2600,
           );
         } else {
           setActionNotice(
-            `Popup blocked while opening ${app.displayName ?? app.name}. Allow popups and try again.`,
+            t("apps.notice.popupBlockedWhileOpening", {
+              appName: app.displayName ?? app.name,
+            }),
             "error",
             4200,
           );
@@ -206,13 +231,18 @@ export function AppsView() {
         return;
       }
       setActionNotice(
-        `${app.displayName ?? app.name} launched, but no viewer or URL is configured.`,
+        t("apps.notice.launchedWithoutViewerOrUrl", {
+          appName: app.displayName ?? app.name,
+        }),
         "error",
         4000,
       );
     } catch (err) {
       setActionNotice(
-        `Failed to launch ${app.displayName ?? app.name}: ${err instanceof Error ? err.message : "error"}`,
+        t("apps.notice.failedLaunch", {
+          appName: app.displayName ?? app.name,
+          error: err instanceof Error ? err.message : "error",
+        }),
         "error",
         4000,
       );
@@ -231,11 +261,11 @@ export function AppsView() {
     if (!hasCurrentGame) return;
     const popup = window.open(currentGameViewerUrl, "_blank", "noopener,noreferrer");
     if (popup) {
-      setActionNotice("Current game opened in a new tab.", "success", 2600);
+      setActionNotice(t("apps.notice.currentGameOpenedInNewTab"), "success", 2600);
       return;
     }
-    setActionNotice("Popup blocked. Allow popups and try again.", "error", 4200);
-  }, [currentGameViewerUrl, hasCurrentGame, setActionNotice]);
+    setActionNotice(t("apps.notice.popupBlocked"), "error", 4200);
+  }, [currentGameViewerUrl, hasCurrentGame, setActionNotice, t]);
 
   const selectedHyperscapeAgent = useMemo(
     () =>
@@ -257,13 +287,13 @@ export function AppsView() {
         return response.agents[0]?.agentId ?? "";
       });
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to load agents";
+      const message = err instanceof Error ? err.message : t("apps.ui.hyperscape.failedLoadAgents");
       setHyperscapeError(message);
-      setActionNotice(`Hyperscape controls: ${message}`, "error", 4200);
+      setActionNotice(t("apps.notice.hyperscapeControlsError", { error: message }), "error", 4200);
     } finally {
       setHyperscapeAgentsLoading(false);
     }
-  }, [setActionNotice]);
+  }, [setActionNotice, t]);
 
   const refreshHyperscapeTelemetry = useCallback(
     async (agentId: string) => {
@@ -278,13 +308,13 @@ export function AppsView() {
         setHyperscapeQuickActionsResponse(quickActionsResponse);
       } catch (err) {
         const message =
-          err instanceof Error ? err.message : "Failed to load agent telemetry";
-        setActionNotice(`Hyperscape telemetry: ${message}`, "error", 4200);
+          err instanceof Error ? err.message : t("apps.ui.hyperscape.failedLoadTelemetry");
+        setActionNotice(t("apps.notice.hyperscapeTelemetryError", { error: message }), "error", 4200);
       } finally {
         setHyperscapeTelemetryLoading(false);
       }
     },
-    [setActionNotice],
+    [setActionNotice, t],
   );
 
   useEffect(() => {
@@ -311,7 +341,7 @@ export function AppsView() {
   const handleCreateHyperscapeAgent = useCallback(async () => {
     const characterId = hyperscapeCharacterIdInput.trim();
     if (!characterId) {
-      setActionNotice("Character ID is required to create an embedded agent.", "error", 3600);
+      setActionNotice(t("apps.notice.characterIdRequired"), "error", 3600);
       return;
     }
     setHyperscapeBusyAction("create");
@@ -322,7 +352,7 @@ export function AppsView() {
         scriptedRole: hyperscapeScriptedRole || undefined,
       });
       setActionNotice(
-        response.message ?? "Embedded agent created.",
+        response.message ?? t("apps.notice.embeddedAgentCreated"),
         "success",
         3000,
       );
@@ -334,7 +364,9 @@ export function AppsView() {
       }
     } catch (err) {
       setActionNotice(
-        `Failed to create embedded agent: ${err instanceof Error ? err.message : "error"}`,
+        t("apps.notice.failedCreateEmbeddedAgent", {
+          error: err instanceof Error ? err.message : t("apps.ui.error"),
+        }),
         "error",
         4200,
       );
@@ -348,12 +380,13 @@ export function AppsView() {
     loadHyperscapeAgents,
     refreshHyperscapeTelemetry,
     setActionNotice,
+    t,
   ]);
 
   const handleControlHyperscapeAgent = useCallback(
     async (action: HyperscapeEmbeddedAgentControlAction) => {
       if (!selectedHyperscapeAgent) {
-        setActionNotice("Select an embedded agent first.", "error", 3200);
+        setActionNotice(t("apps.notice.selectEmbeddedAgentFirst"), "error", 3200);
         return;
       }
       setHyperscapeBusyAction(`control:${action}`);
@@ -363,7 +396,7 @@ export function AppsView() {
           action,
         );
         setActionNotice(
-          response.message ?? `Agent ${action} request sent.`,
+          response.message ?? t("apps.notice.agentActionRequestSent", { action }),
           "success",
           3000,
         );
@@ -371,7 +404,10 @@ export function AppsView() {
         await refreshHyperscapeTelemetry(selectedHyperscapeAgent.agentId);
       } catch (err) {
         setActionNotice(
-          `Failed to ${action} agent: ${err instanceof Error ? err.message : "error"}`,
+          t("apps.notice.failedAgentAction", {
+            action,
+            error: err instanceof Error ? err.message : t("apps.ui.error"),
+          }),
           "error",
           4200,
         );
@@ -384,18 +420,19 @@ export function AppsView() {
       refreshHyperscapeTelemetry,
       selectedHyperscapeAgent,
       setActionNotice,
+      t,
     ],
   );
 
   const handleSendHyperscapeMessage = useCallback(
     async (contentOverride?: string) => {
       if (!selectedHyperscapeAgent) {
-        setActionNotice("Select an embedded agent first.", "error", 3200);
+        setActionNotice(t("apps.notice.selectEmbeddedAgentFirst"), "error", 3200);
         return;
       }
       const content = (contentOverride ?? hyperscapeMessageInput).trim();
       if (!content) {
-        setActionNotice("Message cannot be empty.", "error", 3000);
+        setActionNotice(t("apps.notice.messageEmpty"), "error", 3000);
         return;
       }
       setHyperscapeBusyAction("message");
@@ -404,13 +441,15 @@ export function AppsView() {
           selectedHyperscapeAgent.agentId,
           content,
         );
-        setActionNotice(response.message ?? "Message sent to agent.", "success", 3000);
+        setActionNotice(response.message ?? t("apps.notice.messageSentToAgent"), "success", 3000);
         if (!contentOverride) {
           setHyperscapeMessageInput("");
         }
       } catch (err) {
         setActionNotice(
-          `Failed to send message: ${err instanceof Error ? err.message : "error"}`,
+          t("apps.notice.failedSendMessage", {
+            error: err instanceof Error ? err.message : t("apps.ui.error"),
+          }),
           "error",
           4200,
         );
@@ -418,22 +457,22 @@ export function AppsView() {
         setHyperscapeBusyAction(null);
       }
     },
-    [hyperscapeMessageInput, selectedHyperscapeAgent, setActionNotice],
+    [hyperscapeMessageInput, selectedHyperscapeAgent, setActionNotice, t],
   );
 
   const handleSendHyperscapeCommand = useCallback(async () => {
     if (!selectedHyperscapeAgent) {
-      setActionNotice("Select an embedded agent first.", "error", 3200);
+      setActionNotice(t("apps.notice.selectEmbeddedAgentFirst"), "error", 3200);
       return;
     }
     const command = hyperscapeCommand.trim();
     if (!command) {
-      setActionNotice("Command cannot be empty.", "error", 3200);
+      setActionNotice(t("apps.notice.commandEmpty"), "error", 3200);
       return;
     }
     const parsedData = parseHyperscapeCommandData(hyperscapeCommandDataInput);
     if (parsedData === null) {
-      setActionNotice("Command data must be valid JSON object.", "error", 3600);
+      setActionNotice(t("apps.notice.commandDataInvalidJsonObject"), "error", 3600);
       return;
     }
     setHyperscapeBusyAction("command");
@@ -444,7 +483,7 @@ export function AppsView() {
         parsedData,
       );
       setActionNotice(
-        response.message ?? `Command "${command}" sent.`,
+        response.message ?? t("apps.notice.commandSent", { command }),
         "success",
         3000,
       );
@@ -452,7 +491,9 @@ export function AppsView() {
       await refreshHyperscapeTelemetry(selectedHyperscapeAgent.agentId);
     } catch (err) {
       setActionNotice(
-        `Failed to send command: ${err instanceof Error ? err.message : "error"}`,
+        t("apps.notice.failedSendCommand", {
+          error: err instanceof Error ? err.message : t("apps.ui.error"),
+        }),
         "error",
         4200,
       );
@@ -466,6 +507,7 @@ export function AppsView() {
     refreshHyperscapeTelemetry,
     selectedHyperscapeAgent,
     setActionNotice,
+    t,
   ]);
 
   const normalizedSearch = searchQuery.trim().toLowerCase();
@@ -491,8 +533,8 @@ export function AppsView() {
         className="btn text-xs py-1 self-start"
       >
         {hyperscapePanelOpen
-          ? "Hide Hyperscape Controls"
-          : "Show Hyperscape Controls"}
+          ? t("apps.ui.hyperscape.hideControls")
+          : t("apps.ui.hyperscape.showControls")}
       </button>
       {hyperscapePanelOpen ? (
         <div className="flex flex-col gap-3">
@@ -508,7 +550,7 @@ export function AppsView() {
               disabled={hyperscapeAgentsLoading}
               onClick={() => void loadHyperscapeAgents()}
             >
-              {hyperscapeAgentsLoading ? "Refreshing..." : "Refresh Agents"}
+              {hyperscapeAgentsLoading ? t("apps.ui.hyperscape.refreshing") : t("apps.ui.hyperscape.refreshAgents")}
             </button>
             <button
               className="btn text-xs py-1"
@@ -518,21 +560,21 @@ export function AppsView() {
               }
             >
               {hyperscapeTelemetryLoading
-                ? "Loading telemetry..."
-                : "Refresh Goal + Quick Actions"}
+                ? t("apps.ui.hyperscape.loadingTelemetry")
+                : t("apps.ui.hyperscape.refreshGoalActions")}
             </button>
           </div>
 
           <div className="flex flex-col gap-1">
             <label className="text-[11px] text-muted">
-              Embedded agents ({hyperscapeAgents.length})
+              {t("apps.ui.hyperscape.embeddedAgentsCount", { count: hyperscapeAgents.length })}
             </label>
             <select
               value={hyperscapeSelectedAgentId}
               onChange={(event) => setHyperscapeSelectedAgentId(event.target.value)}
               className="px-3 py-2 border border-border rounded-md bg-card text-txt text-xs focus:border-accent focus:outline-none"
             >
-              <option value="">Select embedded agent</option>
+              <option value="">{t("apps.ui.hyperscape.selectEmbeddedAgent")}</option>
               {hyperscapeAgents.map((agent) => (
                 <option key={agent.agentId} value={agent.agentId}>
                   {agent.name} ({agent.state}) [{agent.agentId}]
@@ -541,10 +583,10 @@ export function AppsView() {
             </select>
             {selectedHyperscapeAgent ? (
               <div className="text-[11px] text-muted">
-                Character: {selectedHyperscapeAgent.characterId} | Health:{" "}
-                {selectedHyperscapeAgent.health ?? "n/a"}
+                {t("apps.ui.hyperscape.characterLabel")} {selectedHyperscapeAgent.characterId} | {t("apps.ui.hyperscape.healthLabel")}{" "}
+                {selectedHyperscapeAgent.health ?? t("apps.ui.notAvailable")}
                 {" / "}
-                {selectedHyperscapeAgent.maxHealth ?? "n/a"} | Position:{" "}
+                {selectedHyperscapeAgent.maxHealth ?? t("apps.ui.notAvailable")} | {t("apps.ui.hyperscape.positionLabel")}{" "}
                 {formatHyperscapePosition(selectedHyperscapeAgent.position)}
               </div>
             ) : null}
@@ -562,19 +604,19 @@ export function AppsView() {
                 onClick={() => void handleControlHyperscapeAgent(action)}
               >
                 {hyperscapeBusyAction === `control:${action}`
-                  ? `${action}...`
-                  : action.charAt(0).toUpperCase() + action.slice(1)}
+                  ? t("apps.ui.hyperscape.actionBusy", { action: getHyperscapeCommandLabel(action) })
+                  : getHyperscapeCommandLabel(action)}
               </button>
             ))}
           </div>
 
           <div className="border border-border p-2 flex flex-col gap-2">
-            <div className="font-bold text-xs">Create Embedded Agent</div>
+            <div className="font-bold text-xs">{t("apps.ui.hyperscape.createEmbeddedAgent")}</div>
             <input
               type="text"
               value={hyperscapeCharacterIdInput}
               onChange={(event) => setHyperscapeCharacterIdInput(event.target.value)}
-              placeholder="Character ID"
+              placeholder={t("apps.ui.hyperscape.characterIdPlaceholder")}
               className="px-3 py-2 border border-border rounded-md bg-card text-txt text-xs focus:border-accent focus:outline-none"
             />
             <div className="flex flex-wrap gap-2 items-center">
@@ -587,10 +629,10 @@ export function AppsView() {
                 }
                 className="px-3 py-2 border border-border rounded-md bg-card text-txt text-xs focus:border-accent focus:outline-none"
               >
-                <option value="">No scripted role</option>
+                <option value="">{t("apps.ui.hyperscape.noScriptedRole")}</option>
                 {HYPERSCAPE_SCRIPTED_ROLE_OPTIONS.map((role) => (
-                  <option key={role.value} value={role.value}>
-                    {role.label}
+                  <option key={role} value={role}>
+                    {getHyperscapeRoleLabel(role)}
                   </option>
                 ))}
               </select>
@@ -602,25 +644,25 @@ export function AppsView() {
                     setHyperscapeAutoStart(event.target.checked)
                   }
                 />
-                Auto start
+                {t("apps.ui.hyperscape.autoStart")}
               </label>
               <button
                 className="btn text-xs py-1"
                 disabled={hyperscapeBusyAction === "create"}
                 onClick={() => void handleCreateHyperscapeAgent()}
               >
-                {hyperscapeBusyAction === "create" ? "Creating..." : "Create Agent"}
+                {hyperscapeBusyAction === "create" ? t("apps.ui.hyperscape.creating") : t("apps.ui.hyperscape.createAgent")}
               </button>
             </div>
           </div>
 
           <div className="border border-border p-2 flex flex-col gap-2">
-            <div className="font-bold text-xs">Send Message</div>
+            <div className="font-bold text-xs">{t("apps.ui.hyperscape.sendMessage")}</div>
             <textarea
               rows={2}
               value={hyperscapeMessageInput}
               onChange={(event) => setHyperscapeMessageInput(event.target.value)}
-              placeholder="Say something to selected agent..."
+              placeholder={t("apps.ui.hyperscape.saySomethingPlaceholder")}
               className="px-3 py-2 border border-border rounded-md bg-card text-txt text-xs focus:border-accent focus:outline-none resize-y"
             />
             <button
@@ -628,12 +670,12 @@ export function AppsView() {
               disabled={hyperscapeBusyAction === "message"}
               onClick={() => void handleSendHyperscapeMessage()}
             >
-              {hyperscapeBusyAction === "message" ? "Sending..." : "Send Message"}
+              {hyperscapeBusyAction === "message" ? t("apps.ui.hyperscape.sending") : t("apps.ui.hyperscape.sendMessage")}
             </button>
           </div>
 
           <div className="border border-border p-2 flex flex-col gap-2">
-            <div className="font-bold text-xs">Send Command</div>
+            <div className="font-bold text-xs">{t("apps.ui.hyperscape.sendCommand")}</div>
             <select
               value={hyperscapeCommand}
               onChange={(event) =>
@@ -645,7 +687,7 @@ export function AppsView() {
             >
               {HYPERSCAPE_COMMAND_OPTIONS.map((command) => (
                 <option key={command} value={command}>
-                  {command}
+                  {getHyperscapeCommandLabel(command)}
                 </option>
               ))}
             </select>
@@ -661,23 +703,23 @@ export function AppsView() {
               disabled={hyperscapeBusyAction === "command"}
               onClick={() => void handleSendHyperscapeCommand()}
             >
-              {hyperscapeBusyAction === "command" ? "Sending..." : "Send Command"}
+              {hyperscapeBusyAction === "command" ? t("apps.ui.hyperscape.sending") : t("apps.ui.hyperscape.sendCommand")}
             </button>
           </div>
 
           <div className="border border-border p-2 flex flex-col gap-2">
-            <div className="font-bold text-xs">Goal + Quick Actions</div>
+            <div className="font-bold text-xs">{t("apps.ui.hyperscape.goalQuickActions")}</div>
             <div className="text-xs text-muted">
               {hyperscapeGoalResponse?.goal ? (
                 <>
-                  Goal: {hyperscapeGoalResponse.goal.description ?? "unknown"}
+                  {t("apps.ui.hyperscape.goalLabel")} {hyperscapeGoalResponse.goal.description ?? t("apps.ui.hyperscape.unknown")}
                   {typeof hyperscapeGoalResponse.goal.progressPercent === "number"
                     ? ` (${hyperscapeGoalResponse.goal.progressPercent}%)`
                     : ""}
                 </>
               ) : (
                 hyperscapeGoalResponse?.message ??
-                "No active goal loaded for the selected agent."
+                t("apps.ui.hyperscape.noActiveGoal")
               )}
             </div>
 
@@ -713,7 +755,7 @@ export function AppsView() {
 
             {hyperscapeQuickActionsResponse?.nearbyLocations?.length ? (
               <div className="text-[11px] text-muted">
-                Nearby:{" "}
+                {t("apps.ui.hyperscape.nearbyLabel")}{" "}
                 {hyperscapeQuickActionsResponse.nearbyLocations
                   .slice(0, 4)
                   .map((location) => `${location.name} (${location.distance})`)
@@ -731,12 +773,12 @@ export function AppsView() {
 
     return (
       <div className="mb-4 border border-border bg-card p-3 flex flex-col gap-2">
-        <div className="font-bold text-xs">Active Game Session</div>
+        <div className="font-bold text-xs">{t("apps.ui.activeGameSession")}</div>
         <div className="text-sm">
-          {activeGameDisplayName || activeGameApp || "Current game"}
+          {activeGameDisplayName || activeGameApp || t("apps.ui.currentGame")}
         </div>
         <div className="text-[11px] text-muted">
-          Resume in full-screen or open the viewer in a new tab.
+          {t("apps.ui.activeSessionHint")}
         </div>
         <div className="text-[11px] text-muted break-all">{currentGameViewerUrl}</div>
         <div className="flex flex-wrap gap-2">
@@ -744,13 +786,13 @@ export function AppsView() {
             onClick={handleOpenCurrentGame}
             className="btn text-xs py-1"
           >
-            Resume Fullscreen
+            {t("apps.ui.resumeFullscreen")}
           </button>
           <button
             onClick={handleOpenCurrentGameInNewTab}
             className="btn text-xs py-1"
           >
-            Open in New Tab
+            {t("game.action.openInNewTab")}
           </button>
         </div>
       </div>
@@ -765,7 +807,7 @@ export function AppsView() {
             onClick={() => setSelectedAppName(null)}
             className="btn text-xs py-1"
           >
-            Back
+            {t("common.back")}
           </button>
           <div className="text-[11px] text-muted break-all">{selectedApp.name}</div>
         </div>
@@ -782,21 +824,21 @@ export function AppsView() {
           <div className="flex items-start gap-2">
             <div>
               <div className="font-bold text-sm">{selectedApp.displayName ?? selectedApp.name}</div>
-              <div className="text-xs text-muted">{selectedApp.description ?? "No description"}</div>
+              <div className="text-xs text-muted">{selectedApp.description ?? t("apps.ui.noDescription")}</div>
             </div>
             <span className="flex-1" />
             {selectedAppIsActive ? (
               <span className="text-[10px] px-1.5 py-0.5 border border-ok text-ok">
-                Active
+                {t("apps.ui.active")}
               </span>
             ) : (
               <span className="text-[10px] px-1.5 py-0.5 border border-border text-muted">
-                Inactive
+                {t("apps.ui.inactive")}
               </span>
             )}
             {selectedApp.category ? (
               <span className="text-[10px] px-1.5 py-0.5 border border-border text-muted">
-                {CATEGORY_LABELS[selectedApp.category] ?? selectedApp.category}
+                {getCategoryLabel(selectedApp.category)}
               </span>
             ) : null}
           </div>
@@ -807,14 +849,14 @@ export function AppsView() {
               disabled={busyApp === selectedApp.name}
               onClick={() => void handleLaunch(selectedApp)}
             >
-              {busyApp === selectedApp.name ? "Launching..." : "Launch"}
+              {busyApp === selectedApp.name ? t("apps.ui.launching") : t("apps.ui.launch")}
             </button>
             {selectedAppHasActiveViewer ? (
               <button
                 className="btn text-xs py-1.5"
                 onClick={handleOpenCurrentGame}
               >
-                View Active Session
+                {t("apps.ui.viewActiveSession")}
               </button>
             ) : null}
             {selectedAppHasActiveViewer ? (
@@ -822,24 +864,24 @@ export function AppsView() {
                 className="btn text-xs py-1.5"
                 onClick={handleOpenCurrentGameInNewTab}
               >
-                Open Viewer in New Tab
+                {t("apps.ui.openViewerInNewTab")}
               </button>
             ) : null}
           </div>
 
           <div className="border border-border p-2 flex flex-col gap-1 text-[11px]">
             <div>
-              <span className="text-muted">Launch type:</span> {selectedApp.launchType || "n/a"}
+              <span className="text-muted">{t("apps.ui.launchTypeLabel")}</span> {selectedApp.launchType || t("apps.ui.notAvailable")}
             </div>
             <div>
-              <span className="text-muted">Latest version:</span> {selectedApp.latestVersion ?? "n/a"}
+              <span className="text-muted">{t("apps.ui.latestVersionLabel")}</span> {selectedApp.latestVersion ?? t("apps.ui.notAvailable")}
             </div>
             <div>
-              <span className="text-muted">Launch URL:</span>{" "}
-              {selectedApp.launchUrl ?? "n/a"}
+              <span className="text-muted">{t("apps.ui.launchUrlLabel")}</span>{" "}
+              {selectedApp.launchUrl ?? t("apps.ui.notAvailable")}
             </div>
             <div className="break-all">
-              <span className="text-muted">Repository:</span>{" "}
+              <span className="text-muted">{t("apps.ui.repositoryLabel")}</span>{" "}
               {selectedApp.repository ? (
                 <a
                   href={selectedApp.repository}
@@ -850,14 +892,14 @@ export function AppsView() {
                   {selectedApp.repository}
                 </a>
               ) : (
-                "n/a"
+                t("apps.ui.notAvailable")
               )}
             </div>
           </div>
 
           {selectedApp.capabilities.length ? (
             <div className="border border-border p-2 flex flex-col gap-1">
-              <div className="font-bold text-xs">Capabilities</div>
+              <div className="font-bold text-xs">{t("apps.ui.capabilities")}</div>
               <div className="flex flex-wrap gap-1">
                 {selectedApp.capabilities.map((capability) => (
                   <span
@@ -873,16 +915,16 @@ export function AppsView() {
 
           {selectedApp.viewer ? (
             <div className="border border-border p-2 flex flex-col gap-1 text-[11px]">
-              <div className="font-bold text-xs">Viewer Config</div>
+              <div className="font-bold text-xs">{t("apps.ui.viewerConfig")}</div>
               <div className="break-all">
-                <span className="text-muted">URL:</span> {selectedApp.viewer.url}
+                <span className="text-muted">{t("apps.ui.urlLabel")}</span> {selectedApp.viewer.url}
               </div>
               <div>
-                <span className="text-muted">postMessage auth:</span>{" "}
-                {selectedApp.viewer.postMessageAuth ? "enabled" : "disabled"}
+                <span className="text-muted">{t("apps.ui.postMessageAuthLabel")}</span>{" "}
+                {selectedApp.viewer.postMessageAuth ? t("apps.ui.enabled") : t("apps.ui.disabled")}
               </div>
               <div>
-                <span className="text-muted">Sandbox:</span>{" "}
+                <span className="text-muted">{t("apps.ui.sandboxLabel")}</span>{" "}
                 {selectedApp.viewer.sandbox ?? DEFAULT_VIEWER_SANDBOX}
               </div>
             </div>
@@ -890,9 +932,9 @@ export function AppsView() {
 
           {selectedApp.name === HYPERSCAPE_APP_NAME ? (
             <div className="border border-border p-2 flex flex-col gap-2">
-              <div className="font-bold text-xs">Hyperscape Controls</div>
+              <div className="font-bold text-xs">{t("apps.ui.hyperscapeControls")}</div>
               <div className="text-[11px] text-muted">
-                Embedded agents, commands, and telemetry.
+                {t("apps.ui.hyperscapeControlsHint")}
               </div>
               {renderHyperscapeControls()}
             </div>
@@ -907,7 +949,7 @@ export function AppsView() {
       <div className="flex gap-2 mb-2">
         <input
           type="text"
-          placeholder="Search apps..."
+          placeholder={t("apps.ui.searchPlaceholder")}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="flex-1 px-3 py-2 border border-border rounded-md bg-card text-txt text-sm focus:border-accent focus:outline-none"
@@ -916,7 +958,7 @@ export function AppsView() {
           onClick={() => void loadApps()}
           className="btn text-xs py-1"
         >
-          Refresh
+          {t("apps.ui.refresh")}
         </button>
       </div>
 
@@ -925,9 +967,9 @@ export function AppsView() {
           onClick={() => setShowActiveOnly((current) => !current)}
           className="btn btn-ghost text-[11px] py-1"
         >
-          {showActiveOnly ? "Showing Active" : "Active Only"}
+          {showActiveOnly ? t("apps.ui.showingActive") : t("apps.ui.activeOnly")}
         </button>
-        <span>{activeAppNames.size} active</span>
+        <span>{t("apps.ui.activeCount", { count: activeAppNames.size })}</span>
       </div>
 
       {renderActiveSessionCard()}
@@ -939,14 +981,14 @@ export function AppsView() {
       )}
 
       {loading ? (
-        <div className="text-center py-10 text-muted italic">Loading apps...</div>
+        <div className="text-center py-10 text-muted italic">{t("apps.ui.loadingApps")}</div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-10 text-muted italic">
           {showActiveOnly
-            ? "No active apps found."
+            ? t("apps.ui.noActiveAppsFound")
             : searchQuery
-              ? "No apps match your search."
-              : "No apps available."}
+              ? t("apps.ui.noAppsMatchSearch")
+              : t("apps.ui.noAppsAvailable")}
         </div>
       ) : (
         <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-3">
@@ -962,7 +1004,7 @@ export function AppsView() {
                   <button
                     className="btn btn-ghost text-xs py-0.5"
                     onClick={() => setSelectedAppName(app.name)}
-                    title={`Open ${app.displayName ?? app.name}`}
+                    title={t("apps.ui.openAppTitle", { appName: app.displayName ?? app.name })}
                   >
                     {">"}
                   </button>
@@ -971,24 +1013,24 @@ export function AppsView() {
                 <div className="flex flex-wrap gap-1">
                   {app.category ? (
                     <span className="text-[10px] px-1.5 py-0.5 border border-border text-muted">
-                      {CATEGORY_LABELS[app.category] ?? app.category}
+                      {getCategoryLabel(app.category)}
                     </span>
                   ) : null}
                   {isActive ? (
                     <span className="text-[10px] px-1.5 py-0.5 border border-ok text-ok">
-                      Active
+                      {t("apps.ui.active")}
                     </span>
                   ) : null}
                 </div>
 
-                <div className="text-xs text-muted flex-1">{app.description ?? "No description"}</div>
+                <div className="text-xs text-muted flex-1">{app.description ?? t("apps.ui.noDescription")}</div>
 
                 <button
                   className="btn text-xs py-1.5 self-start disabled:opacity-40 disabled:cursor-not-allowed"
                   disabled={busyApp === app.name}
                   onClick={() => void handleLaunch(app)}
                 >
-                  {busyApp === app.name ? "Launching..." : "Launch"}
+                  {busyApp === app.name ? t("apps.ui.launching") : t("apps.ui.launch")}
                 </button>
               </div>
             );

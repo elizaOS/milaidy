@@ -10,9 +10,10 @@
  * - Document detail view with fragments
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useApp } from "../AppContext";
 import { client } from "../api-client";
+import { createTranslator } from "../i18n";
 import type {
   KnowledgeDocument,
   KnowledgeFragment,
@@ -33,14 +34,24 @@ const btnGhost =
 const btnDanger =
   "px-2 py-1 text-[11px] bg-transparent text-[var(--muted)] border border-[var(--border)] cursor-pointer hover:text-[#e74c3c] hover:border-[#e74c3c] transition-colors rounded";
 
+type TranslateFn = ReturnType<typeof createTranslator>;
+
 /* ── Stats Card ─────────────────────────────────────────────────────── */
 
-function StatsCard({ stats, loading }: { stats: KnowledgeStats | null; loading: boolean }) {
+function StatsCard({
+  stats,
+  loading,
+  t,
+}: {
+  stats: KnowledgeStats | null;
+  loading: boolean;
+  t: TranslateFn;
+}) {
   return (
     <div className="grid grid-cols-2 gap-4 mb-6">
       <div className="p-4 border border-[var(--border)] bg-[var(--card)] rounded">
         <div className="text-[11px] uppercase tracking-wider text-[var(--muted)] mb-1">
-          Documents
+          {t("knowledge.ui.documents")}
         </div>
         <div className="text-2xl font-semibold text-[var(--txt)]">
           {loading ? "—" : stats?.documentCount ?? 0}
@@ -48,13 +59,13 @@ function StatsCard({ stats, loading }: { stats: KnowledgeStats | null; loading: 
       </div>
       <div className="p-4 border border-[var(--border)] bg-[var(--card)] rounded overflow-visible">
         <div className="text-[11px] uppercase tracking-wider text-[var(--muted)] mb-1 flex items-center gap-1">
-          Fragments
+          {t("knowledge.ui.fragments")}
           <span className="relative group">
             <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border border-[var(--muted)] text-[9px] leading-none cursor-help opacity-60 group-hover:opacity-100 transition-opacity">
               ?
             </span>
             <span className="pointer-events-none absolute left-0 top-full mt-1.5 w-52 px-2.5 py-1.5 rounded bg-[var(--bg-elevated)] text-[var(--text-strong)] text-[11px] normal-case tracking-normal leading-snug opacity-0 group-hover:opacity-100 transition-opacity border border-[var(--border-strong)] shadow-md">
-              Documents are split into smaller text chunks called fragments, tasty snacks for agents, yumm
+              {t("knowledge.ui.fragmentsHint")}
             </span>
           </span>
         </div>
@@ -72,10 +83,12 @@ function UploadZone({
   onFileUpload,
   onUrlUpload,
   uploading,
+  t,
 }: {
   onFileUpload: (file: File) => void;
   onUrlUpload: (url: string) => void;
   uploading: boolean;
+  t: TranslateFn;
 }) {
   const [dragOver, setDragOver] = useState(false);
   const [urlInput, setUrlInput] = useState("");
@@ -138,13 +151,13 @@ function UploadZone({
         />
         <div className="text-[var(--muted)] mb-3">
           {uploading ? (
-            <span className="text-[var(--accent)]">Uploading...</span>
+            <span className="text-[var(--accent)]">{t("knowledge.ui.uploading")}</span>
           ) : (
-            <>Drop files here or click to browse</>
+            <>{t("knowledge.ui.dropFilesOrBrowse")}</>
           )}
         </div>
         <div className="text-[11px] text-[var(--muted)] mb-4">
-          Supported: PDF, Markdown, Text, DOCX, JSON, CSV, XML, HTML
+          {t("knowledge.ui.supportedFileTypes")}
         </div>
         <div className="flex gap-3 justify-center">
           <button
@@ -153,7 +166,7 @@ function UploadZone({
             onClick={() => fileInputRef.current?.click()}
             disabled={uploading}
           >
-            Choose File
+            {t("knowledge.ui.chooseFile")}
           </button>
           <button
             type="button"
@@ -161,7 +174,7 @@ function UploadZone({
             onClick={() => setShowUrlInput(!showUrlInput)}
             disabled={uploading}
           >
-            Add from URL
+            {t("knowledge.ui.addFromUrl")}
           </button>
         </div>
       </div>
@@ -169,12 +182,12 @@ function UploadZone({
       {showUrlInput && (
         <div className="mt-4 p-4 border border-[var(--border)] bg-[var(--card)] rounded">
           <div className="text-xs text-[var(--muted)] mb-2">
-            Paste a URL to import content. YouTube links will be auto-transcribed.
+            {t("knowledge.ui.pasteUrlHint")}
           </div>
           <div className="flex gap-2">
             <input
               type="url"
-              placeholder="https://example.com/document.pdf or YouTube URL"
+              placeholder={t("knowledge.ui.urlPlaceholder")}
               value={urlInput}
               onChange={(e) => setUrlInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleUrlSubmit()}
@@ -187,7 +200,7 @@ function UploadZone({
               onClick={handleUrlSubmit}
               disabled={!urlInput.trim() || uploading}
             >
-              Import
+              {t("knowledge.ui.import")}
             </button>
           </div>
         </div>
@@ -201,9 +214,11 @@ function UploadZone({
 function SearchBar({
   onSearch,
   searching,
+  t,
 }: {
   onSearch: (query: string) => void;
   searching: boolean;
+  t: TranslateFn;
 }) {
   const [query, setQuery] = useState("");
 
@@ -218,7 +233,7 @@ function SearchBar({
       <div className="flex gap-2">
         <input
           type="text"
-          placeholder="Search knowledge..."
+          placeholder={t("knowledge.ui.searchPlaceholder")}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
@@ -231,7 +246,7 @@ function SearchBar({
           onClick={handleSubmit}
           disabled={!query.trim() || searching}
         >
-          {searching ? "Searching..." : "Search"}
+          {searching ? t("knowledge.ui.searching") : t("knowledge.ui.search")}
         </button>
       </div>
     </div>
@@ -243,18 +258,20 @@ function SearchBar({
 function SearchResults({
   results,
   onClear,
+  t,
 }: {
   results: KnowledgeSearchResult[];
   onClear: () => void;
+  t: TranslateFn;
 }) {
   return (
     <div className="mb-6">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-medium text-[var(--txt)]">
-          Search Results ({results.length})
+          {t("knowledge.ui.searchResultsCount", { count: results.length })}
         </h3>
         <button type="button" className={btnGhost} onClick={onClear}>
-          Clear
+          {t("knowledge.ui.clear")}
         </button>
       </div>
       <div className="space-y-2">
@@ -265,17 +282,19 @@ function SearchResults({
           >
             <div className="flex items-start justify-between gap-2 mb-2">
               <span className="text-xs text-[var(--muted)]">
-                {result.documentTitle || "Unknown Document"}
+                {result.documentTitle || t("knowledge.ui.unknownDocument")}
               </span>
               <span className="text-[10px] px-1.5 py-0.5 bg-[var(--accent)]/10 text-[var(--accent)] rounded">
-                {(result.similarity * 100).toFixed(0)}% match
+                {t("knowledge.ui.similarityMatch", {
+                  percent: (result.similarity * 100).toFixed(0),
+                })}
               </span>
             </div>
             <p className="text-sm text-[var(--txt)] line-clamp-3">{result.text}</p>
           </div>
         ))}
         {results.length === 0 && (
-          <div className="text-center py-8 text-[var(--muted)]">No results found</div>
+          <div className="text-center py-8 text-[var(--muted)]">{t("knowledge.ui.noResultsFound")}</div>
         )}
       </div>
     </div>
@@ -289,11 +308,13 @@ function DocumentCard({
   onSelect,
   onDelete,
   deleting,
+  t,
 }: {
   doc: KnowledgeDocument;
   onSelect: (id: string) => void;
   onDelete: (id: string) => void;
   deleting: boolean;
+  t: TranslateFn;
 }) {
   return (
     <div className="flex items-center justify-between p-4 border border-[var(--border)] bg-[var(--card)] rounded hover:border-[var(--accent)]/50 transition-colors">
@@ -310,12 +331,12 @@ function DocumentCard({
           <span>{formatShortDate(doc.createdAt, { fallback: "—" })}</span>
           {doc.source === "youtube" && (
             <span className="px-1.5 py-0.5 bg-[#e74c3c]/10 text-[#e74c3c] rounded text-[10px]">
-              YouTube
+              {t("knowledge.ui.sourceYoutube")}
             </span>
           )}
           {doc.source === "url" && (
             <span className="px-1.5 py-0.5 bg-[var(--accent)]/10 text-[var(--accent)] rounded text-[10px]">
-              URL
+              {t("knowledge.ui.sourceUrl")}
             </span>
           )}
         </div>
@@ -339,9 +360,11 @@ function DocumentCard({
 function DocumentDetailModal({
   documentId,
   onClose,
+  t,
 }: {
   documentId: string;
   onClose: () => void;
+  t: TranslateFn;
 }) {
   const [doc, setDoc] = useState<KnowledgeDocument | null>(null);
   const [fragments, setFragments] = useState<KnowledgeFragment[]>([]);
@@ -369,7 +392,7 @@ function DocumentDetailModal({
 
     load().catch((err) => {
       if (!cancelled) {
-        setError(err instanceof Error ? err.message : "Failed to load document");
+        setError(err instanceof Error ? err.message : t("knowledge.ui.failedToLoadDocument"));
         setLoading(false);
       }
     });
@@ -377,7 +400,7 @@ function DocumentDetailModal({
     return () => {
       cancelled = true;
     };
-  }, [documentId]);
+  }, [documentId, t]);
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -385,17 +408,17 @@ function DocumentDetailModal({
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-[var(--border)]">
           <h2 className="text-lg font-medium text-[var(--txt)]">
-            {loading ? "Loading..." : doc?.filename || "Document"}
+            {loading ? t("knowledge.ui.loading") : doc?.filename || t("knowledge.ui.document")}
           </h2>
           <button type="button" className={btnGhost} onClick={onClose}>
-            Close
+            {t("knowledge.ui.close")}
           </button>
         </div>
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-4">
           {loading && (
-            <div className="text-center py-8 text-[var(--muted)]">Loading...</div>
+            <div className="text-center py-8 text-[var(--muted)]">{t("knowledge.ui.loading")}</div>
           )}
 
           {error && (
@@ -408,16 +431,16 @@ function DocumentDetailModal({
               <div className="mb-6 p-4 bg-[var(--card)] border border-[var(--border)] rounded">
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
-                    <span className="text-[var(--muted)]">Type:</span>{" "}
+                    <span className="text-[var(--muted)]">{t("knowledge.ui.typeLabel")}</span>{" "}
                     <span className="text-[var(--txt)]">{doc.contentType}</span>
                   </div>
                   <div>
-                    <span className="text-[var(--muted)]">Source:</span>{" "}
+                    <span className="text-[var(--muted)]">{t("knowledge.ui.sourceLabel")}</span>{" "}
                     <span className="text-[var(--txt)]">{doc.source}</span>
                   </div>
                   {doc.url && (
                     <div className="col-span-2">
-                      <span className="text-[var(--muted)]">URL:</span>{" "}
+                      <span className="text-[var(--muted)]">{t("knowledge.ui.urlLabel")}</span>{" "}
                       <a
                         href={doc.url}
                         target="_blank"
@@ -433,7 +456,7 @@ function DocumentDetailModal({
 
               {/* Fragments */}
               <h3 className="text-sm font-medium text-[var(--txt)] mb-3">
-                Fragments ({fragments.length})
+                {t("knowledge.ui.fragmentsCount", { count: fragments.length })}
               </h3>
               <div className="space-y-3">
                 {fragments.map((fragment, index) => (
@@ -443,11 +466,11 @@ function DocumentDetailModal({
                   >
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-xs text-[var(--muted)]">
-                        Fragment {index + 1}
+                        {t("knowledge.ui.fragmentIndex", { index: index + 1 })}
                       </span>
                       {fragment.position !== undefined && (
                         <span className="text-[10px] text-[var(--muted)]">
-                          Position: {fragment.position}
+                          {t("knowledge.ui.positionLabel")} {fragment.position}
                         </span>
                       )}
                     </div>
@@ -458,7 +481,7 @@ function DocumentDetailModal({
                 ))}
                 {fragments.length === 0 && (
                   <div className="text-center py-4 text-[var(--muted)]">
-                    No fragments found
+                    {t("knowledge.ui.noFragmentsFound")}
                   </div>
                 )}
               </div>
@@ -473,7 +496,8 @@ function DocumentDetailModal({
 /* ── Main KnowledgeView Component ───────────────────────────────────── */
 
 export function KnowledgeView() {
-  const { setActionNotice } = useApp();
+  const { setActionNotice, uiLanguage } = useApp();
+  const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
   const [stats, setStats] = useState<KnowledgeStats | null>(null);
   const [documents, setDocuments] = useState<KnowledgeDocument[]>([]);
   const [searchResults, setSearchResults] = useState<KnowledgeSearchResult[] | null>(null);
@@ -498,8 +522,8 @@ export function KnowledgeView() {
     loadData().catch((err) => {
       console.error("[KnowledgeView] Failed to load data:", err);
       setLoading(false);
-    });
-  }, [loadData]);
+      });
+    }, [loadData]);
 
   const handleFileUpload = useCallback(
     async (file: File) => {
@@ -553,16 +577,19 @@ export function KnowledgeView() {
 
       if (result.ok) {
         setActionNotice(
-          `Uploaded "${file.name}" (${result.fragmentCount} fragments)`,
+          t("knowledge.notice.uploadedFileFragments", {
+            filename: file.name,
+            count: result.fragmentCount,
+          }),
           "success",
           3000,
         );
         loadData();
       } else {
-        setActionNotice("Failed to upload document", "error", 4000);
+        setActionNotice(t("knowledge.notice.uploadFailed"), "error", 4000);
       }
     },
-    [loadData, setActionNotice],
+    [loadData, setActionNotice, t],
   );
 
   const handleUrlUpload = useCallback(
@@ -575,15 +602,20 @@ export function KnowledgeView() {
 
       if (result.ok) {
         const message = result.isYouTubeTranscript
-          ? `Imported YouTube transcript (${result.fragmentCount} fragments)`
-          : `Imported "${result.filename}" (${result.fragmentCount} fragments)`;
+          ? t("knowledge.notice.importedYoutubeTranscript", {
+            count: result.fragmentCount,
+          })
+          : t("knowledge.notice.importedFileFragments", {
+            filename: result.filename,
+            count: result.fragmentCount,
+          });
         setActionNotice(message, "success", 3000);
         loadData();
       } else {
-        setActionNotice("Failed to import from URL", "error", 4000);
+        setActionNotice(t("knowledge.notice.importFromUrlFailed"), "error", 4000);
       }
     },
-    [loadData, setActionNotice],
+    [loadData, setActionNotice, t],
   );
 
   const handleSearch = useCallback(async (query: string) => {
@@ -603,41 +635,44 @@ export function KnowledgeView() {
 
       if (result.ok) {
         setActionNotice(
-          `Deleted document (${result.deletedFragments} fragments removed)`,
+          t("knowledge.notice.deletedDocumentFragments", {
+            count: result.deletedFragments,
+          }),
           "success",
           3000,
         );
         loadData();
       } else {
-        setActionNotice("Failed to delete document", "error", 4000);
+        setActionNotice(t("knowledge.notice.deleteDocumentFailed"), "error", 4000);
       }
     },
-    [loadData, setActionNotice],
+    [loadData, setActionNotice, t],
   );
 
   return (
     <div className="max-w-4xl mx-auto">
-      <h1 className="text-xl font-semibold text-[var(--txt)] mb-6">Knowledge Base</h1>
+      <h1 className="text-xl font-semibold text-[var(--txt)] mb-6">{t("knowledge.ui.title")}</h1>
 
-      <StatsCard stats={stats} loading={loading} />
+      <StatsCard stats={stats} loading={loading} t={t} />
 
       <UploadZone
         onFileUpload={handleFileUpload}
         onUrlUpload={handleUrlUpload}
         uploading={uploading}
+        t={t}
       />
 
-      <SearchBar onSearch={handleSearch} searching={searching} />
+      <SearchBar onSearch={handleSearch} searching={searching} t={t} />
 
       {searchResults !== null && (
-        <SearchResults results={searchResults} onClear={() => setSearchResults(null)} />
+        <SearchResults results={searchResults} onClear={() => setSearchResults(null)} t={t} />
       )}
 
       {/* Document List */}
       <div>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-medium text-[var(--txt)]">
-            Documents ({documents.length})
+            {t("knowledge.ui.documentsCount", { count: documents.length })}
           </h2>
           <button
             type="button"
@@ -645,19 +680,19 @@ export function KnowledgeView() {
             onClick={() => loadData()}
             disabled={loading}
           >
-            {loading ? "Loading..." : "Refresh"}
+            {loading ? t("knowledge.ui.loading") : t("knowledge.ui.refresh")}
           </button>
         </div>
 
         {loading && documents.length === 0 && (
-          <div className="text-center py-8 text-[var(--muted)]">Loading documents...</div>
+          <div className="text-center py-8 text-[var(--muted)]">{t("knowledge.ui.loadingDocuments")}</div>
         )}
 
         {!loading && documents.length === 0 && (
           <div className="text-center py-12 border border-dashed border-[var(--border)] rounded-lg">
-            <div className="text-[var(--muted)] mb-2">No documents yet</div>
+            <div className="text-[var(--muted)] mb-2">{t("knowledge.ui.noDocumentsYet")}</div>
             <div className="text-xs text-[var(--muted)]">
-              Upload files or import from URL to get started
+              {t("knowledge.ui.uploadOrImportHint")}
             </div>
           </div>
         )}
@@ -670,6 +705,7 @@ export function KnowledgeView() {
               onSelect={setSelectedDocId}
               onDelete={handleDelete}
               deleting={deleting === doc.id}
+              t={t}
             />
           ))}
         </div>
@@ -680,6 +716,7 @@ export function KnowledgeView() {
         <DocumentDetailModal
           documentId={selectedDocId}
           onClose={() => setSelectedDocId(null)}
+          t={t}
         />
       )}
     </div>
