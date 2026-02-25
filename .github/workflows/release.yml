@@ -124,8 +124,7 @@ jobs:
 
       - name: Build core
         run: |
-          npm install --no-save tsdown@^0.20.3
-          npx tsdown
+          bunx tsdown
           node --import tsx scripts/write-build-info.ts
           echo '{"type":"module"}' > dist/package.json
 
@@ -197,8 +196,7 @@ jobs:
           echo "Building standalone Electron dist with all node_modules inlined..."
 
           cat << 'EOF' > tsdown.electron.config.ts
-          import { defineConfig } from "tsdown";
-          export default defineConfig([{
+          export default [{
             entry: {
               "index": "src/index.ts",
               "entry": "src/entry.ts",
@@ -225,10 +223,10 @@ jobs:
             fixedExtension: false,
             inlineOnly: false,
             env: { NODE_ENV: "production" }
-          }]);
+          }];
           EOF
 
-          npx tsdown --config tsdown.electron.config.ts --no-clean
+          bunx tsdown --config tsdown.electron.config.ts --no-clean
 
           # Copy to milady-dist so electron-builder can pack it.
           rm -rf apps/app/electron/milady-dist
