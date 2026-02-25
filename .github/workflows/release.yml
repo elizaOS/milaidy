@@ -124,7 +124,7 @@ jobs:
 
       - name: Build core
         run: |
-          bunx tsdown
+          npx tsdown
           node --import tsx scripts/write-build-info.ts
           echo '{"type":"module"}' > dist/package.json
 
