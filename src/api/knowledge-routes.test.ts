@@ -1,8 +1,11 @@
 import * as dns from "node:dns/promises";
 import type { AgentRuntime, Memory, UUID } from "@elizaos/core";
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { createRouteInvoker } from "../test-support/route-test-helpers.js";
-import { handleKnowledgeRoutes } from "./knowledge-routes.js";
+import {
+  __setPinnedFetchImplForTests,
+  handleKnowledgeRoutes,
+} from "./knowledge-routes.js";
 
 vi.mock("node:dns/promises", () => ({
   lookup: vi.fn(),
@@ -34,6 +37,9 @@ describe("knowledge routes", () => {
 
   beforeEach(() => {
     vi.restoreAllMocks();
+    __setPinnedFetchImplForTests(({ url, init }) => {
+      return fetch(url.toString(), init);
+    });
     addKnowledgeMock = vi.fn(async () => ({
       clientDocumentId: uuid(1111),
       storedDocumentMemoryId: uuid(1112),
@@ -56,6 +62,10 @@ describe("knowledge routes", () => {
         name === "knowledge" ? knowledgeService : null,
       getServiceLoadPromise: async () => undefined,
     } as unknown as AgentRuntime;
+  });
+
+  afterEach(() => {
+    __setPinnedFetchImplForTests(null);
   });
 
   const invoke = createRouteInvoker<
@@ -601,6 +611,37 @@ describe("knowledge routes", () => {
     expect((result.payload as { error?: string }).error).toContain("blocked");
     expect(fetchSpy).not.toHaveBeenCalled();
     expect(addKnowledgeMock).not.toHaveBeenCalled();
+  });
+
+  test("pins URL import connection to the validated DNS address", async () => {
+    const lookupSpy = vi
+      .spyOn(dns, "lookup")
+      .mockResolvedValue([{ address: "93.184.216.34", family: 4 }]);
+    const transportSpy = vi.fn(async () => {
+      return new Response("hello", {
+        status: 200,
+        headers: new Headers({ "content-type": "text/plain; charset=utf-8" }),
+      });
+    });
+    __setPinnedFetchImplForTests(transportSpy);
+
+    const result = await invoke({
+      method: "POST",
+      pathname: "/api/knowledge/documents/url",
+      body: { url: "https://example.com/rebind" },
+    });
+
+    expect(result.status).toBe(200);
+    expect(lookupSpy.mock.calls.length).toBeGreaterThanOrEqual(1);
+    expect(transportSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        target: expect.objectContaining({
+          hostname: "example.com",
+          pinnedAddress: "93.184.216.34",
+        }),
+      }),
+    );
+    expect(addKnowledgeMock).toHaveBeenCalledTimes(1);
   });
 
   test("allows URL import for public hosts", async () => {
