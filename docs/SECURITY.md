@@ -35,13 +35,11 @@ The `isBlockedPrivateOrLinkLocalIp()` function blocks access to:
 |-------|---------|
 | `0.0.0.0/8` | "This" network |
 | `10.0.0.0/8` | RFC 1918 private |
-| `100.64.0.0/10` | Carrier-grade NAT |
 | `127.0.0.0/8` | Loopback |
 | `169.254.0.0/16` | Link-local / cloud metadata |
 | `172.16.0.0/12` | RFC 1918 private |
-| `192.0.0.0/24` | IETF protocol assignments |
 | `192.168.0.0/16` | RFC 1918 private |
-| `198.18.0.0/15` | Benchmark testing |
+| `::` | IPv6 unspecified |
 | `::1` | IPv6 loopback |
 | `fc00::/7` | IPv6 unique local |
 | `fe80::/10` | IPv6 link-local |
@@ -101,8 +99,13 @@ The `BLOCKED_ENV_KEYS` set prevents the API from writing to security-sensitive e
 The database API enforces read-only query execution with multiple layers:
 
 1. **Mutation keyword detection** — Blocks `INSERT`, `UPDATE`, `DELETE`, `DROP`, `ALTER`, `CREATE`, `TRUNCATE`, `REPLACE`, `ATTACH`, `DETACH`, `PRAGMA` (write-mode)
-2. **Dangerous function detection** — Blocks `load_extension`, `writefile`, `fts5`, `zipfile`, and other SQLite functions that could escape the query sandbox
-3. **Read-only mode** — Queries execute in SQLite read-only mode as a defense-in-depth measure
+2. **Dangerous function detection** — Blocks PostgreSQL-specific functions that could escape the query sandbox:
+   - **File I/O:** `pg_read_file`, `pg_write_file`, `pg_stat_file`, `pg_ls_dir`, `lo_import`, `lo_export`
+   - **Sequence/state mutation:** `nextval`, `setval`
+   - **Denial of service:** `pg_sleep`, `pg_sleep_for`, `pg_sleep_until`
+   - **Backend control:** `pg_terminate_backend`, `pg_cancel_backend`, `pg_reload_conf`, `set_config`
+   - **Advisory locks:** `pg_advisory_lock`, `pg_advisory_unlock`, and variants
+3. **Read-only mode** — Queries execute in read-only mode as a defense-in-depth measure
 
 ---
 
@@ -198,10 +201,10 @@ Host header validation prevents DNS rebinding attacks where an attacker's domain
 
 ## Configuration Injection Prevention
 
-**File:** `src/api/server.ts` (`PUT /api/config`)
+**File:** `src/api/server.ts`
 
 ### `$include` Directive Blocking
-The config write endpoint strips `$include` directives that could be used to include arbitrary files from the filesystem into the configuration, potentially leaking secrets or overriding security settings.
+The `isBlockedObjectKey()` function (line ~2835) blocks dangerous property keys including `$include` directives across **all object property manipulation endpoints** — not just config writes. This prevents including arbitrary files from the filesystem into any object, potentially leaking secrets or overriding security settings. The same guard also blocks `__proto__`, `constructor`, and `prototype` (see [Prototype Pollution Prevention](#prototype-pollution-prevention)).
 
 ### Top-Level Key Allowlist
 Only known top-level configuration keys are accepted (`CONFIG_WRITE_ALLOWED_TOP_KEYS`). This prevents injection of arbitrary configuration properties.
