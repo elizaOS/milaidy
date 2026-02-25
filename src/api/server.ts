@@ -2856,7 +2856,7 @@ function hasBlockedObjectKeyDeep(value: unknown): boolean {
   return false;
 }
 
-function cloneWithoutBlockedObjectKeys<T>(value: T): T {
+export function cloneWithoutBlockedObjectKeys<T>(value: T): T {
   if (value === null || value === undefined) return value;
   if (Array.isArray(value)) {
     return value.map((item) => cloneWithoutBlockedObjectKeys(item)) as T;
@@ -3044,6 +3044,11 @@ const BLOCKED_CONTAINER_FLAGS = new Set([
   "--security-opt",
   "--pid",
   "--network",
+  "--device",
+  "--ipc",
+  "--uts",
+  "--userns",
+  "--cgroupns",
 ]);
 const BLOCKED_DENO_SUBCOMMANDS = new Set(["eval"]);
 const BLOCKED_MCP_REMOTE_HOST_LITERALS = new Set([
@@ -9085,7 +9090,9 @@ async function handleRequest(
       return;
     }
     if (!state.config.connectors) state.config.connectors = {};
-    state.config.connectors[connectorName] = config as ConnectorConfig;
+    state.config.connectors[connectorName] = cloneWithoutBlockedObjectKeys(
+      config,
+    ) as ConnectorConfig;
     try {
       saveMiladyConfig(state.config);
     } catch {
