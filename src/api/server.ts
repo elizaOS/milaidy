@@ -2112,6 +2112,37 @@ function readUsageTokenCount(
   return 0;
 }
 
+function readStringField(
+  row: Record<string, unknown>,
+  key: string,
+): string | null {
+  const value = row[key];
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function isEmbeddingLikeModelLabel(model: string): boolean {
+  const lower = model.toLowerCase();
+  if (lower === "text_embedding") return true;
+  if (lower.includes("text_embedding")) return true;
+  if (lower.includes("embedding")) return true;
+  return false;
+}
+
+function isEmbeddingLikeTrajectoryCall(row: Record<string, unknown>): boolean {
+  const model = readStringField(row, "model");
+  if (model && isEmbeddingLikeModelLabel(model)) return true;
+
+  const purpose = readStringField(row, "purpose")?.toLowerCase() ?? "";
+  if (purpose.includes("embedding")) return true;
+
+  const actionType = readStringField(row, "actionType")?.toLowerCase() ?? "";
+  if (actionType.includes("embedding")) return true;
+
+  return false;
+}
+
 function summarizeChatTokenUsageFromTrajectory(
   logger: TrajectoryLoggerForChat | null,
   stepId: string | null,
@@ -2122,12 +2153,21 @@ function summarizeChatTokenUsageFromTrajectory(
   let completionTokens = 0;
   let llmCalls = 0;
   let model: string | undefined;
+  let fallbackModel: string | undefined;
 
   for (const entry of readTrajectoryLlmLogs(logger)) {
     if (getTrajectoryStepId(entry) !== stepId) continue;
     if (!entry || typeof entry !== "object") continue;
 
     const row = entry as Record<string, unknown>;
+    const rawModel = readStringField(row, "model");
+    if (!fallbackModel && rawModel) {
+      fallbackModel = rawModel;
+    }
+    if (isEmbeddingLikeTrajectoryCall(row)) {
+      continue;
+    }
+
     llmCalls += 1;
     promptTokens += readUsageTokenCount(row, [
       "promptTokens",
@@ -2144,22 +2184,29 @@ function summarizeChatTokenUsageFromTrajectory(
       "output",
     ]);
 
-    if (!model) {
-      const rawModel = row.model;
-      if (typeof rawModel === "string" && rawModel.trim().length > 0) {
-        model = rawModel.trim();
-      }
+    if (rawModel) {
+      // Prefer the latest non-embedding model observed in this chat step.
+      model = rawModel;
     }
   }
 
-  if (llmCalls <= 0) return null;
+  if (llmCalls <= 0) {
+    if (!fallbackModel) return null;
+    return {
+      promptTokens: 0,
+      completionTokens: 0,
+      totalTokens: 0,
+      llmCalls: 0,
+      model: fallbackModel,
+    };
+  }
 
   return {
     promptTokens,
     completionTokens,
     totalTokens: promptTokens + completionTokens,
     llmCalls,
-    ...(model ? { model } : {}),
+    ...((model ?? fallbackModel) ? { model: model ?? fallbackModel } : {}),
   };
 }
 

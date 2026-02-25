@@ -77,6 +77,15 @@ function resolveProviderLabel(model: string | undefined): string {
   return "N/A";
 }
 
+function isNonChatModelLabel(model: string | undefined): boolean {
+  const value = (model ?? "").trim().toLowerCase();
+  if (!value) return false;
+  if (value === "text_embedding") return true;
+  if (value.includes("text_embedding")) return true;
+  if (value.includes("embedding")) return true;
+  return false;
+}
+
 function estimateTokenCost(
   promptTokens: number,
   completionTokens: number,
@@ -226,11 +235,14 @@ export function ConversationsSidebar({ variant = "default" }: ConversationsSideb
     };
   }, [isGameModal, statusModelLabel]);
 
-  const observedModelLabel = (chatLastUsage?.model ?? "").trim();
+  const observedModelLabelRaw = (chatLastUsage?.model ?? "").trim();
+  const observedModelLabel = isNonChatModelLabel(observedModelLabelRaw)
+    ? ""
+    : observedModelLabelRaw;
   const configuredModelLabel = (runtimeModel || statusModelLabel).trim();
   const modelLabel = (observedModelLabel || configuredModelLabel).trim();
-  const providerLabel = observedModelLabel
-    ? resolveProviderLabel(observedModelLabel)
+  const providerLabel = modelLabel
+    ? resolveProviderLabel(modelLabel)
     : runtimeModelLoading
       ? t("chat.modal.providerDetecting")
       : "N/A";
@@ -244,7 +256,7 @@ export function ConversationsSidebar({ variant = "default" }: ConversationsSideb
     ? estimateTokenCost(
       chatLastUsage.promptTokens,
       chatLastUsage.completionTokens,
-      chatLastUsage.model || modelLabel,
+      observedModelLabel || modelLabel,
     )
     : "—";
 
