@@ -13208,7 +13208,7 @@ async function handleRequest(
     const cloudEnabled = Boolean(state.config.cloud?.enabled);
     const hasApiKey = Boolean(state.config.cloud?.apiKey?.trim());
     const effectivelyEnabled = cloudEnabled;
-    const hasUsableConfigAuth = cloudEnabled && hasApiKey;
+    const hasUsableConfigAuth = hasApiKey;
     const rt = state.runtime;
     const cloudAuth = rt
       ? (rt.getService("CLOUD_AUTH") as {
@@ -13218,6 +13218,17 @@ async function handleRequest(
         } | null)
       : null;
     const authConnected = Boolean(cloudAuth?.isAuthenticated());
+
+    if (!cloudEnabled) {
+      json(res, {
+        connected: false,
+        enabled: false,
+        hasApiKey,
+        reason: hasApiKey ? "disabled_with_cached_api_key" : "disabled",
+        staleAuthConnected: authConnected,
+      });
+      return;
+    }
 
     if (authConnected || hasUsableConfigAuth) {
       json(res, {
@@ -13259,6 +13270,11 @@ async function handleRequest(
 
   // ── GET /api/cloud/credits ──────────────────────────────────────────────
   if (method === "GET" && pathname === "/api/cloud/credits") {
+    const cloudEnabled = Boolean(state.config.cloud?.enabled);
+    if (!cloudEnabled) {
+      json(res, { balance: null, connected: false, reason: "disabled" });
+      return;
+    }
     const rt = state.runtime;
     const cloudAuth = rt
       ? (rt.getService("CLOUD_AUTH") as {

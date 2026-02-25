@@ -1188,17 +1188,27 @@ export function applyConnectorSecretsToEnv(config: MiladyConfig): void {
 export function applyCloudConfigToEnv(config: MiladyConfig): void {
   const cloud = config.cloud;
   if (!cloud) return;
+  const piAiForced = isPiAiEnabledFromEnv(process.env);
 
   // Having an API key means the user logged in — treat as enabled even if
   // the flag was accidentally reset (e.g. by a provider switch or merge).
-  const effectivelyEnabled = cloud.enabled || Boolean(cloud.apiKey);
+  // When pi-ai is explicitly forced, keep cloud disabled even if a cached
+  // cloud API key exists.
+  const effectivelyEnabled =
+    !piAiForced && (cloud.enabled || Boolean(cloud.apiKey));
 
-  if (effectivelyEnabled) {
-    process.env.ELIZAOS_CLOUD_ENABLED = "true";
-    logger.info(
-      `[milady] Cloud config: enabled=${cloud.enabled}, hasApiKey=${Boolean(cloud.apiKey)}, baseUrl=${cloud.baseUrl ?? "(default)"}`,
-    );
+  if (!effectivelyEnabled) {
+    delete process.env.ELIZAOS_CLOUD_ENABLED;
+    delete process.env.ELIZAOS_CLOUD_API_KEY;
+    delete process.env.ELIZAOS_CLOUD_SMALL_MODEL;
+    delete process.env.ELIZAOS_CLOUD_LARGE_MODEL;
+    return;
   }
+
+  process.env.ELIZAOS_CLOUD_ENABLED = "true";
+  logger.info(
+    `[milady] Cloud config: enabled=${cloud.enabled}, hasApiKey=${Boolean(cloud.apiKey)}, baseUrl=${cloud.baseUrl ?? "(default)"}`,
+  );
   if (cloud.apiKey) {
     process.env.ELIZAOS_CLOUD_API_KEY = cloud.apiKey;
   }

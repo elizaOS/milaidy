@@ -597,7 +597,7 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
         // OpenAI plan credentials are OAuth-based and should route through the
         // pi-ai model handler (openai-codex/*), not plugin-openai API-key mode.
         await client.updateConfig({
-          cloud: { enabled: false },
+          cloud: { enabled: false, apiKey: "" },
           env: { vars: { MILADY_USE_PI_AI: "1" } },
           agents: {
             defaults: { model: { primary: OPENAI_CODEX_PRIMARY_MODEL } },

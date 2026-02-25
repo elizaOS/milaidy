@@ -399,9 +399,57 @@ export async function handleCloudRoute(
 
     delete process.env.ELIZAOS_CLOUD_API_KEY;
     delete process.env.ELIZAOS_CLOUD_ENABLED;
+    delete process.env.ELIZAOS_CLOUD_SMALL_MODEL;
+    delete process.env.ELIZAOS_CLOUD_LARGE_MODEL;
+
+    if (
+      state.config.env &&
+      typeof state.config.env === "object" &&
+      !Array.isArray(state.config.env)
+    ) {
+      const envCfg = state.config.env as Record<string, unknown>;
+      delete envCfg.ELIZAOS_CLOUD_API_KEY;
+      delete envCfg.ELIZAOS_CLOUD_ENABLED;
+      delete envCfg.ELIZAOS_CLOUD_SMALL_MODEL;
+      delete envCfg.ELIZAOS_CLOUD_LARGE_MODEL;
+      if (
+        envCfg.vars &&
+        typeof envCfg.vars === "object" &&
+        !Array.isArray(envCfg.vars)
+      ) {
+        const vars = envCfg.vars as Record<string, unknown>;
+        delete vars.ELIZAOS_CLOUD_API_KEY;
+        delete vars.ELIZAOS_CLOUD_ENABLED;
+        delete vars.ELIZAOS_CLOUD_SMALL_MODEL;
+        delete vars.ELIZAOS_CLOUD_LARGE_MODEL;
+      }
+    }
 
     if (state.runtime) {
       try {
+        const cloudAuth = state.runtime.getService("CLOUD_AUTH") as
+          | Record<string, unknown>
+          | null;
+        if (cloudAuth) {
+          const clearMethods = [
+            "logout",
+            "disconnect",
+            "signOut",
+            "clearSession",
+            "clearCredentials",
+            "reset",
+          ] as const;
+          for (const methodName of clearMethods) {
+            const method = cloudAuth[methodName];
+            if (typeof method !== "function") continue;
+            try {
+              await (method as () => Promise<unknown> | unknown).call(cloudAuth);
+            } catch {
+              // Best-effort only.
+            }
+          }
+        }
+
         if (!state.runtime.character.secrets) {
           state.runtime.character.secrets = {};
         }
@@ -419,6 +467,14 @@ export async function handleCloudRoute(
           `[cloud-login] Failed to clear cloud secrets from agent DB: ${dbErr instanceof Error ? dbErr.message : dbErr}`,
         );
       }
+    }
+
+    try {
+      saveMiladyConfig(state.config);
+    } catch (saveErr) {
+      logger.warn(
+        `[cloud-login] Failed to save cloud env cleanup: ${saveErr instanceof Error ? saveErr.message : saveErr}`,
+      );
     }
 
     sendJson(res, { ok: true, status: "disconnected" });

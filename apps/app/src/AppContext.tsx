@@ -1894,6 +1894,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const ensureLocalOpenAIPlanProvider = useCallback(async () => {
+    let attemptedOpenAiSwitch = false;
     try {
       const [subscriptionStatus, cfg, status] = await Promise.all([
         client.getSubscriptionStatus().catch(() => null),
@@ -1903,8 +1904,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const openAiPlan = subscriptionStatus?.providers?.find(
         (provider) =>
           provider.provider === "openai-codex" &&
-          provider.configured &&
-          provider.valid,
+          provider.configured,
       );
       const cloudCfg = cfg?.cloud as Record<string, unknown> | undefined;
       const runtimeModel = (status?.model ?? "").toLowerCase();
@@ -1987,9 +1987,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         !looksLikeOpenAiCodexModel &&
         (cloudCfg?.enabled === true || looksLikeCloudOnlyModel || looksModelUnset);
       if (!shouldActivateOpenAiPlan) return;
+      attemptedOpenAiSwitch = true;
 
       await client.updateConfig({
-        cloud: { enabled: false },
+        cloud: { enabled: false, apiKey: "" },
         env: { vars: { MILADY_USE_PI_AI: "1" } },
         agents: { defaults: { model: { primary: "openai-codex/gpt-5.1" } } },
         models: {
@@ -2008,8 +2009,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
         "success",
         3400,
       );
-    } catch {
-      // Ignore auto-recovery failures; users can still switch provider manually.
+    } catch (err) {
+      if (attemptedOpenAiSwitch) {
+        setActionNotice(
+          `OpenAI plan switch failed: ${err instanceof Error ? err.message : "unknown error"}`,
+          "error",
+          4200,
+        );
+      }
     }
   }, [loadPlugins, setActionNotice]);
 
@@ -3571,6 +3578,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setCloudDisconnecting(true);
     try {
       await client.cloudDisconnect();
+      const restartedStatus = await client.restartAndWait().catch(() => null);
+      if (restartedStatus) {
+        setAgentStatus(restartedStatus);
+      }
       setCloudEnabled(false);
       setCloudConnected(false);
       setCloudCredits(null);
@@ -3578,6 +3589,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setCloudCreditsCritical(false);
       setCloudUserId(null);
       await pollCloudCredits();
+      await loadPlugins().catch(() => null);
       await ensureLocalOpenAIPlanProvider();
       setActionNotice(t("appContext.notice.cloudDisconnected"), "success");
     } catch (err) {
@@ -3585,7 +3597,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     } finally {
       setCloudDisconnecting(false);
     }
-  }, [ensureLocalOpenAIPlanProvider, pollCloudCredits, setActionNotice, t]);
+  }, [ensureLocalOpenAIPlanProvider, loadPlugins, pollCloudCredits, setActionNotice, t]);
 
   // ── Updates ────────────────────────────────────────────────────────
 
