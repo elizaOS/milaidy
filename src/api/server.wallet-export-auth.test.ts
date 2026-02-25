@@ -116,4 +116,40 @@ describe("resolveWalletExportRejection", () => {
         "Wallet export is disabled. Set MILADY_WALLET_EXPORT_TOKEN to enable secure exports.",
     });
   });
+
+  it("rejects confirm: false explicitly", () => {
+    process.env.MILADY_WALLET_EXPORT_TOKEN = "secret-token";
+    const rejection = resolveWalletExportRejection(
+      req() as http.IncomingMessage,
+      { confirm: false },
+    );
+    expect(rejection?.status).toBe(403);
+    expect(rejection?.reason).toContain("confirm");
+  });
+
+  it("treats whitespace-only body exportToken as missing", () => {
+    process.env.MILADY_WALLET_EXPORT_TOKEN = "secret-token";
+    const rejection = resolveWalletExportRejection(
+      req() as http.IncomingMessage,
+      { confirm: true, exportToken: "   " },
+    );
+    expect(rejection).toEqual({
+      status: 401,
+      reason:
+        "Missing export token. Provide X-Milady-Export-Token header or exportToken in request body.",
+    });
+  });
+
+  it("treats whitespace-only header X-Milady-Export-Token as missing", () => {
+    process.env.MILADY_WALLET_EXPORT_TOKEN = "secret-token";
+    const rejection = resolveWalletExportRejection(
+      req({ "x-milady-export-token": "   " }) as http.IncomingMessage,
+      { confirm: true },
+    );
+    expect(rejection).toEqual({
+      status: 401,
+      reason:
+        "Missing export token. Provide X-Milady-Export-Token header or exportToken in request body.",
+    });
+  });
 });

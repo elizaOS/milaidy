@@ -16,6 +16,7 @@ describe("resolveWebSocketUpgradeRejection", () => {
   const prevToken = process.env.MILADY_API_TOKEN;
   const prevAllowQueryToken = process.env.MILADY_ALLOW_WS_QUERY_TOKEN;
   const prevAllowedOrigins = process.env.MILADY_ALLOWED_ORIGINS;
+  const prevAllowNullOrigin = process.env.MILADY_ALLOW_NULL_ORIGIN;
 
   afterEach(() => {
     if (prevToken === undefined) delete process.env.MILADY_API_TOKEN;
@@ -28,6 +29,10 @@ describe("resolveWebSocketUpgradeRejection", () => {
     if (prevAllowedOrigins === undefined)
       delete process.env.MILADY_ALLOWED_ORIGINS;
     else process.env.MILADY_ALLOWED_ORIGINS = prevAllowedOrigins;
+
+    if (prevAllowNullOrigin === undefined)
+      delete process.env.MILADY_ALLOW_NULL_ORIGIN;
+    else process.env.MILADY_ALLOW_NULL_ORIGIN = prevAllowNullOrigin;
   });
 
   it("rejects non-/ws paths", () => {
@@ -163,6 +168,45 @@ describe("resolveWebSocketUpgradeRejection", () => {
     delete process.env.MILADY_API_TOKEN;
     const rejection = resolveWebSocketUpgradeRejection(
       req() as http.IncomingMessage,
+      new URL("ws://localhost/ws"),
+    );
+    expect(rejection).toBeNull();
+  });
+
+  it("rejects whitespace-only bearer token", () => {
+    process.env.MILADY_API_TOKEN = "test-token";
+    const rejection = resolveWebSocketUpgradeRejection(
+      req({ authorization: "Bearer   " }) as http.IncomingMessage,
+      new URL("ws://localhost/ws"),
+    );
+    expect(rejection).toEqual({ status: 401, reason: "Unauthorized" });
+  });
+
+  it("accepts query token via apiKey param when enabled", () => {
+    process.env.MILADY_API_TOKEN = "test-token";
+    process.env.MILADY_ALLOW_WS_QUERY_TOKEN = "1";
+    const rejection = resolveWebSocketUpgradeRejection(
+      req() as http.IncomingMessage,
+      new URL("ws://localhost/ws?apiKey=test-token"),
+    );
+    expect(rejection).toBeNull();
+  });
+
+  it("accepts query token via api_key param when enabled", () => {
+    process.env.MILADY_API_TOKEN = "test-token";
+    process.env.MILADY_ALLOW_WS_QUERY_TOKEN = "1";
+    const rejection = resolveWebSocketUpgradeRejection(
+      req() as http.IncomingMessage,
+      new URL("ws://localhost/ws?api_key=test-token"),
+    );
+    expect(rejection).toBeNull();
+  });
+
+  it("accepts null origin when MILADY_ALLOW_NULL_ORIGIN=1", () => {
+    delete process.env.MILADY_API_TOKEN;
+    process.env.MILADY_ALLOW_NULL_ORIGIN = "1";
+    const rejection = resolveWebSocketUpgradeRejection(
+      req({ origin: "null" }) as http.IncomingMessage,
       new URL("ws://localhost/ws"),
     );
     expect(rejection).toBeNull();

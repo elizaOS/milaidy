@@ -235,6 +235,70 @@ describe("validateMcpServerConfig", () => {
 
     expect(rejection).toBe("args must be an array of strings");
   });
+
+  it("rejects --inspect flag for node (V8 inspector)", async () => {
+    const rejection = await validateMcpServerConfig({
+      type: "stdio",
+      command: "node",
+      args: ["--inspect", "server.js"],
+    });
+
+    expect(rejection).toContain('Flag "--inspect" is not allowed');
+  });
+
+  it("rejects --inspect-brk flag for node (V8 inspector)", async () => {
+    const rejection = await validateMcpServerConfig({
+      type: "stdio",
+      command: "node",
+      args: ["--inspect-brk", "server.js"],
+    });
+
+    expect(rejection).toContain('Flag "--inspect-brk" is not allowed');
+  });
+
+  it("rejects --inspect flag for bun (V8 inspector)", async () => {
+    const rejection = await validateMcpServerConfig({
+      type: "stdio",
+      command: "bun",
+      args: ["--inspect", "server.js"],
+    });
+
+    expect(rejection).toContain('Flag "--inspect" is not allowed');
+  });
+
+  it("rejects $include as env key", async () => {
+    const rejection = await validateMcpServerConfig({
+      type: "stdio",
+      command: "npx",
+      env: { $include: "./secrets.json" },
+    });
+
+    expect(rejection).toContain("blocked for security reasons");
+  });
+
+  it("rejects non-object env (array)", async () => {
+    const rejection = await validateMcpServerConfig({
+      type: "stdio",
+      command: "npx",
+      env: ["FOO=bar"],
+    });
+
+    expect(rejection).toBe(
+      "env must be a plain object of string key-value pairs",
+    );
+  });
+
+  it("rejects non-object env (null)", async () => {
+    const rejection = await validateMcpServerConfig({
+      type: "stdio",
+      command: "npx",
+      env: null,
+    });
+
+    expect(rejection).toBe(
+      "env must be a plain object of string key-value pairs",
+    );
+  });
 });
 
 describe("resolveMcpServersRejection", () => {
@@ -271,6 +335,35 @@ describe("resolveMcpServersRejection", () => {
     });
 
     expect(rejection).toContain('Server "filesystem":');
+  });
+
+  it("rejects __proto__ server name", async () => {
+    // JSON.parse creates __proto__ as a real own property, matching the
+    // actual attack vector (untrusted JSON from API callers).
+    const servers = JSON.parse(
+      '{"__proto__": {"type": "stdio", "command": "npx"}}',
+    );
+    const rejection = await resolveMcpServersRejection(servers);
+
+    expect(rejection).toContain('Invalid server name: "__proto__"');
+  });
+
+  it("rejects $include server name", async () => {
+    const rejection = await resolveMcpServersRejection({
+      $include: { type: "stdio", command: "npx" },
+    });
+
+    expect(rejection).toContain('Invalid server name: "$include"');
+  });
+
+  it("rejects deeply nested blocked keys in server config", async () => {
+    // JSON.parse creates __proto__ as a real own property at any depth.
+    const servers = JSON.parse(
+      '{"safe": {"type": "stdio", "command": "npx", "nested": {"__proto__": {}}}}',
+    );
+    const rejection = await resolveMcpServersRejection(servers);
+
+    expect(rejection).toContain("contains blocked object keys");
   });
 
   it("accepts safe server maps", async () => {
