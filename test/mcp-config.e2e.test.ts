@@ -183,6 +183,23 @@ describe("MCP config write path", () => {
     expect(servers["del-target"]).toBeUndefined();
   });
 
+  it("POST rejects missing config object (400)", async () => {
+    const { status, data } = await req(port, "POST", "/api/mcp/config/server", {
+      name: "no-config",
+    });
+    expect(status).toBe(400);
+    expect(data.error).toContain("Server config object is required");
+  });
+
+  it("POST rejects array config (400)", async () => {
+    const { status, data } = await req(port, "POST", "/api/mcp/config/server", {
+      name: "array-config",
+      config: [{ type: "stdio", command: "npx" }],
+    });
+    expect(status).toBe(400);
+    expect(data.error).toContain("Server config object is required");
+  });
+
   it("DELETE is idempotent for nonexistent server name", async () => {
     const { status, data } = await req(
       port,
@@ -412,7 +429,39 @@ describe("MCP reject-path: remote & env validation", () => {
 });
 
 // ===========================================================================
-// 5. MCP runtime status
+// 5. MCP reject-path: PUT validation
+// ===========================================================================
+
+describe("MCP reject-path: PUT validation", () => {
+  it("rejects array servers value (400)", async () => {
+    const { status, data } = await req(port, "PUT", "/api/mcp/config", {
+      servers: [{ type: "stdio", command: "npx" }],
+    });
+    expect(status).toBe(400);
+    expect(data.error).toContain("servers must be a JSON object");
+  });
+
+  it("rejects null servers value (400)", async () => {
+    const { status, data } = await req(port, "PUT", "/api/mcp/config", {
+      servers: null,
+    });
+    expect(status).toBe(400);
+    expect(data.error).toContain("servers must be a JSON object");
+  });
+
+  it("rejects PUT with invalid server config inside servers map (400)", async () => {
+    const { status, data } = await req(port, "PUT", "/api/mcp/config", {
+      servers: {
+        "bad-server": { type: "stdio", command: "curl" },
+      },
+    });
+    expect(status).toBe(400);
+    expect(data.error).toContain("not allowed");
+  });
+});
+
+// ===========================================================================
+// 6. MCP runtime status
 // ===========================================================================
 
 describe("MCP runtime status", () => {
