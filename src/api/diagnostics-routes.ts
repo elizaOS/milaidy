@@ -25,8 +25,6 @@ interface LogEntryLike {
 interface StreamEventEnvelopeLike {
   type: string;
   eventId: string;
-  runId?: string;
-  seq?: number;
 }
 
 type DiagnosticsSseInit = (res: http.ServerResponse) => void;
@@ -224,27 +222,8 @@ export async function handleDiagnosticsRoutes(
       max: 1000,
       fallback: 200,
     });
-    const runIdFilter = url.searchParams.get("runId");
-    const fromSeqRaw = url.searchParams.get("fromSeq");
-    const fromSeq = parseClampedInteger(fromSeqRaw, {
-      min: 0,
-    });
-    if (fromSeqRaw !== null && fromSeq === undefined) {
-      json(res, { error: 'Invalid "fromSeq" filter.' }, 400);
-      return true;
-    }
     const afterEventId = url.searchParams.get("after");
-    let autonomyEvents = eventBuffer.filter(isAutonomyEvent);
-    if (runIdFilter) {
-      autonomyEvents = autonomyEvents.filter(
-        (event) => event.runId === runIdFilter,
-      );
-    }
-    if (fromSeq !== undefined) {
-      autonomyEvents = autonomyEvents.filter(
-        (event) => typeof event.seq === "number" && event.seq >= fromSeq,
-      );
-    }
+    const autonomyEvents = eventBuffer.filter(isAutonomyEvent);
 
     let startIndex = 0;
     if (afterEventId) {

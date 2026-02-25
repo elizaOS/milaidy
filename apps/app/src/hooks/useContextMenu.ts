@@ -5,17 +5,30 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useApp } from "../AppContext";
-import {
-  appendSavedCustomCommand,
-  loadSavedCustomCommands,
-  type SavedCustomCommand,
-} from "../chat-commands";
 
-export type CustomCommand = SavedCustomCommand;
+const COMMANDS_STORAGE_KEY = "milady:custom-commands";
+
+export interface CustomCommand {
+  name: string;
+  text: string;
+  createdAt: number;
+}
 
 /** Read saved custom commands from localStorage. */
 export function loadCustomCommands(): CustomCommand[] {
-  return loadSavedCustomCommands();
+  try {
+    const raw = localStorage.getItem(COMMANDS_STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as CustomCommand[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Persist a new custom command to localStorage. */
+function saveCustomCommand(cmd: CustomCommand): void {
+  const existing = loadCustomCommands();
+  existing.push(cmd);
+  localStorage.setItem(COMMANDS_STORAGE_KEY, JSON.stringify(existing));
 }
 
 export interface ContextMenuState {
@@ -107,7 +120,7 @@ export function useContextMenu(): ContextMenuState {
         text: saveCommandText,
         createdAt: Date.now(),
       };
-      appendSavedCustomCommand(cmd);
+      saveCustomCommand(cmd);
       setCustomCommands(loadCustomCommands());
       setSaveCommandModalOpen(false);
       setSaveCommandText("");

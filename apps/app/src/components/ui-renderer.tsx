@@ -1547,10 +1547,7 @@ function ElementRenderer({ elementId }: { elementId: string }) {
               <ElementRenderer elementId={childId} />
             </UiContext.Provider>
           ));
-          const repeatKey = el.repeat?.key;
-          const itemKey = String(
-            repeatKey != null ? item[repeatKey] : Math.random(),
-          );
+          const itemKey = String(item[el.repeat?.key] ?? Math.random());
           return (
             <React.Fragment key={itemKey}>
               {component(resolvedProps, childNodes, itemCtx, el)}

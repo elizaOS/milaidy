@@ -247,62 +247,6 @@ if (typeof globalThis.window === "undefined") {
   }
 }
 
-if (typeof globalThis.HTMLCanvasElement !== "undefined") {
-  const createCanvas2DContext = (): CanvasRenderingContext2D =>
-    ({
-      fillRect: vi.fn(),
-      clearRect: vi.fn(),
-      getImageData: vi.fn(() => ({
-        data: new Uint8ClampedArray(0),
-        width: 0,
-        height: 0,
-      })),
-      putImageData: vi.fn(),
-      drawImage: vi.fn(),
-      beginPath: vi.fn(),
-      closePath: vi.fn(),
-      moveTo: vi.fn(),
-      lineTo: vi.fn(),
-      stroke: vi.fn(),
-      fill: vi.fn(),
-      arc: vi.fn(),
-      rect: vi.fn(),
-      save: vi.fn(),
-      restore: vi.fn(),
-      translate: vi.fn(),
-      rotate: vi.fn(),
-      scale: vi.fn(),
-      transform: vi.fn(),
-      setTransform: vi.fn(),
-      resetTransform: vi.fn(),
-      fillText: vi.fn(),
-      strokeText: vi.fn(),
-      measureText: vi.fn(() => ({ width: 0 })),
-      createLinearGradient: vi.fn(() => ({ addColorStop: vi.fn() })),
-      createRadialGradient: vi.fn(() => ({ addColorStop: vi.fn() })),
-      createPattern: vi.fn(() => null),
-      canvas: document.createElement("canvas"),
-      lineWidth: 1,
-      globalAlpha: 1,
-      fillStyle: "#000",
-      strokeStyle: "#000",
-    }) as unknown as CanvasRenderingContext2D;
-
-  Object.defineProperty(globalThis.HTMLCanvasElement.prototype, "getContext", {
-    value: vi.fn((contextType: string) =>
-      contextType === "2d" ? createCanvas2DContext() : null,
-    ),
-    writable: true,
-    configurable: true,
-  });
-
-  Object.defineProperty(globalThis.HTMLCanvasElement.prototype, "toDataURL", {
-    value: vi.fn(() => "data:image/png;base64,dGVzdA=="),
-    writable: true,
-    configurable: true,
-  });
-}
-
 if (typeof globalThis.WebSocket === "undefined") {
   class MockWebSocket {
     static readonly OPEN = 1;

@@ -15,7 +15,7 @@
 
 import crypto from "node:crypto";
 import vm from "node:vm";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 // ---------------------------------------------------------------------------
 // 1. Token matching / gate logic tests
