@@ -4776,20 +4776,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
       void loadWorkbench();
 
       // Hydrate coding agent sessions
-      client.getCodingAgentStatus().then((status) => {
-        if (status?.tasks) {
-          setPtySessions(status.tasks.map((t) => ({
-            sessionId: t.sessionId,
-            agentType: t.agentType ?? "claude",
-            label: t.label ?? t.sessionId,
-            originalTask: t.originalTask ?? "",
-            workdir: t.workdir ?? "",
-            status: t.status ?? "active",
-            decisionCount: t.decisionCount ?? 0,
-            autoResolvedCount: t.autoResolvedCount ?? 0,
-          })));
-        }
-      }).catch(() => {}); // non-critical
+      client
+        .getCodingAgentStatus()
+        .then((status) => {
+          if (status?.tasks) {
+            setPtySessions(
+              status.tasks.map((t) => ({
+                sessionId: t.sessionId,
+                agentType: t.agentType ?? "claude",
+                label: t.label ?? t.sessionId,
+                originalTask: t.originalTask ?? "",
+                workdir: t.workdir ?? "",
+                status: t.status ?? "active",
+                decisionCount: t.decisionCount ?? 0,
+                autoResolvedCount: t.autoResolvedCount ?? 0,
+              })),
+            );
+          }
+        })
+        .catch(() => {}); // non-critical
 
       // Connect WebSocket
       client.connectWs();
@@ -4903,69 +4908,81 @@ export function AppProvider({ children }: { children: ReactNode }) {
       );
 
       // Handle PTY session events from SwarmCoordinator
-      client.onWsEvent(
-        "pty-session-event",
-        (data: Record<string, unknown>) => {
-          const eventType = (data.eventType ?? data.type) as string;
-          const sessionId = data.sessionId as string;
-          if (!sessionId) return;
+      client.onWsEvent("pty-session-event", (data: Record<string, unknown>) => {
+        const eventType = (data.eventType ?? data.type) as string;
+        const sessionId = data.sessionId as string;
+        if (!sessionId) return;
 
-          if (eventType === "task_registered") {
-            const d = data.data as Record<string, unknown> | undefined;
-            setPtySessions((prev) => [
-              ...prev.filter((s) => s.sessionId !== sessionId),
-              {
-                sessionId,
-                agentType: (d?.agentType as string) ?? "claude",
-                label: (d?.label as string) ?? sessionId,
-                originalTask: (d?.originalTask as string) ?? "",
-                workdir: (d?.workdir as string) ?? "",
-                status: "active",
-                decisionCount: 0,
-                autoResolvedCount: 0,
-              },
-            ]);
-          } else if (
-            eventType === "task_complete" ||
-            eventType === "stopped"
-          ) {
-            setPtySessions((prev) =>
-              prev.filter((s) => s.sessionId !== sessionId),
-            );
-          } else if (
-            eventType === "blocked" ||
-            eventType === "escalation"
-          ) {
-            setPtySessions((prev) =>
-              prev.map((s) =>
-                s.sessionId === sessionId
-                  ? { ...s, status: "blocked" as const }
-                  : s,
-              ),
-            );
-          } else if (
-            eventType === "coordination_decision" ||
-            eventType === "blocked_auto_resolved" ||
-            eventType === "ready"
-          ) {
-            setPtySessions((prev) =>
-              prev.map((s) =>
-                s.sessionId === sessionId
-                  ? { ...s, status: "active" as const }
-                  : s,
-              ),
-            );
-          } else if (eventType === "error") {
-            setPtySessions((prev) =>
-              prev.map((s) =>
-                s.sessionId === sessionId
-                  ? { ...s, status: "error" as const }
-                  : s,
-              ),
-            );
-          }
-        },
-      );
+        if (eventType === "task_registered") {
+          const d = data.data as Record<string, unknown> | undefined;
+          setPtySessions((prev) => [
+            ...prev.filter((s) => s.sessionId !== sessionId),
+            {
+              sessionId,
+              agentType: (d?.agentType as string) ?? "claude",
+              label: (d?.label as string) ?? sessionId,
+              originalTask: (d?.originalTask as string) ?? "",
+              workdir: (d?.workdir as string) ?? "",
+              status: "active",
+              decisionCount: 0,
+              autoResolvedCount: 0,
+            },
+          ]);
+        } else if (eventType === "task_complete" || eventType === "stopped") {
+          setPtySessions((prev) =>
+            prev.filter((s) => s.sessionId !== sessionId),
+          );
+        } else if (eventType === "blocked" || eventType === "escalation") {
+          setPtySessions((prev) =>
+            prev.map((s) =>
+              s.sessionId === sessionId
+                ? { ...s, status: "blocked" as const }
+                : s,
+            ),
+          );
+        } else if (eventType === "tool_running") {
+          const d = data.data as Record<string, unknown> | undefined;
+          const toolDesc =
+            (d?.description as string) ??
+            (d?.toolName as string) ??
+            "external tool";
+          setPtySessions((prev) =>
+            prev.map((s) =>
+              s.sessionId === sessionId
+                ? {
+                    ...s,
+                    status: "tool_running" as const,
+                    toolDescription: toolDesc,
+                  }
+                : s,
+            ),
+          );
+        } else if (
+          eventType === "coordination_decision" ||
+          eventType === "blocked_auto_resolved" ||
+          eventType === "ready"
+        ) {
+          setPtySessions((prev) =>
+            prev.map((s) =>
+              s.sessionId === sessionId
+                ? {
+                    ...s,
+                    status: "active" as const,
+                    toolDescription: undefined,
+                  }
+                : s,
+            ),
+          );
+        } else if (eventType === "error") {
+          setPtySessions((prev) =>
+            prev.map((s) =>
+              s.sessionId === sessionId
+                ? { ...s, status: "error" as const }
+                : s,
+            ),
+          );
+        }
+      });
 
       // Load wallet addresses for header
       try {

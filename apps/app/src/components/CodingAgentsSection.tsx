@@ -14,6 +14,7 @@ const AGENT_LABELS: Record<string, string> = {
 /** Status dot color classes. */
 const STATUS_DOT: Record<string, string> = {
   active: "bg-ok",
+  tool_running: "bg-accent",
   blocked: "bg-warn",
   error: "bg-danger",
   completed: "bg-ok opacity-50",
@@ -67,7 +68,7 @@ export function CodingAgentsSection({ sessions }: CodingAgentsSectionProps) {
                   <span
                     className={`inline-block w-2 h-2 rounded-full shrink-0 ${
                       STATUS_DOT[session.status] ?? "bg-muted"
-                    }${session.status === "active" ? " animate-pulse" : ""}`}
+                    }${session.status === "active" || session.status === "tool_running" ? " animate-pulse" : ""}`}
                   />
                   <span className="text-[11px] font-medium text-accent uppercase">
                     {AGENT_LABELS[session.agentType] ?? session.agentType}
@@ -85,13 +86,16 @@ export function CodingAgentsSection({ sessions }: CodingAgentsSectionProps) {
                 )}
                 <div className="flex items-center justify-between mt-1.5">
                   <span className="text-[10px] text-muted">
-                    {session.status === "blocked"
-                      ? "Waiting for input"
-                      : session.status === "error"
-                        ? "Error"
-                        : "Running"}
+                    {session.status === "tool_running"
+                      ? `Using ${session.toolDescription ?? "external tool"}`
+                      : session.status === "blocked"
+                        ? "Waiting for input"
+                        : session.status === "error"
+                          ? "Error"
+                          : "Running"}
                   </span>
                   {(session.status === "active" ||
+                    session.status === "tool_running" ||
                     session.status === "blocked") && (
                     <button
                       type="button"

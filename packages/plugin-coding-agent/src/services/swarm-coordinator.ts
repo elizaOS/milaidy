@@ -15,10 +15,14 @@
  * @module services/swarm-coordinator
  */
 
+import type { ServerResponse } from "node:http";
 import type { IAgentRuntime } from "@elizaos/core";
 import { ModelType } from "@elizaos/core";
-import type { ServerResponse } from "node:http";
-import { cleanForChat, extractCompletionSummary } from "./ansi-utils.js";
+import {
+  cleanForChat,
+  extractCompletionSummary,
+  extractDevServerUrl,
+} from "./ansi-utils.js";
 import type { PTYService } from "./pty-service.js";
 import type { CodingAgentType } from "./pty-types.js";
 import {
@@ -142,6 +146,9 @@ export class SwarmCoordinator {
   /** Last-seen output snapshot per session — used by idle watchdog to detect data flow. */
   private lastSeenOutput: Map<string, string> = new Map();
 
+  /** Timestamp of last tool_running chat notification per session — for throttling. */
+  private lastToolNotification: Map<string, number> = new Map();
+
   constructor(runtime: IAgentRuntime) {
     this.runtime = runtime;
   }
@@ -215,6 +222,7 @@ export class SwarmCoordinator {
     this.inFlightDecisions.clear();
     this.unregisteredBuffer.clear();
     this.lastSeenOutput.clear();
+    this.lastToolNotification.clear();
     this.log("SwarmCoordinator stopped");
   }
 
@@ -343,7 +351,11 @@ export class SwarmCoordinator {
 
     // Buffer events for unregistered sessions (race condition guard)
     if (!taskCtx) {
-      if (event === "blocked" || event === "task_complete" || event === "error") {
+      if (
+        event === "blocked" ||
+        event === "task_complete" ||
+        event === "error"
+      ) {
         let buffer = this.unregisteredBuffer.get(sessionId);
         if (!buffer) {
           buffer = [];
@@ -442,6 +454,55 @@ export class SwarmCoordinator {
         });
         break;
 
+      case "tool_running": {
+        // Agent is actively working via an external tool — keep watchdog happy
+        taskCtx.lastActivityAt = Date.now();
+        taskCtx.idleCheckCount = 0;
+
+        this.broadcast({
+          type: "tool_running",
+          sessionId,
+          timestamp: Date.now(),
+          data,
+        });
+
+        // Throttle chat notifications: at most one per 30s per session
+        const toolData = data as {
+          toolName?: string;
+          description?: string;
+        };
+        const now = Date.now();
+        const lastNotif = this.lastToolNotification.get(sessionId) ?? 0;
+        if (now - lastNotif > 30_000) {
+          this.lastToolNotification.set(sessionId, now);
+          const toolDesc =
+            toolData.description ?? toolData.toolName ?? "an external tool";
+
+          // Try to extract a dev server URL from recent output
+          let urlSuffix = "";
+          if (this.ptyService) {
+            try {
+              const recentOutput = await this.ptyService.getSessionOutput(
+                sessionId,
+                50,
+              );
+              const devUrl = extractDevServerUrl(recentOutput);
+              if (devUrl) {
+                urlSuffix = ` Dev server running at ${devUrl}`;
+              }
+            } catch {
+              // Best-effort — don't block on failure
+            }
+          }
+
+          this.sendChatMessage(
+            `[${taskCtx.label}] Running ${toolDesc}.${urlSuffix} The agent is working outside the terminal — I'll let it finish.`,
+            "coding-agent",
+          );
+        }
+        break;
+      }
+
       default:
         // Broadcast unknown events for observability
         this.broadcast({
@@ -471,9 +532,7 @@ export class SwarmCoordinator {
 
     // Extract prompt text from promptInfo (the actual blocking prompt info object)
     const promptText =
-      eventData.promptInfo?.prompt ??
-      eventData.promptInfo?.instructions ??
-      "";
+      eventData.promptInfo?.prompt ?? eventData.promptInfo?.instructions ?? "";
 
     // Auto-responded by rules — log and broadcast, no LLM needed
     if (eventData.autoResponded) {
@@ -796,9 +855,14 @@ export class SwarmCoordinator {
         // dumping raw terminal output which is full of TUI noise.
         let summary = "";
         try {
-          const rawOutput = await this.ptyService.getSessionOutput(sessionId, 50);
+          const rawOutput = await this.ptyService.getSessionOutput(
+            sessionId,
+            50,
+          );
           summary = extractCompletionSummary(rawOutput);
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
 
         this.sendChatMessage(
           summary
@@ -809,7 +873,9 @@ export class SwarmCoordinator {
 
         // Stop the session
         this.ptyService.stopSession(sessionId).catch((err) => {
-          this.log(`Failed to stop session after LLM-detected completion: ${err}`);
+          this.log(
+            `Failed to stop session after LLM-detected completion: ${err}`,
+          );
         });
         break;
       }
@@ -1147,7 +1213,9 @@ export class SwarmCoordinator {
       }
 
       if (!decision) {
-        this.log(`Idle check for "${taskCtx.label}": LLM returned invalid response — escalating`);
+        this.log(
+          `Idle check for "${taskCtx.label}": LLM returned invalid response — escalating`,
+        );
         this.sendChatMessage(
           `[${taskCtx.label}] Session idle for ${idleMinutes}m — couldn't determine status. Needs your attention.`,
           "coding-agent",

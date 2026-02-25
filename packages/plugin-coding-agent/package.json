@@ -34,7 +34,7 @@
   },
   "license": "MIT",
   "dependencies": {
-    "coding-agent-adapters": "0.7.5",
-    "pty-console": "0.2.0"
+    "coding-agent-adapters": "0.8.0",
+    "pty-console": "0.3.0"
   }
 }

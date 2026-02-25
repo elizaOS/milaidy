@@ -27,19 +27,21 @@ const LONG_SPACES = / {3,}/g;
 
 /** Apply all ANSI stripping patterns to a string */
 function applyAnsiStrip(input: string): string {
-  return input
-    // Pre-process: rejoin SGR sequences split across lines by chunk boundaries.
-    // e.g. "[38;2;153;\n153;153m" → "[38;2;153;153;153m"
-    .replace(/(\[[\d;]*)\r?\n([\d;]*m)/g, "$1$2")
-    .replace(CURSOR_MOVEMENT, " ")
-    .replace(CURSOR_POSITION, " ")
-    .replace(ERASE, "")
-    .replace(OSC, "")
-    .replace(ALL_ANSI, "")
-    .replace(CONTROL_CHARS, "")
-    .replace(ORPHAN_SGR, "")
-    .replace(LONG_SPACES, " ")
-    .trim();
+  return (
+    input
+      // Pre-process: rejoin SGR sequences split across lines by chunk boundaries.
+      // e.g. "[38;2;153;\n153;153m" → "[38;2;153;153;153m"
+      .replace(/(\[[\d;]*)\r?\n([\d;]*m)/g, "$1$2")
+      .replace(CURSOR_MOVEMENT, " ")
+      .replace(CURSOR_POSITION, " ")
+      .replace(ERASE, "")
+      .replace(OSC, "")
+      .replace(ALL_ANSI, "")
+      .replace(CONTROL_CHARS, "")
+      .replace(ORPHAN_SGR, "")
+      .replace(LONG_SPACES, " ")
+      .trim()
+  );
 }
 
 /**
@@ -121,9 +123,7 @@ export function extractCompletionSummary(raw: string): string {
   }
 
   // Commit hashes
-  const commits = stripped.match(
-    /(?:committed|commit)\s+[a-f0-9]{7,40}/gi,
-  );
+  const commits = stripped.match(/(?:committed|commit)\s+[a-f0-9]{7,40}/gi);
   if (commits) {
     for (const m of [...new Set(commits)]) lines.push(m.trim());
   }
@@ -137,6 +137,26 @@ export function extractCompletionSummary(raw: string): string {
   }
 
   return lines.join("\n");
+}
+
+/**
+ * Extract a dev server URL from recent terminal output, if present.
+ *
+ * Looks for common patterns like:
+ *   - http://localhost:3000
+ *   - http://127.0.0.1:8080
+ *   - http://0.0.0.0:5173
+ *   - https://localhost:4200
+ *
+ * Returns the first match, or null if no dev server URL is found.
+ */
+export function extractDevServerUrl(raw: string): string | null {
+  const stripped = applyAnsiStrip(raw);
+  // Match local dev server URLs with a port number
+  const match = stripped.match(
+    /https?:\/\/(?:localhost|127\.0\.0\.1|0\.0\.0\.0):\d{1,5}[^\s)}\]'"`,]*/,
+  );
+  return match ? match[0] : null;
 }
 
 /**

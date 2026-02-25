@@ -1100,9 +1100,17 @@ export interface CodingAgentSession {
   label: string;
   originalTask: string;
   workdir: string;
-  status: "active" | "blocked" | "completed" | "stopped" | "error";
+  status:
+    | "active"
+    | "blocked"
+    | "completed"
+    | "stopped"
+    | "error"
+    | "tool_running";
   decisionCount: number;
   autoResolvedCount: number;
+  /** Description of the active tool when status is "tool_running". */
+  toolDescription?: string;
 }
 
 export interface CodingAgentStatus {

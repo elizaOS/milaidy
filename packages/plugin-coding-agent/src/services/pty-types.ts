@@ -128,6 +128,7 @@ export type SessionEventName =
   | "blocked"
   | "login_required"
   | "task_complete"
+  | "tool_running"
   | "stopped"
   | "error"
   | "message";
