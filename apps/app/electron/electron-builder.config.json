@@ -6,7 +6,7 @@
   },
   "files": [
     "assets/**/*",
-    "app-build/**/*",
+    "build/**/*",
     "capacitor.config.*",
     "app/**/*",
     "milady-dist/**/*.js",

@@ -23,10 +23,7 @@ describe("cloneWithoutBlockedObjectKeys — connector config sanitization", () =
   it("strips $include nested inside config", () => {
     const input = {
       token: "abc",
-      settings: {
-        $include: "~/.milady/auth/credentials.json",
-        foo: "bar",
-      },
+      settings: { $include: "~/.milady/auth/credentials.json", foo: "bar" },
     };
     const result = cloneWithoutBlockedObjectKeys(input);
     expect(result.settings).not.toHaveProperty("$include");
@@ -132,111 +129,6 @@ describe("MCP container flag blocklist", () => {
   it("allows safe docker commands without blocked flags", async () => {
     const result = await validateMcpServerConfig(
       makeStdioConfig(["run", "--rm", "mcp-server-image"]),
-    );
-    expect(result).toBeNull();
-  });
-});
-
-// ---------------------------------------------------------------------------
-// 3. MCP interpreter inspector flag blocklist — regression tests
-//
-// --inspect, --inspect-brk, --inspect-wait open a V8 inspector debug port
-// (default 9229) that allows unauthenticated RCE via Chrome DevTools Protocol.
-// These must be blocked for all interpreter commands (node, bun, deno, etc.).
-// ---------------------------------------------------------------------------
-
-describe("MCP interpreter inspector flag blocklist", () => {
-  const makeNodeConfig = (args: string[]) => ({
-    type: "stdio",
-    command: "node",
-    args,
-  });
-
-  it("blocks --inspect (V8 inspector RCE)", async () => {
-    const result = await validateMcpServerConfig(
-      makeNodeConfig(["--inspect", "server.js"]),
-    );
-    expect(result).toContain("--inspect");
-    expect(result).toContain("not allowed");
-  });
-
-  it("blocks --inspect=0.0.0.0:9229 (network-bound inspector)", async () => {
-    const result = await validateMcpServerConfig(
-      makeNodeConfig(["--inspect=0.0.0.0:9229", "server.js"]),
-    );
-    expect(result).toContain("--inspect");
-  });
-
-  it("blocks --inspect-brk (break-on-start inspector)", async () => {
-    const result = await validateMcpServerConfig(
-      makeNodeConfig(["--inspect-brk", "server.js"]),
-    );
-    expect(result).toContain("--inspect-brk");
-  });
-
-  it("blocks --inspect-brk=host:port", async () => {
-    const result = await validateMcpServerConfig(
-      makeNodeConfig(["--inspect-brk=127.0.0.1:9230", "server.js"]),
-    );
-    expect(result).toContain("--inspect-brk");
-  });
-
-  it("blocks --inspect-wait", async () => {
-    const result = await validateMcpServerConfig(
-      makeNodeConfig(["--inspect-wait", "server.js"]),
-    );
-    expect(result).toContain("--inspect-wait");
-  });
-
-  it("blocks --inspect-port", async () => {
-    const result = await validateMcpServerConfig(
-      makeNodeConfig(["--inspect-port=9229", "server.js"]),
-    );
-    expect(result).toContain("--inspect-port");
-  });
-
-  it("blocks --inspect-publish-uid", async () => {
-    const result = await validateMcpServerConfig(
-      makeNodeConfig(["--inspect-publish-uid=http", "server.js"]),
-    );
-    expect(result).toContain("--inspect-publish-uid");
-  });
-
-  it("blocks --experimental-policy (arbitrary file read)", async () => {
-    const result = await validateMcpServerConfig(
-      makeNodeConfig(["--experimental-policy=/tmp/evil.json", "server.js"]),
-    );
-    expect(result).toContain("--experimental-policy");
-  });
-
-  it("blocks --diagnostic-dir (directory write)", async () => {
-    const result = await validateMcpServerConfig(
-      makeNodeConfig(["--diagnostic-dir=/tmp/exfil", "server.js"]),
-    );
-    expect(result).toContain("--diagnostic-dir");
-  });
-
-  it("blocks inspector flags for bun too", async () => {
-    const result = await validateMcpServerConfig({
-      type: "stdio",
-      command: "bun",
-      args: ["--inspect=0.0.0.0:6499", "server.ts"],
-    });
-    expect(result).toContain("--inspect");
-  });
-
-  it("blocks inspector flags for deno too", async () => {
-    const result = await validateMcpServerConfig({
-      type: "stdio",
-      command: "deno",
-      args: ["run", "--inspect=0.0.0.0:9229", "server.ts"],
-    });
-    expect(result).toContain("--inspect");
-  });
-
-  it("allows safe interpreter commands without inspector flags", async () => {
-    const result = await validateMcpServerConfig(
-      makeNodeConfig(["server.js", "--port", "3000"]),
     );
     expect(result).toBeNull();
   });

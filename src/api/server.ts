@@ -3033,17 +3033,6 @@ const BLOCKED_INTERPRETER_FLAGS = new Set([
   "--preload",
   "-c",
   "-m",
-  // V8 inspector — opens an unauthenticated debug port (default 9229) that
-  // allows arbitrary code execution via Chrome DevTools Protocol.  If bound
-  // to 0.0.0.0, any network peer can connect → RCE without any token.
-  "--inspect",
-  "--inspect-brk",
-  "--inspect-wait",
-  "--inspect-port",
-  "--inspect-publish-uid",
-  // Policy / diagnostics file access
-  "--experimental-policy",
-  "--diagnostic-dir",
 ]);
 
 const BLOCKED_PACKAGE_RUNNER_FLAGS = new Set(["-c", "--call", "-e", "--eval"]);
@@ -9535,30 +9524,6 @@ async function handleRequest(
         delete vars.EVM_PRIVATE_KEY;
         delete vars.SOLANA_PRIVATE_KEY;
         delete vars.GITHUB_TOKEN;
-      }
-
-      // Defense-in-depth: strip ALL BLOCKED_ENV_KEYS from the env patch
-      // before safeMerge.  The explicit deletes above cover known step-up
-      // secrets; this loop catches process-level injection keys
-      // (NODE_OPTIONS, LD_PRELOAD, etc.) so they never reach
-      // saveMiladyConfig() and the persistence→restart RCE chain is closed.
-      for (const key of Object.keys(envPatch)) {
-        if (key === "vars" || key === "shellEnv") continue;
-        if (BLOCKED_ENV_KEYS.has(key.toUpperCase())) {
-          delete envPatch[key];
-        }
-      }
-      if (
-        envPatch.vars &&
-        typeof envPatch.vars === "object" &&
-        !Array.isArray(envPatch.vars)
-      ) {
-        const innerVars = envPatch.vars as Record<string, unknown>;
-        for (const key of Object.keys(innerVars)) {
-          if (BLOCKED_ENV_KEYS.has(key.toUpperCase())) {
-            delete innerVars[key];
-          }
-        }
       }
     }
 

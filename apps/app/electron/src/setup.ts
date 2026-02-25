@@ -241,7 +241,7 @@ export class ElectronCapacitorApp {
     // Resolve preload path across current and legacy Electron outDirs.
     const preloadCandidates = [
       join(app.getAppPath(), "out", "src", "preload.js"),
-      join(app.getAppPath(), "app-build", "src", "preload.js"),
+      join(app.getAppPath(), "build", "src", "preload.js"),
       join(__dirname, "preload.js"),
     ];
     const preloadPath =

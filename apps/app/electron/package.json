@@ -12,7 +12,7 @@
     "url": "https://github.com/milady-ai/milady.git"
   },
   "license": "MIT",
-  "main": "app-build/src/index.js",
+  "main": "build/src/index.js",
   "scripts": {
     "build": "tsc && electron-rebuild",
     "build:whisper": "bash ./scripts/build-whisper-universal.sh",
