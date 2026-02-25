@@ -132,6 +132,12 @@ export default defineConfig({
         replacement: path.join(repoRoot, "test", "stubs", "empty-module.mjs"),
       },
       {
+        // @elizaos/plugin-repoprompt has a broken package.json entry; redirect
+        // to an empty stub so Vite import analysis doesn't fail.
+        find: "@elizaos/plugin-repoprompt",
+        replacement: path.join(repoRoot, "test", "stubs", "empty-module.mjs"),
+      },
+      {
         find: "electron",
         replacement: path.join(repoRoot, "test", "stubs", "electron-module.ts"),
       },
