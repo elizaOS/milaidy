@@ -1906,11 +1906,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           provider.configured &&
           provider.valid,
       );
-      if (!openAiPlan) return;
-
       const cloudCfg = cfg?.cloud as Record<string, unknown> | undefined;
-      if (cloudCfg?.enabled === true) return;
-
       const runtimeModel = (status?.model ?? "").toLowerCase();
       const modelsCfg = (cfg?.models as Record<string, unknown> | undefined) ?? {};
       const configLargeModel =
@@ -1920,6 +1916,57 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const modelCfg = (defaultsCfg.model as Record<string, unknown> | undefined) ?? {};
       const configPrimaryModel =
         typeof modelCfg.primary === "string" ? modelCfg.primary.toLowerCase() : "";
+      const pluginsCfg = (cfg?.plugins as Record<string, unknown> | undefined) ?? {};
+      const pluginEntries =
+        (pluginsCfg.entries as Record<string, { enabled?: boolean }> | undefined) ??
+        {};
+      const openAiPluginEnabled = pluginEntries.openai?.enabled === true;
+
+      if (!openAiPlan) {
+        const looksLikeStaleOpenAiModel =
+          runtimeModel.includes("openai/") ||
+          configLargeModel.includes("openai/") ||
+          configPrimaryModel.includes("openai/");
+        if (
+          looksLikeStaleOpenAiModel &&
+          !openAiPluginEnabled &&
+          cloudCfg?.enabled === true
+        ) {
+          await client.updateConfig({
+            env: { vars: { MILADY_USE_PI_AI: "" } },
+            agents: { defaults: { model: { primary: null } } },
+            models: {
+              small:
+                typeof modelsCfg.small === "string" &&
+                  modelsCfg.small.trim() &&
+                  !modelsCfg.small.toLowerCase().includes("openai/")
+                  ? modelsCfg.small
+                  : "moonshotai/kimi-k2-turbo",
+              large:
+                typeof modelsCfg.large === "string" &&
+                  modelsCfg.large.trim() &&
+                  !modelsCfg.large.toLowerCase().includes("openai/")
+                  ? modelsCfg.large
+                  : "moonshotai/kimi-k2-0905",
+            },
+          });
+          await client.restartAndWait();
+          const refreshedStatus = await client.getStatus().catch(() => null);
+          if (refreshedStatus) {
+            setAgentStatus(refreshedStatus);
+          }
+          await loadPlugins().catch(() => null);
+          setActionNotice(
+            "Detected stale OpenAI model config without active credentials. Switched back to cloud model.",
+            "info",
+            4200,
+          );
+        }
+        return;
+      }
+
+      if (cloudCfg?.enabled === true) return;
+
       const looksLikeCloudOnlyModel =
         runtimeModel.includes("moonshot") ||
         runtimeModel.includes("kimi") ||
@@ -1931,14 +1978,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
       await client.updateConfig({
         cloud: { enabled: false },
-        env: { vars: { MILADY_USE_PI_AI: "" } },
-        agents: { defaults: { model: { primary: "openai/gpt-5-mini" } } },
+        env: { vars: { MILADY_USE_PI_AI: "1" } },
+        agents: { defaults: { model: { primary: "openai-codex/gpt-5.1" } } },
         models: {
-          small: "openai/gpt-5-mini",
-          large: "openai/gpt-5-mini",
+          piAiSmall: "openai-codex/gpt-5.1-codex-mini",
+          piAiLarge: "openai-codex/gpt-5.1",
         },
       });
-      await client.updatePlugin("openai", { enabled: true }).catch(() => null);
       await client.restartAndWait();
       const refreshedStatus = await client.getStatus().catch(() => null);
       if (refreshedStatus) {
@@ -1946,7 +1992,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
       await loadPlugins().catch(() => null);
       setActionNotice(
-        "OpenAI plan detected. Switched active agent provider to OpenAI.",
+        "OpenAI plan detected. Switched active agent provider to OpenAI Codex.",
         "success",
         3400,
       );

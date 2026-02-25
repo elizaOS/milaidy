@@ -226,9 +226,11 @@ export function ConversationsSidebar({ variant = "default" }: ConversationsSideb
     };
   }, [isGameModal, statusModelLabel]);
 
-  const modelLabel = (runtimeModel || statusModelLabel).trim();
-  const providerLabel = modelLabel
-    ? resolveProviderLabel(modelLabel)
+  const observedModelLabel = (chatLastUsage?.model ?? "").trim();
+  const configuredModelLabel = (runtimeModel || statusModelLabel).trim();
+  const modelLabel = (observedModelLabel || configuredModelLabel).trim();
+  const providerLabel = observedModelLabel
+    ? resolveProviderLabel(observedModelLabel)
     : runtimeModelLoading
       ? t("chat.modal.providerDetecting")
       : "N/A";
@@ -372,7 +374,7 @@ export function ConversationsSidebar({ variant = "default" }: ConversationsSideb
           <div className="chat-game-sidebar-footer-label">{t("chat.modal.aiProvider")}</div>
           <div className="chat-game-sidebar-footer-value">{providerLabel}</div>
           <div className="chat-game-sidebar-footer-model" title={modelLabel || undefined}>
-            {modelLabel || t("chat.modal.providerUnknown")}
+            {observedModelLabel || t("chat.modal.providerUnknown")}
           </div>
           <div className="chat-game-sidebar-usage">
             <div className="chat-game-sidebar-footer-label">{t("chat.modal.tokenUsage")}</div>

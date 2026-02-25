@@ -2493,7 +2493,7 @@ export async function startEliza(
   installRuntimeMethodBindings(runtime);
 
   // Optional: route all model calls through pi-ai using pi credentials
-  // (~/.pi/agent/auth.json). This is useful for OAuth-backed providers
+  // (~/.pi/agent/auth.json) and Milady subscription credentials. This is useful for OAuth-backed providers
   // (e.g. Claude Max / Codex Max) without putting API keys in Milady config.
   if (isPiAiEnabledFromEnv()) {
     try {

@@ -220,6 +220,8 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
   const [piAiLargeModel, setPiAiLargeModel] = useState("");
   const [piAiSaving, setPiAiSaving] = useState(false);
   const [piAiSaveSuccess, setPiAiSaveSuccess] = useState(false);
+  const OPENAI_CODEX_PRIMARY_MODEL = "openai-codex/gpt-5.1";
+  const OPENAI_CODEX_SMALL_MODEL = "openai-codex/gpt-5.1-codex-mini";
 
   useEffect(() => {
     void loadPlugins();
@@ -567,11 +569,20 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
   const isOpenAIPlanUsable = Boolean(
     openAIPlanProvider && openAIPlanProvider.configured && openAIPlanProvider.valid,
   );
+  const isOpenAICodexPiModeSelected =
+    piAiEnabled &&
+    (
+      piAiLargeModel.toLowerCase().includes("openai-codex") ||
+      (agentStatus?.model ?? "").toLowerCase().includes("openai-codex")
+    );
   const isOpenAIProviderSelected = Boolean(
-    resolvedSelectedId &&
-      selectedProvider &&
-      (selectedProvider.id.toLowerCase().includes("openai") ||
-        selectedProvider.name.toLowerCase().includes("openai")),
+    isOpenAICodexPiModeSelected ||
+      (
+        resolvedSelectedId &&
+        selectedProvider &&
+        (selectedProvider.id.toLowerCase().includes("openai") ||
+          selectedProvider.name.toLowerCase().includes("openai"))
+      ),
   );
   const openAIPlanSyncingRef = useRef(false);
   const openAIPlanAutoSyncTriedRef = useRef(false);
@@ -583,28 +594,42 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
       if (openAIPlanSyncingRef.current) return;
       openAIPlanSyncingRef.current = true;
       try {
-        await handleSwitchProvider("openai");
-        // Align runtime to OpenAI plan when cloud is off; otherwise model can
-        // remain on stale cloud-only ids (e.g. moonshot/kimi) and fail to reply.
+        // OpenAI plan credentials are OAuth-based and should route through the
+        // pi-ai model handler (openai-codex/*), not plugin-openai API-key mode.
         await client.updateConfig({
           cloud: { enabled: false },
-          env: { vars: { MILADY_USE_PI_AI: "" } },
-          agents: { defaults: { model: { primary: "openai/gpt-5-mini" } } },
+          env: { vars: { MILADY_USE_PI_AI: "1" } },
+          agents: {
+            defaults: { model: { primary: OPENAI_CODEX_PRIMARY_MODEL } },
+          },
           models: {
-            small: "openai/gpt-5-mini",
-            large: "openai/gpt-5-mini",
+            piAiSmall: OPENAI_CODEX_SMALL_MODEL,
+            piAiLarge: OPENAI_CODEX_PRIMARY_MODEL,
           },
         });
+        setSelectedProviderId("pi-ai");
+        setPiAiEnabled(true);
+        setPiAiSmallModel(OPENAI_CODEX_SMALL_MODEL);
+        setPiAiLargeModel(OPENAI_CODEX_PRIMARY_MODEL);
         await client.restartAndWait();
         await loadPlugins();
         if (reason === "autosync") {
-          setActionNotice("OpenAI plan detected. Switched active agent provider to OpenAI.", "success", 3200);
+          setActionNotice(
+            "OpenAI plan detected. Switched active agent provider to OpenAI Codex.",
+            "success",
+            3200,
+          );
         }
       } finally {
         openAIPlanSyncingRef.current = false;
       }
     },
-    [handleSwitchProvider, loadPlugins, setActionNotice],
+    [
+      OPENAI_CODEX_PRIMARY_MODEL,
+      OPENAI_CODEX_SMALL_MODEL,
+      loadPlugins,
+      setActionNotice,
+    ],
   );
 
   const finalizeOpenAIPlanConnection = useCallback(async () => {
@@ -725,7 +750,38 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
     setOpenAIDisconnecting(true);
     try {
       await client.disconnectOpenAICredentials();
-      if (isOpenAIProviderSelected) {
+
+      const runtimeModel = (agentStatus?.model ?? "").toLowerCase();
+      const usingOpenAiCodex =
+        runtimeModel.includes("openai-codex") ||
+        piAiLargeModel.toLowerCase().includes("openai-codex");
+      if (usingOpenAiCodex) {
+        const shouldFallbackToCloud = cloudEnabled || cloudConnected;
+        await client.updateConfig({
+          ...(shouldFallbackToCloud
+            ? {
+              cloud: { enabled: true },
+              models: {
+                small:
+                  currentSmallModel &&
+                    !currentSmallModel.toLowerCase().includes("openai/")
+                    ? currentSmallModel
+                    : "moonshotai/kimi-k2-turbo",
+                large:
+                  currentLargeModel &&
+                    !currentLargeModel.toLowerCase().includes("openai/")
+                    ? currentLargeModel
+                    : "moonshotai/kimi-k2-0905",
+              },
+            }
+            : {}),
+          env: { vars: { MILADY_USE_PI_AI: "" } },
+          agents: { defaults: { model: { primary: null } } },
+        });
+        setPiAiEnabled(false);
+      }
+
+      if (isOpenAIProviderSelected || usingOpenAiCodex) {
         await client.restartAndWait();
       }
       await refreshSubscriptionStatus();
@@ -742,7 +798,18 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
     } finally {
       setOpenAIDisconnecting(false);
     }
-  }, [isOpenAIProviderSelected, refreshSubscriptionStatus, setActionNotice, t]);
+  }, [
+    agentStatus?.model,
+    cloudConnected,
+    cloudEnabled,
+    currentLargeModel,
+    currentSmallModel,
+    isOpenAIProviderSelected,
+    piAiLargeModel,
+    refreshSubscriptionStatus,
+    setActionNotice,
+    t,
+  ]);
 
   const handlePluginFieldChange = useCallback(
     (pluginId: string, key: string, value: string) => {

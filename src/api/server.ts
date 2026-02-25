@@ -6204,6 +6204,13 @@ async function handleRequest(
       try {
         const { deleteCredentials } = await import("../auth/index.js");
         deleteCredentials(provider);
+        if (provider === "openai-codex") {
+          delete process.env.OPENAI_API_KEY;
+        }
+        if (provider === "anthropic-subscription") {
+          delete process.env.ANTHROPIC_API_KEY;
+          delete process.env.CLAUDE_API_KEY;
+        }
         json(res, { success: true });
       } catch (err) {
         error(res, `Failed to delete credentials: ${err}`, 500);
@@ -6649,7 +6656,7 @@ async function handleRequest(
     }
 
     // ── Local LLM provider ────────────────────────────────────────────────
-    // Also supports pi-ai (reads credentials from ~/.pi/agent/auth.json).
+    // Also supports pi-ai (reads ~/.pi/agent/auth.json and Milady subscription creds).
     {
       // Ensure we don't keep stale pi-ai mode when the user switches providers.
       if (!config.env) config.env = {};
