@@ -4,21 +4,25 @@
   "description": "Coding agent orchestration plugin - spawn and manage CLI coding agents via PTY",
   "private": true,
   "type": "module",
-  "main": "src/index.ts",
-  "types": "src/index.ts",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
   "exports": {
+    "./package.json": "./package.json",
     ".": {
-      "types": "./src/index.ts",
-      "default": "./src/index.ts"
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
     }
   },
   "files": [
-    "src",
     "dist",
-    "README.md"
+    "README.md",
+    "package.json"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "bun run build.ts",
     "test": "bun test",
     "test:watch": "bun test --watch",
     "typecheck": "tsc --noEmit"
