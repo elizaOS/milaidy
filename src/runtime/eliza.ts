@@ -429,6 +429,13 @@ const CHANNEL_ENV_MAP: Readonly<
   googlechat: {
     serviceAccountKey: "GOOGLE_CHAT_SERVICE_ACCOUNT_KEY",
   },
+  blooio: {
+    apiKey: "BLOOIO_API_KEY",
+    fromNumber: "BLOOIO_PHONE_NUMBER",
+    webhookSecret: "BLOOIO_WEBHOOK_SECRET",
+    webhookUrl: "BLOOIO_WEBHOOK_URL",
+    webhookPort: "BLOOIO_WEBHOOK_PORT",
+  },
   retake: {
     accessToken: RETAKE_CHANNEL_ACCESS_TOKEN_ENV,
     apiUrl: "RETAKE_API_URL",

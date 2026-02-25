@@ -4403,6 +4403,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
       console.warn(`${STARTUP_WARN_PREFIX} ${scope}`, err);
     };
 
+    // Detect popout mode — lightweight init that skips agent lifecycle.
+    const isPopoutMode = (() => {
+      if (typeof window === "undefined") return false;
+      const params = new URLSearchParams(
+        window.location.search || window.location.hash.split("?")[1] || "",
+      );
+      return params.has("popout");
+    })();
+
     const initApp = async () => {
       // Popout fast-path: just connect WS and fetch events. No agent
       // lifecycle, no onboarding, no auth gates.

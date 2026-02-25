@@ -10,7 +10,7 @@
  * @module actions/emote
  */
 
-import type { Action, HandlerOptions } from "@elizaos/core";
+import type { Action, HandlerOptions, Memory } from "@elizaos/core";
 import { EMOTE_BY_ID } from "../emotes/catalog";
 
 /** API port for posting emote requests. */
@@ -70,11 +70,11 @@ export const emoteAction: Action = {
     return true;
   },
 
-  handler: async (_runtime, _message, _state, options) => {
+  handler: async (_runtime, message, _state, options) => {
     try {
       // Extract emote ID from parameters.
       const params = (options as HandlerOptions | undefined)?.parameters;
-      const emoteId =
+      let emoteId =
         typeof params?.emote === "string" ? params.emote : undefined;
 
       if (!emoteId) {

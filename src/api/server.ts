@@ -114,6 +114,7 @@ import {
   sweepExpiredEntries,
 } from "./memory-bounds";
 import { handleMemoryRoutes } from "./memory-routes";
+import { buildWhitelistTree, generateProof } from "./merkle-tree";
 import { handleModelsRoutes } from "./models-routes";
 import { verifyAndWhitelistHolder } from "./nft-verify";
 import { handlePermissionRoutes } from "./permissions-routes";
