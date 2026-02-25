@@ -323,7 +323,8 @@ export async function handleAgentRoutes(
         customCredentials: customCredentials as
           | Record<string, string>
           | undefined,
-        ...(coordinator ? { skipAdapterAutoResponse: true } : {}),
+        // Let adapter auto-response handle known prompts (permissions, trust, etc.)
+        // instantly. The coordinator handles only unrecognized prompts via LLM.
         metadata: {
           requestedType: agentStr,
           ...(metadata as Record<string, unknown>),
