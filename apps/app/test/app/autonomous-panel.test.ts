@@ -6,10 +6,12 @@ import type {
   StreamEventEnvelope,
   WorkbenchOverview,
 } from "../../src/api-client";
+import type { AutonomyRunHealthMap } from "../../src/autonomy-events";
 
 interface AutonomousPanelContextStub {
   agentStatus: AgentStatus | null;
   autonomousEvents: StreamEventEnvelope[];
+  autonomousRunHealthByRunId: AutonomyRunHealthMap;
   workbench: WorkbenchOverview | null;
   workbenchLoading: boolean;
   workbenchTasksAvailable: boolean;
@@ -63,6 +65,7 @@ function makeContext(
   return {
     agentStatus: null,
     autonomousEvents: [],
+    autonomousRunHealthByRunId: {},
     workbench: null,
     workbenchLoading: false,
     workbenchTasksAvailable: false,
@@ -106,11 +109,30 @@ describe("AutonomousPanel", () => {
   it("updates current thought/action and stream count as events arrive", async () => {
     const liveState = makeContext({
       agentStatus: makeStatus("running"),
+      autonomousRunHealthByRunId: {
+        "run-ops-1": {
+          runId: "run-ops-1",
+          status: "gap_detected",
+          lastSeq: 3,
+          missingSeqs: [2],
+          gapCount: 1,
+        },
+      },
       autonomousEvents: [
-        makeEvent("evt-1", "evaluator", { text: "Thinking about priorities" }),
-        makeEvent("evt-2", "action", {
-          text: "Called resolve_priority action",
-        }),
+        {
+          ...makeEvent("evt-1", "evaluator", {
+            text: "Thinking about priorities",
+          }),
+          runId: "run-ops-1",
+          seq: 1,
+        },
+        {
+          ...makeEvent("evt-2", "action", {
+            text: "Called resolve_priority action",
+          }),
+          runId: "run-ops-1",
+          seq: 3,
+        },
       ],
     });
     mockUseApp.mockImplementation(() => liveState);
@@ -123,11 +145,25 @@ describe("AutonomousPanel", () => {
     expect(initialText).toMatch(/Event Stream \(2\)/);
     expect(initialText).toContain("Thinking about priorities");
     expect(initialText).toContain("Called resolve_priority action");
+    expect(initialText).toContain("Replay Health");
+    expect(initialText).toContain("Gaps 1");
+    expect(initialText).toContain("missing 2");
+    expect(initialText).toContain("Gap detected");
 
     liveState.autonomousEvents = [
       ...liveState.autonomousEvents,
-      makeEvent("evt-3", "assistant", { text: "Switching to execution mode" }),
-      makeEvent("evt-4", "provider", {}, "heartbeat_event"),
+      {
+        ...makeEvent("evt-3", "assistant", {
+          text: "Switching to execution mode",
+        }),
+        runId: "run-ops-1",
+        seq: 4,
+      },
+      {
+        ...makeEvent("evt-4", "provider", {}, "heartbeat_event"),
+        runId: "run-ops-1",
+        seq: 5,
+      },
     ];
 
     const updatedMarkup = renderToStaticMarkup(
@@ -139,6 +175,8 @@ describe("AutonomousPanel", () => {
     expect(panelText).toContain("Switching to execution mode");
     expect(panelText).toContain("provider event");
     expect(panelText).toContain("Action provider event");
+    expect(panelText).toContain("run run-ops-1");
+    expect(panelText).toContain("seq 5");
   });
 
   it("renders tasks, triggers, and todos from workbench context", async () => {

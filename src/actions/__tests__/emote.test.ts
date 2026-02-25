@@ -30,6 +30,38 @@ describe("emoteAction", () => {
     expect(vi.mocked(fetch)).not.toHaveBeenCalled();
   });
 
+  it("resolves emote id from message text when parameters are missing", async () => {
+    vi.mocked(fetch).mockResolvedValue(mockResponse({ ok: true }));
+
+    const result = await emoteAction.handler(
+      undefined,
+      { roomId: "room", content: { text: "please do dance-happy now" } },
+      undefined,
+      undefined,
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.data).toMatchObject({ emoteId: "dance-happy" });
+    expect(vi.mocked(fetch)).toHaveBeenCalledWith(
+      "http://localhost:2138/api/emote",
+      expect.objectContaining({ method: "POST" }),
+    );
+  });
+
+  it("falls back to heuristic keyword matching for message text", async () => {
+    vi.mocked(fetch).mockResolvedValue(mockResponse({ ok: true }));
+
+    const result = await emoteAction.handler(
+      undefined,
+      { roomId: "room", content: { text: "hello there!" } },
+      undefined,
+      undefined,
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.data).toMatchObject({ emoteId: "wave" });
+  });
+
   it("rejects unknown emote IDs", async () => {
     const result = await emoteAction.handler(
       undefined,

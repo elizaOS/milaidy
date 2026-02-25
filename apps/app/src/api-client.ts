@@ -1570,6 +1570,35 @@ export interface KnowledgeBulkUploadResult {
   results: KnowledgeBulkUploadItemResult[];
 }
 
+// Memory / context command types
+export interface MemorySearchResult {
+  id: string;
+  text: string;
+  createdAt: number;
+  score: number;
+}
+
+export interface MemorySearchResponse {
+  query: string;
+  results: MemorySearchResult[];
+  count: number;
+  limit: number;
+}
+
+export interface MemoryRememberResponse {
+  ok: boolean;
+  id: string;
+  text: string;
+  createdAt: number;
+}
+
+export interface QuickContextResponse {
+  query: string;
+  answer: string;
+  memories: MemorySearchResult[];
+  knowledge: KnowledgeSearchResult[];
+}
+
 // WebSocket
 
 export type WsEventHandler = (data: Record<string, unknown>) => void;
@@ -2510,11 +2539,16 @@ export class MiladyClient {
   async getAgentEvents(opts?: {
     afterEventId?: string;
     limit?: number;
+    runId?: string;
+    fromSeq?: number;
   }): Promise<AgentEventsResponse> {
     const params = new URLSearchParams();
     if (opts?.afterEventId) params.set("after", opts.afterEventId);
     if (typeof opts?.limit === "number")
       params.set("limit", String(opts.limit));
+    if (opts?.runId) params.set("runId", opts.runId);
+    if (typeof opts?.fromSeq === "number")
+      params.set("fromSeq", String(Math.trunc(opts.fromSeq)));
     const qs = params.toString();
     return this.fetch(`/api/agent/events${qs ? `?${qs}` : ""}`);
   }
@@ -3258,6 +3292,35 @@ export class MiladyClient {
     return this.fetch(
       `/api/knowledge/fragments/${encodeURIComponent(documentId)}`,
     );
+  }
+
+  // Memory commands
+
+  async rememberMemory(text: string): Promise<MemoryRememberResponse> {
+    return this.fetch("/api/memory/remember", {
+      method: "POST",
+      body: JSON.stringify({ text }),
+    });
+  }
+
+  async searchMemory(
+    query: string,
+    options?: { limit?: number },
+  ): Promise<MemorySearchResponse> {
+    const params = new URLSearchParams({ q: query });
+    if (options?.limit !== undefined)
+      params.set("limit", String(options.limit));
+    return this.fetch(`/api/memory/search?${params}`);
+  }
+
+  async quickContext(
+    query: string,
+    options?: { limit?: number },
+  ): Promise<QuickContextResponse> {
+    const params = new URLSearchParams({ q: query });
+    if (options?.limit !== undefined)
+      params.set("limit", String(options.limit));
+    return this.fetch(`/api/context/quick?${params}`);
   }
 
   // MCP

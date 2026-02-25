@@ -113,6 +113,7 @@ import {
   pushWithBatchEvict,
   sweepExpiredEntries,
 } from "./memory-bounds";
+import { handleMemoryRoutes } from "./memory-routes";
 import { buildWhitelistTree, generateProof } from "./merkle-tree";
 import { handleModelsRoutes } from "./models-routes";
 import { verifyAndWhitelistHolder } from "./nft-verify";
@@ -2856,7 +2857,7 @@ function hasBlockedObjectKeyDeep(value: unknown): boolean {
   return false;
 }
 
-function cloneWithoutBlockedObjectKeys<T>(value: T): T {
+export function cloneWithoutBlockedObjectKeys<T>(value: T): T {
   if (value === null || value === undefined) return value;
   if (Array.isArray(value)) {
     return value.map((item) => cloneWithoutBlockedObjectKeys(item)) as T;
@@ -3044,6 +3045,11 @@ const BLOCKED_CONTAINER_FLAGS = new Set([
   "--security-opt",
   "--pid",
   "--network",
+  "--device",
+  "--ipc",
+  "--uts",
+  "--userns",
+  "--cgroupns",
 ]);
 const BLOCKED_DENO_SUBCOMMANDS = new Set(["eval"]);
 const BLOCKED_MCP_REMOTE_HOST_LITERALS = new Set([
@@ -6534,6 +6540,22 @@ async function handleRequest(
     if (knowledgeHandled) return;
   }
 
+  if (pathname.startsWith("/api/memory") || pathname === "/api/context/quick") {
+    const memoryHandled = await handleMemoryRoutes({
+      req,
+      res,
+      method,
+      pathname,
+      url,
+      runtime: state.runtime,
+      agentName: state.agentName,
+      readJsonBody,
+      json,
+      error,
+    });
+    if (memoryHandled) return;
+  }
+
   if (
     await handleAgentAdminRoutes({
       req,
@@ -9085,7 +9107,9 @@ async function handleRequest(
       return;
     }
     if (!state.config.connectors) state.config.connectors = {};
-    state.config.connectors[connectorName] = config as ConnectorConfig;
+    state.config.connectors[connectorName] = cloneWithoutBlockedObjectKeys(
+      config,
+    ) as ConnectorConfig;
     try {
       saveMiladyConfig(state.config);
     } catch {
