@@ -395,6 +395,13 @@ jobs:
             "
             echo "Removed azureSignOptions from config"
           fi
+          
+          # HACK: electron-builder traverses up and reads the root .gitignore which ignores app-build.
+          # We forcefully remove these ignore files just for packaging so it relies entirely on the 'files' array in package.json
+          rm -f ../../../.gitignore || true
+          rm -f .gitignore || true
+          rm -f .npmignore || true
+
           npx electron-builder build ${{ matrix.platform.electron-args }} -c ./electron-builder.ci.json -p never
         working-directory: apps/app/electron
         env:
