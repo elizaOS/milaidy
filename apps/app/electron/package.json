@@ -14,7 +14,7 @@
   "license": "MIT",
   "main": "app-build/src/index.js",
   "scripts": {
-    "build": "tsc && electron-rebuild",
+    "build": "tsc && electron-rebuild && printf '\\n!app-build/**/*\\n!milady-dist/**/*\\n' >> .npmignore",
     "build:whisper": "bash ./scripts/build-whisper-universal.sh",
     "electron:start-live": "node ./live-runner.js",
     "electron:start": "bun run build && electron --inspect=5858 ./",
