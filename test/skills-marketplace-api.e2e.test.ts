@@ -473,7 +473,56 @@ describe("Skills Marketplace & Catalog E2E (MW-08, #473)", () => {
   });
 
   // ===================================================================
-  //  5. Full Install → Uninstall → Reinstall Lifecycle
+  //  5. Marketplace Config
+  // ===================================================================
+
+  describe("GET /api/skills/marketplace/config", () => {
+    it("returns keySet status", async () => {
+      const { status, data } = await http$(
+        server.port,
+        "GET",
+        "/api/skills/marketplace/config",
+      );
+      expect(status).toBe(200);
+      expect(typeof data.keySet).toBe("boolean");
+    });
+  });
+
+  describe("PUT /api/skills/marketplace/config", () => {
+    it("returns 400 for missing apiKey", async () => {
+      const { status, data } = await http$(
+        server.port,
+        "PUT",
+        "/api/skills/marketplace/config",
+        {},
+      );
+      expect(status).toBe(400);
+      expect(data.error).toContain("apiKey");
+    });
+
+    it("sets apiKey and returns keySet true", async () => {
+      const { status, data } = await http$(
+        server.port,
+        "PUT",
+        "/api/skills/marketplace/config",
+        { apiKey: "test-marketplace-key-123" },
+      );
+      expect(status).toBe(200);
+      expect(data.ok).toBe(true);
+      expect(data.keySet).toBe(true);
+
+      // Verify GET reflects the change
+      const { data: configData } = await http$(
+        server.port,
+        "GET",
+        "/api/skills/marketplace/config",
+      );
+      expect(configData.keySet).toBe(true);
+    });
+  });
+
+  // ===================================================================
+  //  6. Full Install → Uninstall → Reinstall Lifecycle
   // ===================================================================
 
   describe("Install → Uninstall → Reinstall lifecycle", () => {
