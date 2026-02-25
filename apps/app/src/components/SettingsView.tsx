@@ -575,6 +575,8 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
   );
   const openAIPlanSyncingRef = useRef(false);
   const openAIPlanAutoSyncTriedRef = useRef(false);
+  const openAICallbackAwaitingRef = useRef(false);
+  const openAIConnectFinishedRef = useRef(false);
 
   const ensureOpenAIPlanIsActiveProvider = useCallback(
     async (reason: "exchange" | "autosync") => {
@@ -605,16 +607,54 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
     [handleSwitchProvider, loadPlugins, setActionNotice],
   );
 
+  const finalizeOpenAIPlanConnection = useCallback(async () => {
+    if (openAIConnectFinishedRef.current) return;
+    openAIConnectFinishedRef.current = true;
+    setOpenAIAuthStarted(false);
+    setOpenAICallbackUrl("");
+    setOpenAIAuthInstructions("");
+    setOpenAIAuthError("");
+    await ensureOpenAIPlanIsActiveProvider("exchange");
+    await refreshSubscriptionStatus();
+    setActionNotice(t("settings.openaiConnected"), "success", 2500);
+  }, [
+    ensureOpenAIPlanIsActiveProvider,
+    refreshSubscriptionStatus,
+    setActionNotice,
+    t,
+  ]);
+
   const handleOpenAIStart = useCallback(async () => {
     setOpenAIAuthError("");
     setOpenAIAuthorizing(true);
     try {
       const result = await client.startOpenAILogin();
       if (result?.authUrl) {
+        openAIConnectFinishedRef.current = false;
         window.open(result.authUrl, "openai-oauth", "width=500,height=700,top=50,left=200");
         setOpenAIAuthStarted(true);
         setOpenAIAuthInstructions(result.instructions);
         setOpenAIAuthError("");
+        if (!openAICallbackAwaitingRef.current) {
+          openAICallbackAwaitingRef.current = true;
+          void (async () => {
+            try {
+              const callbackResult = await client.exchangeOpenAICode(undefined, true);
+              if (callbackResult?.success) {
+                await finalizeOpenAIPlanConnection();
+              } else if (!openAIConnectFinishedRef.current) {
+                setOpenAIAuthError(callbackResult?.error ?? t("settings.openaiExchangeFailed"));
+              }
+            } catch (err) {
+              const message = err instanceof Error ? err.message : "";
+              if (openAIConnectFinishedRef.current) return;
+              if (/No active flow/i.test(message)) return;
+              setOpenAIAuthError(message || t("settings.openaiExchangeFailed"));
+            } finally {
+              openAICallbackAwaitingRef.current = false;
+            }
+          })();
+        }
         return;
       }
       setOpenAIAuthError(t("settings.openaiStartMissingUrl"));
@@ -627,7 +667,7 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
     } finally {
       setOpenAIAuthorizing(false);
     }
-  }, [t]);
+  }, [finalizeOpenAIPlanConnection, t]);
 
   const handleOpenAIExchange = useCallback(async () => {
     if (!openAICallbackUrl.trim()) {
@@ -640,13 +680,7 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
     try {
       const result = await client.exchangeOpenAICode(openAICallbackUrl.trim());
       if (result?.success) {
-        setOpenAIAuthStarted(false);
-        setOpenAICallbackUrl("");
-        setOpenAIAuthInstructions("");
-        setOpenAIAuthError("");
-        await ensureOpenAIPlanIsActiveProvider("exchange");
-        await refreshSubscriptionStatus();
-        setActionNotice(t("settings.openaiConnected"), "success", 2500);
+        await finalizeOpenAIPlanConnection();
         return;
       }
 
@@ -662,10 +696,8 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
       setOpenAIExchanging(false);
     }
   }, [
-    ensureOpenAIPlanIsActiveProvider,
+    finalizeOpenAIPlanConnection,
     openAICallbackUrl,
-    refreshSubscriptionStatus,
-    setActionNotice,
     t,
   ]);
 

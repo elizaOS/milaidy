@@ -1768,7 +1768,10 @@ export class MiladyClient {
     return this.fetch("/api/subscription/openai/start", { method: "POST" });
   }
 
-  async exchangeOpenAICode(code: string): Promise<{
+  async exchangeOpenAICode(
+    code?: string,
+    waitForCallback = false,
+  ): Promise<{
     success: boolean;
     expiresAt?: string;
     accountId?: string;
@@ -1777,7 +1780,11 @@ export class MiladyClient {
     return this.fetch("/api/subscription/openai/exchange", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code }),
+      body: JSON.stringify(
+        code?.trim()
+          ? { code: code.trim() }
+          : { waitForCallback },
+      ),
     });
   }
 
