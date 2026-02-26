@@ -21,7 +21,7 @@ import {
 } from "react";
 import { useApp } from "../AppContext";
 import type { ConversationMessage, StreamEventEnvelope } from "../api-client";
-import { client } from "../api-client";
+import { client, isApiError } from "../api-client";
 import { ChatAvatar } from "./ChatAvatar";
 import { formatTime } from "./shared/format";
 
@@ -818,26 +818,34 @@ export function StreamView() {
   const [streamLoading, setStreamLoading] = useState(false);
   const loadingRef = useRef(false);
 
+  const [retakeAvailable, setRetakeAvailable] = useState(true);
+
   useEffect(() => {
     let mounted = true;
     const poll = async () => {
-      if (loadingRef.current) return; // skip while toggle in flight
+      if (loadingRef.current || !retakeAvailable) return;
       try {
         const status = await client.retakeStatus();
         if (mounted && !loadingRef.current) {
           setStreamLive(status.running && status.ffmpegAlive);
         }
-      } catch {
-        // API not yet available — leave as offline
+      } catch (err: unknown) {
+        // 404 means retake connector is not configured — stop polling
+        if (isApiError(err) && err.status === 404) {
+          setRetakeAvailable(false);
+          return;
+        }
+        // Other errors — API not yet available, leave as offline
       }
     };
+    if (!retakeAvailable) return;
     poll();
     const id = setInterval(poll, 5_000);
     return () => {
       mounted = false;
       clearInterval(id);
     };
-  }, []);
+  }, [retakeAvailable]);
 
   const toggleStream = useCallback(async () => {
     if (loadingRef.current) return; // guard against concurrent calls

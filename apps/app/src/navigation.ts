@@ -18,8 +18,10 @@ import {
 /** Apps tab — always enabled when running from source. */
 export const APPS_ENABLED = true;
 
-/** Stream tab — enable to show the retake.tv streaming view. */
-export const STREAM_ENABLED = true;
+/** Stream tab — enable to show the retake.tv streaming view.
+ *  Set VITE_STREAM_ENABLED=true in env to show the Stream tab. */
+export const STREAM_ENABLED =
+  import.meta.env?.VITE_STREAM_ENABLED === "true";
 
 export type Tab =
   | "chat"
