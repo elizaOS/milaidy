@@ -5,135 +5,37 @@ import {
   type SandboxBrowserEndpoints,
   type SandboxWindowInfo,
 } from "../api-client";
+import { useLifoSync } from "../hooks/useLifoSync";
 import {
   buildLifoPopoutUrl,
   generateLifoSessionId,
   getLifoSessionIdFromLocation,
-  getLifoSyncChannelName,
   isLifoPopoutMode,
+  isSafeEndpointUrl,
   LIFO_POPOUT_FEATURES,
   LIFO_POPOUT_WINDOW_NAME,
 } from "../lifo-popout";
+import {
+  createLifoRuntime,
+  type LifoRuntime,
+  normalizeTerminalText,
+} from "../lifo-runtime";
 import { pathForTab } from "../navigation";
-
-type LifoKernel = import("@lifo-sh/core").Kernel;
-type LifoShell = import("@lifo-sh/core").Shell;
-type LifoTerminal = import("@lifo-sh/ui").Terminal;
-type LifoFileExplorer = import("@lifo-sh/ui").FileExplorer;
-type LifoRegistry = import("@lifo-sh/core").CommandRegistry;
-type LifoCommandContext = import("@lifo-sh/core").CommandContext;
-
-interface LifoRuntime {
-  kernel: LifoKernel;
-  shell: LifoShell;
-  terminal: LifoTerminal;
-  explorer: LifoFileExplorer;
-  registry: LifoRegistry;
-  env: Record<string, string>;
-}
+import { LifoMonitorPanel } from "./LifoMonitorPanel";
 
 interface TerminalOutputEvent {
   event?: unknown;
   command?: unknown;
 }
 
-interface LifoSyncMessage {
-  source: "controller";
-  type:
-    | "heartbeat"
-    | "session-reset"
-    | "command-start"
-    | "stdout"
-    | "stderr"
-    | "command-exit"
-    | "command-error";
-  command?: string;
-  chunk?: string;
-  exitCode?: number;
-  message?: string;
-}
-
 const MONITOR_SCREENSHOT_POLL_MS = 1800;
 const MONITOR_META_POLL_MS = 10000;
-
-function isSafeEndpointUrl(url: string): boolean {
-  try {
-    const parsed = new URL(url);
-    return parsed.protocol === "http:" || parsed.protocol === "https:";
-  } catch {
-    return false;
-  }
-}
 
 function formatError(error: unknown): string {
   if (error instanceof Error) {
     return error.message;
   }
   return String(error);
-}
-
-function normalizeTerminalText(text: string): string {
-  return text.replace(/\r?\n/g, "\r\n");
-}
-
-async function createLifoRuntime(
-  terminalElement: HTMLElement,
-  explorerElement: HTMLElement,
-): Promise<LifoRuntime> {
-  const core = await import("@lifo-sh/core");
-  const ui = await import("@lifo-sh/ui");
-
-  const kernel = new core.Kernel();
-  await kernel.boot({ persist: true });
-
-  const registry = core.createDefaultRegistry();
-  core.bootLifoPackages(kernel.vfs, registry);
-
-  const terminal = new ui.Terminal(terminalElement);
-  const env = kernel.getDefaultEnv();
-  const shell = new core.Shell(terminal, kernel.vfs, registry, env);
-
-  const jobTable = shell.getJobTable();
-  registry.register("ps", core.createPsCommand(jobTable));
-  registry.register("top", core.createTopCommand(jobTable));
-  registry.register("kill", core.createKillCommand(jobTable));
-  registry.register("watch", core.createWatchCommand(registry));
-  registry.register("help", core.createHelpCommand(registry));
-  registry.register("node", core.createNodeCommand(kernel.portRegistry));
-  registry.register("curl", core.createCurlCommand(kernel.portRegistry));
-
-  const shellExecute = async (
-    cmd: string,
-    ctx: LifoCommandContext,
-  ): Promise<number> => {
-    const result = await shell.execute(cmd, {
-      cwd: ctx.cwd,
-      env: ctx.env,
-      onStdout: (chunk: string) => ctx.stdout.write(chunk),
-      onStderr: (chunk: string) => ctx.stderr.write(chunk),
-    });
-    return result.exitCode;
-  };
-
-  registry.register("npm", core.createNpmCommand(registry, shellExecute));
-  registry.register("lifo", core.createLifoPkgCommand(registry, shellExecute));
-
-  await shell.sourceFile("/etc/profile");
-  await shell.sourceFile(`${env.HOME}/.bashrc`);
-  shell.start();
-
-  const explorer = new ui.FileExplorer(explorerElement, kernel.vfs, {
-    cwd: shell.getCwd(),
-  });
-
-  return {
-    kernel,
-    shell,
-    terminal,
-    explorer,
-    registry,
-    env,
-  };
 }
 
 export function LifoSandboxView() {
@@ -143,7 +45,6 @@ export function LifoSandboxView() {
   const queueRef = useRef<string[]>([]);
   const runningRef = useRef(false);
   const popoutRef = useRef<Window | null>(null);
-  const syncChannelRef = useRef<BroadcastChannel | null>(null);
   const controllerHeartbeatAtRef = useRef(0);
 
   const [booting, setBooting] = useState(false);
@@ -161,6 +62,8 @@ export function LifoSandboxView() {
     return generateLifoSessionId();
   }, [popoutMode]);
   const [controllerOnline, setControllerOnline] = useState(popoutMode);
+  const controllerOnlineRef = useRef(popoutMode);
+  controllerOnlineRef.current = controllerOnline;
   const [monitorOnline, setMonitorOnline] = useState(false);
   const [monitorError, setMonitorError] = useState<string | null>(null);
   const [monitorUpdatedAt, setMonitorUpdatedAt] = useState<number | null>(null);
@@ -194,16 +97,16 @@ export function LifoSandboxView() {
   }, [noVncEndpoint]);
   const noVncActive = Boolean(safeNoVncEndpoint) && !noVncFailed;
 
-  const broadcastSyncMessage = useCallback(
-    (message: Omit<LifoSyncMessage, "source">) => {
-      if (!popoutMode) return;
-      syncChannelRef.current?.postMessage({
-        source: "controller",
-        ...message,
-      } satisfies LifoSyncMessage);
-    },
-    [popoutMode],
-  );
+  const { broadcastSyncMessage } = useLifoSync({
+    popoutMode,
+    lifoSessionId,
+    runtimeRef,
+    appendOutput,
+    setRunCount,
+    setSessionKey,
+    setControllerOnline,
+    controllerHeartbeatAtRef,
+  });
 
   const teardown = useCallback(() => {
     try {
@@ -389,90 +292,6 @@ export function LifoSandboxView() {
   }, [appendOutput, runQueuedCommands, sessionKey, teardown]);
 
   useEffect(() => {
-    if (typeof BroadcastChannel === "undefined") return;
-
-    const channel = new BroadcastChannel(getLifoSyncChannelName(lifoSessionId));
-    syncChannelRef.current = channel;
-
-    let heartbeatInterval: ReturnType<typeof setInterval> | null = null;
-    let heartbeatWatchInterval: ReturnType<typeof setInterval> | null = null;
-
-    if (popoutMode) {
-      setControllerOnline(true);
-      broadcastSyncMessage({ type: "heartbeat" });
-      heartbeatInterval = setInterval(() => {
-        broadcastSyncMessage({ type: "heartbeat" });
-      }, 1000);
-    } else {
-      heartbeatWatchInterval = setInterval(() => {
-        const online = Date.now() - controllerHeartbeatAtRef.current < 3500;
-        setControllerOnline(online);
-      }, 1000);
-    }
-
-    channel.onmessage = (event: MessageEvent<unknown>) => {
-      if (popoutMode) return;
-      const data = event.data as Partial<LifoSyncMessage> | null;
-      if (!data || data.source !== "controller") return;
-
-      if (data.type === "heartbeat") {
-        controllerHeartbeatAtRef.current = Date.now();
-        setControllerOnline(true);
-        return;
-      }
-
-      const runtime = runtimeRef.current;
-      if (!runtime) return;
-
-      switch (data.type) {
-        case "session-reset":
-          setSessionKey((value) => value + 1);
-          break;
-        case "command-start":
-          if (typeof data.command !== "string") return;
-          runtime.terminal.writeln(`$ ${data.command}`);
-          appendOutput(`$ ${data.command}`);
-          setRunCount((prev) => prev + 1);
-          break;
-        case "stdout":
-          if (typeof data.chunk !== "string") return;
-          runtime.terminal.write(normalizeTerminalText(data.chunk));
-          if (data.chunk.trimEnd()) appendOutput(data.chunk.trimEnd());
-          break;
-        case "stderr":
-          if (typeof data.chunk !== "string") return;
-          runtime.terminal.write(normalizeTerminalText(data.chunk));
-          if (data.chunk.trimEnd()) {
-            appendOutput(`stderr: ${data.chunk.trimEnd()}`);
-          }
-          break;
-        case "command-exit":
-          if (typeof data.exitCode !== "number") return;
-          runtime.terminal.writeln(`[exit ${data.exitCode}]`);
-          appendOutput(`[exit ${data.exitCode}]`);
-          try {
-            runtime.explorer.refresh();
-          } catch {
-            // Ignore refresh failures when mirroring popout events.
-          }
-          break;
-        case "command-error":
-          if (typeof data.message !== "string") return;
-          runtime.terminal.writeln(`error: ${data.message}`);
-          appendOutput(`error: ${data.message}`);
-          break;
-      }
-    };
-
-    return () => {
-      if (heartbeatInterval) clearInterval(heartbeatInterval);
-      if (heartbeatWatchInterval) clearInterval(heartbeatWatchInterval);
-      syncChannelRef.current = null;
-      channel.close();
-    };
-  }, [appendOutput, broadcastSyncMessage, lifoSessionId, popoutMode]);
-
-  useEffect(() => {
     if (!popoutMode) return;
     const ipc = window.electron?.ipcRenderer;
     if (!ipc?.invoke) return;
@@ -557,7 +376,7 @@ export function LifoSandboxView() {
         if (typeof event.command !== "string" || !event.command.trim()) return;
         const popoutOpen =
           !popoutMode && popoutRef.current != null && !popoutRef.current.closed;
-        if (!popoutMode && (controllerOnline || popoutOpen)) {
+        if (!popoutMode && (controllerOnlineRef.current || popoutOpen)) {
           // A dedicated popout controller is active; watcher mirrors via sync.
           return;
         }
@@ -566,7 +385,7 @@ export function LifoSandboxView() {
     );
 
     return unbind;
-  }, [controllerOnline, enqueueAgentCommand, popoutMode]);
+  }, [enqueueAgentCommand, popoutMode]);
 
   useEffect(() => {
     if (!popoutMode) return;
@@ -734,158 +553,23 @@ export function LifoSandboxView() {
       </div>
 
       {!popoutMode && (
-        <div className="grid grid-cols-1 xl:grid-cols-[2fr_1fr] gap-3">
-          <div className="rounded-xl border border-border overflow-hidden bg-panel min-h-[320px]">
-            <div className="px-3 py-2 border-b border-border flex items-center justify-between gap-2">
-              <div>
-                <div className="text-xs font-semibold text-txt">
-                  Lifo Computer-Use Surface
-                </div>
-                <div className="text-[11px] text-muted">
-                  Watch-only desktop mirror of what the autonomous agent is
-                  doing.
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <span
-                  className={`rounded-full px-2 py-1 text-[11px] font-medium ${
-                    monitorOnline ? "bg-ok/20 text-ok" : "bg-warn/20 text-warn"
-                  }`}
-                >
-                  {monitorOnline ? "live" : "offline"}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setNoVncFailed(false);
-                    void refreshMonitorMeta();
-                    void refreshScreenPreview();
-                  }}
-                  className="px-2.5 py-1 rounded-md border border-border bg-card text-[11px] text-txt hover:border-accent hover:text-accent transition-colors"
-                >
-                  Refresh
-                </button>
-              </div>
-            </div>
-
-            <div className="h-[320px] bg-black/90 flex items-center justify-center overflow-hidden">
-              {noVncActive && safeNoVncEndpoint ? (
-                <iframe
-                  src={safeNoVncEndpoint}
-                  title="Sandbox live noVNC surface"
-                  className="h-full w-full border-0"
-                  sandbox="allow-scripts allow-forms allow-pointer-lock"
-                  onLoad={() => {
-                    setMonitorOnline(true);
-                    setMonitorError(null);
-                  }}
-                  onError={() => {
-                    setNoVncFailed(true);
-                    setMonitorOnline(false);
-                    setMonitorError(
-                      "Live noVNC surface unavailable. Falling back to screenshots.",
-                    );
-                  }}
-                />
-              ) : screenPreviewUrl ? (
-                <img
-                  src={screenPreviewUrl}
-                  alt="Sandbox computer-use surface"
-                  className="h-full w-full object-contain"
-                />
-              ) : (
-                <p className="px-4 text-center text-xs text-muted">
-                  Waiting for sandbox screen frames...
-                </p>
-              )}
-            </div>
-
-            <div className="px-3 py-2 border-t border-border text-[11px] text-muted">
-              {monitorUpdatedAt
-                ? `Last frame: ${new Date(monitorUpdatedAt).toLocaleTimeString()}`
-                : "No frames captured yet"}
-            </div>
-          </div>
-
-          <div className="rounded-xl border border-border overflow-hidden bg-panel min-h-[320px]">
-            <div className="px-3 py-2 border-b border-border">
-              <div className="text-xs font-semibold text-txt">
-                Browser + Sandbox Context
-              </div>
-              <div className="text-[11px] text-muted">
-                Agent controls browser/computer tools; this panel mirrors state.
-              </div>
-            </div>
-
-            <div className="p-3 space-y-3 text-[11px]">
-              <div>
-                <div className="text-muted uppercase tracking-wide text-[10px]">
-                  Live Surface
-                </div>
-                <div className="mt-1 rounded border border-border bg-card px-2 py-1 text-txt break-all">
-                  {noVncEndpoint && !noVncFailed
-                    ? "noVNC"
-                    : noVncEndpoint
-                      ? "noVNC failed → screenshot fallback"
-                      : "Screenshot fallback"}
-                </div>
-              </div>
-
-              <div>
-                <div className="text-muted uppercase tracking-wide text-[10px]">
-                  CDP Endpoint
-                </div>
-                <div className="mt-1 rounded border border-border bg-card px-2 py-1 text-txt break-all">
-                  {browserEndpoints?.cdpEndpoint ?? "Unavailable"}
-                </div>
-              </div>
-
-              <div>
-                <div className="text-muted uppercase tracking-wide text-[10px]">
-                  WS Endpoint
-                </div>
-                <div className="mt-1 rounded border border-border bg-card px-2 py-1 text-txt break-all">
-                  {browserEndpoints?.wsEndpoint ?? "Unavailable"}
-                </div>
-              </div>
-
-              <div>
-                <div className="text-muted uppercase tracking-wide text-[10px]">
-                  noVNC Endpoint
-                </div>
-                <div className="mt-1 rounded border border-border bg-card px-2 py-1 text-txt break-all">
-                  {browserEndpoints?.noVncEndpoint ?? "Unavailable"}
-                </div>
-              </div>
-
-              <div>
-                <div className="text-muted uppercase tracking-wide text-[10px]">
-                  Visible Windows ({sandboxWindows.length})
-                </div>
-                <div className="mt-1 max-h-[154px] overflow-auto rounded border border-border bg-card p-2 space-y-1">
-                  {sandboxWindows.length > 0 ? (
-                    sandboxWindows.slice(0, 20).map((windowInfo) => (
-                      <div key={windowInfo.id} className="text-txt">
-                        <span className="text-muted">{windowInfo.app}:</span>{" "}
-                        {windowInfo.title || "(untitled)"}
-                      </div>
-                    ))
-                  ) : (
-                    <div className="text-muted">
-                      No active windows reported.
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {monitorError && (
-                <div className="rounded border border-danger/40 bg-danger/10 px-2 py-1 text-danger">
-                  {monitorError}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+        <LifoMonitorPanel
+          monitorOnline={monitorOnline}
+          monitorError={monitorError}
+          monitorUpdatedAt={monitorUpdatedAt}
+          noVncActive={noVncActive}
+          safeNoVncEndpoint={safeNoVncEndpoint}
+          noVncFailed={noVncFailed}
+          setNoVncFailed={setNoVncFailed}
+          screenPreviewUrl={screenPreviewUrl}
+          browserEndpoints={browserEndpoints}
+          sandboxWindows={sandboxWindows}
+          noVncEndpoint={noVncEndpoint}
+          refreshMonitorMeta={refreshMonitorMeta}
+          refreshScreenPreview={refreshScreenPreview}
+          setMonitorOnline={setMonitorOnline}
+          setMonitorError={setMonitorError}
+        />
       )}
 
       <div className="rounded-xl border border-border bg-panel p-3 min-h-[140px] max-h-[220px] overflow-auto">

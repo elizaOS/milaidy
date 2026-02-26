@@ -421,7 +421,7 @@ export class SandboxManager {
   getBrowserNoVncEndpoint(): string | null {
     if (!this.browserContainerId) return null;
 
-    const noVncEnabled = this.config.browser?.enableNoVnc ?? true;
+    const noVncEnabled = this.config.browser?.enableNoVnc ?? false;
     const headless = this.config.browser?.headless ?? false;
     if (!noVncEnabled || headless) return null;
 
@@ -434,7 +434,7 @@ export class SandboxManager {
     const cdpPort = this.config.browser?.cdpPort ?? 9222;
     const vncPort = this.config.browser?.vncPort ?? 5900;
     const noVncPort = this.config.browser?.noVncPort ?? 6080;
-    const enableNoVnc = this.config.browser?.enableNoVnc ?? true;
+    const enableNoVnc = this.config.browser?.enableNoVnc ?? false;
     const headless = this.config.browser?.headless ?? false;
     const image =
       this.config.browser?.image ?? "milady-sandbox-browser:bookworm-slim";
