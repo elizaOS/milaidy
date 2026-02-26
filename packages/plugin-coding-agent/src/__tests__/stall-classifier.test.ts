@@ -3,19 +3,9 @@
  *
  * Tests prompt building, LLM-based classification, and snapshot writing.
  */
-import { beforeEach, describe, expect, it, jest, mock } from "bun:test";
+import { beforeEach, describe, expect, it, jest } from "bun:test";
 
-// Mock modules BEFORE importing the classifier
-mock.module("@elizaos/core", () => ({
-  ModelType: { TEXT_SMALL: "text-small" },
-}));
-
-mock.module("pty-manager", () => ({
-  extractTaskCompletionTraceRecords: () => [],
-  buildTaskCompletionTimeline: () => ({}),
-}));
-
-// Dynamic import after mocks are registered
+// Dynamic import after preload mocks are registered
 const {
   buildStallClassificationPrompt,
   classifyStallOutput,

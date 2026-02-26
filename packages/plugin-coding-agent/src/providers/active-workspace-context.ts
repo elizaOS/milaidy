@@ -11,6 +11,7 @@
 
 import type { IAgentRuntime, Memory, Provider, State } from "@elizaos/core";
 import type { PTYService } from "../services/pty-service.js";
+import { getCoordinator } from "../services/pty-service.js";
 import type { SessionInfo } from "../services/pty-types.js";
 import type {
   CodingWorkspaceService,
@@ -122,6 +123,28 @@ export const activeWorkspaceContextProvider: Provider = {
       lines.push(`## Standalone Sessions (${untrackedSessions.length})`);
       for (const session of untrackedSessions) {
         lines.push(formatSessionLine(session));
+      }
+    }
+
+    // Add coordinator status if available
+    const coordinator = getCoordinator(runtime);
+    if (coordinator) {
+      const pending = coordinator.getPendingConfirmations();
+      const supervisionLevel = coordinator.getSupervisionLevel();
+
+      if (pending.length > 0) {
+        lines.push("");
+        lines.push(
+          `## Pending Confirmations (${pending.length}) — supervision: ${supervisionLevel}`,
+        );
+        for (const p of pending) {
+          lines.push(
+            `  - "${p.taskContext.label}" blocked: "${p.promptText}" → suggested: ${p.llmDecision.action}`,
+          );
+        }
+      } else if (supervisionLevel !== "autonomous") {
+        lines.push("");
+        lines.push(`Swarm supervision: ${supervisionLevel} (no pending items)`);
       }
     }
 

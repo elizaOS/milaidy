@@ -8,6 +8,7 @@ import type {
   WorkbenchTodo,
 } from "../api-client";
 import { ChatAvatar } from "./ChatAvatar";
+import { CodingAgentsSection } from "./CodingAgentsSection";
 import { formatTime } from "./shared/format";
 
 function getEventText(event: StreamEventEnvelope): string {
@@ -90,6 +91,7 @@ export function AutonomousPanel({
     agentStatus,
     autonomousEvents,
     autonomousRunHealthByRunId,
+    ptySessions,
     workbench,
     workbenchLoading,
     workbenchTasksAvailable,
@@ -255,6 +257,10 @@ export function AutonomousPanel({
               )}
             </div>
           </div>
+
+          {ptySessions.length > 0 && (
+            <CodingAgentsSection sessions={ptySessions} />
+          )}
 
           <div className="border-b border-border">
             <button

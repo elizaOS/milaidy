@@ -7,6 +7,7 @@
  * @module services/pty-init
  */
 
+import { createRequire } from "node:module";
 import { createAllAdapters } from "coding-agent-adapters";
 import {
   BunCompatiblePTYManager,
@@ -21,6 +22,18 @@ import {
 } from "pty-manager";
 import { captureTaskResponse } from "./ansi-utils.js";
 import type { PTYServiceConfig } from "./pty-types.js";
+
+// Resolve absolute path to coding-agent-adapters so the Node worker process
+// can load it regardless of its cwd.  The worker uses require() which does
+// cwd-relative resolution — passing the bare module name "coding-agent-adapters"
+// fails when the worker's cwd doesn't contain node_modules.
+const _require = createRequire(import.meta.url);
+let resolvedAdapterModule = "coding-agent-adapters";
+try {
+  resolvedAdapterModule = _require.resolve("coding-agent-adapters");
+} catch {
+  // Fallback to bare specifier if resolve fails (shouldn't happen)
+}
 
 /**
  * All callbacks and state that the initialization logic needs
@@ -66,8 +79,9 @@ export async function initializePTYManager(
   if (usingBunWorker) {
     // Use Bun-compatible manager that spawns a Node worker
     ctx.log("Detected Bun runtime, using BunCompatiblePTYManager");
+    ctx.log(`Resolved adapter module: ${resolvedAdapterModule}`);
     const bunManager = new BunCompatiblePTYManager({
-      adapterModules: ["coding-agent-adapters"],
+      adapterModules: [resolvedAdapterModule],
       stallDetectionEnabled: true,
       stallTimeoutMs: 4000,
       onStallClassify: async (
@@ -164,7 +178,11 @@ export async function initializePTYManager(
           );
         }
       }
-      // Show operational logs at info level
+      // Show operational logs at info level (suppress noisy loading-suppression messages)
+      if (msg.includes("suppressing stall emission")) {
+        // Loading pattern suppression fires every few seconds — too noisy for console
+        return;
+      }
       if (
         msg.includes("ready") ||
         msg.includes("blocking") ||

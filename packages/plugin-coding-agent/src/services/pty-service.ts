@@ -1,6 +1,6 @@
 /** @module services/pty-service */
 
-import type { IAgentRuntime } from "@elizaos/core";
+import { type IAgentRuntime, logger } from "@elizaos/core";
 import {
   type AdapterType,
   type AgentFileDescriptor,
@@ -13,6 +13,7 @@ import {
   type PreflightResult,
   type WriteMemoryOptions,
 } from "coding-agent-adapters";
+import { PTYConsoleBridge } from "pty-console";
 import type {
   BunCompatiblePTYManager,
   PTYManager,
@@ -51,15 +52,30 @@ import type {
 } from "./pty-types.js";
 import { isPiAgentType, toPiCommand } from "./pty-types.js";
 import { classifyStallOutput } from "./stall-classifier.js";
+import { SwarmCoordinator } from "./swarm-coordinator.js";
 
 export type {
   CodingAgentType,
   PTYServiceConfig,
+  SessionEventName,
   SessionInfo,
   SpawnSessionOptions,
 } from "./pty-types.js";
 // Re-export for backward compatibility
 export { normalizeAgentType } from "./pty-types.js";
+
+/**
+ * Retrieve the SwarmCoordinator from the PTYService registered on the runtime.
+ * Returns undefined if PTYService or coordinator is not available.
+ */
+export function getCoordinator(
+  runtime: IAgentRuntime,
+): SwarmCoordinator | undefined {
+  const ptyService = runtime.getService("PTY_SERVICE") as unknown as
+    | PTYService
+    | undefined;
+  return ptyService?.coordinator ?? undefined;
+}
 
 export class PTYService {
   static serviceType = "PTY_SERVICE";
@@ -82,6 +98,10 @@ export class PTYService {
   private static readonly MAX_TRACE_ENTRIES = 200;
   /** Lightweight per-agent-type metrics for observability */
   private metricsTracker = new AgentMetricsTracker();
+  /** Console bridge for terminal output streaming and buffered hydration */
+  consoleBridge: PTYConsoleBridge | null = null;
+  /** Swarm coordinator instance (if active). Accessed via getCoordinator(runtime). */
+  coordinator: SwarmCoordinator | null = null;
 
   constructor(runtime: IAgentRuntime, config: PTYServiceConfig = {}) {
     this.runtime = runtime;
@@ -90,6 +110,7 @@ export class PTYService {
       debug: config.debug ?? false,
       registerCodingAdapters: config.registerCodingAdapters ?? true,
       maxConcurrentSessions: config.maxConcurrentSessions ?? 8,
+      defaultApprovalPreset: config.defaultApprovalPreset ?? "permissive",
     };
   }
 
@@ -100,6 +121,19 @@ export class PTYService {
       | undefined;
     const service = new PTYService(runtime, config ?? {});
     await service.initialize();
+
+    // Wire the SwarmCoordinator — done here instead of plugin init()
+    // because ElizaOS calls Service.start() reliably but may not call
+    // plugin.init() depending on the registration path.
+    try {
+      const coordinator = new SwarmCoordinator(runtime);
+      coordinator.start(service);
+      service.coordinator = coordinator;
+      logger.info("[PTYService] SwarmCoordinator wired and started");
+    } catch (err) {
+      logger.error(`[PTYService] Failed to wire SwarmCoordinator: ${err}`);
+    }
+
     return service;
   }
 
@@ -127,10 +161,32 @@ export class PTYService {
     });
     this.manager = result.manager;
     this.usingBunWorker = result.usingBunWorker;
+
+    // Wire console bridge for terminal output streaming / hydration
+    try {
+      this.consoleBridge = new PTYConsoleBridge(this.manager, {
+        maxBufferedCharsPerSession: 100_000,
+      });
+      this.log("PTYConsoleBridge wired");
+    } catch (err) {
+      this.log(`Failed to wire PTYConsoleBridge: ${err}`);
+    }
+
     this.log("PTYService initialized");
   }
 
   async stop(): Promise<void> {
+    // Stop the coordinator if one was wired to this service
+    if (this.coordinator) {
+      this.coordinator.stop();
+      this.coordinator = null;
+    }
+
+    if (this.consoleBridge) {
+      this.consoleBridge.close();
+      this.consoleBridge = null;
+    }
+
     for (const unsubscribe of this.outputUnsubscribers.values()) {
       unsubscribe();
     }
@@ -343,6 +399,20 @@ export class PTYService {
     );
   }
 
+  /** Default approval preset — runtime env var takes precedence over config. */
+  get defaultApprovalPreset(): ApprovalPreset {
+    const fromEnv = this.runtime.getSetting(
+      "PARALLAX_DEFAULT_APPROVAL_PRESET",
+    ) as string | undefined;
+    if (
+      fromEnv &&
+      ["readonly", "standard", "permissive", "autonomous"].includes(fromEnv)
+    ) {
+      return fromEnv as ApprovalPreset;
+    }
+    return this.serviceConfig.defaultApprovalPreset ?? "permissive";
+  }
+
   getSession(sessionId: string): SessionInfo | undefined {
     if (!this.manager) return undefined;
     const session = this.manager.get(sessionId);
@@ -451,8 +521,12 @@ export class PTYService {
 
   // ─── Event & Adapter Registration ───
 
-  onSessionEvent(callback: SessionEventCallback): void {
+  onSessionEvent(callback: SessionEventCallback): () => void {
     this.eventCallbacks.push(callback);
+    return () => {
+      const idx = this.eventCallbacks.indexOf(callback);
+      if (idx !== -1) this.eventCallbacks.splice(idx, 1);
+    };
   }
 
   registerAdapter(adapter: unknown): void {
@@ -518,7 +592,7 @@ export class PTYService {
 
   private log(message: string): void {
     if (this.serviceConfig.debug) {
-      console.log(`[PTYService] ${message}`);
+      logger.debug(`[PTYService] ${message}`);
     }
   }
 }

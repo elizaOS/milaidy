@@ -3,8 +3,12 @@
  */
 
 import { beforeEach, describe, expect, it, jest } from "bun:test";
-import type { IAgentRuntime, Memory, State } from "@elizaos/core";
-import { sendToAgentAction } from "../actions/send-to-agent.js";
+
+type IAgentRuntime = import("@elizaos/core").IAgentRuntime;
+type Memory = import("@elizaos/core").Memory;
+type State = import("@elizaos/core").State;
+
+const { sendToAgentAction } = await import("../actions/send-to-agent.js");
 
 // Mock PTYService
 const mockSendToSession = jest.fn();

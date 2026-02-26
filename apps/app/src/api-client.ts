@@ -1093,6 +1093,25 @@ export interface WorkbenchOverview {
   };
 }
 
+// Coding Agent Sessions
+export interface CodingAgentSession {
+  sessionId: string;
+  agentType: string;
+  label: string;
+  originalTask: string;
+  workdir: string;
+  status: "active" | "blocked" | "completed" | "stopped" | "error";
+  decisionCount: number;
+  autoResolvedCount: number;
+}
+
+export interface CodingAgentStatus {
+  supervisionLevel: string;
+  taskCount: number;
+  tasks: CodingAgentSession[];
+  pendingConfirmations: number;
+}
+
 // MCP
 export interface McpServerConfig {
   type: "stdio" | "streamable-http" | "sse";
@@ -4257,6 +4276,64 @@ export class MiladyClient {
       method: "POST",
       body: JSON.stringify(report),
     });
+  }
+
+  // ── Coding Agents ───────────────────────────────────────────────────
+
+  async getCodingAgentStatus(): Promise<CodingAgentStatus | null> {
+    try {
+      return await this.fetch<CodingAgentStatus>(
+        "/api/coding-agents/coordinator/status",
+      );
+    } catch {
+      return null;
+    }
+  }
+
+  async stopCodingAgent(sessionId: string): Promise<boolean> {
+    try {
+      await this.fetch(
+        `/api/coding-agents/${encodeURIComponent(sessionId)}/stop`,
+        { method: "POST" },
+      );
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  // ── PTY Terminal (xterm.js bridge) ─────────────────────────────────────
+
+  /** Subscribe to live PTY output for a session over WebSocket. */
+  subscribePtyOutput(sessionId: string): void {
+    this.sendWsMessage({ type: "pty-subscribe", sessionId });
+  }
+
+  /** Unsubscribe from live PTY output for a session. */
+  unsubscribePtyOutput(sessionId: string): void {
+    this.sendWsMessage({ type: "pty-unsubscribe", sessionId });
+  }
+
+  /** Send raw keyboard input to a PTY session. */
+  sendPtyInput(sessionId: string, data: string): void {
+    this.sendWsMessage({ type: "pty-input", sessionId, data });
+  }
+
+  /** Resize a PTY session's terminal dimensions. */
+  resizePty(sessionId: string, cols: number, rows: number): void {
+    this.sendWsMessage({ type: "pty-resize", sessionId, cols, rows });
+  }
+
+  /** Fetch buffered terminal output (raw ANSI) for xterm.js hydration. */
+  async getPtyBufferedOutput(sessionId: string): Promise<string> {
+    try {
+      const res = await this.fetch<{ output: string }>(
+        `/api/coding-agents/${encodeURIComponent(sessionId)}/buffered-output`,
+      );
+      return res.output ?? "";
+    } catch {
+      return "";
+    }
   }
 }
 

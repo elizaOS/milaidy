@@ -4,7 +4,8 @@
 
 import { beforeEach, describe, expect, it, jest } from "bun:test";
 import type { IAgentRuntime, Memory, State } from "@elizaos/core";
-import { stopAgentAction } from "../actions/stop-agent.js";
+
+const { stopAgentAction } = await import("../actions/stop-agent.js");
 
 const mockStopSession = jest.fn();
 const mockGetSession = jest.fn();
