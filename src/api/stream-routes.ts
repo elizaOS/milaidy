@@ -510,6 +510,11 @@ export async function handleStreamRoute(
         return true;
       }
 
+      if (!/^rtmps?:\/\//i.test(rtmpUrl)) {
+        error(res, "rtmpUrl must use rtmp:// or rtmps:// scheme", 400);
+        return true;
+      }
+
       await state.streamManager.start({
         rtmpUrl,
         rtmpKey,
