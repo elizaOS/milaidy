@@ -5,6 +5,27 @@ import { ConfigSaveFooter } from "./ConfigSaveFooter";
 type AgentTab = "claude" | "gemini" | "codex" | "aider" | "pi";
 type ConfigurableAgentTab = Exclude<AgentTab, "pi">;
 type AiderProvider = "anthropic" | "openai" | "google";
+type ApprovalPreset = "readonly" | "standard" | "permissive" | "autonomous";
+type AgentSelectionStrategy = "fixed" | "ranked";
+
+const APPROVAL_PRESETS: {
+  value: ApprovalPreset;
+  label: string;
+  desc: string;
+}[] = [
+  { value: "readonly", label: "Read Only", desc: "Read-only tools only" },
+  {
+    value: "standard",
+    label: "Standard",
+    desc: "Read + write, asks for shell/network",
+  },
+  {
+    value: "permissive",
+    label: "Permissive",
+    desc: "File ops auto-approved, asks for shell",
+  },
+  { value: "autonomous", label: "Autonomous", desc: "All tools auto-approved" },
+];
 
 interface ModelOption {
   value: string;
@@ -98,6 +119,14 @@ export function CodingAgentSettingsSection() {
         }
         if (env.PARALLAX_AIDER_PROVIDER)
           loaded.PARALLAX_AIDER_PROVIDER = env.PARALLAX_AIDER_PROVIDER;
+        if (env.PARALLAX_DEFAULT_APPROVAL_PRESET)
+          loaded.PARALLAX_DEFAULT_APPROVAL_PRESET =
+            env.PARALLAX_DEFAULT_APPROVAL_PRESET;
+        if (env.PARALLAX_AGENT_SELECTION_STRATEGY)
+          loaded.PARALLAX_AGENT_SELECTION_STRATEGY =
+            env.PARALLAX_AGENT_SELECTION_STRATEGY;
+        if (env.PARALLAX_DEFAULT_AGENT_TYPE)
+          loaded.PARALLAX_DEFAULT_AGENT_TYPE = env.PARALLAX_DEFAULT_AGENT_TYPE;
         setPrefs(loaded);
 
         // Process fetched models — filter to "chat" category only
@@ -194,8 +223,81 @@ export function CodingAgentSettingsSection() {
   const fastValue = prefs[`${prefix}_MODEL_FAST`] ?? "";
   const isDynamic = providerId ? !!providerModels[providerId] : false;
 
+  const approvalPreset = (prefs.PARALLAX_DEFAULT_APPROVAL_PRESET ||
+    "permissive") as ApprovalPreset;
+  const selectionStrategy = (prefs.PARALLAX_AGENT_SELECTION_STRATEGY ||
+    "fixed") as AgentSelectionStrategy;
+  const defaultAgentType = (prefs.PARALLAX_DEFAULT_AGENT_TYPE ||
+    "claude") as ConfigurableAgentTab;
+
   return (
     <div className="flex flex-col gap-4">
+      {/* Agent selection strategy */}
+      <div className="flex flex-col gap-1.5">
+        <span className="text-xs font-semibold">Agent Selection Strategy</span>
+        <select
+          className="px-2.5 py-1.5 border border-[var(--border)] bg-[var(--card)] text-xs focus:border-[var(--accent)] focus:outline-none"
+          value={selectionStrategy}
+          onChange={(e) =>
+            setPref("PARALLAX_AGENT_SELECTION_STRATEGY", e.target.value)
+          }
+        >
+          <option value="fixed">Fixed</option>
+          <option value="ranked">Ranked (auto-select best performer)</option>
+        </select>
+        <div className="text-[11px] text-[var(--muted)]">
+          {selectionStrategy === "fixed"
+            ? "Always use the selected default agent type when none is specified."
+            : "Automatically select the best-performing installed agent based on success rate and stall metrics."}
+        </div>
+      </div>
+
+      {/* Default agent type — only shown when strategy is "fixed" */}
+      {selectionStrategy === "fixed" && (
+        <div className="flex flex-col gap-1.5">
+          <span className="text-xs font-semibold">Default Agent Type</span>
+          <select
+            className="px-2.5 py-1.5 border border-[var(--border)] bg-[var(--card)] text-xs focus:border-[var(--accent)] focus:outline-none"
+            value={defaultAgentType}
+            onChange={(e) =>
+              setPref("PARALLAX_DEFAULT_AGENT_TYPE", e.target.value)
+            }
+          >
+            <option value="claude">Claude</option>
+            <option value="gemini">Gemini</option>
+            <option value="codex">Codex</option>
+            <option value="aider">Aider</option>
+          </select>
+          <div className="text-[11px] text-[var(--muted)]">
+            Agent used when no explicit type is specified in a spawn request.
+          </div>
+        </div>
+      )}
+
+      {/* Default approval preset — global, not per-agent */}
+      <div className="flex flex-col gap-1.5">
+        <span className="text-xs font-semibold">Default Permission Level</span>
+        <select
+          className="px-2.5 py-1.5 border border-[var(--border)] bg-[var(--card)] text-xs focus:border-[var(--accent)] focus:outline-none"
+          value={approvalPreset}
+          onChange={(e) =>
+            setPref("PARALLAX_DEFAULT_APPROVAL_PRESET", e.target.value)
+          }
+        >
+          {APPROVAL_PRESETS.map((p) => (
+            <option key={p.value} value={p.value}>
+              {p.label}
+            </option>
+          ))}
+        </select>
+        <div className="text-[11px] text-[var(--muted)]">
+          {APPROVAL_PRESETS.find((p) => p.value === approvalPreset)?.desc ?? ""}
+          {
+            " — applies to all newly spawned agents unless overridden per-spawn."
+          }
+        </div>
+      </div>
+
       {/* Agent tabs */}
       <div className="flex border border-[var(--border)]">
         {(["claude", "gemini", "codex", "aider", "pi"] as AgentTab[]).map(

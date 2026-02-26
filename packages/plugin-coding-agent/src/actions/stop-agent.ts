@@ -7,14 +7,15 @@
  * @module actions/stop-agent
  */
 
-import type {
-  Action,
-  ActionResult,
-  HandlerCallback,
-  HandlerOptions,
-  IAgentRuntime,
-  Memory,
-  State,
+import {
+  type Action,
+  type ActionResult,
+  type HandlerCallback,
+  type HandlerOptions,
+  type IAgentRuntime,
+  logger,
+  type Memory,
+  type State,
 } from "@elizaos/core";
 import type { PTYService } from "../services/pty-service.js";
 
@@ -124,7 +125,7 @@ export const stopAgentAction: Action = {
         try {
           await ptyService.stopSession(session.id);
         } catch (err) {
-          console.error(`Failed to stop session ${session.id}:`, err);
+          logger.error(`Failed to stop session ${session.id}: ${err}`);
         }
       }
 

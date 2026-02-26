@@ -1,4 +1,4 @@
-import { defineConfig } from "tsdown";
+// tsdown config — no import needed, defineConfig is a type-only identity fn
 
 const env = {
   NODE_ENV: "production",
@@ -17,7 +17,7 @@ const nativeExternals = [
   "fsevents",
 ];
 
-export default defineConfig([
+export default [
   {
     entry: "src/index.ts",
     env,
@@ -68,4 +68,4 @@ export default defineConfig([
     inlineOnly: false,
     external: nativeExternals,
   },
-]);
+];

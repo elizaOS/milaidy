@@ -3,3 +3,16 @@
 export function createCodingAgentRouteHandler() {
   return async () => undefined;
 }
+
+export function getCoordinator() {
+  return undefined;
+}
+
+export interface SwarmEvent {
+  type: string;
+  [key: string]: unknown;
+}
+
+export interface PTYService {
+  coordinator: null;
+}

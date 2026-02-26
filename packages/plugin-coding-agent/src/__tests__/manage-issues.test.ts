@@ -4,9 +4,10 @@
 
 import { beforeEach, describe, expect, it, jest } from "bun:test";
 
-import type { IAgentRuntime, Memory } from "@elizaos/core";
+type IAgentRuntime = import("@elizaos/core").IAgentRuntime;
+type Memory = import("@elizaos/core").Memory;
 
-import { manageIssuesAction } from "../actions/manage-issues.js";
+const { manageIssuesAction } = await import("../actions/manage-issues.js");
 
 const mockCreateIssue = jest.fn();
 const mockListIssues = jest.fn();

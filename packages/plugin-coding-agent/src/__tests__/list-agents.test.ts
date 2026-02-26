@@ -3,8 +3,11 @@
  */
 
 import { beforeEach, describe, expect, it, jest } from "bun:test";
-import type { IAgentRuntime, Memory } from "@elizaos/core";
-import { listAgentsAction } from "../actions/list-agents.js";
+
+type IAgentRuntime = import("@elizaos/core").IAgentRuntime;
+type Memory = import("@elizaos/core").Memory;
+
+const { listAgentsAction } = await import("../actions/list-agents.js");
 
 const mockListSessions = jest.fn();
 

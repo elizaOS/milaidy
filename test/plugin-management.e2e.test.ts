@@ -121,7 +121,21 @@ describe("Plugin Management E2E", () => {
       listInstalledPlugins: vi.fn(),
       getRegistryPlugin: vi.fn(),
       searchRegistry: vi.fn(),
-      uninstallPlugin: vi.fn(),
+      uninstallPlugin: vi.fn().mockImplementation(async (name) => {
+        if (name.includes("non-existent")) {
+          return {
+            success: false,
+            error: "Not found",
+            requiresRestart: false,
+            pluginName: name,
+          };
+        }
+        return {
+          success: true,
+          pluginName: name,
+          requiresRestart: true,
+        };
+      }),
     };
 
     // Create a mock runtime
@@ -187,7 +201,49 @@ describe("Plugin Management E2E", () => {
   });
 
   // ===================================================================
-  //  2. Eject Plugin
+  //  2. Uninstall Plugin
+  // ===================================================================
+
+  describe("POST /api/plugins/uninstall", () => {
+    it("returns 400 for missing name", async () => {
+      const { status, data } = await http$(
+        server.port,
+        "POST",
+        "/api/plugins/uninstall",
+        {},
+      );
+      expect(status).toBe(400);
+      expect(data.error).toContain("must include 'name'");
+    });
+
+    it("returns 422 when uninstall fails", async () => {
+      const { status, data } = await http$(
+        server.port,
+        "POST",
+        "/api/plugins/uninstall",
+        { name: "@elizaos/non-existent-plugin" },
+      );
+      expect(status).toBe(422);
+      expect(data.ok).toBe(false);
+      expect(data.error).toBeDefined();
+    });
+
+    it("returns 200 on successful uninstall", async () => {
+      const { status, data } = await http$(
+        server.port,
+        "POST",
+        "/api/plugins/uninstall",
+        { name: "@elizaos/plugin-test" },
+      );
+      expect(status).toBe(200);
+      expect(data.ok).toBe(true);
+      expect(data.pluginName).toBe("@elizaos/plugin-test");
+      expect(data.requiresRestart).toBe(true);
+    });
+  });
+
+  // ===================================================================
+  //  3. Eject Plugin
   // ===================================================================
 
   describe("POST /api/plugins/:id/eject", () => {
@@ -203,7 +259,7 @@ describe("Plugin Management E2E", () => {
   });
 
   // ===================================================================
-  //  3. Sync Plugin
+  //  4. Sync Plugin
   // ===================================================================
 
   describe("POST /api/plugins/:id/sync", () => {
@@ -219,7 +275,7 @@ describe("Plugin Management E2E", () => {
   });
 
   // ===================================================================
-  //  4. Reinject Plugin
+  //  5. Reinject Plugin
   // ===================================================================
 
   describe("POST /api/plugins/:id/reinject", () => {
@@ -235,7 +291,7 @@ describe("Plugin Management E2E", () => {
   });
 
   // ===================================================================
-  //  5. List Ejected
+  //  6. List Ejected
   // ===================================================================
 
   describe("GET /api/plugins/ejected", () => {

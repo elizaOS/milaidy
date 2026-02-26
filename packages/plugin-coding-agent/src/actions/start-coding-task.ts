@@ -118,10 +118,10 @@ export const startCodingTaskAction: Action = {
     const params = options?.parameters;
     const content = message.content as Record<string, unknown>;
 
+    const explicitRawType =
+      (params?.agentType as string) ?? (content.agentType as string);
     const rawAgentType =
-      (params?.agentType as string) ??
-      (content.agentType as string) ??
-      "claude";
+      explicitRawType ?? (await ptyService.resolveAgentType());
     const defaultAgentType = normalizeAgentType(rawAgentType);
     const memoryContent =
       (params?.memoryContent as string) ?? (content.memoryContent as string);

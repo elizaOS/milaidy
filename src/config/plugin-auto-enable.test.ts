@@ -7,6 +7,7 @@
  */
 import { describe, expect, it } from "vitest";
 
+import { CHANNEL_PLUGIN_MAP } from "../runtime/eliza";
 import {
   type ApplyPluginAutoEnableParams,
   AUTH_PROVIDER_PLUGINS,
@@ -618,6 +619,12 @@ describe("CONNECTOR_PLUGINS", () => {
     expect([...Object.keys(CONNECTOR_PLUGINS)].sort()).toEqual(
       [...CONNECTOR_IDS].sort(),
     );
+  });
+
+  it("CONNECTOR_PLUGINS values match CHANNEL_PLUGIN_MAP for every connector", () => {
+    for (const id of Object.keys(CONNECTOR_PLUGINS)) {
+      expect(CONNECTOR_PLUGINS[id]).toBe(CHANNEL_PLUGIN_MAP[id]);
+    }
   });
 
   it("maps blooio to @elizaos/plugin-blooio", () => {

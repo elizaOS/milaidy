@@ -487,22 +487,53 @@ Google Veo video generation uses a long-running operation model. If the video is
 
 ### Setup Checklist
 
-1. Set `media.<type>.mode` and `media.<type>.provider` for each enabled media type.
-2. Provide provider credentials for every `own-key` integration.
-3. Confirm fallback behavior is acceptable when provider selection fails.
+1. Set `media.<type>.mode` and `media.<type>.provider` for each enabled media type (`image`, `video`, `audio`, `vision`).
+2. Provide provider credentials for every `own-key` integration — keys must be nested under the correct media-type path (e.g., `media.image.fal.apiKey`, not `media.fal.apiKey`).
+3. For Ollama vision, verify the server is running (`ollama serve`) and the model is available or `autoDownload` is enabled.
+4. Confirm Eliza Cloud fallback behavior is acceptable — if an `own-key` provider's API key is missing or unrecognized, the factory silently falls back to Eliza Cloud.
+5. Verify network connectivity to provider endpoints; for Google Veo, confirm your API key has access to the long-running operations API.
 
 ### Failure Modes
 
-- Provider auth failures:
-  Verify API keys, base URLs, and model IDs for the selected provider.
+**Provider authentication and selection:**
+
+- `Eliza Cloud error: <status>`:
+  Cloud proxy rejected the request. Verify `cloud.baseUrl` is reachable and `cloud.apiKey` (if set) is valid.
+- Silent fallback to Eliza Cloud when `own-key` is intended:
+  The factory returns the Cloud provider whenever the API key is missing for the selected provider. Confirm the key is present at `media.<type>.<provider>.apiKey`.
+- `FAL error` / `OpenAI error` / `Google Imagen error` / `xAI error` / `Suno error`:
+  Provider returned a non-OK response. Check API key validity, account quota, and model availability.
+
+**Generation failures:**
+
+- `No image returned from <provider>` / `No video returned` / `No description returned`:
+  Provider returned HTTP 200 but the response payload was empty. This typically indicates a model or parameter mismatch — verify the `model` field is a valid model ID for that provider.
+- Google Veo pending operations:
+  Veo returns a `pending:<operation-name>` URL when generation is not instant. The operation must be polled to completion — if the agent does not poll, the video URL is unusable.
 - Generation timeouts:
-  Check provider latency and retry policy; avoid aggressive client timeouts.
-- Wrong provider selected:
-  Confirm `mode` and nested provider config are set at the correct media path.
+  Check provider latency and retry policy. FAL and Suno can have long generation times for complex prompts; avoid aggressive client-side timeouts.
+
+**Ollama-specific failures:**
+
+- `Ollama server not reachable`:
+  Ollama is not running or the configured `baseUrl` is wrong. Start with `ollama serve`.
+- `Model not found` / `Failed to download model`:
+  The model is not available locally. Enable `autoDownload` or manually run `ollama pull <model>`.
+- `Failed to fetch image`:
+  When analyzing a URL-based image, the provider fetches and converts it to base64. Network errors or invalid URLs cause this failure.
+
+### Recovery Procedures
+
+1. **Provider credential rotation:** Update the API key in `milady.json` under `media.<type>.<provider>.apiKey` and restart the agent. No cache or state needs clearing — provider instances are created fresh per request.
+2. **Stuck on Eliza Cloud fallback:** If the agent unexpectedly uses Cloud instead of your own-key provider, check: (a) `mode` is `"own-key"`, (b) `provider` is a recognized name, and (c) the API key is at the correct nested path. Fix the config and restart.
+3. **Ollama model corruption:** Delete the model with `ollama rm <model>` and re-pull with `ollama pull <model>`. Ensure `autoDownload: true` is set to prevent future missing-model errors.
 
 ### Verification Commands
 
 ```bash
+# Media action and provider unit tests
 bunx vitest run src/actions/__tests__/media.test.ts src/providers/media-provider.test.ts
+
+# Type-check media provider and action code
 bun run typecheck
 ```

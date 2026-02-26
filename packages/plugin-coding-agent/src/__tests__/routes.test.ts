@@ -9,8 +9,10 @@ import { beforeEach, describe, expect, it, jest } from "bun:test";
 import { EventEmitter } from "node:events";
 import * as os from "node:os";
 import * as path from "node:path";
+
 import type { RouteContext } from "../api/routes.js";
-import { handleCodingAgentRoutes } from "../api/routes.js";
+
+const { handleCodingAgentRoutes } = await import("../api/routes.js");
 
 // ---------------------------------------------------------------------------
 // Mock request / response helpers
@@ -127,6 +129,7 @@ const createMockWorkspaceService = () => ({
 // biome-ignore lint/suspicious/noExplicitAny: test mock for IAgentRuntime
 const createMockRuntime = (): any => ({
   getSetting: jest.fn(),
+  getService: jest.fn().mockReturnValue(undefined),
 });
 
 // ---------------------------------------------------------------------------
@@ -391,10 +394,10 @@ describe("handleCodingAgentRoutes", () => {
       req.method = "POST";
       req.url = "/api/coding-agents/spawn";
       req.headers = { host: "localhost:2138" };
-      process.nextTick(() => {
+      setTimeout(() => {
         req.emit("data", "not-valid-json{{{");
         req.emit("end");
-      });
+      }, 0);
 
       const res = createMockRes();
 

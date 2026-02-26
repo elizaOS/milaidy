@@ -12,6 +12,8 @@
       "**",
       "!assets",
       "!dist",
+      "!**/tsc-out",
+      "!**/dist-tsc",
       "!docs/_layouts",
       "!**/.github/contributor-trust.json",
       "!node_modules",

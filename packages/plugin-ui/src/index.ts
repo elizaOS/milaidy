@@ -84,32 +84,7 @@ export {
   defaultRegistry,
   useConfigValidation,
 } from "@app/components/config-renderer";
-export type {
-  PluginConfigFieldProps,
-  PluginConfigPageProps,
-  PluginFieldRenderer,
-} from "@app/components/plugin-ui";
-// ── Plugin-specific types ───────────────────────────────────────────────
-// Re-export from the existing SDK barrel file in apps/app
-export {
-  adaptRenderer,
-  createFieldType,
-  extendRegistry,
-} from "@app/components/plugin-ui";
-export type {
-  ActionBinding,
-  ConfigUiHint,
-  ConfigUiHints,
-  DynamicValue,
-  LogicExpression,
-  PluginUiTheme,
-  ShowIfCondition,
-  ValidationCheck,
-  ValidationConfig,
-  VisibilityCondition,
-} from "@app/types";
 // ── Types ───────────────────────────────────────────────────────────────
-export { DEFAULT_PLUGIN_UI_THEME } from "@app/types";
 
 // ── Zod re-export for field type definitions ────────────────────────────
 export { z } from "zod";

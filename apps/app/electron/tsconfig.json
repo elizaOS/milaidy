@@ -2,7 +2,7 @@
   "compileOnSave": true,
   "include": ["./src/**/*", "./capacitor.config.ts", "./capacitor.config.js"],
   "compilerOptions": {
-    "outDir": "./app-build",
+    "outDir": "./tsc-out",
     "importHelpers": true,
     "target": "ES2017",
     "module": "CommonJS",

@@ -1,6 +1,6 @@
 import { type VRM, VRMLoaderPlugin, VRMUtils } from "@pixiv/three-vrm";
 import * as THREE from "three";
-import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { resolveAppAssetUrl } from "../../asset-url";
 
 export type VrmEngineState = {

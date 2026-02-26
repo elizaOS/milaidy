@@ -25,13 +25,6 @@ export type {
   ConfigRendererProps,
 } from "@app/components/config-renderer";
 
-// ── Plugin SDK types ────────────────────────────────────────────────────
-export type {
-  PluginConfigFieldProps,
-  PluginConfigPageProps,
-  PluginFieldRenderer,
-} from "@app/components/plugin-ui";
-
 // ── Core UI types ───────────────────────────────────────────────────────
 export type {
   ActionBinding,

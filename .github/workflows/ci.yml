@@ -25,7 +25,8 @@ jobs:
         with:
           bun-version: latest
 
-      - run: bun install
+      - name: Install dependencies
+        run: bun install
 
       - name: Run repository postinstall patches
         run: bun run postinstall
@@ -47,7 +48,8 @@ jobs:
         with:
           bun-version: latest
 
-      - run: bun install
+      - name: Install dependencies
+        run: bun install
 
       - name: Run repository postinstall patches
         run: bun run postinstall
@@ -66,7 +68,8 @@ jobs:
         with:
           bun-version: latest
 
-      - run: bun install
+      - name: Install dependencies
+        run: bun install
 
       - name: Run repository postinstall patches
         run: bun run postinstall
@@ -85,7 +88,8 @@ jobs:
         with:
           bun-version: latest
 
-      - run: bun install
+      - name: Install dependencies
+        run: bun install
 
       - name: Run repository postinstall patches
         run: bun run postinstall

@@ -13,6 +13,7 @@ import { logger, type Plugin } from "@elizaos/core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { findPluginExport } from "../cli/plugins-cli";
 import type { MiladyConfig } from "../config/config";
+import { CONNECTOR_PLUGINS } from "../config/plugin-auto-enable";
 import { CONNECTOR_IDS } from "../config/schema";
 import {
   applyCloudConfigToEnv,
@@ -604,6 +605,12 @@ describe("collectPluginNames", () => {
     expect([...Object.keys(CHANNEL_PLUGIN_MAP)].sort()).toEqual(
       [...CONNECTOR_IDS].sort(),
     );
+  });
+
+  it("CHANNEL_PLUGIN_MAP values match CONNECTOR_PLUGINS for every connector", () => {
+    for (const id of Object.keys(CHANNEL_PLUGIN_MAP)) {
+      expect(CHANNEL_PLUGIN_MAP[id]).toBe(CONNECTOR_PLUGINS[id]);
+    }
   });
 });
 

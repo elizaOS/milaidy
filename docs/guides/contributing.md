@@ -182,11 +182,13 @@ bun run tui
 
 ### Testing
 
+Coverage thresholds are enforced in `vitest.config.ts`: 25% lines/functions/statements, 15% branches. CI fails when coverage falls below these floors.
+
 ```bash
 # Run all tests (parallel)
 bun run test
 
-# Run with coverage
+# Run with coverage (enforces thresholds)
 bun run test:coverage
 
 # Watch mode

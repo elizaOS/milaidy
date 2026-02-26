@@ -10,7 +10,7 @@
  * @module @milaidy/plugin-coding-agent
  */
 
-import type { IAgentRuntime, Plugin } from "@elizaos/core";
+import type { Plugin } from "@elizaos/core";
 import { finalizeWorkspaceAction } from "./actions/finalize-workspace.js";
 import { listAgentsAction } from "./actions/list-agents.js";
 // Actions - Issue management
@@ -30,56 +30,15 @@ import { activeWorkspaceContextProvider } from "./providers/active-workspace-con
 import { PTYService } from "./services/pty-service.js";
 import { CodingWorkspaceService } from "./services/workspace-service.js";
 
-/**
- * Wire the auth prompt callback so the workspace service can surface
- * OAuth device flow prompts to the user through Milady's event system.
- */
-function wireAuthPromptCallback(runtime: IAgentRuntime): void {
-  const workspaceService = runtime.getService(
-    "CODING_WORKSPACE_SERVICE",
-  ) as unknown as CodingWorkspaceService | undefined;
-  if (!workspaceService) return;
-
-  workspaceService.setAuthPromptCallback((prompt) => {
-    // Log prominently so it shows up in server output
-    console.log(
-      `\n` +
-        `╔══════════════════════════════════════════════════════════╗\n` +
-        `║  GitHub Authorization Required                          ║\n` +
-        `║                                                         ║\n` +
-        `║  Go to: ${prompt.verificationUri.padEnd(46)}║\n` +
-        `║  Enter code: ${prompt.userCode.padEnd(41)}║\n` +
-        `║                                                         ║\n` +
-        `║  Code expires in ${Math.floor(prompt.expiresIn / 60)} minutes${" ".repeat(33)}║\n` +
-        `╚══════════════════════════════════════════════════════════╝\n`,
-    );
-
-    // Also emit as a runtime event so chat clients can pick it up
-    try {
-      runtime.emitEvent(
-        "CODING_AGENT_AUTH_REQUIRED" as never,
-        {
-          verificationUri: prompt.verificationUri,
-          userCode: prompt.userCode,
-          expiresIn: prompt.expiresIn,
-        } as never,
-      );
-    } catch {
-      // emitEvent may not support custom events - that's fine, console log is the primary channel
-    }
-  });
-}
-
 export const codingAgentPlugin: Plugin = {
   name: "@milaidy/plugin-coding-agent",
   description:
     "Orchestrate CLI coding agents (Claude Code, Codex, Gemini, Aider, Pi, etc.) via PTY sessions, " +
     "manage git workspaces, and handle GitHub issues for autonomous coding tasks",
 
-  // Plugin init - wire up deciders and callbacks after services are ready
-  init: async (_config: Record<string, string>, runtime: IAgentRuntime) => {
-    wireAuthPromptCallback(runtime);
-  },
+  // NOTE: init() is NOT reliably called by ElizaOS for workspace plugins.
+  // SwarmCoordinator and auth callback wiring is done in PTYService.start()
+  // which ElizaOS calls reliably via the services lifecycle.
 
   // Services manage PTY sessions and git workspaces
   // biome-ignore lint/suspicious/noExplicitAny: ElizaOS Plugin type expects Service[] but our classes don't extend their base Service
@@ -144,11 +103,23 @@ export {
 export type {
   CodingAgentType,
   PTYServiceConfig,
+  SessionEventName,
   SessionInfo,
   SpawnSessionOptions,
 } from "./services/pty-service.js";
 // Re-export services for direct access
-export { PTYService } from "./services/pty-service.js";
+export { getCoordinator, PTYService } from "./services/pty-service.js";
+export type {
+  ChatMessageCallback,
+  CoordinationDecision,
+  PendingDecision,
+  SupervisionLevel,
+  SwarmEvent,
+  TaskContext,
+  WsBroadcastCallback,
+} from "./services/swarm-coordinator.js";
+export { SwarmCoordinator } from "./services/swarm-coordinator.js";
+export type { CoordinationLLMResponse } from "./services/swarm-coordinator-prompts.js";
 export type {
   AuthPromptCallback,
   CodingWorkspaceConfig,

@@ -9,17 +9,19 @@
 
 import * as os from "node:os";
 import * as path from "node:path";
-import type {
-  Action,
-  ActionResult,
-  HandlerCallback,
-  HandlerOptions,
-  IAgentRuntime,
-  Memory,
-  State,
+import {
+  type Action,
+  type ActionResult,
+  type HandlerCallback,
+  type HandlerOptions,
+  type IAgentRuntime,
+  logger,
+  type Memory,
+  type State,
 } from "@elizaos/core";
 import type { AgentCredentials, ApprovalPreset } from "coding-agent-adapters";
 import type { PTYService } from "../services/pty-service.js";
+import { getCoordinator } from "../services/pty-service.js";
 import {
   type CodingAgentType,
   isPiAgentType,
@@ -83,7 +85,7 @@ export const spawnAgentAction: Action = {
       | PTYService
       | undefined;
     if (!ptyService) {
-      console.warn("[SPAWN_CODING_AGENT] PTYService not available");
+      logger.warn("[SPAWN_CODING_AGENT] PTYService not available");
       return false;
     }
     return true;
@@ -218,6 +220,9 @@ export const spawnAgentAction: Action = {
         }
       }
 
+      // Check if coordinator is active — route blocking prompts through it
+      const coordinator = getCoordinator(runtime);
+
       // Spawn the PTY session
       const session: SessionInfo = await ptyService.spawnSession({
         name: `coding-${Date.now()}`,
@@ -226,8 +231,11 @@ export const spawnAgentAction: Action = {
         initialTask,
         memoryContent,
         credentials,
-        approvalPreset: approvalPreset as ApprovalPreset | undefined,
+        approvalPreset:
+          (approvalPreset as ApprovalPreset | undefined) ??
+          ptyService.defaultApprovalPreset,
         customCredentials,
+        ...(coordinator ? { skipAdapterAutoResponse: true } : {}),
         metadata: {
           requestedType: rawAgentType,
           messageId: message.id,
@@ -240,29 +248,42 @@ export const spawnAgentAction: Action = {
         if (sessionId !== session.id) return;
 
         // Log session events for debugging
-        console.log(`[Session ${sessionId}] ${event}:`, data);
+        logger.debug(
+          `[Session ${sessionId}] ${event}: ${JSON.stringify(data)}`,
+        );
 
-        // Handle blocked state - agent is waiting for input
-        if (event === "blocked" && callback) {
-          callback({
-            text: `Coding agent is waiting for input: ${(data as { prompt?: string }).prompt ?? "unknown prompt"}`,
-          });
-        }
+        // When coordinator is active it owns chat messaging for these events
+        if (!coordinator) {
+          // Handle blocked state - agent is waiting for input
+          if (event === "blocked" && callback) {
+            callback({
+              text: `Coding agent is waiting for input: ${(data as { prompt?: string }).prompt ?? "unknown prompt"}`,
+            });
+          }
 
-        // Handle completion
-        if (event === "completed" && callback) {
-          callback({
-            text: "Coding agent completed the task.",
-          });
-        }
+          // Handle completion
+          if (event === "completed" && callback) {
+            callback({
+              text: "Coding agent completed the task.",
+            });
+          }
 
-        // Handle errors
-        if (event === "error" && callback) {
-          callback({
-            text: `Coding agent encountered an error: ${(data as { message?: string }).message ?? "unknown error"}`,
-          });
+          // Handle errors
+          if (event === "error" && callback) {
+            callback({
+              text: `Coding agent encountered an error: ${(data as { message?: string }).message ?? "unknown error"}`,
+            });
+          }
         }
       });
+      if (coordinator && task) {
+        coordinator.registerTask(session.id, {
+          agentType,
+          label: `agent-${session.id.slice(-8)}`,
+          originalTask: task,
+          workdir,
+        });
+      }
 
       // Store session info in state for subsequent actions
       if (state) {
@@ -293,10 +314,7 @@ export const spawnAgentAction: Action = {
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      console.error(
-        "[SPAWN_CODING_AGENT] Failed to spawn agent:",
-        errorMessage,
-      );
+      logger.error("[SPAWN_CODING_AGENT] Failed to spawn agent:", errorMessage);
 
       if (callback) {
         await callback({

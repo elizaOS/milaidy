@@ -51,6 +51,16 @@ for (const target of buildTargets) {
     shell: process.platform === "win32",
   });
 
+  if (result.signal === "SIGKILL" || result.status === 137) {
+    // OOM-killed — common during postinstall when bun is already resident.
+    // Dev mode doesn't need dist/ (Vite resolves TS source, server uses tsx).
+    console.warn(
+      `[build-local-plugins] ⚠ ${target.name} build was killed (OOM). ` +
+        `Skipping — run "bun run build:local-plugins" manually if dist/ is needed.`,
+    );
+    continue;
+  }
+
   if (result.status !== 0) {
     process.exit(result.status ?? 1);
   }

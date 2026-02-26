@@ -231,9 +231,12 @@ describe("Token auth gate (MILADY_API_TOKEN set)", () => {
   let close: () => Promise<void>;
   let envBackup: { restore: () => void };
 
+  const TERMINAL_TOKEN = "test-terminal-token-def456";
+
   beforeAll(async () => {
-    envBackup = saveEnv("MILADY_API_TOKEN", "MILADY_PAIRING_DISABLED");
+    envBackup = saveEnv("MILADY_API_TOKEN", "MILADY_PAIRING_DISABLED", "MILADY_TERMINAL_RUN_TOKEN");
     process.env.MILADY_API_TOKEN = TEST_TOKEN;
+    process.env.MILADY_TERMINAL_RUN_TOKEN = TERMINAL_TOKEN;
     delete process.env.MILADY_PAIRING_DISABLED;
 
     const server = await startApiServer({ port: 0 });
@@ -390,7 +393,7 @@ describe("Token auth gate (MILADY_API_TOKEN set)", () => {
       port,
       "POST",
       "/api/terminal/run",
-      { command: "echo auth-gate" },
+      { command: "echo auth-gate", terminalToken: TERMINAL_TOKEN },
       auth,
     );
     // shell policy may still deny execution, but auth gate must pass

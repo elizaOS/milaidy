@@ -187,6 +187,9 @@ export function buildSpawnConfig(
     type: options.agentType,
     workdir,
     env: { ...options.env, ...modelEnv },
+    ...(options.skipAdapterAutoResponse
+      ? { skipAdapterAutoResponse: true }
+      : {}),
     adapterConfig: {
       ...(options.credentials as Record<string, unknown> | undefined),
       ...(options.customCredentials

@@ -1,2 +1,11 @@
-app
-node_modules
+*
+!tsc-out/**/*
+!tsc-out
+!app/**/*
+!app
+!assets/**/*
+!assets
+!milady-dist/**/*
+!milady-dist
+!package.json
+!capacitor.config.*

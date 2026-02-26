@@ -844,11 +844,13 @@ export function OnboardingWizard() {
                   onChange={handleSmallModelChange}
                   className="w-full px-3 py-2 border border-border bg-card text-sm mt-2 focus:border-accent focus:outline-none"
                 >
-                  {onboardingOptions?.models.small.map((model: ModelOption) => (
-                    <option key={model.id} value={model.id}>
-                      {model.name}
-                    </option>
-                  ))}
+                  {onboardingOptions?.models?.small?.map(
+                    (model: ModelOption) => (
+                      <option key={model.id} value={model.id}>
+                        {model.name}
+                      </option>
+                    ),
+                  )}
                 </select>
               </div>
               <div>
@@ -860,11 +862,13 @@ export function OnboardingWizard() {
                   onChange={handleLargeModelChange}
                   className="w-full px-3 py-2 border border-border bg-card text-sm mt-2 focus:border-accent focus:outline-none"
                 >
-                  {onboardingOptions?.models.large.map((model: ModelOption) => (
-                    <option key={model.id} value={model.id}>
-                      {model.name}
-                    </option>
-                  ))}
+                  {onboardingOptions?.models?.large?.map(
+                    (model: ModelOption) => (
+                      <option key={model.id} value={model.id}>
+                        {model.name}
+                      </option>
+                    ),
+                  )}
                 </select>
               </div>
             </div>
@@ -1466,7 +1470,7 @@ export function OnboardingWizard() {
                     Select Model:
                   </span>
                   <div className="flex flex-col gap-2">
-                    {onboardingOptions.openrouterModels.map(
+                    {onboardingOptions?.openrouterModels?.map(
                       (model: OpenRouterModelOption) => (
                         <button
                           type="button"
@@ -1552,7 +1556,7 @@ export function OnboardingWizard() {
                             }
                             className="w-full px-3 py-2 border border-border bg-card text-sm mt-2 focus:border-accent focus:outline-none"
                           >
-                            {provider.rpcProviders.map(
+                            {provider.rpcProviders?.map(
                               (rpc: RpcProviderOption) => (
                                 <option key={rpc.id} value={rpc.id}>
                                   {rpc.name}

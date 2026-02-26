@@ -14,6 +14,7 @@ import type {
 const { mockUseApp, mockClientFns } = vi.hoisted(() => ({
   mockUseApp: vi.fn(),
   mockClientFns: {
+    getCodingAgentStatus: vi.fn(async () => null),
     getTrajectories: vi.fn(),
     getTrajectoryStats: vi.fn(),
     getTrajectoryConfig: vi.fn(),

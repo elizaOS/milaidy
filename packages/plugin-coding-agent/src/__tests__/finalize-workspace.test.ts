@@ -4,9 +4,13 @@
 
 import { beforeEach, describe, expect, it, jest } from "bun:test";
 
-import type { IAgentRuntime, Memory, State } from "@elizaos/core";
+type IAgentRuntime = import("@elizaos/core").IAgentRuntime;
+type Memory = import("@elizaos/core").Memory;
+type State = import("@elizaos/core").State;
 
-import { finalizeWorkspaceAction } from "../actions/finalize-workspace.js";
+const { finalizeWorkspaceAction } = await import(
+  "../actions/finalize-workspace.js"
+);
 
 const mockGetWorkspace = jest.fn();
 const mockListWorkspaces = jest.fn();

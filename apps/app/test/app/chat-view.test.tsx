@@ -32,6 +32,7 @@ interface ChatViewContextStub {
 
 const { mockClient, mockUseApp, mockUseVoiceChat } = vi.hoisted(() => ({
   mockClient: {
+    getCodingAgentStatus: vi.fn(async () => null),
     getConfig: vi.fn(),
   },
   mockUseApp: vi.fn(),

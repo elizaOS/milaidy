@@ -125,7 +125,7 @@ jobs:
       - name: Build core
         run: |
           bunx tsdown
-          node --import tsx scripts/write-build-info.ts
+          bunx tsx scripts/write-build-info.ts
           echo '{"type":"module"}' > dist/package.json
 
       - name: Install Capacitor app dependencies
@@ -196,8 +196,7 @@ jobs:
           echo "Building standalone Electron dist with all node_modules inlined..."
 
           cat << 'EOF' > tsdown.electron.config.ts
-          import { defineConfig } from "tsdown";
-          export default defineConfig([{
+          export default [{
             entry: {
               "index": "src/index.ts",
               "entry": "src/entry.ts",
@@ -224,10 +223,10 @@ jobs:
             fixedExtension: false,
             inlineOnly: false,
             env: { NODE_ENV: "production" }
-          }]);
+          }];
           EOF
 
-          npx tsdown --config tsdown.electron.config.ts --no-clean
+          bunx tsdown --config tsdown.electron.config.ts --no-clean
 
           # Copy to milady-dist so electron-builder can pack it.
           rm -rf apps/app/electron/milady-dist
@@ -395,9 +394,39 @@ jobs:
             "
             echo "Removed azureSignOptions from config"
           fi
-          npx electron-builder build ${{ matrix.platform.electron-args }} -c ./electron-builder.ci.json -p never
+          
+          # HACK: electron-builder traverses up and reads the root .gitignore and .npmignore which ignore apps/
+          # We forcefully remove these root ignore files just for packaging so electron-builder only uses the local .npmignore
+          rm -f ../../../.gitignore || true
+          rm -f ../../../.npmignore || true
+          rm -f .gitignore || true
+          rm -f .npmignore || true
+          rm -rf ../../../.git || true
+
+          echo "DUMPING CONTENTS OF TSC-OUT"
+          ls -la tsc-out || echo "TSC-OUT DIR IS MISSING"
+          ls -la tsc-out/src || echo "TSC-OUT/SRC DIR IS MISSING"
+          
+          # @capacitor-community/electron hardcodes path.join(app.getAppPath(), "build", "src", "rt", "electron-plugins.js")
+          # Copy tsc-out → build so the capacitor package can find its expected files
+          rm -rf build
+          cp -r tsc-out build
+          echo "Copied tsc-out to build for @capacitor-community/electron compatibility"
+          
+          npx electron-builder build ${{ matrix.platform.electron-args }} -c ./electron-builder.ci.json -p never || {
+            echo "ELECTRON BUILDER CRASHED. DUMPING ASAR CONTENTS:"
+            if [ "${MATRIX_OS:-}" = "linux" ]; then
+              npx asar list dist/linux-unpacked/resources/app.asar || echo "NO ASAR"
+            elif [ "${MATRIX_OS:-}" = "macos" ]; then
+              npx asar list dist/mac*/Milady.app/Contents/Resources/app.asar || echo "NO ASAR"
+            else
+              npx asar list dist/win-unpacked/resources/app.asar || echo "NO ASAR"
+            fi
+            exit 1
+          }
         working-directory: apps/app/electron
         env:
+          DEBUG: electron-builder,electron-builder:*
           MATRIX_OS: ${{ matrix.platform.os }}
           TRUSTED_SIGNING_PREFLIGHT: ${{ steps.trusted_signing_preflight.outcome || 'success' }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

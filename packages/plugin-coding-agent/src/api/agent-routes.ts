@@ -12,6 +12,7 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import * as os from "node:os";
 import * as path from "node:path";
+import { getCoordinator } from "../services/pty-service.js";
 import {
   isPiAgentType,
   normalizeAgentType,
@@ -137,6 +138,20 @@ export async function handleAgentRoutes(
         500,
       );
     }
+    return true;
+  }
+
+  // GET /api/coding-agents/settings
+  if (method === "GET" && pathname === "/api/coding-agents/settings") {
+    if (!ctx.ptyService) {
+      sendError(res, "PTY Service not available", 503);
+      return true;
+    }
+    sendJson(res, {
+      defaultApprovalPreset: ctx.ptyService.defaultApprovalPreset,
+      agentSelectionStrategy: ctx.ptyService.agentSelectionStrategy,
+      defaultAgentType: ctx.ptyService.defaultAgentType,
+    } as unknown as JsonValue);
     return true;
   }
 
@@ -269,7 +284,9 @@ export async function handleAgentRoutes(
       };
 
       // Read model preferences from runtime settings
-      const agentStr = ((agentType as string) || "claude").toLowerCase();
+      const agentStr = agentType
+        ? (agentType as string).toLowerCase()
+        : await ctx.ptyService.resolveAgentType();
       const piRequested = isPiAgentType(agentStr);
       const normalizedType = normalizeAgentType(agentStr);
       const prefixMap: Record<string, string> = {
@@ -290,6 +307,9 @@ export async function handleAgentRoutes(
           ? (ctx.runtime.getSetting("PARALLAX_AIDER_PROVIDER") as string | null)
           : null;
 
+      // Check if coordinator is active — route blocking prompts through it
+      const coordinator = getCoordinator(ctx.runtime);
+
       const session = await ctx.ptyService.spawnSession({
         name: `agent-${Date.now()}`,
         agentType: normalizedType,
@@ -305,6 +325,8 @@ export async function handleAgentRoutes(
         customCredentials: customCredentials as
           | Record<string, string>
           | undefined,
+        // Let adapter auto-response handle known prompts (permissions, trust, etc.)
+        // instantly. The coordinator handles only unrecognized prompts via LLM.
         metadata: {
           requestedType: agentStr,
           ...(metadata as Record<string, unknown>),
@@ -315,6 +337,18 @@ export async function handleAgentRoutes(
           },
         },
       });
+      if (coordinator && task) {
+        const label = (metadata as Record<string, unknown>)?.label as
+          | string
+          | undefined;
+        coordinator.registerTask(session.id, {
+          agentType:
+            agentStr as import("../services/pty-service.js").CodingAgentType,
+          label: label || `agent-${session.id.slice(-8)}`,
+          originalTask: task as string,
+          workdir: session.workdir,
+        });
+      }
 
       sendJson(
         res,
@@ -442,6 +476,32 @@ export async function handleAgentRoutes(
       sendError(
         res,
         error instanceof Error ? error.message : "Failed to get output",
+        500,
+      );
+    }
+    return true;
+  }
+
+  // === Get Buffered Terminal Output (raw ANSI for xterm.js hydration) ===
+  // GET /api/coding-agents/:id/buffered-output
+  const bufferedMatch = pathname.match(
+    /^\/api\/coding-agents\/([^/]+)\/buffered-output$/,
+  );
+  if (method === "GET" && bufferedMatch) {
+    if (!ctx.ptyService?.consoleBridge) {
+      sendError(res, "Console bridge not available", 503);
+      return true;
+    }
+    try {
+      const sessionId = bufferedMatch[1];
+      const output = ctx.ptyService.consoleBridge.getBufferedOutput(sessionId);
+      sendJson(res, { sessionId, output });
+    } catch (error) {
+      sendError(
+        res,
+        error instanceof Error
+          ? error.message
+          : "Failed to get buffered output",
         500,
       );
     }

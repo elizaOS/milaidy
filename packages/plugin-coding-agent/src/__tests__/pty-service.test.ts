@@ -26,8 +26,8 @@ const mockManager = {
   shutdown: jest.fn(),
 };
 
-// Mock modules BEFORE importing PTYService (ES imports are hoisted above mock.module calls)
-// Classes are required because arrow functions cannot be used with `new`.
+// Custom pty-manager mock required because PTYService instantiates the manager
+// and calls methods on it — the preload's bare class stub is insufficient.
 mock.module("pty-manager", () => ({
   PTYManager: class {
     constructor() {
@@ -43,17 +43,6 @@ mock.module("pty-manager", () => ({
   isBun: () => false,
   extractTaskCompletionTraceRecords: () => [],
   buildTaskCompletionTimeline: () => ({}),
-}));
-
-mock.module("coding-agent-adapters", () => ({
-  createAllAdapters: () => [],
-  checkAdapters: jest.fn().mockResolvedValue([]),
-  createAdapter: jest.fn(),
-  generateApprovalConfig: jest.fn(),
-}));
-
-mock.module("@elizaos/core", () => ({
-  ModelType: { TEXT_SMALL: "text-small" },
 }));
 
 // Dynamic import after mocks are registered

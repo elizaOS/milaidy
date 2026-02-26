@@ -63,6 +63,10 @@ export function buildStallClassificationPrompt(
     `3. "still_working" — The agent is actively processing (API call, compilation, thinking, etc.) ` +
     `and has not produced final output yet. No prompt or completion summary visible.\n\n` +
     `4. "error" — The agent hit an error state (crash, unrecoverable error, stack trace).\n\n` +
+    `5. "tool_running" — The agent is using an external tool (browser automation, ` +
+    `MCP tool, etc.). Indicators: "Claude in Chrome", "javascript_tool", ` +
+    `"computer_tool", "screenshot", "navigate", tool execution output. ` +
+    `The agent is actively working but the terminal may be quiet.\n\n` +
     `IMPORTANT: If you see BOTH completed work output AND an idle prompt (❯), choose "task_complete". ` +
     `Only choose "waiting_for_input" if the agent is clearly asking a question mid-task.\n\n` +
     `If "waiting_for_input", also provide:\n` +
@@ -202,18 +206,22 @@ export async function classifyStallOutput(
     }
 
     const parsed = JSON.parse(jsonMatch[0]);
-    const validStates: StallClassification["state"][] = [
+    const validStates: string[] = [
       "waiting_for_input",
       "still_working",
       "task_complete",
       "error",
+      "tool_running",
     ];
     if (!validStates.includes(parsed.state)) {
       log(`Stall classification: invalid state "${parsed.state}"`);
       return null;
     }
+    // Map tool_running → still_working (StallClassification doesn't have tool_running)
+    const mappedState: StallClassification["state"] =
+      parsed.state === "tool_running" ? "still_working" : parsed.state;
     const classification: StallClassification = {
-      state: parsed.state,
+      state: mappedState,
       prompt: parsed.prompt,
       suggestedResponse: parsed.suggestedResponse,
     };

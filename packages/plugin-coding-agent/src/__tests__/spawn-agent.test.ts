@@ -2,32 +2,10 @@
  * SPAWN_CODING_AGENT action tests
  */
 
-import { beforeEach, describe, expect, it, jest, mock } from "bun:test";
+import { beforeEach, describe, expect, it, jest } from "bun:test";
 import type { IAgentRuntime, Memory, State } from "@elizaos/core";
 
-// Mock external modules BEFORE dynamic import to avoid transitive
-// module resolution errors (pty-service.ts imports pty-manager).
-mock.module("@elizaos/core", () => ({
-  ModelType: { TEXT_SMALL: "text-small" },
-}));
-
-mock.module("pty-manager", () => ({
-  PTYManager: class {},
-  ShellAdapter: class {},
-  BunCompatiblePTYManager: class {},
-  isBun: () => false,
-  extractTaskCompletionTraceRecords: () => [],
-  buildTaskCompletionTimeline: () => ({}),
-}));
-
-mock.module("coding-agent-adapters", () => ({
-  createAllAdapters: () => [],
-  checkAdapters: jest.fn().mockResolvedValue([]),
-  createAdapter: jest.fn(),
-  generateApprovalConfig: jest.fn(),
-}));
-
-// Dynamic import after mocks are registered
+// Dynamic import after preload mocks are registered
 const { spawnAgentAction } = await import("../actions/spawn-agent.js");
 
 // Mock PTYService

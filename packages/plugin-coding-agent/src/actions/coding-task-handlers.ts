@@ -7,15 +7,17 @@
  * @module actions/coding-task-handlers
  */
 
-import type {
-  ActionResult,
-  HandlerCallback,
-  IAgentRuntime,
-  Memory,
-  State,
+import {
+  type ActionResult,
+  type HandlerCallback,
+  type IAgentRuntime,
+  logger,
+  type Memory,
+  type State,
 } from "@elizaos/core";
 import type { AgentCredentials, ApprovalPreset } from "coding-agent-adapters";
 import type { PTYService } from "../services/pty-service.js";
+import { getCoordinator } from "../services/pty-service.js";
 import {
   type CodingAgentType,
   isPiAgentType,
@@ -202,6 +204,9 @@ export async function handleMultiAgent(
         }
       }
 
+      // Check if coordinator is active — route blocking prompts through it
+      const coordinator = getCoordinator(runtime);
+
       // Spawn the agent
       const initialTask = specPiRequested ? toPiCommand(specTask) : specTask;
       const displayType = specPiRequested ? "pi" : specAgentType;
@@ -212,8 +217,11 @@ export async function handleMultiAgent(
         initialTask,
         memoryContent,
         credentials,
-        approvalPreset: approvalPreset as ApprovalPreset | undefined,
+        approvalPreset:
+          (approvalPreset as ApprovalPreset | undefined) ??
+          ptyService.defaultApprovalPreset,
         customCredentials,
+        ...(coordinator ? { skipAdapterAutoResponse: true } : {}),
         metadata: {
           requestedType: specRequestedType,
           messageId: message.id,
@@ -234,7 +242,16 @@ export async function handleMultiAgent(
         specLabel,
         scratchDir,
         callback,
+        !!coordinator,
       );
+      if (coordinator && specTask) {
+        coordinator.registerTask(session.id, {
+          agentType: specAgentType,
+          label: specLabel,
+          originalTask: specTask,
+          workdir,
+        });
+      }
 
       results.push({
         sessionId: session.id,
@@ -254,7 +271,7 @@ export async function handleMultiAgent(
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      console.error(
+      logger.error(
         `[START_CODING_TASK] Failed to spawn agent ${i + 1}:`,
         errorMessage,
       );
@@ -306,6 +323,9 @@ export async function handleSingleAgent(
   ctx: CodingTaskContext,
   task: string | undefined,
 ): Promise<ActionResult | undefined> {
+  logger.debug(
+    `[START_CODING_TASK] handleSingleAgent called, agentType=${ctx.defaultAgentType}, task=${task ? "yes" : "none"}, repo=${ctx.repo ?? "none"}`,
+  );
   const {
     runtime,
     ptyService,
@@ -377,12 +397,18 @@ export async function handleSingleAgent(
   }
 
   // --- Step 2: Spawn the agent ---
+  logger.debug(
+    `[START_CODING_TASK] Spawning ${agentType} agent, task: ${task ? `"${task.slice(0, 80)}..."` : "(none)"}, workdir: ${workdir}`,
+  );
   try {
     if (agentType !== "shell" && agentType !== "pi") {
       const [preflight] = await ptyService.checkAvailableAgents([
         agentType as Exclude<CodingAgentType, "shell" | "pi">,
       ]);
       if (preflight && !preflight.installed) {
+        logger.warn(
+          `[START_CODING_TASK] ${preflight.adapter} CLI not installed`,
+        );
         if (callback) {
           await callback({
             text: `${preflight.adapter} CLI is not installed.\nInstall with: ${preflight.installCommand}\nDocs: ${preflight.docsUrl}`,
@@ -390,12 +416,21 @@ export async function handleSingleAgent(
         }
         return { success: false, error: "AGENT_NOT_INSTALLED" };
       }
+      logger.debug(
+        `[START_CODING_TASK] Preflight OK: ${preflight?.adapter} installed`,
+      );
     }
 
     const piRequested = isPiAgentType(rawAgentType);
     const initialTask = piRequested ? toPiCommand(task) : task;
     const displayType = piRequested ? "pi" : agentType;
 
+    // Check if coordinator is active — route blocking prompts through it
+    const coordinator = getCoordinator(runtime);
+
+    logger.debug(
+      `[START_CODING_TASK] Calling spawnSession (${agentType}, coordinator=${!!coordinator})`,
+    );
     const session: SessionInfo = await ptyService.spawnSession({
       name: `coding-${Date.now()}`,
       agentType,
@@ -403,8 +438,11 @@ export async function handleSingleAgent(
       initialTask,
       memoryContent,
       credentials,
-      approvalPreset: approvalPreset as ApprovalPreset | undefined,
+      approvalPreset:
+        (approvalPreset as ApprovalPreset | undefined) ??
+        ptyService.defaultApprovalPreset,
       customCredentials,
+      ...(coordinator ? { skipAdapterAutoResponse: true } : {}),
       metadata: {
         requestedType: rawAgentType,
         messageId: message.id,
@@ -413,6 +451,9 @@ export async function handleSingleAgent(
         label,
       },
     });
+    logger.debug(
+      `[START_CODING_TASK] Session spawned: ${session.id} (${session.status})`,
+    );
 
     // Register event handler
     const isScratchWorkspace = !repo;
@@ -424,7 +465,16 @@ export async function handleSingleAgent(
       label,
       scratchDir,
       callback,
+      !!coordinator,
     );
+    if (coordinator && task) {
+      coordinator.registerTask(session.id, {
+        agentType,
+        label,
+        originalTask: task,
+        workdir,
+      });
+    }
 
     if (state) {
       state.codingSession = {
@@ -458,7 +508,7 @@ export async function handleSingleAgent(
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error("[START_CODING_TASK] Failed to spawn agent:", errorMessage);
+    logger.error("[START_CODING_TASK] Failed to spawn agent:", errorMessage);
 
     if (callback) {
       await callback({

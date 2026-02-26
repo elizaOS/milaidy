@@ -234,6 +234,32 @@ describe("subscription auth routes (e2e contract)", () => {
       expect(res.status).toBe(400);
       expect(res.data.error).toContain("Invalid token format");
     });
+
+    it("returns 500 when Anthropic credential exchange rejects", async () => {
+      const submitCode = vi.fn();
+      const credentialsPromise = Promise.reject(new Error("token expired"));
+      void credentialsPromise.catch(() => {});
+
+      startAnthropicLogin.mockResolvedValueOnce({
+        authUrl: "https://auth.example/anthropic",
+        submitCode,
+        credentials: credentialsPromise,
+      });
+
+      await req(port, "POST", "/api/subscription/anthropic/start");
+
+      const exchangeRes = await req(
+        port,
+        "POST",
+        "/api/subscription/anthropic/exchange",
+        { code: "valid-looking-code" },
+      );
+
+      expect(exchangeRes.status).toBe(500);
+      expect(exchangeRes.data.error).toBe("Anthropic exchange failed");
+      expect(submitCode).toHaveBeenCalledWith("valid-looking-code");
+      expect(saveCredentials).not.toHaveBeenCalled();
+    });
   });
 
   // ── OpenAI OAuth flow ────────────────────────────────────────────────────
@@ -373,6 +399,37 @@ describe("subscription auth routes (e2e contract)", () => {
       );
       expect(firstFlowClose).toHaveBeenCalledTimes(1);
       expect(secondFlowClose).not.toHaveBeenCalled();
+    });
+
+    it("exchanges via waitForCallback path without calling submitCode", async () => {
+      const submitCode = vi.fn();
+      const closeFn = vi.fn();
+      const credentials = makeCredentials();
+
+      startCodexLogin.mockResolvedValueOnce({
+        authUrl: "https://auth.example/openai",
+        state: "callback-state",
+        submitCode,
+        credentials: Promise.resolve(credentials),
+        close: closeFn,
+      });
+
+      await req(port, "POST", "/api/subscription/openai/start");
+
+      const exchangeRes = await req(
+        port,
+        "POST",
+        "/api/subscription/openai/exchange",
+        { waitForCallback: true },
+      );
+
+      expect(exchangeRes.status).toBe(200);
+      expect(exchangeRes.data.success).toBe(true);
+      expect(exchangeRes.data.expiresAt).toBe(credentials.expires);
+      expect(submitCode).not.toHaveBeenCalled();
+      expect(saveCredentials).toHaveBeenCalledWith("openai-codex", credentials);
+      expect(applySubscriptionCredentials).toHaveBeenCalledTimes(1);
+      expect(closeFn).toHaveBeenCalledTimes(1);
     });
   });
 

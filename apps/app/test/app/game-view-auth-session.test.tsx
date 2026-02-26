@@ -28,6 +28,7 @@ interface GameContextStub {
 
 const { mockClientFns, mockUseApp } = vi.hoisted(() => ({
   mockClientFns: {
+    getCodingAgentStatus: vi.fn(async () => null),
     stopApp: vi.fn(),
     sendChatRest: vi.fn(),
   },
