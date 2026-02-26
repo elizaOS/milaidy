@@ -22,6 +22,7 @@ interface AppsContextStub {
 
 const { mockClientFns, mockUseApp } = vi.hoisted(() => ({
   mockClientFns: {
+    getCodingAgentStatus: vi.fn(async () => null),
     listApps: vi.fn(),
     listInstalledApps: vi.fn(),
     launchApp: vi.fn(),

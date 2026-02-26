@@ -26,12 +26,7 @@ jobs:
           bun-version: latest
 
       - name: Install dependencies
-        run: |
-          for i in 1 2 3 4 5; do
-            bun install --frozen-lockfile && break
-            echo "Attempt $i failed, retrying in $((i * 15))s..."
-            sleep $((i * 15))
-          done
+        run: bun install
 
       - name: Run repository postinstall patches
         run: bun run postinstall
@@ -54,12 +49,7 @@ jobs:
           bun-version: latest
 
       - name: Install dependencies
-        run: |
-          for i in 1 2 3 4 5; do
-            bun install --frozen-lockfile && break
-            echo "Attempt $i failed, retrying in $((i * 15))s..."
-            sleep $((i * 15))
-          done
+        run: bun install
 
       - name: Run repository postinstall patches
         run: bun run postinstall
@@ -79,12 +69,7 @@ jobs:
           bun-version: latest
 
       - name: Install dependencies
-        run: |
-          for i in 1 2 3 4 5; do
-            bun install --frozen-lockfile && break
-            echo "Attempt $i failed, retrying in $((i * 15))s..."
-            sleep $((i * 15))
-          done
+        run: bun install
 
       - name: Run repository postinstall patches
         run: bun run postinstall
@@ -104,12 +89,7 @@ jobs:
           bun-version: latest
 
       - name: Install dependencies
-        run: |
-          for i in 1 2 3 4 5; do
-            bun install --frozen-lockfile && break
-            echo "Attempt $i failed, retrying in $((i * 15))s..."
-            sleep $((i * 15))
-          done
+        run: bun install
 
       - name: Run repository postinstall patches
         run: bun run postinstall

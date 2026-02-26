@@ -26,6 +26,10 @@ import type {
 } from "pty-manager";
 import { AgentMetricsTracker } from "./agent-metrics.js";
 import {
+  type AgentSelectionStrategy,
+  selectAgentType,
+} from "./agent-selection.js";
+import {
   handleGeminiAuth as handleGeminiAuthFlow,
   pushDefaultRules as pushDefaultAutoResponseRules,
 } from "./pty-auto-response.js";
@@ -411,6 +415,57 @@ export class PTYService {
       return fromEnv as ApprovalPreset;
     }
     return this.serviceConfig.defaultApprovalPreset ?? "permissive";
+  }
+
+  /** Agent selection strategy — env var takes precedence. */
+  get agentSelectionStrategy(): AgentSelectionStrategy {
+    const fromEnv = this.runtime.getSetting(
+      "PARALLAX_AGENT_SELECTION_STRATEGY",
+    ) as string | undefined;
+    if (fromEnv && (fromEnv === "fixed" || fromEnv === "ranked")) {
+      return fromEnv;
+    }
+    return "fixed";
+  }
+
+  /** Default agent type when strategy is "fixed" — env var takes precedence. */
+  get defaultAgentType(): AdapterType {
+    const fromEnv = this.runtime.getSetting("PARALLAX_DEFAULT_AGENT_TYPE") as
+      | string
+      | undefined;
+    if (
+      fromEnv &&
+      ["claude", "gemini", "codex", "aider"].includes(fromEnv.toLowerCase())
+    ) {
+      return fromEnv.toLowerCase() as AdapterType;
+    }
+    return "claude";
+  }
+
+  /**
+   * Resolve which agent type to use when the caller didn't specify one.
+   *
+   * - **fixed**: returns `defaultAgentType` immediately
+   * - **ranked**: fetches preflight data, scores installed agents via
+   *   metrics, and returns the highest scorer
+   */
+  async resolveAgentType(): Promise<string> {
+    const strategy = this.agentSelectionStrategy;
+    const fixedAgentType = this.defaultAgentType;
+
+    if (strategy === "fixed") {
+      return fixedAgentType;
+    }
+
+    // Ranked mode — need installed agents list
+    const preflight = await this.checkAvailableAgents();
+    const metrics = this.metricsTracker.getAll();
+
+    return selectAgentType({
+      config: { strategy, fixedAgentType },
+      metrics,
+      installedAgents: preflight,
+    });
   }
 
   getSession(sessionId: string): SessionInfo | undefined {

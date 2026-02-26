@@ -149,6 +149,8 @@ export async function handleAgentRoutes(
     }
     sendJson(res, {
       defaultApprovalPreset: ctx.ptyService.defaultApprovalPreset,
+      agentSelectionStrategy: ctx.ptyService.agentSelectionStrategy,
+      defaultAgentType: ctx.ptyService.defaultAgentType,
     } as unknown as JsonValue);
     return true;
   }
@@ -282,7 +284,9 @@ export async function handleAgentRoutes(
       };
 
       // Read model preferences from runtime settings
-      const agentStr = ((agentType as string) || "claude").toLowerCase();
+      const agentStr = agentType
+        ? (agentType as string).toLowerCase()
+        : await ctx.ptyService.resolveAgentType();
       const piRequested = isPiAgentType(agentStr);
       const normalizedType = normalizeAgentType(agentStr);
       const prefixMap: Record<string, string> = {

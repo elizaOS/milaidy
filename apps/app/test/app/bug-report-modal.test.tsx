@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const { mockUseBugReport, mockClient } = vi.hoisted(() => ({
   mockUseBugReport: vi.fn(),
   mockClient: {
+    getCodingAgentStatus: vi.fn(async () => null),
     checkBugReportInfo: vi.fn().mockResolvedValue({}),
     submitBugReport: vi.fn().mockResolvedValue({}),
   },
