@@ -13,10 +13,29 @@
  * remote — it simply connects to `http://localhost:{port}`.
  */
 
+import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { app, type BrowserWindow, ipcMain } from "electron";
 import type { IpcValue } from "./ipc-types";
+
+// Diagnostic logging to file for debugging packaged app startup issues
+const diagnosticLogPath = app.isPackaged
+  ? path.join(app.getPath("userData"), "milady-startup.log")
+  : null;
+
+function diagnosticLog(message: string): void {
+  const timestamp = new Date().toISOString();
+  const line = `[${timestamp}] ${message}\n`;
+  console.log(message);
+  if (diagnosticLogPath) {
+    try {
+      fs.appendFileSync(diagnosticLogPath, line);
+    } catch {
+      // Ignore write errors
+    }
+  }
+}
 
 /**
  * Dynamic import that survives TypeScript's CommonJS transformation.
@@ -117,6 +136,12 @@ export class AgentManager {
 
   /** Start the agent runtime + API server. Idempotent. */
   async start(): Promise<AgentStatus> {
+    diagnosticLog(
+      `[Agent] start() called, current state: ${this.status.state}`,
+    );
+    if (diagnosticLogPath) {
+      diagnosticLog(`[Agent] Diagnostic log file: ${diagnosticLogPath}`);
+    }
     if (this.status.state === "running" || this.status.state === "starting") {
       return this.status;
     }
@@ -168,9 +193,24 @@ export class AgentManager {
           )
         : path.resolve(__dirname, "../../../../../../dist");
 
-      console.log(
+      diagnosticLog(
         `[Agent] Resolved milady dist: ${miladyDist} (packaged: ${app.isPackaged})`,
       );
+      // Check if milady-dist exists
+      if (app.isPackaged) {
+        const distExists = fs.existsSync(miladyDist);
+        const serverJsExists = fs.existsSync(
+          path.join(miladyDist, "server.js"),
+        );
+        const elizaJsExists = fs.existsSync(path.join(miladyDist, "eliza.js"));
+        diagnosticLog(
+          `[Agent] milady-dist exists: ${distExists}, server.js: ${serverJsExists}, eliza.js: ${elizaJsExists}`,
+        );
+        if (distExists) {
+          const files = fs.readdirSync(miladyDist);
+          diagnosticLog(`[Agent] milady-dist contents: ${files.join(", ")}`);
+        }
+      }
 
       // When loading from app.asar.unpacked, Node's module resolution can't
       // find dependencies inside the ASAR's node_modules (e.g. json5). Add
@@ -184,7 +224,7 @@ export class AgentManager {
         // Force Node to re-read NODE_PATH
         // eslint-disable-next-line @typescript-eslint/no-require-imports
         require("node:module").Module._initPaths();
-        console.log(
+        diagnosticLog(
           `[Agent] Added ASAR node_modules to NODE_PATH: ${asarModules}`,
         );
       }
@@ -192,15 +232,20 @@ export class AgentManager {
       // 1. Start API server immediately so the UI can bootstrap while runtime starts.
       //    (or MILADY_PORT if set)
       const apiPort = Number(process.env.MILADY_PORT) || 2138;
+      diagnosticLog(
+        `[Agent] Loading server.js from: ${path.join(miladyDist, "server.js")}`,
+      );
       const serverModule = await dynamicImport(
         pathToFileURL(path.join(miladyDist, "server.js")).href,
       ).catch((err: unknown) => {
-        console.warn(
-          "[Agent] Could not load server.js:",
-          err instanceof Error ? err.message : err,
-        );
+        const errMsg =
+          err instanceof Error ? err.stack || err.message : String(err);
+        diagnosticLog(`[Agent] FAILED to load server.js: ${errMsg}`);
         return null;
       });
+      diagnosticLog(
+        `[Agent] server.js loaded: ${serverModule != null}, has startApiServer: ${typeof serverModule?.startApiServer === "function"}`,
+      );
 
       let actualPort: number | null = null;
       let startEliza:
@@ -214,6 +259,7 @@ export class AgentManager {
       let apiUpdateRuntime: ((rt: unknown) => void) | null = null;
 
       if (serverModule?.startApiServer) {
+        diagnosticLog(`[Agent] Starting API server on port ${apiPort}...`);
         const {
           port: resolvedPort,
           close,
@@ -289,8 +335,9 @@ export class AgentManager {
         actualPort = resolvedPort;
         this.apiClose = close;
         apiUpdateRuntime = updateRuntime;
+        diagnosticLog(`[Agent] API server started on port ${actualPort}`);
       } else {
-        console.warn(
+        diagnosticLog(
           "[Agent] Could not find API server module — runtime will start without HTTP API",
         );
       }
@@ -303,8 +350,14 @@ export class AgentManager {
       this.sendToRenderer("agent:status", this.status);
 
       // 2. Resolve runtime bootstrap entry (may be slow on cold boot).
+      diagnosticLog(
+        `[Agent] Loading eliza.js from: ${path.join(miladyDist, "eliza.js")}`,
+      );
       const elizaModule = await dynamicImport(
         pathToFileURL(path.join(miladyDist, "eliza.js")).href,
+      );
+      diagnosticLog(
+        `[Agent] eliza.js loaded, exports: ${Object.keys(elizaModule).join(", ")}`,
       );
       const resolvedStartEliza = (elizaModule.startEliza ??
         (elizaModule.default as Record<string, unknown>)?.startEliza) as
@@ -319,6 +372,7 @@ export class AgentManager {
       startEliza = resolvedStartEliza;
 
       // 3. Start Eliza runtime in headless mode.
+      diagnosticLog(`[Agent] Starting Eliza runtime in headless mode...`);
       const runtimeResult = await startEliza({ headless: true });
       if (!runtimeResult) {
         throw new Error(
@@ -344,17 +398,20 @@ export class AgentManager {
 
       this.sendToRenderer("agent:status", this.status);
       if (actualPort) {
-        console.log(
+        diagnosticLog(
           `[Agent] Runtime started — agent: ${agentName}, port: ${actualPort}`,
         );
       } else {
-        console.log(
+        diagnosticLog(
           `[Agent] Runtime started — agent: ${agentName}, API unavailable`,
         );
       }
       return this.status;
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg =
+        err instanceof Error
+          ? (err as Error).stack || err.message
+          : String(err);
       if (this.apiClose) {
         try {
           await this.apiClose();
@@ -391,7 +448,7 @@ export class AgentManager {
         error: msg,
       };
       this.sendToRenderer("agent:status", this.status);
-      console.error("[Agent] Failed to start:", msg);
+      diagnosticLog(`[Agent] Failed to start: ${msg}`);
       return this.status;
     }
   }
