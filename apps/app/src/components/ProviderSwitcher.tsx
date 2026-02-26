@@ -447,7 +447,7 @@ export function ProviderSwitcher({
 
   return (
     <>
-      {/* Provider dropdown - works for all screen sizes */}
+      {/* Provider dropdown - fixes overflow issue with grid layout */}
       <div className="mb-3">
         <label
           htmlFor="provider-switcher-select"
