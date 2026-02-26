@@ -8,11 +8,34 @@ import {
 } from "../lifo-popout";
 
 const MAX_TRACKED_EVENT_IDS = 512;
+const MAX_TRACKED_RUN_IDS = 256;
+const NULL_RUN_COOLDOWN_MS = 5000;
 
-const LIFO_EVENT_KEYWORD_RE =
-  /\b(lifo|computeruse|computer-use|computer use|sandbox|stagehand|cdp|browser|playwright|chromium|xdotool|cliclick|novnc|vnc)\b/i;
-const LIFO_TERMINAL_COMMAND_RE =
-  /\b(lifo|computeruse|computer-use|sandbox|browser|playwright|chromium|xdotool|cliclick|novnc|vnc)\b/i;
+// Strong keywords always trigger on their own.
+const STRONG_KEYWORD_RE =
+  /\b(lifo|computeruse|computer-use|computer use|stagehand|xdotool|cliclick|novnc)\b/i;
+// Weak keywords only trigger when at least 2 distinct weak keywords match.
+const WEAK_KEYWORDS = [
+  "sandbox",
+  "cdp",
+  "browser",
+  "playwright",
+  "chromium",
+  "vnc",
+] as const;
+const WEAK_KEYWORD_RES = WEAK_KEYWORDS.map(
+  (kw) => new RegExp(`\\b${kw}\\b`, "i"),
+);
+
+function matchesKeywords(text: string): boolean {
+  if (STRONG_KEYWORD_RE.test(text)) return true;
+  let weakCount = 0;
+  for (const re of WEAK_KEYWORD_RES) {
+    if (re.test(text)) weakCount++;
+    if (weakCount >= 2) return true;
+  }
+  return false;
+}
 
 type AgentEventLike = {
   type?: unknown;
@@ -99,11 +122,11 @@ export function shouldAutoOpenForAutonomyEvent(event: AgentEventLike): boolean {
   const searchable = normalizeSearchableText(
     collectPayloadStrings(event.payload).join(" "),
   );
-  return LIFO_EVENT_KEYWORD_RE.test(searchable);
+  return matchesKeywords(searchable);
 }
 
 export function shouldAutoOpenForTerminalCommand(command: string): boolean {
-  return LIFO_TERMINAL_COMMAND_RE.test(normalizeSearchableText(command));
+  return matchesKeywords(normalizeSearchableText(command));
 }
 
 export function useLifoAutoPopout(options: UseLifoAutoPopoutOptions): void {
@@ -112,6 +135,10 @@ export function useLifoAutoPopout(options: UseLifoAutoPopoutOptions): void {
   const seenEventIdsRef = useRef<Set<string>>(new Set());
   const eventIdOrderRef = useRef<string[]>([]);
   const triggeredRunIdsRef = useRef<Set<string>>(new Set());
+  const triggeredRunIdOrderRef = useRef<string[]>([]);
+  const lastNullRunTriggerRef = useRef(0);
+  const onPopupBlockedRef = useRef(onPopupBlocked);
+  onPopupBlockedRef.current = onPopupBlocked;
 
   useEffect(() => {
     if (!enabled || typeof window === "undefined") return;
@@ -147,7 +174,7 @@ export function useLifoAutoPopout(options: UseLifoAutoPopoutOptions): void {
       );
 
       if (!popup) {
-        onPopupBlocked?.();
+        onPopupBlockedRef.current?.();
         return false;
       }
 
@@ -165,15 +192,28 @@ export function useLifoAutoPopout(options: UseLifoAutoPopoutOptions): void {
 
     const maybeTriggerByRun = (runId: string | null): void => {
       if (!runId) {
+        // Throttle null-runId triggers to prevent popup storms.
+        const now = Date.now();
+        if (now - lastNullRunTriggerRef.current < NULL_RUN_COOLDOWN_MS) return;
+        lastNullRunTriggerRef.current = now;
         void openOrFocusPopout();
         return;
       }
       if (triggeredRunIdsRef.current.has(runId)) return;
       const opened = openOrFocusPopout();
-      // Only tombstone the runId if the popup opened successfully so
-      // a later attempt can retry after popups are unblocked.
       if (opened) {
         triggeredRunIdsRef.current.add(runId);
+        triggeredRunIdOrderRef.current.push(runId);
+        // Cap the run ID set to avoid unbounded growth.
+        if (triggeredRunIdOrderRef.current.length > MAX_TRACKED_RUN_IDS) {
+          const remove = triggeredRunIdOrderRef.current.splice(
+            0,
+            triggeredRunIdOrderRef.current.length - MAX_TRACKED_RUN_IDS,
+          );
+          for (const staleId of remove) {
+            triggeredRunIdsRef.current.delete(staleId);
+          }
+        }
       }
     };
 
@@ -210,5 +250,5 @@ export function useLifoAutoPopout(options: UseLifoAutoPopoutOptions): void {
       unbindAgentEvents();
       unbindTerminalEvents();
     };
-  }, [enabled, onPopupBlocked, targetPath]);
+  }, [enabled, targetPath]);
 }

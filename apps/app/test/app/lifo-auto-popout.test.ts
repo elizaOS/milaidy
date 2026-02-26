@@ -133,7 +133,7 @@ describe("useLifoAutoPopout", () => {
         type: "terminal-output",
         event: "start",
         runId: "run-terminal-1",
-        command: "playwright open https://example.com",
+        command: "lifo run task --browser",
       });
     });
 
@@ -146,7 +146,7 @@ describe("useLifoAutoPopout", () => {
         type: "terminal-output",
         event: "start",
         runId: "run-terminal-1",
-        command: "playwright click .start",
+        command: "lifo click .start",
       });
     });
 
@@ -161,7 +161,7 @@ describe("useLifoAutoPopout", () => {
 });
 
 describe("lifo auto-popout classifiers", () => {
-  it("matches autonomy payloads with computer-use/browser markers", () => {
+  it("triggers on strong keywords like computeruse", () => {
     expect(
       shouldAutoOpenForAutonomyEvent({
         type: "agent_event",
@@ -169,7 +169,9 @@ describe("lifo auto-popout classifiers", () => {
         payload: { text: "COMPUTERUSE_OPEN_APPLICATION Safari" },
       }),
     ).toBe(true);
+  });
 
+  it("rejects events without matching keywords", () => {
     expect(
       shouldAutoOpenForAutonomyEvent({
         type: "agent_event",
@@ -179,10 +181,37 @@ describe("lifo auto-popout classifiers", () => {
     ).toBe(false);
   });
 
-  it("matches terminal commands with lifo/browser markers", () => {
+  it("rejects single weak keyword like browser alone", () => {
+    expect(
+      shouldAutoOpenForAutonomyEvent({
+        type: "agent_event",
+        stream: "tool",
+        payload: { text: "open browser tab" },
+      }),
+    ).toBe(false);
+  });
+
+  it("triggers on two weak keywords together", () => {
+    expect(
+      shouldAutoOpenForAutonomyEvent({
+        type: "agent_event",
+        stream: "tool",
+        payload: { text: "playwright browser task" },
+      }),
+    ).toBe(true);
+  });
+
+  it("triggers on strong terminal command keywords", () => {
     expect(shouldAutoOpenForTerminalCommand("lifo run task --browser")).toBe(
       true,
     );
+  });
+
+  it("rejects single weak terminal command keyword", () => {
+    expect(shouldAutoOpenForTerminalCommand("open browser")).toBe(false);
+  });
+
+  it("rejects unrelated terminal commands", () => {
     expect(shouldAutoOpenForTerminalCommand("echo hello")).toBe(false);
   });
 });
