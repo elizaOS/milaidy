@@ -47,6 +47,7 @@
   },
   "dmg": {
     "format": "UDZO",
+    "size": "4g",
     "background": "assets/dmg-background.png",
     "iconSize": 80,
     "window": {
