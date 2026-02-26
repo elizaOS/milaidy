@@ -1,4 +1,3 @@
-"use strict";
 /**
  * System Permissions Types
  *

@@ -5,11 +5,16 @@
  * with full word-level timing for postGap analysis.
  */
 
-import { EventEmitter } from "events";
-import { ipcMain, BrowserWindow } from "electron";
+import { EventEmitter } from "node:events";
 import type { IpcMainEvent, IpcMainInvokeEvent } from "electron";
-import { WhisperSTT, WhisperStreamTranscriber, WhisperResult, WhisperSegment } from "./whisper";
+import { type BrowserWindow, ipcMain } from "electron";
 import type { IpcValue } from "./ipc-types";
+import {
+  type WhisperResult,
+  type WhisperSegment,
+  WhisperSTT,
+  WhisperStreamTranscriber,
+} from "./whisper";
 
 // Types
 export interface SwabbleConfig {
@@ -137,7 +142,7 @@ class WakeWordGate {
 
   private findTriggerMatch(
     words: Array<{ text: string; start: number; end: number }>,
-    triggerWords: string[]
+    triggerWords: string[],
   ): { triggerEndIndex: number; triggerEndTime: number } | null {
     for (let i = 0; i <= words.length - triggerWords.length; i++) {
       let matches = true;
@@ -189,10 +194,6 @@ export class SwabbleManager extends EventEmitter {
   private whisperStream: WhisperStreamTranscriber | null = null;
   private isActive = false;
 
-  constructor() {
-    super();
-  }
-
   setMainWindow(window: BrowserWindow): void {
     this.mainWindow = window;
   }
@@ -200,7 +201,9 @@ export class SwabbleManager extends EventEmitter {
   /**
    * Start wake word detection
    */
-  async start(options: { config: SwabbleConfig }): Promise<{ started: boolean; error?: string }> {
+  async start(options: {
+    config: SwabbleConfig;
+  }): Promise<{ started: boolean; error?: string }> {
     if (this.isActive) {
       return { started: true };
     }
@@ -219,7 +222,8 @@ export class SwabbleManager extends EventEmitter {
       if (!initialized) {
         return {
           started: false,
-          error: "Whisper not available. Install whisper-node and download a model for offline wake word detection.",
+          error:
+            "Whisper not available. Install whisper-node and download a model for offline wake word detection.",
         };
       }
 
@@ -232,7 +236,8 @@ export class SwabbleManager extends EventEmitter {
       this.sendToRenderer("swabble:stateChange", { state: "listening" });
       return { started: true };
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to start Swabble";
+      const message =
+        error instanceof Error ? error.message : "Failed to start Swabble";
       return { started: false, error: message };
     }
   }
@@ -242,12 +247,14 @@ export class SwabbleManager extends EventEmitter {
 
     this.whisperStream.on("transcript", (result: WhisperResult) => {
       // Convert to our segment format
-      const segments: SpeechSegment[] = result.segments.map((seg: WhisperSegment) => ({
-        text: seg.text,
-        start: seg.start / 1000,
-        duration: (seg.end - seg.start) / 1000,
-        isFinal: true,
-      }));
+      const segments: SpeechSegment[] = result.segments.map(
+        (seg: WhisperSegment) => ({
+          text: seg.text,
+          start: seg.start / 1000,
+          duration: (seg.end - seg.start) / 1000,
+          isFinal: true,
+        }),
+      );
 
       // Send transcript event
       this.sendToRenderer("swabble:transcript", {
@@ -369,9 +376,12 @@ export function getSwabbleManager(): SwabbleManager {
 export function registerSwabbleIPC(): void {
   const manager = getSwabbleManager();
 
-  ipcMain.handle("swabble:start", async (_e: IpcMainInvokeEvent, options: { config: SwabbleConfig }) => {
-    return manager.start(options);
-  });
+  ipcMain.handle(
+    "swabble:start",
+    async (_e: IpcMainInvokeEvent, options: { config: SwabbleConfig }) => {
+      return manager.start(options);
+    },
+  );
 
   ipcMain.handle("swabble:stop", async () => {
     return manager.stop();
@@ -385,16 +395,23 @@ export function registerSwabbleIPC(): void {
     return { config: manager.getConfig() };
   });
 
-  ipcMain.handle("swabble:updateConfig", (_e: IpcMainInvokeEvent, options: { config: Partial<SwabbleConfig> }) => {
-    return manager.updateConfig(options.config);
-  });
+  ipcMain.handle(
+    "swabble:updateConfig",
+    (_e: IpcMainInvokeEvent, options: { config: Partial<SwabbleConfig> }) => {
+      return manager.updateConfig(options.config);
+    },
+  );
 
   ipcMain.handle("swabble:isWhisperAvailable", () => {
     return { available: manager.isWhisperAvailable() };
   });
 
-  ipcMain.on("swabble:audioChunk", (_e: IpcMainEvent, payload: ArrayBuffer | Float32Array) => {
-    const samples = payload instanceof Float32Array ? payload : new Float32Array(payload);
-    manager.feedAudio(samples);
-  });
+  ipcMain.on(
+    "swabble:audioChunk",
+    (_e: IpcMainEvent, payload: ArrayBuffer | Float32Array) => {
+      const samples =
+        payload instanceof Float32Array ? payload : new Float32Array(payload);
+      manager.feedAudio(samples);
+    },
+  );
 }

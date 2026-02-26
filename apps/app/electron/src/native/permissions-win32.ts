@@ -12,10 +12,13 @@
  * Screen recording also doesn't require explicit permission on Windows.
  */
 
-import { exec } from "child_process";
-import { promisify } from "util";
+import { exec } from "node:child_process";
+import { promisify } from "node:util";
 import { shell } from "electron";
-import type { PermissionCheckResult, SystemPermissionId } from "./permissions-shared.js";
+import type {
+  PermissionCheckResult,
+  SystemPermissionId,
+} from "./permissions-shared";
 
 const execAsync = promisify(exec);
 
@@ -38,7 +41,7 @@ export async function checkMicrophone(): Promise<PermissionCheckResult> {
     `reg query "${regPath}" /v Value 2>nul`,
   ).catch(() => ({ stdout: "", stderr: "not found" }));
 
-  if (stderr && stderr.includes("not found")) {
+  if (stderr?.includes("not found")) {
     // Key doesn't exist - system will prompt when needed
     return { status: "not-determined", canRequest: true };
   }
@@ -80,7 +83,7 @@ export async function checkCamera(): Promise<PermissionCheckResult> {
     `reg query "${regPath}" /v Value 2>nul`,
   ).catch(() => ({ stdout: "", stderr: "not found" }));
 
-  if (stderr && stderr.includes("not found")) {
+  if (stderr?.includes("not found")) {
     return { status: "not-determined", canRequest: true };
   }
 
@@ -111,7 +114,9 @@ export async function checkCamera(): Promise<PermissionCheckResult> {
  *
  * Windows uses ms-settings: URIs to open specific settings pages.
  */
-export async function openPrivacySettings(permission: SystemPermissionId): Promise<void> {
+export async function openPrivacySettings(
+  permission: SystemPermissionId,
+): Promise<void> {
   const settingsUrls: Record<string, string> = {
     microphone: "ms-settings:privacy-microphone",
     camera: "ms-settings:privacy-webcam",
@@ -132,7 +137,9 @@ export async function openPrivacySettings(permission: SystemPermissionId): Promi
  * On Windows, accessibility and screen-recording are always available
  * as the OS doesn't restrict these capabilities for desktop apps.
  */
-export async function checkPermission(id: SystemPermissionId): Promise<PermissionCheckResult> {
+export async function checkPermission(
+  id: SystemPermissionId,
+): Promise<PermissionCheckResult> {
   switch (id) {
     case "accessibility":
       // Windows doesn't require accessibility permission
@@ -159,7 +166,9 @@ export async function checkPermission(id: SystemPermissionId): Promise<Permissio
  * that appear when the app first tries to use the resource, or through
  * the Settings app.
  */
-export async function requestPermission(id: SystemPermissionId): Promise<PermissionCheckResult> {
+export async function requestPermission(
+  id: SystemPermissionId,
+): Promise<PermissionCheckResult> {
   switch (id) {
     case "microphone":
     case "camera":

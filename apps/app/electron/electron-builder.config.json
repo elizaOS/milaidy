@@ -2,24 +2,19 @@
   "appId": "com.miladyai.milady",
   "productName": "Milady",
   "directories": {
+    "app": ".",
     "buildResources": "resources"
   },
   "files": [
     "assets/**/*",
+    "tsc-out/**/*",
     "build/**/*",
     "capacitor.config.*",
-    "app/**/*"
+    "app/**/*",
+    "milady-dist/**/*.js",
+    "milady-dist/package.json"
   ],
-  "extraResources": [
-    {
-      "from": "../../../dist",
-      "to": "milady-dist",
-      "filter": [
-        "**/*.js",
-        "package.json"
-      ]
-    }
-  ],
+  "asarUnpack": ["milady-dist/**/*"],
   "publish": {
     "provider": "github",
     "owner": "milady-ai",
@@ -42,18 +37,13 @@
   },
   "mac": {
     "category": "public.app-category.productivity",
-    "target": [
-      "dmg",
-      "zip"
-    ],
+    "target": ["dmg", "zip"],
     "icon": "assets/appIcon.png",
     "hardenedRuntime": true,
     "gatekeeperAssess": false,
     "entitlements": "entitlements.mac.plist",
     "entitlementsInherit": "entitlements.mac.plist",
-    "notarize": {
-      "teamId": "25877RY2EH"
-    }
+    "notarize": true
   },
   "dmg": {
     "format": "UDZO",
@@ -78,10 +68,7 @@
     ]
   },
   "linux": {
-    "target": [
-      "AppImage",
-      "deb"
-    ],
+    "target": ["AppImage", "deb"],
     "category": "Utility",
     "icon": "assets/appIcon.png"
   }

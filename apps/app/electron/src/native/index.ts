@@ -4,32 +4,35 @@
  * Exports all native modules and provides a unified initialization function.
  */
 
-import { BrowserWindow } from "electron";
+import type { BrowserWindow } from "electron";
 
-// Import all native modules
-export * from "./whisper";
-export * from "./desktop";
-export * from "./gateway";
-export * from "./talkmode";
-export * from "./swabble";
-export * from "./screencapture";
-export * from "./location";
+export * from "./agent";
 export * from "./camera";
 export * from "./canvas";
-export * from "./agent";
+export * from "./desktop";
+export * from "./gateway";
+export * from "./location";
 export * from "./permissions";
+export * from "./screencapture";
+export * from "./swabble";
+export * from "./talkmode";
+// Import all native modules
+export * from "./whisper";
 
+import { getAgentManager, registerAgentIPC } from "./agent";
+import { getCameraManager, registerCameraIPC } from "./camera";
+import { getCanvasManager, registerCanvasIPC } from "./canvas";
 // Import registration functions
-import { registerDesktopIPC, getDesktopManager } from "./desktop";
-import { registerGatewayIPC, getGatewayDiscovery } from "./gateway";
-import { registerTalkModeIPC, getTalkModeManager } from "./talkmode";
-import { registerSwabbleIPC, getSwabbleManager } from "./swabble";
-import { registerScreenCaptureIPC, getScreenCaptureManager } from "./screencapture";
-import { registerLocationIPC, getLocationManager } from "./location";
-import { registerCameraIPC, getCameraManager } from "./camera";
-import { registerCanvasIPC, getCanvasManager } from "./canvas";
-import { registerAgentIPC, getAgentManager } from "./agent";
-import { registerPermissionsIPC, getPermissionManager } from "./permissions";
+import { getDesktopManager, registerDesktopIPC } from "./desktop";
+import { getGatewayDiscovery, registerGatewayIPC } from "./gateway";
+import { getLocationManager, registerLocationIPC } from "./location";
+import { getPermissionManager, registerPermissionsIPC } from "./permissions";
+import {
+  getScreenCaptureManager,
+  registerScreenCaptureIPC,
+} from "./screencapture";
+import { getSwabbleManager, registerSwabbleIPC } from "./swabble";
+import { getTalkModeManager, registerTalkModeIPC } from "./talkmode";
 
 /**
  * Initialize all native modules with the main window

@@ -6,18 +6,21 @@
  * exposes IPC handlers for the renderer process.
  */
 
-import { ipcMain, BrowserWindow } from "electron";
 import type { IpcMainInvokeEvent } from "electron";
+import { type BrowserWindow, ipcMain } from "electron";
+import * as darwin from "./permissions-darwin";
+import * as linux from "./permissions-linux";
 import type {
-  SystemPermissionId,
-  PermissionState,
   AllPermissionsState,
   PermissionCheckResult,
-} from "./permissions-shared.js";
-import { SYSTEM_PERMISSIONS, isPermissionApplicable } from "./permissions-shared.js";
-import * as darwin from "./permissions-darwin.js";
-import * as win32 from "./permissions-win32.js";
-import * as linux from "./permissions-linux.js";
+  PermissionState,
+  SystemPermissionId,
+} from "./permissions-shared";
+import {
+  isPermissionApplicable,
+  SYSTEM_PERMISSIONS,
+} from "./permissions-shared";
+import * as win32 from "./permissions-win32";
 
 const platform = process.platform as "darwin" | "win32" | "linux";
 
@@ -113,7 +116,10 @@ export class PermissionManager {
   /**
    * Check a single permission, using cache if available.
    */
-  async checkPermission(id: SystemPermissionId, forceRefresh = false): Promise<PermissionState> {
+  async checkPermission(
+    id: SystemPermissionId,
+    forceRefresh = false,
+  ): Promise<PermissionState> {
     // Check if permission is applicable to this platform
     if (!isPermissionApplicable(id, platform)) {
       const state: PermissionState = {
@@ -174,18 +180,17 @@ export class PermissionManager {
   /**
    * Check all permissions at once.
    */
-  async checkAllPermissions(forceRefresh = false): Promise<AllPermissionsState> {
+  async checkAllPermissions(
+    forceRefresh = false,
+  ): Promise<AllPermissionsState> {
     const results = await Promise.all(
       SYSTEM_PERMISSIONS.map((p) => this.checkPermission(p.id, forceRefresh)),
     );
 
-    return results.reduce(
-      (acc, state) => {
-        acc[state.id] = state;
-        return acc;
-      },
-      {} as AllPermissionsState,
-    );
+    return results.reduce((acc, state) => {
+      acc[state.id] = state;
+      return acc;
+    }, {} as AllPermissionsState);
   }
 
   /**
@@ -257,7 +262,9 @@ export class PermissionManager {
       p.requiredForFeatures.includes(featureId),
     ).map((p) => p.id);
 
-    const states = await Promise.all(requiredPerms.map((id) => this.checkPermission(id)));
+    const states = await Promise.all(
+      requiredPerms.map((id) => this.checkPermission(id)),
+    );
 
     const missing = states
       .filter((s) => s.status !== "granted" && s.status !== "not-applicable")
@@ -296,22 +303,32 @@ export function registerPermissionsIPC(): void {
   const manager = getPermissionManager();
 
   // Get all permissions
-  ipcMain.handle("permissions:getAll", async (_e: IpcMainInvokeEvent, forceRefresh?: boolean) => {
-    return manager.checkAllPermissions(forceRefresh ?? false);
-  });
+  ipcMain.handle(
+    "permissions:getAll",
+    async (_e: IpcMainInvokeEvent, forceRefresh?: boolean) => {
+      return manager.checkAllPermissions(forceRefresh ?? false);
+    },
+  );
 
   // Check a single permission
   ipcMain.handle(
     "permissions:check",
-    async (_e: IpcMainInvokeEvent, id: SystemPermissionId, forceRefresh?: boolean) => {
+    async (
+      _e: IpcMainInvokeEvent,
+      id: SystemPermissionId,
+      forceRefresh?: boolean,
+    ) => {
       return manager.checkPermission(id, forceRefresh ?? false);
     },
   );
 
   // Request a permission
-  ipcMain.handle("permissions:request", async (_e: IpcMainInvokeEvent, id: SystemPermissionId) => {
-    return manager.requestPermission(id);
-  });
+  ipcMain.handle(
+    "permissions:request",
+    async (_e: IpcMainInvokeEvent, id: SystemPermissionId) => {
+      return manager.requestPermission(id);
+    },
+  );
 
   // Open settings for a permission
   ipcMain.handle(
@@ -330,10 +347,13 @@ export function registerPermissionsIPC(): void {
   );
 
   // Toggle shell access
-  ipcMain.handle("permissions:setShellEnabled", async (_e: IpcMainInvokeEvent, enabled: boolean) => {
-    manager.setShellEnabled(enabled);
-    return manager.checkPermission("shell", true);
-  });
+  ipcMain.handle(
+    "permissions:setShellEnabled",
+    async (_e: IpcMainInvokeEvent, enabled: boolean) => {
+      manager.setShellEnabled(enabled);
+      return manager.checkPermission("shell", true);
+    },
+  );
 
   // Get shell enabled status
   ipcMain.handle("permissions:isShellEnabled", async () => {
