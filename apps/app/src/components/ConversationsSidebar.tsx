@@ -4,7 +4,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { getVrmPreviewUrl, useApp, VRM_COUNT } from "../AppContext.js";
-import { client } from "../api-client.js";
+import { client, type AgentSelfStatusSnapshot } from "../api-client.js";
 import { createTranslator } from "../i18n";
 
 export type ConversationsSidebarVariant = "default" | "game-modal";
@@ -43,7 +43,7 @@ function avatarIndexFromConversationId(id: string): number {
 
 function resolveProviderLabel(model: string | undefined): string {
   const value = (model ?? "").trim();
-  if (!value) return "N/A";
+  if (!value) return "";
 
   const lower = value.toLowerCase();
   const knownProviders: Array<{ match: string; label: string }> = [
@@ -74,7 +74,7 @@ function resolveProviderLabel(model: string | undefined): string {
 
   const splitToken = value.split(/[/:|]/)[0]?.trim();
   if (splitToken) return splitToken.toUpperCase();
-  return "N/A";
+  return "";
 }
 
 function isNonChatModelLabel(model: string | undefined): boolean {
@@ -148,8 +148,10 @@ export function ConversationsSidebar({ variant = "default" }: ConversationsSideb
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
-  const [runtimeModel, setRuntimeModel] = useState("");
-  const [runtimeModelLoading, setRuntimeModelLoading] = useState(false);
+  const [selfStatus, setSelfStatus] = useState<AgentSelfStatusSnapshot | null>(
+    null,
+  );
+  const [selfStatusLoading, setSelfStatusLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Focus input when editing starts
@@ -204,55 +206,85 @@ export function ConversationsSidebar({ variant = "default" }: ConversationsSideb
     let cancelled = false;
     let firstLoad = true;
 
-    const syncRuntimeModel = async () => {
-      if (firstLoad && !statusModelLabel) {
-        setRuntimeModelLoading(true);
+    const syncSelfStatus = async () => {
+      if (firstLoad) {
+        setSelfStatusLoading(true);
       }
       try {
-        const snapshot = await client.getRuntimeSnapshot({
-          depth: 1,
-          maxArrayLength: 0,
-          maxObjectEntries: 0,
-          maxStringLength: 240,
-        });
+        const snapshot = await client.getAgentSelfStatus();
         if (cancelled) return;
-        setRuntimeModel((snapshot.meta.model ?? "").trim());
+        setSelfStatus(snapshot);
       } catch {
         if (cancelled) return;
-        setRuntimeModel("");
+        setSelfStatus(null);
       } finally {
         if (!cancelled && firstLoad) {
-          setRuntimeModelLoading(false);
+          setSelfStatusLoading(false);
         }
         firstLoad = false;
       }
     };
 
-    void syncRuntimeModel();
+    void syncSelfStatus();
     const intervalId = window.setInterval(() => {
-      void syncRuntimeModel();
+      void syncSelfStatus();
     }, 15000);
 
     return () => {
       cancelled = true;
       window.clearInterval(intervalId);
     };
-  }, [isGameModal, statusModelLabel]);
+  }, [isGameModal]);
 
+  const selfModelLabel = (selfStatus?.model ?? "").trim();
+  const selfProviderLabel = resolveProviderLabel(
+    (selfStatus?.provider ?? "").trim(),
+  );
   const observedModelLabelRaw = (chatLastUsage?.model ?? "").trim();
   const observedModelLabel = isNonChatModelLabel(observedModelLabelRaw)
     ? ""
     : observedModelLabelRaw;
-  const configuredModelRaw = (runtimeModel || statusModelLabel).trim();
+  const configuredModelRaw = (selfModelLabel || statusModelLabel).trim();
   const configuredModelLabel = isNonChatModelLabel(configuredModelRaw)
     ? ""
     : configuredModelRaw;
-  const modelLabel = (observedModelLabel || configuredModelLabel).trim();
-  const providerLabel = modelLabel
-    ? resolveProviderLabel(modelLabel)
-    : runtimeModelLoading
+  const modelLabel = (configuredModelLabel || observedModelLabel).trim();
+  const providerLabel = selfProviderLabel
+    ? selfProviderLabel
+    : selfStatusLoading
       ? t("chat.modal.providerDetecting")
       : "N/A";
+  const capabilityRows = [
+    {
+      key: "trade",
+      label: t("chat.modal.capTrade"),
+      enabled: Boolean(selfStatus?.capabilities.canTrade),
+    },
+    {
+      key: "autoTrade",
+      label: t("chat.modal.capAutoTrade"),
+      enabled: Boolean(selfStatus?.capabilities.canAutoTrade),
+    },
+    {
+      key: "browser",
+      label: t("chat.modal.capBrowser"),
+      enabled: Boolean(selfStatus?.capabilities.canUseBrowser),
+    },
+    {
+      key: "computer",
+      label: t("chat.modal.capComputer"),
+      enabled: Boolean(selfStatus?.capabilities.canUseComputer),
+    },
+    {
+      key: "terminal",
+      label: t("chat.modal.capTerminal"),
+      enabled: Boolean(selfStatus?.capabilities.canRunTerminal),
+    },
+  ] as const;
+  const walletLabel =
+    selfStatus?.wallet.evmAddressShort ||
+    selfStatus?.wallet.solanaAddressShort ||
+    t("chat.modal.walletUnknown");
   const usageTotalLabel = chatLastUsage
     ? chatLastUsage.totalTokens.toLocaleString()
     : t("chat.modal.usageAwaiting");
@@ -394,6 +426,33 @@ export function ConversationsSidebar({ variant = "default" }: ConversationsSideb
           <div className="chat-game-sidebar-footer-value">{providerLabel}</div>
           <div className="chat-game-sidebar-footer-model" title={modelLabel || undefined}>
             {modelLabel || t("chat.modal.providerUnknown")}
+          </div>
+          <div className="chat-game-sidebar-capabilities">
+            <div className="chat-game-sidebar-footer-label">{t("chat.modal.capabilities")}</div>
+            <div className="chat-game-sidebar-cap-grid">
+              {capabilityRows.map((row) => (
+                <div className="chat-game-sidebar-cap-row" key={row.key}>
+                  <span className="chat-game-sidebar-cap-name">{row.label}</span>
+                  <span
+                    className={`chat-game-sidebar-cap-pill ${row.enabled ? "is-on" : "is-off"}`}
+                  >
+                    {row.enabled
+                      ? t("chat.modal.capEnabled")
+                      : t("chat.modal.capDisabled")}
+                  </span>
+                </div>
+              ))}
+            </div>
+            {selfStatus && (
+              <div className="chat-game-sidebar-cap-meta">
+                <span>
+                  {t("chat.modal.tradeMode")}: {selfStatus.tradePermissionMode}
+                </span>
+                <span>
+                  {t("chat.modal.wallet")}: {walletLabel}
+                </span>
+              </div>
+            )}
           </div>
           <div className="chat-game-sidebar-usage">
             <div className="chat-game-sidebar-footer-label">{t("chat.modal.tokenUsage")}</div>

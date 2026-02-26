@@ -211,6 +211,46 @@ export interface AgentStatus {
   startedAt: number | undefined;
 }
 
+export interface AgentSelfStatusSnapshot {
+  generatedAt: string;
+  state: AgentState;
+  agentName: string;
+  model: string | null;
+  provider: string | null;
+  automationMode: AgentAutomationMode;
+  tradePermissionMode: TradePermissionMode;
+  shellEnabled: boolean;
+  wallet: {
+    mode: "privy" | "hybrid";
+    evmAddress: string | null;
+    evmAddressShort: string | null;
+    solanaAddress: string | null;
+    solanaAddressShort: string | null;
+    hasWallet: boolean;
+    hasEvm: boolean;
+    hasSolana: boolean;
+    localSignerAvailable: boolean;
+    managedBscRpcReady: boolean;
+  };
+  plugins: {
+    totalActive: number;
+    active: string[];
+    aiProviders: string[];
+    connectors: string[];
+  };
+  capabilities: {
+    canTrade: boolean;
+    canLocalTrade: boolean;
+    canAutoTrade: boolean;
+    canUseBrowser: boolean;
+    canUseComputer: boolean;
+    canRunTerminal: boolean;
+    canInstallPlugins: boolean;
+    canConfigurePlugins: boolean;
+    canConfigureConnectors: boolean;
+  };
+}
+
 export interface RuntimeOrderItem {
   index: number;
   name: string;
@@ -539,6 +579,8 @@ export interface PluginInfo {
   loadError?: string;
   /** Server-provided UI hints for plugin configuration fields. */
   configUiHints?: Record<string, ConfigUiHint>;
+  /** True when this entry is an external integration (status-only, non-toggleable). */
+  managedExternally?: boolean;
   /** Optional icon URL or emoji for the plugin card header. */
   icon?: string | null;
 }
@@ -1657,6 +1699,10 @@ export class MiladyClient {
 
   async getStatus(): Promise<AgentStatus> {
     return this.fetch("/api/status");
+  }
+
+  async getAgentSelfStatus(): Promise<AgentSelfStatusSnapshot> {
+    return this.fetch("/api/agent/self-status");
   }
 
   async getRuntimeSnapshot(opts?: {

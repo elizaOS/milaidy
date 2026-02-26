@@ -5520,6 +5520,69 @@
     text-overflow: ellipsis;
 }
 
+.chat-game-sidebar-capabilities {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.chat-game-sidebar-cap-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.chat-game-sidebar-cap-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.chat-game-sidebar-cap-name {
+    font-size: 10px;
+    letter-spacing: 0.03em;
+    color: rgba(222, 231, 249, 0.84);
+}
+
+.chat-game-sidebar-cap-pill {
+    min-width: 42px;
+    text-align: center;
+    border-radius: 999px;
+    padding: 1px 7px;
+    font-size: 9px;
+    font-weight: 720;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    border: 1px solid rgba(160, 176, 208, 0.26);
+    background: rgba(8, 13, 24, 0.56);
+}
+
+.chat-game-sidebar-cap-pill.is-on {
+    color: color-mix(in srgb, var(--accent, #f0b232) 90%, white 10%);
+    border-color: color-mix(in srgb, var(--accent, #f0b232) 56%, rgba(160, 176, 208, 0.28));
+    background: color-mix(in srgb, var(--accent, #f0b232) 16%, rgba(8, 13, 24, 0.78));
+}
+
+.chat-game-sidebar-cap-pill.is-off {
+    color: rgba(193, 206, 232, 0.66);
+    border-color: rgba(150, 167, 201, 0.22);
+    background: rgba(8, 13, 24, 0.42);
+}
+
+.chat-game-sidebar-cap-meta {
+    margin-top: 2px;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    font-family: var(--font-mono), monospace;
+    font-size: 9px;
+    color: rgba(196, 209, 235, 0.72);
+}
+
 .chat-game-sidebar-usage {
     margin-top: 8px;
     padding-top: 8px;

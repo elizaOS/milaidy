@@ -28,6 +28,7 @@ import {
   getSessionProviders,
   resolveDefaultSessionStorePath,
 } from "@elizaos/core";
+import { canIAction } from "../actions/can-i.js";
 import { configurePluginAction } from "../actions/configure-plugin.js";
 import { emoteAction } from "../actions/emote.js";
 import { installPluginAction } from "../actions/install-plugin.js";
@@ -47,6 +48,7 @@ import {
   createSessionKeyProvider,
   resolveSessionKeyFromRoom,
 } from "../providers/session-bridge.js";
+import { createSelfStatusProvider } from "../providers/self-status.js";
 import { createSimpleModeProvider } from "../providers/simple-mode.js";
 import { DEFAULT_AGENT_WORKSPACE_DIR } from "../providers/workspace.js";
 import { createWorkspaceProvider } from "../providers/workspace-provider.js";
@@ -394,6 +396,7 @@ export function createMiladyPlugin(config?: MiladyPluginConfig): Plugin {
     createAdminTrustProvider(),
     createAutonomousStateProvider(),
     createSessionKeyProvider({ defaultAgentId: agentId }),
+    createSelfStatusProvider(),
     ...getSessionProviders({ storePath: sessionStorePath }),
   ];
 
@@ -639,6 +642,7 @@ export function createMiladyPlugin(config?: MiladyPluginConfig): Plugin {
       configurePluginAction,
       installPluginAction,
       logLevelAction,
+      canIAction,
       ...mediaActions,
     ],
 

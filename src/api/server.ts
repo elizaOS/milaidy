@@ -389,6 +389,8 @@ interface PluginEntry {
   loadError?: string;
   /** Server-provided UI hints for plugin configuration fields. */
   configUiHints?: Record<string, Record<string, unknown>>;
+  /** True when this entry represents an external integration, not a runtime-loadable npm plugin. */
+  managedExternally?: boolean;
 }
 
 interface SkillEntry {
@@ -649,6 +651,7 @@ interface PluginIndexEntry {
   version?: string;
   pluginDeps?: string[];
   configUiHints?: Record<string, Record<string, unknown>>;
+  managedExternally?: boolean;
 }
 
 interface PluginIndex {
@@ -656,6 +659,99 @@ interface PluginIndex {
   generatedAt: string;
   count: number;
   plugins: PluginIndexEntry[];
+}
+
+const CHROME_EXTENSION_PLUGIN_ID = "chrome-extension";
+const CHROME_EXTENSION_RELAY_PORT = 18792;
+const AGENT_SKILLS_PLUGIN_ID = "agent-skills";
+
+interface ExtensionStatusSnapshot {
+  relayReachable: boolean;
+  relayPort: number;
+  extensionPath: string | null;
+}
+
+async function resolveExtensionStatusSnapshot(): Promise<ExtensionStatusSnapshot> {
+  let relayReachable = false;
+  try {
+    const resp = await fetch(
+      `http://127.0.0.1:${CHROME_EXTENSION_RELAY_PORT}/`,
+      {
+        method: "HEAD",
+        signal: AbortSignal.timeout(2000),
+      },
+    );
+    relayReachable = resp.ok || resp.status < 500;
+  } catch {
+    relayReachable = false;
+  }
+
+  let extensionPath: string | null = null;
+  try {
+    const serverDir = path.dirname(fileURLToPath(import.meta.url));
+    extensionPath = path.resolve(
+      serverDir,
+      "..",
+      "..",
+      "apps",
+      "chrome-extension",
+    );
+    if (!fs.existsSync(extensionPath)) extensionPath = null;
+  } catch {
+    // ignore
+  }
+
+  return {
+    relayReachable,
+    relayPort: CHROME_EXTENSION_RELAY_PORT,
+    extensionPath,
+  };
+}
+
+function ensureBuiltInPluginEntries(entries: PluginEntry[]): PluginEntry[] {
+  const ensured = [...entries];
+  const byId = new Set(ensured.map((entry) => entry.id));
+
+  if (!byId.has(AGENT_SKILLS_PLUGIN_ID)) {
+    ensured.push({
+      id: AGENT_SKILLS_PLUGIN_ID,
+      name: "Agent Skills",
+      description:
+        "Agent Skills plugin for ElizaOS - progressive-disclosure skills execution.",
+      enabled: false,
+      configured: true,
+      envKey: null,
+      category: "feature",
+      source: "bundled",
+      configKeys: [],
+      parameters: [],
+      validationErrors: [],
+      validationWarnings: [],
+      npmName: "@elizaos/plugin-agent-skills",
+    });
+  }
+
+  if (!byId.has(CHROME_EXTENSION_PLUGIN_ID)) {
+    ensured.push({
+      id: CHROME_EXTENSION_PLUGIN_ID,
+      name: "Chrome Extension",
+      description:
+        "Companion browser extension integration (relay + options panel). Managed outside runtime plugin loading.",
+      enabled: false,
+      configured: false,
+      envKey: null,
+      category: "feature",
+      source: "bundled",
+      configKeys: [],
+      parameters: [],
+      validationErrors: [],
+      validationWarnings: [],
+      npmName: "apps/chrome-extension",
+      managedExternally: true,
+    });
+  }
+
+  return ensured;
 }
 
 function maskValue(value: string): string {
@@ -1148,8 +1244,7 @@ function discoverPluginsFromManifest(): PluginEntry[] {
       // Keys that are auto-injected by infrastructure and should never be
       // exposed as user-facing "config keys" or parameter definitions.
       const HIDDEN_KEYS = new Set(["VERCEL_OIDC_TOKEN"]);
-      return index.plugins
-        .map((p) => {
+      const discovered = index.plugins.map((p) => {
           const category = categorizePlugin(p.id);
           const envKey = p.envKey;
           const filteredConfigKeys = p.configKeys.filter(
@@ -1201,10 +1296,13 @@ function discoverPluginsFromManifest(): PluginEntry[] {
             npmName: p.npmName,
             version: p.version,
             pluginDeps: p.pluginDeps,
+            managedExternally: Boolean(p.managedExternally),
             ...(p.configUiHints ? { configUiHints: p.configUiHints } : {}),
           };
-        })
-        .sort((a, b) => a.name.localeCompare(b.name));
+        });
+      return ensureBuiltInPluginEntries(discovered).sort((a, b) =>
+        a.name.localeCompare(b.name),
+      );
     } catch (err) {
       logger.debug(
         `[milady-api] Failed to read plugins.json: ${err instanceof Error ? err.message : err}`,
@@ -1216,7 +1314,7 @@ function discoverPluginsFromManifest(): PluginEntry[] {
   logger.debug(
     "[milady-api] plugins.json not found — run `npm run generate:plugins`",
   );
-  return [];
+  return ensureBuiltInPluginEntries([]);
 }
 
 function categorizePlugin(
@@ -4709,6 +4807,280 @@ const AI_PROVIDER_ID_BY_PLUGIN_SHORT_ID: Readonly<Record<string, string>> = {
   elizacloud: "elizacloud",
 };
 
+const BROWSER_CAPABILITY_PLUGIN_IDS = new Set([
+  "browser",
+  "browserbase",
+  "chrome-extension",
+]);
+
+const COMPUTER_CAPABILITY_PLUGIN_IDS = new Set([
+  "computeruse",
+  "computer-use",
+]);
+
+export type AgentSelfStatusLifecycleState =
+  | "not_started"
+  | "starting"
+  | "running"
+  | "paused"
+  | "stopped"
+  | "restarting"
+  | "error";
+
+type AgentSelfStatusPluginCategory =
+  | "ai-provider"
+  | "connector"
+  | "database"
+  | "feature";
+
+interface AgentSelfStatusPluginSummary {
+  id: string;
+  category?: AgentSelfStatusPluginCategory;
+  enabled?: boolean;
+}
+
+export interface AgentSelfStatusInput {
+  runtime: Pick<AgentRuntime, "plugins" | "getSetting"> | null;
+  config: MiladyConfig;
+  state: AgentSelfStatusLifecycleState;
+  agentName: string;
+  model: string | undefined;
+  shellEnabled?: boolean;
+  agentAutomationMode?: AgentAutomationMode;
+  tradePermissionMode?: TradePermissionMode;
+  walletAddresses?: WalletAddresses;
+  plugins: AgentSelfStatusPluginSummary[];
+}
+
+export interface AgentSelfStatus {
+  generatedAt: string;
+  state: AgentSelfStatusLifecycleState;
+  agentName: string;
+  model: string | null;
+  provider: string | null;
+  automationMode: AgentAutomationMode;
+  tradePermissionMode: TradePermissionMode;
+  shellEnabled: boolean;
+  wallet: {
+    mode: WalletMode;
+    evmAddress: string | null;
+    evmAddressShort: string | null;
+    solanaAddress: string | null;
+    solanaAddressShort: string | null;
+    hasWallet: boolean;
+    hasEvm: boolean;
+    hasSolana: boolean;
+    localSignerAvailable: boolean;
+    managedBscRpcReady: boolean;
+  };
+  plugins: {
+    totalActive: number;
+    active: string[];
+    aiProviders: string[];
+    connectors: string[];
+  };
+  capabilities: {
+    canTrade: boolean;
+    canLocalTrade: boolean;
+    canAutoTrade: boolean;
+    canUseBrowser: boolean;
+    canUseComputer: boolean;
+    canRunTerminal: boolean;
+    canInstallPlugins: boolean;
+    canConfigurePlugins: boolean;
+    canConfigureConnectors: boolean;
+  };
+}
+
+function readEnabledPluginIdsFromConfig(config: MiladyConfig): Set<string> {
+  const entries =
+    config.plugins &&
+    typeof config.plugins === "object" &&
+    !Array.isArray(config.plugins)
+      ? (config.plugins as Record<string, unknown>).entries
+      : null;
+  const records =
+    entries && typeof entries === "object" && !Array.isArray(entries)
+      ? (entries as Record<string, unknown>)
+      : {};
+
+  const enabled = new Set<string>();
+  for (const [id, value] of Object.entries(records)) {
+    if (!id.trim()) continue;
+    if (
+      value &&
+      typeof value === "object" &&
+      !Array.isArray(value) &&
+      (value as { enabled?: unknown }).enabled === true
+    ) {
+      enabled.add(toPluginShortId(id).toLowerCase());
+    }
+  }
+  return enabled;
+}
+
+function resolveRuntimePluginShortIds(
+  runtime: Pick<AgentRuntime, "plugins"> | null,
+): string[] {
+  if (!runtime) return [];
+  const ids = new Set<string>();
+  for (const plugin of runtime.plugins) {
+    const pluginName = typeof plugin?.name === "string" ? plugin.name : "";
+    if (!pluginName.trim()) continue;
+    ids.add(toPluginShortId(pluginName).toLowerCase());
+  }
+  return Array.from(ids).sort((a, b) => a.localeCompare(b));
+}
+
+function shortenWalletAddress(address: string | null): string | null {
+  if (!address) return null;
+  if (address.startsWith("0x") && address.length >= 12) {
+    return `${address.slice(0, 6)}...${address.slice(-4)}`;
+  }
+  if (address.length <= 12) return address;
+  return `${address.slice(0, 4)}...${address.slice(-4)}`;
+}
+
+function resolveSelfStatusProviderLabel(
+  runtime: Pick<AgentRuntime, "plugins" | "getSetting"> | null,
+  config: MiladyConfig,
+  modelLabel: string | null,
+): string | null {
+  const runtimeProvider = resolveRuntimePluginProviderLabel(runtime);
+  if (runtimeProvider) return runtimeProvider;
+
+  if (modelLabel?.includes("/")) {
+    const provider = modelLabel.split("/")[0]?.trim().toLowerCase();
+    if (provider) return provider;
+  }
+
+  const configProvider = sanitizeAgentModelLabel(config.cloud?.provider);
+  if (configProvider) return configProvider.toLowerCase();
+
+  return null;
+}
+
+export function buildAgentSelfStatus(input: AgentSelfStatusInput): AgentSelfStatus {
+  const runtimePluginIds = resolveRuntimePluginShortIds(input.runtime);
+  const enabledPluginIds = readEnabledPluginIdsFromConfig(input.config);
+  const pluginCategoryById = new Map<string, AgentSelfStatusPluginCategory>();
+  const activePluginIds = new Set<string>(
+    runtimePluginIds.length > 0 ? runtimePluginIds : Array.from(enabledPluginIds),
+  );
+
+  for (const plugin of input.plugins) {
+    const shortId = toPluginShortId(plugin.id).toLowerCase();
+    if (!shortId) continue;
+    if (plugin.category) {
+      pluginCategoryById.set(shortId, plugin.category);
+    }
+    if (plugin.enabled) {
+      activePluginIds.add(shortId);
+    }
+  }
+
+  const normalizedActivePlugins = Array.from(activePluginIds).sort((a, b) =>
+    a.localeCompare(b),
+  );
+  const activeSet = new Set(normalizedActivePlugins);
+
+  const aiProviders = Array.from(
+    new Set(
+      normalizedActivePlugins
+        .map((id) => {
+          const mapped = AI_PROVIDER_ID_BY_PLUGIN_SHORT_ID[id];
+          if (mapped) return mapped;
+          const category = pluginCategoryById.get(id) ?? categorizePlugin(id);
+          return category === "ai-provider" ? id : null;
+        })
+        .filter((id): id is string => Boolean(id)),
+    ),
+  );
+  const connectors = normalizedActivePlugins.filter((id) => {
+    const category = pluginCategoryById.get(id) ?? categorizePlugin(id);
+    return category === "connector";
+  });
+
+  const walletAddresses = input.walletAddresses ?? getWalletAddresses();
+  const walletMode = resolveWalletMode(input.config);
+  const hasEvm = Boolean(walletAddresses.evmAddress);
+  const hasSolana = Boolean(walletAddresses.solanaAddress);
+  const hasWallet = hasEvm || hasSolana;
+
+  const automationMode = input.agentAutomationMode ?? "full";
+  const tradePermissionMode = input.tradePermissionMode ?? "user-sign-only";
+  const shellEnabled = input.shellEnabled !== false;
+
+  const resolvedModel =
+    sanitizeAgentModelLabel(input.model) ??
+    resolveAgentModelLabel(input.runtime, input.config) ??
+    null;
+  const provider = resolveSelfStatusProviderLabel(
+    input.runtime,
+    input.config,
+    resolvedModel,
+  );
+
+  const canTrade = hasEvm;
+  const canLocalTrade = hasEvm && canUseLocalTradeExecution(tradePermissionMode, false);
+  const canAutoTrade = hasEvm && canUseLocalTradeExecution(tradePermissionMode, true);
+  const canUseBrowser = normalizedActivePlugins.some((id) =>
+    BROWSER_CAPABILITY_PLUGIN_IDS.has(id),
+  );
+  const canUseComputer = normalizedActivePlugins.some((id) =>
+    COMPUTER_CAPABILITY_PLUGIN_IDS.has(id),
+  );
+  const canRunTerminal = shellEnabled && automationMode === "full";
+  const canInstallPlugins = automationMode === "full";
+  const canConfigurePlugins = automationMode === "full";
+  const canConfigureConnectors = true;
+  const managedBscRpcReady = Boolean(
+    process.env.NODEREAL_BSC_RPC_URL?.trim() ||
+      process.env.QUICKNODE_BSC_RPC_URL?.trim(),
+  );
+  const localSignerAvailable = Boolean(process.env.EVM_PRIVATE_KEY?.trim());
+
+  return {
+    generatedAt: new Date().toISOString(),
+    state: input.state,
+    agentName: input.agentName,
+    model: resolvedModel,
+    provider,
+    automationMode,
+    tradePermissionMode,
+    shellEnabled,
+    wallet: {
+      mode: walletMode,
+      evmAddress: walletAddresses.evmAddress ?? null,
+      evmAddressShort: shortenWalletAddress(walletAddresses.evmAddress ?? null),
+      solanaAddress: walletAddresses.solanaAddress ?? null,
+      solanaAddressShort: shortenWalletAddress(walletAddresses.solanaAddress ?? null),
+      hasWallet,
+      hasEvm,
+      hasSolana,
+      localSignerAvailable,
+      managedBscRpcReady,
+    },
+    plugins: {
+      totalActive: activeSet.size,
+      active: normalizedActivePlugins,
+      aiProviders,
+      connectors,
+    },
+    capabilities: {
+      canTrade,
+      canLocalTrade,
+      canAutoTrade,
+      canUseBrowser,
+      canUseComputer,
+      canRunTerminal,
+      canInstallPlugins,
+      canConfigurePlugins,
+      canConfigureConnectors,
+    },
+  };
+}
+
 function sanitizeAgentModelLabel(value: unknown): string | undefined {
   if (typeof value !== "string") return undefined;
   const trimmed = value.trim();
@@ -6363,6 +6735,31 @@ async function handleRequest(
     return;
   }
 
+  // ── GET /api/agent/self-status ────────────────────────────────────────
+  // Compact runtime + permission + wallet snapshot for self-awareness.
+  if (method === "GET" && pathname === "/api/agent/self-status") {
+    json(
+      res,
+      buildAgentSelfStatus({
+        runtime: state.runtime,
+        config: state.config,
+        state: state.agentState,
+        agentName: state.agentName,
+        model: state.model,
+        shellEnabled: state.shellEnabled,
+        agentAutomationMode: state.agentAutomationMode,
+        tradePermissionMode: state.tradePermissionMode,
+        walletAddresses: getWalletAddresses(),
+        plugins: state.plugins.map((plugin) => ({
+          id: plugin.id,
+          category: plugin.category,
+          enabled: plugin.enabled,
+        })),
+      }),
+    );
+    return;
+  }
+
   // ── GET /api/runtime ───────────────────────────────────────────────────
   // Deep runtime introspection endpoint for advanced debugging UI.
   if (method === "GET" && pathname === "/api/runtime") {
@@ -7672,6 +8069,7 @@ async function handleRequest(
     const bundledIds = new Set(state.plugins.map((p) => p.id));
     const installedEntries = discoverInstalledPlugins(freshConfig, bundledIds);
     const allPlugins: PluginEntry[] = [...state.plugins, ...installedEntries];
+    const extensionStatus = await resolveExtensionStatusSnapshot();
 
     // Resolve enabled state from config and loaded state from runtime.
     // "enabled" = user wants it active (config). "isActive" = actually loaded.
@@ -7682,6 +8080,26 @@ async function handleRequest(
       ? state.runtime.plugins.map((p) => p.name)
       : [];
     for (const plugin of allPlugins) {
+      if (
+        plugin.managedExternally &&
+        plugin.id === CHROME_EXTENSION_PLUGIN_ID
+      ) {
+        plugin.isActive = extensionStatus.relayReachable;
+        plugin.enabled = extensionStatus.relayReachable;
+        plugin.configured = Boolean(extensionStatus.extensionPath);
+        plugin.loadError = undefined;
+        plugin.validationErrors = [];
+        plugin.validationWarnings = extensionStatus.relayReachable
+          ? []
+          : [
+              {
+                field: "relay",
+                message: `Relay not reachable at http://127.0.0.1:${extensionStatus.relayPort}. Open ${extensionStatus.extensionPath ?? "apps/chrome-extension"} and start the relay.`,
+              },
+            ];
+        continue;
+      }
+
       const suffix = `plugin-${plugin.id}`;
       const packageName = `@elizaos/plugin-${plugin.id}`;
       const isLoaded =
@@ -7721,6 +8139,7 @@ async function handleRequest(
 
     // Always refresh current env values and re-validate
     for (const plugin of allPlugins) {
+      if (plugin.managedExternally) continue;
       for (const param of plugin.parameters) {
         const envValue = process.env[param.key];
         param.isSet = Boolean(envValue?.trim());
@@ -7803,6 +8222,14 @@ async function handleRequest(
     const plugin = state.plugins.find((p) => p.id === pluginId);
     if (!plugin) {
       error(res, `Plugin "${pluginId}" not found`, 404);
+      return;
+    }
+    if (plugin.managedExternally) {
+      error(
+        res,
+        `Plugin "${pluginId}" is managed externally and cannot be toggled from this panel.`,
+        400,
+      );
       return;
     }
 
@@ -9664,35 +10091,8 @@ async function handleRequest(
   // ── GET /api/extension/status ─────────────────────────────────────────
   // Check if the Chrome extension relay server is reachable.
   if (method === "GET" && pathname === "/api/extension/status") {
-    const relayPort = 18792;
-    let relayReachable = false;
-    try {
-      const resp = await fetch(`http://127.0.0.1:${relayPort}/`, {
-        method: "HEAD",
-        signal: AbortSignal.timeout(2000),
-      });
-      relayReachable = resp.ok || resp.status < 500;
-    } catch {
-      relayReachable = false;
-    }
-
-    // Resolve the extension source path (always available in the repo)
-    let extensionPath: string | null = null;
-    try {
-      const serverDir = path.dirname(fileURLToPath(import.meta.url));
-      extensionPath = path.resolve(
-        serverDir,
-        "..",
-        "..",
-        "apps",
-        "chrome-extension",
-      );
-      if (!fs.existsSync(extensionPath)) extensionPath = null;
-    } catch {
-      // ignore
-    }
-
-    json(res, { relayReachable, relayPort, extensionPath });
+    const status = await resolveExtensionStatusSnapshot();
+    json(res, status);
     return;
   }
 
