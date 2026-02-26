@@ -173,6 +173,9 @@ vi.mock("../../src/components/InventoryView", () => ({
 vi.mock("../../src/components/KnowledgeView", () => ({
   KnowledgeView: () => React.createElement("div", null, "KnowledgeView"),
 }));
+vi.mock("../../src/components/LifoSandboxView", () => ({
+  LifoSandboxView: () => React.createElement("div", null, "LifoSandboxView"),
+}));
 vi.mock("../../src/components/SettingsView", () => ({
   SettingsView: () => React.createElement("div", null, "SettingsView"),
 }));

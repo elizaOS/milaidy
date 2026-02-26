@@ -2,7 +2,7 @@
  * Root App component — routing shell.
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useApp } from "./AppContext";
 import { AdvancedPageView } from "./components/AdvancedPageView";
 import { AppsPageView } from "./components/AppsPageView";
@@ -20,6 +20,7 @@ import { GameViewOverlay } from "./components/GameViewOverlay";
 import { Header } from "./components/Header";
 import { InventoryView } from "./components/InventoryView";
 import { KnowledgeView } from "./components/KnowledgeView";
+import { LifoSandboxView } from "./components/LifoSandboxView";
 import { LoadingScreen } from "./components/LoadingScreen";
 import { Nav } from "./components/Nav";
 import { OnboardingWizard } from "./components/OnboardingWizard";
@@ -31,6 +32,7 @@ import { StartupFailureView } from "./components/StartupFailureView";
 import { TerminalPanel } from "./components/TerminalPanel";
 import { BugReportProvider, useBugReportState } from "./hooks/useBugReport";
 import { useContextMenu } from "./hooks/useContextMenu";
+import { isLifoPopoutMode } from "./lifo-popout";
 import { APPS_ENABLED } from "./navigation";
 
 const CHAT_MOBILE_BREAKPOINT_PX = 1024;
@@ -239,6 +241,7 @@ export function App() {
   }, [isChat]);
 
   const bugReport = useBugReportState();
+  const lifoPopoutMode = useMemo(() => isLifoPopoutMode(), []);
 
   const agentStarting = agentStatus?.state === "starting";
 
@@ -256,6 +259,18 @@ export function App() {
 
   if (authRequired) return <PairingView />;
   if (!onboardingComplete) return <OnboardingWizard />;
+
+  if (lifoPopoutMode) {
+    return (
+      <BugReportProvider value={bugReport}>
+        <div className="flex h-screen w-screen min-h-0 bg-bg text-txt">
+          <main className="flex-1 min-h-0 overflow-hidden p-3 xl:p-4">
+            <LifoSandboxView />
+          </main>
+        </div>
+      </BugReportProvider>
+    );
+  }
 
   return (
     <BugReportProvider value={bugReport}>

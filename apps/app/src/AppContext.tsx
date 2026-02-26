@@ -73,6 +73,7 @@ import {
   normalizeSlashCommandName,
   splitCommandArgs,
 } from "./chat-commands";
+import { isLifoPopoutMode } from "./lifo-popout";
 import { pathForTab, type Tab, tabFromPath } from "./navigation";
 import { getMissingOnboardingPermissions } from "./onboarding-permissions";
 
@@ -4435,19 +4436,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
       console.warn(`${STARTUP_WARN_PREFIX} ${scope}`, err);
     };
 
-    // Detect popout mode — lightweight init that skips agent lifecycle.
-    const isPopoutMode = (() => {
-      if (typeof window === "undefined") return false;
-      const params = new URLSearchParams(
-        window.location.search || window.location.hash.split("?")[1] || "",
-      );
-      return params.has("popout");
-    })();
+    // Detect Lifo popout mode — lightweight init that skips agent lifecycle.
+    const isPopoutMode = isLifoPopoutMode();
 
     const initApp = async () => {
       // Popout fast-path: just connect WS and fetch events. No agent
       // lifecycle, no onboarding, no auth gates.
       if (isPopoutMode) {
+        const navPath =
+          window.location.protocol === "file:"
+            ? window.location.hash.replace(/^#/, "") || "/"
+            : window.location.pathname;
+        const urlTab = tabFromPath(navPath);
+        setTabRaw(urlTab ?? "lifo");
         setOnboardingComplete(true);
         setOnboardingLoading(false);
 

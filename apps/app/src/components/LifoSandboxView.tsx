@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "../styles/xterm.css";
 import { client } from "../api-client";
+import { isLifoPopoutMode } from "../lifo-popout";
 import { pathForTab } from "../navigation";
 
 type LifoKernel = import("@lifo-sh/core").Kernel;
@@ -24,6 +25,24 @@ interface TerminalOutputEvent {
   command?: unknown;
 }
 
+interface LifoSyncMessage {
+  source: "controller";
+  type:
+    | "heartbeat"
+    | "session-reset"
+    | "command-start"
+    | "stdout"
+    | "stderr"
+    | "command-exit"
+    | "command-error";
+  command?: string;
+  chunk?: string;
+  exitCode?: number;
+  message?: string;
+}
+
+const LIFO_SYNC_CHANNEL_NAME = "milady-lifo-sync";
+
 function formatError(error: unknown): string {
   if (error instanceof Error) {
     return error.message;
@@ -33,16 +52,6 @@ function formatError(error: unknown): string {
 
 function normalizeTerminalText(text: string): string {
   return text.replace(/\r?\n/g, "\r\n");
-}
-
-function isLifoPopoutMode(): boolean {
-  if (typeof window === "undefined") return false;
-  const search =
-    window.location.search || window.location.hash.split("?")[1] || "";
-  const params = new URLSearchParams(search);
-  if (!params.has("popout")) return false;
-  const value = params.get("popout");
-  return !value || value === "1" || value === "true" || value === "lifo";
 }
 
 function buildLifoPopoutUrl(): string {
@@ -130,6 +139,8 @@ export function LifoSandboxView() {
   const queueRef = useRef<string[]>([]);
   const runningRef = useRef(false);
   const popoutRef = useRef<Window | null>(null);
+  const syncChannelRef = useRef<BroadcastChannel | null>(null);
+  const controllerHeartbeatAtRef = useRef(0);
 
   const [booting, setBooting] = useState(false);
   const [ready, setReady] = useState(false);
@@ -139,6 +150,7 @@ export function LifoSandboxView() {
   const [sessionKey, setSessionKey] = useState(0);
 
   const popoutMode = useMemo(() => isLifoPopoutMode(), []);
+  const [controllerOnline, setControllerOnline] = useState(popoutMode);
 
   const appendOutput = useCallback((line: string) => {
     setOutput((prev) => {
@@ -146,6 +158,17 @@ export function LifoSandboxView() {
       return next.slice(-600);
     });
   }, []);
+
+  const broadcastSyncMessage = useCallback(
+    (message: Omit<LifoSyncMessage, "source">) => {
+      if (!popoutMode) return;
+      syncChannelRef.current?.postMessage({
+        source: "controller",
+        ...message,
+      } satisfies LifoSyncMessage);
+    },
+    [popoutMode],
+  );
 
   const teardown = useCallback(() => {
     try {
@@ -180,6 +203,7 @@ export function LifoSandboxView() {
         runtime.terminal.writeln(`$ ${command}`);
         appendOutput(`$ ${command}`);
         setRunCount((prev) => prev + 1);
+        broadcastSyncMessage({ type: "command-start", command });
 
         try {
           const result = await runtime.shell.execute(command, {
@@ -187,20 +211,27 @@ export function LifoSandboxView() {
               runtime.terminal.write(normalizeTerminalText(chunk));
               const trimmed = chunk.trimEnd();
               if (trimmed) appendOutput(trimmed);
+              broadcastSyncMessage({ type: "stdout", chunk });
             },
             onStderr: (chunk: string) => {
               runtime.terminal.write(normalizeTerminalText(chunk));
               const trimmed = chunk.trimEnd();
               if (trimmed) appendOutput(`stderr: ${trimmed}`);
+              broadcastSyncMessage({ type: "stderr", chunk });
             },
           });
 
           runtime.terminal.writeln(`[exit ${result.exitCode}]`);
           appendOutput(`[exit ${result.exitCode}]`);
+          broadcastSyncMessage({
+            type: "command-exit",
+            exitCode: result.exitCode,
+          });
         } catch (err) {
           const message = formatError(err);
           runtime.terminal.writeln(`error: ${message}`);
           appendOutput(`error: ${message}`);
+          broadcastSyncMessage({ type: "command-error", message });
         }
 
         try {
@@ -212,7 +243,7 @@ export function LifoSandboxView() {
     } finally {
       runningRef.current = false;
     }
-  }, [appendOutput]);
+  }, [appendOutput, broadcastSyncMessage]);
 
   const enqueueAgentCommand = useCallback(
     (command: string) => {
@@ -277,6 +308,90 @@ export function LifoSandboxView() {
   }, [appendOutput, runQueuedCommands, sessionKey, teardown]);
 
   useEffect(() => {
+    if (typeof BroadcastChannel === "undefined") return;
+
+    const channel = new BroadcastChannel(LIFO_SYNC_CHANNEL_NAME);
+    syncChannelRef.current = channel;
+
+    let heartbeatInterval: ReturnType<typeof setInterval> | null = null;
+    let heartbeatWatchInterval: ReturnType<typeof setInterval> | null = null;
+
+    if (popoutMode) {
+      setControllerOnline(true);
+      broadcastSyncMessage({ type: "heartbeat" });
+      heartbeatInterval = setInterval(() => {
+        broadcastSyncMessage({ type: "heartbeat" });
+      }, 1000);
+    } else {
+      heartbeatWatchInterval = setInterval(() => {
+        const online = Date.now() - controllerHeartbeatAtRef.current < 3500;
+        setControllerOnline(online);
+      }, 1000);
+    }
+
+    channel.onmessage = (event: MessageEvent<unknown>) => {
+      if (popoutMode) return;
+      const data = event.data as Partial<LifoSyncMessage> | null;
+      if (!data || data.source !== "controller") return;
+
+      if (data.type === "heartbeat") {
+        controllerHeartbeatAtRef.current = Date.now();
+        setControllerOnline(true);
+        return;
+      }
+
+      const runtime = runtimeRef.current;
+      if (!runtime) return;
+
+      switch (data.type) {
+        case "session-reset":
+          setSessionKey((value) => value + 1);
+          break;
+        case "command-start":
+          if (typeof data.command !== "string") return;
+          runtime.terminal.writeln(`$ ${data.command}`);
+          appendOutput(`$ ${data.command}`);
+          setRunCount((prev) => prev + 1);
+          break;
+        case "stdout":
+          if (typeof data.chunk !== "string") return;
+          runtime.terminal.write(normalizeTerminalText(data.chunk));
+          if (data.chunk.trimEnd()) appendOutput(data.chunk.trimEnd());
+          break;
+        case "stderr":
+          if (typeof data.chunk !== "string") return;
+          runtime.terminal.write(normalizeTerminalText(data.chunk));
+          if (data.chunk.trimEnd()) {
+            appendOutput(`stderr: ${data.chunk.trimEnd()}`);
+          }
+          break;
+        case "command-exit":
+          if (typeof data.exitCode !== "number") return;
+          runtime.terminal.writeln(`[exit ${data.exitCode}]`);
+          appendOutput(`[exit ${data.exitCode}]`);
+          try {
+            runtime.explorer.refresh();
+          } catch {
+            // Ignore refresh failures when mirroring popout events.
+          }
+          break;
+        case "command-error":
+          if (typeof data.message !== "string") return;
+          runtime.terminal.writeln(`error: ${data.message}`);
+          appendOutput(`error: ${data.message}`);
+          break;
+      }
+    };
+
+    return () => {
+      if (heartbeatInterval) clearInterval(heartbeatInterval);
+      if (heartbeatWatchInterval) clearInterval(heartbeatWatchInterval);
+      syncChannelRef.current = null;
+      channel.close();
+    };
+  }, [appendOutput, broadcastSyncMessage, popoutMode]);
+
+  useEffect(() => {
     client.connectWs();
 
     const unbind = client.onWsEvent(
@@ -285,12 +400,18 @@ export function LifoSandboxView() {
         const event = data as TerminalOutputEvent;
         if (event.event !== "start") return;
         if (typeof event.command !== "string" || !event.command.trim()) return;
+        const popoutOpen =
+          !popoutMode && popoutRef.current != null && !popoutRef.current.closed;
+        if (!popoutMode && (controllerOnline || popoutOpen)) {
+          // A dedicated popout controller is active; watcher mirrors via sync.
+          return;
+        }
         enqueueAgentCommand(event.command);
       },
     );
 
     return unbind;
-  }, [enqueueAgentCommand]);
+  }, [controllerOnline, enqueueAgentCommand, popoutMode]);
 
   useEffect(() => {
     if (!popoutMode) return;
@@ -303,7 +424,8 @@ export function LifoSandboxView() {
 
   const resetSession = useCallback(() => {
     setSessionKey((value) => value + 1);
-  }, []);
+    broadcastSyncMessage({ type: "session-reset" });
+  }, [broadcastSyncMessage]);
 
   const openPopout = useCallback(() => {
     const existing = popoutRef.current;
@@ -325,6 +447,8 @@ export function LifoSandboxView() {
     }
 
     popoutRef.current = popup;
+    controllerHeartbeatAtRef.current = Date.now();
+    setControllerOnline(true);
     popup.focus();
   }, []);
 
@@ -357,7 +481,11 @@ export function LifoSandboxView() {
             </span>
 
             <span className="rounded-full px-2 py-1 text-[11px] font-medium bg-card border border-border text-muted">
-              {popoutMode ? "controller" : "watcher"}
+              {popoutMode
+                ? "controller"
+                : controllerOnline
+                  ? "watcher • synced"
+                  : "watcher • local"}
             </span>
 
             {!popoutMode && (
@@ -370,13 +498,15 @@ export function LifoSandboxView() {
               </button>
             )}
 
-            <button
-              type="button"
-              onClick={resetSession}
-              className="px-3 py-1.5 rounded-md border border-border bg-card text-xs text-txt hover:border-accent hover:text-accent transition-colors"
-            >
-              Reset
-            </button>
+            {popoutMode && (
+              <button
+                type="button"
+                onClick={resetSession}
+                className="px-3 py-1.5 rounded-md border border-border bg-card text-xs text-txt hover:border-accent hover:text-accent transition-colors"
+              >
+                Reset
+              </button>
+            )}
           </div>
         </div>
 
@@ -392,13 +522,21 @@ export function LifoSandboxView() {
       </header>
 
       <div className="grid flex-1 min-h-[360px] grid-cols-1 xl:grid-cols-[360px_1fr] gap-3">
-        <div className="rounded-xl border border-border overflow-hidden bg-panel min-h-[280px]">
+        <div
+          className={`rounded-xl border border-border overflow-hidden bg-panel min-h-[280px] ${
+            popoutMode ? "" : "pointer-events-none select-none"
+          }`}
+        >
           <div className="px-3 py-2 text-xs font-semibold border-b border-border text-txt">
             Explorer
           </div>
           <div ref={explorerRef} className="h-[calc(100%-37px)] w-full" />
         </div>
-        <div className="rounded-xl border border-border overflow-hidden bg-panel min-h-[280px]">
+        <div
+          className={`rounded-xl border border-border overflow-hidden bg-panel min-h-[280px] ${
+            popoutMode ? "" : "pointer-events-none select-none"
+          }`}
+        >
           <div className="px-3 py-2 text-xs font-semibold border-b border-border text-txt">
             Terminal
           </div>
