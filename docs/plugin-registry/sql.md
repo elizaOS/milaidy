@@ -87,7 +87,7 @@ The SQL plugin runs migrations automatically on startup. Migration files are emb
 This means:
 - No `migrate` or `db:push` step is required before or after upgrades.
 - Schema compatibility is guaranteed by the plugin version pinned in `package.json`.
-- The `bun run db:check` command validates database API security and query-guard boundaries (not schema state).
+- The `bun run db:check` command validates database API security and query-guard boundaries (30 unit tests) and database API endpoint behavior (40 e2e tests). It does not validate schema state — migrations are automatic.
 
 To inspect the current schema version:
 
