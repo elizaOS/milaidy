@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "../styles/xterm.css";
-import { client } from "../api-client";
+import {
+  client,
+  type SandboxBrowserEndpoints,
+  type SandboxWindowInfo,
+} from "../api-client";
 import { isLifoPopoutMode } from "../lifo-popout";
 import { pathForTab } from "../navigation";
 
@@ -42,6 +46,8 @@ interface LifoSyncMessage {
 }
 
 const LIFO_SYNC_CHANNEL_NAME = "milady-lifo-sync";
+const MONITOR_SCREENSHOT_POLL_MS = 1800;
+const MONITOR_META_POLL_MS = 10000;
 
 function formatError(error: unknown): string {
   if (error instanceof Error) {
@@ -151,6 +157,15 @@ export function LifoSandboxView() {
 
   const popoutMode = useMemo(() => isLifoPopoutMode(), []);
   const [controllerOnline, setControllerOnline] = useState(popoutMode);
+  const [monitorOnline, setMonitorOnline] = useState(false);
+  const [monitorError, setMonitorError] = useState<string | null>(null);
+  const [monitorUpdatedAt, setMonitorUpdatedAt] = useState<number | null>(null);
+  const [browserEndpoints, setBrowserEndpoints] =
+    useState<SandboxBrowserEndpoints | null>(null);
+  const [sandboxWindows, setSandboxWindows] = useState<SandboxWindowInfo[]>([]);
+  const [screenPreviewBase64, setScreenPreviewBase64] = useState<string | null>(
+    null,
+  );
 
   const appendOutput = useCallback((line: string) => {
     setOutput((prev) => {
@@ -158,6 +173,14 @@ export function LifoSandboxView() {
       return next.slice(-600);
     });
   }, []);
+
+  const screenPreviewUrl = useMemo(
+    () =>
+      screenPreviewBase64
+        ? `data:image/png;base64,${screenPreviewBase64}`
+        : null,
+    [screenPreviewBase64],
+  );
 
   const broadcastSyncMessage = useCallback(
     (message: Omit<LifoSyncMessage, "source">) => {
@@ -254,6 +277,40 @@ export function LifoSandboxView() {
     },
     [runQueuedCommands],
   );
+
+  const refreshMonitorMeta = useCallback(async () => {
+    if (popoutMode) return;
+    try {
+      const [browser, windowsResponse] = await Promise.all([
+        client.getSandboxBrowser(),
+        client.getSandboxWindows(),
+      ]);
+      setBrowserEndpoints(browser);
+      setSandboxWindows(
+        Array.isArray(windowsResponse.windows) ? windowsResponse.windows : [],
+      );
+      setMonitorError(null);
+    } catch (err) {
+      setMonitorError(formatError(err));
+    }
+  }, [popoutMode]);
+
+  const refreshScreenPreview = useCallback(async () => {
+    if (popoutMode) return;
+    try {
+      const screenshot = await client.getSandboxScreenshot();
+      if (typeof screenshot.data !== "string" || !screenshot.data.trim()) {
+        throw new Error("Sandbox screenshot response was empty");
+      }
+      setScreenPreviewBase64(screenshot.data);
+      setMonitorUpdatedAt(Date.now());
+      setMonitorOnline(true);
+      setMonitorError(null);
+    } catch (err) {
+      setMonitorOnline(false);
+      setMonitorError(formatError(err));
+    }
+  }, [popoutMode]);
 
   useEffect(() => {
     let cancelled = false;
@@ -390,6 +447,38 @@ export function LifoSandboxView() {
       channel.close();
     };
   }, [appendOutput, broadcastSyncMessage, popoutMode]);
+
+  useEffect(() => {
+    if (popoutMode) return;
+
+    let cancelled = false;
+
+    const refreshMeta = async () => {
+      if (cancelled) return;
+      await refreshMonitorMeta();
+    };
+    const refreshPreview = async () => {
+      if (cancelled) return;
+      await refreshScreenPreview();
+    };
+
+    void refreshMeta();
+    void refreshPreview();
+
+    const previewInterval = window.setInterval(() => {
+      void refreshPreview();
+    }, MONITOR_SCREENSHOT_POLL_MS);
+
+    const metaInterval = window.setInterval(() => {
+      void refreshMeta();
+    }, MONITOR_META_POLL_MS);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(previewInterval);
+      window.clearInterval(metaInterval);
+    };
+  }, [popoutMode, refreshMonitorMeta, refreshScreenPreview]);
 
   useEffect(() => {
     client.connectWs();
@@ -543,6 +632,120 @@ export function LifoSandboxView() {
           <div ref={terminalRef} className="h-[calc(100%-37px)] w-full" />
         </div>
       </div>
+
+      {!popoutMode && (
+        <div className="grid grid-cols-1 xl:grid-cols-[2fr_1fr] gap-3">
+          <div className="rounded-xl border border-border overflow-hidden bg-panel min-h-[320px]">
+            <div className="px-3 py-2 border-b border-border flex items-center justify-between gap-2">
+              <div>
+                <div className="text-xs font-semibold text-txt">
+                  Lifo Computer-Use Surface
+                </div>
+                <div className="text-[11px] text-muted">
+                  Watch-only desktop mirror of what the autonomous agent is
+                  doing.
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span
+                  className={`rounded-full px-2 py-1 text-[11px] font-medium ${
+                    monitorOnline ? "bg-ok/20 text-ok" : "bg-warn/20 text-warn"
+                  }`}
+                >
+                  {monitorOnline ? "live" : "offline"}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    void refreshMonitorMeta();
+                    void refreshScreenPreview();
+                  }}
+                  className="px-2.5 py-1 rounded-md border border-border bg-card text-[11px] text-txt hover:border-accent hover:text-accent transition-colors"
+                >
+                  Refresh
+                </button>
+              </div>
+            </div>
+
+            <div className="h-[320px] bg-black/90 flex items-center justify-center overflow-hidden">
+              {screenPreviewUrl ? (
+                <img
+                  src={screenPreviewUrl}
+                  alt="Sandbox computer-use surface"
+                  className="h-full w-full object-contain"
+                />
+              ) : (
+                <p className="px-4 text-center text-xs text-muted">
+                  Waiting for sandbox screen frames...
+                </p>
+              )}
+            </div>
+
+            <div className="px-3 py-2 border-t border-border text-[11px] text-muted">
+              {monitorUpdatedAt
+                ? `Last frame: ${new Date(monitorUpdatedAt).toLocaleTimeString()}`
+                : "No frames captured yet"}
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-border overflow-hidden bg-panel min-h-[320px]">
+            <div className="px-3 py-2 border-b border-border">
+              <div className="text-xs font-semibold text-txt">
+                Browser + Sandbox Context
+              </div>
+              <div className="text-[11px] text-muted">
+                Agent controls browser/computer tools; this panel mirrors state.
+              </div>
+            </div>
+
+            <div className="p-3 space-y-3 text-[11px]">
+              <div>
+                <div className="text-muted uppercase tracking-wide text-[10px]">
+                  CDP Endpoint
+                </div>
+                <div className="mt-1 rounded border border-border bg-card px-2 py-1 text-txt break-all">
+                  {browserEndpoints?.cdpEndpoint ?? "Unavailable"}
+                </div>
+              </div>
+
+              <div>
+                <div className="text-muted uppercase tracking-wide text-[10px]">
+                  WS Endpoint
+                </div>
+                <div className="mt-1 rounded border border-border bg-card px-2 py-1 text-txt break-all">
+                  {browserEndpoints?.wsEndpoint ?? "Unavailable"}
+                </div>
+              </div>
+
+              <div>
+                <div className="text-muted uppercase tracking-wide text-[10px]">
+                  Visible Windows ({sandboxWindows.length})
+                </div>
+                <div className="mt-1 max-h-[154px] overflow-auto rounded border border-border bg-card p-2 space-y-1">
+                  {sandboxWindows.length > 0 ? (
+                    sandboxWindows.slice(0, 20).map((windowInfo) => (
+                      <div key={windowInfo.id} className="text-txt">
+                        <span className="text-muted">{windowInfo.app}:</span>{" "}
+                        {windowInfo.title || "(untitled)"}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-muted">
+                      No active windows reported.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {monitorError && (
+                <div className="rounded border border-danger/40 bg-danger/10 px-2 py-1 text-danger">
+                  {monitorError}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="rounded-xl border border-border bg-panel p-3 min-h-[140px] max-h-[220px] overflow-auto">
         <div className="text-xs font-semibold text-txt">Agent Replay Log</div>

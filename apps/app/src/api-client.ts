@@ -494,6 +494,32 @@ export interface SandboxStartResponse {
   error?: string;
 }
 
+export interface SandboxBrowserEndpoints {
+  cdpEndpoint?: string | null;
+  wsEndpoint?: string | null;
+}
+
+export interface SandboxScreenshotRegion {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface SandboxScreenshotPayload {
+  format: string;
+  encoding: string;
+  width: number | null;
+  height: number | null;
+  data: string;
+}
+
+export interface SandboxWindowInfo {
+  id: string;
+  title: string;
+  app: string;
+}
+
 export interface SecretInfo {
   key: string;
   description: string;
@@ -2023,6 +2049,33 @@ export class MiladyClient {
 
   async getSandboxPlatform(): Promise<SandboxPlatformStatus> {
     return this.fetch("/api/sandbox/platform");
+  }
+
+  async getSandboxBrowser(): Promise<SandboxBrowserEndpoints> {
+    return this.fetch("/api/sandbox/browser");
+  }
+
+  async getSandboxScreenshot(
+    region?: SandboxScreenshotRegion,
+  ): Promise<SandboxScreenshotPayload> {
+    if (!region) {
+      return this.fetch("/api/sandbox/screen/screenshot", {
+        method: "POST",
+      });
+    }
+
+    return this.fetch("/api/sandbox/screen/screenshot", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(region),
+    });
+  }
+
+  async getSandboxWindows(): Promise<{
+    windows: SandboxWindowInfo[];
+    error?: string;
+  }> {
+    return this.fetch("/api/sandbox/screen/windows");
   }
 
   async startDocker(): Promise<SandboxStartResponse> {
