@@ -6,3 +6,5 @@ node_modules
 build
 dist
 logs
+tsc-out
+milady-dist

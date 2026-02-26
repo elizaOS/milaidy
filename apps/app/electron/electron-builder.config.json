@@ -17,7 +17,7 @@
   "asarUnpack": ["milady-dist/**/*"],
   "publish": {
     "provider": "github",
-    "owner": "milady-ai",
+    "owner": "miladybsc",
     "repo": "milady"
   },
   "nsis": {

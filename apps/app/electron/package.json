@@ -2,14 +2,14 @@
   "name": "Milady",
   "version": "2.0.0-alpha.27",
   "description": "Cute agents for the acceleration",
-  "homepage": "https://github.com/milady-ai/milady",
+  "homepage": "https://github.com/miladybsc/milady",
   "author": {
     "name": "Milady AI",
     "email": "hi@milady.ai"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/milady-ai/milady.git"
+    "url": "https://github.com/miladybsc/milady.git"
   },
   "license": "MIT",
   "main": "tsc-out/src/index.js",
