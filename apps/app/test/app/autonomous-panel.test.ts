@@ -17,6 +17,14 @@ interface AutonomousPanelContextStub {
   workbenchTasksAvailable: boolean;
   workbenchTriggersAvailable: boolean;
   workbenchTodosAvailable: boolean;
+  ptySessions: Array<{
+    sessionId: string;
+    agentType: string;
+    label: string;
+    originalTask: string;
+    workdir: string;
+    status: string;
+  }>;
 }
 
 const mockUseApp = vi.fn<() => AutonomousPanelContextStub>();
@@ -71,6 +79,7 @@ function makeContext(
     workbenchTasksAvailable: false,
     workbenchTriggersAvailable: false,
     workbenchTodosAvailable: false,
+    ptySessions: [],
     ...overrides,
   };
 }

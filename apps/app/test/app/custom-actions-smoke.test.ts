@@ -6,6 +6,7 @@ import type { CustomActionDef } from "../../src/api-client";
 
 const { mockClient, mockUseApp, mockUseVoiceChat } = vi.hoisted(() => ({
   mockClient: {
+    getCodingAgentStatus: vi.fn(async () => null),
     listCustomActions: vi.fn(),
     generateCustomAction: vi.fn(),
     createCustomAction: vi.fn(),
