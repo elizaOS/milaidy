@@ -203,6 +203,14 @@ jobs:
           echo "Building standalone Electron dist with all node_modules inlined..."
 
           cat << 'EOF' > tsdown.electron.config.ts
+          // ESM polyfill for __dirname and __filename
+          const esmShim = `
+          import { fileURLToPath as __fileURLToPath } from 'node:url';
+          import { dirname as __pathDirname } from 'node:path';
+          const __filename = __fileURLToPath(import.meta.url);
+          const __dirname = __pathDirname(__filename);
+          `;
+
           export default [{
             entry: {
               "index": "src/index.ts",
@@ -226,9 +234,12 @@ jobs:
               "fsevents",
               "koffi",
               "canvas",
+              "onnxruntime-node",
+              "sharp",
             ],
             fixedExtension: false,
             inlineOnly: false,
+            banner: { js: esmShim },
             env: { NODE_ENV: "production" }
           }];
           EOF

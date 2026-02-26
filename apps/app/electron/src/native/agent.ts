@@ -197,7 +197,7 @@ export class AgentManager {
 
     try {
       // Resolve the milady dist.
-      // In dev: __dirname = electron/build/src/native/ → 6 levels up to milady root/dist
+      // In dev: Use milady-dist in electron app dir (same bundle as packaged)
       // In packaged app: dist is unpacked to app.asar.unpacked/milady-dist
       // (asarUnpack in electron-builder.config.json ensures milady-dist is
       // extracted outside the ASAR so ESM import() works normally.)
@@ -206,7 +206,7 @@ export class AgentManager {
             app.getAppPath().replace("app.asar", "app.asar.unpacked"),
             "milady-dist",
           )
-        : path.resolve(__dirname, "../../../../../../dist");
+        : path.resolve(__dirname, "../../../milady-dist");
 
       diagnosticLog(
         `[Agent] Resolved milady dist: ${miladyDist} (packaged: ${app.isPackaged})`,

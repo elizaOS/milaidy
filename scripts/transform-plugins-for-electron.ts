@@ -23,39 +23,35 @@ const ELIZA_PATH = path.join(
   "eliza.ts",
 );
 
-// List of all plugins that need static imports for bundling
-const PLUGINS = [
-  "@elizaos/plugin-sql",
-  "@elizaos/plugin-local-embedding",
-  "@elizaos/plugin-secrets-manager",
-  "@elizaos/plugin-form",
-  "@elizaos/plugin-knowledge",
-  "@elizaos/plugin-rolodex",
-  "@elizaos/plugin-trajectory-logger",
-  "@elizaos/plugin-agent-orchestrator",
-  "@elizaos/plugin-cron",
-  "@elizaos/plugin-shell",
-  "@elizaos/plugin-plugin-manager",
-  "@elizaos/plugin-agent-skills",
-  "@elizaos/plugin-pdf",
-  "@elizaos/plugin-cua",
-  "@elizaos/plugin-obsidian",
-  "@elizaos/plugin-code",
-  "@elizaos/plugin-repoprompt",
-  "@elizaos/plugin-claude-code-workbench",
-  "@elizaos/plugin-openai",
-  "@elizaos/plugin-anthropic",
-  "@elizaos/plugin-google-genai",
-  "@elizaos/plugin-xai",
-  "@elizaos/plugin-groq",
-  "@elizaos/plugin-openrouter",
-  "@elizaos/plugin-ollama",
-  "@elizaos/plugin-deepseek",
-  "@elizaos/plugin-mistral",
-  "@elizaos/plugin-together",
-  "@elizaos/plugin-pi-ai",
-  "@elizaos/plugin-elizacloud",
-];
+// Read plugins from package.json - only include plugins that are actually installed
+const PACKAGE_JSON_PATH = path.join(import.meta.dirname, "..", "package.json");
+const packageJson = JSON.parse(fs.readFileSync(PACKAGE_JSON_PATH, "utf-8"));
+const allDeps = {
+  ...packageJson.dependencies,
+  ...packageJson.devDependencies,
+};
+
+// Get plugins that are both in package.json AND have a valid dist folder
+const NODE_MODULES = path.join(import.meta.dirname, "..", "node_modules");
+const allPlugins = Object.keys(allDeps).filter((dep) =>
+  dep.startsWith("@elizaos/plugin-"),
+);
+
+// Filter out plugins with broken/missing dist folders
+const PLUGINS = allPlugins.filter((pkg) => {
+  const distPath = path.join(NODE_MODULES, pkg, "dist");
+  try {
+    const stats = fs.statSync(distPath);
+    return stats.isDirectory();
+  } catch {
+    console.log(`  Skipping ${pkg} - missing dist folder (broken package)`);
+    return false;
+  }
+});
+
+console.log(
+  `Found ${allPlugins.length} plugins in package.json, ${PLUGINS.length} have valid dist`,
+);
 
 function pluginToVarName(pkg: string): string {
   // @elizaos/plugin-sql -> pluginSql

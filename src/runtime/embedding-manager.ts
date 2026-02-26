@@ -23,13 +23,28 @@ import { detectEmbeddingPreset } from "./embedding-presets.js";
 // Lazy-imported to keep the module lightweight at parse time.
 // node-llama-cpp pulls in native binaries — importing at the top would slow
 // down every CLI invocation even when embeddings aren't needed.
-type LlamaInstance = Awaited<
-  ReturnType<typeof import("node-llama-cpp")["getLlama"]>
->;
-type LlamaModelInstance = Awaited<ReturnType<LlamaInstance["loadModel"]>>;
-type LlamaEmbeddingContextInstance = Awaited<
-  ReturnType<LlamaModelInstance["createEmbeddingContext"]>
->;
+//
+// IMPORTANT: We use `unknown` types here instead of `typeof import("node-llama-cpp")`
+// to prevent bundlers from hoisting the dynamic import to a static one.
+// The native module must remain a runtime-only import for Electron packaging.
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type LlamaInstance = any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type LlamaModelInstance = any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type LlamaEmbeddingContextInstance = any;
+
+/**
+ * Dynamically import node-llama-cpp at runtime.
+ * Uses indirection to prevent bundlers from converting to static import.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function importNodeLlamaCpp(): Promise<any> {
+  // The string concatenation prevents static analysis by bundlers
+  const moduleName = ["node", "llama", "cpp"].join("-");
+  return import(moduleName);
+}
 
 export class MiladyEmbeddingManager {
   private readonly model: string;
@@ -144,7 +159,7 @@ export class MiladyEmbeddingManager {
       this.model,
     );
 
-    const { getLlama, LlamaLogLevel } = await import("node-llama-cpp");
+    const { getLlama, LlamaLogLevel } = await importNodeLlamaCpp();
 
     log.info(
       `[milaidy] Initializing embedding model: ${this.model} ` +
