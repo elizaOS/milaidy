@@ -341,7 +341,7 @@ interface PluginEntry {
   enabled: boolean;
   configured: boolean;
   envKey: string | null;
-  category: "ai-provider" | "connector" | "database" | "feature";
+  category: "ai-provider" | "connector" | "streaming" | "database" | "feature";
   /** Where the plugin comes from: "bundled" (ships with Milady) or "store" (user-installed from registry). */
   source: "bundled" | "store";
   configKeys: string[];
@@ -613,7 +613,7 @@ interface PluginIndexEntry {
   name: string;
   npmName: string;
   description: string;
-  category: "ai-provider" | "connector" | "database" | "feature";
+  category: "ai-provider" | "connector" | "streaming" | "database" | "feature";
   envKey: string | null;
   configKeys: string[];
   pluginParameters?: Record<string, Record<string, unknown>>;
@@ -1224,7 +1224,7 @@ function discoverPluginsFromManifest(): PluginEntry[] {
 
 function categorizePlugin(
   id: string,
-): "ai-provider" | "connector" | "database" | "feature" {
+): "ai-provider" | "connector" | "streaming" | "database" | "feature" {
   const aiProviders = [
     "openai",
     "anthropic",
@@ -1266,15 +1266,17 @@ function categorizePlugin(
     "zalo",
     "zalouser",
     "tlon",
-    "twitch",
     "nextcloud-talk",
     "instagram",
     "retake",
     "blooio",
+    "twitch",
   ];
+  const streamingDests = ["custom-rtmp", "youtube", "youtube-streaming", "twitch-streaming"];
   const databases = ["sql", "localdb", "inmemorydb"];
 
   if (aiProviders.includes(id)) return "ai-provider";
+  if (streamingDests.includes(id)) return "streaming";
   if (connectors.includes(id)) return "connector";
   if (databases.includes(id)) return "database";
   return "feature";
@@ -12326,6 +12328,7 @@ async function handleRequest(
       "game",
       "autonomy",
       "retake",
+      "stream",
       "system",
     ]);
     const body = await readJsonBody<{
@@ -12848,84 +12851,9 @@ async function handleRequest(
     return;
   }
 
-  // ── Stream Manager (macOS-compatible RTMP via FFmpeg) ────────────────────
-  if (method === "POST" && pathname === "/api/stream/start") {
-    try {
-      const body = await readJsonBody(req, res, { maxBytes: MAX_BODY_BYTES });
-      const rtmpUrl = body?.rtmpUrl as string | undefined;
-      const rtmpKey = body?.rtmpKey as string | undefined;
-
-      if (!rtmpUrl || !rtmpKey) {
-        error(res, "rtmpUrl and rtmpKey are required", 400);
-        return;
-      }
-
-      await streamManager.start({
-        rtmpUrl,
-        rtmpKey,
-        inputMode: (body?.inputMode as "testsrc" | "avfoundation") || "testsrc",
-        resolution: (body?.resolution as string) || "1280x720",
-        bitrate: (body?.bitrate as string) || "2500k",
-        framerate: (body?.framerate as number) || 30,
-      });
-
-      json(res, { ok: true, message: "Stream started" });
-    } catch (err) {
-      error(
-        res,
-        err instanceof Error ? err.message : "Stream start failed",
-        500,
-      );
-    }
-    return;
-  }
-
-  if (method === "POST" && pathname === "/api/stream/stop") {
-    try {
-      const result = await streamManager.stop();
-      json(res, { ok: true, ...result });
-    } catch (err) {
-      error(
-        res,
-        err instanceof Error ? err.message : "Stream stop failed",
-        500,
-      );
-    }
-    return;
-  }
-
-  if (method === "GET" && pathname === "/api/stream/status") {
-    json(res, streamManager.getHealth());
-    return;
-  }
-
-  // ── Stream frame push (pipe mode — Electron capturePage → FFmpeg stdin)
-  if (method === "POST" && pathname === "/api/stream/frame") {
-    if (!streamManager.isRunning()) {
-      error(res, "Stream not running", 400);
-      return;
-    }
-    try {
-      const buf = await readRequestBodyBuffer(req, {
-        maxBytes: 2 * 1024 * 1024,
-      });
-      if (!buf || buf.length === 0) {
-        error(res, "Empty frame", 400);
-        return;
-      }
-      const ok = streamManager.writeFrame(buf);
-      // Minimal response to reduce overhead at 15fps
-      res.writeHead(200);
-      res.end(ok ? "1" : "0");
-    } catch (err) {
-      error(
-        res,
-        err instanceof Error ? err.message : "Frame write failed",
-        500,
-      );
-    }
-    return;
-  }
+  // ── Stream Manager routes ──────────────────────────────────────────────
+  // Handled by handleStreamRoute() in stream-routes.ts (registered via
+  // connectorRouteHandlers below). Endpoints: /api/stream/*
 
   // ── LTCG Autonomy routes ─────────────────────────────────────────────
   // The LTCG plugin registers these as ElizaOS plugin routes, but Milady's
@@ -13537,33 +13465,122 @@ export async function startApiServer(opts?: {
       }
     })();
 
-    // ── Dynamic connector route loading ──────────────────────────────────
-    // Connectors that need HTTP routes register them here, gated by config.
-    // Each loader dynamically imports its route module only when configured.
+    // ── Dynamic streaming + connector route loading ────────────────────────
+    // Always register generic stream routes. If a streaming destination is
+    // configured, inject it so /api/stream/live can fetch credentials.
     void (async () => {
-      const connectors = state.config.connectors ?? {};
-      if (isConnectorConfigured("retake", connectors.retake)) {
-        try {
-          const { handleRetakeRoute } = await import("./retake-routes.js");
-          const retakeState = {
-            streamManager,
-            port,
-            config: connectors.retake as
-              | { accessToken?: string; apiUrl?: string; captureUrl?: string }
-              | undefined,
-          };
-          state.connectorRouteHandlers.push((req, res, pathname, method) =>
-            handleRetakeRoute(req, res, pathname, method, retakeState),
+      try {
+        const { handleStreamRoute } = await import("./stream-routes.js");
+        // Screen capture manager is injected by Electron host via globalThis
+        const screenCapture = (
+          globalThis as Record<string, unknown>
+        ).__miladyScreenCapture as
+          | {
+              isFrameCaptureActive(): boolean;
+              startFrameCapture(opts: {
+                fps?: number;
+                quality?: number;
+                endpoint?: string;
+              }): Promise<void>;
+            }
+          | undefined;
+
+        // Determine active streaming destination
+        let destination:
+          | import("./stream-routes.js").StreamingDestination
+          | undefined;
+
+        // Check connectors.retake (primary retake config location)
+        const connectors = state.config.connectors ?? {};
+        if (isConnectorConfigured("retake", connectors.retake)) {
+          const { createRetakeDestination } = await import(
+            "./retake-routes.js"
           );
-          addLog("info", "Retake connector routes registered", "system", [
-            "system",
-            "connectors",
-          ]);
-        } catch (err) {
-          logger.warn(
-            `[milady-api] Failed to load retake routes: ${err instanceof Error ? err.message : String(err)}`,
+          destination = createRetakeDestination(
+            connectors.retake as
+              | { accessToken?: string; apiUrl?: string }
+              | undefined,
           );
         }
+
+        // Check streaming.customRtmp
+        const streaming = (state.config as Record<string, unknown>)
+          .streaming as Record<string, unknown> | undefined;
+        if (
+          !destination &&
+          streaming?.customRtmp &&
+          typeof streaming.customRtmp === "object"
+        ) {
+          const rtmpConfig = streaming.customRtmp as Record<string, unknown>;
+          if (rtmpConfig.rtmpUrl && rtmpConfig.rtmpKey) {
+            const { createCustomRtmpDestination } = await import(
+              "../plugins/custom-rtmp/index.js"
+            );
+            destination = createCustomRtmpDestination(
+              rtmpConfig as { rtmpUrl?: string; rtmpKey?: string },
+            );
+          }
+        }
+
+        // Check streaming.twitch
+        if (
+          !destination &&
+          streaming?.twitch &&
+          typeof streaming.twitch === "object"
+        ) {
+          const twitchConfig = streaming.twitch as Record<string, unknown>;
+          if (twitchConfig.streamKey) {
+            const { createTwitchDestination } = await import(
+              "@milady/plugin-twitch-streaming"
+            );
+            destination = createTwitchDestination(
+              twitchConfig as { streamKey?: string },
+            );
+          }
+        }
+
+        // Check streaming.youtube
+        if (
+          !destination &&
+          streaming?.youtube &&
+          typeof streaming.youtube === "object"
+        ) {
+          const ytConfig = streaming.youtube as Record<string, unknown>;
+          if (ytConfig.streamKey) {
+            const { createYoutubeDestination } = await import(
+              "@milady/plugin-youtube-streaming"
+            );
+            destination = createYoutubeDestination(
+              ytConfig as { streamKey?: string; rtmpUrl?: string },
+            );
+          }
+        }
+
+        const streamState = {
+          streamManager,
+          port,
+          screenCapture,
+          captureUrl: (connectors.retake as Record<string, unknown> | undefined)
+            ?.captureUrl as string | undefined,
+          destination,
+        };
+        state.connectorRouteHandlers.push((req, res, pathname, method) =>
+          handleStreamRoute(req, res, pathname, method, streamState),
+        );
+
+        const destLabel = destination
+          ? `destination: ${destination.name}`
+          : "no destination";
+        addLog(
+          "info",
+          `Stream routes registered (${destLabel})`,
+          "system",
+          ["system", "streaming"],
+        );
+      } catch (err) {
+        logger.warn(
+          `[milady-api] Failed to load stream routes: ${err instanceof Error ? err.message : String(err)}`,
+        );
       }
     })();
   };

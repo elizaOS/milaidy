@@ -128,6 +128,7 @@
     "@elizaos/plugin-telegram": "next",
     "@elizaos/plugin-todo": "next",
     "@elizaos/plugin-trajectory-logger": "next",
+    "@elizaos/plugin-twitch": "^2.0.0-alpha.8",
     "@elizaos/plugin-trust": "next",
     "@elizaos/plugin-vision": "next",
     "@elizaos/prompts": "next",

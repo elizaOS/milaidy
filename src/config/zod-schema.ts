@@ -19,6 +19,7 @@ import {
 } from "./zod-schema.hooks";
 import {
   BlueBubblesConfigSchema,
+  CustomRtmpConfigSchema,
   DiscordConfigSchema,
   GoogleChatConfigSchema,
   IMessageConfigSchema,
@@ -27,8 +28,11 @@ import {
   SignalConfigSchema,
   SlackConfigSchema,
   TelegramConfigSchema,
+  TwitchConnectorConfigSchema,
+  TwitchStreamConfigSchema,
   TwitterConfigSchema,
   WhatsAppConfigSchema,
+  YoutubeStreamConfigSchema,
 } from "./zod-schema.providers-core";
 import {
   CommandsSchema,
@@ -145,8 +149,22 @@ const ConnectorsSchema = z
     bluebubbles: BlueBubblesConfigSchema.optional(),
     msteams: MSTeamsConfigSchema.optional(),
     retake: RetakeConfigSchema.optional(),
+    twitch: TwitchConnectorConfigSchema.optional(),
   })
   .passthrough() // Allow extension connector configs (nostr, matrix, zalo, etc.)
+  .optional();
+
+// --- Streaming destinations ---
+
+const StreamingSchema = z
+  .object({
+    activeDestination: z.string().optional(),
+    retake: RetakeConfigSchema.optional(),
+    twitch: TwitchStreamConfigSchema.optional(),
+    youtube: YoutubeStreamConfigSchema.optional(),
+    customRtmp: CustomRtmpConfigSchema.optional(),
+  })
+  .passthrough() // Allow extension streaming destination configs
   .optional();
 
 const BrowserSnapshotDefaultsSchema = z
@@ -529,6 +547,7 @@ export const MiladySchema = z
       .strict()
       .optional(),
     connectors: ConnectorsSchema,
+    streaming: StreamingSchema,
     /** @deprecated Use `connectors`. Kept for backward compatibility. */
     channels: ConnectorsSchema,
     discovery: z

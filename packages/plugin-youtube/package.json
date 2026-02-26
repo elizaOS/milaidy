@@ -1,0 +1,57 @@
+{
+  "name": "@milady/plugin-youtube-streaming",
+  "description": "YouTube RTMP streaming destination plugin for ElizaOS agents",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "packageType": "plugin",
+  "platform": "node",
+  "license": "MIT",
+  "keywords": ["elizaos", "elizaos-plugin", "youtube", "streaming", "rtmp"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/milady-ai/milady.git",
+    "directory": "packages/plugin-youtube"
+  },
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "bun": "./src/index.ts",
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
+  },
+  "files": [
+    "dist",
+    "package.json"
+  ],
+  "dependencies": {
+    "@elizaos/core": "next"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  },
+  "scripts": {
+    "build": "bun run build.ts",
+    "test": "bun test"
+  },
+  "agentConfig": {
+    "pluginType": "elizaos:plugin:1.0.0",
+    "pluginParameters": {
+      "YOUTUBE_STREAM_KEY": {
+        "type": "string",
+        "description": "YouTube stream key for RTMP ingest",
+        "required": true
+      },
+      "YOUTUBE_RTMP_URL": {
+        "type": "string",
+        "description": "YouTube RTMP ingest URL (default: rtmp://a.rtmp.youtube.com/live2)",
+        "required": false
+      }
+    }
+  }
+}

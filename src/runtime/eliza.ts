@@ -530,6 +530,8 @@ const OPTIONAL_PLUGIN_MAP: Readonly<Record<string, string>> = {
   piAi: PI_AI_PLUGIN_PACKAGE,
   x402: "@elizaos/plugin-x402",
   "coding-agent": "@elizaos/plugin-agent-orchestrator",
+  "twitch-streaming": "@milady/plugin-twitch-streaming",
+  "youtube-streaming": "@milady/plugin-youtube-streaming",
 };
 
 function looksLikePlugin(value: unknown): value is Plugin {
@@ -929,6 +931,8 @@ const WORKSPACE_PLUGIN_OVERRIDES = new Set<string>([
   // "@elizaos/plugin-trajectory-logger",
   // "@elizaos/plugin-plugin-manager",
   // "@elizaos/plugin-media-generation",
+  "@milady/plugin-twitch-streaming",
+  "@milady/plugin-youtube-streaming",
 ]);
 
 function getWorkspacePluginOverridePath(pluginName: string): string | null {
