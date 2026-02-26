@@ -31,10 +31,6 @@ import type {
   PTYService,
   SwarmEvent,
 } from "@elizaos/plugin-agent-orchestrator";
-import {
-  createCodingAgentRouteHandler,
-  getCoordinator,
-} from "@elizaos/plugin-agent-orchestrator";
 import { listPiAiModelOptions } from "@elizaos/plugin-pi-ai";
 import { type WebSocket, WebSocketServer } from "ws";
 import type { CloudManager } from "../cloud/cloud-manager";
@@ -5380,13 +5376,26 @@ async function routeAutonomyTextToUser(
 // ── Coding Agent Chat Bridge ──────────────────────────────────────────
 
 /**
+ * Get the SwarmCoordinator from the runtime services (if available).
+ * The coordinator is registered by @elizaos/plugin-agent-orchestrator.
+ */
+function getCoordinatorFromRuntime(
+  runtime: AgentRuntime,
+): { setChatCallback?: (cb: (text: string, source?: string) => Promise<void>) => void; setWsBroadcast?: (cb: (event: SwarmEvent) => void) => void } | null {
+  // Try to get coordinator from runtime services
+  const coordinator = runtime.getService("SWARM_COORDINATOR");
+  if (coordinator) return coordinator as ReturnType<typeof getCoordinatorFromRuntime>;
+  return null;
+}
+
+/**
  * Wire the SwarmCoordinator's chatCallback so coordinator messages
  * appear in the user's chat UI via the existing proactive-message flow.
  * Returns true if successfully wired.
  */
 function wireCodingAgentChatBridge(st: ServerState): boolean {
   if (!st.runtime) return false;
-  const coordinator = getCoordinator(st.runtime);
+  const coordinator = getCoordinatorFromRuntime(st.runtime);
   if (!coordinator?.setChatCallback) return false;
   coordinator.setChatCallback(async (text: string, source?: string) => {
     await routeAutonomyTextToUser(st, text, source ?? "coding-agent");
@@ -5401,7 +5410,7 @@ function wireCodingAgentChatBridge(st: ServerState): boolean {
  */
 function wireCodingAgentWsBridge(st: ServerState): boolean {
   if (!st.runtime) return false;
-  const coordinator = getCoordinator(st.runtime);
+  const coordinator = getCoordinatorFromRuntime(st.runtime);
   if (!coordinator?.setWsBroadcast) return false;
   coordinator.setWsBroadcast((event: SwarmEvent) => {
     // Preserve the coordinator's event type (task_registered, task_complete, etc.)
@@ -11168,11 +11177,23 @@ async function handleRequest(
       pathname.startsWith("/api/workspace") ||
       pathname.startsWith("/api/issues"))
   ) {
-    const coordinator = getCoordinator(state.runtime) as Parameters<
-      typeof createCodingAgentRouteHandler
-    >[1];
-    const handler = createCodingAgentRouteHandler(state.runtime, coordinator);
-    const handled = await handler(req, res, pathname);
+    // Try to dynamically load the route handler from the plugin
+    let handled = false;
+    try {
+      const orchestratorPlugin = await import(
+        "@elizaos/plugin-agent-orchestrator"
+      );
+      if (orchestratorPlugin.createCodingAgentRouteHandler) {
+        const coordinator = orchestratorPlugin.getCoordinator?.(state.runtime);
+        const handler = orchestratorPlugin.createCodingAgentRouteHandler(
+          state.runtime,
+          coordinator,
+        );
+        handled = await handler(req, res, pathname);
+      }
+    } catch {
+      // Plugin doesn't export these functions - skip routing
+    }
     if (handled) return;
   }
 
