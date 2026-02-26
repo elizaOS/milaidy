@@ -185,6 +185,13 @@ jobs:
         run: bun run build
         working-directory: apps/app/electron
 
+      # Transform dynamic plugin imports to static imports for Electron bundling.
+      # Dynamic imports like `import("@elizaos/plugin-sql")` cannot be bundled
+      # by tsdown/rolldown. This script transforms eliza.ts to use static imports.
+      - name: Transform plugins for Electron bundling
+        run: bun run scripts/transform-plugins-for-electron.ts
+        working-directory: .
+
       # Build a custom dist specifically for the Electron app where all third-party
       # npm dependencies are bundled inline (noExternal: true behavior via rolldown).
       # This prevents the packaged app from failing to resolve external imports
