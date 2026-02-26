@@ -14,7 +14,7 @@
     "milady-dist/**/*.js",
     "milady-dist/package.json"
   ],
-  "asarUnpack": ["milady-dist/**/*"],
+  "asarUnpack": ["milady-dist/**/*", "node_modules/**/*"],
   "publish": {
     "provider": "github",
     "owner": "miladybsc",
