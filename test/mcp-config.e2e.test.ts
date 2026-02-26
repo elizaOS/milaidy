@@ -461,7 +461,80 @@ describe("MCP reject-path: PUT validation", () => {
 });
 
 // ===========================================================================
-// 6. MCP runtime status
+// 6. MCP reject-path: deep prototype pollution & config inclusion
+// ===========================================================================
+
+describe("MCP reject-path: prototype pollution & config inclusion", () => {
+  it("rejects $include key in server config (400)", async () => {
+    const { status, data } = await req(port, "POST", "/api/mcp/config/server", {
+      name: "include-attack",
+      config: {
+        type: "stdio",
+        command: "npx",
+        args: ["-y", "@test/ok"],
+        $include: "/etc/passwd",
+      },
+    });
+    expect(status).toBe(400);
+    expect(typeof data.error).toBe("string");
+  });
+
+  it("rejects constructor as server name inside PUT servers map (400)", async () => {
+    const { status, data } = await req(port, "PUT", "/api/mcp/config", {
+      servers: {
+        constructor: {
+          type: "stdio",
+          command: "npx",
+          args: ["-y", "@test/ok"],
+        },
+      },
+    });
+    expect(status).toBe(400);
+    expect(typeof data.error).toBe("string");
+  });
+
+  it("rejects $include key nested in env object via POST (400)", async () => {
+    const { status, data } = await req(port, "POST", "/api/mcp/config/server", {
+      name: "env-include",
+      config: {
+        type: "stdio",
+        command: "npx",
+        args: ["-y", "@test/ok"],
+        env: { $include: "/etc/shadow" },
+      },
+    });
+    expect(status).toBe(400);
+    expect(typeof data.error).toBe("string");
+  });
+
+  it("handles URL-encoded server name in DELETE path", async () => {
+    const name = "server with spaces";
+    await req(port, "POST", "/api/mcp/config/server", {
+      name,
+      config: {
+        type: "stdio",
+        command: "npx",
+        args: ["-y", "@test/spaces"],
+      },
+    });
+
+    const { status, data } = await req(
+      port,
+      "DELETE",
+      `/api/mcp/config/server/${encodeURIComponent(name)}`,
+    );
+    expect(status).toBe(200);
+    expect(data.ok).toBe(true);
+
+    // Verify it was removed
+    const { data: configData } = await req(port, "GET", "/api/mcp/config");
+    const servers = configData.servers as Record<string, unknown>;
+    expect(servers[name]).toBeUndefined();
+  });
+});
+
+// ===========================================================================
+// 7. MCP runtime status
 // ===========================================================================
 
 describe("MCP runtime status", () => {
