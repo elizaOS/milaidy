@@ -18,10 +18,8 @@ import {
 /** Apps are only enabled in dev mode; production builds hide this feature. */
 export const APPS_ENABLED = import.meta.env.DEV;
 
-/** Stream tab — enable to show the retake.tv streaming view.
- *  Set VITE_STREAM_ENABLED=true in env to show the Stream tab. */
-export const STREAM_ENABLED =
-  import.meta.env?.VITE_STREAM_ENABLED === "true";
+/** Stream tab — only enabled in dev mode; production builds hide this feature. */
+export const STREAM_ENABLED = import.meta.env.DEV;
 
 export type Tab =
   | "chat"
