@@ -18,6 +18,7 @@ import {
   type SessionMessage,
   ShellAdapter,
   type StallClassification,
+  type ToolRunningInfo,
   type WorkerSessionHandle,
 } from "pty-manager";
 import { captureTaskResponse } from "./ansi-utils.js";
@@ -157,6 +158,16 @@ export async function initializePTYManager(
       ctx.emitEvent(session.id, "task_complete", { session, response });
     });
 
+    bunManager.on(
+      "tool_running",
+      (session: WorkerSessionHandle, info: ToolRunningInfo) => {
+        ctx.log(
+          `tool_running for ${session.id}: ${info.toolName}${info.description ? ` — ${info.description}` : ""}`,
+        );
+        ctx.emitEvent(session.id, "tool_running", { session, ...info });
+      },
+    );
+
     bunManager.on("message", (message: SessionMessage) => {
       ctx.emitEvent(message.sessionId, "message", message);
     });
@@ -276,6 +287,16 @@ export async function initializePTYManager(
     );
     ctx.emitEvent(session.id, "task_complete", { session, response });
   });
+
+  nodeManager.on(
+    "tool_running",
+    (session: SessionHandle, info: ToolRunningInfo) => {
+      ctx.log(
+        `tool_running for ${session.id}: ${info.toolName}${info.description ? ` — ${info.description}` : ""}`,
+      );
+      ctx.emitEvent(session.id, "tool_running", { session, ...info });
+    },
+  );
 
   nodeManager.on(
     "session_stopped",

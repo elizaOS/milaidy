@@ -4940,6 +4940,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
                 : s,
             ),
           );
+        } else if (eventType === "tool_running") {
+          const d = data.data as Record<string, unknown> | undefined;
+          const toolDesc =
+            (d?.description as string) ??
+            (d?.toolName as string) ??
+            "external tool";
+          setPtySessions((prev) =>
+            prev.map((s) =>
+              s.sessionId === sessionId
+                ? {
+                    ...s,
+                    status: "tool_running" as const,
+                    toolDescription: toolDesc,
+                  }
+                : s,
+            ),
+          );
         } else if (
           eventType === "coordination_decision" ||
           eventType === "blocked_auto_resolved" ||
@@ -4948,7 +4965,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
           setPtySessions((prev) =>
             prev.map((s) =>
               s.sessionId === sessionId
-                ? { ...s, status: "active" as const }
+                ? {
+                    ...s,
+                    status: "active" as const,
+                    toolDescription: undefined,
+                  }
                 : s,
             ),
           );

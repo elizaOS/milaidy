@@ -140,6 +140,26 @@ export function extractCompletionSummary(raw: string): string {
 }
 
 /**
+ * Extract a dev server URL from recent terminal output, if present.
+ *
+ * Looks for common patterns like:
+ *   - http://localhost:3000
+ *   - http://127.0.0.1:8080
+ *   - http://0.0.0.0:5173
+ *   - https://localhost:4200
+ *
+ * Returns the first match, or null if no dev server URL is found.
+ */
+export function extractDevServerUrl(raw: string): string | null {
+  const stripped = applyAnsiStrip(raw);
+  // Match local dev server URLs with a port number
+  const match = stripped.match(
+    /https?:\/\/(?:localhost|127\.0\.0\.1|0\.0\.0\.0):\d{1,5}[^\s)}\]'"`,]*/,
+  );
+  return match ? match[0] : null;
+}
+
+/**
  * Capture the agent's output since the last task was sent, cleaned for chat display.
  * Returns readable text with TUI noise removed, or empty string if no marker exists.
  *

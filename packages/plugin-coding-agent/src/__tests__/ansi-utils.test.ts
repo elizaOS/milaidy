@@ -4,9 +4,8 @@
 
 import { describe, expect, it } from "bun:test";
 
-const { captureTaskResponse, cleanForChat, stripAnsi } = await import(
-  "../services/ansi-utils.js"
-);
+const { captureTaskResponse, cleanForChat, extractDevServerUrl, stripAnsi } =
+  await import("../services/ansi-utils.js");
 
 describe("stripAnsi", () => {
   it("should replace cursor movement codes with spaces", () => {
@@ -137,5 +136,51 @@ describe("captureTaskResponse", () => {
     const markers = new Map([["s1", 1]]);
 
     expect(captureTaskResponse("s1", buffers, markers)).toBe("");
+  });
+});
+
+describe("extractDevServerUrl", () => {
+  it("extracts http://localhost with port", () => {
+    expect(extractDevServerUrl("Server running at http://localhost:3000")).toBe(
+      "http://localhost:3000",
+    );
+  });
+
+  it("extracts https://localhost with port", () => {
+    expect(extractDevServerUrl("  https://localhost:4200/")).toBe(
+      "https://localhost:4200/",
+    );
+  });
+
+  it("extracts 127.0.0.1 URLs", () => {
+    expect(extractDevServerUrl("Listening on http://127.0.0.1:8080")).toBe(
+      "http://127.0.0.1:8080",
+    );
+  });
+
+  it("extracts 0.0.0.0 URLs", () => {
+    expect(extractDevServerUrl("Local: http://0.0.0.0:5173/app")).toBe(
+      "http://0.0.0.0:5173/app",
+    );
+  });
+
+  it("returns null when no dev server URL is present", () => {
+    expect(extractDevServerUrl("Just some terminal output")).toBeNull();
+  });
+
+  it("returns null for non-local URLs", () => {
+    expect(extractDevServerUrl("Visit https://example.com:3000")).toBeNull();
+  });
+
+  it("handles ANSI codes in output", () => {
+    expect(extractDevServerUrl("\x1b[32m  http://localhost:3000\x1b[0m")).toBe(
+      "http://localhost:3000",
+    );
+  });
+
+  it("extracts the first URL when multiple are present", () => {
+    const input =
+      "Local: http://localhost:3000\nNetwork: http://192.168.1.5:3000";
+    expect(extractDevServerUrl(input)).toBe("http://localhost:3000");
   });
 });
