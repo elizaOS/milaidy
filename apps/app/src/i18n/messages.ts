@@ -84,6 +84,17 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "chat.modal.participants": "Conversations: {{count}}",
     "chat.modal.emptyConversation": "No active conversation",
     "chat.modal.agentMode": "Agent Mode",
+    "chat.modal.responseMode": "Conversation Mode",
+    "chat.modal.responseModeSimple": "Conversational",
+    "chat.modal.responseModePower": "Powerful",
+    "chat.modal.responseModeHintSimple":
+      "Tools/actions are blocked in Conversational mode.",
+    "chat.modal.responseModeHintPower":
+      "Tools/actions are enabled in Powerful mode.",
+    "chat.modal.responseModeAutoPower":
+      "Switched to Powerful mode for tool access.",
+    "chat.modal.tradeModeHint":
+      "Agent auto only enables local-key execution. In Pure Privy or user-sign flows, explicit signature is still required.",
     "chat.modal.modeUnknown": "Unknown",
     "chat.modal.providerDetecting": "Detecting...",
     "chat.modal.aiProvider": "AI Provider",
@@ -1231,6 +1242,14 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "chat.modal.participants": "会话数：{{count}}",
     "chat.modal.emptyConversation": "暂无会话",
     "chat.modal.agentMode": "Agent 模式",
+    "chat.modal.responseMode": "对话模式",
+    "chat.modal.responseModeSimple": "对话",
+    "chat.modal.responseModePower": "强力",
+    "chat.modal.responseModeHintSimple": "对话模式下会禁用工具/动作执行。",
+    "chat.modal.responseModeHintPower": "强力模式下可使用工具/动作。",
+    "chat.modal.responseModeAutoPower": "已自动切换到强力模式以启用工具访问。",
+    "chat.modal.tradeModeHint":
+      "Agent 自动仅放开本地私钥执行；在 Pure Privy 或用户签名流程下，仍需你手动签名。",
     "chat.modal.modeUnknown": "未知",
     "chat.modal.providerDetecting": "检测中...",
     "chat.modal.aiProvider": "AI 提供商",

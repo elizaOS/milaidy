@@ -81,8 +81,12 @@ function isNonChatModelLabel(model: string | undefined): boolean {
   const value = (model ?? "").trim().toLowerCase();
   if (!value) return false;
   if (value === "text_embedding") return true;
+  if (value === "text_large") return true;
+  if (value === "text_small") return true;
   if (value.includes("text_embedding")) return true;
   if (value.includes("embedding")) return true;
+  if (value.includes("text_large") || value.includes("text_small")) return true;
+  if (/^text_[a-z0-9_]+$/.test(value)) return true;
   return false;
 }
 
@@ -239,7 +243,10 @@ export function ConversationsSidebar({ variant = "default" }: ConversationsSideb
   const observedModelLabel = isNonChatModelLabel(observedModelLabelRaw)
     ? ""
     : observedModelLabelRaw;
-  const configuredModelLabel = (runtimeModel || statusModelLabel).trim();
+  const configuredModelRaw = (runtimeModel || statusModelLabel).trim();
+  const configuredModelLabel = isNonChatModelLabel(configuredModelRaw)
+    ? ""
+    : configuredModelRaw;
   const modelLabel = (observedModelLabel || configuredModelLabel).trim();
   const providerLabel = modelLabel
     ? resolveProviderLabel(modelLabel)
@@ -386,7 +393,7 @@ export function ConversationsSidebar({ variant = "default" }: ConversationsSideb
           <div className="chat-game-sidebar-footer-label">{t("chat.modal.aiProvider")}</div>
           <div className="chat-game-sidebar-footer-value">{providerLabel}</div>
           <div className="chat-game-sidebar-footer-model" title={modelLabel || undefined}>
-            {observedModelLabel || t("chat.modal.providerUnknown")}
+            {modelLabel || t("chat.modal.providerUnknown")}
           </div>
           <div className="chat-game-sidebar-usage">
             <div className="chat-game-sidebar-footer-label">{t("chat.modal.tokenUsage")}</div>

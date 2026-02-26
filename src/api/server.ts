@@ -2130,6 +2130,19 @@ function isEmbeddingLikeModelLabel(model: string): boolean {
   return false;
 }
 
+function isInternalModelTypeAlias(model: string): boolean {
+  const lower = model.trim().toLowerCase();
+  if (!lower) return false;
+  if (lower === "text_large" || lower === "text_small" || lower === "text_embedding") {
+    return true;
+  }
+  if (lower.includes("text_large") || lower.includes("text_small")) {
+    return true;
+  }
+  if (/^text_[a-z0-9_]+$/.test(lower)) return true;
+  return false;
+}
+
 function isEmbeddingLikeTrajectoryCall(row: Record<string, unknown>): boolean {
   const model = readStringField(row, "model");
   if (model && isEmbeddingLikeModelLabel(model)) return true;
@@ -2161,7 +2174,12 @@ function summarizeChatTokenUsageFromTrajectory(
 
     const row = entry as Record<string, unknown>;
     const rawModel = readStringField(row, "model");
-    if (!fallbackModel && rawModel) {
+    const rawModelDisplayable = Boolean(
+      rawModel &&
+      !isEmbeddingLikeModelLabel(rawModel) &&
+      !isInternalModelTypeAlias(rawModel),
+    );
+    if (!fallbackModel && rawModelDisplayable && rawModel) {
       fallbackModel = rawModel;
     }
     if (isEmbeddingLikeTrajectoryCall(row)) {
@@ -2184,8 +2202,8 @@ function summarizeChatTokenUsageFromTrajectory(
       "output",
     ]);
 
-    if (rawModel) {
-      // Prefer the latest non-embedding model observed in this chat step.
+    if (rawModelDisplayable && rawModel) {
+      // Prefer the latest displayable non-embedding model observed in this step.
       model = rawModel;
     }
   }
@@ -4703,6 +4721,9 @@ function sanitizeAgentModelLabel(value: unknown): string | undefined {
     lower === "na" ||
     lower === "none"
   ) {
+    return undefined;
+  }
+  if (isInternalModelTypeAlias(trimmed)) {
     return undefined;
   }
   return trimmed;
