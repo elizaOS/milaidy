@@ -539,3 +539,49 @@ describe("observability boundary coverage", () => {
     expect(event.errorKind).toBe("http_error");
   });
 });
+
+// ── Call-site coverage enforcement ────────────────────────────────────
+// Every source file that imports createIntegrationTelemetrySpan must have
+// a matching *.observability.test.ts file. Prevents adding new boundaries
+// without tests.
+
+describe("observability call-site coverage", () => {
+  it("every source file using createIntegrationTelemetrySpan has a test file", async () => {
+    const fs = await import("node:fs/promises");
+    const path = await import("node:path");
+
+    const srcDir = path.resolve(__dirname, "..");
+    const { execSync } = await import("node:child_process");
+
+    // Find all source files (non-test) importing the span factory
+    const grepResult = execSync(
+      "grep -rl 'createIntegrationTelemetrySpan' src/ --include='*.ts' || true",
+      { cwd: path.resolve(srcDir, ".."), encoding: "utf-8" },
+    );
+
+    const sourceFiles = grepResult
+      .split("\n")
+      .map((f) => f.trim())
+      .filter(
+        (f) =>
+          f &&
+          !f.includes(".test.ts") &&
+          f !== "src/diagnostics/integration-observability.ts",
+      );
+
+    expect(sourceFiles.length).toBeGreaterThan(0);
+
+    const missing: string[] = [];
+    for (const srcFile of sourceFiles) {
+      const testFile = srcFile.replace(/\.ts$/, ".observability.test.ts");
+      const testPath = path.resolve(srcDir, "..", testFile);
+      try {
+        await fs.access(testPath);
+      } catch {
+        missing.push(`${srcFile} → missing ${testFile}`);
+      }
+    }
+
+    expect(missing).toEqual([]);
+  });
+});
