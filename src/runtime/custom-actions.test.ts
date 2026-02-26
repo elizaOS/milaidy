@@ -6,7 +6,10 @@ vi.mock("node:dns/promises", () => ({
 }));
 
 import { lookup as dnsLookup } from "node:dns/promises";
-import { buildTestHandler } from "./custom-actions";
+import {
+  __setPinnedFetchImplForTests,
+  buildTestHandler,
+} from "./custom-actions";
 
 function makeHttpAction(url: string): CustomActionDef {
   return {
@@ -62,10 +65,14 @@ function makeShellAction(command: string): CustomActionDef {
 
 describe("custom action SSRF guard", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
+    __setPinnedFetchImplForTests(({ url, init }) => {
+      return fetch(url.toString(), init);
+    });
   });
 
   afterEach(() => {
+    __setPinnedFetchImplForTests(null);
     vi.restoreAllMocks();
   });
 
@@ -146,6 +153,31 @@ describe("custom action SSRF guard", () => {
     expect(fetchSpy).toHaveBeenCalledTimes(1);
   });
 
+  it("pins HTTP handler fetches to the validated DNS address", async () => {
+    vi.mocked(dnsLookup).mockResolvedValue([
+      { address: "93.184.216.34", family: 4 },
+    ]);
+    const transportSpy = vi.fn(async () => {
+      return new Response("ok", { status: 200 });
+    });
+    __setPinnedFetchImplForTests(transportSpy);
+
+    const handler = buildTestHandler(
+      makeHttpAction("https://example.com/pinned"),
+    );
+    const result = await handler({});
+
+    expect(result.ok).toBe(true);
+    expect(transportSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        target: expect.objectContaining({
+          hostname: "example.com",
+          pinnedAddress: "93.184.216.34",
+        }),
+      }),
+    );
+  });
+
   it("blocks redirect responses and uses manual redirect mode", async () => {
     vi.mocked(dnsLookup).mockResolvedValue([
       { address: "93.184.216.34", family: 4 },
@@ -204,6 +236,36 @@ describe("custom action SSRF guard", () => {
     expect(fetchSpy).toHaveBeenCalledWith(
       "https://example.com/data",
       expect.objectContaining({ redirect: "manual" }),
+    );
+  });
+
+  it("pins code-handler fetches during DNS rebinding attempts", async () => {
+    vi.mocked(dnsLookup)
+      .mockResolvedValueOnce([{ address: "93.184.216.34", family: 4 }])
+      .mockResolvedValueOnce([{ address: "127.0.0.1", family: 4 }]);
+    const transportSpy = vi.fn(async () => {
+      return new Response("ok", { status: 200 });
+    });
+    __setPinnedFetchImplForTests(transportSpy);
+
+    const handler = buildTestHandler(
+      makeCodeAction(`
+        const response = await fetch("https://example.com/code");
+        return await response.text();
+      `),
+    );
+
+    const result = await handler({});
+    expect(result.ok).toBe(true);
+    expect(result.output).toBe("ok");
+    expect(vi.mocked(dnsLookup)).toHaveBeenCalledTimes(1);
+    expect(transportSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        target: expect.objectContaining({
+          hostname: "example.com",
+          pinnedAddress: "93.184.216.34",
+        }),
+      }),
     );
   });
 

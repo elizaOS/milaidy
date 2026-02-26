@@ -8,7 +8,14 @@
  */
 
 import { lookup as dnsLookup } from "node:dns/promises";
+import {
+  type RequestOptions as HttpRequestOptions,
+  type IncomingMessage,
+  request as requestHttp,
+} from "node:http";
+import { request as requestHttps } from "node:https";
 import net from "node:net";
+import { Readable } from "node:stream";
 import type { Action, HandlerOptions, IAgentRuntime } from "@elizaos/core";
 import { loadMiladyConfig } from "../config/config";
 import type {
@@ -58,6 +65,23 @@ type VmRunner = {
 
 let vmRunner: VmRunner | null = null;
 
+const CUSTOM_ACTION_FETCH_TIMEOUT_MS = 15_000;
+
+type ResolvedUrlTarget = {
+  parsed: URL;
+  hostname: string;
+  pinnedAddress: string;
+};
+
+type PinnedFetchInput = {
+  url: URL;
+  init: RequestInit;
+  target: ResolvedUrlTarget;
+  timeoutMs: number;
+};
+
+type PinnedFetchImpl = (input: PinnedFetchInput) => Promise<Response>;
+
 function resolveFetchInputUrl(input: RequestInfo | URL): string | null {
   if (typeof input === "string") return input;
   if (input instanceof URL) return input.toString();
@@ -72,13 +96,27 @@ async function safeCodeFetch(
   init?: RequestInit,
 ): Promise<Response> {
   const url = resolveFetchInputUrl(input);
-  if (!url || (await isBlockedUrl(url))) {
+  if (!url) {
     throw new Error(
       "Blocked: cannot make requests to internal network addresses",
     );
   }
 
-  const response = await fetch(input, { ...init, redirect: "manual" });
+  const safety = await resolveUrlSafety(url);
+  if (safety.blocked) {
+    throw new Error(
+      "Blocked: cannot make requests to internal network addresses",
+    );
+  }
+
+  const requestInit = await buildPinnedFetchInit(input, init);
+  const response = safety.target
+    ? await fetchWithPinnedTarget(
+        safety.target,
+        requestInit,
+        CUSTOM_ACTION_FETCH_TIMEOUT_MS,
+      )
+    : await fetch(input, requestInit);
   if (response.status >= 300 && response.status < 400) {
     throw new Error(
       "Blocked: redirects are not allowed for code custom actions",
@@ -148,15 +186,145 @@ function isBlockedIp(ip: string): boolean {
   return isBlockedPrivateOrLinkLocalIp(ip);
 }
 
-/**
- * Check whether a URL targets a private/internal network (SSRF guard).
- * Blocks loopback, link-local, and RFC-1918 ranges except our own API.
- * Resolves hostnames to concrete IPs to prevent DNS-alias bypasses.
- */
-async function isBlockedUrl(url: string): Promise<boolean> {
+function toRequestHeaders(headers: Headers): Record<string, string> {
+  const normalized: Record<string, string> = {};
+  headers.forEach((value, key) => {
+    normalized[key] = value;
+  });
+  return normalized;
+}
+
+async function toRequestBodyBuffer(
+  body: BodyInit | null | undefined,
+): Promise<Buffer | null> {
+  if (body === null || body === undefined) return null;
+  if (typeof body === "string") return Buffer.from(body);
+  if (body instanceof URLSearchParams) return Buffer.from(body.toString());
+  if (body instanceof Blob) return Buffer.from(await body.arrayBuffer());
+  if (body instanceof ArrayBuffer) return Buffer.from(body);
+  if (ArrayBuffer.isView(body)) {
+    return Buffer.from(body.buffer, body.byteOffset, body.byteLength);
+  }
+  throw new Error("Unsupported request body type for custom action fetch");
+}
+
+function responseFromIncomingMessage(response: IncomingMessage): Response {
+  const headers = new Headers();
+  for (const [key, value] of Object.entries(response.headers)) {
+    if (Array.isArray(value)) {
+      for (const item of value) headers.append(key, item);
+    } else if (typeof value === "string") {
+      headers.set(key, value);
+    }
+  }
+
+  const status = response.statusCode ?? 500;
+  const body =
+    status === 204 || status === 205 || status === 304
+      ? null
+      : (Readable.toWeb(response) as ReadableStream<Uint8Array>);
+
+  return new Response(body, {
+    status,
+    statusText: response.statusMessage,
+    headers,
+  });
+}
+
+async function requestWithPinnedAddress(
+  input: PinnedFetchInput,
+): Promise<Response> {
+  const { url, init, target, timeoutMs } = input;
+  const method = (init.method ?? "GET").toUpperCase();
+  const headers = new Headers(init.headers);
+  const bodyBuffer = await toRequestBodyBuffer(
+    init.body as BodyInit | undefined,
+  );
+  if (bodyBuffer && !headers.has("content-length")) {
+    headers.set("content-length", String(bodyBuffer.byteLength));
+  }
+
+  const requestFn = url.protocol === "https:" ? requestHttps : requestHttp;
+  const family = net.isIP(target.pinnedAddress) === 6 ? 6 : 4;
+
+  return await new Promise<Response>((resolve, reject) => {
+    let settled = false;
+    const signal = init.signal;
+    let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+
+    const settle = (callback: () => void) => {
+      if (settled) return;
+      settled = true;
+      if (timeoutHandle !== null) clearTimeout(timeoutHandle);
+      signal?.removeEventListener("abort", onAbort);
+      callback();
+    };
+
+    const onAbort = () => {
+      request.destroy(new DOMException("Aborted", "AbortError"));
+    };
+
+    const requestOptions: HttpRequestOptions = {
+      protocol: url.protocol,
+      hostname: target.hostname,
+      port: url.port ? Number(url.port) : undefined,
+      method,
+      path: `${url.pathname}${url.search}`,
+      headers: toRequestHeaders(headers),
+      lookup: (_hostname, _options, callback) => {
+        callback(null, target.pinnedAddress, family);
+      },
+      ...(url.protocol === "https:"
+        ? { servername: target.hostname }
+        : undefined),
+    };
+
+    const request = requestFn(requestOptions, (response) => {
+      settle(() => resolve(responseFromIncomingMessage(response)));
+    });
+
+    request.on("error", (error) => {
+      settle(() => reject(error));
+    });
+
+    if (signal) {
+      if (signal.aborted) {
+        onAbort();
+      } else {
+        signal.addEventListener("abort", onAbort, { once: true });
+      }
+    }
+
+    timeoutHandle = setTimeout(() => {
+      request.destroy(
+        new Error(`Custom action request timed out after ${timeoutMs}ms`),
+      );
+    }, timeoutMs);
+
+    if (bodyBuffer) {
+      request.write(bodyBuffer);
+    }
+    request.end();
+  });
+}
+
+let pinnedFetchImpl: PinnedFetchImpl = requestWithPinnedAddress;
+
+// Test hook for deterministic network simulation without sockets.
+export function __setPinnedFetchImplForTests(
+  impl: PinnedFetchImpl | null,
+): void {
+  pinnedFetchImpl = impl ?? requestWithPinnedAddress;
+}
+
+async function resolveUrlSafety(url: string): Promise<{
+  blocked: boolean;
+  target: ResolvedUrlTarget | null;
+}> {
   try {
     const parsed = new URL(url);
     const hostname = normalizeHostLike(parsed.hostname);
+    if (!hostname) return { blocked: true, target: null };
 
     // Allow requests to our own API (terminal/run endpoint etc.)
     if (
@@ -165,7 +333,7 @@ async function isBlockedUrl(url: string): Promise<boolean> {
         hostname === "::1") &&
       parsed.port === String(API_PORT)
     ) {
-      return false;
+      return { blocked: false, target: null };
     }
 
     // Block common internal targets
@@ -179,12 +347,20 @@ async function isBlockedUrl(url: string): Promise<boolean> {
       hostname === "metadata.google.internal" ||
       hostname === "169.254.169.254"
     ) {
-      return true;
+      return { blocked: true, target: null };
     }
 
     // Direct IP literals can be checked immediately.
     if (net.isIP(hostname)) {
-      return isBlockedIp(hostname);
+      if (isBlockedIp(hostname)) return { blocked: true, target: null };
+      return {
+        blocked: false,
+        target: {
+          parsed,
+          hostname,
+          pinnedAddress: hostname,
+        },
+      };
     }
 
     // Resolve hostnames to catch aliases (e.g. nip.io) pointing at blocked IPs.
@@ -192,15 +368,78 @@ async function isBlockedUrl(url: string): Promise<boolean> {
     const addresses = Array.isArray(records) ? records : [records];
     for (const entry of addresses) {
       if (isBlockedIp(entry.address)) {
-        return true;
+        return { blocked: true, target: null };
       }
     }
 
-    return false;
+    return {
+      blocked: false,
+      target: {
+        parsed,
+        hostname,
+        pinnedAddress: addresses[0]?.address ?? "",
+      },
+    };
   } catch {
     // Malformed URL or failed resolution — block it
-    return true;
+    return { blocked: true, target: null };
   }
+}
+
+async function buildPinnedFetchInit(
+  input: RequestInfo | URL,
+  init?: RequestInit,
+): Promise<RequestInit> {
+  if (typeof Request !== "undefined" && input instanceof Request) {
+    const headers = new Headers(input.headers);
+    if (init?.headers) {
+      const overrideHeaders = new Headers(init.headers);
+      overrideHeaders.forEach((value, key) => {
+        headers.set(key, value);
+      });
+    }
+
+    const method = init?.method ?? input.method;
+    const bodyFromInit = init?.body;
+    const bodyFromRequest =
+      bodyFromInit !== undefined
+        ? undefined
+        : method === "GET" || method === "HEAD"
+          ? undefined
+          : await input.clone().arrayBuffer();
+
+    return {
+      ...init,
+      method,
+      headers,
+      body: bodyFromInit ?? bodyFromRequest,
+      signal: init?.signal ?? input.signal,
+      redirect: "manual",
+    };
+  }
+
+  return {
+    ...init,
+    redirect: "manual",
+  };
+}
+
+async function fetchWithPinnedTarget(
+  target: ResolvedUrlTarget,
+  init: RequestInit,
+  timeoutMs: number,
+): Promise<Response> {
+  if (!target.pinnedAddress) {
+    throw new Error(
+      "Blocked: cannot make requests to internal network addresses",
+    );
+  }
+  return pinnedFetchImpl({
+    url: target.parsed,
+    init,
+    target,
+    timeoutMs,
+  });
 }
 
 /**
@@ -235,7 +474,8 @@ function buildHandler(
         }
 
         // SSRF guard — block requests to internal/private networks
-        if (await isBlockedUrl(url)) {
+        const safety = await resolveUrlSafety(url);
+        if (safety.blocked) {
           return {
             ok: false,
             output:
@@ -256,7 +496,13 @@ function buildHandler(
           fetchOpts.body = body;
         }
 
-        const response = await fetch(url, fetchOpts);
+        const response = safety.target
+          ? await fetchWithPinnedTarget(
+              safety.target,
+              fetchOpts,
+              CUSTOM_ACTION_FETCH_TIMEOUT_MS,
+            )
+          : await fetch(url, fetchOpts);
         if (response.status >= 300 && response.status < 400) {
           return {
             ok: false,
