@@ -279,7 +279,7 @@ jobs:
           # Copy plugin transitive dependencies from root node_modules to milady-dist/node_modules
           # These are runtime deps needed by @elizaos plugins; use -e to follow symlinks
           echo "Copying plugin dependencies..."
-          for dep in uuid ai mammoth pdfjs-dist face-api.js; do
+          for dep in uuid ai mammoth pdfjs-dist face-api.js croner tesseract.js unpdf; do
             if [ -e "node_modules/$dep" ]; then
               cp -rL "node_modules/$dep" "apps/app/electron/milady-dist/node_modules/$dep"
               echo "  Copied $dep"
@@ -289,7 +289,7 @@ jobs:
           done
 
           # Handle scoped packages separately
-          for scope_pkg in "@huggingface/transformers" "@anthropic-ai/claude-agent-sdk"; do
+          for scope_pkg in "@huggingface/transformers" "@anthropic-ai/claude-agent-sdk" "@electric-sql/pglite" "@ai-sdk/gateway"; do
             scope=$(echo "$scope_pkg" | cut -d'/' -f1)
             pkg=$(echo "$scope_pkg" | cut -d'/' -f2)
             if [ -e "node_modules/$scope/$pkg" ]; then
