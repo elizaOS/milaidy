@@ -472,23 +472,56 @@ Arbitrary configuration object — varies by marketplace backend.
 
 ### Setup Checklist
 
-1. Confirm skills directory is readable and writable by the runtime.
-2. Confirm marketplace registry/network access is available.
-3. Confirm plugin installer prerequisites (`npm`/`pnpm`/`bun`) are present in runtime PATH.
+1. Confirm skills directory (`~/.milady/workspace/skills/`) is readable and writable by the runtime.
+2. Confirm marketplace registry/network access is available (default: `https://clawhub.ai`). Check `SKILLS_REGISTRY`, `CLAWHUB_REGISTRY`, or `SKILLS_MARKETPLACE_URL` environment variables.
+3. Confirm plugin installer prerequisites (`npm`/`pnpm`/`bun` and `git`) are present in runtime PATH.
+4. For legacy SkillsMP marketplace, set `SKILLSMP_API_KEY` in the environment.
+5. Verify the catalog file exists at one of the expected paths (bundled with `@elizaos/plugin-agent-skills`).
 
 ### Failure Modes
 
+**Search and catalog:**
+
 - Search returns empty unexpectedly:
-  Check query input, upstream registry availability, and rate limiting.
-- Install fails:
-  Check package name/version validity, installer permissions, and network.
+  Check query input, upstream registry availability, and rate limiting. Fuzzy matching uses slug, name, summary, and tags — try broader search terms.
+- Catalog cache is stale:
+  The in-memory cache expires after 10 minutes. Force-refresh with `POST /api/skills/catalog/refresh` or restart the agent.
+
+**Install and uninstall:**
+
+- Install fails with network error:
+  Check package name/version validity, installer permissions, and network. The installer uses sparse checkout for git-based installs — confirm `git` is available.
+- Security scan blocks install (`blocked` status):
+  The scan detected binary files (`.exe`, `.dll`, `.so`), symlink escapes, or a missing `SKILL.md`. The skill directory is automatically deleted.
+- Install fails with "already installed":
+  A record for this skill ID already exists. Uninstall first with `POST /api/skills/marketplace/uninstall`, then retry.
 - Uninstall leaves stale state:
-  Refresh skills list and verify the package is removed from install records.
+  Refresh skills list and verify the package is removed from `marketplace-installs.json`.
+
+**Skill loading:**
+
+- Custom skill not appearing in `/api/skills`:
+  Confirm the skill directory contains a valid `SKILL.md` with name/description frontmatter. Run `POST /api/skills/refresh` to re-scan.
+- Skill loads but is disabled:
+  Check the enable/disable cascade: database preferences override config, `denyBundled` blocks unconditionally.
+
+### Recovery Procedures
+
+1. **Corrupted marketplace install:** Delete `~/.milady/workspace/skills/.marketplace/<skill-id>/` and remove its entry from `~/.milady/workspace/skills/.cache/marketplace-installs.json`, then re-install.
+2. **Catalog file missing:** Re-install or update `@elizaos/plugin-agent-skills` to restore the bundled catalog.
+3. **Skill override conflict:** If a workspace skill unexpectedly overrides a bundled skill, rename the workspace skill directory or move it to a different location.
 
 ### Verification Commands
 
 ```bash
-bunx vitest run src/services/plugin-installer.test.ts src/services/skill-marketplace.test.ts
+# Skill catalog and marketplace unit tests
+bunx vitest run src/services/plugin-installer.test.ts src/services/skill-marketplace.test.ts src/services/skill-catalog-client.test.ts
+
+# Skills marketplace API and services e2e
+bunx vitest run --config vitest.e2e.config.ts test/skills-marketplace-api.e2e.test.ts test/skills-marketplace-services.e2e.test.ts
+
+# API server e2e (includes skills routes)
 bunx vitest run --config vitest.e2e.config.ts test/api-server.e2e.test.ts
+
 bun run typecheck
 ```

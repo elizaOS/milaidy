@@ -562,6 +562,76 @@ The `dmPolicy` options are:
   WhatsApp Web sessions expire after extended inactivity. Re-pair by scanning a new QR code via `POST /api/whatsapp/pair`. The `whatsapp-pairing` service manages session state.
 - Messages not delivered:
   WhatsApp enforces strict anti-spam policies. If the number is flagged, messages are silently dropped. Confirm the business account is in good standing.
+- Multi-account auth directory issues:
+  Each WhatsApp account requires its own `authDir` (Baileys multi-file auth state). If multiple accounts share a directory, sessions corrupt each other.
+
+**Signal:**
+
+- Signal CLI not found:
+  The connector requires `signal-cli` in PATH or a `cliPath` configured. For HTTP mode, set `httpUrl` or `httpHost`/`httpPort` to point to a running signal-cli REST API.
+- Account registration fails:
+  Signal requires a verified phone number. Use `signal-cli register` or provide a pre-registered account number via `connectors.signal.account`.
+- Multi-account configuration:
+  Signal supports multiple accounts via the `accounts` map. Each account must have `account`, `httpUrl`, or `cliPath` set and must not be `enabled: false`.
+
+**Twitter:**
+
+- API key rejected:
+  Confirm `connectors.twitter.apiKey` is a valid Twitter/X API key. Free-tier keys have strict rate limits.
+- Tweet fetch failures:
+  The FxTwitter API (`api.fxtwitter.com`) is used for tweet verification. If rate-limited, verification requests fail silently.
+
+**BlueBubbles:**
+
+- Connection refused:
+  Requires `serverUrl` pointing to a running BlueBubbles server AND the server `password`. Confirm both are set under `connectors.bluebubbles`.
+- macOS-only:
+  BlueBubbles is a macOS iMessage bridge. It will not work on Linux or Windows.
+
+**iMessage (direct):**
+
+- CLI path not found:
+  Requires `cliPath` pointing to a valid iMessage CLI tool. macOS-only — Accessibility permissions are required.
+
+**Farcaster:**
+
+- API key invalid:
+  Confirm `connectors.farcaster.apiKey` is set. Farcaster hub access requires a valid API key.
+
+**Lens:**
+
+- API key invalid:
+  Confirm `connectors.lens.apiKey` is set and the Lens API is reachable.
+
+**MS Teams:**
+
+- Bot token rejected:
+  Teams bots require Azure AD registration. Confirm the bot token is valid and the app has the required permissions in the Azure portal.
+
+**Mattermost:**
+
+- Token authentication fails:
+  Confirm `connectors.mattermost.botToken` (env: `MATTERMOST_BOT_TOKEN`) is a valid personal access token or bot token. Check that the Mattermost server URL is configured.
+
+**Google Chat / Feishu:**
+
+- Token authentication fails:
+  Both require service account or bot tokens. Confirm the token is valid and has the required chat API scopes.
+
+**Matrix:**
+
+- Homeserver connection fails:
+  Confirm the Matrix homeserver URL is reachable and the access token under `connectors.matrix.token` is valid.
+
+**Nostr:**
+
+- Relay connection fails:
+  Nostr connectors communicate via relays. Confirm relay URLs are configured and reachable. API key authentication varies by relay.
+
+**Retake / Blooio:**
+
+- Authentication fails:
+  Retake uses `accessToken` or `enabled: true` for configuration detection. Blooio uses `apiKey`. Confirm credentials are set under the respective connector config.
 
 ### Recovery Procedures
 
