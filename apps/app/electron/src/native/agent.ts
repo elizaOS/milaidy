@@ -201,9 +201,18 @@ export class AgentManager {
       // In packaged mode we support both asar and non-asar layouts.
       const resolvePackagedDist = (): string => {
         const appPath = app.getAppPath();
+        // Prefer real filesystem locations under `app.asar.unpacked/` because
+        // Node's ESM loader cannot reliably load modules from ASAR paths.
+        // Note: unpacked files may still appear "present" under app.asar via
+        // Electron's path mapping, so order matters here.
         const candidates = [
+          path.join(process.resourcesPath, "app.asar.unpacked", "milady-dist"),
+          path.join(
+            appPath.replace("app.asar", "app.asar.unpacked"),
+            "milady-dist",
+          ),
+          path.join(process.resourcesPath, "app", "milady-dist"),
           path.join(appPath, "milady-dist"),
-          path.join(appPath.replace("app.asar", "app.asar.unpacked"), "milady-dist"),
           path.join(process.resourcesPath, "milady-dist"),
         ];
         const found = candidates.find((candidate) => fs.existsSync(candidate));
@@ -237,17 +246,33 @@ export class AgentManager {
       // find dependencies inside the ASAR's node_modules (e.g. json5). Add
       // the ASAR's node_modules to NODE_PATH so ESM imports can resolve them.
       if (app.isPackaged) {
-        const asarModules = path.join(app.getAppPath(), "node_modules");
-        const existing = process.env.NODE_PATH || "";
-        process.env.NODE_PATH = existing
-          ? `${asarModules}${path.delimiter}${existing}`
-          : asarModules;
-        // Force Node to re-read NODE_PATH
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        require("node:module").Module._initPaths();
-        diagnosticLog(
-          `[Agent] Added ASAR node_modules to NODE_PATH: ${asarModules}`,
+        const appPath = app.getAppPath();
+        const nodeModulesCandidates = [
+          path.join(process.resourcesPath, "app.asar.unpacked", "node_modules"),
+          path.join(
+            appPath.replace("app.asar", "app.asar.unpacked"),
+            "node_modules",
+          ),
+          path.join(process.resourcesPath, "app", "node_modules"),
+          path.join(appPath, "node_modules"),
+        ];
+        const resolvedNodeModules = nodeModulesCandidates.find((candidate) =>
+          fs.existsSync(candidate),
         );
+        if (resolvedNodeModules) {
+          const existing = process.env.NODE_PATH || "";
+          process.env.NODE_PATH = existing
+            ? `${resolvedNodeModules}${path.delimiter}${existing}`
+            : resolvedNodeModules;
+          // Force Node to re-read NODE_PATH
+          // eslint-disable-next-line @typescript-eslint/no-require-imports
+          require("node:module").Module._initPaths();
+          diagnosticLog(
+            `[Agent] Added node_modules to NODE_PATH: ${resolvedNodeModules}`,
+          );
+        } else {
+          diagnosticLog("[Agent] WARNING: could not locate packaged node_modules");
+        }
       }
 
       // 1. Start API server immediately so the UI can bootstrap while runtime starts.
@@ -433,19 +458,9 @@ export class AgentManager {
         err instanceof Error
           ? (err as Error).stack || err.message
           : String(err);
-      if (this.apiClose) {
-        try {
-          await this.apiClose();
-        } catch (closeErr) {
-          console.warn(
-            "[Agent] Failed to close API server after startup failure:",
-            closeErr instanceof Error ? closeErr.message : closeErr,
-          );
-        } finally {
-          this.apiClose = null;
-          this.status.port = null;
-        }
-      }
+      // IMPORTANT: Do NOT tear down the API server on runtime startup failure.
+      // Keeping HTTP alive allows the UI to surface error state and/or let the
+      // user fix config (e.g. missing plugins) and restart.
       if (
         this.runtime &&
         typeof (this.runtime as { stop?: () => Promise<void> }).stop ===
