@@ -47,6 +47,18 @@ export const TerminalPanel = forwardRef<TerminalPanelHandle>(
     const scrollRef = useRef<HTMLDivElement>(null);
     const lineIdRef = useRef(0);
     const prevLinesLength = useRef(0);
+    // Use refs to avoid stale closure in WebSocket handler
+    const minimizedRef = useRef(minimized);
+    const openRef = useRef(open);
+
+    // Keep refs in sync with state
+    useEffect(() => {
+      minimizedRef.current = minimized;
+    }, [minimized]);
+
+    useEffect(() => {
+      openRef.current = open;
+    }, [open]);
 
     const addLine = useCallback(
       (type: TerminalLine["type"], text: string) => {
@@ -56,12 +68,14 @@ export const TerminalPanel = forwardRef<TerminalPanelHandle>(
           const next = [...prev, { id, type, text }];
           return next.length > 500 ? next.slice(-500) : next;
         });
-        // Track unread lines when panel is minimized
-        if (minimized || !open) {
+        // Track unread lines when panel is minimized or closed
+        // Using refs to avoid dependency on state that would recreate this callback
+        if (minimizedRef.current || !openRef.current) {
           setUnreadCount((prev) => prev + 1);
         }
       },
-      [minimized, open],
+      // No dependencies - uses refs for current values
+      [],
     );
 
     // Auto-scroll to bottom on new lines
