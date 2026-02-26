@@ -407,7 +407,19 @@ function injectPopoutApiBase(): void {
   );
   const apiBase = params.get("apiBase");
   if (apiBase) {
-    window.__MILADY_API_BASE__ = apiBase;
+    // Validate apiBase is same-origin or localhost to prevent redirection attacks
+    try {
+      const parsed = new URL(apiBase);
+      const host = parsed.hostname;
+      if (host === "localhost" || host === "127.0.0.1" || host === window.location.hostname) {
+        window.__MILADY_API_BASE__ = apiBase;
+      } else {
+        console.warn("[Milady] Rejected non-local apiBase:", host);
+      }
+    } catch {
+      // Relative URL — safe to use
+      window.__MILADY_API_BASE__ = apiBase;
+    }
   }
 }
 

@@ -12154,7 +12154,16 @@ async function handleRequest(
   // ── POST /api/agent/event ──────────────────────────────────────────────
   // Push an event into the agent event stream (WebSocket + buffer).
   // Used by plugins (e.g. retake) to surface activity in the StreamView.
+  // Auth: protected by the isAuthorized(req) gate at L5631.
   if (method === "POST" && pathname === "/api/agent/event") {
+    const ALLOWED_STREAMS = new Set([
+      "chat",
+      "terminal",
+      "game",
+      "autonomy",
+      "retake",
+      "system",
+    ]);
     const body = await readJsonBody<{
       stream?: string;
       data?: Record<string, unknown>;
@@ -12162,6 +12171,10 @@ async function handleRequest(
     }>(req, res);
     if (!body || !body.stream) {
       error(res, "Missing 'stream' field");
+      return;
+    }
+    if (!ALLOWED_STREAMS.has(body.stream)) {
+      error(res, `Invalid stream: ${body.stream}. Allowed: ${[...ALLOWED_STREAMS].join(", ")}`, 400);
       return;
     }
     const envelope: StreamEventEnvelope = {
@@ -13378,9 +13391,6 @@ export async function startApiServer(opts?: {
           state.connectorRouteHandlers.push((req, res, pathname, method) =>
             handleRetakeRoute(req, res, pathname, method, retakeState),
           );
-          // Auto-start disabled — stream is started manually via POST /api/retake/live
-          // or the "Go Live" button in StreamView.
-          // initRetakeAutoStart(retakeState);
           addLog("info", "Retake connector routes registered", "system", [
             "system",
             "connectors",

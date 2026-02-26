@@ -1075,7 +1075,7 @@ export function useApp(): AppContextValue {
 
 export function AppProvider({ children }: { children: ReactNode }) {
   // --- Core state ---
-  const [tab, setTabRaw] = useState<Tab>("stream");
+  const [tab, setTabRaw] = useState<Tab>("chat");
   const [currentTheme, setCurrentTheme] = useState<ThemeName>(loadTheme);
   const [connected, setConnected] = useState(false);
   const [agentStatus, setAgentStatus] = useState<AgentStatus | null>(null);

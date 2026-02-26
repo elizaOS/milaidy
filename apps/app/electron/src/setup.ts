@@ -367,8 +367,9 @@ export class ElectronCapacitorApp {
         openExternal(details.url);
         return { action: "deny" };
       }
-      // Popout stream windows get always-on-top, PIP-friendly, frameless treatment
-      if (details.url.includes("popout")) {
+      // Popout stream windows get always-on-top, PIP-friendly, frameless treatment.
+      // Only match same-origin URLs (isAllowedUrl passed above) with ?popout param.
+      if (new URL(details.url).searchParams.has("popout")) {
         return {
           action: "allow",
           overrideBrowserWindowOptions: {
@@ -395,7 +396,7 @@ export class ElectronCapacitorApp {
     this.MainWindow.webContents.on(
       "did-create-window",
       (childWindow, { url }) => {
-        if (!url.includes("popout")) return;
+        if (!new URL(url).searchParams.has("popout")) return;
 
         console.log(
           "[Setup] Popout window created — configuring PIP + capture target",

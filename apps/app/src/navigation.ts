@@ -15,8 +15,8 @@ import {
   Wallet,
 } from "lucide-react";
 
-/** Apps tab — always enabled when running from source. */
-export const APPS_ENABLED = true;
+/** Apps are only enabled in dev mode; production builds hide this feature. */
+export const APPS_ENABLED = import.meta.env.DEV;
 
 /** Stream tab — enable to show the retake.tv streaming view.
  *  Set VITE_STREAM_ENABLED=true in env to show the Stream tab. */
