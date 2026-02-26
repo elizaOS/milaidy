@@ -28,7 +28,7 @@ import {
   type UUID,
 } from "@elizaos/core";
 import { listPiAiModelOptions } from "@elizaos/plugin-pi-ai";
-import type { PTYService } from "@milaidy/plugin-coding-agent";
+import type { PTYService, SwarmEvent } from "@milaidy/plugin-coding-agent";
 import {
   createCodingAgentRouteHandler,
   getCoordinator,
@@ -5400,7 +5400,7 @@ function wireCodingAgentWsBridge(st: ServerState): boolean {
   if (!st.runtime) return false;
   const coordinator = getCoordinator(st.runtime);
   if (!coordinator?.setWsBroadcast) return false;
-  coordinator.setWsBroadcast((event: Record<string, unknown>) => {
+  coordinator.setWsBroadcast((event: SwarmEvent) => {
     // Preserve the coordinator's event type (task_registered, task_complete, etc.)
     // as `eventType` so it doesn't overwrite the WS message dispatch type.
     const { type: eventType, ...rest } = event;
