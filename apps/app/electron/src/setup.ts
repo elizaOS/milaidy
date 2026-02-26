@@ -12,6 +12,7 @@ import {
   app,
   BrowserWindow,
   clipboard,
+  ipcMain,
   Menu,
   MenuItem,
   nativeImage,
@@ -402,6 +403,38 @@ export class ElectronCapacitorApp {
       }
     };
 
+    ipcMain.removeHandler("lifo:setPip");
+    ipcMain.removeHandler("lifo:getPipState");
+
+    ipcMain.handle(
+      "lifo:setPip",
+      (event, options?: { flag?: boolean; level?: string }) => {
+        const senderWindow = BrowserWindow.fromWebContents(event.sender);
+        if (!senderWindow || senderWindow.isDestroyed()) {
+          return { enabled: false };
+        }
+
+        const enabled = options?.flag === true;
+        const level = options?.level ?? "floating";
+        senderWindow.setAlwaysOnTop(
+          enabled,
+          level as Parameters<BrowserWindow["setAlwaysOnTop"]>[1],
+        );
+        senderWindow.setVisibleOnAllWorkspaces(enabled, {
+          visibleOnFullScreen: enabled,
+        });
+        return { enabled };
+      },
+    );
+
+    ipcMain.handle("lifo:getPipState", (event) => {
+      const senderWindow = BrowserWindow.fromWebContents(event.sender);
+      if (!senderWindow || senderWindow.isDestroyed()) {
+        return { enabled: false };
+      }
+      return { enabled: senderWindow.isAlwaysOnTop() };
+    });
+
     this.MainWindow.webContents.setWindowOpenHandler((details) => {
       if (!isAllowedUrl(details.url)) {
         openExternal(details.url);
@@ -410,22 +443,14 @@ export class ElectronCapacitorApp {
       return { action: "allow" };
     });
 
-    // When the Lifo popout window is created, configure PIP behavior and
-    // switch frame capture so retake.tv streams that dedicated surface.
+    // When the Lifo popout window is created, switch frame capture so
+    // retake.tv streams that dedicated surface.
     this.MainWindow.webContents.on(
       "did-create-window",
       (childWindow, { url }) => {
         if (!isLifoPopoutUrl(url)) return;
 
-        console.log(
-          "[Setup] Lifo popout created — configuring PIP + capture target",
-        );
-
-        // PIP: stay above all other windows including fullscreen apps
-        childWindow.setAlwaysOnTop(true, "floating");
-        childWindow.setVisibleOnAllWorkspaces(true, {
-          visibleOnFullScreen: true,
-        });
+        console.log("[Setup] Lifo popout created — configuring capture target");
 
         // Switch stream capture to the popout window
         const scm = (

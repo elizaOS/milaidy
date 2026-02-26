@@ -76,6 +76,8 @@ export const KNOWN_IPC_CHANNELS = [
   "gateway:isDiscovering",
   "gateway:startDiscovery",
   "gateway:stopDiscovery",
+  "lifo:getPipState",
+  "lifo:setPip",
   "location:clearWatch",
   "location:getCurrentPosition",
   "location:getLastKnownLocation",

@@ -151,6 +151,7 @@ export async function handleSandboxRoute(
     sendJson(res, 200, {
       cdpEndpoint: mgr.getBrowserCdpEndpoint(),
       wsEndpoint: mgr.getBrowserWsEndpoint(),
+      noVncEndpoint: mgr.getBrowserNoVncEndpoint(),
     });
     return true;
   }

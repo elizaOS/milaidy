@@ -84,4 +84,25 @@ describe("MiladyClient sandbox monitor endpoints", () => {
       }),
     });
   });
+
+  test("parses noVNC endpoint from browser metadata", async () => {
+    fetchMock.mockImplementationOnce(
+      async (): Promise<Response> =>
+        new Response(
+          JSON.stringify({
+            cdpEndpoint: "http://localhost:9222",
+            wsEndpoint: "ws://localhost:9222",
+            noVncEndpoint: "http://localhost:6080/vnc.html",
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        ),
+    );
+
+    const api = new MiladyClient("http://localhost:2138", "token");
+    const browser = await api.getSandboxBrowser();
+    expect(browser.noVncEndpoint).toBe("http://localhost:6080/vnc.html");
+  });
 });

@@ -9,6 +9,9 @@ const { mockUseApp, noop } = vi.hoisted(() => ({
   mockUseApp: vi.fn(),
   noop: vi.fn(),
 }));
+const { mockUseLifoAutoPopout } = vi.hoisted(() => ({
+  mockUseLifoAutoPopout: vi.fn(),
+}));
 
 vi.mock("../../src/AppContext", () => ({
   useApp: () => mockUseApp(),
@@ -106,6 +109,9 @@ vi.mock("../../src/components/LoadingScreen", () => ({
 
 vi.mock("../../src/components/TerminalPanel", () => ({
   TerminalPanel: () => React.createElement("footer", null, "TerminalPanel"),
+}));
+vi.mock("../../src/hooks/useLifoAutoPopout", () => ({
+  useLifoAutoPopout: (options: unknown) => mockUseLifoAutoPopout(options),
 }));
 
 vi.mock("../../src/components/PluginsPageView", () => ({
@@ -252,6 +258,7 @@ describe("pages navigation smoke (e2e)", () => {
       },
     };
     mockUseApp.mockReset();
+    mockUseLifoAutoPopout.mockReset();
     mockUseApp.mockImplementation(() => state);
   });
 

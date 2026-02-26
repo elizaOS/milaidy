@@ -8,6 +8,9 @@ import { pathForTab, tabFromPath } from "../../src/navigation";
 const { mockUseApp } = vi.hoisted(() => ({
   mockUseApp: vi.fn(),
 }));
+const { mockUseLifoAutoPopout } = vi.hoisted(() => ({
+  mockUseLifoAutoPopout: vi.fn(),
+}));
 
 vi.mock("../../src/AppContext", () => ({
   useApp: () => mockUseApp(),
@@ -73,6 +76,9 @@ vi.mock("../../src/components/SettingsView", () => ({
 vi.mock("../../src/components/LoadingScreen", () => ({
   LoadingScreen: () => React.createElement("div", null, "LoadingScreen"),
 }));
+vi.mock("../../src/hooks/useLifoAutoPopout", () => ({
+  useLifoAutoPopout: (options: unknown) => mockUseLifoAutoPopout(options),
+}));
 
 import { App } from "../../src/App";
 
@@ -96,12 +102,14 @@ describe("app startup routing (e2e)", () => {
   beforeEach(() => {
     setViewportWidth(1280);
     mockUseApp.mockReset();
+    mockUseLifoAutoPopout.mockReset();
     mockUseApp.mockReturnValue({
       onboardingLoading: false,
       authRequired: false,
       onboardingComplete: true,
       tab: "chat",
       actionNotice: null,
+      setActionNotice: vi.fn(),
     });
   });
 
@@ -125,6 +133,11 @@ describe("app startup routing (e2e)", () => {
     expect(renderedText).not.toContain("LoadingScreen");
     expect(renderedText).not.toContain("OnboardingWizard");
     expect(renderedText).not.toContain("PairingView");
+    expect(mockUseLifoAutoPopout).toHaveBeenCalled();
+    expect(
+      (mockUseLifoAutoPopout.mock.calls[0]?.[0] as { enabled?: boolean })
+        ?.enabled,
+    ).toBe(true);
   });
 
   it("renders wallets screen when wallets tab is active", async () => {
@@ -134,6 +147,7 @@ describe("app startup routing (e2e)", () => {
       onboardingComplete: true,
       tab: "wallets",
       actionNotice: null,
+      setActionNotice: vi.fn(),
     });
 
     let tree: TestRenderer.ReactTestRenderer;
@@ -221,5 +235,10 @@ describe("app startup routing (e2e)", () => {
     expect(renderedText).not.toContain("Nav");
     expect(renderedText).not.toContain("ConversationsSidebar");
     expect(renderedText).not.toContain("AutonomousPanel");
+    expect(mockUseLifoAutoPopout).toHaveBeenCalled();
+    expect(
+      (mockUseLifoAutoPopout.mock.calls[0]?.[0] as { enabled?: boolean })
+        ?.enabled,
+    ).toBe(false);
   });
 });

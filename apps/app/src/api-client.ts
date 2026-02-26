@@ -497,6 +497,7 @@ export interface SandboxStartResponse {
 export interface SandboxBrowserEndpoints {
   cdpEndpoint?: string | null;
   wsEndpoint?: string | null;
+  noVncEndpoint?: string | null;
 }
 
 export interface SandboxScreenshotRegion {

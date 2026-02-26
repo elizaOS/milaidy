@@ -396,6 +396,11 @@ describe("SandboxManager", () => {
       expect(mgr.getBrowserWsEndpoint()).toBeNull();
     });
 
+    it("returns null noVNC endpoint when no browser", () => {
+      const mgr = new SandboxManager({ mode: "standard" });
+      expect(mgr.getBrowserNoVncEndpoint()).toBeNull();
+    });
+
     it("starts browser container when configured", async () => {
       mockEngine.runContainer
         .mockResolvedValueOnce("main-container")
@@ -409,6 +414,67 @@ describe("SandboxManager", () => {
 
       // Should have called runContainer twice (main + browser)
       expect(mockEngine.runContainer).toHaveBeenCalledTimes(2);
+      expect(mgr.getBrowserNoVncEndpoint()).toBe(
+        "http://localhost:6080/vnc.html?autoconnect=true&resize=scale&view_only=true",
+      );
+    });
+
+    it("wires noVNC/browser env and ports into browser container", async () => {
+      mockEngine.runContainer
+        .mockResolvedValueOnce("main-container")
+        .mockResolvedValueOnce("browser-container");
+
+      const mgr = new SandboxManager({
+        mode: "standard",
+        browser: {
+          enabled: true,
+          autoStart: true,
+          cdpPort: 9333,
+          vncPort: 5901,
+          noVncPort: 6090,
+          enableNoVnc: true,
+        },
+      });
+      await mgr.start();
+
+      const browserCall = mockEngine.runContainer.mock.calls[1]?.[0] as
+        | {
+            env?: Record<string, string>;
+            ports?: Array<{ host: number; container: number }>;
+          }
+        | undefined;
+      expect(browserCall).toBeDefined();
+      expect(browserCall?.env).toMatchObject({
+        MILADY_BROWSER_CDP_PORT: "9333",
+        MILADY_BROWSER_VNC_PORT: "5901",
+        MILADY_BROWSER_NOVNC_PORT: "6090",
+        MILADY_BROWSER_ENABLE_NOVNC: "1",
+        MILADY_BROWSER_HEADLESS: "0",
+      });
+      expect(browserCall?.ports).toEqual(
+        expect.arrayContaining([
+          { host: 9333, container: 9333 },
+          { host: 5901, container: 5901 },
+          { host: 6090, container: 6090 },
+        ]),
+      );
+    });
+
+    it("returns null noVNC endpoint when disabled", async () => {
+      mockEngine.runContainer
+        .mockResolvedValueOnce("main-container")
+        .mockResolvedValueOnce("browser-container");
+
+      const mgr = new SandboxManager({
+        mode: "standard",
+        browser: {
+          enabled: true,
+          autoStart: true,
+          enableNoVnc: false,
+        },
+      });
+      await mgr.start();
+      expect(mgr.getBrowserNoVncEndpoint()).toBeNull();
     });
 
     it("continues if browser container fails to start", async () => {

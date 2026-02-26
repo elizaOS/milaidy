@@ -3208,7 +3208,14 @@ export async function startEliza(
               enabled: (browserSettings.enabled as boolean) ?? false,
               image: (browserSettings.image as string) ?? undefined,
               cdpPort: (browserSettings.cdpPort as number) ?? undefined,
+              vncPort: (browserSettings.vncPort as number) ?? undefined,
+              noVncPort: (browserSettings.noVncPort as number) ?? undefined,
+              headless: (browserSettings.headless as boolean) ?? undefined,
+              enableNoVnc:
+                (browserSettings.enableNoVnc as boolean) ?? undefined,
               autoStart: (browserSettings.autoStart as boolean) ?? true,
+              autoStartTimeoutMs:
+                (browserSettings.autoStartTimeoutMs as number) ?? undefined,
             }
           : undefined,
       });

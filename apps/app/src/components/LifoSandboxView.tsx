@@ -5,7 +5,11 @@ import {
   type SandboxBrowserEndpoints,
   type SandboxWindowInfo,
 } from "../api-client";
-import { isLifoPopoutMode } from "../lifo-popout";
+import {
+  buildLifoPopoutUrl,
+  isLifoPopoutMode,
+  LIFO_POPOUT_WINDOW_NAME,
+} from "../lifo-popout";
 import { pathForTab } from "../navigation";
 
 type LifoKernel = import("@lifo-sh/core").Kernel;
@@ -58,24 +62,6 @@ function formatError(error: unknown): string {
 
 function normalizeTerminalText(text: string): string {
   return text.replace(/\r?\n/g, "\r\n");
-}
-
-function buildLifoPopoutUrl(): string {
-  if (typeof window === "undefined") return "";
-
-  const targetPath = pathForTab("lifo", import.meta.env.BASE_URL);
-
-  if (window.location.protocol === "file:") {
-    return `${window.location.origin}${window.location.pathname}#${targetPath}?popout=lifo`;
-  }
-
-  const url = new URL(window.location.href);
-  url.pathname = targetPath;
-  const params = new URLSearchParams(url.search);
-  params.set("popout", "lifo");
-  url.search = params.toString();
-  url.hash = "";
-  return url.toString();
 }
 
 async function createLifoRuntime(
@@ -163,6 +149,8 @@ export function LifoSandboxView() {
   const [browserEndpoints, setBrowserEndpoints] =
     useState<SandboxBrowserEndpoints | null>(null);
   const [sandboxWindows, setSandboxWindows] = useState<SandboxWindowInfo[]>([]);
+  const [noVncFailed, setNoVncFailed] = useState(false);
+  const [pipEnabled, setPipEnabled] = useState(false);
   const [screenPreviewBase64, setScreenPreviewBase64] = useState<string | null>(
     null,
   );
@@ -181,6 +169,8 @@ export function LifoSandboxView() {
         : null,
     [screenPreviewBase64],
   );
+  const noVncEndpoint = browserEndpoints?.noVncEndpoint ?? null;
+  const noVncActive = Boolean(noVncEndpoint) && !noVncFailed;
 
   const broadcastSyncMessage = useCallback(
     (message: Omit<LifoSyncMessage, "source">) => {
@@ -286,6 +276,9 @@ export function LifoSandboxView() {
         client.getSandboxWindows(),
       ]);
       setBrowserEndpoints(browser);
+      if (!browser.noVncEndpoint) {
+        setNoVncFailed(false);
+      }
       setSandboxWindows(
         Array.isArray(windowsResponse.windows) ? windowsResponse.windows : [],
       );
@@ -297,6 +290,7 @@ export function LifoSandboxView() {
 
   const refreshScreenPreview = useCallback(async () => {
     if (popoutMode) return;
+    if (noVncActive) return;
     try {
       const screenshot = await client.getSandboxScreenshot();
       if (typeof screenshot.data !== "string" || !screenshot.data.trim()) {
@@ -310,7 +304,7 @@ export function LifoSandboxView() {
       setMonitorOnline(false);
       setMonitorError(formatError(err));
     }
-  }, [popoutMode]);
+  }, [noVncActive, popoutMode]);
 
   useEffect(() => {
     let cancelled = false;
@@ -449,6 +443,29 @@ export function LifoSandboxView() {
   }, [appendOutput, broadcastSyncMessage, popoutMode]);
 
   useEffect(() => {
+    if (!popoutMode) return;
+    const ipc = window.electron?.ipcRenderer;
+    if (!ipc?.invoke) return;
+
+    let cancelled = false;
+
+    void ipc
+      .invoke("lifo:getPipState")
+      .then((result) => {
+        if (cancelled || typeof result !== "object" || result === null) return;
+        const enabled = (result as { enabled?: unknown }).enabled;
+        setPipEnabled(enabled === true);
+      })
+      .catch(() => {
+        // Ignore if running outside Electron.
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [popoutMode]);
+
+  useEffect(() => {
     if (popoutMode) return;
 
     let cancelled = false;
@@ -523,10 +540,12 @@ export function LifoSandboxView() {
       return;
     }
 
-    const url = buildLifoPopoutUrl();
+    const url = buildLifoPopoutUrl({
+      targetPath: pathForTab("lifo", import.meta.env.BASE_URL),
+    });
     const popup = window.open(
       url,
-      "milady-lifo-popout",
+      LIFO_POPOUT_WINDOW_NAME,
       "popup,width=1400,height=860",
     );
 
@@ -540,6 +559,19 @@ export function LifoSandboxView() {
     setControllerOnline(true);
     popup.focus();
   }, []);
+
+  const togglePip = useCallback(async () => {
+    const ipc = window.electron?.ipcRenderer;
+    if (!ipc?.invoke) return;
+
+    const next = !pipEnabled;
+    try {
+      await ipc.invoke("lifo:setPip", { flag: next });
+      setPipEnabled(next);
+    } catch (err) {
+      setError(`Failed to toggle PIP: ${formatError(err)}`);
+    }
+  }, [pipEnabled]);
 
   return (
     <section className="h-full min-h-[620px] flex flex-col gap-3">
@@ -588,13 +620,26 @@ export function LifoSandboxView() {
             )}
 
             {popoutMode && (
-              <button
-                type="button"
-                onClick={resetSession}
-                className="px-3 py-1.5 rounded-md border border-border bg-card text-xs text-txt hover:border-accent hover:text-accent transition-colors"
-              >
-                Reset
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={togglePip}
+                  className={`px-3 py-1.5 rounded-md border text-xs transition-colors ${
+                    pipEnabled
+                      ? "border-accent bg-accent text-accent-fg"
+                      : "border-border bg-card text-txt hover:border-accent hover:text-accent"
+                  }`}
+                >
+                  {pipEnabled ? "Disable PIP" : "Enable PIP"}
+                </button>
+                <button
+                  type="button"
+                  onClick={resetSession}
+                  className="px-3 py-1.5 rounded-md border border-border bg-card text-xs text-txt hover:border-accent hover:text-accent transition-colors"
+                >
+                  Reset
+                </button>
+              </>
             )}
           </div>
         </div>
@@ -657,6 +702,7 @@ export function LifoSandboxView() {
                 <button
                   type="button"
                   onClick={() => {
+                    setNoVncFailed(false);
                     void refreshMonitorMeta();
                     void refreshScreenPreview();
                   }}
@@ -668,7 +714,25 @@ export function LifoSandboxView() {
             </div>
 
             <div className="h-[320px] bg-black/90 flex items-center justify-center overflow-hidden">
-              {screenPreviewUrl ? (
+              {noVncActive && noVncEndpoint ? (
+                <iframe
+                  src={noVncEndpoint}
+                  title="Sandbox live noVNC surface"
+                  className="h-full w-full border-0"
+                  sandbox="allow-scripts allow-same-origin allow-forms allow-pointer-lock"
+                  onLoad={() => {
+                    setMonitorOnline(true);
+                    setMonitorError(null);
+                  }}
+                  onError={() => {
+                    setNoVncFailed(true);
+                    setMonitorOnline(false);
+                    setMonitorError(
+                      "Live noVNC surface unavailable. Falling back to screenshots.",
+                    );
+                  }}
+                />
+              ) : screenPreviewUrl ? (
                 <img
                   src={screenPreviewUrl}
                   alt="Sandbox computer-use surface"
@@ -701,6 +765,19 @@ export function LifoSandboxView() {
             <div className="p-3 space-y-3 text-[11px]">
               <div>
                 <div className="text-muted uppercase tracking-wide text-[10px]">
+                  Live Surface
+                </div>
+                <div className="mt-1 rounded border border-border bg-card px-2 py-1 text-txt break-all">
+                  {noVncEndpoint && !noVncFailed
+                    ? "noVNC"
+                    : noVncEndpoint
+                      ? "noVNC failed → screenshot fallback"
+                      : "Screenshot fallback"}
+                </div>
+              </div>
+
+              <div>
+                <div className="text-muted uppercase tracking-wide text-[10px]">
                   CDP Endpoint
                 </div>
                 <div className="mt-1 rounded border border-border bg-card px-2 py-1 text-txt break-all">
@@ -714,6 +791,15 @@ export function LifoSandboxView() {
                 </div>
                 <div className="mt-1 rounded border border-border bg-card px-2 py-1 text-txt break-all">
                   {browserEndpoints?.wsEndpoint ?? "Unavailable"}
+                </div>
+              </div>
+
+              <div>
+                <div className="text-muted uppercase tracking-wide text-[10px]">
+                  noVNC Endpoint
+                </div>
+                <div className="mt-1 rounded border border-border bg-card px-2 py-1 text-txt break-all">
+                  {browserEndpoints?.noVncEndpoint ?? "Unavailable"}
                 </div>
               </div>
 

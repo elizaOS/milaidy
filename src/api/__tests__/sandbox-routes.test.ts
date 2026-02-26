@@ -38,6 +38,9 @@ function createMockManager(
     }),
     getBrowserCdpEndpoint: vi.fn().mockReturnValue("http://localhost:9222"),
     getBrowserWsEndpoint: vi.fn().mockReturnValue("ws://localhost:9222"),
+    getBrowserNoVncEndpoint: vi
+      .fn()
+      .mockReturnValue("http://localhost:6080/vnc.html"),
     isReady: vi.fn().mockReturnValue(true),
     getMode: vi.fn().mockReturnValue("standard"),
     getState: vi.fn().mockReturnValue("ready"),
@@ -213,6 +216,7 @@ describe("handleSandboxRoute", () => {
       const body = JSON.parse(res._body);
       expect(body.cdpEndpoint).toBe("http://localhost:9222");
       expect(body.wsEndpoint).toBe("ws://localhost:9222");
+      expect(body.noVncEndpoint).toBe("http://localhost:6080/vnc.html");
     });
   });
 

@@ -32,8 +32,9 @@ import { StartupFailureView } from "./components/StartupFailureView";
 import { TerminalPanel } from "./components/TerminalPanel";
 import { BugReportProvider, useBugReportState } from "./hooks/useBugReport";
 import { useContextMenu } from "./hooks/useContextMenu";
+import { useLifoAutoPopout } from "./hooks/useLifoAutoPopout";
 import { isLifoPopoutMode } from "./lifo-popout";
-import { APPS_ENABLED } from "./navigation";
+import { APPS_ENABLED, pathForTab } from "./navigation";
 
 const CHAT_MOBILE_BREAKPOINT_PX = 1024;
 
@@ -88,6 +89,7 @@ export function App() {
     unreadConversations,
     activeGameViewerUrl,
     gameOverlayEnabled,
+    setActionNotice,
   } = useApp();
   const contextMenu = useContextMenu();
 
@@ -242,6 +244,22 @@ export function App() {
 
   const bugReport = useBugReportState();
   const lifoPopoutMode = useMemo(() => isLifoPopoutMode(), []);
+
+  useLifoAutoPopout({
+    enabled:
+      !lifoPopoutMode &&
+      !onboardingLoading &&
+      onboardingComplete &&
+      !authRequired,
+    targetPath: pathForTab("lifo", import.meta.env.BASE_URL),
+    onPopupBlocked: () => {
+      setActionNotice(
+        "Lifo popout blocked by the browser. Allow popups to watch agent computer-use live.",
+        "error",
+        3800,
+      );
+    },
+  });
 
   const agentStarting = agentStatus?.state === "starting";
 
