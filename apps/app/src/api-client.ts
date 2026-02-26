@@ -525,7 +525,7 @@ export interface PluginInfo {
   enabled: boolean;
   configured: boolean;
   envKey: string | null;
-  category: "ai-provider" | "connector" | "database" | "app" | "feature";
+  category: "ai-provider" | "connector" | "streaming" | "database" | "app" | "feature";
   source: "bundled" | "store";
   parameters: PluginParamDef[];
   validationErrors: Array<{ field: string; message: string }>;
@@ -4346,24 +4346,25 @@ export class MiladyClient {
     }
   }
 
-  // ── Retake.tv stream controls ───────────────────────────────────────────
+  // ── Stream controls ─────────────────────────────────────────────────────
 
-  async retakeGoLive(): Promise<{
+  async streamGoLive(): Promise<{
     ok: boolean;
     live: boolean;
     rtmpUrl?: string;
     inputMode?: string;
     audioSource?: string;
     message?: string;
+    destination?: string;
   }> {
-    return this.fetch("/api/retake/live", { method: "POST" });
+    return this.fetch("/api/stream/live", { method: "POST" });
   }
 
-  async retakeGoOffline(): Promise<{ ok: boolean; live: boolean }> {
-    return this.fetch("/api/retake/offline", { method: "POST" });
+  async streamGoOffline(): Promise<{ ok: boolean; live: boolean }> {
+    return this.fetch("/api/stream/offline", { method: "POST" });
   }
 
-  async retakeStatus(): Promise<{
+  async streamStatus(): Promise<{
     ok: boolean;
     running: boolean;
     ffmpegAlive: boolean;
@@ -4373,9 +4374,28 @@ export class MiladyClient {
     muted: boolean;
     audioSource: string;
     inputMode: string | null;
+    destination?: { id: string; name: string } | null;
   }> {
-    return this.fetch("/api/retake/status");
+    return this.fetch("/api/stream/status");
   }
+
+  async getStreamingDestinations(): Promise<{
+    ok: boolean;
+    destinations: Array<{ id: string; name: string }>;
+  }> {
+    return this.fetch("/api/streaming/destinations");
+  }
+
+  async setActiveDestination(destinationId: string): Promise<{
+    ok: boolean;
+    destination?: { id: string; name: string };
+  }> {
+    return this.fetch("/api/streaming/destination", {
+      method: "POST",
+      body: JSON.stringify({ destinationId }),
+    });
+  }
+
 }
 
 // Singleton

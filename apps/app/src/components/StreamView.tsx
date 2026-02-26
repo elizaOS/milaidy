@@ -1,5 +1,5 @@
 /**
- * StreamView — Dynamic agent activity screen for retake.tv streaming.
+ * StreamView — Dynamic agent activity screen for live streaming.
  *
  * Shows what the agent is actively doing as the primary content:
  * - Terminal output when running commands
@@ -818,52 +818,50 @@ export function StreamView() {
   const [streamLoading, setStreamLoading] = useState(false);
   const loadingRef = useRef(false);
 
-  const [retakeAvailable, setRetakeAvailable] = useState(true);
+  const [streamAvailable, setStreamAvailable] = useState(true);
 
   useEffect(() => {
     let mounted = true;
     const poll = async () => {
-      if (loadingRef.current || !retakeAvailable) return;
+      if (loadingRef.current || !streamAvailable) return;
       try {
-        const status = await client.retakeStatus();
+        const status = await client.streamStatus();
         if (mounted && !loadingRef.current) {
           setStreamLive(status.running && status.ffmpegAlive);
         }
       } catch (err: unknown) {
-        // 404 means retake connector is not configured — stop polling
+        // 404 means stream routes are not configured — stop polling
         if (isApiError(err) && err.status === 404) {
-          setRetakeAvailable(false);
+          setStreamAvailable(false);
           return;
         }
         // Other errors — API not yet available, leave as offline
       }
     };
-    if (!retakeAvailable) return;
+    if (!streamAvailable) return;
     poll();
     const id = setInterval(poll, 5_000);
     return () => {
       mounted = false;
       clearInterval(id);
     };
-  }, [retakeAvailable]);
+  }, [streamAvailable]);
 
   const toggleStream = useCallback(async () => {
-    if (loadingRef.current) return; // guard against concurrent calls
+    if (loadingRef.current) return;
     loadingRef.current = true;
     setStreamLoading(true);
     try {
       if (streamLive) {
-        await client.retakeGoOffline();
+        await client.streamGoOffline();
         setStreamLive(false);
       } else {
-        const result = await client.retakeGoLive();
+        const result = await client.streamGoLive();
         setStreamLive(result.live);
       }
     } catch {
-      // Toggle failed — re-fetch actual state. The 5s poll also
-      // serves as a recovery mechanism if this status fetch fails.
       try {
-        const status = await client.retakeStatus();
+        const status = await client.streamStatus();
         setStreamLive(status.running && status.ffmpegAlive);
       } catch {
         /* poll will recover within 5s */

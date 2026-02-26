@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import type { CapacitorElectronConfig } from "@capacitor-community/electron";
+import { getScreenCaptureManager } from "./native/screencapture";
 import {
   CapacitorSplashScreen,
   CapElectronEventEmitter,
@@ -409,24 +410,15 @@ export class ElectronCapacitorApp {
         });
 
         // Switch stream capture to the popout window
-        const scm = (
-          globalThis as unknown as {
-            __miladyScreenCaptureManager?: {
-              setCaptureTarget(w: BrowserWindow | null): void;
-            };
-          }
-        ).__miladyScreenCaptureManager;
+        const scm = getScreenCaptureManager();
+        scm.setCaptureTarget(childWindow);
 
-        if (scm) {
-          scm.setCaptureTarget(childWindow);
-
-          childWindow.on("closed", () => {
-            console.log(
-              "[Setup] Popout window closed — reverting capture to main window",
-            );
-            scm.setCaptureTarget(null);
-          });
-        }
+        childWindow.on("closed", () => {
+          console.log(
+            "[Setup] Popout window closed — reverting capture to main window",
+          );
+          scm.setCaptureTarget(null);
+        });
       },
     );
 

@@ -10,9 +10,9 @@
  *
  * ## HTTP Routes (registered dynamically)
  *
- * - POST /api/retake/frame  — pipe captured frames to StreamManager
- * - POST /api/retake/live   — start streaming to retake.tv
- * - POST /api/retake/offline — stop stream and notify retake.tv
+ * - POST /api/stream/frame   — pipe captured frames to StreamManager
+ * - POST /api/stream/live    — start streaming (destination-driven)
+ * - POST /api/stream/offline — stop stream and notify destination
  */
 
 import {
@@ -631,7 +631,7 @@ const startRetakeStreamAction: Action = {
 
     try {
       const res = await fetch(
-        `http://127.0.0.1:${LOCAL_API_PORT}/api/retake/live`,
+        `http://127.0.0.1:${LOCAL_API_PORT}/api/stream/live`,
         { method: "POST" },
       );
       const data = (await res.json()) as Record<string, unknown>;
@@ -700,7 +700,7 @@ const stopRetakeStreamAction: Action = {
   ) => {
     try {
       const res = await fetch(
-        `http://127.0.0.1:${LOCAL_API_PORT}/api/retake/offline`,
+        `http://127.0.0.1:${LOCAL_API_PORT}/api/stream/offline`,
         { method: "POST" },
       );
       const data = (await res.json()) as Record<string, unknown>;
@@ -767,7 +767,7 @@ const getRetakeStreamStatusAction: Action = {
   ) => {
     try {
       const res = await fetch(
-        `http://127.0.0.1:${LOCAL_API_PORT}/api/retake/status`,
+        `http://127.0.0.1:${LOCAL_API_PORT}/api/stream/status`,
       );
       const data = (await res.json()) as Record<string, unknown>;
       const status = data.running ? "LIVE" : "OFFLINE";

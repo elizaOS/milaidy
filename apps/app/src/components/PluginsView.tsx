@@ -1259,6 +1259,7 @@ const FEATURE_SUBGROUP: Record<string, string> = {
 const SUBGROUP_DISPLAY_ORDER = [
   "ai-provider",
   "connector",
+  "streaming",
   "voice",
   "blockchain",
   "devtools",
@@ -1285,6 +1286,7 @@ const SUBGROUP_LABELS: Record<string, string> = {
   storage: "Storage & Logging",
   gaming: "Gaming & Creative",
   "feature-other": "Other Features",
+  streaming: "Streaming Destinations",
   showcase: "Showcase",
 };
 
@@ -1292,11 +1294,12 @@ function subgroupForPlugin(plugin: PluginInfo): string {
   if (plugin.id === "__ui-showcase__") return "showcase";
   if (plugin.category === "ai-provider") return "ai-provider";
   if (plugin.category === "connector") return "connector";
+  if (plugin.category === "streaming") return "streaming";
   return FEATURE_SUBGROUP[plugin.id] ?? "feature-other";
 }
 
 type StatusFilter = "all" | "enabled";
-type PluginsViewMode = "all" | "connectors";
+type PluginsViewMode = "all" | "connectors" | "streaming";
 
 /* ── Shared PluginListView ─────────────────────────────────────────── */
 
@@ -1410,7 +1413,8 @@ function PluginListView({ label, mode = "all" }: PluginListViewProps) {
         (p: PluginInfo) =>
           p.category !== "database" &&
           !ALWAYS_ON_PLUGIN_IDS.has(p.id) &&
-          (mode !== "connectors" || p.category === "connector"),
+          (mode !== "connectors" || p.category === "connector") &&
+          (mode !== "streaming" || p.category === "streaming"),
       ),
     [plugins, mode],
   );
@@ -1477,7 +1481,7 @@ function PluginListView({ label, mode = "all" }: PluginListViewProps) {
   );
 
   const [subgroupFilter, setSubgroupFilter] = useState<string>("all");
-  const showSubgroupFilters = mode !== "connectors";
+  const showSubgroupFilters = mode !== "connectors" && mode !== "streaming";
 
   const subgroupCounts = useMemo(() => {
     const counts: Record<string, number> = {};

@@ -49,10 +49,6 @@ export function initializeNativeModules(mainWindow: BrowserWindow): void {
   getCanvasManager().setMainWindow(mainWindow);
   getPermissionManager().setMainWindow(mainWindow);
 
-  // Expose ScreenCaptureManager on globalThis so the API server (retake-routes)
-  // can auto-start frame capture without cross-package imports.
-  (globalThis as Record<string, unknown>).__miladyScreenCaptureManager =
-    getScreenCaptureManager();
 }
 
 /**
