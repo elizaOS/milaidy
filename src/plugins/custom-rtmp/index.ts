@@ -5,7 +5,7 @@
  * from config. No platform API calls, no chat bridging.
  */
 
-import type { StreamingDestination } from "../../api/stream-routes";
+import type { StreamingDestination } from "@milady/plugin-streaming-base";
 
 export function createCustomRtmpDestination(config?: {
   rtmpUrl?: string;

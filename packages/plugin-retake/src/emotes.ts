@@ -84,6 +84,7 @@ export function triggerEmote(emoteId: string): void {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ emoteId }),
+    signal: AbortSignal.timeout(5_000),
   })
     .then(() => {
       pluginRuntime?.logger.info(`${TAG} Auto-triggered emote: ${emoteId}`);

@@ -22,12 +22,12 @@ import {
   lastSeenId,
   ourUserDbId,
   pluginRuntime,
-  seenViewers,
   setChatPollInFlight,
   setChatPollTimer,
   setInitialPollDone,
   setLastSeenId,
   setViewerStatsPollTimer,
+  trackViewer,
   viewerStatsPollTimer,
 } from "./state.ts";
 
@@ -95,6 +95,15 @@ async function pollChatInner(): Promise<void> {
         comment.text = comment.text.slice(0, MAX_CHAT_MESSAGE_LENGTH);
       }
 
+      // Sanitize usernames: truncate and strip control characters
+      // biome-ignore lint/suspicious/noControlCharactersInRegex: intentional sanitization of control chars
+      const ctrlRe = /[\x00-\x1f\x7f]/g;
+      const sanitizeName = (s: string) => s.replace(ctrlRe, "").slice(0, 100);
+      comment.sender_username = sanitizeName(comment.sender_username);
+      if (comment.sender_display_name) {
+        comment.sender_display_name = sanitizeName(comment.sender_display_name);
+      }
+
       // Build IDs
       const entityId = createUniqueUuid(runtime, comment.sender_user_id);
       const roomId = createUniqueUuid(runtime, currentUserDbId);
@@ -152,9 +161,8 @@ async function pollChatInner(): Promise<void> {
         String(roomId),
       );
 
-      // Detect new viewers
-      if (!seenViewers.has(comment.sender_username)) {
-        seenViewers.add(comment.sender_username);
+      // Detect new viewers (trackViewer returns true for first-time additions)
+      if (trackViewer(comment.sender_username)) {
         if (initialPollDone) {
           emitRetakeEvent(
             runtime,

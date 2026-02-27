@@ -15,8 +15,23 @@ export let initialPollDone = false;
 export let cachedAccessToken = "";
 export let cachedApiUrl = "https://retake.tv/api/v1";
 
+/** Max unique viewers tracked per session to prevent unbounded memory growth. */
+const MAX_SEEN_VIEWERS = 10_000;
+
 /** Tracks usernames seen during the current stream session for new viewer detection. */
 export const seenViewers = new Set<string>();
+
+/** Add a viewer, evicting the oldest entry if at capacity. */
+export function trackViewer(username: string): boolean {
+  if (seenViewers.has(username)) return false;
+  if (seenViewers.size >= MAX_SEEN_VIEWERS) {
+    // Evict oldest (first inserted) entry
+    const first = seenViewers.values().next().value;
+    if (first !== undefined) seenViewers.delete(first);
+  }
+  seenViewers.add(username);
+  return true;
+}
 
 // ---------------------------------------------------------------------------
 // Setters

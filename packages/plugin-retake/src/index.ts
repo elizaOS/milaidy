@@ -32,15 +32,21 @@ import {
 import {
   startChatPolling,
   startViewerStatsPolling,
+  stopChatPolling,
+  stopViewerStatsPolling,
 } from "./chat-poll.ts";
 import { TAG } from "./constants.ts";
 import {
   ourUserDbId,
+  seenViewers,
   setCachedAccessToken,
   setCachedApiUrl,
   setOurUserDbId,
   setPluginRuntime,
 } from "./state.ts";
+
+/** Handle for the deferred userDbId re-discovery timer so cleanup can cancel it. */
+let deferredDiscoveryTimer: ReturnType<typeof setTimeout> | null = null;
 
 export {
   RETAKE_MESSAGE_EXAMPLES,
@@ -223,7 +229,8 @@ export const retakePlugin: Plugin = {
     }
 
     // Re-discover userDbId after a delay (stream auto-start takes ~5-10s)
-    setTimeout(async () => {
+    deferredDiscoveryTimer = setTimeout(async () => {
+      deferredDiscoveryTimer = null;
       const found = await discoverUserDbId("Deferred re-discovery");
       if (!found && !ourUserDbId) {
         runtime.logger.warn(
@@ -231,6 +238,17 @@ export const retakePlugin: Plugin = {
         );
       }
     }, 15_000);
+  },
+
+  cleanup: async () => {
+    stopChatPolling();
+    stopViewerStatsPolling();
+    if (deferredDiscoveryTimer) {
+      clearTimeout(deferredDiscoveryTimer);
+      deferredDiscoveryTimer = null;
+    }
+    setPluginRuntime(null);
+    seenViewers.clear();
   },
 };
 

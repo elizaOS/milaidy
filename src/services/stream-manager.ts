@@ -84,6 +84,8 @@ class StreamManager {
   private _maxRestartAttempts = 5;
   private _restartDecayTimer: ReturnType<typeof setInterval> | null = null;
   private _intentionalStop = false;
+  /** Pending auto-restart timer — cleared in stop() to prevent races. */
+  private _restartTimer: ReturnType<typeof setTimeout> | null = null;
   /** Guard: prevents concurrent start() calls from orphaning FFmpeg. */
   private _starting = false;
 
@@ -406,6 +408,10 @@ class StreamManager {
     }
 
     this._intentionalStop = true;
+    if (this._restartTimer) {
+      clearTimeout(this._restartTimer);
+      this._restartTimer = null;
+    }
     if (this._restartDecayTimer) {
       clearInterval(this._restartDecayTimer);
       this._restartDecayTimer = null;
@@ -442,7 +448,8 @@ class StreamManager {
       `${TAG} Auto-restart attempt ${this._restartAttempts}/${this._maxRestartAttempts} in ${delay}ms`,
     );
 
-    setTimeout(async () => {
+    this._restartTimer = setTimeout(async () => {
+      this._restartTimer = null;
       if (this._intentionalStop || !this._config) return;
 
       const savedStartedAt = this.startedAt;
@@ -463,7 +470,11 @@ class StreamManager {
         logger.error(
           `${TAG} Auto-restart failed: ${err instanceof Error ? err.message : String(err)}`,
         );
-        // The exit handler will trigger another autoRestart attempt if FFmpeg exits again
+        // start() failed before spawning FFmpeg — no exit event will fire,
+        // so manually chain the next restart attempt if retries remain.
+        if (!this._intentionalStop && this._config) {
+          this.autoRestart();
+        }
       }
     }, delay);
   }

@@ -421,8 +421,12 @@ function injectPopoutApiBase(): void {
         console.warn("[Milady] Rejected non-local apiBase:", host);
       }
     } catch {
-      // Relative URL — safe to use
-      window.__MILADY_API_BASE__ = apiBase;
+      // Relative URL — only allow paths starting with "/" but not "//" (protocol-relative)
+      if (apiBase.startsWith("/") && !apiBase.startsWith("//")) {
+        window.__MILADY_API_BASE__ = apiBase;
+      } else {
+        console.warn("[Milady] Rejected invalid relative apiBase:", apiBase);
+      }
     }
   }
 }

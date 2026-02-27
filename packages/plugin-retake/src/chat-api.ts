@@ -114,6 +114,7 @@ export function emitRetakeEvent(
         data: { ...data, source: "retake" },
         roomId: roomId ?? undefined,
       }),
+      signal: AbortSignal.timeout(5_000),
     }).catch(() => {
       // Non-fatal — event emission should never break chat flow
     });

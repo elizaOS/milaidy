@@ -29,9 +29,9 @@ import {
  * hooks. Canonical definition lives in plugin-streaming-base; re-exported here
  * so existing consumers keep working.
  */
-export type { StreamingDestination } from "../../packages/plugin-streaming-base/src/index";
+export type { StreamingDestination } from "@milady/plugin-streaming-base";
 
-import type { StreamingDestination } from "../../packages/plugin-streaming-base/src/index";
+import type { StreamingDestination } from "@milady/plugin-streaming-base";
 
 /**
  * Subset of server state relevant to stream routes.
@@ -605,7 +605,12 @@ export async function handleStreamRoute(
       const body = await readRequestBody(req);
       const parsed = typeof body === "string" ? JSON.parse(body) : body;
       const level = parsed?.volume;
-      if (typeof level !== "number" || level < 0 || level > 100) {
+      if (
+        typeof level !== "number" ||
+        !Number.isFinite(level) ||
+        level < 0 ||
+        level > 100
+      ) {
         error(res, "volume must be a number between 0 and 100", 400);
         return true;
       }
