@@ -187,7 +187,7 @@ Include an `elizaos.plugin.json` at the package root for rich UI integration in 
 - Export a `Plugin` type-compatible default export — do not use default exports for other purposes.
 
 **Quality:**
-- Include unit tests with at least 80% coverage.
+- Include unit tests with at least 80% coverage. (Note: this is the recommended bar for standalone published plugins. The monorepo enforces a 25% lines/functions/statements, 15% branches floor in `vitest.config.ts`.)
 - Run `tsc --noEmit` in CI to catch type errors.
 - Test the published package with `npm pack` before publishing.
 
