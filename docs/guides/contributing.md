@@ -1,3 +1,8 @@
+---
+title: Contributing Guide
+description: How to set up a development environment, follow code conventions, and submit pull requests to the Milady project.
+---
+
 # Contributing Guide
 
 Welcome to Milaidy! This guide will help you set up your development environment and contribute effectively.
@@ -468,7 +473,7 @@ What should happen
 
 ## Next Steps
 
-- [Plugin Development Guide](./plugin-development.md) — Build plugins
-- [Skills Documentation](./skills.md) — Create skills
-- [Local Plugin Development](./local-plugins.md) — Develop locally
+- [Plugin Development Guide](/plugins/development) — Build plugins
+- [Skills Documentation](/plugins/skills) — Create skills
+- [Local Plugin Development](/plugins/local-plugins) — Develop locally
 - Browse the codebase: start with `src/runtime/milaidy-plugin.ts`

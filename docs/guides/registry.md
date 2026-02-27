@@ -1,3 +1,8 @@
+---
+title: Plugin Registry Guide
+description: How to discover, configure, submit, and maintain plugins in the Milady/ElizaOS plugin registry.
+---
+
 # Plugin Registry Guide
 
 The plugin registry is the central index of available ElizaOS plugins. This guide covers discovering, using, and submitting plugins to the registry.
@@ -460,8 +465,8 @@ pnpm add elizaos-plugin-custom-feature
 
 ## Next Steps
 
-- [Plugin Development Guide](./plugin-development.md) — Create your own plugins
-- [Local Plugin Development](./local-plugins.md) — Develop without publishing
+- [Plugin Development Guide](/plugins/development) — Create your own plugins
+- [Local Plugin Development](/plugins/local-plugins) — Develop without publishing
 - [Contributing Guide](./contributing.md) — Submit plugins upstream
 
 ---

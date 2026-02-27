@@ -241,3 +241,60 @@ List all text fragments for a specific document, ordered by position.
   "count": 48
 }
 ```
+
+## Bulk Upload
+
+```
+POST /api/knowledge/documents/bulk
+```
+
+Uploads up to 100 knowledge documents in a single request. Each document is processed independently — partial failures do not abort the batch.
+
+**Request body:**
+```json
+{
+  "documents": [
+    {
+      "content": "Document text or base64 content",
+      "filename": "notes.pdf",
+      "contentType": "application/pdf",
+      "metadata": {}
+    }
+  ]
+}
+```
+
+| Constraint | Value |
+|------------|-------|
+| Max body size | 32 MB |
+| Max documents per request | 100 |
+
+**Response:**
+```json
+{
+  "ok": true,
+  "total": 3,
+  "successCount": 2,
+  "failureCount": 1,
+  "results": [
+    {
+      "index": 0,
+      "ok": true,
+      "filename": "notes.pdf",
+      "documentId": "550e8400-e29b-41d4-a716-446655440000",
+      "fragmentCount": 14,
+      "warnings": []
+    },
+    {
+      "index": 1,
+      "ok": false,
+      "filename": "broken.txt",
+      "error": "content and filename must be non-empty strings"
+    }
+  ]
+}
+```
+
+Top-level `ok` is `true` only when `failureCount === 0`. `warnings` is present only on successful items when the ingestion emitted warnings.
+
+**Errors:** `400` if `documents` is missing, empty, or exceeds 100 items.

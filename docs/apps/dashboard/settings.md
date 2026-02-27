@@ -262,4 +262,4 @@ On iOS and Android the dashboard's storage bridge mirrors every write to Capacit
 - [Desktop App](/apps/desktop) — global keyboard shortcuts and native permission management
 - [Mobile App](/apps/mobile) — storage bridge that syncs settings to Capacitor Preferences on iOS/Android
 - [Talk Mode](/apps/dashboard/talk-mode) — voice conversation setup and Talk Mode configuration
-- [Plugins](/plugins) — how plugins register additional AI providers and capability toggles
+- [Plugins](/plugins/overview) — how plugins register additional AI providers and capability toggles

@@ -27,7 +27,7 @@
   "navigation": {
     "tabs": [
       {
-        "tab": "Docs",
+        "tab": "Getting Started",
         "groups": [
           {
             "group": "Getting Started",
@@ -40,15 +40,6 @@
             ]
           },
           {
-            "group": "Agent",
-            "pages": [
-              "agents/character-interface",
-              "agents/personality-and-behavior",
-              "agents/memory-and-state",
-              "agents/runtime-and-lifecycle"
-            ]
-          },
-          {
             "group": "Configuration",
             "pages": ["configuration", "config-schema", "model-providers"]
           },
@@ -56,23 +47,74 @@
             "group": "Guides",
             "pages": [
               "guides/autonomous-mode",
-              "guides/custom-actions",
-              "guides/triggers",
               "guides/hooks",
-              "guides/knowledge",
-              "guides/media-generation",
-              "guides/training",
-              "guides/agent-export",
-              "guides/themes",
               "guides/config-includes",
               "guides/emotes",
               "guides/local-models",
               "guides/mcp-marketplace",
-              "chat-commands"
+              "chat-commands",
+              "guides/media-generation",
+              "guides/themes",
+              "guides/agent-export"
             ]
           },
           {
-            "group": "Connectors",
+            "group": "Apps & Platforms",
+            "pages": [
+              "apps/overview",
+              "apps/desktop",
+              "apps/desktop/native-modules",
+              "apps/desktop/deep-linking",
+              "apps/mobile",
+              "apps/mobile/capacitor-plugins",
+              "apps/mobile/build-guide",
+              "apps/chrome-extension",
+              "apps/tui"
+            ]
+          },
+          {
+            "group": "Infrastructure",
+            "pages": ["deployment", "self-updates", "guides/cloud"]
+          },
+          {
+            "group": "Contributing",
+            "pages": ["guides/contribution-guide"]
+          }
+        ]
+      },
+      {
+        "tab": "Dashboard",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": ["apps/dashboard", "dashboard/pairing"]
+          },
+          {
+            "group": "Chat",
+            "pages": ["dashboard/chat"]
+          },
+          {
+            "group": "Stream",
+            "pages": ["dashboard/stream"]
+          },
+          {
+            "group": "Character",
+            "pages": [
+              "agents/character-interface",
+              "agents/personality-and-behavior",
+              "agents/memory-and-state"
+            ]
+          },
+          {
+            "group": "Wallets",
+            "pages": ["guides/wallet"]
+          },
+          {
+            "group": "Knowledge",
+            "pages": ["guides/knowledge"]
+          },
+          {
+            "group": "Social",
             "pages": [
               "guides/connectors",
               "guides/whatsapp",
@@ -83,72 +125,27 @@
             ]
           },
           {
-            "group": "Infrastructure",
-            "pages": [
-              "guides/wallet",
-              "guides/sandbox",
-              "guides/cloud",
-              "deployment",
-              "self-updates"
-            ]
+            "group": "Apps",
+            "pages": ["dashboard/apps"]
           },
           {
-            "group": "Contributing",
-            "pages": ["guides/contribution-guide"]
+            "group": "Settings",
+            "pages": [
+              "apps/dashboard/settings",
+              "apps/dashboard/talk-mode"
+            ]
           }
         ]
       },
       {
-        "tab": "Apps",
+        "tab": "Advanced",
         "groups": [
           {
-            "group": "Overview",
-            "pages": ["apps/overview"]
-          },
-          {
-            "group": "Desktop App",
-            "pages": [
-              "apps/desktop",
-              "apps/desktop/native-modules",
-              "apps/desktop/deep-linking"
-            ]
-          },
-          {
-            "group": "Mobile App",
-            "pages": [
-              "apps/mobile",
-              "apps/mobile/capacitor-plugins",
-              "apps/mobile/build-guide"
-            ]
-          },
-          {
-            "group": "Chrome Extension",
-            "pages": ["apps/chrome-extension"]
-          },
-          {
-            "group": "Dashboard",
-            "pages": ["apps/dashboard", "apps/dashboard/settings"]
-          },
-          {
-            "group": "TUI",
-            "pages": ["apps/tui"]
-          }
-        ]
-      },
-      {
-        "tab": "Plugins",
-        "groups": [
-          {
-            "group": "Overview",
+            "group": "Plugins",
             "pages": [
               "plugins/overview",
               "plugins/architecture",
-              "plugins/registry"
-            ]
-          },
-          {
-            "group": "Development",
-            "pages": [
+              "plugins/registry",
               "plugins/create-a-plugin",
               "plugins/development",
               "plugins/local-plugins",
@@ -162,6 +159,43 @@
             "group": "Skills",
             "pages": ["plugins/skills"]
           },
+          {
+            "group": "Actions",
+            "pages": ["guides/custom-actions"]
+          },
+          {
+            "group": "Triggers",
+            "pages": ["guides/triggers"]
+          },
+          {
+            "group": "Fine-Tuning",
+            "pages": ["guides/training"]
+          },
+          {
+            "group": "Trajectories",
+            "pages": ["advanced/trajectories"]
+          },
+          {
+            "group": "Runtime",
+            "pages": ["agents/runtime-and-lifecycle"]
+          },
+          {
+            "group": "Database",
+            "pages": ["advanced/database"]
+          },
+          {
+            "group": "Logs",
+            "pages": ["advanced/logs"]
+          },
+          {
+            "group": "Security",
+            "pages": ["guides/sandbox"]
+          }
+        ]
+      },
+      {
+        "tab": "Plugin Registry",
+        "groups": [
           {
             "group": "Core Plugins",
             "pages": [
@@ -202,7 +236,10 @@
           },
           {
             "group": "DeFi & Blockchain",
-            "pages": ["plugin-registry/defi/evm", "plugin-registry/defi/solana"]
+            "pages": [
+              "plugin-registry/defi/evm",
+              "plugin-registry/defi/solana"
+            ]
           },
           {
             "group": "Feature Plugins",
@@ -252,7 +289,15 @@
               "rest/diagnostics",
               "rest/subscriptions",
               "rest/trajectories",
-              "rest/v1-compat"
+              "rest/v1-compat",
+              "rest/stream",
+              "rest/memory",
+              "rest/avatar",
+              "rest/whatsapp-pairing",
+              "rest/bug-report",
+              "rest/ltcg",
+              "rest/coding-agents",
+              "rest/whitelist"
             ]
           },
           {

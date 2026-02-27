@@ -513,6 +513,53 @@ Arbitrary configuration object — varies by marketplace backend.
 
 ### Verification Commands
 
+## Acknowledge Skill Findings
+
+```
+POST /api/skills/:id/acknowledge
+```
+
+Acknowledges the security scan findings for a skill. Required before the skill can be enabled. Optionally enables the skill in the same request.
+
+**Path params:**
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `id` | string | Skill slug |
+
+**Request body:**
+```json
+{ "enable": true }
+```
+
+`enable` is optional — omit or set to `false` to acknowledge without enabling.
+
+**Response — findings present:**
+```json
+{
+  "ok": true,
+  "skillId": "my-skill",
+  "acknowledged": true,
+  "enabled": true,
+  "findingCount": 3
+}
+```
+
+**Response — no findings (clean scan):**
+```json
+{
+  "ok": true,
+  "message": "No findings to acknowledge.",
+  "acknowledged": true
+}
+```
+
+**Errors:** `404` no scan report found; `403` skill status is `"blocked"` (cannot be acknowledged).
+
+---
+
+## Testing
+
 ```bash
 # Skill catalog and marketplace unit tests
 bunx vitest run src/services/plugin-installer.test.ts src/services/skill-marketplace.test.ts src/services/skill-catalog-client.test.ts
