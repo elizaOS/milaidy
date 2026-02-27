@@ -1,6 +1,13 @@
 import { type CSSProperties, useState } from "react";
 import { type AgentMode, IS_POPOUT, toggleAlwaysOnTop } from "./helpers";
 
+function formatUptime(seconds: number): string {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = Math.floor(seconds % 60);
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
+
 export function StatusBar({
   agentName,
   mode,
@@ -10,6 +17,16 @@ export function StatusBar({
   streamLive,
   streamLoading,
   onToggleStream,
+  volume,
+  muted,
+  onVolumeChange,
+  onToggleMute,
+  destinations,
+  activeDestination,
+  onDestinationChange,
+  uptime,
+  frameCount,
+  audioSource,
 }: {
   agentName: string;
   mode: AgentMode;
@@ -19,6 +36,16 @@ export function StatusBar({
   streamLive: boolean;
   streamLoading: boolean;
   onToggleStream: () => void;
+  volume: number;
+  muted: boolean;
+  onVolumeChange: (vol: number) => void;
+  onToggleMute: () => void;
+  destinations: Array<{ id: string; name: string }>;
+  activeDestination: { id: string; name: string } | null;
+  onDestinationChange: (id: string) => void;
+  uptime: number;
+  frameCount: number;
+  audioSource: string;
 }) {
   const isLive = streamLive;
   const [pinned, setPinned] = useState(IS_POPOUT); // popout starts pinned
@@ -73,6 +100,84 @@ export function StatusBar({
         {!isPip && (
           <span className="px-2 py-0.5 rounded bg-bg-muted">{modeLabel}</span>
         )}
+
+        {/* Health stats — live only */}
+        {!isPip && isLive && (
+          <span className="flex items-center gap-1 px-2 py-0.5 rounded bg-bg-muted text-[10px] font-mono">
+            <span className="text-txt">{formatUptime(uptime)}</span>
+            <span className="text-border">|</span>
+            <span className="text-txt">{frameCount.toLocaleString()}f</span>
+            {audioSource && (
+              <>
+                <span className="text-border">|</span>
+                <span className="text-txt">{audioSource}</span>
+              </>
+            )}
+          </span>
+        )}
+
+        {/* Volume controls */}
+        {!isPip && (
+          <span className="flex items-center gap-1">
+            <button
+              type="button"
+              className="p-1 rounded bg-bg-muted hover:bg-accent/20 transition-colors cursor-pointer"
+              title={muted ? "Unmute" : "Mute"}
+              onClick={onToggleMute}
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <title>{muted ? "Unmute" : "Mute"}</title>
+                {muted ? (
+                  <>
+                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                    <line x1="23" y1="9" x2="17" y2="15" />
+                    <line x1="17" y1="9" x2="23" y2="15" />
+                  </>
+                ) : (
+                  <>
+                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                    <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+                    <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+                  </>
+                )}
+              </svg>
+            </button>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={muted ? 0 : volume}
+              onChange={(e) => onVolumeChange(Number(e.target.value))}
+              className="w-16 accent-[var(--accent)]"
+              title={`Volume: ${muted ? 0 : volume}%`}
+            />
+          </span>
+        )}
+
+        {/* Destination selector — offline only, 2+ destinations */}
+        {!isPip && !isLive && destinations.length > 1 && (
+          <select
+            className="bg-bg-muted text-txt border border-border text-[11px] rounded px-1.5 py-0.5 cursor-pointer"
+            value={activeDestination?.id ?? ""}
+            onChange={(e) => onDestinationChange(e.target.value)}
+          >
+            {destinations.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.name}
+              </option>
+            ))}
+          </select>
+        )}
+
         {!isPip && (
           <button
             type="button"

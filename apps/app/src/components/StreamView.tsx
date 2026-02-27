@@ -60,6 +60,24 @@ export function StreamView() {
 
   const [streamAvailable, setStreamAvailable] = useState(true);
 
+  // ── Volume / mute ───────────────────────────────────────────────────
+  const [volume, setVolume] = useState(100);
+  const [muted, setMuted] = useState(false);
+
+  // ── Destinations ────────────────────────────────────────────────────
+  const [destinations, setDestinations] = useState<
+    Array<{ id: string; name: string }>
+  >([]);
+  const [activeDestination, setActiveDestination] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+
+  // ── Health stats ────────────────────────────────────────────────────
+  const [uptime, setUptime] = useState(0);
+  const [frameCount, setFrameCount] = useState(0);
+  const [audioSource, setAudioSource] = useState("");
+
   useEffect(() => {
     let mounted = true;
     const poll = async () => {
@@ -68,6 +86,12 @@ export function StreamView() {
         const status = await client.streamStatus();
         if (mounted && !loadingRef.current) {
           setStreamLive(status.running && status.ffmpegAlive);
+          setVolume(status.volume);
+          setMuted(status.muted);
+          setUptime(status.uptime);
+          setFrameCount(status.frameCount);
+          setAudioSource(status.audioSource);
+          if (status.destination) setActiveDestination(status.destination);
         }
       } catch (err: unknown) {
         // 404 means stream routes are not configured — stop polling
@@ -111,6 +135,38 @@ export function StreamView() {
       setStreamLoading(false);
     }
   }, [streamLive]);
+
+  // ── Fetch destinations on mount ──────────────────────────────────────
+  useEffect(() => {
+    if (!streamAvailable) return;
+    client
+      .getStreamingDestinations()
+      .then((res) => {
+        if (res.ok) setDestinations(res.destinations);
+      })
+      .catch(() => {});
+  }, [streamAvailable]);
+
+  // ── Volume / mute / destination handlers ────────────────────────────
+  const handleVolumeChange = useCallback((vol: number) => {
+    setVolume(vol);
+    client.setStreamVolume(vol).catch(() => {});
+  }, []);
+
+  const handleToggleMute = useCallback(() => {
+    const next = !muted;
+    setMuted(next);
+    (next ? client.muteStream() : client.unmuteStream()).catch(() => {});
+  }, [muted]);
+
+  const handleDestinationChange = useCallback((id: string) => {
+    client
+      .setActiveDestination(id)
+      .then((res) => {
+        if (res.ok && res.destination) setActiveDestination(res.destination);
+      })
+      .catch(() => {});
+  }, []);
 
   // PIP mode state — small overlay window
   const [isPip, setIsPip] = useState(false);
@@ -227,6 +283,16 @@ export function StreamView() {
         streamLive={streamLive}
         streamLoading={streamLoading}
         onToggleStream={toggleStream}
+        volume={volume}
+        muted={muted}
+        onVolumeChange={handleVolumeChange}
+        onToggleMute={handleToggleMute}
+        destinations={destinations}
+        activeDestination={activeDestination}
+        onDestinationChange={handleDestinationChange}
+        uptime={uptime}
+        frameCount={frameCount}
+        audioSource={audioSource}
       />
 
       <div className="flex flex-1 min-h-0">

@@ -54,8 +54,8 @@ export function StreamTerminal() {
   }, [addLine]);
 
   return (
-    <div className="h-full w-full bg-[#1a1a1a] flex flex-col">
-      <div className="flex items-center px-3 py-1.5 border-b border-border bg-[#111] shrink-0">
+    <div className="h-full w-full bg-bg-muted flex flex-col">
+      <div className="flex items-center px-3 py-1.5 border-b border-border bg-bg shrink-0">
         <span className="text-[11px] font-mono text-muted tracking-wide">
           TERMINAL
         </span>
@@ -79,7 +79,7 @@ export function StreamTerminal() {
                     ? "text-destructive"
                     : line.type === "exit"
                       ? "text-muted"
-                      : "text-[#ccc]"
+                      : "text-txt"
               }
             >
               {line.text}

@@ -4401,6 +4401,27 @@ export class MiladyClient {
       body: JSON.stringify({ destinationId }),
     });
   }
+
+  async setStreamVolume(
+    volume: number,
+  ): Promise<{ ok: boolean; volume: number; muted: boolean }> {
+    return this.fetch("/api/stream/volume", {
+      method: "POST",
+      body: JSON.stringify({ volume }),
+    });
+  }
+
+  async muteStream(): Promise<{ ok: boolean; muted: boolean; volume: number }> {
+    return this.fetch("/api/stream/mute", { method: "POST" });
+  }
+
+  async unmuteStream(): Promise<{
+    ok: boolean;
+    muted: boolean;
+    volume: number;
+  }> {
+    return this.fetch("/api/stream/unmute", { method: "POST" });
+  }
 }
 
 // Singleton
