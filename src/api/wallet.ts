@@ -80,6 +80,12 @@ export interface EvmProviderKeys {
   ankrKey?: string | null;
   nodeRealBscRpcUrl?: string | null;
   quickNodeBscRpcUrl?: string | null;
+  /** Standard elizaOS EVM plugin env key for BSC. */
+  bscRpcUrl?: string | null;
+  /** Standard elizaOS EVM plugin env key for Ethereum mainnet. */
+  ethereumRpcUrl?: string | null;
+  /** Standard elizaOS EVM plugin env key for Base. */
+  baseRpcUrl?: string | null;
 }
 
 export const DEFAULT_EVM_CHAINS: readonly EvmChainConfig[] = [
@@ -564,6 +570,9 @@ interface EvmProviderKeyset {
   ankrKey: string | null;
   nodeRealBscRpcUrl: string | null;
   quickNodeBscRpcUrl: string | null;
+  bscRpcUrl: string | null;
+  ethereumRpcUrl: string | null;
+  baseRpcUrl: string | null;
 }
 
 /** Parse JSON from a fetch response. If the body isn't JSON, throw with the raw text. */
@@ -597,6 +606,9 @@ function resolveEvmProviderKeys(
       quickNodeBscRpcUrl: normalizeApiKey(
         process.env.QUICKNODE_BSC_RPC_URL ?? null,
       ),
+      bscRpcUrl: normalizeApiKey(process.env.BSC_RPC_URL ?? null),
+      ethereumRpcUrl: normalizeApiKey(process.env.ETHEREUM_RPC_URL ?? null),
+      baseRpcUrl: normalizeApiKey(process.env.BASE_RPC_URL ?? null),
     };
   }
   return {
@@ -608,6 +620,11 @@ function resolveEvmProviderKeys(
     quickNodeBscRpcUrl: normalizeApiKey(
       alchemyOrKeys.quickNodeBscRpcUrl ?? process.env.QUICKNODE_BSC_RPC_URL,
     ),
+    bscRpcUrl: normalizeApiKey(alchemyOrKeys.bscRpcUrl ?? process.env.BSC_RPC_URL),
+    ethereumRpcUrl: normalizeApiKey(
+      alchemyOrKeys.ethereumRpcUrl ?? process.env.ETHEREUM_RPC_URL,
+    ),
+    baseRpcUrl: normalizeApiKey(alchemyOrKeys.baseRpcUrl ?? process.env.BASE_RPC_URL),
   };
 }
 
@@ -899,7 +916,7 @@ async function fetchNativeBalanceViaRpc(
   return formatWei(wei, 18);
 }
 
-async function fetchBscChainBalancesViaRpc(
+async function fetchEvmChainBalancesViaRpc(
   chain: EvmChainConfig,
   address: string,
   rpcUrls: string[],
@@ -923,7 +940,9 @@ async function fetchBscChainBalancesViaRpc(
     }
   }
 
-  throw new Error(errors.join(" | ").slice(0, 400) || "BSC RPC unavailable");
+  throw new Error(
+    errors.join(" | ").slice(0, 400) || `${chain.name} RPC unavailable`,
+  );
 }
 
 async function fetchAlchemyChainNfts(
@@ -1016,14 +1035,31 @@ export async function fetchEvmBalances(
   maybeAnkrKey?: string | null,
 ): Promise<EvmChainBalance[]> {
   const keys = resolveEvmProviderKeys(alchemyOrKeys, maybeAnkrKey);
-  const hasManagedBscRpc = Boolean(
-    keys.nodeRealBscRpcUrl || keys.quickNodeBscRpcUrl,
-  );
-  const activeChains = DEFAULT_EVM_CHAINS.filter((chain) =>
-    chain.provider === "ankr"
-      ? (isBscChain(chain) && hasManagedBscRpc) || Boolean(keys.ankrKey)
-      : Boolean(keys.alchemyKey),
-  );
+  const bscRpcUrls = [...new Set(
+    [keys.nodeRealBscRpcUrl, keys.quickNodeBscRpcUrl, keys.bscRpcUrl].filter(
+      (url): url is string => Boolean(url),
+    ),
+  )];
+  const ethRpcUrls = keys.ethereumRpcUrl
+    ? [...new Set([keys.ethereumRpcUrl, "https://ethereum.publicnode.com"])]
+    : [];
+  const baseRpcUrls = keys.baseRpcUrl
+    ? [...new Set([keys.baseRpcUrl, "https://base.publicnode.com"])]
+    : [];
+
+  const hasManagedBscRpc = bscRpcUrls.length > 0;
+  const activeChains = DEFAULT_EVM_CHAINS.filter((chain) => {
+    if (chain.provider === "ankr") {
+      return Boolean(keys.ankrKey) || (isBscChain(chain) && hasManagedBscRpc);
+    }
+
+    // Prefer Alchemy when available (tokens + USD value). Otherwise, fall back to
+    // public RPC for native balances on the chains we support out-of-box.
+    if (keys.alchemyKey) return true;
+    if (chain.chainId === 1) return ethRpcUrls.length > 0;
+    if (chain.chainId === 8453) return baseRpcUrls.length > 0;
+    return false;
+  });
 
   return Promise.all(
     activeChains.map(async (chain): Promise<EvmChainBalance> => {
@@ -1033,20 +1069,23 @@ export async function fetchEvmBalances(
             return await fetchAnkrChainBalances(chain, address, keys.ankrKey);
           }
           if (isBscChain(chain) && hasManagedBscRpc) {
-            const fallbackRpcUrls = [
-              keys.nodeRealBscRpcUrl,
-              keys.quickNodeBscRpcUrl,
-            ].filter((url): url is string => Boolean(url));
-            return await fetchBscChainBalancesViaRpc(
-              chain,
-              address,
-              fallbackRpcUrls,
-            );
+            return await fetchEvmChainBalancesViaRpc(chain, address, bscRpcUrls);
           }
           return makeEvmChainFailure(chain, "Missing ANKR_API_KEY");
         }
-        if (!keys.alchemyKey)
+        if (!keys.alchemyKey) {
+          if (chain.chainId === 1 && ethRpcUrls.length > 0) {
+            return await fetchEvmChainBalancesViaRpc(chain, address, ethRpcUrls);
+          }
+          if (chain.chainId === 8453 && baseRpcUrls.length > 0) {
+            return await fetchEvmChainBalancesViaRpc(
+              chain,
+              address,
+              baseRpcUrls,
+            );
+          }
           return makeEvmChainFailure(chain, "Missing ALCHEMY_API_KEY");
+        }
         return await fetchAlchemyChainBalances(chain, address, keys.alchemyKey);
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -1064,7 +1103,7 @@ export async function fetchEvmNfts(
 ): Promise<Array<{ chain: string; nfts: EvmNft[] }>> {
   const keys = resolveEvmProviderKeys(alchemyOrKeys, maybeAnkrKey);
   const hasManagedBscRpc = Boolean(
-    keys.nodeRealBscRpcUrl || keys.quickNodeBscRpcUrl,
+    keys.nodeRealBscRpcUrl || keys.quickNodeBscRpcUrl || keys.bscRpcUrl,
   );
   const activeChains = DEFAULT_EVM_CHAINS.filter((chain) =>
     chain.provider === "ankr"
@@ -1208,6 +1247,50 @@ export async function fetchSolanaBalances(
   }
 
   return { solBalance, solValueUsd: "0", tokens };
+}
+
+export async function fetchSolanaNativeBalanceViaRpc(
+  address: string,
+  rpcUrls: string[],
+): Promise<{
+  solBalance: string;
+  solValueUsd: string;
+  tokens: SolanaTokenBalance[];
+}> {
+  const urls = [...new Set(rpcUrls)].filter((u) => Boolean(u?.trim()));
+  const errors: string[] = [];
+
+  for (const rpcUrl of urls) {
+    try {
+      const data = await jsonOrThrow<{
+        result?: { value?: number };
+        error?: { message?: string };
+      }>(
+        await fetch(
+          rpcUrl,
+          rpcJsonRequest(
+            JSON.stringify({
+              jsonrpc: "2.0",
+              id: 1,
+              method: "getBalance",
+              params: [address],
+            }),
+          ),
+        ),
+      );
+      if (data.error?.message) throw new Error(data.error.message);
+
+      const solBalance = ((data.result?.value ?? 0) / 1e9).toFixed(9);
+      return { solBalance, solValueUsd: "0", tokens: [] };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      errors.push(`${describeRpcEndpoint(rpcUrl)}: ${msg}`);
+    }
+  }
+
+  throw new Error(
+    errors.join(" | ").slice(0, 400) || "Solana RPC unavailable",
+  );
 }
 
 export async function fetchSolanaNfts(

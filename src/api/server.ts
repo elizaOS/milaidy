@@ -130,6 +130,7 @@ import {
   fetchEvmBalances,
   fetchEvmNfts,
   fetchSolanaBalances,
+  fetchSolanaNativeBalanceViaRpc,
   fetchSolanaNfts,
   generateWalletForChain,
   generateWalletKeys,
@@ -10120,13 +10121,23 @@ async function handleRequest(
     const ankrKey = process.env.ANKR_API_KEY;
     const nodeRealBscRpcUrl = process.env.NODEREAL_BSC_RPC_URL;
     const quickNodeBscRpcUrl = process.env.QUICKNODE_BSC_RPC_URL;
+    const bscRpcUrl = process.env.BSC_RPC_URL;
+    const ethereumRpcUrl = process.env.ETHEREUM_RPC_URL;
+    const baseRpcUrl = process.env.BASE_RPC_URL;
     const heliusKey = process.env.HELIUS_API_KEY;
+    const solanaRpcUrl = process.env.SOLANA_RPC_URL;
 
     const result: WalletBalancesResponse = { evm: null, solana: null };
 
     if (
       addrs.evmAddress &&
-      (alchemyKey || ankrKey || nodeRealBscRpcUrl || quickNodeBscRpcUrl)
+      (alchemyKey ||
+        ankrKey ||
+        nodeRealBscRpcUrl ||
+        quickNodeBscRpcUrl ||
+        bscRpcUrl ||
+        ethereumRpcUrl ||
+        baseRpcUrl)
     ) {
       try {
         const chains = await fetchEvmBalances(addrs.evmAddress, {
@@ -10134,6 +10145,9 @@ async function handleRequest(
           ankrKey,
           nodeRealBscRpcUrl,
           quickNodeBscRpcUrl,
+          bscRpcUrl,
+          ethereumRpcUrl,
+          baseRpcUrl,
         });
         result.evm = { address: addrs.evmAddress, chains };
       } catch (err) {
@@ -10141,12 +10155,14 @@ async function handleRequest(
       }
     }
 
-    if (addrs.solanaAddress && heliusKey) {
+    if (addrs.solanaAddress && (heliusKey || solanaRpcUrl)) {
       try {
-        const solData = await fetchSolanaBalances(
-          addrs.solanaAddress,
-          heliusKey,
-        );
+        const solData = heliusKey
+          ? await fetchSolanaBalances(addrs.solanaAddress, heliusKey)
+          : await fetchSolanaNativeBalanceViaRpc(addrs.solanaAddress, [
+              solanaRpcUrl,
+              "https://solana.publicnode.com",
+            ].filter((v): v is string => Boolean(v?.trim())));
         result.solana = { address: addrs.solanaAddress, ...solData };
       } catch (err) {
         logger.warn(`[wallet] Solana balance fetch failed: ${err}`);
@@ -11237,6 +11253,10 @@ async function handleRequest(
       "ANKR_API_KEY",
       "NODEREAL_BSC_RPC_URL",
       "QUICKNODE_BSC_RPC_URL",
+      "BSC_RPC_URL",
+      "ETHEREUM_RPC_URL",
+      "BASE_RPC_URL",
+      "SOLANA_RPC_URL",
       "HELIUS_API_KEY",
       "BIRDEYE_API_KEY",
     ];
@@ -15511,6 +15531,15 @@ export async function startApiServer(opts?: {
     (process.env.MILADY_API_BIND ?? "127.0.0.1").trim() || "127.0.0.1";
   ensureApiTokenForBindHost(host);
 
+  // Default public RPC endpoints for local desktop builds (no Railway env).
+  // These are intentionally NOT persisted to disk; they can be overridden by
+  // env vars or via PUT /api/wallet/config.
+  const PUBLICNODE_BSC_RPC_PRIMARY = "https://bsc-rpc.publicnode.com";
+  const PUBLICNODE_BSC_RPC_SECONDARY = "https://bsc.publicnode.com";
+  const PUBLICNODE_ETHEREUM_RPC_PRIMARY = "https://ethereum-rpc.publicnode.com";
+  const PUBLICNODE_BASE_RPC_PRIMARY = "https://base-rpc.publicnode.com";
+  const PUBLICNODE_SOLANA_RPC_PRIMARY = "https://solana-rpc.publicnode.com";
+
   let config: MiladyConfig;
   try {
     config = loadMiladyConfig();
@@ -15544,6 +15573,9 @@ export async function startApiServer(opts?: {
     "ANKR_API_KEY",
     "NODEREAL_BSC_RPC_URL",
     "QUICKNODE_BSC_RPC_URL",
+    "BSC_RPC_URL",
+    "ETHEREUM_RPC_URL",
+    "BASE_RPC_URL",
     "HELIUS_API_KEY",
     "BIRDEYE_API_KEY",
     "SOLANA_RPC_URL",
@@ -15553,6 +15585,27 @@ export async function startApiServer(opts?: {
     if (typeof value === "string" && value.trim() && !process.env[key]) {
       process.env[key] = value.trim();
     }
+  }
+
+  // Apply safe public defaults if no RPC is configured (keeps DMG usable out-of-box).
+  if (!process.env.NODEREAL_BSC_RPC_URL?.trim()) {
+    process.env.NODEREAL_BSC_RPC_URL = PUBLICNODE_BSC_RPC_PRIMARY;
+  }
+  if (!process.env.QUICKNODE_BSC_RPC_URL?.trim()) {
+    process.env.QUICKNODE_BSC_RPC_URL = PUBLICNODE_BSC_RPC_SECONDARY;
+  }
+  if (!process.env.BSC_RPC_URL?.trim()) {
+    // Prefer the primary wallet RPC to keep behavior consistent across plugins.
+    process.env.BSC_RPC_URL = process.env.NODEREAL_BSC_RPC_URL;
+  }
+  if (!process.env.ETHEREUM_RPC_URL?.trim()) {
+    process.env.ETHEREUM_RPC_URL = PUBLICNODE_ETHEREUM_RPC_PRIMARY;
+  }
+  if (!process.env.BASE_RPC_URL?.trim()) {
+    process.env.BASE_RPC_URL = PUBLICNODE_BASE_RPC_PRIMARY;
+  }
+  if (!process.env.SOLANA_RPC_URL?.trim()) {
+    process.env.SOLANA_RPC_URL = PUBLICNODE_SOLANA_RPC_PRIMARY;
   }
 
   // Self-heal older configs where wallet keys were never provisioned

@@ -18,6 +18,7 @@ import {
   deriveSolanaAddress,
   fetchEvmBalances,
   fetchEvmNfts,
+  fetchSolanaNativeBalanceViaRpc,
   generateWalletForChain,
   generateWalletKeys,
   getWalletAddresses,
@@ -352,6 +353,61 @@ describe("EVM provider fetch routing", () => {
     expect(bsc?.nativeBalance).toBe("1");
   });
 
+  it("fetches Ethereum and Base native balances via public RPC when Alchemy key is missing", async () => {
+    const envBackup = saveEnvKeys(
+      "ETHEREUM_RPC_URL",
+      "BASE_RPC_URL",
+      "NODEREAL_BSC_RPC_URL",
+      "QUICKNODE_BSC_RPC_URL",
+      "BSC_RPC_URL",
+    );
+    delete process.env.NODEREAL_BSC_RPC_URL;
+    delete process.env.QUICKNODE_BSC_RPC_URL;
+    delete process.env.BSC_RPC_URL;
+    process.env.ETHEREUM_RPC_URL = "https://eth.example";
+    process.env.BASE_RPC_URL = "https://base.example";
+
+    try {
+      const fetchMock = vi.fn(async (url: string) => {
+        if (url === "https://eth.example") {
+          return new Response(
+            JSON.stringify({
+              jsonrpc: "2.0",
+              id: 1,
+              result: "0xde0b6b3a7640000", // 1 ETH
+            }),
+          );
+        }
+        if (url === "https://base.example") {
+          return new Response(
+            JSON.stringify({
+              jsonrpc: "2.0",
+              id: 1,
+              result: "0x6f05b59d3b20000", // 0.5 ETH
+            }),
+          );
+        }
+        throw new Error(`Unexpected RPC URL: ${url}`);
+      });
+      globalThis.fetch = fetchMock as typeof fetch;
+
+      const balances = await fetchEvmBalances("0x1234", {});
+      const eth = balances.find((chain) => chain.chain === "Ethereum");
+      const base = balances.find((chain) => chain.chain === "Base");
+
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(eth?.error).toBeNull();
+      expect(eth?.nativeSymbol).toBe("ETH");
+      expect(eth?.nativeBalance).toBe("1");
+
+      expect(base?.error).toBeNull();
+      expect(base?.nativeSymbol).toBe("ETH");
+      expect(base?.nativeBalance).toBe("0.5");
+    } finally {
+      envBackup.restore();
+    }
+  });
+
   it("fetches BSC NFTs via Ankr", async () => {
     const fetchMock = vi.fn(async () => {
       return new Response(
@@ -390,6 +446,35 @@ describe("EVM provider fetch routing", () => {
     expect(bsc).toBeTruthy();
     expect(bsc?.nfts).toHaveLength(1);
     expect(bsc?.nfts[0]?.name).toBe("BSC Test NFT");
+  });
+});
+
+describe("Solana RPC fallback", () => {
+  const originalFetch = globalThis.fetch;
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+    vi.restoreAllMocks();
+  });
+
+  it("fetches SOL native balance via RPC and returns empty tokens list", async () => {
+    const fetchMock = vi.fn(async () => {
+      return new Response(
+        JSON.stringify({
+          jsonrpc: "2.0",
+          id: 1,
+          result: { value: 1_500_000_000 },
+        }),
+      );
+    });
+    globalThis.fetch = fetchMock as typeof fetch;
+
+    const result = await fetchSolanaNativeBalanceViaRpc("So111111111", [
+      "https://sol.example",
+    ]);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(result.solBalance).toBe("1.500000000");
+    expect(result.tokens).toEqual([]);
   });
 });
 

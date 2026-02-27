@@ -91,6 +91,8 @@ export function resolveBscRpcUrls(input: BscTradeRpcConfig): string[] {
     normalizeRpcUrl(
       input.quickNodeBscRpcUrl ?? process.env.QUICKNODE_BSC_RPC_URL,
     ),
+    // Standard plugin env key used across elizaOS EVM tooling.
+    normalizeRpcUrl(process.env.BSC_RPC_URL),
   ].filter((v): v is string => Boolean(v));
 
   return [...new Set(candidates)];

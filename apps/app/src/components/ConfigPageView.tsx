@@ -208,6 +208,8 @@ function RpcConfigSection<T extends string>({
                     "QUICKNODE_BSC_RPC_URL",
                     DEFAULT_PUBLIC_BSC_RPC_SECONDARY,
                   );
+                  // Standard elizaOS env key used by EVM tooling/plugins.
+                  onRpcFieldChange("BSC_RPC_URL", DEFAULT_PUBLIC_BSC_RPC_PRIMARY);
                 }}
               >
                 Use defaults

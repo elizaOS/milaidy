@@ -103,6 +103,12 @@ describe("Wallet API E2E", () => {
     "ALCHEMY_API_KEY",
     "HELIUS_API_KEY",
     "BIRDEYE_API_KEY",
+    "NODEREAL_BSC_RPC_URL",
+    "QUICKNODE_BSC_RPC_URL",
+    "BSC_RPC_URL",
+    "ETHEREUM_RPC_URL",
+    "BASE_RPC_URL",
+    "SOLANA_RPC_URL",
   ];
 
   beforeAll(async () => {
@@ -530,6 +536,12 @@ describe("Wallet API E2E", () => {
     it("GET /api/wallet/balances without API keys returns null for both", async () => {
       delete process.env.ALCHEMY_API_KEY;
       delete process.env.HELIUS_API_KEY;
+      delete process.env.NODEREAL_BSC_RPC_URL;
+      delete process.env.QUICKNODE_BSC_RPC_URL;
+      delete process.env.BSC_RPC_URL;
+      delete process.env.ETHEREUM_RPC_URL;
+      delete process.env.BASE_RPC_URL;
+      delete process.env.SOLANA_RPC_URL;
       const { status, data } = await req(port, "GET", "/api/wallet/balances");
       expect(status).toBe(200);
       expect(data.evm).toBeNull();
@@ -606,6 +618,12 @@ describe("Key Management E2E", () => {
     "ALCHEMY_API_KEY",
     "HELIUS_API_KEY",
     "BIRDEYE_API_KEY",
+    "NODEREAL_BSC_RPC_URL",
+    "QUICKNODE_BSC_RPC_URL",
+    "BSC_RPC_URL",
+    "ETHEREUM_RPC_URL",
+    "BASE_RPC_URL",
+    "SOLANA_RPC_URL",
   ];
 
   beforeAll(async () => {
