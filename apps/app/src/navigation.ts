@@ -18,7 +18,7 @@ import {
 /** Apps are only enabled in dev mode; production builds hide this feature. */
 export const APPS_ENABLED = import.meta.env.DEV;
 
-/** Stream tab — only enabled in dev mode; production builds hide this feature. */
+/** Stream tab — enabled when the "streaming-base" plugin is active (or in dev mode). */
 export const STREAM_ENABLED = import.meta.env.DEV;
 
 export type Tab =
@@ -50,7 +50,7 @@ export interface TabGroup {
   description?: string;
 }
 
-const ALL_TAB_GROUPS: TabGroup[] = [
+export const ALL_TAB_GROUPS: TabGroup[] = [
   {
     label: "Chat",
     tabs: ["chat"],
@@ -119,11 +119,14 @@ const ALL_TAB_GROUPS: TabGroup[] = [
   },
 ];
 
-export const TAB_GROUPS = ALL_TAB_GROUPS.filter(
-  (g) =>
-    (APPS_ENABLED || g.label !== "Apps") &&
-    (STREAM_ENABLED || g.label !== "Stream"),
-);
+/** Compute visible tab groups. Pass streamEnabled explicitly for React reactivity. */
+export function getTabGroups(streamEnabled = STREAM_ENABLED): TabGroup[] {
+  return ALL_TAB_GROUPS.filter(
+    (g) =>
+      (APPS_ENABLED || g.label !== "Apps") &&
+      (streamEnabled || g.label !== "Stream"),
+  );
+}
 
 const TAB_PATHS: Record<Tab, string> = {
   chat: "/chat",

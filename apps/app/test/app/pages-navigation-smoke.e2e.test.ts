@@ -3,7 +3,7 @@ import React from "react";
 import TestRenderer, { act } from "react-test-renderer";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Tab } from "../../src/navigation";
-import { TAB_GROUPS } from "../../src/navigation";
+import { getTabGroups } from "../../src/navigation";
 
 const { mockUseApp, noop } = vi.hoisted(() => ({
   mockUseApp: vi.fn(),
@@ -242,6 +242,7 @@ describe("pages navigation smoke (e2e)", () => {
       onboardingComplete: true,
       tab: "chat",
       actionNotice: null,
+      plugins: [],
       setTab: (tab: Tab) => {
         state.tab = tab;
       },
@@ -282,7 +283,7 @@ describe("pages navigation smoke (e2e)", () => {
       voice: "SettingsView Ready",
     };
 
-    for (const group of TAB_GROUPS) {
+    for (const group of getTabGroups(false)) {
       await clickAndRerender(renderedTree, group.label);
       const nextTab = group.tabs[0];
       const content = mainContent(renderedTree);
@@ -462,6 +463,7 @@ describe("pages navigation smoke (e2e)", () => {
         onboardingComplete: true,
         tab: "chat",
         actionNotice: null,
+        plugins: [],
         setTab: (tab: Tab) => {
           state.tab = tab;
         },

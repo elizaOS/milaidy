@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  ALL_TAB_GROUPS,
   pathForTab,
-  TAB_GROUPS,
   tabFromPath,
   titleForTab,
 } from "../../src/navigation";
@@ -14,7 +14,7 @@ describe("navigation", () => {
   });
 
   it("includes security in the advanced tab group", () => {
-    const advancedGroup = TAB_GROUPS.find(
+    const advancedGroup = ALL_TAB_GROUPS.find(
       (group) => group.label === "Advanced",
     );
     expect(advancedGroup?.tabs).toContain("security");

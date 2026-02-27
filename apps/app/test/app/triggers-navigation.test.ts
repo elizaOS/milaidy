@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import {
+  ALL_TAB_GROUPS,
   pathForTab,
-  TAB_GROUPS,
   tabFromPath,
   titleForTab,
 } from "../../src/navigation";
@@ -34,7 +34,7 @@ describe("navigation", () => {
   });
 
   test("includes advanced tabs in Advanced group", () => {
-    const advanced = TAB_GROUPS.find((group) => group.label === "Advanced");
+    const advanced = ALL_TAB_GROUPS.find((group) => group.label === "Advanced");
     expect(advanced).toBeDefined();
     expect(advanced?.tabs.includes("advanced")).toBe(true);
     expect(advanced?.tabs.includes("plugins")).toBe(true);
@@ -49,7 +49,7 @@ describe("navigation", () => {
   });
 
   test("hides Voice from top-level header groups", () => {
-    const voice = TAB_GROUPS.find((group) => group.label === "Voice");
+    const voice = ALL_TAB_GROUPS.find((group) => group.label === "Voice");
     expect(voice).toBeUndefined();
   });
 
@@ -75,20 +75,20 @@ describe("navigation", () => {
   });
 
   test("does not expose game as a top-level apps tab", () => {
-    const apps = TAB_GROUPS.find((group) => group.label === "Apps");
+    const apps = ALL_TAB_GROUPS.find((group) => group.label === "Apps");
     expect(apps).toBeDefined();
     expect(apps?.tabs).toEqual(["apps"]);
   });
 
   test("keeps character/wallets/knowledge/social as top-level groups and moves triggers to Advanced", () => {
-    const labels = TAB_GROUPS.map((group) => group.label);
+    const labels = ALL_TAB_GROUPS.map((group) => group.label);
     expect(labels).toContain("Character");
     expect(labels).toContain("Wallets");
     expect(labels).toContain("Knowledge");
     expect(labels).toContain("Social");
     expect(labels).not.toContain("Tasks");
     expect(labels).not.toContain("Triggers");
-    const advanced = TAB_GROUPS.find((group) => group.label === "Advanced");
+    const advanced = ALL_TAB_GROUPS.find((group) => group.label === "Advanced");
     expect(advanced?.tabs.includes("triggers")).toBe(true);
     expect(labels).not.toContain("Agent");
   });

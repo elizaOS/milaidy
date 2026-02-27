@@ -699,7 +699,7 @@ export interface AppState {
 
   // Plugins
   plugins: PluginInfo[];
-  pluginFilter: "all" | "ai-provider" | "connector" | "feature";
+  pluginFilter: "all" | "ai-provider" | "connector" | "feature" | "streaming";
   pluginStatusFilter: "all" | "enabled" | "disabled";
   pluginSearch: string;
   pluginSettingsOpen: Set<string>;
@@ -1189,7 +1189,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // --- Plugins ---
   const [plugins, setPlugins] = useState<PluginInfo[]>([]);
   const [pluginFilter, setPluginFilter] = useState<
-    "all" | "ai-provider" | "connector" | "feature"
+    "all" | "ai-provider" | "connector" | "feature" | "streaming"
   >("all");
   const [pluginStatusFilter, setPluginStatusFilter] = useState<
     "all" | "enabled" | "disabled"
@@ -4785,6 +4785,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
 
       void loadWorkbench();
+      void loadPlugins(); // Hydrate plugin state early so Nav sees streaming-base toggle
 
       // Hydrate coding agent sessions
       client

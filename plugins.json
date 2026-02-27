@@ -8658,6 +8658,122 @@
       }
     },
     {
+      "id": "streaming-base",
+      "dirName": "plugin-streaming-base",
+      "name": "Streaming",
+      "npmName": "@milady/plugin-streaming-base",
+      "description": "Enable live streaming controls — adds the Stream tab for managing RTMP destinations",
+      "category": "streaming",
+      "envKey": null,
+      "configKeys": [],
+      "pluginParameters": {}
+    },
+    {
+      "id": "twitch-streaming",
+      "dirName": "plugin-twitch",
+      "name": "Twitch Streaming",
+      "npmName": "@milady/plugin-twitch-streaming",
+      "description": "Twitch RTMP streaming destination for live broadcasts",
+      "category": "streaming",
+      "envKey": "TWITCH_STREAM_KEY",
+      "configKeys": [
+        "TWITCH_STREAM_KEY"
+      ],
+      "pluginParameters": {
+        "TWITCH_STREAM_KEY": {
+          "type": "string",
+          "description": "Twitch stream key for RTMP ingest",
+          "required": true,
+          "sensitive": true
+        }
+      },
+      "configUiHints": {
+        "TWITCH_STREAM_KEY": {
+          "label": "Stream Key",
+          "group": "Authentication",
+          "width": "full"
+        }
+      }
+    },
+    {
+      "id": "youtube-streaming",
+      "dirName": "plugin-youtube",
+      "name": "YouTube Streaming",
+      "npmName": "@milady/plugin-youtube-streaming",
+      "description": "YouTube RTMP streaming destination for live broadcasts",
+      "category": "streaming",
+      "envKey": "YOUTUBE_STREAM_KEY",
+      "configKeys": [
+        "YOUTUBE_STREAM_KEY",
+        "YOUTUBE_RTMP_URL"
+      ],
+      "pluginParameters": {
+        "YOUTUBE_STREAM_KEY": {
+          "type": "string",
+          "description": "YouTube stream key for RTMP ingest",
+          "required": true,
+          "sensitive": true
+        },
+        "YOUTUBE_RTMP_URL": {
+          "type": "string",
+          "description": "YouTube RTMP ingest URL (default: rtmp://a.rtmp.youtube.com/live2)",
+          "required": false,
+          "sensitive": false
+        }
+      },
+      "configUiHints": {
+        "YOUTUBE_STREAM_KEY": {
+          "label": "Stream Key",
+          "group": "Authentication",
+          "width": "full"
+        },
+        "YOUTUBE_RTMP_URL": {
+          "label": "RTMP URL",
+          "group": "Connection",
+          "width": "full"
+        }
+      }
+    },
+    {
+      "id": "custom-rtmp",
+      "dirName": "custom-rtmp",
+      "name": "Custom RTMP",
+      "npmName": null,
+      "description": "Stream to any RTMP destination with a custom URL and key",
+      "category": "streaming",
+      "envKey": "CUSTOM_RTMP_URL",
+      "configKeys": [
+        "CUSTOM_RTMP_URL",
+        "CUSTOM_RTMP_KEY"
+      ],
+      "pluginParameters": {
+        "CUSTOM_RTMP_URL": {
+          "type": "string",
+          "description": "RTMP ingest URL for your streaming platform",
+          "required": true,
+          "sensitive": false
+        },
+        "CUSTOM_RTMP_KEY": {
+          "type": "string",
+          "description": "RTMP stream key",
+          "required": true,
+          "sensitive": true
+        }
+      },
+      "configUiHints": {
+        "CUSTOM_RTMP_URL": {
+          "label": "RTMP URL",
+          "group": "Connection",
+          "width": "full"
+        },
+        "CUSTOM_RTMP_KEY": {
+          "label": "Stream Key",
+          "group": "Authentication",
+          "width": "full"
+        }
+      }
+    },
+    {
       "id": "vercel-ai-gateway",
       "dirName": "plugin-vercel-ai-gateway",
       "name": "Vercel Ai Gateway",

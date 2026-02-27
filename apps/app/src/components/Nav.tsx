@@ -2,18 +2,29 @@ import { Menu, X } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { useApp } from "../AppContext";
-import { TAB_GROUPS, type TabGroup } from "../navigation";
+import { getTabGroups, type TabGroup } from "../navigation";
 
 interface NavProps {
   mobileLeft?: ReactNode;
 }
 
 export function Nav({ mobileLeft }: NavProps) {
-  const { tab, setTab } = useApp();
+  const { tab, setTab, plugins } = useApp();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const streamingEnabled = useMemo(
+    () => plugins.some((p) => p.id === "streaming-base" && p.enabled),
+    [plugins],
+  );
+
+  const tabGroups = useMemo(
+    () => getTabGroups(streamingEnabled),
+    [streamingEnabled],
+  );
+
   const activeGroup = useMemo(
-    () => TAB_GROUPS.find((group) => group.tabs.includes(tab)) ?? TAB_GROUPS[0],
-    [tab],
+    () => tabGroups.find((group) => group.tabs.includes(tab)) ?? tabGroups[0],
+    [tab, tabGroups],
   );
 
   useEffect(() => {
@@ -58,7 +69,7 @@ export function Nav({ mobileLeft }: NavProps) {
 
       {/* Desktop Navigation */}
       <nav className="hidden lg:flex border-b border-border bg-bg/80 backdrop-blur-sm py-1.5 px-3 xl:px-5 gap-0.5 overflow-x-auto whitespace-nowrap sticky top-0 z-10">
-        {TAB_GROUPS.map((group: TabGroup) => {
+        {tabGroups.map((group: TabGroup) => {
           const primaryTab = group.tabs[0];
           const isActive = group.tabs.includes(tab);
           const Icon = group.icon;
@@ -120,7 +131,7 @@ export function Nav({ mobileLeft }: NavProps) {
 
             <div className="flex-1 overflow-y-auto py-3 px-3">
               <div className="flex flex-col gap-1">
-                {TAB_GROUPS.map((group: TabGroup, index) => {
+                {tabGroups.map((group: TabGroup, index) => {
                   const primaryTab = group.tabs[0];
                   const isActive = group.tabs.includes(tab);
                   const Icon = group.icon;

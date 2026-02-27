@@ -1289,11 +1289,12 @@ function categorizePlugin(
     "tlon",
     "nextcloud-talk",
     "instagram",
-    "retake",
     "blooio",
     "twitch",
   ];
   const streamingDests = [
+    "streaming-base",
+    "retake",
     "custom-rtmp",
     "youtube",
     "youtube-streaming",
