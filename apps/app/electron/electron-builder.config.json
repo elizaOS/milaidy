@@ -10,6 +10,7 @@
     "tsc-out/**/*",
     "build/**/*",
     "capacitor.config.*",
+    "plugins.json",
     "app/**/*",
     "milady-dist/**/*.js",
     "milady-dist/package.json"
