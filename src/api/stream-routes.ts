@@ -106,8 +106,7 @@ function error(res: ServerResponse, message: string, status: number): void {
  */
 /** @internal Exported for testing. */
 export function detectCaptureMode(): StreamConfig["inputMode"] {
-  const explicit =
-    process.env.STREAM_MODE ?? process.env.RETAKE_STREAM_MODE;
+  const explicit = process.env.STREAM_MODE ?? process.env.RETAKE_STREAM_MODE;
   if (explicit === "ui" || explicit === "pipe") return "pipe";
   if (explicit === "x11grab") return "x11grab";
   if (explicit === "avfoundation" || explicit === "screen")
@@ -454,11 +453,7 @@ export async function handleStreamRoute(
         destination: state.destination.id,
       });
     } catch (err) {
-      error(
-        res,
-        err instanceof Error ? err.message : "Failed to go live",
-        500,
-      );
+      error(res, err instanceof Error ? err.message : "Failed to go live", 500);
     }
     return true;
   }
@@ -500,8 +495,7 @@ export async function handleStreamRoute(
   if (method === "POST" && pathname === "/api/stream/start") {
     try {
       const bodyStr = await readRequestBody(req);
-      const body =
-        typeof bodyStr === "string" ? JSON.parse(bodyStr) : bodyStr;
+      const body = typeof bodyStr === "string" ? JSON.parse(bodyStr) : bodyStr;
       const rtmpUrl = body?.rtmpUrl as string | undefined;
       const rtmpKey = body?.rtmpKey as string | undefined;
 
@@ -518,8 +512,7 @@ export async function handleStreamRoute(
       await state.streamManager.start({
         rtmpUrl,
         rtmpKey,
-        inputMode:
-          (body?.inputMode as "testsrc" | "avfoundation") || "testsrc",
+        inputMode: (body?.inputMode as "testsrc" | "avfoundation") || "testsrc",
         resolution: (body?.resolution as string) || "1280x720",
         bitrate: (body?.bitrate as string) || "2500k",
         framerate: (body?.framerate as number) || 30,
@@ -612,11 +605,7 @@ export async function handleStreamRoute(
         volume: state.streamManager.getVolume(),
       });
     } catch (err) {
-      error(
-        res,
-        err instanceof Error ? err.message : "Failed to unmute",
-        500,
-      );
+      error(res, err instanceof Error ? err.message : "Failed to unmute", 500);
     }
     return true;
   }
@@ -645,7 +634,10 @@ export async function handleStreamRoute(
       if (state.destination && state.destination.id === destinationId) {
         json(res, {
           ok: true,
-          destination: { id: state.destination.id, name: state.destination.name },
+          destination: {
+            id: state.destination.id,
+            name: state.destination.name,
+          },
         });
       } else {
         error(res, `Unknown destination: ${destinationId}`, 404);

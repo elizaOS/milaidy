@@ -74,20 +74,30 @@ function makeMockProc(opts: { exitCode?: number | null } = {}) {
  * second argument (i.e. the ffmpeg args including the leading "-y").
  */
 async function startWithMock(config: StreamConfig): Promise<string[]> {
+  // Ensure singleton is stopped from any previous test leakage
+  vi.useRealTimers();
+  await streamManager.stop();
+
   const proc = makeMockProc();
   // biome-ignore lint/suspicious/noExplicitAny: mock proc shape doesn't fully match ChildProcess
   vi.mocked(spawn).mockReturnValueOnce(proc as any);
 
   vi.useFakeTimers();
-
-  const startPromise = streamManager.start(config);
-  await vi.runAllTimersAsync();
-  await startPromise;
-
-  vi.useRealTimers();
+  try {
+    const startPromise = streamManager.start(config);
+    // Advance past the 1500ms probe delay — don't use runAllTimersAsync
+    // because stream-manager has a setInterval that causes infinite loop.
+    await vi.advanceTimersByTimeAsync(2000);
+    await startPromise;
+  } finally {
+    vi.useRealTimers();
+  }
 
   const calls = vi.mocked(spawn).mock.calls;
   const lastCall = calls[calls.length - 1];
+  if (!lastCall) {
+    throw new Error("startWithMock: spawn was never called");
+  }
   // spawn("ffmpeg", ["-y", ...ffmpegArgs], opts)  →  lastCall[1] is the args array
   return lastCall[1] as string[];
 }
@@ -101,9 +111,9 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
-  // stop() is a no-op when not running, so calling it unconditionally is safe.
-  await streamManager.stop();
+  // Restore real timers FIRST so stop()'s internal setTimeout can fire
   vi.useRealTimers();
+  await streamManager.stop();
 });
 
 // ===========================================================================

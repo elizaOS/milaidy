@@ -1272,7 +1272,12 @@ function categorizePlugin(
     "blooio",
     "twitch",
   ];
-  const streamingDests = ["custom-rtmp", "youtube", "youtube-streaming", "twitch-streaming"];
+  const streamingDests = [
+    "custom-rtmp",
+    "youtube",
+    "youtube-streaming",
+    "twitch-streaming",
+  ];
   const databases = ["sql", "localdb", "inmemorydb"];
 
   if (aiProviders.includes(id)) return "ai-provider";
@@ -6353,17 +6358,24 @@ async function handleRequest(
           typeof item === "object" &&
           "examples" in (item as Record<string, unknown>)
         ) {
-          return item as { examples: { name: string; content: { text: string } }[] };
+          return item as {
+            examples: { name: string; content: { text: string } }[];
+          };
         }
         // Old format: [{user, content}, ...] → {examples: [{name, content}, ...]}
-        const arr = item as { user?: string; name?: string; content: { text: string } }[];
+        const arr = item as {
+          user?: string;
+          name?: string;
+          content: { text: string };
+        }[];
         return {
           examples: arr.map((m) => ({
             name: m.name ?? m.user ?? "",
             content: m.content,
           })),
         };
-      });
+        // biome-ignore lint/suspicious/noExplicitAny: mixed legacy/new formats
+      }) as any;
     }
 
     // ── Theme preference ──────────────────────────────────────────────────
@@ -12341,7 +12353,11 @@ async function handleRequest(
       return;
     }
     if (!ALLOWED_STREAMS.has(body.stream)) {
-      error(res, `Invalid stream: ${body.stream}. Allowed: ${[...ALLOWED_STREAMS].join(", ")}`, 400);
+      error(
+        res,
+        `Invalid stream: ${body.stream}. Allowed: ${[...ALLOWED_STREAMS].join(", ")}`,
+        400,
+      );
       return;
     }
     const envelope: StreamEventEnvelope = {
@@ -13472,9 +13488,8 @@ export async function startApiServer(opts?: {
       try {
         const { handleStreamRoute } = await import("./stream-routes.js");
         // Screen capture manager is injected by Electron host via globalThis
-        const screenCapture = (
-          globalThis as Record<string, unknown>
-        ).__miladyScreenCapture as
+        const screenCapture = (globalThis as Record<string, unknown>)
+          .__miladyScreenCapture as
           | {
               isFrameCaptureActive(): boolean;
               startFrameCapture(opts: {
@@ -13504,8 +13519,9 @@ export async function startApiServer(opts?: {
         }
 
         // Check streaming.customRtmp
-        const streaming = (state.config as Record<string, unknown>)
-          .streaming as Record<string, unknown> | undefined;
+        const streaming = (state.config as Record<string, unknown>).streaming as
+          | Record<string, unknown>
+          | undefined;
         if (
           !destination &&
           streaming?.customRtmp &&
@@ -13530,9 +13546,8 @@ export async function startApiServer(opts?: {
         ) {
           const twitchConfig = streaming.twitch as Record<string, unknown>;
           if (twitchConfig.streamKey) {
-            const { createTwitchDestination } = await import(
-              "@milady/plugin-twitch-streaming"
-            );
+            const twitchMod = "@milady/plugin-twitch-streaming";
+            const { createTwitchDestination } = await import(twitchMod);
             destination = createTwitchDestination(
               twitchConfig as { streamKey?: string },
             );
@@ -13547,9 +13562,8 @@ export async function startApiServer(opts?: {
         ) {
           const ytConfig = streaming.youtube as Record<string, unknown>;
           if (ytConfig.streamKey) {
-            const { createYoutubeDestination } = await import(
-              "@milady/plugin-youtube-streaming"
-            );
+            const youtubeMod = "@milady/plugin-youtube-streaming";
+            const { createYoutubeDestination } = await import(youtubeMod);
             destination = createYoutubeDestination(
               ytConfig as { streamKey?: string; rtmpUrl?: string },
             );
@@ -13571,12 +13585,10 @@ export async function startApiServer(opts?: {
         const destLabel = destination
           ? `destination: ${destination.name}`
           : "no destination";
-        addLog(
-          "info",
-          `Stream routes registered (${destLabel})`,
+        addLog("info", `Stream routes registered (${destLabel})`, "system", [
           "system",
-          ["system", "streaming"],
-        );
+          "streaming",
+        ]);
       } catch (err) {
         logger.warn(
           `[milady-api] Failed to load stream routes: ${err instanceof Error ? err.message : String(err)}`,
