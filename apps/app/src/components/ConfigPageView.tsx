@@ -28,11 +28,15 @@ type RpcFieldGroup = ReadonlyArray<RpcFieldDefinition>;
 
 type RpcSectionConfigMap = Record<string, RpcFieldGroup>;
 
+const DEFAULT_PUBLIC_BSC_RPC_PRIMARY = "https://bsc.publicnode.com";
+const DEFAULT_PUBLIC_BSC_RPC_SECONDARY = "https://rpc.ankr.com/bsc";
+
 const EVM_RPC_OPTIONS = [
   { id: "eliza-cloud", label: "Eliza Cloud" },
   { id: "alchemy", label: "Alchemy" },
   { id: "infura", label: "Infura" },
   { id: "ankr", label: "Ankr" },
+  { id: "bsc-rpc", label: "BSC RPC" },
 ] as const;
 
 const SOLANA_RPC_OPTIONS = [
@@ -123,7 +127,11 @@ function buildRpcRendererConfig(
     props.hints[field.configKey] = {
       label: field.label,
       sensitive: true,
-      placeholder: field.isSet ? "Already set — leave blank to keep" : "Enter API key",
+      placeholder: field.isSet
+        ? "Already set — leave blank to keep"
+        : field.configKey.includes("RPC_URL")
+          ? "Enter RPC URL (https://...)"
+          : "Enter API key",
       width: "full",
     };
     if (rpcFieldValues[field.configKey] !== undefined) {
@@ -179,6 +187,33 @@ function RpcConfigSection<T extends string>({
       )}
 
       <div className="mt-3">
+        {selectedProvider === "bsc-rpc" && (
+          <div className="mb-2 border border-[var(--border)] bg-[rgba(255,255,255,0.02)] p-2 text-[11px] text-[var(--muted)]">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <div>
+                Recommended free endpoints:
+                <code className="ml-1">{DEFAULT_PUBLIC_BSC_RPC_PRIMARY}</code>
+                <span className="mx-1">+</span>
+                <code>{DEFAULT_PUBLIC_BSC_RPC_SECONDARY}</code>
+              </div>
+              <button
+                className="btn text-[11px] py-[3px] px-3 !mt-0"
+                onClick={() => {
+                  onRpcFieldChange(
+                    "NODEREAL_BSC_RPC_URL",
+                    DEFAULT_PUBLIC_BSC_RPC_PRIMARY,
+                  );
+                  onRpcFieldChange(
+                    "QUICKNODE_BSC_RPC_URL",
+                    DEFAULT_PUBLIC_BSC_RPC_SECONDARY,
+                  );
+                }}
+              >
+                Use defaults
+              </button>
+            </div>
+          </div>
+        )}
         {selectedProvider === "eliza-cloud" ? (
           <CloudRpcStatus
             connected={cloud.connected}
@@ -268,7 +303,7 @@ export function ConfigPageView({ embedded = false }: { embedded?: boolean }) {
   }, [handleWalletApiKeySave, rpcFieldValues]);
 
   /* ── RPC provider selection state ──────────────────────────────────── */
-  const [selectedEvmRpc, setSelectedEvmRpc] = useState<"eliza-cloud" | "alchemy" | "infura" | "ankr">("eliza-cloud");
+  const [selectedEvmRpc, setSelectedEvmRpc] = useState<"eliza-cloud" | "alchemy" | "infura" | "ankr" | "bsc-rpc">("eliza-cloud");
   const [selectedSolanaRpc, setSelectedSolanaRpc] = useState<"eliza-cloud" | "helius-birdeye">("eliza-cloud");
 
   const evmRpcConfigs: RpcSectionConfigMap = {
@@ -291,6 +326,18 @@ export function ConfigPageView({ embedded = false }: { embedded?: boolean }) {
         configKey: "ANKR_API_KEY",
         label: "Ankr API Key",
         isSet: walletConfig?.ankrKeySet ?? false,
+      },
+    ],
+    "bsc-rpc": [
+      {
+        configKey: "NODEREAL_BSC_RPC_URL",
+        label: "BSC RPC URL (Primary)",
+        isSet: walletConfig?.nodeRealBscRpcSet ?? false,
+      },
+      {
+        configKey: "QUICKNODE_BSC_RPC_URL",
+        label: "BSC RPC URL (Secondary)",
+        isSet: walletConfig?.quickNodeBscRpcSet ?? false,
       },
     ],
   };

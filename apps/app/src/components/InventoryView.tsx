@@ -1117,22 +1117,42 @@ export function InventoryView() {
             />
           </div>
           {/* Inline BSC error with retry */}
-          {bscChainError && (
-            <div className="wt__error-inline mt-2">
-              <span className="wt__error-inline-text">BSC: {bscChainError}</span>
+        {bscChainError && (
+          <div className="wt__error-inline mt-2">
+            <span className="wt__error-inline-text">BSC: {bscChainError}</span>
+            <button
+              className="wt__error-retry"
+              onClick={() => void loadBalances()}
+              title={t("wallet.retryFetchingBsc")}
+            >
+              {t("common.retry")} ↻
+            </button>
+          </div>
+        )}
+
+        {/* BSC trade requires a dedicated RPC endpoint (local desktop builds do not inherit Railway env). */}
+        {evmAddr && !hasManagedBscRpc && (
+          <div className="mt-2 px-3 py-2 border border-[rgba(184,134,11,0.55)] bg-[rgba(184,134,11,0.08)] text-[11px]">
+            <div className="font-bold mb-1">{t("wallet.setup.rpcNotConfigured")}</div>
+            <div className="text-[var(--muted)] leading-relaxed">
+              {t("wallet.setup.rpcHintBefore")} <code>NODEREAL_BSC_RPC_URL</code>{" "}
+              {t("wallet.setup.rpcHintBetween")} <code>QUICKNODE_BSC_RPC_URL</code>{" "}
+              {t("wallet.setup.rpcHintAfter")}
+            </div>
+            <div className="mt-2">
               <button
-                className="wt__error-retry"
-                onClick={() => void loadBalances()}
-                title={t("wallet.retryFetchingBsc")}
+                className="px-3 py-1 border border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-foreground)] cursor-pointer text-[11px] font-mono hover:bg-[var(--accent-hover)] hover:border-[var(--accent-hover)]"
+                onClick={() => setTab("settings")}
               >
-                {t("common.retry")} ↻
+                {t("common.settings")}
               </button>
             </div>
-          )}
-        </div>
+          </div>
+        )}
+      </div>
 
-        {/* ── Block 2: Quick Trade (hero) ───────────────────────── */}
-        <div className="wt__quick">
+      {/* ── Block 2: Quick Trade (hero) ───────────────────────── */}
+      <div className="wt__quick">
           <div className="wt__quick-row">
             <div className="wt__input-wrap" ref={recentsRef}>
               <input
