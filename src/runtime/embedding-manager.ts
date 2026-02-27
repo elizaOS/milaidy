@@ -28,18 +28,18 @@ import { detectEmbeddingPreset } from "./embedding-presets.js";
 // to prevent bundlers from hoisting the dynamic import to a static one.
 // The native module must remain a runtime-only import for Electron packaging.
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// biome-ignore lint/suspicious/noExplicitAny: dynamic llama.cpp import types
 type LlamaInstance = any;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// biome-ignore lint/suspicious/noExplicitAny: dynamic llama.cpp import types
 type LlamaModelInstance = any;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// biome-ignore lint/suspicious/noExplicitAny: dynamic llama.cpp import types
 type LlamaEmbeddingContextInstance = any;
 
 /**
  * Dynamically import node-llama-cpp at runtime.
  * Uses indirection to prevent bundlers from converting to static import.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// biome-ignore lint/suspicious/noExplicitAny: dynamic llama.cpp import types
 async function importNodeLlamaCpp(): Promise<any> {
   // The string concatenation prevents static analysis by bundlers
   const moduleName = ["node", "llama", "cpp"].join("-");
@@ -169,7 +169,7 @@ export class MiladyEmbeddingManager {
     if (!this.llama) {
       this.llama = await getLlama({
         logLevel: LlamaLogLevel.error,
-        logger: (level, message) => {
+        logger: (level: string, message: string) => {
           if (level === "error" || level === "fatal") {
             const text = message.trim();
             if (text) {

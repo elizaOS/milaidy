@@ -13,10 +13,7 @@
     "app/**/*",
     "milady-dist/**/*"
   ],
-  "asarUnpack": [
-    "milady-dist/**/*",
-    "node_modules/**/*"
-  ],
+  "asarUnpack": ["milady-dist/**/*", "node_modules/**/*"],
   "publish": {
     "provider": "github",
     "owner": "milady-ai",

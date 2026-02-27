@@ -172,6 +172,7 @@
 .xterm-dim {
   /* Dim should not apply to background, so the opacity of the foreground color is applied
      * explicitly in the generated class and reset to 1 here */
+  /* biome-ignore lint/complexity/noImportantStyles: required by xterm.js dim rendering */
   opacity: 1 !important;
 }
 
