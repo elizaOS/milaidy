@@ -28,8 +28,9 @@ type RpcFieldGroup = ReadonlyArray<RpcFieldDefinition>;
 
 type RpcSectionConfigMap = Record<string, RpcFieldGroup>;
 
-const DEFAULT_PUBLIC_BSC_RPC_PRIMARY = "https://bsc.publicnode.com";
-const DEFAULT_PUBLIC_BSC_RPC_SECONDARY = "https://rpc.ankr.com/bsc";
+// Public RPC defaults for desktop builds (no Railway env). Keep these free, no API keys.
+const DEFAULT_PUBLIC_BSC_RPC_PRIMARY = "https://bsc-rpc.publicnode.com";
+const DEFAULT_PUBLIC_BSC_RPC_SECONDARY = "https://bsc.publicnode.com";
 
 const EVM_RPC_OPTIONS = [
   { id: "eliza-cloud", label: "Eliza Cloud" },
