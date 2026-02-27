@@ -2865,10 +2865,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             convId,
             trimmed,
             (token) => {
-              const delta = computeStreamingDelta(
-                streamedAssistantText,
-                token,
-              );
+              const delta = computeStreamingDelta(streamedAssistantText, token);
               if (!delta) return;
               streamedAssistantText += delta;
               setChatFirstTokenReceived(true);
@@ -2920,7 +2917,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
         chatSendBusyRef.current = false;
       }
     },
-    [chatSending, activeConversationId, loadConversationMessages, loadConversations],
+    [
+      chatSending,
+      activeConversationId,
+      loadConversationMessages,
+      loadConversations,
+    ],
   );
 
   const handleChatStop = useCallback(() => {
