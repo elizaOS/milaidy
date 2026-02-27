@@ -29,9 +29,9 @@ import {
  * hooks. Canonical definition lives in plugin-streaming-base; re-exported here
  * so existing consumers keep working.
  */
-export type { StreamingDestination } from "@milady/plugin-streaming-base";
+export type { StreamingDestination } from "../../packages/plugin-streaming-base/src/index";
 
-import type { StreamingDestination } from "@milady/plugin-streaming-base";
+import type { StreamingDestination } from "../../packages/plugin-streaming-base/src/index";
 
 /**
  * Subset of server state relevant to stream routes.
