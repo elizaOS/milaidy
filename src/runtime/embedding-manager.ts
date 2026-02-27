@@ -28,18 +28,18 @@ import { detectEmbeddingPreset } from "./embedding-presets.js";
 // to prevent bundlers from hoisting the dynamic import to a static one.
 // The native module must remain a runtime-only import for Electron packaging.
 
-// biome-ignore lint/suspicious/noExplicitAny: Prevents bundler from hoisting dynamic import
+// biome-ignore lint/suspicious/noExplicitAny: dynamic llama.cpp import types
 type LlamaInstance = any;
-// biome-ignore lint/suspicious/noExplicitAny: Prevents bundler from hoisting dynamic import
+// biome-ignore lint/suspicious/noExplicitAny: dynamic llama.cpp import types
 type LlamaModelInstance = any;
-// biome-ignore lint/suspicious/noExplicitAny: Prevents bundler from hoisting dynamic import
+// biome-ignore lint/suspicious/noExplicitAny: dynamic llama.cpp import types
 type LlamaEmbeddingContextInstance = any;
 
 /**
  * Dynamically import node-llama-cpp at runtime.
  * Uses indirection to prevent bundlers from converting to static import.
  */
-// biome-ignore lint/suspicious/noExplicitAny: Required for dynamic import indirection
+// biome-ignore lint/suspicious/noExplicitAny: dynamic llama.cpp import types
 async function importNodeLlamaCpp(): Promise<any> {
   // The string concatenation prevents static analysis by bundlers
   const moduleName = ["node", "llama", "cpp"].join("-");

@@ -408,7 +408,12 @@ describe("SandboxManager", () => {
 
       const mgr = new SandboxManager({
         mode: "standard",
-        browser: { enabled: true, autoStart: true, cdpPort: 9222, enableNoVnc: true },
+        browser: {
+          enabled: true,
+          autoStart: true,
+          cdpPort: 9222,
+          enableNoVnc: true,
+        },
       });
       await mgr.start();
 
