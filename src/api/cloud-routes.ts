@@ -389,14 +389,6 @@ export async function handleCloudRoute(
     delete cloud.apiKey;
     (state.config as Record<string, unknown>).cloud = cloud;
 
-    try {
-      saveMiladyConfig(state.config);
-    } catch (saveErr) {
-      logger.warn(
-        `[cloud-login] Failed to save cloud disconnect state: ${saveErr instanceof Error ? saveErr.message : saveErr}`,
-      );
-    }
-
     delete process.env.ELIZAOS_CLOUD_API_KEY;
     delete process.env.ELIZAOS_CLOUD_ENABLED;
     delete process.env.ELIZAOS_CLOUD_SMALL_MODEL;
@@ -427,9 +419,15 @@ export async function handleCloudRoute(
 
     if (state.runtime) {
       try {
-        const cloudAuth = state.runtime.getService("CLOUD_AUTH") as
-          | Record<string, unknown>
-          | null;
+        const runtimeAny = state.runtime as unknown as {
+          getService?: (name: string) => unknown;
+        };
+        const cloudAuth =
+          typeof runtimeAny.getService === "function"
+            ? (runtimeAny.getService.call(state.runtime, "CLOUD_AUTH") as
+                | Record<string, unknown>
+                | null)
+            : null;
         if (cloudAuth) {
           const clearMethods = [
             "logout",

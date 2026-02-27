@@ -1,6 +1,17 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { MiladyClient } from "../../src/api-client";
 
+function getHeaderValue(headers: HeadersInit | undefined, name: string): string | undefined {
+  if (!headers) return undefined;
+  if (headers instanceof Headers) return headers.get(name) ?? undefined;
+  if (Array.isArray(headers)) {
+    const hit = headers.find(([k]) => k.toLowerCase() === name.toLowerCase());
+    return hit?.[1];
+  }
+  const record = headers as Record<string, string>;
+  return record[name] ?? record[name.toLowerCase()];
+}
+
 function buildSseResponse(chunks: string[]): Response {
   const encoder = new TextEncoder();
   const body = new ReadableStream<Uint8Array>({
@@ -87,14 +98,13 @@ describe("MiladyClient streaming chat endpoints", () => {
     const firstCall = fetchMock.mock.calls[0];
     const requestUrl = String(firstCall[0]);
     const requestInit = firstCall[1] as RequestInit;
-    const requestHeaders = requestInit.headers as Record<string, string>;
 
     expect(requestUrl).toBe(
       "http://localhost:2138/api/conversations/conv-1/messages/stream",
     );
     expect(requestInit.method).toBe("POST");
-    expect(requestHeaders.Accept).toBe("text/event-stream");
-    expect(requestHeaders.Authorization).toBe("Bearer token");
+    expect(getHeaderValue(requestInit.headers, "Accept")).toBe("text/event-stream");
+    expect(getHeaderValue(requestInit.headers, "Authorization")).toBe("Bearer token");
     expect(requestInit.body).toBe(JSON.stringify({ text: "hi", mode: "power" }));
   });
 
