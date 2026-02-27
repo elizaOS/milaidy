@@ -98,7 +98,7 @@ describe("Plugin Lifecycle E2E", () => {
     it("categories are valid", async () => {
       const { data } = await http$(server.port, "GET", "/api/plugins");
       const plugins = data.plugins as Array<Record<string, unknown>>;
-      const valid = ["ai-provider", "connector", "database", "feature"];
+      const valid = ["ai-provider", "connector", "database", "feature", "streaming"];
       for (const p of plugins) {
         expect(valid).toContain(p.category);
       }
