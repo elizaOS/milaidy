@@ -28,7 +28,7 @@
  * @module services/stream-manager
  */
 
-import { type ChildProcess, spawn } from "node:child_process";
+import { type ChildProcess, execSync, spawn } from "node:child_process";
 import { logger } from "@elizaos/core";
 import { type ITtsStreamBridge, ttsStreamBridge } from "./tts-stream-bridge";
 
@@ -234,6 +234,21 @@ class StreamManager {
   }
 
   private async _startInner(config: StreamConfig): Promise<void> {
+    // Pre-flight: ensure FFmpeg is installed
+    try {
+      execSync("ffmpeg -version", { stdio: "ignore", timeout: 5000 });
+    } catch {
+      const installHint =
+        process.platform === "darwin"
+          ? "Install with: brew install ffmpeg"
+          : process.platform === "linux"
+            ? "Install with: sudo apt install ffmpeg  (or your distro's package manager)"
+            : "Download from https://ffmpeg.org/download.html";
+      throw new Error(
+        `FFmpeg not found. Streaming requires FFmpeg to be installed.\n${installHint}`,
+      );
+    }
+
     this._config = config;
     this._frameCount = 0;
     this._volume = config.volume ?? this._volume;

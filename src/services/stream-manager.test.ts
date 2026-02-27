@@ -23,6 +23,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("node:child_process", () => ({
   spawn: vi.fn(),
+  execSync: vi.fn(),
 }));
 
 // Suppress logger noise in test output.
@@ -35,7 +36,7 @@ vi.mock("@elizaos/core", () => ({
   },
 }));
 
-import { spawn } from "node:child_process";
+import { execSync, spawn } from "node:child_process";
 import type { StreamConfig } from "./stream-manager";
 import { streamManager } from "./stream-manager";
 
@@ -129,6 +130,29 @@ afterEach(async () => {
   // Restore real timers FIRST so stop()'s internal setTimeout can fire
   vi.useRealTimers();
   await streamManager.stop();
+});
+
+// ===========================================================================
+// 0. FFmpeg pre-flight check
+// ===========================================================================
+
+describe("FFmpeg pre-flight check", () => {
+  afterEach(() => {
+    vi.mocked(execSync).mockReset();
+  });
+
+  it("throws a clear error when ffmpeg is not installed", async () => {
+    vi.mocked(execSync).mockImplementation(() => {
+      throw new Error("ENOENT");
+    });
+
+    await expect(
+      streamManager.start({
+        rtmpUrl: "rtmp://test",
+        rtmpKey: "key",
+      }),
+    ).rejects.toThrow(/FFmpeg not found/);
+  });
 });
 
 // ===========================================================================
