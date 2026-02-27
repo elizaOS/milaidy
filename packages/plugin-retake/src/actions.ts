@@ -56,7 +56,7 @@ export const startRetakeStreamAction: Action = {
     try {
       const res = await fetch(
         `http://127.0.0.1:${LOCAL_API_PORT}/api/stream/live`,
-        { method: "POST" },
+        { method: "POST", signal: AbortSignal.timeout(30_000) },
       );
       const data = (await res.json()) as Record<string, unknown>;
       if (callback) {
@@ -129,7 +129,7 @@ export const stopRetakeStreamAction: Action = {
     try {
       const res = await fetch(
         `http://127.0.0.1:${LOCAL_API_PORT}/api/stream/offline`,
-        { method: "POST" },
+        { method: "POST", signal: AbortSignal.timeout(15_000) },
       );
       const data = (await res.json()) as Record<string, unknown>;
       if (callback) {
@@ -200,6 +200,7 @@ export const getRetakeStreamStatusAction: Action = {
     try {
       const res = await fetch(
         `http://127.0.0.1:${LOCAL_API_PORT}/api/stream/status`,
+        { signal: AbortSignal.timeout(10_000) },
       );
       const data = (await res.json()) as Record<string, unknown>;
       const status = data.running ? "LIVE" : "OFFLINE";
@@ -302,6 +303,7 @@ export const playEmoteAction: Action = {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ emoteId }),
+        signal: AbortSignal.timeout(15_000),
       });
       const data = (await res.json()) as Record<string, unknown>;
       if (callback) {

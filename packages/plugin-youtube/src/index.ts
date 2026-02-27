@@ -9,7 +9,7 @@
 import {
   createStreamingPlugin,
   type StreamingDestination,
-} from "../../plugin-streaming-base/src/index.ts";
+} from "@milady/plugin-streaming-base";
 
 export type { StreamingDestination };
 

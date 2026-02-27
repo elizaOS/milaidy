@@ -30,7 +30,8 @@
     "package.json"
   ],
   "dependencies": {
-    "@elizaos/core": "next"
+    "@elizaos/core": "next",
+    "@milady/plugin-streaming-base": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.9.3"

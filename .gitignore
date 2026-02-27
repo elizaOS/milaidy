@@ -13,6 +13,10 @@ apps/app/electron/build/
 *.bun-build
 **/*.bun-build
 
+# TypeScript declaration build outputs inside source dirs
+packages/*/src/**/*.d.ts
+packages/*/src/**/*.d.ts.map
+
 # Lock files (managed at repo root)
 package-lock.json
 bun.lockb

@@ -17,4 +17,4 @@ export interface RetakeChatComment {
  * Re-export the canonical StreamingDestination from plugin-streaming-base.
  * Single source of truth — avoids duplicate definitions that can drift.
  */
-export type { StreamingDestination } from "../../plugin-streaming-base/src/index";
+export type { StreamingDestination } from "@milady/plugin-streaming-base";

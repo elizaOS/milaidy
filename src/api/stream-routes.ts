@@ -518,13 +518,39 @@ export async function handleStreamRoute(
         return true;
       }
 
+      // Validate FFmpeg parameters to prevent filter expression injection
+      const VALID_INPUT_MODES = ["testsrc", "avfoundation", "pipe"] as const;
+      const inputMode = body?.inputMode ?? "testsrc";
+      if (!VALID_INPUT_MODES.includes(inputMode)) {
+        error(res, `inputMode must be one of: ${VALID_INPUT_MODES.join(", ")}`, 400);
+        return true;
+      }
+
+      const resolution = (body?.resolution as string) || "1280x720";
+      if (!/^\d{3,4}x\d{3,4}$/.test(resolution)) {
+        error(res, "resolution must match WIDTHxHEIGHT (e.g. 1280x720)", 400);
+        return true;
+      }
+
+      const bitrate = (body?.bitrate as string) || "2500k";
+      if (!/^\d+k$/.test(bitrate)) {
+        error(res, "bitrate must match NUMBERk (e.g. 2500k)", 400);
+        return true;
+      }
+
+      const framerate = body?.framerate ?? 30;
+      if (typeof framerate !== "number" || !Number.isInteger(framerate) || framerate < 1 || framerate > 60) {
+        error(res, "framerate must be an integer between 1 and 60", 400);
+        return true;
+      }
+
       await state.streamManager.start({
         rtmpUrl,
         rtmpKey,
-        inputMode: (body?.inputMode as "testsrc" | "avfoundation") || "testsrc",
-        resolution: (body?.resolution as string) || "1280x720",
-        bitrate: (body?.bitrate as string) || "2500k",
-        framerate: (body?.framerate as number) || 30,
+        inputMode,
+        resolution,
+        bitrate,
+        framerate,
       });
 
       json(res, { ok: true, message: "Stream started" });
