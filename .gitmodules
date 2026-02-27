@@ -1,7 +1,3 @@
 [submodule "test/contracts/lib/openzeppelin-contracts"]
 	path = test/contracts/lib/openzeppelin-contracts
 	url = https://github.com/OpenZeppelin/openzeppelin-contracts
-
-[submodule "elizaos-plugins"]
-	path = elizaos-plugins
-	url = https://github.com/lalalune/plugins.git
