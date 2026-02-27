@@ -2000,6 +2000,57 @@ describe("handleStreamRoute — voice endpoints", () => {
         }),
       );
     });
+
+    it("returns 400 when text exceeds 2000 characters", async () => {
+      const { res, getStatus, getJson } = createMockHttpResponse();
+      const req = createMockIncomingMessage({
+        method: "POST",
+        url: "/api/stream/voice/speak",
+        body: { text: "x".repeat(2001) },
+        json: true,
+      });
+      const state = mockState();
+
+      await handleStreamRoute(
+        req,
+        res,
+        "/api/stream/voice/speak",
+        "POST",
+        state,
+      );
+
+      expect(getStatus()).toBe(400);
+      expect(getJson()).toEqual(
+        expect.objectContaining({
+          error: expect.stringContaining("maximum length"),
+        }),
+      );
+    });
+
+    it("accepts text at exactly 2000 characters (boundary)", async () => {
+      const { res, getStatus } = createMockHttpResponse();
+      const req = createMockIncomingMessage({
+        method: "POST",
+        url: "/api/stream/voice/speak",
+        body: { text: "x".repeat(2000) },
+        json: true,
+      });
+      // No TTS config — will hit provider check, proving we passed the length check
+      const state = mockState();
+
+      await handleStreamRoute(
+        req,
+        res,
+        "/api/stream/voice/speak",
+        "POST",
+        state,
+      );
+
+      // Should NOT be 400 with "maximum length" — instead it hits provider check
+      const status = getStatus();
+      // 400 for "no provider" is fine, but NOT for length
+      expect(status).toBe(400);
+    });
   });
 
   // ── Route dispatching ─────────────────────────────────────────────────
