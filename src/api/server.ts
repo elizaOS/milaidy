@@ -5426,6 +5426,137 @@ function wireCodingAgentWsBridge(st: ServerState): boolean {
 }
 
 /**
+ * Fallback handler for /api/coding-agents/* routes when the plugin
+ * doesn't export createCodingAgentRouteHandler.
+ * Uses the AgentOrchestratorService (CODE_TASK) to provide task data.
+ */
+async function handleCodingAgentsFallback(
+  runtime: AgentRuntime,
+  pathname: string,
+  method: string,
+  _req: http.IncomingMessage,
+  res: http.ServerResponse,
+): Promise<boolean> {
+  // GET /api/coding-agents/coordinator/status
+  if (
+    method === "GET" &&
+    pathname === "/api/coding-agents/coordinator/status"
+  ) {
+    const orchestratorService = runtime.getService("CODE_TASK") as {
+      getTasks?: () => Promise<
+        Array<{
+          id?: string;
+          name?: string;
+          description?: string;
+          metadata?: {
+            status?: string;
+            providerId?: string;
+            providerLabel?: string;
+            workingDirectory?: string;
+            progress?: number;
+            steps?: Array<{ status?: string }>;
+          };
+        }>
+      >;
+    } | null;
+
+    if (!orchestratorService?.getTasks) {
+      // Return empty status if service not available
+      json(res, {
+        supervisionLevel: "autonomous",
+        taskCount: 0,
+        tasks: [],
+        pendingConfirmations: 0,
+      });
+      return true;
+    }
+
+    try {
+      const tasks = await orchestratorService.getTasks();
+
+      // Map tasks to the CodingAgentSession format expected by frontend
+      const mappedTasks = tasks.map((task) => {
+        const meta = task.metadata ?? {};
+        // Map orchestrator status to frontend status
+        let status: string = "active";
+        switch (meta.status) {
+          case "completed":
+            status = "completed";
+            break;
+          case "failed":
+          case "error":
+            status = "error";
+            break;
+          case "cancelled":
+            status = "stopped";
+            break;
+          case "paused":
+            status = "blocked";
+            break;
+          case "running":
+            status = "active";
+            break;
+          case "pending":
+            status = "active";
+            break;
+          default:
+            status = "active";
+        }
+
+        return {
+          sessionId: task.id ?? "",
+          agentType: meta.providerId ?? "eliza",
+          label: meta.providerLabel ?? task.name ?? "Task",
+          originalTask: task.description ?? task.name ?? "",
+          workdir: meta.workingDirectory ?? process.cwd(),
+          status,
+          decisionCount: meta.steps?.length ?? 0,
+          autoResolvedCount:
+            meta.steps?.filter((s) => s.status === "completed").length ?? 0,
+        };
+      });
+
+      json(res, {
+        supervisionLevel: "autonomous",
+        taskCount: mappedTasks.length,
+        tasks: mappedTasks,
+        pendingConfirmations: 0,
+      });
+      return true;
+    } catch (e) {
+      error(res, `Failed to get coding agent status: ${e}`, 500);
+      return true;
+    }
+  }
+
+  // POST /api/coding-agents/:sessionId/stop - Stop a coding agent task
+  const stopMatch = pathname.match(/^\/api\/coding-agents\/([^/]+)\/stop$/);
+  if (method === "POST" && stopMatch) {
+    const sessionId = decodeURIComponent(stopMatch[1]);
+    const orchestratorService = runtime.getService("CODE_TASK") as {
+      cancelTask?: (taskId: string) => Promise<void>;
+    } | null;
+
+    if (!orchestratorService?.cancelTask) {
+      error(res, "Orchestrator service not available", 503);
+      return true;
+    }
+
+    try {
+      await orchestratorService.cancelTask(sessionId);
+      json(res, { ok: true });
+      return true;
+    } catch (e) {
+      error(res, `Failed to stop task: ${e}`, 500);
+      return true;
+    }
+  }
+
+  // Not handled by fallback
+  return false;
+}
+
+/**
  * Get the PTYConsoleBridge from the PTYService (if available).
  * Used by the WS PTY handlers to subscribe to output and forward input.
  */
@@ -11198,6 +11329,18 @@ async function handleRequest(
     } catch {
       // Plugin doesn't export these functions - skip routing
     }
+
+    // Fallback: Handle coding-agents routes using AgentOrchestratorService
+    if (!handled && pathname.startsWith("/api/coding-agents")) {
+      handled = await handleCodingAgentsFallback(
+        state.runtime,
+        pathname,
+        method,
+        req,
+        res,
+      );
+    }
+
     if (handled) return;
   }
 
