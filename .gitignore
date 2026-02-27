@@ -80,3 +80,6 @@ plugins/
 # Electron build directories
 apps/app/electron/app-build/
 apps/app/electron/milady-dist/
+
+# External plugin repos (not submodules)
+elizaos-plugins/

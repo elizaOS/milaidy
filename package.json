@@ -24,7 +24,11 @@
   "type": "module",
   "main": "build/src/index.js",
   "bin": {
-    "milady": "milady.mjs"
+    "milady": "milady.mjs",
+    "milady.ai": "milady.mjs",
+    "milady-ai": "milady.mjs",
+    "miladyai": "milady.mjs",
+    "milaidy": "milady.mjs"
   },
   "exports": {
     ".": "./dist/index.js",
