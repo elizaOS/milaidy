@@ -1617,7 +1617,7 @@ describe("Runtime Integration (with model provider)", () => {
 
 describe("Fresh Machine Validation (non-Docker)", () => {
   it("package.json declares a Milady CLI bin that resolves on disk", () => {
-    const cliBin = packageManifest.bin?.milady;
+    const cliBin = packageManifest.bin?.miladyai;
     expect(typeof cliBin).toBe("string");
     if (typeof cliBin === "string") {
       expect(fs.existsSync(path.join(packageRoot, cliBin))).toBe(true);
