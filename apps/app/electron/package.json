@@ -14,7 +14,8 @@
   "license": "MIT",
   "main": "tsc-out/src/index.js",
   "scripts": {
-    "build": "tsc && node -e \"const fs=require('fs');fs.rmSync('build',{recursive:true,force:true});fs.cpSync('tsc-out','build',{recursive:true})\" && electron-rebuild",
+    "build": "tsc && node -e \"const fs=require('fs');fs.rmSync('build',{recursive:true,force:true});fs.cpSync('tsc-out','build',{recursive:true})\" && npx @electron/rebuild",
+    "rebuild": "npx @electron/rebuild",
     "build:whisper": "bash ./scripts/build-whisper-universal.sh",
     "electron:start-live": "node ./live-runner.js",
     "electron:start": "bun run build && electron --inspect=5858 ./",
@@ -24,9 +25,14 @@
   },
   "dependencies": {
     "@capacitor-community/electron": "^5.0.1",
+    "@lydell/node-pty": "^1.1.0",
     "@noble/curves": "^2.0.1",
+    "@tensorflow/tfjs-node": "^4.22.0",
+    "canvas": "^3.1.0",
     "node-llama-cpp": "^3.15.1",
+    "node-pty": "^1.1.0",
     "onnxruntime-node": "^1.21.0",
+    "pty-manager": "1.9.0",
     "sharp": "^0.33.5",
     "bonjour-service": "^1.3.0",
     "chokidar": "~3.5.3",
@@ -49,6 +55,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@electron/rebuild": "^3.7.1",
     "electron": "^40.4.1",
     "electron-builder": "^26.7.0",
     "electron-rebuild": "^3.2.9",
