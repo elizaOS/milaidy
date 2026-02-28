@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 /**
- * Sync the root plugins.json (generated via `npm run generate:plugins`) into the
- * Electron app package root so packaged desktop builds can render Plugins/Channels.
+ * Sync the root plugins.json (generated via `npm run generate:plugins`) into:
+ * 1) Electron app package root (apps/app/electron/plugins.json)
+ * 2) Embedded backend bundle root (apps/app/electron/milady-dist/plugins.json)
  *
- * Packaged milady-dist reads plugins.json relative to the Electron app root
- * (app.asar) — if it's missing, the UI ends up with an empty list.
+ * The packaged backend resolves plugins.json relative to milady-dist. If missing,
+ * /api/plugins falls back to built-ins and UI appears empty.
  */
 /* eslint-disable no-console */
 /* eslint-disable @typescript-eslint/no-var-requires */
@@ -14,7 +15,10 @@ const path = require("node:path");
 
 const repoRoot = path.resolve(__dirname, "../../../..");
 const sourcePath = path.join(repoRoot, "plugins.json");
-const destPath = path.resolve(__dirname, "..", "plugins.json");
+const destinationPaths = [
+  path.resolve(__dirname, "..", "plugins.json"),
+  path.resolve(__dirname, "..", "milady-dist", "plugins.json"),
+];
 
 function fail(message) {
   console.error(`[sync-plugin-index] ${message}`);
@@ -40,8 +44,10 @@ if (!parsed || typeof parsed !== "object" || !Array.isArray(parsed.plugins)) {
   fail(`Invalid plugin index shape in ${sourcePath}.`);
 }
 
-fs.writeFileSync(destPath, JSON.stringify(parsed, null, 2));
-console.log(
-  `[sync-plugin-index] Wrote ${path.relative(repoRoot, destPath)} (${parsed.plugins.length} plugins)`,
-);
-
+for (const destinationPath of destinationPaths) {
+  fs.mkdirSync(path.dirname(destinationPath), { recursive: true });
+  fs.writeFileSync(destinationPath, JSON.stringify(parsed, null, 2));
+  console.log(
+    `[sync-plugin-index] Wrote ${path.relative(repoRoot, destinationPath)} (${parsed.plugins.length} plugins)`,
+  );
+}

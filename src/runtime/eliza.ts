@@ -2235,6 +2235,14 @@ export async function startEliza(
   const character = buildCharacterFromConfig(config);
 
   const primaryModel = resolvePrimaryModel(config);
+  const modelCfg = (config.models ?? {}) as unknown as Record<string, unknown>;
+  const piAiSmallModelSpecRaw =
+    typeof modelCfg.piAiSmall === "string" ? modelCfg.piAiSmall.trim() : "";
+  const piAiLargeModelSpecRaw =
+    typeof modelCfg.piAiLarge === "string" ? modelCfg.piAiLarge.trim() : "";
+  const runtimeModelProvider = isPiAiEnabledFromEnv(process.env)
+    ? (piAiLargeModelSpecRaw || primaryModel || "pi-ai")
+    : primaryModel;
 
   // 4. Ensure workspace exists with bootstrap files
   const workspaceDir =
@@ -2475,7 +2483,7 @@ export async function startEliza(
       : {}),
     settings: {
       // Forward Milady config env vars as runtime settings
-      ...(primaryModel ? { MODEL_PROVIDER: primaryModel } : {}),
+      ...(runtimeModelProvider ? { MODEL_PROVIDER: runtimeModelProvider } : {}),
       // Forward skills config so plugin-agent-skills can apply allow/deny filtering
       ...(config.skills?.allowBundled
         ? { SKILLS_ALLOWLIST: config.skills.allowBundled.join(",") }
@@ -2507,14 +2515,8 @@ export async function startEliza(
   // (e.g. Claude Max / Codex Max) without putting API keys in Milady config.
   if (isPiAiEnabledFromEnv()) {
     try {
-      const modelCfg = (config.models ?? {}) as unknown as Record<
-        string,
-        unknown
-      >;
-      const piAiSmall =
-        typeof modelCfg.piAiSmall === "string" ? modelCfg.piAiSmall : undefined;
-      const piAiLarge =
-        typeof modelCfg.piAiLarge === "string" ? modelCfg.piAiLarge : undefined;
+      const piAiSmall = piAiSmallModelSpecRaw || undefined;
+      const piAiLarge = piAiLargeModelSpecRaw || undefined;
 
       const reg = await registerPiAiRuntime(runtime, {
         // Prefer pi-ai specific small/large overrides when set.

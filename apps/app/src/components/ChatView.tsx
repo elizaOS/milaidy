@@ -85,10 +85,13 @@ export function ChatView({ variant = "default" }: ChatViewProps) {
     speechEndToVoiceStartMs: number | null;
     firstSegmentCached: boolean | null;
   } | null>(null);
+  const isAgentStarting =
+    agentStatus?.state === "starting" || agentStatus?.state === "restarting";
+  const isComposerLocked = chatSending || isAgentStarting;
 
   const handleVoiceTranscript = useCallback(
     (text: string) => {
-      if (chatSending) return;
+      if (isComposerLocked) return;
       const speechEndedAtMs = nowMs();
       pendingVoiceTurnRef.current = {
         speechEndedAtMs,
@@ -98,7 +101,7 @@ export function ChatView({ variant = "default" }: ChatViewProps) {
       setState("chatInput", text);
       setTimeout(() => void handleChatSend(chatMode), 50);
     },
-    [chatMode, chatSending, setState, handleChatSend],
+    [chatMode, isComposerLocked, setState, handleChatSend],
   );
 
   const handleVoicePlaybackStart = useCallback((event: VoicePlaybackStartEvent) => {
@@ -214,11 +217,12 @@ export function ChatView({ variant = "default" }: ChatViewProps) {
 
   // Keep input focused for fast multi-turn chat.
   useEffect(() => {
-    if (chatSending) return;
+    if (isComposerLocked) return;
     textareaRef.current?.focus();
-  }, [chatSending]);
+  }, [isComposerLocked]);
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (isComposerLocked) return;
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       void handleChatSend(chatMode);
@@ -364,7 +368,14 @@ export function ChatView({ variant = "default" }: ChatViewProps) {
                 : "border-border bg-card text-muted hover:border-accent hover:text-accent"
               }`}
             onClick={voice.toggleListening}
-            title={voice.isListening ? t("chat.stopListening") : t("chat.voiceInput")}
+            title={
+              isAgentStarting
+                ? t("chat.agentStarting")
+                : voice.isListening
+                  ? t("chat.stopListening")
+                  : t("chat.voiceInput")
+            }
+            disabled={isComposerLocked}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill={voice.isListening ? "currentColor" : "none"} stroke="currentColor" strokeWidth={voice.isListening ? "0" : "2"}>
               {voice.isListening ? (
@@ -394,11 +405,15 @@ export function ChatView({ variant = "default" }: ChatViewProps) {
             ref={textareaRef}
             className={isGameModal ? "chat-game-input" : "flex-1 px-3 py-2 border border-border bg-card text-txt text-sm font-body leading-relaxed resize-none overflow-y-hidden min-h-[38px] max-h-[200px] focus:border-accent focus:outline-none"}
             rows={1}
-            placeholder={voice.isListening ? t("chat.listening") : t("chat.inputPlaceholder")}
+            placeholder={isAgentStarting
+              ? t("chat.agentStarting")
+              : voice.isListening
+                ? t("chat.listening")
+                : t("chat.inputPlaceholder")}
             value={chatInput}
             onChange={(e) => setState("chatInput", e.target.value)}
             onKeyDown={handleKeyDown}
-            disabled={chatSending}
+            disabled={isComposerLocked}
           />
         )}
 
@@ -423,9 +438,9 @@ export function ChatView({ variant = "default" }: ChatViewProps) {
           <button
             className={isGameModal ? "chat-game-send-btn chat-game-send-btn-primary" : "h-[38px] px-6 py-2 border border-accent bg-accent text-accent-fg text-sm cursor-pointer hover:bg-accent-hover disabled:opacity-40 disabled:cursor-not-allowed self-end"}
             onClick={() => void handleChatSend(chatMode)}
-            disabled={chatSending}
+            disabled={isComposerLocked}
           >
-            {t("chat.send")}
+            {isAgentStarting ? t("chat.agentStarting") : t("chat.send")}
           </button>
         )}
       </div>

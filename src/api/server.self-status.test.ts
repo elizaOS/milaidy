@@ -78,7 +78,7 @@ describe("buildAgentSelfStatus", () => {
     expect(status.plugins.aiProviders).toContain("openai");
     expect(status.plugins.connectors).toContain("discord");
     expect(status.capabilities.canTrade).toBe(true);
-    expect(status.capabilities.canLocalTrade).toBe(true);
+    expect(status.capabilities.canLocalTrade).toBe(false);
     expect(status.capabilities.canAutoTrade).toBe(false);
     expect(status.capabilities.canUseBrowser).toBe(true);
     expect(status.capabilities.canRunTerminal).toBe(true);

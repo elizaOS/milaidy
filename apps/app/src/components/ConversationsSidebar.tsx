@@ -2,12 +2,24 @@
  * Conversations sidebar component — left sidebar with conversation list.
  */
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { getVrmPreviewUrl, useApp, VRM_COUNT } from "../AppContext.js";
 import { client, type AgentSelfStatusSnapshot } from "../api-client.js";
 import { createTranslator } from "../i18n";
 
 export type ConversationsSidebarVariant = "default" | "game-modal";
+export const SELF_STATUS_SYNC_EVENT = "milady:self-status-refresh";
+
+const BROWSER_CAPABILITY_PLUGIN_IDS = new Set([
+  "browser",
+  "browserbase",
+  "chrome-extension",
+]);
+
+const COMPUTER_CAPABILITY_PLUGIN_IDS = new Set([
+  "computeruse",
+  "computer-use",
+]);
 
 interface ConversationsSidebarProps {
   variant?: ConversationsSidebarVariant;
@@ -226,20 +238,22 @@ export function ConversationsSidebar({ variant = "default" }: ConversationsSideb
     };
 
     void syncSelfStatus();
+    const onSelfStatusRefresh = () => {
+      void syncSelfStatus();
+    };
     const intervalId = window.setInterval(() => {
       void syncSelfStatus();
     }, 15000);
+    window.addEventListener(SELF_STATUS_SYNC_EVENT, onSelfStatusRefresh);
 
     return () => {
       cancelled = true;
       window.clearInterval(intervalId);
+      window.removeEventListener(SELF_STATUS_SYNC_EVENT, onSelfStatusRefresh);
     };
   }, [isGameModal]);
 
   const selfModelLabel = (selfStatus?.model ?? "").trim();
-  const selfProviderLabel = resolveProviderLabel(
-    (selfStatus?.provider ?? "").trim(),
-  );
   const observedModelLabelRaw = (chatLastUsage?.model ?? "").trim();
   const observedModelLabel = isNonChatModelLabel(observedModelLabelRaw)
     ? ""
@@ -248,39 +262,91 @@ export function ConversationsSidebar({ variant = "default" }: ConversationsSideb
   const configuredModelLabel = isNonChatModelLabel(configuredModelRaw)
     ? ""
     : configuredModelRaw;
-  const modelLabel = (configuredModelLabel || observedModelLabel).trim();
-  const providerLabel = selfProviderLabel
-    ? selfProviderLabel
+  const modelLabel = (observedModelLabel || configuredModelLabel).trim();
+  const modelProviderLabel = resolveProviderLabel(modelLabel);
+  const providerLabel = modelProviderLabel
+    ? modelProviderLabel
     : selfStatusLoading
       ? t("chat.modal.providerDetecting")
       : "N/A";
-  const capabilityRows = [
-    {
-      key: "trade",
-      label: t("chat.modal.capTrade"),
-      enabled: Boolean(selfStatus?.capabilities.canTrade),
-    },
-    {
-      key: "autoTrade",
-      label: t("chat.modal.capAutoTrade"),
-      enabled: Boolean(selfStatus?.capabilities.canAutoTrade),
-    },
-    {
-      key: "browser",
-      label: t("chat.modal.capBrowser"),
-      enabled: Boolean(selfStatus?.capabilities.canUseBrowser),
-    },
-    {
-      key: "computer",
-      label: t("chat.modal.capComputer"),
-      enabled: Boolean(selfStatus?.capabilities.canUseComputer),
-    },
-    {
-      key: "terminal",
-      label: t("chat.modal.capTerminal"),
-      enabled: Boolean(selfStatus?.capabilities.canRunTerminal),
-    },
-  ] as const;
+  const capabilityRows = useMemo(() => {
+    const activePlugins = new Set(selfStatus?.plugins.active ?? []);
+    const hasBrowserPlugin = Array.from(BROWSER_CAPABILITY_PLUGIN_IDS).some((id) =>
+      activePlugins.has(id),
+    );
+    const hasComputerPlugin = Array.from(COMPUTER_CAPABILITY_PLUGIN_IDS).some((id) =>
+      activePlugins.has(id),
+    );
+
+    const tradeEnabled = Boolean(selfStatus?.capabilities.canTrade);
+    const autoTradeEnabled = Boolean(selfStatus?.capabilities.canAutoTrade);
+    const browserEnabled = Boolean(selfStatus?.capabilities.canUseBrowser);
+    const computerEnabled = Boolean(selfStatus?.capabilities.canUseComputer);
+    const terminalEnabled = Boolean(selfStatus?.capabilities.canRunTerminal);
+
+    const tradeHint = tradeEnabled
+      ? null
+      : t("chat.modal.capHintNeedsEvmWallet");
+    const autoTradeHint = autoTradeEnabled
+      ? null
+      : !selfStatus?.wallet.hasEvm
+        ? t("chat.modal.capHintNeedsEvmWallet")
+        : selfStatus.tradePermissionMode !== "agent-auto"
+          ? t("chat.modal.capHintNeedsAgentTradeMode")
+          : !selfStatus.wallet.localSignerAvailable
+            ? t("chat.modal.capHintNeedsLocalSigner")
+            : null;
+    const browserHint = browserEnabled
+      ? null
+      : !hasBrowserPlugin
+        ? t("chat.modal.capHintNeedsBrowserPlugin")
+        : null;
+    const computerHint = computerEnabled
+      ? null
+      : !hasComputerPlugin
+        ? t("chat.modal.capHintNeedsComputerPlugin")
+        : null;
+    const terminalHint = terminalEnabled
+      ? null
+      : selfStatus?.automationMode !== "full"
+        ? t("chat.modal.capHintNeedsFullAutomation")
+        : selfStatus?.shellEnabled === false
+          ? t("chat.modal.capHintEnableShell")
+          : null;
+
+    return [
+      {
+        key: "trade",
+        label: t("chat.modal.capTrade"),
+        enabled: tradeEnabled,
+        hint: tradeHint,
+      },
+      {
+        key: "autoTrade",
+        label: t("chat.modal.capAutoTrade"),
+        enabled: autoTradeEnabled,
+        hint: autoTradeHint,
+      },
+      {
+        key: "browser",
+        label: t("chat.modal.capBrowser"),
+        enabled: browserEnabled,
+        hint: browserHint,
+      },
+      {
+        key: "computer",
+        label: t("chat.modal.capComputer"),
+        enabled: computerEnabled,
+        hint: computerHint,
+      },
+      {
+        key: "terminal",
+        label: t("chat.modal.capTerminal"),
+        enabled: terminalEnabled,
+        hint: terminalHint,
+      },
+    ] as const;
+  }, [selfStatus, t]);
   const walletLabel =
     selfStatus?.wallet.evmAddressShort ||
     selfStatus?.wallet.solanaAddressShort ||
@@ -432,7 +498,12 @@ export function ConversationsSidebar({ variant = "default" }: ConversationsSideb
             <div className="chat-game-sidebar-cap-grid">
               {capabilityRows.map((row) => (
                 <div className="chat-game-sidebar-cap-row" key={row.key}>
-                  <span className="chat-game-sidebar-cap-name">{row.label}</span>
+                  <div className="chat-game-sidebar-cap-main">
+                    <span className="chat-game-sidebar-cap-name">{row.label}</span>
+                    {row.hint && (
+                      <span className="chat-game-sidebar-cap-hint">{row.hint}</span>
+                    )}
+                  </div>
                   <span
                     className={`chat-game-sidebar-cap-pill ${row.enabled ? "is-on" : "is-off"}`}
                   >

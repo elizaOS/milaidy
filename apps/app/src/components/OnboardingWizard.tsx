@@ -22,12 +22,15 @@ import {
   type SandboxPlatformStatus,
 } from "../api-client";
 import { getProviderLogo } from "../provider-logos.js";
+import { resolveAppAssetUrl } from "../asset-url.js";
 import { AvatarSelector } from "./AvatarSelector.js";
 import { PermissionsOnboardingSection } from "./PermissionsSection.js";
 import { createTranslator } from "../i18n";
 
 const SANDBOX_POLL_INTERVAL_MS = 3000;
 const SANDBOX_START_MAX_ATTEMPTS = 20;
+const OPENAI_CODEX_PRIMARY_MODEL = "openai-codex/gpt-5.1";
+const OPENAI_CODEX_SMALL_MODEL = "openai-codex/gpt-5.1-codex-mini";
 
 const inferPlatform = (): string => {
   if (typeof navigator === "undefined") {
@@ -90,7 +93,7 @@ function OnboardingVrmAvatar({
       }`}
     >
       <img
-        src="/apple-touch-icon.png"
+        src={resolveAppAssetUrl("apple-touch-icon.png")}
         alt="Milady"
         className="h-full w-full object-cover"
       />
@@ -345,7 +348,11 @@ export function OnboardingWizard() {
         setOpenaiOAuthStarted(false);
         setOpenaiCallbackUrl("");
         setOpenaiConnected(true);
-        setState("onboardingProvider", "openai-subscription");
+        // Route OpenAI OAuth credentials through pi-ai codex models for local runtime.
+        setState("onboardingProvider", "pi-ai");
+        setState("onboardingPrimaryModel", OPENAI_CODEX_PRIMARY_MODEL);
+        setState("onboardingSmallModel", OPENAI_CODEX_SMALL_MODEL);
+        setState("onboardingLargeModel", OPENAI_CODEX_PRIMARY_MODEL);
         return;
       }
       const msg = data.error ?? "Exchange failed";

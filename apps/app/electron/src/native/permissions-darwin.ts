@@ -16,6 +16,7 @@
 import { exec } from "node:child_process";
 import { promisify } from "node:util";
 import { desktopCapturer, shell, systemPreferences } from "electron";
+import { getCameraManager } from "./camera";
 import type {
   PermissionCheckResult,
   SystemPermissionId,
@@ -91,10 +92,16 @@ export async function checkAccessibility(): Promise<PermissionCheckResult> {
  * if we receive actual thumbnail data or just blank frames.
  */
 export async function checkScreenRecording(): Promise<PermissionCheckResult> {
-  const sources = await desktopCapturer.getSources({
-    types: ["screen"],
-    thumbnailSize: { width: 100, height: 100 },
-  });
+  let sources: Awaited<ReturnType<typeof desktopCapturer.getSources>>;
+  try {
+    sources = await desktopCapturer.getSources({
+      types: ["screen"],
+      thumbnailSize: { width: 100, height: 100 },
+    });
+  } catch {
+    // Some macOS versions throw while the system list is still initializing.
+    return { status: "not-determined", canRequest: false };
+  }
 
   if (sources.length === 0) {
     return { status: "denied", canRequest: false };
@@ -126,6 +133,17 @@ export async function checkScreenRecording(): Promise<PermissionCheckResult> {
   // On newer macOS, we can also check via the media access status
   // though this is less reliable for screen recording specifically
   return { status: "not-determined", canRequest: false };
+}
+
+async function requestViaHiddenMediaRenderer(
+  kind: "camera" | "microphone",
+): Promise<boolean> {
+  try {
+    const result = await getCameraManager().requestSinglePermission(kind);
+    return result === "granted";
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -181,9 +199,16 @@ export async function checkCamera(): Promise<PermissionCheckResult> {
  * Returns the new permission status after the request.
  */
 export async function requestMicrophone(): Promise<PermissionCheckResult> {
-  const granted = await systemPreferences.askForMediaAccess("microphone");
+  let granted = await systemPreferences
+    .askForMediaAccess("microphone")
+    .catch(() => false);
+  if (!granted) {
+    granted = await requestViaHiddenMediaRenderer("microphone");
+  }
+
+  const latest = systemPreferences.getMediaAccessStatus("microphone");
   return {
-    status: granted ? "granted" : "denied",
+    status: granted || latest === "granted" ? "granted" : "denied",
     canRequest: false,
   };
 }
@@ -195,9 +220,16 @@ export async function requestMicrophone(): Promise<PermissionCheckResult> {
  * Returns the new permission status after the request.
  */
 export async function requestCamera(): Promise<PermissionCheckResult> {
-  const granted = await systemPreferences.askForMediaAccess("camera");
+  let granted = await systemPreferences
+    .askForMediaAccess("camera")
+    .catch(() => false);
+  if (!granted) {
+    granted = await requestViaHiddenMediaRenderer("camera");
+  }
+
+  const latest = systemPreferences.getMediaAccessStatus("camera");
   return {
-    status: granted ? "granted" : "denied",
+    status: granted || latest === "granted" ? "granted" : "denied",
     canRequest: false,
   };
 }
@@ -210,6 +242,29 @@ export async function requestCamera(): Promise<PermissionCheckResult> {
 export async function openPrivacySettings(
   permission: SystemPermissionId,
 ): Promise<void> {
+  // Best-effort: trigger the native prompt/registration so the app shows up in
+  // the System Settings list (e.g. Accessibility, Camera, Microphone).
+  // Users still have to explicitly allow the permission in macOS.
+  try {
+    if (permission === "accessibility") {
+      // This triggers the "wants to control this computer" flow.
+      // It may be a no-op on some macOS versions if called too early.
+      systemPreferences.isTrustedAccessibilityClient(true);
+    }
+    if (permission === "camera" || permission === "microphone") {
+      const status = systemPreferences.getMediaAccessStatus(permission);
+      if (status === "not-determined") {
+        if (permission === "camera") {
+          await requestCamera();
+        } else {
+          await requestMicrophone();
+        }
+      }
+    }
+  } catch {
+    // Ignore — opening settings is still useful even if the prompt can't be shown.
+  }
+
   const paneUrls: Record<string, string> = {
     accessibility:
       "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility",

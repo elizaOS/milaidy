@@ -385,6 +385,26 @@ export class CameraManager {
     `);
   }
 
+  async requestSinglePermission(
+    kind: "camera" | "microphone",
+  ): Promise<"granted" | "denied"> {
+    const renderer = await this.ensureRenderer();
+    const constraints =
+      kind === "camera" ? "{ video: true }" : "{ audio: true }";
+
+    return renderer.webContents.executeJavaScript(`
+      (async () => {
+        try {
+          const s = await navigator.mediaDevices.getUserMedia(${constraints});
+          s.getTracks().forEach(t => t.stop());
+          return 'granted';
+        } catch (_) {
+          return 'denied';
+        }
+      })()
+    `);
+  }
+
   dispose(): void {
     if (this.rendererWindow && !this.rendererWindow.isDestroyed()) {
       this.rendererWindow.webContents

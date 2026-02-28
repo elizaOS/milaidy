@@ -1235,9 +1235,22 @@ function discoverPluginsFromManifest(): PluginEntry[] {
   const thisDir =
     import.meta.dirname ?? path.dirname(fileURLToPath(import.meta.url));
   const packageRoot = findOwnPackageRoot(thisDir);
-  const manifestPath = path.join(packageRoot, "plugins.json");
+  const candidateSet = new Set<string>([
+    path.join(packageRoot, "plugins.json"),
+    path.join(thisDir, "plugins.json"),
+    path.join(thisDir, "..", "plugins.json"),
+    path.join(process.cwd(), "plugins.json"),
+  ]);
+  const resourcesPath =
+    (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath;
+  if (typeof resourcesPath === "string" && resourcesPath.trim()) {
+    candidateSet.add(path.join(resourcesPath, "plugins.json"));
+    candidateSet.add(path.join(resourcesPath, "app", "plugins.json"));
+  }
 
-  if (fs.existsSync(manifestPath)) {
+  const manifestCandidates = Array.from(candidateSet);
+  for (const manifestPath of manifestCandidates) {
+    if (!fs.existsSync(manifestPath)) continue;
     try {
       const index = JSON.parse(
         fs.readFileSync(manifestPath, "utf-8"),
@@ -1246,74 +1259,74 @@ function discoverPluginsFromManifest(): PluginEntry[] {
       // exposed as user-facing "config keys" or parameter definitions.
       const HIDDEN_KEYS = new Set(["VERCEL_OIDC_TOKEN"]);
       const discovered = index.plugins.map((p) => {
-          const category = categorizePlugin(p.id);
-          const envKey = p.envKey;
-          const filteredConfigKeys = p.configKeys.filter(
-            (k) => !HIDDEN_KEYS.has(k),
-          );
-          const configured = envKey
-            ? Boolean(process.env[envKey])
-            : filteredConfigKeys.length === 0;
-          const filteredParams = p.pluginParameters
-            ? Object.fromEntries(
-                Object.entries(p.pluginParameters).filter(
-                  ([k]) => !HIDDEN_KEYS.has(k),
-                ),
-              )
-            : undefined;
-          const parameters = filteredParams
-            ? buildParamDefs(filteredParams)
-            : [];
-          const paramInfos: PluginParamInfo[] = parameters.map((pd) => ({
-            key: pd.key,
-            required: pd.required,
-            sensitive: pd.sensitive,
-            type: pd.type,
-            description: pd.description,
-            default: pd.default,
-          }));
-          const validation = validatePluginConfig(
-            p.id,
-            category,
-            envKey,
-            filteredConfigKeys,
-            undefined,
-            paramInfos,
-          );
+        const category = categorizePlugin(p.id);
+        const envKey = p.envKey;
+        const filteredConfigKeys = p.configKeys.filter(
+          (k) => !HIDDEN_KEYS.has(k),
+        );
+        const configured = envKey
+          ? Boolean(process.env[envKey])
+          : filteredConfigKeys.length === 0;
+        const filteredParams = p.pluginParameters
+          ? Object.fromEntries(
+            Object.entries(p.pluginParameters).filter(
+              ([k]) => !HIDDEN_KEYS.has(k),
+            ),
+          )
+          : undefined;
+        const parameters = filteredParams
+          ? buildParamDefs(filteredParams)
+          : [];
+        const paramInfos: PluginParamInfo[] = parameters.map((pd) => ({
+          key: pd.key,
+          required: pd.required,
+          sensitive: pd.sensitive,
+          type: pd.type,
+          description: pd.description,
+          default: pd.default,
+        }));
+        const validation = validatePluginConfig(
+          p.id,
+          category,
+          envKey,
+          filteredConfigKeys,
+          undefined,
+          paramInfos,
+        );
 
-          return {
-            id: p.id,
-            name: p.name,
-            description: p.description,
-            enabled: false,
-            configured,
-            envKey,
-            category,
-            source: "bundled" as const,
-            configKeys: filteredConfigKeys,
-            parameters,
-            validationErrors: validation.errors,
-            validationWarnings: validation.warnings,
-            npmName: p.npmName,
-            version: p.version,
-            pluginDeps: p.pluginDeps,
-            managedExternally: Boolean(p.managedExternally),
-            ...(p.configUiHints ? { configUiHints: p.configUiHints } : {}),
-          };
-        });
+        return {
+          id: p.id,
+          name: p.name,
+          description: p.description,
+          enabled: false,
+          configured,
+          envKey,
+          category,
+          source: "bundled" as const,
+          configKeys: filteredConfigKeys,
+          parameters,
+          validationErrors: validation.errors,
+          validationWarnings: validation.warnings,
+          npmName: p.npmName,
+          version: p.version,
+          pluginDeps: p.pluginDeps,
+          managedExternally: Boolean(p.managedExternally),
+          ...(p.configUiHints ? { configUiHints: p.configUiHints } : {}),
+        };
+      });
       return ensureBuiltInPluginEntries(discovered).sort((a, b) =>
         a.name.localeCompare(b.name),
       );
     } catch (err) {
       logger.debug(
-        `[milady-api] Failed to read plugins.json: ${err instanceof Error ? err.message : err}`,
+        `[milady-api] Failed to read plugins.json at ${manifestPath}: ${err instanceof Error ? err.message : err}`,
       );
     }
   }
 
   // Fallback: no manifest found
   logger.debug(
-    "[milady-api] plugins.json not found — run `npm run generate:plugins`",
+    `[milady-api] plugins.json not found in any candidate path (${manifestCandidates.slice(0, 6).join(", ")}) — run \`npm run generate:plugins\``,
   );
   return ensureBuiltInPluginEntries([]);
 }
@@ -4944,19 +4957,18 @@ function shortenWalletAddress(address: string | null): string | null {
 
 function resolveSelfStatusProviderLabel(
   runtime: Pick<AgentRuntime, "plugins" | "getSetting"> | null,
-  config: MiladyConfig,
+  _config: MiladyConfig,
   modelLabel: string | null,
 ): string | null {
-  const runtimeProvider = resolveRuntimePluginProviderLabel(runtime);
-  if (runtimeProvider) return runtimeProvider;
-
   if (modelLabel?.includes("/")) {
     const provider = modelLabel.split("/")[0]?.trim().toLowerCase();
     if (provider) return provider;
   }
 
-  const configProvider = sanitizeAgentModelLabel(config.cloud?.provider);
-  if (configProvider) return configProvider.toLowerCase();
+  // Runtime plugin order is not guaranteed to reflect the active model, but
+  // this is still better than surfacing a stale configured provider.
+  const runtimeProvider = resolveRuntimePluginProviderLabel(runtime);
+  if (runtimeProvider) return runtimeProvider;
 
   return null;
 }
@@ -5007,6 +5019,7 @@ export function buildAgentSelfStatus(input: AgentSelfStatusInput): AgentSelfStat
   const hasEvm = Boolean(walletAddresses.evmAddress);
   const hasSolana = Boolean(walletAddresses.solanaAddress);
   const hasWallet = hasEvm || hasSolana;
+  const localSignerAvailable = Boolean(process.env.EVM_PRIVATE_KEY?.trim());
 
   const automationMode = input.agentAutomationMode ?? "full";
   const tradePermissionMode = input.tradePermissionMode ?? "user-sign-only";
@@ -5014,7 +5027,7 @@ export function buildAgentSelfStatus(input: AgentSelfStatusInput): AgentSelfStat
 
   const resolvedModel =
     sanitizeAgentModelLabel(input.model) ??
-    resolveAgentModelLabel(input.runtime, input.config) ??
+    resolveRuntimeSettingModelLabel(input.runtime) ??
     null;
   const provider = resolveSelfStatusProviderLabel(
     input.runtime,
@@ -5023,8 +5036,14 @@ export function buildAgentSelfStatus(input: AgentSelfStatusInput): AgentSelfStat
   );
 
   const canTrade = hasEvm;
-  const canLocalTrade = hasEvm && canUseLocalTradeExecution(tradePermissionMode, false);
-  const canAutoTrade = hasEvm && canUseLocalTradeExecution(tradePermissionMode, true);
+  const canLocalTrade =
+    hasEvm &&
+    localSignerAvailable &&
+    canUseLocalTradeExecution(tradePermissionMode, false);
+  const canAutoTrade =
+    hasEvm &&
+    localSignerAvailable &&
+    canUseLocalTradeExecution(tradePermissionMode, true);
   const canUseBrowser = normalizedActivePlugins.some((id) =>
     BROWSER_CAPABILITY_PLUGIN_IDS.has(id),
   );
@@ -5039,7 +5058,6 @@ export function buildAgentSelfStatus(input: AgentSelfStatusInput): AgentSelfStat
     process.env.NODEREAL_BSC_RPC_URL?.trim() ||
       process.env.QUICKNODE_BSC_RPC_URL?.trim(),
   );
-  const localSignerAvailable = Boolean(process.env.EVM_PRIVATE_KEY?.trim());
 
   return {
     generatedAt: new Date().toISOString(),

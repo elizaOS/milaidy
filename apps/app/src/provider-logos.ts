@@ -3,6 +3,8 @@
  * Maps provider IDs to their logo image paths for dark and light themes
  */
 
+import { resolveAppAssetUrl } from "./asset-url.js";
+
 const PROVIDER_LOGO_MAP_DARK: Record<string, string> = {
   openai: "/logos/openai-icon-white.png",
   anthropic: "/logos/anthropic-icon-white.png", // Anthropic API Key
@@ -47,6 +49,25 @@ const PROVIDER_LOGO_MAP_LIGHT: Record<string, string> = {
   "z.ai": "/logos/zai-icon.png",
 };
 
+function resolvePublicAssetUrl(pathOrUrl: string): string {
+  const value = pathOrUrl.trim();
+  if (!value) return value;
+  if (value.startsWith("data:image/")) return value;
+
+  // Defensive repair for malformed root file URLs observed in packaged desktop builds.
+  // Example bad value: "file:///logos/openai-icon.png"
+  const fileRootLogoMatch = value.match(/^file:\/\/\/+logos\/(.+)$/i);
+  if (fileRootLogoMatch) {
+    return resolveAppAssetUrl(`logos/${fileRootLogoMatch[1]}`);
+  }
+
+  const scheme = value.match(/^([a-z][a-z0-9+.-]*):/i)?.[1]?.toLowerCase();
+  if (scheme) return value;
+
+  const relativePath = value.trim().replace(/^\.?\//, "").replace(/^\/+/, "");
+  return resolveAppAssetUrl(relativePath);
+}
+
 /**
  * Get the logo path for a provider based on theme
  * @param providerId - The provider ID (e.g., "openai", "anthropic")
@@ -57,7 +78,7 @@ export function getProviderLogo(providerId: string, isDarkMode: boolean = true):
   const logoMap = isDarkMode ? PROVIDER_LOGO_MAP_DARK : PROVIDER_LOGO_MAP_LIGHT;
   const logo = logoMap[providerId.toLowerCase()];
   if (logo) {
-    return logo;
+    return resolvePublicAssetUrl(logo);
   }
 
   // Fallback: generate a colored square with initials

@@ -40,11 +40,19 @@ export function resolveWebAssetDirectory(
   const webDir = options.webDir?.trim() || DEFAULT_WEB_DIR;
   const cwd = options.cwd ?? process.cwd();
   const appRoot = path.resolve(options.appPath);
+  const appRootParent = path.dirname(appRoot);
   const primary = path.join(appRoot, "app");
   const primaryHasIndex = hasIndexHtml(primary);
+  const packagedCandidates = [
+    path.join(appRootParent, "app"),
+    path.join(appRootParent, webDir),
+    path.join(appRootParent, "app.asar.unpacked", "app"),
+    path.join(appRootParent, "app.asar.unpacked", webDir),
+  ];
 
   const defaultCandidates = [
     primary,
+    ...packagedCandidates,
     path.join(appRoot, webDir),
     path.join(appRoot, "..", webDir),
     path.join(cwd, "app"),
@@ -53,6 +61,7 @@ export function resolveWebAssetDirectory(
   ];
 
   const preferBuildOutputCandidates = [
+    ...packagedCandidates,
     path.join(appRoot, webDir),
     path.join(appRoot, "..", webDir),
     path.join(cwd, webDir),

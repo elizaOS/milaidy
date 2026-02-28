@@ -8,6 +8,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useApp } from "../AppContext.js";
 import { client } from "../api-client";
 import type { PluginInfo, PluginParamDef } from "../api-client";
+import { resolveAppAssetUrl } from "../asset-url.js";
 import { ConfigRenderer, defaultRegistry } from "./config-renderer";
 import type { ConfigUiHint } from "../types";
 import type { JsonSchemaObject } from "./config-catalog";
@@ -577,12 +578,39 @@ const DEFAULT_ICON_IDS = [
   "minecraft", "roblox", "babylon", "mysticism", "personality", "moltbook", "tee", "blooio", "acp", "elizacloud", "twilio",
 ] as const;
 
-const DEFAULT_ICONS: Record<string, string> = Object.fromEntries(
-  DEFAULT_ICON_IDS.map((id) => [id, `/plugin-logos/${id}.svg`]),
-);
+const DEFAULT_ICON_ID_SET = new Set<string>(DEFAULT_ICON_IDS);
+
+function resolveAssetUrl(pathOrUrl: string): string {
+  const value = pathOrUrl.trim();
+  if (!value) return value;
+  if (value.startsWith("data:image/")) return value;
+
+  // Repair malformed root file URLs observed in desktop runtime logs.
+  // Example bad value: "file:///plugin-logos/feishu.svg"
+  const fileRootPluginLogoMatch = value.match(/^file:\/\/\/+plugin-logos\/(.+)$/i);
+  if (fileRootPluginLogoMatch) {
+    return resolveAppAssetUrl(`plugin-logos/${fileRootPluginLogoMatch[1]}`);
+  }
+
+  const scheme = value.match(/^([a-z][a-z0-9+.-]*):/i)?.[1]?.toLowerCase();
+  if (scheme) return value;
+
+  const relativePath = value.replace(/^\.?\//, "").replace(/^\/+/, "");
+  return resolveAppAssetUrl(relativePath);
+}
 
 function isImageIcon(icon: string): boolean {
-  return icon.startsWith("http://") || icon.startsWith("https://") || icon.startsWith("/") || icon.startsWith("data:image/");
+  const value = icon.trim();
+  if (!value) return false;
+  if (value.startsWith("data:image/")) return true;
+  if (value.startsWith("/") || value.startsWith("./") || value.startsWith("../")) return true;
+  // Accept explicit URL schemes that are safe for <img src>.
+  const scheme = value.match(/^([a-z][a-z0-9+.-]*):/i)?.[1]?.toLowerCase();
+  if (scheme) {
+    return scheme === "http" || scheme === "https" || scheme === "file" || scheme === "blob" || scheme === "capacitor" || scheme === "capacitor-electron";
+  }
+  // Accept bare relative filenames/paths that look like image assets.
+  return /^[^\s]+\.(svg|png|jpe?g|gif|webp|avif|ico)(\?.*)?(#.*)?$/i.test(value);
 }
 
 function hashSeed(input: string): number {
@@ -603,10 +631,41 @@ function buildFallbackIconDataUri(id: string, name?: string): string {
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }
 
+function resolvePluginIconUrl(icon: string): string | null {
+  const value = icon.trim();
+  if (!value) return null;
+  if (value.startsWith("data:image/")) return value;
+
+  // Keep explicit remote/data/blob/file schemes intact.
+  const scheme = value.match(/^([a-z][a-z0-9+.-]*):/i)?.[1]?.toLowerCase();
+  if (scheme) return resolveAssetUrl(value);
+
+  // If plugin manifests provide bare filenames like "openai.svg", assume
+  // they live under public/plugin-logos/ in packaged desktop builds.
+  if (
+    !value.includes("/") &&
+    /^[^\s]+\.(svg|png|jpe?g|gif|webp|avif|ico)(\?.*)?(#.*)?$/i.test(value)
+  ) {
+    return resolveAssetUrl(`plugin-logos/${value}`);
+  }
+
+  // Allow relative paths (with or without leading ./) for images.
+  if (isImageIcon(value)) return resolveAssetUrl(value);
+
+  // Emoji / text icon fallback.
+  return value;
+}
+
 /** Resolve display icon: plugin image/icon URL → local svg logo map → generated svg fallback. */
 function resolveIcon(p: PluginInfo): string | null {
-  if (p.icon && isImageIcon(p.icon)) return p.icon;
-  return DEFAULT_ICONS[p.id] ?? buildFallbackIconDataUri(p.id, p.name);
+  if (typeof p.icon === "string") {
+    const resolved = resolvePluginIconUrl(p.icon);
+    if (resolved) return resolved;
+  }
+  if (DEFAULT_ICON_ID_SET.has(p.id)) {
+    return resolveAssetUrl(`plugin-logos/${p.id}.svg`);
+  }
+  return buildFallbackIconDataUri(p.id, p.name);
 }
 
 /* ── Sub-group Classification ──────────────────────────────────────── */

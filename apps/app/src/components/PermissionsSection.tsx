@@ -135,7 +135,6 @@ function PermissionIcon({ icon }: { icon: string }) {
 function PermissionRow({
   def,
   status,
-  canRequest,
   onRequest,
   onOpenSettings,
   isShell,
@@ -145,7 +144,6 @@ function PermissionRow({
 }: {
   def: PermissionDef;
   status: PermissionStatus;
-  canRequest: boolean;
   onRequest: () => void;
   onOpenSettings: () => void;
   isShell: boolean;
@@ -188,24 +186,18 @@ function PermissionRow({
           />
         )}
         {showAction && !isShell && (
-          <>
-            {canRequest && (
-              <button
-                type="button"
-                className="btn text-[11px] py-1 px-2.5"
-                onClick={onRequest}
-              >
-                {t("permissions.request")}
-              </button>
-            )}
-            <button
-              type="button"
-              className="btn text-[11px] py-1 px-2.5"
-              onClick={onOpenSettings}
-            >
-              {t("permissions.settings")}
-            </button>
-          </>
+          <button
+            type="button"
+            className="btn text-[11px] py-1 px-2.5"
+            onClick={async () => {
+              // Always attempt a native request first so macOS registers the app
+              // for camera/mic/screen-recording lists, then deep-link Settings.
+              await Promise.resolve(onRequest());
+              await Promise.resolve(onOpenSettings());
+            }}
+          >
+            {t("permissions.settings")}
+          </button>
         )}
       </div>
     </div>
@@ -638,7 +630,6 @@ export function PermissionsSection() {
                 key={def.id}
                 def={def}
                 status={state?.status ?? "not-determined"}
-                canRequest={state?.canRequest ?? false}
                 onRequest={() => handleRequest(def.id)}
                 onOpenSettings={() => handleOpenSettings(def.id)}
                 isShell={def.id === "shell"}
@@ -931,7 +922,6 @@ export function PermissionsOnboardingSection({
         {essentialPermissions.map((def) => {
           const state = permissions[def.id];
           const status = state?.status ?? "not-determined";
-          const canRequest = state?.canRequest ?? false;
           const isGranted = status === "granted";
 
           return (
@@ -954,19 +944,13 @@ export function PermissionsOnboardingSection({
                 <span className="text-[var(--ok)] text-sm">✓</span>
               ) : (
                 <div className="flex gap-2">
-                  {canRequest && (
-                    <button
-                      type="button"
-                      className="btn text-xs py-1.5 px-3"
-                      onClick={() => handleRequest(def.id)}
-                    >
-                      {t("permissions.grant")}
-                    </button>
-                  )}
                   <button
                     type="button"
                     className="btn text-xs py-1.5 px-3"
-                    onClick={() => handleOpenSettings(def.id)}
+                    onClick={async () => {
+                      await handleRequest(def.id);
+                      await handleOpenSettings(def.id);
+                    }}
                   >
                     {t("permissions.settings")}
                   </button>

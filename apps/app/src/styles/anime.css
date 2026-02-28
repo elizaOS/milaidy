@@ -5537,15 +5537,28 @@
 
 .chat-game-sidebar-cap-row {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
     gap: 8px;
+}
+
+.chat-game-sidebar-cap-main {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
 }
 
 .chat-game-sidebar-cap-name {
     font-size: 10px;
     letter-spacing: 0.03em;
     color: rgba(222, 231, 249, 0.84);
+}
+
+.chat-game-sidebar-cap-hint {
+    font-size: 9px;
+    line-height: 1.28;
+    color: rgba(173, 190, 220, 0.72);
 }
 
 .chat-game-sidebar-cap-pill {

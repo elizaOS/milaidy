@@ -14,6 +14,7 @@ type AssetUrlResolveOptions = {
 };
 
 let cachedRuntimeBaseHref: string | null = null;
+let cachedModuleBaseHref: string | null = null;
 
 function stripLeadingPathMarkers(assetPath: string): string {
   return assetPath.trim().replace(/^\.?\//, "").replace(/^\/+/, "");
@@ -48,6 +49,20 @@ function computeBaseHref(currentUrl: string, baseUrl?: string): string {
 
 function runtimeBaseHref(): string | null {
   if (cachedRuntimeBaseHref) return cachedRuntimeBaseHref;
+
+  // In packaged desktop builds we can reliably anchor assets from the module
+  // URL instead of window.location (which may be rewritten by SPA routing).
+  if (cachedModuleBaseHref) return cachedModuleBaseHref;
+  try {
+    const moduleUrl = new URL(import.meta.url);
+    if (moduleUrl.protocol === "file:") {
+      cachedModuleBaseHref = new URL("../", moduleUrl).href;
+      return cachedModuleBaseHref;
+    }
+  } catch {
+    // Fall through to window-based resolution.
+  }
+
   if (typeof window === "undefined") return null;
 
   const href = (window.location as { href?: unknown } | undefined)?.href;
@@ -55,7 +70,9 @@ function runtimeBaseHref(): string | null {
 
   try {
     const viteBaseUrl = (import.meta as { env?: { BASE_URL?: string } }).env?.BASE_URL;
-    cachedRuntimeBaseHref = computeBaseHref(href, viteBaseUrl);
+    const currentUrl = new URL(href);
+    const baseForProtocol = currentUrl.protocol === "file:" ? undefined : viteBaseUrl;
+    cachedRuntimeBaseHref = computeBaseHref(href, baseForProtocol);
     return cachedRuntimeBaseHref;
   } catch {
     return null;

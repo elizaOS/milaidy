@@ -7,7 +7,10 @@ import {
 } from "../api-client.js";
 import { createTranslator } from "../i18n";
 import { ChatView } from "./ChatView.js";
-import { ConversationsSidebar } from "./ConversationsSidebar.js";
+import {
+  ConversationsSidebar,
+  SELF_STATUS_SYNC_EVENT,
+} from "./ConversationsSidebar.js";
 
 const CHAT_MODAL_NARROW_BREAKPOINT = 768;
 
@@ -75,6 +78,10 @@ export function ChatModalView({
   const moreMenuRef = useRef<HTMLDivElement | null>(null);
   const isNarrow = useIsNarrowViewport();
   const isCompanionDock = variant === "companion-dock";
+
+  const notifySelfStatusRefresh = useCallback(() => {
+    window.dispatchEvent(new CustomEvent(SELF_STATUS_SYNC_EVENT));
+  }, []);
 
   const activeConversation = useMemo(
     () =>
@@ -189,6 +196,7 @@ export function ChatModalView({
           "success",
           2200,
         );
+        notifySelfStatusRefresh();
       } catch (err) {
         setActionNotice?.(
           err instanceof Error ? err.message : t("permissions.updateAutomationFailed"),
@@ -199,7 +207,16 @@ export function ChatModalView({
         setAutomationSaving(false);
       }
     },
-    [automationMode, automationSaving, chatMode, modeLoading, setActionNotice, setState, t],
+    [
+      automationMode,
+      automationSaving,
+      chatMode,
+      modeLoading,
+      notifySelfStatusRefresh,
+      setActionNotice,
+      setState,
+      t,
+    ],
   );
 
   const handleTradeModeChange = useCallback(
@@ -220,6 +237,7 @@ export function ChatModalView({
               ? t("permissions.tradeModeSetManual")
               : t("permissions.tradeModeSetUser");
         setActionNotice?.(notice, "success", 2200);
+        notifySelfStatusRefresh();
       } catch (err) {
         setActionNotice?.(
           err instanceof Error ? err.message : t("permissions.updateTradeFailed"),
@@ -230,7 +248,16 @@ export function ChatModalView({
         setTradeSaving(false);
       }
     },
-    [chatMode, modeLoading, setActionNotice, setState, t, tradeMode, tradeSaving],
+    [
+      chatMode,
+      modeLoading,
+      notifySelfStatusRefresh,
+      setActionNotice,
+      setState,
+      t,
+      tradeMode,
+      tradeSaving,
+    ],
   );
 
   return (

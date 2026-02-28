@@ -169,7 +169,10 @@ export async function applySubscriptionCredentials(): Promise<void> {
   // Anthropic subscription → set ANTHROPIC_API_KEY
   const anthropicToken = await getAccessToken("anthropic-subscription");
   if (anthropicToken) {
-    process.env.ANTHROPIC_API_KEY = anthropicToken;
+    // Never override a user-supplied key.
+    if (!process.env.ANTHROPIC_API_KEY) {
+      process.env.ANTHROPIC_API_KEY = anthropicToken;
+    }
     logger.info(
       "[auth] Applied Anthropic subscription credentials to environment",
     );
@@ -178,7 +181,10 @@ export async function applySubscriptionCredentials(): Promise<void> {
   // OpenAI Codex subscription → set OPENAI_API_KEY
   const codexToken = await getAccessToken("openai-codex");
   if (codexToken) {
-    process.env.OPENAI_API_KEY = codexToken;
+    // Never override a user-supplied key.
+    if (!process.env.OPENAI_API_KEY) {
+      process.env.OPENAI_API_KEY = codexToken;
+    }
     logger.info(
       "[auth] Applied OpenAI Codex subscription credentials to environment",
     );

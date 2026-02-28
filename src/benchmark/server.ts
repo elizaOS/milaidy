@@ -59,13 +59,19 @@ export async function startBenchmarkServer() {
     try {
       // Import directly from source to ensure we use Native backend (not MCP)
       // const computerUsePlugin = await import("@elizaos/plugin-computeruse").then(m => m.computerUsePlugin || m.default);
-      const { computerUsePlugin } = await import(
-        "../../../eliza/packages/plugin-computeruse/src/index.ts"
-      );
+      // Keep the import path dynamic so TypeScript doesn't require this module
+      // to exist in all builds (the benchmark harness is optional).
+      const computerUseImportPath: string =
+        "../../../eliza/packages/plugin-computeruse/src/index.ts";
+      const mod = (await import(computerUseImportPath)) as unknown as {
+        computerUsePlugin?: unknown;
+        default?: unknown;
+      };
+      const computerUsePlugin = mod.computerUsePlugin ?? mod.default;
       plugins.push(
         toPlugin(
           computerUsePlugin,
-          "../../../eliza/packages/plugin-computeruse/src/index.ts",
+          computerUseImportPath,
         ),
       );
       elizaLogger.info(
@@ -93,8 +99,14 @@ export async function startBenchmarkServer() {
   if (process.env.MILADY_BENCH_MOCK === "true") {
     try {
       // Updated import path if needed, assuming relative to this file
-      const { mockPlugin } = await import("./mock-plugin.ts");
-      plugins.push(toPlugin(mockPlugin, "./mock-plugin.ts"));
+      // Keep the import path dynamic so it can be omitted from production builds.
+      const mockPluginPath: string = "./mock-plugin.ts";
+      const mod = (await import(mockPluginPath)) as unknown as {
+        mockPlugin?: unknown;
+        default?: unknown;
+      };
+      const mockPlugin = mod.mockPlugin ?? mod.default;
+      plugins.push(toPlugin(mockPlugin, mockPluginPath));
       elizaLogger.info("[bench] Loaded mock plugin");
     } catch (error: unknown) {
       elizaLogger.error(

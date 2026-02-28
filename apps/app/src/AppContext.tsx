@@ -349,6 +349,42 @@ interface OnboardingNextOptions {
   allowPermissionBypass?: boolean;
 }
 
+type OnboardingRunModeValue = "local-rawdog" | "local-sandbox" | "cloud" | "";
+type OnboardingSetupModeValue = "quick" | "advanced" | "";
+
+/**
+ * Resolve the final onboarding run mode at submit time.
+ *
+ * Quick setup defaults to cloud for simplicity, but if the user picks a local
+ * provider (anything except Eliza Cloud), we must force local mode; otherwise
+ * OAuth/API provider choices are ignored and chat fails at runtime.
+ */
+export function resolveEffectiveOnboardingRunMode(params: {
+  publicAppMode: boolean;
+  requestedRunMode: OnboardingRunModeValue;
+  setupMode: OnboardingSetupModeValue;
+  providerId: string;
+}): "local-rawdog" | "local-sandbox" | "cloud" {
+  const { publicAppMode, requestedRunMode, setupMode, providerId } = params;
+  if (publicAppMode) return "cloud";
+
+  const normalizedProvider = providerId.trim().toLowerCase();
+  const quickLocalProviderSelected =
+    setupMode === "quick" &&
+    normalizedProvider.length > 0 &&
+    normalizedProvider !== "elizacloud";
+  if (quickLocalProviderSelected) return "local-rawdog";
+
+  if (
+    requestedRunMode === "local-rawdog" ||
+    requestedRunMode === "local-sandbox" ||
+    requestedRunMode === "cloud"
+  ) {
+    return requestedRunMode;
+  }
+  return "local-rawdog";
+}
+
 const ONBOARDING_PERMISSION_LABELS: Record<SystemPermissionId, string> = {
   accessibility: "Accessibility",
   "screen-recording": "Screen Recording",
@@ -1904,7 +1940,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const openAiPlan = subscriptionStatus?.providers?.find(
         (provider) =>
           provider.provider === "openai-codex" &&
-          provider.configured,
+          provider.configured &&
+          provider.valid,
       );
       const cloudCfg = cfg?.cloud as Record<string, unknown> | undefined;
       const runtimeModel = (status?.model ?? "").toLowerCase();
@@ -3387,8 +3424,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       ? style.system.replace(/\{\{name\}\}/g, onboardingName)
       : `You are ${onboardingName}, an autonomous AI agent powered by ElizaOS. ${onboardingOptions.sharedStyleRules}`;
 
-    const effectiveRunMode: "local-rawdog" | "local-sandbox" | "cloud" =
-      publicAppMode ? "cloud" : (onboardingRunMode || "local-rawdog");
+    const effectiveRunMode = resolveEffectiveOnboardingRunMode({
+      publicAppMode,
+      requestedRunMode: onboardingRunMode,
+      setupMode: onboardingSetupMode,
+      providerId: onboardingProvider,
+    });
     const effectiveCloudProvider =
       effectiveRunMode === "cloud"
         ? onboardingCloudProvider || "elizacloud"
@@ -3432,6 +3473,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         largeModel: apiRunMode === "cloud" ? onboardingLargeModel : undefined,
         provider: isLocalMode ? onboardingProvider || undefined : undefined,
         providerApiKey: isLocalMode ? onboardingApiKey || undefined : undefined,
+        primaryModel:
+          isLocalMode && onboardingProvider === "pi-ai"
+            ? onboardingPrimaryModel || undefined
+            : undefined,
         inventoryProviders: inventoryProviders.length > 0 ? inventoryProviders : undefined,
         // Connectors
         telegramToken: onboardingTelegramToken.trim() || undefined,
@@ -3463,6 +3508,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     uiLanguage,
     onboardingRunMode, onboardingCloudProvider, onboardingSmallModel,
     onboardingLargeModel, onboardingProvider, onboardingApiKey,
+    onboardingSetupMode,
     onboardingPrimaryModel,
     onboardingSelectedChains, onboardingRpcSelections, onboardingRpcKeys,
     onboardingTelegramToken, onboardingDiscordToken, onboardingWhatsAppSessionPath,

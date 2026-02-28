@@ -613,6 +613,10 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
         setPiAiLargeModel(OPENAI_CODEX_PRIMARY_MODEL);
         await client.restartAndWait();
         await loadPlugins();
+        // Keep the chat sidebar/provider panel in sync immediately after restart.
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new Event("milady:self-status-refresh"));
+        }
         if (reason === "autosync") {
           setActionNotice(
             "OpenAI plan detected. Switched active agent provider to OpenAI Codex.",
@@ -732,7 +736,6 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
       runtimeModel.includes("moonshot") || runtimeModel.includes("kimi");
     if (!looksLikeCloudOnlyModel) return;
     if (!isOpenAIPlanUsable) return;
-    if (cloudEnabled || cloudConnected) return;
     if (openAIPlanSyncingRef.current) return;
     if (openAIPlanAutoSyncTriedRef.current) return;
     openAIPlanAutoSyncTriedRef.current = true;

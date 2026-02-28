@@ -11,7 +11,12 @@ type ChatMessage = {
 };
 
 interface ChatViewContextStub {
-  agentStatus: { agentName: string } | null;
+  agentStatus:
+    | {
+      agentName: string;
+      state?: "starting" | "restarting" | "running" | "paused";
+    }
+    | null;
   chatInput: string;
   chatSending: boolean;
   chatFirstTokenReceived: boolean;
@@ -59,7 +64,7 @@ function createContext(
   overrides?: Partial<ChatViewContextStub>,
 ): ChatViewContextStub {
   return {
-    agentStatus: { agentName: "Milady" },
+    agentStatus: { agentName: "Milady", state: "running" },
     chatInput: "Hello",
     chatSending: false,
     chatFirstTokenReceived: false,
@@ -176,5 +181,39 @@ describe("ChatView game-modal variant", () => {
       sendButtons[0].props.onClick();
     });
     expect(handleChatSend).toHaveBeenCalledWith("simple");
+  });
+
+  it("disables composer controls while agent is starting", async () => {
+    mockUseApp.mockReturnValue(
+      createContext({
+        agentStatus: { agentName: "Milady", state: "starting" },
+      }),
+    );
+
+    let tree: TestRenderer.ReactTestRenderer;
+    await act(async () => {
+      tree = TestRenderer.create(
+        React.createElement(ChatView, { variant: "game-modal" }),
+      );
+    });
+
+    const textarea = tree!.root.findByType("textarea");
+    expect(textarea.props.disabled).toBe(true);
+    expect(textarea.props.placeholder).toBe("Agent starting...");
+
+    const sendButton = tree!.root.findAll(
+      (node) => node.type === "button" && textOf(node).trim() === "Agent starting...",
+    )[0];
+    expect(sendButton).toBeTruthy();
+    expect(sendButton.props.disabled).toBe(true);
+
+    const micButton = tree!.root.findAll(
+      (node) =>
+        node.type === "button" &&
+        typeof node.props.className === "string" &&
+        node.props.className.includes("chat-game-mic-btn"),
+    )[0];
+    expect(micButton).toBeTruthy();
+    expect(micButton.props.disabled).toBe(true);
   });
 });

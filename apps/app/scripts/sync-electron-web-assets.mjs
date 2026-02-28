@@ -9,6 +9,7 @@ const targetDir = path.join(appRoot, "electron", "app");
 const repoRoot = path.resolve(appRoot, "../..");
 const backendSourceDir = path.join(repoRoot, "dist");
 const backendTargetDir = path.join(appRoot, "electron", "milady-dist");
+const pluginManifestSource = path.join(repoRoot, "plugins.json");
 
 async function ensureDirExists(dir) {
   try {
@@ -50,6 +51,18 @@ if (await ensureDirExists(backendSourceDir)) {
   console.info(
     `[Milady] Synced Electron backend bundle: ${backendSourceDir} -> ${backendTargetDir}`,
   );
+  try {
+    await cp(pluginManifestSource, path.join(backendTargetDir, "plugins.json"), {
+      force: true,
+    });
+    console.info(
+      `[Milady] Synced plugin manifest for embedded backend: ${pluginManifestSource} -> ${path.join(backendTargetDir, "plugins.json")}`,
+    );
+  } catch {
+    console.warn(
+      `[Milady] Plugin manifest not found at ${pluginManifestSource}. /api/plugins may be incomplete in packaged builds.`,
+    );
+  }
 } else {
   console.warn(
     `[Milady] Backend build output not found: ${backendSourceDir}. Skipping embedded agent bundle sync.`,
