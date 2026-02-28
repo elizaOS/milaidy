@@ -293,14 +293,28 @@ export class MilaidyClient {
     if (!this.apiAvailable) {
       throw new Error("Milaidy API is unavailable in this context");
     }
-    const makeRequest = (token: string | null) => fetch(`${this.baseUrl}${path}`, {
-      ...init,
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        ...init?.headers,
-      },
-    });
+    const makeRequest = async (token: string | null) => {
+      const isChatRoute =
+        path.startsWith("/api/chat") || path.startsWith("/api/v2/chat");
+      const timeoutMs = isChatRoute ? 8000 : 12000;
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        const t = setTimeout(() => {
+          clearTimeout(t);
+          reject(new Error(`Request timeout after ${timeoutMs}ms: ${path}`));
+        }, timeoutMs);
+      });
+      return Promise.race([
+        fetch(`${this.baseUrl}${path}`, {
+          ...init,
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            ...init?.headers,
+          },
+        }),
+        timeoutPromise,
+      ]) as Promise<Response>;
+    };
 
     const requestWithBackendRetry = async (token: string | null): Promise<Response> => {
       // Fail fast on chat so users aren't stuck waiting on retries.
@@ -455,7 +469,36 @@ export class MilaidyClient {
   async importWallet(chain: "evm" | "solana", privateKey: string): Promise<WalletImportResponse> { return this.fetch("/api/wallet/import", { method: "POST", body: JSON.stringify({ chain, privateKey }) }); }
   async getWalletConfig(): Promise<WalletConfigStatus> { return this.fetch("/api/wallet/config"); }
   async updateWalletConfig(config: Record<string, string>): Promise<{ ok: boolean }> { return this.fetch("/api/wallet/config", { method: "PUT", body: JSON.stringify(config) }); }
-  async disconnectWallet(): Promise<{ ok: boolean }> { return this.fetch("/api/wallet/disconnect", { method: "POST" }); }
+  async disconnectWallet(): Promise<{ ok: boolean }> {
+    try {
+      return await this.fetch("/api/wallet/disconnect", { method: "POST" });
+    } catch (err) {
+      const status = (err as Error & { status?: number }).status;
+      // Compatibility fallback for older servers exposing only the v2 route.
+      if (status === 404) {
+        try {
+          return await this.fetch("/api/v2/wallet/disconnect", {
+            method: "POST",
+          });
+        } catch {
+          // Fall through to config-clear fallback.
+        }
+      }
+      try {
+        // Route-independent fallback: request explicit wallet disconnect via
+        // wallet config update so stale route/version mismatches don't block UX.
+        await this.updateWalletConfig({
+          EVM_ADDRESS: "",
+          SOLANA_ADDRESS: "",
+          WALLET_DISCONNECT: "1",
+        });
+        return { ok: true };
+      } catch {
+        // Preserve the original error when all fallback paths fail.
+      }
+      throw err;
+    }
+  }
   async exportWalletKeys(): Promise<WalletExportResult> { return this.fetch("/api/wallet/export", { method: "POST", body: JSON.stringify({ confirm: true }) }); }
   async getPolymarketPortfolio(): Promise<PolymarketPortfolioResponse> { return this.fetch("/api/polymarket/portfolio"); }
 
