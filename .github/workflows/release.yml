@@ -208,6 +208,11 @@ jobs:
         run: bun run build:whisper
         working-directory: apps/app/electron
 
+      - name: Build Whisper universal binary (macOS)
+        if: matrix.platform.os == 'macos'
+        run: bun run build:whisper
+        working-directory: apps/app/electron
+
       # Transform dynamic plugin imports to static imports for Electron bundling.
       # Dynamic imports like `import("@elizaos/plugin-sql")` cannot be bundled
       # by tsdown/rolldown. This script transforms eliza.ts to use static imports.
