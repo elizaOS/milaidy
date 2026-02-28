@@ -228,6 +228,7 @@ export class MilaidyApp extends LitElement {
   @state() walletConnectOpen = false;
   @state() walletConnectBusy = false;
   @state() walletConnectStatus: string | null = null;
+  @state() solUsdPrice: number | null = null;
   @state() deviceProfile: "standard" | "seeker" = "standard";
   @state() securitySpendGuardEnabled = true;
   @state() securityRequireSpendConfirm = true;
@@ -3713,9 +3714,18 @@ export class MilaidyApp extends LitElement {
         const { complete } = await client.getOnboardingStatus();
         this.onboardingComplete = complete;
         if (!complete) {
-          const options = await client.getOnboardingOptions();
-          this.onboardingOptions = options;
-          this.prefetchCharacterImages(options.names);
+          try {
+            const options = await client.getOnboardingOptions();
+            this.onboardingOptions = options;
+            this.prefetchCharacterImages(options.names);
+          } catch {
+            // Avoid trapping users on "Loading onboarding..." forever when
+            // options fetch fails but status endpoint is reachable.
+            const fallback = this.defaultOnboardingOptions();
+            this.onboardingOptions = fallback;
+            this.prefetchCharacterImages(fallback.names);
+            this.showUiNotice("Using fallback onboarding options. You can update provider settings later.");
+          }
         }
         serverReady = true;
         if (attempt > 0) {
@@ -7038,6 +7048,24 @@ export class MilaidyApp extends LitElement {
       : null;
     const orderedFiltered = (viewMode === "ai" || activeFilter === "all")
       ? [...filtered].sort((a, b) => {
+          if (viewMode === "ai") {
+            const activeId = activeAiProvider?.id ?? null;
+            const rank = (p: PluginInfo): number => {
+              if (activeId) {
+                if (p.id === activeId) return 0;
+                if (p.id === "elizacloud") return 1;
+                if (p.category === "ai-provider") return 2;
+                return 3;
+              }
+              if (p.id === "elizacloud") return 0;
+              if (p.category === "ai-provider") return 1;
+              return 2;
+            };
+            const ar = rank(a);
+            const br = rank(b);
+            if (ar !== br) return ar - br;
+          }
+
           if (viewMode === "ai" && activeAiProvider) {
             if (a.id === activeAiProvider.id && b.id !== activeAiProvider.id) return -1;
             if (b.id === activeAiProvider.id && a.id !== activeAiProvider.id) return 1;
@@ -7354,6 +7382,28 @@ export class MilaidyApp extends LitElement {
 
                     ${hasParams
                       ? html`
+                          ${p.id === "elizacloud"
+                            ? html`
+                                <div style="margin-top:10px;padding:12px;border:1px solid var(--border);border-radius:12px;background:linear-gradient(180deg, rgba(30,136,229,0.10) 0%, rgba(30,136,229,0.04) 100%);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+                                  <div style="min-width:180px;">
+                                    <div style="font-size:12px;font-weight:700;color:var(--text-strong);">Eliza Cloud</div>
+                                    <div style="font-size:11px;color:var(--muted);">Login or get started, then add your API key below.</div>
+                                  </div>
+                                  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                                    <button
+                                      class="btn plugin-pill-btn"
+                                      style="font-size:12px;padding:7px 12px;"
+                                      @click=${() => this.openExternalUrl("https://www.elizacloud.ai/login")}
+                                    >Login</button>
+                                    <button
+                                      class="plugin-secondary-btn"
+                                      style="font-size:12px;padding:7px 12px;"
+                                      @click=${() => { window.open("https://www.elizacloud.ai/login?intent=signup", "_blank", "noopener,noreferrer"); }}
+                                    >Get started</button>
+                                  </div>
+                                </div>
+                              `
+                            : ""}
                           <div
                             class="plugin-settings-toggle ${settingsOpen ? "open" : ""}"
                             @click=${() => toggleSettings(p.id)}
@@ -8229,6 +8279,13 @@ export class MilaidyApp extends LitElement {
     window.open("chrome://extensions", "_blank");
   }
 
+  private openExternalUrl(url: string): void {
+    const opened = window.open(url, "_blank", "noopener,noreferrer");
+    if (!opened) {
+      this.showUiNotice("Popup blocked. Allow popups for this site to open external links in a new tab.");
+    }
+  }
+
   // ═══════════════════════════════════════════════════════════════════════
   // Inventory
   // ═══════════════════════════════════════════════════════════════════════
@@ -8246,6 +8303,7 @@ export class MilaidyApp extends LitElement {
         this.walletBalances = snapshot.balances;
         this.walletNfts = snapshot.nfts;
         this.polymarketPortfolio = snapshot.polymarket;
+        await this.refreshSolUsdPrice();
         this.walletAccountUsername = snapshot.account.username
           ? (snapshot.account.username.startsWith("@")
             ? snapshot.account.username
@@ -8280,6 +8338,7 @@ export class MilaidyApp extends LitElement {
       const snapshot = await client.getWalletConnectedData();
       this.walletBalances = snapshot.balances;
       this.polymarketPortfolio = snapshot.polymarket;
+      await this.refreshSolUsdPrice();
       this.walletAccountUsername = snapshot.account.username
         ? (snapshot.account.username.startsWith("@")
           ? snapshot.account.username
@@ -8289,6 +8348,22 @@ export class MilaidyApp extends LitElement {
       this.walletError = `Failed to fetch balances: ${err instanceof Error ? err.message : "network error"}`;
     }
     this.walletLoading = false;
+  }
+
+  private async refreshSolUsdPrice(): Promise<void> {
+    try {
+      const res = await fetch(
+        "https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd",
+      );
+      if (!res.ok) return;
+      const data = (await res.json()) as { solana?: { usd?: number } };
+      const usd = data?.solana?.usd;
+      if (typeof usd === "number" && Number.isFinite(usd) && usd > 0) {
+        this.solUsdPrice = usd;
+      }
+    } catch {
+      // Non-fatal fallback: keep existing state and let backend pricing win.
+    }
   }
 
   private async loadNfts(): Promise<void> {
@@ -8679,6 +8754,8 @@ export class MilaidyApp extends LitElement {
     if (key.includes("openrouter")) return "https://www.google.com/s2/favicons?domain=openrouter.ai&sz=64";
     if (key.includes("ollama")) return "https://www.google.com/s2/favicons?domain=ollama.com&sz=64";
     if (key.includes("local ai") || key.includes("local-ai") || key.includes("localai")) return "/brands/local-ai.svg";
+    if (key.includes("elizacloud") || key.includes("eliza-cloud")) return "https://www.google.com/s2/favicons?domain=elizacloud.ai&sz=64";
+    if (key.includes("elizaos")) return "https://www.google.com/s2/favicons?domain=elizaos.ai&sz=64";
     if (key.includes("xai")) return "https://www.google.com/s2/favicons?domain=x.ai&sz=64";
     if (key.includes("vercel")) return "https://www.google.com/s2/favicons?domain=vercel.com&sz=64";
     if (key.includes("sql")) return "https://www.google.com/s2/favicons?domain=sqlite.org&sz=64";
@@ -8690,9 +8767,13 @@ export class MilaidyApp extends LitElement {
   }
 
   private pluginDescription(plugin: PluginInfo): string {
+    const idKey = `${plugin.id} ${plugin.name}`.toLowerCase();
+    if (idKey.includes("elizacloud") || idKey.includes("eliza cloud")) {
+      return "Managed cloud models and services. Includes $5 free credits to start.";
+    }
     const fromPlugin = (plugin.description ?? "").trim();
     if (fromPlugin.length > 0) return fromPlugin;
-    const key = `${plugin.id} ${plugin.name}`.toLowerCase();
+    const key = idKey;
     if (key.includes("openai")) return "Run Milaidy on OpenAI models.";
     if (key.includes("anthropic")) return "Use Anthropic Claude models for Milaidy.";
     if (key.includes("google") || key.includes("gemini")) return "Use Google Gemini models.";
@@ -8916,6 +8997,8 @@ export class MilaidyApp extends LitElement {
       await client.disconnectWallet();
       this.walletBalances = null;
       this.walletNfts = null;
+      this.polymarketPortfolio = null;
+      this.walletAccountUsername = null;
       this.walletImportKey = "";
       this.selectedWalletLauncher = null;
       this.walletConnectMode = "choose";
@@ -9357,7 +9440,7 @@ export class MilaidyApp extends LitElement {
       totalUsd > 0
         ? this.formatUsd(totalUsd)
         : hasAssetBalance
-          ? "Syncing price..."
+          ? "Price unavailable"
           : this.formatUsd(0);
     const tokenPositions = rows.length;
     const hasSol = Boolean(this.walletConfig?.solanaAddress);
@@ -9622,13 +9705,21 @@ export class MilaidyApp extends LitElement {
     if (!b) return rows;
 
     if (b.solana) {
+      const solBalance = Number.parseFloat(b.solana.solBalance) || 0;
+      const solValueFromApi = Number.parseFloat(b.solana.solValueUsd) || 0;
+      const solValueFallback =
+        solValueFromApi > 0
+          ? solValueFromApi
+          : this.solUsdPrice != null
+            ? solBalance * this.solUsdPrice
+            : 0;
       rows.push({
         chain: "Solana",
         symbol: "SOL",
         name: "Solana",
         balance: b.solana.solBalance,
-        valueUsd: Number.parseFloat(b.solana.solValueUsd) || 0,
-        balanceRaw: Number.parseFloat(b.solana.solBalance) || 0,
+        valueUsd: solValueFallback,
+        balanceRaw: solBalance,
         logoUrl: "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png",
       });
       for (const t of b.solana.tokens) {
@@ -10185,7 +10276,16 @@ export class MilaidyApp extends LitElement {
   private renderOnboarding() {
     const opts = this.onboardingOptions;
     if (!opts) {
-      return html`<div class="app-shell"><div class="empty-state">Loading onboarding...</div></div>`;
+      return html`
+        <div class="app-shell">
+          <div class="empty-state">
+            Setup data is unavailable right now.
+            <div style="margin-top:10px;">
+              <button class="btn" @click=${() => window.location.reload()}>Retry</button>
+            </div>
+          </div>
+        </div>
+      `;
     }
 
     return html`
@@ -10198,6 +10298,28 @@ export class MilaidyApp extends LitElement {
         </div>
       </div>
     `;
+  }
+
+  private defaultOnboardingOptions(): OnboardingOptions {
+    return {
+      names: ["Milaidy"],
+      styles: [{
+        catchphrase: "Concise and reliable.",
+        hint: "Balanced",
+        bio: ["Helpful assistant", "Direct communicator"],
+        system: "Be concise, safe, and practical.",
+        style: { all: ["clear"], chat: ["direct"], post: ["concise"] },
+        adjectives: ["clear", "practical"],
+        topics: ["assistant", "setup"],
+        messageExamples: [[{ user: "user", content: { text: "hello" } }]],
+      }],
+      providers: [
+        { id: "openai", name: "OpenAI", envKey: "OPENAI_API_KEY", pluginName: "@elizaos/plugin-openai", keyPrefix: "OPENAI", description: "GPT models." },
+        { id: "anthropic", name: "Anthropic", envKey: "ANTHROPIC_API_KEY", pluginName: "@elizaos/plugin-anthropic", keyPrefix: "ANTHROPIC", description: "Claude models." },
+        { id: "ollama", name: "Ollama", envKey: null, pluginName: "@elizaos/plugin-ollama", keyPrefix: null, description: "Local models." },
+      ],
+      sharedStyleRules: "Be clear and concise.",
+    };
   }
 
   private renderOnboardingWelcome() {
