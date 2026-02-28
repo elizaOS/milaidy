@@ -215,7 +215,7 @@ export function Spotlight({
           <button
             type="button"
             onClick={onNext}
-            className="px-4 py-2 text-sm bg-accent text-accent-foreground rounded-lg hover:opacity-90 transition-opacity"
+            className="px-4 py-2 text-sm bg-accent text-accent-fg rounded-lg hover:opacity-90 transition-opacity"
           >
             {step === totalSteps ? "Finish" : "Next"}
           </button>

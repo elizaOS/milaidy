@@ -162,7 +162,7 @@ export function Header() {
         {/* Agent Name with Avatar */}
         <div className="flex items-center gap-2 shrink-0 min-w-0">
           <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center shrink-0">
-            <span className="text-accent-foreground font-bold text-sm">M</span>
+            <span className="text-accent-fg font-bold text-sm">M</span>
           </div>
           <div className="min-w-0">
             <span

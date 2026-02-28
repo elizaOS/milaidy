@@ -269,7 +269,14 @@ describe("ChatView", () => {
 
   it("auto-scrolls again when conversation messages update", async () => {
     const scrollTo = vi.fn();
-    const scrollerMock = { scrollHeight: 240, scrollTo };
+    // Include scrollTop and clientHeight so the instant-vs-smooth branch
+    // is exercised correctly (nearBottom = scrollHeight - scrollTop - clientHeight < 150).
+    const scrollerMock = {
+      scrollHeight: 240,
+      scrollTop: 100,
+      clientHeight: 140,
+      scrollTo,
+    };
     const textareaMock = {
       style: { height: "", overflowY: "" },
       scrollHeight: 38,
@@ -328,9 +335,84 @@ describe("ChatView", () => {
     expect(scrollTo.mock.calls.length).toBeGreaterThan(callsAfterMount);
   });
 
+  it("uses instant scroll when near bottom, smooth when scrolled up", async () => {
+    const scrollTo = vi.fn();
+    // Near bottom: distance = 500 - 400 - 90 = 10 (< 150 → instant)
+    const scrollerMock = {
+      scrollHeight: 500,
+      scrollTop: 400,
+      clientHeight: 90,
+      scrollTo,
+    };
+    const textareaMock = {
+      style: { height: "", overflowY: "" },
+      scrollHeight: 38,
+      focus: vi.fn(),
+    };
+    const fileInputMock = { click: vi.fn() };
+
+    let currentContext = createContext({
+      conversationMessages: [
+        { id: "u1", role: "user", text: "hello", timestamp: 1 },
+      ],
+    });
+    mockUseApp.mockImplementation(() => currentContext);
+
+    let tree: TestRenderer.ReactTestRenderer;
+    await act(async () => {
+      tree = TestRenderer.create(React.createElement(ChatView), {
+        createNodeMock: (element) => {
+          const node = element as {
+            type: unknown;
+            props: Record<string, unknown>;
+          };
+          if (
+            node.type === "div" &&
+            node.props["data-testid"] === "chat-messages-scroll"
+          ) {
+            return scrollerMock;
+          }
+          if (node.type === "textarea") return textareaMock;
+          if (node.type === "input" && node.props.type === "file")
+            return fileInputMock;
+          return {};
+        },
+      });
+    });
+    await flush();
+
+    // Near bottom → should use instant
+    const lastCall = scrollTo.mock.calls[scrollTo.mock.calls.length - 1];
+    expect(lastCall[0]).toMatchObject({ behavior: "instant" });
+
+    // Now simulate user scrolled up: distance = 500 - 50 - 90 = 360 (> 150 → smooth)
+    scrollerMock.scrollTop = 50;
+    scrollTo.mockClear();
+
+    currentContext = createContext({
+      conversationMessages: [
+        { id: "u1", role: "user", text: "hello", timestamp: 1 },
+        { id: "a1", role: "assistant", text: "Hi!", timestamp: 2 },
+      ],
+    });
+
+    await act(async () => {
+      tree.update(React.createElement(ChatView));
+    });
+    await flush();
+
+    const smoothCall = scrollTo.mock.calls[scrollTo.mock.calls.length - 1];
+    expect(smoothCall[0]).toMatchObject({ behavior: "smooth" });
+  });
+
   it("auto-scrolls when content changes but length and trailing text stay the same", async () => {
     const scrollTo = vi.fn();
-    const scrollerMock = { scrollHeight: 240, scrollTo };
+    const scrollerMock = {
+      scrollHeight: 240,
+      scrollTop: 100,
+      clientHeight: 140,
+      scrollTo,
+    };
     const textareaMock = {
       style: { height: "", overflowY: "" },
       scrollHeight: 38,

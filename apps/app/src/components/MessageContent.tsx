@@ -458,7 +458,7 @@ export function MessageContent({ message }: MessageContentProps) {
 
   // Fast path: single plain-text segment (most messages)
   if (segments.length === 1 && segments[0].kind === "text") {
-    return <div className="text-txt whitespace-pre-wrap">{message.text}</div>;
+    return <div className="whitespace-pre-wrap">{message.text}</div>;
   }
 
   return (
@@ -483,7 +483,7 @@ export function MessageContent({ message }: MessageContentProps) {
           switch (seg.kind) {
             case "text":
               return (
-                <div key={segmentKey} className="text-txt whitespace-pre-wrap">
+                <div key={segmentKey} className="whitespace-pre-wrap">
                   {seg.text}
                 </div>
               );
