@@ -86,12 +86,20 @@ bun install
 bun run build
 
 echo "--- Packaging Electron App ---"
+# Build for current architecture on macOS (arm64 on Apple Silicon, x64 on Intel)
+case "$(uname -m)" in
+  arm64)  MAC_ARCH="--arm64" ;;
+  *)      MAC_ARCH="--x64" ;;
+esac
+
+bun run build:whisper
+
 if [ "$HAS_SIGNING_CREDS" = true ]; then
   echo "Building with signing enabled..."
-  bun run build && bun run build:whisper && bunx electron-builder build --mac --x64 --publish never
+  bunx electron-builder build --mac "${MAC_ARCH}" --publish never
 else
   echo "Building without explicit signing identity..."
-  bun run build && bun run build:whisper && bunx electron-builder build --mac --x64 --publish never -c.mac.identity=null
+  bunx electron-builder build --mac "${MAC_ARCH}" --publish never -c.mac.identity=null
 fi
 
 # ── 3. Verify Signature ─────────────────────────────────────────────────────

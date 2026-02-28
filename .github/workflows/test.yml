@@ -139,19 +139,15 @@ jobs:
 
       - name: Install dependencies
         run: bun install
-        continue-on-error: true
 
       - name: Run repository postinstall patches
         run: bun run postinstall
-        continue-on-error: true
 
       - name: Build web assets
         run: bun run --filter @milady/app build
-        continue-on-error: true
 
       - name: Build Electron app
         run: bun run --filter @milady/app build:electron
-        continue-on-error: true
 
   electron-packaged-dmg-e2e:
     name: Electron Packaged DMG E2E (macOS)
@@ -167,25 +163,20 @@ jobs:
 
       - name: Install dependencies
         run: bun install
-        continue-on-error: true
 
       - name: Run repository postinstall patches
         run: bun run postinstall
-        continue-on-error: true
 
       - name: Build web assets
         run: bun run --filter @milady/app build
-        continue-on-error: true
 
       - name: Sync Electron platform
         run: bun run --filter @milady/app cap:sync:electron
-        continue-on-error: true
 
       - name: Build standalone DMG
         run: |
           cd apps/app/electron
           bun run electron:make:dmg:test
-        continue-on-error: true
 
   cloud-live-e2e:
     name: Cloud Live E2E (Eliza Cloud)
