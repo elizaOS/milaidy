@@ -1,18 +1,21 @@
 #!/usr/bin/env node
 /**
- * Post-install patches for @elizaos/plugin-sql.
+ * Post-install patches for various @elizaos and dependency packages.
  *
- * 1) Adds .onConflictDoNothing() to createWorld() to prevent duplicate world
- *    insert errors on repeated ensureWorldExists() calls.
- * 2) Guards ensureEmbeddingDimension() so unsupported dimensions don't set the
- *    embedding column to undefined (which crashes drizzle query planning).
- * 3) Removes pgcrypto from extension list (not used, causes PGlite warnings).
+ * 1) @elizaos/plugin-sql: Adds .onConflictDoNothing() to createWorld(), guards
+ *    ensureEmbeddingDimension(), removes pgcrypto from extension list.
+ *    Remove once plugin-sql publishes fixes.
  *
- * Remove these once plugin-sql publishes fixes for both paths.
+ * 2) Bun exports: Some published @elizaos packages set exports["."].bun =
+ *    "./src/index.ts", which only exists in their dev workspace, not in the
+ *    npm tarball. Bun picks "bun" first and fails. We remove the dead "bun"/
+ *    "default" conditions so Bun resolves via "import" → dist/. WHY: See
+ *    docs/plugin-resolution-and-node-path.md "Bun and published package exports".
  */
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { patchBunExports } from "./lib/patch-bun-exports.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, "..");
@@ -638,3 +641,9 @@ if (pdfTargets.length === 0) {
     }
   }
 }
+
+// ---------------------------------------------------------------------------
+// Patch @elizaos packages whose exports["."].bun points to ./src/index.ts.
+// Logic lives in scripts/lib/patch-bun-exports.mjs (testable).
+// ---------------------------------------------------------------------------
+patchBunExports(root, "@elizaos/plugin-coding-agent");

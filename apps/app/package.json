@@ -12,7 +12,7 @@
     "test:electron:packaged:e2e": "playwright test --config playwright.electron.packaged.config.ts",
     "plugin:build": "for d in gateway swabble camera screencapture canvas desktop location talkmode agent; do echo \"[plugin:$d] building...\" && (cd plugins/$d && ../../../../scripts/rt.sh run build) || exit 1; done",
     "sync:electron:web-assets": "node scripts/sync-electron-web-assets.mjs",
-    "build": "../../scripts/rt.sh install && ../../scripts/rt.sh run plugin:build && ../../scripts/rt.sh install && vite build",
+    "build": "(cd ../.. && scripts/rt.sh run install:build) && ../../scripts/rt.sh run plugin:build && ../../scripts/rt.sh install --ignore-scripts && vite build",
     "build:ios": "../../scripts/rt.sh run build && capacitor sync ios",
     "build:android": "../../scripts/rt.sh run build && capacitor sync android",
     "build:electron": "../../scripts/rt.sh run build && ../../scripts/rt.sh run sync:electron:web-assets",

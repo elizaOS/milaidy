@@ -11,9 +11,10 @@
     "build/**/*",
     "capacitor.config.*",
     "app/**/*",
-    "milady-dist/**/*"
+    "milady-dist/**/*",
+    "*.tar.gz"
   ],
-  "asarUnpack": ["milady-dist/**/*", "node_modules/**/*"],
+  "asarUnpack": ["milady-dist/**/*", "node_modules/**/*", "*.tar.gz"],
   "publish": {
     "provider": "github",
     "owner": "milady-ai",

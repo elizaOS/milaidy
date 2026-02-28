@@ -100,10 +100,16 @@ jobs:
         with:
           bun-version: latest
 
+      # For macos-x64, install under Rosetta so root node_modules gets x64 native
+      # binaries; copy-electron-plugins-and-deps copies from root into milady-dist.
       - name: Install root dependencies
         run: |
           for i in 1 2 3; do
-            bun install --frozen-lockfile && break
+            if [ "${{ matrix.platform.artifact-name }}" = "macos-x64" ]; then
+              arch -x86_64 bun install --frozen-lockfile && break
+            else
+              bun install --frozen-lockfile && break
+            fi
             echo "Retry $i: bun install failed, retrying..."
             sleep 5
           done
@@ -172,17 +178,34 @@ jobs:
         run: bun run cap:sync:electron
         working-directory: apps/app
 
+      # For macos-x64, install under Rosetta so native modules (e.g. onnxruntime-node)
+      # get x64 binaries; otherwise the packaged DMG would contain arm64 .node files
+      # and fail on Intel with "Cannot find module .../darwin/x64/onnxruntime_binding.node".
       - name: Install Electron dependencies
         run: |
           for i in 1 2 3; do
-            bun install --no-save && break
+            if [ "${{ matrix.platform.artifact-name }}" = "macos-x64" ]; then
+              arch -x86_64 bun install --no-save && break
+            else
+              bun install --no-save && break
+            fi
             echo "Retry $i: bun install failed, retrying..."
             sleep 5
           done
         working-directory: apps/app/electron
 
       - name: Build Electron app
-        run: bun run build
+        run: |
+          if [ "${{ matrix.platform.artifact-name }}" = "macos-x64" ]; then
+            arch -x86_64 bun run build
+          else
+            bun run build
+          fi
+        working-directory: apps/app/electron
+
+      - name: Build Whisper universal binary (macOS)
+        if: matrix.platform.os == 'macos'
+        run: bun run build:whisper
         working-directory: apps/app/electron
 
       # Transform dynamic plugin imports to static imports for Electron bundling.
@@ -196,52 +219,13 @@ jobs:
       # npm dependencies are bundled inline (noExternal: true behavior via rolldown).
       # This prevents the packaged app from failing to resolve external imports
       # like "json5" from within the app.asar.unpacked directory.
+      # The config disables code splitting for server.ts and eliza.ts to prevent
+      # circular chunk dependencies that cause __exportAll runtime errors.
       - name: Bundle dist for Electron
         shell: bash
         run: |
           set -euo pipefail
           echo "Building standalone Electron dist with all node_modules inlined..."
-
-          cat << 'EOF' > tsdown.electron.config.ts
-          // ESM polyfill for __dirname and __filename
-          const esmShim = `
-          import { fileURLToPath as __fileURLToPath } from 'node:url';
-          import { dirname as __pathDirname } from 'node:path';
-          const __filename = __fileURLToPath(import.meta.url);
-          const __dirname = __pathDirname(__filename);
-          `;
-
-          export default [{
-            entry: {
-              "index": "src/index.ts",
-              "entry": "src/entry.ts",
-              "eliza": "src/runtime/eliza.ts",
-              "server": "src/api/server.ts",
-              "plugins/whatsapp/index": "src/plugins/whatsapp/index.ts"
-            },
-            format: "esm",
-            platform: "node",
-            outDir: "dist-electron",
-            noExternal: [/.*/, "json5"],
-            external: [
-              "node-llama-cpp",
-              "@reflink/reflink",
-              "@reflink/reflink-darwin-arm64",
-              "@reflink/reflink-darwin-x64",
-              "@reflink/reflink-linux-arm64-gnu",
-              "@reflink/reflink-linux-x64-gnu",
-              "fsevents",
-              "koffi",
-              "canvas",
-              "onnxruntime-node",
-              "sharp",
-            ],
-            fixedExtension: false,
-            inlineOnly: false,
-            banner: { js: esmShim },
-            env: { NODE_ENV: "production" }
-          }];
-          EOF
 
           bunx tsdown --config tsdown.electron.config.ts --no-clean
 
@@ -258,52 +242,7 @@ jobs:
           echo '{"type":"module"}' > apps/app/electron/milady-dist/package.json
           echo "Copied $(find apps/app/electron/milady-dist -name '*.js' | wc -l | tr -d ' ') JS files to milady-dist/"
 
-          # Copy @elizaos/* plugins from root node_modules to milady-dist/node_modules
-          # This allows eliza.js dynamic imports to resolve without electron-builder dependency issues
-          # Use cp -rL to dereference symlinks (bun uses symlinks on Windows)
-          echo "Copying @elizaos/* plugins to milady-dist/node_modules..."
-          mkdir -p apps/app/electron/milady-dist/node_modules/@elizaos
-          for pkg in core prompts plugin-sql plugin-local-embedding plugin-secrets-manager plugin-form \
-                     plugin-knowledge plugin-rolodex plugin-trajectory-logger plugin-agent-orchestrator \
-                     plugin-cron plugin-shell plugin-plugin-manager plugin-agent-skills plugin-pdf \
-                     plugin-anthropic plugin-vision plugin-openai plugin-google-genai plugin-groq \
-                     plugin-ollama plugin-openrouter plugin-edge-tts plugin-elevenlabs; do
-            if [ -d "node_modules/@elizaos/$pkg" ]; then
-              cp -rL "node_modules/@elizaos/$pkg" "apps/app/electron/milady-dist/node_modules/@elizaos/"
-              echo "  Copied @elizaos/$pkg"
-            fi
-          done
-          echo "Done copying @elizaos plugins"
-
-          # Copy plugin transitive dependencies from root node_modules to milady-dist/node_modules
-          # These are runtime deps needed by @elizaos plugins; use -e to follow symlinks
-          echo "Copying plugin dependencies..."
-          for dep in uuid ai mammoth pdfjs-dist face-api.js croner tesseract.js unpdf; do
-            if [ -e "node_modules/$dep" ]; then
-              cp -rL "node_modules/$dep" "apps/app/electron/milady-dist/node_modules/$dep"
-              echo "  Copied $dep"
-            else
-              echo "  Warning: $dep not found in node_modules"
-            fi
-          done
-
-          # Handle scoped packages separately
-          for scope_pkg in "@huggingface/transformers" "@anthropic-ai/claude-agent-sdk" "@electric-sql/pglite" "@ai-sdk/gateway" "@ai-sdk/anthropic" "@ai-sdk/provider" "@ai-sdk/provider-utils" "@opentelemetry/api" "@tensorflow/tfjs-core" "@vercel/oidc"; do
-            scope=$(echo "$scope_pkg" | cut -d'/' -f1)
-            pkg=$(echo "$scope_pkg" | cut -d'/' -f2)
-            if [ -e "node_modules/$scope/$pkg" ]; then
-              mkdir -p "apps/app/electron/milady-dist/node_modules/$scope"
-              cp -rL "node_modules/$scope/$pkg" "apps/app/electron/milady-dist/node_modules/$scope/"
-              echo "  Copied $scope_pkg"
-            else
-              echo "  Warning: $scope_pkg not found in node_modules"
-            fi
-          done
-          echo "Done copying plugin dependencies"
-
-          # List what was copied for debugging
-          echo "milady-dist/node_modules contents:"
-          ls -la apps/app/electron/milady-dist/node_modules/ || echo "  (empty or not found)"
+          node scripts/copy-electron-plugins-and-deps.mjs
         working-directory: .
 
       - name: Prepare platform electron-builder config
@@ -460,17 +399,9 @@ jobs:
           fi
           
           # HACK: electron-builder traverses up and reads the root .gitignore and .npmignore which ignore apps/
-          # We forcefully remove these root ignore files just for packaging so electron-builder only uses the local .npmignore
-          rm -f ../../../.gitignore || true
-          rm -f ../../../.npmignore || true
-          rm -f .gitignore || true
-          rm -f .npmignore || true
-          rm -rf ../../../.git || true
+          # Remove root ignore files so electron-builder only uses the local config (do not remove .git).
+          rm -f ../../../.gitignore ../../../.npmignore .gitignore .npmignore 2>/dev/null || true
 
-          echo "DUMPING CONTENTS OF TSC-OUT"
-          ls -la tsc-out || echo "TSC-OUT DIR IS MISSING"
-          ls -la tsc-out/src || echo "TSC-OUT/SRC DIR IS MISSING"
-          
           # @capacitor-community/electron hardcodes path.join(app.getAppPath(), "build", "src", "rt", "electron-plugins.js")
           # Copy tsc-out → build so the capacitor package can find its expected files
           rm -rf build

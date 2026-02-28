@@ -9,8 +9,15 @@ import {
 } from "./run-node-runtime.mjs";
 
 const args = process.argv.slice(2);
-const env = { ...process.env };
 const cwd = process.cwd();
+const env = { ...process.env };
+// WHY: The child runs dist/eliza.js, which dynamic-imports @elizaos/plugin-*. Node does not
+// use cwd to resolve package names for import("pkg"); we must set NODE_PATH to repo root
+// node_modules so those imports succeed. See docs/plugin-resolution-and-node-path.md.
+const rootModules = path.join(cwd, "node_modules");
+env.NODE_PATH = env.NODE_PATH
+  ? `${rootModules}${path.delimiter}${env.NODE_PATH}`
+  : rootModules;
 const compiler = "tsdown";
 
 const distRoot = path.join(cwd, "dist");

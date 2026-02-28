@@ -11,6 +11,16 @@
  *
  * The renderer never needs to know whether the API server is embedded or
  * remote — it simply connects to `http://localhost:{port}`.
+ *
+ * --- Exception handling (DO NOT REMOVE as "excess" or "deslop") ---
+ * Startup uses multiple try/catch and .catch() guards so that:
+ * 1. If eliza.js fails to load (e.g. missing native .node binary), the API
+ *    server stays up and the UI can still connect and show an error state.
+ * 2. If startEliza() throws, we set state to "error" with port preserved so
+ *    the renderer gets a usable status instead of "Failed to fetch".
+ * 3. The outer catch does NOT tear down the API server — only the runtime.
+ * Without these guards, a single missing native module makes the whole app
+ * window unusable (no API, no error message). See docs/electron-startup.md.
  */
 
 import fs from "node:fs";
@@ -49,6 +59,17 @@ function diagnosticLog(message: string): void {
       // Ignore write errors
     }
   }
+}
+
+/** One-line, truncated error string safe for UI (status.error). Full stack still goes to diagnosticLog. */
+function shortError(err: unknown, maxLen = 280): string {
+  const raw =
+    err instanceof Error
+      ? err.message || (err.stack ?? String(err))
+      : String(err);
+  const oneLine = raw.replace(/\s+/g, " ").trim();
+  if (oneLine.length <= maxLen) return oneLine;
+  return `${oneLine.slice(0, maxLen)}…`;
 }
 
 /**
@@ -227,22 +248,44 @@ export class AgentManager {
         }
       }
 
-      // When loading from app.asar.unpacked, Node's module resolution can't
-      // find dependencies inside the ASAR's node_modules (e.g. json5). Add
-      // the ASAR's node_modules to NODE_PATH so ESM imports can resolve them.
+      // NODE_PATH so eliza.js dynamic imports (e.g. @elizaos/plugin-*) resolve.
+      // WHY: Node does not search repo root when the entry is under apps/app/electron/;
+      // without this, import("@elizaos/plugin-coding-agent") fails. Packaged: use ASAR's
+      // node_modules (unpacked deps live there). Dev: walk up from __dirname until we
+      // find node_modules so we don't depend on a fixed ../ depth (tsc-out vs build/).
+      // _initPaths() below: Node caches resolution paths at startup; we set NODE_PATH at
+      // runtime so we must force a re-read before the next import(). See docs/plugin-resolution-and-node-path.md.
+      const existing = process.env.NODE_PATH || "";
       if (app.isPackaged) {
         const asarModules = path.join(app.getAppPath(), "node_modules");
-        const existing = process.env.NODE_PATH || "";
         process.env.NODE_PATH = existing
           ? `${asarModules}${path.delimiter}${existing}`
           : asarModules;
-        // Force Node to re-read NODE_PATH
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        require("node:module").Module._initPaths();
         diagnosticLog(
           `[Agent] Added ASAR node_modules to NODE_PATH: ${asarModules}`,
         );
+      } else {
+        let dir = __dirname;
+        let rootModules: string | null = null;
+        while (dir !== path.dirname(dir)) {
+          const candidate = path.join(dir, "node_modules");
+          if (fs.existsSync(candidate)) {
+            rootModules = candidate;
+            break;
+          }
+          dir = path.dirname(dir);
+        }
+        if (rootModules) {
+          process.env.NODE_PATH = existing
+            ? `${rootModules}${path.delimiter}${existing}`
+            : rootModules;
+          diagnosticLog(
+            `[Agent] Added monorepo root node_modules to NODE_PATH: ${rootModules}`,
+          );
+        }
       }
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      require("node:module").Module._initPaths();
 
       // 1. Start API server immediately so the UI can bootstrap while runtime starts.
       //    (or MILADY_PORT if set)
@@ -250,6 +293,9 @@ export class AgentManager {
       diagnosticLog(
         `[Agent] Loading server.js from: ${path.join(miladyDist, "server.js")}`,
       );
+      // WHY .catch(): Keep API server step independent. If server.js fails we
+      // still try to load eliza.js and set error state; do not let one throw
+      // kill the whole startup (see file-level comment).
       const serverModule = await dynamicImport(
         pathToFileURL(path.join(miladyDist, "server.js")).href,
       ).catch((err: unknown) => {
@@ -365,34 +411,90 @@ export class AgentManager {
       this.sendToRenderer("agent:status", this.status);
 
       // 2. Resolve runtime bootstrap entry (may be slow on cold boot).
+      // WHY .catch() here: eliza.js can fail (e.g. onnxruntime-node missing
+      // darwin/x64 .node on Intel Mac). Without this guard we throw, outer
+      // catch runs, and we used to close the API server — so the UI got
+      // "Failed to fetch" with no way to show error. Now we return null,
+      // set state "error" with port kept, so renderer can connect and display
+      // the failure. Do not remove as "excess" exception handling.
       diagnosticLog(
         `[Agent] Loading eliza.js from: ${path.join(miladyDist, "eliza.js")}`,
       );
+      let elizaLoadError: string | null = null;
       const elizaModule = await dynamicImport(
         pathToFileURL(path.join(miladyDist, "eliza.js")).href,
-      );
-      diagnosticLog(
-        `[Agent] eliza.js loaded, exports: ${Object.keys(elizaModule).join(", ")}`,
-      );
-      const resolvedStartEliza = (elizaModule.startEliza ??
-        (elizaModule.default as Record<string, unknown>)?.startEliza) as
-        | ((opts: {
-            headless: boolean;
-          }) => Promise<Record<string, unknown> | null>)
-        | undefined;
+      ).catch((err: unknown) => {
+        const errMsg =
+          err instanceof Error ? err.stack || err.message : String(err);
+        diagnosticLog(`[Agent] FAILED to load eliza.js: ${errMsg}`);
+        elizaLoadError = shortError(err);
+        return null;
+      });
+
+      if (elizaModule) {
+        diagnosticLog(
+          `[Agent] eliza.js loaded, exports: ${Object.keys(elizaModule).join(", ")}`,
+        );
+      }
+
+      const resolvedStartEliza = elizaModule
+        ? ((elizaModule.startEliza ??
+            (elizaModule.default as Record<string, unknown>)?.startEliza) as
+            | ((opts: {
+                headless: boolean;
+              }) => Promise<Record<string, unknown> | null>)
+            | undefined)
+        : undefined;
 
       if (typeof resolvedStartEliza !== "function") {
-        throw new Error("eliza.js does not export startEliza");
+        const reason = elizaModule
+          ? "eliza.js does not export startEliza"
+          : (elizaLoadError ?? "eliza.js failed to load (see log above)");
+        diagnosticLog(`[Agent] Cannot start runtime: ${reason}`);
+
+        this.status = {
+          state: "error",
+          agentName: null,
+          port: actualPort,
+          startedAt: null,
+          error: reason,
+        };
+        this.sendToRenderer("agent:status", this.status);
+        return this.status;
       }
       startEliza = resolvedStartEliza;
 
       // 3. Start Eliza runtime in headless mode.
+      // WHY try/catch: startEliza() can throw (plugin init, native deps).
+      // Catching here lets us set state "error" and keep the API server up
+      // so the UI can show the error; do not let this bubble and tear down
+      // the server (see file-level comment).
       diagnosticLog(`[Agent] Starting Eliza runtime in headless mode...`);
-      const runtimeResult = await startEliza({ headless: true });
+      let runtimeResult: Record<string, unknown> | null = null;
+      let runtimeInitError: string | null = null;
+      try {
+        runtimeResult = await startEliza({ headless: true });
+      } catch (runtimeErr) {
+        const errMsg =
+          runtimeErr instanceof Error
+            ? runtimeErr.stack || runtimeErr.message
+            : String(runtimeErr);
+        diagnosticLog(`[Agent] Runtime startup threw: ${errMsg}`);
+        runtimeInitError = shortError(runtimeErr);
+      }
+
       if (!runtimeResult) {
-        throw new Error(
-          "startEliza returned null — runtime failed to initialize",
-        );
+        const reason = runtimeInitError ?? "Runtime failed to initialize";
+        diagnosticLog(`[Agent] ${reason}`);
+        this.status = {
+          state: "error",
+          agentName: null,
+          port: actualPort,
+          startedAt: null,
+          error: reason,
+        };
+        this.sendToRenderer("agent:status", this.status);
+        return this.status;
       }
 
       this.runtime = runtimeResult as Record<string, unknown>;
@@ -423,23 +525,16 @@ export class AgentManager {
       }
       return this.status;
     } catch (err) {
+      // WHY we do NOT call this.apiClose() here: If the failure was loading
+      // eliza.js or startEliza(), the API server is already running. Tearing
+      // it down would make the window show "Failed to fetch" with no error
+      // message. We only clear runtime and set status; port stays so renderer
+      // can connect and display the error. Do not "simplify" by adding
+      // this.apiClose() in this catch.
       const msg =
         err instanceof Error
           ? (err as Error).stack || err.message
           : String(err);
-      if (this.apiClose) {
-        try {
-          await this.apiClose();
-        } catch (closeErr) {
-          console.warn(
-            "[Agent] Failed to close API server after startup failure:",
-            closeErr instanceof Error ? closeErr.message : closeErr,
-          );
-        } finally {
-          this.apiClose = null;
-          this.status.port = null;
-        }
-      }
       if (
         this.runtime &&
         typeof (this.runtime as { stop?: () => Promise<void> }).stop ===
