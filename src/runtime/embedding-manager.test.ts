@@ -337,7 +337,61 @@ describe("MiladyEmbeddingManager", () => {
     await mgr.dispose();
   });
 
-  // 9. Dimension mismatch logging
+  // 9. Context window truncation
+  describe("context window truncation", () => {
+    it("should truncate text exceeding the context window limit", async () => {
+      const contextSize = 100; // small context for easy testing
+      const mgr = new MiladyEmbeddingManager(
+        defaultConfig({ contextSize }),
+      );
+
+      // SAFE_CHARS_PER_TOKEN = 2, so maxChars = 100 * 2 = 200
+      const longText = "a".repeat(500);
+      await mgr.generateEmbedding(longText);
+
+      // getEmbeddingFor should have been called with truncated text
+      expect(mockGetEmbeddingFor).toHaveBeenCalledTimes(1);
+      const passedText = mockGetEmbeddingFor.mock.calls[0]?.[0] as string;
+      expect(passedText.length).toBe(200);
+
+      await mgr.dispose();
+    });
+
+    it("should pass text through unchanged when within context limit", async () => {
+      const contextSize = 8192;
+      const mgr = new MiladyEmbeddingManager(
+        defaultConfig({ contextSize }),
+      );
+
+      const shortText = "hello world";
+      await mgr.generateEmbedding(shortText);
+
+      expect(mockGetEmbeddingFor).toHaveBeenCalledTimes(1);
+      const passedText = mockGetEmbeddingFor.mock.calls[0]?.[0] as string;
+      expect(passedText).toBe(shortText);
+
+      await mgr.dispose();
+    });
+
+    it("should pass text at exactly the limit without truncating", async () => {
+      const contextSize = 100;
+      const mgr = new MiladyEmbeddingManager(
+        defaultConfig({ contextSize }),
+      );
+
+      // Exactly at limit: 100 * 2 = 200 chars
+      const exactText = "b".repeat(200);
+      await mgr.generateEmbedding(exactText);
+
+      expect(mockGetEmbeddingFor).toHaveBeenCalledTimes(1);
+      const passedText = mockGetEmbeddingFor.mock.calls[0]?.[0] as string;
+      expect(passedText).toBe(exactText);
+
+      await mgr.dispose();
+    });
+  });
+
+  // 10. Dimension mismatch logging
   describe("dimension migration", () => {
     const metaDir = path.dirname(EMBEDDING_META_PATH);
 
