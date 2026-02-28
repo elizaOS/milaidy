@@ -21,7 +21,7 @@ describe("MilaidyClient wallet disconnect", () => {
           headers: { "Content-Type": "application/json" },
         }),
       );
-    vi.stubGlobal("fetch", fetchMock);
+    vi.spyOn(globalThis, "fetch").mockImplementation(fetchMock as typeof fetch);
 
     const client = new MilaidyClient("http://localhost:31337");
     const result = await client.disconnectWallet();
@@ -57,7 +57,7 @@ describe("MilaidyClient wallet disconnect", () => {
           headers: { "Content-Type": "application/json" },
         }),
       );
-    vi.stubGlobal("fetch", fetchMock);
+    vi.spyOn(globalThis, "fetch").mockImplementation(fetchMock as typeof fetch);
 
     const client = new MilaidyClient("http://localhost:31337");
     const result = await client.disconnectWallet();
