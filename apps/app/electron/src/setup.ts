@@ -34,7 +34,7 @@ import {
  * Electron's capacitor-electron: protocol uses hash routing, so the
  * param lands in the fragment rather than the query string.
  */
-function hasPopoutParam(urlStr: string): boolean {
+export function hasPopoutParam(urlStr: string): boolean {
   try {
     const parsed = new URL(urlStr);
     if (parsed.searchParams.has("popout")) return true;

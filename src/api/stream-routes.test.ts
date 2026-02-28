@@ -1766,6 +1766,84 @@ describe("POST /api/stream/stop (backward-compat)", () => {
 });
 
 // ===========================================================================
+// Settings merge tests (POST /api/stream/settings)
+// ===========================================================================
+
+describe("handleStreamRoute — POST /api/stream/settings merge", () => {
+  it("merges partial update with existing settings instead of overwriting", async () => {
+    // Seed existing settings with voice config
+    const { writeStreamSettings, readStreamSettings } = await import(
+      "./stream-persistence"
+    );
+    writeStreamSettings({
+      theme: "dark",
+      avatarIndex: 2,
+      voice: { enabled: true, autoSpeak: false },
+    });
+
+    // POST only avatarIndex — should NOT wipe theme or voice
+    const { res, getStatus, getJson } = createMockHttpResponse();
+    const req = createMockIncomingMessage({
+      method: "POST",
+      url: "/api/stream/settings",
+      body: { settings: { avatarIndex: 5 } },
+      json: true,
+    });
+    const state = mockState();
+
+    const handled = await handleStreamRoute(
+      req,
+      res,
+      "/api/stream/settings",
+      "POST",
+      state,
+    );
+
+    expect(handled).toBe(true);
+    expect(getStatus()).toBe(200);
+
+    const body = getJson();
+    expect(body.ok).toBe(true);
+    // avatarIndex updated
+    expect(body.settings.avatarIndex).toBe(5);
+    // theme preserved
+    expect(body.settings.theme).toBe("dark");
+    // voice preserved
+    expect(body.settings.voice).toEqual({ enabled: true, autoSpeak: false });
+
+    // Verify persisted state matches
+    const persisted = readStreamSettings();
+    expect(persisted.avatarIndex).toBe(5);
+    expect(persisted.theme).toBe("dark");
+    expect(persisted.voice).toEqual({ enabled: true, autoSpeak: false });
+  });
+
+  it("returns full merged settings in response", async () => {
+    const { writeStreamSettings } = await import("./stream-persistence");
+    writeStreamSettings({ theme: "milady" });
+
+    const { res, getJson } = createMockHttpResponse();
+    const req = createMockIncomingMessage({
+      method: "POST",
+      url: "/api/stream/settings",
+      body: { settings: { avatarIndex: 3 } },
+      json: true,
+    });
+
+    await handleStreamRoute(
+      req,
+      res,
+      "/api/stream/settings",
+      "POST",
+      mockState(),
+    );
+
+    const body = getJson();
+    expect(body.settings).toEqual({ theme: "milady", avatarIndex: 3 });
+  });
+});
+
+// ===========================================================================
 // Voice endpoint tests (GET/POST /api/stream/voice, POST /api/stream/voice/speak)
 // ===========================================================================
 
