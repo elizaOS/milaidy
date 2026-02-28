@@ -19,9 +19,9 @@ export function CompanionView() {
           Companion Mode (Scaffold)
         </h2>
         <p className="text-sm text-muted">
-          Companion mode is enabled via feature flag and currently uses a minimal
-          scaffold in upstream. Core workflows remain available from existing
-          tabs while we iterate in small PRs.
+          Companion mode is enabled via feature flag and currently uses a
+          minimal scaffold in upstream. Core workflows remain available from
+          existing tabs while we iterate in small PRs.
         </p>
       </section>
 
