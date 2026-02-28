@@ -14,6 +14,7 @@ import { createApiBaseInjector, resolveExternalApiBase } from "./api-base";
 import {
   disposeNativeModules,
   getAgentManager,
+  getScreenCaptureManager,
   initializeNativeModules,
   registerAllIPC,
 } from "./native";
@@ -25,6 +26,10 @@ import {
 
 // Graceful handling of unhandled errors.
 unhandled();
+
+// Allow AudioContext.resume() from non-gesture contexts (WebSocket callbacks)
+// so ElevenLabs TTS can play without requiring a click first.
+app.commandLine.appendSwitch("autoplay-policy", "no-user-gesture-required");
 
 // Allow overriding Electron userData during automated E2E runs.
 const userDataOverride = process.env.MILADY_ELECTRON_USER_DATA_DIR?.trim();
@@ -188,6 +193,10 @@ if (electronIsDev) {
   await myCapacitorApp.init();
   const mainWindow = myCapacitorApp.getMainWindow();
   initializeNativeModules(mainWindow);
+  // Expose ScreenCaptureManager to the embedded server so stream-routes can
+  // auto-start frame capture when going live (server reads globalThis.__miladyScreenCapture).
+  (globalThis as Record<string, unknown>).__miladyScreenCapture =
+    getScreenCaptureManager();
   registerAllIPC();
 
   // Start the embedded agent runtime and pass the API port to the renderer.

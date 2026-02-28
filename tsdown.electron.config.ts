@@ -19,6 +19,7 @@ const nativeExternals = [
   "canvas",
   "onnxruntime-node",
   "sharp",
+  /^@electric-sql\/pglite/,
 ];
 
 const commonConfig = {
@@ -60,5 +61,9 @@ export default [
   {
     ...commonConfig,
     entry: "src/plugins/whatsapp/index.ts",
+  },
+  {
+    ...commonConfig,
+    entry: "src/plugins/retake/index.ts",
   },
 ];

@@ -12,6 +12,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useApp } from "../AppContext";
 import { type CharacterData, client, type VoiceConfig } from "../api-client";
+import { resolveApiUrl } from "../asset-url";
 import type { ConfigUiHint } from "../types";
 import { AvatarSelector } from "./AvatarSelector";
 import type { JsonSchemaObject } from "./config-catalog";
@@ -1098,7 +1099,7 @@ export function CharacterView() {
                     .then(() => {
                       setState(
                         "customVrmUrl",
-                        `/api/avatar/vrm?t=${Date.now()}`,
+                        resolveApiUrl(`/api/avatar/vrm?t=${Date.now()}`),
                       );
                       requestAnimationFrame(() => URL.revokeObjectURL(url));
                     })

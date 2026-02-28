@@ -28,6 +28,29 @@ import {
   resolveWebAssetDirectory,
 } from "./web-assets";
 
+/**
+ * Check if a URL has the "popout" query parameter, supporting both
+ * standard query strings (?popout) and hash-based routing (#/?popout).
+ * Electron's capacitor-electron: protocol uses hash routing, so the
+ * param lands in the fragment rather than the query string.
+ */
+function hasPopoutParam(urlStr: string): boolean {
+  try {
+    const parsed = new URL(urlStr);
+    if (parsed.searchParams.has("popout")) return true;
+    const hash = parsed.hash;
+    if (hash) {
+      const qIdx = hash.indexOf("?");
+      if (qIdx >= 0) {
+        return new URLSearchParams(hash.slice(qIdx + 1)).has("popout");
+      }
+    }
+  } catch {
+    // malformed URL — fall through
+  }
+  return false;
+}
+
 // Define components for a watcher to detect when the webapp is changed so we can reload in Dev mode.
 const reloadWatcher = {
   debouncer: null,
@@ -260,6 +283,10 @@ export class ElectronCapacitorApp {
       webPreferences: {
         nodeIntegration: false,
         contextIsolation: true,
+        // Allow ElevenLabs TTS and other audio to play without requiring a
+        // click inside the renderer (AudioContext.resume() would throw a
+        // DOMException otherwise when triggered from WebSocket callbacks).
+        autoplayPolicy: "no-user-gesture-required",
         // Use preload to inject the electron variant overrides for capacitor plugins.
         preload: preloadPath,
       },
@@ -363,6 +390,9 @@ export class ElectronCapacitorApp {
       }
     };
 
+    // ── LIFO integration (disabled until fully integrated) ──────────────
+    const LIFO_ENABLED = false;
+
     const isLifoPopoutFlag = (value: string | null): boolean => {
       if (value == null) return false;
       const normalized = value.trim().toLowerCase();
@@ -414,59 +444,80 @@ export class ElectronCapacitorApp {
       "screen-saver",
     ]);
 
-    ipcMain.removeHandler("lifo:setPip");
-    ipcMain.removeHandler("lifo:getPipState");
+    if (LIFO_ENABLED) {
+      ipcMain.removeHandler("lifo:setPip");
+      ipcMain.removeHandler("lifo:getPipState");
 
-    ipcMain.handle(
-      "lifo:setPip",
-      (event, options?: { flag?: boolean; level?: string }) => {
+      ipcMain.handle(
+        "lifo:setPip",
+        (event, options?: { flag?: boolean; level?: string }) => {
+          const senderWindow = BrowserWindow.fromWebContents(event.sender);
+          if (!senderWindow || senderWindow.isDestroyed()) {
+            return { enabled: false };
+          }
+
+          const enabled = options?.flag === true;
+          const rawLevel = options?.level ?? "floating";
+          const level = VALID_PIP_LEVELS.has(rawLevel) ? rawLevel : "floating";
+          senderWindow.setAlwaysOnTop(
+            enabled,
+            level as Parameters<BrowserWindow["setAlwaysOnTop"]>[1],
+          );
+          senderWindow.setVisibleOnAllWorkspaces(enabled, {
+            visibleOnFullScreen: enabled,
+          });
+          return { enabled };
+        },
+      );
+
+      ipcMain.handle("lifo:getPipState", (event) => {
         const senderWindow = BrowserWindow.fromWebContents(event.sender);
         if (!senderWindow || senderWindow.isDestroyed()) {
           return { enabled: false };
         }
-
-        const enabled = options?.flag === true;
-        const rawLevel = options?.level ?? "floating";
-        const level = VALID_PIP_LEVELS.has(rawLevel) ? rawLevel : "floating";
-        senderWindow.setAlwaysOnTop(
-          enabled,
-          level as Parameters<BrowserWindow["setAlwaysOnTop"]>[1],
-        );
-        senderWindow.setVisibleOnAllWorkspaces(enabled, {
-          visibleOnFullScreen: enabled,
-        });
-        return { enabled };
-      },
-    );
-
-    ipcMain.handle("lifo:getPipState", (event) => {
-      const senderWindow = BrowserWindow.fromWebContents(event.sender);
-      if (!senderWindow || senderWindow.isDestroyed()) {
-        return { enabled: false };
-      }
-      return { enabled: senderWindow.isAlwaysOnTop() };
-    });
+        return { enabled: senderWindow.isAlwaysOnTop() };
+      });
+    }
 
     this.MainWindow.webContents.setWindowOpenHandler((details) => {
       if (!isAllowedUrl(details.url)) {
         openExternal(details.url);
         return { action: "deny" };
       }
+      // Stream popout windows: PIP-friendly, frameless, autoplay-enabled.
+      if (hasPopoutParam(details.url)) {
+        return {
+          action: "allow",
+          overrideBrowserWindowOptions: {
+            alwaysOnTop: true,
+            visibleOnAllWorkspaces: true,
+            frame: false,
+            titleBarStyle: "hidden",
+            backgroundColor: "#0a0a0a",
+            fullscreenable: false,
+            minimizable: false,
+            webPreferences: {
+              nodeIntegration: false,
+              contextIsolation: true,
+              autoplayPolicy: "no-user-gesture-required",
+              preload: preloadPath,
+            },
+          },
+        };
+      }
       return { action: "allow" };
     });
 
-    // When any popout window is created, configure PIP and capture targeting.
-    // Lifo popouts manage PIP via IPC; non-lifo popouts (stream view) get
-    // default PIP. Both types switch the stream capture target.
+    // Stream popout: configure PIP and switch capture target.
+    // LIFO popouts are gated behind LIFO_ENABLED flag.
     this.MainWindow.webContents.on(
       "did-create-window",
       (childWindow, { url }) => {
-        const isLifo = isLifoPopoutUrl(url);
-        const isPopout = url.includes("popout");
-        if (!isLifo && !isPopout) return;
+        const isLifo = LIFO_ENABLED && isLifoPopoutUrl(url);
+        const isStreamPopout = hasPopoutParam(url);
+        if (!isLifo && !isStreamPopout) return;
 
-        if (!isLifo) {
-          // Non-lifo popout (stream view): apply default PIP configuration
+        if (isStreamPopout) {
           childWindow.setAlwaysOnTop(true, "floating");
           childWindow.setVisibleOnAllWorkspaces(true, {
             visibleOnFullScreen: true,
