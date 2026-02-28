@@ -132,6 +132,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup Python (for node-gyp)
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
@@ -155,6 +160,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Setup Python (for node-gyp)
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
