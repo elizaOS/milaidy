@@ -10,6 +10,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { VoiceConfig } from "../api-client";
+import { resolveApiUrl } from "../asset-url";
 
 // ── Speech Recognition types ──────────────────────────────────────────
 
@@ -120,7 +121,9 @@ const DEFAULT_ELEVEN_VOICE = "EXAVITQu4vr4xnSDxMaL";
 const MAX_SPOKEN_CHARS = 360;
 const MAX_CACHED_SEGMENTS = 128;
 const REDACTED_SECRET = "[REDACTED]";
-const ELEVEN_PROXY_ENDPOINT = "/api/tts/elevenlabs";
+function resolveElevenProxyEndpoint(): string {
+  return resolveApiUrl("/api/tts/elevenlabs");
+}
 
 function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
   const out = new Uint8Array(bytes.byteLength);
@@ -546,7 +549,14 @@ export function useVoiceChat(options: VoiceChatOptions): VoiceChatState {
         audioCtxRef.current = ctx;
       }
       if (ctx.state === "suspended") {
-        await ctx.resume();
+        try {
+          await ctx.resume();
+        } catch {
+          // Force a fresh context if resume fails
+          ctx.close().catch(() => {});
+          ctx = new AudioContext();
+          audioCtxRef.current = ctx;
+        }
       }
 
       const voiceId = elConfig.voiceId ?? DEFAULT_ELEVEN_VOICE;
@@ -585,7 +595,7 @@ export function useVoiceChat(options: VoiceChatOptions): VoiceChatState {
             : "";
 
         const fetchViaProxy = async () => {
-          return fetch(ELEVEN_PROXY_ENDPOINT, {
+          return fetch(resolveElevenProxyEndpoint(), {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -596,7 +606,7 @@ export function useVoiceChat(options: VoiceChatOptions): VoiceChatState {
               ...requestBody,
               voiceId,
               modelId,
-              outputFormat: "mp3_22050_32",
+              outputFormat: "mp3_44100_128",
             }),
             signal: controller.signal,
           });
@@ -613,7 +623,7 @@ export function useVoiceChat(options: VoiceChatOptions): VoiceChatState {
             const url = new URL(
               `https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voiceId)}/stream`,
             );
-            url.searchParams.set("output_format", "mp3_22050_32");
+            url.searchParams.set("output_format", "mp3_44100_128");
             res = await fetch(url.toString(), {
               method: "POST",
               headers: {
@@ -813,7 +823,9 @@ export function useVoiceChat(options: VoiceChatOptions): VoiceChatState {
               }
               console.warn(
                 "[useVoiceChat] ElevenLabs TTS failed, falling back to browser:",
-                error,
+                error instanceof Error
+                  ? `${error.name}: ${error.message}`
+                  : error,
               );
               usingAudioAnalysisRef.current = false;
               setUsingAudioAnalysis(false);

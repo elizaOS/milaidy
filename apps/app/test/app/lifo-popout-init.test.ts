@@ -12,6 +12,7 @@ const { mockClient } = vi.hoisted(() => ({
     onWsEvent: vi.fn(() => () => {}),
     getAgentEvents: vi.fn(async () => ({ events: [] })),
     disconnectWs: vi.fn(),
+    saveStreamSettings: vi.fn(async () => ({ ok: true, settings: {} })),
   },
 }));
 

@@ -93,3 +93,19 @@ export function resolveAppAssetUrl(
 
   return new URL(normalized, baseHref).toString();
 }
+
+/**
+ * Resolve an API path (e.g. "/api/avatar/vrm") to a full URL reachable from
+ * the renderer.  In Electron the page origin is capacitor-electron:// or
+ * file://, so bare /api/... paths resolve to the SPA instead of the backend.
+ * This helper prefixes with window.__MILADY_API_BASE__ when available.
+ */
+export function resolveApiUrl(apiPath: string): string {
+  if (typeof window !== "undefined") {
+    const base = (window as Record<string, unknown>).__MILADY_API_BASE__ as
+      | string
+      | undefined;
+    if (base) return `${base}${apiPath}`;
+  }
+  return apiPath;
+}

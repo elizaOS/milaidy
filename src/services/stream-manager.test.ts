@@ -823,6 +823,46 @@ describe("buildAudioInputArgs() for TTS via spawn args", () => {
     expect(args).toContain("pipe:3");
   });
 
+  it("tts: includes wallclock timestamps and probe tuning flags", async () => {
+    const args = await startWithMock({
+      ...BASE_CONFIG,
+      audioSource: "tts",
+    });
+
+    // -use_wallclock_as_timestamps 1 for raw PCM sync
+    expect(args).toContain("-use_wallclock_as_timestamps");
+    expect(args[args.indexOf("-use_wallclock_as_timestamps") + 1]).toBe("1");
+
+    // -probesize 32 to eliminate probe buffering
+    // There may be a video -probesize too — find the one near pipe:3
+    const pipe3Idx = args.indexOf("pipe:3");
+    // The TTS probesize should appear before pipe:3
+    let ttsProbeIdx = -1;
+    for (let i = pipe3Idx - 1; i >= 0; i--) {
+      if (args[i] === "-probesize") {
+        ttsProbeIdx = i;
+        break;
+      }
+    }
+    expect(ttsProbeIdx).toBeGreaterThan(-1);
+    expect(args[ttsProbeIdx + 1]).toBe("32");
+
+    // -analyzeduration 0 for immediate start
+    let ttsAnalyzeIdx = -1;
+    for (let i = pipe3Idx - 1; i >= 0; i--) {
+      if (args[i] === "-analyzeduration") {
+        ttsAnalyzeIdx = i;
+        break;
+      }
+    }
+    expect(ttsAnalyzeIdx).toBeGreaterThan(-1);
+    expect(args[ttsAnalyzeIdx + 1]).toBe("0");
+
+    // -thread_queue_size 512 to prevent queue overflow
+    expect(args).toContain("-thread_queue_size");
+    expect(args[args.indexOf("-thread_queue_size") + 1]).toBe("512");
+  });
+
   it("tts: does NOT contain anullsrc (not silent)", async () => {
     const args = await startWithMock({
       ...BASE_CONFIG,
