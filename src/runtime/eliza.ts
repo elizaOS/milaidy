@@ -1423,6 +1423,7 @@ async function resolvePlugins(
         const optionalNames = new Set([
           ...Object.values(OPTIONAL_PLUGIN_MAP),
           ...Object.values(CHANNEL_PLUGIN_MAP),
+          ...OPTIONAL_CORE_PLUGINS,
         ]);
         if (optionalNames.has(pluginName)) {
           logger.debug(
