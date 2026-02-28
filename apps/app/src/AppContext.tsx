@@ -2941,7 +2941,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     chatAbortRef.current = null;
     setChatSending(false);
     setChatFirstTokenReceived(false);
-  }, []);
+
+    // Also stop any active PTY sessions — the user wants everything to halt
+    for (const session of ptySessions) {
+      client.stopCodingAgent(session.sessionId).catch(() => {});
+    }
+  }, [ptySessions]);
 
   const handleChatClear = useCallback(async () => {
     const convId = activeConversationId;
@@ -4901,29 +4906,33 @@ export function AppProvider({ children }: { children: ReactNode }) {
       void loadWorkbench();
       void loadPlugins(); // Hydrate plugin state early so Nav sees streaming-base toggle
 
-      // Hydrate coding agent sessions
-      client
-        .getCodingAgentStatus()
-        .then((status) => {
-          if (status?.tasks) {
-            setPtySessions(
-              status.tasks.map((t) => ({
-                sessionId: t.sessionId,
-                agentType: t.agentType ?? "claude",
-                label: t.label ?? t.sessionId,
-                originalTask: t.originalTask ?? "",
-                workdir: t.workdir ?? "",
-                status: t.status ?? "active",
-                decisionCount: t.decisionCount ?? 0,
-                autoResolvedCount: t.autoResolvedCount ?? 0,
-              })),
-            );
-          }
-        })
-        .catch(() => {}); // non-critical
+      // Hydrate coding agent sessions (also re-called on WS reconnect / server restart)
+      const hydratePtySessions = () => {
+        client
+          .getCodingAgentStatus()
+          .then((status) => {
+            if (status?.tasks) {
+              setPtySessions(
+                status.tasks.map((t) => ({
+                  sessionId: t.sessionId,
+                  agentType: t.agentType ?? "claude",
+                  label: t.label ?? t.sessionId,
+                  originalTask: t.originalTask ?? "",
+                  workdir: t.workdir ?? "",
+                  status: t.status ?? "active",
+                  decisionCount: t.decisionCount ?? 0,
+                  autoResolvedCount: t.autoResolvedCount ?? 0,
+                })),
+              );
+            }
+          })
+          .catch(() => {}); // non-critical
+      };
+      hydratePtySessions();
 
       // Connect WebSocket
       client.connectWs();
+      let ptyHydratedViaWs = false;
       unbindStatus = client.onWsEvent(
         "status",
         (data: Record<string, unknown>) => {
@@ -4935,7 +4944,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
               setPendingRestart(false);
               setPendingRestartReasons([]);
               void loadPlugins();
+              hydratePtySessions();
+              ptyHydratedViaWs = true;
             }
+          }
+          // Re-hydrate PTY sessions on first WS status event to close
+          // the race between initial REST fetch and WS connection.
+          if (!ptyHydratedViaWs) {
+            ptyHydratedViaWs = true;
+            hydratePtySessions();
           }
           // Sync pending restart state from periodic broadcasts
           if (typeof data.pendingRestart === "boolean") {

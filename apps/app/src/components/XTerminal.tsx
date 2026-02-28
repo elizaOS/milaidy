@@ -7,8 +7,8 @@ import { client } from "../api-client";
  *
  * Lifecycle:
  * 1. Mount → create Terminal + FitAddon, open in container
- * 2. Subscribe to live PTY output via WS
- * 3. Hydrate with buffered output via REST
+ * 2. Hydrate with buffered output via REST (full history)
+ * 3. Subscribe to live PTY output via WS (after hydrate to avoid duplicates)
  * 4. Forward keyboard input to PTY
  * 5. Resize on container resize
  * 6. Unmount → unsubscribe, dispose
@@ -61,7 +61,15 @@ export function XTerminal({ sessionId }: { sessionId: string }) {
         // Container may not be visible yet
       }
 
-      // 1. Subscribe to live output BEFORE hydrating so no data is missed
+      // 1. Hydrate with buffered output FIRST (full history up to now)
+      const buffered = await client.getPtyBufferedOutput(sessionId);
+      if (disposed) return;
+      if (buffered) {
+        terminal.write(buffered);
+      }
+
+      // 2. THEN subscribe to live output — avoids duplicate data from the
+      //    overlap window between subscribe and hydration completing.
       client.subscribePtyOutput(sessionId);
       wsUnsub = client.onWsEvent("pty-output", (msg) => {
         if (
@@ -72,12 +80,6 @@ export function XTerminal({ sessionId }: { sessionId: string }) {
           terminal.write(msg.data);
         }
       });
-
-      // 2. Hydrate with buffered output
-      const buffered = await client.getPtyBufferedOutput(sessionId);
-      if (!disposed && buffered) {
-        terminal.write(buffered);
-      }
 
       // 3. Forward keyboard input
       terminal.onData((data) => {

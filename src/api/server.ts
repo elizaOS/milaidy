@@ -5406,7 +5406,8 @@ async function routeAutonomyTextToUser(
 
 /**
  * Get the SwarmCoordinator from the runtime services (if available).
- * The coordinator is registered by @elizaos/plugin-agent-orchestrator.
+ * Discovers via runtime.getService("SWARM_COORDINATOR") — the coordinator
+ * registers itself during PTYService.start().
  */
 function getCoordinatorFromRuntime(runtime: AgentRuntime): {
   setChatCallback?: (
@@ -5414,7 +5415,6 @@ function getCoordinatorFromRuntime(runtime: AgentRuntime): {
   ) => void;
   setWsBroadcast?: (cb: (event: SwarmEvent) => void) => void;
 } | null {
-  // Try to get coordinator from runtime services
   const coordinator = runtime.getService("SWARM_COORDINATOR");
   if (coordinator)
     return coordinator as ReturnType<typeof getCoordinatorFromRuntime>;
@@ -5562,21 +5562,21 @@ async function handleCodingAgentsFallback(
   const stopMatch = pathname.match(/^\/api\/coding-agents\/([^/]+)\/stop$/);
   if (method === "POST" && stopMatch) {
     const sessionId = decodeURIComponent(stopMatch[1]);
-    const orchestratorService = runtime.getService("CODE_TASK") as {
-      cancelTask?: (taskId: string) => Promise<void>;
+    const ptyService = runtime.getService("PTY_SERVICE") as {
+      stopSession?: (id: string) => Promise<void>;
     } | null;
 
-    if (!orchestratorService?.cancelTask) {
-      error(res, "Orchestrator service not available", 503);
+    if (!ptyService?.stopSession) {
+      error(res, "PTY Service not available", 503);
       return true;
     }
 
     try {
-      await orchestratorService.cancelTask(sessionId);
+      await ptyService.stopSession(sessionId);
       json(res, { ok: true });
       return true;
     } catch (e) {
-      error(res, `Failed to stop task: ${e}`, 500);
+      error(res, `Failed to stop session: ${e}`, 500);
       return true;
     }
   }
@@ -10799,13 +10799,6 @@ async function handleRequest(
       );
 
       if (!aborted) {
-        await persistAssistantConversationMemory(
-          runtime,
-          conv.roomId,
-          result.text,
-          channelType,
-          turnStartedAt,
-        );
         conv.updatedAt = new Date().toISOString();
         writeSse(res, {
           type: "done",
@@ -10813,15 +10806,29 @@ async function handleRequest(
           agentName: result.agentName,
         });
 
-        // Background chat renaming
+        // Close the stream immediately so the client can re-enable input.
+        // Memory persistence and title generation happen in the background.
+        clearInterval(heartbeatInterval);
+        res.end();
+
+        // Fire-and-forget: persist to memory + rename chat
+        persistAssistantConversationMemory(
+          runtime,
+          conv.roomId,
+          result.text,
+          channelType,
+          turnStartedAt,
+        ).catch((err) => {
+          logger.error(
+            `[chat-stream] Failed to persist assistant memory: ${err}`,
+          );
+        });
+
         if (conv.title === "New Chat") {
-          // Fire and forget (don't await) to not block the response stream close
           generateConversationTitle(runtime, prompt, state.agentName).then(
             (newTitle) => {
               if (newTitle && state.broadcastWs) {
                 conv.title = newTitle;
-                // Broadcast full conversations list update for simplicity
-                // (or ideally a specific event, but the frontend listens for reloads)
                 state.broadcastWs({
                   type: "conversation-updated",
                   conversation: conv,
@@ -10830,6 +10837,7 @@ async function handleRequest(
             },
           );
         }
+        return;
       }
     } catch (err) {
       if (!aborted) {
@@ -10863,7 +10871,7 @@ async function handleRequest(
       }
     } finally {
       clearInterval(heartbeatInterval);
-      res.end();
+      if (!res.writableEnded) res.end();
     }
     return;
   }
