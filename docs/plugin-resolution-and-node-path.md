@@ -38,6 +38,8 @@ if (existsSync(_rootModules)) {
 
 **Why here:** Covers `bun run dev` (dev-server.ts imports eliza directly) and any other in-process import of eliza. The `existsSync` guard means this is a no-op in packaged apps where the repo root doesn't exist.
 
+**Note on `Module._initPaths()`:** It is a private Node.js API but widely used for exactly this purpose (runtime NODE_PATH mutation). Node caches resolution paths at startup; after we set `process.env.NODE_PATH` we must call it so the next `import()` sees the new paths.
+
 ### 2. `scripts/run-node.mjs` (child process env)
 
 ```js

@@ -84,10 +84,21 @@ import { createMiladyPlugin } from "./milady-plugin";
 // search repo root node_modules; import("@elizaos/plugin-*") then fails. We prepend
 // repo root node_modules only if not already in NODE_PATH (run-node.mjs may have set it)
 // to avoid duplicate entries; _initPaths() makes Node re-read NODE_PATH. See docs/plugin-resolution-and-node-path.md.
+// We walk up from this file to find node_modules — we do not assume a fixed depth
+// (e.g. two levels for src/runtime/ or dist/runtime/) so we still work if build
+// output structure changes (e.g. flat dist). First directory with node_modules wins.
 const _elizaDir = path.dirname(fileURLToPath(import.meta.url));
-const _repoRoot = path.resolve(_elizaDir, "..", "..");
-const _rootModules = path.join(_repoRoot, "node_modules");
-if (existsSync(_rootModules)) {
+let _dir = _elizaDir;
+let _rootModules: string | null = null;
+while (_dir !== path.dirname(_dir)) {
+  const candidate = path.join(_dir, "node_modules");
+  if (existsSync(candidate)) {
+    _rootModules = candidate;
+    break;
+  }
+  _dir = path.dirname(_dir);
+}
+if (_rootModules) {
   const prev = process.env.NODE_PATH ?? "";
   const entries = prev ? prev.split(path.delimiter) : [];
   const normalizedRoot = path.resolve(_rootModules);
@@ -1303,6 +1314,13 @@ async function resolvePlugins(
   logger.info(`[milady] Resolving ${pluginsToLoad.size} plugins...`);
   const loadStartTime = Date.now();
 
+  // Built once so we don't rebuild on every optional plugin failure.
+  const optionalPluginNames = new Set([
+    ...Object.values(OPTIONAL_PLUGIN_MAP),
+    ...Object.values(CHANNEL_PLUGIN_MAP),
+    ...OPTIONAL_CORE_PLUGINS,
+  ]);
+
   // Load a single plugin - returns result or null on skip/failure
   async function loadSinglePlugin(pluginName: string): Promise<{
     name: string;
@@ -1440,12 +1458,7 @@ async function resolvePlugins(
           `[milady] Failed to load core plugin ${pluginName}: ${msg}`,
         );
       } else {
-        const optionalNames = new Set([
-          ...Object.values(OPTIONAL_PLUGIN_MAP),
-          ...Object.values(CHANNEL_PLUGIN_MAP),
-          ...OPTIONAL_CORE_PLUGINS,
-        ]);
-        if (optionalNames.has(pluginName)) {
+        if (optionalPluginNames.has(pluginName)) {
           logger.debug(
             `[milady] Optional plugin ${pluginName} not available: ${msg}`,
           );

@@ -15,6 +15,7 @@
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { patchBunExports } from "./lib/patch-bun-exports.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, "..");
@@ -643,53 +644,6 @@ if (pdfTargets.length === 0) {
 
 // ---------------------------------------------------------------------------
 // Patch @elizaos packages whose exports["."].bun points to ./src/index.ts.
-// WHY: Published npm tarballs only ship dist/; the "bun" condition is for
-// upstream's dev workspace. Bun's resolver picks "bun" first and does not
-// fall back to "import" when the file is missing → "Cannot find module".
-// We remove the dead conditions so resolution uses "import" → ./dist/index.js.
-// We only patch when src/index.ts does NOT exist (skip in dev workspaces).
+// Logic lives in scripts/lib/patch-bun-exports.mjs (testable).
 // ---------------------------------------------------------------------------
-function patchBunExports(pkgName) {
-  const candidates = [resolve(root, "node_modules", pkgName, "package.json")];
-  // Bun may resolve from node_modules/.bun/<hash>/node_modules/<pkg>; patch
-  // all copies so whichever one Bun uses gets the fix.
-  const bunCache = resolve(root, "node_modules/.bun");
-  if (existsSync(bunCache)) {
-    const safeName = pkgName.replace("/", "+").replace("@", "");
-    for (const entry of readdirSync(bunCache)) {
-      if (entry.startsWith(safeName)) {
-        const p = resolve(
-          bunCache,
-          entry,
-          "node_modules",
-          pkgName,
-          "package.json",
-        );
-        if (existsSync(p)) candidates.push(p);
-      }
-    }
-  }
-
-  for (const pkgPath of candidates) {
-    if (!existsSync(pkgPath)) continue;
-    const pkg = JSON.parse(readFileSync(pkgPath, "utf8"));
-    const dot = pkg.exports?.["."];
-    if (!dot || typeof dot !== "object") continue;
-    if (!dot.bun || !dot.bun.endsWith("/src/index.ts")) continue;
-
-    const dir = dirname(pkgPath);
-    if (existsSync(resolve(dir, dot.bun))) continue; // src exists — dev workspace, no patch needed
-
-    // Remove "bun" and "default" so resolver falls back to "import" → dist/
-    delete dot.bun;
-    if (dot.default?.endsWith("/src/index.ts")) {
-      delete dot.default;
-    }
-    writeFileSync(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`, "utf8");
-    console.log(
-      `[patch-deps] Patched ${pkgName} exports: removed dead "bun"/"default" → src/index.ts conditions.`,
-    );
-  }
-}
-
-patchBunExports("@elizaos/plugin-coding-agent");
+patchBunExports(root, "@elizaos/plugin-coding-agent");
