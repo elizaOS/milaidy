@@ -81,6 +81,8 @@ If you are a coding agent submitting work:
 - **Minimal dependencies.** Don't add packages unless `src/` directly imports them.
 - **Commit messages:** concise, action-oriented (e.g., `milady: fix telegram reconnect on rate limit`)
 - **Electron agent startup:** Do not remove try/catch or `.catch()` in `apps/app/electron/src/native/agent.ts` as "excess" exception handling. Those guards keep the desktop app window usable when the runtime fails to load; see `docs/electron-startup.md`.
+- **NODE_PATH setup:** Do not remove the `NODE_PATH` code in `src/runtime/eliza.ts`, `scripts/run-node.mjs`, or `apps/app/electron/src/native/agent.ts`. It ensures dynamic plugin imports resolve correctly; see `docs/plugin-resolution-and-node-path.md`.
+- **Bun exports patch:** Do not remove the `patchBunExports` logic in `scripts/patch-deps.mjs`. It fixes plugin load failures under Bun when a published package's `exports["."].bun` points to a missing `src/` path; see "Bun and published package exports" in `docs/plugin-resolution-and-node-path.md`.
 
 ## Security
 

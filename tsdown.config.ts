@@ -17,6 +17,12 @@ const nativeExternals = [
   "fsevents",
 ];
 
+// @elizaos/plugin-* are loaded at runtime via dynamic import(); every entry that
+// transitively includes eliza.ts needs the plugin regex so rolldown treats them
+// as external and doesn't emit UNRESOLVED_IMPORT warnings.
+const pluginExternal = /^@elizaos\/plugin-/;
+const allExternals = [...nativeExternals, pluginExternal];
+
 export default [
   {
     entry: "src/index.ts",
@@ -32,14 +38,14 @@ export default [
     platform: "node",
     unbundle: true,
     inlineOnly: false,
-    external: nativeExternals,
+    external: allExternals,
   },
   {
     entry: "src/runtime/eliza.ts",
     env,
     fixedExtension: false,
     platform: "node",
-    external: nativeExternals,
+    external: allExternals,
     outputOptions: { codeSplitting: false },
   },
   {
@@ -47,7 +53,7 @@ export default [
     env,
     fixedExtension: false,
     platform: "node",
-    external: nativeExternals,
+    external: allExternals,
     // Disable code splitting to prevent circular chunk dependencies.
     // Without this, rolldown places the __exportAll runtime helper in the
     // entry chunk and shared chunks import it back, creating a circular

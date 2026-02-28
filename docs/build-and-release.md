@@ -36,4 +36,5 @@ We do **not** try to exclude deps that might already be inlined by tsdown into p
 ## See also
 
 - [Electron startup and exception handling](./electron-startup.md) — why the agent keeps the API server up on load failure.
+- [Plugin resolution and NODE_PATH](./plugin-resolution-and-node-path.md) — why dynamic plugin imports need `NODE_PATH` in dev/CLI/Electron.
 - [CHANGELOG](../CHANGELOG.md) — concrete changes and WHYs per release.

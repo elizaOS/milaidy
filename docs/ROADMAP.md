@@ -10,6 +10,7 @@ High-level direction and rationale. Not exhaustive; see [CHANGELOG](../CHANGELOG
 - **Auto-derived plugin deps** — `copy-electron-plugins-and-deps.mjs` walks each @elizaos package's `package.json` dependencies instead of a curated list. **Why:** Curated lists missed new plugin deps and caused silent failures in packaged app; auto-walk stays correct as plugins change.
 - **Regression tests for startup** — E2E tests assert keep-server-alive and eliza.js load-failure behavior. **Why:** A failing test prevents removal of the exception-handling guards better than docs alone.
 - **Plugin resolution fix** — `NODE_PATH` set to repo root `node_modules` in `eliza.ts`, `run-node.mjs`, and `agent.ts` (Electron dev). **Why:** Dynamic `import("@elizaos/plugin-*")` from bundled `eliza.js` couldn't resolve packages at root; `NODE_PATH` tells Node where to look. No-op in packaged app (existsSync guard). See `docs/plugin-resolution-and-node-path.md`.
+- **Bun exports patch** — Postinstall in `patch-deps.mjs` rewrites `@elizaos/plugin-coding-agent` (and any similar package) so `exports["."]` no longer has `"bun": "./src/index.ts"` when that file doesn't exist. **Why:** The published tarball only ships `dist/`; Bun picks the `"bun"` condition first and fails. Removing the dead condition lets Bun use `"import"` → `./dist/index.js`. See "Bun and published package exports" in `docs/plugin-resolution-and-node-path.md`.
 
 ## Short-term / follow-ups
 

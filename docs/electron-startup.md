@@ -44,3 +44,8 @@ Packaged app writes a startup log to:
 - **Linux:** `~/.config/Milady/milady-startup.log`
 
 Use it to debug load failures (missing modules, native binary path, etc.).
+
+## See also
+
+- [Plugin resolution and NODE_PATH](./plugin-resolution-and-node-path.md) — why dynamic plugin imports need `NODE_PATH` and where it's set.
+- [Build and release](./build-and-release.md) — CI pipeline, Rosetta builds, plugin/dep copying.

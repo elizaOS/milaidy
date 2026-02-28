@@ -40,6 +40,7 @@
   "scripts": {
     "benchmark:server": "node --import tsx src/benchmark/server.ts",
     "build": "tsdown && echo '{\"type\":\"module\"}' > dist/package.json && scripts/rt.sh scripts/write-build-info.ts && cd apps/app && ../../scripts/rt.sh run build",
+    "install:build": "bun install --ignore-scripts && node scripts/init-submodules.mjs && node scripts/ensure-skills.mjs && node scripts/link-browser-server.mjs && node scripts/patch-deps.mjs",
     "build:node": "tsdown && echo '{\"type\":\"module\"}' > dist/package.json && node --import tsx scripts/write-build-info.ts && cd apps/app && npm run build",
     "build:android": "cd apps/app && ../../scripts/rt.sh run build:android",
     "build:desktop": "cd apps/app && ../../scripts/rt.sh run build:electron",

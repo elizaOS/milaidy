@@ -63,3 +63,11 @@ tsdown with `noExternal: [/.*/]` inlines most dependencies, but `@elizaos/plugin
 ## Packaged app: no-op
 
 In the packaged `.app`, `eliza.js` lives at `app.asar.unpacked/milady-dist/eliza.js`. Two levels up is `Contents/Resources/` — no `node_modules` there. The `existsSync` check in `eliza.ts` returns false, so the NODE_PATH code is skipped entirely. The packaged app uses `copy-electron-plugins-and-deps.mjs` to copy plugins into `milady-dist/node_modules` and sets ASAR `node_modules` on `NODE_PATH` in `agent.ts`. No change to packaged behavior.
+
+## Bun and published package exports
+
+Some `@elizaos` packages (e.g. `@elizaos/plugin-coding-agent`) publish a `package.json` with `exports["."].bun = "./src/index.ts"`. **Why they do that:** In the upstream monorepo, Bun can run TypeScript directly, so pointing to `src/` avoids a build step. The published npm tarball, however, only includes `dist/` — `src/` is not shipped. When we install from npm, the `"bun"` condition points to a path that does not exist.
+
+**What happens:** Bun's resolver prefers the `"bun"` export condition. It tries to load `./src/index.ts`, the file is missing, and we get "Cannot find module … from …/src/runtime/eliza.ts" even though the package is in `node_modules`. Bun does not fall back to the `"import"` condition when the `"bun"` target is missing.
+
+**Our fix:** `scripts/patch-deps.mjs` runs after `bun install` (and during `install:build`). It finds `@elizaos/plugin-coding-agent` (and any other package we add) and, if `exports["."].bun` points to `./src/index.ts` and that file does not exist, removes the `"bun"` and `"default"` conditions that reference `src/`. After the patch, only `"import"` (and similar) remain, so Bun resolves to `./dist/index.js`. **Why we only patch when the file is missing:** In a development workspace where the plugin is checked out with `src/` present, we leave the package unchanged so upstream workflows still work.
