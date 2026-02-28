@@ -960,6 +960,7 @@ export function mergeDropInPlugins(params: {
 }
 
 const WORKSPACE_PLUGIN_OVERRIDES = new Set<string>([
+  "@elizaos/plugin-agent-orchestrator",
   // "@elizaos/plugin-trajectory-logger",
   // "@elizaos/plugin-plugin-manager",
   // "@elizaos/plugin-media-generation",
