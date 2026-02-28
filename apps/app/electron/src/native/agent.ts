@@ -248,9 +248,13 @@ export class AgentManager {
         }
       }
 
-      // Ensure eliza.js dynamic imports (e.g. @elizaos/plugin-*) resolve.
-      // Packaged: ASAR's node_modules. Dev: monorepo root node_modules (milady-dist
-      // lives under apps/app/electron/, so resolution from there must see root).
+      // NODE_PATH so eliza.js dynamic imports (e.g. @elizaos/plugin-*) resolve.
+      // WHY: Node does not search repo root when the entry is under apps/app/electron/;
+      // without this, import("@elizaos/plugin-coding-agent") fails. Packaged: use ASAR's
+      // node_modules (unpacked deps live there). Dev: walk up from __dirname until we
+      // find node_modules so we don't depend on a fixed ../ depth (tsc-out vs build/).
+      // _initPaths() below: Node caches resolution paths at startup; we set NODE_PATH at
+      // runtime so we must force a re-read before the next import(). See docs/plugin-resolution-and-node-path.md.
       const existing = process.env.NODE_PATH || "";
       if (app.isPackaged) {
         const asarModules = path.join(app.getAppPath(), "node_modules");
@@ -261,8 +265,6 @@ export class AgentManager {
           `[Agent] Added ASAR node_modules to NODE_PATH: ${asarModules}`,
         );
       } else {
-        // Dev: walk up from this file until we find node_modules (monorepo root),
-        // so we don't depend on a fixed depth (e.g. tsc-out vs build/src/native).
         let dir = __dirname;
         let rootModules: string | null = null;
         while (dir !== path.dirname(dir)) {
@@ -282,7 +284,6 @@ export class AgentManager {
           );
         }
       }
-      // Force Node to re-read NODE_PATH before we load eliza.js.
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       require("node:module").Module._initPaths();
 

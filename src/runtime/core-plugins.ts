@@ -5,7 +5,7 @@
  * `api/server.ts` and `runtime/eliza.ts`.
  */
 
-/** Core plugins that should always be loaded. */
+/** Core plugins that should always be loaded. collectPluginNames() seeds from this list only. */
 export const CORE_PLUGINS: readonly string[] = [
   "@elizaos/plugin-sql", // database adapter — required
   "@elizaos/plugin-local-embedding", // local embeddings — required for memory
@@ -15,7 +15,7 @@ export const CORE_PLUGINS: readonly string[] = [
   "@elizaos/plugin-rolodex", // contact graph and relationship/social memory
   "@elizaos/plugin-trajectory-logger", // trajectory logging for debugging and RL training
   "@elizaos/plugin-agent-orchestrator", // multi-agent orchestration
-  "@elizaos/plugin-coding-agent", // coding agent PTY/SwarmCoordinator
+  "@elizaos/plugin-coding-agent", // coding agent PTY/SwarmCoordinator; WHY: required for coding/terminal flows, not optional (optional = not in load set)
   "@elizaos/plugin-cron", // scheduled jobs and automation
   "@elizaos/plugin-shell", // shell command execution
   "@elizaos/plugin-plugin-manager", // dynamic plugin management

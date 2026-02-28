@@ -79,8 +79,11 @@ import { diagnoseNoAIProvider } from "../services/version-compat";
 import { CORE_PLUGINS, OPTIONAL_CORE_PLUGINS } from "./core-plugins";
 import { createMiladyPlugin } from "./milady-plugin";
 
-// Ensure dynamic plugin imports (e.g. @elizaos/plugin-coding-agent) resolve when
-// eliza is loaded from dev-server or any entry that didn't set NODE_PATH (e.g. bun run dev).
+// NODE_PATH so dynamic plugin imports (e.g. @elizaos/plugin-coding-agent) resolve.
+// WHY: When eliza is loaded from dist/ or by a test runner, Node's resolution does not
+// search repo root node_modules; import("@elizaos/plugin-*") then fails. We prepend
+// repo root node_modules only if not already in NODE_PATH (run-node.mjs may have set it)
+// to avoid duplicate entries; _initPaths() makes Node re-read NODE_PATH. See docs/plugin-resolution-and-node-path.md.
 const _elizaDir = path.dirname(fileURLToPath(import.meta.url));
 const _repoRoot = path.resolve(_elizaDir, "..", "..");
 const _rootModules = path.join(_repoRoot, "node_modules");

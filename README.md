@@ -334,6 +334,8 @@ Dev mode with hot reload:
 bun run dev
 ```
 
+Why plugin resolution and NODE_PATH matter when building from source: [Plugin resolution and NODE_PATH](docs/plugin-resolution-and-node-path.md).
+
 ---
 
 ## Contributing
