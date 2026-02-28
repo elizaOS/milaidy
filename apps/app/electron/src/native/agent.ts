@@ -248,22 +248,43 @@ export class AgentManager {
         }
       }
 
-      // When loading from app.asar.unpacked, Node's module resolution can't
-      // find dependencies inside the ASAR's node_modules (e.g. json5). Add
-      // the ASAR's node_modules to NODE_PATH so ESM imports can resolve them.
+      // Ensure eliza.js dynamic imports (e.g. @elizaos/plugin-*) resolve.
+      // Packaged: ASAR's node_modules. Dev: monorepo root node_modules (milady-dist
+      // lives under apps/app/electron/, so resolution from there must see root).
+      const existing = process.env.NODE_PATH || "";
       if (app.isPackaged) {
         const asarModules = path.join(app.getAppPath(), "node_modules");
-        const existing = process.env.NODE_PATH || "";
         process.env.NODE_PATH = existing
           ? `${asarModules}${path.delimiter}${existing}`
           : asarModules;
-        // Force Node to re-read NODE_PATH
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        require("node:module").Module._initPaths();
         diagnosticLog(
           `[Agent] Added ASAR node_modules to NODE_PATH: ${asarModules}`,
         );
+      } else {
+        // Dev: walk up from this file until we find node_modules (monorepo root),
+        // so we don't depend on a fixed depth (e.g. tsc-out vs build/src/native).
+        let dir = __dirname;
+        let rootModules: string | null = null;
+        while (dir !== path.dirname(dir)) {
+          const candidate = path.join(dir, "node_modules");
+          if (fs.existsSync(candidate)) {
+            rootModules = candidate;
+            break;
+          }
+          dir = path.dirname(dir);
+        }
+        if (rootModules) {
+          process.env.NODE_PATH = existing
+            ? `${rootModules}${path.delimiter}${existing}`
+            : rootModules;
+          diagnosticLog(
+            `[Agent] Added monorepo root node_modules to NODE_PATH: ${rootModules}`,
+          );
+        }
       }
+      // Force Node to re-read NODE_PATH before we load eliza.js.
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      require("node:module").Module._initPaths();
 
       // 1. Start API server immediately so the UI can bootstrap while runtime starts.
       //    (or MILADY_PORT if set)

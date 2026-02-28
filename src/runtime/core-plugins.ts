@@ -15,6 +15,7 @@ export const CORE_PLUGINS: readonly string[] = [
   "@elizaos/plugin-rolodex", // contact graph and relationship/social memory
   "@elizaos/plugin-trajectory-logger", // trajectory logging for debugging and RL training
   "@elizaos/plugin-agent-orchestrator", // multi-agent orchestration
+  "@elizaos/plugin-coding-agent", // coding agent PTY/SwarmCoordinator
   "@elizaos/plugin-cron", // scheduled jobs and automation
   "@elizaos/plugin-shell", // shell command execution
   "@elizaos/plugin-plugin-manager", // dynamic plugin management
@@ -27,7 +28,6 @@ export const CORE_PLUGINS: readonly string[] = [
  * Not loaded by default — kept separate due to packaging or spec issues.
  */
 export const OPTIONAL_CORE_PLUGINS: readonly string[] = [
-  "@elizaos/plugin-coding-agent", // coding agent PTY/SwarmCoordinator; optional so boot works when unresolved (e.g. Electron dev, or run from non-root cwd)
   "@elizaos/plugin-cua", // CUA computer-use agent (cloud sandbox automation)
   "@elizaos/plugin-obsidian", // Obsidian vault CLI integration
   // "@elizaos/plugin-directives", // directive processing

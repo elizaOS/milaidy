@@ -9,8 +9,14 @@ import {
 } from "./run-node-runtime.mjs";
 
 const args = process.argv.slice(2);
-const env = { ...process.env };
 const cwd = process.cwd();
+const env = { ...process.env };
+// Ensure the child process resolves packages from repo root so dynamic imports
+// (e.g. @elizaos/plugin-coding-agent) from dist/eliza.js find node_modules.
+const rootModules = path.join(cwd, "node_modules");
+env.NODE_PATH = env.NODE_PATH
+  ? `${rootModules}${path.delimiter}${env.NODE_PATH}`
+  : rootModules;
 const compiler = "tsdown";
 
 const distRoot = path.join(cwd, "dist");

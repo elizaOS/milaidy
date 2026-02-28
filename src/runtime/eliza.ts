@@ -79,6 +79,23 @@ import { diagnoseNoAIProvider } from "../services/version-compat";
 import { CORE_PLUGINS, OPTIONAL_CORE_PLUGINS } from "./core-plugins";
 import { createMiladyPlugin } from "./milady-plugin";
 
+// Ensure dynamic plugin imports (e.g. @elizaos/plugin-coding-agent) resolve when
+// eliza is loaded from dev-server or any entry that didn't set NODE_PATH (e.g. bun run dev).
+const _elizaDir = path.dirname(fileURLToPath(import.meta.url));
+const _repoRoot = path.resolve(_elizaDir, "..", "..");
+const _rootModules = path.join(_repoRoot, "node_modules");
+if (existsSync(_rootModules)) {
+  const prev = process.env.NODE_PATH ?? "";
+  const entries = prev ? prev.split(path.delimiter) : [];
+  const normalizedRoot = path.resolve(_rootModules);
+  if (!entries.some((e) => path.resolve(e) === normalizedRoot)) {
+    process.env.NODE_PATH = prev
+      ? `${_rootModules}${path.delimiter}${prev}`
+      : _rootModules;
+    createRequire(import.meta.url)("node:module").Module._initPaths();
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
