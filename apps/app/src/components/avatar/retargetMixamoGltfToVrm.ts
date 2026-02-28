@@ -37,18 +37,19 @@ function findNode(
 
 /**
  * Retarget a Mixamo-style GLB animation clip onto a VRM.
- * Intended for idle clips; position tracks are ignored to avoid root motion.
+ * Position tracks are ignored to avoid root motion.
  */
 export function retargetMixamoGltfToVrm(
   animation: { scene: THREE.Group; animations: THREE.AnimationClip[] },
   vrm: VRM,
+  clipName?: string,
 ): THREE.AnimationClip {
   animation.scene.updateMatrixWorld(true);
   vrm.scene.updateMatrixWorld(true);
 
   const sourceClip = animation.animations[0];
   if (!sourceClip) {
-    throw new Error("idle.glb contains no animation clips");
+    throw new Error("GLB contains no animation clips");
   }
 
   const tracks: Array<THREE.QuaternionKeyframeTrack> = [];
@@ -101,12 +102,13 @@ export function retargetMixamoGltfToVrm(
 
   if (tracks.length < 10) {
     throw new Error(
-      `Idle retargeting mapped too few tracks (${tracks.length}). ` +
+      `Retargeting mapped too few tracks (${tracks.length}). ` +
         "Expected Mixamo bone names like mixamorigHips/mixamorigSpine...",
     );
   }
 
-  const clip = new THREE.AnimationClip("idle", sourceClip.duration, tracks);
+  const name = clipName ?? sourceClip.name ?? "retargeted";
+  const clip = new THREE.AnimationClip(name, sourceClip.duration, tracks);
   clip.optimize();
   return clip;
 }

@@ -508,6 +508,7 @@ export class VrmEngine {
     const clip = retargetMixamoGltfToVrm(
       { scene: gltf.scene, animations: gltf.animations },
       vrm,
+      "idle",
     );
 
     if (this.loadingAborted || this.vrm !== vrm) return;
@@ -544,9 +545,11 @@ export class VrmEngine {
 
       gltf.scene.updateMatrixWorld(true);
       vrm.scene.updateMatrixWorld(true);
+      const emoteLabel = glbPath.split("/").pop()?.replace(".glb", "") ?? "emote";
       const clip = retargetMixamoGltfToVrm(
         { scene: gltf.scene, animations: gltf.animations },
         vrm,
+        emoteLabel,
       );
 
       this.emoteClipCache.set(glbPath, clip);
