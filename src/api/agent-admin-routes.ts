@@ -1,5 +1,6 @@
 import type { AgentRuntime, UUID } from "@elizaos/core";
 import type { MiladyConfig } from "../config/config";
+import { detectRuntimeModel } from "./agent-model";
 import type { RouteHelpers, RouteRequestMeta } from "./route-helpers";
 
 type AgentStateStatus =
@@ -86,6 +87,7 @@ export async function handleAgentAdminRoutes(
         state.chatConnectionPromise = null;
         state.agentState = "running";
         state.agentName = newRuntime.character.name ?? "Milady";
+        state.model = detectRuntimeModel(newRuntime);
         state.startedAt = Date.now();
         state.pendingRestartReasons = [];
         json(res, {
@@ -94,6 +96,7 @@ export async function handleAgentAdminRoutes(
           status: {
             state: state.agentState,
             agentName: state.agentName,
+            model: state.model,
             startedAt: state.startedAt,
           },
         });
