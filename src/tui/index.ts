@@ -127,6 +127,7 @@ async function switchEmbeddingTier(tier: EmbeddingTier, tui: MiladyTUI) {
     model: preset.model,
     modelRepo: preset.modelRepo,
     dimensions: preset.dimensions,
+    contextSize: preset.contextSize,
     gpuLayers: preset.gpuLayers,
   });
 

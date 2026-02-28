@@ -12,6 +12,8 @@ export interface EmbeddingManagerConfig {
   dimensions?: number;
   /** GPU layers: "auto" | "max" | number (default: detected hardware preset gpuLayers) */
   gpuLayers?: "auto" | "max" | number;
+  /** Model context window in tokens (default: detected hardware preset contextSize) */
+  contextSize?: number;
   /** Idle timeout in ms before unloading model (default: 1800000 = 30 min, 0 = never unload) */
   idleTimeoutMs?: number;
   /** Models directory (default: ~/.eliza/models) */
