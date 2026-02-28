@@ -46,6 +46,7 @@ import {
   CORE_PLUGINS,
   OPTIONAL_CORE_PLUGINS,
 } from "../runtime/core-plugins.js";
+import { getGlobalAwarenessRegistry } from "../awareness/registry.js";
 import {
   buildTestHandler,
   registerCustomActionLive,
@@ -8398,6 +8399,7 @@ async function handleRequest(
       scheduleRuntimeRestart(`Plugin toggle: ${pluginId}`, 300);
     }
 
+    getGlobalAwarenessRegistry()?.invalidate("plugin-changed");
     json(res, { ok: true, plugin });
     return;
   }
@@ -8733,6 +8735,8 @@ async function handleRequest(
         scheduleRuntimeRestart(`Plugin ${result.pluginName} installed`, 500);
       }
 
+      getGlobalAwarenessRegistry()?.invalidate("plugin-changed");
+
       json(res, {
         ok: true,
         plugin: {
@@ -8791,6 +8795,8 @@ async function handleRequest(
       if (body.autoRestart !== false && result.requiresRestart) {
         scheduleRuntimeRestart(`Plugin ${pluginName} uninstalled`, 500);
       }
+
+      getGlobalAwarenessRegistry()?.invalidate("plugin-changed");
 
       json(res, {
         ok: true,
@@ -8937,6 +8943,8 @@ async function handleRequest(
       `Plugin ${shortId} ${body.enabled ? "enabled" : "disabled"}`,
       300,
     );
+
+    getGlobalAwarenessRegistry()?.invalidate("plugin-changed");
 
     json(res, {
       ok: true,
@@ -11061,6 +11069,8 @@ async function handleRequest(
       );
     }
 
+    getGlobalAwarenessRegistry()?.invalidate("wallet-updated");
+
     json(res, {
       ok: true,
       chain,
@@ -12165,6 +12175,8 @@ async function handleRequest(
         `Shell access ${enabled ? "enabled" : "disabled"}`,
       );
     }
+
+    getGlobalAwarenessRegistry()?.invalidate("permission-changed");
 
     json(res, {
       shellEnabled: enabled,
