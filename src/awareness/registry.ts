@@ -59,6 +59,24 @@ interface CacheEntry {
 // AwarenessRegistry
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Global accessor (module-level variable pattern — same as custom-actions.ts)
+// ---------------------------------------------------------------------------
+
+let _globalRegistry: AwarenessRegistry | null = null;
+
+export function setGlobalAwarenessRegistry(registry: AwarenessRegistry): void {
+  _globalRegistry = registry;
+}
+
+export function getGlobalAwarenessRegistry(): AwarenessRegistry | null {
+  return _globalRegistry;
+}
+
+// ---------------------------------------------------------------------------
+// AwarenessRegistry
+// ---------------------------------------------------------------------------
+
 export class AwarenessRegistry {
   private readonly contributors: AwarenessContributor[] = [];
   private readonly contributorIds = new Set<string>();

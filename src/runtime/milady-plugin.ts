@@ -52,6 +52,9 @@ import { createSelfStatusProvider } from "../providers/self-status.js";
 import { createSimpleModeProvider } from "../providers/simple-mode.js";
 import { DEFAULT_AGENT_WORKSPACE_DIR } from "../providers/workspace.js";
 import { createWorkspaceProvider } from "../providers/workspace-provider.js";
+import { AwarenessRegistry, setGlobalAwarenessRegistry } from "../awareness/registry.js";
+import { builtinContributors } from "../awareness/contributors/index.js";
+import { getSelfStatusAction } from "../actions/get-self-status.js";
 
 function loadEnabledCustomActionDefs(): CustomActionDef[] {
   const defs = loadMiladyConfig().customActions ?? [];
@@ -396,7 +399,6 @@ export function createMiladyPlugin(config?: MiladyPluginConfig): Plugin {
     createAdminTrustProvider(),
     createAutonomousStateProvider(),
     createSessionKeyProvider({ defaultAgentId: agentId }),
-    createSelfStatusProvider(),
     ...getSessionProviders({ storePath: sessionStorePath }),
   ];
 
@@ -406,6 +408,13 @@ export function createMiladyPlugin(config?: MiladyPluginConfig): Plugin {
         (provider): provider is Provider => Boolean(provider),
       )
     : [];
+
+  // Self-awareness registry — gives the agent perception of its own state.
+  const awarenessRegistry = new AwarenessRegistry();
+  for (const contributor of builtinContributors) {
+    awarenessRegistry.register(contributor);
+  }
+  const selfStatusProvider = createSelfStatusProvider(awarenessRegistry);
 
   // UI catalog provider — injects component knowledge so the agent can
   // generate UiSpec JSON and [CONFIG:pluginId] markers in responses.
@@ -622,6 +631,8 @@ export function createMiladyPlugin(config?: MiladyPluginConfig): Plugin {
       registerTriggerTaskWorker(runtime);
       ensureAutonomousStateTracking(runtime);
       await registerEnabledCustomActions(runtime);
+      // Make awareness registry accessible to GET_SELF_STATUS action
+      setGlobalAwarenessRegistry(awarenessRegistry);
     },
 
     providers: [
@@ -632,6 +643,7 @@ export function createMiladyPlugin(config?: MiladyPluginConfig): Plugin {
       mediaProvider,
       terminalProvider,
       customActionsProvider,
+      selfStatusProvider,
     ],
 
     actions: [
@@ -644,6 +656,7 @@ export function createMiladyPlugin(config?: MiladyPluginConfig): Plugin {
       logLevelAction,
       canIAction,
       ...mediaActions,
+      getSelfStatusAction,
     ],
 
     // TrajectoryLoggerService is provided by @elizaos/plugin-trajectory-logger (in CORE_PLUGINS)

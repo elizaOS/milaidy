@@ -10,6 +10,7 @@
  */
 
 import type { Action, HandlerOptions } from "@elizaos/core";
+import { getGlobalAwarenessRegistry } from "../awareness/registry";
 import type { AwarenessRegistry } from "../awareness/registry";
 
 const VALID_MODULES = [
@@ -31,7 +32,9 @@ export const getSelfStatusAction: Action = {
   validate: async () => true,
 
   handler: async (runtime, _message, _state, options) => {
-    const registry = runtime.getService("AWARENESS_REGISTRY") as AwarenessRegistry | null;
+    const registry =
+      (runtime.getService("AWARENESS_REGISTRY") as AwarenessRegistry | null)
+      ?? getGlobalAwarenessRegistry();
     if (!registry) {
       return { text: "Self-awareness registry is not available.", success: false };
     }
