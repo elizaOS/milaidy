@@ -4162,8 +4162,6 @@ async function handleRequest(
       json(res, empty);
       return;
     }
-      return;
-    }
 
     const encodedWallet = encodeURIComponent(addrs.evmAddress);
     // Public data API endpoints; when unavailable, we return graceful nulls.
