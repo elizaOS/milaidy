@@ -834,7 +834,6 @@ describe("buildAudioInputArgs() for TTS via spawn args", () => {
     expect(args[args.indexOf("-use_wallclock_as_timestamps") + 1]).toBe("1");
 
     // -probesize 32 to eliminate probe buffering
-    const probeIdx = args.lastIndexOf("-probesize");
     // There may be a video -probesize too — find the one near pipe:3
     const pipe3Idx = args.indexOf("pipe:3");
     // The TTS probesize should appear before pipe:3
