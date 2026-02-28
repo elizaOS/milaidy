@@ -20,9 +20,14 @@ export const APPS_ENABLED = import.meta.env.DEV;
 
 /** Stream tab — enabled when the "streaming-base" plugin is active (or in dev mode). */
 export const STREAM_ENABLED = import.meta.env.DEV;
+/** Companion tab is feature-flagged and disabled by default. */
+export const COMPANION_ENABLED =
+  String(import.meta.env.VITE_ENABLE_COMPANION_MODE ?? "").toLowerCase() ===
+  "true";
 
 export type Tab =
   | "chat"
+  | "companion"
   | "stream"
   | "apps"
   | "character"
@@ -57,6 +62,12 @@ export const ALL_TAB_GROUPS: TabGroup[] = [
     tabs: ["chat"],
     icon: MessageSquare,
     description: "Conversations and messaging",
+  },
+  {
+    label: "Companion",
+    tabs: ["companion"],
+    icon: Bot,
+    description: "Companion mode (feature flag)",
   },
   {
     label: "Stream",
@@ -125,6 +136,7 @@ export const ALL_TAB_GROUPS: TabGroup[] = [
 export function getTabGroups(streamEnabled = STREAM_ENABLED): TabGroup[] {
   return ALL_TAB_GROUPS.filter(
     (g) =>
+      (COMPANION_ENABLED || g.label !== "Companion") &&
       (APPS_ENABLED || g.label !== "Apps") &&
       (streamEnabled || g.label !== "Stream"),
   );
@@ -132,6 +144,7 @@ export function getTabGroups(streamEnabled = STREAM_ENABLED): TabGroup[] {
 
 const TAB_PATHS: Record<Tab, string> = {
   chat: "/chat",
+  companion: "/companion",
   stream: "/stream",
   apps: "/apps",
   character: "/character",
@@ -186,6 +199,10 @@ export function tabFromPath(pathname: string, basePath = ""): Tab | null {
   if (normalized.endsWith("/index.html")) normalized = "/";
   if (normalized === "/") return "chat";
   if (normalized === "/voice") return "settings";
+  // Companion disabled unless explicitly feature-flagged
+  if (!COMPANION_ENABLED && normalized === "/companion") {
+    return "chat";
+  }
   // Apps disabled in production builds — redirect to chat
   if (!APPS_ENABLED && (normalized === "/apps" || normalized === "/game")) {
     return "chat";
@@ -220,6 +237,8 @@ export function titleForTab(tab: Tab): string {
   switch (tab) {
     case "chat":
       return "Chat";
+    case "companion":
+      return "Companion";
     case "apps":
       return "Apps";
     case "character":
