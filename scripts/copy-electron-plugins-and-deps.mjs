@@ -60,10 +60,7 @@ const TRANSITIVE_SCOPED = [
 ];
 
 // @elizaos packages that should NOT be copied (dev tooling, not runtime deps).
-const ELIZAOS_SKIP = new Set([
-  "@elizaos/sweagent-root",
-  "@elizaos/tui",
-]);
+const ELIZAOS_SKIP = new Set(["@elizaos/sweagent-root", "@elizaos/tui"]);
 
 function readJson(p) {
   return JSON.parse(fs.readFileSync(p, "utf8"));
