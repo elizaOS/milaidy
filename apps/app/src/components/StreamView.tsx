@@ -125,6 +125,28 @@ export function StreamView() {
       } else {
         const result = await client.streamGoLive();
         setStreamLive(result.live);
+
+        // Auto-open popout window so frame capture targets the StreamView
+        // instead of the full app UI.  The Electron did-create-window handler
+        // calls setCaptureTarget(childWindow) when it detects ?popout.
+        if (result.live && !IS_POPOUT) {
+          const apiBase = (window as unknown as Record<string, unknown>)
+            .__MILADY_API_BASE__ as string | undefined;
+          const base = window.location.origin || "";
+          const sep =
+            window.location.protocol === "file:" ||
+            window.location.protocol === "capacitor-electron:"
+              ? "#"
+              : "";
+          const qs = apiBase
+            ? `popout&apiBase=${encodeURIComponent(apiBase)}`
+            : "popout";
+          window.open(
+            `${base}${sep}/?${qs}`,
+            "milady-stream",
+            "width=1280,height=720,menubar=no,toolbar=no,location=no,status=no",
+          );
+        }
       }
     } catch {
       try {

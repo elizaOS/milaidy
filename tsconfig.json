@@ -35,6 +35,7 @@
     "src/**/*.test.ts",
     "src/**/*.test.tsx",
     "src/**/test-helpers.ts",
-    "src/services/training-service.ts"
+    "src/services/training-service.ts",
+    "src/plugins/retake/**"
   ]
 }

@@ -113,7 +113,7 @@ export function Nav({ mobileLeft }: NavProps) {
             <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-bg-accent">
               <div className="flex items-center gap-2">
                 <span className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center">
-                  <activeGroup.icon className="w-4 h-4 text-accent-foreground" />
+                  <activeGroup.icon className="w-4 h-4 text-accent-fg" />
                 </span>
                 <span className="text-sm font-semibold text-txt-strong">
                   Menu

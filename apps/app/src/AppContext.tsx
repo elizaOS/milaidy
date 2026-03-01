@@ -59,7 +59,7 @@ import {
   type WhitelistStatus,
   type WorkbenchOverview,
 } from "./api-client";
-import { resolveAppAssetUrl } from "./asset-url";
+import { resolveApiUrl, resolveAppAssetUrl } from "./asset-url";
 import {
   type AutonomyEventStore,
   type AutonomyRunHealthMap,
@@ -4617,6 +4617,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
         await fetchAutonomyReplay();
 
+        // Restore custom avatar in the popout so the stream captures it.
+        const popoutAvatarIndex = loadAvatarIndex();
+        if (popoutAvatarIndex === 0) {
+          const hasVrm = await client.hasCustomVrm();
+          if (hasVrm) {
+            setSelectedVrmIndex(0);
+            setCustomVrmUrl(resolveApiUrl(`/api/avatar/vrm?t=${Date.now()}`));
+          }
+        } else {
+          setSelectedVrmIndex(popoutAvatarIndex);
+        }
+
         return;
       }
 
@@ -5157,7 +5169,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (resolvedIndex === 0) {
         const hasVrm = await client.hasCustomVrm();
         if (hasVrm) {
-          setCustomVrmUrl(`/api/avatar/vrm?t=${Date.now()}`);
+          setCustomVrmUrl(resolveApiUrl(`/api/avatar/vrm?t=${Date.now()}`));
         } else {
           setSelectedVrmIndex(1);
         }

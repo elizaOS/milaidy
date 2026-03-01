@@ -171,7 +171,7 @@ export const TerminalPanel = forwardRef<TerminalPanelHandle>(
               <Terminal className="w-4 h-4 text-accent" />
               <span className="text-xs font-mono text-muted">Terminal</span>
               {unreadCount > 0 && (
-                <span className="ml-2 px-1.5 py-0.5 bg-accent text-accent-foreground text-[10px] rounded-full">
+                <span className="ml-2 px-1.5 py-0.5 bg-accent text-accent-fg text-[10px] rounded-full">
                   {unreadCount} new
                 </span>
               )}
@@ -194,7 +194,7 @@ export const TerminalPanel = forwardRef<TerminalPanelHandle>(
             <Terminal className="w-3.5 h-3.5" />
             <span>Show Terminal</span>
             {unreadCount > 0 && (
-              <span className="ml-1 px-1.5 py-0.5 bg-accent text-accent-foreground text-[10px] rounded-full">
+              <span className="ml-1 px-1.5 py-0.5 bg-accent text-accent-fg text-[10px] rounded-full">
                 {unreadCount}
               </span>
             )}

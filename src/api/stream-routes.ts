@@ -809,8 +809,12 @@ export async function handleStreamRoute(
         error(res, result.error ?? "Invalid settings", 400);
         return true;
       }
-      writeStreamSettings(result.settings);
-      json(res, { ok: true, settings: result.settings });
+      // Merge with existing settings so partial updates (e.g. just avatarIndex)
+      // don't wipe other fields (e.g. voice config).
+      const existing = readStreamSettings();
+      const merged = { ...existing, ...result.settings };
+      writeStreamSettings(merged);
+      json(res, { ok: true, settings: merged });
     } catch (err) {
       error(
         res,
