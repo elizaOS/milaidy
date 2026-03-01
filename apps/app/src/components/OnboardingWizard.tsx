@@ -430,7 +430,7 @@ export function OnboardingWizard() {
               </h2>
             </div>
             <div className="flex flex-wrap gap-2 justify-center mx-auto mb-3">
-              {onboardingOptions?.names.slice(0, 5).map((name: string) => (
+              {onboardingOptions?.names.slice(0, 6).map((name: string) => (
                 <button
                   type="button"
                   key={name}

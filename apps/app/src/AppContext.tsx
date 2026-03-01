@@ -4658,6 +4658,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       let lastBackendError: unknown = null;
 
       // Keep the splash screen up until the backend is reachable.
+      // Hard cap retries so the UI can fail open instead of hanging forever.
+      const MAX_BACKEND_ATTEMPTS = 60;
       let backendAttempts = 0;
       while (!cancelled) {
         if (Date.now() >= backendDeadlineAt) {
@@ -4704,6 +4706,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
       }
       if (cancelled) {
+        return;
+      }
+      if (backendAttempts >= MAX_BACKEND_ATTEMPTS) {
+        setConnected(false);
+        setOnboardingComplete(false);
+        setOnboardingLoading(false);
+        setActionNotice(
+          "Backend did not respond in time. Open Settings after load and retry runtime start.",
+          "info",
+          10000,
+        );
         return;
       }
 
@@ -4825,6 +4838,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
       setStartupError(null);
       setOnboardingLoading(false);
+      if (!agentReady) {
+        setActionNotice(
+          "Agent is still starting. App is available; configure provider keys in Settings if needed.",
+          "info",
+          8000,
+        );
+      }
 
       // Load conversations — if none exist, create one and request a greeting
       let greetConvId: string | null = null;

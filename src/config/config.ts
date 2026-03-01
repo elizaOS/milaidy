@@ -7,6 +7,8 @@ import { resolveConfigPath, resolveUserPath } from "./paths";
 import type { MiladyConfig } from "./types";
 
 export * from "./types";
+// Back-compat aliases for older Milaidy spelling still used in parts of the codebase.
+export type MilaidyConfig = MiladyConfig;
 
 export function loadMiladyConfig(): MiladyConfig {
   const configPath = resolveConfigPath();
@@ -119,6 +121,9 @@ function stripIncludeDirectives(value: unknown): unknown {
   return result;
 }
 
+// Back-compat alias.
+export const loadMilaidyConfig = loadMiladyConfig;
+
 export function saveMiladyConfig(config: MiladyConfig): void {
   const configPath = resolveConfigPath();
   const dir = path.dirname(configPath);
@@ -136,6 +141,9 @@ export function saveMiladyConfig(config: MiladyConfig): void {
     mode: 0o600, // Owner read+write only — config may contain private keys in env section
   });
 }
+
+// Back-compat alias.
+export const saveMilaidyConfig = saveMiladyConfig;
 
 export function configFileExists(): boolean {
   return fs.existsSync(resolveConfigPath());

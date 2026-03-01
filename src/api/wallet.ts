@@ -455,10 +455,47 @@ async function jsonOrThrow<T>(res: Response): Promise<T> {
   }
 }
 
+const COINGECKO_PRICE_IDS: Record<string, string> = {
+  ETH: "ethereum",
+  POL: "matic-network",
+  SOL: "solana",
+};
+
+async function fetchUsdPricesByIds(
+  ids: string[],
+): Promise<Record<string, number>> {
+  const unique = [...new Set(ids.filter(Boolean))];
+  if (unique.length === 0) return {};
+  try {
+    const query = encodeURIComponent(unique.join(","));
+    const data = await jsonOrThrow<Record<string, { usd?: number }>>(
+      await fetch(
+        `https://api.coingecko.com/api/v3/simple/price?ids=${query}&vs_currencies=usd`,
+        { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) },
+      ),
+    );
+    const out: Record<string, number> = {};
+    for (const id of unique) {
+      const usd = data[id]?.usd;
+      if (typeof usd === "number" && Number.isFinite(usd)) out[id] = usd;
+    }
+    return out;
+  } catch (err) {
+    logger.warn(
+      `USD price fetch failed: ${err instanceof Error ? err.message : err}`,
+    );
+    return {};
+  }
+}
+
 export async function fetchEvmBalances(
   address: string,
   alchemyKey: string,
 ): Promise<EvmChainBalance[]> {
+  const prices = await fetchUsdPricesByIds([
+    COINGECKO_PRICE_IDS.ETH,
+    COINGECKO_PRICE_IDS.POL,
+  ]);
   return Promise.all(
     DEFAULT_EVM_CHAINS.map(async (chain): Promise<EvmChainBalance> => {
       const fail = (msg: string): EvmChainBalance => ({
@@ -555,12 +592,16 @@ export async function fetchEvmBalances(
           )
           .map((r) => r.value);
 
+        const priceId = COINGECKO_PRICE_IDS[chain.nativeSymbol] ?? "";
+        const nativeUsd =
+          (Number.parseFloat(nativeBalance) || 0) * (prices[priceId] ?? 0);
+
         return {
           chain: chain.name,
           chainId: chain.chainId,
           nativeBalance,
           nativeSymbol: chain.nativeSymbol,
-          nativeValueUsd: "0",
+          nativeValueUsd: nativeUsd.toFixed(2),
           tokens,
           error: null,
         };
@@ -568,6 +609,89 @@ export async function fetchEvmBalances(
         const msg = err instanceof Error ? err.message : String(err);
         logger.warn(`EVM balance fetch failed for ${chain.name}: ${msg}`);
         return fail(msg);
+      }
+    }),
+  );
+}
+
+/**
+ * Public (no API key) EVM balance fetch.
+ * Uses public RPC endpoints for native balances only; token balances require
+ * indexed APIs and are intentionally omitted in this fallback path.
+ */
+export async function fetchEvmBalancesPublic(
+  address: string,
+): Promise<EvmChainBalance[]> {
+  const prices = await fetchUsdPricesByIds([
+    COINGECKO_PRICE_IDS.ETH,
+    COINGECKO_PRICE_IDS.POL,
+  ]);
+  const publicRpcBySubdomain: Record<string, string> = {
+    "eth-mainnet": "https://rpc.ankr.com/eth",
+    "base-mainnet": "https://mainnet.base.org",
+    "arb-mainnet": "https://arb1.arbitrum.io/rpc",
+    "opt-mainnet": "https://mainnet.optimism.io",
+    "polygon-mainnet": "https://polygon-rpc.com",
+  };
+
+  return Promise.all(
+    DEFAULT_EVM_CHAINS.map(async (chain): Promise<EvmChainBalance> => {
+      const rpcUrl = publicRpcBySubdomain[chain.subdomain];
+      if (!rpcUrl) {
+        return {
+          chain: chain.name,
+          chainId: chain.chainId,
+          nativeBalance: "0",
+          nativeSymbol: chain.nativeSymbol,
+          nativeValueUsd: "0",
+          tokens: [],
+          error: "Public RPC unavailable",
+        };
+      }
+
+      try {
+        const data = await jsonOrThrow<{ result?: string }>(
+          await fetch(rpcUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+            body: JSON.stringify({
+              jsonrpc: "2.0",
+              id: 1,
+              method: "eth_getBalance",
+              params: [address, "latest"],
+            }),
+          }),
+        );
+        const nativeBalance = formatWei(
+          data.result ? BigInt(data.result) : 0n,
+          18,
+        );
+        const priceId = COINGECKO_PRICE_IDS[chain.nativeSymbol] ?? "";
+        const nativeUsd =
+          (Number.parseFloat(nativeBalance) || 0) * (prices[priceId] ?? 0);
+
+        return {
+          chain: chain.name,
+          chainId: chain.chainId,
+          nativeBalance,
+          nativeSymbol: chain.nativeSymbol,
+          nativeValueUsd: nativeUsd.toFixed(2),
+          tokens: [],
+          error: null,
+        };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        logger.warn(`Public EVM balance fetch failed for ${chain.name}: ${msg}`);
+        return {
+          chain: chain.name,
+          chainId: chain.chainId,
+          nativeBalance: "0",
+          nativeSymbol: chain.nativeSymbol,
+          nativeValueUsd: "0",
+          tokens: [],
+          error: msg,
+        };
       }
     }),
   );
@@ -660,6 +784,8 @@ export async function fetchSolanaBalances(
   solValueUsd: string;
   tokens: SolanaTokenBalance[];
 }> {
+  const prices = await fetchUsdPricesByIds([COINGECKO_PRICE_IDS.SOL]);
+  const solUsdPrice = prices[COINGECKO_PRICE_IDS.SOL] ?? 0;
   const url = `https://mainnet.helius-rpc.com/?api-key=${heliusKey}`;
   const rpc = (body: string): RequestInit => ({
     method: "POST",
@@ -743,7 +869,54 @@ export async function fetchSolanaBalances(
     );
   }
 
-  return { solBalance, solValueUsd: "0", tokens };
+  const solValueUsd = (
+    (Number.parseFloat(solBalance) || 0) * solUsdPrice
+  ).toFixed(2);
+  return { solBalance, solValueUsd, tokens };
+}
+
+/**
+ * Public (no API key) Solana balance fetch.
+ * Returns SOL native balance and an empty token list in fallback mode.
+ */
+export async function fetchSolanaBalancePublic(
+  address: string,
+): Promise<{
+  solBalance: string;
+  solValueUsd: string;
+  tokens: SolanaTokenBalance[];
+}> {
+  const prices = await fetchUsdPricesByIds([COINGECKO_PRICE_IDS.SOL]);
+  const solUsdPrice = prices[COINGECKO_PRICE_IDS.SOL] ?? 0;
+  try {
+    const data = await jsonOrThrow<{
+      result?: { value?: number };
+      error?: { message?: string };
+    }>(
+      await fetch("https://api.mainnet-beta.solana.com", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: 1,
+          method: "getBalance",
+          params: [address],
+        }),
+      }),
+    );
+    if (data.error?.message) throw new Error(data.error.message);
+    const solBalance = ((data.result?.value ?? 0) / 1e9).toFixed(9);
+    const solValueUsd = (
+      (Number.parseFloat(solBalance) || 0) * solUsdPrice
+    ).toFixed(2);
+    return { solBalance, solValueUsd, tokens: [] };
+  } catch (err) {
+    logger.warn(
+      `Public Solana balance fetch failed: ${err instanceof Error ? err.message : err}`,
+    );
+    return { solBalance: "0", solValueUsd: "0", tokens: [] };
+  }
 }
 
 export async function fetchSolanaNfts(
