@@ -11,6 +11,7 @@ import { BugReportModal } from "./components/BugReportModal";
 import { CharacterView } from "./components/CharacterView";
 import { ChatView } from "./components/ChatView";
 import { CommandPalette } from "./components/CommandPalette";
+import { CompanionView } from "./components/CompanionView";
 import { ConnectorsPageView } from "./components/ConnectorsPageView";
 import { ConversationsSidebar } from "./components/ConversationsSidebar";
 import { CustomActionEditor } from "./components/CustomActionEditor";
@@ -35,7 +36,7 @@ import { BugReportProvider, useBugReportState } from "./hooks/useBugReport";
 import { useContextMenu } from "./hooks/useContextMenu";
 import { useLifoAutoPopout } from "./hooks/useLifoAutoPopout";
 import { isLifoPopoutMode } from "./lifo-popout";
-import { APPS_ENABLED, pathForTab } from "./navigation";
+import { APPS_ENABLED, COMPANION_ENABLED, pathForTab } from "./navigation";
 
 const CHAT_MOBILE_BREAKPOINT_PX = 1024;
 
@@ -56,6 +57,8 @@ function ViewRouter() {
   switch (tab) {
     case "chat":
       return <ChatView />;
+    case "companion":
+      return COMPANION_ENABLED ? <CompanionView /> : <ChatView />;
     case "stream":
       return <StreamView />;
     case "apps":
