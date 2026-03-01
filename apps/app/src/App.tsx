@@ -142,7 +142,6 @@ export function App() {
   );
   const [mobileConversationsOpen, setMobileConversationsOpen] = useState(false);
   const [mobileAutonomousOpen, setMobileAutonomousOpen] = useState(false);
-  const [startingTimedOut, setStartingTimedOut] = useState(false);
 
   const isChat = tab === "chat";
   const isAdvancedTab =
@@ -314,29 +313,17 @@ export function App() {
   if (startupError) {
     return <StartupFailureView error={startupError} onRetry={retryStartup} />;
   }
-  useEffect(() => {
-    if (!agentStarting) {
-      setStartingTimedOut(false);
-      return;
-    }
-    const t = setTimeout(() => {
-      setStartingTimedOut(true);
-    }, 20000);
-    return () => clearTimeout(t);
-  }, [agentStarting]);
 
-  // Never block onboarding behind startup splash.
-  // If setup is incomplete, always show onboarding immediately.
-  if (authRequired) return <PairingView />;
-  if (!onboardingComplete) return <OnboardingWizard />;
-
-  if (onboardingLoading || (agentStarting && !startingTimedOut)) {
+  if (onboardingLoading || agentStarting) {
     return (
       <LoadingScreen
         phase={agentStarting ? "initializing-agent" : startupPhase}
       />
     );
   }
+
+  if (authRequired) return <PairingView />;
+  if (!onboardingComplete) return <OnboardingWizard />;
 
   if (lifoPopoutMode) {
     return (
@@ -349,6 +336,7 @@ export function App() {
       </BugReportProvider>
     );
   }
+
   return (
     <BugReportProvider value={bugReport}>
       {tab === "stream" && !streamPoppedOut ? (
