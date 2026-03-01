@@ -363,6 +363,7 @@ const PROVIDER_PLUGIN_MAP: Readonly<Record<string, string>> = {
   // ElizaCloud — loaded when API key is present OR cloud is explicitly enabled
   ELIZAOS_CLOUD_API_KEY: "@elizaos/plugin-elizacloud",
   ELIZAOS_CLOUD_ENABLED: "@elizaos/plugin-elizacloud",
+  OPINION_API_KEY: "@milady/plugin-opinion",
 };
 
 /**
