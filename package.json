@@ -12,6 +12,17 @@
     "url": "https://github.com/milady-ai/milady.git"
   },
   "license": "MIT",
+  "files": [
+    "dist",
+    "milady.mjs",
+    "apps/app/dist",
+    "scripts/rt.sh",
+    "scripts/run-node.mjs",
+    "scripts/patch-deps.mjs",
+    "scripts/init-submodules.mjs",
+    "scripts/ensure-skills.mjs",
+    "scripts/link-browser-server.mjs"
+  ],
   "workspaces": [
     "apps/*",
     "apps/*/plugins/*",
