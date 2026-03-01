@@ -115,7 +115,17 @@ import { diagnoseNoAIProvider } from "../services/version-compat";
 import { CORE_PLUGINS, OPTIONAL_CORE_PLUGINS } from "./core-plugins";
 import { createMiladyPlugin } from "./milady-plugin";
 
-/** Map of @elizaos plugin names to their statically imported modules. */
+/**
+ * Map of @elizaos plugin names to their statically imported modules.
+ *
+ * Note: Some OPTIONAL_CORE_PLUGINS are intentionally excluded from static imports:
+ * - plugin-cua, plugin-obsidian, plugin-code, plugin-repoprompt, plugin-claude-code-workbench:
+ *   These are specialized workflow plugins that may not be installed or have optional deps.
+ * - plugin-vision: Feature-gated with heavy native dependencies (TensorFlow, canvas).
+ *
+ * Excluded plugins fall through to dynamic import() which works in Node.js/CLI.
+ * For Electron builds, these plugins should be explicitly included if needed.
+ */
 const STATIC_ELIZA_PLUGINS: Record<string, unknown> = {
   "@elizaos/plugin-sql": pluginSql,
   "@elizaos/plugin-local-embedding": pluginLocalEmbedding,
