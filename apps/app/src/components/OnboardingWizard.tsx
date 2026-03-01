@@ -31,6 +31,7 @@ import {
   type SandboxPlatformStatus,
   type StylePreset,
 } from "../api-client";
+import { resolveApiUrl } from "../asset-url";
 import { getProviderLogo } from "../provider-logos";
 import { AvatarSelector } from "./AvatarSelector";
 import { PermissionsOnboardingSection } from "./PermissionsSection";
@@ -502,7 +503,7 @@ export function OnboardingWizard() {
                     .then(() => {
                       setState(
                         "customVrmUrl",
-                        `/api/avatar/vrm?t=${Date.now()}`,
+                        resolveApiUrl(`/api/avatar/vrm?t=${Date.now()}`),
                       );
                       requestAnimationFrame(() => URL.revokeObjectURL(url));
                     })

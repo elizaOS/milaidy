@@ -111,7 +111,7 @@ export function ChatMessage({
         <div
           className={`relative group px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words rounded-2xl ${
             isUser
-              ? "bg-accent text-accent-foreground rounded-br-md"
+              ? "bg-accent text-accent-fg rounded-br-md"
               : "bg-bg-accent border border-border text-txt rounded-bl-md"
           }`}
         >

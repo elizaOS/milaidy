@@ -242,14 +242,24 @@ export function ChatView() {
     }
   }, []);
 
-  // Smooth auto-scroll while streaming and on new messages.
+  // Auto-scroll on new messages. Use instant scroll when already near the
+  // bottom (or when the user is actively sending) to prevent the visible
+  // "scroll from top" effect that occurs when many background messages
+  // (e.g. coding-agent updates) arrive in rapid succession during smooth
+  // scrolling. Only smooth-scroll when the user has scrolled up and a new
+  // message nudges them back down.
   useEffect(() => {
     if (!chatSending && visibleMsgs.length === 0) {
       return;
     }
     const el = messagesRef.current;
     if (!el) return;
-    el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    const nearBottom = distanceFromBottom < 150;
+    el.scrollTo({
+      top: el.scrollHeight,
+      behavior: nearBottom ? "instant" : "smooth",
+    });
   }, [chatSending, visibleMsgs]);
 
   // Auto-resize textarea

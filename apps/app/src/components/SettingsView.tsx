@@ -188,7 +188,7 @@ function SettingsSidebar({
       <div className="p-4">
         <div className="flex items-center gap-3 mb-6">
           <div className="w-10 h-10 rounded-xl bg-accent flex items-center justify-center shadow-sm">
-            <Sliders className="w-5 h-5 text-accent-foreground" />
+            <Sliders className="w-5 h-5 text-accent-fg" />
           </div>
           <div>
             <h2 className="font-bold text-lg text-txt-strong">Settings</h2>
@@ -222,7 +222,7 @@ function SettingsSidebar({
                 onClick={() => onSectionChange(section.id)}
                 className={`flex items-center gap-3 px-3 py-3 rounded-xl text-left transition-all duration-200 min-w-fit lg:min-w-0 whitespace-nowrap lg:whitespace-normal ${
                   isActive
-                    ? "bg-accent text-accent-foreground shadow-md"
+                    ? "bg-accent text-accent-fg shadow-md"
                     : "text-txt hover:bg-bg-hover hover:shadow-sm"
                 }`}
               >
@@ -275,7 +275,7 @@ function UpdatesSection() {
           type="button"
           onClick={() => void loadUpdateStatus(true)}
           disabled={updateLoading}
-          className="flex items-center gap-2 px-4 py-2 bg-accent text-accent-foreground rounded-lg font-medium text-sm hover:opacity-90 transition-opacity disabled:opacity-50"
+          className="flex items-center gap-2 px-4 py-2 bg-accent text-accent-fg rounded-lg font-medium text-sm hover:opacity-90 transition-opacity disabled:opacity-50"
         >
           {updateLoading && <Loader2 className="w-4 h-4 animate-spin" />}
           Check for Updates
@@ -307,8 +307,8 @@ function AdvancedSection() {
           type="button"
           className="flex items-center gap-3 p-4 border border-border bg-bg rounded-lg hover:border-accent hover:bg-accent-subtle/50 transition-all text-left group"
         >
-          <div className="w-10 h-10 rounded-lg bg-accent-subtle flex items-center justify-center group-hover:bg-accent group-hover:text-accent-foreground transition-colors">
-            <Download className="w-5 h-5 text-accent group-hover:text-accent-foreground" />
+          <div className="w-10 h-10 rounded-lg bg-accent-subtle flex items-center justify-center group-hover:bg-accent group-hover:text-accent-fg transition-colors">
+            <Download className="w-5 h-5 text-accent group-hover:text-accent-fg" />
           </div>
           <div>
             <div className="font-medium text-sm">Export Agent</div>
@@ -320,8 +320,8 @@ function AdvancedSection() {
           type="button"
           className="flex items-center gap-3 p-4 border border-border bg-bg rounded-lg hover:border-accent hover:bg-accent-subtle/50 transition-all text-left group"
         >
-          <div className="w-10 h-10 rounded-lg bg-accent-subtle flex items-center justify-center group-hover:bg-accent group-hover:text-accent-foreground transition-colors">
-            <Upload className="w-5 h-5 text-accent group-hover:text-accent-foreground" />
+          <div className="w-10 h-10 rounded-lg bg-accent-subtle flex items-center justify-center group-hover:bg-accent group-hover:text-accent-fg transition-colors">
+            <Upload className="w-5 h-5 text-accent group-hover:text-accent-fg" />
           </div>
           <div>
             <div className="font-medium text-sm">Import Agent</div>

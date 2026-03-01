@@ -627,7 +627,28 @@ class StreamManager {
       case "tts": {
         // Raw PCM from TTS bridge via pipe:3 (4th stdio fd).
         // Format must match tts-stream-bridge output: s16le, 24kHz, mono.
-        return ["-f", "s16le", "-ar", "24000", "-ac", "1", "-i", "pipe:3"];
+        // -use_wallclock_as_timestamps 1: raw PCM has no timestamps, so FFmpeg
+        //   uses wall-clock time to sync with the video stream.
+        // -probesize/-analyzeduration: eliminate probe buffering for immediate start.
+        // -thread_queue_size: prevent queue overflow from high-frequency tick writes.
+        return [
+          "-use_wallclock_as_timestamps",
+          "1",
+          "-probesize",
+          "32",
+          "-analyzeduration",
+          "0",
+          "-thread_queue_size",
+          "512",
+          "-f",
+          "s16le",
+          "-ar",
+          "24000",
+          "-ac",
+          "1",
+          "-i",
+          "pipe:3",
+        ];
       }
       case "silent": {
         // Synthetic silent audio — always works, no hardware required.
