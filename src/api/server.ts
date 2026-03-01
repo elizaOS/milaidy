@@ -83,6 +83,7 @@ import {
 import { parseClampedInteger } from "../utils/number-parsing";
 import { handleAgentAdminRoutes } from "./agent-admin-routes";
 import { handleAgentLifecycleRoutes } from "./agent-lifecycle-routes";
+import { detectRuntimeModel } from "./agent-model";
 import { handleAgentTransferRoutes } from "./agent-transfer-routes";
 import { handleAppsHyperscapeRoutes } from "./apps-hyperscape-routes";
 import { handleAppsRoutes } from "./apps-routes";
@@ -13062,7 +13063,7 @@ export async function startApiServer(opts?: {
     config,
     agentState: initialAgentState,
     agentName,
-    model: hasRuntime ? "provided" : undefined,
+    model: hasRuntime ? detectRuntimeModel(opts.runtime ?? null) : undefined,
     startedAt:
       hasRuntime || initialAgentState === "starting" ? Date.now() : undefined,
     startup: initialStartup,
@@ -14052,6 +14053,7 @@ export async function startApiServer(opts?: {
     // AppManager doesn't need a runtime reference
     state.agentState = "running";
     state.agentName = rt.character.name ?? "Milady";
+    state.model = detectRuntimeModel(rt);
     state.startedAt = Date.now();
     state.startup = {
       phase: "running",
