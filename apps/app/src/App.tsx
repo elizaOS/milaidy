@@ -23,6 +23,7 @@ import { InventoryView } from "./components/InventoryView";
 import { KnowledgeView } from "./components/KnowledgeView";
 import { LifoSandboxView } from "./components/LifoSandboxView";
 import { LoadingScreen } from "./components/LoadingScreen";
+import { MemoryDebugPanel } from "./components/MemoryDebugPanel";
 import { Nav } from "./components/Nav";
 import { OnboardingWizard } from "./components/OnboardingWizard";
 import { PairingView } from "./components/PairingView";
@@ -37,7 +38,6 @@ import { useContextMenu } from "./hooks/useContextMenu";
 import { useLifoAutoPopout } from "./hooks/useLifoAutoPopout";
 import { isLifoPopoutMode } from "./lifo-popout";
 import { APPS_ENABLED, COMPANION_ENABLED, pathForTab } from "./navigation";
-import { MemoryDebugPanel } from "./components/MemoryDebugPanel";
 
 const CHAT_MOBILE_BREAKPOINT_PX = 1024;
 
@@ -163,8 +163,8 @@ export function App() {
     agentStatus?.state === "running"
       ? "bg-ok shadow-[0_0_8px_color-mix(in_srgb,var(--ok)_60%,transparent)]"
       : agentStatus?.state === "paused" ||
-        agentStatus?.state === "starting" ||
-        agentStatus?.state === "restarting"
+          agentStatus?.state === "starting" ||
+          agentStatus?.state === "restarting"
         ? "bg-warn"
         : agentStatus?.state === "error"
           ? "bg-danger"
@@ -173,10 +173,11 @@ export function App() {
     <div className="flex items-center gap-2 w-max">
       <button
         type="button"
-        className={`inline-flex items-center gap-2 px-3 py-2 border rounded-md text-[12px] font-semibold transition-all cursor-pointer ${mobileConversationsOpen
-          ? "border-accent bg-accent-subtle text-accent"
-          : "border-border bg-card text-txt hover:border-accent hover:text-accent"
-          }`}
+        className={`inline-flex items-center gap-2 px-3 py-2 border rounded-md text-[12px] font-semibold transition-all cursor-pointer ${
+          mobileConversationsOpen
+            ? "border-accent bg-accent-subtle text-accent"
+            : "border-border bg-card text-txt hover:border-accent hover:text-accent"
+        }`}
         onClick={() => {
           setMobileAutonomousOpen(false);
           setMobileConversationsOpen(true);
@@ -206,10 +207,11 @@ export function App() {
       </button>
       <button
         type="button"
-        className={`inline-flex items-center gap-2 px-3 py-2 border rounded-md text-[12px] font-semibold transition-all cursor-pointer ${mobileAutonomousOpen
-          ? "border-accent bg-accent-subtle text-accent"
-          : "border-border bg-card text-txt hover:border-accent hover:text-accent"
-          }`}
+        className={`inline-flex items-center gap-2 px-3 py-2 border rounded-md text-[12px] font-semibold transition-all cursor-pointer ${
+          mobileAutonomousOpen
+            ? "border-accent bg-accent-subtle text-accent"
+            : "border-border bg-card text-txt hover:border-accent hover:text-accent"
+        }`}
         onClick={() => {
           setMobileConversationsOpen(false);
           setMobileAutonomousOpen(true);
@@ -443,12 +445,13 @@ export function App() {
       <BugReportModal />
       {actionNotice && (
         <div
-          className={`fixed bottom-6 left-1/2 -translate-x-1/2 px-5 py-2 rounded-lg text-[13px] font-medium z-[10000] text-white ${actionNotice.tone === "error"
-            ? "bg-danger"
-            : actionNotice.tone === "success"
-              ? "bg-ok"
-              : "bg-accent"
-            }`}
+          className={`fixed bottom-6 left-1/2 -translate-x-1/2 px-5 py-2 rounded-lg text-[13px] font-medium z-[10000] text-white ${
+            actionNotice.tone === "error"
+              ? "bg-danger"
+              : actionNotice.tone === "success"
+                ? "bg-ok"
+                : "bg-accent"
+          }`}
         >
           {actionNotice.text}
         </div>

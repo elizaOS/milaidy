@@ -205,14 +205,14 @@ export async function handlePermissionRoutes(
         { id: "browser", required: ["accessibility"] },
         { id: "computeruse", required: ["accessibility", "screen-recording"] },
         { id: "vision", required: ["screen-recording"] },
-        { id: "coding-agent", required: [] }
+        { id: "coding-agent", required: [] },
       ];
 
       for (const cap of capabilities) {
         // If the user hasn't explicitly set enabled true/false in config:
         if (state.config.plugins.entries[cap.id]?.enabled === undefined) {
           // Check if all required permissions are granted (or not-applicable)
-          const allGranted = cap.required.every(permId => {
+          const allGranted = cap.required.every((permId) => {
             const pStatus = state.permissionStates?.[permId]?.status;
             return pStatus === "granted" || pStatus === "not-applicable";
           });
@@ -220,7 +220,7 @@ export async function handlePermissionRoutes(
           if (allGranted) {
             state.config.plugins.entries[cap.id] = {
               ...(state.config.plugins.entries[cap.id] || {}),
-              enabled: true
+              enabled: true,
             };
             configChanged = true;
           }

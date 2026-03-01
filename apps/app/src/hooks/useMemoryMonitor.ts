@@ -176,8 +176,7 @@ export function useMemoryMonitor(
         usedHeapSize: memInfo.usedJSHeapSize,
         totalHeapSize: memInfo.totalJSHeapSize,
         heapSizeLimit: memInfo.jsHeapSizeLimit,
-        usagePercent:
-          (memInfo.usedJSHeapSize / memInfo.jsHeapSizeLimit) * 100,
+        usagePercent: (memInfo.usedJSHeapSize / memInfo.jsHeapSizeLimit) * 100,
         timestamp: now,
       };
 

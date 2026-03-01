@@ -220,14 +220,16 @@ function SettingsSidebar({
                 key={section.id}
                 type="button"
                 onClick={() => onSectionChange(section.id)}
-                className={`flex items-center gap-3 px-3 py-3 rounded-xl text-left transition-all duration-200 min-w-fit lg:min-w-0 whitespace-nowrap lg:whitespace-normal ${isActive
+                className={`flex items-center gap-3 px-3 py-3 rounded-xl text-left transition-all duration-200 min-w-fit lg:min-w-0 whitespace-nowrap lg:whitespace-normal ${
+                  isActive
                     ? "bg-accent text-accent-fg shadow-md"
                     : "text-txt hover:bg-bg-hover hover:shadow-sm"
-                  }`}
+                }`}
               >
                 <span
-                  className={`w-9 h-9 flex items-center justify-center shrink-0 rounded-lg ${isActive ? "bg-accent-foreground/20" : "bg-bg-accent"
-                    }`}
+                  className={`w-9 h-9 flex items-center justify-center shrink-0 rounded-lg ${
+                    isActive ? "bg-accent-foreground/20" : "bg-bg-accent"
+                  }`}
                 >
                   <Icon className="w-4 h-4" />
                 </span>
@@ -422,7 +424,10 @@ export function SettingsView() {
       if (sections.length === 0) return;
 
       // If user scrolled to the very bottom, highlight the last section
-      if (root.scrollHeight - Math.ceil(root.scrollTop) <= root.clientHeight + 10) {
+      if (
+        root.scrollHeight - Math.ceil(root.scrollTop) <=
+        root.clientHeight + 10
+      ) {
         setActiveSection(sections[sections.length - 1].id);
         return;
       }
@@ -438,7 +443,9 @@ export function SettingsView() {
         }
       }
 
-      setActiveSection((prev) => (prev !== currentSection ? currentSection : prev));
+      setActiveSection((prev) =>
+        prev !== currentSection ? currentSection : prev,
+      );
     };
 
     root.addEventListener("scroll", handleScroll, { passive: true });
@@ -472,10 +479,11 @@ export function SettingsView() {
                 <button
                   key={t.id}
                   type="button"
-                  className={`p-4 border rounded-xl text-left transition-all duration-200 hover:border-accent hover:shadow-md hover:-translate-y-0.5 ${currentTheme === t.id
+                  className={`p-4 border rounded-xl text-left transition-all duration-200 hover:border-accent hover:shadow-md hover:-translate-y-0.5 ${
+                    currentTheme === t.id
                       ? "border-accent bg-accent-subtle shadow-md"
                       : "border-border bg-bg hover:bg-bg-hover"
-                    }`}
+                  }`}
                   onClick={() => setTheme(t.id)}
                 >
                   <div className="text-sm font-semibold text-txt-strong mb-1">

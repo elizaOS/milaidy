@@ -58,7 +58,6 @@ describe("permission routes", () => {
 
     expect(result.status).toBe(200);
     expect(result.payload).toMatchObject({
-      permissions: {},
       _shellEnabled: true,
       _platform: "darwin",
     });

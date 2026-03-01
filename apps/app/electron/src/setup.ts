@@ -350,7 +350,7 @@ export class ElectronCapacitorApp {
           app.getAppPath(),
           "assets",
           this.CapacitorFileConfig.electron?.splashScreenImageName ??
-          "splash.png",
+            "splash.png",
         ),
         windowWidth: 400,
         windowHeight: 400,
@@ -397,9 +397,7 @@ export class ElectronCapacitorApp {
     const isLifoPopoutFlag = (value: string | null): boolean => {
       if (value == null) return false;
       const normalized = value.trim().toLowerCase();
-      return (
-        normalized === "lifo"
-      );
+      return normalized === "lifo";
     };
 
     const getPopoutValueFromHash = (hash: string): string | null => {
@@ -527,14 +525,16 @@ export class ElectronCapacitorApp {
 
       return {
         action: "allow",
-        overrideBrowserWindowOptions: isLifoPopoutUrl(details.url) ? {
-          webPreferences: {
-            nodeIntegration: false,
-            contextIsolation: true,
-            autoplayPolicy: "no-user-gesture-required",
-            preload: preloadPath,
-          }
-        } : undefined
+        overrideBrowserWindowOptions: isLifoPopoutUrl(details.url)
+          ? {
+              webPreferences: {
+                nodeIntegration: false,
+                contextIsolation: true,
+                autoplayPolicy: "no-user-gesture-required",
+                preload: preloadPath,
+              },
+            }
+          : undefined,
       };
     });
 

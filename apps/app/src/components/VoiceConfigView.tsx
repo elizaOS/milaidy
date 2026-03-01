@@ -142,25 +142,25 @@ const PROVIDERS: Array<{
   hint: string;
   needsKey: boolean;
 }> = [
-    {
-      id: "elevenlabs",
-      label: "ElevenLabs",
-      hint: "High quality, realistic voices",
-      needsKey: true,
-    },
-    {
-      id: "edge",
-      label: "Edge TTS",
-      hint: "Free, Microsoft voices",
-      needsKey: false,
-    },
-    {
-      id: "simple-voice",
-      label: "Simple Voice",
-      hint: "Basic browser TTS",
-      needsKey: false,
-    },
-  ];
+  {
+    id: "elevenlabs",
+    label: "ElevenLabs",
+    hint: "High quality, realistic voices",
+    needsKey: true,
+  },
+  {
+    id: "edge",
+    label: "Edge TTS",
+    hint: "Free, Microsoft voices",
+    needsKey: false,
+  },
+  {
+    id: "simple-voice",
+    label: "Simple Voice",
+    hint: "Basic browser TTS",
+    needsKey: false,
+  },
+];
 
 const DEFAULT_ELEVEN_FAST_MODEL = "eleven_flash_v2_5";
 const REDACTED_SECRET = "[REDACTED]";
@@ -273,10 +273,10 @@ export function VoiceConfigView() {
       const normalizedElevenLabs =
         provider === "elevenlabs"
           ? {
-            ...voiceConfig.elevenlabs,
-            modelId:
-              voiceConfig.elevenlabs?.modelId ?? DEFAULT_ELEVEN_FAST_MODEL,
-          }
+              ...voiceConfig.elevenlabs,
+              modelId:
+                voiceConfig.elevenlabs?.modelId ?? DEFAULT_ELEVEN_FAST_MODEL,
+            }
           : voiceConfig.elevenlabs;
       const sanitizedKey = sanitizeApiKey(normalizedElevenLabs?.apiKey);
       if (normalizedElevenLabs) {
@@ -339,10 +339,11 @@ export function VoiceConfigView() {
               <button
                 key={p.id}
                 type="button"
-                className={`flex-1 px-3 py-2 text-xs cursor-pointer transition-colors border ${active
+                className={`flex-1 px-3 py-2 text-xs cursor-pointer transition-colors border ${
+                  active
                     ? "border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)]"
                     : "border-[var(--border)] bg-[var(--card)] text-[var(--text)] hover:border-[var(--accent)]"
-                  }`}
+                }`}
                 onClick={() => handleProviderChange(p.id)}
               >
                 <div className="font-semibold">{p.label}</div>
@@ -363,10 +364,11 @@ export function VoiceConfigView() {
             : `${providerInfo?.label} — No API key needed`}
         </span>
         <span
-          className={`text-[10px] px-1.5 py-0.5 border ${isConfigured
+          className={`text-[10px] px-1.5 py-0.5 border ${
+            isConfigured
               ? "border-green-600 text-green-600"
               : "border-yellow-600 text-yellow-600"
-            }`}
+          }`}
         >
           {isConfigured ? "Configured" : "Needs Setup"}
         </span>
@@ -436,10 +438,11 @@ export function VoiceConfigView() {
                   <button
                     key={preset.id}
                     type="button"
-                    className={`px-2 py-1.5 text-xs cursor-pointer transition-colors border text-left ${active
+                    className={`px-2 py-1.5 text-xs cursor-pointer transition-colors border text-left ${
+                      active
                         ? "border-[var(--accent)] bg-[var(--accent)]/10"
                         : "border-[var(--border)] bg-[var(--card)] hover:border-[var(--accent)]"
-                      }`}
+                    }`}
                     onClick={() => handleVoiceSelect(preset.voiceId)}
                   >
                     <div className="font-semibold">{preset.name}</div>

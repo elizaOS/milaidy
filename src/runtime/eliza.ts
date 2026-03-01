@@ -114,6 +114,7 @@ import { SandboxManager, type SandboxMode } from "../services/sandbox-manager";
 import { diagnoseNoAIProvider } from "../services/version-compat";
 import { CORE_PLUGINS, OPTIONAL_CORE_PLUGINS } from "./core-plugins";
 import { createMiladyPlugin } from "./milady-plugin";
+import { installDatabaseTrajectoryLogger } from "./trajectory-persistence";
 
 /**
  * Map of @elizaos plugin names to their statically imported modules.
@@ -3470,6 +3471,7 @@ export async function startEliza(
     await runtime.initialize();
     await waitForTrajectoryLoggerService(runtime, "runtime.initialize()");
     ensureTrajectoryLoggerEnabled(runtime, "runtime.initialize()");
+    installDatabaseTrajectoryLogger(runtime);
 
     // 8b. Ensure AutonomyService is available for trigger dispatch.
     // IGNORE_BOOTSTRAP=true prevents the bootstrap plugin (which normally

@@ -732,7 +732,8 @@ async function saveTrajectory(
   try {
     await executeRawSql(runtime, sql);
     return true;
-  } catch {
+  } catch (err) {
+    console.error("[trajectory-persistence] saveTrajectory error:", err);
     return false;
   }
 }
@@ -820,7 +821,11 @@ export function installDatabaseTrajectoryLogger(runtime: IAgentRuntime): void {
   if (!hasRuntimeDb(runtime)) return;
 
   const logger = resolveTrajectoryLogger(runtime);
-  if (!logger) return;
+  if (!logger) {
+    console.warn("[trajectory-persistence] installDatabaseTrajectoryLogger: no logger found to patch");
+    return;
+  }
+  console.warn("[trajectory-persistence] installDatabaseTrajectoryLogger: patched logger!");
 
   const loggerObject = logger as unknown as object;
   if (patchedLoggers.has(loggerObject)) return;
@@ -844,14 +849,14 @@ export function installDatabaseTrajectoryLogger(runtime: IAgentRuntime): void {
   const originalLogLlmCall =
     typeof logger.logLlmCall === "function"
       ? ((logger.logLlmCall as unknown as VariadicLoggerCall).bind(
-          logger,
-        ) as VariadicLoggerCall)
+        logger,
+      ) as VariadicLoggerCall)
       : null;
   const originalLogProviderAccess =
     typeof logger.logProviderAccess === "function"
       ? ((logger.logProviderAccess as unknown as VariadicLoggerCall).bind(
-          logger,
-        ) as VariadicLoggerCall)
+        logger,
+      ) as VariadicLoggerCall)
       : null;
 
   logger.logLlmCall = ((...args: unknown[]) => {
