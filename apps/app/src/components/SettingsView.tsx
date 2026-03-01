@@ -297,7 +297,7 @@ function UpdatesSection() {
 /* ── Advanced Section ─────────────────────────────────────────────────── */
 
 function AdvancedSection() {
-  const [showDangerConfirm, setShowDangerConfirm] = useState(false);
+  const { handleReset } = useApp();
 
   return (
     <div className="space-y-6">
@@ -339,12 +339,14 @@ function AdvancedSection() {
         <div className="p-4 space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <div className="font-medium text-sm">Reset All Settings</div>
-              <div className="text-xs text-muted">This cannot be undone</div>
+              <div className="font-medium text-sm">Reset Agent</div>
+              <div className="text-xs text-muted">
+                Wipe all data and return to onboarding
+              </div>
             </div>
             <button
               type="button"
-              onClick={() => setShowDangerConfirm(true)}
+              onClick={handleReset}
               className="px-4 py-2 border border-danger text-danger rounded-lg text-sm font-medium hover:bg-danger hover:text-danger-foreground transition-colors"
             >
               Reset
@@ -352,40 +354,6 @@ function AdvancedSection() {
           </div>
         </div>
       </div>
-
-      {showDangerConfirm && (
-        <Modal
-          open={showDangerConfirm}
-          onClose={() => setShowDangerConfirm(false)}
-          title="Confirm Reset"
-        >
-          <div className="space-y-4">
-            <p className="text-sm text-muted">
-              Are you sure you want to reset all settings? This action cannot be
-              undone.
-            </p>
-            <div className="flex gap-3 justify-end">
-              <button
-                type="button"
-                onClick={() => setShowDangerConfirm(false)}
-                className="px-4 py-2 border border-border rounded-lg text-sm"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  // Handle reset
-                  setShowDangerConfirm(false);
-                }}
-                className="px-4 py-2 bg-danger text-danger-foreground rounded-lg text-sm font-medium"
-              >
-                Yes, Reset Everything
-              </button>
-            </div>
-          </div>
-        </Modal>
-      )}
     </div>
   );
 }

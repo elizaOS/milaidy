@@ -284,6 +284,20 @@ export class AgentManager {
           );
         }
       }
+
+      // Also add milady-dist/node_modules to NODE_PATH for native module platform
+      // binaries (e.g., @img/sharp-darwin-arm64, @node-llama-cpp/mac-arm64-metal).
+      // These are external deps copied by copy-electron-plugins-and-deps.mjs.
+      const miladyDistModules = path.join(miladyDist, "node_modules");
+      if (fs.existsSync(miladyDistModules)) {
+        process.env.NODE_PATH = process.env.NODE_PATH
+          ? `${miladyDistModules}${path.delimiter}${process.env.NODE_PATH}`
+          : miladyDistModules;
+        diagnosticLog(
+          `[Agent] Added milady-dist node_modules to NODE_PATH: ${miladyDistModules}`,
+        );
+      }
+
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       require("node:module").Module._initPaths();
 
