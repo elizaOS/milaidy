@@ -36,7 +36,7 @@ Priority order: runtime(10) > permissions(20) > wallet(30) > provider(40) >
 
 New module onboarding:
 1. Create src/awareness/contributors/{name}.ts implementing AwarenessContributor
-2. Register in plugin.awarenessContributors array
+2. Add to builtinContributors array in src/awareness/contributors/index.ts
 3. Call awarenessRegistry.invalidate('event') from relevant API routes if needed
 4. Done — zero core code changes required
 
