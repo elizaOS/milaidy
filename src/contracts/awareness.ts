@@ -23,7 +23,8 @@ export type AwarenessInvalidationEvent =
   | "wallet-updated"
   | "provider-changed"
   | "config-changed"
-  | "runtime-restarted";
+  | "runtime-restarted"
+  | "opinion-updated";
 
 export interface AwarenessContributor {
   /** Unique identifier, e.g. "wallet", "permissions". */
