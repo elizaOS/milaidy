@@ -1168,7 +1168,7 @@ function discoverPluginsFromManifest(): PluginEntry[] {
       // Keys that are auto-injected by infrastructure and should never be
       // exposed as user-facing "config keys" or parameter definitions.
       const HIDDEN_KEYS = new Set(["VERCEL_OIDC_TOKEN"]);
-      const discovered = index.plugins
+      const entries = index.plugins
         .map((p) => {
           const category = categorizePlugin(p.id);
           const envKey = p.envKey;
@@ -1225,52 +1225,9 @@ function discoverPluginsFromManifest(): PluginEntry[] {
           };
         })
         .sort((a, b) => a.name.localeCompare(b.name));
-      // Ensure Eliza Cloud appears in AI Settings even if registry metadata
-      // shape drifts or plugin indexing misses it in some builds.
-      if (!discovered.some((p) => p.id === "elizacloud")) {
-        const envKey = "ELIZAOS_CLOUD_API_KEY";
-        const parameters = buildParamDefs({
-          ELIZAOS_CLOUD_API_KEY: {
-            type: "string",
-            description: "Eliza Cloud API key",
-            required: true,
-            sensitive: true,
-          },
-        });
-        const validation = validatePluginConfig(
-          "elizacloud",
-          "ai-provider",
-          envKey,
-          [envKey],
-          undefined,
-          [
-            {
-              key: envKey,
-              required: true,
-              sensitive: true,
-              type: "string",
-              description: "Eliza Cloud API key",
-              default: undefined,
-            },
-          ],
-        );
-        discovered.push({
-          id: "elizacloud",
-          name: "Eliza Cloud",
-          description: "Managed cloud models and services.",
-          enabled: false,
-          configured: Boolean(process.env[envKey]),
-          envKey,
-          category: "ai-provider",
-          configKeys: [envKey],
-          parameters,
-          validationErrors: validation.errors,
-          validationWarnings: validation.warnings,
-        });
-      }
 
-      const entries = discovered.sort((a, b) => a.name.localeCompare(b.name));
       applyWhatsAppQrOverride(entries, resolveDefaultAgentWorkspaceDir());
+
       return entries;
     } catch (err) {
       logger.debug(
@@ -1290,8 +1247,6 @@ function categorizePlugin(
   id: string,
 ): "ai-provider" | "connector" | "streaming" | "database" | "feature" {
   const aiProviders = [
-    "elizacloud",
-    "eliza-cloud",
     "openai",
     "anthropic",
     "groq",
@@ -9108,6 +9063,7 @@ async function handleRequest(
       }
       proof = proofResult.proof;
     }
+
     const agentName = body.name || state.agentName || "Milady Agent";
     const endpoint = body.endpoint || "";
     const result = await dropService.mintWithWhitelist(
