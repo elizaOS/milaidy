@@ -142,6 +142,7 @@
     "pg": "^8.16.3",
     "telegraf": "^4.16.3",
     "whisper-node": "^1.1.1",
+    "@opinion-labs/opinion-clob-sdk": "^0.5.3",
     "ws": "^8.19.0",
     "zod": "^4.3.6"
   },
