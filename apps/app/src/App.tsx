@@ -37,6 +37,7 @@ import { useContextMenu } from "./hooks/useContextMenu";
 import { useLifoAutoPopout } from "./hooks/useLifoAutoPopout";
 import { isLifoPopoutMode } from "./lifo-popout";
 import { APPS_ENABLED, COMPANION_ENABLED, pathForTab } from "./navigation";
+import { MemoryDebugPanel } from "./components/MemoryDebugPanel";
 
 const CHAT_MOBILE_BREAKPOINT_PX = 1024;
 
@@ -438,6 +439,7 @@ export function App() {
         }}
       />
       <RestartBanner />
+      <MemoryDebugPanel />
       <BugReportModal />
       {actionNotice && (
         <div

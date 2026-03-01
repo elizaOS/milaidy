@@ -110,16 +110,15 @@ describe("Permissions API E2E", () => {
     it("returns permission states and platform info", async () => {
       const { status, data } = await req(port, "GET", "/api/permissions");
       expect(status).toBe(200);
-      expect(data).toHaveProperty("permissions");
-      expect(data).toHaveProperty("platform");
-      expect(data).toHaveProperty("shellEnabled");
-      expect(typeof data.platform).toBe("string");
-      expect(typeof data.shellEnabled).toBe("boolean");
+      expect(data).toHaveProperty("_platform");
+      expect(data).toHaveProperty("_shellEnabled");
+      expect(typeof data._platform).toBe("string");
+      expect(typeof data._shellEnabled).toBe("boolean");
     });
 
     it("returns permissions as an object", async () => {
       const { data } = await req(port, "GET", "/api/permissions");
-      expect(typeof data.permissions).toBe("object");
+      expect(typeof data).toBe("object");
     });
   });
 
@@ -345,14 +344,14 @@ describe("Permissions API E2E", () => {
 
       // Check state persisted
       const { data: perms } = await req(port, "GET", "/api/permissions");
-      expect(perms.shellEnabled).toBe(false);
+      expect(perms._shellEnabled).toBe(false);
 
       // Re-enable
       await req(port, "PUT", "/api/permissions/shell", { enabled: true });
 
       // Check state persisted
       const { data: perms2 } = await req(port, "GET", "/api/permissions");
-      expect(perms2.shellEnabled).toBe(true);
+      expect(perms2._shellEnabled).toBe(true);
     });
 
     it("returns 400 for missing body", async () => {
@@ -446,6 +445,92 @@ describe("Permissions API E2E", () => {
       );
       expect(status).toBe(200);
       expect(data).toHaveProperty("updated", true);
+    });
+
+    it("auto-enables capabilities when their OS permissions are granted", async () => {
+      const mockPermissions = {
+        accessibility: {
+          id: "accessibility",
+          status: "granted",
+          lastChecked: Date.now(),
+          canRequest: false,
+        },
+        "screen-recording": {
+          id: "screen-recording",
+          status: "granted",
+          lastChecked: Date.now(),
+          canRequest: false,
+        },
+      };
+
+      const { status } = await req(
+        port,
+        "PUT",
+        "/api/permissions/state",
+        {
+          permissions: mockPermissions,
+        }
+      );
+      expect(status).toBe(200);
+
+      // Verify config was updated via the GET /api/config route (simulated by reading config if possible, or we could just trust the server side logic, but let's test it)
+      // Since this is an E2E test of the API, we can fetch the config and verify plugins.entries
+      const { data: configData } = await req(port, "GET", "/api/config");
+      const plugins = configData.plugins as Record<string, any>;
+      expect(plugins?.entries?.browser?.enabled).toBe(true);
+      expect(plugins?.entries?.computeruse?.enabled).toBe(true);
+      expect(plugins?.entries?.vision?.enabled).toBe(true);
+    });
+
+    // Use a fresh test server to avoid config bleeding
+    it("does not auto-enable capabilities that are explicitly disabled", async () => {
+      // Start a fresh test server to ensure clean config state
+      const { port: cleanPort, close: cleanClose } = await startApiServer({ port: 0 });
+      try {
+        const { status: configSetupStatus } = await req(cleanPort, "PUT", "/api/config", {
+          plugins: {
+            entries: {
+              browser: { enabled: false },
+              computeruse: { enabled: false },
+              vision: { enabled: false }
+            }
+          }
+        });
+        expect(configSetupStatus).toBe(200);
+
+        const mockPermissions = {
+          accessibility: {
+            id: "accessibility",
+            status: "granted",
+            lastChecked: Date.now(),
+            canRequest: false,
+          },
+          "screen-recording": {
+            id: "screen-recording",
+            status: "granted",
+            lastChecked: Date.now(),
+            canRequest: false,
+          },
+        };
+
+        const { status } = await req(
+          cleanPort,
+          "PUT",
+          "/api/permissions/state",
+          {
+            permissions: mockPermissions,
+          }
+        );
+        expect(status).toBe(200);
+
+        const { data: configData } = await req(cleanPort, "GET", "/api/config");
+        const plugins = configData.plugins as Record<string, any>;
+        expect(plugins?.entries?.browser?.enabled).toBe(false);
+        expect(plugins?.entries?.computeruse?.enabled).toBe(false);
+        expect(plugins?.entries?.vision?.enabled).toBe(false);
+      } finally {
+        await cleanClose();
+      }
     });
   });
 

@@ -1,4 +1,4 @@
-import { type CSSProperties, useState } from "react";
+import { type CSSProperties, useEffect, useRef, useState } from "react";
 import { type AgentMode, IS_POPOUT, toggleAlwaysOnTop } from "./helpers";
 
 function formatUptime(seconds: number): string {
@@ -49,6 +49,18 @@ export function StatusBar({
 }) {
   const isLive = streamLive;
   const [pinned, setPinned] = useState(IS_POPOUT); // popout starts pinned
+  const popoutPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Cleanup popout polling interval on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      if (popoutPollRef.current) {
+        clearInterval(popoutPollRef.current);
+        popoutPollRef.current = null;
+      }
+    };
+  }, []);
+
   const modeLabel =
     mode === "gaming"
       ? "gaming"
@@ -298,10 +310,17 @@ export function StatusBar({
                 window.dispatchEvent(
                   new CustomEvent("stream-popout", { detail: "opened" }),
                 );
+                // Clear any existing poll before creating a new one
+                if (popoutPollRef.current) {
+                  clearInterval(popoutPollRef.current);
+                }
                 // Poll for popout close and notify to switch back
-                const poll = setInterval(() => {
+                popoutPollRef.current = setInterval(() => {
                   if (popoutWin.closed) {
-                    clearInterval(poll);
+                    if (popoutPollRef.current) {
+                      clearInterval(popoutPollRef.current);
+                      popoutPollRef.current = null;
+                    }
                     window.dispatchEvent(
                       new CustomEvent("stream-popout", { detail: "closed" }),
                     );
