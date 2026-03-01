@@ -52,7 +52,7 @@ import {
   resolveSessionKeyFromRoom,
 } from "../providers/session-bridge.js";
 import { createSelfStatusProvider } from "../providers/self-status.js";
-import { createSimpleModeProvider } from "../providers/simple-mode.js";
+import { createSimpleModeProvider, resolveInteractionMode } from "../providers/simple-mode.js";
 import { DEFAULT_AGENT_WORKSPACE_DIR } from "../providers/workspace.js";
 import { createWorkspaceProvider } from "../providers/workspace-provider.js";
 import { AwarenessRegistry, setGlobalAwarenessRegistry } from "../awareness/registry.js";
@@ -429,13 +429,9 @@ export function createMiladyPlugin(config?: MiladyPluginConfig): Plugin {
 
     async get(
       runtime: IAgentRuntime,
-      _message: Memory,
+      message: Memory,
       _state: State,
     ): Promise<ProviderResult> {
-      if (!catalogCache) {
-        catalogCache = generateCatalogPrompt({ includeExamples: true });
-      }
-
       // Build a set of currently-loaded plugin short IDs
       const loadedIds = new Set(
         (runtime.plugins ?? []).map((p) =>
@@ -464,37 +460,51 @@ export function createMiladyPlugin(config?: MiladyPluginConfig): Plugin {
         });
       }
 
+      // Instruction lines shared by both modes
+      const instructionLines = [
+        "## UI Response Instructions",
+        "",
+        "### Plugin configuration forms",
+        "When a user asks to configure, set up, enable, or install a plugin, include a `[CONFIG:pluginId]` marker in your response.",
+        "The pluginId is the SHORT id from the list below (e.g. `telegram`, `knowledge`, `openai`).",
+        "You can use [CONFIG:pluginId] for ANY plugin in the list — both [active] and [available] ones.",
+        'Example: "Let me pull up the configuration for the knowledge plugin. [CONFIG:knowledge]"',
+        "The marker will be replaced with an interactive config form in the UI.",
+        "Default behavior: when the user explicitly asks you to apply plugin settings, prefer calling CONFIGURE_PLUGIN directly.",
+        "Use [CONFIG:pluginId] when values are missing, ambiguous, or the user wants to review before applying.",
+        "",
+        "### Rich interactive UI",
+        "When showing dashboards, analytics, status overviews, or interactive UI, output UiSpec JSON in fenced ```json blocks.",
+        "",
+        "### Normal replies",
+        "For normal conversational replies, respond with plain text only — do not output JSON or markers.",
+        "",
+        "### Installing plugins",
+        "Plugins marked [available] are NOT installed yet. When a user wants to use an [available] plugin,",
+        "use the INSTALL_PLUGIN action with the plugin's short ID to install it automatically.",
+        "After installation the agent restarts and the plugin becomes [active].",
+        "You can also include [CONFIG:pluginId] in your response to show the configuration form.",
+        "",
+        "### All available plugins (use the short id for CONFIG markers and INSTALL_PLUGIN):",
+        "Plugins marked [active] are currently loaded. Plugins marked [available] need to be installed first via INSTALL_PLUGIN.",
+        ...pluginLines,
+      ];
+
+      // In simple mode, skip the heavy component catalog (~7k tokens)
+      const mode = resolveInteractionMode(message);
+      if (mode === "simple") {
+        return {
+          text: instructionLines.join("\n"),
+        };
+      }
+
+      // Power mode: include the full component catalog
+      if (!catalogCache) {
+        catalogCache = generateCatalogPrompt({ includeExamples: true });
+      }
+
       return {
-        text: [
-          catalogCache,
-          "",
-          "## UI Response Instructions",
-          "",
-          "### Plugin configuration forms",
-          "When a user asks to configure, set up, enable, or install a plugin, include a `[CONFIG:pluginId]` marker in your response.",
-          "The pluginId is the SHORT id from the list below (e.g. `telegram`, `knowledge`, `openai`).",
-          "You can use [CONFIG:pluginId] for ANY plugin in the list — both [active] and [available] ones.",
-          'Example: "Let me pull up the configuration for the knowledge plugin. [CONFIG:knowledge]"',
-          "The marker will be replaced with an interactive config form in the UI.",
-          "Default behavior: when the user explicitly asks you to apply plugin settings, prefer calling CONFIGURE_PLUGIN directly.",
-          "Use [CONFIG:pluginId] when values are missing, ambiguous, or the user wants to review before applying.",
-          "",
-          "### Rich interactive UI",
-          "When showing dashboards, analytics, status overviews, or interactive UI, output UiSpec JSON in fenced ```json blocks.",
-          "",
-          "### Normal replies",
-          "For normal conversational replies, respond with plain text only — do not output JSON or markers.",
-          "",
-          "### Installing plugins",
-          "Plugins marked [available] are NOT installed yet. When a user wants to use an [available] plugin,",
-          "use the INSTALL_PLUGIN action with the plugin's short ID to install it automatically.",
-          "After installation the agent restarts and the plugin becomes [active].",
-          "You can also include [CONFIG:pluginId] in your response to show the configuration form.",
-          "",
-          "### All available plugins (use the short id for CONFIG markers and INSTALL_PLUGIN):",
-          "Plugins marked [active] are currently loaded. Plugins marked [available] need to be installed first via INSTALL_PLUGIN.",
-          ...pluginLines,
-        ].join("\n"),
+        text: [catalogCache, "", ...instructionLines].join("\n"),
       };
     },
   };

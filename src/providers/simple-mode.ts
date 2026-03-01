@@ -8,7 +8,7 @@ import type {
 
 export type InteractionMode = "simple" | "power";
 
-function resolveInteractionMode(message: Memory): InteractionMode {
+export function resolveInteractionMode(message: Memory): InteractionMode {
   const simpleFlag = message.content?.simple;
   if (typeof simpleFlag === "boolean") {
     return simpleFlag ? "simple" : "power";
