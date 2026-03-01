@@ -88,6 +88,19 @@ plugins/
 # Electron build directories
 apps/app/electron/app-build/
 apps/app/electron/milady-dist/
+dist-electron/
+
+# Build artifacts - installers and archives
+*.dmg
+*.AppImage
+*.exe
+*.msi
+*.deb
+*.rpm
+apps/app/electron/*.tar.gz
+
+# Test output directories
+test-output/
 
 # External plugin repos (not submodules)
 elizaos-plugins/

@@ -51,6 +51,10 @@ function readJson(p) {
 
 function copyRecursive(src, dest) {
   if (!fs.existsSync(src)) return false;
+  // Remove existing destination to avoid EEXIST errors with symlinks
+  if (fs.existsSync(dest)) {
+    fs.rmSync(dest, { recursive: true, force: true });
+  }
   fs.mkdirSync(path.dirname(dest), { recursive: true });
   fs.cpSync(src, dest, { recursive: true, force: true, dereference: true });
   return true;
@@ -211,6 +215,225 @@ for (const file of dataFiles) {
 }
 
 console.log("Done copying PGLite files");
+
+// ============================================================================
+// Native module handling
+// ============================================================================
+// Native modules (node-llama-cpp, sharp, onnxruntime-node, etc.) are marked as
+// external in tsdown.electron.config.ts. They're loaded from milady-dist/node_modules
+// at runtime. Many have platform-specific binary packages stored in bun's .bun/
+// directory that need to be copied to the proper location.
+
+console.log("Copying native modules and platform binaries...");
+
+const bunDir = path.join(NODE_MODULES, ".bun");
+const bunDirExists = fs.existsSync(bunDir);
+const bunEntries = bunDirExists ? fs.readdirSync(bunDir) : [];
+
+// Detect current platform and architecture
+const osPlatform = process.platform; // darwin, linux, win32
+const osArch = process.arch; // arm64, x64
+
+/**
+ * Find and copy a package from bun's .bun directory.
+ * @param {string} pkgPattern - Package name pattern (e.g., "@node-llama-cpp+mac-arm64-metal")
+ * @param {string} destPkgName - Destination package name (e.g., "@node-llama-cpp/mac-arm64-metal")
+ * @param {string|null} targetVersion - Preferred version to match, or null for highest
+ * @returns {boolean} - Whether the package was copied
+ */
+function copyBunPackage(pkgPattern, destPkgName, targetVersion = null) {
+  if (!bunDirExists) return false;
+
+  const prefix = `${pkgPattern}@`;
+  let matchingEntry = null;
+
+  if (targetVersion) {
+    // Try exact version match first
+    matchingEntry = bunEntries.find((e) => e === `${prefix}${targetVersion}`);
+  }
+  if (!matchingEntry) {
+    // Fall back to highest version available
+    const candidates = bunEntries.filter((e) => e.startsWith(prefix)).sort();
+    matchingEntry = candidates[candidates.length - 1];
+  }
+
+  if (!matchingEntry) return false;
+
+  // Determine the nested path structure in .bun
+  const [scope, shortName] = destPkgName.startsWith("@")
+    ? destPkgName.split("/")
+    : [null, destPkgName];
+
+  const srcPath = scope
+    ? path.join(bunDir, matchingEntry, "node_modules", scope, shortName)
+    : path.join(bunDir, matchingEntry, "node_modules", shortName);
+
+  const destPath = scope
+    ? path.join(MILADY_DIST_NM, scope, shortName)
+    : path.join(MILADY_DIST_NM, shortName);
+
+  if (copyRecursive(srcPath, destPath)) {
+    const version = matchingEntry.split("@").pop();
+    console.log(`  Copied ${destPkgName} (${version})`);
+    return true;
+  }
+  return false;
+}
+
+// ----------------------------------------------------------------------------
+// 1. node-llama-cpp platform binaries
+// ----------------------------------------------------------------------------
+console.log("  [node-llama-cpp]");
+
+// Get node-llama-cpp version from milady-dist to match the correct binary
+const nlcPkgPath = path.join(MILADY_DIST_NM, "node-llama-cpp", "package.json");
+let nlcVersion = null;
+if (fs.existsSync(nlcPkgPath)) {
+  try {
+    nlcVersion = readJson(nlcPkgPath).version;
+  } catch {}
+}
+
+// Map platform/arch to node-llama-cpp package names
+// Note: node-llama-cpp has GPU-specific variants for Linux/Windows
+const nlcPlatformMap = {
+  darwin: {
+    arm64: ["mac-arm64-metal"],
+    x64: ["mac-x64"],
+  },
+  linux: {
+    arm64: ["linux-arm64"],
+    x64: ["linux-x64", "linux-x64-cuda", "linux-x64-vulkan"],
+  },
+  win32: {
+    arm64: ["win-arm64"],
+    x64: ["win-x64", "win-x64-cuda", "win-x64-vulkan"],
+  },
+};
+
+const nlcPlatformPkgs = nlcPlatformMap[osPlatform]?.[osArch] ?? [];
+for (const platformPkg of nlcPlatformPkgs) {
+  const copied = copyBunPackage(
+    `@node-llama-cpp+${platformPkg}`,
+    `@node-llama-cpp/${platformPkg}`,
+    nlcVersion,
+  );
+  if (!copied && platformPkg === nlcPlatformPkgs[0]) {
+    // Only warn if the primary platform package is missing
+    console.warn(`    Warning: @node-llama-cpp/${platformPkg} not found`);
+  }
+}
+
+// Copy lifecycle-utils (node-llama-cpp dependency)
+copyBunPackage("lifecycle-utils", "lifecycle-utils");
+
+// ----------------------------------------------------------------------------
+// 2. sharp platform binaries
+// ----------------------------------------------------------------------------
+console.log("  [sharp]");
+
+// Read sharp's optionalDependencies to get exact versions needed
+const sharpPkgPath = path.join(MILADY_DIST_NM, "sharp", "package.json");
+const sharpPkg = fs.existsSync(sharpPkgPath) ? readJson(sharpPkgPath) : {};
+const sharpOptDeps = sharpPkg.optionalDependencies ?? {};
+
+// Map platform/arch to sharp package names
+const sharpPlatformMap = {
+  darwin: {
+    arm64: ["@img/sharp-darwin-arm64", "@img/sharp-libvips-darwin-arm64"],
+    x64: ["@img/sharp-darwin-x64", "@img/sharp-libvips-darwin-x64"],
+  },
+  linux: {
+    arm64: ["@img/sharp-linux-arm64", "@img/sharp-libvips-linux-arm64"],
+    x64: ["@img/sharp-linux-x64", "@img/sharp-libvips-linux-x64"],
+  },
+  win32: {
+    x64: ["@img/sharp-win32-x64"],
+    ia32: ["@img/sharp-win32-ia32"],
+  },
+};
+
+const sharpPlatformPkgs = sharpPlatformMap[osPlatform]?.[osArch] ?? [];
+for (const pkgName of sharpPlatformPkgs) {
+  // Convert @img/sharp-darwin-arm64 to @img+sharp-darwin-arm64 for bun pattern
+  const bunPattern = pkgName.replace("/", "+");
+  // Use exact version from sharp's optionalDependencies
+  const expectedVersion = sharpOptDeps[pkgName] ?? null;
+  copyBunPackage(bunPattern, pkgName, expectedVersion);
+}
+
+// Copy sharp's runtime dependencies
+copyBunPackage("detect-libc", "detect-libc");
+copyBunPackage("color", "color");
+copyBunPackage("color-string", "color-string");
+copyBunPackage("simple-swizzle", "simple-swizzle");
+
+// ----------------------------------------------------------------------------
+// 3. @reflink platform binaries
+// ----------------------------------------------------------------------------
+console.log("  [@reflink]");
+
+const reflinkPlatformMap = {
+  darwin: {
+    arm64: "@reflink/reflink-darwin-arm64",
+    x64: "@reflink/reflink-darwin-x64",
+  },
+  linux: {
+    arm64: "@reflink/reflink-linux-arm64-gnu",
+    x64: "@reflink/reflink-linux-x64-gnu",
+  },
+};
+
+const reflinkPkg = reflinkPlatformMap[osPlatform]?.[osArch];
+if (reflinkPkg) {
+  const bunPattern = reflinkPkg.replace("/", "+");
+  copyBunPackage(bunPattern, reflinkPkg);
+}
+
+// Also copy the main @reflink/reflink package
+copyBunPackage("@reflink+reflink", "@reflink/reflink");
+
+// ----------------------------------------------------------------------------
+// 4. onnxruntime-node (has native binaries in main package)
+// ----------------------------------------------------------------------------
+console.log("  [onnxruntime-node]");
+
+// Get onnxruntime-node version
+const onnxPkgPath = path.join(
+  MILADY_DIST_NM,
+  "onnxruntime-node",
+  "package.json",
+);
+let onnxVersion = null;
+if (fs.existsSync(onnxPkgPath)) {
+  try {
+    onnxVersion = readJson(onnxPkgPath).version;
+  } catch {}
+}
+copyBunPackage("onnxruntime-node", "onnxruntime-node", onnxVersion);
+copyBunPackage("onnxruntime-common", "onnxruntime-common", onnxVersion);
+
+// ----------------------------------------------------------------------------
+// 5. fsevents (macOS only)
+// ----------------------------------------------------------------------------
+if (osPlatform === "darwin") {
+  console.log("  [fsevents]");
+  copyBunPackage("fsevents", "fsevents");
+}
+
+// ----------------------------------------------------------------------------
+// 6. canvas (has native binaries)
+// ----------------------------------------------------------------------------
+console.log("  [canvas]");
+copyBunPackage("canvas", "canvas");
+
+// ----------------------------------------------------------------------------
+// 7. koffi (native FFI library)
+// ----------------------------------------------------------------------------
+console.log("  [koffi]");
+copyBunPackage("koffi", "koffi");
+
+console.log("Done copying native modules");
 
 console.log("milady-dist/node_modules contents:");
 try {

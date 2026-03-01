@@ -78,6 +78,11 @@ vi.mock("../../src/components/CharacterView", () => ({
     React.createElement("section", null, "CharacterView Ready"),
 }));
 
+vi.mock("../../src/components/CompanionView", () => ({
+  CompanionView: () =>
+    React.createElement("section", null, "CompanionView Ready"),
+}));
+
 vi.mock("../../src/components/TriggersView", () => ({
   TriggersView: () =>
     React.createElement("section", null, "TriggersView Ready"),
@@ -275,6 +280,7 @@ describe("pages navigation smoke (e2e)", () => {
 
     const expectedByPrimaryTab: Record<Tab, string> = {
       chat: "ChatView Ready",
+      companion: "ChatView Ready", // falls back to ChatView when feature flag is off
       stream: "StreamView Ready",
       character: "CharacterView Ready",
       wallets: "InventoryView Ready",
@@ -384,6 +390,7 @@ describe("pages navigation smoke (e2e)", () => {
 
     const expectedByTab: Array<{ tab: Tab; token: string }> = [
       { tab: "chat", token: "ChatView Ready" },
+      { tab: "companion", token: "ChatView Ready" }, // falls back to ChatView when feature flag is off
       { tab: "apps", token: "AppsPageView Ready" },
       { tab: "character", token: "CharacterView Ready" },
       { tab: "wallets", token: "InventoryView Ready" },

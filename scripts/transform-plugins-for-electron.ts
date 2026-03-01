@@ -104,6 +104,23 @@ function transformElizaFile(): void {
   console.log("Reading eliza.ts...");
   let content = fs.readFileSync(ELIZA_PATH, "utf-8");
 
+  // Check if already transformed (idempotent check)
+  // The file is considered already transformed if it has BUNDLED_PLUGINS or
+  // if it has static STATIC_ELIZA_PLUGINS with a synchronous function
+  if (content.includes("const BUNDLED_PLUGINS:")) {
+    console.log("File already has BUNDLED_PLUGINS - already transformed, skipping.");
+    return;
+  }
+
+  // Also check for the manual static imports pattern (from our previous refactor)
+  if (
+    content.includes("const STATIC_ELIZA_PLUGINS:") &&
+    content.includes("function resolveStaticElizaPlugin(pluginName: string): unknown | null")
+  ) {
+    console.log("File already has static STATIC_ELIZA_PLUGINS with sync function - already transformed, skipping.");
+    return;
+  }
+
   // Find the location to insert static imports (after the last import from @elizaos/core)
   const coreImportMatch = content.match(/from "@elizaos\/core";/);
   if (!coreImportMatch) {
@@ -123,7 +140,7 @@ function transformElizaFile(): void {
     staticImports +
     content.slice(insertPos);
 
-  // Find and replace the resolveStaticElizaPlugin function
+  // Find and replace the resolveStaticElizaPlugin function (async version)
   const funcStartPattern = new RegExp(
     "async function resolveStaticElizaPlugin\\(\\s*" +
       "pluginName: string,?\\s*\\):\\s*" +
@@ -132,7 +149,18 @@ function transformElizaFile(): void {
   const funcStartMatch = content.match(funcStartPattern);
 
   if (!funcStartMatch) {
-    throw new Error("Could not find resolveStaticElizaPlugin function");
+    // Try sync pattern as fallback (from manual refactoring)
+    console.log("No async resolveStaticElizaPlugin found - checking for sync version...");
+    const syncPattern = /function resolveStaticElizaPlugin\(\s*pluginName: string\s*\):\s*unknown \| null\s*\{/;
+    if (syncPattern.test(content)) {
+      console.log("Found sync resolveStaticElizaPlugin - file was manually refactored, skipping function replacement.");
+      // Just write the static imports we added
+      console.log("Writing transformed eliza.ts with additional static imports...");
+      fs.writeFileSync(ELIZA_PATH, content);
+      console.log("Done! Added BUNDLED_PLUGINS to eliza.ts.");
+      return;
+    }
+    throw new Error("Could not find resolveStaticElizaPlugin function (neither async nor sync version)");
   }
 
   const funcStart = content.indexOf(funcStartMatch[0]);

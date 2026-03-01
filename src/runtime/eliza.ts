@@ -45,6 +45,42 @@ import {
   type TargetInfo,
   type UUID,
 } from "@elizaos/core";
+import * as pluginAgentOrchestrator from "@elizaos/plugin-agent-orchestrator";
+import * as pluginAgentSkills from "@elizaos/plugin-agent-skills";
+import * as pluginAnthropic from "@elizaos/plugin-anthropic";
+import * as pluginBrowser from "@elizaos/plugin-browser";
+import * as pluginCli from "@elizaos/plugin-cli";
+import * as pluginCodingAgent from "@elizaos/plugin-coding-agent";
+import * as pluginComputeruse from "@elizaos/plugin-computeruse";
+import * as pluginCron from "@elizaos/plugin-cron";
+import * as pluginDiscord from "@elizaos/plugin-discord";
+import * as pluginEdgeTts from "@elizaos/plugin-edge-tts";
+import * as pluginElevenlabs from "@elizaos/plugin-elevenlabs";
+import * as pluginElizacloud from "@elizaos/plugin-elizacloud";
+import * as pluginExperience from "@elizaos/plugin-experience";
+import * as pluginForm from "@elizaos/plugin-form";
+import * as pluginGoogleGenai from "@elizaos/plugin-google-genai";
+import * as pluginGroq from "@elizaos/plugin-groq";
+import * as pluginKnowledge from "@elizaos/plugin-knowledge";
+import * as pluginLocalEmbedding from "@elizaos/plugin-local-embedding";
+import * as pluginOllama from "@elizaos/plugin-ollama";
+import * as pluginOpenai from "@elizaos/plugin-openai";
+import * as pluginOpenrouter from "@elizaos/plugin-openrouter";
+import * as pluginPdf from "@elizaos/plugin-pdf";
+import * as pluginPersonality from "@elizaos/plugin-personality";
+import * as pluginPluginManager from "@elizaos/plugin-plugin-manager";
+import * as pluginRolodex from "@elizaos/plugin-rolodex";
+import * as pluginSecretsManager from "@elizaos/plugin-secrets-manager";
+import * as pluginShell from "@elizaos/plugin-shell";
+// Static plugin imports - plugins with proper type declarations are imported
+// statically to enable TypeScript type checking. Plugins without types or not
+// installed will fall back to dynamic import at runtime.
+import * as pluginSql from "@elizaos/plugin-sql";
+import * as pluginTelegram from "@elizaos/plugin-telegram";
+import * as pluginTodo from "@elizaos/plugin-todo";
+import * as pluginTrajectoryLogger from "@elizaos/plugin-trajectory-logger";
+import * as pluginTrust from "@elizaos/plugin-trust";
+import * as pluginTwitch from "@elizaos/plugin-twitch";
 import {
   debugLogResolvedContext,
   validateRuntimeContext,
@@ -78,6 +114,53 @@ import { SandboxManager, type SandboxMode } from "../services/sandbox-manager";
 import { diagnoseNoAIProvider } from "../services/version-compat";
 import { CORE_PLUGINS, OPTIONAL_CORE_PLUGINS } from "./core-plugins";
 import { createMiladyPlugin } from "./milady-plugin";
+
+/**
+ * Map of @elizaos plugin names to their statically imported modules.
+ *
+ * Note: Some OPTIONAL_CORE_PLUGINS are intentionally excluded from static imports:
+ * - plugin-cua, plugin-obsidian, plugin-code, plugin-repoprompt, plugin-claude-code-workbench:
+ *   These are specialized workflow plugins that may not be installed or have optional deps.
+ * - plugin-vision: Feature-gated with heavy native dependencies (TensorFlow, canvas).
+ *
+ * Excluded plugins fall through to dynamic import() which works in Node.js/CLI.
+ * For Electron builds, these plugins should be explicitly included if needed.
+ */
+const STATIC_ELIZA_PLUGINS: Record<string, unknown> = {
+  "@elizaos/plugin-sql": pluginSql,
+  "@elizaos/plugin-local-embedding": pluginLocalEmbedding,
+  "@elizaos/plugin-secrets-manager": pluginSecretsManager,
+  "@elizaos/plugin-form": pluginForm,
+  "@elizaos/plugin-knowledge": pluginKnowledge,
+  "@elizaos/plugin-rolodex": pluginRolodex,
+  "@elizaos/plugin-trajectory-logger": pluginTrajectoryLogger,
+  "@elizaos/plugin-agent-orchestrator": pluginAgentOrchestrator,
+  "@elizaos/plugin-coding-agent": pluginCodingAgent,
+  "@elizaos/plugin-cron": pluginCron,
+  "@elizaos/plugin-shell": pluginShell,
+  "@elizaos/plugin-plugin-manager": pluginPluginManager,
+  "@elizaos/plugin-agent-skills": pluginAgentSkills,
+  "@elizaos/plugin-pdf": pluginPdf,
+  "@elizaos/plugin-openai": pluginOpenai,
+  "@elizaos/plugin-anthropic": pluginAnthropic,
+  "@elizaos/plugin-google-genai": pluginGoogleGenai,
+  "@elizaos/plugin-groq": pluginGroq,
+  "@elizaos/plugin-openrouter": pluginOpenrouter,
+  "@elizaos/plugin-ollama": pluginOllama,
+  "@elizaos/plugin-elizacloud": pluginElizacloud,
+  "@elizaos/plugin-trust": pluginTrust,
+  "@elizaos/plugin-browser": pluginBrowser,
+  "@elizaos/plugin-discord": pluginDiscord,
+  "@elizaos/plugin-twitch": pluginTwitch,
+  "@elizaos/plugin-computeruse": pluginComputeruse,
+  "@elizaos/plugin-cli": pluginCli,
+  "@elizaos/plugin-telegram": pluginTelegram,
+  "@elizaos/plugin-elevenlabs": pluginElevenlabs,
+  "@elizaos/plugin-edge-tts": pluginEdgeTts,
+  "@elizaos/plugin-todo": pluginTodo,
+  "@elizaos/plugin-personality": pluginPersonality,
+  "@elizaos/plugin-experience": pluginExperience,
+};
 
 // NODE_PATH so dynamic plugin imports (e.g. @elizaos/plugin-coding-agent) resolve.
 // WHY: When eliza is loaded from dist/ or by a test runner, Node's resolution does not
@@ -1100,145 +1183,11 @@ export function ensureBrowserServerLink(): boolean {
  * cannot crash the entire agent startup.
  */
 /**
- * Internally mapped static imports for all core and provider official plugins.
- * By using static string literals, bundlers like `tsdown` can statically analyze
- * and inline these packages into the final `eliza.js` single-file bundle.
+ * Resolve a statically-imported @elizaos plugin by name.
+ * Returns the module if found in STATIC_ELIZA_PLUGINS, otherwise null.
  */
-async function resolveStaticElizaPlugin(
-  pluginName: string,
-): Promise<unknown | null> {
-  switch (pluginName) {
-    // Core Plugins
-    case "@elizaos/plugin-sql":
-      // biome-ignore lint/suspicious/noTsIgnore: dynamic import
-      // @ts-ignore
-      return import("@elizaos/plugin-sql");
-    case "@elizaos/plugin-local-embedding":
-      // biome-ignore lint/suspicious/noTsIgnore: dynamic import
-      // @ts-ignore
-      return import("@elizaos/plugin-local-embedding");
-    case "@elizaos/plugin-secrets-manager":
-      // biome-ignore lint/suspicious/noTsIgnore: dynamic import
-      // @ts-ignore
-      return import("@elizaos/plugin-secrets-manager");
-    case "@elizaos/plugin-form":
-      // biome-ignore lint/suspicious/noTsIgnore: dynamic import
-      // @ts-ignore
-      return import("@elizaos/plugin-form");
-    case "@elizaos/plugin-knowledge":
-      // biome-ignore lint/suspicious/noTsIgnore: dynamic import
-      // @ts-ignore
-      return import("@elizaos/plugin-knowledge");
-    case "@elizaos/plugin-rolodex":
-      // biome-ignore lint/suspicious/noTsIgnore: dynamic import
-      // @ts-ignore
-      return import("@elizaos/plugin-rolodex");
-    case "@elizaos/plugin-trajectory-logger":
-      // biome-ignore lint/suspicious/noTsIgnore: dynamic import
-      // @ts-ignore
-      return import("@elizaos/plugin-trajectory-logger");
-    case "@elizaos/plugin-agent-orchestrator":
-      // biome-ignore lint/suspicious/noTsIgnore: dynamic import
-      // @ts-ignore
-      return import("@elizaos/plugin-agent-orchestrator");
-    case "@elizaos/plugin-coding-agent":
-      // biome-ignore lint/suspicious/noTsIgnore: dynamic import
-      // @ts-ignore
-      return import("@elizaos/plugin-coding-agent");
-    case "@elizaos/plugin-cron":
-      // biome-ignore lint/suspicious/noTsIgnore: dynamic import
-      // @ts-ignore
-      return import("@elizaos/plugin-cron");
-    case "@elizaos/plugin-shell":
-      // biome-ignore lint/suspicious/noTsIgnore: dynamic import
-      // @ts-ignore
-      return import("@elizaos/plugin-shell");
-    case "@elizaos/plugin-plugin-manager":
-      // biome-ignore lint/suspicious/noTsIgnore: dynamic import
-      // @ts-ignore
-      return import("@elizaos/plugin-plugin-manager");
-    case "@elizaos/plugin-agent-skills":
-      // biome-ignore lint/suspicious/noTsIgnore: dynamic import
-      // @ts-ignore
-      return import("@elizaos/plugin-agent-skills");
-    case "@elizaos/plugin-pdf":
-      // biome-ignore lint/suspicious/noTsIgnore: dynamic import
-      // @ts-ignore
-      return import("@elizaos/plugin-pdf");
-
-    // Optional / Provider Plugins
-    case "@elizaos/plugin-cua":
-      // biome-ignore lint/suspicious/noTsIgnore: dynamic import
-      // @ts-ignore
-      return import("@elizaos/plugin-cua");
-    case "@elizaos/plugin-obsidian":
-      // biome-ignore lint/suspicious/noTsIgnore: dynamic import
-      // @ts-ignore
-      return import("@elizaos/plugin-obsidian");
-    case "@elizaos/plugin-code":
-      // biome-ignore lint/suspicious/noTsIgnore: dynamic import
-      // @ts-ignore
-      return import("@elizaos/plugin-code");
-    case "@elizaos/plugin-repoprompt":
-      // biome-ignore lint/suspicious/noTsIgnore: dynamic import
-      // @ts-ignore
-      return import("@elizaos/plugin-repoprompt");
-    case "@elizaos/plugin-claude-code-workbench":
-      // biome-ignore lint/suspicious/noTsIgnore: dynamic import
-      // @ts-ignore
-      return import("@elizaos/plugin-claude-code-workbench");
-    case "@elizaos/plugin-openai":
-      // biome-ignore lint/suspicious/noTsIgnore: dynamic import
-      // @ts-ignore
-      return import("@elizaos/plugin-openai");
-    case "@elizaos/plugin-anthropic":
-      // biome-ignore lint/suspicious/noTsIgnore: dynamic import
-      // @ts-ignore
-      return import("@elizaos/plugin-anthropic");
-    case "@elizaos/plugin-google-genai":
-      // biome-ignore lint/suspicious/noTsIgnore: dynamic import
-      // @ts-ignore
-      return import("@elizaos/plugin-google-genai");
-    case "@elizaos/plugin-xai":
-      // biome-ignore lint/suspicious/noTsIgnore: dynamic import
-      // @ts-ignore
-      return import("@elizaos/plugin-xai");
-    case "@elizaos/plugin-groq":
-      // biome-ignore lint/suspicious/noTsIgnore: dynamic import
-      // @ts-ignore
-      return import("@elizaos/plugin-groq");
-    case "@elizaos/plugin-openrouter":
-      // biome-ignore lint/suspicious/noTsIgnore: dynamic import
-      // @ts-ignore
-      return import("@elizaos/plugin-openrouter");
-    case "@elizaos/plugin-ollama":
-      // biome-ignore lint/suspicious/noTsIgnore: dynamic import
-      // @ts-ignore
-      return import("@elizaos/plugin-ollama");
-    case "@elizaos/plugin-deepseek":
-      // biome-ignore lint/suspicious/noTsIgnore: dynamic import
-      // @ts-ignore
-      return import("@elizaos/plugin-deepseek");
-    case "@elizaos/plugin-mistral":
-      // biome-ignore lint/suspicious/noTsIgnore: dynamic import
-      // @ts-ignore
-      return import("@elizaos/plugin-mistral");
-    case "@elizaos/plugin-together":
-      // biome-ignore lint/suspicious/noTsIgnore: dynamic import
-      // @ts-ignore
-      return import("@elizaos/plugin-together");
-    case "@elizaos/plugin-pi-ai":
-      // biome-ignore lint/suspicious/noTsIgnore: dynamic import
-      // @ts-ignore
-      return import("@elizaos/plugin-pi-ai");
-    case "@elizaos/plugin-elizacloud":
-      // biome-ignore lint/suspicious/noTsIgnore: dynamic import
-      // @ts-ignore
-      return import("@elizaos/plugin-elizacloud");
-
-    default:
-      return null;
-  }
+function resolveStaticElizaPlugin(pluginName: string): unknown | null {
+  return STATIC_ELIZA_PLUGINS[pluginName] ?? null;
 }
 
 async function resolvePlugins(

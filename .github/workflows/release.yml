@@ -84,6 +84,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup Python (for node-gyp native modules)
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install setuptools for distutils (Python 3.12+)
+        run: pip install setuptools
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -101,6 +109,8 @@ jobs:
             echo "Retry $i: bun install failed, retrying..."
             sleep 5
           done
+        env:
+          npm_config_python: ${{ env.pythonLocation }}/bin/python3
 
       - name: Align package versions with release tag
         run: |
