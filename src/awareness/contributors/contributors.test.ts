@@ -15,8 +15,8 @@ function fakeRuntime(overrides: Record<string, unknown> = {}): IAgentRuntime {
 }
 
 describe("built-in contributors", () => {
-  it("exports exactly 8 contributors", () => {
-    expect(builtinContributors).toHaveLength(8);
+  it("exports exactly 9 contributors", () => {
+    expect(builtinContributors).toHaveLength(9);
   });
 
   it("all have unique IDs", () => {
@@ -64,6 +64,7 @@ describe("built-in contributors", () => {
       "runtime",
       "permissions",
       "wallet",
+      "opinion",
       "provider",
       "pluginHealth",
       "connectors",
