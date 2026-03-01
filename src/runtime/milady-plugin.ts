@@ -29,13 +29,16 @@ import {
   resolveDefaultSessionStorePath,
 } from "@elizaos/core";
 import { canIAction } from "../actions/can-i.js";
+import { checkBalanceAction } from "../actions/check-balance.js";
 import { configurePluginAction } from "../actions/configure-plugin.js";
 import { emoteAction } from "../actions/emote.js";
+import { executeTradeAction } from "../actions/execute-trade.js";
 import { installPluginAction } from "../actions/install-plugin.js";
 import { logLevelAction } from "../actions/log-level.js";
 import { mediaActions } from "../actions/media.js";
 import { restartAction } from "../actions/restart.js";
 import { terminalAction } from "../actions/terminal.js";
+import { transferTokenAction } from "../actions/transfer-token.js";
 import { loadMiladyConfig } from "../config/config.js";
 import type { CustomActionDef } from "../config/types.milady.js";
 import { EMOTE_CATALOG } from "../emotes/catalog.js";
@@ -657,6 +660,9 @@ export function createMiladyPlugin(config?: MiladyPluginConfig): Plugin {
       canIAction,
       ...mediaActions,
       getSelfStatusAction,
+      executeTradeAction,
+      checkBalanceAction,
+      transferTokenAction,
     ],
 
     // TrajectoryLoggerService is provided by @elizaos/plugin-trajectory-logger (in CORE_PLUGINS)
