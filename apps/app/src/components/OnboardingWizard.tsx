@@ -430,15 +430,14 @@ export function OnboardingWizard() {
               </h2>
             </div>
             <div className="flex flex-wrap gap-2 justify-center mx-auto mb-3">
-              {onboardingOptions?.names.slice(0, 5).map((name: string) => (
+              {onboardingOptions?.names.slice(0, 6).map((name: string) => (
                 <button
                   type="button"
                   key={name}
-                  className={`px-5 py-2 border cursor-pointer bg-card transition-colors rounded-full text-sm font-bold ${
-                    onboardingName === name && !isCustomSelected
+                  className={`px-5 py-2 border cursor-pointer bg-card transition-colors rounded-full text-sm font-bold ${onboardingName === name && !isCustomSelected
                       ? "border-accent !bg-accent !text-accent-fg"
                       : "border-border hover:border-accent"
-                  }`}
+                    }`}
                   onClick={() => {
                     setState("onboardingName", name);
                     setIsCustomSelected(false);
@@ -450,11 +449,10 @@ export function OnboardingWizard() {
             </div>
             <div className="max-w-[260px] mx-auto">
               <div
-                className={`px-4 py-2.5 border cursor-text bg-card transition-colors rounded-full ${
-                  isCustomSelected
+                className={`px-4 py-2.5 border cursor-text bg-card transition-colors rounded-full ${isCustomSelected
                     ? "border-accent ring-2 ring-accent/30"
                     : "border-border hover:border-accent"
-                }`}
+                  }`}
               >
                 <input
                   type="text"
@@ -536,20 +534,18 @@ export function OnboardingWizard() {
                 <button
                   type="button"
                   key={preset.catchphrase}
-                  className={`px-3 py-3 border cursor-pointer bg-card transition-colors text-center rounded-lg ${
-                    onboardingStyle === preset.catchphrase
+                  className={`px-3 py-3 border cursor-pointer bg-card transition-colors text-center rounded-lg ${onboardingStyle === preset.catchphrase
                       ? "border-accent !bg-accent !text-accent-fg"
                       : "border-border hover:border-accent"
-                  }`}
+                    }`}
                   onClick={() => handleStyleSelect(preset.catchphrase)}
                 >
                   <div className="font-bold text-sm">{preset.catchphrase}</div>
                   <div
-                    className={`text-[11px] mt-0.5 ${
-                      onboardingStyle === preset.catchphrase
+                    className={`text-[11px] mt-0.5 ${onboardingStyle === preset.catchphrase
                         ? "text-accent-fg/70"
                         : "text-muted"
-                    }`}
+                      }`}
                   >
                     {preset.hint}
                   </div>
@@ -577,11 +573,10 @@ export function OnboardingWizard() {
                 <button
                   type="button"
                   key={theme.id}
-                  className={`px-2 py-3.5 border cursor-pointer bg-card transition-colors text-center rounded-lg ${
-                    onboardingTheme === theme.id
+                  className={`px-2 py-3.5 border cursor-pointer bg-card transition-colors text-center rounded-lg ${onboardingTheme === theme.id
                       ? "border-accent !bg-accent !text-accent-fg"
                       : "border-border hover:border-accent"
-                  }`}
+                    }`}
                   onClick={() => handleThemeSelect(theme.id)}
                 >
                   <div className="font-bold text-sm">{theme.label}</div>
@@ -683,11 +678,10 @@ export function OnboardingWizard() {
             <div className="flex flex-col gap-3 max-w-[460px] mx-auto">
               <button
                 type="button"
-                className={`px-4 py-4 border cursor-pointer bg-card transition-colors rounded-lg text-left ${
-                  onboardingRunMode === "cloud"
+                className={`px-4 py-4 border cursor-pointer bg-card transition-colors rounded-lg text-left ${onboardingRunMode === "cloud"
                     ? "border-accent !bg-accent !text-accent-fg"
                     : "border-border hover:border-accent"
-                }`}
+                  }`}
                 onClick={() => handleRunModeSelect("cloud")}
               >
                 <div className="font-bold text-sm flex items-center gap-1.5">
@@ -700,11 +694,10 @@ export function OnboardingWizard() {
               </button>
               <button
                 type="button"
-                className={`px-4 py-4 border cursor-pointer bg-card transition-colors rounded-lg text-left ${
-                  onboardingRunMode === "local-sandbox"
+                className={`px-4 py-4 border cursor-pointer bg-card transition-colors rounded-lg text-left ${onboardingRunMode === "local-sandbox"
                     ? "border-accent !bg-accent !text-accent-fg"
                     : "border-border hover:border-accent"
-                }`}
+                  }`}
                 onClick={() => handleRunModeSelect("local-sandbox")}
               >
                 <div className="font-bold text-sm flex items-center gap-1.5">
@@ -717,11 +710,10 @@ export function OnboardingWizard() {
               </button>
               <button
                 type="button"
-                className={`px-4 py-4 border cursor-pointer bg-card transition-colors rounded-lg text-left ${
-                  onboardingRunMode === "local-rawdog"
+                className={`px-4 py-4 border cursor-pointer bg-card transition-colors rounded-lg text-left ${onboardingRunMode === "local-rawdog"
                     ? "border-accent !bg-accent !text-accent-fg"
                     : "border-border hover:border-accent"
-                }`}
+                  }`}
                 onClick={() => handleRunModeSelect("local-rawdog")}
               >
                 <div className="font-bold text-sm flex items-center gap-1.5">
@@ -758,21 +750,19 @@ export function OnboardingWizard() {
                   <button
                     type="button"
                     key={provider.id}
-                    className={`w-full px-4 py-3 border cursor-pointer bg-card transition-colors rounded-lg text-left ${
-                      onboardingCloudProvider === provider.id
+                    className={`w-full px-4 py-3 border cursor-pointer bg-card transition-colors rounded-lg text-left ${onboardingCloudProvider === provider.id
                         ? "border-accent !bg-accent !text-accent-fg"
                         : "border-border hover:border-accent"
-                    }`}
+                      }`}
                     onClick={() => handleCloudProviderSelect(provider.id)}
                   >
                     <div className="font-bold text-sm">{provider.name}</div>
                     {provider.description && (
                       <div
-                        className={`text-xs mt-0.5 ${
-                          onboardingCloudProvider === provider.id
+                        className={`text-xs mt-0.5 ${onboardingCloudProvider === provider.id
                             ? "text-accent-fg/70"
                             : "text-muted"
-                        }`}
+                          }`}
                       >
                         {provider.description}
                       </div>
@@ -1006,11 +996,10 @@ export function OnboardingWizard() {
             <button
               type="button"
               key={provider.id}
-              className={`${padding} border-[1.5px] cursor-pointer transition-all text-left flex items-center gap-3 rounded-lg ${
-                isSelected
+              className={`${padding} border-[1.5px] cursor-pointer transition-all text-left flex items-center gap-3 rounded-lg ${isSelected
                   ? "border-accent !bg-accent !text-accent-fg shadow-[0_0_0_3px_var(--accent),var(--shadow-md)]"
                   : "border-border bg-card hover:border-border-hover hover:bg-bg-hover hover:shadow-md hover:-translate-y-0.5"
-              }`}
+                }`}
               onClick={() => handleProviderSelect(provider.id)}
             >
               <img
@@ -1161,11 +1150,10 @@ export function OnboardingWizard() {
                 <div className="flex items-center gap-4 border-b border-border mb-3">
                   <button
                     type="button"
-                    className={`text-sm pb-2 border-b-2 ${
-                      onboardingSubscriptionTab === "token"
+                    className={`text-sm pb-2 border-b-2 ${onboardingSubscriptionTab === "token"
                         ? "border-accent text-accent"
                         : "border-transparent text-muted hover:text-txt"
-                    }`}
+                      }`}
                     onClick={() =>
                       setState("onboardingSubscriptionTab", "token")
                     }
@@ -1174,11 +1162,10 @@ export function OnboardingWizard() {
                   </button>
                   <button
                     type="button"
-                    className={`text-sm pb-2 border-b-2 ${
-                      onboardingSubscriptionTab === "oauth"
+                    className={`text-sm pb-2 border-b-2 ${onboardingSubscriptionTab === "oauth"
                         ? "border-accent text-accent"
                         : "border-transparent text-muted hover:text-txt"
-                    }`}
+                      }`}
                     onClick={() =>
                       setState("onboardingSubscriptionTab", "oauth")
                     }
@@ -1476,11 +1463,10 @@ export function OnboardingWizard() {
                         <button
                           type="button"
                           key={model.id}
-                          className={`w-full px-4 py-3 border cursor-pointer transition-colors text-left rounded-lg ${
-                            onboardingOpenRouterModel === model.id
+                          className={`w-full px-4 py-3 border cursor-pointer transition-colors text-left rounded-lg ${onboardingOpenRouterModel === model.id
                               ? "border-accent !bg-accent !text-accent-fg"
                               : "border-border bg-card hover:border-accent/50"
-                          }`}
+                            }`}
                           onClick={() => handleOpenRouterModelSelect(model.id)}
                         >
                           <div className="font-bold text-sm">{model.name}</div>
@@ -1623,7 +1609,7 @@ export function OnboardingWizard() {
                                   type="password"
                                   value={
                                     onboardingRpcKeys[
-                                      `${provider.id}:${onboardingRpcSelections[provider.id]}`
+                                    `${provider.id}:${onboardingRpcSelections[provider.id]}`
                                     ] ?? ""
                                   }
                                   onChange={(e) =>
@@ -2185,11 +2171,10 @@ function DockerSetupStep() {
       {/* Status indicators */}
       <div className="flex flex-col gap-2 max-w-[400px] mx-auto mb-4">
         <div
-          className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-left text-sm ${
-            isInstalled
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-left text-sm ${isInstalled
               ? "bg-green-50 border-green-200 text-green-800 dark:bg-green-950 dark:border-green-800 dark:text-green-200"
               : "bg-red-50 border-red-200 text-red-800 dark:bg-red-950 dark:border-red-800 dark:text-red-200"
-          }`}
+            }`}
         >
           <span>
             {isInstalled ? (
@@ -2203,11 +2188,10 @@ function DockerSetupStep() {
 
         {isInstalled && (
           <div
-            className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-left text-sm ${
-              isRunning
+            className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-left text-sm ${isRunning
                 ? "bg-green-50 border-green-200 text-green-800 dark:bg-green-950 dark:border-green-800 dark:text-green-200"
                 : "bg-yellow-50 border-yellow-200 text-yellow-800 dark:bg-yellow-950 dark:border-yellow-800 dark:text-yellow-200"
-            }`}
+              }`}
           >
             <span>
               {isRunning ? (
@@ -2222,11 +2206,10 @@ function DockerSetupStep() {
 
         {dockerStatus?.platform === "darwin" && (
           <div
-            className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-left text-sm ${
-              hasAppleContainer
+            className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-left text-sm ${hasAppleContainer
                 ? "bg-green-50 border-green-200 text-green-800 dark:bg-green-950 dark:border-green-800 dark:text-green-200"
                 : "bg-card border-border text-txt opacity-60"
-            }`}
+              }`}
           >
             <span>
               {hasAppleContainer ? (
