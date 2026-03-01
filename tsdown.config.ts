@@ -62,4 +62,12 @@ export default defineConfig([
     inlineOnly: false,
     external: nativeExternals,
   },
+  {
+    entry: "src/plugins/opinion/index.ts",
+    outDir: "dist/plugins/opinion",
+    env,
+    fixedExtension: false,
+    platform: "node",
+    external: nativeExternals,
+  },
 ]);

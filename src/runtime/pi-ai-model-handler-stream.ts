@@ -72,6 +72,30 @@ function isAbortedReason(reason: string | undefined): boolean {
   return reason === "aborted";
 }
 
+function emitModelUsed(
+  runtime: IAgentRuntime,
+  model: Model<Api>,
+  usage: { input: number; output: number; totalTokens: number },
+): void {
+  try {
+    (runtime as unknown as { emitEvent?: (event: string, params: Record<string, unknown>) => void })
+      .emitEvent?.("MODEL_USED", {
+        runtime,
+        source: model.provider ?? "pi-ai",
+        provider: model.provider ?? "pi-ai",
+        model: model.id,
+        type: "TEXT_LARGE",
+        tokens: {
+          prompt: usage.input,
+          completion: usage.output,
+          total: usage.totalTokens,
+        },
+      });
+  } catch {
+    // Best-effort — never break the model response flow.
+  }
+}
+
 function emitToken(
   onStreamEvent: StreamEventCallback | undefined,
   text: string,
@@ -140,7 +164,7 @@ export function createPiAiHandler(
   config: PiAiHandlerConfig,
 ): PiAiModelHandler {
   return async (
-    _runtime: IAgentRuntime,
+    runtime: IAgentRuntime,
     params: Record<string, JsonValue | object>,
   ): Promise<JsonValue | object> => {
     const p = params as unknown as GenerateTextParams;
@@ -180,6 +204,10 @@ export function createPiAiHandler(
             case "text_delta":
               fullText += event.delta;
               break;
+            case "done": {
+              emitModelUsed(runtime, model, event.message.usage);
+              break;
+            }
             case "error": {
               if (isAbortedReason(event.reason)) return fullText;
               throw new Error(event.error.errorMessage ?? "Model stream error");
@@ -226,6 +254,7 @@ export function createPiAiHandler(
                 finishReason = event.reason;
                 resolvedUsage = usageToEliza(event.message.usage);
                 emitUsage(config.onStreamEvent, event.message.usage);
+                emitModelUsed(runtime, model, event.message.usage);
                 emitDone(config.onStreamEvent);
                 break;
               }
@@ -287,6 +316,7 @@ export function createPiAiHandler(
           }
           case "done": {
             emitUsage(config.onStreamEvent, event.message.usage);
+            emitModelUsed(runtime, model, event.message.usage);
             emitDone(config.onStreamEvent);
             break;
           }

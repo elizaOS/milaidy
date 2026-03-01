@@ -2271,6 +2271,82 @@ function isEmbeddingLikeTrajectoryCall(row: Record<string, unknown>): boolean {
   return false;
 }
 
+class ChatTokenAccumulator {
+  private promptTokens = 0;
+  private completionTokens = 0;
+  private llmCalls = 0;
+  private model: string | undefined;
+
+  add(tokens: { prompt: number; completion: number }, model?: string): void {
+    this.promptTokens += tokens.prompt;
+    this.completionTokens += tokens.completion;
+    this.llmCalls += 1;
+    if (model) this.model = model;
+  }
+
+  summarize(): ChatTokenUsageSummary | null {
+    if (this.llmCalls === 0) return null;
+    return {
+      promptTokens: this.promptTokens,
+      completionTokens: this.completionTokens,
+      totalTokens: this.promptTokens + this.completionTokens,
+      llmCalls: this.llmCalls,
+      model: this.model,
+    };
+  }
+}
+
+function attachTokenAccumulator(
+  runtime: AgentRuntime,
+  accumulator: ChatTokenAccumulator,
+): () => void {
+  const runtimeAny = runtime as unknown as {
+    events?: Record<string, Array<(params: Record<string, unknown>) => void>>;
+    registerEvent?: (
+      event: string,
+      handler: (params: Record<string, unknown>) => void,
+    ) => void;
+  };
+
+  const handler = (params: Record<string, unknown>) => {
+    try {
+      if (params?.tokens && typeof params.tokens === "object") {
+        const t = params.tokens as Record<string, unknown>;
+        accumulator.add(
+          {
+            prompt: Number(t.prompt) || 0,
+            completion: Number(t.completion) || 0,
+          },
+          typeof params.model === "string" ? params.model : undefined,
+        );
+      }
+    } catch {
+      // Never let token accumulation break the chat flow.
+    }
+  };
+
+  if (typeof runtimeAny.registerEvent === "function") {
+    runtimeAny.registerEvent("MODEL_USED", handler);
+  } else if (runtimeAny.events) {
+    if (!runtimeAny.events["MODEL_USED"]) {
+      runtimeAny.events["MODEL_USED"] = [];
+    }
+    runtimeAny.events["MODEL_USED"].push(handler);
+  }
+
+  return () => {
+    try {
+      const handlers = runtimeAny.events?.["MODEL_USED"];
+      if (handlers) {
+        const idx = handlers.indexOf(handler);
+        if (idx >= 0) handlers.splice(idx, 1);
+      }
+    } catch {
+      // Cleanup is best-effort.
+    }
+  };
+}
+
 function summarizeChatTokenUsageFromTrajectory(
   logger: TrajectoryLoggerForChat | null,
   stepId: string | null,
@@ -2923,6 +2999,8 @@ async function generateChatResponse(
       >
     | undefined;
   let handlerError: unknown = null;
+  const tokenAccumulator = new ChatTokenAccumulator();
+  const detachTokenAccumulator = attachTokenAccumulator(runtime, tokenAccumulator);
   const runtimeForMessageHandling = createRuntimeWithTrajectoryLogger(
     runtime,
     trajectoryLogger,
@@ -3035,7 +3113,10 @@ async function generateChatResponse(
   const finalText = isNoResponsePlaceholder(responseText)
     ? (noResponseFallback ?? (responseText || "(no response)"))
     : responseText;
-  const usage = summarizeChatTokenUsageFromTrajectory(trajectoryLogger, usageStepId);
+  detachTokenAccumulator();
+  const usage =
+    tokenAccumulator.summarize() ??
+    summarizeChatTokenUsageFromTrajectory(trajectoryLogger, usageStepId);
 
   return {
     text: finalText,

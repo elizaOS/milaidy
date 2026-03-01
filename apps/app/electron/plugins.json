@@ -1,7 +1,7 @@
 {
   "$schema": "plugin-index-v1",
   "generatedAt": "2026-02-09T20:23:38.561Z",
-  "count": 97,
+  "count": 98,
   "plugins": [
     {
       "id": "acp",
@@ -9544,6 +9544,52 @@
           "label": "Group Policy",
           "group": "Policies",
           "width": "half"
+        }
+      }
+    },
+    {
+      "id": "opinion",
+      "dirName": "plugin-opinion",
+      "name": "Opinion Trade",
+      "npmName": "@milady/plugin-opinion",
+      "description": "Prediction market trading on Opinion.trade (BNB Chain)",
+      "category": "feature",
+      "envKey": "OPINION_API_KEY",
+      "configKeys": [
+        "OPINION_API_KEY",
+        "OPINION_PRIVATE_KEY",
+        "OPINION_MULTISIG_ADDRESS",
+        "OPINION_MAX_BET_USD",
+        "BSC_RPC_URL"
+      ],
+      "version": "1.0.0",
+      "pluginParameters": {
+        "OPINION_API_KEY": {
+          "label": "API Key",
+          "group": "Authentication",
+          "width": "full",
+          "encrypted": true
+        },
+        "OPINION_PRIVATE_KEY": {
+          "label": "Private Key (Trading)",
+          "group": "Authentication",
+          "width": "full",
+          "encrypted": true
+        },
+        "OPINION_MULTISIG_ADDRESS": {
+          "label": "Multisig Address",
+          "group": "Trading",
+          "width": "full"
+        },
+        "OPINION_MAX_BET_USD": {
+          "label": "Max Bet (USD)",
+          "group": "Trading",
+          "width": "half"
+        },
+        "BSC_RPC_URL": {
+          "label": "BSC RPC URL",
+          "group": "Network",
+          "width": "full"
         }
       }
     }
