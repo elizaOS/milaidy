@@ -1,31 +1,86 @@
 /**
- * Wallet contributor — reports wallet configuration status (never keys).
+ * Wallet contributor — reports real wallet addresses, chain readiness,
+ * signer mode, and trade permissions. Never exposes private keys.
  */
-import type { AwarenessContributor } from "../../contracts/awareness";
 import type { IAgentRuntime } from "@elizaos/core";
+import type { AwarenessContributor } from "../../contracts/awareness.js";
+import { getWalletAddresses } from "../../api/wallet.js";
+import { loadMiladyConfig } from "../../config/config.js";
+import {
+  resolveTradePermissionMode,
+  canUseLocalTradeExecution,
+} from "../../api/server.js";
+
+function shorten(address: string | null): string | null {
+  if (!address) return null;
+  if (address.startsWith("0x") && address.length >= 12) {
+    return `${address.slice(0, 6)}...${address.slice(-4)}`;
+  }
+  if (address.length <= 12) return address;
+  return `${address.slice(0, 4)}...${address.slice(-4)}`;
+}
 
 export const walletContributor: AwarenessContributor = {
   id: "wallet",
   position: 30,
   cacheTtl: 60_000,
-  invalidateOn: ["wallet-updated"],
+  invalidateOn: ["wallet-updated", "config-changed"],
   trusted: true,
 
-  async summary(runtime: IAgentRuntime): Promise<string> {
-    const evmKey = runtime.getSetting?.("EVM_PRIVATE_KEY");
-    const solKey = runtime.getSetting?.("SOLANA_PRIVATE_KEY")
-      ?? runtime.getSetting?.("SOL_PRIVATE_KEY");
+  async summary(_runtime: IAgentRuntime): Promise<string> {
+    const addrs = getWalletAddresses();
+    const hasEvm = Boolean(addrs.evmAddress);
+    const hasSol = Boolean(addrs.solanaAddress);
 
-    const evmConfigured = !!evmKey;
-    const solConfigured = !!solKey;
-
-    if (!evmConfigured && !solConfigured) {
+    if (!hasEvm && !hasSol) {
       return "Wallet: not configured";
     }
 
-    const evmLabel = evmConfigured ? "EVM configured" : "EVM: none";
-    const solLabel = solConfigured ? "SOL configured" : "SOL: none";
+    const config = loadMiladyConfig();
+    const tradeMode = resolveTradePermissionMode(config);
+    const localSigner = Boolean(process.env.EVM_PRIVATE_KEY?.trim());
+    const bscRpc = Boolean(
+      process.env.NODEREAL_BSC_RPC_URL?.trim() ||
+        process.env.QUICKNODE_BSC_RPC_URL?.trim(),
+    );
 
-    return `Wallet: ${evmLabel} | ${solLabel}`;
+    const parts: string[] = [];
+    if (hasEvm) parts.push(`EVM ${shorten(addrs.evmAddress)}`);
+    if (hasSol) parts.push(`SOL ${shorten(addrs.solanaAddress)}`);
+    if (bscRpc) parts.push("BSC-RPC ready");
+    if (localSigner) parts.push("signer");
+    parts.push(tradeMode);
+
+    return `Wallet: ${parts.join(" | ")}`;
+  },
+
+  async detail(_runtime: IAgentRuntime, level: "brief" | "full"): Promise<string> {
+    const addrs = getWalletAddresses();
+    const config = loadMiladyConfig();
+    const tradeMode = resolveTradePermissionMode(config);
+    const localSigner = Boolean(process.env.EVM_PRIVATE_KEY?.trim());
+    const bscRpc = Boolean(
+      process.env.NODEREAL_BSC_RPC_URL?.trim() ||
+        process.env.QUICKNODE_BSC_RPC_URL?.trim(),
+    );
+    const canUserTrade = canUseLocalTradeExecution(tradeMode, false);
+    const canAgentTrade = canUseLocalTradeExecution(tradeMode, true);
+
+    const lines: string[] = ["## Wallet"];
+    lines.push(`EVM address: ${addrs.evmAddress ?? "none"}`);
+    lines.push(`Solana address: ${addrs.solanaAddress ?? "none"}`);
+    lines.push(`Local signer: ${localSigner ? "available" : "not set"}`);
+    lines.push(`Trade permission mode: ${tradeMode}`);
+    lines.push(`Can user execute trades: ${canUserTrade}`);
+    lines.push(`Can agent auto-trade: ${canAgentTrade}`);
+
+    if (level === "full") {
+      lines.push(`BSC RPC configured: ${bscRpc}`);
+      lines.push(`Alchemy key: ${Boolean(process.env.ALCHEMY_API_KEY?.trim())}`);
+      lines.push(`Ankr key: ${Boolean(process.env.ANKR_API_KEY?.trim())}`);
+      lines.push(`Helius key: ${Boolean(process.env.HELIUS_API_KEY?.trim())}`);
+    }
+
+    return lines.join("\n");
   },
 };
