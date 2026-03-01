@@ -10448,11 +10448,11 @@ async function handleRequest(
 
       if (body.side === "buy") {
         const maxBuyBnbEnv = Number.parseFloat(
-          process.env.MILADY_BSC_MAX_BUY_BNB ?? "0.2",
+          process.env.MILADY_BSC_MAX_BUY_BNB ?? "1",
         );
         const maxBuyBnb = Number.isFinite(maxBuyBnbEnv) && maxBuyBnbEnv > 0
           ? maxBuyBnbEnv
-          : 0.2;
+          : 1;
         if (tradeAmount > maxBuyBnb) {
           error(
             res,
