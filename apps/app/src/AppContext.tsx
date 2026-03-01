@@ -20,6 +20,7 @@ import {
   type CatalogSkill,
   type CharacterData,
   type CodingAgentSession,
+  type ConnectionStateInfo,
   type Conversation,
   type ConversationChannelType,
   type ConversationMessage,
@@ -937,6 +938,9 @@ export interface AppActions {
   retryStartup: () => void;
   dismissRestartBanner: () => void;
   triggerRestart: () => Promise<void>;
+  dismissBackendDisconnectedBanner: () => void;
+  retryBackendConnection: () => void;
+  restartBackend: () => Promise<void>;
 
   // Chat
   handleChatSend: (channelType?: ConversationChannelType) => Promise<void>;
@@ -1104,6 +1108,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [],
   );
   const [restartBannerDismissed, setRestartBannerDismissed] = useState(false);
+
+  // --- Backend connection state (for crash handling) ---
+  const [backendConnection, setBackendConnection] = useState<{
+    state: "connected" | "disconnected" | "reconnecting" | "failed";
+    reconnectAttempt: number;
+    maxReconnectAttempts: number;
+    showDisconnectedUI: boolean;
+  }>({
+    state: "disconnected",
+    reconnectAttempt: 0,
+    maxReconnectAttempts: 15,
+    showDisconnectedUI: false,
+  });
+  const [
+    backendDisconnectedBannerDismissed,
+    setBackendDisconnectedBannerDismissed,
+  ] = useState(false);
 
   // --- Pairing ---
   const [pairingEnabled, setPairingEnabled] = useState(false);
@@ -2291,6 +2312,41 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const triggerRestart = useCallback(async () => {
     await handleRestart();
   }, [handleRestart]);
+
+  // Backend disconnection banner actions
+  const dismissBackendDisconnectedBanner = useCallback(() => {
+    setBackendDisconnectedBannerDismissed(true);
+  }, []);
+
+  const retryBackendConnection = useCallback(() => {
+    setBackendDisconnectedBannerDismissed(false);
+    client.resetConnection();
+  }, []);
+
+  const restartBackend = useCallback(async () => {
+    const electron = (
+      window as {
+        electron?: {
+          ipcRenderer: { invoke: (channel: string) => Promise<unknown> };
+        };
+      }
+    ).electron;
+    if (electron?.ipcRenderer) {
+      // Electron: Use IPC to restart embedded agent
+      await electron.ipcRenderer.invoke("agent:restart");
+    } else {
+      // Fallback for web: call API restart endpoint
+      await client.restart();
+    }
+    // Reset connection state after restart
+    setBackendConnection((prev) => ({
+      ...prev,
+      state: "disconnected",
+      reconnectAttempt: 0,
+      showDisconnectedUI: false,
+    }));
+    setBackendDisconnectedBannerDismissed(false);
+  }, []);
 
   const retryStartup = useCallback(() => {
     setStartupError(null);

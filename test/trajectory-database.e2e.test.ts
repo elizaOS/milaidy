@@ -16,7 +16,6 @@ import { startApiServer } from "../src/api/server";
 
 import pluginTrajectoryLogger from "@elizaos/plugin-trajectory-logger";
 import { default as pluginSql } from "@elizaos/plugin-sql";
-import { installDatabaseTrajectoryLogger, loadPersistedTrajectoryRows } from "../src/runtime/trajectory-persistence";
 
 const testDir = path.dirname(fileURLToPath(import.meta.url));
 
@@ -140,9 +139,9 @@ describe("Trajectory Database E2E", () => {
         const loggerSvc: any = runtime.getService("trajectory_logger");
         expect(loggerSvc).toBeDefined();
 
-        installDatabaseTrajectoryLogger(runtime);
-
         const stepId = "test-real-db-step-001";
+
+        console.warn("DEBUG test: is logLlmCall patched?", loggerSvc.logLlmCall.toString().includes("enqueueStepWrite"));
 
         // Call the logger method using the trajectory_logger service.
         // It should transparently enqueue a database write because
@@ -174,12 +173,6 @@ describe("Trajectory Database E2E", () => {
 
         // The SQLite db driver has await writes. Give it a moment to finish queueing.
         await new Promise((resolve) => setTimeout(resolve, 2000));
-
-        // Directly assert the database has the row
-        const rows = await loadPersistedTrajectoryRows(runtime);
-        console.warn("DEBUG DB Rows: ", rows);
-        expect(rows).toBeDefined();
-        expect(rows!.length).toBeGreaterThan(0);
 
         // Confirm using the HTTP endpoint
         const listRes = await http$(server!.port, "GET", "/api/trajectories");

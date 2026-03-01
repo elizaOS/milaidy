@@ -179,6 +179,20 @@ export interface AgentStatus {
   startup?: AgentStartupDiagnostics;
 }
 
+// WebSocket connection state tracking
+export type WebSocketConnectionState =
+  | "connected"
+  | "disconnected"
+  | "reconnecting"
+  | "failed";
+
+export interface ConnectionStateInfo {
+  state: WebSocketConnectionState;
+  reconnectAttempt: number;
+  maxReconnectAttempts: number;
+  disconnectedAt: number | null;
+}
+
 export type ApiErrorKind = "timeout" | "network" | "http";
 
 export class ApiError extends Error {
@@ -1738,6 +1752,15 @@ export class MiladyClient {
   private readonly wsSendQueueLimit = 32;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private backoffMs = 500;
+
+  // Connection state tracking for backend crash handling
+  private connectionState: WebSocketConnectionState = "disconnected";
+  private reconnectAttempt = 0;
+  private disconnectedAt: number | null = null;
+  private connectionStateListeners = new Set<
+    (state: ConnectionStateInfo) => void
+  >();
+  private readonly maxReconnectAttempts = 15;
 
   private static resolveElectronLocalFallbackBase(): string {
     if (typeof window === "undefined") return "";
@@ -3493,6 +3516,12 @@ export class MiladyClient {
 
     this.ws.onopen = () => {
       this.backoffMs = 500;
+      // Reset connection state on successful connection
+      this.reconnectAttempt = 0;
+      this.disconnectedAt = null;
+      this.connectionState = "connected";
+      this.emitConnectionStateChange();
+
       if (
         this.wsSendQueue.length > 0 &&
         this.ws?.readyState === WebSocket.OPEN
@@ -3541,6 +3570,18 @@ export class MiladyClient {
 
     this.ws.onclose = () => {
       this.ws = null;
+      // Track disconnection time if not already set
+      if (this.disconnectedAt === null) {
+        this.disconnectedAt = Date.now();
+      }
+      this.reconnectAttempt++;
+      // Update state based on attempt count
+      if (this.reconnectAttempt >= this.maxReconnectAttempts) {
+        this.connectionState = "failed";
+      } else {
+        this.connectionState = "reconnecting";
+      }
+      this.emitConnectionStateChange();
       this.scheduleReconnect();
     };
 
@@ -3551,11 +3592,60 @@ export class MiladyClient {
 
   private scheduleReconnect(): void {
     if (this.reconnectTimer) return;
+    // Stop reconnecting if we've hit max attempts
+    if (this.reconnectAttempt >= this.maxReconnectAttempts) {
+      return;
+    }
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
       this.connectWs();
     }, this.backoffMs);
     this.backoffMs = Math.min(this.backoffMs * 1.5, 10000);
+  }
+
+  private emitConnectionStateChange(): void {
+    const state = this.getConnectionState();
+    for (const listener of this.connectionStateListeners) {
+      try {
+        listener(state);
+      } catch {
+        // ignore listener errors
+      }
+    }
+  }
+
+  /** Get the current WebSocket connection state. */
+  getConnectionState(): ConnectionStateInfo {
+    return {
+      state: this.connectionState,
+      reconnectAttempt: this.reconnectAttempt,
+      maxReconnectAttempts: this.maxReconnectAttempts,
+      disconnectedAt: this.disconnectedAt,
+    };
+  }
+
+  /** Subscribe to connection state changes. Returns an unsubscribe function. */
+  onConnectionStateChange(
+    listener: (state: ConnectionStateInfo) => void,
+  ): () => void {
+    this.connectionStateListeners.add(listener);
+    return () => {
+      this.connectionStateListeners.delete(listener);
+    };
+  }
+
+  /** Reset connection state and restart reconnection attempts. */
+  resetConnection(): void {
+    this.reconnectAttempt = 0;
+    this.disconnectedAt = null;
+    this.connectionState = "disconnected";
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    this.backoffMs = 500;
+    this.emitConnectionStateChange();
+    this.connectWs();
   }
 
   /** Send an arbitrary JSON message over the WebSocket connection. */
@@ -4120,6 +4210,11 @@ export class MiladyClient {
     this.ws?.close();
     this.ws = null;
     this.wsSendQueue = [];
+    // Reset connection state on intentional disconnect
+    this.reconnectAttempt = 0;
+    this.disconnectedAt = null;
+    this.connectionState = "disconnected";
+    this.emitConnectionStateChange();
   }
 
   // ═══════════════════════════════════════════════════════════════════════

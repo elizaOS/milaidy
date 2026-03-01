@@ -733,16 +733,18 @@ function VectorGraph3D({
       targetRadius = Math.max(2, Math.min(15, targetRadius));
     };
 
+    const onMouseLeave = () => {
+      isDraggingRef.current = false;
+      setHoveredIdx(null);
+      setTooltipPos(null);
+    };
+
     renderer.domElement.addEventListener("mousedown", onMouseDown);
     renderer.domElement.addEventListener("mouseup", onMouseUp);
     renderer.domElement.addEventListener("mousemove", onMouseMove);
     renderer.domElement.addEventListener("click", onClick);
     renderer.domElement.addEventListener("wheel", onWheel, { passive: false });
-    renderer.domElement.addEventListener("mouseleave", () => {
-      isDraggingRef.current = false;
-      setHoveredIdx(null);
-      setTooltipPos(null);
-    });
+    renderer.domElement.addEventListener("mouseleave", onMouseLeave);
 
     // Animation loop
     const animate = () => {
@@ -769,6 +771,7 @@ function VectorGraph3D({
       renderer.domElement.removeEventListener("mousemove", onMouseMove);
       renderer.domElement.removeEventListener("click", onClick);
       renderer.domElement.removeEventListener("wheel", onWheel);
+      renderer.domElement.removeEventListener("mouseleave", onMouseLeave);
       renderer.dispose();
       if (container.contains(renderer.domElement)) {
         container.removeChild(renderer.domElement);
