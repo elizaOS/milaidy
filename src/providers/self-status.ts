@@ -6,6 +6,7 @@ export function createSelfStatusProvider(registry: AwarenessRegistry): Provider 
     name: "agentSelfStatus",
     description: "Agent self-awareness status summary (wallet, permissions, plugins, etc.)",
     dynamic: true,
+    alwaysRun: true,
     position: 12,
     async get(runtime: IAgentRuntime, _message: Memory, _state: State): Promise<ProviderResult> {
       const text = await registry.composeSummary(runtime);
