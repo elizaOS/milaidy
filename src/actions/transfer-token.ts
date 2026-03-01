@@ -18,6 +18,9 @@ import type { Action, HandlerOptions } from "@elizaos/core";
 /** API port for posting transfer requests. */
 const API_PORT = process.env.API_PORT || process.env.SERVER_PORT || "2138";
 
+/** Timeout for the transfer API call (includes on-chain confirmation). */
+const TRANSFER_TIMEOUT_MS = 60_000;
+
 /** Matches a 0x-prefixed 40-hex-char EVM address. */
 const EVM_ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
 
@@ -111,6 +114,7 @@ export const transferTokenAction: Action = {
             "X-Milady-Agent-Action": "1",
           },
           body: JSON.stringify(body),
+          signal: AbortSignal.timeout(TRANSFER_TIMEOUT_MS),
         },
       );
 

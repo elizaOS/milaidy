@@ -82,7 +82,7 @@ function makeFullResponse() {
         {
           symbol: "BONK",
           name: "Bonk",
-          mintAddress: "bonkmint",
+          mint: "bonkmint",
           balance: "1000000",
           decimals: 5,
           valueUsd: "25.00",
