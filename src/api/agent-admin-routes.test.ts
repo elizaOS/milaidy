@@ -10,6 +10,7 @@ import {
 function createRuntime(name = "Milady"): AgentRuntime {
   return {
     character: { name },
+    plugins: [{ name: "openai-main" }],
     stop: vi.fn(async () => undefined),
   } as unknown as AgentRuntime;
 }
@@ -131,8 +132,9 @@ describe("agent admin routes", () => {
     expect(state.chatConnectionPromise).toBeNull();
     expect(result.payload).toMatchObject({
       ok: true,
-      status: { state: "running", agentName: "Sakuya" },
+      status: { state: "running", agentName: "Sakuya", model: "openai-main" },
     });
+    expect(state.model).toBe("openai-main");
   });
 
   test("restores previous state if restart handler returns null", async () => {
