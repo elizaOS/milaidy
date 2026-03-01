@@ -193,10 +193,17 @@ jobs:
       - name: Sync Electron platform
         run: bun run --filter @milady/app cap:sync:electron
 
+      - name: Install electron dependencies with npm for electron-builder
+        run: |
+          cd apps/app/electron
+          npm install --no-save
+        env:
+          npm_config_python: ${{ env.pythonLocation }}/bin/python3
+
       - name: Build standalone DMG
         run: |
           cd apps/app/electron
-          bun run electron:make:dmg:test
+          CSC_IDENTITY_AUTO_DISCOVERY=false npx electron-builder build --mac dmg -c ./electron-builder.config.json -p never
 
   cloud-live-e2e:
     name: Cloud Live E2E (Eliza Cloud)
