@@ -239,7 +239,7 @@ export function MediaSettingsSection() {
   const isProviderConfigured = useCallback(
     (category: MediaCategory): boolean => {
       const mode = getMode(category);
-      if (mode === "cloud") return true;
+      if (mode === "cloud") return cloudConnected;
 
       const provider = getProvider(category);
       const apiKeyField = getApiKeyField(category, provider);
@@ -251,7 +251,7 @@ export function MediaSettingsSection() {
       );
       return typeof value === "string" && value.length > 0;
     },
-    [getMode, getProvider, mediaConfig],
+    [getMode, getProvider, mediaConfig, cloudConnected],
   );
 
   if (loading) {
@@ -280,18 +280,16 @@ export function MediaSettingsSection() {
               <button
                 key={cat}
                 type="button"
-                className={`flex-1 px-3 py-2 text-xs font-semibold cursor-pointer transition-colors border-r last:border-r-0 border-[var(--border)] ${
-                  active
+                className={`flex-1 px-3 py-2 text-xs font-semibold cursor-pointer transition-colors border-r last:border-r-0 border-[var(--border)] ${active
                     ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
                     : "bg-[var(--card)] text-[var(--muted)] hover:text-[var(--text)]"
-                }`}
+                  }`}
                 onClick={() => setActiveTab(cat)}
               >
                 <span>{CATEGORY_LABELS[cat]}</span>
                 <span
-                  className={`ml-1.5 inline-block w-1.5 h-1.5 rounded-full ${
-                    catConfigured ? "bg-green-500" : "bg-yellow-500"
-                  }`}
+                  className={`ml-1.5 inline-block w-1.5 h-1.5 rounded-full ${catConfigured ? "bg-green-500" : "bg-yellow-500"
+                    }`}
                 />
               </button>
             );
@@ -320,11 +318,10 @@ export function MediaSettingsSection() {
 
         {/* Status badge */}
         <span
-          className={`ml-auto text-[10px] px-2 py-0.5 border ${
-            configured
+          className={`ml-auto text-[10px] px-2 py-0.5 border ${configured
               ? "border-green-600 text-green-600"
               : "border-yellow-600 text-yellow-600"
-          }`}
+            }`}
         >
           {configured ? "Configured" : "Needs Setup"}
         </span>
@@ -356,11 +353,10 @@ export function MediaSettingsSection() {
                   <button
                     key={p.id}
                     type="button"
-                    className={`px-3 py-2 text-xs cursor-pointer transition-colors border ${
-                      active
+                    className={`px-3 py-2 text-xs cursor-pointer transition-colors border ${active
                         ? "border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)]"
                         : "border-[var(--border)] bg-[var(--card)] text-[var(--text)] hover:border-[var(--accent)]"
-                    }`}
+                      }`}
                     onClick={() =>
                       updateCategoryConfig(activeTab, {
                         provider: p.id as

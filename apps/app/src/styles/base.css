@@ -233,11 +233,11 @@
   --input: #2a3d1a;
   --ring: #3d6018;
 
-  --accent: #5a9a2a;
-  --accent-hover: #6aaa3a;
-  --accent-muted: #4a7a24;
+  --accent: #1a2a0e;
+  --accent-hover: #2a3d1a;
+  --accent-muted: #111a09;
   --accent-subtle: rgba(90, 154, 42, 0.12);
-  --accent-foreground: #0a0a0a;
+  --accent-foreground: #d4e8c4;
   --primary: #5a9a2a;
   --primary-foreground: #0a0a0a;
 
@@ -429,11 +429,11 @@
   --input: #003b00;
   --ring: #00ff41;
 
-  --accent: #00ff41;
-  --accent-hover: #33ff66;
-  --accent-muted: #00aa2b;
+  --accent: #003300;
+  --accent-hover: #004400;
+  --accent-muted: #001a00;
   --accent-subtle: rgba(0, 255, 65, 0.08);
-  --accent-foreground: #000000;
+  --accent-foreground: #00ff41;
   --primary: #00ff41;
   --primary-foreground: #000000;
 
@@ -523,11 +523,11 @@
   --input: #ff00ff;
   --ring: #00ffff;
 
-  --accent: #ff00ff;
-  --accent-hover: #ff33ff;
-  --accent-muted: #cc00cc;
+  --accent: #330033;
+  --accent-hover: #4d004d;
+  --accent-muted: #1a001a;
   --accent-subtle: rgba(255, 0, 255, 0.12);
-  --accent-foreground: #000000;
+  --accent-foreground: #ff00ff;
   --primary: #00ffff;
   --primary-foreground: #000000;
 

@@ -220,16 +220,14 @@ function SettingsSidebar({
                 key={section.id}
                 type="button"
                 onClick={() => onSectionChange(section.id)}
-                className={`flex items-center gap-3 px-3 py-3 rounded-xl text-left transition-all duration-200 min-w-fit lg:min-w-0 whitespace-nowrap lg:whitespace-normal ${
-                  isActive
+                className={`flex items-center gap-3 px-3 py-3 rounded-xl text-left transition-all duration-200 min-w-fit lg:min-w-0 whitespace-nowrap lg:whitespace-normal ${isActive
                     ? "bg-accent text-accent-fg shadow-md"
                     : "text-txt hover:bg-bg-hover hover:shadow-sm"
-                }`}
+                  }`}
               >
                 <span
-                  className={`w-9 h-9 flex items-center justify-center shrink-0 rounded-lg ${
-                    isActive ? "bg-accent-foreground/20" : "bg-bg-accent"
-                  }`}
+                  className={`w-9 h-9 flex items-center justify-center shrink-0 rounded-lg ${isActive ? "bg-accent-foreground/20" : "bg-bg-accent"
+                    }`}
                 >
                   <Icon className="w-4 h-4" />
                 </span>
@@ -410,6 +408,45 @@ export function SettingsView() {
     }
   }, []);
 
+  // Update active section based on scroll position
+  useEffect(() => {
+    const root = contentRef.current;
+    if (!root) return;
+
+    const handleScroll = () => {
+      const sections = SETTINGS_SECTIONS.map((s) => {
+        const el = root.querySelector(`#${s.id}`) as HTMLElement;
+        return { id: s.id, el };
+      }).filter((s) => s.el !== null);
+
+      if (sections.length === 0) return;
+
+      // If user scrolled to the very bottom, highlight the last section
+      if (root.scrollHeight - Math.ceil(root.scrollTop) <= root.clientHeight + 10) {
+        setActiveSection(sections[sections.length - 1].id);
+        return;
+      }
+
+      const rootRect = root.getBoundingClientRect();
+      let currentSection = sections[0].id;
+
+      for (const { id, el } of sections) {
+        const elRect = el.getBoundingClientRect();
+        // If the section's top is visible or scrolled past (allowing a 150px offset)
+        if (elRect.top - rootRect.top <= 150) {
+          currentSection = id;
+        }
+      }
+
+      setActiveSection((prev) => (prev !== currentSection ? currentSection : prev));
+    };
+
+    root.addEventListener("scroll", handleScroll, { passive: true });
+    handleScroll();
+
+    return () => root.removeEventListener("scroll", handleScroll);
+  }, []);
+
   return (
     <div className="h-full flex flex-col lg:flex-row overflow-hidden bg-bg">
       <SettingsSidebar
@@ -435,11 +472,10 @@ export function SettingsView() {
                 <button
                   key={t.id}
                   type="button"
-                  className={`p-4 border rounded-xl text-left transition-all duration-200 hover:border-accent hover:shadow-md hover:-translate-y-0.5 ${
-                    currentTheme === t.id
+                  className={`p-4 border rounded-xl text-left transition-all duration-200 hover:border-accent hover:shadow-md hover:-translate-y-0.5 ${currentTheme === t.id
                       ? "border-accent bg-accent-subtle shadow-md"
                       : "border-border bg-bg hover:bg-bg-hover"
-                  }`}
+                    }`}
                   onClick={() => setTheme(t.id)}
                 >
                   <div className="text-sm font-semibold text-txt-strong mb-1">

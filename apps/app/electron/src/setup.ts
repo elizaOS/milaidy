@@ -350,7 +350,7 @@ export class ElectronCapacitorApp {
           app.getAppPath(),
           "assets",
           this.CapacitorFileConfig.electron?.splashScreenImageName ??
-            "splash.png",
+          "splash.png",
         ),
         windowWidth: 400,
         windowHeight: 400,
@@ -367,6 +367,7 @@ export class ElectronCapacitorApp {
       try {
         const url = new URL(raw);
         if (url.protocol === `${this.customScheme}:`) return true;
+        if (url.protocol === "file:") return true;
         if (
           electronIsDev &&
           (url.protocol === "http:" || url.protocol === "https:")
@@ -391,15 +392,12 @@ export class ElectronCapacitorApp {
     };
 
     // ── LIFO integration (disabled until fully integrated) ──────────────
-    const LIFO_ENABLED = false;
+    const LIFO_ENABLED = true;
 
     const isLifoPopoutFlag = (value: string | null): boolean => {
       if (value == null) return false;
       const normalized = value.trim().toLowerCase();
       return (
-        normalized === "" ||
-        normalized === "1" ||
-        normalized === "true" ||
         normalized === "lifo"
       );
     };
@@ -431,6 +429,27 @@ export class ElectronCapacitorApp {
       } catch {
         return false;
       }
+    };
+
+    const isStreamPopoutUrl = (raw: string): boolean => {
+      try {
+        const parsed = new URL(raw);
+        const searchValue = new URLSearchParams(parsed.search).get("popout");
+        const hashValue = getPopoutValueFromHash(parsed.hash);
+        if (searchValue === "lifo" || hashValue === "lifo") return false;
+
+        if (parsed.searchParams.has("popout")) return true;
+        const hash = parsed.hash;
+        if (hash) {
+          const qIdx = hash.indexOf("?");
+          if (qIdx >= 0) {
+            return new URLSearchParams(hash.slice(qIdx + 1)).has("popout");
+          }
+        }
+      } catch {
+        // malformed URL
+      }
+      return false;
     };
 
     const VALID_PIP_LEVELS = new Set<string>([
@@ -485,7 +504,7 @@ export class ElectronCapacitorApp {
         return { action: "deny" };
       }
       // Stream popout windows: PIP-friendly, frameless, autoplay-enabled.
-      if (hasPopoutParam(details.url)) {
+      if (isStreamPopoutUrl(details.url)) {
         return {
           action: "allow",
           overrideBrowserWindowOptions: {
@@ -505,7 +524,18 @@ export class ElectronCapacitorApp {
           },
         };
       }
-      return { action: "allow" };
+
+      return {
+        action: "allow",
+        overrideBrowserWindowOptions: isLifoPopoutUrl(details.url) ? {
+          webPreferences: {
+            nodeIntegration: false,
+            contextIsolation: true,
+            autoplayPolicy: "no-user-gesture-required",
+            preload: preloadPath,
+          }
+        } : undefined
+      };
     });
 
     // Stream popout: configure PIP and switch capture target.
@@ -514,7 +544,7 @@ export class ElectronCapacitorApp {
       "did-create-window",
       (childWindow, { url }) => {
         const isLifo = LIFO_ENABLED && isLifoPopoutUrl(url);
-        const isStreamPopout = hasPopoutParam(url);
+        const isStreamPopout = isStreamPopoutUrl(url);
         if (!isLifo && !isStreamPopout) return;
 
         if (isStreamPopout) {

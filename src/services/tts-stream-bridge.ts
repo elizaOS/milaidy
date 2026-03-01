@@ -430,6 +430,14 @@ function resolveKey(
   if (ck && !isRedactedSecret(ck)) return ck;
   const ev = process.env[envVar]?.trim();
   if (ev && !isRedactedSecret(ev)) return ev;
+
+  if (process.env.ELIZAOS_CLOUD_ENABLED === "true") {
+    const cloudKey = process.env.ELIZAOS_CLOUD_API_KEY?.trim();
+    if (cloudKey && !isRedactedSecret(cloudKey)) {
+      return cloudKey;
+    }
+  }
+
   return null;
 }
 
