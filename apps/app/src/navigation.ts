@@ -32,6 +32,7 @@ export type Tab =
   | "stream"
   | "apps"
   | "character"
+  | "character-select"
   | "wallets"
   | "knowledge"
   | "connectors"
@@ -78,7 +79,7 @@ export const ALL_TAB_GROUPS: TabGroup[] = [
   },
   {
     label: "Character",
-    tabs: ["character"],
+    tabs: ["character", "character-select"],
     icon: Bot,
     description: "AI personality and behavior",
   },
@@ -149,6 +150,7 @@ const TAB_PATHS: Record<Tab, string> = {
   stream: "/stream",
   apps: "/apps",
   character: "/character",
+  "character-select": "/character-select",
   triggers: "/triggers",
   wallets: "/wallets",
   knowledge: "/knowledge",
@@ -244,6 +246,8 @@ export function titleForTab(tab: Tab): string {
       return "Apps";
     case "character":
       return "Character";
+    case "character-select":
+      return "Character Select";
     case "triggers":
       return "Triggers";
     case "wallets":

@@ -14,10 +14,21 @@ import type {
   ProviderResult,
   State,
 } from "@elizaos/core";
+import { canIAction } from "../actions/can-i";
+import { checkBalanceAction } from "../actions/check-balance";
+import { configurePluginAction } from "../actions/configure-plugin";
 import { emoteAction } from "../actions/emote";
+import { executeTradeAction } from "../actions/execute-trade";
+import { getSelfStatusAction } from "../actions/get-self-status";
 import { restartAction } from "../actions/restart";
 import { sendMessageAction } from "../actions/send-message";
 import { terminalAction } from "../actions/terminal";
+import { transferTokenAction } from "../actions/transfer-token";
+import {
+  AwarenessRegistry,
+  setGlobalAwarenessRegistry,
+} from "../awareness/registry";
+import { builtinContributors } from "../awareness/contributors/index";
 import { EMOTE_CATALOG } from "../emotes/catalog";
 import { adminTrustProvider } from "../providers/admin-trust";
 import {
@@ -29,6 +40,7 @@ import {
   getSessionProviders,
   resolveDefaultSessionStorePath,
 } from "../providers/session-utils";
+import { createSelfStatusProvider } from "../providers/self-status";
 import { createChannelProfileProvider } from "../providers/simple-mode";
 import { uiCatalogProvider } from "../providers/ui-catalog";
 import { DEFAULT_AGENT_WORKSPACE_DIR } from "../providers/workspace";
@@ -49,6 +61,13 @@ export function createMiladyPlugin(config?: MiladyPluginConfig): Plugin {
   const agentId = config?.agentId ?? "main";
   const sessionStorePath =
     config?.sessionStorePath ?? resolveDefaultSessionStorePath(agentId);
+
+  // Self-awareness registry — gives the agent perception of its own state.
+  const awarenessRegistry = new AwarenessRegistry();
+  for (const contributor of builtinContributors) {
+    awarenessRegistry.register(contributor);
+  }
+  const selfStatusProvider = createSelfStatusProvider(awarenessRegistry);
 
   const baseProviders = [
     createChannelProfileProvider(),
@@ -140,6 +159,8 @@ export function createMiladyPlugin(config?: MiladyPluginConfig): Plugin {
       registerTriggerTaskWorker(runtime);
       ensureAutonomousStateTracking(runtime);
       setCustomActionsRuntime(runtime);
+      // Make awareness registry accessible to GET_SELF_STATUS action
+      setGlobalAwarenessRegistry(awarenessRegistry);
     },
 
     providers: [
@@ -148,6 +169,7 @@ export function createMiladyPlugin(config?: MiladyPluginConfig): Plugin {
       uiCatalogProvider,
       emoteProvider,
       customActionsProvider,
+      selfStatusProvider,
     ],
 
     actions: [
@@ -156,6 +178,12 @@ export function createMiladyPlugin(config?: MiladyPluginConfig): Plugin {
       terminalAction,
       createTriggerTaskAction,
       emoteAction,
+      configurePluginAction,
+      canIAction,
+      getSelfStatusAction,
+      executeTradeAction,
+      checkBalanceAction,
+      transferTokenAction,
       ...loadCustomActions(),
     ],
   };
