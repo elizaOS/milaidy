@@ -293,7 +293,7 @@ export function ConversationsSidebar({
       ? t("chat.modal.providerDetecting")
       : "N/A";
   const capabilityRows = useMemo(() => {
-    const activePlugins = new Set(selfStatus?.plugins.active ?? []);
+    const activePlugins = new Set(selfStatus?.plugins?.active ?? []);
     const hasBrowserPlugin = Array.from(BROWSER_CAPABILITY_PLUGIN_IDS).some((id) =>
       activePlugins.has(id),
     );
@@ -301,18 +301,18 @@ export function ConversationsSidebar({
       activePlugins.has(id),
     );
 
-    const tradeEnabled = Boolean(selfStatus?.capabilities.canTrade);
-    const autoTradeEnabled = Boolean(selfStatus?.capabilities.canAutoTrade);
-    const browserEnabled = Boolean(selfStatus?.capabilities.canUseBrowser);
-    const computerEnabled = Boolean(selfStatus?.capabilities.canUseComputer);
-    const terminalEnabled = Boolean(selfStatus?.capabilities.canRunTerminal);
+    const tradeEnabled = Boolean(selfStatus?.capabilities?.canTrade);
+    const autoTradeEnabled = Boolean(selfStatus?.capabilities?.canAutoTrade);
+    const browserEnabled = Boolean(selfStatus?.capabilities?.canUseBrowser);
+    const computerEnabled = Boolean(selfStatus?.capabilities?.canUseComputer);
+    const terminalEnabled = Boolean(selfStatus?.capabilities?.canRunTerminal);
 
     const tradeHint = tradeEnabled
       ? null
       : t("chat.modal.capHintNeedsEvmWallet");
     const autoTradeHint = autoTradeEnabled
       ? null
-      : !selfStatus?.wallet.hasEvm
+      : !selfStatus?.wallet?.hasEvm
         ? t("chat.modal.capHintNeedsEvmWallet")
         : selfStatus.tradePermissionMode !== "agent-auto"
           ? t("chat.modal.capHintNeedsAgentTradeMode")
@@ -371,8 +371,8 @@ export function ConversationsSidebar({
     ] as const;
   }, [selfStatus, t]);
   const walletLabel =
-    selfStatus?.wallet.evmAddressShort ||
-    selfStatus?.wallet.solanaAddressShort ||
+    selfStatus?.wallet?.evmAddressShort ||
+    selfStatus?.wallet?.solanaAddressShort ||
     t("chat.modal.walletUnknown");
   const usageTotalLabel = chatLastUsage
     ? chatLastUsage.totalTokens.toLocaleString()
