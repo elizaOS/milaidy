@@ -126,6 +126,9 @@ describe("app startup routing (e2e)", () => {
       tab: "chat",
       actionNotice: null,
       setActionNotice: vi.fn(),
+      uiShellMode: "native",
+      uiLanguage: "en",
+      plugins: [],
     });
   });
 
@@ -164,6 +167,9 @@ describe("app startup routing (e2e)", () => {
       tab: "wallets",
       actionNotice: null,
       setActionNotice: vi.fn(),
+      uiShellMode: "native",
+      uiLanguage: "en",
+      plugins: [],
     });
 
     let tree: TestRenderer.ReactTestRenderer;

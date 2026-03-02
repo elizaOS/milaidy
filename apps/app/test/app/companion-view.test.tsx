@@ -108,6 +108,7 @@ function createContext() {
     uiShellMode: "companion",
     setUiShellMode: vi.fn(),
     setTab: vi.fn(),
+    plugins: [],
   };
 }
 

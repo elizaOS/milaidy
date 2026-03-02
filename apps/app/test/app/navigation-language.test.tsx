@@ -68,7 +68,7 @@ describe("Nav language switching", () => {
     expect(text).toContain("设置");
   });
 
-  it("hides companion tab in native shell mode", async () => {
+  it("shows companion tab in native shell mode", async () => {
     mockUseApp.mockReturnValue({
       tab: "chat",
       setTab: vi.fn(),
@@ -86,7 +86,7 @@ describe("Nav language switching", () => {
       .findAllByType("button")
       .map((node) => textOf(node))
       .join(" ");
-    expect(text).not.toContain("Companion");
+    expect(text).toContain("Companion");
     expect(text).toContain("Chat");
   });
 });

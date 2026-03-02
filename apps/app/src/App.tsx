@@ -513,7 +513,7 @@ export function App() {
                         ? "w-[97vw] h-[92vh] md:w-[88vw] md:h-[80vh] max-w-[1460px] overflow-visible"
                         : isAdvancedOverlay
                           ? "w-[95vw] h-[95vh] max-w-[1500px] backdrop-blur-3xl border rounded-2xl overflow-hidden"
-                          : isSettings || isApps || isKnowledge
+                          : isSettings || isApps || isKnowledge || isWallets
                             ? "w-[90vw] h-[90vh] max-w-5xl backdrop-blur-3xl border rounded-2xl overflow-hidden"
                             : "w-[65vw] min-w-[700px] h-[100vh] border-l backdrop-blur-2xl"
                   } transition-all duration-500`}
@@ -522,21 +522,21 @@ export function App() {
                       ? cardColor
                       : isPluginsLike
                         ? "transparent"
-                        : isSettings || isAdvancedOverlay || isApps || isKnowledge
+                        : isSettings || isAdvancedOverlay || isApps || isKnowledge || isWallets
                           ? "rgba(18, 22, 32, 0.92)"
                           : "linear-gradient(to left, rgba(6, 8, 12, 0.95) 40%, rgba(6, 8, 12, 0.7) 80%, rgba(6, 8, 12, 0.2) 100%)",
                     borderColor: isSkills
                       ? "rgba(0,225,255,0.2)"
                       : isPluginsLike
                         ? "transparent"
-                        : isSettings || isAdvancedOverlay || isApps || isKnowledge
+                        : isSettings || isAdvancedOverlay || isApps || isKnowledge || isWallets
                           ? "rgba(255, 255, 255, 0.08)"
                           : "rgba(255,255,255,0.05)",
                     boxShadow: isSkills
                       ? shadowFx
                       : isPluginsLike
                         ? "none"
-                        : isSettings || isAdvancedOverlay || isApps || isKnowledge
+                        : isSettings || isAdvancedOverlay || isApps || isKnowledge || isWallets
                           ? "0 8px 60px rgba(0,0,0,0.6), 0 2px 24px rgba(0,0,0,0.4)"
                           : "-60px 0 100px -20px rgba(0,0,0,0.8)",
                     borderTopRightRadius: isPluginsLike
@@ -666,7 +666,7 @@ export function App() {
                     className={`flex-1 min-h-0 ${
                       isPluginsLike
                         ? "overflow-visible"
-                        : isSettings || isAdvancedOverlay || isApps || isConnectors
+                        : isSettings || isAdvancedOverlay || isApps || isConnectors || isWallets
                           ? "overflow-hidden"
                           : "overflow-y-auto"
                     } ${
@@ -676,7 +676,8 @@ export function App() {
                             isAdvancedOverlay ||
                             isApps ||
                             isConnectors ||
-                            isPlugins
+                            isPlugins ||
+                            isWallets
                           ? "p-0"
                           : isKnowledge
                             ? "px-8 py-8"
@@ -688,7 +689,8 @@ export function App() {
                       isAdvancedOverlay ||
                       isApps ||
                       isConnectors ||
-                      isKnowledge
+                      isKnowledge ||
+                      isWallets
                         ? ({
                             "--bg": "transparent",
                             "--card": "rgba(255, 255, 255, 0.05)",
