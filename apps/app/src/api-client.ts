@@ -4851,6 +4851,24 @@ export class MiladyClient {
     });
   }
 
+  // ── Stream source picker ──────────────────────────────────────────────
+
+  async getStreamSource(): Promise<{
+    source: { type: string; url?: string };
+  }> {
+    return this.fetch("/api/stream/source");
+  }
+
+  async setStreamSource(
+    sourceType: string,
+    customUrl?: string,
+  ): Promise<{ ok: boolean; source: { type: string; url?: string } }> {
+    return this.fetch("/api/stream/source", {
+      method: "POST",
+      body: JSON.stringify({ sourceType, customUrl }),
+    });
+  }
+
   // ── Stream visual settings (theme, avatar for headless parity) ────────
 
   async getStreamSettings(): Promise<{

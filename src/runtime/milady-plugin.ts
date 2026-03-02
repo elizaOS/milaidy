@@ -22,6 +22,7 @@ import { executeTradeAction } from "../actions/execute-trade";
 import { getSelfStatusAction } from "../actions/get-self-status";
 import { restartAction } from "../actions/restart";
 import { sendMessageAction } from "../actions/send-message";
+import { switchStreamSourceAction } from "../actions/switch-stream-source";
 import { terminalAction } from "../actions/terminal";
 import { transferTokenAction } from "../actions/transfer-token";
 import { builtinContributors } from "../awareness/contributors/index";
@@ -184,6 +185,7 @@ export function createMiladyPlugin(config?: MiladyPluginConfig): Plugin {
       executeTradeAction,
       checkBalanceAction,
       transferTokenAction,
+      switchStreamSourceAction,
       ...loadCustomActions(),
     ],
   };

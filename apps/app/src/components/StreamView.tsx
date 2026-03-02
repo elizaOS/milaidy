@@ -31,6 +31,7 @@ import {
   FULL_SIZE,
   IS_POPOUT,
   PIP_SIZE,
+  type StreamSourceType,
   TERMINAL_ACTIVE_WINDOW_MS,
 } from "./stream/helpers";
 import { IdleContent } from "./stream/IdleContent";
@@ -81,6 +82,12 @@ export function StreamView() {
   const [frameCount, setFrameCount] = useState(0);
   const [audioSource, setAudioSource] = useState("");
 
+  // ── Stream source ─────────────────────────────────────────────────
+  const [streamSource, setStreamSource] = useState<{
+    type: StreamSourceType;
+    url?: string;
+  }>({ type: "stream-tab" });
+
   useEffect(() => {
     let mounted = true;
     const poll = async () => {
@@ -113,6 +120,18 @@ export function StreamView() {
       clearInterval(id);
     };
   }, [streamAvailable]);
+
+  // ── Auto-detect game source ─────────────────────────────────────────
+  useEffect(() => {
+    if (!streamLive) return;
+    if (activeGameViewerUrl.trim() && streamSource.type !== "game") {
+      client.setStreamSource("game", activeGameViewerUrl).catch(() => {});
+      setStreamSource({ type: "game", url: activeGameViewerUrl });
+    } else if (!activeGameViewerUrl.trim() && streamSource.type === "game") {
+      client.setStreamSource("stream-tab").catch(() => {});
+      setStreamSource({ type: "stream-tab" });
+    }
+  }, [activeGameViewerUrl, streamLive, streamSource.type]);
 
   const toggleStream = useCallback(async () => {
     if (loadingRef.current) return;
@@ -192,6 +211,22 @@ export function StreamView() {
       })
       .catch(() => {});
   }, []);
+
+  const handleSourceChange = useCallback(
+    async (sourceType: StreamSourceType, customUrl?: string) => {
+      try {
+        const result = await client.setStreamSource(sourceType, customUrl);
+        if (result.ok) {
+          setStreamSource(
+            result.source as { type: StreamSourceType; url?: string },
+          );
+        }
+      } catch {
+        // Non-fatal — UI will show stale state
+      }
+    },
+    [],
+  );
 
   // PIP mode state — small overlay window
   const [isPip, setIsPip] = useState(false);
@@ -320,6 +355,9 @@ export function StreamView() {
         uptime={uptime}
         frameCount={frameCount}
         audioSource={audioSource}
+        streamSource={streamSource}
+        activeGameViewerUrl={activeGameViewerUrl}
+        onSourceChange={handleSourceChange}
       />
 
       {/* Stream voice config — TTS toggle and status */}
