@@ -1,0 +1,20 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "noEmit": true,
+    "baseUrl": ".",
+    "paths": {
+      "@elizaos/plugin-ui": ["./src/index.ts"],
+      "@elizaos/plugin-ui/types": ["./src/types.ts"],
+      "@app/*": ["../../apps/app/src/*"]
+    }
+  },
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "../../apps/app/src/components/**/*.ts",
+    "../../apps/app/src/components/**/*.tsx",
+    "../../apps/app/src/types.ts"
+  ]
+}

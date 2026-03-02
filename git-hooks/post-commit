@@ -1,0 +1,7 @@
+#!/bin/sh
+if ! command -v git-lfs >/dev/null 2>&1; then
+  printf >&2 "\n%s\n\n" "This repository is configured for Git LFS but 'git-lfs' was not found on your path. Continuing without Git LFS. Install git-lfs to fetch/push large assets (VRMs/animations)."
+  exit 0
+fi
+
+git lfs post-commit "$@"
