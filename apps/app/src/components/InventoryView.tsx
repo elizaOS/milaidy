@@ -414,7 +414,7 @@ function StatusDot({
 
 /* ── Component ─────────────────────────────────────────────────────── */
 
-export function InventoryView() {
+export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
   const {
     walletConfig,
     walletAddresses,
@@ -497,6 +497,16 @@ export function InventoryView() {
   );
   const needsSetup =
     !hasWalletIdentity && !hasManagedBscRpc && !hasLegacyEvmProviders;
+
+  const goToRpcSettings = useCallback(() => {
+    setTab("settings");
+    // Allow SettingsView to render, then scroll to wallet-rpc section
+    setTimeout(() => {
+      document
+        .getElementById("wallet-rpc")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 150);
+  }, [setTab]);
 
   const isValidAddress = HEX_ADDRESS_RE.test(quickTokenInput.trim());
   const hasInput = quickTokenInput.trim().length > 0;
@@ -1055,7 +1065,9 @@ export function InventoryView() {
   }, [latestTxHash, latestTxStatus?.status, refreshTxStatus]);
 
   return (
-    <div className="wallets-bsc">
+    <div
+      className={`wallets-bsc ${inModal ? "p-6 h-full overflow-y-auto" : ""}`}
+    >
       {walletError && (
         <div className="mt-3 px-3.5 py-2.5 border border-danger bg-[rgba(231,76,60,0.06)] text-xs text-danger">
           {walletError}
@@ -1067,21 +1079,30 @@ export function InventoryView() {
 
   function renderSetup() {
     return (
-      <div className="wallets-bsc__setup mt-6 border border-border bg-card p-6 text-center">
+      <div
+        className={`wallets-bsc__setup mt-6 border p-6 text-center ${
+          inModal
+            ? "border-[var(--border)] bg-[rgba(255,255,255,0.04)] backdrop-blur-sm rounded-xl"
+            : "border-border bg-card"
+        }`}
+      >
         <div className="text-sm font-bold mb-2">
           {t("wallet.setup.rpcNotConfigured")}
         </div>
         <p className="text-xs text-muted mb-4 leading-relaxed max-w-md mx-auto">
-          {t("wallet.setup.rpcHintBefore")} <code>NODEREAL_BSC_RPC_URL</code>{" "}
-          {t("wallet.setup.rpcHintBetween")} <code>QUICKNODE_BSC_RPC_URL</code>{" "}
-          {t("wallet.setup.rpcHintAfter")}
+          Connect via Eliza Cloud or configure a custom BSC RPC provider
+          (NodeReal / QuickNode) to enable market feed and trading.
         </p>
         <button
           type="button"
-          className="px-4 py-1.5 border border-accent bg-accent text-accent-fg cursor-pointer text-xs font-mono hover:bg-accent-hover hover:border-accent-hover"
-          onClick={() => setTab("settings")}
+          className={`px-4 py-1.5 border cursor-pointer text-xs font-mono ${
+            inModal
+              ? "border-[var(--accent)] bg-[var(--accent)] text-white rounded-md hover:opacity-90"
+              : "border-accent bg-accent text-accent-fg hover:bg-accent-hover hover:border-accent-hover"
+          }`}
+          onClick={goToRpcSettings}
         >
-          {t("common.settings")}
+          Configure RPC
         </button>
       </div>
     );
@@ -1098,7 +1119,13 @@ export function InventoryView() {
 
     if (!evmAddr && !solAddr) {
       return (
-        <div className="mt-4 border border-border bg-card px-4 py-6 text-center">
+        <div
+          className={`mt-4 border px-4 py-6 text-center ${
+            inModal
+              ? "border-[var(--border)] bg-[rgba(255,255,255,0.04)] backdrop-blur-sm rounded-xl"
+              : "border-border bg-card"
+          }`}
+        >
           <div className="text-sm font-bold mb-1">
             {t("wallet.noOnchainWallet")}
           </div>
@@ -1107,7 +1134,11 @@ export function InventoryView() {
           </p>
           <button
             type="button"
-            className="px-4 py-1.5 border border-accent bg-accent text-accent-fg cursor-pointer text-xs font-mono hover:bg-accent-hover hover:border-accent-hover"
+            className={`px-4 py-1.5 border cursor-pointer text-xs font-mono ${
+              inModal
+                ? "border-[var(--accent)] bg-[var(--accent)] text-white rounded-md hover:opacity-90"
+                : "border-accent bg-accent text-accent-fg hover:bg-accent-hover hover:border-accent-hover"
+            }`}
             onClick={() => setTab("settings")}
           >
             {t("common.settings")}
@@ -1236,19 +1267,16 @@ export function InventoryView() {
                 {t("wallet.setup.rpcNotConfigured")}
               </div>
               <div className="text-[var(--muted)] leading-relaxed">
-                {t("wallet.setup.rpcHintBefore")}{" "}
-                <code>NODEREAL_BSC_RPC_URL</code>{" "}
-                {t("wallet.setup.rpcHintBetween")}{" "}
-                <code>QUICKNODE_BSC_RPC_URL</code>{" "}
-                {t("wallet.setup.rpcHintAfter")}
+                Connect via Eliza Cloud or configure a custom BSC RPC provider
+                (NodeReal / QuickNode) to enable trading.
               </div>
               <div className="mt-2">
                 <button
                   type="button"
                   className="px-3 py-1 border border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-foreground)] cursor-pointer text-[11px] font-mono hover:bg-[var(--accent-hover)] hover:border-[var(--accent-hover)]"
-                  onClick={() => setTab("settings")}
+                  onClick={goToRpcSettings}
                 >
-                  {t("common.settings")}
+                  Configure RPC
                 </button>
               </div>
             </div>

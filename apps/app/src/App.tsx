@@ -38,20 +38,22 @@ import { TerminalPanel } from "./components/TerminalPanel";
 import { BugReportProvider, useBugReportState } from "./hooks/useBugReport";
 import { useContextMenu } from "./hooks/useContextMenu";
 import { useLifoAutoPopout } from "./hooks/useLifoAutoPopout";
-import { isLifoPopoutMode } from "./lifo-popout";
+import { isLifoPopoutMode, isLifoPopoutValue } from "./lifo-popout";
 import type { Tab } from "./navigation";
 import { APPS_ENABLED, COMPANION_ENABLED, pathForTab } from "./navigation";
 
 const CHAT_MOBILE_BREAKPOINT_PX = 1024;
 
-/** Check if we're in pop-out mode (StreamView only, no chrome). */
+/** Check if we're in pop-out mode (StreamView only, no chrome).
+ *  Excludes lifo popout values — those use the dedicated LifoSandboxView shell. */
 function useIsPopout(): boolean {
   const [popout] = useState(() => {
     if (typeof window === "undefined") return false;
     const params = new URLSearchParams(
       window.location.search || window.location.hash.split("?")[1] || "",
     );
-    return params.has("popout");
+    if (!params.has("popout")) return false;
+    return !isLifoPopoutValue(params.get("popout"));
   });
   return popout;
 }
@@ -440,15 +442,21 @@ export function App() {
                   : "#d4af37";
     const topBarColor = isSkills
       ? "#00e1ff"
-      : isSettings || isAdvancedOverlay
-        ? "rgba(210, 205, 200, 0.7)"
-        : isPluginsLike
-          ? "#f0b232"
-          : isApps
-            ? "rgba(16, 185, 129, 0.7)"
-            : isKnowledge
-              ? "rgba(167, 139, 250, 0.7)"
-              : "#d4af37";
+      : isWallets
+        ? "rgba(240, 185, 11, 0.7)"
+        : isLifo
+          ? "rgba(139, 92, 246, 0.7)"
+          : isStream
+            ? "rgba(239, 68, 68, 0.7)"
+            : isSettings || isAdvancedOverlay
+              ? "rgba(210, 205, 200, 0.7)"
+              : isPluginsLike
+                ? "#f0b232"
+                : isApps
+                  ? "rgba(16, 185, 129, 0.7)"
+                  : isKnowledge
+                    ? "rgba(167, 139, 250, 0.7)"
+                    : "#d4af37";
     const cardColor = isSkills
       ? "rgba(20, 24, 38, 0.85)"
       : "rgba(10, 12, 16, 0.75)";
@@ -612,7 +620,7 @@ export function App() {
                         </div>
                       </>
                     )}
-                    {isAdvancedOverlay && (
+                    {isAdvancedOverlay && !isLifo && !isStream && (
                       <>
                         <div className="absolute top-[15%] right-0 w-[1.5px] h-[80px] bg-gradient-to-b from-transparent via-white/20 to-transparent" />
                         <div className="absolute bottom-[15%] left-0 w-[1.5px] h-[80px] bg-gradient-to-b from-transparent via-white/20 to-transparent" />
@@ -620,6 +628,46 @@ export function App() {
                         <div className="absolute bottom-3 left-3 w-[1px] h-[20px] bg-white/15" />
                         <div className="absolute bottom-3 right-4 text-white/15 text-[9px] font-mono tracking-widest">
                           ADV.PANEL_V1
+                        </div>
+                      </>
+                    )}
+                    {isLifo && (
+                      <>
+                        <div className="absolute top-[12%] right-0 w-[1.5px] h-[100px] bg-gradient-to-b from-transparent via-[#8b5cf6]/25 to-transparent" />
+                        <div className="absolute bottom-[12%] left-0 w-[1.5px] h-[100px] bg-gradient-to-b from-transparent via-[#8b5cf6]/25 to-transparent" />
+                        <div className="absolute bottom-3 left-3 w-[20px] h-[1px] bg-[#8b5cf6]/15" />
+                        <div className="absolute bottom-3 left-3 w-[1px] h-[20px] bg-[#8b5cf6]/15" />
+                        <div className="absolute bottom-3 right-4 text-[#8b5cf6]/20 text-[9px] font-mono tracking-widest">
+                          LIFO.SANDBOX_V1
+                        </div>
+                      </>
+                    )}
+                    {isStream && (
+                      <>
+                        <div className="absolute top-[12%] right-0 w-[1.5px] h-[100px] bg-gradient-to-b from-transparent via-[#ef4444]/25 to-transparent" />
+                        <div className="absolute bottom-[12%] left-0 w-[1.5px] h-[100px] bg-gradient-to-b from-transparent via-[#ef4444]/25 to-transparent" />
+                        <div className="absolute top-3 right-4 text-[#ef4444]/20 text-[9px] font-mono tracking-widest">
+                          STREAM.LIVE_V1
+                        </div>
+                      </>
+                    )}
+                    {isKnowledge && (
+                      <>
+                        <div className="absolute top-[15%] right-0 w-[1.5px] h-[80px] bg-gradient-to-b from-transparent via-[#a78bfa]/20 to-transparent" />
+                        <div className="absolute bottom-[15%] left-0 w-[1.5px] h-[80px] bg-gradient-to-b from-transparent via-[#a78bfa]/20 to-transparent" />
+                        <div className="absolute bottom-3 right-4 text-[#a78bfa]/20 text-[9px] font-mono tracking-widest">
+                          KNOW.BASE_V1
+                        </div>
+                      </>
+                    )}
+                    {isWallets && (
+                      <>
+                        <div className="absolute top-[15%] right-0 w-[1.5px] h-[80px] bg-gradient-to-b from-transparent via-[#f0b90b]/20 to-transparent" />
+                        <div className="absolute bottom-[15%] left-0 w-[1.5px] h-[80px] bg-gradient-to-b from-transparent via-[#f0b90b]/20 to-transparent" />
+                        <div className="absolute bottom-3 left-3 w-[20px] h-[1px] bg-[#f0b90b]/15" />
+                        <div className="absolute bottom-3 left-3 w-[1px] h-[20px] bg-[#f0b90b]/15" />
+                        <div className="absolute bottom-3 right-4 text-[#f0b90b]/20 text-[9px] font-mono tracking-widest">
+                          WALLET.BSC_V1
                         </div>
                       </>
                     )}
@@ -715,7 +763,13 @@ export function App() {
                                 ? "#10b981"
                                 : isKnowledge
                                   ? "#a78bfa"
-                                  : "#7b8fb5",
+                                  : isWallets
+                                    ? "#f0b90b"
+                                    : isLifo
+                                      ? "#8b5cf6"
+                                      : isStream
+                                        ? "#ef4444"
+                                        : "#7b8fb5",
                             "--accent-foreground": "#ffffff",
                             "--accent-subtle": isPluginsLike
                               ? "rgba(240, 178, 50, 0.12)"
@@ -723,14 +777,26 @@ export function App() {
                                 ? "rgba(16, 185, 129, 0.12)"
                                 : isKnowledge
                                   ? "rgba(167, 139, 250, 0.12)"
-                                  : "rgba(123, 143, 181, 0.12)",
+                                  : isWallets
+                                    ? "rgba(240, 185, 11, 0.12)"
+                                    : isLifo
+                                      ? "rgba(139, 92, 246, 0.12)"
+                                      : isStream
+                                        ? "rgba(239, 68, 68, 0.12)"
+                                        : "rgba(123, 143, 181, 0.12)",
                             "--accent-rgb": isPluginsLike
                               ? "240, 178, 50"
                               : isApps
                                 ? "16, 185, 129"
                                 : isKnowledge
                                   ? "167, 139, 250"
-                                  : "123, 143, 181",
+                                  : isWallets
+                                    ? "240, 185, 11"
+                                    : isLifo
+                                      ? "139, 92, 246"
+                                      : isStream
+                                        ? "239, 68, 68"
+                                        : "123, 143, 181",
                             "--muted": "rgba(255, 255, 255, 0.45)",
                             "--txt": "rgba(240, 238, 250, 0.92)",
                             "--text": "rgba(240, 238, 250, 0.92)",
@@ -759,7 +825,7 @@ export function App() {
                           } as React.CSSProperties)
                     }
                   >
-                    {isSkills && <SkillsView />}
+                    {isSkills && <SkillsView inModal />}
                     {(effectiveTab === "character" ||
                       effectiveTab === "character-select") && (
                       <CharacterView inModal />
@@ -769,10 +835,10 @@ export function App() {
                     {isAdvancedOverlay && <AdvancedPageView inModal />}
                     {isApps && <AppsPageView inModal />}
                     {isConnectors && <ConnectorsPageView inModal />}
-                    {isKnowledge && <KnowledgeView />}
-                    {isLifo && <LifoSandboxView />}
-                    {isStream && <StreamView />}
-                    {isWallets && <InventoryView />}
+                    {isKnowledge && <KnowledgeView inModal />}
+                    {isLifo && <LifoSandboxView inModal />}
+                    {isStream && <StreamView inModal />}
+                    {isWallets && <InventoryView inModal />}
                   </div>
                 </div>
                 {/* Close button — outside the modal card, anchored to its top-right corner */}

@@ -3063,7 +3063,7 @@
     /* ── layout ── */
     flex: 1;
     min-width: 0;
-    overflow-y: auto;
+    overflow: hidden;
     padding: 0;
     display: flex;
     flex-direction: column;
@@ -3078,7 +3078,12 @@
 }
 
 .settings-section-pane {
+    flex: 1;
+    min-height: 0;
     padding: 0 24px 24px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.06) transparent;
 }
 
 /* ── Group 2: Decorative pseudo-elements ─────────────────────────────── */
@@ -3751,15 +3756,18 @@
 
 /* ── Group 7: Scrollbar + misc ───────────────────────────────────────── */
 
-.settings-content-area::-webkit-scrollbar {
+.settings-content-area::-webkit-scrollbar,
+.settings-section-pane::-webkit-scrollbar {
     width: 4px;
 }
 
-.settings-content-area::-webkit-scrollbar-track {
+.settings-content-area::-webkit-scrollbar-track,
+.settings-section-pane::-webkit-scrollbar-track {
     background: transparent;
 }
 
-.settings-content-area::-webkit-scrollbar-thumb {
+.settings-content-area::-webkit-scrollbar-thumb,
+.settings-section-pane::-webkit-scrollbar-thumb {
     background: rgba(255, 255, 255, 0.08);
     border-radius: 2px;
 }

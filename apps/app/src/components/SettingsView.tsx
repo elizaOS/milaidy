@@ -26,11 +26,14 @@ import {
   Shield,
   Sliders,
   Upload,
+  Wallet,
   X,
 } from "lucide-react";
+import type React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { THEMES, useApp } from "../AppContext";
 import { createTranslator } from "../i18n";
+import { ConfigPageView } from "./ConfigPageView";
 import { MediaSettingsSection } from "./MediaSettingsSection";
 import { PermissionsSection } from "./PermissionsSection";
 import { ProviderSwitcher } from "./ProviderSwitcher";
@@ -55,6 +58,12 @@ const SETTINGS_SECTIONS: SettingsSectionDef[] = [
     label: "AI Model",
     icon: Bot,
     description: "Provider and model settings",
+  },
+  {
+    id: "wallet-rpc",
+    label: "Wallet & RPC",
+    icon: Wallet,
+    description: "Chain RPC providers and API keys",
   },
   {
     id: "media",
@@ -397,11 +406,7 @@ function AdvancedSection() {
 
 /* ── SettingsView ─────────────────────────────────────────────────────── */
 
-export function SettingsView({
-  inModal: _inModal,
-}: {
-  inModal?: boolean;
-} = {}) {
+export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
   const [activeSection, setActiveSection] = useState("appearance");
   const [searchQuery, setSearchQuery] = useState("");
   const contentRef = useRef<HTMLDivElement>(null);
@@ -499,6 +504,209 @@ export function SettingsView({
     return () => root.removeEventListener("scroll", handleScroll);
   }, []);
 
+  /* ── Sections content (shared between both layouts) ────────────────── */
+  const sectionsContent = (
+    <>
+      {/* APPEARANCE SECTION */}
+      <SectionCard
+        id="appearance"
+        title={t("settings.appearance")}
+        description={t("settings.languageHint")}
+      >
+        {/* Language selector */}
+        <div className="mb-5">
+          <div className="text-xs font-semibold text-txt-strong mb-2">
+            {t("settings.language")}
+          </div>
+          <div className="inline-flex gap-1.5 border border-border rounded-lg p-1">
+            <button
+              type="button"
+              className={`px-3 py-1.5 text-xs rounded-md font-medium transition-colors duration-200 ${
+                uiLanguage === "en"
+                  ? "bg-accent text-accent-fg shadow-sm"
+                  : "text-txt hover:bg-bg-hover"
+              }`}
+              onClick={() => {
+                setUiLanguage("en");
+                setActionNotice(t("settings.languageSaved"), "success", 2200);
+              }}
+            >
+              {t("settings.languageEnglish")}
+            </button>
+            <button
+              type="button"
+              className={`px-3 py-1.5 text-xs rounded-md font-medium transition-colors duration-200 ${
+                uiLanguage === "zh-CN"
+                  ? "bg-accent text-accent-fg shadow-sm"
+                  : "text-txt hover:bg-bg-hover"
+              }`}
+              onClick={() => {
+                setUiLanguage("zh-CN");
+                setActionNotice(t("settings.languageSaved"), "success", 2200);
+              }}
+            >
+              {t("settings.languageChineseSimplified")}
+            </button>
+          </div>
+        </div>
+
+        {/* Theme selector */}
+        <div className="text-xs font-semibold text-txt-strong mb-2">
+          {t("settings.themeStyle")}
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {THEMES.map((th) => (
+            <button
+              key={th.id}
+              type="button"
+              className={`theme-btn p-4 border rounded-xl text-left transition-all duration-200 hover:border-accent hover:shadow-md hover:-translate-y-0.5 ${
+                currentTheme === th.id
+                  ? "active border-accent bg-accent-subtle shadow-md"
+                  : "border-border bg-bg hover:bg-bg-hover"
+              }`}
+              onClick={() => setTheme(th.id)}
+            >
+              <div className="text-sm font-semibold text-txt-strong mb-1">
+                {th.label}
+              </div>
+              <div className="text-[11px] text-muted">{th.hint}</div>
+            </button>
+          ))}
+        </div>
+      </SectionCard>
+
+      {/* AI MODEL SECTION */}
+      <SectionCard
+        id="ai-model"
+        title={t("settings.aiModel")}
+        description={t("settings.aiModelDescription")}
+      >
+        <ProviderSwitcher
+          cloudEnabled={cloudEnabled}
+          cloudConnected={cloudConnected}
+          cloudCredits={cloudCredits}
+          cloudCreditsLow={cloudCreditsLow}
+          cloudCreditsCritical={cloudCreditsCritical}
+          cloudTopUpUrl={cloudTopUpUrl}
+          cloudUserId={cloudUserId}
+          cloudLoginBusy={cloudLoginBusy}
+          cloudLoginError={cloudLoginError}
+          cloudDisconnecting={cloudDisconnecting}
+          plugins={plugins}
+          pluginSaving={pluginSaving}
+          pluginSaveSuccess={pluginSaveSuccess}
+          loadPlugins={loadPlugins}
+          handlePluginToggle={handlePluginToggle}
+          handlePluginConfigSave={handlePluginConfigSave}
+          handleCloudLogin={handleCloudLogin}
+          handleCloudDisconnect={handleCloudDisconnect}
+          setState={setState}
+          setTab={setTab}
+        />
+      </SectionCard>
+
+      {/* WALLET & RPC SECTION */}
+      <SectionCard
+        id="wallet-rpc"
+        title="Wallet & RPC"
+        description="Configure chain RPC providers for trading and market data."
+      >
+        <ConfigPageView embedded />
+      </SectionCard>
+
+      {/* MEDIA SECTION */}
+      <SectionCard
+        id="media"
+        title={t("settings.mediaGeneration")}
+        description={t("settings.mediaDescription")}
+      >
+        <MediaSettingsSection />
+      </SectionCard>
+
+      {/* VOICE SECTION */}
+      <SectionCard
+        id="voice"
+        title={t("settings.speechInterface")}
+        description={t("settings.speechDescription")}
+      >
+        <VoiceConfigView />
+      </SectionCard>
+
+      {/* PERMISSIONS SECTION */}
+      <SectionCard
+        id="permissions"
+        title={t("settings.permissionsCapabilities")}
+        description={t("settings.permissionsDescription")}
+      >
+        <PermissionsSection />
+      </SectionCard>
+
+      {/* UPDATES SECTION */}
+      <SectionCard
+        id="updates"
+        title={t("settings.softwareUpdates")}
+        description={t("settings.updatesDescription")}
+      >
+        <UpdatesSection />
+      </SectionCard>
+
+      {/* ADVANCED SECTION */}
+      <SectionCard
+        id="advanced"
+        title={t("settings.advancedSettings")}
+        description={t("settings.advancedDescription")}
+      >
+        <AdvancedSection />
+      </SectionCard>
+    </>
+  );
+
+  /* ── Companion modal layout (dark glass) ───────────────────────────── */
+  if (inModal) {
+    return (
+      <div className="settings-modal-layout">
+        <nav className="settings-icon-sidebar">
+          {SETTINGS_SECTIONS.map((section) => {
+            const Icon = section.icon;
+            return (
+              <button
+                key={section.id}
+                type="button"
+                className={`settings-icon-btn ${activeSection === section.id ? "is-active" : ""}`}
+                onClick={() => handleSectionChange(section.id)}
+                title={section.description}
+              >
+                <Icon className="w-5 h-5" />
+                <span className="settings-icon-label">{section.label}</span>
+              </button>
+            );
+          })}
+        </nav>
+        <div
+          ref={contentRef}
+          className="settings-content-area"
+          style={
+            {
+              "--accent": "#7b8fb5",
+              "--surface": "rgba(255, 255, 255, 0.06)",
+              "--s-accent": "#7b8fb5",
+              "--s-text-accent": "#7b8fb5",
+              "--s-accent-glow": "rgba(123, 143, 181, 0.35)",
+              "--s-accent-subtle": "rgba(123, 143, 181, 0.12)",
+              "--s-grid-line": "rgba(123, 143, 181, 0.02)",
+              "--s-glow-edge": "rgba(123, 143, 181, 0.08)",
+            } as React.CSSProperties
+          }
+        >
+          <div className="settings-section-pane pt-4">
+            <div className="space-y-8 pb-20">{sectionsContent}</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  /* ── Standard layout (native mode) ─────────────────────────────────── */
   return (
     <div className="h-full flex flex-col lg:flex-row overflow-hidden bg-bg">
       <SettingsSidebar
@@ -513,156 +721,7 @@ export function SettingsView({
         className="flex-1 overflow-y-auto p-4 lg:p-8 scroll-smooth"
       >
         <div className="max-w-3xl mx-auto space-y-8 pb-20">
-          {/* APPEARANCE SECTION */}
-          <SectionCard
-            id="appearance"
-            title={t("settings.appearance")}
-            description={t("settings.languageHint")}
-          >
-            {/* Language selector */}
-            <div className="mb-5">
-              <div className="text-xs font-semibold text-txt-strong mb-2">
-                {t("settings.language")}
-              </div>
-              <div className="inline-flex gap-1.5 border border-border rounded-lg p-1">
-                <button
-                  type="button"
-                  className={`px-3 py-1.5 text-xs rounded-md font-medium transition-colors duration-200 ${
-                    uiLanguage === "en"
-                      ? "bg-accent text-accent-fg shadow-sm"
-                      : "text-txt hover:bg-bg-hover"
-                  }`}
-                  onClick={() => {
-                    setUiLanguage("en");
-                    setActionNotice(
-                      t("settings.languageSaved"),
-                      "success",
-                      2200,
-                    );
-                  }}
-                >
-                  {t("settings.languageEnglish")}
-                </button>
-                <button
-                  type="button"
-                  className={`px-3 py-1.5 text-xs rounded-md font-medium transition-colors duration-200 ${
-                    uiLanguage === "zh-CN"
-                      ? "bg-accent text-accent-fg shadow-sm"
-                      : "text-txt hover:bg-bg-hover"
-                  }`}
-                  onClick={() => {
-                    setUiLanguage("zh-CN");
-                    setActionNotice(
-                      t("settings.languageSaved"),
-                      "success",
-                      2200,
-                    );
-                  }}
-                >
-                  {t("settings.languageChineseSimplified")}
-                </button>
-              </div>
-            </div>
-
-            {/* Theme selector */}
-            <div className="text-xs font-semibold text-txt-strong mb-2">
-              {t("settings.themeStyle")}
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {THEMES.map((th) => (
-                <button
-                  key={th.id}
-                  type="button"
-                  className={`p-4 border rounded-xl text-left transition-all duration-200 hover:border-accent hover:shadow-md hover:-translate-y-0.5 ${
-                    currentTheme === th.id
-                      ? "border-accent bg-accent-subtle shadow-md"
-                      : "border-border bg-bg hover:bg-bg-hover"
-                  }`}
-                  onClick={() => setTheme(th.id)}
-                >
-                  <div className="text-sm font-semibold text-txt-strong mb-1">
-                    {th.label}
-                  </div>
-                  <div className="text-[11px] text-muted">{th.hint}</div>
-                </button>
-              ))}
-            </div>
-          </SectionCard>
-
-          {/* AI MODEL SECTION */}
-          <SectionCard
-            id="ai-model"
-            title={t("settings.aiModel")}
-            description={t("settings.aiModelDescription")}
-          >
-            <ProviderSwitcher
-              cloudEnabled={cloudEnabled}
-              cloudConnected={cloudConnected}
-              cloudCredits={cloudCredits}
-              cloudCreditsLow={cloudCreditsLow}
-              cloudCreditsCritical={cloudCreditsCritical}
-              cloudTopUpUrl={cloudTopUpUrl}
-              cloudUserId={cloudUserId}
-              cloudLoginBusy={cloudLoginBusy}
-              cloudLoginError={cloudLoginError}
-              cloudDisconnecting={cloudDisconnecting}
-              plugins={plugins}
-              pluginSaving={pluginSaving}
-              pluginSaveSuccess={pluginSaveSuccess}
-              loadPlugins={loadPlugins}
-              handlePluginToggle={handlePluginToggle}
-              handlePluginConfigSave={handlePluginConfigSave}
-              handleCloudLogin={handleCloudLogin}
-              handleCloudDisconnect={handleCloudDisconnect}
-              setState={setState}
-              setTab={setTab}
-            />
-          </SectionCard>
-
-          {/* MEDIA SECTION */}
-          <SectionCard
-            id="media"
-            title={t("settings.mediaGeneration")}
-            description={t("settings.mediaDescription")}
-          >
-            <MediaSettingsSection />
-          </SectionCard>
-
-          {/* VOICE SECTION */}
-          <SectionCard
-            id="voice"
-            title={t("settings.speechInterface")}
-            description={t("settings.speechDescription")}
-          >
-            <VoiceConfigView />
-          </SectionCard>
-
-          {/* PERMISSIONS SECTION */}
-          <SectionCard
-            id="permissions"
-            title={t("settings.permissionsCapabilities")}
-            description={t("settings.permissionsDescription")}
-          >
-            <PermissionsSection />
-          </SectionCard>
-
-          {/* UPDATES SECTION */}
-          <SectionCard
-            id="updates"
-            title={t("settings.softwareUpdates")}
-            description={t("settings.updatesDescription")}
-          >
-            <UpdatesSection />
-          </SectionCard>
-
-          {/* ADVANCED SECTION */}
-          <SectionCard
-            id="advanced"
-            title={t("settings.advancedSettings")}
-            description={t("settings.advancedDescription")}
-          >
-            <AdvancedSection />
-          </SectionCard>
+          {sectionsContent}
         </div>
       </div>
     </div>

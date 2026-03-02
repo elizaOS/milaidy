@@ -305,8 +305,8 @@ function createRuntimeForStreamTests(options: {
       }
       if (serviceType === "AUTONOMY") {
         return {
-          enableAutonomy: async () => { },
-          disableAutonomy: async () => { },
+          enableAutonomy: async () => {},
+          disableAutonomy: async () => {},
           isLoopRunning: () => options.loopRunning ?? false,
         } as never;
       }
@@ -315,7 +315,7 @@ function createRuntimeForStreamTests(options: {
     getRoomsByWorld: async () => [],
     getMemories: async () => [],
     getCache: async () => null,
-    setCache: async () => { },
+    setCache: async () => {},
   };
   return runtimeSubset as AgentRuntime;
 }
@@ -390,8 +390,8 @@ function createRuntimeForAutonomySurfaceTests(options: {
           typeof (message.content as Record<string, unknown> | undefined)
             ?.text === "string"
             ? String(
-              (message.content as Record<string, unknown> | undefined)?.text,
-            )
+                (message.content as Record<string, unknown> | undefined)?.text,
+              )
             : "autonomy";
         return {
           didRespond: true,
@@ -417,16 +417,16 @@ function createRuntimeForAutonomySurfaceTests(options: {
       }
       if (serviceType === "AUTONOMY") {
         return {
-          enableAutonomy: async () => { },
-          disableAutonomy: async () => { },
+          enableAutonomy: async () => {},
+          disableAutonomy: async () => {},
           isLoopRunning: () => options.loopRunning ?? true,
         } as never;
       }
       return null;
     },
-    ensureConnection: async () => { },
+    ensureConnection: async () => {},
     getWorld: async () => null,
-    updateWorld: async () => { },
+    updateWorld: async () => {},
     createMemory: async (memory: Record<string, unknown>) => {
       const roomId = String(memory.roomId ?? "");
       if (!roomId) return;
@@ -459,7 +459,7 @@ function createRuntimeForAutonomySurfaceTests(options: {
       tasks = tasks.filter((task) => task.id !== taskId);
     },
     getCache: async () => null,
-    setCache: async () => { },
+    setCache: async () => {},
   };
 
   return runtimeSubset as AgentRuntime;
@@ -520,15 +520,15 @@ function createRuntimeForWorkbenchCrudTests(options?: {
       tasks = tasks.map((task) =>
         task.id === taskId
           ? {
-            ...task,
-            ...update,
-            metadata: {
-              ...((task.metadata as Record<string, unknown> | undefined) ??
-                {}),
-              ...((update.metadata as Record<string, unknown> | undefined) ??
-                {}),
-            } as Task["metadata"],
-          }
+              ...task,
+              ...update,
+              metadata: {
+                ...((task.metadata as Record<string, unknown> | undefined) ??
+                  {}),
+                ...((update.metadata as Record<string, unknown> | undefined) ??
+                  {}),
+              } as Task["metadata"],
+            }
           : task,
       );
     },
@@ -610,9 +610,9 @@ function createRuntimeForChatSseTests(options?: {
           };
         })()),
     } as AgentRuntime["messageService"],
-    ensureConnection: async () => { },
+    ensureConnection: async () => {},
     getWorld: async () => null,
-    updateWorld: async () => { },
+    updateWorld: async () => {},
     createMemory: async (memory: Record<string, unknown>) => {
       const roomId = String(memory.roomId ?? "");
       if (!roomId) return;
@@ -662,7 +662,7 @@ function createRuntimeForChatSseTests(options?: {
       >;
     },
     getCache: async () => null,
-    setCache: async () => { },
+    setCache: async () => {},
   };
 
   return runtimeSubset as AgentRuntime;
@@ -703,14 +703,14 @@ function createRuntimeForCompatEndpointTests(): AgentRuntime {
         };
       },
     } as AgentRuntime["messageService"],
-    ensureConnection: async () => { },
+    ensureConnection: async () => {},
     getWorld: async () => null,
-    updateWorld: async () => { },
+    updateWorld: async () => {},
     getService: () => null,
     getRoomsByWorld: async () => [],
     getMemories: async () => [],
     getCache: async () => null,
-    setCache: async () => { },
+    setCache: async () => {},
   };
 
   return runtimeSubset as AgentRuntime;
@@ -718,10 +718,10 @@ function createRuntimeForCompatEndpointTests(): AgentRuntime {
 
 function createRuntimeForCreditNoResponseTests(): AgentRuntime {
   const runtimeLogger = {
-    debug: () => { },
-    info: () => { },
-    warn: () => { },
-    error: () => { },
+    debug: () => {},
+    info: () => {},
+    warn: () => {},
+    error: () => {},
   } as AgentRuntime["logger"];
 
   const runtimeSubset: Pick<
@@ -755,14 +755,14 @@ function createRuntimeForCreditNoResponseTests(): AgentRuntime {
         };
       },
     } as AgentRuntime["messageService"],
-    ensureConnection: async () => { },
+    ensureConnection: async () => {},
     getWorld: async () => null,
-    updateWorld: async () => { },
+    updateWorld: async () => {},
     getService: () => null,
     getRoomsByWorld: async () => [],
     getMemories: async () => [],
     getCache: async () => null,
-    setCache: async () => { },
+    setCache: async () => {},
   };
 
   return runtimeSubset as AgentRuntime;
@@ -770,10 +770,10 @@ function createRuntimeForCreditNoResponseTests(): AgentRuntime {
 
 function createRuntimeForCreditLiteralNoResponseTests(): AgentRuntime {
   const runtimeLogger = {
-    debug: () => { },
-    info: () => { },
-    warn: () => { },
-    error: () => { },
+    debug: () => {},
+    info: () => {},
+    warn: () => {},
+    error: () => {},
   } as AgentRuntime["logger"];
 
   const runtimeSubset: Pick<
@@ -807,14 +807,14 @@ function createRuntimeForCreditLiteralNoResponseTests(): AgentRuntime {
         };
       },
     } as AgentRuntime["messageService"],
-    ensureConnection: async () => { },
+    ensureConnection: async () => {},
     getWorld: async () => null,
-    updateWorld: async () => { },
+    updateWorld: async () => {},
     getService: () => null,
     getRoomsByWorld: async () => [],
     getMemories: async () => [],
     getCache: async () => null,
-    setCache: async () => { },
+    setCache: async () => {},
   };
 
   return runtimeSubset as AgentRuntime;
@@ -844,14 +844,14 @@ function createRuntimeForCreditErrorTests(): AgentRuntime {
         );
       },
     } as AgentRuntime["messageService"],
-    ensureConnection: async () => { },
+    ensureConnection: async () => {},
     getWorld: async () => null,
-    updateWorld: async () => { },
+    updateWorld: async () => {},
     getService: () => null,
     getRoomsByWorld: async () => [],
     getMemories: async () => [],
     getCache: async () => null,
-    setCache: async () => { },
+    setCache: async () => {},
   };
 
   return runtimeSubset as AgentRuntime;
@@ -871,13 +871,13 @@ describe("API Server E2E (no runtime)", () => {
     lastErrorAt?: number;
     nextRetryAt?: number;
     state?:
-    | "not_started"
-    | "starting"
-    | "running"
-    | "paused"
-    | "stopped"
-    | "restarting"
-    | "error";
+      | "not_started"
+      | "starting"
+      | "running"
+      | "paused"
+      | "stopped"
+      | "restarting"
+      | "error";
   }) => void;
 
   beforeAll(async () => {
@@ -1757,7 +1757,7 @@ describe("API Server E2E (no runtime)", () => {
 
       const trajectoryLogger = {
         isEnabled: () => true,
-        setEnabled: () => { },
+        setEnabled: () => {},
         listTrajectories: async () => ({
           trajectories: [
             {
@@ -1866,7 +1866,7 @@ describe("API Server E2E (no runtime)", () => {
 
       const trajectoryLogger = {
         isEnabled: () => true,
-        setEnabled: () => { },
+        setEnabled: () => {},
         listTrajectories: async () => ({
           trajectories: [
             {
@@ -2062,7 +2062,7 @@ describe("API Server E2E (no runtime)", () => {
       }
     });
 
-    it.skip("persists core trajectory rows to DB and loads them after restart", async () => {
+    it("persists core trajectory rows to DB and loads them after restart", async () => {
       type RawSqlQuery = {
         queryChunks?: Array<{
           value?: string[];
@@ -2190,76 +2190,15 @@ describe("API Server E2E (no runtime)", () => {
         }
       }
 
+      const {
+        startTrajectoryStepInDatabase,
+        completeTrajectoryStepInDatabase,
+      } = await import("../src/runtime/trajectory-persistence");
+
       const db = new InMemoryTrajectoryDb();
 
-      const createCoreLogger = () => {
-        const llmCalls: Array<Record<string, unknown>> = [];
-        const providerAccess: Array<Record<string, unknown>> = [];
-        return {
-          logLlmCall: (params: Record<string, unknown>) => {
-            llmCalls.push({
-              ...params,
-              timestamp:
-                typeof params.timestamp === "number"
-                  ? params.timestamp
-                  : Date.now(),
-            });
-          },
-          logProviderAccess: (params: Record<string, unknown>) => {
-            providerAccess.push({
-              ...params,
-              timestamp:
-                typeof params.timestamp === "number"
-                  ? params.timestamp
-                  : Date.now(),
-            });
-          },
-          getLlmCallLogs: () => llmCalls,
-          getProviderAccessLogs: () => providerAccess,
-        };
-      };
-
       const createRuntime = () => {
-        const coreLogger = createCoreLogger();
-        const runtime = createRuntimeForChatSseTests({
-          getService: (serviceType) =>
-            serviceType === "trajectory_logger" ? coreLogger : null,
-          getServicesByType: (serviceType) =>
-            serviceType === "trajectory_logger" ? [coreLogger] : [],
-          handleMessage: async (runtimeArg, message, onResponse) => {
-            const metadata =
-              message && typeof message === "object" && "metadata" in message
-                ? (message as { metadata?: { trajectoryStepId?: string } })
-                  .metadata
-                : undefined;
-            const stepId = metadata?.trajectoryStepId;
-            if (stepId) {
-              const logger = runtimeArg.getService("trajectory_logger") as {
-                logLlmCall?: (params: Record<string, unknown>) => void;
-              } | null;
-              logger?.logLlmCall?.({
-                stepId,
-                model: "unit-test-model",
-                systemPrompt: "system",
-                userPrompt: "persist me",
-                response: "persisted",
-                temperature: 0,
-                maxTokens: 32,
-                purpose: "response",
-                actionType: "test",
-                promptTokens: 3,
-                completionTokens: 4,
-                latencyMs: 10,
-              });
-            }
-            await onResponse({ text: "persisted" } as Content);
-            return {
-              responseContent: {
-                text: "persisted",
-              },
-            };
-          },
-        }) as AgentRuntime & {
+        const runtime = createRuntimeForChatSseTests() as AgentRuntime & {
           adapter?: {
             db: { execute: (query: RawSqlQuery) => Promise<unknown> };
           };
@@ -2268,15 +2207,23 @@ describe("API Server E2E (no runtime)", () => {
         return runtime;
       };
 
+      // Server A: write a trajectory via the persistence layer, read via API
       const runtimeA = createRuntime();
       const serverA = await startApiServer({ port: 0, runtime: runtimeA });
       let firstTrajectoryId: string | null = null;
       try {
-        const chat = await req(serverA.port, "POST", "/api/chat", {
-          text: "persist this trajectory",
-          mode: "simple",
+        const stepId = `test-step-${Date.now()}`;
+        await startTrajectoryStepInDatabase({
+          runtime: runtimeA,
+          stepId,
+          source: "test",
         });
-        expect(chat.status).toBe(200);
+        await completeTrajectoryStepInDatabase({
+          runtime: runtimeA,
+          stepId,
+          status: "completed",
+          source: "test",
+        });
 
         const list = await req(serverA.port, "GET", "/api/trajectories");
         expect(list.status).toBe(200);
@@ -2289,6 +2236,7 @@ describe("API Server E2E (no runtime)", () => {
         await serverA.close();
       }
 
+      // Server B: same DB, fresh runtime — trajectory should persist
       const runtimeB = createRuntime();
       const serverB = await startApiServer({ port: 0, runtime: runtimeB });
       try {
@@ -2396,12 +2344,12 @@ describe("API Server E2E (no runtime)", () => {
 
     it("GET /api/trajectories prefers route-compatible logger when byType contains core logger", async () => {
       const coreLogger = {
-        logLlmCall: () => { },
+        logLlmCall: () => {},
       };
 
       const fullLogger = {
         isEnabled: () => true,
-        setEnabled: () => { },
+        setEnabled: () => {},
         listTrajectories: async () => ({
           trajectories: [
             {
@@ -2472,9 +2420,9 @@ describe("API Server E2E (no runtime)", () => {
     it("GET /api/trajectories returns 503 when no route-compatible logger is available", async () => {
       const runtime = createRuntimeForChatSseTests({
         getServicesByType: (serviceType) =>
-          serviceType === "trajectory_logger" ? [{ logLlmCall: () => { } }] : [],
+          serviceType === "trajectory_logger" ? [{ logLlmCall: () => {} }] : [],
         getService: (serviceType) =>
-          serviceType === "trajectory_logger" ? { logLlmCall: () => { } } : null,
+          serviceType === "trajectory_logger" ? { logLlmCall: () => {} } : null,
       }) as AgentRuntime & { adapter?: unknown };
       runtime.adapter = {};
 
@@ -2570,7 +2518,7 @@ describe("API Server E2E (no runtime)", () => {
           (message) =>
             message.type === "training_event" &&
             ((message.payload as Record<string, unknown>)?.kind as string) ===
-            "dataset_built",
+              "dataset_built",
         );
 
         const response = await req(
@@ -2727,8 +2675,8 @@ describe("API Server E2E (no runtime)", () => {
         getTasks: async () => [],
         getTask: async () => null,
         createTask: async () => crypto.randomUUID() as UUID,
-        updateTask: async () => { },
-        deleteTask: async () => { },
+        updateTask: async () => {},
+        deleteTask: async () => {},
       } as unknown as AgentRuntime;
 
       const streamServer = await startApiServer({ port: 0, runtime });
@@ -2894,7 +2842,7 @@ describe("API Server E2E (no runtime)", () => {
           (message) =>
             message.type === "agent_event" &&
             ((message.payload as Record<string, unknown>)?.text as string) ===
-            "ws-stream-check",
+              "ws-stream-check",
         );
 
         eventService.emit({
@@ -2952,14 +2900,14 @@ describe("API Server E2E (no runtime)", () => {
           (message) =>
             message.type === "agent_event" &&
             ((message.payload as Record<string, unknown>)?.text as string) ===
-            "autonomy-thought",
+              "autonomy-thought",
         );
         const waitForAction = waitForWsMessage(
           ws,
           (message) =>
             message.type === "agent_event" &&
             ((message.payload as Record<string, unknown>)?.text as string) ===
-            "autonomy-action",
+              "autonomy-action",
         );
         const waitForProactive = waitForWsMessage(
           ws,

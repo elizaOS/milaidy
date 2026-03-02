@@ -289,10 +289,15 @@ export async function handleWalletRoutes(
   // GET /api/wallet/config
   if (method === "GET" && pathname === "/api/wallet/config") {
     const addresses = deps.getWalletAddresses();
+    const nodeRealSet = Boolean(process.env.NODEREAL_BSC_RPC_URL?.trim());
+    const quickNodeSet = Boolean(process.env.QUICKNODE_BSC_RPC_URL?.trim());
     const configStatus: WalletConfigStatus = {
       alchemyKeySet: Boolean(process.env.ALCHEMY_API_KEY),
       infuraKeySet: Boolean(process.env.INFURA_API_KEY),
       ankrKeySet: Boolean(process.env.ANKR_API_KEY),
+      nodeRealBscRpcSet: nodeRealSet,
+      quickNodeBscRpcSet: quickNodeSet,
+      managedBscRpcReady: nodeRealSet || quickNodeSet,
       heliusKeySet: Boolean(process.env.HELIUS_API_KEY),
       birdeyeKeySet: Boolean(process.env.BIRDEYE_API_KEY),
       evmChains: ["Ethereum", "Base", "Arbitrum", "Optimism", "Polygon"],

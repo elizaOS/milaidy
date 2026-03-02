@@ -239,9 +239,7 @@ describe("app startup routing (e2e)", () => {
     expect(renderedText).toContain("AutonomousPanel");
   });
 
-  // TODO: Fix mock for isLifoPopoutMode - the test infrastructure doesn't properly
-  // mock the module due to module resolution timing issues with useMemo.
-  it.skip("renders dedicated lifo popout shell for popout=lifo", async () => {
+  it("renders dedicated lifo popout shell for popout=lifo", async () => {
     mockIsLifoPopoutMode.mockReturnValue(true);
     window.history.pushState({}, "", "/lifo?popout=lifo");
 

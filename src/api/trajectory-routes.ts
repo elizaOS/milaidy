@@ -14,6 +14,7 @@
 
 import type http from "node:http";
 import type { AgentRuntime } from "@elizaos/core";
+import { loadPersistedTrajectoryRows } from "../runtime/trajectory-persistence";
 import {
   readJsonBody as parseJsonBody,
   sendJson,
@@ -419,50 +420,116 @@ async function handleGetTrajectories(
   res: http.ServerResponse,
   runtime: AgentRuntime,
 ): Promise<void> {
-  const logger = getTrajectoryLogger(runtime);
-  if (!logger) {
-    sendJsonError(res, "Trajectory logger service not available", 503);
-    return;
-  }
-
   const url = new URL(
     req.url ?? "/",
     `http://${req.headers.host ?? "localhost"}`,
   );
 
-  const options: TrajectoryListOptions = {
-    limit: Math.min(
-      500,
-      Math.max(1, Number(url.searchParams.get("limit")) || 50),
-    ),
-    offset: Math.max(0, Number(url.searchParams.get("offset")) || 0),
-    source: url.searchParams.get("source") || undefined,
-    status:
-      (url.searchParams.get("status") as
-        | "active"
-        | "completed"
-        | "error"
-        | "timeout") || undefined,
-    startDate: url.searchParams.get("startDate") || undefined,
-    endDate: url.searchParams.get("endDate") || undefined,
-    search: url.searchParams.get("search") || undefined,
-    scenarioId: url.searchParams.get("scenarioId") || undefined,
-    batchId: url.searchParams.get("batchId") || undefined,
-    isTrainingData: url.searchParams.has("isTrainingData")
-      ? url.searchParams.get("isTrainingData") === "true"
-      : undefined,
+  const limit = Math.min(
+    500,
+    Math.max(1, Number(url.searchParams.get("limit")) || 50),
+  );
+  const offset = Math.max(0, Number(url.searchParams.get("offset")) || 0);
+
+  const logger = getTrajectoryLogger(runtime);
+
+  // When the full plugin logger is available, use it (existing behavior).
+  if (logger) {
+    const options: TrajectoryListOptions = {
+      limit,
+      offset,
+      source: url.searchParams.get("source") || undefined,
+      status:
+        (url.searchParams.get("status") as
+          | "active"
+          | "completed"
+          | "error"
+          | "timeout") || undefined,
+      startDate: url.searchParams.get("startDate") || undefined,
+      endDate: url.searchParams.get("endDate") || undefined,
+      search: url.searchParams.get("search") || undefined,
+      scenarioId: url.searchParams.get("scenarioId") || undefined,
+      batchId: url.searchParams.get("batchId") || undefined,
+      isTrainingData: url.searchParams.has("isTrainingData")
+        ? url.searchParams.get("isTrainingData") === "true"
+        : undefined,
+    };
+
+    const result = await logger.listTrajectories(options);
+    sendJson(res, {
+      trajectories: result.trajectories.map(listItemToUIRecord),
+      total: result.total,
+      offset: result.offset,
+      limit: result.limit,
+    });
+    return;
+  }
+
+  // If a trajectory logger service is registered but isn't fully compatible,
+  // keep returning 503 (existing behavior for partial loggers).
+  const runtimeLike = runtime as AgentRuntime & {
+    getService?: (serviceType: string) => unknown;
   };
+  if (
+    typeof runtimeLike.getService === "function" &&
+    runtimeLike.getService("trajectory_logger") != null
+  ) {
+    sendJsonError(res, "Trajectory logger service not available", 503);
+    return;
+  }
 
-  const result = await logger.listTrajectories(options);
+  // Fallback: read directly from the SQL database when no logger service
+  // exists at all (e.g. after a restart before the plugin has loaded).
+  const rows = await loadPersistedTrajectoryRows(runtime, limit + offset);
+  if (rows === null) {
+    sendJsonError(res, "Trajectory logger service not available", 503);
+    return;
+  }
 
-  const uiResult = {
-    trajectories: result.trajectories.map(listItemToUIRecord),
-    total: result.total,
-    offset: result.offset,
-    limit: result.limit,
-  };
+  const paged = rows.slice(offset, offset + limit);
+  const trajectories: UITrajectoryRecord[] = paged.map((row) => {
+    const status = String(row.status ?? "completed");
+    let metadata: Record<string, unknown> = {};
+    if (typeof row.metadata_json === "string") {
+      try {
+        metadata = JSON.parse(row.metadata_json) as Record<string, unknown>;
+      } catch {
+        /* ignore malformed JSON */
+      }
+    } else if (row.metadata_json && typeof row.metadata_json === "object") {
+      metadata = row.metadata_json as Record<string, unknown>;
+    }
+    return {
+      id: String(row.id ?? ""),
+      agentId: String(row.agent_id ?? ""),
+      roomId: toNullableString(metadata.roomId),
+      entityId: toNullableString(metadata.entityId),
+      conversationId: toNullableString(metadata.conversationId),
+      source: String(row.source ?? "runtime"),
+      status:
+        status === "active" || status === "completed" || status === "error"
+          ? status
+          : "completed",
+      startTime: Number(row.start_time ?? 0),
+      endTime: row.end_time != null ? Number(row.end_time) : null,
+      durationMs: row.duration_ms != null ? Number(row.duration_ms) : null,
+      llmCallCount: Number(row.llm_call_count ?? 0),
+      providerAccessCount: Number(row.provider_access_count ?? 0),
+      totalPromptTokens: Number(row.total_prompt_tokens ?? 0),
+      totalCompletionTokens: Number(row.total_completion_tokens ?? 0),
+      metadata,
+      createdAt:
+        typeof row.created_at === "string"
+          ? row.created_at
+          : new Date(Number(row.created_at ?? 0)).toISOString(),
+      updatedAt:
+        typeof row.updated_at === "string"
+          ? row.updated_at
+          : new Date(Number(row.updated_at ?? 0)).toISOString(),
+    };
+  });
 
-  sendJson(res, uiResult);
+  sendJson(res, { trajectories, total: rows.length, offset, limit });
 }
 
 async function handleGetTrajectoryDetail(

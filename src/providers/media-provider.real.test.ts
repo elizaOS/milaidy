@@ -22,7 +22,8 @@ import {
 } from "./media-provider";
 
 // Skip if not in real API test mode
-const REAL_API_MODE = process.env.REAL_API_TEST === "1";
+const REAL_API_MODE =
+  process.env.REAL_API_TEST === "1" || process.env.MILADY_LIVE_TEST === "1";
 const describeFn = REAL_API_MODE ? describe : describe.skip;
 
 // Load API keys from environment (user should set these from eliza/.env)

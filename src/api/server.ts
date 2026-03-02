@@ -1211,6 +1211,7 @@ function discoverInstalledPlugins(
     entries.push({
       id,
       name,
+      npmName: packageName,
       description,
       enabled: false, // Will be updated against the runtime below
       configured:
@@ -7160,6 +7161,7 @@ async function handleRequest(
     for (const plugin of allPlugins) {
       const suffix = `plugin-${plugin.id}`;
       const packageName = `@elizaos/plugin-${plugin.id}`;
+      const npmPkgName = plugin.npmName;
       const isLoaded =
         loadedNames.length > 0 &&
         loadedNames.some((name) => {
@@ -7167,6 +7169,7 @@ async function handleRequest(
             name === plugin.id ||
             name === suffix ||
             name === packageName ||
+            (npmPkgName != null && name === npmPkgName) ||
             name.endsWith(`/${suffix}`) ||
             name.includes(plugin.id)
           );
@@ -7269,7 +7272,25 @@ async function handleRequest(
     }>(req, res);
     if (!body) return;
 
-    const plugin = state.plugins.find((p) => p.id === pluginId);
+    // Search both bundled plugins AND store-installed plugins
+    let plugin = state.plugins.find((p) => p.id === pluginId);
+    if (!plugin) {
+      // Check store-installed plugins from config
+      let freshCfg: MiladyConfig;
+      try {
+        freshCfg = loadMiladyConfig();
+      } catch {
+        freshCfg = state.config;
+      }
+      const bundledIds = new Set(state.plugins.map((p) => p.id));
+      const installed = discoverInstalledPlugins(freshCfg, bundledIds);
+      const found = installed.find((p) => p.id === pluginId);
+      if (found) {
+        // Temporarily add to state.plugins so toggle logic works the same way
+        state.plugins.push(found);
+        plugin = found;
+      }
+    }
     if (!plugin) {
       error(res, `Plugin "${pluginId}" not found`, 404);
       return;
@@ -7623,6 +7644,28 @@ async function handleRequest(
       if (!result.success) {
         json(res, { ok: false, error: result.error }, 422);
         return;
+      }
+
+      // Auto-enable the newly installed plugin so the runtime loads it after restart.
+      const installedId = (result.pluginName ?? pluginName)
+        .replace(/^@[^/]+\/plugin-/, "")
+        .replace(/^@[^/]+\//, "")
+        .replace(/^plugin-/, "");
+      if (!state.config.plugins) {
+        state.config.plugins = {};
+      }
+      if (!state.config.plugins.entries) {
+        (state.config.plugins as Record<string, unknown>).entries = {};
+      }
+      const pluginEntries = (state.config.plugins as Record<string, unknown>)
+        .entries as Record<string, Record<string, unknown>>;
+      pluginEntries[installedId] = { enabled: true };
+      try {
+        saveMiladyConfig(state.config);
+      } catch (err) {
+        logger.warn(
+          `[milady-api] Failed to save config after install: ${err instanceof Error ? err.message : err}`,
+        );
       }
 
       // If autoRestart is not explicitly false, restart the agent

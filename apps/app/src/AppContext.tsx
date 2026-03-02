@@ -2565,6 +2565,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setAgentStatus(s);
       setPendingRestart(false);
       setPendingRestartReasons([]);
+      void loadPlugins();
       setActionNotice(LIFECYCLE_MESSAGES.restart.success, "success", 2400);
     } catch (err) {
       setActionNotice(
@@ -2589,6 +2590,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     beginLifecycleAction,
     finishLifecycleAction,
     setActionNotice,
+    loadPlugins,
   ]);
 
   const dismissRestartBanner = useCallback(() => {

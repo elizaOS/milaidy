@@ -35,6 +35,12 @@ const EVM_RPC_OPTIONS = [
   { id: "ankr", label: "Ankr" },
 ] as const;
 
+const BSC_RPC_OPTIONS = [
+  { id: "eliza-cloud", label: "Eliza Cloud" },
+  { id: "nodereal", label: "NodeReal" },
+  { id: "quicknode", label: "QuickNode" },
+] as const;
+
 const SOLANA_RPC_OPTIONS = [
   { id: "eliza-cloud", label: "Eliza Cloud" },
   { id: "helius-birdeye", label: "Helius + Birdeye" },
@@ -305,6 +311,9 @@ export function ConfigPageView({ embedded = false }: { embedded?: boolean }) {
   const [selectedEvmRpc, setSelectedEvmRpc] = useState<
     "eliza-cloud" | "alchemy" | "infura" | "ankr"
   >("eliza-cloud");
+  const [selectedBscRpc, setSelectedBscRpc] = useState<
+    "eliza-cloud" | "nodereal" | "quicknode"
+  >("eliza-cloud");
   const [selectedSolanaRpc, setSelectedSolanaRpc] = useState<
     "eliza-cloud" | "helius-birdeye"
   >("eliza-cloud");
@@ -329,6 +338,23 @@ export function ConfigPageView({ embedded = false }: { embedded?: boolean }) {
         configKey: "ANKR_API_KEY",
         label: "Ankr API Key",
         isSet: walletConfig?.ankrKeySet ?? false,
+      },
+    ],
+  };
+
+  const bscRpcConfigs: RpcSectionConfigMap = {
+    nodereal: [
+      {
+        configKey: "NODEREAL_BSC_RPC_URL",
+        label: "NodeReal BSC RPC URL",
+        isSet: walletConfig?.nodeRealBscRpcSet ?? false,
+      },
+    ],
+    quicknode: [
+      {
+        configKey: "QUICKNODE_BSC_RPC_URL",
+        label: "QuickNode BSC RPC URL",
+        isSet: walletConfig?.quickNodeBscRpcSet ?? false,
       },
     ],
   };
@@ -399,7 +425,21 @@ export function ConfigPageView({ embedded = false }: { embedded?: boolean }) {
           </button>
         </div>
 
-        <div className="grid grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* BSC */}
+          <RpcConfigSection
+            title="BSC"
+            description="BNB Smart Chain — trading and market feed"
+            options={BSC_RPC_OPTIONS}
+            selectedProvider={selectedBscRpc}
+            onSelect={setSelectedBscRpc}
+            providerConfigs={bscRpcConfigs}
+            rpcFieldValues={rpcFieldValues}
+            onRpcFieldChange={handleRpcFieldChange}
+            cloud={cloudStatusProps}
+            containerClassName="grid grid-cols-3 gap-1.5"
+          />
+
           {/* EVM */}
           <RpcConfigSection
             title="EVM"

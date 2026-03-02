@@ -400,8 +400,8 @@ describe("InventoryView BSC-first", () => {
     });
 
     const content = text(tree?.root);
-    expect(content).toContain("NODEREAL_BSC_RPC_URL");
-    expect(content).toContain("QUICKNODE_BSC_RPC_URL");
+    expect(content).toContain("Eliza Cloud");
+    expect(content).toContain("NodeReal / QuickNode");
   });
 
   it("supports quick trade input and preset actions", async () => {
