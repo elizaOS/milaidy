@@ -1,15 +1,22 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { AgentRuntime, createCharacter, logger } from "@elizaos/core";
+import { fileURLToPath } from "node:url";
+import {
+  AgentRuntime,
+  createCharacter,
+  logger,
+  type Plugin,
+} from "@elizaos/core";
 import { default as pluginSql } from "@elizaos/plugin-sql";
-
 import pluginTrajectoryLogger from "@elizaos/plugin-trajectory-logger";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { startApiServer } from "../src/api/server";
 import {
   clearPersistedTrajectoryRows,
   completeTrajectoryStepInDatabase,
   deletePersistedTrajectoryRows,
+  installDatabaseTrajectoryLogger,
   loadPersistedTrajectoryRows,
   startTrajectoryStepInDatabase,
 } from "../src/runtime/trajectory-persistence";

@@ -15295,11 +15295,19 @@ export async function startApiServer(opts?: {
     `[milady-api] Calling server.listen (${Date.now() - apiStartTime}ms)`,
   );
   return new Promise((resolve, reject) => {
+    let currentPort = port;
+
     server.on("error", (err: NodeJS.ErrnoException) => {
       if (err.code === "EADDRINUSE") {
-        console.error(
-          `[milady-api] Port ${port} is already in use. Another process may be running.`,
+        console.warn(
+          `[milady-api] Port ${currentPort} is already in use. Checking fallback...`,
         );
+        if (currentPort !== 0) {
+          console.warn(`[milady-api] Retrying with dynamic port (0)...`);
+          currentPort = 0;
+          server.listen(0, host);
+          return;
+        }
       } else {
         console.error(
           `[milady-api] Server error: ${err.message} (code: ${err.code})`,
@@ -15307,12 +15315,14 @@ export async function startApiServer(opts?: {
       }
       reject(err);
     });
+
     server.listen(port, host, () => {
       console.log(
         `[milady-api] server.listen callback fired (${Date.now() - apiStartTime}ms)`,
       );
       const addr = server.address();
-      const actualPort = typeof addr === "object" && addr ? addr.port : port;
+      const actualPort =
+        typeof addr === "object" && addr ? addr.port : currentPort;
       const displayHost =
         typeof addr === "object" && addr ? addr.address : host;
       addLog(

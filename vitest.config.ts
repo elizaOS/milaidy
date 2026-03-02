@@ -201,6 +201,7 @@ export default defineConfig({
       "apps/app/test/electron-ui/electron-startup-failure.e2e.spec.ts",
       "test/api-server.e2e.test.ts",
       "test/format-error.test.ts",
+      "test/trajectory-database.e2e.test.ts",
     ],
     setupFiles: ["test/setup.ts"],
     exclude: ["dist/**", "**/node_modules/**", "**/*.live.test.ts"],
