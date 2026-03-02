@@ -161,6 +161,7 @@
     "@milady/plugin-twitch-streaming": "workspace:*",
     "@milady/plugin-youtube-streaming": "workspace:*",
     "@noble/curves": "^2.0.1",
+    "@opinion-labs/opinion-clob-sdk": "^0.5.3",
     "@opentelemetry/api": "1.9.0",
     "@tensorflow-models/coco-ssd": "^2.2.3",
     "@tensorflow-models/mobilenet": "^2.1.0",
