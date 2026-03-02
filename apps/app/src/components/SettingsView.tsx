@@ -360,7 +360,7 @@ function AdvancedSection() {
 
 /* ── SettingsView ─────────────────────────────────────────────────────── */
 
-export function SettingsView() {
+export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
   const [activeSection, setActiveSection] = useState("appearance");
   const [searchQuery, setSearchQuery] = useState("");
   const contentRef = useRef<HTMLDivElement>(null);

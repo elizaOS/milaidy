@@ -904,6 +904,7 @@ export interface AppState {
   walletExportVisible: boolean;
   walletApiKeySaving: boolean;
   inventorySort: "chain" | "symbol" | "value";
+  inventoryChainFocus: "bsc" | "all";
   walletError: string | null;
 
   // ERC-8004 Registry
@@ -1460,6 +1461,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [inventorySort, setInventorySort] = useState<
     "chain" | "symbol" | "value"
   >("value");
+  const [inventoryChainFocus, setInventoryChainFocus] = useState<"bsc" | "all">("bsc");
   const [walletError, setWalletError] = useState<string | null>(null);
 
   // --- ERC-8004 Registry ---
@@ -4694,6 +4696,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         logSourceFilter: setLogSourceFilter,
         inventoryView: setInventoryView,
         inventorySort: setInventorySort,
+        inventoryChainFocus: setInventoryChainFocus,
         exportPassword: setExportPassword,
         exportIncludeLogs: setExportIncludeLogs,
         exportError: setExportError,
@@ -5680,6 +5683,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     walletExportVisible,
     walletApiKeySaving,
     inventorySort,
+    inventoryChainFocus,
     walletError,
     registryStatus,
     registryLoading,
