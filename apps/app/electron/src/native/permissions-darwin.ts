@@ -91,10 +91,16 @@ export async function checkAccessibility(): Promise<PermissionCheckResult> {
  * if we receive actual thumbnail data or just blank frames.
  */
 export async function checkScreenRecording(): Promise<PermissionCheckResult> {
-  const sources = await desktopCapturer.getSources({
-    types: ["screen"],
-    thumbnailSize: { width: 100, height: 100 },
-  });
+  let sources: Awaited<ReturnType<typeof desktopCapturer.getSources>>;
+  try {
+    sources = await desktopCapturer.getSources({
+      types: ["screen"],
+      thumbnailSize: { width: 100, height: 100 },
+    });
+  } catch {
+    // Some macOS versions throw while the system list is still initializing.
+    return { status: "not-determined", canRequest: false };
+  }
 
   if (sources.length === 0) {
     return { status: "denied", canRequest: false };
