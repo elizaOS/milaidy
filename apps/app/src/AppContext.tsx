@@ -4564,6 +4564,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     let unbindAgentEvents: (() => void) | null = null;
     let unbindHeartbeatEvents: (() => void) | null = null;
     let unbindProactiveMessages: (() => void) | null = null;
+    let handleVisibilityRef: (() => void) | null = null;
+    let unbindWsReconnect: (() => void) | null = null;
     let cancelled = false;
     const describeBackendFailure = (
       err: unknown,
@@ -4982,29 +4984,52 @@ export function AppProvider({ children }: { children: ReactNode }) {
       void loadWorkbench();
       void loadPlugins(); // Hydrate plugin state early so Nav sees streaming-base toggle
 
-      // Hydrate coding agent sessions
-      client
-        .getCodingAgentStatus()
-        .then((status) => {
-          if (status?.tasks) {
-            setPtySessions(
-              status.tasks.map((t) => ({
-                sessionId: t.sessionId,
-                agentType: t.agentType ?? "claude",
-                label: t.label ?? t.sessionId,
-                originalTask: t.originalTask ?? "",
-                workdir: t.workdir ?? "",
-                status: t.status ?? "active",
-                decisionCount: t.decisionCount ?? 0,
-                autoResolvedCount: t.autoResolvedCount ?? 0,
-              })),
-            );
-          }
-        })
-        .catch(() => {}); // non-critical
+      // Hydrate coding agent sessions (also re-called on WS reconnect / server restart)
+      const TERMINAL_STATUSES = new Set(["completed", "stopped", "error"]);
+      const hydratePtySessions = () => {
+        client
+          .getCodingAgentStatus()
+          .then((status) => {
+            if (status?.tasks) {
+              setPtySessions(
+                status.tasks
+                  .filter((t) => !TERMINAL_STATUSES.has(t.status ?? ""))
+                  .map((t) => ({
+                    sessionId: t.sessionId,
+                    agentType: t.agentType ?? "claude",
+                    label: t.label ?? t.sessionId,
+                    originalTask: t.originalTask ?? "",
+                    workdir: t.workdir ?? "",
+                    status: t.status ?? "active",
+                    decisionCount: t.decisionCount ?? 0,
+                    autoResolvedCount: t.autoResolvedCount ?? 0,
+                  })),
+              );
+            }
+          })
+          .catch(() => {}); // non-critical
+      };
+      hydratePtySessions();
 
       // Connect WebSocket
       client.connectWs();
+      const ptyHydratedViaWs = false;
+
+      // Re-hydrate PTY sessions on WS reconnect — events sent during
+      // the disconnect gap are lost, so we reconcile from the server.
+      unbindWsReconnect = client.onWsEvent("ws-reconnected", () => {
+        hydratePtySessions();
+      });
+
+      // Re-hydrate when the tab becomes visible — browsers may throttle
+      // or drop WS messages for background tabs.
+      handleVisibilityRef = () => {
+        if (document.visibilityState === "visible") {
+          hydratePtySessions();
+        }
+      };
+      document.addEventListener("visibilitychange", handleVisibilityRef);
+
       unbindStatus = client.onWsEvent(
         "status",
         (data: Record<string, unknown>) => {
@@ -5163,55 +5188,71 @@ export function AppProvider({ children }: { children: ReactNode }) {
           setPtySessions((prev) =>
             prev.filter((s) => s.sessionId !== sessionId),
           );
-        } else if (eventType === "blocked" || eventType === "escalation") {
-          setPtySessions((prev) =>
-            prev.map((s) =>
-              s.sessionId === sessionId
-                ? { ...s, status: "blocked" as const }
-                : s,
-            ),
-          );
-        } else if (eventType === "tool_running") {
-          const d = data.data as Record<string, unknown> | undefined;
-          const toolDesc =
-            (d?.description as string) ??
-            (d?.toolName as string) ??
-            "external tool";
-          setPtySessions((prev) =>
-            prev.map((s) =>
-              s.sessionId === sessionId
-                ? {
-                    ...s,
-                    status: "tool_running" as const,
-                    toolDescription: toolDesc,
-                  }
-                : s,
-            ),
-          );
-        } else if (
-          eventType === "coordination_decision" ||
-          eventType === "blocked_auto_resolved" ||
-          eventType === "ready"
-        ) {
-          setPtySessions((prev) =>
-            prev.map((s) =>
-              s.sessionId === sessionId
-                ? {
-                    ...s,
-                    status: "active" as const,
-                    toolDescription: undefined,
-                  }
-                : s,
-            ),
-          );
-        } else if (eventType === "error") {
-          setPtySessions((prev) =>
-            prev.map((s) =>
-              s.sessionId === sessionId
-                ? { ...s, status: "error" as const }
-                : s,
-            ),
-          );
+        } else {
+          // Status update — apply to known session, or full re-hydrate if unknown
+          const applyUpdate = (
+            prev: CodingAgentSession[],
+          ): CodingAgentSession[] => {
+            const known = prev.some((s) => s.sessionId === sessionId);
+            if (!known) return prev; // will trigger hydration below
+
+            if (eventType === "blocked" || eventType === "escalation") {
+              return prev.map((s) =>
+                s.sessionId === sessionId
+                  ? { ...s, status: "blocked" as const }
+                  : s,
+              );
+            }
+            if (eventType === "tool_running") {
+              const d = data.data as Record<string, unknown> | undefined;
+              const toolDesc =
+                (d?.description as string) ??
+                (d?.toolName as string) ??
+                "external tool";
+              return prev.map((s) =>
+                s.sessionId === sessionId
+                  ? {
+                      ...s,
+                      status: "tool_running" as const,
+                      toolDescription: toolDesc,
+                    }
+                  : s,
+              );
+            }
+            if (
+              eventType === "coordination_decision" ||
+              eventType === "blocked_auto_resolved" ||
+              eventType === "ready"
+            ) {
+              return prev.map((s) =>
+                s.sessionId === sessionId
+                  ? {
+                      ...s,
+                      status: "active" as const,
+                      toolDescription: undefined,
+                    }
+                  : s,
+              );
+            }
+            if (eventType === "error") {
+              return prev.map((s) =>
+                s.sessionId === sessionId
+                  ? { ...s, status: "error" as const }
+                  : s,
+              );
+            }
+            return prev;
+          };
+
+          setPtySessions((prev) => {
+            const next = applyUpdate(prev);
+            if (next === prev && !prev.some((s) => s.sessionId === sessionId)) {
+              // Unknown session — re-hydrate from server to pick up missed registrations
+              hydratePtySessions();
+              return prev;
+            }
+            return next;
+          });
         }
       });
 
@@ -5305,6 +5346,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       unbindAgentEvents?.();
       unbindHeartbeatEvents?.();
       unbindProactiveMessages?.();
+      unbindWsReconnect?.();
+      if (handleVisibilityRef)
+        document.removeEventListener("visibilitychange", handleVisibilityRef);
       client.disconnectWs();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
