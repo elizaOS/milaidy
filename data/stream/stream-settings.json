@@ -1,0 +1,8 @@
+{
+  "theme": "milady",
+  "avatarIndex": 3,
+  "voice": {
+    "enabled": false,
+    "autoSpeak": true
+  }
+}

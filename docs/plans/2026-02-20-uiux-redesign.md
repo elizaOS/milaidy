@@ -1,4 +1,4 @@
-# Milaidy UI/UX Redesign — Design Document
+# Milady UI/UX Redesign — Design Document
 
 **Date:** 2026-02-20
 **Status:** Approved

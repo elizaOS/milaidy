@@ -23,7 +23,7 @@ This directory contains:
 | `mock-plugin.ts` | Optional local override (gitignored) loaded first when `MILADY_BENCH_MOCK=true`. |
 | `TESTING_PROTOCOL.md` | Benchmark action/testing protocol (required checks + CUA-bench compatibility commands). |
 
-The Python client side can live in a local adapter directory such as `benchmarks/milaidy-adapter/`.
+The Python client side can live in a local adapter directory such as `benchmarks/milady-adapter/`.
 
 ## Start the server
 

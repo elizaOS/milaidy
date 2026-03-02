@@ -1,19 +1,19 @@
 # frozen_string_literal: true
 
-# Homebrew formula for Milaidy CLI
+# Homebrew formula for Milady CLI
 # This formula installs the Node.js-based CLI tool via npm.
 #
 # Usage:
-#   brew tap milady-ai/milaidy
-#   brew install milaidy
+#   brew tap milady-ai/milady
+#   brew install milady
 #
 # For the desktop app, use the cask instead:
-#   brew install --cask milaidy
+#   brew install --cask milady
 
-class Milaidy < Formula
+class Milady < Formula
   desc "Personal AI assistant built on ElizaOS"
-  homepage "https://github.com/milady-ai/milaidy"
-  url "https://registry.npmjs.org/milaidy/-/milaidy-2.0.0-alpha.21.tgz"
+  homepage "https://github.com/milady-ai/milady"
+  url "https://registry.npmjs.org/milady/-/milady-2.0.0-alpha.21.tgz"
   sha256 "PLACEHOLDER_SHA256"
   license "MIT"
 
@@ -26,19 +26,19 @@ class Milaidy < Formula
 
   def caveats
     <<~EOS
-      Milaidy requires Node.js 22+.
+      Milady requires Node.js 22+.
 
       To start the agent:
-        milaidy start
+        milady start
 
       To configure:
-        milaidy setup
+        milady setup
 
       Dashboard will be available at http://localhost:2138
     EOS
   end
 
   test do
-    assert_match "milaidy", shell_output("#{bin}/milaidy --version")
+    assert_match "milady", shell_output("#{bin}/milady --version")
   end
 end

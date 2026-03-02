@@ -3,7 +3,7 @@
  * integration. Covers env-forwarding denylist, config-to-env propagation,
  * plugin mapping, and character secrets — all without starting a runtime.
  *
- * @see https://github.com/milady-ai/milaidy/issues/590
+ * @see https://github.com/milady-ai/milady/issues/590
  */
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";

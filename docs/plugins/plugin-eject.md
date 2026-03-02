@@ -226,7 +226,7 @@ Every ejected plugin (and core) has a `.upstream.json` file at its root that tra
 
 ```json
 {
-  "$schema": "milaidy-upstream-v1",
+  "$schema": "milady-upstream-v1",
   "source": "github:elizaos-plugins/plugin-telegram",
   "gitUrl": "https://github.com/elizaos-plugins/plugin-telegram.git",
   "branch": "1.x",
@@ -241,7 +241,7 @@ Every ejected plugin (and core) has a `.upstream.json` file at its root that tra
 
 | Field | Description |
 |-------|-------------|
-| `$schema` | Always `"milaidy-upstream-v1"` |
+| `$schema` | Always `"milady-upstream-v1"` |
 | `source` | Short source identifier (e.g., `github:org/repo`) |
 | `gitUrl` | Full Git clone URL |
 | `branch` | Upstream branch being tracked |

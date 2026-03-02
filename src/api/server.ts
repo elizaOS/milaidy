@@ -578,7 +578,7 @@ function _extractResponseBlocks(
 // ---------------------------------------------------------------------------
 
 export function findOwnPackageRoot(startDir: string): string {
-  const KNOWN_NAMES = new Set(["milady", "milaidy", "miladyai"]);
+  const KNOWN_NAMES = new Set(["milady", "milady", "miladyai"]);
   let dir = startDir;
   for (let i = 0; i < 10; i++) {
     const pkgPath = path.join(dir, "package.json");
@@ -5870,13 +5870,13 @@ async function handleRequest(
 
     // Helper: clear pi-ai mode
     const clearPiAi = () => {
-      delete process.env.MILAIDY_USE_PI_AI;
-      delete envCfg.MILAIDY_USE_PI_AI;
+      delete process.env.MILADY_USE_PI_AI;
+      delete envCfg.MILADY_USE_PI_AI;
 
       const envRoot = config.env as Record<string, unknown>;
       const vars = envRoot.vars;
       if (vars && typeof vars === "object" && !Array.isArray(vars)) {
-        delete (vars as Record<string, unknown>).MILAIDY_USE_PI_AI;
+        delete (vars as Record<string, unknown>).MILADY_USE_PI_AI;
       }
 
       if (state.runtime?.character?.secrets) {
@@ -5884,7 +5884,7 @@ async function handleRequest(
           string,
           unknown
         >;
-        delete secrets.MILAIDY_USE_PI_AI;
+        delete secrets.MILADY_USE_PI_AI;
       }
     };
 
@@ -5969,8 +5969,8 @@ async function handleRequest(
         clearCloud();
         await clearSubscriptions();
         clearOtherApiKeys();
-        process.env.MILAIDY_USE_PI_AI = "1";
-        envCfg.MILAIDY_USE_PI_AI = "1";
+        process.env.MILADY_USE_PI_AI = "1";
+        envCfg.MILADY_USE_PI_AI = "1";
 
         const envRoot = config.env as Record<string, unknown>;
         const vars =
@@ -5979,7 +5979,7 @@ async function handleRequest(
           !Array.isArray(envRoot.vars)
             ? (envRoot.vars as Record<string, unknown>)
             : {};
-        vars.MILAIDY_USE_PI_AI = "1";
+        vars.MILADY_USE_PI_AI = "1";
         envRoot.vars = vars;
       } else if (
         provider === "openai-codex" ||
@@ -6464,14 +6464,14 @@ async function handleRequest(
       (envCfg as Record<string, unknown>).vars = vars;
 
       const clearPiAiFlag = () => {
-        delete vars.MILAIDY_USE_PI_AI;
-        delete (config.env as Record<string, string>).MILAIDY_USE_PI_AI;
-        delete process.env.MILAIDY_USE_PI_AI;
+        delete vars.MILADY_USE_PI_AI;
+        delete (config.env as Record<string, string>).MILADY_USE_PI_AI;
+        delete process.env.MILADY_USE_PI_AI;
       };
 
       if (runMode === "local" && providerId === "pi-ai") {
-        vars.MILAIDY_USE_PI_AI = "1";
-        process.env.MILAIDY_USE_PI_AI = "1";
+        vars.MILADY_USE_PI_AI = "1";
+        process.env.MILADY_USE_PI_AI = "1";
 
         // Optional primary model override (provider/model).
         if (!config.agents) config.agents = {};

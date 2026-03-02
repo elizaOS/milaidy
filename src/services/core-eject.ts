@@ -32,7 +32,7 @@ function serialise<T>(fn: () => Promise<T>): Promise<T> {
 }
 
 export interface UpstreamMetadata {
-  $schema: "milaidy-upstream-v1";
+  $schema: "milady-upstream-v1";
   source: string;
   gitUrl: string;
   branch: string;
@@ -184,7 +184,7 @@ async function readUpstreamMetadata(): Promise<UpstreamMetadata | null> {
     const raw = await fs.readFile(upstreamFilePath(), "utf-8");
     const parsed = JSON.parse(raw) as Partial<UpstreamMetadata>;
     if (
-      parsed.$schema !== "milaidy-upstream-v1" ||
+      parsed.$schema !== "milady-upstream-v1" ||
       typeof parsed.gitUrl !== "string" ||
       typeof parsed.branch !== "string" ||
       typeof parsed.commitHash !== "string" ||
@@ -195,7 +195,7 @@ async function readUpstreamMetadata(): Promise<UpstreamMetadata | null> {
     }
 
     return {
-      $schema: "milaidy-upstream-v1",
+      $schema: "milady-upstream-v1",
       source:
         typeof parsed.source === "string"
           ? parsed.source
@@ -364,7 +364,7 @@ export function ejectCore(): Promise<CoreEjectResult> {
 
       const commitHash = await gitStdout(["rev-parse", "HEAD"], monorepoDir);
       const metadata: UpstreamMetadata = {
-        $schema: "milaidy-upstream-v1",
+        $schema: "milady-upstream-v1",
         source: "github:elizaos/eliza",
         gitUrl: CORE_GIT_URL,
         branch: CORE_BRANCH,

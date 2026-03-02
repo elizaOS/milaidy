@@ -4,8 +4,8 @@ import { resolveTerminalRunLimits } from "./terminal-run-limits";
 describe("resolveTerminalRunLimits", () => {
   const prevMaxConcurrent = process.env.MILADY_TERMINAL_MAX_CONCURRENT;
   const prevMaxDuration = process.env.MILADY_TERMINAL_MAX_DURATION_MS;
-  const prevLegacyMaxConcurrent = process.env.MILAIDY_TERMINAL_MAX_CONCURRENT;
-  const prevLegacyMaxDuration = process.env.MILAIDY_TERMINAL_MAX_DURATION_MS;
+  const prevLegacyMaxConcurrent = process.env.MILADY_TERMINAL_MAX_CONCURRENT;
+  const prevLegacyMaxDuration = process.env.MILADY_TERMINAL_MAX_DURATION_MS;
 
   afterEach(() => {
     if (prevMaxConcurrent === undefined)
@@ -17,19 +17,19 @@ describe("resolveTerminalRunLimits", () => {
     else process.env.MILADY_TERMINAL_MAX_DURATION_MS = prevMaxDuration;
 
     if (prevLegacyMaxConcurrent === undefined)
-      delete process.env.MILAIDY_TERMINAL_MAX_CONCURRENT;
-    else process.env.MILAIDY_TERMINAL_MAX_CONCURRENT = prevLegacyMaxConcurrent;
+      delete process.env.MILADY_TERMINAL_MAX_CONCURRENT;
+    else process.env.MILADY_TERMINAL_MAX_CONCURRENT = prevLegacyMaxConcurrent;
 
     if (prevLegacyMaxDuration === undefined)
-      delete process.env.MILAIDY_TERMINAL_MAX_DURATION_MS;
-    else process.env.MILAIDY_TERMINAL_MAX_DURATION_MS = prevLegacyMaxDuration;
+      delete process.env.MILADY_TERMINAL_MAX_DURATION_MS;
+    else process.env.MILADY_TERMINAL_MAX_DURATION_MS = prevLegacyMaxDuration;
   });
 
   it("uses secure defaults when env vars are unset", () => {
     delete process.env.MILADY_TERMINAL_MAX_CONCURRENT;
     delete process.env.MILADY_TERMINAL_MAX_DURATION_MS;
-    delete process.env.MILAIDY_TERMINAL_MAX_CONCURRENT;
-    delete process.env.MILAIDY_TERMINAL_MAX_DURATION_MS;
+    delete process.env.MILADY_TERMINAL_MAX_CONCURRENT;
+    delete process.env.MILADY_TERMINAL_MAX_DURATION_MS;
 
     expect(resolveTerminalRunLimits()).toEqual({
       maxConcurrent: 2,
@@ -40,8 +40,8 @@ describe("resolveTerminalRunLimits", () => {
   it("clamps canonical MILADY env values into safe bounds", () => {
     process.env.MILADY_TERMINAL_MAX_CONCURRENT = "999";
     process.env.MILADY_TERMINAL_MAX_DURATION_MS = "100";
-    delete process.env.MILAIDY_TERMINAL_MAX_CONCURRENT;
-    delete process.env.MILAIDY_TERMINAL_MAX_DURATION_MS;
+    delete process.env.MILADY_TERMINAL_MAX_CONCURRENT;
+    delete process.env.MILADY_TERMINAL_MAX_DURATION_MS;
 
     expect(resolveTerminalRunLimits()).toEqual({
       maxConcurrent: 16,
@@ -49,11 +49,11 @@ describe("resolveTerminalRunLimits", () => {
     });
   });
 
-  it("supports legacy MILAIDY env vars as fallback", () => {
+  it("supports legacy MILADY env vars as fallback", () => {
     delete process.env.MILADY_TERMINAL_MAX_CONCURRENT;
     delete process.env.MILADY_TERMINAL_MAX_DURATION_MS;
-    process.env.MILAIDY_TERMINAL_MAX_CONCURRENT = "999";
-    process.env.MILAIDY_TERMINAL_MAX_DURATION_MS = "100";
+    process.env.MILADY_TERMINAL_MAX_CONCURRENT = "999";
+    process.env.MILADY_TERMINAL_MAX_DURATION_MS = "100";
 
     expect(resolveTerminalRunLimits()).toEqual({
       maxConcurrent: 16,
@@ -64,8 +64,8 @@ describe("resolveTerminalRunLimits", () => {
   it("prefers canonical MILADY vars when both are set", () => {
     process.env.MILADY_TERMINAL_MAX_CONCURRENT = "4";
     process.env.MILADY_TERMINAL_MAX_DURATION_MS = "2000";
-    process.env.MILAIDY_TERMINAL_MAX_CONCURRENT = "12";
-    process.env.MILAIDY_TERMINAL_MAX_DURATION_MS = "45000";
+    process.env.MILADY_TERMINAL_MAX_CONCURRENT = "12";
+    process.env.MILADY_TERMINAL_MAX_DURATION_MS = "45000";
 
     expect(resolveTerminalRunLimits()).toEqual({
       maxConcurrent: 4,

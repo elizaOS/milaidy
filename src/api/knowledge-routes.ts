@@ -688,7 +688,7 @@ async function fetchUrlContent(
     redirect: "manual",
     headers: {
       "User-Agent":
-        "Mozilla/5.0 (compatible; Milaidy/1.0; +https://milaidy.ai)",
+        "Mozilla/5.0 (compatible; Milady/1.0; +https://milady.ai)",
     },
   });
 

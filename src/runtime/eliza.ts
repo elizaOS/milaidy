@@ -601,7 +601,7 @@ export const CHANNEL_PLUGIN_MAP: Readonly<Record<string, string>> = {
 const PI_AI_PLUGIN_PACKAGE = "@elizaos/plugin-pi-ai";
 
 function isPiAiEnabledFromEnv(env: NodeJS.ProcessEnv = process.env): boolean {
-  const raw = env.MILAIDY_USE_PI_AI;
+  const raw = env.MILADY_USE_PI_AI;
   if (!raw) return false;
   const value = String(raw).trim().toLowerCase();
   return value === "1" || value === "true" || value === "yes";
@@ -621,7 +621,7 @@ const PROVIDER_PLUGIN_MAP: Readonly<Record<string, string>> = {
   AIGATEWAY_API_KEY: "@elizaos/plugin-vercel-ai-gateway",
   OLLAMA_BASE_URL: "@elizaos/plugin-ollama",
   ZAI_API_KEY: "@homunculuslabs/plugin-zai",
-  MILAIDY_USE_PI_AI: PI_AI_PLUGIN_PACKAGE,
+  MILADY_USE_PI_AI: PI_AI_PLUGIN_PACKAGE,
   // ElizaCloud — loaded when API key is present OR cloud is explicitly enabled
   ELIZAOS_CLOUD_API_KEY: "@elizaos/plugin-elizacloud",
   ELIZAOS_CLOUD_ENABLED: "@elizaos/plugin-elizacloud",
@@ -734,13 +734,13 @@ export function collectPluginNames(config: MiladyConfig): Set<string> {
     (configEnv?.vars &&
     typeof configEnv.vars === "object" &&
     !Array.isArray(configEnv.vars)
-      ? (configEnv.vars as Record<string, unknown>).MILAIDY_USE_PI_AI
-      : undefined) ?? configEnv?.MILAIDY_USE_PI_AI;
+      ? (configEnv.vars as Record<string, unknown>).MILADY_USE_PI_AI
+      : undefined) ?? configEnv?.MILADY_USE_PI_AI;
   const piAiEnabled =
     isPiAiEnabledFromEnv(process.env) ||
     (typeof configPiAiFlag === "string" &&
       isPiAiEnabledFromEnv({
-        MILAIDY_USE_PI_AI: configPiAiFlag,
+        MILADY_USE_PI_AI: configPiAiFlag,
       } as NodeJS.ProcessEnv));
 
   const pluginEntries = (config.plugins as Record<string, unknown> | undefined)
@@ -800,7 +800,7 @@ export function collectPluginNames(config: MiladyConfig): Set<string> {
 
   // Model-provider plugins — load when env key is present
   for (const [envKey, pluginName] of Object.entries(PROVIDER_PLUGIN_MAP)) {
-    if (envKey === "MILAIDY_USE_PI_AI") {
+    if (envKey === "MILADY_USE_PI_AI") {
       // pi-ai enablement uses dedicated boolean parsing + precedence logic below.
       continue;
     }

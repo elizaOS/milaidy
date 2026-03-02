@@ -38,7 +38,7 @@
     "milady.ai": "milady.mjs",
     "milady-ai": "milady.mjs",
     "miladyai": "milady.mjs",
-    "milaidy": "milady.mjs"
+    "milady": "milady.mjs"
   },
   "exports": {
     ".": "./dist/index.js",

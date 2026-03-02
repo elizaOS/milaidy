@@ -90,10 +90,10 @@ Functions:
 
 Serialization: Same promise-chain pattern as `plugin-eject.ts`.
 
-`.upstream.json` schema (reuse `milaidy-upstream-v1`):
+`.upstream.json` schema (reuse `milady-upstream-v1`):
 ```json
 {
-  "$schema": "milaidy-upstream-v1",
+  "$schema": "milady-upstream-v1",
   "source": "github:elizaos/eliza",
   "gitUrl": "https://github.com/elizaos/eliza.git",
   "branch": "develop",

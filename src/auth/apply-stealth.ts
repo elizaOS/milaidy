@@ -5,7 +5,7 @@ import { installClaudeCodeStealthFetchInterceptor } from "./claude-code-stealth"
 
 /**
  * Walk up from `startDir` until we find a directory containing package.json
- * with name "milaidy". Returns the directory path, or falls back to `startDir`.
+ * with name "milady". Returns the directory path, or falls back to `startDir`.
  */
 /** @internal Exported for testing only. */
 export function findProjectRoot(startDir: string): string {

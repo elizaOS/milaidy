@@ -62,7 +62,7 @@ const packageManifest = JSON.parse(
   fs.readFileSync(path.join(packageRoot, "package.json"), "utf-8"),
 ) as RootPackageManifest;
 const cliEntryRelativePath =
-  packageManifest.bin?.miladyai ?? packageManifest.bin?.milady ?? "milaidy.mjs";
+  packageManifest.bin?.miladyai ?? packageManifest.bin?.milady ?? "milady.mjs";
 const cliEntryPath = path.join(packageRoot, cliEntryRelativePath);
 
 function fileExistsAny(candidates: string[]): boolean {

@@ -1,25 +1,25 @@
 # Homebrew Distribution
 
-This directory contains Homebrew formula and cask definitions for Milaidy.
+This directory contains Homebrew formula and cask definitions for Milady.
 
 ## Files
 
-- `milaidy.rb` — Formula for the CLI tool (installed via npm)
-- `milaidy.cask.rb` — Cask for the desktop app (DMG installer)
+- `milady.rb` — Formula for the CLI tool (installed via npm)
+- `milady.cask.rb` — Cask for the desktop app (DMG installer)
 
 ## Setup
 
 ### 1. Create Homebrew Tap Repository
 
-Create a new repo: `milady-ai/homebrew-milaidy`
+Create a new repo: `milady-ai/homebrew-milady`
 
 Structure:
 ```
-homebrew-milaidy/
+homebrew-milady/
 ├── Formula/
-│   └── milaidy.rb
+│   └── milady.rb
 ├── Casks/
-│   └── milaidy.rb      # renamed from milaidy.cask.rb
+│   └── milady.rb      # renamed from milady.cask.rb
 └── README.md
 ```
 
@@ -30,28 +30,28 @@ Before publishing, replace placeholder hashes:
 **For the cask (DMG files):**
 ```bash
 # Download and hash ARM64 DMG
-curl -sL https://github.com/milady-ai/milaidy/releases/download/v2.0.0-alpha.21/Milaidy-2.0.0-alpha.21-arm64.dmg | shasum -a 256
+curl -sL https://github.com/milady-ai/milady/releases/download/v2.0.0-alpha.21/Milady-2.0.0-alpha.21-arm64.dmg | shasum -a 256
 
 # Download and hash Intel DMG
-curl -sL https://github.com/milady-ai/milaidy/releases/download/v2.0.0-alpha.21/Milaidy-2.0.0-alpha.21.dmg | shasum -a 256
+curl -sL https://github.com/milady-ai/milady/releases/download/v2.0.0-alpha.21/Milady-2.0.0-alpha.21.dmg | shasum -a 256
 ```
 
 **For the formula (npm tarball):**
 ```bash
-curl -sL https://registry.npmjs.org/milaidy/-/milaidy-2.0.0-alpha.21.tgz | shasum -a 256
+curl -sL https://registry.npmjs.org/milady/-/milady-2.0.0-alpha.21.tgz | shasum -a 256
 ```
 
 ### 3. Users Can Install
 
 ```bash
 # Add tap
-brew tap milady-ai/milaidy
+brew tap milady-ai/milady
 
 # Install desktop app
-brew install --cask milaidy
+brew install --cask milady
 
 # Or install CLI only
-brew install milaidy
+brew install milady
 ```
 
 ## Auto-Update Workflow
@@ -73,10 +73,10 @@ jobs:
       - name: Update Homebrew formula
         uses: mislav/bump-homebrew-formula-action@v3
         with:
-          formula-name: milaidy
-          homebrew-tap: milady-ai/homebrew-milaidy
+          formula-name: milady
+          homebrew-tap: milady-ai/homebrew-milady
           tag-name: ${{ github.ref_name }}
-          download-url: https://registry.npmjs.org/milaidy/-/milaidy-${{ github.ref_name }}.tgz
+          download-url: https://registry.npmjs.org/milady/-/milady-${{ github.ref_name }}.tgz
         env:
           COMMITTER_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
 ```
@@ -85,14 +85,14 @@ jobs:
 
 ```bash
 # Test formula syntax
-brew audit --strict milaidy.rb
+brew audit --strict milady.rb
 
 # Test cask syntax
-brew audit --cask --strict milaidy.cask.rb
+brew audit --cask --strict milady.cask.rb
 
 # Test installation (from local file)
-brew install --formula ./milaidy.rb
-brew install --cask ./milaidy.cask.rb
+brew install --formula ./milady.rb
+brew install --cask ./milady.cask.rb
 ```
 
 ## Notes

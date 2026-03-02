@@ -27,7 +27,7 @@ The plugin registry is:
 - **Metadata** including name, description, category, and configuration
 - **Discovery system** for finding and loading plugins
 
-Milaidy ships with a bundled `plugins.json` containing 90+ plugins from the ElizaOS ecosystem.
+Milady ships with a bundled `plugins.json` containing 90+ plugins from the ElizaOS ecosystem.
 
 ---
 
@@ -36,33 +36,33 @@ Milaidy ships with a bundled `plugins.json` containing 90+ plugins from the Eliz
 ### List Available Plugins
 
 ```bash
-milaidy plugins list
+milady plugins list
 ```
 
 ### Search Plugins
 
 ```bash
-milaidy plugins list --search telegram
+milady plugins list --search telegram
 ```
 
 ### View Plugin Details
 
 ```bash
-milaidy plugins info telegram
+milady plugins info telegram
 ```
 
 ### Browse by Category
 
 ```bash
-milaidy plugins list --category connector
-milaidy plugins list --category model
-milaidy plugins list --category tool
+milady plugins list --category connector
+milady plugins list --category model
+milady plugins list --category tool
 ```
 
 ### Programmatic Access
 
 ```typescript
-import pluginIndex from "milaidy/plugins.json";
+import pluginIndex from "milady/plugins.json";
 
 // List all plugins
 for (const plugin of pluginIndex.plugins) {
@@ -89,7 +89,7 @@ npm install @elizaos/plugin-telegram
 pnpm add @elizaos/plugin-telegram
 ```
 
-### Configure in milaidy.json
+### Configure in milady.json
 
 ```json
 {
@@ -114,7 +114,7 @@ OPENAI_API_KEY=sk-...
 
 ### Auto-Enable Based on Credentials
 
-Milaidy can auto-enable plugins when their required credentials are present:
+Milady can auto-enable plugins when their required credentials are present:
 
 ```json
 {
@@ -415,10 +415,10 @@ This scans `node_modules/@elizaos/plugin-*` and generates an updated index.
 
 ```bash
 # List model plugins
-milaidy plugins list --category model
+milady plugins list --category model
 
 # Check OpenAI plugin info
-milaidy plugins info openai
+milady plugins info openai
 
 # Install and configure
 pnpm add @elizaos/plugin-openai
@@ -428,7 +428,7 @@ echo "OPENAI_API_KEY=sk-..." >> .env
 ### Adding Multiple Connectors
 
 ```json
-// milaidy.json
+// milady.json
 {
   "plugins": [
     "@elizaos/plugin-telegram",
@@ -452,7 +452,7 @@ SLACK_BOT_TOKEN=...
 pnpm add elizaos-plugin-custom-feature
 
 # Add to config
-# milaidy.json
+# milady.json
 {
   "plugins": [
     "@elizaos/plugin-openai",

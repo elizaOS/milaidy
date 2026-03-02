@@ -34,7 +34,7 @@ Every ejected plugin needs a `.upstream.json` at its root:
 
 ```json
 {
-  "$schema": "milaidy-upstream-v1",
+  "$schema": "milady-upstream-v1",
   "source": "github:elizaos-plugins/plugin-telegram",
   "gitUrl": "https://github.com/elizaos-plugins/plugin-telegram.git",
   "branch": "1.x",
