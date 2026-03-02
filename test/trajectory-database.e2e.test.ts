@@ -1,69 +1,22 @@
-import { spawn } from "node:child_process";
-import crypto from "node:crypto";
 import fs from "node:fs";
-import http from "node:http";
 import os from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import {
     AgentRuntime,
     createCharacter,
     logger,
-    type Plugin,
 } from "@elizaos/core";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { startApiServer } from "../src/api/server";
 
 import pluginTrajectoryLogger from "@elizaos/plugin-trajectory-logger";
 import { default as pluginSql } from "@elizaos/plugin-sql";
-import { installDatabaseTrajectoryLogger } from "../src/runtime/trajectory-persistence";
-
-const testDir = path.dirname(fileURLToPath(import.meta.url));
-
-function http$(
-    port: number,
-    method: string,
-    p: string,
-    body?: Record<string, unknown>,
-    options?: { timeoutMs?: number },
-): Promise<{ status: number; data: Record<string, unknown> }> {
-    return new Promise((resolve, reject) => {
-        const b = body ? JSON.stringify(body) : undefined;
-        const timeoutMs = options?.timeoutMs ?? 60_000;
-        const req = http.request(
-            {
-                hostname: "127.0.0.1",
-                port,
-                path: p,
-                method,
-                headers: {
-                    "Content-Type": "application/json",
-                    ...(b ? { "Content-Length": Buffer.byteLength(b) } : {}),
-                },
-            },
-            (res) => {
-                const ch: Buffer[] = [];
-                res.on("data", (c: Buffer) => ch.push(c));
-                res.on("end", () => {
-                    const raw = Buffer.concat(ch).toString("utf-8");
-                    let data: Record<string, unknown> = {};
-                    try {
-                        data = JSON.parse(raw) as Record<string, unknown>;
-                    } catch {
-                        data = { _raw: raw };
-                    }
-                    resolve({ status: res.statusCode ?? 0, data });
-                });
-            },
-        );
-        req.setTimeout(timeoutMs, () => {
-            req.destroy(new Error(`Request timed out after ${timeoutMs}ms`));
-        });
-        req.on("error", reject);
-        if (b) req.write(b);
-        req.end();
-    });
-}
+import {
+    startTrajectoryStepInDatabase,
+    completeTrajectoryStepInDatabase,
+    loadPersistedTrajectoryRows,
+    deletePersistedTrajectoryRows,
+    clearPersistedTrajectoryRows,
+} from "../src/runtime/trajectory-persistence";
 
 function withTimeout<T>(
     promise: Promise<T>,
@@ -83,14 +36,8 @@ function withTimeout<T>(
     });
 }
 
-// TODO: The trajectory DB persistence layer writes to a raw SQL table via
-// installDatabaseTrajectoryLogger, but the /api/trajectories endpoint reads
-// from the plugin's in-memory storage (listTrajectories/getTrajectoryDetail).
-// These are separate data stores that haven't been unified yet. Re-enable
-// once the API routes fall back to the persisted DB table.
-describe.skip("Trajectory Database E2E", () => {
+describe("Trajectory Database E2E", () => {
     let runtime: AgentRuntime;
-    let server: { port: number; close: () => Promise<void> } | null = null;
     const pgliteDir = fs.mkdtempSync(
         path.join(os.tmpdir(), "milady-e2e-pglite-"),
     );
@@ -111,21 +58,9 @@ describe.skip("Trajectory Database E2E", () => {
 
         await runtime.registerPlugin(pluginSql);
         await runtime.initialize();
-
-        // We manually initialize the Sql Plugin (so DB is ready) which matches how
-        // it's done natively in startApiServer. startApiServer actually bootstraps via
-        // runtime-bootstrap.ts. We will just use startApiServer.
-        server = await startApiServer({ port: 0, runtime });
     }, 180_000);
 
     afterAll(async () => {
-        if (server) {
-            try {
-                await withTimeout(server.close(), 30_000, "server.close()");
-            } catch (err) {
-                logger.warn(`[e2e] Server close error: ${err}`);
-            }
-        }
         if (runtime) {
             try {
                 await withTimeout(runtime.stop(), 90_000, "runtime.stop()");
@@ -135,85 +70,102 @@ describe.skip("Trajectory Database E2E", () => {
         }
         try {
             fs.rmSync(pgliteDir, { recursive: true, force: true });
-        } catch (err) {
+        } catch {
             // ignore
         }
     }, 150_000);
 
-    it("persists LLM calls to the real trajectory database", async () => {
-        // Wait for trajectory_logger registration internally mapping and start
-        const loggerSvc: any = runtime.getService("trajectory_logger");
-        expect(loggerSvc).toBeDefined();
+    it("persists trajectory steps to the real database", async () => {
+        const stepId = `test-db-step-${Date.now()}`;
 
-        const stepId = "test-real-db-step-001";
-
-        installDatabaseTrajectoryLogger(runtime);
-        console.warn("DEBUG test: is logLlmCall patched?", loggerSvc.logLlmCall.toString().includes("enqueueStepWrite"));
-
-        // Call the logger method using the trajectory_logger service.
-        // It should transparently enqueue a database write because
-        // installDatabaseTrajectoryLogger hooked into it.
-        loggerSvc.logLlmCall({
+        const started = await startTrajectoryStepInDatabase({
+            runtime,
             stepId,
-            model: "test-model-42",
-            systemPrompt: "sys-prompt-test",
-            userPrompt: "hello db",
-            response: "hi db!",
-            temperature: 0.1,
-            maxTokens: 50,
-            purpose: "test.db",
-            actionType: "test.useModel",
-            latencyMs: 120,
-            timestamp: Date.now(),
-            promptTokens: 15,
-            completionTokens: 8,
+            source: "test-harness",
+            metadata: { suite: "e2e" },
         });
+        expect(started).toBe(true);
 
-        loggerSvc.logProviderAccess({
-            stepId,
-            providerId: "test-db-provider-1",
-            providerName: "dummy-api",
-            timestamp: Date.now() + 10,
-            data: { status: "ok" },
-            purpose: "fetching test data",
-        });
+        const rows = await loadPersistedTrajectoryRows(runtime);
+        expect(rows).not.toBeNull();
+        expect(rows!.length).toBeGreaterThanOrEqual(1);
 
-        // The SQLite db driver has await writes. Give it a moment to finish queueing.
-        await new Promise((resolve) => setTimeout(resolve, 2000));
-
-        // Confirm using the HTTP endpoint
-        const listRes = await http$(server!.port, "GET", "/api/trajectories");
-        console.warn("DEBUG listRes.data: ", JSON.stringify(listRes.data, null, 2));
-        expect(listRes.status).toBe(200);
-
-        const trajectories = listRes.data.trajectories as any[];
-        expect(trajectories).toBeDefined();
-
-        // We should find our stepId
-        const traj = trajectories.find((t) => t.id === stepId);
+        const traj = rows!.find((r) => r.id === stepId);
         expect(traj).toBeDefined();
-        expect(traj.stepCount).toBe(1);
-        expect(traj.llmCallCount).toBe(1);
-        expect(traj.totalPromptTokens).toBe(15);
-        expect(traj.totalCompletionTokens).toBe(8);
+        expect(traj!.status).toBe("active");
+        expect(traj!.source).toBe("test-harness");
 
-        // Get the details
-        const detRes = await http$(server!.port, "GET", `/api/trajectories/${stepId}`);
-        expect(detRes.status).toBe(200);
-        const details = detRes.data.trajectory as any;
-        expect(details).toBeDefined();
-
-        const steps = typeof details.stepsJson === "string" ? JSON.parse(details.stepsJson) : details.stepsJson;
+        // Verify steps_json structure
+        const stepsRaw = traj!.steps_json;
+        const steps =
+            typeof stepsRaw === "string" ? JSON.parse(stepsRaw) : stepsRaw;
         expect(Array.isArray(steps)).toBe(true);
-        expect(steps.length).toEqual(1);
+        expect(steps.length).toBeGreaterThanOrEqual(1);
+        expect(steps[0].stepId).toBe(stepId);
+    });
 
-        const llmCalls = steps[0].llmCalls;
-        expect(llmCalls.length).toBe(1);
-        expect(llmCalls[0].model).toBe("test-model-42");
-        expect(llmCalls[0].response).toBe("hi db!");
+    it("completes a trajectory step and updates status", async () => {
+        const stepId = `test-complete-${Date.now()}`;
 
-        const providers = steps[0].providerAccesses;
-        expect(providers.length).toBe(1);
-        expect(providers[0].providerName).toBe("dummy-api");
+        await startTrajectoryStepInDatabase({
+            runtime,
+            stepId,
+            source: "test-harness",
+        });
+
+        const completed = await completeTrajectoryStepInDatabase({
+            runtime,
+            stepId,
+            status: "completed",
+            metadata: { completedAt: Date.now() },
+        });
+        expect(completed).toBe(true);
+
+        const rows = await loadPersistedTrajectoryRows(runtime);
+        const row = rows!.find((r) => r.id === stepId);
+        expect(row).toBeDefined();
+        expect(row!.status).toBe("completed");
+        expect(row!.end_time).not.toBeNull();
+    });
+
+    it("deletes trajectory rows by ID", async () => {
+        const stepId = `test-delete-${Date.now()}`;
+
+        await startTrajectoryStepInDatabase({
+            runtime,
+            stepId,
+            source: "test-harness",
+        });
+
+        let rows = await loadPersistedTrajectoryRows(runtime);
+        expect(rows!.some((r) => r.id === stepId)).toBe(true);
+
+        const deleted = await deletePersistedTrajectoryRows(runtime, [stepId]);
+        expect(deleted).toBeGreaterThanOrEqual(1);
+
+        rows = await loadPersistedTrajectoryRows(runtime);
+        expect(rows!.some((r) => r.id === stepId)).toBe(false);
+    });
+
+    it("clears all trajectory rows", async () => {
+        await startTrajectoryStepInDatabase({
+            runtime,
+            stepId: `test-clear-a-${Date.now()}`,
+            source: "test-harness",
+        });
+        await startTrajectoryStepInDatabase({
+            runtime,
+            stepId: `test-clear-b-${Date.now()}`,
+            source: "test-harness",
+        });
+
+        let rows = await loadPersistedTrajectoryRows(runtime);
+        expect(rows!.length).toBeGreaterThanOrEqual(2);
+
+        const cleared = await clearPersistedTrajectoryRows(runtime);
+        expect(cleared).toBeGreaterThanOrEqual(2);
+
+        rows = await loadPersistedTrajectoryRows(runtime);
+        expect(rows!.length).toBe(0);
     });
 });

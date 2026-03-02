@@ -231,31 +231,32 @@ async function ensureTrajectoriesTable(
   if (initializedRuntimes.has(key)) return true;
 
   try {
+    // Schema matches @elizaos/plugin-trajectory-logger's table definition.
+    // When the plugin is loaded it creates this table first; our CREATE IF
+    // NOT EXISTS is a no-op in that case. When running without the plugin
+    // (e.g. standalone persistence) this acts as the fallback DDL.
     await executeRawSql(
       runtime,
       `CREATE TABLE IF NOT EXISTS trajectories (
         id TEXT PRIMARY KEY,
-        trajectory_id TEXT,
         agent_id TEXT NOT NULL,
         source TEXT NOT NULL DEFAULT 'runtime',
         status TEXT NOT NULL DEFAULT 'completed',
-        start_time INTEGER NOT NULL,
-        end_time INTEGER,
-        duration_ms INTEGER,
+        start_time BIGINT NOT NULL,
+        end_time BIGINT,
+        duration_ms BIGINT,
         step_count INTEGER NOT NULL DEFAULT 0,
         llm_call_count INTEGER NOT NULL DEFAULT 0,
         provider_access_count INTEGER NOT NULL DEFAULT 0,
         total_prompt_tokens INTEGER NOT NULL DEFAULT 0,
         total_completion_tokens INTEGER NOT NULL DEFAULT 0,
         total_reward REAL NOT NULL DEFAULT 0,
-        steps_json TEXT NOT NULL DEFAULT '[]',
-        metadata TEXT NOT NULL DEFAULT '{}',
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL,
-        episode_length INTEGER,
+        steps_json JSONB NOT NULL DEFAULT '[]',
+        metadata_json JSONB NOT NULL DEFAULT '{}',
+        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
         ai_judge_reward REAL,
-        ai_judge_reasoning TEXT,
-        archetype TEXT
+        ai_judge_reasoning TEXT
       )`,
     );
     initializedRuntimes.add(key);
@@ -640,7 +641,7 @@ async function loadTrajectoryById(
       startTime,
       endTime,
       steps,
-      metadata: parseMetadata(readRecordValue(row, ["metadata", "meta"])),
+      metadata: parseMetadata(readRecordValue(row, ["metadata_json", "metadata", "meta"])),
       totalReward: toNumber(
         readRecordValue(row, ["total_reward", "totalReward"]),
         0,
@@ -677,7 +678,6 @@ async function saveTrajectory(
 
   const sql = `INSERT INTO trajectories (
       id,
-      trajectory_id,
       agent_id,
       source,
       status,
@@ -691,12 +691,10 @@ async function saveTrajectory(
       total_completion_tokens,
       total_reward,
       steps_json,
-      metadata,
+      metadata_json,
       created_at,
-      updated_at,
-      episode_length
+      updated_at
     ) VALUES (
-      ${sqlQuote(trajectory.id)},
       ${sqlQuote(trajectory.id)},
       ${sqlQuote(runtime.agentId)},
       ${sqlQuote(trajectory.source)},
@@ -710,14 +708,12 @@ async function saveTrajectory(
       ${sqlNumber(summary.totalPromptTokens)},
       ${sqlNumber(summary.totalCompletionTokens)},
       ${sqlNumber(trajectory.totalReward)},
-      ${sqlQuote(JSON.stringify(trajectory.steps))},
-      ${sqlQuote(JSON.stringify(trajectory.metadata))},
-      ${sqlQuote(createdAt)},
-      ${sqlQuote(updatedAt)},
-      ${sqlNumber(trajectory.steps.length)}
+      ${sqlQuote(JSON.stringify(trajectory.steps))}::jsonb,
+      ${sqlQuote(JSON.stringify(trajectory.metadata))}::jsonb,
+      ${sqlQuote(createdAt)}::timestamptz,
+      ${sqlQuote(updatedAt)}::timestamptz
     )
     ON CONFLICT (id) DO UPDATE SET
-      trajectory_id = EXCLUDED.trajectory_id,
       agent_id = EXCLUDED.agent_id,
       source = EXCLUDED.source,
       status = EXCLUDED.status,
@@ -731,10 +727,9 @@ async function saveTrajectory(
       total_completion_tokens = EXCLUDED.total_completion_tokens,
       total_reward = EXCLUDED.total_reward,
       steps_json = EXCLUDED.steps_json,
-      metadata = EXCLUDED.metadata,
+      metadata_json = EXCLUDED.metadata_json,
       created_at = EXCLUDED.created_at,
-      updated_at = EXCLUDED.updated_at,
-      episode_length = EXCLUDED.episode_length`;
+      updated_at = EXCLUDED.updated_at`;
 
   try {
     await executeRawSql(runtime, sql);
@@ -883,12 +878,9 @@ export function installDatabaseTrajectoryLogger(runtime: IAgentRuntime): void {
     if (!normalized) return;
 
     void enqueueStepWrite(runtime, normalized.stepId, async () => {
-      console.warn("DEBUG: enqueueStepWrite running - step1");
       const tableReady = await ensureTrajectoriesTable(runtime);
-      console.warn("DEBUG: ensureTrajectoriesTable result:", tableReady);
       if (!tableReady) return;
       await appendLlmCall(runtime, normalized.stepId, normalized.params);
-      console.warn("DEBUG: appendLlmCall finished");
     });
   }) as unknown as (params: Record<string, unknown>) => void;
 
