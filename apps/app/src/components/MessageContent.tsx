@@ -25,6 +25,22 @@ import type { UiSpec } from "./ui-spec";
 /** Reject prototype-pollution plugin IDs that could slip through the regex. */
 const BLOCKED_IDS = new Set(["__proto__", "constructor", "prototype"]);
 
+/**
+ * Normalize text content: decode common HTML entities that may appear in
+ * LLM output (e.g. `&#10;` for newline) so they render correctly as plain text.
+ */
+function normalizeText(text: string): string {
+  return text
+    .replace(/&#10;/g, "\n")
+    .replace(/&#13;/g, "\r")
+    .replace(/&#9;/g, "\t")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
+}
+
 export interface MessageContentProps {
   message: ConversationMessage;
 }
@@ -422,7 +438,7 @@ export function MessageContent({ message }: MessageContentProps) {
 
   // Fast path: single plain-text segment (most messages)
   if (segments.length === 1 && segments[0].kind === "text") {
-    return <div className="text-txt whitespace-pre-wrap">{message.text}</div>;
+    return <div className="text-txt whitespace-pre-wrap" style={{ overflowWrap: "break-word", wordBreak: "break-word" }}>{normalizeText(message.text)}</div>;
   }
 
   return (
@@ -431,8 +447,8 @@ export function MessageContent({ message }: MessageContentProps) {
         switch (seg.kind) {
           case "text":
             return (
-              <div key={i} className="text-txt whitespace-pre-wrap">
-                {seg.text}
+              <div key={i} className="text-txt whitespace-pre-wrap" style={{ overflowWrap: "break-word", wordBreak: "break-word" }}>
+                {normalizeText(seg.text)}
               </div>
             );
           case "config":

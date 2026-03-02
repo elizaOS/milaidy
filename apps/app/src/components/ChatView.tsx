@@ -237,7 +237,7 @@ export function ChatView({ variant = "default" }: ChatViewProps) {
     : "font-bold text-[12px] mb-1 text-accent";
   const messageBodyClass = isGameModal
     ? "chat-game-message-body"
-    : "max-w-[85%] px-0 py-1 text-sm leading-relaxed whitespace-pre-wrap break-words";
+    : "max-w-[85%] min-w-0 px-0 py-1 text-sm leading-relaxed whitespace-pre-wrap break-words overflow-hidden";
   const composerClass = isGameModal
     ? "chat-game-composer"
     : "flex gap-2 items-end border-t border-border pt-3 pb-4 relative";

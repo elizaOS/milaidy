@@ -1108,6 +1108,51 @@ export function CompanionView() {
     };
   }, [miladyTokenMetaLoaded, walletPanelOpen, walletReady]);
 
+  // Seed recent trades from backend ledger (agent-executed trades not in localStorage).
+  const [ledgerSynced, setLedgerSynced] = useState(false);
+  useEffect(() => {
+    if (!walletPanelOpen || ledgerSynced) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const profile = await loadWalletTradingProfile("all", "all");
+        if (cancelled || !profile?.recentSwaps?.length) return;
+        setWalletRecentTrades((prev) => {
+          const existingHashes = new Set(prev.map((e) => e.hash));
+          const newEntries: WalletRecentTrade[] = [];
+          for (const swap of profile.recentSwaps) {
+            if (existingHashes.has(swap.hash)) continue;
+            newEntries.push({
+              hash: swap.hash,
+              side: swap.side,
+              tokenAddress: swap.tokenAddress,
+              amount: swap.inputAmount,
+              inputSymbol: swap.inputSymbol,
+              outputSymbol: swap.outputSymbol,
+              createdAt: new Date(swap.createdAt).getTime() || Date.now(),
+              status: swap.status,
+              confirmations: swap.confirmations,
+              nonce: null,
+              reason: swap.reason ?? null,
+              explorerUrl: swap.explorerUrl,
+            });
+          }
+          if (newEntries.length === 0) return prev;
+          const merged = [...newEntries, ...prev]
+            .sort((a, b) => b.createdAt - a.createdAt)
+            .slice(0, MAX_WALLET_RECENT_TRADES);
+          persistRecentTrades(merged);
+          return merged;
+        });
+      } catch {
+        // Best effort — don't block wallet UX.
+      } finally {
+        if (!cancelled) setLedgerSynced(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [walletPanelOpen, ledgerSynced, loadWalletTradingProfile]);
+
   useEffect(() => {
     if (walletPortfolioChain === "all") return;
     const stillAvailable = walletChainOptions.some((option) => option.value === walletPortfolioChain);
@@ -1287,7 +1332,7 @@ export function CompanionView() {
       <div className="anime-comp-bg-graphic"></div>
 
       {/* Model Layer */}
-      <div className="anime-comp-model-layer">
+      <div className={`anime-comp-model-layer ${chatDockOpen ? "chat-shifted" : ""}`}>
         <div
           className="absolute inset-0"
           style={{

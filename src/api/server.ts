@@ -124,6 +124,7 @@ import {
 import { TxService } from "./tx-service.js";
 import {
   loadWalletTradingProfile,
+  readWalletTradeLedgerStore,
   recordWalletTradeLedgerEntry,
   updateWalletTradeLedgerEntryStatus,
 } from "./wallet-trading-profile.js";
@@ -5361,6 +5362,11 @@ function persistTradePermissionMode(
   }
   (state.config.env as Record<string, string>).MILADY_TRADE_PERMISSION_MODE =
     mode;
+
+  const bscEnabled = mode === "agent-auto" ? "true" : "false";
+  process.env.MILADY_BSC_EXECUTION_ENABLED = bscEnabled;
+  (state.config.env as Record<string, string>).MILADY_BSC_EXECUTION_ENABLED =
+    bscEnabled;
 }
 
 export interface PluginConfigMutationRejection {
@@ -10249,6 +10255,17 @@ async function handleRequest(
         baseRpcUrl)
     ) {
       try {
+        // Gather traded token addresses so the RPC-only path can query their balances.
+        let knownTokenAddresses: string[] | undefined;
+        try {
+          const ledger = readWalletTradeLedgerStore();
+          const addrSet = new Set<string>();
+          for (const entry of ledger.entries) {
+            if (entry.tokenAddress) addrSet.add(entry.tokenAddress.toLowerCase());
+          }
+          if (addrSet.size > 0) knownTokenAddresses = [...addrSet];
+        } catch { /* best effort */ }
+
         const chains = await fetchEvmBalances(addrs.evmAddress, {
           alchemyKey,
           ankrKey,
@@ -10257,7 +10274,7 @@ async function handleRequest(
           bscRpcUrl,
           ethereumRpcUrl,
           baseRpcUrl,
-        });
+        }, undefined, knownTokenAddresses);
         result.evm = { address: addrs.evmAddress, chains };
       } catch (err) {
         logger.warn(`[wallet] EVM balance fetch failed: ${err}`);
@@ -10457,6 +10474,13 @@ async function handleRequest(
         executionEnabled &&
         !isPurePrivyWalletMode(state.config) &&
         localPrivateKey.length > 0;
+
+      logger.info(
+        `[trade] execution gate: mode=${tradePermissionMode} agentReq=${agentRequest} ` +
+          `modeAllowed=${localExecutionAllowedByMode} envEnabled=${executionEnabled} ` +
+          `privyMode=${isPurePrivyWalletMode(state.config)} hasKey=${localPrivateKey.length > 0} ` +
+          `→ useLocal=${useLocalExecution}`,
+      );
 
       if (!useLocalExecution) {
         let unsignedApprovalTx:
@@ -15784,6 +15808,12 @@ export async function startApiServer(opts?: {
     agentAutomationMode: resolveAgentAutomationModeFromConfig(config),
     tradePermissionMode: resolveTradePermissionMode(config),
   };
+
+  // Sync MILADY_BSC_EXECUTION_ENABLED with the resolved trade permission mode
+  // so that agent-auto mode enables execution even on cold start.
+  if (state.tradePermissionMode === "agent-auto") {
+    process.env.MILADY_BSC_EXECUTION_ENABLED = "true";
+  }
 
   const trainingService = new TrainingService({
     getRuntime: () => state.runtime,

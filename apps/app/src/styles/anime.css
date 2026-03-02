@@ -55,6 +55,23 @@
     inset: 0;
     z-index: 1;
     pointer-events: auto;
+    transition: transform 0.32s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.anime-comp-model-layer.chat-shifted {
+    transform: translateX(min(360px, 25vw));
+}
+
+@media (max-width: 1024px) {
+    .anime-comp-model-layer.chat-shifted {
+        transform: translateX(min(280px, 20vw));
+    }
+}
+
+@media (max-width: 768px) {
+    .anime-comp-model-layer.chat-shifted {
+        transform: none;
+    }
 }
 
 .anime-vrm-fallback {
@@ -2027,7 +2044,7 @@
     left: 24px;
     top: 84px;
     bottom: 22px;
-    width: min(620px, 40vw);
+    width: min(820px, 55vw);
     z-index: 16;
     opacity: 0;
     transform: translateX(-108%);

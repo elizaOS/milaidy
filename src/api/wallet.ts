@@ -731,6 +731,181 @@ function isAnkrNativeAsset(asset: AnkrTokenAsset): boolean {
   return symbol === "BNB" && (!contract || contract === ZERO_ADDRESS);
 }
 
+// ── DEX Price Oracle (DexScreener + DexPaprika fallback) ─────────────
+
+const DEXSCREENER_CHAIN_MAP: Record<number, string> = {
+  1: "ethereum",
+  56: "bsc",
+  8453: "base",
+  42161: "arbitrum",
+  10: "optimism",
+  137: "polygon",
+};
+
+const DEXPAPRIKA_CHAIN_MAP: Record<number, string> = {
+  1: "ethereum",
+  56: "bsc",
+  8453: "base",
+  42161: "arbitrum_one",
+  10: "optimism",
+  137: "polygon_pos",
+};
+
+/** Wrapped native token addresses for pricing native balances via DEX APIs. */
+const WRAPPED_NATIVE: Record<number, string> = {
+  1: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+  56: "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
+  8453: "0x4200000000000000000000000000000000000006",
+  42161: "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",
+  10: "0x4200000000000000000000000000000000000006",
+  137: "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270",
+};
+
+const DEX_PRICE_TIMEOUT_MS = 10_000;
+
+interface DexScreenerPair {
+  baseToken?: { address?: string };
+  priceUsd?: string | null;
+  liquidity?: { usd?: number };
+  info?: { imageUrl?: string };
+}
+
+/** Price + optional logo URL from DEX aggregators. */
+interface DexTokenMeta {
+  price: string;
+  logoUrl?: string;
+}
+
+/**
+ * Batch-fetch USD prices from DexScreener.
+ * Returns a map of lowercased contract address → price USD string.
+ */
+async function fetchDexScreenerPrices(
+  chainId: number,
+  addresses: string[],
+): Promise<Map<string, DexTokenMeta>> {
+  const results = new Map<string, DexTokenMeta>();
+  const chain = DEXSCREENER_CHAIN_MAP[chainId];
+  if (!chain || addresses.length === 0) return results;
+
+  // DexScreener supports up to 30 addresses per request.
+  const batches: string[][] = [];
+  for (let i = 0; i < addresses.length; i += 30) {
+    batches.push(addresses.slice(i, i + 30));
+  }
+
+  await Promise.allSettled(
+    batches.map(async (batch) => {
+      try {
+        const joined = batch.join(",");
+        const res = await fetch(
+          `https://api.dexscreener.com/tokens/v1/${chain}/${joined}`,
+          { signal: AbortSignal.timeout(DEX_PRICE_TIMEOUT_MS) },
+        );
+        if (!res.ok) return;
+        const pairs: DexScreenerPair[] = await res.json();
+        if (!Array.isArray(pairs)) return;
+
+        // Group by base token address; pick the pair with highest liquidity.
+        const best = new Map<string, DexScreenerPair>();
+        for (const pair of pairs) {
+          const addr = pair.baseToken?.address?.toLowerCase();
+          if (!addr || !pair.priceUsd) continue;
+          const existing = best.get(addr);
+          if (
+            !existing ||
+            (pair.liquidity?.usd ?? 0) > (existing.liquidity?.usd ?? 0)
+          ) {
+            best.set(addr, pair);
+          }
+        }
+        for (const [addr, pair] of best) {
+          if (pair.priceUsd) {
+            const logoUrl = pair.info?.imageUrl?.trim() || undefined;
+            results.set(addr, { price: String(pair.priceUsd), logoUrl });
+          }
+        }
+        logger.info(`[wallet] DexScreener: ${best.size} prices for chain ${chain}`);
+      } catch (err) {
+        logger.warn(`[wallet] DexScreener fetch failed for chain ${chain}: ${err instanceof Error ? err.message : err}`);
+      }
+    }),
+  );
+
+  return results;
+}
+
+/**
+ * Fetch individual token prices from DexPaprika as fallback.
+ * Only called for addresses that DexScreener couldn't price.
+ */
+async function fetchDexPaprikaPrices(
+  chainId: number,
+  addresses: string[],
+): Promise<Map<string, DexTokenMeta>> {
+  const results = new Map<string, DexTokenMeta>();
+  const network = DEXPAPRIKA_CHAIN_MAP[chainId];
+  if (!network || addresses.length === 0) return results;
+
+  await Promise.allSettled(
+    addresses.slice(0, 20).map(async (addr) => {
+      try {
+        const res = await fetch(
+          `https://api.dexpaprika.com/networks/${network}/tokens/${addr}`,
+          { signal: AbortSignal.timeout(DEX_PRICE_TIMEOUT_MS) },
+        );
+        if (!res.ok) return;
+        const data: { price_usd?: number | string } = await res.json();
+        const price = Number(data.price_usd);
+        if (Number.isFinite(price) && price > 0) {
+          results.set(addr.toLowerCase(), { price: price.toString() });
+        }
+      } catch (err) {
+        logger.warn(`[wallet] DexPaprika fetch failed for ${addr}: ${err instanceof Error ? err.message : err}`);
+      }
+    }),
+  );
+
+  return results;
+}
+
+/**
+ * Fetch USD prices for a list of token addresses using DexScreener (primary)
+ * with DexPaprika fallback. Returns a map of lowercased address → price string.
+ */
+async function fetchDexPrices(
+  chainId: number,
+  addresses: string[],
+): Promise<Map<string, DexTokenMeta>> {
+  if (addresses.length === 0) return new Map();
+
+  const lowerAddresses = addresses.map((a) => a.toLowerCase());
+  const results = await fetchDexScreenerPrices(chainId, lowerAddresses);
+
+  // Fallback to DexPaprika for tokens DexScreener couldn't price.
+  const missing = lowerAddresses.filter((a) => !results.has(a));
+  if (missing.length > 0) {
+    const fallback = await fetchDexPaprikaPrices(chainId, missing);
+    for (const [addr, meta] of fallback) {
+      results.set(addr, meta);
+    }
+  }
+
+  return results;
+}
+
+/**
+ * Compute USD value from a formatted balance string and a price string.
+ * Returns "0" if either value is invalid.
+ */
+function computeValueUsd(balance: string, priceUsd: string): string {
+  const bal = Number.parseFloat(balance);
+  const price = Number.parseFloat(priceUsd);
+  if (!Number.isFinite(bal) || !Number.isFinite(price) || bal <= 0 || price <= 0)
+    return "0";
+  return (bal * price).toFixed(2);
+}
+
 async function fetchAlchemyChainBalances(
   chain: EvmChainConfig,
   address: string,
@@ -812,12 +987,32 @@ async function fetchAlchemyChainBalances(
     )
     .map((r) => r.value);
 
+  // Fetch DEX prices for all tokens + native token.
+  const allAddresses = tokens.map((t) => t.contractAddress);
+  const wrappedNative = WRAPPED_NATIVE[chain.chainId];
+  if (wrappedNative) allAddresses.push(wrappedNative);
+  const dexPrices = await fetchDexPrices(chain.chainId, allAddresses);
+
+  for (const tok of tokens) {
+    const meta = dexPrices.get(tok.contractAddress.toLowerCase());
+    if (meta) {
+      tok.valueUsd = computeValueUsd(tok.balance, meta.price);
+      if (meta.logoUrl && !tok.logoUrl) tok.logoUrl = meta.logoUrl;
+    }
+  }
+  const nativeMeta = wrappedNative
+    ? dexPrices.get(wrappedNative.toLowerCase())
+    : undefined;
+  const nativeValueUsd = nativeMeta
+    ? computeValueUsd(nativeBalance, nativeMeta.price)
+    : "0";
+
   return {
     chain: chain.name,
     chainId: chain.chainId,
     nativeBalance,
     nativeSymbol: chain.nativeSymbol,
-    nativeValueUsd: "0",
+    nativeValueUsd,
     tokens,
     error: null,
   };
@@ -854,10 +1049,6 @@ async function fetchAnkrChainBalances(
         parseTokenDecimals(nativeAsset.tokenDecimals),
       )
     : "0";
-  const nativeValueUsd = nativeAsset
-    ? parseUsdString(nativeAsset.balanceUsd)
-    : "0";
-
   const tokens: EvmTokenBalance[] = [];
   for (const asset of assets) {
     if (isAnkrNativeAsset(asset)) continue;
@@ -870,10 +1061,34 @@ async function fetchAnkrChainBalances(
       contractAddress: asset.contractAddress ?? "",
       balance,
       decimals,
-      valueUsd: parseUsdString(asset.balanceUsd),
+      valueUsd: "0",
       logoUrl: asset.thumbnail ?? "",
     });
   }
+
+  // All pricing via DexScreener/DexPaprika (Ankr only provides balances).
+  const allAddresses = tokens
+    .filter((t) => t.contractAddress)
+    .map((t) => t.contractAddress);
+  const wrappedNative = WRAPPED_NATIVE[chain.chainId];
+  if (wrappedNative) allAddresses.push(wrappedNative);
+  logger.info(`[wallet] Fetching DEX prices for ${chain.name}: ${allAddresses.length} addresses (native=${nativeBalance})`);
+  const dexPrices = await fetchDexPrices(chain.chainId, allAddresses);
+  logger.info(`[wallet] DEX prices result for ${chain.name}: ${dexPrices.size} prices found`);
+
+  for (const tok of tokens) {
+    const meta = dexPrices.get(tok.contractAddress.toLowerCase());
+    if (meta) {
+      tok.valueUsd = computeValueUsd(tok.balance, meta.price);
+      if (meta.logoUrl && !tok.logoUrl) tok.logoUrl = meta.logoUrl;
+    }
+  }
+  const nativeMeta = wrappedNative
+    ? dexPrices.get(wrappedNative.toLowerCase())
+    : undefined;
+  const nativeValueUsd = nativeMeta
+    ? computeValueUsd(nativeBalance, nativeMeta.price)
+    : "0";
 
   return {
     chain: chain.name,
@@ -916,22 +1131,144 @@ async function fetchNativeBalanceViaRpc(
   return formatWei(wei, 18);
 }
 
+/**
+ * Query ERC-20 balanceOf, symbol, and decimals for a single token via RPC.
+ * Returns null if the token has zero balance or the call fails.
+ */
+async function fetchErc20BalanceViaRpc(
+  rpcUrl: string,
+  walletAddress: string,
+  contractAddress: string,
+): Promise<EvmTokenBalance | null> {
+  const paddedWallet = walletAddress.toLowerCase().replace("0x", "").padStart(64, "0");
+  // balanceOf(address) — paddedWallet is already 64 hex chars (24 zero prefix + 40 addr)
+  const balanceOfData = `0x70a08231${paddedWallet}`;
+  // symbol()
+  const symbolData = "0x95d89b41";
+  // decimals()
+  const decimalsData = "0x313ce567";
+
+  const makeCall = (to: string, data: string) =>
+    fetch(rpcUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "eth_call",
+        params: [{ to, data }, "latest"],
+      }),
+      signal: AbortSignal.timeout(8_000),
+    }).then((r) => r.json() as Promise<{ result?: string }>);
+
+  try {
+    const [balRes, symRes, decRes] = await Promise.all([
+      makeCall(contractAddress, balanceOfData),
+      makeCall(contractAddress, symbolData),
+      makeCall(contractAddress, decimalsData),
+    ]);
+
+    const rawBal = balRes.result;
+    if (!rawBal || rawBal === "0x" || rawBal === "0x0" || BigInt(rawBal) === 0n) return null;
+
+    let decimals = 18;
+    if (decRes.result && decRes.result !== "0x") {
+      const d = Number(BigInt(decRes.result));
+      if (Number.isFinite(d) && d >= 0 && d <= 36) decimals = d;
+    }
+
+    let symbol = "TOKEN";
+    if (symRes.result && symRes.result.length > 2) {
+      try {
+        // ABI-encoded string: offset (32 bytes) + length (32 bytes) + data
+        const hex = symRes.result.slice(2);
+        if (hex.length >= 128) {
+          const len = Number(BigInt(`0x${hex.slice(64, 128)}`));
+          const bytes = Buffer.from(hex.slice(128, 128 + len * 2), "hex");
+          const decoded = bytes.toString("utf-8").replace(/\0/g, "").trim();
+          if (decoded) symbol = decoded;
+        }
+      } catch {
+        // Fall through with default symbol.
+      }
+    }
+
+    const balance = formatWei(BigInt(rawBal), decimals);
+    return {
+      symbol,
+      name: symbol,
+      contractAddress,
+      balance,
+      decimals,
+      valueUsd: "0",
+      logoUrl: "",
+    };
+  } catch {
+    return null;
+  }
+}
+
 async function fetchEvmChainBalancesViaRpc(
   chain: EvmChainConfig,
   address: string,
   rpcUrls: string[],
+  knownTokenAddresses?: string[],
 ): Promise<EvmChainBalance> {
   const errors: string[] = [];
   for (const rpcUrl of rpcUrls) {
     try {
       const nativeBalance = await fetchNativeBalanceViaRpc(rpcUrl, address);
+
+      // Query known ERC-20 tokens (e.g. from trade ledger).
+      const tokens: EvmTokenBalance[] = [];
+      if (knownTokenAddresses && knownTokenAddresses.length > 0) {
+        const results = await Promise.allSettled(
+          knownTokenAddresses.slice(0, 30).map((addr) =>
+            fetchErc20BalanceViaRpc(rpcUrl, address, addr),
+          ),
+        );
+        for (const r of results) {
+          if (r.status === "fulfilled" && r.value) tokens.push(r.value);
+        }
+      }
+
+      // Price native + tokens via DEX.
+      const wrappedNative = WRAPPED_NATIVE[chain.chainId];
+      const priceAddresses = tokens.map((t) => t.contractAddress);
+      if (wrappedNative) priceAddresses.push(wrappedNative);
+
+      const dexPrices = priceAddresses.length > 0
+        ? await fetchDexPrices(chain.chainId, priceAddresses)
+        : new Map<string, DexTokenMeta>();
+
+      let nativeValueUsd = "0";
+      if (wrappedNative) {
+        const nativeMeta = dexPrices.get(wrappedNative.toLowerCase());
+        if (nativeMeta) nativeValueUsd = computeValueUsd(nativeBalance, nativeMeta.price);
+        logger.info(
+          `[wallet] RPC path: ${chain.name} native=${nativeBalance} price=${nativeMeta?.price ?? "none"} value=$${nativeValueUsd}`,
+        );
+      }
+
+      for (const tok of tokens) {
+        const meta = dexPrices.get(tok.contractAddress.toLowerCase());
+        if (meta) {
+          tok.valueUsd = computeValueUsd(tok.balance, meta.price);
+          if (meta.logoUrl) tok.logoUrl = meta.logoUrl;
+        }
+      }
+
+      if (tokens.length > 0) {
+        logger.info(`[wallet] RPC path: ${chain.name} found ${tokens.length} tokens with balance`);
+      }
+
       return {
         chain: chain.name,
         chainId: chain.chainId,
         nativeBalance,
         nativeSymbol: chain.nativeSymbol,
-        nativeValueUsd: "0",
-        tokens: [],
+        nativeValueUsd,
+        tokens,
         error: null,
       };
     } catch (err) {
@@ -1033,6 +1370,7 @@ export async function fetchEvmBalances(
   address: string,
   alchemyOrKeys: string | EvmProviderKeys | null | undefined,
   maybeAnkrKey?: string | null,
+  knownTokenAddresses?: string[],
 ): Promise<EvmChainBalance[]> {
   const keys = resolveEvmProviderKeys(alchemyOrKeys, maybeAnkrKey);
   const bscRpcUrls = [...new Set(
@@ -1069,19 +1407,20 @@ export async function fetchEvmBalances(
             return await fetchAnkrChainBalances(chain, address, keys.ankrKey);
           }
           if (isBscChain(chain) && hasManagedBscRpc) {
-            return await fetchEvmChainBalancesViaRpc(chain, address, bscRpcUrls);
+            return await fetchEvmChainBalancesViaRpc(chain, address, bscRpcUrls, knownTokenAddresses);
           }
           return makeEvmChainFailure(chain, "Missing ANKR_API_KEY");
         }
         if (!keys.alchemyKey) {
           if (chain.chainId === 1 && ethRpcUrls.length > 0) {
-            return await fetchEvmChainBalancesViaRpc(chain, address, ethRpcUrls);
+            return await fetchEvmChainBalancesViaRpc(chain, address, ethRpcUrls, knownTokenAddresses);
           }
           if (chain.chainId === 8453 && baseRpcUrls.length > 0) {
             return await fetchEvmChainBalancesViaRpc(
               chain,
               address,
               baseRpcUrls,
+              knownTokenAddresses,
             );
           }
           return makeEvmChainFailure(chain, "Missing ALCHEMY_API_KEY");
