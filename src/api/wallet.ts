@@ -620,11 +620,15 @@ function resolveEvmProviderKeys(
     quickNodeBscRpcUrl: normalizeApiKey(
       alchemyOrKeys.quickNodeBscRpcUrl ?? process.env.QUICKNODE_BSC_RPC_URL,
     ),
-    bscRpcUrl: normalizeApiKey(alchemyOrKeys.bscRpcUrl ?? process.env.BSC_RPC_URL),
+    bscRpcUrl: normalizeApiKey(
+      alchemyOrKeys.bscRpcUrl ?? process.env.BSC_RPC_URL,
+    ),
     ethereumRpcUrl: normalizeApiKey(
       alchemyOrKeys.ethereumRpcUrl ?? process.env.ETHEREUM_RPC_URL,
     ),
-    baseRpcUrl: normalizeApiKey(alchemyOrKeys.baseRpcUrl ?? process.env.BASE_RPC_URL),
+    baseRpcUrl: normalizeApiKey(
+      alchemyOrKeys.baseRpcUrl ?? process.env.BASE_RPC_URL,
+    ),
   };
 }
 
@@ -683,7 +687,7 @@ function parseTokenDecimals(value: unknown, fallback = 18): number {
   return Math.trunc(num);
 }
 
-function parseUsdString(value: unknown): string {
+function _parseUsdString(value: unknown): string {
   const num =
     typeof value === "number"
       ? value
@@ -825,9 +829,13 @@ async function fetchDexScreenerPrices(
             results.set(addr, { price: String(pair.priceUsd), logoUrl });
           }
         }
-        logger.info(`[wallet] DexScreener: ${best.size} prices for chain ${chain}`);
+        logger.info(
+          `[wallet] DexScreener: ${best.size} prices for chain ${chain}`,
+        );
       } catch (err) {
-        logger.warn(`[wallet] DexScreener fetch failed for chain ${chain}: ${err instanceof Error ? err.message : err}`);
+        logger.warn(
+          `[wallet] DexScreener fetch failed for chain ${chain}: ${err instanceof Error ? err.message : err}`,
+        );
       }
     }),
   );
@@ -861,7 +869,9 @@ async function fetchDexPaprikaPrices(
           results.set(addr.toLowerCase(), { price: price.toString() });
         }
       } catch (err) {
-        logger.warn(`[wallet] DexPaprika fetch failed for ${addr}: ${err instanceof Error ? err.message : err}`);
+        logger.warn(
+          `[wallet] DexPaprika fetch failed for ${addr}: ${err instanceof Error ? err.message : err}`,
+        );
       }
     }),
   );
@@ -901,7 +911,12 @@ async function fetchDexPrices(
 function computeValueUsd(balance: string, priceUsd: string): string {
   const bal = Number.parseFloat(balance);
   const price = Number.parseFloat(priceUsd);
-  if (!Number.isFinite(bal) || !Number.isFinite(price) || bal <= 0 || price <= 0)
+  if (
+    !Number.isFinite(bal) ||
+    !Number.isFinite(price) ||
+    bal <= 0 ||
+    price <= 0
+  )
     return "0";
   return (bal * price).toFixed(2);
 }
@@ -1072,9 +1087,13 @@ async function fetchAnkrChainBalances(
     .map((t) => t.contractAddress);
   const wrappedNative = WRAPPED_NATIVE[chain.chainId];
   if (wrappedNative) allAddresses.push(wrappedNative);
-  logger.info(`[wallet] Fetching DEX prices for ${chain.name}: ${allAddresses.length} addresses (native=${nativeBalance})`);
+  logger.info(
+    `[wallet] Fetching DEX prices for ${chain.name}: ${allAddresses.length} addresses (native=${nativeBalance})`,
+  );
   const dexPrices = await fetchDexPrices(chain.chainId, allAddresses);
-  logger.info(`[wallet] DEX prices result for ${chain.name}: ${dexPrices.size} prices found`);
+  logger.info(
+    `[wallet] DEX prices result for ${chain.name}: ${dexPrices.size} prices found`,
+  );
 
   for (const tok of tokens) {
     const meta = dexPrices.get(tok.contractAddress.toLowerCase());
@@ -1140,7 +1159,10 @@ async function fetchErc20BalanceViaRpc(
   walletAddress: string,
   contractAddress: string,
 ): Promise<EvmTokenBalance | null> {
-  const paddedWallet = walletAddress.toLowerCase().replace("0x", "").padStart(64, "0");
+  const paddedWallet = walletAddress
+    .toLowerCase()
+    .replace("0x", "")
+    .padStart(64, "0");
   // balanceOf(address) — paddedWallet is already 64 hex chars (24 zero prefix + 40 addr)
   const balanceOfData = `0x70a08231${paddedWallet}`;
   // symbol()
@@ -1169,7 +1191,8 @@ async function fetchErc20BalanceViaRpc(
     ]);
 
     const rawBal = balRes.result;
-    if (!rawBal || rawBal === "0x" || rawBal === "0x0" || BigInt(rawBal) === 0n) return null;
+    if (!rawBal || rawBal === "0x" || rawBal === "0x0" || BigInt(rawBal) === 0n)
+      return null;
 
     let decimals = 18;
     if (decRes.result && decRes.result !== "0x") {
@@ -1223,9 +1246,9 @@ async function fetchEvmChainBalancesViaRpc(
       const tokens: EvmTokenBalance[] = [];
       if (knownTokenAddresses && knownTokenAddresses.length > 0) {
         const results = await Promise.allSettled(
-          knownTokenAddresses.slice(0, 30).map((addr) =>
-            fetchErc20BalanceViaRpc(rpcUrl, address, addr),
-          ),
+          knownTokenAddresses
+            .slice(0, 30)
+            .map((addr) => fetchErc20BalanceViaRpc(rpcUrl, address, addr)),
         );
         for (const r of results) {
           if (r.status === "fulfilled" && r.value) tokens.push(r.value);
@@ -1237,14 +1260,16 @@ async function fetchEvmChainBalancesViaRpc(
       const priceAddresses = tokens.map((t) => t.contractAddress);
       if (wrappedNative) priceAddresses.push(wrappedNative);
 
-      const dexPrices = priceAddresses.length > 0
-        ? await fetchDexPrices(chain.chainId, priceAddresses)
-        : new Map<string, DexTokenMeta>();
+      const dexPrices =
+        priceAddresses.length > 0
+          ? await fetchDexPrices(chain.chainId, priceAddresses)
+          : new Map<string, DexTokenMeta>();
 
       let nativeValueUsd = "0";
       if (wrappedNative) {
         const nativeMeta = dexPrices.get(wrappedNative.toLowerCase());
-        if (nativeMeta) nativeValueUsd = computeValueUsd(nativeBalance, nativeMeta.price);
+        if (nativeMeta)
+          nativeValueUsd = computeValueUsd(nativeBalance, nativeMeta.price);
         logger.info(
           `[wallet] RPC path: ${chain.name} native=${nativeBalance} price=${nativeMeta?.price ?? "none"} value=$${nativeValueUsd}`,
         );
@@ -1259,7 +1284,9 @@ async function fetchEvmChainBalancesViaRpc(
       }
 
       if (tokens.length > 0) {
-        logger.info(`[wallet] RPC path: ${chain.name} found ${tokens.length} tokens with balance`);
+        logger.info(
+          `[wallet] RPC path: ${chain.name} found ${tokens.length} tokens with balance`,
+        );
       }
 
       return {
@@ -1373,11 +1400,13 @@ export async function fetchEvmBalances(
   knownTokenAddresses?: string[],
 ): Promise<EvmChainBalance[]> {
   const keys = resolveEvmProviderKeys(alchemyOrKeys, maybeAnkrKey);
-  const bscRpcUrls = [...new Set(
-    [keys.nodeRealBscRpcUrl, keys.quickNodeBscRpcUrl, keys.bscRpcUrl].filter(
-      (url): url is string => Boolean(url),
+  const bscRpcUrls = [
+    ...new Set(
+      [keys.nodeRealBscRpcUrl, keys.quickNodeBscRpcUrl, keys.bscRpcUrl].filter(
+        (url): url is string => Boolean(url),
+      ),
     ),
-  )];
+  ];
   const ethRpcUrls = keys.ethereumRpcUrl
     ? [...new Set([keys.ethereumRpcUrl, "https://ethereum.publicnode.com"])]
     : [];
@@ -1407,13 +1436,23 @@ export async function fetchEvmBalances(
             return await fetchAnkrChainBalances(chain, address, keys.ankrKey);
           }
           if (isBscChain(chain) && hasManagedBscRpc) {
-            return await fetchEvmChainBalancesViaRpc(chain, address, bscRpcUrls, knownTokenAddresses);
+            return await fetchEvmChainBalancesViaRpc(
+              chain,
+              address,
+              bscRpcUrls,
+              knownTokenAddresses,
+            );
           }
           return makeEvmChainFailure(chain, "Missing ANKR_API_KEY");
         }
         if (!keys.alchemyKey) {
           if (chain.chainId === 1 && ethRpcUrls.length > 0) {
-            return await fetchEvmChainBalancesViaRpc(chain, address, ethRpcUrls, knownTokenAddresses);
+            return await fetchEvmChainBalancesViaRpc(
+              chain,
+              address,
+              ethRpcUrls,
+              knownTokenAddresses,
+            );
           }
           if (chain.chainId === 8453 && baseRpcUrls.length > 0) {
             return await fetchEvmChainBalancesViaRpc(
@@ -1627,9 +1666,7 @@ export async function fetchSolanaNativeBalanceViaRpc(
     }
   }
 
-  throw new Error(
-    errors.join(" | ").slice(0, 400) || "Solana RPC unavailable",
-  );
+  throw new Error(errors.join(" | ").slice(0, 400) || "Solana RPC unavailable");
 }
 
 export async function fetchSolanaNfts(

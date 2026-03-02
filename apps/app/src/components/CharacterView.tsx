@@ -275,7 +275,11 @@ function parseImportedMessageExamples(
 
 /* ── CharacterView ──────────────────────────────────────────────────── */
 
-export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
+export function CharacterView({
+  inModal: _inModal,
+}: {
+  inModal?: boolean;
+} = {}) {
   const {
     characterData,
     characterDraft,

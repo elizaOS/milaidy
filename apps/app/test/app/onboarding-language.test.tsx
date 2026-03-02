@@ -32,7 +32,9 @@ vi.mock("../../src/api-client", () => ({
 
 import { OnboardingWizard } from "../../src/components/OnboardingWizard";
 
-function createOnboardingContext(overrides?: Record<string, unknown>): Record<string, unknown> {
+function createOnboardingContext(
+  overrides?: Record<string, unknown>,
+): Record<string, unknown> {
   return {
     onboardingStep: "runMode",
     onboardingOptions: {
@@ -104,17 +106,19 @@ describe("Onboarding language mode", () => {
       tree = TestRenderer.create(React.createElement(OnboardingWizard));
     });
 
-    expect(collectText(tree!.root)).toContain("where should i live?");
+    expect(collectText(tree?.root)).toContain("where should i live?");
   });
 
   it("shows chinese copy when uiLanguage is zh-CN", async () => {
-    mockUseApp.mockReturnValue(createOnboardingContext({ uiLanguage: "zh-CN" }));
+    mockUseApp.mockReturnValue(
+      createOnboardingContext({ uiLanguage: "zh-CN" }),
+    );
     let tree: TestRenderer.ReactTestRenderer;
     await act(async () => {
       tree = TestRenderer.create(React.createElement(OnboardingWizard));
     });
 
-    const text = collectText(tree!.root);
+    const text = collectText(tree?.root);
     expect(text).toContain("我应该运行在哪里？");
     expect(text).toContain("选择你希望我如何运行");
   });

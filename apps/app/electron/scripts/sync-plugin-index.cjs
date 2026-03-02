@@ -26,7 +26,9 @@ function fail(message) {
 }
 
 if (!fs.existsSync(sourcePath)) {
-  fail(`Missing ${sourcePath}. Run \`npm run generate:plugins\` from repo root.`);
+  fail(
+    `Missing ${sourcePath}. Run \`npm run generate:plugins\` from repo root.`,
+  );
 }
 
 let parsed;

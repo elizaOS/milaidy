@@ -95,9 +95,8 @@ export async function createPiCredentialProvider(): Promise<PiCredentialProvider
   }
 
   const hasMiladySubscriptionCredentials = (provider: string): boolean => {
-    const subscriptionProvider = resolveSubscriptionProviderForPiProvider(
-      provider,
-    );
+    const subscriptionProvider =
+      resolveSubscriptionProviderForPiProvider(provider);
     if (!subscriptionProvider) return false;
     try {
       return loadCredentials(subscriptionProvider) !== null;
@@ -109,9 +108,8 @@ export async function createPiCredentialProvider(): Promise<PiCredentialProvider
   const getMiladySubscriptionApiKey = async (
     provider: string,
   ): Promise<string | undefined> => {
-    const subscriptionProvider = resolveSubscriptionProviderForPiProvider(
-      provider,
-    );
+    const subscriptionProvider =
+      resolveSubscriptionProviderForPiProvider(provider);
     if (!subscriptionProvider) return undefined;
     try {
       return (await getAccessToken(subscriptionProvider)) ?? undefined;

@@ -1,8 +1,8 @@
 import {
   DEFAULT_UI_LANGUAGE,
   MESSAGES,
-  UI_LANGUAGES,
   type MessageDict,
+  UI_LANGUAGES,
   type UiLanguage,
 } from "./messages";
 

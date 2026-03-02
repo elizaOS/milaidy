@@ -1,11 +1,7 @@
-import { describe, expect, it } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
-import {
-  createTranslator,
-  normalizeLanguage,
-  t,
-} from "../../src/i18n";
+import { describe, expect, it } from "vitest";
+import { createTranslator, normalizeLanguage, t } from "../../src/i18n";
 import { MESSAGES } from "../../src/i18n/messages";
 
 describe("i18n helpers", () => {
@@ -71,7 +67,8 @@ describe("i18n helpers", () => {
       path.resolve(__dirname, "..", "src"),
     ];
     const sourceDir =
-      candidates.find((candidate) => fs.existsSync(candidate)) ?? path.resolve(process.cwd(), "src");
+      candidates.find((candidate) => fs.existsSync(candidate)) ??
+      path.resolve(process.cwd(), "src");
     const exclusions = [
       path.join(sourceDir, "i18n", "messages.ts"),
       path.join(sourceDir, "components", "BubbleEmote.tsx"),

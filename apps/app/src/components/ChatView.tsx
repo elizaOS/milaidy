@@ -23,8 +23,8 @@ import {
   useVoiceChat,
   type VoicePlaybackStartEvent,
 } from "../hooks/useVoiceChat";
-import { ChatEmptyState, ChatMessage, TypingIndicator } from "./ChatMessage";
 import { createTranslator } from "../i18n";
+import { ChatEmptyState, ChatMessage, TypingIndicator } from "./ChatMessage";
 import { MessageContent } from "./MessageContent";
 
 function nowMs(): number {
@@ -644,7 +644,9 @@ export function ChatView({ variant = "default" }: ChatViewProps) {
           {/* Textarea / live transcript */}
           {voice.isListening && voice.interimTranscript ? (
             <div className="flex-1 min-w-0 px-3 py-2 border border-accent bg-card text-txt text-sm font-body leading-relaxed min-h-[38px] flex items-center">
-              <span className="text-muted italic">{voice.interimTranscript}</span>
+              <span className="text-muted italic">
+                {voice.interimTranscript}
+              </span>
             </div>
           ) : (
             <textarea
@@ -697,7 +699,9 @@ export function ChatView({ variant = "default" }: ChatViewProps) {
               title={isAgentStarting ? t("chat.agentStarting") : t("chat.send")}
             >
               <Send className="w-4 h-4" />
-              <span>{isAgentStarting ? t("chat.agentStarting") : t("chat.send")}</span>
+              <span>
+                {isAgentStarting ? t("chat.agentStarting") : t("chat.send")}
+              </span>
             </button>
           )}
         </div>

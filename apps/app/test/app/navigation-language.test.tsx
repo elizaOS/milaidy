@@ -37,7 +37,7 @@ describe("Nav language switching", () => {
       tree = TestRenderer.create(React.createElement(Nav));
     });
 
-    const text = tree!.root
+    const text = tree?.root
       .findAllByType("button")
       .map((node) => textOf(node))
       .join(" ");
@@ -59,7 +59,7 @@ describe("Nav language switching", () => {
       tree = TestRenderer.create(React.createElement(Nav));
     });
 
-    const text = tree!.root
+    const text = tree?.root
       .findAllByType("button")
       .map((node) => textOf(node))
       .join(" ");
@@ -82,7 +82,7 @@ describe("Nav language switching", () => {
       tree = TestRenderer.create(React.createElement(Nav));
     });
 
-    const text = tree!.root
+    const text = tree?.root
       .findAllByType("button")
       .map((node) => textOf(node))
       .join(" ");

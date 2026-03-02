@@ -29,12 +29,14 @@ const MAX_TRACKED_BSC_TOKENS = 30;
 
 function chainIcon(chain: string): { code: string; cls: string } {
   const c = chain.toLowerCase();
-  if (c === "ethereum" || c === "mainnet") return { code: "E", cls: "bg-chain-eth" };
+  if (c === "ethereum" || c === "mainnet")
+    return { code: "E", cls: "bg-chain-eth" };
   if (c === "base") return { code: "B", cls: "bg-chain-base" };
   if (c === "arbitrum") return { code: "A", cls: "bg-chain-arb" };
   if (c === "optimism") return { code: "O", cls: "bg-chain-op" };
   if (c === "polygon") return { code: "P", cls: "bg-chain-pol" };
-  if (c === "bsc" || c === "bnb chain" || c === "bnb smart chain") return { code: "B", cls: "bg-chain-bsc" };
+  if (c === "bsc" || c === "bnb chain" || c === "bnb smart chain")
+    return { code: "B", cls: "bg-chain-bsc" };
   if (c === "solana") return { code: "S", cls: "bg-chain-sol" };
   return { code: chain.charAt(0).toUpperCase(), cls: "bg-bg-muted" };
 }
@@ -66,17 +68,19 @@ function loadRecents(): string[] {
   try {
     const raw = localStorage.getItem(RECENTS_KEY);
     const parsed = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? parsed.filter((x: unknown) => typeof x === "string") : [];
+    return Array.isArray(parsed)
+      ? parsed.filter((x: unknown) => typeof x === "string")
+      : [];
   } catch {
     return [];
   }
 }
 
 function saveRecent(addr: string, prev: string[]): string[] {
-  const next = [addr, ...prev.filter((a) => a.toLowerCase() !== addr.toLowerCase())].slice(
-    0,
-    MAX_RECENTS,
-  );
+  const next = [
+    addr,
+    ...prev.filter((a) => a.toLowerCase() !== addr.toLowerCase()),
+  ].slice(0, MAX_RECENTS);
   try {
     localStorage.setItem(RECENTS_KEY, JSON.stringify(next));
   } catch {
@@ -163,12 +167,16 @@ async function fetchDexScreenerBscTokenMetadata(
 
     const data = (await response.json()) as DexScreenerTokenResponse;
     const pairs = Array.isArray(data.pairs) ? data.pairs : [];
-    const bscPairs = pairs.filter((pair) => pair.chainId?.toLowerCase() === "bsc");
+    const bscPairs = pairs.filter(
+      (pair) => pair.chainId?.toLowerCase() === "bsc",
+    );
     const byBase = bscPairs.find(
-      (pair) => toNormalizedAddress(pair.baseToken?.address ?? "") === normalized,
+      (pair) =>
+        toNormalizedAddress(pair.baseToken?.address ?? "") === normalized,
     );
     const byQuote = bscPairs.find(
-      (pair) => toNormalizedAddress(pair.quoteToken?.address ?? "") === normalized,
+      (pair) =>
+        toNormalizedAddress(pair.quoteToken?.address ?? "") === normalized,
     );
     const picked = byBase ?? byQuote ?? bscPairs[0] ?? pairs[0];
     if (!picked) return null;
@@ -214,15 +222,18 @@ function upsertTrackedBscToken(
   const rest = prev.filter(
     (item) => toNormalizedAddress(item.contractAddress) !== normalized,
   );
-  const next = [{ ...token, contractAddress: token.contractAddress.trim() }, ...rest].slice(
-    0,
-    MAX_TRACKED_BSC_TOKENS,
-  );
+  const next = [
+    { ...token, contractAddress: token.contractAddress.trim() },
+    ...rest,
+  ].slice(0, MAX_TRACKED_BSC_TOKENS);
   saveTrackedBscTokens(next);
   return next;
 }
 
-function removeTrackedBscToken(contractAddress: string, prev: TrackedBscToken[]): TrackedBscToken[] {
+function removeTrackedBscToken(
+  contractAddress: string,
+  prev: TrackedBscToken[],
+): TrackedBscToken[] {
   const normalized = toNormalizedAddress(contractAddress);
   const next = prev.filter(
     (item) => toNormalizedAddress(item.contractAddress) !== normalized,
@@ -277,7 +288,10 @@ interface UserSignPlanState {
 
 /* ── Token logo with CDN + fallback ──────────────────────────────── */
 
-function tokenLogoUrl(chain: string, contractAddress: string | null): string | null {
+function tokenLogoUrl(
+  chain: string,
+  contractAddress: string | null,
+): string | null {
   if (!contractAddress) {
     if (isBscChainName(chain))
       return "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/smartchain/info/logo.png";
@@ -344,7 +358,13 @@ function TokenLogo({
 
 /* ── Copyable address ─────────────────────────────────────────────── */
 
-function CopyableAddress({ address, onCopy }: { address: string; onCopy: (text: string) => Promise<void> }) {
+function CopyableAddress({
+  address,
+  onCopy,
+}: {
+  address: string;
+  onCopy: (text: string) => Promise<void>;
+}) {
   const [copied, setCopied] = useState(false);
   const short = `${address.slice(0, 6)}...${address.slice(-4)}`;
 
@@ -372,9 +392,20 @@ function CopyableAddress({ address, onCopy }: { address: string; onCopy: (text: 
 
 /* ── Status dot ───────────────────────────────────────────────────── */
 
-function StatusDot({ ready, label, title }: { ready: boolean; label: string; title?: string }) {
+function StatusDot({
+  ready,
+  label,
+  title,
+}: {
+  ready: boolean;
+  label: string;
+  title?: string;
+}) {
   return (
-    <span className={`wt__status-dot ${ready ? "is-ready" : "is-off"}`} title={title}>
+    <span
+      className={`wt__status-dot ${ready ? "is-ready" : "is-off"}`}
+      title={title}
+    >
       <span className="wt__status-indicator" />
       {label}
     </span>
@@ -415,18 +446,20 @@ export function InventoryView() {
   const [slippageBps, setSlippageBps] = useState(500);
   const [customSlippageInput, setCustomSlippageInput] = useState("");
   const [tradeBusy, setTradeBusy] = useState(false);
-  const [latestQuote, setLatestQuote] = useState<BscTradeQuoteResponse | null>(null);
-  const [executeBusy, setExecuteBusy] = useState(false);
-  const [latestTxHash, setLatestTxHash] = useState<string | null>(null);
-  const [latestTxStatus, setLatestTxStatus] = useState<BscTradeTxStatusResponse | null>(
+  const [latestQuote, setLatestQuote] = useState<BscTradeQuoteResponse | null>(
     null,
   );
+  const [executeBusy, setExecuteBusy] = useState(false);
+  const [latestTxHash, setLatestTxHash] = useState<string | null>(null);
+  const [latestTxStatus, setLatestTxStatus] =
+    useState<BscTradeTxStatusResponse | null>(null);
   const [txStatusBusy, setTxStatusBusy] = useState(false);
-  const [userSignPlan, setUserSignPlan] = useState<UserSignPlanState | null>(null);
-  const [recentContracts, setRecentContracts] = useState<string[]>(loadRecents);
-  const [trackedBscTokens, setTrackedBscTokens] = useState<TrackedBscToken[]>(
-    loadTrackedBscTokens,
+  const [userSignPlan, setUserSignPlan] = useState<UserSignPlanState | null>(
+    null,
   );
+  const [recentContracts, setRecentContracts] = useState<string[]>(loadRecents);
+  const [trackedBscTokens, setTrackedBscTokens] =
+    useState<TrackedBscToken[]>(loadTrackedBscTokens);
   const [showRecents, setShowRecents] = useState(false);
   const recentsRef = useRef<HTMLDivElement>(null);
 
@@ -439,7 +472,10 @@ export function InventoryView() {
       return;
     }
     const handler = (e: MouseEvent) => {
-      if (recentsRef.current && !recentsRef.current.contains(e.target as Node)) {
+      if (
+        recentsRef.current &&
+        !recentsRef.current.contains(e.target as Node)
+      ) {
         setShowRecents(false);
       }
     };
@@ -449,7 +485,9 @@ export function InventoryView() {
 
   const cfg = walletConfig;
   const hasManagedBscRpc = Boolean(cfg?.managedBscRpcReady);
-  const hasLegacyEvmProviders = Boolean(cfg?.alchemyKeySet || cfg?.ankrKeySet || cfg?.infuraKeySet);
+  const hasLegacyEvmProviders = Boolean(
+    cfg?.alchemyKeySet || cfg?.ankrKeySet || cfg?.infuraKeySet,
+  );
   const hasWalletIdentity = Boolean(
     cloudConnected ||
       walletAddresses?.evmAddress ||
@@ -457,7 +495,8 @@ export function InventoryView() {
       walletConfig?.evmAddress ||
       walletConfig?.solanaAddress,
   );
-  const needsSetup = !hasWalletIdentity && !hasManagedBscRpc && !hasLegacyEvmProviders;
+  const needsSetup =
+    !hasWalletIdentity && !hasManagedBscRpc && !hasLegacyEvmProviders;
 
   const isValidAddress = HEX_ADDRESS_RE.test(quickTokenInput.trim());
   const hasInput = quickTokenInput.trim().length > 0;
@@ -478,7 +517,8 @@ export function InventoryView() {
 
     // Derive EVM address directly from state so BNB row can be added
     // even before walletBalances is loaded or when evm is null.
-    const knownEvmAddr = walletAddresses?.evmAddress ?? walletConfig?.evmAddress;
+    const knownEvmAddr =
+      walletAddresses?.evmAddress ?? walletConfig?.evmAddress;
 
     if (walletBalances?.evm) {
       let hasBsc = false;
@@ -598,17 +638,28 @@ export function InventoryView() {
   const sortedRows = useMemo(() => {
     const sorted = [...tokenRows];
     if (inventorySort === "value") {
-      sorted.sort((a, b) => b.valueUsd - a.valueUsd || b.balanceRaw - a.balanceRaw);
+      sorted.sort(
+        (a, b) => b.valueUsd - a.valueUsd || b.balanceRaw - a.balanceRaw,
+      );
     } else if (inventorySort === "chain") {
-      sorted.sort((a, b) => a.chain.localeCompare(b.chain) || a.symbol.localeCompare(b.symbol));
+      sorted.sort(
+        (a, b) =>
+          a.chain.localeCompare(b.chain) || a.symbol.localeCompare(b.symbol),
+      );
     } else if (inventorySort === "symbol") {
-      sorted.sort((a, b) => a.symbol.localeCompare(b.symbol) || a.chain.localeCompare(b.chain));
+      sorted.sort(
+        (a, b) =>
+          a.symbol.localeCompare(b.symbol) || a.chain.localeCompare(b.chain),
+      );
     }
     return sorted;
   }, [tokenRows, inventorySort]);
 
   const chainErrors = useMemo(
-    () => (walletBalances?.evm?.chains ?? []).filter((c: EvmChainBalance) => c.error),
+    () =>
+      (walletBalances?.evm?.chains ?? []).filter(
+        (c: EvmChainBalance) => c.error,
+      ),
     [walletBalances],
   );
 
@@ -644,10 +695,16 @@ export function InventoryView() {
   const solAddr = walletAddresses?.solanaAddress ?? walletConfig?.solanaAddress;
 
   const bscChain = useMemo(
-    () => (walletBalances?.evm?.chains ?? []).find((chain) => isBscChainName(chain.chain)) ?? null,
+    () =>
+      (walletBalances?.evm?.chains ?? []).find((chain) =>
+        isBscChainName(chain.chain),
+      ) ?? null,
     [walletBalances],
   );
-  const bscChainError = bscChain?.error ?? chainErrors.find((chain) => isBscChainName(chain.chain))?.error ?? null;
+  const bscChainError =
+    bscChain?.error ??
+    chainErrors.find((chain) => isBscChainName(chain.chain))?.error ??
+    null;
   const bscNativeBalance = bscChain?.nativeBalance ?? null;
   const bscNativeBalanceNum = Number.parseFloat(bscNativeBalance ?? "");
 
@@ -662,7 +719,11 @@ export function InventoryView() {
   const visibleRows = inventoryChainFocus === "bsc" ? bscRows : sortedRows;
 
   const totalUsd = useMemo(
-    () => (inventoryChainFocus === "bsc" ? bscRows : tokenRows).reduce((sum, r) => sum + r.valueUsd, 0),
+    () =>
+      (inventoryChainFocus === "bsc" ? bscRows : tokenRows).reduce(
+        (sum, r) => sum + r.valueUsd,
+        0,
+      ),
     [tokenRows, bscRows, inventoryChainFocus],
   );
 
@@ -752,7 +813,10 @@ export function InventoryView() {
     }
   };
 
-  const handleRowAction = async (mode: "preflight" | "quote", row: TokenRow) => {
+  const handleRowAction = async (
+    mode: "preflight" | "quote",
+    row: TokenRow,
+  ) => {
     if (row.isNative || !row.contractAddress) {
       setActionNotice(t("wallet.nativeNoQuote"), "info", 2200);
       return;
@@ -814,7 +878,8 @@ export function InventoryView() {
         toNormalizedAddress(row.contractAddress!) === normalized,
     );
     const matchedQuote =
-      latestQuote && toNormalizedAddress(latestQuote.tokenAddress) === normalized
+      latestQuote &&
+      toNormalizedAddress(latestQuote.tokenAddress) === normalized
         ? latestQuote
         : null;
     const symbolFallback =
@@ -943,11 +1008,7 @@ export function InventoryView() {
           unsignedApprovalTx: result.unsignedApprovalTx,
         });
         if (latestQuote.side === "sell" && result.requiresApproval) {
-          setActionNotice(
-            t("wallet.userSignSellTwoStep"),
-            "info",
-            4600,
-          );
+          setActionNotice(t("wallet.userSignSellTwoStep"), "info", 4600);
         } else {
           setActionNotice(
             latestQuote.side === "sell"
@@ -961,7 +1022,11 @@ export function InventoryView() {
         setActionNotice(t("wallet.executionDidNotComplete"), "error", 3200);
       }
     } catch (err) {
-      const message = mapWalletTradeError(err, t, "wallet.tradeExecutionFailed");
+      const message = mapWalletTradeError(
+        err,
+        t,
+        "wallet.tradeExecutionFailed",
+      );
       setActionNotice(message, "error", 4200);
     } finally {
       setExecuteBusy(false);
@@ -1003,7 +1068,9 @@ export function InventoryView() {
   function renderSetup() {
     return (
       <div className="wallets-bsc__setup mt-6 border border-border bg-card p-6 text-center">
-        <div className="text-sm font-bold mb-2">{t("wallet.setup.rpcNotConfigured")}</div>
+        <div className="text-sm font-bold mb-2">
+          {t("wallet.setup.rpcNotConfigured")}
+        </div>
         <p className="text-xs text-muted mb-4 leading-relaxed max-w-md mx-auto">
           {t("wallet.setup.rpcHintBefore")} <code>NODEREAL_BSC_RPC_URL</code>{" "}
           {t("wallet.setup.rpcHintBetween")} <code>QUICKNODE_BSC_RPC_URL</code>{" "}
@@ -1032,7 +1099,9 @@ export function InventoryView() {
     if (!evmAddr && !solAddr) {
       return (
         <div className="mt-4 border border-border bg-card px-4 py-6 text-center">
-          <div className="text-sm font-bold mb-1">{t("wallet.noOnchainWallet")}</div>
+          <div className="text-sm font-bold mb-1">
+            {t("wallet.noOnchainWallet")}
+          </div>
           <p className="text-xs text-muted mb-3">
             {t("wallet.noOnchainWalletHint")}
           </p>
@@ -1054,10 +1123,17 @@ export function InventoryView() {
           <div className="flex items-start justify-between gap-3 flex-wrap">
             <div>
               <div className="flex items-center gap-2 mb-1">
-                <div className="wt__portfolio-label">{t("wallet.portfolio")}</div>
-                <span className="wt__network-badge">{t("wallet.bscMainnet")}</span>
+                <div className="wt__portfolio-label">
+                  {t("wallet.portfolio")}
+                </div>
+                <span className="wt__network-badge">
+                  {t("wallet.bscMainnet")}
+                </span>
               </div>
-              <div className="wt__portfolio-value" data-testid="bsc-balance-value">
+              <div
+                className="wt__portfolio-value"
+                data-testid="bsc-balance-value"
+              >
                 {totalUsd > 0
                   ? `$${totalUsd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                   : "$0.00"}
@@ -1073,22 +1149,28 @@ export function InventoryView() {
                 <button
                   type="button"
                   className="wt__receive-btn"
-                    onClick={() => {
-                      void copyToClipboard(evmAddr);
-                      setActionNotice(t("wallet.addressCopied"), "success", 2400);
-                    }}
-                    title={evmAddr}
-                  >
-                    {t("wallet.receive")}
-                  </button>
+                  onClick={() => {
+                    void copyToClipboard(evmAddr);
+                    setActionNotice(t("wallet.addressCopied"), "success", 2400);
+                  }}
+                  title={evmAddr}
+                >
+                  {t("wallet.receive")}
+                </button>
               )}
-              {evmAddr && <CopyableAddress address={evmAddr} onCopy={copyToClipboard} />}
+              {evmAddr && (
+                <CopyableAddress address={evmAddr} onCopy={copyToClipboard} />
+              )}
             </div>
           </div>
           <div className="wt__status-row mt-2">
             <StatusDot
               ready={walletReady}
-              label={walletReady ? t("wallet.status.connected") : t("wallet.status.noWallet")}
+              label={
+                walletReady
+                  ? t("wallet.status.connected")
+                  : t("wallet.status.noWallet")
+              }
               title={
                 walletReady
                   ? t("wallet.status.connectedTitle")
@@ -1097,18 +1179,28 @@ export function InventoryView() {
             />
             <StatusDot
               ready={rpcReady}
-              label={rpcReady ? t("wallet.status.feedLive") : t("wallet.status.feedOffline")}
+              label={
+                rpcReady
+                  ? t("wallet.status.feedLive")
+                  : t("wallet.status.feedOffline")
+              }
               title={
                 rpcReady
                   ? t("wallet.status.feedLiveTitle")
                   : bscChainError
-                    ? t("wallet.status.feedErrorTitle", { error: bscChainError })
+                    ? t("wallet.status.feedErrorTitle", {
+                        error: bscChainError,
+                      })
                     : t("wallet.status.feedOfflineTitle")
               }
             />
             <StatusDot
               ready={gasReady}
-              label={gasReady ? t("wallet.status.tradeReady") : t("wallet.status.tradeNotReady")}
+              label={
+                gasReady
+                  ? t("wallet.status.tradeReady")
+                  : t("wallet.status.tradeNotReady")
+              }
               title={
                 gasReady
                   ? t("wallet.status.tradeReadyTitle")
@@ -1121,44 +1213,50 @@ export function InventoryView() {
             />
           </div>
           {/* Inline BSC error with retry */}
-        {bscChainError && (
-          <div className="wt__error-inline mt-2">
-            <span className="wt__error-inline-text">BSC: {bscChainError}</span>
-            <button
-              type="button"
-              className="wt__error-retry"
-              onClick={() => void loadBalances()}
-              title={t("wallet.retryFetchingBsc")}
-            >
-              {t("common.retry")}
-            </button>
-          </div>
-        )}
-
-        {/* BSC trade requires a dedicated RPC endpoint (local desktop builds do not inherit Railway env). */}
-        {evmAddr && !hasManagedBscRpc && (
-          <div className="mt-2 px-3 py-2 border border-[rgba(184,134,11,0.55)] bg-[rgba(184,134,11,0.08)] text-[11px]">
-            <div className="font-bold mb-1">{t("wallet.setup.rpcNotConfigured")}</div>
-            <div className="text-[var(--muted)] leading-relaxed">
-              {t("wallet.setup.rpcHintBefore")} <code>NODEREAL_BSC_RPC_URL</code>{" "}
-              {t("wallet.setup.rpcHintBetween")} <code>QUICKNODE_BSC_RPC_URL</code>{" "}
-              {t("wallet.setup.rpcHintAfter")}
-            </div>
-            <div className="mt-2">
+          {bscChainError && (
+            <div className="wt__error-inline mt-2">
+              <span className="wt__error-inline-text">
+                BSC: {bscChainError}
+              </span>
               <button
                 type="button"
-                className="px-3 py-1 border border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-foreground)] cursor-pointer text-[11px] font-mono hover:bg-[var(--accent-hover)] hover:border-[var(--accent-hover)]"
-                onClick={() => setTab("settings")}
+                className="wt__error-retry"
+                onClick={() => void loadBalances()}
+                title={t("wallet.retryFetchingBsc")}
               >
-                {t("common.settings")}
+                {t("common.retry")}
               </button>
             </div>
-          </div>
-        )}
-      </div>
+          )}
 
-      {/* ── Block 2: Quick Trade (hero) ───────────────────────── */}
-      <div className="wt__quick">
+          {/* BSC trade requires a dedicated RPC endpoint (local desktop builds do not inherit Railway env). */}
+          {evmAddr && !hasManagedBscRpc && (
+            <div className="mt-2 px-3 py-2 border border-[rgba(184,134,11,0.55)] bg-[rgba(184,134,11,0.08)] text-[11px]">
+              <div className="font-bold mb-1">
+                {t("wallet.setup.rpcNotConfigured")}
+              </div>
+              <div className="text-[var(--muted)] leading-relaxed">
+                {t("wallet.setup.rpcHintBefore")}{" "}
+                <code>NODEREAL_BSC_RPC_URL</code>{" "}
+                {t("wallet.setup.rpcHintBetween")}{" "}
+                <code>QUICKNODE_BSC_RPC_URL</code>{" "}
+                {t("wallet.setup.rpcHintAfter")}
+              </div>
+              <div className="mt-2">
+                <button
+                  type="button"
+                  className="px-3 py-1 border border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-foreground)] cursor-pointer text-[11px] font-mono hover:bg-[var(--accent-hover)] hover:border-[var(--accent-hover)]"
+                  onClick={() => setTab("settings")}
+                >
+                  {t("common.settings")}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ── Block 2: Quick Trade (hero) ───────────────────────── */}
+        <div className="wt__quick">
           <div className="wt__quick-row">
             <div className="wt__input-wrap" ref={recentsRef}>
               <input
@@ -1169,7 +1267,8 @@ export function InventoryView() {
                   setShowRecents(false);
                 }}
                 onFocus={() => {
-                  if (!quickTokenInput && recentContracts.length > 0) setShowRecents(true);
+                  if (!quickTokenInput && recentContracts.length > 0)
+                    setShowRecents(true);
                 }}
                 placeholder={t("wallet.pasteTokenContract")}
                 className={`wt__quick-input${hasInput ? (isValidAddress ? " is-valid" : " is-invalid") : ""}`}
@@ -1197,7 +1296,9 @@ export function InventoryView() {
                         setShowRecents(false);
                       }}
                     >
-                      <span className="wt__recents-addr">{addr.slice(0, 10)}...{addr.slice(-6)}</span>
+                      <span className="wt__recents-addr">
+                        {addr.slice(0, 10)}...{addr.slice(-6)}
+                      </span>
                     </button>
                   ))}
                 </div>
@@ -1216,7 +1317,9 @@ export function InventoryView() {
                   {amount}
                 </button>
               ))}
-              <span className="text-[10px] text-muted self-center font-mono">BNB</span>
+              <span className="text-[10px] text-muted self-center font-mono">
+                BNB
+              </span>
             </div>
             <div className="wt__quick-actions">
               <button
@@ -1286,8 +1389,10 @@ export function InventoryView() {
             <div className="wt__quote-head">
               <span className="wt__quote-title">{t("wallet.latestQuote")}</span>
               <span className="wt__quote-route">
-                {t("wallet.route")}: {latestQuote.route[0]?.slice(0, 6)}...{latestQuote.route[0]?.slice(-4)} →{" "}
-                {latestQuote.route.at(-1)?.slice(0, 6)}...{latestQuote.route.at(-1)?.slice(-4)}
+                {t("wallet.route")}: {latestQuote.route[0]?.slice(0, 6)}...
+                {latestQuote.route[0]?.slice(-4)} →{" "}
+                {latestQuote.route.at(-1)?.slice(0, 6)}...
+                {latestQuote.route.at(-1)?.slice(-4)}
               </span>
             </div>
             <div className="wt__quote-grid">
@@ -1305,10 +1410,12 @@ export function InventoryView() {
               </div>
               <div>
                 <div className="wt__quote-k">
-                  {t("wallet.quote.minReceive")} ({latestQuote.slippageBps / 100}%)
+                  {t("wallet.quote.minReceive")} (
+                  {latestQuote.slippageBps / 100}%)
                 </div>
                 <div className="wt__quote-v">
-                  {latestQuote.minReceive.amount} {latestQuote.minReceive.symbol}
+                  {latestQuote.minReceive.amount}{" "}
+                  {latestQuote.minReceive.symbol}
                 </div>
               </div>
               <div>
@@ -1316,17 +1423,22 @@ export function InventoryView() {
                 <div className="wt__quote-v">{latestQuote.price}</div>
               </div>
             </div>
-            <div className="wt__preflight" data-testid="wallet-preflight-summary">
+            <div
+              className="wt__preflight"
+              data-testid="wallet-preflight-summary"
+            >
               <div className="wt__quote-k">{t("wallet.preflightTitle")}</div>
               <div className="wt__preflight-checks">
-                {getWalletPreflightChecks(latestQuote.preflight, t).map((check) => (
-                  <span
-                    key={check.key}
-                    className={`wt__preflight-chip ${check.passed ? "is-pass" : "is-fail"}`}
-                  >
-                    {check.label}
-                  </span>
-                ))}
+                {getWalletPreflightChecks(latestQuote.preflight, t).map(
+                  (check) => (
+                    <span
+                      key={check.key}
+                      className={`wt__preflight-chip ${check.passed ? "is-pass" : "is-fail"}`}
+                    >
+                      {check.label}
+                    </span>
+                  ),
+                )}
               </div>
               {latestQuote.preflight.reasons.length > 0 && (
                 <div className="wt__preflight-reasons">
@@ -1344,7 +1456,9 @@ export function InventoryView() {
               >
                 {executeBusy
                   ? t("wallet.executing")
-                  : t("wallet.executeSide", { side: latestQuote.side.toUpperCase() })}
+                  : t("wallet.executeSide", {
+                      side: latestQuote.side.toUpperCase(),
+                    })}
               </button>
               {latestTxHash && (
                 <a
@@ -1358,11 +1472,17 @@ export function InventoryView() {
               )}
             </div>
             {latestTxHash && (
-              <div className="wt__tx-status-row" data-testid="wallet-tx-status-row">
+              <div
+                className="wt__tx-status-row"
+                data-testid="wallet-tx-status-row"
+              >
                 <span
                   className={`wt__tx-pill is-${latestTxStatus?.status ?? "pending"}`}
                 >
-                  {getWalletTxStatusLabel(latestTxStatus?.status ?? "pending", t)}
+                  {getWalletTxStatusLabel(
+                    latestTxStatus?.status ?? "pending",
+                    t,
+                  )}
                 </span>
                 {latestTxStatus && (
                   <>
@@ -1395,16 +1515,24 @@ export function InventoryView() {
             )}
             {latestTxStatus?.status === "reverted" && latestTxStatus.reason && (
               <div className="wt__error-inline mt-2">
-                <span className="wt__error-inline-text">{latestTxStatus.reason}</span>
+                <span className="wt__error-inline-text">
+                  {latestTxStatus.reason}
+                </span>
               </div>
             )}
             {userSignPlan && (
-              <div className="wt__quote-usersign" data-testid="wallet-usersign-plan">
+              <div
+                className="wt__quote-usersign"
+                data-testid="wallet-usersign-plan"
+              >
                 <div className="wt__quote-k">{t("wallet.userSignPlan")}</div>
-                {userSignPlan.side === "sell" && userSignPlan.requiresApproval ? (
+                {userSignPlan.side === "sell" &&
+                userSignPlan.requiresApproval ? (
                   <div className="wt__usersign-steps">
                     <div className="wt__usersign-step">
-                      {t("wallet.usersign.approveStep", { symbol: latestQuote.quoteIn.symbol })}
+                      {t("wallet.usersign.approveStep", {
+                        symbol: latestQuote.quoteIn.symbol,
+                      })}
                     </div>
                     <button
                       type="button"
@@ -1541,7 +1669,9 @@ export function InventoryView() {
             <button
               type="button"
               className="wt__refresh"
-              onClick={() => (inventoryView === "tokens" ? loadBalances() : loadNfts())}
+              onClick={() =>
+                inventoryView === "tokens" ? loadBalances() : loadNfts()
+              }
             >
               Refresh
             </button>
@@ -1565,7 +1695,9 @@ export function InventoryView() {
     if (visibleRows.length === 0) {
       return (
         <div className="text-center py-8 text-muted italic text-xs">
-          {walletBalances ? t("wallet.noTokensFound") : t("wallet.noDataRefresh")}
+          {walletBalances
+            ? t("wallet.noTokensFound")
+            : t("wallet.noDataRefresh")}
         </div>
       );
     }
@@ -1608,15 +1740,21 @@ export function InventoryView() {
                 <td className="px-3 py-3 align-middle">
                   <div className="flex items-center gap-2">
                     <div>
-                      <div className="text-sm font-bold font-mono leading-tight">{row.symbol}</div>
+                      <div className="text-sm font-bold font-mono leading-tight">
+                        {row.symbol}
+                      </div>
                       <div className="text-[10px] text-muted leading-tight mt-0.5">
                         {row.isNative ? (
                           <span className="wt__native-badge">native gas</span>
                         ) : (
                           <span className="inline-flex items-center gap-1">
-                            <span className="truncate max-w-[160px] inline-block">{row.name}</span>
+                            <span className="truncate max-w-[160px] inline-block">
+                              {row.name}
+                            </span>
                             {row.isTracked && (
-                              <span className="wt__native-badge">{t("wallet.manual")}</span>
+                              <span className="wt__native-badge">
+                                {t("wallet.manual")}
+                              </span>
                             )}
                           </span>
                         )}
@@ -1673,7 +1811,9 @@ export function InventoryView() {
                           data-testid="wallet-token-untrack"
                           className="wt__row-btn is-remove"
                           title={t("wallet.removeManualTitle")}
-                          onClick={() => handleUntrackToken(row.contractAddress!)}
+                          onClick={() =>
+                            handleUntrackToken(row.contractAddress!)
+                          }
                           disabled={tradeBusy}
                         >
                           {t("wallet.remove")}
@@ -1702,7 +1842,12 @@ export function InventoryView() {
                   {chain.error?.includes("not enabled") ? (
                     <>
                       data source not enabled &mdash;{" "}
-                      <a href="https://dashboard.alchemy.com/" target="_blank" rel="noopener" className="text-accent">
+                      <a
+                        href="https://dashboard.alchemy.com/"
+                        target="_blank"
+                        rel="noopener"
+                        className="text-accent"
+                      >
                         {t("wallet.enableIt")}
                       </a>
                     </>
@@ -1746,7 +1891,10 @@ export function InventoryView() {
         {allNfts.map((nft, idx) => {
           const icon = chainIcon(nft.chain);
           return (
-            <div key={`${nft.chain}-${nft.name}-${idx}`} className="border border-border bg-card overflow-hidden">
+            <div
+              key={`${nft.chain}-${nft.name}-${idx}`}
+              className="border border-border bg-card overflow-hidden"
+            >
               {nft.imageUrl ? (
                 <img
                   src={nft.imageUrl}

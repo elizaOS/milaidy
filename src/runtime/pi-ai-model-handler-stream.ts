@@ -78,19 +78,22 @@ function emitModelUsed(
   usage: { input: number; output: number; totalTokens: number },
 ): void {
   try {
-    (runtime as unknown as { emitEvent?: (event: string, params: Record<string, unknown>) => void })
-      .emitEvent?.("MODEL_USED", {
-        runtime,
-        source: model.provider ?? "pi-ai",
-        provider: model.provider ?? "pi-ai",
-        model: model.id,
-        type: "TEXT_LARGE",
-        tokens: {
-          prompt: usage.input,
-          completion: usage.output,
-          total: usage.totalTokens,
-        },
-      });
+    (
+      runtime as unknown as {
+        emitEvent?: (event: string, params: Record<string, unknown>) => void;
+      }
+    ).emitEvent?.("MODEL_USED", {
+      runtime,
+      source: model.provider ?? "pi-ai",
+      provider: model.provider ?? "pi-ai",
+      model: model.id,
+      type: "TEXT_LARGE",
+      tokens: {
+        prompt: usage.input,
+        completion: usage.output,
+        total: usage.totalTokens,
+      },
+    });
   } catch {
     // Best-effort — never break the model response flow.
   }

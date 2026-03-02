@@ -5,8 +5,8 @@
  * and action metadata (name, similes, parameters).
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { HandlerOptions } from "@elizaos/core";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { executeTradeAction } from "./execute-trade";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -44,7 +44,7 @@ describe("EXECUTE_TRADE action", () => {
 
   it("has similes for natural language matching", () => {
     expect(executeTradeAction.similes).toBeDefined();
-    expect(executeTradeAction.similes!.length).toBeGreaterThan(0);
+    expect(executeTradeAction.similes?.length).toBeGreaterThan(0);
     expect(executeTradeAction.similes).toContain("BUY_TOKEN");
     expect(executeTradeAction.similes).toContain("SELL_TOKEN");
     expect(executeTradeAction.similes).toContain("SWAP");
@@ -55,16 +55,16 @@ describe("EXECUTE_TRADE action", () => {
 
   it("has parameter definitions", () => {
     expect(executeTradeAction.parameters).toBeDefined();
-    expect(executeTradeAction.parameters!.length).toBe(4);
+    expect(executeTradeAction.parameters?.length).toBe(4);
 
-    const names = executeTradeAction.parameters!.map((p) => p.name);
+    const names = executeTradeAction.parameters?.map((p) => p.name);
     expect(names).toContain("side");
     expect(names).toContain("tokenAddress");
     expect(names).toContain("amount");
     expect(names).toContain("slippageBps");
 
     // side, tokenAddress, amount are required; slippageBps is optional
-    const slippage = executeTradeAction.parameters!.find(
+    const slippage = executeTradeAction.parameters?.find(
       (p) => p.name === "slippageBps",
     );
     expect(slippage?.required).toBe(false);
@@ -209,7 +209,9 @@ describe("EXECUTE_TRADE action", () => {
     });
 
     expect((result as { success: boolean }).success).toBe(true);
-    expect((result as { text: string }).text).toContain("executed successfully");
+    expect((result as { text: string }).text).toContain(
+      "executed successfully",
+    );
     expect((result as { text: string }).text).toContain("0xabc123");
     expect((result as { data: Record<string, unknown> }).data).toMatchObject({
       side: "buy",
@@ -225,8 +227,12 @@ describe("EXECUTE_TRADE action", () => {
     const [url, opts] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toBe("http://127.0.0.1:2138/api/wallet/trade/execute");
     expect(opts.method).toBe("POST");
-    expect((opts.headers as Record<string, string>)["X-Milady-Agent-Action"]).toBe("1");
-    expect((opts.headers as Record<string, string>)["Content-Type"]).toBe("application/json");
+    expect(
+      (opts.headers as Record<string, string>)["X-Milady-Agent-Action"],
+    ).toBe("1");
+    expect((opts.headers as Record<string, string>)["Content-Type"]).toBe(
+      "application/json",
+    );
 
     const body = JSON.parse(opts.body as string);
     expect(body.side).toBe("buy");
@@ -259,7 +265,9 @@ describe("EXECUTE_TRADE action", () => {
 
     expect((result as { success: boolean }).success).toBe(true);
     expect((result as { text: string }).text).toContain("user-sign");
-    expect((result as { text: string }).text).toContain("signature is required");
+    expect((result as { text: string }).text).toContain(
+      "signature is required",
+    );
     expect((result as { data: Record<string, unknown> }).data).toMatchObject({
       requiresUserSignature: true,
       executed: false,
@@ -389,7 +397,9 @@ describe("EXECUTE_TRADE action", () => {
     });
 
     expect((result as { success: boolean }).success).toBe(false);
-    expect((result as { text: string }).text).toContain("Insufficient BNB balance");
+    expect((result as { text: string }).text).toContain(
+      "Insufficient BNB balance",
+    );
   });
 
   it("handles network/fetch errors", async () => {

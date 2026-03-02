@@ -1,8 +1,9 @@
 /**
  * Provider contributor — reports the active model provider.
  */
-import type { AwarenessContributor } from "../../contracts/awareness";
+
 import type { IAgentRuntime } from "@elizaos/core";
+import type { AwarenessContributor } from "../../contracts/awareness";
 
 export const providerContributor: AwarenessContributor = {
   id: "provider",
@@ -13,9 +14,10 @@ export const providerContributor: AwarenessContributor = {
 
   async summary(runtime: IAgentRuntime): Promise<string> {
     const provider =
-      runtime.getSetting?.("MODEL_PROVIDER") as string
-      ?? (runtime.character?.settings as Record<string, unknown>)?.modelProvider as string
-      ?? "unknown";
+      (runtime.getSetting?.("MODEL_PROVIDER") as string) ??
+      ((runtime.character?.settings as Record<string, unknown>)
+        ?.modelProvider as string) ??
+      "unknown";
 
     return `Provider: ${String(provider)}`;
   },

@@ -24,23 +24,23 @@ import { restartAction } from "../actions/restart";
 import { sendMessageAction } from "../actions/send-message";
 import { terminalAction } from "../actions/terminal";
 import { transferTokenAction } from "../actions/transfer-token";
+import { builtinContributors } from "../awareness/contributors/index";
 import {
   AwarenessRegistry,
   setGlobalAwarenessRegistry,
 } from "../awareness/registry";
-import { builtinContributors } from "../awareness/contributors/index";
 import { EMOTE_CATALOG } from "../emotes/catalog";
 import { adminTrustProvider } from "../providers/admin-trust";
 import {
   createAutonomousStateProvider,
   ensureAutonomousStateTracking,
 } from "../providers/autonomous-state";
+import { createSelfStatusProvider } from "../providers/self-status";
 import { createSessionKeyProvider } from "../providers/session-bridge";
 import {
   getSessionProviders,
   resolveDefaultSessionStorePath,
 } from "../providers/session-utils";
-import { createSelfStatusProvider } from "../providers/self-status";
 import { createChannelProfileProvider } from "../providers/simple-mode";
 import { uiCatalogProvider } from "../providers/ui-catalog";
 import { DEFAULT_AGENT_WORKSPACE_DIR } from "../providers/workspace";

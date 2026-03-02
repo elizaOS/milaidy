@@ -11,12 +11,10 @@ type ChatMessage = {
 };
 
 interface ChatViewContextStub {
-  agentStatus:
-    | {
-      agentName: string;
-      state?: "starting" | "restarting" | "running" | "paused";
-    }
-    | null;
+  agentStatus: {
+    agentName: string;
+    state?: "starting" | "restarting" | "running" | "paused";
+  } | null;
   chatInput: string;
   chatSending: boolean;
   chatFirstTokenReceived: boolean;
@@ -131,11 +129,11 @@ describe("ChatView game-modal variant", () => {
       );
     });
 
-    const text = textOf(tree!.root).toLowerCase();
+    const text = textOf(tree?.root).toLowerCase();
     expect(text).toContain("acknowledged");
     expect(text).not.toContain("via discord");
     expect(
-      tree!.root.findAll(
+      tree?.root.findAll(
         (node) =>
           typeof node.props.className === "string" &&
           node.props.className.includes("chat-game-bubble"),
@@ -166,7 +164,7 @@ describe("ChatView game-modal variant", () => {
       );
     });
 
-    const micButtons = tree!.root.findAll(
+    const micButtons = tree?.root.findAll(
       (node) =>
         node.type === "button" &&
         typeof node.props.className === "string" &&
@@ -174,7 +172,7 @@ describe("ChatView game-modal variant", () => {
     );
     expect(micButtons.length).toBe(1);
 
-    const sendButtons = tree!.root.findAll(
+    const sendButtons = tree?.root.findAll(
       (node) => node.type === "button" && textOf(node).trim() === "Send",
     );
     expect(sendButtons.length).toBe(1);
@@ -199,17 +197,18 @@ describe("ChatView game-modal variant", () => {
       );
     });
 
-    const textarea = tree!.root.findByType("textarea");
+    const textarea = tree?.root.findByType("textarea");
     expect(textarea.props.disabled).toBe(true);
     expect(textarea.props.placeholder).toBe("Agent starting...");
 
-    const sendButton = tree!.root.findAll(
-      (node) => node.type === "button" && textOf(node).trim() === "Agent starting...",
+    const sendButton = tree?.root.findAll(
+      (node) =>
+        node.type === "button" && textOf(node).trim() === "Agent starting...",
     )[0];
     expect(sendButton).toBeTruthy();
     expect(sendButton.props.disabled).toBe(true);
 
-    const micButton = tree!.root.findAll(
+    const micButton = tree?.root.findAll(
       (node) =>
         node.type === "button" &&
         typeof node.props.className === "string" &&

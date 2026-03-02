@@ -1,8 +1,9 @@
 /**
  * Cloud contributor — reports Eliza Cloud connection status.
  */
-import type { AwarenessContributor } from "../../contracts/awareness";
+
 import type { IAgentRuntime } from "@elizaos/core";
+import type { AwarenessContributor } from "../../contracts/awareness";
 
 export const cloudContributor: AwarenessContributor = {
   id: "cloud",

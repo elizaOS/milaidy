@@ -641,7 +641,9 @@ async function loadTrajectoryById(
       startTime,
       endTime,
       steps,
-      metadata: parseMetadata(readRecordValue(row, ["metadata_json", "metadata", "meta"])),
+      metadata: parseMetadata(
+        readRecordValue(row, ["metadata_json", "metadata", "meta"]),
+      ),
       totalReward: toNumber(
         readRecordValue(row, ["total_reward", "totalReward"]),
         0,

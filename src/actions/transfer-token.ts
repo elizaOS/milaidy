@@ -27,14 +27,7 @@ const EVM_ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
 export const transferTokenAction: Action = {
   name: "TRANSFER_TOKEN",
 
-  similes: [
-    "SEND_TOKEN",
-    "TRANSFER",
-    "SEND",
-    "SEND_BNB",
-    "SEND_CRYPTO",
-    "PAY",
-  ],
+  similes: ["SEND_TOKEN", "TRANSFER", "SEND", "SEND_BNB", "SEND_CRYPTO", "PAY"],
 
   description:
     "Transfer tokens or native BNB to another address. Use this when a user " +
@@ -67,7 +60,11 @@ export const transferTokenAction: Action = {
             ? String(params.amount)
             : undefined;
 
-      if (!amountRaw || Number.isNaN(Number(amountRaw)) || Number(amountRaw) <= 0) {
+      if (
+        !amountRaw ||
+        Number.isNaN(Number(amountRaw)) ||
+        Number(amountRaw) <= 0
+      ) {
         return {
           text: "I need a positive numeric amount for the transfer.",
           success: false,
@@ -89,7 +86,8 @@ export const transferTokenAction: Action = {
 
       // ── Optional tokenAddress ──────────────────────────────────────────
       const tokenAddress =
-        typeof params?.tokenAddress === "string" && params.tokenAddress.trim() !== ""
+        typeof params?.tokenAddress === "string" &&
+        params.tokenAddress.trim() !== ""
           ? params.tokenAddress.trim()
           : undefined;
 
@@ -201,8 +199,7 @@ export const transferTokenAction: Action = {
   parameters: [
     {
       name: "toAddress",
-      description:
-        "Recipient EVM address (0x-prefixed, 40 hex characters)",
+      description: "Recipient EVM address (0x-prefixed, 40 hex characters)",
       required: true,
       schema: { type: "string" as const },
     },
@@ -215,8 +212,7 @@ export const transferTokenAction: Action = {
     },
     {
       name: "assetSymbol",
-      description:
-        'Token symbol to transfer (e.g. "BNB", "USDT", "USDC")',
+      description: 'Token symbol to transfer (e.g. "BNB", "USDT", "USDC")',
       required: true,
       schema: { type: "string" as const },
     },

@@ -9,12 +9,12 @@
 import { logger } from "@elizaos/core";
 import { ethers } from "ethers";
 import type {
-  BscUnsignedApprovalTx,
-  BscUnsignedTradeTx,
   BscTradePreflightResponse,
   BscTradeQuoteRequest,
   BscTradeQuoteResponse,
   BscTradeSide,
+  BscUnsignedApprovalTx,
+  BscUnsignedTradeTx,
 } from "../contracts/wallet.js";
 
 const FETCH_TIMEOUT_MS = 15_000;
@@ -78,7 +78,8 @@ function normalizeRpcUrl(url: string | null | undefined): string | null {
   if (!trimmed) return null;
   try {
     const parsed = new URL(trimmed);
-    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:")
+      return null;
     return parsed.toString();
   } catch {
     return null;
@@ -87,7 +88,9 @@ function normalizeRpcUrl(url: string | null | undefined): string | null {
 
 export function resolveBscRpcUrls(input: BscTradeRpcConfig): string[] {
   const candidates = [
-    normalizeRpcUrl(input.nodeRealBscRpcUrl ?? process.env.NODEREAL_BSC_RPC_URL),
+    normalizeRpcUrl(
+      input.nodeRealBscRpcUrl ?? process.env.NODEREAL_BSC_RPC_URL,
+    ),
     normalizeRpcUrl(
       input.quickNodeBscRpcUrl ?? process.env.QUICKNODE_BSC_RPC_URL,
     ),
@@ -98,7 +101,9 @@ export function resolveBscRpcUrls(input: BscTradeRpcConfig): string[] {
   return [...new Set(candidates)];
 }
 
-export function resolvePrimaryBscRpcUrl(input: BscTradeRpcConfig): string | null {
+export function resolvePrimaryBscRpcUrl(
+  input: BscTradeRpcConfig,
+): string | null {
   const urls = resolveBscRpcUrls(input);
   return urls.length > 0 ? urls[0] : null;
 }
@@ -204,7 +209,9 @@ async function rpcCallWithFallback<T>(
         throw new Error(`Invalid JSON response: ${raw.slice(0, 180)}`);
       }
       if (parsed.error) {
-        throw new Error(parsed.error.message ?? `RPC error ${parsed.error.code}`);
+        throw new Error(
+          parsed.error.message ?? `RPC error ${parsed.error.code}`,
+        );
       }
       if (parsed.result === undefined || parsed.result === null) {
         throw new Error("RPC returned empty result.");
@@ -314,7 +321,9 @@ export async function buildBscTradePreflight(
   const reasons: string[] = [];
   const walletAddress = normalizeAddress(input.walletAddress);
   const tokenAddressRaw = (input.tokenAddress ?? "").trim();
-  const tokenAddress = tokenAddressRaw ? normalizeAddress(tokenAddressRaw) : null;
+  const tokenAddress = tokenAddressRaw
+    ? normalizeAddress(tokenAddressRaw)
+    : null;
   const rpcUrls = resolveBscRpcUrls(input);
 
   let chainId: number | null = null;
@@ -506,7 +515,11 @@ export async function buildBscTradeQuote(
     amountInWei,
     route,
   ]);
-  const quoteResponse = await ethCall(rpcUrls, PANCAKE_SWAP_V2_ROUTER, quoteCall);
+  const quoteResponse = await ethCall(
+    rpcUrls,
+    PANCAKE_SWAP_V2_ROUTER,
+    quoteCall,
+  );
   const decoded = ROUTER_IFACE.decodeFunctionResult(
     "getAmountsOut",
     quoteResponse.result,
@@ -575,7 +588,12 @@ export function buildBscBuyUnsignedTx(
   const deadline = now + clampDeadlineSeconds(deadlineSeconds);
   const data = ROUTER_IFACE.encodeFunctionData(
     "swapExactETHForTokensSupportingFeeOnTransferTokens",
-    [BigInt(quote.minReceive.amountWei), quote.route, normalizedRecipient, deadline],
+    [
+      BigInt(quote.minReceive.amountWei),
+      quote.route,
+      normalizedRecipient,
+      deadline,
+    ],
   );
 
   return {

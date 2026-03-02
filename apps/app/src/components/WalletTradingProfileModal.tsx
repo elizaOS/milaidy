@@ -42,7 +42,10 @@ function formatPercent(value: number | null): string {
   return `${value.toFixed(1)}%`;
 }
 
-function formatTradeSide(side: "buy" | "sell", t: (key: string, vars?: TranslationVars) => string): string {
+function formatTradeSide(
+  side: "buy" | "sell",
+  t: (key: string, vars?: TranslationVars) => string,
+): string {
   return side === "buy" ? t("wallet.buy") : t("wallet.sell");
 }
 
@@ -60,7 +63,9 @@ function formatProfileSource(
   source: "agent" | "manual",
   t: (key: string, vars?: TranslationVars) => string,
 ): string {
-  return source === "agent" ? t("wallet.profile.sourceAgent") : t("wallet.profile.sourceManual");
+  return source === "agent"
+    ? t("wallet.profile.sourceAgent")
+    : t("wallet.profile.sourceManual");
 }
 
 export function WalletTradingProfileModal({
@@ -79,30 +84,43 @@ export function WalletTradingProfileModal({
 }: WalletTradingProfileModalProps) {
   if (!open) return null;
 
-  const pnlPoints = (profile?.pnlSeries ?? []).map((point) => Number.parseFloat(point.realizedPnlBnb));
+  const pnlPoints = (profile?.pnlSeries ?? []).map((point) =>
+    Number.parseFloat(point.realizedPnlBnb),
+  );
   const safePoints = pnlPoints.filter((point) => Number.isFinite(point));
   const minPnl = safePoints.length > 0 ? Math.min(...safePoints) : 0;
   const maxPnl = safePoints.length > 0 ? Math.max(...safePoints) : 0;
   const range = Math.max(1e-9, maxPnl - minPnl);
-  const svgPoints = safePoints.map((point, index) => {
-    const x = safePoints.length <= 1 ? 0 : (index / (safePoints.length - 1)) * 100;
-    const y = 100 - (((point - minPnl) / range) * 100);
-    return `${x},${y}`;
-  }).join(" ");
+  const svgPoints = safePoints
+    .map((point, index) => {
+      const x =
+        safePoints.length <= 1 ? 0 : (index / (safePoints.length - 1)) * 100;
+      const y = 100 - ((point - minPnl) / range) * 100;
+      return `${x},${y}`;
+    })
+    .join(" ");
 
-  const realizedPnlBnb = profile ? Number.parseFloat(profile.summary.realizedPnlBnb) : 0;
-  const pnlUsdEstimate = Number.isFinite(realizedPnlBnb) && bnbUsdEstimate && bnbUsdEstimate > 0
-    ? realizedPnlBnb * bnbUsdEstimate
-    : null;
+  const realizedPnlBnb = profile
+    ? Number.parseFloat(profile.summary.realizedPnlBnb)
+    : 0;
+  const pnlUsdEstimate =
+    Number.isFinite(realizedPnlBnb) && bnbUsdEstimate && bnbUsdEstimate > 0
+      ? realizedPnlBnb * bnbUsdEstimate
+      : null;
 
   return (
-    <div className="anime-wallet-profile-backdrop" onClick={onClose}>
+    <div className="anime-wallet-profile-backdrop">
+      <button
+        type="button"
+        className="anime-wallet-profile-backdrop-close"
+        aria-label={t("wallet.profile.close")}
+        onClick={onClose}
+      />
       <section
         className="anime-wallet-profile-modal"
         role="dialog"
         aria-modal="true"
         aria-label={t("wallet.profile.title")}
-        onClick={(event) => event.stopPropagation()}
       >
         <header className="anime-wallet-profile-header">
           <div>
@@ -110,10 +128,18 @@ export function WalletTradingProfileModal({
             <p>{t("wallet.profile.subtitle")}</p>
           </div>
           <div className="anime-wallet-profile-header-actions">
-            <button type="button" className="anime-wallet-popover-ghost" onClick={onRefresh}>
+            <button
+              type="button"
+              className="anime-wallet-popover-ghost"
+              onClick={onRefresh}
+            >
               {t("wallet.profile.refresh")}
             </button>
-            <button type="button" className="anime-wallet-popover-ghost" onClick={onClose}>
+            <button
+              type="button"
+              className="anime-wallet-popover-ghost"
+              onClick={onClose}
+            >
               {t("wallet.profile.close")}
             </button>
           </div>
@@ -155,7 +181,9 @@ export function WalletTradingProfileModal({
         </div>
 
         {loading ? (
-          <div className="anime-wallet-profile-empty">{t("wallet.profile.loading")}</div>
+          <div className="anime-wallet-profile-empty">
+            {t("wallet.profile.loading")}
+          </div>
         ) : error ? (
           <div className="anime-wallet-popover-error">{error}</div>
         ) : profile ? (
@@ -170,7 +198,8 @@ export function WalletTradingProfileModal({
                 <span>{t("wallet.profile.tradeWinRate")}</span>
                 <strong>{formatPercent(profile.summary.tradeWinRate)}</strong>
                 <small>
-                  {profile.summary.winningTrades}/{profile.summary.evaluatedTrades}
+                  {profile.summary.winningTrades}/
+                  {profile.summary.evaluatedTrades}
                 </small>
               </article>
               <article className="anime-wallet-profile-kpi">
@@ -193,12 +222,19 @@ export function WalletTradingProfileModal({
               </header>
               {safePoints.length > 0 ? (
                 <div className="anime-wallet-profile-chart-wrap">
-                  <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="anime-wallet-profile-chart">
+                  <svg
+                    viewBox="0 0 100 100"
+                    preserveAspectRatio="none"
+                    className="anime-wallet-profile-chart"
+                    aria-hidden="true"
+                  >
                     <polyline points={svgPoints} />
                   </svg>
                 </div>
               ) : (
-                <div className="anime-wallet-profile-empty">{t("wallet.profile.empty")}</div>
+                <div className="anime-wallet-profile-empty">
+                  {t("wallet.profile.empty")}
+                </div>
               )}
             </section>
 
@@ -209,7 +245,10 @@ export function WalletTradingProfileModal({
               {profile.tokenBreakdown.length > 0 ? (
                 <div className="anime-wallet-profile-token-table">
                   {profile.tokenBreakdown.slice(0, 8).map((token) => (
-                    <div className="anime-wallet-profile-token-row" key={token.tokenAddress}>
+                    <div
+                      className="anime-wallet-profile-token-row"
+                      key={token.tokenAddress}
+                    >
                       <div>
                         <strong>{token.symbol}</strong>
                         <span>{token.tokenAddress}</span>
@@ -222,7 +261,9 @@ export function WalletTradingProfileModal({
                   ))}
                 </div>
               ) : (
-                <div className="anime-wallet-profile-empty">{t("wallet.profile.empty")}</div>
+                <div className="anime-wallet-profile-empty">
+                  {t("wallet.profile.empty")}
+                </div>
               )}
             </section>
 
@@ -233,19 +274,35 @@ export function WalletTradingProfileModal({
               {profile.recentSwaps.length > 0 ? (
                 <div className="anime-wallet-profile-recent">
                   {profile.recentSwaps.slice(0, 8).map((swap) => (
-                    <div className="anime-wallet-profile-recent-row" key={swap.hash}>
+                    <div
+                      className="anime-wallet-profile-recent-row"
+                      key={swap.hash}
+                    >
                       <div className="anime-wallet-profile-recent-main">
-                        <span className={`anime-wallet-recent-side is-${swap.side}`}>
+                        <span
+                          className={`anime-wallet-recent-side is-${swap.side}`}
+                        >
                           {formatTradeSide(swap.side, t)}
                         </span>
                         <div className="anime-wallet-recent-meta">
-                          <span>{swap.inputAmount} {swap.inputSymbol} {"->"} {swap.outputAmount} {swap.outputSymbol}</span>
-                          <code>{swap.hash.slice(0, 10)}...{swap.hash.slice(-8)}</code>
+                          <span>
+                            {swap.inputAmount} {swap.inputSymbol} {"->"}{" "}
+                            {swap.outputAmount} {swap.outputSymbol}
+                          </span>
+                          <code>
+                            {swap.hash.slice(0, 10)}...{swap.hash.slice(-8)}
+                          </code>
                         </div>
                       </div>
                       <div className="anime-wallet-profile-recent-actions">
-                        <span className={`anime-wallet-tx-pill is-${swap.status}`}>{formatTxStatus(swap.status, t)}</span>
-                        <span className={`anime-wallet-profile-source is-${swap.source}`}>
+                        <span
+                          className={`anime-wallet-tx-pill is-${swap.status}`}
+                        >
+                          {formatTxStatus(swap.status, t)}
+                        </span>
+                        <span
+                          className={`anime-wallet-profile-source is-${swap.source}`}
+                        >
                           {formatProfileSource(swap.source, t)}
                         </span>
                         <a
@@ -269,7 +326,9 @@ export function WalletTradingProfileModal({
             </section>
           </div>
         ) : (
-          <div className="anime-wallet-profile-empty">{t("wallet.profile.empty")}</div>
+          <div className="anime-wallet-profile-empty">
+            {t("wallet.profile.empty")}
+          </div>
         )}
       </section>
     </div>

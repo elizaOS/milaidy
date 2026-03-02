@@ -42,10 +42,7 @@ export interface AwarenessContributor {
 
   /** Layer 2 detail — called via GET_SELF_STATUS action.
    *  "brief" ~= 200 tokens, "full" ~= 2000 tokens. */
-  detail?: (
-    runtime: IAgentRuntime,
-    level: "brief" | "full",
-  ) => Promise<string>;
+  detail?: (runtime: IAgentRuntime, level: "brief" | "full") => Promise<string>;
 
   /** Cache TTL in ms. Default DEFAULT_CACHE_TTL_MS. */
   cacheTtl?: number;

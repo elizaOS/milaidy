@@ -1406,9 +1406,22 @@
     display: grid;
     place-items: center;
     padding: 20px;
+    isolation: isolate;
+}
+
+.anime-wallet-profile-backdrop-close {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 0;
 }
 
 .anime-wallet-profile-modal {
+    position: relative;
+    z-index: 1;
     width: min(980px, 92vw);
     max-height: min(84vh, 880px);
     overflow-y: auto;

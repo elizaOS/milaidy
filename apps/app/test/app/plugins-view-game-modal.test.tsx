@@ -11,7 +11,10 @@ const mockLoadPlugins = vi.fn(async () => {});
 const mockHandlePluginConfigSave = vi.fn(async () => {});
 const mockSetActionNotice = vi.fn();
 const mockSetState = vi.fn();
-const mockTestPluginConnection = vi.fn(async () => ({ success: true, durationMs: 12 }));
+const mockTestPluginConnection = vi.fn(async () => ({
+  success: true,
+  durationMs: 12,
+}));
 
 let narrowViewport = false;
 let originalMatchMedia: typeof window.matchMedia | undefined;
@@ -25,13 +28,17 @@ vi.mock("../../src/api-client", () => ({
     onWsEvent: (...args: unknown[]) => mockOnWsEvent(...args),
     installRegistryPlugin: vi.fn(),
     restartAndWait: vi.fn(),
-    testPluginConnection: (...args: unknown[]) => mockTestPluginConnection(...args),
+    testPluginConnection: (...args: unknown[]) =>
+      mockTestPluginConnection(...args),
   },
 }));
 
 import { PluginsView } from "../../src/components/PluginsView";
 
-function hasClass(node: TestRenderer.ReactTestInstance, className: string): boolean {
+function hasClass(
+  node: TestRenderer.ReactTestInstance,
+  className: string,
+): boolean {
   if (typeof node.props.className !== "string") return false;
   return node.props.className.split(/\s+/).includes(className);
 }
@@ -42,7 +49,11 @@ function text(node: TestRenderer.ReactTestInstance): string {
     .join("");
 }
 
-function createPlugin(id: string, name: string, category: PluginInfo["category"] = "feature"): PluginInfo {
+function createPlugin(
+  id: string,
+  name: string,
+  category: PluginInfo["category"] = "feature",
+): PluginInfo {
   return {
     id,
     name,
@@ -106,7 +117,10 @@ describe("PluginsView game modal", () => {
     mockLoadPlugins.mockResolvedValue(undefined);
     mockHandlePluginToggle.mockResolvedValue(undefined);
     mockHandlePluginConfigSave.mockResolvedValue(undefined);
-    mockTestPluginConnection.mockResolvedValue({ success: true, durationMs: 12 });
+    mockTestPluginConnection.mockResolvedValue({
+      success: true,
+      durationMs: 12,
+    });
     mockUseApp.mockReturnValue(baseContext());
 
     narrowViewport = false;
@@ -140,30 +154,52 @@ describe("PluginsView game modal", () => {
   it("renders game modal for both plugins and connectors modals", async () => {
     let tree: TestRenderer.ReactTestRenderer;
     await act(async () => {
-      tree = TestRenderer.create(React.createElement(PluginsView, { inModal: true, mode: "all" }));
+      tree = TestRenderer.create(
+        React.createElement(PluginsView, { inModal: true, mode: "all" }),
+      );
     });
 
-    expect(tree!.root.findAll((node) => hasClass(node, "plugins-game-modal")).length).toBe(1);
-    expect(tree!.root.findAll((node) => hasClass(node, "conn-master-detail")).length).toBe(0);
+    expect(
+      tree?.root.findAll((node) => hasClass(node, "plugins-game-modal")).length,
+    ).toBe(1);
+    expect(
+      tree?.root.findAll((node) => hasClass(node, "conn-master-detail")).length,
+    ).toBe(0);
 
     await act(async () => {
-      tree!.update(React.createElement(PluginsView, { inModal: true, mode: "connectors" }));
+      tree?.update(
+        React.createElement(PluginsView, { inModal: true, mode: "connectors" }),
+      );
     });
-    expect(tree!.root.findAll((node) => hasClass(node, "plugins-game-modal")).length).toBe(1);
-    expect(tree!.root.findAll((node) => hasClass(node, "conn-master-detail")).length).toBe(0);
-    expect(text(tree!.root)).toContain("Channels");
+    expect(
+      tree?.root.findAll((node) => hasClass(node, "plugins-game-modal")).length,
+    ).toBe(1);
+    expect(
+      tree?.root.findAll((node) => hasClass(node, "conn-master-detail")).length,
+    ).toBe(0);
+    expect(text(tree?.root)).toContain("Channels");
   });
 
   it("uses list/detail mobile panes on narrow viewport", async () => {
     narrowViewport = true;
     let tree: TestRenderer.ReactTestRenderer;
     await act(async () => {
-      tree = TestRenderer.create(React.createElement(PluginsView, { inModal: true, mode: "all" }));
+      tree = TestRenderer.create(
+        React.createElement(PluginsView, { inModal: true, mode: "all" }),
+      );
     });
 
-    const getListPane = () => tree!.root.findAll((node) => hasClass(node, "plugins-game-list-panel"))[0];
-    const getDetailPane = () => tree!.root.findAll((node) => hasClass(node, "plugins-game-detail-panel"))[0];
-    const firstCard = tree!.root.findAll((node) => hasClass(node, "plugins-game-card"))[0];
+    const getListPane = () =>
+      tree?.root.findAll((node) =>
+        hasClass(node, "plugins-game-list-panel"),
+      )[0];
+    const getDetailPane = () =>
+      tree?.root.findAll((node) =>
+        hasClass(node, "plugins-game-detail-panel"),
+      )[0];
+    const firstCard = tree?.root.findAll((node) =>
+      hasClass(node, "plugins-game-card"),
+    )[0];
 
     expect(getListPane().props.className.includes("is-hidden")).toBe(false);
     expect(getDetailPane().props.className.includes("is-hidden")).toBe(true);
@@ -175,7 +211,9 @@ describe("PluginsView game modal", () => {
     expect(getListPane().props.className.includes("is-hidden")).toBe(true);
     expect(getDetailPane().props.className.includes("is-hidden")).toBe(false);
 
-    const backButton = tree!.root.findAll((node) => hasClass(node, "plugins-game-back-btn"))[0];
+    const backButton = tree?.root.findAll((node) =>
+      hasClass(node, "plugins-game-back-btn"),
+    )[0];
     await act(async () => {
       backButton.props.onClick();
     });
@@ -193,36 +231,50 @@ describe("PluginsView game modal", () => {
 
     let tree: TestRenderer.ReactTestRenderer;
     await act(async () => {
-      tree = TestRenderer.create(React.createElement(PluginsView, { inModal: true, mode: "all" }));
+      tree = TestRenderer.create(
+        React.createElement(PluginsView, { inModal: true, mode: "all" }),
+      );
     });
 
-    const cards = tree!.root.findAll((node) => hasClass(node, "plugins-game-card"));
+    const cards = tree?.root.findAll((node) =>
+      hasClass(node, "plugins-game-card"),
+    );
     await act(async () => {
       cards[1].props.onClick();
     });
-    expect(text(tree!.root).includes("Bravo Plugin")).toBe(true);
+    expect(text(tree?.root).includes("Bravo Plugin")).toBe(true);
 
     state.pluginSearch = "Alpha";
     await act(async () => {
-      tree!.update(React.createElement(PluginsView, { inModal: true, mode: "all" }));
+      tree?.update(
+        React.createElement(PluginsView, { inModal: true, mode: "all" }),
+      );
     });
 
-    expect(text(tree!.root).includes("Alpha Plugin")).toBe(true);
-    expect(text(tree!.root).includes("Bravo Plugin configuration plugin")).toBe(false);
+    expect(text(tree?.root).includes("Alpha Plugin")).toBe(true);
+    expect(text(tree?.root).includes("Bravo Plugin configuration plugin")).toBe(
+      false,
+    );
   });
 
   it("keeps detail actions wired in game modal", async () => {
-    mockUseApp.mockReturnValue(baseContext([createPlugin("test-plugin", "Test Plugin", "feature")]));
+    mockUseApp.mockReturnValue(
+      baseContext([createPlugin("test-plugin", "Test Plugin", "feature")]),
+    );
 
     let tree: TestRenderer.ReactTestRenderer;
     await act(async () => {
-      tree = TestRenderer.create(React.createElement(PluginsView, { inModal: true, mode: "all" }));
+      tree = TestRenderer.create(
+        React.createElement(PluginsView, { inModal: true, mode: "all" }),
+      );
     });
 
-    const toggle = tree!.root.findAll((node) => hasClass(node, "plugins-game-toggle"))[0];
+    const toggle = tree?.root.findAll((node) =>
+      hasClass(node, "plugins-game-toggle"),
+    )[0];
     expect(toggle).toBeDefined();
 
-    const testConnectionBtn = tree!.root.findAll(
+    const testConnectionBtn = tree?.root.findAll(
       (node) =>
         node.type === "button" &&
         typeof node.props.className === "string" &&
@@ -234,7 +286,9 @@ describe("PluginsView game modal", () => {
     });
     expect(mockTestPluginConnection).toHaveBeenCalledWith("test-plugin");
 
-    const saveBtn = tree!.root.findAll((node) => hasClass(node, "plugins-game-save-btn"))[0];
+    const saveBtn = tree?.root.findAll((node) =>
+      hasClass(node, "plugins-game-save-btn"),
+    )[0];
     await act(async () => {
       await saveBtn.props.onClick();
     });

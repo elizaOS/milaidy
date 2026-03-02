@@ -19,11 +19,11 @@ import {
   useState,
 } from "react";
 import {
+  getVrmPreviewUrl,
+  getVrmUrl,
   type OnboardingStep,
   THEMES,
   useApp,
-  getVrmPreviewUrl,
-  getVrmUrl,
 } from "../AppContext";
 import {
   type CloudProviderOption,
@@ -38,10 +38,10 @@ import {
   type StylePreset,
 } from "../api-client";
 import { resolveApiUrl, resolveAppAssetUrl } from "../asset-url";
+import { createTranslator } from "../i18n";
 import { getProviderLogo } from "../provider-logos";
 import { AvatarSelector } from "./AvatarSelector";
 import { PermissionsOnboardingSection } from "./PermissionsSection";
-import { createTranslator } from "../i18n";
 
 const SANDBOX_POLL_INTERVAL_MS = 3000;
 const SANDBOX_START_MAX_ATTEMPTS = 20;
@@ -161,7 +161,7 @@ export function OnboardingWizard() {
   } = useApp();
   const t = createTranslator(uiLanguage);
 
-  const [showAllProviders, setShowAllProviders] = useState(false);
+  const [_showAllProviders, _setShowAllProviders] = useState(false);
   const [openaiOAuthStarted, setOpenaiOAuthStarted] = useState(false);
   const [openaiCallbackUrl, setOpenaiCallbackUrl] = useState("");
   const [openaiConnected, setOpenaiConnected] = useState(false);
@@ -172,17 +172,35 @@ export function OnboardingWizard() {
   const [anthropicError, setAnthropicError] = useState("");
   const [customNameText, setCustomNameText] = useState("");
   const [isCustomSelected, setIsCustomSelected] = useState(false);
-  const [apiKeyFormatWarning, setApiKeyFormatWarning] = useState("");
+  const [_apiKeyFormatWarning, setApiKeyFormatWarning] = useState("");
 
   // ── Step progress helpers ────────────────────────────────────────────
   const QUICK_STEPS: OnboardingStep[] = [
-    "welcome", "name", "ownerName", "avatar", "style", "theme",
-    "setupMode", "llmProvider", "permissions",
+    "welcome",
+    "name",
+    "ownerName",
+    "avatar",
+    "style",
+    "theme",
+    "setupMode",
+    "llmProvider",
+    "permissions",
   ];
   const FULL_STEPS: OnboardingStep[] = [
-    "welcome", "name", "ownerName", "avatar", "style", "theme",
-    "setupMode", "runMode", "cloudProvider", "modelSelection",
-    "cloudLogin", "llmProvider", "inventorySetup", "connectors",
+    "welcome",
+    "name",
+    "ownerName",
+    "avatar",
+    "style",
+    "theme",
+    "setupMode",
+    "runMode",
+    "cloudProvider",
+    "modelSelection",
+    "cloudLogin",
+    "llmProvider",
+    "inventorySetup",
+    "connectors",
     "permissions",
   ];
 
@@ -194,7 +212,9 @@ export function OnboardingWizard() {
 
   const getTotalSteps = (): number | null => {
     if (!onboardingSetupMode) return null;
-    return onboardingSetupMode === "advanced" ? FULL_STEPS.length : QUICK_STEPS.length;
+    return onboardingSetupMode === "advanced"
+      ? FULL_STEPS.length
+      : QUICK_STEPS.length;
   };
 
   const stepIndex = getStepIndex();
@@ -226,7 +246,9 @@ export function OnboardingWizard() {
       ? customVrmUrl
       : getVrmUrl(onboardingAvatar || 1);
   const avatarFallbackPreviewUrl =
-    onboardingAvatar > 0 ? getVrmPreviewUrl(onboardingAvatar) : getVrmPreviewUrl(1);
+    onboardingAvatar > 0
+      ? getVrmPreviewUrl(onboardingAvatar)
+      : getVrmPreviewUrl(1);
 
   // ── Agent import during onboarding ──────────────────────────────────
   const [showImport, setShowImport] = useState(false);
@@ -522,7 +544,9 @@ export function OnboardingWizard() {
               <h2 className="text-[28px] font-normal mb-1 text-txt-strong">
                 {t("onboarding.nameQuestion")}
               </h2>
-              <span className="inline-block text-[10px] font-semibold uppercase tracking-wider text-accent border border-accent/40 px-1.5 py-0.5 rounded mt-1">* {t("onboarding.required")}</span>
+              <span className="inline-block text-[10px] font-semibold uppercase tracking-wider text-accent border border-accent/40 px-1.5 py-0.5 rounded mt-1">
+                * {t("onboarding.required")}
+              </span>
             </div>
             <div className="flex flex-wrap gap-2 justify-center mx-auto mb-3">
               {onboardingOptions?.names.slice(0, 6).map((name: string) => (
@@ -584,7 +608,9 @@ export function OnboardingWizard() {
               <h2 className="text-[28px] font-normal mb-1 text-txt-strong">
                 {t("onboarding.ownerQuestion")}
               </h2>
-              <p className="text-[13px] opacity-60 mt-1">{t("onboarding.optionalOwnerHint")}</p>
+              <p className="text-[13px] opacity-60 mt-1">
+                {t("onboarding.optionalOwnerHint")}
+              </p>
             </div>
             <div className="flex flex-wrap gap-2 justify-center mx-auto mb-3">
               {ownerPresets.map((preset) => (
@@ -748,7 +774,9 @@ export function OnboardingWizard() {
               fallbackPreviewUrl={avatarFallbackPreviewUrl}
             />
             <div className="onboarding-speech bg-card border border-border rounded-xl px-5 py-4 mx-auto mb-6 max-w-[420px] relative text-[15px] text-txt leading-relaxed">
-              <h2 className="text-[28px] font-normal mb-1 text-txt-strong">{t("onboarding.howMuchSetup")}</h2>
+              <h2 className="text-[28px] font-normal mb-1 text-txt-strong">
+                {t("onboarding.howMuchSetup")}
+              </h2>
               <p className="text-muted text-sm">{t("onboarding.choosePath")}</p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-[420px] mx-auto">
@@ -761,8 +789,12 @@ export function OnboardingWizard() {
                 }`}
                 onClick={() => setState("onboardingSetupMode", "quick")}
               >
-                <div className="font-semibold text-sm mb-1">{t("onboarding.quickSetup")}</div>
-                <div className={`text-xs ${onboardingSetupMode === "quick" ? "opacity-80" : "text-muted"}`}>
+                <div className="font-semibold text-sm mb-1">
+                  {t("onboarding.quickSetup")}
+                </div>
+                <div
+                  className={`text-xs ${onboardingSetupMode === "quick" ? "opacity-80" : "text-muted"}`}
+                >
                   {t("onboarding.quickSetupHint")}
                 </div>
               </button>
@@ -775,8 +807,12 @@ export function OnboardingWizard() {
                 }`}
                 onClick={() => setState("onboardingSetupMode", "advanced")}
               >
-                <div className="font-semibold text-sm mb-1">{t("onboarding.fullSetup")}</div>
-                <div className={`text-xs ${onboardingSetupMode === "advanced" ? "opacity-80" : "text-muted"}`}>
+                <div className="font-semibold text-sm mb-1">
+                  {t("onboarding.fullSetup")}
+                </div>
+                <div
+                  className={`text-xs ${onboardingSetupMode === "advanced" ? "opacity-80" : "text-muted"}`}
+                >
                   {t("onboarding.fullSetupHint")}
                 </div>
               </button>
@@ -927,7 +963,12 @@ export function OnboardingWizard() {
         );
 
       case "dockerSetup":
-        return <DockerSetupStep avatarVrmPath={avatarVrmPath} avatarFallbackPreviewUrl={avatarFallbackPreviewUrl} />;
+        return (
+          <DockerSetupStep
+            avatarVrmPath={avatarVrmPath}
+            avatarFallbackPreviewUrl={avatarFallbackPreviewUrl}
+          />
+        );
 
       case "cloudProvider":
         return (
@@ -2194,7 +2235,9 @@ export function OnboardingWizard() {
             onClick={() => void handleOnboardingNext()}
             disabled={!canGoNext() || onboardingRestarting}
           >
-            {onboardingRestarting ? t("onboarding.restarting") : t("common.next")}
+            {onboardingRestarting
+              ? t("onboarding.restarting")
+              : t("common.next")}
           </button>
         )}
       </div>
@@ -2206,7 +2249,13 @@ export function OnboardingWizard() {
 // Docker Setup Step — checks Docker availability and guides installation
 // ═══════════════════════════════════════════════════════════════════════════
 
-function DockerSetupStep({ avatarVrmPath, avatarFallbackPreviewUrl }: { avatarVrmPath: string; avatarFallbackPreviewUrl: string }) {
+function DockerSetupStep({
+  avatarVrmPath,
+  avatarFallbackPreviewUrl,
+}: {
+  avatarVrmPath: string;
+  avatarFallbackPreviewUrl: string;
+}) {
   const [checking, setChecking] = useState(true);
   const [starting, setStarting] = useState(false);
   const [startMessage, setStartMessage] = useState("");

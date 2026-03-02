@@ -1,5 +1,5 @@
-import * as THREE from "three";
 import type { VRM, VRMHumanBoneName } from "@pixiv/three-vrm";
+import * as THREE from "three";
 import { mixamoVRMRigMap } from "./mixamoVRMRigMap";
 
 function normalizeMixamoRigName(name: string): string {
@@ -20,11 +20,17 @@ function isVrm0(vrm: VRM): boolean {
   return mv.startsWith("0");
 }
 
-function findNode(scene: THREE.Object3D, rawName: string, normalizedName: string): THREE.Object3D | null {
+function findNode(
+  scene: THREE.Object3D,
+  rawName: string,
+  normalizedName: string,
+): THREE.Object3D | null {
   return (
     scene.getObjectByName(rawName) ??
     scene.getObjectByName(normalizedName) ??
-    scene.getObjectByName(rawName.includes(":") ? rawName.split(":")[1] ?? rawName : rawName) ??
+    scene.getObjectByName(
+      rawName.includes(":") ? (rawName.split(":")[1] ?? rawName) : rawName,
+    ) ??
     null
   );
 }
@@ -47,7 +53,11 @@ export function retargetMixamoFbxToVrm(
   const parentRestWorldRotation = new THREE.Quaternion();
   const q = new THREE.Quaternion();
 
-  const motionHipsNode = findNode(sourceScene, "mixamorigHips", "mixamorigHips");
+  const motionHipsNode = findNode(
+    sourceScene,
+    "mixamorigHips",
+    "mixamorigHips",
+  );
   const motionHipsHeight = Math.abs(motionHipsNode?.position.y ?? 0);
   const vrmHipsHeight = Math.abs(
     vrm.humanoid?.normalizedRestPose.hips?.position?.[1] ?? 0,
@@ -66,7 +76,9 @@ export function retargetMixamoFbxToVrm(
     const vrmBoneName = mixamoVRMRigMap[normalizedRigName];
     if (!vrmBoneName) continue;
 
-    const vrmNode = vrm.humanoid?.getNormalizedBoneNode(vrmBoneName as VRMHumanBoneName);
+    const vrmNode = vrm.humanoid?.getNormalizedBoneNode(
+      vrmBoneName as VRMHumanBoneName,
+    );
     if (!vrmNode) continue;
 
     const mixamoRigNode = findNode(sourceScene, rawRigName, normalizedRigName);
@@ -101,8 +113,8 @@ export function retargetMixamoFbxToVrm(
       propertyName === "position" &&
       track instanceof THREE.VectorKeyframeTrack
     ) {
-      const values = track.values.map((v, i) =>
-        (isVrm0(vrm) && i % 3 !== 1 ? -v : v) * hipsPositionScale,
+      const values = track.values.map(
+        (v, i) => (isVrm0(vrm) && i % 3 !== 1 ? -v : v) * hipsPositionScale,
       );
       tracks.push(
         new THREE.VectorKeyframeTrack(

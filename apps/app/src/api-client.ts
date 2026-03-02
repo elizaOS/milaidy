@@ -27,22 +27,22 @@ import type { VerificationResult } from "../../../src/contracts/verification";
 import type {
   BscTradeExecuteRequest,
   BscTradeExecuteResponse,
-  BscTransferExecuteRequest,
-  BscTransferExecuteResponse,
   BscTradePreflightResponse,
   BscTradeQuoteRequest,
   BscTradeQuoteResponse,
   BscTradeTxStatusResponse,
+  BscTransferExecuteRequest,
+  BscTransferExecuteResponse,
   EvmChainBalance,
   EvmNft,
   EvmTokenBalance,
   SolanaNft,
   SolanaTokenBalance,
-  TradePermissionMode as WalletTradePermissionMode,
   WalletAddresses,
   WalletBalancesResponse,
   WalletConfigStatus,
   WalletNftsResponse,
+  TradePermissionMode as WalletTradePermissionMode,
   WalletTradingProfileResponse,
   WalletTradingProfileSourceFilter,
   WalletTradingProfileWindow,
@@ -3055,28 +3055,38 @@ export class MiladyClient {
 
   // BSC Trading
 
-  async getBscTradePreflight(tokenAddress?: string): Promise<BscTradePreflightResponse> {
+  async getBscTradePreflight(
+    tokenAddress?: string,
+  ): Promise<BscTradePreflightResponse> {
     return this.fetch("/api/wallet/trade/preflight", {
       method: "POST",
-      body: JSON.stringify(tokenAddress?.trim() ? { tokenAddress: tokenAddress.trim() } : {}),
+      body: JSON.stringify(
+        tokenAddress?.trim() ? { tokenAddress: tokenAddress.trim() } : {},
+      ),
     });
   }
 
-  async getBscTradeQuote(request: BscTradeQuoteRequest): Promise<BscTradeQuoteResponse> {
+  async getBscTradeQuote(
+    request: BscTradeQuoteRequest,
+  ): Promise<BscTradeQuoteResponse> {
     return this.fetch("/api/wallet/trade/quote", {
       method: "POST",
       body: JSON.stringify(request),
     });
   }
 
-  async executeBscTrade(request: BscTradeExecuteRequest): Promise<BscTradeExecuteResponse> {
+  async executeBscTrade(
+    request: BscTradeExecuteRequest,
+  ): Promise<BscTradeExecuteResponse> {
     return this.fetch("/api/wallet/trade/execute", {
       method: "POST",
       body: JSON.stringify(request),
     });
   }
 
-  async executeBscTransfer(request: BscTransferExecuteRequest): Promise<BscTransferExecuteResponse> {
+  async executeBscTransfer(
+    request: BscTransferExecuteRequest,
+  ): Promise<BscTransferExecuteResponse> {
     return this.fetch("/api/wallet/transfer/execute", {
       method: "POST",
       body: JSON.stringify(request),
@@ -3084,7 +3094,9 @@ export class MiladyClient {
   }
 
   async getBscTradeTxStatus(hash: string): Promise<BscTradeTxStatusResponse> {
-    return this.fetch(`/api/wallet/trade/tx-status?hash=${encodeURIComponent(hash)}`);
+    return this.fetch(
+      `/api/wallet/trade/tx-status?hash=${encodeURIComponent(hash)}`,
+    );
   }
 
   async getWalletTradingProfile(

@@ -3,13 +3,13 @@
  * signer mode, and trade permissions. Never exposes private keys.
  */
 import type { IAgentRuntime } from "@elizaos/core";
-import type { AwarenessContributor } from "../../contracts/awareness.js";
+import {
+  canUseLocalTradeExecution,
+  resolveTradePermissionMode,
+} from "../../api/server.js";
 import { getWalletAddresses } from "../../api/wallet.js";
 import { loadMiladyConfig } from "../../config/config.js";
-import {
-  resolveTradePermissionMode,
-  canUseLocalTradeExecution,
-} from "../../api/server.js";
+import type { AwarenessContributor } from "../../contracts/awareness.js";
 
 function shorten(address: string | null): string | null {
   if (!address) return null;
@@ -54,7 +54,10 @@ export const walletContributor: AwarenessContributor = {
     return `Wallet: ${parts.join(" | ")}`;
   },
 
-  async detail(_runtime: IAgentRuntime, level: "brief" | "full"): Promise<string> {
+  async detail(
+    _runtime: IAgentRuntime,
+    level: "brief" | "full",
+  ): Promise<string> {
     const addrs = getWalletAddresses();
     const config = loadMiladyConfig();
     const tradeMode = resolveTradePermissionMode(config);
@@ -76,7 +79,9 @@ export const walletContributor: AwarenessContributor = {
 
     if (level === "full") {
       lines.push(`BSC RPC configured: ${bscRpc}`);
-      lines.push(`Alchemy key: ${Boolean(process.env.ALCHEMY_API_KEY?.trim())}`);
+      lines.push(
+        `Alchemy key: ${Boolean(process.env.ALCHEMY_API_KEY?.trim())}`,
+      );
       lines.push(`Ankr key: ${Boolean(process.env.ANKR_API_KEY?.trim())}`);
       lines.push(`Helius key: ${Boolean(process.env.HELIUS_API_KEY?.trim())}`);
     }

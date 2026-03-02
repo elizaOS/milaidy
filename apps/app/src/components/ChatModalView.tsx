@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useApp } from "../AppContext.js";
 import {
-  client,
   type AgentAutomationMode,
+  client,
   type TradePermissionMode,
 } from "../api-client.js";
 import { createTranslator } from "../i18n";
@@ -22,7 +22,10 @@ function useIsNarrowViewport(): boolean {
   );
 
   useEffect(() => {
-    if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+    if (
+      typeof window === "undefined" ||
+      typeof window.matchMedia !== "function"
+    ) {
       return;
     }
     const mediaQuery = window.matchMedia(
@@ -70,7 +73,8 @@ export function ChatModalView({
 
   const [moreOpen, setMoreOpen] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const [automationMode, setAutomationMode] = useState<AgentAutomationMode | null>(null);
+  const [automationMode, setAutomationMode] =
+    useState<AgentAutomationMode | null>(null);
   const [tradeMode, setTradeMode] = useState<TradePermissionMode | null>(null);
   const [modeLoading, setModeLoading] = useState(false);
   const [automationSaving, setAutomationSaving] = useState(false);
@@ -85,8 +89,9 @@ export function ChatModalView({
 
   const activeConversation = useMemo(
     () =>
-      conversations.find((conversation) => conversation.id === activeConversationId) ??
-      null,
+      conversations.find(
+        (conversation) => conversation.id === activeConversationId,
+      ) ?? null,
     [activeConversationId, conversations],
   );
 
@@ -187,7 +192,11 @@ export function ChatModalView({
         setAutomationMode(result.mode);
         if (result.mode === "full" && chatMode !== "power") {
           setState("chatMode", "power");
-          setActionNotice?.(t("chat.modal.responseModeAutoPower"), "info", 2400);
+          setActionNotice?.(
+            t("chat.modal.responseModeAutoPower"),
+            "info",
+            2400,
+          );
         }
         setActionNotice?.(
           result.mode === "full"
@@ -199,7 +208,9 @@ export function ChatModalView({
         notifySelfStatusRefresh();
       } catch (err) {
         setActionNotice?.(
-          err instanceof Error ? err.message : t("permissions.updateAutomationFailed"),
+          err instanceof Error
+            ? err.message
+            : t("permissions.updateAutomationFailed"),
           "error",
           3600,
         );
@@ -228,7 +239,11 @@ export function ChatModalView({
         setTradeMode(result.mode);
         if (result.mode === "agent-auto" && chatMode !== "power") {
           setState("chatMode", "power");
-          setActionNotice?.(t("chat.modal.responseModeAutoPower"), "info", 2400);
+          setActionNotice?.(
+            t("chat.modal.responseModeAutoPower"),
+            "info",
+            2400,
+          );
         }
         const notice =
           result.mode === "agent-auto"
@@ -240,7 +255,9 @@ export function ChatModalView({
         notifySelfStatusRefresh();
       } catch (err) {
         setActionNotice?.(
-          err instanceof Error ? err.message : t("permissions.updateTradeFailed"),
+          err instanceof Error
+            ? err.message
+            : t("permissions.updateTradeFailed"),
           "error",
           3600,
         );
@@ -307,7 +324,9 @@ export function ChatModalView({
                 type="button"
                 className="chat-game-mobile-sidebar-btn"
                 onClick={() => setMobileSidebarOpen((open) => !open)}
-                title={t("chat.modal.participants", { count: conversations.length })}
+                title={t("chat.modal.participants", {
+                  count: conversations.length,
+                })}
               >
                 <svg
                   width="15"
@@ -338,15 +357,22 @@ export function ChatModalView({
             </button>
             {moreOpen && (
               <div className="chat-game-more-menu" role="menu">
-                <div className="chat-game-mode-group" data-testid="chat-game-agent-mode-controls">
-                  <span className="chat-game-more-item-title">{t("chat.modal.agentMode")}</span>
+                <div
+                  className="chat-game-mode-group"
+                  data-testid="chat-game-agent-mode-controls"
+                >
+                  <span className="chat-game-more-item-title">
+                    {t("chat.modal.agentMode")}
+                  </span>
                   <span className="chat-game-more-item-sub">
                     {modeLoading
                       ? t("chat.modal.providerDetecting")
                       : `${automationModeLabel} • ${tradeModeLabel} • ${chatModeLabel}`}
                   </span>
                   <div className="chat-game-mode-row">
-                    <span className="chat-game-mode-label">{t("chat.modal.responseMode")}</span>
+                    <span className="chat-game-mode-label">
+                      {t("chat.modal.responseMode")}
+                    </span>
                     <div className="chat-game-mode-switch">
                       <button
                         type="button"
@@ -372,7 +398,9 @@ export function ChatModalView({
                       : t("chat.modal.responseModeHintSimple")}
                   </span>
                   <div className="chat-game-mode-row">
-                    <span className="chat-game-mode-label">{t("permissions.automationMode")}</span>
+                    <span className="chat-game-mode-label">
+                      {t("permissions.automationMode")}
+                    </span>
                     <div className="chat-game-mode-switch">
                       <button
                         type="button"
@@ -399,7 +427,9 @@ export function ChatModalView({
                     </div>
                   </div>
                   <div className="chat-game-mode-row">
-                    <span className="chat-game-mode-label">{t("permissions.tradeMode")}</span>
+                    <span className="chat-game-mode-label">
+                      {t("permissions.tradeMode")}
+                    </span>
                     <div className="chat-game-mode-switch">
                       <button
                         type="button"
@@ -448,7 +478,9 @@ export function ChatModalView({
                     void handleChatClear();
                   }}
                 >
-                  <span className="chat-game-more-item-title">{t("command.clearChat")}</span>
+                  <span className="chat-game-more-item-title">
+                    {t("command.clearChat")}
+                  </span>
                 </button>
               </div>
             )}

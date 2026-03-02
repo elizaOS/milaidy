@@ -50,7 +50,9 @@ function formatEvmChain(chain: EvmChainBalance, address: string): string {
   const lines: string[] = [];
 
   lines.push(`${label} (${short}):`);
-  lines.push(`  ${chain.nativeSymbol}: ${chain.nativeBalance} (${formatUsd(chain.nativeValueUsd)})`);
+  lines.push(
+    `  ${chain.nativeSymbol}: ${chain.nativeBalance} (${formatUsd(chain.nativeValueUsd)})`,
+  );
 
   if (chain.error) {
     lines.push(`  Error: ${chain.error}`);
@@ -60,10 +62,14 @@ function formatEvmChain(chain: EvmChainBalance, address: string): string {
   if (tokens.length > 0) {
     lines.push("  Tokens:");
     for (const token of tokens) {
-      lines.push(`    ${token.symbol}: ${token.balance} (${formatUsd(token.valueUsd)})`);
+      lines.push(
+        `    ${token.symbol}: ${token.balance} (${formatUsd(token.valueUsd)})`,
+      );
     }
     if (chain.tokens.length > MAX_TOKENS_PER_CHAIN) {
-      lines.push(`    ... and ${chain.tokens.length - MAX_TOKENS_PER_CHAIN} more`);
+      lines.push(
+        `    ... and ${chain.tokens.length - MAX_TOKENS_PER_CHAIN} more`,
+      );
     }
   }
 
@@ -83,10 +89,14 @@ function formatSolana(
   if (tokens.length > 0) {
     lines.push("  Tokens:");
     for (const token of tokens) {
-      lines.push(`    ${token.symbol}: ${token.balance} (${formatUsd(token.valueUsd)})`);
+      lines.push(
+        `    ${token.symbol}: ${token.balance} (${formatUsd(token.valueUsd)})`,
+      );
     }
     if (solana.tokens.length > MAX_TOKENS_PER_CHAIN) {
-      lines.push(`    ... and ${solana.tokens.length - MAX_TOKENS_PER_CHAIN} more`);
+      lines.push(
+        `    ... and ${solana.tokens.length - MAX_TOKENS_PER_CHAIN} more`,
+      );
     }
   }
 

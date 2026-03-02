@@ -46,7 +46,10 @@ function createContext() {
     walletError: null,
     loadBalances: vi.fn(async () => {}),
     loadNfts: vi.fn(async () => {}),
-    getBscTradePreflight: vi.fn(async () => ({ ok: false, reasons: ["disabled"] })),
+    getBscTradePreflight: vi.fn(async () => ({
+      ok: false,
+      reasons: ["disabled"],
+    })),
     getBscTradeQuote: vi.fn(async () => ({
       route: [],
       quoteIn: { amount: "0", symbol: "BNB" },
@@ -88,10 +91,23 @@ function createContext() {
       tokenBreakdown: [],
       recentSwaps: [],
     })),
-    executeBscTrade: vi.fn(async () => ({ executed: false, execution: null, requiresUserSignature: false })),
-    executeBscTransfer: vi.fn(async () => ({ executed: false, execution: null, requiresUserSignature: false })),
+    executeBscTrade: vi.fn(async () => ({
+      executed: false,
+      execution: null,
+      requiresUserSignature: false,
+    })),
+    executeBscTransfer: vi.fn(async () => ({
+      executed: false,
+      execution: null,
+      requiresUserSignature: false,
+    })),
     setActionNotice: vi.fn(),
-    agentStatus: { state: "running", agentName: "Milady", platform: "test", pid: null },
+    agentStatus: {
+      state: "running",
+      agentName: "Milady",
+      platform: "test",
+      pid: null,
+    },
     cloudEnabled: false,
     cloudConnected: false,
     cloudCredits: null,
@@ -118,13 +134,15 @@ function text(node: TestRenderer.ReactTestInstance): string {
     .join("");
 }
 
-function countByClass(node: TestRenderer.ReactTestInstance, className: string): number {
-  return node.root.findAll((candidate) => (
-    typeof candidate.props.className === "string" &&
-    candidate.props.className
-      .split(/\s+/)
-      .includes(className)
-  )).length;
+function countByClass(
+  node: TestRenderer.ReactTestInstance,
+  className: string,
+): number {
+  return node.root.findAll(
+    (candidate) =>
+      typeof candidate.props.className === "string" &&
+      candidate.props.className.split(/\s+/).includes(className),
+  ).length;
 }
 
 describe("CompanionView", () => {
@@ -195,7 +213,7 @@ describe("CompanionView", () => {
       tree = TestRenderer.create(React.createElement(CompanionView));
     });
 
-    const content = text(tree!.root);
+    const content = text(tree?.root);
     expect(content).toContain("Milady");
     expect(content).toContain("MILADY");
     expect(content).not.toContain("Mood");
@@ -227,7 +245,7 @@ describe("CompanionView", () => {
       tree = TestRenderer.create(React.createElement(CompanionView));
     });
 
-    const skillButton = tree!.root.findAll(
+    const skillButton = tree?.root.findAll(
       (node) =>
         node.type === "button" &&
         typeof node.props.className === "string" &&
@@ -241,7 +259,7 @@ describe("CompanionView", () => {
     });
     expect(ctx.setTab).toHaveBeenCalledWith("skills");
 
-    const settingsButton = tree!.root.findAll(
+    const settingsButton = tree?.root.findAll(
       (node) =>
         node.type === "button" &&
         typeof node.props.className === "string" &&
@@ -255,7 +273,7 @@ describe("CompanionView", () => {
     });
     expect(ctx.setTab).toHaveBeenCalledWith("settings");
 
-    const advancedButton = tree!.root.findAll(
+    const advancedButton = tree?.root.findAll(
       (node) =>
         node.type === "button" &&
         typeof node.props.className === "string" &&
@@ -279,14 +297,14 @@ describe("CompanionView", () => {
       tree = TestRenderer.create(React.createElement(CompanionView));
     });
 
-    const characterToggle = tree!.root.find(
+    const characterToggle = tree?.root.find(
       (node) =>
         node.type === "button" &&
         node.props["data-testid"] === "character-roster-toggle",
     );
     expect(characterToggle).toBeDefined();
 
-    const shellBefore = tree!.root.find(
+    const shellBefore = tree?.root.find(
       (node) =>
         typeof node.props.className === "string" &&
         node.props.className.includes("anime-character-panel-shell"),
@@ -297,14 +315,14 @@ describe("CompanionView", () => {
       characterToggle.props.onClick();
     });
 
-    const shellAfter = tree!.root.find(
+    const shellAfter = tree?.root.find(
       (node) =>
         typeof node.props.className === "string" &&
         node.props.className.includes("anime-character-panel-shell"),
     );
     expect(shellAfter.props.className.includes("is-open")).toBe(true);
 
-    const characterSettings = tree!.root.find(
+    const characterSettings = tree?.root.find(
       (node) =>
         node.type === "button" &&
         node.props["data-testid"] === "character-roster-settings",
@@ -326,7 +344,7 @@ describe("CompanionView", () => {
       tree = TestRenderer.create(React.createElement(CompanionView));
     });
 
-    const zhToggle = tree!.root.find(
+    const zhToggle = tree?.root.find(
       (node) =>
         node.type === "button" &&
         node.props["data-testid"] === "companion-language-zh",
@@ -337,7 +355,7 @@ describe("CompanionView", () => {
     });
     expect(ctx.setUiLanguage).toHaveBeenCalledWith("zh-CN");
 
-    const enToggle = tree!.root.find(
+    const enToggle = tree?.root.find(
       (node) =>
         node.type === "button" &&
         node.props["data-testid"] === "companion-language-en",
@@ -357,7 +375,7 @@ describe("CompanionView", () => {
       tree = TestRenderer.create(React.createElement(CompanionView));
     });
 
-    const content = text(tree!.root);
+    const content = text(tree?.root);
     expect(content).toContain("Milady");
     expect(content).toContain("Character");
   });
@@ -370,14 +388,14 @@ describe("CompanionView", () => {
       tree = TestRenderer.create(React.createElement(CompanionView));
     });
 
-    const toggle = tree!.root.find(
+    const toggle = tree?.root.find(
       (node) =>
         node.type === "button" &&
         node.props["data-testid"] === "companion-chat-toggle",
     );
     expect(toggle).toBeDefined();
 
-    const dock = tree!.root.find(
+    const dock = tree?.root.find(
       (node) =>
         typeof node.props.className === "string" &&
         node.props.className.includes("anime-comp-chat-dock-anchor"),
@@ -388,7 +406,7 @@ describe("CompanionView", () => {
       toggle.props.onClick();
     });
 
-    const dockAfter = tree!.root.find(
+    const dockAfter = tree?.root.find(
       (node) =>
         typeof node.props.className === "string" &&
         node.props.className.includes("anime-comp-chat-dock-anchor"),
@@ -460,7 +478,7 @@ describe("CompanionView", () => {
       tree = TestRenderer.create(React.createElement(CompanionView));
     });
 
-    const walletTrigger = tree!.root.find(
+    const walletTrigger = tree?.root.find(
       (node) =>
         node.type === "button" &&
         typeof node.props.className === "string" &&
@@ -471,7 +489,7 @@ describe("CompanionView", () => {
       walletTrigger.props.onClick();
     });
 
-    const content = text(tree!.root);
+    const content = text(tree?.root);
     expect(content).toContain("$217.75");
     expect(content).toContain("USD Coin");
     expect(content).toContain("Tokens");
@@ -509,7 +527,7 @@ describe("CompanionView", () => {
       tree = TestRenderer.create(React.createElement(CompanionView));
     });
 
-    const profileButton = tree!.root.find(
+    const profileButton = tree?.root.find(
       (node) =>
         node.type === "button" &&
         node.props["data-testid"] === "wallet-profile-trigger",
@@ -522,7 +540,7 @@ describe("CompanionView", () => {
 
     expect(ctx.loadWalletTradingProfile).toHaveBeenCalledWith("30d", "all");
 
-    const sevenDayFilter = tree!.root.find(
+    const sevenDayFilter = tree?.root.find(
       (node) =>
         node.type === "button" &&
         typeof node.props.className === "string" &&
@@ -559,7 +577,7 @@ describe("CompanionView", () => {
       tree = TestRenderer.create(React.createElement(CompanionView));
     });
 
-    const walletTrigger = tree!.root.find(
+    const walletTrigger = tree?.root.find(
       (node) =>
         node.type === "button" &&
         typeof node.props.className === "string" &&
@@ -570,7 +588,7 @@ describe("CompanionView", () => {
       walletTrigger.props.onClick();
     });
 
-    const collectiblesTab = tree!.root.find(
+    const collectiblesTab = tree?.root.find(
       (node) =>
         node.type === "button" &&
         typeof node.props.className === "string" &&
@@ -586,7 +604,8 @@ describe("CompanionView", () => {
   });
 
   it("hydrates and refreshes recent wallet activity status", async () => {
-    const hash = "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
+    const hash =
+      "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
     localStorage.setItem(
       RECENT_TRADES_KEY,
       JSON.stringify([
@@ -638,7 +657,7 @@ describe("CompanionView", () => {
       tree = TestRenderer.create(React.createElement(CompanionView));
     });
 
-    const walletTrigger = tree!.root.find(
+    const walletTrigger = tree?.root.find(
       (node) =>
         node.type === "button" &&
         typeof node.props.className === "string" &&
@@ -650,11 +669,11 @@ describe("CompanionView", () => {
       await Promise.resolve();
     });
 
-    let content = text(tree!.root);
+    let content = text(tree?.root);
     expect(content).toContain("Recent activity");
     expect(content).not.toContain("BNB -> USDT");
 
-    const recentToggle = tree!.root.find(
+    const recentToggle = tree?.root.find(
       (node) =>
         node.type === "button" &&
         node.props["data-testid"] === "wallet-recent-toggle",
@@ -664,7 +683,7 @@ describe("CompanionView", () => {
       await Promise.resolve();
     });
     expect(ctx.getBscTradeTxStatus).toHaveBeenCalledWith(hash);
-    content = text(tree!.root);
+    content = text(tree?.root);
     expect(content).toContain("BNB -> USDT");
     expect(content).toContain("Confirmed");
   });
@@ -710,7 +729,7 @@ describe("CompanionView", () => {
       tree = TestRenderer.create(React.createElement(CompanionView));
     });
 
-    const walletTrigger = tree!.root.find(
+    const walletTrigger = tree?.root.find(
       (node) =>
         node.type === "button" &&
         typeof node.props.className === "string" &&
@@ -721,9 +740,9 @@ describe("CompanionView", () => {
       walletTrigger.props.onClick();
     });
 
-    expect(text(tree!.root)).not.toContain("Token address");
+    expect(text(tree?.root)).not.toContain("Token address");
 
-    const detailToggle = tree!.root.find(
+    const detailToggle = tree?.root.find(
       (node) =>
         node.type === "button" &&
         node.props["data-testid"] === "wallet-token-details-toggle",
@@ -733,10 +752,10 @@ describe("CompanionView", () => {
       detailToggle.props.onClick();
     });
 
-    expect(text(tree!.root)).toContain("Token details");
-    expect(text(tree!.root)).toContain("Token address");
+    expect(text(tree?.root)).toContain("Token details");
+    expect(text(tree?.root)).toContain("Token address");
 
-    const copyAddressButton = tree!.root.find(
+    const copyAddressButton = tree?.root.find(
       (node) =>
         node.type === "button" &&
         typeof node.props.className === "string" &&
@@ -749,7 +768,7 @@ describe("CompanionView", () => {
     });
     expect(ctx.copyToClipboard).toHaveBeenCalledWith(tokenAddress);
 
-    const swapButton = tree!.root.find(
+    const swapButton = tree?.root.find(
       (node) =>
         node.type === "button" &&
         typeof node.props.className === "string" &&
@@ -761,7 +780,7 @@ describe("CompanionView", () => {
       swapButton.props.onClick();
     });
 
-    const swapTokenInput = tree!.root.find(
+    const swapTokenInput = tree?.root.find(
       (node) =>
         node.type === "input" &&
         node.props.placeholder === "0x..." &&
@@ -790,7 +809,7 @@ describe("CompanionView", () => {
       tree = TestRenderer.create(React.createElement(CompanionView));
     });
 
-    const walletTrigger = tree!.root.find(
+    const walletTrigger = tree?.root.find(
       (node) =>
         node.type === "button" &&
         typeof node.props.className === "string" &&
@@ -801,7 +820,7 @@ describe("CompanionView", () => {
       walletTrigger.props.onClick();
     });
 
-    const content = text(tree!.root);
+    const content = text(tree?.root);
     expect(content).toContain("BNB");
     expect(content).toContain("Milady");
     expect(content).not.toContain("Open Wallet");
@@ -844,7 +863,8 @@ describe("CompanionView", () => {
         to: "0x1111111111111111111111111111111111111111",
         data: "0x",
         valueWei: "10000000000000000",
-        explorerUrl: "https://bscscan.com/address/0x1111111111111111111111111111111111111111",
+        explorerUrl:
+          "https://bscscan.com/address/0x1111111111111111111111111111111111111111",
         assetSymbol: "BNB",
         amount: "0.01",
       },
@@ -853,7 +873,8 @@ describe("CompanionView", () => {
         nonce: 1,
         gasLimit: "21000",
         valueWei: "10000000000000000",
-        explorerUrl: "https://bscscan.com/tx/0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        explorerUrl:
+          "https://bscscan.com/tx/0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         blockNumber: 1,
         status: "success",
       },
@@ -865,7 +886,7 @@ describe("CompanionView", () => {
       tree = TestRenderer.create(React.createElement(CompanionView));
     });
 
-    const walletTrigger = tree!.root.find(
+    const walletTrigger = tree?.root.find(
       (node) =>
         node.type === "button" &&
         typeof node.props.className === "string" &&
@@ -875,7 +896,7 @@ describe("CompanionView", () => {
       walletTrigger.props.onClick();
     });
 
-    const sendModeButton = tree!.root.find(
+    const sendModeButton = tree?.root.find(
       (node) =>
         node.type === "button" &&
         typeof node.props.className === "string" &&
@@ -886,13 +907,13 @@ describe("CompanionView", () => {
       sendModeButton.props.onClick();
     });
 
-    const toInput = tree!.root.find(
+    const toInput = tree?.root.find(
       (node) =>
         node.type === "input" &&
         node.props.placeholder === "0x..." &&
         typeof node.props.onChange === "function",
     );
-    const amountInput = tree!.root.find(
+    const amountInput = tree?.root.find(
       (node) =>
         node.type === "input" &&
         node.props.placeholder === "0.01" &&
@@ -900,11 +921,13 @@ describe("CompanionView", () => {
     );
 
     await act(async () => {
-      toInput.props.onChange({ target: { value: "0x1111111111111111111111111111111111111111" } });
+      toInput.props.onChange({
+        target: { value: "0x1111111111111111111111111111111111111111" },
+      });
       amountInput.props.onChange({ target: { value: "0.01" } });
     });
 
-    const executeButton = tree!.root.find(
+    const executeButton = tree?.root.find(
       (node) =>
         node.type === "button" &&
         typeof node.props.className === "string" &&
@@ -926,8 +949,10 @@ describe("CompanionView", () => {
 
   it("supports recent activity grouping, filtering and hash copy", async () => {
     const now = Date.now();
-    const pendingHash = "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-    const successHash = "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+    const pendingHash =
+      "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    const successHash =
+      "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
     localStorage.setItem(
       RECENT_TRADES_KEY,
       JSON.stringify([
@@ -981,7 +1006,7 @@ describe("CompanionView", () => {
       tree = TestRenderer.create(React.createElement(CompanionView));
     });
 
-    const walletTrigger = tree!.root.find(
+    const walletTrigger = tree?.root.find(
       (node) =>
         node.type === "button" &&
         typeof node.props.className === "string" &&
@@ -993,7 +1018,7 @@ describe("CompanionView", () => {
       await Promise.resolve();
     });
 
-    const recentToggle = tree!.root.find(
+    const recentToggle = tree?.root.find(
       (node) =>
         node.type === "button" &&
         node.props["data-testid"] === "wallet-recent-toggle",
@@ -1002,10 +1027,10 @@ describe("CompanionView", () => {
       recentToggle.props.onClick();
     });
 
-    expect(text(tree!.root)).toContain("Today");
-    expect(text(tree!.root)).toContain("Earlier");
+    expect(text(tree?.root)).toContain("Today");
+    expect(text(tree?.root)).toContain("Earlier");
 
-    const pendingFilter = tree!.root.find(
+    const pendingFilter = tree?.root.find(
       (node) =>
         node.type === "button" &&
         node.props["data-testid"] === "wallet-recent-filter-pending",
@@ -1015,11 +1040,11 @@ describe("CompanionView", () => {
       pendingFilter.props.onClick();
     });
 
-    const filteredContent = text(tree!.root);
+    const filteredContent = text(tree?.root);
     expect(filteredContent).toContain("0.11 BNB -> USDT");
     expect(filteredContent).not.toContain("0.22 USDC -> BNB");
 
-    const copyHashButton = tree!.root.find(
+    const copyHashButton = tree?.root.find(
       (node) =>
         node.type === "button" &&
         node.props["data-testid"] === "wallet-recent-copy-hash-today-0",

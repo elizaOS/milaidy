@@ -45,7 +45,9 @@ vi.mock("../../src/components/PermissionsSection", () => ({
 
 import { SettingsView } from "../../src/components/SettingsView";
 
-function createSettingsContext(overrides?: Record<string, unknown>): Record<string, unknown> {
+function createSettingsContext(
+  overrides?: Record<string, unknown>,
+): Record<string, unknown> {
   return {
     cloudEnabled: false,
     cloudConnected: false,
@@ -169,7 +171,7 @@ describe("Settings language switch", () => {
       tree = TestRenderer.create(React.createElement(SettingsView));
     });
 
-    const zhButton = tree!.root.findAll(
+    const zhButton = tree?.root.findAll(
       (node) => node.type === "button" && nodeText(node).trim() === "中",
     )[0];
     expect(zhButton).toBeDefined();
@@ -182,10 +184,10 @@ describe("Settings language switch", () => {
 
     mockUseApp.mockReturnValue(createSettingsContext({ uiLanguage: "zh-CN" }));
     await act(async () => {
-      tree!.update(React.createElement(SettingsView));
+      tree?.update(React.createElement(SettingsView));
     });
 
-    const allText = nodeText(tree!.root);
+    const allText = nodeText(tree?.root);
     expect(allText).toContain("设置");
     expect(allText).toContain("语言");
   });

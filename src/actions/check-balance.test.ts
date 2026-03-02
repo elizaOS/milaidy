@@ -5,8 +5,8 @@
  * empty/null balances, error handling, and action metadata.
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { HandlerOptions } from "@elizaos/core";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { checkBalanceAction } from "./check-balance";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -114,7 +114,7 @@ describe("CHECK_BALANCE action", () => {
 
   it("has similes for natural language matching", () => {
     expect(checkBalanceAction.similes).toBeDefined();
-    expect(checkBalanceAction.similes!.length).toBeGreaterThan(0);
+    expect(checkBalanceAction.similes?.length).toBeGreaterThan(0);
     expect(checkBalanceAction.similes).toContain("GET_BALANCE");
     expect(checkBalanceAction.similes).toContain("WALLET_BALANCE");
     expect(checkBalanceAction.similes).toContain("CHECK_WALLET");
@@ -125,9 +125,9 @@ describe("CHECK_BALANCE action", () => {
 
   it("has parameter definitions", () => {
     expect(checkBalanceAction.parameters).toBeDefined();
-    expect(checkBalanceAction.parameters!.length).toBe(1);
+    expect(checkBalanceAction.parameters?.length).toBe(1);
 
-    const chainParam = checkBalanceAction.parameters![0];
+    const chainParam = checkBalanceAction.parameters?.[0];
     expect(chainParam.name).toBe("chain");
     expect(chainParam.required).toBe(false);
   });

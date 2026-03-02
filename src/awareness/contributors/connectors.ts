@@ -1,8 +1,9 @@
 /**
  * Connectors contributor — reports configured communication channels.
  */
-import type { AwarenessContributor } from "../../contracts/awareness";
+
 import type { IAgentRuntime } from "@elizaos/core";
+import type { AwarenessContributor } from "../../contracts/awareness";
 
 export const connectorsContributor: AwarenessContributor = {
   id: "connectors",
@@ -12,7 +13,8 @@ export const connectorsContributor: AwarenessContributor = {
   trusted: true,
 
   async summary(runtime: IAgentRuntime): Promise<string> {
-    const clients = ((runtime.character as Record<string, unknown>)?.clients ?? []) as string[];
+    const clients = ((runtime.character as Record<string, unknown>)?.clients ??
+      []) as string[];
 
     if (!clients.length) {
       return "Channels: none configured";

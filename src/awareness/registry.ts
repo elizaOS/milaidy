@@ -10,12 +10,12 @@
  */
 import type { IAgentRuntime } from "@elizaos/core";
 import {
+  type AwarenessContributor,
+  type AwarenessInvalidationEvent,
   DEFAULT_CACHE_TTL_MS,
   SELF_STATUS_SCHEMA_VERSION,
   SUMMARY_CHAR_LIMIT,
   SUMMARY_TOTAL_CHAR_LIMIT,
-  type AwarenessContributor,
-  type AwarenessInvalidationEvent,
 } from "../contracts/awareness";
 
 // ---------------------------------------------------------------------------
@@ -126,7 +126,7 @@ export class AwarenessRegistry {
 
       // Enforce per-line char limit.
       if (line.length > SUMMARY_CHAR_LIMIT) {
-        line = line.slice(0, SUMMARY_CHAR_LIMIT - 3) + "...";
+        line = `${line.slice(0, SUMMARY_CHAR_LIMIT - 3)}...`;
       }
 
       lines.push(line);
@@ -229,7 +229,8 @@ export class AwarenessRegistry {
       const suffix = `\n[+${remaining} more]`;
       // Make room for the suffix if needed.
       while (
-        body.length + suffix.length + headerLen + 1 > SUMMARY_TOTAL_CHAR_LIMIT &&
+        body.length + suffix.length + headerLen + 1 >
+          SUMMARY_TOTAL_CHAR_LIMIT &&
         included.length > 1
       ) {
         included.pop();

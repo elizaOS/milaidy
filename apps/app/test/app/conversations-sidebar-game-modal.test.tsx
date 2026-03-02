@@ -103,14 +103,14 @@ describe("ConversationsSidebar game-modal variant", () => {
       );
     });
 
-    const roots = tree!.root.findAll(
+    const roots = tree?.root.findAll(
       (node) =>
         node.props["data-testid"] === "conversations-sidebar" &&
         node.props["data-variant"] === "game-modal",
     );
     expect(roots.length).toBe(1);
 
-    const avatarImages = tree!.root.findAll(
+    const avatarImages = tree?.root.findAll(
       (node) =>
         node.type === "img" &&
         typeof node.props.src === "string" &&
@@ -118,7 +118,7 @@ describe("ConversationsSidebar game-modal variant", () => {
     );
     expect(avatarImages.length).toBeGreaterThan(0);
 
-    const newChatButtons = tree!.root.findAll(
+    const newChatButtons = tree?.root.findAll(
       (node) => node.type === "button" && textOf(node).trim() === "+ New Chat",
     );
     expect(newChatButtons.length).toBe(1);
@@ -127,7 +127,7 @@ describe("ConversationsSidebar game-modal variant", () => {
     });
     expect(handleNewConversation).toHaveBeenCalledTimes(1);
 
-    const convItems = tree!.root.findAll(
+    const convItems = tree?.root.findAll(
       (node) => node.props["data-testid"] === "conv-item",
     );
     expect(convItems.length).toBe(2);
@@ -142,7 +142,7 @@ describe("ConversationsSidebar game-modal variant", () => {
     });
     expect(handleSelectConversation).toHaveBeenCalledWith("conv-1");
 
-    const deleteButtons = tree!.root.findAll(
+    const deleteButtons = tree?.root.findAll(
       (node) => node.props["data-testid"] === "conv-delete",
     );
     expect(deleteButtons.length).toBe(2);
@@ -167,10 +167,9 @@ describe("ConversationsSidebar game-modal variant", () => {
       );
     });
 
-    const renameButtons = tree!.root.findAll(
+    const renameButtons = tree?.root.findAll(
       (node) =>
-        node.type === "button" &&
-        node.props.title === "Rename conversation",
+        node.type === "button" && node.props.title === "Rename conversation",
     );
     expect(renameButtons.length).toBeGreaterThan(0);
 
@@ -178,9 +177,7 @@ describe("ConversationsSidebar game-modal variant", () => {
       renameButtons[0].props.onClick({ stopPropagation: () => {} });
     });
 
-    const input = tree!.root.findAll(
-      (node) => node.type === "input",
-    )[0];
+    const input = tree?.root.findAll((node) => node.type === "input")[0];
     expect(input).toBeTruthy();
 
     await act(async () => {

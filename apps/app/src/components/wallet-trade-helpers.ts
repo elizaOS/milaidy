@@ -1,4 +1,7 @@
-import type { BscTradePreflightResponse, BscTradeTxStatusResponse } from "../api-client";
+import type {
+  BscTradePreflightResponse,
+  BscTradeTxStatusResponse,
+} from "../api-client";
 import type { TranslationVars } from "../i18n";
 
 type NoticeTone = "info" | "success" | "error";
@@ -10,7 +13,10 @@ export interface WalletPreflightCheckItem {
   passed: boolean;
 }
 
-const PRECHECK_LABEL_KEY: Record<keyof BscTradePreflightResponse["checks"], string> = {
+const PRECHECK_LABEL_KEY: Record<
+  keyof BscTradePreflightResponse["checks"],
+  string
+> = {
   walletReady: "wallet.preflightCheck.wallet",
   rpcReady: "wallet.preflightCheck.rpc",
   chainReady: "wallet.preflightCheck.chain",
@@ -23,7 +29,8 @@ function includesAny(input: string, patterns: string[]): boolean {
 }
 
 function extractErrorMessage(err: unknown): string {
-  if (err instanceof Error && typeof err.message === "string") return err.message;
+  if (err instanceof Error && typeof err.message === "string")
+    return err.message;
   if (typeof err === "string") return err;
   return "";
 }
@@ -51,13 +58,31 @@ export function mapWalletTradeError(
   if (includesAny(lower, ["confirm=true is required"])) {
     return t("wallet.error.confirmRequired");
   }
-  if (includesAny(lower, ["insufficient funds", "insufficient bnb gas", "exceeds safety cap"])) {
+  if (
+    includesAny(lower, [
+      "insufficient funds",
+      "insufficient bnb gas",
+      "exceeds safety cap",
+    ])
+  ) {
     return t("wallet.error.insufficientFunds");
   }
-  if (includesAny(lower, ["nonce too low", "replacement transaction underpriced", "already known"])) {
+  if (
+    includesAny(lower, [
+      "nonce too low",
+      "replacement transaction underpriced",
+      "already known",
+    ])
+  ) {
     return t("wallet.error.nonceConflict");
   }
-  if (includesAny(lower, ["slippage", "insufficient output amount", "insufficient_output_amount"])) {
+  if (
+    includesAny(lower, [
+      "slippage",
+      "insufficient output amount",
+      "insufficient_output_amount",
+    ])
+  ) {
     return t("wallet.error.slippage");
   }
   if (includesAny(lower, ["execution reverted", "reverted"])) {
@@ -99,13 +124,15 @@ export function getWalletPreflightChecks(
   preflight: BscTradePreflightResponse,
   t: TranslateFn,
 ): WalletPreflightCheckItem[] {
-  return (Object.keys(preflight.checks) as Array<keyof BscTradePreflightResponse["checks"]>).map(
-    (key) => ({
-      key,
-      label: t(PRECHECK_LABEL_KEY[key]),
-      passed: Boolean(preflight.checks[key]),
-    }),
-  );
+  return (
+    Object.keys(preflight.checks) as Array<
+      keyof BscTradePreflightResponse["checks"]
+    >
+  ).map((key) => ({
+    key,
+    label: t(PRECHECK_LABEL_KEY[key]),
+    passed: Boolean(preflight.checks[key]),
+  }));
 }
 
 export function buildWalletPreflightNotice(
@@ -119,7 +146,9 @@ export function buildWalletPreflightNotice(
     };
   }
 
-  const reasons = preflight.reasons.filter((reason) => reason.trim().length > 0);
+  const reasons = preflight.reasons.filter(
+    (reason) => reason.trim().length > 0,
+  );
   if (reasons.length === 0) {
     return { text: t("wallet.preflightFailed"), tone: "error" };
   }

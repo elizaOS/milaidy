@@ -1,8 +1,9 @@
 /**
  * Plugin health contributor — reports loaded plugin count.
  */
-import type { AwarenessContributor } from "../../contracts/awareness";
+
 import type { IAgentRuntime } from "@elizaos/core";
+import type { AwarenessContributor } from "../../contracts/awareness";
 
 export const pluginHealthContributor: AwarenessContributor = {
   id: "pluginHealth",

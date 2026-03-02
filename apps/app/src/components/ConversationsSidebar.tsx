@@ -2,9 +2,9 @@
  * Conversations sidebar component — left sidebar with conversation list.
  */
 
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { getVrmPreviewUrl, useApp, VRM_COUNT } from "../AppContext";
-import { client, type AgentSelfStatusSnapshot } from "../api-client";
+import { type AgentSelfStatusSnapshot, client } from "../api-client";
 import { createTranslator } from "../i18n";
 
 export type ConversationsSidebarVariant = "default" | "game-modal";
@@ -16,10 +16,7 @@ const BROWSER_CAPABILITY_PLUGIN_IDS = new Set([
   "chrome-extension",
 ]);
 
-const COMPUTER_CAPABILITY_PLUGIN_IDS = new Set([
-  "computeruse",
-  "computer-use",
-]);
+const COMPUTER_CAPABILITY_PLUGIN_IDS = new Set(["computeruse", "computer-use"]);
 
 interface ConversationsSidebarProps {
   mobile?: boolean;
@@ -29,7 +26,10 @@ interface ConversationsSidebarProps {
 
 function formatRelativeTime(
   dateString: string,
-  t: (key: string, vars?: Record<string, string | number | boolean | null | undefined>) => string,
+  t: (
+    key: string,
+    vars?: Record<string, string | number | boolean | null | undefined>,
+  ) => string,
 ): string {
   const date = new Date(dateString);
   const now = new Date();
@@ -120,10 +120,10 @@ function estimateTokenCost(
     "claude-3.5": [3.0, 15.0],
     "gemini-2.5-pro": [1.25, 10.0],
     "gemini-2.0-flash": [0.1, 0.4],
-    "deepseek": [0.55, 2.19],
-    "qwen": [0.35, 1.4],
-    "kimi": [0.2, 0.8],
-    "moonshot": [0.2, 0.8],
+    deepseek: [0.55, 2.19],
+    qwen: [0.35, 1.4],
+    kimi: [0.2, 0.8],
+    moonshot: [0.2, 0.8],
   };
 
   let inputCostPerMillion = 1.0;
@@ -294,11 +294,11 @@ export function ConversationsSidebar({
       : "N/A";
   const capabilityRows = useMemo(() => {
     const activePlugins = new Set(selfStatus?.plugins?.active ?? []);
-    const hasBrowserPlugin = Array.from(BROWSER_CAPABILITY_PLUGIN_IDS).some((id) =>
-      activePlugins.has(id),
+    const hasBrowserPlugin = Array.from(BROWSER_CAPABILITY_PLUGIN_IDS).some(
+      (id) => activePlugins.has(id),
     );
-    const hasComputerPlugin = Array.from(COMPUTER_CAPABILITY_PLUGIN_IDS).some((id) =>
-      activePlugins.has(id),
+    const hasComputerPlugin = Array.from(COMPUTER_CAPABILITY_PLUGIN_IDS).some(
+      (id) => activePlugins.has(id),
     );
 
     const tradeEnabled = Boolean(selfStatus?.capabilities?.canTrade);
@@ -382,10 +382,10 @@ export function ConversationsSidebar({
     : "\u2014";
   const usageCostLabel = chatLastUsage
     ? estimateTokenCost(
-      chatLastUsage.promptTokens,
-      chatLastUsage.completionTokens,
-      observedModelLabel || modelLabel,
-    )
+        chatLastUsage.promptTokens,
+        chatLastUsage.completionTokens,
+        observedModelLabel || modelLabel,
+      )
     : "\u2014";
 
   return (
@@ -415,7 +415,11 @@ export function ConversationsSidebar({
         </div>
       )}
 
-      <div className={isGameModal ? "chat-game-sidebar-head" : "p-3 border-b border-border"}>
+      <div
+        className={
+          isGameModal ? "chat-game-sidebar-head" : "p-3 border-b border-border"
+        }
+      >
         <button
           type="button"
           className={
@@ -432,9 +436,19 @@ export function ConversationsSidebar({
         </button>
       </div>
 
-      <div className={isGameModal ? "chat-game-sidebar-list" : "flex-1 overflow-y-auto py-1"}>
+      <div
+        className={
+          isGameModal ? "chat-game-sidebar-list" : "flex-1 overflow-y-auto py-1"
+        }
+      >
         {sortedConversations.length === 0 ? (
-          <div className={isGameModal ? "chat-game-sidebar-empty" : "px-3 py-6 text-center text-muted text-xs"}>
+          <div
+            className={
+              isGameModal
+                ? "chat-game-sidebar-empty"
+                : "px-3 py-6 text-center text-muted text-xs"
+            }
+          >
             {t("conversations.none")}
           </div>
         ) : (
@@ -444,7 +458,8 @@ export function ConversationsSidebar({
             const avatarSrc = getVrmPreviewUrl(
               avatarIndexFromConversationId(conv.id),
             );
-            const fallbackInitial = conv.title.trim().charAt(0).toUpperCase() || "#";
+            const fallbackInitial =
+              conv.title.trim().charAt(0).toUpperCase() || "#";
 
             return (
               <div
@@ -492,7 +507,13 @@ export function ConversationsSidebar({
                       onDoubleClick={() => handleDoubleClick(conv)}
                     >
                       {unreadConversations.has(conv.id) && (
-                        <span className={isGameModal ? "chat-game-conv-unread" : "w-2 h-2 rounded-full bg-accent shrink-0"} />
+                        <span
+                          className={
+                            isGameModal
+                              ? "chat-game-conv-unread"
+                              : "w-2 h-2 rounded-full bg-accent shrink-0"
+                          }
+                        />
                       )}
                       {isGameModal && (
                         <div className="chat-game-conv-avatar">
@@ -501,14 +522,32 @@ export function ConversationsSidebar({
                             alt={conv.title}
                             className="chat-game-conv-avatar-img"
                           />
-                          <span className="chat-game-conv-avatar-initial">{fallbackInitial}</span>
+                          <span className="chat-game-conv-avatar-initial">
+                            {fallbackInitial}
+                          </span>
                         </div>
                       )}
-                      <div className={isGameModal ? "chat-game-conv-body" : "flex-1 min-w-0"}>
-                        <div className={isGameModal ? "chat-game-conv-title" : "font-medium truncate text-txt"}>
+                      <div
+                        className={
+                          isGameModal ? "chat-game-conv-body" : "flex-1 min-w-0"
+                        }
+                      >
+                        <div
+                          className={
+                            isGameModal
+                              ? "chat-game-conv-title"
+                              : "font-medium truncate text-txt"
+                          }
+                        >
                           {conv.title}
                         </div>
-                        <div className={isGameModal ? "chat-game-conv-time" : "text-[11px] text-muted mt-0.5"}>
+                        <div
+                          className={
+                            isGameModal
+                              ? "chat-game-conv-time"
+                              : "text-[11px] text-muted mt-0.5"
+                          }
+                        >
                           {formatRelativeTime(conv.updatedAt, t)}
                         </div>
                       </div>
@@ -522,7 +561,10 @@ export function ConversationsSidebar({
                           ? "chat-game-conv-action"
                           : "opacity-0 group-hover:opacity-100 transition-opacity border-none bg-transparent text-muted hover:text-accent cursor-pointer text-sm px-1 py-0.5 rounded flex-shrink-0"
                       }
-                      onClick={(e) => { e.stopPropagation(); handleDoubleClick(conv); }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDoubleClick(conv);
+                      }}
                       title={t("conversations.rename")}
                     >
                       &#x270E;
@@ -544,14 +586,18 @@ export function ConversationsSidebar({
                       </button>
                     ) : confirmDeleteId === conv.id ? (
                       <div className="flex items-center gap-1.5 flex-shrink-0">
-                        <span className="text-[10px] text-danger">{t("conversations.deleteConfirm")}</span>
+                        <span className="text-[10px] text-danger">
+                          {t("conversations.deleteConfirm")}
+                        </span>
                         <button
                           type="button"
                           className="px-1.5 py-0.5 text-[10px] border border-danger bg-danger text-white cursor-pointer hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
                           onClick={() => void handleConfirmDelete(conv.id)}
                           disabled={deletingId === conv.id}
                         >
-                          {deletingId === conv.id ? "..." : t("conversations.deleteYes")}
+                          {deletingId === conv.id
+                            ? "..."
+                            : t("conversations.deleteYes")}
                         </button>
                         <button
                           type="button"
@@ -586,21 +632,35 @@ export function ConversationsSidebar({
 
       {/* Game-modal footer: AI provider, capabilities, token usage */}
       {isGameModal && (
-        <div className="chat-game-sidebar-footer" data-testid="chat-game-provider">
-          <div className="chat-game-sidebar-footer-label">{t("chat.modal.aiProvider")}</div>
+        <div
+          className="chat-game-sidebar-footer"
+          data-testid="chat-game-provider"
+        >
+          <div className="chat-game-sidebar-footer-label">
+            {t("chat.modal.aiProvider")}
+          </div>
           <div className="chat-game-sidebar-footer-value">{providerLabel}</div>
-          <div className="chat-game-sidebar-footer-model" title={modelLabel || undefined}>
+          <div
+            className="chat-game-sidebar-footer-model"
+            title={modelLabel || undefined}
+          >
             {modelLabel || t("chat.modal.providerUnknown")}
           </div>
           <div className="chat-game-sidebar-capabilities">
-            <div className="chat-game-sidebar-footer-label">{t("chat.modal.capabilities")}</div>
+            <div className="chat-game-sidebar-footer-label">
+              {t("chat.modal.capabilities")}
+            </div>
             <div className="chat-game-sidebar-cap-grid">
               {capabilityRows.map((row) => (
                 <div className="chat-game-sidebar-cap-row" key={row.key}>
                   <div className="chat-game-sidebar-cap-main">
-                    <span className="chat-game-sidebar-cap-name">{row.label}</span>
+                    <span className="chat-game-sidebar-cap-name">
+                      {row.label}
+                    </span>
                     {row.hint && (
-                      <span className="chat-game-sidebar-cap-hint">{row.hint}</span>
+                      <span className="chat-game-sidebar-cap-hint">
+                        {row.hint}
+                      </span>
                     )}
                   </div>
                   <span
@@ -625,9 +685,15 @@ export function ConversationsSidebar({
             )}
           </div>
           <div className="chat-game-sidebar-usage">
-            <div className="chat-game-sidebar-footer-label">{t("chat.modal.tokenUsage")}</div>
-            <div className="chat-game-sidebar-usage-total">{usageTotalLabel}</div>
-            <div className="chat-game-sidebar-usage-breakdown">{usageBreakdownLabel}</div>
+            <div className="chat-game-sidebar-footer-label">
+              {t("chat.modal.tokenUsage")}
+            </div>
+            <div className="chat-game-sidebar-usage-total">
+              {usageTotalLabel}
+            </div>
+            <div className="chat-game-sidebar-usage-breakdown">
+              {usageBreakdownLabel}
+            </div>
             <div className="chat-game-sidebar-usage-cost">
               {t("chat.modal.estimatedCost")}: {usageCostLabel}
             </div>

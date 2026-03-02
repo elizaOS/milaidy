@@ -2009,10 +2009,11 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
     (p: PluginInfo) => p.id === gameSelectedId,
   )
     ? gameSelectedId
-    : gameVisiblePlugins[0]?.id ?? null;
+    : (gameVisiblePlugins[0]?.id ?? null);
   const selectedPlugin =
-    gameVisiblePlugins.find((p: PluginInfo) => p.id === effectiveGameSelected) ??
-    null;
+    gameVisiblePlugins.find(
+      (p: PluginInfo) => p.id === effectiveGameSelected,
+    ) ?? null;
 
   // ── Game-modal render ─────────────────────────────────────────────
   if (inModal) {
@@ -2029,11 +2030,14 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
           </div>
           <div className="plugins-game-list-scroll">
             {gameVisiblePlugins.length === 0 ? (
-              <div className="plugins-game-list-empty">No {sectionTitle.toLowerCase()} found.</div>
+              <div className="plugins-game-list-empty">
+                No {sectionTitle.toLowerCase()} found.
+              </div>
             ) : (
               gameVisiblePlugins.map((p: PluginInfo) => (
-                <div
+                <button
                   key={p.id}
+                  type="button"
                   className={`plugins-game-card${
                     effectiveGameSelected === p.id ? " is-selected" : ""
                   }${!p.enabled ? " is-disabled" : ""}`}
@@ -2049,7 +2053,11 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
                         if (!icon) return "🧩";
                         if (typeof icon === "string") {
                           return icon.startsWith("http") ? (
-                            <img src={icon} alt="" className="plugins-game-card-icon" />
+                            <img
+                              src={icon}
+                              alt=""
+                              className="plugins-game-card-icon"
+                            />
                           ) : (
                             icon
                           );
@@ -2071,7 +2079,7 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
                       </span>
                     </div>
                   </div>
-                </div>
+                </button>
               ))
             )}
           </div>
@@ -2101,7 +2109,11 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
                         if (!icon) return "🧩";
                         if (typeof icon === "string") {
                           return icon.startsWith("http") ? (
-                            <img src={icon} alt="" className="plugins-game-detail-icon" />
+                            <img
+                              src={icon}
+                              alt=""
+                              className="plugins-game-detail-icon"
+                            />
                           ) : (
                             icon
                           );
@@ -2144,50 +2156,48 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
               {selectedPlugin.parameters &&
                 selectedPlugin.parameters.length > 0 && (
                   <div className="plugins-game-detail-config">
-                    {selectedPlugin.parameters.map(
-                      (param: PluginParamDef) => (
-                        <div key={param.key} id={`field-${param.key}`}>
-                          <label className="text-[11px] tracking-wider text-muted block mb-1">
-                            {param.key}
-                          </label>
-                          <input
-                            type={param.sensitive ? "password" : "text"}
-                            className="w-full px-2 py-1 text-[12px]"
-                            placeholder={param.description}
-                            value={
-                              pluginConfigs[selectedPlugin.id]?.[param.key] ??
-                              param.currentValue ??
-                              ""
-                            }
-                            onChange={(e) =>
-                              handleParamChange(
-                                selectedPlugin.id,
-                                param.key,
-                                e.target.value,
-                              )
-                            }
-                          />
-                        </div>
-                      ),
-                    )}
+                    {selectedPlugin.parameters.map((param: PluginParamDef) => (
+                      <div key={param.key} id={`field-${param.key}`}>
+                        <label
+                          htmlFor={`input-${param.key}`}
+                          className="text-[11px] tracking-wider text-muted block mb-1"
+                        >
+                          {param.key}
+                        </label>
+                        <input
+                          id={`input-${param.key}`}
+                          type={param.sensitive ? "password" : "text"}
+                          className="w-full px-2 py-1 text-[12px]"
+                          placeholder={param.description}
+                          value={
+                            pluginConfigs[selectedPlugin.id]?.[param.key] ??
+                            param.currentValue ??
+                            ""
+                          }
+                          onChange={(e) =>
+                            handleParamChange(
+                              selectedPlugin.id,
+                              param.key,
+                              e.target.value,
+                            )
+                          }
+                        />
+                      </div>
+                    ))}
                   </div>
                 )}
               <div className="plugins-game-detail-actions">
                 <button
                   type="button"
                   className="plugins-game-action-btn"
-                  onClick={() =>
-                    void handleTestConnection(selectedPlugin.id)
-                  }
+                  onClick={() => void handleTestConnection(selectedPlugin.id)}
                 >
                   Test Connection
                 </button>
                 <button
                   type="button"
                   className={`plugins-game-save-btn${
-                    pluginSaveSuccess.has(selectedPlugin.id)
-                      ? " is-saved"
-                      : ""
+                    pluginSaveSuccess.has(selectedPlugin.id) ? " is-saved" : ""
                   }`}
                   onClick={() => void handleConfigSave(selectedPlugin.id)}
                   disabled={pluginSaving.has(selectedPlugin.id)}
@@ -2608,7 +2618,13 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
 /* ── Exported views ────────────────────────────────────────────────── */
 
 /** Unified plugins view — tag-filtered plugin list. */
-export function PluginsView({ mode = "all", inModal }: { mode?: PluginsViewMode; inModal?: boolean }) {
+export function PluginsView({
+  mode = "all",
+  inModal,
+}: {
+  mode?: PluginsViewMode;
+  inModal?: boolean;
+}) {
   return (
     <PluginListView
       label={mode === "connectors" ? "Connectors" : "Plugins"}

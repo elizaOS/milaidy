@@ -219,7 +219,9 @@ export function Header() {
                     className="inline-block w-2 h-2 rounded-full bg-accent animate-ping"
                     style={{ animationDuration: "1.5s" }}
                   />
-                  <span className="hidden sm:inline">{t("header.freeMintLive")}</span>
+                  <span className="hidden sm:inline">
+                    {t("header.freeMintLive")}
+                  </span>
                   <span className="sm:hidden">Mint</span>
                 </button>
               )}
@@ -242,7 +244,9 @@ export function Header() {
               ) : (
                 <span className="inline-flex shrink-0 items-center gap-1 px-2.5 py-1.5 h-9 border border-danger text-danger bg-danger/10 rounded-md font-mono text-[11px] sm:text-xs">
                   <AlertTriangle className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">{t("header.cloudDisconnected")}</span>
+                  <span className="hidden sm:inline">
+                    {t("header.cloudDisconnected")}
+                  </span>
                   <span className="sm:hidden">Cloud</span>
                 </span>
               ))}
@@ -312,7 +316,10 @@ export function Header() {
               )}
 
               {/* Restart Button */}
-              <IconButtonTooltip label={t("header.restartAgent")} shortcut="Ctrl+R">
+              <IconButtonTooltip
+                label={t("header.restartAgent")}
+                shortcut="Ctrl+R"
+              >
                 <button
                   type="button"
                   onClick={handleRestart}
@@ -323,12 +330,16 @@ export function Header() {
                   {restartBusy || state === "restarting" ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin sm:hidden" />
-                      <span className="hidden sm:inline">{t("header.restarting")}</span>
+                      <span className="hidden sm:inline">
+                        {t("header.restarting")}
+                      </span>
                     </>
                   ) : (
                     <>
                       <RotateCcw className="w-4 h-4 sm:hidden" />
-                      <span className="hidden sm:inline">{t("header.restart")}</span>
+                      <span className="hidden sm:inline">
+                        {t("header.restart")}
+                      </span>
                     </>
                   )}
                 </button>

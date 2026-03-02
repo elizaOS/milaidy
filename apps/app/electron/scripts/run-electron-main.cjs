@@ -7,7 +7,7 @@
  * Electron execute as plain Node.js and breaks app startup.
  */
 const { spawn } = require("node:child_process");
-const path = require("node:path");
+const _path = require("node:path");
 
 const electronCli = require.resolve("electron/cli.js");
 const args = process.argv.slice(2);
@@ -27,4 +27,3 @@ child.on("exit", (code, signal) => {
   }
   process.exit(code ?? 0);
 });
-

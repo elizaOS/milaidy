@@ -12,7 +12,10 @@ vi.mock("../../src/AppContext", () => ({
 
 import { InventoryView } from "../../src/components/InventoryView";
 
-function createWalletBalances(bnbBalance = "0.006", bscError: string | null = null) {
+function createWalletBalances(
+  bnbBalance = "0.006",
+  bscError: string | null = null,
+) {
   return {
     evm: {
       address: "0x1111111111111111111111111111111111111111",
@@ -163,14 +166,16 @@ function createExecuteResult(
             amountWei: "1000000000000000000",
           }
         : undefined,
-    requiresApproval: !executed && side === "sell" ? requiresApproval : undefined,
+    requiresApproval:
+      !executed && side === "sell" ? requiresApproval : undefined,
     execution: executed
       ? {
           hash: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           nonce: 12,
           gasLimit: "220000",
           valueWei: "100000000000000000",
-          explorerUrl: "https://bscscan.com/tx/0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          explorerUrl:
+            "https://bscscan.com/tx/0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           blockNumber: 51_234_567,
           status: executionStatus,
         }
@@ -209,13 +214,16 @@ function createContext(
     loadBalances: vi.fn(async () => {}),
     loadNfts: vi.fn(async () => {}),
     getBscTradePreflight: vi.fn(async () => createPreflight(true)),
-    getBscTradeQuote: vi.fn(async (request?: { side?: "buy" | "sell" }) => createQuote(request?.side ?? "buy")),
+    getBscTradeQuote: vi.fn(async (request?: { side?: "buy" | "sell" }) =>
+      createQuote(request?.side ?? "buy"),
+    ),
     executeBscTrade: vi.fn(async () => createExecuteResult(true)),
     getBscTradeTxStatus: vi.fn(async () => ({
       ok: true,
       hash: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       status: "success" as const,
-      explorerUrl: "https://bscscan.com/tx/0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      explorerUrl:
+        "https://bscscan.com/tx/0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       chainId: 56,
       blockNumber: 51_234_567,
       confirmations: 7,
@@ -268,7 +276,7 @@ describe("InventoryView BSC-first", () => {
       tree = TestRenderer.create(React.createElement(InventoryView));
     });
 
-    const content = text(tree!.root);
+    const content = text(tree?.root);
     expect(content).toContain("Portfolio");
     expect(content).toContain("BSC");
     expect(content).not.toContain("Ethereum native");
@@ -283,8 +291,10 @@ describe("InventoryView BSC-first", () => {
       tree = TestRenderer.create(React.createElement(InventoryView));
     });
 
-    const allButton = tree!.root.findAll(
-      (node) => node.type === "button" && node.props["data-testid"] === "wallet-focus-all",
+    const allButton = tree?.root.findAll(
+      (node) =>
+        node.type === "button" &&
+        node.props["data-testid"] === "wallet-focus-all",
     )[0];
     expect(allButton).toBeDefined();
 
@@ -294,10 +304,10 @@ describe("InventoryView BSC-first", () => {
     expect(ctx.setState).toHaveBeenCalledWith("inventoryChainFocus", "all");
 
     await act(async () => {
-      tree!.update(React.createElement(InventoryView));
+      tree?.update(React.createElement(InventoryView));
     });
 
-    const content = text(tree!.root);
+    const content = text(tree?.root);
     expect(content).toContain("Ethereum");
   });
 
@@ -311,7 +321,7 @@ describe("InventoryView BSC-first", () => {
     await act(async () => {
       tree = TestRenderer.create(React.createElement(InventoryView));
     });
-    let content = text(tree!.root);
+    let content = text(tree?.root);
     expect(content).toContain("Trade Not Ready");
 
     const readyCtx = createContext({
@@ -319,9 +329,9 @@ describe("InventoryView BSC-first", () => {
     });
     mockUseApp.mockImplementation(() => readyCtx);
     await act(async () => {
-      tree!.update(React.createElement(InventoryView));
+      tree?.update(React.createElement(InventoryView));
     });
-    content = text(tree!.root);
+    content = text(tree?.root);
     expect(content).toContain("Trade Ready");
   });
 
@@ -336,7 +346,7 @@ describe("InventoryView BSC-first", () => {
       tree = TestRenderer.create(React.createElement(InventoryView));
     });
 
-    let content = text(tree!.root);
+    const content = text(tree?.root);
     expect(content).toContain("Feed Offline");
 
     const normalCtx = createContext({
@@ -344,14 +354,18 @@ describe("InventoryView BSC-first", () => {
     });
     mockUseApp.mockImplementation(() => normalCtx);
     await act(async () => {
-      tree!.update(React.createElement(InventoryView));
+      tree?.update(React.createElement(InventoryView));
     });
 
-    const preflightButton = tree!.root.findAll(
-      (node) => node.type === "button" && node.props["data-testid"] === "wallet-token-preflight",
+    const preflightButton = tree?.root.findAll(
+      (node) =>
+        node.type === "button" &&
+        node.props["data-testid"] === "wallet-token-preflight",
     )[0];
-    const quoteButton = tree!.root.findAll(
-      (node) => node.type === "button" && node.props["data-testid"] === "wallet-token-quote",
+    const quoteButton = tree?.root.findAll(
+      (node) =>
+        node.type === "button" &&
+        node.props["data-testid"] === "wallet-token-quote",
     )[0];
     expect(preflightButton).toBeDefined();
     expect(quoteButton).toBeDefined();
@@ -385,7 +399,7 @@ describe("InventoryView BSC-first", () => {
       tree = TestRenderer.create(React.createElement(InventoryView));
     });
 
-    const content = text(tree!.root);
+    const content = text(tree?.root);
     expect(content).toContain("NODEREAL_BSC_RPC_URL");
     expect(content).toContain("QUICKNODE_BSC_RPC_URL");
   });
@@ -401,23 +415,33 @@ describe("InventoryView BSC-first", () => {
       tree = TestRenderer.create(React.createElement(InventoryView));
     });
 
-    const tokenInput = tree!.root.findAll(
-      (node) => node.type === "input" && node.props["data-testid"] === "wallet-quick-token-input",
+    const tokenInput = tree?.root.findAll(
+      (node) =>
+        node.type === "input" &&
+        node.props["data-testid"] === "wallet-quick-token-input",
     )[0];
     expect(tokenInput).toBeDefined();
 
     await act(async () => {
-      tokenInput.props.onChange({ target: { value: "0x1234567890abcdef1234567890abcdef12345678" } });
+      tokenInput.props.onChange({
+        target: { value: "0x1234567890abcdef1234567890abcdef12345678" },
+      });
     });
 
-    const amountPreset = tree!.root.findAll(
-      (node) => node.type === "button" && node.props["data-testid"] === "wallet-quick-amount-0.2",
+    const amountPreset = tree?.root.findAll(
+      (node) =>
+        node.type === "button" &&
+        node.props["data-testid"] === "wallet-quick-amount-0.2",
     )[0];
-    const quickBuy = tree!.root.findAll(
-      (node) => node.type === "button" && node.props["data-testid"] === "wallet-quick-buy",
+    const quickBuy = tree?.root.findAll(
+      (node) =>
+        node.type === "button" &&
+        node.props["data-testid"] === "wallet-quick-buy",
     )[0];
-    const quickSell = tree!.root.findAll(
-      (node) => node.type === "button" && node.props["data-testid"] === "wallet-quick-sell",
+    const quickSell = tree?.root.findAll(
+      (node) =>
+        node.type === "button" &&
+        node.props["data-testid"] === "wallet-quick-sell",
     )[0];
     expect(amountPreset).toBeDefined();
     expect(quickBuy).toBeDefined();
@@ -430,7 +454,7 @@ describe("InventoryView BSC-first", () => {
     });
 
     expect(ctx.getBscTradeQuote).toHaveBeenCalled();
-    const content = text(tree!.root);
+    const content = text(tree?.root);
     expect(content).toContain("Latest quote");
 
     await act(async () => {
@@ -453,21 +477,29 @@ describe("InventoryView BSC-first", () => {
       tree = TestRenderer.create(React.createElement(InventoryView));
     });
 
-    const tokenInput = tree!.root.findAll(
-      (node) => node.type === "input" && node.props["data-testid"] === "wallet-quick-token-input",
+    const tokenInput = tree?.root.findAll(
+      (node) =>
+        node.type === "input" &&
+        node.props["data-testid"] === "wallet-quick-token-input",
     )[0];
-    const addButton = tree!.root.findAll(
-      (node) => node.type === "button" && node.props["data-testid"] === "wallet-quick-add-token",
+    const addButton = tree?.root.findAll(
+      (node) =>
+        node.type === "button" &&
+        node.props["data-testid"] === "wallet-quick-add-token",
     )[0];
     expect(addButton).toBeDefined();
 
     await act(async () => {
-      tokenInput.props.onChange({ target: { value: "0x1111111111111111111111111111111111111112" } });
+      tokenInput.props.onChange({
+        target: { value: "0x1111111111111111111111111111111111111112" },
+      });
       await flushAsync();
     });
 
-    const addButtonUpdated = tree!.root.findAll(
-      (node) => node.type === "button" && node.props["data-testid"] === "wallet-quick-add-token",
+    const addButtonUpdated = tree?.root.findAll(
+      (node) =>
+        node.type === "button" &&
+        node.props["data-testid"] === "wallet-quick-add-token",
     )[0];
 
     await act(async () => {
@@ -480,10 +512,12 @@ describe("InventoryView BSC-first", () => {
       "success",
       2600,
     );
-    expect(text(tree!.root)).toContain("TKN-1111");
+    expect(text(tree?.root)).toContain("TKN-1111");
 
-    const untrackButton = tree!.root.findAll(
-      (node) => node.type === "button" && node.props["data-testid"] === "wallet-token-untrack",
+    const untrackButton = tree?.root.findAll(
+      (node) =>
+        node.type === "button" &&
+        node.props["data-testid"] === "wallet-token-untrack",
     )[0];
     expect(untrackButton).toBeDefined();
 
@@ -492,7 +526,7 @@ describe("InventoryView BSC-first", () => {
       await flushAsync();
     });
 
-    expect(text(tree!.root)).not.toContain("TKN-1111");
+    expect(text(tree?.root)).not.toContain("TKN-1111");
   });
 
   it("executes latest quote via execute action", async () => {
@@ -525,23 +559,31 @@ describe("InventoryView BSC-first", () => {
         tree = TestRenderer.create(React.createElement(InventoryView));
       });
 
-      const tokenInput = tree!.root.findAll(
-        (node) => node.type === "input" && node.props["data-testid"] === "wallet-quick-token-input",
+      const tokenInput = tree?.root.findAll(
+        (node) =>
+          node.type === "input" &&
+          node.props["data-testid"] === "wallet-quick-token-input",
       )[0];
       await act(async () => {
-        tokenInput.props.onChange({ target: { value: "0x1234567890abcdef1234567890abcdef12345678" } });
+        tokenInput.props.onChange({
+          target: { value: "0x1234567890abcdef1234567890abcdef12345678" },
+        });
       });
 
-      const quickBuy = tree!.root.findAll(
-        (node) => node.type === "button" && node.props["data-testid"] === "wallet-quick-buy",
+      const quickBuy = tree?.root.findAll(
+        (node) =>
+          node.type === "button" &&
+          node.props["data-testid"] === "wallet-quick-buy",
       )[0];
       await act(async () => {
         quickBuy.props.onClick();
         await flushAsync();
       });
 
-      const executeButton = tree!.root.findAll(
-        (node) => node.type === "button" && node.props["data-testid"] === "wallet-quote-execute",
+      const executeButton = tree?.root.findAll(
+        (node) =>
+          node.type === "button" &&
+          node.props["data-testid"] === "wallet-quote-execute",
       )[0];
       await act(async () => {
         executeButton.props.onClick();
@@ -550,7 +592,7 @@ describe("InventoryView BSC-first", () => {
 
       expect(confirmMock).toHaveBeenCalledTimes(1);
       expect(ctx.executeBscTrade).toHaveBeenCalledTimes(1);
-      expect(text(tree!.root)).toContain("View tx 0xaaaaaaaa");
+      expect(text(tree?.root)).toContain("View tx 0xaaaaaaaa");
     } finally {
       if (originalWindow) {
         Object.defineProperty(originalWindow, "confirm", {
@@ -599,23 +641,31 @@ describe("InventoryView BSC-first", () => {
         tree = TestRenderer.create(React.createElement(InventoryView));
       });
 
-      const tokenInput = tree!.root.findAll(
-        (node) => node.type === "input" && node.props["data-testid"] === "wallet-quick-token-input",
+      const tokenInput = tree?.root.findAll(
+        (node) =>
+          node.type === "input" &&
+          node.props["data-testid"] === "wallet-quick-token-input",
       )[0];
       await act(async () => {
-        tokenInput.props.onChange({ target: { value: "0x1234567890abcdef1234567890abcdef12345678" } });
+        tokenInput.props.onChange({
+          target: { value: "0x1234567890abcdef1234567890abcdef12345678" },
+        });
       });
 
-      const quickSell = tree!.root.findAll(
-        (node) => node.type === "button" && node.props["data-testid"] === "wallet-quick-sell",
+      const quickSell = tree?.root.findAll(
+        (node) =>
+          node.type === "button" &&
+          node.props["data-testid"] === "wallet-quick-sell",
       )[0];
       await act(async () => {
         quickSell.props.onClick();
         await flushAsync();
       });
 
-      const executeButton = tree!.root.findAll(
-        (node) => node.type === "button" && node.props["data-testid"] === "wallet-quote-execute",
+      const executeButton = tree?.root.findAll(
+        (node) =>
+          node.type === "button" &&
+          node.props["data-testid"] === "wallet-quote-execute",
       )[0];
       await act(async () => {
         executeButton.props.onClick();
@@ -631,11 +681,15 @@ describe("InventoryView BSC-first", () => {
         4600,
       );
 
-      const approveCopy = tree!.root.findAll(
-        (node) => node.type === "button" && node.props["data-testid"] === "wallet-copy-approve-tx",
+      const approveCopy = tree?.root.findAll(
+        (node) =>
+          node.type === "button" &&
+          node.props["data-testid"] === "wallet-copy-approve-tx",
       )[0];
-      const swapCopy = tree!.root.findAll(
-        (node) => node.type === "button" && node.props["data-testid"] === "wallet-copy-swap-tx",
+      const swapCopy = tree?.root.findAll(
+        (node) =>
+          node.type === "button" &&
+          node.props["data-testid"] === "wallet-copy-swap-tx",
       )[0];
       expect(approveCopy).toBeDefined();
       expect(swapCopy).toBeDefined();
@@ -694,31 +748,41 @@ describe("InventoryView BSC-first", () => {
         tree = TestRenderer.create(React.createElement(InventoryView));
       });
 
-      const tokenInput = tree!.root.findAll(
-        (node) => node.type === "input" && node.props["data-testid"] === "wallet-quick-token-input",
+      const tokenInput = tree?.root.findAll(
+        (node) =>
+          node.type === "input" &&
+          node.props["data-testid"] === "wallet-quick-token-input",
       )[0];
       await act(async () => {
-        tokenInput.props.onChange({ target: { value: "0x1234567890abcdef1234567890abcdef12345678" } });
+        tokenInput.props.onChange({
+          target: { value: "0x1234567890abcdef1234567890abcdef12345678" },
+        });
       });
 
-      const quickBuy = tree!.root.findAll(
-        (node) => node.type === "button" && node.props["data-testid"] === "wallet-quick-buy",
+      const quickBuy = tree?.root.findAll(
+        (node) =>
+          node.type === "button" &&
+          node.props["data-testid"] === "wallet-quick-buy",
       )[0];
       await act(async () => {
         quickBuy.props.onClick();
         await flushAsync();
       });
 
-      const executeButton = tree!.root.findAll(
-        (node) => node.type === "button" && node.props["data-testid"] === "wallet-quote-execute",
+      const executeButton = tree?.root.findAll(
+        (node) =>
+          node.type === "button" &&
+          node.props["data-testid"] === "wallet-quote-execute",
       )[0];
       await act(async () => {
         executeButton.props.onClick();
         await flushAsync();
       });
 
-      const refreshButton = tree!.root.findAll(
-        (node) => node.type === "button" && node.props["data-testid"] === "wallet-tx-refresh",
+      const refreshButton = tree?.root.findAll(
+        (node) =>
+          node.type === "button" &&
+          node.props["data-testid"] === "wallet-tx-refresh",
       )[0];
       expect(refreshButton).toBeDefined();
 
@@ -730,7 +794,7 @@ describe("InventoryView BSC-first", () => {
       expect(ctx.getBscTradeTxStatus).toHaveBeenCalledWith(
         "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       );
-      expect(text(tree!.root)).toContain("Confirmations");
+      expect(text(tree?.root)).toContain("Confirmations");
     } finally {
       if (originalWindow) {
         Object.defineProperty(originalWindow, "confirm", {

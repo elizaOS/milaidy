@@ -176,7 +176,9 @@ export function Nav({ mobileLeft }: NavProps) {
                         />
                       </span>
                       <div className="flex-1 text-left">
-                        <div className="font-medium">{t(NAV_LABEL_I18N_KEY[group.label] ?? group.label)}</div>
+                        <div className="font-medium">
+                          {t(NAV_LABEL_I18N_KEY[group.label] ?? group.label)}
+                        </div>
                         {group.description && (
                           <div className="text-[11px] text-muted mt-0.5">
                             {group.description}

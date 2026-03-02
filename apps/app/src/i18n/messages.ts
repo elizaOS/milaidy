@@ -125,7 +125,8 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "chat.modal.capHintNeedsLocalSigner": "Configure local signer/private key",
     "chat.modal.capHintNeedsFullAutomation": "Switch Automation Mode to Full",
     "chat.modal.capHintNeedsBrowserPlugin": "Enable Browser capability plugin",
-    "chat.modal.capHintNeedsComputerPlugin": "Enable Computer capability plugin",
+    "chat.modal.capHintNeedsComputerPlugin":
+      "Enable Computer capability plugin",
     "chat.modal.capHintEnableShell": "Enable shell permission",
     "chat.modal.tradeMode": "Trade Mode",
     "chat.modal.wallet": "Wallet",
@@ -189,8 +190,7 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
       "Wallet API keys saved and agent restarted.",
     "appContext.notice.cloudLoginSuccess":
       "Logged in to Eliza Cloud successfully.",
-    "appContext.notice.cloudDisconnected":
-      "Disconnected from Eliza Cloud.",
+    "appContext.notice.cloudDisconnected": "Disconnected from Eliza Cloud.",
 
     // Apps notices
     "apps.notice.requiresIframeAuthMissingPayload":
@@ -200,32 +200,27 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
       "Popup blocked while opening {{appName}}. Allow popups and try again.",
     "apps.notice.launchedWithoutViewerOrUrl":
       "{{appName}} launched, but no viewer or URL is configured.",
-    "apps.notice.failedLaunch":
-      "Failed to launch {{appName}}: {{error}}",
+    "apps.notice.failedLaunch": "Failed to launch {{appName}}: {{error}}",
     "apps.notice.currentGameOpenedInNewTab":
       "Current game opened in a new tab.",
     "apps.notice.popupBlocked": "Popup blocked. Allow popups and try again.",
-    "apps.notice.hyperscapeControlsError":
-      "Hyperscape controls: {{error}}",
-    "apps.notice.hyperscapeTelemetryError":
-      "Hyperscape telemetry: {{error}}",
+    "apps.notice.hyperscapeControlsError": "Hyperscape controls: {{error}}",
+    "apps.notice.hyperscapeTelemetryError": "Hyperscape telemetry: {{error}}",
     "apps.notice.characterIdRequired":
       "Character ID is required to create an embedded agent.",
     "apps.notice.embeddedAgentCreated": "Embedded agent created.",
     "apps.notice.failedCreateEmbeddedAgent":
       "Failed to create embedded agent: {{error}}",
-    "apps.notice.selectEmbeddedAgentFirst":
-      "Select an embedded agent first.",
+    "apps.notice.selectEmbeddedAgentFirst": "Select an embedded agent first.",
     "apps.notice.agentActionRequestSent": "Agent {{action}} request sent.",
-    "apps.notice.failedAgentAction":
-      "Failed to {{action}} agent: {{error}}",
+    "apps.notice.failedAgentAction": "Failed to {{action}} agent: {{error}}",
     "apps.notice.messageEmpty": "Message cannot be empty.",
     "apps.notice.messageSentToAgent": "Message sent to agent.",
     "apps.notice.failedSendMessage": "Failed to send message: {{error}}",
     "apps.notice.commandEmpty": "Command cannot be empty.",
     "apps.notice.commandDataInvalidJsonObject":
       "Command data must be valid JSON object.",
-    "apps.notice.commandSent": "Command \"{{command}}\" sent.",
+    "apps.notice.commandSent": 'Command "{{command}}" sent.',
     "apps.notice.failedSendCommand": "Failed to send command: {{error}}",
     "apps.ui.failedLoadApps": "Failed to load apps: {{error}}",
     "apps.ui.networkError": "network error",
@@ -268,17 +263,14 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
       "Embedded agents, commands, and telemetry.",
     "apps.ui.error": "error",
     "apps.ui.hyperscape.failedLoadAgents": "Failed to load agents",
-    "apps.ui.hyperscape.failedLoadTelemetry":
-      "Failed to load agent telemetry",
+    "apps.ui.hyperscape.failedLoadTelemetry": "Failed to load agent telemetry",
     "apps.ui.hyperscape.hideControls": "Hide Hyperscape Controls",
     "apps.ui.hyperscape.showControls": "Show Hyperscape Controls",
     "apps.ui.hyperscape.refreshing": "Refreshing...",
     "apps.ui.hyperscape.refreshAgents": "Refresh Agents",
     "apps.ui.hyperscape.loadingTelemetry": "Loading telemetry...",
-    "apps.ui.hyperscape.refreshGoalActions":
-      "Refresh Goal + Quick Actions",
-    "apps.ui.hyperscape.embeddedAgentsCount":
-      "Embedded agents ({{count}})",
+    "apps.ui.hyperscape.refreshGoalActions": "Refresh Goal + Quick Actions",
+    "apps.ui.hyperscape.embeddedAgentsCount": "Embedded agents ({{count}})",
     "apps.ui.hyperscape.selectEmbeddedAgent": "Select embedded agent",
     "apps.ui.hyperscape.characterLabel": "Character:",
     "apps.ui.hyperscape.healthLabel": "Health:",
@@ -336,12 +328,12 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
 
     // Knowledge notices
     "knowledge.notice.uploadedFileFragments":
-      "Uploaded \"{{filename}}\" ({{count}} fragments)",
+      'Uploaded "{{filename}}" ({{count}} fragments)',
     "knowledge.notice.uploadFailed": "Failed to upload document",
     "knowledge.notice.importedYoutubeTranscript":
       "Imported YouTube transcript ({{count}} fragments)",
     "knowledge.notice.importedFileFragments":
-      "Imported \"{{filename}}\" ({{count}} fragments)",
+      'Imported "{{filename}}" ({{count}} fragments)',
     "knowledge.notice.importFromUrlFailed": "Failed to import from URL",
     "knowledge.notice.deletedDocumentFragments":
       "Deleted document ({{count}} fragments removed)",
@@ -418,8 +410,7 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "fineTuning.ui.callsLabel": "Calls:",
     "fineTuning.ui.rewardLabel": "Reward:",
     "fineTuning.ui.selectedTrajectory": "Selected trajectory",
-    "fineTuning.ui.loadingTrajectoryDetail":
-      "Loading trajectory detail...",
+    "fineTuning.ui.loadingTrajectoryDetail": "Loading trajectory detail...",
     "fineTuning.ui.chooseTrajectoryToInspect":
       "Choose a trajectory to inspect.",
     "fineTuning.ui.trajectoryLabel": "Trajectory:",
@@ -427,8 +418,7 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "fineTuning.ui.datasets": "Datasets",
     "fineTuning.ui.limitTrajectoriesPlaceholder":
       "Limit trajectories (e.g. 250)",
-    "fineTuning.ui.minLlmCallsPlaceholder":
-      "Min LLM calls per trajectory",
+    "fineTuning.ui.minLlmCallsPlaceholder": "Min LLM calls per trajectory",
     "fineTuning.ui.building": "Building...",
     "fineTuning.ui.buildDataset": "Build Dataset",
     "fineTuning.ui.refreshDatasets": "Refresh Datasets",
@@ -438,14 +428,10 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "fineTuning.ui.trainingJobs": "Training Jobs",
     "fineTuning.ui.autoBuildDatasetOption":
       "Auto-build dataset from trajectories",
-    "fineTuning.ui.baseModelOptionalPlaceholder":
-      "Base model (optional)",
-    "fineTuning.ui.iterationsOptionalPlaceholder":
-      "Iterations (optional)",
-    "fineTuning.ui.batchSizeOptionalPlaceholder":
-      "Batch size (optional)",
-    "fineTuning.ui.learningRateOptionalPlaceholder":
-      "Learning rate (optional)",
+    "fineTuning.ui.baseModelOptionalPlaceholder": "Base model (optional)",
+    "fineTuning.ui.iterationsOptionalPlaceholder": "Iterations (optional)",
+    "fineTuning.ui.batchSizeOptionalPlaceholder": "Batch size (optional)",
+    "fineTuning.ui.learningRateOptionalPlaceholder": "Learning rate (optional)",
     "fineTuning.ui.starting": "Starting...",
     "fineTuning.ui.startTrainingJob": "Start Training Job",
     "fineTuning.ui.refreshJobs": "Refresh Jobs",
@@ -454,8 +440,7 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "fineTuning.ui.cancelling": "Cancelling...",
     "fineTuning.ui.cancel": "Cancel",
     "fineTuning.ui.selectedJobLogs": "Selected job logs",
-    "fineTuning.ui.selectJobToInspectLogs":
-      "Select a job to inspect logs.",
+    "fineTuning.ui.selectJobToInspectLogs": "Select a job to inspect logs.",
     "fineTuning.ui.statusLabel": "Status:",
     "fineTuning.ui.datasetLabel": "Dataset:",
     "fineTuning.ui.trainedModels": "Trained Models",
@@ -476,7 +461,7 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "fineTuning.ui.importing": "Importing...",
     "fineTuning.ui.importToOllama": "Import To Ollama",
     "fineTuning.ui.providerModelPlaceholder":
-      "Provider model (e.g. \"ollama/my-model\")",
+      'Provider model (e.g. "ollama/my-model")',
     "fineTuning.ui.activating": "Activating...",
     "fineTuning.ui.activateModel": "Activate Model",
     "fineTuning.ui.benchmarking": "Benchmarking...",
@@ -493,13 +478,10 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "fineTuning.notice.datasetBuilt":
       "Built dataset {{id}} ({{count}} samples).",
     "fineTuning.error.buildDatasetFailed": "Failed to build dataset.",
-    "fineTuning.notice.startedTrainingJob":
-      "Started training job {{id}}.",
-    "fineTuning.error.startTrainingJobFailed":
-      "Failed to start training job.",
+    "fineTuning.notice.startedTrainingJob": "Started training job {{id}}.",
+    "fineTuning.error.startTrainingJobFailed": "Failed to start training job.",
     "fineTuning.notice.cancelledJob": "Cancelled job {{id}}.",
-    "fineTuning.error.cancelJobFailed":
-      "Failed to cancel {{id}}.",
+    "fineTuning.error.cancelJobFailed": "Failed to cancel {{id}}.",
     "fineTuning.notice.importedModelToOllama":
       "Imported model {{modelId}} to Ollama{{alias}}.",
     "fineTuning.error.importModelToOllamaFailed":
@@ -511,12 +493,9 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "fineTuning.error.activateModelFailed": "Failed to activate model.",
     "fineTuning.notice.benchmarkResult":
       "Benchmark {{status}} for {{modelId}}.",
-    "fineTuning.error.benchmarkModelFailed":
-      "Failed to benchmark model.",
-    "fineTuning.notice.smokeTestCompleted":
-      "Smoke test completed.",
-    "fineTuning.error.smokeTestFailed":
-      "Failed to run smoke test.",
+    "fineTuning.error.benchmarkModelFailed": "Failed to benchmark model.",
+    "fineTuning.notice.smokeTestCompleted": "Smoke test completed.",
+    "fineTuning.error.smokeTestFailed": "Failed to run smoke test.",
 
     // Onboarding (high-frequency)
     "onboarding.whereShouldILive": "where should i live?",
@@ -591,18 +570,23 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "settings.customizeExperience": "Customize your experience",
     "settings.searchPlaceholder": "Search settings...",
     "settings.aiModel": "AI Model",
-    "settings.aiModelDescription": "Configure your AI provider and model settings.",
+    "settings.aiModelDescription":
+      "Configure your AI provider and model settings.",
     "settings.walletRpc": "Wallet / RPC",
     "settings.media": "Media",
-    "settings.mediaDescription": "Configure providers for image, video, and vision capabilities.",
+    "settings.mediaDescription":
+      "Configure providers for image, video, and vision capabilities.",
     "settings.speech": "Speech",
     "settings.speechDescription": "Text-to-speech and speech-to-text settings.",
     "settings.permissions": "Permissions",
-    "settings.permissionsDescription": "Control what your agent can do and access.",
+    "settings.permissionsDescription":
+      "Control what your agent can do and access.",
     "settings.updates": "Updates",
-    "settings.updatesDescription": "Keep your agent up to date with the latest features.",
+    "settings.updatesDescription":
+      "Keep your agent up to date with the latest features.",
     "settings.advancedSettings": "Advanced Settings",
-    "settings.advancedDescription": "Power user tools and system configuration.",
+    "settings.advancedDescription":
+      "Power user tools and system configuration.",
     "settings.exportAgentShort": "Backup all data",
     "settings.importAgentShort": "Restore from backup",
     "settings.extension": "Extension",
@@ -631,14 +615,19 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "settings.openaiStatusConnected": "Plan Connected",
     "settings.openaiStatusExpiring": "Plan Expiring",
     "settings.openaiStatusDisconnected": "Plan Not Connected",
-    "settings.openaiConnectedHint": "Your ChatGPT subscription is connected. You can keep using API key as fallback.",
-    "settings.openaiNotConnectedHint": "Use OpenAI Plan login instead of raw API key for subscription-based access.",
+    "settings.openaiConnectedHint":
+      "Your ChatGPT subscription is connected. You can keep using API key as fallback.",
+    "settings.openaiNotConnectedHint":
+      "Use OpenAI Plan login instead of raw API key for subscription-based access.",
     "settings.openaiExpiresAt": "Access expires",
     "settings.openaiConnecting": "Opening login...",
     "settings.openaiLogin": "Login with OpenAI",
-    "settings.openaiRequirements": "Requires ChatGPT Plus ($20/mo) or Pro ($200/mo).",
-    "settings.openaiInstructions": "After signing in, if redirect does not succeed, copy the full callback URL and paste it below.",
-    "settings.openaiCallbackPlaceholder": "http://localhost:1455/auth/callback?code=...",
+    "settings.openaiRequirements":
+      "Requires ChatGPT Plus ($20/mo) or Pro ($200/mo).",
+    "settings.openaiInstructions":
+      "After signing in, if redirect does not succeed, copy the full callback URL and paste it below.",
+    "settings.openaiCallbackPlaceholder":
+      "http://localhost:1455/auth/callback?code=...",
     "settings.openaiStartOver": "Start Over",
     "settings.openaiConnect": "Complete Login",
     "settings.openaiCompleting": "Completing login...",
@@ -704,7 +693,7 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "settings.extension.stepEnableDeveloperModeSuffix":
       "(toggle in the top-right corner)",
     "settings.extension.stepLoadUnpackedPrefix": "Click",
-    "settings.extension.loadUnpacked": "\"Load unpacked\"",
+    "settings.extension.loadUnpacked": '"Load unpacked"',
     "settings.extension.stepLoadUnpackedSuffix":
       "and select the extension folder:",
     "settings.extension.relativeToPackageRoot":
@@ -717,7 +706,8 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "settings.exportImportAgent": "Export / Import Agent",
     "settings.import": "Import",
     "settings.export": "Export",
-    "settings.irreversibleActions": "Irreversible actions. Proceed with caution.",
+    "settings.irreversibleActions":
+      "Irreversible actions. Proceed with caution.",
     "settings.exportPrivateKeys": "Export Private Keys",
     "settings.exportPrivateKeysHint":
       "Reveal your EVM and Solana private keys. Never share these with anyone.",
@@ -778,7 +768,8 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
 
     // Permissions (core)
     "permissions.systemPermissions": "System Permissions",
-    "permissions.grantToUnlock": "Grant permissions to unlock full capabilities",
+    "permissions.grantToUnlock":
+      "Grant permissions to unlock full capabilities",
     "permissions.request": "Request",
     "permissions.settings": "Settings",
     "permissions.granted": "Granted",
@@ -798,11 +789,9 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "permissions.camera": "Camera",
     "permissions.cameraDesc": "Video input for vision and video capture",
     "permissions.shellAccess": "Shell Access",
-    "permissions.shellAccessDesc":
-      "Execute terminal commands and scripts",
+    "permissions.shellAccessDesc": "Execute terminal commands and scripts",
     "permissions.browserControl": "Browser Control",
-    "permissions.browserControlDesc":
-      "Automated web browsing and interaction",
+    "permissions.browserControlDesc": "Automated web browsing and interaction",
     "permissions.computerUse": "Computer Use",
     "permissions.computerUseDesc":
       "Full desktop control with mouse and keyboard",
@@ -840,7 +829,8 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "permissions.current": "Current",
     "permissions.saving": "saving...",
     "permissions.tradeMode": "Wallet Trade Permission Mode",
-    "permissions.tradeHint": "Independent safety layer for BSC trade execution.",
+    "permissions.tradeHint":
+      "Independent safety layer for BSC trade execution.",
     "permissions.trade.userSign": "User-sign only",
     "permissions.trade.userSignDesc":
       "No server-side execution. Wallet signature required.",
@@ -918,7 +908,8 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "wallet.preflightTitle": "Preflight",
     "wallet.preflightPassed": "Passed",
     "wallet.preflightFailed": "Failed",
-    "wallet.preflightPassedAll": "Preflight passed: wallet, RPC, chain, and gas checks are ready.",
+    "wallet.preflightPassedAll":
+      "Preflight passed: wallet, RPC, chain, and gas checks are ready.",
     "wallet.preflightFailedWithMore": "{{reason}} (+{{count}} more)",
     "wallet.preflightCheck.wallet": "Wallet",
     "wallet.preflightCheck.rpc": "RPC",
@@ -957,8 +948,7 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "wallet.transferExecutionDidNotComplete":
       "Transfer execution did not complete.",
     "wallet.executionDidNotComplete": "Execution did not complete.",
-    "wallet.executionSwitchedUserSign":
-      "Execution switched to user-sign mode.",
+    "wallet.executionSwitchedUserSign": "Execution switched to user-sign mode.",
     "wallet.userSignPayloadReady":
       "User-sign payload ready. Copy and sign in your wallet.",
     "wallet.txStatus.pending": "Pending",
@@ -980,8 +970,7 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "wallet.invalidAmount": "Enter a valid amount.",
     "wallet.enterValidDestinationAmount":
       "Enter a valid destination and amount first.",
-    "wallet.noTokenContractForAsset":
-      "No token contract found for {{asset}}.",
+    "wallet.noTokenContractForAsset": "No token contract found for {{asset}}.",
     "wallet.createQuoteFirst": "Create quote first.",
     "wallet.failedFetchQuote": "Failed to fetch quote.",
     "wallet.pasteContractToBuy": "Paste token contract to buy with BNB.",
@@ -1014,8 +1003,10 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "wallet.tokenBscContract": "Token (BSC Contract)",
     "wallet.tokenSwapThis": "Swap",
     "wallet.tokenSendThis": "Send",
-    "wallet.tokenOpenWalletForSwap": "Only BSC tokens are swappable in this panel.",
-    "wallet.tokenUnsupportedSendAsset": "Asset not available in quick send. Update in Wallet view.",
+    "wallet.tokenOpenWalletForSwap":
+      "Only BSC tokens are swappable in this panel.",
+    "wallet.tokenUnsupportedSendAsset":
+      "Asset not available in quick send. Update in Wallet view.",
     "wallet.check": "Check",
     "wallet.userSignPlan": "User-sign execution plan",
     "wallet.userSignSellOneStep":
@@ -1059,10 +1050,10 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "wallet.setup.rpcNotConfigured": "BSC RPC is not configured.",
     "wallet.setup.rpcHintBefore": "Configure",
     "wallet.setup.rpcHintBetween": "or",
-    "wallet.setup.rpcHintAfter": "in Settings → Config to enable market feed and trading.",
+    "wallet.setup.rpcHintAfter":
+      "in Settings → Config to enable market feed and trading.",
     "wallet.retryFetchingBsc": "Retry fetching BSC feed.",
-    "wallet.noOnchainWallet":
-      "No onchain wallet yet. Log in with Privy first.",
+    "wallet.noOnchainWallet": "No onchain wallet yet. Log in with Privy first.",
     "wallet.noOnchainWalletHint":
       "After login, your managed wallet appears automatically.",
     "wallet.manual": "Manual",
@@ -1114,7 +1105,8 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "wallet.profile.tokenBreakdown": "Token Breakdown",
     "wallet.profile.recentSwaps": "Recent Swaps",
     "wallet.profile.empty": "No confirmed swap trades yet",
-    "wallet.profile.emptyHint": "User-sign payload trades are not counted until tx hash status is tracked.",
+    "wallet.profile.emptyHint":
+      "User-sign payload trades are not counted until tx hash status is tracked.",
     "wallet.profile.loading": "Loading trading profile...",
     "wallet.profile.loadFailed": "Failed to load trading profile.",
 
@@ -1147,11 +1139,13 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "character.savedMinutesAgo": "{{count}}m ago",
     "character.savedHoursAgo": "{{count}}h ago",
     "character.invalidJson": "Invalid JSON file.",
-    "character.importConfirm": "Import character.json and overwrite current draft?",
+    "character.importConfirm":
+      "Import character.json and overwrite current draft?",
     "character.onchainTitle": "On-chain Identity",
     "character.show": "show",
     "character.hide": "hide",
-    "character.onchainRegisterHint": "Register your agent on Ethereum mainnet to claim your ERC-8004 identity NFT.",
+    "character.onchainRegisterHint":
+      "Register your agent on Ethereum mainnet to claim your ERC-8004 identity NFT.",
     "character.registerNow": "register now",
     "character.registering": "registering...",
     "character.registered": "Registered",
@@ -1167,36 +1161,42 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "character.syncToChain": "sync to chain",
     "character.syncing": "syncing...",
     "character.viewOnEtherscan": "view on etherscan",
-    "character.waitingConfirmation": "Minted from collection! Waiting for confirmation...",
+    "character.waitingConfirmation":
+      "Minted from collection! Waiting for confirmation...",
     "character.name": "name",
     "character.namePlaceholder": "agent name",
     "character.random": "random",
     "character.avatar": "avatar",
     "character.aboutMe": "about me",
-    "character.bioPlaceholder": "describe who your agent is. personality, background, how they see the world.",
+    "character.bioPlaceholder":
+      "describe who your agent is. personality, background, how they see the world.",
     "character.adjectives": "adjectives",
     "character.addAdjective": "add adjective...",
     "character.topics": "topics",
     "character.addTopic": "add topic...",
     "character.systemPrompt": "directions and things i should know",
-    "character.systemPlaceholder": "write in first person. this is who they are, not instructions about them.",
+    "character.systemPlaceholder":
+      "write in first person. this is who they are, not instructions about them.",
     "character.regenerate": "regenerate",
     "character.generate": "generate",
     "character.generating": "generating...",
     "character.stylePlaceholder": "{{key}} style rules, one per line",
     "character.chatExamples": "Chat Examples",
     "character.chatExamplesSub": "How the Agent Responds",
-    "character.noChatExamples": "no chat examples yet. click generate to create some.",
+    "character.noChatExamples":
+      "no chat examples yet. click generate to create some.",
     "character.postExamples": "Post Examples",
     "character.postExamplesSub": "Social Media Voice",
-    "character.noPostExamples": "no post examples yet. click generate to create some.",
+    "character.noPostExamples":
+      "no post examples yet. click generate to create some.",
     "character.conversation": "conversation",
     "character.remove": "remove",
     "character.addPost": "+ add post",
     "character.user": "user",
     "character.agent": "agent",
     "character.loadingVoiceConfig": "Loading voice config...",
-    "character.voiceHint": "Choose the speaking voice here. Provider and TTS/STT backend setup is in Settings.",
+    "character.voiceHint":
+      "Choose the speaking voice here. Provider and TTS/STT backend setup is in Settings.",
     "character.voice": "voice",
     "character.selectVoice": "select a voice...",
     "character.stop": "stop",
@@ -1377,21 +1377,16 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "command.clearChat": "清空聊天",
 
     // App context notices
-    "appContext.notice.noActiveConversationToClear":
-      "当前没有可清空的会话。",
-    "appContext.notice.conversationAlreadyCleared":
-      "该会话已被清空。",
-    "appContext.notice.conversationTitleEmpty":
-      "会话标题不能为空。",
+    "appContext.notice.noActiveConversationToClear": "当前没有可清空的会话。",
+    "appContext.notice.conversationAlreadyCleared": "该会话已被清空。",
+    "appContext.notice.conversationTitleEmpty": "会话标题不能为空。",
     "appContext.notice.openingSkillFolder": "正在打开技能目录...",
     "appContext.notice.skillInstalledFromGithubUrl":
       "已从 GitHub URL 安装技能。",
     "appContext.notice.walletApiKeysSavedAndRestarted":
       "钱包 API Key 已保存，Agent 已重启。",
-    "appContext.notice.cloudLoginSuccess":
-      "已成功登录 Eliza Cloud。",
-    "appContext.notice.cloudDisconnected":
-      "已断开 Eliza Cloud。",
+    "appContext.notice.cloudLoginSuccess": "已成功登录 Eliza Cloud。",
+    "appContext.notice.cloudDisconnected": "已断开 Eliza Cloud。",
 
     // Apps notices
     "apps.notice.requiresIframeAuthMissingPayload":
@@ -1401,32 +1396,24 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
       "打开 {{appName}} 时被浏览器拦截弹窗，请允许弹窗后重试。",
     "apps.notice.launchedWithoutViewerOrUrl":
       "{{appName}} 已启动，但未配置 viewer 或 URL。",
-    "apps.notice.failedLaunch":
-      "启动 {{appName}} 失败：{{error}}",
-    "apps.notice.currentGameOpenedInNewTab":
-      "当前游戏已在新标签页打开。",
+    "apps.notice.failedLaunch": "启动 {{appName}} 失败：{{error}}",
+    "apps.notice.currentGameOpenedInNewTab": "当前游戏已在新标签页打开。",
     "apps.notice.popupBlocked": "弹窗被拦截，请允许后重试。",
-    "apps.notice.hyperscapeControlsError":
-      "Hyperscape 控制错误：{{error}}",
-    "apps.notice.hyperscapeTelemetryError":
-      "Hyperscape 遥测错误：{{error}}",
-    "apps.notice.characterIdRequired":
-      "创建嵌入式 Agent 需要 Character ID。",
+    "apps.notice.hyperscapeControlsError": "Hyperscape 控制错误：{{error}}",
+    "apps.notice.hyperscapeTelemetryError": "Hyperscape 遥测错误：{{error}}",
+    "apps.notice.characterIdRequired": "创建嵌入式 Agent 需要 Character ID。",
     "apps.notice.embeddedAgentCreated": "嵌入式 Agent 已创建。",
-    "apps.notice.failedCreateEmbeddedAgent":
-      "创建嵌入式 Agent 失败：{{error}}",
-    "apps.notice.selectEmbeddedAgentFirst":
-      "请先选择一个嵌入式 Agent。",
+    "apps.notice.failedCreateEmbeddedAgent": "创建嵌入式 Agent 失败：{{error}}",
+    "apps.notice.selectEmbeddedAgentFirst": "请先选择一个嵌入式 Agent。",
     "apps.notice.agentActionRequestSent": "已发送 Agent {{action}} 请求。",
-    "apps.notice.failedAgentAction":
-      "{{action}} Agent 失败：{{error}}",
+    "apps.notice.failedAgentAction": "{{action}} Agent 失败：{{error}}",
     "apps.notice.messageEmpty": "消息不能为空。",
     "apps.notice.messageSentToAgent": "消息已发送给 Agent。",
     "apps.notice.failedSendMessage": "发送消息失败：{{error}}",
     "apps.notice.commandEmpty": "命令不能为空。",
     "apps.notice.commandDataInvalidJsonObject":
       "命令数据必须是合法的 JSON 对象。",
-    "apps.notice.commandSent": "命令 \"{{command}}\" 已发送。",
+    "apps.notice.commandSent": '命令 "{{command}}" 已发送。',
     "apps.notice.failedSendCommand": "发送命令失败：{{error}}",
     "apps.ui.failedLoadApps": "加载应用失败：{{error}}",
     "apps.ui.networkError": "网络错误",
@@ -1530,12 +1517,12 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
 
     // Knowledge notices
     "knowledge.notice.uploadedFileFragments":
-      "已上传 \"{{filename}}\"（{{count}} 个分片）",
+      '已上传 "{{filename}}"（{{count}} 个分片）',
     "knowledge.notice.uploadFailed": "上传文档失败",
     "knowledge.notice.importedYoutubeTranscript":
       "已导入 YouTube 转录（{{count}} 个分片）",
     "knowledge.notice.importedFileFragments":
-      "已导入 \"{{filename}}\"（{{count}} 个分片）",
+      '已导入 "{{filename}}"（{{count}} 个分片）',
     "knowledge.notice.importFromUrlFailed": "URL 导入失败",
     "knowledge.notice.deletedDocumentFragments":
       "已删除文档（移除 {{count}} 个分片）",
@@ -1581,8 +1568,7 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "knowledge.ui.refresh": "刷新",
     "knowledge.ui.loadingDocuments": "正在加载文档...",
     "knowledge.ui.noDocumentsYet": "暂无文档",
-    "knowledge.ui.uploadOrImportHint":
-      "上传文件或从 URL 导入即可开始",
+    "knowledge.ui.uploadOrImportHint": "上传文件或从 URL 导入即可开始",
 
     // Fine-tuning notices
     "fineTuning.ui.loadingWorkspace": "正在加载微调工作区...",
@@ -1651,15 +1637,14 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
       "请选择一个模型进行导入或激活。",
     "fineTuning.ui.modelLabel": "模型：",
     "fineTuning.ui.adapterPathLabel": "适配器路径：",
-    "fineTuning.ui.ollamaModelNameOptionalPlaceholder":
-      "Ollama 模型名（可选）",
+    "fineTuning.ui.ollamaModelNameOptionalPlaceholder": "Ollama 模型名（可选）",
     "fineTuning.ui.baseModelForOllamaOptionalPlaceholder":
       "用于 Ollama 的基础模型（可选）",
     "fineTuning.ui.ollamaUrlPlaceholder": "Ollama URL",
     "fineTuning.ui.importing": "导入中...",
     "fineTuning.ui.importToOllama": "导入到 Ollama",
     "fineTuning.ui.providerModelPlaceholder":
-      "Provider 模型（例如 \"ollama/my-model\"）",
+      'Provider 模型（例如 "ollama/my-model"）',
     "fineTuning.ui.activating": "激活中...",
     "fineTuning.ui.activateModel": "激活模型",
     "fineTuning.ui.benchmarking": "基准测试中...",
@@ -1669,24 +1654,18 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "fineTuning.ui.liveTrainingEvents": "实时训练事件",
     "fineTuning.ui.noLiveEventsYet":
       "暂时没有实时事件。启动一个任务后会在这里显示进度。",
-    "fineTuning.error.refreshStateFailed":
-      "刷新微调状态失败。",
-    "fineTuning.error.loadTrajectoryDetailFailed":
-      "加载轨迹详情失败。",
+    "fineTuning.error.refreshStateFailed": "刷新微调状态失败。",
+    "fineTuning.error.loadTrajectoryDetailFailed": "加载轨迹详情失败。",
     "fineTuning.notice.datasetBuilt":
       "已构建数据集 {{id}}（{{count}} 个样本）。",
     "fineTuning.error.buildDatasetFailed": "构建数据集失败。",
-    "fineTuning.notice.startedTrainingJob":
-      "已启动训练任务 {{id}}。",
-    "fineTuning.error.startTrainingJobFailed":
-      "启动训练任务失败。",
+    "fineTuning.notice.startedTrainingJob": "已启动训练任务 {{id}}。",
+    "fineTuning.error.startTrainingJobFailed": "启动训练任务失败。",
     "fineTuning.notice.cancelledJob": "已取消任务 {{id}}。",
-    "fineTuning.error.cancelJobFailed":
-      "取消 {{id}} 失败。",
+    "fineTuning.error.cancelJobFailed": "取消 {{id}} 失败。",
     "fineTuning.notice.importedModelToOllama":
       "已将模型 {{modelId}} 导入到 Ollama{{alias}}。",
-    "fineTuning.error.importModelToOllamaFailed":
-      "导入模型到 Ollama 失败。",
+    "fineTuning.error.importModelToOllamaFailed": "导入模型到 Ollama 失败。",
     "fineTuning.notice.activatedModel":
       "已将模型 {{modelId}} 激活为 {{providerModel}}。",
     "fineTuning.confirm.restartAfterActivation":
@@ -1694,12 +1673,9 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "fineTuning.error.activateModelFailed": "激活模型失败。",
     "fineTuning.notice.benchmarkResult":
       "模型 {{modelId}} 的基准测试结果：{{status}}。",
-    "fineTuning.error.benchmarkModelFailed":
-      "模型基准测试失败。",
-    "fineTuning.notice.smokeTestCompleted":
-      "冒烟测试完成。",
-    "fineTuning.error.smokeTestFailed":
-      "运行冒烟测试失败。",
+    "fineTuning.error.benchmarkModelFailed": "模型基准测试失败。",
+    "fineTuning.notice.smokeTestCompleted": "冒烟测试完成。",
+    "fineTuning.error.smokeTestFailed": "运行冒烟测试失败。",
 
     // Onboarding (high-frequency)
     "onboarding.whereShouldILive": "我应该运行在哪里？",
@@ -1789,8 +1765,7 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "settings.aiComputeCore": "AI 计算核心",
     "settings.loadingModels": "正在加载模型...",
     "settings.synchronizingCore": "正在同步核心...",
-    "settings.noAiProvidersPrefix":
-      "当前没有可用的 AI Provider。请前往",
+    "settings.noAiProvidersPrefix": "当前没有可用的 AI Provider。请前往",
     "settings.noAiProvidersSuffix": "页面安装 Provider 插件。",
     "settings.cloud.connected": "已连接 Eliza Cloud",
     "settings.cloud.loggedIn": "已登录 Eliza Cloud",
@@ -1806,14 +1781,19 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "settings.openaiStatusConnected": "订阅已连接",
     "settings.openaiStatusExpiring": "订阅即将过期",
     "settings.openaiStatusDisconnected": "未连接订阅",
-    "settings.openaiConnectedHint": "已连接 ChatGPT 订阅。保留 API Key 可作为兜底方案。",
-    "settings.openaiNotConnectedHint": "可使用 ChatGPT 订阅登录，替代原始 API Key。",
+    "settings.openaiConnectedHint":
+      "已连接 ChatGPT 订阅。保留 API Key 可作为兜底方案。",
+    "settings.openaiNotConnectedHint":
+      "可使用 ChatGPT 订阅登录，替代原始 API Key。",
     "settings.openaiExpiresAt": "到期时间",
     "settings.openaiConnecting": "正在打开登录...",
     "settings.openaiLogin": "使用 OpenAI 登录",
-    "settings.openaiRequirements": "需订阅 ChatGPT Plus（20 美元/月）或 Pro（200 美元/月）。",
-    "settings.openaiInstructions": "登录后如未自动跳转，请复制完整回调链接并粘贴到下方。",
-    "settings.openaiCallbackPlaceholder": "http://localhost:1455/auth/callback?code=...",
+    "settings.openaiRequirements":
+      "需订阅 ChatGPT Plus（20 美元/月）或 Pro（200 美元/月）。",
+    "settings.openaiInstructions":
+      "登录后如未自动跳转，请复制完整回调链接并粘贴到下方。",
+    "settings.openaiCallbackPlaceholder":
+      "http://localhost:1455/auth/callback?code=...",
     "settings.openaiStartOver": "重试",
     "settings.openaiConnect": "完成绑定",
     "settings.openaiCompleting": "正在完成登录...",
@@ -1880,8 +1860,7 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "settings.extension.stepLoadUnpackedPrefix": "点击",
     "settings.extension.loadUnpacked": "“加载已解压的扩展程序”",
     "settings.extension.stepLoadUnpackedSuffix": "并选择扩展目录：",
-    "settings.extension.relativeToPackageRoot":
-      "相对于 milady 包根目录",
+    "settings.extension.relativeToPackageRoot": "相对于 milady 包根目录",
     "settings.extension.stepPinIcon": "将扩展图标固定到 Chrome 工具栏",
     "settings.extension.stepAttachRelay":
       "在任意标签页点击扩展图标，即可附加/断开 Milady 浏览器 relay",
@@ -1901,8 +1880,7 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "settings.solanaPrivateKey": "Solana 私钥",
     "settings.noWalletKeysConfigured": "未配置钱包私钥。",
     "settings.resetAgent": "重置 Agent",
-    "settings.resetAgentHint":
-      "清空所有配置、记忆和数据，并返回引导页。",
+    "settings.resetAgentHint": "清空所有配置、记忆和数据，并返回引导页。",
     "settings.resetConfirmMessage":
       "确定要重置全部设置和数据吗？该操作不可撤销，并会返回引导页。",
     "settings.resetEverything": "全部重置",
@@ -1995,8 +1973,7 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
       "仅桌面模式可用。“设置”按钮会在 Milady Desktop 中打开系统设置。",
     "permissions.macosHint":
       "macOS 需要“辅助功能”权限才能进行电脑控制，请在系统设置 > 隐私与安全性中授权。",
-    "permissions.genericHint":
-      "授予权限后可启用语音输入与电脑控制等功能。",
+    "permissions.genericHint": "授予权限后可启用语音输入与电脑控制等功能。",
     "permissions.automationMode": "Agent 自动化模式",
     "permissions.automationHint": "选择 Agent 可自行修改的范围。",
     "permissions.mode.semi": "半自动",
@@ -2169,7 +2146,8 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "wallet.tokenSwapThis": "兑换",
     "wallet.tokenSendThis": "发送",
     "wallet.tokenOpenWalletForSwap": "这个面板只支持 BSC 代币兑换。",
-    "wallet.tokenUnsupportedSendAsset": "该资产不在快捷发送列表，请到 Wallet 页面处理。",
+    "wallet.tokenUnsupportedSendAsset":
+      "该资产不在快捷发送列表，请到 Wallet 页面处理。",
     "wallet.check": "检查",
     "wallet.userSignPlan": "用户签名执行流程",
     "wallet.userSignSellOneStep": "1. 先签名授权交易，允许路由合约使用代币。",
@@ -2192,7 +2170,8 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "wallet.amount": "数量",
     "wallet.asset": "资产",
     "wallet.toAddressBsc": "目标地址 (BSC)",
-    "wallet.sendHint": "直接执行转账。若模式为仅用户签名，请复制载荷并在钱包中签名。",
+    "wallet.sendHint":
+      "直接执行转账。若模式为仅用户签名，请复制载荷并在钱包中签名。",
     "wallet.executeSend": "执行发送",
     "wallet.chain": "链",
     "wallet.name": "名称",
@@ -2233,7 +2212,8 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "wallet.flowHint.quoteLoading": "正在获取路由和输出报价...",
     "wallet.flowHint.quoteReady": "报价已就绪，执行前请确认路由与最少到手。",
     "wallet.flowHint.sending": "正在发送交易到 BSC...",
-    "wallet.flowHint.signingRequired": "需要手动签名。请复制载荷并在钱包中签名。",
+    "wallet.flowHint.signingRequired":
+      "需要手动签名。请复制载荷并在钱包中签名。",
     "wallet.flowHint.tradeReady": "交易已就绪，点击执行即可广播。",
     "wallet.flowHint.submitted": "交易已提交，可通过哈希追踪状态。",
     "wallet.hopsCount": "{{count}} 跳",
@@ -2258,7 +2238,8 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "wallet.profile.tokenBreakdown": "代币拆分",
     "wallet.profile.recentSwaps": "最近 Swap",
     "wallet.profile.empty": "暂无已确认的 Swap 交易",
-    "wallet.profile.emptyHint": "user-sign 载荷交易在追踪到 tx hash 前不会计入统计。",
+    "wallet.profile.emptyHint":
+      "user-sign 载荷交易在追踪到 tx hash 前不会计入统计。",
     "wallet.profile.loading": "正在加载交易画像...",
     "wallet.profile.loadFailed": "加载交易画像失败。",
 
@@ -2295,7 +2276,8 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "character.onchainTitle": "链上身份",
     "character.show": "展开",
     "character.hide": "收起",
-    "character.onchainRegisterHint": "在以太坊主网注册你的 Agent，领取 ERC-8004 身份 NFT。",
+    "character.onchainRegisterHint":
+      "在以太坊主网注册你的 Agent，领取 ERC-8004 身份 NFT。",
     "character.registerNow": "立即注册",
     "character.registering": "注册中...",
     "character.registered": "已注册",
@@ -2323,7 +2305,8 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "character.topics": "话题",
     "character.addTopic": "添加话题...",
     "character.systemPrompt": "行为指引与注意事项",
-    "character.systemPlaceholder": "请用第一人称书写：这是她是谁，而不是如何指挥她。",
+    "character.systemPlaceholder":
+      "请用第一人称书写：这是她是谁，而不是如何指挥她。",
     "character.regenerate": "重生成",
     "character.generate": "生成",
     "character.generating": "生成中...",
@@ -2340,7 +2323,8 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "character.user": "用户",
     "character.agent": "Agent",
     "character.loadingVoiceConfig": "正在加载语音配置...",
-    "character.voiceHint": "在这里选择语音。Provider 和 TTS/STT 后端可在 Settings 配置。",
+    "character.voiceHint":
+      "在这里选择语音。Provider 和 TTS/STT 后端可在 Settings 配置。",
     "character.voice": "语音",
     "character.selectVoice": "选择语音...",
     "character.stop": "停止",

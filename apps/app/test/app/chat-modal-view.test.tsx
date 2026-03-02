@@ -100,17 +100,17 @@ describe("ChatModalView", () => {
       tree = TestRenderer.create(React.createElement(ChatModalView));
     });
 
-    const overlays = tree!.root.findAll(
+    const overlays = tree?.root.findAll(
       (node) => node.props["data-chat-game-overlay"] === true,
     );
     expect(overlays.length).toBe(1);
 
-    const shells = tree!.root.findAll(
+    const shells = tree?.root.findAll(
       (node) => node.props["data-chat-game-shell"] === true,
     );
     expect(shells.length).toBe(1);
 
-    const content = textOf(tree!.root);
+    const content = textOf(tree?.root);
     expect(content).toContain("ChatView Ready");
     expect(content).toContain("ConversationsSidebar Ready");
   });
@@ -127,17 +127,17 @@ describe("ChatModalView", () => {
       );
     });
 
-    const docks = tree!.root.findAll(
+    const docks = tree?.root.findAll(
       (node) => node.props["data-chat-game-dock"] === true,
     );
     expect(docks.length).toBe(1);
 
-    const overlays = tree!.root.findAll(
+    const overlays = tree?.root.findAll(
       (node) => node.props["data-chat-game-overlay"] === true,
     );
     expect(overlays.length).toBe(0);
 
-    const backButton = tree!.root.findAll(
+    const backButton = tree?.root.findAll(
       (node) =>
         node.type === "button" &&
         typeof node.props.className === "string" &&
@@ -159,7 +159,7 @@ describe("ChatModalView", () => {
       tree = TestRenderer.create(React.createElement(ChatModalView));
     });
 
-    const moreButton = tree!.root.findAll(
+    const moreButton = tree?.root.findAll(
       (node) =>
         node.type === "button" &&
         typeof node.props.className === "string" &&
@@ -174,7 +174,7 @@ describe("ChatModalView", () => {
       await Promise.resolve();
     });
 
-    const automationFull = tree!.root.find(
+    const automationFull = tree?.root.find(
       (node) => node.props["data-testid"] === "chat-game-automation-full",
     );
     await act(async () => {
@@ -184,7 +184,7 @@ describe("ChatModalView", () => {
     expect(mockSetAgentAutomationMode).toHaveBeenCalledWith("full");
     expect(ctx.setTab).not.toHaveBeenCalledWith("settings");
 
-    const tradeAgent = tree!.root.find(
+    const tradeAgent = tree?.root.find(
       (node) => node.props["data-testid"] === "chat-game-trade-agent",
     );
     await act(async () => {

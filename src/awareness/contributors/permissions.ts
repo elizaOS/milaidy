@@ -3,9 +3,10 @@
  * and OS permission states so the agent understands its own
  * operational boundaries (Layer 2 of the 3-layer permission model).
  */
-import type { AwarenessContributor } from "../../contracts/awareness";
+
 import type { IAgentRuntime } from "@elizaos/core";
 import { loadMiladyConfig } from "../../config/config.js";
+import type { AwarenessContributor } from "../../contracts/awareness";
 
 type AutomationMode = "connectors-only" | "full";
 

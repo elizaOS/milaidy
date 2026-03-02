@@ -10,12 +10,19 @@
  */
 
 import type { Action, HandlerOptions } from "@elizaos/core";
-import { getGlobalAwarenessRegistry } from "../awareness/registry";
 import type { AwarenessRegistry } from "../awareness/registry";
+import { getGlobalAwarenessRegistry } from "../awareness/registry";
 
 const VALID_MODULES = [
-  "all", "runtime", "permissions", "wallet", "provider",
-  "pluginHealth", "connectors", "cloud", "features",
+  "all",
+  "runtime",
+  "permissions",
+  "wallet",
+  "provider",
+  "pluginHealth",
+  "connectors",
+  "cloud",
+  "features",
 ] as const;
 
 type ValidModule = (typeof VALID_MODULES)[number];
@@ -23,7 +30,13 @@ type ValidModule = (typeof VALID_MODULES)[number];
 export const getSelfStatusAction: Action = {
   name: "GET_SELF_STATUS",
 
-  similes: ["CHECK_STATUS", "SELF_STATUS", "MY_STATUS", "SYSTEM_STATUS", "CHECK_SELF"],
+  similes: [
+    "CHECK_STATUS",
+    "SELF_STATUS",
+    "MY_STATUS",
+    "SYSTEM_STATUS",
+    "CHECK_SELF",
+  ],
 
   description:
     "Get detailed self-status about a specific module (wallet, permissions, plugins, etc.) or all modules. " +
@@ -33,16 +46,21 @@ export const getSelfStatusAction: Action = {
 
   handler: async (runtime, _message, _state, options) => {
     const registry =
-      (runtime.getService("AWARENESS_REGISTRY") as AwarenessRegistry | null)
-      ?? getGlobalAwarenessRegistry();
+      (runtime.getService("AWARENESS_REGISTRY") as AwarenessRegistry | null) ??
+      getGlobalAwarenessRegistry();
     if (!registry) {
-      return { text: "Self-awareness registry is not available.", success: false };
+      return {
+        text: "Self-awareness registry is not available.",
+        success: false,
+      };
     }
 
     const params = (options as HandlerOptions | undefined)?.parameters;
-    const rawModule = typeof params?.module === "string" ? params.module : "all";
+    const rawModule =
+      typeof params?.module === "string" ? params.module : "all";
     const module: ValidModule = VALID_MODULES.includes(rawModule as ValidModule)
-      ? (rawModule as ValidModule) : "all";
+      ? (rawModule as ValidModule)
+      : "all";
     const detailLevel = params?.detailLevel === "full" ? "full" : "brief";
 
     const text = await registry.getDetail(runtime, module, detailLevel);

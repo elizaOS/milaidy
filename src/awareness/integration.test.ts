@@ -1,11 +1,14 @@
-import { describe, expect, it } from "vitest";
 import type { IAgentRuntime, Memory, State } from "@elizaos/core";
-import { AwarenessRegistry } from "./registry";
-import { builtinContributors } from "./contributors";
-import { createSelfStatusProvider } from "../providers/self-status";
+import { describe, expect, it } from "vitest";
 import { getSelfStatusAction } from "../actions/get-self-status";
 import { SUMMARY_TOTAL_CHAR_LIMIT } from "../contracts/awareness";
-import { getGlobalAwarenessRegistry, setGlobalAwarenessRegistry } from "./registry";
+import { createSelfStatusProvider } from "../providers/self-status";
+import { builtinContributors } from "./contributors";
+import {
+  AwarenessRegistry,
+  getGlobalAwarenessRegistry,
+  setGlobalAwarenessRegistry,
+} from "./registry";
 
 function fakeRuntime(): IAgentRuntime {
   return {
@@ -28,14 +31,22 @@ describe("self-awareness integration", () => {
 
     // Layer 1: provider injects summary
     const provider = createSelfStatusProvider(registry);
-    const providerResult = await provider.get(runtime, {} as Memory, {} as State);
+    const providerResult = await provider.get(
+      runtime,
+      {} as Memory,
+      {} as State,
+    );
     expect(providerResult.text).toContain("[Self Status v1]");
-    expect(providerResult.text!.length).toBeLessThanOrEqual(SUMMARY_TOTAL_CHAR_LIMIT);
+    expect(providerResult.text?.length).toBeLessThanOrEqual(
+      SUMMARY_TOTAL_CHAR_LIMIT,
+    );
 
     // Layer 2: action returns detail (using global registry)
     setGlobalAwarenessRegistry(registry);
     const actionResult = await getSelfStatusAction.handler(
-      runtime, {} as never, {} as never,
+      runtime,
+      {} as never,
+      {} as never,
       { parameters: { module: "all", detailLevel: "brief" } },
     );
     expect(actionResult?.success).toBe(true);
@@ -51,7 +62,10 @@ describe("self-awareness integration", () => {
       trusted: true,
       cacheTtl: 300_000,
       invalidateOn: ["permission-changed"],
-      summary: async () => { callCount++; return "perm line"; },
+      summary: async () => {
+        callCount++;
+        return "perm line";
+      },
     });
 
     const runtime = fakeRuntime();

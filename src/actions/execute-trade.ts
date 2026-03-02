@@ -94,14 +94,7 @@ function isValidParam(val: unknown): val is string {
 export const executeTradeAction: Action = {
   name: "EXECUTE_TRADE",
 
-  similes: [
-    "BUY_TOKEN",
-    "SELL_TOKEN",
-    "SWAP",
-    "TRADE",
-    "BUY",
-    "SELL",
-  ],
+  similes: ["BUY_TOKEN", "SELL_TOKEN", "SWAP", "TRADE", "BUY", "SELL"],
 
   description:
     "Execute a BSC token trade (buy or sell). Use this when a user asks to " +
@@ -127,11 +120,10 @@ export const executeTradeAction: Action = {
 
       // ── Resolve side (prefer structured, fallback to text) ───────────
       const rawSide = isValidParam(params?.side as string)
-        ? (params!.side as string)
+        ? (params?.side as string)
         : textParams.side;
-      const side = typeof rawSide === "string"
-        ? rawSide.trim().toLowerCase()
-        : undefined;
+      const side =
+        typeof rawSide === "string" ? rawSide.trim().toLowerCase() : undefined;
 
       if (side !== "buy" && side !== "sell") {
         return {
@@ -142,11 +134,10 @@ export const executeTradeAction: Action = {
 
       // ── Resolve tokenAddress ─────────────────────────────────────────
       const rawAddr = isValidParam(params?.tokenAddress as string)
-        ? (params!.tokenAddress as string)
+        ? (params?.tokenAddress as string)
         : textParams.tokenAddress;
-      const tokenAddress = typeof rawAddr === "string"
-        ? rawAddr.trim()
-        : undefined;
+      const tokenAddress =
+        typeof rawAddr === "string" ? rawAddr.trim() : undefined;
 
       if (!tokenAddress || !BSC_ADDRESS_RE.test(tokenAddress)) {
         return {
@@ -157,7 +148,7 @@ export const executeTradeAction: Action = {
 
       // ── Resolve amount ───────────────────────────────────────────────
       const rawAmt = isValidParam(params?.amount as string)
-        ? (params!.amount as string)
+        ? (params?.amount as string)
         : typeof params?.amount === "number" && params.amount > 0
           ? String(params.amount)
           : textParams.amount;
@@ -181,7 +172,7 @@ export const executeTradeAction: Action = {
           : typeof params?.slippageBps === "string" &&
               params.slippageBps.trim() !== ""
             ? Number(params.slippageBps)
-            : textParams.slippageBps ?? 300;
+            : (textParams.slippageBps ?? 300);
 
       if (Number.isNaN(slippageBps) || slippageBps < 0) {
         return {
@@ -329,8 +320,7 @@ export const executeTradeAction: Action = {
     },
     {
       name: "slippageBps",
-      description:
-        "Slippage tolerance in basis points (default 300 = 3%)",
+      description: "Slippage tolerance in basis points (default 300 = 3%)",
       required: false,
       schema: { type: "number" as const },
     },

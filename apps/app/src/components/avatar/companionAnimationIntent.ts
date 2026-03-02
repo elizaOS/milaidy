@@ -1,11 +1,6 @@
 import { MIXAMO_ANIMATION_BY_ID } from "./mixamoAnimationCatalog";
 
-export type AvatarMoodTier =
-  | "excited"
-  | "calm"
-  | "neutral"
-  | "low"
-  | "burnout";
+export type AvatarMoodTier = "excited" | "calm" | "neutral" | "low" | "burnout";
 
 interface AvatarStatsLike {
   mood?: number;
@@ -54,7 +49,13 @@ function pickIntentIdAndReason(
     return { id: "kneeling-idle", reason: "low_energy_or_hunger" };
   }
 
-  if (tier === "excited" && mood >= 82 && energy >= 55 && social >= 45 && hunger >= 35) {
+  if (
+    tier === "excited" &&
+    mood >= 82 &&
+    energy >= 55 &&
+    social >= 45 &&
+    hunger >= 35
+  ) {
     return { id: "happy-idle", reason: "high_positive_state" };
   }
 
@@ -83,18 +84,40 @@ export function resolveCompanionAnimationIntent(
 // Mood animation pools — accent animations to cycle during idle
 // ---------------------------------------------------------------------------
 
-export const MOOD_ANIMATION_POOLS: Record<AvatarMoodTier, { idleId: string; accents: string[] }> = {
+export const MOOD_ANIMATION_POOLS: Record<
+  AvatarMoodTier,
+  { idleId: string; accents: string[] }
+> = {
   excited: {
     idleId: "happy-idle",
-    accents: ["cheering", "joyful-jump", "hip-hop-dancing", "spin-in-place", "clapping", "happy"],
+    accents: [
+      "cheering",
+      "joyful-jump",
+      "hip-hop-dancing",
+      "spin-in-place",
+      "clapping",
+      "happy",
+    ],
   },
   calm: {
     idleId: "breathing-idle",
-    accents: ["look-around", "thankful", "agreeing", "acknowledging", "bashful"],
+    accents: [
+      "look-around",
+      "thankful",
+      "agreeing",
+      "acknowledging",
+      "bashful",
+    ],
   },
   neutral: {
     idleId: "breathing-idle",
-    accents: ["looking", "whatever-gesture", "thinking", "hard-head-nod", "bored"],
+    accents: [
+      "looking",
+      "whatever-gesture",
+      "thinking",
+      "hard-head-nod",
+      "bored",
+    ],
   },
   low: {
     idleId: "kneeling-idle",

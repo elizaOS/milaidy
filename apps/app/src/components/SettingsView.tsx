@@ -195,7 +195,9 @@ function SettingsSidebar({
             <Sliders className="w-5 h-5 text-accent-fg" />
           </div>
           <div>
-            <h2 className="font-bold text-lg text-txt-strong">{t("nav.settings")}</h2>
+            <h2 className="font-bold text-lg text-txt-strong">
+              {t("nav.settings")}
+            </h2>
             <p className="text-xs text-muted hidden lg:block">
               {t("settings.customizeExperience")}
             </p>
@@ -260,7 +262,8 @@ function SettingsSidebar({
 /* ── Updates Section ─────────────────────────────────────────────────── */
 
 function UpdatesSection() {
-  const { updateStatus, updateLoading, loadUpdateStatus, uiLanguage } = useApp();
+  const { updateStatus, updateLoading, loadUpdateStatus, uiLanguage } =
+    useApp();
   const t = createTranslator(uiLanguage);
 
   useEffect(() => {
@@ -271,7 +274,9 @@ function UpdatesSection() {
     <div className="space-y-4">
       <div className="flex items-center justify-between p-4 bg-bg-accent rounded-lg">
         <div>
-          <div className="font-medium text-sm">{t("settings.versionPrefix")}</div>
+          <div className="font-medium text-sm">
+            {t("settings.versionPrefix")}
+          </div>
           <div className="text-2xl font-bold text-txt-strong mt-1">
             {updateStatus?.currentVersion || `${t("common.loading")}...`}
           </div>
@@ -289,7 +294,9 @@ function UpdatesSection() {
 
       {updateStatus?.updateAvailable && (
         <div className="p-4 bg-ok/10 border border-ok/30 rounded-lg">
-          <div className="font-medium text-ok mb-1">{t("settings.updateAvailable")}</div>
+          <div className="font-medium text-ok mb-1">
+            {t("settings.updateAvailable")}
+          </div>
           <p className="text-sm text-muted">
             {updateStatus.currentVersion} &rarr; {updateStatus.latestVersion}
           </p>
@@ -298,7 +305,8 @@ function UpdatesSection() {
 
       {updateStatus?.lastCheckAt && (
         <div className="text-[11px] text-muted">
-          {t("settings.lastChecked")} {new Date(updateStatus.lastCheckAt).toLocaleString()}
+          {t("settings.lastChecked")}{" "}
+          {new Date(updateStatus.lastCheckAt).toLocaleString()}
         </div>
       )}
     </div>
@@ -323,8 +331,12 @@ function AdvancedSection() {
             <Download className="w-5 h-5 text-accent group-hover:text-accent-fg" />
           </div>
           <div>
-            <div className="font-medium text-sm">{t("settings.exportAgent")}</div>
-            <div className="text-xs text-muted">{t("settings.exportAgentShort")}</div>
+            <div className="font-medium text-sm">
+              {t("settings.exportAgent")}
+            </div>
+            <div className="text-xs text-muted">
+              {t("settings.exportAgentShort")}
+            </div>
           </div>
         </button>
 
@@ -336,8 +348,12 @@ function AdvancedSection() {
             <Upload className="w-5 h-5 text-accent group-hover:text-accent-fg" />
           </div>
           <div>
-            <div className="font-medium text-sm">{t("settings.importAgent")}</div>
-            <div className="text-xs text-muted">{t("settings.importAgentShort")}</div>
+            <div className="font-medium text-sm">
+              {t("settings.importAgent")}
+            </div>
+            <div className="text-xs text-muted">
+              {t("settings.importAgentShort")}
+            </div>
           </div>
         </button>
       </div>
@@ -346,12 +362,16 @@ function AdvancedSection() {
       <div className="border border-danger/30 rounded-lg overflow-hidden">
         <div className="bg-danger/5 px-4 py-3 border-b border-danger/30 flex items-center gap-2">
           <AlertTriangle className="w-4 h-4 text-danger" />
-          <span className="font-medium text-sm text-danger">{t("settings.dangerZone")}</span>
+          <span className="font-medium text-sm text-danger">
+            {t("settings.dangerZone")}
+          </span>
         </div>
         <div className="p-4 space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <div className="font-medium text-sm">{t("settings.resetAgent")}</div>
+              <div className="font-medium text-sm">
+                {t("settings.resetAgent")}
+              </div>
               <div className="text-xs text-muted">
                 {t("settings.resetAgentHint")}
               </div>
@@ -359,7 +379,9 @@ function AdvancedSection() {
             <button
               type="button"
               onClick={() => {
-                const confirmed = window.confirm(t("settings.resetConfirmMessage"));
+                const confirmed = window.confirm(
+                  t("settings.resetConfirmMessage"),
+                );
                 if (confirmed) void handleReset();
               }}
               className="px-4 py-2 border border-danger text-danger rounded-lg text-sm font-medium hover:bg-danger hover:text-danger-foreground transition-colors"
@@ -375,7 +397,11 @@ function AdvancedSection() {
 
 /* ── SettingsView ─────────────────────────────────────────────────────── */
 
-export function SettingsView({ inModal: _inModal }: { inModal?: boolean } = {}) {
+export function SettingsView({
+  inModal: _inModal,
+}: {
+  inModal?: boolean;
+} = {}) {
   const [activeSection, setActiveSection] = useState("appearance");
   const [searchQuery, setSearchQuery] = useState("");
   const contentRef = useRef<HTMLDivElement>(null);
@@ -508,7 +534,11 @@ export function SettingsView({ inModal: _inModal }: { inModal?: boolean } = {}) 
                   }`}
                   onClick={() => {
                     setUiLanguage("en");
-                    setActionNotice(t("settings.languageSaved"), "success", 2200);
+                    setActionNotice(
+                      t("settings.languageSaved"),
+                      "success",
+                      2200,
+                    );
                   }}
                 >
                   {t("settings.languageEnglish")}
@@ -522,7 +552,11 @@ export function SettingsView({ inModal: _inModal }: { inModal?: boolean } = {}) 
                   }`}
                   onClick={() => {
                     setUiLanguage("zh-CN");
-                    setActionNotice(t("settings.languageSaved"), "success", 2200);
+                    setActionNotice(
+                      t("settings.languageSaved"),
+                      "success",
+                      2200,
+                    );
                   }}
                 >
                   {t("settings.languageChineseSimplified")}

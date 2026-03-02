@@ -1,12 +1,14 @@
-import { describe, expect, it } from "vitest";
 import type { IAgentRuntime } from "@elizaos/core";
+import { describe, expect, it } from "vitest";
 import { SUMMARY_CHAR_LIMIT } from "../../contracts/awareness";
 import { builtinContributors } from "./index";
 
 function fakeRuntime(overrides: Record<string, unknown> = {}): IAgentRuntime {
   return {
     plugins: overrides.plugins ?? [],
-    character: overrides.character ?? { settings: { model: "claude-opus-4-6" } },
+    character: overrides.character ?? {
+      settings: { model: "claude-opus-4-6" },
+    },
     getSetting: (key: string) =>
       (overrides.settings as Record<string, string>)?.[key] ?? null,
     clients: overrides.clients ?? [],
@@ -45,7 +47,7 @@ describe("built-in contributors", () => {
     const runtime = fakeRuntime({
       settings: {
         ANTHROPIC_API_KEY: "sk-ant-test123456",
-        EVM_PRIVATE_KEY: "0x" + "a".repeat(64),
+        EVM_PRIVATE_KEY: `0x${"a".repeat(64)}`,
       },
     });
     for (const c of builtinContributors) {
@@ -76,7 +78,7 @@ describe("built-in contributors", () => {
   it("each contributor has invalidateOn events", () => {
     for (const c of builtinContributors) {
       expect(c.invalidateOn, `${c.id} missing invalidateOn`).toBeDefined();
-      expect(c.invalidateOn!.length).toBeGreaterThan(0);
+      expect(c.invalidateOn?.length).toBeGreaterThan(0);
     }
   });
 });

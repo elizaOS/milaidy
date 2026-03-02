@@ -135,9 +135,7 @@ describe("MiladyEmbeddingManager", () => {
   });
 
   it("rejects path traversal and invalid model identifiers in ensureModel", async () => {
-    const modelsDir = fs.mkdtempSync(
-      path.join(os.tmpdir(), "milady-emb-sec-"),
-    );
+    const modelsDir = fs.mkdtempSync(path.join(os.tmpdir(), "milady-emb-sec-"));
 
     await expect(
       ensureModel(modelsDir, "alice/models", "../escape.gguf"),

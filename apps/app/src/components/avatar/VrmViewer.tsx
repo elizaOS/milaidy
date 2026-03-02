@@ -6,8 +6,13 @@
  */
 
 import { useEffect, useRef } from "react";
-import { VrmEngine, type VrmEngineState, type CameraProfile, type InteractionMode } from "./VrmEngine";
 import { resolveAppAssetUrl } from "../../asset-url";
+import {
+  type CameraProfile,
+  type InteractionMode,
+  VrmEngine,
+  type VrmEngineState,
+} from "./VrmEngine";
 
 const DEFAULT_VRM_PATH = resolveAppAssetUrl("vrms/milady-1.vrm");
 
@@ -35,9 +40,13 @@ export function VrmViewer(props: VrmViewerProps) {
   const mouthOpenRef = useRef<number>(props.mouthOpen);
   const isSpeakingRef = useRef<boolean>(props.isSpeaking ?? false);
   const interactiveRef = useRef<boolean>(props.interactive ?? false);
-  const forceFaceCameraFlipRef = useRef<boolean>(props.forceFaceCameraFlip ?? false);
+  const forceFaceCameraFlipRef = useRef<boolean>(
+    props.forceFaceCameraFlip ?? false,
+  );
   const cameraProfileRef = useRef<CameraProfile>(props.cameraProfile ?? "chat");
-  const interactionModeRef = useRef<InteractionMode>(props.interactiveMode ?? "free");
+  const interactionModeRef = useRef<InteractionMode>(
+    props.interactiveMode ?? "free",
+  );
   const lastStateEmitMsRef = useRef<number>(0);
   const mountedRef = useRef(true);
   const currentVrmPathRef = useRef<string>("");
@@ -106,7 +115,7 @@ export function VrmViewer(props: VrmViewerProps) {
         }
       }, 100);
     };
-  }, []);
+  }, [props.onEngineReady, props.onEngineState]);
 
   useEffect(() => {
     const engine = engineRef.current;
@@ -146,7 +155,10 @@ export function VrmViewer(props: VrmViewerProps) {
     void (async () => {
       try {
         if (!mountedRef.current || abortController.signal.aborted) return;
-        await engine.loadVrmFromUrl(vrmUrl, vrmUrl.split("/").pop() ?? "avatar.vrm");
+        await engine.loadVrmFromUrl(
+          vrmUrl,
+          vrmUrl.split("/").pop() ?? "avatar.vrm",
+        );
         if (!mountedRef.current || abortController.signal.aborted) return;
         props.onEngineState?.(engine.getState());
       } catch (err) {
@@ -155,8 +167,10 @@ export function VrmViewer(props: VrmViewerProps) {
       }
     })();
 
-    return () => { abortController.abort(); };
-  }, [props.vrmPath]);
+    return () => {
+      abortController.abort();
+    };
+  }, [props.vrmPath, props.onEngineState]);
 
   return (
     <canvas

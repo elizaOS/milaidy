@@ -32,7 +32,9 @@ import type {
   SwarmEvent,
 } from "@elizaos/plugin-agent-orchestrator";
 import { listPiAiModelOptions } from "@elizaos/plugin-pi-ai";
+import { ethers } from "ethers";
 import { type WebSocket, WebSocketServer } from "ws";
+import { getGlobalAwarenessRegistry } from "../awareness/registry";
 import type { CloudManager } from "../cloud/cloud-manager";
 import {
   configFileExists,
@@ -67,6 +69,10 @@ import {
   isPluginManagerLike,
   type PluginManagerLike,
 } from "../services/plugin-manager-types";
+import {
+  ensurePrivyWalletsForCustomUser,
+  isPrivyWalletProvisioningEnabled,
+} from "../services/privy-wallets";
 import type { SandboxManager } from "../services/sandbox-manager";
 import {
   installMarketplaceSkill,
@@ -89,6 +95,14 @@ import { handleAppsHyperscapeRoutes } from "./apps-hyperscape-routes";
 import { handleAppsRoutes } from "./apps-routes";
 import { handleAuthRoutes } from "./auth-routes";
 import { getAutonomyState, handleAutonomyRoutes } from "./autonomy-routes";
+import {
+  buildBscApproveUnsignedTx,
+  buildBscBuyUnsignedTx,
+  buildBscSellUnsignedTx,
+  buildBscTradePreflight,
+  buildBscTradeQuote,
+  resolvePrimaryBscRpcUrl,
+} from "./bsc-trade";
 import { handleBugReportRoutes } from "./bug-report-routes";
 import { handleCharacterRoutes } from "./character-routes";
 import { type CloudRouteState, handleCloudRoute } from "./cloud-routes";
@@ -149,28 +163,14 @@ import { TxService } from "./tx-service";
 import { generateWalletKeys, getWalletAddresses } from "./wallet";
 import { handleWalletRoutes } from "./wallet-routes";
 import {
-  applyWhatsAppQrOverride,
-  handleWhatsAppRoute,
-} from "./whatsapp-routes";
-import { getGlobalAwarenessRegistry } from "../awareness/registry";
-import {
-  ensurePrivyWalletsForCustomUser,
-  isPrivyWalletProvisioningEnabled,
-} from "../services/privy-wallets";
-import { ethers } from "ethers";
-import {
-  buildBscTradePreflight,
-  buildBscTradeQuote,
-  buildBscBuyUnsignedTx,
-  buildBscSellUnsignedTx,
-  buildBscApproveUnsignedTx,
-  resolvePrimaryBscRpcUrl,
-} from "./bsc-trade";
-import {
   loadWalletTradingProfile,
   recordWalletTradeLedgerEntry,
   updateWalletTradeLedgerEntryStatus,
 } from "./wallet-trading-profile";
+import {
+  applyWhatsAppQrOverride,
+  handleWhatsAppRoute,
+} from "./whatsapp-routes";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -4250,14 +4250,20 @@ function ensureWalletKeysInEnvAndConfig(config: MiladyConfig): boolean {
 // Trade permission helpers (exported for use by awareness contributors)
 // ---------------------------------------------------------------------------
 
-export type TradePermissionMode = "user-sign-only" | "manual-local-key" | "agent-auto";
+export type TradePermissionMode =
+  | "user-sign-only"
+  | "manual-local-key"
+  | "agent-auto";
 
 /**
  * Resolve the active trade permission mode from config.
  * Falls back to "user-sign-only" when not configured.
  */
-export function resolveTradePermissionMode(config: MiladyConfig): TradePermissionMode {
-  const raw = (config.features as Record<string, unknown> | undefined)?.tradePermissionMode;
+export function resolveTradePermissionMode(
+  config: MiladyConfig,
+): TradePermissionMode {
+  const raw = (config.features as Record<string, unknown> | undefined)
+    ?.tradePermissionMode;
   if (
     raw === "user-sign-only" ||
     raw === "manual-local-key" ||
@@ -4324,7 +4330,7 @@ function resolveAgentAutomationModeFromConfig(
   return parseAgentAutomationMode(agentAutomation?.mode) ?? "full";
 }
 
-function parseTradePermissionMode(value: unknown): TradePermissionMode | null {
+function _parseTradePermissionMode(value: unknown): TradePermissionMode | null {
   if (typeof value !== "string") return null;
   const normalized = value.trim().toLowerCase();
   if (!TRADE_PERMISSION_MODES.has(normalized as TradePermissionMode)) {
@@ -4365,7 +4371,7 @@ function persistAgentAutomationMode(
   };
 }
 
-function persistTradePermissionMode(
+function _persistTradePermissionMode(
   state: ServerState,
   mode: TradePermissionMode,
 ): void {
@@ -4402,7 +4408,7 @@ function persistTradePermissionMode(
     bscEnabled;
 }
 
-function rejectAgentMutation(
+function _rejectAgentMutation(
   req: http.IncomingMessage,
   state: ServerState,
   target:
@@ -10182,7 +10188,8 @@ async function handleRequest(
     if (!state.config.features) {
       state.config.features = {};
     }
-    (state.config.features as Record<string, unknown>).tradePermissionMode = newMode;
+    (state.config.features as Record<string, unknown>).tradePermissionMode =
+      newMode;
 
     try {
       saveMiladyConfig(state.config);
@@ -10235,7 +10242,10 @@ async function handleRequest(
         process.env.QUICKNODE_BSC_RPC_URL?.trim(),
     );
     const canLocalTrade = canUseLocalTradeExecution(tradePermissionMode, false);
-    const canAgentAutoTrade = canUseLocalTradeExecution(tradePermissionMode, true);
+    const canAgentAutoTrade = canUseLocalTradeExecution(
+      tradePermissionMode,
+      true,
+    );
     const canTrade = Boolean(evmAddress) && bscRpcReady;
     const automationMode: "connectors-only" | "full" =
       (state.config.features as Record<string, unknown> | undefined)
@@ -10471,7 +10481,9 @@ async function handleRequest(
           : buildBscSellUnsignedTx(quote, walletAddress, body.deadlineSeconds);
 
       // Build approval tx for sell (if needed)
-      let unsignedApprovalTx = undefined;
+      let unsignedApprovalTx:
+        | import("../contracts/wallet").BscUnsignedApprovalTx
+        | undefined;
       let requiresApproval = false;
       if (quote.side === "sell" && walletAddress) {
         unsignedApprovalTx = buildBscApproveUnsignedTx(
@@ -10517,7 +10529,10 @@ async function handleRequest(
         provider,
       );
 
-      const nonce = await provider.getTransactionCount(wallet.address, "pending");
+      const nonce = await provider.getTransactionCount(
+        wallet.address,
+        "pending",
+      );
 
       // Execute approval first if needed
       let approvalHash: string | undefined;
@@ -10722,7 +10737,9 @@ async function handleRequest(
         ? windowParam
         : "30d";
     const source =
-      sourceParam === "agent" || sourceParam === "manual" || sourceParam === "all"
+      sourceParam === "agent" ||
+      sourceParam === "manual" ||
+      sourceParam === "all"
         ? sourceParam
         : "all";
 
@@ -10754,14 +10771,21 @@ async function handleRequest(
     }>(req, res);
     if (!body) return;
 
-    if (!body.toAddress?.trim() || !body.amount?.trim() || !body.assetSymbol?.trim()) {
+    if (
+      !body.toAddress?.trim() ||
+      !body.amount?.trim() ||
+      !body.assetSymbol?.trim()
+    ) {
       error(res, "toAddress, amount, and assetSymbol are required", 400);
       return;
     }
 
     const tradePermissionMode = resolveTradePermissionMode(state.config);
     const hasLocalKey = Boolean(process.env.EVM_PRIVATE_KEY?.trim());
-    const canExecuteLocally = canUseLocalTradeExecution(tradePermissionMode, false);
+    const canExecuteLocally = canUseLocalTradeExecution(
+      tradePermissionMode,
+      false,
+    );
     const addrs = getWalletAddresses();
 
     let toAddress: string;
@@ -10788,7 +10812,7 @@ async function handleRequest(
             const decimals = 18; // default; token-specific decimals not fetched here
             return iface.encodeFunctionData("transfer", [
               toAddress,
-              ethers.parseUnits(body.amount!.trim(), decimals),
+              ethers.parseUnits(body.amount?.trim(), decimals),
             ]);
           })(),
       valueWei: isBnb ? ethers.parseEther(body.amount.trim()).toString() : "0",

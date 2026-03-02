@@ -5,8 +5,8 @@
  * and action metadata (name, similes, parameters).
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { HandlerOptions } from "@elizaos/core";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { transferTokenAction } from "./transfer-token";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -44,7 +44,7 @@ describe("TRANSFER_TOKEN action", () => {
 
   it("has similes for natural language matching", () => {
     expect(transferTokenAction.similes).toBeDefined();
-    expect(transferTokenAction.similes!.length).toBeGreaterThan(0);
+    expect(transferTokenAction.similes?.length).toBeGreaterThan(0);
     expect(transferTokenAction.similes).toContain("SEND_TOKEN");
     expect(transferTokenAction.similes).toContain("TRANSFER");
     expect(transferTokenAction.similes).toContain("SEND");
@@ -55,16 +55,16 @@ describe("TRANSFER_TOKEN action", () => {
 
   it("has parameter definitions", () => {
     expect(transferTokenAction.parameters).toBeDefined();
-    expect(transferTokenAction.parameters!.length).toBe(4);
+    expect(transferTokenAction.parameters?.length).toBe(4);
 
-    const names = transferTokenAction.parameters!.map((p) => p.name);
+    const names = transferTokenAction.parameters?.map((p) => p.name);
     expect(names).toContain("toAddress");
     expect(names).toContain("amount");
     expect(names).toContain("assetSymbol");
     expect(names).toContain("tokenAddress");
 
     // toAddress, amount, assetSymbol are required; tokenAddress is optional
-    const tokenAddr = transferTokenAction.parameters!.find(
+    const tokenAddr = transferTokenAction.parameters?.find(
       (p) => p.name === "tokenAddress",
     );
     expect(tokenAddr?.required).toBe(false);
@@ -211,7 +211,9 @@ describe("TRANSFER_TOKEN action", () => {
     });
 
     expect((result as { success: boolean }).success).toBe(true);
-    expect((result as { text: string }).text).toContain("executed successfully");
+    expect((result as { text: string }).text).toContain(
+      "executed successfully",
+    );
     expect((result as { text: string }).text).toContain("1.5");
     expect((result as { text: string }).text).toContain("BNB");
     expect((result as { text: string }).text).toContain("0xabc123");
@@ -229,8 +231,12 @@ describe("TRANSFER_TOKEN action", () => {
     const [url, opts] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toBe("http://127.0.0.1:2138/api/wallet/transfer/execute");
     expect(opts.method).toBe("POST");
-    expect((opts.headers as Record<string, string>)["X-Milady-Agent-Action"]).toBe("1");
-    expect((opts.headers as Record<string, string>)["Content-Type"]).toBe("application/json");
+    expect(
+      (opts.headers as Record<string, string>)["X-Milady-Agent-Action"],
+    ).toBe("1");
+    expect((opts.headers as Record<string, string>)["Content-Type"]).toBe(
+      "application/json",
+    );
 
     const body = JSON.parse(opts.body as string);
     expect(body.toAddress).toBe(VALID_ADDRESS);
@@ -264,7 +270,9 @@ describe("TRANSFER_TOKEN action", () => {
 
     expect((result as { success: boolean }).success).toBe(true);
     expect((result as { text: string }).text).toContain("user-sign");
-    expect((result as { text: string }).text).toContain("signature is required");
+    expect((result as { text: string }).text).toContain(
+      "signature is required",
+    );
     expect((result as { data: Record<string, unknown> }).data).toMatchObject({
       requiresUserSignature: true,
       executed: false,
@@ -426,7 +434,9 @@ describe("TRANSFER_TOKEN action", () => {
     });
 
     expect((result as { success: boolean }).success).toBe(false);
-    expect((result as { text: string }).text).toContain("Transfer not permitted");
+    expect((result as { text: string }).text).toContain(
+      "Transfer not permitted",
+    );
   });
 
   it("handles API error with non-JSON body", async () => {
@@ -466,7 +476,9 @@ describe("TRANSFER_TOKEN action", () => {
     });
 
     expect((result as { success: boolean }).success).toBe(false);
-    expect((result as { text: string }).text).toContain("Insufficient BNB balance");
+    expect((result as { text: string }).text).toContain(
+      "Insufficient BNB balance",
+    );
   });
 
   it("handles network/fetch errors", async () => {

@@ -511,8 +511,7 @@ describe("ChatView", () => {
 
     const micButton = tree?.root.find(
       (node) =>
-        node.type === "button" &&
-        node.props["aria-label"] === "Voice input",
+        node.type === "button" && node.props["aria-label"] === "Voice input",
     );
     expect(micButton.props["aria-pressed"]).toBe(false);
   });

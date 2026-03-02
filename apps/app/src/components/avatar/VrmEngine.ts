@@ -1,8 +1,8 @@
+import { type VRM, VRMLoaderPlugin, VRMUtils } from "@pixiv/three-vrm";
 import * as THREE from "three";
-import { VRM, VRMLoaderPlugin, VRMUtils } from "@pixiv/three-vrm";
-import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { FBXLoader } from "three/examples/jsm/loaders/FBXLoader.js";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { FBXLoader } from "three/examples/jsm/loaders/FBXLoader.js";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { resolveAppAssetUrl } from "../../asset-url";
 import { MIXAMO_IDLE_CANDIDATE_URLS } from "./mixamoAnimationCatalog";
 
@@ -57,11 +57,17 @@ export class VrmEngine {
   private vrmName: string | null = null;
   private lookAtTarget = new THREE.Vector3(0, 0.5, 0);
   private readonly idleGlbUrl = resolveAppAssetUrl("animations/idle.glb");
-  private readonly idleBreathingFbxUrl = resolveAppAssetUrl("animations/BreathingIdle.fbx");
-  private readonly idleFallbackFbxUrl = resolveAppAssetUrl("animations/Idle.fbx");
+  private readonly idleBreathingFbxUrl = resolveAppAssetUrl(
+    "animations/BreathingIdle.fbx",
+  );
+  private readonly idleFallbackFbxUrl = resolveAppAssetUrl(
+    "animations/Idle.fbx",
+  );
   private forceFaceCameraFlip = false;
 
-  private cameraAnimation: CameraAnimationConfig = { ...DEFAULT_CAMERA_ANIMATION };
+  private cameraAnimation: CameraAnimationConfig = {
+    ...DEFAULT_CAMERA_ANIMATION,
+  };
   private baseCameraPosition = new THREE.Vector3();
   private elapsedTime = 0;
 
@@ -127,7 +133,11 @@ export class VrmEngine {
     this.onUpdate = onUpdate;
     this.loadingAborted = false;
 
-    const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+    const renderer = new THREE.WebGLRenderer({
+      canvas,
+      alpha: true,
+      antialias: true,
+    });
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setClearColor(0x000000, 0);
     renderer.shadowMap.enabled = true;
@@ -318,7 +328,11 @@ export class VrmEngine {
    * non-looping emotes automatically fades back to idle after `duration`
    * seconds. For looping emotes, call {@link stopEmote} to return to idle.
    */
-  async playEmote(path: string, duration: number, loop: boolean): Promise<void> {
+  async playEmote(
+    path: string,
+    duration: number,
+    loop: boolean,
+  ): Promise<void> {
     const vrm = this.vrm;
     const mixer = this.mixer;
     if (!vrm || !mixer) return;
@@ -353,7 +367,8 @@ export class VrmEngine {
 
     if (!loop) {
       // After the emote finishes, fade back to idle.
-      const safeDuration = Number.isFinite(duration) && duration > 0 ? duration : 3;
+      const safeDuration =
+        Number.isFinite(duration) && duration > 0 ? duration : 3;
       const returnDelay = Math.max(0.5, safeDuration) * 1000;
       this.emoteTimeout = setTimeout(() => {
         if (this.emoteRequestId === requestId) {
@@ -403,10 +418,19 @@ export class VrmEngine {
     loader.register((parser) => new VRMLoaderPlugin(parser));
 
     const originalWarn = console.warn;
-    type ConsoleArg = string | number | boolean | bigint | symbol | null | undefined | object;
+    type ConsoleArg =
+      | string
+      | number
+      | boolean
+      | bigint
+      | symbol
+      | null
+      | undefined
+      | object;
     console.warn = (...args: ConsoleArg[]) => {
       const msg = args.map((a) => String(a)).join(" ");
-      if (msg.includes("VRMExpressionLoaderPlugin: An expression preset")) return;
+      if (msg.includes("VRMExpressionLoaderPlugin: An expression preset"))
+        return;
       originalWarn(...args);
     };
 
@@ -417,7 +441,11 @@ export class VrmEngine {
       console.warn = originalWarn;
     }
 
-    if (this.loadingAborted || !this.scene || requestId !== this.vrmLoadRequestId) {
+    if (
+      this.loadingAborted ||
+      !this.scene ||
+      requestId !== this.vrmLoadRequestId
+    ) {
       const staleVrm = gltf.userData.vrm as VRM | undefined;
       if (staleVrm) {
         VRMUtils.deepDispose(staleVrm.scene);
@@ -443,7 +471,9 @@ export class VrmEngine {
       // rotateVRM0 is optional across three-vrm versions.
     }
 
-    const isOfficialMilady = /\/vrms\/milady-official-\d+\.vrm(?:\?|$)/i.test(url);
+    const isOfficialMilady = /\/vrms\/milady-official-\d+\.vrm(?:\?|$)/i.test(
+      url,
+    );
     if (isOfficialMilady) {
       // Official avatars need one extra 180-degree turn versus current runtime alignment.
       vrm.scene.rotateY(Math.PI * 2);
@@ -457,7 +487,11 @@ export class VrmEngine {
       this.ensureFacingCamera(vrm);
     }
 
-    if (this.loadingAborted || !this.scene || requestId !== this.vrmLoadRequestId) {
+    if (
+      this.loadingAborted ||
+      !this.scene ||
+      requestId !== this.vrmLoadRequestId
+    ) {
       VRMUtils.deepDispose(vrm.scene);
       return;
     }
@@ -525,17 +559,18 @@ export class VrmEngine {
         Math.sin(t * 0.3) * 0.2;
 
       const swayZ =
-        Math.sin(t * 0.4 + 1.0) * 0.4 +
-        Math.sin(t * 0.9 + 2.0) * 0.3;
+        Math.sin(t * 0.4 + 1.0) * 0.4 + Math.sin(t * 0.9 + 2.0) * 0.3;
 
       camera.position.x =
         this.baseCameraPosition.x + swayX * this.cameraAnimation.swayAmplitude;
       camera.position.y =
         this.baseCameraPosition.y + bobY * this.cameraAnimation.bobAmplitude;
       camera.position.z =
-        this.baseCameraPosition.z + swayZ * this.cameraAnimation.swayAmplitude * 0.5;
+        this.baseCameraPosition.z +
+        swayZ * this.cameraAnimation.swayAmplitude * 0.5;
 
-      const rotX = Math.sin(t * 0.6 + 0.3) * this.cameraAnimation.rotationAmplitude * 0.5;
+      const rotX =
+        Math.sin(t * 0.6 + 0.3) * this.cameraAnimation.rotationAmplitude * 0.5;
       const rotY = Math.sin(t * 0.4) * this.cameraAnimation.rotationAmplitude;
 
       camera.rotation.x = rotX;
@@ -623,8 +658,10 @@ export class VrmEngine {
     const horizontalFov =
       2 * Math.atan(Math.max(1e-4, Math.tan(verticalFov / 2) * camera.aspect));
 
-    const distanceByHeight = halfHeight / Math.max(1e-4, Math.tan(verticalFov / 2));
-    const distanceByWidth = halfWidth / Math.max(1e-4, Math.tan(horizontalFov / 2));
+    const distanceByHeight =
+      halfHeight / Math.max(1e-4, Math.tan(verticalFov / 2));
+    const distanceByWidth =
+      halfWidth / Math.max(1e-4, Math.tan(horizontalFov / 2));
     const fitDistance = Math.max(distanceByHeight, distanceByWidth, 4.62);
     const distance = Math.min(fitDistance, 7.4);
 
@@ -699,7 +736,9 @@ export class VrmEngine {
     let clip: THREE.AnimationClip | null = null;
 
     try {
-      const { retargetMixamoGltfToVrm } = await import("./retargetMixamoGltfToVrm");
+      const { retargetMixamoGltfToVrm } = await import(
+        "./retargetMixamoGltfToVrm"
+      );
       if (this.loadingAborted || this.vrm !== vrm) return;
 
       const gltfLoader = new GLTFLoader();
@@ -717,7 +756,9 @@ export class VrmEngine {
     }
 
     if (!clip) {
-      const { retargetMixamoFbxToVrm } = await import("./retargetMixamoFbxToVrm");
+      const { retargetMixamoFbxToVrm } = await import(
+        "./retargetMixamoFbxToVrm"
+      );
       if (this.loadingAborted || this.vrm !== vrm) return;
 
       const fbxLoader = new FBXLoader();
@@ -735,8 +776,9 @@ export class VrmEngine {
 
           fbx.updateMatrixWorld(true);
           vrm.scene.updateMatrixWorld(true);
-          const sourceClip = THREE.AnimationClip.findByName(fbx.animations, "mixamo.com")
-            ?? fbx.animations[0];
+          const sourceClip =
+            THREE.AnimationClip.findByName(fbx.animations, "mixamo.com") ??
+            fbx.animations[0];
           if (!sourceClip) continue;
           clip = retargetMixamoFbxToVrm(fbx, sourceClip, vrm);
           if (clip) break;
@@ -777,7 +819,9 @@ export class VrmEngine {
 
     try {
       if (isFbx) {
-        const { retargetMixamoFbxToVrm } = await import("./retargetMixamoFbxToVrm");
+        const { retargetMixamoFbxToVrm } = await import(
+          "./retargetMixamoFbxToVrm"
+        );
         if (this.vrm !== vrm) return null;
 
         const loader = new FBXLoader();
@@ -794,7 +838,9 @@ export class VrmEngine {
         this.emoteClipCache.set(path, clip);
         return clip;
       } else {
-        const { retargetMixamoGltfToVrm } = await import("./retargetMixamoGltfToVrm");
+        const { retargetMixamoGltfToVrm } = await import(
+          "./retargetMixamoGltfToVrm"
+        );
         if (this.vrm !== vrm) return null;
 
         const loader = new GLTFLoader();
@@ -870,7 +916,10 @@ export class VrmEngine {
 
       case "closing": {
         this.blinkPhaseTimer += delta;
-        const t = Math.min(1, this.blinkPhaseTimer / VrmEngine.BLINK_CLOSE_DURATION);
+        const t = Math.min(
+          1,
+          this.blinkPhaseTimer / VrmEngine.BLINK_CLOSE_DURATION,
+        );
         // Ease-in (accelerate) — eyelids speed up as they close
         this.blinkValue = t * t;
         if (t >= 1) {
@@ -891,7 +940,10 @@ export class VrmEngine {
 
       case "opening": {
         this.blinkPhaseTimer += delta;
-        const t = Math.min(1, this.blinkPhaseTimer / VrmEngine.BLINK_OPEN_DURATION);
+        const t = Math.min(
+          1,
+          this.blinkPhaseTimer / VrmEngine.BLINK_OPEN_DURATION,
+        );
         // Ease-out (decelerate) — eyelids slow down as they finish opening
         const eased = 1 - (1 - t) * (1 - t);
         this.blinkValue = 1 - eased;
@@ -948,7 +1000,10 @@ export class VrmEngine {
       const eyeRight = right.sub(left);
       if (eyeRight.lengthSq() > 1e-6) {
         // Up × Right best matches this VRM rig orientation in our current scene setup.
-        forward.copy(new THREE.Vector3(0, 1, 0)).cross(eyeRight).normalize();
+        forward
+          .copy(new THREE.Vector3(0, 1, 0))
+          .cross(eyeRight)
+          .normalize();
       }
     }
 

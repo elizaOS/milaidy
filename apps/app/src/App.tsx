@@ -119,9 +119,11 @@ export function App() {
   const isPopout = useIsPopout();
   const shellMode = uiShellMode ?? "companion";
   const effectiveTab: Tab =
-    shellMode === "native" && tab === "companion" ? "chat"
-    : shellMode === "companion" && tab === "chat" ? "companion"
-    : tab;
+    shellMode === "native" && tab === "companion"
+      ? "chat"
+      : shellMode === "companion" && tab === "chat"
+        ? "companion"
+        : tab;
   const contextMenu = useContextMenu();
 
   // When the stream is popped out, navigate away; when closed, navigate back.
@@ -386,10 +388,7 @@ export function App() {
     "wallets",
   ]);
 
-  if (
-    shellMode === "companion" &&
-    companionOverlayTabs.has(effectiveTab)
-  ) {
+  if (shellMode === "companion" && companionOverlayTabs.has(effectiveTab)) {
     const isSkills = effectiveTab === "skills";
     const isSettings = effectiveTab === "settings";
     const isPlugins = effectiveTab === "plugins";
@@ -500,9 +499,7 @@ export function App() {
             {showOverlayContent && (
               <div
                 className={
-                  isCentered
-                    ? "relative pointer-events-auto"
-                    : "contents"
+                  isCentered ? "relative pointer-events-auto" : "contents"
                 }
               >
                 <div
@@ -522,21 +519,33 @@ export function App() {
                       ? cardColor
                       : isPluginsLike
                         ? "transparent"
-                        : isSettings || isAdvancedOverlay || isApps || isKnowledge || isWallets
+                        : isSettings ||
+                            isAdvancedOverlay ||
+                            isApps ||
+                            isKnowledge ||
+                            isWallets
                           ? "rgba(18, 22, 32, 0.92)"
                           : "linear-gradient(to left, rgba(6, 8, 12, 0.95) 40%, rgba(6, 8, 12, 0.7) 80%, rgba(6, 8, 12, 0.2) 100%)",
                     borderColor: isSkills
                       ? "rgba(0,225,255,0.2)"
                       : isPluginsLike
                         ? "transparent"
-                        : isSettings || isAdvancedOverlay || isApps || isKnowledge || isWallets
+                        : isSettings ||
+                            isAdvancedOverlay ||
+                            isApps ||
+                            isKnowledge ||
+                            isWallets
                           ? "rgba(255, 255, 255, 0.08)"
                           : "rgba(255,255,255,0.05)",
                     boxShadow: isSkills
                       ? shadowFx
                       : isPluginsLike
                         ? "none"
-                        : isSettings || isAdvancedOverlay || isApps || isKnowledge || isWallets
+                        : isSettings ||
+                            isAdvancedOverlay ||
+                            isApps ||
+                            isKnowledge ||
+                            isWallets
                           ? "0 8px 60px rgba(0,0,0,0.6), 0 2px 24px rgba(0,0,0,0.4)"
                           : "-60px 0 100px -20px rgba(0,0,0,0.8)",
                     borderTopRightRadius: isPluginsLike
@@ -654,6 +663,7 @@ export function App() {
                         strokeWidth="2"
                         strokeLinecap="round"
                         strokeLinejoin="round"
+                        aria-hidden="true"
                       >
                         <line x1="18" y1="6" x2="6" y2="18" />
                         <line x1="6" y1="6" x2="18" y2="18" />
@@ -666,7 +676,11 @@ export function App() {
                     className={`flex-1 min-h-0 ${
                       isPluginsLike
                         ? "overflow-visible"
-                        : isSettings || isAdvancedOverlay || isApps || isConnectors || isWallets
+                        : isSettings ||
+                            isAdvancedOverlay ||
+                            isApps ||
+                            isConnectors ||
+                            isWallets
                           ? "overflow-hidden"
                           : "overflow-y-auto"
                     } ${
@@ -777,6 +791,7 @@ export function App() {
                       strokeWidth="2.5"
                       strokeLinecap="round"
                       strokeLinejoin="round"
+                      aria-hidden="true"
                     >
                       <line x1="18" y1="6" x2="6" y2="18" />
                       <line x1="6" y1="6" x2="18" y2="18" />
