@@ -2426,6 +2426,43 @@ export function CompanionView() {
                 <span className="anime-hub-btn-label">{t("nav.apps")}</span>
               </button>
 
+              {/* Wallets */}
+              <button className="anime-hub-btn" onClick={() => setTab("wallets")}
+                style={{ '--ac-accent': '#f0b90b', '--ac-accent-rgb': '240, 185, 11' } as React.CSSProperties}>
+                <div className="anime-hub-btn-icon">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" />
+                    <path d="M3 5v14a2 2 0 0 0 2 2h16v-5" />
+                    <path d="M18 12a2 2 0 0 0 0 4h4v-4h-4z" />
+                  </svg>
+                </div>
+                <span className="anime-hub-btn-label">{t("nav.wallets") || "Wallets"}</span>
+              </button>
+
+              {/* Stream */}
+              <button className="anime-hub-btn" onClick={() => setTab("stream")}
+                style={{ '--ac-accent': '#ef4444', '--ac-accent-rgb': '239, 68, 68' } as React.CSSProperties}>
+                <div className="anime-hub-btn-icon">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z" />
+                    <circle cx="12" cy="12" r="3" />
+                  </svg>
+                </div>
+                <span className="anime-hub-btn-label">{t("nav.stream") || "Stream"}</span>
+              </button>
+
+              {/* LIFO Sandbox */}
+              <button className="anime-hub-btn" onClick={() => setTab("lifo")}
+                style={{ '--ac-accent': '#8b5cf6', '--ac-accent-rgb': '139, 92, 246' } as React.CSSProperties}>
+                <div className="anime-hub-btn-icon">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="4 17 10 11 4 5" />
+                    <line x1="12" y1="19" x2="20" y2="19" />
+                  </svg>
+                </div>
+                <span className="anime-hub-btn-label">{t("nav.lifo") || "LIFO"}</span>
+              </button>
+
               {/* Settings */}
               <button className="anime-hub-btn" onClick={() => setTab("settings")}
                 style={{ '--ac-accent': '#e2e8f0', '--ac-accent-rgb': '226, 232, 240' } as React.CSSProperties}>

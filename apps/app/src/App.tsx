@@ -381,6 +381,9 @@ export function App() {
     "apps",
     "connectors",
     "knowledge",
+    "lifo",
+    "stream",
+    "wallets",
   ]);
 
   if (
@@ -403,6 +406,9 @@ export function App() {
     const isApps = effectiveTab === "apps";
     const isConnectors = effectiveTab === "connectors";
     const isKnowledge = effectiveTab === "knowledge";
+    const isLifo = effectiveTab === "lifo";
+    const isStream = effectiveTab === "stream";
+    const isWallets = effectiveTab === "wallets";
     const isPluginsLike = isPlugins || isConnectors;
     const isCentered =
       isSkills ||
@@ -411,7 +417,10 @@ export function App() {
       isAdvancedOverlay ||
       isApps ||
       isConnectors ||
-      isKnowledge;
+      isKnowledge ||
+      isLifo ||
+      isStream ||
+      isWallets;
 
     const accentColor = isSkills
       ? "#00e1ff"
@@ -421,7 +430,13 @@ export function App() {
           ? "#f0b232"
           : isKnowledge
             ? "#a78bfa"
-            : "#d4af37";
+            : isWallets
+              ? "#f0b90b"
+              : isStream
+                ? "#ef4444"
+                : isLifo
+                  ? "#8b5cf6"
+                  : "#d4af37";
     const topBarColor = isSkills
       ? "#00e1ff"
       : isSettings || isAdvancedOverlay
@@ -447,7 +462,10 @@ export function App() {
           : effectiveTab === "settings" ||
               isAdvancedOverlay ||
               isApps ||
-              isKnowledge
+              isKnowledge ||
+              isLifo ||
+              isStream ||
+              isWallets
             ? "opacity-100 backdrop-blur-2xl bg-black/50 pointer-events-auto"
             : effectiveTab === "character" ||
                 effectiveTab === "character-select"
@@ -463,7 +481,10 @@ export function App() {
       isAdvancedOverlay ||
       isApps ||
       isConnectors ||
-      isKnowledge;
+      isKnowledge ||
+      isLifo ||
+      isStream ||
+      isWallets;
 
     return (
       <BugReportProvider value={bugReport}>
@@ -731,6 +752,9 @@ export function App() {
                     {isApps && <AppsPageView inModal />}
                     {isConnectors && <ConnectorsPageView inModal />}
                     {isKnowledge && <KnowledgeView />}
+                    {isLifo && <LifoSandboxView />}
+                    {isStream && <StreamView />}
+                    {isWallets && <InventoryView />}
                   </div>
                 </div>
                 {/* Close button — outside the modal card, anchored to its top-right corner */}
