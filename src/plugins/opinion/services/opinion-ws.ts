@@ -83,7 +83,7 @@ export class OpinionWsService {
     try {
       const response = await opinionClient.getPositions();
       const positions = response?.result ?? [];
-      const marketIds = new Set(positions.map((p: any) => Number(p.marketId)).filter(Boolean));
+      const marketIds = new Set<number>(positions.map((p: any) => Number(p.marketId)).filter(Boolean));
       for (const marketId of marketIds) {
         if (!this.subscribedMarkets.has(marketId)) {
           this.ws.send(JSON.stringify({ action: "SUBSCRIBE", channel: "market.last.price", marketId }));

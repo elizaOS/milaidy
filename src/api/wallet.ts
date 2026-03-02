@@ -6,7 +6,7 @@
  */
 import crypto from "node:crypto";
 import { logger } from "@elizaos/core";
-import { secp256k1 } from "@noble/curves/secp256k1";
+import { secp256k1 } from "@noble/curves/secp256k1.js";
 import type {
   EvmChainBalance,
   EvmNft,

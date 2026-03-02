@@ -12,7 +12,7 @@ export const connectorsContributor: AwarenessContributor = {
   trusted: true,
 
   async summary(runtime: IAgentRuntime): Promise<string> {
-    const clients = (runtime.character?.clients ?? []) as string[];
+    const clients = ((runtime.character as Record<string, unknown>)?.clients ?? []) as string[];
 
     if (!clients.length) {
       return "Channels: none configured";
