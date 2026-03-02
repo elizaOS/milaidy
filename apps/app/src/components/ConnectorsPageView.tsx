@@ -7,8 +7,12 @@ import { PluginsView } from "./PluginsView";
 
 type SubTab = "platforms" | "streaming";
 
-export function ConnectorsPageView() {
+export function ConnectorsPageView({ inModal }: { inModal?: boolean } = {}) {
   const [activeTab, setActiveTab] = useState<SubTab>("platforms");
+
+  if (inModal) {
+    return <PluginsView mode="connectors" inModal={true} />;
+  }
 
   return (
     <div className="flex flex-col h-full">

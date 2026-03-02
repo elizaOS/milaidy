@@ -1308,9 +1308,11 @@ interface PluginListViewProps {
   label: string;
   /** Optional list mode for pre-filtered views like Connectors. */
   mode?: PluginsViewMode;
+  /** Whether the view is rendered in a full-screen gamified modal. */
+  inModal?: boolean;
 }
 
-function PluginListView({ label, mode = "all" }: PluginListViewProps) {
+function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
   const {
     plugins,
     pluginStatusFilter,
@@ -2385,11 +2387,12 @@ function PluginListView({ label, mode = "all" }: PluginListViewProps) {
 /* ── Exported views ────────────────────────────────────────────────── */
 
 /** Unified plugins view — tag-filtered plugin list. */
-export function PluginsView({ mode = "all" }: { mode?: PluginsViewMode }) {
+export function PluginsView({ mode = "all", inModal }: { mode?: PluginsViewMode; inModal?: boolean }) {
   return (
     <PluginListView
       label={mode === "connectors" ? "Connectors" : "Plugins"}
       mode={mode}
+      inModal={inModal}
     />
   );
 }
